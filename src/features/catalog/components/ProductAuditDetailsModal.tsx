@@ -51,7 +51,7 @@ const diffOf = (systemQty: number, physicalQty: number | null) => (physicalQty =
 
 export default function ProductAuditDetailsModal({ auditId, onClose, onChanged }: Props) {
   const dispatch = useDispatch<AppDispatch>();
-  const { showSuccess, showError, overlay } = useStatusOverlay();
+  const { showError, overlay } = useStatusOverlay();
 
   const [audit, setAudit] = useState<ProductAuditWithDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -59,6 +59,13 @@ export default function ProductAuditDetailsModal({ auditId, onClose, onChanged }
   const [addOpen, setAddOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState<"approve" | "reject" | null>(null);
   const [busy, setBusy] = useState(false);
+  // Whether a product was added/removed this session — the only two
+  // mutations here that DON'T already call onChanged() themselves (submit/
+  // approve/reject/reopen all do, right when they happen), but which do
+  // change what the list's own Products/Differences/Last Updated columns
+  // show. Tracked so closing the modal only re-fetches the list on the rare
+  // path where that's actually stale, not on every close.
+  const [itemsChanged, setItemsChanged] = useState(false);
   // Debounced per-row qty/reason edits pending a PATCH, so every keystroke
   // doesn't fire a request — mirrors the search-debounce pattern used
   // elsewhere (ProductInventoryPage's 350ms search debounce).
@@ -82,63 +89,88 @@ export default function ProductAuditDetailsModal({ auditId, onClose, onChanged }
 
   useEffect(() => { load(); }, [load]);
 
-  // Flush a row's pending edit to the server 500ms after the last change.
-  // Skips rows the server is guaranteed to reject (a nonzero difference with
-  // no reason yet) — otherwise every keystroke on the qty field before the
-  // user gets to the reason field fires a failing PATCH, over and over as
-  // they keep typing. Those rows stay held in local state (still shown,
-  // still block Submit for Review via withPendingReasons) until the reason
-  // is filled in or the qty is changed back to match system_qty.
-  useEffect(() => {
-    const ids = Object.keys(pendingEdits).filter((itemId) => {
-      const edit = pendingEdits[itemId];
+  // Which pending rows are safe to flush right now — a nonzero difference
+  // with no reason yet is guaranteed to be rejected server-side (see
+  // product-audit.service.ts#updateItem's own REASON_REQUIRED check), so
+  // those stay held in local state (still shown, still block Submit for
+  // Review via withPendingReasons) until the reason is filled in or the qty
+  // is changed back to match system_qty. Shared by both the debounce timer
+  // below and the immediate on-blur flush, so "which rows are eligible" can
+  // never disagree between the two.
+  const eligibleIds = useCallback((edits: Record<string, { physicalQty: number | null; reason: string }>) => {
+    return Object.keys(edits).filter((itemId) => {
+      const edit = edits[itemId];
       const item = audit?.items.find((i) => i.id === itemId);
       if (!item) return false;
       const d = diffOf(item.system_qty, edit.physicalQty);
       return d == null || d === 0 || !!edit.reason.trim();
     });
+  }, [audit]);
+
+  const flushIds = useCallback(async (ids: string[], edits: Record<string, { physicalQty: number | null; reason: string }>): Promise<boolean> => {
+    if (ids.length === 0) return true;
+    const failedNames: string[] = [];
+    for (const itemId of ids) {
+      const edit = edits[itemId];
+      const item = audit?.items.find((i) => i.id === itemId);
+      try {
+        await dispatch(updateProductAuditItemThunk({
+          auditId, itemId, payload: { physical_qty: edit.physicalQty, reason: edit.reason },
+        })).unwrap();
+        setPendingEdits((prev) => {
+          const next = { ...prev };
+          delete next[itemId];
+          return next;
+        });
+      } catch (err: any) {
+        // Left in pendingEdits (not cleared) so the value the user typed
+        // isn't lost — retried the next time pendingEdits changes again
+        // (e.g. the user edits any row), since nothing else re-triggers
+        // this effect on its own. Previously this failure was swallowed
+        // completely — no error ever reached the user, so a save that
+        // kept failing (e.g. a permission or validation error) looked
+        // exactly like a save that silently wasn't happening at all.
+        failedNames.push(item?.product_name || "a product");
+      }
+    }
+    if (failedNames.length > 0) {
+      showError(
+        failedNames.length === 1
+          ? `Couldn't save the reason for ${failedNames[0]} — it'll retry on your next edit.`
+          : `Couldn't save ${failedNames.length} items (${failedNames.join(", ")}) — they'll retry on your next edit.`
+      );
+    }
+    // No success overlay here on purpose — showSuccess is a full blocking,
+    // centered modal (see useStatusOverlay.tsx), not a toast. Firing it on
+    // every background autosave (every ~500ms pause, or every field blur)
+    // interrupted the user mid-typing with a modal to dismiss for something
+    // that's supposed to be silent and automatic. Errors still surface
+    // (above) since those genuinely need attention — a save that's quietly
+    // NOT happening must not look identical to one that is.
+    load(true);
+    return failedNames.length === 0;
+  }, [audit, auditId, dispatch, showError, load]);
+
+  // Flush a row's pending edit to the server 500ms after the last change —
+  // covers the common case (user keeps typing/tabbing within the modal).
+  useEffect(() => {
+    const ids = eligibleIds(pendingEdits);
     if (ids.length === 0) return;
-    const t = setTimeout(async () => {
-      let savedCount = 0;
-      const failedNames: string[] = [];
-      for (const itemId of ids) {
-        const edit = pendingEdits[itemId];
-        const item = audit?.items.find((i) => i.id === itemId);
-        try {
-          await dispatch(updateProductAuditItemThunk({
-            auditId, itemId, payload: { physical_qty: edit.physicalQty, reason: edit.reason },
-          })).unwrap();
-          savedCount++;
-          setPendingEdits((prev) => {
-            const next = { ...prev };
-            delete next[itemId];
-            return next;
-          });
-        } catch (err: any) {
-          // Left in pendingEdits (not cleared) so the value the user typed
-          // isn't lost — retried the next time pendingEdits changes again
-          // (e.g. the user edits any row), since nothing else re-triggers
-          // this effect on its own. Previously this failure was swallowed
-          // completely — no error ever reached the user, so a save that
-          // kept failing (e.g. a permission or validation error) looked
-          // exactly like a save that silently wasn't happening at all.
-          failedNames.push(item?.product_name || "a product");
-        }
-      }
-      if (failedNames.length > 0) {
-        showError(
-          failedNames.length === 1
-            ? `Couldn't save the reason for ${failedNames[0]} — it'll retry on your next edit.`
-            : `Couldn't save ${failedNames.length} items (${failedNames.join(", ")}) — they'll retry on your next edit.`
-        );
-      } else if (savedCount > 0) {
-        showSuccess(savedCount === 1 ? "Audit item updated" : `${savedCount} audit items updated`);
-      }
-      load(true);
-    }, 500);
+    const t = setTimeout(() => { flushIds(ids, pendingEdits); }, 500);
     return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingEdits]);
+  }, [pendingEdits, eligibleIds, flushIds]);
+
+  // Flush a single row immediately on blur — otherwise a reason typed and
+  // then immediately acted on (closing the modal, clicking Submit for
+  // Review, clicking into another row) could beat the 500ms debounce
+  // window: the edit looked saved on screen but the timer backing it never
+  // got the chance to fire before the input unmounted, so nothing had
+  // actually reached the server yet.
+  const flushRowNow = useCallback((itemId: string) => {
+    if (!pendingEdits[itemId]) return;
+    const ids = eligibleIds(pendingEdits);
+    if (ids.includes(itemId)) flushIds([itemId], pendingEdits);
+  }, [pendingEdits, eligibleIds, flushIds]);
 
   const editable = audit?.status === "in_progress";
   // Who to record as reviewer is picked inside ReviewAuditModal, which
@@ -193,6 +225,7 @@ export default function ProductAuditDetailsModal({ auditId, onClose, onChanged }
     try {
       const updated = await dispatch(removeProductAuditItemThunk({ auditId, itemId })).unwrap();
       setAudit(updated);
+      setItemsChanged(true);
     } catch (err: any) {
       showError(typeof err === "string" ? err : "Couldn't remove product");
     } finally {
@@ -206,6 +239,7 @@ export default function ProductAuditDetailsModal({ auditId, onClose, onChanged }
       const updated = await dispatch(addProductAuditItemsThunk({ auditId, productIds })).unwrap();
       setAudit(updated);
       setAddOpen(false);
+      setItemsChanged(true);
     } catch (err: any) {
       showError(typeof err === "string" ? err : "Couldn't add products");
     } finally {
@@ -217,6 +251,19 @@ export default function ProductAuditDetailsModal({ auditId, onClose, onChanged }
     if (withPendingReasons.length > 0) return;
     setBusy(true);
     try {
+      // A reason typed moments ago may still be sitting in pendingEdits,
+      // waiting on the 500ms debounce — withPendingReasons above already
+      // treats it as "filled in" (it merges pendingEdits), so without this
+      // the audit could be submitted before that PATCH ever reached the
+      // server. Flush and wait for it first so what's submitted always
+      // matches what's on screen.
+      const ids = eligibleIds(pendingEdits);
+      if (ids.length > 0) {
+        const allSaved = await flushIds(ids, pendingEdits);
+        // flushIds already surfaced its own error toast — bail out rather
+        // than submitting a bill that doesn't yet match what's on screen.
+        if (!allSaved) return;
+      }
       const updated = await dispatch(submitProductAuditThunk(auditId)).unwrap();
       setAudit(updated);
       onChanged();
@@ -256,8 +303,13 @@ export default function ProductAuditDetailsModal({ auditId, onClose, onChanged }
     }
   };
 
-  const closeAndRefresh = () => {
-    onChanged();
+  const handleClose = () => {
+    // Only refresh the list if something it actually displays went stale —
+    // submit/approve/reject/reopen already call onChanged() themselves the
+    // moment they happen, so this only ever fires for the add/remove-item
+    // case. A plain view-only session (open, look, close) now closes with
+    // no API call at all.
+    if (itemsChanged) onChanged();
     onClose();
   };
 
@@ -278,7 +330,7 @@ export default function ProductAuditDetailsModal({ auditId, onClose, onChanged }
   return (
     <Modal
       show
-      onClose={closeAndRefresh}
+      onClose={handleClose}
       title={audit.name}
       size="xl"
       footer={
@@ -295,7 +347,7 @@ export default function ProductAuditDetailsModal({ auditId, onClose, onChanged }
           <div className="d-flex gap-2">
             {editable && (
               <>
-                <Button variant="outline-dark" onClick={closeAndRefresh} disabled={busy}>
+                <Button variant="outline-dark" onClick={handleClose} disabled={busy}>
                   Close
                 </Button>
                 <Button variant="dark" onClick={submitForReview} disabled={busy || withPendingReasons.length > 0 || effectiveItems.length === 0}>
@@ -319,7 +371,7 @@ export default function ProductAuditDetailsModal({ auditId, onClose, onChanged }
               </Button>
             )}
             {audit.status === "complete" && (
-              <Button variant="outline-dark" onClick={closeAndRefresh}>Close</Button>
+              <Button variant="outline-dark" onClick={handleClose}>Close</Button>
             )}
           </div>
         </div>
@@ -392,6 +444,7 @@ export default function ProductAuditDetailsModal({ auditId, onClose, onChanged }
                                 const v = e.target.value;
                                 setLocalEdit(p.id, { physicalQty: v === "" ? null : Number(v) });
                               }}
+                              onBlur={() => flushRowNow(p.id)}
                               onWheel={(e) => e.currentTarget.blur()}
                             />
                           ) : (
@@ -416,6 +469,7 @@ export default function ProductAuditDetailsModal({ auditId, onClose, onChanged }
                               placeholder={d != null && d !== 0 ? "Reason required" : "Optional"}
                               value={p.reason ?? ""}
                               onChange={(e) => setLocalEdit(p.id, { reason: e.target.value })}
+                              onBlur={() => flushRowNow(p.id)}
                             />
                           ) : (
                             p.reason || "—"

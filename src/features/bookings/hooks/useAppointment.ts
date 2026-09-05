@@ -84,7 +84,14 @@ function buildServiceApiItems(
         start_time: new Date(svcStartMs).toISOString(),
         end_time: new Date(svcStartMs + (s.duration || 30) * 60000).toISOString(),
         price,
-        qty,
+        // Backend's Appointment services schema (and computeAppointmentTotals's
+        // toRow) reads `quantity`, not `qty` — package_items/product_items/
+        // membership_items below all send `quantity: qty` correctly; this row
+        // sent the bare shorthand `qty` instead, so the backend's re-price-on-
+        // paid-edit path (appointments.service.ts#update) never saw a quantity
+        // at all, defaulted to 1, and silently dropped the ×qty multiplier from
+        // the recomputed Grand Total.
+        quantity: qty,
         total: apiTotal,
         // Persist the discount % itself, not just its resulting total — total
         // alone can't be redisplayed as a Disc % once the row's price/qty are
