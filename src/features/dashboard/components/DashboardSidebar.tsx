@@ -17,6 +17,8 @@ import {
   Cash,
   ChatSquareText,
   Stars,
+  ChevronLeft,
+  ChevronRight,
 } from "react-bootstrap-icons";
 
 import { usePermissions } from "../../../hooks/usePermissions";
@@ -35,22 +37,25 @@ type MenuKey =
 interface Props {
   openMenu: string | null;
   onMenuChange: (menu: MenuKey | null) => void;
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
 }
 
-export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
+export default function DashboardSidebar({ openMenu, onMenuChange, collapsed, onToggleCollapsed }: Props) {
   const { can } = usePermissions();
   const navigate = useNavigate();
   const location = useLocation();
   const sidebarRef = useRef<HTMLElement>(null);
   const [showAppsComingSoon, setShowAppsComingSoon] = useState(false);
 
-  // Fixed-size icons/labels can't guarantee every item fits on every screen
-  // height, and a scrollbar was explicitly ruled out — so instead of a fixed
-  // CSS size, measure the sidebar's real available height and how many nav
-  // items actually rendered (permission-gated, varies per user), then size
-  // each item to exactly fill that space. Re-runs whenever the sidebar's own
-  // box resizes (viewport/topbar/deployment-banner height changes) or its
-  // children change (permissions resolving after mount changes item count).
+  // No scrollbar, ever — but labels must stay readable and never disappear,
+  // which the old version of this effect didn't guarantee (it shrank label
+  // font as low as 7px and hid labels below a 34px item height). This only
+  // ever compresses ITEM HEIGHT/SPACING to make everything fit; the label's
+  // own font size and visibility are fixed constants in DashboardPage.scss,
+  // never touched here. Re-runs whenever the sidebar's own box resizes
+  // (viewport/topbar/deployment-banner height changes) or its children
+  // change (permissions resolving after mount changes item count).
   useEffect(() => {
     const el = sidebarRef.current;
     if (!el) return;
@@ -63,17 +68,12 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
       if (count === 0) return;
 
       const perItem = Math.floor(el.clientHeight / count);
-      const itemH = Math.max(30, Math.min(60, perItem));
-      const iconSize = Math.round(Math.max(16, Math.min(24, itemH * 0.4)));
-      const labelSize = Math.max(7, Math.min(10, itemH * 0.17));
-      // Below this, there isn't room for both icon and a legible label —
-      // drop the label rather than render it unreadably small.
-      const showLabel = itemH >= 34;
-
+      // Rows are a single line now (icon + label side by side, not stacked),
+      // so this floor only needs to keep the icon/label from feeling
+      // cramped against the row's own edges — not accommodate a wrapped
+      // 2-line label like the old icon-on-top layout did.
+      const itemH = Math.max(38, Math.min(48, perItem));
       el.style.setProperty("--nav-item-h", `${itemH}px`);
-      el.style.setProperty("--nav-icon-size", `${iconSize}px`);
-      el.style.setProperty("--nav-label-size", `${labelSize}px`);
-      el.style.setProperty("--nav-label-display", showLabel ? "block" : "none");
     };
 
     fit();
@@ -123,6 +123,16 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
 
   return (
     <aside className="sidebar" ref={sidebarRef} onKeyDown={handleSidebarKeyDown}>
+      <button
+        type="button"
+        className="sidebar-collapse-btn"
+        onClick={onToggleCollapsed}
+        aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+      >
+        {collapsed ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}
+      </button>
+
       {can("view_dashboard") && (
         <NavLink
           to="/dashboard"
@@ -216,7 +226,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
           }}
         >
           <Boxes size={22} />
-          <span className="nav-label">Inventory Management</span>
+          <span className="nav-label">Warehouse</span>
         </button>
       )}
 

@@ -9,7 +9,7 @@ export default function InventorySubSidebar({ onClose }: Props) {
   return (
     <div className="sub-sidebar sub-sidebar--inventory">
       <div className="sub-header">
-        <h3>Inventory Management</h3>
+        <h3>Warehouse</h3>
 
         <button className="floating-close" onClick={onClose}>
           <ChevronLeft size={16} />
