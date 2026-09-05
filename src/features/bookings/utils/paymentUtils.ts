@@ -23,6 +23,18 @@ export function computeMaxWalletUsable(grandTotal: number, config: ReferralConfi
   return (grandTotal * pct) / 100;
 }
 
+/**
+ * Max ₹ of a bill (before any redemption) that Referral Credit alone is
+ * allowed to cover, per the salon's configured Redeem settings. Returns 0
+ * when redemption is switched off — unlike computeMaxWalletUsable's 0-means-
+ * unset fallback, 0% here is a deliberately valid, fully-restrictive setting
+ * (see ReferralSettingsPage's 0–100 range), not an "unconfigured" sentinel.
+ */
+export function computeMaxReferralRedeemable(preRedemptionTotal: number, config: ReferralConfig = DEFAULT_REFERRAL_CONFIG): number {
+  if (!config.redeem_enabled) return 0;
+  return Math.max(0, (preRedemptionTotal * config.max_redeem_percent) / 100);
+}
+
 /** Membership tier label from lifetime revenue */
 export function computeMembershipTier(totalRevenue: number): string {
   if (totalRevenue >= MEMBERSHIP_TIERS.Platinum) return "Platinum";

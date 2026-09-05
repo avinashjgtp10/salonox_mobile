@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { Camera, Eye, EyeSlash } from "react-bootstrap-icons";
 import "bootstrap/dist/css/bootstrap.min.css";
@@ -48,8 +48,14 @@ const DOB_PLACEHOLDER_YEAR = 2000;
 const AddStaffPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const dispatch = useAppDispatch();
   const isEdit = !!id && id !== "undefined" && id !== "add";
+  // Where to go after Save/Discard — defaults to the Team Members list, but
+  // callers like the Calendar's "no staff yet" empty state pass their own
+  // path so the user lands back where they started instead of a page they
+  // never visited.
+  const returnTo = (location.state as { returnTo?: string } | null)?.returnTo || "/dashboard/team/members";
 
   const today = new Date().toISOString().slice(0, 10);
 
@@ -402,7 +408,7 @@ const AddStaffPage: React.FC = () => {
       } else {
         showSuccess(emailVerifiedForCurrentAddress ? "Staff created and email verified successfully" : "Staff created successfully");
       }
-      navigate("/dashboard/team/members");
+      navigate(returnTo);
     } catch (error: unknown) {
       console.error("Error saving staff:", error);
       const err = error as {
@@ -455,7 +461,7 @@ const AddStaffPage: React.FC = () => {
               <button className="btn add-staff__dialog-btn add-staff__dialog-btn--cancel" onClick={() => setShowUnsavedDialog(false)}>
                 Cancel
               </button>
-              <button className="btn add-staff__dialog-btn add-staff__dialog-btn--discard" onClick={() => navigate("/dashboard/team/members")}>
+              <button className="btn add-staff__dialog-btn add-staff__dialog-btn--discard" onClick={() => navigate(returnTo)}>
                 Discard changes
               </button>
             </div>

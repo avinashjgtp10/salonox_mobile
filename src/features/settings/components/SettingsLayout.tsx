@@ -132,14 +132,6 @@ export default function SettingsLayout() {
   }, [activeId]);
 
   const handleSelect = (id: string) => {
-    // Coupons is the one section that isn't a panel inside this shell — it
-    // opens the full-screen Coupon Designer, which needs the whole viewport
-    // for its three panels. Coupon management (list, Create New, Bulk Create)
-    // is reached from inside the designer.
-    if (id === "coupons") {
-      navigate("/dashboard/settings/coupon-designer");
-      return;
-    }
     navigate(`/dashboard/settings/${id}`);
   };
 
