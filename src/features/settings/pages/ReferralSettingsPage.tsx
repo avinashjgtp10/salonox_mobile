@@ -36,7 +36,9 @@ import {
 import { useCurrency } from "../../../hooks/useCurrency";
 import "../styles/ReferralSettingsPage.scss";
 
-type FieldKey = keyof Omit<ReferralConfig, "active">;
+// redeem_enabled is a toggle, not a typed numeric field — handled the same
+// way "active" is, straight through setConfig, not toInputs/handleInputChange.
+type FieldKey = keyof Omit<ReferralConfig, "active" | "redeem_enabled">;
 
 // Each field keeps its own string while the user is typing (so the box can be
 // empty mid-edit instead of snapping to "0"); values are parsed/clamped only
@@ -47,6 +49,7 @@ function toInputs(config: ReferralConfig): Record<FieldKey, string> {
     referee_reward_amount: String(config.referee_reward_amount),
     min_bill_amount: String(config.min_bill_amount),
     max_wallet_usage_pct: String(config.max_wallet_usage_pct),
+    max_redeem_percent: String(config.max_redeem_percent),
   };
 }
 
@@ -55,6 +58,7 @@ interface FormErrors {
   referee_reward_amount?: string;
   min_bill_amount?: string;
   max_wallet_usage_pct?: string;
+  max_redeem_percent?: string;
 }
 
 export default function ReferralSettingsPage() {
@@ -103,7 +107,9 @@ export default function ReferralSettingsPage() {
     config.referee_reward_amount >= 1 &&
     config.min_bill_amount >= 0 &&
     config.max_wallet_usage_pct >= 1 &&
-    config.max_wallet_usage_pct <= 100;
+    config.max_wallet_usage_pct <= 100 &&
+    config.max_redeem_percent >= 0 &&
+    config.max_redeem_percent <= 100;
 
   const saveDisabled = saving || !hasChanges || !hasValidValues || (!config.active && !savedConfig.active);
 
@@ -140,6 +146,9 @@ export default function ReferralSettingsPage() {
     if (config.min_bill_amount < 0) errs.min_bill_amount = "Must be at least 0";
     if (config.max_wallet_usage_pct < 1 || config.max_wallet_usage_pct > 100) {
       errs.max_wallet_usage_pct = "Must be between 1 and 100";
+    }
+    if (config.max_redeem_percent < 0 || config.max_redeem_percent > 100) {
+      errs.max_redeem_percent = "Must be between 0 and 100";
     }
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -297,6 +306,59 @@ export default function ReferralSettingsPage() {
               <strong>{config.referrer_reward_amount === config.referee_reward_amount ? formatAmount(config.referrer_reward_amount) : `${formatAmount(config.referrer_reward_amount)} / ${formatAmount(config.referee_reward_amount)}`}</strong> wallet credit. On any single bill, wallet balance can cover up to <strong>{config.max_wallet_usage_pct}%</strong> of the total.
             </div>
           </div>
+
+          <hr className="rf-divider" />
+
+          <div className="rf-section__head">
+            <div className="rf-section__icon"><Wallet size={16} /></div>
+            <div>
+              <h3 className="rf-section__title">Redeem</h3>
+              <p className="rf-section__desc">Let clients pay part of a bill using their own Referral Credit balance.</p>
+            </div>
+            <label className="rf-header__toggle rf-section__toggle">
+              <input
+                type="checkbox"
+                checked={config.redeem_enabled}
+                onChange={() => setConfig((c) => ({ ...c, redeem_enabled: !c.redeem_enabled }))}
+              />
+              <span className="rf-header__toggle-track"><span className="rf-header__toggle-thumb" /></span>
+              <span className={`rf-header__toggle-status${!config.redeem_enabled ? " rf-header__toggle-status--off" : ""}`}>
+                {config.redeem_enabled ? "Enabled" : "Disabled"}
+              </span>
+            </label>
+          </div>
+          <div className="rf-row">
+            <div className="rf-field">
+              <label className="rf-field__label">Maximum Redemption % of Bill</label>
+              <p className="rf-field__hint">Maximum portion of the eligible bill that can be paid using Referral Credit</p>
+              <div className={`rf-input-wrap${errors.max_redeem_percent ? " rf-input-wrap--error" : ""}`}>
+                <span className="rf-input-wrap__icon"><Wallet size={15} /></span>
+                <input
+                  type="text" inputMode="numeric"
+                  value={inputs.max_redeem_percent}
+                  onChange={(e) => handleInputChange("max_redeem_percent", e.target.value)}
+                  onBlur={() => handleInputBlur("max_redeem_percent", 0, 100)}
+                  disabled={!config.redeem_enabled}
+                />
+                <span className="rf-input-wrap__suffix">%</span>
+              </div>
+              {errors.max_redeem_percent && <span className="settings-error">{errors.max_redeem_percent}</span>}
+            </div>
+            <div className="rf-field" />
+          </div>
+          <div className="rf-banner">
+            <span className="rf-banner__icon"><Info size={13} /></span>
+            <div className="rf-banner__text">
+              <span className="rf-banner__title">How redemption works</span>
+              {config.redeem_enabled ? (
+                <>On a {formatAmount(1000)} bill, a client can pay up to{" "}
+                  <strong>{formatAmount(1000 * config.max_redeem_percent / 100)}</strong> using Referral Credit ({config.max_redeem_percent}%) — the rest must be paid another way, however much credit they have.
+                </>
+              ) : (
+                "Referral Credit redemption is currently disabled — clients still earn credit, but can't spend it on a bill."
+              )}
+            </div>
+          </div>
         </div>
 
         {/* ── Sidebar: Example Preview ── */}
@@ -344,11 +406,23 @@ export default function ReferralSettingsPage() {
             </div>
 
             <div className="rf-flow__step">
+              <div className="rf-flow__line" />
               <div className="rf-flow__icon rf-flow__icon--orange"><Wallet size={17} /></div>
               <div className="rf-flow__body">
                 <div className="rf-flow__label">Wallet can be used up to</div>
                 <div>
                   <span className="rf-flow__value">{config.max_wallet_usage_pct}%</span>
+                  <span className="rf-flow__unit">of any single bill</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="rf-flow__step">
+              <div className="rf-flow__icon rf-flow__icon--green"><Gift size={17} /></div>
+              <div className="rf-flow__body">
+                <div className="rf-flow__label">Referral Credit redeemable up to</div>
+                <div>
+                  <span className="rf-flow__value">{config.redeem_enabled ? `${config.max_redeem_percent}%` : "Off"}</span>
                   <span className="rf-flow__unit">of any single bill</span>
                 </div>
               </div>

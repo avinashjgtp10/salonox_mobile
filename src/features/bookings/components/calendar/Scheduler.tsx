@@ -342,7 +342,13 @@ const SchedulerContent: React.FC = () => {
             </svg>
             <p className="scheduler__empty-title">No staff available</p>
             <p className="scheduler__empty-subtitle">Add staff members to start scheduling appointments.</p>
-            <a href="/dashboard/team" className="scheduler__empty-link">+ Add Staff</a>
+            <button
+              type="button"
+              className="scheduler__empty-link"
+              onClick={() => navigate("/dashboard/team/add", { state: { returnTo: "/dashboard/calendar" } })}
+            >
+              + Add Staff
+            </button>
           </div>
         ) : (
           <>

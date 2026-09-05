@@ -35,7 +35,7 @@ import { sanitizeDecimalInput } from "../../utils/lineItemInput";
 import type { TotalsResult } from "../../utils/totalsUtils";
 import api from "../../../../services/api/axios";
 import { PRICING, PAYMENT } from "../../../../services/api/endpoints";
-import { computePointsEarned, computeEWalletCredit, computeMaxWalletUsable, EWALLET_REDEEM_MINIMUM } from "../../utils/paymentUtils";
+import { computePointsEarned, computeEWalletCredit, computeMaxWalletUsable, computeMaxReferralRedeemable, EWALLET_REDEEM_MINIMUM } from "../../utils/paymentUtils";
 import {
   selectPackagesList, selectProductsList, selectMembershipsList, selectBookings,
 } from "../../../../store/selectors/scheduler.selectors";
@@ -1747,8 +1747,14 @@ export const AppointmentModal: React.FC<Props> = ({
   // membership + eWallet + reward points ──────────────────────────────────
   const referralCreditMaxAmt = useMemo(() => {
     const balance = clientStats?.referralBalance ?? 0;
-    return Math.max(0, Math.min(balance, remainingAfterRewardPoints));
-  }, [clientStats, remainingAfterRewardPoints]);
+    // Salon-configured ceiling: referral credit alone may never cover more
+    // than max_redeem_percent of the bill BEFORE any redemption (same
+    // preRedemptionTotal basis reward points is capped against), no matter
+    // how large the client's credit balance is. Matches the backend's own
+    // enforcement in payments.service.ts/pricing.service.ts.
+    const percentCapValue = computeMaxReferralRedeemable(totals.preRedemptionTotal, referralConfig);
+    return Math.max(0, Math.min(balance, remainingAfterRewardPoints, percentCapValue));
+  }, [clientStats, remainingAfterRewardPoints, referralConfig, totals.preRedemptionTotal]);
 
   const referralCreditIsCustomRef = useRef(false);
   useEffect(() => {
@@ -2791,14 +2797,16 @@ export const AppointmentModal: React.FC<Props> = ({
     }
 
     const referralBal = clientStats?.referralBalance ?? 0;
-    if (referralBal > 0) {
+    if (referralBal > 0 && referralConfig.redeem_enabled) {
       cards.push({
         key: "referral",
         icon: PeopleFill,
         variantClass: "benefit-card--referral",
         title: "Referral Credit",
         value: formatAmount(referralBal),
-        subtitle: "Available Credit",
+        subtitle: referralConfig.max_redeem_percent < 100
+          ? `Available Credit · up to ${referralConfig.max_redeem_percent}% of bill`
+          : "Available Credit",
         checked: useReferralCredit,
         onToggle: setUseReferralCredit,
         disabledReason: (!useReferralCredit && remainingAfterRewardPoints <= 0)
@@ -2829,7 +2837,7 @@ export const AppointmentModal: React.FC<Props> = ({
     percentageDiscountSource, loyaltyDiscountSource, applyMembershipDiscount, applyLoyaltyDiscount, formatAmount,
     clientStats, useEWallet, eWalletAmt, eWalletMaxAmt, remainingAfterMembership, handleSetEWalletAmt,
     useRewardPoints, rewardPointsToRedeem, rewardPointsMaxRedeem, rewardPointsRedeemedValue, remainingAfterEWallet, handleSetRewardPointsToRedeem,
-    useReferralCredit, referralCreditAmt, referralCreditMaxAmt, remainingAfterRewardPoints, handleSetReferralCreditAmt,
+    useReferralCredit, referralCreditAmt, referralCreditMaxAmt, remainingAfterRewardPoints, handleSetReferralCreditAmt, referralConfig,
   ]);
 
   // Turning a benefit ON with nothing on the bill is what gets blocked (and
