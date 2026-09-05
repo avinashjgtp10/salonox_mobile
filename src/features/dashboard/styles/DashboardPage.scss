@@ -239,13 +239,20 @@ body {
 }
 
 /* ================= SIDEBAR ================= */
-// Scoped to this file — no shared brand token for it yet. Picked to read
-// clearly against $sidebar-bg (#1c1f24), distinct from the plain hover tint.
-$sidebar-nav-active: #14b8a6;
+// Scoped to this file — no shared brand token for it yet. Monochrome by
+// choice: white fill + black text on the dark rail, not a color accent.
+$sidebar-nav-active: #ffffff;
+$sidebar-nav-active-text: #101828;
 
 .sidebar {
   width: 196px;
-  background: $sidebar-bg;
+  // Subtle top-to-bottom gradient instead of a flat rgba fill — there's
+  // rarely any real content directly behind this fixed panel for a
+  // backdrop-filter to actually blur, so a flat translucent color read as
+  // plain rather than "glassy". The gradient plus a soft inner highlight at
+  // the top edge is what actually carries the depth.
+  background: linear-gradient(180deg, rgba(32, 35, 41, 0.94) 0%, rgba(20, 22, 26, 0.96) 100%);
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.04);
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -255,12 +262,15 @@ $sidebar-nav-active: #14b8a6;
   // --nav-item-h so `count` items always fill the sidebar's real available
   // height, floored so the row never gets too cramped for its label.
   justify-content: space-evenly;
-  padding: 6px 10px;
+  padding: 10px 10px;
   height: calc(100vh - var(--topbar-height, 56px) - var(--deployment-banner-height, 0px));
   position: fixed;
   left: 0;
   top: calc(var(--topbar-height, 56px) + var(--deployment-banner-height, 0px));
   z-index: 100;
+  // Matches .main's own margin transition — collapsing/expanding now
+  // animates instead of snapping between the two widths instantly.
+  transition: width 0.22s ease;
 
   // Not enough room for icon+label rows below tablet width — collapses
   // back to the icon-only rail .main's own @media(max-width:768px) rule
@@ -268,7 +278,7 @@ $sidebar-nav-active: #14b8a6;
   // floating over content instead of pushing it on narrow viewports.
   @media (max-width: 768px) {
     width: 64px;
-    padding: 6px 4px;
+    padding: 10px 6px;
   }
 }
 
@@ -279,24 +289,32 @@ $sidebar-nav-active: #14b8a6;
   // nothing pushed past the bottom edge, regardless of screen height. Only
   // ever adjusts row height/padding — the label's own font size below is a
   // fixed constant, never shrunk or hidden.
-  height: var(--nav-item-h, 38px);
-  border-radius: 8px;
+  height: var(--nav-item-h, 40px);
+  // A radius this large always exceeds half the row's own height, so the
+  // browser clamps it down to exactly that — a true capsule/pill on a wide
+  // expanded row, and a perfect circle once collapsed to icon-only (row
+  // width ≈ row height there). No separate collapsed-state override needed.
+  border-radius: 999px;
   display: flex;
   flex-direction: row;
   align-items: center;
   justify-content: flex-start;
-  gap: 10px;
-  color: $sidebar-text;
+  gap: 12px;
+  color: rgba(240, 241, 243, 0.75);
   cursor: pointer;
-  transition: 0.2s ease;
+  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
   background: transparent;
   border: none;
   outline: none;
-  padding: 0 12px;
+  padding: 0 14px;
   position: relative;
   box-sizing: border-box;
   flex-shrink: 0;
-  &:hover { background: $sidebar-hover; color: $sidebar-active; }
+  &:hover {
+    background: rgba(255, 255, 255, 0.06);
+    color: $sidebar-active;
+  }
+  &:active { transform: scale(0.98); }
   &:focus-visible {
     outline: 2px solid $sidebar-active;
     outline-offset: 2px;
@@ -305,12 +323,16 @@ $sidebar-nav-active: #14b8a6;
   &.route-active,
   &.menu-active {
     background: $sidebar-nav-active;
-    color: $white;
+    color: $sidebar-nav-active-text;
+    // The soft glow (not just the flat fill) is what reads as "raised/
+    // selected" rather than just a different flat color among others —
+    // neutral white glow now, no color tint.
+    box-shadow: 0 4px 14px rgba(255, 255, 255, 0.18);
   }
 
   svg {
-    width: 17px;
-    height: 17px;
+    width: 18px;
+    height: 18px;
     flex-shrink: 0;
   }
 
@@ -322,7 +344,7 @@ $sidebar-nav-active: #14b8a6;
 }
 
 .nav-label {
-  font-size: 13px;
+  font-size: 13.5px;
   display: block;
   font-weight: 500;
   line-height: 1.2;
@@ -345,31 +367,26 @@ $sidebar-nav-active: #14b8a6;
   }
 }
 
-// Small circular "<" / ">" toggle straddling the sidebar's right edge —
-// manually collapses/expands it independent of screen size. Hidden below
-// tablet width: the sidebar is already forced icon-only there by its own
-// media query, so there's nothing left for this to toggle.
+// Collapse/expand control — now a normal first row (shares .nav-btn's own
+// pill/hover/sizing rules, see the button's className in DashboardSidebar.tsx)
+// rather than a small circle straddling the sidebar's edge, so it reads as
+// part of the sidebar's own layout instead of a bolted-on floating control.
+// A muted, slightly dimmer color and a divider below sets it apart from the
+// actual navigation rows underneath.
 .sidebar-collapse-btn {
-  position: absolute;
-  top: 18px;
-  right: -12px;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  border: 1px solid $sidebar-hover;
-  background: $sidebar-bg;
-  color: $sidebar-text;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  padding: 0;
-  z-index: 101;
-  transition: 0.2s ease;
+  flex-shrink: 0;
+  // Gap sits below the divider (margin, not padding) so it doesn't eat into
+  // the row's own fixed height and push the icon off-center within it.
+  margin-bottom: 8px;
+  color: rgba(240, 241, 243, 0.55);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px 999px 0 0;
 
-  &:hover { background: $sidebar-hover; color: $sidebar-active; }
+  &:hover { color: $sidebar-active; }
 
-  @media (max-width: 768px) { display: none; }
+  @media (max-width: 768px) {
+    border-bottom: none;
+  }
 }
 
 // Manually collapsed (via .sidebar-collapse-btn) or auto-collapsed when a
@@ -416,6 +433,10 @@ $sidebar-nav-active: #14b8a6;
   padding: 28px 24px;
   z-index: 110;
   box-shadow: $card-shadow;
+  // Matches .sidebar's own width transition so the two move in step when a
+  // flyout's auto-collapse (or a manual toggle while one's already open)
+  // changes the sidebar's width out from under this panel.
+  transition: left 0.22s ease;
 
   &--team {
     width: 260px;
