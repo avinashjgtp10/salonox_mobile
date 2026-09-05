@@ -53,6 +53,19 @@ export const createCalendarControlsStyles = (Colors: ThemeColors) => StyleSheet.
     lineHeight: 17,
     textAlign: "center",
   },
+  calendarFilterRow: {
+    alignItems: "center",
+    borderTopColor: Colors.appointmentDivider,
+    borderTopWidth: 1,
+    flexDirection: "row",
+    gap: 8,
+    paddingRight: 4,
+  },
+  calendarStaffFilter: {
+    borderTopWidth: 0,
+    flex: 1,
+    minWidth: 0,
+  },
   dinggStylistSummary: {
     alignItems: "center",
     borderTopColor: Colors.appointmentDivider,
