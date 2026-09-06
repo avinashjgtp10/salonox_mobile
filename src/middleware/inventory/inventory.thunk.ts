@@ -27,6 +27,7 @@ import type {
   ListProductAuditsFilters,
   CreateProductAuditPayload,
   UpdateAuditItemPayload,
+  SubmitAuditItemUpdate,
 } from "../../types/inventory.types";
 
 // ─── Fetch suppliers (paginated) ───────────────────────────────────────────────
@@ -524,11 +525,13 @@ export const updateProductAuditItemThunk = createAsyncThunk<
 
 export const submitProductAuditThunk = createAsyncThunk<
   ProductAuditWithDetail,
-  string,
+  { auditId: string; items?: SubmitAuditItemUpdate[] },
   { rejectValue: string }
->("inventory/submitProductAudit", async (auditId, { rejectWithValue }) => {
+>("inventory/submitProductAudit", async ({ auditId, items }, { rejectWithValue }) => {
   try {
-    const res = await api.post<InventoryResponse<ProductAuditWithDetail>>(INVENTORY.PRODUCT_AUDIT_SUBMIT(auditId));
+    const res = await api.post<InventoryResponse<ProductAuditWithDetail>>(
+      INVENTORY.PRODUCT_AUDIT_SUBMIT(auditId), items && items.length > 0 ? { items } : {},
+    );
     return res.data.data;
   } catch (err: any) {
     return rejectWithValue(auditErrorMessage(err, "Failed to submit audit for review"));

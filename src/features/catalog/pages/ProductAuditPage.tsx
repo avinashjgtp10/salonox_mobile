@@ -142,7 +142,7 @@ export default function ProductAuditPage() {
 
   const quickAction = async (audit: ProductAuditListRow, action: "submit" | "reopen") => {
     try {
-      if (action === "submit") await dispatch(submitProductAuditThunk(audit.id)).unwrap();
+      if (action === "submit") await dispatch(submitProductAuditThunk({ auditId: audit.id })).unwrap();
       else await dispatch(reopenProductAuditThunk(audit.id)).unwrap();
       showSuccess("Audit updated");
       load();

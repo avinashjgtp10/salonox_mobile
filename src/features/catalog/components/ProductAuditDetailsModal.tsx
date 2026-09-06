@@ -10,7 +10,7 @@ import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import type { AppDispatch } from "../../../store/store";
 import {
   fetchProductAuditByIdThunk, addProductAuditItemsThunk, removeProductAuditItemThunk,
-  updateProductAuditItemThunk, submitProductAuditThunk, approveProductAuditThunk,
+  submitProductAuditThunk, approveProductAuditThunk,
   rejectProductAuditThunk, reopenProductAuditThunk,
 } from "../../../middleware/inventory/inventory.thunk";
 import type { ProductAuditWithDetail, ProductAuditStatus } from "../../../types/inventory.types";
@@ -66,109 +66,26 @@ export default function ProductAuditDetailsModal({ auditId, onClose, onChanged }
   // show. Tracked so closing the modal only re-fetches the list on the rare
   // path where that's actually stale, not on every close.
   const [itemsChanged, setItemsChanged] = useState(false);
-  // Debounced per-row qty/reason edits pending a PATCH, so every keystroke
-  // doesn't fire a request — mirrors the search-debounce pattern used
-  // elsewhere (ProductInventoryPage's 350ms search debounce).
+  // Every qty/reason edit lives here, in local state only, until Submit —
+  // no API call fires while entering/changing a field or moving between
+  // fields (not even a debounced autosave or an on-blur flush, which this
+  // used to have). Submit is the one and only place this gets sent, as a
+  // single batched request — see submitForReview below.
   const [pendingEdits, setPendingEdits] = useState<Record<string, { physicalQty: number | null; reason: string }>>({});
 
-  // silent=true skips the loading-placeholder swap — used for the
-  // post-save refresh after a debounced qty/reason edit, so the modal's
-  // inputs stay mounted and don't drop focus mid-type (the full-page
-  // "Loading…" branch below used to unmount them on every autosave).
-  const load = useCallback(async (silent = false) => {
-    if (!silent) setLoading(true);
+  const load = useCallback(async () => {
+    setLoading(true);
     try {
       const result = await dispatch(fetchProductAuditByIdThunk(auditId)).unwrap();
       setAudit(result);
     } catch (err: any) {
       showError(typeof err === "string" ? err : "Couldn't load audit");
     } finally {
-      if (!silent) setLoading(false);
+      setLoading(false);
     }
   }, [dispatch, auditId, showError]);
 
   useEffect(() => { load(); }, [load]);
-
-  // Which pending rows are safe to flush right now — a nonzero difference
-  // with no reason yet is guaranteed to be rejected server-side (see
-  // product-audit.service.ts#updateItem's own REASON_REQUIRED check), so
-  // those stay held in local state (still shown, still block Submit for
-  // Review via withPendingReasons) until the reason is filled in or the qty
-  // is changed back to match system_qty. Shared by both the debounce timer
-  // below and the immediate on-blur flush, so "which rows are eligible" can
-  // never disagree between the two.
-  const eligibleIds = useCallback((edits: Record<string, { physicalQty: number | null; reason: string }>) => {
-    return Object.keys(edits).filter((itemId) => {
-      const edit = edits[itemId];
-      const item = audit?.items.find((i) => i.id === itemId);
-      if (!item) return false;
-      const d = diffOf(item.system_qty, edit.physicalQty);
-      return d == null || d === 0 || !!edit.reason.trim();
-    });
-  }, [audit]);
-
-  const flushIds = useCallback(async (ids: string[], edits: Record<string, { physicalQty: number | null; reason: string }>): Promise<boolean> => {
-    if (ids.length === 0) return true;
-    const failedNames: string[] = [];
-    for (const itemId of ids) {
-      const edit = edits[itemId];
-      const item = audit?.items.find((i) => i.id === itemId);
-      try {
-        await dispatch(updateProductAuditItemThunk({
-          auditId, itemId, payload: { physical_qty: edit.physicalQty, reason: edit.reason },
-        })).unwrap();
-        setPendingEdits((prev) => {
-          const next = { ...prev };
-          delete next[itemId];
-          return next;
-        });
-      } catch (err: any) {
-        // Left in pendingEdits (not cleared) so the value the user typed
-        // isn't lost — retried the next time pendingEdits changes again
-        // (e.g. the user edits any row), since nothing else re-triggers
-        // this effect on its own. Previously this failure was swallowed
-        // completely — no error ever reached the user, so a save that
-        // kept failing (e.g. a permission or validation error) looked
-        // exactly like a save that silently wasn't happening at all.
-        failedNames.push(item?.product_name || "a product");
-      }
-    }
-    if (failedNames.length > 0) {
-      showError(
-        failedNames.length === 1
-          ? `Couldn't save the reason for ${failedNames[0]} — it'll retry on your next edit.`
-          : `Couldn't save ${failedNames.length} items (${failedNames.join(", ")}) — they'll retry on your next edit.`
-      );
-    }
-    // No success overlay here on purpose — showSuccess is a full blocking,
-    // centered modal (see useStatusOverlay.tsx), not a toast. Firing it on
-    // every background autosave (every ~500ms pause, or every field blur)
-    // interrupted the user mid-typing with a modal to dismiss for something
-    // that's supposed to be silent and automatic. Errors still surface
-    // (above) since those genuinely need attention — a save that's quietly
-    // NOT happening must not look identical to one that is.
-    load(true);
-    return failedNames.length === 0;
-  }, [audit, auditId, dispatch, showError, load]);
-
-  // No API call fires while the user is actively typing — only on blur
-  // (below) or Submit for Review. A debounced auto-save used to also fire
-  // ~500ms after the last keystroke, but that meant an API call could go out
-  // mid-type just because the user paused briefly, which wasn't wanted here.
-  // flushRowNow (onBlur) and submitForReview's own pre-flush are the only
-  // two paths that persist an edit now.
-
-  // Flush a single row immediately on blur — otherwise a reason typed and
-  // then immediately acted on (closing the modal, clicking Submit for
-  // Review, clicking into another row) could beat the 500ms debounce
-  // window: the edit looked saved on screen but the timer backing it never
-  // got the chance to fire before the input unmounted, so nothing had
-  // actually reached the server yet.
-  const flushRowNow = useCallback((itemId: string) => {
-    if (!pendingEdits[itemId]) return;
-    const ids = eligibleIds(pendingEdits);
-    if (ids.includes(itemId)) flushIds([itemId], pendingEdits);
-  }, [pendingEdits, eligibleIds, flushIds]);
 
   const editable = audit?.status === "in_progress";
   // Who to record as reviewer is picked inside ReviewAuditModal, which
@@ -249,21 +166,17 @@ export default function ProductAuditDetailsModal({ auditId, onClose, onChanged }
     if (withPendingReasons.length > 0) return;
     setBusy(true);
     try {
-      // A reason typed moments ago may still be sitting in pendingEdits,
-      // waiting on the 500ms debounce — withPendingReasons above already
-      // treats it as "filled in" (it merges pendingEdits), so without this
-      // the audit could be submitted before that PATCH ever reached the
-      // server. Flush and wait for it first so what's submitted always
-      // matches what's on screen.
-      const ids = eligibleIds(pendingEdits);
-      if (ids.length > 0) {
-        const allSaved = await flushIds(ids, pendingEdits);
-        // flushIds already surfaced its own error toast — bail out rather
-        // than submitting a bill that doesn't yet match what's on screen.
-        if (!allSaved) return;
-      }
-      const updated = await dispatch(submitProductAuditThunk(auditId)).unwrap();
+      // Every locally-held edit goes out in this one request — nothing was
+      // sent to the server before now (see pendingEdits above), so this is
+      // the single API call the whole form makes.
+      const items = Object.keys(pendingEdits).map((itemId) => ({
+        item_id: itemId,
+        physical_qty: pendingEdits[itemId].physicalQty,
+        reason: pendingEdits[itemId].reason,
+      }));
+      const updated = await dispatch(submitProductAuditThunk({ auditId, items })).unwrap();
       setAudit(updated);
+      setPendingEdits({});
       onChanged();
     } catch (err: any) {
       showError(typeof err === "string" ? err : "Couldn't submit for review");
@@ -442,7 +355,6 @@ export default function ProductAuditDetailsModal({ auditId, onClose, onChanged }
                                 const v = e.target.value;
                                 setLocalEdit(p.id, { physicalQty: v === "" ? null : Number(v) });
                               }}
-                              onBlur={() => flushRowNow(p.id)}
                               onWheel={(e) => e.currentTarget.blur()}
                             />
                           ) : (
@@ -467,7 +379,6 @@ export default function ProductAuditDetailsModal({ auditId, onClose, onChanged }
                               placeholder={d != null && d !== 0 ? "Reason required" : "Optional"}
                               value={p.reason ?? ""}
                               onChange={(e) => setLocalEdit(p.id, { reason: e.target.value })}
-                              onBlur={() => flushRowNow(p.id)}
                             />
                           ) : (
                             p.reason || "—"
