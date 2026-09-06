@@ -21,7 +21,20 @@ import { type ThemeColors } from "@/constants/theme";
 import { fetchConsumablesThunk } from "@/middleware/consumable/consumable.thunk";
 import { fetchMembershipsThunk } from "@/middleware/membership/membership.thunk";
 import { deleteProductThunk, fetchProductsThunk } from "@/middleware/product/product.thunk";
-import { deleteServiceThunk, fetchServicesThunk } from "@/middleware/service/service.thunk";
+import { deleteServiceThunk } from "@/middleware/service/service.thunk";
+import { CatalogFilterSheet } from "@/features/catalog/components/CatalogFilterSheet";
+import {
+  catalogCategoryLabel,
+  catalogStatusLabel,
+  countCatalogFilters,
+  emptyCatalogFilters,
+  emptyCatalogFiltersByTab,
+  matchesCatalogFilters,
+  type CatalogFilters,
+  type CatalogTab,
+  type FilterableCatalogItem,
+} from "@/features/catalog/utils/catalogFilters";
+import { useCatalogServices } from "@/features/services/hooks/useCatalogServices";
 import { getApiErrorMessage } from "@/services/api";
 import { consumableService } from "@/services/consumable.service";
 import { packageService } from "@/services/package.service";
@@ -33,11 +46,6 @@ import {
   selectMembershipsLoading,
 } from "@/store/membership/membership.slice";
 import { selectProductState } from "@/store/product/product.slice";
-import {
-  selectServices,
-  selectServicesError,
-  selectServicesLoading,
-} from "@/store/service/service.slice";
 import { useAppToast } from "@/hooks/useAppToast";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { Membership } from "@/types/membership";
@@ -46,14 +54,10 @@ import type { PackageListItem } from "@/types/package";
 import type { Product } from "@/types/product";
 import type { ServiceListItem } from "@/types/service";
 
-type CatalogTab = "services" | "products" | "packages" | "memberships" | "consumables";
-type CatalogItem = {
-  category: string;
+type CatalogItem = FilterableCatalogItem & {
   id: string;
-  isActive: boolean;
   meta: string;
   name: string;
-  price: number;
   route?: Href;
 };
 
@@ -70,7 +74,8 @@ const CATALOG_PAGE_SIZE = 10;
 const formatMoney = (value: number) => `₹${value.toLocaleString("en-IN", { maximumFractionDigits: 2, minimumFractionDigits: 2 })}`;
 
 const serviceToItem = (item: ServiceListItem): CatalogItem => ({
-  category: item.category ?? "Uncategorized",
+  category: catalogCategoryLabel(item.category),
+  durationMinutes: item.durationMinutes,
   id: item.id,
   isActive: item.isActive,
   meta: item.durationMinutes ? `${item.durationMinutes} min` : "Duration not set",
@@ -87,6 +92,7 @@ const productToItem = (item: Product): CatalogItem => ({
   name: item.name,
   price: item.retailPrice ?? item.price,
   route: `/stock/${item.id}` as Href,
+  stockQuantity: item.stockQuantity,
 });
 
 const consumableToItem = (item: ConsumableListItem): CatalogItem => ({
@@ -97,6 +103,7 @@ const consumableToItem = (item: ConsumableListItem): CatalogItem => ({
   name: item.name,
   price: item.supplyPrice ?? item.retailPrice ?? 0,
   route: `/consumables/${item.id}` as Href,
+  stockQuantity: item.amount,
 });
 
 const packageToItem = (item: PackageListItem): CatalogItem => ({
@@ -106,6 +113,7 @@ const packageToItem = (item: PackageListItem): CatalogItem => ({
   meta: `${item.serviceIds.length} service${item.serviceIds.length === 1 ? "" : "s"}`,
   name: item.name,
   price: Math.max(0, item.basePrice - item.discountValue),
+  serviceCount: item.serviceIds.length,
 });
 
 const membershipToItem = (item: Membership): CatalogItem => ({
@@ -146,9 +154,12 @@ export default function CatalogScreen() {
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
   const toast = useAppToast();
-  const services = useAppSelector(selectServices);
-  const servicesLoading = useAppSelector(selectServicesLoading);
-  const servicesError = useAppSelector(selectServicesError);
+  const { services, loading: servicesLoading, error: servicesError, load: loadServices } = useCatalogServices();
+  // Filters are held per tab so switching tabs never applies one tab's
+  // criteria to another's rows, and coming back restores what was applied.
+  const [filtersByTab, setFiltersByTab] = useState(emptyCatalogFiltersByTab);
+  const [filterVisible, setFilterVisible] = useState(false);
+  const [viewMode, setViewMode] = useState<"list" | "grid">("list");
   const productState = useAppSelector(selectProductState);
   const consumableState = useAppSelector(selectConsumableState);
   const memberships = useAppSelector(selectMemberships);
@@ -178,13 +189,13 @@ export default function CatalogScreen() {
 
   const loadCatalog = useCallback(async (refresh = false) => {
     await Promise.allSettled([
-      dispatch(fetchServicesThunk({ limit: 100, offset: 0, refresh, reset: true, search: "" })),
+      loadServices(),
       dispatch(fetchProductsThunk({ limit: 100, offset: 0, refresh, reset: true, search: "" })),
       dispatch(fetchConsumablesThunk({ limit: 100, page: 1, refresh, reset: true, search: "" })),
       dispatch(fetchMembershipsThunk({ limit: 100, page: 1, refresh, reset: true })),
       loadPackages(),
     ]);
-  }, [dispatch, loadPackages]);
+  }, [dispatch, loadPackages, loadServices]);
 
   useEffect(() => { void loadCatalog(); }, [loadCatalog]);
 
@@ -196,15 +207,31 @@ export default function CatalogScreen() {
     services: services.map(serviceToItem),
   }), [consumableState.consumables, memberships, packages, productState.products, services]);
 
+  const activeFilters = filtersByTab[activeTab];
+  const filterCount = countCatalogFilters(activeFilters, activeTab);
+  const activeTabLabel = TABS.find((tab) => tab.key === activeTab)?.label ?? "Items";
+  const categories = useMemo(
+    () => [...new Set(itemsByTab[activeTab].map((item) => catalogCategoryLabel(item.category)))],
+    [activeTab, itemsByTab],
+  );
+
+  const applyFilters = useCallback((value: CatalogFilters) => {
+    setFiltersByTab((current) => ({ ...current, [activeTab]: value }));
+  }, [activeTab]);
+
+  const clearFilters = useCallback(() => applyFilters(emptyCatalogFilters()), [applyFilters]);
+
   const visibleItems = useMemo(() => {
     const normalized = query.trim().toLowerCase();
-    if (!normalized) return itemsByTab[activeTab];
-    return itemsByTab[activeTab].filter((item) => [item.name, item.category, item.meta].some((value) => value.toLowerCase().includes(normalized)));
-  }, [activeTab, itemsByTab, query]);
+    return itemsByTab[activeTab].filter((item) =>
+      matchesCatalogFilters(item, activeFilters, activeTab) &&
+      (!normalized || [item.name, item.category, item.meta].some((value) => value.toLowerCase().includes(normalized))),
+    );
+  }, [activeFilters, activeTab, itemsByTab, query]);
 
   useEffect(() => {
     setVisibleCount(CATALOG_PAGE_SIZE);
-  }, [activeTab, query]);
+  }, [activeFilters, activeTab, query]);
 
   const displayedItems = useMemo(
     () => visibleItems.slice(0, visibleCount),
@@ -313,6 +340,16 @@ export default function CatalogScreen() {
           <View style={styles.activeCount}><View style={styles.activeDot} /><Text style={styles.activeCountText}>{activeCount} active</Text></View>
         </View>
 
+        <View style={styles.filterToolbar}>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Filter ${activeTabLabel}, ${filterCount} filter groups applied`} accessibilityState={{ expanded: filterVisible }} onPress={() => setFilterVisible(true)} style={[styles.filterButton, filterCount > 0 && { borderColor: Colors.primary }]}>
+            <Ionicons name="options-outline" size={18} color={Colors.primary} />
+            <Text style={styles.filterButtonText}>Filter{filterCount ? ` (${filterCount})` : ""}</Text>
+          </TouchableOpacity>
+          <Text accessibilityLiveRegion="polite" style={styles.resultCount}>{visibleItems.length} results</Text>
+          {filterCount > 0 ? <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Clear ${activeTabLabel} filters`} onPress={clearFilters} style={styles.viewButton}><Text style={styles.clearFilterText}>Clear</Text></TouchableOpacity> : null}
+          {(["list", "grid"] as const).map((mode) => <TouchableOpacity key={mode} accessibilityLabel={`${mode} view`} accessibilityRole="button" accessibilityState={{ selected: viewMode === mode }} onPress={() => setViewMode(mode)} style={[styles.viewButton, viewMode === mode && { backgroundColor: Colors.backgroundElement }]}><Ionicons name={mode === "list" ? "list-outline" : "grid-outline"} size={20} color={viewMode === mode ? Colors.primary : Colors.text2} /></TouchableOpacity>)}
+        </View>
+
         {addRoute ? (
           <TouchableOpacity activeOpacity={0.86} onPress={() => router.push(addRoute as Href)} style={styles.addButton}>
             <Ionicons color="#FFFFFF" name="add" size={19} />
@@ -322,16 +359,43 @@ export default function CatalogScreen() {
 
         {loading && itemsByTab[activeTab].length === 0 ? <View style={styles.state}><ActivityIndicator color={Colors.primary} size="large" /><Text style={styles.stateText}>Loading catalog...</Text></View> : null}
         {error && !loading ? <View style={styles.state}><Ionicons color={Colors.error} name="alert-circle-outline" size={32} /><Text style={styles.stateTitle}>Unable to load {activeTab}</Text><Text style={styles.stateText}>{error}</Text><TouchableOpacity onPress={() => void loadCatalog(true)} style={styles.retryButton}><Text style={styles.retryText}>Retry</Text></TouchableOpacity></View> : null}
-        {!loading && !error && visibleItems.length === 0 ? <View style={styles.state}><Ionicons color={Colors.text2} name="file-tray-outline" size={34} /><Text style={styles.stateTitle}>No {activeTab} found</Text><Text style={styles.stateText}>Try another search or add an item from its management screen.</Text></View> : null}
+        {!loading && !error && visibleItems.length === 0 ? <View style={styles.state}><Ionicons color={Colors.text2} name="file-tray-outline" size={34} /><Text style={styles.stateTitle}>No {activeTab} found</Text><Text style={styles.stateText}>{filterCount > 0 ? `No ${activeTab} match the applied filters. Clear or change them to see more.` : "Try another search or add an item from its management screen."}</Text>{filterCount > 0 ? <TouchableOpacity accessibilityRole="button" onPress={clearFilters} style={styles.retryButton}><Text style={styles.retryText}>Clear filters</Text></TouchableOpacity> : null}</View> : null}
         {showCatalog ? (
-          <CatalogTable deletingId={deletingId} items={displayedItems} onDelete={canDeleteActiveTab ? confirmDelete : undefined} />
+          viewMode === "grid" ? (
+            <View style={styles.catalogGrid}>
+              {displayedItems.map((item) => <View key={item.id} style={styles.catalogGridCard}>
+                <TouchableOpacity accessibilityRole="button" disabled={!item.route} onPress={() => item.route && router.push(item.route)} style={styles.catalogGridCopy}>
+                  <Text numberOfLines={2} style={styles.tableName}>{item.name}</Text>
+                  <Text style={styles.tableCell}>{item.category}</Text>
+                  <Text style={styles.tableCell}>{item.meta}</Text>
+                  <Text style={styles.tablePrice}>{formatMoney(item.price)}</Text>
+                  <Text style={[styles.tableCell, { color: item.isActive ? Colors.success : Colors.text2 }]}>{catalogStatusLabel(activeTab, item.isActive ? "active" : "inactive")}</Text>
+                </TouchableOpacity>
+                {canDeleteActiveTab ? (
+                  <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Delete ${item.name}`} disabled={deletingId === item.id} onPress={() => confirmDelete(item)} style={styles.viewButton}>
+                    {deletingId === item.id ? <ActivityIndicator size="small" color={Colors.error} /> : <Ionicons name="trash-outline" size={18} color={Colors.error} />}
+                  </TouchableOpacity>
+                ) : null}
+              </View>)}
+            </View>
+          ) : <CatalogTable deletingId={deletingId} items={displayedItems} onDelete={canDeleteActiveTab ? confirmDelete : undefined} />
         ) : null}
       </ScrollView>
+      <CatalogFilterSheet categories={categories} label={activeTabLabel} onApply={applyFilters} onClose={() => setFilterVisible(false)} onReset={clearFilters} tab={activeTab} value={activeFilters} visible={filterVisible} />
     </SafeAreaView>
   );
 }
 
 const createStyles = (Colors: ThemeColors) => StyleSheet.create({
+  filterToolbar: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8, paddingHorizontal: 16, paddingBottom: 16 },
+  filterButton: { flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1, borderColor: Colors.border, borderRadius: 8, minHeight: 44, paddingHorizontal: 12 },
+  filterButtonText: { color: Colors.heading, fontSize: 13, fontWeight: "700" },
+  clearFilterText: { color: Colors.primary, fontSize: 12, fontWeight: "700" },
+  resultCount: { flex: 1, color: Colors.text2, fontSize: 12 },
+  viewButton: { minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center", borderRadius: 8 },
+  catalogGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12, paddingHorizontal: 16 },
+  catalogGridCard: { flexBasis: "46%", flexGrow: 1, minWidth: 140, backgroundColor: Colors.card, borderColor: Colors.border, borderWidth: 1, borderRadius: 8, padding: 12 },
+  catalogGridCopy: { gap: 8, flex: 1 },
   safeArea: { backgroundColor: Colors.bg, flex: 1 },
   content: { paddingBottom: AppLayout.contentBottomPadding },
   header: { alignItems: "center", flexDirection: "row", minHeight: 66, paddingHorizontal: 16 },
