@@ -55,6 +55,7 @@ export type BillBreakdownRow = [label: string, formattedValue: string, color: st
 export interface BillBreakdownResult {
   rows: BillBreakdownRow[];
   totalTaxAmount: number;
+  totalDiscount: number;
   roundOff: number;
 }
 
@@ -104,6 +105,13 @@ export function computeBillBreakdown(input: BillBreakdownInput): BillBreakdownRe
   const rawTotal = Math.max(0, afterReferral - membershipWalletUsed - ewalletUsed - rewardPointsValue);
   const roundOff = grandTotal - rawTotal;
 
+  // Every discount type applied to this bill, combined into one summary
+  // figure — Coupon, Membership Discount, Membership Loyalty, the bill-level
+  // Svc/manual Discount, and Referral Discount. Shown alongside (never
+  // instead of) each individual row above, since those still matter for
+  // seeing exactly where the reduction came from.
+  const totalDiscount = couponDiscount + membershipDiscountAmount + discountAmount + referralDiscount;
+
   const rows: BillBreakdownRow[] = ([
     subtotal ? ["Subtotal", `${c}${subtotal.toFixed(2)}`, "#6b7280"] : null,
     couponDiscount ? [`Coupon${couponCode ? ` (${couponCode})` : ""}`, `−${c}${couponDiscount.toFixed(2)}`, "#22c55e"] : null,
@@ -117,6 +125,7 @@ export function computeBillBreakdown(input: BillBreakdownInput): BillBreakdownRe
     ["Extra Charges", `+${c}${exCharges.toFixed(2)}`, "#374151"],
     discountAmount ? ["Discount", `−${c}${discountAmount.toFixed(2)}`, "#ef4444"] : null,
     referralDiscount ? ["Referral Discount", `−${c}${referralDiscount.toFixed(2)}`, "#22c55e"] : null,
+    totalDiscount ? ["Total Discount", `−${c}${totalDiscount.toFixed(2)}`, "#b91c1c"] : null,
     membershipWalletUsed ? ["Membership Wallet Used", `−${c}${membershipWalletUsed.toFixed(2)}`, "#15803d"] : null,
     ewalletUsed ? ["eWallet Used", `−${c}${ewalletUsed.toFixed(2)}`, "#2563eb"] : null,
     rewardPointsValue ? ["Reward Points Used", `−${c}${rewardPointsValue.toFixed(2)}`, "#7c3aed"] : null,
@@ -125,5 +134,5 @@ export function computeBillBreakdown(input: BillBreakdownInput): BillBreakdownRe
       : null,
   ] as Array<BillBreakdownRow | null>).filter((r): r is BillBreakdownRow => r !== null);
 
-  return { rows, totalTaxAmount, roundOff };
+  return { rows, totalTaxAmount, totalDiscount, roundOff };
 }
