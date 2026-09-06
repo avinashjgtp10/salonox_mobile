@@ -17,6 +17,7 @@ import {
   Pencil,
   Trash,
   ThreeDots,
+  ClockHistory,
   TelephoneFill,
   EnvelopeFill,
 } from "react-bootstrap-icons";
@@ -601,6 +602,12 @@ export default function StaffListPage() {
                           onClick={() => { member.id && navigate(`/dashboard/team/${member.id}`); setActionMenuId(null); }}
                         >
                           <Pencil size={13} /> Edit profile
+                        </button>
+                        <button
+                          className="slp-action-item"
+                          onClick={() => { member.id && navigate(`/dashboard/team/history/${member.id}`); setActionMenuId(null); }}
+                        >
+                          <ClockHistory size={13} /> View history
                         </button>
                         <button
                           className="slp-action-item"
