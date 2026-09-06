@@ -1295,6 +1295,15 @@ export const AppointmentModal: React.FC<Props> = ({
   const [totals, setTotals] = useState<TotalsResult>(ZERO_TOTALS);
   const [totalsConfirmed, setTotalsConfirmed] = useState(false);
   const [totalsError, setTotalsError] = useState(false);
+  // Why the backend's re-validation of an already-applied coupon just failed
+  // on this recalc (e.g. the bill dropped below its min order amount, it hit
+  // its usage limit, or it expired) — coupon.discount/coupon.error only ever
+  // reflect the state from the moment "Apply" was clicked, so without this a
+  // coupon silently losing validity as the bill changes later (more/fewer
+  // rows, a qty edit, etc.) just made the Coupon/Total Discount row vanish
+  // with no explanation at all. Cleared whenever a recalc succeeds without
+  // a rejection, or when there's nothing left to price.
+  const [couponRejectedReason, setCouponRejectedReason] = useState<string | null>(null);
   const [referralDiscountPreview, setReferralDiscountPreview] = useState(0);
   // Server-confirmed discount a percentage/loyalty membership would give on the
   // current rows — a genuine pre-tax price reduction, already folded into
@@ -1403,6 +1412,7 @@ export const AppointmentModal: React.FC<Props> = ({
       setRowTaxPreview(null);
       setRowMembershipDiscountPreview(null);
       setRowMembershipWalletPreview(null);
+      setCouponRejectedReason(null);
       setTotalsConfirmed(true);
       return;
     }
@@ -1459,6 +1469,10 @@ export const AppointmentModal: React.FC<Props> = ({
           setRowTaxPreview(data.rowTax ?? null);
           setRowMembershipDiscountPreview(data.rowMembershipDiscount ?? null);
           setRowMembershipWalletPreview(data.rowMembershipWallet ?? null);
+          // Set only while a coupon is actually applied — once cleared (or
+          // never applied), any leftover reason from a prior attempt would
+          // otherwise keep showing next to a Coupon field that's now empty.
+          setCouponRejectedReason(coupon.applied ? (data.couponRejectedReason ?? null) : null);
           setTotalsConfirmed(true);
         }
       } catch (err: any) {
@@ -3392,7 +3406,7 @@ export const AppointmentModal: React.FC<Props> = ({
                     onApplyCoupon={() => coupon.apply(totals.subtotal)}
                     couponDiscount={coupon.discount}
                     couponMessage={coupon.message}
-                    couponError={coupon.error}
+                    couponError={coupon.error || couponRejectedReason || ""}
                     couponLoading={coupon.loading}
                     showReferral={showReferralField}
                     referralInput={referral.input}
@@ -3488,6 +3502,7 @@ export const AppointmentModal: React.FC<Props> = ({
                         manualDiscount={totals.manualDiscount}
                         couponDiscount={coupon.discount}
                         couponCode={coupon.applied}
+                        couponWarning={couponRejectedReason}
                         referralDiscount={referralDiscountPreview}
                         membershipDiscountUsed={appliedMembershipDiscount}
                         totalDiscount={totals.totalDisc}
@@ -3546,6 +3561,7 @@ export const AppointmentModal: React.FC<Props> = ({
                         manualDiscount={totals.manualDiscount}
                         couponDiscount={coupon.discount}
                         couponCode={coupon.applied}
+                        couponWarning={couponRejectedReason}
                         referralDiscount={referralDiscountPreview}
                         membershipDiscountUsed={appliedMembershipDiscount}
                         totalDiscount={totals.totalDisc}
@@ -3595,7 +3611,7 @@ export const AppointmentModal: React.FC<Props> = ({
                     onApplyCoupon={() => coupon.apply(totals.subtotal)}
                     couponDiscount={coupon.discount}
                     couponMessage={coupon.message}
-                    couponError={coupon.error}
+                    couponError={coupon.error || couponRejectedReason || ""}
                     couponLoading={coupon.loading}
                     showReferral={showReferralField}
                     referralInput={referral.input}

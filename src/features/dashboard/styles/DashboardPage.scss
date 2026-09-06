@@ -258,9 +258,12 @@ $sidebar-nav-active-text: #101828;
   align-items: stretch;
   // Extra slack beyond what items need (--nav-item-h * count) is spread
   // evenly between them as gaps, rather than each item stretching to fill
-  // it. No overflow/scroll — DashboardSidebar.tsx's fit() effect sizes
-  // --nav-item-h so `count` items always fill the sidebar's real available
-  // height, floored so the row never gets too cramped for its label.
+  // it. DashboardSidebar.tsx's fit() effect sizes --nav-item-h so `count`
+  // items fill the sidebar's real available height on most screens — but
+  // --nav-item-h is floored (never shrinks below a usable row height), so
+  // on a short enough viewport the floor is hit before everything fits and
+  // the tail end of the list would otherwise be clipped with no way to
+  // reach it. overflow-y here is that safety net, not the normal case.
   justify-content: space-evenly;
   padding: 10px 10px;
   height: calc(100vh - var(--topbar-height, 56px) - var(--deployment-banner-height, 0px));
@@ -271,6 +274,22 @@ $sidebar-nav-active-text: #101828;
   // Matches .main's own margin transition — collapsing/expanding now
   // animates instead of snapping between the two widths instantly.
   transition: width 0.22s ease;
+
+  overflow-y: auto;
+  overflow-x: hidden;
+  // Scrollbar-on-the-left trick: flipping the container to RTL moves the
+  // browser-drawn scrollbar to its left edge, then flipping every child
+  // back to LTR undoes that for the actual icon/label content so nothing
+  // about the nav rows themselves reads right-to-left.
+  direction: rtl;
+  > * { direction: ltr; }
+
+  &::-webkit-scrollbar { width: 4px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+  }
 
   // Not enough room for icon+label rows below tablet width — collapses
   // back to the icon-only rail .main's own @media(max-width:768px) rule
