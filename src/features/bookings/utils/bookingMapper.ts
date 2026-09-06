@@ -132,6 +132,14 @@ export function mapApiBooking(
       clientPackageServiceId: s.client_package_service_id ?? (s as any).clientPackageServiceId ?? undefined,
       name: sName,
       service: sName,
+      // Normalize explicitly, same as productItems/packageItems/membership
+      // items below — the raw `...s` spread above can carry either `qty` or
+      // `quantity` depending on where the appointment was last saved from
+      // (useAppointment.ts's buildServiceApiItems sends services under
+      // `quantity`, unlike product/package/membership rows), so anything
+      // downstream reading `.qty` off a mapped Booking (e.g. ViewBillModal's
+      // Qty column) saw it as undefined without this.
+      qty: sQty,
       staff: staffNameStr,
       staffId: anyServiceHasOwnStaff
         ? ((s.staffId || s.staff_id) ? String(s.staffId || s.staff_id) : undefined)
