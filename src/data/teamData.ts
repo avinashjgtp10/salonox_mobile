@@ -55,6 +55,8 @@ export type StaffMember = {
   permissionLevel?: string;
   phoneCountryCode?: string;
   workingHoursPerDay?: number | null;
+  loginAccess?: boolean;
+  emailVerified?: boolean;
 };
 
 export type TeamSummaryItem = {

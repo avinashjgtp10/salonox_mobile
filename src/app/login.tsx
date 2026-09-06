@@ -35,6 +35,11 @@ const isInvalidCredentialsError = (loginError: unknown) => {
 
 const isAccountLockedError = (loginError: unknown) => loginError instanceof ApiError && loginError.status === 429;
 
+const isEmailNotVerifiedError = (loginError: unknown) => {
+  const rawMessage = getApiErrorMessage(loginError);
+  return /EMAIL_NOT_VERIFIED/i.test(rawMessage) || /email.*not.*verif/i.test(rawMessage);
+};
+
 const getFriendlyLoginErrorMessage = (loginError: unknown) => {
   const rawMessage = getApiErrorMessage(loginError);
   const cleanedMessage = rawMessage.split("\n").map((line) => line.trim()).filter((line) => line && !/^[A-Z0-9_]+$/.test(line)).join("\n");
@@ -145,7 +150,15 @@ export default function LoginScreen() {
       setFailedLoginAttempts(0);
       router.replace(resolveLoginRoute(authData));
     } catch (loginError) {
-      if (isAccountLockedError(loginError)) {
+      if (isEmailNotVerifiedError(loginError)) {
+        router.push({
+          pathname: "/verify-email",
+          params: {
+            email: trimmedIdentifier.toLowerCase(),
+            message: "Please verify your email to continue signing in.",
+          },
+        });
+      } else if (isAccountLockedError(loginError)) {
         setFormError(getApiErrorMessage(loginError));
       } else if (isInvalidCredentialsError(loginError)) {
         const attempts = failedLoginAttempts + 1;

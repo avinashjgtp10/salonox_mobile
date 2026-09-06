@@ -86,6 +86,7 @@ export const mapStaffFormToRequest = (
     job_title: trimValue(values.designation),
     joined_date: trimValue(values.joiningDate),
     last_name: name.last_name,
+    login_access: values.isLoginEnabled,
     notes: trimValue(values.notes),
     permission_level: ROLE_TO_PERMISSION_LEVEL[values.roleLevel] ?? "low",
     phone,

@@ -62,6 +62,7 @@ const PUBLIC_ROUTES = new Set([
   "login",
   "forgot-password",
   "verify-otp",
+  "verify-email",
   "reset-password",
   "invite",
 ]);

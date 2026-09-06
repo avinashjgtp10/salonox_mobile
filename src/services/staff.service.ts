@@ -80,6 +80,10 @@ type StaffApiItem = {
   birthday_month?: number | string | null;
   created_at?: string | null;
   email?: string | null;
+  email_verified?: boolean | string | null;
+  is_email_verified?: boolean | string | null;
+  login_access?: boolean | string | null;
+  is_login_access?: boolean | string | null;
   first_name?: string | null;
   full_name?: string | null;
   gender?: string | null;
@@ -720,6 +724,8 @@ const normalizeStaffMember = (staffMember: StaffApiItem, index: number): StaffMe
     permissionLevel: toSafeString(staffMember.permission_level),
     phoneCountryCode: toSafeString(staffMember.phone_country_code),
     workingHoursPerDay: toOptionalNumber(staffMember.working_hours_per_day),
+    loginAccess: toOptionalBoolean(staffMember.login_access ?? staffMember.is_login_access),
+    emailVerified: toOptionalBoolean(staffMember.email_verified ?? staffMember.is_email_verified),
   };
 };
 
