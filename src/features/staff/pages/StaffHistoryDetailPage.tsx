@@ -248,7 +248,7 @@ const TABS = [
   { key: "payroll",    label: "Payroll" },
   { key: "notes",      label: "Notes & Feedback" },
 ] as const;
-type TabKey = typeof TABS[number]["key"];
+export type TabKey = typeof TABS[number]["key"];
 
 const TAB_PAGE_SIZE = 10;
 
@@ -1016,14 +1016,15 @@ function AttendanceTab({ staffId }: { staffId: string }) {
   );
 }
 
-// ─── Main page ───────────────────────────────────────────────────────────────
+// ─── Shared content — the staff header + tabs, reused by both the full page
+// below and StaffHistoryModal.tsx (opened as a popup from the Staff
+// Performance report instead of navigating away) ─────────────────────────────
 
-export default function StaffHistoryDetailPage() {
-  const { staffId } = useParams<{ staffId: string }>();
+export function StaffHistoryContent({ staffId, initialTab = "overview" }: { staffId: string; initialTab?: TabKey }) {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
 
-  const [activeTab, setActiveTab] = useState<TabKey>("overview");
+  const [activeTab, setActiveTab] = useState<TabKey>(initialTab);
   const [busy, setBusy] = useState(false);
 
   const { data: staff, loading: staffLoading, error: staffError, retry: retryStaff } = useFetch<StaffDetail | null>(
@@ -1087,14 +1088,8 @@ export default function StaffHistoryDetailPage() {
     finally { setBusy(false); }
   }
 
-  if (!staffId) return null;
-
   return (
-    <div className="shp-page">
-      <button className="shp-back" onClick={() => navigate("/dashboard/team/history")}>
-        <ArrowLeft size={14} /> Back to Staff
-      </button>
-
+    <>
       {staffLoading ? (
         <LoadingState />
       ) : staffError || !staff ? (
@@ -1178,6 +1173,24 @@ export default function StaffHistoryDetailPage() {
           </div>
         </>
       )}
+    </>
+  );
+}
+
+// ─── Full page — thin wrapper: back-navigation + the shared content above ──
+
+export default function StaffHistoryDetailPage() {
+  const { staffId } = useParams<{ staffId: string }>();
+  const navigate = useNavigate();
+
+  if (!staffId) return null;
+
+  return (
+    <div className="shp-page">
+      <button className="shp-back" onClick={() => navigate("/dashboard/team/history")}>
+        <ArrowLeft size={14} /> Back to Staff
+      </button>
+      <StaffHistoryContent staffId={staffId} />
     </div>
   );
 }
