@@ -412,37 +412,6 @@ export default function StaffProfileScreen() {
 
         <StaffFutureSections staffId={id} />
 
-        <View style={styles.bottomActionRow}>
-          <TouchableOpacity activeOpacity={0.86} onPress={() => router.push(`/team/${id}/edit` as Href)} style={styles.editButton}>
-            <Text style={styles.editButtonText}>Edit Staff</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            activeOpacity={0.86}
-            disabled={isTogglingActive || isDeleting}
-            onPress={handleToggleActive}
-            style={[styles.secondaryButton, (isTogglingActive || isDeleting) && styles.buttonDisabled]}
-          >
-            {isTogglingActive ? (
-              <ActivityIndicator color={Colors.primaryDark} size="small" />
-            ) : (
-              <Text style={styles.secondaryButtonText}>
-                {isInactive ? "Reactivate Staff" : "Deactivate Staff"}
-              </Text>
-            )}
-          </TouchableOpacity>
-          <TouchableOpacity
-            activeOpacity={0.86}
-            disabled={isTogglingActive || isDeleting}
-            onPress={handleDelete}
-            style={[styles.deleteButton, (isTogglingActive || isDeleting) && styles.buttonDisabled]}
-          >
-            {isDeleting ? (
-              <ActivityIndicator color={Colors.error} size="small" />
-            ) : (
-              <Text style={styles.deleteButtonText}>Delete Staff</Text>
-            )}
-          </TouchableOpacity>
-        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -756,49 +725,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     color: Colors.text2,
     fontSize: 13,
     lineHeight: 20,
-  },
-  bottomActionRow: {
-    gap: 10,
-  },
-  editButton: {
-    alignItems: "center",
-    backgroundColor: Colors.primary,
-    borderRadius: Radius.full,
-    justifyContent: "center",
-    minHeight: 48,
-  },
-  editButtonText: {
-    color: "#FFFFFF",
-    fontSize: 13,
-    fontWeight: "800",
-  },
-  secondaryButton: {
-    alignItems: "center",
-    backgroundColor: Colors.bg2,
-    borderRadius: Radius.full,
-    justifyContent: "center",
-    minHeight: 48,
-  },
-  secondaryButtonText: {
-    color: Colors.primaryDark,
-    fontSize: 13,
-    fontWeight: "800",
-  },
-  deleteButton: {
-    alignItems: "center",
-    backgroundColor: Colors.errorBg,
-    borderRadius: Radius.full,
-    justifyContent: "center",
-    minHeight: 48,
-    marginBottom: Spacing.md,
-  },
-  deleteButtonText: {
-    color: Colors.error,
-    fontSize: 13,
-    fontWeight: "800",
-  },
-  buttonDisabled: {
-    opacity: 0.55,
   },
   modalOverlay: {
     backgroundColor: "rgba(15, 23, 32, 0.36)",
