@@ -196,6 +196,15 @@ const SuppliersListPage: React.FC = () => {
   // calling the API again.
   useEffect(() => {
     const justSaved = (location.state as { refresh?: boolean } | null)?.refresh;
+    // eslint-disable-next-line no-console
+    console.log("[SuppliersListPage] mount effect", {
+      suppliersLength: suppliers.length,
+      supplierCitiesLength: supplierCities.length,
+      supplierStatesLength: supplierStates.length,
+      justSaved,
+      locationState: location.state,
+      pathname: location.pathname,
+    });
     if (suppliers.length === 0 || justSaved) {
       dispatch(fetchSuppliersThunk({ page: 1, page_limit: pageSize }));
     }

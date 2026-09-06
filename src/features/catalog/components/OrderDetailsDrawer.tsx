@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { XLg, Trash, Pencil, FileEarmarkText } from "react-bootstrap-icons";
+import { useSelector } from "react-redux";
+import { XLg, Trash, Pencil, FileEarmarkText, FileEarmarkPdf } from "react-bootstrap-icons";
 import { useAppDispatch } from "../../../hooks/useAppRedux";
 import { fetchOrderByIdThunk, deleteOrderThunk } from "../../../middleware/inventory/inventory.thunk";
 import type { Order } from "../../../types/inventory.types";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
+import { selectCurrentSalon } from "../../../store/selectors/slices.selectors";
+import { generatePurchaseOrderPdf } from "../utils/purchaseOrderPdf";
 import Button from "../../../components/ui/Button";
 import Modal from "../../../components/ui/Modal";
 import "../styles/OrderDetailsDrawer.scss";
@@ -29,8 +32,9 @@ const fmtDate = (value?: string | null) => {
 const OrderDetailsDrawer: React.FC<OrderDetailsDrawerProps> = ({ orderId, isOpen, onClose, onDeleted }) => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const { formatAmount } = useCurrency();
+  const { formatAmount, currencySymbol } = useCurrency();
   const { showError, showSuccess, overlay } = useStatusOverlay();
+  const currentSalon = useSelector(selectCurrentSalon);
 
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(false);
@@ -56,6 +60,11 @@ const OrderDetailsDrawer: React.FC<OrderDetailsDrawerProps> = ({ orderId, isOpen
   }, [isOpen, orderId]);
 
   if (!isOpen) return null;
+
+  const handleDownloadPdf = () => {
+    if (!order) return;
+    generatePurchaseOrderPdf(order, { salon: currentSalon, currencySymbol });
+  };
 
   const handleDelete = async () => {
     if (!orderId) return;
@@ -91,6 +100,11 @@ const OrderDetailsDrawer: React.FC<OrderDetailsDrawerProps> = ({ orderId, isOpen
             </div>
           </div>
           <div className="header-actions">
+            {order && (
+              <button className="edit-btn" onClick={handleDownloadPdf}>
+                <FileEarmarkPdf size={13} /> Download PDF
+              </button>
+            )}
             <button
               className="edit-btn"
               onClick={() => { navigate(`/dashboard/inventory/orders/${orderId}/edit`); onClose(); }}
