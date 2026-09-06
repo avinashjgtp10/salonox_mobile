@@ -151,14 +151,12 @@ export default function ProductAuditDetailsModal({ auditId, onClose, onChanged }
     return failedNames.length === 0;
   }, [audit, auditId, dispatch, showError, load]);
 
-  // Flush a row's pending edit to the server 500ms after the last change —
-  // covers the common case (user keeps typing/tabbing within the modal).
-  useEffect(() => {
-    const ids = eligibleIds(pendingEdits);
-    if (ids.length === 0) return;
-    const t = setTimeout(() => { flushIds(ids, pendingEdits); }, 500);
-    return () => clearTimeout(t);
-  }, [pendingEdits, eligibleIds, flushIds]);
+  // No API call fires while the user is actively typing — only on blur
+  // (below) or Submit for Review. A debounced auto-save used to also fire
+  // ~500ms after the last keystroke, but that meant an API call could go out
+  // mid-type just because the user paused briefly, which wasn't wanted here.
+  // flushRowNow (onBlur) and submitForReview's own pre-flush are the only
+  // two paths that persist an edit now.
 
   // Flush a single row immediately on blur — otherwise a reason typed and
   // then immediately acted on (closing the modal, clicking Submit for

@@ -67,6 +67,7 @@ const ProductsListPage: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
   const suppliers = useSelector((state: RootState) => state.inventory.suppliers);
+  const suppliersTotal = useSelector((state: RootState) => state.inventory.suppliersTotal);
   const currentSalon = useSelector(selectCurrentSalon);
   const userProfile = useSelector(selectUserProfile);
   const { formatAmount } = useCurrency();
@@ -150,7 +151,16 @@ const ProductsListPage: React.FC = () => {
     fetchCategories();
     // page_limit:100 — used here to build a full id->name lookup map for
     // display (supplierMap below), not the paginated Suppliers list page.
-    dispatch(fetchSuppliersThunk({ page_limit: 100 }));
+    // Skipped when the store already holds the complete set (suppliers.length
+    // === suppliersTotal) — that's true whether it got there via this same
+    // page_limit:100 fetch on an earlier visit, or because the salon simply
+    // has few enough suppliers that a smaller paginated fetch already
+    // happened to cover all of them. A plain "suppliers.length === 0" check
+    // would wrongly skip this after visiting the Suppliers List page (which
+    // only ever loads one page at a time), leaving names blank here.
+    if (suppliers.length === 0 || suppliers.length < suppliersTotal) {
+      dispatch(fetchSuppliersThunk({ page_limit: 100 }));
+    }
     const t = setTimeout(() => { isMountedRef.current = true; }, 0);
     return () => clearTimeout(t);
   }, []);

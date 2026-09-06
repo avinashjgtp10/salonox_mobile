@@ -6,7 +6,6 @@ import {
   Calendar,
   EmojiSmile,
   Book,
-  Boxes,
   Globe2,
   Megaphone,
   People,
@@ -19,6 +18,10 @@ import {
   Stars,
   List,
 } from "react-bootstrap-icons";
+// Custom icon, not from any installed icon pack — see WarehouseIcon.tsx for
+// why (matched to a specific reference design: peaked roof, roof vent, open
+// doorway with stacked crates).
+import WarehouseIcon from "../../../components/icons/WarehouseIcon";
 
 import { usePermissions } from "../../../hooks/usePermissions";
 import Modal from "../../../components/ui/Modal";
@@ -225,7 +228,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange, collapsed, on
             }
           }}
         >
-          <Boxes size={22} />
+          <WarehouseIcon size={22} />
           <span className="nav-label">Warehouse</span>
         </button>
       )}

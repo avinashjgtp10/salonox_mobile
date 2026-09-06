@@ -1,12 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Search, FileEarmarkText, PlusLg, X, ThreeDotsVertical, PencilSquare, Trash3, BoxSeam } from "react-bootstrap-icons";
+import { useSelector } from "react-redux";
+import { Search, FileEarmarkText, FileEarmarkPdf, PlusLg, X, ThreeDotsVertical, PencilSquare, Trash3, BoxSeam } from "react-bootstrap-icons";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { fetchOrdersThunk, deleteOrderThunk, fetchOrderByIdThunk, receiveOrderThunk } from "../../../middleware/inventory/inventory.thunk";
 import type { Order } from "../../../types/inventory.types";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
+import { selectCurrentSalon } from "../../../store/selectors/slices.selectors";
+import { generatePurchaseOrderPdf } from "../utils/purchaseOrderPdf";
 import Pagination from "../../../components/ui/Pagination";
 import Button from "../../../components/ui/Button";
 import Skeleton from "../../../components/ui/Skeleton";
@@ -43,8 +46,25 @@ const OrdersListPage: React.FC = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const location = useLocation();
-  const { formatAmount } = useCurrency();
+  const { formatAmount, currencySymbol } = useCurrency();
   const { showError, showSuccess, overlay } = useStatusOverlay();
+  const currentSalon = useSelector(selectCurrentSalon);
+  const [downloadingPdfId, setDownloadingPdfId] = useState<string | null>(null);
+
+  // The list only ever holds summary fields per row — full line items (needed
+  // for the PDF body table) only come back from the single-order endpoint, so
+  // this fetches on demand rather than requiring every list row to carry them.
+  const handleDownloadPdf = async (o: Order) => {
+    setDownloadingPdfId(o.id);
+    try {
+      const full = await dispatch(fetchOrderByIdThunk(o.id)).unwrap();
+      generatePurchaseOrderPdf(full, { salon: currentSalon, currencySymbol });
+    } catch (err: any) {
+      showError(typeof err === "string" ? err : "Couldn't generate PDF");
+    } finally {
+      setDownloadingPdfId(null);
+    }
+  };
 
   // Kept in Redux (inventorySlice), not page-local state — this page
   // unmounts/remounts on every navigation away and back (e.g. Close on
@@ -346,7 +366,7 @@ const OrdersListPage: React.FC = () => {
                 <tr
                   key={o.id}
                   style={{ cursor: "pointer" }}
-                  onClick={() => { setSelectedOrderId(o.id); setIsDrawerOpen(true); }}
+                  onClick={() => { console.log("[OrdersListPage] row clicked", o.id); setSelectedOrderId(o.id); setIsDrawerOpen(true); }}
                 >
                   <td className="fw-semibold">{o.order_number}</td>
                   <td>{o.supplier_name || "—"}</td>
@@ -359,11 +379,12 @@ const OrdersListPage: React.FC = () => {
                   <td>{o.total_quantity ?? 0}</td>
                   <td>{formatAmount(o.total_price ?? 0)}</td>
                   <td>{o.payment_terms_days != null ? `${o.payment_terms_days} days` : "—"}</td>
-                  <td className="actions-cell orders-kebab-wrap" onClick={(e) => e.stopPropagation()}>
+                  <td className="actions-cell orders-kebab-wrap" onClick={(e) => { console.log("[OrdersListPage] td stopPropagation"); e.stopPropagation(); }}>
                     <button
                       className="orders-kebab-btn"
                       title="Actions"
                       onClick={(e) => {
+                        console.log("[OrdersListPage] kebab button clicked", o.id);
                         const isOpen = openRowMenuId === o.id;
                         setOpenRowMenuId(isOpen ? null : o.id);
                         if (!isOpen) {
@@ -394,6 +415,18 @@ const OrdersListPage: React.FC = () => {
                             </button>
                           </li>
                         )}
+                        <li>
+                          <button
+                            className="orders-kebab-item"
+                            disabled={downloadingPdfId === o.id}
+                            onClick={() => {
+                              setOpenRowMenuId(null);
+                              handleDownloadPdf(o);
+                            }}
+                          >
+                            <FileEarmarkPdf size={14} /> {downloadingPdfId === o.id ? "Generating..." : "Download PDF"}
+                          </button>
+                        </li>
                         <li>
                           <button
                             className="orders-kebab-item"

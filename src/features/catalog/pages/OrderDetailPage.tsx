@@ -13,6 +13,7 @@ import Button from "../../../components/ui/Button";
 import Modal from "../../../components/ui/Modal";
 import { formatDateDDMMYYYY as fmtDate } from "../../../utils/dateFormat";
 import { generateOrderBillPdf } from "../utils/orderBillPdf";
+import { generatePurchaseOrderPdf } from "../utils/purchaseOrderPdf";
 import "../styles/SuppliersListPage.scss";
 import "../styles/PurchaseHistoryTable.scss";
 import "../styles/SupplierDetailPage.scss";
@@ -168,6 +169,11 @@ const OrderDetailPage: React.FC = () => {
     generateOrderBillPdf(order, { salon: currentSalon, currencySymbol });
   }
 
+  function handleDownloadPurchaseOrder() {
+    if (!order) return;
+    generatePurchaseOrderPdf(order, { salon: currentSalon, currencySymbol });
+  }
+
   async function handleCancel() {
     if (!order) return;
     try {
@@ -228,6 +234,9 @@ const OrderDetailPage: React.FC = () => {
               Receive
             </Button>
           )}
+          <Button variant="outline-dark" iconLeft={<FileEarmarkPdf size={14} />} onClick={handleDownloadPurchaseOrder}>
+            Download PDF
+          </Button>
           {canDownloadBill && (
             <Button variant="outline-dark" iconLeft={<FileEarmarkPdf size={14} />} onClick={handleDownloadBill}>
               Download Bill PDF
