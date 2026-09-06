@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { useNavigate } from "react-router-dom";
 import { Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { STAFF_PERFORMANCE_REPORT } from "../../../services/api/endpoints";
@@ -10,6 +9,7 @@ import { Pagination, Avatar, JiraFilterMenu } from "../../../components/ui";
 import type { JiraFilterField } from "../../../components/ui";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { useCurrency } from "../../../hooks/useCurrency";
+import StaffHistoryModal from "../../staff/components/StaffHistoryModal";
 import "./StaffPerformanceReport.scss";
 
 const REPORT_NAME = "Staff Performance";
@@ -75,8 +75,8 @@ function mapRow(row: any): StaffPerformanceRow {
 }
 
 export default function StaffPerformanceReport({ onBack, category, categoryKey }: { onBack: () => void; category: string; categoryKey: string }) {
-  const navigate = useNavigate();
   const { currencySymbol, formatAmount } = useCurrency();
+  const [historyStaffId, setHistoryStaffId] = useState<string | null>(null);
   // No date-range control in the UI — always scoped to the current month.
   const today = new Date().toISOString().slice(0, 10);
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
@@ -310,7 +310,7 @@ export default function StaffPerformanceReport({ onBack, category, categoryKey }
                 key={r.staffId}
                 className="rp-ss-clickable-row"
                 title={`View ${r.staffName}'s history`}
-                onClick={() => navigate(`/dashboard/team/history/${r.staffId}`)}
+                onClick={() => setHistoryStaffId(r.staffId)}
               >
                 <td>
                   <div className="rp-sp-staff-cell">
@@ -338,6 +338,8 @@ export default function StaffPerformanceReport({ onBack, category, categoryKey }
 
       <Pagination currentPage={currentPage} pageSize={pageSize} totalItems={total}
         onPageChange={setCurrentPage} onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }} />
+
+      <StaffHistoryModal staffId={historyStaffId} onClose={() => setHistoryStaffId(null)} />
     </div>
   );
 }
