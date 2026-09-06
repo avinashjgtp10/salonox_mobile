@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { STAFF_PERFORMANCE_REPORT } from "../../../services/api/endpoints";
@@ -9,7 +10,6 @@ import { Pagination, Avatar, JiraFilterMenu } from "../../../components/ui";
 import type { JiraFilterField } from "../../../components/ui";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { useCurrency } from "../../../hooks/useCurrency";
-import StaffHistoryModal from "./StaffHistoryModal";
 import "./StaffPerformanceReport.scss";
 
 const REPORT_NAME = "Staff Performance";
@@ -75,6 +75,7 @@ function mapRow(row: any): StaffPerformanceRow {
 }
 
 export default function StaffPerformanceReport({ onBack, category, categoryKey }: { onBack: () => void; category: string; categoryKey: string }) {
+  const navigate = useNavigate();
   const { currencySymbol, formatAmount } = useCurrency();
   // No date-range control in the UI — always scoped to the current month.
   const today = new Date().toISOString().slice(0, 10);
@@ -109,7 +110,6 @@ export default function StaffPerformanceReport({ onBack, category, categoryKey }
   const [loading, setLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-  const [selectedStaff, setSelectedStaff] = useState<{ id: string; name: string } | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -309,8 +309,8 @@ export default function StaffPerformanceReport({ onBack, category, categoryKey }
               <tr
                 key={r.staffId}
                 className="rp-ss-clickable-row"
-                title={`View ${r.staffName}'s sales history`}
-                onClick={() => setSelectedStaff({ id: r.staffId, name: r.staffName })}
+                title={`View ${r.staffName}'s history`}
+                onClick={() => navigate(`/dashboard/team/history/${r.staffId}`)}
               >
                 <td>
                   <div className="rp-sp-staff-cell">
@@ -338,17 +338,6 @@ export default function StaffPerformanceReport({ onBack, category, categoryKey }
 
       <Pagination currentPage={currentPage} pageSize={pageSize} totalItems={total}
         onPageChange={setCurrentPage} onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }} />
-
-      {selectedStaff && (
-        <StaffHistoryModal
-          staffId={selectedStaff.id}
-          staffName={selectedStaff.name}
-          dateFrom={monthStart}
-          dateTo={today}
-          onClose={() => setSelectedStaff(null)}
-        />
-      )}
-
     </div>
   );
 }
