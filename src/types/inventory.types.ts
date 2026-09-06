@@ -314,6 +314,12 @@ export interface UpdateAuditItemPayload {
   reason?: string | null;
 }
 
+export interface SubmitAuditItemUpdate {
+  item_id: string;
+  physical_qty: number | null;
+  reason?: string | null;
+}
+
 export interface UsageHistoryRow {
   id: string;
   date: string;
