@@ -87,6 +87,17 @@ export default function VerifyEmailScreen() {
   );
 
   const navigateOnward = () => {
+    if (!user) {
+      // Reached from a blocked login attempt (no session yet) — send the
+      // user back to sign in now that their email is verified, instead of
+      // /dashboard, which the root auth guard would just bounce to /login.
+      router.replace({
+        pathname: "/login",
+        params: { successMessage: "Email verified. Please sign in to continue." },
+      } as Href);
+      return;
+    }
+
     // The root auth guard resolves the correct destination (owner dashboard
     // vs. staff home) based on the freshest user state, so we just leave the
     // public verify route.
@@ -185,11 +196,16 @@ export default function VerifyEmailScreen() {
       title="Verify Email"
       subtitle={`Enter the verification code sent to ${email || "your email"}.`}
       footer={
-        <RecoveryTextButton
-          disabled={isBusy}
-          label="I'll verify later"
-          onPress={navigateOnward}
-        />
+        // Skipping verification is only offered to an already-authenticated
+        // user completing a nudge; a blocked login attempt (no session yet)
+        // must not be able to bypass verification to sign in.
+        user ? (
+          <RecoveryTextButton
+            disabled={isBusy}
+            label="I'll verify later"
+            onPress={navigateOnward}
+          />
+        ) : undefined
       }
     >
       <RecoveryMessage message={successMessage} type="success" />
