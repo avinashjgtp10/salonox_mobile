@@ -558,6 +558,13 @@ export function mapApiBooking(
     discount: parseFloat(String(appt.discount_value ?? 0)) || 0,
     discountAmount: discountAmountVal,
     discountType: appt.discount_type === "flat" ? "Flat (₹)" : "Percentage (%)",
+    // Only ever lands on the linked sale (payment-time only, never copied back
+    // onto the appointment row itself) — see appointments.repository.ts's
+    // findById/listBySalonId, which now join it in. Without this, a coupon
+    // applied at checkout was invisible in Sales Summary and its ₹ reduction
+    // silently showed up as part of Round Off instead.
+    couponDiscount: parseFloat(String(appt.coupon_discount_amount ?? appt.couponDiscount ?? 0)) || 0,
+    couponCode: appt.coupon_code ?? appt.couponCode ?? undefined,
     // Left undefined (not defaulted to all four) when the column is NULL —
     // that's a bill from before the "Apply to" feature, and undefined is what
     // tells the engine to price it the legacy way it was actually charged.
