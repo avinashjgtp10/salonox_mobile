@@ -49,6 +49,8 @@ const fmtDateTime = (value?: string | null) => {
 
 const diffOf = (systemQty: number, physicalQty: number | null) => (physicalQty == null ? null : physicalQty - systemQty);
 
+const fmtQty = (value: number) => Math.round(value).toString();
+
 export default function ProductAuditDetailsModal({ auditId, onClose, onChanged }: Props) {
   const dispatch = useDispatch<AppDispatch>();
   const { showError, overlay } = useStatusOverlay();
@@ -343,7 +345,7 @@ export default function ProductAuditDetailsModal({ auditId, onClose, onChanged }
                             <span className="sub">{p.sku || "—"} · {p.category || "—"}</span>
                           </div>
                         </td>
-                        <td className="paudit-num">{p.system_qty}</td>
+                        <td className="paudit-num">{fmtQty(p.system_qty)}</td>
                         <td className="paudit-num">
                           {editable ? (
                             <input
@@ -358,7 +360,7 @@ export default function ProductAuditDetailsModal({ auditId, onClose, onChanged }
                               onWheel={(e) => e.currentTarget.blur()}
                             />
                           ) : (
-                            p.physical_qty ?? "—"
+                            p.physical_qty != null ? fmtQty(p.physical_qty) : "—"
                           )}
                         </td>
                         <td className="paudit-num">
@@ -366,7 +368,7 @@ export default function ProductAuditDetailsModal({ auditId, onClose, onChanged }
                             "—"
                           ) : (
                             <span className={d === 0 ? "paudit-diff-zero" : d > 0 ? "paudit-diff-over" : "paudit-diff-short"}>
-                              {d > 0 ? `+${d}` : d}
+                              {d > 0 ? `+${fmtQty(d)}` : fmtQty(d)}
                             </span>
                           )}
                         </td>
