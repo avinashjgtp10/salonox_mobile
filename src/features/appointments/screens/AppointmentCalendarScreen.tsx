@@ -1,4 +1,5 @@
 import { CalendarPreview } from "@/features/appointments/components/calendar/CalendarPreview";
+import { CalendarStaffGate } from "@/features/appointments/components/calendar/CalendarStaffGate";
 import { CalendarStatusFilter } from "@/features/appointments/components/calendar/CalendarStatusFilter";
 import { ScreenShell } from "@/features/appointments/components/shared/ScreenShell";
 import { useAllStaffMembers } from "@/features/appointments/hooks/useAllStaffMembers";
@@ -19,6 +20,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Modal, Pressable, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 export function AppointmentCalendarScreen() {
+  return <CalendarStaffGate><AppointmentCalendarContent /></CalendarStaffGate>;
+}
+
+function AppointmentCalendarContent() {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const appointments = useAppSelector(selectAppointments);
