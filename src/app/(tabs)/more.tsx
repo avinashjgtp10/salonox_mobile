@@ -85,6 +85,12 @@ const MENU_ITEMS = [
     title: "Appearance",
   },
   {
+    description: "Choose which push notifications this device receives.",
+    icon: "notifications-outline" as const,
+    route: "/notification-settings" as Href,
+    title: "Notifications",
+  },
+  {
     description: "Manage products, brands, pricing, and stock levels.",
     icon: "layers-outline" as const,
     route: "/stock" as Href,

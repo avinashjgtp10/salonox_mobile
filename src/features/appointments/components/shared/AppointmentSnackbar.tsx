@@ -6,12 +6,11 @@ import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useMemo } from "react";
 import { Text, TouchableOpacity } from "react-native";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { ToastOverlay } from "@/components/ui/ToastOverlay";
 
 export function AppointmentSnackbar() {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
-  const insets = useSafeAreaInsets();
   const dispatch = useAppDispatch();
   const toast = useAppSelector(selectAppointmentToast);
 
@@ -32,10 +31,11 @@ export function AppointmentSnackbar() {
   }
 
   return (
+    <ToastOverlay>
     <Animated.View
       entering={FadeIn.duration(180)}
       exiting={FadeOut.duration(160)}
-      style={[styles.snackbar, { bottom: Math.max(insets.bottom, 16) }, toast.tone === "error" && styles.snackbarError]}
+      style={[styles.snackbar, toast.tone === "error" && styles.snackbarError]}
     >
       <Ionicons
         name={toast.tone === "error" ? "alert-circle-outline" : "checkmark-circle-outline"}
@@ -47,5 +47,6 @@ export function AppointmentSnackbar() {
         <Ionicons name="close" size={16} color="#FFFFFF" />
       </TouchableOpacity>
     </Animated.View>
+    </ToastOverlay>
   );
 }

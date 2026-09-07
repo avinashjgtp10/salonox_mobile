@@ -7,12 +7,12 @@ import { useAppointmentListFilters, useFetchAppointments } from "@/features/appo
 import { createStyles } from "@/features/appointments/styles/appointmentStyles";
 import { todayIsoDate } from "@/features/appointments/utils/appointmentDateTime";
 import { buildCalendarStaffOptions, buildCanonicalStaffIdByAlias, buildFallbackStaffIdByName, resolveAppointmentStaffId, SYNTHETIC_STAFF_ID_PREFIX } from "@/features/appointments/utils/calendarStaff";
-import { appointmentStatusMatchesFilter } from "@/services/appointment.service";
+import { matchesCalendarStatuses } from "@/features/appointments/utils/calendarStatusFilters";
 import { selectAppointments, selectAppointmentsRefreshing } from "@/store/appointment/appointment.slice";
 import { useAppSelector } from "@/store/hooks";
 import { selectStaffMembers } from "@/store/staff/staff.slice";
 import { useThemeColors } from "@/theme/ThemeProvider";
-import type { AppointmentListItem } from "@/types/appointment";
+import type { AppointmentListItem, AppointmentStatus } from "@/types/appointment";
 import { formatAppDate } from "@/utils/dateTime";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
@@ -29,7 +29,11 @@ function AppointmentCalendarContent() {
   const appointments = useAppSelector(selectAppointments);
   const staffMembers = useAppSelector(selectStaffMembers);
   const refreshing = useAppSelector(selectAppointmentsRefreshing);
-  const { date, search, setDate, setSearch, setStatus, status } = useAppointmentListFilters();
+  const { date, search, setDate, setSearch } = useAppointmentListFilters();
+  const [selectedStatuses, setSelectedStatuses] = useState<AppointmentStatus[]>([]);
+  // The list API supports a single status. Fetch the unfiltered calendar data
+  // so local multi-select never loses appointments belonging to another status.
+  const status = "All" as const;
   const { fetchAppointments } = useFetchAppointments();
   useAllStaffMembers();
   // Selection is by staff id, so two staff sharing a name stay independently
@@ -63,15 +67,11 @@ function AppointmentCalendarContent() {
   const visibleAppointments = useMemo(
     () => appointments.filter((item) => {
       const matchesStaff = selectedStaffIds.length === 0 || selectedStaffIds.includes(resolveStaffId(item));
-      const matchesStatus = status === "All"
-        ? item.status !== "Unknown"
-        : status === "Deleted"
-          ? item.status === "Deleted"
-          : appointmentStatusMatchesFilter(item.status, status);
+      const matchesStatus = matchesCalendarStatuses(item.status, selectedStatuses);
 
       return matchesStaff && matchesStatus;
     }),
-    [appointments, resolveStaffId, selectedStaffIds, status],
+    [appointments, resolveStaffId, selectedStaffIds, selectedStatuses],
   );
   const selectedStaffLabel = selectedStaffIds.length === 0
     ? "All Staff"
@@ -136,7 +136,7 @@ function AppointmentCalendarContent() {
         {datePickerVisible ? <DateTimePicker mode="date" onChange={(event, selected) => { setDatePickerVisible(false); if (event.type !== "dismissed" && selected) setDate(`${selected.getFullYear()}-${String(selected.getMonth() + 1).padStart(2, "0")}-${String(selected.getDate()).padStart(2, "0")}`); }} value={new Date(`${date}T00:00:00`)} /> : null}
         <View style={styles.calendarFilterRow}>
           <TouchableOpacity onPress={() => setStaffFilterVisible(true)} style={[styles.dinggStylistSummary, styles.calendarStaffFilter]}><Text style={styles.dinggStylistLabel}>Staff:</Text><Text numberOfLines={1} style={styles.dinggStylistValue}>{selectedStaffLabel}</Text><Ionicons name="chevron-down" size={15} color={Colors.appointmentTextSecondary} /></TouchableOpacity>
-          <CalendarStatusFilter status={status} onSelect={setStatus} />
+          <CalendarStatusFilter statuses={selectedStatuses} onChange={setSelectedStatuses} />
         </View>
       </View>
       <CalendarPreview

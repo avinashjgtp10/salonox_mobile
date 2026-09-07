@@ -225,6 +225,13 @@ export function StaffSettingsScreen() {
         ),
       title: "Language & Formats",
     },
+    {
+      description: "Choose which push notifications this device receives.",
+      icon: "notifications-outline",
+      key: "notification-settings",
+      onPress: () => router.push("/notification-settings" as Href),
+      title: "Notifications",
+    },
   ];
   const securityItems: SettingsItem[] = [
     {
