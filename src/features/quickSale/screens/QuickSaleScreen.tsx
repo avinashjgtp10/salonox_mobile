@@ -1,3 +1,4 @@
+import { ToastOverlay } from "@/components/ui/ToastOverlay";
 import { Ionicons } from "@expo/vector-icons";
 import {
   router,
@@ -2324,12 +2325,14 @@ export default function QuickSaleScreen({
       </View>
 
       {undoNotice && !isGlobalSearchActive ? (
+        <ToastOverlay>
         <Animated.View entering={FadeIn.duration(140)} exiting={FadeOut.duration(120)} style={styles.undoToast}>
           <Text style={styles.undoToastText}>Item removed</Text>
           <TouchableOpacity onPress={handleUndoRemove}>
             <Text style={styles.undoToastAction}>Undo</Text>
           </TouchableOpacity>
         </Animated.View>
+        </ToastOverlay>
       ) : null}
 
       {!isOverlayActive ? (
@@ -3037,15 +3040,11 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     alignItems: "center",
     backgroundColor: Colors.primaryDark,
     borderRadius: Radius.full,
-    bottom: 96,
     flexDirection: "row",
     gap: Spacing.md,
     justifyContent: "space-between",
-    left: Spacing.lg,
     paddingHorizontal: Spacing.lg,
     paddingVertical: 12,
-    position: "absolute",
-    right: Spacing.lg,
     shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.22,

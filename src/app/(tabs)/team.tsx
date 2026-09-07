@@ -24,6 +24,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { PaginationControls } from "@/components/ui/PaginationControls";
 import { StaffCard } from "@/components/team/StaffCard";
+import { useStaffDailyMetrics } from "@/features/staff/hooks/useStaffDailyMetrics";
 import { SummaryCard } from "@/components/team/SummaryCard";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import { BottomTabInset, DashboardRadius as Radius, DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
@@ -210,7 +211,9 @@ export default function TeamScreen() {
   const searchInputRef = useRef<TextInput | null>(null);
   const currentUser = useAppSelector(selectCurrentUser);
   const canManageLifecycle = canManageStaffLifecycle(currentUser?.role);
-  const staffMembers = useAppSelector(selectStaffMembers);
+  const rawStaffMembers = useAppSelector(selectStaffMembers);
+  const dailyMetrics = useStaffDailyMetrics(rawStaffMembers);
+  const staffMembers = dailyMetrics.members;
   const staffError = useAppSelector(selectStaffError);
   const staffLoading = useAppSelector(selectStaffLoading);
   const staffLoadingMore = useAppSelector(selectStaffLoadingMore);
@@ -249,6 +252,7 @@ export default function TeamScreen() {
 
   const handleAddStaff = () => router.push("/team/new");
   const handleRefresh = () => {
+    void dailyMetrics.refresh();
     void dispatch(
       fetchStaffThunk({
         limit: staffQuery.limit,
@@ -439,6 +443,8 @@ export default function TeamScreen() {
 
   const renderItem: ListRenderItem<StaffMember> = ({ index, item }) => (
     <StaffCard
+      metricsReady={dailyMetrics.ready}
+      metricsError={dailyMetrics.error}
       index={index}
       onCall={handleCall}
       onMessage={handleMessage}

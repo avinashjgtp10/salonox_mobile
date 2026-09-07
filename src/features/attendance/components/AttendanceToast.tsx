@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useMemo } from "react";
 import { StyleSheet, Text, TouchableOpacity } from "react-native";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { ToastOverlay } from "@/components/ui/ToastOverlay";
 
 import { DashboardRadius as Radius, DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
 import { clearAttendanceToast, selectAttendanceToast } from "@/store/attendance/attendance.slice";
@@ -16,8 +16,7 @@ const TOAST_DURATION_MS = 3200;
 // same way regardless of which screen triggered the action.
 export function AttendanceToast() {
   const Colors = useThemeColors();
-  const insets = useSafeAreaInsets();
-  const styles = useMemo(() => createStyles(Colors, insets.bottom), [Colors, insets.bottom]);
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
   const toast = useAppSelector(selectAttendanceToast);
 
@@ -38,6 +37,7 @@ export function AttendanceToast() {
   }
 
   return (
+    <ToastOverlay>
     <Animated.View
       entering={FadeIn.duration(180)}
       exiting={FadeOut.duration(160)}
@@ -53,22 +53,19 @@ export function AttendanceToast() {
         <Ionicons name="close" size={16} color="#FFFFFF" />
       </TouchableOpacity>
     </Animated.View>
+    </ToastOverlay>
   );
 }
 
-const createStyles = (Colors: ThemeColors, bottomInset: number) => StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   snackbar: {
     alignItems: "center",
     backgroundColor: Colors.primaryDark,
     borderRadius: Radius.full,
-    bottom: Math.max(bottomInset, 16),
     flexDirection: "row",
     gap: Spacing.sm,
-    left: Spacing.lg,
     paddingHorizontal: Spacing.md,
     paddingVertical: 12,
-    position: "absolute",
-    right: Spacing.lg,
     zIndex: 20,
   },
   snackbarError: {

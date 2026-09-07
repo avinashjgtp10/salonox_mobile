@@ -28,6 +28,7 @@ import {
 } from "@/constants/theme";
 import { AttendanceToast } from "@/features/attendance/components/AttendanceToast";
 import { useAppForeground } from "@/hooks/useAppForeground";
+import { useLocalDay } from "@/hooks/useLocalDay";
 import {
   fetchAttendanceOverviewThunk,
   hydrateAttendanceFromCacheThunk,
@@ -43,8 +44,6 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { realtimeSocket } from "@/services/realtimeSocket";
 import {
   selectDashboardError,
-  selectDashboardIsLoading,
-  selectDashboardIsStale,
   selectDashboardRefreshing,
   selectDashboardStatus,
 } from "@/store/dashboard/dashboard.slice";
@@ -70,10 +69,10 @@ export default function DashboardScreen() {
   const [isQuickActionsDrawerOpen, setIsQuickActionsDrawerOpen] = useState(false);
   const [isNotificationsModalOpen, setIsNotificationsModalOpen] = useState(false);
   const dashboardError = useAppSelector(selectDashboardError);
-  const isDashboardLoading = useAppSelector(selectDashboardIsLoading);
   const isDashboardRefreshing = useAppSelector(selectDashboardRefreshing);
-  const isDashboardStale = useAppSelector(selectDashboardIsStale);
   const dashboardStatus = useAppSelector(selectDashboardStatus);
+  const today = useLocalDay();
+  const previousDay = useRef(today);
   const showErrorState = dashboardStatus === "failed";
 
   const fetchDashboard = useCallback(async () => {
@@ -99,6 +98,13 @@ export default function DashboardScreen() {
 
     void dispatch(fetchUnreadCountThunk());
   }, [dispatch, isAuthenticated]);
+
+  useEffect(() => {
+    if (previousDay.current === today) return;
+    previousDay.current = today;
+    void fetchDashboard();
+    fetchAttendance();
+  }, [today, fetchDashboard, fetchAttendance]);
 
   const fetchInventoryStock = useCallback(() => {
     if (!isAuthenticated) {
@@ -196,19 +202,14 @@ export default function DashboardScreen() {
       // on the Notifications screen (or the Web App) since we last focused.
       fetchUnreadNotificationCount();
 
-      if (dashboardStatus !== "idle" && isDashboardStale && !isDashboardLoading) {
-        void fetchDashboard();
-      }
+      void fetchDashboard();
     }, [
-      dashboardStatus,
       fetchAttendance,
       fetchDashboard,
       fetchInventoryStock,
       fetchUnreadNotificationCount,
       fetchUpcomingAppointments,
       isAuthenticated,
-      isDashboardLoading,
-      isDashboardStale,
     ]),
   );
 
@@ -220,6 +221,7 @@ export default function DashboardScreen() {
       return;
     }
 
+    void fetchDashboard();
     fetchAttendance();
     fetchInventoryStock();
     fetchUnreadNotificationCount();

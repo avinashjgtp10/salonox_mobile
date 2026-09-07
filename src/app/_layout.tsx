@@ -354,6 +354,7 @@ function AppShell() {
               <Stack.Screen name="change-password" />
               <Stack.Screen name="salon-settings" />
               <Stack.Screen name="appearance" />
+              <Stack.Screen name="notification-settings" />
               <Stack.Screen name="privacy-policy" />
               <Stack.Screen name="(tabs)" />
               <Stack.Screen name="(staff)" />

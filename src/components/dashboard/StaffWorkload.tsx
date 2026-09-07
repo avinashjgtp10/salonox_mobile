@@ -12,28 +12,16 @@ import { findAttendanceRecordForStaff } from "@/features/attendance/utils/attend
 import {
   formatAttendanceTime,
   getAttendanceBadgeConfig,
-  getTodayAttendanceDateKey,
 } from "@/features/attendance/utils/attendanceStatus";
 import { selectAttendanceDate, selectAttendanceRecords } from "@/store/attendance/attendance.slice";
-import { selectDashboardAppointments } from "@/store/dashboard/dashboard.slice";
+import { selectDashboardAppointments, selectDashboardRequestedDate } from "@/store/dashboard/dashboard.slice";
+import { useLocalDay } from "@/hooks/useLocalDay";
+import { countStaffDailyAppointments } from "@/utils/staffDailyAppointments";
 import { useAppSelector } from "@/store/hooks";
 import { selectStaffLoading, selectStaffMembers } from "@/store/staff/staff.slice";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { StaffMember } from "@/data/teamData";
 import type { AttendanceRecord } from "@/types/attendance";
-
-const isStaffMatch = (staffName: string, appointmentStaffName: string) => {
-  const sName = staffName.trim().toLowerCase();
-  const aName = appointmentStaffName.trim().toLowerCase();
-  if (sName === aName) return true;
-  if (sName.includes(aName) || aName.includes(sName)) return true;
-  const sFirst = sName.split(/\s+/)[0];
-  const aFirst = aName.split(/\s+/)[0];
-  if (sFirst && aFirst && sFirst === aFirst) return true;
-  return false;
-};
-
-const ACTIVE_WORKLOAD_STATUSES = new Set(["in-progress", "upcoming"]);
 
 type AttendancePresentation = {
   bg: string;
@@ -109,7 +97,9 @@ export default function StaffWorkload() {
   const appointments = useAppSelector(selectDashboardAppointments);
   const isLoadingStaff = useAppSelector(selectStaffLoading);
   const attendanceRecords = useAppSelector(selectAttendanceRecords);
-  const attendanceDate = useAppSelector(selectAttendanceDate) || getTodayAttendanceDateKey();
+  const attendanceDate = useLocalDay();
+  const recordsDate = useAppSelector(selectAttendanceDate);
+  const requestedDate = useAppSelector(selectDashboardRequestedDate);
 
   const staffMembers = rawStaffMembers.filter((member) => member.status !== "Inactive");
 
@@ -141,15 +131,11 @@ export default function StaffWorkload() {
       ) : (
         <View style={styles.memberList}>
           {staffMembers.map((member) => {
-            const staffAppointments = appointments.filter(
-              (app) =>
-                ACTIVE_WORKLOAD_STATUSES.has(app.status) && isStaffMatch(member.name, app.staffName),
-            );
-            const attendanceRecord = findAttendanceRecordForStaff(attendanceRecords, member) ?? null;
+            const attendanceRecord = recordsDate === attendanceDate
+              ? findAttendanceRecordForStaff(attendanceRecords, member) ?? null : null;
             const isOnLeave = attendanceRecord?.statusKey === "onLeave";
             const totalSlots = 8;
-            const jobs = isOnLeave ? 0 : staffAppointments.length;
-            const slotsLeft = isOnLeave ? 0 : Math.max(0, totalSlots - jobs);
+            const jobs = countStaffDailyAppointments(member, rawStaffMembers, appointments, requestedDate, attendanceDate);
             const pct = isOnLeave ? 0 : Math.min(100, Math.round((jobs / totalSlots) * 100));
             const attendance = getAttendancePresentation(attendanceRecord, Colors);
             const availability = getAvailabilityPresentation(member, jobs, Colors);
@@ -198,7 +184,7 @@ export default function StaffWorkload() {
                   </View>
 
                   <Text style={styles.memberMeta}>
-                    {jobs} Job{jobs === 1 ? "" : "s"} Today • {slotsLeft} Slots Left
+                    Today&apos;s Appointments: {jobs}
                   </Text>
 
                   <View style={styles.progressTrack}>
