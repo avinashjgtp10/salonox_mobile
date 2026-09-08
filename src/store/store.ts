@@ -9,6 +9,7 @@ import salonReducer from "./salonSlice";
 import clientReducer from "./clientSlice";
 import userReducer from "./userSlice";
 import staffReducer from "./staffSlice";
+import rolesReducer from "./rolesSlice";
 import catalogReducer from "./catalogSlice";
 import settingReducer from "./settingSlice";
 import appReducer from "./appSlice";
@@ -82,6 +83,7 @@ export const store = configureStore({
     client: clientReducer,
     user: userReducer,
     staff: staffReducer,
+    roles: rolesReducer,
     catalog: catalogReducer,
     setting: settingReducer,
     app: appReducer,

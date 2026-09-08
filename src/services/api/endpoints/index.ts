@@ -4,6 +4,7 @@ export * from "./user.endpoints";
 export * from "./salon.endpoints";
 export * from "./client.endpoints";
 export * from "./staff.endpoints";
+export * from "./roles.endpoints";
 export * from "./commissionRules.endpoints";
 export * from "./sale.endpoints";
 export * from "./catalog.endpoints";

@@ -1,11 +1,52 @@
 import { useAppSelector } from "./useAppRedux";
-import { defaultPermissions } from "../features/settings/data/permissionMatrix";
 
 type PermMatrix = Record<string, { owner: boolean; staff: boolean }>;
 
-const defaultPermsMap: PermMatrix = Object.fromEntries(
-  defaultPermissions.map((p) => [p.key, { owner: p.owner, staff: p.staff }])
-);
+// Last-resort fallback, used only when a salon has no role_permissions
+// setting saved yet — mirrors permission.middleware.ts's own
+// DEFAULT_STAFF_PERMS on the backend (which is deliberately kept as a
+// hardcoded constant there too, not moved into the DB-backed permissions
+// catalog — the catalog is the list of *what permissions exist*, not each
+// role's default grant, which now lives in the roles/role_permissions
+// tables per salon). Keep the two in sync when adding a new
+// requirePermission() key on the backend.
+const defaultPermsMap: PermMatrix = {
+  view_campaigns: { owner: true, staff: false },
+  create_campaigns: { owner: true, staff: false },
+  design_coupons: { owner: true, staff: false },
+  view_calendar: { owner: true, staff: true },
+  manage_calendar: { owner: true, staff: false },
+  view_clients: { owner: true, staff: true },
+  create_clients: { owner: true, staff: true },
+  edit_clients: { owner: true, staff: true },
+  delete_clients: { owner: true, staff: false },
+  view_sales: { owner: true, staff: true },
+  create_sales: { owner: true, staff: true },
+  view_services: { owner: true, staff: true },
+  create_services: { owner: true, staff: false },
+  edit_services: { owner: true, staff: false },
+  view_products: { owner: true, staff: true },
+  create_products: { owner: true, staff: false },
+  view_packages: { owner: true, staff: true },
+  create_packages: { owner: true, staff: false },
+  view_memberships: { owner: true, staff: true },
+  create_memberships: { owner: true, staff: false },
+  view_inventory: { owner: true, staff: true },
+  manage_inventory: { owner: true, staff: false },
+  stock_adjustment: { owner: true, staff: false },
+  view_booking: { owner: true, staff: true },
+  manage_booking: { owner: true, staff: false },
+  view_team: { owner: true, staff: true },
+  add_team_member: { owner: true, staff: false },
+  edit_team_member: { owner: true, staff: false },
+  manage_shifts: { owner: true, staff: false },
+  view_payroll: { owner: true, staff: false },
+  view_reports: { owner: true, staff: false },
+  export_reports: { owner: true, staff: false },
+  general_settings: { owner: true, staff: false },
+  manage_pos_payments: { owner: true, staff: false },
+  view_enquiries: { owner: true, staff: true },
+};
 
 const DEV = import.meta.env.DEV;
 
