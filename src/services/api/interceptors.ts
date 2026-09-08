@@ -136,6 +136,25 @@ function scheduleProactiveRefresh() {
 // ─── Subscription error code sent by the backend ─────────────────────────────
 const SUBSCRIPTION_REQUIRED_CODE = "SUBSCRIPTION_REQUIRED";
 
+// ─── Permission-denial 403s ────────────────────────────────────────────────
+// Exact prefix requirePermission()/requireAnyPermission() (and the couple of
+// controller-level checks that mirror them, e.g. settings.controller.ts's
+// integrations_config gate) always build their message with — matching on
+// this instead of the "FORBIDDEN" code, since that code is also reused by
+// unrelated 403s (invalid booking/feedback links, cross-salon ownership
+// checks) that shouldn't pop this dialog.
+const PERMISSION_DENIED_PREFIX = "You do not have permission to perform this action";
+
+// Turns "You do not have permission to perform this action (view_clients)"
+// into the same friendly copy PermissionGuard already shows for a
+// route-level denial, so a denial hit via a direct API call (a button whose
+// action wasn't itself pre-gated) reads identically everywhere in the app.
+function toFriendlyPermissionMessage(message: string): string {
+  const match = message.match(/\(([^)]+)\)\s*$/);
+  if (!match) return message;
+  return `Your account does not have the "${match[1]}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`;
+}
+
 // Endpoints whose controllers derive salon_id exclusively from the JWT
 // (getSalonId(req) → req.user.salonId) and never read a salon_id query
 // param — sending it there is pure dead weight on every request URL.
@@ -285,6 +304,19 @@ export const applyInterceptors = (instance: AxiosInstance) => {
           });
         }
         return Promise.reject(new ApiError(403, message, undefined, errorCode));
+      }
+
+      // ── 403 permission denial: show the generic "Access Denied" popup ────
+      // Additive, not a replacement — still rejects below as before, so any
+      // component with its own catch/toast for this keeps working; this just
+      // guarantees a consistent popup shows everywhere too, including the
+      // many call sites that never had their own handling for it at all.
+      if (status === 403 && typeof message === "string" && message.startsWith(PERMISSION_DENIED_PREFIX)) {
+        if (storeRef) {
+          import("../../store/permissionDialogSlice").then(({ showPermissionDenied }) => {
+            storeRef.dispatch(showPermissionDenied(toFriendlyPermissionMessage(message)));
+          });
+        }
       }
 
       // ── No response (network error) ────────────────────────────────────────

@@ -53,6 +53,11 @@ const DEV = import.meta.env.DEV;
 const VIRTUAL_PERMS: Record<string, string[]> = {
   view_catalog: ["view_services", "view_products", "view_packages", "view_memberships", "view_inventory"],
   edit_catalog: ["create_services", "edit_services", "create_products", "create_packages", "create_memberships", "manage_inventory", "stock_adjustment"],
+  // The Commissions page (/dashboard/team/commissions) shows both a
+  // Commissions tab and a Tips tab in one screen — either permission is
+  // enough to open the page; the individual tabs/actions still check their
+  // own specific key.
+  view_team_commissions: ["view_commissions", "view_tips"],
 };
 
 function resolveKeys(permKey: string): string[] {
