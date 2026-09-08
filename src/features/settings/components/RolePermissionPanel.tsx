@@ -1,15 +1,20 @@
-import { useState, useMemo } from "react";
-import { X, Loader2, Search } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
+import { X, Loader2, Search, ChevronDown } from "lucide-react";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
-import { createRoleThunk, updateRoleThunk } from "../../../middleware/roles/roles.thunk";
-import type { RoleWithPermissions } from "../../../types/roles.types";
+import {
+  fetchRolesThunk,
+  fetchRoleByIdThunk,
+  createRoleThunk,
+  updateRoleThunk,
+} from "../../../middleware/roles/roles.thunk";
 
 interface Props {
-  /** undefined = creating a new role */
-  role?: RoleWithPermissions;
+  /** Fixed tier name — "Manager" or "Staff". There's exactly one role per
+   * tier; if it doesn't exist yet (backfill hasn't run), it's created on
+   * first save so this panel never hard-depends on the migration script. */
+  roleName: "Manager" | "Staff";
   onClose: () => void;
-  onSaved: () => void;
 }
 
 const riskBadgeClass: Record<string, string> = {
@@ -19,16 +24,49 @@ const riskBadgeClass: Record<string, string> = {
   critical: "s-badge-danger",
 };
 
-export default function RoleEditor({ role, onClose, onSaved }: Props) {
+export default function RolePermissionPanel({ roleName, onClose }: Props) {
   const dispatch = useAppDispatch();
   const { showSuccess, showError, overlay } = useStatusOverlay();
   const catalog = useAppSelector((s) => s.roles.permissions);
+  const roles = useAppSelector((s) => s.roles.roles);
 
-  const [name, setName] = useState(role?.name ?? "");
-  const [description, setDescription] = useState(role?.description ?? "");
-  const [perms, setPerms] = useState<Record<string, boolean>>(role?.permissions ?? {});
+  const existingRole = roles.find((r) => r.name === roleName);
+
+  const [loading, setLoading] = useState(true);
+  const [roleId, setRoleId] = useState<string | null>(null);
+  const [perms, setPerms] = useState<Record<string, boolean>>({});
   const [search, setSearch] = useState("");
   const [saving, setSaving] = useState(false);
+  // Sections start expanded; collapsing one adds its module name here.
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const toggleCollapsed = (module: string) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(module)) next.delete(module); else next.add(module);
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    (async () => {
+      if (existingRole) {
+        const result = await dispatch(fetchRoleByIdThunk(existingRole.id));
+        if (!cancelled && fetchRoleByIdThunk.fulfilled.match(result)) {
+          setRoleId(result.payload.id);
+          setPerms(result.payload.permissions);
+        }
+      } else {
+        // No role row yet for this tier — start blank; created on first save.
+        setRoleId(null);
+        setPerms({});
+      }
+      if (!cancelled) setLoading(false);
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roleName, existingRole?.id]);
 
   const modules = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -45,8 +83,6 @@ export default function RoleEditor({ role, onClose, onSaved }: Props) {
     setPerms((prev) => {
       const next = !prev[key];
       const updated = { ...prev, [key]: next };
-      // Dependency auto-enable: turning a permission on also turns on
-      // whatever it depends_on (e.g. Edit Clients -> View Clients).
       if (next) {
         const meta = catalog.find((p) => p.key === key);
         for (const dep of meta?.depends_on ?? []) updated[dep] = true;
@@ -67,22 +103,18 @@ export default function RoleEditor({ role, onClose, onSaved }: Props) {
   };
 
   const handleSave = async () => {
-    if (!name.trim()) {
-      showError("Role name is required");
-      return;
-    }
     setSaving(true);
-    const result = role
-      ? await dispatch(updateRoleThunk({ id: role.id, name: name.trim(), description, permissions: perms }))
-      : await dispatch(createRoleThunk({ name: name.trim(), description, permissions: perms }));
+    const result = roleId
+      ? await dispatch(updateRoleThunk({ id: roleId, permissions: perms }))
+      : await dispatch(createRoleThunk({ name: roleName, description: `Default permissions for the ${roleName} tier`, permissions: perms }));
     setSaving(false);
-    const ok = role ? updateRoleThunk.fulfilled.match(result) : createRoleThunk.fulfilled.match(result);
+    const ok = roleId ? updateRoleThunk.fulfilled.match(result) : createRoleThunk.fulfilled.match(result);
     if (ok) {
-      showSuccess(role ? "Role updated" : "Role created");
-      onSaved();
+      showSuccess(`${roleName} permissions saved`);
+      dispatch(fetchRolesThunk());
+      onClose();
     } else {
-      const message = (result as any)?.payload ?? `Failed to ${role ? "update" : "create"} role`;
-      showError(message);
+      showError(`Failed to save ${roleName} permissions`);
     }
   };
 
@@ -91,12 +123,12 @@ export default function RoleEditor({ role, onClose, onSaved }: Props) {
   return (
     <div className="spm-overlay" onClick={(e) => e.target === e.currentTarget && !saving && onClose()}>
       {overlay}
-      <div className="spm-panel" style={{ maxWidth: 680 }}>
+      <div className="spm-panel" style={{ maxWidth: 620 }}>
         <div className="spm-header">
           <div className="spm-header-info">
             <div>
-              <p className="spm-name">{role ? "Edit Role" : "Create Role"}</p>
-              {role && <p className="spm-email">{role.staff_count} staff member{role.staff_count === 1 ? "" : "s"} assigned</p>}
+              <p className="spm-name">{roleName} Permissions</p>
+              <p className="spm-email">{grantedCount} permission{grantedCount === 1 ? "" : "s"} granted</p>
             </div>
           </div>
           <button className="spm-close-btn" onClick={onClose} aria-label="Close" disabled={saving}>
@@ -104,26 +136,7 @@ export default function RoleEditor({ role, onClose, onSaved }: Props) {
           </button>
         </div>
 
-        <div style={{ padding: "12px 20px", display: "flex", flexDirection: "column", gap: 10 }}>
-          <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: "#374151" }}>Role name</label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Senior Stylist"
-              style={{ width: "100%", padding: "6px 10px", border: "1px solid #e5e7eb", borderRadius: 6, fontSize: 13, marginTop: 4 }}
-            />
-          </div>
-          <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: "#374151" }}>Description (optional)</label>
-            <input
-              type="text"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              style={{ width: "100%", padding: "6px 10px", border: "1px solid #e5e7eb", borderRadius: 6, fontSize: 13, marginTop: 4 }}
-            />
-          </div>
+        <div style={{ padding: "10px 20px 0" }}>
           <div style={{ position: "relative" }}>
             <Search size={14} style={{ position: "absolute", left: 8, top: 8, color: "#9ca3af" }} />
             <input
@@ -134,23 +147,32 @@ export default function RoleEditor({ role, onClose, onSaved }: Props) {
               style={{ width: "100%", padding: "6px 8px 6px 28px", border: "1px solid #e5e7eb", borderRadius: 6, fontSize: 13 }}
             />
           </div>
-          <p style={{ fontSize: 12, color: "#6b7280" }}>{grantedCount} permission{grantedCount === 1 ? "" : "s"} granted</p>
         </div>
 
         <div className="spm-body">
-          {modules.length === 0 ? (
+          {loading ? (
+            <p style={{ fontSize: 13, color: "#6b7280", padding: 20 }}>Loading…</p>
+          ) : modules.length === 0 ? (
             <p style={{ fontSize: 13, color: "#6b7280", padding: 20 }}>No permissions match your search.</p>
           ) : (
-            modules.map(([moduleName, modulePerms]) => (
+            modules.map(([moduleName, modulePerms]) => {
+              const isOpen = !collapsed.has(moduleName);
+              return (
               <div key={moduleName} className="spm-category">
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <p className="spm-cat-label" style={{ margin: 0 }}>{moduleName}</p>
+                  <button
+                    onClick={() => toggleCollapsed(moduleName)}
+                    style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", padding: 0, cursor: "pointer" }}
+                  >
+                    <ChevronDown size={14} style={{ transform: isOpen ? "rotate(0deg)" : "rotate(-90deg)", transition: "transform 0.15s", color: "#9ca3af", flexShrink: 0 }} />
+                    <p className="spm-cat-label" style={{ margin: 0 }}>{moduleName} <span style={{ fontWeight: 400, color: "#9ca3af" }}>({modulePerms.length})</span></p>
+                  </button>
                   <div style={{ display: "flex", gap: 8 }}>
                     <button className="spm-reset-link" style={{ fontSize: 11 }} onClick={() => setAllInModule(modulePerms, true)}>All on</button>
                     <button className="spm-reset-link" style={{ fontSize: 11 }} onClick={() => setAllInModule(modulePerms, false)}>All off</button>
                   </div>
                 </div>
-                {modulePerms.map((perm) => (
+                {isOpen && modulePerms.map((perm) => (
                   <div key={perm.key} className="spm-perm-row">
                     <div className="spm-perm-info">
                       <p className="spm-perm-name">
@@ -170,14 +192,15 @@ export default function RoleEditor({ role, onClose, onSaved }: Props) {
                   </div>
                 ))}
               </div>
-            ))
+              );
+            })
           )}
         </div>
 
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, padding: "12px 20px", borderTop: "1px solid #f3f4f6" }}>
           <button className="btn btn-outline-secondary btn-sm" onClick={onClose} disabled={saving}>Cancel</button>
-          <button className="btn btn-primary btn-sm" onClick={handleSave} disabled={saving}>
-            {saving ? <Loader2 size={13} className="perm-spin" /> : role ? "Save changes" : "Create role"}
+          <button className="btn btn-primary btn-sm" onClick={handleSave} disabled={saving || loading}>
+            {saving ? <Loader2 size={13} className="perm-spin" /> : "Save changes"}
           </button>
         </div>
       </div>

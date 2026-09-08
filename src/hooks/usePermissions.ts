@@ -2,14 +2,11 @@ import { useAppSelector } from "./useAppRedux";
 
 type PermMatrix = Record<string, { owner: boolean; staff: boolean }>;
 
-// Last-resort fallback, used only when a salon has no role_permissions
-// setting saved yet — mirrors permission.middleware.ts's own
-// DEFAULT_STAFF_PERMS on the backend (which is deliberately kept as a
-// hardcoded constant there too, not moved into the DB-backed permissions
-// catalog — the catalog is the list of *what permissions exist*, not each
-// role's default grant, which now lives in the roles/role_permissions
-// tables per salon). Keep the two in sync when adding a new
-// requirePermission() key on the backend.
+// Last-resort fallback, used only before /users/me's effective_permissions
+// has loaded for the first time (e.g. the instant after login, or a page
+// reload before fetchMeThunk resolves) — mirrors permission.middleware.ts's
+// own DEFAULT_STAFF_PERMS. This is NOT the source of truth once real data is
+// available; see the main resolution below.
 const defaultPermsMap: PermMatrix = {
   view_campaigns: { owner: true, staff: false },
   create_campaigns: { owner: true, staff: false },
@@ -64,61 +61,39 @@ function resolveKeys(permKey: string): string[] {
 
 export function usePermissions() {
   const role = useAppSelector((s) => s.auth.role);
-  // Fresh data — set every time DashboardLayout mounts via fetchMeThunk
-  const profileCustomPerms = useAppSelector((s) => s.user.profile?.custom_permissions ?? null);
-  // Persisted fallback — restored from localStorage on page reload before fetchMeThunk completes
-  const authCustomPerms = useAppSelector((s) => s.auth.custom_permissions);
-  const settingItems = useAppSelector((s) => s.setting.items);
+  // The real source of truth — computed server-side by
+  // getEffectivePermissionsForUser() using the exact same resolution the
+  // backend uses to enforce every request (staff_permission_overrides ->
+  // role_permissions -> legacy fallback). Refreshed every time /users/me is
+  // called (DashboardLayout mount, and after any permission-editing action).
+  const effectivePermissions = useAppSelector((s) => s.user.profile?.effective_permissions ?? null);
 
   if (role === "salon_owner" || role === "admin") {
     return { can: (_key: string) => true, role };
   }
 
-  // Prefer fresh profile data; fall back to persisted auth value on first render after reload
-  const customPermissions = profileCustomPerms ?? authCustomPerms;
-
-  // Per-staff custom permissions take priority over role-level defaults
-  if (role === "staff" && customPermissions != null) {
-    if (DEV) {
-      console.log("[Permissions] Source: CUSTOM (per-staff override)", customPermissions);
-    }
+  if (role === "staff" && effectivePermissions != null) {
+    if (DEV) console.log("[Permissions] Source: effective_permissions (backend-resolved)", effectivePermissions);
     return {
       can: (permKey: string) => {
-        const result = resolveKeys(permKey).some((k) => customPermissions[k] ?? false);
-        if (DEV) {
-          console.log(`[Permissions] can("${permKey}") → ${result} [custom]`);
-        }
+        const result = resolveKeys(permKey).some((k) => effectivePermissions[k] ?? false);
+        if (DEV) console.log(`[Permissions] can("${permKey}") -> ${result}`);
         return result;
       },
       role,
     };
   }
 
-  // Fall back to global role_permissions setting, then to built-in defaults
-  let perms: PermMatrix = defaultPermsMap;
-  const permSetting = settingItems.find((s) => s.key === "role_permissions");
-  if (permSetting) {
-    try {
-      const raw = permSetting.value;
-      perms = typeof raw === "string" ? JSON.parse(raw) : (raw as PermMatrix);
-      if (DEV) console.log("[Permissions] Source: role_permissions setting", perms);
-    } catch {
-      if (DEV) console.warn("[Permissions] role_permissions setting is malformed JSON — using built-in defaults");
-    }
-  } else if (DEV) {
-    console.log("[Permissions] Source: built-in defaultPermissions (no role_permissions setting found)");
-  }
-
-  if (DEV && role === "staff" && customPermissions == null) {
-    console.warn("[Permissions] custom_permissions is NULL for staff — using role defaults. Check if /users/me returns custom_permissions.");
+  // effective_permissions hasn't loaded yet (first render after login/reload,
+  // before fetchMeThunk resolves) — use the static fallback so the UI doesn't
+  // flash "no access" everywhere, then re-render with real data a moment later.
+  if (DEV && role === "staff") {
+    console.warn("[Permissions] effective_permissions not loaded yet — using static fallback until /users/me resolves.");
   }
 
   const can = (permKey: string): boolean => {
-    if (role === "salon_owner" || role === "admin") return true;
     if (role === "staff") {
-      const result = resolveKeys(permKey).some((k) => perms[k]?.staff ?? false);
-      if (DEV) console.log(`[Permissions] can("${permKey}") → ${result} [role default]`);
-      return result;
+      return resolveKeys(permKey).some((k) => defaultPermsMap[k]?.staff ?? false);
     }
     return false;
   };

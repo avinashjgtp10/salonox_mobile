@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { X, Loader2, RotateCcw, Search } from "lucide-react";
+import { X, Loader2, RotateCcw, Search, ChevronDown } from "lucide-react";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import {
@@ -17,8 +17,7 @@ interface Props {
 }
 
 // Sparse pending-changes map: key -> next override value (null clears it).
-// Nothing here is sent to the backend until "Save changes" is clicked —
-// this is the batch-save pattern the old per-toggle-autosave modal lacked.
+// Nothing here is sent to the backend until "Save changes" is clicked.
 type PendingOverrides = Record<string, boolean | null>;
 
 const riskBadgeClass: Record<string, string> = {
@@ -46,6 +45,15 @@ export default function StaffPermissionEditor({ staffId, staffName, onClose }: P
   const [changingRole, setChangingRole] = useState(false);
   const [search, setSearch] = useState("");
   const [confirmResetAll, setConfirmResetAll] = useState(false);
+  // Sections start expanded; collapsing one adds its module name here.
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const toggleCollapsed = (module: string) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(module)) next.delete(module); else next.add(module);
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (!catalogLoaded) dispatch(fetchPermissionsCatalogThunk());
@@ -68,16 +76,14 @@ export default function StaffPermissionEditor({ staffId, staffName, onClose }: P
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [staffId]);
 
-  const catalogByKey = useMemo(() => {
-    const map = new Map(catalog.map((p) => [p.key, p]));
-    return map;
-  }, [catalog]);
+  const catalogByKey = useMemo(() => new Map(catalog.map((p) => [p.key, p])), [catalog]);
 
-  // Group by module/group_name, in catalog order, filtered by search.
+  // Group by module, in catalog order, filtered by search. Each row's
+  // "effective" toggle state already folds in any pending (unsaved) change.
   const groups = useMemo(() => {
     if (!view) return [];
     const q = search.trim().toLowerCase();
-    const out: { module: string; rows: { key: string; roleDefault: boolean; override: boolean | null; effective: boolean; name: string; desc: string | null; risk: string }[] }[] = [];
+    const out: { module: string; rows: { key: string; effective: boolean; isCustom: boolean; name: string; desc: string | null; risk: string }[] }[] = [];
     const byModule = new Map<string, typeof out[number]["rows"]>();
     for (const perm of view.permissions) {
       const meta = catalogByKey.get(perm.key);
@@ -85,9 +91,9 @@ export default function StaffPermissionEditor({ staffId, staffName, onClose }: P
       const desc = meta?.description ?? null;
       if (q && !name.toLowerCase().includes(q) && !perm.key.toLowerCase().includes(q)) continue;
       const module = meta?.module ?? "Other";
-      const effectiveOverride = perm.key in pending ? pending[perm.key] : perm.override;
-      const effective = effectiveOverride !== null ? effectiveOverride : perm.roleDefault;
-      const row = { key: perm.key, roleDefault: perm.roleDefault, override: effectiveOverride, effective, name, desc, risk: meta?.risk_level ?? "low" };
+      const currentOverride = perm.key in pending ? pending[perm.key] : perm.override;
+      const effective = currentOverride !== null ? currentOverride : perm.roleDefault;
+      const row = { key: perm.key, effective, isCustom: currentOverride !== null, name, desc, risk: meta?.risk_level ?? "low" };
       if (!byModule.has(module)) { byModule.set(module, []); out.push({ module, rows: byModule.get(module)! }); }
       byModule.get(module)!.push(row);
     }
@@ -96,13 +102,12 @@ export default function StaffPermissionEditor({ staffId, staffName, onClose }: P
 
   const hasPendingChanges = Object.keys(pending).length > 0;
 
-  const toggleOverride = (key: string, currentOverride: boolean | null) => {
-    // Cycle: no override -> ON -> OFF -> no override (clears back to role default)
-    let next: boolean | null;
-    if (currentOverride === null) next = true;
-    else if (currentOverride === true) next = false;
-    else next = null;
-    setPending((prev) => ({ ...prev, [key]: next }));
+  // One toggle per permission. Flipping it always sets an explicit override
+  // to the new effective value — no separate "role vs override" state to
+  // reason about while editing. "Reset this one" (below) is the only way
+  // back to inheriting the role default for that specific permission.
+  const toggleEffective = (key: string, currentEffective: boolean) => {
+    setPending((prev) => ({ ...prev, [key]: !currentEffective }));
   };
 
   const clearOneOverride = (key: string) => {
@@ -117,9 +122,9 @@ export default function StaffPermissionEditor({ staffId, staffName, onClose }: P
     if (setStaffOverridesThunk.fulfilled.match(result)) {
       setView(result.payload);
       setPending({});
-      showSuccess("Permission overrides saved");
+      showSuccess("Permissions saved");
     } else {
-      showError("Failed to save permission overrides");
+      showError("Failed to save permissions");
     }
   };
 
@@ -153,12 +158,12 @@ export default function StaffPermissionEditor({ staffId, staffName, onClose }: P
     }
   };
 
-  const activeOverrideCount = view ? view.permissions.filter((p) => (p.key in pending ? pending[p.key] : p.override) !== null).length : 0;
+  const activeOverrideCount = view ? view.permissions.filter((p) => (p.key in pending ? pending[p.key] !== null : p.override !== null)).length : 0;
 
   return (
     <div className="spm-overlay" onClick={(e) => e.target === e.currentTarget && !saving && onClose()}>
       {overlay}
-      <div className="spm-panel" style={{ maxWidth: 720 }}>
+      <div className="spm-panel" style={{ maxWidth: 620 }}>
         {/* Header */}
         <div className="spm-header">
           <div className="spm-header-info">
@@ -190,14 +195,10 @@ export default function StaffPermissionEditor({ staffId, staffName, onClose }: P
         </div>
 
         {/* Mode banner */}
-        <div className={`spm-mode-banner ${activeOverrideCount > 0 ? "custom" : "default"}`}>
-          <span>
-            {activeOverrideCount > 0
-              ? `${activeOverrideCount} individual override${activeOverrideCount === 1 ? "" : "s"} active.`
-              : "Using role defaults — no individual overrides."}
-          </span>
-          {activeOverrideCount > 0 && (
-            confirmResetAll ? (
+        {activeOverrideCount > 0 && (
+          <div className="spm-mode-banner custom">
+            <span>{activeOverrideCount} individual override{activeOverrideCount === 1 ? "" : "s"} active.</span>
+            {confirmResetAll ? (
               <span style={{ display: "flex", gap: 6, alignItems: "center" }}>
                 Reset all?
                 <button className="spm-reset-link" onClick={handleResetAll} disabled={saving}>Yes, reset</button>
@@ -207,9 +208,9 @@ export default function StaffPermissionEditor({ staffId, staffName, onClose }: P
               <button className="spm-reset-link" onClick={() => setConfirmResetAll(true)} disabled={saving}>
                 <RotateCcw size={12} /> Reset all to role defaults
               </button>
-            )
-          )}
-        </div>
+            )}
+          </div>
+        )}
 
         {/* Search */}
         <div style={{ padding: "8px 20px 0" }}>
@@ -225,64 +226,61 @@ export default function StaffPermissionEditor({ staffId, staffName, onClose }: P
           </div>
         </div>
 
-        {/* Permission list */}
+        {/* Permission list — one toggle per row */}
         <div className="spm-body">
           {loading ? (
             <p style={{ fontSize: 13, color: "#6b7280", padding: 20 }}>Loading permissions…</p>
           ) : groups.length === 0 ? (
             <p style={{ fontSize: 13, color: "#6b7280", padding: 20 }}>No permissions match your search.</p>
           ) : (
-            groups.map((group) => (
+            groups.map((group) => {
+              const isOpen = !collapsed.has(group.module);
+              return (
               <div key={group.module} className="spm-category">
-                <p className="spm-cat-label">{group.module}</p>
-                {/* Column headers */}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 90px 110px 90px", fontSize: 11, color: "#9ca3af", padding: "0 4px 4px", fontWeight: 600 }}>
-                  <span>Permission</span>
-                  <span style={{ textAlign: "center" }}>Role</span>
-                  <span style={{ textAlign: "center" }}>Override</span>
-                  <span style={{ textAlign: "center" }}>Effective</span>
-                </div>
-                {group.rows.map((row) => (
-                  <div key={row.key} className="spm-perm-row" style={{ display: "grid", gridTemplateColumns: "1fr 90px 110px 90px", alignItems: "center" }}>
+                <button
+                  onClick={() => toggleCollapsed(group.module)}
+                  style={{ display: "flex", alignItems: "center", gap: 6, width: "100%", background: "none", border: "none", padding: 0, cursor: "pointer", textAlign: "left" }}
+                >
+                  <ChevronDown size={14} style={{ transform: isOpen ? "rotate(0deg)" : "rotate(-90deg)", transition: "transform 0.15s", color: "#9ca3af", flexShrink: 0 }} />
+                  <p className="spm-cat-label" style={{ margin: 0 }}>{group.module} <span style={{ fontWeight: 400, color: "#9ca3af" }}>({group.rows.length})</span></p>
+                </button>
+                {isOpen && group.rows.map((row) => (
+                  <div key={row.key} className="spm-perm-row">
                     <div className="spm-perm-info">
                       <p className="spm-perm-name">
                         {row.name}
+                        {row.isCustom && <span className="s-badge s-badge-info" style={{ fontSize: 10, marginLeft: 6 }}>Custom</span>}
                         {(row.risk === "high" || row.risk === "critical") && (
                           <span className={`s-badge ${riskBadgeClass[row.risk]}`} style={{ fontSize: 10, marginLeft: 6 }}>{row.risk}</span>
                         )}
                       </p>
                       {row.desc && <p className="spm-perm-desc">{row.desc}</p>}
                     </div>
-                    <span style={{ textAlign: "center", fontSize: 12, color: row.roleDefault ? "#059669" : "#9ca3af" }}>
-                      {row.roleDefault ? "ON" : "OFF"}
-                    </span>
-                    <div style={{ textAlign: "center" }}>
-                      <button
-                        className={`spm-reset-link`}
-                        style={{ fontSize: 11, padding: "2px 6px", border: "1px solid #e5e7eb", borderRadius: 4 }}
-                        onClick={() => toggleOverride(row.key, row.override)}
-                        title="Click to cycle: role default -> ON -> OFF -> role default"
-                      >
-                        {row.override === null ? "Role" : row.override ? "ON" : "OFF"}
-                      </button>
-                      {row.override !== null && (
+                    <div className="spm-perm-toggle" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      {row.isCustom && (
                         <button
                           className="spm-reset-link"
-                          style={{ fontSize: 10, marginLeft: 4, opacity: 0.6 }}
+                          style={{ fontSize: 10, opacity: 0.6 }}
                           onClick={() => clearOneOverride(row.key)}
-                          title="Clear this override"
+                          title="Revert to role default"
                         >
-                          ✕
+                          ↺
                         </button>
                       )}
+                      <label className="settings-toggle">
+                        <input
+                          type="checkbox"
+                          checked={row.effective}
+                          onChange={() => toggleEffective(row.key, row.effective)}
+                        />
+                        <span className="settings-toggle-slider" />
+                      </label>
                     </div>
-                    <span style={{ textAlign: "center", fontSize: 12, fontWeight: 700, color: row.effective ? "#059669" : "#dc2626" }}>
-                      {row.effective ? "ON" : "OFF"}
-                    </span>
                   </div>
                 ))}
               </div>
-            ))
+              );
+            })
           )}
         </div>
 
