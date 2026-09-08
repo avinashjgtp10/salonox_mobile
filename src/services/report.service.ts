@@ -11,7 +11,9 @@ const getApiOrigin = (apiBaseUrl: string) => {
   }
 };
 
-const REPORT_API_ORIGIN = getApiOrigin(API_BASE_URL);
+// Do not validate configuration during import: this service is loaded by the
+// Redux store, so an import-time error prevents every Expo route from loading.
+const getReportApiOrigin = () => getApiOrigin(API_BASE_URL);
 
 const camelizeKey = (key: string) =>
   key.replace(/_([a-z])/g, (_match, letter: string) => letter.toUpperCase());
@@ -107,7 +109,7 @@ export const reportService = {
     request: GenericReportRequest,
   ): Promise<GenericReportResponse> {
     const response = await api.post<ApiResponse<unknown>>(
-      `${REPORT_API_ORIGIN}${endpoint}`,
+      `${getReportApiOrigin()}${endpoint}`,
       request,
     );
 
@@ -116,7 +118,7 @@ export const reportService = {
 
   async getSalesSummaryDetail(saleId: string): Promise<SalesSummaryDetailResponse> {
     const response = await api.get<ApiResponse<unknown>>(
-      `${REPORT_API_ORIGIN}${REPORT.SALES_SUMMARY_DETAIL(saleId)}`,
+      `${getReportApiOrigin()}${REPORT.SALES_SUMMARY_DETAIL(saleId)}`,
     );
 
     return unwrap<SalesSummaryDetailResponse>(response);
