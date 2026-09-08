@@ -148,7 +148,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange, collapsed, on
         </NavLink>
       )}
 
-      {can("create_quick_sale") && (
+      {can("create_sales") && (
         <NavLink
           to="/dashboard/sales/quick"
           className={({ isActive }) => navClass(isActive)}
