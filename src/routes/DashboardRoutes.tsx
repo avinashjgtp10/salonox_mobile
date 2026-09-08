@@ -78,8 +78,12 @@ export const DashboardRoutes = (
         <Route path="analytics" element={<ReportsPage />} />
       </Route>
 
-      {/* Cash Management — no permission gate, visible to all staff/managers */}
-      <Route path="cash-management" element={<CashManagementPage />} />
+      {/* Cash Management — previously had no permission gate at all (any
+          staff/manager could open/close the till and manage expenses); now
+          requires view_cash_management, matching the backend fix. */}
+      <Route element={<PermissionGuard permKey="view_cash_management" />}>
+        <Route path="cash-management" element={<CashManagementPage />} />
+      </Route>
 
       {/* Quick Sale — requires create_sales (reconciled with the backend's
           actual sales.routes.ts key; previously create_quick_sale, which the

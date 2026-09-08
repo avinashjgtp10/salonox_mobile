@@ -34,6 +34,7 @@ import superAdminReducer from "./superAdminSlice";
 import supportReducer from "./supportSlice";
 import cashCounterReducer from "./cashCounterSlice";
 import spotlightReducer from "./spotlightSlice";
+import permissionDialogReducer from "./permissionDialogSlice";
 
 // An impersonation/oauth-success tab (opened via window.open, e.g. Super
 // Admin's "Impersonate") shares localStorage with every other tab on this
@@ -110,6 +111,7 @@ export const store = configureStore({
     support: supportReducer,
     cashCounter: cashCounterReducer,
     spotlight: spotlightReducer,
+    permissionDialog: permissionDialogReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
