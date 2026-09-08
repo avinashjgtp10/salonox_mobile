@@ -1,36 +1,30 @@
 import { useState, useEffect } from "react";
-import { SlidersHorizontal, Plus, Copy, Trash2, Pencil } from "lucide-react";
+import { SlidersHorizontal, ChevronRight } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
 import {
   fetchRolesThunk,
   fetchPermissionsCatalogThunk,
-  deleteRoleThunk,
-  duplicateRoleThunk,
-  fetchRoleByIdThunk,
   bulkAssignRoleThunk,
   bulkResetOverridesThunk,
 } from "../../../middleware/roles/roles.thunk";
 import Button from "../../../components/ui/Button";
 import StaffPermissionEditor from "../components/StaffPermissionEditor";
-import RoleEditor from "../components/RoleEditor";
+import RolePermissionPanel from "../components/RolePermissionPanel";
 import PermissionActivityTab from "../components/PermissionActivityTab";
-import type { RoleWithPermissions } from "../../../types/roles.types";
 
-type TabKey = "staff" | "roles" | "activity";
+type TabKey = "manager" | "staff" | "individual" | "activity";
 
 export default function RolesPermissionsPage() {
   const dispatch = useAppDispatch();
   const { showSuccess, showError, overlay } = useStatusOverlay();
   const { items: staffList, loading: staffLoading } = useAppSelector((s) => s.staff);
   const roles = useAppSelector((s) => s.roles.roles);
-  const rolesLoading = useAppSelector((s) => s.roles.loading.roles);
   const authRole = useAppSelector((s) => s.auth.role);
 
-  const [tab, setTab] = useState<TabKey>("staff");
+  const [tab, setTab] = useState<TabKey>("manager");
   const [selectedStaff, setSelectedStaff] = useState<any | null>(null);
-  const [editingRole, setEditingRole] = useState<RoleWithPermissions | "new" | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkRoleId, setBulkRoleId] = useState("");
   const [bulkBusy, setBulkBusy] = useState(false);
@@ -43,6 +37,8 @@ export default function RolesPermissionsPage() {
   }, [dispatch]);
 
   const isOwner = authRole === "salon_owner" || authRole === "admin";
+  const managerRole = roles.find((r) => r.name === "Manager");
+  const staffRole = roles.find((r) => r.name === "Staff");
 
   const getRoleBadge = (role?: string) => {
     if (!role) return null;
@@ -92,53 +88,22 @@ export default function RolesPermissionsPage() {
     }
   };
 
-  const handleDeleteRole = async (role: RoleWithPermissions) => {
-    if (role.staff_count > 0) {
-      showError(`Cannot delete "${role.name}" — ${role.staff_count} staff member(s) are still assigned to it.`);
-      return;
-    }
-    if (!window.confirm(`Delete the role "${role.name}"? This cannot be undone.`)) return;
-    const result = await dispatch(deleteRoleThunk({ id: role.id }));
-    if (deleteRoleThunk.fulfilled.match(result)) {
-      showSuccess("Role deleted");
-    } else {
-      showError("Failed to delete role");
-    }
-  };
-
-  const handleDuplicateRole = async (role: RoleWithPermissions) => {
-    const result = await dispatch(duplicateRoleThunk(role.id));
-    if (duplicateRoleThunk.fulfilled.match(result)) {
-      showSuccess(`"${role.name}" duplicated`);
-    } else {
-      showError("Failed to duplicate role");
-    }
-  };
-
-  const openRoleEditor = async (roleId: string) => {
-    const result = await dispatch(fetchRoleByIdThunk(roleId));
-    if (fetchRoleByIdThunk.fulfilled.match(result)) {
-      setEditingRole(result.payload);
-    } else {
-      showError("Failed to load role");
-    }
-  };
-
   return (
     <>
       {overlay}
       <div className="settings-page-header">
         <h2 className="settings-page-title">Roles &amp; Permissions</h2>
         <p className="settings-page-subtitle">
-          Manage roles and their default permissions, and customize individual staff overrides.
+          Set default permissions for Manager and Staff, or customize an individual staff member.
         </p>
       </div>
 
       {/* Tabs */}
       <div style={{ display: "flex", gap: 4, borderBottom: "1px solid #e5e7eb", marginBottom: 16 }}>
         {([
+          { key: "manager", label: "Manager" },
           { key: "staff", label: "Staff" },
-          { key: "roles", label: "Roles" },
+          { key: "individual", label: "Individual Staff" },
           { key: "activity", label: "Permission Activity" },
         ] as { key: TabKey; label: string }[]).map((t) => (
           <button
@@ -160,15 +125,39 @@ export default function RolesPermissionsPage() {
         ))}
       </div>
 
+      {/* ── Manager tab ── */}
+      {tab === "manager" && (
+        <RoleTierCard
+          title="Manager"
+          description="Default permissions for anyone assigned the Manager role."
+          grantedCount={managerRole ? undefined : 0}
+          roleExists={!!managerRole}
+          disabled={!isOwner}
+          onOpen={() => setSelectedStaff({ __rolePanel: "Manager" })}
+        />
+      )}
+
       {/* ── Staff tab ── */}
       {tab === "staff" && (
+        <RoleTierCard
+          title="Staff"
+          description="Default permissions for anyone assigned the Staff role — this is what every new staff member starts with."
+          grantedCount={staffRole ? undefined : 0}
+          roleExists={!!staffRole}
+          disabled={!isOwner}
+          onOpen={() => setSelectedStaff({ __rolePanel: "Staff" })}
+        />
+      )}
+
+      {/* ── Individual Staff tab ── */}
+      {tab === "individual" && (
         <div className="settings-section">
           <div className="settings-section-header">
             <div>
-              <p className="settings-section-title">Per-Staff Permission Overrides</p>
+              <p className="settings-section-title">Individual Staff Overrides</p>
               <p className="settings-section-desc">
-                Click "Customize" on any staff member to set individual permissions, or select
-                multiple to bulk-assign a role.
+                Click a staff member to customize their permissions, or select multiple to
+                bulk-assign a role.
               </p>
             </div>
           </div>
@@ -249,65 +238,6 @@ export default function RolesPermissionsPage() {
                 })}
               </div>
             )}
-
-            <div className="mt-3">
-              <Button size="sm" variant="outline-secondary" onClick={() => { window.location.href = "/dashboard/team"; }}>
-                Manage staff →
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Roles tab ── */}
-      {tab === "roles" && (
-        <div className="settings-section">
-          <div className="settings-section-header">
-            <div>
-              <p className="settings-section-title">Roles</p>
-              <p className="settings-section-desc">
-                Define what each role can access by default. Individual staff can still be given
-                overrides from the Staff tab.
-              </p>
-            </div>
-            {isOwner && (
-              <Button size="sm" variant="primary" onClick={() => setEditingRole("new")}>
-                <Plus size={14} /> Create role
-              </Button>
-            )}
-          </div>
-          <div className="settings-section-body">
-            {rolesLoading ? (
-              <p style={{ fontSize: 13, color: "#6b7280" }}>Loading roles…</p>
-            ) : roles.length === 0 ? (
-              <p style={{ fontSize: 13, color: "#6b7280" }}>No roles yet.</p>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-                {roles.map((role) => (
-                  <div key={role.id} className="settings-security-item">
-                    <div className="settings-security-info">
-                      <p className="settings-security-name">{role.name}</p>
-                      <p className="settings-security-desc">
-                        {role.description || "No description"} · {role.staff_count} staff member{role.staff_count === 1 ? "" : "s"}
-                      </p>
-                    </div>
-                    {isOwner && (
-                      <div style={{ display: "flex", gap: 6 }}>
-                        <button className="spm-customize-btn" onClick={() => openRoleEditor(role.id)}>
-                          <Pencil size={13} /> Edit
-                        </button>
-                        <button className="spm-customize-btn" onClick={() => handleDuplicateRole(role as RoleWithPermissions)}>
-                          <Copy size={13} /> Duplicate
-                        </button>
-                        <button className="spm-customize-btn" onClick={() => handleDeleteRole(role as RoleWithPermissions)}>
-                          <Trash2 size={13} /> Delete
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         </div>
       )}
@@ -315,8 +245,17 @@ export default function RolesPermissionsPage() {
       {/* ── Permission Activity tab ── */}
       {tab === "activity" && <PermissionActivityTab />}
 
-      {/* Per-staff permissions editor */}
-      {selectedStaff && (
+      {/* Manager/Staff tier panel (uses the same modal slot as the individual
+          editor — only one of the two is ever open at a time) */}
+      {selectedStaff?.__rolePanel && (
+        <RolePermissionPanel
+          roleName={selectedStaff.__rolePanel}
+          onClose={() => setSelectedStaff(null)}
+        />
+      )}
+
+      {/* Individual staff permissions editor */}
+      {selectedStaff && !selectedStaff.__rolePanel && (
         <StaffPermissionEditor
           staffId={String(selectedStaff.id)}
           staffName={selectedStaff.fullName || selectedStaff.first_name || selectedStaff.email || "Staff member"}
@@ -326,18 +265,42 @@ export default function RolesPermissionsPage() {
           }}
         />
       )}
-
-      {/* Role create/edit */}
-      {editingRole && (
-        <RoleEditor
-          role={editingRole === "new" ? undefined : editingRole}
-          onClose={() => setEditingRole(null)}
-          onSaved={() => {
-            setEditingRole(null);
-            dispatch(fetchRolesThunk());
-          }}
-        />
-      )}
     </>
+  );
+}
+
+function RoleTierCard({
+  title, description, roleExists, disabled, onOpen,
+}: {
+  title: string;
+  description: string;
+  grantedCount?: number;
+  roleExists: boolean;
+  disabled: boolean;
+  onOpen: () => void;
+}) {
+  return (
+    <div className="settings-section">
+      <div className="settings-section-body">
+        <button
+          onClick={onOpen}
+          disabled={disabled}
+          style={{
+            width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+            padding: "16px", border: "1px solid #e5e7eb", borderRadius: 10, background: "#fff",
+            cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.6 : 1,
+          }}
+        >
+          <div style={{ textAlign: "left" }}>
+            <p className="settings-security-name" style={{ margin: 0 }}>{title}</p>
+            <p className="settings-security-desc" style={{ margin: "2px 0 0" }}>
+              {description}
+              {!roleExists && " (not set up yet — opening this will create it)"}
+            </p>
+          </div>
+          <ChevronRight size={18} color="#9ca3af" />
+        </button>
+      </div>
+    </div>
   );
 }

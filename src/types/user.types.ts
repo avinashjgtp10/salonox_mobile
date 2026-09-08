@@ -13,6 +13,10 @@ export interface User {
   avatarUrl?: string;
   isOnboardingComplete?: boolean;
   custom_permissions?: Record<string, boolean> | null;
+  /** Real-time resolved permission map computed by the backend (staff only) —
+   * see permission.middleware.ts's getEffectivePermissionsForUser(). This is
+   * usePermissions()'s primary source of truth, not custom_permissions. */
+  effective_permissions?: Record<string, boolean> | null;
   role?: string;
   isVerified?: boolean;
   isActive?: boolean;
