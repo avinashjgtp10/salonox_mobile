@@ -41,6 +41,7 @@ import { Button, Modal } from "../../../components/ui";
 import { onGlobalToast } from "../../../utils/globalToast";
 import { selectNewFeatures, selectSpotlightFetched } from "../../../store/spotlightSlice";
 import { fetchSpotlightFeaturesThunk } from "../../../middleware/spotlight/spotlight.thunk";
+import PlanExpiryBanner from "./PlanExpiryBanner";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -469,6 +470,9 @@ export default function DashboardTopbar({ onLogout }: Props) {
         </div>
 
         <div className="topbar-right">
+
+          {/* Plan expiry warning pill — click opens a modal with details */}
+          <PlanExpiryBanner />
 
           {/* Current date & time */}
           <span className="topbar-datetime" title="Today's date and time">

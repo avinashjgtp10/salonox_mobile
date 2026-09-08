@@ -116,6 +116,18 @@ export default function BillingPage() {
   const isSubscriptionLive = subscription?.status === "active" || subscription?.status === "trialing";
   const currentPlanId = isSubscriptionLive ? subscription!.plan_id : null;
 
+  // Days remaining until current_period_end, floor-rounded so "30 days or
+  // less" reads naturally (e.g. 29.9 days left still counts as within the
+  // 30-day window). null when there's no live subscription or no expiry
+  // date to compute from — callers treat null as "don't show the warning".
+  const daysUntilExpiry = useMemo(() => {
+    if (!isSubscriptionLive || !subscription?.current_period_end) return null;
+    const msPerDay = 1000 * 60 * 60 * 24;
+    return Math.floor((new Date(subscription.current_period_end).getTime() - Date.now()) / msPerDay);
+  }, [isSubscriptionLive, subscription?.current_period_end]);
+
+  const isExpiringSoon = daysUntilExpiry !== null && daysUntilExpiry >= 0 && daysUntilExpiry <= 30;
+
   const handleCancelPlan = async () => {
     if (!subscription?.id) return;
     setCancelLoading(true);
@@ -180,6 +192,19 @@ export default function BillingPage() {
         </div>
       ) : isSubscriptionLive && subscription ? (
         <div className="settings-billing-plan mb-4">
+          {isExpiringSoon && (
+            <div style={{
+              background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 10,
+              padding: "10px 14px", marginBottom: 14, fontSize: 13, color: "#92400e",
+              display: "flex", alignItems: "center", gap: 8,
+            }}>
+              <span aria-hidden="true">⚠️</span>
+              <span>
+                Your plan will expire soon. Please renew your plan to continue using all features without interruption.
+                {" "}({daysUntilExpiry === 0 ? "expires today" : `${daysUntilExpiry} day${daysUntilExpiry === 1 ? "" : "s"} remaining`})
+              </span>
+            </div>
+          )}
           <p className="settings-billing-plan-label">Current Plan</p>
           <p className="settings-billing-plan-name">
             {plans.find(p => p.id === currentPlanId)?.name ?? "Plan"} &nbsp;

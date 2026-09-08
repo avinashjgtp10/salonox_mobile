@@ -97,6 +97,31 @@ export const fetchSubscriptionStatusThunk = createAsyncThunk<
   }
 });
 
+// Same data source as fetchSubscriptionStatusThunk (the multi-row STATUS
+// endpoint — /billing/subscription alone isn't reliable, see that thunk's
+// comment), but keeps the actual current_period_end instead of collapsing
+// to a boolean, since PlanExpiryBanner needs the date to compute days
+// remaining. Picks the soonest-expiring active/trialing row (the one that
+// would trigger the warning first) when more than one live row exists.
+export const fetchActiveSubscriptionExpiryThunk = createAsyncThunk<
+  string | null, string, { rejectValue: string }
+>("billing/fetchActiveSubscriptionExpiry", async (salonId, { rejectWithValue }) => {
+  try {
+    const res = await api.get<ApiResp<Array<{ status: string; current_period_end: string | null }>>>(
+      BILLING.STATUS(salonId)
+    );
+    const subs = res.data.data ?? [];
+    const liveEnds = subs
+      .filter((s) => ["active", "trialing"].includes(s.status) && s.current_period_end)
+      .map((s) => s.current_period_end as string)
+      .sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+    return liveEnds[0] ?? null;
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to fetch subscription expiry");
+  }
+});
+
 export const verifySubscriptionThunk = createAsyncThunk<
   { status: string },
   { salonId: string; razorpay_payment_id: string | null; razorpay_subscription_id: string | null; razorpay_signature: string | null },
@@ -123,6 +148,7 @@ interface BillingState {
   };
   error: string | null;
   subscriptionExpired: boolean;
+  activePeriodEnd: string | null;
 }
 
 const initialState: BillingState = {
@@ -132,6 +158,7 @@ const initialState: BillingState = {
   loading: { plans: false, subscription: false, invoices: false, cancel: false },
   error: null,
   subscriptionExpired: false,
+  activePeriodEnd: null,
 };
 
 const billingSlice = createSlice({
@@ -167,6 +194,9 @@ const billingSlice = createSlice({
       .addCase(fetchSubscriptionStatusThunk.fulfilled, (s, { payload }) => { s.subscriptionExpired = !payload; });
 
     builder
+      .addCase(fetchActiveSubscriptionExpiryThunk.fulfilled, (s, { payload }) => { s.activePeriodEnd = payload; });
+
+    builder
       .addCase(fetchInvoicesThunk.pending,  (s) => { s.loading.invoices = true; })
       .addCase(fetchInvoicesThunk.fulfilled, (s, { payload }) => { s.loading.invoices = false; s.invoices = payload; })
       .addCase(fetchInvoicesThunk.rejected,  (s, { payload }) => { s.loading.invoices = false; s.error = payload ?? null; });
@@ -176,7 +206,7 @@ const billingSlice = createSlice({
       .addCase(cancelSubscriptionThunk.fulfilled, (s) => { s.loading.cancel = false; if (s.subscription) s.subscription.status = "cancelled"; })
       .addCase(cancelSubscriptionThunk.rejected,  (s, { payload }) => { s.loading.cancel = false; s.error = payload ?? null; });
 
-    builder.addCase(logout, (s) => { s.subscriptionExpired = false; });
+    builder.addCase(logout, (s) => { s.subscriptionExpired = false; s.activePeriodEnd = null; });
   },
 });
 
