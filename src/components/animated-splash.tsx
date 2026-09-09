@@ -34,10 +34,10 @@ export const SPLASH_TIMELINE = {
   /** Tagline, status line and progress bar rise into place. */
   wording: 1400,
   /** Earliest point the closing transition is allowed to run. */
-  handoff: 2800,
+  handoff: 2300,
 } as const;
 
-const EXIT_MS = 700;
+const EXIT_MS = 700; // 2300 ms intro + 700 ms exit = 3 seconds when the app is ready.
 const ENTER = Easing.bezier(0.22, 1, 0.36, 1);
 const BOUNCE = Easing.bezier(0.34, 1.56, 0.64, 1);
 const ACCELERATE = Easing.bezier(0.4, 0, 1, 1);
@@ -123,7 +123,7 @@ export default function AnimatedSplash({ isReady, onPrepared, onComplete }: Prop
     rings.value = withDelay(SPLASH_TIMELINE.backdrop, withTiming(1, { duration: 700, easing: ENTER }));
     logo.value = withDelay(SPLASH_TIMELINE.logo, withTiming(1, { duration: 650, easing: BOUNCE }));
     wording.value = withDelay(SPLASH_TIMELINE.wording, withTiming(1, { duration: 700, easing: ENTER }));
-    bar.value = withDelay(SPLASH_TIMELINE.wording + 600, withTiming(1, { duration: 1600, easing: BAR }));
+    bar.value = withDelay(SPLASH_TIMELINE.wording + 100, withTiming(1, { duration: 800, easing: BAR }));
     spin.value = withRepeat(withTiming(1, { duration: 18000, easing: Easing.linear }), -1, false);
     orbit.value = withRepeat(withTiming(1, { duration: 5000, easing: Easing.linear }), -1, false);
     blink.value = withDelay(
