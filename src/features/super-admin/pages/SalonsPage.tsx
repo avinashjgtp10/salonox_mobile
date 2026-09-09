@@ -31,6 +31,42 @@ const fmtDateShort = (iso?: string | null) =>
     ? new Date(iso).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
     : "—";
 
+// Buckets used by both the "Date Remaining" cell and the expiry filter, so
+// a salon showing e.g. "3 days left" always falls under the "Expiring Soon"
+// filter option — the two can never disagree about where a salon lands.
+type ExpiryBucket = "no_plan" | "expired" | "expiring_soon" | "active" | "long_term";
+
+const EXPIRY_FILTERS: { key: ExpiryBucket; label: string }[] = [
+  { key: "expired",       label: "Expired" },
+  { key: "expiring_soon", label: "Expiring Soon (≤ 7 days)" },
+  { key: "active",        label: "Active (> 7 days)" },
+  { key: "no_plan",       label: "No Plan" },
+];
+
+function daysRemaining(iso?: string | null): number | null {
+  if (!iso) return null;
+  const ms = new Date(iso).getTime() - Date.now();
+  return Math.ceil(ms / (1000 * 60 * 60 * 24));
+}
+
+function expiryBucket(iso?: string | null): ExpiryBucket {
+  const days = daysRemaining(iso);
+  if (days === null) return "no_plan";
+  if (days < 0) return "expired";
+  if (days <= 7) return "expiring_soon";
+  if (days <= 30) return "active";
+  return "long_term";
+}
+
+function DateRemainingCell({ iso }: { iso?: string | null }) {
+  const days = daysRemaining(iso);
+  if (days === null) return <span style={{ color: "#cbd5e1" }}>—</span>;
+  if (days < 0) return <span style={{ color: "#dc2626", fontWeight: 600, fontSize: 12.5 }}>Expired {fmtDateShort(iso)}</span>;
+  if (days === 0) return <span style={{ color: "#d97706", fontWeight: 700, fontSize: 12.5 }}>Expires today</span>;
+  if (days <= 7) return <span style={{ color: "#d97706", fontWeight: 700, fontSize: 12.5 }}>{days} day{days !== 1 ? "s" : ""} left</span>;
+  return <span style={{ color: "#374151", fontSize: 12.5 }}>{days} days left</span>;
+}
+
 function Toast({ msg, ok }: { msg: string; ok: boolean }) {
   return (
     <div style={{ position: "fixed", top: 20, right: 20, zIndex: 9999, background: ok ? "#f0fdf4" : "#fef2f2", border: `1px solid ${ok ? "#bbf7d0" : "#fecaca"}`, color: ok ? "#15803d" : "#dc2626", padding: "12px 20px", borderRadius: 10, fontSize: 13, fontWeight: 600, boxShadow: "0 8px 24px rgba(0,0,0,0.12)" }}>
@@ -84,6 +120,7 @@ export default function SalonsPage() {
   const [page, setPage]       = useState(1);
   const [perPage, setPerPage] = useState(20);
   const [createdSort, setCreatedSort] = useState<"asc" | "desc" | null>(null);
+  const [expiryFilter, setExpiryFilter] = useState<ExpiryBucket | "">("");
 
   // Create account modal
   const [createModal, setCreateModal] = useState(false);
@@ -153,13 +190,17 @@ export default function SalonsPage() {
   // getAllSalons), so typing e.g. "19 Jul 2026" filters by Created Date too.
   // Sorting by Created Date is applied client-side on top of whatever page
   // of results comes back.
+  const expiryFiltered = expiryFilter
+    ? salons.filter((s: any) => expiryBucket(s.plan_expires_at) === expiryFilter)
+    : salons;
+
   const sortedSalons = createdSort
-    ? [...salons].sort((a: any, b: any) => {
+    ? [...expiryFiltered].sort((a: any, b: any) => {
         const da = a.created_at ? new Date(a.created_at).getTime() : 0;
         const db = b.created_at ? new Date(b.created_at).getTime() : 0;
         return createdSort === "asc" ? da - db : db - da;
       })
-    : salons;
+    : expiryFiltered;
 
   function showToast(msg: string, ok = true) { setToast({ msg, ok }); setTimeout(() => setToast(null), 3000); }
 
@@ -396,7 +437,11 @@ export default function SalonsPage() {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
         <div>
           <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: "#0f172a", letterSpacing: "-0.3px" }}>Salon Management</h1>
-          <p style={{ margin: "4px 0 0", color: "#94a3b8", fontSize: 13 }}>{salons.length} salon{salons.length !== 1 ? "s" : ""} registered</p>
+          <p style={{ margin: "4px 0 0", color: "#94a3b8", fontSize: 13 }}>
+            {expiryFilter
+              ? `${sortedSalons.length} of ${salons.length} salon${salons.length !== 1 ? "s" : ""} match filter`
+              : `${salons.length} salon${salons.length !== 1 ? "s" : ""} registered`}
+          </p>
         </div>
         <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
           <button onClick={openCreateModal} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 18px", borderRadius: 10, border: "none", background: "#6366f1", color: "#fff", fontWeight: 700, fontSize: 13.5, cursor: "pointer", boxShadow: "0 2px 10px rgba(99,102,241,0.3)", transition: "background 0.15s" }}
@@ -416,6 +461,16 @@ export default function SalonsPage() {
               onBlur={(e)  => (e.target.style.borderColor = "#e2e8f0")}
             />
           </div>
+          <select value={expiryFilter} onChange={(e) => { setExpiryFilter(e.target.value as ExpiryBucket | ""); setPage(1); }}
+            title="Filter by plan expiry status"
+            style={{ padding: "9px 30px 9px 12px", borderRadius: 9, border: "1.5px solid #e2e8f0", background: "#fff", color: expiryFilter ? "#0f172a" : "#64748b", fontSize: 13, outline: "none", cursor: "pointer", appearance: "none", fontWeight: expiryFilter ? 600 : 400 }}
+            onFocus={(e) => (e.target.style.borderColor = "#6366f1")}
+            onBlur={(e)  => (e.target.style.borderColor = "#e2e8f0")}>
+            <option value="">All Expiry Status</option>
+            {EXPIRY_FILTERS.map(({ key, label }) => (
+              <option key={key} value={key}>{label}</option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -423,7 +478,7 @@ export default function SalonsPage() {
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5, minWidth: 900 }}>
           <thead>
             <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
-              {["Salon", "Owner", "Plan", "Staff", "Clients", "Revenue", "Created Date", "Status", "Onboarding", "Actions"].map(h => (
+              {["Salon", "Owner", "Plan", "Date Remaining", "Staff", "Clients", "Revenue", "Created Date", "Status", "Onboarding", "Actions"].map(h => (
                 h === "Created Date" ? (
                   <th key={h}
                     onClick={() => setCreatedSort(createdSort === "desc" ? "asc" : "desc")}
@@ -441,7 +496,7 @@ export default function SalonsPage() {
             {loading.salons ? (
               [...Array(6)].map((_, i) => (
                 <tr key={i} style={{ borderTop: "1px solid #f1f5f9" }}>
-                  {[...Array(10)].map((_, j) => (
+                  {[...Array(11)].map((_, j) => (
                     <td key={j} style={{ padding: "14px 16px" }}>
                       <div style={{ height: 13, borderRadius: 4, background: "linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%)", backgroundSize: "200% 100%", animation: "sa-shimmer 1.4s infinite" }} />
                     </td>
@@ -449,7 +504,7 @@ export default function SalonsPage() {
                 </tr>
               ))
             ) : sortedSalons.length === 0 ? (
-              <tr><td colSpan={10} style={{ padding: "48px 0", textAlign: "center", color: "#94a3b8", fontSize: 13.5 }}>No salons found</td></tr>
+              <tr><td colSpan={11} style={{ padding: "48px 0", textAlign: "center", color: "#94a3b8", fontSize: 13.5 }}>No salons found</td></tr>
             ) : (
               sortedSalons.slice((page - 1) * perPage, page * perPage).map((s: any) => (
                 <tr key={s.id} style={{ borderTop: "1px solid #f1f5f9", transition: "background 0.1s", cursor: "pointer" }}
@@ -465,6 +520,9 @@ export default function SalonsPage() {
                   </td>
                   <td style={{ padding: "13px 16px" }}>
                     {s.plan_name ? <span style={{ color: "#6366f1", fontWeight: 600, fontSize: 12.5 }}>{s.plan_name}</span> : <span style={{ color: "#cbd5e1" }}>—</span>}
+                  </td>
+                  <td style={{ padding: "13px 16px", whiteSpace: "nowrap" }}>
+                    <DateRemainingCell iso={s.plan_expires_at} />
                   </td>
                   <td style={{ padding: "13px 16px", color: "#374151" }}>{s.staff_count ?? "—"}</td>
                   <td style={{ padding: "13px 16px", color: "#374151" }}>{s.client_count ?? "—"}</td>
@@ -494,7 +552,7 @@ export default function SalonsPage() {
           </tbody>
         </table>
         <Pagination
-          total={salons.length} page={page} perPage={perPage}
+          total={sortedSalons.length} page={page} perPage={perPage}
           onPageChange={setPage} onPerPageChange={setPerPage}
           itemLabel="salons"
         />
