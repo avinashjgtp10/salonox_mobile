@@ -30,6 +30,7 @@ import type { SaleDetail } from "@/types/sales";
 import { normalizeSaleId } from "@/utils/apiNormalize";
 import { formatAppDate, formatAppTime } from "@/utils/dateTime";
 import { formatInvoiceNumber } from "@/utils/receipt";
+import { OWNER_CALENDAR_ROUTE } from "@/utils/routeResolver";
 import type { ReceiptData } from "@/utils/receiptGenerator";
 
 type ReceiptLoadStatus = "initial" | "loading" | "loaded" | "failed" | "retrying";
@@ -320,7 +321,7 @@ export default function QuickSaleCheckoutScreen() {
   }, [params.draftId, replaceOnce]);
 
   const handleExitToCalendar = useCallback(() => {
-    replaceOnce("/calendar" as Href);
+    replaceOnce(OWNER_CALENDAR_ROUTE);
   }, [replaceOnce]);
 
   const handleExitToDashboard = useCallback(() => {

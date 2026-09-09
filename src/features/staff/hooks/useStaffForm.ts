@@ -6,6 +6,7 @@ import { createStaffThunk, updateStaffThunk, fetchStaffThunk } from "@/middlewar
 import { getApiErrorMessage } from "@/services/api";
 import { staffService } from "@/services/staff.service";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { OWNER_CALENDAR_ROUTE } from "@/utils/routeResolver";
 import {
   selectStaffById,
   selectStaffCreateError,
@@ -210,7 +211,7 @@ export const useStaffForm = (staffId?: string | null) => {
           : staffId;
 
       if (!isEditMode && fromCalendar === "true") {
-        router.replace("/calendar");
+        router.replace(OWNER_CALENDAR_ROUTE);
       } else if (nextStaffId) {
         router.replace(`/team/${nextStaffId}`);
       } else {
