@@ -134,6 +134,7 @@ interface Props {
 export default function DashboardTopbar({ onLogout, collapsed, onToggleCollapsed }: Props) {
   const navigate = useNavigate();
   const userProfile = useSelector((s: RootState) => s.user.profile);
+  const currentSalon = useSelector((s: RootState) => s.salon.currentSalon);
   const salonId = useSelector((s: RootState) => s.auth.salonId);
   const { formatAmount } = useCurrency();
 
@@ -165,9 +166,18 @@ export default function DashboardTopbar({ onLogout, collapsed, onToggleCollapsed
   const toastTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   const unreadCount = notifs.filter(n => !n.is_read).length;
-  const initials = getInitials(userProfile?.fullName);
-  const displayName = userProfile?.fullName ?? "Salon Owner";
+  // The navbar profile shows the salon/business identity, not the logged-in
+  // user's own name — "App" (personal) vs "App Testing" (business). Email
+  // stays the personal account's own login email; only name + avatar swap.
+  const displayName = currentSalon?.business_name || userProfile?.fullName || "Salon Owner";
+  const initials = getInitials(displayName);
   const email = userProfile?.email ?? "";
+  const businessLogoUrl = currentSalon?.logo_url || null;
+  // Reset whenever the logo URL itself changes (new upload, salon switch) so
+  // a stale "this one failed" doesn't stick around and hide a working image.
+  const [businessLogoFailed, setBusinessLogoFailed] = useState(false);
+  useEffect(() => { setBusinessLogoFailed(false); }, [businessLogoUrl]);
+  const showBusinessLogo = !!businessLogoUrl && !businessLogoFailed;
 
   // Live clock — ticks every minute so the topbar always shows the actual
   // current time, not just the time the component happened to mount.
@@ -589,8 +599,13 @@ export default function DashboardTopbar({ onLogout, collapsed, onToggleCollapsed
               aria-label="Profile menu"
               title="Profile"
             >
-              {userProfile?.avatarUrl ? (
-                <img src={userProfile.avatarUrl} alt={displayName} className="topbar-profile-avatar-img" />
+              {showBusinessLogo ? (
+                <img
+                  src={businessLogoUrl!}
+                  alt={displayName}
+                  className="topbar-profile-avatar-img"
+                  onError={() => setBusinessLogoFailed(true)}
+                />
               ) : (
                 <span className="topbar-profile-initials">{initials}</span>
               )}
@@ -600,8 +615,13 @@ export default function DashboardTopbar({ onLogout, collapsed, onToggleCollapsed
               <div className="topbar-profile-dropdown" role="menu">
                 <div className="topbar-profile-info">
                   <div className="topbar-profile-info-av">
-                    {userProfile?.avatarUrl ? (
-                      <img src={userProfile.avatarUrl} alt={displayName} className="topbar-profile-avatar-img topbar-profile-avatar-img--lg" />
+                    {showBusinessLogo ? (
+                      <img
+                        src={businessLogoUrl!}
+                        alt={displayName}
+                        className="topbar-profile-avatar-img topbar-profile-avatar-img--lg"
+                        onError={() => setBusinessLogoFailed(true)}
+                      />
                     ) : (
                       <span className="topbar-profile-initials topbar-profile-initials--lg">{initials}</span>
                     )}
