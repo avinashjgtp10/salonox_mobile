@@ -1,9 +1,9 @@
-import { useEffect } from "react";
+import { useEffect, type MouseEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { Stars, ChevronRight } from "react-bootstrap-icons";
+import { Stars, ChevronRight, X } from "react-bootstrap-icons";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { selectNewFeatures, selectSpotlightFetched } from "../../../store/spotlightSlice";
-import { fetchSpotlightFeaturesThunk } from "../../../middleware/spotlight/spotlight.thunk";
+import { fetchSpotlightFeaturesThunk, markSpotlightReadThunk } from "../../../middleware/spotlight/spotlight.thunk";
 import "../styles/SpotlightHighlightCard.scss";
 
 // "NEW" highlight card for the Salon Dashboard home — shows the most
@@ -28,6 +28,11 @@ export default function SpotlightHighlightCard() {
 
   const feature = newFeatures[0];
 
+  const handleDismiss = (e: MouseEvent) => {
+    e.stopPropagation();
+    dispatch(markSpotlightReadThunk(feature.id));
+  };
+
   return (
     <div className="spotlight-highlight-card">
       <span className="spotlight-highlight-card__badge">
@@ -49,6 +54,14 @@ export default function SpotlightHighlightCard() {
       {newFeatures.length > 1 && (
         <span className="spotlight-highlight-card__more">+{newFeatures.length - 1} more</span>
       )}
+      <button
+        type="button"
+        className="spotlight-highlight-card__close"
+        onClick={handleDismiss}
+        title="Dismiss"
+      >
+        <X size={16} />
+      </button>
     </div>
   );
 }
