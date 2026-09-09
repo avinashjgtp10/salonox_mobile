@@ -24,6 +24,7 @@ import { STAFF_MODULE_SECTIONS } from "@/features/staff/constants/staffModule.co
 import type { StaffModuleSectionKey } from "@/features/staff/types/staffFeature.types";
 import { useStaffDetails } from "@/features/staff/hooks/useStaffDetails";
 import { useThemeColors } from "@/theme/ThemeProvider";
+import { formatStaffDisplayName } from "@/utils/name";
 
 type StaffSectionScreenProps = {
   sectionKey: StaffModuleSectionKey;
@@ -35,7 +36,13 @@ export function StaffSectionScreen({ sectionKey }: StaffSectionScreenProps) {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const section = STAFF_MODULE_SECTIONS.find((item) => item.key === sectionKey);
 
-  useStaffDetails(id);
+  const { staffMember } = useStaffDetails(id);
+  const staffName = staffMember ? formatStaffDisplayName(staffMember.name) : null;
+  const title = sectionKey === "schedule" && staffName ? `${staffName}'s Schedule` : section?.label ?? "Staff Section";
+  const subtitle =
+    sectionKey === "schedule" && staffName
+      ? "View and update this staff member's weekly working schedule."
+      : section?.description ?? "Manage staff records.";
 
   const handleBack = () => {
     if (router.canGoBack()) {
@@ -53,8 +60,8 @@ export function StaffSectionScreen({ sectionKey }: StaffSectionScreenProps) {
         <View style={styles.header}>
           <AppBackButton onPress={handleBack} />
           <View style={styles.headerCopy}>
-            <Text style={styles.title}>{section?.label ?? "Staff Section"}</Text>
-            <Text style={styles.subtitle}>{section?.description ?? "Manage staff records."}</Text>
+            <Text style={styles.title}>{title}</Text>
+            <Text style={styles.subtitle}>{subtitle}</Text>
           </View>
         </View>
 

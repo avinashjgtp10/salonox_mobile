@@ -11,15 +11,15 @@ export type StaffSchedule = {
   updatedAt: string | null;
 };
 
-export type UpdateScheduleDayRequest = {
-  day: string;
-  end_time?: string;
-  is_off?: boolean;
-  start_time?: string;
+export type UpdateScheduleItemRequest = {
+  day_of_week: number;
+  end_time?: string | null;
+  is_available: boolean;
+  start_time?: string | null;
 };
 
 export type UpdateScheduleRequest = {
-  days: UpdateScheduleDayRequest[];
+  items: UpdateScheduleItemRequest[];
 };
 
 export type UpdateScheduleResponse = {
