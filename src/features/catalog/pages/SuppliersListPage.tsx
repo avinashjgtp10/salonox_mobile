@@ -23,6 +23,8 @@ import api from "../../../services/api/axios";
 import { INVENTORY } from "../../../services/api/endpoints/inventory.endpoints";
 import { downloadBlob } from "../../../utils/downloadBlob";
 import { exportSuppliersPDF, exportSuppliersCSV, exportSuppliersExcel } from "../utils/supplierExport";
+import { usePermissions } from "../../../hooks/usePermissions";
+import { showPermissionDenied } from "../../../store/permissionDialogSlice";
 import LearnMoreLink from "../../../components/shared/LearnMoreLink";
 import Pagination from "../../../components/ui/Pagination";
 import { JiraFilterMenu } from "../../../components/ui";
@@ -140,9 +142,17 @@ interface FilterState {
 
 const DEFAULT_FILTERS: FilterState = { city: "", state: "" };
 
+// Same friendly copy PermissionGuard and the interceptor-driven global popup
+// already use for a backend 403 — this export is built entirely client-side
+// (no backend call to deny), so this is the only enforcement point
+// export_pdf/export_csv/export_excel actually have for it.
+const friendlyExportDenied = (permKey: string) =>
+  `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`;
+
 const SuppliersListPage: React.FC = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
+  const { can } = usePermissions();
   const location = useLocation();
   const { formatAmount } = useCurrency();
   const {
@@ -308,6 +318,8 @@ const SuppliersListPage: React.FC = () => {
   }, [currentSalonId, debouncedSearch, appliedFilters]);
 
   const handleExport = useCallback(async (format: "pdf" | "csv" | "excel") => {
+    const permKey = format === "pdf" ? "export_pdf" : format === "csv" ? "export_csv" : "export_excel";
+    if (!can(permKey)) { dispatch(showPermissionDenied(friendlyExportDenied(permKey))); return; }
     setIsExporting(true);
     try {
       const all = await fetchAllSuppliersForExport();
@@ -325,7 +337,7 @@ const SuppliersListPage: React.FC = () => {
     } finally {
       setIsExporting(false);
     }
-  }, [fetchAllSuppliersForExport, formatAmount]);
+  }, [can, dispatch, fetchAllSuppliersForExport, formatAmount]);
 
   return (
     <div className="suppliers-list-page">

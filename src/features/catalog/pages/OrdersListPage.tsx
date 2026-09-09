@@ -15,6 +15,8 @@ import api from "../../../services/api/axios";
 import { INVENTORY } from "../../../services/api/endpoints/inventory.endpoints";
 import { downloadBlob } from "../../../utils/downloadBlob";
 import { exportOrdersPDF, exportOrdersCSV, exportOrdersExcel } from "../utils/orderExport";
+import { usePermissions } from "../../../hooks/usePermissions";
+import { showPermissionDenied } from "../../../store/permissionDialogSlice";
 import Pagination from "../../../components/ui/Pagination";
 import Button from "../../../components/ui/Button";
 import Skeleton from "../../../components/ui/Skeleton";
@@ -47,9 +49,18 @@ const STATUS_BADGE: Record<Order["status"], "paid" | "due" | "overdue" | "partia
 // search, table, pagination, empty state) so Orders reads as part of the
 // same Inventory family rather than a one-off layout. Both are now
 // server-paginated.
+
+// Same friendly copy PermissionGuard and the interceptor-driven global popup
+// already use for a backend 403 — this export is built entirely client-side
+// (no backend call to deny), so this is the only enforcement point
+// export_pdf/export_csv/export_excel actually have for it.
+const friendlyExportDenied = (permKey: string) =>
+  `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`;
+
 const OrdersListPage: React.FC = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
+  const { can } = usePermissions();
   const location = useLocation();
   const { formatAmount, currencySymbol } = useCurrency();
   const { showError, showSuccess, overlay } = useStatusOverlay();
@@ -308,6 +319,8 @@ const OrdersListPage: React.FC = () => {
   }, [debouncedSearch, statusFilter]);
 
   const handleExport = useCallback(async (format: "pdf" | "csv" | "excel") => {
+    const permKey = format === "pdf" ? "export_pdf" : format === "csv" ? "export_csv" : "export_excel";
+    if (!can(permKey)) { dispatch(showPermissionDenied(friendlyExportDenied(permKey))); return; }
     setIsExporting(true);
     try {
       const all = await fetchAllOrdersForExport();
@@ -326,7 +339,7 @@ const OrdersListPage: React.FC = () => {
     } finally {
       setIsExporting(false);
     }
-  }, [fetchAllOrdersForExport, formatAmount, showError]);
+  }, [can, dispatch, fetchAllOrdersForExport, formatAmount, showError]);
 
   return (
     <div className="suppliers-list-page">

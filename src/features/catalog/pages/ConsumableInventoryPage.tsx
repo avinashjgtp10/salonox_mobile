@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
-import { Search, PlusLg, X, ThreeDotsVertical } from "react-bootstrap-icons";
+import { Search, PlusLg, X, ThreeDotsVertical, ChevronDown } from "react-bootstrap-icons";
 import { useDispatch, useSelector } from "react-redux";
 import type { AppDispatch, RootState } from "../../../store/store";
 import {
@@ -14,9 +14,15 @@ import { Pagination, JiraFilterMenu } from "../../../components/ui";
 import Dropdown from "../../../components/ui/Dropdown";
 import type { FilterDropdownOption, JiraFilterField } from "../../../components/ui";
 import Skeleton from "../../../components/ui/Skeleton";
-import type { ConsumableListFilters, ConsumableStatus } from "../../../types/inventory.types";
+import type { ConsumableListFilters, ConsumableListRow, ConsumableStatus } from "../../../types/inventory.types";
 import ConsumableDetailPanel from "../components/ConsumableDetailPanel";
 import AssignedServicesPopup from "../components/AssignedServicesPopup";
+import api from "../../../services/api/axios";
+import { INVENTORY } from "../../../services/api/endpoints/inventory.endpoints";
+import { exportConsumablesPDF, exportConsumablesExcel, exportConsumablesCSV } from "../utils/consumableExport";
+import { usePermissions } from "../../../hooks/usePermissions";
+import { showPermissionDenied } from "../../../store/permissionDialogSlice";
+import { selectCurrentSalon, selectUserProfile } from "../../../store/selectors/slices.selectors";
 import "../styles/ConsumableInventoryPage.scss";
 
 interface RowActionItem {
@@ -25,19 +31,25 @@ interface RowActionItem {
   danger?: boolean;
 }
 
-// "⋮" row-actions menu, local to this page — a plain absolutely-positioned
-// dropdown (even react-bootstrap's Dropdown with popperConfig strategy:
-// "fixed") gets clipped or mispositioned here: the table wrapper needs
-// overflow-x:auto for horizontal scroll (which clips it), and "fixed" itself
-// stops being relative to the viewport the moment any ancestor up the page's
-// layout has a transform (which one does, elsewhere in the app). Rendering
-// into a portal on document.body and positioning from the trigger's own
-// getBoundingClientRect() sidesteps both problems regardless of what's above
-// it in the DOM.
-const RowActionsMenu: React.FC<{ items: RowActionItem[] }> = ({ items }) => {
+// Row-actions ("⋮") AND toolbar (Export) dropdown menu, local to this page —
+// a plain absolutely-positioned dropdown (even react-bootstrap's Dropdown
+// with popperConfig strategy: "fixed") gets clipped or mispositioned here:
+// the table wrapper needs overflow-x:auto for horizontal scroll (which
+// clips it), and "fixed" itself stops being relative to the viewport the
+// moment any ancestor up the page's layout has a transform (which one does,
+// elsewhere in the app). Rendering into a portal on document.body and
+// positioning from the trigger's own getBoundingClientRect() sidesteps both
+// problems regardless of what's above it in the DOM. `trigger` defaults to
+// the row-level "⋮" icon button; the toolbar Export button passes its own.
+const RowActionsMenu: React.FC<{
+  items: RowActionItem[];
+  trigger?: (toggle: () => void, open: boolean) => React.ReactNode;
+}> = ({ items, trigger }) => {
   const [open, setOpen] = useState(false);
   const [coords, setCoords] = useState<{ top: number; right: number } | null>(null);
-  const btnRef = useRef<HTMLButtonElement>(null);
+  // HTMLElement (not HTMLButtonElement) — the custom `trigger` render prop
+  // can wrap this ref around any element, e.g. the toolbar's <button>.
+  const btnRef = useRef<HTMLElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const toggle = () => {
@@ -73,9 +85,13 @@ const RowActionsMenu: React.FC<{ items: RowActionItem[] }> = ({ items }) => {
 
   return (
     <>
-      <button type="button" ref={btnRef} className="ci-row-actions-btn" onClick={toggle}>
-        <ThreeDotsVertical size={16} />
-      </button>
+      {trigger ? (
+        <span ref={btnRef as React.RefObject<HTMLSpanElement>} style={{ display: "inline-flex" }}>{trigger(toggle, open)}</span>
+      ) : (
+        <button type="button" ref={btnRef as React.RefObject<HTMLButtonElement>} className="ci-row-actions-btn" onClick={toggle}>
+          <ThreeDotsVertical size={16} />
+        </button>
+      )}
       {open && coords && createPortal(
         <div ref={menuRef} className="ci-row-actions-menu" style={{ top: coords.top, right: coords.right }}>
           {items.map((item, i) => (
@@ -132,9 +148,20 @@ const PRODUCT_TYPE_OPTIONS: FilterDropdownOption[] = [
   { id: "both", label: "Both" },
 ];
 
+// Same friendly copy PermissionGuard and the interceptor-driven global popup
+// already use for a backend 403 — this export is built entirely client-side
+// (no backend call to deny), so this is the only enforcement point
+// export_pdf/export_csv/export_excel actually have for it.
+const friendlyExportDenied = (permKey: string) =>
+  `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`;
+
 const ConsumableInventoryPage: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
+  const { can } = usePermissions();
+  const currentSalon = useSelector(selectCurrentSalon);
+  const userProfile = useSelector(selectUserProfile);
+  const [isExporting, setIsExporting] = useState(false);
 
   const { categories: rawCategories, brands } = useSelector((s: RootState) => s.products);
   // service_categories is one shared table — only a category explicitly
@@ -346,6 +373,52 @@ const ConsumableInventoryPage: React.FC = () => {
     lastFetchedAtRef.current = Date.now();
   }, [dispatch, filters]);
 
+  // Same "loop every page with the currently-applied filters" pattern as
+  // SuppliersListPage/OrdersListPage/ProductsListPage's own export fetchers —
+  // exported data always matches the on-screen list + filters exactly,
+  // independent of whatever page/page-size is currently displayed.
+  const fetchAllConsumablesForExport = useCallback(async (): Promise<ConsumableListRow[]> => {
+    const ARRAY_FILTER_KEYS = ["category_id", "brand_id", "supplier_id", "unit", "service_id", "status", "product_type"] as const;
+    const baseParams: Record<string, unknown> = { ...filters, sort_by: filters.sort_by };
+    ARRAY_FILTER_KEYS.forEach((key) => {
+      const value = (filters as any)[key];
+      baseParams[key] = Array.isArray(value) && value.length ? value.join(",") : undefined;
+    });
+
+    const all: ConsumableListRow[] = [];
+    let page = 1;
+    let totalPages = 1;
+    do {
+      const res = await api.get(INVENTORY.CONSUMABLES_DASHBOARD, { params: { ...baseParams, page, limit: 200 } });
+      const list = res.data?.data?.list;
+      if (list?.data) all.push(...list.data);
+      totalPages = list?.totalPages ?? 1;
+      page += 1;
+    } while (page <= totalPages);
+    return all;
+  }, [filters]);
+
+  const handleExport = useCallback(async (format: "pdf" | "csv" | "excel") => {
+    const permKey = format === "pdf" ? "export_pdf" : format === "csv" ? "export_csv" : "export_excel";
+    if (!can(permKey)) { dispatch(showPermissionDenied(friendlyExportDenied(permKey))); return; }
+    setIsExporting(true);
+    try {
+      const rows = await fetchAllConsumablesForExport();
+      const filterSummary = [
+        filters.search ? `Search: "${filters.search}"` : null,
+        ...activeChips.map((c) => c.label),
+      ].filter(Boolean).join("  •  ") || undefined;
+      const options = { salon: currentSalon, user: userProfile, filterSummary };
+      if (format === "pdf") exportConsumablesPDF(rows, options);
+      else if (format === "csv") exportConsumablesCSV(rows);
+      else exportConsumablesExcel(rows);
+    } catch (err) {
+      console.error(`Consumable ${format.toUpperCase()} export failed:`, err);
+    } finally {
+      setIsExporting(false);
+    }
+  }, [can, dispatch, fetchAllConsumablesForExport, filters.search, activeChips, currentSalon, userProfile]);
+
   async function confirmDeactivate() {
     if (!deactivateTarget) return;
     setDeactivating(true);
@@ -396,6 +469,25 @@ const ConsumableInventoryPage: React.FC = () => {
           >
             Usage
           </button>
+          <RowActionsMenu
+            items={[
+              { label: "Export as PDF", onClick: () => handleExport("pdf") },
+              { label: "Export as Excel", onClick: () => handleExport("excel") },
+              { label: "Export as CSV", onClick: () => handleExport("csv") },
+            ]}
+            trigger={(toggle) => (
+              <button
+                type="button"
+                className="ci-btn ci-btn--outline"
+                title="Export"
+                aria-label="Export"
+                disabled={isExporting}
+                onClick={toggle}
+              >
+                {isExporting ? "Exporting…" : "Export"} <ChevronDown size={12} />
+              </button>
+            )}
+          />
         </div>
       </div>
 

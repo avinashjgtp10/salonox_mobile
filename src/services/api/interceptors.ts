@@ -234,6 +234,24 @@ export const applyInterceptors = (instance: AxiosInstance) => {
         return Promise.reject(error);
       }
 
+      // A request made with responseType:"blob" (file exports/downloads —
+      // Products/Sales/Clients/Staff/etc.) still gets its error body
+      // delivered as a Blob on a non-2xx response; axios doesn't parse it.
+      // Without this, every blob-mode request's message/code below silently
+      // fell through to the generic "Something went wrong" fallback (data
+      // was a Blob object, not the parsed JSON error payload) — meaning a
+      // permission-denied export never triggered the global "Permission
+      // Required" popup (or the SUBSCRIPTION_REQUIRED wall) and just failed
+      // with no useful feedback at all.
+      if (error.response?.data instanceof Blob && error.response.data.type.includes("json")) {
+        try {
+          error.response.data = JSON.parse(await error.response.data.text());
+        } catch {
+          // Not actually JSON despite the content-type — fall through to
+          // the generic error handling below with the Blob left as-is.
+        }
+      }
+
       if (error.response) {
         console.error(
           `[API ERROR] ${error.config?.method?.toUpperCase()} ${error.config?.url}:`,
