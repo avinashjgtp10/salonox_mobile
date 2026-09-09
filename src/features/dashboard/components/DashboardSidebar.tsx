@@ -23,6 +23,7 @@ import {
 // doorway with stacked crates).
 import WarehouseIcon from "../../../components/icons/WarehouseIcon";
 
+import { usePlanFeatures } from "../../../hooks/usePlanFeatures";
 import Modal from "../../../components/ui/Modal";
 import { preloadCashManagementPage, preloadScheduler } from "../../../routes/dashboardPreloaders";
 import "../styles/ComingSoonModal.scss";
@@ -43,6 +44,7 @@ interface Props {
 }
 
 export default function DashboardSidebar({ openMenu, onMenuChange, collapsed, onToggleCollapsed }: Props) {
+  const { hasFeature } = usePlanFeatures();
   const navigate = useNavigate();
   const location = useLocation();
   const sidebarRef = useRef<HTMLElement>(null);
@@ -134,185 +136,217 @@ export default function DashboardSidebar({ openMenu, onMenuChange, collapsed, on
         <span className="nav-label">{collapsed ? "Expand" : "Collapse"}</span>
       </button>
 
-      {/* Every nav item below is always rendered regardless of permission —
+      {/* Every nav item below renders regardless of staff PERMISSION —
           hiding a section from navigation isn't a security boundary (the
           route is still reachable by URL) and just makes it harder for
-          staff to understand what they can't do. Clicking through to a page
-          without the matching permission shows PermissionGuard's in-page
-          "Access Denied" message instead. */}
-      <NavLink
-        to="/dashboard"
-        end
-        className={({ isActive }) => navClass(isActive)}
-        onClick={(event) => handleRouteClick(event, "/dashboard")}
-      >
-        <House size={22} />
-        <span className="nav-label">Home</span>
-      </NavLink>
+          staff to understand what they can't do; PermissionGuard's in-page
+          "Access Denied" handles that axis instead. hasFeature(...) is a
+          DIFFERENT axis (the salon's own plan tier, not staff permissions —
+          see usePlanFeatures.ts) and IS still checked here: a feature the
+          salon's plan doesn't include should never appear in navigation at
+          all, matching PlanFeatureGuard on the route side. */}
+      {hasFeature("dashboard") && (
+        <NavLink
+          to="/dashboard"
+          end
+          className={({ isActive }) => navClass(isActive)}
+          onClick={(event) => handleRouteClick(event, "/dashboard")}
+        >
+          <House size={22} />
+          <span className="nav-label">Home</span>
+        </NavLink>
+      )}
 
-      <NavLink
-        to="/dashboard/sales/quick"
-        className={({ isActive }) => navClass(isActive)}
-        onClick={(event) => handleRouteClick(event, "/dashboard/sales/quick")}
-      >
-        <Lightning size={22} />
-        <span className="nav-label">Quick Sale</span>
-      </NavLink>
+      {hasFeature("quick_sale") && (
+        <NavLink
+          to="/dashboard/sales/quick"
+          className={({ isActive }) => navClass(isActive)}
+          onClick={(event) => handleRouteClick(event, "/dashboard/sales/quick")}
+        >
+          <Lightning size={22} />
+          <span className="nav-label">Quick Sale</span>
+        </NavLink>
+      )}
 
-      <NavLink
-        to="/dashboard/calendar"
-        className={({ isActive }) => navClass(isActive)}
-        onClick={(event) => handleRouteClick(event, "/dashboard/calendar")}
-        onMouseEnter={preloadScheduler}
-        onFocus={preloadScheduler}
-      >
-        <Calendar size={22} />
-        <span className="nav-label">Calendar</span>
-      </NavLink>
+      {hasFeature("calendar") && (
+        <NavLink
+          to="/dashboard/calendar"
+          className={({ isActive }) => navClass(isActive)}
+          onClick={(event) => handleRouteClick(event, "/dashboard/calendar")}
+          onMouseEnter={preloadScheduler}
+          onFocus={preloadScheduler}
+        >
+          <Calendar size={22} />
+          <span className="nav-label">Calendar</span>
+        </NavLink>
+      )}
 
-      <button
-        type="button"
-        className={menuClass("clients")}
-        onClick={() => {
-          const opening = openMenu !== "clients";
-          onMenuChange(opening ? "clients" : null);
-          // Same pattern as Team below — jump to the section's default page
-          // when entering it from elsewhere (e.g. Calendar). Without this,
-          // clicking Clients from another page only opened the flyout
-          // submenu and left the underlying page unchanged.
-          if (opening && !location.pathname.startsWith("/dashboard/clients")) {
-            navigate("/dashboard/clients/list");
-          }
-        }}
-      >
-        <EmojiSmile size={22} />
-        <span className="nav-label">Clients</span>
-      </button>
+      {hasFeature("clients") && (
+        <button
+          type="button"
+          className={menuClass("clients")}
+          onClick={() => {
+            const opening = openMenu !== "clients";
+            onMenuChange(opening ? "clients" : null);
+            // Same pattern as Team below — jump to the section's default page
+            // when entering it from elsewhere (e.g. Calendar). Without this,
+            // clicking Clients from another page only opened the flyout
+            // submenu and left the underlying page unchanged.
+            if (opening && !location.pathname.startsWith("/dashboard/clients")) {
+              navigate("/dashboard/clients/list");
+            }
+          }}
+        >
+          <EmojiSmile size={22} />
+          <span className="nav-label">Clients</span>
+        </button>
+      )}
 
-      <button
-        type="button"
-        className={menuClass("catalog")}
-        onClick={() => {
-          const opening = openMenu !== "catalog";
-          onMenuChange(opening ? "catalog" : null);
-          // Same pattern as Clients above — jump to the section's default
-          // page (Service menu) when entering it from elsewhere, instead of
-          // just opening the flyout submenu and leaving the current page.
-          if (opening && !location.pathname.startsWith("/dashboard/catalog")) {
-            navigate("/dashboard/catalog/services");
-          }
-        }}
-      >
-        <Book size={22} />
-        <span className="nav-label">Catalog</span>
-      </button>
+      {(hasFeature("services") || hasFeature("products") || hasFeature("packages") || hasFeature("memberships")) && (
+        <button
+          type="button"
+          className={menuClass("catalog")}
+          onClick={() => {
+            const opening = openMenu !== "catalog";
+            onMenuChange(opening ? "catalog" : null);
+            // Same pattern as Clients above — jump to the section's default
+            // page (Service menu) when entering it from elsewhere, instead of
+            // just opening the flyout submenu and leaving the current page.
+            if (opening && !location.pathname.startsWith("/dashboard/catalog")) {
+              navigate("/dashboard/catalog/services");
+            }
+          }}
+        >
+          <Book size={22} />
+          <span className="nav-label">Catalog</span>
+        </button>
+      )}
 
-      <button
-        type="button"
-        className={menuClass("inventory")}
-        onClick={() => {
-          const opening = openMenu !== "inventory";
-          onMenuChange(opening ? "inventory" : null);
-          // Same pattern as Clients/Catalog above — jump to the section's
-          // default page (Suppliers) when entering it from elsewhere,
-          // instead of just opening the flyout submenu over the current page.
-          if (opening && !location.pathname.startsWith("/dashboard/inventory")) {
-            navigate("/dashboard/inventory/suppliers");
-          }
-        }}
-      >
-        <WarehouseIcon size={22} />
-        <span className="nav-label">Warehouse</span>
-      </button>
+      {hasFeature("inventory") && (
+        <button
+          type="button"
+          className={menuClass("inventory")}
+          onClick={() => {
+            const opening = openMenu !== "inventory";
+            onMenuChange(opening ? "inventory" : null);
+            // Same pattern as Clients/Catalog above — jump to the section's
+            // default page (Suppliers) when entering it from elsewhere,
+            // instead of just opening the flyout submenu over the current page.
+            if (opening && !location.pathname.startsWith("/dashboard/inventory")) {
+              navigate("/dashboard/inventory/suppliers");
+            }
+          }}
+        >
+          <WarehouseIcon size={22} />
+          <span className="nav-label">Warehouse</span>
+        </button>
+      )}
 
-      <button
-        type="button"
-        className={menuClass("team")}
-        onClick={() => {
-          const opening = openMenu !== "team";
-          onMenuChange(opening ? "team" : null);
-          // Only jump to the default Team page when entering the section
-          // from elsewhere (e.g. Calendar) — re-toggling the flyout while
-          // already on a Team page (Attendance, Commissions, …) shouldn't
-          // reset navigation back to Team members.
-          if (opening && !location.pathname.startsWith("/dashboard/team")) {
-            navigate("/dashboard/team/members");
-          }
-        }}
-      >
-        <People size={22} />
-        <span className="nav-label">Staff</span>
-      </button>
+      {(hasFeature("staff") || hasFeature("payroll")) && (
+        <button
+          type="button"
+          className={menuClass("team")}
+          onClick={() => {
+            const opening = openMenu !== "team";
+            onMenuChange(opening ? "team" : null);
+            // Only jump to the default Team page when entering the section
+            // from elsewhere (e.g. Calendar) — re-toggling the flyout while
+            // already on a Team page (Attendance, Commissions, …) shouldn't
+            // reset navigation back to Team members.
+            if (opening && !location.pathname.startsWith("/dashboard/team")) {
+              navigate("/dashboard/team/members");
+            }
+          }}
+        >
+          <People size={22} />
+          <span className="nav-label">Staff</span>
+        </button>
+      )}
 
-      <NavLink
-        to="/dashboard/cash-management"
-        className={({ isActive }) => navClass(isActive)}
-        onClick={(event) => handleRouteClick(event, "/dashboard/cash-management")}
-        onMouseEnter={preloadCashManagementPage}
-        onFocus={preloadCashManagementPage}
-      >
-        <Cash  size={22} />
-        <span className="nav-label">Cash Management</span>
-      </NavLink>
+      {hasFeature("cash_management") && (
+        <NavLink
+          to="/dashboard/cash-management"
+          className={({ isActive }) => navClass(isActive)}
+          onClick={(event) => handleRouteClick(event, "/dashboard/cash-management")}
+          onMouseEnter={preloadCashManagementPage}
+          onFocus={preloadCashManagementPage}
+        >
+          <Cash  size={22} />
+          <span className="nav-label">Cash Management</span>
+        </NavLink>
+      )}
 
-      <button
-        type="button"
-        className={menuClass("marketing")}
-        onClick={() => {
-          const opening = openMenu !== "marketing";
-          onMenuChange(opening ? "marketing" : null);
-          // Same pattern as Clients/Catalog/Staff above — jump to the
-          // section's default page when entering it from elsewhere. Without
-          // this, clicking Marketing only opened the flyout submenu and left
-          // whatever page you were on underneath it. Targets the section
-          // root, whose index route is the Marketing dashboard (see
-          // MarketingRoutes.tsx); a salon that hasn't finished WhatsApp
-          // setup still lands on onboarding from there, which is intended.
-          if (opening && !location.pathname.startsWith("/dashboard/marketing")) {
-            navigate("/dashboard/marketing");
-          }
-        }}
-      >
-        <Megaphone size={22} />
-        <span className="nav-label">Marketing</span>
-      </button>
+      {/* Whole Marketing section gated on featureKey "marketing" — previously
+          only the Campaigns route inside it was gated server-side (see
+          campaigns.routes.ts), leaving the nav entry and the rest of the
+          section (dashboard/inbox/templates) visible even without the
+          feature. */}
+      {hasFeature("marketing") && (
+        <button
+          type="button"
+          className={menuClass("marketing")}
+          onClick={() => {
+            const opening = openMenu !== "marketing";
+            onMenuChange(opening ? "marketing" : null);
+            // Same pattern as Clients/Catalog/Staff above — jump to the
+            // section's default page when entering it from elsewhere. Without
+            // this, clicking Marketing only opened the flyout submenu and left
+            // whatever page you were on underneath it. Targets the section
+            // root, whose index route is the Marketing dashboard (see
+            // MarketingRoutes.tsx); a salon that hasn't finished WhatsApp
+            // setup still lands on onboarding from there, which is intended.
+            if (opening && !location.pathname.startsWith("/dashboard/marketing")) {
+              navigate("/dashboard/marketing");
+            }
+          }}
+        >
+          <Megaphone size={22} />
+          <span className="nav-label">Marketing</span>
+        </button>
+      )}
 
-      <button
-        type="button"
-        className={menuClass("onlineBooking")}
-        onClick={() => {
-          const opening = openMenu !== "onlineBooking";
-          onMenuChange(opening ? "onlineBooking" : null);
-          // Same pattern as Clients/Catalog/Staff/Marketing — jump to the
-          // section's default page when entering from elsewhere instead of
-          // only opening the flyout over the current page. The section root's
-          // index route is the Marketplace profile (OnlineBookingRoutes.tsx).
-          if (opening && !location.pathname.startsWith("/dashboard/online-booking")) {
-            navigate("/dashboard/online-booking");
-          }
-        }}
-      >
-        <Globe2 size={22} />
-        <span className="nav-label">Online booking</span>
-      </button>
+      {hasFeature("online_booking") && (
+        <button
+          type="button"
+          className={menuClass("onlineBooking")}
+          onClick={() => {
+            const opening = openMenu !== "onlineBooking";
+            onMenuChange(opening ? "onlineBooking" : null);
+            // Same pattern as Clients/Catalog/Staff/Marketing — jump to the
+            // section's default page when entering from elsewhere instead of
+            // only opening the flyout over the current page. The section root's
+            // index route is the Marketplace profile (OnlineBookingRoutes.tsx).
+            if (opening && !location.pathname.startsWith("/dashboard/online-booking")) {
+              navigate("/dashboard/online-booking");
+            }
+          }}
+        >
+          <Globe2 size={22} />
+          <span className="nav-label">Online booking</span>
+        </button>
+      )}
 
-      <NavLink
-        to="/dashboard/enquiries"
-        className={({ isActive }) => navClass(isActive)}
-        onClick={(event) => handleRouteClick(event, "/dashboard/enquiries")}
-      >
-        <ChatSquareText size={22} />
-        <span className="nav-label">Enquiries</span>
-      </NavLink>
+      {hasFeature("enquiries") && (
+        <NavLink
+          to="/dashboard/enquiries"
+          className={({ isActive }) => navClass(isActive)}
+          onClick={(event) => handleRouteClick(event, "/dashboard/enquiries")}
+        >
+          <ChatSquareText size={22} />
+          <span className="nav-label">Enquiries</span>
+        </NavLink>
+      )}
 
-      <NavLink
-        to="/reports"
-        className={({ isActive }) => navClass(isActive)}
-        onClick={(event) => handleRouteClick(event, "/reports")}
-      >
-        <GraphUpArrow size={22} />
-        <span className="nav-label">Reports</span>
-      </NavLink>
+      {hasFeature("reports") && (
+        <NavLink
+          to="/reports"
+          className={({ isActive }) => navClass(isActive)}
+          onClick={(event) => handleRouteClick(event, "/reports")}
+        >
+          <GraphUpArrow size={22} />
+          <span className="nav-label">Reports</span>
+        </NavLink>
+      )}
 
       <button
         type="button"

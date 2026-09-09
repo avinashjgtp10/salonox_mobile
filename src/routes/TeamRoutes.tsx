@@ -2,6 +2,7 @@ import { lazy, Suspense } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { PageLoader } from "../components/ui";
 import PermissionGuard from "../components/guards/PermissionGuard";
+import PlanFeatureGuard from "../components/guards/PlanFeatureGuard";
 
 const StaffListPage       = lazy(() => import("../features/staff/pages/StaffListPage"));
 const ImportStaffPage     = lazy(() => import("../features/staff/pages/ImportStaffPage"));
@@ -65,11 +66,15 @@ export const TeamRoutes = () => (
         <Route path="repeating-shifts/:id" element={<RepeatingShiftsPage />} />
       </Route>
 
-      {/* view_payroll required for pay run / payroll access */}
-      <Route element={<PermissionGuard permKey="view_payroll" />}>
-        <Route path="payroll"     element={<PayrollPage />} />
-        <Route path="payruns"     element={<PayRunsPage />} />
-        <Route path="payruns/:id" element={<PayRunBreakdownPage />} />
+      {/* featureKey "payroll" (Advance tier and up) wraps view_payroll —
+          a salon whose plan lacks Payroll sees the upgrade screen regardless
+          of staff permissions. */}
+      <Route element={<PlanFeatureGuard featureKey="payroll" label="Payroll" />}>
+        <Route element={<PermissionGuard permKey="view_payroll" />}>
+          <Route path="payroll"     element={<PayrollPage />} />
+          <Route path="payruns"     element={<PayRunsPage />} />
+          <Route path="payruns/:id" element={<PayRunBreakdownPage />} />
+        </Route>
       </Route>
     </Routes>
   </Suspense>

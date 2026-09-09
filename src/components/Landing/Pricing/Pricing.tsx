@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import api from '../../../services/api/axios';
+import { SALON_PLANS } from '../../../services/api/endpoints';
 import {
   Icon,
   Reveal,
@@ -7,7 +9,26 @@ import {
   SectionTransition,
 } from '../shared';
 
-const PURCHASE_PLANS = [
+interface PurchasePlan {
+  name: string;
+  price: string;
+  description: string;
+  cta: string;
+  badge: string;
+  featured: boolean;
+  premium: boolean;
+  features: string[];
+}
+
+// Hardcoded fallback — shown if the live catalog fails to load (landing
+// page has no auth session to retry with, unlike the dashboard), so a
+// backend hiccup never means the pricing section renders blank for a
+// visitor still deciding whether to sign up. Kept in sync by hand with
+// whatever super admin currently has configured; drifts are cosmetic only
+// (this never determines what a real purchase actually charges — see
+// GET /salon-plans/definitions, the live source of truth this component
+// fetches on mount).
+const FALLBACK_PLANS: PurchasePlan[] = [
   {
     name: 'Basic',
     price: '₹8,000',
@@ -60,7 +81,7 @@ const PURCHASE_PLANS = [
     description: 'For growing business that need advanced digital and multi-branch capabilities.',
     cta: 'Buy Pro',
     badge: '',
-    featured: false, 
+    featured: false,
     premium: true,
     features: [
       'Mobile App',
@@ -73,9 +94,56 @@ const PURCHASE_PLANS = [
       'Consultation',
     ],
   },
-] as const;
+];
 
-const Pricing: React.FC = () => (
+const TIER_ORDER = ['basic', 'advance', 'pro'];
+
+interface CatalogEntry {
+  tier: 'basic' | 'advance' | 'pro';
+  name: string;
+  tagline: string | null;
+  price: string;
+  features: string[];
+}
+
+function toPurchasePlans(catalog: CatalogEntry[]): PurchasePlan[] {
+  const sorted = [...catalog].sort(
+    (a, b) => TIER_ORDER.indexOf(a.tier) - TIER_ORDER.indexOf(b.tier)
+  );
+  return sorted.map((plan) => ({
+    name: plan.name,
+    price: `₹${Math.round(parseFloat(plan.price)).toLocaleString('en-IN')}`,
+    description: plan.tagline ?? '',
+    cta: `Buy ${plan.name}`,
+    badge: '',
+    featured: plan.tier === 'advance',
+    premium: plan.tier === 'pro',
+    features: plan.features,
+  }));
+}
+
+const Pricing: React.FC = () => {
+  // Live catalog from Super Admin → Plans & Subscriptions → Pricing Plans
+  // (GET /salon-plans/definitions, public — see that route's own comment)
+  // — falls back to FALLBACK_PLANS above if the fetch fails, so a backend
+  // hiccup never blanks out pricing for a visitor still deciding to sign up.
+  const [plans, setPlans] = useState<PurchasePlan[]>(FALLBACK_PLANS);
+
+  useEffect(() => {
+    let cancelled = false;
+    api.get(SALON_PLANS.DEFINITIONS)
+      .then((res) => {
+        if (cancelled) return;
+        const catalog: CatalogEntry[] = res.data?.data ?? [];
+        if (catalog.length > 0) setPlans(toPurchasePlans(catalog));
+      })
+      .catch(() => {
+        // Keep FALLBACK_PLANS — already the initial state, nothing to do.
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  return (
   <section id="pricing" className="pricing">
     <SectionTransition from="dark" />
     <SectionArtwork variant="pricing" />
@@ -89,7 +157,7 @@ const Pricing: React.FC = () => (
       </Reveal>
 
       <div className="pricing-grid">
-        {PURCHASE_PLANS.map((plan, index) => (
+        {plans.map((plan, index) => (
           <Reveal delay={index as 0 | 1 | 2} key={plan.name}>
             <article
               className={[
@@ -124,6 +192,7 @@ const Pricing: React.FC = () => (
       </div>
     </div>
   </section>
-);
+  );
+};
 
 export default React.memo(Pricing);
