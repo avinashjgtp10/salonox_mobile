@@ -1,4 +1,4 @@
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 
 import { useAppToast } from "@/hooks/useAppToast";
@@ -57,6 +57,7 @@ const toPlaceholderDob = (day?: number | null, month?: number | null) => {
 };
 
 export const useStaffForm = (staffId?: string | null) => {
+  const { fromCalendar } = useLocalSearchParams<{ fromCalendar?: string }>();
   const dispatch = useAppDispatch();
   const toast = useAppToast();
   const staffMember = useAppSelector((state) => selectStaffById(state, staffId));
@@ -110,7 +111,7 @@ export const useStaffForm = (staffId?: string | null) => {
       gender: staffMember.gender === "-" ? "" : staffMember.gender,
       holidays: staffMember.holidays != null ? String(staffMember.holidays) : "",
       hourlyRate: "",
-      isLoginEnabled: false,
+      isLoginEnabled: Boolean(staffMember.loginAccess),
       joiningDate: staffMember.joiningDate === "-" ? "" : staffMember.joiningDate,
       notes: staffMember.notes,
       password: "",
@@ -208,7 +209,9 @@ export const useStaffForm = (staffId?: string | null) => {
           ? action.payload.staffMember.id
           : staffId;
 
-      if (nextStaffId) {
+      if (!isEditMode && fromCalendar === "true") {
+        router.replace("/calendar");
+      } else if (nextStaffId) {
         router.replace(`/team/${nextStaffId}`);
       } else {
         router.replace("/team");
@@ -232,6 +235,7 @@ export const useStaffForm = (staffId?: string | null) => {
     updateField,
     uploadAvatar,
     validationErrors: visibleValidationErrors,
+    allValidationErrors: validation.errors,
     values,
   };
 };

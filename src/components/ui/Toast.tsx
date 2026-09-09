@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useMemo } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { ToastOverlay } from "@/components/ui/ToastOverlay";
 
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { useThemeColors } from "@/theme/ThemeProvider";
@@ -36,10 +36,9 @@ interface ToastContainerProps {
 export function createToastContainer({ selector, clearAction }: ToastContainerProps) {
   function ToastContainer() {
     const Colors = useThemeColors();
-    const insets = useSafeAreaInsets();
     const dispatch = useAppDispatch();
     const { toasts } = useAppSelector(selector);
-    const styles = useMemo(() => createStyles(Colors, insets.bottom), [Colors, insets.bottom]);
+    const styles = useMemo(() => createStyles(Colors), [Colors]);
 
     useEffect(() => {
       if (toasts.length === 0) return;
@@ -58,6 +57,7 @@ export function createToastContainer({ selector, clearAction }: ToastContainerPr
     }
 
     return (
+      <ToastOverlay>
       <View style={styles.container} pointerEvents="box-none">
         {toasts.map((toast) => (
           <Animated.View
@@ -96,15 +96,12 @@ export function createToastContainer({ selector, clearAction }: ToastContainerPr
           </Animated.View>
         ))}
       </View>
+      </ToastOverlay>
     );
   }
 
-  const createStyles = (Colors: ThemeColors, bottomInset: number) => StyleSheet.create({
+  const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     container: {
-      position: "absolute",
-      left: Spacing.lg,
-      right: Spacing.lg,
-      bottom: Math.max(bottomInset, 16),
       zIndex: 100,
       flexDirection: "column",
       gap: Spacing.sm,

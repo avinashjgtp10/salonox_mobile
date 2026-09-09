@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   StyleSheet,
@@ -9,7 +9,9 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { KeyboardAwareScrollView } from "@/components/ui/KeyboardAwareScrollView";
+import {
+  KeyboardAwareScrollView,
+} from "@/components/ui/KeyboardAwareScrollView";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppLayout, AppRadius } from "@/constants/layout";
@@ -34,11 +36,22 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { CreateMembershipRequest } from "@/types/membership";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
+import { useValidationScroll } from "@/hooks/useValidationScroll";
 
 type MembershipFormScreenProps = {
   membershipId?: string;
   mode: "create" | "edit";
 };
+
+type MembershipField = "name" | "numberOfSessions" | "price" | "taxRate";
+type MembershipFieldErrors = Partial<Record<MembershipField, string>>;
+
+const VALIDATION_FIELD_ORDER: MembershipField[] = [
+  "name",
+  "price",
+  "numberOfSessions",
+  "taxRate",
+];
 
 const SESSION_TYPES = ["limited", "unlimited"] as const;
 const VALIDITY_OPTIONS = ["30 days", "90 days", "6 months", "1 year"] as const;
@@ -71,6 +84,7 @@ export function MembershipFormScreen({ membershipId, mode }: MembershipFormScree
   const services = useAppSelector(selectServices);
   const servicesLoading = useAppSelector(selectServicesLoading);
   const hasPrefilledRef = useRef(false);
+  const { scrollToFirstError, scrollViewRef, setFieldRef } = useValidationScroll(VALIDATION_FIELD_ORDER);
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -84,6 +98,7 @@ export function MembershipFormScreen({ membershipId, mode }: MembershipFormScree
   const [terms, setTerms] = useState("");
   const [enableOnlineSales, setEnableOnlineSales] = useState(true);
   const [enableOnlineRedemption, setEnableOnlineRedemption] = useState(true);
+  const [fieldErrors, setFieldErrors] = useState<MembershipFieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isFinishing, setIsFinishing] = useState(false);
@@ -123,8 +138,28 @@ export function MembershipFormScreen({ membershipId, mode }: MembershipFormScree
     else router.replace("/memberships" as Href);
   };
 
-  const buildPayload = (): CreateMembershipRequest | null => {
+  const validateFields = (): MembershipFieldErrors => {
     const trimmedName = name.trim();
+    const parsedPrice = Number(price.trim());
+    const parsedSessions = numberOfSessions.trim() ? Number(numberOfSessions.trim()) : undefined;
+    const parsedTax = taxRate.trim() ? Number(taxRate.trim()) : undefined;
+
+    const nextErrors: MembershipFieldErrors = {};
+    if (!trimmedName) nextErrors.name = "Membership name is required.";
+    if (!price.trim() || !Number.isFinite(parsedPrice) || parsedPrice < 0) {
+      nextErrors.price = "Enter a valid price.";
+    }
+    if (sessionType === "limited" && (!parsedSessions || parsedSessions < 1)) {
+      nextErrors.numberOfSessions = "Limited memberships need a valid number of sessions.";
+    }
+    if (taxRate.trim() && (!Number.isFinite(parsedTax) || (parsedTax ?? 0) < 0)) {
+      nextErrors.taxRate = "Enter a valid discount/tax value.";
+    }
+
+    return nextErrors;
+  };
+
+  const buildPayload = (): CreateMembershipRequest => {
     const parsedPrice = Number(price.trim());
     const parsedSessions = numberOfSessions.trim() ? Number(numberOfSessions.trim()) : undefined;
     const parsedTax = taxRate.trim() ? Number(taxRate.trim()) : undefined;
@@ -136,22 +171,13 @@ export function MembershipFormScreen({ membershipId, mode }: MembershipFormScree
         serviceName: service.name,
       }));
 
-    if (!trimmedName) return setFormError("Membership name is required."), null;
-    if (!Number.isFinite(parsedPrice) || parsedPrice < 0) return setFormError("Enter a valid price."), null;
-    if (sessionType === "limited" && (!parsedSessions || parsedSessions < 1)) {
-      return setFormError("Limited memberships need a valid number of sessions."), null;
-    }
-    if (typeof parsedTax === "number" && (!Number.isFinite(parsedTax) || parsedTax < 0)) {
-      return setFormError("Enter a valid discount/tax value."), null;
-    }
-
     return {
       colour,
       description: description.trim() || undefined,
       enableOnlineRedemption,
       enableOnlineSales,
       includedServices,
-      name: trimmedName,
+      name: name.trim(),
       numberOfSessions: sessionType === "limited" ? parsedSessions : undefined,
       price: parsedPrice,
       sessionType,
@@ -159,6 +185,15 @@ export function MembershipFormScreen({ membershipId, mode }: MembershipFormScree
       termsAndConditions: terms.trim() || undefined,
       validFor,
     };
+  };
+
+  const clearFieldError = (field: MembershipField) => {
+    setFieldErrors((current) => {
+      if (!current[field]) return current;
+      const nextErrors = { ...current };
+      delete nextErrors[field];
+      return nextErrors;
+    });
   };
 
   const refreshList = () =>
@@ -175,8 +210,14 @@ export function MembershipFormScreen({ membershipId, mode }: MembershipFormScree
   const submit = async () => {
     setFormError(null);
     setSuccessMessage(null);
+    const nextErrors = validateFields();
+    setFieldErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) {
+      scrollToFirstError(nextErrors);
+      return;
+    }
+
     const payload = buildPayload();
-    if (!payload) return;
 
     const result =
       mode === "create"
@@ -212,7 +253,7 @@ export function MembershipFormScreen({ membershipId, mode }: MembershipFormScree
   return (
     <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
       <AppStatusBar />
-      <KeyboardAwareScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} style={styles.flex}>
+      <KeyboardAwareScrollView ref={scrollViewRef} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} style={styles.flex}>
           <View style={styles.headerRow}>
             <TouchableOpacity activeOpacity={0.84} disabled={isSubmitting} hitSlop={12} onPress={goBack} style={styles.iconButton}>
               <Ionicons name="arrow-back" size={18} color={Colors.primary} />
@@ -222,12 +263,46 @@ export function MembershipFormScreen({ membershipId, mode }: MembershipFormScree
           </View>
 
           <View style={styles.card}>
-            <Field label="Membership Name" icon="sparkles-outline" value={name} onChangeText={setName} placeholder="e.g. Glow Club" />
-            <Segmented label="Membership Type" options={SESSION_TYPES} value={sessionType} onChange={setSessionType} />
-            <Field label="Price" icon="cash-outline" value={price} onChangeText={setPrice} placeholder="0" keyboardType="decimal-pad" />
+            <Field
+              ref={(input) => setFieldRef("name", input)}
+              error={fieldErrors.name}
+              label="Membership Name"
+              icon="sparkles-outline"
+              value={name}
+              onChangeText={(value) => { setName(value); clearFieldError("name"); }}
+              placeholder="e.g. Glow Club"
+            />
+            <Segmented
+              label="Membership Type"
+              options={SESSION_TYPES}
+              value={sessionType}
+              onChange={(value) => {
+                setSessionType(value);
+                if (value === "unlimited") clearFieldError("numberOfSessions");
+              }}
+            />
+            <Field
+              ref={(input) => setFieldRef("price", input)}
+              error={fieldErrors.price}
+              label="Price"
+              icon="cash-outline"
+              value={price}
+              onChangeText={(value) => { setPrice(value); clearFieldError("price"); }}
+              placeholder="0"
+              keyboardType="decimal-pad"
+            />
             <Segmented label="Validity" options={VALIDITY_OPTIONS} value={validFor} onChange={setValidFor} />
             {sessionType === "limited" ? (
-              <Field label="Number of Sessions" icon="repeat-outline" value={numberOfSessions} onChangeText={setNumberOfSessions} placeholder="6" keyboardType="number-pad" />
+              <Field
+                ref={(input) => setFieldRef("numberOfSessions", input)}
+                error={fieldErrors.numberOfSessions}
+                label="Number of Sessions"
+                icon="repeat-outline"
+                value={numberOfSessions}
+                onChangeText={(value) => { setNumberOfSessions(value); clearFieldError("numberOfSessions"); }}
+                placeholder="6"
+                keyboardType="number-pad"
+              />
             ) : null}
             <Field label="Description" icon="document-text-outline" value={description} onChangeText={setDescription} placeholder="Describe the membership" multiline />
             <View style={styles.inputGroup}>
@@ -264,7 +339,16 @@ export function MembershipFormScreen({ membershipId, mode }: MembershipFormScree
                 )}
               </View>
             </View>
-            <Field label="Discount" icon="ticket-outline" value={taxRate} onChangeText={setTaxRate} placeholder="Optional percentage" keyboardType="decimal-pad" />
+            <Field
+              ref={(input) => setFieldRef("taxRate", input)}
+              error={fieldErrors.taxRate}
+              label="Discount"
+              icon="ticket-outline"
+              value={taxRate}
+              onChangeText={(value) => { setTaxRate(value); clearFieldError("taxRate"); }}
+              placeholder="Optional percentage"
+              keyboardType="decimal-pad"
+            />
             <Segmented label="Colour" options={COLOR_OPTIONS} value={colour} onChange={setColour} />
             <Toggle label="Online Sales" value={enableOnlineSales} onPress={() => setEnableOnlineSales((value) => !value)} />
             <Toggle label="Online Redemption" value={enableOnlineRedemption} onPress={() => setEnableOnlineRedemption((value) => !value)} />
@@ -293,19 +377,29 @@ export function MembershipFormScreen({ membershipId, mode }: MembershipFormScree
   );
 }
 
-function Field({ icon, label, ...props }: { icon: keyof typeof Ionicons.glyphMap; label: string } & React.ComponentProps<typeof TextInput>) {
+type FieldProps = {
+  error?: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+} & React.ComponentProps<typeof TextInput>;
+
+const Field = forwardRef<TextInput, FieldProps>(function Field(
+  { error, icon, label, ...props },
+  ref,
+) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   return (
     <View style={styles.inputGroup}>
       <Text style={styles.inputLabel}>{label}</Text>
-      <View style={[styles.inputContainer, props.multiline && styles.inputContainerMultiline]}>
-        <Ionicons name={icon} size={18} color={Colors.text2} />
-        <TextInput placeholderTextColor={Colors.placeholder} style={[styles.textInput, props.multiline && styles.textArea]} {...props} />
+      <View style={[styles.inputContainer, props.multiline && styles.inputContainerMultiline, error && styles.inputContainerError]}>
+        <Ionicons name={icon} size={18} color={error ? Colors.error : Colors.text2} />
+        <TextInput ref={ref} placeholderTextColor={Colors.placeholder} style={[styles.textInput, props.multiline && styles.textArea]} {...props} />
       </View>
+      {error ? <Text style={styles.fieldErrorText}>{error}</Text> : null}
     </View>
   );
-}
+});
 
 function Segmented<T extends string>({ label, onChange, options, value }: { label: string; onChange: (value: T) => void; options: readonly (T | { label: string; value: T })[]; value: T }) {
   const Colors = useThemeColors();
@@ -355,7 +449,9 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   inputGroup: { marginBottom: Spacing.lg },
   inputLabel: { color: Colors.text2, fontSize: 13, fontWeight: "800", marginBottom: Spacing.sm },
   inputContainer: { alignItems: "center", backgroundColor: Colors.bg, borderColor: Colors.border, borderRadius: AppRadius.control, borderWidth: 1, flexDirection: "row", minHeight: 52, paddingHorizontal: Spacing.md },
+  inputContainerError: { borderColor: Colors.error, borderWidth: 1.5 },
   inputContainerMultiline: { alignItems: "flex-start", paddingTop: 14 },
+  fieldErrorText: { color: Colors.error, fontSize: 12, fontWeight: "700", marginTop: 6 },
   textInput: { color: Colors.heading, flex: 1, fontSize: 15, marginLeft: Spacing.sm, minHeight: 50 },
   textArea: { minHeight: 86, textAlignVertical: "top" },
   segmented: { backgroundColor: Colors.bg, borderColor: Colors.border, borderRadius: AppRadius.control, borderWidth: 1, flexDirection: "row", padding: 4 },

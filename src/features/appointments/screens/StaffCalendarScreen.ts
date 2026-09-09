@@ -1,1 +1,0 @@
-export { StaffCalendarScreen } from "./legacy";

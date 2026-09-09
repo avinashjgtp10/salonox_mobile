@@ -50,10 +50,15 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { EMAIL_INVALID_MESSAGE, isValidEmail, PHONE_DIGIT_COUNT, PHONE_INVALID_MESSAGE } from "@/utils/validation";
 import { splitFullName } from "@/utils/name";
+import { useValidationScroll } from "@/hooks/useValidationScroll";
 
 const GENDER_OPTIONS = ["Female", "Male", "Other"] as const;
 const STATE_OPTIONS = ["Andhra Pradesh", "Delhi", "Gujarat", "Karnataka", "Maharashtra", "Rajasthan", "Tamil Nadu", "Telangana", "Uttar Pradesh", "West Bengal"];
 const LEAD_SOURCE_OPTIONS = ["Walk-in", "Google", "Instagram", "Facebook", "Referral", "Website", "Other"];
+
+type ClientField = "email" | "firstName" | "phone";
+type ClientFieldErrors = Partial<Record<ClientField, string>>;
+const VALIDATION_FIELD_ORDER: ClientField[] = ["firstName", "phone", "email"];
 
 const getPhoneForEdit = (clientPhone: string, phoneCountryCode?: string | null) => {
   const trimmedPhone = clientPhone === "-" ? "" : clientPhone.trim();
@@ -149,16 +154,17 @@ export default function NewClientScreen() {
   const clientsActiveFilter = useAppSelector(selectClientsActiveFilter);
   const clientsQuery = useAppSelector(selectClientsQuery);
   const hasPrefilledRef = useRef(false);
+  const { scrollToFirstError, scrollViewRef, setFieldRef } = useValidationScroll(VALIDATION_FIELD_ORDER);
 
   const [email, setEmail] = useState("");
   const [firstName, setFirstName] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<ClientFieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [lastName, setLastName] = useState("");
   const [gender, setGender] = useState<(typeof GENDER_OPTIONS)[number] | "">("");
   const [isFinishing, setIsFinishing] = useState(false);
   const [phone, setPhone] = useState("");
   const [phoneCountry, setPhoneCountry] = useState<CountryCode>("IN");
-  const [phoneError, setPhoneError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [whatsappMatchesPhone, setWhatsappMatchesPhone] = useState(true);
   const [promotionChannels, setPromotionChannels] = useState(["SMS", "Email", "Whatsapp"]);
@@ -235,27 +241,23 @@ export default function NewClientScreen() {
     const trimmedEmail = email.trim();
 
     setFormError(null);
-    setPhoneError(null);
     setSuccessMessage(null);
 
-    if (!trimmedFirstName) {
-      setFormError("First name is required.");
-      return;
-    }
-
-    if (!trimmedPhone) {
-      setPhoneError("Phone number is required.");
-      return;
-    }
-
+    const nextErrors: ClientFieldErrors = {};
+    if (!trimmedFirstName) nextErrors.firstName = "First name is required.";
     const parsedPhone = isValidPhoneNumber(trimmedPhone) ? parsePhoneNumber(trimmedPhone) : null;
-    if (!parsedPhone || parsedPhone.nationalNumber.length !== PHONE_DIGIT_COUNT) {
-      setPhoneError(PHONE_INVALID_MESSAGE);
-      return;
+    if (!trimmedPhone) {
+      nextErrors.phone = "Phone number is required.";
+    } else if (!parsedPhone || parsedPhone.nationalNumber.length !== PHONE_DIGIT_COUNT) {
+      nextErrors.phone = PHONE_INVALID_MESSAGE;
+    }
+    if (trimmedEmail && !isValidEmail(trimmedEmail)) {
+      nextErrors.email = EMAIL_INVALID_MESSAGE;
     }
 
-    if (trimmedEmail && !isValidEmail(trimmedEmail)) {
-      setFormError(EMAIL_INVALID_MESSAGE);
+    setFieldErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) {
+      scrollToFirstError(nextErrors);
       return;
     }
 
@@ -362,6 +364,7 @@ export default function NewClientScreen() {
     <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
       <AppStatusBar />
       <KeyboardAwareScrollView
+        ref={scrollViewRef}
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
@@ -380,9 +383,10 @@ export default function NewClientScreen() {
             <View style={styles.nameRow}>
               <View style={styles.nameField}>
                 <Text style={styles.inputLabel}>First Name<Text style={styles.requiredMark}>*</Text></Text>
-                <View style={styles.inputContainer}>
-                  <TextInput autoCapitalize="words" editable={!isSubmitting} onChangeText={setFirstName} placeholder="First name" placeholderTextColor={Colors.appointmentPlaceholder} returnKeyType="next" style={styles.textInput} textContentType="givenName" value={firstName} />
+                <View style={[styles.inputContainer, fieldErrors.firstName && styles.inputContainerError]}>
+                  <TextInput ref={(input) => setFieldRef("firstName", input)} autoCapitalize="words" editable={!isSubmitting} onChangeText={(value) => { setFirstName(value); setFieldErrors((current) => ({ ...current, firstName: undefined })); }} placeholder="First name" placeholderTextColor={Colors.appointmentPlaceholder} returnKeyType="next" style={styles.textInput} textContentType="givenName" value={firstName} />
                 </View>
+                {fieldErrors.firstName ? <Text style={styles.fieldErrorText}>{fieldErrors.firstName}</Text> : null}
               </View>
               <View style={styles.nameField}>
                 <Text style={styles.inputLabel}>Last Name</Text>
@@ -395,12 +399,13 @@ export default function NewClientScreen() {
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Mobile No.<Text style={styles.requiredMark}>*</Text></Text>
               <PhoneInput
+                ref={(input) => setFieldRef("phone", input)}
                 country={phoneCountry}
                 disabled={isSubmitting}
-                error={phoneError ?? undefined}
+                error={fieldErrors.phone}
                 onChange={(value) => {
                   setPhone(value);
-                  setPhoneError(null);
+                  setFieldErrors((current) => ({ ...current, phone: undefined }));
                 }}
                 onCountryChange={setPhoneCountry}
                 placeholder="Enter phone number"
@@ -415,13 +420,14 @@ export default function NewClientScreen() {
 
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Email</Text>
-              <View style={styles.inputContainer}>
+              <View style={[styles.inputContainer, fieldErrors.email && styles.inputContainerError]}>
                 <TextInput
+                  ref={(input) => setFieldRef("email", input)}
                   autoCapitalize="none"
                   autoCorrect={false}
                   editable={!isSubmitting}
                   keyboardType="email-address"
-                  onChangeText={setEmail}
+                  onChangeText={(value) => { setEmail(value); setFieldErrors((current) => ({ ...current, email: undefined })); }}
                   placeholder="Enter email address"
                   placeholderTextColor={Colors.appointmentPlaceholder}
                   returnKeyType="next"
@@ -430,6 +436,7 @@ export default function NewClientScreen() {
                   value={email}
                 />
               </View>
+              {fieldErrors.email ? <Text style={styles.fieldErrorText}>{fieldErrors.email}</Text> : null}
             </View>
 
             <View style={styles.communicationBlock}>
@@ -592,6 +599,16 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     flexDirection: "row",
     minHeight: 52,
     paddingHorizontal: AppLayout.searchBarPaddingX,
+  },
+  inputContainerError: {
+    borderColor: Colors.error,
+    borderWidth: 1.5,
+  },
+  fieldErrorText: {
+    color: Colors.error,
+    fontSize: 12,
+    fontWeight: "700",
+    marginTop: 6,
   },
   textInput: {
     color: Colors.appointmentText,

@@ -25,6 +25,7 @@ export type CreateStaffRequest = {
   job_title?: string;
   joined_date?: string;
   last_name?: string;
+  login_access?: boolean;
   notes?: string;
   password?: string;
   permission_level?: string;

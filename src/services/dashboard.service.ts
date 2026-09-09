@@ -46,6 +46,7 @@ type DashboardAppointmentResponse = {
   scheduled_start?: string | null;
   service?: string | null;
   staffName?: string | null;
+  staffId?: string | null;
   startTime?: string | null;
   start_time?: string | null;
   status?: string | null;
@@ -119,6 +120,7 @@ export type StaffRevenueResponse = {
 };
 
 export type DashboardAppointment = {
+  staffId?: string | null;
   amount: number;
   clientName: string;
   id: string;
@@ -295,6 +297,7 @@ const normalizeAppointment = (
     scheduledAtMs,
     service: toSafeString(appointment.service, "Service not added"),
     staffName: toSafeString(appointment.staffName, "Staff not assigned"),
+    staffId: toSafeString(appointment.staffId) || null,
     status: toSafeAppointmentStatus(appointment.status),
     // Prefer deriving the display time from the real scheduled datetime; only
     // fall back to the backend's own pre-formatted string when no parseable

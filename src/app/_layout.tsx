@@ -62,6 +62,7 @@ const PUBLIC_ROUTES = new Set([
   "login",
   "forgot-password",
   "verify-otp",
+  "verify-email",
   "reset-password",
   "invite",
 ]);
@@ -353,6 +354,7 @@ function AppShell() {
               <Stack.Screen name="change-password" />
               <Stack.Screen name="salon-settings" />
               <Stack.Screen name="appearance" />
+              <Stack.Screen name="notification-settings" />
               <Stack.Screen name="privacy-policy" />
               <Stack.Screen name="(tabs)" />
               <Stack.Screen name="(staff)" />

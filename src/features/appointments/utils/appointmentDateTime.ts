@@ -138,17 +138,10 @@ export const getDefaultTimeSlots = (date: string): StaffAvailabilitySlot[] => {
     return [];
   }
 
-  const now = new Date();
-  const isToday = date === todayIsoDate();
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
-  const minimumMinutes = isToday
-    ? Math.ceil(currentMinutes / DEFAULT_TIME_SLOT_INTERVAL_MINUTES) * DEFAULT_TIME_SLOT_INTERVAL_MINUTES
-    : DEFAULT_TIME_SLOT_START_MINUTES;
-  const startMinutes = Math.max(DEFAULT_TIME_SLOT_START_MINUTES, minimumMinutes);
   const slots: StaffAvailabilitySlot[] = [];
 
   for (
-    let minutes = startMinutes;
+    let minutes = DEFAULT_TIME_SLOT_START_MINUTES;
     minutes < DEFAULT_TIME_SLOT_END_MINUTES;
     minutes += DEFAULT_TIME_SLOT_INTERVAL_MINUTES
   ) {

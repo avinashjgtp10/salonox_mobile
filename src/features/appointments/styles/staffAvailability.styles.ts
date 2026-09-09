@@ -1,0 +1,178 @@
+import { AppRadius } from "@/constants/layout";
+import type { ThemeColors } from '@/constants/theme';
+import { DashboardSpacing as Spacing } from "@/constants/theme";
+import { StyleSheet } from 'react-native';
+
+export const createStaffAvailabilityStyles = (Colors: ThemeColors) => StyleSheet.create({
+  staffFilterCard: {
+    backgroundColor: Colors.appointmentSurface,
+    borderRadius: 7,
+    maxHeight: "72%",
+    padding: 16,
+    width: "92%",
+  },
+  staffFilterTitle: {
+    color: Colors.appointmentText,
+    fontSize: 17,
+    fontWeight: "800",
+    marginBottom: 12,
+  },
+  staffFilterOption: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 10,
+    minHeight: 44,
+  },
+  staffFilterText: {
+    color: Colors.appointmentText,
+    fontSize: 13,
+  },
+  staffFilterActions: {
+    alignItems: "center",
+    borderTopColor: Colors.appointmentDivider,
+    borderTopWidth: 1,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 10,
+    paddingTop: 12,
+  },
+  staffFilterClear: {
+    color: Colors.appointmentText,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  staffFilterApply: {
+    alignItems: "center",
+    backgroundColor: Colors.appointmentAccent,
+    borderRadius: 20,
+    justifyContent: "center",
+    minHeight: 40,
+    minWidth: 120,
+  },
+  staffFilterApplyText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  availabilityCard: {
+    backgroundColor: Colors.bg,
+    borderColor: Colors.border,
+    borderRadius: AppRadius.control,
+    borderWidth: 1,
+    gap: Spacing.md,
+    marginBottom: Spacing.lg,
+    padding: Spacing.md,
+  },
+  availabilityGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+  },
+  availabilityHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  availabilityItem: {
+    backgroundColor: Colors.card,
+    borderColor: Colors.border,
+    borderRadius: AppRadius.control,
+    borderWidth: 1,
+    flexBasis: "48%",
+    flexGrow: 1,
+    minHeight: 62,
+    padding: Spacing.sm,
+  },
+  availabilityRows: {
+    gap: Spacing.xs,
+  },
+  availabilityRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: Spacing.sm,
+    justifyContent: "space-between",
+    minHeight: 30,
+  },
+  availabilityLabel: {
+    color: Colors.text2,
+    fontSize: 11,
+    fontWeight: "800",
+    marginBottom: 4,
+  },
+  availabilityTitle: {
+    color: Colors.heading,
+    fontSize: 14,
+    fontWeight: "900",
+  },
+  availabilityValue: {
+    color: Colors.heading,
+    fontSize: 13,
+    fontWeight: "900",
+  },
+  availabilityRowLabel: {
+    color: Colors.text2,
+    flex: 1,
+    flexShrink: 1,
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  availabilityRowValue: {
+    color: Colors.heading,
+    flexShrink: 1,
+    fontSize: 13,
+    fontWeight: "900",
+    maxWidth: "56%",
+    textAlign: "right",
+  },
+  staffCardRow: {
+    flexDirection: "row",
+    gap: 8,
+    paddingBottom: 2,
+    paddingTop: Spacing.sm,
+  },
+  staffSelectCard: {
+    alignItems: "center",
+    backgroundColor: Colors.appointmentSurface,
+    borderColor: Colors.appointmentBorder,
+    borderRadius: 6,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: Spacing.sm,
+    minHeight: 58,
+    padding: 8,
+    position: "relative",
+    width: 152,
+  },
+  staffSelectCardActive: {
+    borderColor: Colors.appointmentAccent,
+    backgroundColor: Colors.appointmentAccentSoft,
+    borderWidth: 1,
+  },
+  staffSelectCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  staffSelectedBadge: {
+    alignItems: "center",
+    backgroundColor: Colors.appointmentAccent,
+    borderRadius: 12,
+    height: 24,
+    justifyContent: "center",
+    position: "absolute",
+    right: 8,
+    top: 8,
+    width: 24,
+  },
+  staffSelectName: {
+    color: Colors.appointmentText,
+    fontSize: 13,
+    fontWeight: "700",
+    paddingRight: 18,
+  },
+  staffSelectRole: {
+    color: Colors.appointmentTextSecondary,
+    fontSize: 11,
+    fontWeight: "600",
+    marginTop: 3,
+  }
+});
