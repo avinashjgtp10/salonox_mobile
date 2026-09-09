@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
-import { Search, PlusLg, PencilSquare, Trash3, ChatSquareText, ThreeDotsVertical, CalendarCheck, ArrowCounterclockwise, ExclamationCircle } from "react-bootstrap-icons";
+import { Search, PlusLg, PencilSquare, Trash3, ChatSquareText, ThreeDotsVertical, CalendarCheck, ArrowCounterclockwise, ExclamationCircle, Telephone, Whatsapp } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { ENQUIRY } from "../../../services/api/endpoints";
 import { Pagination, JiraFilterMenu, Modal, Button, Input, DateRangeFilter } from "../../../components/ui";
@@ -321,6 +321,22 @@ export default function EnquiriesListPage() {
                     </select>
                   </td>
                   <td className="enq-actions-cell" onClick={(ev) => ev.stopPropagation()}>
+                    <a
+                      href={`tel:${e.phone}`}
+                      className="enq-icon-btn enq-icon-btn--call"
+                      title="Call"
+                    >
+                      <Telephone size={14} />
+                    </a>
+                    <a
+                      href={`https://wa.me/${e.phone.replace(/\D/g, "")}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="enq-icon-btn enq-icon-btn--whatsapp"
+                      title="WhatsApp"
+                    >
+                      <Whatsapp size={14} />
+                    </a>
                     <button
                       type="button"
                       className="enq-kebab-btn"
@@ -345,6 +361,22 @@ export default function EnquiriesListPage() {
                         <li>
                           <button type="button" onClick={() => { navigate(`/dashboard/enquiries/edit/${e.id}`); setOpenRowMenuId(null); }}>
                             <PencilSquare size={14} /> Edit
+                          </button>
+                        </li>
+                        <li>
+                          <button
+                            type="button"
+                            onClick={() => { setReschedulingEnquiry(e); setOpenRowMenuId(null); }}
+                          >
+                            <CalendarCheck size={13} /> Set Follow-up
+                          </button>
+                        </li>
+                        <li>
+                          <button
+                            type="button"
+                            onClick={() => { handleStatusChange(e, "Converted"); setOpenRowMenuId(null); }}
+                          >
+                            <ChatSquareText size={13} /> Mark as Converted
                           </button>
                         </li>
                         <li>
