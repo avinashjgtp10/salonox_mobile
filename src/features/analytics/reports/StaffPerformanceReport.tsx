@@ -5,8 +5,8 @@ import { STAFF_PERFORMANCE_REPORT } from "../../../services/api/endpoints";
 import ReportRefreshButton from "./ReportRefreshButton";
 import Breadcrumb from "../../../components/ui/Breadcrumb";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
-import { Pagination, Avatar, JiraFilterMenu } from "../../../components/ui";
-import type { JiraFilterField } from "../../../components/ui";
+import { Pagination, Avatar, JiraFilterMenu, DateRangeFilter, getDateRangePresetValue } from "../../../components/ui";
+import type { JiraFilterField, DateRangeFilterValue } from "../../../components/ui";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { useCurrency } from "../../../hooks/useCurrency";
 import StaffHistoryModal from "../../staff/components/StaffHistoryModal";
@@ -77,9 +77,8 @@ function mapRow(row: any): StaffPerformanceRow {
 export default function StaffPerformanceReport({ onBack, category, categoryKey }: { onBack: () => void; category: string; categoryKey: string }) {
   const { currencySymbol, formatAmount } = useCurrency();
   const [historyStaffId, setHistoryStaffId] = useState<string | null>(null);
-  // No date-range control in the UI — always scoped to the current month.
-  const today = new Date().toISOString().slice(0, 10);
-  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
+  const [dateRange, setDateRange] = useState<DateRangeFilterValue>({ preset: "this_month", ...getDateRangePresetValue("this_month") });
+  const { startDate: dateFrom, endDate: dateTo } = dateRange;
 
   const [staffFilterIds, setStaffFilterIds] = useState<string[]>([]);
   const [paymentModeFilter, setPaymentModeFilter] = useState<string[]>([]);
@@ -124,7 +123,7 @@ export default function StaffPerformanceReport({ onBack, category, categoryKey }
     setLoading(true);
     try {
       const body: Record<string, any> = {
-        start_date: monthStart, end_date: today,
+        start_date: dateFrom, end_date: dateTo,
         page: currentPage, limit: pageSize,
       };
       if (debouncedSearch) body.search = debouncedSearch;
@@ -165,12 +164,12 @@ export default function StaffPerformanceReport({ onBack, category, categoryKey }
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [staffFilterIds, paymentModeFilter, paymentStatusFilter, itemTypeFilter, packageFilter, membershipFilter, includeGst, debouncedSearch, currentPage, pageSize]);
+  }, [dateFrom, dateTo, staffFilterIds, paymentModeFilter, paymentStatusFilter, itemTypeFilter, packageFilter, membershipFilter, includeGst, debouncedSearch, currentPage, pageSize]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => {
     setCurrentPage(1);
-  }, [staffFilterIds, paymentModeFilter, paymentStatusFilter, itemTypeFilter, packageFilter, membershipFilter, includeGst, debouncedSearch]);
+  }, [dateFrom, dateTo, staffFilterIds, paymentModeFilter, paymentStatusFilter, itemTypeFilter, packageFilter, membershipFilter, includeGst, debouncedSearch]);
 
   const filterFields: JiraFilterField[] = useMemo(() => [
     { key: "staff", label: "Staff", options: staffOptions, searchable: true },
@@ -248,7 +247,7 @@ export default function StaffPerformanceReport({ onBack, category, categoryKey }
         <div className="rp-detail-back-row">
           <Breadcrumb current={REPORT_NAME} category={category} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
-            <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename={`staff-performance-${monthStart}-${today}`} variant="button" csv />
+            <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename={`staff-performance-${dateFrom}-${dateTo}`} variant="button" csv />
           </div>
         </div>
       </div>
@@ -263,6 +262,10 @@ export default function StaffPerformanceReport({ onBack, category, categoryKey }
             value={search}
             onChange={e => setSearchInput(e.target.value)}
           />
+        </div>
+        <div className="rp-detail-filter-group">
+          <label className="rp-detail-filter-label">Date Range</label>
+          <DateRangeFilter value={dateRange} onChange={setDateRange} />
         </div>
         <JiraFilterMenu fields={filterFields} selected={filterMenuSelected} onApply={handleFiltersApply} triggerLabel="Filters" />
         <div className="rp-detail-filter-actions">
