@@ -1,4 +1,6 @@
 export { default as Alert } from "./Alert";
+export { default as AlertDialog } from "./AlertDialog";
+export type { AlertDialogProps } from "./AlertDialog";
 export { default as Avatar } from "./Avatar";
 export { default as Badge } from "./Badge";
 export { default as Breadcrumb } from "./Breadcrumb";

@@ -6,13 +6,7 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import "../styles/AddStaffPage.scss";
 import api from "../../../services/api/axios";
 import { STAFF } from "../../../services/api/endpoints";
-import {
-  defaultPermissions,
-  PERM_CATEGORIES,
-  buildPermissions,
-  permsToRecord,
-  type Permission,
-} from "../../settings/data/permissionMatrix";
+import StaffPermissionEditor from "../../settings/components/StaffPermissionEditor";
 import CountryCodeSelect from "../../clients/components/CountryCodeSelect";
 import Dropdown from "../../../components/ui/Dropdown";
 import { useAppDispatch } from "../../../hooks/useAppRedux";
@@ -82,8 +76,10 @@ const AddStaffPage: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [permissionLevel, setPermissionLevel] = useState("Low");
-  const [permissionsEnabled, setPermissionsEnabled] = useState(false);
-  const [perms, setPerms] = useState<Permission[]>(() => buildPermissions(defaultPermissions, null));
+  // Individual permission overrides are managed separately post-creation via
+  // StaffPermissionEditor (see the "Permissions" card below) — this form no
+  // longer writes staff.custom_permissions directly.
+  const [showPermissionEditor, setShowPermissionEditor] = useState(false);
 
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -147,13 +143,6 @@ const AddStaffPage: React.FC = () => {
         });
         setAvatarUrl(staff.avatar_url || "");
         setPermissionLevel(LEVEL_TO_ROLE[staff.permission_level] || "Low");
-
-        if (staff.custom_permissions) {
-          setPermissionsEnabled(true);
-          setPerms(buildPermissions(defaultPermissions, staff.custom_permissions));
-        } else {
-          setPerms(buildPermissions(defaultPermissions, null));
-        }
 
         const wages = wagesRes?.data?.data;
         if (wages) {
@@ -296,12 +285,6 @@ const AddStaffPage: React.FC = () => {
     }
   };
 
-  // ── Permissions ──────────────────────────────────────────────────────────────
-  const togglePerm = (key: string) => {
-    setPerms((prev) => prev.map((p) => (p.key === key ? { ...p, staff: !p.staff } : p)));
-    setPermissionsEnabled(true);
-  };
-
   // ── Submit ───────────────────────────────────────────────────────────────────
   const handleSave = async () => {
     setAttemptedSubmit(true);
@@ -364,12 +347,6 @@ const AddStaffPage: React.FC = () => {
 
       if (staffLoginEnabled && form.password.trim()) {
         payload.password = form.password.trim();
-      }
-
-      if (permissionsEnabled) {
-        payload.custom_permissions = permsToRecord(perms);
-      } else if (isEdit) {
-        payload.custom_permissions = null;
       }
 
       let staffId = id;
@@ -794,42 +771,43 @@ const AddStaffPage: React.FC = () => {
           )}
         </div>
 
-        {/* ── Staff Permissions ── */}
+        {/* ── Permissions ── */}
         <div className="emp-card">
           <div className="emp-permissions-header">
             <div className="emp-permissions-header__left">
-              <span className="emp-card__title emp-card__title--inline">Staff Permissions</span>
-              <label className="emp-toggle">
-                <input
-                  type="checkbox"
-                  checked={permissionsEnabled}
-                  onChange={(e) => setPermissionsEnabled(e.target.checked)}
-                />
-                <span className="emp-toggle__slider" />
-              </label>
+              <span className="emp-card__title emp-card__title--inline">Permissions</span>
             </div>
           </div>
-
-          <div className={`emp-permissions-grid ${!permissionsEnabled ? "emp-permissions-grid--disabled" : ""}`}>
-            {PERM_CATEGORIES.map((cat) => (
-              <div key={cat} className="emp-perm-category">
-                <p className="emp-perm-category__title">{cat}</p>
-                {perms.filter((p) => p.category === cat).map((perm) => (
-                  <label key={perm.key} className="emp-checkbox-row emp-checkbox-row--perm">
-                    <input
-                      type="checkbox"
-                      checked={perm.staff}
-                      disabled={!permissionsEnabled}
-                      onChange={() => togglePerm(perm.key)}
-                    />
-                    <span>{perm.label}</span>
-                  </label>
-                ))}
-              </div>
-            ))}
-          </div>
+          {isEdit ? (
+            <>
+              <p className="emp-field__hint">
+                This staff member's access is governed by their assigned role, with optional
+                individual overrides.
+              </p>
+              <button
+                type="button"
+                className="btn btn-outline-secondary btn-sm"
+                onClick={() => setShowPermissionEditor(true)}
+              >
+                Manage permission overrides →
+              </button>
+            </>
+          ) : (
+            <p className="emp-field__hint">
+              This staff member will start with their assigned role's default permissions.
+              Individual overrides can be set after saving, from the Roles &amp; Permissions page.
+            </p>
+          )}
         </div>
       </div>
+
+      {isEdit && showPermissionEditor && id && (
+        <StaffPermissionEditor
+          staffId={id}
+          staffName={form.name || form.email}
+          onClose={() => setShowPermissionEditor(false)}
+        />
+      )}
     </div>
   );
 };

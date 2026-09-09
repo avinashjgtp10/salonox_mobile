@@ -9,6 +9,7 @@ import salonReducer from "./salonSlice";
 import clientReducer from "./clientSlice";
 import userReducer from "./userSlice";
 import staffReducer from "./staffSlice";
+import rolesReducer from "./rolesSlice";
 import catalogReducer from "./catalogSlice";
 import settingReducer from "./settingSlice";
 import appReducer from "./appSlice";
@@ -33,6 +34,7 @@ import superAdminReducer from "./superAdminSlice";
 import supportReducer from "./supportSlice";
 import cashCounterReducer from "./cashCounterSlice";
 import spotlightReducer from "./spotlightSlice";
+import permissionDialogReducer from "./permissionDialogSlice";
 
 // An impersonation/oauth-success tab (opened via window.open, e.g. Super
 // Admin's "Impersonate") shares localStorage with every other tab on this
@@ -82,6 +84,7 @@ export const store = configureStore({
     client: clientReducer,
     user: userReducer,
     staff: staffReducer,
+    roles: rolesReducer,
     catalog: catalogReducer,
     setting: settingReducer,
     app: appReducer,
@@ -108,6 +111,7 @@ export const store = configureStore({
     support: supportReducer,
     cashCounter: cashCounterReducer,
     spotlight: spotlightReducer,
+    permissionDialog: permissionDialogReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

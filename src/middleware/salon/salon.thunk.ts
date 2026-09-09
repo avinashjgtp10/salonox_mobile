@@ -10,6 +10,7 @@ import type {
   Salon,
   Branch,
   CreateBranchPayload,
+  UpdateBranchPayload,
 } from "../../types/salon.types";
 
 // ── Save Salon (Create or Update) ─────────────────────────────────────────────
@@ -133,5 +134,20 @@ export const createBranchThunk = createAsyncThunk<
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);
     return rejectWithValue("Failed to create branch.");
+  }
+});
+
+// ── Update Branch ─────────────────────────────────────────────────────────────
+export const updateBranchThunk = createAsyncThunk<
+  Branch,
+  { id: string; data: UpdateBranchPayload },
+  { rejectValue: string }
+>("salon/updateBranch", async ({ id, data }, { rejectWithValue }) => {
+  try {
+    const res = await api.patch<ApiResponse<Branch>>(SALON.BRANCH_BY_ID(id), data);
+    return res.data.data;
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to update branch.");
   }
 });

@@ -23,7 +23,6 @@ import {
 // doorway with stacked crates).
 import WarehouseIcon from "../../../components/icons/WarehouseIcon";
 
-import { usePermissions } from "../../../hooks/usePermissions";
 import { usePlanFeatures } from "../../../hooks/usePlanFeatures";
 import Modal from "../../../components/ui/Modal";
 import { preloadCashManagementPage, preloadScheduler } from "../../../routes/dashboardPreloaders";
@@ -45,7 +44,6 @@ interface Props {
 }
 
 export default function DashboardSidebar({ openMenu, onMenuChange, collapsed, onToggleCollapsed }: Props) {
-  const { can } = usePermissions();
   const { hasFeature } = usePlanFeatures();
   const navigate = useNavigate();
   const location = useLocation();
@@ -138,7 +136,16 @@ export default function DashboardSidebar({ openMenu, onMenuChange, collapsed, on
         <span className="nav-label">{collapsed ? "Expand" : "Collapse"}</span>
       </button>
 
-      {can("view_dashboard") && hasFeature("dashboard") && (
+      {/* Every nav item below renders regardless of staff PERMISSION —
+          hiding a section from navigation isn't a security boundary (the
+          route is still reachable by URL) and just makes it harder for
+          staff to understand what they can't do; PermissionGuard's in-page
+          "Access Denied" handles that axis instead. hasFeature(...) is a
+          DIFFERENT axis (the salon's own plan tier, not staff permissions —
+          see usePlanFeatures.ts) and IS still checked here: a feature the
+          salon's plan doesn't include should never appear in navigation at
+          all, matching PlanFeatureGuard on the route side. */}
+      {hasFeature("dashboard") && (
         <NavLink
           to="/dashboard"
           end
@@ -150,7 +157,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange, collapsed, on
         </NavLink>
       )}
 
-      {can("create_quick_sale") && hasFeature("quick_sale") && (
+      {hasFeature("quick_sale") && (
         <NavLink
           to="/dashboard/sales/quick"
           className={({ isActive }) => navClass(isActive)}
@@ -161,7 +168,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange, collapsed, on
         </NavLink>
       )}
 
-      {can("view_calendar") && hasFeature("calendar") && (
+      {hasFeature("calendar") && (
         <NavLink
           to="/dashboard/calendar"
           className={({ isActive }) => navClass(isActive)}
@@ -174,7 +181,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange, collapsed, on
         </NavLink>
       )}
 
-      {can("view_clients") && hasFeature("clients") && (
+      {hasFeature("clients") && (
         <button
           type="button"
           className={menuClass("clients")}
@@ -195,7 +202,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange, collapsed, on
         </button>
       )}
 
-      {can("view_catalog") && (hasFeature("services") || hasFeature("products") || hasFeature("packages") || hasFeature("memberships")) && (
+      {(hasFeature("services") || hasFeature("products") || hasFeature("packages") || hasFeature("memberships")) && (
         <button
           type="button"
           className={menuClass("catalog")}
@@ -215,7 +222,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange, collapsed, on
         </button>
       )}
 
-      {can("view_inventory") && hasFeature("inventory") && (
+      {hasFeature("inventory") && (
         <button
           type="button"
           className={menuClass("inventory")}
@@ -235,7 +242,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange, collapsed, on
         </button>
       )}
 
-      {can("view_team") && (hasFeature("staff") || hasFeature("payroll")) && (
+      {(hasFeature("staff") || hasFeature("payroll")) && (
         <button
           type="button"
           className={menuClass("team")}
@@ -269,12 +276,12 @@ export default function DashboardSidebar({ openMenu, onMenuChange, collapsed, on
         </NavLink>
       )}
 
-      {/* Whole Marketing section now gated on featureKey "marketing" —
-          previously only the Campaigns route inside it was gated
-          server-side (see campaigns.routes.ts), leaving the nav entry and
-          the rest of the section (dashboard/inbox/templates) visible even
-          without the feature. */}
-      {can("view_campaigns") && hasFeature("marketing") && (
+      {/* Whole Marketing section gated on featureKey "marketing" — previously
+          only the Campaigns route inside it was gated server-side (see
+          campaigns.routes.ts), leaving the nav entry and the rest of the
+          section (dashboard/inbox/templates) visible even without the
+          feature. */}
+      {hasFeature("marketing") && (
         <button
           type="button"
           className={menuClass("marketing")}
@@ -298,7 +305,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange, collapsed, on
         </button>
       )}
 
-      {can("view_booking") && hasFeature("online_booking") && (
+      {hasFeature("online_booking") && (
         <button
           type="button"
           className={menuClass("onlineBooking")}
@@ -319,7 +326,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange, collapsed, on
         </button>
       )}
 
-      {can("view_enquiries") && hasFeature("enquiries") && (
+      {hasFeature("enquiries") && (
         <NavLink
           to="/dashboard/enquiries"
           className={({ isActive }) => navClass(isActive)}
@@ -330,7 +337,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange, collapsed, on
         </NavLink>
       )}
 
-      {can("view_reports") && hasFeature("reports") && (
+      {hasFeature("reports") && (
         <NavLink
           to="/reports"
           className={({ isActive }) => navClass(isActive)}
@@ -353,16 +360,14 @@ export default function DashboardSidebar({ openMenu, onMenuChange, collapsed, on
         <span className="nav-label">Apps</span>
       </button>
 
-      {can("general_settings") && (
-        <NavLink
-          to="/dashboard/settings"
-          className={({ isActive }) => navClass(isActive)}
-          onClick={(event) => handleRouteClick(event, "/dashboard/settings")}
-        >
-          <Gear size={22} />
-          <span className="nav-label">Settings</span>
-        </NavLink>
-      )}
+      <NavLink
+        to="/dashboard/settings"
+        className={({ isActive }) => navClass(isActive)}
+        onClick={(event) => handleRouteClick(event, "/dashboard/settings")}
+      >
+        <Gear size={22} />
+        <span className="nav-label">Settings</span>
+      </NavLink>
 
       <NavLink
         to="/dashboard/spotlight"

@@ -14,10 +14,16 @@ export const defaultPermissions: Permission[] = [
   { key: "view_dashboard",      label: "View Dashboard",      desc: "Access the main dashboard",            category: "Dashboard",      owner: true,  staff: false, manager: true },
 
   // ── Quick Sale ────────────────────────────────────────────────────────────
-  { key: "view_quick_sale",     label: "View Quick Sale",     desc: "Access the quick sale screen",         category: "Quick Sale",     owner: true,  staff: true,  manager: true },
-  { key: "create_quick_sale",   label: "Create Quick Sale",   desc: "Process quick sales",                  category: "Quick Sale",     owner: true,  staff: true,  manager: true },
-  { key: "edit_quick_sale",     label: "Edit Quick Sale",     desc: "Edit pending quick sales",             category: "Quick Sale",     owner: true,  staff: false, manager: true },
-  { key: "delete_quick_sale",   label: "Delete Quick Sale",   desc: "Delete quick sale records",            category: "Quick Sale",     owner: true,  staff: false, manager: true },
+  // Reconciled to the keys the backend actually enforces (sales.routes.ts
+  // checks view_sales/create_sales) — previously this matrix showed
+  // view_quick_sale/create_quick_sale/edit_quick_sale/delete_quick_sale,
+  // none of which the backend ever checked, so any staff member with a
+  // custom permission override silently lost all Sales access the moment
+  // that override existed (customPerms["view_sales"] was always undefined).
+  // There's no backend concept of a separate "edit"/"delete" quick sale
+  // action — updates and deletes both go through the same create_sales key.
+  { key: "view_sales",          label: "View Sales",          desc: "Access sales records and daily summaries", category: "Quick Sale",   owner: true,  staff: true,  manager: true },
+  { key: "create_sales",        label: "Create Sales",        desc: "Create, edit and checkout sales",      category: "Quick Sale",     owner: true,  staff: true,  manager: true },
 
   // ── Calendar ──────────────────────────────────────────────────────────────
   { key: "view_calendar",       label: "View Calendar",       desc: "See all appointments on calendar",     category: "Calendar",       owner: true,  staff: true,  manager: true },

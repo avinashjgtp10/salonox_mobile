@@ -1,11 +1,49 @@
 import { useAppSelector } from "./useAppRedux";
-import { defaultPermissions } from "../features/settings/data/permissionMatrix";
 
 type PermMatrix = Record<string, { owner: boolean; staff: boolean }>;
 
-const defaultPermsMap: PermMatrix = Object.fromEntries(
-  defaultPermissions.map((p) => [p.key, { owner: p.owner, staff: p.staff }])
-);
+// Last-resort fallback, used only before /users/me's effective_permissions
+// has loaded for the first time (e.g. the instant after login, or a page
+// reload before fetchMeThunk resolves) — mirrors permission.middleware.ts's
+// own DEFAULT_STAFF_PERMS. This is NOT the source of truth once real data is
+// available; see the main resolution below.
+const defaultPermsMap: PermMatrix = {
+  view_campaigns: { owner: true, staff: false },
+  create_campaigns: { owner: true, staff: false },
+  design_coupons: { owner: true, staff: false },
+  view_calendar: { owner: true, staff: true },
+  manage_calendar: { owner: true, staff: false },
+  view_clients: { owner: true, staff: true },
+  create_clients: { owner: true, staff: true },
+  edit_clients: { owner: true, staff: true },
+  delete_clients: { owner: true, staff: false },
+  view_sales: { owner: true, staff: true },
+  create_sales: { owner: true, staff: true },
+  view_services: { owner: true, staff: true },
+  create_services: { owner: true, staff: false },
+  edit_services: { owner: true, staff: false },
+  view_products: { owner: true, staff: true },
+  create_products: { owner: true, staff: false },
+  view_packages: { owner: true, staff: true },
+  create_packages: { owner: true, staff: false },
+  view_memberships: { owner: true, staff: true },
+  create_memberships: { owner: true, staff: false },
+  view_inventory: { owner: true, staff: true },
+  manage_inventory: { owner: true, staff: false },
+  stock_adjustment: { owner: true, staff: false },
+  view_booking: { owner: true, staff: true },
+  manage_booking: { owner: true, staff: false },
+  view_team: { owner: true, staff: true },
+  add_team_member: { owner: true, staff: false },
+  edit_team_member: { owner: true, staff: false },
+  manage_shifts: { owner: true, staff: false },
+  view_payroll: { owner: true, staff: false },
+  view_reports: { owner: true, staff: false },
+  export_reports: { owner: true, staff: false },
+  general_settings: { owner: true, staff: false },
+  manage_pos_payments: { owner: true, staff: false },
+  view_enquiries: { owner: true, staff: true },
+};
 
 const DEV = import.meta.env.DEV;
 
@@ -15,6 +53,11 @@ const DEV = import.meta.env.DEV;
 const VIRTUAL_PERMS: Record<string, string[]> = {
   view_catalog: ["view_services", "view_products", "view_packages", "view_memberships", "view_inventory"],
   edit_catalog: ["create_services", "edit_services", "create_products", "create_packages", "create_memberships", "manage_inventory", "stock_adjustment"],
+  // The Commissions page (/dashboard/team/commissions) shows both a
+  // Commissions tab and a Tips tab in one screen — either permission is
+  // enough to open the page; the individual tabs/actions still check their
+  // own specific key.
+  view_team_commissions: ["view_commissions", "view_tips"],
 };
 
 function resolveKeys(permKey: string): string[] {
@@ -23,61 +66,39 @@ function resolveKeys(permKey: string): string[] {
 
 export function usePermissions() {
   const role = useAppSelector((s) => s.auth.role);
-  // Fresh data — set every time DashboardLayout mounts via fetchMeThunk
-  const profileCustomPerms = useAppSelector((s) => s.user.profile?.custom_permissions ?? null);
-  // Persisted fallback — restored from localStorage on page reload before fetchMeThunk completes
-  const authCustomPerms = useAppSelector((s) => s.auth.custom_permissions);
-  const settingItems = useAppSelector((s) => s.setting.items);
+  // The real source of truth — computed server-side by
+  // getEffectivePermissionsForUser() using the exact same resolution the
+  // backend uses to enforce every request (staff_permission_overrides ->
+  // role_permissions -> legacy fallback). Refreshed every time /users/me is
+  // called (DashboardLayout mount, and after any permission-editing action).
+  const effectivePermissions = useAppSelector((s) => s.user.profile?.effective_permissions ?? null);
 
   if (role === "salon_owner" || role === "admin") {
     return { can: (_key: string) => true, role };
   }
 
-  // Prefer fresh profile data; fall back to persisted auth value on first render after reload
-  const customPermissions = profileCustomPerms ?? authCustomPerms;
-
-  // Per-staff custom permissions take priority over role-level defaults
-  if (role === "staff" && customPermissions != null) {
-    if (DEV) {
-      console.log("[Permissions] Source: CUSTOM (per-staff override)", customPermissions);
-    }
+  if (role === "staff" && effectivePermissions != null) {
+    if (DEV) console.log("[Permissions] Source: effective_permissions (backend-resolved)", effectivePermissions);
     return {
       can: (permKey: string) => {
-        const result = resolveKeys(permKey).some((k) => customPermissions[k] ?? false);
-        if (DEV) {
-          console.log(`[Permissions] can("${permKey}") → ${result} [custom]`);
-        }
+        const result = resolveKeys(permKey).some((k) => effectivePermissions[k] ?? false);
+        if (DEV) console.log(`[Permissions] can("${permKey}") -> ${result}`);
         return result;
       },
       role,
     };
   }
 
-  // Fall back to global role_permissions setting, then to built-in defaults
-  let perms: PermMatrix = defaultPermsMap;
-  const permSetting = settingItems.find((s) => s.key === "role_permissions");
-  if (permSetting) {
-    try {
-      const raw = permSetting.value;
-      perms = typeof raw === "string" ? JSON.parse(raw) : (raw as PermMatrix);
-      if (DEV) console.log("[Permissions] Source: role_permissions setting", perms);
-    } catch {
-      if (DEV) console.warn("[Permissions] role_permissions setting is malformed JSON — using built-in defaults");
-    }
-  } else if (DEV) {
-    console.log("[Permissions] Source: built-in defaultPermissions (no role_permissions setting found)");
-  }
-
-  if (DEV && role === "staff" && customPermissions == null) {
-    console.warn("[Permissions] custom_permissions is NULL for staff — using role defaults. Check if /users/me returns custom_permissions.");
+  // effective_permissions hasn't loaded yet (first render after login/reload,
+  // before fetchMeThunk resolves) — use the static fallback so the UI doesn't
+  // flash "no access" everywhere, then re-render with real data a moment later.
+  if (DEV && role === "staff") {
+    console.warn("[Permissions] effective_permissions not loaded yet — using static fallback until /users/me resolves.");
   }
 
   const can = (permKey: string): boolean => {
-    if (role === "salon_owner" || role === "admin") return true;
     if (role === "staff") {
-      const result = resolveKeys(permKey).some((k) => perms[k]?.staff ?? false);
-      if (DEV) console.log(`[Permissions] can("${permKey}") → ${result} [role default]`);
-      return result;
+      return resolveKeys(permKey).some((k) => defaultPermsMap[k]?.staff ?? false);
     }
     return false;
   };

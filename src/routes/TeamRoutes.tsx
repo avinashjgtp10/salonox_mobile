@@ -40,7 +40,11 @@ export const TeamRoutes = () => (
       <Route path="performance"  element={<StaffPerformancePage />} />
 
       {/* New pages */}
-      <Route path="commissions" element={<CommissionsPage />} />
+      {/* view_commissions/view_tips required — the page fetches both commission
+          and tip data on mount, and the backend now enforces those keys */}
+      <Route element={<PermissionGuard permKey="view_team_commissions" />}>
+        <Route path="commissions" element={<CommissionsPage />} />
+      </Route>
       <Route path="attendance"  element={<AttendancePage />} />
       <Route path="history"           element={<StaffHistoryListPage />} />
       <Route path="history/:staffId"  element={<StaffHistoryDetailPage />} />

@@ -18,9 +18,11 @@ import {
   PackageIcon,
   Printer,
   Smartphone,
+  MapPin,
 } from "lucide-react";
 import ProfileSettingsPage from "../pages/ProfileSettingsPage";
 import BusinessSettingsPage from "../pages/BusinessSettingsPage";
+import BranchesPage from "../pages/BranchesPage";
 import AccountSettingsPage from "../pages/AccountSettingsPage";
 import NotificationsPage from "../pages/NotificationsPage";
 import RolesPermissionsPage from "../pages/RolesPermissionsPage";
@@ -60,6 +62,7 @@ const navGroups: NavGroup[] = [
       { id: "profile",  label: "Profile",             description: "Manage your personal details and profile photo.",                icon: <User size={18} />,        Component: ProfileSettingsPage },
       { id: "business", label: "Business",            description: "Manage your salon's public profile, contact info, and hours.",    icon: <Building2 size={18} />,   Component: BusinessSettingsPage },
       { id: "account",  label: "Account & Security",  description: "Update your password and manage account security.",               icon: <ShieldCheck size={18} />, Component: AccountSettingsPage },
+      { id: "branches", label: "Branches",            description: "Manage your salon's locations, hours, and holidays.",              icon: <MapPin size={18} />,      Component: BranchesPage },
     ],
   },
   {

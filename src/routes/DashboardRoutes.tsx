@@ -85,13 +85,20 @@ export const DashboardRoutes = (
         </Route>
       </Route>
 
-      {/* Cash Management — no permission gate, but featureKey "cash_management" applies */}
-      <Route element={<PlanFeatureGuard featureKey="cash_management" label="Cash Management" />}>
-        <Route path="cash-management" element={<CashManagementPage />} />
+      {/* Cash Management — previously had no permission gate at all (any
+          staff/manager could open/close the till and manage expenses); now
+          requires view_cash_management, matching the backend fix. featureKey
+          "cash_management" (plan-tier gate) still applies on top of that. */}
+      <Route element={<PermissionGuard permKey="view_cash_management" />}>
+        <Route element={<PlanFeatureGuard featureKey="cash_management" label="Cash Management" />}>
+          <Route path="cash-management" element={<CashManagementPage />} />
+        </Route>
       </Route>
 
-      {/* Quick Sale — requires create_quick_sale + featureKey "quick_sale" */}
-      <Route element={<PermissionGuard permKey="create_quick_sale" />}>
+      {/* Quick Sale — requires create_sales (reconciled with the backend's
+          actual sales.routes.ts key; previously create_quick_sale, which the
+          backend never checked) + featureKey "quick_sale" */}
+      <Route element={<PermissionGuard permKey="create_sales" />}>
         <Route element={<PlanFeatureGuard featureKey="quick_sale" label="Quick Sale" />}>
           <Route path="sales/quick" element={<QuickSalePage />} />
         </Route>
