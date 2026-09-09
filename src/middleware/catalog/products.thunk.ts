@@ -170,7 +170,11 @@ export const exportProductsExcelThunk = createAsyncThunk<
     downloadFile(res.data, "products.xlsx");
   } catch (err: any) {
     const msg = err instanceof ApiError ? err.message : "Failed to export Excel.";
-    alert("Export Excel failed: " + msg);
+    // A permission denial (403) already shows the global "Permission
+    // Required" popup (see interceptors.ts) — alerting here too would stack
+    // a jarring native alert() on top of it for that one case. Every other
+    // failure (network, 500, etc.) still alerts exactly as before.
+    if (!(err instanceof ApiError && err.status === 403)) alert("Export Excel failed: " + msg);
     return rejectWithValue(msg);
   }
 });
@@ -183,7 +187,7 @@ export const exportProductsPDFThunk = createAsyncThunk<
     downloadFile(res.data, "products.pdf");
   } catch (err: any) {
     const msg = err instanceof ApiError ? err.message : "Failed to export PDF.";
-    alert("Export PDF failed: " + msg);
+    if (!(err instanceof ApiError && err.status === 403)) alert("Export PDF failed: " + msg);
     return rejectWithValue(msg);
   }
 });

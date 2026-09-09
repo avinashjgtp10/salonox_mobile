@@ -31,6 +31,8 @@ import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import StaffImportModal from "../components/StaffImportModal";
 import TeamMemberDrawer from "../components/TeamMemberDrawer";
 import { exportStaffPDF, exportStaffCSV, exportStaffExcel } from "../utils/staffExport";
+import { usePermissions } from "../../../hooks/usePermissions";
+import { showPermissionDenied } from "../../../store/permissionDialogSlice";
 import LearnMoreLink from "../../../components/shared/LearnMoreLink";
 
 interface StaffMember {
@@ -93,10 +95,18 @@ const SORT_PARAMS: Record<string, { sort_by?: string; sort_order?: "ASC" | "DESC
   "Started at (newest first)": { sort_by: "joined_date", sort_order: "DESC" },
 };
 
+// Same friendly copy PermissionGuard and the interceptor-driven global popup
+// already use for a backend 403 — this export is built entirely client-side
+// (no backend call to deny), so this is the only enforcement point
+// export_pdf/export_csv/export_excel actually have for it.
+const friendlyExportDenied = (permKey: string) =>
+  `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`;
+
 export default function StaffListPage() {
   const navigate = useNavigate();
 
   const dispatch = useDispatch<AppDispatch>();
+  const { can } = usePermissions();
 
   const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
   const [pageSize, setPageSize] = useState(10);
@@ -382,6 +392,7 @@ export default function StaffListPage() {
                 <DownloadButton
                   filename="staff.csv"
                   fetcher={async () => {
+                    if (!can("export_csv")) { dispatch(showPermissionDenied(friendlyExportDenied("export_csv"))); throw new Error("Permission denied"); }
                     const all = await fetchAllStaffForExport();
                     setOptionsOpen(false);
                     return exportStaffCSV(all);
@@ -396,6 +407,7 @@ export default function StaffListPage() {
                 <DownloadButton
                   filename="staff.xlsx"
                   fetcher={async () => {
+                    if (!can("export_excel")) { dispatch(showPermissionDenied(friendlyExportDenied("export_excel"))); throw new Error("Permission denied"); }
                     const all = await fetchAllStaffForExport();
                     setOptionsOpen(false);
                     return exportStaffExcel(all);
@@ -411,6 +423,7 @@ export default function StaffListPage() {
                   filename="staff.pdf"
                   mimeType="application/pdf"
                   fetcher={async () => {
+                    if (!can("export_pdf")) { dispatch(showPermissionDenied(friendlyExportDenied("export_pdf"))); throw new Error("Permission denied"); }
                     const all = await fetchAllStaffForExport();
                     setOptionsOpen(false);
                     return exportStaffPDF(all);

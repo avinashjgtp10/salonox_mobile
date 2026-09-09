@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { useSelector } from "react-redux";
 import { selectCurrentSalon } from "../../../store/selectors/slices.selectors";
 import api from "../../../services/api/axios";
+import { ApiError } from "../../../services/api/interceptors";
 import { STAFF, COMMISSION_RULES } from "../../../services/api/endpoints";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import {
@@ -843,7 +844,14 @@ function CommissionSettleTab({ view }: { view: "settle" | "rules" }) {
                       a.download = `commissions_${exportMonth}.csv`;
                       a.click();
                       URL.revokeObjectURL(url);
-                    } catch { showError("Export failed"); }
+                    } catch (err: any) {
+                    // A permission denial (403) already shows the global
+                    // "Permission Required" popup (see interceptors.ts and
+                    // staff.routes.ts's requireExportFormatPermission) —
+                    // showing this overlay too would stack a second, jarring
+                    // centered popup on top of it for that one case.
+                    if (!(err instanceof ApiError && err.status === 403)) showError("Export failed");
+                  }
                   }}>
                     <Download size={14} /> Export CSV
                   </button>
@@ -857,7 +865,14 @@ function CommissionSettleTab({ view }: { view: "settle" | "rules" }) {
                       a.download = `commissions_${exportMonth}.xlsx`;
                       a.click();
                       URL.revokeObjectURL(url);
-                    } catch { showError("Export failed"); }
+                    } catch (err: any) {
+                    // A permission denial (403) already shows the global
+                    // "Permission Required" popup (see interceptors.ts and
+                    // staff.routes.ts's requireExportFormatPermission) —
+                    // showing this overlay too would stack a second, jarring
+                    // centered popup on top of it for that one case.
+                    if (!(err instanceof ApiError && err.status === 403)) showError("Export failed");
+                  }
                   }}>
                     <FileEarmarkExcel size={14} /> Export Excel
                   </button>
@@ -873,7 +888,14 @@ function CommissionSettleTab({ view }: { view: "settle" | "rules" }) {
                       a.download = `commissions_${exportMonth}.pdf`;
                       a.click();
                       URL.revokeObjectURL(url);
-                    } catch { showError("Export failed"); }
+                    } catch (err: any) {
+                    // A permission denial (403) already shows the global
+                    // "Permission Required" popup (see interceptors.ts and
+                    // staff.routes.ts's requireExportFormatPermission) —
+                    // showing this overlay too would stack a second, jarring
+                    // centered popup on top of it for that one case.
+                    if (!(err instanceof ApiError && err.status === 403)) showError("Export failed");
+                  }
                   }}>
                     <FiletypePdf size={14} /> Export PDF
                   </button>

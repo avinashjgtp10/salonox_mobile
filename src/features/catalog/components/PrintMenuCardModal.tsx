@@ -5,6 +5,8 @@ import api from "../../../services/api/axios";
 import { SERVICES } from "../../../services/api/endpoints/services.endpoints";
 import type { Service } from "../types/catalog.types";
 import { useAppSelector, useAppDispatch } from "../../../hooks/useAppRedux";
+import { usePermissions } from "../../../hooks/usePermissions";
+import { showPermissionDenied } from "../../../store/permissionDialogSlice";
 import { selectCurrentSalon } from "../../../store/selectors/slices.selectors";
 import { fetchSettingsThunk } from "../../../middleware/setting/setting.thunk";
 import { getActiveTaxes } from "../../settings/utils/taxSettings";
@@ -158,6 +160,7 @@ const PrintMenuCardModal: React.FC<Props> = ({ onClose }) => {
   const currentSalon = useReduxSelector(selectCurrentSalon);
   const { formatAmount } = useCurrency();
   const dispatch = useAppDispatch();
+  const { can } = usePermissions();
   const settingItems = useAppSelector((s) => s.setting.items);
 
   useEffect(() => { if (settingItems.length === 0) dispatch(fetchSettingsThunk()); }, [dispatch, settingItems.length]);
@@ -263,6 +266,14 @@ const PrintMenuCardModal: React.FC<Props> = ({ onClose }) => {
 
   const handlePrint = () => {
     if (!canPrint) return;
+    // Entirely client-side (window.print()) — no backend call to deny, so
+    // this is the only enforcement point print_menu_card has.
+    if (!can("print_menu_card")) {
+      dispatch(showPermissionDenied(
+        `Your account does not have the "print_menu_card" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+      ));
+      return;
+    }
     const html = buildMenuCardDocument({ services: selectedServices, salon: currentSalon, templateId, gstPercent, formatAmount, fontScale }, true);
     openMenuCardPrintWindow(html);
   };

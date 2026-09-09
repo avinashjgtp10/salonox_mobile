@@ -11,6 +11,8 @@ import {
 import { deleteCategoryThunk } from "../../../middleware/services/categories.thunk";
 import type { FetchServicesParams } from "../../../middleware/services/services.thunk";
 import { exportServicesPDF, exportServicesExcel, exportServicesCSV } from "../utils/serviceExport";
+import { usePermissions } from "../../../hooks/usePermissions";
+import { showPermissionDenied } from "../../../store/permissionDialogSlice";
 import type { Service } from "../types/catalog.types";
 import {
   Search,
@@ -131,9 +133,17 @@ const sortServices = (list: Service[], sortBy: SortId): Service[] => {
   return copy;
 };
 
+// Same friendly copy PermissionGuard and the interceptor-driven global popup
+// already use for a backend 403 — the PDF/Excel/CSV export here is built
+// entirely client-side (no backend call to deny), so this is the only
+// enforcement point export_pdf/export_csv/export_excel actually have for it.
+const friendlyExportDenied = (permKey: string) =>
+  `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`;
+
 const ServicesListPage: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
+  const { can } = usePermissions();
   const { services, categories, loading, error, pagination, fetchServices } =
     useServices();
   const { createCategory, updateCategory, deleteCategory, loading: catLoading } =
@@ -390,6 +400,7 @@ const ServicesListPage: React.FC = () => {
 
   const handleDownloadPdf = useCallback(async () => {
     setShowOptMenu(false);
+    if (!can("export_pdf")) { dispatch(showPermissionDenied(friendlyExportDenied("export_pdf"))); return; }
     try {
       const filteredServices = await fetchFilteredServicesForExport();
       exportServicesPDF(filteredServices, {
@@ -399,19 +410,21 @@ const ServicesListPage: React.FC = () => {
     } catch (err) {
       console.error("[ServicesListPage] PDF export failed:", err);
     }
-  }, [fetchFilteredServicesForExport, currentSalon, userProfile]);
+  }, [can, dispatch, fetchFilteredServicesForExport, currentSalon, userProfile]);
 
   const handleDownloadExcel = useCallback(async () => {
     setShowOptMenu(false);
+    if (!can("export_excel")) { dispatch(showPermissionDenied(friendlyExportDenied("export_excel"))); return; }
     try { exportServicesExcel(await fetchFilteredServicesForExport()); }
     catch (err) { console.error("[ServicesListPage] Excel export failed:", err); }
-  }, [fetchFilteredServicesForExport]);
+  }, [can, dispatch, fetchFilteredServicesForExport]);
 
   const handleDownloadCsv = useCallback(async () => {
     setShowOptMenu(false);
+    if (!can("export_csv")) { dispatch(showPermissionDenied(friendlyExportDenied("export_csv"))); return; }
     try { exportServicesCSV(await fetchFilteredServicesForExport()); }
     catch (err) { console.error("[ServicesListPage] CSV export failed:", err); }
-  }, [fetchFilteredServicesForExport]);
+  }, [can, dispatch, fetchFilteredServicesForExport]);
 
   // ── Client-side filtering for Duration, Price Range, and Category ─────────
   const filteredServices = useMemo(() => {

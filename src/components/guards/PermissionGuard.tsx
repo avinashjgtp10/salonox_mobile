@@ -1,8 +1,10 @@
 import { useRef } from "react";
-import { Outlet } from "react-router-dom";
-import { ShieldOff, Loader2 } from "lucide-react";
+import { Outlet, Navigate, useLocation } from "react-router-dom";
+import { Loader2 } from "lucide-react";
 import { usePermissions } from "../../hooks/usePermissions";
 import { useAppSelector } from "../../hooks/useAppRedux";
+import { getFirstAllowedModuleRoute } from "../../utils/moduleAccess";
+import NoPermissionPage from "./NoPermissionPage";
 
 interface Props {
   permKey: string;
@@ -10,6 +12,7 @@ interface Props {
 
 export default function PermissionGuard({ permKey }: Props) {
   const { can, role } = usePermissions();
+  const location = useLocation();
   const settingsLoading = useAppSelector((s) => s.setting.loading.fetchAll);
   const profileLoading = useAppSelector((s) => s.user.loading.fetch);
 
@@ -43,18 +46,17 @@ export default function PermissionGuard({ permKey }: Props) {
     console.warn(`[PermissionGuard] Access denied: permKey="${permKey}", role="${role}"`);
   }
 
-  return (
-    <div className="perm-guard-403">
-      <div className="perm-guard-403__icon">
-        <ShieldOff size={42} />
-      </div>
-      <h2 className="perm-guard-403__title">Access Denied</h2>
-      <p className="perm-guard-403__sub">
-        {role === "staff"
-          ? `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
-          : "You do not have access to this page."}
-      </p>
-      <p className="perm-guard-403__code">403 Forbidden</p>
-    </div>
-  );
+  // A staff member blocked from one module/page shouldn't be left on a dead
+  // page — send them to the first module they DO have access to instead
+  // (e.g. denied Team → Payroll but still has view_team lands them on Team →
+  // Members, not a wall). Only the true dead-end case — no module allowed
+  // anywhere — falls through to NoPermissionPage below.
+  if (role === "staff") {
+    const firstAllowed = getFirstAllowedModuleRoute(can);
+    if (firstAllowed && firstAllowed !== location.pathname) {
+      return <Navigate to={firstAllowed} replace />;
+    }
+  }
+
+  return <NoPermissionPage permKey={role === "staff" ? permKey : undefined} />;
 }
