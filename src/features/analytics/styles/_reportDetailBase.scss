@@ -410,6 +410,16 @@
   gap: 6px;
 }
 
+// SendCampaignBar reuses .rp-bulk-bar's shape (delete-bar's red/pink is wrong
+// for a "send" action) — light green bar background here only, scoped to
+// .rp-bulk-bar--campaign so the plain .rp-bulk-bar delete-bar elsewhere
+// (Appointment Detail / Sales Summary / Daily Sheet) keeps its red styling.
+.rp-bulk-bar.rp-bulk-bar--campaign {
+  background: #d1fae5;
+  border-color: #6ee7b7;
+  color: #065f46;
+}
+
 .rp-row-checkbox-col {
   width: 40px;
   text-align: center !important;

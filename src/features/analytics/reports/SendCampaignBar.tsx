@@ -12,7 +12,7 @@ interface SendCampaignBarProps {
 export function SendCampaignBar({ count, onSendClick }: SendCampaignBarProps) {
   if (count === 0) return null;
   return (
-    <div className="rp-bulk-bar">
+    <div className="rp-bulk-bar rp-bulk-bar--campaign">
       <span>{count} client{count !== 1 ? "s" : ""} selected</span>
       <Button variant="success" className="rp-bulk-delete-btn" onClick={onSendClick}>
         <Send size={14} /> Send Campaign
