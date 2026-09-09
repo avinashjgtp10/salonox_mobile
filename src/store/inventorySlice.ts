@@ -1,7 +1,7 @@
 import { createSlice } from "@reduxjs/toolkit";
 import {
   fetchSuppliersThunk,
-  fetchSupplierLocationsThunk,
+  fetchSupplierFilterOptionsThunk,
   createSupplierThunk,
   updateSupplierThunk,
   deleteSupplierThunk,
@@ -102,7 +102,7 @@ const inventorySlice = createSlice({
       state.error = action.payload as string;
     });
 
-    builder.addCase(fetchSupplierLocationsThunk.fulfilled, (state, action) => {
+    builder.addCase(fetchSupplierFilterOptionsThunk.fulfilled, (state, action) => {
       state.supplierCities = action.payload.cities;
       state.supplierStates = action.payload.states;
     });

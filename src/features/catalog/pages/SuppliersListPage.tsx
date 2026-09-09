@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate, useLocation } from "react-router-dom";
+import { Dropdown } from "react-bootstrap";
 import {
   Search,
   Shop,
@@ -10,11 +11,18 @@ import {
   PlusLg,
   CashCoin,
   X,
+  FileEarmarkPdf,
+  FileEarmarkExcel,
+  FiletypeCsv,
 } from "react-bootstrap-icons";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
-import { fetchSuppliersThunk, fetchSupplierLocationsThunk, deleteSupplierThunk } from "../../../middleware/inventory/inventory.thunk";
+import { fetchSuppliersThunk, fetchSupplierFilterOptionsThunk, deleteSupplierThunk } from "../../../middleware/inventory/inventory.thunk";
 import type { Supplier, SupplierWithBalance, SupplierPaymentStatus } from "../../../types/inventory.types";
 import { useCurrency } from "../../../hooks/useCurrency";
+import api from "../../../services/api/axios";
+import { INVENTORY } from "../../../services/api/endpoints/inventory.endpoints";
+import { downloadBlob } from "../../../utils/downloadBlob";
+import { exportSuppliersPDF, exportSuppliersCSV, exportSuppliersExcel } from "../utils/supplierExport";
 import LearnMoreLink from "../../../components/shared/LearnMoreLink";
 import Pagination from "../../../components/ui/Pagination";
 import { JiraFilterMenu } from "../../../components/ui";
@@ -140,6 +148,7 @@ const SuppliersListPage: React.FC = () => {
   const {
     suppliers, suppliersTotal, supplierCities, supplierStates, loading,
   } = useAppSelector((state) => state.inventory);
+  const currentSalonId = useAppSelector((state) => state.salon?.currentSalon?.id);
 
   const [search, setSearch] = useState("");
   // The input stays controlled by `search` for instant typing feedback, but
@@ -213,7 +222,7 @@ const SuppliersListPage: React.FC = () => {
     // (no data change at all) still re-hit the locations endpoint on every
     // return to this page.
     if (supplierCities.length === 0 && supplierStates.length === 0) {
-      dispatch(fetchSupplierLocationsThunk());
+      dispatch(fetchSupplierFilterOptionsThunk());
     }
     const t = setTimeout(() => { isMountedRef.current = true; }, 0);
     return () => clearTimeout(t);
@@ -271,6 +280,53 @@ const SuppliersListPage: React.FC = () => {
     setPayoutSupplierId(undefined);
   };
 
+  const [isExporting, setIsExporting] = useState(false);
+
+  // Pulls every supplier matching the current search/filters, not just the
+  // page currently on screen — same page-looping approach as
+  // ProductsListPage's export, since SUPPLIERS_LIST is server-paginated.
+  const fetchAllSuppliersForExport = useCallback(async (): Promise<SupplierWithBalance[]> => {
+    const all: SupplierWithBalance[] = [];
+    let page = 1;
+    const page_limit = 100;
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const res = await api.post(INVENTORY.SUPPLIERS_LIST, {
+        salon_id: currentSalonId,
+        page,
+        page_limit,
+        search: debouncedSearch || undefined,
+        city: appliedFilters.city || undefined,
+        state: appliedFilters.state || undefined,
+      });
+      const chunk: SupplierWithBalance[] = res.data?.data?.data ?? [];
+      all.push(...chunk);
+      if (chunk.length < page_limit) break;
+      page += 1;
+    }
+    return all;
+  }, [currentSalonId, debouncedSearch, appliedFilters]);
+
+  const handleExport = useCallback(async (format: "pdf" | "csv" | "excel") => {
+    setIsExporting(true);
+    try {
+      const all = await fetchAllSuppliersForExport();
+      if (format === "pdf") {
+        downloadBlob(exportSuppliersPDF(all, formatAmount), "suppliers.pdf", "application/pdf");
+      } else if (format === "csv") {
+        downloadBlob(exportSuppliersCSV(all, formatAmount), "suppliers.csv", "text/csv;charset=utf-8;");
+      } else {
+        const blob = await exportSuppliersExcel(all, formatAmount);
+        downloadBlob(blob, "suppliers.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      }
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error(`Supplier ${format.toUpperCase()} export failed:`, err);
+    } finally {
+      setIsExporting(false);
+    }
+  }, [fetchAllSuppliersForExport, formatAmount]);
+
   return (
     <div className="suppliers-list-page">
       <header className="suppliers-list-page__header">
@@ -284,6 +340,34 @@ const SuppliersListPage: React.FC = () => {
           </p>
         </div>
         <div className="d-flex gap-2">
+          <Dropdown>
+            <Dropdown.Toggle
+              variant="outline-secondary"
+              className="btn-options bg-white border-subtle d-flex align-items-center fw-medium"
+              id="suppliers-options-dropdown"
+              disabled={isExporting}
+            >
+              Options
+            </Dropdown.Toggle>
+            <Dropdown.Menu
+              align="end"
+              className="shadow-sm border-0 rounded-3 py-2"
+              style={{ minWidth: "220px" }}
+            >
+              <Dropdown.Header className="px-3 py-1 text-muted fw-bold" style={{ fontSize: "12px", textTransform: "uppercase" }}>
+                Export
+              </Dropdown.Header>
+              <Dropdown.Item onClick={() => handleExport("pdf")} disabled={isExporting} className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark">
+                <FileEarmarkPdf size={16} /> Export All Data as PDF
+              </Dropdown.Item>
+              <Dropdown.Item onClick={() => handleExport("excel")} disabled={isExporting} className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark">
+                <FileEarmarkExcel size={16} /> Export All Data as Excel
+              </Dropdown.Item>
+              <Dropdown.Item onClick={() => handleExport("csv")} disabled={isExporting} className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark">
+                <FiletypeCsv size={16} /> Export All Data as CSV
+              </Dropdown.Item>
+            </Dropdown.Menu>
+          </Dropdown>
           <Button variant="outline-dark" iconLeft={<CashCoin size={14} />} onClick={() => openPayout()}>
             Create Payout
           </Button>
