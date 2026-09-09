@@ -330,10 +330,13 @@ const AddStaffPage: React.FC = () => {
       const payload: Record<string, unknown> = {
         first_name,
         last_name,
-        // undefined (not "") when blank — an explicit empty string reads as
-        // "clear the existing email" to the update endpoint, which isn't
-        // the intent of simply leaving the field untouched/empty.
-        email: form.email.trim() || undefined,
+        // Omitted entirely in edit mode — the field is read-only there (see
+        // the disabled email input above) and the update endpoint drops any
+        // email it's sent anyway, so there's no reason to send the unchanged
+        // value. undefined (not "") when blank on create — an explicit empty
+        // string reads as "clear the email" to the create endpoint, which
+        // isn't the intent of simply leaving the field untouched/empty.
+        email: isEdit ? undefined : (form.email.trim() || undefined),
         phone: form.phone.trim(),
         phone_country_code: form.phoneCountryCode,
         job_title: form.designation || undefined,
@@ -476,15 +479,20 @@ const AddStaffPage: React.FC = () => {
                 {isNameInvalid && <span className="emp-field__error">Name is required</span>}
               </div>
               <div className="emp-field">
-                <label className="emp-field__label">Email{staffLoginEnabled && <span className="text-danger">*</span>}</label>
+                <label className="emp-field__label">
+                  Email{staffLoginEnabled && <span className="text-danger">*</span>}
+                  {isEdit && <span className="emp-field__readonly-tag">Read-only</span>}
+                </label>
                 <div className="emp-input-row">
                   <input
-                    className={`emp-input ${isEmailInvalid ? "emp-input--invalid" : ""}`}
+                    className={`emp-input ${isEmailInvalid ? "emp-input--invalid" : ""} ${isEdit ? "emp-input--readonly" : ""}`}
                     placeholder="Email"
                     type="email"
                     value={form.email}
                     onChange={(e) => setField("email")(e.target.value)}
                     disabled={isEdit}
+                    readOnly={isEdit}
+                    title={isEdit ? "Email can't be changed after the staff member is created" : undefined}
                   />
                   {shouldShowEmailOtp && (
                     <button
@@ -503,6 +511,11 @@ const AddStaffPage: React.FC = () => {
                     </button>
                   )}
                 </div>
+                {isEdit && (
+                  <span className="emp-field__hint">
+                    Email can't be changed after the staff member is created.
+                  </span>
+                )}
                 {isEmailInvalid && <span className="emp-field__error">{emailErrorMessage}</span>}
                 {!isEmailInvalid && emailOtpMsg && (
                   <span className={`emp-otp-msg emp-otp-msg--${emailOtpMsg.type}`}>{emailOtpMsg.text}</span>

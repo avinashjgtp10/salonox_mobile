@@ -1,9 +1,10 @@
 import { useNavigate } from "react-router-dom";
-import { useEffect, useState, useCallback, useMemo } from "react";
-import { useDispatch, useSelector } from "react-redux";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { useDispatch } from "react-redux";
 import type { AppDispatch } from "../../../store/store";
-import {  selectAllStaff, selectStaffLoading } from "../../../store/selectors/slices.selectors";
-import { fetchStaffThunk, deleteStaffThunk, activateStaffThunk, deactivateStaffThunk } from "../../../middleware/staff/staff.thunk";
+import { deleteStaffThunk, activateStaffThunk, deactivateStaffThunk } from "../../../middleware/staff/staff.thunk";
+import api from "../../../services/api/axios";
+import { STAFF } from "../../../services/api/endpoints";
 import {
   Search as SearchIcon,
   ToggleOn,
@@ -24,7 +25,7 @@ import {
 import "../styles/StaffListPage.scss";
 
 import Dropdown from "../../../components/ui/Dropdown";
-import { Button, Input, DownloadButton, Modal, JiraFilterMenu } from "../../../components/ui";
+import { Button, Input, DownloadButton, Modal, JiraFilterMenu, Pagination } from "../../../components/ui";
 import type { JiraFilterField } from "../../../components/ui";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import StaffImportModal from "../components/StaffImportModal";
@@ -80,20 +81,44 @@ function resolveColor(color?: string): string | undefined {
   return COLOR_KEY_TO_HEX[color] ?? color;
 }
 
+// Backend sort columns for the "Started at"/"Name" options below — see
+// StaffListQuery.sort_by (staff.types.ts) on the backend. "Custom order"
+// sends neither param, which is exactly what the old client-side "no-op
+// sort" resolved to anyway (the API's own default is created_at DESC).
+const SORT_PARAMS: Record<string, { sort_by?: string; sort_order?: "ASC" | "DESC" }> = {
+  "Custom order": {},
+  "Name (A-Z)": { sort_by: "first_name", sort_order: "ASC" },
+  "Name (Z-A)": { sort_by: "first_name", sort_order: "DESC" },
+  "Started at (oldest first)": { sort_by: "joined_date", sort_order: "ASC" },
+  "Started at (newest first)": { sort_by: "joined_date", sort_order: "DESC" },
+};
+
 export default function StaffListPage() {
   const navigate = useNavigate();
 
   const dispatch = useDispatch<AppDispatch>();
-  const staff = useSelector(selectAllStaff) as unknown as StaffMember[];
-  const loadingState = useSelector(selectStaffLoading);
-  // Using loading boolean depending on structure (usually boolean, but sometimes object)
-  const loading = typeof loadingState === "boolean" ? loadingState : (loadingState as any)?.fetch || false;
-  
-  const PAGE_SIZE_OPTIONS = [10, 12, 20, 25, 50];
-  const [pageSize, setPageSize] = useState(12);
+
+  const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
+  const [pageSize, setPageSize] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
 
+  // The list itself is fetched directly (paginated) rather than through the
+  // shared `staff` Redux slice — that slice (fetchStaffThunk/selectAllStaff)
+  // is used by ~30 other pages as an unpaginated "every staff member" source
+  // for dropdowns/reports, so it can't be given page/limit params without
+  // silently truncating all of those. See the reusable Pagination component
+  // used below (components/ui/Pagination) — same one Suppliers/Orders/
+  // Products/Commission/Tip already use.
+  const [items, setItems] = useState<StaffMember[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+
   const [searchTerm, setSearchTerm] = useState("");
+  // The input stays controlled by `searchTerm` for instant typing feedback,
+  // but the list only refetches off this debounced copy — same reasoning as
+  // SuppliersListPage: firing a request on every keystroke would hit the API
+  // constantly instead of once the user pauses.
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedSort, setSelectedSort] = useState("Custom order");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [optionsOpen, setOptionsOpen] = useState(false);
@@ -129,18 +154,70 @@ export default function StaffListPage() {
     else showSuccess(msg);
   }, [showSuccess, showError]);
 
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchTerm), 350);
+    return () => clearTimeout(t);
+  }, [searchTerm]);
+
+  // Both checkboxes on = same as neither checked (matches "all" either way),
+  // so only a single-checked box narrows the server query.
+  const allowCalendarBookingsParam =
+    bookable === nonBookable ? undefined : bookable;
+
+  const buildListParams = useCallback((page: number, limit: number) => ({
+    page,
+    limit,
+    search: debouncedSearch || undefined,
+    is_active: selectedStatus === "all" ? undefined : selectedStatus === "active",
+    allow_calendar_bookings: allowCalendarBookingsParam,
+    ...SORT_PARAMS[selectedSort],
+  }), [debouncedSearch, selectedStatus, allowCalendarBookingsParam, selectedSort]);
+
   const fetchStaff = useCallback(async () => {
+    setLoading(true);
     try {
-      await dispatch(fetchStaffThunk()).unwrap();
+      const res = await api.get(STAFF.BASE, { params: buildListParams(currentPage, pageSize) });
+      const data = res.data?.data;
+      setItems(Array.isArray(data?.items) ? data.items : []);
+      setTotal(data?.pagination?.total ?? 0);
     } catch (error: any) {
       console.error("Error fetching staff", error);
-      showToast(`Failed to load staff members: ${error || "Unknown error"}`, "error");
+      showToast(`Failed to load staff members: ${error?.message || "Unknown error"}`, "error");
+    } finally {
+      setLoading(false);
     }
-  }, [dispatch, showToast]);
+  }, [buildListParams, currentPage, pageSize, showToast]);
 
+  // Tracks whether we're past the initial mount, so the effect below doesn't
+  // also fire (redundantly) on first render — same pattern as
+  // SuppliersListPage/OrdersListPage.
+  const isMountedRef = useRef(false);
   useEffect(() => {
     fetchStaff();
-  }, [fetchStaff]);
+    const t = setTimeout(() => { isMountedRef.current = true; }, 0);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Re-fetch when page/pageSize/search/filters/sort change (skip initial
+  // mount, already handled above). When search/filters/sort change while not
+  // already on page 1, reset to page 1 without firing a second (stale-page)
+  // fetch in the same tick — the page-1 reset alone triggers this effect
+  // again with the corrected page.
+  const filtersKey = JSON.stringify({ debouncedSearch, selectedStatus, allowCalendarBookingsParam, selectedSort });
+  const prevFiltersKeyRef = useRef(filtersKey);
+  useEffect(() => {
+    if (!isMountedRef.current) return;
+    if (prevFiltersKeyRef.current !== filtersKey) {
+      prevFiltersKeyRef.current = filtersKey;
+      if (currentPage !== 1) {
+        setCurrentPage(1);
+        return;
+      }
+    }
+    fetchStaff();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPage, pageSize, filtersKey]);
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -186,8 +263,12 @@ export default function StaffListPage() {
     setSelectedStatus(status as "all" | "active" | "archived");
   };
 
+  // Selects/deselects the current page only — with the list now
+  // server-paginated there's no complete "every filtered result" array
+  // sitting in memory to select across, same as other paginated list pages
+  // in this app.
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSelectedIds(e.target.checked ? filtered.map((m) => m.id) : []);
+    setSelectedIds(e.target.checked ? items.map((m) => m.id) : []);
   };
 
   const handleCheck = (e: React.MouseEvent, id: string) => {
@@ -238,48 +319,24 @@ export default function StaffListPage() {
     setActionMenuId(null);
   };
 
-  const filtered = staff.filter((s) => {
-    const name = `${s.first_name || ""} ${s.last_name || ""}`.toLowerCase();
-    const matchesSearch =
-      name.includes(searchTerm.toLowerCase()) ||
-      (s.email || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (s.phone_number || s.phone || "").includes(searchTerm);
-    const matchesStatus =
-      selectedStatus === "all" ||
-      (selectedStatus === "active" && (s.is_active !== false)) ||
-      (selectedStatus === "archived" && s.is_active === false);
-    const matchesBookable =
-      !bookable && !nonBookable
-        ? true
-        : (bookable && s.allow_calendar_bookings) ||
-        (nonBookable && !s.allow_calendar_bookings);
-    return matchesSearch && matchesStatus && matchesBookable;
-  });
-
-  const sorted = [...filtered].sort((a, b) => {
-    const nameA = `${a.first_name} ${a.last_name}`.toLowerCase();
-    const nameB = `${b.first_name} ${b.last_name}`.toLowerCase();
-    if (selectedSort === "Name (A-Z)") return nameA.localeCompare(nameB);
-    if (selectedSort === "Name (Z-A)") return nameB.localeCompare(nameA);
-    if (selectedSort === "Started at (oldest first)" || selectedSort === "Started at (newest first)") {
-      const startedA = new Date((a as any).joined_date || a.created_at || 0).getTime();
-      const startedB = new Date((b as any).joined_date || b.created_at || 0).getTime();
-      return selectedSort === "Started at (oldest first)" ? startedA - startedB : startedB - startedA;
+  // Pulls every staff member matching the current search/filters/sort — not
+  // just the page on screen — for CSV/Excel/PDF export. Same page-looping
+  // approach as SuppliersListPage/OrdersListPage/ProductsListPage's export,
+  // since the list itself is now server-paginated.
+  const fetchAllStaffForExport = useCallback(async (): Promise<StaffMember[]> => {
+    const all: StaffMember[] = [];
+    let page = 1;
+    const limit = 100;
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const res = await api.get(STAFF.BASE, { params: buildListParams(page, limit) });
+      const chunk: StaffMember[] = res.data?.data?.items ?? [];
+      all.push(...chunk);
+      if (chunk.length < limit) break;
+      page += 1;
     }
-    return 0;
-  });
-
-  const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
-  const pagedSorted = useMemo(
-    () => sorted.slice((currentPage - 1) * pageSize, currentPage * pageSize),
-    [sorted, currentPage, pageSize]
-  );
-
-  // Reset to page 1 when search / filter / sort / page size changes
-  useEffect(() => { setCurrentPage(1); }, [searchTerm, selectedSort, bookable, nonBookable, selectedStatus, pageSize]);
-
-  const rangeFrom = sorted.length === 0 ? 0 : (currentPage - 1) * pageSize + 1;
-  const rangeTo = Math.min(currentPage * pageSize, sorted.length);
+    return all;
+  }, [buildListParams]);
 
   return (
     <div className="staff-list-page">
@@ -290,7 +347,7 @@ export default function StaffListPage() {
         <div className="slp-header__left">
           <div className="slp-title-row">
             <h2 className="slp-title">Staff members</h2>
-            <span className="slp-count-badge">{sorted.length}</span>
+            <span className="slp-count-badge">{total}</span>
           </div>
           <p className="slp-subtitle">
             Manage your staff, their roles and access levels.
@@ -325,9 +382,9 @@ export default function StaffListPage() {
                 <DownloadButton
                   filename="staff.csv"
                   fetcher={async () => {
-                    const blob = exportStaffCSV(sorted);
+                    const all = await fetchAllStaffForExport();
                     setOptionsOpen(false);
-                    return blob;
+                    return exportStaffCSV(all);
                   }}
                   variant="ghost"
                   size="sm"
@@ -339,9 +396,9 @@ export default function StaffListPage() {
                 <DownloadButton
                   filename="staff.xlsx"
                   fetcher={async () => {
-                    const blob = await exportStaffExcel(sorted);
+                    const all = await fetchAllStaffForExport();
                     setOptionsOpen(false);
-                    return blob;
+                    return exportStaffExcel(all);
                   }}
                   variant="ghost"
                   size="sm"
@@ -354,9 +411,9 @@ export default function StaffListPage() {
                   filename="staff.pdf"
                   mimeType="application/pdf"
                   fetcher={async () => {
-                    const blob = exportStaffPDF(sorted);
+                    const all = await fetchAllStaffForExport();
                     setOptionsOpen(false);
-                    return blob;
+                    return exportStaffPDF(all);
                   }}
                   variant="ghost"
                   size="sm"
@@ -424,11 +481,11 @@ export default function StaffListPage() {
             <input
               type="checkbox"
               className="slp-checkbox"
-              checked={selectedIds.length === sorted.length && sorted.length > 0}
+              checked={selectedIds.length === items.length && items.length > 0}
               onChange={handleSelectAll}
             />
             <span className="slp-bulk-count">
-              {selectedIds.length === sorted.length ? "All selected" : `${selectedIds.length} selected`}
+              {selectedIds.length === items.length ? "All on page selected" : `${selectedIds.length} selected`}
             </span>
             <button className="slp-deselect-btn" onClick={() => setSelectedIds([])}>
               Deselect
@@ -462,7 +519,7 @@ export default function StaffListPage() {
             </div>
           ))}
         </div>
-      ) : sorted.length === 0 ? (
+      ) : items.length === 0 ? (
         <div className="slp-empty">
           <div className="slp-empty__icon-wrap">
             <PersonBadge size={36} />
@@ -492,7 +549,7 @@ export default function StaffListPage() {
               <input
                 type="checkbox"
                 className="slp-checkbox"
-                checked={selectedIds.length === sorted.length && sorted.length > 0}
+                checked={selectedIds.length === items.length && items.length > 0}
                 onChange={handleSelectAll}
               />
             </div>
@@ -505,7 +562,7 @@ export default function StaffListPage() {
           </div>
 
           {/* Table Rows */}
-          {pagedSorted.map((member) => {
+          {items.map((member) => {
             const isChecked = selectedIds.includes(member.id);
             const isActive = member.is_active ?? true;
             const initials = `${(member.first_name?.[0] || "").toUpperCase()}${(member.last_name?.[0] || "").toUpperCase()}` || "??";
@@ -687,66 +744,22 @@ export default function StaffListPage() {
       </Modal>
 
       {/* ===== FOOTER / PAGINATION ===== */}
-      {!loading && sorted.length > 0 && (
-        <div className="slp-footer">
-          <div className="slp-footer-size">
-            <span>Rows per page:</span>
-            <div className="slp-footer-size-wrap">
-              <Dropdown
-                searchable={false}
-                value={String(pageSize)}
-                options={PAGE_SIZE_OPTIONS.map((sz) => ({ id: String(sz), name: String(sz) }))}
-                onChange={(id) => setPageSize(Number(id))}
-              />
-              <ChevronDown size={12} className="slp-footer-size-icon" />
-            </div>
-          </div>
-
-          <span className="slp-footer-results">
-            Showing <strong>{rangeFrom}–{rangeTo}</strong> of <strong>{sorted.length}</strong> staff members
-          </span>
-
-          <div className="slp-pagination">
-            <button
-              className="slp-page-btn"
-              onClick={() => setCurrentPage((p) => p - 1)}
-              disabled={currentPage === 1}
-              aria-label="Previous page"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M15 18l-6-6 6-6" /></svg>
-            </button>
-
-            {Array.from({ length: totalPages }, (_, i) => i + 1)
-              .filter((p) => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
-              .reduce<(number | "…")[]>((acc, p, idx, arr) => {
-                if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push("…");
-                acc.push(p);
-                return acc;
-              }, [])
-              .map((p, idx) =>
-                p === "…" ? (
-                  <span key={`e-${idx}`} className="slp-page-ellipsis">…</span>
-                ) : (
-                  <button
-                    key={p}
-                    className={`slp-page-btn${currentPage === p ? " slp-page-btn--active" : ""}`}
-                    onClick={() => setCurrentPage(p as number)}
-                  >
-                    {p}
-                  </button>
-                )
-              )}
-
-            <button
-              className="slp-page-btn"
-              onClick={() => setCurrentPage((p) => p + 1)}
-              disabled={currentPage === totalPages}
-              aria-label="Next page"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M9 18l6-6-6-6" /></svg>
-            </button>
-          </div>
-        </div>
+      {/* Shared components/ui/Pagination — same component Suppliers/Orders/
+          Products/Commission/Tip already use (see SCRUM-2615's own
+          requirement to reuse it here instead of this page's old hand-rolled
+          prev/next/page-number markup). It renders its own "no rows"
+          no-op internally (totalItems === 0), so the !loading guard here is
+          just to avoid it flashing during the initial fetch. */}
+      {!loading && (
+        <Pagination
+          className="slp-footer"
+          currentPage={currentPage}
+          pageSize={pageSize}
+          totalItems={total}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={(size) => { setPageSize(size); setCurrentPage(1); }}
+          pageSizeOptions={PAGE_SIZE_OPTIONS}
+        />
       )}
     </div>
   );

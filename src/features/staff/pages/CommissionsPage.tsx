@@ -155,63 +155,66 @@ function OverviewTab({
         <DateRangeFilter value={dateRange} onChange={onDateRangeChange} />
       </div>
 
-      <div className="tc-table-wrap">
-        {earnedByStaff.length === 0 ? (
-          <div className="cm-ov-empty">
-            <CurrencyIcon size={28} />
-            <p>No commissions earned in this date range</p>
-            <span className="cm-ov-empty-sub">Commissions appear here after checkouts</span>
-          </div>
-        ) : (
-          <table className="tc-table">
-            <thead>
-              <tr>
-                <th>#</th><th>Staff Name</th><th>Total Sales ({currencyCode})</th>
-                <th>Commission Accrued ({currencyCode})</th><th>Commission Paid ({currencyCode})</th>
-                <th>Pending Payout ({currencyCode})</th><th>Status</th><th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pagedStaff.map((e, i) => {
-                const name = `${e.staff_first_name} ${e.staff_last_name ?? ""}`.trim();
-                const status = e.pending_payout > 0 && e.paid_out > 0 ? "Partial" : e.pending_payout > 0 ? "Pending" : "Settled";
-                return (
-                  <tr key={e.staff_id} onClick={() => onOpenHistory(e.staff_id)}>
-                    <td>{(page - 1) * pageSize + i + 1}</td>
-                    <td className="tc-table__name">{name}</td>
-                    <td>{fmt(e.total_revenue)}</td>
-                    <td>{fmt(e.total_earned)}</td>
-                    <td>{fmt(e.paid_out)}</td>
-                    <td>{fmt(e.pending_payout)}</td>
-                    <td><span className={`tc-status tc-status--${status.toLowerCase()}`}>{status}</span></td>
-                    <td onClick={(ev) => ev.stopPropagation()}>
-                      {e.pending_payout > 0 ? (
-                        <button
-                          className="tc-settle-btn"
-                          disabled={settlingId === e.staff_id}
-                          onClick={() => onSettle(e.staff_id, name, e.pending_payout)}
-                        >
-                          {settlingId === e.staff_id ? "Settling…" : "Settle"}
-                        </button>
-                      ) : (
-                        <span className="tc-view-btn" onClick={() => onOpenHistory(e.staff_id)}>View</span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
-      </div>
+      <div className="tc-table-block">
+        <div className="tc-table-wrap">
+          {earnedByStaff.length === 0 ? (
+            <div className="cm-ov-empty">
+              <CurrencyIcon size={28} />
+              <p>No commissions earned in this date range</p>
+              <span className="cm-ov-empty-sub">Commissions appear here after checkouts</span>
+            </div>
+          ) : (
+            <table className="tc-table">
+              <thead>
+                <tr>
+                  <th>#</th><th>Staff Name</th><th>Total Sales ({currencyCode})</th>
+                  <th>Commission Accrued ({currencyCode})</th><th>Commission Paid ({currencyCode})</th>
+                  <th>Pending Payout ({currencyCode})</th><th>Status</th><th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pagedStaff.map((e, i) => {
+                  const name = `${e.staff_first_name} ${e.staff_last_name ?? ""}`.trim();
+                  const status = e.pending_payout > 0 && e.paid_out > 0 ? "Partial" : e.pending_payout > 0 ? "Pending" : "Settled";
+                  return (
+                    <tr key={e.staff_id} onClick={() => onOpenHistory(e.staff_id)}>
+                      <td>{(page - 1) * pageSize + i + 1}</td>
+                      <td className="tc-table__name">{name}</td>
+                      <td>{fmt(e.total_revenue)}</td>
+                      <td>{fmt(e.total_earned)}</td>
+                      <td>{fmt(e.paid_out)}</td>
+                      <td>{fmt(e.pending_payout)}</td>
+                      <td><span className={`tc-status tc-status--${status.toLowerCase()}`}>{status}</span></td>
+                      <td onClick={(ev) => ev.stopPropagation()}>
+                        {e.pending_payout > 0 ? (
+                          <button
+                            className="tc-settle-btn"
+                            disabled={settlingId === e.staff_id}
+                            onClick={() => onSettle(e.staff_id, name, e.pending_payout)}
+                          >
+                            {settlingId === e.staff_id ? "Settling…" : "Settle"}
+                          </button>
+                        ) : (
+                          <span className="tc-view-btn" onClick={() => onOpenHistory(e.staff_id)}>View</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
 
-      <Pagination
-        currentPage={page}
-        pageSize={pageSize}
-        totalItems={earnedByStaff.length}
-        onPageChange={setPage}
-        onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
-      />
+        <Pagination
+          className="tc-pagination"
+          currentPage={page}
+          pageSize={pageSize}
+          totalItems={earnedByStaff.length}
+          onPageChange={setPage}
+          onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
+        />
+      </div>
     </div>
   );
 }
@@ -338,7 +341,8 @@ function RulesTable({
         </div>
       </div>
 
-      <div className="tc-table-wrap" ref={tableWrapRef}>
+      <div className="tc-table-block">
+        <div className="tc-table-wrap" ref={tableWrapRef}>
         {rulesLoading ? (
           <div className="cm-loading">
             {[...Array(4)].map((_, i) => (
@@ -440,15 +444,17 @@ function RulesTable({
         )}
       </div>
 
-      {filteredGroups.length > 0 && (
-        <Pagination
-          currentPage={page}
-          pageSize={pageSize}
-          totalItems={filteredGroups.length}
-          onPageChange={setPage}
-          onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
-        />
-      )}
+        {filteredGroups.length > 0 && (
+          <Pagination
+            className="tc-pagination"
+            currentPage={page}
+            pageSize={pageSize}
+            totalItems={filteredGroups.length}
+            onPageChange={setPage}
+            onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
+          />
+        )}
+      </div>
     </div>
   );
 }
