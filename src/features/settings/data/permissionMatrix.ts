@@ -24,6 +24,7 @@ export const defaultPermissions: Permission[] = [
   // action — updates and deletes both go through the same create_sales key.
   { key: "view_sales",          label: "View Sales",          desc: "Access sales records and daily summaries", category: "Quick Sale",   owner: true,  staff: true,  manager: true },
   { key: "create_sales",        label: "Create Sales",        desc: "Create, edit and checkout sales",      category: "Quick Sale",     owner: true,  staff: true,  manager: true },
+  { key: "import_sales",        label: "Import Billing Data", desc: "Bulk-import historical invoices from an Excel/CSV file", category: "Quick Sale", owner: true, staff: false, manager: true },
 
   // ── Calendar ──────────────────────────────────────────────────────────────
   { key: "view_calendar",       label: "View Calendar",       desc: "See all appointments on calendar",     category: "Calendar",       owner: true,  staff: true,  manager: true },

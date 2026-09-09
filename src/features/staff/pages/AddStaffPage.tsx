@@ -141,6 +141,12 @@ const AddStaffPage: React.FC = () => {
           hourlyRate: "", fixedSalary: "", workingHoursPerDay: staff.working_hours_per_day ?? "", holidays: staff.holidays ?? "",
           password: "", confirmPassword: "",
         });
+        // Staff Login reflects whether this staff member already has an
+        // email on file — without this, the toggle always defaulted to OFF
+        // on Edit regardless of the real state, which combined with "Email
+        // optional when OFF" would have let an existing logged-in staff
+        // member's email be silently cleared on save.
+        setStaffLoginEnabled(!!staff.email);
         setAvatarUrl(staff.avatar_url || "");
         setPermissionLevel(LEVEL_TO_ROLE[staff.permission_level] || "Low");
 
@@ -166,12 +172,17 @@ const AddStaffPage: React.FC = () => {
   // ── Field validation ─────────────────────────────────────────────────────────
   const isNameInvalid = attemptedSubmit && form.name.trim() === "";
 
+  // Email is only mandatory when Staff Login is on — an admin adding a
+  // staff member who won't log in at all shouldn't be blocked for lacking
+  // one. If a value IS entered, it must still be a real address either way.
   const emailFormatValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim());
+  const isEmailRequiredAndMissing = staffLoginEnabled && form.email.trim() === "";
   const isEmailInvalid =
     !!duplicateEmailMessage ||
-    (attemptedSubmit && (form.email.trim() === "" || !emailFormatValid));
+    (attemptedSubmit && isEmailRequiredAndMissing) ||
+    (attemptedSubmit && form.email.trim() !== "" && !emailFormatValid);
   const emailErrorMessage =
-    duplicateEmailMessage || (form.email.trim() === "" ? "Email is required" : "Enter a valid email address");
+    duplicateEmailMessage || (isEmailRequiredAndMissing ? "Email is required" : "Enter a valid email address");
 
   const isDobFuture = !!form.dob && form.dob > today;
   const isDobUnderage = !!form.dob && !isDobFuture && form.dob > minAdultDob;
@@ -184,8 +195,6 @@ const AddStaffPage: React.FC = () => {
 
   const isPhoneInvalid = attemptedSubmit && (form.phone.trim() === "" || !/^\d{10}$/.test(form.phone.trim()));
   const phoneErrorMessage = form.phone.trim() === "" ? "Contact is required" : "Enter a valid 10-digit phone number";
-
-  const isGenderInvalid = attemptedSubmit && form.gender.trim() === "";
 
   const isHourlyRateInvalid = attemptedSubmit && form.hourlyRate !== "" && Number(form.hourlyRate) <= 0;
   const isFixedSalaryInvalid = attemptedSubmit && form.fixedSalary !== "" && Number(form.fixedSalary) <= 0;
@@ -291,8 +300,9 @@ const AddStaffPage: React.FC = () => {
     setDuplicateEmailMessage(null);
 
     if (
-      form.name.trim() === "" || form.email.trim() === "" || !emailFormatValid || form.phone.trim() === "" || isPhoneInvalid ||
-      form.doj.trim() === "" || form.gender.trim() === "" || isDobInvalid ||
+      form.name.trim() === "" || isEmailRequiredAndMissing || (form.email.trim() !== "" && !emailFormatValid) ||
+      form.phone.trim() === "" || isPhoneInvalid ||
+      form.doj.trim() === "" || isDobInvalid ||
       isHourlyRateInvalid || isFixedSalaryInvalid || isCompensationConflict || isWorkingHoursInvalid || isHolidaysInvalid ||
       isPasswordInvalid || isConfirmPasswordInvalid || isEmailVerificationInvalid
     ) {
@@ -320,7 +330,10 @@ const AddStaffPage: React.FC = () => {
       const payload: Record<string, unknown> = {
         first_name,
         last_name,
-        email: form.email.trim(),
+        // undefined (not "") when blank — an explicit empty string reads as
+        // "clear the existing email" to the update endpoint, which isn't
+        // the intent of simply leaving the field untouched/empty.
+        email: form.email.trim() || undefined,
         phone: form.phone.trim(),
         phone_country_code: form.phoneCountryCode,
         job_title: form.designation || undefined,
@@ -463,7 +476,7 @@ const AddStaffPage: React.FC = () => {
                 {isNameInvalid && <span className="emp-field__error">Name is required</span>}
               </div>
               <div className="emp-field">
-                <label className="emp-field__label">Email<span className="text-danger">*</span></label>
+                <label className="emp-field__label">Email{staffLoginEnabled && <span className="text-danger">*</span>}</label>
                 <div className="emp-input-row">
                   <input
                     className={`emp-input ${isEmailInvalid ? "emp-input--invalid" : ""}`}
@@ -599,15 +612,14 @@ const AddStaffPage: React.FC = () => {
               </div>
 
               <div className="emp-field">
-                <label className="emp-field__label">Gender<span className="text-danger">*</span></label>
+                <label className="emp-field__label">Gender</label>
                 <Dropdown
                   value={form.gender}
                   onChange={(val: string) => setField("gender")(val)}
                   options={GENDER_OPTIONS}
                   placeholder="Gender"
-                  className={`emp-input emp-select ${isGenderInvalid ? "emp-input--invalid" : ""}`}
+                  className="emp-input emp-select"
                 />
-                {isGenderInvalid && <span className="emp-field__error">Gender is required</span>}
               </div>
               <div className="emp-field">
                 <label className="emp-field__label">Designation</label>

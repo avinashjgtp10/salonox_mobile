@@ -19,6 +19,7 @@ import {
   Printer,
   Smartphone,
   MapPin,
+  Upload,
 } from "lucide-react";
 import ProfileSettingsPage from "../pages/ProfileSettingsPage";
 import BusinessSettingsPage from "../pages/BusinessSettingsPage";
@@ -37,6 +38,7 @@ import CouponsSettingsPage from "../pages/CouponsSettingsPage";
 import PackageSettingsPage from "../pages/PackageSettingsPage";
 import PrintSettingsPage from "../pages/PrintSettingsPage";
 import DataPrivacyPage from "../pages/DataPrivacyPage";
+import BulkBillingImportPage from "../pages/BulkBillingImportPage";
 import SettingsHomePage, { type SettingsHomeGroup } from "../pages/SettingsHomePage";
 import "../styles/SettingsPage.scss";
 
@@ -93,6 +95,12 @@ const navGroups: NavGroup[] = [
       // Not shown on the Settings home grid (see hidden below) — it's the
       // coupon management list, reached from the designer's "Manage coupons" link.
       { id: "coupons-manage", label: "Manage Coupons", description: "", icon: <Tag size={18} />, Component: CouponsSettingsPage, hidden: true },
+    ],
+  },
+  {
+    groupLabel: "Migration",
+    items: [
+      { id: "bulk-billing-import", label: "Bulk Billing Import", description: "Import historical billing records from an Excel or CSV file.", icon: <Upload size={18} />, Component: BulkBillingImportPage },
     ],
   },
   {
