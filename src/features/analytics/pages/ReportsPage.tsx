@@ -269,6 +269,12 @@ export default function ReportsPage() {
   };
 
   const goBackToList = () => {
+    // The "Reports" breadcrumb/menu always lands on a fresh top-of-page list,
+    // never the scroll-to-last-card restore (that's reserved for browser
+    // back/forward, handled separately below).
+    lastOpenedIdRef.current = null;
+    appliedForceKeyRef.current = null;
+    document.querySelector(".main")?.scrollTo({ top: 0, left: 0 });
     navigate("/reports");
   };
 
@@ -292,6 +298,14 @@ export default function ReportsPage() {
 
   const active = (categoryParam && reportSlug) ? bySlug.get(`${categoryParam}/${reportSlug}`) ?? null : null;
   const activeCategoryLabel = active ? CATEGORIES.find(c => c.key === active.category)?.label ?? active.category : "";
+
+  // ReportsPage stays mounted across /reports <-> /reports/:category/:slug
+  // (no remount, so the browser doesn't reset scroll on its own) — opening a
+  // report from further down the category list must still land at the top of
+  // the report, not wherever the list happened to be scrolled.
+  useEffect(() => {
+    if (active) document.querySelector(".main")?.scrollTo({ top: 0, left: 0 });
+  }, [active?.id]);
 
   // Record "recently opened" whenever the URL lands on a valid report — covers
   // direct navigation, browser back/forward and refresh, not just openReport().
@@ -339,7 +353,13 @@ export default function ReportsPage() {
   useEffect(() => {
     if (active) return;
     const id = lastOpenedIdRef.current;
-    if (!id) return;
+    if (!id) {
+      // No card to restore to — this is a fresh landing on the list (sidebar
+      // "Reports" menu click, or any other direct navigation), so start at
+      // the top rather than wherever the container happened to be scrolled.
+      document.querySelector(".main")?.scrollTo({ top: 0, left: 0 });
+      return;
+    }
 
     let cancelled = false;
     let attempts = 0;
