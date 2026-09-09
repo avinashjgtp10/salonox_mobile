@@ -102,7 +102,7 @@ $radius:  12px;
 .tc-stats {
   display: flex; align-items: center; gap: 0;
   background: $white; border: 1px solid #e2e8f0; border-radius: 12px;
-  padding: 16px 24px; margin-bottom: 20px; flex-wrap: wrap;
+  padding: 16px 24px; flex-wrap: wrap;
 }
 .tc-stat {
   display: flex; align-items: center; gap: 10px; flex: 1; min-width: 160px;
@@ -128,14 +128,32 @@ $radius:  12px;
 // &__controls, which never space-betweens its search/filter row either.
 .tc-toolbar {
   display: flex; align-items: center; justify-content: flex-start;
-  gap: 16px; margin-bottom: 12px; flex-wrap: wrap;
+  gap: 16px; flex-wrap: wrap;
   &--wrap { align-items: flex-start; }
 }
 .tc-toolbar-title { font-size: 14px; font-weight: 700; color: $primary; }
 
+// Table + its pagination as one visual unit — no flex `gap` inside it (that
+// space, if any, comes from .cm-overview's own gap around the whole block),
+// so the shared Pagination component sits flush under the table instead of
+// floating below it with a large, table-disconnected gap.
+.tc-table-block { display: flex; flex-direction: column; }
+
 .tc-table-wrap {
   background: $white; border: 1px solid #e2e8f0; border-radius: 14px;
-  overflow-x: auto; margin-bottom: 12px;
+  overflow-x: auto;
+}
+
+// Same "flush footer" treatment as SuppliersListPage/OrdersListPage's own
+// Pagination usage (suppliers-pagination/orders' equivalent) — border-top
+// dropped since .tc-table-wrap already draws that seam, only the bottom
+// corners rounded so it reads as this table's own footer, not a separate
+// floating card.
+.tc-pagination {
+  margin-top: 0;
+  border: 1px solid #e2e8f0;
+  border-top: 0;
+  border-radius: 0 0 14px 14px;
 }
 .tc-table {
   width: 100%; border-collapse: collapse; font-family: $font;

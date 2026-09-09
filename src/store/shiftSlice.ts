@@ -19,6 +19,11 @@ export interface ShiftState {
   loading: boolean;
   error: string | null;
   apiConnected: boolean;
+  // Total staff count for the current fetchDailyShifts page — page/pageSize
+  // themselves stay as local component state in ScheduledShiftsPage (same
+  // split as suppliersTotal/ordersTotal in inventorySlice), this is just
+  // what the shared Pagination component needs to render totals/page count.
+  staffTotal: number;
 }
 
 const initialState: ShiftState = {
@@ -27,6 +32,7 @@ const initialState: ShiftState = {
   loading: false,
   error: null,
   apiConnected: false,
+  staffTotal: 0,
 };
 
 const shiftSlice = createSlice({
@@ -116,6 +122,7 @@ const shiftSlice = createSlice({
         state.apiConnected = true;
         if (payload?.staff) state.staffMembers = payload.staff;
         if (payload?.shifts) state.shifts = payload.shifts;
+        state.staffTotal = payload?.pagination?.total ?? 0;
       })
       .addCase(fetchDailyShifts.rejected, (state) => {
         state.loading = false;

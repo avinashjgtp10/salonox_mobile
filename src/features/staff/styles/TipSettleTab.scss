@@ -1,8 +1,11 @@
 // Tip Settle's own bits only — the stats bar, table, status pill and settle
 // button are all shared with Commission Settle/Rules via the .tc-* classes
 // in CommissionsPage.scss, so the three tabs can't visually drift apart.
+// No margin-bottom — sits inside .cm-overview (CommissionsPage.scss), whose
+// own flex `gap` already spaces it from the stats bar above and the toolbar
+// below, same as Commission Settle/Rules' date filter row.
 .ts-range-row {
-  display: flex; justify-content: flex-start; margin-bottom: 16px;
+  display: flex; justify-content: flex-start;
 }
 
 .ts-footnote {
