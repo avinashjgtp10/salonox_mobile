@@ -405,12 +405,22 @@ export default function ProfilePage() {
     if (fileRef.current) fileRef.current.value = "";
   };
 
-  const displayName = profile?.fullName ?? "Salon Owner";
+  // This card shows the salon/business identity, not the logged-in user's
+  // own name — "App" (personal) vs "App Testing" (business), same as the
+  // navbar profile dropdown (DashboardTopbar.tsx). Email stays the personal
+  // account's own login email; only name + avatar are business-scoped.
+  const displayName = currentSalon?.business_name || profile?.fullName || "Salon Owner";
   const email       = profile?.email    ?? "";
   const initials    = getInitials(displayName);
   const roleBadge   = formatRole(profile?.role ?? authRole);
   const memberSince = formatDate(profile?.createdAt);
   const isVerified  = profile?.isVerified;
+  const businessLogoUrl = currentSalon?.logo_url || null;
+  // Reset whenever the logo URL itself changes (new upload, salon switch) so
+  // a stale "this one failed" doesn't stick around and hide a working image.
+  const [businessLogoFailed, setBusinessLogoFailed] = useState(false);
+  useEffect(() => { setBusinessLogoFailed(false); }, [businessLogoUrl]);
+  const showBusinessLogo = !!businessLogoUrl && !businessLogoFailed;
 
   // ── Loading ───────────────────────────────────────────────────────────────
   if (fetching && !profile) {
@@ -469,11 +479,12 @@ export default function ProfilePage() {
               {uploading && (
                 <div className="pp-avatar-uploading"><span className="pp-spinner" /></div>
               )}
-              {profile?.avatarUrl ? (
+              {showBusinessLogo ? (
                 <img
-                  src={profile.avatarUrl}
+                  src={businessLogoUrl!}
                   alt={displayName}
                   className={`pp-avatar-img ${uploading ? "pp-avatar-img--dim" : ""}`}
+                  onError={() => setBusinessLogoFailed(true)}
                 />
               ) : (
                 <div className={`pp-avatar-initials ${uploading ? "pp-avatar-initials--dim" : ""}`}>

@@ -2048,8 +2048,14 @@ $sidebar-nav-active-text: #101828;
   color: $dashboard-primary;
   line-height: 1;
 
+  // The small trigger (.topbar-profile-btn) has a light gray background, so
+  // dark text works there — but this same class's --lg variant only ever
+  // renders inside .topbar-profile-info-av, whose background is
+  // $dashboard-primary (dark). Without this override the initials were dark
+  // text on a dark circle — invisible, not just low-contrast.
   &--lg {
     font-size: 18px;
+    color: $white;
   }
 }
 
