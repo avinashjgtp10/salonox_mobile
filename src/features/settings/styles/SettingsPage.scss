@@ -1939,6 +1939,19 @@
   overflow: hidden;
 }
 
+// Wider/taller than the base .spm-panel (BranchesPage.tsx's own use of
+// .spm-panel stays at the smaller default — this is scoped to the two
+// permission editors, RolePermissionPanel.tsx and StaffPermissionEditor.tsx,
+// whose module-grouped permission lists routinely run to 50+ rows and were
+// cramped at 560-620px/88vh. .spm-overlay's own 20px padding plus width:100%
+// here still keeps this responsive down to narrow viewports; .spm-body's
+// existing flex:1 + overflow-y:auto (unchanged) is what actually produces
+// the internal scrollbar once content exceeds the taller available height.
+.spm-panel--permissions {
+  max-width: 760px;
+  max-height: 90vh;
+}
+
 @keyframes spm-slide-up {
   from { transform: translateY(12px); opacity: 0; }
   to   { transform: translateY(0);    opacity: 1; }

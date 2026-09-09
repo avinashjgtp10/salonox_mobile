@@ -123,7 +123,7 @@ export default function RolePermissionPanel({ roleName, onClose }: Props) {
   return (
     <div className="spm-overlay" onClick={(e) => e.target === e.currentTarget && !saving && onClose()}>
       {overlay}
-      <div className="spm-panel" style={{ maxWidth: 620 }}>
+      <div className="spm-panel spm-panel--permissions">
         <div className="spm-header">
           <div className="spm-header-info">
             <div>

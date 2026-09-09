@@ -16,7 +16,6 @@ import {
   Cash,
   ChatSquareText,
   Stars,
-  List,
 } from "react-bootstrap-icons";
 // Custom icon, not from any installed icon pack — see WarehouseIcon.tsx for
 // why (matched to a specific reference design: peaked roof, roof vent, open
@@ -36,14 +35,26 @@ type MenuKey =
   | "marketing"
   | "team";
 
+// Route prefix each flyout section owns — the same strings each button's
+// onClick already uses to decide whether to jump to the section's default
+// page. Reused here so the main-nav highlight is driven by isActive (current
+// route) rather than isSubmenuOpen (openMenu) alone — closing the sub-side
+// panel while still on, say, a Clients page must not clear the highlight.
+const SECTION_ROUTE_PREFIX: Record<MenuKey, string> = {
+  clients: "/dashboard/clients",
+  catalog: "/dashboard/catalog",
+  inventory: "/dashboard/inventory",
+  onlineBooking: "/dashboard/online-booking",
+  marketing: "/dashboard/marketing",
+  team: "/dashboard/team",
+};
+
 interface Props {
   openMenu: string | null;
   onMenuChange: (menu: MenuKey | null) => void;
-  collapsed: boolean;
-  onToggleCollapsed: () => void;
 }
 
-export default function DashboardSidebar({ openMenu, onMenuChange, collapsed, onToggleCollapsed }: Props) {
+export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
   const { hasFeature } = usePlanFeatures();
   const navigate = useNavigate();
   const location = useLocation();
@@ -100,8 +111,14 @@ export default function DashboardSidebar({ openMenu, onMenuChange, collapsed, on
     }
   }
 
+  // isActive (current route belongs to this section) and isSubmenuOpen
+  // (openMenu === key) are deliberately independent — either one alone is
+  // enough to highlight the button, but closing the panel (isSubmenuOpen
+  // going false) must never clear a highlight that isActive still justifies.
   function menuClass(key: MenuKey) {
-    return `nav-btn ${openMenu === key ? "menu-active" : ""}`;
+    const isActive = location.pathname.startsWith(SECTION_ROUTE_PREFIX[key]);
+    const isSubmenuOpen = openMenu === key;
+    return `nav-btn ${isActive || isSubmenuOpen ? "menu-active" : ""}`;
   }
 
   // Rendered items vary with permissions, so the item list is read from the
@@ -125,17 +142,6 @@ export default function DashboardSidebar({ openMenu, onMenuChange, collapsed, on
 
   return (
     <aside className="sidebar" ref={sidebarRef} onKeyDown={handleSidebarKeyDown}>
-      <button
-        type="button"
-        className="nav-btn sidebar-collapse-btn"
-        onClick={onToggleCollapsed}
-        aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-        title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-      >
-        <List size={18} />
-        <span className="nav-label">{collapsed ? "Expand" : "Collapse"}</span>
-      </button>
-
       {/* Every nav item below renders regardless of staff PERMISSION —
           hiding a section from navigation isn't a security boundary (the
           route is still reachable by URL) and just makes it harder for
@@ -151,6 +157,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange, collapsed, on
           end
           className={({ isActive }) => navClass(isActive)}
           onClick={(event) => handleRouteClick(event, "/dashboard")}
+          title="Home"
         >
           <House size={22} />
           <span className="nav-label">Home</span>
@@ -162,6 +169,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange, collapsed, on
           to="/dashboard/sales/quick"
           className={({ isActive }) => navClass(isActive)}
           onClick={(event) => handleRouteClick(event, "/dashboard/sales/quick")}
+          title="Quick Sale"
         >
           <Lightning size={22} />
           <span className="nav-label">Quick Sale</span>
@@ -175,6 +183,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange, collapsed, on
           onClick={(event) => handleRouteClick(event, "/dashboard/calendar")}
           onMouseEnter={preloadScheduler}
           onFocus={preloadScheduler}
+          title="Calendar"
         >
           <Calendar size={22} />
           <span className="nav-label">Calendar</span>
@@ -185,6 +194,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange, collapsed, on
         <button
           type="button"
           className={menuClass("clients")}
+          title="Clients"
           onClick={() => {
             const opening = openMenu !== "clients";
             onMenuChange(opening ? "clients" : null);
@@ -206,6 +216,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange, collapsed, on
         <button
           type="button"
           className={menuClass("catalog")}
+          title="Catalog"
           onClick={() => {
             const opening = openMenu !== "catalog";
             onMenuChange(opening ? "catalog" : null);
@@ -226,6 +237,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange, collapsed, on
         <button
           type="button"
           className={menuClass("inventory")}
+          title="Warehouse"
           onClick={() => {
             const opening = openMenu !== "inventory";
             onMenuChange(opening ? "inventory" : null);
@@ -246,6 +258,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange, collapsed, on
         <button
           type="button"
           className={menuClass("team")}
+          title="Staff"
           onClick={() => {
             const opening = openMenu !== "team";
             onMenuChange(opening ? "team" : null);
@@ -270,6 +283,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange, collapsed, on
           onClick={(event) => handleRouteClick(event, "/dashboard/cash-management")}
           onMouseEnter={preloadCashManagementPage}
           onFocus={preloadCashManagementPage}
+          title="Cash Management"
         >
           <Cash  size={22} />
           <span className="nav-label">Cash Management</span>
@@ -285,6 +299,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange, collapsed, on
         <button
           type="button"
           className={menuClass("marketing")}
+          title="Marketing"
           onClick={() => {
             const opening = openMenu !== "marketing";
             onMenuChange(opening ? "marketing" : null);
@@ -309,6 +324,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange, collapsed, on
         <button
           type="button"
           className={menuClass("onlineBooking")}
+          title="Online booking"
           onClick={() => {
             const opening = openMenu !== "onlineBooking";
             onMenuChange(opening ? "onlineBooking" : null);
@@ -331,6 +347,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange, collapsed, on
           to="/dashboard/enquiries"
           className={({ isActive }) => navClass(isActive)}
           onClick={(event) => handleRouteClick(event, "/dashboard/enquiries")}
+          title="Enquiries"
         >
           <ChatSquareText size={22} />
           <span className="nav-label">Enquiries</span>
@@ -342,6 +359,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange, collapsed, on
           to="/reports"
           className={({ isActive }) => navClass(isActive)}
           onClick={(event) => handleRouteClick(event, "/reports")}
+          title="Reports"
         >
           <GraphUpArrow size={22} />
           <span className="nav-label">Reports</span>
@@ -351,6 +369,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange, collapsed, on
       <button
         type="button"
         className={navClass(false)}
+        title="Apps"
         onClick={() => {
           onMenuChange(null);
           setShowAppsComingSoon(true);
@@ -364,6 +383,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange, collapsed, on
         to="/dashboard/settings"
         className={({ isActive }) => navClass(isActive)}
         onClick={(event) => handleRouteClick(event, "/dashboard/settings")}
+        title="Settings"
       >
         <Gear size={22} />
         <span className="nav-label">Settings</span>
@@ -373,6 +393,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange, collapsed, on
         to="/dashboard/spotlight"
         className={({ isActive }) => navClass(isActive)}
         onClick={(event) => handleRouteClick(event, "/dashboard/spotlight")}
+        title="Spotlight"
       >
         <Stars size={22} />
         <span className="nav-label">Spotlight</span>
@@ -382,6 +403,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange, collapsed, on
         to="/dashboard/help"
         className={({ isActive }) => navClass(isActive)}
         onClick={(event) => handleRouteClick(event, "/dashboard/help")}
+        title="Help"
       >
         <QuestionCircle size={22} />
         <span className="nav-label">Help</span>

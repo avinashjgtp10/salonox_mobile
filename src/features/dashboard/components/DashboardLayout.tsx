@@ -108,7 +108,11 @@ export default function DashboardLayout() {
   return (
     <div className="dashboard">
       <DeploymentBanner />
-      <DashboardTopbar onLogout={handleLogout} />
+      <DashboardTopbar
+        onLogout={handleLogout}
+        collapsed={collapsed}
+        onToggleCollapsed={() => setCollapsed((c) => !c)}
+      />
       <UnclosedCounterGate />
       <AutoOpenCounterForNewAccount />
 
@@ -116,8 +120,6 @@ export default function DashboardLayout() {
         <DashboardSidebar
           openMenu={openMenu}
           onMenuChange={handleMenuChange}
-          collapsed={collapsed}
-          onToggleCollapsed={() => setCollapsed((c) => !c)}
         />
 
         {openMenu === "clients" && (

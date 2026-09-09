@@ -25,6 +25,7 @@ import {
   BoxSeam,
   CalendarX,
   Stars,
+  ListUl,
 } from "react-bootstrap-icons";
 import type { RootState } from "../../../store/store";
 import salonoxLogo from "../../../assets/salonox_full_logo.png";
@@ -124,11 +125,13 @@ const getInitials = (name?: string) => {
 
 interface Props {
   onLogout: () => void;
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
 }
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
-export default function DashboardTopbar({ onLogout }: Props) {
+export default function DashboardTopbar({ onLogout, collapsed, onToggleCollapsed }: Props) {
   const navigate = useNavigate();
   const userProfile = useSelector((s: RootState) => s.user.profile);
   const salonId = useSelector((s: RootState) => s.auth.salonId);
@@ -464,6 +467,15 @@ export default function DashboardTopbar({ onLogout }: Props) {
       {/* ── TOPBAR ── */}
       <div className="topbar">
         <div className="topbar-left">
+          <button
+            type="button"
+            className="topbar-icon-btn topbar-collapse-btn"
+            onClick={onToggleCollapsed}
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            <ListUl size={20} />
+          </button>
           <h2 className="brand">
             <img src={salonoxLogo} alt="SalonOX" className="brand-logo" width="122" height="61" />
           </h2>
