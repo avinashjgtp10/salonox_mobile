@@ -168,7 +168,13 @@ function toFriendlyPermissionMessage(message: string): string {
 // /report/ covers the whole independent reports module (reports.controller.ts)
 // — every one of its ~40 endpoints calls getSalonId(req) exclusively and none
 // ever reads req.query.salon_id, confirmed by grep.
-const SALON_ID_NOT_NEEDED = [/\/clients(\/|\?|$)/, /\/services(\/|\?|$)/, /\/products(\/|\?|$)/, /\/report\//];
+// /pricing/calculate-totals (Quick Sale/booking pricing engine) derives
+// salon_id from the JWT only (getSalonId(req)) — appending it as a query
+// param was dead weight that also let a client-manipulated URL param shadow
+// the authenticated salon, so it's excluded here same as the others.
+// /appointments and /memberships likewise derive salon_id from the JWT only —
+// excluded here so a client-manipulated salon_id query param can't shadow it.
+const SALON_ID_NOT_NEEDED = [/\/clients(\/|\?|$)/, /\/services(\/|\?|$)/, /\/products(\/|\?|$)/, /\/report\//, /\/pricing\/calculate-totals(\/|\?|$)/, /\/appointments(\/|\?|$)/, /\/memberships(\/|\?|$)/];
 
 // ─── Apply Interceptors ───────────────────────────────────────────────────────
 export const applyInterceptors = (instance: AxiosInstance) => {
