@@ -56,9 +56,16 @@ body {
 .topbar-left {
   display: flex;
   align-items: center;
-  gap: 0;
+  gap: 10px;
   min-width: 0;
   justify-content: flex-start;
+}
+
+// The sidebar's own collapse toggle used to live inside .sidebar (its own
+// dark-rail "Collapse" row) — moved here so it reads as anchored to the
+// logo/top-left corner instead of buried among the nav items below it.
+.topbar-collapse-btn {
+  flex-shrink: 0;
 }
 
 .brand {
@@ -386,29 +393,7 @@ $sidebar-nav-active-text: #101828;
   }
 }
 
-// Collapse/expand control — now a normal first row (shares .nav-btn's own
-// pill/hover/sizing rules, see the button's className in DashboardSidebar.tsx)
-// rather than a small circle straddling the sidebar's edge, so it reads as
-// part of the sidebar's own layout instead of a bolted-on floating control.
-// A muted, slightly dimmer color and a divider below sets it apart from the
-// actual navigation rows underneath.
-.sidebar-collapse-btn {
-  flex-shrink: 0;
-  // Gap sits below the divider (margin, not padding) so it doesn't eat into
-  // the row's own fixed height and push the icon off-center within it.
-  margin-bottom: 8px;
-  color: rgba(240, 241, 243, 0.55);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 999px 999px 0 0;
-
-  &:hover { color: $sidebar-active; }
-
-  @media (max-width: 768px) {
-    border-bottom: none;
-  }
-}
-
-// Manually collapsed (via .sidebar-collapse-btn) or auto-collapsed when a
+// Manually collapsed (via .topbar-collapse-btn, DashboardTopbar.tsx) or auto-collapsed when a
 // flyout submenu opens (see DashboardLayout.tsx) — same icon-only rail the
 // ≤768px breakpoint above already falls back to, just triggered by state
 // instead of viewport width. All of .main's shifted offsets below are

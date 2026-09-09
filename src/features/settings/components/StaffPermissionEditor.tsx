@@ -163,7 +163,7 @@ export default function StaffPermissionEditor({ staffId, staffName, onClose }: P
   return (
     <div className="spm-overlay" onClick={(e) => e.target === e.currentTarget && !saving && onClose()}>
       {overlay}
-      <div className="spm-panel" style={{ maxWidth: 620 }}>
+      <div className="spm-panel spm-panel--permissions">
         {/* Header */}
         <div className="spm-header">
           <div className="spm-header-info">
