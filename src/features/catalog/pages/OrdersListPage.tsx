@@ -2,7 +2,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useSelector } from "react-redux";
-import { Search, FileEarmarkText, FileEarmarkPdf, PlusLg, X, ThreeDotsVertical, PencilSquare, Trash3, BoxSeam } from "react-bootstrap-icons";
+import { Dropdown } from "react-bootstrap";
+import { Search, FileEarmarkText, FileEarmarkPdf, FileEarmarkExcel, FiletypeCsv, PlusLg, X, ThreeDotsVertical, PencilSquare, Trash3, BoxSeam } from "react-bootstrap-icons";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { fetchOrdersThunk, deleteOrderThunk, fetchOrderByIdThunk, receiveOrderThunk } from "../../../middleware/inventory/inventory.thunk";
 import type { Order } from "../../../types/inventory.types";
@@ -10,6 +11,10 @@ import { useCurrency } from "../../../hooks/useCurrency";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { selectCurrentSalon } from "../../../store/selectors/slices.selectors";
 import { generatePurchaseOrderPdf } from "../utils/purchaseOrderPdf";
+import api from "../../../services/api/axios";
+import { INVENTORY } from "../../../services/api/endpoints/inventory.endpoints";
+import { downloadBlob } from "../../../utils/downloadBlob";
+import { exportOrdersPDF, exportOrdersCSV, exportOrdersExcel } from "../utils/orderExport";
 import Pagination from "../../../components/ui/Pagination";
 import Button from "../../../components/ui/Button";
 import Skeleton from "../../../components/ui/Skeleton";
@@ -274,6 +279,55 @@ const OrdersListPage: React.FC = () => {
     }
   };
 
+  const [isExporting, setIsExporting] = useState(false);
+
+  // Pulls every order matching the current search/status filter, not just
+  // the page currently on screen — same page-looping approach as
+  // SuppliersListPage/ProductsListPage's export, since INVENTORY.ORDERS is
+  // server-paginated.
+  const fetchAllOrdersForExport = useCallback(async (): Promise<Order[]> => {
+    const all: Order[] = [];
+    let page = 1;
+    const limit = 100;
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const res = await api.get(INVENTORY.ORDERS, {
+        params: {
+          search: debouncedSearch || undefined,
+          status: statusFilter || undefined,
+          page,
+          limit,
+        },
+      });
+      const chunk: Order[] = res.data?.data?.data ?? [];
+      all.push(...chunk);
+      if (chunk.length < limit) break;
+      page += 1;
+    }
+    return all;
+  }, [debouncedSearch, statusFilter]);
+
+  const handleExport = useCallback(async (format: "pdf" | "csv" | "excel") => {
+    setIsExporting(true);
+    try {
+      const all = await fetchAllOrdersForExport();
+      if (format === "pdf") {
+        downloadBlob(exportOrdersPDF(all, formatAmount), "orders.pdf", "application/pdf");
+      } else if (format === "csv") {
+        downloadBlob(exportOrdersCSV(all, formatAmount), "orders.csv", "text/csv;charset=utf-8;");
+      } else {
+        const blob = await exportOrdersExcel(all, formatAmount);
+        downloadBlob(blob, "orders.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      }
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error(`Order ${format.toUpperCase()} export failed:`, err);
+      showError("Export failed. Please try again.");
+    } finally {
+      setIsExporting(false);
+    }
+  }, [fetchAllOrdersForExport, formatAmount, showError]);
+
   return (
     <div className="suppliers-list-page">
       {overlay}
@@ -285,9 +339,39 @@ const OrdersListPage: React.FC = () => {
           </h1>
           <p>Create and manage purchase orders sent to your suppliers.</p>
         </div>
-        <Button variant="dark" iconLeft={<PlusLg size={14} />} onClick={goToNewOrder}>
-          New Order
-        </Button>
+        <div className="d-flex gap-2">
+          <Dropdown>
+            <Dropdown.Toggle
+              variant="outline-secondary"
+              className="btn-options bg-white border-subtle d-flex align-items-center fw-medium"
+              id="orders-options-dropdown"
+              disabled={isExporting}
+            >
+              Options
+            </Dropdown.Toggle>
+            <Dropdown.Menu
+              align="end"
+              className="shadow-sm border-0 rounded-3 py-2"
+              style={{ minWidth: "220px" }}
+            >
+              <Dropdown.Header className="px-3 py-1 text-muted fw-bold" style={{ fontSize: "12px", textTransform: "uppercase" }}>
+                Export
+              </Dropdown.Header>
+              <Dropdown.Item onClick={() => handleExport("pdf")} disabled={isExporting} className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark">
+                <FileEarmarkPdf size={16} /> Export All Data as PDF
+              </Dropdown.Item>
+              <Dropdown.Item onClick={() => handleExport("excel")} disabled={isExporting} className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark">
+                <FileEarmarkExcel size={16} /> Export All Data as Excel
+              </Dropdown.Item>
+              <Dropdown.Item onClick={() => handleExport("csv")} disabled={isExporting} className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark">
+                <FiletypeCsv size={16} /> Export All Data as CSV
+              </Dropdown.Item>
+            </Dropdown.Menu>
+          </Dropdown>
+          <Button variant="dark" iconLeft={<PlusLg size={14} />} onClick={goToNewOrder}>
+            New Order
+          </Button>
+        </div>
       </header>
 
       <div className="suppliers-list-page__controls">

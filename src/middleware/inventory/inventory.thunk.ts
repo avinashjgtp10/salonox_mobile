@@ -103,16 +103,16 @@ export const fetchSupplierByIdThunk = createAsyncThunk<
 // Distinct across every supplier, independent of whichever page is loaded —
 // see inventory.repository.ts's listDistinctLocations for why this can't
 // just be derived from the currently-loaded page anymore.
-export const fetchSupplierLocationsThunk = createAsyncThunk<
+export const fetchSupplierFilterOptionsThunk = createAsyncThunk<
   { cities: string[]; states: string[] },
   void,
   { rejectValue: string }
->("inventory/fetchSupplierLocations", async (_, { rejectWithValue }) => {
+>("inventory/fetchSupplierFilterOptions", async (_, { rejectWithValue }) => {
   try {
-    const res = await api.get<InventoryResponse<{ cities: string[]; states: string[] }>>(INVENTORY.SUPPLIER_LOCATIONS);
+    const res = await api.get<InventoryResponse<{ cities: string[]; states: string[] }>>(INVENTORY.SUPPLIER_FILTER_OPTIONS);
     return res.data.data;
   } catch (err: any) {
-    return rejectWithValue(err?.response?.data?.error?.message || "Failed to fetch supplier locations");
+    return rejectWithValue(err?.response?.data?.error?.message || "Failed to fetch supplier filter options");
   }
 });
 
