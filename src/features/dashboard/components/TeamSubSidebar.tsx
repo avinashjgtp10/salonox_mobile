@@ -1,20 +1,25 @@
 import { ChevronLeft } from "react-bootstrap-icons";
 import { NavLink } from "react-router-dom";
+import { usePlanFeatures } from "../../../hooks/usePlanFeatures";
 
 interface Props {
   onClose: () => void;
 }
 
-const NAV_ITEMS = [
-  { to: "/dashboard/team/members",     label: "Staff Members" },
-  { to: "/dashboard/team/shifts",      label: "Scheduled shifts" },
-  { to: "/dashboard/team/commissions", label: "Tip & Commission" },
-  { to: "/dashboard/team/attendance",  label: "Attendance" },
-  { to: "/dashboard/team/payroll",     label: "Payroll" },
-  { to: "/dashboard/team/history",     label: "Staff History" },
+// featureKey undefined = core, ungated (matches Basic tier's own
+// feature_keys — see Migration/add_feature_key_to_salon_plans.sql).
+const NAV_ITEMS: { to: string; label: string; featureKey?: string }[] = [
+  { to: "/dashboard/team/members",     label: "Staff Members", featureKey: "staff" },
+  { to: "/dashboard/team/shifts",      label: "Scheduled shifts", featureKey: "staff" },
+  { to: "/dashboard/team/commissions", label: "Tip & Commission", featureKey: "staff" },
+  { to: "/dashboard/team/attendance",  label: "Attendance", featureKey: "staff" },
+  { to: "/dashboard/team/payroll",     label: "Payroll", featureKey: "payroll" },
+  { to: "/dashboard/team/history",     label: "Staff History", featureKey: "staff" },
 ];
 
 export default function TeamSubSidebar({ onClose }: Props) {
+  const { hasFeature } = usePlanFeatures();
+
   return (
     <div className="sub-sidebar sub-sidebar--team">
       <div className="sub-header">
@@ -25,7 +30,7 @@ export default function TeamSubSidebar({ onClose }: Props) {
       </div>
 
       <div className="sub-sidebar-body">
-        {NAV_ITEMS.map(({ to, label }) => (
+        {NAV_ITEMS.filter((item) => !item.featureKey || hasFeature(item.featureKey)).map(({ to, label }) => (
           <NavLink
             key={to}
             to={to}

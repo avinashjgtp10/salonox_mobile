@@ -4,6 +4,7 @@ import { Route } from "react-router-dom";
 import DashboardLayout from "../features/dashboard/components/DashboardLayout";
 import AuthGuard from "../components/guards/AuthGuard";
 import PermissionGuard from "../components/guards/PermissionGuard";
+import PlanFeatureGuard from "../components/guards/PlanFeatureGuard";
 import { DashboardProviders } from "../providers/DashboardProviders";
 
 import { AppsRoutes } from "./AppsRoutes";
@@ -62,63 +63,84 @@ export const DashboardRoutes = (
         </DashboardProviders>
       }
     >
-      {/* Dashboard home — requires view_dashboard */}
+      {/* Dashboard home — requires view_dashboard + featureKey "dashboard" */}
       <Route element={<PermissionGuard permKey="view_dashboard" />}>
-        <Route index element={<DashboardPage />} />
+        <Route element={<PlanFeatureGuard featureKey="dashboard" label="Dashboard" />}>
+          <Route index element={<DashboardPage />} />
+        </Route>
       </Route>
 
-      {/* Calendar — requires view_calendar */}
+      {/* Calendar — requires view_calendar + featureKey "calendar" */}
       <Route element={<PermissionGuard permKey="view_calendar" />}>
-        <Route path="calendar" element={<Scheduler />} />
+        <Route element={<PlanFeatureGuard featureKey="calendar" label="Calendar" />}>
+          <Route path="calendar" element={<Scheduler />} />
+        </Route>
       </Route>
 
       {/* Legacy path — ReportsPage itself redirects to the new top-level /reports URL,
           preserving ?report=<id> deep links (e.g. dashboard's "Collect Now" shortcut) */}
       <Route element={<PermissionGuard permKey="view_reports" />}>
-        <Route path="analytics" element={<ReportsPage />} />
+        <Route element={<PlanFeatureGuard featureKey="reports" label="Reports" />}>
+          <Route path="analytics" element={<ReportsPage />} />
+        </Route>
       </Route>
 
-      {/* Cash Management — no permission gate, visible to all staff/managers */}
-      <Route path="cash-management" element={<CashManagementPage />} />
+      {/* Cash Management — no permission gate, but featureKey "cash_management" applies */}
+      <Route element={<PlanFeatureGuard featureKey="cash_management" label="Cash Management" />}>
+        <Route path="cash-management" element={<CashManagementPage />} />
+      </Route>
 
-      {/* Quick Sale — requires create_quick_sale */}
+      {/* Quick Sale — requires create_quick_sale + featureKey "quick_sale" */}
       <Route element={<PermissionGuard permKey="create_quick_sale" />}>
-        <Route path="sales/quick" element={<QuickSalePage />} />
+        <Route element={<PlanFeatureGuard featureKey="quick_sale" label="Quick Sale" />}>
+          <Route path="sales/quick" element={<QuickSalePage />} />
+        </Route>
       </Route>
 
-      {/* Clients — requires view_clients */}
+      {/* Clients — requires view_clients + featureKey "clients" */}
       <Route element={<PermissionGuard permKey="view_clients" />}>
-        <Route path="clients/*" element={<ClientsRoutes />} />
+        <Route element={<PlanFeatureGuard featureKey="clients" label="Clients" />}>
+          <Route path="clients/*" element={<ClientsRoutes />} />
+        </Route>
       </Route>
 
-      {/* Catalog — requires view_catalog */}
+      {/* Catalog — requires view_catalog. No single featureKey here: Services/
+          Products/Packages/Memberships are individually gated inside
+          CatalogRoutes.tsx (some are core, some Advance-tier). */}
       <Route element={<PermissionGuard permKey="view_catalog" />}>
         <Route path="catalog/*" element={<CatalogRoutes />} />
       </Route>
 
-      {/* Inventory — requires view_inventory (moved out from under Catalog) */}
+      {/* Inventory — requires view_inventory (moved out from under Catalog).
+          featureKey "inventory" enforced inside InventoryRoutes.tsx already. */}
       <Route element={<PermissionGuard permKey="view_inventory" />}>
         <Route path="inventory/*" element={<InventoryRoutes />} />
       </Route>
 
-      {/* Team — requires view_team */}
+      {/* Team — requires view_team. featureKey "staff"/"payroll" enforced
+          per-section inside TeamRoutes.tsx already. */}
       <Route element={<PermissionGuard permKey="view_team" />}>
         <Route path="team/*" element={<TeamRoutes />} />
       </Route>
 
-      {/* Marketing — requires view_campaigns */}
+      {/* Marketing — requires view_campaigns + featureKey "marketing" */}
       <Route element={<PermissionGuard permKey="view_campaigns" />}>
-        <Route path="marketing/*" element={<MarketingRoutes />} />
+        <Route element={<PlanFeatureGuard featureKey="marketing" label="Marketing" />}>
+          <Route path="marketing/*" element={<MarketingRoutes />} />
+        </Route>
       </Route>
 
-      {/* Settings — requires general_settings */}
+      {/* Settings — requires general_settings. Account/config, not a product
+          module — deliberately not featureKey-gated. */}
       <Route element={<PermissionGuard permKey="general_settings" />}>
         <Route path="settings/*" element={<SettingsRoutes />} />
       </Route>
 
-      {/* Online booking — requires view_booking */}
+      {/* Online booking — requires view_booking + featureKey "online_booking" */}
       <Route element={<PermissionGuard permKey="view_booking" />}>
-        <Route path="online-booking/*" element={<OnlineBookingRoutes />} />
+        <Route element={<PlanFeatureGuard featureKey="online_booking" label="Online Booking" />}>
+          <Route path="online-booking/*" element={<OnlineBookingRoutes />} />
+        </Route>
       </Route>
 
       {/* Apps, Profile, Notifications — no permission guard needed */}
@@ -126,11 +148,13 @@ export const DashboardRoutes = (
       <Route path="profile" element={<ProfilePage />} />
       <Route path="notifications" element={<NotificationsPage />} />
 
-      {/* Enquiries — requires view_enquiries */}
+      {/* Enquiries — requires view_enquiries + featureKey "enquiries" */}
       <Route element={<PermissionGuard permKey="view_enquiries" />}>
-        <Route path="enquiries" element={<EnquiriesListPage />} />
-        <Route path="enquiries/add" element={<EnquiryAddPage />} />
-        <Route path="enquiries/edit/:id" element={<EnquiryAddPage />} />
+        <Route element={<PlanFeatureGuard featureKey="enquiries" label="Enquiries" />}>
+          <Route path="enquiries" element={<EnquiriesListPage />} />
+          <Route path="enquiries/add" element={<EnquiryAddPage />} />
+          <Route path="enquiries/edit/:id" element={<EnquiryAddPage />} />
+        </Route>
       </Route>
 
       {/* Help & Support — accessible to all authenticated users */}

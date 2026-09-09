@@ -1,6 +1,7 @@
 import { lazy, Suspense } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import PermissionGuard from "../components/guards/PermissionGuard";
+import PlanFeatureGuard from "../components/guards/PlanFeatureGuard";
 
 const ServicesListPage = lazy(
   () => import("../features/catalog/pages/ServicesListPage"),
@@ -65,24 +66,33 @@ export const CatalogRoutes = () => (
 
       {/* view_catalog (outer) — read-only screens */}
       <Route path="services" element={<ServicesListPage />} />
-      <Route path="memberships" element={<MembershipsListPage />} />
-      <Route path="memberships/list" element={<MembershipsListPage />} />
-      <Route path="packages" element={<PackageModule />} />
-      <Route path="packages/legacy" element={<PackagesPage />} />
       <Route path="products" element={<ProductsListPage />} />
       <Route path="products/landing" element={<ProductsLandingPage />} />
+
+      <Route element={<PlanFeatureGuard featureKey="memberships" label="Memberships" />}>
+        <Route path="memberships" element={<MembershipsListPage />} />
+        <Route path="memberships/list" element={<MembershipsListPage />} />
+      </Route>
+      <Route element={<PlanFeatureGuard featureKey="packages" label="Packages" />}>
+        <Route path="packages" element={<PackageModule />} />
+        <Route path="packages/legacy" element={<PackagesPage />} />
+      </Route>
 
       {/* edit_catalog required for service/product/membership write operations */}
       <Route element={<PermissionGuard permKey="edit_catalog" />}>
         <Route path="services/add" element={<ServiceFormPage />} />
         <Route path="services/:id/edit" element={<ServiceFormPage />} />
         <Route path="services/categories" element={<CategoriesPage />} />
-        <Route path="memberships/create" element={<CreateMembershipPage />} />
-        <Route path="memberships/edit/:id" element={<CreateMembershipPage />} />
-        <Route path="packages/:id" element={<EditPackagePage />} />
         <Route path="products/create" element={<ProductFormPage />} />
         <Route path="products/edit/:id" element={<ProductFormPage />} />
         <Route path="products/import" element={<ImportProductsPage />} />
+        <Route element={<PlanFeatureGuard featureKey="memberships" label="Memberships" />}>
+          <Route path="memberships/create" element={<CreateMembershipPage />} />
+          <Route path="memberships/edit/:id" element={<CreateMembershipPage />} />
+        </Route>
+        <Route element={<PlanFeatureGuard featureKey="packages" label="Packages" />}>
+          <Route path="packages/:id" element={<EditPackagePage />} />
+        </Route>
       </Route>
 
       {/* Catch-all → service menu */}

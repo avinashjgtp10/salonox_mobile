@@ -24,6 +24,7 @@ import {
 import WarehouseIcon from "../../../components/icons/WarehouseIcon";
 
 import { usePermissions } from "../../../hooks/usePermissions";
+import { usePlanFeatures } from "../../../hooks/usePlanFeatures";
 import Modal from "../../../components/ui/Modal";
 import { preloadCashManagementPage, preloadScheduler } from "../../../routes/dashboardPreloaders";
 import "../styles/ComingSoonModal.scss";
@@ -45,6 +46,7 @@ interface Props {
 
 export default function DashboardSidebar({ openMenu, onMenuChange, collapsed, onToggleCollapsed }: Props) {
   const { can } = usePermissions();
+  const { hasFeature } = usePlanFeatures();
   const navigate = useNavigate();
   const location = useLocation();
   const sidebarRef = useRef<HTMLElement>(null);
@@ -136,7 +138,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange, collapsed, on
         <span className="nav-label">{collapsed ? "Expand" : "Collapse"}</span>
       </button>
 
-      {can("view_dashboard") && (
+      {can("view_dashboard") && hasFeature("dashboard") && (
         <NavLink
           to="/dashboard"
           end
@@ -148,7 +150,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange, collapsed, on
         </NavLink>
       )}
 
-      {can("create_quick_sale") && (
+      {can("create_quick_sale") && hasFeature("quick_sale") && (
         <NavLink
           to="/dashboard/sales/quick"
           className={({ isActive }) => navClass(isActive)}
@@ -159,7 +161,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange, collapsed, on
         </NavLink>
       )}
 
-      {can("view_calendar") && (
+      {can("view_calendar") && hasFeature("calendar") && (
         <NavLink
           to="/dashboard/calendar"
           className={({ isActive }) => navClass(isActive)}
@@ -172,7 +174,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange, collapsed, on
         </NavLink>
       )}
 
-      {can("view_clients") && (
+      {can("view_clients") && hasFeature("clients") && (
         <button
           type="button"
           className={menuClass("clients")}
@@ -193,7 +195,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange, collapsed, on
         </button>
       )}
 
-      {can("view_catalog") && (
+      {can("view_catalog") && (hasFeature("services") || hasFeature("products") || hasFeature("packages") || hasFeature("memberships")) && (
         <button
           type="button"
           className={menuClass("catalog")}
@@ -213,7 +215,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange, collapsed, on
         </button>
       )}
 
-      {can("view_inventory") && (
+      {can("view_inventory") && hasFeature("inventory") && (
         <button
           type="button"
           className={menuClass("inventory")}
@@ -233,7 +235,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange, collapsed, on
         </button>
       )}
 
-      {can("view_team") && (
+      {can("view_team") && (hasFeature("staff") || hasFeature("payroll")) && (
         <button
           type="button"
           className={menuClass("team")}
@@ -254,18 +256,25 @@ export default function DashboardSidebar({ openMenu, onMenuChange, collapsed, on
         </button>
       )}
 
-      <NavLink
-        to="/dashboard/cash-management"
-        className={({ isActive }) => navClass(isActive)}
-        onClick={(event) => handleRouteClick(event, "/dashboard/cash-management")}
-        onMouseEnter={preloadCashManagementPage}
-        onFocus={preloadCashManagementPage}
-      >
-        <Cash  size={22} />
-        <span className="nav-label">Cash Management</span>
-      </NavLink>
+      {hasFeature("cash_management") && (
+        <NavLink
+          to="/dashboard/cash-management"
+          className={({ isActive }) => navClass(isActive)}
+          onClick={(event) => handleRouteClick(event, "/dashboard/cash-management")}
+          onMouseEnter={preloadCashManagementPage}
+          onFocus={preloadCashManagementPage}
+        >
+          <Cash  size={22} />
+          <span className="nav-label">Cash Management</span>
+        </NavLink>
+      )}
 
-      {can("view_campaigns") && (
+      {/* Whole Marketing section now gated on featureKey "marketing" —
+          previously only the Campaigns route inside it was gated
+          server-side (see campaigns.routes.ts), leaving the nav entry and
+          the rest of the section (dashboard/inbox/templates) visible even
+          without the feature. */}
+      {can("view_campaigns") && hasFeature("marketing") && (
         <button
           type="button"
           className={menuClass("marketing")}
@@ -289,7 +298,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange, collapsed, on
         </button>
       )}
 
-      {can("view_booking") && (
+      {can("view_booking") && hasFeature("online_booking") && (
         <button
           type="button"
           className={menuClass("onlineBooking")}
@@ -310,7 +319,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange, collapsed, on
         </button>
       )}
 
-      {can("view_enquiries") && (
+      {can("view_enquiries") && hasFeature("enquiries") && (
         <NavLink
           to="/dashboard/enquiries"
           className={({ isActive }) => navClass(isActive)}
@@ -321,7 +330,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange, collapsed, on
         </NavLink>
       )}
 
-      {can("view_reports") && (
+      {can("view_reports") && hasFeature("reports") && (
         <NavLink
           to="/reports"
           className={({ isActive }) => navClass(isActive)}
