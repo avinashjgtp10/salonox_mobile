@@ -113,6 +113,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     },
     plugins: [
       "expo-router",
+      "./plugins/with-launcher-logo-padding",
+      // Style mods unwind in reverse order; this override must run last.
+      "./plugins/with-plain-launch-screen",
       [
         "expo-location",
         {
@@ -122,14 +125,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       [
         "expo-splash-screen",
         {
-          backgroundColor: "#FAFBFA",
+          backgroundColor: "#f8f5fb",
           dark: {
-            backgroundColor: "#08111F",
-            image: "./assets/images/splash-icon.png",
-          },
-          android: {
-            image: "./assets/images/splash-icon.png",
-            imageWidth: 76,
+            backgroundColor: "#f8f5fb",
           },
         },
       ],
