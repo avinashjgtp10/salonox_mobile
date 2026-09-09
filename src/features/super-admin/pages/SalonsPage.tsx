@@ -24,6 +24,46 @@ function ActionBtn({ label, color, bg, onClick, disabled }: { label: string; col
   );
 }
 
+type MenuAction = { label: string; color: string; bg: string; onClick: () => void; disabled?: boolean };
+
+function ActionsMenu({ actions, rowId, openId, setOpenId }: { actions: MenuAction[]; rowId: string; openId: string | null; setOpenId: (id: string | null) => void }) {
+  const open = openId === rowId;
+  const [hov, setHov] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setOpenId(null);
+    window.addEventListener("click", close);
+    return () => window.removeEventListener("click", close);
+  }, [open, setOpenId]);
+
+  return (
+    <div style={{ position: "relative", display: "inline-block" }} onClick={(e) => e.stopPropagation()}>
+      <button
+        onClick={() => setOpenId(open ? null : rowId)}
+        onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
+        title="Actions"
+        style={{ width: 30, height: 30, borderRadius: 7, border: "1.5px solid #e2e8f0", background: hov || open ? "#f8fafc" : "#fff", color: "#374151", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s" }}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>
+      </button>
+      {open && (
+        <div style={{ position: "absolute", right: 0, top: "calc(100% + 4px)", zIndex: 50, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", minWidth: 160, padding: 6, display: "flex", flexDirection: "column", gap: 3 }}>
+          {actions.map((a, i) => (
+            <button key={i}
+              onClick={() => { setOpenId(null); a.onClick(); }}
+              disabled={a.disabled}
+              style={{ display: "flex", alignItems: "center", padding: "8px 10px", borderRadius: 7, border: "none", background: "transparent", color: a.color, fontSize: 12.5, fontWeight: 600, cursor: a.disabled ? "not-allowed" : "pointer", opacity: a.disabled ? 0.5 : 1, textAlign: "left", transition: "background 0.12s" }}
+              onMouseEnter={(e) => !a.disabled && (e.currentTarget.style.background = a.bg)}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
+              {a.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Matches the dd MMM yyyy convention used elsewhere in the app (see
 // ClientHistoryDetail.tsx's fmtDateShort) — e.g. "19 Jul 2026".
 const fmtDateShort = (iso?: string | null) =>
@@ -114,6 +154,7 @@ export default function SalonsPage() {
   const { salons, loading } = useAppSelector((s) => s.superAdmin);
   const [search, setSearch]   = useState("");
   const [actionId, setActionId] = useState<string | null>(null);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [toast, setToast]       = useState<{ msg: string; ok: boolean } | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -535,16 +576,21 @@ export default function SalonsPage() {
                       : <span style={{ color: "#d97706", fontSize: 12.5, fontWeight: 600 }}>⚠ Pending</span>}
                   </td>
                   <td style={{ padding: "13px 16px" }} onClick={(e) => e.stopPropagation()}>
-                    <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-                      {s.status === "active"
-                        ? <ActionBtn label="Deactivate" color="#dc2626" bg="#fef2f2" onClick={() => handleStatus(s.id, false)} disabled={actionId === s.id} />
-                        : <ActionBtn label="Activate"   color="#16a34a" bg="#f0fdf4" onClick={() => handleStatus(s.id, true)}  disabled={actionId === s.id} />}
-                      {!s.is_onboarding_complete && (
-                        <ActionBtn label="Force Complete" color="#d97706" bg="#fffbeb" onClick={() => handleOnboarding(s.id)} disabled={actionId === s.id} />
-                      )}
-                      <ActionBtn label="Impersonate" color="#6366f1" bg="#eef2ff" onClick={() => handleImpersonate(s.id)} disabled={actionId === s.id} />
-                      <ActionBtn label="Delete" color="#dc2626" bg="#fef2f2" onClick={() => setDeleteTarget({ id: s.id, name: s.name })} disabled={actionId === s.id} />
-                    </div>
+                    <ActionsMenu
+                      rowId={s.id}
+                      openId={openMenuId}
+                      setOpenId={setOpenMenuId}
+                      actions={[
+                        s.status === "active"
+                          ? { label: "Deactivate", color: "#dc2626", bg: "#fef2f2", onClick: () => handleStatus(s.id, false), disabled: actionId === s.id }
+                          : { label: "Activate",   color: "#16a34a", bg: "#f0fdf4", onClick: () => handleStatus(s.id, true),  disabled: actionId === s.id },
+                        ...(!s.is_onboarding_complete
+                          ? [{ label: "Force Complete", color: "#d97706", bg: "#fffbeb", onClick: () => handleOnboarding(s.id), disabled: actionId === s.id }]
+                          : []),
+                        { label: "Impersonate", color: "#6366f1", bg: "#eef2ff", onClick: () => handleImpersonate(s.id), disabled: actionId === s.id },
+                        { label: "Delete", color: "#dc2626", bg: "#fef2f2", onClick: () => setDeleteTarget({ id: s.id, name: s.name }), disabled: actionId === s.id },
+                      ]}
+                    />
                   </td>
                 </tr>
               ))

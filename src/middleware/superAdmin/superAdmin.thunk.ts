@@ -106,11 +106,15 @@ export const deleteSalonThunk = createAsyncThunk<void, string, { rejectValue: st
   }
 );
 
-export const clearSalonDataThunk = createAsyncThunk<void, string, { rejectValue: string }>(
+// Returns just the cleared salon's id so the reducer can patch only that
+// row in state.salons (staff/client/booking/revenue counts reset to 0)
+// instead of forcing a full re-fetch of every other unrelated row.
+export const clearSalonDataThunk = createAsyncThunk<string, string, { rejectValue: string }>(
   "superAdmin/clearSalonData",
   async (id, { rejectWithValue }) => {
     try {
       await api.post(SUPER_ADMIN.SALON_CLEAR_DATA(id));
+      return id;
     } catch (err: any) {
       return rejectWithValue(err?.response?.data?.error?.message ?? err?.message ?? "Failed to clear salon data");
     }
