@@ -155,26 +155,28 @@ function toFriendlyPermissionMessage(message: string): string {
   return `Your account does not have the "${match[1]}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`;
 }
 
-// Endpoints whose controllers derive salon_id exclusively from the JWT
-// (getSalonId(req) → req.user.salonId) and never read a salon_id query
-// param — sending it there is pure dead weight on every request URL.
-// Matched as whole path segments (not a substring) so this doesn't
-// accidentally also skip injection for a similarly-named but unverified
-// endpoint like /client-notes or /client-communication.
-// NOT applied globally: salons.controller.ts's mySalon handler and the
-// staff commission endpoints genuinely fall back to this query param when
-// a freshly-registered user's JWT doesn't have salonId yet (e.g. a
+// Security default: every endpoint's controller is expected to derive
+// salon_id exclusively from the authenticated, validated JWT
+// (getSalonId(req) → req.user.salonId), never from a client-supplied query
+// param — a query param the client controls is spoofable and must never be
+// able to shadow the authenticated salon. So salon_id is NOT sent on any
+// request by default; it's added back only for the narrow, confirmed set of
+// endpoints below whose controllers genuinely still fall back to
+// req.query.salon_id for a user whose JWT doesn't have salonId yet (e.g. a
 // salon_owner who just registered and hasn't created their salon).
-// /report/ covers the whole independent reports module (reports.controller.ts)
-// — every one of its ~40 endpoints calls getSalonId(req) exclusively and none
-// ever reads req.query.salon_id, confirmed by grep.
-// /pricing/calculate-totals (Quick Sale/booking pricing engine) derives
-// salon_id from the JWT only (getSalonId(req)) — appending it as a query
-// param was dead weight that also let a client-manipulated URL param shadow
-// the authenticated salon, so it's excluded here same as the others.
-// /appointments and /memberships likewise derive salon_id from the JWT only —
-// excluded here so a client-manipulated salon_id query param can't shadow it.
-const SALON_ID_NOT_NEEDED = [/\/clients(\/|\?|$)/, /\/services(\/|\?|$)/, /\/products(\/|\?|$)/, /\/report\//, /\/pricing\/calculate-totals(\/|\?|$)/, /\/appointments(\/|\?|$)/, /\/memberships(\/|\?|$)/];
+// Matched as whole path segments (not a substring) so this doesn't
+// accidentally also match a similarly-named but unrelated endpoint.
+//
+// - salons.controller.ts's mySalon handler (SALON.ME, "/salons/me")
+// - staff commission endpoints (STAFF.COMMISSIONS / COMMISSIONS_BULK /
+//   SETTLE_COMMISSION, all under "/staff/.../commissions" or
+//   "/staff/commissions/...")
+//
+// If another endpoint turns out to also need this fallback, add it here
+// explicitly — don't widen these patterns or add a new exclusion-style list,
+// since the whole point of flipping to an allowlist is that omission is the
+// safe default and inclusion requires a deliberate, reviewed decision.
+const SALON_ID_FALLBACK_NEEDED = [/\/salons\/me(\/|\?|$)/, /\/staff\/commissions(\/|\?|$)/, /\/staff\/[^/?]+\/commissions(\/|\?|$)/];
 
 // ─── Apply Interceptors ───────────────────────────────────────────────────────
 export const applyInterceptors = (instance: AxiosInstance) => {
@@ -197,8 +199,8 @@ export const applyInterceptors = (instance: AxiosInstance) => {
         const salonId = role !== "super_admin"
           ? (state?.auth?.salonId ?? state?.salon?.currentSalon?.id)
           : null;
-        const skipSalonId = SALON_ID_NOT_NEEDED.some((re) => re.test(config.url ?? ""));
-        if (salonId && !skipSalonId) {
+        const needsSalonIdFallback = SALON_ID_FALLBACK_NEEDED.some((re) => re.test(config.url ?? ""));
+        if (salonId && needsSalonIdFallback) {
           const url = new URL(config.url ?? "", "http://x");
           const inParams =
             config.params instanceof URLSearchParams
