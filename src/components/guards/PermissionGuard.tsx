@@ -1,8 +1,9 @@
-import { useRef } from "react";
+import { useRef, useState, useEffect } from "react";
 import { Outlet, Navigate, useLocation } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { usePermissions } from "../../hooks/usePermissions";
-import { useAppSelector } from "../../hooks/useAppRedux";
+import { useAppSelector, useAppDispatch } from "../../hooks/useAppRedux";
+import { fetchMeThunk } from "../../middleware/user/user.thunk";
 import { getFirstAllowedModuleRoute } from "../../utils/moduleAccess";
 import NoPermissionPage from "./NoPermissionPage";
 
@@ -12,6 +13,7 @@ interface Props {
 
 export default function PermissionGuard({ permKey }: Props) {
   const { can, role } = usePermissions();
+  const dispatch = useAppDispatch();
   const location = useLocation();
   const settingsLoading = useAppSelector((s) => s.setting.loading.fetchAll);
   const profileLoading = useAppSelector((s) => s.user.loading.fetch);
@@ -25,9 +27,30 @@ export default function PermissionGuard({ permKey }: Props) {
   // resolved a permission decision once, later background refetches elsewhere
   // in the app shouldn't tear the guarded page back down.
   const hasResolvedOnce = useRef(false);
+  const isOwnerOrAdmin = role === "salon_owner" || role === "admin";
+  const allowed = can(permKey);
+
+  // effective_permissions is fetched exactly once per session, on
+  // DashboardLayout's initial mount — it's never refetched automatically
+  // after that. If an owner changes this staff member's role/permissions
+  // while their session is already open (a different tab, or just staying
+  // logged in), this tab keeps enforcing the stale copy until a hard
+  // refresh or re-login. Rather than actually deny on possibly-stale data,
+  // retry once with a fresh /users/me first — hasRetriedRef makes sure this
+  // only ever fires once per mounted guard instance, never loops.
+  const hasRetriedRef = useRef(false);
+  const [retrying, setRetrying] = useState(false);
+
+  useEffect(() => {
+    if (!isOwnerOrAdmin && !allowed && role === "staff" && !hasRetriedRef.current) {
+      hasRetriedRef.current = true;
+      setRetrying(true);
+      dispatch(fetchMeThunk()).finally(() => setRetrying(false));
+    }
+  }, [isOwnerOrAdmin, allowed, role, dispatch]);
 
   // Owners bypass immediately — no need to wait for settings
-  if (role === "salon_owner" || role === "admin") return <Outlet />;
+  if (isOwnerOrAdmin) return <Outlet />;
 
   // While settings or profile are loading for the first time, show a spinner
   // instead of a premature 403
@@ -40,7 +63,18 @@ export default function PermissionGuard({ permKey }: Props) {
   }
   hasResolvedOnce.current = true;
 
-  if (can(permKey)) return <Outlet />;
+  // Same spinner while the one-time stale-permission retry above is in
+  // flight — avoids flashing a denial that a moment later turns out to be
+  // wrong once the fresh permissions land.
+  if (retrying) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "60vh" }}>
+        <Loader2 size={28} style={{ animation: "perm-spin 0.75s linear infinite", color: "#9ca3af" }} />
+      </div>
+    );
+  }
+
+  if (allowed) return <Outlet />;
 
   if (import.meta.env.DEV) {
     console.warn(`[PermissionGuard] Access denied: permKey="${permKey}", role="${role}"`);
@@ -51,7 +85,12 @@ export default function PermissionGuard({ permKey }: Props) {
   // (e.g. denied Team → Payroll but still has view_team lands them on Team →
   // Members, not a wall). Only the true dead-end case — no module allowed
   // anywhere — falls through to NoPermissionPage below.
-  if (role === "staff") {
+  //
+  // Dashboard is deliberately excluded from this redirect: it's the default
+  // landing page, not "one module among many" — denying view_dashboard
+  // specifically should show Not Authorized right there, not silently whisk
+  // the user off to a different module the moment they land on "/".
+  if (role === "staff" && permKey !== "view_dashboard") {
     const firstAllowed = getFirstAllowedModuleRoute(can);
     if (firstAllowed && firstAllowed !== location.pathname) {
       return <Navigate to={firstAllowed} replace />;

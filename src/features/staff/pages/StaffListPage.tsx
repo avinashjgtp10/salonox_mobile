@@ -638,11 +638,17 @@ export default function StaffListPage() {
                   {(() => {
                     const m = member as any;
                     const jobTitle = m.job_title || m.jobTitle;
-                    const permKey = m.permission_level || m.permissionLevel || m.access_level || m.role;
-                    const isManager = String(permKey || "").toLowerCase() === "manager";
+                    // The real Roles & Permissions tier (joined from role_id
+                    // in staff.repository.ts's list()) — not the dead
+                    // permission_level column, which only looked right here
+                    // because it happens to still get set alongside role_id
+                    // when saved through the Add/Edit Staff form; assigning a
+                    // role any other way (bulk-assign, Individual Staff tab)
+                    // never touched it.
+                    const roleName = m.role_name || m.roleName;
                     if (jobTitle) return <span className="slp-role-tag">{jobTitle}</span>;
-                    if (isManager) return <span className="slp-role-tag slp-role-tag--perm">Manager</span>;
-                    return <span className="slp-role-tag slp-role-tag--default">Staff</span>;
+                    if (roleName) return <span className={`slp-role-tag${roleName === "Manager" ? " slp-role-tag--perm" : ""}`}>{roleName}</span>;
+                    return <span className="slp-role-tag slp-role-tag--default">No role assigned</span>;
                   })()}
                 </div>
 

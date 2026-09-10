@@ -40,17 +40,6 @@ export default function RolesPermissionsPage() {
   const managerRole = roles.find((r) => r.name === "Manager");
   const staffRole = roles.find((r) => r.name === "Staff");
 
-  const getRoleBadge = (role?: string) => {
-    if (!role) return null;
-    const map: Record<string, { label: string; cls: string }> = {
-      salon_owner: { label: "Owner", cls: "s-badge-warning" },
-      staff:       { label: "Staff", cls: "s-badge-info"    },
-      admin:       { label: "Admin", cls: "s-badge-danger"  },
-    };
-    const r = map[role] ?? { label: role, cls: "s-badge-gray" };
-    return <span className={`s-badge ${r.cls}`} style={{ fontSize: 11 }}>{r.label}</span>;
-  };
-
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -195,7 +184,14 @@ export default function RolesPermissionsPage() {
                 {staffList.map((member: any) => {
                   const name = member.fullName || member.first_name || member.email || "Unnamed";
                   const initials = String(name).split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2);
-                  const hasCustom = member.custom_permissions != null;
+                  // Mirrors staffHasPermission()'s own branching exactly: once
+                  // a staff member has a role_id, only staff_permission_overrides
+                  // matters (the legacy custom_permissions blob is never
+                  // consulted again) — checking the blob unconditionally, as
+                  // before, could show "Custom" for a role_id'd staff member
+                  // with a stale leftover blob that no longer does anything,
+                  // or miss a real override for one with role_id but no blob.
+                  const hasCustom = member.role_id ? !!member.has_overrides : member.custom_permissions != null;
                   return (
                     <div key={member.id} className="settings-security-item">
                       {isOwner && (
@@ -219,7 +215,19 @@ export default function RolesPermissionsPage() {
                         {hasCustom && (
                           <span className="s-badge s-badge-info" style={{ fontSize: 11 }}>Custom</span>
                         )}
-                        {getRoleBadge(member.role ?? "staff")}
+                        {/* The real Roles & Permissions tier (role_name,
+                            joined from role_id in staff.repository.ts's
+                            list()) — member.role doesn't even exist on the
+                            staff object, so this always fell back to a
+                            hardcoded "staff" default before, regardless of
+                            the member's actual assigned role. */}
+                        {member.role_name ? (
+                          <span className={`s-badge ${member.role_name === "Manager" ? "s-badge-warning" : "s-badge-info"}`} style={{ fontSize: 11 }}>
+                            {member.role_name}
+                          </span>
+                        ) : (
+                          <span className="s-badge s-badge-gray" style={{ fontSize: 11 }}>No role</span>
+                        )}
                         {!member.is_active && (
                           <span className="s-badge s-badge-gray" style={{ fontSize: 11 }}>Inactive</span>
                         )}

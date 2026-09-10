@@ -23,6 +23,9 @@ import {
 import WarehouseIcon from "../../../components/icons/WarehouseIcon";
 
 import { usePlanFeatures } from "../../../hooks/usePlanFeatures";
+import { usePermissions } from "../../../hooks/usePermissions";
+import { useAppDispatch } from "../../../hooks/useAppRedux";
+import { showPermissionDenied } from "../../../store/permissionDialogSlice";
 import Modal from "../../../components/ui/Modal";
 import { preloadCashManagementPage, preloadScheduler } from "../../../routes/dashboardPreloaders";
 import "../styles/ComingSoonModal.scss";
@@ -56,6 +59,8 @@ interface Props {
 
 export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
   const { hasFeature } = usePlanFeatures();
+  const { can } = usePermissions();
+  const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const location = useLocation();
   const sidebarRef = useRef<HTMLElement>(null);
@@ -152,16 +157,36 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
           salon's plan doesn't include should never appear in navigation at
           all, matching PlanFeatureGuard on the route side. */}
       {hasFeature("dashboard") && (
-        <NavLink
-          to="/dashboard"
-          end
-          className={({ isActive }) => navClass(isActive)}
-          onClick={(event) => handleRouteClick(event, "/dashboard")}
-          title="Home"
-        >
-          <House size={22} />
-          <span className="nav-label">Home</span>
-        </NavLink>
+        can("view_dashboard") ? (
+          <NavLink
+            to="/dashboard"
+            end
+            className={({ isActive }) => navClass(isActive)}
+            onClick={(event) => handleRouteClick(event, "/dashboard")}
+            title="Home"
+          >
+            <House size={22} />
+            <span className="nav-label">Home</span>
+          </NavLink>
+        ) : (
+          // Still visible (never hidden) but disabled — clicking shows the
+          // same "Permission Required" popup used for every other blocked
+          // action in the app, instead of silently doing nothing.
+          <button
+            type="button"
+            className="nav-btn nav-btn--disabled"
+            title="Home"
+            aria-disabled="true"
+            onClick={() =>
+              dispatch(showPermissionDenied(
+                `Your account does not have the "view_dashboard" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+              ))
+            }
+          >
+            <House size={22} />
+            <span className="nav-label">Home</span>
+          </button>
+        )
       )}
 
       {hasFeature("quick_sale") && (
