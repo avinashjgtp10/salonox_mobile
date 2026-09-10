@@ -18,6 +18,10 @@ export interface User {
    * usePermissions()'s primary source of truth, not custom_permissions. */
   effective_permissions?: Record<string, boolean> | null;
   role?: string;
+  /** Staff's assigned role NAME from Roles & Permissions (e.g. "Manager",
+   * "Staff") — display only. `role` above stays the fixed authorization
+   * value ("staff" for any non-owner/admin account) — never "manager". */
+  roleName?: string | null;
   isVerified?: boolean;
   isActive?: boolean;
   createdAt?: string;

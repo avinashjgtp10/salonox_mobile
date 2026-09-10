@@ -8,6 +8,7 @@ import {
   createRoleThunk,
   updateRoleThunk,
 } from "../../../middleware/roles/roles.thunk";
+import { sortModuleNames } from "../utils/permissionModuleOrder";
 
 interface Props {
   /** Fixed tier name — "Manager" or "Staff". There's exactly one role per
@@ -76,7 +77,7 @@ export default function RolePermissionPanel({ roleName, onClose }: Props) {
       if (!byModule.has(perm.module)) byModule.set(perm.module, []);
       byModule.get(perm.module)!.push(perm);
     }
-    return Array.from(byModule.entries());
+    return sortModuleNames(Array.from(byModule.entries()), ([module]) => module);
   }, [catalog, search]);
 
   const togglePerm = (key: string) => {

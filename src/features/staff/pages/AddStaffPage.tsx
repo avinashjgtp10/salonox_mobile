@@ -11,6 +11,7 @@ import CountryCodeSelect from "../../clients/components/CountryCodeSelect";
 import Dropdown from "../../../components/ui/Dropdown";
 import { useAppDispatch } from "../../../hooks/useAppRedux";
 import { sendEmailOtpThunk, verifyEmailOtpThunk } from "../../../middleware/auth/otpThunk";
+import { fetchRolesThunk, createRoleThunk, assignStaffRoleThunk } from "../../../middleware/roles/roles.thunk";
 import { toTitleCase } from "../../../utils/titleCase";
 
 // Three real choices only. There used to be a leading { value: "", label:
@@ -393,6 +394,29 @@ const AddStaffPage: React.FC = () => {
           });
         } catch (wageError) {
           console.error("Error saving wage settings:", wageError);
+        }
+      }
+
+      // This "Role" field used to only write staff.permission_level, a
+      // display-only column the real permission resolver (staffHasPermission
+      // in permission.middleware.ts) never reads — selecting "Manager" here
+      // silently did nothing to the staff member's actual access, which is
+      // controlled entirely by staff.role_id / the role_permissions table
+      // (see Settings → Roles & Permissions). Now also assigns them to the
+      // matching named role there, auto-creating it (blank) if this salon
+      // has never configured that tier yet — same auto-heal the "Individual
+      // Staff" override endpoint already does for the Staff tier.
+      if (staffId) {
+        try {
+          const roleName = permissionLevel === "Manager" ? "Manager" : "Staff";
+          const roles = await dispatch(fetchRolesThunk()).unwrap();
+          let targetRole = roles.find((r) => r.name === roleName);
+          if (!targetRole) {
+            targetRole = await dispatch(createRoleThunk({ name: roleName, permissions: {} })).unwrap();
+          }
+          await dispatch(assignStaffRoleThunk({ staffId, roleId: targetRole.id })).unwrap();
+        } catch (roleError) {
+          console.error("Error assigning staff role:", roleError);
         }
       }
 

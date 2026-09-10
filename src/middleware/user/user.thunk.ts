@@ -24,6 +24,7 @@ interface BackendUser {
   custom_permissions?: Record<string, boolean> | null;
   effective_permissions?: Record<string, boolean> | null;
   role?: string;
+  roleName?: string | null;
   isVerified?: boolean;
   isActive?: boolean;
   createdAt?: string;
@@ -58,6 +59,7 @@ function toUser(raw: BackendUser): User {
     custom_permissions: raw.custom_permissions ?? null,
     effective_permissions: raw.effective_permissions ?? null,
     role: raw.role ?? undefined,
+    roleName: raw.roleName ?? null,
     isVerified: raw.isVerified ?? undefined,
     isActive: raw.isActive ?? undefined,
     createdAt: raw.createdAt ?? undefined,

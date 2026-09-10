@@ -9,6 +9,7 @@ import {
   setStaffOverridesThunk,
   assignStaffRoleThunk,
 } from "../../../middleware/roles/roles.thunk";
+import { sortModuleNames } from "../utils/permissionModuleOrder";
 
 interface Props {
   staffId: string;
@@ -97,7 +98,7 @@ export default function StaffPermissionEditor({ staffId, staffName, onClose }: P
       if (!byModule.has(module)) { byModule.set(module, []); out.push({ module, rows: byModule.get(module)! }); }
       byModule.get(module)!.push(row);
     }
-    return out;
+    return sortModuleNames(out, (g) => g.module);
   }, [view, catalogByKey, search, pending]);
 
   const hasPendingChanges = Object.keys(pending).length > 0;
