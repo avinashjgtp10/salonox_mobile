@@ -49,6 +49,7 @@ import {
   CreditCard2Front,
   PersonFill,
   Whatsapp,
+  LockFill,
 } from "react-bootstrap-icons";
 import { getInitialsFromFullName } from "../../../utils/initials";
 import { formatDateDDMMYYYY, formatTimeAgo } from "../../../utils/dateFormat";
@@ -63,7 +64,7 @@ import {
 import type { TodayAppointment } from "../../../types/dashboard.types";
 import type { DashboardAllResponse } from "../../../middleware/dashboard/dashboard.thunk";
 import { useTodayAppointments } from "../hooks/useTodayAppointments";
-import { useCurrency } from "../../../hooks/useCurrency";
+import { useMaskedCurrency } from "../hooks/useMaskedCurrency";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -199,6 +200,17 @@ function normalise(appt: TodayAppointment) {
 
 // ─── Shared UI atoms ──────────────────────────────────────────────────────────
 
+// Matches the backend's standard permission-denial message ("You do not
+// have permission to perform this action (permKey)") — several dashboard
+// sections (Today's Appointments needs view_calendar, Staff Revenue needs
+// view_dashboard_staff_performance, etc.) fetch from their own module's API
+// rather than the bundled dashboard endpoint, so they can fail independently
+// of the page's own view_dashboard/view_dashboard_financials permissions.
+// That's an expected, permanent state — not a transient failure — so it
+// gets its own honest copy instead of the raw backend string, and no Retry
+// button, since retrying can never succeed without a permission change.
+const PERMISSION_DENIED_RE = /^You do not have permission to perform this action \(([^)]+)\)/;
+
 const SectionError = memo(function SectionError({
   message,
   onRetry,
@@ -206,6 +218,14 @@ const SectionError = memo(function SectionError({
   message: string;
   onRetry: () => void;
 }) {
+  if (PERMISSION_DENIED_RE.test(message)) {
+    return (
+      <div className="db-section-error db-section-error--perm">
+        <LockFill size={13} className="me-1" />
+        You don't have permission to view this section. Ask your salon owner to enable it in Settings → Roles &amp; Permissions.
+      </div>
+    );
+  }
   return (
     <div className="db-section-error">
       <ExclamationTriangleFill size={14} className="me-1" />
@@ -303,7 +323,7 @@ const StatusBadge = memo(function StatusBadge({ status }: { status: string }) {
 // ─── Chart tooltips ───────────────────────────────────────────────────────────
 
 const RevenueTooltip = memo(function RevenueTooltip({ active, payload, label }: any) {
-  const { formatAmount } = useCurrency();
+  const { formatAmount } = useMaskedCurrency();
   if (!active || !payload?.length) return null;
   const rev = payload.find((p: any) => p.dataKey === "revenue");
   // fullLabel carries the complete date/time context ("Tue, 28 Jul 2026" for
@@ -446,13 +466,13 @@ const KpiCardsGrid = memo(function KpiCardsGrid({
   error: string | null;
   onRetry: () => void;
 }) {
-  const { formatAmount, currencySymbol, currencyCode } = useCurrency();
+  const { formatAmount, currencySymbol, currencyCode, canSeeFinancials } = useMaskedCurrency();
   const fmt = (n?: number) => (n != null ? formatAmount(n) : "—");
   // Revenue KPI card only — a whole-rupee figure (no paise) reads cleaner on
   // this tile than the paise-precise amount formatAmount() gives everywhere
   // else (receipts, Sales Summary, etc., which must stay exact to the paisa).
   const fmtRounded = (n?: number) =>
-    n != null ? `${currencySymbol}${Math.round(n).toLocaleString("en-IN")}` : "—";
+    !canSeeFinancials ? `${currencySymbol}******` : n != null ? `${currencySymbol}${Math.round(n).toLocaleString("en-IN")}` : "—";
   const CurrencyIcon = getCurrencyIcon(currencyCode);
   const cards = [
     {
@@ -601,7 +621,7 @@ const BottomStatCards = memo(function BottomStatCards({
   onNavigatePendingAppointments: () => void;
   salonName: string;
 }) {
-  const { formatAmount } = useCurrency();
+  const { formatAmount } = useMaskedCurrency();
   const fmt = (n?: number) => (n != null ? formatAmount(n) : "—");
   const birthdayClients = birthdays?.clients ?? [];
 
@@ -722,13 +742,26 @@ const RevenueChartPanel = memo(function RevenueChartPanel({
   onPeriodChange: (p: RevPeriod) => void;
   onRetry: () => void;
 }) {
-  const { formatAmount, currencySymbol } = useCurrency();
+  const { formatAmount, currencySymbol, canSeeFinancials } = useMaskedCurrency();
   const fmt = (n?: number) => (n != null ? formatAmount(n) : "—");
-  const localRevenue = revenue;
+  // When financials are masked, the chart still has to render (container/
+  // labels/period toggle all stay visible) but real relative bar/area
+  // heights would themselves leak comparative revenue info even with the
+  // numbers hidden — a much bigger November bar than October's says
+  // something financial without a single digit shown. Flattening every
+  // point to the same value keeps the shape present but unreadable.
+  const localRevenue = useMemo(
+    () => canSeeFinancials ? revenue : revenue.map((pt) => ({ ...pt, revenue: 1, expenses: 1 })),
+    [revenue, canSeeFinancials]
+  );
 
+  // Computed from the real `revenue` prop, not the flattened localRevenue —
+  // this drives both the masked-text header total (fmt() hides the number
+  // either way) and the "no revenue this period" empty state below, which
+  // must still reflect real data even when the chart itself is flattened.
   const periodTotal = useMemo(
-    () => localRevenue.reduce((sum, r) => sum + (Number(r.revenue) || 0), 0),
-    [localRevenue]
+    () => revenue.reduce((sum, r) => sum + (Number(r.revenue) || 0), 0),
+    [revenue]
   );
 
   // Highlight the single best-performing point on the chart and track its index position
@@ -816,7 +849,7 @@ const RevenueChartPanel = memo(function RevenueChartPanel({
               tick={{ fontSize: 11, fill: "#9ca3af", dx: -4 }}
               axisLine={false}
               tickLine={false}
-              tickFormatter={(v) => v >= 1000 ? `${currencySymbol}${(v / 1000).toFixed(0)}k` : `${currencySymbol}${v}`}
+              tickFormatter={(v) => !canSeeFinancials ? `${currencySymbol}**` : v >= 1000 ? `${currencySymbol}${(v / 1000).toFixed(0)}k` : `${currencySymbol}${v}`}
             />
             <Tooltip content={<RevenueTooltip />} />
             <Area
@@ -938,7 +971,7 @@ const AppointmentsTable = memo(function AppointmentsTable({
   onPageChange: (p: number) => void;
   onRetry: () => void;
 }) {
-  const { formatAmount } = useCurrency();
+  const { formatAmount } = useMaskedCurrency();
   // Chip counts always reflect the FULL day's list regardless of which filter
   // is active — only the table rows below narrow down, so a chip never
   // changes its own count out from under the user when they click it.
@@ -1111,19 +1144,27 @@ const StaffRevenueCard = memo(function StaffRevenueCard({
   error: string | null;
   onRetry: () => void;
 }) {
-  const { formatAmount } = useCurrency();
+  const { formatAmount, canSeeFinancials } = useMaskedCurrency();
+  // Real slice sizes compare staff performance visually even with the ₹
+  // labels masked (a much bigger slice for one staff member says something
+  // financial on its own) — equal-sized slices when masked, same reasoning
+  // as the Revenue Overview chart above.
   const slices: StaffRevSlice[] = useMemo(
     () => entries.map((e, i) => ({
-      id: e.id, name: e.name, role: e.role, value: e.revenue,
+      id: e.id, name: e.name, role: e.role, value: canSeeFinancials ? e.revenue : 1,
       color: SVC_CHART_COLORS[i % SVC_CHART_COLORS.length],
       colorIndex: i % SVC_CHART_COLORS.length,
     })),
-    [entries]
+    [entries, canSeeFinancials]
   );
 
+  // The on-screen total must still read as masked text (fmt handles that),
+  // but the underlying number driving it should be the real total, not the
+  // flattened slice values above — otherwise "total revenue" would show a
+  // meaningless small number instead of a clean masked placeholder.
   const totalValue = useMemo(
-    () => slices.reduce((sum, s) => sum + s.value, 0),
-    [slices]
+    () => entries.reduce((sum, e) => sum + (Number(e.revenue) || 0), 0),
+    [entries]
   );
 
   return (
@@ -1185,7 +1226,13 @@ const StaffRevenueCard = memo(function StaffRevenueCard({
 
           <div className="db-svc-donut-list">
             {slices.map((s) => {
-              const pct = totalValue > 0 ? ((s.value / totalValue) * 100).toFixed(1) : "0.0";
+              // s.value is flattened (see slices above) when masked, so
+              // computing a percentage from it against the real totalValue
+              // would show a meaningless number, not a clean mask — show a
+              // placeholder instead of a wrong-looking figure.
+              const pct = !canSeeFinancials
+                ? "**"
+                : totalValue > 0 ? ((s.value / totalValue) * 100).toFixed(1) : "0.0";
               return (
                 <div className="db-svc-donut-row" key={s.id}>
                   <span className={`db-svc-donut-dot db-svc-donut-dot--${s.colorIndex}`} />
@@ -1232,7 +1279,7 @@ const TopStaffCard = memo(function TopStaffCard({
   onNavigate: () => void;
   onRetry: () => void;
 }) {
-  const { formatAmount } = useCurrency();
+  const { formatAmount } = useMaskedCurrency();
   return (
     <div className="db-card">
       <div className="db-card-header">

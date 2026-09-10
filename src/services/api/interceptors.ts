@@ -215,6 +215,13 @@ export const applyInterceptors = (instance: AxiosInstance) => {
         }
       }
 
+      // Which page this request was actually fired from — read at dispatch
+      // time in the response error handler below, so a permission-denial
+      // popup for a request that started on one page but 403'd after the
+      // user already navigated elsewhere doesn't pop up on the new page for
+      // an action the user never took there.
+      (config as InternalAxiosRequestConfig & { requestedFromPath?: string }).requestedFromPath = window.location.pathname;
+
       return config;
     },
     (error) => Promise.reject(new ApiError(0, "Request setup failed", error)),
@@ -252,21 +259,6 @@ export const applyInterceptors = (instance: AxiosInstance) => {
         }
       }
 
-      if (error.response) {
-        console.error(
-          `[API ERROR] ${error.config?.method?.toUpperCase()} ${error.config?.url}:`,
-          {
-            status: error.response.status,
-            data: error.response.data,
-          },
-        );
-      } else {
-        console.error(
-          `[API ERROR] ${error.config?.method?.toUpperCase()} ${error.config?.url}:`,
-          error.message,
-        );
-      }
-
       const originalRequest = error.config as InternalAxiosRequestConfig & {
         _retry?: boolean;
       };
@@ -286,6 +278,26 @@ export const applyInterceptors = (instance: AxiosInstance) => {
         data?.message ??
         data?.msg ??
         "Something went wrong";
+
+      // A permission-denial 403 isn't a bug — it's expected, already-handled
+      // flow (the global "Permission Required" popup below covers it), so
+      // it's deliberately not dumped to the console as an "[API ERROR]".
+      // Every other failure (500s, network errors, unexpected 403s) still
+      // logs exactly as before, so real problems stay visible in dev.
+      const isPermissionDenial = status === 403 && typeof message === "string" && message.startsWith(PERMISSION_DENIED_PREFIX);
+      if (!isPermissionDenial) {
+        if (error.response) {
+          console.error(
+            `[API ERROR] ${error.config?.method?.toUpperCase()} ${error.config?.url}:`,
+            { status: error.response.status, data: error.response.data },
+          );
+        } else {
+          console.error(
+            `[API ERROR] ${error.config?.method?.toUpperCase()} ${error.config?.url}:`,
+            error.message,
+          );
+        }
+      }
 
       // ── 401: silent token refresh ──────────────────────────────────────────
       // Skip refresh for public routes (e.g. /login returning 401 for wrong credentials)
@@ -338,7 +350,13 @@ export const applyInterceptors = (instance: AxiosInstance) => {
       // guarantees a consistent popup shows everywhere too, including the
       // many call sites that never had their own handling for it at all.
       if (status === 403 && typeof message === "string" && message.startsWith(PERMISSION_DENIED_PREFIX)) {
-        if (storeRef) {
+        const requestedFromPath = (originalRequest as InternalAxiosRequestConfig & { requestedFromPath?: string }).requestedFromPath;
+        // Only pop up if the user is still on the page that made this
+        // request — a request fired from the Dashboard that 403s after the
+        // user has already navigated to Quick Sale would otherwise open a
+        // "view_dashboard" denial on top of Quick Sale, for a page they're
+        // no longer even looking at.
+        if (storeRef && requestedFromPath === window.location.pathname) {
           import("../../store/permissionDialogSlice").then(({ showPermissionDenied }) => {
             storeRef.dispatch(showPermissionDenied(toFriendlyPermissionMessage(message)));
           });

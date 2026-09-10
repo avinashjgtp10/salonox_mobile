@@ -1,5 +1,5 @@
-import { Suspense, createContext } from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Suspense, createContext, useEffect } from "react";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import { PageLoader, AlertDialog } from "./components/ui";
 import { ErrorBoundary } from "./components/ErrorBoundary";
@@ -27,6 +27,17 @@ function App() {
   const role = useAppSelector((s) => s.auth.role);
   const permissionDialog = useAppSelector((s) => s.permissionDialog);
   const { refreshNow } = useSubscriptionPoller();
+  const location = useLocation();
+
+  // The dialog is global (rendered here, not tied to any one page), so
+  // without this a denial hit on one page — then navigated away from
+  // without clicking OK — kept showing on whatever page came next, looking
+  // like a fresh denial on a totally unrelated action. Every route change
+  // clears it; a new denial on the new page still reopens it normally.
+  useEffect(() => {
+    if (permissionDialog.open) dispatch(hidePermissionDenied());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]);
 
   return (
     <SubscriptionRefreshContext.Provider value={refreshNow}>

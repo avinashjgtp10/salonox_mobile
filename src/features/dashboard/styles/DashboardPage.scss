@@ -367,6 +367,17 @@ $sidebar-nav-active-text: #101828;
     padding: 0;
     gap: 0;
   }
+
+  // Visible but not usable — permission denied for this item (e.g. Home
+  // without view_dashboard). Still clickable, just to surface the
+  // "Permission Required" popup rather than navigate; never hidden from the
+  // sidebar entirely.
+  &.nav-btn--disabled {
+    color: rgba(240, 241, 243, 0.35);
+    cursor: not-allowed;
+    &:hover { background: transparent; color: rgba(240, 241, 243, 0.35); }
+    &:active { transform: none; }
+  }
 }
 
 .nav-label {
@@ -2571,6 +2582,14 @@ $sidebar-nav-active-text: #101828;
   font-size: 12.5px;
   color: #dc2626;
   margin: 12px 0;
+
+  // A missing permission isn't a failure — muted slate instead of alarm red,
+  // and no Retry button (nothing to retry).
+  &.db-section-error--perm {
+    background: #f8fafc;
+    border-color: #e2e8f0;
+    color: #64748b;
+  }
 }
 
 .db-refresh-btn {
