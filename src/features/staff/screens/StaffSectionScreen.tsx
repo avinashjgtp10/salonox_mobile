@@ -14,6 +14,7 @@ import { EmergencyContactsSection } from "@/features/staff/components/EmergencyC
 import { StaffAddressSection } from "@/features/staff/components/StaffAddressSection";
 import { StaffBlockedTimeSection } from "@/features/staff/components/StaffBlockedTimeSection";
 import { StaffCommissionSection } from "@/features/staff/components/StaffCommissionSection";
+import { StaffHistorySection } from "@/features/staff/components/StaffHistorySection";
 import { StaffInvitationSection } from "@/features/staff/components/StaffInvitationSection";
 import { StaffLeaveSection } from "@/features/staff/components/StaffLeaveSection";
 import { StaffPayRunSection } from "@/features/staff/components/StaffPayRunSection";
@@ -70,6 +71,7 @@ export function StaffSectionScreen({ sectionKey }: StaffSectionScreenProps) {
         {sectionKey === "wages" ? <StaffWageSection staffId={id} /> : null}
         {sectionKey === "payRuns" ? <StaffPayRunSection staffId={id} /> : null}
         {sectionKey === "commissions" ? <StaffCommissionSection staffId={id} /> : null}
+        {sectionKey === "history" ? <StaffHistorySection staffId={id} /> : null}
         {sectionKey === "schedule" ? <StaffScheduleSection staffId={id} /> : null}
         {sectionKey === "leaves" ? <StaffLeaveSection staffId={id} /> : null}
         {sectionKey === "blockedTimes" ? <StaffBlockedTimeSection staffId={id} /> : null}
