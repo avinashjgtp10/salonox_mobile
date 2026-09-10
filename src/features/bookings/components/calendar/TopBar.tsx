@@ -7,6 +7,7 @@ import { useSchedulerContext } from "../../store/SchedulerContext";
 import { formatDateLabel } from "../../utils/timeUtils";
 import { DatePickerPanel } from "../../../../components/ui";
 import { useAppSelector } from "../../../../hooks/useAppRedux";
+import { usePermissions } from "../../../../hooks/usePermissions";
 import api from "../../../../services/api/axios";
 import { formatDateDDMMYYYY } from "../../../../utils/dateFormat";
 import { maskMobile } from "../../../../utils/maskMobile";
@@ -33,6 +34,11 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefres
   } = useSchedulerContext();
   const navTo   = useNavigate();
   const salonId = useAppSelector((s: any) => s.salon?.currentSalon?.id ?? s.auth?.salonId ?? "");
+  const { can } = usePermissions();
+  // Visual cue only — onNewAppointment/onBlockTime (from Scheduler) still
+  // fire on click either way and handle the actual permission-denied popup
+  // themselves; this just dims the buttons so they read as disabled too.
+  const canCreateAppointment = can("create_appointment");
 
   // ── Client search ──────────────────────────────────────────────────────────
   const [clientQuery, setClientQuery]         = useState("");
@@ -405,10 +411,18 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefres
         </div>
 
         {/* Add + */}
-        <button className="topbar__add-btn" onClick={onNewAppointment}>Add +</button>
+        <button
+          className="topbar__add-btn"
+          onClick={onNewAppointment}
+          style={canCreateAppointment ? undefined : { opacity: 0.5, cursor: "not-allowed" }}
+        >Add +</button>
 
         {/* Block Time */}
-        <button className="topbar__block-btn" onClick={onBlockTime}>Block Time</button>
+        <button
+          className="topbar__block-btn"
+          onClick={onBlockTime}
+          style={canCreateAppointment ? undefined : { opacity: 0.5, cursor: "not-allowed" }}
+        >Block Time</button>
       </div>
 
       {/* ── View dropdown PORTAL ── */}

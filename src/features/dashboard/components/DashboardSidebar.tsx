@@ -222,17 +222,34 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
       )}
 
       {hasFeature("calendar") && (
-        <NavLink
-          to="/dashboard/calendar"
-          className={({ isActive }) => navClass(isActive)}
-          onClick={(event) => handleRouteClick(event, "/dashboard/calendar")}
-          onMouseEnter={preloadScheduler}
-          onFocus={preloadScheduler}
-          title="Calendar"
-        >
-          <Calendar size={22} />
-          <span className="nav-label">Calendar</span>
-        </NavLink>
+        can("view_calendar") ? (
+          <NavLink
+            to="/dashboard/calendar"
+            className={({ isActive }) => navClass(isActive)}
+            onClick={(event) => handleRouteClick(event, "/dashboard/calendar")}
+            onMouseEnter={preloadScheduler}
+            onFocus={preloadScheduler}
+            title="Calendar"
+          >
+            <Calendar size={22} />
+            <span className="nav-label">Calendar</span>
+          </NavLink>
+        ) : (
+          <button
+            type="button"
+            className="nav-btn nav-btn--disabled"
+            title="Calendar"
+            aria-disabled="true"
+            onClick={() =>
+              dispatch(showPermissionDenied(
+                `Your account does not have the "view_calendar" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+              ))
+            }
+          >
+            <Calendar size={22} />
+            <span className="nav-label">Calendar</span>
+          </button>
+        )
       )}
 
       {hasFeature("clients") && (
