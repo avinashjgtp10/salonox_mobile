@@ -91,8 +91,14 @@ export default function QuickEditClientModal({ clientId, onClose, onSaved, clien
         const c = res.data?.data ?? res.data;
         if (cancelled) return;
         seedForm(c);
-      } catch {
-        if (!cancelled) setError("Failed to load client details.");
+      } catch (err: any) {
+        if (cancelled) return;
+        // Same reasoning as ClientHistoryDetail's loadHistory: a denied
+        // request here means the permission this button was gated on was
+        // stale by the time the real request landed. Close instead of
+        // showing a broken form behind the interceptor's own popup.
+        if (err?.status === 403) { onClose(); return; }
+        setError("Failed to load client details.");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -142,6 +148,14 @@ export default function QuickEditClientModal({ clientId, onClose, onSaved, clien
       const status = err?.status;
       const code = err?.code;
       const serverMessage = err?.message;
+      if (status === 403) {
+        // Same reasoning as the initial load above — a denied save means
+        // the edit_clients permission this button was gated on was stale.
+        // Close instead of leaving the form open behind the interceptor's
+        // own permission-denied popup.
+        onClose();
+        return;
+      }
       if (status === 409) {
         const isEmailDup = code === "DUPLICATE_EMAIL" || (code === "DUPLICATE_ENTRY" && /email/i.test(serverMessage || ""));
         setError(isEmailDup

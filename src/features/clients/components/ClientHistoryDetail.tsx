@@ -529,13 +529,24 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
     try {
       const res = await api.get(`/api/v1/clients/${id}/history`);
       setData(res.data?.data ?? null);
-    } catch {
+    } catch (e: any) {
       setData(null);
+      // A denied request here means whatever gated this button (usually a
+      // stale cached permission — the click happened before a fresh
+      // /users/me confirmed access was actually revoked) was wrong by the
+      // time the real request landed. Close the panel instead of leaving
+      // this big "Couldn't load this client's history" shell open behind
+      // the small permission-denied popup the interceptor already shows —
+      // one clear message beats a broken panel plus a popup on top of it.
+      if (e?.status === 403) {
+        onClose();
+        return;
+      }
     } finally {
       setHistoryLoading(false);
     }
     fetchStandaloneRevenue(id).catch(() => {});
-  }, [initialTab, fetchStandaloneRevenue]);
+  }, [initialTab, fetchStandaloneRevenue, onClose]);
 
   useEffect(() => { loadHistory(clientId); }, [clientId, loadHistory]);
 

@@ -28,6 +28,16 @@ const riskBadgeClass: Record<string, string> = {
   critical: "s-badge-danger",
 };
 
+// Shown a second time under the Quick Sale group (in addition to their real
+// home, Clients) — locked there unless QUICK_SALE_GATE_KEY is already
+// effective, since editing a client or viewing their history from Quick
+// Sale's own client panel only matters once Quick Sale itself is accessible.
+// Purely a display/lock convenience in this one group; the keys behave
+// completely normally (unlocked) wherever else they're toggled, e.g. under
+// Clients.
+const QUICK_SALE_DEPENDENT_KEYS = ["edit_clients", "view_clients"];
+const QUICK_SALE_GATE_KEY = "create_sales";
+
 export default function StaffPermissionEditor({ staffId, staffName, onClose }: Props) {
   const dispatch = useAppDispatch();
   const { showSuccess, showError, overlay } = useStatusOverlay();
@@ -46,10 +56,10 @@ export default function StaffPermissionEditor({ staffId, staffName, onClose }: P
   const [changingRole, setChangingRole] = useState(false);
   const [search, setSearch] = useState("");
   const [confirmResetAll, setConfirmResetAll] = useState(false);
-  // Sections start expanded; collapsing one adds its module name here.
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
-  const toggleCollapsed = (module: string) => {
-    setCollapsed((prev) => {
+  // Sections start collapsed; expanding one adds its module name here.
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const toggleExpanded = (module: string) => {
+    setExpanded((prev) => {
       const next = new Set(prev);
       if (next.has(module)) next.delete(module); else next.add(module);
       return next;
@@ -86,6 +96,7 @@ export default function StaffPermissionEditor({ staffId, staffName, onClose }: P
     const q = search.trim().toLowerCase();
     const out: { module: string; rows: { key: string; effective: boolean; isCustom: boolean; name: string; desc: string | null; risk: string }[] }[] = [];
     const byModule = new Map<string, typeof out[number]["rows"]>();
+    const rowByKey = new Map<string, typeof out[number]["rows"][number]>();
     for (const perm of view.permissions) {
       const meta = catalogByKey.get(perm.key);
       const name = meta?.name ?? perm.key;
@@ -95,8 +106,17 @@ export default function StaffPermissionEditor({ staffId, staffName, onClose }: P
       const currentOverride = perm.key in pending ? pending[perm.key] : perm.override;
       const effective = currentOverride !== null ? currentOverride : perm.roleDefault;
       const row = { key: perm.key, effective, isCustom: currentOverride !== null, name, desc, risk: meta?.risk_level ?? "low" };
+      rowByKey.set(perm.key, row);
       if (!byModule.has(module)) { byModule.set(module, []); out.push({ module, rows: byModule.get(module)! }); }
       byModule.get(module)!.push(row);
+    }
+    // Edit Client / View History also show up under Quick Sale — see
+    // QUICK_SALE_DEPENDENT_KEYS's comment above.
+    for (const key of QUICK_SALE_DEPENDENT_KEYS) {
+      const row = rowByKey.get(key);
+      if (!row) continue;
+      if (!byModule.has("Quick Sale")) { byModule.set("Quick Sale", []); out.push({ module: "Quick Sale", rows: byModule.get("Quick Sale")! }); }
+      byModule.get("Quick Sale")!.push(row);
     }
     return sortModuleNames(out, (g) => g.module);
   }, [view, catalogByKey, search, pending]);
@@ -235,17 +255,21 @@ export default function StaffPermissionEditor({ staffId, staffName, onClose }: P
             <p style={{ fontSize: 13, color: "#6b7280", padding: 20 }}>No permissions match your search.</p>
           ) : (
             groups.map((group) => {
-              const isOpen = !collapsed.has(group.module);
+              const isOpen = expanded.has(group.module);
               return (
               <div key={group.module} className="spm-category">
                 <button
-                  onClick={() => toggleCollapsed(group.module)}
+                  onClick={() => toggleExpanded(group.module)}
                   style={{ display: "flex", alignItems: "center", gap: 6, width: "100%", background: "none", border: "none", padding: 0, cursor: "pointer", textAlign: "left" }}
                 >
                   <ChevronDown size={14} style={{ transform: isOpen ? "rotate(0deg)" : "rotate(-90deg)", transition: "transform 0.15s", color: "#9ca3af", flexShrink: 0 }} />
                   <p className="spm-cat-label" style={{ margin: 0 }}>{group.module} <span style={{ fontWeight: 400, color: "#9ca3af" }}>({group.rows.length})</span></p>
                 </button>
-                {isOpen && group.rows.map((row) => (
+                {isOpen && group.rows.map((row) => {
+                  const locked = group.module === "Quick Sale"
+                    && QUICK_SALE_DEPENDENT_KEYS.includes(row.key)
+                    && !group.rows.find((r) => r.key === QUICK_SALE_GATE_KEY)?.effective;
+                  return (
                   <div key={row.key} className="spm-perm-row">
                     <div className="spm-perm-info">
                       <p className="spm-perm-name">
@@ -256,9 +280,10 @@ export default function StaffPermissionEditor({ staffId, staffName, onClose }: P
                         )}
                       </p>
                       {row.desc && <p className="spm-perm-desc">{row.desc}</p>}
+                      {locked && <p className="spm-perm-desc" style={{ color: "#b45309" }}>Enable Quick Sale access first</p>}
                     </div>
                     <div className="spm-perm-toggle" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      {row.isCustom && (
+                      {row.isCustom && !locked && (
                         <button
                           className="spm-reset-link"
                           style={{ fontSize: 10, opacity: 0.6 }}
@@ -268,17 +293,19 @@ export default function StaffPermissionEditor({ staffId, staffName, onClose }: P
                           ↺
                         </button>
                       )}
-                      <label className="settings-toggle">
+                      <label className="settings-toggle" title={locked ? "Enable Quick Sale access first" : undefined}>
                         <input
                           type="checkbox"
                           checked={row.effective}
-                          onChange={() => toggleEffective(row.key, row.effective)}
+                          disabled={locked}
+                          onChange={() => !locked && toggleEffective(row.key, row.effective)}
                         />
                         <span className="settings-toggle-slider" />
                       </label>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
               );
             })

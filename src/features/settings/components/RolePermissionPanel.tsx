@@ -25,6 +25,15 @@ const riskBadgeClass: Record<string, string> = {
   critical: "s-badge-danger",
 };
 
+// Shown a second time under the Quick Sale group (in addition to their real
+// home, Clients) — locked there unless QUICK_SALE_GATE_KEY is already on,
+// since editing a client or viewing their history from Quick Sale's own
+// client panel only matters once Quick Sale itself is accessible. Purely a
+// display/lock convenience in this one group; the keys behave completely
+// normally (unlocked) wherever else they're toggled, e.g. under Clients.
+const QUICK_SALE_DEPENDENT_KEYS = ["edit_clients", "view_clients"];
+const QUICK_SALE_GATE_KEY = "create_sales";
+
 export default function RolePermissionPanel({ roleName, onClose }: Props) {
   const dispatch = useAppDispatch();
   const { showSuccess, showError, overlay } = useStatusOverlay();
@@ -38,10 +47,10 @@ export default function RolePermissionPanel({ roleName, onClose }: Props) {
   const [perms, setPerms] = useState<Record<string, boolean>>({});
   const [search, setSearch] = useState("");
   const [saving, setSaving] = useState(false);
-  // Sections start expanded; collapsing one adds its module name here.
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
-  const toggleCollapsed = (module: string) => {
-    setCollapsed((prev) => {
+  // Sections start collapsed; expanding one adds its module name here.
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const toggleExpanded = (module: string) => {
+    setExpanded((prev) => {
       const next = new Set(prev);
       if (next.has(module)) next.delete(module); else next.add(module);
       return next;
@@ -76,6 +85,19 @@ export default function RolePermissionPanel({ roleName, onClose }: Props) {
       if (q && !perm.name.toLowerCase().includes(q) && !perm.key.toLowerCase().includes(q)) continue;
       if (!byModule.has(perm.module)) byModule.set(perm.module, []);
       byModule.get(perm.module)!.push(perm);
+    }
+    // Edit Client / View History also show up here — Quick Sale's own
+    // client-details panel is where they're used (edit_clients, view_clients),
+    // so a role's Quick Sale access and its client-editing rights read
+    // together instead of being scattered across two unrelated sections.
+    // They stay listed under Clients too, unlocked — this only adds a
+    // second, dependency-locked view of the same two keys (see QUICK_SALE_DEPENDENT_KEYS below).
+    for (const key of QUICK_SALE_DEPENDENT_KEYS) {
+      const meta = catalog.find((p) => p.key === key);
+      if (!meta) continue;
+      if (q && !meta.name.toLowerCase().includes(q) && !meta.key.toLowerCase().includes(q)) continue;
+      if (!byModule.has("Quick Sale")) byModule.set("Quick Sale", []);
+      byModule.get("Quick Sale")!.push(meta);
     }
     return sortModuleNames(Array.from(byModule.entries()), ([module]) => module);
   }, [catalog, search]);
@@ -157,12 +179,12 @@ export default function RolePermissionPanel({ roleName, onClose }: Props) {
             <p style={{ fontSize: 13, color: "#6b7280", padding: 20 }}>No permissions match your search.</p>
           ) : (
             modules.map(([moduleName, modulePerms]) => {
-              const isOpen = !collapsed.has(moduleName);
+              const isOpen = expanded.has(moduleName);
               return (
               <div key={moduleName} className="spm-category">
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <button
-                    onClick={() => toggleCollapsed(moduleName)}
+                    onClick={() => toggleExpanded(moduleName)}
                     style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", padding: 0, cursor: "pointer" }}
                   >
                     <ChevronDown size={14} style={{ transform: isOpen ? "rotate(0deg)" : "rotate(-90deg)", transition: "transform 0.15s", color: "#9ca3af", flexShrink: 0 }} />
@@ -173,7 +195,9 @@ export default function RolePermissionPanel({ roleName, onClose }: Props) {
                     <button className="spm-reset-link" style={{ fontSize: 11 }} onClick={() => setAllInModule(modulePerms, false)}>All off</button>
                   </div>
                 </div>
-                {isOpen && modulePerms.map((perm) => (
+                {isOpen && modulePerms.map((perm) => {
+                  const locked = moduleName === "Quick Sale" && QUICK_SALE_DEPENDENT_KEYS.includes(perm.key) && !perms[QUICK_SALE_GATE_KEY];
+                  return (
                   <div key={perm.key} className="spm-perm-row">
                     <div className="spm-perm-info">
                       <p className="spm-perm-name">
@@ -183,15 +207,22 @@ export default function RolePermissionPanel({ roleName, onClose }: Props) {
                         )}
                       </p>
                       {perm.description && <p className="spm-perm-desc">{perm.description}</p>}
+                      {locked && <p className="spm-perm-desc" style={{ color: "#b45309" }}>Enable Quick Sale access first</p>}
                     </div>
                     <div className="spm-perm-toggle">
-                      <label className="settings-toggle">
-                        <input type="checkbox" checked={!!perms[perm.key]} onChange={() => togglePerm(perm.key)} />
+                      <label className="settings-toggle" title={locked ? "Enable Quick Sale access first" : undefined}>
+                        <input
+                          type="checkbox"
+                          checked={!!perms[perm.key]}
+                          disabled={locked}
+                          onChange={() => !locked && togglePerm(perm.key)}
+                        />
                         <span className="settings-toggle-slider" />
                       </label>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
               );
             })

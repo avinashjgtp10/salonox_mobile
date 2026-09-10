@@ -978,6 +978,15 @@ $item-field-text-inset: 9px;
       cursor: pointer;
       flex-shrink: 0;
       &:hover { background: #f3f4f6; border-color: #9ca3af; color: #374151; }
+
+      // Still visible and still clickable (click shows the "Permission
+      // Required" popup) — this only signals "won't work" at a glance,
+      // it never disables pointer-events.
+      &.client-edit-btn--disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+        &:hover { background: #fff; border-color: #d1d5db; color: #6b7280; }
+      }
     }
 
     // Staff Alert / Notes — same .pkg-info-btn ℹ button used for Reward/
@@ -1064,6 +1073,15 @@ $item-field-text-inset: 9px;
   text-decoration: none;
   transition: background 0.15s;
   &:hover { background: #374151; }
+
+  // Still visible and still clickable (click shows the "Permission
+  // Required" popup) — this only signals "won't work" at a glance,
+  // it never disables pointer-events.
+  &.btn-view-history--disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    &:hover { background: $primary; }
+  }
 }
 
 // ── Package cell inside the stats grid ───────────────────────────────────────

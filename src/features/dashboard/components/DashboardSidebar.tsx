@@ -190,15 +190,35 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
       )}
 
       {hasFeature("quick_sale") && (
-        <NavLink
-          to="/dashboard/sales/quick"
-          className={({ isActive }) => navClass(isActive)}
-          onClick={(event) => handleRouteClick(event, "/dashboard/sales/quick")}
-          title="Quick Sale"
-        >
-          <Lightning size={22} />
-          <span className="nav-label">Quick Sale</span>
-        </NavLink>
+        can("create_sales") ? (
+          <NavLink
+            to="/dashboard/sales/quick"
+            className={({ isActive }) => navClass(isActive)}
+            onClick={(event) => handleRouteClick(event, "/dashboard/sales/quick")}
+            title="Quick Sale"
+          >
+            <Lightning size={22} />
+            <span className="nav-label">Quick Sale</span>
+          </NavLink>
+        ) : (
+          // Still visible (never hidden) but disabled — clicking shows the
+          // same "Permission Required" popup used for every other blocked
+          // action in the app, instead of silently doing nothing.
+          <button
+            type="button"
+            className="nav-btn nav-btn--disabled"
+            title="Quick Sale"
+            aria-disabled="true"
+            onClick={() =>
+              dispatch(showPermissionDenied(
+                `Your account does not have the "create_sales" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+              ))
+            }
+          >
+            <Lightning size={22} />
+            <span className="nav-label">Quick Sale</span>
+          </button>
+        )
       )}
 
       {hasFeature("calendar") && (

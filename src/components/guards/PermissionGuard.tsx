@@ -86,11 +86,14 @@ export default function PermissionGuard({ permKey }: Props) {
   // Members, not a wall). Only the true dead-end case — no module allowed
   // anywhere — falls through to NoPermissionPage below.
   //
-  // Dashboard is deliberately excluded from this redirect: it's the default
-  // landing page, not "one module among many" — denying view_dashboard
-  // specifically should show Not Authorized right there, not silently whisk
-  // the user off to a different module the moment they land on "/".
-  if (role === "staff" && permKey !== "view_dashboard") {
+  // Dashboard and Quick Sale are deliberately excluded from this redirect.
+  // Dashboard is the default landing page, not "one module among many" —
+  // denying view_dashboard should show Not Authorized right there, not
+  // silently whisk the user off elsewhere the moment they land on "/".
+  // Quick Sale is excluded per an explicit ticket requirement: direct URL
+  // access when denied must show the Not Authorized page, not a silent
+  // redirect to whatever other module the user happens to have.
+  if (role === "staff" && permKey !== "view_dashboard" && permKey !== "create_sales") {
     const firstAllowed = getFirstAllowedModuleRoute(can);
     if (firstAllowed && firstAllowed !== location.pathname) {
       return <Navigate to={firstAllowed} replace />;
