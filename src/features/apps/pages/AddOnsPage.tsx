@@ -81,6 +81,7 @@ const integrationsData: AddOn[] = [
       "Capture online bookings directly from Google Search, Google Maps and more with our Google integration.",
     icon: <Google size={24} />,
     iconColorClass: "icon-white",
+    badge: "Coming soon",
   },
   {
     id: "facebook-instagram",
@@ -88,6 +89,7 @@ const integrationsData: AddOn[] = [
     description: "Add online booking to your social media pages.",
     icon: <Facebook size={24} />,
     iconColorClass: "icon-white",
+    badge: "Coming soon",
   },
   {
     id: "meta-pixel",
@@ -155,14 +157,17 @@ export default function AddOnsPage() {
                 >
                   {addon.icon}
                 </div>
+                {addon.badge && (
+                  <span className="badge-coming-soon">{addon.badge}</span>
+                )}
               </div>
               <div className="card-body">
                 <h5 className="card-title fw-bold">{addon.title}</h5>
                 <p className="card-desc text-muted">{addon.description}</p>
               </div>
               <div className="card-action">
-                <button className="btn btn-outline-secondary rounded-pill fw-bold view-btn">
-                  View
+                <button className="btn btn-outline-secondary rounded-pill fw-bold view-btn" disabled={!!addon.badge}>
+                  {addon.badge ? addon.badge : "View"}
                 </button>
               </div>
             </div>

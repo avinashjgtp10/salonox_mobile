@@ -15,12 +15,11 @@ export const fetchStaffThunk = createAsyncThunk<
   Staff[],
   void,
   { rejectValue: string }
->("staff/fetchAll", async (_, { rejectWithValue, getState }) => {
-  const state = getState() as any;
-  const salonId = state.salon?.currentSalon?.id;
-  const params = new URLSearchParams();
-  if (salonId) params.set("salon_id", String(salonId));
-  const url = `${STAFF.BASE}?${params.toString()}`;
+>("staff/fetchAll", async (_, { rejectWithValue }) => {
+  // salon_id is derived server-side from the authenticated JWT
+  // (getSalonId(req)) — not sent here, so a client-manipulated query param
+  // can never shadow the authenticated salon.
+  const url = STAFF.BASE;
 
   // Auto-retry twice — this is the primary Team Members list, and a single
   // failed attempt (the DB connection has occasional transient blips) would

@@ -1,0 +1,87 @@
+// Reuses .supplier-status-badge (SuppliersListPage.scss, already loaded on
+// every page this modal opens from) for the status pill — only the modal
+// body layout lives here.
+.supplier-pending-modal {
+  &__loading {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  &__head {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-bottom: 16px;
+
+    .name {
+      font-size: 17px;
+      font-weight: 700;
+      color: #101828;
+    }
+
+    .contact {
+      font-size: 13px;
+      color: #667085;
+    }
+  }
+
+  &__due {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    background: #fffaeb;
+    border: 1px solid #fedf89;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+
+    .label {
+      font-size: 12px;
+      font-weight: 500;
+      color: #b54708;
+      text-transform: uppercase;
+    }
+
+    .value {
+      font-size: 24px;
+      font-weight: 700;
+      color: #b54708;
+    }
+  }
+
+  &__grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+
+    .cell {
+      background: #fff;
+      border: 1px solid #eaecf0;
+      border-radius: 12px;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+
+      .label {
+        font-size: 12px;
+        font-weight: 500;
+        color: #667085;
+        text-transform: uppercase;
+      }
+
+      .value {
+        font-size: 16px;
+        font-weight: 600;
+        color: #101828;
+      }
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .supplier-pending-modal__grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -10,7 +10,7 @@ import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import type { AppDispatch } from "../../../store/store";
 import {
   fetchProductAuditByIdThunk, addProductAuditItemsThunk, removeProductAuditItemThunk,
-  updateProductAuditItemThunk, submitProductAuditThunk, approveProductAuditThunk,
+  submitProductAuditThunk, approveProductAuditThunk,
   rejectProductAuditThunk, reopenProductAuditThunk,
 } from "../../../middleware/inventory/inventory.thunk";
 import type { ProductAuditWithDetail, ProductAuditStatus } from "../../../types/inventory.types";
@@ -49,6 +49,8 @@ const fmtDateTime = (value?: string | null) => {
 
 const diffOf = (systemQty: number, physicalQty: number | null) => (physicalQty == null ? null : physicalQty - systemQty);
 
+const fmtQty = (value: number) => Math.round(value).toString();
+
 export default function ProductAuditDetailsModal({ auditId, onClose, onChanged }: Props) {
   const dispatch = useDispatch<AppDispatch>();
   const { showError, overlay } = useStatusOverlay();
@@ -59,67 +61,33 @@ export default function ProductAuditDetailsModal({ auditId, onClose, onChanged }
   const [addOpen, setAddOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState<"approve" | "reject" | null>(null);
   const [busy, setBusy] = useState(false);
-  // Debounced per-row qty/reason edits pending a PATCH, so every keystroke
-  // doesn't fire a request — mirrors the search-debounce pattern used
-  // elsewhere (ProductInventoryPage's 350ms search debounce).
+  // Whether a product was added/removed this session — the only two
+  // mutations here that DON'T already call onChanged() themselves (submit/
+  // approve/reject/reopen all do, right when they happen), but which do
+  // change what the list's own Products/Differences/Last Updated columns
+  // show. Tracked so closing the modal only re-fetches the list on the rare
+  // path where that's actually stale, not on every close.
+  const [itemsChanged, setItemsChanged] = useState(false);
+  // Every qty/reason edit lives here, in local state only, until Submit —
+  // no API call fires while entering/changing a field or moving between
+  // fields (not even a debounced autosave or an on-blur flush, which this
+  // used to have). Submit is the one and only place this gets sent, as a
+  // single batched request — see submitForReview below.
   const [pendingEdits, setPendingEdits] = useState<Record<string, { physicalQty: number | null; reason: string }>>({});
 
-  // silent=true skips the loading-placeholder swap — used for the
-  // post-save refresh after a debounced qty/reason edit, so the modal's
-  // inputs stay mounted and don't drop focus mid-type (the full-page
-  // "Loading…" branch below used to unmount them on every autosave).
-  const load = useCallback(async (silent = false) => {
-    if (!silent) setLoading(true);
+  const load = useCallback(async () => {
+    setLoading(true);
     try {
       const result = await dispatch(fetchProductAuditByIdThunk(auditId)).unwrap();
       setAudit(result);
     } catch (err: any) {
       showError(typeof err === "string" ? err : "Couldn't load audit");
     } finally {
-      if (!silent) setLoading(false);
+      setLoading(false);
     }
   }, [dispatch, auditId, showError]);
 
   useEffect(() => { load(); }, [load]);
-
-  // Flush a row's pending edit to the server 500ms after the last change.
-  // Skips rows the server is guaranteed to reject (a nonzero difference with
-  // no reason yet) — otherwise every keystroke on the qty field before the
-  // user gets to the reason field fires a failing PATCH, over and over as
-  // they keep typing. Those rows stay held in local state (still shown,
-  // still block Submit for Review via withPendingReasons) until the reason
-  // is filled in or the qty is changed back to match system_qty.
-  useEffect(() => {
-    const ids = Object.keys(pendingEdits).filter((itemId) => {
-      const edit = pendingEdits[itemId];
-      const item = audit?.items.find((i) => i.id === itemId);
-      if (!item) return false;
-      const d = diffOf(item.system_qty, edit.physicalQty);
-      return d == null || d === 0 || !!edit.reason.trim();
-    });
-    if (ids.length === 0) return;
-    const t = setTimeout(async () => {
-      for (const itemId of ids) {
-        const edit = pendingEdits[itemId];
-        try {
-          await dispatch(updateProductAuditItemThunk({
-            auditId, itemId, payload: { physical_qty: edit.physicalQty, reason: edit.reason },
-          })).unwrap();
-          setPendingEdits((prev) => {
-            const next = { ...prev };
-            delete next[itemId];
-            return next;
-          });
-        } catch {
-          // Left in pendingEdits so the value the user typed isn't lost —
-          // will retry once it becomes valid (see the filter above).
-        }
-      }
-      load(true);
-    }, 500);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingEdits]);
 
   const editable = audit?.status === "in_progress";
   // Who to record as reviewer is picked inside ReviewAuditModal, which
@@ -174,6 +142,7 @@ export default function ProductAuditDetailsModal({ auditId, onClose, onChanged }
     try {
       const updated = await dispatch(removeProductAuditItemThunk({ auditId, itemId })).unwrap();
       setAudit(updated);
+      setItemsChanged(true);
     } catch (err: any) {
       showError(typeof err === "string" ? err : "Couldn't remove product");
     } finally {
@@ -187,6 +156,7 @@ export default function ProductAuditDetailsModal({ auditId, onClose, onChanged }
       const updated = await dispatch(addProductAuditItemsThunk({ auditId, productIds })).unwrap();
       setAudit(updated);
       setAddOpen(false);
+      setItemsChanged(true);
     } catch (err: any) {
       showError(typeof err === "string" ? err : "Couldn't add products");
     } finally {
@@ -198,8 +168,17 @@ export default function ProductAuditDetailsModal({ auditId, onClose, onChanged }
     if (withPendingReasons.length > 0) return;
     setBusy(true);
     try {
-      const updated = await dispatch(submitProductAuditThunk(auditId)).unwrap();
+      // Every locally-held edit goes out in this one request — nothing was
+      // sent to the server before now (see pendingEdits above), so this is
+      // the single API call the whole form makes.
+      const items = Object.keys(pendingEdits).map((itemId) => ({
+        item_id: itemId,
+        physical_qty: pendingEdits[itemId].physicalQty,
+        reason: pendingEdits[itemId].reason,
+      }));
+      const updated = await dispatch(submitProductAuditThunk({ auditId, items })).unwrap();
       setAudit(updated);
+      setPendingEdits({});
       onChanged();
     } catch (err: any) {
       showError(typeof err === "string" ? err : "Couldn't submit for review");
@@ -237,8 +216,13 @@ export default function ProductAuditDetailsModal({ auditId, onClose, onChanged }
     }
   };
 
-  const closeAndRefresh = () => {
-    onChanged();
+  const handleClose = () => {
+    // Only refresh the list if something it actually displays went stale —
+    // submit/approve/reject/reopen already call onChanged() themselves the
+    // moment they happen, so this only ever fires for the add/remove-item
+    // case. A plain view-only session (open, look, close) now closes with
+    // no API call at all.
+    if (itemsChanged) onChanged();
     onClose();
   };
 
@@ -259,7 +243,7 @@ export default function ProductAuditDetailsModal({ auditId, onClose, onChanged }
   return (
     <Modal
       show
-      onClose={closeAndRefresh}
+      onClose={handleClose}
       title={audit.name}
       size="xl"
       footer={
@@ -276,7 +260,7 @@ export default function ProductAuditDetailsModal({ auditId, onClose, onChanged }
           <div className="d-flex gap-2">
             {editable && (
               <>
-                <Button variant="outline-dark" onClick={closeAndRefresh} disabled={busy}>
+                <Button variant="outline-dark" onClick={handleClose} disabled={busy}>
                   Close
                 </Button>
                 <Button variant="dark" onClick={submitForReview} disabled={busy || withPendingReasons.length > 0 || effectiveItems.length === 0}>
@@ -300,7 +284,7 @@ export default function ProductAuditDetailsModal({ auditId, onClose, onChanged }
               </Button>
             )}
             {audit.status === "complete" && (
-              <Button variant="outline-dark" onClick={closeAndRefresh}>Close</Button>
+              <Button variant="outline-dark" onClick={handleClose}>Close</Button>
             )}
           </div>
         </div>
@@ -361,7 +345,7 @@ export default function ProductAuditDetailsModal({ auditId, onClose, onChanged }
                             <span className="sub">{p.sku || "—"} · {p.category || "—"}</span>
                           </div>
                         </td>
-                        <td className="paudit-num">{p.system_qty}</td>
+                        <td className="paudit-num">{fmtQty(p.system_qty)}</td>
                         <td className="paudit-num">
                           {editable ? (
                             <input
@@ -376,7 +360,7 @@ export default function ProductAuditDetailsModal({ auditId, onClose, onChanged }
                               onWheel={(e) => e.currentTarget.blur()}
                             />
                           ) : (
-                            p.physical_qty ?? "—"
+                            p.physical_qty != null ? fmtQty(p.physical_qty) : "—"
                           )}
                         </td>
                         <td className="paudit-num">
@@ -384,7 +368,7 @@ export default function ProductAuditDetailsModal({ auditId, onClose, onChanged }
                             "—"
                           ) : (
                             <span className={d === 0 ? "paudit-diff-zero" : d > 0 ? "paudit-diff-over" : "paudit-diff-short"}>
-                              {d > 0 ? `+${d}` : d}
+                              {d > 0 ? `+${fmtQty(d)}` : fmtQty(d)}
                             </span>
                           )}
                         </td>

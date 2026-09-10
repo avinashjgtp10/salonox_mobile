@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Search, PlusLg, X, BoxSeam, ClockHistory, ThreeDotsVertical,
   FileEarmarkExcel, FileEarmarkPdf, FiletypeCsv, PencilSquare, Trash,
@@ -116,10 +116,17 @@ const fmtDateTime = (value?: string | null) => {
 
 export default function ProductInventoryPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const dispatch = useDispatch<AppDispatch>();
   const currentSalon = useSelector(selectCurrentSalon);
   const userProfile = useSelector(selectUserProfile);
   const { showSuccess, showError, overlay } = useStatusOverlay();
+
+  // Arrived here from a notification click (?highlight=<product_id>) —
+  // fetch that single product regardless of the current filters/page so it's
+  // visible immediately, then flash-highlight its row once rendered.
+  const highlightId = searchParams.get("highlight");
+  const highlightRowRef = useRef<HTMLTableRowElement | null>(null);
 
   const [rows, setRows] = useState<InventoryRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -131,7 +138,7 @@ export default function ProductInventoryPage() {
   const [brandId, setBrandId] = useState("");
   const [lowOnly, setLowOnly] = useState(false);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
+  const [pageSize, setPageSize] = useState(10);
 
   const [categories, setCategories] = useState<Option[]>([]);
   const [brands, setBrands] = useState<Option[]>([]);
@@ -157,14 +164,16 @@ export default function ProductInventoryPage() {
     setLoading(true);
     try {
       const res = await api.get(INVENTORY.PRODUCT_INVENTORY, {
-        params: {
-          search: debouncedSearch || undefined,
-          category_id: categoryId || undefined,
-          brand_id: brandId || undefined,
-          stock_status: lowOnly ? "low" : undefined,
-          page,
-          limit: pageSize,
-        },
+        params: highlightId
+          ? { product_id: highlightId, page: 1, limit: 1 }
+          : {
+              search: debouncedSearch || undefined,
+              category_id: categoryId || undefined,
+              brand_id: brandId || undefined,
+              stock_status: lowOnly ? "low" : undefined,
+              page,
+              limit: pageSize,
+            },
       });
       setRows(res.data?.data?.data ?? []);
       setTotal(res.data?.data?.total ?? 0);
@@ -175,9 +184,24 @@ export default function ProductInventoryPage() {
     } finally {
       setLoading(false);
     }
-  }, [debouncedSearch, categoryId, brandId, lowOnly, page, pageSize, showError]);
+  }, [debouncedSearch, categoryId, brandId, lowOnly, page, pageSize, showError, highlightId]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Scroll the highlighted row into view once it's actually rendered.
+  useEffect(() => {
+    if (highlightId && rows.length > 0) {
+      highlightRowRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [highlightId, rows]);
+
+  const clearHighlight = useCallback(() => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete("highlight");
+      return next;
+    });
+  }, [setSearchParams]);
 
   useEffect(() => {
     api.get(INVENTORY.PRODUCT_INVENTORY_FILTER_OPTIONS)
@@ -317,6 +341,13 @@ export default function ProductInventoryPage() {
         </div>
       </header>
 
+      {highlightId && (
+        <div className="pinv-highlight-banner">
+          Showing the product from your notification.
+          <button type="button" onClick={clearHighlight}>View full inventory</button>
+        </div>
+      )}
+
       <div className="pinv-page__controls">
         <Input
           containerClass="search-box mb-0"
@@ -400,7 +431,11 @@ export default function ProductInventoryPage() {
             <tbody>
               {rows.length > 0 ? (
                 rows.map((r) => (
-                  <tr key={r.id} className={r.low_stock ? "pinv-row--low" : ""}>
+                  <tr
+                    key={r.id}
+                    ref={r.id === highlightId ? highlightRowRef : undefined}
+                    className={`${r.low_stock ? "pinv-row--low" : ""}${r.id === highlightId ? " pinv-row--highlight" : ""}`}
+                  >
                     <td className="product-name-cell pinv-product-cell" title={r.name}>
                       <div className="product-icon"><BoxSeam size={20} /></div>
                       <div className="name-info">

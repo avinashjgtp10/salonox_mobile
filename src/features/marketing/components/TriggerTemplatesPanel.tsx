@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Info, X } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import {
@@ -8,8 +7,15 @@ import {
   submitPurchaseTemplateThunk,
   resetPurchaseTemplateThunk,
   syncPurchaseTemplateThunk,
+  fetchWaAutomationSettingsThunk,
+  updateWaAutomationSettingThunk,
 } from "../../../middleware/marketing/wa-automation.thunk";
-import { Button, Input, Badge } from "../../../components/ui";
+import {
+  fetchNotificationChannelTemplatesThunk,
+  setChannelEnabledThunk,
+} from "../../../middleware/marketing/notification-channels.thunk";
+import { Button } from "../../../components/ui";
+import TriggerEventCard from "./TriggerEventCard";
 import type { PurchaseEventType, PurchaseTemplate } from "../../../types/marketing.types";
 import "../styles/TriggerTemplatesPanel.scss";
 
@@ -202,10 +208,6 @@ const VARIABLE_EXPLANATIONS: Record<PurchaseEventType, Array<{ token: string; me
   ],
 };
 
-const STATUS_VARIANT: Record<string, "success" | "warning" | "danger" | "secondary"> = {
-  APPROVED: "success", PENDING: "warning", REJECTED: "danger", DRAFT: "secondary",
-};
-
 const POLL_INTERVAL = 120_000; // 2 minutes
 
 // "Effective" status for a card — whichever of the two tracks (live status,
@@ -219,7 +221,7 @@ function effectiveStatus(t: PurchaseTemplate): string {
 export default function TriggerTemplatesPanel() {
   const dispatch = useAppDispatch();
   const salonId = useAppSelector((s: any) => s.auth.salonId);
-  const { purchaseTemplates, loading } = useAppSelector((s: any) => s.marketing);
+  const { purchaseTemplates, channelTemplates, loading } = useAppSelector((s: any) => s.marketing);
   const { showSuccess, showError, overlay } = useStatusOverlay();
 
   const [activeCategory, setActiveCategory] = useState<TriggerCategory>("quick_sale");
@@ -230,9 +232,53 @@ export default function TriggerTemplatesPanel() {
   const [countdown, setCountdown] = useState(POLL_INTERVAL / 1000);
   const prevStatuses = useRef<Record<string, string>>({});
 
+  // WhatsApp's own per-event enabled toggle — an existing endpoint
+  // (previously only used by PackageSettingsPage.tsx), wired in here for
+  // the new checkbox row. The backend treats a MISSING row as enabled, so
+  // an event absent from the fetched list defaults to true, not false.
+  const [waEnabledByEvent, setWaEnabledByEvent] = useState<Record<string, boolean>>({});
+
   useEffect(() => {
     if (salonId) dispatch(fetchPurchaseTemplatesThunk(salonId));
   }, [dispatch, salonId]);
+
+  useEffect(() => {
+    if (!salonId) return;
+    dispatch(fetchNotificationChannelTemplatesThunk(salonId));
+    dispatch(fetchWaAutomationSettingsThunk(salonId)).then((action: any) => {
+      if (!fetchWaAutomationSettingsThunk.fulfilled.match(action)) return;
+      const next: Record<string, boolean> = {};
+      for (const row of action.payload) next[row.event_type] = row.is_active;
+      setWaEnabledByEvent(next);
+    });
+  }, [dispatch, salonId]);
+
+  const smsTplByEvent = useCallback(
+    (eventType: PurchaseEventType) => (channelTemplates as any[]).find((t) => t.event_type === eventType && t.channel === "SMS"),
+    [channelTemplates]
+  );
+  const emailTplByEvent = useCallback(
+    (eventType: PurchaseEventType) => (channelTemplates as any[]).find((t) => t.event_type === eventType && t.channel === "EMAIL"),
+    [channelTemplates]
+  );
+
+  const handleToggleWaEnabled = async (eventType: PurchaseEventType, enabled: boolean) => {
+    if (!salonId) return;
+    setWaEnabledByEvent((prev) => ({ ...prev, [eventType]: enabled })); // optimistic
+    const res = await dispatch(updateWaAutomationSettingThunk({ salonId, eventType, isActive: enabled }));
+    if (updateWaAutomationSettingThunk.rejected.match(res)) {
+      setWaEnabledByEvent((prev) => ({ ...prev, [eventType]: !enabled })); // revert
+      showError("Failed to update WhatsApp setting");
+    }
+  };
+
+  const handleToggleChannelEnabled = async (eventType: PurchaseEventType, channel: "sms" | "email", enabled: boolean) => {
+    if (!salonId) return;
+    const res = await dispatch(setChannelEnabledThunk({ salonId, eventType, channel, enabled }));
+    if (setChannelEnabledThunk.rejected.match(res)) {
+      showError((res.payload as string) ?? `Failed to update ${channel.toUpperCase()} setting`);
+    }
+  };
 
   useEffect(() => {
     for (const t of purchaseTemplates as PurchaseTemplate[]) {
@@ -400,108 +446,32 @@ export default function TriggerTemplatesPanel() {
         <div className="tp-loading">Loading trigger templates...</div>
       ) : (
         <div className="tp-grid">
-          {visibleEvents.map((eventType) => {
-            const tpl = byEvent(eventType);
-            const meta = EVENT_LABELS[eventType];
-            const isCaptionOnly = CAPTION_ONLY_EVENTS.includes(eventType);
-            const isBusy = savingKey === eventType;
-            const status = tpl?.status ?? "DRAFT";
-            const isLive = !isCaptionOnly && status === "APPROVED";
-            const pendingStatus = tpl?.pending_status ?? null;
-            const draftText = drafts[eventType] ?? "";
-
-            return (
-              <div key={eventType} className="tp-card">
-                <div className="tp-card-head">
-                  <div>
-                    <div className="tp-card-label">
-                      {meta.label}
-                      {!isCaptionOnly && <Badge variant={STATUS_VARIANT[status]} pill>{status}</Badge>}
-                      {pendingStatus && (
-                        <Badge variant={pendingStatus === "PENDING" ? "warning" : "danger"} pill>
-                          Update: {pendingStatus}
-                        </Badge>
-                      )}
-                    </div>
-                    <div className="tp-card-hint">{meta.hint}</div>
-                  </div>
-                  <button className="tp-info-btn" onClick={() => setInfoKey(infoKey === eventType ? null : eventType)} title="What do the variables mean?">
-                    <Info size={15} />
-                  </button>
-                </div>
-
-                {infoKey === eventType && (
-                  <div className="tp-info-panel">
-                    <div className="tp-info-panel-head">
-                      Variables
-                      <button className="tp-info-close" onClick={() => setInfoKey(null)}><X size={13} /></button>
-                    </div>
-                    <ul>
-                      {VARIABLE_EXPLANATIONS[eventType].map((v) => (
-                        <li key={v.token}><code>{v.token}</code> — {v.meaning}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {isLive && <div className="tp-live-note">Currently sending — editing below drafts a replacement version</div>}
-
-                <Input
-                  multiline
-                  rows={5}
-                  value={draftText}
-                  onChange={(e) => setDrafts((d) => ({ ...d, [eventType]: e.target.value }))}
-                  placeholder="Message wording..."
-                  containerClass="mb-0"
-                />
-
-                {!isLive && tpl?.status === "REJECTED" && tpl.rejection_reason && (
-                  <div className="tp-rejection">Rejected by Meta: {tpl.rejection_reason}</div>
-                )}
-                {isLive && pendingStatus === "REJECTED" && tpl?.pending_rejection_reason && (
-                  <div className="tp-rejection">Update rejected by Meta: {tpl.pending_rejection_reason}</div>
-                )}
-
-                <div className="tp-card-actions">
-                  <Button size="sm" variant="outline-secondary" loading={isBusy} disabled={isBusy} onClick={() => handleSave(eventType)}>
-                    Save
-                  </Button>
-
-                  {!isCaptionOnly && !isLive && (status === "DRAFT" || status === "REJECTED") && (
-                    <Button size="sm" variant="primary" loading={isBusy} disabled={isBusy || !draftText.trim()} onClick={() => handleSubmit(eventType)}>
-                      Submit to Meta
-                    </Button>
-                  )}
-                  {!isCaptionOnly && !isLive && status === "PENDING" && (
-                    <Button size="sm" variant="outline-warning" loading={isBusy} disabled={isBusy} onClick={() => handleSync(eventType)}>
-                      ↻ Check Status
-                    </Button>
-                  )}
-                  {!isCaptionOnly && !isLive && status === "REJECTED" && (
-                    <Button size="sm" variant="outline-danger" loading={isBusy} disabled={isBusy} onClick={() => handleReset(eventType)}>
-                      Reset
-                    </Button>
-                  )}
-
-                  {!isCaptionOnly && isLive && (pendingStatus === null || pendingStatus === "REJECTED") && (
-                    <Button size="sm" variant="primary" loading={isBusy} disabled={isBusy || !draftText.trim()} onClick={() => handleSubmit(eventType)}>
-                      Submit Update
-                    </Button>
-                  )}
-                  {!isCaptionOnly && isLive && pendingStatus === "PENDING" && (
-                    <Button size="sm" variant="outline-warning" loading={isBusy} disabled={isBusy} onClick={() => handleSync(eventType)}>
-                      ↻ Check Update Status
-                    </Button>
-                  )}
-                  {!isCaptionOnly && isLive && pendingStatus === "REJECTED" && (
-                    <Button size="sm" variant="outline-danger" loading={isBusy} disabled={isBusy} onClick={() => handleReset(eventType)}>
-                      Dismiss
-                    </Button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+          {visibleEvents.map((eventType) => (
+            <TriggerEventCard
+              key={eventType}
+              salonId={salonId}
+              eventType={eventType}
+              meta={EVENT_LABELS[eventType]}
+              variableExplanations={VARIABLE_EXPLANATIONS[eventType]}
+              isCaptionOnly={CAPTION_ONLY_EVENTS.includes(eventType)}
+              tpl={byEvent(eventType)}
+              draftText={drafts[eventType] ?? ""}
+              onDraftChange={(text) => setDrafts((d) => ({ ...d, [eventType]: text }))}
+              isBusy={savingKey === eventType}
+              infoOpen={infoKey === eventType}
+              onToggleInfo={() => setInfoKey(infoKey === eventType ? null : eventType)}
+              onSave={() => handleSave(eventType)}
+              onSubmit={() => handleSubmit(eventType)}
+              onReset={() => handleReset(eventType)}
+              onSync={() => handleSync(eventType)}
+              waEnabled={waEnabledByEvent[eventType] ?? true}
+              onToggleWaEnabled={(enabled) => handleToggleWaEnabled(eventType, enabled)}
+              smsTpl={smsTplByEvent(eventType)}
+              emailTpl={emailTplByEvent(eventType)}
+              onToggleSmsEnabled={(enabled) => handleToggleChannelEnabled(eventType, "sms", enabled)}
+              onToggleEmailEnabled={(enabled) => handleToggleChannelEnabled(eventType, "email", enabled)}
+            />
+          ))}
         </div>
       )}
     </div>

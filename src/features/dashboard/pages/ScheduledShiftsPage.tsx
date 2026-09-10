@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import type { AppDispatch, RootState } from "../../../store/store";
 import {
@@ -22,6 +22,7 @@ import {
 } from "../../../components/staff-schedule";
 import type { DrawerMode } from "../../../components/staff-schedule";
 import Modal from "../../../components/ui/Modal";
+import Pagination from "../../../components/ui/Pagination";
 import {
   getSundayOf,
   toDateKey,
@@ -40,11 +41,9 @@ interface DrawerState {
 
 const INITIAL_DRAWER: DrawerState = { mode: null, staffId: null, date: null };
 
-const PAGE_SIZE = 8;
-
 const ScheduledShiftsPage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
-  const { staffMembers, shifts } = useSelector(
+  const { staffMembers, shifts, staffTotal, loading } = useSelector(
     (s: RootState) => s.shift
   );
 
@@ -53,6 +52,7 @@ const ScheduledShiftsPage: React.FC = () => {
   const [deleteTarget, setDeleteTarget] = useState<{ staffId: string; date: string } | null>(null);
   const [copyStaffId, setCopyStaffId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const { showSuccess, showError, overlay } = useStatusOverlay();
 
   const weekDates = getWeekDates(sunday).map((d) => {
@@ -62,16 +62,35 @@ const ScheduledShiftsPage: React.FC = () => {
 
   const weekStartKey = toDateKey(sunday);
 
+  // ── Fetch (server-paginated) ────────────────────────────────────────────────
+  // Same "reset to page 1 without double-fetching" shape as
+  // SuppliersListPage/OrdersListPage: a week change should land back on page
+  // 1, but firing the fetch once for the stale page and again for the reset
+  // page would be a duplicate call — so when the week changes while not
+  // already on page 1, this only resets the page and lets *that* state
+  // change re-trigger the effect with the corrected page.
+  const isMountedRef = useRef(false);
+  const prevWeekKeyRef = useRef(weekStartKey);
   useEffect(() => {
-    dispatch(fetchDailyShifts(weekStartKey));
-    setPage(1); // reset to first page on week change
-  }, [weekStartKey, dispatch]);
+    if (!isMountedRef.current) {
+      isMountedRef.current = true;
+      dispatch(fetchDailyShifts({ weekStartDate: weekStartKey, page, limit: pageSize }));
+      return;
+    }
+    if (prevWeekKeyRef.current !== weekStartKey) {
+      prevWeekKeyRef.current = weekStartKey;
+      if (page !== 1) {
+        setPage(1);
+        return;
+      }
+    }
+    dispatch(fetchDailyShifts({ weekStartDate: weekStartKey, page, limit: pageSize }));
+  }, [weekStartKey, page, pageSize, dispatch]);
 
-  // ── Pagination ────────────────────────────────────────────────────────────────
-  const totalPages = Math.max(1, Math.ceil(staffMembers.length / PAGE_SIZE));
-  const pagedStaff = staffMembers.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-  const from = staffMembers.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
-  const to   = Math.min(page * PAGE_SIZE, staffMembers.length);
+  const handlePageSizeChange = (size: number) => {
+    setPageSize(size);
+    setPage(1);
+  };
 
   // ── Navigation ───────────────────────────────────────────────────────────────
   const goToToday = () => setSunday(getSundayOf(new Date()));
@@ -199,6 +218,11 @@ const ScheduledShiftsPage: React.FC = () => {
       .catch((err) => {
         console.error("[DEBUG] Save failed:", err);
         showError("Failed to save changes");
+        // The dispatch above already wrote the optimistic change into Redux
+        // state before the API call — on failure that phantom edit would
+        // otherwise sit there looking "saved" until the next full reload.
+        // Re-fetch the real server state for this week to undo it.
+        dispatch(fetchDailyShifts({ weekStartDate: weekStartKey, page, limit: pageSize }));
       });
   };
 
@@ -213,11 +237,16 @@ const ScheduledShiftsPage: React.FC = () => {
       .unwrap()
       .then(() => {
         showSuccess("Schedule copied successfully");
-        dispatch(fetchDailyShifts(weekStartKey));
+        dispatch(fetchDailyShifts({ weekStartDate: weekStartKey, page, limit: pageSize }));
         dispatch(bumpScheduleVersion());
       })
       .catch(() => {
         showError("Failed to copy schedule");
+        // Same reasoning as handleSaveAvailability's catch — applyCopySchedule.pending
+        // already wrote the optimistic copy into every target week's Redux state;
+        // on failure, re-sync the visible week from the server so it doesn't keep
+        // showing a copy that was never actually persisted.
+        dispatch(fetchDailyShifts({ weekStartDate: weekStartKey, page, limit: pageSize }));
       });
   };
 
@@ -289,76 +318,35 @@ const ScheduledShiftsPage: React.FC = () => {
         </div>
 
         {/* Table */}
-        <ScheduleTable
-          staffMembers={pagedStaff}
-          weekDates={weekDates}
-          shifts={shifts}
-          onEditWorkingHours={handleEditWorkingHours}
-          onAddTimeOff={handleAddTimeOff}
-          onManageDayOff={handleManageDayOff}
-          onManageBlockedDay={handleManageBlockedDay}
-          onDeleteTimeBlock={handleDeleteTimeBlock}
-          onCopy={handleCopy}
-          onEditStaff={handleEditStaff}
-          isModalOpen={deleteTarget !== null}
+        <div className={`sched-table-wrap${loading ? " sched-table-wrap--loading" : ""}`}>
+          <ScheduleTable
+            staffMembers={staffMembers}
+            weekDates={weekDates}
+            shifts={shifts}
+            onEditWorkingHours={handleEditWorkingHours}
+            onAddTimeOff={handleAddTimeOff}
+            onManageDayOff={handleManageDayOff}
+            onManageBlockedDay={handleManageBlockedDay}
+            onDeleteTimeBlock={handleDeleteTimeBlock}
+            onCopy={handleCopy}
+            onEditStaff={handleEditStaff}
+            isModalOpen={deleteTarget !== null}
+          />
+        </div>
+
+        {/* Pagination — the shared components/ui/Pagination component already
+            used by Suppliers/Orders/Products, reused here per SCRUM-2615's
+            "one pagination component" requirement rather than duplicating
+            the schedule-specific pagination markup this page had before. */}
+        <Pagination
+          currentPage={page}
+          pageSize={pageSize}
+          totalItems={staffTotal}
+          onPageChange={setPage}
+          onPageSizeChange={handlePageSizeChange}
+          pageSizeOptions={[10, 25, 50, 100]}
+          className="sched-page__pagination"
         />
-
-        {/* Pagination */}
-        {staffMembers.length > 0 && (
-          <div className="sched-pagination">
-            <span className="sched-pagination__info">
-              Showing <strong>{from}–{to}</strong> of <strong>{staffMembers.length}</strong> staff members
-            </span>
-
-            <div className="sched-pagination__controls">
-              {/* Prev */}
-              <button
-                className="sched-pagination__btn"
-                onClick={() => setPage((p) => p - 1)}
-                disabled={page === 1}
-                aria-label="Previous page"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <path d="M15 18l-6-6 6-6" />
-                </svg>
-              </button>
-
-              {/* Page numbers */}
-              {Array.from({ length: totalPages }, (_, i) => i + 1)
-                .filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
-                .reduce<(number | "…")[]>((acc, p, idx, arr) => {
-                  if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push("…");
-                  acc.push(p);
-                  return acc;
-                }, [])
-                .map((p, idx) =>
-                  p === "…" ? (
-                    <span key={`ellipsis-${idx}`} className="sched-pagination__ellipsis">…</span>
-                  ) : (
-                    <button
-                      key={p}
-                      className={`sched-pagination__btn${page === p ? " sched-pagination__btn--active" : ""}`}
-                      onClick={() => setPage(p as number)}
-                    >
-                      {p}
-                    </button>
-                  )
-                )}
-
-              {/* Next */}
-              <button
-                className="sched-pagination__btn"
-                onClick={() => setPage((p) => p + 1)}
-                disabled={page === totalPages}
-                aria-label="Next page"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <path d="M9 18l6-6-6-6" />
-                </svg>
-              </button>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Drawers */}

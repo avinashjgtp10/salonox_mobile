@@ -26,7 +26,17 @@ import DateRangeFilter, { DEFAULT_DATE_RANGE_FILTER_VALUE } from "../../../compo
 import type { DateRangeFilterValue } from "../../../components/ui/DateRangeFilter";
 import JiraFilterMenu from "../../../components/ui/JiraFilterMenu";
 import type { JiraFilterField } from "../../../components/ui/JiraFilterMenu";
+import { exportStockLedgerExcel, type StockLedgerExportRow } from "../utils/stockLedgerExport";
+import { usePermissions } from "../../../hooks/usePermissions";
+import { showPermissionDenied } from "../../../store/permissionDialogSlice";
 import "../styles/StockLedgerPage.scss";
+
+// Same friendly copy PermissionGuard and the interceptor-driven global popup
+// already use for a backend 403 — this export is built entirely client-side
+// (no backend call to deny), so this is the only enforcement point
+// export_excel actually has for it.
+const friendlyExportDenied = (permKey: string) =>
+  `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`;
 
 type TxnType =
   | "opening_stock" | "purchase" | "usage" | "sale" | "return" | "damage"
@@ -131,6 +141,8 @@ export default function StockLedgerPage() {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
   const { showError } = useStatusOverlay();
+  const { can } = usePermissions();
+  const [isExporting, setIsExporting] = useState(false);
 
   const staff = useSelector(selectAllStaff) as { id: string; first_name?: string; last_name?: string }[];
   const rawCategories = useSelector(selectProductCategories) as { id: string | number; name: string }[];
@@ -148,7 +160,7 @@ export default function StockLedgerPage() {
   const [txnTypes, setTxnTypes] = useState<string[]>([]);
 
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
+  const [pageSize, setPageSize] = useState(10);
 
   const [rows, setRows] = useState<LedgerRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -233,6 +245,61 @@ export default function StockLedgerPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  const handleExportExcel = useCallback(async () => {
+    if (!can("export_excel")) { dispatch(showPermissionDenied(friendlyExportDenied("export_excel"))); return; }
+    setIsExporting(true);
+    try {
+      // Loops every page with the currently-applied filters (search/
+      // category/staff/transaction type/date range) — exported data always
+      // matches the on-screen list + filters exactly, independent of
+      // whatever page/page-size is currently displayed.
+      const all: LedgerRow[] = [];
+      let page_ = 1;
+      const limit = 200;
+      let totalCount = Infinity;
+      while (all.length < totalCount) {
+        const res = await api.post(INVENTORY.STOCK_LEDGER_LIST, {
+          search: debouncedSearch || undefined,
+          category_id: categoryIds[0] || undefined,
+          staff_id: staffIds[0] || undefined,
+          transaction_type: txnTypes[0] || undefined,
+          from_date: dateRange.startDate || undefined,
+          to_date: dateRange.endDate || undefined,
+          page: page_,
+          limit,
+        });
+        const payload = res.data?.data;
+        const batch: LedgerRow[] = payload?.data ?? [];
+        all.push(...batch);
+        totalCount = payload?.total ?? all.length;
+        if (batch.length < limit) break;
+        page_ += 1;
+      }
+
+      const exportRows: StockLedgerExportRow[] = all.map((r) => {
+        const isIn = IN_TYPES.has(r.transaction_type);
+        const unit = r.measure_unit;
+        return {
+          date: fmtDateTime(r.created_at),
+          product: r.product_name,
+          transaction: TXN_LABELS[r.transaction_type],
+          reference: r.reference || "—",
+          in: isIn ? fmtBalance(r.quantity, unit, r.bottle_size) : "—",
+          out: !isIn ? fmtBalance(r.quantity, unit, r.bottle_size) : "—",
+          balance: fmtBalance(r.balance_after, unit, r.bottle_size),
+          supplier: r.supplier_name || "—",
+          staff: r.created_by_name || "—",
+          notes: r.notes || r.reason || "—",
+        };
+      });
+      exportStockLedgerExcel(exportRows);
+    } catch (err: any) {
+      showError(err?.response?.data?.message || "Couldn't export stock ledger");
+    } finally {
+      setIsExporting(false);
+    }
+  }, [can, dispatch, debouncedSearch, categoryIds, staffIds, txnTypes, dateRange, showError]);
+
   const filterFields: JiraFilterField[] = useMemo(() => [
     { key: "category", label: "Category", options: categories.map((c) => ({ id: c.id, label: c.name })) },
     { key: "staff", label: "Staff", options: staffOptions.map((s) => ({ id: s.id, label: s.name })) },
@@ -275,8 +342,8 @@ export default function StockLedgerPage() {
           <p>Every stock movement, in one place — purchases, usage, sales, adjustments and transfers.</p>
         </div>
         <div className="sl-page__actions">
-          <Button variant="outline-dark" iconLeft={<FileEarmarkExcel size={14} />}>
-            Export Excel
+          <Button variant="outline-dark" iconLeft={<FileEarmarkExcel size={14} />} onClick={handleExportExcel} disabled={isExporting}>
+            {isExporting ? "Exporting…" : "Export Excel"}
           </Button>
           <Button variant="outline-dark" iconLeft={<Sliders2Vertical size={14} />} onClick={() => setAdjustOpen(true)}>
             Stock Adjustment
@@ -326,7 +393,6 @@ export default function StockLedgerPage() {
       </div>
 
       <main className="sl-page__content">
-        <h2 className="sl-table-header">Stock Ledger</h2>
         <div className="sl-table-wrap">
           <table className="sl-table">
             <thead>
@@ -635,6 +701,34 @@ function StockAdjustmentModal({
     }
   }, [branches, branchId]);
 
+  // Current Stock Qty — read-only reference so users can compare it against
+  // the quantity they're entering. Sourced from the same product timeline
+  // endpoint StockTimelineModal above uses for "Current Stock" (the latest
+  // row's balance_after already reflects every past movement). Fetched once
+  // per product and cached here; a ref (not state) tracks what's already
+  // in flight/fetched so re-renders don't refire the request.
+  const [currentStock, setCurrentStock] = useState<Record<string, { balance: number; unit: string | null; bottleSize: number | null }>>({});
+  const stockFetchedRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    lines.forEach((line) => {
+      const pid = line.productId;
+      if (!pid || stockFetchedRef.current.has(pid)) return;
+      stockFetchedRef.current.add(pid);
+      api.get(INVENTORY.STOCK_LEDGER_PRODUCT_TIMELINE(pid))
+        .then((res) => {
+          const top = (res.data?.data ?? [])[0];
+          setCurrentStock((prev) => ({
+            ...prev,
+            [pid]: { balance: top?.balance_after ?? 0, unit: top?.measure_unit ?? null, bottleSize: top?.bottle_size ?? null },
+          }));
+        })
+        .catch(() => {
+          setCurrentStock((prev) => ({ ...prev, [pid]: { balance: 0, unit: null, bottleSize: null } }));
+        });
+    });
+  }, [lines]);
+
   function patchLine(key: string, patch: Partial<AdjustmentLine>) {
     setLines((prev) => prev.map((l) => (l.key === key ? { ...l, ...patch } : l)));
   }
@@ -706,6 +800,7 @@ function StockAdjustmentModal({
         <div className="sl-adj-lines">
           <div className="sl-adj-lines__head">
             <span>Product</span>
+            <span>Current Stock Qty</span>
             <span>Transaction Type</span>
             <span>Quantity</span>
             <span />
@@ -713,6 +808,7 @@ function StockAdjustmentModal({
           {lines.map((line) => {
             const product = products.find((p) => p.id === line.productId);
             const isDuplicate = line.productId && duplicateProductIds.has(line.productId);
+            const stock = line.productId ? currentStock[line.productId] : undefined;
             return (
               <div className="sl-adj-lines__row" key={line.key}>
                 <div>
@@ -723,6 +819,9 @@ function StockAdjustmentModal({
                     onChange={(id) => patchLine(line.key, { productId: id })}
                   />
                   {isDuplicate && <span className="sl-adj-line-err">Already added above</span>}
+                </div>
+                <div className="sl-adj-current-stock" title="Current stock — read-only">
+                  {!line.productId ? "—" : stock ? fmtBalance(stock.balance, stock.unit, stock.bottleSize) : <Skeleton height={14} />}
                 </div>
                 <Dropdown
                   searchable={false}

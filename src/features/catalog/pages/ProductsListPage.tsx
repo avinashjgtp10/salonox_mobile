@@ -4,6 +4,8 @@ import api from "../../../services/api/axios";
 import { PRODUCTS } from "../../../services/api/endpoints";
 import { selectCurrentSalon, selectUserProfile } from "../../../store/selectors/slices.selectors";
 import { exportProductsPDF } from "../utils/productExport";
+import { usePermissions } from "../../../hooks/usePermissions";
+import { showPermissionDenied } from "../../../store/permissionDialogSlice";
 import {
   Search,
   BoxSeam,
@@ -63,10 +65,21 @@ const formatCategoryName = (name: unknown) =>
     .toLowerCase()
     .replace(/\b\w/g, (char) => char.toUpperCase());
 
+// Same friendly copy PermissionGuard and the interceptor-driven global popup
+// already use for a backend 403 — the PDF export here is built entirely
+// client-side (no backend call to deny), so this is the only enforcement
+// point export_pdf actually has for it. CSV/Excel export on this page go
+// through the backend (products.routes.ts's export_csv/export_excel gates),
+// so they're already covered by that same popup on denial.
+const friendlyExportDenied = (permKey: string) =>
+  `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`;
+
 const ProductsListPage: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
+  const { can } = usePermissions();
   const suppliers = useSelector((state: RootState) => state.inventory.suppliers);
+  const suppliersTotal = useSelector((state: RootState) => state.inventory.suppliersTotal);
   const currentSalon = useSelector(selectCurrentSalon);
   const userProfile = useSelector(selectUserProfile);
   const { formatAmount } = useCurrency();
@@ -148,7 +161,18 @@ const ProductsListPage: React.FC = () => {
     setSelectedProducts([]);
     fetchBrands();
     fetchCategories();
-    dispatch(fetchSuppliersThunk());
+    // page_limit:100 — used here to build a full id->name lookup map for
+    // display (supplierMap below), not the paginated Suppliers list page.
+    // Skipped when the store already holds the complete set (suppliers.length
+    // === suppliersTotal) — that's true whether it got there via this same
+    // page_limit:100 fetch on an earlier visit, or because the salon simply
+    // has few enough suppliers that a smaller paginated fetch already
+    // happened to cover all of them. A plain "suppliers.length === 0" check
+    // would wrongly skip this after visiting the Suppliers List page (which
+    // only ever loads one page at a time), leaving names blank here.
+    if (suppliers.length === 0 || suppliers.length < suppliersTotal) {
+      dispatch(fetchSuppliersThunk({ page_limit: 100 }));
+    }
     const t = setTimeout(() => { isMountedRef.current = true; }, 0);
     return () => clearTimeout(t);
   }, []);
@@ -283,13 +307,14 @@ const ProductsListPage: React.FC = () => {
   }, [appliedFilters, searchQuery]);
 
   const handleDownloadPdf = useCallback(async () => {
+    if (!can("export_pdf")) { dispatch(showPermissionDenied(friendlyExportDenied("export_pdf"))); return; }
     try {
       const allProds = await fetchFilteredProductsForExport();
-      
+
       // Build maps for fast lookup
       const bMap: Record<string, string> = {};
       brands.forEach((b: any) => { bMap[b.id] = b.name; });
-      
+
       exportProductsPDF(allProds, supplierMap, bMap, {
         salon: currentSalon,
         user: userProfile,
@@ -297,7 +322,7 @@ const ProductsListPage: React.FC = () => {
     } catch (err) {
       console.error("PDF export failed:", err);
     }
-  }, [fetchFilteredProductsForExport, supplierMap, brands, currentSalon, userProfile]);
+  }, [can, dispatch, fetchFilteredProductsForExport, supplierMap, brands, currentSalon, userProfile]);
 
   const handleDeleteProducts = async () => {
     setIsDeleting(true);

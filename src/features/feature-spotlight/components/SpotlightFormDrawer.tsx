@@ -3,6 +3,8 @@ import { X } from "react-bootstrap-icons";
 import Button from "../../../components/ui/Button";
 import { resolveMediaUrl } from "../../../utils/mediaUrl";
 import { uploadSpotlightImage } from "../utils/uploadImage";
+import { isValidYouTubeUrl, youTubeEmbedUrl } from "../utils/youtube";
+import SpotlightSectionsEditor from "./SpotlightSectionsEditor";
 import { TARGET_AUDIENCE_OPTIONS } from "../types";
 import type { SpotlightFeature, SpotlightStatus, TargetAudience, SpotlightCreatePayload, SpotlightImage } from "../types";
 
@@ -23,20 +25,12 @@ const EMPTY_FORM: SpotlightCreatePayload = {
   benefits: "",
   imageDataUrl: "",
   images: [],
+  sections: [],
   videoDataUrl: "",
   releaseDate: new Date().toISOString().slice(0, 10),
   targetAudience: ["all"],
   status: "draft",
 };
-
-function fileToDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
 
 const STATUS_OPTIONS: SpotlightStatus[] = ["draft", "published", "archived"];
 
@@ -44,6 +38,7 @@ const SpotlightFormDrawer: React.FC<SpotlightFormDrawerProps> = ({ feature, onCl
   const [form, setForm] = useState<SpotlightCreatePayload>(EMPTY_FORM);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [imageUrlInput, setImageUrlInput] = useState("");
 
   useEffect(() => {
     if (feature) {
@@ -56,7 +51,7 @@ const SpotlightFormDrawer: React.FC<SpotlightFormDrawerProps> = ({ feature, onCl
           : rest.imageDataUrl
           ? [{ imageDataUrl: rest.imageDataUrl, description: "" }]
           : [];
-      setForm({ ...rest, images });
+      setForm({ ...rest, images, sections: rest.sections ?? [] });
     } else {
       setForm(EMPTY_FORM);
     }
@@ -79,14 +74,12 @@ const SpotlightFormDrawer: React.FC<SpotlightFormDrawerProps> = ({ feature, onCl
   const handleImagesUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
     if (!files.length) return;
-    // Uploads to the backend when the Spotlight upload endpoint is available
-    // (see uploadImage.ts / spotlight.endpoints.ts); until then it falls
-    // back to a downscaled/re-encoded base64 data URL — a full-resolution
-    // screenshot stored raw can easily blow the localStorage quota this
-    // currently persists into (see spotlightStorage.ts / compressImage.ts).
-    // These images are shown large (full document width) in "Why it works",
-    // not just as small thumbnails — use a higher resolution/quality than
-    // the single hero image so UI screenshot text stays readable there.
+    // Uploads to the real S3-backed endpoint (see uploadImage.ts /
+    // spotlight.endpoints.ts), falling back to a downscaled/re-encoded
+    // base64 data URL only if that request fails. These images are shown
+    // large (full document width) in "Why it works", not just as small
+    // thumbnails — use a higher resolution/quality than the single hero
+    // image so UI screenshot text stays readable there.
     const newImages: SpotlightImage[] = await Promise.all(
       files.map(async (file) => ({ imageDataUrl: await uploadSpotlightImage(file, 1280, 0.8), description: "" }))
     );
@@ -95,6 +88,16 @@ const SpotlightFormDrawer: React.FC<SpotlightFormDrawerProps> = ({ feature, onCl
       return { ...prev, images, imageDataUrl: prev.imageDataUrl || images[0]?.imageDataUrl };
     });
     e.target.value = "";
+  };
+
+  const addImageByUrl = () => {
+    const url = imageUrlInput.trim();
+    if (!url) return;
+    setForm((prev) => {
+      const images = [...(prev.images ?? []), { imageDataUrl: url, description: "" }];
+      return { ...prev, images, imageDataUrl: prev.imageDataUrl || images[0]?.imageDataUrl };
+    });
+    setImageUrlInput("");
   };
 
   const updateImageDescription = (index: number, description: string) => {
@@ -112,17 +115,13 @@ const SpotlightFormDrawer: React.FC<SpotlightFormDrawerProps> = ({ feature, onCl
     });
   };
 
-  const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const dataUrl = await fileToDataUrl(file);
-    update("videoDataUrl", dataUrl);
-  };
-
   const handleSubmit = async () => {
     if (!form.featureName.trim()) return setError("Feature Name is required.");
     if (!form.module.trim()) return setError("Module is required.");
     if (!form.shortDescription.trim()) return setError("Short Description is required.");
+    if (form.videoDataUrl?.trim() && !isValidYouTubeUrl(form.videoDataUrl.trim())) {
+      return setError("Video link must be a valid YouTube URL (e.g. youtube.com/watch?v=... or youtu.be/...).");
+    }
     setError("");
     setSaving(true);
     try {
@@ -222,6 +221,19 @@ const SpotlightFormDrawer: React.FC<SpotlightFormDrawerProps> = ({ feature, onCl
             <label>Feature Images / Screenshots</label>
             <input type="file" accept="image/*" multiple onChange={handleImagesUpload} />
             <div className="sf-field__hint">Add one or more images — each can have its own description.</div>
+            <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+              <input
+                type="url"
+                value={imageUrlInput}
+                onChange={(e) => setImageUrlInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addImageByUrl(); } }}
+                placeholder="Or paste an image URL"
+                style={{ flex: 1 }}
+              />
+              <Button variant="outline-dark" size="sm" onClick={addImageByUrl} disabled={!imageUrlInput.trim()}>
+                Add
+              </Button>
+            </div>
             {(form.images ?? []).length > 0 && (
               <div className="sf-image-list">
                 {(form.images ?? []).map((img, i) => (
@@ -245,11 +257,39 @@ const SpotlightFormDrawer: React.FC<SpotlightFormDrawerProps> = ({ feature, onCl
           </div>
 
           <div className="sf-field">
-            <label>Optional Video / GIF</label>
-            <input type="file" accept="video/*,image/gif" onChange={handleVideoUpload} />
-            {form.videoDataUrl && (
+            <label>Walkthrough Sections</label>
+            <div className="sf-field__hint">
+              Group screenshots under named sections (e.g. "Booking an appointment", "Setting reminders") — each shows as its own titled block, with its own screenshots and descriptions, on a dedicated tab on the feature's page.
+            </div>
+            <SpotlightSectionsEditor
+              sections={form.sections ?? []}
+              onChange={(sections) => update("sections", sections)}
+            />
+          </div>
+
+          <div className="sf-field">
+            <label>Optional YouTube Video Link</label>
+            <input
+              type="url"
+              value={form.videoDataUrl ?? ""}
+              onChange={(e) => update("videoDataUrl", e.target.value)}
+              placeholder="https://www.youtube.com/watch?v=..."
+            />
+            <div className="sf-field__hint">
+              The cover image is shown by default; a Play button appears on it once a valid YouTube link is set, and clicking it embeds the video right there.
+            </div>
+            {form.videoDataUrl?.trim() && !isValidYouTubeUrl(form.videoDataUrl.trim()) && (
+              <div className="sf-error">Not a recognized YouTube URL — it won't play until this is fixed.</div>
+            )}
+            {form.videoDataUrl?.trim() && isValidYouTubeUrl(form.videoDataUrl.trim()) && (
               <div className="sf-preview">
-                <video src={resolveMediaUrl(form.videoDataUrl)} controls />
+                <iframe
+                  src={youTubeEmbedUrl(form.videoDataUrl.trim()) ?? undefined}
+                  title="YouTube video preview"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  style={{ width: "100%", aspectRatio: "16 / 9", border: 0, borderRadius: 8 }}
+                />
               </div>
             )}
           </div>

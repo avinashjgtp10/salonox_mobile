@@ -1,12 +1,22 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useNavigate } from "react-router-dom";
-import { Search, FileEarmarkText, PlusLg, X, ThreeDotsVertical, PencilSquare, Trash3, BoxSeam } from "react-bootstrap-icons";
-import { useAppDispatch } from "../../../hooks/useAppRedux";
+import { useNavigate, useLocation } from "react-router-dom";
+import { useSelector } from "react-redux";
+import { Dropdown } from "react-bootstrap";
+import { Search, FileEarmarkText, FileEarmarkPdf, FileEarmarkExcel, FiletypeCsv, PlusLg, X, ThreeDotsVertical, PencilSquare, Trash3, BoxSeam } from "react-bootstrap-icons";
+import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { fetchOrdersThunk, deleteOrderThunk, fetchOrderByIdThunk, receiveOrderThunk } from "../../../middleware/inventory/inventory.thunk";
 import type { Order } from "../../../types/inventory.types";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
+import { selectCurrentSalon } from "../../../store/selectors/slices.selectors";
+import { generatePurchaseOrderPdf } from "../utils/purchaseOrderPdf";
+import api from "../../../services/api/axios";
+import { INVENTORY } from "../../../services/api/endpoints/inventory.endpoints";
+import { downloadBlob } from "../../../utils/downloadBlob";
+import { exportOrdersPDF, exportOrdersCSV, exportOrdersExcel } from "../utils/orderExport";
+import { usePermissions } from "../../../hooks/usePermissions";
+import { showPermissionDenied } from "../../../store/permissionDialogSlice";
 import Pagination from "../../../components/ui/Pagination";
 import Button from "../../../components/ui/Button";
 import Skeleton from "../../../components/ui/Skeleton";
@@ -37,17 +47,46 @@ const STATUS_BADGE: Record<Order["status"], "paid" | "due" | "overdue" | "partia
 
 // Orders list — same list-page pattern as SuppliersListPage.tsx (header,
 // search, table, pagination, empty state) so Orders reads as part of the
-// same Inventory family rather than a one-off layout. Server-paginated
-// (unlike Suppliers' client-side list) since orders can grow unbounded.
+// same Inventory family rather than a one-off layout. Both are now
+// server-paginated.
+
+// Same friendly copy PermissionGuard and the interceptor-driven global popup
+// already use for a backend 403 — this export is built entirely client-side
+// (no backend call to deny), so this is the only enforcement point
+// export_pdf/export_csv/export_excel actually have for it.
+const friendlyExportDenied = (permKey: string) =>
+  `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`;
+
 const OrdersListPage: React.FC = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const { formatAmount } = useCurrency();
+  const { can } = usePermissions();
+  const location = useLocation();
+  const { formatAmount, currencySymbol } = useCurrency();
   const { showError, showSuccess, overlay } = useStatusOverlay();
+  const currentSalon = useSelector(selectCurrentSalon);
+  const [downloadingPdfId, setDownloadingPdfId] = useState<string | null>(null);
 
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
+  // The list only ever holds summary fields per row — full line items (needed
+  // for the PDF body table) only come back from the single-order endpoint, so
+  // this fetches on demand rather than requiring every list row to carry them.
+  const handleDownloadPdf = async (o: Order) => {
+    setDownloadingPdfId(o.id);
+    try {
+      const full = await dispatch(fetchOrderByIdThunk(o.id)).unwrap();
+      generatePurchaseOrderPdf(full, { salon: currentSalon, currencySymbol });
+    } catch (err: any) {
+      showError(typeof err === "string" ? err : "Couldn't generate PDF");
+    } finally {
+      setDownloadingPdfId(null);
+    }
+  };
+
+  // Kept in Redux (inventorySlice), not page-local state — this page
+  // unmounts/remounts on every navigation away and back (e.g. Close on
+  // NewOrderPage), which would otherwise reset local state to empty on
+  // every return and defeat the "skip refetch on a plain Close" check below.
+  const { orders, ordersTotal: total, ordersLoading: loading } = useAppSelector((s) => s.inventory);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<Order["status"] | "">("");
@@ -96,12 +135,9 @@ const OrdersListPage: React.FC = () => {
     return () => clearTimeout(t);
   }, [search]);
 
-  useEffect(() => { setCurrentPage(1); }, [debouncedSearch, statusFilter, pageSize]);
-
   const load = useCallback(async () => {
-    setLoading(true);
     try {
-      const result = await dispatch(
+      await dispatch(
         fetchOrdersThunk({
           search: debouncedSearch || undefined,
           status: statusFilter || undefined,
@@ -109,18 +145,50 @@ const OrdersListPage: React.FC = () => {
           limit: pageSize,
         }),
       ).unwrap();
-      setOrders(result.data);
-      setTotal(result.total);
     } catch (err: any) {
       showError(typeof err === "string" ? err : "Couldn't load orders");
-      setOrders([]);
-      setTotal(0);
-    } finally {
-      setLoading(false);
     }
   }, [dispatch, debouncedSearch, statusFilter, currentPage, pageSize, showError]);
 
-  useEffect(() => { load(); }, [load]);
+  // Tracks whether we're past the initial mount, so the effect below doesn't
+  // also fire (redundantly) on first render — mirrors SuppliersListPage.tsx.
+  const isMountedRef = useRef(false);
+
+  // Initial fetch on mount — skipped when orders are already loaded (a plain
+  // Close navigates back with no signal) AND this mount wasn't triggered by
+  // a successful Add/Edit save. NewOrderPage navigates back with
+  // location.state.refresh only after a save; a plain Close navigates with
+  // no state at all, so returning from Close reuses what's already loaded
+  // instead of calling the API again.
+  useEffect(() => {
+    const justSaved = (location.state as { refresh?: boolean } | null)?.refresh;
+    if (orders.length === 0 || justSaved) {
+      load();
+    }
+    const t = setTimeout(() => { isMountedRef.current = true; }, 0);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Re-fetch when page/pageSize/search/filters change (skip initial mount,
+  // already handled above). When search/filters change while not already on
+  // page 1, reset to page 1 without firing a second (stale-page) fetch in
+  // the same tick — the page-1 reset alone triggers this effect again with
+  // the corrected page.
+  const filtersKey = JSON.stringify({ debouncedSearch, statusFilter });
+  const prevFiltersKeyRef = useRef(filtersKey);
+  useEffect(() => {
+    if (!isMountedRef.current) return;
+    if (prevFiltersKeyRef.current !== filtersKey) {
+      prevFiltersKeyRef.current = filtersKey;
+      if (currentPage !== 1) {
+        setCurrentPage(1);
+        return;
+      }
+    }
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPage, pageSize, debouncedSearch, statusFilter, filtersKey]);
 
   useEffect(() => {
     if (!openRowMenuId) return;
@@ -222,6 +290,57 @@ const OrdersListPage: React.FC = () => {
     }
   };
 
+  const [isExporting, setIsExporting] = useState(false);
+
+  // Pulls every order matching the current search/status filter, not just
+  // the page currently on screen — same page-looping approach as
+  // SuppliersListPage/ProductsListPage's export, since INVENTORY.ORDERS is
+  // server-paginated.
+  const fetchAllOrdersForExport = useCallback(async (): Promise<Order[]> => {
+    const all: Order[] = [];
+    let page = 1;
+    const limit = 100;
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const res = await api.get(INVENTORY.ORDERS, {
+        params: {
+          search: debouncedSearch || undefined,
+          status: statusFilter || undefined,
+          page,
+          limit,
+        },
+      });
+      const chunk: Order[] = res.data?.data?.data ?? [];
+      all.push(...chunk);
+      if (chunk.length < limit) break;
+      page += 1;
+    }
+    return all;
+  }, [debouncedSearch, statusFilter]);
+
+  const handleExport = useCallback(async (format: "pdf" | "csv" | "excel") => {
+    const permKey = format === "pdf" ? "export_pdf" : format === "csv" ? "export_csv" : "export_excel";
+    if (!can(permKey)) { dispatch(showPermissionDenied(friendlyExportDenied(permKey))); return; }
+    setIsExporting(true);
+    try {
+      const all = await fetchAllOrdersForExport();
+      if (format === "pdf") {
+        downloadBlob(exportOrdersPDF(all, formatAmount), "orders.pdf", "application/pdf");
+      } else if (format === "csv") {
+        downloadBlob(exportOrdersCSV(all, formatAmount), "orders.csv", "text/csv;charset=utf-8;");
+      } else {
+        const blob = await exportOrdersExcel(all, formatAmount);
+        downloadBlob(blob, "orders.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      }
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error(`Order ${format.toUpperCase()} export failed:`, err);
+      showError("Export failed. Please try again.");
+    } finally {
+      setIsExporting(false);
+    }
+  }, [can, dispatch, fetchAllOrdersForExport, formatAmount, showError]);
+
   return (
     <div className="suppliers-list-page">
       {overlay}
@@ -233,9 +352,39 @@ const OrdersListPage: React.FC = () => {
           </h1>
           <p>Create and manage purchase orders sent to your suppliers.</p>
         </div>
-        <Button variant="dark" iconLeft={<PlusLg size={14} />} onClick={goToNewOrder}>
-          New Order
-        </Button>
+        <div className="d-flex gap-2">
+          <Dropdown>
+            <Dropdown.Toggle
+              variant="outline-secondary"
+              className="btn-options bg-white border-subtle d-flex align-items-center fw-medium"
+              id="orders-options-dropdown"
+              disabled={isExporting}
+            >
+              Options
+            </Dropdown.Toggle>
+            <Dropdown.Menu
+              align="end"
+              className="shadow-sm border-0 rounded-3 py-2"
+              style={{ minWidth: "220px" }}
+            >
+              <Dropdown.Header className="px-3 py-1 text-muted fw-bold" style={{ fontSize: "12px", textTransform: "uppercase" }}>
+                Export
+              </Dropdown.Header>
+              <Dropdown.Item onClick={() => handleExport("pdf")} disabled={isExporting} className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark">
+                <FileEarmarkPdf size={16} /> Export All Data as PDF
+              </Dropdown.Item>
+              <Dropdown.Item onClick={() => handleExport("excel")} disabled={isExporting} className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark">
+                <FileEarmarkExcel size={16} /> Export All Data as Excel
+              </Dropdown.Item>
+              <Dropdown.Item onClick={() => handleExport("csv")} disabled={isExporting} className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark">
+                <FiletypeCsv size={16} /> Export All Data as CSV
+              </Dropdown.Item>
+            </Dropdown.Menu>
+          </Dropdown>
+          <Button variant="dark" iconLeft={<PlusLg size={14} />} onClick={goToNewOrder}>
+            New Order
+          </Button>
+        </div>
       </header>
 
       <div className="suppliers-list-page__controls">
@@ -314,7 +463,7 @@ const OrdersListPage: React.FC = () => {
                 <tr
                   key={o.id}
                   style={{ cursor: "pointer" }}
-                  onClick={() => { setSelectedOrderId(o.id); setIsDrawerOpen(true); }}
+                  onClick={() => { console.log("[OrdersListPage] row clicked", o.id); setSelectedOrderId(o.id); setIsDrawerOpen(true); }}
                 >
                   <td className="fw-semibold">{o.order_number}</td>
                   <td>{o.supplier_name || "—"}</td>
@@ -327,11 +476,12 @@ const OrdersListPage: React.FC = () => {
                   <td>{o.total_quantity ?? 0}</td>
                   <td>{formatAmount(o.total_price ?? 0)}</td>
                   <td>{o.payment_terms_days != null ? `${o.payment_terms_days} days` : "—"}</td>
-                  <td className="actions-cell orders-kebab-wrap" onClick={(e) => e.stopPropagation()}>
+                  <td className="actions-cell orders-kebab-wrap" onClick={(e) => { console.log("[OrdersListPage] td stopPropagation"); e.stopPropagation(); }}>
                     <button
                       className="orders-kebab-btn"
                       title="Actions"
                       onClick={(e) => {
+                        console.log("[OrdersListPage] kebab button clicked", o.id);
                         const isOpen = openRowMenuId === o.id;
                         setOpenRowMenuId(isOpen ? null : o.id);
                         if (!isOpen) {
@@ -362,6 +512,18 @@ const OrdersListPage: React.FC = () => {
                             </button>
                           </li>
                         )}
+                        <li>
+                          <button
+                            className="orders-kebab-item"
+                            disabled={downloadingPdfId === o.id}
+                            onClick={() => {
+                              setOpenRowMenuId(null);
+                              handleDownloadPdf(o);
+                            }}
+                          >
+                            <FileEarmarkPdf size={14} /> {downloadingPdfId === o.id ? "Generating..." : "Download PDF"}
+                          </button>
+                        </li>
                         <li>
                           <button
                             className="orders-kebab-item"

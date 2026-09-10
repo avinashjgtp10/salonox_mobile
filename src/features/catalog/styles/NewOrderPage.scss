@@ -1,7 +1,6 @@
 // ── "+ Add Supplier" popup ──────────────────────────────────────────────────
-// Centered modal, not the right-edge slide-over Suppliers List/Detail use for
-// their own Add/Edit Supplier (.supplier-panel-overlay/.supplier-panel in
-// SuppliersListPage.scss) — deliberately a different treatment here.
+// Centered modal — deliberately a different treatment than the Suppliers
+// list's own Add/Edit flow (a full route, not a slide-over).
 .supplier-modal-overlay {
   position: fixed;
   inset: 0;
@@ -129,6 +128,15 @@
     }
   }
 
+  // The shared .field-group--error rule (AddSupplierPage.scss) doesn't
+  // cover type="number" — this page's Order Date/Tax Rate/Shipping fields
+  // need their own error-border rule (page-scoped, not the shared one, so
+  // number inputs elsewhere aren't affected).
+  .field-group--error input[type="number"] {
+    border-color: #dc2626 !important;
+    &:focus { box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12) !important; }
+  }
+
   .field-row-2,
   .field-row-3 {
     gap: 12px;
@@ -250,7 +258,26 @@
       border-color: #6366f1;
       box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
     }
+
+    // The shared .field-group--error rule (AddSupplierPage.scss) only
+    // covers text/email/url/tel inputs — every field in this table is
+    // type="number", so its own error state needs its own rule.
+    &.new-order-input--error {
+      border-color: #dc2626;
+      &:focus { box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12); }
+    }
   }
+}
+
+// Per-cell validation message — same red/size as the shared .field-error,
+// just without that class's own margin-top (this sits directly under a
+// cramped table cell's input, not a full field-group).
+.new-order-cell-error {
+  display: block;
+  color: #dc2626;
+  font-size: 11px;
+  margin-top: 4px;
+  line-height: 1.3;
 }
 
 // The picked product's name, standing in for ProductSearchSelect's input

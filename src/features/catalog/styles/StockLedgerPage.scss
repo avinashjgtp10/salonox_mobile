@@ -77,39 +77,72 @@
   // Flat on the page background — no card wrapper around the table.
 }
 
-.sl-table-header {
-  font-size: 16px;
-  font-weight: 700;
-  color: #101828;
-  margin: 0 0 12px;
-}
-
 .sl-table-wrap {
   overflow: visible;
 }
 
 .sl-table {
   width: 100%;
-  border-collapse: collapse;
+  // separate (not collapse) + border-spacing: 0 — same as ProductAuditPage's
+  // .paudit-table and ProductInventoryPage's .product-table, the two other
+  // list tables this one is meant to read as part of the same family. An
+  // outer border only renders reliably with per-cell border-radius under
+  // `separate`; `collapse` merges/clips it unpredictably across browsers.
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: 13.5px;
+  background: #fff;
+  border: 1px solid #eaecf0;
+  border-radius: 12px;
+  // No overflow:hidden — it would clip the row-actions dropdown for a row
+  // near the bottom of the table (Bootstrap's Dropdown.Menu renders
+  // in-place, not in a portal — see .paudit-table for the identical
+  // reasoning). Corners are rounded directly on the header/last-row cells
+  // below instead.
 
+  // Row dividers were #f2f4f7 (body) — pale enough against the page's white
+  // background to read as "no border at all" — and there was no vertical
+  // divider between columns at all. Matched to #eaecf0 throughout, the same
+  // shade the rest of the Inventory table family uses, with a border-right
+  // on every cell so columns divide too — dropped on each row's last cell
+  // so no stray line floats past the actions column's icon.
+  // Padding/weight/letter-spacing matched to .paudit-table's own thead th /
+  // tbody td exactly — the same "other table" this file's border colors
+  // were just aligned to.
   thead th {
     text-align: left;
-    padding: 10px 16px;
+    padding: 12px 16px;
     font-size: 12px;
-    font-weight: 700;
+    font-weight: 600;
+    letter-spacing: 0.02em;
     text-transform: uppercase;
     color: #667085;
     background: #f9fafb;
-    border-bottom: 1px solid #e5e7eb;
+    border-bottom: 1px solid #eaecf0;
+    border-right: 1px solid #eaecf0;
     white-space: nowrap;
+
+    &:first-child { border-top-left-radius: 12px; }
+    &:last-child { border-right: none; border-top-right-radius: 12px; }
   }
 
   tbody td {
-    padding: 12px 16px;
-    border-bottom: 1px solid #f2f4f7;
+    padding: 14px 16px;
+    border-bottom: 1px solid #eaecf0;
+    border-right: 1px solid #eaecf0;
     color: #344054;
     white-space: nowrap;
+
+    &:last-child { border-right: none; }
+  }
+
+  // Last row's own border-bottom would double up against the table's outer
+  // bottom border — drop it there, same as .paudit-table.
+  tbody tr:last-child td {
+    border-bottom: none;
+
+    &:first-child { border-bottom-left-radius: 12px; }
+    &:last-child { border-bottom-right-radius: 12px; }
   }
 
   .sl-num {
@@ -467,7 +500,7 @@
   &__head,
   &__row {
     display: grid;
-    grid-template-columns: 1.6fr 1.3fr 1fr 32px;
+    grid-template-columns: 1.5fr 0.9fr 1.2fr 0.9fr 32px;
     gap: 8px;
     align-items: center;
     padding: 8px 10px;
@@ -488,6 +521,12 @@
 
     &:last-child { border-radius: 0 0 9px 9px; }
   }
+}
+
+.sl-adj-current-stock {
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
 }
 
 .sl-adj-line-err {

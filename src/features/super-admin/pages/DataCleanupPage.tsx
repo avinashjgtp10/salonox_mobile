@@ -107,6 +107,10 @@ export default function DataCleanupPage() {
   async function handleClear() {
     if (!clearTarget) return;
     setClearing(true);
+    // clearSalonDataThunk resolves to just the cleared salon's id — the
+    // slice's clearSalonDataThunk.fulfilled reducer patches only that one
+    // row's counts in state.salons (subscription/plan fields untouched),
+    // so no re-fetch is needed here and every other row stays exactly as-is.
     const r = await dispatch(clearSalonDataThunk(clearTarget.id));
     if (clearSalonDataThunk.fulfilled.match(r)) {
       showToast(`All data for "${clearTarget.name}" has been cleared.`);
@@ -195,7 +199,15 @@ export default function DataCleanupPage() {
                       : <span style={{ color: "#d97706", fontSize: 12.5, fontWeight: 600 }}>⚠ Pending</span>}
                   </td>
                   <td style={{ padding: "13px 16px" }}>
-                    <ActionBtn label="Clear Data" color="#dc2626" bg="#fef2f2" onClick={() => setClearTarget({ id: s.id, name: s.name })} disabled={clearing} />
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <ActionBtn label="Clear Data" color="#dc2626" bg="#fef2f2" onClick={() => setClearTarget({ id: s.id, name: s.name })} disabled={clearing} />
+                      {s.data_cleared_at && (
+                        <span title={`Cleared at ${new Date(s.data_cleared_at).toLocaleString("en-IN")}`}
+                          style={{ color: "#16a34a", fontSize: 11, fontWeight: 600, whiteSpace: "nowrap" }}>
+                          ✓ Cleared
+                        </span>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))

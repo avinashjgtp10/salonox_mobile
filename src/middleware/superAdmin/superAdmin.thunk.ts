@@ -83,7 +83,7 @@ export const forceOnboardingThunk = createAsyncThunk<void, string, { rejectValue
   }
 );
 
-export const impersonateSalonThunk = createAsyncThunk<{ token: string }, string, { rejectValue: string }>(
+export const impersonateSalonThunk = createAsyncThunk<{ token: string; refreshToken?: string; isOnboardingComplete?: boolean }, string, { rejectValue: string }>(
   "superAdmin/impersonate",
   async (id, { rejectWithValue }) => {
     try {
@@ -106,11 +106,15 @@ export const deleteSalonThunk = createAsyncThunk<void, string, { rejectValue: st
   }
 );
 
-export const clearSalonDataThunk = createAsyncThunk<void, string, { rejectValue: string }>(
+// Returns just the cleared salon's id so the reducer can patch only that
+// row in state.salons (staff/client/booking/revenue counts reset to 0)
+// instead of forcing a full re-fetch of every other unrelated row.
+export const clearSalonDataThunk = createAsyncThunk<string, string, { rejectValue: string }>(
   "superAdmin/clearSalonData",
   async (id, { rejectWithValue }) => {
     try {
       await api.post(SUPER_ADMIN.SALON_CLEAR_DATA(id));
+      return id;
     } catch (err: any) {
       return rejectWithValue(err?.response?.data?.error?.message ?? err?.message ?? "Failed to clear salon data");
     }
@@ -223,7 +227,7 @@ export const createUserThunk = createAsyncThunk<any, { first_name: string; last_
   }
 );
 
-export const impersonateUserThunk = createAsyncThunk<{ token: string; isOnboardingComplete: boolean }, string, { rejectValue: string }>(
+export const impersonateUserThunk = createAsyncThunk<{ token: string; refreshToken?: string; isOnboardingComplete: boolean }, string, { rejectValue: string }>(
   "superAdmin/impersonateUser",
   async (id, { rejectWithValue }) => {
     try {
@@ -337,6 +341,30 @@ export const updateSubscriptionPermissionsThunk = createAsyncThunk<any, { salonI
       return res.data?.data ?? res.data;
     } catch (err: any) {
       return rejectWithValue(err?.message ?? "Failed to save permissions");
+    }
+  }
+);
+
+export const applySubscriptionThunk = createAsyncThunk<any, { salonId: string; startDate: string; endDate: string }, { rejectValue: string }>(
+  "superAdmin/applySubscription",
+  async ({ salonId, startDate, endDate }, { rejectWithValue }) => {
+    try {
+      const res = await api.post(SUPER_ADMIN.SUBSCRIPTION_APPLY(salonId), { start_date: startDate, end_date: endDate });
+      return res.data?.data ?? res.data;
+    } catch (err: any) {
+      return rejectWithValue(err?.response?.data?.error?.message ?? err?.message ?? "Failed to apply subscription");
+    }
+  }
+);
+
+export const removeSubscriptionThunk = createAsyncThunk<any, string, { rejectValue: string }>(
+  "superAdmin/removeSubscription",
+  async (salonId, { rejectWithValue }) => {
+    try {
+      const res = await api.post(SUPER_ADMIN.SUBSCRIPTION_REMOVE(salonId), {});
+      return res.data?.data ?? res.data;
+    } catch (err: any) {
+      return rejectWithValue(err?.response?.data?.error?.message ?? err?.message ?? "Failed to remove subscription");
     }
   }
 );

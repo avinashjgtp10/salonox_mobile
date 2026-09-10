@@ -9,6 +9,7 @@ import salonReducer from "./salonSlice";
 import clientReducer from "./clientSlice";
 import userReducer from "./userSlice";
 import staffReducer from "./staffSlice";
+import rolesReducer from "./rolesSlice";
 import catalogReducer from "./catalogSlice";
 import settingReducer from "./settingSlice";
 import appReducer from "./appSlice";
@@ -34,6 +35,26 @@ import branchOwnerReducer from "./branchOwnerSlice";
 import supportReducer from "./supportSlice";
 import cashCounterReducer from "./cashCounterSlice";
 import spotlightReducer from "./spotlightSlice";
+import permissionDialogReducer from "./permissionDialogSlice";
+
+// An impersonation/oauth-success tab (opened via window.open, e.g. Super
+// Admin's "Impersonate") shares localStorage with every other tab on this
+// origin — redux-persist would otherwise rehydrate whatever session was
+// persisted there (the super admin's own refreshToken) before that tab's
+// OAuthSuccessPage ever runs its own login() dispatch. GuestGuard then sees
+// that rehydrated super_admin session and redirects to /super-admin,
+// hijacking the impersonation before it can take effect. Wiping the
+// persisted auth key here — synchronously, before persistReducer/
+// persistStore below ever touch it — closes that race: this module is
+// imported (and evaluated) before any component renders, so this always
+// runs ahead of rehydration.
+if (window.location.pathname === "/oauth/success" || window.location.pathname === "/oauth-success") {
+  try {
+    window.localStorage.removeItem("persist:auth");
+  } catch {
+    // localStorage unavailable (private mode, etc.) — nothing to purge.
+  }
+}
 
 const authPersistConfig = {
   key: "auth",
@@ -64,6 +85,7 @@ export const store = configureStore({
     client: clientReducer,
     user: userReducer,
     staff: staffReducer,
+    roles: rolesReducer,
     catalog: catalogReducer,
     setting: settingReducer,
     app: appReducer,
@@ -91,6 +113,7 @@ export const store = configureStore({
     support: supportReducer,
     cashCounter: cashCounterReducer,
     spotlight: spotlightReducer,
+    permissionDialog: permissionDialogReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

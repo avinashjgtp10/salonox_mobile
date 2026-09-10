@@ -11,6 +11,8 @@ import {
 import { deleteCategoryThunk } from "../../../middleware/services/categories.thunk";
 import type { FetchServicesParams } from "../../../middleware/services/services.thunk";
 import { exportServicesPDF, exportServicesExcel, exportServicesCSV } from "../utils/serviceExport";
+import { usePermissions } from "../../../hooks/usePermissions";
+import { showPermissionDenied } from "../../../store/permissionDialogSlice";
 import type { Service } from "../types/catalog.types";
 import {
   Search,
@@ -131,9 +133,17 @@ const sortServices = (list: Service[], sortBy: SortId): Service[] => {
   return copy;
 };
 
+// Same friendly copy PermissionGuard and the interceptor-driven global popup
+// already use for a backend 403 — the PDF/Excel/CSV export here is built
+// entirely client-side (no backend call to deny), so this is the only
+// enforcement point export_pdf/export_csv/export_excel actually have for it.
+const friendlyExportDenied = (permKey: string) =>
+  `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`;
+
 const ServicesListPage: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
+  const { can } = usePermissions();
   const { services, categories, loading, error, pagination, fetchServices } =
     useServices();
   const { createCategory, updateCategory, deleteCategory, loading: catLoading } =
@@ -168,7 +178,7 @@ const ServicesListPage: React.FC = () => {
   const [categoryDeleteBlocked, setCategoryDeleteBlocked] = useState<{ name: string; count: number } | null>(null);
   const [categoryDeleteError, setCategoryDeleteError] = useState<string | null>(null);
   const [currentPage, setCurrentPage]             = useState(1);
-  const [pageSize, setPageSize]                   = useState(25);
+  const [pageSize, setPageSize]                   = useState(10);
 
   const [selectedService, setSelectedService]   = useState<Service | null>(null);
   const [deletingService, setDeletingService]   = useState<Service | null>(null);
@@ -299,8 +309,37 @@ const ServicesListPage: React.FC = () => {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  // Close the per-service kebab menu on any outside click. Unlike the
+  // dropdowns above, each ServiceCard's menu has no shared ref to check
+  // against (there's one per row) — instead ServiceCard's own wrapper
+  // (.slp__dd-wrap) stops click propagation for anything inside it, so this
+  // document-level "click" listener only ever fires for genuine outside
+  // clicks. Same pattern ClientsListPage uses for its per-row menu.
+  useEffect(() => {
+    if (!openCardMenu) return;
+    const handler = () => setOpenCardMenu(null);
+    document.addEventListener("click", handler);
+    return () => document.removeEventListener("click", handler);
+  }, [openCardMenu]);
+
   // Reset the "type DELETE to confirm" field whenever a delete target opens/closes
   useEffect(() => { setDeleteServiceInput(""); }, [deletingService]);
+
+  // Re-fetch the currently-viewed page/pageSize/search/filters combination —
+  // every action that mutates the list (delete, bulk delete, category
+  // add/edit/delete, import, reorder) needs to land back on the same page at
+  // the same limit, not fetchServices()'s own no-args fallback of limit=200,
+  // which would silently ignore the selected page size and re-paginate
+  // client-side against a larger-than-requested batch.
+  const refetchCurrentPage = useCallback(() => {
+    fetchServices({
+      page: currentPage,
+      limit: pageSize,
+      search: searchQuery || undefined,
+      categoryId: selectedCategory !== "all" ? selectedCategory : undefined,
+      ...buildFilterParams(filters),
+    });
+  }, [fetchServices, currentPage, pageSize, searchQuery, selectedCategory, filters]);
 
   // ── Download helpers — fetch ALL services then export client-side ────────────
 
@@ -361,6 +400,7 @@ const ServicesListPage: React.FC = () => {
 
   const handleDownloadPdf = useCallback(async () => {
     setShowOptMenu(false);
+    if (!can("export_pdf")) { dispatch(showPermissionDenied(friendlyExportDenied("export_pdf"))); return; }
     try {
       const filteredServices = await fetchFilteredServicesForExport();
       exportServicesPDF(filteredServices, {
@@ -370,19 +410,21 @@ const ServicesListPage: React.FC = () => {
     } catch (err) {
       console.error("[ServicesListPage] PDF export failed:", err);
     }
-  }, [fetchFilteredServicesForExport, currentSalon, userProfile]);
+  }, [can, dispatch, fetchFilteredServicesForExport, currentSalon, userProfile]);
 
   const handleDownloadExcel = useCallback(async () => {
     setShowOptMenu(false);
+    if (!can("export_excel")) { dispatch(showPermissionDenied(friendlyExportDenied("export_excel"))); return; }
     try { exportServicesExcel(await fetchFilteredServicesForExport()); }
     catch (err) { console.error("[ServicesListPage] Excel export failed:", err); }
-  }, [fetchFilteredServicesForExport]);
+  }, [can, dispatch, fetchFilteredServicesForExport]);
 
   const handleDownloadCsv = useCallback(async () => {
     setShowOptMenu(false);
+    if (!can("export_csv")) { dispatch(showPermissionDenied(friendlyExportDenied("export_csv"))); return; }
     try { exportServicesCSV(await fetchFilteredServicesForExport()); }
     catch (err) { console.error("[ServicesListPage] CSV export failed:", err); }
-  }, [fetchFilteredServicesForExport]);
+  }, [can, dispatch, fetchFilteredServicesForExport]);
 
   // ── Client-side filtering for Duration, Price Range, and Category ─────────
   const filteredServices = useMemo(() => {
@@ -723,15 +765,7 @@ const ServicesListPage: React.FC = () => {
           ) : error ? (
             <ErrorState
               message={String(error)}
-              onRetry={() =>
-                fetchServices({
-                  page: currentPage,
-                  limit: pageSize,
-                  search: searchQuery || undefined,
-                  categoryId: selectedCategory !== "all" ? selectedCategory : undefined,
-                  ...buildFilterParams(filters),
-                })
-              }
+              onRetry={refetchCurrentPage}
             />
           ) : flatServices.length === 0 ? (
             <EmptyState
@@ -850,13 +884,13 @@ const ServicesListPage: React.FC = () => {
         <ManageOrderModal
           services={services}
           onClose={() => setShowManageOrder(false)}
-          onSave={() => { fetchServices(); setShowManageOrder(false); }}
+          onSave={() => { refetchCurrentPage(); setShowManageOrder(false); }}
         />
       )}
       <ServiceImportModal
         show={showImport}
         onClose={() => setShowImport(false)}
-        onSuccess={fetchServices}
+        onSuccess={refetchCurrentPage}
       />
       {showPrintMenuCard && (
         <PrintMenuCardModal onClose={() => setShowPrintMenuCard(false)} />
@@ -998,7 +1032,7 @@ const ServicesListPage: React.FC = () => {
                     description: editCategoryDesc.trim() || undefined,
                   });
                   setEditingCategory(null);
-                  fetchServices();
+                  refetchCurrentPage();
                 }}
               >
                 {catLoading ? "Saving…" : "Save changes"}
@@ -1055,7 +1089,7 @@ const ServicesListPage: React.FC = () => {
                     return;
                   }
                   setDeletingCategory(null);
-                  fetchServices();
+                  refetchCurrentPage();
                 }}
               >
                 {catLoading ? "Deleting…" : "Delete"}
@@ -1151,14 +1185,7 @@ const ServicesListPage: React.FC = () => {
                   await dispatch(deleteServiceThunk(deletingService.id));
                   setDeleteLoading(false);
                   setDeletingService(null);
-                  fetchServices({
-                    page: currentPage,
-                    limit: pageSize,
-                    search: searchQuery || undefined,
-                    categoryId:
-                      selectedCategory !== "all" ? selectedCategory : undefined,
-                    ...buildFilterParams(filters),
-                  });
+                  refetchCurrentPage();
                 }}
               >
                 {deleteLoading ? "Deleting…" : "Delete service"}
@@ -1224,14 +1251,7 @@ const ServicesListPage: React.FC = () => {
                   setShowBulkDeleteModal(false);
                   setDeleteBulkInput("");
                   setSelectedServiceIds(new Set());
-                  fetchServices({
-                    page: currentPage,
-                    limit: pageSize,
-                    search: searchQuery || undefined,
-                    categoryId:
-                      selectedCategory !== "all" ? selectedCategory : undefined,
-                    ...buildFilterParams(filters),
-                  });
+                  refetchCurrentPage();
                 }}
               >
                 {deleteBulkLoading ? "Deleting…" : `Delete ${selectedServiceIds.size} service(s)`}
@@ -1301,7 +1321,7 @@ const ServicesListPage: React.FC = () => {
                   });
                   setShowAddCategory(false);
                   resetCategoryForm();
-                  fetchServices();
+                  refetchCurrentPage();
                 }}
               >
                 {catLoading ? "Adding…" : "Add category"}

@@ -6,13 +6,15 @@ import {
   ClockFill, Hash, CalendarX, ChatSquareText, ArrowLeft, CalendarCheck, EnvelopeCheck,
 } from "react-bootstrap-icons";
 import { useAppDispatch } from "../../../hooks/useAppRedux";
+import api from "../../../services/api/axios";
+import { ONLINE_BOOKING } from "../../../services/api/endpoints";
 import {
   fetchManagedBookingThunk,
   cancelManagedBookingThunk,
   rescheduleManagedBookingThunk,
 } from "../../../middleware/onlineBooking/onlineBooking.thunk";
 import {
-  C, GRADIENT, DAYS, MONTHS, fmtDur, fmtPrice, nextDays, buildSlots,
+  C, GRADIENT, DAYS, MONTHS, fmtDur, fmtPrice, nextDays,
   BackBtn, SectionHead, TimeChip,
 } from "../../online-booking/components/BookingFlow/shared";
 
@@ -34,7 +36,32 @@ export default function ManageBookingPage() {
   const [actionError, setActionError] = useState<string | null>(null);
 
   const dates = useMemo(() => nextDays(8), []);
-  const slots = useMemo(() => buildSlots(selDate), [selDate]);
+
+  // Real availability for the new time, same generator the public booking
+  // page uses, instead of the old hash-of-the-date fake list.
+  const [slots, setSlots] = useState<{ morning: string[]; afternoon: string[] }>({ morning: [], afternoon: [] });
+  const [slotsLoading, setSlotsLoading] = useState(false);
+  useEffect(() => {
+    if (mode !== "reschedule" || !booking?.salon_id) return;
+    let cancelled = false;
+    setSlotsLoading(true);
+    const dateStr = `${selDate.getFullYear()}-${String(selDate.getMonth() + 1).padStart(2, "0")}-${String(selDate.getDate()).padStart(2, "0")}`;
+    api.get(ONLINE_BOOKING.AVAILABILITY(String(booking.salon_id)), {
+      params: {
+        date: dateStr,
+        durationMinutes: booking.duration_minutes,
+        ...(booking.staff_id ? { staffId: booking.staff_id } : {}),
+      },
+    })
+      .then((res) => {
+        if (cancelled) return;
+        const all: string[] = res.data?.data?.slots ?? [];
+        setSlots({ morning: all.filter((t) => t.endsWith("AM")), afternoon: all.filter((t) => t.endsWith("PM")) });
+      })
+      .catch(() => { if (!cancelled) setSlots({ morning: [], afternoon: [] }); })
+      .finally(() => { if (!cancelled) setSlotsLoading(false); });
+    return () => { cancelled = true; };
+  }, [mode, booking?.salon_id, booking?.duration_minutes, booking?.staff_id, selDate]);
 
   useEffect(() => {
     if (!appointmentId || !token) {
@@ -511,9 +538,15 @@ export default function ManageBookingPage() {
 
               <SectionHead title="Available Times" sub={`${DAYS[selDate.getDay()]}, ${MONTHS[selDate.getMonth()]} ${selDate.getDate()}`} />
               <div className="mb-time-grid">
-                {[...slots.morning, ...slots.afternoon].map((t) => (
-                  <TimeChip key={t} t={t} sel={selTime} onPick={setSelTime} />
-                ))}
+                {slotsLoading ? (
+                  <p className="mb-error-text">Checking availability…</p>
+                ) : slots.morning.length === 0 && slots.afternoon.length === 0 ? (
+                  <p className="mb-error-text">No times available on this date — try another day.</p>
+                ) : (
+                  [...slots.morning, ...slots.afternoon].map((t) => (
+                    <TimeChip key={t} t={t} sel={selTime} onPick={setSelTime} />
+                  ))
+                )}
               </div>
 
               {actionError && <p className="mb-error-text mb-error-text--top-gap">{actionError}</p>}

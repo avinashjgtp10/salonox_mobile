@@ -6,6 +6,7 @@ import {
   updateSalonThunk,
   fetchBranchesThunk,
   createBranchThunk,
+  updateBranchThunk,
 } from "../middleware/salon/salon.thunk";
 import { logout } from "./authSlice";
 import type { Salon, Branch } from "../types/salon.types";
@@ -132,6 +133,22 @@ const salonSlice = createSlice({
       .addCase(createBranchThunk.rejected, (state, { payload }) => {
         state.loading.branches = false;
         state.error = payload ?? "Failed to create branch";
+      });
+
+    // ── Update Branch ─────────────────────────────────────────────────────────
+    builder
+      .addCase(updateBranchThunk.pending, (state) => {
+        state.loading.branches = true;
+        state.error = null;
+      })
+      .addCase(updateBranchThunk.fulfilled, (state, { payload }) => {
+        state.loading.branches = false;
+        const idx = state.branches.findIndex((b) => b.id === payload.id);
+        if (idx !== -1) state.branches[idx] = payload;
+      })
+      .addCase(updateBranchThunk.rejected, (state, { payload }) => {
+        state.loading.branches = false;
+        state.error = payload ?? "Failed to update branch";
       });
 
     // Clear stale salon context on logout — without this, switching accounts

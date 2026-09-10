@@ -1,7 +1,7 @@
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { useState, useEffect, Suspense } from "react";
 import { PageLoader } from "../../../components/ui";
-import { useAppDispatch } from "../../../hooks/useAppRedux";
+import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { logout, setCustomPermissions } from "../../../store/authSlice";
 import { getMySalonThunk } from "../../../middleware/salon/salon.thunk";
 import { fetchMeThunk } from "../../../middleware/user/user.thunk";
@@ -35,14 +35,28 @@ function detectOpenMenu(pathname: string): string | null {
 export default function DashboardLayout() {
   const location = useLocation();
   const [openMenu, setOpenMenu] = useState<string | null>(() => detectOpenMenu(location.pathname));
+  // Manually toggled via the sidebar's own collapse arrow, and also flipped
+  // on automatically whenever a flyout submenu opens (Catalog, Inventory,
+  // etc.) — that submenu panel already eats its own width, so shrinking the
+  // main sidebar down to icon-only alongside it keeps the combined
+  // sidebar+submenu footprint from overrunning the page content. It does
+  // NOT auto-expand back on close — same as the arrow itself, this only
+  // ever needs to actively fire the one way the user asked for.
+  const [collapsed, setCollapsed] = useState(false);
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
+  const role = useAppSelector((s) => s.auth.role);
+  const effectivePermissions = useAppSelector((s) => s.user.profile?.effective_permissions);
+
+  const handleMenuChange = (menu: string | null) => {
+    setOpenMenu(menu);
+    if (menu) setCollapsed(true);
+  };
 
   useEffect(() => {
     dispatch(getMySalonThunk());
     dispatch(fetchSpotlightFeaturesThunk());
     dispatch(fetchSettingsThunk());
-    dispatch(fetchCashCounterDashboardThunk());
 
     // Fetch user profile; for staff, sync custom_permissions into auth state.
     // Check role from the thunk's own fresh payload, not an outer selector —
@@ -60,6 +74,26 @@ export default function DashboardLayout() {
       }
     });
   }, [dispatch]);
+
+  // Separate from the mount effect above on purpose — that effect only ever
+  // runs once, before effective_permissions has necessarily loaded (it's
+  // fetched by fetchMeThunk inside it, asynchronously), so checking the
+  // permission there would wrongly see "not granted yet" for a staff member
+  // who actually has it and skip this forever. This effect instead reacts
+  // to effectivePermissions actually arriving. Previously unconditional —
+  // fired for every staff member on every Dashboard-section page load
+  // regardless of whether they could even see Cash Management, 403ing (and
+  // popping the global "Permission Required" dialog) on literally any page
+  // just from landing in the dashboard shell. UnclosedCounterGate/
+  // AutoOpenCounterForNewAccount below only matter to someone who can
+  // actually open/close the register in the first place.
+  useEffect(() => {
+    const isOwnerOrAdmin = role === "salon_owner" || role === "admin";
+    const canSeeCashManagement = isOwnerOrAdmin || effectivePermissions?.view_cash_management === true;
+    if (canSeeCashManagement) {
+      dispatch(fetchCashCounterDashboardThunk());
+    }
+  }, [dispatch, role, effectivePermissions]);
 
   useEffect(() => {
     setOpenMenu(detectOpenMenu(location.pathname));
@@ -95,12 +129,19 @@ export default function DashboardLayout() {
   return (
     <div className="dashboard">
       <DeploymentBanner />
-      <DashboardTopbar onLogout={handleLogout} />
+      <DashboardTopbar
+        onLogout={handleLogout}
+        collapsed={collapsed}
+        onToggleCollapsed={() => setCollapsed((c) => !c)}
+      />
       <UnclosedCounterGate />
       <AutoOpenCounterForNewAccount />
 
-      <div className="dashboard-body">
-        <DashboardSidebar openMenu={openMenu} onMenuChange={setOpenMenu} />
+      <div className={`dashboard-body${collapsed ? " dashboard-body--collapsed" : ""}`}>
+        <DashboardSidebar
+          openMenu={openMenu}
+          onMenuChange={handleMenuChange}
+        />
 
         {openMenu === "clients" && (
           <ClientsSubSidebar onClose={() => setOpenMenu(null)} />

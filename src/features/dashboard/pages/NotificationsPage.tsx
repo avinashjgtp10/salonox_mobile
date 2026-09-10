@@ -12,6 +12,9 @@ import {
   Clock,
   ArrowClockwise,
   ExclamationTriangle,
+  BoxSeam,
+  CalendarX,
+  Stars,
 } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { NOTIFICATIONS } from "../../../services/api/endpoints";
@@ -22,11 +25,15 @@ import "../styles/NotificationsPage.scss";
 
 interface Notification {
   id: string;
-  type: "appointment" | "payment" | "client" | "review" | "whatsapp" | "info";
+  type: "appointment" | "payment" | "client" | "review" | "whatsapp" | "info" | "warning" | "success" | "error" | "spotlight";
   title: string;
   body: string | null;
   is_read: boolean;
   created_at: string;
+  product_id?: string | null;
+  branch_id?: string | null;
+  alert_status?: "low_stock" | "out_of_stock" | "expiring_soon" | "expired" | null;
+  spotlight_feature_id?: string | null;
 }
 
 // ── Maps ───────────────────────────────────────────────────────────────────────
@@ -38,6 +45,8 @@ const NOTIF_ICONS: Record<string, React.ReactNode> = {
   review:      <StarFill     size={16} />,
   whatsapp:    <ChatDots     size={18} />,
   info:        <Bell         size={17} />,
+  warning:     <ExclamationTriangle size={16} />,
+  spotlight:   <Stars size={16} />,
 };
 
 const NOTIF_COLORS: Record<string, string> = {
@@ -47,6 +56,8 @@ const NOTIF_COLORS: Record<string, string> = {
   review:      "#f59e0b",
   whatsapp:    "#25d366",
   info:        "#6b7280",
+  warning:     "#f59e0b",
+  spotlight:   "#8b5cf6",
 };
 
 const NOTIF_LABELS: Record<string, string> = {
@@ -56,7 +67,36 @@ const NOTIF_LABELS: Record<string, string> = {
   review:      "Review",
   whatsapp:    "WhatsApp",
   info:        "Info",
+  warning:     "Inventory",
+  spotlight:   "New Feature",
 };
+
+// Inventory alerts all arrive with type "warning" — alert_status picks a
+// more specific icon/color/label than the generic warning triangle.
+const ALERT_ICONS: Record<string, React.ReactNode> = {
+  low_stock: <BoxSeam size={16} />,
+  out_of_stock: <BoxSeam size={16} />,
+  expiring_soon: <CalendarX size={15} />,
+  expired: <CalendarX size={15} />,
+};
+
+const ALERT_COLORS: Record<string, string> = {
+  low_stock: "#f59e0b",
+  out_of_stock: "#ef4444",
+  expiring_soon: "#f59e0b",
+  expired: "#ef4444",
+};
+
+const ALERT_LABELS: Record<string, string> = {
+  low_stock: "Low Stock",
+  out_of_stock: "Out of Stock",
+  expiring_soon: "Expiring Soon",
+  expired: "Expired",
+};
+
+const notifIcon = (n: Notification) => (n.alert_status ? ALERT_ICONS[n.alert_status] : undefined) ?? NOTIF_ICONS[n.type] ?? NOTIF_ICONS.info;
+const notifColor = (n: Notification) => (n.alert_status ? ALERT_COLORS[n.alert_status] : undefined) ?? NOTIF_COLORS[n.type] ?? NOTIF_COLORS.info;
+const notifLabel = (n: Notification) => (n.alert_status ? ALERT_LABELS[n.alert_status] : undefined) ?? NOTIF_LABELS[n.type] ?? n.type;
 
 // ── Trigger descriptions (for the "How it works" info box) ────────────────────
 const HOW_IT_WORKS = [
@@ -64,6 +104,8 @@ const HOW_IT_WORKS = [
   { icon: <CurrencyRupee size={14} />, color: "#10b981", text: "Sale or payment is created" },
   { icon: <PersonPlus   size={14} />, color: "#8b5cf6", text: "New client is added" },
   { icon: <ChatDots     size={14} />, color: "#25d366", text: "WhatsApp message received" },
+  { icon: <BoxSeam      size={14} />, color: "#f59e0b", text: "A product hits low or zero stock" },
+  { icon: <CalendarX    size={14} />, color: "#ef4444", text: "A product is expiring soon or has expired" },
 ];
 
 // ── Component ──────────────────────────────────────────────────────────────────
@@ -100,6 +142,15 @@ export default function NotificationsPage() {
       setNotifs(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
     } catch { /* ignore */ }
   }, []);
+
+  const handleItemClick = useCallback((n: Notification) => {
+    if (!n.is_read) handleMarkRead(n.id);
+    if (n.product_id) {
+      navigate(`/dashboard/inventory/products?highlight=${n.product_id}`);
+    } else if (n.spotlight_feature_id) {
+      navigate(`/dashboard/spotlight/${n.spotlight_feature_id}`);
+    }
+  }, [handleMarkRead, navigate]);
 
   const handleMarkAllRead = useCallback(async () => {
     try {
@@ -250,13 +301,13 @@ export default function NotificationsPage() {
               </div>
               <div className="notif-page-list">
                 {items.map(n => {
-                  const color = NOTIF_COLORS[n.type] ?? NOTIF_COLORS.info;
-                  const icon  = NOTIF_ICONS[n.type]  ?? NOTIF_ICONS.info;
+                  const color = notifColor(n);
+                  const icon  = notifIcon(n);
                   return (
                     <div
                       key={n.id}
                       className={`notif-page-item ${n.is_read ? "" : "notif-page-item--unread"}`}
-                      onClick={() => !n.is_read && handleMarkRead(n.id)}
+                      onClick={() => handleItemClick(n)}
                     >
                       <span className="notif-page-item-icon" style={{ background: color + "15", color }}>
                         {icon}
@@ -264,7 +315,7 @@ export default function NotificationsPage() {
                       <div className="notif-page-item-content">
                         <div className="notif-page-item-top">
                           <span className="notif-page-item-tag" style={{ background: color + "15", color }}>
-                            {NOTIF_LABELS[n.type] ?? n.type}
+                            {notifLabel(n)}
                           </span>
                           <span className="notif-page-item-time">{formatTimeAgo(n.created_at)}</span>
                         </div>

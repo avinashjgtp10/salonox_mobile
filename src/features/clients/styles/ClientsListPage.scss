@@ -552,6 +552,15 @@
     overflow-x: auto;
   }
 
+  // Pagination previously carried Bootstrap's mt-4 (24px), stacking on top
+  // of the Pagination component's own built-in padding/border-top and
+  // leaving a much bigger gap under the table than every other list page in
+  // the app (Stock Ledger, Product Inventory, etc.), which all rely on that
+  // component's intrinsic spacing alone with no extra margin-top of their own.
+  .clients-pagination {
+    margin-top: 0;
+  }
+
   .clients-table {
     background: white;
     border-radius: 12px;

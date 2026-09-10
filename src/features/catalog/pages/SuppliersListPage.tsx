@@ -1,6 +1,7 @@
-import React, { useState, useMemo, useEffect, useRef } from "react";
+import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
+import { Dropdown } from "react-bootstrap";
 import {
   Search,
   Shop,
@@ -10,11 +11,20 @@ import {
   PlusLg,
   CashCoin,
   X,
+  FileEarmarkPdf,
+  FileEarmarkExcel,
+  FiletypeCsv,
 } from "react-bootstrap-icons";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
-import { fetchSuppliersThunk, deleteSupplierThunk } from "../../../middleware/inventory/inventory.thunk";
+import { fetchSuppliersThunk, fetchSupplierFilterOptionsThunk, deleteSupplierThunk } from "../../../middleware/inventory/inventory.thunk";
 import type { Supplier, SupplierWithBalance, SupplierPaymentStatus } from "../../../types/inventory.types";
 import { useCurrency } from "../../../hooks/useCurrency";
+import api from "../../../services/api/axios";
+import { INVENTORY } from "../../../services/api/endpoints/inventory.endpoints";
+import { downloadBlob } from "../../../utils/downloadBlob";
+import { exportSuppliersPDF, exportSuppliersCSV, exportSuppliersExcel } from "../utils/supplierExport";
+import { usePermissions } from "../../../hooks/usePermissions";
+import { showPermissionDenied } from "../../../store/permissionDialogSlice";
 import LearnMoreLink from "../../../components/shared/LearnMoreLink";
 import Pagination from "../../../components/ui/Pagination";
 import { JiraFilterMenu } from "../../../components/ui";
@@ -25,6 +35,7 @@ import Modal from "../../../components/ui/Modal";
 import Input from "../../../components/ui/Input";
 import EmptyState from "../../../components/ui/EmptyState";
 import CreatePayoutModal from "../components/CreatePayoutModal";
+import SupplierPendingDetailsModal from "../components/SupplierPendingDetailsModal";
 import "../styles/SuppliersListPage.scss";
 
 const fmtDate = (value?: string | null) => {
@@ -131,13 +142,31 @@ interface FilterState {
 
 const DEFAULT_FILTERS: FilterState = { city: "", state: "" };
 
+// Same friendly copy PermissionGuard and the interceptor-driven global popup
+// already use for a backend 403 — this export is built entirely client-side
+// (no backend call to deny), so this is the only enforcement point
+// export_pdf/export_csv/export_excel actually have for it.
+const friendlyExportDenied = (permKey: string) =>
+  `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`;
+
 const SuppliersListPage: React.FC = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
+  const { can } = usePermissions();
+  const location = useLocation();
   const { formatAmount } = useCurrency();
-  const { suppliers, loading } = useAppSelector((state) => state.inventory);
+  const {
+    suppliers, suppliersTotal, supplierCities, supplierStates, loading,
+  } = useAppSelector((state) => state.inventory);
+  const currentSalonId = useAppSelector((state) => state.salon?.currentSalon?.id);
 
   const [search, setSearch] = useState("");
+  // The input stays controlled by `search` for instant typing feedback, but
+  // the list only refetches off this debounced copy — the list is now a
+  // real server round-trip (POST, paginated), not a client-side filter over
+  // an already-loaded array, so firing it on every keystroke would hit the
+  // API constantly.
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [appliedFilters, setAppliedFilters] = useState<FilterState>(DEFAULT_FILTERS);
@@ -152,30 +181,89 @@ const SuppliersListPage: React.FC = () => {
   const [deleteInput, setDeleteInput] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Pending Amount modal — opened from the Due Amount cell, not the row
+  // itself (which still navigates to the full Supplier Detail page).
+  const [pendingDetailsSupplierId, setPendingDetailsSupplierId] = useState<string | undefined>(undefined);
+
   useEffect(() => {
-    dispatch(fetchSuppliersThunk());
-  }, [dispatch]);
+    const t = setTimeout(() => setDebouncedSearch(search), 400);
+    return () => clearTimeout(t);
+  }, [search]);
 
-  // Suppliers load in full (no server-side pagination for this list), so
-  // City/State options and filtering are derived client-side from whatever's
-  // already in the store — same reasoning ProductsListPage's Category/Brand
-  // quick-filters use their own loaded lists rather than a dedicated endpoint.
-  const cityOptions = useMemo(() => {
-    const set = new Set<string>();
-    suppliers.forEach((s) => { if (s.city?.trim()) set.add(s.city.trim()); });
-    return Array.from(set).sort();
-  }, [suppliers]);
+  // Re-fetch the currently-viewed page/pageSize/search/filters combination —
+  // used after any action that mutates the list (delete, payout) so it lands
+  // back on the same view instead of resetting to page 1.
+  const refetchCurrentPage = useCallback(() => {
+    dispatch(fetchSuppliersThunk({
+      page: currentPage,
+      page_limit: pageSize,
+      search: debouncedSearch || undefined,
+      city: appliedFilters.city || undefined,
+      state: appliedFilters.state || undefined,
+    }));
+  }, [dispatch, currentPage, pageSize, debouncedSearch, appliedFilters]);
 
-  const stateOptions = useMemo(() => {
-    const set = new Set<string>();
-    suppliers.forEach((s) => { if (s.state?.trim()) set.add(s.state.trim()); });
-    return Array.from(set).sort();
-  }, [suppliers]);
+  // Tracks whether we're past the initial mount, so the effect below doesn't
+  // also fire (redundantly) on first render — mirrors ServicesListPage.tsx.
+  const isMountedRef = useRef(false);
+
+  // Initial fetch on mount — skipped when the store already has data from a
+  // previous visit AND this mount wasn't triggered by a successful Add/Edit
+  // save. AddSupplierPage navigates back with location.state.refresh only
+  // after a save; a plain Close navigates back with no state at all, so
+  // returning from Close reuses what's already in the store instead of
+  // calling the API again.
+  useEffect(() => {
+    const justSaved = (location.state as { refresh?: boolean } | null)?.refresh;
+    // eslint-disable-next-line no-console
+    console.log("[SuppliersListPage] mount effect", {
+      suppliersLength: suppliers.length,
+      supplierCitiesLength: supplierCities.length,
+      supplierStatesLength: supplierStates.length,
+      justSaved,
+      locationState: location.state,
+      pathname: location.pathname,
+    });
+    if (suppliers.length === 0 || justSaved) {
+      dispatch(fetchSuppliersThunk({ page: 1, page_limit: pageSize }));
+    }
+    // Same "don't refetch what's already loaded" reasoning as the list
+    // above — this was previously unconditional, so even a plain Close
+    // (no data change at all) still re-hit the locations endpoint on every
+    // return to this page.
+    if (supplierCities.length === 0 && supplierStates.length === 0) {
+      dispatch(fetchSupplierFilterOptionsThunk());
+    }
+    const t = setTimeout(() => { isMountedRef.current = true; }, 0);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Re-fetch when page/pageSize/search/filters change (skip initial mount,
+  // already handled above). When search/filters change while not already on
+  // page 1, reset to page 1 without firing a second (stale-page) fetch in
+  // the same tick — the page-1 reset alone triggers this effect again with
+  // the corrected page, so fetching here too would fire twice, the first
+  // time against the wrong (pre-reset) page number.
+  const filtersKey = JSON.stringify({ debouncedSearch, appliedFilters });
+  const prevFiltersKeyRef = useRef(filtersKey);
+  useEffect(() => {
+    if (!isMountedRef.current) return;
+    if (prevFiltersKeyRef.current !== filtersKey) {
+      prevFiltersKeyRef.current = filtersKey;
+      if (currentPage !== 1) {
+        setCurrentPage(1);
+        return;
+      }
+    }
+    refetchCurrentPage();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPage, pageSize, debouncedSearch, appliedFilters, filtersKey]);
 
   const filterFields: JiraFilterField[] = useMemo(() => [
-    { key: "city", label: "City", searchable: true, options: cityOptions.map((c) => ({ id: c, label: c })) },
-    { key: "state", label: "State", searchable: true, options: stateOptions.map((s) => ({ id: s, label: s })) },
-  ], [cityOptions, stateOptions]);
+    { key: "city", label: "City", searchable: true, options: supplierCities.map((c) => ({ id: c, label: c })) },
+    { key: "state", label: "State", searchable: true, options: supplierStates.map((s) => ({ id: s, label: s })) },
+  ], [supplierCities, supplierStates]);
 
   const filterMenuSelected = useMemo(() => ({
     city: appliedFilters.city ? [appliedFilters.city] : [],
@@ -185,29 +273,7 @@ const SuppliersListPage: React.FC = () => {
   const handleFiltersApply = (next: Record<string, string[]>) => {
     const one = (v?: string[]) => (v?.length ? v[v.length - 1] : "");
     setAppliedFilters({ city: one(next.city), state: one(next.state) });
-    setCurrentPage(1);
   };
-
-  const filtered = useMemo(
-    () =>
-      suppliers.filter((s) => {
-        const q = search.toLowerCase();
-        const matchesSearch = !q ||
-          s.name.toLowerCase().includes(q) ||
-          (s.first_name?.toLowerCase().includes(q) ?? false) ||
-          (s.last_name?.toLowerCase().includes(q) ?? false) ||
-          (s.email?.toLowerCase().includes(q) ?? false);
-        const matchesCity = !appliedFilters.city || s.city === appliedFilters.city;
-        const matchesState = !appliedFilters.state || s.state === appliedFilters.state;
-        return matchesSearch && matchesCity && matchesState;
-      }),
-    [search, suppliers, appliedFilters],
-  );
-
-  const paginated = filtered.slice(
-    (currentPage - 1) * pageSize,
-    currentPage * pageSize,
-  );
 
   const handleClearSearch = () => setSearch("");
 
@@ -224,19 +290,96 @@ const SuppliersListPage: React.FC = () => {
     setPayoutSupplierId(undefined);
   };
 
+  const [isExporting, setIsExporting] = useState(false);
+
+  // Pulls every supplier matching the current search/filters, not just the
+  // page currently on screen — same page-looping approach as
+  // ProductsListPage's export, since SUPPLIERS_LIST is server-paginated.
+  const fetchAllSuppliersForExport = useCallback(async (): Promise<SupplierWithBalance[]> => {
+    const all: SupplierWithBalance[] = [];
+    let page = 1;
+    const page_limit = 100;
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const res = await api.post(INVENTORY.SUPPLIERS_LIST, {
+        salon_id: currentSalonId,
+        page,
+        page_limit,
+        search: debouncedSearch || undefined,
+        city: appliedFilters.city || undefined,
+        state: appliedFilters.state || undefined,
+      });
+      const chunk: SupplierWithBalance[] = res.data?.data?.data ?? [];
+      all.push(...chunk);
+      if (chunk.length < page_limit) break;
+      page += 1;
+    }
+    return all;
+  }, [currentSalonId, debouncedSearch, appliedFilters]);
+
+  const handleExport = useCallback(async (format: "pdf" | "csv" | "excel") => {
+    const permKey = format === "pdf" ? "export_pdf" : format === "csv" ? "export_csv" : "export_excel";
+    if (!can(permKey)) { dispatch(showPermissionDenied(friendlyExportDenied(permKey))); return; }
+    setIsExporting(true);
+    try {
+      const all = await fetchAllSuppliersForExport();
+      if (format === "pdf") {
+        downloadBlob(exportSuppliersPDF(all, formatAmount), "suppliers.pdf", "application/pdf");
+      } else if (format === "csv") {
+        downloadBlob(exportSuppliersCSV(all, formatAmount), "suppliers.csv", "text/csv;charset=utf-8;");
+      } else {
+        const blob = await exportSuppliersExcel(all, formatAmount);
+        downloadBlob(blob, "suppliers.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      }
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error(`Supplier ${format.toUpperCase()} export failed:`, err);
+    } finally {
+      setIsExporting(false);
+    }
+  }, [can, dispatch, fetchAllSuppliersForExport, formatAmount]);
+
   return (
     <div className="suppliers-list-page">
       <header className="suppliers-list-page__header">
         <div>
           <h1>
             Suppliers
-            <span className="count-badge">{filtered.length}</span>
+            <span className="count-badge">{suppliersTotal}</span>
           </h1>
           <p>
             Add and manage details of your suppliers. <LearnMoreLink topic="suppliers">Learn more</LearnMoreLink>
           </p>
         </div>
         <div className="d-flex gap-2">
+          <Dropdown>
+            <Dropdown.Toggle
+              variant="outline-secondary"
+              className="btn-options bg-white border-subtle d-flex align-items-center fw-medium"
+              id="suppliers-options-dropdown"
+              disabled={isExporting}
+            >
+              Options
+            </Dropdown.Toggle>
+            <Dropdown.Menu
+              align="end"
+              className="shadow-sm border-0 rounded-3 py-2"
+              style={{ minWidth: "220px" }}
+            >
+              <Dropdown.Header className="px-3 py-1 text-muted fw-bold" style={{ fontSize: "12px", textTransform: "uppercase" }}>
+                Export
+              </Dropdown.Header>
+              <Dropdown.Item onClick={() => handleExport("pdf")} disabled={isExporting} className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark">
+                <FileEarmarkPdf size={16} /> Export All Data as PDF
+              </Dropdown.Item>
+              <Dropdown.Item onClick={() => handleExport("excel")} disabled={isExporting} className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark">
+                <FileEarmarkExcel size={16} /> Export All Data as Excel
+              </Dropdown.Item>
+              <Dropdown.Item onClick={() => handleExport("csv")} disabled={isExporting} className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark">
+                <FiletypeCsv size={16} /> Export All Data as CSV
+              </Dropdown.Item>
+            </Dropdown.Menu>
+          </Dropdown>
           <Button variant="outline-dark" iconLeft={<CashCoin size={14} />} onClick={() => openPayout()}>
             Create Payout
           </Button>
@@ -252,10 +395,7 @@ const SuppliersListPage: React.FC = () => {
           type="text"
           placeholder="Search suppliers by name, contact or email"
           value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            setCurrentPage(1);
-          }}
+          onChange={(e) => setSearch(e.target.value)}
           iconLeft={<Search size={16} />}
           iconRight={search ? (
             <button
@@ -311,7 +451,7 @@ const SuppliersListPage: React.FC = () => {
               ))}
             </tbody>
           </table>
-        ) : paginated.length > 0 ? (
+        ) : suppliers.length > 0 ? (
           <table className="supplier-table">
             <thead>
               <tr>
@@ -326,7 +466,7 @@ const SuppliersListPage: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {paginated.map((s) => {
+              {suppliers.map((s) => {
                 const sb = s as SupplierWithBalance;
                 const status: SupplierPaymentStatus = sb.status ?? "paid";
                 return (
@@ -347,7 +487,15 @@ const SuppliersListPage: React.FC = () => {
                   <td>{s.mobile_number || s.telephone_number || "—"}</td>
                   <td>{formatAmount(sb.total_purchase_amount ?? 0)}</td>
                   <td>{sb.pending_order_count ?? 0}</td>
-                  <td>{formatAmount(sb.due_amount ?? 0)}</td>
+                  <td>
+                    <button
+                      type="button"
+                      className="supplier-due-amount-btn"
+                      onClick={(e) => { e.stopPropagation(); setPendingDetailsSupplierId(s.id); }}
+                    >
+                      {formatAmount(sb.due_amount ?? 0)}
+                    </button>
+                  </td>
                   <td>{fmtDate(sb.due_date)}</td>
                   <td>
                     <span className={`supplier-status-badge supplier-status-badge--${status}`}>
@@ -387,11 +535,11 @@ const SuppliersListPage: React.FC = () => {
         )}
       </main>
 
-      {filtered.length > 0 && (
+      {suppliersTotal > 0 && (
         <Pagination
           currentPage={currentPage}
           pageSize={pageSize}
-          totalItems={filtered.length}
+          totalItems={suppliersTotal}
           onPageChange={setCurrentPage}
           onPageSizeChange={(sz) => { setPageSize(sz); setCurrentPage(1); }}
           className="suppliers-pagination"
@@ -417,6 +565,11 @@ const SuppliersListPage: React.FC = () => {
                 setIsDeleting(false);
                 setDeletingSupplier(null);
                 setDeleteInput("");
+                // Corrects suppliersTotal and backfills this page from the
+                // server — the slice's own local .filter() on delete just
+                // shrinks the in-memory array, which would otherwise leave
+                // the page short a row and the pagination count stale.
+                refetchCurrentPage();
               }}
             >
               Delete
@@ -446,7 +599,13 @@ const SuppliersListPage: React.FC = () => {
         show={payoutOpen}
         onClose={closePayout}
         supplierId={payoutSupplierId}
-        onSuccess={() => dispatch(fetchSuppliersThunk())}
+        onSuccess={refetchCurrentPage}
+      />
+
+      <SupplierPendingDetailsModal
+        show={!!pendingDetailsSupplierId}
+        onClose={() => setPendingDetailsSupplierId(undefined)}
+        supplierId={pendingDetailsSupplierId}
       />
     </div>
   );

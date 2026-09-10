@@ -12,6 +12,11 @@ export interface RewardPointsConfig {
   points_earned: number;  // ...to earn this many points
   redeem_points: number;  // this many points...
   redeem_value: number;   // ...are worth this much ₹ off the bill
+  // Most of the bill (before any membership/eWallet/reward/referral
+  // deduction) that reward points alone may ever cover — e.g. 20 means a
+  // ₹1,000 bill can have at most ₹200 paid via points, however many points
+  // the client has. 100 = no extra cap beyond balance/remaining-bill.
+  max_redeem_percent: number;
 }
 
 export const DEFAULT_REWARD_POINTS_CONFIG: RewardPointsConfig = {
@@ -20,6 +25,7 @@ export const DEFAULT_REWARD_POINTS_CONFIG: RewardPointsConfig = {
   points_earned: 100,
   redeem_points: 100,
   redeem_value: 50,
+  max_redeem_percent: 100,
 };
 
 export function parseRewardPointsValue(raw: Setting["value"]): RewardPointsConfig {

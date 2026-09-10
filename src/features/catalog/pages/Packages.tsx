@@ -17,6 +17,7 @@ import {
   PlusCircle,
   FileEarmarkText,
 } from "react-bootstrap-icons";
+import Pagination from "../../../components/ui/Pagination";
 import PackageFilterDrawer from "../components/PackageFilterDrawer";
 import type { PackageFilterState } from "../components/PackageFilterDrawer";
 import PackageDetailPanel from "../components/package/PackageDetailPanel";
@@ -206,13 +207,15 @@ const LandingView: React.FC<NavProps> = ({ onNavigate }) => (
 // ═══════════════════════════════════════════════════════════════════════
 // LIST VIEW
 // ═══════════════════════════════════════════════════════════════════════
-const PAGE_SIZE = 8;
-
 const ListView: React.FC<NavProps> = ({ onNavigate }) => {
   const navigate = useNavigate();
   const { formatAmount } = useCurrency();
   const [search, setSearch]   = useState("");
   const [page, setPage]       = useState(1);
+  // Rows-per-page — same shared Pagination component/behavior as Services,
+  // Products, Memberships and Consumable Inventory now use, replacing the
+  // page's old fixed PAGE_SIZE=8 with no way to change it.
+  const [pageSize, setPageSize] = useState(10);
   const [showOptions, setShowOptions] = useState(false);
   const [exporting, setExporting] = useState<"csv" | "excel" | "pdf" | null>(null);
 
@@ -230,7 +233,7 @@ const ListView: React.FC<NavProps> = ({ onNavigate }) => {
   
   const { data, isLoading } = useListPackagesQuery({
     page,
-    limit: PAGE_SIZE,
+    limit: pageSize,
     search: search || undefined,
     category: filters.category === "All categories" ? undefined : filters.category,
     status: filters.status === "All statuses" ? undefined : filters.status,
@@ -238,7 +241,6 @@ const ListView: React.FC<NavProps> = ({ onNavigate }) => {
 
   const paged = data?.items || [];
   const totalItems = data?.total || 0;
-  const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
 
   const selectedPkg = React.useMemo(() => {
     if (!selectedPkgId) return null;
@@ -435,22 +437,14 @@ const ListView: React.FC<NavProps> = ({ onNavigate }) => {
       </main>
 
       {/* Pagination */}
-      <footer className="pkg-list__pagination">
-        <span className="page-info">{paged.length} of {totalItems} packages</span>
-        <div className="pagination-controls">
-          <button
-            className="btn btn-sm btn-outline-secondary"
-            disabled={page <= 1}
-            onClick={() => setPage((p) => p - 1)}
-          >‹ Prev</button>
-          <span className="page-num">Page {page} of {totalPages}</span>
-          <button
-            className="btn btn-sm btn-outline-secondary"
-            disabled={page >= totalPages}
-            onClick={() => setPage((p) => p + 1)}
-          >Next ›</button>
-        </div>
-      </footer>
+      <Pagination
+        currentPage={page}
+        pageSize={pageSize}
+        totalItems={totalItems}
+        onPageChange={setPage}
+        onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
+        className="packages-pagination"
+      />
 
       {/* Filter Drawer */}
       {showFilterDrawer && (

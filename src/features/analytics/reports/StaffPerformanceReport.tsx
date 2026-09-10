@@ -5,11 +5,11 @@ import { STAFF_PERFORMANCE_REPORT } from "../../../services/api/endpoints";
 import ReportRefreshButton from "./ReportRefreshButton";
 import Breadcrumb from "../../../components/ui/Breadcrumb";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
-import { Pagination, Avatar, JiraFilterMenu } from "../../../components/ui";
-import type { JiraFilterField } from "../../../components/ui";
+import { Pagination, Avatar, JiraFilterMenu, DateRangeFilter, getDateRangePresetValue } from "../../../components/ui";
+import type { JiraFilterField, DateRangeFilterValue } from "../../../components/ui";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { useCurrency } from "../../../hooks/useCurrency";
-import StaffHistoryModal from "./StaffHistoryModal";
+import StaffHistoryModal from "../../staff/components/StaffHistoryModal";
 import "./StaffPerformanceReport.scss";
 
 const REPORT_NAME = "Staff Performance";
@@ -76,9 +76,9 @@ function mapRow(row: any): StaffPerformanceRow {
 
 export default function StaffPerformanceReport({ onBack, category, categoryKey }: { onBack: () => void; category: string; categoryKey: string }) {
   const { currencySymbol, formatAmount } = useCurrency();
-  // No date-range control in the UI — always scoped to the current month.
-  const today = new Date().toISOString().slice(0, 10);
-  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
+  const [historyStaffId, setHistoryStaffId] = useState<string | null>(null);
+  const [dateRange, setDateRange] = useState<DateRangeFilterValue>({ preset: "this_month", ...getDateRangePresetValue("this_month") });
+  const { startDate: dateFrom, endDate: dateTo } = dateRange;
 
   const [staffFilterIds, setStaffFilterIds] = useState<string[]>([]);
   const [paymentModeFilter, setPaymentModeFilter] = useState<string[]>([]);
@@ -86,6 +86,11 @@ export default function StaffPerformanceReport({ onBack, category, categoryKey }
   const [itemTypeFilter, setItemTypeFilter] = useState<string[]>([]);
   const [packageFilter, setPackageFilter] = useState<string[]>([]);
   const [membershipFilter, setMembershipFilter] = useState<string[]>([]);
+  // GST toggle under Filter -> Other. On by default (revenue shown gross of
+  // GST); a single-element array ("1"/"0") is reused here so it still fits
+  // JiraFilterMenu's per-field string[] draft/Apply/Clear lifecycle.
+  const [gstFilter, setGstFilter] = useState<string[]>(["1"]);
+  const includeGst = gstFilter[0] !== "0";
 
   const [search, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -104,7 +109,6 @@ export default function StaffPerformanceReport({ onBack, category, categoryKey }
   const [loading, setLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-  const [selectedStaff, setSelectedStaff] = useState<{ id: string; name: string } | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -119,7 +123,7 @@ export default function StaffPerformanceReport({ onBack, category, categoryKey }
     setLoading(true);
     try {
       const body: Record<string, any> = {
-        start_date: monthStart, end_date: today,
+        start_date: dateFrom, end_date: dateTo,
         page: currentPage, limit: pageSize,
       };
       if (debouncedSearch) body.search = debouncedSearch;
@@ -129,6 +133,7 @@ export default function StaffPerformanceReport({ onBack, category, categoryKey }
       if (itemTypeFilter.length > 0) body.item_types = itemTypeFilter;
       if (packageFilter.length > 0) body.package_ids = packageFilter;
       if (membershipFilter.length > 0) body.membership_ids = membershipFilter;
+      body.include_gst = includeGst;
 
       const res = await api.post(STAFF_PERFORMANCE_REPORT.SUMMARY(), body, { signal: ctrl.signal });
       const data = res.data?.data;
@@ -159,12 +164,12 @@ export default function StaffPerformanceReport({ onBack, category, categoryKey }
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [staffFilterIds, paymentModeFilter, paymentStatusFilter, itemTypeFilter, packageFilter, membershipFilter, debouncedSearch, currentPage, pageSize]);
+  }, [dateFrom, dateTo, staffFilterIds, paymentModeFilter, paymentStatusFilter, itemTypeFilter, packageFilter, membershipFilter, includeGst, debouncedSearch, currentPage, pageSize]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => {
     setCurrentPage(1);
-  }, [staffFilterIds, paymentModeFilter, paymentStatusFilter, itemTypeFilter, packageFilter, membershipFilter, debouncedSearch]);
+  }, [dateFrom, dateTo, staffFilterIds, paymentModeFilter, paymentStatusFilter, itemTypeFilter, packageFilter, membershipFilter, includeGst, debouncedSearch]);
 
   const filterFields: JiraFilterField[] = useMemo(() => [
     { key: "staff", label: "Staff", options: staffOptions, searchable: true },
@@ -173,6 +178,24 @@ export default function StaffPerformanceReport({ onBack, category, categoryKey }
     { key: "item_type", label: "Item Type", options: ITEM_TYPE_OPTIONS },
     { key: "package", label: "Package", options: packageOptions, searchable: true },
     { key: "membership", label: "Membership", options: membershipOptions, searchable: true },
+    {
+      key: "other",
+      label: "Other",
+      options: [],
+      render: (draft, setDraft) => {
+        const checked = draft[0] !== "0";
+        return (
+          <label className="jfm-option">
+            <input
+              type="checkbox"
+              checked={checked}
+              onChange={() => setDraft([checked ? "0" : "1"])}
+            />
+            <span>Include GST in revenue</span>
+          </label>
+        );
+      },
+    },
   ], [staffOptions, paymentModeOptions, packageOptions, membershipOptions]);
 
   const filterMenuSelected = useMemo(() => ({
@@ -182,7 +205,11 @@ export default function StaffPerformanceReport({ onBack, category, categoryKey }
     item_type: itemTypeFilter,
     package: packageFilter,
     membership: membershipFilter,
-  }), [staffFilterIds, paymentModeFilter, paymentStatusFilter, itemTypeFilter, packageFilter, membershipFilter]);
+    // Only surfaced when GST is switched OFF (non-default) — otherwise the
+    // Filters button's applied-count badge would permanently read "1" even
+    // with no real filter active, since this field's draft is never empty.
+    other: includeGst ? [] : gstFilter,
+  }), [staffFilterIds, paymentModeFilter, paymentStatusFilter, itemTypeFilter, packageFilter, membershipFilter, includeGst, gstFilter]);
 
   const handleFiltersApply = (next: Record<string, string[]>) => {
     setStaffFilterIds(next.staff ?? []);
@@ -191,6 +218,10 @@ export default function StaffPerformanceReport({ onBack, category, categoryKey }
     setItemTypeFilter(next.item_type ?? []);
     setPackageFilter(next.package ?? []);
     setMembershipFilter(next.membership ?? []);
+    // "Other" (GST) isn't a multi-select list — an empty/missing draft here
+    // means "cleared", which for a single on/off toggle should fall back to
+    // the default (GST included), not read as "0 selected -> false".
+    setGstFilter(next.other && next.other.length > 0 ? next.other : ["1"]);
   };
 
   const countRev = (count: number, revenue: number) => `${count} (${formatAmount(revenue)})`;
@@ -216,7 +247,7 @@ export default function StaffPerformanceReport({ onBack, category, categoryKey }
         <div className="rp-detail-back-row">
           <Breadcrumb current={REPORT_NAME} category={category} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
-            <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename={`staff-performance-${monthStart}-${today}`} variant="button" csv />
+            <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename={`staff-performance-${dateFrom}-${dateTo}`} variant="button" csv />
           </div>
         </div>
       </div>
@@ -231,6 +262,10 @@ export default function StaffPerformanceReport({ onBack, category, categoryKey }
             value={search}
             onChange={e => setSearchInput(e.target.value)}
           />
+        </div>
+        <div className="rp-detail-filter-group">
+          <label className="rp-detail-filter-label">Date Range</label>
+          <DateRangeFilter value={dateRange} onChange={setDateRange} />
         </div>
         <JiraFilterMenu fields={filterFields} selected={filterMenuSelected} onApply={handleFiltersApply} triggerLabel="Filters" />
         <div className="rp-detail-filter-actions">
@@ -277,8 +312,8 @@ export default function StaffPerformanceReport({ onBack, category, categoryKey }
               <tr
                 key={r.staffId}
                 className="rp-ss-clickable-row"
-                title={`View ${r.staffName}'s sales history`}
-                onClick={() => setSelectedStaff({ id: r.staffId, name: r.staffName })}
+                title={`View ${r.staffName}'s history`}
+                onClick={() => setHistoryStaffId(r.staffId)}
               >
                 <td>
                   <div className="rp-sp-staff-cell">
@@ -307,16 +342,7 @@ export default function StaffPerformanceReport({ onBack, category, categoryKey }
       <Pagination currentPage={currentPage} pageSize={pageSize} totalItems={total}
         onPageChange={setCurrentPage} onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }} />
 
-      {selectedStaff && (
-        <StaffHistoryModal
-          staffId={selectedStaff.id}
-          staffName={selectedStaff.name}
-          dateFrom={monthStart}
-          dateTo={today}
-          onClose={() => setSelectedStaff(null)}
-        />
-      )}
-
+      <StaffHistoryModal staffId={historyStaffId} onClose={() => setHistoryStaffId(null)} />
     </div>
   );
 }

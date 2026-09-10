@@ -26,7 +26,7 @@ export const fetchMarketplaceProfileThunk = createAsyncThunk<
 
 export const updateMarketplaceEssentialsThunk = createAsyncThunk<
   void,
-  { display_name: string; business_phone?: string; business_phone_country_code?: string; business_email?: string; },
+  { display_name: string; tagline?: string; website?: string; business_phone?: string; business_phone_country_code?: string; business_email?: string; },
   { rejectValue: string }
 >("marketplace/updateEssentials", async (payload, { rejectWithValue }) => {
   try {
@@ -34,6 +34,19 @@ export const updateMarketplaceEssentialsThunk = createAsyncThunk<
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);
     return rejectWithValue("Failed to update essentials.");
+  }
+});
+
+export const updateMarketplaceBookingPolicyThunk = createAsyncThunk<
+  void,
+  { max_advance_days?: number; min_notice_hours?: number; cancellation_notice_hours?: number; slot_interval_minutes?: number; },
+  { rejectValue: string }
+>("marketplace/updateBookingPolicy", async (payload, { rejectWithValue }) => {
+  try {
+    await api.put(MARKETPLACE.BOOKING_POLICY, payload);
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to update booking policy.");
   }
 });
 

@@ -29,9 +29,11 @@ import {
 } from "../cashManagement.export";
 import { sendDailySummaryEmail, fetchTodaysPaymentMethodCounts } from "../cashManagement.api";
 import { selectUserProfile } from "../../../store/selectors/slices.selectors";
-import { useAppSelector } from "../../../hooks/useAppRedux";
+import { useAppSelector, useAppDispatch } from "../../../hooks/useAppRedux";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { showGlobalToast } from "../../../utils/globalToast";
+import { usePermissions } from "../../../hooks/usePermissions";
+import { showPermissionDenied } from "../../../store/permissionDialogSlice";
 import type { CashExpenseRecord } from "../cashManagement.types";
 import { useCashManagement } from "../useCashManagement";
 import CashManagementExpensesTab from "./CashManagementExpensesTab";
@@ -96,6 +98,8 @@ const getErrorMessage = (err: unknown, fallback: string) => {
 
 export default function CashManagementPage() {
   const { formatAmount } = useCurrency();
+  const dispatch = useAppDispatch();
+  const { can } = usePermissions();
   const userProfile = useAppSelector(selectUserProfile);
   const userEmail = userProfile?.email;
   // Open/Close Counter use the shared success/error overlay (same as the
@@ -416,6 +420,17 @@ export default function CashManagementPage() {
 
   const runExport = async (format: CashManagementExportFormat) => {
     if (!exportDataset || exportingFormat) return;
+    // Entirely client-side (exportCashManagement*() below take an
+    // already-built dataset, no API call) — no backend call to deny, so
+    // this is the only enforcement point export_pdf/export_csv/export_excel
+    // actually have for it.
+    const permKey = format === "pdf" ? "export_pdf" : format === "excel" ? "export_excel" : "export_csv";
+    if (!can(permKey)) {
+      dispatch(showPermissionDenied(
+        `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+      ));
+      return;
+    }
     setExportingFormat(format);
     try {
       const options = {

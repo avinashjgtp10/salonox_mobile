@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Calendar3, ChevronDown } from "react-bootstrap-icons";
 import "./styles/DatePicker.scss";
 
@@ -192,38 +193,79 @@ export function DatePickerPanel({
 // breathing room, used to decide which edge to anchor to before the panel
 // itself has mounted.
 const PANEL_WIDTH = 268;
+// Approximate rendered height (padding + month/year row + day-name row +
+// 6-row day grid + footer) — the panel isn't mounted yet when this decision
+// is made, so this is an estimate, deliberately padded a little high rather
+// than cutting it close.
+const PANEL_HEIGHT_ESTIMATE = 360;
 
 export default function DatePicker({
   value, onChange, placeholder = "Select date", min, max, disabled = false, className = "", separator = "/",
 }: DatePickerProps) {
   const [open, setOpen] = useState(false);
-  // Left-anchored by default; flipped to the right edge when the trigger
-  // sits close enough to the right side of the viewport that a left-anchored
-  // panel would run off-screen (e.g. the "Select date" trigger in the
-  // booking Client panel, which sits flush against the drawer's right edge).
-  const [alignRight, setAlignRight] = useState(false);
+  const [coords, setCoords] = useState<{ top: number; left: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  // Portaled to document.body and positioned from the trigger's own
+  // getBoundingClientRect() instead of `position: absolute` anchored to
+  // .dp — a caller with little space below the trigger (e.g. a field near
+  // the top of a scrollable modal, like Record Purchase's Purchase Date)
+  // had the panel visually collide with whatever content follows it,
+  // since an absolutely-positioned element doesn't push later siblings
+  // down. Portaling escapes that entirely, the same fix already used for
+  // the Suppliers/ConsumableInventoryPage row-actions menus.
+  const updateCoords = () => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    // Flip to the right edge when a left-anchored panel would run
+    // off-screen (e.g. the "Select date" trigger in the booking Client
+    // panel, which sits flush against the drawer's right edge).
+    const left = rect.left + PANEL_WIDTH > window.innerWidth - 8
+      ? Math.max(8, rect.right - PANEL_WIDTH)
+      : rect.left;
+    // Flip to open above the trigger when there isn't enough room below it
+    // — e.g. Quick Sale's Edit Client "Date of Birth" field, which sits low
+    // enough in that modal that opening downward ran the panel past the
+    // modal's own footer (Save/Cancel) and, on shorter screens, past the
+    // bottom of the viewport itself. Only flips when there's actually more
+    // room above than below would need — otherwise falls back to the usual
+    // below placement rather than picking a worse spot.
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const top = spaceBelow < PANEL_HEIGHT_ESTIMATE && rect.top > PANEL_HEIGHT_ESTIMATE
+      ? Math.max(8, rect.top - PANEL_HEIGHT_ESTIMATE - 6)
+      : rect.bottom + 6;
+    setCoords({ top, left });
+  };
 
   useEffect(() => {
     if (!open) return;
     const onDocClick = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      if (containerRef.current?.contains(target) || panelRef.current?.contains(target)) return;
+      setOpen(false);
     };
     const onEscape = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    const onReposition = () => updateCoords();
     document.addEventListener("mousedown", onDocClick);
     document.addEventListener("keydown", onEscape);
+    // capture:true — scroll doesn't bubble, but a capture-phase listener on
+    // window still sees scroll on any descendant container (a modal body,
+    // a page's own scroll region), keeping the panel glued to its trigger
+    // as you scroll instead of drifting away from it.
+    window.addEventListener("scroll", onReposition, true);
+    window.addEventListener("resize", onReposition);
     return () => {
       document.removeEventListener("mousedown", onDocClick);
       document.removeEventListener("keydown", onEscape);
+      window.removeEventListener("scroll", onReposition, true);
+      window.removeEventListener("resize", onReposition);
     };
   }, [open]);
 
   const handleToggle = () => {
     if (disabled) return;
-    if (!open) {
-      const rect = containerRef.current?.getBoundingClientRect();
-      setAlignRight(!!rect && rect.left + PANEL_WIDTH > window.innerWidth - 8);
-    }
+    if (!open) updateCoords();
     setOpen(v => !v);
   };
 
@@ -242,19 +284,22 @@ export default function DatePicker({
         <ChevronDown size={12} className={`dp-trigger__chevron${open ? " dp-trigger__chevron--open" : ""}`} />
       </button>
 
-      {open && (
-        // Remounted per open (key on `value`) so the grid always re-seeds to
-        // the current selection rather than wherever it was left last time.
-        <DatePickerPanel
-          key={value || "empty"}
-          value={value}
-          onChange={onChange}
-          min={min}
-          max={max}
-          onClose={() => setOpen(false)}
-          manageDismissal={false}
-          className={`dp-panel--anchored${alignRight ? " dp-panel--anchored-right" : ""}`}
-        />
+      {open && coords && createPortal(
+        <div ref={panelRef} style={{ position: "fixed", top: coords.top, left: coords.left, zIndex: 2000 }}>
+          {/* Remounted per open (key on `value`) so the grid always re-seeds
+              to the current selection rather than wherever it was left
+              last time. */}
+          <DatePickerPanel
+            key={value || "empty"}
+            value={value}
+            onChange={onChange}
+            min={min}
+            max={max}
+            onClose={() => setOpen(false)}
+            manageDismissal={false}
+          />
+        </div>,
+        document.body,
       )}
     </div>
   );

@@ -132,6 +132,14 @@ export function mapApiBooking(
       clientPackageServiceId: s.client_package_service_id ?? (s as any).clientPackageServiceId ?? undefined,
       name: sName,
       service: sName,
+      // Normalize explicitly, same as productItems/packageItems/membership
+      // items below — the raw `...s` spread above can carry either `qty` or
+      // `quantity` depending on where the appointment was last saved from
+      // (useAppointment.ts's buildServiceApiItems sends services under
+      // `quantity`, unlike product/package/membership rows), so anything
+      // downstream reading `.qty` off a mapped Booking (e.g. ViewBillModal's
+      // Qty column) saw it as undefined without this.
+      qty: sQty,
       staff: staffNameStr,
       staffId: anyServiceHasOwnStaff
         ? ((s.staffId || s.staff_id) ? String(s.staffId || s.staff_id) : undefined)
@@ -550,6 +558,13 @@ export function mapApiBooking(
     discount: parseFloat(String(appt.discount_value ?? 0)) || 0,
     discountAmount: discountAmountVal,
     discountType: appt.discount_type === "flat" ? "Flat (₹)" : "Percentage (%)",
+    // Only ever lands on the linked sale (payment-time only, never copied back
+    // onto the appointment row itself) — see appointments.repository.ts's
+    // findById/listBySalonId, which now join it in. Without this, a coupon
+    // applied at checkout was invisible in Sales Summary and its ₹ reduction
+    // silently showed up as part of Round Off instead.
+    couponDiscount: parseFloat(String(appt.coupon_discount_amount ?? appt.couponDiscount ?? 0)) || 0,
+    couponCode: appt.coupon_code ?? appt.couponCode ?? undefined,
     // Left undefined (not defaulted to all four) when the column is NULL —
     // that's a bill from before the "Apply to" feature, and undefined is what
     // tells the engine to price it the legacy way it was actually charged.

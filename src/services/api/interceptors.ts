@@ -136,20 +136,47 @@ function scheduleProactiveRefresh() {
 // ─── Subscription error code sent by the backend ─────────────────────────────
 const SUBSCRIPTION_REQUIRED_CODE = "SUBSCRIPTION_REQUIRED";
 
-// Endpoints whose controllers derive salon_id exclusively from the JWT
-// (getSalonId(req) → req.user.salonId) and never read a salon_id query
-// param — sending it there is pure dead weight on every request URL.
-// Matched as whole path segments (not a substring) so this doesn't
-// accidentally also skip injection for a similarly-named but unverified
-// endpoint like /client-notes or /client-communication.
-// NOT applied globally: salons.controller.ts's mySalon handler and the
-// staff commission endpoints genuinely fall back to this query param when
-// a freshly-registered user's JWT doesn't have salonId yet (e.g. a
+// ─── Permission-denial 403s ────────────────────────────────────────────────
+// Exact prefix requirePermission()/requireAnyPermission() (and the couple of
+// controller-level checks that mirror them, e.g. settings.controller.ts's
+// integrations_config gate) always build their message with — matching on
+// this instead of the "FORBIDDEN" code, since that code is also reused by
+// unrelated 403s (invalid booking/feedback links, cross-salon ownership
+// checks) that shouldn't pop this dialog.
+const PERMISSION_DENIED_PREFIX = "You do not have permission to perform this action";
+
+// Turns "You do not have permission to perform this action (view_clients)"
+// into the same friendly copy PermissionGuard already shows for a
+// route-level denial, so a denial hit via a direct API call (a button whose
+// action wasn't itself pre-gated) reads identically everywhere in the app.
+function toFriendlyPermissionMessage(message: string): string {
+  const match = message.match(/\(([^)]+)\)\s*$/);
+  if (!match) return message;
+  return `Your account does not have the "${match[1]}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`;
+}
+
+// Security default: every endpoint's controller is expected to derive
+// salon_id exclusively from the authenticated, validated JWT
+// (getSalonId(req) → req.user.salonId), never from a client-supplied query
+// param — a query param the client controls is spoofable and must never be
+// able to shadow the authenticated salon. So salon_id is NOT sent on any
+// request by default; it's added back only for the narrow, confirmed set of
+// endpoints below whose controllers genuinely still fall back to
+// req.query.salon_id for a user whose JWT doesn't have salonId yet (e.g. a
 // salon_owner who just registered and hasn't created their salon).
-// /report/ covers the whole independent reports module (reports.controller.ts)
-// — every one of its ~40 endpoints calls getSalonId(req) exclusively and none
-// ever reads req.query.salon_id, confirmed by grep.
-const SALON_ID_NOT_NEEDED = [/\/clients(\/|\?|$)/, /\/services(\/|\?|$)/, /\/products(\/|\?|$)/, /\/report\//];
+// Matched as whole path segments (not a substring) so this doesn't
+// accidentally also match a similarly-named but unrelated endpoint.
+//
+// - salons.controller.ts's mySalon handler (SALON.ME, "/salons/me")
+// - staff commission endpoints (STAFF.COMMISSIONS / COMMISSIONS_BULK /
+//   SETTLE_COMMISSION, all under "/staff/.../commissions" or
+//   "/staff/commissions/...")
+//
+// If another endpoint turns out to also need this fallback, add it here
+// explicitly — don't widen these patterns or add a new exclusion-style list,
+// since the whole point of flipping to an allowlist is that omission is the
+// safe default and inclusion requires a deliberate, reviewed decision.
+const SALON_ID_FALLBACK_NEEDED = [/\/salons\/me(\/|\?|$)/, /\/staff\/commissions(\/|\?|$)/, /\/staff\/[^/?]+\/commissions(\/|\?|$)/];
 
 // ─── Apply Interceptors ───────────────────────────────────────────────────────
 export const applyInterceptors = (instance: AxiosInstance) => {
@@ -172,8 +199,8 @@ export const applyInterceptors = (instance: AxiosInstance) => {
         const salonId = role !== "super_admin"
           ? (state?.auth?.salonId ?? state?.salon?.currentSalon?.id)
           : null;
-        const skipSalonId = SALON_ID_NOT_NEEDED.some((re) => re.test(config.url ?? ""));
-        if (salonId && !skipSalonId) {
+        const needsSalonIdFallback = SALON_ID_FALLBACK_NEEDED.some((re) => re.test(config.url ?? ""));
+        if (salonId && needsSalonIdFallback) {
           const url = new URL(config.url ?? "", "http://x");
           const inParams =
             config.params instanceof URLSearchParams
@@ -187,6 +214,13 @@ export const applyInterceptors = (instance: AxiosInstance) => {
           }
         }
       }
+
+      // Which page this request was actually fired from — read at dispatch
+      // time in the response error handler below, so a permission-denial
+      // popup for a request that started on one page but 403'd after the
+      // user already navigated elsewhere doesn't pop up on the new page for
+      // an action the user never took there.
+      (config as InternalAxiosRequestConfig & { requestedFromPath?: string }).requestedFromPath = window.location.pathname;
 
       return config;
     },
@@ -207,19 +241,22 @@ export const applyInterceptors = (instance: AxiosInstance) => {
         return Promise.reject(error);
       }
 
-      if (error.response) {
-        console.error(
-          `[API ERROR] ${error.config?.method?.toUpperCase()} ${error.config?.url}:`,
-          {
-            status: error.response.status,
-            data: error.response.data,
-          },
-        );
-      } else {
-        console.error(
-          `[API ERROR] ${error.config?.method?.toUpperCase()} ${error.config?.url}:`,
-          error.message,
-        );
+      // A request made with responseType:"blob" (file exports/downloads —
+      // Products/Sales/Clients/Staff/etc.) still gets its error body
+      // delivered as a Blob on a non-2xx response; axios doesn't parse it.
+      // Without this, every blob-mode request's message/code below silently
+      // fell through to the generic "Something went wrong" fallback (data
+      // was a Blob object, not the parsed JSON error payload) — meaning a
+      // permission-denied export never triggered the global "Permission
+      // Required" popup (or the SUBSCRIPTION_REQUIRED wall) and just failed
+      // with no useful feedback at all.
+      if (error.response?.data instanceof Blob && error.response.data.type.includes("json")) {
+        try {
+          error.response.data = JSON.parse(await error.response.data.text());
+        } catch {
+          // Not actually JSON despite the content-type — fall through to
+          // the generic error handling below with the Blob left as-is.
+        }
       }
 
       const originalRequest = error.config as InternalAxiosRequestConfig & {
@@ -242,6 +279,26 @@ export const applyInterceptors = (instance: AxiosInstance) => {
         data?.msg ??
         "Something went wrong";
 
+      // A permission-denial 403 isn't a bug — it's expected, already-handled
+      // flow (the global "Permission Required" popup below covers it), so
+      // it's deliberately not dumped to the console as an "[API ERROR]".
+      // Every other failure (500s, network errors, unexpected 403s) still
+      // logs exactly as before, so real problems stay visible in dev.
+      const isPermissionDenial = status === 403 && typeof message === "string" && message.startsWith(PERMISSION_DENIED_PREFIX);
+      if (!isPermissionDenial) {
+        if (error.response) {
+          console.error(
+            `[API ERROR] ${error.config?.method?.toUpperCase()} ${error.config?.url}:`,
+            { status: error.response.status, data: error.response.data },
+          );
+        } else {
+          console.error(
+            `[API ERROR] ${error.config?.method?.toUpperCase()} ${error.config?.url}:`,
+            error.message,
+          );
+        }
+      }
+
       // ── 401: silent token refresh ──────────────────────────────────────────
       // Skip refresh for public routes (e.g. /login returning 401 for wrong credentials)
       const isPublicRoute = PUBLIC_ROUTES.some((route) =>
@@ -260,10 +317,16 @@ export const applyInterceptors = (instance: AxiosInstance) => {
           originalRequest.headers["Authorization"] = `Bearer ${newToken}`;
           return instance(originalRequest);
         } catch (refreshError) {
+          // Read role BEFORE logout() clears it, and route super admins back
+          // to their own login page — /login is the regular-user page and
+          // isn't where a super_admin session can re-authenticate, so this
+          // used to silently strand the History (and every other super-admin)
+          // page on an expired token instead of navigating anywhere useful.
+          const isSuperAdmin = storeRef?.getState()?.auth?.role === "super_admin";
           if (storeRef && authActionsRef) {
             storeRef.dispatch(authActionsRef.logout());
           }
-          window.location.replace("/login");
+          window.location.replace(isSuperAdmin ? "/super-admin/login" : "/login");
           return Promise.reject(
             new ApiError(401, "Session expired. Please log in again."),
           );
@@ -279,6 +342,25 @@ export const applyInterceptors = (instance: AxiosInstance) => {
           });
         }
         return Promise.reject(new ApiError(403, message, undefined, errorCode));
+      }
+
+      // ── 403 permission denial: show the generic "Access Denied" popup ────
+      // Additive, not a replacement — still rejects below as before, so any
+      // component with its own catch/toast for this keeps working; this just
+      // guarantees a consistent popup shows everywhere too, including the
+      // many call sites that never had their own handling for it at all.
+      if (status === 403 && typeof message === "string" && message.startsWith(PERMISSION_DENIED_PREFIX)) {
+        const requestedFromPath = (originalRequest as InternalAxiosRequestConfig & { requestedFromPath?: string }).requestedFromPath;
+        // Only pop up if the user is still on the page that made this
+        // request — a request fired from the Dashboard that 403s after the
+        // user has already navigated to Quick Sale would otherwise open a
+        // "view_dashboard" denial on top of Quick Sale, for a page they're
+        // no longer even looking at.
+        if (storeRef && requestedFromPath === window.location.pathname) {
+          import("../../store/permissionDialogSlice").then(({ showPermissionDenied }) => {
+            storeRef.dispatch(showPermissionDenied(toFriendlyPermissionMessage(message)));
+          });
+        }
       }
 
       // ── No response (network error) ────────────────────────────────────────

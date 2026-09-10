@@ -3,7 +3,6 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import {
   ChevronRight,
-  StarFill,
   X,
 } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
@@ -14,7 +13,7 @@ import { useAppDispatch } from "../../../hooks/useAppRedux";
 import { createPublicBookingThunk } from "../../../middleware/onlineBooking/onlineBooking.thunk";
 import { useCurrency } from "../../../hooks/useCurrency";
 import {
-  C, DAYS, MONTHS, catMeta, staffName, initials, fmtDur, fmtPrice, nextDays, buildSlots,
+  C, DAYS, MONTHS, staffName, initials, fmtDur, fmtPrice, nextDays, buildSlots, hashHue, fmtClock,
   AvatarCircle, StepBar, SectionHead, BackBtn, ServicesSummary, ServiceCard, StaffCard, TimeChip, SuccessScreen,
   type SalonData, type ServiceItem, type StaffMember,
 } from "./BookingFlow/shared";
@@ -38,13 +37,16 @@ const DEMO_STAFF = [
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
+export interface PreviewHoursRow { day: string; open: boolean; from: string; to: string }
+
 interface Props {
   open: boolean; onClose: () => void;
   previewName?: string; previewTagline?: string; previewDescription?: string;
   galleryPhotos?: string[];
+  previewHours?: PreviewHoursRow[];
 }
 
-export default function BookingPreviewModal({ open, onClose, previewName, previewTagline, previewDescription, galleryPhotos }: Props) {
+export default function BookingPreviewModal({ open, onClose, previewName, previewTagline, previewDescription, galleryPhotos, previewHours }: Props) {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { currencyCode } = useCurrency();
@@ -185,26 +187,11 @@ export default function BookingPreviewModal({ open, onClose, previewName, previe
             </h2>
 
             {salon.tagline && (
-              <p style={{ margin:"0 0 14px", fontSize:12.5,
+              <p style={{ margin:0, fontSize:12.5,
                 color:"rgba(255,255,255,0.65)", lineHeight:1.4 }}>
                 {salon.tagline}
               </p>
             )}
-
-            {/* Stars */}
-            <div style={{ display:"flex", alignItems:"center", gap:3 }}>
-              {[1,2,3,4,5].map(i => (
-                <StarFill key={i} size={12}
-                  color={i<=4?"#f59e0b":"rgba(255,255,255,0.2)"}/>
-              ))}
-              <span style={{ fontSize:12, color:"rgba(255,255,255,0.55)",
-                marginLeft:7, fontWeight:500 }}>
-                4.8 &nbsp;·&nbsp;
-                <span style={{ color:"rgba(255,255,255,0.85)", fontWeight:700 }}>
-                  120 reviews
-                </span>
-              </span>
-            </div>
           </div>
 
           {/* ── Info Cards ────────────────────────────────────────────── */}
@@ -250,51 +237,30 @@ export default function BookingPreviewModal({ open, onClose, previewName, previe
               </div>
             )}
 
-            <div style={{ background:"#f8fafc", borderRadius:12,
-              padding:"11px 14px", border:"1px solid #e2e8f0" }}>
-              <span style={{ display:"block", fontSize:10, fontWeight:700,
-                color:"#94a3b8", textTransform:"uppercase",
-                letterSpacing:"0.08em", marginBottom:8 }}>
-                Opening Hours
-              </span>
-              <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
-                {[
-                  { days:"Mon – Fri", time:"9:00 AM – 6:00 PM", open:true },
-                  { days:"Saturday",  time:"10:00 AM – 5:00 PM", open:true },
-                  { days:"Sunday",    time:"Closed", open:false },
-                ].map(row => (
-                  <div key={row.days} style={{ display:"flex",
-                    justifyContent:"space-between", alignItems:"center" }}>
-                    <span style={{ fontSize:12, color:"#475569", fontWeight:500 }}>
-                      {row.days}
-                    </span>
-                    <span style={{ fontSize:12, fontWeight:700,
-                      color: row.open ? "#0f172a" : "#94a3b8" }}>
-                      {row.time}
-                    </span>
-                  </div>
-                ))}
+            {previewHours && previewHours.length > 0 && (
+              <div style={{ background:"#f8fafc", borderRadius:12,
+                padding:"11px 14px", border:"1px solid #e2e8f0" }}>
+                <span style={{ display:"block", fontSize:10, fontWeight:700,
+                  color:"#94a3b8", textTransform:"uppercase",
+                  letterSpacing:"0.08em", marginBottom:8 }}>
+                  Opening Hours
+                </span>
+                <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+                  {previewHours.map(row => (
+                    <div key={row.day} style={{ display:"flex",
+                      justifyContent:"space-between", alignItems:"center" }}>
+                      <span style={{ fontSize:12, color:"#475569", fontWeight:500 }}>
+                        {row.day}
+                      </span>
+                      <span style={{ fontSize:12, fontWeight:700,
+                        color: row.open ? "#0f172a" : "#94a3b8" }}>
+                        {row.open ? `${fmtClock(row.from)} – ${fmtClock(row.to)}` : "Closed"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          </div>
-
-          {/* ── Stats Row ─────────────────────────────────────────────── */}
-          <div style={{ padding:"14px 18px 0",
-            display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:8 }}>
-            {[
-              { val:"120+", label:"Clients" },
-              { val:"4.8★", label:"Rating" },
-              { val:"5 yrs", label:"Experience" },
-            ].map(({ val, label }) => (
-              <div key={label} style={{ background:"#f8fafc", borderRadius:12,
-                padding:"10px 8px", textAlign:"center",
-                border:"1px solid #e2e8f0" }}>
-                <div style={{ fontSize:14, fontWeight:900, color:"#0f172a",
-                  letterSpacing:"-0.02em" }}>{val}</div>
-                <div style={{ fontSize:10, color:"#94a3b8", fontWeight:500,
-                  marginTop:2 }}>{label}</div>
-              </div>
-            ))}
+            )}
           </div>
 
           {/* ── Team ──────────────────────────────────────────────────── */}
@@ -307,7 +273,7 @@ export default function BookingPreviewModal({ open, onClose, previewName, previe
               <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
                 {displayStaff.slice(0,6).map((s) => {
                   const n = staffName(s);
-                  const hue = Math.abs((s.id * 53 + 180) % 360);
+                  const hue = hashHue(s.id);
                   return (
                     <div key={s.id} style={{ display:"flex", flexDirection:"column",
                       alignItems:"center", gap:5, width:52 }}>
@@ -436,7 +402,6 @@ export default function BookingPreviewModal({ open, onClose, previewName, previe
                   {categories.length > 2 && (
                     <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:20 }}>
                       {categories.map(cat => {
-                        const m   = catMeta(cat === "All" ? undefined : cat);
                         const act = activeCat === cat;
                         return (
                           <button key={cat} onClick={() => setActiveCat(cat)}
@@ -515,7 +480,7 @@ export default function BookingPreviewModal({ open, onClose, previewName, previe
                       onClick={() => setSelStaff("any")}/>
                     {displayStaff.map(s => {
                       const n = staffName(s);
-                      const hue = Math.abs((s.id * 53 + 180) % 360);
+                      const hue = hashHue(s.id);
                       return (
                         <StaffCard key={s.id} name={n}
                           subtitle={s.job_title || ("role" in s ? s.role : undefined) || "Stylist"}
@@ -698,12 +663,13 @@ export default function BookingPreviewModal({ open, onClose, previewName, previe
                       </div>
 
                       <button
-                        disabled={submitting || !form.name || !form.email || form.phone.length !== 10}
+                        disabled={isDemo || submitting || !form.name || !form.email || form.phone.length !== 10}
                         onClick={async () => {
+                          if (isDemo) return;
                           setSubmitting(true);
                           try {
                             const payload = {
-                              salon_id: (salon as any).id || "demo-salon-id",
+                              salon_id: String((salon as any).id),
                               service_ids: selServices.map(s => String(s.id)),
                               staff_id: selStaff === "any" ? undefined : String((selStaff as StaffMember)?.id),
                               scheduled_at: new Date(`${selDate.toDateString()} ${selTime}`).toISOString(),
@@ -722,12 +688,12 @@ export default function BookingPreviewModal({ open, onClose, previewName, previe
                           }
                         }}
                         style={{ marginTop:14, width:"100%",
-                          background: submitting || !form.name || !form.email || form.phone.length !== 10 ? "#e5e7eb" : C.accent,
-                          color: submitting || !form.name || !form.email || form.phone.length !== 10 ? C.muted : C.white,
+                          background: isDemo || submitting || !form.name || !form.email || form.phone.length !== 10 ? "#e5e7eb" : C.accent,
+                          color: isDemo || submitting || !form.name || !form.email || form.phone.length !== 10 ? C.muted : C.white,
                           border:"none", borderRadius:12, padding:"13px",
                           fontSize:14, fontWeight:700,
-                          cursor: submitting || !form.name || !form.email || form.phone.length !== 10 ? "not-allowed" : "pointer",
-                          boxShadow: form.name && form.email && form.phone.length === 10 && !submitting
+                          cursor: isDemo || submitting || !form.name || !form.email || form.phone.length !== 10 ? "not-allowed" : "pointer",
+                          boxShadow: !isDemo && form.name && form.email && form.phone.length === 10 && !submitting
                             ? `0 4px 18px ${C.accent}40` : "none",
                           transition:"all 0.15s" }}>
                         {submitting
@@ -740,7 +706,9 @@ export default function BookingPreviewModal({ open, onClose, previewName, previe
                           : "Confirm Booking"}
                       </button>
                       <p style={{ fontSize:11.5, color:C.muted, textAlign:"center", marginTop:10 }}>
-                        Free cancellation up to 24 hours before.
+                        {isDemo
+                          ? "This is sample data — add real services in Catalog to test a real booking."
+                          : "Free cancellation up to 24 hours before."}
                       </p>
                     </div>
                   </div>

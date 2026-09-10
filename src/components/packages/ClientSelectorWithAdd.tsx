@@ -1,5 +1,5 @@
 // src/components/packages/ClientSelectorWithAdd.tsx
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { UserPlus, X } from "lucide-react";
 import ClientSearchInput, { type ClientSearchResult } from "../../features/clients/components/ClientSearchInput";
 import AddClientForm from "../shared/AddClientForm";
@@ -57,15 +57,41 @@ const ClientSelectorWithAdd: React.FC<Props> = ({
   const [saveError,      setSaveError]      = useState("");
 
   // ── phone duplicate check ────────────────────────────────────────────────
-  async function checkPhoneExists(p: string) {
+  // Debounced (300ms) and race-safe: onChange/onBlur/onNoResults can all
+  // fire in quick succession for the same 10-digit number (e.g. type, then
+  // immediately blur), which previously fired 2-3 overlapping, uncancelled
+  // requests — a slower earlier response could land after a faster later
+  // one and stomp its result. requestSeqRef tags each call so only the
+  // most recently *issued* request is allowed to write state; the debounce
+  // timer also collapses rapid-fire calls (e.g. backspace + retype) into
+  // one actual network request instead of one per call site.
+  const phoneCheckTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const phoneCheckSeqRef = useRef(0);
+
+  useEffect(() => {
+    return () => { if (phoneCheckTimerRef.current) clearTimeout(phoneCheckTimerRef.current); };
+  }, []);
+
+  function checkPhoneExists(p: string) {
     const digits = p.replace(/\D/g, "");
     if (digits.length !== 10) return;
+
+    if (phoneCheckTimerRef.current) clearTimeout(phoneCheckTimerRef.current);
+    const mySeq = ++phoneCheckSeqRef.current;
     setPhoneChecking(true);
-    try {
-      const res = await api.get(`/api/v1/clients/search?q=${encodeURIComponent(p)}`);
-      const raw = res.data?.data ?? res.data ?? [];
-      setPhoneDuplicate(Array.isArray(raw) && raw.length > 0);
-    } catch { /* silent */ } finally { setPhoneChecking(false); }
+
+    phoneCheckTimerRef.current = setTimeout(async () => {
+      try {
+        const res = await api.get(`/api/v1/clients/search?q=${encodeURIComponent(digits)}`);
+        if (mySeq !== phoneCheckSeqRef.current) return; // superseded by a newer check
+        const raw = res.data?.data ?? res.data ?? [];
+        setPhoneDuplicate(Array.isArray(raw) && raw.length > 0);
+      } catch {
+        /* silent */
+      } finally {
+        if (mySeq === phoneCheckSeqRef.current) setPhoneChecking(false);
+      }
+    }, 300);
   }
 
   // ── save new client ──────────────────────────────────────────────────────

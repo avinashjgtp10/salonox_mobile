@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useSingleClick } from "../../../../utils/singleClick";
 import type { Booking, BlockedTime } from "../../types/booking.types";
 import { useAppDispatch, useAppSelector } from "../../../../hooks/useAppRedux";
+import { usePermissions } from "../../../../hooks/usePermissions";
 import { fetchBookingByIdThunk, fetchBookingsThunk, cancelBookingThunk, deleteBookingThunk } from "../../../../middleware/booking/booking.thunk";
 import { setBookings, clearDragPatch, deleteBooking } from "../../../../store/schedulerSlice";
 import { store } from "../../../../store/store";
@@ -19,7 +20,7 @@ import WeekView      from "./WeekView";
 import MonthView     from "./MonthView";
 import ListWeekView  from "./ListWeekView";
 import CalendarSkeleton from "./CalendarSkeleton";
-import { PageLoader } from "../../../../components/ui";
+import { PageLoader, AlertDialog } from "../../../../components/ui";
 import "../../styles/Scheduler.scss";
 
 // ── NEW: AppointmentModal replaces NewAppointmentModal ────────────────────────
@@ -40,6 +41,19 @@ const SchedulerContent: React.FC = () => {
   const dispatch    = useAppDispatch();
   const location    = useLocation();
   const navigate    = useNavigate();
+  const { can }     = usePermissions();
+  const [showNoPermissionPopup, setShowNoPermissionPopup] = useState(false);
+  // Creating/editing/cancelling/blocking are all manage_calendar actions —
+  // view_calendar alone (needed just to see the grid, see the staff.routes.ts
+  // fix above) shouldn't be enough to reach these. Without this guard, a
+  // view-only staff member could open the full New Appointment form and only
+  // discover it can't be saved after filling it out (client search/save both
+  // 403 on the backend) — this stops them at the click instead.
+  const requireManageCalendar = () => {
+    if (can("manage_calendar")) return true;
+    setShowNoPermissionPopup(true);
+    return false;
+  };
   const salonId     = useAppSelector((s: any) => s.salon?.currentSalon?.id ?? s.auth?.salonId ?? "");
   const { viewMode, setViewMode, currentDate, setCurrentDate, setHighlightedBookingId } = useSchedulerContext();
 
@@ -103,6 +117,7 @@ const SchedulerContent: React.FC = () => {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSlotClick = useSingleClick((staffId: string, time: string) => {
+    if (!requireManageCalendar()) return;
     setApptDefaults({ staffId, defaultTime: time });
     setEditingBooking(null);
     setShowNewAppt(true);
@@ -110,9 +125,11 @@ const SchedulerContent: React.FC = () => {
 
   const handleEditBooking = useSingleClick(async (booking: Booking) => {
     if (booking.status === "paid") {
+      // Viewing a paid bill is read-only — allowed with just view_calendar.
       setViewingBooking(booking);
       return;
     }
+    if (!requireManageCalendar()) return;
     const isApiBooking = !String(booking.id).startsWith("b_");
     if (isApiBooking) {
       try {
@@ -163,6 +180,7 @@ const SchedulerContent: React.FC = () => {
 
   // Force-open edit modal regardless of payment status (called from ViewBillModal Edit button)
   const handleForceEdit = useSingleClick(async (booking: Booking) => {
+    if (!requireManageCalendar()) return;
     setViewingBooking(null);
     const isApiBooking = !String(booking.id).startsWith("b_");
     if (isApiBooking) {
@@ -194,12 +212,14 @@ const SchedulerContent: React.FC = () => {
   });
 
   const handleBlockTime = useSingleClick((staffId?: string) => {
+    if (!requireManageCalendar()) return;
     setBlockStaffId(staffId);
     setEditingBlockTime(undefined);
     setShowBlockTime(true);
   });
 
   const handleEditBlockTime = useSingleClick((block: BlockedTime) => {
+    if (!requireManageCalendar()) return;
     setEditingBlockTime(block);
     setBlockStaffId(undefined);
     setShowBlockTime(true);
@@ -293,16 +313,19 @@ const SchedulerContent: React.FC = () => {
   }
 
   const handleCancelBooking = useSingleClick(async (booking: Booking) => {
+    if (!requireManageCalendar()) return;
     const result = await (dispatch(cancelBookingThunk(booking.id)) as any);
     if (cancelBookingThunk.fulfilled.match(result)) handleRefresh();
   });
 
   const handleDeleteBooking = useSingleClick(async (booking: Booking) => {
+    if (!requireManageCalendar()) return;
     const result = await (dispatch(deleteBookingThunk(booking.id)) as any);
     if (deleteBookingThunk.fulfilled.match(result)) dispatch(deleteBooking(String(booking.id)));
   });
 
   const handleNewAppointment = useSingleClick(() => {
+    if (!requireManageCalendar()) return;
     setEditingBooking(null);
     setDefaultClient(null);
     setApptDefaults({});
@@ -310,6 +333,7 @@ const SchedulerContent: React.FC = () => {
   });
 
   const handleNewAppointmentForClient = useSingleClick((client: { id: string; name: string; phone: string }) => {
+    if (!requireManageCalendar()) return;
     setEditingBooking(null);
     setApptDefaults({ defaultTime: getGlobalSearchDefaultTime() });
     setDefaultClient(client);
@@ -342,7 +366,13 @@ const SchedulerContent: React.FC = () => {
             </svg>
             <p className="scheduler__empty-title">No staff available</p>
             <p className="scheduler__empty-subtitle">Add staff members to start scheduling appointments.</p>
-            <a href="/dashboard/team" className="scheduler__empty-link">+ Add Staff</a>
+            <button
+              type="button"
+              className="scheduler__empty-link"
+              onClick={() => navigate("/dashboard/team/add", { state: { returnTo: "/dashboard/calendar" } })}
+            >
+              + Add Staff
+            </button>
           </div>
         ) : (
           <>
@@ -415,6 +445,13 @@ const SchedulerContent: React.FC = () => {
             onDeleteBooking={handleDeleteBooking}
           />
         </Suspense>
+      )}
+      {showNoPermissionPopup && (
+        <AlertDialog
+          title="Permission Required"
+          message="You don't have permission to manage the calendar. Ask your salon owner to enable it in Settings."
+          onOk={() => setShowNoPermissionPopup(false)}
+        />
       )}
     </div>
   );

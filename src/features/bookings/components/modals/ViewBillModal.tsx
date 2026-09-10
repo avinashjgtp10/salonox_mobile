@@ -563,7 +563,7 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                 ))}
 
                 <div className="vbm-breakdown-card">
-                  <div className="vbm-breakdown-card__title">Payment Breakdown</div>
+                  <div className="vbm-breakdown-card__title">Sales Summary</div>
                   {(() => {
                     const membershipDiscountAmount = (booking as any).membershipDiscountUsed || 0;
                     // Split for display only — the Discount Balance

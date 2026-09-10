@@ -314,6 +314,12 @@ export interface UpdateAuditItemPayload {
   reason?: string | null;
 }
 
+export interface SubmitAuditItemUpdate {
+  item_id: string;
+  physical_qty: number | null;
+  reason?: string | null;
+}
+
 export interface UsageHistoryRow {
   id: string;
   date: string;
@@ -378,6 +384,13 @@ export interface Order {
   created_at: string;
   updated_at: string;
   items?: OrderItem[];
+  // Derived server-side (ordersRepository.getById) from the Purchase(s)
+  // created when this order was received — not stored on the order itself.
+  // "unpaid" covers both a not-yet-received order and a received-but-
+  // nothing-paid one.
+  paid_amount?: number;
+  pending_amount?: number;
+  bill_payment_status?: "paid" | "partial" | "unpaid";
 }
 
 export interface CreateOrderItemPayload {

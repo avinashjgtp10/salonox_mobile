@@ -22,6 +22,10 @@ import {
   CheckCircleFill,
   XCircleFill,
   ExclamationTriangleFill,
+  BoxSeam,
+  CalendarX,
+  Stars,
+  ListUl,
 } from "react-bootstrap-icons";
 import type { RootState } from "../../../store/store";
 import salonoxLogo from "../../../assets/salonox_full_logo.png";
@@ -36,16 +40,23 @@ import { sendDailySummaryEmail, fetchTodaysPaymentMethodCounts } from "../../cas
 import { useCurrency } from "../../../hooks/useCurrency";
 import { Button, Modal } from "../../../components/ui";
 import { onGlobalToast } from "../../../utils/globalToast";
+import { selectNewFeatures, selectSpotlightFetched } from "../../../store/spotlightSlice";
+import { fetchSpotlightFeaturesThunk } from "../../../middleware/spotlight/spotlight.thunk";
+import PlanExpiryBanner from "./PlanExpiryBanner";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 interface Notification {
   id: string;
-  type: "appointment" | "payment" | "client" | "review" | "whatsapp" | "info" | "success" | "error" | "warning";
+  type: "appointment" | "payment" | "client" | "review" | "whatsapp" | "info" | "success" | "error" | "warning" | "spotlight";
   title: string;
   body: string | null;
   is_read: boolean;
   created_at: string;
+  product_id?: string | null;
+  branch_id?: string | null;
+  alert_status?: "low_stock" | "out_of_stock" | "expiring_soon" | "expired" | null;
+  spotlight_feature_id?: string | null;
 }
 
 interface Toast extends Notification {
@@ -65,6 +76,7 @@ const NOTIF_ICONS: Record<string, React.ReactNode> = {
   success: <CheckCircleFill size={15} />,
   error: <XCircleFill size={15} />,
   warning: <ExclamationTriangleFill size={14} />,
+  spotlight: <Stars size={14} />,
 };
 
 const NOTIF_COLORS: Record<string, string> = {
@@ -77,7 +89,28 @@ const NOTIF_COLORS: Record<string, string> = {
   success: "#10b981",
   error: "#ef4444",
   warning: "#f59e0b",
+  spotlight: "#8b5cf6",
 };
+
+// Inventory alerts all arrive with type "warning" — alert_status picks a
+// more specific icon/color than the generic warning triangle so low stock,
+// out of stock, and expiry read as visually distinct at a glance.
+const ALERT_ICONS: Record<string, React.ReactNode> = {
+  low_stock: <BoxSeam size={15} />,
+  out_of_stock: <BoxSeam size={15} />,
+  expiring_soon: <CalendarX size={14} />,
+  expired: <CalendarX size={14} />,
+};
+
+const ALERT_COLORS: Record<string, string> = {
+  low_stock: "#f59e0b",
+  out_of_stock: "#ef4444",
+  expiring_soon: "#f59e0b",
+  expired: "#ef4444",
+};
+
+const notifIcon = (n: Notification) => (n.alert_status ? ALERT_ICONS[n.alert_status] : undefined) ?? NOTIF_ICONS[n.type] ?? NOTIF_ICONS.info;
+const notifColor = (n: Notification) => (n.alert_status ? ALERT_COLORS[n.alert_status] : undefined) ?? NOTIF_COLORS[n.type] ?? NOTIF_COLORS.info;
 
 const TOAST_DURATION = 5000; // ms before auto-dismiss
 
@@ -92,13 +125,16 @@ const getInitials = (name?: string) => {
 
 interface Props {
   onLogout: () => void;
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
 }
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
-export default function DashboardTopbar({ onLogout }: Props) {
+export default function DashboardTopbar({ onLogout, collapsed, onToggleCollapsed }: Props) {
   const navigate = useNavigate();
   const userProfile = useSelector((s: RootState) => s.user.profile);
+  const currentSalon = useSelector((s: RootState) => s.salon.currentSalon);
   const salonId = useSelector((s: RootState) => s.auth.salonId);
   const { formatAmount } = useCurrency();
 
@@ -112,6 +148,8 @@ export default function DashboardTopbar({ onLogout }: Props) {
   // ── Cash counter: "Close Counter" navbar shortcut ────────────────────────────
   const dispatch = useAppDispatch();
   const cashDashboard = useAppSelector((s) => s.cashCounter.dashboard);
+  const newSpotlightFeatures = useAppSelector(selectNewFeatures);
+  const spotlightFetched = useAppSelector(selectSpotlightFetched);
   const isCashCounterOpen = cashDashboard?.status === "open" && Boolean(cashDashboard.cashManagementId);
   const [showCloseCounterConfirm, setShowCloseCounterConfirm] = useState(false);
   const [closingCounter, setClosingCounter] = useState(false);
@@ -128,9 +166,18 @@ export default function DashboardTopbar({ onLogout }: Props) {
   const toastTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   const unreadCount = notifs.filter(n => !n.is_read).length;
-  const initials = getInitials(userProfile?.fullName);
-  const displayName = userProfile?.fullName ?? "Salon Owner";
+  // The navbar profile shows the salon/business identity, not the logged-in
+  // user's own name — "App" (personal) vs "App Testing" (business). Email
+  // stays the personal account's own login email; only name + avatar swap.
+  const displayName = currentSalon?.business_name || userProfile?.fullName || "Salon Owner";
+  const initials = getInitials(displayName);
   const email = userProfile?.email ?? "";
+  const businessLogoUrl = currentSalon?.logo_url || null;
+  // Reset whenever the logo URL itself changes (new upload, salon switch) so
+  // a stale "this one failed" doesn't stick around and hide a working image.
+  const [businessLogoFailed, setBusinessLogoFailed] = useState(false);
+  useEffect(() => { setBusinessLogoFailed(false); }, [businessLogoUrl]);
+  const showBusinessLogo = !!businessLogoUrl && !businessLogoFailed;
 
   // Live clock — ticks every minute so the topbar always shows the actual
   // current time, not just the time the component happened to mount.
@@ -194,6 +241,14 @@ export default function DashboardTopbar({ onLogout }: Props) {
   useEffect(() => {
     fetchNotifications();
   }, [fetchNotifications]);
+
+  // Powers the topbar's Spotlight icon — fetched once here (topbar is
+  // mounted on every dashboard page, unlike DashboardPage) so the "new
+  // feature available" indicator shows up regardless of which page the
+  // user lands on, not just the dashboard home.
+  useEffect(() => {
+    if (!spotlightFetched) dispatch(fetchSpotlightFeaturesThunk());
+  }, [dispatch, spotlightFetched]);
 
   // ── WebSocket: real-time notifications ───────────────────────────────────────
 
@@ -274,7 +329,14 @@ export default function DashboardTopbar({ onLogout }: Props) {
     if (!n.is_read) {
       api.patch(NOTIFICATIONS.MARK_ONE(n.id)).catch(() => { /* best-effort */ });
     }
-  }, []);
+    if (n.product_id) {
+      setShowNotif(false);
+      navigate(`/dashboard/inventory/products?highlight=${n.product_id}`);
+    } else if (n.spotlight_feature_id) {
+      setShowNotif(false);
+      navigate(`/dashboard/spotlight/${n.spotlight_feature_id}`);
+    }
+  }, [navigate]);
 
   const handleLogoutClick = useCallback(() => {
     setShowProfile(false);
@@ -374,8 +436,8 @@ export default function DashboardTopbar({ onLogout }: Props) {
       {/* ── TOAST CONTAINER ── */}
       <div className="notif-toast-container" aria-live="polite" aria-atomic="false">
         {toasts.map(toast => {
-          const color = NOTIF_COLORS[toast.type] ?? NOTIF_COLORS.info;
-          const icon = NOTIF_ICONS[toast.type] ?? NOTIF_ICONS.info;
+          const color = notifColor(toast);
+          const icon = notifIcon(toast);
           return (
             <div
               key={toast.toastId}
@@ -384,7 +446,13 @@ export default function DashboardTopbar({ onLogout }: Props) {
               onClick={() => {
                 handleMarkRead(toast.id);
                 dismissToast(toast.toastId);
-                setShowNotif(true);
+                if (toast.product_id) {
+                  navigate(`/dashboard/inventory/products?highlight=${toast.product_id}`);
+                } else if (toast.spotlight_feature_id) {
+                  navigate(`/dashboard/spotlight/${toast.spotlight_feature_id}`);
+                } else {
+                  setShowNotif(true);
+                }
               }}
             >
               <span className="notif-toast-icon">{icon}</span>
@@ -409,6 +477,15 @@ export default function DashboardTopbar({ onLogout }: Props) {
       {/* ── TOPBAR ── */}
       <div className="topbar">
         <div className="topbar-left">
+          <button
+            type="button"
+            className="topbar-icon-btn topbar-collapse-btn"
+            onClick={onToggleCollapsed}
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            <ListUl size={20} />
+          </button>
           <h2 className="brand">
             <img src={salonoxLogo} alt="SalonOX" className="brand-logo" width="122" height="61" />
           </h2>
@@ -416,10 +493,32 @@ export default function DashboardTopbar({ onLogout }: Props) {
 
         <div className="topbar-right">
 
+          {/* Plan expiry warning pill — click opens a modal with details */}
+          <PlanExpiryBanner />
+
           {/* Current date & time */}
           <span className="topbar-datetime" title="Today's date and time">
-            {todayLabel} . {timeLabel}
+            <span className="topbar-datetime__date">{todayLabel}</span>
+            <span className="topbar-datetime__time">{timeLabel}</span>
           </span>
+
+          {/* New Spotlight feature indicator — only rendered once there's an
+              unexplored published feature (selectNewFeatures), same "new"
+              definition the bell/dashboard card use. Goes straight to that
+              feature's detail page and marks it explored on arrival
+              (SpotlightDetailPage's own mount effect, same as clicking
+              Explore anywhere else). */}
+          {newSpotlightFeatures.length > 0 && (
+            <button
+              className="topbar-icon-btn topbar-spotlight-btn"
+              title={`New feature available: ${newSpotlightFeatures[0].featureName}`}
+              onClick={() => navigate(`/dashboard/spotlight/${newSpotlightFeatures[0].id}`)}
+              aria-label="New feature available"
+            >
+              <Stars size={18} />
+              <span className="topbar-spotlight-dot" />
+            </button>
+          )}
 
           {/* Notifications bell */}
           <div className="topbar-notif-wrap" ref={notifRef}>
@@ -456,8 +555,8 @@ export default function DashboardTopbar({ onLogout }: Props) {
                     <div className="topbar-notif-empty">No notifications</div>
                   ) : (
                     notifs.map(n => {
-                      const color = NOTIF_COLORS[n.type] ?? NOTIF_COLORS.info;
-                      const icon = NOTIF_ICONS[n.type] ?? NOTIF_ICONS.info;
+                      const color = notifColor(n);
+                      const icon = notifIcon(n);
                       return (
                         <div
                           key={n.id}
@@ -500,8 +599,13 @@ export default function DashboardTopbar({ onLogout }: Props) {
               aria-label="Profile menu"
               title="Profile"
             >
-              {userProfile?.avatarUrl ? (
-                <img src={userProfile.avatarUrl} alt={displayName} className="topbar-profile-avatar-img" />
+              {showBusinessLogo ? (
+                <img
+                  src={businessLogoUrl!}
+                  alt={displayName}
+                  className="topbar-profile-avatar-img"
+                  onError={() => setBusinessLogoFailed(true)}
+                />
               ) : (
                 <span className="topbar-profile-initials">{initials}</span>
               )}
@@ -511,8 +615,13 @@ export default function DashboardTopbar({ onLogout }: Props) {
               <div className="topbar-profile-dropdown" role="menu">
                 <div className="topbar-profile-info">
                   <div className="topbar-profile-info-av">
-                    {userProfile?.avatarUrl ? (
-                      <img src={userProfile.avatarUrl} alt={displayName} className="topbar-profile-avatar-img topbar-profile-avatar-img--lg" />
+                    {showBusinessLogo ? (
+                      <img
+                        src={businessLogoUrl!}
+                        alt={displayName}
+                        className="topbar-profile-avatar-img topbar-profile-avatar-img--lg"
+                        onError={() => setBusinessLogoFailed(true)}
+                      />
                     ) : (
                       <span className="topbar-profile-initials topbar-profile-initials--lg">{initials}</span>
                     )}

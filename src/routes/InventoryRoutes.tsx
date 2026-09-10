@@ -1,6 +1,7 @@
 import { lazy, Suspense } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import PermissionGuard from "../components/guards/PermissionGuard";
+import PlanFeatureGuard from "../components/guards/PlanFeatureGuard";
 
 const SuppliersListPage = lazy(
   () => import("../features/catalog/pages/SuppliersListPage"),
@@ -52,30 +53,36 @@ export const InventoryRoutes = () => (
       {/* Default: inventory index → suppliers */}
       <Route index element={<Navigate to="/dashboard/inventory/suppliers" replace />} />
 
-      {/* manage_inventory required for every inventory screen, read or write */}
-      <Route element={<PermissionGuard permKey="manage_inventory" />}>
-        {/* Orders is its own concept (a PO document, no stock movement) —
-            sibling to Purchase History rather than an alias for it. */}
-        <Route path="orders" element={<OrdersListPage />} />
-        <Route path="orders/new-order" element={<NewOrderPage />} />
-        <Route path="orders/:id/edit" element={<NewOrderPage />} />
-        <Route path="orders/:id" element={<OrderDetailPage />} />
-        <Route path="suppliers" element={<SuppliersListPage />} />
-        <Route path="suppliers/new" element={<AddSupplierPage />} />
-        <Route path="suppliers/edit/:id" element={<AddSupplierPage />} />
-        <Route path="suppliers/:id/edit" element={<AddSupplierPage />} />
-        <Route path="suppliers/:id" element={<SupplierDetailPage />} />
-        <Route path="products" element={<ProductInventoryPage />} />
-        <Route path="audit" element={<ProductAuditPage />} />
-        <Route path="consumables" element={<ConsumableInventoryPage />} />
-        <Route path="consumables/add" element={<ProductFormPage />} />
-        <Route path="consumables/edit/:id" element={<ProductFormPage />} />
-        <Route path="consumables/usage-history" element={<ConsumableUsageHistoryPage />} />
-        <Route path="ledger" element={<StockLedgerPage />} />
-        <Route path="ledger/add-stock" element={<AddStockPage />} />
-        <Route path="ledger/edit/:id" element={<AddStockPage />} />
-        {/* Redesigned as Consumable Inventory — old URL kept working */}
-        <Route path="stock-reconciliation" element={<Navigate to="/dashboard/inventory/consumables" replace />} />
+      {/* Plan-feature gate (featureKey "inventory") wraps the permission
+          gate — a salon whose plan lacks Inventory sees the upgrade screen
+          regardless of staff permissions; one that has it still needs
+          manage_inventory per-staff as before. */}
+      <Route element={<PlanFeatureGuard featureKey="inventory" label="Inventory Management" />}>
+        {/* manage_inventory required for every inventory screen, read or write */}
+        <Route element={<PermissionGuard permKey="manage_inventory" />}>
+          {/* Orders is its own concept (a PO document, no stock movement) —
+              sibling to Purchase History rather than an alias for it. */}
+          <Route path="orders" element={<OrdersListPage />} />
+          <Route path="orders/new-order" element={<NewOrderPage />} />
+          <Route path="orders/:id/edit" element={<NewOrderPage />} />
+          <Route path="orders/:id" element={<OrderDetailPage />} />
+          <Route path="suppliers" element={<SuppliersListPage />} />
+          <Route path="suppliers/new" element={<AddSupplierPage />} />
+          <Route path="suppliers/edit/:id" element={<AddSupplierPage />} />
+          <Route path="suppliers/:id/edit" element={<AddSupplierPage />} />
+          <Route path="suppliers/:id" element={<SupplierDetailPage />} />
+          <Route path="products" element={<ProductInventoryPage />} />
+          <Route path="audit" element={<ProductAuditPage />} />
+          <Route path="consumables" element={<ConsumableInventoryPage />} />
+          <Route path="consumables/add" element={<ProductFormPage />} />
+          <Route path="consumables/edit/:id" element={<ProductFormPage />} />
+          <Route path="consumables/usage-history" element={<ConsumableUsageHistoryPage />} />
+          <Route path="ledger" element={<StockLedgerPage />} />
+          <Route path="ledger/add-stock" element={<AddStockPage />} />
+          <Route path="ledger/edit/:id" element={<AddStockPage />} />
+          {/* Redesigned as Consumable Inventory — old URL kept working */}
+          <Route path="stock-reconciliation" element={<Navigate to="/dashboard/inventory/consumables" replace />} />
+        </Route>
       </Route>
 
       {/* Catch-all → suppliers */}

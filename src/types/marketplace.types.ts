@@ -33,10 +33,16 @@ export interface MarketplaceProfile {
   id: string;
   salon_id: string;
   display_name: string;
+  tagline: string | null;
+  website: string | null;
   business_phone: string | null;
   business_phone_country_code: string | null;
   business_email: string | null;
   venue_description: string | null;
+  max_advance_days: number;
+  min_notice_hours: number;
+  cancellation_notice_hours: number;
+  slot_interval_minutes: number;
   is_published: boolean;
   created_at: string;
   updated_at: string;

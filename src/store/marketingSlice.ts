@@ -1,5 +1,5 @@
 import { createSlice } from "@reduxjs/toolkit";
-import type { Template, Campaign, WaConfig, DashboardStats, PurchaseTemplate } from "../types/marketing.types";
+import type { Template, Campaign, WaConfig, DashboardStats, PurchaseTemplate, NotificationChannelTemplate } from "../types/marketing.types";
 import {
   fetchTemplatesThunk,
   createTemplateThunk,
@@ -26,6 +26,12 @@ import {
   resetPurchaseTemplateThunk,
   syncPurchaseTemplateThunk,
 } from "../middleware/marketing/wa-automation.thunk";
+import {
+  fetchNotificationChannelTemplatesThunk,
+  updateSmsTemplateThunk,
+  updateEmailTemplateThunk,
+  setChannelEnabledThunk,
+} from "../middleware/marketing/notification-channels.thunk";
 import { fetchAnalytics } from "../middleware/marketing/analytics.thunk";
 import type { WAAnalyticsStats } from "../middleware/marketing/analytics.thunk";
 
@@ -37,6 +43,7 @@ interface MarketingState {
   analyticsData:  WAAnalyticsStats | null;
   waConfigFetched: boolean;
   purchaseTemplates: PurchaseTemplate[];
+  channelTemplates: NotificationChannelTemplate[];
   loading: {
     fetchTemplates:        boolean;
     createTemplate:        boolean;
@@ -60,6 +67,10 @@ interface MarketingState {
     updatePurchaseTemplate:  boolean;
     submitPurchaseTemplate:  boolean;
     syncPurchaseTemplate:    boolean;
+    fetchChannelTemplates:   boolean;
+    updateSmsTemplate:       boolean;
+    updateEmailTemplate:     boolean;
+    setChannelEnabled:       boolean;
   };
   error: string | null;
 }
@@ -72,6 +83,7 @@ const initialState: MarketingState = {
   analyticsData:  null,
   waConfigFetched: false,
   purchaseTemplates: [],
+  channelTemplates: [],
   loading: {
     fetchTemplates:        false,
     createTemplate:        false,
@@ -95,6 +107,10 @@ const initialState: MarketingState = {
     updatePurchaseTemplate:  false,
     submitPurchaseTemplate:  false,
     syncPurchaseTemplate:    false,
+    fetchChannelTemplates:   false,
+    updateSmsTemplate:       false,
+    updateEmailTemplate:     false,
+    setChannelEnabled:       false,
   },
   error: null,
 };
@@ -448,6 +464,72 @@ const marketingSlice = createSlice({
       .addCase(syncPurchaseTemplateThunk.rejected, (state, { payload }) => {
         state.loading.syncPurchaseTemplate = false;
         state.error = payload ?? "Failed to sync template status";
+      });
+
+    // ── fetchNotificationChannelTemplates ─────────────────────────────────────
+    builder
+      .addCase(fetchNotificationChannelTemplatesThunk.pending, (state) => {
+        state.loading.fetchChannelTemplates = true;
+        state.error = null;
+      })
+      .addCase(fetchNotificationChannelTemplatesThunk.fulfilled, (state, { payload }) => {
+        state.loading.fetchChannelTemplates = false;
+        state.channelTemplates = payload;
+      })
+      .addCase(fetchNotificationChannelTemplatesThunk.rejected, (state, { payload }) => {
+        state.loading.fetchChannelTemplates = false;
+        state.error = payload ?? "Failed to fetch notification channel templates";
+      });
+
+    // ── updateSmsTemplate / updateEmailTemplate / setChannelEnabled ───────────
+    // All three replace-in-place by (event_type, channel) — two rows per
+    // event (SMS + EMAIL), unlike purchaseTemplates' one-row-per-event.
+    const replaceChannelTemplate = (state: MarketingState, payload: NotificationChannelTemplate) => {
+      const idx = state.channelTemplates.findIndex((t) => t.event_type === payload.event_type && t.channel === payload.channel);
+      if (idx !== -1) state.channelTemplates[idx] = payload;
+      else state.channelTemplates.push(payload);
+    };
+
+    builder
+      .addCase(updateSmsTemplateThunk.pending, (state) => {
+        state.loading.updateSmsTemplate = true;
+        state.error = null;
+      })
+      .addCase(updateSmsTemplateThunk.fulfilled, (state, { payload }) => {
+        state.loading.updateSmsTemplate = false;
+        replaceChannelTemplate(state, payload);
+      })
+      .addCase(updateSmsTemplateThunk.rejected, (state, { payload }) => {
+        state.loading.updateSmsTemplate = false;
+        state.error = payload ?? "Failed to save SMS wording";
+      });
+
+    builder
+      .addCase(updateEmailTemplateThunk.pending, (state) => {
+        state.loading.updateEmailTemplate = true;
+        state.error = null;
+      })
+      .addCase(updateEmailTemplateThunk.fulfilled, (state, { payload }) => {
+        state.loading.updateEmailTemplate = false;
+        replaceChannelTemplate(state, payload);
+      })
+      .addCase(updateEmailTemplateThunk.rejected, (state, { payload }) => {
+        state.loading.updateEmailTemplate = false;
+        state.error = payload ?? "Failed to save email content";
+      });
+
+    builder
+      .addCase(setChannelEnabledThunk.pending, (state) => {
+        state.loading.setChannelEnabled = true;
+        state.error = null;
+      })
+      .addCase(setChannelEnabledThunk.fulfilled, (state, { payload }) => {
+        state.loading.setChannelEnabled = false;
+        replaceChannelTemplate(state, payload);
+      })
+      .addCase(setChannelEnabledThunk.rejected, (state, { payload }) => {
+        state.loading.setChannelEnabled = false;
+        state.error = payload ?? "Failed to update channel setting";
       });
 
     // ── fetchAnalytics ────────────────────────────────────────────────────────

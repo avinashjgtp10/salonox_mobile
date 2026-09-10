@@ -17,13 +17,18 @@ import {
   Tag,
   PackageIcon,
   Printer,
+  Smartphone,
+  MapPin,
+  Upload,
 } from "lucide-react";
 import ProfileSettingsPage from "../pages/ProfileSettingsPage";
 import BusinessSettingsPage from "../pages/BusinessSettingsPage";
+import BranchesPage from "../pages/BranchesPage";
 import AccountSettingsPage from "../pages/AccountSettingsPage";
 import NotificationsPage from "../pages/NotificationsPage";
 import RolesPermissionsPage from "../pages/RolesPermissionsPage";
 import IntegrationsPage from "../pages/IntegrationsPage";
+import PaymentMachineSettingsPage from "../pages/PaymentMachineSettingsPage";
 import BillingPage from "../pages/BillingPage";
 import CurrencySettingsPage from "../pages/CurrencySettingsPage";
 import SettingsManagementPage from "../pages/SettingsManagementPage";
@@ -33,6 +38,7 @@ import CouponsSettingsPage from "../pages/CouponsSettingsPage";
 import PackageSettingsPage from "../pages/PackageSettingsPage";
 import PrintSettingsPage from "../pages/PrintSettingsPage";
 import DataPrivacyPage from "../pages/DataPrivacyPage";
+import BulkBillingImportPage from "../pages/BulkBillingImportPage";
 import SettingsHomePage, { type SettingsHomeGroup } from "../pages/SettingsHomePage";
 import "../styles/SettingsPage.scss";
 
@@ -58,6 +64,7 @@ const navGroups: NavGroup[] = [
       { id: "profile",  label: "Profile",             description: "Manage your personal details and profile photo.",                icon: <User size={18} />,        Component: ProfileSettingsPage },
       { id: "business", label: "Business",            description: "Manage your salon's public profile, contact info, and hours.",    icon: <Building2 size={18} />,   Component: BusinessSettingsPage },
       { id: "account",  label: "Account & Security",  description: "Update your password and manage account security.",               icon: <ShieldCheck size={18} />, Component: AccountSettingsPage },
+      { id: "branches", label: "Branches",            description: "Manage your salon's locations, hours, and holidays.",              icon: <MapPin size={18} />,      Component: BranchesPage },
     ],
   },
   {
@@ -71,6 +78,7 @@ const navGroups: NavGroup[] = [
     groupLabel: "Tools",
     items: [
       { id: "integrations", label: "Integrations",   description: "Connect third-party tools and services.",       icon: <Puzzle size={18} />,     Component: IntegrationsPage },
+      { id: "pos-payments", label: "POS / Payment Machine", description: "Connect a payment terminal so invoices can be paid — and marked PAID — directly on the machine.", icon: <Smartphone size={18} />, Component: PaymentMachineSettingsPage },
       { id: "billing",      label: "Billing & Plans", description: "View and manage your subscription and billing.", icon: <CreditCard size={18} />, Component: BillingPage },
     ],
   },
@@ -87,6 +95,12 @@ const navGroups: NavGroup[] = [
       // Not shown on the Settings home grid (see hidden below) — it's the
       // coupon management list, reached from the designer's "Manage coupons" link.
       { id: "coupons-manage", label: "Manage Coupons", description: "", icon: <Tag size={18} />, Component: CouponsSettingsPage, hidden: true },
+    ],
+  },
+  {
+    groupLabel: "Migration",
+    items: [
+      { id: "bulk-billing-import", label: "Bulk Billing Import", description: "Import historical billing records from an Excel or CSV file.", icon: <Upload size={18} />, Component: BulkBillingImportPage },
     ],
   },
   {
@@ -129,14 +143,6 @@ export default function SettingsLayout() {
   }, [activeId]);
 
   const handleSelect = (id: string) => {
-    // Coupons is the one section that isn't a panel inside this shell — it
-    // opens the full-screen Coupon Designer, which needs the whole viewport
-    // for its three panels. Coupon management (list, Create New, Bulk Create)
-    // is reached from inside the designer.
-    if (id === "coupons") {
-      navigate("/dashboard/settings/coupon-designer");
-      return;
-    }
     navigate(`/dashboard/settings/${id}`);
   };
 

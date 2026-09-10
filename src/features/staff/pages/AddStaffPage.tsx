@@ -1,22 +1,17 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { Camera, Eye, EyeSlash } from "react-bootstrap-icons";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "../styles/AddStaffPage.scss";
 import api from "../../../services/api/axios";
 import { STAFF } from "../../../services/api/endpoints";
-import {
-  defaultPermissions,
-  PERM_CATEGORIES,
-  buildPermissions,
-  permsToRecord,
-  type Permission,
-} from "../../settings/data/permissionMatrix";
+import StaffPermissionEditor from "../../settings/components/StaffPermissionEditor";
 import CountryCodeSelect from "../../clients/components/CountryCodeSelect";
 import Dropdown from "../../../components/ui/Dropdown";
 import { useAppDispatch } from "../../../hooks/useAppRedux";
 import { sendEmailOtpThunk, verifyEmailOtpThunk } from "../../../middleware/auth/otpThunk";
+import { fetchRolesThunk, createRoleThunk, assignStaffRoleThunk } from "../../../middleware/roles/roles.thunk";
 import { toTitleCase } from "../../../utils/titleCase";
 
 // Three real choices only. There used to be a leading { value: "", label:
@@ -48,8 +43,14 @@ const DOB_PLACEHOLDER_YEAR = 2000;
 const AddStaffPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const dispatch = useAppDispatch();
   const isEdit = !!id && id !== "undefined" && id !== "add";
+  // Where to go after Save/Discard — defaults to the Team Members list, but
+  // callers like the Calendar's "no staff yet" empty state pass their own
+  // path so the user lands back where they started instead of a page they
+  // never visited.
+  const returnTo = (location.state as { returnTo?: string } | null)?.returnTo || "/dashboard/team/members";
 
   const today = new Date().toISOString().slice(0, 10);
 
@@ -76,8 +77,10 @@ const AddStaffPage: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [permissionLevel, setPermissionLevel] = useState("Low");
-  const [permissionsEnabled, setPermissionsEnabled] = useState(false);
-  const [perms, setPerms] = useState<Permission[]>(() => buildPermissions(defaultPermissions, null));
+  // Individual permission overrides are managed separately post-creation via
+  // StaffPermissionEditor (see the "Permissions" card below) — this form no
+  // longer writes staff.custom_permissions directly.
+  const [showPermissionEditor, setShowPermissionEditor] = useState(false);
 
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -139,15 +142,14 @@ const AddStaffPage: React.FC = () => {
           hourlyRate: "", fixedSalary: "", workingHoursPerDay: staff.working_hours_per_day ?? "", holidays: staff.holidays ?? "",
           password: "", confirmPassword: "",
         });
+        // Staff Login reflects whether this staff member already has an
+        // email on file — without this, the toggle always defaulted to OFF
+        // on Edit regardless of the real state, which combined with "Email
+        // optional when OFF" would have let an existing logged-in staff
+        // member's email be silently cleared on save.
+        setStaffLoginEnabled(!!staff.email);
         setAvatarUrl(staff.avatar_url || "");
         setPermissionLevel(LEVEL_TO_ROLE[staff.permission_level] || "Low");
-
-        if (staff.custom_permissions) {
-          setPermissionsEnabled(true);
-          setPerms(buildPermissions(defaultPermissions, staff.custom_permissions));
-        } else {
-          setPerms(buildPermissions(defaultPermissions, null));
-        }
 
         const wages = wagesRes?.data?.data;
         if (wages) {
@@ -171,12 +173,17 @@ const AddStaffPage: React.FC = () => {
   // ── Field validation ─────────────────────────────────────────────────────────
   const isNameInvalid = attemptedSubmit && form.name.trim() === "";
 
+  // Email is only mandatory when Staff Login is on — an admin adding a
+  // staff member who won't log in at all shouldn't be blocked for lacking
+  // one. If a value IS entered, it must still be a real address either way.
   const emailFormatValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim());
+  const isEmailRequiredAndMissing = staffLoginEnabled && form.email.trim() === "";
   const isEmailInvalid =
     !!duplicateEmailMessage ||
-    (attemptedSubmit && (form.email.trim() === "" || !emailFormatValid));
+    (attemptedSubmit && isEmailRequiredAndMissing) ||
+    (attemptedSubmit && form.email.trim() !== "" && !emailFormatValid);
   const emailErrorMessage =
-    duplicateEmailMessage || (form.email.trim() === "" ? "Email is required" : "Enter a valid email address");
+    duplicateEmailMessage || (isEmailRequiredAndMissing ? "Email is required" : "Enter a valid email address");
 
   const isDobFuture = !!form.dob && form.dob > today;
   const isDobUnderage = !!form.dob && !isDobFuture && form.dob > minAdultDob;
@@ -189,8 +196,6 @@ const AddStaffPage: React.FC = () => {
 
   const isPhoneInvalid = attemptedSubmit && (form.phone.trim() === "" || !/^\d{10}$/.test(form.phone.trim()));
   const phoneErrorMessage = form.phone.trim() === "" ? "Contact is required" : "Enter a valid 10-digit phone number";
-
-  const isGenderInvalid = attemptedSubmit && form.gender.trim() === "";
 
   const isHourlyRateInvalid = attemptedSubmit && form.hourlyRate !== "" && Number(form.hourlyRate) <= 0;
   const isFixedSalaryInvalid = attemptedSubmit && form.fixedSalary !== "" && Number(form.fixedSalary) <= 0;
@@ -290,20 +295,15 @@ const AddStaffPage: React.FC = () => {
     }
   };
 
-  // ── Permissions ──────────────────────────────────────────────────────────────
-  const togglePerm = (key: string) => {
-    setPerms((prev) => prev.map((p) => (p.key === key ? { ...p, staff: !p.staff } : p)));
-    setPermissionsEnabled(true);
-  };
-
   // ── Submit ───────────────────────────────────────────────────────────────────
   const handleSave = async () => {
     setAttemptedSubmit(true);
     setDuplicateEmailMessage(null);
 
     if (
-      form.name.trim() === "" || form.email.trim() === "" || !emailFormatValid || form.phone.trim() === "" || isPhoneInvalid ||
-      form.doj.trim() === "" || form.gender.trim() === "" || isDobInvalid ||
+      form.name.trim() === "" || isEmailRequiredAndMissing || (form.email.trim() !== "" && !emailFormatValid) ||
+      form.phone.trim() === "" || isPhoneInvalid ||
+      form.doj.trim() === "" || isDobInvalid ||
       isHourlyRateInvalid || isFixedSalaryInvalid || isCompensationConflict || isWorkingHoursInvalid || isHolidaysInvalid ||
       isPasswordInvalid || isConfirmPasswordInvalid || isEmailVerificationInvalid
     ) {
@@ -331,7 +331,13 @@ const AddStaffPage: React.FC = () => {
       const payload: Record<string, unknown> = {
         first_name,
         last_name,
-        email: form.email.trim(),
+        // Omitted entirely in edit mode — the field is read-only there (see
+        // the disabled email input above) and the update endpoint drops any
+        // email it's sent anyway, so there's no reason to send the unchanged
+        // value. undefined (not "") when blank on create — an explicit empty
+        // string reads as "clear the email" to the create endpoint, which
+        // isn't the intent of simply leaving the field untouched/empty.
+        email: isEdit ? undefined : (form.email.trim() || undefined),
         phone: form.phone.trim(),
         phone_country_code: form.phoneCountryCode,
         job_title: form.designation || undefined,
@@ -358,12 +364,6 @@ const AddStaffPage: React.FC = () => {
 
       if (staffLoginEnabled && form.password.trim()) {
         payload.password = form.password.trim();
-      }
-
-      if (permissionsEnabled) {
-        payload.custom_permissions = permsToRecord(perms);
-      } else if (isEdit) {
-        payload.custom_permissions = null;
       }
 
       let staffId = id;
@@ -397,12 +397,35 @@ const AddStaffPage: React.FC = () => {
         }
       }
 
+      // This "Role" field used to only write staff.permission_level, a
+      // display-only column the real permission resolver (staffHasPermission
+      // in permission.middleware.ts) never reads — selecting "Manager" here
+      // silently did nothing to the staff member's actual access, which is
+      // controlled entirely by staff.role_id / the role_permissions table
+      // (see Settings → Roles & Permissions). Now also assigns them to the
+      // matching named role there, auto-creating it (blank) if this salon
+      // has never configured that tier yet — same auto-heal the "Individual
+      // Staff" override endpoint already does for the Staff tier.
+      if (staffId) {
+        try {
+          const roleName = permissionLevel === "Manager" ? "Manager" : "Staff";
+          const roles = await dispatch(fetchRolesThunk()).unwrap();
+          let targetRole = roles.find((r) => r.name === roleName);
+          if (!targetRole) {
+            targetRole = await dispatch(createRoleThunk({ name: roleName, permissions: {} })).unwrap();
+          }
+          await dispatch(assignStaffRoleThunk({ staffId, roleId: targetRole.id })).unwrap();
+        } catch (roleError) {
+          console.error("Error assigning staff role:", roleError);
+        }
+      }
+
       if (isEdit) {
         showSuccess("Staff updated successfully");
       } else {
         showSuccess(emailVerifiedForCurrentAddress ? "Staff created and email verified successfully" : "Staff created successfully");
       }
-      navigate("/dashboard/team/members");
+      navigate(returnTo);
     } catch (error: unknown) {
       console.error("Error saving staff:", error);
       const err = error as {
@@ -455,7 +478,7 @@ const AddStaffPage: React.FC = () => {
               <button className="btn add-staff__dialog-btn add-staff__dialog-btn--cancel" onClick={() => setShowUnsavedDialog(false)}>
                 Cancel
               </button>
-              <button className="btn add-staff__dialog-btn add-staff__dialog-btn--discard" onClick={() => navigate("/dashboard/team/members")}>
+              <button className="btn add-staff__dialog-btn add-staff__dialog-btn--discard" onClick={() => navigate(returnTo)}>
                 Discard changes
               </button>
             </div>
@@ -480,15 +503,20 @@ const AddStaffPage: React.FC = () => {
                 {isNameInvalid && <span className="emp-field__error">Name is required</span>}
               </div>
               <div className="emp-field">
-                <label className="emp-field__label">Email<span className="text-danger">*</span></label>
+                <label className="emp-field__label">
+                  Email{staffLoginEnabled && <span className="text-danger">*</span>}
+                  {isEdit && <span className="emp-field__readonly-tag">Read-only</span>}
+                </label>
                 <div className="emp-input-row">
                   <input
-                    className={`emp-input ${isEmailInvalid ? "emp-input--invalid" : ""}`}
+                    className={`emp-input ${isEmailInvalid ? "emp-input--invalid" : ""} ${isEdit ? "emp-input--readonly" : ""}`}
                     placeholder="Email"
                     type="email"
                     value={form.email}
                     onChange={(e) => setField("email")(e.target.value)}
                     disabled={isEdit}
+                    readOnly={isEdit}
+                    title={isEdit ? "Email can't be changed after the staff member is created" : undefined}
                   />
                   {shouldShowEmailOtp && (
                     <button
@@ -507,6 +535,11 @@ const AddStaffPage: React.FC = () => {
                     </button>
                   )}
                 </div>
+                {isEdit && (
+                  <span className="emp-field__hint">
+                    Email can't be changed after the staff member is created.
+                  </span>
+                )}
                 {isEmailInvalid && <span className="emp-field__error">{emailErrorMessage}</span>}
                 {!isEmailInvalid && emailOtpMsg && (
                   <span className={`emp-otp-msg emp-otp-msg--${emailOtpMsg.type}`}>{emailOtpMsg.text}</span>
@@ -616,15 +649,14 @@ const AddStaffPage: React.FC = () => {
               </div>
 
               <div className="emp-field">
-                <label className="emp-field__label">Gender<span className="text-danger">*</span></label>
+                <label className="emp-field__label">Gender</label>
                 <Dropdown
                   value={form.gender}
                   onChange={(val: string) => setField("gender")(val)}
                   options={GENDER_OPTIONS}
                   placeholder="Gender"
-                  className={`emp-input emp-select ${isGenderInvalid ? "emp-input--invalid" : ""}`}
+                  className="emp-input emp-select"
                 />
-                {isGenderInvalid && <span className="emp-field__error">Gender is required</span>}
               </div>
               <div className="emp-field">
                 <label className="emp-field__label">Designation</label>
@@ -788,42 +820,43 @@ const AddStaffPage: React.FC = () => {
           )}
         </div>
 
-        {/* ── Staff Permissions ── */}
+        {/* ── Permissions ── */}
         <div className="emp-card">
           <div className="emp-permissions-header">
             <div className="emp-permissions-header__left">
-              <span className="emp-card__title emp-card__title--inline">Staff Permissions</span>
-              <label className="emp-toggle">
-                <input
-                  type="checkbox"
-                  checked={permissionsEnabled}
-                  onChange={(e) => setPermissionsEnabled(e.target.checked)}
-                />
-                <span className="emp-toggle__slider" />
-              </label>
+              <span className="emp-card__title emp-card__title--inline">Permissions</span>
             </div>
           </div>
-
-          <div className={`emp-permissions-grid ${!permissionsEnabled ? "emp-permissions-grid--disabled" : ""}`}>
-            {PERM_CATEGORIES.map((cat) => (
-              <div key={cat} className="emp-perm-category">
-                <p className="emp-perm-category__title">{cat}</p>
-                {perms.filter((p) => p.category === cat).map((perm) => (
-                  <label key={perm.key} className="emp-checkbox-row emp-checkbox-row--perm">
-                    <input
-                      type="checkbox"
-                      checked={perm.staff}
-                      disabled={!permissionsEnabled}
-                      onChange={() => togglePerm(perm.key)}
-                    />
-                    <span>{perm.label}</span>
-                  </label>
-                ))}
-              </div>
-            ))}
-          </div>
+          {isEdit ? (
+            <>
+              <p className="emp-field__hint">
+                This staff member's access is governed by their assigned role, with optional
+                individual overrides.
+              </p>
+              <button
+                type="button"
+                className="btn btn-outline-secondary btn-sm"
+                onClick={() => setShowPermissionEditor(true)}
+              >
+                Manage permission overrides →
+              </button>
+            </>
+          ) : (
+            <p className="emp-field__hint">
+              This staff member will start with their assigned role's default permissions.
+              Individual overrides can be set after saving, from the Roles &amp; Permissions page.
+            </p>
+          )}
         </div>
       </div>
+
+      {isEdit && showPermissionEditor && id && (
+        <StaffPermissionEditor
+          staffId={id}
+          staffName={form.name || form.email}
+          onClose={() => setShowPermissionEditor(false)}
+        />
+      )}
     </div>
   );
 };

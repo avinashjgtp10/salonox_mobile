@@ -1,11 +1,14 @@
 import { ChevronLeft } from "react-bootstrap-icons";
 import { NavLink } from "react-router-dom";
+import { usePlanFeatures } from "../../../hooks/usePlanFeatures";
 
 interface Props {
   onClose: () => void;
 }
 
 export default function CatalogSubSidebar({ onClose }: Props) {
+  const { hasFeature } = usePlanFeatures();
+
   return (
     <div className="sub-sidebar sub-sidebar--catalog">
       <div className="sub-header">
@@ -17,41 +20,49 @@ export default function CatalogSubSidebar({ onClose }: Props) {
       </div>
 
       <div className="sub-sidebar-body">
-        <NavLink
-          to="/dashboard/catalog/services"
-          className={({ isActive }) =>
-            isActive ? "sub-link active" : "sub-link"
-          }
-        >
-          Service menu
-        </NavLink>
+        {hasFeature("services") && (
+          <NavLink
+            to="/dashboard/catalog/services"
+            className={({ isActive }) =>
+              isActive ? "sub-link active" : "sub-link"
+            }
+          >
+            Service menu
+          </NavLink>
+        )}
 
-        <NavLink
-          to="/dashboard/catalog/products"
-          className={({ isActive }) =>
-            isActive ? "sub-link active" : "sub-link"
-          }
-        >
-          Products
-        </NavLink>
+        {hasFeature("products") && (
+          <NavLink
+            to="/dashboard/catalog/products"
+            className={({ isActive }) =>
+              isActive ? "sub-link active" : "sub-link"
+            }
+          >
+            Products
+          </NavLink>
+        )}
 
-        <NavLink
-          to="/dashboard/catalog/packages"
-          className={({ isActive }) =>
-            isActive ? "sub-link active" : "sub-link"
-          }
-        >
-          Packages
-        </NavLink>
+        {hasFeature("packages") && (
+          <NavLink
+            to="/dashboard/catalog/packages"
+            className={({ isActive }) =>
+              isActive ? "sub-link active" : "sub-link"
+            }
+          >
+            Packages
+          </NavLink>
+        )}
 
-        <NavLink
-          to="/dashboard/catalog/memberships"
-          className={({ isActive }) =>
-            isActive ? "sub-link active" : "sub-link"
-          }
-        >
-          Memberships
-        </NavLink>
+        {hasFeature("memberships") && (
+          <NavLink
+            to="/dashboard/catalog/memberships"
+            className={({ isActive }) =>
+              isActive ? "sub-link active" : "sub-link"
+            }
+          >
+            Memberships
+          </NavLink>
+        )}
       </div>
     </div>
   );

@@ -6,8 +6,12 @@ import {
   updateSubscriptionPermissionsThunk,
   fetchSubscriptionPermissionAuditLogThunk,
   grantSubscriptionDaysThunk,
+  applySubscriptionThunk,
+  removeSubscriptionThunk,
 } from "../../../middleware/superAdmin/superAdmin.thunk";
 import Pagination from "../components/Pagination";
+import DatePicker from "../../../components/ui/DatePicker";
+import ConfirmDialog from "../../../components/ui/ConfirmDialog";
 
 // The 7 subscription actions a super admin can grant/revoke per account —
 // keys must match SUBSCRIPTION_PERMISSION_KEYS in
@@ -186,6 +190,15 @@ export default function SubscriptionPermissionsPage() {
   const [granting, setGranting]         = useState(false);
   const [grantMsg, setGrantMsg]         = useState<{ ok: boolean; text: string } | null>(null);
 
+  const [applyStart, setApplyStart]     = useState("");
+  const [applyEnd, setApplyEnd]         = useState("");
+  const [applying, setApplying]         = useState(false);
+  const [applyMsg, setApplyMsg]         = useState<{ ok: boolean; text: string } | null>(null);
+
+  const [removing, setRemoving]         = useState(false);
+  const [removeMsg, setRemoveMsg]       = useState<{ ok: boolean; text: string } | null>(null);
+  const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
+
   useEffect(() => {
     const t = setTimeout(async () => {
       setSearching(true);
@@ -204,6 +217,8 @@ export default function SubscriptionPermissionsPage() {
     setSalon(null); setPerms({}); setSaveMsg(""); setLoading(true);
     setShowAudit(false); setAuditLog([]);
     setGrantDays(""); setGrantMsg(null);
+    setApplyStart(""); setApplyEnd(""); setApplyMsg(null);
+    setRemoveMsg(null); setShowRemoveConfirm(false);
     const res = await dispatch(fetchSubscriptionPermissionsByIdThunk(row.id));
     setLoading(false);
     if (fetchSubscriptionPermissionsByIdThunk.fulfilled.match(res)) {
@@ -286,6 +301,65 @@ export default function SubscriptionPermissionsPage() {
       if (showAudit) loadAuditLog();
     } else {
       setGrantMsg({ ok: false, text: (res.payload as string) || "Failed to grant days" });
+    }
+  }
+
+  const applyDurationDays = (() => {
+    if (!applyStart || !applyEnd) return null;
+    const start = new Date(`${applyStart}T00:00:00`);
+    const end = new Date(`${applyEnd}T00:00:00`);
+    const diff = Math.round((end.getTime() - start.getTime()) / 86400000);
+    return diff > 0 ? diff : null;
+  })();
+
+  async function handleApplySubscription() {
+    if (!salon) return;
+    if (!applyStart || !applyEnd) {
+      setApplyMsg({ ok: false, text: "Select both a start date and an end date" });
+      return;
+    }
+    if (applyEnd <= applyStart) {
+      setApplyMsg({ ok: false, text: "End date must be after start date" });
+      return;
+    }
+    setApplying(true); setApplyMsg(null);
+    const res = await dispatch(applySubscriptionThunk({ salonId: salon.id, startDate: applyStart, endDate: applyEnd }));
+    setApplying(false);
+    if (applySubscriptionThunk.fulfilled.match(res)) {
+      const sub = res.payload?.subscription;
+      setSalon((prev: any) => prev ? {
+        ...prev,
+        subscription_status: sub?.status ?? "active",
+        subscription_start_date: sub?.current_period_start ?? applyStart,
+        subscription_end_date: sub?.current_period_end ?? applyEnd,
+        subscription_cancel_at_period_end: false,
+        subscription_cancelled_at: null,
+      } : prev);
+      setApplyMsg({ ok: true, text: `Subscription applied — active ${fmtDate(applyStart)} to ${fmtDate(applyEnd)}` });
+      if (showAudit) loadAuditLog();
+    } else {
+      setApplyMsg({ ok: false, text: (res.payload as string) || "Failed to apply subscription" });
+    }
+  }
+
+  async function handleRemoveSubscription() {
+    if (!salon) return;
+    setShowRemoveConfirm(false);
+    setRemoving(true); setRemoveMsg(null);
+    const res = await dispatch(removeSubscriptionThunk(salon.id));
+    setRemoving(false);
+    if (removeSubscriptionThunk.fulfilled.match(res)) {
+      const sub = res.payload?.subscription;
+      setSalon((prev: any) => prev ? {
+        ...prev,
+        subscription_status: sub?.status ?? "cancelled",
+        subscription_end_date: sub?.current_period_end ?? null,
+        subscription_cancelled_at: sub?.cancelled_at ?? new Date().toISOString(),
+      } : prev);
+      setRemoveMsg({ ok: true, text: "Subscription removed — account deactivated" });
+      if (showAudit) loadAuditLog();
+    } else {
+      setRemoveMsg({ ok: false, text: (res.payload as string) || "Failed to remove subscription" });
     }
   }
 
@@ -480,6 +554,71 @@ export default function SubscriptionPermissionsPage() {
               </div>
             </div>
 
+            {/* Apply / Remove subscription */}
+            <div style={{ padding: "14px 20px", borderBottom: "1px solid #f1f5f9", background: "#fff" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 2 }}>
+                <div style={{ fontSize: 12.5, fontWeight: 700, color: "#0f172a" }}>Subscription Status</div>
+                {(() => {
+                  const statusBadge = subscriptionStatusBadge(salon);
+                  return (
+                    <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: statusBadge.bg, color: statusBadge.text, textTransform: "capitalize" }}>
+                      {statusBadge.label}
+                    </span>
+                  );
+                })()}
+              </div>
+              <div style={{ display: "flex", gap: 18, flexWrap: "wrap", fontSize: 11.5, color: "#64748b", marginBottom: 12 }}>
+                <span>Start: <b style={{ color: "#374151" }}>{fmtDate(salon.subscription_start_date)}</b></span>
+                <span>End: <b style={{ color: "#374151" }}>{fmtDate(salon.subscription_end_date)}</b></span>
+              </div>
+
+              <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 8 }}>
+                Apply a subscription by choosing a start and end date — sets the account active immediately for that period.
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                <DatePicker value={applyStart} onChange={v => { setApplyStart(v); setApplyMsg(null); }} placeholder="Start date" max={applyEnd || undefined} />
+                <DatePicker value={applyEnd} onChange={v => { setApplyEnd(v); setApplyMsg(null); }} placeholder="End date" min={applyStart || undefined} />
+                {applyDurationDays !== null && (
+                  <span style={{ fontSize: 11.5, fontWeight: 600, color: "#6366f1", background: "#eef2ff", padding: "5px 10px", borderRadius: 7 }}>
+                    {applyDurationDays} day{applyDurationDays !== 1 ? "s" : ""}
+                  </span>
+                )}
+                <button onClick={handleApplySubscription} disabled={applying} style={{
+                  padding: "8px 18px", background: applying ? "#a5b4fc" : "linear-gradient(135deg,#6366f1,#8b5cf6)",
+                  color: "#fff", border: "none", borderRadius: 8, fontSize: 12.5, fontWeight: 700,
+                  cursor: applying ? "not-allowed" : "pointer", display: "flex", alignItems: "center", gap: 6,
+                }}>
+                  {applying ? <><Spinner color="#fff" />Applying…</> : "Apply Subscription"}
+                </button>
+                <button onClick={() => setShowRemoveConfirm(true)} disabled={removing} style={{
+                  padding: "8px 18px", background: "#fff", color: "#dc2626", border: "1.5px solid #fecaca", borderRadius: 8,
+                  fontSize: 12.5, fontWeight: 700, cursor: removing ? "not-allowed" : "pointer", display: "flex", alignItems: "center", gap: 6,
+                }}>
+                  {removing ? <><Spinner color="#dc2626" />Removing…</> : "Remove Subscription"}
+                </button>
+                {applyMsg && (
+                  <span style={{
+                    fontSize: 12, fontWeight: 600, padding: "5px 12px", borderRadius: 7,
+                    color: applyMsg.ok ? "#16a34a" : "#dc2626",
+                    background: applyMsg.ok ? "#f0fdf4" : "#fef2f2",
+                    border: `1px solid ${applyMsg.ok ? "#bbf7d0" : "#fecaca"}`,
+                  }}>
+                    {applyMsg.text}
+                  </span>
+                )}
+                {removeMsg && (
+                  <span style={{
+                    fontSize: 12, fontWeight: 600, padding: "5px 12px", borderRadius: 7,
+                    color: removeMsg.ok ? "#16a34a" : "#dc2626",
+                    background: removeMsg.ok ? "#f0fdf4" : "#fef2f2",
+                    border: `1px solid ${removeMsg.ok ? "#bbf7d0" : "#fecaca"}`,
+                  }}>
+                    {removeMsg.text}
+                  </span>
+                )}
+              </div>
+            </div>
+
             {/* Grant subscription days */}
             <div style={{ padding: "14px 20px", borderBottom: "1px solid #f1f5f9", background: "#fafbff" }}>
               <div style={{ fontSize: 12.5, fontWeight: 700, color: "#0f172a", marginBottom: 2 }}>Grant Subscription Days</div>
@@ -604,6 +743,17 @@ export default function SubscriptionPermissionsPage() {
           </>
         )}
         </div>
+
+        {showRemoveConfirm && salon && (
+          <ConfirmDialog
+            title="Remove Subscription"
+            message={`Are you sure you want to remove ${salon.name}'s subscription? This immediately deactivates the account's access.`}
+            confirmLabel="Remove"
+            danger
+            onConfirm={handleRemoveSubscription}
+            onCancel={() => setShowRemoveConfirm(false)}
+          />
+        )}
         </div>
       )}
 

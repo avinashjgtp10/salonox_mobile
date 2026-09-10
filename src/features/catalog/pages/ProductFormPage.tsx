@@ -138,7 +138,9 @@ const ProductFormPage: React.FC = () => {
   useEffect(() => {
     dispatch(fetchCategoriesThunk());
     dispatch(fetchBrandsThunk());
-    dispatch(fetchSuppliersThunk());
+    // page_limit:100 — this is the Supplier dropdown, not the paginated
+    // Suppliers list page, so it needs the full set.
+    dispatch(fetchSuppliersThunk({ page_limit: 100 }));
   }, [dispatch]);
 
   useEffect(() => {
@@ -740,7 +742,12 @@ const ProductFormPage: React.FC = () => {
               onChange={setExpiryDate}
               placeholder="dd-mm-yyyy"
               separator="-"
-              min={isEdit ? undefined : todayIso}
+              // No isEdit exception here — a past date must never be
+              // pickable going forward, in either mode. The submit-time
+              // isExpiryInPast check below stays create-only, so editing a
+              // product whose expiry already lapsed before this rule
+              // existed still doesn't block saving unrelated field changes.
+              min={todayIso}
             />
             {expiryDateError && <span className="cf-field__error">{expiryDateError}</span>}
           </div>

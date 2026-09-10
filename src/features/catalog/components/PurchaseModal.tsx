@@ -9,6 +9,7 @@ import { useCurrency } from "../../../hooks/useCurrency";
 import Modal from "../../../components/ui/Modal";
 import Button from "../../../components/ui/Button";
 import Dropdown from "../../../components/ui/Dropdown";
+import { DatePicker } from "../../../components/ui";
 import QuickAdd from "./form/QuickAdd";
 import ProductSearchSelect, { type ProductSearchResult } from "./ProductSearchSelect";
 import "../styles/PurchaseModal.scss";
@@ -54,8 +55,14 @@ export default function PurchaseModal({ onClose, onSaved, onError }: Props) {
   const [lines, setLines] = useState<PurchaseLine[]>([emptyLine()]);
   const [saving, setSaving] = useState(false);
   const [touched, setTouched] = useState(false);
+  // Set whenever a Qty input's raw typed/pasted value contains a decimal
+  // point, so the validation message below can explain the strip rather
+  // than leaving the user wondering why "1.5" silently became "15".
+  const [decimalAttempted, setDecimalAttempted] = useState(false);
 
-  useEffect(() => { dispatch(fetchSuppliersThunk()); }, [dispatch]);
+  // page_limit:100 — this is the Supplier dropdown, not the paginated
+  // Suppliers list page, so it needs the full set.
+  useEffect(() => { dispatch(fetchSuppliersThunk({ page_limit: 100 })); }, [dispatch]);
 
   async function handleAddSupplier(name: string) {
     const result = await dispatch(createSupplierThunk({ name })).unwrap();
@@ -73,7 +80,7 @@ export default function PurchaseModal({ onClose, onSaved, onError }: Props) {
   const validLines = lines.filter((l) => {
     const qty = parseFloat(l.quantity);
     const price = parseFloat(l.purchasePrice);
-    return l.product && Number.isFinite(qty) && qty > 0 && Number.isFinite(price) && price >= 0;
+    return l.product && Number.isInteger(qty) && qty > 0 && Number.isFinite(price) && price >= 0;
   });
 
   const totalAmount = validLines.reduce(
@@ -87,7 +94,7 @@ export default function PurchaseModal({ onClose, onSaved, onError }: Props) {
     if (!l.product) return false;
     const qty = parseFloat(l.quantity);
     const price = parseFloat(l.purchasePrice);
-    return !(Number.isFinite(qty) && qty > 0) || !(Number.isFinite(price) && price >= 0);
+    return !(Number.isInteger(qty) && qty > 0) || !(Number.isFinite(price) && price >= 0);
   });
 
   const canSave = !!supplierId && validLines.length > 0 && !hasIncompleteLine;
@@ -153,12 +160,7 @@ export default function PurchaseModal({ onClose, onSaved, onError }: Props) {
 
       <div className="pm-field">
         <label className="pm-label">Purchase Date <span className="pm-req">*</span></label>
-        <input
-          type="date"
-          className="pm-input"
-          value={purchaseDate}
-          onChange={(e) => setPurchaseDate(e.target.value)}
-        />
+        <DatePicker value={purchaseDate} onChange={setPurchaseDate} separator="-" className="dp--block" />
       </div>
 
       <div className="pm-field">
@@ -190,6 +192,11 @@ export default function PurchaseModal({ onClose, onSaved, onError }: Props) {
                     <ProductSearchSelect
                       onSelect={(p) => patchLine(line.key, {
                         product: p,
+                        // Defaults to 1 on every product pick (including
+                        // re-picking a different product into an existing
+                        // row via "Change") — still a plain editable input
+                        // afterward, this only seeds the initial value.
+                        quantity: "1",
                         purchasePrice: p.supply_price != null ? String(p.supply_price) : line.purchasePrice,
                       })}
                     />
@@ -197,13 +204,15 @@ export default function PurchaseModal({ onClose, onSaved, onError }: Props) {
                 </div>
                 <input
                   className="pm-input pm-input--sm"
-                  type="number"
-                  min="0"
-                  step="any"
+                  type="text"
+                  inputMode="numeric"
                   placeholder="Qty"
                   value={line.quantity}
-                  onChange={(e) => patchLine(line.key, { quantity: e.target.value })}
-                  onWheel={(e) => e.currentTarget.blur()}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    if (raw.includes(".")) setDecimalAttempted(true);
+                    patchLine(line.key, { quantity: raw.replace(/[^0-9]/g, "") });
+                  }}
                 />
                 <input
                   className="pm-input pm-input--sm"
@@ -215,11 +224,11 @@ export default function PurchaseModal({ onClose, onSaved, onError }: Props) {
                   onChange={(e) => patchLine(line.key, { purchasePrice: e.target.value })}
                   onWheel={(e) => e.currentTarget.blur()}
                 />
-                <input
-                  className="pm-input pm-input--sm"
-                  type="date"
+                <DatePicker
+                  className="dp--block"
                   value={line.expiryDate}
-                  onChange={(e) => patchLine(line.key, { expiryDate: e.target.value })}
+                  onChange={(v) => patchLine(line.key, { expiryDate: v })}
+                  separator="-"
                 />
                 <span className="pm-line-total">{formatAmount(lineTotal)}</span>
                 <button
@@ -239,7 +248,8 @@ export default function PurchaseModal({ onClose, onSaved, onError }: Props) {
           <PlusLg size={13} /> Add Product
         </button>
         {touched && validLines.length === 0 && <span className="pm-err">Add at least one product</span>}
-        {touched && hasIncompleteLine && <span className="pm-err">Every product needs a quantity and purchase price</span>}
+        {touched && hasIncompleteLine && <span className="pm-err">Every product needs a whole-number quantity and purchase price</span>}
+        {decimalAttempted && <span className="pm-err">Add Qty must be a whole number — decimals aren't allowed</span>}
       </div>
     </Modal>
   );

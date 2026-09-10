@@ -1,21 +1,38 @@
 import { createSlice } from "@reduxjs/toolkit";
 import {
   fetchSuppliersThunk,
+  fetchSupplierFilterOptionsThunk,
   createSupplierThunk,
   updateSupplierThunk,
   deleteSupplierThunk,
   fetchConsumablesDashboardThunk,
   fetchConsumableByIdThunk,
+  fetchOrdersThunk,
 } from "../middleware/inventory/inventory.thunk";
 import type {
   SupplierWithBalance,
   ConsumableListRow, ConsumableKpis, ConsumableDetail,
+  Order,
 } from "../types/inventory.types";
 
 interface InventoryState {
   suppliers: SupplierWithBalance[];
+  suppliersPage: number;
+  suppliersPageSize: number;
+  suppliersTotal: number;
+  supplierCities: string[];
+  supplierStates: string[];
   loading: boolean;
   error: string | null;
+
+  // Orders (Purchase Orders) — kept in Redux, not page-local state, so
+  // OrdersListPage's "skip refetch on a plain Close" check survives the
+  // component unmounting/remounting on every route navigation (local
+  // useState resets to empty on remount, which silently defeated that
+  // check — see OrdersListPage.tsx's mount effect).
+  orders: Order[];
+  ordersTotal: number;
+  ordersLoading: boolean;
 
   // Consumable Inventory
   consumables: ConsumableListRow[];
@@ -32,8 +49,17 @@ interface InventoryState {
 
 const initialState: InventoryState = {
   suppliers: [],
+  suppliersPage: 1,
+  suppliersPageSize: 10,
+  suppliersTotal: 0,
+  supplierCities: [],
+  supplierStates: [],
   loading: false,
   error: null,
+
+  orders: [],
+  ordersTotal: 0,
+  ordersLoading: false,
 
   consumables: [],
   consumablesPage: 1,
@@ -66,11 +92,32 @@ const inventorySlice = createSlice({
     });
     builder.addCase(fetchSuppliersThunk.fulfilled, (state, action) => {
       state.loading = false;
-      state.suppliers = action.payload;
+      state.suppliers = action.payload.data;
+      state.suppliersTotal = action.payload.total;
+      state.suppliersPage = action.payload.page;
+      state.suppliersPageSize = action.payload.page_limit;
     });
     builder.addCase(fetchSuppliersThunk.rejected, (state, action) => {
       state.loading = false;
       state.error = action.payload as string;
+    });
+
+    builder.addCase(fetchSupplierFilterOptionsThunk.fulfilled, (state, action) => {
+      state.supplierCities = action.payload.cities;
+      state.supplierStates = action.payload.states;
+    });
+
+    // Fetch Orders
+    builder.addCase(fetchOrdersThunk.pending, (state) => {
+      state.ordersLoading = true;
+    });
+    builder.addCase(fetchOrdersThunk.fulfilled, (state, action) => {
+      state.ordersLoading = false;
+      state.orders = action.payload.data;
+      state.ordersTotal = action.payload.total;
+    });
+    builder.addCase(fetchOrdersThunk.rejected, (state) => {
+      state.ordersLoading = false;
     });
 
     // Create Supplier — the create/update endpoints only echo back contact

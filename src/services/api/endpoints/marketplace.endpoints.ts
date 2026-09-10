@@ -2,6 +2,7 @@ export const MARKETPLACE = {
   PROFILE: "/api/v1/marketplace/profile",
   ESSENTIALS: "/api/v1/marketplace/essentials",
   ABOUT: "/api/v1/marketplace/about",
+  BOOKING_POLICY: "/api/v1/marketplace/booking-policy",
   LOCATION: "/api/v1/marketplace/location",
   WORKING_HOURS: "/api/v1/marketplace/working-hours",
   IMAGES: "/api/v1/marketplace/images",

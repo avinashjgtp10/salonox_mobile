@@ -11,10 +11,13 @@ const DataCleanupPage     = lazy(() => import("../features/super-admin/pages/Dat
 const VisitedPage         = lazy(() => import("../features/super-admin/pages/VisitedPage"));
 const PermissionsPage     = lazy(() => import("../features/super-admin/pages/PermissionsPage"));
 const SubscriptionPermissionsPage = lazy(() => import("../features/super-admin/pages/SubscriptionPermissionsPage"));
+const PlansManagementPage = lazy(() => import("../features/super-admin/pages/PlansManagementPage"));
 const SupportPage         = lazy(() => import("../features/super-admin/pages/SupportPage"));
 const DemoInquiriesPage   = lazy(() => import("../features/super-admin/pages/DemoInquiriesPage"));
 const DeploymentAnnouncementsPage = lazy(() => import("../features/super-admin/pages/DeploymentAnnouncementsPage"));
 const ChatbotQuestionHistoryPage  = lazy(() => import("../features/super-admin/pages/ChatbotQuestionHistoryPage"));
+const HistoryPage                 = lazy(() => import("../features/super-admin/pages/HistoryPage"));
+const SpotlightAdminPage          = lazy(() => import("../features/feature-spotlight/pages/SpotlightAdminPage"));
 
 export const SuperAdminRoutes = (
   <>
@@ -28,10 +31,13 @@ export const SuperAdminRoutes = (
         <Route path="visited"      element={<VisitedPage />} />
         <Route path="permissions"  element={<PermissionsPage />} />
         <Route path="subscription-permissions" element={<SubscriptionPermissionsPage />} />
+        <Route path="plans" element={<PlansManagementPage />} />
         <Route path="support"      element={<SupportPage />} />
         <Route path="demo-inquiries" element={<DemoInquiriesPage />} />
         <Route path="deployment-announcements" element={<DeploymentAnnouncementsPage />} />
         <Route path="chatbot-questions" element={<ChatbotQuestionHistoryPage />} />
+        <Route path="history"      element={<HistoryPage />} />
+        <Route path="spotlight" element={<SpotlightAdminPage />} />
       </Route>
     </Route>
   </>

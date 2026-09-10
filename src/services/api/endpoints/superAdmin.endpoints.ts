@@ -11,6 +11,8 @@ export const SUPER_ADMIN = {
   SUBSCRIPTION_PERMISSIONS_PUT:       (id: string) => `/api/v1/super-admin/subscription-permissions/${id}`,
   SUBSCRIPTION_PERMISSIONS_AUDIT_LOG: (id: string) => `/api/v1/super-admin/subscription-permissions/${id}/audit-log`,
   SUBSCRIPTION_GRANT_DAYS: (id: string) => `/api/v1/super-admin/subscription-permissions/${id}/grant-days`,
+  SUBSCRIPTION_APPLY:  (id: string) => `/api/v1/super-admin/subscription-permissions/${id}/apply`,
+  SUBSCRIPTION_REMOVE: (id: string) => `/api/v1/super-admin/subscription-permissions/${id}/remove`,
   SALONS:        "/api/v1/super-admin/salons",
   SALON_STATUS:  (id: string) => `/api/v1/super-admin/salons/${id}/status`,
   SALON_ONBOARD: (id: string) => `/api/v1/super-admin/salons/${id}/onboarding`,
@@ -29,6 +31,8 @@ export const SUPER_ADMIN = {
   BRANCH_OWNER_SALONS_GET:      (id: string) => `/api/v1/super-admin/users/${id}/branch-salons`,
   BRANCH_OWNER_SALONS_PUT:      (id: string) => `/api/v1/super-admin/users/${id}/branch-salons`,
   BRANCH_OWNER_SALON_UNASSIGN:  (id: string, salonId: string) => `/api/v1/super-admin/users/${id}/branch-salons/${salonId}`,
+  DELETED_ACCOUNT_HISTORY: "/api/v1/super-admin/deleted-account-history",
+  SALON_CLEANUP_HISTORY:   "/api/v1/super-admin/salon-cleanup-history",
   DEMO_REQUESTS:        "/api/v1/super-admin/demo-requests",
   DEMO_REQUEST_STATUS:  (id: string) => `/api/v1/super-admin/demo-requests/${id}/status`,
 } as const;

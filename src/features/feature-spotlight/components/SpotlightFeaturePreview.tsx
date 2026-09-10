@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { CalendarEvent, ImageFill, CheckCircleFill } from "react-bootstrap-icons";
+import { CalendarEvent, ImageFill, CheckCircleFill, PlayCircleFill } from "react-bootstrap-icons";
 import type { SpotlightFeature } from "../types";
 import { resolveMediaUrl } from "../../../utils/mediaUrl";
+import { youTubeEmbedUrl, youTubeThumbnailUrl } from "../utils/youtube";
 
 function bulletsFromText(text: string): string[] {
   return text
@@ -48,12 +49,13 @@ function formatDate(iso: string) {
   return d.toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" });
 }
 
-type StepKey = "what" | "why" | "setup";
+type StepKey = "what" | "why" | "setup" | "sections";
 
 const STEPS: { key: StepKey; num: number; label: string }[] = [
   { key: "what", num: 1, label: "What is it?" },
   { key: "why", num: 2, label: "Why it works" },
   { key: "setup", num: 3, label: "Set it up" },
+  { key: "sections", num: 4, label: "Sections" },
 ];
 
 interface SpotlightFeaturePreviewProps {
@@ -75,12 +77,16 @@ function galleryImages(feature: SpotlightFeature) {
 export default function SpotlightFeaturePreview({ feature, spotlightNumber }: SpotlightFeaturePreviewProps) {
   const navigate = useNavigate();
   const [activeStep, setActiveStep] = useState<StepKey>("what");
+  const [videoPlaying, setVideoPlaying] = useState(false);
 
-  // Reset back to the first tab whenever the previewed feature changes —
-  // otherwise switching cards in the carousel could land on "Set it up" for
-  // a feature the user hasn't even opened "What is it?" for yet.
+  // Reset back to the first tab (and stop any playing video) whenever the
+  // previewed feature changes — otherwise switching cards in the carousel
+  // could land on "Set it up" for a feature the user hasn't even opened
+  // "What is it?" for yet, or leave a previous feature's video embedded
+  // and silently still playing behind the new card.
   useEffect(() => {
     setActiveStep("what");
+    setVideoPlaying(false);
   }, [feature.id]);
 
   const handleTryFeature = () => {
@@ -119,20 +125,61 @@ export default function SpotlightFeaturePreview({ feature, spotlightNumber }: Sp
         </div>
 
         <div className="spotlight-detail-hero__preview">
-          {feature.videoDataUrl ? (
-            <video src={resolveMediaUrl(feature.videoDataUrl)} controls />
-          ) : images[0] ? (
-            <img src={resolveMediaUrl(images[0].imageDataUrl)} alt={feature.featureName} />
-          ) : (
-            <div className="spotlight-detail-hero__preview-empty">
-              <ImageFill size={28} />
-            </div>
-          )}
+          {(() => {
+            const embedUrl = feature.videoDataUrl?.trim() ? youTubeEmbedUrl(feature.videoDataUrl.trim()) : null;
+
+            if (embedUrl && videoPlaying) {
+              return (
+                <iframe
+                  src={`${embedUrl}?autoplay=1`}
+                  title={feature.featureName}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              );
+            }
+
+            // Cover image is what's shown by default when one exists (even
+            // alongside a video) — the video only takes over once the person
+            // actually clicks Play. When there's a video but NO cover image,
+            // fall back to YouTube's own thumbnail so a video-only feature
+            // still shows something playable instead of the empty-state icon.
+            const coverSrc = images[0]
+              ? resolveMediaUrl(images[0].imageDataUrl)
+              : embedUrl
+              ? youTubeThumbnailUrl(feature.videoDataUrl!.trim())
+              : null;
+
+            if (coverSrc) {
+              return (
+                <button
+                  type="button"
+                  className={`spotlight-detail-hero__preview-img-btn${embedUrl ? " spotlight-detail-hero__preview-img-btn--playable" : ""}`}
+                  onClick={() => embedUrl && setVideoPlaying(true)}
+                  disabled={!embedUrl}
+                  aria-label={embedUrl ? `Play video for ${feature.featureName}` : undefined}
+                >
+                  <img src={coverSrc} alt={feature.featureName} />
+                  {embedUrl && (
+                    <span className="spotlight-detail-hero__play-overlay">
+                      <PlayCircleFill size={54} />
+                    </span>
+                  )}
+                </button>
+              );
+            }
+
+            return (
+              <div className="spotlight-detail-hero__preview-empty">
+                <ImageFill size={28} />
+              </div>
+            );
+          })()}
         </div>
       </div>
 
       <div className="spotlight-steps">
-        {STEPS.map((step) => (
+        {STEPS.filter((step) => step.key !== "sections" || (feature.sections?.length ?? 0) > 0).map((step) => (
           <button
             key={step.key}
             type="button"
@@ -192,6 +239,43 @@ export default function SpotlightFeaturePreview({ feature, spotlightNumber }: Sp
               <div className="spotlight-highlight-card" key={i}>
                 <span className="spotlight-highlight-card__icon spotlight-highlight-card__icon--num">{i + 1}</span>
                 <p className="spotlight-highlight-card__text">{line}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {activeStep === "sections" && (
+          <div className="spotlight-sections">
+            {(feature.sections ?? []).map((section) => (
+              <div className="spotlight-sections__block" key={section.id}>
+                {section.title && <h3 className="spotlight-sections__title">{section.title}</h3>}
+                {section.description && (
+                  <div className="spotlight-why-doc__text">
+                    {pointsFromText(section.description).map((line, i) => (
+                      <p key={i}>{line}</p>
+                    ))}
+                  </div>
+                )}
+                {section.images.length > 0 && (
+                  <div className="spotlight-why-doc">
+                    {section.images.map((img, i) => (
+                      <div className="spotlight-why-doc__block" key={i}>
+                        <img
+                          className="spotlight-why-doc__img"
+                          src={resolveMediaUrl(img.imageDataUrl)}
+                          alt={section.title || feature.featureName}
+                        />
+                        {img.description && (
+                          <div className="spotlight-why-doc__text">
+                            {pointsFromText(img.description).map((point, pi) => (
+                              <p key={pi}>{point}</p>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
           </div>

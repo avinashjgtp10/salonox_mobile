@@ -217,6 +217,18 @@ $transition:      0.18s ease;
     color: $text-muted;
   }
 
+  &__readonly-tag {
+    margin-left: 6px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    color: $text-muted;
+    background: #eef0f3;
+    border-radius: 999px;
+    padding: 1px 7px;
+  }
+
   &__error {
     font-size: 11px;
     color: $danger;
@@ -263,6 +275,15 @@ $transition:      0.18s ease;
   &--invalid {
     border-color: $danger;
     &:focus { box-shadow: 0 0 0 1px $danger; }
+  }
+
+  &:disabled,
+  &--readonly {
+    background: #f0f1f3;
+    color: $text-muted;
+    cursor: not-allowed;
+    &:hover { border-color: $border; }
+    &:focus { border-color: $border; box-shadow: none; }
   }
 }
 
