@@ -146,7 +146,7 @@ export default function DashboardStatTiles() {
         gradient: STAT_TILE_GRADIENTS.monthRevenue,
         icon: "cash-outline" as const,
         label: "This Month Revenue",
-        route: "/sales" as Href,
+        route: "/monthly-revenue" as Href,
         subtitle: "Current Calendar Month",
         value: formatDashboardRevenue(dashboardMetrics.monthlyRevenue),
       },

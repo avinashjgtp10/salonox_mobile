@@ -40,6 +40,12 @@ export const STAFF = {
   COMMISSIONS_MARK_PAID: (staffId: string) => `/staff/commissions/${staffId}/mark-paid`,
   COMMISSIONS_SUMMARY: "/staff/commissions/summary",
 
+  // Tips (salon-wide)
+  TIPS_EARNED: "/staff/tips/earned",
+  TIPS_SETTLE: (staffId: string) => `/staff/tips/${staffId}/settle`,
+  TIPS_SETTLEMENTS: (staffId: string) => `/staff/tips/${staffId}/settlements`,
+  TIPS_SUMMARY: "/staff/tips/summary",
+
   // Invitations
   CANCEL_INVITE: (staffId: string) => `/staff/${staffId}/cancel-invite`,
   INVITATION_STATUS: (staffId: string) => `/staff/${staffId}/invitation-status`,

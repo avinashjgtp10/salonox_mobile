@@ -63,6 +63,8 @@ export const canSettleCommission = (role?: string | null) => {
   return normalizedRole === "salon_owner" || normalizedRole === "admin";
 };
 
+export const canSettleTip = canSettleCommission;
+
 export const getUserInitials = (user: AuthUser | null) => {
   const nameSeed = getUserFullName(user);
   const initials = nameSeed
