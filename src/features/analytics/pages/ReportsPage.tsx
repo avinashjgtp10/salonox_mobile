@@ -149,6 +149,21 @@ const REPORTS: ReportDef[] = [
   { id: "membership_opportunity", slug: "membership-opportunity", name: "Membership Opportunity Report",                      description: "Frequent visitors with no active membership yet — select rows and promote membership directly via WhatsApp.", category: "marketing", icon: PersonBadge, Component: MembershipOpportunityReport },
 ];
 
+// Reports whose detail view renders SendCampaignBar (select rows -> send a
+// WhatsApp template/campaign directly) — driven off the actual component
+// reference rather than a separately-maintained id list, so this can't drift
+// out of sync if a report's underlying component ever changes.
+const WHATSAPP_CAMPAIGN_COMPONENTS = new Set<ReportDef["Component"]>([
+  AllClientsReport, BirthdayCampaignReport, CancellationRecoveryReport,
+  ClientRatingReport, ClientRevenueReport, CustomerFrequencyReport,
+  CustomerSpendReport, EwalletReport, LostCustomersReport, MemberSaleReport,
+  MembershipHistoryReport, MembershipOpportunityReport, NewClientFollowUpReport,
+  NoShowRecoveryReport, PackageHistoryReport, PackageSaleReport,
+  PendingPaymentReport, ProductSaleReport, ReferralReport, RewardReport,
+  SalesSummaryReport, ServiceFrequencyReport, ServiceSaleReport,
+  UpcomingAppointmentsReport,
+]);
+
 const DEFAULT_FAVORITES = ["sales_summary", "staff_sales", "appointment_detail", "client_revenue", "daily_sheet"];
 const FAVORITES_KEY = "rp_favorite_reports";
 const RECENTS_KEY   = "rp_recent_reports";
@@ -533,6 +548,20 @@ export default function ReportsPage() {
                                       <div className="rp-cat-report-name">{r.name}</div>
                                       <div className="rp-cat-report-desc">{r.description}</div>
                                     </div>
+                                    {WHATSAPP_CAMPAIGN_COMPONENTS.has(r.Component) && (
+                                      <>
+                                        <button
+                                          type="button"
+                                          className="rp-cat-report-wa-btn"
+                                          onClick={e => { e.stopPropagation(); openReport(r.id); }}
+                                          aria-label="Send on WhatsApp"
+                                          title="Send on WhatsApp"
+                                        >
+                                          <Whatsapp size={16} />
+                                        </button>
+                                        <span className="rp-cat-report-divider" />
+                                      </>
+                                    )}
                                     <button
                                       className={`rp-star-btn ${favorites.includes(r.id) ? "active" : ""}`}
                                       onClick={e => toggleFavorite(r.id, e)}
