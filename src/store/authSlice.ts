@@ -50,6 +50,10 @@ export interface AuthState {
   accessTokenExpiresAt: number | null;
   isOnboardingComplete: boolean;
   role: string | null;
+  /** Staff's assigned role NAME from Roles & Permissions (e.g. "Manager",
+   * "Staff") — display only, never the authorization value. See `role`
+   * above for that (always "staff" for any non-owner/admin account). */
+  roleName: string | null;
   salonId: string | null;
   custom_permissions: Record<string, boolean> | null;
   loading: AuthLoadingState;
@@ -62,6 +66,7 @@ const initialState: AuthState = {
   accessTokenExpiresAt: null,
   isOnboardingComplete: false,
   role: null,
+  roleName: null,
   salonId: null,
   custom_permissions: null,
   loading: {
@@ -145,8 +150,9 @@ const authSlice = createSlice({
         state.refreshToken = payload.refreshToken;
         state.isOnboardingComplete = payload.isOnboardingComplete;
         const jwt = decodeJwt(payload.accessToken);
-        state.role    = payload.user?.role    ?? jwt.role;
-        state.salonId = payload.user?.salonId ?? jwt.salonId;
+        state.role     = payload.user?.role     ?? jwt.role;
+        state.roleName = payload.user?.roleName ?? null;
+        state.salonId  = payload.user?.salonId  ?? jwt.salonId;
         state.custom_permissions = payload.user?.custom_permissions ?? null;
         state.accessTokenExpiresAt = jwt.expiresAt;
       })
