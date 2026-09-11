@@ -253,25 +253,45 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
       )}
 
       {hasFeature("clients") && (
-        <button
-          type="button"
-          className={menuClass("clients")}
-          title="Clients"
-          onClick={() => {
-            const opening = openMenu !== "clients";
-            onMenuChange(opening ? "clients" : null);
-            // Same pattern as Team below — jump to the section's default page
-            // when entering it from elsewhere (e.g. Calendar). Without this,
-            // clicking Clients from another page only opened the flyout
-            // submenu and left the underlying page unchanged.
-            if (opening && !location.pathname.startsWith("/dashboard/clients")) {
-              navigate("/dashboard/clients/list");
+        can("view_clients") ? (
+          <button
+            type="button"
+            className={menuClass("clients")}
+            title="Clients"
+            onClick={() => {
+              const opening = openMenu !== "clients";
+              onMenuChange(opening ? "clients" : null);
+              // Same pattern as Team below — jump to the section's default page
+              // when entering it from elsewhere (e.g. Calendar). Without this,
+              // clicking Clients from another page only opened the flyout
+              // submenu and left the underlying page unchanged.
+              if (opening && !location.pathname.startsWith("/dashboard/clients")) {
+                navigate("/dashboard/clients/list");
+              }
+            }}
+          >
+            <EmojiSmile size={22} />
+            <span className="nav-label">Clients</span>
+          </button>
+        ) : (
+          // Still visible (never hidden) but disabled — clicking shows the
+          // same "Permission Required" popup used for every other blocked
+          // action in the app, instead of silently opening the flyout menu.
+          <button
+            type="button"
+            className="nav-btn nav-btn--disabled"
+            title="Clients"
+            aria-disabled="true"
+            onClick={() =>
+              dispatch(showPermissionDenied(
+                `Your account does not have the "view_clients" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+              ))
             }
-          }}
-        >
-          <EmojiSmile size={22} />
-          <span className="nav-label">Clients</span>
-        </button>
+          >
+            <EmojiSmile size={22} />
+            <span className="nav-label">Clients</span>
+          </button>
+        )
       )}
 
       {(hasFeature("services") || hasFeature("products") || hasFeature("packages") || hasFeature("memberships")) && (

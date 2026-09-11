@@ -86,14 +86,18 @@ export default function PermissionGuard({ permKey }: Props) {
   // Members, not a wall). Only the true dead-end case — no module allowed
   // anywhere — falls through to NoPermissionPage below.
   //
-  // Dashboard, Quick Sale, and Calendar are deliberately excluded from this
-  // redirect. Dashboard is the default landing page, not "one module among
-  // many" — denying view_dashboard should show Not Authorized right there,
-  // not silently whisk the user off elsewhere the moment they land on "/".
-  // Quick Sale and Calendar are excluded per explicit ticket requirements:
-  // direct URL access when denied must show the Not Authorized page, not a
-  // silent redirect to whatever other module the user happens to have.
-  const NO_REDIRECT_KEYS = ["view_dashboard", "create_sales", "view_calendar"];
+  // Dashboard, Quick Sale, Calendar, and the 3 Clients pages are
+  // deliberately excluded from this redirect. Dashboard is the default
+  // landing page, not "one module among many" — denying view_dashboard
+  // should show Not Authorized right there, not silently whisk the user
+  // off elsewhere the moment they land on "/". The rest are excluded per
+  // explicit ticket requirements: direct URL access when denied must show
+  // the Not Authorized page, not a silent redirect to whatever other
+  // module the user happens to have.
+  const NO_REDIRECT_KEYS = [
+    "view_dashboard", "create_sales", "view_calendar",
+    "view_clients", "view_referral_rewards", "view_client_history",
+  ];
   if (role === "staff" && !NO_REDIRECT_KEYS.includes(permKey)) {
     const firstAllowed = getFirstAllowedModuleRoute(can);
     if (firstAllowed && firstAllowed !== location.pathname) {
