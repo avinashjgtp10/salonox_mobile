@@ -181,6 +181,7 @@ export default function CommissionReport({ onBack, category, categoryKey }: { on
               title={REPORT_NAME}
               headers={HEADERS}
               rows={exportRows}
+              reportId="commission_report"
               filename={`commission-report-${dateFrom}-${dateTo}`}
               variant="button"
               csv

@@ -260,6 +260,7 @@ export default function ClientRevenueReport({ onBack, category, categoryKey }: {
               title={REPORT_NAME}
               headers={HEADERS}
               rows={exportRows}
+              reportId="client_revenue"
               filename={`client-revenue-${dateFrom}-${dateTo}`}
               variant="button"
               csv

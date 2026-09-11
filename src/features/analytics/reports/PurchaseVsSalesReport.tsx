@@ -175,6 +175,7 @@ export default function PurchaseVsSalesReport({ onBack, category: reportCategory
               title={REPORT_NAME}
               headers={HEADERS}
               rows={exportRows}
+              reportId="purchase_vs_sales"
               filename="purchase-vs-sales-inventory"
               variant="button"
               csv

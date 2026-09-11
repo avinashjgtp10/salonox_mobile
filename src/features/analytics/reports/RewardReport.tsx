@@ -169,6 +169,7 @@ export default function RewardReport({ onBack, category, categoryKey }: { onBack
               title={REPORT_NAME}
               headers={HEADERS}
               rows={exportRows}
+              reportId="reward"
               filename={`reward-points-${dateFrom}-${dateTo}`}
               variant="button"
               csv

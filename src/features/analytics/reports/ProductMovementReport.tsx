@@ -69,6 +69,7 @@ function ProductMovementReport({ onBack, category: reportCategory, categoryKey, 
   const { brands, categories, fetchBrands, fetchCategories } = useProducts();
 
   const REPORT_NAME = mode === "slow" ? "Slow Moving Products" : "Fast Moving Products";
+  const reportId = mode === "slow" ? "slow_moving_products" : "fast_moving_products";
   const ENDPOINT = mode === "slow" ? SLOW_MOVING_PRODUCTS_REPORT : FAST_MOVING_PRODUCTS_REPORT;
   const defaultSortDir: "asc" | "desc" = mode === "slow" ? "asc" : "desc";
 
@@ -187,6 +188,7 @@ function ProductMovementReport({ onBack, category: reportCategory, categoryKey, 
               filename={mode === "slow" ? "slow-moving-products" : "fast-moving-products"}
               variant="button"
               csv
+              reportId={reportId}
               disabled={!!dateRangeError}
               dateRangeLabel={dateFrom || dateTo ? `${dateFrom ? formatDate(dateFrom) : "…"} - ${dateTo ? formatDate(dateTo) : "…"}` : undefined}
               filterLines={[

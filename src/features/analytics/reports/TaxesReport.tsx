@@ -203,7 +203,7 @@ export default function TaxesReport({ onBack, category, categoryKey }: { onBack:
             >
               Open GST Portal <BoxArrowUpRight size={12} />
             </a>
-            <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename={`gst-report-${dateFrom}-${dateTo}`} variant="button" csv />
+            <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename={`gst-report-${dateFrom}-${dateTo}`} variant="button" csv reportId="taxes" />
           </div>
         </div>
       </div>

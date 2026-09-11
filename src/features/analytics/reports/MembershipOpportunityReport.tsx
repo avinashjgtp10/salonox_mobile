@@ -195,6 +195,7 @@ export default function MembershipOpportunityReport({ onBack, category, category
               title={REPORT_NAME}
               headers={HEADERS}
               rows={exportRows}
+              reportId="membership_opportunity"
               filename="membership-opportunity"
               variant="button"
               csv

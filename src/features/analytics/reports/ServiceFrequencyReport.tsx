@@ -219,6 +219,7 @@ export default function ServiceFrequencyReport({ onBack, category, categoryKey }
               title={REPORT_NAME}
               headers={HEADERS}
               rows={exportRows}
+              reportId="service_frequency"
               filename={`service-frequency-${dateFrom}-${dateTo}`}
               variant="button"
               csv

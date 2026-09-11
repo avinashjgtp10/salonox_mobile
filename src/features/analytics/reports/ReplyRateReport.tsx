@@ -188,6 +188,7 @@ export default function ReplyRateReport({ onBack, category, categoryKey }: { onB
               title={REPORT_NAME}
               headers={HEADERS}
               rows={exportRows}
+              reportId="reply_rate"
               filename={REPORT_NAME}
               variant="button"
               csv

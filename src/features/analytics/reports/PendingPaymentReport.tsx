@@ -210,6 +210,7 @@ export default function PendingPaymentReport({ onBack, category, categoryKey }: 
               title={REPORT_NAME}
               headers={HEADERS}
               rows={exportRows}
+              reportId="pending_payment"
               filename={`pending-payment-${dateFrom}-${dateTo}`}
               variant="button"
               csv

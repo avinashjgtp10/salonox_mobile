@@ -205,6 +205,7 @@ export default function UpcomingAppointmentsReport({ onBack, category, categoryK
               title={REPORT_NAME}
               headers={HEADERS}
               rows={exportRows}
+              reportId="upcoming_appointments"
               filename={`${REPORT_NAME}-${dateFrom}-${dateTo}`}
               variant="button"
               csv

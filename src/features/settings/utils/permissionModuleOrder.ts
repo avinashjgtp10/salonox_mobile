@@ -46,6 +46,20 @@ const GROUP_DISPLAY_ORDER: Record<string, string[]> = {
     "Product Audit",
     "Stock Ledger",
   ],
+  // Matches the Reports permissions ticket's own listed category order,
+  // General first since it's the top-level "can enter Reports at all"
+  // master toggle every other group depends on.
+  Reports: [
+    "General",
+    "Sales",
+    "Payments",
+    "Clients",
+    "Appointments",
+    "Inventory",
+    "Staff",
+    "Package & Membership",
+    "Marketing",
+  ],
 };
 
 /** Sorts a module's sub-groups into that module's display order (if one is

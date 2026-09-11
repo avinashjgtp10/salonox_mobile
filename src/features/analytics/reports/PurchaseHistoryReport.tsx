@@ -186,6 +186,7 @@ export default function PurchaseHistoryReport({
               title={REPORT_NAME}
               headers={HEADERS}
               rows={exportRows}
+              reportId="purchase_history"
               filename="purchase-history"
               variant="button"
               csv
