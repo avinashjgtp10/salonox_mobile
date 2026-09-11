@@ -25,6 +25,9 @@ import {
 } from "../../settings/utils/halfDayRuleSettings";
 import HalfDayRulePage from "../../settings/pages/HalfDayRulePage";
 import { scheduleDateToYMD } from "../../../components/staff-schedule/utils";
+import { usePermissions } from "../../../hooks/usePermissions";
+import { useAppDispatch } from "../../../hooks/useAppRedux";
+import { showPermissionDenied } from "../../../store/permissionDialogSlice";
 import Dropdown from "../../../components/ui/Dropdown";
 import TimeDropdown from "../../../components/ui/TimeDropdown";
 import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
@@ -837,6 +840,11 @@ export default function AttendancePage() {
   const [search, setSearch]     = useState("");
   const [modal, setModal]       = useState<ModalState>(null);
   const [showHalfDayRule, setShowHalfDayRule] = useState(false);
+  const { can } = usePermissions();
+  const dispatch = useAppDispatch();
+  const denyPerm = (permKey: string) => dispatch(showPermissionDenied(
+    `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+  ));
 
   // staffId -> schedule[], fetched once from the staff list (which now embeds
   // each member's schedule server-side) so the Check-In modal can look up a
@@ -957,7 +965,11 @@ export default function AttendancePage() {
           </button>
           <button
             className="ap-btn ap-btn--primary"
-            onClick={() => setShowHalfDayRule(true)}
+            style={!can("view_attendance_rules") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+            onClick={() => {
+              if (!can("view_attendance_rules")) { denyPerm("view_attendance_rules"); return; }
+              setShowHalfDayRule(true);
+            }}
           >
             <Clock size={15} />
             Attendance Rules

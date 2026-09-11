@@ -33,6 +33,11 @@ import Pagination from "../../../components/ui/Pagination";
 import SearchableSelect from "../../../components/ui/SearchableSelect";
 import PaySalaryModal from "../components/payroll/PaySalaryModal";
 import AddPayrollEntryModal, { type StaffOption } from "../components/payroll/AddPayrollEntryModal";
+import { usePermissions } from "../../../hooks/usePermissions";
+import { showPermissionDenied } from "../../../store/permissionDialogSlice";
+
+const friendlyPermissionDenied = (permKey: string) =>
+  `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`;
 import {
   DEFAULT_HALF_DAY_RULE_CONFIG,
   appliesToStaff,
@@ -1231,6 +1236,8 @@ export default function PayrollPage() {
   const fmt = (n: number) => fmtWhole(currencySymbol, n);
   const { showSuccess, showError, overlay } = useStatusOverlay();
   const dispatch = useAppDispatch();
+  const { can } = usePermissions();
+  const denyPerm = (permKey: string) => dispatch(showPermissionDenied(friendlyPermissionDenied(permKey)));
   const staffItems = useAppSelector((s) => s.staff.items);
   const currentSalon = useAppSelector((s) => s.salon.currentSalon);
 
@@ -1817,6 +1824,7 @@ export default function PayrollPage() {
     salary_advance: number;
     deductions: number;
   }) => {
+    if (!can("edit_payroll")) { denyPerm("edit_payroll"); setShowAddModal(false); return; }
     if (!periodStart || !periodEnd) { showError("Something went wrong, please try again"); return; }
     try {
       const res = await api.post(PAYROLL.BASE, {
@@ -1849,6 +1857,7 @@ export default function PayrollPage() {
     deductions: number;
   }) => {
     if (!editingStaff) return;
+    if (!can("edit_payroll")) { denyPerm("edit_payroll"); setEditingId(null); return; }
     try {
       const res = await api.patch(PAYROLL.BY_ID(editingStaff.id), {
         base_salary: values.base_salary,
@@ -1869,6 +1878,7 @@ export default function PayrollPage() {
 
   const handleDeleteEntry = async () => {
     if (!deleteTarget || deleteInput !== "DELETE") return;
+    if (!can("delete_payroll")) { denyPerm("delete_payroll"); setDeleteTarget(null); setDeleteInput(""); return; }
     try {
       await api.delete(PAYROLL.BY_ID(deleteTarget.id));
       setPayrollEntries((prev) => prev.filter((entry) => entry.id !== deleteTarget.id));
@@ -1913,6 +1923,7 @@ export default function PayrollPage() {
   };
 
   const handleOpenPaySalary = async (row: StaffPayroll) => {
+    if (!can("pay_salary")) { denyPerm("pay_salary"); return; }
     const payableRow = await ensurePayrollEntryForPayment(row);
     if (payableRow) setPayingId(payableRow.id);
   };
@@ -1949,11 +1960,13 @@ export default function PayrollPage() {
   // and marks it done the same way "Mark Done" in the details modal does, so
   // the status is actually persisted instead of just looking settled.
   const handleSettleRow = async (row: StaffPayroll) => {
+    if (!can("pay_salary")) { denyPerm("pay_salary"); return; }
     const savedRow = await ensurePayrollEntryForPayment(row);
     if (savedRow) handleMarkDone(savedRow);
   };
 
   const handleSaveSalaryAdvance = async (values: { id?: string; staffId: string; amount: number; advance_date: string; note: string }) => {
+    if (!can("add_salary_advance")) { denyPerm("add_salary_advance"); throw new Error("Permission denied"); }
     if (!dateRange.start || !dateRange.end) return;
     try {
       if (values.id) {
@@ -1985,6 +1998,7 @@ export default function PayrollPage() {
   };
 
   const handleDeleteSalaryAdvance = async (id: string) => {
+    if (!can("add_salary_advance")) { denyPerm("add_salary_advance"); return; }
     if (!window.confirm("Delete this salary advance transaction?")) return;
     try {
       await api.delete(PAYROLL.SALARY_ADVANCE_BY_ID(id));
@@ -2006,7 +2020,14 @@ export default function PayrollPage() {
           <p className="pr-subtitle">Review salary, commission, attendance deductions, and payments for each staff member.</p>
         </div>
         <div className="pr-header-actions">
-          <button className="pr-btn pr-btn--primary" onClick={() => setShowAddModal(true)}>
+          <button
+            className="pr-btn pr-btn--primary"
+            style={!can("edit_payroll") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+            onClick={() => {
+              if (!can("edit_payroll")) { denyPerm("edit_payroll"); return; }
+              setShowAddModal(true);
+            }}
+          >
             <PlusLg size={14} /> Add Entry
           </button>
         </div>
@@ -2150,7 +2171,15 @@ export default function PayrollPage() {
                       <td className="pr-th--staff">
                         <div className="pr-col--member">
                           <div className="pr-avatar" style={{ "--avatar-bg": e.color } as React.CSSProperties}>{e.avatar}</div>
-                          <button className="pr-name-btn" type="button" onClick={() => setDetailsId(e.id)}>
+                          <button
+                            className="pr-name-btn"
+                            type="button"
+                            style={!can("view_payroll_details") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                            onClick={() => {
+                              if (!can("view_payroll_details")) { denyPerm("view_payroll_details"); return; }
+                              setDetailsId(e.id);
+                            }}
+                          >
                             {e.name}
                           </button>
                         </div>
@@ -2271,11 +2300,12 @@ export default function PayrollPage() {
                                   className="pr-action-item pr-action-item--danger"
                                   type="button"
                                   disabled={!e.hasPayrollData}
+                                  style={!can("delete_payroll") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
                                   onClick={() => {
-                                    if (e.hasPayrollData) {
-                                      setDeleteTarget(e);
-                                      setOpenActionMenuId(null);
-                                    }
+                                    if (!e.hasPayrollData) return;
+                                    if (!can("delete_payroll")) { denyPerm("delete_payroll"); setOpenActionMenuId(null); return; }
+                                    setDeleteTarget(e);
+                                    setOpenActionMenuId(null);
                                   }}
                                 >
                                   <Trash3 size={13} /> Delete

@@ -3,6 +3,8 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import type { AppDispatch } from "../../../store/store";
 import { deactivateStaffThunk, activateStaffThunk } from "../../../middleware/staff/staff.thunk";
+import { usePermissions } from "../../../hooks/usePermissions";
+import { showPermissionDenied } from "../../../store/permissionDialogSlice";
 import {
   ArrowLeft, PencilSquare, PersonX, PersonCheck, TelephoneFill, Calendar2Check,
   GraphUp, CashCoin, ClockHistory, Scissors, CreditCard2Front,
@@ -1023,6 +1025,10 @@ function AttendanceTab({ staffId }: { staffId: string }) {
 export function StaffHistoryContent({ staffId, initialTab = "overview" }: { staffId: string; initialTab?: TabKey }) {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
+  const { can } = usePermissions();
+  const denyPerm = (permKey: string) => dispatch(showPermissionDenied(
+    `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+  ));
 
   const [activeTab, setActiveTab] = useState<TabKey>(initialTab);
   const [busy, setBusy] = useState(false);
@@ -1079,6 +1085,7 @@ export function StaffHistoryContent({ staffId, initialTab = "overview" }: { staf
 
   async function toggleActive() {
     if (!staff) return;
+    if (!can("deactivate_staff")) { denyPerm("deactivate_staff"); return; }
     setBusy(true);
     try {
       if (staff.is_active === false) await dispatch(activateStaffThunk(staff.id)).unwrap();
@@ -1121,10 +1128,22 @@ export function StaffHistoryContent({ staffId, initialTab = "overview" }: { staf
               </div>
             </div>
             <div className="shp-header__actions">
-              <button className="shp-btn shp-btn--outline" onClick={() => navigate(`/dashboard/team/${staff.id}`)}>
+              <button
+                className="shp-btn shp-btn--outline"
+                style={!can("edit_team_member") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                onClick={() => {
+                  if (!can("edit_team_member")) { denyPerm("edit_team_member"); return; }
+                  navigate(`/dashboard/team/${staff.id}`);
+                }}
+              >
                 <PencilSquare size={14} /> Edit Staff
               </button>
-              <button className="shp-btn shp-btn--danger" onClick={toggleActive} disabled={busy}>
+              <button
+                className="shp-btn shp-btn--danger"
+                style={!can("deactivate_staff") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                onClick={toggleActive}
+                disabled={busy}
+              >
                 {staff.is_active === false ? <PersonCheck size={14} /> : <PersonX size={14} />}
                 {staff.is_active === false ? "Activate" : "Deactivate"}
               </button>
