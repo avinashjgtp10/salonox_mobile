@@ -45,3 +45,4 @@ export * from "./payroll.endpoints";
 export * from "./botQuestions.endpoints";
 export * from "./spotlight.endpoints";
 export * from "./salonPlans.endpoints";
+export * from "./digitalMenu.endpoints";

@@ -40,6 +40,9 @@ const EditPackagePage = lazy(
 const PackageModule = lazy(
   () => import("../components/packages/PackageModule"),
 );
+const DigitalMenuPage = lazy(
+  () => import("../features/catalog/pages/DigitalMenuPage"),
+);
 
 import { PageLoader } from "../components/ui";
 
@@ -76,6 +79,9 @@ export const CatalogRoutes = () => (
       </Route>
       <Route element={<PermissionGuard permKey="manage_categories" />}>
         <Route path="services/categories" element={<CategoriesPage />} />
+      </Route>
+      <Route element={<PermissionGuard permKey="view_digital_menu" />}>
+        <Route path="digital-menu" element={<DigitalMenuPage />} />
       </Route>
 
       {/* Products — view_products now real (see the Products ticket) */}

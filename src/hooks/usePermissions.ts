@@ -22,6 +22,7 @@ const defaultPermsMap: PermMatrix = {
   view_services: { owner: true, staff: true },
   create_services: { owner: true, staff: false },
   edit_services: { owner: true, staff: false },
+  view_digital_menu: { owner: true, staff: true },
   view_products: { owner: true, staff: true },
   create_products: { owner: true, staff: false },
   view_packages: { owner: true, staff: true },
