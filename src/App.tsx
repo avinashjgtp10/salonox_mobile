@@ -7,6 +7,7 @@ import { AuthRoutes, OnboardingRoutes, DashboardRoutes } from "./routes";
 import { LandingRoutes } from "./routes/LandingRoutes";
 import { SuperAdminRoutes } from "./routes/SuperAdminRoutes";
 import { PublicBookingRoutes } from "./routes/PublicBookingRoutes";
+import { DigitalMenuRoutes } from "./routes/DigitalMenuRoutes";
 import { FeedbackRoutes } from "./routes/FeedbackRoutes";
 import SalonOxBot from './features/bot/SalonOxBot';
 import CallHelpButton from './features/bot/CallHelpButton';
@@ -49,6 +50,8 @@ function App() {
             {LandingRoutes}
             {/* PUBLIC — client-facing booking pages */}
             {PublicBookingRoutes}
+            {/* PUBLIC — customer-facing digital/QR menu */}
+            {DigitalMenuRoutes}
             {/* PUBLIC — client-facing post-visit feedback form */}
             {FeedbackRoutes}
             {/* AUTH */}

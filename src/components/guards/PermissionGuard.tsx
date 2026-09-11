@@ -100,7 +100,7 @@ export default function PermissionGuard({ permKey }: Props) {
     "view_suppliers", "manage_inventory", "view_orders",
     "view_product_inventory", "view_consumable_inventory", "view_product_audit",
     "view_stock_ledger",
-    "view_services", "view_products", "view_memberships",
+    "view_services", "view_digital_menu", "view_products", "view_memberships",
     "view_client_packages", "view_package_templates",
     "view_team", "view_scheduled_shifts", "view_team_commissions",
     "view_attendance_list", "view_payroll", "view_staff_history",

@@ -31,6 +31,17 @@ export default function CatalogSubSidebar({ onClose }: Props) {
           </NavLink>
         )}
 
+        {hasFeature("services") && (
+          <NavLink
+            to="/dashboard/catalog/digital-menu"
+            className={({ isActive }) =>
+              isActive ? "sub-link active" : "sub-link"
+            }
+          >
+            Digital Menu
+          </NavLink>
+        )}
+
         {hasFeature("products") && (
           <NavLink
             to="/dashboard/catalog/products"
