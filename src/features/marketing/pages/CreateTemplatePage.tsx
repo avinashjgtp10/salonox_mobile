@@ -5,6 +5,8 @@ import { useAppDispatch } from "../../../hooks/useAppRedux";
 import { createTemplateThunk } from "../../../middleware/marketing/marketing.thunk";
 import { Button, Input, Select, PageHeader } from "../../../components/ui";
 import { useOnce } from "../../../hooks/useOnce";
+import { usePermissions } from "../../../hooks/usePermissions";
+import { showPermissionDenied } from "../../../store/permissionDialogSlice";
 import type { HeaderType, ButtonType, TemplateButton } from "../../../types/marketing.types";
 import "../styles/CreateTemplatePage.scss";
 
@@ -66,6 +68,10 @@ export default function CreateTemplatePage() {
   const [buttons,       setButtons]       = useState<TemplateButton[]>([]);
   const [errors,        setErrors]        = useState<Record<string, string>>({});
   const { showSuccess, showError, overlay } = useStatusOverlay();
+  const { can } = usePermissions();
+  const denyPerm = (permKey: string) => dispatch(showPermissionDenied(
+    `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+  ));
 
   // ← FIXED: memoize video URL so it doesn't reset every keystroke
   const videoUrl = useMemo(() => {
@@ -129,6 +135,7 @@ export default function CreateTemplatePage() {
   };
 
   const [handleSubmit, submitting] = useOnce(async () => {
+    if (!can("add_template")) { denyPerm("add_template"); return; }
     if (!validate()) return;
     const fd = new FormData();
     fd.append("name",       form.name);
@@ -396,7 +403,13 @@ export default function CreateTemplatePage() {
           {/* Submit */}
           <div className="ct-actions">
             <Button variant="ghost" onClick={() => navigate("/dashboard/marketing/templates")}>← Back</Button>
-            <Button variant="success" loading={submitting} disabled={submitting} onClick={handleSubmit}>
+            <Button
+              variant="success"
+              loading={submitting}
+              disabled={submitting && can("add_template")}
+              style={!can("add_template") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+              onClick={handleSubmit}
+            >
               🚀 Submit to Meta for Approval
             </Button>
           </div>

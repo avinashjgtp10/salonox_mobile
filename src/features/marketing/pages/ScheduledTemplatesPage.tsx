@@ -16,6 +16,8 @@ import type { ScheduledMessage, ScheduledMessageStatus } from "../../../types/ma
 import { PageHeader, Input, Button, Modal, Pagination, DateRangeFilter, JiraFilterMenu } from "../../../components/ui";
 import type { DateRangeFilterValue, JiraFilterField } from "../../../components/ui";
 import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
+import { usePermissions } from "../../../hooks/usePermissions";
+import { showPermissionDenied } from "../../../store/permissionDialogSlice";
 import "../styles/ScheduledTemplatesPage.scss";
 
 const EVENT_LABELS: Record<string, string> = {
@@ -80,6 +82,11 @@ export default function ScheduledTemplatesPage() {
   const dispatch = useAppDispatch();
   const salonId = useAppSelector((s: any) => s.auth.salonId);
   const { showSuccess, showError, overlay } = useStatusOverlay();
+  const { can } = usePermissions();
+  const denyPerm = (permKey: string) => dispatch(showPermissionDenied(
+    `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+  ));
+  const kebabItemStyle = (permKey: string) => (!can(permKey) ? { opacity: 0.5, cursor: "not-allowed" } : undefined);
 
   const [rows, setRows] = useState<ScheduledMessage[]>([]);
   const [total, setTotal] = useState(0);
@@ -191,26 +198,35 @@ export default function ScheduledTemplatesPage() {
     }
   };
 
-  const handleSendNow = (row: ScheduledMessage) =>
+  const handleSendNow = (row: ScheduledMessage) => {
+    if (!can("send_now_scheduled_template")) { denyPerm("send_now_scheduled_template"); return; }
     runAction("Sent", () => dispatch(sendNowThunk({ salonId, id: row.id })).unwrap());
-  const handleRetryNow = (row: ScheduledMessage) =>
+  };
+  const handleRetryNow = (row: ScheduledMessage) => {
+    if (!can("send_now_scheduled_template")) { denyPerm("send_now_scheduled_template"); return; }
     runAction("Retried", () => dispatch(retryNowThunk({ salonId, id: row.id })).unwrap());
+  };
   const handleReschedule = () => {
     if (!modalRow) return;
+    if (!can("edit_scheduled_template")) { denyPerm("edit_scheduled_template"); return; }
     const iso = buildIso(rescheduleDate, rescheduleTime);
     if (!iso) return;
     runAction("Rescheduled", () => dispatch(rescheduleThunk({ salonId, id: modalRow.id, scheduledAt: iso })).unwrap());
   };
   const handleSkip = () => {
     if (!modalRow) return;
+    if (!can("delete_scheduled_template")) { denyPerm("delete_scheduled_template"); return; }
     runAction("Skipped", () => dispatch(skipThunk({ salonId, id: modalRow.id })).unwrap());
   };
   const handleCancel = () => {
     if (!modalRow) return;
+    if (!can("delete_scheduled_template")) { denyPerm("delete_scheduled_template"); return; }
     runAction("Cancelled", () => dispatch(cancelScheduledThunk({ salonId, id: modalRow.id })).unwrap());
   };
-  const handleResend = (row: ScheduledMessage) =>
+  const handleResend = (row: ScheduledMessage) => {
+    if (!can("resend_scheduled_template")) { denyPerm("resend_scheduled_template"); return; }
     runAction("Resent", () => dispatch(resendScheduledThunk({ salonId, id: row.id })).unwrap());
+  };
 
   return (
     <div className="st-page">
@@ -271,25 +287,25 @@ export default function ScheduledTemplatesPage() {
                         {row.status === "SCHEDULED" && (
                           <>
                             <li><button className="st-kebab-item" onClick={() => { setOpenRowMenuId(null); setModalRow(row); setModalKind("view"); }}>View Details</button></li>
-                            <li><button className="st-kebab-item" onClick={() => { setOpenRowMenuId(null); handleSendNow(row); }}>Send Now</button></li>
-                            <li><button className="st-kebab-item" onClick={() => { setOpenRowMenuId(null); openReschedule(row); }}>Reschedule</button></li>
-                            <li><button className="st-kebab-item" onClick={() => { setOpenRowMenuId(null); setModalRow(row); setModalKind("skip"); }}>Skip This Occurrence</button></li>
-                            <li><button className="st-kebab-item st-kebab-item--danger" onClick={() => { setOpenRowMenuId(null); setModalRow(row); setModalKind("cancel"); }}>Cancel Schedule</button></li>
+                            <li><button className="st-kebab-item" style={kebabItemStyle("send_now_scheduled_template")} onClick={() => { setOpenRowMenuId(null); handleSendNow(row); }}>Send Now</button></li>
+                            <li><button className="st-kebab-item" style={kebabItemStyle("edit_scheduled_template")} onClick={() => { setOpenRowMenuId(null); if (!can("edit_scheduled_template")) { denyPerm("edit_scheduled_template"); return; } openReschedule(row); }}>Reschedule</button></li>
+                            <li><button className="st-kebab-item" style={kebabItemStyle("delete_scheduled_template")} onClick={() => { setOpenRowMenuId(null); if (!can("delete_scheduled_template")) { denyPerm("delete_scheduled_template"); return; } setModalRow(row); setModalKind("skip"); }}>Skip This Occurrence</button></li>
+                            <li><button className="st-kebab-item st-kebab-item--danger" style={kebabItemStyle("delete_scheduled_template")} onClick={() => { setOpenRowMenuId(null); if (!can("delete_scheduled_template")) { denyPerm("delete_scheduled_template"); return; } setModalRow(row); setModalKind("cancel"); }}>Cancel Schedule</button></li>
                           </>
                         )}
                         {row.status === "SENT" && (
                           <>
                             <li><button className="st-kebab-item" onClick={() => { setOpenRowMenuId(null); setModalRow(row); setModalKind("view"); }}>View Message</button></li>
-                            <li><button className="st-kebab-item" onClick={() => { setOpenRowMenuId(null); handleResend(row); }}>Resend</button></li>
+                            <li><button className="st-kebab-item" style={kebabItemStyle("resend_scheduled_template")} onClick={() => { setOpenRowMenuId(null); handleResend(row); }}>Resend</button></li>
                             <li><button className="st-kebab-item" onClick={() => { setOpenRowMenuId(null); setModalRow(row); setModalKind("view"); }}>View Delivery Status</button></li>
                           </>
                         )}
                         {row.status === "FAILED" && (
                           <>
                             <li><button className="st-kebab-item" onClick={() => { setOpenRowMenuId(null); setModalRow(row); setModalKind("view"); }}>View Failure Reason</button></li>
-                            <li><button className="st-kebab-item" onClick={() => { setOpenRowMenuId(null); handleRetryNow(row); }}>Retry Now</button></li>
-                            <li><button className="st-kebab-item" onClick={() => { setOpenRowMenuId(null); openReschedule(row); }}>Reschedule</button></li>
-                            <li><button className="st-kebab-item st-kebab-item--danger" onClick={() => { setOpenRowMenuId(null); setModalRow(row); setModalKind("cancel"); }}>Cancel</button></li>
+                            <li><button className="st-kebab-item" style={kebabItemStyle("send_now_scheduled_template")} onClick={() => { setOpenRowMenuId(null); handleRetryNow(row); }}>Retry Now</button></li>
+                            <li><button className="st-kebab-item" style={kebabItemStyle("edit_scheduled_template")} onClick={() => { setOpenRowMenuId(null); if (!can("edit_scheduled_template")) { denyPerm("edit_scheduled_template"); return; } openReschedule(row); }}>Reschedule</button></li>
+                            <li><button className="st-kebab-item st-kebab-item--danger" style={kebabItemStyle("delete_scheduled_template")} onClick={() => { setOpenRowMenuId(null); if (!can("delete_scheduled_template")) { denyPerm("delete_scheduled_template"); return; } setModalRow(row); setModalKind("cancel"); }}>Cancel</button></li>
                           </>
                         )}
                         {["SKIPPED", "CANCELLED", "SENDING"].includes(row.status) && (
