@@ -63,6 +63,16 @@ const VIRTUAL_PERMS: Record<string, string[]> = {
   // enough to open the page; the individual tabs/actions still check their
   // own specific key.
   view_team_commissions: ["view_commissions", "view_tips"],
+  // Marketing's 7 sub-areas (Dashboard/Analytics/Campaigns/Templates/
+  // Scheduled Templates/Inbox/WhatsApp Config) each have their own
+  // independent view permission now — this umbrella is only the outer
+  // "can this staff member enter the Marketing section at all" gate in
+  // DashboardRoutes.tsx; each sub-route's own PermissionGuard still checks
+  // its specific key on top of this.
+  view_marketing: [
+    "view_marketing_dashboard", "view_marketing_analytics", "view_campaigns",
+    "view_templates", "view_scheduled_templates", "view_inbox", "view_whatsapp_config",
+  ],
 };
 
 function resolveKeys(permKey: string): string[] {

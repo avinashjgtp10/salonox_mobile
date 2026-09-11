@@ -135,8 +135,11 @@ export const DashboardRoutes = (
         <Route path="team/*" element={<TeamRoutes />} />
       </Route>
 
-      {/* Marketing — requires view_campaigns + featureKey "marketing" */}
-      <Route element={<PermissionGuard permKey="view_campaigns" />}>
+      {/* Marketing — requires view_marketing (umbrella of the 7 sub-area view
+          keys — see VIRTUAL_PERMS in usePermissions.ts) + featureKey
+          "marketing". Each sub-route inside MarketingRoutes.tsx has its own
+          specific PermissionGuard on top of this outer gate. */}
+      <Route element={<PermissionGuard permKey="view_marketing" />}>
         <Route element={<PlanFeatureGuard featureKey="marketing" label="Marketing" />}>
           <Route path="marketing/*" element={<MarketingRoutes />} />
         </Route>

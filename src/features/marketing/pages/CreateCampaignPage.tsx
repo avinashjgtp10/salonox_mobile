@@ -8,6 +8,8 @@ import { Button, Input } from "../../../components/ui";
 import Dropdown from "../../../components/ui/Dropdown";
 import { useOnce } from "../../../hooks/useOnce";
 import { toTitleCase } from "../../../utils/titleCase";
+import { usePermissions } from "../../../hooks/usePermissions";
+import { showPermissionDenied } from "../../../store/permissionDialogSlice";
 import "../styles/CreateCampaignPage.scss";
 
 const SCHEDULE_OPTIONS = [
@@ -77,6 +79,10 @@ export default function CreateCampaignPage() {
   const [schedTime,   setSchedTime]   = useState("");
   const [isScheduled, setIsScheduled] = useState(false);
   const { showSuccess, showError, overlay } = useStatusOverlay();
+  const { can } = usePermissions();
+  const denyPerm = (permKey: string) => dispatch(showPermissionDenied(
+    `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+  ));
 
   const scheduledAt = isScheduled && schedDate ? buildIso(schedDate, schedTime) : "";
   const dailyLimit  = waConfig?.dailyLimit ?? (waConfig as any)?.daily_limit ?? 0;
@@ -120,6 +126,7 @@ export default function CreateCampaignPage() {
   };
 
   const [handleLaunch, launching] = useOnce(async () => {
+    if (!can("create_campaigns")) { denyPerm("create_campaigns"); return; }
     if (!validateAll()) return;
     const finalContacts = buildContacts();
     if (dailyLimit > 0 && finalContacts.length > dailyLimit) {
@@ -326,7 +333,8 @@ export default function CreateCampaignPage() {
           <Button
             variant="success"
             loading={launching}
-            disabled={launching || isOverLimit}
+            disabled={(launching || isOverLimit) && can("create_campaigns")}
+            style={!can("create_campaigns") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
             onClick={handleLaunch}
           >
             {scheduledAt ? "📅 Schedule Campaign" : "🚀 Launch Campaign"}

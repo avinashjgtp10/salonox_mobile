@@ -4,6 +4,7 @@ import { toggleTemplateFavoriteThunk } from "../../../middleware/marketing/marke
 import type { Template, TemplateStatus } from "../../../types/marketing.types";
 import TemplatePreviewModal from "./TemplatePreviewModal";
 import { Button, Badge } from "../../../components/ui";
+import { usePermissions } from "../../../hooks/usePermissions";
 import "../styles/TemplateCard.scss";
 
 interface Props {
@@ -30,6 +31,7 @@ export default function TemplateCard({
   template, onDelete, onSync, syncLoading, deleteLoading,
 }: Props) {
   const dispatch                      = useAppDispatch();
+  const { can }                       = usePermissions();
   const [showPreview, setShowPreview] = useState(false);
   const [starring,    setStarring]    = useState(false);
 
@@ -135,7 +137,8 @@ export default function TemplateCard({
               variant="outline-secondary"
               size="sm"
               loading={syncLoading}
-              disabled={syncLoading || deleteLoading}
+              disabled={(syncLoading || deleteLoading) && can("edit_template")}
+              style={!can("edit_template") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
               title="Sync status from Meta"
               onClick={(e) => { e?.stopPropagation(); onSync(String(template.id)); }}
             >
@@ -145,7 +148,8 @@ export default function TemplateCard({
               variant="outline-danger"
               size="sm"
               loading={deleteLoading}
-              disabled={syncLoading || deleteLoading}
+              disabled={(syncLoading || deleteLoading) && can("delete_template")}
+              style={!can("delete_template") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
               title="Delete template"
               onClick={(e) => { e?.stopPropagation(); onDelete(String(template.id)); }}
             >

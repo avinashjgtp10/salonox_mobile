@@ -10,6 +10,8 @@ import ResendCampaignModal from "../components/ResendCampaignModal";
 import { Button, Badge, Input, DateRangeFilter, Pagination, JiraFilterMenu } from "../../../components/ui";
 import type { DateRangeFilterValue, JiraFilterField } from "../../../components/ui";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
+import { usePermissions } from "../../../hooks/usePermissions";
+import { showPermissionDenied } from "../../../store/permissionDialogSlice";
 import { maskMobile } from "../../../utils/maskMobile";
 import "../styles/CampaignHistoryPage.scss";
 
@@ -123,6 +125,10 @@ export default function CampaignHistoryPage() {
   const [resendTarget, setResendTarget] = useState<{ id: string; name: string; totalContacts: number } | null>(null);
 
   const { showSuccess, showError, overlay } = useStatusOverlay();
+  const { can } = usePermissions();
+  const denyPerm = (permKey: string) => dispatch(showPermissionDenied(
+    `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+  ));
 
   useEffect(() => { dispatch(fetchCampaignsThunk()); }, [dispatch]);
   useEffect(() => { setPage(1); }, [search, statusFilter, dateRange.startDate, dateRange.endDate, pageSize]);
@@ -176,6 +182,7 @@ export default function CampaignHistoryPage() {
   };
 
   const handlePause = async (id: string) => {
+    if (!can("send_campaign")) { denyPerm("send_campaign"); return; }
     setPausingId(id);
     const res = await dispatch(pauseCampaignThunk(id));
     if (pauseCampaignThunk.rejected.match(res)) showError("Failed to pause campaign");
@@ -184,6 +191,7 @@ export default function CampaignHistoryPage() {
   };
 
   const handleResume = async (id: string) => {
+    if (!can("send_campaign")) { denyPerm("send_campaign"); return; }
     setResumingId(id);
     const res = await dispatch(resumeCampaignThunk(id));
     if (resumeCampaignThunk.rejected.match(res)) showError("Failed to resume campaign");
@@ -192,6 +200,7 @@ export default function CampaignHistoryPage() {
   };
 
   const handleResendClick = (id: string, name: string, totalContacts: number) => {
+    if (!can("send_campaign")) { denyPerm("send_campaign"); return; }
     setResendTarget({ id, name, totalContacts });
   };
 
@@ -356,7 +365,8 @@ export default function CampaignHistoryPage() {
                             variant="outline-warning"
                             size="sm"
                             loading={pausingId === String(c.id)}
-                            disabled={!!pausingId || !!resumingId}
+                            disabled={(!!pausingId || !!resumingId) && can("send_campaign")}
+                            style={!can("send_campaign") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
                             onClick={() => handlePause(String(c.id))}
                           >
                             ⏸ Pause
@@ -367,7 +377,8 @@ export default function CampaignHistoryPage() {
                             variant="success"
                             size="sm"
                             loading={resumingId === String(c.id)}
-                            disabled={!!pausingId || !!resumingId}
+                            disabled={(!!pausingId || !!resumingId) && can("send_campaign")}
+                            style={!can("send_campaign") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
                             onClick={() => handleResume(String(c.id))}
                           >
                             ▶ Resume
@@ -377,6 +388,7 @@ export default function CampaignHistoryPage() {
                           <Button
                             variant="outline-primary"
                             size="sm"
+                            style={!can("send_campaign") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
                             onClick={() => handleResendClick(String(c.id), c.name, c.total_contacts ?? c.totalContacts ?? 0)}
                           >
                             ↻ Resend
