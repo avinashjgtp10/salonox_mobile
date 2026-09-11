@@ -9,6 +9,8 @@ import { useCurrency } from "../../../hooks/useCurrency";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { selectCurrentSalon } from "../../../store/selectors/slices.selectors";
 import { generatePurchaseOrderPdf } from "../utils/purchaseOrderPdf";
+import { usePermissions } from "../../../hooks/usePermissions";
+import { showPermissionDenied } from "../../../store/permissionDialogSlice";
 import Button from "../../../components/ui/Button";
 import Modal from "../../../components/ui/Modal";
 import "../styles/OrderDetailsDrawer.scss";
@@ -32,9 +34,14 @@ const fmtDate = (value?: string | null) => {
 const OrderDetailsDrawer: React.FC<OrderDetailsDrawerProps> = ({ orderId, isOpen, onClose, onDeleted }) => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
+  const { can } = usePermissions();
   const { formatAmount, currencySymbol } = useCurrency();
   const { showError, showSuccess, overlay } = useStatusOverlay();
   const currentSalon = useSelector(selectCurrentSalon);
+
+  const denyPerm = (permKey: string) => dispatch(showPermissionDenied(
+    `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+  ));
 
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(false);
@@ -63,11 +70,24 @@ const OrderDetailsDrawer: React.FC<OrderDetailsDrawerProps> = ({ orderId, isOpen
 
   const handleDownloadPdf = () => {
     if (!order) return;
+    if (!can("download_order_pdf")) { denyPerm("download_order_pdf"); return; }
     generatePurchaseOrderPdf(order, { salon: currentSalon, currencySymbol });
+  };
+
+  const handleEdit = () => {
+    if (!can("edit_order")) { denyPerm("edit_order"); return; }
+    navigate(`/dashboard/inventory/orders/${orderId}/edit`);
+    onClose();
+  };
+
+  const handleDeleteClick = () => {
+    if (!can("cancel_order")) { denyPerm("cancel_order"); return; }
+    setDeleteOpen(true);
   };
 
   const handleDelete = async () => {
     if (!orderId) return;
+    if (!can("cancel_order")) { denyPerm("cancel_order"); setDeleteOpen(false); return; }
     setDeleting(true);
     try {
       await dispatch(deleteOrderThunk(orderId)).unwrap();
@@ -101,17 +121,26 @@ const OrderDetailsDrawer: React.FC<OrderDetailsDrawerProps> = ({ orderId, isOpen
           </div>
           <div className="header-actions">
             {order && (
-              <button className="edit-btn" onClick={handleDownloadPdf}>
+              <button
+                className="edit-btn"
+                style={!can("download_order_pdf") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                onClick={handleDownloadPdf}
+              >
                 <FileEarmarkPdf size={13} /> Download PDF
               </button>
             )}
             <button
               className="edit-btn"
-              onClick={() => { navigate(`/dashboard/inventory/orders/${orderId}/edit`); onClose(); }}
+              style={!can("edit_order") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+              onClick={handleEdit}
             >
               <Pencil size={13} /> Edit
             </button>
-            <button className="delete-btn" onClick={() => setDeleteOpen(true)}>
+            <button
+              className="delete-btn"
+              style={!can("cancel_order") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+              onClick={handleDeleteClick}
+            >
               <Trash size={14} /> Delete
             </button>
           </div>
