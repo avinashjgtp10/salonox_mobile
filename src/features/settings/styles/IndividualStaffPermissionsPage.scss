@@ -280,6 +280,10 @@
   padding: 4px 16px;
 }
 
+// .ispp-subgroup-list/.ispp-subgroup-item/.ispp-subgroup-back are shared
+// with RolePermissionPanel.tsx/StaffPermissionEditor.tsx — defined once in
+// SettingsPage.scss (already imported here) instead of duplicated per file.
+
 // ── Sticky footer ──────────────────────────────────────────────────────────
 // Sticky (not fixed) to the page's own scroll container — fixed-to-viewport
 // would span under the app's main sidebar too, since that sidebar isn't

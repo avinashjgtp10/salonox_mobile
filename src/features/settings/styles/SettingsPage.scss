@@ -2118,6 +2118,62 @@
   }
 }
 
+// ── Sub-group drill-down (Warehouse/Clients-style modules whose permissions
+// split into named sub-sections, e.g. Suppliers/Orders/Product Inventory) —
+// shared by RolePermissionPanel, StaffPermissionEditor, and
+// IndividualStaffPermissionsPage.
+.ispp-subgroup-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 0;
+}
+
+.ispp-subgroup-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 10px 8px;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+
+  &:hover { background: #f9fafb; }
+}
+
+.ispp-subgroup-item-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.ispp-subgroup-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.ispp-subgroup-back {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  padding: 8px 0;
+  margin-bottom: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #2563eb;
+  cursor: pointer;
+
+  &:hover { text-decoration: underline; }
+}
+
 .spm-perm-info {
   flex: 1;
   min-width: 0;

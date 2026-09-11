@@ -32,10 +32,9 @@ import { showPermissionDenied } from "../../../store/permissionDialogSlice";
 import "../styles/StockLedgerPage.scss";
 
 // Same friendly copy PermissionGuard and the interceptor-driven global popup
-// already use for a backend 403 — this export is built entirely client-side
-// (no backend call to deny), so this is the only enforcement point
-// export_excel actually has for it.
-const friendlyExportDenied = (permKey: string) =>
+// already use for a backend 403 — export is built entirely client-side (no
+// backend call to deny), so this is the only enforcement point it has.
+const friendlyPermissionDenied = (permKey: string) =>
   `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`;
 
 type TxnType =
@@ -246,7 +245,7 @@ export default function StockLedgerPage() {
   useEffect(() => { load(); }, [load]);
 
   const handleExportExcel = useCallback(async () => {
-    if (!can("export_excel")) { dispatch(showPermissionDenied(friendlyExportDenied("export_excel"))); return; }
+    if (!can("export_stock_ledger_excel")) { dispatch(showPermissionDenied(friendlyPermissionDenied("export_stock_ledger_excel"))); return; }
     setIsExporting(true);
     try {
       // Loops every page with the currently-applied filters (search/
@@ -323,8 +322,11 @@ export default function StockLedgerPage() {
   const hasActiveFilters = !!debouncedSearch || !!categoryIds.length || !!staffIds.length || !!txnTypes.length
     || !!dateRange.startDate || !!dateRange.endDate;
 
+  const denyPerm = (permKey: string) => dispatch(showPermissionDenied(friendlyPermissionDenied(permKey)));
+
   const handleDeleteEntry = async () => {
     if (!deleteRow) return;
+    if (!can("delete_stock_ledger")) { denyPerm("delete_stock_ledger"); setDeleteRow(null); return; }
     try {
       await api.delete(INVENTORY.STOCK_LEDGER_BY_ID(deleteRow.id));
       setDeleteRow(null);
@@ -342,13 +344,35 @@ export default function StockLedgerPage() {
           <p>Every stock movement, in one place — purchases, usage, sales, adjustments and transfers.</p>
         </div>
         <div className="sl-page__actions">
-          <Button variant="outline-dark" iconLeft={<FileEarmarkExcel size={14} />} onClick={handleExportExcel} disabled={isExporting}>
+          <Button
+            variant="outline-dark"
+            iconLeft={<FileEarmarkExcel size={14} />}
+            onClick={handleExportExcel}
+            disabled={isExporting}
+            style={!can("export_stock_ledger_excel") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+          >
             {isExporting ? "Exporting…" : "Export Excel"}
           </Button>
-          <Button variant="outline-dark" iconLeft={<Sliders2Vertical size={14} />} onClick={() => setAdjustOpen(true)}>
+          <Button
+            variant="outline-dark"
+            iconLeft={<Sliders2Vertical size={14} />}
+            style={!can("stock_ledger_adjustment") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+            onClick={() => {
+              if (!can("stock_ledger_adjustment")) { denyPerm("stock_ledger_adjustment"); return; }
+              setAdjustOpen(true);
+            }}
+          >
             Stock Adjustment
           </Button>
-          <Button variant="dark" iconLeft={<PlusLg size={14} />} onClick={() => navigate("/dashboard/inventory/ledger/add-stock")}>
+          <Button
+            variant="dark"
+            iconLeft={<PlusLg size={14} />}
+            style={!can("stock_ledger_adjustment") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+            onClick={() => {
+              if (!can("stock_ledger_adjustment")) { denyPerm("stock_ledger_adjustment"); return; }
+              navigate("/dashboard/inventory/ledger/add-stock");
+            }}
+          >
             Add Stock
           </Button>
         </div>
@@ -447,13 +471,21 @@ export default function StockLedgerPage() {
                           </BsDropdown.Toggle>
                           <BsDropdown.Menu className="shadow-sm border-0 rounded-3 py-2" style={{ minWidth: "160px" }}>
                             <BsDropdown.Item
-                              onClick={() => navigate(`/dashboard/inventory/ledger/edit/${r.id}`)}
+                              onClick={() => {
+                                if (!can("edit_stock_ledger")) { denyPerm("edit_stock_ledger"); return; }
+                                navigate(`/dashboard/inventory/ledger/edit/${r.id}`);
+                              }}
+                              style={!can("edit_stock_ledger") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
                               className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark"
                             >
                               <PencilSquare size={14} /> Edit
                             </BsDropdown.Item>
                             <BsDropdown.Item
-                              onClick={() => setDeleteRow(r)}
+                              onClick={() => {
+                                if (!can("delete_stock_ledger")) { denyPerm("delete_stock_ledger"); return; }
+                                setDeleteRow(r);
+                              }}
+                              style={!can("delete_stock_ledger") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
                               className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-danger"
                             >
                               <Trash size={14} /> Delete

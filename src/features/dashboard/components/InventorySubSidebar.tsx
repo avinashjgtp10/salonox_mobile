@@ -18,10 +18,10 @@ interface Props {
 const TABS: { to: string; label: string; permKey: string }[] = [
   { to: "/dashboard/inventory/suppliers",   label: "Suppliers",             permKey: "view_suppliers" },
   { to: "/dashboard/inventory/orders",      label: "Orders",                permKey: "view_orders" },
-  { to: "/dashboard/inventory/products",    label: "Product Inventory",     permKey: "manage_inventory" },
-  { to: "/dashboard/inventory/consumables", label: "Consumable Inventory",  permKey: "manage_inventory" },
-  { to: "/dashboard/inventory/audit",       label: "Product Audit",         permKey: "manage_inventory" },
-  { to: "/dashboard/inventory/ledger",      label: "Stock Ledger",          permKey: "manage_inventory" },
+  { to: "/dashboard/inventory/products",    label: "Product Inventory",     permKey: "view_product_inventory" },
+  { to: "/dashboard/inventory/consumables", label: "Consumable Inventory",  permKey: "view_consumable_inventory" },
+  { to: "/dashboard/inventory/audit",       label: "Product Audit",         permKey: "view_product_audit" },
+  { to: "/dashboard/inventory/ledger",      label: "Stock Ledger",          permKey: "view_stock_ledger" },
 ];
 
 export default function InventorySubSidebar({ onClose }: Props) {

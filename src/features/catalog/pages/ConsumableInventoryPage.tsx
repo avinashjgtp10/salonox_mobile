@@ -29,6 +29,7 @@ interface RowActionItem {
   label: string;
   onClick: () => void;
   danger?: boolean;
+  disabled?: boolean;
 }
 
 // Row-actions ("⋮") AND toolbar (Export) dropdown menu, local to this page —
@@ -99,6 +100,7 @@ const RowActionsMenu: React.FC<{
               type="button"
               key={i}
               className={`ci-row-actions-menu__item${item.danger ? " ci-row-actions-menu__item--danger" : ""}`}
+              style={item.disabled ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
               onClick={() => { item.onClick(); setOpen(false); }}
             >
               {item.label}
@@ -150,9 +152,8 @@ const PRODUCT_TYPE_OPTIONS: FilterDropdownOption[] = [
 
 // Same friendly copy PermissionGuard and the interceptor-driven global popup
 // already use for a backend 403 — this export is built entirely client-side
-// (no backend call to deny), so this is the only enforcement point
-// export_pdf/export_csv/export_excel actually have for it.
-const friendlyExportDenied = (permKey: string) =>
+// (no backend call to deny), so this is the only enforcement point it has.
+const friendlyPermissionDenied = (permKey: string) =>
   `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`;
 
 const ConsumableInventoryPage: React.FC = () => {
@@ -162,6 +163,10 @@ const ConsumableInventoryPage: React.FC = () => {
   const currentSalon = useSelector(selectCurrentSalon);
   const userProfile = useSelector(selectUserProfile);
   const [isExporting, setIsExporting] = useState(false);
+
+  const denyPerm = (permKey: string) => dispatch(showPermissionDenied(
+    `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+  ));
 
   const { categories: rawCategories, brands } = useSelector((s: RootState) => s.products);
   // service_categories is one shared table — only a category explicitly
@@ -399,8 +404,8 @@ const ConsumableInventoryPage: React.FC = () => {
   }, [filters]);
 
   const handleExport = useCallback(async (format: "pdf" | "csv" | "excel") => {
-    const permKey = format === "pdf" ? "export_pdf" : format === "csv" ? "export_csv" : "export_excel";
-    if (!can(permKey)) { dispatch(showPermissionDenied(friendlyExportDenied(permKey))); return; }
+    const permKey = format === "pdf" ? "download_consumable_inventory_pdf" : format === "csv" ? "download_consumable_inventory_csv" : "download_consumable_inventory_excel";
+    if (!can(permKey)) { dispatch(showPermissionDenied(friendlyPermissionDenied(permKey))); return; }
     setIsExporting(true);
     try {
       const rows = await fetchAllConsumablesForExport();
@@ -421,6 +426,7 @@ const ConsumableInventoryPage: React.FC = () => {
 
   async function confirmDeactivate() {
     if (!deactivateTarget) return;
+    if (!can("activate_deactivate_consumable")) { denyPerm("activate_deactivate_consumable"); setDeactivateTarget(null); return; }
     setDeactivating(true);
     try {
       await dispatch(updateProductThunk({ id: deactivateTarget.id, data: { is_active: false } })).unwrap();
@@ -435,6 +441,7 @@ const ConsumableInventoryPage: React.FC = () => {
   // Deactivate, which hides the product from every picker/list), so there's
   // nothing risky enough here to warrant an extra click.
   async function handleReactivate(productId: string) {
+    if (!can("activate_deactivate_consumable")) { denyPerm("activate_deactivate_consumable"); return; }
     await dispatch(updateProductThunk({ id: productId, data: { is_active: true } })).unwrap();
     refresh();
   }
@@ -457,7 +464,11 @@ const ConsumableInventoryPage: React.FC = () => {
             className="ci-btn ci-btn--primary"
             title="Add Consumable"
             aria-label="Add Consumable"
-            onClick={() => navigate("/dashboard/inventory/consumables/add")}
+            style={!can("add_consumable") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+            onClick={() => {
+              if (!can("add_consumable")) { denyPerm("add_consumable"); return; }
+              navigate("/dashboard/inventory/consumables/add");
+            }}
           >
             <PlusLg size={14} /> Add
           </button>
@@ -465,15 +476,19 @@ const ConsumableInventoryPage: React.FC = () => {
             className="ci-btn ci-btn--outline"
             title="Usage History"
             aria-label="Usage History"
-            onClick={() => navigate("/dashboard/inventory/consumables/usage-history")}
+            style={!can("view_consumable_usage") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+            onClick={() => {
+              if (!can("view_consumable_usage")) { denyPerm("view_consumable_usage"); return; }
+              navigate("/dashboard/inventory/consumables/usage-history");
+            }}
           >
             Usage
           </button>
           <RowActionsMenu
             items={[
-              { label: "Export as PDF", onClick: () => handleExport("pdf") },
-              { label: "Export as Excel", onClick: () => handleExport("excel") },
-              { label: "Export as CSV", onClick: () => handleExport("csv") },
+              { label: "Export as PDF", disabled: !can("download_consumable_inventory_pdf"), onClick: () => handleExport("pdf") },
+              { label: "Export as Excel", disabled: !can("download_consumable_inventory_excel"), onClick: () => handleExport("excel") },
+              { label: "Export as CSV", disabled: !can("download_consumable_inventory_csv"), onClick: () => handleExport("csv") },
             ]}
             trigger={(toggle) => (
               <button
@@ -624,11 +639,37 @@ const ConsumableInventoryPage: React.FC = () => {
                     <RowActionsMenu
                       items={[
                         { label: "View Details", onClick: () => setSelectedProduct({ id: row.product_id, openAdjust: false }) },
-                        { label: "Edit Product", onClick: () => navigate(`/dashboard/inventory/consumables/edit/${row.product_id}`) },
-                        { label: "Adjust Stock", onClick: () => setSelectedProduct({ id: row.product_id, openAdjust: true }) },
+                        {
+                          label: "Edit Product",
+                          disabled: !can("edit_consumable"),
+                          onClick: () => {
+                            if (!can("edit_consumable")) { denyPerm("edit_consumable"); return; }
+                            navigate(`/dashboard/inventory/consumables/edit/${row.product_id}`);
+                          },
+                        },
+                        {
+                          label: "Adjust Stock",
+                          disabled: !can("adjust_consumable_stock"),
+                          onClick: () => {
+                            if (!can("adjust_consumable_stock")) { denyPerm("adjust_consumable_stock"); return; }
+                            setSelectedProduct({ id: row.product_id, openAdjust: true });
+                          },
+                        },
                         row.status === "deactivated"
-                          ? { label: "Reactivate", onClick: () => handleReactivate(row.product_id) }
-                          : { label: "Deactivate", danger: true, onClick: () => setDeactivateTarget({ id: row.product_id, name: row.name }) },
+                          ? {
+                              label: "Reactivate",
+                              disabled: !can("activate_deactivate_consumable"),
+                              onClick: () => handleReactivate(row.product_id),
+                            }
+                          : {
+                              label: "Deactivate",
+                              danger: true,
+                              disabled: !can("activate_deactivate_consumable"),
+                              onClick: () => {
+                                if (!can("activate_deactivate_consumable")) { denyPerm("activate_deactivate_consumable"); return; }
+                                setDeactivateTarget({ id: row.product_id, name: row.name });
+                              },
+                            },
                       ]}
                     />
                   </td>

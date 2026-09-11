@@ -12,6 +12,8 @@ import { selectCurrentSalon, selectUserProfile } from "../../../store/selectors/
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import type { AppDispatch } from "../../../store/store";
 import { deleteProductThunk } from "../../../middleware/catalog/products.thunk";
+import { usePermissions } from "../../../hooks/usePermissions";
+import { showPermissionDenied } from "../../../store/permissionDialogSlice";
 import Pagination from "../../../components/ui/Pagination";
 import { JiraFilterMenu } from "../../../components/ui";
 import type { JiraFilterField } from "../../../components/ui";
@@ -118,9 +120,14 @@ export default function ProductInventoryPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const dispatch = useDispatch<AppDispatch>();
+  const { can } = usePermissions();
   const currentSalon = useSelector(selectCurrentSalon);
   const userProfile = useSelector(selectUserProfile);
   const { showSuccess, showError, overlay } = useStatusOverlay();
+
+  const denyPerm = (permKey: string) => dispatch(showPermissionDenied(
+    `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+  ));
 
   // Arrived here from a notification click (?highlight=<product_id>) —
   // fetch that single product regardless of the current filters/page so it's
@@ -238,6 +245,8 @@ export default function ProductInventoryPage() {
   }, [debouncedSearch, categoryId, brandId, lowOnly]);
 
   const runExport = useCallback(async (kind: "pdf" | "excel" | "csv") => {
+    const permKey = kind === "pdf" ? "download_product_inventory_pdf" : kind === "excel" ? "download_product_inventory_excel" : "download_product_inventory_csv";
+    if (!can(permKey)) { denyPerm(permKey); return; }
     try {
       const all = await fetchAllForExport();
       if (all.length === 0) { showError("Nothing to export for the current filters"); return; }
@@ -258,6 +267,7 @@ export default function ProductInventoryPage() {
 
   const handleDeleteProduct = async () => {
     if (!deleteTarget) return;
+    if (!can("delete_product")) { denyPerm("delete_product"); setDeleteTarget(null); return; }
     setIsDeleting(true);
     try {
       await dispatch(deleteProductThunk(deleteTarget.id)).unwrap();
@@ -308,7 +318,15 @@ export default function ProductInventoryPage() {
           <p>Track retail stock and record new deliveries. Consumables are managed on their own page.</p>
         </div>
         <div className="header-actions">
-          <Button variant="dark" iconLeft={<PlusLg size={14} />} onClick={() => setPurchaseOpen(true)}>
+          <Button
+            variant="dark"
+            iconLeft={<PlusLg size={14} />}
+            style={!can("adjust_product_stock") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+            onClick={() => {
+              if (!can("adjust_product_stock")) { denyPerm("adjust_product_stock"); return; }
+              setPurchaseOpen(true);
+            }}
+          >
             Receive Stock
           </Button>
           <Dropdown>
@@ -320,20 +338,36 @@ export default function ProductInventoryPage() {
               Options
             </Dropdown.Toggle>
             <Dropdown.Menu align="end" className="shadow-sm border-0 rounded-3 py-2" style={{ minWidth: "220px" }}>
-              <Dropdown.Item onClick={() => setHistoryFor("all")} className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark">
+              <Dropdown.Item
+                onClick={() => { if (!can("view_product_stock_history")) { denyPerm("view_product_stock_history"); return; } setHistoryFor("all"); }}
+                style={!can("view_product_stock_history") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark"
+              >
                 <ClockHistory size={16} /> Stock history
               </Dropdown.Item>
               <Dropdown.Divider className="my-2" />
               <Dropdown.Header className="px-3 py-1 text-muted fw-bold" style={{ fontSize: "12px", textTransform: "uppercase" }}>
                 Export
               </Dropdown.Header>
-              <Dropdown.Item onClick={() => runExport("pdf")} className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark">
+              <Dropdown.Item
+                onClick={() => runExport("pdf")}
+                style={!can("download_product_inventory_pdf") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark"
+              >
                 <FileEarmarkPdf size={16} /> Download PDF
               </Dropdown.Item>
-              <Dropdown.Item onClick={() => runExport("excel")} className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark">
+              <Dropdown.Item
+                onClick={() => runExport("excel")}
+                style={!can("download_product_inventory_excel") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark"
+              >
                 <FileEarmarkExcel size={16} /> Download Excel
               </Dropdown.Item>
-              <Dropdown.Item onClick={() => runExport("csv")} className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark">
+              <Dropdown.Item
+                onClick={() => runExport("csv")}
+                style={!can("download_product_inventory_csv") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark"
+              >
                 <FiletypeCsv size={16} /> Download CSV
               </Dropdown.Item>
             </Dropdown.Menu>
@@ -470,20 +504,29 @@ export default function ProductInventoryPage() {
                         </Dropdown.Toggle>
                         <Dropdown.Menu className="shadow-sm border-0 rounded-3 py-2" style={{ minWidth: "170px" }}>
                           <Dropdown.Item
-                            onClick={() => setHistoryFor(r)}
+                            onClick={() => { if (!can("view_product_stock_history")) { denyPerm("view_product_stock_history"); return; } setHistoryFor(r); }}
+                            style={!can("view_product_stock_history") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
                             className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark"
                           >
                             <ClockHistory size={14} /> History
                           </Dropdown.Item>
                           <Dropdown.Divider className="my-2" />
                           <Dropdown.Item
-                            onClick={() => navigate(`/dashboard/catalog/products/edit/${r.id}`)}
+                            onClick={() => {
+                              if (!can("edit_product")) { denyPerm("edit_product"); return; }
+                              navigate(`/dashboard/catalog/products/edit/${r.id}`);
+                            }}
+                            style={!can("edit_product") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
                             className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark"
                           >
                             <PencilSquare size={14} /> Edit
                           </Dropdown.Item>
                           <Dropdown.Item
-                            onClick={() => { setDeleteTarget(r); setDeleteInput(""); }}
+                            onClick={() => {
+                              if (!can("delete_product")) { denyPerm("delete_product"); return; }
+                              setDeleteTarget(r); setDeleteInput("");
+                            }}
+                            style={!can("delete_product") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
                             className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-danger"
                           >
                             <Trash size={14} /> Delete

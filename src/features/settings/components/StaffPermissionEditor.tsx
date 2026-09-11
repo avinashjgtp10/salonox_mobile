@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { X, Loader2, RotateCcw, Search, ChevronDown } from "lucide-react";
+import { X, Loader2, RotateCcw, Search, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import {
@@ -9,7 +9,7 @@ import {
   setStaffOverridesThunk,
   assignStaffRoleThunk,
 } from "../../../middleware/roles/roles.thunk";
-import { sortModuleNames } from "../utils/permissionModuleOrder";
+import { sortModuleNames, sortGroupNames } from "../utils/permissionModuleOrder";
 
 interface Props {
   staffId: string;
@@ -66,6 +66,25 @@ export default function StaffPermissionEditor({ staffId, staffName, onClose }: P
     });
   };
 
+  // Warehouse-style modules split their permissions into named sub-sections
+  // (Suppliers/Orders/Product Inventory/...) via the catalog's group_name —
+  // dumping all of them flat in one card was too big to scan. When a module
+  // has more than one distinct group_name, opening its card shows a
+  // sub-section list first; picking one drills into just that sub-section's
+  // permissions, with a way back to the list.
+  const [selectedGroupByModule, setSelectedGroupByModule] = useState<Record<string, string>>({});
+  const UNGROUPED = "__ungrouped__";
+  const selectGroup = (module: string, groupName: string | null) => {
+    setSelectedGroupByModule((prev) => ({ ...prev, [module]: groupName ?? UNGROUPED }));
+  };
+  const clearSelectedGroup = (module: string) => {
+    setSelectedGroupByModule((prev) => {
+      const next = { ...prev };
+      delete next[module];
+      return next;
+    });
+  };
+
   useEffect(() => {
     if (!catalogLoaded) dispatch(fetchPermissionsCatalogThunk());
     if (roles.length === 0) dispatch(fetchRolesThunk());
@@ -91,32 +110,49 @@ export default function StaffPermissionEditor({ staffId, staffName, onClose }: P
 
   // Group by module, in catalog order, filtered by search. Each row's
   // "effective" toggle state already folds in any pending (unsaved) change.
+  // Also sub-grouped by group_name (Suppliers/Orders/... within Warehouse) —
+  // subGroups.length > 1 is what triggers the drill-down list instead of a
+  // flat permission list for that module.
   const groups = useMemo(() => {
     if (!view) return [];
     const q = search.trim().toLowerCase();
-    const out: { module: string; rows: { key: string; effective: boolean; isCustom: boolean; name: string; desc: string | null; risk: string }[] }[] = [];
-    const byModule = new Map<string, typeof out[number]["rows"]>();
-    const rowByKey = new Map<string, typeof out[number]["rows"][number]>();
+    type Row = { key: string; effective: boolean; isCustom: boolean; name: string; desc: string | null; risk: string; groupName: string | null };
+    const out: { module: string; rows: Row[]; subGroups: { groupName: string | null; rows: Row[] }[] }[] = [];
+    const byModule = new Map<string, Row[]>();
+    const subGroupsByModule = new Map<string, Map<string | null, Row[]>>();
+    const rowByKey = new Map<string, Row>();
+    const addToModule = (module: string, groupName: string | null, row: Row) => {
+      if (!byModule.has(module)) { byModule.set(module, []); out.push({ module, rows: byModule.get(module)!, subGroups: [] }); }
+      byModule.get(module)!.push(row);
+      if (!subGroupsByModule.has(module)) subGroupsByModule.set(module, new Map());
+      const sg = subGroupsByModule.get(module)!;
+      if (!sg.has(groupName)) sg.set(groupName, []);
+      sg.get(groupName)!.push(row);
+    };
     for (const perm of view.permissions) {
       const meta = catalogByKey.get(perm.key);
       const name = meta?.name ?? perm.key;
       const desc = meta?.description ?? null;
       if (q && !name.toLowerCase().includes(q) && !perm.key.toLowerCase().includes(q)) continue;
       const module = meta?.module ?? "Other";
+      const groupName = meta?.group_name ?? null;
       const currentOverride = perm.key in pending ? pending[perm.key] : perm.override;
       const effective = currentOverride !== null ? currentOverride : perm.roleDefault;
-      const row = { key: perm.key, effective, isCustom: currentOverride !== null, name, desc, risk: meta?.risk_level ?? "low" };
+      const row: Row = { key: perm.key, effective, isCustom: currentOverride !== null, name, desc, risk: meta?.risk_level ?? "low", groupName };
       rowByKey.set(perm.key, row);
-      if (!byModule.has(module)) { byModule.set(module, []); out.push({ module, rows: byModule.get(module)! }); }
-      byModule.get(module)!.push(row);
+      addToModule(module, groupName, row);
     }
     // Edit Client / View History also show up under Quick Sale — see
     // QUICK_SALE_DEPENDENT_KEYS's comment above.
     for (const key of QUICK_SALE_DEPENDENT_KEYS) {
       const row = rowByKey.get(key);
       if (!row) continue;
-      if (!byModule.has("Quick Sale")) { byModule.set("Quick Sale", []); out.push({ module: "Quick Sale", rows: byModule.get("Quick Sale")! }); }
-      byModule.get("Quick Sale")!.push(row);
+      addToModule("Quick Sale", row.groupName, row);
+    }
+    for (const group of out) {
+      const sg = subGroupsByModule.get(group.module)!;
+      const subGroups = Array.from(sg.entries()).map(([groupName, rows]) => ({ groupName, rows }));
+      group.subGroups = sortGroupNames(group.module, subGroups, (g) => g.groupName);
     }
     return sortModuleNames(out, (g) => g.module);
   }, [view, catalogByKey, search, pending]);
@@ -256,6 +292,52 @@ export default function StaffPermissionEditor({ staffId, staffName, onClose }: P
           ) : (
             groups.map((group) => {
               const isOpen = expanded.has(group.module);
+              const hasSubGroups = group.subGroups.length > 1;
+              const selectedKey = selectedGroupByModule[group.module];
+              const selectedSubGroup = selectedKey != null
+                ? group.subGroups.find((sg) => (sg.groupName ?? UNGROUPED) === selectedKey)
+                : undefined;
+              const renderRow = (row: (typeof group.rows)[number]) => {
+                const locked = group.module === "Quick Sale"
+                  && QUICK_SALE_DEPENDENT_KEYS.includes(row.key)
+                  && !group.rows.find((r) => r.key === QUICK_SALE_GATE_KEY)?.effective;
+                return (
+                <div key={row.key} className="spm-perm-row">
+                  <div className="spm-perm-info">
+                    <p className="spm-perm-name">
+                      {row.name}
+                      {row.isCustom && <span className="s-badge s-badge-info" style={{ fontSize: 10, marginLeft: 6 }}>Custom</span>}
+                      {(row.risk === "high" || row.risk === "critical") && (
+                        <span className={`s-badge ${riskBadgeClass[row.risk]}`} style={{ fontSize: 10, marginLeft: 6 }}>{row.risk}</span>
+                      )}
+                    </p>
+                    {row.desc && <p className="spm-perm-desc">{row.desc}</p>}
+                    {locked && <p className="spm-perm-desc" style={{ color: "#b45309" }}>Enable Quick Sale access first</p>}
+                  </div>
+                  <div className="spm-perm-toggle" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    {row.isCustom && !locked && (
+                      <button
+                        className="spm-reset-link"
+                        style={{ fontSize: 10, opacity: 0.6 }}
+                        onClick={() => clearOneOverride(row.key)}
+                        title="Revert to role default"
+                      >
+                        ↺
+                      </button>
+                    )}
+                    <label className="settings-toggle" title={locked ? "Enable Quick Sale access first" : undefined}>
+                      <input
+                        type="checkbox"
+                        checked={row.effective}
+                        disabled={locked}
+                        onChange={() => !locked && toggleEffective(row.key, row.effective)}
+                      />
+                      <span className="settings-toggle-slider" />
+                    </label>
+                  </div>
+                </div>
+                );
+              };
               return (
               <div key={group.module} className="spm-category">
                 <button
@@ -265,47 +347,44 @@ export default function StaffPermissionEditor({ staffId, staffName, onClose }: P
                   <ChevronDown size={14} style={{ transform: isOpen ? "rotate(0deg)" : "rotate(-90deg)", transition: "transform 0.15s", color: "#9ca3af", flexShrink: 0 }} />
                   <p className="spm-cat-label" style={{ margin: 0 }}>{group.module} <span style={{ fontWeight: 400, color: "#9ca3af" }}>({group.rows.length})</span></p>
                 </button>
-                {isOpen && group.rows.map((row) => {
-                  const locked = group.module === "Quick Sale"
-                    && QUICK_SALE_DEPENDENT_KEYS.includes(row.key)
-                    && !group.rows.find((r) => r.key === QUICK_SALE_GATE_KEY)?.effective;
-                  return (
-                  <div key={row.key} className="spm-perm-row">
-                    <div className="spm-perm-info">
-                      <p className="spm-perm-name">
-                        {row.name}
-                        {row.isCustom && <span className="s-badge s-badge-info" style={{ fontSize: 10, marginLeft: 6 }}>Custom</span>}
-                        {(row.risk === "high" || row.risk === "critical") && (
-                          <span className={`s-badge ${riskBadgeClass[row.risk]}`} style={{ fontSize: 10, marginLeft: 6 }}>{row.risk}</span>
-                        )}
-                      </p>
-                      {row.desc && <p className="spm-perm-desc">{row.desc}</p>}
-                      {locked && <p className="spm-perm-desc" style={{ color: "#b45309" }}>Enable Quick Sale access first</p>}
+                {isOpen && (
+                  !hasSubGroups ? (
+                    group.rows.map(renderRow)
+                  ) : selectedSubGroup ? (
+                    <>
+                      <button
+                        type="button"
+                        className="ispp-subgroup-back"
+                        onClick={() => clearSelectedGroup(group.module)}
+                      >
+                        <ChevronLeft size={13} /> Back to {group.module}
+                      </button>
+                      {selectedSubGroup.rows.map(renderRow)}
+                    </>
+                  ) : (
+                    <div className="ispp-subgroup-list">
+                      {group.subGroups.map((sg) => {
+                        const label = sg.groupName ?? "General";
+                        const sgCustomCount = sg.rows.filter((r) => r.isCustom).length;
+                        return (
+                          <button
+                            key={sg.groupName ?? UNGROUPED}
+                            type="button"
+                            className="ispp-subgroup-item"
+                            onClick={() => selectGroup(group.module, sg.groupName)}
+                          >
+                            <span className="ispp-subgroup-item-name">{label}</span>
+                            <span className="ispp-subgroup-item-meta">
+                              {sg.rows.length} permission{sg.rows.length === 1 ? "" : "s"}
+                              {sgCustomCount > 0 && ` · ${sgCustomCount} custom`}
+                              <ChevronRight size={14} />
+                            </span>
+                          </button>
+                        );
+                      })}
                     </div>
-                    <div className="spm-perm-toggle" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      {row.isCustom && !locked && (
-                        <button
-                          className="spm-reset-link"
-                          style={{ fontSize: 10, opacity: 0.6 }}
-                          onClick={() => clearOneOverride(row.key)}
-                          title="Revert to role default"
-                        >
-                          ↺
-                        </button>
-                      )}
-                      <label className="settings-toggle" title={locked ? "Enable Quick Sale access first" : undefined}>
-                        <input
-                          type="checkbox"
-                          checked={row.effective}
-                          disabled={locked}
-                          onChange={() => !locked && toggleEffective(row.key, row.effective)}
-                        />
-                        <span className="settings-toggle-slider" />
-                      </label>
-                    </div>
-                  </div>
-                  );
-                })}
+                  )
+                )}
               </div>
               );
             })
