@@ -212,6 +212,7 @@ export default function CustomerFrequencyReport({ onBack, category, categoryKey 
               title={REPORT_NAME}
               headers={HEADERS}
               rows={exportRows}
+              reportId="customer_frequency"
               filename={`customer-frequency-${dateFrom}-${dateTo}`}
               variant="button"
               csv

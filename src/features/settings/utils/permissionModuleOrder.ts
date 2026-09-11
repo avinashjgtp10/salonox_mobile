@@ -46,6 +46,26 @@ const GROUP_DISPLAY_ORDER: Record<string, string[]> = {
     "Product Audit",
     "Stock Ledger",
   ],
+  // Matches the Reports permissions ticket's own listed category order,
+  // General first since it's the top-level "can enter Reports at all"
+  // master toggle every other group depends on.
+  Reports: [
+    "General",
+    "Sales",
+    "Payments",
+    "Clients",
+    "Appointments",
+    "Inventory",
+    "Staff",
+    "Package & Membership",
+    "Marketing",
+  ],
+  // General first for the same reason as Reports above — it holds the
+  // access_settings master switch, which should be the first thing an
+  // owner sees when opening this card. The null-grouped legacy stragglers
+  // (manage_integrations/permission_settings/manage_pos_payments) aren't
+  // in this list, so they sink to the end instead of appearing first.
+  Settings: ["General", "Account", "Tools", "Migration", "Data", "Roles & Permissions"],
 };
 
 /** Sorts a module's sub-groups into that module's display order (if one is

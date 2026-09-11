@@ -283,6 +283,7 @@ export default function AllClientsReport({ onBack, category, categoryKey }: { on
               title={REPORT_NAME}
               headers={HEADERS}
               rows={exportRows}
+              reportId="all_clients"
               filename={`all-clients-${new Date().toISOString().slice(0, 10)}`}
               variant="button"
               csv

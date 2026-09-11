@@ -41,7 +41,6 @@ const defaultPermsMap: PermMatrix = {
   view_payroll: { owner: true, staff: false },
   view_reports: { owner: true, staff: false },
   export_reports: { owner: true, staff: false },
-  general_settings: { owner: true, staff: false },
   manage_pos_payments: { owner: true, staff: false },
   view_enquiries: { owner: true, staff: true },
 };
@@ -73,6 +72,43 @@ const VIRTUAL_PERMS: Record<string, string[]> = {
   view_marketing: [
     "view_marketing_dashboard", "view_marketing_analytics", "view_campaigns",
     "view_templates", "view_scheduled_templates", "view_inbox", "view_whatsapp_config",
+  ],
+  // Reports ticket: view_reports used to be the one real permission every
+  // report route checked directly. Now each report has its own dedicated
+  // view_report_<id> key (see ReportsPage.tsx's REPORTS array), gated behind
+  // 8 category parents — view_reports becomes the outer "can enter the
+  // Reports section at all" umbrella (route guard in DashboardRoutes.tsx),
+  // same OR-of-children pattern as view_marketing above.
+  //
+  // view_reports is included alongside its 8 children (not replaced by
+  // them) so the catalog's still-real, still-toggleable "View Reports" row
+  // stays meaningful as a one-switch "grant every report category" master
+  // permission, instead of silently doing nothing when granted on its own —
+  // that gap is what broke access for a staff member granted only this row
+  // and one specific report, with none of the 8 categories set (2026-09-11).
+  view_reports: [
+    "view_reports", "view_reports_sales", "view_reports_payments", "view_reports_customers",
+    "view_reports_appointments", "view_reports_inventory", "view_reports_staff",
+    "view_reports_packages", "view_reports_marketing",
+  ],
+  // Settings ticket: the outer "can enter the Settings section at all"
+  // route guard in DashboardRoutes.tsx — OR of all 18 section-specific
+  // keys, so a staff member granted only e.g. "View Branches" isn't blocked
+  // from ever reaching it.
+  //
+  // access_settings is now ALSO a real, toggleable catalog permission in
+  // its own right (add_access_settings_master_permission_key.sql), included
+  // here in its own OR-list same as view_reports below — a single master
+  // switch an owner can flip instead of having to enable every section
+  // individually, without removing the per-section granularity.
+  access_settings: [
+    "access_settings",
+    "view_settings_profile", "view_settings_business", "view_settings_account_security",
+    "view_branches", "view_settings_notifications", "view_roles",
+    "view_settings_integrations", "view_settings_pos_payments", "view_settings_billing",
+    "view_settings_currency", "view_settings_tax_mapping", "view_settings_reward_points",
+    "view_settings_referral", "view_coupons", "view_settings_packages",
+    "view_settings_print", "view_settings_bulk_billing_import", "view_settings_data_privacy",
   ],
 };
 

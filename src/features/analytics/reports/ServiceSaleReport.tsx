@@ -225,6 +225,7 @@ export default function ServiceSaleReport({ onBack, category, categoryKey }: { o
               title={REPORT_NAME}
               headers={HEADERS}
               rows={exportRows}
+              reportId="service_sale"
               filename={`service-sale-${dateFrom}-${dateTo}`}
               variant="button"
               csv

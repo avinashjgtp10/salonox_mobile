@@ -130,6 +130,7 @@ export default function CancellationRecoveryReport({ onBack, category, categoryK
               title={REPORT_NAME}
               headers={HEADERS}
               rows={exportRows}
+              reportId="cancellation_recovery"
               filename={`cancellation-recovery-${cancelledDays}d`}
               variant="button"
               csv

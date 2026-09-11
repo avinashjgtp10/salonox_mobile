@@ -124,6 +124,7 @@ export default function NewClientFollowUpReport({ onBack, category, categoryKey 
               title={REPORT_NAME}
               headers={HEADERS}
               rows={exportRows}
+              reportId="new_client_follow_up"
               filename={`new-client-follow-up-${newDays}d`}
               variant="button"
               csv

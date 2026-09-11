@@ -221,6 +221,7 @@ export default function PaymentCollectionReport({ onBack, category, categoryKey 
               title={REPORT_NAME}
               headers={HEADERS}
               rows={exportRows}
+              reportId="payment_collection"
               filename={`payment-collection-${dateFrom}-${dateTo}`}
               variant="button"
               csv

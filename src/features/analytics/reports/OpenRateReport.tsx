@@ -190,6 +190,7 @@ export default function OpenRateReport({ onBack, category, categoryKey }: { onBa
               title={REPORT_NAME}
               headers={HEADERS}
               rows={exportRows}
+              reportId="open_rate"
               filename={REPORT_NAME}
               variant="button"
               csv

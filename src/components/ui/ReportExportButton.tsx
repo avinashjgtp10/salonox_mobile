@@ -38,25 +38,56 @@ interface ReportExportButtonProps {
   filterLines?: string[];
   /** Optional summary/stat lines rendered in the PDF header, above the table */
   summaryLines?: string[];
+  /**
+   * When set, this instance is one of the 53 named reports on ReportsPage —
+   * matches the `id` field in ReportsPage.tsx's REPORTS array. Gates every
+   * export on the single dedicated `download_report_<reportId>` permission
+   * instead of the generic export_csv/export_excel/export_pdf triplet (which
+   * 4 other non-report pages — Cash Management, Products, Orders, Suppliers
+   * — still use unchanged when this prop is omitted).
+   */
+  reportId?: string;
 }
 
 const ReportExportButton = ({
   title, headers, rows, filename, variant = "icon", csv = false,
-  disabled = false, dateRangeLabel, filterLines = [], summaryLines = [],
+  disabled = false, dateRangeLabel, filterLines = [], summaryLines = [], reportId,
 }: ReportExportButtonProps) => {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
   const { can } = usePermissions();
   const dispatch = useAppDispatch();
 
-  // Returns true (and lets the caller proceed) only if permKey is granted;
-  // otherwise shows the same popup a blocked backend call would and stops
-  // the export before any file is built.
-  const requireExportPermission = (permKey: "export_csv" | "export_excel" | "export_pdf") => {
+  // Returns true (and lets the caller proceed) only if the relevant
+  // permission is granted; otherwise shows the same popup a blocked backend
+  // call would and stops the export before any file is built. For a named
+  // report, one single download_report_<id> key covers every format — the
+  // ticket's "Download" toggle isn't split by file type.
+  const requireExportPermission = (formatKey: "export_csv" | "export_excel" | "export_pdf") => {
+    const permKey = reportId ? `download_report_${reportId}` : formatKey;
     if (can(permKey)) return true;
     dispatch(showPermissionDenied(friendlyDenied(permKey)));
     setOpen(false);
     return false;
+  };
+  // Named reports (reportId set): without the matching download_report_<id>
+  // permission, the button shows greyed out and clicking it goes straight to
+  // the denial popup instead of opening the dropdown — NOT a native
+  // `disabled` button, since a real disabled attribute never fires onClick,
+  // which silently swallowed the click with no explanation (caught
+  // 2026-09-11 right after first trying the native-disabled version). The 4
+  // non-report pages still on the generic export_csv/export_excel/export_pdf
+  // triplet (reportId unset) are untouched — requireExportPermission() below
+  // is still what gates those, unchanged.
+  const permDisabled = reportId != null && !can(`download_report_${reportId}`);
+  const downloadPermStyle: React.CSSProperties | undefined =
+    permDisabled ? { opacity: 0.5, cursor: "not-allowed" } : undefined;
+  const handleTriggerClick = () => {
+    if (permDisabled) {
+      dispatch(showPermissionDenied(friendlyDenied(`download_report_${reportId}`)));
+      return;
+    }
+    setOpen((v) => !v);
   };
 
   useEffect(() => {
@@ -243,11 +274,11 @@ const ReportExportButton = ({
   return (
     <div className="rp-detail-export-wrap" ref={wrapRef}>
       {variant === "button" ? (
-        <button className="rp-download-btn" onClick={() => setOpen(v => !v)} disabled={disabled}>
+        <button className="rp-download-btn" style={downloadPermStyle} onClick={handleTriggerClick} disabled={disabled}>
           <BoxArrowUp size={14} /> Download <ChevronDown size={11} />
         </button>
       ) : (
-        <button className="rp-detail-icon-btn" title="Export" onClick={() => setOpen(v => !v)} disabled={disabled}>
+        <button className="rp-detail-icon-btn" title="Export" style={downloadPermStyle} onClick={handleTriggerClick} disabled={disabled}>
           <BoxArrowUp size={16} />
         </button>
       )}

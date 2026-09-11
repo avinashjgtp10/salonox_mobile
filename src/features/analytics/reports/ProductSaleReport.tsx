@@ -75,6 +75,7 @@ function mapRow(row: any): ProductSaleRow {
 interface FilterOption { id: string; label: string; }
 
 export default function ProductSaleReport({ onBack, category, categoryKey }: { onBack: () => void; category: string; categoryKey: string }) {
+  const reportId = categoryKey === "inventory" ? "product_sale_inventory" : "product_sale";
   const { currencySymbol, formatAmount } = useCurrency();
   // Same Brand/Category source as Catalog → Products (fetchBrandsThunk/
   // fetchCategoriesThunk) — the full catalog list, not just brands/categories
@@ -186,7 +187,7 @@ export default function ProductSaleReport({ onBack, category, categoryKey }: { o
         <div className="rp-detail-back-row">
           <Breadcrumb current={REPORT_NAME} category={category} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
-            <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename={`product-retail-${dateFrom}-${dateTo}`} variant="button" csv />
+            <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename={`product-retail-${dateFrom}-${dateTo}`} variant="button" csv reportId={reportId} />
           </div>
         </div>
       </div>

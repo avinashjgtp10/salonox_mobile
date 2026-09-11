@@ -13,6 +13,9 @@ import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { fetchSettingsThunk } from "../../../middleware/setting/setting.thunk";
 import { getTaxModuleConfig } from "../../settings/utils/taxModuleSettings";
 import { formatTimeAgo } from "../../../utils/dateFormat";
+import { usePermissions } from "../../../hooks/usePermissions";
+import { showPermissionDenied } from "../../../store/permissionDialogSlice";
+import NoPermissionPage from "../../../components/guards/NoPermissionPage";
 
 import SalesSummaryReport from "../reports/SalesSummaryReport";
 import ProductSaleReport from "../reports/ProductSaleReport";
@@ -189,6 +192,13 @@ function loadRecents(): { id: string; ts: number }[] {
 export default function ReportsPage() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
+  const { can } = usePermissions();
+  const denyPerm = (permKey: string) => dispatch(showPermissionDenied(
+    `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+  ));
+  const canViewReport = (id: string) => can(`view_report_${id}`);
+  const reportRowStyle = (id: string): React.CSSProperties | undefined =>
+    canViewReport(id) ? undefined : { opacity: 0.5, cursor: "not-allowed" };
   const { category: categoryParam, reportSlug } = useParams();
   const { items: settingItems } = useAppSelector((s) => s.setting);
   const [search, setSearch]         = useState("");
@@ -279,6 +289,7 @@ export default function ReportsPage() {
   const openReport = (id: string) => {
     const report = byId.get(id);
     if (!report) return;
+    if (!canViewReport(id)) { denyPerm(`view_report_${id}`); return; }
     lastOpenedIdRef.current = id;
     navigate(`/reports/${report.category}/${report.slug}`);
   };
@@ -408,7 +419,11 @@ export default function ReportsPage() {
   return (
     <div className="rp-page">
       {active ? (
-        <active.Component onBack={goBackToList} category={activeCategoryLabel} categoryKey={active.category} />
+        canViewReport(active.id) ? (
+          <active.Component onBack={goBackToList} category={activeCategoryLabel} categoryKey={active.category} />
+        ) : (
+          <NoPermissionPage permKey={`view_report_${active.id}`} />
+        )
       ) : (
         <>
           <div className="rp-header">
@@ -445,7 +460,7 @@ export default function ReportsPage() {
                   ) : (
                     <div className="rp-search-results">
                       {searchResults.map(r => (
-                        <div key={r.id} data-report-id={r.id} className="rp-cat-report-row" onClick={() => openReport(r.id)}>
+                        <div key={r.id} data-report-id={r.id} className="rp-cat-report-row" style={reportRowStyle(r.id)} onClick={() => openReport(r.id)}>
                           <div className={`rp-cat-report-icon rp-cat-report-icon--${r.category}`}><r.icon size={15} /></div>
                           <div className="rp-cat-report-info">
                             <div className="rp-cat-report-name">{r.name}</div>
@@ -479,7 +494,7 @@ export default function ReportsPage() {
                         {favoriteReports.map(r => {
                           const cat = CATEGORIES.find(c => c.key === r.category)!;
                           return (
-                            <div key={r.id} data-report-id={r.id} className="rp-fav-card" onClick={() => openReport(r.id)}>
+                            <div key={r.id} data-report-id={r.id} className="rp-fav-card" style={reportRowStyle(r.id)} onClick={() => openReport(r.id)}>
                               <div className="rp-fav-card-top">
                                 <div className={`rp-fav-card-icon rp-cat-icon--${r.category}`}><r.icon size={15} /></div>
                                 <button
@@ -513,7 +528,7 @@ export default function ReportsPage() {
                     ) : (
                       <div className="rp-recent-row">
                         {(showAllRecents ? recentReports : recentReports.slice(0, 5)).map(r => (
-                          <div key={r.id} data-report-id={r.id} className="rp-recent-item" onClick={() => openReport(r.id)}>
+                          <div key={r.id} data-report-id={r.id} className="rp-recent-item" style={reportRowStyle(r.id)} onClick={() => openReport(r.id)}>
                             <div className="rp-recent-name">{r.report!.name}</div>
                             <div className="rp-recent-time">{formatTimeAgo(r.ts)}</div>
                           </div>
@@ -542,7 +557,7 @@ export default function ReportsPage() {
                             {isOpen && (
                               <div className="rp-cat-report-list">
                                 {reports.map(r => (
-                                  <div key={r.id} data-cat-report-id={r.id} className={`rp-cat-report-row ${highlightedId === r.id ? "rp-cat-report-row--highlight" : ""}`} onClick={() => openReport(r.id)}>
+                                  <div key={r.id} data-cat-report-id={r.id} className={`rp-cat-report-row ${highlightedId === r.id ? "rp-cat-report-row--highlight" : ""}`} style={reportRowStyle(r.id)} onClick={() => openReport(r.id)}>
                                     <div className={`rp-cat-report-icon rp-cat-report-icon--${r.category}`}><r.icon size={15} /></div>
                                     <div className="rp-cat-report-info">
                                       <div className="rp-cat-report-name">{r.name}</div>

@@ -272,6 +272,7 @@ export default function MembershipHistoryReport({ onBack, category, categoryKey 
               title={REPORT_NAME}
               headers={HEADERS}
               rows={exportRows}
+              reportId="membership_history"
               filename={`membership-history-${dateFrom}-${dateTo}`}
               variant="button"
               csv

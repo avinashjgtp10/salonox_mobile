@@ -21,7 +21,7 @@ export const MODULE_ACCESS_LIST: ModuleAccessEntry[] = [
   { permKey: "view_booking", route: "/dashboard/online-booking" },
   { permKey: "view_enquiries", route: "/dashboard/enquiries" },
   { permKey: "view_reports", route: "/reports" },
-  { permKey: "general_settings", route: "/dashboard/settings" },
+  { permKey: "access_settings", route: "/dashboard/settings" },
 ];
 
 /** First module route the given `can()` check allows, or null if none. */

@@ -167,8 +167,33 @@ export default function IndividualStaffPermissionsPage() {
   // to the new effective value — no separate "role vs override" state to
   // reason about while editing. "Reset this one" (below) is the only way
   // back to inheriting the role default for that specific permission.
+  //
+  // Turning ON a category-parent permission (one whose own depends_on is
+  // ["view_reports"] — currently just the 8 Reports categories) cascades to
+  // every permission that in turn depends_on THAT category, i.e. every
+  // individual report inside it. Without this, switching on e.g. "Sales
+  // Reports" looked like it granted the category but actually unlocked
+  // nothing — each report's own view_report_<id> key still gated it
+  // independently, so the category toggle alone opened an empty-feeling
+  // Reports page with every card 403ing (found 2026-09-11). Turning the
+  // category back OFF is deliberately NOT symmetric — it does not strip
+  // individually-granted reports, same as removing the category elsewhere
+  // in this session just re-locks the front door without touching the
+  // leaf grants behind it.
   const toggleEffective = (key: string, currentEffective: boolean) => {
-    setPending((prev) => ({ ...prev, [key]: !currentEffective }));
+    const next = !currentEffective;
+    setPending((prev) => {
+      const updated = { ...prev, [key]: next };
+      if (next) {
+        const meta = catalogByKey.get(key);
+        if (meta?.depends_on?.includes("view_reports")) {
+          for (const perm of catalog) {
+            if (perm.depends_on?.includes(key)) updated[perm.key] = true;
+          }
+        }
+      }
+      return updated;
+    });
   };
 
   const clearOneOverride = (key: string) => {
