@@ -51,8 +51,13 @@ const DEV = import.meta.env.DEV;
 // a single matrix key (e.g. the Catalog section covers Services/Products/
 // Packages/Memberships/Inventory, which each have their own checkbox).
 const VIRTUAL_PERMS: Record<string, string[]> = {
-  view_catalog: ["view_services", "view_products", "view_packages", "view_memberships", "view_inventory"],
-  edit_catalog: ["create_services", "edit_services", "create_products", "create_packages", "create_memberships", "manage_inventory", "stock_adjustment"],
+  // Product Inventory's Edit/Delete/Add row actions (Warehouse) navigate
+  // into these same Catalog product-edit routes (see ProductInventoryPage.tsx
+  // + products.routes.ts's OR'd permissions) — a staff member granted only
+  // the newer granular Warehouse keys, without the older blanket
+  // view_products/create_products, must still be able to pass these gates.
+  view_catalog: ["view_services", "view_products", "view_packages", "view_memberships", "view_inventory", "view_product_inventory", "edit_product", "delete_product", "add_product"],
+  edit_catalog: ["create_services", "edit_services", "create_products", "create_packages", "create_memberships", "manage_inventory", "stock_adjustment", "add_product", "edit_product", "delete_product"],
   // The Commissions page (/dashboard/team/commissions) shows both a
   // Commissions tab and a Tips tab in one screen — either permission is
   // enough to open the page; the individual tabs/actions still check their

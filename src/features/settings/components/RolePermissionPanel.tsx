@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { X, Loader2, Search, ChevronDown } from "lucide-react";
+import { X, Loader2, Search, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import {
@@ -8,7 +8,7 @@ import {
   createRoleThunk,
   updateRoleThunk,
 } from "../../../middleware/roles/roles.thunk";
-import { sortModuleNames } from "../utils/permissionModuleOrder";
+import { sortModuleNames, sortGroupNames } from "../utils/permissionModuleOrder";
 
 interface Props {
   /** Fixed tier name — "Manager" or "Staff". There's exactly one role per
@@ -53,6 +53,25 @@ export default function RolePermissionPanel({ roleName, onClose }: Props) {
     setExpanded((prev) => {
       const next = new Set(prev);
       if (next.has(module)) next.delete(module); else next.add(module);
+      return next;
+    });
+  };
+
+  // Warehouse-style modules split their permissions into named sub-sections
+  // (Suppliers/Orders/Product Inventory/...) via the catalog's group_name —
+  // dumping all of them flat in one card was too big to scan. When a module
+  // has more than one distinct group_name, opening its card shows a
+  // sub-section list first; picking one drills into just that sub-section's
+  // permissions, with a way back to the list.
+  const [selectedGroupByModule, setSelectedGroupByModule] = useState<Record<string, string>>({});
+  const UNGROUPED = "__ungrouped__";
+  const selectGroup = (module: string, groupName: string | null) => {
+    setSelectedGroupByModule((prev) => ({ ...prev, [module]: groupName ?? UNGROUPED }));
+  };
+  const clearSelectedGroup = (module: string) => {
+    setSelectedGroupByModule((prev) => {
+      const next = { ...prev };
+      delete next[module];
       return next;
     });
   };
@@ -112,6 +131,17 @@ export default function RolePermissionPanel({ roleName, onClose }: Props) {
       }
       return updated;
     });
+  };
+
+  const getSubGroups = (module: string, modulePerms: typeof catalog) => {
+    const map = new Map<string | null, typeof catalog>();
+    for (const p of modulePerms) {
+      const gn = p.group_name ?? null;
+      if (!map.has(gn)) map.set(gn, []);
+      map.get(gn)!.push(p);
+    }
+    const groups = Array.from(map.entries()).map(([groupName, rows]) => ({ groupName, rows }));
+    return sortGroupNames(module, groups, (g) => g.groupName);
   };
 
   const setAllInModule = (modulePerms: typeof catalog, value: boolean) => {
@@ -180,6 +210,40 @@ export default function RolePermissionPanel({ roleName, onClose }: Props) {
           ) : (
             modules.map(([moduleName, modulePerms]) => {
               const isOpen = expanded.has(moduleName);
+              const subGroups = getSubGroups(moduleName, modulePerms);
+              const hasSubGroups = subGroups.length > 1;
+              const selectedKey = selectedGroupByModule[moduleName];
+              const selectedSubGroup = selectedKey != null
+                ? subGroups.find((sg) => (sg.groupName ?? UNGROUPED) === selectedKey)
+                : undefined;
+              const renderPerm = (perm: typeof modulePerms[number]) => {
+                const locked = moduleName === "Quick Sale" && QUICK_SALE_DEPENDENT_KEYS.includes(perm.key) && !perms[QUICK_SALE_GATE_KEY];
+                return (
+                <div key={perm.key} className="spm-perm-row">
+                  <div className="spm-perm-info">
+                    <p className="spm-perm-name">
+                      {perm.name}
+                      {(perm.risk_level === "high" || perm.risk_level === "critical") && (
+                        <span className={`s-badge ${riskBadgeClass[perm.risk_level]}`} style={{ fontSize: 10, marginLeft: 6 }}>{perm.risk_level}</span>
+                      )}
+                    </p>
+                    {perm.description && <p className="spm-perm-desc">{perm.description}</p>}
+                    {locked && <p className="spm-perm-desc" style={{ color: "#b45309" }}>Enable Quick Sale access first</p>}
+                  </div>
+                  <div className="spm-perm-toggle">
+                    <label className="settings-toggle" title={locked ? "Enable Quick Sale access first" : undefined}>
+                      <input
+                        type="checkbox"
+                        checked={!!perms[perm.key]}
+                        disabled={locked}
+                        onChange={() => !locked && togglePerm(perm.key)}
+                      />
+                      <span className="settings-toggle-slider" />
+                    </label>
+                  </div>
+                </div>
+                );
+              };
               return (
               <div key={moduleName} className="spm-category">
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -195,34 +259,39 @@ export default function RolePermissionPanel({ roleName, onClose }: Props) {
                     <button className="spm-reset-link" style={{ fontSize: 11 }} onClick={() => setAllInModule(modulePerms, false)}>All off</button>
                   </div>
                 </div>
-                {isOpen && modulePerms.map((perm) => {
-                  const locked = moduleName === "Quick Sale" && QUICK_SALE_DEPENDENT_KEYS.includes(perm.key) && !perms[QUICK_SALE_GATE_KEY];
-                  return (
-                  <div key={perm.key} className="spm-perm-row">
-                    <div className="spm-perm-info">
-                      <p className="spm-perm-name">
-                        {perm.name}
-                        {(perm.risk_level === "high" || perm.risk_level === "critical") && (
-                          <span className={`s-badge ${riskBadgeClass[perm.risk_level]}`} style={{ fontSize: 10, marginLeft: 6 }}>{perm.risk_level}</span>
-                        )}
-                      </p>
-                      {perm.description && <p className="spm-perm-desc">{perm.description}</p>}
-                      {locked && <p className="spm-perm-desc" style={{ color: "#b45309" }}>Enable Quick Sale access first</p>}
+                {isOpen && (
+                  !hasSubGroups ? (
+                    modulePerms.map(renderPerm)
+                  ) : selectedSubGroup ? (
+                    <>
+                      <button
+                        type="button"
+                        className="ispp-subgroup-back"
+                        onClick={() => clearSelectedGroup(moduleName)}
+                      >
+                        <ChevronLeft size={13} /> Back to {moduleName}
+                      </button>
+                      {selectedSubGroup.rows.map(renderPerm)}
+                    </>
+                  ) : (
+                    <div className="ispp-subgroup-list">
+                      {subGroups.map((sg) => (
+                        <button
+                          key={sg.groupName ?? UNGROUPED}
+                          type="button"
+                          className="ispp-subgroup-item"
+                          onClick={() => selectGroup(moduleName, sg.groupName)}
+                        >
+                          <span className="ispp-subgroup-item-name">{sg.groupName ?? "General"}</span>
+                          <span className="ispp-subgroup-item-meta">
+                            {sg.rows.length} permission{sg.rows.length === 1 ? "" : "s"}
+                            <ChevronRight size={14} />
+                          </span>
+                        </button>
+                      ))}
                     </div>
-                    <div className="spm-perm-toggle">
-                      <label className="settings-toggle" title={locked ? "Enable Quick Sale access first" : undefined}>
-                        <input
-                          type="checkbox"
-                          checked={!!perms[perm.key]}
-                          disabled={locked}
-                          onChange={() => !locked && togglePerm(perm.key)}
-                        />
-                        <span className="settings-toggle-slider" />
-                      </label>
-                    </div>
-                  </div>
-                  );
-                })}
+                  )
+                )}
               </div>
               );
             })

@@ -7,6 +7,8 @@ import { clearConsumableDetail } from "../../../store/inventorySlice";
 import type { AdjustStockReason } from "../../../types/inventory.types";
 import Dropdown from "../../../components/ui/Dropdown";
 import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
+import { usePermissions } from "../../../hooks/usePermissions";
+import { showPermissionDenied } from "../../../store/permissionDialogSlice";
 import "../styles/ConsumableDetailPanel.scss";
 
 interface Props {
@@ -29,9 +31,14 @@ const REASON_OPTIONS: { value: AdjustStockReason; label: string }[] = [
 
 const ConsumableDetailPanel: React.FC<Props> = ({ productId, onClose, onAdjusted, onEdit, openAdjustOnMount = false }) => {
   const dispatch = useDispatch<AppDispatch>();
+  const { can } = usePermissions();
   const { consumableDetail: detail, consumableDetailLoading: loading } = useSelector((s: RootState) => s.inventory);
 
-  const [showAdjust, setShowAdjust] = useState(openAdjustOnMount);
+  const denyPerm = (permKey: string) => dispatch(showPermissionDenied(
+    `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+  ));
+
+  const [showAdjust, setShowAdjust] = useState(openAdjustOnMount && can("adjust_consumable_stock"));
   const [adjustDirection, setAdjustDirection] = useState<"increase" | "decrease">("increase");
   const [adjustQty, setAdjustQty] = useState("");
   const [adjustReason, setAdjustReason] = useState<AdjustStockReason>("purchase");
@@ -69,7 +76,15 @@ const ConsumableDetailPanel: React.FC<Props> = ({ productId, onClose, onAdjusted
             {detail && <span className="ci-panel__subtitle">Consumable · {detail.category_name || "Uncategorized"}</span>}
           </div>
           <div className="ci-panel__header-actions">
-            {onEdit && <button className="ci-btn ci-btn--outline" onClick={onEdit}><PencilSquare size={13} /> Edit</button>}
+            {onEdit && (
+              <button
+                className="ci-btn ci-btn--outline"
+                style={!can("edit_consumable") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                onClick={() => { if (!can("edit_consumable")) { denyPerm("edit_consumable"); return; } onEdit(); }}
+              >
+                <PencilSquare size={13} /> Edit
+              </button>
+            )}
             <button className="ci-panel__close" onClick={onClose}><X size={20} /></button>
           </div>
         </div>
@@ -97,7 +112,16 @@ const ConsumableDetailPanel: React.FC<Props> = ({ productId, onClose, onAdjusted
             <section className="ci-panel__section">
               <div className="ci-panel__section-header">
                 <h4>Inventory Details</h4>
-                <button className="ci-btn ci-btn--sm" onClick={() => setShowAdjust(true)}>Adjust Stock</button>
+                <button
+                  className="ci-btn ci-btn--sm"
+                  style={!can("adjust_consumable_stock") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                  onClick={() => {
+                    if (!can("adjust_consumable_stock")) { denyPerm("adjust_consumable_stock"); return; }
+                    setShowAdjust(true);
+                  }}
+                >
+                  Adjust Stock
+                </button>
               </div>
               <div className="ci-panel__field-row"><span>Product Quantity</span><span>{detail.product_qty}</span></div>
               <div className="ci-panel__field-row"><span>Package Size</span><span>{detail.unit_size ? `${detail.unit_size} ${detail.unit}` : "—"}</span></div>

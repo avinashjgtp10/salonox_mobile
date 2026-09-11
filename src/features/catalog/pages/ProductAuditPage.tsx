@@ -30,10 +30,9 @@ import { showPermissionDenied } from "../../../store/permissionDialogSlice";
 import "../styles/ProductAuditPage.scss";
 
 // Same friendly copy PermissionGuard and the interceptor-driven global popup
-// already use for a backend 403 — this export is built entirely client-side
-// (no backend call to deny), so this is the only enforcement point
-// export_excel actually has for it.
-const friendlyExportDenied = (permKey: string) =>
+// already use for a backend 403 — export is built entirely client-side (no
+// backend call to deny), so this is the only enforcement point it has.
+const friendlyPermissionDenied = (permKey: string) =>
   `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`;
 
 const PAGE_SIZES = [10, 20, 50];
@@ -81,8 +80,15 @@ export default function ProductAuditPage() {
   const [detailsId, setDetailsId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
 
+  // Branches are only needed to default-select one when creating a NEW
+  // audit — viewing the audit list never needs them. Gating this fetch on
+  // create_product_audit avoids a spurious "Permission Required" popup for
+  // view_branches (a separate, mostly-unbuilt permission with no Roles &
+  // Permissions toggle of its own yet) for anyone who can view audits but
+  // not create them.
   useEffect(() => {
-    if (currentSalon?.id) dispatch(fetchBranchesThunk(currentSalon.id));
+    if (currentSalon?.id && can("create_product_audit")) dispatch(fetchBranchesThunk(currentSalon.id));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch, currentSalon?.id]);
 
   const defaultBranchId = useMemo(
@@ -120,7 +126,7 @@ export default function ProductAuditPage() {
   useEffect(() => { load(); }, [load]);
 
   const handleExportExcel = useCallback(async () => {
-    if (!can("export_excel")) { dispatch(showPermissionDenied(friendlyExportDenied("export_excel"))); return; }
+    if (!can("export_product_audit_excel")) { dispatch(showPermissionDenied(friendlyPermissionDenied("export_product_audit_excel"))); return; }
     setIsExporting(true);
     try {
       // Loops every page with the currently-applied filters (status/search)
@@ -165,7 +171,10 @@ export default function ProductAuditPage() {
     setStatusFilter(one(next.status) as ProductAuditStatus | "");
   };
 
+  const denyPerm = (permKey: string) => dispatch(showPermissionDenied(friendlyPermissionDenied(permKey)));
+
   const handleCreate = async (draft: { name: string; branch: string; notes: string; auditorId: string }) => {
+    if (!can("create_product_audit")) { denyPerm("create_product_audit"); setCreateOpen(false); return; }
     try {
       const created = await dispatch(createProductAuditThunk({
         branch_id: draft.branch,
@@ -183,6 +192,7 @@ export default function ProductAuditPage() {
   };
 
   const quickAction = async (audit: ProductAuditListRow, action: "submit" | "reopen") => {
+    if (!can("create_product_audit")) { denyPerm("create_product_audit"); return; }
     try {
       if (action === "submit") await dispatch(submitProductAuditThunk({ auditId: audit.id })).unwrap();
       else await dispatch(reopenProductAuditThunk(audit.id)).unwrap();
@@ -198,6 +208,7 @@ export default function ProductAuditPage() {
 
   const confirmReview = async ({ reviewerId, reason }: { reviewerId: string; reason?: string }) => {
     if (!reviewTarget) return;
+    if (!can("approve_product_audit")) { denyPerm("approve_product_audit"); setReviewTarget(null); return; }
     setReviewing(true);
     try {
       if (reviewTarget.mode === "approve") {
@@ -234,10 +245,20 @@ export default function ProductAuditPage() {
             iconLeft={<FileEarmarkExcel size={14} />}
             onClick={handleExportExcel}
             disabled={isExporting}
+            style={!can("export_product_audit_excel") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
           >
             {isExporting ? "Exporting…" : "Export to Excel"}
           </Button>
-          <Button variant="dark" iconLeft={<PlusLg size={14} />} onClick={() => setCreateOpen(true)} disabled={!defaultBranchId}>
+          <Button
+            variant="dark"
+            iconLeft={<PlusLg size={14} />}
+            style={!can("create_product_audit") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+            onClick={() => {
+              if (!can("create_product_audit")) { denyPerm("create_product_audit"); return; }
+              setCreateOpen(true);
+            }}
+            disabled={!defaultBranchId}
+          >
             New Audit
           </Button>
         </div>
@@ -343,7 +364,11 @@ export default function ProductAuditPage() {
                               <Eye size={14} /> View / Edit
                             </Dropdown.Item>
                             {a.status === "in_progress" && (
-                              <Dropdown.Item onClick={() => quickAction(a, "submit")} className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark">
+                              <Dropdown.Item
+                                onClick={() => quickAction(a, "submit")}
+                                style={!can("create_product_audit") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                                className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark"
+                              >
                                 <CheckCircle size={14} /> Submit for Review
                               </Dropdown.Item>
                             )}
@@ -354,16 +379,34 @@ export default function ProductAuditPage() {
                                 so Approve/Reject stay available regardless of who's logged in. */}
                             {a.status === "pending_review" && (
                               <>
-                                <Dropdown.Item onClick={() => setReviewTarget({ audit: a, mode: "approve" })} className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-success">
+                                <Dropdown.Item
+                                  onClick={() => {
+                                    if (!can("approve_product_audit")) { denyPerm("approve_product_audit"); return; }
+                                    setReviewTarget({ audit: a, mode: "approve" });
+                                  }}
+                                  style={!can("approve_product_audit") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                                  className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-success"
+                                >
                                   <CheckCircle size={14} /> Approve
                                 </Dropdown.Item>
-                                <Dropdown.Item onClick={() => setReviewTarget({ audit: a, mode: "reject" })} className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-danger">
+                                <Dropdown.Item
+                                  onClick={() => {
+                                    if (!can("approve_product_audit")) { denyPerm("approve_product_audit"); return; }
+                                    setReviewTarget({ audit: a, mode: "reject" });
+                                  }}
+                                  style={!can("approve_product_audit") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                                  className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-danger"
+                                >
                                   <XCircle size={14} /> Reject
                                 </Dropdown.Item>
                               </>
                             )}
                             {a.status === "rejected" && (
-                              <Dropdown.Item onClick={() => quickAction(a, "reopen")} className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark">
+                              <Dropdown.Item
+                                onClick={() => quickAction(a, "reopen")}
+                                style={!can("create_product_audit") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                                className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark"
+                              >
                                 <ArrowRepeat size={14} /> Reopen
                               </Dropdown.Item>
                             )}

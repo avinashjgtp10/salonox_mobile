@@ -31,3 +31,32 @@ export function sortModuleNames<T>(items: T[], getModule: (item: T) => string): 
   };
   return [...items].sort((a, b) => indexOf(getModule(a)) - indexOf(getModule(b)));
 }
+
+// Display order for the sub-group drill-down within a module that has more
+// than one `group_name` (e.g. Warehouse splits into Suppliers/Orders/etc.) —
+// matches InventorySubSidebar's tab sequence, instead of the DB's
+// alphabetical `ORDER BY group_name` (Consumable Inventory would otherwise
+// sort before Suppliers). Modules not listed here keep catalog order.
+const GROUP_DISPLAY_ORDER: Record<string, string[]> = {
+  Warehouse: [
+    "Suppliers",
+    "Orders",
+    "Product Inventory",
+    "Consumable Inventory",
+    "Product Audit",
+    "Stock Ledger",
+  ],
+};
+
+/** Sorts a module's sub-groups into that module's display order (if one is
+ *  defined above); anything not listed — including the null/ungrouped
+ *  bucket — keeps its relative order and sinks to the end. */
+export function sortGroupNames<T>(module: string, items: T[], getGroupName: (item: T) => string | null): T[] {
+  const order = GROUP_DISPLAY_ORDER[module];
+  if (!order) return items;
+  const indexOf = (name: string | null) => {
+    const i = name == null ? -1 : order.indexOf(name);
+    return i === -1 ? order.length : i;
+  };
+  return [...items].sort((a, b) => indexOf(getGroupName(a)) - indexOf(getGroupName(b)));
+}
