@@ -40,7 +40,6 @@ const defaultPermsMap: PermMatrix = {
   view_payroll: { owner: true, staff: false },
   view_reports: { owner: true, staff: false },
   export_reports: { owner: true, staff: false },
-  general_settings: { owner: true, staff: false },
   manage_pos_payments: { owner: true, staff: false },
   view_enquiries: { owner: true, staff: true },
 };
@@ -90,6 +89,25 @@ const VIRTUAL_PERMS: Record<string, string[]> = {
     "view_reports", "view_reports_sales", "view_reports_payments", "view_reports_customers",
     "view_reports_appointments", "view_reports_inventory", "view_reports_staff",
     "view_reports_packages", "view_reports_marketing",
+  ],
+  // Settings ticket: the outer "can enter the Settings section at all"
+  // route guard in DashboardRoutes.tsx — OR of all 18 section-specific
+  // keys, so a staff member granted only e.g. "View Branches" isn't blocked
+  // from ever reaching it.
+  //
+  // access_settings is now ALSO a real, toggleable catalog permission in
+  // its own right (add_access_settings_master_permission_key.sql), included
+  // here in its own OR-list same as view_reports below — a single master
+  // switch an owner can flip instead of having to enable every section
+  // individually, without removing the per-section granularity.
+  access_settings: [
+    "access_settings",
+    "view_settings_profile", "view_settings_business", "view_settings_account_security",
+    "view_branches", "view_settings_notifications", "view_roles",
+    "view_settings_integrations", "view_settings_pos_payments", "view_settings_billing",
+    "view_settings_currency", "view_settings_tax_mapping", "view_settings_reward_points",
+    "view_settings_referral", "view_coupons", "view_settings_packages",
+    "view_settings_print", "view_settings_bulk_billing_import", "view_settings_data_privacy",
   ],
 };
 

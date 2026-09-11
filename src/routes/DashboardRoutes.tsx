@@ -145,9 +145,12 @@ export const DashboardRoutes = (
         </Route>
       </Route>
 
-      {/* Settings — requires general_settings. Account/config, not a product
-          module — deliberately not featureKey-gated. */}
-      <Route element={<PermissionGuard permKey="general_settings" />}>
+      {/* Settings — requires access_settings (umbrella OR of the 18 section
+          keys — see VIRTUAL_PERMS in usePermissions.ts). Each section inside
+          SettingsLayout.tsx has its own specific gate on top of this outer
+          one. Account/config, not a product module — deliberately not
+          featureKey-gated. */}
+      <Route element={<PermissionGuard permKey="access_settings" />}>
         <Route path="settings/*" element={<SettingsRoutes />} />
       </Route>
 

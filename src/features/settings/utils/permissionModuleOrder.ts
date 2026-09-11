@@ -60,6 +60,12 @@ const GROUP_DISPLAY_ORDER: Record<string, string[]> = {
     "Package & Membership",
     "Marketing",
   ],
+  // General first for the same reason as Reports above — it holds the
+  // access_settings master switch, which should be the first thing an
+  // owner sees when opening this card. The null-grouped legacy stragglers
+  // (manage_integrations/permission_settings/manage_pos_payments) aren't
+  // in this list, so they sink to the end instead of appearing first.
+  Settings: ["General", "Account", "Tools", "Migration", "Data", "Roles & Permissions"],
 };
 
 /** Sorts a module's sub-groups into that module's display order (if one is
