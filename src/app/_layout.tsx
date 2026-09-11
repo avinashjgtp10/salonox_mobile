@@ -226,7 +226,7 @@ function NetworkSetup() {
 }
 
 function AppUpdateSetup() {
-  const { close, isVisible, updateInfo } = useAppUpdateAnnouncement();
+  const { close, reopen, isVisible, updateInfo } = useAppUpdateAnnouncement();
 
   if (!updateInfo) {
     return null;
@@ -241,6 +241,8 @@ function AppUpdateSetup() {
       isMandatory={updateInfo.isMandatory}
       latestVersion={updateInfo.latestVersion}
       onClose={close}
+      onReopen={reopen}
+      releaseNotes={updateInfo.releaseNotes}
       title={updateInfo.title}
       visible={isVisible}
     />
