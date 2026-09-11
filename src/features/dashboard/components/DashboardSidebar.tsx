@@ -359,17 +359,34 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
       )}
 
       {hasFeature("cash_management") && (
-        <NavLink
-          to="/dashboard/cash-management"
-          className={({ isActive }) => navClass(isActive)}
-          onClick={(event) => handleRouteClick(event, "/dashboard/cash-management")}
-          onMouseEnter={preloadCashManagementPage}
-          onFocus={preloadCashManagementPage}
-          title="Cash Management"
-        >
-          <Cash  size={22} />
-          <span className="nav-label">Cash Management</span>
-        </NavLink>
+        can("view_cash_management") ? (
+          <NavLink
+            to="/dashboard/cash-management"
+            className={({ isActive }) => navClass(isActive)}
+            onClick={(event) => handleRouteClick(event, "/dashboard/cash-management")}
+            onMouseEnter={preloadCashManagementPage}
+            onFocus={preloadCashManagementPage}
+            title="Cash Management"
+          >
+            <Cash  size={22} />
+            <span className="nav-label">Cash Management</span>
+          </NavLink>
+        ) : (
+          <button
+            type="button"
+            className="nav-btn nav-btn--disabled"
+            title="Cash Management"
+            aria-disabled="true"
+            onClick={() =>
+              dispatch(showPermissionDenied(
+                `Your account does not have the "view_cash_management" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+              ))
+            }
+          >
+            <Cash  size={22} />
+            <span className="nav-label">Cash Management</span>
+          </button>
+        )
       )}
 
       {/* Whole Marketing section gated on featureKey "marketing" — previously

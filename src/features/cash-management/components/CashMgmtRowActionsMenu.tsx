@@ -6,6 +6,12 @@ interface Props {
   onEdit: () => void;
   onDelete: () => void;
   disabled?: boolean;
+  // Independent of `disabled` (the row/business-state lock, e.g. counter
+  // closed) — these gate each item on its own permission, so a staff member
+  // with only one of edit_expense/delete_expense still sees both items but
+  // can only use the one they're allowed.
+  editDisabled?: boolean;
+  deleteDisabled?: boolean;
 }
 
 const MENU_WIDTH_PX = 152;
@@ -19,7 +25,7 @@ const MENU_WIDTH_PX = 152;
 // get cut off (invisible) whenever the trigger was near the table's edge.
 // Rendering into the body and positioning with getBoundingClientRect side-
 // steps that clipping entirely.
-export default function CashMgmtRowActionsMenu({ onEdit, onDelete, disabled = false }: Props) {
+export default function CashMgmtRowActionsMenu({ onEdit, onDelete, disabled = false, editDisabled = false, deleteDisabled = false }: Props) {
   const [open, setOpen] = useState(false);
   const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -100,6 +106,7 @@ export default function CashMgmtRowActionsMenu({ onEdit, onDelete, disabled = fa
                   type="button"
                   className="cash-mgmt__row-menu-item"
                   role="menuitem"
+                  style={editDisabled ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
                   onClick={() => {
                     setOpen(false);
                     onEdit();
@@ -111,6 +118,7 @@ export default function CashMgmtRowActionsMenu({ onEdit, onDelete, disabled = fa
                   type="button"
                   className="cash-mgmt__row-menu-item cash-mgmt__row-menu-item--danger"
                   role="menuitem"
+                  style={deleteDisabled ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
                   onClick={() => {
                     setOpen(false);
                     onDelete();
