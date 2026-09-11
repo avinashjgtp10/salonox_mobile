@@ -233,6 +233,7 @@ export default function EnquiryReport({ onBack, category, categoryKey }: { onBac
               title={REPORT_NAME}
               headers={HEADERS}
               rows={exportRows}
+              reportId="enquiry_report"
               filename="enquiry-report"
               variant="button"
               csv

@@ -156,6 +156,7 @@ export default function RebookingRateReport({ onBack, category, categoryKey }: {
               title={REPORT_NAME}
               headers={HEADERS}
               rows={exportRows}
+              reportId="rebooking_rate"
               filename={`rebooking-rate-${dateFrom}-${dateTo}`}
               variant="button"
               csv

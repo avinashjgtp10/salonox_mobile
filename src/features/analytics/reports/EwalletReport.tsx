@@ -209,6 +209,7 @@ export default function EwalletReport({ onBack, category, categoryKey }: { onBac
               title={REPORT_NAME}
               headers={HEADERS}
               rows={exportRows}
+              reportId="ewallet"
               filename={`ewallet-balances-${asOfDate}`}
               variant="button"
               csv

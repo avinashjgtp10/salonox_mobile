@@ -73,6 +73,24 @@ const VIRTUAL_PERMS: Record<string, string[]> = {
     "view_marketing_dashboard", "view_marketing_analytics", "view_campaigns",
     "view_templates", "view_scheduled_templates", "view_inbox", "view_whatsapp_config",
   ],
+  // Reports ticket: view_reports used to be the one real permission every
+  // report route checked directly. Now each report has its own dedicated
+  // view_report_<id> key (see ReportsPage.tsx's REPORTS array), gated behind
+  // 8 category parents — view_reports becomes the outer "can enter the
+  // Reports section at all" umbrella (route guard in DashboardRoutes.tsx),
+  // same OR-of-children pattern as view_marketing above.
+  //
+  // view_reports is included alongside its 8 children (not replaced by
+  // them) so the catalog's still-real, still-toggleable "View Reports" row
+  // stays meaningful as a one-switch "grant every report category" master
+  // permission, instead of silently doing nothing when granted on its own —
+  // that gap is what broke access for a staff member granted only this row
+  // and one specific report, with none of the 8 categories set (2026-09-11).
+  view_reports: [
+    "view_reports", "view_reports_sales", "view_reports_payments", "view_reports_customers",
+    "view_reports_appointments", "view_reports_inventory", "view_reports_staff",
+    "view_reports_packages", "view_reports_marketing",
+  ],
 };
 
 function resolveKeys(permKey: string): string[] {

@@ -197,6 +197,7 @@ export default function WaCampaignReport({ onBack, category, categoryKey }: { on
               title={REPORT_NAME}
               headers={HEADERS}
               rows={exportRows}
+              reportId="wa_campaign"
               filename={REPORT_NAME}
               variant="button"
               csv

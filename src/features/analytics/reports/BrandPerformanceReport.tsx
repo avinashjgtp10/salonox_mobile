@@ -144,6 +144,7 @@ export default function BrandPerformanceReport({ onBack, category: reportCategor
               title={REPORT_NAME}
               headers={HEADERS}
               rows={exportRows}
+              reportId="brand_performance"
               filename="brand-performance"
               variant="button"
               csv

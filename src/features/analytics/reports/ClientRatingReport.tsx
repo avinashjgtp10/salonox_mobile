@@ -99,6 +99,7 @@ function StarRating({ value }: { value: number }) {
 
 export default function ClientRatingReport({ onBack, category, categoryKey }: { onBack: () => void; category: string; categoryKey: string }) {
   const REPORT_NAME = getReportName(categoryKey);
+  const reportId = categoryKey === "marketing" ? "mkt_feedback" : "client_rating";
   const dispatch = useDispatch<AppDispatch>();
   // On-screen the contact column is always masked; only the owner/admin role
   // gets the real number in Excel/CSV/PDF exports (staff/manager exports stay
@@ -224,6 +225,7 @@ export default function ClientRatingReport({ onBack, category, categoryKey }: { 
               filename={`client-rating-${dateFrom}-${dateTo}`}
               variant="button"
               csv
+              reportId={reportId}
               disabled={!!dateRangeError}
               dateRangeLabel={`${formatDate(dateFrom)} - ${formatDate(dateTo)}`}
               filterLines={[

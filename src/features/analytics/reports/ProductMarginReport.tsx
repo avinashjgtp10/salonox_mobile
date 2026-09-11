@@ -39,6 +39,7 @@ function mapRow(row: any): MarginRow {
 }
 
 export default function ProductMarginReport({ onBack, category, categoryKey }: { onBack: () => void; category: string; categoryKey: string }) {
+  const reportId = categoryKey === "inventory" ? "product_margin_inventory" : "product_margin";
   const { currencySymbol, formatAmount } = useCurrency();
   // Same Brand/Category source as Catalog → Products and the Product Retail
   // report — the full catalog list, not just brands/categories that happen
@@ -142,6 +143,7 @@ export default function ProductMarginReport({ onBack, category, categoryKey }: {
               filename={`product-margin-${dateFrom}-${dateTo}`}
               variant="button"
               csv
+              reportId={reportId}
               dateRangeLabel={dateFrom && dateTo ? `${formatDateDDMMYYYY(dateFrom)} to ${formatDateDDMMYYYY(dateTo)}` : undefined}
             />
           </div>
