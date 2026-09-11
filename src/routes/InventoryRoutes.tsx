@@ -74,14 +74,22 @@ export const InventoryRoutes = () => (
           <Route path="suppliers/:id/edit" element={<AddSupplierPage />} />
         </Route>
 
+        {/* Orders now has its own independent permissions too (see the
+            Warehouse -> Orders ticket) — split out from the shared
+            manage_inventory guard below, same pattern as Suppliers. */}
+        <Route element={<PermissionGuard permKey="view_orders" />}>
+          <Route path="orders" element={<OrdersListPage />} />
+          <Route path="orders/:id" element={<OrderDetailPage />} />
+        </Route>
+        <Route element={<PermissionGuard permKey="create_order" />}>
+          <Route path="orders/new-order" element={<NewOrderPage />} />
+        </Route>
+        <Route element={<PermissionGuard permKey="edit_order" />}>
+          <Route path="orders/:id/edit" element={<NewOrderPage />} />
+        </Route>
+
         {/* manage_inventory required for every other inventory screen, read or write */}
         <Route element={<PermissionGuard permKey="manage_inventory" />}>
-          {/* Orders is its own concept (a PO document, no stock movement) —
-              sibling to Purchase History rather than an alias for it. */}
-          <Route path="orders" element={<OrdersListPage />} />
-          <Route path="orders/new-order" element={<NewOrderPage />} />
-          <Route path="orders/:id/edit" element={<NewOrderPage />} />
-          <Route path="orders/:id" element={<OrderDetailPage />} />
           <Route path="products" element={<ProductInventoryPage />} />
           <Route path="audit" element={<ProductAuditPage />} />
           <Route path="consumables" element={<ConsumableInventoryPage />} />
