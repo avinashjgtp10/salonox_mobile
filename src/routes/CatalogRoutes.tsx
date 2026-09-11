@@ -64,33 +64,70 @@ export const CatalogRoutes = () => (
       {/* Inventory lives at /dashboard/inventory/* now — see InventoryRoutes.tsx */}
       <Route path="inventory/*" element={<LegacyInventoryRedirect />} />
 
-      {/* view_catalog (outer) — read-only screens */}
-      <Route path="services" element={<ServicesListPage />} />
-      <Route path="products" element={<ProductsListPage />} />
-      <Route path="products/landing" element={<ProductsLandingPage />} />
-
-      <Route element={<PlanFeatureGuard featureKey="memberships" label="Memberships" />}>
-        <Route path="memberships" element={<MembershipsListPage />} />
-        <Route path="memberships/list" element={<MembershipsListPage />} />
+      {/* Service Menu — view_services now real (see the Service Menu ticket) */}
+      <Route element={<PermissionGuard permKey="view_services" />}>
+        <Route path="services" element={<ServicesListPage />} />
       </Route>
-      <Route element={<PlanFeatureGuard featureKey="packages" label="Packages" />}>
-        <Route path="packages" element={<PackageModule />} />
-        <Route path="packages/legacy" element={<PackagesPage />} />
-      </Route>
-
-      {/* edit_catalog required for service/product/membership write operations */}
-      <Route element={<PermissionGuard permKey="edit_catalog" />}>
+      <Route element={<PermissionGuard permKey="create_services" />}>
         <Route path="services/add" element={<ServiceFormPage />} />
+      </Route>
+      <Route element={<PermissionGuard permKey="edit_services" />}>
         <Route path="services/:id/edit" element={<ServiceFormPage />} />
+      </Route>
+      <Route element={<PermissionGuard permKey="manage_categories" />}>
         <Route path="services/categories" element={<CategoriesPage />} />
+      </Route>
+
+      {/* Products — view_products now real (see the Products ticket) */}
+      <Route element={<PermissionGuard permKey="view_products" />}>
+        <Route path="products" element={<ProductsListPage />} />
+      </Route>
+      <Route path="products/landing" element={<ProductsLandingPage />} />
+      <Route element={<PermissionGuard permKey="create_products" />}>
         <Route path="products/create" element={<ProductFormPage />} />
+      </Route>
+      <Route element={<PermissionGuard permKey="edit_products" />}>
         <Route path="products/edit/:id" element={<ProductFormPage />} />
+      </Route>
+      <Route element={<PermissionGuard permKey="import_products" />}>
         <Route path="products/import" element={<ImportProductsPage />} />
-        <Route element={<PlanFeatureGuard featureKey="memberships" label="Memberships" />}>
+      </Route>
+
+      {/* Membership — view_memberships now real (see the Membership ticket) */}
+      <Route element={<PlanFeatureGuard featureKey="memberships" label="Memberships" />}>
+        <Route element={<PermissionGuard permKey="view_memberships" />}>
+          <Route path="memberships" element={<MembershipsListPage />} />
+          <Route path="memberships/list" element={<MembershipsListPage />} />
+        </Route>
+        <Route element={<PermissionGuard permKey="create_memberships" />}>
           <Route path="memberships/create" element={<CreateMembershipPage />} />
+        </Route>
+        <Route element={<PermissionGuard permKey="edit_memberships" />}>
           <Route path="memberships/edit/:id" element={<CreateMembershipPage />} />
         </Route>
-        <Route element={<PlanFeatureGuard featureKey="packages" label="Packages" />}>
+      </Route>
+
+      {/* Packages — two independently-gated pages behind one PlanFeatureGuard
+          (see the Packages ticket): Client Packages (client-packages.routes.ts,
+          the default tab) and Package Templates (package-templates.routes.ts).
+          Both used to live as tabs inside one ungated route/component —
+          PackageModule.tsx now reads its active tab from these two real URLs
+          instead of internal-only state, so each is independently reachable
+          and "Not Authorized" on direct access works per page as required. */}
+      <Route element={<PlanFeatureGuard featureKey="packages" label="Packages" />}>
+        <Route path="packages" element={<Navigate to="/dashboard/catalog/packages/client-packages" replace />} />
+        <Route element={<PermissionGuard permKey="view_client_packages" />}>
+          <Route path="packages/client-packages" element={<PackageModule />} />
+        </Route>
+        <Route element={<PermissionGuard permKey="view_package_templates" />}>
+          <Route path="packages/templates" element={<PackageModule />} />
+        </Route>
+        {/* Legacy Catalog package builder — untouched, out of scope for the
+            Packages ticket (that covers Client Packages/Package Templates only). */}
+        <Route element={<PermissionGuard permKey="view_packages" />}>
+          <Route path="packages/legacy" element={<PackagesPage />} />
+        </Route>
+        <Route element={<PermissionGuard permKey="edit_catalog" />}>
           <Route path="packages/:id" element={<EditPackagePage />} />
         </Route>
       </Route>
