@@ -9,6 +9,14 @@ import { ENVIRONMENTS, resolveAppEnv } from "./config/environments";
 const appEnv = resolveAppEnv(process.env.APP_ENV);
 const env = ENVIRONMENTS[appEnv];
 
+// Single source of truth for the app's semantic version. Both the Expo
+// `version` and `runtimeVersion` below are derived from this, so bumping it
+// here moves them together — a runtimeVersion that silently kept reporting an
+// old version would let new JS be served to binaries that can't run it.
+// ConfigContext's `config.version` is NOT usable for this: the project has no
+// app.json, so it is always undefined.
+const APP_VERSION = "1.0.0";
+
 const existsInProject = (relativePath: string) => fs.existsSync(path.resolve(__dirname, relativePath));
 
 // Dev/QA badged icons and per-environment Firebase apps are provisioned
@@ -80,11 +88,18 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     owner: "salonox-tech",
     name: env.appName,
     slug: "SalonOX",
-    version: "1.0.0",
+    version: APP_VERSION,
     orientation: "portrait",
     icon,
     scheme: env.scheme,
     userInterfaceStyle: "automatic",
+    updates: {
+      url: "https://u.expo.dev/f049c562-d124-4c6d-a1be-a4405a64d9ec",
+    },
+    // Namespaced by environment so an update published to one channel can
+    // never be served to a build from another: dev/QA/production each have
+    // their own runtime version even when the app version matches.
+    runtimeVersion: `${appEnv}-${APP_VERSION}`,
     ios: {
       ...config.ios,
       icon,
