@@ -478,15 +478,32 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
         <span className="nav-label">Apps</span>
       </button>
 
-      <NavLink
-        to="/dashboard/settings"
-        className={({ isActive }) => navClass(isActive)}
-        onClick={(event) => handleRouteClick(event, "/dashboard/settings")}
-        title="Settings"
-      >
-        <Gear size={22} />
-        <span className="nav-label">Settings</span>
-      </NavLink>
+      {can("access_settings") ? (
+        <NavLink
+          to="/dashboard/settings"
+          className={({ isActive }) => navClass(isActive)}
+          onClick={(event) => handleRouteClick(event, "/dashboard/settings")}
+          title="Settings"
+        >
+          <Gear size={22} />
+          <span className="nav-label">Settings</span>
+        </NavLink>
+      ) : (
+        <button
+          type="button"
+          className="nav-btn nav-btn--disabled"
+          title="Settings"
+          aria-disabled="true"
+          onClick={() =>
+            dispatch(showPermissionDenied(
+              `Your account does not have the "access_settings" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+            ))
+          }
+        >
+          <Gear size={22} />
+          <span className="nav-label">Settings</span>
+        </button>
+      )}
 
       <NavLink
         to="/dashboard/spotlight"
