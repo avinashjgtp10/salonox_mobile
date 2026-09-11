@@ -118,11 +118,16 @@ export const DashboardRoutes = (
         <Route path="catalog/*" element={<CatalogRoutes />} />
       </Route>
 
-      {/* Inventory — requires view_inventory (moved out from under Catalog).
-          featureKey "inventory" enforced inside InventoryRoutes.tsx already. */}
-      <Route element={<PermissionGuard permKey="view_inventory" />}>
-        <Route path="inventory/*" element={<InventoryRoutes />} />
-      </Route>
+      {/* Inventory (Warehouse) — no single blanket permission gate here
+          anymore. Suppliers now has its own independent permissions
+          (view_suppliers/create_suppliers/edit_suppliers/etc. — see the
+          Warehouse -> Suppliers ticket), separate from view_inventory which
+          still gates the other 5 sections. A view_inventory-only gate here
+          would deny Suppliers access to a staff member who has
+          view_suppliers but not view_inventory, before InventoryRoutes.tsx's
+          own per-section guards even get a chance to run. featureKey
+          "inventory" is still enforced inside InventoryRoutes.tsx. */}
+      <Route path="inventory/*" element={<InventoryRoutes />} />
 
       {/* Team — requires view_team. featureKey "staff"/"payroll" enforced
           per-section inside TeamRoutes.tsx already. */}

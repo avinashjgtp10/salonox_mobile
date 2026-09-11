@@ -56,9 +56,25 @@ export const InventoryRoutes = () => (
       {/* Plan-feature gate (featureKey "inventory") wraps the permission
           gate — a salon whose plan lacks Inventory sees the upgrade screen
           regardless of staff permissions; one that has it still needs
-          manage_inventory per-staff as before. */}
+          the right permission per-staff as before. */}
       <Route element={<PlanFeatureGuard featureKey="inventory" label="Inventory Management" />}>
-        {/* manage_inventory required for every inventory screen, read or write */}
+        {/* Suppliers has its own independent permissions now (see the
+            Warehouse -> Suppliers ticket) — split out from the shared
+            manage_inventory guard below, which still covers every other
+            Warehouse screen until they get the same treatment. */}
+        <Route element={<PermissionGuard permKey="view_suppliers" />}>
+          <Route path="suppliers" element={<SuppliersListPage />} />
+          <Route path="suppliers/:id" element={<SupplierDetailPage />} />
+        </Route>
+        <Route element={<PermissionGuard permKey="create_suppliers" />}>
+          <Route path="suppliers/new" element={<AddSupplierPage />} />
+        </Route>
+        <Route element={<PermissionGuard permKey="edit_suppliers" />}>
+          <Route path="suppliers/edit/:id" element={<AddSupplierPage />} />
+          <Route path="suppliers/:id/edit" element={<AddSupplierPage />} />
+        </Route>
+
+        {/* manage_inventory required for every other inventory screen, read or write */}
         <Route element={<PermissionGuard permKey="manage_inventory" />}>
           {/* Orders is its own concept (a PO document, no stock movement) —
               sibling to Purchase History rather than an alias for it. */}
@@ -66,11 +82,6 @@ export const InventoryRoutes = () => (
           <Route path="orders/new-order" element={<NewOrderPage />} />
           <Route path="orders/:id/edit" element={<NewOrderPage />} />
           <Route path="orders/:id" element={<OrderDetailPage />} />
-          <Route path="suppliers" element={<SuppliersListPage />} />
-          <Route path="suppliers/new" element={<AddSupplierPage />} />
-          <Route path="suppliers/edit/:id" element={<AddSupplierPage />} />
-          <Route path="suppliers/:id/edit" element={<AddSupplierPage />} />
-          <Route path="suppliers/:id" element={<SupplierDetailPage />} />
           <Route path="products" element={<ProductInventoryPage />} />
           <Route path="audit" element={<ProductAuditPage />} />
           <Route path="consumables" element={<ConsumableInventoryPage />} />
