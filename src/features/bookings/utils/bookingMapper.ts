@@ -115,7 +115,14 @@ export function mapApiBooking(
     const staffNameStr = (() => { const sf = s.staff; if (!sf) return ""; if (typeof sf === "object") return (sf as any)?.name || ""; return String(sf); })();
     const sPrice = parseFloat(String(s.price ?? 0)) || 0;
     const sQty   = Number(s.qty ?? s.quantity ?? 1) || 1;
-    const sTotal = parseFloat(String(s.total ?? 0)) || 0;
+    // Falls back to price (same as productItems/packageItems/membershipItems
+    // below) when total was never computed — e.g. a service on an
+    // appointment created by the historical Bulk Billing Import, which only
+    // ever sets `price` on its JSONB service rows, not `total`. Without this
+    // fallback, s.total ?? 0 read as a real ₹0 line item instead of "never
+    // priced", so every imported historical service showed ₹0.00 here (and
+    // in ViewBillModal.tsx's per-service total) despite billing correctly.
+    const sTotal = parseFloat(String(s.total ?? s.price ?? 0)) || 0;
     // Per-row discount is a percentage of price × qty — derive it back from the
     // stored total so the edit form shows the % that was originally applied.
     const derivedDiscount = (sTotal > 0 && sPrice * sQty > sTotal)
@@ -124,7 +131,7 @@ export function mapApiBooking(
     const isServiceFromPackage = !!(s.is_package_service || (s as any).isPackageService);
     return {
       ...s,
-      ...(isPackagePaid || isServiceFromPackage ? { total: 0 } : {}),
+      total: isPackagePaid || isServiceFromPackage ? 0 : sTotal,
       isPackageService: isServiceFromPackage,
       // Exact package-service link (schedule-at-sale feature) — distinct
       // from the fuzzy isPackageService coverage flag above.

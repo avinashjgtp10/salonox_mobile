@@ -48,13 +48,13 @@ interface ImportResult {
 
 // ─── Template ─────────────────────────────────────────────────────────────
 const SAMPLE_COLUMNS = [
-  "Date *", "Client *", "Client Phone", "Staff *", "Service/Product *",
+  "Date *", "Client *", "Client Phone *", "Staff *", "Service/Product *",
   "Amount *", "Discount", "Tax", "Payment Method", "Notes",
 ];
 
 const SAMPLE_ROWS = [
   ["01-01-2025", "Client A", "9876543210", "Staff A", "Haircut", "500", "", "", "Cash", ""],
-  ["02-01-2025", "Client A", "9876543210", "Staff A", "Haircut Ladies, Loreal Spa Ladies", "3422", "", "", "Gpay", ""],
+  ["02-01-2025", "Client A", "9876543210", "Staff A, Staff B", "Haircut Ladies, Loreal Spa Ladies", "3422", "", "", "Gpay", ""],
 ];
 
 function downloadTemplate() {
@@ -164,13 +164,17 @@ export default function BulkBillingImportPage() {
         <h2 className="bbi-title">Bulk Billing Import</h2>
         <p className="bbi-subtitle">
           Upload an Excel or CSV of historical billing records — Salonox will validate every row and generate
-          correctly dated invoices, preserving each row's own billing date, amount, discount and tax. A Client
-          or Staff name that doesn't match an existing record is added automatically (Staff auto-added this way
-          only gets a name — email/phone/gender can be filled in later from Team settings). The Service/Product
-          column can list multiple items on one bill separated by commas (e.g. "Haircut, Hair Spa") — each must
-          match your existing catalog exactly. Leave Staff blank for a bill with no recorded staff; it's billed
-          under "Unknown / Imported Staff" instead of guessing. Payment Method accepts common UPI app names
-          (Gpay, Google Pay, PhonePe, Paytm) — all normalized to UPI.
+          correctly dated invoices, preserving each row's own billing date, amount, discount and tax. Client
+          Phone is required on every row (used to reliably match or create the client — a bare name alone risks
+          splitting an existing client into a duplicate). A Client or Staff name that doesn't match an existing
+          record is added automatically (Staff auto-added this way only gets a name — email/phone/gender can be
+          filled in later from Team settings; Salonox assigns their Staff Code the same way it does for any new
+          staff member). The Service/Product column can list multiple items on one bill separated by commas
+          (e.g. "Haircut, Hair Spa") — each must match your existing catalog exactly. For a bill with more than
+          one item, Staff can likewise list one name per item in the same order (e.g. "Staff A, Staff B"), or a
+          single name to apply to the whole bill. Leave Staff blank for a bill with no recorded staff; it's
+          billed under "Unknown / Imported Staff" instead of guessing. Payment Method accepts common UPI app
+          names (Gpay, Google Pay, PhonePe, Paytm) — all normalized to UPI.
         </p>
       </div>
 
