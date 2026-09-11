@@ -10,6 +10,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import { selectCurrentSalon } from "../../../store/selectors/slices.selectors";
 import api from "../../../services/api/axios";
+import { ApiError } from "../../../services/api/interceptors";
 import { STAFF } from "../../../services/api/endpoints";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { useCurrency } from "../../../hooks/useCurrency";
@@ -20,6 +21,9 @@ import DateRangeFilter, {
   type DateRangeFilterValue, DEFAULT_DATE_RANGE_FILTER_VALUE, getDateRangePresetValue,
 } from "../../../components/ui/DateRangeFilter";
 import SettleTipModal, { type TipSettlementPaymentMethod } from "../components/tip/SettleTipModal";
+import { usePermissions } from "../../../hooks/usePermissions";
+import { useAppDispatch } from "../../../hooks/useAppRedux";
+import { showPermissionDenied } from "../../../store/permissionDialogSlice";
 import "../styles/TipSettleTab.scss";
 
 const DEFAULT_TABLE_PAGE_SIZE = 10;
@@ -51,6 +55,11 @@ export default function TipSettleTab() {
   const { formatAmount: fmt, currencyCode } = useCurrency();
   const CurrencyIcon = getCurrencyIcon(currencyCode);
   const { showSuccess, showError, overlay } = useStatusOverlay();
+  const { can } = usePermissions();
+  const dispatch = useAppDispatch();
+  const denyPerm = (permKey: string) => dispatch(showPermissionDenied(
+    `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+  ));
 
   const [dateRange, setDateRange] = useState<DateRangeFilterValue>(() => ({
     ...DEFAULT_DATE_RANGE_FILTER_VALUE,
@@ -82,7 +91,12 @@ export default function TipSettleTab() {
       setEarnedByStaff(earnedRes.data?.data ?? []);
       setSummaryPage(1);
     } catch (err: any) {
-      showError(err?.message ?? "Failed to load tips");
+      // A view_tips 403 already pops the global "Permission Required" dialog
+      // via the axios interceptor — showing this too would stack a second,
+      // raw-message popup on top of it for the same denial.
+      if (!(err instanceof ApiError && err.status === 403)) {
+        showError(err?.message ?? "Failed to load tips");
+      }
     } finally {
       setLoading(false);
     }
@@ -92,6 +106,7 @@ export default function TipSettleTab() {
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
   const handleSettle = async (staffId: string, name: string, amount: number, paymentMethod: TipSettlementPaymentMethod) => {
+    if (!can("edit_tip")) { denyPerm("edit_tip"); setSettleTarget(null); return; }
     setSettlingId(staffId);
     try {
       await api.post(STAFF.SETTLE_TIP(staffId), { amount, payment_method: paymentMethod });

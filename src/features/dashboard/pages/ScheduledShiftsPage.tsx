@@ -15,6 +15,8 @@ import {
   deleteSingleShiftThunk,
 } from "../../../middleware/shift/shiftThunk";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
+import { usePermissions } from "../../../hooks/usePermissions";
+import { showPermissionDenied } from "../../../store/permissionDialogSlice";
 import {
   ScheduleTable,
   ShiftDrawer,
@@ -54,6 +56,10 @@ const ScheduledShiftsPage: React.FC = () => {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const { showSuccess, showError, overlay } = useStatusOverlay();
+  const { can } = usePermissions();
+  const denyPerm = (permKey: string) => dispatch(showPermissionDenied(
+    `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+  ));
 
   const weekDates = getWeekDates(sunday).map((d) => {
     const { date, day } = formatColHeader(d);
@@ -112,27 +118,51 @@ const ScheduledShiftsPage: React.FC = () => {
   const closeCopy = () => setCopyStaffId(null);
 
   // ── Cell action handlers ──────────────────────────────────────────────────────
+  // "edit" mode covers both Add Working Hours (no shift yet) and Edit
+  // Working Hours (one already exists) — mirrors isCreatingWorkingHours
+  // below, checked here so the right one of the two permissions applies.
   const handleEditWorkingHours = useCallback(
-    (staffId: string, date: string) => openDrawer("edit", staffId, date), []
+    (staffId: string, date: string) => {
+      const isAdding = shifts[staffId]?.[date]?.type !== "working";
+      const permKey = isAdding ? "add_working_hours" : "edit_working_hours";
+      if (!can(permKey)) { denyPerm(permKey); return; }
+      openDrawer("edit", staffId, date);
+    },
+    [shifts, can] // eslint-disable-line react-hooks/exhaustive-deps
   );
   const handleAddTimeOff = useCallback(
-    (staffId: string, date: string) => openDrawer("timeoff", staffId, date), []
+    (staffId: string, date: string) => {
+      if (!can("add_time_off")) { denyPerm("add_time_off"); return; }
+      openDrawer("timeoff", staffId, date);
+    },
+    [can] // eslint-disable-line react-hooks/exhaustive-deps
   );
   const handleManageDayOff = useCallback(
-    (staffId: string, date: string) => openDrawer("dayoff", staffId, date), []
+    (staffId: string, date: string) => {
+      if (!can("manage_day_off")) { denyPerm("manage_day_off"); return; }
+      openDrawer("dayoff", staffId, date);
+    },
+    [can] // eslint-disable-line react-hooks/exhaustive-deps
   );
   const handleManageBlockedDay = useCallback(
-    (staffId: string, date: string) => openDrawer("blocked", staffId, date), []
+    (staffId: string, date: string) => {
+      if (!can("manage_blocked_day")) { denyPerm("manage_blocked_day"); return; }
+      openDrawer("blocked", staffId, date);
+    },
+    [can] // eslint-disable-line react-hooks/exhaustive-deps
   );
   const handleDeleteTimeBlock = useCallback((staffId: string, date: string) => {
+    if (!can("edit_working_hours")) { denyPerm("edit_working_hours"); return; }
     setDeleteTarget({ staffId, date });
-  }, []);
+  }, [can]); // eslint-disable-line react-hooks/exhaustive-deps
   const handleEditStaff = useCallback((staffId: string) => {
+    if (!can("edit_working_hours")) { denyPerm("edit_working_hours"); return; }
     openDrawer("edit", staffId, toDateKey(new Date()));
-  }, []);
+  }, [can]); // eslint-disable-line react-hooks/exhaustive-deps
   const handleCopy = useCallback((staffId: string) => {
+    if (!can("copy_schedule")) { denyPerm("copy_schedule"); return; }
     setCopyStaffId(staffId);
-  }, []);
+  }, [can]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleConfirmDeleteTimeBlock = () => {
     if (!deleteTarget) return;
@@ -176,6 +206,11 @@ const ScheduledShiftsPage: React.FC = () => {
     breaks: { start: string; end: string }[]
   ) => {
     const isAddingWorkingHours = drawer.mode === "edit" && shifts[staffId]?.[date]?.type !== "working";
+    const savePermKey = drawer.mode === "dayoff" ? "manage_day_off"
+      : drawer.mode === "blocked" ? "manage_blocked_day"
+      : drawer.mode === "timeoff" ? "add_time_off"
+      : isAddingWorkingHours ? "add_working_hours" : "edit_working_hours";
+    if (!can(savePermKey)) { denyPerm(savePermKey); return; }
     // 8. Add Temporary Debug Logs
     console.log("[DEBUG] selectedDate:", date);
 
@@ -233,6 +268,7 @@ const ScheduledShiftsPage: React.FC = () => {
     toDates: string[],
     type: "day" | "week"
   ) => {
+    if (!can("copy_schedule")) { denyPerm("copy_schedule"); return; }
     dispatch(applyCopySchedule({ staffId, fromDate, toDates, type }))
       .unwrap()
       .then(() => {
