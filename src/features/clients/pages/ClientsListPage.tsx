@@ -4,6 +4,9 @@ import { CLIENT } from "../../../services/api/endpoints";
 import Pagination from "../../../components/ui/Pagination";
 import Dropdown from "../../../components/ui/Dropdown";
 import { useNavigate, useLocation } from "react-router-dom";
+import { usePermissions } from "../../../hooks/usePermissions";
+import { useAppDispatch } from "../../../hooks/useAppRedux";
+import { showPermissionDenied } from "../../../store/permissionDialogSlice";
 import {
   ChevronDown,
   ChevronUp,
@@ -53,6 +56,19 @@ export default function ClientsListPage() {
   const { currencySymbol, formatAmount } = useCurrency();
   const navigate = useNavigate();
   const location = useLocation();
+  const dispatch = useAppDispatch();
+  const { can } = usePermissions();
+  // Never hide these — visible always, disabled (dim + popup on click) when
+  // the specific permission is off.
+  const canAdd = can("create_clients");
+  const canEdit = can("edit_clients");
+  const canDelete = can("delete_clients");
+  const canImport = can("import_clients");
+  const canExport = can("export_clients");
+  const canBlock = can("block_client");
+  const denyPerm = (key: string) => dispatch(showPermissionDenied(
+    `Your account does not have the "${key}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+  ));
   const [clients, setClients] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -545,8 +561,10 @@ export default function ClientsListPage() {
               >
                 <div
                   className="option-item p-2 cursor-pointer"
+                  style={canImport ? undefined : { opacity: 0.5, cursor: "not-allowed" }}
                   onClick={() => {
                     setOptionsOpen(false);
+                    if (!canImport) { denyPerm("import_clients"); return; }
                     setImportModalOpen(true);
                   }}
                 >
@@ -567,6 +585,11 @@ export default function ClientsListPage() {
                 <DownloadButton
                   filename="clients.xlsx"
                   fetcher={async () => {
+                    if (!canExport) {
+                      setOptionsOpen(false);
+                      denyPerm("export_clients");
+                      throw new Error("export_clients permission required");
+                    }
                     const res = await api.get(CLIENT.EXPORT("excel"), {
                       params: getExportParams(),
                       responseType: "blob",
@@ -578,6 +601,7 @@ export default function ClientsListPage() {
                   size="sm"
                   iconLeft={<FileEarmarkExcel size={14} className="me-2" />}
                   className="option-item w-100 text-start p-2 small"
+                  style={canExport ? undefined : { opacity: 0.5, cursor: "not-allowed" }}
                 >
                   Excel
                 </DownloadButton>
@@ -590,7 +614,8 @@ export default function ClientsListPage() {
             variant="dark"
             pill
             iconLeft={<PersonPlus size={14} />}
-            onClick={() => navigate("/dashboard/clients/add")}
+            onClick={() => { if (canAdd) navigate("/dashboard/clients/add"); else denyPerm("create_clients"); }}
+            style={canAdd ? undefined : { opacity: 0.5, cursor: "not-allowed" }}
           >
             Add
           </Button>
@@ -711,8 +736,10 @@ export default function ClientsListPage() {
                           ) ? (
                             <div
                               className="bulk-edit-item"
+                              style={canBlock ? undefined : { opacity: 0.5, cursor: "not-allowed" }}
                               onClick={() => {
                                 setBulkEditOpen(false);
+                                if (!canBlock) { denyPerm("block_client"); return; }
                                 handleUnblockClients();
                               }}
                             >
@@ -721,8 +748,10 @@ export default function ClientsListPage() {
                           ) : (
                             <div
                               className="bulk-edit-item"
+                              style={canBlock ? undefined : { opacity: 0.5, cursor: "not-allowed" }}
                               onClick={() => {
                                 setBulkEditOpen(false);
+                                if (!canBlock) { denyPerm("block_client"); return; }
                                 setBlockModalOpen(true);
                               }}
                             >
@@ -734,7 +763,8 @@ export default function ClientsListPage() {
                     </div>
                     <button
                       className="btn-outline text-danger"
-                      onClick={() => setDeleteModalOpen(true)}
+                      style={canDelete ? undefined : { opacity: 0.5, cursor: "not-allowed" }}
+                      onClick={() => canDelete ? setDeleteModalOpen(true) : denyPerm("delete_clients")}
                     >
                       Delete
                     </button>
@@ -909,8 +939,10 @@ export default function ClientsListPage() {
                         >
                           <div
                             className="row-menu-item"
+                            style={canEdit ? undefined : { opacity: 0.5, cursor: "not-allowed" }}
                             onClick={() => {
                               setOpenRowMenuId(null);
+                              if (!canEdit) { denyPerm("edit_clients"); return; }
                               navigate(`/dashboard/clients/edit/${client.id}`);
                             }}
                           >
@@ -919,8 +951,10 @@ export default function ClientsListPage() {
                           {client.is_blocked ? (
                             <div
                               className="row-menu-item success"
+                              style={canBlock ? undefined : { opacity: 0.5, cursor: "not-allowed" }}
                               onClick={() => {
                                 setOpenRowMenuId(null);
+                                if (!canBlock) { denyPerm("block_client"); return; }
                                 handleUnblockSingle(String(client.id));
                               }}
                             >
@@ -929,8 +963,10 @@ export default function ClientsListPage() {
                           ) : (
                             <div
                               className="row-menu-item warning"
+                              style={canBlock ? undefined : { opacity: 0.5, cursor: "not-allowed" }}
                               onClick={() => {
                                 setOpenRowMenuId(null);
+                                if (!canBlock) { denyPerm("block_client"); return; }
                                 handleBlockSingle(String(client.id));
                               }}
                             >
@@ -939,8 +975,10 @@ export default function ClientsListPage() {
                           )}
                           <div
                             className="row-menu-item danger"
+                            style={canDelete ? undefined : { opacity: 0.5, cursor: "not-allowed" }}
                             onClick={() => {
                               setOpenRowMenuId(null);
+                              if (!canDelete) { denyPerm("delete_clients"); return; }
                               setSelectedClients([String(client.id)]);
                               setDeleteModalOpen(true);
                             }}

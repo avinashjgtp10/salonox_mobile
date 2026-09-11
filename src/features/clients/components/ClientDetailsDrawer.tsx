@@ -9,6 +9,9 @@ import { Loader } from "../../../components/ui";
 import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
 import { maskMobile } from "../../../utils/maskMobile";
 import WalletBreakdownModal from "./WalletBreakdownModal";
+import { usePermissions } from "../../../hooks/usePermissions";
+import { useAppDispatch } from "../../../hooks/useAppRedux";
+import { showPermissionDenied } from "../../../store/permissionDialogSlice";
 import "../styles/ClientDetailsDrawer.scss";
 
 interface ClientDetailsDrawerProps {
@@ -70,6 +73,9 @@ export default function ClientDetailsDrawer({
   onClose,
 }: ClientDetailsDrawerProps) {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
+  const { can } = usePermissions();
+  const canEdit = can("edit_clients");
   const { formatAmount } = useCurrency();
   const [client, setClient] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -208,7 +214,16 @@ export default function ClientDetailsDrawer({
               </div>
               <button
                 className="cdd-edit-btn"
-                onClick={() => navigate(`/dashboard/clients/edit/${activeClientId}`)}
+                style={canEdit ? undefined : { opacity: 0.5, cursor: "not-allowed" }}
+                onClick={() => {
+                  if (!canEdit) {
+                    dispatch(showPermissionDenied(
+                      `Your account does not have the "edit_clients" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+                    ));
+                    return;
+                  }
+                  navigate(`/dashboard/clients/edit/${activeClientId}`);
+                }}
               >
                 <Pencil size={14} /> Edit
               </button>

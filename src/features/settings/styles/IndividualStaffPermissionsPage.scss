@@ -1,0 +1,310 @@
+// Full-page Individual Staff Permissions editor (replaces the old
+// StaffPermissionEditor modal for this one entry point — see
+// RolesPermissionsPage.tsx and IndividualStaffPermissionsPage.tsx).
+// .spm-perm-row / .spm-perm-name / .spm-perm-desc / .spm-reset-link /
+// .settings-toggle* / .s-badge* are shared with the rest of Settings and
+// deliberately reused here, not redefined.
+
+.ispp-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  padding-bottom: 72px; // room for the sticky footer
+}
+
+.ispp-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #6b7280;
+  margin-bottom: 16px;
+
+  button {
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: 12px;
+    color: #6b7280;
+    cursor: pointer;
+    &:hover { color: #111827; text-decoration: underline; }
+  }
+  span { color: #111827; font-weight: 600; }
+}
+
+.ispp-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.ispp-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 4px;
+}
+
+.ispp-subtitle {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 0;
+  max-width: 520px;
+}
+
+.ispp-role {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #374151;
+  flex-shrink: 0;
+  white-space: nowrap;
+
+  select {
+    font-size: 13px;
+    font-weight: 600;
+    color: #111827;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 4px 8px;
+    background: #fff;
+  }
+}
+
+.ispp-workspace {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 20px;
+  align-items: start;
+  flex: 1;
+
+  @media (max-width: 860px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+// ── Left: staff switcher ──────────────────────────────────────────────────
+.ispp-staff-panel {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 12px;
+  position: sticky;
+  top: 0;
+
+  @media (max-width: 860px) {
+    position: static;
+  }
+}
+
+.ispp-staff-panel-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 4px 8px 8px;
+}
+
+.ispp-staff-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 70vh;
+  overflow-y: auto;
+
+  @media (max-width: 860px) {
+    max-height: 240px;
+  }
+}
+
+.ispp-staff-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  cursor: pointer;
+
+  &:hover { background: #f9fafb; }
+
+  &--active {
+    background: #eff6ff;
+    .ispp-staff-name { color: #2563eb; }
+  }
+}
+
+.ispp-staff-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.ispp-staff-meta {
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+// ── Right: permission workspace ───────────────────────────────────────────
+.ispp-main {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.ispp-main-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.ispp-main-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 2px;
+}
+
+.ispp-main-desc {
+  font-size: 12px;
+  color: #6b7280;
+  margin: 0;
+}
+
+.ispp-reset-confirm {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #374151;
+}
+
+.ispp-search {
+  position: relative;
+  margin-bottom: 16px;
+
+  .ispp-search-icon {
+    position: absolute;
+    left: 10px;
+    top: 9px;
+    color: #9ca3af;
+  }
+
+  input {
+    width: 100%;
+    padding: 7px 10px 7px 30px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 13px;
+  }
+}
+
+.ispp-muted {
+  font-size: 13px;
+  color: #6b7280;
+  padding: 16px 0;
+}
+
+// ── Module cards (collapsed = grid, expanded = full-width) ───────────────
+.ispp-module-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  align-items: start;
+
+  @media (max-width: 640px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ispp-module-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fff;
+  overflow: hidden;
+
+  &--open {
+    grid-column: 1 / -1;
+    border-color: #bfdbfe;
+  }
+}
+
+.ispp-module-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 14px 16px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+
+  &:hover { background: #f9fafb; }
+}
+
+.ispp-module-card-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 2px;
+}
+
+.ispp-module-card-count {
+  font-size: 12px;
+  color: #9ca3af;
+  margin: 0;
+}
+
+.ispp-module-chevron {
+  color: #9ca3af;
+  flex-shrink: 0;
+  transition: transform 0.15s;
+  &--open { transform: rotate(180deg); }
+}
+
+.ispp-module-card-body {
+  border-top: 1px solid #f3f4f6;
+  padding: 4px 16px;
+}
+
+// ── Sticky footer ──────────────────────────────────────────────────────────
+// Sticky (not fixed) to the page's own scroll container — fixed-to-viewport
+// would span under the app's main sidebar too, since that sidebar isn't
+// accounted for here.
+.ispp-footer {
+  position: sticky;
+  bottom: 0;
+  margin: 20px -24px -24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 24px;
+  background: #fff;
+  border-top: 1px solid #e5e7eb;
+  z-index: 20;
+}
+
+.ispp-footer-count {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.ispp-footer-actions {
+  display: flex;
+  gap: 8px;
+}
