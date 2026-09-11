@@ -9,6 +9,7 @@ export const SALES = {
   EXPORT_PDF: "/sales/export/pdf",
   INIT: "/sales/init",
   LIST: "/sales",
+  STAFF_ITEMS: (staffId: string) => `/sales/staff/${staffId}/items`,
   SUMMARY: "/sales/summary",
   UPDATE: (saleId: string) => `/sales/${saleId}`,
 } as const;

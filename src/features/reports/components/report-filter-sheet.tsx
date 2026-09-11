@@ -1,5 +1,3 @@
-import DateTimePicker from "@react-native-community/datetimepicker";
-import { Ionicons } from "@expo/vector-icons";
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
@@ -61,7 +59,6 @@ export const ReportFilterSheet = memo(function ReportFilterSheet({
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const [draft, setDraft] = useState(filters);
-  const [activeDateKey, setActiveDateKey] = useState<ReportFilterKey | null>(null);
 
   useEffect(() => {
     if (visible) setDraft(filters);
@@ -70,8 +67,10 @@ export const ReportFilterSheet = memo(function ReportFilterSheet({
   const update = useCallback((key: ReportFilterKey, value: string) => {
     setDraft((current) => ({ ...current, [key]: value, page: 1 }));
   }, []);
+  // Dates are owned by the REPORT RANGE calendar on the report screen, so they
+  // are deliberately absent here rather than offered through a second control.
   const visibleFilters = supportedFilters.filter((key) =>
-    key !== "search" && key !== "branch_id");
+    key !== "search" && key !== "branch_id" && !DATE_KEYS.includes(key));
 
   const footer = (
     <>
@@ -98,22 +97,6 @@ export const ReportFilterSheet = memo(function ReportFilterSheet({
     >
       <View style={styles.fields}>
         {visibleFilters.map((key) => {
-          if (DATE_KEYS.includes(key)) {
-            return (
-              <View key={key} style={styles.field}>
-                <Text style={styles.label}>{LABELS[key]}</Text>
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() => setActiveDateKey(key)}
-                  style={styles.control}
-                >
-                  <Ionicons name="calendar-outline" size={17} color={Colors.text2} />
-                  <Text style={styles.controlText}>{draft[key] || "Select date"}</Text>
-                </Pressable>
-              </View>
-            );
-          }
-
           const options = key === "campaign_id" ? campaignOptions : OPTIONS[key];
           if (options?.length) {
             return (
@@ -156,18 +139,6 @@ export const ReportFilterSheet = memo(function ReportFilterSheet({
           );
         })}
       </View>
-
-      {activeDateKey ? (
-        <DateTimePicker
-          display="default"
-          mode="date"
-          onChange={(_event, value) => {
-            if (value) update(activeDateKey, value.toISOString().slice(0, 10));
-            setActiveDateKey(null);
-          }}
-          value={new Date(`${draft[activeDateKey] ?? new Date().toISOString().slice(0, 10)}T12:00:00`)}
-        />
-      ) : null}
     </BottomSheet>
   );
 });
@@ -176,12 +147,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   fields: { gap: Spacing.lg },
   field: { gap: Spacing.sm },
   label: { color: Colors.heading, fontSize: 12, fontWeight: "800" },
-  control: {
-    alignItems: "center", backgroundColor: Colors.backgroundElement,
-    borderColor: Colors.border, borderRadius: AppRadius.control, borderWidth: 1,
-    flexDirection: "row", gap: Spacing.sm, minHeight: 50, paddingHorizontal: Spacing.md,
-  },
-  controlText: { color: Colors.text, flex: 1, fontSize: 13, fontWeight: "600" },
   input: {
     backgroundColor: Colors.backgroundElement, borderColor: Colors.border,
     borderRadius: AppRadius.control, borderWidth: 1, color: Colors.heading,

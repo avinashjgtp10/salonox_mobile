@@ -611,21 +611,14 @@ function CheckoutSheetComponent({
     onCompleteSale({ method: paymentMethod, paidAmount: amountToCollect });
   };
 
+  // Selecting a method only selects it — the sale is submitted from the
+  // footer's "Record Payment"/"Complete Sale" button via handleComplete. This
+  // deliberately does not check out on tap: the cash/card/UPI detail panels
+  // below are meant to be reviewed after choosing a method, and a mis-tap on a
+  // payment chip must never be able to take a customer's money.
   const handleSelectSinglePaymentMethod = (method: Exclude<SalePaymentMethod, "split">) => {
     setPaymentMethod(method);
     setLastSingleMethod(method);
-
-    if (isBusy || !canCompleteSale) {
-      return;
-    }
-
-    if (hasMissingStaff) {
-      setStaffValidationAttempted(true);
-      setCheckoutStep("review");
-      return;
-    }
-
-    onCompleteSale({ method, paidAmount: amountToCollect });
   };
 
   const handleContinueToPayment = () => {

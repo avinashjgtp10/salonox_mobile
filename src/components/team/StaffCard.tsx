@@ -131,6 +131,10 @@ function StaffCardComponent({ index, onCall, onMessage, onMore, staffMember, met
               icon="person-circle-outline"
               onPress={() => router.push(`/team/${staffMember.id}` as Href)}
             />
+            <ActionIcon
+              icon="calendar-outline"
+              onPress={() => router.push(`/team/${staffMember.id}/schedule` as Href)}
+            />
             <ActionIcon icon="ellipsis-horizontal" onPress={() => onMore(staffMember)} />
           </View>
         </View>
@@ -243,10 +247,10 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     alignItems: "center",
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
+    gap: 6,
     justifyContent: "flex-end",
     marginLeft: Spacing.md,
-    width: 104,
+    width: 82,
   },
   actionIcon: {
     alignItems: "center",

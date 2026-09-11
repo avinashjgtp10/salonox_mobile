@@ -1,23 +1,22 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
   Image,
-  Keyboard,
+  KeyboardAvoidingView,
   Platform,
   Pressable,
+  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
   TextInput,
   View,
-  findNodeHandle,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { KeyboardAwareScrollView, type KeyboardAwareScrollViewHandle } from "@/components/ui/KeyboardAwareScrollView";
 import { useAuth } from "@/context/AuthContext";
 import { ApiError, getApiErrorMessage } from "@/services/api";
 import { resolveLoginRoute } from "@/utils/routeResolver";
@@ -55,21 +54,12 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [failedLoginAttempts, setFailedLoginAttempts] = useState(0);
-  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
-  const [activeKeyboardFieldRef, setActiveKeyboardFieldRef] = useState<RefObject<TextInput | null> | null>(null);
-  const scrollViewRef = useRef<KeyboardAwareScrollViewHandle | null>(null);
-  const identifierInputRef = useRef<TextInput>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
   const passwordInputRef = useRef<TextInput>(null);
+  const fieldOffsets = useRef({ email: 0, password: 0 });
+  const scrollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [cardOpacity] = useState(() => new Animated.Value(0));
   const [cardTranslate] = useState(() => new Animated.Value(16));
-  const keyboardNavigationFields = useMemo(() => [{ ref: identifierInputRef }, { ref: passwordInputRef }], []);
-  const keyboardNavigation = useMemo(() => ({
-    activeFieldRef: activeKeyboardFieldRef,
-    fields: keyboardNavigationFields,
-    hideOnLast: true,
-    keyboardVisible: isKeyboardVisible,
-    showAccessory: false,
-  }), [activeKeyboardFieldRef, isKeyboardVisible, keyboardNavigationFields]);
   const canSubmit = Boolean(identifier.trim() && password);
 
   useEffect(() => {
@@ -79,58 +69,30 @@ export default function LoginScreen() {
     ]).start();
   }, [cardOpacity, cardTranslate]);
 
-  useEffect(() => {
-    const show = Keyboard.addListener("keyboardDidShow", () => setIsKeyboardVisible(true));
-    const hide = Keyboard.addListener("keyboardDidHide", () => setIsKeyboardVisible(false));
-    return () => { show.remove(); hide.remove(); };
+  useEffect(() => () => {
+    if (scrollTimer.current) clearTimeout(scrollTimer.current);
   }, []);
-
   const clearFeedback = () => {
     setFormError(null);
     clearError();
   };
 
-  const scrollLoginFieldIntoView = (input: TextInput | null) => {
-    const inputNode = input ? findNodeHandle(input) : null;
-    const scrollView = scrollViewRef.current as any;
-    const scrollResponder = scrollView?.getScrollResponder?.() ?? scrollView;
-
-    if (inputNode && typeof scrollResponder?.scrollResponderScrollNativeHandleToKeyboard === "function") {
-      scrollResponder.scrollResponderScrollNativeHandleToKeyboard(inputNode, 40, true);
-    }
+  const scrollToField = (field: "email" | "password") => {
+    if (scrollTimer.current) clearTimeout(scrollTimer.current);
+    scrollTimer.current = setTimeout(() => {
+      scrollViewRef.current?.scrollTo({
+        y: Math.max(0, fieldOffsets.current[field] - 16),
+        animated: true,
+      });
+      scrollTimer.current = null;
+    }, 120);
   };
 
-  const focusPasswordField = () => {
-    const passwordInput = passwordInputRef.current;
-
-    if (!passwordInput) {
-      return;
-    }
-
-    passwordInput.focus();
-    setActiveKeyboardFieldRef(passwordInputRef);
-
-    [0, 60, 160].forEach((delay) => {
-      setTimeout(() => {
-        requestAnimationFrame(() => scrollLoginFieldIntoView(passwordInput));
-      }, delay);
-    });
-  };
-
+  const focusPasswordField = () => passwordInputRef.current?.focus();
   const handleIdentifierChange = (value: string) => {
     setIdentifier(value);
     setFailedLoginAttempts(0);
     clearFeedback();
-  };
-
-  const handlePasswordFocus = () => {
-    setActiveKeyboardFieldRef(passwordInputRef);
-
-    // Wait for the native focus/layout update, then perform one measured
-    // scroll. Repeating delayed scrolls makes the form jump while typing.
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => scrollLoginFieldIntoView(passwordInputRef.current));
-    });
   };
 
   const handleLogin = async () => {
@@ -192,18 +154,21 @@ export default function LoginScreen() {
       </View>
 
       <SafeAreaView edges={["bottom"]} style={styles.contentSafeArea}>
-        <KeyboardAwareScrollView
-          ref={scrollViewRef as any}
+        <KeyboardAvoidingView
+          style={styles.formKeyboardArea}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
+        <ScrollView
+          ref={scrollViewRef}
           contentContainerStyle={styles.scrollContent}
           keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
-          keyboardNavigation={keyboardNavigation}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
           <Animated.View style={[styles.card, { opacity: cardOpacity, transform: [{ translateY: cardTranslate }] }]}>
             <Text style={styles.title}>Sign-In</Text>
 
-            <View style={styles.fieldGroup}>
+            <View style={styles.fieldGroup} onLayout={(event) => { fieldOffsets.current.email = event.nativeEvent.layout.y; }}>
               <Text style={styles.label}>Email</Text>
               <View style={styles.inputShell}>
                 <TextInput
@@ -214,11 +179,10 @@ export default function LoginScreen() {
                   enterKeyHint="next"
                   keyboardType="email-address"
                   onChangeText={handleIdentifierChange}
-                  onFocus={() => setActiveKeyboardFieldRef(identifierInputRef)}
+                  onFocus={() => scrollToField("email")}
                   onSubmitEditing={focusPasswordField}
                   placeholder="Enter the registered email address"
                   placeholderTextColor="#A2A2A2"
-                  ref={identifierInputRef}
                   returnKeyType="next"
                   style={styles.input}
                   submitBehavior="submit"
@@ -228,14 +192,14 @@ export default function LoginScreen() {
               </View>
             </View>
 
-            <View style={styles.fieldGroup}>
+            <View style={styles.fieldGroup} onLayout={(event) => { fieldOffsets.current.password = event.nativeEvent.layout.y; }}>
               <Text style={styles.label}>Password</Text>
               <View style={styles.inputShell}>
                 <TextInput
                   autoCapitalize="none"
                   autoComplete="password"
                   onChangeText={(value) => { setPassword(value); clearFeedback(); }}
-                  onFocus={handlePasswordFocus}
+                  onFocus={() => scrollToField("password")}
                   onSubmitEditing={handleLogin}
                   placeholder="Enter Password"
                   placeholderTextColor="#858585"
@@ -263,7 +227,8 @@ export default function LoginScreen() {
               {isLoading ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.submitText}>Sign In</Text>}
             </Pressable>
           </Animated.View>
-        </KeyboardAwareScrollView>
+        </ScrollView>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     </View>
   );
@@ -283,6 +248,7 @@ const styles = StyleSheet.create({
   wordmarkAccent: { color: "#00D7A1", fontSize: 24, fontWeight: "800" },
   wordmarkTagline: { color: "#BFBFBF", fontSize: 8, marginTop: 1 },
   contentSafeArea: { flex: 1, marginTop: -146 },
+  formKeyboardArea: { flex: 1 },
   scrollContent: { flexGrow: 1, paddingBottom: 24, paddingHorizontal: 15 },
   card: { backgroundColor: "#FFFFFF", borderRadius: 12, minHeight: 570, paddingBottom: 30, paddingHorizontal: 18, paddingTop: 18 },
   title: { color: "#111111", fontFamily: "serif", fontSize: 32, fontWeight: "800", marginBottom: 18, marginTop: 12, textAlign: "center" },

@@ -16,6 +16,7 @@ export type StaffModuleSectionKey =
   | "wages"
   | "payRuns"
   | "commissions"
+  | "history"
   | "schedule"
   | "leaves"
   | "blockedTimes"

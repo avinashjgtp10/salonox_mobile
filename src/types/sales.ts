@@ -106,6 +106,13 @@ export type SaleLineItem = {
   unitPrice: number;
 };
 
+export type StaffSaleItem = SaleLineItem & {
+  clientName: string | null;
+  paymentSource: string;
+  saleCreatedDateLabel: string;
+  saleId: string;
+};
+
 export type SaleListItem = {
   clientName: string;
   createdDateLabel: string;
@@ -171,6 +178,11 @@ export type SalesListResponse = {
   pagination: SalesListPagination;
   query: SalesListQuery;
   sales: SaleListItem[];
+  totalCount: number;
+};
+
+export type StaffSaleItemsResponse = {
+  items: StaffSaleItem[];
   totalCount: number;
 };
 

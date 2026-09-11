@@ -23,7 +23,6 @@ type DashboardFetchResult = {
   requestedDate: Awaited<ReturnType<typeof dashboardService.getOwnerDashboard>>["requestedDate"];
   todayAppointments: Awaited<ReturnType<typeof dashboardService.getOwnerDashboard>>["todayAppointments"];
   topClient: Awaited<ReturnType<typeof dashboardService.getOwnerDashboard>>["topClient"];
-  staffRevenueTotal: number;
 };
 
 export const fetchDashboardThunk = createAsyncThunk<
@@ -35,24 +34,7 @@ export const fetchDashboardThunk = createAsyncThunk<
     const state = getState();
     const salonId = selectActiveBranchId(state);
 
-    const [ownerDashboard, staffRevenue] = await Promise.all([
-      timeStartup("Dashboard loading", () => dashboardService.getOwnerDashboard(new Date(), salonId)),
-      dashboardService.getStaffRevenue(new Date(), salonId),
-    ]);
-
-    // Use staff revenue total for monthlyRevenue to match Web Dashboard
-    const mergedMetrics = {
-      ...ownerDashboard.metrics,
-      monthlyRevenue: staffRevenue.totalRevenue,
-    };
-
-    const result = {
-      ...ownerDashboard,
-      metrics: mergedMetrics,
-      staffRevenueTotal: staffRevenue.totalRevenue,
-    };
-
-    return result;
+    return await timeStartup("Dashboard loading", () => dashboardService.getOwnerDashboard(new Date(), salonId));
   } catch (error) {
     const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
     const state = getState();

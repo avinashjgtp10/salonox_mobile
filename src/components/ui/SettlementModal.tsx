@@ -35,8 +35,10 @@ function roundToCents(value: number) {
 
 type SettlementModalProps = {
   onClose: () => void;
-  onSettle: (amount: number) => void;
+  onSettle: (amount: number, paymentMethod?: string) => void;
   staffName: string;
+  settlementLabel?: string;
+  totalLabel?: string;
   totalUnpaidCommission: number;
   visible: boolean;
   isLoading?: boolean;
@@ -52,7 +54,9 @@ export function SettlementModal({
   isLoading = false,
   onClose,
   onSettle,
+  settlementLabel = "Commission",
   staffName,
+  totalLabel,
   totalUnpaidCommission,
   visible,
 }: SettlementModalProps) {
@@ -98,7 +102,7 @@ export function SettlementModal({
     if (!isAmountValid || isLoading) {
       return;
     }
-    onSettle(settlementAmount);
+    onSettle(settlementAmount, paymentMethod);
   };
 
   const handleCancel = () => {
@@ -131,7 +135,7 @@ export function SettlementModal({
         <Pressable onPress={() => {}} style={[styles.dialog, { paddingBottom: Spacing.lg }]}>
           <View style={styles.header}>
             <View style={styles.headerCopy}>
-              <Text style={styles.title}>Settle Commission</Text>
+              <Text style={styles.title}>Settle {settlementLabel}</Text>
               <Text style={styles.subtitle}>{staffName}</Text>
             </View>
             <TouchableOpacity activeOpacity={0.84} onPress={handleCancel} style={styles.closeButton}>
@@ -145,7 +149,7 @@ export function SettlementModal({
             showsVerticalScrollIndicator={false}
           >
             <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Total Unpaid Commission</Text>
+              <Text style={styles.infoLabel}>{totalLabel ?? `Total Unpaid ${settlementLabel}`}</Text>
               <Text style={styles.infoValue}>{formatCurrency(unpaidAmount)}</Text>
             </View>
 
