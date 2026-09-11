@@ -71,7 +71,7 @@ const formatCategoryName = (name: unknown) =>
 // point export_pdf actually has for it. CSV/Excel export on this page go
 // through the backend (products.routes.ts's export_csv/export_excel gates),
 // so they're already covered by that same popup on denial.
-const friendlyExportDenied = (permKey: string) =>
+const friendlyPermissionDenied = (permKey: string) =>
   `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`;
 
 const ProductsListPage: React.FC = () => {
@@ -281,6 +281,7 @@ const ProductsListPage: React.FC = () => {
   };
 
   const openDeleteModal = (ids: string[]) => {
+    if (!can("delete_products")) { denyPerm("delete_products"); return; }
     setProductsToDelete(ids);
     setDeleteInput("");
     setDeleteModalOpen(true);
@@ -306,8 +307,10 @@ const ProductsListPage: React.FC = () => {
     return allProducts;
   }, [appliedFilters, searchQuery]);
 
+  const denyPerm = useCallback((permKey: string) => dispatch(showPermissionDenied(friendlyPermissionDenied(permKey))), [dispatch]);
+
   const handleDownloadPdf = useCallback(async () => {
-    if (!can("export_pdf")) { dispatch(showPermissionDenied(friendlyExportDenied("export_pdf"))); return; }
+    if (!can("download_products_pdf")) { denyPerm("download_products_pdf"); return; }
     try {
       const allProds = await fetchFilteredProductsForExport();
 
@@ -322,7 +325,7 @@ const ProductsListPage: React.FC = () => {
     } catch (err) {
       console.error("PDF export failed:", err);
     }
-  }, [can, dispatch, fetchFilteredProductsForExport, supplierMap, brands, currentSalon, userProfile]);
+  }, [can, denyPerm, fetchFilteredProductsForExport, supplierMap, brands, currentSalon, userProfile]);
 
   const handleDeleteProducts = async () => {
     setIsDeleting(true);
@@ -362,27 +365,52 @@ const ProductsListPage: React.FC = () => {
               <Dropdown.Item onClick={() => setActiveModal("brands")} className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark">
                 <Tag size={16} /> Manage my brands
               </Dropdown.Item>
-              <Dropdown.Item onClick={() => navigate("/dashboard/catalog/products/import")} className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark">
+              <Dropdown.Item
+                onClick={() => {
+                  if (!can("import_products")) { denyPerm("import_products"); return; }
+                  navigate("/dashboard/catalog/products/import");
+                }}
+                style={!can("import_products") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark"
+              >
                 <BoxArrowInDown size={16} /> Import products
               </Dropdown.Item>
               <Dropdown.Divider className="my-2" />
               <Dropdown.Header className="px-3 py-1 text-muted fw-bold" style={{ fontSize: "12px", textTransform: "uppercase" }}>
                 Export
               </Dropdown.Header>
-              <Dropdown.Item onClick={handleDownloadPdf} className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark">
+              <Dropdown.Item onClick={handleDownloadPdf} style={!can("download_products_pdf") ? { opacity: 0.5, cursor: "not-allowed" } : undefined} className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark">
                 <FileEarmarkPdf size={16} /> Download PDF
               </Dropdown.Item>
-              <Dropdown.Item onClick={() => exportExcel(buildFilterParams(searchQuery, appliedFilters))} className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark">
+              <Dropdown.Item
+                onClick={() => {
+                  if (!can("download_products_excel")) { denyPerm("download_products_excel"); return; }
+                  exportExcel(buildFilterParams(searchQuery, appliedFilters));
+                }}
+                style={!can("download_products_excel") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark"
+              >
                 <FileEarmarkExcel size={16} /> Download Excel
               </Dropdown.Item>
-              <Dropdown.Item onClick={() => exportCSV(buildFilterParams(searchQuery, appliedFilters))} className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark">
+              <Dropdown.Item
+                onClick={() => {
+                  if (!can("download_products_csv")) { denyPerm("download_products_csv"); return; }
+                  exportCSV(buildFilterParams(searchQuery, appliedFilters));
+                }}
+                style={!can("download_products_csv") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark"
+              >
                 <FiletypeCsv size={16} /> Download CSV
               </Dropdown.Item>
             </Dropdown.Menu>
           </Dropdown>
           <button
             className="btn-add"
-            onClick={() => navigate("/dashboard/catalog/products/create")}
+            style={!can("create_products") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+            onClick={() => {
+              if (!can("create_products")) { denyPerm("create_products"); return; }
+              navigate("/dashboard/catalog/products/create");
+            }}
           >
             Add
           </button>
@@ -512,6 +540,7 @@ const ProductsListPage: React.FC = () => {
               </ul>
             </div>
             <button className="btn text-danger fw-medium px-2"
+              style={!can("delete_products") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
               onClick={() => openDeleteModal(selectedProducts)}>
               Delete
             </button>
@@ -716,13 +745,18 @@ const ProductsListPage: React.FC = () => {
                         </Dropdown.Toggle>
                         <Dropdown.Menu className="shadow-sm border-0 rounded-3 py-2" style={{ minWidth: "160px" }}>
                           <Dropdown.Item
-                            onClick={() => navigate(`/dashboard/catalog/products/edit/${p.id}`)}
+                            onClick={() => {
+                              if (!can("edit_products")) { denyPerm("edit_products"); return; }
+                              navigate(`/dashboard/catalog/products/edit/${p.id}`);
+                            }}
+                            style={!can("edit_products") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
                             className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark"
                           >
                             <PencilSquare size={14} /> Edit
                           </Dropdown.Item>
                           <Dropdown.Item
                             onClick={() => openDeleteModal([p.id])}
+                            style={!can("delete_products") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
                             className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-danger"
                           >
                             <Trash size={14} /> Delete

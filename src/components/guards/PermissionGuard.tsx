@@ -100,6 +100,8 @@ export default function PermissionGuard({ permKey }: Props) {
     "view_suppliers", "manage_inventory", "view_orders",
     "view_product_inventory", "view_consumable_inventory", "view_product_audit",
     "view_stock_ledger",
+    "view_services", "view_products", "view_memberships",
+    "view_client_packages", "view_package_templates",
   ];
   if (role === "staff" && !NO_REDIRECT_KEYS.includes(permKey)) {
     const firstAllowed = getFirstAllowedModuleRoute(can);

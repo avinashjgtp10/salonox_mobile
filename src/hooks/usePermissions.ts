@@ -56,7 +56,7 @@ const VIRTUAL_PERMS: Record<string, string[]> = {
   // + products.routes.ts's OR'd permissions) — a staff member granted only
   // the newer granular Warehouse keys, without the older blanket
   // view_products/create_products, must still be able to pass these gates.
-  view_catalog: ["view_services", "view_products", "view_packages", "view_memberships", "view_inventory", "view_product_inventory", "edit_product", "delete_product", "add_product"],
+  view_catalog: ["view_services", "view_products", "view_packages", "view_memberships", "view_inventory", "view_product_inventory", "edit_product", "delete_product", "add_product", "view_client_packages", "view_package_templates"],
   edit_catalog: ["create_services", "edit_services", "create_products", "create_packages", "create_memberships", "manage_inventory", "stock_adjustment", "add_product", "edit_product", "delete_product"],
   // The Commissions page (/dashboard/team/commissions) shows both a
   // Commissions tab and a Tips tab in one screen — either permission is

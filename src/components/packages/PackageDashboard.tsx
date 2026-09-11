@@ -14,6 +14,12 @@ import { useGetClientPackages } from "../../hooks/packages/usePackages";
 import { useCurrency } from "../../hooks/useCurrency";
 import { getPackageServiceDisplayStatus, type PackageServiceDisplayStatus } from "../../features/bookings/utils/packageServiceStatus";
 import { maskMobile } from "../../utils/maskMobile";
+import { usePermissions } from "../../hooks/usePermissions";
+import { useAppDispatch } from "../../hooks/useAppRedux";
+import { showPermissionDenied } from "../../store/permissionDialogSlice";
+
+const friendlyPermissionDenied = (permKey: string) =>
+  `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`;
 
 const SCHEDULE_STATUS_BADGE: Record<PackageServiceDisplayStatus, string> = {
   "Not Scheduled": "",
@@ -51,6 +57,9 @@ const PackageDashboard: React.FC<Props> = ({
   selectedClient, onCreateNew, onCreateFromTemplate,
 }) => {
   const { formatAmount } = useCurrency();
+  const { can } = usePermissions();
+  const dispatch = useAppDispatch();
+  const denyPerm = (permKey: string) => dispatch(showPermissionDenied(friendlyPermissionDenied(permKey)));
   const [activeTab,       setActiveTab]       = useState("");
 
   // List is salon-wide now — no client selection gates it. `search` stays
@@ -102,12 +111,14 @@ const PackageDashboard: React.FC<Props> = ({
   }, [actionsMenuId]);
 
   function openEditSessions(pkg: ClientPackage) {
+    if (!can("edit_package")) { denyPerm("edit_package"); return; }
     setSessionEdits(Object.fromEntries(pkg.services.map(s => [s.serviceId, s.totalSessions])));
     setEditingPkg(pkg);
   }
 
   async function handleSaveSessionEdits() {
     if (!editingPkg) return;
+    if (!can("edit_package")) { denyPerm("edit_package"); setEditingPkg(null); return; }
     setSavingEdit(true);
     try {
       await updateClientPackage({
@@ -129,6 +140,7 @@ const PackageDashboard: React.FC<Props> = ({
   }
 
   async function handleDeletePackage(pkg: ClientPackage) {
+    if (!can("delete_package")) { denyPerm("delete_package"); return; }
     if (!confirm(`Delete ${pkg.packageName} for ${pkg.clientName}? This cannot be undone.`)) return;
     setDeletingId(pkg.id);
     try {
@@ -189,8 +201,12 @@ const PackageDashboard: React.FC<Props> = ({
         </div>
         <div className={styles.headerActions}>
           <button
-            onClick={() => setShowChoice(true)}
+            onClick={() => {
+              if (!can("create_package")) { denyPerm("create_package"); return; }
+              setShowChoice(true);
+            }}
             className={styles.btnPrimary}
+            style={!can("create_package") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
           >
             + Create Package
           </button>
@@ -267,7 +283,16 @@ const PackageDashboard: React.FC<Props> = ({
                   : "No packages sold yet."}
               </div>
               {!search && statusFilter === "all" && (
-                <span onClick={() => setShowChoice(true)} className={styles.emptyLink}>Create a package →</span>
+                <span
+                  onClick={() => {
+                    if (!can("create_package")) { denyPerm("create_package"); return; }
+                    setShowChoice(true);
+                  }}
+                  className={styles.emptyLink}
+                  style={!can("create_package") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                >
+                  Create a package →
+                </span>
               )}
             </div>
           </div>
@@ -322,6 +347,7 @@ const PackageDashboard: React.FC<Props> = ({
                             <li>
                               <button
                                 className={styles.actionsItem}
+                                style={!can("edit_package") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
                                 onClick={() => { setActionsMenuId(null); openEditSessions(pkg); }}
                               >
                                 <PenLine size={13} /> Edit Package
@@ -331,6 +357,7 @@ const PackageDashboard: React.FC<Props> = ({
                               <button
                                 className={`${styles.actionsItem} ${styles["actionsItem--danger"]}`}
                                 disabled={deletingId === pkg.id}
+                                style={!can("delete_package") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
                                 onClick={() => { setActionsMenuId(null); handleDeletePackage(pkg); }}
                               >
                                 <Trash2 size={13} /> {deletingId === pkg.id ? "Deleting…" : "Delete"}

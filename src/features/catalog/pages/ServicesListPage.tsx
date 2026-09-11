@@ -136,8 +136,8 @@ const sortServices = (list: Service[], sortBy: SortId): Service[] => {
 // Same friendly copy PermissionGuard and the interceptor-driven global popup
 // already use for a backend 403 — the PDF/Excel/CSV export here is built
 // entirely client-side (no backend call to deny), so this is the only
-// enforcement point export_pdf/export_csv/export_excel actually have for it.
-const friendlyExportDenied = (permKey: string) =>
+// enforcement point those permissions actually have.
+const friendlyPermissionDenied = (permKey: string) =>
   `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`;
 
 const ServicesListPage: React.FC = () => {
@@ -398,9 +398,11 @@ const ServicesListPage: React.FC = () => {
     return allServices;
   }, [filters, searchQuery, selectedCategory]);
 
+  const denyPerm = useCallback((permKey: string) => dispatch(showPermissionDenied(friendlyPermissionDenied(permKey))), [dispatch]);
+
   const handleDownloadPdf = useCallback(async () => {
     setShowOptMenu(false);
-    if (!can("export_pdf")) { dispatch(showPermissionDenied(friendlyExportDenied("export_pdf"))); return; }
+    if (!can("download_service_menu_pdf")) { denyPerm("download_service_menu_pdf"); return; }
     try {
       const filteredServices = await fetchFilteredServicesForExport();
       exportServicesPDF(filteredServices, {
@@ -410,21 +412,21 @@ const ServicesListPage: React.FC = () => {
     } catch (err) {
       console.error("[ServicesListPage] PDF export failed:", err);
     }
-  }, [can, dispatch, fetchFilteredServicesForExport, currentSalon, userProfile]);
+  }, [can, denyPerm, fetchFilteredServicesForExport, currentSalon, userProfile]);
 
   const handleDownloadExcel = useCallback(async () => {
     setShowOptMenu(false);
-    if (!can("export_excel")) { dispatch(showPermissionDenied(friendlyExportDenied("export_excel"))); return; }
+    if (!can("download_service_menu_excel")) { denyPerm("download_service_menu_excel"); return; }
     try { exportServicesExcel(await fetchFilteredServicesForExport()); }
     catch (err) { console.error("[ServicesListPage] Excel export failed:", err); }
-  }, [can, dispatch, fetchFilteredServicesForExport]);
+  }, [can, denyPerm, fetchFilteredServicesForExport]);
 
   const handleDownloadCsv = useCallback(async () => {
     setShowOptMenu(false);
-    if (!can("export_csv")) { dispatch(showPermissionDenied(friendlyExportDenied("export_csv"))); return; }
+    if (!can("download_service_menu_csv")) { denyPerm("download_service_menu_csv"); return; }
     try { exportServicesCSV(await fetchFilteredServicesForExport()); }
     catch (err) { console.error("[ServicesListPage] CSV export failed:", err); }
-  }, [can, dispatch, fetchFilteredServicesForExport]);
+  }, [can, denyPerm, fetchFilteredServicesForExport]);
 
   // ── Client-side filtering for Duration, Price Range, and Category ─────────
   const filteredServices = useMemo(() => {
@@ -548,33 +550,54 @@ const ServicesListPage: React.FC = () => {
                   </button>
                 </li> */}
                 <li>
-                  <button className="slp__dd-item" onClick={() => { setShowPrintMenuCard(true); setShowOptMenu(false); }}>
+                  <button
+                    className="slp__dd-item"
+                    style={!can("print_menu_card") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                    onClick={() => {
+                      if (!can("print_menu_card")) { denyPerm("print_menu_card"); return; }
+                      setShowPrintMenuCard(true); setShowOptMenu(false);
+                    }}
+                  >
                     <Printer size={15} /> Print menu card
                   </button>
                 </li>
                 <li>
-                  <button className="slp__dd-item" onClick={() => { setShowManageCategories(true); setShowOptMenu(false); }}>
+                  <button
+                    className="slp__dd-item"
+                    style={!can("manage_categories") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                    onClick={() => {
+                      if (!can("manage_categories")) { denyPerm("manage_categories"); return; }
+                      setShowManageCategories(true); setShowOptMenu(false);
+                    }}
+                  >
                     <TagFill size={15} /> Manage categories
                   </button>
                 </li>
                 <li>
-                  <button className="slp__dd-item" onClick={() => { setShowImport(true); setShowOptMenu(false); }}>
+                  <button
+                    className="slp__dd-item"
+                    style={!can("import_services") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                    onClick={() => {
+                      if (!can("import_services")) { denyPerm("import_services"); return; }
+                      setShowImport(true); setShowOptMenu(false);
+                    }}
+                  >
                     <FiletypeCsv size={15} /> Import services
                   </button>
                 </li>
                 <li><hr className="slp__dd-divider" /></li>
                 <li>
-                  <button className="slp__dd-item" onClick={handleDownloadPdf}>
+                  <button className="slp__dd-item" style={!can("download_service_menu_pdf") ? { opacity: 0.5, cursor: "not-allowed" } : undefined} onClick={handleDownloadPdf}>
                     <FileEarmarkPdf size={15} /> Download PDF
                   </button>
                 </li>
                 <li>
-                  <button className="slp__dd-item" onClick={handleDownloadExcel}>
+                  <button className="slp__dd-item" style={!can("download_service_menu_excel") ? { opacity: 0.5, cursor: "not-allowed" } : undefined} onClick={handleDownloadExcel}>
                     <FileEarmarkExcel size={15} /> Download Excel
                   </button>
                 </li>
                 <li>
-                  <button className="slp__dd-item" onClick={handleDownloadCsv}>
+                  <button className="slp__dd-item" style={!can("download_service_menu_csv") ? { opacity: 0.5, cursor: "not-allowed" } : undefined} onClick={handleDownloadCsv}>
                     <FiletypeCsv size={15} /> Download CSV
                   </button>
                 </li>
@@ -585,7 +608,11 @@ const ServicesListPage: React.FC = () => {
           {/* Add button */}
           <button
             className="slp__btn slp__btn--dark"
-            onClick={() => navigate("/dashboard/catalog/services/add?type=single")}
+            style={!can("create_services") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+            onClick={() => {
+              if (!can("create_services")) { denyPerm("create_services"); return; }
+              navigate("/dashboard/catalog/services/add?type=single");
+            }}
           >
             Add
           </button>
@@ -748,7 +775,11 @@ const ServicesListPage: React.FC = () => {
             </button>
             <button
               className="slp__btn slp__btn--danger"
-              onClick={() => setShowBulkDeleteModal(true)}
+              style={!can("delete_services") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+              onClick={() => {
+                if (!can("delete_services")) { denyPerm("delete_services"); return; }
+                setShowBulkDeleteModal(true);
+              }}
             >
               <Trash3 size={14} /> Delete selected ({selectedServiceIds.size})
             </button>
@@ -792,8 +823,10 @@ const ServicesListPage: React.FC = () => {
                 !hasActiveFilters
                   ? {
                       label: "Add service",
-                      onClick: () =>
-                        navigate("/dashboard/catalog/services/add?type=single"),
+                      onClick: () => {
+                        if (!can("create_services")) { denyPerm("create_services"); return; }
+                        navigate("/dashboard/catalog/services/add?type=single");
+                      },
                     }
                   : undefined
               }
@@ -854,6 +887,7 @@ const ServicesListPage: React.FC = () => {
             service={selectedService}
             onClose={() => setSelectedService(null)}
             onDelete={(svc) => {
+              if (!can("delete_services")) { denyPerm("delete_services"); return; }
               setDeletingService(svc);
               setSelectedService(null);
             }}
@@ -1181,6 +1215,7 @@ const ServicesListPage: React.FC = () => {
                 className="slp__btn slp__btn--danger"
                 disabled={deleteServiceInput !== "DELETE" || deleteLoading}
                 onClick={async () => {
+                  if (!can("delete_services")) { denyPerm("delete_services"); setDeletingService(null); return; }
                   setDeleteLoading(true);
                   await dispatch(deleteServiceThunk(deletingService.id));
                   setDeleteLoading(false);
