@@ -16,7 +16,22 @@ import Animated, {
 import { scheduleOnRN } from 'react-native-worklets';
 
 const LOGO = require('../../assets/images/logo.png');
-const LOGO_SOURCE = Image.resolveAssetSource(LOGO);
+
+// logo.png is square, so this is the true ratio — it is only reached when the
+// intrinsic size cannot be read (see resolveLogoAspect).
+const LOGO_FALLBACK_ASPECT = 1;
+
+// Image.resolveAssetSource is a native-runtime API and is absent when this
+// module graph is evaluated outside the app — which is what `expo export`
+// (and therefore `eas update`) does while statically rendering routes. Calling
+// it at module scope threw "resolveAssetSource is not a function" there and
+// broke OTA bundling. Resolving lazily and optionally keeps the real intrinsic
+// ratio on device while staying inert during bundling.
+const resolveLogoAspect = () => {
+  const source = Image.resolveAssetSource?.(LOGO);
+
+  return source?.width && source?.height ? source.height / source.width : LOGO_FALLBACK_ASPECT;
+};
 
 const BRAND = '#8b3a82';
 const ACCENT = '#00c49e';
@@ -84,7 +99,7 @@ export default function AnimatedSplash({ isReady, onPrepared, onComplete }: Prop
       arcOffset: -Math.round(arc / 3),
       dashed: arc * 0.76,
       dashedOffset: -Math.round((arc * 0.76) / 3.2),
-      logoHeight: (logoWidth * LOGO_SOURCE.height) / LOGO_SOURCE.width,
+      logoHeight: logoWidth * resolveLogoAspect(),
       logoWidth,
       orbit: 180 * scale,
       ringScale: scale,
