@@ -2,7 +2,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
 import { memo, useMemo } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import Animated, { FadeInDown, LinearTransition } from "react-native-reanimated";
 
 import {
   DashboardRadius as Radius,
@@ -75,18 +74,14 @@ function ActionIcon({
   );
 }
 
-function StaffCardComponent({ index, onCall, onMessage, onMore, staffMember, metricsReady = true, metricsError = false }: StaffCardProps) {
+function StaffCardComponent({ onCall, onMessage, onMore, staffMember, metricsReady = true, metricsError = false }: StaffCardProps) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const statusPalette = getStatusPalette(staffMember.status, Colors);
   const availabilityPalette = getAvailabilityPalette(staffMember.availability, Colors);
 
   return (
-    <Animated.View
-      entering={FadeInDown.duration(240).delay(Math.min(index * 35, 180))}
-      layout={LinearTransition.duration(180)}
-      style={styles.animatedWrap}
-    >
+    <View style={styles.animatedWrap}>
       <TouchableOpacity
         activeOpacity={0.9}
         onPress={() => router.push(`/team/${staffMember.id}` as Href)}
@@ -162,7 +157,7 @@ function StaffCardComponent({ index, onCall, onMessage, onMore, staffMember, met
           </View>
         </View>
       </TouchableOpacity>
-    </Animated.View>
+    </View>
   );
 }
 

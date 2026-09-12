@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
-import { startTransition, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { startTransition, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   FlatList,
@@ -290,7 +290,7 @@ export default function TeamScreen() {
     );
   };
 
-  const handleCall = async (staffMember: StaffMember) => {
+  const handleCall = useCallback(async (staffMember: StaffMember) => {
     const phoneUrl = `tel:${staffMember.phone}`;
 
     try {
@@ -302,9 +302,9 @@ export default function TeamScreen() {
     } catch {
       return;
     }
-  };
+  }, []);
 
-  const handleMessage = async (staffMember: StaffMember) => {
+  const handleMessage = useCallback(async (staffMember: StaffMember) => {
     const messageUrl = `sms:${staffMember.phone}`;
 
     try {
@@ -316,7 +316,7 @@ export default function TeamScreen() {
     } catch {
       return;
     }
-  };
+  }, []);
 
   const handleConfirmDeleteStaff = async (staffMember: StaffMember) => {
     const resultAction = await dispatch(deleteStaffThunk(staffMember.id));
@@ -441,17 +441,17 @@ export default function TeamScreen() {
     }
   };
 
-  const renderItem: ListRenderItem<StaffMember> = ({ index, item }) => (
+  const renderItem: ListRenderItem<StaffMember> = useCallback(({ index, item }) => (
     <StaffCard
       metricsReady={dailyMetrics.ready}
       metricsError={dailyMetrics.error}
       index={index}
       onCall={handleCall}
       onMessage={handleMessage}
-      onMore={(staffMember) => setSelectedMenuStaffMember(staffMember)}
+      onMore={setSelectedMenuStaffMember}
       staffMember={item}
     />
-  );
+  ), [dailyMetrics.ready, dailyMetrics.error, handleCall, handleMessage]);
 
   const headerContent = (
     <View>
@@ -577,6 +577,9 @@ export default function TeamScreen() {
           </ScrollView>
         ) : (
           <FlatList
+            initialNumToRender={4}
+            maxToRenderPerBatch={4}
+            windowSize={7}
             contentContainerStyle={styles.listContent}
             data={filteredStaffMembers}
             keyExtractor={(item) => item.id}
