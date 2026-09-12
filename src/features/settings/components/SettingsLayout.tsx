@@ -15,7 +15,6 @@ import {
   Gift,
   Share2,
   Tag,
-  PackageIcon,
   Printer,
   Smartphone,
   MapPin,
@@ -35,7 +34,6 @@ import SettingsManagementPage from "../pages/SettingsManagementPage";
 import RewardsSettingsPage from "../pages/RewardsSettingsPage";
 import ReferralSettingsPage from "../pages/ReferralSettingsPage";
 import CouponsSettingsPage from "../pages/CouponsSettingsPage";
-import PackageSettingsPage from "../pages/PackageSettingsPage";
 import PrintSettingsPage from "../pages/PrintSettingsPage";
 import DataPrivacyPage from "../pages/DataPrivacyPage";
 import BulkBillingImportPage from "../pages/BulkBillingImportPage";
@@ -99,7 +97,6 @@ const navGroups: NavGroup[] = [
       { id: "reward-points", label: "Reward Points", description: "Set up client reward points and redemption rules.",   icon: <Gift size={18} />,              Component: RewardsSettingsPage,     permKey: "view_settings_reward_points" },
       { id: "referral",     label: "Refer & Earn",   description: "Configure referral rewards for clients.",             icon: <Share2 size={18} />,            Component: ReferralSettingsPage,    permKey: "view_settings_referral" },
       { id: "coupons",      label: "Coupons",        description: "Create and manage discount coupons.",                 icon: <Tag size={18} />,               Component: CouponsSettingsPage,     permKey: "view_coupons" },
-      { id: "packages",     label: "Packages",       description: "Configure service package settings.",                 icon: <PackageIcon size={18} />,       Component: PackageSettingsPage,     permKey: "view_settings_packages" },
       { id: "print",        label: "Print Settings", description: "Customize invoice and receipt print templates.",      icon: <Printer size={18} />,           Component: PrintSettingsPage,       permKey: "view_settings_print" },
       // Not shown on the Settings home grid (see hidden below) — it's the
       // coupon management list, reached from the designer's "Manage coupons" link.
