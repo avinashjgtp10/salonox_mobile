@@ -1,0 +1,142 @@
+
+---
+# SalonOX mobile CI/CD.
+#
+# Promotion flow is manual by design — this workflow never merges anything:
+#   feature -> (PR) -> dev -> (PR) -> qa -> (PR) -> main
+#
+# `main` is the production branch; there is no separate `production` branch.
+#
+# Pull requests run CI only. An EAS build runs solely when a commit actually
+# lands on dev / qa / main, so opening or updating a PR never costs a build.
+# Each build profile carries its own APP_ENV, API URLs and EAS Update channel
+# in eas.json; this workflow deliberately does not set them, so there is
+# exactly one source of truth for environment configuration.
+name: Mobile CI/CD
+
+on:
+  push:
+    branches: [dev, qa, main]
+  pull_request:
+    branches: [dev, qa, main]
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: CI
+    runs-on: ubuntu-latest
+    # Superseded pushes/PR updates are pointless to keep running.
+    concurrency:
+      group: mobile-ci-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript validation
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npm run lint
+
+      # Resolves the dynamic app.config.ts once per environment: catches a
+      # config that only breaks under a particular APP_ENV, which a single
+      # default-environment check would miss.
+      - name: Validate Expo config (development, qa, production)
+        run: |
+          for env in development qa production; do
+            echo "--- APP_ENV=$env ---"
+            APP_ENV="$env" npx expo config --type public > /dev/null
+          done
+
+  development-build:
+    name: Development Build
+    needs: ci
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-latest
+    # Queue rather than cancel: a cancelled build wastes an EAS build slot.
+    concurrency:
+      group: mobile-build-development
+      cancel-in-progress: false
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: EAS build (development profile)
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: npx eas-cli build --platform android --profile development --non-interactive
+
+  qa-build:
+    name: QA Build
+    needs: ci
+    if: github.event_name == 'push' && github.ref == 'refs/heads/qa'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: mobile-build-qa
+      cancel-in-progress: false
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: EAS build (qa profile)
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: npx eas-cli build --platform android --profile qa --non-interactive
+
+  production-build:
+    name: Production Build
+    needs: ci
+    # `main` is the production branch — there is no `production` branch.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: mobile-build-production
+      cancel-in-progress: false
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Build only — no `eas submit`, so nothing reaches Google Play from CI.
+      - name: EAS build (production profile)
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: npx eas-cli build --platform android --profile production --non-interactive
