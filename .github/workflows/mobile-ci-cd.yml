@@ -1,0 +1,192 @@
+
+---
+# SalonOX mobile CI/CD.
+#
+# Promotion flow is manual by design — this workflow never merges anything:
+#   feature -> (PR) -> dev -> (PR) -> qa -> (PR) -> main
+#
+# `main` is the production branch; there is no separate `production` branch.
+#
+# Only production is automated end to end. Pushing to dev or qa runs CI alone:
+# those branches move often, and a binary build per push burns EAS build quota
+# for artifacts nobody installs. The development and qa build capability is
+# retained here as an on-demand "Run workflow" choice instead of being deleted.
+#
+# Pull requests never build or publish — they run CI only.
+#
+# Each build profile carries its own APP_ENV, API URLs and EAS Update channel
+# in eas.json; this workflow deliberately does not set them, so there is
+# exactly one source of truth for environment configuration.
+name: Mobile CI/CD
+
+on:
+  push:
+    branches: [dev, qa, main]
+  pull_request:
+    branches: [dev, qa, main]
+  # Manual escape hatch for dev/QA binaries — pick the profile when dispatching.
+  workflow_dispatch:
+    inputs:
+      build_profile:
+        description: EAS build profile to run on demand
+        required: true
+        default: development
+        type: choice
+        options:
+          - development
+          - qa
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: CI
+    runs-on: ubuntu-latest
+    # Superseded pushes/PR updates are pointless to keep running.
+    concurrency:
+      group: mobile-ci-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript validation
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npm run lint
+
+      # Resolves the dynamic app.config.ts once per environment: catches a
+      # config that only breaks under a particular APP_ENV, which a single
+      # default-environment check would miss.
+      - name: Validate Expo config (development, qa, production)
+        run: |
+          for env in development qa production; do
+            echo "--- APP_ENV=$env ---"
+            APP_ENV="$env" npx expo config --type public > /dev/null
+          done
+
+  # Manual only — never triggered by a push to dev. Run it from the Actions tab
+  # ("Run workflow" -> build_profile: development) when a dev binary is needed.
+  development-build:
+    name: Development Build
+    needs: ci
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.build_profile == 'development'
+    runs-on: ubuntu-latest
+    # Queue rather than cancel: a cancelled build wastes an EAS build slot.
+    concurrency:
+      group: mobile-build-development
+      cancel-in-progress: false
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: EAS build (development profile)
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: npx eas-cli build --platform android --profile development --non-interactive
+
+  # Manual only — never triggered by a push to qa. The `qa` profile and its
+  # `qa` EAS Update channel remain defined in eas.json; only the automatic
+  # trigger is gone.
+  qa-build:
+    name: QA Build
+    needs: ci
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.build_profile == 'qa'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: mobile-build-qa
+      cancel-in-progress: false
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: EAS build (qa profile)
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: npx eas-cli build --platform android --profile qa --non-interactive
+
+  production-build:
+    name: Production Build
+    needs: ci
+    # `main` is the production branch — there is no `production` branch.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: mobile-build-production
+      cancel-in-progress: false
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Build only — no `eas submit`, so nothing reaches Google Play from CI.
+      - name: EAS build (production profile)
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: npx eas-cli build --platform android --profile production --non-interactive
+
+  # Publishes only after the production binary build succeeds: `needs` means a
+  # failed or skipped build leaves this skipped too, so an OTA update can never
+  # ship against a commit that failed to build.
+  production-update:
+    name: Production Update
+    needs: production-build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: mobile-update-production
+      cancel-in-progress: false
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: EAS update (production channel)
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: npx eas-cli update --channel production --environment production --message "Production OTA update"

@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import { InfiniteScrollLoader } from "@/components/ui/InfiniteScrollLoader";
 import {
   ActivityIndicator,
   Alert,
@@ -172,6 +173,7 @@ export default function CatalogScreen() {
   const [packagesError, setPackagesError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [visibleCount, setVisibleCount] = useState(CATALOG_PAGE_SIZE);
+  const [revealingMore, revealMore] = useTransition();
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const loadPackages = useCallback(async () => {
@@ -308,8 +310,8 @@ export default function CatalogScreen() {
         onScroll={({ nativeEvent }) => {
           const distanceFromBottom = nativeEvent.contentSize.height - nativeEvent.layoutMeasurement.height - nativeEvent.contentOffset.y;
 
-          if (distanceFromBottom < 240 && visibleCount < visibleItems.length) {
-            setVisibleCount((current) => Math.min(current + CATALOG_PAGE_SIZE, visibleItems.length));
+          if (distanceFromBottom < 240 && !revealingMore && visibleCount < visibleItems.length) {
+            revealMore(() => setVisibleCount((current) => Math.min(current + CATALOG_PAGE_SIZE, visibleItems.length)));
           }
         }}
         refreshControl={<RefreshControl colors={[Colors.primary]} onRefresh={() => void refresh()} refreshing={refreshing} tintColor={Colors.primary} />}
@@ -380,6 +382,7 @@ export default function CatalogScreen() {
             </View>
           ) : <CatalogTable deletingId={deletingId} items={displayedItems} onDelete={canDeleteActiveTab ? confirmDelete : undefined} />
         ) : null}
+        <InfiniteScrollLoader loading={revealingMore || (loading && itemsByTab[activeTab].length > 0 && !refreshing)} label={`Loading more ${activeTab}`} />
       </ScrollView>
       <CatalogFilterSheet categories={categories} label={activeTabLabel} onApply={applyFilters} onClose={() => setFilterVisible(false)} onReset={clearFilters} tab={activeTab} value={activeFilters} visible={filterVisible} />
     </SafeAreaView>

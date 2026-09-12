@@ -33,9 +33,6 @@
     "production": {
       "autoIncrement": true,
       "channel": "production",
-      "android": {
-        "buildType": "apk"
-      },
       "env": {
         "APP_ENV": "production",
         "EXPO_PUBLIC_API_BASE_URL": "https://www.salonox.com/api/v1",
