@@ -131,16 +131,25 @@ const SchedulerContent: React.FC = () => {
     setShowNewAppt(true);
   });
 
-  // Clicking a booking always opens the read-only ViewBillModal first,
-  // regardless of edit_appointment — including Owner, who bypasses every
-  // permission check and previously skipped straight into the editable form
-  // on every click, never seeing the view panel at all (found 2026-09-12).
-  // Now consistent with Week/Month/List Week views, which already always
-  // open ViewBillModal on click (see onViewBill={setViewingBooking} below).
-  // Editing is a deliberate, separate action from there — its own "Edit"
-  // button (handleForceEdit) still requires edit_appointment on its own.
+  // Every calendar view (Day/Week/Month/List Week) routes its booking click
+  // through here, so the billed-vs-unbilled split below applies uniformly —
+  // Week/Month/List used to call setViewingBooking directly and always
+  // landed on the view panel.
+  //
+  // Not billed yet → open the edit form directly, since there's no bill to
+  // look at (ViewBillModal would just render a "Not billed yet" header over a
+  // preview of what the total would be). Already billed → the read-only View
+  // Appointment panel, with Edit still reachable from inside it.
+  //
+  // The edit shortcut is deliberately conditional on edit_appointment: a staff
+  // member who can only view would otherwise get a permission popup on an
+  // ordinary calendar click, so they keep landing on the view panel instead.
   const handleEditBooking = useSingleClick((booking: Booking) => {
     if (!requireViewAppointment()) return;
+    const isBilled = !!(booking as any).invoiceNumber;
+    if (!isBilled && can("edit_appointment")) {
+      return handleForceEdit(booking);
+    }
     setViewingBooking(booking);
   });
 
@@ -353,13 +362,13 @@ const SchedulerContent: React.FC = () => {
               />
             )}
             {viewMode === "Week" && (
-              <WeekView onSlotClick={handleSlotClick} onViewBill={setViewingBooking} />
+              <WeekView onSlotClick={handleSlotClick} onViewBill={handleEditBooking} />
             )}
             {viewMode === "Month" && (
-              <MonthView onDayClick={handleDayClick} onViewBill={setViewingBooking} />
+              <MonthView onDayClick={handleDayClick} onViewBill={handleEditBooking} />
             )}
             {viewMode === "List Week" && (
-              <ListWeekView onViewBill={setViewingBooking} />
+              <ListWeekView onViewBill={handleEditBooking} />
             )}
           </>
         )}
