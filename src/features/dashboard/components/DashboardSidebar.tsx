@@ -16,11 +16,8 @@ import {
   Cash,
   ChatSquareText,
   Stars,
+  Boxes,
 } from "react-bootstrap-icons";
-// Custom icon, not from any installed icon pack — see WarehouseIcon.tsx for
-// why (matched to a specific reference design: peaked roof, roof vent, open
-// doorway with stacked crates).
-import WarehouseIcon from "../../../components/icons/WarehouseIcon";
 
 import { usePlanFeatures } from "../../../hooks/usePlanFeatures";
 import { usePermissions } from "../../../hooks/usePermissions";
@@ -295,67 +292,118 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
       )}
 
       {(hasFeature("services") || hasFeature("products") || hasFeature("packages") || hasFeature("memberships")) && (
-        <button
-          type="button"
-          className={menuClass("catalog")}
-          title="Catalog"
-          onClick={() => {
-            const opening = openMenu !== "catalog";
-            onMenuChange(opening ? "catalog" : null);
-            // Same pattern as Clients above — jump to the section's default
-            // page (Service menu) when entering it from elsewhere, instead of
-            // just opening the flyout submenu and leaving the current page.
-            if (opening && !location.pathname.startsWith("/dashboard/catalog")) {
-              navigate("/dashboard/catalog/services");
+        can("view_catalog") ? (
+          <button
+            type="button"
+            className={menuClass("catalog")}
+            title="Catalog"
+            onClick={() => {
+              const opening = openMenu !== "catalog";
+              onMenuChange(opening ? "catalog" : null);
+              // Same pattern as Clients above — jump to the section's default
+              // page (Service menu) when entering it from elsewhere, instead of
+              // just opening the flyout submenu and leaving the current page.
+              if (opening && !location.pathname.startsWith("/dashboard/catalog")) {
+                navigate("/dashboard/catalog/services");
+              }
+            }}
+          >
+            <Book size={22} />
+            <span className="nav-label">Catalog</span>
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="nav-btn nav-btn--disabled"
+            title="Catalog"
+            aria-disabled="true"
+            onClick={() =>
+              dispatch(showPermissionDenied(
+                `Your account does not have the "view_catalog" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+              ))
             }
-          }}
-        >
-          <Book size={22} />
-          <span className="nav-label">Catalog</span>
-        </button>
+          >
+            <Book size={22} />
+            <span className="nav-label">Catalog</span>
+          </button>
+        )
       )}
 
       {hasFeature("inventory") && (
-        <button
-          type="button"
-          className={menuClass("inventory")}
-          title="Warehouse"
-          onClick={() => {
-            const opening = openMenu !== "inventory";
-            onMenuChange(opening ? "inventory" : null);
-            // Same pattern as Clients/Catalog above — jump to the section's
-            // default page (Suppliers) when entering it from elsewhere,
-            // instead of just opening the flyout submenu over the current page.
-            if (opening && !location.pathname.startsWith("/dashboard/inventory")) {
-              navigate("/dashboard/inventory/suppliers");
+        can("access_warehouse") ? (
+          <button
+            type="button"
+            className={menuClass("inventory")}
+            title="Warehouse"
+            onClick={() => {
+              const opening = openMenu !== "inventory";
+              onMenuChange(opening ? "inventory" : null);
+              // Same pattern as Clients/Catalog above — jump to the section's
+              // default page (Suppliers) when entering it from elsewhere,
+              // instead of just opening the flyout submenu over the current page.
+              if (opening && !location.pathname.startsWith("/dashboard/inventory")) {
+                navigate("/dashboard/inventory/suppliers");
+              }
+            }}
+          >
+            <Boxes size={22} />
+            <span className="nav-label">Warehouse</span>
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="nav-btn nav-btn--disabled"
+            title="Warehouse"
+            aria-disabled="true"
+            onClick={() =>
+              dispatch(showPermissionDenied(
+                `Your account does not have the "access_warehouse" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+              ))
             }
-          }}
-        >
-          <WarehouseIcon size={22} />
-          <span className="nav-label">Warehouse</span>
-        </button>
+          >
+            <Boxes size={22} />
+            <span className="nav-label">Warehouse</span>
+          </button>
+        )
       )}
 
       {(hasFeature("staff") || hasFeature("payroll")) && (
-        <button
-          type="button"
-          className={menuClass("team")}
-          title="Staff"
-          onClick={() => {
-            const opening = openMenu !== "team";
-            onMenuChange(opening ? "team" : null);
-            // Only jump to the default Team page when entering the section
-            // from elsewhere (e.g. Calendar) — re-toggling the flyout while
-            // already on a Team page (Attendance, Commissions, …) shouldn't
-            // reset navigation back to Team members.
-            if (opening && !location.pathname.startsWith("/dashboard/team")) {
-              navigate("/dashboard/team/members");
+        can("access_staff") ? (
+          <button
+            type="button"
+            className={menuClass("team")}
+            title="Staff"
+            onClick={() => {
+              const opening = openMenu !== "team";
+              onMenuChange(opening ? "team" : null);
+              // Only jump to the default Team page when entering the section
+              // from elsewhere (e.g. Calendar) — re-toggling the flyout while
+              // already on a Team page (Attendance, Commissions, …) shouldn't
+              // reset navigation back to Team members.
+              if (opening && !location.pathname.startsWith("/dashboard/team")) {
+                navigate("/dashboard/team/members");
+              }
+            }}
+          >
+            <People size={22} />
+            <span className="nav-label">Staff</span>
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="nav-btn nav-btn--disabled"
+            title="Staff"
+            aria-disabled="true"
+            onClick={() =>
+              dispatch(showPermissionDenied(
+                `Your account does not have the "access_staff" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+              ))
             }
-          }}
-        >
-          <People size={22} />
-          <span className="nav-label">Staff</span>
-        </button>
+          >
+            <People size={22} />
+            <span className="nav-label">Staff</span>
+          </button>
+        )
       )}
 
       {hasFeature("cash_management") && (
@@ -395,28 +443,45 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
           section (dashboard/inbox/templates) visible even without the
           feature. */}
       {hasFeature("marketing") && (
-        <button
-          type="button"
-          className={menuClass("marketing")}
-          title="Marketing"
-          onClick={() => {
-            const opening = openMenu !== "marketing";
-            onMenuChange(opening ? "marketing" : null);
-            // Same pattern as Clients/Catalog/Staff above — jump to the
-            // section's default page when entering it from elsewhere. Without
-            // this, clicking Marketing only opened the flyout submenu and left
-            // whatever page you were on underneath it. Targets the section
-            // root, whose index route is the Marketing dashboard (see
-            // MarketingRoutes.tsx); a salon that hasn't finished WhatsApp
-            // setup still lands on onboarding from there, which is intended.
-            if (opening && !location.pathname.startsWith("/dashboard/marketing")) {
-              navigate("/dashboard/marketing");
+        can("view_marketing") ? (
+          <button
+            type="button"
+            className={menuClass("marketing")}
+            title="Marketing"
+            onClick={() => {
+              const opening = openMenu !== "marketing";
+              onMenuChange(opening ? "marketing" : null);
+              // Same pattern as Clients/Catalog/Staff above — jump to the
+              // section's default page when entering it from elsewhere. Without
+              // this, clicking Marketing only opened the flyout submenu and left
+              // whatever page you were on underneath it. Targets the section
+              // root, whose index route is the Marketing dashboard (see
+              // MarketingRoutes.tsx); a salon that hasn't finished WhatsApp
+              // setup still lands on onboarding from there, which is intended.
+              if (opening && !location.pathname.startsWith("/dashboard/marketing")) {
+                navigate("/dashboard/marketing");
+              }
+            }}
+          >
+            <Megaphone size={22} />
+            <span className="nav-label">Marketing</span>
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="nav-btn nav-btn--disabled"
+            title="Marketing"
+            aria-disabled="true"
+            onClick={() =>
+              dispatch(showPermissionDenied(
+                `Your account does not have the "view_marketing" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+              ))
             }
-          }}
-        >
-          <Megaphone size={22} />
-          <span className="nav-label">Marketing</span>
-        </button>
+          >
+            <Megaphone size={22} />
+            <span className="nav-label">Marketing</span>
+          </button>
+        )
       )}
 
       {hasFeature("online_booking") && (
@@ -464,27 +529,61 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
       )}
 
       {hasFeature("enquiries") && (
-        <NavLink
-          to="/dashboard/enquiries"
-          className={({ isActive }) => navClass(isActive)}
-          onClick={(event) => handleRouteClick(event, "/dashboard/enquiries")}
-          title="Enquiries"
-        >
-          <ChatSquareText size={22} />
-          <span className="nav-label">Enquiries</span>
-        </NavLink>
+        can("view_enquiries") ? (
+          <NavLink
+            to="/dashboard/enquiries"
+            className={({ isActive }) => navClass(isActive)}
+            onClick={(event) => handleRouteClick(event, "/dashboard/enquiries")}
+            title="Enquiries"
+          >
+            <ChatSquareText size={22} />
+            <span className="nav-label">Enquiries</span>
+          </NavLink>
+        ) : (
+          <button
+            type="button"
+            className="nav-btn nav-btn--disabled"
+            title="Enquiries"
+            aria-disabled="true"
+            onClick={() =>
+              dispatch(showPermissionDenied(
+                `Your account does not have the "view_enquiries" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+              ))
+            }
+          >
+            <ChatSquareText size={22} />
+            <span className="nav-label">Enquiries</span>
+          </button>
+        )
       )}
 
       {hasFeature("reports") && (
-        <NavLink
-          to="/reports"
-          className={({ isActive }) => navClass(isActive)}
-          onClick={(event) => handleRouteClick(event, "/reports")}
-          title="Reports"
-        >
-          <GraphUpArrow size={22} />
-          <span className="nav-label">Reports</span>
-        </NavLink>
+        can("view_reports") ? (
+          <NavLink
+            to="/reports"
+            className={({ isActive }) => navClass(isActive)}
+            onClick={(event) => handleRouteClick(event, "/reports")}
+            title="Reports"
+          >
+            <GraphUpArrow size={22} />
+            <span className="nav-label">Reports</span>
+          </NavLink>
+        ) : (
+          <button
+            type="button"
+            className="nav-btn nav-btn--disabled"
+            title="Reports"
+            aria-disabled="true"
+            onClick={() =>
+              dispatch(showPermissionDenied(
+                `Your account does not have the "view_reports" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+              ))
+            }
+          >
+            <GraphUpArrow size={22} />
+            <span className="nav-label">Reports</span>
+          </button>
+        )
       )}
 
       <button

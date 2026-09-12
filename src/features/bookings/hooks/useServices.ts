@@ -30,7 +30,13 @@ export function useServices(_salonId?: string | null) {
   const apiServices    = useAppSelector((s: any) => s.catalog?.services ?? s.services?.items ?? []);
   const apiClients     = useAppSelector((s: any) => s.clients?.clients ?? s.clients?.items ?? []);
   const apiMemberships = useAppSelector((s: any) => s.membership?.memberships ?? s.memberships?.items ?? []);
-  const apiProducts    = useAppSelector((s: any) => s.products?.products ?? s.products?.items ?? []);
+  // pickerItems, not items — this feeds Calendar/Quick Sale's product
+  // picker, fed by searchProductsThunk's up-to-200 preload
+  // (AppointmentModal.tsx), which no longer shares state with the paginated
+  // Catalog → Products list page (10-per-page `items`) — see
+  // productsSlice.ts. Reading `items` here would show only whatever page of
+  // 10 the list page last loaded, not the full picker preload.
+  const apiProducts    = useAppSelector((s: any) => s.products?.pickerItems ?? []);
 
   // No eager full-catalog fetch — ServiceRow's own search box already hits
   // the services API directly and on demand (debounced, live). The only

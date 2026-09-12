@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
-import { useNavigate, useLocation, NavLink } from "react-router-dom";
-import { ArrowLeft, SlidersHorizontal, ChevronRight } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { ArrowLeft, SlidersHorizontal, ChevronRight, Search, Crown, Users as UsersIcon } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
@@ -20,23 +20,28 @@ import PermissionActivityTab from "../components/PermissionActivityTab";
 // bypass SettingsLayout, so it needs its own import too.
 import "../styles/SettingsPage.scss";
 
+type TopTab = "roles" | "staff-members" | "activity";
+type RoleTier = "Manager" | "Staff";
+
 // Manager/Staff/Individual Staff/Permission Activity each have their own
 // explicit route under Settings (SettingsLayout's own routing only supports
-// one path segment per section) — this page renders all 4, switching on
-// which one the URL points to instead of local tab-button state, and the
-// left nav below is real NavLinks to those routes.
-function tabFromPath(pathname: string): "manager" | "staff" | "individual" | "activity" {
-  if (pathname.endsWith("/staff")) return "staff";
-  if (pathname.endsWith("/individual-staff")) return "individual";
+// one path segment per section) — this page renders all of them, switching
+// on which one the URL points to instead of local tab-button state, so deep
+// links and browser back/forward keep working.
+function topTabFromPath(pathname: string): TopTab {
+  if (pathname.endsWith("/individual-staff")) return "staff-members";
   if (pathname.endsWith("/activity")) return "activity";
-  return "manager";
+  return "roles"; // /manager, /staff, or the bare /roles path
 }
 
-const NAV_ITEMS: { to: string; key: ReturnType<typeof tabFromPath>; label: string }[] = [
-  { to: "/dashboard/settings/roles/manager",          key: "manager",    label: "Manager" },
-  { to: "/dashboard/settings/roles/staff",            key: "staff",      label: "Staff" },
-  { to: "/dashboard/settings/roles/individual-staff", key: "individual", label: "Individual Staff" },
-  { to: "/dashboard/settings/roles/activity",         key: "activity",   label: "Permission Activity" },
+function roleTierFromPath(pathname: string): RoleTier {
+  return pathname.endsWith("/staff") ? "Staff" : "Manager";
+}
+
+const TOP_TABS: { key: TopTab; label: string; to: string }[] = [
+  { key: "roles", label: "Roles", to: "/dashboard/settings/roles/manager" },
+  { key: "staff-members", label: "Staff Members", to: "/dashboard/settings/roles/individual-staff" },
+  { key: "activity", label: "Permission Activity", to: "/dashboard/settings/roles/activity" },
 ];
 
 export default function RolesPermissionsPage() {
@@ -48,12 +53,13 @@ export default function RolesPermissionsPage() {
   const roles = useAppSelector((s) => s.roles.roles);
   const authRole = useAppSelector((s) => s.auth.role);
 
-  const tab = tabFromPath(location.pathname);
-  const [selectedStaff, setSelectedStaff] = useState<any | null>(null);
+  const topTab = topTabFromPath(location.pathname);
+  const roleTier = roleTierFromPath(location.pathname);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkRoleId, setBulkRoleId] = useState("");
   const [bulkBusy, setBulkBusy] = useState(false);
   const [confirmBulkReset, setConfirmBulkReset] = useState(false);
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     dispatch(fetchStaffThunk());
@@ -102,21 +108,38 @@ export default function RolesPermissionsPage() {
     }
   };
 
-  return (
-    <>
-      {overlay}
-      {/* Reached both via SettingsLayout (section id "roles", shows its own
-          "← Settings" link) and directly via /settings/roles/manager etc.
-          (bypasses SettingsLayout) — this button covers the second case;
-          it's a harmless extra "back" affordance in the first. */}
-      <button
-        type="button"
-        onClick={() => navigate("/dashboard/settings")}
-        style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", padding: 0, marginBottom: 16, fontSize: 13, fontWeight: 600, color: "#6b7280", cursor: "pointer" }}
-      >
-        <ArrowLeft size={16} /> Settings
-      </button>
+  const q = search.trim().toLowerCase();
 
+  const roleNavItems = useMemo(
+    () => [
+      { key: "Manager" as RoleTier, label: "Manager", icon: Crown, roleExists: !!managerRole },
+      { key: "Staff" as RoleTier, label: "Staff", icon: UsersIcon, roleExists: !!staffRole },
+    ].filter((r) => !q || r.label.toLowerCase().includes(q)),
+    [q, managerRole, staffRole],
+  );
+
+  const filteredStaffList = useMemo(() => {
+    if (!q) return staffList;
+    return staffList.filter((m: any) => {
+      const name = String(m.fullName || m.first_name || "").toLowerCase();
+      const email = String(m.email || "").toLowerCase();
+      return name.includes(q) || email.includes(q);
+    });
+  }, [staffList, q]);
+
+  // Reached two different ways: the bare "/dashboard/settings/roles" path
+  // goes through SettingsLayout's own :section route, which already wraps
+  // whatever it renders in .settings-wrapper/.settings-sticky-header/
+  // .settings-root--full/.settings-content (see SettingsLayout.tsx) — so
+  // this component must NOT add that chrome a second time there. Every
+  // other path (roles/manager, roles/staff, roles/individual-staff,
+  // roles/activity — see SettingsRoutes.tsx) bypasses SettingsLayout
+  // entirely and renders this page directly, so it has to supply that same
+  // chrome itself or it renders flush against the sidebar with no padding.
+  const isEmbeddedInSettingsLayout = location.pathname === "/dashboard/settings/roles";
+
+  const body = (
+    <>
       <div className="settings-page-header">
         <h2 className="settings-page-title">Roles &amp; Permissions</h2>
         <p className="settings-page-subtitle">
@@ -124,50 +147,91 @@ export default function RolesPermissionsPage() {
         </p>
       </div>
 
-      <div style={{ display: "flex", gap: 24, alignItems: "flex-start" }}>
-        {/* Left — sidebar-style nav between the 4 sub-sections */}
-        <div style={{ width: 200, flexShrink: 0, display: "flex", flexDirection: "column", gap: 2 }}>
-          {NAV_ITEMS.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={() => (tab === item.key ? "sub-link active" : "sub-link")}
-              style={{ borderRadius: 8 }}
-            >
-              {item.label}
-            </NavLink>
-          ))}
+      <div className="rp-top-tabs">
+        {TOP_TABS.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            className={topTab === t.key ? "rp-top-tab rp-top-tab--active" : "rp-top-tab"}
+            onClick={() => navigate(t.to)}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {topTab !== "activity" && (
+        <div className="rp-page-search">
+          <Search size={14} className="rp-page-search-icon" />
+          <input
+            type="text"
+            placeholder="Search role or staff..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
         </div>
+      )}
 
-        {/* Right — active sub-section's content */}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          {/* ── Manager tab ── */}
-          {tab === "manager" && (
-            <RoleTierCard
-              title="Manager"
-              description="Default permissions for anyone assigned the Manager role."
-              grantedCount={managerRole ? undefined : 0}
-              roleExists={!!managerRole}
-              disabled={!isOwner}
-              onOpen={() => setSelectedStaff({ __rolePanel: "Manager" })}
-            />
-          )}
+      {/* ── Roles tab: role list on the left, selected role's permissions on
+          the right — Manager/Staff open RolePermissionPanel inline (no
+          longer a modal); "Custom Roles" is a visible-but-disabled
+          placeholder only, no backend feature behind it yet. */}
+      {topTab === "roles" && (
+        <div className="rp-roles-layout">
+          <div className="rp-roles-nav">
+            <p className="rp-roles-nav-title">Roles</p>
+            <p className="rp-roles-nav-desc">Select a role to view or edit permissions.</p>
+            <div className="rp-roles-nav-list">
+              {roleNavItems.map((r) => {
+                const Icon = r.icon;
+                return (
+                  <button
+                    key={r.key}
+                    type="button"
+                    className={roleTier === r.key ? "rp-roles-nav-item rp-roles-nav-item--active" : "rp-roles-nav-item"}
+                    disabled={!isOwner}
+                    onClick={() => navigate(r.key === "Manager" ? "/dashboard/settings/roles/manager" : "/dashboard/settings/roles/staff")}
+                  >
+                    <Icon size={15} />
+                    <span className="rp-roles-nav-text">
+                      <span className="rp-roles-nav-label">{r.label}</span>
+                      {!r.roleExists && <span className="rp-roles-nav-meta">Not set up yet</span>}
+                    </span>
+                    <ChevronRight size={14} className="rp-roles-nav-chevron" />
+                  </button>
+                );
+              })}
+              {/* "Custom Roles" — we don't have named custom roles, but
+                  per-staff permission overrides (Staff Members tab) already
+                  serve that exact purpose, so this links straight there
+                  instead of being a dead placeholder. */}
+              <button
+                type="button"
+                className="rp-roles-nav-item"
+                onClick={() => navigate("/dashboard/settings/roles/individual-staff")}
+              >
+                <UsersIcon size={15} />
+                <span className="rp-roles-nav-text">
+                  <span className="rp-roles-nav-label">Custom Roles</span>
+                  <span className="rp-roles-nav-meta rp-roles-nav-meta--neutral">Per-staff permission overrides</span>
+                </span>
+                <ChevronRight size={14} className="rp-roles-nav-chevron" />
+              </button>
+            </div>
+          </div>
+          <div className="rp-roles-detail">
+            {isOwner ? (
+              <RolePermissionPanel roleName={roleTier} onClose={() => {}} />
+            ) : (
+              <p className="ispp-muted">You don't have permission to view this.</p>
+            )}
+          </div>
+        </div>
+      )}
 
-          {/* ── Staff tab ── */}
-          {tab === "staff" && (
-            <RoleTierCard
-              title="Staff"
-              description="Default permissions for anyone assigned the Staff role — this is what every new staff member starts with."
-              grantedCount={staffRole ? undefined : 0}
-              roleExists={!!staffRole}
-              disabled={!isOwner}
-              onOpen={() => setSelectedStaff({ __rolePanel: "Staff" })}
-            />
-          )}
-
-          {/* ── Individual Staff tab ── */}
-          {tab === "individual" && (
-            <div className="settings-section">
+      {/* ── Staff Members tab (formerly "Individual Staff") ── */}
+      {topTab === "staff-members" && (
+        <div className="settings-section">
           <div className="settings-section-header">
             <div>
               <p className="settings-section-title">Individual Staff Overrides</p>
@@ -201,14 +265,20 @@ export default function RolesPermissionsPage() {
 
             {staffLoading.fetchAll ? (
               <p style={{ fontSize: 13, color: "#6b7280" }}>Loading staff…</p>
-            ) : staffList.length === 0 ? (
+            ) : filteredStaffList.length === 0 ? (
               <p style={{ fontSize: 13, color: "#6b7280" }}>
-                No staff members yet. Add staff from the{" "}
-                <a href="/dashboard/team" style={{ color: "#111827", fontWeight: 600 }}>Staff section</a>.
+                {staffList.length === 0 ? (
+                  <>
+                    No staff members yet. Add staff from the{" "}
+                    <a href="/dashboard/team" style={{ color: "#111827", fontWeight: 600 }}>Staff section</a>.
+                  </>
+                ) : (
+                  "No staff match your search."
+                )}
               </p>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-                {staffList.map((member: any) => {
+                {filteredStaffList.map((member: any) => {
                   const name = member.fullName || member.first_name || member.email || "Unnamed";
                   const initials = String(name).split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2);
                   // Mirrors staffHasPermission()'s own branching exactly: once
@@ -277,55 +347,25 @@ export default function RolesPermissionsPage() {
         </div>
       )}
 
-          {/* ── Permission Activity tab ── */}
-          {tab === "activity" && <PermissionActivityTab />}
-        </div>
-      </div>
-
-      {/* Manager/Staff tier panel — individual staff permissions now live on
-          their own full page (IndividualStaffPermissionsPage), reached via
-          navigate() above, not this modal slot. */}
-      {selectedStaff?.__rolePanel && (
-        <RolePermissionPanel
-          roleName={selectedStaff.__rolePanel}
-          onClose={() => setSelectedStaff(null)}
-        />
-      )}
+      {/* ── Permission Activity tab ── */}
+      {topTab === "activity" && <PermissionActivityTab />}
     </>
   );
-}
 
-function RoleTierCard({
-  title, description, roleExists, disabled, onOpen,
-}: {
-  title: string;
-  description: string;
-  grantedCount?: number;
-  roleExists: boolean;
-  disabled: boolean;
-  onOpen: () => void;
-}) {
+  if (isEmbeddedInSettingsLayout) {
+    return <>{overlay}{body}</>;
+  }
+
   return (
-    <div className="settings-section">
-      <div className="settings-section-body">
-        <button
-          onClick={onOpen}
-          disabled={disabled}
-          style={{
-            width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
-            padding: "16px", border: "1px solid #e5e7eb", borderRadius: 10, background: "#fff",
-            cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.6 : 1,
-          }}
-        >
-          <div style={{ textAlign: "left" }}>
-            <p className="settings-security-name" style={{ margin: 0 }}>{title}</p>
-            <p className="settings-security-desc" style={{ margin: "2px 0 0" }}>
-              {description}
-              {!roleExists && " (not set up yet — opening this will create it)"}
-            </p>
-          </div>
-          <ChevronRight size={18} color="#9ca3af" />
+    <div className="settings-wrapper">
+      {overlay}
+      <div className="settings-sticky-header d-flex align-items-center gap-2">
+        <button type="button" className="settings-back-link" onClick={() => navigate("/dashboard/settings")}>
+          <ArrowLeft size={16} /> Settings
         </button>
+      </div>
+      <div className="settings-root settings-root--full">
+        <div className="settings-content">{body}</div>
       </div>
     </div>
   );

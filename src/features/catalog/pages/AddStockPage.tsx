@@ -58,7 +58,10 @@ export default function AddStockPage() {
 
   const { branches } = useSelector((s: RootState) => s.salon);
   const currentSalon = useSelector(selectCurrentSalon);
-  const { items: reduxProducts } = useSelector((s: RootState) => s.products);
+  // pickerItems, not items — this page preloads up to 200 products for its
+  // own dropdown via searchProductsThunk, which no longer shares state with
+  // the paginated Catalog → Products list page (see productsSlice.ts).
+  const { pickerItems: reduxProducts } = useSelector((s: RootState) => s.products);
   const supplierList = useSelector((s: RootState) => s.inventory.suppliers) as { id: string; name: string }[];
 
   const products = useMemo(

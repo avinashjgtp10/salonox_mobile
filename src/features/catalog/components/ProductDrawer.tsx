@@ -3,6 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { X, PencilSquare, BoxSeam } from "react-bootstrap-icons";
 import Button from "../../../components/ui/Button";
 import { useCurrency } from "../../../hooks/useCurrency";
+import { usePermissions } from "../../../hooks/usePermissions";
+import { useAppDispatch } from "../../../hooks/useAppRedux";
+import { showPermissionDenied } from "../../../store/permissionDialogSlice";
 import "../styles/ProductDrawer.scss";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -29,7 +32,12 @@ const ProductDrawer: React.FC<ProductDrawerProps> = ({
   onClose,
 }) => {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
+  const { can } = usePermissions();
   const { formatAmount } = useCurrency();
+  const denyPerm = (permKey: string) => dispatch(showPermissionDenied(
+    `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+  ));
 
   const brandName  = brands.find((b: any) => b.id === product.brand_id)?.name ?? "—";
   const categoryName = categories.find((c: any) => c.id === product.category_id)?.name ?? "—";
@@ -55,7 +63,11 @@ const ProductDrawer: React.FC<ProductDrawerProps> = ({
               variant="outline-dark"
               size="sm"
               iconLeft={<PencilSquare size={14} />}
-              onClick={() => navigate(`/dashboard/catalog/products/edit/${product.id}`)}
+              style={!can("edit_products") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+              onClick={() => {
+                if (!can("edit_products")) { denyPerm("edit_products"); return; }
+                navigate(`/dashboard/catalog/products/edit/${product.id}`);
+              }}
             >
               Edit
             </Button>

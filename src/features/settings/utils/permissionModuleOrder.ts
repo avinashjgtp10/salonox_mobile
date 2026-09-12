@@ -70,6 +70,8 @@ const GROUP_DISPLAY_ORDER: Record<string, string[]> = {
   // in this list, so they sink to the end instead of appearing first.
   Settings: ["General", "Account", "Tools", "Migration", "Data", "Roles & Permissions"],
   Catalog: ["Services", "Digital Menu", "Products", "Packages", "Memberships"],
+  // Matches the Clients permissions accordion ticket's own listed order.
+  Clients: ["General", "Client History", "Clients List", "Referral & Rewards"],
 };
 
 /** Sorts a module's sub-groups into that module's display order (if one is

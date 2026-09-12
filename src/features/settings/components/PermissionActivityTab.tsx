@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { History } from "lucide-react";
 import { useAppDispatch } from "../../../hooks/useAppRedux";
 import { fetchAuditLogThunk, type AuditLogEntry } from "../../../middleware/roles/roles.thunk";
 
@@ -40,7 +41,14 @@ export default function PermissionActivityTab() {
 
   return (
     <div className="settings-section">
-      <div className="settings-section-header">
+      <div className="settings-section-header" style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+        <span style={{
+          display: "flex", alignItems: "center", justifyContent: "center",
+          width: 36, height: 36, borderRadius: 8, flexShrink: 0,
+          background: "#f3f4f6", color: "#111827",
+        }}>
+          <History size={18} />
+        </span>
         <div>
           <p className="settings-section-title">Permission Activity</p>
           <p className="settings-section-desc">

@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { X, Loader2, Search, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { Loader2, Search, ChevronDown, Crown, Users as UsersIcon, RotateCcw } from "lucide-react";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import {
@@ -9,7 +9,13 @@ import {
   updateRoleThunk,
 } from "../../../middleware/roles/roles.thunk";
 import { sortModuleNames, sortGroupNames } from "../utils/permissionModuleOrder";
-import { cascadeOnKeys, isRevealedChild, findEmptyMasterToggles } from "../utils/permissionCascade";
+import { cascadeOnKeys, isRevealedChild, findEmptyMasterToggles, findMissingPrerequisites } from "../utils/permissionCascade";
+import { MODULE_ICON, DEFAULT_MODULE_ICON } from "../utils/permissionModuleIcons";
+// .ispp-module-grid/.ispp-module-card* (the module card grid — same look as
+// IndividualStaffPermissionsPage) live in this stylesheet, not
+// SettingsPage.scss, so this component needs its own import rather than
+// relying on whichever page happens to render it.
+import "../styles/IndividualStaffPermissionsPage.scss";
 
 interface Props {
   /** Fixed tier name — "Manager" or "Staff". There's exactly one role per
@@ -18,6 +24,13 @@ interface Props {
   roleName: "Manager" | "Staff";
   onClose: () => void;
 }
+
+// Cosmetic only (Roles & Permissions redesign) — the role detail panel's
+// own header icon + one-line description.
+const ROLE_META: Record<string, { icon: typeof Crown; description: string }> = {
+  Manager: { icon: Crown, description: "Full access to all features. You can customize permissions if needed." },
+  Staff: { icon: UsersIcon, description: "Limited access based on assigned permissions. Customize as needed." },
+};
 
 const riskBadgeClass: Record<string, string> = {
   low: "s-badge-gray",
@@ -61,18 +74,19 @@ export default function RolePermissionPanel({ roleName, onClose }: Props) {
   // Warehouse-style modules split their permissions into named sub-sections
   // (Suppliers/Orders/Product Inventory/...) via the catalog's group_name —
   // dumping all of them flat in one card was too big to scan. When a module
-  // has more than one distinct group_name, opening its card shows a
-  // sub-section list first; picking one drills into just that sub-section's
-  // permissions, with a way back to the list.
-  const [selectedGroupByModule, setSelectedGroupByModule] = useState<Record<string, string>>({});
+  // has more than one distinct group_name, every sub-section header shows
+  // at once as its own collapsible row (an accordion) — clicking one toggles
+  // just its own expanded state, without hiding its siblings (Clients
+  // permissions accordion ticket; previously picking one replaced the whole
+  // list with only that section + a "Back to X" link, which hid the others).
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const UNGROUPED = "__ungrouped__";
-  const selectGroup = (module: string, groupName: string | null) => {
-    setSelectedGroupByModule((prev) => ({ ...prev, [module]: groupName ?? UNGROUPED }));
-  };
-  const clearSelectedGroup = (module: string) => {
-    setSelectedGroupByModule((prev) => {
-      const next = { ...prev };
-      delete next[module];
+  const groupKey = (module: string, groupName: string | null) => `${module}::${groupName ?? UNGROUPED}`;
+  const toggleGroup = (module: string, groupName: string | null) => {
+    setExpandedGroups((prev) => {
+      const key = groupKey(module, groupName);
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
       return next;
     });
   };
@@ -148,22 +162,19 @@ export default function RolePermissionPanel({ roleName, onClose }: Props) {
     return sortGroupNames(module, groups, (g) => g.groupName);
   };
 
-  const setAllInModule = (modulePerms: typeof catalog, value: boolean) => {
-    setPerms((prev) => {
-      const updated = { ...prev };
-      for (const p of modulePerms) {
-        updated[p.key] = value;
-        if (value) for (const k of cascadeOnKeys(catalog, p.key)) updated[k] = true;
-      }
-      return updated;
-    });
-  };
-
   const handleSave = async () => {
     const emptyMasters = findEmptyMasterToggles(catalog, (k) => !!perms[k]);
     if (emptyMasters.length > 0) {
       const names = emptyMasters.map((k) => catalog.find((p) => p.key === k)?.name ?? k).join(", ");
       showError(`Turn off "${names}", or select at least one option below it.`);
+      return;
+    }
+    const missingPrereqs = findMissingPrerequisites(catalog, (k) => !!perms[k]);
+    if (missingPrereqs.length > 0) {
+      const { key, missing } = missingPrereqs[0];
+      const keyName = catalog.find((p) => p.key === key)?.name ?? key;
+      const missingName = catalog.find((p) => p.key === missing)?.name ?? missing;
+      showError(`"${keyName}" requires "${missingName}" to also be enabled.`);
       return;
     }
     setSaving(true);
@@ -181,36 +192,64 @@ export default function RolePermissionPanel({ roleName, onClose }: Props) {
     }
   };
 
-  const grantedCount = Object.values(perms).filter(Boolean).length;
+  // A role has no higher layer to "reset to" (unlike a staff override, which
+  // reverts to its role) — so this discards any UNSAVED edits by re-fetching
+  // the role's last-saved permissions, rather than clearing everything.
+  const handleResetToSaved = async () => {
+    if (!existingRole) {
+      setPerms({});
+      return;
+    }
+    setLoading(true);
+    const result = await dispatch(fetchRoleByIdThunk(existingRole.id));
+    if (fetchRoleByIdThunk.fulfilled.match(result)) {
+      setPerms(result.payload.permissions);
+    }
+    setLoading(false);
+  };
+
+  const roleMeta = ROLE_META[roleName];
+  const RoleIconTag = roleMeta.icon;
 
   return (
-    <div className="spm-overlay" onClick={(e) => e.target === e.currentTarget && !saving && onClose()}>
+    <div className="rp-role-detail">
       {overlay}
-      <div className="spm-panel spm-panel--permissions">
-        <div className="spm-header">
-          <div className="spm-header-info">
-            <div>
-              <p className="spm-name">{roleName} Permissions</p>
-              <p className="spm-email">{grantedCount} permission{grantedCount === 1 ? "" : "s"} granted</p>
-            </div>
+      <div className="rp-role-detail-header">
+        <div className="rp-role-detail-header-left">
+          <span className="rp-role-icon"><RoleIconTag size={18} /></span>
+          <div>
+            <p className="rp-role-name">{roleName}</p>
+            <p className="rp-role-desc">{roleMeta.description}</p>
           </div>
-          <button className="spm-close-btn" onClick={onClose} aria-label="Close" disabled={saving}>
-            <X size={18} />
-          </button>
         </div>
+        <button
+          type="button"
+          className="ispp-reset-btn"
+          disabled={saving || loading}
+          onClick={handleResetToSaved}
+          title="Discard unsaved changes"
+        >
+          <RotateCcw size={13} /> Reset to Default
+        </button>
+      </div>
 
-        <div style={{ padding: "10px 20px 0" }}>
-          <div style={{ position: "relative" }}>
-            <Search size={14} style={{ position: "absolute", left: 8, top: 8, color: "#9ca3af" }} />
-            <input
-              type="text"
-              placeholder="Search permissions..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              style={{ width: "100%", padding: "6px 8px 6px 28px", border: "1px solid #e5e7eb", borderRadius: 6, fontSize: 13 }}
-            />
-          </div>
+      <div className="rp-permissions-heading">
+        <p className="rp-permissions-title">Permissions</p>
+        <p className="rp-permissions-desc">Enable or disable permissions for this role.</p>
+      </div>
+
+      <div style={{ padding: "0 0 12px" }}>
+        <div style={{ position: "relative" }}>
+          <Search size={14} style={{ position: "absolute", left: 8, top: 8, color: "#9ca3af" }} />
+          <input
+            type="text"
+            placeholder="Search permissions..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{ width: "100%", padding: "6px 8px 6px 28px", border: "1px solid #e5e7eb", borderRadius: 6, fontSize: 13 }}
+          />
         </div>
+      </div>
 
         <div className="spm-body">
           {loading ? (
@@ -218,14 +257,11 @@ export default function RolePermissionPanel({ roleName, onClose }: Props) {
           ) : modules.length === 0 ? (
             <p style={{ fontSize: 13, color: "#6b7280", padding: 20 }}>No permissions match your search.</p>
           ) : (
-            modules.map(([moduleName, modulePerms]) => {
+            <div className="ispp-module-grid">
+            {modules.map(([moduleName, modulePerms]) => {
               const isOpen = expanded.has(moduleName);
               const subGroups = getSubGroups(moduleName, modulePerms);
               const hasSubGroups = subGroups.length > 1;
-              const selectedKey = selectedGroupByModule[moduleName];
-              const selectedSubGroup = selectedKey != null
-                ? subGroups.find((sg) => (sg.groupName ?? UNGROUPED) === selectedKey)
-                : undefined;
               // A child of a REVEAL_ON_MASTER_TOGGLE master (currently just
               // Online Booking's channels) stays hidden entirely — not just
               // greyed out — until the master itself is switched on, so
@@ -263,57 +299,62 @@ export default function RolePermissionPanel({ roleName, onClose }: Props) {
                 </div>
                 );
               };
+              const moduleIcon = MODULE_ICON[moduleName] ?? DEFAULT_MODULE_ICON;
+              const ModuleIconTag = moduleIcon.icon;
               return (
-              <div key={moduleName} className="spm-category">
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <button
-                    onClick={() => toggleExpanded(moduleName)}
-                    style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", padding: 0, cursor: "pointer" }}
-                  >
-                    <ChevronDown size={14} style={{ transform: isOpen ? "rotate(0deg)" : "rotate(-90deg)", transition: "transform 0.15s", color: "#9ca3af", flexShrink: 0 }} />
-                    <p className="spm-cat-label" style={{ margin: 0 }}>{moduleName} <span style={{ fontWeight: 400, color: "#9ca3af" }}>({modulePerms.length})</span></p>
-                  </button>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <button className="spm-reset-link" style={{ fontSize: 11 }} onClick={() => setAllInModule(modulePerms, true)}>All on</button>
-                    <button className="spm-reset-link" style={{ fontSize: 11 }} onClick={() => setAllInModule(modulePerms, false)}>All off</button>
-                  </div>
-                </div>
-                {isOpen && (
-                  !hasSubGroups ? (
-                    modulePerms.filter((p) => !isHiddenChild(p.key)).map(renderPerm)
-                  ) : selectedSubGroup ? (
-                    <>
-                      <button
-                        type="button"
-                        className="ispp-subgroup-back"
-                        onClick={() => clearSelectedGroup(moduleName)}
-                      >
-                        <ChevronLeft size={13} /> Back to {moduleName}
-                      </button>
-                      {selectedSubGroup.rows.filter((p) => !isHiddenChild(p.key)).map(renderPerm)}
-                    </>
-                  ) : (
-                    <div className="ispp-subgroup-list">
-                      {subGroups.map((sg) => (
-                        <button
-                          key={sg.groupName ?? UNGROUPED}
-                          type="button"
-                          className="ispp-subgroup-item"
-                          onClick={() => selectGroup(moduleName, sg.groupName)}
-                        >
-                          <span className="ispp-subgroup-item-name">{sg.groupName ?? "General"}</span>
-                          <span className="ispp-subgroup-item-meta">
-                            {sg.rows.length} permission{sg.rows.length === 1 ? "" : "s"}
-                            <ChevronRight size={14} />
-                          </span>
-                        </button>
-                      ))}
+              <div key={moduleName} className={`ispp-module-card${isOpen ? " ispp-module-card--open" : ""}`}>
+                <button
+                  type="button"
+                  className="ispp-module-card-header"
+                  onClick={() => toggleExpanded(moduleName)}
+                >
+                  <div className="ispp-module-card-header-left">
+                    <span className="ispp-module-icon" style={{ background: moduleIcon.bg, color: moduleIcon.color }}>
+                      <ModuleIconTag size={17} />
+                    </span>
+                    <div>
+                      <p className="ispp-module-card-title">{moduleName}</p>
+                      <p className="ispp-module-card-count">
+                        {modulePerms.length} permission{modulePerms.length === 1 ? "" : "s"}
+                      </p>
                     </div>
-                  )
+                  </div>
+                  <ChevronDown size={16} className={`ispp-module-chevron${isOpen ? " ispp-module-chevron--open" : ""}`} />
+                </button>
+                {isOpen && (
+                  <div className="ispp-module-card-body">
+                    {!hasSubGroups ? (
+                      modulePerms.filter((p) => !isHiddenChild(p.key)).map(renderPerm)
+                    ) : (
+                      <div className="ispp-subgroup-accordion">
+                        {subGroups.map((sg) => {
+                          const key = groupKey(moduleName, sg.groupName);
+                          const sgOpen = expandedGroups.has(key);
+                          return (
+                            <div key={key} className="ispp-subgroup-section">
+                              <button
+                                type="button"
+                                className="ispp-subgroup-item"
+                                onClick={() => toggleGroup(moduleName, sg.groupName)}
+                              >
+                                <span className="ispp-subgroup-item-name">{sg.groupName ?? "General"}</span>
+                                <span className="ispp-subgroup-item-meta">
+                                  {sg.rows.length} permission{sg.rows.length === 1 ? "" : "s"}
+                                  <ChevronDown size={14} style={{ transform: sgOpen ? "rotate(0deg)" : "rotate(-90deg)", transition: "transform 0.15s" }} />
+                                </span>
+                              </button>
+                              {sgOpen && sg.rows.filter((p) => !isHiddenChild(p.key)).map(renderPerm)}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
               );
-            })
+            })}
+            </div>
           )}
         </div>
 
@@ -323,7 +364,6 @@ export default function RolePermissionPanel({ roleName, onClose }: Props) {
             {saving ? <Loader2 size={13} className="perm-spin" /> : "Save changes"}
           </button>
         </div>
-      </div>
     </div>
   );
 }

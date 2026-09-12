@@ -8,6 +8,7 @@ type PermMatrix = Record<string, { owner: boolean; staff: boolean }>;
 // own DEFAULT_STAFF_PERMS. This is NOT the source of truth once real data is
 // available; see the main resolution below.
 const defaultPermsMap: PermMatrix = {
+  view_dashboard: { owner: true, staff: true },
   view_campaigns: { owner: true, staff: false },
   create_campaigns: { owner: true, staff: false },
   design_coupons: { owner: true, staff: false },
@@ -62,6 +63,24 @@ const VIRTUAL_PERMS: Record<string, string[]> = {
   // enough to open the page; the individual tabs/actions still check their
   // own specific key.
   view_team_commissions: ["view_commissions", "view_tips"],
+  // Sidebar nav dimming ticket: Warehouse and Staff each have several
+  // independent top-level master keys (7 for Warehouse — Suppliers/Orders/
+  // Product Inventory/Consumable Inventory/Product Audit/Stock Ledger/
+  // Inventory itself; 5 for Staff — Staff List/Payroll/Scheduled Shifts/
+  // Commissions/Tips) with no single real permission uniting them, unlike
+  // Catalog/Marketing/Reports which already had one. Purely frontend-only
+  // virtual keys, same shape as view_catalog/view_marketing above — used
+  // for the sidebar nav item's own visible-but-disabled state (and as
+  // Warehouse/Staff's MODULE_ACCESS_LIST fallback route), not as a real
+  // catalog permission. access_staff is ALSO used as Team's outer
+  // DashboardRoutes.tsx route guard (replacing the too-narrow view_team,
+  // which incorrectly blocked the whole /dashboard/team/* tree for a staff
+  // member granted only e.g. view_payroll).
+  access_warehouse: [
+    "view_suppliers", "view_orders", "view_product_inventory",
+    "view_consumable_inventory", "view_product_audit", "view_stock_ledger", "view_inventory",
+  ],
+  access_staff: ["view_team", "view_payroll", "view_scheduled_shifts", "view_commissions", "view_tips"],
   // Marketing's 7 sub-areas (Dashboard/Analytics/Campaigns/Templates/
   // Scheduled Templates/Inbox/WhatsApp Config) each have their own
   // independent view permission now — this umbrella is only the outer

@@ -145,7 +145,10 @@ export default function StockLedgerPage() {
 
   const staff = useSelector(selectAllStaff) as { id: string; first_name?: string; last_name?: string }[];
   const rawCategories = useSelector(selectProductCategories) as { id: string | number; name: string }[];
-  const { items: reduxProducts } = useSelector((s: RootState) => s.products);
+  // pickerItems, not items — this page preloads up to 200 products for its
+  // own dropdown via searchProductsThunk, which no longer shares state with
+  // the paginated Catalog → Products list page (see productsSlice.ts).
+  const { pickerItems: reduxProducts } = useSelector((s: RootState) => s.products);
   const currentSalon = useSelector(selectCurrentSalon);
 
   const [productSearch, setProductSearch] = useState("");

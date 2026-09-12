@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { X, Loader2, RotateCcw, Search, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { X, Loader2, RotateCcw, Search, ChevronDown } from "lucide-react";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import {
@@ -10,7 +10,8 @@ import {
   assignStaffRoleThunk,
 } from "../../../middleware/roles/roles.thunk";
 import { sortModuleNames, sortGroupNames } from "../utils/permissionModuleOrder";
-import { cascadeOnKeys, isRevealedChild, findEmptyMasterToggles } from "../utils/permissionCascade";
+import { cascadeOnKeys, isRevealedChild, findEmptyMasterToggles, findMissingPrerequisites } from "../utils/permissionCascade";
+import { MODULE_ICON, DEFAULT_MODULE_ICON } from "../utils/permissionModuleIcons";
 
 interface Props {
   staffId: string;
@@ -70,18 +71,19 @@ export default function StaffPermissionEditor({ staffId, staffName, onClose }: P
   // Warehouse-style modules split their permissions into named sub-sections
   // (Suppliers/Orders/Product Inventory/...) via the catalog's group_name —
   // dumping all of them flat in one card was too big to scan. When a module
-  // has more than one distinct group_name, opening its card shows a
-  // sub-section list first; picking one drills into just that sub-section's
-  // permissions, with a way back to the list.
-  const [selectedGroupByModule, setSelectedGroupByModule] = useState<Record<string, string>>({});
+  // has more than one distinct group_name, every sub-section header shows
+  // at once as its own collapsible row (an accordion) — clicking one toggles
+  // just its own expanded state, without hiding its siblings (Clients
+  // permissions accordion ticket; previously picking one replaced the whole
+  // list with only that section + a "Back to X" link, which hid the others).
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const UNGROUPED = "__ungrouped__";
-  const selectGroup = (module: string, groupName: string | null) => {
-    setSelectedGroupByModule((prev) => ({ ...prev, [module]: groupName ?? UNGROUPED }));
-  };
-  const clearSelectedGroup = (module: string) => {
-    setSelectedGroupByModule((prev) => {
-      const next = { ...prev };
-      delete next[module];
+  const groupKey = (module: string, groupName: string | null) => `${module}::${groupName ?? UNGROUPED}`;
+  const toggleGroup = (module: string, groupName: string | null) => {
+    setExpandedGroups((prev) => {
+      const key = groupKey(module, groupName);
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
       return next;
     });
   };
@@ -180,9 +182,6 @@ export default function StaffPermissionEditor({ staffId, staffName, onClose }: P
     });
   };
 
-  const clearOneOverride = (key: string) => {
-    setPending((prev) => ({ ...prev, [key]: null }));
-  };
 
   const getEffective = (key: string): boolean => {
     const perm = view?.permissions.find((p) => p.key === key);
@@ -197,6 +196,14 @@ export default function StaffPermissionEditor({ staffId, staffName, onClose }: P
     if (emptyMasters.length > 0) {
       const names = emptyMasters.map((k) => catalogByKey.get(k)?.name ?? k).join(", ");
       showError(`Turn off "${names}", or select at least one option below it.`);
+      return;
+    }
+    const missingPrereqs = findMissingPrerequisites(catalog, getEffective);
+    if (missingPrereqs.length > 0) {
+      const { key, missing } = missingPrereqs[0];
+      const keyName = catalogByKey.get(key)?.name ?? key;
+      const missingName = catalogByKey.get(missing)?.name ?? missing;
+      showError(`"${keyName}" requires "${missingName}" to also be enabled.`);
       return;
     }
     setSaving(true);
@@ -319,10 +326,6 @@ export default function StaffPermissionEditor({ staffId, staffName, onClose }: P
             groups.map((group) => {
               const isOpen = expanded.has(group.module);
               const hasSubGroups = group.subGroups.length > 1;
-              const selectedKey = selectedGroupByModule[group.module];
-              const selectedSubGroup = selectedKey != null
-                ? group.subGroups.find((sg) => (sg.groupName ?? UNGROUPED) === selectedKey)
-                : undefined;
               // A child of a REVEAL_ON_MASTER_TOGGLE master (currently just
               // Online Booking's channels) stays hidden entirely until the
               // master itself is switched on.
@@ -349,16 +352,6 @@ export default function StaffPermissionEditor({ staffId, staffName, onClose }: P
                     {locked && <p className="spm-perm-desc" style={{ color: "#b45309" }}>Enable Quick Sale access first</p>}
                   </div>
                   <div className="spm-perm-toggle" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    {row.isCustom && !locked && (
-                      <button
-                        className="spm-reset-link"
-                        style={{ fontSize: 10, opacity: 0.6 }}
-                        onClick={() => clearOneOverride(row.key)}
-                        title="Revert to role default"
-                      >
-                        ↺
-                      </button>
-                    )}
                     <label className="settings-toggle" title={locked ? "Enable Quick Sale access first" : undefined}>
                       <input
                         type="checkbox"
@@ -372,48 +365,50 @@ export default function StaffPermissionEditor({ staffId, staffName, onClose }: P
                 </div>
                 );
               };
+              const moduleIcon = MODULE_ICON[group.module] ?? DEFAULT_MODULE_ICON;
+              const ModuleIconTag = moduleIcon.icon;
               return (
               <div key={group.module} className="spm-category">
                 <button
                   onClick={() => toggleExpanded(group.module)}
-                  style={{ display: "flex", alignItems: "center", gap: 6, width: "100%", background: "none", border: "none", padding: 0, cursor: "pointer", textAlign: "left" }}
+                  style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", background: "none", border: "none", padding: 0, cursor: "pointer", textAlign: "left" }}
                 >
                   <ChevronDown size={14} style={{ transform: isOpen ? "rotate(0deg)" : "rotate(-90deg)", transition: "transform 0.15s", color: "#9ca3af", flexShrink: 0 }} />
+                  <span style={{
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    width: 30, height: 30, borderRadius: 8, flexShrink: 0,
+                    background: moduleIcon.bg, color: moduleIcon.color,
+                  }}>
+                    <ModuleIconTag size={15} />
+                  </span>
                   <p className="spm-cat-label" style={{ margin: 0 }}>{group.module} <span style={{ fontWeight: 400, color: "#9ca3af" }}>({group.rows.length})</span></p>
                 </button>
                 {isOpen && (
                   !hasSubGroups ? (
                     group.rows.filter((r) => !isHiddenChild(r.key)).map(renderRow)
-                  ) : selectedSubGroup ? (
-                    <>
-                      <button
-                        type="button"
-                        className="ispp-subgroup-back"
-                        onClick={() => clearSelectedGroup(group.module)}
-                      >
-                        <ChevronLeft size={13} /> Back to {group.module}
-                      </button>
-                      {selectedSubGroup.rows.filter((r) => !isHiddenChild(r.key)).map(renderRow)}
-                    </>
                   ) : (
-                    <div className="ispp-subgroup-list">
+                    <div className="ispp-subgroup-accordion">
                       {group.subGroups.map((sg) => {
                         const label = sg.groupName ?? "General";
                         const sgCustomCount = sg.rows.filter((r) => r.isCustom).length;
+                        const key = groupKey(group.module, sg.groupName);
+                        const sgOpen = expandedGroups.has(key);
                         return (
-                          <button
-                            key={sg.groupName ?? UNGROUPED}
-                            type="button"
-                            className="ispp-subgroup-item"
-                            onClick={() => selectGroup(group.module, sg.groupName)}
-                          >
-                            <span className="ispp-subgroup-item-name">{label}</span>
-                            <span className="ispp-subgroup-item-meta">
-                              {sg.rows.length} permission{sg.rows.length === 1 ? "" : "s"}
-                              {sgCustomCount > 0 && ` · ${sgCustomCount} custom`}
-                              <ChevronRight size={14} />
-                            </span>
-                          </button>
+                          <div key={key} className="ispp-subgroup-section">
+                            <button
+                              type="button"
+                              className="ispp-subgroup-item"
+                              onClick={() => toggleGroup(group.module, sg.groupName)}
+                            >
+                              <span className="ispp-subgroup-item-name">{label}</span>
+                              <span className="ispp-subgroup-item-meta">
+                                {sg.rows.length} permission{sg.rows.length === 1 ? "" : "s"}
+                                {sgCustomCount > 0 && ` · ${sgCustomCount} custom`}
+                                <ChevronDown size={14} style={{ transform: sgOpen ? "rotate(0deg)" : "rotate(-90deg)", transition: "transform 0.15s" }} />
+                              </span>
+                            </button>
+                            {sgOpen && sg.rows.filter((r) => !isHiddenChild(r.key)).map(renderRow)}
+                          </div>
                         );
                       })}
                     </div>

@@ -206,3 +206,32 @@ export function findEmptyMasterToggles(
   }
   return problems;
 }
+
+/**
+ * Every permission that is effectively ON but has at least one depends_on
+ * prerequisite that is effectively OFF — a state that must never be
+ * saveable (e.g. View Products on with View Suppliers off, since Product
+ * List's Supplier column/filter needs Suppliers data — Product List
+ * permission ticket). cascadeOnKeys already auto-enables a prerequisite the
+ * moment its dependent is toggled on, but that's only a toggle-time nudge —
+ * nothing previously stopped someone from separately toggling the
+ * prerequisite back off afterward and saving that inconsistent state
+ * anyway. This is the save-time backstop that closes that gap, for every
+ * depends_on relationship in the catalog, not just this one pair.
+ *
+ * Returns {key, missing} pairs — `key` is the permission that's on,
+ * `missing` is the prerequisite it needs that's currently off.
+ */
+export function findMissingPrerequisites(
+  catalog: CascadeCatalogEntry[],
+  getEffective: (key: string) => boolean
+): { key: string; missing: string }[] {
+  const problems: { key: string; missing: string }[] = [];
+  for (const perm of catalog) {
+    if (!getEffective(perm.key)) continue;
+    for (const dep of perm.depends_on ?? []) {
+      if (!getEffective(dep)) problems.push({ key: perm.key, missing: dep });
+    }
+  }
+  return problems;
+}
