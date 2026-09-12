@@ -415,6 +415,9 @@ api.interceptors.request.use(async (config) => {
           status: getAuthErrorStatus(refreshError),
           message: getAuthErrorMessage(refreshError),
         });
+        // Do not send the old token after refresh failed: its 401 can turn a
+        // temporary refresh/permission failure into another refresh and logout.
+        throw refreshError;
       }
     }
   }
