@@ -9,6 +9,7 @@ import {
   updateRoleThunk,
 } from "../../../middleware/roles/roles.thunk";
 import { sortModuleNames, sortGroupNames } from "../utils/permissionModuleOrder";
+import { cascadeOnKeys, isRevealedChild, findEmptyMasterToggles } from "../utils/permissionCascade";
 
 interface Props {
   /** Fixed tier name — "Manager" or "Staff". There's exactly one role per
@@ -125,10 +126,13 @@ export default function RolePermissionPanel({ roleName, onClose }: Props) {
     setPerms((prev) => {
       const next = !prev[key];
       const updated = { ...prev, [key]: next };
-      if (next) {
-        const meta = catalog.find((p) => p.key === key);
-        for (const dep of meta?.depends_on ?? []) updated[dep] = true;
-      }
+      // ON cascades both ways — up to this key's own prerequisites, and
+      // down to every permission that depends on it (e.g. a module's master
+      // switch also turns on its channels/categories by default, matching
+      // the same "grant the parent, get the children" expectation the
+      // Reports categories already had — now generalized to every
+      // depends_on relationship instead of a Reports-only special case).
+      if (next) for (const k of cascadeOnKeys(catalog, key)) updated[k] = true;
       return updated;
     });
   };
@@ -149,13 +153,19 @@ export default function RolePermissionPanel({ roleName, onClose }: Props) {
       const updated = { ...prev };
       for (const p of modulePerms) {
         updated[p.key] = value;
-        if (value) for (const dep of p.depends_on ?? []) updated[dep] = true;
+        if (value) for (const k of cascadeOnKeys(catalog, p.key)) updated[k] = true;
       }
       return updated;
     });
   };
 
   const handleSave = async () => {
+    const emptyMasters = findEmptyMasterToggles(catalog, (k) => !!perms[k]);
+    if (emptyMasters.length > 0) {
+      const names = emptyMasters.map((k) => catalog.find((p) => p.key === k)?.name ?? k).join(", ");
+      showError(`Turn off "${names}", or select at least one option below it.`);
+      return;
+    }
     setSaving(true);
     const result = roleId
       ? await dispatch(updateRoleThunk({ id: roleId, permissions: perms }))
@@ -216,6 +226,15 @@ export default function RolePermissionPanel({ roleName, onClose }: Props) {
               const selectedSubGroup = selectedKey != null
                 ? subGroups.find((sg) => (sg.groupName ?? UNGROUPED) === selectedKey)
                 : undefined;
+              // A child of a REVEAL_ON_MASTER_TOGGLE master (currently just
+              // Online Booking's channels) stays hidden entirely — not just
+              // greyed out — until the master itself is switched on, so
+              // toggling "View Booking" reveals the channel toggles below
+              // it instead of showing all 7 at once.
+              const isHiddenChild = (key: string) => {
+                const parentKey = isRevealedChild(catalog, key);
+                return parentKey != null && !perms[parentKey];
+              };
               const renderPerm = (perm: typeof modulePerms[number]) => {
                 const locked = moduleName === "Quick Sale" && QUICK_SALE_DEPENDENT_KEYS.includes(perm.key) && !perms[QUICK_SALE_GATE_KEY];
                 return (
@@ -261,7 +280,7 @@ export default function RolePermissionPanel({ roleName, onClose }: Props) {
                 </div>
                 {isOpen && (
                   !hasSubGroups ? (
-                    modulePerms.map(renderPerm)
+                    modulePerms.filter((p) => !isHiddenChild(p.key)).map(renderPerm)
                   ) : selectedSubGroup ? (
                     <>
                       <button
@@ -271,7 +290,7 @@ export default function RolePermissionPanel({ roleName, onClose }: Props) {
                       >
                         <ChevronLeft size={13} /> Back to {moduleName}
                       </button>
-                      {selectedSubGroup.rows.map(renderPerm)}
+                      {selectedSubGroup.rows.filter((p) => !isHiddenChild(p.key)).map(renderPerm)}
                     </>
                   ) : (
                     <div className="ispp-subgroup-list">

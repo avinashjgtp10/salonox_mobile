@@ -420,25 +420,47 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
       )}
 
       {hasFeature("online_booking") && (
-        <button
-          type="button"
-          className={menuClass("onlineBooking")}
-          title="Online booking"
-          onClick={() => {
-            const opening = openMenu !== "onlineBooking";
-            onMenuChange(opening ? "onlineBooking" : null);
-            // Same pattern as Clients/Catalog/Staff/Marketing — jump to the
-            // section's default page when entering from elsewhere instead of
-            // only opening the flyout over the current page. The section root's
-            // index route is the Marketplace profile (OnlineBookingRoutes.tsx).
-            if (opening && !location.pathname.startsWith("/dashboard/online-booking")) {
-              navigate("/dashboard/online-booking");
+        can("view_booking") ? (
+          <button
+            type="button"
+            className={menuClass("onlineBooking")}
+            title="Online booking"
+            onClick={() => {
+              const opening = openMenu !== "onlineBooking";
+              onMenuChange(opening ? "onlineBooking" : null);
+              // Same pattern as Clients/Catalog/Staff/Marketing — jump to the
+              // section's default page when entering from elsewhere instead of
+              // only opening the flyout over the current page. The section root's
+              // index route is the Marketplace profile (OnlineBookingRoutes.tsx).
+              if (opening && !location.pathname.startsWith("/dashboard/online-booking")) {
+                navigate("/dashboard/online-booking");
+              }
+            }}
+          >
+            <Globe2 size={22} />
+            <span className="nav-label">Online booking</span>
+          </button>
+        ) : (
+          // Previously this button always navigated to /dashboard/online-booking
+          // regardless of permission, silently bouncing back to Dashboard via
+          // the route guard with no explanation — confusing (looked clickable,
+          // did nothing useful). Now matches every other gated nav item:
+          // visible, disabled, denial popup on click instead of navigating.
+          <button
+            type="button"
+            className="nav-btn nav-btn--disabled"
+            title="Online booking"
+            aria-disabled="true"
+            onClick={() =>
+              dispatch(showPermissionDenied(
+                `Your account does not have the "view_booking" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+              ))
             }
-          }}
-        >
-          <Globe2 size={22} />
-          <span className="nav-label">Online booking</span>
-        </button>
+          >
+            <Globe2 size={22} />
+            <span className="nav-label">Online booking</span>
+          </button>
+        )
       )}
 
       {hasFeature("enquiries") && (

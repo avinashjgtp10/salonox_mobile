@@ -10,6 +10,7 @@ import {
   assignStaffRoleThunk,
 } from "../../../middleware/roles/roles.thunk";
 import { sortModuleNames, sortGroupNames } from "../utils/permissionModuleOrder";
+import { cascadeOnKeys, isRevealedChild, findEmptyMasterToggles } from "../utils/permissionCascade";
 
 interface Props {
   staffId: string;
@@ -163,16 +164,41 @@ export default function StaffPermissionEditor({ staffId, staffName, onClose }: P
   // to the new effective value — no separate "role vs override" state to
   // reason about while editing. "Reset this one" (below) is the only way
   // back to inheriting the role default for that specific permission.
+  //
+  // Turning a permission ON cascades to its prerequisites AND to whatever
+  // depends on it (see cascadeOnKeys) — e.g. granting a module's master
+  // switch (View Booking, View Reports) also grants its channels/categories
+  // by default, same behavior as Role Management and Individual Staff.
+  // Turning OFF never cascades, so it can't silently strip an
+  // individually-granted child.
   const toggleEffective = (key: string, currentEffective: boolean) => {
-    setPending((prev) => ({ ...prev, [key]: !currentEffective }));
+    const next = !currentEffective;
+    setPending((prev) => {
+      const updated = { ...prev, [key]: next };
+      if (next) for (const k of cascadeOnKeys(catalog, key)) updated[k] = true;
+      return updated;
+    });
   };
 
   const clearOneOverride = (key: string) => {
     setPending((prev) => ({ ...prev, [key]: null }));
   };
 
+  const getEffective = (key: string): boolean => {
+    const perm = view?.permissions.find((p) => p.key === key);
+    if (!perm) return false;
+    const currentOverride = key in pending ? pending[key] : perm.override;
+    return currentOverride !== null ? currentOverride : perm.roleDefault;
+  };
+
   const handleSave = async () => {
     if (!hasPendingChanges) return;
+    const emptyMasters = findEmptyMasterToggles(catalog, getEffective);
+    if (emptyMasters.length > 0) {
+      const names = emptyMasters.map((k) => catalogByKey.get(k)?.name ?? k).join(", ");
+      showError(`Turn off "${names}", or select at least one option below it.`);
+      return;
+    }
     setSaving(true);
     const result = await dispatch(setStaffOverridesThunk({ staffId, overrides: pending }));
     setSaving(false);
@@ -297,6 +323,14 @@ export default function StaffPermissionEditor({ staffId, staffName, onClose }: P
               const selectedSubGroup = selectedKey != null
                 ? group.subGroups.find((sg) => (sg.groupName ?? UNGROUPED) === selectedKey)
                 : undefined;
+              // A child of a REVEAL_ON_MASTER_TOGGLE master (currently just
+              // Online Booking's channels) stays hidden entirely until the
+              // master itself is switched on.
+              const isHiddenChild = (key: string) => {
+                const parentKey = isRevealedChild(catalog, key);
+                if (parentKey == null) return false;
+                return !group.rows.find((r) => r.key === parentKey)?.effective;
+              };
               const renderRow = (row: (typeof group.rows)[number]) => {
                 const locked = group.module === "Quick Sale"
                   && QUICK_SALE_DEPENDENT_KEYS.includes(row.key)
@@ -349,7 +383,7 @@ export default function StaffPermissionEditor({ staffId, staffName, onClose }: P
                 </button>
                 {isOpen && (
                   !hasSubGroups ? (
-                    group.rows.map(renderRow)
+                    group.rows.filter((r) => !isHiddenChild(r.key)).map(renderRow)
                   ) : selectedSubGroup ? (
                     <>
                       <button
@@ -359,7 +393,7 @@ export default function StaffPermissionEditor({ staffId, staffName, onClose }: P
                       >
                         <ChevronLeft size={13} /> Back to {group.module}
                       </button>
-                      {selectedSubGroup.rows.map(renderRow)}
+                      {selectedSubGroup.rows.filter((r) => !isHiddenChild(r.key)).map(renderRow)}
                     </>
                   ) : (
                     <div className="ispp-subgroup-list">

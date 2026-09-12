@@ -35,6 +35,8 @@ import api from "../../../services/api/axios";
 import { NOTIFICATIONS } from "../../../services/api/endpoints";
 import { connectSocket, disconnectSocket } from "../../../services/socket/socket";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
+import { usePermissions } from "../../../hooks/usePermissions";
+import { showPermissionDenied } from "../../../store/permissionDialogSlice";
 import { closeCashCounterThunk } from "../../../middleware/cashCounter/cashCounter.thunk";
 import { sendDailySummaryEmail, fetchTodaysPaymentMethodCounts } from "../../cash-management/cashManagement.api";
 import { useCurrency } from "../../../hooks/useCurrency";
@@ -147,6 +149,11 @@ export default function DashboardTopbar({ onLogout, collapsed, onToggleCollapsed
 
   // ── Cash counter: "Close Counter" navbar shortcut ────────────────────────────
   const dispatch = useAppDispatch();
+  const { can } = usePermissions();
+  const canViewNotifications = can("view_notifications");
+  const denyNotifPerm = () => dispatch(showPermissionDenied(
+    `Your account does not have the "view_notifications" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+  ));
   const cashDashboard = useAppSelector((s) => s.cashCounter.dashboard);
   const newSpotlightFeatures = useAppSelector(selectNewFeatures);
   const spotlightFetched = useAppSelector(selectSpotlightFetched);
@@ -239,8 +246,10 @@ export default function DashboardTopbar({ onLogout, collapsed, onToggleCollapsed
   }, []);
 
   useEffect(() => {
-    fetchNotifications();
-  }, [fetchNotifications]);
+    // Disabled actions must not trigger the related API — skip the fetch
+    // entirely (not just hide the result) when view_notifications is off.
+    if (canViewNotifications) fetchNotifications();
+  }, [fetchNotifications, canViewNotifications]);
 
   // Powers the topbar's Spotlight icon — fetched once here (topbar is
   // mounted on every dashboard page, unlike DashboardPage) so the "new
@@ -258,6 +267,10 @@ export default function DashboardTopbar({ onLogout, collapsed, onToggleCollapsed
     const socket = connectSocket(salonId);
 
     const handleNotification = (notification: Notification) => {
+      // view_notifications off must disable the feature entirely, not just
+      // the bell click/fetch — real-time pushes were slipping through and
+      // still populating the badge count + popping the toast regardless.
+      if (!canViewNotifications) return;
       // Add to bell list (deduplicated)
       setNotifs(prev => {
         if (prev.some(n => n.id === notification.id)) return prev;
@@ -272,7 +285,7 @@ export default function DashboardTopbar({ onLogout, collapsed, onToggleCollapsed
     return () => {
       socket.off("notification", handleNotification);
     };
-  }, [salonId, showToast]);
+  }, [salonId, showToast, canViewNotifications]);
 
   // Disconnect on unmount
   useEffect(() => {
@@ -525,7 +538,11 @@ export default function DashboardTopbar({ onLogout, collapsed, onToggleCollapsed
             <button
               className={`topbar-icon-btn topbar-notif-btn ${showNotif ? "topbar-icon-btn--active" : ""}`}
               title="Notifications"
-              onClick={() => { setShowNotif(v => !v); setShowProfile(false); }}
+              style={canViewNotifications ? undefined : { opacity: 0.5, cursor: "not-allowed" }}
+              onClick={() => {
+                if (!canViewNotifications) { denyNotifPerm(); return; }
+                setShowNotif(v => !v); setShowProfile(false);
+              }}
               aria-label="Notifications"
             >
               <Bell size={19} />
@@ -534,7 +551,7 @@ export default function DashboardTopbar({ onLogout, collapsed, onToggleCollapsed
               )}
             </button>
 
-            {showNotif && (
+            {showNotif && canViewNotifications && (
               <div className="topbar-notif-dropdown" role="menu">
                 <div className="topbar-notif-header">
                   <span className="topbar-notif-title">

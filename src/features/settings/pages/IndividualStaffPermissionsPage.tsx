@@ -12,6 +12,7 @@ import {
   assignStaffRoleThunk,
 } from "../../../middleware/roles/roles.thunk";
 import { sortModuleNames, sortGroupNames } from "../utils/permissionModuleOrder";
+import { cascadeOnKeys, isRevealedChild, findEmptyMasterToggles } from "../utils/permissionCascade";
 // Shared .spm-perm-row/.spm-reset-link/.settings-toggle/.s-badge-* classes
 // reused here live in this stylesheet — see the same import in
 // RolesPermissionsPage.tsx for why this needs to be explicit now that
@@ -168,30 +169,24 @@ export default function IndividualStaffPermissionsPage() {
   // reason about while editing. "Reset this one" (below) is the only way
   // back to inheriting the role default for that specific permission.
   //
-  // Turning ON a category-parent permission (one whose own depends_on is
-  // ["view_reports"] — currently just the 8 Reports categories) cascades to
-  // every permission that in turn depends_on THAT category, i.e. every
-  // individual report inside it. Without this, switching on e.g. "Sales
-  // Reports" looked like it granted the category but actually unlocked
-  // nothing — each report's own view_report_<id> key still gated it
-  // independently, so the category toggle alone opened an empty-feeling
-  // Reports page with every card 403ing (found 2026-09-11). Turning the
-  // category back OFF is deliberately NOT symmetric — it does not strip
-  // individually-granted reports, same as removing the category elsewhere
-  // in this session just re-locks the front door without touching the
-  // leaf grants behind it.
+  // Turning a permission ON cascades to its prerequisites AND to whatever
+  // depends on it (see cascadeOnKeys) — e.g. switching on a Reports category
+  // now also grants every report inside it (without this, "Sales Reports"
+  // looked granted but each report's own view_report_<id> key still gated
+  // it independently, opening an empty-feeling page with every card
+  // 403ing — found 2026-09-11), and switching on a module's own master
+  // switch (View Booking, View Reports) also grants its channels/categories
+  // by default. Generalized from a Reports-only special case to every
+  // depends_on relationship, so Online Booking's channels get the same
+  // "turn on the parent, get the children" behavior. OFF is deliberately
+  // NOT symmetric in either direction — it never strips an
+  // individually-granted child, and never re-locks a sibling that still
+  // needs the same parent.
   const toggleEffective = (key: string, currentEffective: boolean) => {
     const next = !currentEffective;
     setPending((prev) => {
       const updated = { ...prev, [key]: next };
-      if (next) {
-        const meta = catalogByKey.get(key);
-        if (meta?.depends_on?.includes("view_reports")) {
-          for (const perm of catalog) {
-            if (perm.depends_on?.includes(key)) updated[perm.key] = true;
-          }
-        }
-      }
+      if (next) for (const k of cascadeOnKeys(catalog, key)) updated[k] = true;
       return updated;
     });
   };
@@ -220,8 +215,21 @@ export default function IndividualStaffPermissionsPage() {
     });
   };
 
+  const getEffective = (key: string): boolean => {
+    const perm = view?.permissions.find((p) => p.key === key);
+    if (!perm) return false;
+    const currentOverride = key in pending ? pending[key] : perm.override;
+    return currentOverride !== null ? currentOverride : perm.roleDefault;
+  };
+
   const handleSave = async () => {
     if (!hasPendingChanges || !staffId) return;
+    const emptyMasters = findEmptyMasterToggles(catalog, getEffective);
+    if (emptyMasters.length > 0) {
+      const names = emptyMasters.map((k) => catalogByKey.get(k)?.name ?? k).join(", ");
+      showError(`Turn off "${names}", or select at least one option below it.`);
+      return;
+    }
     setSaving(true);
     const result = await dispatch(setStaffOverridesThunk({ staffId, overrides: pending }));
     setSaving(false);
@@ -379,6 +387,14 @@ export default function IndividualStaffPermissionsPage() {
                 const selectedSubGroup = selectedKey != null
                   ? group.subGroups.find((sg) => (sg.groupName ?? UNGROUPED) === selectedKey)
                   : undefined;
+                // A child of a REVEAL_ON_MASTER_TOGGLE master (currently
+                // just Online Booking's channels) stays hidden entirely
+                // until the master itself is switched on.
+                const isHiddenChild = (key: string) => {
+                  const parentKey = isRevealedChild(catalog, key);
+                  if (parentKey == null) return false;
+                  return !group.rows.find((r) => r.key === parentKey)?.effective;
+                };
                 const renderRow = (row: (typeof group.rows)[number]) => {
                   const locked = group.module === "Quick Sale"
                     && QUICK_SALE_DEPENDENT_KEYS.includes(row.key)
@@ -440,7 +456,7 @@ export default function IndividualStaffPermissionsPage() {
                     {isOpen && (
                       <div className="ispp-module-card-body">
                         {!hasSubGroups ? (
-                          group.rows.map(renderRow)
+                          group.rows.filter((r) => !isHiddenChild(r.key)).map(renderRow)
                         ) : selectedSubGroup ? (
                           <>
                             <button
@@ -450,7 +466,7 @@ export default function IndividualStaffPermissionsPage() {
                             >
                               <ChevronLeft size={13} /> Back to {group.module}
                             </button>
-                            {selectedSubGroup.rows.map(renderRow)}
+                            {selectedSubGroup.rows.filter((r) => !isHiddenChild(r.key)).map(renderRow)}
                           </>
                         ) : (
                           <div className="ispp-subgroup-list">
