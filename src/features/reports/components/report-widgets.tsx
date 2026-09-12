@@ -1,3 +1,4 @@
+import { InfiniteScrollLoader } from "@/components/ui/InfiniteScrollLoader";
 import { Ionicons } from "@expo/vector-icons";
 import { memo, useMemo } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
@@ -185,10 +186,7 @@ export const ReportPaginationFooter = memo(function ReportPaginationFooter({
   return (
     <View accessibilityLiveRegion="polite" style={styles.footer}>
       {loading ? (
-        <>
-          <View style={styles.footerSkeleton} />
-          <Text style={styles.footerText}>Loading more</Text>
-        </>
+        <InfiniteScrollLoader loading />
       ) : (
         <Text style={styles.footerText}>You’ve reached the end</Text>
       )}

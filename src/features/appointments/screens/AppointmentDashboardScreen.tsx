@@ -19,7 +19,7 @@ import { Ionicons } from "@expo/vector-icons";
 import type { Href } from "expo-router";
 import { router } from "expo-router";
 import { useCallback, useEffect, useMemo } from "react";
-import { ActivityIndicator, FlatList, RefreshControl, Text, TouchableOpacity, useWindowDimensions, View } from "react-native";
+import { FlatList, RefreshControl, Text, TouchableOpacity, useWindowDimensions, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export function AppointmentDashboardScreen() {
@@ -174,11 +174,6 @@ export function AppointmentDashboardScreen() {
         keyExtractor={(item) => item.id}
         ListFooterComponent={
           <View>
-            {loadingMore ? (
-              <View style={styles.footerLoader}>
-                <ActivityIndicator color={Colors.primary} />
-              </View>
-            ) : null}
             {filtered.length > 0 ? (
               <PaginationControls
                 currentPage={pagination.page}
