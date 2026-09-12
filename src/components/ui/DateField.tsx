@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker, { type DateTimePickerEvent } from "@react-native-community/datetimepicker";
-import { useMemo, useState } from "react";
+import { forwardRef, useMemo, useState } from "react";
 import { Modal, Platform, Pressable, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { DashboardRadius as Radius, DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
@@ -53,7 +53,7 @@ const formatDisplayDate = (isoDate: string, displayFormat: DateFieldProps["displ
 // General-purpose date picker field — wraps @react-native-community/datetimepicker
 // with the platform-appropriate presentation (inline on Android, a modal
 // spinner on iOS) so screens don't have to hand-roll this each time.
-export function DateField({ displayFormat = "localized", error, label, maximumDate, minimumDate, onChange, placeholder, value }: DateFieldProps) {
+export const DateField = forwardRef<View, DateFieldProps>(function DateField({ displayFormat = "localized", error, label, maximumDate, minimumDate, onChange, placeholder, value }, ref) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const [isPickerVisible, setIsPickerVisible] = useState(false);
@@ -76,7 +76,7 @@ export function DateField({ displayFormat = "localized", error, label, maximumDa
   };
 
   return (
-    <View style={styles.group}>
+    <View ref={ref} style={styles.group}>
       <Text style={styles.label}>{label}</Text>
       <TouchableOpacity
         activeOpacity={0.84}
@@ -131,7 +131,7 @@ export function DateField({ displayFormat = "localized", error, label, maximumDa
       ) : null}
     </View>
   );
-}
+});
 
 const createStyles = (Colors: ThemeColors) =>
   StyleSheet.create({

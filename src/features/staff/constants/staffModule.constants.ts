@@ -54,6 +54,13 @@ export const STAFF_MODULE_SECTIONS: StaffModuleSection[] = [
     status: "connected",
   },
   {
+    description: "Sales handled and attendance recorded for this staff member.",
+    key: "history",
+    label: "History",
+    route: "/team/[id]/history",
+    status: "connected",
+  },
+  {
     description: "Working schedule, breaks, shifts and availability.",
     key: "schedule",
     label: "Schedule",

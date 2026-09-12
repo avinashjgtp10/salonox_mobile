@@ -1,6 +1,7 @@
+import { InfiniteScrollLoader } from "@/components/ui/InfiniteScrollLoader";
 import { Ionicons } from "@expo/vector-icons";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import Animated, { FadeInUp, LinearTransition } from "react-native-reanimated";
 
 import { Badge } from "@/components/ui/Badge";
@@ -178,11 +179,7 @@ export function ProductCatalogTab({ onSelect, search }: ProductCatalogTabProps) 
           initialNumToRender={8}
           keyExtractor={(item) => `product-card-${item.id}`}
           ListFooterComponent={
-            loadingMore ? (
-              <View style={styles.footerLoader}>
-                <ActivityIndicator color={Colors.primary} />
-              </View>
-            ) : null
+            <InfiniteScrollLoader loading={loadingMore} />
           }
           onEndReached={handleLoadMore}
           onEndReachedThreshold={0.5}

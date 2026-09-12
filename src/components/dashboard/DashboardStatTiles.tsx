@@ -1,3 +1,4 @@
+import { LinearGradient } from "expo-linear-gradient";
 import { router, type Href } from "expo-router";
 import { useMemo } from "react";
 import { StyleSheet, Text, TouchableOpacity, View, useWindowDimensions, type DimensionValue } from "react-native";
@@ -15,8 +16,21 @@ import {
   selectDashboardMetrics,
 } from "@/store/dashboard/dashboard.slice";
 import { selectClientsTotalCount } from "@/store/client/client.slice";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { useAppTheme, useThemeColors } from "@/theme/ThemeProvider";
 import { formatDashboardRevenue } from "@/utils/dashboard";
+
+// Card fills lifted from the dashboard redesign. Light mode only — the dark
+// palette keeps its existing solid tokens, since these pastels would leave the
+// tile values unreadable against light-on-dark text.
+const STAT_TILE_GRADIENTS = {
+  bookings: ["#FEF3C7", "#FDE68A"],
+  clients: ["#EDE9FE", "#DDD6FE"],
+  monthRevenue: ["#D1FAE5", "#A7F3D0"],
+  todayRevenue: ["#DBEAFE", "#BFDBFE"],
+} as const;
+
+const GRADIENT_START = { x: 0, y: 0 };
+const GRADIENT_END = { x: 1, y: 1 };
 
 const getRevenueComparison = (currentMonth: number, lastMonth: number, revenueChange: number) => {
   if (currentMonth === 0 && lastMonth === 0) {
@@ -102,6 +116,7 @@ function RevenueComparisonBars({
 // an inline strip inside it.
 export default function DashboardStatTiles() {
   const Colors = useThemeColors();
+  const { scheme } = useAppTheme();
   const { width } = useWindowDimensions();
   const isCompact = width < 390;
   const styles = useMemo(() => createStyles(Colors, isCompact), [Colors, isCompact]);
@@ -128,9 +143,10 @@ export default function DashboardStatTiles() {
         accent: "blue" as const,
         bg: Colors.dashboardRevenueBg,
         color: Colors.dashboardRevenueAccent,
+        gradient: STAT_TILE_GRADIENTS.monthRevenue,
         icon: "cash-outline" as const,
         label: "This Month Revenue",
-        route: "/sales" as Href,
+        route: "/monthly-revenue" as Href,
         subtitle: "Current Calendar Month",
         value: formatDashboardRevenue(dashboardMetrics.monthlyRevenue),
       },
@@ -138,6 +154,7 @@ export default function DashboardStatTiles() {
         accent: "sky" as const,
         bg: Colors.dashboardAppointmentBg,
         color: Colors.dashboardAppointmentAccent,
+        gradient: STAT_TILE_GRADIENTS.todayRevenue,
         icon: "trending-up-outline" as const,
         label: "Today's Revenue",
         route: "/sales" as Href,
@@ -147,6 +164,7 @@ export default function DashboardStatTiles() {
         accent: "indigo" as const,
         bg: Colors.dashboardClientBg,
         color: Colors.dashboardClientAccent,
+        gradient: STAT_TILE_GRADIENTS.clients,
         icon: "people-outline" as const,
         label: "Total Clients",
         route: "/clients" as Href,
@@ -156,6 +174,7 @@ export default function DashboardStatTiles() {
         accent: "green" as const,
         bg: Colors.dashboardWarningBg,
         color: Colors.dashboardWarningAccent,
+        gradient: STAT_TILE_GRADIENTS.bookings,
         icon: "calendar-outline" as const,
         label: "Bookings",
         route: "/bookings" as Href,
@@ -187,14 +206,24 @@ export default function DashboardStatTiles() {
   return (
     <View style={styles.row}>
       {ownerKpis.map((stat) => {
+        const gradient = scheme === "dark" || !("gradient" in stat) ? null : stat.gradient;
         const tileStyle = [
           styles.tile,
-          { backgroundColor: stat.bg, borderColor: stat.color },
+          { backgroundColor: stat.bg },
           "kind" in stat && stat.kind === "revenueComparison" && styles.comparisonTile,
         ];
 
         const tileContent = (
           <>
+            {gradient ? (
+              <LinearGradient
+                colors={gradient}
+                end={GRADIENT_END}
+                pointerEvents="none"
+                start={GRADIENT_START}
+                style={styles.tileGradient}
+              />
+            ) : null}
             {isDashboardLoading ? (
             <>
               <View style={styles.iconSkeleton} />
@@ -308,26 +337,31 @@ const createStyles = (Colors: ThemeColors, isCompact: boolean) => StyleSheet.cre
     gap: 10,
     paddingHorizontal: 14,
   },
+  // Redesign card shape: 24px corners, 20px padding, no outline, and a soft
+  // shadow-sm lift instead of the old bordered tile.
   tile: {
     alignItems: "flex-start",
     backgroundColor: Colors.dashboardCard,
-    borderColor: Colors.border,
-    borderRadius: 14,
-    borderWidth: 1,
+    borderRadius: 24,
+    borderWidth: 0,
     flexBasis: "47%",
     flexGrow: 1,
     flexDirection: "column",
     gap: isCompact ? 8 : 10,
     justifyContent: "space-between",
-    minHeight: isCompact ? 118 : 128,
+    minHeight: isCompact ? 148 : 160,
     minWidth: 0,
-    paddingHorizontal: isCompact ? 12 : 14,
-    paddingVertical: isCompact ? 13 : 15,
+    overflow: "hidden",
+    paddingHorizontal: isCompact ? 16 : 20,
+    paddingVertical: isCompact ? 16 : 20,
     shadowColor: Colors.shadow,
-    shadowOffset: { width: 0, height: 6 },
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
-    shadowRadius: 14,
-    elevation: 2,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  tileGradient: {
+    ...StyleSheet.absoluteFillObject,
   },
   tileTopRow: {
     alignItems: "center",

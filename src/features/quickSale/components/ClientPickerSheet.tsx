@@ -1,3 +1,4 @@
+import { InfiniteScrollLoader } from "@/components/ui/InfiniteScrollLoader";
 import { Ionicons } from "@expo/vector-icons";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
@@ -360,7 +361,7 @@ export function ClientPickerSheet({
               keyboardShouldPersistTaps="handled"
               keyExtractor={(item) => `client-picker-${item.id}`}
               ListFooterComponent={
-                loadingMore ? <ActivityIndicator color={Colors.primary} size="small" style={styles.loadingSpacer} /> : null
+                <InfiniteScrollLoader loading={loadingMore} />
               }
               onEndReached={handleLoadMore}
               onEndReachedThreshold={0.5}

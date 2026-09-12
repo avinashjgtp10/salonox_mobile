@@ -2,7 +2,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
 import { memo, useMemo } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import Animated, { FadeInDown, LinearTransition } from "react-native-reanimated";
 
 import {
   DashboardRadius as Radius,
@@ -15,6 +14,8 @@ import { useThemeColors } from "@/theme/ThemeProvider";
 import { formatStaffDisplayName } from "@/utils/name";
 
 type StaffCardProps = {
+  metricsReady?: boolean;
+  metricsError?: boolean;
   index: number;
   onCall: (staffMember: StaffMember) => void;
   onMessage: (staffMember: StaffMember) => void;
@@ -73,18 +74,14 @@ function ActionIcon({
   );
 }
 
-function StaffCardComponent({ index, onCall, onMessage, onMore, staffMember }: StaffCardProps) {
+function StaffCardComponent({ onCall, onMessage, onMore, staffMember, metricsReady = true, metricsError = false }: StaffCardProps) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const statusPalette = getStatusPalette(staffMember.status, Colors);
   const availabilityPalette = getAvailabilityPalette(staffMember.availability, Colors);
 
   return (
-    <Animated.View
-      entering={FadeInDown.duration(240).delay(Math.min(index * 35, 180))}
-      layout={LinearTransition.duration(180)}
-      style={styles.animatedWrap}
-    >
+    <View style={styles.animatedWrap}>
       <TouchableOpacity
         activeOpacity={0.9}
         onPress={() => router.push(`/team/${staffMember.id}` as Href)}
@@ -129,37 +126,24 @@ function StaffCardComponent({ index, onCall, onMessage, onMore, staffMember }: S
               icon="person-circle-outline"
               onPress={() => router.push(`/team/${staffMember.id}` as Href)}
             />
+            <ActionIcon
+              icon="calendar-outline"
+              onPress={() => router.push(`/team/${staffMember.id}/schedule` as Href)}
+            />
             <ActionIcon icon="ellipsis-horizontal" onPress={() => onMore(staffMember)} />
           </View>
         </View>
 
-        <View style={styles.metricsRow}>
-          <View style={styles.metricChip}>
-            <Ionicons name="calendar-outline" size={13} color={Colors.primary} />
-            <Text style={styles.metricValue}>{staffMember.todayAppointments}</Text>
-            <Text style={styles.metricLabel}>Appointments</Text>
-          </View>
-          <View style={styles.metricChip}>
-            <Ionicons name="cash-outline" size={13} color={Colors.primary} />
-            <Text style={styles.metricValue}>{formatCurrency(staffMember.todayRevenue)}</Text>
-            <Text style={styles.metricLabel}>Revenue</Text>
-          </View>
-          <View style={styles.metricChip}>
-            <Ionicons name="sparkles-outline" size={13} color={Colors.primary} />
-            <Text style={styles.metricValue}>{staffMember.servicesCompleted}</Text>
-            <Text style={styles.metricLabel}>Completed</Text>
-          </View>
-        </View>
-
         <View style={styles.performanceSection}>
-          <Text style={styles.performanceLabel}>Performance</Text>
+          <Text style={styles.performanceLabel}>Today&apos;s Performance</Text>
+          {metricsError ? <Text style={styles.performanceCaption}>Unable to load daily metrics. Pull down to retry.</Text> : null}
           <View style={styles.performanceGrid}>
             <View style={styles.performanceCard}>
-              <Text style={styles.performanceValue}>{staffMember.todayAppointments}</Text>
-              <Text style={styles.performanceCaption}>Today</Text>
+              <Text style={styles.performanceValue}>{metricsReady ? staffMember.todayAppointments : "—"}</Text>
+              <Text style={styles.performanceCaption}>Appointments</Text>
             </View>
             <View style={styles.performanceCard}>
-              <Text style={styles.performanceValue}>{formatCurrency(staffMember.todayRevenue)}</Text>
+              <Text style={styles.performanceValue}>{metricsReady ? formatCurrency(staffMember.todayRevenue) : "—"}</Text>
               <Text style={styles.performanceCaption}>Revenue</Text>
             </View>
             <View style={styles.performanceCard}>
@@ -167,13 +151,13 @@ function StaffCardComponent({ index, onCall, onMessage, onMore, staffMember }: S
               <Text style={styles.performanceCaption}>Rating</Text>
             </View>
             <View style={styles.performanceCard}>
-              <Text style={styles.performanceValue}>{staffMember.servicesCompleted}</Text>
-              <Text style={styles.performanceCaption}>Services</Text>
+              <Text style={styles.performanceValue}>{metricsReady ? staffMember.servicesCompleted : "—"}</Text>
+              <Text style={styles.performanceCaption}>Completed</Text>
             </View>
           </View>
         </View>
       </TouchableOpacity>
-    </Animated.View>
+    </View>
   );
 }
 
@@ -258,10 +242,10 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     alignItems: "center",
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
+    gap: 6,
     justifyContent: "flex-end",
     marginLeft: Spacing.md,
-    width: 104,
+    width: 82,
   },
   actionIcon: {
     alignItems: "center",

@@ -121,9 +121,13 @@ const getAuthPayloadMessage = (error: unknown) => {
 export const shouldInvalidateSession = (error: unknown) => {
   const status = getAuthErrorStatus(error);
 
-  if (status && [401, 403].includes(status)) {
+  if (status === 401) {
     return true;
   }
+
+  // A forbidden resource is not necessarily an invalid login session.
+  if (status === 403) return false;
+  if (!status || status >= 500) return false;
 
   const message = (getAuthPayloadMessage(error) ?? getAuthErrorMessage(error)).toLowerCase();
 

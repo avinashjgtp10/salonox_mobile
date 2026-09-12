@@ -1,4 +1,4 @@
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 
 import { useAppToast } from "@/hooks/useAppToast";
@@ -6,6 +6,7 @@ import { createStaffThunk, updateStaffThunk, fetchStaffThunk } from "@/middlewar
 import { getApiErrorMessage } from "@/services/api";
 import { staffService } from "@/services/staff.service";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { OWNER_CALENDAR_ROUTE } from "@/utils/routeResolver";
 import {
   selectStaffById,
   selectStaffCreateError,
@@ -57,6 +58,7 @@ const toPlaceholderDob = (day?: number | null, month?: number | null) => {
 };
 
 export const useStaffForm = (staffId?: string | null) => {
+  const { fromCalendar } = useLocalSearchParams<{ fromCalendar?: string }>();
   const dispatch = useAppDispatch();
   const toast = useAppToast();
   const staffMember = useAppSelector((state) => selectStaffById(state, staffId));
@@ -110,7 +112,7 @@ export const useStaffForm = (staffId?: string | null) => {
       gender: staffMember.gender === "-" ? "" : staffMember.gender,
       holidays: staffMember.holidays != null ? String(staffMember.holidays) : "",
       hourlyRate: "",
-      isLoginEnabled: false,
+      isLoginEnabled: Boolean(staffMember.loginAccess),
       joiningDate: staffMember.joiningDate === "-" ? "" : staffMember.joiningDate,
       notes: staffMember.notes,
       password: "",
@@ -208,7 +210,9 @@ export const useStaffForm = (staffId?: string | null) => {
           ? action.payload.staffMember.id
           : staffId;
 
-      if (nextStaffId) {
+      if (!isEditMode && fromCalendar === "true") {
+        router.replace(OWNER_CALENDAR_ROUTE);
+      } else if (nextStaffId) {
         router.replace(`/team/${nextStaffId}`);
       } else {
         router.replace("/team");
@@ -232,6 +236,7 @@ export const useStaffForm = (staffId?: string | null) => {
     updateField,
     uploadAvatar,
     validationErrors: visibleValidationErrors,
+    allValidationErrors: validation.errors,
     values,
   };
 };

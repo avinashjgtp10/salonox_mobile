@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   RefreshControl,
@@ -37,6 +37,11 @@ import {
   PHONE_INVALID_MESSAGE,
   sanitizePhoneDigits,
 } from "@/utils/validation";
+import { useValidationScroll } from "@/hooks/useValidationScroll";
+
+type SalonField = "businessName" | "email" | "phone";
+type SalonFieldErrors = Partial<Record<SalonField, string>>;
+const VALIDATION_FIELD_ORDER: SalonField[] = ["businessName", "email", "phone"];
 
 const getRejectedMessage = (payload: unknown, fallback: string) => {
   if (payload && typeof payload === "object" && "message" in payload) {
@@ -50,21 +55,23 @@ const getRejectedMessage = (payload: unknown, fallback: string) => {
   return fallback;
 };
 
-function FormField({
-  autoCapitalize,
-  keyboardType,
-  label,
-  onChangeText,
-  placeholder,
-  value,
-}: {
+const FormField = forwardRef<TextInput, {
   autoCapitalize?: "none" | "words";
+  error?: string;
   keyboardType?: "default" | "email-address" | "phone-pad";
   label: string;
   onChangeText: (value: string) => void;
   placeholder: string;
   value: string;
-}) {
+}>(function FormField({
+  autoCapitalize,
+  error,
+  keyboardType,
+  label,
+  onChangeText,
+  placeholder,
+  value,
+}, ref) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
@@ -72,18 +79,20 @@ function FormField({
     <View style={styles.inputGroup}>
       <Text style={styles.inputLabel}>{label}</Text>
       <TextInput
+        ref={ref}
         autoCapitalize={autoCapitalize}
         autoCorrect={false}
         keyboardType={keyboardType}
         onChangeText={onChangeText}
         placeholder={placeholder}
         placeholderTextColor={Colors.placeholder}
-        style={styles.textInput}
+        style={[styles.textInput, error && styles.textInputError]}
         value={value}
       />
+      {error ? <Text style={styles.fieldErrorText}>{error}</Text> : null}
     </View>
   );
-}
+});
 
 function DetailRow({ label, value }: { label: string; value: string }) {
   const Colors = useThemeColors();
@@ -109,11 +118,13 @@ export default function SalonSettingsScreen() {
   const detailsLoading = useAppSelector(selectSalonDetailsLoading);
   const detailsError = useAppSelector(selectSalonDetailsError);
   const isUpdating = useAppSelector(selectSalonUpdating);
+  const { scrollToFirstError, scrollViewRef, setFieldRef } = useValidationScroll(VALIDATION_FIELD_ORDER);
 
   const [address, setAddress] = useState("");
   const [businessName, setBusinessName] = useState("");
   const [city, setCity] = useState("");
   const [email, setEmail] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<SalonFieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [phone, setPhone] = useState("");
   const [postalCode, setPostalCode] = useState("");
@@ -164,18 +175,18 @@ export default function SalonSettingsScreen() {
     setFormError(null);
     setSuccessMessage(null);
 
-    if (!trimmedBusinessName) {
-      setFormError("Business name is required.");
-      return;
-    }
-
+    const nextErrors: SalonFieldErrors = {};
+    if (!trimmedBusinessName) nextErrors.businessName = "Business name is required.";
     if (trimmedEmail && !isValidEmail(trimmedEmail)) {
-      setFormError(EMAIL_INVALID_MESSAGE);
-      return;
+      nextErrors.email = EMAIL_INVALID_MESSAGE;
+    }
+    if (trimmedPhone && !isValidPhoneDigits(trimmedPhone)) {
+      nextErrors.phone = PHONE_INVALID_MESSAGE;
     }
 
-    if (trimmedPhone && !isValidPhoneDigits(trimmedPhone)) {
-      setFormError(PHONE_INVALID_MESSAGE);
+    setFieldErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) {
+      scrollToFirstError(nextErrors);
       return;
     }
 
@@ -282,6 +293,7 @@ export default function SalonSettingsScreen() {
     <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
       <AppStatusBar />
       <KeyboardAwareScrollView
+        ref={scrollViewRef}
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
           refreshControl={
@@ -302,26 +314,32 @@ export default function SalonSettingsScreen() {
             </View>
 
             <FormField
+              ref={(input) => setFieldRef("businessName", input)}
+              error={fieldErrors.businessName}
               autoCapitalize="words"
               label="Business Name"
-              onChangeText={setBusinessName}
+              onChangeText={(value) => { setBusinessName(value); setFieldErrors((current) => ({ ...current, businessName: undefined })); }}
               placeholder="Enter business name"
               value={businessName}
             />
 
             <FormField
+              ref={(input) => setFieldRef("email", input)}
+              error={fieldErrors.email}
               autoCapitalize="none"
               keyboardType="email-address"
               label="Email"
-              onChangeText={setEmail}
+              onChangeText={(value) => { setEmail(value); setFieldErrors((current) => ({ ...current, email: undefined })); }}
               placeholder="Enter salon email"
               value={email}
             />
 
             <FormField
+              ref={(input) => setFieldRef("phone", input)}
+              error={fieldErrors.phone}
               keyboardType="phone-pad"
               label="Phone Number"
-              onChangeText={(value) => setPhone(sanitizePhoneDigits(value))}
+              onChangeText={(value) => { setPhone(sanitizePhoneDigits(value)); setFieldErrors((current) => ({ ...current, phone: undefined })); }}
               placeholder="Enter phone number"
               value={phone}
             />
@@ -478,6 +496,16 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontSize: 15,
     minHeight: 52,
     paddingHorizontal: AppLayout.searchBarPaddingX,
+  },
+  textInputError: {
+    borderColor: Colors.error,
+    borderWidth: 1.5,
+  },
+  fieldErrorText: {
+    color: Colors.error,
+    fontSize: 12,
+    fontWeight: "700",
+    marginTop: 6,
   },
   errorContainer: {
     alignItems: "center",

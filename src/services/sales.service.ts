@@ -17,6 +17,8 @@ import type {
   SaleLineItem,
   SaleLineItemRequest,
   SaleListItem,
+  StaffSaleItem,
+  StaffSaleItemsResponse,
   SalesInitApiData,
   SalesInitData,
   SalesListPagination,
@@ -54,6 +56,7 @@ type SalesListApiData =
       total_count?: number | null;
     };
 type SalesListApiResponse = ApiResponse<SalesListApiData>;
+type StaffSaleItemsApiResponse = ApiResponse<SalesListApiData>;
 type SalesSummaryApiResponse = ApiResponse<UnknownRecord | null>;
 type ExportSalesApiResponse = ApiResponse<UnknownRecord | string | null>;
 
@@ -342,6 +345,18 @@ const normalizeSaleLineItem = (entry: UnknownRecord, index: number): SaleLineIte
   };
 };
 
+const normalizeStaffSaleItem = (entry: UnknownRecord, index: number): StaffSaleItem => {
+  const lineItem = normalizeSaleLineItem(entry, index);
+
+  return {
+    ...lineItem,
+    clientName: toSafeString(firstValue(entry, ["client_name", "clientName"])) || null,
+    paymentSource: toSafeString(firstValue(entry, ["payment_source", "paymentSource", "payment_method", "paymentMethod"]), "-"),
+    saleCreatedDateLabel: formatSaleTime(firstValue(entry, ["sale_created_at", "saleCreatedAt", "created_at", "createdAt"])),
+    saleId: toSafeString(firstValue(entry, ["sale_id", "saleId"])),
+  };
+};
+
 const normalizeSaleListItem = (entry: UnknownRecord): SaleListItem => {
   const lineItems = firstArray(entry, ["items", "line_items", "lineItems"]);
 
@@ -570,6 +585,28 @@ export const salesService = {
       query,
       sales,
       totalCount,
+    };
+  },
+
+  async getStaffItems(
+    staffId: string,
+    options: { endDate?: string; itemType?: SaleItemType; limit?: number; page?: number; startDate?: string } = {},
+  ): Promise<StaffSaleItemsResponse> {
+    const response = await api.get<StaffSaleItemsApiResponse>(SALES.STAFF_ITEMS(staffId), {
+      params: {
+        ...(options.endDate ? { end_date: options.endDate } : {}),
+        ...(options.itemType ? { item_type: options.itemType } : {}),
+        ...(options.limit ? { limit: options.limit } : {}),
+        ...(options.page ? { page: options.page } : {}),
+        ...(options.startDate ? { start_date: options.startDate } : {}),
+      },
+    });
+    const apiItems = getSaleArray(response.data.data);
+    const items = apiItems.map(normalizeStaffSaleItem);
+
+    return {
+      items,
+      totalCount: getSalesTotalCount(response.data.data, items.length),
     };
   },
 

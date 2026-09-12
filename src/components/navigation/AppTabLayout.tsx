@@ -49,6 +49,7 @@ export function AppTabLayout({ children, tabs }: AppTabLayoutProps) {
   return (
     <Tabs
       screenOptions={{
+        freezeOnBlur: true,
         headerShown: false,
         tabBarActiveTintColor: Colors.primary,
         tabBarInactiveTintColor: Colors.text2,

@@ -17,6 +17,7 @@ import { AppLayout, AppRadius } from "@/constants/layout";
 import { DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
 import { useDebouncedValue } from "@/features/quickSale/hooks/useDebouncedValue";
 import { ReportFilterSheet } from "@/features/reports/components/report-filter-sheet";
+import { ReportRangeSheet } from "@/features/reports/components/report-range-sheet";
 import {
   ReportPaginationFooter,
   ReportRowCard,
@@ -69,6 +70,7 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
   const entry = useAppSelector((state) => selectReportEntry(state, config.slug));
   const filters = entry?.filters ?? createDefaultReportFilters(config.slug);
   const [filterSheetVisible, setFilterSheetVisible] = useState(false);
+  const [rangeSheetVisible, setRangeSheetVisible] = useState(false);
   const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
   const [search, setSearch] = useState(filters.search ?? "");
   const debouncedSearch = useDebouncedValue(search.trim(), 400);
@@ -92,6 +94,23 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
   const hasMore = Boolean(config.paginated && pagination && pagination.page < pagination.totalPages);
   const supportsSearch = config.filters.includes("search");
   const isUnavailable = config.status !== "available";
+  // Reports name their date window differently (start_date/end_date, from/to,
+  // or a single date), so the range control resolves the pair this report uses.
+  const dateKeys = useMemo(() => {
+    if (config.filters.includes("start_date")) {
+      return { end: "end_date", mode: "range", start: "start_date" } as const;
+    }
+
+    if (config.filters.includes("from")) {
+      return { end: "to", mode: "range", start: "from" } as const;
+    }
+
+    if (config.filters.includes("date")) {
+      return { end: null, mode: "single", start: "date" } as const;
+    }
+
+    return null;
+  }, [config.filters]);
   const campaignOptions = useMemo(() => {
     const campaigns = entry?.data?.campaigns;
     if (!Array.isArray(campaigns)) return [];
@@ -144,6 +163,14 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
     setFilterSheetVisible(false);
     load(applied);
   }, [config.slug, dispatch, load, search]);
+  const applyRange = useCallback((nextStart: string | null, nextEnd: string | null) => {
+    if (!dateKeys) return;
+    const applied: ReportFilters = { ...filters, [dateKeys.start]: nextStart ?? "", page: 1 };
+    if (dateKeys.end) applied[dateKeys.end] = nextEnd ?? "";
+    dispatch(rememberReportFilters({ filters: applied, slug: config.slug }));
+    setRangeSheetVisible(false);
+    load(applied);
+  }, [config.slug, dateKeys, dispatch, filters, load]);
   const resetFilters = useCallback(() => {
     const defaults = createDefaultReportFilters(config.slug);
     setSearch("");
@@ -220,11 +247,11 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
       ) : null}
 
       <TouchableOpacity
-        accessibilityHint="Opens report date and filter options"
+        accessibilityHint="Opens a calendar to pick the report date range"
         accessibilityRole="button"
-        disabled={isUnavailable}
-        onPress={() => setFilterSheetVisible(true)}
-        style={[styles.dateSelector, isUnavailable && styles.disabledButton]}
+        disabled={isUnavailable || !dateKeys}
+        onPress={() => setRangeSheetVisible(true)}
+        style={[styles.dateSelector, (isUnavailable || !dateKeys) && styles.disabledButton]}
       >
         <View style={styles.dateIcon}>
           <Ionicons name="calendar-outline" size={17} color={Colors.primaryDark} />
@@ -258,6 +285,17 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
     </View>
   );
 
+  const rangeSheet = dateKeys ? (
+    <ReportRangeSheet
+      endDate={dateKeys.end ? filters[dateKeys.end] ?? null : null}
+      mode={dateKeys.mode}
+      onApply={applyRange}
+      onClose={() => setRangeSheetVisible(false)}
+      startDate={filters[dateKeys.start] ?? null}
+      visible={rangeSheetVisible}
+    />
+  ) : null;
+
   if (isUnavailable) {
     return (
       <SafeAreaView edges={["top"]} style={styles.safe}>
@@ -282,6 +320,7 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
           supportedFilters={config.filters}
           visible={filterSheetVisible}
         />
+        {rangeSheet}
       </SafeAreaView>
     );
   }
@@ -349,6 +388,7 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
         supportedFilters={config.filters}
         visible={filterSheetVisible}
       />
+      {rangeSheet}
       <SalesSummaryDetailSheet
         onClose={() => setSelectedSaleId(null)}
         saleId={selectedSaleId}

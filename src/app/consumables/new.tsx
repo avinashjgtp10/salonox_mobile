@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { router, type Href } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { forwardRef, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Modal,
@@ -30,6 +30,7 @@ import { clearProductMutationError } from "@/store/product/product.slice";
 import { selectServices } from "@/store/service/service.slice";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { ServiceCategoryItem } from "@/types/service";
+import { useValidationScroll } from "@/hooks/useValidationScroll";
 
 type ProductType = "retail" | "consumable" | "both";
 
@@ -37,6 +38,18 @@ type UnitConversionDraft = {
   conversion: string;
   name: string;
 };
+
+type ConsumableField = "category" | "lowStockAlert" | "name" | "productQuantity" | "supplyPrice" | "unit" | "unitSize";
+type ConsumableFieldErrors = Partial<Record<ConsumableField, string>>;
+const VALIDATION_FIELD_ORDER: ConsumableField[] = [
+  "name",
+  "category",
+  "productQuantity",
+  "unitSize",
+  "unit",
+  "lowStockAlert",
+  "supplyPrice",
+];
 
 const PRODUCT_TYPES: { label: string; value: ProductType }[] = [
   { label: "Retail", value: "retail" },
@@ -79,6 +92,7 @@ export default function NewConsumableScreen() {
   const dispatch = useAppDispatch();
   const productState = useAppSelector((state) => state.product);
   const services = useAppSelector(selectServices);
+  const { scrollToFirstError, scrollViewRef, setFieldRef } = useValidationScroll(VALIDATION_FIELD_ORDER);
 
   const [barcode, setBarcode] = useState("");
   const [brandId, setBrandId] = useState<string | null>(null);
@@ -87,6 +101,7 @@ export default function NewConsumableScreen() {
   const [selectedCategory, setSelectedCategory] = useState<ServiceCategoryItem | null>(null);
   const [description, setDescription] = useState("");
   const [expiryDate, setExpiryDate] = useState<Date | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<ConsumableFieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [hsnSac, setHsnSac] = useState("");
   const [lowStockAlert, setLowStockAlert] = useState("");
@@ -150,6 +165,11 @@ export default function NewConsumableScreen() {
     setUnitConversions((current) => current.filter((_, itemIndex) => itemIndex !== index));
   };
 
+  const updateField = (field: ConsumableField, value: string, setter: (nextValue: string) => void) => {
+    setter(value);
+    setFieldErrors((current) => ({ ...current, [field]: undefined }));
+  };
+
   const submit = async () => {
     const numericQuantity = parseNumber(productQuantity);
     const numericUnitSize = parseNumber(unitSize);
@@ -158,13 +178,20 @@ export default function NewConsumableScreen() {
 
     setFormError(null);
 
-    if (!name.trim()) return setFormError("Product Name is required.");
-    if (!selectedCategory) return setFormError("Category is required.");
-    if (numericQuantity === null || numericQuantity < 0) return setFormError("Product Quantity is required.");
-    if (numericUnitSize === null || numericUnitSize <= 0) return setFormError("Unit Size is required.");
-    if (!unit.trim()) return setFormError("Unit is required.");
-    if (numericLowStock === null || numericLowStock < 0) return setFormError("Low Stock Alert must be zero or more.");
-    if (numericSupplyPrice === null || numericSupplyPrice < 0) return setFormError("Supply Price must be zero or more.");
+    const nextErrors: ConsumableFieldErrors = {};
+    if (!name.trim()) nextErrors.name = "Product Name is required.";
+    if (!selectedCategory) nextErrors.category = "Category is required.";
+    if (numericQuantity === null || numericQuantity < 0) nextErrors.productQuantity = "Product Quantity is required.";
+    if (numericUnitSize === null || numericUnitSize <= 0) nextErrors.unitSize = "Unit Size is required.";
+    if (!unit.trim()) nextErrors.unit = "Unit is required.";
+    if (numericLowStock === null || numericLowStock < 0) nextErrors.lowStockAlert = "Low Stock Alert must be zero or more.";
+    if (numericSupplyPrice === null || numericSupplyPrice < 0) nextErrors.supplyPrice = "Supply Price must be zero or more.";
+
+    setFieldErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) {
+      scrollToFirstError(nextErrors);
+      return;
+    }
 
     const conversions = unitConversions
       .map((item) => ({
@@ -177,8 +204,8 @@ export default function NewConsumableScreen() {
       createProductThunk({
         ...(barcode.trim() ? { barcode: barcode.trim(), sku: barcode.trim() } : {}),
         ...(brandId ? { brand_id: brandId } : {}),
-        category: selectedCategory.name,
-        category_id: selectedCategory.id,
+        category: selectedCategory!.name,
+        category_id: selectedCategory!.id,
         ...(description.trim() ? { description: description.trim() } : {}),
         ...(toIsoDate(expiryDate) ? { expiry_date: toIsoDate(expiryDate) } : {}),
         ...(hsnSac.trim() ? { hsn_sac: hsnSac.trim() } : {}),
@@ -190,11 +217,11 @@ export default function NewConsumableScreen() {
         product_type: productType,
         qty_alert: numericLowStock ?? 0,
         retail_price: productType === "consumable" ? undefined : numericSupplyPrice ?? 0,
-        stock_quantity: numericQuantity,
+        stock_quantity: numericQuantity ?? 0,
         supply_price: numericSupplyPrice ?? 0,
         ...(supplierName.trim() ? { supplier_name: supplierName.trim() } : {}),
         unit_conversions: conversions,
-        bottle_size: numericUnitSize,
+        bottle_size: numericUnitSize ?? 0,
       }),
     );
 
@@ -210,7 +237,7 @@ export default function NewConsumableScreen() {
   return (
     <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
       <AppStatusBar />
-      <KeyboardAwareScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <KeyboardAwareScrollView ref={scrollViewRef} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
           <AppBackButton onPress={goBack} />
           <Text style={styles.headerTitle}>Add Consumable</Text>
@@ -218,17 +245,20 @@ export default function NewConsumableScreen() {
         </View>
 
         <Section title="Basic Information">
-          <Field maxLength={100} label="Product Name *" onChangeText={setName} value={name} />
+          <Field ref={(input) => setFieldRef("name", input)} error={fieldErrors.name} maxLength={100} label="Product Name *" onChangeText={(value) => updateField("name", value, setName)} value={name} />
           <Text style={styles.counter}>{name.length}/100</Text>
           <Field label="Barcode (Optional)" onChangeText={setBarcode} value={barcode} />
 
           <View style={styles.twoColumn}>
-            <SelectField
-              label="Category *"
-              onPress={() => setCategoryModalOpen(true)}
-              placeholder="Search category..."
-              value={selectedCategory?.name}
-            />
+            <View ref={(view) => setFieldRef("category", view)} style={styles.flexField}>
+              <SelectField
+                error={fieldErrors.category}
+                label="Category *"
+                onPress={() => setCategoryModalOpen(true)}
+                placeholder="Search category..."
+                value={selectedCategory?.name}
+              />
+            </View>
             <SelectField
               label="Brand"
               onPress={() => setBrandModalOpen(true)}
@@ -270,16 +300,16 @@ export default function NewConsumableScreen() {
 
         <Section emphasized title="Inventory Setup">
           <View style={styles.threeColumn}>
-            <Field keyboardType="decimal-pad" label="Product Quantity *" onChangeText={setProductQuantity} value={productQuantity} />
-            <Field keyboardType="decimal-pad" label="Unit Size *" onChangeText={setUnitSize} placeholder="e.g. 1000" value={unitSize} />
-            <Field label="Unit" onChangeText={setUnit} value={unit} />
+            <Field ref={(input) => setFieldRef("productQuantity", input)} error={fieldErrors.productQuantity} keyboardType="decimal-pad" label="Product Quantity *" onChangeText={(value) => updateField("productQuantity", value, setProductQuantity)} value={productQuantity} />
+            <Field ref={(input) => setFieldRef("unitSize", input)} error={fieldErrors.unitSize} keyboardType="decimal-pad" label="Unit Size *" onChangeText={(value) => updateField("unitSize", value, setUnitSize)} placeholder="e.g. 1000" value={unitSize} />
+            <Field ref={(input) => setFieldRef("unit", input)} error={fieldErrors.unit} label="Unit" onChangeText={(value) => updateField("unit", value, setUnit)} value={unit} />
           </View>
           <View style={styles.stockPreview}>
             <Text style={styles.stockPreviewText}>
               Total Available Stock: <Text style={styles.bold}>{quantityValue} x {unitSizeValue} {unit} = {availableStock} {unit}</Text>
             </Text>
           </View>
-          <Field keyboardType="decimal-pad" label="Low Stock Alert (in bottles/units)" onChangeText={setLowStockAlert} value={lowStockAlert} />
+          <Field ref={(input) => setFieldRef("lowStockAlert", input)} error={fieldErrors.lowStockAlert} keyboardType="decimal-pad" label="Low Stock Alert (in bottles/units)" onChangeText={(value) => updateField("lowStockAlert", value, setLowStockAlert)} value={lowStockAlert} />
         </Section>
 
         <Section title="Unit Conversion">
@@ -328,7 +358,7 @@ export default function NewConsumableScreen() {
 
         <Section title="Supply Information">
           <View style={styles.twoColumn}>
-            <Field keyboardType="decimal-pad" label="Supply Price" onChangeText={setSupplyPrice} value={supplyPrice} />
+            <Field ref={(input) => setFieldRef("supplyPrice", input)} error={fieldErrors.supplyPrice} keyboardType="decimal-pad" label="Supply Price" onChangeText={(value) => updateField("supplyPrice", value, setSupplyPrice)} value={supplyPrice} />
             <SelectField label="Tax Type" onPress={() => setTaxTypeOpen(true)} value={taxType} />
           </View>
           <Field label="HSN/SAC" onChangeText={setHsnSac} value={hsnSac} />
@@ -415,7 +445,10 @@ export default function NewConsumableScreen() {
 
       <CategorySelectModal
         onClose={() => setCategoryModalOpen(false)}
-        onSelectCategory={setSelectedCategory}
+        onSelectCategory={(category) => {
+          setSelectedCategory(category);
+          setFieldErrors((current) => ({ ...current, category: undefined }));
+        }}
         selectedCategoryId={selectedCategory?.id}
         type="product"
         visible={categoryModalOpen}
@@ -443,31 +476,35 @@ function Section({
   );
 }
 
-function Field({
-  inputStyle,
-  label,
-  ...props
-}: React.ComponentProps<typeof TextInput> & { inputStyle?: object; label: string }) {
+const Field = forwardRef<TextInput, React.ComponentProps<typeof TextInput> & {
+  error?: string;
+  inputStyle?: object;
+  label: string;
+}>(function Field({ error, inputStyle, label, ...props }, ref) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   return (
     <View style={styles.field}>
       {label ? <Text style={styles.label}>{label}</Text> : null}
       <TextInput
+        ref={ref}
         {...props}
         placeholderTextColor={Colors.placeholder}
-        style={[styles.input, props.multiline && styles.multilineInput, inputStyle]}
+        style={[styles.input, props.multiline && styles.multilineInput, error && styles.inputError, inputStyle]}
       />
+      {error ? <Text style={styles.fieldError}>{error}</Text> : null}
     </View>
   );
-}
+});
 
 function SelectField({
+  error,
   label,
   onPress,
   placeholder,
   value,
 }: {
+  error?: string;
   label: string;
   onPress: () => void;
   placeholder?: string;
@@ -478,10 +515,11 @@ function SelectField({
   return (
     <TouchableOpacity activeOpacity={0.84} onPress={onPress} style={styles.field}>
       <Text style={styles.label}>{label}</Text>
-      <View style={styles.selectInput}>
+      <View style={[styles.selectInput, error && styles.inputError]}>
         <Text numberOfLines={1} style={[styles.selectText, !value && styles.placeholder]}>{value || placeholder || "None"}</Text>
         <Ionicons color={Colors.text2} name="chevron-down" size={16} />
       </View>
+      {error ? <Text style={styles.fieldError}>{error}</Text> : null}
     </TouchableOpacity>
   );
 }
@@ -507,8 +545,11 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   sectionEmphasized: { borderColor: Colors.heading },
   sectionTitle: { color: Colors.heading, fontSize: 17, fontWeight: "800", marginBottom: Spacing.md },
   field: { flex: 1, marginBottom: Spacing.md },
+  flexField: { flex: 1 },
   label: { color: Colors.text2, fontSize: 13, fontWeight: "700", marginBottom: 8 },
   input: { backgroundColor: Colors.card, borderColor: Colors.border, borderRadius: 8, borderWidth: 1, color: Colors.heading, fontSize: 15, minHeight: 48, paddingHorizontal: 13, paddingVertical: 10 },
+  inputError: { borderColor: Colors.error, borderWidth: 1.5 },
+  fieldError: { color: Colors.error, fontSize: 12, fontWeight: "700", marginTop: 6 },
   multilineInput: { minHeight: 96, textAlignVertical: "top" },
   textArea: { minHeight: 96 },
   counter: { alignSelf: "flex-end", color: Colors.text2, fontSize: 12, marginBottom: Spacing.md, marginTop: -Spacing.sm },

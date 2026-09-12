@@ -81,6 +81,34 @@ const splitWorkingHours = (value: unknown) => {
   return { endTime: endTime || null, startTime: startTime || null };
 };
 
+const toDisplayTime = (value: string | null) => {
+  if (!value) {
+    return null;
+  }
+
+  if (/\b(?:AM|PM)\b/i.test(value)) {
+    return value;
+  }
+
+  const match = value.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+
+  if (!match) {
+    return value;
+  }
+
+  const hours24 = Number(match[1]);
+  const minutes = Number(match[2]);
+
+  if (!Number.isFinite(hours24) || !Number.isFinite(minutes)) {
+    return value;
+  }
+
+  const period = hours24 < 12 ? "AM" : "PM";
+  const hours12 = hours24 === 0 ? 12 : hours24 > 12 ? hours24 - 12 : hours24;
+
+  return `${String(hours12).padStart(2, "0")}:${String(minutes).padStart(2, "0")} ${period}`;
+};
+
 const normalizeDayName = (value: unknown) => {
   const rawValue = toSafeString(value).toLowerCase();
 
@@ -179,9 +207,9 @@ const normalizeDayEntry = (entry: UnknownRecord, day: string): ScheduleDayEntry 
 
   return {
     day,
-    endTime: endTime || (!isOff ? DEFAULT_END_TIME : null),
+    endTime: toDisplayTime(endTime) || (!isOff ? toDisplayTime(DEFAULT_END_TIME) : null),
     isOff,
-    startTime: startTime || (!isOff ? DEFAULT_START_TIME : null),
+    startTime: toDisplayTime(startTime) || (!isOff ? toDisplayTime(DEFAULT_START_TIME) : null),
   };
 };
 

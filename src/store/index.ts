@@ -21,11 +21,13 @@ import productReducer from "@/store/product/product.slice";
 import salesReducer from "@/store/sales/sales.slice";
 import salonReducer from "@/store/salon/salon.slice";
 import salonCommissionsReducer from "@/store/staff/salonCommissions.slice";
+import salonTipsReducer from "@/store/staff/salonTips.slice";
 import serviceReducer from "@/store/service/service.slice";
 import staffReducer from "@/store/staff/staff.slice";
 import staffAvailabilityReducer from "@/store/staff/staffAvailability.slice";
 import staffBlockedTimesReducer from "@/store/staff/staffBlockedTimes.slice";
 import staffCommissionsReducer from "@/store/staff/staffCommissions.slice";
+import staffHistoryReducer from "@/store/staff/staffHistory.slice";
 import staffInvitationsReducer from "@/store/staff/staffInvitations.slice";
 import staffLeavesReducer from "@/store/staff/staffLeaves.slice";
 import staffPayRunsReducer from "@/store/staff/staffPayRuns.slice";
@@ -53,11 +55,13 @@ const appReducer = combineReducers({
   sales: salesReducer,
   salon: salonReducer,
   salonCommissions: salonCommissionsReducer,
+  salonTips: salonTipsReducer,
   service: serviceReducer,
   staff: staffReducer,
   staffAvailability: staffAvailabilityReducer,
   staffBlockedTimes: staffBlockedTimesReducer,
   staffCommissions: staffCommissionsReducer,
+  staffHistory: staffHistoryReducer,
   staffInvitations: staffInvitationsReducer,
   staffLeaves: staffLeavesReducer,
   staffPayRuns: staffPayRunsReducer,

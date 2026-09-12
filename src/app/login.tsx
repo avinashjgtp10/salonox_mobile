@@ -1,37 +1,29 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import { isValidPhoneNumber } from "libphonenumber-js";
-import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
   Image,
-  Keyboard,
+  KeyboardAvoidingView,
   Platform,
   Pressable,
+  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
   TextInput,
   View,
-  findNodeHandle,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { KeyboardAwareScrollView, type KeyboardAwareScrollViewHandle } from "@/components/ui/KeyboardAwareScrollView";
-import { COUNTRIES, CountryCodePickerModal, type Country } from "@/components/ui/PhoneInput";
 import { useAuth } from "@/context/AuthContext";
 import { ApiError, getApiErrorMessage } from "@/services/api";
+import { resolveLoginRoute } from "@/utils/routeResolver";
 import {
   EMAIL_INVALID_MESSAGE,
   isValidEmail,
-  PHONE_DIGIT_COUNT,
-  PHONE_INVALID_MESSAGE,
-  sanitizePhoneDigits,
 } from "@/utils/validation";
-import { resolveLoginRoute } from "@/utils/routeResolver";
-
-type LoginMode = "email" | "mobile";
 
 const getRouteParam = (value: string | string[] | undefined) => Array.isArray(value) ? value[0] : value;
 
@@ -41,6 +33,11 @@ const isInvalidCredentialsError = (loginError: unknown) => {
 };
 
 const isAccountLockedError = (loginError: unknown) => loginError instanceof ApiError && loginError.status === 429;
+
+const isEmailNotVerifiedError = (loginError: unknown) => {
+  const rawMessage = getApiErrorMessage(loginError);
+  return /EMAIL_NOT_VERIFIED/i.test(rawMessage) || /email.*not.*verif/i.test(rawMessage);
+};
 
 const getFriendlyLoginErrorMessage = (loginError: unknown) => {
   const rawMessage = getApiErrorMessage(loginError);
@@ -52,24 +49,17 @@ export default function LoginScreen() {
   const params = useLocalSearchParams<{ successMessage?: string }>();
   const routeSuccessMessage = getRouteParam(params.successMessage);
   const { clearError, error, isLoading, signIn } = useAuth();
-  const [mode, setMode] = useState<LoginMode>("mobile");
   const [identifier, setIdentifier] = useState("");
-  const [selectedCountry, setSelectedCountry] = useState<Country>(() => COUNTRIES.find((country) => country.code === "IN")!);
-  const [isCountryPickerOpen, setIsCountryPickerOpen] = useState(false);
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [failedLoginAttempts, setFailedLoginAttempts] = useState(0);
-  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
-  const [activeKeyboardFieldRef, setActiveKeyboardFieldRef] = useState<RefObject<TextInput | null> | null>(null);
-  const scrollViewRef = useRef<KeyboardAwareScrollViewHandle | null>(null);
-  const identifierInputRef = useRef<TextInput>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
   const passwordInputRef = useRef<TextInput>(null);
+  const fieldOffsets = useRef({ email: 0, password: 0 });
+  const scrollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [cardOpacity] = useState(() => new Animated.Value(0));
   const [cardTranslate] = useState(() => new Animated.Value(16));
-  const keyboardNavigationFields = useMemo(() => [{ ref: identifierInputRef }, { ref: passwordInputRef }], []);
-  const normalizedMobile = identifier.replace(/\D/g, "");
-  const internationalMobile = `${selectedCountry.dialCode}${normalizedMobile}`;
   const canSubmit = Boolean(identifier.trim() && password);
 
   useEffect(() => {
@@ -79,54 +69,28 @@ export default function LoginScreen() {
     ]).start();
   }, [cardOpacity, cardTranslate]);
 
-  useEffect(() => {
-    const show = Keyboard.addListener("keyboardDidShow", () => setIsKeyboardVisible(true));
-    const hide = Keyboard.addListener("keyboardDidHide", () => setIsKeyboardVisible(false));
-    return () => { show.remove(); hide.remove(); };
+  useEffect(() => () => {
+    if (scrollTimer.current) clearTimeout(scrollTimer.current);
   }, []);
-
   const clearFeedback = () => {
     setFormError(null);
     clearError();
   };
 
-  const scrollLoginFieldIntoView = (input: TextInput | null) => {
-    const inputNode = input ? findNodeHandle(input) : null;
-    const scrollView = scrollViewRef.current as any;
-    const scrollResponder = scrollView?.getScrollResponder?.() ?? scrollView;
-
-    if (inputNode && typeof scrollResponder?.scrollResponderScrollNativeHandleToKeyboard === "function") {
-      scrollResponder.scrollResponderScrollNativeHandleToKeyboard(inputNode, 40, true);
-    }
+  const scrollToField = (field: "email" | "password") => {
+    if (scrollTimer.current) clearTimeout(scrollTimer.current);
+    scrollTimer.current = setTimeout(() => {
+      scrollViewRef.current?.scrollTo({
+        y: Math.max(0, fieldOffsets.current[field] - 16),
+        animated: true,
+      });
+      scrollTimer.current = null;
+    }, 120);
   };
 
-  const focusPasswordField = () => {
-    const passwordInput = passwordInputRef.current;
-
-    if (!passwordInput) {
-      return;
-    }
-
-    passwordInput.focus();
-    setActiveKeyboardFieldRef(passwordInputRef);
-
-    [0, 60, 160].forEach((delay) => {
-      setTimeout(() => {
-        requestAnimationFrame(() => scrollLoginFieldIntoView(passwordInput));
-      }, delay);
-    });
-  };
-
-  const changeMode = (nextMode: LoginMode) => {
-    setMode(nextMode);
-    setIdentifier("");
-    setFailedLoginAttempts(0);
-    clearFeedback();
-    requestAnimationFrame(() => identifierInputRef.current?.focus());
-  };
-
+  const focusPasswordField = () => passwordInputRef.current?.focus();
   const handleIdentifierChange = (value: string) => {
-    setIdentifier(mode === "mobile" ? sanitizePhoneDigits(value) : value);
+    setIdentifier(value);
     setFailedLoginAttempts(0);
     clearFeedback();
   };
@@ -134,31 +98,34 @@ export default function LoginScreen() {
   const handleLogin = async () => {
     const trimmedIdentifier = identifier.trim();
     if (!trimmedIdentifier || !password) {
-      setFormError(`Please enter your ${mode === "email" ? "email address" : "mobile number"} and password.`);
+      setFormError("Please enter your email address and password.");
       return;
     }
-    if (mode === "email" && !isValidEmail(trimmedIdentifier)) {
+    if (!isValidEmail(trimmedIdentifier)) {
       setFormError(EMAIL_INVALID_MESSAGE);
-      return;
-    }
-    if (mode === "mobile" && (normalizedMobile.length !== PHONE_DIGIT_COUNT || !isValidPhoneNumber(internationalMobile))) {
-      setFormError(PHONE_INVALID_MESSAGE);
       return;
     }
 
     clearFeedback();
     try {
-      const loginIdentifier = mode === "mobile" ? internationalMobile : trimmedIdentifier.toLowerCase();
-      const authData = await signIn({ email: loginIdentifier, password });
+      const authData = await signIn({ email: trimmedIdentifier.toLowerCase(), password });
       setFailedLoginAttempts(0);
       router.replace(resolveLoginRoute(authData));
     } catch (loginError) {
-      if (isAccountLockedError(loginError)) {
+      if (isEmailNotVerifiedError(loginError)) {
+        router.push({
+          pathname: "/verify-email",
+          params: {
+            email: trimmedIdentifier.toLowerCase(),
+            message: "Please verify your email to continue signing in.",
+          },
+        });
+      } else if (isAccountLockedError(loginError)) {
         setFormError(getApiErrorMessage(loginError));
       } else if (isInvalidCredentialsError(loginError)) {
         const attempts = failedLoginAttempts + 1;
         setFailedLoginAttempts(attempts);
-        setFormError(`${mode === "email" ? "Email" : "Mobile number"} or password is incorrect.${attempts >= 3 ? " Use Forgot Password below to reset it." : ""}`);
+        setFormError(`Email or password is incorrect.${attempts >= 3 ? " Use Forgot Password below to reset it." : ""}`);
       } else {
         setFormError(getFriendlyLoginErrorMessage(loginError));
       }
@@ -187,63 +154,52 @@ export default function LoginScreen() {
       </View>
 
       <SafeAreaView edges={["bottom"]} style={styles.contentSafeArea}>
-        <KeyboardAwareScrollView
-          ref={scrollViewRef as any}
+        <KeyboardAvoidingView
+          style={styles.formKeyboardArea}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
+        <ScrollView
+          ref={scrollViewRef}
           contentContainerStyle={styles.scrollContent}
           keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
-          keyboardNavigation={{ activeFieldRef: activeKeyboardFieldRef, fields: keyboardNavigationFields, hideOnLast: true, keyboardVisible: isKeyboardVisible, onDone: handleLogin, showAccessory: false }}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
           <Animated.View style={[styles.card, { opacity: cardOpacity, transform: [{ translateY: cardTranslate }] }]}>
             <Text style={styles.title}>Sign-In</Text>
 
-            <View style={styles.tabs}>
-              {(["email", "mobile"] as LoginMode[]).map((tab) => (
-                <Pressable key={tab} onPress={() => changeMode(tab)} style={[styles.tab, mode === tab && styles.activeTab]}>
-                  <Text style={[styles.tabText, mode === tab && styles.activeTabText]}>{tab === "email" ? "Email" : "Mobile"}</Text>
-                </Pressable>
-              ))}
-            </View>
-
-            <View style={styles.fieldGroup}>
-              <Text style={styles.label}>{mode === "email" ? "Email" : "Mobile"}</Text>
+            <View style={styles.fieldGroup} onLayout={(event) => { fieldOffsets.current.email = event.nativeEvent.layout.y; }}>
+              <Text style={styles.label}>Email</Text>
               <View style={styles.inputShell}>
-                {mode === "mobile" ? <Pressable accessibilityLabel={`Country: ${selectedCountry.name}, ${selectedCountry.dialCode}`} accessibilityRole="button" onPress={() => { Keyboard.dismiss(); setIsCountryPickerOpen(true); }} style={styles.countryCode}><Text style={styles.countryFlag}>{selectedCountry.flag}</Text><Text style={styles.countryCodeText}>{selectedCountry.dialCode}</Text><Ionicons color="#111111" name="chevron-down" size={18} /></Pressable> : null}
                 <TextInput
                   autoCapitalize="none"
-                  autoComplete={mode === "email" ? "email" : "tel"}
+                  autoComplete="email"
                   autoCorrect={false}
                   blurOnSubmit={false}
                   enterKeyHint="next"
-                  keyboardType={mode === "email" ? "email-address" : "phone-pad"}
-                  maxLength={mode === "mobile" ? PHONE_DIGIT_COUNT : undefined}
+                  keyboardType="email-address"
                   onChangeText={handleIdentifierChange}
-                  onFocus={() => setActiveKeyboardFieldRef(identifierInputRef)}
+                  onFocus={() => scrollToField("email")}
                   onSubmitEditing={focusPasswordField}
-                  placeholder={mode === "email" ? "Enter the registered email address" : "Enter the registered mobile number"}
+                  placeholder="Enter the registered email address"
                   placeholderTextColor="#A2A2A2"
-                  ref={identifierInputRef}
                   returnKeyType="next"
                   style={styles.input}
                   submitBehavior="submit"
-                  textContentType={mode === "email" ? "emailAddress" : "telephoneNumber"}
+                  textContentType="emailAddress"
                   value={identifier}
                 />
               </View>
             </View>
 
-            <View style={styles.fieldGroup}>
+            <View style={styles.fieldGroup} onLayout={(event) => { fieldOffsets.current.password = event.nativeEvent.layout.y; }}>
               <Text style={styles.label}>Password</Text>
               <View style={styles.inputShell}>
                 <TextInput
                   autoCapitalize="none"
                   autoComplete="password"
                   onChangeText={(value) => { setPassword(value); clearFeedback(); }}
-                  onFocus={() => {
-                    setActiveKeyboardFieldRef(passwordInputRef);
-                    requestAnimationFrame(() => scrollLoginFieldIntoView(passwordInputRef.current));
-                  }}
+                  onFocus={() => scrollToField("password")}
                   onSubmitEditing={handleLogin}
                   placeholder="Enter Password"
                   placeholderTextColor="#858585"
@@ -271,17 +227,8 @@ export default function LoginScreen() {
               {isLoading ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.submitText}>Sign In</Text>}
             </Pressable>
           </Animated.View>
-        </KeyboardAwareScrollView>
-        <CountryCodePickerModal
-          onClose={() => setIsCountryPickerOpen(false)}
-          onSelect={(country) => {
-            setSelectedCountry(country);
-            setIsCountryPickerOpen(false);
-            requestAnimationFrame(() => identifierInputRef.current?.focus());
-          }}
-          selected={selectedCountry}
-          visible={isCountryPickerOpen}
-        />
+        </ScrollView>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     </View>
   );
@@ -301,20 +248,13 @@ const styles = StyleSheet.create({
   wordmarkAccent: { color: "#00D7A1", fontSize: 24, fontWeight: "800" },
   wordmarkTagline: { color: "#BFBFBF", fontSize: 8, marginTop: 1 },
   contentSafeArea: { flex: 1, marginTop: -146 },
+  formKeyboardArea: { flex: 1 },
   scrollContent: { flexGrow: 1, paddingBottom: 24, paddingHorizontal: 15 },
   card: { backgroundColor: "#FFFFFF", borderRadius: 12, minHeight: 570, paddingBottom: 30, paddingHorizontal: 18, paddingTop: 18 },
   title: { color: "#111111", fontFamily: "serif", fontSize: 32, fontWeight: "800", marginBottom: 18, marginTop: 12, textAlign: "center" },
-  tabs: { borderBottomColor: "#D0D0D0", borderBottomWidth: 1, flexDirection: "row", marginBottom: 20 },
-  tab: { alignItems: "center", flex: 1, justifyContent: "center", minHeight: 44 },
-  activeTab: { borderBottomColor: "#0B4F9C", borderBottomWidth: 2 },
-  tabText: { color: "#252525", fontSize: 15 },
-  activeTabText: { color: "#0B4F9C", fontWeight: "800" },
   fieldGroup: { marginBottom: 17 },
   label: { color: "#707070", fontSize: 13, marginBottom: 7 },
   inputShell: { alignItems: "center", borderColor: "#D3D3D3", borderRadius: 7, borderWidth: 1, flexDirection: "row", minHeight: 54, overflow: "hidden" },
-  countryCode: { alignItems: "center", flexDirection: "row", gap: 7, paddingLeft: 12, paddingRight: 9 },
-  countryFlag: { fontSize: 18 },
-  countryCodeText: { color: "#111111", fontSize: 15, fontWeight: "700" },
   input: { color: "#161616", flex: 1, fontSize: 14, minHeight: 52, paddingHorizontal: 12 },
   eyeButton: { alignItems: "center", height: 52, justifyContent: "center", width: 48 },
   forgotButton: { alignSelf: "flex-end", marginBottom: 28, marginTop: -4, paddingVertical: 6 },

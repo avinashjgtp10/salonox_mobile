@@ -57,7 +57,9 @@ export const validateStaffForm = (
   }
 
   if (!isPresent(values.email)) {
-    errors.email = "Email is required.";
+    if (values.isLoginEnabled) {
+      errors.email = "Email is required to enable Staff Login.";
+    }
   } else if (!isValidEmail(values.email!)) {
     errors.email = EMAIL_INVALID_MESSAGE;
   }

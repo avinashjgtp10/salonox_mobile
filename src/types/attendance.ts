@@ -19,6 +19,9 @@ export type AttendanceRecord = {
   avatarColor: string;
   checkInTime: string | null;
   checkOutTime: string | null;
+  // The day this record covers. Absent from GET /attendance/today rows (the
+  // date is on the envelope there), but always present on history listings.
+  date: string | null;
   // Backend-reported employee code, when present as its own field distinct
   // from staffId — some backends key attendance off this instead.
   employeeId: string | null;
@@ -53,6 +56,11 @@ export type AttendanceToday = {
   date: string | null;
   records: AttendanceRecord[];
   summary: AttendanceSummary | null;
+};
+
+export type AttendanceRecordList = {
+  records: AttendanceRecord[];
+  total: number;
 };
 
 export type AttendanceSummary = {

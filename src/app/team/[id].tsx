@@ -26,15 +26,16 @@ import {
   StaffFutureSections,
   useStaffDetails,
 } from "@/features/staff";
+import { useStaffDailyMetrics } from "@/features/staff/hooks/useStaffDailyMetrics";
 import { useAppToast } from "@/hooks/useAppToast";
 import { deleteStaffThunk, setStaffActiveStatusThunk } from "@/middleware/staff/staff.thunk";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
   selectStaffActiveStatusToggling,
   selectStaffDeletingIds,
 } from "@/store/staff/staff.slice";
-import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { useThemeColors } from "@/theme/ThemeProvider";
 import { selectCurrentUser } from "@/store/user/user.slice";
+import { useThemeColors } from "@/theme/ThemeProvider";
 import { canManageStaffLifecycle } from "@/utils/userProfile";
 
 const formatCurrency = (amount: number) => `Rs. ${amount.toLocaleString("en-IN")}`;
@@ -99,7 +100,18 @@ export default function StaffProfileScreen() {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const { id } = useLocalSearchParams<{ id?: string }>();
-  const { detailsError, detailsLoading, staffMember } = useStaffDetails(id);
+  const { detailsError, detailsLoading, staffMember: storedStaffMember } = useStaffDetails(id);
+  // The staff API doesn't return today's appointment/revenue counters, so the
+  // Team list derives them client-side from today's appointments. Run the same
+  // hook here for this one member, otherwise the profile renders the unset
+  // zeroes from the store while the list beside it shows real numbers.
+  const staffMembersForMetrics = useMemo(
+    () => (storedStaffMember ? [storedStaffMember] : []),
+    [storedStaffMember],
+  );
+  const dailyMetrics = useStaffDailyMetrics(staffMembersForMetrics);
+  const staffMember = dailyMetrics.members[0] ?? storedStaffMember;
+  const metricsReady = dailyMetrics.ready;
   const dispatch = useAppDispatch();
   const toast = useAppToast();
   const currentUser = useAppSelector(selectCurrentUser);
@@ -290,9 +302,9 @@ export default function StaffProfileScreen() {
             <Ionicons name="arrow-back" size={18} color={Colors.primaryDark} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Staff Profile</Text>
-          <TouchableOpacity activeOpacity={0.84} hitSlop={AppLayout.headerActionHitSlop} onPress={() => router.push(`/team/${id}/edit` as Href)} style={styles.headerAction}>
-            <Ionicons name="create-outline" size={17} color={Colors.primaryDark} />
-          </TouchableOpacity>
+          {/* Spacer keeps "Staff Profile" centred in the space-between header.
+              Editing is reached from the hero card's Edit quick action. */}
+          <View style={[styles.headerAction, { opacity: 0 }]} />
         </View>
 
         <View style={styles.heroCard}>
@@ -371,7 +383,7 @@ export default function StaffProfileScreen() {
           <Text style={styles.sectionTitle}>Performance Metrics</Text>
           <View style={styles.metricsGrid}>
             <View style={styles.metricCard}>
-              <Text style={styles.metricValue}>{staffMember.todayAppointments}</Text>
+              <Text style={styles.metricValue}>{metricsReady ? staffMember.todayAppointments : "—"}</Text>
               <Text style={styles.metricLabel}>Today&apos;s Appointments</Text>
             </View>
             <View style={styles.metricCard}>
@@ -395,11 +407,13 @@ export default function StaffProfileScreen() {
               <Text style={styles.metricLabel}>Customer Rating</Text>
             </View>
             <View style={styles.metricCard}>
-              <Text style={styles.metricValue}>{formatCurrency(staffMember.todayRevenue)}</Text>
+              <Text style={styles.metricValue}>
+                {metricsReady ? formatCurrency(staffMember.todayRevenue) : "—"}
+              </Text>
               <Text style={styles.metricLabel}>Revenue Today</Text>
             </View>
             <View style={styles.metricCard}>
-              <Text style={styles.metricValue}>{staffMember.servicesCompleted}</Text>
+              <Text style={styles.metricValue}>{metricsReady ? staffMember.servicesCompleted : "—"}</Text>
               <Text style={styles.metricLabel}>Completed Services</Text>
             </View>
           </View>
@@ -412,37 +426,6 @@ export default function StaffProfileScreen() {
 
         <StaffFutureSections staffId={id} />
 
-        <View style={styles.bottomActionRow}>
-          <TouchableOpacity activeOpacity={0.86} onPress={() => router.push(`/team/${id}/edit` as Href)} style={styles.editButton}>
-            <Text style={styles.editButtonText}>Edit Staff</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            activeOpacity={0.86}
-            disabled={isTogglingActive || isDeleting}
-            onPress={handleToggleActive}
-            style={[styles.secondaryButton, (isTogglingActive || isDeleting) && styles.buttonDisabled]}
-          >
-            {isTogglingActive ? (
-              <ActivityIndicator color={Colors.primaryDark} size="small" />
-            ) : (
-              <Text style={styles.secondaryButtonText}>
-                {isInactive ? "Reactivate Staff" : "Deactivate Staff"}
-              </Text>
-            )}
-          </TouchableOpacity>
-          <TouchableOpacity
-            activeOpacity={0.86}
-            disabled={isTogglingActive || isDeleting}
-            onPress={handleDelete}
-            style={[styles.deleteButton, (isTogglingActive || isDeleting) && styles.buttonDisabled]}
-          >
-            {isDeleting ? (
-              <ActivityIndicator color={Colors.error} size="small" />
-            ) : (
-              <Text style={styles.deleteButtonText}>Delete Staff</Text>
-            )}
-          </TouchableOpacity>
-        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -756,49 +739,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     color: Colors.text2,
     fontSize: 13,
     lineHeight: 20,
-  },
-  bottomActionRow: {
-    gap: 10,
-  },
-  editButton: {
-    alignItems: "center",
-    backgroundColor: Colors.primary,
-    borderRadius: Radius.full,
-    justifyContent: "center",
-    minHeight: 48,
-  },
-  editButtonText: {
-    color: "#FFFFFF",
-    fontSize: 13,
-    fontWeight: "800",
-  },
-  secondaryButton: {
-    alignItems: "center",
-    backgroundColor: Colors.bg2,
-    borderRadius: Radius.full,
-    justifyContent: "center",
-    minHeight: 48,
-  },
-  secondaryButtonText: {
-    color: Colors.primaryDark,
-    fontSize: 13,
-    fontWeight: "800",
-  },
-  deleteButton: {
-    alignItems: "center",
-    backgroundColor: Colors.errorBg,
-    borderRadius: Radius.full,
-    justifyContent: "center",
-    minHeight: 48,
-    marginBottom: Spacing.md,
-  },
-  deleteButtonText: {
-    color: Colors.error,
-    fontSize: 13,
-    fontWeight: "800",
-  },
-  buttonDisabled: {
-    opacity: 0.55,
   },
   modalOverlay: {
     backgroundColor: "rgba(15, 23, 32, 0.36)",

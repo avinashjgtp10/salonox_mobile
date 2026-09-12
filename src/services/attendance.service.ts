@@ -3,6 +3,7 @@ import { ATTENDANCE } from "@/services/api/endpoints";
 import type { ApiResponse } from "@/types/auth";
 import type {
   AttendanceRecord,
+  AttendanceRecordList,
   AttendanceSettings,
   AttendanceStatusKey,
   AttendanceSummary,
@@ -140,6 +141,20 @@ type AttendanceTodayApiResponse = ApiResponse<AttendanceTodayApiData>;
 type AttendanceSummaryApiResponse = ApiResponse<AttendanceSummaryApiData>;
 type AttendanceRecordApiResponse = ApiResponse<AttendanceRecordEnvelope>;
 type AttendanceSettingsApiResponse = ApiResponse<AttendanceSettingsEnvelope>;
+type AttendanceListApiData =
+  | AttendanceRecordApiItem[]
+  | {
+      attendance?: AttendanceRecordApiItem[] | null;
+      data?: AttendanceRecordApiItem[] | null;
+      items?: AttendanceRecordApiItem[] | null;
+      pagination?: UnknownRecord | null;
+      records?: AttendanceRecordApiItem[] | null;
+      rows?: AttendanceRecordApiItem[] | null;
+      staff?: AttendanceRecordApiItem[] | null;
+      total?: number | string | null;
+      total_count?: number | string | null;
+    };
+type AttendanceListApiResponse = ApiResponse<AttendanceListApiData>;
 
 const getTodayArray = (payload: AttendanceTodayApiData) => {
   if (Array.isArray(payload)) {
@@ -149,6 +164,29 @@ const getTodayArray = (payload: AttendanceTodayApiData) => {
   // "staff" is the confirmed real key ({ summary, staff } contract) and is
   // checked first; the rest remain as defensive fallbacks only.
   return firstArray(asRecord(payload), ["staff", "records", "attendance", "items", "rows", "data"]);
+};
+
+const getAttendanceListArray = (payload: AttendanceListApiData) => {
+  if (Array.isArray(payload)) {
+    return payload.map(asRecord);
+  }
+
+  return firstArray(asRecord(payload), ["items", "records", "attendance", "rows", "staff", "data"]);
+};
+
+const getAttendanceListTotal = (payload: AttendanceListApiData, fallback: number) => {
+  if (Array.isArray(payload)) {
+    return fallback;
+  }
+
+  const record = asRecord(payload);
+  const pagination = asRecord(payload.pagination);
+
+  return (
+    toSafeNumber(firstValue(record, ["total", "total_count", "totalCount"])) ||
+    toSafeNumber(firstValue(pagination, ["total", "total_count", "totalCount"])) ||
+    fallback
+  );
 };
 
 const getTodayDate = (payload: AttendanceTodayApiData) =>
@@ -236,6 +274,10 @@ const normalizeAttendanceRecord = (entry: UnknownRecord): AttendanceRecord | nul
     avatarColor: avatarTone.color,
     checkInTime,
     checkOutTime,
+    date:
+      toSafeString(
+        firstValue(entry, ["date", "attendanceDate", "attendance_date", "markedDate", "marked_date"]),
+      ) || null,
     employeeId,
     hoursWorked,
     id,
@@ -364,6 +406,78 @@ export const attendanceService = {
       summary: Array.isArray(response.data.data)
         ? null
         : normalizeAttendanceSummary(getSummaryRecord(asRecord(response.data.data))),
+    };
+  },
+
+  async getMonthly(year: number, month: number, salonId?: string | null): Promise<AttendanceRecordList> {
+    const response = await api.get<AttendanceListApiResponse>(ATTENDANCE.MONTHLY, {
+      params: {
+        month,
+        ...(salonId ? { salon_id: salonId } : {}),
+        year,
+      },
+    });
+    const apiRecords = getAttendanceListArray(response.data.data);
+    const records = apiRecords
+      .map(normalizeAttendanceRecord)
+      .filter((record): record is AttendanceRecord => record !== null);
+
+    return {
+      records,
+      total: getAttendanceListTotal(response.data.data, records.length),
+    };
+  },
+
+  async getRange(
+    startDate: string,
+    endDate: string,
+    salonId?: string | null,
+  ): Promise<AttendanceRecordList> {
+    const response = await api.get<AttendanceListApiResponse>(ATTENDANCE.RANGE, {
+      params: {
+        end_date: endDate,
+        ...(salonId ? { salon_id: salonId } : {}),
+        start_date: startDate,
+      },
+    });
+    const apiRecords = getAttendanceListArray(response.data.data);
+    const records = apiRecords
+      .map(normalizeAttendanceRecord)
+      .filter((record): record is AttendanceRecord => record !== null);
+
+    return {
+      records,
+      total: getAttendanceListTotal(response.data.data, records.length),
+    };
+  },
+
+  async getForStaff(
+    staffId: string,
+    options: {
+      endDate?: string;
+      limit?: number;
+      page?: number;
+      salonId?: string | null;
+      startDate?: string;
+    } = {},
+  ): Promise<AttendanceRecordList> {
+    const response = await api.get<AttendanceListApiResponse>(ATTENDANCE.STAFF(staffId), {
+      params: {
+        ...(options.endDate ? { end_date: options.endDate } : {}),
+        ...(options.limit ? { limit: options.limit } : {}),
+        ...(options.page ? { page: options.page } : {}),
+        ...(options.salonId ? { salon_id: options.salonId } : {}),
+        ...(options.startDate ? { start_date: options.startDate } : {}),
+      },
+    });
+    const apiRecords = getAttendanceListArray(response.data.data);
+    const records = apiRecords
+      .map(normalizeAttendanceRecord)
+      .filter((record): record is AttendanceRecord => record !== null);
+
+    return {
+      records,
+      total: getAttendanceListTotal(response.data.data, records.length),
     };
   },
 

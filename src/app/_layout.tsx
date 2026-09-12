@@ -3,6 +3,8 @@ import { Stack, usePathname, useRootNavigationState, useRouter, useSegments, typ
 import * as SplashScreen from 'expo-splash-screen';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Provider } from 'react-redux';
+import { Pressable, Text, View } from 'react-native';
+import { Portal } from '@/components/ui/Portal';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import SimpleSplash from '../components/simple-splash';
 import { AppToast } from '@/components/ui/AppToast';
@@ -62,16 +64,18 @@ const PUBLIC_ROUTES = new Set([
   "login",
   "forgot-password",
   "verify-otp",
+  "verify-email",
   "reset-password",
   "invite",
 ]);
 
 function AuthNavigationHandler({ onReady }: { onReady: () => void }) {
+  const [subscriptionRetry, setSubscriptionRetry] = useState(0);
   const { isAuthenticated, isLoading, user } = useAuth();
   const [subscriptionCheck, setSubscriptionCheck] = useState<{
     isActive: boolean;
     salonId: string | null;
-    status: "idle" | "loading" | "ready";
+    status: "idle" | "loading" | "ready" | "error";
   }>({ isActive: false, salonId: null, status: "idle" });
   const pathname = usePathname();
   const rootNavigationState = useRootNavigationState();
@@ -96,6 +100,7 @@ function AuthNavigationHandler({ onReady }: { onReady: () => void }) {
     }
 
     let isMounted = true;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
     setSubscriptionCheck((current) =>
       current.salonId === salonId && current.status === "ready" && current.isActive
         ? current
@@ -115,14 +120,21 @@ function AuthNavigationHandler({ onReady }: { onReady: () => void }) {
       })
       .catch(() => {
         if (isMounted) {
-          setSubscriptionCheck({ isActive: false, salonId, status: "ready" });
+          // A failed request is not evidence that the subscription ended.
+          setSubscriptionCheck((current) =>
+            current.salonId === salonId && current.status === "ready" && current.isActive
+              ? current
+              : { isActive: false, salonId, status: "error" },
+          );
+          retryTimer = setTimeout(() => setSubscriptionRetry((value) => value + 1), 15000);
         }
       });
 
     return () => {
       isMounted = false;
+      clearTimeout(retryTimer);
     };
-  }, [isAuthenticated, pathname, user?.salonId]);
+  }, [isAuthenticated, pathname, subscriptionRetry, user?.salonId]);
 
   useEffect(() => {
     if (!rootNavigationState?.key || isLoading) {
@@ -146,6 +158,10 @@ function AuthNavigationHandler({ onReady }: { onReady: () => void }) {
       // their dashboard/home, regardless of isOnboardingComplete. A user who
       // somehow lands on /onboarding (e.g. a stale deep link) is bounced back
       // out via isOnboardingRoute below, same as any other unexpected route.
+      if (subscriptionCheck.status === "error") {
+        onReady();
+        return;
+      }
       if (subscriptionCheck.status !== "ready") {
         return;
       }
@@ -195,6 +211,19 @@ function AuthNavigationHandler({ onReady }: { onReady: () => void }) {
     user,
   ]);
 
+  if (isAuthenticated && subscriptionCheck.status === "error") {
+    return (
+      <Portal>
+        <View style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: '#FFFFFF', justifyContent: 'center', padding: 28, gap: 16 }}>
+          <Text accessibilityRole="header" style={{ fontSize: 20, fontWeight: '700', color: '#222222' }}>Unable to verify subscription</Text>
+          <Text style={{ fontSize: 16, color: '#555555' }}>We could not check your subscription right now. Please check your connection and try again.</Text>
+          <Pressable accessibilityRole="button" onPress={() => setSubscriptionRetry((value) => value + 1)} style={{ backgroundColor: '#AD568F', padding: 16, borderRadius: 12, alignItems: 'center' }}>
+            <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>Try Again</Text>
+          </Pressable>
+        </View>
+      </Portal>
+    );
+  }
   return null;
 }
 
@@ -225,7 +254,7 @@ function NetworkSetup() {
 }
 
 function AppUpdateSetup() {
-  const { close, isVisible, updateInfo } = useAppUpdateAnnouncement();
+  const { close, reopen, isVisible, updateInfo } = useAppUpdateAnnouncement();
 
   if (!updateInfo) {
     return null;
@@ -240,6 +269,8 @@ function AppUpdateSetup() {
       isMandatory={updateInfo.isMandatory}
       latestVersion={updateInfo.latestVersion}
       onClose={close}
+      onReopen={reopen}
+      releaseNotes={updateInfo.releaseNotes}
       title={updateInfo.title}
       visible={isVisible}
     />
@@ -353,6 +384,7 @@ function AppShell() {
               <Stack.Screen name="change-password" />
               <Stack.Screen name="salon-settings" />
               <Stack.Screen name="appearance" />
+              <Stack.Screen name="notification-settings" />
               <Stack.Screen name="privacy-policy" />
               <Stack.Screen name="(tabs)" />
               <Stack.Screen name="(staff)" />

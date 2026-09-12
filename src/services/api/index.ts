@@ -264,7 +264,11 @@ const shouldSkipRefreshForRequest = (requestUrl: string) =>
   requestUrl.includes("/auth/login") ||
   requestUrl.includes("/auth/refresh") ||
   requestUrl.includes("/auth/logout") ||
-  requestUrl.includes("/auth/forgot-password");
+  requestUrl.includes("/auth/forgot-password") ||
+  // Public endpoint hit on cold start, before login. Without this it would
+  // attach a token, wait on the online gate, and get cancelled by an
+  // in-flight logout — none of which apply to an unauthenticated check.
+  requestUrl.includes("/app/version");
 
 const releaseProtectedRequest = (config?: RetryableRequestConfig) => {
   const controller = config?._logoutAbortController;
@@ -411,6 +415,9 @@ api.interceptors.request.use(async (config) => {
           status: getAuthErrorStatus(refreshError),
           message: getAuthErrorMessage(refreshError),
         });
+        // Do not send the old token after refresh failed: its 401 can turn a
+        // temporary refresh/permission failure into another refresh and logout.
+        throw refreshError;
       }
     }
   }
