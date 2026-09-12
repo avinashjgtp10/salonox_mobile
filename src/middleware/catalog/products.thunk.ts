@@ -26,13 +26,25 @@ export type FetchProductsParams = {
   sort_order?: "ASC" | "DESC";
 };
 
+// Catalog → Products list page's own paginated fetch — POST /products/search
+// (not GET /products/list), same endpoint searchProductsThunk below already
+// used, so the list page is never subject to GET /products' 100-row cap
+// either. Previously GET-based; switched because this thunk's own Redux
+// fields (page/pageSize/totalRecords/totalPages) were shared with
+// searchProductsThunk's very different "preload up to 200 for a dropdown"
+// use — that write to the SAME pageSize field is what actually caused the
+// list page to inherit a stale pageSize:200 and get a 400 from the GET
+// route's cap (found 2026-09-11, screenshot: "pageSize must not exceed
+// 100"). Fixed at the root by giving searchProductsThunk its own separate
+// state fields below (see productsSlice.ts) — this POST switch is on top of
+// that, per the Product List API ticket's explicit ask.
 export const fetchProductsThunk = createAsyncThunk<
   { data: any[]; page: number; pageSize: number; totalRecords: number; totalPages: number },
   FetchProductsParams | void,
   { rejectValue: string }
 >("products/fetchAll", async (params, { rejectWithValue }) => {
   try {
-    const res = await api.get(PRODUCTS.LIST, { params: params ?? {} });
+    const res = await api.post(PRODUCTS.SEARCH, params ?? {});
     return res.data.data;
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);
@@ -40,9 +52,12 @@ export const fetchProductsThunk = createAsyncThunk<
   }
 });
 
-// POST-body variant of fetchProductsThunk, backed by PRODUCTS.SEARCH — for
-// callers that need to preload the full catalog (e.g. filter/picker dropdowns)
-// with a pageSize above PRODUCTS.LIST's 100-row cap.
+// Preloads up to ~200 products in one call for a picker/dropdown (Stock
+// Ledger, Add Stock, Calendar's Appointment modal, Add Membership modal) —
+// NOT the paginated Catalog → Products list. Writes to its own
+// pickerItems/pickerLoading state (see productsSlice.ts), never to
+// items/page/pageSize/totalRecords/totalPages, so it can never leave the
+// real list page's pagination in a stale state again.
 export const searchProductsThunk = createAsyncThunk<
   { data: any[]; page: number; pageSize: number; totalRecords: number; totalPages: number },
   FetchProductsParams | void,

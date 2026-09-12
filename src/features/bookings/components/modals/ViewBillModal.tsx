@@ -70,7 +70,12 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
   const canEditPerm = can("edit_appointment");
   const canPaymentDetailsPerm = can("view_payment_details");
   const canDeletePerm = can("delete_appointment");
-  const canRecordPaymentPerm = can("create_appointment");
+  // Recording/collecting a payment on an existing appointment is now part of
+  // Edit & Payment Appointment (edit_appointment), not Create Booking
+  // Appointment (create_appointment) — the two were split apart so booking a
+  // new appointment never implies payment access (Calendar permissions
+  // rename ticket).
+  const canRecordPaymentPerm = can("edit_appointment");
   const denyPerm = (key: string) => dispatch(showPermissionDenied(
     `Your account does not have the "${key}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
   ));
@@ -191,8 +196,19 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
 
           <div className="vbm-section">
             <div className="vbm-section-label">Payment</div>
-            <Badge variant={payVariant}>{normalizePaymentStatus(booking.status)}</Badge>
-            <div className="vbm-pay-mode mt-1">Mode: <strong>{booking.paymentMode || "—"}</strong></div>
+            {canPaymentDetailsPerm ? (
+              <>
+                <Badge variant={payVariant}>{normalizePaymentStatus(booking.status)}</Badge>
+                <div className="vbm-pay-mode mt-1">Mode: <strong>{booking.paymentMode || "—"}</strong></div>
+              </>
+            ) : (
+              // Paid/partial status and payment mode are payment details —
+              // independent of edit_appointment (Calendar payment-details
+              // independence ticket). Never shown to anyone, including the
+              // Owner, unless view_payment_details is on; edit_appointment
+              // grants editing the appointment only, not seeing this.
+              <div className="vbm-pay-mode mt-1" style={{ color: "#9ca3af" }}>🔒 Requires "View Payment Details" permission</div>
+            )}
           </div>
 
           {(activeMembershipsForBill.length > 0 || activePackagesForBill.length > 0) && (
@@ -246,49 +262,61 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
 
           <div className="vbm-section">
             <div className="vbm-section-label">Summary</div>
-            {[
-              booking.subtotal       ? ["Subtotal", `${currencySymbol}${booking.subtotal.toFixed(2)}`, "#374151", false] : null,
-              booking.discountAmount ? ["Discount", `−${currencySymbol}${booking.discountAmount.toFixed(2)}`, "#ef4444", false] : null,
-              booking.couponDiscount ? [`Coupon (${booking.couponCode})`, `−${currencySymbol}${booking.couponDiscount.toFixed(2)}`, "#22c55e", false] : null,
-              booking.referralDiscount ? ["Referral Discount", `−${currencySymbol}${booking.referralDiscount.toFixed(2)}`, "#22c55e", false] : null,
-              booking.exCharges      ? ["Extra Charges", `${currencySymbol}${booking.exCharges.toFixed(2)}`, "#374151", false] : null,
-              ["Total", `${currencySymbol}${(isPackagePaid ? 0 : (booking.grandTotal || 0)).toFixed(2)}`, "#111827", true],
-              (booking.rewardPointsValue || 0) > 0 ? ["🎁 Paid from Reward Points", `${currencySymbol}${(booking.rewardPointsValue || 0).toFixed(2)}`, "#7c3aed", false] : null,
-              ["Paid",  `${currencySymbol}${(booking.payingNow || 0).toFixed(2)}`, "#111827", false],
-              (booking.dueAmount || 0) > 0 ? ["Due", `${currencySymbol}${(booking.dueAmount || 0).toFixed(2)}`, "#ef4444", false] : null,
-              // Already folded into Total/Paid/Due above — shown again here just
-              // to break out how much of that figure is tip vs. bill.
-              booking.tipAmount      ? ["Staff Tip (included above)", `${currencySymbol}${booking.tipAmount.toFixed(2)}`, "#374151", false] : null,
-              ...((booking.tipAmount && (booking as any).tipBreakdown?.length)
-                ? (booking as any).tipBreakdown.map((t: any) => [t.staffName, `${currencySymbol}${Number(t.amount || 0).toFixed(2)}`, "#98a2b3", false, true])
-                : []),
-            ].filter((row): row is [string, string, string, boolean, boolean?] => row !== null).map(([l, v, c, bold, sub]) => (
-              <div key={l as string} className={`vbm-summary-row${bold ? " vbm-summary-row--bold" : ""}${sub ? " vbm-summary-row--sub" : ""}`} style={{ color: c as string }}>
-                <span>{l as string}</span>
-                <span>{v as string}</span>
+            {canPaymentDetailsPerm ? (
+              [
+                booking.subtotal       ? ["Subtotal", `${currencySymbol}${booking.subtotal.toFixed(2)}`, "#374151", false] : null,
+                booking.discountAmount ? ["Discount", `−${currencySymbol}${booking.discountAmount.toFixed(2)}`, "#ef4444", false] : null,
+                booking.couponDiscount ? [`Coupon (${booking.couponCode})`, `−${currencySymbol}${booking.couponDiscount.toFixed(2)}`, "#22c55e", false] : null,
+                booking.referralDiscount ? ["Referral Discount", `−${currencySymbol}${booking.referralDiscount.toFixed(2)}`, "#22c55e", false] : null,
+                booking.exCharges      ? ["Extra Charges", `${currencySymbol}${booking.exCharges.toFixed(2)}`, "#374151", false] : null,
+                ["Total", `${currencySymbol}${(isPackagePaid ? 0 : (booking.grandTotal || 0)).toFixed(2)}`, "#111827", true],
+                (booking.rewardPointsValue || 0) > 0 ? ["🎁 Paid from Reward Points", `${currencySymbol}${(booking.rewardPointsValue || 0).toFixed(2)}`, "#7c3aed", false] : null,
+                ["Paid",  `${currencySymbol}${(booking.payingNow || 0).toFixed(2)}`, "#111827", false],
+                (booking.dueAmount || 0) > 0 ? ["Due", `${currencySymbol}${(booking.dueAmount || 0).toFixed(2)}`, "#ef4444", false] : null,
+                // Already folded into Total/Paid/Due above — shown again here just
+                // to break out how much of that figure is tip vs. bill.
+                booking.tipAmount      ? ["Staff Tip (included above)", `${currencySymbol}${booking.tipAmount.toFixed(2)}`, "#374151", false] : null,
+                ...((booking.tipAmount && (booking as any).tipBreakdown?.length)
+                  ? (booking as any).tipBreakdown.map((t: any) => [t.staffName, `${currencySymbol}${Number(t.amount || 0).toFixed(2)}`, "#98a2b3", false, true])
+                  : []),
+              ].filter((row): row is [string, string, string, boolean, boolean?] => row !== null).map(([l, v, c, bold, sub]) => (
+                <div key={l as string} className={`vbm-summary-row${bold ? " vbm-summary-row--bold" : ""}${sub ? " vbm-summary-row--sub" : ""}`} style={{ color: c as string }}>
+                  <span>{l as string}</span>
+                  <span>{v as string}</span>
+                </div>
+              ))
+            ) : (
+              <div className="vbm-summary-row" style={{ color: "#9ca3af" }}>
+                <span>🔒 Requires "View Payment Details" permission</span>
               </div>
-            ))}
+            )}
           </div>
 
           {(booking.dueAmount || 0) > 0 && booking.status === "partial" && onCollectDue && (
             <div className="vbm-section">
               <button
-                onClick={() => canRecordPaymentPerm ? onCollectDue(booking) : denyPerm("create_appointment")}
+                onClick={() => {
+                  if (!canPaymentDetailsPerm) { denyPerm("view_payment_details"); return; }
+                  if (canRecordPaymentPerm) onCollectDue(booking); else denyPerm("edit_appointment");
+                }}
                 style={{
                   width: "100%", background: "#f59e0b", color: "#fff",
                   border: "none", borderRadius: 8, padding: "10px 0",
-                  fontSize: 13, fontWeight: 700, cursor: canRecordPaymentPerm ? "pointer" : "not-allowed",
-                  opacity: canRecordPaymentPerm ? 1 : 0.5,
+                  fontSize: 13, fontWeight: 700, cursor: (canRecordPaymentPerm && canPaymentDetailsPerm) ? "pointer" : "not-allowed",
+                  opacity: (canRecordPaymentPerm && canPaymentDetailsPerm) ? 1 : 0.5,
                 }}
               >
-                ⏳ Collect Due — {currencySymbol}{(booking.dueAmount || 0).toFixed(2)}
+                {/* The due AMOUNT is a payment detail — masked without
+                    view_payment_details even though the button (an edit_
+                    appointment-gated action) itself always stays visible. */}
+                ⏳ Collect Due{canPaymentDetailsPerm ? ` — ${currencySymbol}${(booking.dueAmount || 0).toFixed(2)}` : ""}
               </button>
             </div>
           )}
 
           <div className="vbm-status-section">
             <div className="vbm-section-label">Status</div>
-            {(() => {
+            {canPaymentDetailsPerm ? (() => {
               const pill = STATUS_PILL_STYLES[booking.status] ?? {
                 label: booking.status,
                 bg: "#7c3aed",
@@ -309,7 +337,9 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                   {pill.label}
                 </span>
               );
-            })()}
+            })() : (
+              <span style={{ fontSize: 12, color: "#9ca3af" }}>🔒 Requires "View Payment Details" permission</span>
+            )}
           </div>
         </div>
 

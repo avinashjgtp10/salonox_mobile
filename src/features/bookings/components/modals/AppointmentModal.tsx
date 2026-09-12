@@ -202,11 +202,19 @@ export const AppointmentModal: React.FC<Props> = ({
   // This modal doubles as Quick Sale's checkout screen (quickSale===true) —
   // that flow is already fully gated by its own create_sales permission at
   // the route level (PermissionGuard on /dashboard/sales/quick), so
-  // re-checking the Calendar-specific create_appointment/view_payment_details
+  // re-checking the Calendar-specific edit_appointment/view_payment_details
   // keys there would incorrectly double-gate an unrelated permission.
   // Cancel/Delete aren't reachable from Quick Sale at all (no such action
   // exists there), so those two don't need the same exception.
-  const canRecordPaymentPerm = quickSale || can("create_appointment");
+  //
+  // Recording/collecting payment (any Save & Pay / Continue to Payment /
+  // Pay button below, whether on a brand-new or an existing appointment) is
+  // gated by edit_appointment (Edit & Payment Appointment), not
+  // create_appointment (Create Booking Appointment) — the two were split
+  // apart so booking a new appointment never implies payment access
+  // (Calendar permissions rename ticket). create_appointment alone lets a
+  // staff member save a new Booked appointment with no payment step at all.
+  const canRecordPaymentPerm = quickSale || can("edit_appointment");
   const canViewPaymentDetailsPerm = quickSale || can("view_payment_details");
   const canEditPerm = quickSale || can("edit_appointment");
   const canCancelPerm = can("cancel_appointment");
@@ -2016,7 +2024,7 @@ export const AppointmentModal: React.FC<Props> = ({
   }
 
   const handleSaveAndPay = useCallback(async () => {
-    if (!canRecordPaymentPerm) { denyPerm("create_appointment"); return; }
+    if (!canRecordPaymentPerm) { denyPerm("edit_appointment"); return; }
     if (totalsNotReady) return;
     if (!validate()) return;
     const id = await save(buildSavePayload());
@@ -2060,7 +2068,7 @@ export const AppointmentModal: React.FC<Props> = ({
   // payment (see handlePay / handleZeroPackagePayment), so simply opening
   // the payment step on an existing booking no longer fires an update call.
   const handleContinueToPaymentZero = useCallback(() => {
-    if (!canRecordPaymentPerm) { denyPerm("create_appointment"); return; }
+    if (!canRecordPaymentPerm) { denyPerm("edit_appointment"); return; }
     if (totalsNotReady) return;
     if (!validate()) return;
     setShowPaymentSection(true);
@@ -2070,7 +2078,7 @@ export const AppointmentModal: React.FC<Props> = ({
 
   // Same as above but requires a real (non-walk-in) client.
   const handleContinueToPayment = useCallback(() => {
-    if (!canRecordPaymentPerm) { denyPerm("create_appointment"); return; }
+    if (!canRecordPaymentPerm) { denyPerm("edit_appointment"); return; }
     if (totalsNotReady) return;
     const isWalkIn = !selectedClient || selectedClient.id === "walk-in";
     if (isWalkIn) {
@@ -2163,7 +2171,7 @@ export const AppointmentModal: React.FC<Props> = ({
 
   // ── Pay ──────────────────────────────────────────────────────────────────
   const handlePay = useCallback(async () => {
-    if (!canRecordPaymentPerm) { denyPerm("create_appointment"); return; }
+    if (!canRecordPaymentPerm) { denyPerm("edit_appointment"); return; }
     if (totalsNotReady) return;
     // Validate payment method first — stop completely if not selected. Skipped
     // once the bill is fully covered (package, or a wallet/membership/points
@@ -2268,7 +2276,7 @@ export const AppointmentModal: React.FC<Props> = ({
   const [sendingReceipt, setSendingReceipt] = useState(false);
   // ── Zero-payment for fully package-covered appointments ─────────────────
   const handleZeroPackagePayment = useCallback(async () => {
-    if (!canRecordPaymentPerm) { denyPerm("create_appointment"); return; }
+    if (!canRecordPaymentPerm) { denyPerm("edit_appointment"); return; }
     // Persist the current services/prices first — Continue to Payment no
     // longer saves eagerly, so the appointment isn't guaranteed to already
     // reflect this session's edits until this point.
@@ -3115,13 +3123,27 @@ export const AppointmentModal: React.FC<Props> = ({
               <span className="appt-header-status-badge" style={{ background: "#fee2e2", color: "#dc2626", border: "1px solid #fca5a5" }}>
                 CANCELLED
               </span>
-            ) : (
+            ) : canViewPaymentDetailsPerm ? (
+              // Paid/Partial/Unpaid is a payment detail — independent of
+              // edit_appointment (Calendar payment-details independence
+              // ticket). This badge previously rendered unconditionally to
+              // anyone who could reach this modal at all (i.e. anyone with
+              // edit_appointment, including Owner via its unconditional
+              // bypass), with no view_payment_details check whatsoever.
               <span className={`appt-header-status-badge appt-header-status-badge--${
                 existingBooking.status === "paid" ? "paid"
                 : existingBooking.status === "partial" ? "partial"
                 : "unpaid"
               }`}>
                 {normalizePaymentStatus(existingBooking.status)}
+              </span>
+            ) : (
+              <span
+                className="appt-header-status-badge"
+                style={{ background: "#f3f4f6", color: "#9ca3af", border: "1px solid #e5e7eb" }}
+                title={`Your account does not have the "view_payment_details" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`}
+              >
+                🔒 Payment status
               </span>
             )
           )}

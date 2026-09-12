@@ -131,20 +131,16 @@ const SchedulerContent: React.FC = () => {
     setShowNewAppt(true);
   });
 
-  // A staff member who can actually edit skips the read-only detail view
-  // entirely — one click straight into the editable form, same as before
-  // permissions were split (handleForceEdit below does the full
-  // booking-detail merge either way). Only someone who can VIEW but not
-  // EDIT lands on the read-only ViewBillModal instead — that's the only
-  // case where View Appointment and Edit Appointment actually behave
-  // differently, which is the whole point of them being separate
-  // permissions (see the Calendar permissions ticket).
+  // Clicking a booking always opens the read-only ViewBillModal first,
+  // regardless of edit_appointment — including Owner, who bypasses every
+  // permission check and previously skipped straight into the editable form
+  // on every click, never seeing the view panel at all (found 2026-09-12).
+  // Now consistent with Week/Month/List Week views, which already always
+  // open ViewBillModal on click (see onViewBill={setViewingBooking} below).
+  // Editing is a deliberate, separate action from there — its own "Edit"
+  // button (handleForceEdit) still requires edit_appointment on its own.
   const handleEditBooking = useSingleClick((booking: Booking) => {
     if (!requireViewAppointment()) return;
-    if (can("edit_appointment")) {
-      handleForceEdit(booking);
-      return;
-    }
     setViewingBooking(booking);
   });
 

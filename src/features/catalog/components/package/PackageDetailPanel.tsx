@@ -25,6 +25,8 @@ import { useCurrency } from "../../../../hooks/useCurrency";
 import { getCurrencyIcon } from "../../../../utils/currencyIcon";
 import { formatDateDDMMYYYY } from "../../../../utils/dateFormat";
 import Dropdown from "../../../../components/ui/Dropdown";
+import { usePermissions } from "../../../../hooks/usePermissions";
+import { showPermissionDenied } from "../../../../store/permissionDialogSlice";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -366,6 +368,10 @@ const PackageDetailPanel: React.FC<PackageDetailPanelProps> = ({ pkg, onClose })
 
   const [updatePackage] = useUpdatePackageMutation();
   const dispatch = useDispatch<AppDispatch>();
+  const { can } = usePermissions();
+  const denyPerm = (permKey: string) => dispatch(showPermissionDenied(
+    `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+  ));
 
   // Reset to view mode and sync form whenever the selected package changes
   useEffect(() => {
@@ -380,10 +386,11 @@ const PackageDetailPanel: React.FC<PackageDetailPanelProps> = ({ pkg, onClose })
 
   const handleEnterEdit = useCallback(() => {
     if (!pkg) return;
+    if (!can("edit_packages")) { denyPerm("edit_packages"); return; }
     setForm(toFormState(pkg));
     setSaveError(null);
     setMode("edit");
-  }, [pkg]);
+  }, [pkg, can]);
 
   const handleCancelEdit = useCallback(() => {
     if (!pkg) return;
@@ -468,6 +475,7 @@ const PackageDetailPanel: React.FC<PackageDetailPanelProps> = ({ pkg, onClose })
               <button
                 id="pkg-edit-btn"
                 className="pkgpanel__btn pkgpanel__btn--edit"
+                style={!can("edit_packages") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
                 onClick={handleEnterEdit}
                 title="Edit package"
               >

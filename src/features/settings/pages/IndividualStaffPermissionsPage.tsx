@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ChevronRight, ChevronLeft, ChevronDown, Loader2, RotateCcw, Search } from "lucide-react";
+import { ChevronRight, ChevronDown, Loader2, RotateCcw, Search, UserRound } from "lucide-react";
+import { MODULE_ICON, DEFAULT_MODULE_ICON } from "../utils/permissionModuleIcons";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
@@ -12,7 +13,7 @@ import {
   assignStaffRoleThunk,
 } from "../../../middleware/roles/roles.thunk";
 import { sortModuleNames, sortGroupNames } from "../utils/permissionModuleOrder";
-import { cascadeOnKeys, isRevealedChild, findEmptyMasterToggles } from "../utils/permissionCascade";
+import { cascadeOnKeys, isRevealedChild, findEmptyMasterToggles, findMissingPrerequisites } from "../utils/permissionCascade";
 // Shared .spm-perm-row/.spm-reset-link/.settings-toggle/.s-badge-* classes
 // reused here live in this stylesheet — see the same import in
 // RolesPermissionsPage.tsx for why this needs to be explicit now that
@@ -31,6 +32,16 @@ const riskBadgeClass: Record<string, string> = {
   high: "s-badge-warning",
   critical: "s-badge-danger",
 };
+
+// Staff avatar initial background — cycles through a small fixed palette
+// keyed by name so the same person always gets the same color across
+// renders/sessions (no persistence needed, just deterministic).
+const AVATAR_COLORS = ["#2563eb", "#7c3aed", "#db2777", "#d97706", "#16a34a", "#0891b2"];
+function avatarColorFor(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+  return AVATAR_COLORS[hash % AVATAR_COLORS.length];
+}
 
 // Shown a second time under the Quick Sale group (in addition to their real
 // home, Clients) — locked there unless QUICK_SALE_GATE_KEY is already
@@ -83,11 +94,22 @@ export default function IndividualStaffPermissionsPage() {
   // Warehouse-style modules split their permissions into named sub-sections
   // (Suppliers/Orders/Product Inventory/...) via the catalog's group_name —
   // dumping all of them flat in one card was too big to scan. When a module
-  // has more than one distinct group_name, opening its card shows a
-  // sub-section list first; picking one (module -> group_name) drills into
-  // just that sub-section's permissions, with a way back to the list.
-  const [selectedGroupByModule, setSelectedGroupByModule] = useState<Record<string, string>>({});
+  // has more than one distinct group_name, every sub-section header shows
+  // at once as its own collapsible row (an accordion) — clicking one toggles
+  // just its own expanded state, without hiding its siblings (Clients
+  // permissions accordion ticket; previously picking one replaced the whole
+  // list with only that section + a "Back to X" link, which hid the others).
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const UNGROUPED = "__ungrouped__";
+  const groupKey = (module: string, groupName: string | null) => `${module}::${groupName ?? UNGROUPED}`;
+  const toggleGroup = (module: string, groupName: string | null) => {
+    setExpandedGroups((prev) => {
+      const key = groupKey(module, groupName);
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
 
   const staffMember = staffList.find((m: any) => String(m.id) === String(staffId));
   const staffName = staffMember?.fullName || staffMember?.first_name || staffMember?.email || "Staff member";
@@ -191,9 +213,6 @@ export default function IndividualStaffPermissionsPage() {
     });
   };
 
-  const clearOneOverride = (key: string) => {
-    setPending((prev) => ({ ...prev, [key]: null }));
-  };
 
   const toggleModuleExpanded = (module: string) => {
     setExpandedModules((prev) => {
@@ -203,17 +222,6 @@ export default function IndividualStaffPermissionsPage() {
     });
   };
 
-  const selectGroup = (module: string, groupName: string | null) => {
-    setSelectedGroupByModule((prev) => ({ ...prev, [module]: groupName ?? UNGROUPED }));
-  };
-
-  const clearSelectedGroup = (module: string) => {
-    setSelectedGroupByModule((prev) => {
-      const next = { ...prev };
-      delete next[module];
-      return next;
-    });
-  };
 
   const getEffective = (key: string): boolean => {
     const perm = view?.permissions.find((p) => p.key === key);
@@ -228,6 +236,14 @@ export default function IndividualStaffPermissionsPage() {
     if (emptyMasters.length > 0) {
       const names = emptyMasters.map((k) => catalogByKey.get(k)?.name ?? k).join(", ");
       showError(`Turn off "${names}", or select at least one option below it.`);
+      return;
+    }
+    const missingPrereqs = findMissingPrerequisites(catalog, getEffective);
+    if (missingPrereqs.length > 0) {
+      const { key, missing } = missingPrereqs[0];
+      const keyName = catalogByKey.get(key)?.name ?? key;
+      const missingName = catalogByKey.get(missing)?.name ?? missing;
+      showError(`"${keyName}" requires "${missingName}" to also be enabled.`);
       return;
     }
     setSaving(true);
@@ -276,6 +292,16 @@ export default function IndividualStaffPermissionsPage() {
 
   const activeOverrideCount = view ? view.permissions.filter((p) => (p.key in pending ? pending[p.key] !== null : p.override !== null)).length : 0;
 
+  const [staffSearch, setStaffSearch] = useState("");
+  const filteredStaffList = useMemo(() => {
+    const q = staffSearch.trim().toLowerCase();
+    if (!q) return staffList;
+    return staffList.filter((m: any) => {
+      const name = m.fullName || m.first_name || m.email || "";
+      return name.toLowerCase().includes(q);
+    });
+  }, [staffList, staffSearch]);
+
   return (
     <div className="ispp-page">
       {overlay}
@@ -291,34 +317,69 @@ export default function IndividualStaffPermissionsPage() {
       </div>
 
       <div className="ispp-header">
-        <div>
-          <h1 className="ispp-title">Individual Staff Permissions</h1>
-          <p className="ispp-subtitle">Customize permissions for individual staff members without changing their default role.</p>
-        </div>
-        {view?.role && (
-          <div className="ispp-role">
-            <span>Role:</span>
-            <select
-              value={view.role.id}
-              disabled={roles.length === 0}
-              onChange={(e) => handleRoleChange(e.target.value)}
-            >
-              {roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
-            </select>
+        <div className="ispp-header-title-row">
+          <span className="ispp-header-icon"><UserRound size={20} /></span>
+          <div>
+            <h1 className="ispp-title">Individual Staff Permissions</h1>
+            <p className="ispp-subtitle">Customize permissions for individual staff members without changing their default role.</p>
           </div>
-        )}
+        </div>
+        <div className="ispp-header-actions">
+          {view?.role && (
+            <div className="ispp-role">
+              <span>Role:</span>
+              <select
+                value={view.role.id}
+                disabled={roles.length === 0}
+                onChange={(e) => handleRoleChange(e.target.value)}
+              >
+                {roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+              </select>
+            </div>
+          )}
+          {view && (
+            confirmResetAll ? (
+              <span className="ispp-reset-confirm">
+                Reset all?
+                <button className="spm-reset-link" onClick={handleResetAll} disabled={saving}>Yes, reset</button>
+                <button className="spm-reset-link" onClick={() => setConfirmResetAll(false)}>Cancel</button>
+              </span>
+            ) : (
+              // Always visible (never hidden) — just disabled when there's
+              // nothing to reset, same "visible but disabled" pattern used
+              // everywhere else in this app rather than hiding the control.
+              <button
+                type="button"
+                className="ispp-reset-btn"
+                disabled={saving || activeOverrideCount === 0}
+                onClick={() => setConfirmResetAll(true)}
+              >
+                <RotateCcw size={13} /> Reset to Default
+              </button>
+            )
+          )}
+        </div>
       </div>
 
       <div className="ispp-workspace">
         <div className="ispp-staff-panel">
-          <p className="ispp-staff-panel-title">Staff members</p>
+          <p className="ispp-staff-panel-title">Staff Members</p>
+          <div className="ispp-staff-search">
+            <Search size={13} className="ispp-staff-search-icon" />
+            <input
+              type="text"
+              placeholder="Search staff..."
+              value={staffSearch}
+              onChange={(e) => setStaffSearch(e.target.value)}
+            />
+          </div>
           <div className="ispp-staff-list">
             {staffLoading.fetchAll ? (
               <p className="ispp-muted">Loading staff…</p>
-            ) : staffList.length === 0 ? (
-              <p className="ispp-muted">No staff members yet.</p>
+            ) : filteredStaffList.length === 0 ? (
+              <p className="ispp-muted">{staffList.length === 0 ? "No staff members yet." : "No staff match your search."}</p>
             ) : (
-              staffList.map((member: any) => {
+              filteredStaffList.map((member: any) => {
                 const name = member.fullName || member.first_name || member.email || "Unnamed";
                 const hasCustom = member.role_id ? !!member.has_overrides : member.custom_permissions != null;
                 const isActive = String(member.id) === String(staffId);
@@ -329,10 +390,16 @@ export default function IndividualStaffPermissionsPage() {
                     className={`ispp-staff-item${isActive ? " ispp-staff-item--active" : ""}`}
                     onClick={() => navigate(`/dashboard/settings/roles/individual-staff/${member.id}`)}
                   >
-                    <span className="ispp-staff-name">{name}</span>
-                    <span className="ispp-staff-meta">
-                      {member.role_name || "No role"} · {hasCustom ? "Custom" : "Defaults"}
+                    <span className="ispp-staff-avatar" style={{ background: avatarColorFor(name) }}>
+                      {name.charAt(0).toUpperCase()}
                     </span>
+                    <span className="ispp-staff-item-text">
+                      <span className="ispp-staff-name">{name}</span>
+                      <span className="ispp-staff-meta">
+                        {member.role_name || "No role"} · {hasCustom ? "Custom" : "Default role"}
+                      </span>
+                    </span>
+                    <ChevronRight size={14} className="ispp-staff-chevron" />
                   </button>
                 );
               })
@@ -348,19 +415,6 @@ export default function IndividualStaffPermissionsPage() {
                 Changes here override the permissions inherited from the {view?.role?.name ?? "role"}.
               </p>
             </div>
-            {activeOverrideCount > 0 && (
-              confirmResetAll ? (
-                <span className="ispp-reset-confirm">
-                  Reset all?
-                  <button className="spm-reset-link" onClick={handleResetAll} disabled={saving}>Yes, reset</button>
-                  <button className="spm-reset-link" onClick={() => setConfirmResetAll(false)}>Cancel</button>
-                </span>
-              ) : (
-                <button type="button" className="spm-reset-link" disabled={saving} onClick={() => setConfirmResetAll(true)}>
-                  <RotateCcw size={12} /> Reset to role defaults
-                </button>
-              )
-            )}
           </div>
 
           <div className="ispp-search">
@@ -383,10 +437,6 @@ export default function IndividualStaffPermissionsPage() {
                 const isOpen = expandedModules.has(group.module);
                 const customCount = group.rows.filter((r) => r.isCustom).length;
                 const hasSubGroups = group.subGroups.length > 1;
-                const selectedKey = selectedGroupByModule[group.module];
-                const selectedSubGroup = selectedKey != null
-                  ? group.subGroups.find((sg) => (sg.groupName ?? UNGROUPED) === selectedKey)
-                  : undefined;
                 // A child of a REVEAL_ON_MASTER_TOGGLE master (currently
                 // just Online Booking's channels) stays hidden entirely
                 // until the master itself is switched on.
@@ -413,17 +463,6 @@ export default function IndividualStaffPermissionsPage() {
                       {locked && <p className="spm-perm-desc" style={{ color: "#b45309" }}>Enable Quick Sale access first</p>}
                     </div>
                     <div className="spm-perm-toggle" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      {row.isCustom && !locked && (
-                        <button
-                          type="button"
-                          className="spm-reset-link"
-                          style={{ fontSize: 10, opacity: 0.6 }}
-                          onClick={() => clearOneOverride(row.key)}
-                          title="Revert to role default"
-                        >
-                          ↺
-                        </button>
-                      )}
                       <label className="settings-toggle" title={locked ? "Enable Quick Sale access first" : undefined}>
                         <input
                           type="checkbox"
@@ -437,6 +476,8 @@ export default function IndividualStaffPermissionsPage() {
                   </div>
                   );
                 };
+                const moduleIcon = MODULE_ICON[group.module] ?? DEFAULT_MODULE_ICON;
+                const ModuleIconTag = moduleIcon.icon;
                 return (
                   <div key={group.module} className={`ispp-module-card${isOpen ? " ispp-module-card--open" : ""}`}>
                     <button
@@ -444,12 +485,17 @@ export default function IndividualStaffPermissionsPage() {
                       className="ispp-module-card-header"
                       onClick={() => toggleModuleExpanded(group.module)}
                     >
-                      <div>
-                        <p className="ispp-module-card-title">{group.module}</p>
-                        <p className="ispp-module-card-count">
-                          {group.rows.length} permission{group.rows.length === 1 ? "" : "s"}
-                          {customCount > 0 && ` · ${customCount} custom`}
-                        </p>
+                      <div className="ispp-module-card-header-left">
+                        <span className="ispp-module-icon" style={{ background: moduleIcon.bg, color: moduleIcon.color }}>
+                          <ModuleIconTag size={17} />
+                        </span>
+                        <div>
+                          <p className="ispp-module-card-title">{group.module}</p>
+                          <p className="ispp-module-card-count">
+                            {group.rows.length} permission{group.rows.length === 1 ? "" : "s"}
+                            {customCount > 0 && ` · ${customCount} custom`}
+                          </p>
+                        </div>
                       </div>
                       <ChevronDown size={16} className={`ispp-module-chevron${isOpen ? " ispp-module-chevron--open" : ""}`} />
                     </button>
@@ -457,36 +503,29 @@ export default function IndividualStaffPermissionsPage() {
                       <div className="ispp-module-card-body">
                         {!hasSubGroups ? (
                           group.rows.filter((r) => !isHiddenChild(r.key)).map(renderRow)
-                        ) : selectedSubGroup ? (
-                          <>
-                            <button
-                              type="button"
-                              className="ispp-subgroup-back"
-                              onClick={() => clearSelectedGroup(group.module)}
-                            >
-                              <ChevronLeft size={13} /> Back to {group.module}
-                            </button>
-                            {selectedSubGroup.rows.filter((r) => !isHiddenChild(r.key)).map(renderRow)}
-                          </>
                         ) : (
-                          <div className="ispp-subgroup-list">
+                          <div className="ispp-subgroup-accordion">
                             {group.subGroups.map((sg) => {
                               const label = sg.groupName ?? "General";
                               const sgCustomCount = sg.rows.filter((r) => r.isCustom).length;
+                              const key = groupKey(group.module, sg.groupName);
+                              const sgOpen = expandedGroups.has(key);
                               return (
-                                <button
-                                  key={sg.groupName ?? UNGROUPED}
-                                  type="button"
-                                  className="ispp-subgroup-item"
-                                  onClick={() => selectGroup(group.module, sg.groupName)}
-                                >
-                                  <span className="ispp-subgroup-item-name">{label}</span>
-                                  <span className="ispp-subgroup-item-meta">
-                                    {sg.rows.length} permission{sg.rows.length === 1 ? "" : "s"}
-                                    {sgCustomCount > 0 && ` · ${sgCustomCount} custom`}
-                                    <ChevronRight size={14} />
-                                  </span>
-                                </button>
+                                <div key={key} className="ispp-subgroup-section">
+                                  <button
+                                    type="button"
+                                    className="ispp-subgroup-item"
+                                    onClick={() => toggleGroup(group.module, sg.groupName)}
+                                  >
+                                    <span className="ispp-subgroup-item-name">{label}</span>
+                                    <span className="ispp-subgroup-item-meta">
+                                      {sg.rows.length} permission{sg.rows.length === 1 ? "" : "s"}
+                                      {sgCustomCount > 0 && ` · ${sgCustomCount} custom`}
+                                      <ChevronDown size={14} style={{ transform: sgOpen ? "rotate(0deg)" : "rotate(-90deg)", transition: "transform 0.15s" }} />
+                                    </span>
+                                  </button>
+                                  {sgOpen && sg.rows.filter((r) => !isHiddenChild(r.key)).map(renderRow)}
+                                </div>
                               );
                             })}
                           </div>
