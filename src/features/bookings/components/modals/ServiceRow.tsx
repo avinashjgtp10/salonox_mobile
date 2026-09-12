@@ -98,6 +98,11 @@ interface ServiceRowProps {
   /** Appointment's client name, for the Consumable Usage modal's header —
    *  ServiceRow only otherwise knows this row's own staff, not the client. */
   clientName?: string;
+  /** Configurable day-value options (Catalog → Services → Options → Service
+   *  reminder options) shown as a dropdown in the reminder popup below,
+   *  instead of always free-typing a number. Empty/omitted falls back to the
+   *  old plain number input. */
+  reminderPresets?: number[];
 }
 
 function fmtName(name: string) {
@@ -209,6 +214,7 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
   consumableActuals,
   onConsumableActualChange,
   clientName,
+  reminderPresets = [],
 }) => {
   const { currencySymbol } = useCurrency();
   const dispatch = useAppDispatch();
@@ -261,11 +267,62 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
     }
   }, [packageSessionsRemaining]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Reminder modal state ──────────────────────────────────────────────────────
-  const [showReminderModal, setShowReminderModal] = useState(false);
+  // ── Reminder popover state ────────────────────────────────────────────────────
+  // A small anchored dropdown (not a modal) — picking a preset saves
+  // immediately, so setting a reminder is a single click instead of
+  // open-modal → click dropdown → click Update.
+  const [showReminderPopover, setShowReminderPopover] = useState(false);
   const [reminderDays, setReminderDays] = useState("");
   const [reminderError, setReminderError] = useState("");
   const [savedReminderDays, setSavedReminderDays] = useState<number | null>(null);
+  // true = the free-text input is shown (no presets configured, or the
+  // current value doesn't match any configured preset — e.g. set before any
+  // presets existed). false = the dropdown of reminderPresets is shown.
+  const [useCustomReminder, setUseCustomReminder] = useState(false);
+
+  const reminderBtnRef = useRef<HTMLButtonElement>(null);
+  const reminderPopoverRef = useRef<HTMLDivElement>(null);
+  // Same document.body-portal + position: fixed technique as the service
+  // search dropdown above (dropPos) — keeps this from being clipped by the
+  // row's own overflow:hidden ancestors, and re-anchors on scroll/resize
+  // since it sits relative to the viewport, not whatever scrolls underneath.
+  const [reminderPopoverPos, setReminderPopoverPos] = useState<{ top: number; left: number } | null>(null);
+  useEffect(() => {
+    if (!showReminderPopover) { setReminderPopoverPos(null); return; }
+    function updatePos() {
+      if (!reminderBtnRef.current) return;
+      const r = reminderBtnRef.current.getBoundingClientRect();
+      setReminderPopoverPos({ top: r.bottom + 6, left: r.left });
+    }
+    updatePos();
+    window.addEventListener("scroll", updatePos, true);
+    window.addEventListener("resize", updatePos);
+    return () => {
+      window.removeEventListener("scroll", updatePos, true);
+      window.removeEventListener("resize", updatePos);
+    };
+  }, [showReminderPopover]);
+
+  // No backdrop on a popover this small, so it closes the normal dropdown
+  // way — click outside (either the trigger or the portaled popover itself)
+  // or Escape.
+  useEffect(() => {
+    if (!showReminderPopover) return;
+    function onDocClick(e: MouseEvent) {
+      const target = e.target as Node;
+      if (reminderBtnRef.current?.contains(target)) return;
+      if (reminderPopoverRef.current?.contains(target)) return;
+      closeReminderPopover();
+    }
+    function onEscape(e: KeyboardEvent) { if (e.key === "Escape") closeReminderPopover(); }
+    document.addEventListener("mousedown", onDocClick);
+    document.addEventListener("keydown", onEscape);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("keydown", onEscape);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showReminderPopover]);
 
   // Rows that already have a service on mount (editing a saved appointment,
   // or a row pre-filled by the package-sale flow) never go through
@@ -650,14 +707,21 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
   }
 
   // ── Reminder handlers ─────────────────────────────────────────────────────────
-  function openReminderModal() {
+  function openReminderPopover() {
     setReminderDays(savedReminderDays !== null ? String(savedReminderDays) : "");
+    // No presets configured → always the free-text input. Otherwise custom
+    // mode only when there's a saved value that isn't one of the presets
+    // (e.g. set before presets existed) — a fresh/unset row starts on the
+    // dropdown so the fast path is the default.
+    setUseCustomReminder(
+      reminderPresets.length > 0 && savedReminderDays !== null && !reminderPresets.includes(savedReminderDays),
+    );
     setReminderError("");
-    setShowReminderModal(true);
+    setShowReminderPopover(true);
   }
 
-  function closeReminderModal() {
-    setShowReminderModal(false);
+  function closeReminderPopover() {
+    setShowReminderPopover(false);
     setReminderDays("");
     setReminderError("");
   }
@@ -976,8 +1040,11 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
     }
   }
 
-  async function handleReminderSubmit() {
-    const trimmed = reminderDays.trim();
+  // overrideValue lets a preset click apply-and-save in one step (skips the
+  // reminderDays state round-trip a plain onClick would need before this
+  // could read it back out).
+  async function handleReminderSubmit(overrideValue?: string) {
+    const trimmed = (overrideValue ?? reminderDays).trim();
     if (!trimmed) {
       setReminderError("Please enter reminder in days");
       return;
@@ -989,7 +1056,7 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
     }
 
     setSavedReminderDays(days);
-    closeReminderModal();
+    closeReminderPopover();
 
     // `service_id` first, same as confirmAddConsumable below: on a row loaded
     // from a saved appointment, row.id is the appointment-service ROW id and
@@ -1242,10 +1309,11 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
             {!disabled && (
               <>
                 <button
+                  ref={reminderBtnRef}
                   type="button"
                   className={`svc-quick-btn svc-quick-btn--reminder${savedReminderDays !== null ? " svc-quick-btn--days" : ""}`}
                   title="Service Reminder"
-                  onClick={openReminderModal}
+                  onClick={() => (showReminderPopover ? closeReminderPopover() : openReminderPopover())}
                 >
                   {savedReminderDays !== null ? (
                     <>
@@ -1588,61 +1656,78 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
         </div>
       )}
 
-      {/* ── Service Reminder Modal ───────────────────────────────────────────── */}
-      {showReminderModal && (
-        <div className="svc-reminder-overlay" onClick={closeReminderModal}>
-          <div className="svc-reminder-modal" onClick={(e) => e.stopPropagation()}>
-            <button
-              type="button"
-              className="svc-reminder-modal__close"
-              onClick={closeReminderModal}
-              aria-label="Close"
-            >
-              ×
-            </button>
-
-            <h3 className="svc-reminder-modal__title">Update service reminder</h3>
-
-            <p className="svc-reminder-modal__subtitle">
-              Set reminder for service (In days):{" "}
-              <strong>{row.service || "—"}</strong>
-            </p>
-
-            <input
-              type="number"
-              min={1}
-              className={`svc-reminder-modal__input${reminderError ? " svc-reminder-modal__input--error" : ""}`}
-              placeholder="Enter Reminder In Days"
-              value={reminderDays}
-              onChange={(e) => {
-                setReminderDays(e.target.value);
-                if (reminderError) setReminderError("");
-              }}
-              onKeyDown={(e) => e.key === "Enter" && handleReminderSubmit()}
-              autoFocus
-            />
-            {reminderError && (
-              <span className="svc-reminder-modal__err">{reminderError}</span>
-            )}
-
-            <div className="svc-reminder-modal__actions">
-              <button
-                type="button"
-                className="svc-reminder-modal__btn svc-reminder-modal__btn--cancel"
-                onClick={closeReminderModal}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="svc-reminder-modal__btn svc-reminder-modal__btn--submit"
-                onClick={handleReminderSubmit}
-              >
-                Update Reminder
-              </button>
-            </div>
+      {/* ── Service Reminder popover — anchored to the clock button, not a
+          modal. Picking a preset saves immediately; only the custom path
+          needs an explicit Save (a raw number needs validation first). ── */}
+      {showReminderPopover && reminderPopoverPos && createPortal(
+        <div
+          ref={reminderPopoverRef}
+          className="svc-reminder-pop"
+          style={{ position: "fixed", top: reminderPopoverPos.top, left: reminderPopoverPos.left, zIndex: 9999 }}
+        >
+          <div className="svc-reminder-pop__title">
+            Remind to redo — <strong>{row.service || "this service"}</strong>
           </div>
-        </div>
+
+          {reminderPresets.length > 0 && !useCustomReminder ? (
+            <>
+              <ul className="svc-reminder-pop__list">
+                {reminderPresets.map((d) => (
+                  <li key={d}>
+                    <button
+                      type="button"
+                      className={`svc-reminder-pop__item${savedReminderDays === d ? " svc-reminder-pop__item--active" : ""}`}
+                      onClick={() => handleReminderSubmit(String(d))}
+                    >
+                      {d} days
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <button
+                type="button"
+                className="svc-reminder-pop__link"
+                onClick={() => { setUseCustomReminder(true); setReminderDays(""); setReminderError(""); }}
+              >
+                Use a custom value
+              </button>
+            </>
+          ) : (
+            <div className="svc-reminder-pop__custom">
+              <input
+                type="number"
+                min={1}
+                autoFocus
+                className={`svc-reminder-pop__input${reminderError ? " svc-reminder-pop__input--error" : ""}`}
+                placeholder="Enter days"
+                value={reminderDays}
+                onChange={(e) => {
+                  setReminderDays(e.target.value);
+                  if (reminderError) setReminderError("");
+                }}
+                onKeyDown={(e) => e.key === "Enter" && handleReminderSubmit()}
+              />
+              <button
+                type="button"
+                className="svc-reminder-pop__save"
+                onClick={() => handleReminderSubmit()}
+              >
+                Save
+              </button>
+              {reminderPresets.length > 0 && (
+                <button
+                  type="button"
+                  className="svc-reminder-pop__link"
+                  onClick={() => { setUseCustomReminder(false); setReminderError(""); }}
+                >
+                  Choose from list instead
+                </button>
+              )}
+            </div>
+          )}
+          {reminderError && <span className="svc-reminder-pop__err">{reminderError}</span>}
+        </div>,
+        document.body,
       )}
     </>
   );

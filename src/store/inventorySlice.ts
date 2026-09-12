@@ -5,6 +5,13 @@ import {
   createSupplierThunk,
   updateSupplierThunk,
   deleteSupplierThunk,
+  createSupplierPaymentThunk,
+  createOrderThunk,
+  updateOrderThunk,
+  receiveOrderThunk,
+  correctReceivedQtyThunk,
+  cancelOrderThunk,
+  deleteOrderThunk,
   fetchConsumablesDashboardThunk,
   fetchConsumableByIdThunk,
   fetchOrdersThunk,
@@ -22,6 +29,19 @@ interface InventoryState {
   suppliersTotal: number;
   supplierCities: string[];
   supplierStates: string[];
+  // Tracks whether the filter-options fetch has ever completed, separate
+  // from the arrays' own length — a salon with no supplier city/state data
+  // gets back {cities: [], states: []} every time, which is indistinguishable
+  // from "never loaded" if you only check array length. That's what let
+  // SuppliersListPage's mount-effect guard keep refetching on every Close.
+  supplierFilterOptionsLoaded: boolean;
+  // Set whenever an order/payout action lands that can change a supplier's
+  // due_amount/status (order create/update/receive/correct/cancel/delete,
+  // payout) — those actions almost never happen through AddSupplierPage's
+  // own save flow, so SuppliersListPage's mount-effect "reuse cached list"
+  // check can't rely on the `location.state.refresh` flag alone. Cleared
+  // once fetchSuppliersThunk actually refetches.
+  suppliersStale: boolean;
   loading: boolean;
   error: string | null;
 
@@ -54,6 +74,8 @@ const initialState: InventoryState = {
   suppliersTotal: 0,
   supplierCities: [],
   supplierStates: [],
+  supplierFilterOptionsLoaded: false,
+  suppliersStale: false,
   loading: false,
   error: null,
 
@@ -96,6 +118,7 @@ const inventorySlice = createSlice({
       state.suppliersTotal = action.payload.total;
       state.suppliersPage = action.payload.page;
       state.suppliersPageSize = action.payload.page_limit;
+      state.suppliersStale = false;
     });
     builder.addCase(fetchSuppliersThunk.rejected, (state, action) => {
       state.loading = false;
@@ -105,6 +128,7 @@ const inventorySlice = createSlice({
     builder.addCase(fetchSupplierFilterOptionsThunk.fulfilled, (state, action) => {
       state.supplierCities = action.payload.cities;
       state.supplierStates = action.payload.states;
+      state.supplierFilterOptionsLoaded = true;
     });
 
     // Fetch Orders
@@ -183,6 +207,28 @@ const inventorySlice = createSlice({
       state.consumableDetailLoading = false;
       state.error = action.payload as string;
     });
+
+    // Anything that can move a supplier's due_amount/status behind the list's
+    // back — a payout, or any order create/update/receive/correct/cancel/
+    // delete — marks the cached suppliers list stale so the next mount of
+    // SuppliersListPage refetches instead of showing outdated balances.
+    // Must come after every addCase above — RTK requires all addCase calls
+    // before any addMatcher in the same builder chain.
+    builder.addMatcher(
+      (action): action is { type: string } =>
+        [
+          createSupplierPaymentThunk.fulfilled.type,
+          createOrderThunk.fulfilled.type,
+          updateOrderThunk.fulfilled.type,
+          receiveOrderThunk.fulfilled.type,
+          correctReceivedQtyThunk.fulfilled.type,
+          cancelOrderThunk.fulfilled.type,
+          deleteOrderThunk.fulfilled.type,
+        ].includes(action.type),
+      (state) => {
+        state.suppliersStale = true;
+      },
+    );
   },
 });
 

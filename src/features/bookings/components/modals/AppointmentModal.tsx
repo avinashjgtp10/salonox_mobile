@@ -30,6 +30,7 @@ import { getTaxModuleConfig } from "../../../settings/utils/taxModuleSettings";
 import { getPaperProfile } from "../../../settings/utils/printSettings";
 import { getRewardPointsConfig } from "../../../settings/utils/rewardPointsSettings";
 import { getReferralConfig } from "../../../settings/utils/referralSettings";
+import { getServiceReminderPresets } from "../../../catalog/utils/serviceReminderSettings";
 import { isRealId } from "../../utils/paymentUtils";
 import { normalizePaymentStatus } from "../../utils/bookingMapper";
 import { isPackageExpired } from "../../utils/packageStatus";
@@ -249,6 +250,11 @@ export const AppointmentModal: React.FC<Props> = ({
   const paperProfile = useMemo(() => getPaperProfile(settingItems), [settingItems]);
   const rewardPointsConfig = useMemo(() => getRewardPointsConfig(settingItems), [settingItems]);
   const referralConfig = useMemo(() => getReferralConfig(settingItems), [settingItems]);
+  // Configurable dropdown options for the per-service redo reminder (Catalog
+  // → Services → Options → "Service reminder options") — threaded down to
+  // ServicesPanel/ServiceRow so staff pick from these instead of typing a
+  // number every time.
+  const reminderPresets = useMemo(() => getServiceReminderPresets(settingItems), [settingItems]);
 
   // ── Lazy on-demand fetching ───────────────────────────────────────────────
   const [triggerPackages, { data: packagesData }]       = useLazyListPackagesQuery();
@@ -2663,6 +2669,7 @@ export const AppointmentModal: React.FC<Props> = ({
             if (n[i]) n[i] = { ...n[i], [field]: false };
             return n;
           })}
+          reminderPresets={reminderPresets}
         />
       </div>
 

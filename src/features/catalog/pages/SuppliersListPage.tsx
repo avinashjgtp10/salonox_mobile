@@ -164,7 +164,7 @@ const SuppliersListPage: React.FC = () => {
   const location = useLocation();
   const { formatAmount } = useCurrency();
   const {
-    suppliers, suppliersTotal, supplierCities, supplierStates, loading,
+    suppliers, suppliersTotal, supplierCities, supplierStates, supplierFilterOptionsLoaded, suppliersStale, loading,
   } = useAppSelector((state) => state.inventory);
   const currentSalonId = useAppSelector((state) => state.salon?.currentSalon?.id);
 
@@ -216,30 +216,26 @@ const SuppliersListPage: React.FC = () => {
   const isMountedRef = useRef(false);
 
   // Initial fetch on mount — skipped when the store already has data from a
-  // previous visit AND this mount wasn't triggered by a successful Add/Edit
-  // save. AddSupplierPage navigates back with location.state.refresh only
-  // after a save; a plain Close navigates back with no state at all, so
-  // returning from Close reuses what's already in the store instead of
-  // calling the API again.
+  // previous visit AND nothing has happened since that would make that data
+  // wrong. That's either a successful Add/Edit save (AddSupplierPage
+  // navigates back with location.state.refresh only after a save; a plain
+  // Close carries no state) or `suppliersStale`, set in inventorySlice
+  // whenever an order/payout action elsewhere moves a supplier's due_amount
+  // — those don't go through AddSupplierPage at all, so the refresh flag
+  // alone can't catch them.
   useEffect(() => {
     const justSaved = (location.state as { refresh?: boolean } | null)?.refresh;
-    // eslint-disable-next-line no-console
-    console.log("[SuppliersListPage] mount effect", {
-      suppliersLength: suppliers.length,
-      supplierCitiesLength: supplierCities.length,
-      supplierStatesLength: supplierStates.length,
-      justSaved,
-      locationState: location.state,
-      pathname: location.pathname,
-    });
-    if (suppliers.length === 0 || justSaved) {
+    if (suppliers.length === 0 || justSaved || suppliersStale) {
       dispatch(fetchSuppliersThunk({ page: 1, page_limit: pageSize }));
     }
     // Same "don't refetch what's already loaded" reasoning as the list
     // above — this was previously unconditional, so even a plain Close
     // (no data change at all) still re-hit the locations endpoint on every
-    // return to this page.
-    if (supplierCities.length === 0 && supplierStates.length === 0) {
+    // return to this page. Gated on a dedicated "loaded" flag rather than
+    // array length, since a salon with no supplier city/state data gets
+    // back empty arrays every time — length alone can't tell that apart
+    // from "never fetched".
+    if (!supplierFilterOptionsLoaded) {
       dispatch(fetchSupplierFilterOptionsThunk());
     }
     const t = setTimeout(() => { isMountedRef.current = true; }, 0);

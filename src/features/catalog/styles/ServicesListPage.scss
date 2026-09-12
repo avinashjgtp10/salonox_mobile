@@ -874,6 +874,40 @@
     }
   }
 
+  /* ── Reminder preset chips (ServiceReminderPresetsModal.tsx) ──── */
+  &__chip-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 18px;
+  }
+
+  &__chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px 6px 12px;
+    background: #eef2ff;
+    color: #3730a3;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+
+    button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      border: none;
+      border-radius: 50%;
+      background: rgba(55, 48, 163, 0.12);
+      color: inherit;
+      cursor: pointer;
+      &:hover { background: rgba(55, 48, 163, 0.22); }
+    }
+  }
+
   /* ── Error state ─────────────────────────────────────────────── */
   &__error-state {
     background: #fff;
