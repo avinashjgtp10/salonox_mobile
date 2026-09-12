@@ -71,6 +71,7 @@ const OrderDetailsDrawer: React.FC<OrderDetailsDrawerProps> = ({ orderId, isOpen
   const handleDownloadPdf = () => {
     if (!order) return;
     if (!can("download_order_pdf")) { denyPerm("download_order_pdf"); return; }
+    if (!can("export_pdf")) { denyPerm("export_pdf"); return; }
     generatePurchaseOrderPdf(order, { salon: currentSalon, currencySymbol });
   };
 
@@ -123,7 +124,7 @@ const OrderDetailsDrawer: React.FC<OrderDetailsDrawerProps> = ({ orderId, isOpen
             {order && (
               <button
                 className="edit-btn"
-                style={!can("download_order_pdf") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                style={(!can("download_order_pdf") || !can("export_pdf")) ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
                 onClick={handleDownloadPdf}
               >
                 <FileEarmarkPdf size={13} /> Download PDF

@@ -127,6 +127,9 @@ export default function ProductAuditPage() {
 
   const handleExportExcel = useCallback(async () => {
     if (!can("export_product_audit_excel")) { dispatch(showPermissionDenied(friendlyPermissionDenied("export_product_audit_excel"))); return; }
+    // export_excel (System) is now a global master gate (Global Download
+    // Switches ticket) — checked in addition to the module-specific key.
+    if (!can("export_excel")) { dispatch(showPermissionDenied(friendlyPermissionDenied("export_excel"))); return; }
     setIsExporting(true);
     try {
       // Loops every page with the currently-applied filters (status/search)
@@ -245,7 +248,7 @@ export default function ProductAuditPage() {
             iconLeft={<FileEarmarkExcel size={14} />}
             onClick={handleExportExcel}
             disabled={isExporting}
-            style={!can("export_product_audit_excel") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+            style={(!can("export_product_audit_excel") || !can("export_excel")) ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
           >
             {isExporting ? "Exporting…" : "Export to Excel"}
           </Button>

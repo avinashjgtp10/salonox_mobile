@@ -246,6 +246,9 @@ export default function StockLedgerPage() {
 
   const handleExportExcel = useCallback(async () => {
     if (!can("export_stock_ledger_excel")) { dispatch(showPermissionDenied(friendlyPermissionDenied("export_stock_ledger_excel"))); return; }
+    // export_excel (System) is now a global master gate (Global Download
+    // Switches ticket) — checked in addition to the module-specific key.
+    if (!can("export_excel")) { dispatch(showPermissionDenied(friendlyPermissionDenied("export_excel"))); return; }
     setIsExporting(true);
     try {
       // Loops every page with the currently-applied filters (search/
@@ -349,7 +352,7 @@ export default function StockLedgerPage() {
             iconLeft={<FileEarmarkExcel size={14} />}
             onClick={handleExportExcel}
             disabled={isExporting}
-            style={!can("export_stock_ledger_excel") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+            style={(!can("export_stock_ledger_excel") || !can("export_excel")) ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
           >
             {isExporting ? "Exporting…" : "Export Excel"}
           </Button>

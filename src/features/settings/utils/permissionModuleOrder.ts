@@ -12,6 +12,7 @@ const MODULE_DISPLAY_ORDER = [
   "Calendar",
   "Clients",
   "Catalog",
+  "Warehouse",
   "Staff",
   "Cash Management",
   "Marketing",
@@ -19,6 +20,8 @@ const MODULE_DISPLAY_ORDER = [
   "Enquiries",
   "Reports",
   "Settings",
+  "Notifications",
+  "System",
   "Help",
 ];
 
@@ -66,6 +69,7 @@ const GROUP_DISPLAY_ORDER: Record<string, string[]> = {
   // (manage_integrations/permission_settings/manage_pos_payments) aren't
   // in this list, so they sink to the end instead of appearing first.
   Settings: ["General", "Account", "Tools", "Migration", "Data", "Roles & Permissions"],
+  Catalog: ["Services", "Digital Menu", "Products", "Packages", "Memberships"],
 };
 
 /** Sorts a module's sub-groups into that module's display order (if one is

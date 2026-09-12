@@ -432,6 +432,7 @@ export default function StaffListPage() {
                   mimeType="application/pdf"
                   fetcher={async () => {
                     if (!can("export_staff_pdf")) { denyPerm("export_staff_pdf"); throw new Error("Permission denied"); }
+                    if (!can("export_pdf")) { denyPerm("export_pdf"); throw new Error("Permission denied"); }
                     const all = await fetchAllStaffForExport();
                     setOptionsOpen(false);
                     return exportStaffPDF(all);
@@ -440,7 +441,7 @@ export default function StaffListPage() {
                   size="sm"
                   iconLeft={<FiletypePdf size={14} />}
                   className="slp-option-item w-100 text-start"
-                  style={!can("export_staff_pdf") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                  style={(!can("export_staff_pdf") || !can("export_pdf")) ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
                 >
                   Export PDF
                 </DownloadButton>

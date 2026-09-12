@@ -247,6 +247,11 @@ export default function ProductInventoryPage() {
   const runExport = useCallback(async (kind: "pdf" | "excel" | "csv") => {
     const permKey = kind === "pdf" ? "download_product_inventory_pdf" : kind === "excel" ? "download_product_inventory_excel" : "download_product_inventory_csv";
     if (!can(permKey)) { denyPerm(permKey); return; }
+    // export_csv/export_excel/export_pdf (System) are now global master
+    // gates (Global Download Switches ticket) — checked in addition to the
+    // module-specific key above.
+    const globalKey = kind === "pdf" ? "export_pdf" : kind === "excel" ? "export_excel" : "export_csv";
+    if (!can(globalKey)) { denyPerm(globalKey); return; }
     try {
       const all = await fetchAllForExport();
       if (all.length === 0) { showError("Nothing to export for the current filters"); return; }
@@ -351,21 +356,21 @@ export default function ProductInventoryPage() {
               </Dropdown.Header>
               <Dropdown.Item
                 onClick={() => runExport("pdf")}
-                style={!can("download_product_inventory_pdf") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                style={(!can("download_product_inventory_pdf") || !can("export_pdf")) ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
                 className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark"
               >
                 <FileEarmarkPdf size={16} /> Download PDF
               </Dropdown.Item>
               <Dropdown.Item
                 onClick={() => runExport("excel")}
-                style={!can("download_product_inventory_excel") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                style={(!can("download_product_inventory_excel") || !can("export_excel")) ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
                 className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark"
               >
                 <FileEarmarkExcel size={16} /> Download Excel
               </Dropdown.Item>
               <Dropdown.Item
                 onClick={() => runExport("csv")}
-                style={!can("download_product_inventory_csv") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                style={(!can("download_product_inventory_csv") || !can("export_csv")) ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
                 className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark"
               >
                 <FiletypeCsv size={16} /> Download CSV
