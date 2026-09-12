@@ -94,11 +94,6 @@ function TemplateCard({ template: t, index, deleting, onEdit, onDelete }: Templa
             <CreditCard2Front size={10} />
             {payLabel}
           </span>
-          {t.gstPercentage > 0 && (
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "rgba(255,255,255,.2)", color: "#fff", borderRadius: 20, padding: "3px 9px", fontSize: 11, fontWeight: 500 }}>
-              GST {t.gstPercentage}%
-            </span>
-          )}
         </div>
       </div>
 
