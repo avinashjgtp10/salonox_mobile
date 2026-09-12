@@ -27,6 +27,7 @@ import {
   PencilSquare,
   Printer,
   X,
+  Clock,
 } from "react-bootstrap-icons";
 import { useServices, type CategoryView } from "../hooks/useServices.ts";
 import { useCategories } from "../hooks/useCategories.ts";
@@ -43,6 +44,7 @@ import type { FilterDropdownOption, JiraFilterField } from "../../../components/
 import ManageOrderModal from "../components/ManageOrderModal.tsx";
 import ServiceImportModal from "../components/ServiceImportModal.tsx";
 import PrintMenuCardModal from "../components/PrintMenuCardModal.tsx";
+import ServiceReminderPresetsModal from "../components/ServiceReminderPresetsModal.tsx";
 import ServiceDetailPanel from "../components/ServiceDetailPanel.tsx";
 import ServiceCard from "../components/shared/ServiceCard.tsx";
 import { ServiceListSkeleton } from "../components/shared/LoadingSkeletons.tsx";
@@ -165,6 +167,7 @@ const ServicesListPage: React.FC = () => {
   const [showManageOrder, setShowManageOrder]     = useState(false);
   const [showImport, setShowImport]               = useState(false);
   const [showPrintMenuCard, setShowPrintMenuCard] = useState(false);
+  const [showReminderPresets, setShowReminderPresets] = useState(false);
   const [selectedCategory, setSelectedCategory]  = useState<string>("all");
   const [openCardMenu, setOpenCardMenu]           = useState<string | null>(null);
   const [searchQuery, setSearchQuery]             = useState("");
@@ -742,6 +745,16 @@ const ServicesListPage: React.FC = () => {
             </ul>
           )}
         </div>
+        <button
+          className="slp__ctrl-btn"
+          style={!can("manage_categories") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+          onClick={() => {
+            if (!can("manage_categories")) { denyPerm("manage_categories"); return; }
+            setShowReminderPresets(true);
+          }}
+        >
+          <Clock size={13} /> Reminder options
+        </button>
         {/* <button
           className="slp__ctrl-btn slp__ctrl-btn--order"
           onClick={() => setShowManageOrder(true)}
@@ -928,6 +941,9 @@ const ServicesListPage: React.FC = () => {
       />
       {showPrintMenuCard && (
         <PrintMenuCardModal onClose={() => setShowPrintMenuCard(false)} />
+      )}
+      {showReminderPresets && (
+        <ServiceReminderPresetsModal onClose={() => setShowReminderPresets(false)} />
       )}
 
 

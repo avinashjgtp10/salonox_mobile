@@ -146,6 +146,11 @@ interface Props {
   onClearPkgError?: (index: number, field: string) => void;
   onClearProdError?: (index: number, field: string) => void;
   onClearMemError?: (index: number, field: string) => void;
+  // Configurable dropdown options for ServiceRow's "Service Reminder" popup
+  // (Catalog → Services → Options → Service reminder options). Threaded
+  // straight through — empty/omitted falls back to ServiceRow's own free-text
+  // input.
+  reminderPresets?: number[];
 }
 
 type SearchableItemRowProps =
@@ -1818,6 +1823,7 @@ export const ServicesPanel: React.FC<Props> = ({
   serviceMembershipDiscountByRow, productMembershipDiscountByRow,
   svcErrors, pkgErrors, prodErrors, memErrors, onClearSvcError,
   onClearPkgError, onClearProdError, onClearMemError,
+  reminderPresets,
 }) => {
   const { staffList, interval } = useSchedulerContext();
   const [pendingProductFocusIndex, setPendingProductFocusIndex] = useState<number | null>(null);
@@ -1865,6 +1871,7 @@ export const ServicesPanel: React.FC<Props> = ({
             consumableActuals={consumableActuals?.[(row as any).tempId || String(i)]}
             onConsumableActualChange={(productId, actualQty) => onConsumableActualChange?.((row as any).tempId || String(i), productId, actualQty)}
             clientName={clientName}
+            reminderPresets={reminderPresets}
           />
         ))}
       </>
