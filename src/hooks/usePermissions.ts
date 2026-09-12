@@ -33,7 +33,6 @@ const defaultPermsMap: PermMatrix = {
   manage_inventory: { owner: true, staff: false },
   stock_adjustment: { owner: true, staff: false },
   view_booking: { owner: true, staff: true },
-  manage_booking: { owner: true, staff: false },
   view_team: { owner: true, staff: true },
   add_team_member: { owner: true, staff: false },
   edit_team_member: { owner: true, staff: false },
@@ -90,6 +89,17 @@ const VIRTUAL_PERMS: Record<string, string[]> = {
     "view_reports", "view_reports_sales", "view_reports_payments", "view_reports_customers",
     "view_reports_appointments", "view_reports_inventory", "view_reports_staff",
     "view_reports_packages", "view_reports_marketing",
+  ],
+  // Online Booking Channels ticket: view_booking used to be the one real
+  // permission gating both "can enter this module" AND marketplace's own
+  // read routes. The routes now check view_marketplace directly (see
+  // marketplace.routes.ts), leaving view_booking backend-dead on its own —
+  // same situation view_reports was in, same fix: keep it as a real,
+  // toggleable "General" row (a one-switch "grant every channel" master),
+  // OR'd together with its 4 children instead of replaced by them.
+  view_booking: [
+    "view_booking", "view_marketplace", "view_reserve_with_google",
+    "view_social_bookings", "view_link_builder",
   ],
   // Settings ticket: the outer "can enter the Settings section at all"
   // route guard in DashboardRoutes.tsx — OR of all 18 section-specific

@@ -164,14 +164,29 @@ export const DashboardRoutes = (
       {/* Apps, Profile, Notifications — no permission guard needed */}
       <Route path="apps/*" element={<AppsRoutes />} />
       <Route path="profile" element={<ProfilePage />} />
-      <Route path="notifications" element={<NotificationsPage />} />
+      {/* Notifications feed page — bell icon + "View all" both gated on
+          view_notifications (Notifications permission module ticket); the
+          bell itself is the real UX gate (visible, disabled, denial popup),
+          this route guard is the backstop against typing the URL directly. */}
+      <Route element={<PermissionGuard permKey="view_notifications" />}>
+        <Route path="notifications" element={<NotificationsPage />} />
+      </Route>
 
-      {/* Enquiries — requires view_enquiries + featureKey "enquiries" */}
+      {/* Enquiries — requires view_enquiries + featureKey "enquiries". The
+          list buttons/menu items are the real UX gate (visible, disabled,
+          denial popup on click) — these nested add_enquiries/edit_enquiries
+          guards are only a backstop against typing the URL directly; a
+          denied staff member lands back on the Enquiries list, which they
+          already have access to (view_enquiries got them this far). */}
       <Route element={<PermissionGuard permKey="view_enquiries" />}>
         <Route element={<PlanFeatureGuard featureKey="enquiries" label="Enquiries" />}>
           <Route path="enquiries" element={<EnquiriesListPage />} />
-          <Route path="enquiries/add" element={<EnquiryAddPage />} />
-          <Route path="enquiries/edit/:id" element={<EnquiryAddPage />} />
+          <Route element={<PermissionGuard permKey="add_enquiries" />}>
+            <Route path="enquiries/add" element={<EnquiryAddPage />} />
+          </Route>
+          <Route element={<PermissionGuard permKey="edit_enquiries" />}>
+            <Route path="enquiries/edit/:id" element={<EnquiryAddPage />} />
+          </Route>
         </Route>
       </Route>
 

@@ -110,6 +110,8 @@ export default function PermissionGuard({ permKey }: Props) {
     "view_inbox", "view_whatsapp_config",
     "view_reports",
     "access_settings",
+    "view_enquiries",
+    "view_notifications",
   ];
   if (role === "staff" && !NO_REDIRECT_KEYS.includes(permKey)) {
     const firstAllowed = getFirstAllowedModuleRoute(can);
