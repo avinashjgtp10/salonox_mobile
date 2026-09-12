@@ -250,6 +250,11 @@ $transition:      0.18s ease;
   margin-bottom: 10px;
 }
 
+.emp-password-actions {
+  display: flex;
+  gap: 10px;
+}
+
 .emp-input {
   height: 40px;
   border: 1px solid $border;
