@@ -469,6 +469,11 @@ const PackageCreateForm: React.FC<Props> = ({
         basePrice:     pkgPrice,
         gstPercentage: gstPct,
         discount:      discountVal,
+        // Send the exact figure shown in the "Total amount" row rather than
+        // letting the backend re-derive it — guarantees what the user saw is
+        // what gets saved, immune to any future drift between this formula
+        // and the backend's copy of it.
+        totalAmount:   totalAmount,
         paymentMethod: paymentMode === "split" ? "split" : toBackendPaymentMethod(singleMethod!),
         staffId:       staffId || undefined,
         services: validServices.map(s => ({

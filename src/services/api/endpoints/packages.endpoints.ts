@@ -224,6 +224,11 @@ export interface CreateClientPackageDTO {
   basePrice: number;
   gstPercentage: number;
   discount: number;
+  /** Optional override for the computed (basePrice − discount + gstAmount)
+   *  total — pass the exact figure shown on-screen (e.g. the "Total amount"
+   *  row) so it's guaranteed to be what gets saved. Omit to let the backend
+   *  derive it. */
+  totalAmount?: number;
   paymentMethod: string;
   /** Staff member who sold this package — feeds the Package Sale report's Staff column. */
   staffId?: string;
@@ -274,6 +279,8 @@ export interface UpdateClientPackageDTO {
   basePrice?:      number;
   gstPercentage?:  number;
   discount?:       number;
+  /** See CreateClientPackageDTO.totalAmount — same override behavior. */
+  totalAmount?:    number;
   services?: Array<{
     serviceId:      string;
     serviceName?:   string;
