@@ -140,3 +140,59 @@ jobs:
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: npx eas-cli build --platform android --profile production --non-interactive
+
+  # OTA updates are published only after the matching binary build succeeds:
+  # `needs` means a failed or skipped build leaves the update skipped too, so an
+  # update can never ship against a commit that failed to build. Development is
+  # deliberately excluded — dev builds are dev-client installs, not OTA targets.
+  qa-update:
+    name: QA Update
+    needs: qa-build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/qa'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: mobile-update-qa
+      cancel-in-progress: false
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: EAS update (qa channel)
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: npx eas-cli update --channel qa --environment qa --message "QA OTA update"
+
+  production-update:
+    name: Production Update
+    needs: production-build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: mobile-update-production
+      cancel-in-progress: false
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: EAS update (production channel)
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: npx eas-cli update --channel production --environment production --message "Production OTA update"
