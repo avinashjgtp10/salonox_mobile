@@ -176,12 +176,14 @@ const OrderDetailPage: React.FC = () => {
   function handleDownloadBill() {
     if (!order) return;
     if (!can("download_order_pdf")) { denyPerm("download_order_pdf"); return; }
+    if (!can("export_pdf")) { denyPerm("export_pdf"); return; }
     generateOrderBillPdf(order, { salon: currentSalon, currencySymbol });
   }
 
   function handleDownloadPurchaseOrder() {
     if (!order) return;
     if (!can("download_order_pdf")) { denyPerm("download_order_pdf"); return; }
+    if (!can("export_pdf")) { denyPerm("export_pdf"); return; }
     generatePurchaseOrderPdf(order, { salon: currentSalon, currencySymbol });
   }
 
@@ -259,7 +261,7 @@ const OrderDetailPage: React.FC = () => {
           <Button
             variant="outline-dark"
             iconLeft={<FileEarmarkPdf size={14} />}
-            style={!can("download_order_pdf") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+            style={(!can("download_order_pdf") || !can("export_pdf")) ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
             onClick={handleDownloadPurchaseOrder}
           >
             Download PDF
@@ -268,7 +270,7 @@ const OrderDetailPage: React.FC = () => {
             <Button
               variant="outline-dark"
               iconLeft={<FileEarmarkPdf size={14} />}
-              style={!can("download_order_pdf") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+              style={(!can("download_order_pdf") || !can("export_pdf")) ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
               onClick={handleDownloadBill}
             >
               Download Bill PDF

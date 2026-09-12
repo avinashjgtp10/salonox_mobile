@@ -63,12 +63,24 @@ const ReportExportButton = ({
   // call would and stops the export before any file is built. For a named
   // report, one single download_report_<id> key covers every format — the
   // ticket's "Download" toggle isn't split by file type.
+  //
+  // export_csv/export_excel/export_pdf (System) are now global master gates
+  // (Global Download Switches ticket) — checked in ADDITION to the specific
+  // key, even for named reports, so switching one of these off blocks that
+  // file type everywhere, including every report on ReportsPage.
   const requireExportPermission = (formatKey: "export_csv" | "export_excel" | "export_pdf") => {
-    const permKey = reportId ? `download_report_${reportId}` : formatKey;
-    if (can(permKey)) return true;
-    dispatch(showPermissionDenied(friendlyDenied(permKey)));
-    setOpen(false);
-    return false;
+    const specificKey = reportId ? `download_report_${reportId}` : formatKey;
+    if (!can(specificKey)) {
+      dispatch(showPermissionDenied(friendlyDenied(specificKey)));
+      setOpen(false);
+      return false;
+    }
+    if (!can(formatKey)) {
+      dispatch(showPermissionDenied(friendlyDenied(formatKey)));
+      setOpen(false);
+      return false;
+    }
+    return true;
   };
   // Named reports (reportId set): without the matching download_report_<id>
   // permission, the button shows greyed out and clicking it goes straight to

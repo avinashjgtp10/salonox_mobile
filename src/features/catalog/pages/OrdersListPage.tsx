@@ -75,6 +75,12 @@ const OrdersListPage: React.FC = () => {
       dispatch(showPermissionDenied(friendlyPermissionDenied("download_order_pdf")));
       return;
     }
+    // export_pdf (System) is now a global master gate (Global Download
+    // Switches ticket) — checked in addition to the module-specific key.
+    if (!can("export_pdf")) {
+      dispatch(showPermissionDenied(friendlyPermissionDenied("export_pdf")));
+      return;
+    }
     setDownloadingPdfId(o.id);
     try {
       const full = await dispatch(fetchOrderByIdThunk(o.id)).unwrap();
@@ -536,7 +542,7 @@ const OrdersListPage: React.FC = () => {
                           <button
                             className="orders-kebab-item"
                             disabled={downloadingPdfId === o.id}
-                            style={!can("download_order_pdf") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                            style={(!can("download_order_pdf") || !can("export_pdf")) ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
                             onClick={() => {
                               setOpenRowMenuId(null);
                               handleDownloadPdf(o);

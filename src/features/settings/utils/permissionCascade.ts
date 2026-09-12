@@ -4,14 +4,118 @@ export interface CascadeCatalogEntry {
 }
 
 // Master toggles whose direct (and transitive) children stay hidden in the
-// Roles & Permissions editors until the master itself is switched on, and
-// whose children get validated on save (master ON with every child OFF is
-// blocked — that combination "opens the section" via the master's own
-// VIRTUAL_PERMS OR-grant with nothing usable behind it). Currently just
-// view_booking (Online Booking Channels ticket); add a key here only when
-// explicitly asked for the same reveal-on-toggle + validate-on-save
-// treatment — it changes both display and save behavior for that module.
-export const REVEAL_ON_MASTER_TOGGLE: string[] = ["view_booking"];
+// Roles & Permissions editors until the master itself is switched on.
+// view_booking (Online Booking Channels ticket) also gets the
+// findEmptyMasterToggles save validation below, since view_booking itself
+// does nothing on its own once backend-dead (see marketplace.routes.ts).
+// Every other "View X" master here does NOT get that validation: each is
+// still independently meaningful on its own (viewing the list without any
+// write/download child granted is a valid, intentional configuration), so
+// only view_booking is singled out below.
+//
+// Deliberately excludes Reports' view_reports/view_reports_<category>
+// masters — that module's master lives in a different subgroup ("General")
+// than its category children, and categories in turn have their own report
+// children, so the same "hide until toggled" rule would show a completely
+// empty subgroup screen (no visible master switch to explain why) whenever
+// the relevant master is off. Needs its own explicit decision, not a
+// silent inclusion in this generic list.
+export const REVEAL_ON_MASTER_TOGGLE: string[] = [
+  "view_booking",
+  "view_marketplace",
+  "view_link_builder",
+  // Reports — the 8 category masters only, NOT view_reports itself.
+  // view_reports lives in a different subgroup ("General") than its
+  // categories; including it here would hide a category's own master
+  // toggle along with its reports whenever view_reports is off, leaving a
+  // blank subgroup screen with nothing visible to explain why. Anchoring
+  // the reveal one level down at the category avoids that: the category's
+  // own toggle is always visible when you open its subgroup, and only its
+  // reports stay hidden until it's switched on.
+  "view_reports_sales",
+  "view_reports_payments",
+  "view_reports_customers",
+  "view_reports_appointments",
+  "view_reports_inventory",
+  "view_reports_staff",
+  "view_reports_packages",
+  "view_reports_marketing",
+  // Reports — each individual report's own View key, so toggling it
+  // reveals+enables that report's Download sibling (3-level chain:
+  // category -> view_report_<id> -> download_report_<id>). Toggling the
+  // category itself only cascades one level down to these View keys, same
+  // "one level at a time" behavior already used for Calendar's
+  // view_calendar -> view_appointment nesting — the Download for a report
+  // needs that report's own View toggled to reveal/enable it.
+  "view_report_sales_summary", "view_report_daily_sheet", "view_report_product_sale",
+  "view_report_service_sale", "view_report_taxes", "view_report_product_margin",
+  "view_report_reward", "view_report_ewallet", "view_report_payment_collection",
+  "view_report_pending_payment", "view_report_cash_management", "view_report_all_clients",
+  "view_report_client_revenue", "view_report_customer_frequency", "view_report_lost_customers",
+  "view_report_customer_spend", "view_report_service_frequency", "view_report_referral_report",
+  "view_report_client_rating", "view_report_enquiry_report", "view_report_appointment_detail",
+  "view_report_upcoming_appointments", "view_report_no_show_recovery", "view_report_product_sale_inventory",
+  "view_report_product_margin_inventory", "view_report_product_inventory", "view_report_slow_moving_products",
+  "view_report_fast_moving_products", "view_report_brand_performance", "view_report_purchase_vs_sales",
+  "view_report_consumable_usage", "view_report_supplier_report", "view_report_purchase_history",
+  "view_report_staff_sales", "view_report_staff_performance", "view_report_staff_item_sales",
+  "view_report_commission_report", "view_report_tip_report", "view_report_attendance_report",
+  "view_report_payroll_history", "view_report_rebooking_rate", "view_report_package_sale",
+  "view_report_package_history", "view_report_member_sale", "view_report_membership_history",
+  "view_report_wa_campaign", "view_report_mkt_feedback", "view_report_open_rate",
+  "view_report_reply_rate", "view_report_birthday_campaign", "view_report_new_client_follow_up",
+  "view_report_cancellation_recovery", "view_report_membership_opportunity",
+  // Catalog
+  "view_memberships",
+  "view_services",
+  "view_digital_menu",
+  "view_products",
+  "view_packages",
+  "view_client_packages",
+  "view_package_templates",
+  // Calendar
+  "view_calendar",
+  "view_appointment",
+  // Cash Management
+  "view_cash_management",
+  // Clients
+  "view_clients",
+  // Coupons
+  "view_coupons",
+  // Dashboard
+  "view_dashboard",
+  // Enquiries
+  "view_enquiries",
+  // Marketing
+  "view_campaigns",
+  "view_inbox",
+  "view_scheduled_templates",
+  "view_templates",
+  "view_whatsapp_config",
+  // Quick Sale
+  "view_sales",
+  "create_sales",
+  // Settings — Roles & Permissions
+  "view_roles",
+  // Staff
+  "view_payroll",
+  "view_scheduled_shifts",
+  "view_team",
+  "view_commissions",
+  "view_tips",
+  // Warehouse
+  "view_consumable_inventory",
+  "view_orders",
+  "view_product_audit",
+  "view_product_inventory",
+  "view_inventory",
+  "view_stock_ledger",
+  "view_suppliers",
+];
+
+// Subset of REVEAL_ON_MASTER_TOGGLE that also requires at least one
+// effectively-on child at save time (see findEmptyMasterToggles).
+const REQUIRE_ONE_CHILD_ON_SAVE: string[] = ["view_booking"];
 
 /**
  * Every permission key that must also switch ON when `key` is toggled ON —
@@ -93,7 +197,7 @@ export function findEmptyMasterToggles(
   getEffective: (key: string) => boolean
 ): string[] {
   const problems: string[] = [];
-  for (const masterKey of REVEAL_ON_MASTER_TOGGLE) {
+  for (const masterKey of REQUIRE_ONE_CHILD_ON_SAVE) {
     if (!getEffective(masterKey)) continue;
     const children = catalog.filter((p) => p.depends_on?.includes(masterKey));
     if (children.length > 0 && !children.some((c) => getEffective(c.key))) {

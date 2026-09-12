@@ -406,6 +406,11 @@ const ConsumableInventoryPage: React.FC = () => {
   const handleExport = useCallback(async (format: "pdf" | "csv" | "excel") => {
     const permKey = format === "pdf" ? "download_consumable_inventory_pdf" : format === "csv" ? "download_consumable_inventory_csv" : "download_consumable_inventory_excel";
     if (!can(permKey)) { dispatch(showPermissionDenied(friendlyPermissionDenied(permKey))); return; }
+    // export_csv/export_excel/export_pdf (System) are now global master
+    // gates (Global Download Switches ticket) — checked in addition to the
+    // module-specific key above.
+    const globalKey = format === "pdf" ? "export_pdf" : format === "csv" ? "export_csv" : "export_excel";
+    if (!can(globalKey)) { dispatch(showPermissionDenied(friendlyPermissionDenied(globalKey))); return; }
     setIsExporting(true);
     try {
       const rows = await fetchAllConsumablesForExport();
@@ -486,9 +491,9 @@ const ConsumableInventoryPage: React.FC = () => {
           </button>
           <RowActionsMenu
             items={[
-              { label: "Export as PDF", disabled: !can("download_consumable_inventory_pdf"), onClick: () => handleExport("pdf") },
-              { label: "Export as Excel", disabled: !can("download_consumable_inventory_excel"), onClick: () => handleExport("excel") },
-              { label: "Export as CSV", disabled: !can("download_consumable_inventory_csv"), onClick: () => handleExport("csv") },
+              { label: "Export as PDF", disabled: !can("download_consumable_inventory_pdf") || !can("export_pdf"), onClick: () => handleExport("pdf") },
+              { label: "Export as Excel", disabled: !can("download_consumable_inventory_excel") || !can("export_excel"), onClick: () => handleExport("excel") },
+              { label: "Export as CSV", disabled: !can("download_consumable_inventory_csv") || !can("export_csv"), onClick: () => handleExport("csv") },
             ]}
             trigger={(toggle) => (
               <button

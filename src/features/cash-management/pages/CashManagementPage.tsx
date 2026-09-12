@@ -437,6 +437,16 @@ export default function CashManagementPage() {
       ));
       return;
     }
+    // export_csv/export_excel/export_pdf (System) are now global master
+    // gates — checked in addition to the module-specific key (Global
+    // Download Switches ticket).
+    const globalKey = format === "pdf" ? "export_pdf" : format === "excel" ? "export_excel" : "export_csv";
+    if (!can(globalKey)) {
+      dispatch(showPermissionDenied(
+        `Your account does not have the "${globalKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+      ));
+      return;
+    }
     setExportingFormat(format);
     try {
       const options = {
@@ -648,7 +658,7 @@ export default function CashManagementPage() {
                       className="cash-mgmt__export-option"
                       onClick={() => void runExport("pdf")}
                       disabled={Boolean(exportingFormat) || (activeTab === "expenses" && expenseActionsLoading)}
-                      style={!can("export_cash_management_pdf") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                      style={(!can("export_cash_management_pdf") || !can("export_pdf")) ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
                     >
                       {exportingFormat === "pdf" ? "Generating PDF..." : "Export PDF"}
                     </button>
@@ -657,7 +667,7 @@ export default function CashManagementPage() {
                       className="cash-mgmt__export-option"
                       onClick={() => void runExport("excel")}
                       disabled={Boolean(exportingFormat) || (activeTab === "expenses" && expenseActionsLoading)}
-                      style={!can("export_cash_management_excel") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                      style={(!can("export_cash_management_excel") || !can("export_excel")) ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
                     >
                       {exportingFormat === "excel" ? "Generating Excel..." : "Export Excel"}
                     </button>
@@ -666,7 +676,7 @@ export default function CashManagementPage() {
                       className="cash-mgmt__export-option"
                       onClick={() => void runExport("csv")}
                       disabled={Boolean(exportingFormat) || (activeTab === "expenses" && expenseActionsLoading)}
-                      style={!can("export_cash_management_csv") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                      style={(!can("export_cash_management_csv") || !can("export_csv")) ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
                     >
                       {exportingFormat === "csv" ? "Generating CSV..." : "Export CSV"}
                     </button>
