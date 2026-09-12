@@ -7,8 +7,13 @@
 #
 # `main` is the production branch; there is no separate `production` branch.
 #
-# Pull requests run CI only. An EAS build runs solely when a commit actually
-# lands on dev / qa / main, so opening or updating a PR never costs a build.
+# Only production is automated end to end. Pushing to dev or qa runs CI alone:
+# those branches move often, and a binary build per push burns EAS build quota
+# for artifacts nobody installs. The development and qa build capability is
+# retained here as an on-demand "Run workflow" choice instead of being deleted.
+#
+# Pull requests never build or publish — they run CI only.
+#
 # Each build profile carries its own APP_ENV, API URLs and EAS Update channel
 # in eas.json; this workflow deliberately does not set them, so there is
 # exactly one source of truth for environment configuration.
@@ -19,6 +24,17 @@ on:
     branches: [dev, qa, main]
   pull_request:
     branches: [dev, qa, main]
+  # Manual escape hatch for dev/QA binaries — pick the profile when dispatching.
+  workflow_dispatch:
+    inputs:
+      build_profile:
+        description: EAS build profile to run on demand
+        required: true
+        default: development
+        type: choice
+        options:
+          - development
+          - qa
 
 permissions:
   contents: read
@@ -60,10 +76,12 @@ jobs:
             APP_ENV="$env" npx expo config --type public > /dev/null
           done
 
+  # Manual only — never triggered by a push to dev. Run it from the Actions tab
+  # ("Run workflow" -> build_profile: development) when a dev binary is needed.
   development-build:
     name: Development Build
     needs: ci
-    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.build_profile == 'development'
     runs-on: ubuntu-latest
     # Queue rather than cancel: a cancelled build wastes an EAS build slot.
     concurrency:
@@ -87,10 +105,13 @@ jobs:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: npx eas-cli build --platform android --profile development --non-interactive
 
+  # Manual only — never triggered by a push to qa. The `qa` profile and its
+  # `qa` EAS Update channel remain defined in eas.json; only the automatic
+  # trigger is gone.
   qa-build:
     name: QA Build
     needs: ci
-    if: github.event_name == 'push' && github.ref == 'refs/heads/qa'
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.build_profile == 'qa'
     runs-on: ubuntu-latest
     concurrency:
       group: mobile-build-qa
@@ -141,36 +162,9 @@ jobs:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: npx eas-cli build --platform android --profile production --non-interactive
 
-  # OTA updates are published only after the matching binary build succeeds:
-  # `needs` means a failed or skipped build leaves the update skipped too, so an
-  # update can never ship against a commit that failed to build. Development is
-  # deliberately excluded — dev builds are dev-client installs, not OTA targets.
-  qa-update:
-    name: QA Update
-    needs: qa-build
-    if: github.event_name == 'push' && github.ref == 'refs/heads/qa'
-    runs-on: ubuntu-latest
-    concurrency:
-      group: mobile-update-qa
-      cancel-in-progress: false
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: EAS update (qa channel)
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: npx eas-cli update --channel qa --environment qa --message "QA OTA update"
-
+  # Publishes only after the production binary build succeeds: `needs` means a
+  # failed or skipped build leaves this skipped too, so an OTA update can never
+  # ship against a commit that failed to build.
   production-update:
     name: Production Update
     needs: production-build
