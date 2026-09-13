@@ -78,7 +78,7 @@ export function useStaffSchedule(salonId?: string | null) {
     if (!apiStaff.length) { dispatch(setStaffList([])); return; }
 
     const mapped: Staff[] = apiStaff
-      .filter((s: any) => s.is_active !== false)
+      .filter((s: any) => s.is_active !== false && s.allow_calendar_bookings !== false)
       .map((s: any, i: number) => {
         const fromParts = `${s.first_name || ""} ${s.last_name || ""}`.trim();
         const rawFull   = s.fullName || s.full_name || "";
