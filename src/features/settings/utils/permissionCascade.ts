@@ -1,6 +1,13 @@
 export interface CascadeCatalogEntry {
   key: string;
   depends_on?: string[] | null;
+  // Where this permission renders — the editors group by module, then by
+  // group_name into one collapsible subgroup each. isRevealedChild needs it
+  // to tell "hidden until the switch right above it" from "hidden with no
+  // switch anywhere on screen"; optional so cascade-only callers that never
+  // hide anything can keep passing bare {key, depends_on} entries.
+  module?: string | null;
+  group_name?: string | null;
 }
 
 // Master toggles whose direct (and transitive) children stay hidden in the
@@ -168,16 +175,58 @@ export function cascadeOnKeys(catalog: CascadeCatalogEntry[], key: string): Set<
  * view_marketplace -> view_booking) until that master is effectively on.
  * Returns null if `key` has no such ancestor (including when `key` IS a
  * master itself — a master is never hidden by its own rule).
+ *
+ * A master only hides a permission when the two render in the SAME subgroup
+ * (same module + group_name), because the whole point of "hide until
+ * toggled" is that the switch which reveals them sits visibly right above.
+ * When the master lives elsewhere there is no such switch on screen, and
+ * hiding produced a subgroup that opened to nothing at all:
+ *
+ *   - Catalog > Products: all 8 rows vanished, because view_products
+ *     depends_on view_suppliers, which lives in Warehouse > Suppliers. The
+ *     other 7 rows then depend on view_products, which was itself hidden.
+ *     Nothing in the Catalog card could unlock it, so the subgroup header
+ *     said "8 permissions" and expanded to an empty box.
+ *   - Clients > General / Client History / Referral & Rewards: one row
+ *     each, all depending on view_clients over in Clients > Clients List.
+ *
+ * This is the same failure the REVEAL_ON_MASTER_TOGGLE list's own comments
+ * call out for Reports ("would show a completely empty subgroup screen, no
+ * visible master switch to explain why") — that module dodged it by
+ * anchoring the reveal at the category, which does sit in the subgroup with
+ * its reports. Co-location is the general form of that rule, so every
+ * deliberate nesting still behaves exactly as before: Reports category ->
+ * its reports -> their downloads, view_calendar -> view_appointment,
+ * view_booking -> its channels, view_sales -> create_sales are all
+ * same-subgroup pairs.
+ *
+ * Nothing is granted by becoming visible. cascadeOnKeys still switches the
+ * far-away prerequisite on when the row is toggled, and
+ * findMissingPrerequisites still blocks saving it on without that — so the
+ * dependency is enforced exactly as before, it just fails loudly with a
+ * message instead of silently hiding the row.
  */
 export function isRevealedChild(catalog: CascadeCatalogEntry[], key: string): string | null {
   const byKey = new Map(catalog.map((p) => [p.key, p]));
+  const self = byKey.get(key);
+  const sameSubgroup = (master: CascadeCatalogEntry | undefined) =>
+    master != null &&
+    (master.module ?? null) === (self?.module ?? null) &&
+    (master.group_name ?? null) === (self?.group_name ?? null);
+
   const visited = new Set<string>();
 
   const walk = (k: string): string | null => {
     if (visited.has(k)) return null;
     visited.add(k);
     for (const dep of byKey.get(k)?.depends_on ?? []) {
-      if (REVEAL_ON_MASTER_TOGGLE.includes(dep)) return dep;
+      if (REVEAL_ON_MASTER_TOGGLE.includes(dep)) {
+        if (sameSubgroup(byKey.get(dep))) return dep;
+        // Master is off in some other card/subgroup — keep checking this
+        // key's other prerequisites rather than bailing out, but never hide
+        // behind a switch the user can't see from here.
+        continue;
+      }
       const found = walk(dep);
       if (found) return found;
     }

@@ -81,6 +81,9 @@ export interface ThermalReceiptData {
   clientName?: string;
   clientPhone?: string;
   staffName?: string;
+  /** Already display-ready ("Cash", "UPI") — receipt.ts tidies the raw
+   *  lowercase enum, the template only formats. */
+  paymentMethod?: string;
   items: Array<{ name: string; qty: number; amount: string; meta?: string }>;
   /** Label/value rows under the items — subtotal, discount, GST lines, etc. */
   summary: Array<{ label: string; value: string; bold?: boolean; muted?: boolean }>;
@@ -105,7 +108,20 @@ export function buildThermalCss(profile: PaperProfile): string {
   }
   .t-center{text-align:center}
   .t-right{text-align:right}
-  .t-logo{width:${profile.logoPx}px;max-width:100%;margin:0 auto 4px;display:block;object-fit:contain}
+  /* Bounded on BOTH axes. Width alone let the image keep its full intrinsic
+     aspect ratio vertically, so a portrait- or banner-shaped logo rendered as
+     a very deep block at the top of the receipt — and because a roll printer
+     is monochrome, a light or colour logo prints faint or not at all. The
+     symptom is a long stretch of apparently blank paper feeding out before
+     any text appears. A4's .inv-logo has always been bounded both ways
+     (68x68); this is the same guarantee, but letterboxed via object-fit
+     rather than cropped, so a wide logo isn't cut off. width/height:auto so
+     the max-* pair does the constraining and the aspect ratio is kept. */
+  .t-logo{
+    max-width:${profile.logoPx}px;max-height:${profile.logoPx}px;
+    width:auto;height:auto;
+    margin:0 auto 4px;display:block;object-fit:contain;
+  }
   .t-salon{font-size:${f(15)};font-weight:800;line-height:1.25;margin-bottom:2px}
   .t-meta{font-size:${f(10)};line-height:1.45;color:#000}
   /* Dashed rules instead of solid: a solid 1px line prints as a heavy ink bar
@@ -185,6 +201,7 @@ export function buildThermalBody(d: ThermalReceiptData): string {
   ${kv("Client", d.clientName)}
   ${kv("Phone", d.clientPhone)}
   ${kv("Staff", d.staffName)}
+  ${kv("Payment Method", d.paymentMethod)}
 
   <hr class="t-rule"/>
   <table class="t-items">
