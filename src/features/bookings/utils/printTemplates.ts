@@ -17,16 +17,34 @@ import type { PaperProfile } from "../../settings/utils/printSettings";
  * new code path.
  */
 
+/** Provisional page length for a continuous roll, replaced at runtime by
+ *  PAGE_FIT_SCRIPT with the measured height of the actual receipt. */
+const ROLL_PROVISIONAL_HEIGHT_MM = 297;
+
 /** Page geometry + @page rule for the chosen paper. */
 export function buildPageCss(profile: PaperProfile): string {
   const { widthMm, heightMm, margins } = profile;
 
   // A continuous roll (height 0) must NOT be given a fixed page height: a
   // fixed height pads every receipt out to that length, which on a roll
-  // printer feeds blank paper after each one and, in browsers, produces the
-  // trailing empty page this feature is meant to eliminate. `auto` lets the
-  // page end where the content ends.
-  const pageSize = heightMm > 0 ? `${widthMm}mm ${heightMm}mm` : `${widthMm}mm auto`;
+  // printer feeds blank paper after each one.
+  //
+  // This used to emit `size:80mm auto` for a roll, which looks like exactly
+  // that intent but is INVALID CSS and was silently thrown away. The grammar
+  // for the `size` property is `<length>{1,2} | auto | <page-size> ...` — one
+  // or two lengths, or the bare keyword `auto`, never a length mixed with
+  // `auto`. With the declaration dropped, the page fell back to the driver's
+  // default sheet (Letter/A4), so every 80mm receipt was laid out on a ~297mm
+  // page and the printer fed the whole thing: the "too much blank paper"
+  // report. The width was being ignored as well, for the same reason.
+  //
+  // So a roll gets a VALID provisional height here, and PAGE_FIT_SCRIPT
+  // (buildThermalDocument) measures the rendered receipt and rewrites this
+  // rule with the real height before the print dialog opens. The provisional
+  // is deliberately generous rather than tight: if the script somehow doesn't
+  // run, a too-long page wastes paper, while a too-short one would break a
+  // receipt across two pages mid-total.
+  const pageSize = heightMm > 0 ? `${widthMm}mm ${heightMm}mm` : `${widthMm}mm ${ROLL_PROVISIONAL_HEIGHT_MM}mm`;
 
   // Margins live on @page rather than on .page's padding so the printer driver
   // knows the real printable area — padding alone would let content sit inside
@@ -221,6 +239,48 @@ export function buildThermalBody(d: ThermalReceiptData): string {
 </div>`;
 }
 
+/**
+ * Shrinks the @page box to the height the receipt actually occupies, so a
+ * continuous roll advances by the length of the receipt and no further.
+ *
+ * Needed because `size` has no valid "this width, whatever height" form (see
+ * buildPageCss) — the height has to be a real length, and only the rendered
+ * document knows what it is. `.page` is measured rather than `body` because
+ * body carries the preview toolbar's padding, which prints as nothing.
+ *
+ * offsetHeight includes `.page`'s screen padding, which buildPreviewCss sets
+ * to the same values as the @page margins — so the measured box already equals
+ * content + top margin + bottom margin, which is exactly what `size` wants
+ * (the page box includes its margins). Screen and print lay the content out
+ * at the same width (72mm on an 80mm roll: `width:auto` inside the print page
+ * box resolves to the same 80mm − 4mm − 4mm), so the measurement carries over.
+ *
+ * Runs three times on purpose: inline at parse time (so a print fired
+ * immediately still gets a sized page), on `load` (once the logo has real
+ * dimensions — an unmeasured image is the one thing that would leave the page
+ * short), and on `beforeprint` (covers the toolbar's Print button, a Ctrl+P,
+ * and the hidden-iframe auto-print path, all of which fire it).
+ */
+function buildPageFitScript(profile: PaperProfile): string {
+  const pageMargin = `${profile.margins.top}mm ${profile.margins.right}mm ${profile.margins.bottom}mm ${profile.margins.left}mm`;
+  return `<script>(function(){
+  function fit(){
+    var el=document.querySelector('.page'), st=document.getElementById('page-style');
+    if(!el||!st) return;
+    var h=el.offsetHeight;
+    if(!h) return;
+    // CSS px are 1/96in by definition, so this conversion is exact. +1mm
+    // guards against a sub-pixel remainder spilling a hairline onto a second
+    // page — which on a roll costs another whole feed.
+    var mm=Math.ceil(h*25.4/96)+1;
+    st.textContent='@page{size:${profile.widthMm}mm '+mm+'mm;margin:${pageMargin}}';
+  }
+  fit();
+  window.addEventListener('load',fit);
+  window.addEventListener('beforeprint',fit);
+})();</script>`;
+}
+
 /** Full standalone document for a thermal receipt. */
 export function buildThermalDocument(
   profile: PaperProfile,
@@ -240,6 +300,7 @@ ${opts.withToolbar ? TOOLBAR_CSS : ""}
 <body>
 ${opts.withToolbar ? TOOLBAR_HTML : ""}
 ${buildThermalBody(data)}
+${profile.heightMm > 0 ? "" : buildPageFitScript(profile)}
 </body></html>`;
 }
 
