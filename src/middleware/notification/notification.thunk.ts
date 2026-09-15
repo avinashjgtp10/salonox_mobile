@@ -173,8 +173,6 @@ export const unregisterDeviceThunk = createAsyncThunk<
 
     return response;
   } catch (error) {
-    await notificationDeviceStorage.clearRegisteredToken();
-
     return rejectWithValue(reject(error));
   }
 });

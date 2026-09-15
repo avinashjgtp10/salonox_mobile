@@ -35,7 +35,7 @@ Notifications.setNotificationHandler({
 
     return {
       shouldPlaySound: isEnabled,
-      shouldSetBadge: true,
+      shouldSetBadge: isEnabled,
       shouldShowBanner: isEnabled,
       shouldShowList: isEnabled,
     };

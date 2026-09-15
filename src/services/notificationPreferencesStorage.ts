@@ -14,6 +14,10 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
 
 const NOTIFICATION_PREFERENCES_KEY = "salonox.notificationPreferences";
 
+type NotificationPreferencesListener = (preferences: NotificationPreferences) => void;
+
+const listeners = new Set<NotificationPreferencesListener>();
+
 const isValidPreferences = (value: unknown): value is NotificationPreferences =>
   typeof value === "object" &&
   value !== null &&
@@ -40,8 +44,22 @@ export const notificationPreferencesStorage = {
 
   async setPreferences(preferences: NotificationPreferences) {
     await AsyncStorage.setItem(NOTIFICATION_PREFERENCES_KEY, JSON.stringify(preferences));
+    listeners.forEach((listener) => listener(preferences));
+  },
+
+  subscribe(listener: NotificationPreferencesListener) {
+    listeners.add(listener);
+
+    return () => {
+      listeners.delete(listener);
+    };
   },
 };
+
+export const hasEnabledNotificationPreference = (
+  preferences: NotificationPreferences,
+): boolean =>
+  preferences.allNotifications || preferences.appointments || preferences.otherUpdates;
 
 // Backend `type` values (see src/types/notification.ts) that count as an
 // "appointment" notification for the Appointments toggle — everything else

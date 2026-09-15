@@ -56,15 +56,27 @@ export default function NotificationSettingsScreen() {
   };
 
   const handleToggleAll = (value: boolean) => {
-    updatePreferences({ ...preferences, allNotifications: value });
+    updatePreferences({
+      allNotifications: value,
+      appointments: value,
+      otherUpdates: value,
+    });
   };
 
   const handleToggleAppointments = (value: boolean) => {
-    updatePreferences({ ...preferences, appointments: value });
+    updatePreferences({
+      ...preferences,
+      allNotifications: value && preferences.otherUpdates,
+      appointments: value,
+    });
   };
 
   const handleToggleOtherUpdates = (value: boolean) => {
-    updatePreferences({ ...preferences, otherUpdates: value });
+    updatePreferences({
+      ...preferences,
+      allNotifications: value && preferences.appointments,
+      otherUpdates: value,
+    });
   };
 
   if (!isHydrated) {
@@ -115,7 +127,7 @@ export default function NotificationSettingsScreen() {
           />
         </View>
 
-        <View style={[styles.row, preferences.allNotifications && styles.rowDisabled]}>
+        <View style={styles.row}>
           <View style={styles.iconWrap}>
             <Ionicons name="calendar-outline" size={20} color={Colors.text2} />
           </View>
@@ -126,15 +138,14 @@ export default function NotificationSettingsScreen() {
             </Text>
           </View>
           <Switch
-            disabled={preferences.allNotifications}
             onValueChange={handleToggleAppointments}
             thumbColor="#FFFFFF"
             trackColor={{ false: Colors.border, true: Colors.primary }}
-            value={preferences.allNotifications || preferences.appointments}
+            value={preferences.appointments}
           />
         </View>
 
-        <View style={[styles.row, preferences.allNotifications && styles.rowDisabled]}>
+        <View style={styles.row}>
           <View style={styles.iconWrap}>
             <Ionicons name="sparkles-outline" size={20} color={Colors.text2} />
           </View>
@@ -145,11 +156,10 @@ export default function NotificationSettingsScreen() {
             </Text>
           </View>
           <Switch
-            disabled={preferences.allNotifications}
             onValueChange={handleToggleOtherUpdates}
             thumbColor="#FFFFFF"
             trackColor={{ false: Colors.border, true: Colors.primary }}
-            value={preferences.allNotifications || preferences.otherUpdates}
+            value={preferences.otherUpdates}
           />
         </View>
       </View>
@@ -209,9 +219,6 @@ const createStyles = (Colors: ThemeColors) =>
       gap: Spacing.md,
       marginBottom: Spacing.sm,
       padding: AppLayout.cardPadding,
-    },
-    rowDisabled: {
-      opacity: 0.5,
     },
     iconWrap: {
       alignItems: "center",
