@@ -16,6 +16,7 @@ import { useClientDetails } from "../../hooks/useClientDetails";
 import { useClientMembershipWallet } from "../../hooks/useClientMembershipWallet";
 import { useListClientPackagesQuery } from "../../../../services/api/endpoints/packages.endpoints";
 import { printReceipt } from "../../utils/receipt";
+import { fetchSettingsThunk } from "../../../../middleware/setting/setting.thunk";
 import { buildClientWhatsAppLink } from "../../../../utils/whatsapp";
 import { maskMobile } from "../../../../utils/maskMobile";
 import { normalizePaymentStatus } from "../../utils/bookingMapper";
@@ -82,6 +83,17 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
   const dialogRef = useRef<HTMLDivElement>(null);
   useFocusTrap(dialogRef, true, onClose);
   const settingItems = useAppSelector((s) => s.setting.items);
+  // This screen read s.setting.items but never fetched them, unlike every
+  // other printReceipt() caller (AppointmentModal, ClientHistoryDetail both
+  // do). Opening a bill here without having first visited a screen that loads
+  // settings left settingItems empty, and getPaperProfile([]) resolves to
+  // DEFAULT_PRINT_CONFIG — which is A4. So "Print Receipt" from this modal
+  // sent the full A4 tabular invoice to a thermal roll: the printer scaled a
+  // 210x297mm page down to the roll width, giving a tiny receipt at the end of
+  // a long blank feed. Same guarded fetch AppointmentModal uses.
+  useEffect(() => {
+    if (settingItems.length === 0) dispatch(fetchSettingsThunk());
+  }, [dispatch, settingItems.length]);
   const activeTaxes  = useMemo(() => getActiveTaxes(settingItems), [settingItems]);
   const showTaxBreakupOnInvoice = useMemo(() => getTaxModuleConfig(settingItems).show_breakup_on_invoice, [settingItems]);
   // Salon-wide Print Settings (paper size/margins) — resolved once and passed
