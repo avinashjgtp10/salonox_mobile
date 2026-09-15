@@ -9,7 +9,12 @@ import {
   fetchNotificationsThunk,
   fetchUnreadCountThunk,
   hydrateRegisteredDeviceTokenThunk,
+  unregisterDeviceThunk,
 } from "@/middleware/notification/notification.thunk";
+import {
+  hasEnabledNotificationPreference,
+  notificationPreferencesStorage,
+} from "@/services/notificationPreferencesStorage";
 import {
   ensureAndroidNotificationChannel,
   getExpoPushToken,
@@ -58,8 +63,21 @@ export const usePushNotifications = (isAuthenticated: boolean) => {
   currentStaffLoadingRef.current = currentStaffLoading;
   isAuthenticatedRef.current = isAuthenticated;
 
-  const syncDeviceToken = async () => {
+  const syncDeviceToken = useCallback(async () => {
     try {
+      const preferences = await notificationPreferencesStorage.getPreferences();
+
+      if (!hasEnabledNotificationPreference(preferences)) {
+        confirmedRegistrationSignatureRef.current = null;
+
+        if (registeredTokenRef.current && registerDeviceStatusRef.current !== "loading") {
+          void dispatch(unregisterDeviceThunk()).unwrap().catch((error) => {
+            console.warn("[PushNotifications] Device unregistration failed:", error);
+          });
+        }
+        return;
+      }
+
       const activeUser = currentUserRef.current;
       const activeStaff = currentStaffRef.current;
       const isStaffUser = isStaffExperienceUser(activeUser);
@@ -144,7 +162,26 @@ export const usePushNotifications = (isAuthenticated: boolean) => {
       // every login and every foreground, so a transient failure will
       // simply retry next time rather than nagging the user repeatedly.
     }
-  };
+  }, [dispatch]);
+
+  useEffect(() => notificationPreferencesStorage.subscribe((nextPreferences) => {
+    if (!isAuthenticatedRef.current) {
+      return;
+    }
+
+    if (!hasEnabledNotificationPreference(nextPreferences)) {
+      confirmedRegistrationSignatureRef.current = null;
+
+      if (registeredTokenRef.current && registerDeviceStatusRef.current !== "loading") {
+        void dispatch(unregisterDeviceThunk()).unwrap().catch((error) => {
+          console.warn("[PushNotifications] Device unregistration failed:", error);
+        });
+      }
+      return;
+    }
+
+    void syncDeviceToken();
+  }), [dispatch, syncDeviceToken]);
 
   // Register (or re-register, if the token rotated) whenever the user is
   // authenticated — covers both the immediately-after-login case and a
@@ -165,8 +202,7 @@ export const usePushNotifications = (isAuthenticated: boolean) => {
     void dispatch(hydrateRegisteredDeviceTokenThunk()).finally(() => {
       void syncDeviceToken();
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentStaff?.id, currentStaffLoading, currentUser?.id, currentUser?.role, isAuthenticated]);
+  }, [currentStaff?.id, currentStaffLoading, currentUser?.id, currentUser?.role, isAuthenticated, dispatch, syncDeviceToken]);
 
   // Token rotation can happen at any time (app reinstall keeps the same
   // device but Expo may issue a new token) — re-check on every return to
