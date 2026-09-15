@@ -15,10 +15,6 @@ import {
   ChatDots,
   LockFill,
   X,
-  Wallet2,
-  CashStack,
-  JournalText,
-  Safe2,
   CheckCircleFill,
   XCircleFill,
   ExclamationTriangleFill,
@@ -38,9 +34,9 @@ import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { usePermissions } from "../../../hooks/usePermissions";
 import { showPermissionDenied } from "../../../store/permissionDialogSlice";
 import { closeCashCounterThunk } from "../../../middleware/cashCounter/cashCounter.thunk";
-import { sendDailySummaryEmail, fetchTodaysPaymentMethodCounts } from "../../cash-management/cashManagement.api";
-import { useCurrency } from "../../../hooks/useCurrency";
-import { Button, Modal } from "../../../components/ui";
+import { sendDailySummaryEmail } from "../../cash-management/cashManagement.api";
+import { CloseCounterModal } from "../../cash-management/pages/CashManagementModals";
+import type { CloseCounterPayload } from "../../cash-management/cashManagement.types";
 import { onGlobalToast } from "../../../utils/globalToast";
 import { selectNewFeatures, selectSpotlightFetched } from "../../../store/spotlightSlice";
 import { fetchSpotlightFeaturesThunk } from "../../../middleware/spotlight/spotlight.thunk";
@@ -138,8 +134,6 @@ export default function DashboardTopbar({ onLogout, collapsed, onToggleCollapsed
   const userProfile = useSelector((s: RootState) => s.user.profile);
   const currentSalon = useSelector((s: RootState) => s.salon.currentSalon);
   const salonId = useSelector((s: RootState) => s.auth.salonId);
-  const { formatAmount } = useCurrency();
-
   const [showSearch, setShowSearch] = useState(false);
   const [showNotif, setShowNotif] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
@@ -160,12 +154,6 @@ export default function DashboardTopbar({ onLogout, collapsed, onToggleCollapsed
   const isCashCounterOpen = cashDashboard?.status === "open" && Boolean(cashDashboard.cashManagementId);
   const [showCloseCounterConfirm, setShowCloseCounterConfirm] = useState(false);
   const [closingCounter, setClosingCounter] = useState(false);
-  const [paymentMethodCounts, setPaymentMethodCounts] = useState({
-    upi: 0,
-    card: 0,
-    cash: 0,
-    amounts: { upi: 0, card: 0, cash: 0 },
-  });
 
   const notifRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
@@ -391,32 +379,10 @@ export default function DashboardTopbar({ onLogout, collapsed, onToggleCollapsed
     });
   }, [showToast]);
 
-  useEffect(() => {
-    if (!showCloseCounterConfirm) return;
-    let cancelled = false;
-    fetchTodaysPaymentMethodCounts().then((counts) => {
-      if (!cancelled) setPaymentMethodCounts(counts);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [showCloseCounterConfirm]);
-
-  const handleConfirmCloseCounter = useCallback(async () => {
-    if (!cashDashboard?.cashManagementId) {
-      setShowCloseCounterConfirm(false);
-      return;
-    }
-
+  const handleConfirmCloseCounter = useCallback(async (payload: CloseCounterPayload) => {
     setClosingCounter(true);
     try {
-      const closedDashboard = await dispatch(
-        closeCashCounterThunk({
-          cash_management_id: cashDashboard.cashManagementId,
-          in_store_cash: Number(cashDashboard.inStoreCash || cashDashboard.closingBalance || 0),
-          remarks: cashDashboard.remarks ?? "",
-        }),
-      ).unwrap();
+      const closedDashboard = await dispatch(closeCashCounterThunk(payload)).unwrap();
       setShowCloseCounterConfirm(false);
       showCashCounterToast("Counter closed", "The cash counter was closed successfully.");
 
@@ -425,22 +391,14 @@ export default function DashboardTopbar({ onLogout, collapsed, onToggleCollapsed
       // Sent silently: no notification either way, since the user only asked
       // to be told the counter closed, not about the email's delivery status.
       try {
-        await sendDailySummaryEmail(
-          cashDashboard.cashManagementId,
-          { ...(closedDashboard ?? cashDashboard), paymentCounts: paymentMethodCounts },
-          email,
-        );
+        await sendDailySummaryEmail(payload.cash_management_id, closedDashboard ?? cashDashboard, email);
       } catch (emailErr: any) {
         console.error("[DashboardTopbar] Daily summary email failed:", emailErr);
       }
-    } catch (err: any) {
-      const message =
-        err?.response?.data?.message ?? err?.response?.data?.error ?? err?.message ?? "Failed to close counter.";
-      showCashCounterToast("Close counter failed", message);
     } finally {
       setClosingCounter(false);
     }
-  }, [cashDashboard, dispatch, email, showCashCounterToast, paymentMethodCounts]);
+  }, [cashDashboard, dispatch, email, showCashCounterToast]);
 
   // ── Render ────────────────────────────────────────────────────────────────────
 
@@ -684,114 +642,18 @@ export default function DashboardTopbar({ onLogout, collapsed, onToggleCollapsed
 
       {showSearch && <SearchOverlay onClose={() => setShowSearch(false)} />}
 
-      <Modal
-        show={showCloseCounterConfirm}
-        onClose={() => { if (!closingCounter) setShowCloseCounterConfirm(false); }}
-        title="Close Cash Counter"
-        size="md"
-        footer={
-          <div className="topbar-confirm-footer">
-            <Button
-              variant="ghost"
-              onClick={() => setShowCloseCounterConfirm(false)}
-              disabled={closingCounter}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="danger"
-              loading={closingCounter}
-              disabled={closingCounter}
-              onClick={() => void handleConfirmCloseCounter()}
-            >
-              Yes, Close Counter
-            </Button>
-          </div>
-        }
-      >
-        <div className="d-flex flex-column gap-3">
-          <p className="topbar-confirm-copy mb-0">
-            Are you sure you want to close today's cash counter? You cannot reopen it again today. A copy of the
-            daily summary below will be emailed to {email || "the salon owner"} automatically.
-          </p>
-
-          {cashDashboard ? (
-            <div className="p-3 bg-light rounded-3 border">
-              <div className="row g-2">
-                <div className="col-6">
-                  <div className="p-2 bg-white rounded border">
-                    <div className="text-muted small d-flex align-items-center gap-1">
-                      <Wallet2 size={13} className="text-primary" /> Opening Balance
-                    </div>
-                    <div className="fw-bold text-dark fs-6 mt-1">
-                      {formatAmount(cashDashboard.openingBalance ?? 0)}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="col-6">
-                  <div className="p-2 bg-white rounded border">
-                    <div className="text-muted small d-flex align-items-center gap-1">
-                      <CashStack size={13} className="text-success" /> Cash Revenue
-                    </div>
-                    <div className="fw-bold text-success fs-6 mt-1">
-                      {formatAmount(paymentMethodCounts.amounts.cash)}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="col-6">
-                  <div className="p-2 bg-white rounded border">
-                    <div className="text-muted small d-flex align-items-center gap-1">
-                      <JournalText size={13} className="text-warning" /> Cash Expense
-                    </div>
-                    <div className="fw-bold text-warning fs-6 mt-1">
-                      {formatAmount(cashDashboard.cashExpense ?? 0)}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="col-6">
-                  <div className="p-2 bg-white rounded border">
-                    <div className="text-muted small d-flex align-items-center gap-1">
-                      <Safe2 size={13} className="text-dark" /> Expected Closing
-                    </div>
-                    <div className="fw-bold text-dark fs-6 mt-1">
-                      {formatAmount(
-                        (cashDashboard.openingBalance ?? 0) +
-                          paymentMethodCounts.amounts.cash -
-                          (cashDashboard.cashExpense ?? 0)
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="col-6">
-                  <div className="p-2 bg-white rounded border">
-                    <div className="text-muted small d-flex align-items-center gap-1">
-                      <CurrencyRupee size={13} className="text-primary" /> UPI Payments
-                    </div>
-                    <div className="fw-bold text-dark fs-6 mt-1">
-                      {formatAmount(paymentMethodCounts.amounts.upi)}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="col-6">
-                  <div className="p-2 bg-white rounded border">
-                    <div className="text-muted small d-flex align-items-center gap-1">
-                      <Wallet2 size={13} className="text-primary" /> Card Payments
-                    </div>
-                    <div className="fw-bold text-dark fs-6 mt-1">
-                      {formatAmount(paymentMethodCounts.amounts.card)}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : null}
-        </div>
-      </Modal>
+      {cashDashboard && (
+        <CloseCounterModal
+          show={showCloseCounterConfirm}
+          dashboard={cashDashboard}
+          loading={closingCounter}
+          onClose={() => setShowCloseCounterConfirm(false)}
+          onNotify={(tone, message) =>
+            showCashCounterToast(tone === "success" ? "Counter closed" : "Close counter failed", message)
+          }
+          onSubmit={handleConfirmCloseCounter}
+        />
+      )}
     </>
   );
 }
