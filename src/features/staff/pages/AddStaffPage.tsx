@@ -7,6 +7,7 @@ import "../styles/AddStaffPage.scss";
 import api from "../../../services/api/axios";
 import { STAFF } from "../../../services/api/endpoints";
 import StaffPermissionEditor from "../../settings/components/StaffPermissionEditor";
+import ResetPasswordSection from "../components/ResetPasswordSection";
 import CountryCodeSelect from "../../clients/components/CountryCodeSelect";
 import Dropdown from "../../../components/ui/Dropdown";
 import { useAppDispatch } from "../../../hooks/useAppRedux";
@@ -70,6 +71,12 @@ const AddStaffPage: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [staffLoginEnabled, setStaffLoginEnabled] = useState(false);
+  // Edit mode only: an existing staff member with login already set up shows
+  // a read-only "has a password" state with Reset Password beside it —
+  // handled entirely by the reusable ResetPasswordSection component (its own
+  // New/Confirm/OTP fields and Update Password API call), independent of
+  // this page's main Save.
+  const hasExistingLogin = isEdit && staffLoginEnabled;
 
   const [avatarUrl, setAvatarUrl] = useState("");
   const [avatarPreview, setAvatarPreview] = useState("");
@@ -207,8 +214,11 @@ const AddStaffPage: React.FC = () => {
 
   const isHolidaysInvalid = attemptedSubmit && form.holidays !== "" && Number(form.holidays) < 0;
 
-  const isPasswordInvalid = attemptedSubmit && staffLoginEnabled && form.password.trim() !== "" && form.password.trim().length < 8;
-  const isConfirmPasswordInvalid = attemptedSubmit && staffLoginEnabled && form.password.trim() !== "" && form.confirmPassword !== form.password;
+  // Add-staff mode still sets an initial password as part of the regular
+  // form/Save flow. Edit mode's password change is handled entirely by
+  // ResetPasswordSection below.
+  const isPasswordInvalid = attemptedSubmit && !isEdit && staffLoginEnabled && form.password.trim() !== "" && form.password.trim().length < 8;
+  const isConfirmPasswordInvalid = attemptedSubmit && !isEdit && staffLoginEnabled && form.password.trim() !== "" && form.confirmPassword !== form.password;
 
   const setField = (key: keyof typeof form) => (val: string) => {
     setForm((prev) => ({ ...prev, [key]: val }));
@@ -331,13 +341,10 @@ const AddStaffPage: React.FC = () => {
       const payload: Record<string, unknown> = {
         first_name,
         last_name,
-        // Omitted entirely in edit mode — the field is read-only there (see
-        // the disabled email input above) and the update endpoint drops any
-        // email it's sent anyway, so there's no reason to send the unchanged
-        // value. undefined (not "") when blank on create — an explicit empty
-        // string reads as "clear the email" to the create endpoint, which
-        // isn't the intent of simply leaving the field untouched/empty.
-        email: isEdit ? undefined : (form.email.trim() || undefined),
+        // undefined (not "") when blank — an explicit empty string reads as
+        // "clear the email" to the API, which isn't the intent of simply
+        // leaving the field untouched/empty.
+        email: form.email.trim() || undefined,
         phone: form.phone.trim(),
         phone_country_code: form.phoneCountryCode,
         job_title: form.designation || undefined,
@@ -505,18 +512,14 @@ const AddStaffPage: React.FC = () => {
               <div className="emp-field">
                 <label className="emp-field__label">
                   Email{staffLoginEnabled && <span className="text-danger">*</span>}
-                  {isEdit && <span className="emp-field__readonly-tag">Read-only</span>}
                 </label>
                 <div className="emp-input-row">
                   <input
-                    className={`emp-input ${isEmailInvalid ? "emp-input--invalid" : ""} ${isEdit ? "emp-input--readonly" : ""}`}
+                    className={`emp-input ${isEmailInvalid ? "emp-input--invalid" : ""}`}
                     placeholder="Email"
                     type="email"
                     value={form.email}
                     onChange={(e) => setField("email")(e.target.value)}
-                    disabled={isEdit}
-                    readOnly={isEdit}
-                    title={isEdit ? "Email can't be changed after the staff member is created" : undefined}
                   />
                   {shouldShowEmailOtp && (
                     <button
@@ -535,11 +538,6 @@ const AddStaffPage: React.FC = () => {
                     </button>
                   )}
                 </div>
-                {isEdit && (
-                  <span className="emp-field__hint">
-                    Email can't be changed after the staff member is created.
-                  </span>
-                )}
                 {isEmailInvalid && <span className="emp-field__error">{emailErrorMessage}</span>}
                 {!isEmailInvalid && emailOtpMsg && (
                   <span className={`emp-otp-msg emp-otp-msg--${emailOtpMsg.type}`}>{emailOtpMsg.text}</span>
@@ -777,7 +775,19 @@ const AddStaffPage: React.FC = () => {
             </div>
           </div>
 
-          {staffLoginEnabled && (
+          {/* Existing login: masked password + Reset Password, or the New/Confirm
+              Password + OTP-gated Update Password flow once clicked */}
+          {staffLoginEnabled && hasExistingLogin && (
+            <ResetPasswordSection
+              staffId={id!}
+              email={form.email}
+              onSuccess={() => showSuccess("Password updated successfully")}
+              onError={showError}
+            />
+          )}
+
+          {/* Add-staff flow: unchanged initial password fields */}
+          {staffLoginEnabled && !isEdit && (
             <>
               <div className="emp-login-grid">
                 <div className="emp-field">

@@ -86,11 +86,34 @@ export default function PermissionGuard({ permKey }: Props) {
   // Members, not a wall). Only the true dead-end case — no module allowed
   // anywhere — falls through to NoPermissionPage below.
   //
-  // Dashboard is deliberately excluded from this redirect: it's the default
+  // Dashboard, Quick Sale, Calendar, and the 3 Clients pages are
+  // deliberately excluded from this redirect. Dashboard is the default
   // landing page, not "one module among many" — denying view_dashboard
-  // specifically should show Not Authorized right there, not silently whisk
-  // the user off to a different module the moment they land on "/".
-  if (role === "staff" && permKey !== "view_dashboard") {
+  // should show Not Authorized right there, not silently whisk the user
+  // off elsewhere the moment they land on "/". The rest are excluded per
+  // explicit ticket requirements: direct URL access when denied must show
+  // the Not Authorized page, not a silent redirect to whatever other
+  // module the user happens to have.
+  const NO_REDIRECT_KEYS = [
+    "view_dashboard", "create_sales", "view_calendar",
+    "view_clients", "view_referral_rewards", "view_client_history",
+    "view_suppliers", "manage_inventory", "view_orders",
+    "view_product_inventory", "view_consumable_inventory", "view_product_audit",
+    "view_stock_ledger",
+    "view_services", "view_digital_menu", "view_products", "view_memberships",
+    "view_client_packages", "view_package_templates",
+    "view_team", "access_staff", "view_scheduled_shifts", "view_team_commissions",
+    "view_attendance_list", "view_payroll", "view_staff_history",
+    "view_cash_management", "access_warehouse",
+    "view_marketing", "view_marketing_dashboard", "view_marketing_analytics",
+    "view_campaigns", "view_templates", "view_scheduled_templates",
+    "view_inbox", "view_whatsapp_config",
+    "view_reports",
+    "access_settings",
+    "view_enquiries",
+    "view_notifications",
+  ];
+  if (role === "staff" && !NO_REDIRECT_KEYS.includes(permKey)) {
     const firstAllowed = getFirstAllowedModuleRoute(can);
     if (firstAllowed && firstAllowed !== location.pathname) {
       return <Navigate to={firstAllowed} replace />;

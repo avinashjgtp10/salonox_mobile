@@ -9,6 +9,9 @@ import BookingTooltipCard from "../shared/BookingTooltipCard";
 import BookingChip from "./BookingChip";
 import { computeOverlapLayout } from "../../utils/overlapLayout";
 import { useStatusOverlay } from "../../../../hooks/useStatusOverlay";
+import { usePermissions } from "../../../../hooks/usePermissions";
+import { useAppDispatch } from "../../../../hooks/useAppRedux";
+import { showPermissionDenied } from "../../../../store/permissionDialogSlice";
 import "../../styles/DayView.scss";
 
 // Stable empty array — avoids allocating a new [] on every render for staff with no blocks
@@ -88,6 +91,20 @@ const DayView: React.FC<DayViewProps> = ({
   const { currentDate, slots, timeToPx, durationToPx, intervalMins } = useScheduler();
   const { blockedTimes, deleteBlockedTime, updateBooking, staffList, selectedStaffIds, bookings, highlightedBookingId, staffSchedules } = useSchedulerContext();
   const { showError, overlay: dragErrorOverlay } = useStatusOverlay();
+  const { can } = usePermissions();
+  const dispatch = useAppDispatch();
+  // Drag-reschedule and resize-duration both modify the appointment, so
+  // both fall under Edit Appointment (see the Calendar permissions ticket).
+  // Gated at drag/resize START, not just on the eventual PATCH call — a
+  // denied staff member's chip must never even visually move before
+  // snapping back, it should just not move at all.
+  const requireEditForDrag = () => {
+    if (can("edit_appointment")) return true;
+    dispatch(showPermissionDenied(
+      `Your account does not have the "edit_appointment" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+    ));
+    return false;
+  };
 
   // Empty selection = "All Staff" — otherwise show only the selected staff
   // members' columns, side by side, so schedules can be compared directly.
@@ -179,13 +196,15 @@ const DayView: React.FC<DayViewProps> = ({
 
   // Stable handlers for BookingChip — useCallback(fn,[]) since setters are stable
   const handleStartDragCandidate = useCallback((candidate: DragCandidate) => {
+    if (!requireEditForDrag()) return;
     setHovered(null);
     setDragCandidate(candidate);
-  }, []);
+  }, [can]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleStartResize = useCallback((state: ResizeState) => {
+    if (!requireEditForDrag()) return;
     setResizing(state);
-  }, []);
+  }, [can]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const justDraggedRef = useRef(false);
 

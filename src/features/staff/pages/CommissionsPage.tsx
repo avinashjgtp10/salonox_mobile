@@ -32,6 +32,12 @@ import { SOURCE_META, FREQUENCY_LABELS, groupCommissionRules } from "../componen
 import { exportCommissionsPDF } from "../utils/commissionExport";
 import type { CommissionRule, CommissionRuleFormData, CommissionRuleSource, RuleGroup } from "../types/commissionRules.types";
 import TipSettleTab from "./TipSettleTab";
+import { usePermissions } from "../../../hooks/usePermissions";
+import { useAppDispatch } from "../../../hooks/useAppRedux";
+import { showPermissionDenied } from "../../../store/permissionDialogSlice";
+
+const friendlyPermissionDenied = (permKey: string) =>
+  `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -650,6 +656,9 @@ function CommissionSettleTab({ view }: { view: "settle" | "rules" }) {
   const [showDeleteSuccess, setShowDeleteSuccess] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(false);
   const { showSuccess, showError, overlay } = useStatusOverlay();
+  const { can } = usePermissions();
+  const dispatch = useAppDispatch();
+  const denyPerm = (permKey: string) => dispatch(showPermissionDenied(friendlyPermissionDenied(permKey)));
 
   useEffect(() => {
     const handler = () => setOptionsOpen(false);
@@ -677,7 +686,12 @@ function CommissionSettleTab({ view }: { view: "settle" | "rules" }) {
       const staff = allStaff.filter((s) => s.is_active !== false);
       setStaffList(staff);
     } catch (err: any) {
-      showError(err?.message ?? "Failed to load commissions");
+      // A permission-denial 403 already pops the global "Permission
+      // Required" dialog via the axios interceptor — showing this too would
+      // stack a second, raw-message popup on top of it for the same denial.
+      if (!(err instanceof ApiError && err.status === 403)) {
+        showError(err?.message ?? "Failed to load commissions");
+      }
     } finally {
       setLoading(false);
     }
@@ -692,7 +706,9 @@ function CommissionSettleTab({ view }: { view: "settle" | "rules" }) {
       const res = await api.get(COMMISSION_RULES.BASE);
       setCommissionRules(res.data?.data?.items ?? []);
     } catch (err: any) {
-      showError(err?.message ?? "Failed to load commission rules");
+      if (!(err instanceof ApiError && err.status === 403)) {
+        showError(err?.message ?? "Failed to load commission rules");
+      }
     } finally {
       setRulesLoading(false);
     }
@@ -701,6 +717,8 @@ function CommissionSettleTab({ view }: { view: "settle" | "rules" }) {
   useEffect(() => { fetchCommissionRules(); }, [fetchCommissionRules]);
 
   const handleSaveRule = async (data: CommissionRuleFormData) => {
+    const permKey = editingGroup ? "edit_commission_rule" : "add_commission_rule";
+    if (!can(permKey)) { denyPerm(permKey); return; }
     try {
       if (editingGroup) {
         // Editing a group = delete the old rows and fan out fresh ones with the new
@@ -729,6 +747,7 @@ function CommissionSettleTab({ view }: { view: "settle" | "rules" }) {
   };
 
   const handleToggleRuleStatus = async (group: RuleGroup) => {
+    if (!can("edit_commission_rule")) { denyPerm("edit_commission_rule"); return; }
     setTogglingRuleId(group.key);
     try {
       const nextStatus = group.primary.status === "active" ? "draft" : "active";
@@ -744,6 +763,7 @@ function CommissionSettleTab({ view }: { view: "settle" | "rules" }) {
   };
 
   const handleDeleteRule = async (group: RuleGroup) => {
+    if (!can("delete_commission_rule")) { denyPerm("delete_commission_rule"); return; }
     try {
       await Promise.all(group.rules.map((r) => api.delete(COMMISSION_RULES.BY_ID(r.id))));
       const idsInGroup = new Set(group.rules.map((r) => r.id));
@@ -788,6 +808,7 @@ function CommissionSettleTab({ view }: { view: "settle" | "rules" }) {
     amount: number,
     paymentMethod: CommissionSettlementPaymentMethod,
   ) => {
+    if (!can("manage_commissions")) { denyPerm("manage_commissions"); return; }
     setSettlingId(staffId);
     try {
       // `amount` is sent to the backend so a partial entry only settles that
@@ -903,7 +924,14 @@ function CommissionSettleTab({ view }: { view: "settle" | "rules" }) {
               )}
             </div>
           ) : (
-            <button className="cm-add-btn" onClick={() => { setEditingGroup(null); setShowWizard(true); }}>
+            <button
+              className="cm-add-btn"
+              style={!can("add_commission_rule") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+              onClick={() => {
+                if (!can("add_commission_rule")) { denyPerm("add_commission_rule"); return; }
+                setEditingGroup(null); setShowWizard(true);
+              }}
+            >
               <Plus size={15} /> Add Commission Rule
             </button>
           )}
@@ -1021,24 +1049,40 @@ const COMMISSION_SUB_TABS: { key: CommissionSubTab; label: string; icon: React.R
   { key: "rules",  label: "Commission Rule",   icon: <ListCheck  size={13} /> },
 ];
 
+// Tab-level permission gate — only Tip currently has one (the Commission tab
+// has no equivalent request to gate it the same way). Kept as a lookup so a
+// future ask to gate Commission too is a one-line addition, not a rewrite.
+const MAIN_TAB_PERM: Partial<Record<MainTab, string>> = { tip: "view_tips" };
+
 export default function CommissionsPage() {
   const [mainTab, setMainTab] = useState<MainTab>("commission");
   const [commissionSubTab, setCommissionSubTab] = useState<CommissionSubTab>("settle");
+  const { can } = usePermissions();
+  const dispatch = useAppDispatch();
+  const denyPerm = (permKey: string) => dispatch(showPermissionDenied(friendlyPermissionDenied(permKey)));
 
   return (
     <div className="tc-shell">
       <div className="tc-main-tabs">
-        {MAIN_TABS.map(({ key, label, icon }) => (
-          <button
-            key={key}
-            type="button"
-            className={`tc-main-tab ${mainTab === key ? "tc-main-tab--active" : ""}`}
-            onClick={() => setMainTab(key)}
-          >
-            {icon}
-            {label}
-          </button>
-        ))}
+        {MAIN_TABS.map(({ key, label, icon }) => {
+          const permKey = MAIN_TAB_PERM[key];
+          const allowed = !permKey || can(permKey);
+          return (
+            <button
+              key={key}
+              type="button"
+              className={`tc-main-tab ${mainTab === key ? "tc-main-tab--active" : ""}`}
+              style={!allowed ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+              onClick={() => {
+                if (!allowed) { denyPerm(permKey!); return; }
+                setMainTab(key);
+              }}
+            >
+              {icon}
+              {label}
+            </button>
+          );
+        })}
       </div>
 
       {mainTab === "commission" && (

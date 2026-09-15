@@ -10,6 +10,8 @@ import {
 import { useWaCredentialsSave, type WaCredentialsForm } from "../hooks/useWaCredentialsSave";
 import { Button, Input, Modal, PageHeader } from "../../../components/ui";
 import { API_ORIGIN } from "../../../services/api/baseUrl";
+import { usePermissions } from "../../../hooks/usePermissions";
+import { showPermissionDenied } from "../../../store/permissionDialogSlice";
 import "../styles/WaConfigPage.scss";
 
 const FIELDS: {
@@ -78,6 +80,10 @@ export default function WaConfigPage() {
   const [confirmOpen,   setConfirmOpen]   = useState(false);
   const [visibleFields, setVisibleFields] = useState<Record<string, boolean>>({});
   const { showSuccess, showError, overlay } = useStatusOverlay();
+  const { can } = usePermissions();
+  const denyPerm = (permKey: string) => dispatch(showPermissionDenied(
+    `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+  ));
   const {
     saving, fieldErrors, generalError, hasUnchecked, suggestedToken,
     clearErrors, verifyAndSave, useSuggestedToken,
@@ -112,6 +118,7 @@ export default function WaConfigPage() {
   };
 
   const handleSave = async () => {
+    if (!can("edit_whatsapp_config")) { denyPerm("edit_whatsapp_config"); return; }
     const ok = await verifyAndSave(form);
     if (ok) {
       showSuccess("WhatsApp config saved!");
@@ -120,6 +127,7 @@ export default function WaConfigPage() {
   };
 
   const handleDelete = async () => {
+    if (!can("edit_whatsapp_config")) { denyPerm("edit_whatsapp_config"); return; }
     setDeleting(true);
     try {
       const result = await dispatch(deleteWaConfigThunk());
@@ -134,6 +142,7 @@ export default function WaConfigPage() {
   };
 
   const handleToggleAi = async (enabled: boolean) => {
+    if (!can("edit_whatsapp_config")) { denyPerm("edit_whatsapp_config"); return; }
     const result = await dispatch(setAiReceptionistEnabledThunk(enabled));
     if (setAiReceptionistEnabledThunk.fulfilled.match(result)) {
       showSuccess(enabled ? "AI receptionist enabled" : "AI receptionist disabled");
@@ -143,6 +152,7 @@ export default function WaConfigPage() {
   };
 
   const handleTest = async () => {
+    if (!can("edit_whatsapp_config")) { denyPerm("edit_whatsapp_config"); return; }
     setTesting(true);
     try {
       const result = await dispatch(testWaConfigThunk());
@@ -184,7 +194,11 @@ export default function WaConfigPage() {
         {config?.isVerified && (
           <button
             className="wac-change-btn"
-            onClick={() => setEditMode(e => !e)}
+            style={!can("edit_whatsapp_config") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+            onClick={() => {
+              if (!can("edit_whatsapp_config")) { denyPerm("edit_whatsapp_config"); return; }
+              setEditMode(e => !e);
+            }}
           >
             {editMode ? "✕ Cancel" : "✏️ Change Account"}
           </button>
@@ -205,7 +219,8 @@ export default function WaConfigPage() {
             <button
               type="button"
               className={`wac-toggle${config?.aiReceptionistEnabled ? " wac-toggle--on" : ""}`}
-              disabled={loading.setAiReceptionistEnabled}
+              disabled={loading.setAiReceptionistEnabled && can("edit_whatsapp_config")}
+              style={!can("edit_whatsapp_config") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
               onClick={() => handleToggleAi(!config?.aiReceptionistEnabled)}
             >
               <span className="wac-toggle-thumb" />
@@ -305,7 +320,8 @@ export default function WaConfigPage() {
               <Button
                 variant="ghost"
                 loading={testing}
-                disabled={testing || saving}
+                disabled={(testing || saving) && can("edit_whatsapp_config")}
+                style={!can("edit_whatsapp_config") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
                 onClick={handleTest}
               >
                 🔌 Test Connection
@@ -313,7 +329,8 @@ export default function WaConfigPage() {
               <Button
                 variant="primary"
                 loading={saving}
-                disabled={saving || testing}
+                disabled={(saving || testing) && can("edit_whatsapp_config")}
+                style={!can("edit_whatsapp_config") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
                 onClick={handleSave}
               >
                 {saving ? "Verifying with Meta…" : "Verify & Save"}
@@ -338,7 +355,11 @@ export default function WaConfigPage() {
             <Button
               variant="outline-danger"
               size="sm"
-              onClick={() => setConfirmOpen(true)}
+              style={!can("edit_whatsapp_config") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+              onClick={() => {
+                if (!can("edit_whatsapp_config")) { denyPerm("edit_whatsapp_config"); return; }
+                setConfirmOpen(true);
+              }}
             >
               🗑 Disconnect
             </Button>

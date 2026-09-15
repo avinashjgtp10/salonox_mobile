@@ -23,18 +23,31 @@ const ImportClientsPage = lazy(
 export const ClientsRoutes = () => (
   <Suspense fallback={<PageLoader />}>
     <Routes>
-      {/* view_clients — read-only screens */}
       <Route index element={<Navigate to="list" replace />} />
-      <Route path="list" element={<ClientsListPage />} />
-      <Route path="loyalty" element={<ClientLoyaltyPage />} />
-      <Route path="history" element={<ClientHistoryPage />} />
 
-      {/* edit_clients required for all write operations — Add and Edit share
-          one component (AddClientPage), same pattern as AddStaffPage/TeamRoutes. */}
-      <Route element={<PermissionGuard permKey="edit_clients" />}>
-        <Route path="import" element={<ImportClientsPage />} />
+      {/* Each of the 3 Clients pages is independently permissioned — see the
+          Clients permissions ticket. */}
+      <Route element={<PermissionGuard permKey="view_clients" />}>
+        <Route path="list" element={<ClientsListPage />} />
+      </Route>
+      <Route element={<PermissionGuard permKey="view_referral_rewards" />}>
+        <Route path="loyalty" element={<ClientLoyaltyPage />} />
+      </Route>
+      <Route element={<PermissionGuard permKey="view_client_history" />}>
+        <Route path="history" element={<ClientHistoryPage />} />
+      </Route>
+
+      {/* Add and Edit share one component (AddClientPage) but are now
+          separately permissioned (create_clients / edit_clients), same
+          pattern as AddStaffPage/TeamRoutes. */}
+      <Route element={<PermissionGuard permKey="create_clients" />}>
         <Route path="add" element={<AddClientPage />} />
+      </Route>
+      <Route element={<PermissionGuard permKey="edit_clients" />}>
         <Route path="edit/:id" element={<AddClientPage />} />
+      </Route>
+      <Route element={<PermissionGuard permKey="import_clients" />}>
+        <Route path="import" element={<ImportClientsPage />} />
       </Route>
     </Routes>
   </Suspense>

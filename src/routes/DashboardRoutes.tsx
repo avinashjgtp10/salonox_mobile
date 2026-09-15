@@ -118,28 +118,46 @@ export const DashboardRoutes = (
         <Route path="catalog/*" element={<CatalogRoutes />} />
       </Route>
 
-      {/* Inventory — requires view_inventory (moved out from under Catalog).
-          featureKey "inventory" enforced inside InventoryRoutes.tsx already. */}
-      <Route element={<PermissionGuard permKey="view_inventory" />}>
-        <Route path="inventory/*" element={<InventoryRoutes />} />
-      </Route>
+      {/* Inventory (Warehouse) — no single blanket permission gate here
+          anymore. Suppliers now has its own independent permissions
+          (view_suppliers/create_suppliers/edit_suppliers/etc. — see the
+          Warehouse -> Suppliers ticket), separate from view_inventory which
+          still gates the other 5 sections. A view_inventory-only gate here
+          would deny Suppliers access to a staff member who has
+          view_suppliers but not view_inventory, before InventoryRoutes.tsx's
+          own per-section guards even get a chance to run. featureKey
+          "inventory" is still enforced inside InventoryRoutes.tsx. */}
+      <Route path="inventory/*" element={<InventoryRoutes />} />
 
-      {/* Team — requires view_team. featureKey "staff"/"payroll" enforced
-          per-section inside TeamRoutes.tsx already. */}
-      <Route element={<PermissionGuard permKey="view_team" />}>
+      {/* Team — requires access_staff (view_team OR any of Payroll/Scheduled
+          Shifts/Commissions/Tips — sidebar nav dimming ticket). Previously
+          gated on view_team alone, which incorrectly blocked the whole
+          /dashboard/team/* tree for a staff member granted only e.g.
+          view_payroll, since Team's 5 sections are independent top-level
+          permissions with no single real key uniting them (unlike
+          Marketing/Reports, which already had one). featureKey
+          "staff"/"payroll" enforced per-section inside TeamRoutes.tsx
+          already, same as each section's own specific permission. */}
+      <Route element={<PermissionGuard permKey="access_staff" />}>
         <Route path="team/*" element={<TeamRoutes />} />
       </Route>
 
-      {/* Marketing — requires view_campaigns + featureKey "marketing" */}
-      <Route element={<PermissionGuard permKey="view_campaigns" />}>
+      {/* Marketing — requires view_marketing (umbrella of the 7 sub-area view
+          keys — see VIRTUAL_PERMS in usePermissions.ts) + featureKey
+          "marketing". Each sub-route inside MarketingRoutes.tsx has its own
+          specific PermissionGuard on top of this outer gate. */}
+      <Route element={<PermissionGuard permKey="view_marketing" />}>
         <Route element={<PlanFeatureGuard featureKey="marketing" label="Marketing" />}>
           <Route path="marketing/*" element={<MarketingRoutes />} />
         </Route>
       </Route>
 
-      {/* Settings — requires general_settings. Account/config, not a product
-          module — deliberately not featureKey-gated. */}
-      <Route element={<PermissionGuard permKey="general_settings" />}>
+      {/* Settings — requires access_settings (umbrella OR of the 18 section
+          keys — see VIRTUAL_PERMS in usePermissions.ts). Each section inside
+          SettingsLayout.tsx has its own specific gate on top of this outer
+          one. Account/config, not a product module — deliberately not
+          featureKey-gated. */}
+      <Route element={<PermissionGuard permKey="access_settings" />}>
         <Route path="settings/*" element={<SettingsRoutes />} />
       </Route>
 
@@ -153,14 +171,29 @@ export const DashboardRoutes = (
       {/* Apps, Profile, Notifications — no permission guard needed */}
       <Route path="apps/*" element={<AppsRoutes />} />
       <Route path="profile" element={<ProfilePage />} />
-      <Route path="notifications" element={<NotificationsPage />} />
+      {/* Notifications feed page — bell icon + "View all" both gated on
+          view_notifications (Notifications permission module ticket); the
+          bell itself is the real UX gate (visible, disabled, denial popup),
+          this route guard is the backstop against typing the URL directly. */}
+      <Route element={<PermissionGuard permKey="view_notifications" />}>
+        <Route path="notifications" element={<NotificationsPage />} />
+      </Route>
 
-      {/* Enquiries — requires view_enquiries + featureKey "enquiries" */}
+      {/* Enquiries — requires view_enquiries + featureKey "enquiries". The
+          list buttons/menu items are the real UX gate (visible, disabled,
+          denial popup on click) — these nested add_enquiries/edit_enquiries
+          guards are only a backstop against typing the URL directly; a
+          denied staff member lands back on the Enquiries list, which they
+          already have access to (view_enquiries got them this far). */}
       <Route element={<PermissionGuard permKey="view_enquiries" />}>
         <Route element={<PlanFeatureGuard featureKey="enquiries" label="Enquiries" />}>
           <Route path="enquiries" element={<EnquiriesListPage />} />
-          <Route path="enquiries/add" element={<EnquiryAddPage />} />
-          <Route path="enquiries/edit/:id" element={<EnquiryAddPage />} />
+          <Route element={<PermissionGuard permKey="add_enquiries" />}>
+            <Route path="enquiries/add" element={<EnquiryAddPage />} />
+          </Route>
+          <Route element={<PermissionGuard permKey="edit_enquiries" />}>
+            <Route path="enquiries/edit/:id" element={<EnquiryAddPage />} />
+          </Route>
         </Route>
       </Route>
 

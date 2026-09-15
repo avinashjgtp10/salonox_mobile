@@ -285,7 +285,12 @@ export default function DatePicker({
       </button>
 
       {open && coords && createPortal(
-        <div ref={panelRef} style={{ position: "fixed", top: coords.top, left: coords.left, zIndex: 2000 }}>
+        // Must outrank any modal overlay this trigger can sit inside — several
+        // pages (e.g. SubscriptionPermissionsPage) use ad-hoc fixed-position
+        // modals at z-index 9998/9999, which previously sat on top of this
+        // panel and made the calendar invisible/unclickable when opened from
+        // inside one.
+        <div ref={panelRef} style={{ position: "fixed", top: coords.top, left: coords.left, zIndex: 100000 }}>
           {/* Remounted per open (key on `value`) so the grid always re-seeds
               to the current selection rather than wherever it was left
               last time. */}

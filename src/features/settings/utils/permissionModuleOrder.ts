@@ -12,6 +12,7 @@ const MODULE_DISPLAY_ORDER = [
   "Calendar",
   "Clients",
   "Catalog",
+  "Warehouse",
   "Staff",
   "Cash Management",
   "Marketing",
@@ -19,6 +20,8 @@ const MODULE_DISPLAY_ORDER = [
   "Enquiries",
   "Reports",
   "Settings",
+  "Notifications",
+  "System",
   "Help",
 ];
 
@@ -30,4 +33,56 @@ export function sortModuleNames<T>(items: T[], getModule: (item: T) => string): 
     return i === -1 ? MODULE_DISPLAY_ORDER.length : i;
   };
   return [...items].sort((a, b) => indexOf(getModule(a)) - indexOf(getModule(b)));
+}
+
+// Display order for the sub-group drill-down within a module that has more
+// than one `group_name` (e.g. Warehouse splits into Suppliers/Orders/etc.) —
+// matches InventorySubSidebar's tab sequence, instead of the DB's
+// alphabetical `ORDER BY group_name` (Consumable Inventory would otherwise
+// sort before Suppliers). Modules not listed here keep catalog order.
+const GROUP_DISPLAY_ORDER: Record<string, string[]> = {
+  Warehouse: [
+    "Suppliers",
+    "Orders",
+    "Product Inventory",
+    "Consumable Inventory",
+    "Product Audit",
+    "Stock Ledger",
+  ],
+  // Matches the Reports permissions ticket's own listed category order,
+  // General first since it's the top-level "can enter Reports at all"
+  // master toggle every other group depends on.
+  Reports: [
+    "General",
+    "Sales",
+    "Payments",
+    "Clients",
+    "Appointments",
+    "Inventory",
+    "Staff",
+    "Package & Membership",
+    "Marketing",
+  ],
+  // General first for the same reason as Reports above — it holds the
+  // access_settings master switch, which should be the first thing an
+  // owner sees when opening this card. The null-grouped legacy stragglers
+  // (manage_integrations/permission_settings/manage_pos_payments) aren't
+  // in this list, so they sink to the end instead of appearing first.
+  Settings: ["General", "Account", "Tools", "Migration", "Data", "Roles & Permissions"],
+  Catalog: ["Services", "Digital Menu", "Products", "Packages", "Memberships"],
+  // Matches the Clients permissions accordion ticket's own listed order.
+  Clients: ["General", "Client History", "Clients List", "Referral & Rewards"],
+};
+
+/** Sorts a module's sub-groups into that module's display order (if one is
+ *  defined above); anything not listed — including the null/ungrouped
+ *  bucket — keeps its relative order and sinks to the end. */
+export function sortGroupNames<T>(module: string, items: T[], getGroupName: (item: T) => string | null): T[] {
+  const order = GROUP_DISPLAY_ORDER[module];
+  if (!order) return items;
+  const indexOf = (name: string | null) => {
+    const i = name == null ? -1 : order.indexOf(name);
+    return i === -1 ? order.length : i;
+  };
+  return [...items].sort((a, b) => indexOf(getGroupName(a)) - indexOf(getGroupName(b)));
 }

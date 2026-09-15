@@ -97,9 +97,8 @@ const SORT_PARAMS: Record<string, { sort_by?: string; sort_order?: "ASC" | "DESC
 
 // Same friendly copy PermissionGuard and the interceptor-driven global popup
 // already use for a backend 403 — this export is built entirely client-side
-// (no backend call to deny), so this is the only enforcement point
-// export_pdf/export_csv/export_excel actually have for it.
-const friendlyExportDenied = (permKey: string) =>
+// (no backend call to deny), so this is the only enforcement point it has.
+const friendlyPermissionDenied = (permKey: string) =>
   `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`;
 
 export default function StaffListPage() {
@@ -107,6 +106,7 @@ export default function StaffListPage() {
 
   const dispatch = useDispatch<AppDispatch>();
   const { can } = usePermissions();
+  const denyPerm = (permKey: string) => dispatch(showPermissionDenied(friendlyPermissionDenied(permKey)));
 
   const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
   const [pageSize, setPageSize] = useState(10);
@@ -306,6 +306,7 @@ export default function StaffListPage() {
 
   const handleConfirmDelete = () => {
     if (!deleteConfirm) return;
+    if (!can("delete_staff")) { denyPerm("delete_staff"); setDeleteConfirm(null); return; }
     if (deleteConfirm.mode === "single") {
       handleDeleteStaff(deleteConfirm.id);
     } else {
@@ -315,6 +316,7 @@ export default function StaffListPage() {
   };
 
   const handleToggleStatus = async (member: StaffMember) => {
+    if (!can("deactivate_staff")) { denyPerm("deactivate_staff"); return; }
     const isActive = member.is_active ?? true;
     try {
       if (isActive) {
@@ -383,7 +385,11 @@ export default function StaffListPage() {
                 <div className="slp-option-label">Import</div>
                 <div
                   className="slp-option-item"
-                  onClick={() => { setShowImport(true); setOptionsOpen(false); }}
+                  style={!can("import_staff") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                  onClick={() => {
+                    if (!can("import_staff")) { denyPerm("import_staff"); return; }
+                    setShowImport(true); setOptionsOpen(false);
+                  }}
                 >
                   <FiletypeCsv size={14} /> Import from CSV / Excel
                 </div>
@@ -392,7 +398,7 @@ export default function StaffListPage() {
                 <DownloadButton
                   filename="staff.csv"
                   fetcher={async () => {
-                    if (!can("export_csv")) { dispatch(showPermissionDenied(friendlyExportDenied("export_csv"))); throw new Error("Permission denied"); }
+                    if (!can("export_staff_csv")) { denyPerm("export_staff_csv"); throw new Error("Permission denied"); }
                     const all = await fetchAllStaffForExport();
                     setOptionsOpen(false);
                     return exportStaffCSV(all);
@@ -401,13 +407,14 @@ export default function StaffListPage() {
                   size="sm"
                   iconLeft={<FiletypeCsv size={14} />}
                   className="slp-option-item w-100 text-start"
+                  style={!can("export_staff_csv") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
                 >
                   Export CSV
                 </DownloadButton>
                 <DownloadButton
                   filename="staff.xlsx"
                   fetcher={async () => {
-                    if (!can("export_excel")) { dispatch(showPermissionDenied(friendlyExportDenied("export_excel"))); throw new Error("Permission denied"); }
+                    if (!can("export_staff_excel")) { denyPerm("export_staff_excel"); throw new Error("Permission denied"); }
                     const all = await fetchAllStaffForExport();
                     setOptionsOpen(false);
                     return exportStaffExcel(all);
@@ -416,6 +423,7 @@ export default function StaffListPage() {
                   size="sm"
                   iconLeft={<FileEarmarkExcel size={14} />}
                   className="slp-option-item w-100 text-start"
+                  style={!can("export_staff_excel") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
                 >
                   Export Excel
                 </DownloadButton>
@@ -423,7 +431,8 @@ export default function StaffListPage() {
                   filename="staff.pdf"
                   mimeType="application/pdf"
                   fetcher={async () => {
-                    if (!can("export_pdf")) { dispatch(showPermissionDenied(friendlyExportDenied("export_pdf"))); throw new Error("Permission denied"); }
+                    if (!can("export_staff_pdf")) { denyPerm("export_staff_pdf"); throw new Error("Permission denied"); }
+                    if (!can("export_pdf")) { denyPerm("export_pdf"); throw new Error("Permission denied"); }
                     const all = await fetchAllStaffForExport();
                     setOptionsOpen(false);
                     return exportStaffPDF(all);
@@ -432,6 +441,7 @@ export default function StaffListPage() {
                   size="sm"
                   iconLeft={<FiletypePdf size={14} />}
                   className="slp-option-item w-100 text-start"
+                  style={(!can("export_staff_pdf") || !can("export_pdf")) ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
                 >
                   Export PDF
                 </DownloadButton>
@@ -442,7 +452,11 @@ export default function StaffListPage() {
             variant="dark"
             pill
             className="slp-add-btn"
-            onClick={() => navigate("/dashboard/team/add")}
+            style={!can("add_team_member") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+            onClick={() => {
+              if (!can("add_team_member")) { denyPerm("add_team_member"); return; }
+              navigate("/dashboard/team/add");
+            }}
             iconLeft={<PersonPlus size={16} />}
           >
             Add member
@@ -507,7 +521,11 @@ export default function StaffListPage() {
           <div className="slp-bulk-actions">
             <button
               className="slp-bulk-btn slp-bulk-btn--danger"
-              onClick={() => setDeleteConfirm({ mode: "bulk" })}
+              style={!can("delete_staff") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+              onClick={() => {
+                if (!can("delete_staff")) { denyPerm("delete_staff"); return; }
+                setDeleteConfirm({ mode: "bulk" });
+              }}
             >
               <Trash size={13} /> Delete selected
             </button>
@@ -548,7 +566,11 @@ export default function StaffListPage() {
           {!searchTerm && totalFilterBadge === 0 && (
             <button
               className="slp-empty__btn"
-              onClick={() => navigate("/dashboard/team/add")}
+              style={!can("add_team_member") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+              onClick={() => {
+                if (!can("add_team_member")) { denyPerm("add_team_member"); return; }
+                navigate("/dashboard/team/add");
+              }}
             >
               <PersonPlus size={15} /> Add staff member
             </button>
@@ -675,18 +697,29 @@ export default function StaffListPage() {
                       <div className="slp-action-menu">
                         <button
                           className="slp-action-item"
-                          onClick={() => { member.id && navigate(`/dashboard/team/${member.id}`); setActionMenuId(null); }}
+                          style={!can("edit_team_member") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                          onClick={() => {
+                            setActionMenuId(null);
+                            if (!can("edit_team_member")) { denyPerm("edit_team_member"); return; }
+                            member.id && navigate(`/dashboard/team/${member.id}`);
+                          }}
                         >
                           <Pencil size={13} /> Edit profile
                         </button>
                         <button
                           className="slp-action-item"
-                          onClick={() => { member.id && navigate(`/dashboard/team/history/${member.id}`); setActionMenuId(null); }}
+                          style={!can("view_staff_history") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                          onClick={() => {
+                            setActionMenuId(null);
+                            if (!can("view_staff_history")) { denyPerm("view_staff_history"); return; }
+                            member.id && navigate(`/dashboard/team/history/${member.id}`);
+                          }}
                         >
                           <ClockHistory size={13} /> View history
                         </button>
                         <button
                           className="slp-action-item"
+                          style={!can("deactivate_staff") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
                           onClick={() => handleToggleStatus(member)}
                         >
                           <ToggleOn size={13} /> {isActive ? "Deactivate" : "Activate"}
@@ -694,7 +727,11 @@ export default function StaffListPage() {
                         <div className="slp-action-divider" />
                         <button
                           className="slp-action-item slp-action-item--danger"
-                          onClick={() => { setDeleteConfirm({ mode: "single", id: member.id }); setActionMenuId(null); }}
+                          style={!can("delete_staff") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                          onClick={() => {
+                            if (!can("delete_staff")) { denyPerm("delete_staff"); setActionMenuId(null); return; }
+                            setDeleteConfirm({ mode: "single", id: member.id }); setActionMenuId(null);
+                          }}
                           disabled={deletingId === member.id}
                         >
                           <Trash size={13} /> {deletingId === member.id ? "Deleting..." : "Delete"}

@@ -163,6 +163,7 @@ export default function TipReport({ onBack, category, categoryKey }: { onBack: (
               title={REPORT_NAME}
               headers={HEADERS}
               rows={exportRows}
+              reportId="tip_report"
               filename={`tip-report-${dateFrom}-${dateTo}`}
               variant="button"
               csv

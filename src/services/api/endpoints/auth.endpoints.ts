@@ -27,4 +27,5 @@ export const PUBLIC_ROUTES: string[] = [
   "/api/v1/staff/invite",
   "/api/v1/super-admin/login",
   "/api/v1/bookings",
+  "/api/v1/digital-menu/public",
 ];

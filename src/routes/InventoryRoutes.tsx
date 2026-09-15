@@ -56,30 +56,86 @@ export const InventoryRoutes = () => (
       {/* Plan-feature gate (featureKey "inventory") wraps the permission
           gate — a salon whose plan lacks Inventory sees the upgrade screen
           regardless of staff permissions; one that has it still needs
-          manage_inventory per-staff as before. */}
+          the right permission per-staff as before. */}
       <Route element={<PlanFeatureGuard featureKey="inventory" label="Inventory Management" />}>
-        {/* manage_inventory required for every inventory screen, read or write */}
-        <Route element={<PermissionGuard permKey="manage_inventory" />}>
-          {/* Orders is its own concept (a PO document, no stock movement) —
-              sibling to Purchase History rather than an alias for it. */}
-          <Route path="orders" element={<OrdersListPage />} />
-          <Route path="orders/new-order" element={<NewOrderPage />} />
-          <Route path="orders/:id/edit" element={<NewOrderPage />} />
-          <Route path="orders/:id" element={<OrderDetailPage />} />
+        {/* Suppliers has its own independent permissions now (see the
+            Warehouse -> Suppliers ticket) — split out from the shared
+            manage_inventory guard below, which still covers every other
+            Warehouse screen until they get the same treatment. */}
+        <Route element={<PermissionGuard permKey="view_suppliers" />}>
           <Route path="suppliers" element={<SuppliersListPage />} />
+          <Route path="suppliers/:id" element={<SupplierDetailPage />} />
+        </Route>
+        <Route element={<PermissionGuard permKey="create_suppliers" />}>
           <Route path="suppliers/new" element={<AddSupplierPage />} />
+        </Route>
+        <Route element={<PermissionGuard permKey="edit_suppliers" />}>
           <Route path="suppliers/edit/:id" element={<AddSupplierPage />} />
           <Route path="suppliers/:id/edit" element={<AddSupplierPage />} />
-          <Route path="suppliers/:id" element={<SupplierDetailPage />} />
+        </Route>
+
+        {/* Orders now has its own independent permissions too (see the
+            Warehouse -> Orders ticket) — split out from the shared
+            manage_inventory guard below, same pattern as Suppliers. */}
+        <Route element={<PermissionGuard permKey="view_orders" />}>
+          <Route path="orders" element={<OrdersListPage />} />
+          <Route path="orders/:id" element={<OrderDetailPage />} />
+        </Route>
+        <Route element={<PermissionGuard permKey="create_order" />}>
+          <Route path="orders/new-order" element={<NewOrderPage />} />
+        </Route>
+        <Route element={<PermissionGuard permKey="edit_order" />}>
+          <Route path="orders/:id/edit" element={<NewOrderPage />} />
+        </Route>
+
+        {/* Product Inventory now has its own independent View permission too
+            (see the Warehouse -> Product Inventory ticket). */}
+        <Route element={<PermissionGuard permKey="view_product_inventory" />}>
           <Route path="products" element={<ProductInventoryPage />} />
-          <Route path="audit" element={<ProductAuditPage />} />
+        </Route>
+
+        {/* Consumable Inventory now has its own independent View/Add/Edit/
+            Usage permissions too (see the Warehouse -> Consumable Inventory
+            ticket). ProductFormPage's backend route (POST/PATCH /products)
+            accepts add_consumable/edit_consumable as OR-alternatives to
+            Catalog's create_products/edit_products — see products.routes.ts. */}
+        <Route element={<PermissionGuard permKey="view_consumable_inventory" />}>
           <Route path="consumables" element={<ConsumableInventoryPage />} />
+        </Route>
+        <Route element={<PermissionGuard permKey="add_consumable" />}>
           <Route path="consumables/add" element={<ProductFormPage />} />
+        </Route>
+        <Route element={<PermissionGuard permKey="edit_consumable" />}>
           <Route path="consumables/edit/:id" element={<ProductFormPage />} />
+        </Route>
+        <Route element={<PermissionGuard permKey="view_consumable_usage" />}>
           <Route path="consumables/usage-history" element={<ConsumableUsageHistoryPage />} />
+        </Route>
+
+        {/* Product Audit now has its own independent View permission too
+            (see the Warehouse -> Product Audit ticket). */}
+        <Route element={<PermissionGuard permKey="view_product_audit" />}>
+          <Route path="audit" element={<ProductAuditPage />} />
+        </Route>
+
+        {/* Stock Ledger now has its own independent View/Edit/Stock
+            Adjustment permissions too (see the Warehouse -> Stock Ledger
+            ticket) — split out from the shared manage_inventory guard,
+            same pattern as every other Warehouse section above. */}
+        <Route element={<PermissionGuard permKey="view_stock_ledger" />}>
           <Route path="ledger" element={<StockLedgerPage />} />
+        </Route>
+        <Route element={<PermissionGuard permKey="stock_ledger_adjustment" />}>
           <Route path="ledger/add-stock" element={<AddStockPage />} />
+        </Route>
+        <Route element={<PermissionGuard permKey="edit_stock_ledger" />}>
           <Route path="ledger/edit/:id" element={<AddStockPage />} />
+        </Route>
+
+        {/* manage_inventory still covers the few legacy screens with no nav
+            tab of their own anymore (stock-reconciliation redirects
+            straight to Consumable Inventory). */}
+        <Route element={<PermissionGuard permKey="manage_inventory" />}>
           {/* Redesigned as Consumable Inventory — old URL kept working */}
           <Route path="stock-reconciliation" element={<Navigate to="/dashboard/inventory/consumables" replace />} />
         </Route>

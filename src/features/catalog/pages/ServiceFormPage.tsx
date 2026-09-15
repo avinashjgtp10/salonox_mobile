@@ -5,7 +5,9 @@ import { useDispatch, useSelector } from "react-redux";
 import type { AppDispatch } from "../../../store/store";
 import { fetchCategoriesThunk, createCategoryThunk } from "../../../middleware/services/categories.thunk";
 import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
+import { fetchSettingsThunk } from "../../../middleware/setting/setting.thunk";
 import { selectServiceCategories, selectAllStaff, selectStaffLoading } from "../../../store/selectors/slices.selectors";
+import { getServiceReminderPresets } from "../utils/serviceReminderSettings";
 import { useServiceForm } from "../hooks/useServiceForm.ts";
 import type { ServiceCommissionKind } from "../types/catalog.types.ts";
 import { splitDuration, joinDuration, formatDuration } from "../utils/duration";
@@ -58,10 +60,27 @@ const ServiceFormPage: React.FC = () => {
 
   const allStaffIds = useMemo(() => staffMembers.map((s) => s.id), [staffMembers]);
 
+  const settingItems = useSelector((s: any) => s.setting.items);
+  useEffect(() => { if (settingItems.length === 0) dispatch(fetchSettingsThunk()); }, [dispatch, settingItems.length]);
+  const reminderPresets = useMemo(() => getServiceReminderPresets(settingItems), [settingItems]);
+
   const {
     formData, updateField, handleSubmit,
     fetchLoading, loading, error, validationErrors, isEdit,
   } = useServiceForm(id, allStaffIds);
+
+  // Custom mode when the saved value isn't one of the configured presets —
+  // e.g. it was set before any presets existed, or via the older free-typed
+  // Calendar/Quick Sale flow. Decided once the real value has loaded (mirrors
+  // staffDefaultApplied below) so the user's own later toggle isn't fought.
+  const [useCustomReminder, setUseCustomReminder] = useState(false);
+  const reminderModeInitialized = useRef(false);
+  useEffect(() => {
+    if (reminderModeInitialized.current || fetchLoading) return;
+    reminderModeInitialized.current = true;
+    const val = formData.basic.reminderAfterDays;
+    setUseCustomReminder(val != null && !reminderPresets.includes(val));
+  }, [fetchLoading, formData.basic.reminderAfterDays, reminderPresets]);
 
   useEffect(() => {
     dispatch(fetchCategoriesThunk());
@@ -298,18 +317,49 @@ const ServiceFormPage: React.FC = () => {
 
           <div className="cf-field">
             <label>Service Reminder (days)</label>
-            <input
-              type="number"
-              min={1}
-              step={1}
-              placeholder="e.g. 30"
-              value={formData.basic.reminderAfterDays ?? ""}
-              onChange={(e) => {
-                const raw = e.target.value;
-                const n = raw === "" ? null : Math.max(1, parseInt(raw, 10) || 1);
-                updateField("basic", { ...formData.basic, reminderAfterDays: n });
-              }}
-            />
+            {reminderPresets.length > 0 && !useCustomReminder ? (
+              <select
+                value={formData.basic.reminderAfterDays ?? ""}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  if (raw === "custom") {
+                    setUseCustomReminder(true);
+                    return;
+                  }
+                  const n = raw === "" ? null : Number(raw);
+                  updateField("basic", { ...formData.basic, reminderAfterDays: n });
+                }}
+              >
+                <option value="">No reminder</option>
+                {reminderPresets.map((d) => (
+                  <option key={d} value={d}>{d} days</option>
+                ))}
+                <option value="custom">Custom…</option>
+              </select>
+            ) : (
+              <input
+                type="number"
+                min={1}
+                step={1}
+                placeholder="e.g. 30"
+                value={formData.basic.reminderAfterDays ?? ""}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  const n = raw === "" ? null : Math.max(1, parseInt(raw, 10) || 1);
+                  updateField("basic", { ...formData.basic, reminderAfterDays: n });
+                }}
+              />
+            )}
+            {reminderPresets.length > 0 && useCustomReminder && (
+              <button
+                type="button"
+                className="cf-hint cf-hint--inline"
+                style={{ background: "none", border: "none", padding: 0, color: "#6366f1", cursor: "pointer", textAlign: "left" }}
+                onClick={() => setUseCustomReminder(false)}
+              >
+                Use a preset instead
+              </button>
+            )}
             <span className="cf-hint cf-hint--inline">
               Optional — remind the client to redo this service after this many days. Leave blank if it has no redo cadence.
             </span>

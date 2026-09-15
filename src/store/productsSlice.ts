@@ -19,10 +19,19 @@ interface ProductsState {
   pageSize: number;
   totalRecords: number;
   totalPages: number;
+  // Separate from items/page/pageSize above — searchProductsThunk's
+  // preload-for-a-picker use (Stock Ledger, Add Stock, Calendar, Add
+  // Membership) populates this instead, so it can never leave the real
+  // Catalog → Products list page's pagination in a stale state (found
+  // 2026-09-11: a picker preloading pageSize:200 here used to overwrite the
+  // list page's own pageSize, which then got rejected by GET /products'
+  // 100-row cap on the list page's next visit).
+  pickerItems: any[];
   brands: any[];
   categories: any[];
   loading: {
     fetchAll: boolean;
+    picker: boolean;
     create: boolean;
     update: boolean;
     delete: boolean;
@@ -31,6 +40,7 @@ interface ProductsState {
   };
   error: string | null;
   _activeFetchId: string | null;
+  _activePickerFetchId: string | null;
 }
 
 const initialState: ProductsState = {
@@ -39,11 +49,13 @@ const initialState: ProductsState = {
   pageSize: 10,
   totalRecords: 0,
   totalPages: 1,
+  pickerItems: [],
   brands: [],
   categories: [],
-  loading: { fetchAll: false, create: false, update: false, delete: false, brands: false, categories: false },
+  loading: { fetchAll: false, picker: false, create: false, update: false, delete: false, brands: false, categories: false },
   error: null,
   _activeFetchId: null,
+  _activePickerFetchId: null,
 };
 
 const productsSlice = createSlice({
@@ -78,25 +90,19 @@ const productsSlice = createSlice({
 
     builder
       .addCase(searchProductsThunk.pending, (state, action) => {
-        state.loading.fetchAll = true;
-        state.error = null;
-        state._activeFetchId = action.meta.requestId;
+        state.loading.picker = true;
+        state._activePickerFetchId = action.meta.requestId;
       })
       .addCase(searchProductsThunk.fulfilled, (state, action) => {
-        if (action.meta.requestId !== state._activeFetchId) return;
-        state.loading.fetchAll = false;
-        state._activeFetchId = null;
-        state.items = action.payload.data;
-        state.page = action.payload.page;
-        state.pageSize = action.payload.pageSize;
-        state.totalRecords = action.payload.totalRecords;
-        state.totalPages = action.payload.totalPages;
+        if (action.meta.requestId !== state._activePickerFetchId) return;
+        state.loading.picker = false;
+        state._activePickerFetchId = null;
+        state.pickerItems = action.payload.data;
       })
       .addCase(searchProductsThunk.rejected, (state, action) => {
-        if (action.meta.requestId !== state._activeFetchId) return;
-        state.loading.fetchAll = false;
-        state._activeFetchId = null;
-        state.error = action.payload ?? "Error fetching products";
+        if (action.meta.requestId !== state._activePickerFetchId) return;
+        state.loading.picker = false;
+        state._activePickerFetchId = null;
       });
 
     builder

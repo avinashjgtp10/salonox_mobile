@@ -361,6 +361,7 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
               title={REPORT_NAME}
               headers={HEADERS}
               rows={exportRows}
+              reportId="sales_summary"
               filename={`sales-summary-${dateFrom}-${dateTo}`}
               variant="button"
               csv

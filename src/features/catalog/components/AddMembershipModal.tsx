@@ -157,7 +157,10 @@ const AddMembershipModal: React.FC<Props> = ({ editId, onCancel, onSaved }) => {
   // For the item-restriction picker below — not otherwise needed by this
   // modal, so fetched only here rather than assumed already loaded.
   const allServices = useSelector(selectAllServices) as { id: string | number; name: string; category_id: string | number | null }[];
-  const allProducts = useSelector((s: RootState) => s.products.items) as { id: string; name: string; category_id: string | null }[];
+  // pickerItems, not items — this modal preloads up to 200 products for its
+  // own picker via searchProductsThunk, which no longer shares state with
+  // the paginated Catalog → Products list page (see productsSlice.ts).
+  const allProducts = useSelector((s: RootState) => s.products.pickerItems) as { id: string; name: string; category_id: string | null }[];
 
   useEffect(() => () => { dispatch(clearMembershipError()); }, [dispatch]);
   useEffect(() => { dispatch(fetchCategoriesThunk()); }, [dispatch]);

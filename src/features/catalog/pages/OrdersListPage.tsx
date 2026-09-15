@@ -51,10 +51,10 @@ const STATUS_BADGE: Record<Order["status"], "paid" | "due" | "overdue" | "partia
 // server-paginated.
 
 // Same friendly copy PermissionGuard and the interceptor-driven global popup
-// already use for a backend 403 — this export is built entirely client-side
-// (no backend call to deny), so this is the only enforcement point
-// export_pdf/export_csv/export_excel actually have for it.
-const friendlyExportDenied = (permKey: string) =>
+// already use for a backend 403 — several of these actions (export, PDF
+// download) are built entirely client-side with no backend call to deny,
+// so this is the only enforcement point they actually have.
+const friendlyPermissionDenied = (permKey: string) =>
   `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`;
 
 const OrdersListPage: React.FC = () => {
@@ -71,6 +71,16 @@ const OrdersListPage: React.FC = () => {
   // for the PDF body table) only come back from the single-order endpoint, so
   // this fetches on demand rather than requiring every list row to carry them.
   const handleDownloadPdf = async (o: Order) => {
+    if (!can("download_order_pdf")) {
+      dispatch(showPermissionDenied(friendlyPermissionDenied("download_order_pdf")));
+      return;
+    }
+    // export_pdf (System) is now a global master gate (Global Download
+    // Switches ticket) — checked in addition to the module-specific key.
+    if (!can("export_pdf")) {
+      dispatch(showPermissionDenied(friendlyPermissionDenied("export_pdf")));
+      return;
+    }
     setDownloadingPdfId(o.id);
     try {
       const full = await dispatch(fetchOrderByIdThunk(o.id)).unwrap();
@@ -213,7 +223,13 @@ const OrdersListPage: React.FC = () => {
 
   const handleClearSearch = () => setSearch("");
 
-  const goToNewOrder = () => navigate("/dashboard/inventory/orders/new-order");
+  const goToNewOrder = () => {
+    if (!can("create_order")) {
+      dispatch(showPermissionDenied(friendlyPermissionDenied("create_order")));
+      return;
+    }
+    navigate("/dashboard/inventory/orders/new-order");
+  };
 
   const remainingByItem = useMemo(() => {
     const map = new Map<string, number>();
@@ -222,6 +238,10 @@ const OrdersListPage: React.FC = () => {
   }, [receiveOrder]);
 
   const openReceive = async (o: Order) => {
+    if (!can("receive_order")) {
+      dispatch(showPermissionDenied(friendlyPermissionDenied("receive_order")));
+      return;
+    }
     setReceiveLoading(true);
     try {
       const full = await dispatch(fetchOrderByIdThunk(o.id)).unwrap();
@@ -277,6 +297,11 @@ const OrdersListPage: React.FC = () => {
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
+    if (!can("cancel_order")) {
+      dispatch(showPermissionDenied(friendlyPermissionDenied("cancel_order")));
+      setDeleteTarget(null);
+      return;
+    }
     setDeleting(true);
     try {
       await dispatch(deleteOrderThunk(deleteTarget.id)).unwrap();
@@ -320,7 +345,7 @@ const OrdersListPage: React.FC = () => {
 
   const handleExport = useCallback(async (format: "pdf" | "csv" | "excel") => {
     const permKey = format === "pdf" ? "export_pdf" : format === "csv" ? "export_csv" : "export_excel";
-    if (!can(permKey)) { dispatch(showPermissionDenied(friendlyExportDenied(permKey))); return; }
+    if (!can(permKey)) { dispatch(showPermissionDenied(friendlyPermissionDenied(permKey))); return; }
     setIsExporting(true);
     try {
       const all = await fetchAllOrdersForExport();
@@ -503,6 +528,7 @@ const OrdersListPage: React.FC = () => {
                             <button
                               className="orders-kebab-item"
                               disabled={receiveLoading}
+                              style={!can("receive_order") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
                               onClick={() => {
                                 setOpenRowMenuId(null);
                                 openReceive(o);
@@ -516,6 +542,7 @@ const OrdersListPage: React.FC = () => {
                           <button
                             className="orders-kebab-item"
                             disabled={downloadingPdfId === o.id}
+                            style={(!can("download_order_pdf") || !can("export_pdf")) ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
                             onClick={() => {
                               setOpenRowMenuId(null);
                               handleDownloadPdf(o);
@@ -527,8 +554,13 @@ const OrdersListPage: React.FC = () => {
                         <li>
                           <button
                             className="orders-kebab-item"
+                            style={!can("edit_order") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
                             onClick={() => {
                               setOpenRowMenuId(null);
+                              if (!can("edit_order")) {
+                                dispatch(showPermissionDenied(friendlyPermissionDenied("edit_order")));
+                                return;
+                              }
                               navigate(`/dashboard/inventory/orders/${o.id}/edit`);
                             }}
                           >
@@ -538,7 +570,15 @@ const OrdersListPage: React.FC = () => {
                         <li>
                           <button
                             className="orders-kebab-item orders-kebab-item--danger"
-                            onClick={() => { setOpenRowMenuId(null); setDeleteTarget(o); }}
+                            style={!can("cancel_order") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                            onClick={() => {
+                              setOpenRowMenuId(null);
+                              if (!can("cancel_order")) {
+                                dispatch(showPermissionDenied(friendlyPermissionDenied("cancel_order")));
+                                return;
+                              }
+                              setDeleteTarget(o);
+                            }}
                           >
                             <Trash3 size={13} /> Delete
                           </button>

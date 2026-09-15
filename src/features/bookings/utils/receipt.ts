@@ -895,6 +895,16 @@ export function printReceipt(
         clientName: booking.clientName || "Walk-In",
         clientPhone: clientPhone || undefined,
         staffName: allStaffDisplay,
+        // Reads the same booking.paymentMode the A4 invoice does
+        // (infoCell("Payment Method", ...) above), so the two documents can't
+        // disagree. Only the label is tidied: the stored values are raw
+        // lowercase enum strings ("cash", "gift_card", "upi").
+        paymentMethod:
+          String((booking as any).paymentMode ?? "")
+            .trim()
+            .replace(/_/g, " ")
+            .replace(/\b[a-z]/g, (c) => c.toUpperCase())
+            .replace(/\bUpi\b/g, "UPI") || undefined,
         items: thermalItems,
         summary,
         grandTotal: { label: "TOTAL", value: fmt(grandTotal) },

@@ -9,6 +9,8 @@
 .sim-columns-title { font-size:12px; font-weight:600; color:#374151; margin:0 0 8px; }
 .sim-columns-list { display:flex; flex-wrap:wrap; gap:6px; }
 .sim-col-chip { background:#e0e7ff; color:#4338ca; font-size:11px; font-weight:500; padding:2px 8px; border-radius:999px; }
+.sim-col-chip__required { color:#dc2626; font-weight:700; }
+.sim-columns-hint { font-size:11px; color:#dc2626; margin:8px 0 0; }
 
 .sim-dropzone { border:2px dashed #d1d5db; border-radius:12px; padding:32px; display:flex; flex-direction:column; align-items:center; gap:10px; cursor:pointer; transition:border-color .2s,background .2s; }
 .sim-dropzone:hover, .sim-dropzone--dragging { border-color:#4f46e5; background:#f5f3ff; }

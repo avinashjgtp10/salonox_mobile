@@ -4,6 +4,8 @@ import { useCurrency } from "../../../../hooks/useCurrency";
 import type { Booking } from "../../types/scheduler-types";
 import { useSchedulerContext } from "../../store/SchedulerContext";
 import { useAppSelector, useAppDispatch } from "../../../../hooks/useAppRedux";
+import { usePermissions } from "../../../../hooks/usePermissions";
+import { showPermissionDenied } from "../../../../store/permissionDialogSlice";
 import { formatTime12 } from "../../utils/timeUtils";
 import Badge from "../../../../components/ui/Badge";
 import { getActiveTaxes } from "../../../settings/utils/taxSettings";
@@ -60,6 +62,23 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
   const { staffList, clientsList } = useSchedulerContext();
   const currentSalon = useAppSelector((s) => s.salon.currentSalon);
   const dispatch = useAppDispatch();
+  const { can } = usePermissions();
+  // Never hide these — visible always, disabled (dim + popup on click) when
+  // the specific permission is off. Independent of canPrintReceipt/showDelete
+  // below, which are BUSINESS-state gates (is there a receipt to print at
+  // all); a permission gate applies on top of, not instead of, those.
+  const canEditPerm = can("edit_appointment");
+  const canPaymentDetailsPerm = can("view_payment_details");
+  const canDeletePerm = can("delete_appointment");
+  // Recording/collecting a payment on an existing appointment is now part of
+  // Edit & Payment Appointment (edit_appointment), not Create Booking
+  // Appointment (create_appointment) — the two were split apart so booking a
+  // new appointment never implies payment access (Calendar permissions
+  // rename ticket).
+  const canRecordPaymentPerm = can("edit_appointment");
+  const denyPerm = (key: string) => dispatch(showPermissionDenied(
+    `Your account does not have the "${key}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+  ));
   const dialogRef = useRef<HTMLDivElement>(null);
   useFocusTrap(dialogRef, true, onClose);
   const settingItems = useAppSelector((s) => s.setting.items);
@@ -177,8 +196,19 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
 
           <div className="vbm-section">
             <div className="vbm-section-label">Payment</div>
-            <Badge variant={payVariant}>{normalizePaymentStatus(booking.status)}</Badge>
-            <div className="vbm-pay-mode mt-1">Mode: <strong>{booking.paymentMode || "—"}</strong></div>
+            {canPaymentDetailsPerm ? (
+              <>
+                <Badge variant={payVariant}>{normalizePaymentStatus(booking.status)}</Badge>
+                <div className="vbm-pay-mode mt-1">Mode: <strong>{booking.paymentMode || "—"}</strong></div>
+              </>
+            ) : (
+              // Paid/partial status and payment mode are payment details —
+              // independent of edit_appointment (Calendar payment-details
+              // independence ticket). Never shown to anyone, including the
+              // Owner, unless view_payment_details is on; edit_appointment
+              // grants editing the appointment only, not seeing this.
+              <div className="vbm-pay-mode mt-1" style={{ color: "#9ca3af" }}>🔒 Requires "View Payment Details" permission</div>
+            )}
           </div>
 
           {(activeMembershipsForBill.length > 0 || activePackagesForBill.length > 0) && (
@@ -232,48 +262,61 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
 
           <div className="vbm-section">
             <div className="vbm-section-label">Summary</div>
-            {[
-              booking.subtotal       ? ["Subtotal", `${currencySymbol}${booking.subtotal.toFixed(2)}`, "#374151", false] : null,
-              booking.discountAmount ? ["Discount", `−${currencySymbol}${booking.discountAmount.toFixed(2)}`, "#ef4444", false] : null,
-              booking.couponDiscount ? [`Coupon (${booking.couponCode})`, `−${currencySymbol}${booking.couponDiscount.toFixed(2)}`, "#22c55e", false] : null,
-              booking.referralDiscount ? ["Referral Discount", `−${currencySymbol}${booking.referralDiscount.toFixed(2)}`, "#22c55e", false] : null,
-              booking.exCharges      ? ["Extra Charges", `${currencySymbol}${booking.exCharges.toFixed(2)}`, "#374151", false] : null,
-              ["Total", `${currencySymbol}${(isPackagePaid ? 0 : (booking.grandTotal || 0)).toFixed(2)}`, "#111827", true],
-              (booking.rewardPointsValue || 0) > 0 ? ["🎁 Paid from Reward Points", `${currencySymbol}${(booking.rewardPointsValue || 0).toFixed(2)}`, "#7c3aed", false] : null,
-              ["Paid",  `${currencySymbol}${(booking.payingNow || 0).toFixed(2)}`, "#111827", false],
-              (booking.dueAmount || 0) > 0 ? ["Due", `${currencySymbol}${(booking.dueAmount || 0).toFixed(2)}`, "#ef4444", false] : null,
-              // Already folded into Total/Paid/Due above — shown again here just
-              // to break out how much of that figure is tip vs. bill.
-              booking.tipAmount      ? ["Staff Tip (included above)", `${currencySymbol}${booking.tipAmount.toFixed(2)}`, "#374151", false] : null,
-              ...((booking.tipAmount && (booking as any).tipBreakdown?.length)
-                ? (booking as any).tipBreakdown.map((t: any) => [t.staffName, `${currencySymbol}${Number(t.amount || 0).toFixed(2)}`, "#98a2b3", false, true])
-                : []),
-            ].filter((row): row is [string, string, string, boolean, boolean?] => row !== null).map(([l, v, c, bold, sub]) => (
-              <div key={l as string} className={`vbm-summary-row${bold ? " vbm-summary-row--bold" : ""}${sub ? " vbm-summary-row--sub" : ""}`} style={{ color: c as string }}>
-                <span>{l as string}</span>
-                <span>{v as string}</span>
+            {canPaymentDetailsPerm ? (
+              [
+                booking.subtotal       ? ["Subtotal", `${currencySymbol}${booking.subtotal.toFixed(2)}`, "#374151", false] : null,
+                booking.discountAmount ? ["Discount", `−${currencySymbol}${booking.discountAmount.toFixed(2)}`, "#ef4444", false] : null,
+                booking.couponDiscount ? [`Coupon (${booking.couponCode})`, `−${currencySymbol}${booking.couponDiscount.toFixed(2)}`, "#22c55e", false] : null,
+                booking.referralDiscount ? ["Referral Discount", `−${currencySymbol}${booking.referralDiscount.toFixed(2)}`, "#22c55e", false] : null,
+                booking.exCharges      ? ["Extra Charges", `${currencySymbol}${booking.exCharges.toFixed(2)}`, "#374151", false] : null,
+                ["Total", `${currencySymbol}${(isPackagePaid ? 0 : (booking.grandTotal || 0)).toFixed(2)}`, "#111827", true],
+                (booking.rewardPointsValue || 0) > 0 ? ["🎁 Paid from Reward Points", `${currencySymbol}${(booking.rewardPointsValue || 0).toFixed(2)}`, "#7c3aed", false] : null,
+                ["Paid",  `${currencySymbol}${(booking.payingNow || 0).toFixed(2)}`, "#111827", false],
+                (booking.dueAmount || 0) > 0 ? ["Due", `${currencySymbol}${(booking.dueAmount || 0).toFixed(2)}`, "#ef4444", false] : null,
+                // Already folded into Total/Paid/Due above — shown again here just
+                // to break out how much of that figure is tip vs. bill.
+                booking.tipAmount      ? ["Staff Tip (included above)", `${currencySymbol}${booking.tipAmount.toFixed(2)}`, "#374151", false] : null,
+                ...((booking.tipAmount && (booking as any).tipBreakdown?.length)
+                  ? (booking as any).tipBreakdown.map((t: any) => [t.staffName, `${currencySymbol}${Number(t.amount || 0).toFixed(2)}`, "#98a2b3", false, true])
+                  : []),
+              ].filter((row): row is [string, string, string, boolean, boolean?] => row !== null).map(([l, v, c, bold, sub]) => (
+                <div key={l as string} className={`vbm-summary-row${bold ? " vbm-summary-row--bold" : ""}${sub ? " vbm-summary-row--sub" : ""}`} style={{ color: c as string }}>
+                  <span>{l as string}</span>
+                  <span>{v as string}</span>
+                </div>
+              ))
+            ) : (
+              <div className="vbm-summary-row" style={{ color: "#9ca3af" }}>
+                <span>🔒 Requires "View Payment Details" permission</span>
               </div>
-            ))}
+            )}
           </div>
 
           {(booking.dueAmount || 0) > 0 && booking.status === "partial" && onCollectDue && (
             <div className="vbm-section">
               <button
-                onClick={() => onCollectDue(booking)}
+                onClick={() => {
+                  if (!canPaymentDetailsPerm) { denyPerm("view_payment_details"); return; }
+                  if (canRecordPaymentPerm) onCollectDue(booking); else denyPerm("edit_appointment");
+                }}
                 style={{
                   width: "100%", background: "#f59e0b", color: "#fff",
                   border: "none", borderRadius: 8, padding: "10px 0",
-                  fontSize: 13, fontWeight: 700, cursor: "pointer",
+                  fontSize: 13, fontWeight: 700, cursor: (canRecordPaymentPerm && canPaymentDetailsPerm) ? "pointer" : "not-allowed",
+                  opacity: (canRecordPaymentPerm && canPaymentDetailsPerm) ? 1 : 0.5,
                 }}
               >
-                ⏳ Collect Due — {currencySymbol}{(booking.dueAmount || 0).toFixed(2)}
+                {/* The due AMOUNT is a payment detail — masked without
+                    view_payment_details even though the button (an edit_
+                    appointment-gated action) itself always stays visible. */}
+                ⏳ Collect Due{canPaymentDetailsPerm ? ` — ${currencySymbol}${(booking.dueAmount || 0).toFixed(2)}` : ""}
               </button>
             </div>
           )}
 
           <div className="vbm-status-section">
             <div className="vbm-section-label">Status</div>
-            {(() => {
+            {canPaymentDetailsPerm ? (() => {
               const pill = STATUS_PILL_STYLES[booking.status] ?? {
                 label: booking.status,
                 bg: "#7c3aed",
@@ -294,7 +337,9 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                   {pill.label}
                 </span>
               );
-            })()}
+            })() : (
+              <span style={{ fontSize: 12, color: "#9ca3af" }}>🔒 Requires "View Payment Details" permission</span>
+            )}
           </div>
         </div>
 
@@ -321,8 +366,8 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
               {showDotMenu && (
                 <div style={{ position: "absolute", right: 0, top: "calc(100% + 6px)", background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10, boxShadow: "0 6px 24px rgba(0,0,0,0.13)", minWidth: 190, zIndex: 9999 }}>
                   <button
-                    onClick={() => { setShowDotMenu(false); onEdit?.(booking); }}
-                    style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#111827", borderRadius: canPrintReceipt ? "10px 10px 0 0" : 10, textAlign: "left" }}
+                    onClick={() => { setShowDotMenu(false); canEditPerm ? onEdit?.(booking) : denyPerm("edit_appointment"); }}
+                    style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: canEditPerm ? "pointer" : "not-allowed", opacity: canEditPerm ? 1 : 0.5, fontSize: 13, fontWeight: 600, color: "#111827", borderRadius: canPrintReceipt ? "10px 10px 0 0" : 10, textAlign: "left" }}
                     onMouseEnter={(e) => (e.currentTarget.style.background = "#f9fafb")}
                     onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
                   >
@@ -332,6 +377,7 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                   {canPrintReceipt && <button
                     onClick={() => {
                       setShowDotMenu(false);
+                      if (!canPaymentDetailsPerm) { denyPerm("view_payment_details"); return; }
                       // undefined/null = genuinely never computed (e.g. an unpaid
                       // booking, or one loaded from a path that doesn't attach it) —
                       // re-derive from CURRENT tax settings so the printed invoice
@@ -371,7 +417,7 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                         activePackages: activePackagesForBill,
                       }, { showTaxBreakup: showTaxBreakupOnInvoice, formatAmount, paperProfile });
                     }}
-                    style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#111827", borderRadius: 0, textAlign: "left" }}
+                    style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: canPaymentDetailsPerm ? "pointer" : "not-allowed", opacity: canPaymentDetailsPerm ? 1 : 0.5, fontSize: 13, fontWeight: 600, color: "#111827", borderRadius: 0, textAlign: "left" }}
                     onMouseEnter={(e) => (e.currentTarget.style.background = "#f9fafb")}
                     onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
                   >
@@ -382,6 +428,7 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                     disabled={sendingReceipt}
                     onClick={async () => {
                       setShowDotMenu(false);
+                      if (!canPaymentDetailsPerm) { denyPerm("view_payment_details"); return; }
                       const waLink = buildClientWhatsAppLink(booking.clientPhone, booking.clientPhoneCode);
                       setSendingReceipt(true);
                       const result: any = await dispatch(fetchReceiptPdfThunk(booking.id));
@@ -439,7 +486,7 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                         toast("Receipt downloaded. This client has no phone number on file to open WhatsApp automatically.", { duration: 5000 });
                       }
                     }}
-                    style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: sendingReceipt ? "default" : "pointer", opacity: sendingReceipt ? 0.6 : 1, fontSize: 13, fontWeight: 600, color: "#111827", borderRadius: showDelete ? 0 : "0 0 10px 10px", textAlign: "left" }}
+                    style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: sendingReceipt ? "default" : (canPaymentDetailsPerm ? "pointer" : "not-allowed"), opacity: sendingReceipt ? 0.6 : (canPaymentDetailsPerm ? 1 : 0.5), fontSize: 13, fontWeight: 600, color: "#111827", borderRadius: showDelete ? 0 : "0 0 10px 10px", textAlign: "left" }}
                     onMouseEnter={(e) => (e.currentTarget.style.background = "#f9fafb")}
                     onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
                   >
@@ -448,8 +495,8 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                   {showDelete && <div style={{ height: 1, background: "#f3f4f6" }} />}
                   {showDelete && (
                     <button
-                      onClick={() => { setShowDotMenu(false); setShowDeleteConfirm(true); }}
-                      style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#ef4444", borderRadius: "0 0 10px 10px", textAlign: "left" }}
+                      onClick={() => { setShowDotMenu(false); canDeletePerm ? setShowDeleteConfirm(true) : denyPerm("delete_appointment"); }}
+                      style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: canDeletePerm ? "pointer" : "not-allowed", opacity: canDeletePerm ? 1 : 0.5, fontSize: 13, fontWeight: 600, color: "#ef4444", borderRadius: "0 0 10px 10px", textAlign: "left" }}
                       onMouseEnter={(e) => (e.currentTarget.style.background = "#f9fafb")}
                       onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
                     >

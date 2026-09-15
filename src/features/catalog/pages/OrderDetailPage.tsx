@@ -8,6 +8,8 @@ import type { Order, OrderStatus } from "../../../types/inventory.types";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { selectCurrentSalon } from "../../../store/selectors/slices.selectors";
+import { usePermissions } from "../../../hooks/usePermissions";
+import { showPermissionDenied } from "../../../store/permissionDialogSlice";
 import Skeleton from "../../../components/ui/Skeleton";
 import Button from "../../../components/ui/Button";
 import Modal from "../../../components/ui/Modal";
@@ -34,9 +36,14 @@ const OrderDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
+  const { can } = usePermissions();
   const { formatAmount, currencySymbol } = useCurrency();
   const { showError, showSuccess, overlay } = useStatusOverlay();
   const currentSalon = useSelector(selectCurrentSalon);
+
+  const denyPerm = (permKey: string) => dispatch(showPermissionDenied(
+    `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+  ));
 
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
@@ -53,6 +60,7 @@ const OrderDetailPage: React.FC = () => {
 
   const handleDelete = async () => {
     if (!id) return;
+    if (!can("cancel_order")) { denyPerm("cancel_order"); setDeleteOpen(false); return; }
     setDeleting(true);
     try {
       await dispatch(deleteOrderThunk(id)).unwrap();
@@ -90,6 +98,7 @@ const OrderDetailPage: React.FC = () => {
   }, [order]);
 
   function openReceive() {
+    if (!can("receive_order")) { denyPerm("receive_order"); return; }
     const defaults: Record<string, string> = {};
     (order?.items ?? []).forEach((it) => {
       const remaining = remainingByItem.get(it.id) ?? 0;
@@ -166,16 +175,21 @@ const OrderDetailPage: React.FC = () => {
 
   function handleDownloadBill() {
     if (!order) return;
+    if (!can("download_order_pdf")) { denyPerm("download_order_pdf"); return; }
+    if (!can("export_pdf")) { denyPerm("export_pdf"); return; }
     generateOrderBillPdf(order, { salon: currentSalon, currencySymbol });
   }
 
   function handleDownloadPurchaseOrder() {
     if (!order) return;
+    if (!can("download_order_pdf")) { denyPerm("download_order_pdf"); return; }
+    if (!can("export_pdf")) { denyPerm("export_pdf"); return; }
     generatePurchaseOrderPdf(order, { salon: currentSalon, currencySymbol });
   }
 
   async function handleCancel() {
     if (!order) return;
+    if (!can("cancel_order")) { denyPerm("cancel_order"); return; }
     try {
       const updated = await dispatch(cancelOrderThunk(order.id)).unwrap();
       setOrder(updated);
@@ -225,24 +239,53 @@ const OrderDetailPage: React.FC = () => {
         </div>
         <div className="d-flex gap-2">
           {canCancel && (
-            <Button variant="outline-dark" iconLeft={<XCircle size={14} />} onClick={handleCancel}>
+            <Button
+              variant="outline-dark"
+              iconLeft={<XCircle size={14} />}
+              style={!can("cancel_order") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+              onClick={handleCancel}
+            >
               Cancel Order
             </Button>
           )}
           {canReceive && (
-            <Button variant="dark" iconLeft={<BoxSeam size={14} />} onClick={openReceive}>
+            <Button
+              variant="dark"
+              iconLeft={<BoxSeam size={14} />}
+              style={!can("receive_order") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+              onClick={openReceive}
+            >
               Receive
             </Button>
           )}
-          <Button variant="outline-dark" iconLeft={<FileEarmarkPdf size={14} />} onClick={handleDownloadPurchaseOrder}>
+          <Button
+            variant="outline-dark"
+            iconLeft={<FileEarmarkPdf size={14} />}
+            style={(!can("download_order_pdf") || !can("export_pdf")) ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+            onClick={handleDownloadPurchaseOrder}
+          >
             Download PDF
           </Button>
           {canDownloadBill && (
-            <Button variant="outline-dark" iconLeft={<FileEarmarkPdf size={14} />} onClick={handleDownloadBill}>
+            <Button
+              variant="outline-dark"
+              iconLeft={<FileEarmarkPdf size={14} />}
+              style={(!can("download_order_pdf") || !can("export_pdf")) ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+              onClick={handleDownloadBill}
+            >
               Download Bill PDF
             </Button>
           )}
-          <Button variant="outline-danger" size="sm" iconLeft={<Trash size={14} />} onClick={() => setDeleteOpen(true)}>
+          <Button
+            variant="outline-danger"
+            size="sm"
+            iconLeft={<Trash size={14} />}
+            style={!can("cancel_order") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+            onClick={() => {
+              if (!can("cancel_order")) { denyPerm("cancel_order"); return; }
+              setDeleteOpen(true);
+            }}
+          >
             Delete
           </Button>
         </div>
@@ -317,7 +360,9 @@ const OrderDetailPage: React.FC = () => {
                       type="button"
                       className="phist-edit-received-btn"
                       title="Edit received quantity"
+                      style={!can("receive_order") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
                       onClick={() => {
+                        if (!can("receive_order")) { denyPerm("receive_order"); return; }
                         setCorrectItem({ id: item.id, product_name: item.product_name, qty: item.qty });
                         setCorrectQty(String(item.received_qty));
                       }}

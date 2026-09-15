@@ -176,6 +176,7 @@ export default function BirthdayCampaignReport({ onBack, category, categoryKey }
               title={REPORT_NAME}
               headers={HEADERS}
               rows={exportRows}
+              reportId="birthday_campaign"
               filename={REPORT_NAME}
               variant="button"
               csv

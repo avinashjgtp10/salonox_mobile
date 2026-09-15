@@ -16,6 +16,8 @@ import {
 import type { WAConversation, WAMessage } from '../../../store/inboxSlice'
 import { API_ORIGIN } from '../../../services/api/baseUrl'
 import Dropdown from '../../../components/ui/Dropdown'
+import { usePermissions } from '../../../hooks/usePermissions'
+import { showPermissionDenied } from '../../../store/permissionDialogSlice'
 import '../styles/InboxPage.scss'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -222,14 +224,15 @@ function MessageBubble({ msg, onDelete }: { msg: WAMessage; onDelete: (id: strin
 // ConversationItem
 // ─────────────────────────────────────────────────────────────────────────────
 
-function ConversationItem({ conv, isActive, onClick }: {
-  conv: WAConversation; isActive: boolean; onClick: () => void
+function ConversationItem({ conv, isActive, onClick, disabled }: {
+  conv: WAConversation; isActive: boolean; onClick: () => void; disabled?: boolean
 }) {
   const color = avatarColor(conv.contactName ?? conv.contactPhone)
 
   return (
     <button
       className={'inbox-conv-item' + (isActive ? ' active' : '') + (conv.unreadCount > 0 ? ' unread' : '')}
+      style={disabled ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
       onClick={onClick}
     >
       <div className="inbox-conv-avatar" style={{ background: color }}>
@@ -261,6 +264,14 @@ export default function InboxPage() {
   const dispatch = useAppDispatch()
   const { conversations, messages, activePhone, loading } = useAppSelector(s => s.inbox)
   const salonId = useAppSelector(s => s.salon.currentSalon?.id ?? s.auth?.salonId)
+  const { can } = usePermissions()
+  const denyPerm = (permKey: string) => dispatch(showPermissionDenied(
+    `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+  ))
+  // Trimmed from 4 Inbox keys to 2 on request — view_conversation folded
+  // into view_inbox, send_message removed in favor of reply_to_conversation
+  // (see inbox.routes.ts).
+  const canSend = can('reply_to_conversation')
 
   // ── Theme toggle — persisted to localStorage ──────────────────────────────
   const [theme, setTheme] = useState<Theme_>(() =>
@@ -328,20 +339,22 @@ export default function InboxPage() {
   }, [displayMessages])
 
   const handleSelectConversation = useCallback((phone: string) => {
+    if (!can('view_inbox')) { denyPerm('view_inbox'); return }
     dispatch(setActivePhone(phone))
     dispatch(fetchMessagesThunk(phone))
     setShowEmojiPicker(false)
     setShowCanned(false)
-  }, [dispatch])
+  }, [dispatch, can])
 
   const handleSend = useCallback(async () => {
     const text = replyText.trim()
     if (!text || !activePhone || loading.sendReply) return
+    if (!canSend) { denyPerm('send_message'); return }
     setReplyText('')
     setShowEmojiPicker(false)
     setShowCanned(false)
     await dispatch(sendReplyThunk({ phone: activePhone, message: text }))
-  }, [replyText, activePhone, loading.sendReply, dispatch])
+  }, [replyText, activePhone, loading.sendReply, dispatch, canSend])
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() }
@@ -471,6 +484,7 @@ export default function InboxPage() {
               key={conv.id}
               conv={conv}
               isActive={conv.contactPhone === activePhone}
+              disabled={!can('view_inbox')}
               onClick={() => handleSelectConversation(conv.contactPhone)}
             />
           ))}
@@ -624,7 +638,8 @@ export default function InboxPage() {
               <button
                 className={'inbox-send-btn' + (loading.sendReply ? ' sending' : '')}
                 onClick={handleSend}
-                disabled={!replyText.trim() || loading.sendReply || windowExpired}
+                disabled={(!replyText.trim() || loading.sendReply || windowExpired) && canSend}
+                style={!canSend ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
               >
                 {loading.sendReply ? <span className="inbox-send-spinner" /> : '➤'}
               </button>

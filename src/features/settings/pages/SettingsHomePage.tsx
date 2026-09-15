@@ -5,6 +5,7 @@ export interface SettingsHomeItem {
   label: string;
   description: string;
   icon: ReactNode;
+  disabled?: boolean;
 }
 
 export interface SettingsHomeGroup {
@@ -29,6 +30,7 @@ export default function SettingsHomePage({ groups, onSelect }: Props) {
                 key={item.id}
                 type="button"
                 className="settings-home-card"
+                style={item.disabled ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
                 onClick={() => onSelect(item.id)}
               >
                 <span className="settings-home-card-icon">{item.icon}</span>

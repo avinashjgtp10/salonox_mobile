@@ -13,6 +13,8 @@ import {
   submitProductAuditThunk, approveProductAuditThunk,
   rejectProductAuditThunk, reopenProductAuditThunk,
 } from "../../../middleware/inventory/inventory.thunk";
+import { usePermissions } from "../../../hooks/usePermissions";
+import { showPermissionDenied } from "../../../store/permissionDialogSlice";
 import type { ProductAuditWithDetail, ProductAuditStatus } from "../../../types/inventory.types";
 import AddAuditProductModal from "./AddAuditProductModal";
 import ReviewAuditModal from "./ReviewAuditModal";
@@ -53,7 +55,12 @@ const fmtQty = (value: number) => Math.round(value).toString();
 
 export default function ProductAuditDetailsModal({ auditId, onClose, onChanged }: Props) {
   const dispatch = useDispatch<AppDispatch>();
+  const { can } = usePermissions();
   const { showError, overlay } = useStatusOverlay();
+
+  const denyPerm = (permKey: string) => dispatch(showPermissionDenied(
+    `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+  ));
 
   const [audit, setAudit] = useState<ProductAuditWithDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -138,6 +145,7 @@ export default function ProductAuditDetailsModal({ auditId, onClose, onChanged }
   };
 
   const removeItem = async (itemId: string) => {
+    if (!can("create_product_audit")) { denyPerm("create_product_audit"); return; }
     setBusy(true);
     try {
       const updated = await dispatch(removeProductAuditItemThunk({ auditId, itemId })).unwrap();
@@ -151,6 +159,7 @@ export default function ProductAuditDetailsModal({ auditId, onClose, onChanged }
   };
 
   const addProducts = async (productIds: string[]) => {
+    if (!can("create_product_audit")) { denyPerm("create_product_audit"); setAddOpen(false); return; }
     setBusy(true);
     try {
       const updated = await dispatch(addProductAuditItemsThunk({ auditId, productIds })).unwrap();
@@ -166,6 +175,7 @@ export default function ProductAuditDetailsModal({ auditId, onClose, onChanged }
 
   const submitForReview = async () => {
     if (withPendingReasons.length > 0) return;
+    if (!can("create_product_audit")) { denyPerm("create_product_audit"); return; }
     setBusy(true);
     try {
       // Every locally-held edit goes out in this one request — nothing was
@@ -188,6 +198,7 @@ export default function ProductAuditDetailsModal({ auditId, onClose, onChanged }
   };
 
   const confirmReview = async ({ reviewerId, reason }: { reviewerId: string; reason?: string }) => {
+    if (!can("approve_product_audit")) { denyPerm("approve_product_audit"); setReviewOpen(null); return; }
     setBusy(true);
     try {
       const updated = reviewOpen === "approve"
@@ -204,6 +215,7 @@ export default function ProductAuditDetailsModal({ auditId, onClose, onChanged }
   };
 
   const reopen = async () => {
+    if (!can("create_product_audit")) { denyPerm("create_product_audit"); return; }
     setBusy(true);
     try {
       const updated = await dispatch(reopenProductAuditThunk(auditId)).unwrap();
@@ -263,23 +275,43 @@ export default function ProductAuditDetailsModal({ auditId, onClose, onChanged }
                 <Button variant="outline-dark" onClick={handleClose} disabled={busy}>
                   Close
                 </Button>
-                <Button variant="dark" onClick={submitForReview} disabled={busy || withPendingReasons.length > 0 || effectiveItems.length === 0}>
+                <Button
+                  variant="dark"
+                  onClick={submitForReview}
+                  disabled={busy || withPendingReasons.length > 0 || effectiveItems.length === 0}
+                  style={!can("create_product_audit") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                >
                   Submit for Review
                 </Button>
               </>
             )}
             {canReview && (
               <>
-                <Button variant="outline-danger" onClick={() => setReviewOpen("reject")} disabled={busy}>
+                <Button
+                  variant="outline-danger"
+                  onClick={() => { if (!can("approve_product_audit")) { denyPerm("approve_product_audit"); return; } setReviewOpen("reject"); }}
+                  disabled={busy}
+                  style={!can("approve_product_audit") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                >
                   Reject
                 </Button>
-                <Button variant="success" onClick={() => setReviewOpen("approve")} disabled={busy}>
+                <Button
+                  variant="success"
+                  onClick={() => { if (!can("approve_product_audit")) { denyPerm("approve_product_audit"); return; } setReviewOpen("approve"); }}
+                  disabled={busy}
+                  style={!can("approve_product_audit") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                >
                   Approve & Complete
                 </Button>
               </>
             )}
             {audit.status === "rejected" && (
-              <Button variant="dark" onClick={reopen} disabled={busy}>
+              <Button
+                variant="dark"
+                onClick={reopen}
+                disabled={busy}
+                style={!can("create_product_audit") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+              >
                 Reopen for Recount
               </Button>
             )}
@@ -312,7 +344,16 @@ export default function ProductAuditDetailsModal({ auditId, onClose, onChanged }
         <div>
           {editable && (
             <div className="d-flex justify-content-end mb-2">
-              <Button variant="outline-dark" size="sm" iconLeft={<PlusLg size={14} />} onClick={() => setAddOpen(true)}>
+              <Button
+                variant="outline-dark"
+                size="sm"
+                iconLeft={<PlusLg size={14} />}
+                style={!can("create_product_audit") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                onClick={() => {
+                  if (!can("create_product_audit")) { denyPerm("create_product_audit"); return; }
+                  setAddOpen(true);
+                }}
+              >
                 Add Products
               </Button>
             </div>
@@ -388,7 +429,13 @@ export default function ProductAuditDetailsModal({ auditId, onClose, onChanged }
                         </td>
                         {editable && (
                           <td>
-                            <button className="paudit-row-remove" onClick={() => removeItem(p.id)} aria-label="Remove product" disabled={busy}>
+                            <button
+                              className="paudit-row-remove"
+                              onClick={() => removeItem(p.id)}
+                              aria-label="Remove product"
+                              disabled={busy}
+                              style={!can("create_product_audit") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                            >
                               <Trash size={14} />
                             </button>
                           </td>

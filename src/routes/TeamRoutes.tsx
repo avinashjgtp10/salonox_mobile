@@ -45,13 +45,31 @@ export const TeamRoutes = () => (
       <Route element={<PermissionGuard permKey="view_team_commissions" />}>
         <Route path="commissions" element={<CommissionsPage />} />
       </Route>
-      <Route path="attendance"  element={<AttendancePage />} />
-      <Route path="history"           element={<StaffHistoryListPage />} />
-      <Route path="history/:staffId"  element={<StaffHistoryDetailPage />} />
 
-      {/* add_team_member required to import/invite new staff */}
-      <Route element={<PermissionGuard permKey="add_team_member" />}>
+      {/* view_attendance_list gates the Attendance page itself (see the
+          Attendance ticket) — Attendance Rules has no route of its own
+          (it's a modal within this page), gated at the button instead. */}
+      <Route element={<PermissionGuard permKey="view_attendance_list" />}>
+        <Route path="attendance"  element={<AttendancePage />} />
+      </Route>
+
+      {/* view_staff_history gates Staff History (see the Staff History
+          ticket) — unlike every other permission in this app, this one is
+          a DELIBERATE exception: the nav entry itself is hidden when off
+          (see TeamSubSidebar.tsx), not just disabled. Direct URL access
+          still shows Not Authorized like everywhere else. */}
+      <Route element={<PermissionGuard permKey="view_staff_history" />}>
+        <Route path="history"           element={<StaffHistoryListPage />} />
+        <Route path="history/:staffId"  element={<StaffHistoryDetailPage />} />
+      </Route>
+
+      {/* import_staff (dedicated, see the Staff List ticket) vs
+          add_team_member (Add Staff) — two independent permissions now,
+          previously both bundled under add_team_member. */}
+      <Route element={<PermissionGuard permKey="import_staff" />}>
         <Route path="import" element={<ImportStaffPage />} />
+      </Route>
+      <Route element={<PermissionGuard permKey="add_team_member" />}>
         <Route path="add"    element={<AddStaffPage />} />
       </Route>
 
@@ -60,8 +78,11 @@ export const TeamRoutes = () => (
         <Route path=":id" element={<AddStaffPage />} />
       </Route>
 
-      {/* manage_shifts required for schedule management */}
-      <Route element={<PermissionGuard permKey="manage_shifts" />}>
+      {/* view_scheduled_shifts gates the page itself now (see the
+          Scheduled Shifts ticket) — each action button (Add/Edit Working
+          Hours, Add Time Off, Manage Day Off/Blocked Day, Copy Schedule)
+          is independently gated inside ScheduledShiftsPage.tsx. */}
+      <Route element={<PermissionGuard permKey="view_scheduled_shifts" />}>
         <Route path="shifts"               element={<ScheduledShiftsPage />} />
         <Route path="repeating-shifts/:id" element={<RepeatingShiftsPage />} />
       </Route>

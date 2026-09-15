@@ -175,6 +175,7 @@ export default function CashManagementReport({ onBack, category, categoryKey }: 
               title={REPORT_NAME}
               headers={HEADERS}
               rows={exportRows}
+              reportId="cash_management"
               filename={`cash-management-${dateFrom}-${dateTo}`}
               variant="button"
               csv

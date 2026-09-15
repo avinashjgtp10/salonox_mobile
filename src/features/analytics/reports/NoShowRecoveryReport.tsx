@@ -144,6 +144,7 @@ export default function NoShowRecoveryReport({ onBack, category, categoryKey }: 
               title={REPORT_NAME}
               headers={HEADERS}
               rows={exportRows}
+              reportId="no_show_recovery"
               filename="no-show-recovery"
               variant="button"
               csv

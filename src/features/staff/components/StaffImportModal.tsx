@@ -27,6 +27,9 @@ interface Props {
   onSuccess: () => void;
 }
 
+// Only Name and Contact are mandatory for import — everything else is optional.
+const REQUIRED_COLUMNS = new Set(["Name", "Contact"]);
+
 const SAMPLE_CSV_COLUMNS = [
   "Name", "Contact", "Email", "Address", "Gender",
   "DOJ(dd-mm-YYYY)", "DOB(dd-mm-YYYY)", "Designation", "Role",
@@ -158,9 +161,13 @@ export default function StaffImportModal({ show, onClose, onSuccess }: Props) {
           <p className="sim-columns-title">Expected columns:</p>
           <div className="sim-columns-list">
             {SAMPLE_CSV_COLUMNS.map((col) => (
-              <span key={col} className="sim-col-chip">{col}</span>
+              <span key={col} className="sim-col-chip">
+                {col}
+                {REQUIRED_COLUMNS.has(col) && <span className="sim-col-chip__required"> *</span>}
+              </span>
             ))}
           </div>
+          <p className="sim-columns-hint">* Required</p>
         </div>
 
         {/* Hidden file input — kept mounted regardless of file/result state so

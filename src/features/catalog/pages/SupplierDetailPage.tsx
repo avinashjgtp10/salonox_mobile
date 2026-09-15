@@ -4,6 +4,8 @@ import { ArrowLeft, BoxSeam, CashCoin } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { INVENTORY } from "../../../services/api/endpoints/inventory.endpoints";
 import { useAppDispatch } from "../../../hooks/useAppRedux";
+import { usePermissions } from "../../../hooks/usePermissions";
+import { showPermissionDenied } from "../../../store/permissionDialogSlice";
 import { fetchSupplierByIdThunk } from "../../../middleware/inventory/inventory.thunk";
 import type { SupplierOrderRow, SupplierPaymentStatus, SupplierWithBalance } from "../../../types/inventory.types";
 import { useCurrency } from "../../../hooks/useCurrency";
@@ -53,6 +55,7 @@ const SupplierDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
+  const { can } = usePermissions();
   const { formatAmount } = useCurrency();
   const { showError } = useStatusOverlay();
   // Fetched directly by id rather than found in the (now paginated)
@@ -142,7 +145,20 @@ const SupplierDetailPage: React.FC = () => {
           <p>{[supplier.first_name, supplier.last_name].filter(Boolean).join(" ") || supplier.email || "—"}</p>
         </div>
         <div className="d-flex gap-2">
-          <Button variant="dark" iconLeft={<CashCoin size={14} />} onClick={() => setPayoutOpen(true)}>
+          <Button
+            variant="dark"
+            iconLeft={<CashCoin size={14} />}
+            onClick={() => {
+              if (!can("supplier_payout")) {
+                dispatch(showPermissionDenied(
+                  `Your account does not have the "supplier_payout" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+                ));
+                return;
+              }
+              setPayoutOpen(true);
+            }}
+            style={can("supplier_payout") ? undefined : { opacity: 0.5, cursor: "not-allowed" }}
+          >
             Create Payout
           </Button>
         </div>

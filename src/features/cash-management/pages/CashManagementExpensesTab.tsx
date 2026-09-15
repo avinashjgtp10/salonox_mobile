@@ -16,6 +16,8 @@ interface Props {
   loading?: boolean;
   canManage: boolean;
   actionsDisabled?: boolean;
+  editDisabled?: boolean;
+  deleteDisabled?: boolean;
   sharedDateFilter: DateRangePreset;
   sharedDateFrom: string;
   sharedDateTo: string;
@@ -59,6 +61,8 @@ export default function CashManagementExpensesTab({
   loading = false,
   canManage,
   actionsDisabled = false,
+  editDisabled = false,
+  deleteDisabled = false,
   sharedDateFilter,
   sharedDateFrom,
   sharedDateTo,
@@ -308,6 +312,8 @@ export default function CashManagementExpensesTab({
                         onEdit={() => onEdit(row)}
                         onDelete={() => onDelete(row)}
                         disabled={!canManage || actionsDisabled}
+                        editDisabled={editDisabled}
+                        deleteDisabled={deleteDisabled}
                       />
                     ) : (
                       <span className="cash-mgmt__locked-indicator">Locked</span>

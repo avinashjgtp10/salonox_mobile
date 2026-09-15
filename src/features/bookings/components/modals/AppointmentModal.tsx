@@ -5,6 +5,8 @@ import MultiSelectCheckbox from "../../../../components/ui/MultiSelectCheckbox";
 import Dropdown from "../../../../components/ui/Dropdown";
 import { useCurrency } from "../../../../hooks/useCurrency";
 import { useAppSelector, useAppDispatch } from "../../../../hooks/useAppRedux";
+import { usePermissions } from "../../../../hooks/usePermissions";
+import { showPermissionDenied } from "../../../../store/permissionDialogSlice";
 import { useAppointment }    from "../../hooks/useAppointment";
 import { usePayment, buildPaymentPayload, buildPaymentStatusPatch } from "../../hooks/usePayment";
 import { usePosSettings }    from "../../hooks/usePosSettings";
@@ -28,6 +30,7 @@ import { getTaxModuleConfig } from "../../../settings/utils/taxModuleSettings";
 import { getPaperProfile } from "../../../settings/utils/printSettings";
 import { getRewardPointsConfig } from "../../../settings/utils/rewardPointsSettings";
 import { getReferralConfig } from "../../../settings/utils/referralSettings";
+import { getServiceReminderPresets } from "../../../catalog/utils/serviceReminderSettings";
 import { isRealId } from "../../utils/paymentUtils";
 import { normalizePaymentStatus } from "../../utils/bookingMapper";
 import { isPackageExpired } from "../../utils/packageStatus";
@@ -196,6 +199,30 @@ export const AppointmentModal: React.FC<Props> = ({
 }) => {
   const dispatch = useAppDispatch();
   const { currencySymbol, formatAmount } = useCurrency();
+  const { can } = usePermissions();
+  // This modal doubles as Quick Sale's checkout screen (quickSale===true) —
+  // that flow is already fully gated by its own create_sales permission at
+  // the route level (PermissionGuard on /dashboard/sales/quick), so
+  // re-checking the Calendar-specific edit_appointment/view_payment_details
+  // keys there would incorrectly double-gate an unrelated permission.
+  // Cancel/Delete aren't reachable from Quick Sale at all (no such action
+  // exists there), so those two don't need the same exception.
+  //
+  // Recording/collecting payment (any Save & Pay / Continue to Payment /
+  // Pay button below, whether on a brand-new or an existing appointment) is
+  // gated by edit_appointment (Edit & Payment Appointment), not
+  // create_appointment (Create Booking Appointment) — the two were split
+  // apart so booking a new appointment never implies payment access
+  // (Calendar permissions rename ticket). create_appointment alone lets a
+  // staff member save a new Booked appointment with no payment step at all.
+  const canRecordPaymentPerm = quickSale || can("edit_appointment");
+  const canViewPaymentDetailsPerm = quickSale || can("view_payment_details");
+  const canEditPerm = quickSale || can("edit_appointment");
+  const canCancelPerm = can("cancel_appointment");
+  const canDeletePerm = can("delete_appointment");
+  const denyPerm = (key: string) => dispatch(showPermissionDenied(
+    `Your account does not have the "${key}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+  ));
 
   // Keyboard accessibility: trap Tab inside the drawer, Escape closes it,
   // focus returns to whatever triggered it. Not a modal when embedded as a
@@ -223,6 +250,11 @@ export const AppointmentModal: React.FC<Props> = ({
   const paperProfile = useMemo(() => getPaperProfile(settingItems), [settingItems]);
   const rewardPointsConfig = useMemo(() => getRewardPointsConfig(settingItems), [settingItems]);
   const referralConfig = useMemo(() => getReferralConfig(settingItems), [settingItems]);
+  // Configurable dropdown options for the per-service redo reminder (Catalog
+  // → Services → Options → "Service reminder options") — threaded down to
+  // ServicesPanel/ServiceRow so staff pick from these instead of typing a
+  // number every time.
+  const reminderPresets = useMemo(() => getServiceReminderPresets(settingItems), [settingItems]);
 
   // ── Lazy on-demand fetching ───────────────────────────────────────────────
   const [triggerPackages, { data: packagesData }]       = useLazyListPackagesQuery();
@@ -273,17 +305,29 @@ export const AppointmentModal: React.FC<Props> = ({
   // Map package API data → scheduler packagesList when it arrives
   useEffect(() => {
     const templates = packageTemplatesRaw ?? [];
-    const fromCatalog = (packagesData?.items || []).map((p: any) => ({
-      id: String(p.id || ""), name: p.name || "", price: p.basePrice || 0,
-      // Real catalog service ids — combo packages have no per-service
-      // name/price/session breakdown of their own (unlike templates), so the
-      // "+ Package" row's scheduling UI resolves name/price for each of
-      // these against the loaded services catalog (see PackageRow).
-      services: (p.serviceIds ?? []) as string[],
-      // Catalog packages are the only ones with a description column; they
-      // carry no per-service session data, hence no serviceDetails.
-      description: typeof p.description === "string" ? p.description : undefined,
-    }));
+    // Row price shown/billed in Quick Sale and Calendar's "+Package" must be
+    // the actual sell price (basePrice minus its own discount) — raw
+    // basePrice silently dropped any discount configured on the
+    // package/template, overcharging the client relative to what
+    // PackageCreateForm/PackageDashboard treat as that package's real price.
+    const fromCatalog = (packagesData?.items || []).map((p: any) => {
+      const base = p.basePrice || 0;
+      const discountAmt = p.discountType === "fixed"
+        ? (p.discountValue || 0)
+        : base * ((p.discountValue || 0) / 100);
+      return {
+        id: String(p.id || ""), name: p.name || "",
+        price: Math.max(0, parseFloat((base - discountAmt).toFixed(2))),
+        // Real catalog service ids — combo packages have no per-service
+        // name/price/session breakdown of their own (unlike templates), so the
+        // "+ Package" row's scheduling UI resolves name/price for each of
+        // these against the loaded services catalog (see PackageRow).
+        services: (p.serviceIds ?? []) as string[],
+        // Catalog packages are the only ones with a description column; they
+        // carry no per-service session data, hence no serviceDetails.
+        description: typeof p.description === "string" ? p.description : undefined,
+      };
+    });
     // A template with a real (non-"never expires") expiry of 0 days or less is
     // mis-configured — any instance purchased from it today would be born
     // already expired (expiry_date = purchase date + expiryDays). Never offer
@@ -291,7 +335,8 @@ export const AppointmentModal: React.FC<Props> = ({
     const fromTemplates = templates
       .filter((t: any) => t.neverExpires || t.expiryDays == null || t.expiryDays > 0)
       .map((t: any) => ({
-        id: String(t.id || ""), name: t.name || "", price: t.basePrice || 0,
+        id: String(t.id || ""), name: t.name || "",
+        price: Math.max(0, parseFloat(((t.basePrice || 0) - (t.discount || 0)).toFixed(2))),
         services: (t.services || []).map((s: any) => s.serviceName),
         description: typeof t.description === "string" ? t.description : undefined,
         // Shown alongside the description (older templates have none), so the
@@ -1998,6 +2043,7 @@ export const AppointmentModal: React.FC<Props> = ({
   }
 
   const handleSaveAndPay = useCallback(async () => {
+    if (!canRecordPaymentPerm) { denyPerm("edit_appointment"); return; }
     if (totalsNotReady) return;
     if (!validate()) return;
     const id = await save(buildSavePayload());
@@ -2022,9 +2068,10 @@ export const AppointmentModal: React.FC<Props> = ({
   }, [save, dispatch, reconciledEffectiveTotal, selectedClient, serviceRows, packageRows, productRows, membershipRows,
       calDate, defaultTime, notes, staffAlert, salonId, existingBooking, defaultStaffId,
       discountType, discountValue, discountAppliesTo, exCharges, tip, tipBreakdown, activeTaxes, totals,
-      onRefresh, onClose]);
+      onRefresh, onClose, canRecordPaymentPerm]);
 
   const handleUpdate = useCallback(async () => {
+    if (!canEditPerm) { denyPerm("edit_appointment"); return; }
     if (totalsNotReady) return;
     if (!validate()) return;
     const id = await save(buildSavePayload());
@@ -2033,22 +2080,24 @@ export const AppointmentModal: React.FC<Props> = ({
   }, [save, selectedClient, serviceRows, packageRows, productRows, membershipRows,
       calDate, defaultTime, notes, staffAlert, salonId, existingBooking, defaultStaffId,
       discountType, discountValue, discountAppliesTo, exCharges, tip, tipBreakdown, activeTaxes, totals,
-      onRefresh, onClose]);
+      onRefresh, onClose, canEditPerm]);
 
   // Reveal the payment section only — does NOT persist anything. The
   // appointment is only actually saved/updated once the client confirms
   // payment (see handlePay / handleZeroPackagePayment), so simply opening
   // the payment step on an existing booking no longer fires an update call.
   const handleContinueToPaymentZero = useCallback(() => {
+    if (!canRecordPaymentPerm) { denyPerm("edit_appointment"); return; }
     if (totalsNotReady) return;
     if (!validate()) return;
     setShowPaymentSection(true);
     setTimeout(() => { paymentSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }, 50);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [totalsNotReady, selectedClient, serviceRows, packageRows, productRows, membershipRows]);
+  }, [totalsNotReady, selectedClient, serviceRows, packageRows, productRows, membershipRows, canRecordPaymentPerm]);
 
   // Same as above but requires a real (non-walk-in) client.
   const handleContinueToPayment = useCallback(() => {
+    if (!canRecordPaymentPerm) { denyPerm("edit_appointment"); return; }
     if (totalsNotReady) return;
     const isWalkIn = !selectedClient || selectedClient.id === "walk-in";
     if (isWalkIn) {
@@ -2063,7 +2112,7 @@ export const AppointmentModal: React.FC<Props> = ({
       paymentSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 50);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [totalsNotReady, selectedClient, serviceRows, packageRows, productRows, membershipRows]);
+  }, [totalsNotReady, selectedClient, serviceRows, packageRows, productRows, membershipRows, canRecordPaymentPerm]);
 
   // ── Payment Machine (POS terminal) — success/dispatch callbacks ─────────
   // Placed here (not up with the rest of the POS state above) because they
@@ -2141,6 +2190,7 @@ export const AppointmentModal: React.FC<Props> = ({
 
   // ── Pay ──────────────────────────────────────────────────────────────────
   const handlePay = useCallback(async () => {
+    if (!canRecordPaymentPerm) { denyPerm("edit_appointment"); return; }
     if (totalsNotReady) return;
     // Validate payment method first — stop completely if not selected. Skipped
     // once the bill is fully covered (package, or a wallet/membership/points
@@ -2238,13 +2288,14 @@ export const AppointmentModal: React.FC<Props> = ({
     reconciledEffectiveTotal, remainingDue, applyMembershipDiscount, applyLoyaltyDiscount,
     includeGst, consumableActuals, isPackageZero,
     printClientExtras, showTaxBreakupOnInvoice, formatAmount,
-    openPosPaymentForAppointment,
+    openPosPaymentForAppointment, canRecordPaymentPerm,
   ]);
 
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
   const [sendingReceipt, setSendingReceipt] = useState(false);
   // ── Zero-payment for fully package-covered appointments ─────────────────
   const handleZeroPackagePayment = useCallback(async () => {
+    if (!canRecordPaymentPerm) { denyPerm("edit_appointment"); return; }
     // Persist the current services/prices first — Continue to Payment no
     // longer saves eagerly, so the appointment isn't guaranteed to already
     // reflect this session's edits until this point.
@@ -2291,7 +2342,7 @@ export const AppointmentModal: React.FC<Props> = ({
       onClose();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dispatch, save, existingBooking, apiAppointmentId, selectedClient, salonId, serviceRows, finishWithPaidPopup, onClose]);
+  }, [dispatch, save, existingBooking, apiAppointmentId, selectedClient, salonId, serviceRows, finishWithPaidPopup, onClose, canRecordPaymentPerm]);
 
   // ── Quick Sale: single "Checkout" click — saves the appointment and
   // completes payment in one step, no separate "Continue to Payment" reveal.
@@ -2618,6 +2669,7 @@ export const AppointmentModal: React.FC<Props> = ({
             if (n[i]) n[i] = { ...n[i], [field]: false };
             return n;
           })}
+          reminderPresets={reminderPresets}
         />
       </div>
 
@@ -3091,13 +3143,27 @@ export const AppointmentModal: React.FC<Props> = ({
               <span className="appt-header-status-badge" style={{ background: "#fee2e2", color: "#dc2626", border: "1px solid #fca5a5" }}>
                 CANCELLED
               </span>
-            ) : (
+            ) : canViewPaymentDetailsPerm ? (
+              // Paid/Partial/Unpaid is a payment detail — independent of
+              // edit_appointment (Calendar payment-details independence
+              // ticket). This badge previously rendered unconditionally to
+              // anyone who could reach this modal at all (i.e. anyone with
+              // edit_appointment, including Owner via its unconditional
+              // bypass), with no view_payment_details check whatsoever.
               <span className={`appt-header-status-badge appt-header-status-badge--${
                 existingBooking.status === "paid" ? "paid"
                 : existingBooking.status === "partial" ? "partial"
                 : "unpaid"
               }`}>
                 {normalizePaymentStatus(existingBooking.status)}
+              </span>
+            ) : (
+              <span
+                className="appt-header-status-badge"
+                style={{ background: "#f3f4f6", color: "#9ca3af", border: "1px solid #e5e7eb" }}
+                title={`Your account does not have the "view_payment_details" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`}
+              >
+                🔒 Payment status
               </span>
             )
           )}
@@ -3127,9 +3193,10 @@ export const AppointmentModal: React.FC<Props> = ({
                   }}>
                     {(existingBooking.status === "paid" || existingBooking.status === "partial") && (
                       <button
-                        style={apptMenuItemStyle}
+                        style={{ ...apptMenuItemStyle, opacity: canViewPaymentDetailsPerm ? 1 : 0.5, cursor: canViewPaymentDetailsPerm ? "pointer" : "not-allowed" }}
                         onClick={() => {
                           setHeaderMenuOpen(false);
+                          if (!canViewPaymentDetailsPerm) { denyPerm("view_payment_details"); return; }
                           printReceipt(existingBooking as any, schedulerStaff, currentSalon, printClientExtras, { showTaxBreakup: showTaxBreakupOnInvoice, formatAmount, paperProfile });
                         }}
                       >
@@ -3138,10 +3205,11 @@ export const AppointmentModal: React.FC<Props> = ({
                     )}
                     {(existingBooking.status === "paid" || existingBooking.status === "partial") && (
                       <button
-                        style={{ ...apptMenuItemStyle, opacity: sendingReceipt ? 0.6 : 1 }}
+                        style={{ ...apptMenuItemStyle, opacity: sendingReceipt ? 0.6 : (canViewPaymentDetailsPerm ? 1 : 0.5), cursor: canViewPaymentDetailsPerm ? undefined : "not-allowed" }}
                         disabled={sendingReceipt}
                         onClick={async () => {
                           setHeaderMenuOpen(false);
+                          if (!canViewPaymentDetailsPerm) { denyPerm("view_payment_details"); return; }
                           const waLink = buildClientWhatsAppLink(existingBooking.clientPhone, existingBooking.clientPhoneCode);
                           setSendingReceipt(true);
                           const result: any = await dispatch(fetchReceiptPdfThunk(existingBooking.id));
@@ -3223,16 +3291,24 @@ export const AppointmentModal: React.FC<Props> = ({
                         be deleted, never "cancelled" in the traditional sense. */}
                     {(existingBooking.status === "booked" || existingBooking.status === "no-show") && onCancelBooking && (
                       <button
-                        style={apptMenuItemStyle}
-                        onClick={() => { setHeaderMenuOpen(false); onCancelBooking(existingBooking); onClose(); }}
+                        style={{ ...apptMenuItemStyle, opacity: canCancelPerm ? 1 : 0.5, cursor: canCancelPerm ? "pointer" : "not-allowed" }}
+                        onClick={() => {
+                          setHeaderMenuOpen(false);
+                          if (!canCancelPerm) { denyPerm("cancel_appointment"); return; }
+                          onCancelBooking(existingBooking); onClose();
+                        }}
                       >
                         🚫 Cancel Appointment
                       </button>
                     )}
                     {(existingBooking.status === "paid" || existingBooking.status === "partial") && onDeleteBooking && (
                       <button
-                        style={{ ...apptMenuItemStyle, color: "#ef4444" }}
-                        onClick={() => { setHeaderMenuOpen(false); setShowDeleteConfirm(true); }}
+                        style={{ ...apptMenuItemStyle, color: "#ef4444", opacity: canDeletePerm ? 1 : 0.5, cursor: canDeletePerm ? "pointer" : "not-allowed" }}
+                        onClick={() => {
+                          setHeaderMenuOpen(false);
+                          if (!canDeletePerm) { denyPerm("delete_appointment"); return; }
+                          setShowDeleteConfirm(true);
+                        }}
                       >
                         🗑️ Delete Appointment
                       </button>

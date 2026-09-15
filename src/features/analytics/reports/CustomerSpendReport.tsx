@@ -296,6 +296,7 @@ export default function CustomerSpendReport({ onBack, category, categoryKey }: {
               title={REPORT_NAME}
               headers={HEADERS}
               rows={exportRows}
+              reportId="customer_spend"
               filename={`vip-customers-${dateFrom}-${dateTo}`}
               variant="button"
               csv

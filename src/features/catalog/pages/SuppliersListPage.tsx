@@ -57,6 +57,11 @@ interface RowActionItem {
   icon: React.ReactNode;
   onClick: () => void;
   danger?: boolean;
+  // Visual only — never hidden, just dimmed. onClick still always fires;
+  // each handler (goToEditSupplier/openPayout/delete trigger) decides for
+  // itself whether to proceed or show the permission-denied popup, same
+  // convention as everywhere else this session.
+  disabled?: boolean;
 }
 
 // "⋮" row-actions menu — portaled and hand-positioned rather than
@@ -123,6 +128,7 @@ const SupplierRowActionsMenu: React.FC<{ items: RowActionItem[] }> = ({ items })
               type="button"
               key={i}
               className={`supplier-row-actions-menu__item${item.danger ? " supplier-row-actions-menu__item--danger" : ""}`}
+              style={item.disabled ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
               onClick={() => { item.onClick(); setOpen(false); }}
             >
               {item.icon} {item.label}
@@ -143,10 +149,12 @@ interface FilterState {
 const DEFAULT_FILTERS: FilterState = { city: "", state: "" };
 
 // Same friendly copy PermissionGuard and the interceptor-driven global popup
-// already use for a backend 403 — this export is built entirely client-side
-// (no backend call to deny), so this is the only enforcement point
-// export_pdf/export_csv/export_excel actually have for it.
-const friendlyExportDenied = (permKey: string) =>
+// already use for a backend 403. Export is built entirely client-side (no
+// backend call to deny), so this is the only enforcement point
+// export_pdf/export_csv/export_excel have; Add/Edit/Payout below also use
+// it for the popup shown before the (real, backend-enforced) navigation/
+// action is even attempted.
+const friendlyPermissionDenied = (permKey: string) =>
   `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`;
 
 const SuppliersListPage: React.FC = () => {
@@ -156,7 +164,7 @@ const SuppliersListPage: React.FC = () => {
   const location = useLocation();
   const { formatAmount } = useCurrency();
   const {
-    suppliers, suppliersTotal, supplierCities, supplierStates, loading,
+    suppliers, suppliersTotal, supplierCities, supplierStates, supplierFilterOptionsLoaded, suppliersStale, loading,
   } = useAppSelector((state) => state.inventory);
   const currentSalonId = useAppSelector((state) => state.salon?.currentSalon?.id);
 
@@ -208,30 +216,26 @@ const SuppliersListPage: React.FC = () => {
   const isMountedRef = useRef(false);
 
   // Initial fetch on mount — skipped when the store already has data from a
-  // previous visit AND this mount wasn't triggered by a successful Add/Edit
-  // save. AddSupplierPage navigates back with location.state.refresh only
-  // after a save; a plain Close navigates back with no state at all, so
-  // returning from Close reuses what's already in the store instead of
-  // calling the API again.
+  // previous visit AND nothing has happened since that would make that data
+  // wrong. That's either a successful Add/Edit save (AddSupplierPage
+  // navigates back with location.state.refresh only after a save; a plain
+  // Close carries no state) or `suppliersStale`, set in inventorySlice
+  // whenever an order/payout action elsewhere moves a supplier's due_amount
+  // — those don't go through AddSupplierPage at all, so the refresh flag
+  // alone can't catch them.
   useEffect(() => {
     const justSaved = (location.state as { refresh?: boolean } | null)?.refresh;
-    // eslint-disable-next-line no-console
-    console.log("[SuppliersListPage] mount effect", {
-      suppliersLength: suppliers.length,
-      supplierCitiesLength: supplierCities.length,
-      supplierStatesLength: supplierStates.length,
-      justSaved,
-      locationState: location.state,
-      pathname: location.pathname,
-    });
-    if (suppliers.length === 0 || justSaved) {
+    if (suppliers.length === 0 || justSaved || suppliersStale) {
       dispatch(fetchSuppliersThunk({ page: 1, page_limit: pageSize }));
     }
     // Same "don't refetch what's already loaded" reasoning as the list
     // above — this was previously unconditional, so even a plain Close
     // (no data change at all) still re-hit the locations endpoint on every
-    // return to this page.
-    if (supplierCities.length === 0 && supplierStates.length === 0) {
+    // return to this page. Gated on a dedicated "loaded" flag rather than
+    // array length, since a salon with no supplier city/state data gets
+    // back empty arrays every time — length alone can't tell that apart
+    // from "never fetched".
+    if (!supplierFilterOptionsLoaded) {
       dispatch(fetchSupplierFilterOptionsThunk());
     }
     const t = setTimeout(() => { isMountedRef.current = true; }, 0);
@@ -277,10 +281,19 @@ const SuppliersListPage: React.FC = () => {
 
   const handleClearSearch = () => setSearch("");
 
-  const goToAddSupplier = () => navigate("/dashboard/inventory/suppliers/new");
-  const goToEditSupplier = (id: string) => navigate(`/dashboard/inventory/suppliers/${id}/edit`);
+  const denyPerm = (permKey: string) => dispatch(showPermissionDenied(friendlyPermissionDenied(permKey)));
+
+  const goToAddSupplier = () => {
+    if (!can("create_suppliers")) { denyPerm("create_suppliers"); return; }
+    navigate("/dashboard/inventory/suppliers/new");
+  };
+  const goToEditSupplier = (id: string) => {
+    if (!can("edit_suppliers")) { denyPerm("edit_suppliers"); return; }
+    navigate(`/dashboard/inventory/suppliers/${id}/edit`);
+  };
 
   const openPayout = (supplierId?: string) => {
+    if (!can("supplier_payout")) { denyPerm("supplier_payout"); return; }
     setPayoutSupplierId(supplierId);
     setPayoutOpen(true);
   };
@@ -319,7 +332,7 @@ const SuppliersListPage: React.FC = () => {
 
   const handleExport = useCallback(async (format: "pdf" | "csv" | "excel") => {
     const permKey = format === "pdf" ? "export_pdf" : format === "csv" ? "export_csv" : "export_excel";
-    if (!can(permKey)) { dispatch(showPermissionDenied(friendlyExportDenied(permKey))); return; }
+    if (!can(permKey)) { dispatch(showPermissionDenied(friendlyPermissionDenied(permKey))); return; }
     setIsExporting(true);
     try {
       const all = await fetchAllSuppliersForExport();
@@ -380,10 +393,20 @@ const SuppliersListPage: React.FC = () => {
               </Dropdown.Item>
             </Dropdown.Menu>
           </Dropdown>
-          <Button variant="outline-dark" iconLeft={<CashCoin size={14} />} onClick={() => openPayout()}>
+          <Button
+            variant="outline-dark"
+            iconLeft={<CashCoin size={14} />}
+            onClick={() => openPayout()}
+            style={can("supplier_payout") ? undefined : { opacity: 0.5, cursor: "not-allowed" }}
+          >
             Create Payout
           </Button>
-          <Button variant="dark" iconLeft={<PlusLg size={14} />} onClick={goToAddSupplier}>
+          <Button
+            variant="dark"
+            iconLeft={<PlusLg size={14} />}
+            onClick={goToAddSupplier}
+            style={can("create_suppliers") ? undefined : { opacity: 0.5, cursor: "not-allowed" }}
+          >
             Add
           </Button>
         </div>
@@ -505,13 +528,17 @@ const SuppliersListPage: React.FC = () => {
                   <td className="actions-cell" onClick={(e) => e.stopPropagation()}>
                     <SupplierRowActionsMenu
                       items={[
-                        { label: "Edit", icon: <PencilSquare size={14} />, onClick: () => goToEditSupplier(s.id) },
-                        { label: "Payout", icon: <CashCoin size={14} />, onClick: () => openPayout(s.id) },
+                        { label: "Edit", icon: <PencilSquare size={14} />, onClick: () => goToEditSupplier(s.id), disabled: !can("edit_suppliers") },
+                        { label: "Payout", icon: <CashCoin size={14} />, onClick: () => openPayout(s.id), disabled: !can("supplier_payout") },
                         {
                           label: "Delete",
                           icon: <Trash size={14} />,
-                          onClick: () => { setDeletingSupplier(s); setDeleteInput(""); },
+                          onClick: () => {
+                            if (!can("delete_suppliers")) { denyPerm("delete_suppliers"); return; }
+                            setDeletingSupplier(s); setDeleteInput("");
+                          },
                           danger: true,
+                          disabled: !can("delete_suppliers"),
                         },
                       ]}
                     />
@@ -527,7 +554,13 @@ const SuppliersListPage: React.FC = () => {
             title="No suppliers yet"
             description="Click here to add a supplier now."
             action={
-              <Button variant="dark" size="sm" iconLeft={<PlusLg size={13} />} onClick={goToAddSupplier}>
+              <Button
+                variant="dark"
+                size="sm"
+                iconLeft={<PlusLg size={13} />}
+                onClick={goToAddSupplier}
+                style={can("create_suppliers") ? undefined : { opacity: 0.5, cursor: "not-allowed" }}
+              >
                 Add Supplier
               </Button>
             }

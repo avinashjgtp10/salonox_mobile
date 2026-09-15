@@ -172,6 +172,7 @@ export default function LostCustomersReport({ onBack, category, categoryKey }: {
               title={REPORT_NAME}
               headers={HEADERS}
               rows={exportRows}
+              reportId="lost_customers"
               filename={`lost-customers-${lostDays}d`}
               variant="button"
               csv

@@ -14,14 +14,14 @@ export const MODULE_ACCESS_LIST: ModuleAccessEntry[] = [
   { permKey: "view_calendar", route: "/dashboard/calendar" },
   { permKey: "view_clients", route: "/dashboard/clients/list" },
   { permKey: "view_catalog", route: "/dashboard/catalog/services" },
-  { permKey: "view_inventory", route: "/dashboard/inventory/suppliers" },
-  { permKey: "view_team", route: "/dashboard/team/members" },
+  { permKey: "access_warehouse", route: "/dashboard/inventory/suppliers" },
+  { permKey: "access_staff", route: "/dashboard/team/members" },
   { permKey: "view_cash_management", route: "/dashboard/cash-management" },
   { permKey: "view_campaigns", route: "/dashboard/marketing" },
   { permKey: "view_booking", route: "/dashboard/online-booking" },
   { permKey: "view_enquiries", route: "/dashboard/enquiries" },
   { permKey: "view_reports", route: "/reports" },
-  { permKey: "general_settings", route: "/dashboard/settings" },
+  { permKey: "access_settings", route: "/dashboard/settings" },
 ];
 
 /** First module route the given `can()` check allows, or null if none. */

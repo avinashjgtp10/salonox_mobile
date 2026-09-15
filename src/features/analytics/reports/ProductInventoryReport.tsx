@@ -288,6 +288,7 @@ export default function ProductInventoryReport({ onBack, category: reportCategor
               title={REPORT_NAME}
               headers={HEADERS}
               rows={exportRows}
+              reportId="product_inventory"
               filename="product-inventory"
               variant="button"
               csv

@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { PageLoader } from "../components/ui";
 import PlanFeatureGuard from "../components/guards/PlanFeatureGuard";
+import PermissionGuard from "../components/guards/PermissionGuard";
 import { useAppDispatch, useAppSelector } from "../hooks/useAppRedux";
 import { fetchWaConfigThunk } from "../middleware/marketing/marketing.thunk";
 import MarketingOnboardingPage from "../features/marketing/pages/MarketingOnboardingPage";
@@ -61,20 +62,34 @@ export const MarketingRoutes = () => {
   return (
     <Suspense fallback={<PageLoader />}>
       <Routes>
-        <Route index                    element={<MarketingDashboardPage />} />
-        <Route path="analytics"         element={<AnalyticsPage />} />
-        <Route path="templates"         element={<TemplatesListPage />} />
-        <Route path="templates/create"  element={<CreateTemplatePage />} />
-        <Route path="scheduled-templates" element={<ScheduledTemplatesPage />} />
+        <Route element={<PermissionGuard permKey="view_marketing_dashboard" />}>
+          <Route index element={<MarketingDashboardPage />} />
+        </Route>
+        <Route element={<PermissionGuard permKey="view_marketing_analytics" />}>
+          <Route path="analytics" element={<AnalyticsPage />} />
+        </Route>
+        <Route element={<PermissionGuard permKey="view_templates" />}>
+          <Route path="templates" element={<TemplatesListPage />} />
+          <Route path="templates/create" element={<CreateTemplatePage />} />
+        </Route>
+        <Route element={<PermissionGuard permKey="view_scheduled_templates" />}>
+          <Route path="scheduled-templates" element={<ScheduledTemplatesPage />} />
+        </Route>
         {/* Only Campaigns is actually gated backend-side (featureKey
             "marketing", Advance tier — see campaigns.routes.ts); the rest of
             this Marketing section stays available to every tier. */}
         <Route element={<PlanFeatureGuard featureKey="marketing" label="Marketing Campaigns" />}>
-          <Route path="campaigns/create"  element={<CampaignsPage />} />
-          <Route path="campaigns/history" element={<CampaignsPage />} />
+          <Route element={<PermissionGuard permKey="view_campaigns" />}>
+            <Route path="campaigns/create"  element={<CampaignsPage />} />
+            <Route path="campaigns/history" element={<CampaignsPage />} />
+          </Route>
         </Route>
-        <Route path="inbox"             element={<InboxPage />} />
-        <Route path="config"            element={<WaConfigPage />} />
+        <Route element={<PermissionGuard permKey="view_inbox" />}>
+          <Route path="inbox" element={<InboxPage />} />
+        </Route>
+        <Route element={<PermissionGuard permKey="view_whatsapp_config" />}>
+          <Route path="config" element={<WaConfigPage />} />
+        </Route>
         <Route path="*"                 element={<Navigate to="/dashboard/marketing" replace />} />
       </Routes>
     </Suspense>

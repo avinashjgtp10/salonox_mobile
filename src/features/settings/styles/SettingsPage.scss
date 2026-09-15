@@ -2101,6 +2101,226 @@
   margin: 0;
 }
 
+// ── Roles & Permissions redesign — top-level tab bar (Roles / Staff Members
+// / Permission Activity) and page-level search box on RolesPermissionsPage.
+.rp-top-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid #e5e7eb;
+  margin-bottom: 16px;
+}
+
+.rp-top-tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 10px 4px;
+  margin-right: 20px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #6b7280;
+  cursor: pointer;
+
+  &:hover { color: #111827; }
+
+  &--active {
+    color: #111827;
+    border-bottom-color: #111827;
+  }
+}
+
+.rp-page-search {
+  position: relative;
+  max-width: 320px;
+  margin-bottom: 18px;
+
+  .rp-page-search-icon {
+    position: absolute;
+    left: 10px;
+    top: 9px;
+    color: #9ca3af;
+  }
+
+  input {
+    width: 100%;
+    padding: 7px 10px 7px 30px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 13px;
+  }
+}
+
+// ── Roles tab: left role list + right detail panel ─────────────────────────
+.rp-roles-layout {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 20px;
+  align-items: start;
+
+  @media (max-width: 860px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.rp-roles-nav {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 16px;
+  position: sticky;
+  top: 0;
+
+  @media (max-width: 860px) {
+    position: static;
+  }
+}
+
+.rp-roles-nav-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 2px;
+}
+
+.rp-roles-nav-desc {
+  font-size: 12px;
+  color: #6b7280;
+  margin: 0 0 12px;
+}
+
+.rp-roles-nav-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rp-roles-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  padding: 9px 8px;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: #374151;
+  cursor: pointer;
+
+  &:hover:not(:disabled) { background: #f9fafb; }
+
+  &--active {
+    background: #eff6ff;
+    color: #2563eb;
+  }
+
+  &:disabled:not(&--disabled) { opacity: 0.5; cursor: not-allowed; }
+
+  &--disabled {
+    color: #9ca3af;
+    cursor: not-allowed;
+  }
+}
+
+.rp-roles-nav-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.rp-roles-nav-label {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.rp-roles-nav-meta {
+  font-size: 10.5px;
+  color: #b45309;
+
+  &--neutral {
+    color: #9ca3af;
+  }
+}
+
+.rp-roles-nav-chevron {
+  flex-shrink: 0;
+  color: #d1d5db;
+}
+
+.rp-roles-detail {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 20px;
+}
+
+// ── Roles & Permissions redesign — RolePermissionPanel.tsx's role detail
+// view (no longer a modal, embedded directly in RolesPermissionsPage.tsx).
+.rp-role-detail {
+  display: flex;
+  flex-direction: column;
+}
+
+.rp-role-detail-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 0 16px;
+  border-bottom: 1px solid #f3f4f6;
+  margin-bottom: 16px;
+}
+
+.rp-role-detail-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.rp-role-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: #fef3c7;
+  color: #d97706;
+  flex-shrink: 0;
+}
+
+.rp-role-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 2px;
+}
+
+.rp-role-desc {
+  font-size: 12.5px;
+  color: #6b7280;
+  margin: 0;
+  max-width: 480px;
+}
+
+.rp-permissions-heading {
+  margin-bottom: 10px;
+}
+
+.rp-permissions-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 2px;
+}
+
+.rp-permissions-desc {
+  font-size: 12.5px;
+  color: #6b7280;
+  margin: 0;
+}
+
 .spm-perm-row {
   display: flex;
   align-items: center;
@@ -2116,6 +2336,62 @@
   &:hover {
     background: #fafafa;
   }
+}
+
+// ── Sub-group drill-down (Warehouse/Clients-style modules whose permissions
+// split into named sub-sections, e.g. Suppliers/Orders/Product Inventory) —
+// shared by RolePermissionPanel, StaffPermissionEditor, and
+// IndividualStaffPermissionsPage.
+.ispp-subgroup-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 0;
+}
+
+.ispp-subgroup-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 10px 8px;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+
+  &:hover { background: #f9fafb; }
+}
+
+.ispp-subgroup-item-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.ispp-subgroup-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.ispp-subgroup-back {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  padding: 8px 0;
+  margin-bottom: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #2563eb;
+  cursor: pointer;
+
+  &:hover { text-decoration: underline; }
 }
 
 .spm-perm-info {
