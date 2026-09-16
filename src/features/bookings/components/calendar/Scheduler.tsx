@@ -10,7 +10,7 @@ import { setBookings, clearDragPatch, deleteBooking } from "../../../../store/sc
 import { store } from "../../../../store/store";
 import { useSchedulerContext } from "../../store/SchedulerContext";
 // ── NEW: 2 focused hooks replace useSchedulerInit ─────────────────────────────
-import { useBookings, getViewRange } from "../../hooks/useBookings";
+import { useBookings, getViewRange, claimRefresh } from "../../hooks/useBookings";
 import { useStaffSchedule } from "../../hooks/useStaffSchedule";
 // ── NEW: mapApiBooking now lives in utils ─────────────────────────────────────
 import { mapApiBooking } from "../../utils/bookingMapper";
@@ -212,6 +212,14 @@ const SchedulerContent: React.FC = () => {
     // now uses the same view-aware range useBookings.ts's own refresh() does.
     const dateStr = currentDate || new Date().toISOString().slice(0, 10);
     const { startDate, endDate } = getViewRange(viewMode, dateStr);
+
+    // The save/payment that triggers this also fires a backend socket event
+    // ("notification"/"payment_updated") for the same mutation, which
+    // useBookings.ts's own listener reacts to by refetching this exact same
+    // range — without this guard both ran their full paginated fetch back to
+    // back for one save. claimRefresh() lets only the first of the two win;
+    // see its definition in useBookings.ts for the full rationale.
+    if (!claimRefresh(startDate, endDate)) return;
 
     // A week/month range can exceed the backend's 200-record page cap where a
     // single day rarely would — page through it the same way useBookings.ts's

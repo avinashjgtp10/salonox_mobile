@@ -614,6 +614,68 @@ const DayView: React.FC<DayViewProps> = ({
       .sort((a, b) => (a.startTime || "").localeCompare(b.startTime || ""));
   }, [bookings, currentDate]);
 
+  // Primitive identity of the current drag, extracted so the memo below only
+  // recomputes when WHICH booking/column is being dragged changes — not on
+  // every mousemove tick, which is when `dragging`'s own currentTop mutates.
+  const draggingBookingId = dragging?.booking.id ?? null;
+  const draggingOriginalStaffId = dragging?.originalStaffId ?? null;
+  const draggingCurrentStaffId = dragging?.currentStaffId ?? null;
+
+  // Precomputed once per staff column, independent of the live drag/resize
+  // pixel values (currentTop/currentHeight) that change on every mousemove —
+  // only the drag's booking/column IDENTITY (which booking, which columns)
+  // is a dependency. Previously this filter + O(n log n) collision-layout
+  // sort ran inline inside the render loop for every staff column on every
+  // mousemove tick while dragging/resizing, which was the main source of
+  // drag jank on a day with several staff/appointments.
+  const staffLayouts = useMemo(() => {
+    const map = new Map<string, { staffBookings: { booking: Booking; staffStart: string; staffEnd: string }[]; overlapLayout: Map<string, { col: number; totalCols: number }> }>();
+    const toMinsLocal = (t: string) => { const [hh, mm] = (t || "00:00").split(":").map(Number); return hh * 60 + mm; };
+    const clampSameDayEnd = (start: string, end: string) => (toMinsLocal(end) <= toMinsLocal(start) ? "23:59" : end);
+
+    visibleStaff.forEach((staff) => {
+      const staffBookings = dayBookings
+        .filter((b) => {
+          if (draggingBookingId === b.id
+              && (staff.id === draggingOriginalStaffId || staff.id === draggingCurrentStaffId)) {
+            return draggingCurrentStaffId === staff.id;
+          }
+          if (getStaffSegments(b, staff.id).length > 0) return true;
+          const anyItemHasStaff =
+            (b.services || []).some((s: any) => s.staffId) ||
+            (b.packageItems || []).some((p: any) => p.staffId) ||
+            (b.productItems || []).some((p: any) => p.staffId) ||
+            (b.membershipItems || []).some((m: any) => m.staffId);
+          if (b.staffId && String(b.staffId) === String(staff.id) && !anyItemHasStaff) return true;
+          return false;
+        })
+        .map((b) => {
+          const segs = getStaffSegments(b, staff.id);
+          const staffStart = segs.length > 0
+            ? segs.reduce((min, s) => toMinsLocal(s.time) < toMinsLocal(min) ? s.time : min, segs[0].time)
+            : b.startTime;
+          const staffEnd = segs.length > 0
+            ? segs.reduce((max, s) => toMinsLocal(s.endTime) > toMinsLocal(max) ? s.endTime : max, segs[0].endTime)
+            : clampSameDayEnd(staffStart, b.endTime);
+          return { booking: b, staffStart, staffEnd };
+        })
+        .filter(({ staffStart, staffEnd }) => !isTimeRangeUnavailable(staff.id, staffStart, staffEnd));
+
+      const overlapLayout = computeOverlapLayout(
+        staffBookings.map(({ booking: b, staffStart, staffEnd }) => ({
+          id: `${b.id}-${staff.id}`,
+          startMin: toMinsLocal(staffStart),
+          endMin: toMinsLocal(staffEnd),
+        }))
+      );
+
+      map.set(staff.id, { staffBookings, overlapLayout });
+    });
+
+    return map;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dayBookings, visibleStaff, dayBlocked, staffSchedules, currentDate, draggingBookingId, draggingOriginalStaffId, draggingCurrentStaffId]);
+
   const nowPx = timeToPx(nowTime);
   const isInteracting = !!(dragging || resizing);
   const toMinsLocal = (t: string) => { const [hh, mm] = (t || "00:00").split(":").map(Number); return hh * 60 + mm; };
@@ -841,51 +903,12 @@ const DayView: React.FC<DayViewProps> = ({
                   ))}
 
                   {(() => {
-                    const staffBookings = dayBookings
-                      .filter((b) => {
-                        // Only the segment actually being dragged needs special handling —
-                        // hide it from its original column and show it only under the
-                        // current drag-target column. A multi-staff booking's OTHER
-                        // segments (e.g. a package on a different staff) are unrelated to
-                        // this drag and must keep rendering normally in their own columns.
-                        if (dragging?.booking.id === b.id
-                            && (staff.id === dragging.originalStaffId || staff.id === dragging.currentStaffId)) {
-                          return dragging.currentStaffId === staff.id;
-                        }
-                        // Per-item staff (service/package/product/membership): show chip
-                        // under each item's own staff column.
-                        if (getStaffSegments(b, staff.id).length > 0) return true;
-                        // Backward compat: if NO item anywhere carries its own staffId,
-                        // fall back to the appointment-level staffId.
-                        const anyItemHasStaff =
-                          (b.services || []).some((s: any) => s.staffId) ||
-                          (b.packageItems || []).some((p: any) => p.staffId) ||
-                          (b.productItems || []).some((p: any) => p.staffId) ||
-                          (b.membershipItems || []).some((m: any) => m.staffId);
-                        if (b.staffId && String(b.staffId) === String(staff.id) && !anyItemHasStaff) return true;
-                        return false;
-                      })
-                      .map((b) => {
-                        const segs = getStaffSegments(b, staff.id);
-                        const staffStart = segs.length > 0
-                          ? segs.reduce((min, s) => toMinsLocal(s.time) < toMinsLocal(min) ? s.time : min, segs[0].time)
-                          : b.startTime;
-                        const staffEnd = segs.length > 0
-                          ? segs.reduce((max, s) => toMinsLocal(s.endTime) > toMinsLocal(max) ? s.endTime : max, segs[0].endTime)
-                          : clampSameDayEnd(staffStart, b.endTime);
-                        return { booking: b, staffStart, staffEnd };
-                      })
-                      .filter(({ staffStart, staffEnd }) => !isTimeRangeUnavailable(staff.id, staffStart, staffEnd));
-
-                    // Concurrent appointments for the same staff (e.g. hair-color processing
-                    // time) are allowed — lay them out side-by-side instead of stacking.
-                    const overlapLayout = computeOverlapLayout(
-                      staffBookings.map(({ booking: b, staffStart, staffEnd }) => ({
-                        id: `${b.id}-${staff.id}`,
-                        startMin: toMinsLocal(staffStart),
-                        endMin: toMinsLocal(staffEnd),
-                      }))
-                    );
+                    // Precomputed in staffLayouts (see its definition above) —
+                    // recomputed only when the underlying data or the drag's
+                    // identity changes, not on every mousemove-driven render.
+                    const layout = staffLayouts.get(staff.id);
+                    const staffBookings = layout?.staffBookings ?? [];
+                    const overlapLayout = layout?.overlapLayout;
 
                     return staffBookings.map(({ booking: b, staffStart, staffEnd }) => {
                       // Match by staff column too — the same booking can render in up to
@@ -901,7 +924,7 @@ const DayView: React.FC<DayViewProps> = ({
                       // Full width while being dragged/resized so layout doesn't jump mid-interaction
                       const { col, totalCols } = (isDraggingThis || isResizingThis)
                         ? { col: 0, totalCols: 1 }
-                        : overlapLayout.get(key) ?? { col: 0, totalCols: 1 };
+                        : overlapLayout?.get(key) ?? { col: 0, totalCols: 1 };
                       return (
                         <BookingChip
                           key={key}
