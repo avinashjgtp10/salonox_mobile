@@ -671,12 +671,15 @@ function CommissionSettleTab({ view }: { view: "settle" | "rules" }) {
     setLoading(true);
 
     try {
-      const staffRes = await api.get(`${STAFF.BASE}?limit=200&salon_id=${salonId}`);
+      const staffRes = await api.get(`${STAFF.BASE}?limit=200`);
 
       // Fetch earning summary + per-staff breakdown (non-blocking)
+      // salon_id deliberately omitted — the commissions endpoints derive it
+      // solely from the authenticated JWT (staff.controller.ts's getSalonId),
+      // so a client-supplied value here was already inert.
       Promise.all([
-        api.get(`${STAFF.BASE}/commissions/summary?salon_id=${salonId}&start_date=${dateRange.startDate}&end_date=${dateRange.endDate}`),
-        api.get(`${STAFF.BASE}/commissions/earned?salon_id=${salonId}&start_date=${dateRange.startDate}&end_date=${dateRange.endDate}`),
+        api.get(`${STAFF.BASE}/commissions/summary?start_date=${dateRange.startDate}&end_date=${dateRange.endDate}`),
+        api.get(`${STAFF.BASE}/commissions/earned?start_date=${dateRange.startDate}&end_date=${dateRange.endDate}`),
       ]).then(([summaryRes, earnedRes]) => {
         setEarnSummary(summaryRes.data?.data ?? null);
         setEarnedByStaff(earnedRes.data?.data ?? []);
@@ -794,8 +797,8 @@ function CommissionSettleTab({ view }: { view: "settle" | "rules" }) {
   useEffect(() => {
     if (!salonId) return;
     Promise.all([
-      api.get(`${STAFF.BASE}/commissions/summary?salon_id=${salonId}&start_date=${dateRange.startDate}&end_date=${dateRange.endDate}`),
-      api.get(`${STAFF.BASE}/commissions/earned?salon_id=${salonId}&start_date=${dateRange.startDate}&end_date=${dateRange.endDate}`),
+      api.get(`${STAFF.BASE}/commissions/summary?start_date=${dateRange.startDate}&end_date=${dateRange.endDate}`),
+      api.get(`${STAFF.BASE}/commissions/earned?start_date=${dateRange.startDate}&end_date=${dateRange.endDate}`),
     ]).then(([summaryRes, earnedRes]) => {
       setEarnSummary(summaryRes.data?.data ?? null);
       setEarnedByStaff(earnedRes.data?.data ?? []);
@@ -820,8 +823,8 @@ function CommissionSettleTab({ view }: { view: "settle" | "rules" }) {
       showSuccess(`${formatAmount(amount)} settled for ${name}`);
       setSettleTarget(null);
       const [summaryRes, earnedRes] = await Promise.all([
-        api.get(`${STAFF.BASE}/commissions/summary?salon_id=${salonId}&start_date=${dateRange.startDate}&end_date=${dateRange.endDate}`),
-        api.get(`${STAFF.BASE}/commissions/earned?salon_id=${salonId}&start_date=${dateRange.startDate}&end_date=${dateRange.endDate}`),
+        api.get(`${STAFF.BASE}/commissions/summary?start_date=${dateRange.startDate}&end_date=${dateRange.endDate}`),
+        api.get(`${STAFF.BASE}/commissions/earned?start_date=${dateRange.startDate}&end_date=${dateRange.endDate}`),
       ]);
       setEarnSummary(summaryRes.data?.data ?? null);
       setEarnedByStaff(earnedRes.data?.data ?? []);
@@ -858,7 +861,7 @@ function CommissionSettleTab({ view }: { view: "settle" | "rules" }) {
                   <button className="cm-option-item" onClick={async () => {
                     setOptionsOpen(false);
                     try {
-                      const res = await api.get(`${STAFF.BASE}/commissions/export?salon_id=${salonId}&month=${exportMonth}`, { responseType: "blob" });
+                      const res = await api.get(`${STAFF.BASE}/commissions/export?month=${exportMonth}`, { responseType: "blob" });
                       const url = URL.createObjectURL(new Blob([res.data]));
                       const a   = document.createElement("a");
                       a.href    = url;
@@ -879,7 +882,7 @@ function CommissionSettleTab({ view }: { view: "settle" | "rules" }) {
                   <button className="cm-option-item" onClick={async () => {
                     setOptionsOpen(false);
                     try {
-                      const res = await api.get(`${STAFF.BASE}/commissions/export?salon_id=${salonId}&month=${exportMonth}&format=excel`, { responseType: "blob" });
+                      const res = await api.get(`${STAFF.BASE}/commissions/export?month=${exportMonth}&format=excel`, { responseType: "blob" });
                       const url = URL.createObjectURL(new Blob([res.data]));
                       const a   = document.createElement("a");
                       a.href    = url;
@@ -900,7 +903,7 @@ function CommissionSettleTab({ view }: { view: "settle" | "rules" }) {
                   <button className="cm-option-item" onClick={async () => {
                     setOptionsOpen(false);
                     try {
-                      const res = await api.get(`${STAFF.BASE}/commissions/export?salon_id=${salonId}&month=${exportMonth}&format=json`);
+                      const res = await api.get(`${STAFF.BASE}/commissions/export?month=${exportMonth}&format=json`);
                       const rows = res.data?.data ?? [];
                       const blob = exportCommissionsPDF(rows, exportMonth);
                       const url  = URL.createObjectURL(blob);

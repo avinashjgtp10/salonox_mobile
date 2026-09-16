@@ -881,6 +881,13 @@ export default function AttendancePage() {
   const [editDevice,    setEditDevice]    = useState<Device | null>(null);
   const [connectTarget, setConnectTarget] = useState<PendingDevice | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  // The Connected Devices card sits at the bottom of a long page — polling
+  // it every 30s regardless of scroll position meant every Attendance visit
+  // kept firing devices/pending requests for as long as the tab stayed open,
+  // even for staff who never scrolled down to see it. Only poll while the
+  // card is actually on screen.
+  const devicesCardRef = useRef<HTMLDivElement>(null);
+  const [devicesCardVisible, setDevicesCardVisible] = useState(false);
 
   async function deleteDevice(id: string) {
     try {
@@ -904,10 +911,22 @@ export default function AttendancePage() {
   }, []);
 
   useEffect(() => {
+    const el = devicesCardRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setDevicesCardVisible(entry.isIntersecting),
+      { threshold: 0.1 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!devicesCardVisible) return;
     loadDevices();
     const interval = setInterval(loadDevices, 30_000);
     return () => clearInterval(interval);
-  }, [loadDevices]);
+  }, [devicesCardVisible, loadDevices]);
 
   const load = useCallback(async (date: string, silent = false) => {
     if (silent) setRefreshing(true);
@@ -1156,7 +1175,7 @@ export default function AttendancePage() {
       </div>
 
       {/* ── Connected Devices ── */}
-      <div className="ap-card">
+      <div className="ap-card" ref={devicesCardRef}>
         <div className="ap-card-header">
           <div>
             <h3 className="ap-card-title">Connected Devices</h3>

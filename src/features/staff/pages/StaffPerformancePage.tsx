@@ -143,7 +143,7 @@ export default function StaffPerformancePage() {
   useEffect(() => {
     if (!salonId) return;
     setStaffLoading(true);
-    api.get(STAFF.BASE, { params: { salon_id: salonId } })
+    api.get(STAFF.BASE)
       .then((res) => {
         const data = res.data?.data;
         const arr: StaffMember[] = Array.isArray(data?.items) ? data.items : (Array.isArray(data) ? data : []);
