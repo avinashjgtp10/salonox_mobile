@@ -52,6 +52,34 @@ const fetchedRangesRef: { current: Set<string> } = { current: new Set() };
 const pendingRangesRef: { current: Set<string> } = { current: new Set() };
 let cachedRawBookings: any[] = [];
 
+// A save/payment/cancel can trigger TWO independent refreshes of the same
+// visible range almost simultaneously: the caller's own explicit onRefresh()
+// chain (Scheduler.tsx's handleRefresh) AND the backend's socket event for
+// that same mutation (useBookings's own "notification"/"payment_updated"
+// listener below, which calls refresh()). Both used to run their full
+// paginated GET /appointments fetch independently, so every save/payment
+// showed up as two identical requests in the Network tab. Whichever fires
+// first claims the range for this short window; the other is a no-op — the
+// data it would have fetched is already in flight or just landed.
+const recentRefreshRanges = new Map<string, number>();
+const REFRESH_DEDUPE_MS = 2000;
+
+/**
+ * True (and claims the range) the first time it's called for a given range
+ * within REFRESH_DEDUPE_MS; false on any call for that same range within the
+ * window. Used to collapse the two independent same-range refreshes above
+ * into one actual network request without touching either caller's own
+ * merge/patch logic.
+ */
+export function claimRefresh(startDate: string, endDate: string): boolean {
+  const key = `${startDate}|${endDate}`;
+  const now = Date.now();
+  const last = recentRefreshRanges.get(key);
+  if (last !== undefined && now - last < REFRESH_DEDUPE_MS) return false;
+  recentRefreshRanges.set(key, now);
+  return true;
+}
+
 export function useBookings(skip = false) {
   const dispatch     = useAppDispatch();
   const currentDate  = useAppSelector(selectCurrentDate);
@@ -233,15 +261,25 @@ export function useBookings(skip = false) {
       const eventDate = toLocalDateStr(scheduled_at);
       return eventDate >= startDate && eventDate <= endDate;
     };
+    // claimRefresh de-dupes against Scheduler.tsx's own handleRefresh: a save/
+    // payment made in THIS tab triggers both that direct onRefresh() call and
+    // this same socket event for the mutation it just made, so without this
+    // guard the exact same GET /appointments range was fetched twice back to
+    // back. Whichever of the two fires first wins; a genuine live update from
+    // another device/tab isn't affected since nothing else claims its range.
     const onNotification = (notification: { type?: string; scheduled_at?: string }) => {
-      if (notification?.type === "appointment" && isEventInVisibleRange(notification.scheduled_at)) refresh();
+      if (notification?.type !== "appointment" || !isEventInVisibleRange(notification.scheduled_at)) return;
+      const { startDate, endDate } = getViewRange(viewMode, currentDate);
+      if (claimRefresh(startDate, endDate)) refresh();
     };
     // payments.service.ts emits this directly (no bell-notification DB row,
     // unlike "notification" above — a payment happens far more often than a
     // create/cancel) so a Paid/Partial status change on another device also
     // live-updates this calendar instead of needing a manual refresh.
     const onPaymentUpdated = (payload?: { scheduled_at?: string }) => {
-      if (isEventInVisibleRange(payload?.scheduled_at)) refresh();
+      if (!isEventInVisibleRange(payload?.scheduled_at)) return;
+      const { startDate, endDate } = getViewRange(viewMode, currentDate);
+      if (claimRefresh(startDate, endDate)) refresh();
     };
     socket.on("notification", onNotification);
     socket.on("payment_updated", onPaymentUpdated);

@@ -1,3 +1,4 @@
+import { useCallback, useMemo } from "react";
 import { toApiStaffId } from "../utils/paymentUtils";
 function toLocalDateStr(iso: string): string {
   const d = new Date(iso);
@@ -60,10 +61,9 @@ export function useSchedulerContext() {
   const staffSchedules = useAppSelector((s) => s.scheduler.staffSchedules);
   
 
-  return {
-    bookings,
-    addBooking: (b: Booking) => dispatch(addBooking(b)),
-    updateBooking: (b: Booking) => {
+  const addBookingCb = useCallback((b: Booking) => dispatch(addBooking(b)), [dispatch]);
+
+  const updateBooking = useCallback((b: Booking) => {
       const previousBooking = bookings.find((existing) => String(existing.id) === String(b.id));
       dispatch(updateBookingAction(b));
       // Store the drag position so setBookings re-runs (from background fetches or
@@ -184,22 +184,23 @@ export function useSchedulerContext() {
           });
       }
       return Promise.resolve();
-    },
-    deleteBooking: (id: string) => {
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bookings, dispatch]);
+
+  const deleteBooking = useCallback((id: string) => {
       dispatch(deleteBookingAction(id));
       if (!String(id).startsWith("b_")) {
         (dispatch(deleteBookingThunk(id)) as any).catch((err: any) =>
           console.error("Failed to delete booking from API:", err)
         );
       }
-    },
-    setBookings: (bs: Booking[]) => dispatch(setBookings(bs)),
+  }, [dispatch]);
 
-    // ── Blocked times ────────────────────────────────────────────────────────
-    blockedTimes,
-    setBlockedTimes: (bts: BlockedTime[]) => dispatch(setBlockedTimes(bts)),
+  const setBookingsCb = useCallback((bs: Booking[]) => dispatch(setBookings(bs)), [dispatch]);
 
-    addBlockedTime: (bt: BlockedTime) => {
+  const setBlockedTimesCb = useCallback((bts: BlockedTime[]) => dispatch(setBlockedTimes(bts)), [dispatch]);
+
+  const addBlockedTime = useCallback((bt: BlockedTime) => {
       dispatch(addBlockedTimeAction(bt));
       if (bt.staffId) {
         // PATCH /api/v1/staff/:staffId — embed blocked_times in the staff update body
@@ -226,9 +227,9 @@ export function useSchedulerContext() {
           })
           .catch((err: any) => console.error("Failed to create blocked time:", err));
       }
-    },
+  }, [dispatch]);
 
-    updateBlockedTime: (bt: BlockedTime) => {
+  const updateBlockedTime = useCallback((bt: BlockedTime) => {
       dispatch(updateBlockedTimeAction(bt));
       if (!String(bt.id).startsWith("bt_")) {
         (dispatch(updateBlockedTimeThunk({
@@ -252,9 +253,9 @@ export function useSchedulerContext() {
           })
           .catch((err: any) => console.error("Failed to update blocked time:", err));
       }
-    },
+  }, [dispatch]);
 
-    deleteBlockedTime: (id: string) => {
+  const deleteBlockedTime = useCallback((id: string) => {
       const bt = blockedTimes.find((b) => b.id === id);
       dispatch(deleteBlockedTimeAction(id));
       if (!String(id).startsWith("bt_") && bt?.staffId) {
@@ -262,33 +263,77 @@ export function useSchedulerContext() {
           console.error("Failed to delete blocked time from API:", err)
         );
       }
-    },
+  }, [blockedTimes, dispatch]);
+
+  // ── Calendar navigation ──────────────────────────────────────────────────
+  const setViewModeCb = useCallback((v: ViewMode) => dispatch(setViewMode(v)), [dispatch]);
+  const setCurrentDateCb = useCallback((d: string) => dispatch(setCurrentDate(d)), [dispatch]);
+  const setIntervalCb = useCallback((i: IntervalOption) => dispatch(setInterval(i)), [dispatch]);
+  const navigateCb = useCallback((dir: 1 | -1) => dispatch(navigate(dir)), [dispatch]);
+
+  // ── Client stats ─────────────────────────────────────────────────────────
+  const updateClientNotesCb = useCallback(
+    (clientId: string, notes: string, staffAlert: string) =>
+      dispatch(updateClientNotes({ clientId, notes, staffAlert })),
+    [dispatch]
+  );
+
+  // ── Lookup data ───────────────────────────────────────────────────────────
+  const setSelectedStaffIdsCb = useCallback((ids: string[]) => dispatch(setSelectedStaffIds(ids)), [dispatch]);
+  const setHighlightedBookingIdCb = useCallback((id: string | null) => dispatch(setHighlightedBookingId(id)), [dispatch]);
+
+  // Referentially stable across renders unless one of the underlying Redux
+  // slices/actions actually changed — consumers (DayView's drag/resize
+  // window-listener effects, memoized child components) previously saw a
+  // brand-new object with brand-new function references on every render of
+  // ANY component reading scheduler context, including renders triggered by
+  // completely unrelated state (e.g. the clock tick), causing those effects
+  // to tear down and re-attach constantly.
+  return useMemo(() => ({
+    bookings,
+    addBooking: addBookingCb,
+    updateBooking,
+    deleteBooking,
+    setBookings: setBookingsCb,
+
+    // ── Blocked times ────────────────────────────────────────────────────────
+    blockedTimes,
+    setBlockedTimes: setBlockedTimesCb,
+    addBlockedTime,
+    updateBlockedTime,
+    deleteBlockedTime,
 
     // ── Calendar navigation ──────────────────────────────────────────────────
     viewMode,
-    setViewMode: (v: ViewMode) => dispatch(setViewMode(v)),
+    setViewMode: setViewModeCb,
     currentDate,
-    setCurrentDate: (d: string) => dispatch(setCurrentDate(d)),
+    setCurrentDate: setCurrentDateCb,
     interval,
-    setInterval: (i: IntervalOption) => dispatch(setInterval(i)),
-    navigate: (dir: 1 | -1) => dispatch(navigate(dir)),
+    setInterval: setIntervalCb,
+    navigate: navigateCb,
 
     // ── Client stats ─────────────────────────────────────────────────────────
     clientStats,
-    updateClientNotes: (clientId: string, notes: string, staffAlert: string) =>
-      dispatch(updateClientNotes({ clientId, notes, staffAlert })),
+    updateClientNotes: updateClientNotesCb,
 
     // ── Lookup data ───────────────────────────────────────────────────────────
     staffList,
     selectedStaffIds,
-    setSelectedStaffIds: (ids: string[]) => dispatch(setSelectedStaffIds(ids)),
+    setSelectedStaffIds: setSelectedStaffIdsCb,
     highlightedBookingId,
-    setHighlightedBookingId: (id: string | null) => dispatch(setHighlightedBookingId(id)),
+    setHighlightedBookingId: setHighlightedBookingIdCb,
     clientsList,
     servicesList,
     packagesList,
     membershipsList,
     productsList,
     staffSchedules,
-  };
+  }), [
+    bookings, addBookingCb, updateBooking, deleteBooking, setBookingsCb,
+    blockedTimes, setBlockedTimesCb, addBlockedTime, updateBlockedTime, deleteBlockedTime,
+    viewMode, setViewModeCb, currentDate, setCurrentDateCb, interval, setIntervalCb, navigateCb,
+    clientStats, updateClientNotesCb,
+    staffList, selectedStaffIds, setSelectedStaffIdsCb, highlightedBookingId, setHighlightedBookingIdCb,
+    clientsList, servicesList, packagesList, membershipsList, productsList, staffSchedules,
+  ]);
 }
