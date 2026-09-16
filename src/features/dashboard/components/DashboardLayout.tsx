@@ -87,13 +87,20 @@ export default function DashboardLayout() {
   // just from landing in the dashboard shell. UnclosedCounterGate/
   // AutoOpenCounterForNewAccount below only matter to someone who can
   // actually open/close the register in the first place.
+  const cashCounterLoaded = useAppSelector((s) => s.cashCounter.dashboard !== null);
+  const cashCounterLoading = useAppSelector((s) => s.cashCounter.loading);
   useEffect(() => {
     const isOwnerOrAdmin = role === "salon_owner" || role === "admin";
     const canSeeCashManagement = isOwnerOrAdmin || effectivePermissions?.view_cash_management === true;
-    if (canSeeCashManagement) {
+    // This effect's deps (role, effectivePermissions) can legitimately
+    // re-run more than once while auth/permissions settle in — without this
+    // guard, every one of those re-runs where canSeeCashManagement is still
+    // true fired ANOTHER identical GET, which is what showed up as a
+    // duplicate cashdashboard call on a single page load/refresh.
+    if (canSeeCashManagement && !cashCounterLoaded && !cashCounterLoading) {
       dispatch(fetchCashCounterDashboardThunk());
     }
-  }, [dispatch, role, effectivePermissions]);
+  }, [dispatch, role, effectivePermissions, cashCounterLoaded, cashCounterLoading]);
 
   useEffect(() => {
     setOpenMenu(detectOpenMenu(location.pathname));
