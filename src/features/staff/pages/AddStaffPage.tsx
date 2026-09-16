@@ -6,7 +6,6 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import "../styles/AddStaffPage.scss";
 import api from "../../../services/api/axios";
 import { STAFF } from "../../../services/api/endpoints";
-import StaffPermissionEditor from "../../settings/components/StaffPermissionEditor";
 import ResetPasswordSection from "../components/ResetPasswordSection";
 import CountryCodeSelect from "../../clients/components/CountryCodeSelect";
 import Dropdown from "../../../components/ui/Dropdown";
@@ -83,11 +82,10 @@ const AddStaffPage: React.FC = () => {
   const [avatarUploading, setAvatarUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Individual permission overrides are managed separately, post-creation,
+  // from Settings → Roles & Permissions — this form only sets the broad
+  // Staff/Manager role tier (below), never staff.custom_permissions directly.
   const [permissionLevel, setPermissionLevel] = useState("Low");
-  // Individual permission overrides are managed separately post-creation via
-  // StaffPermissionEditor (see the "Permissions" card below) — this form no
-  // longer writes staff.custom_permissions directly.
-  const [showPermissionEditor, setShowPermissionEditor] = useState(false);
 
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -510,83 +508,6 @@ const AddStaffPage: React.FC = () => {
                 {isNameInvalid && <span className="emp-field__error">Name is required</span>}
               </div>
               <div className="emp-field">
-                <label className="emp-field__label">
-                  Email{staffLoginEnabled && <span className="text-danger">*</span>}
-                </label>
-                <div className="emp-input-row">
-                  <input
-                    className={`emp-input ${isEmailInvalid ? "emp-input--invalid" : ""}`}
-                    placeholder="Email"
-                    type="email"
-                    value={form.email}
-                    onChange={(e) => setField("email")(e.target.value)}
-                  />
-                  {shouldShowEmailOtp && (
-                    <button
-                      type="button"
-                      className={`emp-otp-btn ${emailOtpVerified ? "emp-otp-btn--verified" : ""}`}
-                      onClick={handleSendEmailOtp}
-                      disabled={emailOtpLoading || emailOtpVerified}
-                    >
-                      {emailOtpLoading && !emailOtpSent
-                        ? "Sending…"
-                        : emailOtpVerified
-                          ? "Verified"
-                          : emailOtpSent
-                            ? "Resend"
-                            : "Send OTP"}
-                    </button>
-                  )}
-                </div>
-                {isEmailInvalid && <span className="emp-field__error">{emailErrorMessage}</span>}
-                {!isEmailInvalid && emailOtpMsg && (
-                  <span className={`emp-otp-msg emp-otp-msg--${emailOtpMsg.type}`}>{emailOtpMsg.text}</span>
-                )}
-                {!isEmailInvalid && isEmailVerificationInvalid && (
-                  <span className="emp-field__error">Email OTP verification is required when Staff Login is enabled</span>
-                )}
-                {shouldShowEmailOtp && !emailOtpVerified && !emailOtpMsg && !isEmailVerificationInvalid && (
-                  <span className="emp-field__hint">
-                    Verify this email so the staff member can log in.
-                  </span>
-                )}
-                {shouldShowEmailOtp && emailOtpVerified && (
-                  <span className="emp-verified-tag emp-verified-tag--email">
-                    <span className="emp-verified-tag__check">✓</span>
-                    Email verified
-                  </span>
-                )}
-              </div>
-
-              {shouldShowEmailOtp && emailOtpSent && !emailOtpVerified && (
-                <div className="emp-field emp-otp-field">
-                  <label className="emp-field__label">Enter Email OTP</label>
-                  <div className="emp-input-row">
-                    <input
-                      className="emp-input"
-                      placeholder="6-digit OTP"
-                      value={emailOtp}
-                      maxLength={6}
-                      onChange={(e) => {
-                        setEmailOtp(e.target.value.replace(/\D/g, ""));
-                        if (emailOtpError) setEmailOtpError(null);
-                      }}
-                      onKeyDown={(e) => e.key === "Enter" && handleVerifyEmailOtp()}
-                    />
-                    <button
-                      type="button"
-                      className="emp-verify-btn"
-                      onClick={handleVerifyEmailOtp}
-                      disabled={emailOtpLoading || emailOtp.length < 6}
-                    >
-                      {emailOtpLoading ? "Verifying…" : "Verify"}
-                    </button>
-                  </div>
-                  {emailOtpError && <span className="emp-field__error">{emailOtpError}</span>}
-                </div>
-              )}
-
-              <div className="emp-field">
                 <label className="emp-field__label">Date of Birth</label>
                 <input
                   className={`emp-input ${isDobInvalid ? "emp-input--invalid" : ""}`}
@@ -775,12 +696,114 @@ const AddStaffPage: React.FC = () => {
             </div>
           </div>
 
+          {staffLoginEnabled && (
+            <div className="emp-login-grid">
+              <div className="emp-field">
+                <label className="emp-field__label">
+                  Email<span className="text-danger">*</span>
+                </label>
+                {hasExistingLogin ? (
+                  // Already has a working login — the backend only ever grants
+                  // that after an OTP-verified email (at creation or a prior
+                  // reset), so this address is proven and shown read-only
+                  // rather than reopened for editing/re-verification here.
+                  <div className="emp-input-row">
+                    <input className="emp-input" type="email" value={form.email} disabled readOnly />
+                    <span className="emp-verified-tag emp-verified-tag--email">
+                      <span className="emp-verified-tag__check">✓</span>
+                      Email verified
+                    </span>
+                  </div>
+                ) : (
+                  <>
+                    <div className="emp-input-row">
+                      <input
+                        className={`emp-input ${isEmailInvalid ? "emp-input--invalid" : ""}`}
+                        placeholder="Email"
+                        type="email"
+                        value={form.email}
+                        onChange={(e) => setField("email")(e.target.value)}
+                      />
+                      {shouldShowEmailOtp && (
+                        <button
+                          type="button"
+                          className={`emp-otp-btn ${emailOtpVerified ? "emp-otp-btn--verified" : ""}`}
+                          onClick={handleSendEmailOtp}
+                          disabled={emailOtpLoading || emailOtpVerified}
+                        >
+                          {emailOtpLoading && !emailOtpSent
+                            ? "Sending…"
+                            : emailOtpVerified
+                              ? "Verified"
+                              : emailOtpSent
+                                ? "Resend"
+                                : "Send OTP"}
+                        </button>
+                      )}
+                    </div>
+                    {isEmailInvalid && <span className="emp-field__error">{emailErrorMessage}</span>}
+                    {!isEmailInvalid && emailOtpMsg && (
+                      <span className={`emp-otp-msg emp-otp-msg--${emailOtpMsg.type}`}>{emailOtpMsg.text}</span>
+                    )}
+                    {!isEmailInvalid && isEmailVerificationInvalid && (
+                      <span className="emp-field__error">Email OTP verification is required when Staff Login is enabled</span>
+                    )}
+                    {shouldShowEmailOtp && !emailOtpVerified && !emailOtpMsg && !isEmailVerificationInvalid && (
+                      <span className="emp-field__hint">
+                        Verify this email so the staff member can log in.
+                      </span>
+                    )}
+                    {shouldShowEmailOtp && emailOtpVerified && (
+                      <span className="emp-verified-tag emp-verified-tag--email">
+                        <span className="emp-verified-tag__check">✓</span>
+                        Email verified
+                      </span>
+                    )}
+                  </>
+                )}
+              </div>
+
+              {shouldShowEmailOtp && emailOtpSent && !emailOtpVerified && (
+                <div className="emp-field emp-otp-field">
+                  <label className="emp-field__label">Enter Email OTP</label>
+                  <div className="emp-input-row">
+                    <input
+                      className="emp-input"
+                      placeholder="6-digit OTP"
+                      value={emailOtp}
+                      maxLength={6}
+                      onChange={(e) => {
+                        setEmailOtp(e.target.value.replace(/\D/g, ""));
+                        if (emailOtpError) setEmailOtpError(null);
+                      }}
+                      onKeyDown={(e) => e.key === "Enter" && handleVerifyEmailOtp()}
+                    />
+                    <button
+                      type="button"
+                      className="emp-verify-btn"
+                      onClick={handleVerifyEmailOtp}
+                      disabled={emailOtpLoading || emailOtp.length < 6}
+                    >
+                      {emailOtpLoading ? "Verifying…" : "Verify"}
+                    </button>
+                  </div>
+                  {emailOtpError && <span className="emp-field__error">{emailOtpError}</span>}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Existing login: masked password + Reset Password, or the New/Confirm
-              Password + OTP-gated Update Password flow once clicked */}
+              Password + Update Password flow once clicked. emailAlreadyVerified
+              is always true here — hasExistingLogin means this staff member
+              already has a working password, which the backend only ever
+              grants after an OTP-verified email (at creation or a prior
+              reset), so there's nothing left to re-verify. */}
           {staffLoginEnabled && hasExistingLogin && (
             <ResetPasswordSection
               staffId={id!}
               email={form.email}
+              emailAlreadyVerified
               onSuccess={() => showSuccess("Password updated successfully")}
               onError={showError}
             />
@@ -830,43 +853,7 @@ const AddStaffPage: React.FC = () => {
           )}
         </div>
 
-        {/* ── Permissions ── */}
-        <div className="emp-card">
-          <div className="emp-permissions-header">
-            <div className="emp-permissions-header__left">
-              <span className="emp-card__title emp-card__title--inline">Permissions</span>
-            </div>
-          </div>
-          {isEdit ? (
-            <>
-              <p className="emp-field__hint">
-                This staff member's access is governed by their assigned role, with optional
-                individual overrides.
-              </p>
-              <button
-                type="button"
-                className="btn btn-outline-secondary btn-sm"
-                onClick={() => setShowPermissionEditor(true)}
-              >
-                Manage permission overrides →
-              </button>
-            </>
-          ) : (
-            <p className="emp-field__hint">
-              This staff member will start with their assigned role's default permissions.
-              Individual overrides can be set after saving, from the Roles &amp; Permissions page.
-            </p>
-          )}
-        </div>
       </div>
-
-      {isEdit && showPermissionEditor && id && (
-        <StaffPermissionEditor
-          staffId={id}
-          staffName={form.name || form.email}
-          onClose={() => setShowPermissionEditor(false)}
-        />
-      )}
     </div>
   );
 };
