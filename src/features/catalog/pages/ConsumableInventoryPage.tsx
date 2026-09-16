@@ -579,8 +579,11 @@ const ConsumableInventoryPage: React.FC = () => {
         <table className="ci-table">
           <thead>
             <tr>
-              <th>Product</th><th>Category</th><th>Supplier</th><th>Stock</th><th>Unit</th>
-              <th>Available Stock</th><th>Used (Month)</th><th>Assigned Services</th><th>Status</th><th></th>
+              <th>Product</th><th>Category</th><th>Supplier</th>
+              <th title="Rounded up to the nearest whole unit — a partial remainder still counts as one more. For the exact quantity, see Available Stock.">Stock (approx.)</th>
+              <th>Unit</th>
+              <th title="The precise quantity currently in stock, in the product's own unit.">Available Stock</th>
+              <th>Used (Month)</th><th>Assigned Services</th><th>Status</th><th></th>
             </tr>
           </thead>
           <tbody>
@@ -613,10 +616,16 @@ const ConsumableInventoryPage: React.FC = () => {
                       {row.supplier_name || "—"}
                     </span>
                   </td>
-                  {/* Stock = package/bottle count (1, 2, 3…); Unit = the
-                      configured package size itself (e.g. "100 ml" per
-                      Bottle) — never the multiplied total across all stock. */}
-                  <td>{row.product_qty.toLocaleString()}</td>
+                  {/* Stock = package/bottle count, CEIL(Available Stock /
+                      Unit) — rounded UP so a partial remainder still shows as
+                      needing a unit (matches the low-stock threshold check).
+                      It's DERIVED from Available Stock, not the other way
+                      around — Unit is the configured package size, and
+                      multiplying Stock × Unit back out does not recover the
+                      real remaining quantity (it overstates it by whatever
+                      the rounding added). Available Stock (below) is always
+                      the precise, correct figure. */}
+                  <td title="Rounded up — see Available Stock for the exact quantity">{row.product_qty.toLocaleString()}</td>
                   <td>{row.unit_size ? `${row.unit_size.toLocaleString()} ${row.unit}` : "—"}</td>
                   <td>{row.remaining_stock.toLocaleString()} {row.unit}</td>
                   <td>{row.used_this_month.toLocaleString()} {row.unit}</td>
