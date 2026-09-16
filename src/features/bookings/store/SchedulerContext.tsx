@@ -58,7 +58,7 @@ export function useSchedulerContext() {
   const membershipsList = useAppSelector((s) => s.scheduler.membershipsList);
   const productsList = useAppSelector((s) => s.scheduler.productsList);
   const staffSchedules = useAppSelector((s) => s.scheduler.staffSchedules);
-  const salonId = useAppSelector((s: any) => s.salon?.currentSalon?.id);
+  
 
   return {
     bookings,

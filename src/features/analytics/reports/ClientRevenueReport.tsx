@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useDispatch } from "react-redux";
 import { useAppSelector } from "../../../hooks/useAppRedux";
-import { Search, X, StarFill, Star } from "react-bootstrap-icons";
+import { Search,  StarFill, Star } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { CLIENT_REVENUE_REPORT } from "../../../services/api/endpoints";
 import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
