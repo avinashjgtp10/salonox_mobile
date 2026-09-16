@@ -277,12 +277,6 @@ export async function sendDailySummaryEmail(
   summaryData?: Partial<DailySummaryData>,
   ownerEmail?: string
 ) {
-  console.log("%c[Daily Summary Email] Sending email summary...", "color: #4f46e5; font-weight: bold", {
-    cashManagementId,
-    ownerEmail,
-    summaryData
-  });
-
   const payload = {
     cash_management_id: cashManagementId,
     email: ownerEmail,
@@ -299,13 +293,11 @@ export async function sendDailySummaryEmail(
 
   try {
     const res = await api.post(`${BASE}/send-summary-email`, payload);
-    console.log("%c[Daily Summary Email] Success:", "color: #10b981; font-weight: bold", res.data);
     return res.data;
   } catch (primaryErr: any) {
     console.warn("[Daily Summary Email] Primary endpoint returned:", primaryErr?.response?.status || primaryErr?.message);
     try {
       const fallbackRes = await api.post(`${BASE}/email-summary`, payload);
-      console.log("%c[Daily Summary Email] Fallback success:", "color: #10b981; font-weight: bold", fallbackRes.data);
       return fallbackRes.data;
     } catch (fallbackErr: any) {
       const status = fallbackErr?.response?.status || primaryErr?.response?.status;
