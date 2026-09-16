@@ -3,6 +3,9 @@ import toast from "react-hot-toast";
 import { Download, Printer, Link45deg, Share } from "react-bootstrap-icons";
 import { Modal, Button } from "../../../components/ui";
 import { makeQrDataUri } from "../../settings/designer/core/codes";
+import { renderQrPoster } from "../utils/digitalMenuQrPoster";
+import { useAppSelector } from "../../../hooks/useAppRedux";
+import { resolveMediaUrl } from "../../../utils/mediaUrl";
 import type { DigitalMenu } from "../types/digitalMenu.types";
 import "../styles/DigitalMenu.scss";
 
@@ -18,6 +21,8 @@ function buildPublicMenuUrl(token: string): string {
 const DigitalMenuQrModal: React.FC<Props> = ({ menu, onClose }) => {
   const publicUrl = buildPublicMenuUrl(menu.public_token);
   const [qrDataUri, setQrDataUri] = useState<string>("");
+  const [downloading, setDownloading] = useState(false);
+  const currentSalon = useAppSelector((s: any) => s.salon?.currentSalon ?? null);
 
   useEffect(() => {
     let cancelled = false;
@@ -34,34 +39,57 @@ const DigitalMenuQrModal: React.FC<Props> = ({ menu, onClose }) => {
     }
   };
 
-  const handleDownload = () => {
-    if (!qrDataUri) return;
-    const a = document.createElement("a");
-    a.href = qrDataUri;
-    a.download = `${menu.name.replace(/\s+/g, "-").toLowerCase()}-qr.svg`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+  const handleDownload = async () => {
+    if (!qrDataUri || downloading) return;
+    setDownloading(true);
+    try {
+      const posterDataUri = await renderQrPoster({
+        salonName: currentSalon?.business_name || "Our Salon",
+        logoUrl: resolveMediaUrl(currentSalon?.logo_url),
+        qrDataUri,
+        serviceCount: menu.service_count,
+        categoryCount: menu.category_count,
+      });
+      const a = document.createElement("a");
+      a.href = posterDataUri;
+      a.download = `${menu.name.replace(/\s+/g, "-").toLowerCase()}-qr-poster.png`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } catch {
+      toast.error("Couldn't generate the QR poster");
+    } finally {
+      setDownloading(false);
+    }
   };
 
-  const handlePrint = () => {
+  const handlePrint = async () => {
     if (!qrDataUri) return;
-    const win = window.open("", "_blank", "width=480,height=600");
+    const win = window.open("", "_blank", "width=480,height=680");
     if (!win) return;
-    win.document.write(`
-      <html>
-        <head><title>${menu.name} — QR Code</title></head>
-        <body style="text-align:center;font-family:sans-serif;padding:32px;">
-          <h2>${menu.name}</h2>
-          <img src="${qrDataUri}" style="width:280px;height:280px;" />
-          <p>Scan this QR code to view the menu.</p>
-          <p style="color:#666;font-size:12px;">${publicUrl}</p>
-        </body>
-      </html>
-    `);
-    win.document.close();
-    win.focus();
-    win.print();
+    try {
+      const posterDataUri = await renderQrPoster({
+        salonName: currentSalon?.business_name || "Our Salon",
+        logoUrl: resolveMediaUrl(currentSalon?.logo_url),
+        qrDataUri,
+        serviceCount: menu.service_count,
+        categoryCount: menu.category_count,
+      });
+      win.document.write(`
+        <html>
+          <head><title>${menu.name} — QR Code</title></head>
+          <body style="text-align:center;margin:0;padding:24px;">
+            <img src="${posterDataUri}" style="width:100%;max-width:420px;" />
+          </body>
+        </html>
+      `);
+      win.document.close();
+      win.focus();
+      win.print();
+    } catch {
+      win.close();
+      toast.error("Couldn't generate the QR poster");
+    }
   };
 
   const handleShare = async () => {
@@ -90,8 +118,14 @@ const DigitalMenuQrModal: React.FC<Props> = ({ menu, onClose }) => {
         <div className="dm-qr__url">{publicUrl}</div>
 
         <div className="dm-qr__actions">
-          <Button variant="outline-secondary" size="sm" iconLeft={<Download size={14} />} onClick={handleDownload}>
-            Download
+          <Button
+            variant="outline-secondary"
+            size="sm"
+            iconLeft={<Download size={14} />}
+            onClick={handleDownload}
+            disabled={downloading || !qrDataUri}
+          >
+            {downloading ? "Preparing…" : "Download"}
           </Button>
           <Button variant="outline-secondary" size="sm" iconLeft={<Printer size={14} />} onClick={handlePrint}>
             Print
