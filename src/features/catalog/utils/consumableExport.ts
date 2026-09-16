@@ -45,7 +45,11 @@ const fmtQty = (n: unknown) => {
 const fileStamp = () => formatDateDDMMYYYY(new Date());
 
 const HEADERS = [
-  "#", "Product", "Brand", "Category", "Supplier", "Stock", "Unit Size",
+  // "Stock" is a rounded-up unit count derived from Available Stock (see
+  // ConsumableInventoryPage's table header tooltip) — labeled the same way
+  // here so an exported sheet doesn't look more precise than the table it
+  // came from.
+  "#", "Product", "Brand", "Category", "Supplier", "Stock (approx.)", "Unit Size",
   "Available Stock", "Used (This Month)", "Assigned Services", "Status",
 ];
 
