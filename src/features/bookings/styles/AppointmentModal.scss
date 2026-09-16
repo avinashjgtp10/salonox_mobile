@@ -2572,7 +2572,7 @@ $item-field-text-inset: 9px;
       // hide number input spinners
       &::-webkit-outer-spin-button,
       &::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-      -moz-appearance: textfield;
+     
     }
   }
 
@@ -2666,7 +2666,7 @@ $item-field-text-inset: 9px;
     &:focus { border-color: #3b82f6; }
     &::-webkit-outer-spin-button,
     &::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-    -moz-appearance: textfield;
+    
 
     &--error {
       border-color: #ef4444;
@@ -2975,7 +2975,7 @@ $item-field-text-inset: 9px;
     // hide number input spinners
     &::-webkit-outer-spin-button,
     &::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-    -moz-appearance: textfield;
+   
   }
 
   &__err {
@@ -3113,7 +3113,7 @@ $item-field-text-inset: 9px;
     &--error { border-color: #ef4444; }
     &::-webkit-outer-spin-button,
     &::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-    -moz-appearance: textfield;
+    
   }
 
   &__save {

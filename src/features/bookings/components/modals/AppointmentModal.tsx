@@ -727,7 +727,12 @@ export const AppointmentModal: React.FC<Props> = ({
   // callbacks that DO (runPosSuccessTail, openPosPaymentForAppointment,
   // handlePosModalClose) live just above handlePay instead, so their
   // dependency arrays don't reference a const before its declaration.
-  const { enabledProvider: posProvider, terminals: posTerminals } = usePosSettings();
+  // Quick Sale's single screen IS the payment step from the start (see the
+  // qs-layout comment below), so fetch immediately there; the regular flow
+  // defers until showPaymentSection actually flips true — otherwise every
+  // New Appointment / edit-booking / empty-slot click fired both POS GETs
+  // long before checkout was ever reached.
+  const { enabledProvider: posProvider, terminals: posTerminals } = usePosSettings(quickSale || showPaymentSection);
   const posMethodOptions = useMemo(
     () => (posProvider ? [...SINGLE_METHODS, POS_MACHINE_METHOD] : undefined),
     [posProvider]

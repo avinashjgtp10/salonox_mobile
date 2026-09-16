@@ -3,6 +3,11 @@ import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { setServicesList, setMembershipsList, setProductsList, setClientsList } from "../../../store/schedulerSlice";
 import type { Client } from "../types";
 
+// Stable empty-array reference so selector fallbacks (`?? EMPTY_ARR`) don't
+// hand Redux a brand-new [] every render, which is what was tripping the
+// "Selector returned a different result" warning even with no data change.
+const EMPTY_ARR: any[] = [];
+
 // Membership `description` is JSON-encoded on wallet-style plans —
 // {"description": "...", "bonusCredit": N} — same convention/parsing as the
 // backend's own client-memberships.repository.ts. A plain-text description
@@ -27,16 +32,16 @@ function parseMembershipDescription(raw: unknown): { description?: string; bonus
 export function useServices(_salonId?: string | null) {
   const dispatch = useAppDispatch();
 
-  const apiServices    = useAppSelector((s: any) => s.catalog?.services ?? s.services?.items ?? []);
-  const apiClients     = useAppSelector((s: any) => s.clients?.clients ?? s.clients?.items ?? []);
-  const apiMemberships = useAppSelector((s: any) => s.membership?.memberships ?? s.memberships?.items ?? []);
+  const apiServices    = useAppSelector((s: any) => s.catalog?.services ?? s.services?.items ?? EMPTY_ARR);
+  const apiClients     = useAppSelector((s: any) => s.clients?.clients ?? s.clients?.items ?? EMPTY_ARR);
+  const apiMemberships = useAppSelector((s: any) => s.membership?.memberships ?? s.memberships?.items ?? EMPTY_ARR);
   // pickerItems, not items — this feeds Calendar/Quick Sale's product
   // picker, fed by searchProductsThunk's up-to-200 preload
   // (AppointmentModal.tsx), which no longer shares state with the paginated
   // Catalog → Products list page (10-per-page `items`) — see
   // productsSlice.ts. Reading `items` here would show only whatever page of
   // 10 the list page last loaded, not the full picker preload.
-  const apiProducts    = useAppSelector((s: any) => s.products?.pickerItems ?? []);
+  const apiProducts    = useAppSelector((s: any) => s.products?.pickerItems ?? EMPTY_ARR);
 
   // No eager full-catalog fetch — ServiceRow's own search box already hits
   // the services API directly and on demand (debounced, live). The only
