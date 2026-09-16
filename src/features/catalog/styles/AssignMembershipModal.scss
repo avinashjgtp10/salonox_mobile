@@ -170,6 +170,14 @@
     white-space: nowrap;
   }
 
+  /* The shared .ui-pagination already brings its own top border, padding and
+     wrapping — this only strips the bottom radius it carries for use as a
+     card footer, since here it sits inside the list box’s own rounded border. */
+  &__pager .ui-pagination {
+    border-radius: 0;
+    padding: 10px 14px;
+  }
+
   &__td-actions {
     width: 44px;
     text-align: right;
@@ -190,13 +198,169 @@
   }
 }
 
-/* Phone — the two-up form collapses, and the table needs its own scroll
-   rather than forcing the modal body to scroll sideways. */
-@media (max-width: 640px) {
+/* ── Responsive ───────────────────────────────────────────────────
+   Two breakpoints, because the two problems are different:
+   768px  — the two-up form has no room for side-by-side fields.
+   560px  — the tables stop fitting at all. Rather than scroll them
+            sideways (which hides the Status column, the one thing you
+            need after a bulk run), each row collapses into a stacked
+            card and every cell prints its own column name from the
+            data-label attribute the TSX sets.
+   ---------------------------------------------------------------- */
+
+@media (max-width: 768px) {
   .amm {
     &__form { grid-template-columns: 1fr; }
-    &__list { overflow-x: auto; }
-    &__table { min-width: 420px; }
+
+    /* A long name + phone must not push the clear button off the chip. */
+    &__chosen { flex-wrap: wrap; }
+    &__chosen-clear { margin-left: auto; }
+  }
+
+  .amm-bulk {
+    &__template { flex-direction: column; align-items: flex-start; gap: 8px; }
+    &__drop { padding: 26px 16px; }
+
+    /* Taller on a phone: the viewport is short, but a 300px window showing
+       ~3 rows of a 200-row file is less useful than one that fills it. */
+    &__tablewrap { max-height: 50vh; }
+  }
+}
+
+@media (max-width: 560px) {
+  .amm {
+    /* Stacked cards — the wrapper keeps its border, each row draws its own. */
+    &__list { overflow: visible; }
+
+    &__table {
+      display: block;
+
+      thead { display: none; }
+      tbody { display: block; }
+
+      tr {
+        display: block;
+        padding: 10px 14px;
+        border-bottom: 1px solid #f1f5f9;
+        position: relative;
+      }
+
+      tr:last-child { border-bottom: none; }
+
+      td {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 3px 0;
+        border-bottom: none;
+
+        /* The column name, printed per cell. */
+        &::before {
+          content: attr(data-label);
+          flex: 0 0 auto;
+          font-size: 11px;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: .03em;
+          color: #94a3b8;
+        }
+      }
+    }
+
+    &__pager .ui-pagination {
+      /* space-between strands the page-size select and the page buttons at
+         opposite edges on a narrow screen — centre and stack them instead. */
+      justify-content: center;
+      gap: 10px;
+      padding: 10px;
+    }
+
+    /* The delete button has no label and belongs in the card's top corner,
+       not on a row of its own. */
+    &__td-actions {
+      position: absolute;
+      top: 8px;
+      right: 10px;
+      width: auto;
+      padding: 0;
+
+      &::before { content: none; }
+    }
+  }
+
+  .amm-bulk {
+    &__filebar {
+      flex-wrap: wrap;
+      row-gap: 4px;
+      padding-right: 40px;      /* room for the clear button, pinned below */
+      position: relative;
+    }
+
+    &__filename { flex: 1 1 100%; }
+    &__counts   { margin-left: 0; white-space: normal; }
+    &__clear    { position: absolute; top: 8px; right: 10px; }
+
+    &__tablewrap { max-height: 60vh; }
+
+    &__table {
+      display: block;
+
+      thead { display: none; }
+      tbody { display: block; }
+
+      tr {
+        display: block;
+        padding: 10px 12px;
+        border-bottom: 1px solid #e2e8f0;
+      }
+
+      tr:last-child { border-bottom: none; }
+
+      td {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 3px 0;
+        border-bottom: none;
+        text-align: right;
+
+        &::before {
+          content: attr(data-label);
+          flex: 0 0 auto;
+          font-size: 11px;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: .03em;
+          color: #94a3b8;
+          text-align: left;
+        }
+      }
+    }
+
+    /* The row number is card-level context, not a field worth its own line. */
+    &__td-n {
+      padding: 0 0 4px;
+      font-size: 11px;
+      color: #94a3b8;
+      justify-content: flex-start;
+
+      &::before { content: attr(data-label) " "; }
+    }
+
+    &__client, &__mobile { text-align: right; }
+
+    /* Error text is the long one — let it wrap instead of forcing the card wide. */
+    &__st {
+      text-align: left;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+    }
+
+    &__actions { flex-direction: column; align-items: stretch; }
+    &__run     { width: 100%; }
+    &__summary { text-align: center; }
   }
 }
 
