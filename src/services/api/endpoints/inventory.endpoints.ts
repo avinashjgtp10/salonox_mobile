@@ -18,6 +18,8 @@ export const INVENTORY = {
   CONSUMABLES: "/api/v1/inventory/consumables",
   CONSUMABLES_DASHBOARD: "/api/v1/inventory/consumables/dashboard",
   CONSUMABLES_USAGE_HISTORY: "/api/v1/inventory/consumables/usage-history",
+  CONSUMABLES_USAGE_REVERT: (usageId: string) =>
+    `/api/v1/inventory/consumables/usage-history/${usageId}/revert`,
   CONSUMABLE_BY_ID: (id: string) => `/api/v1/inventory/consumables/${id}`,
   CONSUMABLE_ADJUST: (id: string) => `/api/v1/inventory/consumables/${id}/adjust`,
   CONSUMABLE_ASSIGNED_SERVICES: (id: string) => `/api/v1/inventory/consumables/${id}/assigned-services`,

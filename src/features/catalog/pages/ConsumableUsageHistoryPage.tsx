@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft } from "react-bootstrap-icons";
+import { ArrowLeft, ArrowCounterclockwise } from "react-bootstrap-icons";
 import { useDispatch } from "react-redux";
 import type { AppDispatch } from "../../../store/store";
 import api from "../../../services/api/axios";
@@ -12,19 +12,24 @@ import Dropdown from "../../../components/ui/Dropdown";
 import { Pagination, DateRangeFilter } from "../../../components/ui";
 import type { DateRangeFilterValue } from "../../../components/ui";
 import Skeleton from "../../../components/ui/Skeleton";
+import RevertConsumableUsageModal from "../components/RevertConsumableUsageModal";
+import { usePermissions } from "../../../hooks/usePermissions";
 import "../styles/ConsumableInventoryPage.scss";
 import "../styles/ConsumableUsageHistoryPage.scss";
+import "../styles/RevertConsumableUsageModal.scss";
 
 const SOURCE_LABEL: Record<string, string> = {
   appointment_complete: "Appointment completed",
   appointment_adjustment: "Appointment edited",
   manual: "Manual adjustment",
+  revert: "Reverted",
 };
 
 const ConsumableUsageHistoryPage: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
   const [searchParams] = useSearchParams();
+  const { can } = usePermissions();
 
   // Page-local, deliberately NOT the shared inventory.consumables slice: this
   // is only a name lookup for the filter dropdown, and writing a flat 200-row
@@ -75,6 +80,28 @@ const ConsumableUsageHistoryPage: React.FC = () => {
     })();
     return () => { cancelled = true; };
   }, []);
+
+  // The row awaiting confirmation. Null = dialog closed.
+  const [revertRow, setRevertRow] = useState<UsageHistoryRow | null>(null);
+
+  // Reverting moves stock, so it is gated on adjust_consumable_stock rather
+  // than the view permission that got the user onto this page.
+  const canRevert = can("adjust_consumable_stock");
+
+  const handleRevert = useCallback(async (row: UsageHistoryRow, reason: string) => {
+    try {
+      await api.post(INVENTORY.CONSUMABLES_USAGE_REVERT(row.id), reason.trim() ? { reason: reason.trim() } : {});
+    } catch (err: any) {
+      // Surfaced inside the dialog — the row stays put and nothing is refetched,
+      // matching the backend, where a failed revert writes neither stock nor history.
+      throw new Error(err?.response?.data?.message || "Could not revert this deduction.");
+    }
+    setRevertRow(null);
+    // Refetch rather than patching locally: the revert adds a new row AND
+    // changes the original’s state, and current_stock on every other row of
+    // the same product is now stale too.
+    await load(filters, page, pageSize);
+  }, [load, filters, page, pageSize]);
 
   const updateFilter = <K extends keyof UsageHistoryFilters>(key: K, value: UsageHistoryFilters[K]) => {
     setFilters((prev) => ({ ...prev, [key]: value || undefined }));
@@ -128,15 +155,15 @@ const ConsumableUsageHistoryPage: React.FC = () => {
       <div className="ci-table-wrap">
         <table className="ci-table">
           <thead>
-            <tr><th>Date</th><th>Product</th><th>Service</th><th>Staff</th><th>Qty</th><th>Direction</th><th>Source</th></tr>
+            <tr><th>Date</th><th>Product</th><th>Service</th><th>Staff</th><th>Qty</th><th>Direction</th><th>Source</th><th aria-label="Actions" /></tr>
           </thead>
           <tbody>
             {loading ? (
               Array.from({ length: 8 }).map((_, i) => (
-                <tr key={i}>{Array.from({ length: 7 }).map((__, j) => <td key={j}><Skeleton height={14} /></td>)}</tr>
+                <tr key={i}>{Array.from({ length: 8 }).map((__, j) => <td key={j}><Skeleton height={14} /></td>)}</tr>
               ))
             ) : rows.length === 0 ? (
-              <tr><td colSpan={7} className="ci-empty">No usage recorded for this filter.</td></tr>
+              <tr><td colSpan={8} className="ci-empty">No usage recorded for this filter.</td></tr>
             ) : (
               rows.map((r) => (
                 <tr key={r.id} className="ci-usage-row">
@@ -147,12 +174,35 @@ const ConsumableUsageHistoryPage: React.FC = () => {
                   <td>{r.qty.toLocaleString()} {r.unit || ""}</td>
                   <td><span className={`ci-direction ci-direction--${r.direction}`}>{r.direction === "deduct" ? "Deducted" : "Returned"}</span></td>
                   <td>{r.source ? (SOURCE_LABEL[r.source] || r.source) : "—"}</td>
+                  <td className="ci-usage-actions">
+                    {r.can_revert ? (
+                      <button
+                        type="button"
+                        className="ci-revert-btn"
+                        onClick={() => setRevertRow(r)}
+                        disabled={!canRevert}
+                        title={canRevert ? "Revert this deduction" : "Needs the adjust_consumable_stock permission"}
+                      >
+                        <ArrowCounterclockwise size={12} /> Revert
+                      </button>
+                    ) : r.reverted_at ? (
+                      /* Stated rather than left blank: an empty cell reads as
+                         "not allowed", which is a different thing. */
+                      <span className="ci-reverted-tag">Reverted</span>
+                    ) : null}
+                  </td>
                 </tr>
               ))
             )}
           </tbody>
         </table>
       </div>
+
+      <RevertConsumableUsageModal
+        row={revertRow}
+        onClose={() => setRevertRow(null)}
+        onConfirm={handleRevert}
+      />
 
       <Pagination
         currentPage={page}

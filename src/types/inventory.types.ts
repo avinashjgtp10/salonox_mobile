@@ -331,6 +331,14 @@ export interface UsageHistoryRow {
   qty: number;
   direction: "deduct" | "return";
   source: string | null;
+  /** Set on a deduction once reverted — null means it is still revertable. */
+  reverted_at: string | null;
+  /** Set on a 'return' row that reverses a deduction; points at that deduction. */
+  reverts_usage_id: string | null;
+  /** Live products.amount, shown in the revert confirmation dialog. */
+  current_stock: number;
+  /** Server-computed: a deduction that has not already been undone. */
+  can_revert: boolean;
 }
 
 // ─── Orders (Purchase Orders) ────────────────────────────────────────────────
