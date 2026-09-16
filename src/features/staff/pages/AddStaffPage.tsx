@@ -102,7 +102,13 @@ const AddStaffPage: React.FC = () => {
   const [emailOtpMsg, setEmailOtpMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [emailOtpError, setEmailOtpError] = useState<string | null>(null);
   const lastVerifiedEmailRef = useRef("");
-  const shouldShowEmailOtp = !isEdit && staffLoginEnabled;
+  // Editing an existing login's email now needs the same OTP flow Add-staff
+  // already has — only while the address has actually changed from the one
+  // this staff member's login was last verified against (lastVerifiedEmailRef,
+  // seeded from the loaded record below when it already has a working login).
+  // Leaving it untouched needs no re-verification; typing a different
+  // address does, same as Add.
+  const shouldShowEmailOtp = staffLoginEnabled && form.email.trim() !== lastVerifiedEmailRef.current;
   const emailVerifiedForCurrentAddress = emailOtpVerified && lastVerifiedEmailRef.current === form.email.trim();
   const isEmailVerificationInvalid = attemptedSubmit && shouldShowEmailOtp && !emailVerifiedForCurrentAddress;
 
@@ -153,6 +159,13 @@ const AddStaffPage: React.FC = () => {
         // optional when OFF" would have let an existing logged-in staff
         // member's email be silently cleared on save.
         setStaffLoginEnabled(!!staff.email);
+        // Seeds shouldShowEmailOtp's "has this address actually changed"
+        // check — an existing staff member's on-file email is already how
+        // they log in today, so leaving it untouched needs no
+        // re-verification here; editing it to a different address does.
+        if (staff.email) {
+          lastVerifiedEmailRef.current = staff.email;
+        }
         setAvatarUrl(staff.avatar_url || "");
         setPermissionLevel(LEVEL_TO_ROLE[staff.permission_level] || "Low");
 
@@ -702,64 +715,59 @@ const AddStaffPage: React.FC = () => {
                 <label className="emp-field__label">
                   Email<span className="text-danger">*</span>
                 </label>
-                {hasExistingLogin ? (
-                  // Already has a working login — the backend only ever grants
-                  // that after an OTP-verified email (at creation or a prior
-                  // reset), so this address is proven and shown read-only
-                  // rather than reopened for editing/re-verification here.
-                  <div className="emp-input-row">
-                    <input className="emp-input" type="email" value={form.email} disabled readOnly />
-                    <span className="emp-verified-tag emp-verified-tag--email">
-                      <span className="emp-verified-tag__check">✓</span>
-                      Email verified
-                    </span>
-                  </div>
-                ) : (
-                  <>
-                    <div className="emp-input-row">
-                      <input
-                        className={`emp-input ${isEmailInvalid ? "emp-input--invalid" : ""}`}
-                        placeholder="Email"
-                        type="email"
-                        value={form.email}
-                        onChange={(e) => setField("email")(e.target.value)}
-                      />
-                      {shouldShowEmailOtp && (
-                        <button
-                          type="button"
-                          className={`emp-otp-btn ${emailOtpVerified ? "emp-otp-btn--verified" : ""}`}
-                          onClick={handleSendEmailOtp}
-                          disabled={emailOtpLoading || emailOtpVerified}
-                        >
-                          {emailOtpLoading && !emailOtpSent
-                            ? "Sending…"
-                            : emailOtpVerified
-                              ? "Verified"
-                              : emailOtpSent
-                                ? "Resend"
-                                : "Send OTP"}
-                        </button>
-                      )}
-                    </div>
-                    {isEmailInvalid && <span className="emp-field__error">{emailErrorMessage}</span>}
-                    {!isEmailInvalid && emailOtpMsg && (
-                      <span className={`emp-otp-msg emp-otp-msg--${emailOtpMsg.type}`}>{emailOtpMsg.text}</span>
-                    )}
-                    {!isEmailInvalid && isEmailVerificationInvalid && (
-                      <span className="emp-field__error">Email OTP verification is required when Staff Login is enabled</span>
-                    )}
-                    {shouldShowEmailOtp && !emailOtpVerified && !emailOtpMsg && !isEmailVerificationInvalid && (
-                      <span className="emp-field__hint">
-                        Verify this email so the staff member can log in.
-                      </span>
-                    )}
-                    {shouldShowEmailOtp && emailOtpVerified && (
-                      <span className="emp-verified-tag emp-verified-tag--email">
-                        <span className="emp-verified-tag__check">✓</span>
-                        Email verified
-                      </span>
-                    )}
-                  </>
+                <div className="emp-input-row">
+                  <input
+                    className={`emp-input ${isEmailInvalid ? "emp-input--invalid" : ""}`}
+                    placeholder="Email"
+                    type="email"
+                    value={form.email}
+                    onChange={(e) => setField("email")(e.target.value)}
+                  />
+                  {shouldShowEmailOtp && (
+                    <button
+                      type="button"
+                      className={`emp-otp-btn ${emailOtpVerified ? "emp-otp-btn--verified" : ""}`}
+                      onClick={handleSendEmailOtp}
+                      disabled={emailOtpLoading || emailOtpVerified}
+                    >
+                      {emailOtpLoading && !emailOtpSent
+                        ? "Sending…"
+                        : emailOtpVerified
+                          ? "Verified"
+                          : emailOtpSent
+                            ? "Resend"
+                            : "Send OTP"}
+                    </button>
+                  )}
+                </div>
+                {isEmailInvalid && <span className="emp-field__error">{emailErrorMessage}</span>}
+                {!isEmailInvalid && emailOtpMsg && (
+                  <span className={`emp-otp-msg emp-otp-msg--${emailOtpMsg.type}`}>{emailOtpMsg.text}</span>
+                )}
+                {!isEmailInvalid && isEmailVerificationInvalid && (
+                  <span className="emp-field__error">Email OTP verification is required when Staff Login is enabled</span>
+                )}
+                {shouldShowEmailOtp && !emailOtpVerified && !emailOtpMsg && !isEmailVerificationInvalid && (
+                  <span className="emp-field__hint">
+                    {isEdit
+                      ? "This email is changing — verify it so the staff member can keep logging in."
+                      : "Verify this email so the staff member can log in."}
+                  </span>
+                )}
+                {emailOtpVerified && (
+                  <span className="emp-verified-tag emp-verified-tag--email">
+                    <span className="emp-verified-tag__check">✓</span>
+                    Email verified
+                  </span>
+                )}
+                {/* Unchanged from the address this login already works with —
+                    already proven, so shown as verified without re-asking
+                    for OTP (see lastVerifiedEmailRef, seeded on load). */}
+                {!shouldShowEmailOtp && !emailOtpVerified && staffLoginEnabled && lastVerifiedEmailRef.current && (
+                  <span className="emp-verified-tag emp-verified-tag--email">
+                    <span className="emp-verified-tag__check">✓</span>
+                    Email verified
+                  </span>
                 )}
               </div>
 
@@ -795,15 +803,16 @@ const AddStaffPage: React.FC = () => {
 
           {/* Existing login: masked password + Reset Password, or the New/Confirm
               Password + Update Password flow once clicked. emailAlreadyVerified
-              is always true here — hasExistingLogin means this staff member
-              already has a working password, which the backend only ever
-              grants after an OTP-verified email (at creation or a prior
-              reset), so there's nothing left to re-verify. */}
+              tracks the email field above — true while it's still the
+              address this login already works with, false once the admin
+              edits it to something new (which then needs its own fresh OTP,
+              same gate ResetPasswordSection already applies when this is
+              false, before a password reset can go out to an unproven inbox). */}
           {staffLoginEnabled && hasExistingLogin && (
             <ResetPasswordSection
               staffId={id!}
               email={form.email}
-              emailAlreadyVerified
+              emailAlreadyVerified={!shouldShowEmailOtp}
               onSuccess={() => showSuccess("Password updated successfully")}
               onError={showError}
             />
