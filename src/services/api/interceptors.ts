@@ -155,28 +155,22 @@ function toFriendlyPermissionMessage(message: string): string {
   return `Your account does not have the "${match[1]}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`;
 }
 
-// Security default: every endpoint's controller is expected to derive
-// salon_id exclusively from the authenticated, validated JWT
-// (getSalonId(req) → req.user.salonId), never from a client-supplied query
-// param — a query param the client controls is spoofable and must never be
-// able to shadow the authenticated salon. So salon_id is NOT sent on any
-// request by default; it's added back only for the narrow, confirmed set of
-// endpoints below whose controllers genuinely still fall back to
-// req.query.salon_id for a user whose JWT doesn't have salonId yet (e.g. a
-// salon_owner who just registered and hasn't created their salon).
-// Matched as whole path segments (not a substring) so this doesn't
-// accidentally also match a similarly-named but unrelated endpoint.
+// Security default: every endpoint's controller derives salon_id exclusively
+// from the authenticated, validated JWT (getSalonId(req) → req.user.salonId),
+// never from a client-supplied query param — a query param the client
+// controls is spoofable and must never be able to shadow the authenticated
+// salon. salon_id is therefore never added to any outgoing request.
 //
-// - salons.controller.ts's mySalon handler (SALON.ME, "/salons/me")
-// - staff commission endpoints (STAFF.COMMISSIONS / COMMISSIONS_BULK /
-//   SETTLE_COMMISSION, all under "/staff/.../commissions" or
-//   "/staff/commissions/...")
-//
-// If another endpoint turns out to also need this fallback, add it here
-// explicitly — don't widen these patterns or add a new exclusion-style list,
-// since the whole point of flipping to an allowlist is that omission is the
-// safe default and inclusion requires a deliberate, reviewed decision.
-const SALON_ID_FALLBACK_NEEDED = [/\/salons\/me(\/|\?|$)/, /\/staff\/commissions(\/|\?|$)/, /\/staff\/[^/?]+\/commissions(\/|\?|$)/];
+// This used to include a narrow allowlist re-adding salon_id as a query
+// param fallback for /salons/me and the staff commission endpoints, on the
+// theory that their controllers still read req.query.salon_id for a
+// salon_owner without a JWT salonId yet. Both controllers (salons.controller.ts's
+// mySalon, staff.controller.ts's commission handlers) have since been fixed
+// to read only req.user.salonId — and mySalon resolves an owner's salon by
+// owner_id regardless, never by salonId — so that fallback was already dead
+// weight even before removal. If a genuinely new case needs it, add a
+// narrowly-scoped allowlist back deliberately rather than reintroducing a
+// blanket exception.
 
 // ─── Apply Interceptors ───────────────────────────────────────────────────────
 export const applyInterceptors = (instance: AxiosInstance) => {
@@ -193,25 +187,6 @@ export const applyInterceptors = (instance: AxiosInstance) => {
         const accessToken = state?.auth?.accessToken;
         if (accessToken) {
           config.headers["Authorization"] = `Bearer ${accessToken}`;
-        }
-
-        const role = state?.auth?.role;
-        const salonId = role !== "super_admin"
-          ? (state?.auth?.salonId ?? state?.salon?.currentSalon?.id)
-          : null;
-        const needsSalonIdFallback = SALON_ID_FALLBACK_NEEDED.some((re) => re.test(config.url ?? ""));
-        if (salonId && needsSalonIdFallback) {
-          const url = new URL(config.url ?? "", "http://x");
-          const inParams =
-            config.params instanceof URLSearchParams
-              ? config.params.has("salon_id")
-              : config.params != null && typeof config.params === "object"
-                ? "salon_id" in config.params
-                : false;
-          if (!url.searchParams.has("salon_id") && !inParams) {
-            url.searchParams.set("salon_id", String(salonId));
-            config.url = url.pathname + "?" + url.searchParams.toString();
-          }
         }
       }
 
