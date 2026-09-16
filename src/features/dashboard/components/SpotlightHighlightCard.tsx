@@ -1,9 +1,9 @@
-import { useEffect, type MouseEvent } from "react";
+import { type MouseEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { Stars, ChevronRight, X } from "react-bootstrap-icons";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { selectNewFeatures, selectSpotlightFetched } from "../../../store/spotlightSlice";
-import { fetchSpotlightFeaturesThunk, markSpotlightReadThunk } from "../../../middleware/spotlight/spotlight.thunk";
+import { markSpotlightReadThunk } from "../../../middleware/spotlight/spotlight.thunk";
 import "../styles/SpotlightHighlightCard.scss";
 
 // "NEW" highlight card for the Salon Dashboard home — shows the most
@@ -20,10 +20,9 @@ export default function SpotlightHighlightCard() {
   const newFeatures = useAppSelector(selectNewFeatures);
   const fetched = useAppSelector(selectSpotlightFetched);
 
-  useEffect(() => {
-    if (!fetched) dispatch(fetchSpotlightFeaturesThunk());
-  }, [dispatch, fetched]);
-
+  // Not fetched here — DashboardLayout (the parent of every dashboard page,
+  // this one included) already dispatches fetchSpotlightFeaturesThunk
+  // unconditionally on its own mount. This card only reads the result.
   if (!fetched || newFeatures.length === 0) return null;
 
   const feature = newFeatures[0];

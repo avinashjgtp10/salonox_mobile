@@ -38,8 +38,7 @@ import { sendDailySummaryEmail } from "../../cash-management/cashManagement.api"
 import { CloseCounterModal } from "../../cash-management/pages/CashManagementModals";
 import type { CloseCounterPayload } from "../../cash-management/cashManagement.types";
 import { onGlobalToast } from "../../../utils/globalToast";
-import { selectNewFeatures, selectSpotlightFetched } from "../../../store/spotlightSlice";
-import { fetchSpotlightFeaturesThunk } from "../../../middleware/spotlight/spotlight.thunk";
+import { selectNewFeatures } from "../../../store/spotlightSlice";
 import PlanExpiryBanner from "./PlanExpiryBanner";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -150,7 +149,6 @@ export default function DashboardTopbar({ onLogout, collapsed, onToggleCollapsed
   ));
   const cashDashboard = useAppSelector((s) => s.cashCounter.dashboard);
   const newSpotlightFeatures = useAppSelector(selectNewFeatures);
-  const spotlightFetched = useAppSelector(selectSpotlightFetched);
   const isCashCounterOpen = cashDashboard?.status === "open" && Boolean(cashDashboard.cashManagementId);
   const [showCloseCounterConfirm, setShowCloseCounterConfirm] = useState(false);
   const [closingCounter, setClosingCounter] = useState(false);
@@ -239,13 +237,12 @@ export default function DashboardTopbar({ onLogout, collapsed, onToggleCollapsed
     if (canViewNotifications) fetchNotifications();
   }, [fetchNotifications, canViewNotifications]);
 
-  // Powers the topbar's Spotlight icon — fetched once here (topbar is
-  // mounted on every dashboard page, unlike DashboardPage) so the "new
-  // feature available" indicator shows up regardless of which page the
-  // user lands on, not just the dashboard home.
-  useEffect(() => {
-    if (!spotlightFetched) dispatch(fetchSpotlightFeaturesThunk());
-  }, [dispatch, spotlightFetched]);
+  // Spotlight data itself is NOT fetched here — DashboardLayout (the only
+  // place that ever renders this topbar) already dispatches
+  // fetchSpotlightFeaturesThunk unconditionally on its own mount, and since
+  // both mount in the same render pass, a second dispatch here always raced
+  // that one and duplicated the GET. Reading `spotlightFetched`/the derived
+  // selectors below is enough for the topbar's "new feature" indicator.
 
   // ── WebSocket: real-time notifications ───────────────────────────────────────
 

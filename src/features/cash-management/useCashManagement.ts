@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAppDispatch, useAppSelector } from "../../hooks/useAppRedux";
 import {
   closeCashCounterThunk,
@@ -43,6 +43,9 @@ const emptySummary: CashDashboardSummary = {
   closingBalance: 0,
   inStoreCash: 0,
   reconciliationAmount: 0,
+  upiAmount: 0,
+  cardAmount: 0,
+  cashAmount: 0,
   openedAt: null,
   closedAt: null,
   remarks: null,
@@ -79,6 +82,21 @@ export function useCashManagement() {
   // shared with the main navbar's Close Counter shortcut, so opening or
   // closing the counter from either place updates both instantly.
   const dashboardState = useAppSelector((state) => state.cashCounter.dashboard);
+  const dashboardStateRef = useRef(dashboardState);
+  dashboardStateRef.current = dashboardState;
+  // DashboardLayout also dispatches fetchCashCounterDashboardThunk on its own
+  // mount (it needs the counter status app-wide, to gate the "unclosed
+  // counter" prompt from any page) — on a hard refresh landing directly on
+  // /cash-management, DashboardLayout and this hook both mount in the same
+  // tick and would otherwise fire this identical request twice. Tracked in a
+  // ref (not just read inline) so loadDashboard's useCallback below always
+  // sees the latest value without needing either as a dependency — putting
+  // them in the dependency array would recreate loadDashboard (and
+  // everything downstream: refreshAll, the mount effect) on every fetch,
+  // since fetching is exactly what changes these values, risking a loop.
+  const cashCounterLoading = useAppSelector((state) => state.cashCounter.loading);
+  const cashCounterLoadingRef = useRef(cashCounterLoading);
+  cashCounterLoadingRef.current = cashCounterLoading;
   const [transactions, setTransactions] = useState<CashTransactionRecord[]>([]);
   const [expenses, setExpenses] = useState<CashExpenseRecord[]>([]);
   // Kept separate from `dashboard` (the cash counter) on purpose — the
@@ -111,6 +129,12 @@ export function useCashManagement() {
   }, []);
 
   const loadDashboard = useCallback(async () => {
+    // A fetch dispatched moments ago by DashboardLayout's own mount effect
+    // is still in flight for this exact same data — piggyback on it instead
+    // of firing an identical, redundant request. It's already reflected in
+    // Redux the moment it resolves, so no separate wait/subscribe is needed
+    // here; the component just rerenders off `dashboardState` as usual.
+    if (cashCounterLoadingRef.current) return dashboardStateRef.current;
     return runTask("dashboard", () => dispatch(fetchCashCounterDashboardThunk()).unwrap());
   }, [runTask, dispatch]);
 
