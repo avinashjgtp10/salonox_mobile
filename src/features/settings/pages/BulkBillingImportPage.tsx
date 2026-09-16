@@ -37,6 +37,11 @@ interface ImportResult {
   success: number;
   failed: number;
   skipped: number;
+  // Bill Amount — the sale value excluding tax (amount - discount).
+  total_bill_amount: number;
+  // Tax Amount — the GST/tax summed across all rows.
+  total_tax_amount: number;
+  // Total Sale — total_bill_amount + total_tax_amount.
   total_billed: number;
   new_clients: number;
   new_staff: number;
@@ -258,7 +263,9 @@ export default function BulkBillingImportPage() {
               <div className="bbi-stat bbi-stat--success"><span className="bbi-stat-value">{result.success}</span><span className="bbi-stat-label">{finalResult ? "Invoices created" : "Valid"}</span></div>
               <div className="bbi-stat bbi-stat--warn"><span className="bbi-stat-value">{result.skipped}</span><span className="bbi-stat-label">Skipped</span></div>
               <div className="bbi-stat bbi-stat--error"><span className="bbi-stat-value">{result.failed}</span><span className="bbi-stat-label">Failed</span></div>
-              <div className="bbi-stat"><span className="bbi-stat-value">{formatAmount(result.total_billed)}</span><span className="bbi-stat-label">{finalResult ? "Total billed" : "Would bill"}</span></div>
+              <div className="bbi-stat"><span className="bbi-stat-value">{formatAmount(result.total_bill_amount)}</span><span className="bbi-stat-label">Bill Amount</span></div>
+              <div className="bbi-stat"><span className="bbi-stat-value">{formatAmount(result.total_tax_amount)}</span><span className="bbi-stat-label">Tax Amount</span></div>
+              <div className="bbi-stat"><span className="bbi-stat-value">{formatAmount(result.total_billed)}</span><span className="bbi-stat-label">Total Sale</span></div>
               {result.new_clients > 0 && (
                 <div className="bbi-stat"><span className="bbi-stat-value">{result.new_clients}</span><span className="bbi-stat-label">{finalResult ? "New clients added" : "New clients"}</span></div>
               )}
