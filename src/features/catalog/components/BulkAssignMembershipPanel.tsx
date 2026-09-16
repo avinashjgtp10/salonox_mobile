@@ -294,14 +294,14 @@ const BulkAssignMembershipPanel: React.FC<Props> = ({ onAssigned }) => {
               <tbody>
                 {rows.map((r) => (
                   <tr key={r.n} className={r.status === "invalid" || r.status === "failed" ? "amm-bulk__row--bad" : ""}>
-                    <td>{r.n}</td>
-                    <td>
+                    <td className="amm-bulk__td-n" data-label="Row">{r.n}</td>
+                    <td data-label="Client">
                       <div className="amm-bulk__client">{r.matchedName || r.clientName || "—"}</div>
                       <div className="amm-bulk__mobile">{r.mobile || "—"}</div>
                     </td>
-                    <td>{r.membership || "—"}</td>
-                    <td>{r.expiryIso ? formatDateDDMMYYYY(new Date(`${r.expiryIso}T00:00:00`)) : (r.expiryRaw || "—")}</td>
-                    <td>
+                    <td data-label="Membership">{r.membership || "—"}</td>
+                    <td data-label="Expires">{r.expiryIso ? formatDateDDMMYYYY(new Date(`${r.expiryIso}T00:00:00`)) : (r.expiryRaw || "—")}</td>
+                    <td data-label="Status">
                       {r.status === "done" ? (
                         <span className="amm-bulk__st ok"><CheckCircleFill size={12} /> Assigned</span>
                       ) : r.status === "assigning" ? (

@@ -12,12 +12,12 @@
 // zero price is what keeps the assignment inert: the backend funds the
 // membership wallet from the *plan's* price, so a zero-price plan credits
 // nothing and this never shows up as spendable balance at checkout.
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
 import { Award, X, Trash3 } from "react-bootstrap-icons";
 import Modal from "../../../components/ui/Modal";
 import Button from "../../../components/ui/Button";
-import { DatePicker } from "../../../components/ui";
+import { DatePicker, Pagination } from "../../../components/ui";
 import ClientSearchInput from "../../clients/components/ClientSearchInput";
 import type { ClientSearchResult } from "../../clients/components/ClientSearchInput";
 import type { AppDispatch } from "../../../store/store";
@@ -67,6 +67,12 @@ const AssignMembershipModal: React.FC<Props> = ({ show, onClose, onAssigned }) =
   const [assigned, setAssigned] = useState<ClientMembership[]>([]);
   const [listLoading, setListLoading] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  // Server-paginated: the list is every membership in the salon, which grows
+  // without bound, so it can't be fetched whole. `total` comes from the
+  // endpoint's own COUNT, not from assigned.length.
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [total, setTotal] = useState(0);
 
   // Reset the form every time the modal is reopened — a half-filled previous
   // assignment must not carry over onto the next client.
@@ -77,24 +83,29 @@ const AssignMembershipModal: React.FC<Props> = ({ show, onClose, onAssigned }) =
     setName("");
     setExpiry("");
     setError(null);
+    setPage(1);
   }, [show]);
 
-  // The "already assigned" list below the form. Fetched unfiltered by status
-  // so a just-expired tag is still visible (greyed) rather than silently
-  // vanishing — staff need to see it to know it needs renewing.
+  // The "already assigned" list below the form. Fetched unfiltered by status:
+  // an expired or cancelled tag stays visible (greyed) rather than silently
+  // vanishing — staff need to see it to know it needs renewing. Filtering
+  // those out client-side isn't an option now that paging is server-side —
+  // the endpoint's `total` counts every status, so dropping rows after the
+  // fetch would leave the page showing fewer rows than the pager promises.
   useEffect(() => {
     if (!show) return;
     let cancelled = false;
     setListLoading(true);
-    api.get("/api/v1/client-memberships", { params: { limit: 50 } })
+    api.get("/api/v1/client-memberships", { params: { page, limit: pageSize } })
       .then((res) => {
         if (cancelled) return;
         setAssigned(res.data?.data?.items ?? []);
+        setTotal(Number(res.data?.data?.total ?? 0));
       })
-      .catch(() => { if (!cancelled) setAssigned([]); })
+      .catch(() => { if (!cancelled) { setAssigned([]); setTotal(0); } })
       .finally(() => { if (!cancelled) setListLoading(false); });
     return () => { cancelled = true; };
-  }, [show, refreshKey]);
+  }, [show, refreshKey, page, pageSize]);
 
   const canSubmit = Boolean(client && name.trim() && expiry) && !saving;
 
@@ -111,6 +122,9 @@ const AssignMembershipModal: React.FC<Props> = ({ show, onClose, onAssigned }) =
       setClient(null);
       setName("");
       setExpiry("");
+      // Rows come back purchased_at DESC, so the new one lands at the top of
+      // page 1 — jump there, or assigning from page 3 looks like it did nothing.
+      setPage(1);
       setRefreshKey((k) => k + 1);
       onAssigned?.();
     } catch (err: any) {
@@ -127,10 +141,12 @@ const AssignMembershipModal: React.FC<Props> = ({ show, onClose, onAssigned }) =
     } catch { /* the row stays; the next refetch reconciles it */ }
   };
 
-  const visible = useMemo(
-    () => assigned.filter((m) => m.status !== "cancelled"),
-    [assigned],
-  );
+  // Cancelling the last row on a page leaves that page empty — step back one
+  // rather than showing an empty table with a pager that says there is data.
+  useEffect(() => {
+    const lastPage = Math.max(1, Math.ceil(total / pageSize));
+    if (page > lastPage) setPage(lastPage);
+  }, [total, pageSize, page]);
 
   return (
     <Modal
@@ -236,37 +252,58 @@ const AssignMembershipModal: React.FC<Props> = ({ show, onClose, onAssigned }) =
           </div>
           {listLoading ? (
             <div className="amm__empty">Loading…</div>
-          ) : visible.length === 0 ? (
+          ) : assigned.length === 0 ? (
             <div className="amm__empty">No memberships assigned yet.</div>
           ) : (
             <table className="amm__table">
               <thead>
                 <tr><th>Client</th><th>Membership</th><th>Expires</th><th aria-label="Actions" /></tr>
               </thead>
+              {/* data-label feeds the stacked card layout below 560px, where
+                  the table collapses to one block per row and each cell prints
+                  its own column name — see the stylesheet. */}
               <tbody>
-                {visible.map((m) => (
+                {assigned.map((m) => (
                   <tr key={m.id} className={m.status === "active" ? "" : "amm__row--inactive"}>
-                    <td>{m.clientName || "—"}</td>
-                    <td>
+                    <td data-label="Client">{m.clientName || "—"}</td>
+                    <td data-label="Membership">
                       <span className="amm__tag" style={{ background: m.colour || DEFAULT_COLOUR }}>
                         {m.membershipName}
                       </span>
                     </td>
-                    <td>{fmt(m.expiresAt)}</td>
+                    <td data-label="Expires">{fmt(m.expiresAt)}</td>
                     <td className="amm__td-actions">
-                      <button
-                        type="button"
-                        className="amm__remove"
-                        title="Remove membership"
-                        onClick={() => handleRemove(String(m.id))}
-                      >
-                        <Trash3 size={13} />
-                      </button>
+                      {/* Cancel only acts on rows that are still active (see the
+                          repository's WHERE), so offering it elsewhere would be
+                          a button that silently does nothing. */}
+                      {m.status === "active" && (
+                        <button
+                          type="button"
+                          className="amm__remove"
+                          title="Remove membership"
+                          onClick={() => handleRemove(String(m.id))}
+                        >
+                          <Trash3 size={13} />
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+          )}
+
+          {total > 0 && (
+            <div className="amm__pager">
+              <Pagination
+                currentPage={page}
+                pageSize={pageSize}
+                totalItems={total}
+                onPageChange={setPage}
+                onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
+                pageSizeOptions={[10, 20, 50]}
+              />
+            </div>
           )}
         </div>
       </div>
