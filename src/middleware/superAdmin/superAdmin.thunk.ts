@@ -113,7 +113,12 @@ export const clearSalonDataThunk = createAsyncThunk<string, string, { rejectValu
   "superAdmin/clearSalonData",
   async (id, { rejectWithValue }) => {
     try {
-      await api.post(SUPER_ADMIN.SALON_CLEAR_DATA(id));
+      // clearSalonData runs ~140 sequential DELETEs against RDS — for a
+      // salon with enough rows spread across enough tables this comfortably
+      // exceeds the shared 35s axios default (each DELETE is its own network
+      // round-trip), so this call gets its own longer timeout rather than
+      // raising the default for every other request.
+      await api.post(SUPER_ADMIN.SALON_CLEAR_DATA(id), undefined, { timeout: 120_000 });
       return id;
     } catch (err: any) {
       return rejectWithValue(err?.response?.data?.error?.message ?? err?.message ?? "Failed to clear salon data");
