@@ -45,6 +45,17 @@ export default defineConfig(({ mode }) => {
         timeout: 30000,
         proxyTimeout: 30000,
       },
+      // Only reached when VITE_API_BASE_URL is empty, i.e. the app is talking to
+      // the API through this proxy rather than at an absolute origin — which is
+      // what makes the dev server usable from a phone on the LAN, where
+      // "localhost:3000" would mean the phone itself. socket.ts then connects to
+      // the page's own origin, so the websocket needs forwarding too or live
+      // calendar updates silently stop working.
+      '/socket.io': {
+        target: proxyTarget,
+        changeOrigin: true,
+        ws: true,
+      },
     },
   },
   esbuild: {

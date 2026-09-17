@@ -1,3 +1,4 @@
+import QRCode from "qrcode";
 import { useEffect, useState } from "react";
 import {
   Link45deg,
@@ -62,6 +63,28 @@ export default function LinkBuilderPage() {
 
   const [copied, setCopied]         = useState(false);
   const [showQR, setShowQR]         = useState(false);
+  // Rendered in the browser rather than fetched from api.qrserver.com, which
+  // sent every salon's booking URL to a third party and broke the QR entirely
+  // whenever that service was down. A data URI also makes Download PNG work
+  // without a network round-trip.
+  const [qrDataUrl, setQrDataUrl]   = useState<string>("");
+  const [qrError,   setQrError]     = useState(false);
+
+  // Regenerate whenever the generated link changes.
+  useEffect(() => {
+    if (!link) { setQrDataUrl(""); setQrError(false); return; }
+    let cancelled = false;
+    setQrError(false);
+    QRCode.toDataURL(link, {
+      errorCorrectionLevel: "M",
+      margin: 2,
+      width: 512,
+      color: { dark: "#111827ff", light: "#ffffffff" },
+    })
+      .then((url) => { if (!cancelled) setQrDataUrl(url); })
+      .catch(() => { if (!cancelled) { setQrDataUrl(""); setQrError(true); } });
+    return () => { cancelled = true; };
+  }, [link]);
 
   const [savedLinks, setSavedLinks]   = useState<SavedLink[]>([]);
   const [savedLoading, setSavedLoading] = useState(true);
@@ -309,12 +332,13 @@ export default function LinkBuilderPage() {
         {showQR && link && (
           <div className="ob-qr-area" style={{ marginTop: 20 }}>
             <div className="ob-qr-placeholder">
-              <img
-                src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(link)}`}
-                alt="Booking link QR code"
-                width={140}
-                height={140}
-              />
+              {qrDataUrl ? (
+                <img src={qrDataUrl} alt="Booking link QR code" width={140} height={140} />
+              ) : (
+                <p style={{ fontSize: 12, color: "#9ca3af", margin: 0 }}>
+                  {qrError ? "Couldn't generate the QR code." : "Generating…"}
+                </p>
+              )}
             </div>
             <p className="ob-qr-label">
               Scan to open the booking page.
@@ -325,11 +349,12 @@ export default function LinkBuilderPage() {
             </p>
             <a
               className="ob-btn-outline"
-              style={{ fontSize: 12.5, textDecoration: "none" }}
-              href={`https://api.qrserver.com/v1/create-qr-code/?size=512x512&data=${encodeURIComponent(link)}`}
+              style={{
+                fontSize: 12.5, textDecoration: "none",
+                ...(qrDataUrl ? {} : { opacity: 0.5, pointerEvents: "none" as const }),
+              }}
+              href={qrDataUrl || undefined}
               download="booking-qr-code.png"
-              target="_blank"
-              rel="noreferrer"
             >
               Download PNG
             </a>
