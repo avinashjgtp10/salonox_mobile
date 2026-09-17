@@ -186,6 +186,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Validate production update environment
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: npx eas-cli env:exec production "node scripts/validate-production-update-env.js" --non-interactive
+
       - name: EAS update (production channel)
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
