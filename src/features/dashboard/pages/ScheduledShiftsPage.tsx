@@ -203,7 +203,8 @@ const ScheduledShiftsPage: React.FC = () => {
     isAvailable: boolean,
     startTime: string,
     endTime: string,
-    breaks: { start: string; end: string }[]
+    breaks: { start: string; end: string }[],
+    repeatWeekly = false
   ) => {
     const isAddingWorkingHours = drawer.mode === "edit" && shifts[staffId]?.[date]?.type !== "working";
     const savePermKey = drawer.mode === "dayoff" ? "manage_day_off"
@@ -233,6 +234,9 @@ const ScheduledShiftsPage: React.FC = () => {
         start_time: convertTo24h(b.start),
         end_time: convertTo24h(b.end),
       })),
+      // Also writes the recurring weekly baseline for this weekday, which is
+      // what Online Booking falls back to on dates with no row of their own.
+      repeat_weekly: repeatWeekly,
     };
 
     console.log("[DEBUG] save payload:", payload);
@@ -242,7 +246,11 @@ const ScheduledShiftsPage: React.FC = () => {
       .unwrap()
       .then((res) => {
         console.log("[DEBUG] API response:", res);
-        showSuccess(isAddingWorkingHours ? "Working hours added" : "Availability updated");
+        showSuccess(
+          repeatWeekly
+            ? `${isAddingWorkingHours ? "Working hours added" : "Availability updated"} and set to repeat weekly`
+            : isAddingWorkingHours ? "Working hours added" : "Availability updated"
+        );
         // No full-week repaint
         // Calendar/Quick Sale cache their own copy of staff working hours
         // (schedulerSlice.staffSchedules, via useStaffSchedule) and only ever
@@ -394,6 +402,12 @@ const ScheduledShiftsPage: React.FC = () => {
         isCreating={isCreatingWorkingHours}
         title={drawerTitle}
         saveLabel={drawerSaveLabel}
+        // Only working hours and a day off describe a repeatable weekly
+        // pattern. A blocked time or a one-off time off is by definition
+        // specific to that date — repeating one would write a weekly baseline
+        // saying "works 2–3pm every Tuesday", which Online Booking would then
+        // treat as this staff member's real Tuesday schedule.
+        allowRepeatWeekly={drawer.mode === "edit" || drawer.mode === "dayoff"}
         onClose={closeDrawer}
         onSave={handleSaveAvailability}
       />

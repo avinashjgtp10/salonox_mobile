@@ -211,7 +211,7 @@ export const saveStaffSchedule = createAsyncThunk(
 
 export const saveSingleShiftThunk = createAsyncThunk(
   "shift/saveSingleShift",
-  async (payload: { staff_id: string; date: string; start_time: string; end_time: string; breaks?: { start_time: string; end_time: string }[] }, { rejectWithValue }) => {
+  async (payload: { staff_id: string; date: string; start_time: string; end_time: string; breaks?: { start_time: string; end_time: string }[]; repeat_weekly?: boolean }, { rejectWithValue }) => {
     try {
       const res = await shiftApi.saveSingleShift(payload);
       return { ...res.data, payload }; // Return payload so reducer can use it if needed
