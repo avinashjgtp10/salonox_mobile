@@ -163,6 +163,9 @@ export default function PublicBookingPage() {
       params: {
         date: salonDateStr(selDate),
         durationMinutes: totalDuration,
+        // Lets the server narrow "any stylist" to staff who can actually
+        // perform what's in the basket.
+        serviceIds: selServices.map((s) => String(s.id)).join(","),
         ...(selStaff && selStaff !== "any" ? { staffId: String((selStaff as StaffMember).id) } : {}),
       },
     })
@@ -571,7 +574,8 @@ export default function PublicBookingPage() {
                 ) : slots.morning.length === 0 && slots.afternoon.length === 0 ? (
                   <p className="pb__empty">
                     No times available on this date{selStaff !== "any" ? " for this stylist" : ""}.
-                    Try another date.
+                    Try another date
+                    {phone ? <> or call the salon on <a href={`tel:${phone}`}>{phone}</a></> : null}.
                   </p>
                 ) : (
                   <>
