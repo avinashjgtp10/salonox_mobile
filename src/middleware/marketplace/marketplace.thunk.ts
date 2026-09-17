@@ -39,7 +39,7 @@ export const updateMarketplaceEssentialsThunk = createAsyncThunk<
 
 export const updateMarketplaceBookingPolicyThunk = createAsyncThunk<
   void,
-  { max_advance_days?: number; min_notice_hours?: number; cancellation_notice_hours?: number; slot_interval_minutes?: number; },
+  { max_advance_days?: number; min_notice_hours?: number; cancellation_notice_hours?: number; slot_interval_minutes?: number; allow_same_day_booking?: boolean; allow_multiple_services?: boolean; },
   { rejectValue: string }
 >("marketplace/updateBookingPolicy", async (payload, { rejectWithValue }) => {
   try {
@@ -52,7 +52,7 @@ export const updateMarketplaceBookingPolicyThunk = createAsyncThunk<
 
 export const updateMarketplaceAboutThunk = createAsyncThunk<
   void,
-  { venue_description: string; },
+  { venue_description: string; instagram_url?: string | null; facebook_url?: string | null; about_enabled?: boolean; },
   { rejectValue: string }
 >("marketplace/updateAbout", async (payload, { rejectWithValue }) => {
   try {

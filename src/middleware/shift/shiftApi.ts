@@ -75,21 +75,29 @@ const shiftApi = {
     start_time: string;
     end_time: string;
     breaks?: { start_time: string; end_time: string }[];
+    repeat_weekly?: boolean;
   }) => {
     const dateObj = new Date(payload.date + "T12:00:00");
     const dayOfWeek = dateObj.getDay();
     const isAvailable = !!(payload.start_time && payload.end_time);
+    const shape = {
+      day_of_week: dayOfWeek,
+      is_available: isAvailable,
+      start_time: isAvailable ? payload.start_time : null,
+      end_time: isAvailable ? payload.end_time : null,
+      breaks: isAvailable ? (payload.breaks ?? []) : [],
+    };
+    // A row carrying `date` covers that one day. A row with no `date` is the
+    // recurring weekly baseline for that weekday — the row Online Booking
+    // falls back to for every other date, and the only thing that makes a
+    // schedule mean anything beyond the days someone explicitly filled in.
+    // "Repeat weekly" saves both: this date keeps its own row (so an override
+    // later doesn't disturb the baseline) and the baseline is set alongside.
+    const items = payload.repeat_weekly
+      ? [{ ...shape, date: payload.date }, { ...shape }]
+      : [{ ...shape, date: payload.date }];
     return api.put(`/api/v1/staff/${payload.staff_id}/scheduled`, {
-      items: [
-        {
-          date: payload.date,          // specific date — save only this day
-          day_of_week: dayOfWeek,      // kept for backward compatibility
-          is_available: isAvailable,
-          start_time: isAvailable ? payload.start_time : null,
-          end_time: isAvailable ? payload.end_time : null,
-          breaks: isAvailable ? (payload.breaks ?? []) : [],
-        }
-      ]
+      items
     });
   },
 

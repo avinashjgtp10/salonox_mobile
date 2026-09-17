@@ -1,6 +1,6 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import type { ShiftMap, StaffMember, ShiftEntry } from "../components/staff-schedule/types";
-import { buildSeedShifts, getSundayOf, calcTotalHours } from "../components/staff-schedule/utils";
+import { getSundayOf, calcTotalHours } from "../components/staff-schedule/utils";
 import {
   fetchDailyShifts,
   addTimeOff,
@@ -98,20 +98,6 @@ const shiftSlice = createSlice({
         if (!state.shifts[payload.staffId]) state.shifts[payload.staffId] = {};
         state.shifts[payload.staffId][payload.date] = newEntry;
       }
-    },
-    refreshSeedForWeek(state, { payload }: PayloadAction<string>) {
-      // payload = sunday ISO date key
-      const sunday = new Date(payload + "T12:00:00");
-      const newShifts = buildSeedShifts(sunday);
-      // Merge without overriding user edits — only fill missing
-      Object.entries(newShifts).forEach(([staffId, dates]) => {
-        if (!state.shifts[staffId]) state.shifts[staffId] = {};
-        Object.entries(dates).forEach(([date, entry]) => {
-          if (!state.shifts[staffId][date]) {
-            state.shifts[staffId][date] = entry;
-          }
-        });
-      });
     },
   },
   extraReducers: (builder) => {
@@ -221,7 +207,7 @@ const shiftSlice = createSlice({
 
 export const {
   setShiftEntry, removeShiftEntry, setDayOff, setBlocked,
-  updateAvailability, refreshSeedForWeek,
+  updateAvailability,
 } = shiftSlice.actions;
 
 export default shiftSlice.reducer;

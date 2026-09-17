@@ -77,6 +77,35 @@ export function nextDays(n: number) {
   });
 }
 
+// The salon's UTC offset. Slot labels ("1:00 PM") are salon-local wall clock,
+// and the backend compares a submitted booking against local staff schedules
+// and existing appointments — so deriving the instant from the *browser's*
+// timezone (what `new Date("Sun Sep 06 2026 1:00 PM")` does) books the wrong
+// time for any client who isn't sitting in the salon's zone. Kept in step with
+// SALON_TIMEZONE in the backend's bookings.repository.ts; both become per-salon
+// together if a salon timezone column ever lands.
+export const SALON_UTC_OFFSET = "+05:30";
+
+// A picked calendar day as "YYYY-MM-DD", read off the date the user actually
+// sees rather than via toISOString(), which shifts the day for late-evening
+// local times.
+export function salonDateStr(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+// A picked day + a slot label -> an unambiguous instant for the salon's zone.
+// "1:00 PM" on Sep 6 -> "2026-09-06T13:00:00+05:30".
+export function toSalonInstant(date: Date, time12h: string): string {
+  const m = /^(\d{1,2}):(\d{2})\s*(AM|PM)$/i.exec(time12h.trim());
+  if (!m) return new Date(`${date.toDateString()} ${time12h}`).toISOString();
+  const hour = (parseInt(m[1], 10) % 12) + (/PM/i.test(m[3]) ? 12 : 0);
+  return `${salonDateStr(date)}T${String(hour).padStart(2, "0")}:${m[2]}:00${SALON_UTC_OFFSET}`;
+}
+
+// Fabricated slots for the admin preview modal when a salon has no services
+// configured yet and there is nothing real to show. Never use this on a path
+// where a real booking can be made — real availability comes from
+// GET /bookings/salon/:id/availability.
 export function buildSlots(date: Date) {
   const all: string[] = [];
   for (let h = 9; h < 18; h++)
@@ -377,10 +406,10 @@ export function TimeChip({ t, sel, onPick }: { t:string; sel:string|null; onPick
   );
 }
 
-export function SuccessScreen({ salonName, selServices, selStaff, selDate, selTime, form, onReset, onBackHome, onAddToCalendar, onManage, currencyCode }:
+export function SuccessScreen({ salonName, selServices, selStaff, selDate, selTime, form, onReset, onBackHome, onManage, currencyCode }:
   { salonName:string; selServices:ServiceItem[]; selStaff:StaffMember|"any"|null;
     selDate:Date; selTime:string|null; form:{name:string;email:string};
-    onReset:()=>void; onBackHome:()=>void; onAddToCalendar:()=>void; onManage?:()=>void; currencyCode?:string }) {
+    onReset:()=>void; onBackHome:()=>void; onManage?:()=>void; currencyCode?:string }) {
 
   const staffLabel = selStaff === "any" ? "Any available" : selStaff ? staffName(selStaff as StaffMember) : "";
   const dateLabel = `${DAYS[selDate.getDay()]}, ${MONTHS[selDate.getMonth()]} ${selDate.getDate()}`;
@@ -453,9 +482,6 @@ export function SuccessScreen({ salonName, selServices, selStaff, selDate, selTi
           </button>
           <button className="pb-success-btn pb-success-btn--outline" onClick={onBackHome}>
             <HouseDoorFill size={14}/> Back to Home
-          </button>
-          <button className="pb-success-btn pb-success-btn--ghost" onClick={onAddToCalendar}>
-            <CalendarPlus size={14}/> Add to Calendar
           </button>
           {onManage && (
             <button className="pb-success-btn pb-success-btn--outline" onClick={onManage}>

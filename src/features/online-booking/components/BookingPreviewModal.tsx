@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { useNavigate } from "react-router-dom";
 import {
   ChevronRight,
   X,
 } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { SALON } from "../../../services/api/endpoints/salon.endpoints";
+import { ONLINE_BOOKING } from "../../../services/api/endpoints/onlineBooking.endpoints";
 import { SERVICES } from "../../../services/api/endpoints/services.endpoints";
 import { STAFF } from "../../../services/api/endpoints/staff.endpoints";
 import { useAppDispatch } from "../../../hooks/useAppRedux";
@@ -14,6 +14,7 @@ import { createPublicBookingThunk } from "../../../middleware/onlineBooking/onli
 import { useCurrency } from "../../../hooks/useCurrency";
 import {
   C, DAYS, MONTHS, staffName, initials, fmtDur, fmtPrice, nextDays, buildSlots, hashHue, fmtClock,
+  salonDateStr, toSalonInstant,
   AvatarCircle, StepBar, SectionHead, BackBtn, ServicesSummary, ServiceCard, StaffCard, TimeChip, SuccessScreen,
   type SalonData, type ServiceItem, type StaffMember,
 } from "./BookingFlow/shared";
@@ -48,7 +49,6 @@ interface Props {
 
 export default function BookingPreviewModal({ open, onClose, previewName, previewTagline, previewDescription, galleryPhotos, previewHours }: Props) {
   const dispatch = useAppDispatch();
-  const navigate = useNavigate();
   const { currencyCode } = useCurrency();
   const [loading,  setLoading]  = useState(true);
   const [salon,    setSalon]    = useState<SalonData>({ name: previewName || "My Salon" });
@@ -64,10 +64,11 @@ export default function BookingPreviewModal({ open, onClose, previewName, previe
   const [selTime,         setSelTime]        = useState<string | null>(null);
   const [form,            setForm]           = useState({ name:"", email:"", phone:"", notes:"" });
   const [submitting,      setSubmitting]     = useState(false);
-  const [createdAppointment, setCreatedAppointment] = useState<any>(null);
+  // Kept as a setter-only reset target: the preview's success screen no longer
+  // reads the created appointment now that "Add to Calendar" is gone.
+  const [, setCreatedAppointment] = useState<any>(null);
 
   const dates    = nextDays(8);
-  const slots    = buildSlots(selDate);
   const isDemo   = services.length === 0;
   const display  = isDemo ? DEMO_SERVICES : services;
   const displayStaff = staffList.length === 0 ? DEMO_STAFF : staffList;
@@ -83,6 +84,36 @@ export default function BookingPreviewModal({ open, onClose, previewName, previe
   const totalPrice = selServices.reduce(
     (sum, s) => sum + (typeof s.price === "string" ? parseFloat(s.price) || 0 : s.price), 0
   );
+
+  // Real availability, same endpoint the live booking page uses — this modal can
+  // create a real appointment, so it must not offer a slot the stylist is
+  // already booked for. buildSlots() is only for the demo state, where the salon
+  // has no services configured and nothing real can be shown or booked.
+  const [slots, setSlots] = useState<{ morning: string[]; afternoon: string[] }>({ morning: [], afternoon: [] });
+  const [slotsLoading, setSlotsLoading] = useState(false);
+  useEffect(() => {
+    if (isDemo || !salon.id || totalDuration <= 0) {
+      setSlots(isDemo ? buildSlots(selDate) : { morning: [], afternoon: [] });
+      return;
+    }
+    let cancelled = false;
+    setSlotsLoading(true);
+    api.get(ONLINE_BOOKING.AVAILABILITY(String(salon.id)), {
+      params: {
+        date: salonDateStr(selDate),
+        durationMinutes: totalDuration,
+        ...(selStaff && selStaff !== "any" ? { staffId: String((selStaff as StaffMember).id) } : {}),
+      },
+    })
+      .then((res) => {
+        if (cancelled) return;
+        const all: string[] = res.data?.data?.slots ?? [];
+        setSlots({ morning: all.filter(t => t.endsWith("AM")), afternoon: all.filter(t => t.endsWith("PM")) });
+      })
+      .catch(() => { if (!cancelled) setSlots({ morning: [], afternoon: [] }); })
+      .finally(() => { if (!cancelled) setSlotsLoading(false); });
+    return () => { cancelled = true; };
+  }, [isDemo, salon.id, selDate, selStaff, totalDuration]);
 
   function toggleService(svc: ServiceItem) {
     setSelServices(prev =>
@@ -355,15 +386,6 @@ export default function BookingPreviewModal({ open, onClose, previewName, previe
                 setCreatedAppointment(null);
               }}
               onBackHome={onClose}
-              onAddToCalendar={() => {
-                if (!createdAppointment?.id) return;
-                const dateStr = String(createdAppointment.scheduled_at ?? "").slice(0, 10)
-                  || new Date(`${selDate.toDateString()} ${selTime}`).toISOString().slice(0, 10);
-                onClose();
-                navigate("/dashboard/calendar", {
-                  state: { focusAppointment: { id: createdAppointment.id, date: dateStr } },
-                });
-              }}
               currencyCode={currencyCode}
             />
 
@@ -477,7 +499,7 @@ export default function BookingPreviewModal({ open, onClose, previewName, previe
                       name="Any available" subtitle="Best match for your slot"
                       initials="?" bg={C.muted}
                       selected={selStaff === "any"}
-                      onClick={() => setSelStaff("any")}/>
+                      onClick={() => { setSelStaff("any"); setSelTime(null); }}/>
                     {displayStaff.map(s => {
                       const n = staffName(s);
                       const hue = hashHue(s.id);
@@ -487,7 +509,7 @@ export default function BookingPreviewModal({ open, onClose, previewName, previe
                           initials={initials(n)}
                           bg={`hsl(${hue},55%,52%)`}
                           selected={selStaff !== "any" && (selStaff as StaffMember)?.id === s.id}
-                          onClick={() => setSelStaff(s)}/>
+                          onClick={() => { setSelStaff(s); setSelTime(null); }}/>
                       );
                     })}
                   </div>
@@ -521,6 +543,14 @@ export default function BookingPreviewModal({ open, onClose, previewName, previe
                     title="Available Times"
                     sub={`${DAYS[selDate.getDay()]}, ${MONTHS[selDate.getMonth()]} ${selDate.getDate()}`}
                   />
+                  {slotsLoading && (
+                    <p style={{ fontSize:13, color:C.muted, margin:"0 0 18px" }}>Checking availability…</p>
+                  )}
+                  {!slotsLoading && slots.morning.length === 0 && slots.afternoon.length === 0 && (
+                    <p style={{ fontSize:13, color:C.muted, margin:"0 0 18px" }}>
+                      No times available on this day for the selected stylist. Try another date.
+                    </p>
+                  )}
                   {slots.morning.length > 0 && (
                     <>
                       <p style={{ fontSize:11, fontWeight:700, color:C.muted,
@@ -672,7 +702,7 @@ export default function BookingPreviewModal({ open, onClose, previewName, previe
                               salon_id: String((salon as any).id),
                               service_ids: selServices.map(s => String(s.id)),
                               staff_id: selStaff === "any" ? undefined : String((selStaff as StaffMember)?.id),
-                              scheduled_at: new Date(`${selDate.toDateString()} ${selTime}`).toISOString(),
+                              scheduled_at: toSalonInstant(selDate, String(selTime)),
                               client_name: form.name,
                               client_email: form.email,
                               client_phone: form.phone,

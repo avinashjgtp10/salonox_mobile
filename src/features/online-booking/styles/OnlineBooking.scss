@@ -247,6 +247,41 @@
   margin-bottom: 7px;
 }
 
+// Number field with a fixed unit ("Days", "Hours") sitting inside the control,
+// so the value and its unit read as one field rather than two.
+.ob-unit-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+
+  .ob-input {
+    padding-right: 62px;
+    -moz-appearance: textfield;
+
+    &::-webkit-outer-spin-button,
+    &::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+  }
+}
+
+.ob-unit-suffix {
+  position: absolute;
+  right: 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: $dashboard-secondary;
+  pointer-events: none;
+}
+
+.ob-field-hint {
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: $dashboard-secondary;
+}
+
 .ob-label-optional {
   font-weight: 400;
   color: $dashboard-secondary;
