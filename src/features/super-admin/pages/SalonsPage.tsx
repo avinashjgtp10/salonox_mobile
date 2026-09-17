@@ -1,4 +1,5 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import { Link, useNavigate } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { fetchSuperAdminSalonsThunk, setSalonStatusThunk, forceOnboardingThunk, impersonateSalonThunk, deleteSalonThunk, createUserThunk } from "../../../middleware/superAdmin/superAdmin.thunk";
@@ -29,25 +30,44 @@ type MenuAction = { label: string; color: string; bg: string; onClick: () => voi
 function ActionsMenu({ actions, rowId, openId, setOpenId }: { actions: MenuAction[]; rowId: string; openId: string | null; setOpenId: (id: string | null) => void }) {
   const open = openId === rowId;
   const [hov, setHov] = useState(false);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const [coords, setCoords] = useState<{ top: number; left: number } | null>(null);
 
   useEffect(() => {
     if (!open) return;
     const close = () => setOpenId(null);
     window.addEventListener("click", close);
-    return () => window.removeEventListener("click", close);
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    return () => {
+      window.removeEventListener("click", close);
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+    };
   }, [open, setOpenId]);
 
+  function toggle() {
+    if (!open && btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect();
+      setCoords({ top: rect.bottom + 4, left: rect.right - 160 });
+    }
+    setOpenId(open ? null : rowId);
+  }
+
   return (
-    <div style={{ position: "relative", display: "inline-block" }} onClick={(e) => e.stopPropagation()}>
+    <div style={{ display: "inline-block" }} onClick={(e) => e.stopPropagation()}>
       <button
-        onClick={() => setOpenId(open ? null : rowId)}
+        ref={btnRef}
+        onClick={toggle}
         onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
         title="Actions"
         style={{ width: 30, height: 30, borderRadius: 7, border: "1.5px solid #e2e8f0", background: hov || open ? "#f8fafc" : "#fff", color: "#374151", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s" }}>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>
       </button>
-      {open && (
-        <div style={{ position: "absolute", right: 0, top: "calc(100% + 4px)", zIndex: 50, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", minWidth: 160, padding: 6, display: "flex", flexDirection: "column", gap: 3 }}>
+      {open && coords && createPortal(
+        <div
+          onClick={(e) => e.stopPropagation()}
+          style={{ position: "fixed", top: coords.top, left: coords.left, zIndex: 1000, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", minWidth: 160, padding: 6, display: "flex", flexDirection: "column", gap: 3 }}>
           {actions.map((a, i) => (
             <button key={i}
               onClick={() => { setOpenId(null); a.onClick(); }}
@@ -58,7 +78,8 @@ function ActionsMenu({ actions, rowId, openId, setOpenId }: { actions: MenuActio
               {a.label}
             </button>
           ))}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
