@@ -118,7 +118,7 @@ const Hero: React.FC<HeroProps> = ({ heroRef, onPointerMove, onPointerLeave, scr
           <span aria-hidden="true">✨</span> All-in-One Salon Management Software
         </span>
         <h1 className="hero-premium-enter hero-premium-enter--2">
-          Run Your Salon Smarter,<br />
+          Run Your Salon Smarter test,<br />
           Faster &amp; <span>More Profitably</span>
         </h1>
         <p className="hero-premium-description hero-premium-enter hero-premium-enter--3">
