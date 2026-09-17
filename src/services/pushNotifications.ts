@@ -29,7 +29,7 @@ export class PushTokenGenerationError extends Error {
 // ("show native notification banner" even in foreground).
 Notifications.setNotificationHandler({
   handleNotification: async (notification) => {
-    const type = String(notification.request.content.data?.type ?? "general");
+    const type = String(notification.request.content.data?.event_key ?? notification.request.content.data?.type ?? "general");
     const preferences = await notificationPreferencesStorage.getPreferences();
     const isEnabled = isNotificationTypeEnabled(type, preferences);
 
