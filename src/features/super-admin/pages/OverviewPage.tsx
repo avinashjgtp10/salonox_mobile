@@ -10,7 +10,7 @@ function StatCard({ label, value, sub, icon, accent, bg }: {
   return (
     <div style={{ background: "#fff", borderRadius: 14, padding: "20px 22px", border: "1px solid #e2e8f0", boxShadow: "0 1px 4px rgba(0,0,0,0.04)", display: "flex", flexDirection: "column", gap: 14 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-        <div style={{ width: 42, height: 42, borderRadius: 11, background: bg, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ width: 42, height: 42, borderRadius: 11, background: bg, color: accent, display: "flex", alignItems: "center", justifyContent: "center" }}>
           {icon}
         </div>
         {sub && <span style={{ fontSize: 11.5, color: "#10b981", fontWeight: 600, background: "#f0fdf4", border: "1px solid #bbf7d0", padding: "2px 8px", borderRadius: 20 }}>↑ {sub}</span>}

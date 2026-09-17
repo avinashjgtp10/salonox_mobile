@@ -11,7 +11,10 @@ import {
 import api from '../../../services/api/axios';
 import { AUTH, DEMO_REQUESTS } from '../../../services/api/endpoints';
 import { ApiError } from '../../../services/api/interceptors';
+// @ts-expect-error — intentional side-effect import of a bundler-managed stylesheet.
 import 'react-phone-number-input/style.css';
+// The SCSS file is handled by the bundler; TypeScript has no declaration for side-effect styles.
+// @ts-expect-error — intentional side-effect import of a bundler-managed stylesheet.
 import '../../../components/Landing/styles/main.scss';
 import {
   AboutContent,

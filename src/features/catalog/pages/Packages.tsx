@@ -26,8 +26,8 @@ import {
   useCreatePackageMutation,
   useDeletePackageMutation,
 } from "../../../services/api/endpoints/packages.endpoints";
-import type { Package as ApiPackage } from "../../../services/api/endpoints/packages.endpoints";
-import { useDispatch, useSelector } from "react-redux";
+import type { Package as ApiPackage, PackageStatus } from "../../../services/api/endpoints/packages.endpoints";
+import { useDispatch } from "react-redux";
 import type { AppDispatch } from "../../../store/store";
 import { setPackagesList } from "../../../store/schedulerSlice";
 import { 
@@ -236,7 +236,7 @@ const ListView: React.FC<NavProps> = ({ onNavigate }) => {
     limit: pageSize,
     search: search || undefined,
     category: filters.category === "All categories" ? undefined : filters.category,
-    status: filters.status === "All statuses" ? undefined : filters.status,
+    status: filters.status === "All statuses" ? undefined : (filters.status as PackageStatus),
   });
 
   const paged = data?.items || [];

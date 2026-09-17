@@ -120,14 +120,14 @@ export function generateTimeOptions(): string[] {
 // ── Seed data ─────────────────────────────────────────────────────────────────
 
 export const SEED_STAFF: StaffMember[] = [
-  { id: "1", name: "Salon",         initials: "S",  avatarColor: "#6366f1" },
-  { id: "2", name: "Sanket",        initials: "SK", avatarColor: "#8b5cf6" },
-  { id: "3", name: "Priti",         initials: "P",  avatarColor: "#ec4899" },
-  { id: "4", name: "Swapnali",      initials: "SW", avatarColor: "#f59e0b" },
-  { id: "5", name: "Nikita Jagdale",initials: "NJ", avatarColor: "#10b981" },
-  { id: "6", name: "Nikita Kamble", initials: "NK", avatarColor: "#3b82f6" },
-  { id: "7", name: "Nilesh",        initials: "NL", avatarColor: "#6b7280" },
-  { id: "8", name: "Rupesh",        initials: "R",  avatarColor: "#ef4444" },
+  { id: "1", name: "Salon",         initials: "S",  avatarColor: "#6366f1", isActive: true },
+  { id: "2", name: "Sanket",        initials: "SK", avatarColor: "#8b5cf6", isActive: true },
+  { id: "3", name: "Priti",         initials: "P",  avatarColor: "#ec4899", isActive: true },
+  { id: "4", name: "Swapnali",      initials: "SW", avatarColor: "#f59e0b", isActive: true },
+  { id: "5", name: "Nikita Jagdale",initials: "NJ", avatarColor: "#10b981", isActive: true },
+  { id: "6", name: "Nikita Kamble", initials: "NK", avatarColor: "#3b82f6", isActive: true },
+  { id: "7", name: "Nilesh",        initials: "NL", avatarColor: "#6b7280", isActive: true },
+  { id: "8", name: "Rupesh",        initials: "R",  avatarColor: "#ef4444", isActive: true },
 ];
 
 const STAFF_TIMES: Record<string, [string, string]> = {

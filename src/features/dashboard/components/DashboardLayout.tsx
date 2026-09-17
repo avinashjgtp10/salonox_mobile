@@ -68,9 +68,6 @@ export default function DashboardLayout() {
       if (fetchMeThunk.fulfilled.match(result) && result.payload.role === "staff") {
         const cp = result.payload.custom_permissions ?? null;
         dispatch(setCustomPermissions(cp));
-        if (import.meta.env.DEV) {
-          console.log("[Auth] custom_permissions synced to auth state:", cp);
-        }
       }
     });
   }, [dispatch]);

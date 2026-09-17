@@ -201,6 +201,9 @@ export async function closeCashCounter(payload: CloseCounterPayload) {
         openedAt: null,
         closedAt: new Date().toISOString(),
         remarks: payload.remarks || null,
+        upiAmount: 0,
+        cardAmount: 0,
+        cashAmount: 0,
       };
     }
     throw err;

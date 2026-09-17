@@ -93,7 +93,7 @@ export default function DeploymentBanner() {
     } else {
       root.style.removeProperty("--deployment-banner-height");
     }
-    return () => root.style.removeProperty("--deployment-banner-height");
+    return () => { root.style.removeProperty("--deployment-banner-height"); };
   }, [announcement]);
 
   if (!announcement) return null;
