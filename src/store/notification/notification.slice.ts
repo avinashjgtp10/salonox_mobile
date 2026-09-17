@@ -152,7 +152,6 @@ const notificationSlice = createSlice({
         state.registerDeviceStatus = "idle";
       })
       .addCase(unregisterDeviceThunk.rejected, (state, action) => {
-        state.registeredDeviceToken = null;
         state.registerDeviceError = action.payload?.message ?? action.error.message ?? "Unable to unregister this device for push notifications.";
         state.registerDeviceStatus = "idle";
       });
