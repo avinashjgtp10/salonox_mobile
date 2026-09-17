@@ -1,7 +1,9 @@
+import { salonNotificationPreferences } from "@/services/salonNotificationPreferences";
+import { getApiErrorMessage } from "@/services/api";
 import { Ionicons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
-import { StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Alert, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
@@ -25,15 +27,24 @@ export default function NotificationSettingsScreen() {
     DEFAULT_NOTIFICATION_PREFERENCES,
   );
   const [isHydrated, setIsHydrated] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const preferencesRef = useRef(preferences);
+  const confirmedRef = useRef(preferences);
+  const pendingRef = useRef<NotificationPreferences | null>(null);
+  const savingRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
 
-    notificationPreferencesStorage.getPreferences().then((stored) => {
+    salonNotificationPreferences.get().then((stored) => {
       if (!cancelled) {
         setPreferences(stored);
+        preferencesRef.current = stored;
+        confirmedRef.current = stored;
         setIsHydrated(true);
       }
+    }).catch((error) => {
+      Alert.alert("Unable to load notification settings", getApiErrorMessage(error), [{ text: "Go Back", onPress: () => router.back() }]);
     });
 
     return () => {
@@ -50,9 +61,37 @@ export default function NotificationSettingsScreen() {
     router.replace("/more" as Href);
   };
 
-  const updatePreferences = (next: NotificationPreferences) => {
+  const updatePreferences = async (patch: Partial<NotificationPreferences>) => {
+    const next = { ...preferencesRef.current, ...patch };
+    preferencesRef.current = next;
     setPreferences(next);
-    void notificationPreferencesStorage.setPreferences(next);
+    pendingRef.current = next;
+    if (savingRef.current) return;
+    savingRef.current = true;
+    setSaving(true);
+    try {
+      while (pendingRef.current) {
+        const snapshot = pendingRef.current;
+        pendingRef.current = null;
+        try {
+          await salonNotificationPreferences.save(snapshot);
+          confirmedRef.current = snapshot;
+        } catch (error) {
+          // A newer tap will be saved next; never overwrite it with an old result.
+          if (!pendingRef.current) {
+            preferencesRef.current = confirmedRef.current;
+            setPreferences(confirmedRef.current);
+            Alert.alert("Unable to save notification settings", getApiErrorMessage(error));
+          }
+          continue;
+        }
+        try {
+          await notificationPreferencesStorage.setPreferences(snapshot);
+        } catch {
+          // The server has saved the change; foreground sync refreshes the cache.
+        }
+      }
+    } finally { savingRef.current = false; setSaving(false); }
   };
 
   const handleToggleAll = (value: boolean) => {
@@ -60,21 +99,19 @@ export default function NotificationSettingsScreen() {
       allNotifications: value,
       appointments: value,
       otherUpdates: value,
+      paymentComplete: value,
+      productAudit: value,
     });
   };
 
   const handleToggleAppointments = (value: boolean) => {
     updatePreferences({
-      ...preferences,
-      allNotifications: value && preferences.otherUpdates,
       appointments: value,
     });
   };
 
   const handleToggleOtherUpdates = (value: boolean) => {
     updatePreferences({
-      ...preferences,
-      allNotifications: value && preferences.appointments,
       otherUpdates: value,
     });
   };
@@ -104,10 +141,11 @@ export default function NotificationSettingsScreen() {
         <View style={styles.backButtonPlaceholder} />
       </View>
 
-      <View style={styles.content}>
+      <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.sectionHint}>
-          Choose which push notifications SalonOX can send to this device.
+          Choose push notifications for the whole salon. Changes apply to all salon devices.
         </Text>
+        <Text accessibilityLiveRegion="polite" style={styles.sectionHint}>{saving ? "Saving changes..." : " "}</Text>
 
         <View style={styles.row}>
           <View style={styles.iconWrap}>
@@ -116,7 +154,7 @@ export default function NotificationSettingsScreen() {
           <View style={styles.rowCopy}>
             <Text style={styles.rowTitle}>All Notifications</Text>
             <Text style={styles.rowDescription}>
-              Receive every notification, including appointments and other updates.
+              Turn all push notifications on or off for the whole salon.
             </Text>
           </View>
           <Switch
@@ -139,6 +177,7 @@ export default function NotificationSettingsScreen() {
           </View>
           <Switch
             onValueChange={handleToggleAppointments}
+            disabled={!preferences.allNotifications}
             thumbColor="#FFFFFF"
             trackColor={{ false: Colors.border, true: Colors.primary }}
             value={preferences.appointments}
@@ -152,17 +191,31 @@ export default function NotificationSettingsScreen() {
           <View style={styles.rowCopy}>
             <Text style={styles.rowTitle}>Other Updates</Text>
             <Text style={styles.rowDescription}>
-              Clients, payments, and new SalonOX features.
+              Clients and other SalonOX updates.
             </Text>
           </View>
           <Switch
             onValueChange={handleToggleOtherUpdates}
+            disabled={!preferences.allNotifications}
             thumbColor="#FFFFFF"
             trackColor={{ false: Colors.border, true: Colors.primary }}
             value={preferences.otherUpdates}
           />
         </View>
-      </View>
+        {([
+          { key: "paymentComplete", title: "Payment Complete", description: "Notifications when payments are completed.", icon: "card-outline" },
+          { key: "productAudit", title: "Product Audit", description: "Product inventory audit notifications.", icon: "clipboard-outline" },
+        ] as const).map((item) => (
+          <View key={item.key} style={styles.row}>
+            <View style={styles.iconWrap}><Ionicons name={item.icon} size={20} color={Colors.text2} /></View>
+            <View style={styles.rowCopy}>
+              <Text style={styles.rowTitle}>{item.title}</Text>
+              <Text style={styles.rowDescription}>{item.description}</Text>
+            </View>
+            <Switch accessibilityLabel={item.title} disabled={!preferences.allNotifications} value={preferences[item.key]} onValueChange={(value) => updatePreferences({ [item.key]: value })} thumbColor="#FFFFFF" trackColor={{ false: Colors.border, true: Colors.primary }} />
+          </View>
+        ))}
+      </ScrollView>
     </SafeAreaView>
   );
 }
