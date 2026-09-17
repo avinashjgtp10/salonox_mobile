@@ -4,12 +4,16 @@ export type NotificationPreferences = {
   allNotifications: boolean;
   appointments: boolean;
   otherUpdates: boolean;
+  paymentComplete: boolean;
+  productAudit: boolean;
 };
 
 export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   allNotifications: true,
   appointments: true,
   otherUpdates: true,
+  paymentComplete: true,
+  productAudit: true,
 };
 
 const NOTIFICATION_PREFERENCES_KEY = "salonox.notificationPreferences";
@@ -36,15 +40,19 @@ export const notificationPreferencesStorage = {
     try {
       const parsed = JSON.parse(stored);
 
-      return isValidPreferences(parsed) ? parsed : DEFAULT_NOTIFICATION_PREFERENCES;
+      return isValidPreferences(parsed) ? {
+        ...parsed,
+        paymentComplete: typeof parsed.paymentComplete === "boolean" ? parsed.paymentComplete : parsed.otherUpdates,
+        productAudit: typeof parsed.productAudit === "boolean" ? parsed.productAudit : parsed.otherUpdates,
+      } : DEFAULT_NOTIFICATION_PREFERENCES;
     } catch {
       return DEFAULT_NOTIFICATION_PREFERENCES;
     }
   },
 
-  async setPreferences(preferences: NotificationPreferences) {
+  async setPreferences(preferences: NotificationPreferences, notify = true) {
     await AsyncStorage.setItem(NOTIFICATION_PREFERENCES_KEY, JSON.stringify(preferences));
-    listeners.forEach((listener) => listener(preferences));
+    if (notify) listeners.forEach((listener) => listener(preferences));
   },
 
   subscribe(listener: NotificationPreferencesListener) {
@@ -59,22 +67,24 @@ export const notificationPreferencesStorage = {
 export const hasEnabledNotificationPreference = (
   preferences: NotificationPreferences,
 ): boolean =>
-  preferences.allNotifications || preferences.appointments || preferences.otherUpdates;
+  preferences.allNotifications && (preferences.appointments || preferences.otherUpdates || preferences.paymentComplete || preferences.productAudit);
 
 // Backend `type` values (see src/types/notification.ts) that count as an
 // "appointment" notification for the Appointments toggle — everything else
 // (client, payment, whatsapp, and any future type) falls under "Other Updates".
-const APPOINTMENT_NOTIFICATION_TYPES = new Set(["appointment"]);
+const APPOINTMENT_NOTIFICATION_TYPES = new Set(["appointment", "newappointment", "appointmentreminder", "appointmentcancelled", "appointmentcompleted"]);
 
 export const isNotificationTypeEnabled = (
   type: string,
   preferences: NotificationPreferences,
 ): boolean => {
-  if (preferences.allNotifications) {
-    return true;
-  }
+  if (!preferences.allNotifications) return false;
 
-  return APPOINTMENT_NOTIFICATION_TYPES.has(type)
+  const normalizedType = type.trim().toLowerCase().replace(/[\s.-]+/g, "_");
+  if (["payment", "payment_complete", "payment_completed", "newpayment"].includes(normalizedType)) return preferences.paymentComplete;
+  if (["product_audit", "product_audit_completed", "product_audit_complete", "inventory_audit", "productaudit", "inventoryalert", "lowinventory"].includes(normalizedType)) return preferences.productAudit;
+
+  return APPOINTMENT_NOTIFICATION_TYPES.has(normalizedType)
     ? preferences.appointments
     : preferences.otherUpdates;
 };

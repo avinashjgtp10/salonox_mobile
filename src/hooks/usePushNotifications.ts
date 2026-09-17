@@ -4,6 +4,7 @@ import { Alert, Platform } from "react-native";
 import * as Notifications from "expo-notifications";
 
 import { useAppForeground } from "@/hooks/useAppForeground";
+import { salonNotificationPreferences } from "@/services/salonNotificationPreferences";
 import {
   registerDeviceThunk,
   fetchNotificationsThunk,
@@ -65,7 +66,8 @@ export const usePushNotifications = (isAuthenticated: boolean) => {
 
   const syncDeviceToken = useCallback(async () => {
     try {
-      const preferences = await notificationPreferencesStorage.getPreferences();
+      const preferences = await salonNotificationPreferences.get();
+      await notificationPreferencesStorage.setPreferences(preferences, false);
 
       if (!hasEnabledNotificationPreference(preferences)) {
         confirmedRegistrationSignatureRef.current = null;
