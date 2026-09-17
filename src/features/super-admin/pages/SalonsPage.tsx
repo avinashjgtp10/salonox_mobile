@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { fetchSuperAdminSalonsThunk, setSalonStatusThunk, forceOnboardingThunk, impersonateSalonThunk, deleteSalonThunk, createUserThunk } from "../../../middleware/superAdmin/superAdmin.thunk";
 import Pagination from "../components/Pagination";
@@ -12,17 +12,6 @@ function Badge({ status }: { status: string }) {
   };
   const c = map[status] ?? { bg: "#f8fafc", text: "#64748b" };
   return <span style={{ padding: "3px 10px", borderRadius: 20, fontSize: 11.5, fontWeight: 600, background: c.bg, color: c.text, textTransform: "capitalize" }}>{status}</span>;
-}
-
-function ActionBtn({ label, color, bg, onClick, disabled }: { label: string; color: string; bg: string; onClick: () => void; disabled: boolean }) {
-  const [hov, setHov] = useState(false);
-  return (
-    <button onClick={onClick} disabled={disabled}
-      onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
-      style={{ padding: "5px 11px", borderRadius: 7, fontSize: 11.5, fontWeight: 600, border: `1.5px solid ${color}`, cursor: disabled ? "not-allowed" : "pointer", background: hov && !disabled ? bg : "#fff", color, transition: "all 0.15s", opacity: disabled ? 0.5 : 1, whiteSpace: "nowrap" }}>
-      {label}
-    </button>
-  );
 }
 
 type MenuAction = { label: string; color: string; bg: string; onClick: () => void; disabled?: boolean };

@@ -6,7 +6,6 @@ import { downloadBlob } from "../../utils/downloadBlob";
 import type {
   Client,
   ClientResponse,
-  ClientsListResponse,
   CreateClientPayload,
   BlockClientsPayload,
   UnblockClientsPayload,

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { QrCode, Eye, PencilSquare, ToggleOn, ToggleOff, Grid } from "react-bootstrap-icons";
 import { PageHeader, EmptyState, Badge, Button, PageLoader } from "../../../components/ui";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";

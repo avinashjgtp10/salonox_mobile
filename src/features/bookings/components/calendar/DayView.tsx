@@ -678,7 +678,6 @@ const DayView: React.FC<DayViewProps> = ({
 
   const nowPx = timeToPx(nowTime);
   const isInteracting = !!(dragging || resizing);
-  const toMinsLocal = (t: string) => { const [hh, mm] = (t || "00:00").split(":").map(Number); return hh * 60 + mm; };
   const totalWidth = visibleStaff.length * COL_WIDTH;
   const totalGridHeight = slots.length * SLOT_HEIGHT;
 

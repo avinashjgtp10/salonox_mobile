@@ -98,12 +98,6 @@ const emptyCommissionSummary: CommissionSummary = {
   calculated_commission: 0,
 };
 
-const emptyTipSummary: TipSummary = {
-  total_tips: 0,
-  pending_payout: 0,
-  paid_out: 0,
-};
-
 // Types
 
 type PayrollStatus = "no_data" | "pending" | "in_progress" | "done";

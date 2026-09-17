@@ -6,7 +6,6 @@ import { downloadBlob } from "../../utils/downloadBlob";
 import type {
   Setting,
   SettingResponse,
-  SettingListResponse,
   CreateSettingPayload,
   UpdateSettingPayload,
 } from "../../types/setting.types";
@@ -21,7 +20,6 @@ export const fetchSettingsThunk = createAsyncThunk<
     const res = await api.get(SETTING.BASE);
     const body = res.data;
     const raw = body?.data;
-    console.log("[fetchSettingsThunk] raw response:", body);
     // Paginated: { data: { items: [], total, ... } }
     if (raw && Array.isArray((raw as any).items)) return (raw as any).items as Setting[];
     // Plain array: { data: [] }

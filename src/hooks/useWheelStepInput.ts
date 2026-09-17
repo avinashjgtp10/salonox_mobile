@@ -1,4 +1,5 @@
-import { RefObject, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
+import type { RefObject } from "react";
 
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 

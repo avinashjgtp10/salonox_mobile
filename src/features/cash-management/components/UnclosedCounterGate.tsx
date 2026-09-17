@@ -100,7 +100,7 @@ export default function UnclosedCounterGate() {
       // Send summary via email to Salon Owner's registered email address
       // (no PDF attachment). Sent silently — no notification either way.
       try {
-        await sendDailySummaryEmail(payload.cash_management_id, closedData ?? dashboard, userEmail);
+        await sendDailySummaryEmail(payload.cash_management_id, closedData ?? dashboard ?? undefined, userEmail);
       } catch (emailErr: any) {
         console.error("[UnclosedCounterGate] Email delivery error:", emailErr);
       }
