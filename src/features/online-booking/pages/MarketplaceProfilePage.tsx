@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import {
   Globe, Upload, Clock, Eye, CheckCircle, InfoCircle, ImageFill,
   Images, Trash3, ArrowRepeat, CloudArrowUp, PlusLg, XCircleFill,
@@ -37,6 +37,9 @@ interface GalleryPhoto {
   progress: number;
   error: string | null;
   saved: boolean;
+  // The one image customers see first on the public booking page. Exactly one
+  // saved photo carries this; the backend clears the rest when it's set.
+  isPrimary: boolean;
 }
 
 const defaultHours: Record<string, DayHours> = {
@@ -96,6 +99,46 @@ function fmtSize(bytes: number): string {
     : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
+// Upper bounds for the two free-text booking-window fields. Both are generous
+// — they exist to stop a stray keystroke turning into a five-digit value, not
+// to express a product opinion. Mirrored by the backend validator.
+const MAX_ADVANCE_DAYS_LIMIT = 365;
+const MIN_NOTICE_HOURS_LIMIT = 720; // 30 days
+
+// People type "instagram.com/glow" far more often than a full URL. The backend
+// requires an http(s) scheme, and because the About call is awaited before
+// working hours and booking settings, a rejected URL used to abort the whole
+// save — hours and toggles silently never sent, with only a generic error.
+// Normalising here means the common shorthand just works; anything still
+// unusable is reported against the field instead of failing the save.
+function normalizeSocialUrl(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return "";
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (/^[a-z][a-z0-9+.-]*:/i.test(trimmed)) return trimmed; // some other scheme — leave it to be rejected
+  return `https://${trimmed}`;
+}
+
+function socialUrlError(label: string, raw: string): string | null {
+  const value = normalizeSocialUrl(raw);
+  if (!value) return null;
+  if (value.length > 255) return `${label} link is too long (max 255 characters).`;
+  let parsed: URL;
+  try { parsed = new URL(value); }
+  catch { return `${label} link doesn't look like a valid web address.`; }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:")
+    return `${label} link must start with http:// or https://`;
+  return null;
+}
+
+// A numeric field the user is mid-edit can legitimately be "" or "0" — only
+// settle it to a valid number on blur and on save, never while typing.
+function clampNum(raw: string, min: number, max: number, fallback: number): number {
+  const n = Math.floor(Number(raw));
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, n));
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function MarketplaceProfilePage() {
@@ -116,6 +159,20 @@ export default function MarketplaceProfilePage() {
   const [minNotice,    setMinNotice]    = useState("0");
   const [cancelNotice, setCancelNotice] = useState("0");
   const [slotInterval, setSlotInterval] = useState("15");
+  const [sameDayBooking, setSameDayBooking] = useState(true);
+  const [multipleServices, setMultipleServices] = useState(true);
+  const [aboutEnabled,  setAboutEnabled]  = useState(true);
+  const [instagramUrl,  setInstagramUrl]  = useState("");
+  const [facebookUrl,   setFacebookUrl]   = useState("");
+
+  // Shows the owner the actual last bookable date, so "30 days" is concrete
+  // rather than something they have to work out on a calendar.
+  const maxAdvanceDateLabel = useMemo(() => {
+    const days = clampNum(maxAdvance, 1, MAX_ADVANCE_DAYS_LIMIT, 30);
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    return d.toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" });
+  }, [maxAdvance]);
   const [bookingLink,  setBookingLink]  = useState<string | null>(null);
   const [linkCopied,   setLinkCopied]   = useState(false);
   const { showSuccess, showError, overlay } = useStatusOverlay();
@@ -140,6 +197,13 @@ export default function MarketplaceProfilePage() {
       setMinNotice(String(profile.min_notice_hours ?? 0));
       setCancelNotice(String(profile.cancellation_notice_hours ?? 0));
       setSlotInterval(String(profile.slot_interval_minutes ?? 15));
+      // Absent (column not migrated yet, or an older profile row) means ON —
+      // same permissive default the backend uses.
+      setSameDayBooking(profile.allow_same_day_booking !== false);
+      setMultipleServices(profile.allow_multiple_services !== false);
+      setAboutEnabled(profile.about_enabled !== false);
+      setInstagramUrl(profile.instagram_url || "");
+      setFacebookUrl(profile.facebook_url || "");
     }
   }, [profile]);
 
@@ -192,6 +256,18 @@ export default function MarketplaceProfilePage() {
       return;
     }
 
+    // Checked before anything is dispatched — the saves run in sequence, so a
+    // value the backend will reject must not be allowed to abort the ones
+    // after it.
+    const socialError = socialUrlError("Instagram", instagramUrl) ?? socialUrlError("Facebook", facebookUrl);
+    if (socialError) { showError(socialError); return; }
+
+    const normalizedInstagram = normalizeSocialUrl(instagramUrl);
+    const normalizedFacebook  = normalizeSocialUrl(facebookUrl);
+    // Reflect the normalised form back so the owner sees what was stored.
+    if (normalizedInstagram !== instagramUrl) setInstagramUrl(normalizedInstagram);
+    if (normalizedFacebook !== facebookUrl)   setFacebookUrl(normalizedFacebook);
+
     try {
       await dispatch(updateMarketplaceEssentialsThunk({
         display_name: businessName,
@@ -202,6 +278,9 @@ export default function MarketplaceProfilePage() {
 
       await dispatch(updateMarketplaceAboutThunk({
         venue_description: description,
+        instagram_url: normalizedInstagram,
+        facebook_url:  normalizedFacebook,
+        about_enabled: aboutEnabled,
       })).unwrap();
 
       await dispatch(updateMarketplaceWorkingHoursThunk({
@@ -209,10 +288,12 @@ export default function MarketplaceProfilePage() {
       })).unwrap();
 
       await dispatch(updateMarketplaceBookingPolicyThunk({
-        max_advance_days: Number(maxAdvance),
-        min_notice_hours: Number(minNotice),
+        max_advance_days: clampNum(maxAdvance, 1, MAX_ADVANCE_DAYS_LIMIT, 30),
+        min_notice_hours: clampNum(minNotice, 0, MIN_NOTICE_HOURS_LIMIT, 0),
         cancellation_notice_hours: Number(cancelNotice),
         slot_interval_minutes: Number(slotInterval),
+        allow_same_day_booking: sameDayBooking,
+        allow_multiple_services: multipleServices,
       })).unwrap();
 
       if (enabled && !profile?.is_published) {
@@ -234,7 +315,7 @@ export default function MarketplaceProfilePage() {
     setGalleryLoading(true);
     try {
       const res = await api.get(MARKETPLACE.IMAGES);
-      const raw: Array<{ id: string; image_url?: string; url?: string; filename?: string; size?: number }> =
+      const raw: Array<{ id: string; image_url?: string; url?: string; filename?: string; size?: number; is_cover?: boolean }> =
         res.data?.data ?? res.data ?? [];
       const toRelative = (u?: string) => {
         if (!u) return "";
@@ -252,6 +333,7 @@ export default function MarketplaceProfilePage() {
           progress:  100,
           error:     null,
           saved:     true,
+          isPrimary: Boolean(p.is_cover),
         }))
       );
     } catch {
@@ -283,6 +365,7 @@ export default function MarketplaceProfilePage() {
       progress:  0,
       error:     null,
       saved:     false,
+      isPrimary: false,
     }));
     setGallery((prev) => [...prev, ...previews]);
 
@@ -327,6 +410,53 @@ export default function MarketplaceProfilePage() {
   }, []);
 
   // ── Gallery: delete ─────────────────────────────────────────────────────────
+  // Reorder by one position. Applied to local state first so the grid responds
+  // instantly, then persisted as the full id order the backend expects; a
+  // failed save is rolled back rather than left looking applied.
+  // Computed from the current `gallery` value rather than inside a setGallery
+  // updater. Reading values back out of an updater looks equivalent but isn't:
+  // React may defer it behind another pending update (an in-flight upload's
+  // progress, say), in which case the captured arrays are still empty when the
+  // next line runs — which sent `image_ids: []` and then blanked the grid on
+  // the rollback.
+  const movePhoto = useCallback(async (photo: GalleryPhoto, direction: -1 | 1) => {
+    if (!photo.saved) return;
+
+    const previous = gallery;
+    const savedPhotos = previous.filter((g) => g.saved);
+    const from = savedPhotos.findIndex((g) => g.id === photo.id);
+    const to = from + direction;
+    if (from < 0 || to < 0 || to >= savedPhotos.length) return; // already at an end
+
+    const reordered = [...savedPhotos];
+    [reordered[from], reordered[to]] = [reordered[to], reordered[from]];
+    // Unsaved uploads stay pinned after the saved ones, where they render.
+    const nextOrder = [...reordered, ...previous.filter((g) => !g.saved)];
+    setGallery(nextOrder);
+
+    try {
+      await api.patch(MARKETPLACE.IMAGES_REORDER, {
+        image_ids: reordered.map((g) => g.id),
+      });
+    } catch {
+      setGallery(previous);
+      showError("Couldn't save the new photo order. Please try again.");
+    }
+  }, [gallery, showError]);
+
+  const setPrimaryPhoto = useCallback(async (photo: GalleryPhoto) => {
+    if (!photo.saved || photo.isPrimary) return;
+    const previous = gallery;
+    setGallery(previous.map((g) => ({ ...g, isPrimary: g.id === photo.id })));
+    try {
+      await api.patch(MARKETPLACE.IMAGE_COVER(photo.id));
+      showSuccess("Cover photo updated");
+    } catch {
+      setGallery(previous);
+      showError("Couldn't set that photo as the cover. Please try again.");
+    }
+  }, [gallery, showError, showSuccess]);
+
   const deletePhoto = useCallback(async (photo: GalleryPhoto) => {
     // Remove optimistically
     setGallery((p) => p.filter((g) => g.id !== photo.id));
@@ -637,6 +767,45 @@ export default function MarketplaceProfilePage() {
               onChange={(e) => setWebsite(e.target.value)} placeholder="https://yoursalon.com" />
           </div>
         </div>
+
+        <div className="ob-form-grid">
+          <div className="ob-form-group">
+            <label className="ob-label" htmlFor="instagram-url">
+              Instagram <span className="ob-label-optional">(optional)</span>
+            </label>
+            <input id="instagram-url" className="ob-input" value={instagramUrl} maxLength={255}
+              onChange={(e) => setInstagramUrl(e.target.value)}
+              placeholder="https://instagram.com/yoursalon" />
+          </div>
+          <div className="ob-form-group">
+            <label className="ob-label" htmlFor="facebook-url">
+              Facebook <span className="ob-label-optional">(optional)</span>
+            </label>
+            <input id="facebook-url" className="ob-input" value={facebookUrl} maxLength={255}
+              onChange={(e) => setFacebookUrl(e.target.value)}
+              placeholder="https://facebook.com/yoursalon" />
+          </div>
+        </div>
+
+        <div className="ob-toggle-row">
+          <div className="ob-toggle-info">
+            <p className="ob-toggle-label">Show About Us on the booking page</p>
+            <p className="ob-toggle-hint">
+              {aboutEnabled
+                ? "Clients see your description, website and social links while booking."
+                : "Your description, website and social links are hidden from clients. Nothing is deleted."}
+            </p>
+          </div>
+          <label className="ob-switch">
+            <input
+              type="checkbox"
+              id="about-enabled"
+              checked={aboutEnabled}
+              onChange={(e) => setAboutEnabled(e.target.checked)}
+            />
+            <span className="ob-switch-track"><span className="ob-switch-thumb" /></span>
+          </label>
+        </div>
       </div>
 
       {/* ════════════════════════════════════════════════════════════════════════
@@ -801,14 +970,19 @@ export default function MarketplaceProfilePage() {
 
               <div style={{ display: "grid",
                 gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 16 }}>
-                {gallery.map((photo) => (
+                {gallery.map((photo, idx) => (
                   <GalleryCard
                     key={photo.id}
                     photo={photo}
+                    canMoveBack={photo.saved && idx > 0}
+                    canMoveForward={photo.saved && idx < gallery.filter((g) => g.saved).length - 1}
                     replaceInputRef={(el) => { replaceInputs.current[photo.id] = el; }}
                     onDelete={() => deletePhoto(photo)}
                     onReplace={(file) => replacePhoto(photo, file)}
                     onRetry={() => galleryInput.current?.click()}
+                    onMoveBack={() => movePhoto(photo, -1)}
+                    onMoveForward={() => movePhoto(photo, 1)}
+                    onSetPrimary={() => setPrimaryPhoto(photo)}
                   />
                 ))}
 
@@ -899,35 +1073,47 @@ export default function MarketplaceProfilePage() {
         </div>
         <div className="ob-form-grid">
           <div className="ob-form-group">
-            <label className="ob-label">Maximum advance booking</label>
-            <Dropdown
-              className="ob-select"
-              searchable={false}
-              value={maxAdvance}
-              onChange={setMaxAdvance}
-              options={[
-                { id: "30", name: "1 month" },
-                { id: "60", name: "2 months" },
-                { id: "90", name: "3 months" },
-                { id: "180", name: "6 months" },
-              ]}
-            />
+            <label className="ob-label" htmlFor="max-advance-days">Maximum advance booking</label>
+            <div className="ob-unit-field">
+              <input
+                id="max-advance-days"
+                className="ob-input"
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={MAX_ADVANCE_DAYS_LIMIT}
+                value={maxAdvance}
+                onChange={(e) => setMaxAdvance(e.target.value)}
+                onBlur={() => setMaxAdvance(String(clampNum(maxAdvance, 1, MAX_ADVANCE_DAYS_LIMIT, 30)))}
+              />
+              <span className="ob-unit-suffix">Days</span>
+            </div>
+            <p className="ob-field-hint">
+              Clients can book up to {clampNum(maxAdvance, 1, MAX_ADVANCE_DAYS_LIMIT, 30)} days ahead
+              {maxAdvanceDateLabel ? ` — currently until ${maxAdvanceDateLabel}.` : "."}
+            </p>
           </div>
           <div className="ob-form-group">
-            <label className="ob-label">Minimum notice period</label>
-            <Dropdown
-              className="ob-select"
-              searchable={false}
-              value={minNotice}
-              onChange={setMinNotice}
-              options={[
-                { id: "0", name: "No notice required" },
-                { id: "1", name: "1 hour" },
-                { id: "4", name: "4 hours" },
-                { id: "24", name: "24 hours" },
-                { id: "48", name: "48 hours" },
-              ]}
-            />
+            <label className="ob-label" htmlFor="min-notice-hours">Minimum booking notice</label>
+            <div className="ob-unit-field">
+              <input
+                id="min-notice-hours"
+                className="ob-input"
+                type="number"
+                inputMode="numeric"
+                min={0}
+                max={MIN_NOTICE_HOURS_LIMIT}
+                value={minNotice}
+                onChange={(e) => setMinNotice(e.target.value)}
+                onBlur={() => setMinNotice(String(clampNum(minNotice, 0, MIN_NOTICE_HOURS_LIMIT, 0)))}
+              />
+              <span className="ob-unit-suffix">Hours</span>
+            </div>
+            <p className="ob-field-hint">
+              {clampNum(minNotice, 0, MIN_NOTICE_HOURS_LIMIT, 0) === 0
+                ? "Clients can book any slot that hasn't already passed."
+                : `Slots within the next ${clampNum(minNotice, 0, MIN_NOTICE_HOURS_LIMIT, 0)} hour${clampNum(minNotice, 0, MIN_NOTICE_HOURS_LIMIT, 0) === 1 ? "" : "s"} won't be offered.`}
+            </p>
           </div>
           <div className="ob-form-group">
             <label className="ob-label">Cancellation notice</label>
@@ -958,6 +1144,46 @@ export default function MarketplaceProfilePage() {
               ]}
             />
           </div>
+        </div>
+
+        <div className="ob-toggle-row">
+          <div className="ob-toggle-info">
+            <p className="ob-toggle-label">Allow same-day booking</p>
+            <p className="ob-toggle-hint">
+              {sameDayBooking
+                ? "Clients can book today, as long as the time is still ahead and meets your minimum notice."
+                : "Clients can only book from tomorrow onwards. Appointments already in your calendar for today are unaffected."}
+            </p>
+          </div>
+          <label className="ob-switch">
+            <input
+              type="checkbox"
+              id="allow-same-day-booking"
+              checked={sameDayBooking}
+              onChange={(e) => setSameDayBooking(e.target.checked)}
+            />
+            <span className="ob-switch-track"><span className="ob-switch-thumb" /></span>
+          </label>
+        </div>
+
+        <div className="ob-toggle-row">
+          <div className="ob-toggle-info">
+            <p className="ob-toggle-label">Allow multiple services</p>
+            <p className="ob-toggle-hint">
+              {multipleServices
+                ? "Clients can book several services in one appointment; the duration and price add up."
+                : "Clients book one service per appointment."}
+            </p>
+          </div>
+          <label className="ob-switch">
+            <input
+              type="checkbox"
+              id="allow-multiple-services"
+              checked={multipleServices}
+              onChange={(e) => setMultipleServices(e.target.checked)}
+            />
+            <span className="ob-switch-track"><span className="ob-switch-thumb" /></span>
+          </label>
         </div>
         <div className="ob-info-banner">
           <InfoCircle size={16} className="ob-info-icon" />
@@ -1049,14 +1275,35 @@ export default function MarketplaceProfilePage() {
 
 interface GalleryCardProps {
   photo: GalleryPhoto;
+  canMoveBack: boolean;
+  canMoveForward: boolean;
   replaceInputRef: (el: HTMLInputElement | null) => void;
   onDelete: () => void;
   onReplace: (file: File) => void;
   onRetry: () => void;
+  onMoveBack: () => void;
+  onMoveForward: () => void;
+  onSetPrimary: () => void;
 }
 
-function GalleryCard({ photo, replaceInputRef, onDelete, onReplace }: GalleryCardProps) {
+function GalleryCard({
+  photo, canMoveBack, canMoveForward, replaceInputRef,
+  onDelete, onReplace, onMoveBack, onMoveForward, onSetPrimary,
+}: GalleryCardProps) {
   const [hovered, setHovered] = useState(false);
+
+  // Ordering and cover controls only apply to a photo the server already has —
+  // an id that's still a local placeholder can't be reordered or made cover.
+  const showControls = photo.saved && !photo.uploading && !photo.error;
+
+  const ctrlBtn = (enabled: boolean): React.CSSProperties => ({
+    display: "flex", alignItems: "center", justifyContent: "center",
+    width: 28, height: 28, borderRadius: 8, border: "none",
+    background: "rgba(255,255,255,0.92)", color: enabled ? "#0f172a" : "#cbd5e1",
+    cursor: enabled ? "pointer" : "not-allowed",
+    boxShadow: "0 2px 6px rgba(0,0,0,0.18)", fontSize: 14, fontWeight: 800,
+    lineHeight: 1, padding: 0,
+  });
 
   return (
     <div
@@ -1092,6 +1339,40 @@ function GalleryCard({ photo, replaceInputRef, onDelete, onReplace }: GalleryCar
               ? "linear-gradient(to top, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0) 100%)"
               : "linear-gradient(to top, rgba(0,0,0,0.35) 0%, transparent 50%)",
             transition: "background 0.3s" }} />
+        )}
+
+        {/* Cover badge — always visible, so the primary photo is identifiable
+            without hovering every tile to find it. */}
+        {showControls && photo.isPrimary && (
+          <div style={{ position: "absolute", top: 10, left: 10,
+            display: "flex", alignItems: "center", gap: 5,
+            padding: "4px 9px", borderRadius: 999,
+            background: "linear-gradient(135deg,#0f172a,#334155)", color: "#fff",
+            fontSize: 10.5, fontWeight: 800, letterSpacing: "0.03em",
+            boxShadow: "0 2px 8px rgba(15,23,42,0.35)" }}>
+            ★ COVER
+          </div>
+        )}
+
+        {/* Order + cover controls */}
+        {showControls && hovered && (
+          <div style={{ position: "absolute", top: 10, right: 10, display: "flex", gap: 6 }}>
+            <button type="button" aria-label="Move photo earlier"
+              title={canMoveBack ? "Move earlier" : "Already first"}
+              disabled={!canMoveBack}
+              onClick={(e) => { e.stopPropagation(); onMoveBack(); }}
+              style={ctrlBtn(canMoveBack)}>‹</button>
+            <button type="button" aria-label="Move photo later"
+              title={canMoveForward ? "Move later" : "Already last"}
+              disabled={!canMoveForward}
+              onClick={(e) => { e.stopPropagation(); onMoveForward(); }}
+              style={ctrlBtn(canMoveForward)}>›</button>
+            {!photo.isPrimary && (
+              <button type="button" aria-label="Set as cover photo" title="Set as cover"
+                onClick={(e) => { e.stopPropagation(); onSetPrimary(); }}
+                style={ctrlBtn(true)}>★</button>
+            )}
+          </div>
         )}
 
         {/* Upload progress overlay */}

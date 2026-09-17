@@ -43,6 +43,12 @@ export interface MarketplaceProfile {
   min_notice_hours: number;
   cancellation_notice_hours: number;
   slot_interval_minutes: number;
+  // Optional because the columns may not be migrated yet — absent reads as ON.
+  allow_same_day_booking?: boolean;
+  allow_multiple_services?: boolean;
+  about_enabled?: boolean;
+  instagram_url?: string | null;
+  facebook_url?: string | null;
   is_published: boolean;
   created_at: string;
   updated_at: string;
