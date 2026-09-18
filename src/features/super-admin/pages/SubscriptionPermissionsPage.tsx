@@ -292,10 +292,18 @@ export default function SubscriptionPermissionsPage() {
     const res = await dispatch(grantSubscriptionDaysThunk({ salonId: salon.id, days }));
     setGranting(false);
     if (grantSubscriptionDaysThunk.fulfilled.match(res)) {
-      const newEnd = res.payload?.subscription?.current_period_end;
+      const sub = res.payload?.subscription;
+      const newEnd = sub?.current_period_end;
       const endLabel = newEnd
         ? new Date(newEnd).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
         : null;
+      if (newEnd) {
+        const patch = { subscription_end_date: newEnd, subscription_status: sub?.status ?? salon.subscription_status };
+        setSalon((prev: any) => prev ? { ...prev, ...patch } : prev);
+        // Same reasoning as handleApplySubscription: sync the row behind the
+        // modal so the list reflects the extension immediately.
+        setResults((prev: any[]) => prev.map((r) => r.id === salon.id ? { ...r, ...patch } : r));
+      }
       setGrantMsg({ ok: true, text: endLabel ? `Extended — active until ${endLabel}` : "Subscription extended" });
       setGrantDays("");
       if (showAudit) loadAuditLog();
@@ -327,14 +335,18 @@ export default function SubscriptionPermissionsPage() {
     setApplying(false);
     if (applySubscriptionThunk.fulfilled.match(res)) {
       const sub = res.payload?.subscription;
-      setSalon((prev: any) => prev ? {
-        ...prev,
+      const patch = {
         subscription_status: sub?.status ?? "active",
         subscription_start_date: sub?.current_period_start ?? applyStart,
         subscription_end_date: sub?.current_period_end ?? applyEnd,
         subscription_cancel_at_period_end: false,
         subscription_cancelled_at: null,
-      } : prev);
+      };
+      setSalon((prev: any) => prev ? { ...prev, ...patch } : prev);
+      // Keep the table row behind the modal in sync without a full re-search —
+      // otherwise it shows the pre-apply status/dates until the user retypes
+      // the search query.
+      setResults((prev: any[]) => prev.map((r) => r.id === salon.id ? { ...r, ...patch } : r));
       setApplyMsg({ ok: true, text: `Subscription applied — active ${fmtDate(applyStart)} to ${fmtDate(applyEnd)}` });
       if (showAudit) loadAuditLog();
     } else {
@@ -350,12 +362,15 @@ export default function SubscriptionPermissionsPage() {
     setRemoving(false);
     if (removeSubscriptionThunk.fulfilled.match(res)) {
       const sub = res.payload?.subscription;
-      setSalon((prev: any) => prev ? {
-        ...prev,
+      const patch = {
         subscription_status: sub?.status ?? "cancelled",
         subscription_end_date: sub?.current_period_end ?? null,
         subscription_cancelled_at: sub?.cancelled_at ?? new Date().toISOString(),
-      } : prev);
+      };
+      setSalon((prev: any) => prev ? { ...prev, ...patch } : prev);
+      // Same reasoning as handleApplySubscription: sync the row behind the
+      // modal so the list reflects the removal immediately.
+      setResults((prev: any[]) => prev.map((r) => r.id === salon.id ? { ...r, ...patch } : r));
       setRemoveMsg({ ok: true, text: "Subscription removed — account deactivated" });
       if (showAudit) loadAuditLog();
     } else {
