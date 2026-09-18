@@ -1,6 +1,5 @@
 import { api } from "@/services/api";
 import { ATTENDANCE } from "@/services/api/endpoints";
-import type { ApiResponse } from "@/types/auth";
 import type {
   AttendanceRecord,
   AttendanceRecordList,
@@ -20,6 +19,7 @@ import type {
   UpdateAttendanceSettingsRequest,
   UpdateAttendanceSettingsResponse,
 } from "@/types/attendance";
+import type { ApiResponse } from "@/types/auth";
 import {
   asRecord,
   firstArray,
@@ -106,6 +106,7 @@ type AttendanceTodayApiData =
       attendance?: AttendanceRecordApiItem[] | null;
       data?: AttendanceRecordApiItem[] | null;
       date?: string | null;
+      summary?: UnknownRecord | null;
       items?: AttendanceRecordApiItem[] | null;
       records?: AttendanceRecordApiItem[] | null;
       rows?: AttendanceRecordApiItem[] | null;
@@ -190,7 +191,7 @@ const getAttendanceListTotal = (payload: AttendanceListApiData, fallback: number
 };
 
 const getTodayDate = (payload: AttendanceTodayApiData) =>
-  Array.isArray(payload) ? null : toSafeString(payload.date) || null;
+  Array.isArray(payload) ? null : toSafeString(payload.date) || toSafeString(asRecord(payload.summary).date) || null;
 
 const getSummaryRecord = (payload: AttendanceSummaryApiData): UnknownRecord => {
   const record = asRecord(payload);
@@ -274,6 +275,8 @@ const normalizeAttendanceRecord = (entry: UnknownRecord): AttendanceRecord | nul
     avatarColor: avatarTone.color,
     checkInTime,
     checkOutTime,
+    checkInLocation: toSafeString(firstValue(entry, ["checkInLocation", "check_in_location"])) || null,
+    checkOutLocation: toSafeString(firstValue(entry, ["checkOutLocation", "check_out_location"])) || null,
     date:
       toSafeString(
         firstValue(entry, ["date", "attendanceDate", "attendance_date", "markedDate", "marked_date"]),
@@ -330,9 +333,32 @@ const normalizeAttendanceSettings = (entry: UnknownRecord): AttendanceSettings =
   workStartTime: toSafeString(firstValue(entry, ["workStartTime", "work_start_time"])) || null,
 });
 
+// Attaches the punch coordinates to a check-in / check-out body. Sent under
+// both snake_case and camelCase keys, matching the staff_id/staffId pattern
+// the same endpoints already use, so whichever casing the backend reads is
+// populated. Omitted entirely when no fix was captured, so a body without
+// coordinates stays byte-identical to what shipped before.
+const appendCoordinates = (
+  requestBody: Record<string, number | string>,
+  payload: unknown,
+) => {
+  const coordinates = asRecord(payload);
+  const latitude = coordinates.latitude;
+  const longitude = coordinates.longitude;
+
+  if (typeof latitude !== "number" || typeof longitude !== "number") {
+    return;
+  }
+
+  requestBody.latitude = latitude;
+  requestBody.longitude = longitude;
+  requestBody.lat = latitude;
+  requestBody.lng = longitude;
+};
+
 export const attendanceService = {
   async checkIn(payload: CheckInRequest): Promise<CheckInResponse> {
-    const requestBody: Record<string, string> = {
+    const requestBody: Record<string, number | string> = {
       staff_id: payload.staffId,
       staffId: payload.staffId,
     };
@@ -345,6 +371,12 @@ export const attendanceService = {
       requestBody.note = payload.notes;
     }
 
+    appendCoordinates(requestBody, payload);
+
+    if (payload.location?.trim()) {
+      requestBody.location = payload.location.trim();
+    }
+
     const response = await api.post<AttendanceRecordApiResponse>(ATTENDANCE.CHECK_IN, requestBody);
     const record = normalizeAttendanceRecord(getRecordFromEnvelope(response.data.data));
 
@@ -355,7 +387,7 @@ export const attendanceService = {
   },
 
   async checkOut(payload: CheckOutRequest): Promise<CheckOutResponse> {
-    const requestBody: Record<string, string> = {
+    const requestBody: Record<string, number | string> = {
       staff_id: payload.staffId,
       staffId: payload.staffId,
     };
@@ -366,6 +398,12 @@ export const attendanceService = {
 
     if (payload.notes !== undefined) {
       requestBody.note = payload.notes;
+    }
+
+    appendCoordinates(requestBody, payload);
+
+    if (payload.location?.trim()) {
+      requestBody.location = payload.location.trim();
     }
 
     const response = await api.post<AttendanceRecordApiResponse>(ATTENDANCE.CHECK_OUT, requestBody);

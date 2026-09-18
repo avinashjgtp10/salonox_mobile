@@ -10,7 +10,6 @@ const STAFF_TABS: AppTabItem[] = [
   { icon: "home-outline", name: "home", title: "Home" },
   { icon: "calendar-number-outline", name: "appointments", title: "Appointments" },
   { icon: "calendar-outline", name: "calendar", title: "Calendar" },
-  { icon: "time-outline", name: "attendance", title: "Attendance" },
   { icon: "settings-outline", name: "more", title: "Settings" },
 ];
 
@@ -18,6 +17,9 @@ export default function StaffTabsLayout() {
   return (
     <AppTabLayout tabs={STAFF_TABS}>
       <Tabs.Screen name="appointment-details/[id]" options={{ href: null }} />
+      {/* Attendance lives on the Home dashboard card; the route stays
+          reachable by link but is no longer a tab. */}
+      <Tabs.Screen name="attendance" options={{ href: null }} />
       <Tabs.Screen name="notifications" options={{ href: null }} />
       <Tabs.Screen name="profile" options={{ href: null }} />
     </AppTabLayout>
