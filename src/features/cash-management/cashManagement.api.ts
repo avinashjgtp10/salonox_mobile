@@ -1,5 +1,4 @@
 import api from "../../services/api/axios";
-import { DAILY_SHEET_REPORT } from "../../services/api/endpoints";
 import type { DailySummaryData } from "./cashManagement.export";
 import type {
   CashDashboardSummary,
@@ -167,6 +166,29 @@ export async function fetchCashExpenses() {
   return unwrapList<any>(response).map(normalizeExpense);
 }
 
+// Bundles what used to be 3 separate GETs (base counter list, /expenses,
+// and /api/v1/dashboard/summary) into one POST — same "no params = all rows,
+// filter client-side" contract as fetchCashTransactions/fetchCashExpenses
+// above, just fetched together. Leaves fetchCashDashboard/cashdashboard out:
+// that one flows through cashCounterSlice (see useCashManagement.loadDashboard)
+// so the navbar's Close Counter shortcut stays in sync, and deduping that
+// against this bundle isn't worth the added complexity.
+export async function fetchCashSummaryBundle() {
+  const response = await api.post(`${BASE}/summary-bundle`, {
+    sections: ["cash_counters", "cash_expenses", "dashboard_summary"],
+  });
+  const data = unwrapData<any>(response);
+  const transactions: any[] = Array.isArray(data?.cash_counters?.items) ? data.cash_counters.items : [];
+  const expenses: any[] = Array.isArray(data?.cash_expenses?.items) ? data.cash_expenses.items : [];
+  const dashboardSummary = data?.dashboard_summary;
+
+  return {
+    transactions: transactions.map(normalizeTransaction),
+    expenses: expenses.map(normalizeExpense),
+    todayRevenue: asNumber(dashboardSummary?.todayRevenue ?? dashboardSummary?.today_revenue),
+  };
+}
+
 export async function createCashExpense(payload: CashExpensePayload) {
   const response = await api.post(`${BASE}/expenses`, payload);
   return normalizeExpense(unwrapData<any>(response));
@@ -207,71 +229,6 @@ export async function closeCashCounter(payload: CloseCounterPayload) {
       };
     }
     throw err;
-  }
-}
-
-// Today's total revenue (all payment methods, all of today's completed/paid
-// sales) — sourced from the salon dashboard summary, not the cash counter.
-// Deliberately independent of cash_management: it must still read correctly
-// whether the counter is open, closed, or was never opened for the day.
-export async function fetchTodaysRevenue() {
-  const response = await api.get("/api/v1/dashboard/summary");
-  const data = unwrapData<any>(response);
-  return asNumber(data?.todayRevenue ?? data?.today_revenue);
-}
-
-// Counts how many of a given date's invoices were paid via UPI vs Card, for
-// display in the Close Counter popup and the daily summary email. No backend
-// aggregate exists for this, so it reads the Daily Sheet report (the same
-// API DailySheetReport.tsx uses) filtered to that date with a generous page
-// size, and counts raw payment_method values client-side. Defaults to today,
-// but the "close a stale previous-day counter" flow must pass that counter's
-// opened date instead — otherwise it would show today's counts against
-// yesterday's revenue figures.
-export async function fetchTodaysPaymentMethodCounts(date = new Date().toISOString().slice(0, 10)) {
-  try {
-    const response = await api.post(DAILY_SHEET_REPORT.SUMMARY(), {
-      date,
-      page: 1,
-      limit: 1000,
-    });
-    const rows: any[] = response?.data?.data?.rows ?? [];
-    const counts = { upi: 0, card: 0, cash: 0 };
-    const amounts = { upi: 0, card: 0, cash: 0 };
-    for (const row of rows) {
-      const method = String(row?.payment_method ?? "").trim().toLowerCase();
-      if (method === "split") {
-        // Split sales have no single payment_method — the per-method legs
-        // live inside payment_reference instead (e.g. {"Cash":200,"UPI":150}).
-        // Without this, split sales were silently excluded, undercounting
-        // UPI/Card totals for any salon that mixes payment methods.
-        let legs: Record<string, unknown> = {};
-        try {
-          legs = typeof row?.payment_reference === "string"
-            ? JSON.parse(row.payment_reference)
-            : (row?.payment_reference ?? {});
-        } catch {
-          legs = {};
-        }
-        for (const [legMethod, legAmount] of Object.entries(legs)) {
-          const key = String(legMethod).trim().toLowerCase();
-          const amount = asNumber(legAmount);
-          if (key === "upi") { counts.upi += 1; amounts.upi += amount; }
-          else if (key === "card") { counts.card += 1; amounts.card += amount; }
-          else if (key === "cash") { counts.cash += 1; amounts.cash += amount; }
-        }
-        continue;
-      }
-
-      const amount = asNumber(row?.paid_amount);
-      if (method === "upi") { counts.upi += 1; amounts.upi += amount; }
-      else if (method === "card") { counts.card += 1; amounts.card += amount; }
-      else if (method === "cash") { counts.cash += 1; amounts.cash += amount; }
-    }
-    return { ...counts, amounts };
-  } catch (err) {
-    console.error("[cash-management] Failed to load today's payment method counts:", err);
-    return { upi: 0, card: 0, cash: 0, amounts: { upi: 0, card: 0, cash: 0 } };
   }
 }
 

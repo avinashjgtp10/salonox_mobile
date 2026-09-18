@@ -14,7 +14,6 @@ import {
   getCustomExpenseTypes,
   saveCustomExpenseType,
 } from "../cashManagement.expenseTypes";
-import { fetchTodaysPaymentMethodCounts } from "../cashManagement.api";
 import type {
   CashDashboardSummary,
   CashExpenseRecord,
@@ -637,12 +636,16 @@ export function CloseCounterModal({
   const [remarks, setRemarks] = useState("");
   const [errors, setErrors] = useState<FieldErrors>({});
   const [submitError, setSubmitError] = useState("");
-  // dashboard.upiAmount/cardAmount come from the cash-management dashboard
-  // endpoint, which never actually populates those fields (always 0), and
-  // dashboard.cashRevenue excludes the cash leg of split payments — the
-  // real per-payment-method totals (split-aware) only exist in today's
-  // daily-sheet rows, so they're fetched and aggregated separately here.
-  const [paymentMethodAmounts, setPaymentMethodAmounts] = useState({ upi: 0, card: 0, cash: 0 });
+  // dashboard.upiAmount/cardAmount/cashAmount come straight from the
+  // cash-management dashboard (/cashdashboard) endpoint's own
+  // getPaymentMethodCounts query, which is already split-payment-aware (a
+  // Cash+UPI split correctly credits both legs) and scoped to this counter's
+  // own opened_at -> closed_at session window — no separate fetch needed.
+  const paymentMethodAmounts = {
+    upi: dashboard.upiAmount,
+    card: dashboard.cardAmount,
+    cash: dashboard.cashAmount,
+  };
 
   const handleClose = () => {
     if (loading || mandatory) return;
@@ -662,17 +665,6 @@ export function CloseCounterModal({
     setErrors({});
     setSubmitError("");
   }, [dashboard, show]);
-
-  useEffect(() => {
-    if (!show) return;
-    let cancelled = false;
-    fetchTodaysPaymentMethodCounts().then((counts) => {
-      if (!cancelled) setPaymentMethodAmounts(counts.amounts);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [show]);
 
   const validateForm = () => {
     const nextErrors: FieldErrors = {};

@@ -27,7 +27,7 @@ import {
   exportCashManagementExcel,
   exportCashManagementPDF,
 } from "../cashManagement.export";
-import { sendDailySummaryEmail, fetchTodaysPaymentMethodCounts } from "../cashManagement.api";
+import { sendDailySummaryEmail } from "../cashManagement.api";
 import { selectUserProfile } from "../../../store/selectors/slices.selectors";
 import { useAppSelector, useAppDispatch } from "../../../hooks/useAppRedux";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
@@ -133,23 +133,6 @@ export default function CashManagementPage() {
   const [activeTab, setActiveTab] = useState<ActiveTab>("transactions");
   const [showOpenModal, setShowOpenModal] = useState(false);
   const [showCloseModal, setShowCloseModal] = useState(false);
-  const [paymentMethodCounts, setPaymentMethodCounts] = useState({
-    upi: 0,
-    card: 0,
-    cash: 0,
-    amounts: { upi: 0, card: 0, cash: 0 },
-  });
-
-  useEffect(() => {
-    if (!showCloseModal) return;
-    let cancelled = false;
-    fetchTodaysPaymentMethodCounts().then((counts) => {
-      if (!cancelled) setPaymentMethodCounts(counts);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [showCloseModal]);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [editingExpense, setEditingExpense] = useState<CashExpenseRecord | null>(null);
   const [deletingExpense, setDeletingExpense] = useState<CashExpenseRecord | null>(null);
@@ -832,9 +815,13 @@ export default function CashManagementPage() {
         onSubmit={async (payload) => {
           const closed = await closeCounter(payload);
           try {
+            // closed/dashboard already carry split-aware upiAmount/cardAmount
+            // straight from the cashdashboard endpoint — DailySummaryData
+            // prefers those over paymentCounts.amounts (see its comment), so
+            // no separate fetch is needed to build this payload.
             await sendDailySummaryEmail(
               dashboard.cashManagementId,
-              { ...(closed || dashboard), paymentCounts: paymentMethodCounts },
+              closed || dashboard,
               userEmail,
             );
           } catch (emailErr) {

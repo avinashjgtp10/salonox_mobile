@@ -1,5 +1,5 @@
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { PageLoader } from "../../../components/ui";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { logout, setCustomPermissions } from "../../../store/authSlice";
@@ -86,18 +86,33 @@ export default function DashboardLayout() {
   // actually open/close the register in the first place.
   const cashCounterLoaded = useAppSelector((s) => s.cashCounter.dashboard !== null);
   const cashCounterLoading = useAppSelector((s) => s.cashCounter.loading);
+  const cashCounterError = useAppSelector((s) => s.cashCounter.error);
+  const cashCounterRetries = useRef(0);
   useEffect(() => {
     const isOwnerOrAdmin = role === "salon_owner" || role === "admin";
     const canSeeCashManagement = isOwnerOrAdmin || effectivePermissions?.view_cash_management === true;
+    if (!canSeeCashManagement || cashCounterLoaded || cashCounterLoading) return;
     // This effect's deps (role, effectivePermissions) can legitimately
     // re-run more than once while auth/permissions settle in — without this
     // guard, every one of those re-runs where canSeeCashManagement is still
     // true fired ANOTHER identical GET, which is what showed up as a
     // duplicate cashdashboard call on a single page load/refresh.
-    if (canSeeCashManagement && !cashCounterLoaded && !cashCounterLoading) {
+    if (!cashCounterError) {
       dispatch(fetchCashCounterDashboardThunk());
+      return;
     }
-  }, [dispatch, role, effectivePermissions, cashCounterLoaded, cashCounterLoading]);
+    // A real fetch failure (network blip, token still settling right after
+    // login, etc.) used to leave `dashboard` stuck at null for the rest of
+    // the session — nothing else re-triggers this fetch, so both the "open
+    // counter" and "stale counter" modals would silently never appear.
+    // Retry with a short delay, capped at 3 attempts so a genuine backend
+    // outage doesn't retry forever.
+    if (cashCounterRetries.current < 3) {
+      cashCounterRetries.current += 1;
+      const t = setTimeout(() => dispatch(fetchCashCounterDashboardThunk()), 2000);
+      return () => clearTimeout(t);
+    }
+  }, [dispatch, role, effectivePermissions, cashCounterLoaded, cashCounterLoading, cashCounterError]);
 
   useEffect(() => {
     setOpenMenu(detectOpenMenu(location.pathname));
