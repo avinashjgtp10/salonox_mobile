@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useDispatch } from "react-redux";
 import { useAppSelector } from "../../../hooks/useAppRedux";
-import { Search } from "react-bootstrap-icons";
+import { Search, GraphUp } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { SALES_REPORT } from "../../../services/api/endpoints";
 import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
@@ -23,6 +23,7 @@ import { servicesInCategories } from "./serviceCategoryFilter";
 import { maskMobile } from "../../../utils/maskMobile";
 import { SendCampaignBar } from "./SendCampaignBar";
 import { SendCampaignModal } from "../../marketing/components";
+import SalesSummaryGraphPage from "./SalesSummaryGraphPage";
 import "./SalesSummaryReport.scss";
 
 const REPORT_NAME = "Sales Summary";
@@ -197,6 +198,7 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
   const [stats,         setStats]         = useState({
     totalBill: 0, billAverage: 0, totalSale: 0, received: 0, totalTip: 0,
     totalEwallet: 0, totalMembershipWallet: 0, totalPackageUsed: 0, totalRewardValue: 0, totalReferralCredit: 0,
+    totalDiscount: 0, totalGST: 0,
   });
   const [total,         setTotal]         = useState(0);
   const [loading,       setLoading]       = useState(false);
@@ -204,6 +206,7 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
   const [pageSize,      setPageSize]      = useState(10);
   const [selectedRow,   setSelectedRow]   = useState<{ saleId: string; appointmentId: string | null } | null>(null);
   const [showCampaignModal, setShowCampaignModal] = useState(false);
+  const [showChart,     setShowChart]     = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -218,6 +221,28 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
 
   useEffect(() => { fetchServices({ limit: 1000 }); }, [fetchServices]);
 
+  // Shared with fetchChartData below — same filter set the table/stats use,
+  // minus pagination (the chart groups everything by day instead).
+  // Sales Summary is a revenue report — only Paid/Partial Payment sales
+  // are actual revenue. Upcoming/Cancelled/No Show/Deleted etc. must
+  // never contribute to rows, stats, or the chart. The Payment Status
+  // filter narrows within that same paid/partial set.
+  const buildFilterBody = useCallback((): Record<string, any> => {
+    const effectiveStatuses = paymentStatuses.length > 0 ? paymentStatuses : ["paid", "partial"];
+    const body: Record<string, any> = {
+      start_date: dateFrom, end_date: dateTo,
+      payment_statuses: effectiveStatuses,
+    };
+    if (staffFilterIds.length > 0) body.staff_ids = staffFilterIds;
+    if (categoryIds.length > 0) body.category_ids = categoryIds;
+    if (paymentModes.length > 0) body.payment_modes = paymentModes;
+    if (itemTypes.length > 0) body.item_types = itemTypes;
+    if (serviceIds.length > 0) body.service_ids = serviceIds;
+    if (search.trim()) body.search = search.trim();
+    body.include_gst = includeGst;
+    return body;
+  }, [dateFrom, dateTo, staffFilterIds, categoryIds, paymentModes, paymentStatuses, itemTypes, serviceIds, includeGst, search]);
+
   // Real server-side pagination — page/limit are sent on every request, and
   // only that page's rows come back, along with stats computed by the
   // backend over the WHOLE filtered set (not just the current page).
@@ -228,25 +253,7 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
     abortRef.current = ctrl;
     setLoading(true);
     try {
-      // Sales Summary is a revenue report — only Paid/Partial Payment sales
-      // are actual revenue. Upcoming/Cancelled/No Show/Deleted etc. must
-      // never contribute to rows or the server-computed stats totals. The
-      // Payment Status filter narrows within that same paid/partial set.
-      // Now enforced server-side (payment_statuses, both stats and rows), so
-      // no client-side re-filter of the response is needed anymore.
-      const effectiveStatuses = paymentStatuses.length > 0 ? paymentStatuses : ["paid", "partial"];
-      const body: Record<string, any> = {
-        start_date: dateFrom, end_date: dateTo,
-        page: currentPage, limit: pageSize,
-        payment_statuses: effectiveStatuses,
-      };
-      if (staffFilterIds.length > 0) body.staff_ids = staffFilterIds;
-      if (categoryIds.length > 0) body.category_ids = categoryIds;
-      if (paymentModes.length > 0) body.payment_modes = paymentModes;
-      if (itemTypes.length > 0) body.item_types = itemTypes;
-      if (serviceIds.length > 0) body.service_ids = serviceIds;
-      if (search.trim()) body.search = search.trim();
-      body.include_gst = includeGst;
+      const body = { ...buildFilterBody(), page: currentPage, limit: pageSize };
       const res = await api.post(SALES_REPORT.SUMMARY(), body, { signal: ctrl.signal });
       const data = res.data?.data;
       const list: any[] = Array.isArray(data?.rows) ? data.rows : [];
@@ -264,6 +271,8 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
         totalPackageUsed: Number(s.total_package) || 0,
         totalRewardValue: Number(s.total_rewards) || 0,
         totalReferralCredit: Number(s.total_referral) || 0,
+        totalDiscount: Number(s.total_discount) || 0,
+        totalGST: Number(s.total_gst) || 0,
       });
       const avail = data?.filters_available ?? {};
       if (Array.isArray(avail.payment_modes)) {
@@ -276,7 +285,7 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [dateFrom, dateTo, staffFilterIds, categoryIds, paymentModes, paymentStatuses, itemTypes, serviceIds, includeGst, search, currentPage, pageSize]);
+  }, [buildFilterBody, currentPage, pageSize, dateFrom, dateTo]);
 
   const bulkDelete = useBulkAppointmentDelete(fetchData);
   // Only sale rows linked to a real appointment can be bulk-deleted — walk-in
@@ -351,12 +360,48 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
   const exportRows = () => rows.map(r => [r.date, r.invoiceNo, r.name, canViewFullContact ? r.contact : maskMobile(r.contact), r.itemTypes, r.staffName, r.discountAmount, r.couponCode, r.couponDiscount, r.referralDiscount, r.taxAmount, r.grandTotal, r.paid, r.membershipWalletUsed, r.packageUsed, r.ewalletUsed, r.rewardPointsValue, r.referralCreditUsed, r.dueAmount, r.modes, r.status, r.description]);
   const paged = rows;
 
+  // Graph icon opens this in place of the table — a full-page view (not a
+  // modal), consistent with how the rest of Reports navigates (Breadcrumb's
+  // own back-navigation model), rather than a small dialog over the data.
+  // Graph icon opens this in place of the table — a full-page view (not a
+  // modal), consistent with how the rest of Reports navigates (Breadcrumb's
+  // own back-navigation model), rather than a small dialog over the data.
+  if (showChart) {
+    return (
+      <SalesSummaryGraphPage
+        reportName={REPORT_NAME}
+        onBack={onBack}
+        onClose={() => setShowChart(false)}
+        dateFrom={dateFrom}
+        dateTo={dateTo}
+        buildFilterBody={buildFilterBody}
+        statCards={[
+          { label: "Total Bill", value: stats.totalBill.toString() },
+          { label: "Total Sale", value: money(stats.totalSale) },
+          { label: "Received Amount", value: money(stats.received) },
+          { label: "Total E-Wallet", value: money(stats.totalEwallet) },
+          { label: "Total Rewards", value: money(stats.totalRewardValue) },
+          { label: "Total Referral", value: money(stats.totalReferralCredit) },
+          { label: "Average Bill", value: money(stats.billAverage) },
+          { label: "Total Discount", value: money(stats.totalDiscount) },
+          { label: "Total GST", value: money(stats.totalGST) },
+          { label: "Total Tip", value: money(stats.totalTip) },
+          { label: "Membership Wallet Used", value: money(stats.totalMembershipWallet) },
+          { label: "Package Used", value: money(stats.totalPackageUsed) },
+        ]}
+      />
+    );
+  }
+
   return (
     <div className="rp-detail-view">
       <div className="rp-detail-header">
         <div className="rp-detail-back-row">
           <Breadcrumb current={REPORT_NAME} category={category} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
+            <button className="rp-detail-icon-btn" title="View graph" onClick={() => setShowChart(true)}>
+              <GraphUp size={16} />
+            </button>
             <ReportExportButton
               title={REPORT_NAME}
               headers={HEADERS}
