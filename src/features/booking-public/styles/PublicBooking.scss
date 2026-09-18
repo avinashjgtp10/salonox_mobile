@@ -10,7 +10,24 @@
   --pb-radius: 14px;
   --pb-gap: 14px;
 
-  min-height: 100vh;
+  // Neutral by default so the salon's own cover photo carries the colour, with
+  // --pb-accent overridden from the salon's brand kit at runtime where one
+  // exists. Deliberately monochrome otherwise: a product-chosen brand colour on
+  // someone else's storefront always looks borrowed.
+  --pb-ink: #111827;
+  --pb-accent: #111827;
+  --pb-accent-soft: #f3f4f6;
+
+  // index.css pins html/body/#root to `overflow: hidden !important` — the app is
+  // a fixed-height dashboard shell whose panes each scroll internally. A public
+  // page relying on the window scrolling therefore cannot scroll at all, so this
+  // root is its own scroll container.
+  height: 100vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+
   background: var(--pb-light);
   color: var(--pb-text);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -28,8 +45,9 @@
   padding-block: 0 40px;
 }
 
-// Screens that pair a calendar with a slot list get more room.
-.pb__shell--wide { max-width: 860px; }
+// Catalogue and calendar screens get real room. 860px left most of a desktop
+// viewport empty, which is what made the page read as a narrow strip.
+.pb__shell--wide { max-width: 1100px; }
 
 .pb__topbar {
   position: sticky;
@@ -146,63 +164,106 @@
   line-height: 1.5;
 }
 
-// ── Landing ──────────────────────────────────────────────────
+// ── Hero (salon page) ────────────────────────────────────
+// Full-bleed, not a card floating in whitespace: on a desktop viewport a
+// boxed hero left most of the screen empty, which is what made the page feel
+// unfinished. The image is the backdrop and the copy sits on it.
 .pb__hero {
   position: relative;
-  border-radius: 20px;
+  width: 100%;
+  min-height: 300px;
+  display: flex;
+  align-items: flex-end;
   overflow: hidden;
-  background: var(--pb-white);
-  border: 1px solid var(--pb-border);
-  margin-top: 16px;
+  background: #111827;
 }
 
 .pb__hero-media {
-  position: relative;
-  aspect-ratio: 16 / 11;
-  max-width: 100%;
-  background: linear-gradient(135deg, var(--pb-light), var(--pb-med));
+  position: absolute;
+  inset: 0;
 
   img { width: 100%; height: 100%; object-fit: cover; display: block; }
 }
 
-.pb__hero-body { padding: 22px 20px 24px; }
+.pb__hero-overlay {
+  position: relative;
+  width: 100%;
+  // Dark enough at the base for white text over any photograph.
+  background: linear-gradient(to top, rgba(8, 10, 16, 0.92) 0%, rgba(8, 10, 16, 0.62) 45%, rgba(8, 10, 16, 0.15) 100%);
+  padding: 72px 0 24px;
+}
+
+.pb__hero-inner {
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding-inline: 16px;
+  color: #fff;
+}
 
 .pb__hero-eyebrow {
-  margin: 0 0 10px;
-  font-size: 10.5px;
+  margin: 0 0 8px;
+  font-size: 10px;
   font-weight: 800;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--pb-muted);
+  opacity: 0.75;
 }
 
 .pb__hero-title {
   margin: 0;
-  font-size: clamp(28px, 8vw, 38px);
-  line-height: 1.08;
+  font-size: clamp(26px, 6vw, 42px);
+  line-height: 1.05;
   font-weight: 800;
   letter-spacing: -0.035em;
   text-wrap: balance;
 }
 
-.pb__hero-copy {
-  margin: 12px 0 22px;
-  font-size: 14px;
-  line-height: 1.6;
-  color: var(--pb-muted);
-  max-width: 34ch;
+.pb__hero-meta {
+  margin: 10px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 8px 16px;
+  flex-wrap: wrap;
+  font-size: 12.5px;
+  font-weight: 600;
+  opacity: 0.9;
+
+  span { display: inline-flex; align-items: center; gap: 6px; }
+  svg { opacity: 0.85; }
+}
+
+.pb__hero-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+
+  // Readable on the photo rather than inheriting the light-surface ghost style.
+  .pb__btn--ghost {
+    background: rgba(255, 255, 255, 0.14);
+    border-color: rgba(255, 255, 255, 0.3);
+    color: #fff;
+    min-height: 40px;
+    padding: 10px 16px;
+    font-size: 13px;
+    backdrop-filter: blur(6px);
+
+    &:hover { background: rgba(255, 255, 255, 0.24); border-color: rgba(255, 255, 255, 0.5); }
+  }
 }
 
 @media (min-width: 720px) {
-  .pb__shell--landing { max-width: 960px; }
+  .pb__hero { min-height: 380px; }
+  .pb__hero-overlay { padding: 110px 0 32px; }
+}
 
-  .pb__hero {
-    display: grid;
-    grid-template-columns: 1.05fr 1fr;
-    align-items: stretch;
-  }
-  .pb__hero-media { aspect-ratio: auto; min-height: 340px; order: 2; }
-  .pb__hero-body  { order: 1; display: flex; flex-direction: column; justify-content: center; padding: 44px 40px; }
+.pb__about {
+  margin: 18px 0 4px;
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: var(--pb-muted);
+  max-width: 68ch;
 }
 
 // ── Buttons ──────────────────────────────────────────────────
@@ -824,4 +885,293 @@
 @media (prefers-reduced-motion: reduce) {
   .pb__spinner { animation-duration: 2s; }
   .pb *, .pb *::before, .pb *::after { transition-duration: 0.01ms !important; }
+}
+
+// ── Service catalogue ────────────────────────────────────────────────────────
+// A salon can publish several hundred services (one test salon has 496), so the
+// old flat searchable list was unusable. Categories, a most-booked shortcut and
+// a scannable card grid are what make a catalogue that size navigable.
+
+.pb__catbar {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 2px 0 12px;
+  margin-inline: -16px;
+  padding-inline: 16px;
+  -webkit-overflow-scrolling: touch;
+
+  &::-webkit-scrollbar { display: none; }
+}
+
+.pb__cat {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 14px;
+  border: 1.5px solid var(--pb-border);
+  border-radius: 999px;
+  background: var(--pb-white);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--pb-text);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+
+  &:hover { border-color: var(--pb-ink); }
+  &:focus-visible { outline: 2px solid var(--pb-accent); outline-offset: 2px; }
+
+  &.is-active {
+    background: var(--pb-ink);
+    border-color: var(--pb-ink);
+    color: #fff;
+  }
+}
+
+.pb__cat-count {
+  font-size: 11.5px;
+  font-weight: 700;
+  opacity: 0.55;
+  font-variant-numeric: tabular-nums;
+}
+
+.pb__section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 20px 0 10px;
+}
+
+.pb__section-title {
+  margin: 0;
+  font-size: 14.5px;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+}
+
+.pb__section-note {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--pb-muted);
+  font-weight: 600;
+}
+
+.pb__grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+@media (min-width: 560px) { .pb__grid { grid-template-columns: 1fr 1fr; } }
+@media (min-width: 900px) { .pb__grid { grid-template-columns: repeat(3, 1fr); } }
+@media (min-width: 1240px) { .pb__grid { grid-template-columns: repeat(4, 1fr); } }
+
+// Card, not a flat row: a price and duration need somewhere to sit that isn't
+// the end of a sentence.
+.pb__svc {
+  position: relative;
+  display: flex;
+  gap: 12px;
+  padding: 13px;
+  border: 1.5px solid var(--pb-border);
+  border-radius: var(--pb-radius);
+  background: var(--pb-white);
+  text-align: left;
+  font-family: inherit;
+  color: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+
+  &:hover {
+    border-color: var(--pb-ink);
+    box-shadow: 0 6px 20px rgba(17, 24, 39, 0.07);
+  }
+  &:focus-visible { outline: 2px solid var(--pb-accent); outline-offset: 2px; }
+  &:active { transform: translateY(1px); }
+
+  &.is-selected {
+    border-color: var(--pb-ink);
+    box-shadow: inset 0 0 0 1px var(--pb-ink);
+  }
+}
+
+// Stands in for the service photo none of these have — a monogram tile keyed to
+// the service's category, so a grid of them still reads as varied rather than
+// as rows of identical empty frames.
+.pb__svc-tile {
+  flex: 0 0 auto;
+  width: 46px;
+  height: 46px;
+  border-radius: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -0.02em;
+  overflow: hidden;
+
+  img { width: 100%; height: 100%; object-fit: cover; }
+}
+
+.pb__svc-body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+.pb__svc-name {
+  margin: 0 0 4px;
+  font-size: 13.5px;
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+
+.pb__svc-meta {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--pb-muted);
+  margin-top: auto;
+}
+
+.pb__svc-price {
+  font-weight: 800;
+  color: var(--pb-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.pb__svc-dot { opacity: 0.4; }
+
+.pb__svc-add {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  border: 1.5px solid var(--pb-border);
+  background: var(--pb-white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--pb-muted);
+
+  .pb__svc.is-selected & {
+    background: var(--pb-ink);
+    border-color: var(--pb-ink);
+    color: #fff;
+  }
+}
+
+.pb__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--pb-accent-soft);
+  color: var(--pb-accent);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+// ── Catalogue layout ─────────────────────────────────────────
+// Two columns on desktop: a category rail on the left, services on the right.
+// A salon can have 19+ categories, which as a horizontal strip means scrolling
+// sideways to find anything. Below 900px the rail becomes the scrolling pill
+// bar again — a vertical list would eat a phone screen.
+.pb__catalogue { display: block; }
+
+.pb__side { display: none; }
+
+@media (min-width: 900px) {
+  .pb__catalogue {
+    display: grid;
+    grid-template-columns: 208px minmax(0, 1fr);
+    gap: 28px;
+    align-items: start;
+  }
+
+  // Stays put while the service list scrolls past it. `top` clears the sticky
+  // top bar; the max-height keeps a long category list scrollable on its own.
+  .pb__side {
+    display: block;
+    position: sticky;
+    top: 74px;
+    max-height: calc(100vh - 96px);
+    overflow-y: auto;
+    scrollbar-width: thin;
+  }
+
+  // The horizontal pills are the mobile presentation of the same control.
+  .pb__catbar { display: none; }
+
+  // The grid is narrower inside two columns, so drop one breakpoint's worth.
+  .pb__grid { grid-template-columns: 1fr 1fr; }
+}
+
+@media (min-width: 1240px) {
+  .pb__grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+.pb__side-title {
+  margin: 0 0 10px;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--pb-muted);
+}
+
+.pb__side-list { display: flex; flex-direction: column; gap: 2px; }
+
+.pb__side-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 11px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--pb-text);
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+
+  &:hover { background: var(--pb-med); }
+  &:focus-visible { outline: 2px solid var(--pb-accent); outline-offset: -2px; }
+
+  &.is-active {
+    background: var(--pb-ink);
+    color: #fff;
+  }
+}
+
+.pb__side-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pb__side-count {
+  flex-shrink: 0;
+  font-size: 11.5px;
+  font-weight: 700;
+  opacity: 0.55;
+  font-variant-numeric: tabular-nums;
 }
