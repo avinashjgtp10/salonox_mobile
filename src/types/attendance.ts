@@ -19,6 +19,8 @@ export type AttendanceRecord = {
   avatarColor: string;
   checkInTime: string | null;
   checkOutTime: string | null;
+  checkInLocation?: string | null;
+  checkOutLocation?: string | null;
   // The day this record covers. Absent from GET /attendance/today rows (the
   // date is on the envelope there), but always present on history listings.
   date: string | null;
@@ -75,6 +77,12 @@ export type AttendanceSummary = {
 
 export type CheckInRequest = {
   checkInTime?: string;
+  // Human-readable place name resolved on the device at the moment of the
+  // punch (e.g. "Lakme Salon, Baramati"). Sent only by the staff self-service
+  // flow; manager-side marking has no device location to attach. Coordinates
+  // are deliberately never part of this contract — they are used transiently
+  // to look the place up and then discarded.
+  location?: string;
   notes?: string;
   staffId: string;
 };
@@ -86,6 +94,8 @@ export type CheckInResponse = {
 
 export type CheckOutRequest = {
   checkOutTime?: string;
+  // See CheckInRequest — same device-resolved place name, for the punch out.
+  location?: string;
   notes?: string;
   staffId: string;
 };

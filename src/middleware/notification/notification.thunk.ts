@@ -4,6 +4,7 @@ import { ApiError, getApiErrorMessage } from "@/services/api";
 import { appEnv } from "@/config/environment";
 import { notificationService } from "@/services/notification.service";
 import { notificationDeviceStorage } from "@/services/notificationDeviceStorage";
+import { trackNotificationRegistration, waitForNotificationRegistrations } from "@/services/notificationRegistrationLifecycle";
 import type { RootState } from "@/store";
 import { selectActiveBranchId } from "@/store/branch/branch.slice";
 import { selectCurrentStaff } from "@/store/staff/staff.slice";
@@ -116,16 +117,17 @@ export const registerDeviceThunk = createAsyncThunk<
       return rejectWithValue({ message: "Expo push token is empty; device registration was skipped." });
     }
 
-    const response = await notificationService.registerDevice({
-      ...payload,
-      token,
+    return await trackNotificationRegistration(async () => {
+      // Retain the attempted token even if the response is lost: the server
+      // may already have registered it, so logout must still remove it.
+      await notificationDeviceStorage.setRegisteredToken(token);
+      const response = await notificationService.registerDevice({
+        ...payload,
+        token,
+      });
+      console.log("[PushNotifications] notification.thunk response received");
+      return response;
     });
-
-    console.log("[PushNotifications] notification.thunk response received");
-
-    await notificationDeviceStorage.setRegisteredToken(token);
-
-    return response;
   } catch (error) {
     if (isExpectedRegisterDeviceError(error)) {
       console.log("[PushNotifications] Device registration deferred — no salon context (NO_SALON_CONTEXT).");
@@ -152,6 +154,7 @@ export const unregisterDeviceThunk = createAsyncThunk<
   void,
   { rejectValue: RejectValue; state: RootState }
 >("notification/unregisterDevice", async (_arg, { getState, rejectWithValue }) => {
+  await waitForNotificationRegistrations();
   const state = getState();
   const storedToken =
     state.notification.registeredDeviceToken ??

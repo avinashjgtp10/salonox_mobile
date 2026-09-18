@@ -67,6 +67,12 @@ const MENU_ITEMS = [
     title: "Sales Summary",
   },
   {
+    description: "Check staff in and out, and review today's attendance across your salon.",
+    icon: "time-outline" as const,
+    route: "/team/attendance" as Href,
+    title: "Attendance",
+  },
+  {
     description: "Track staff commissions and settle payments across your salon.",
     icon: "cash-outline" as const,
     route: "/team/commissions" as Href,

@@ -134,7 +134,8 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       [
         "expo-location",
         {
-          locationWhenInUsePermission: "Allow SalonOX to detect your salon address during onboarding.",
+          locationWhenInUsePermission:
+            "Allow SalonOX to use your location to detect your salon address and to record your attendance check-in and check-out.",
         },
       ],
       [

@@ -1,4 +1,5 @@
 import { api } from "@/services/api";
+import { notificationDeviceStorage } from "@/services/notificationDeviceStorage";
 import { NOTIFICATION } from "@/services/api/endpoints";
 import type { ApiResponse } from "@/types/auth";
 import type {
@@ -141,6 +142,7 @@ export const notificationService = {
     console.log("[PushNotifications] notification.service entered");
     const expoPushToken = payload.token.trim();
     const requestPayload: RegisterDeviceRequest = {
+      installation_id: await notificationDeviceStorage.getInstallationId(),
       ...(payload.app_env ? { app_env: payload.app_env } : {}),
       token: expoPushToken,
       platform: payload.platform,
