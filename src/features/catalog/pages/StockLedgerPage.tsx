@@ -775,9 +775,24 @@ function StockAdjustmentModal({
     setLines((prev) => (prev.length > 1 ? prev.filter((l) => l.key !== key) : prev));
   }
 
+  // A manual adjustment's quantity is applied to products.amount as-is (no
+  // bottle-size multiplication — see stock-ledger.repository.ts#create), same
+  // base units currentStock[].balance is already in, so they're directly
+  // comparable without conversion.
+  const exceedsStockLines = useMemo(() => {
+    const bad = new Set<string>();
+    lines.forEach((l) => {
+      if (!l.productId || IN_TYPES.has(l.txnType)) return;
+      const qty = parseFloat(l.qty);
+      const stock = currentStock[l.productId];
+      if (Number.isFinite(qty) && qty > 0 && stock && qty > stock.balance) bad.add(l.key);
+    });
+    return bad;
+  }, [lines, currentStock]);
+
   const validLines = lines.filter((l) => {
     const qty = parseFloat(l.qty);
-    return l.productId && Number.isFinite(qty) && qty > 0;
+    return l.productId && Number.isFinite(qty) && qty > 0 && !exceedsStockLines.has(l.key);
   });
 
   const hasIncompleteLine = lines.some((l) => {
@@ -796,7 +811,7 @@ function StockAdjustmentModal({
     return dupes;
   }, [lines]);
 
-  const canSave = !!branchId && validLines.length > 0 && !hasIncompleteLine && duplicateProductIds.size === 0;
+  const canSave = !!branchId && validLines.length > 0 && !hasIncompleteLine && duplicateProductIds.size === 0 && exceedsStockLines.size === 0;
 
   const submit = async () => {
     if (!canSave || saving) return;
@@ -867,16 +882,23 @@ function StockAdjustmentModal({
                   options={ADJUSTMENT_TXN_TYPES.map((t) => ({ id: t, name: TXN_LABELS[t] }))}
                   onChange={(id) => patchLine(line.key, { txnType: id as TxnType })}
                 />
-                <input
-                  className="sl-input sl-input--sm"
-                  type="number"
-                  min="0"
-                  step="any"
-                  placeholder={product?.measure_unit ? `Qty (${product.measure_unit})` : "Qty"}
-                  value={line.qty}
-                  onChange={(e) => patchLine(line.key, { qty: e.target.value })}
-                  onWheel={(e) => e.currentTarget.blur()}
-                />
+                <div>
+                  <input
+                    className="sl-input sl-input--sm"
+                    type="number"
+                    min="0"
+                    step="any"
+                    placeholder={product?.measure_unit ? `Qty (${product.measure_unit})` : "Qty"}
+                    value={line.qty}
+                    onChange={(e) => patchLine(line.key, { qty: e.target.value })}
+                    onWheel={(e) => e.currentTarget.blur()}
+                  />
+                  {exceedsStockLines.has(line.key) && (
+                    <span className="sl-adj-line-err">
+                      Cannot exceed current stock ({fmtBalance(stock?.balance ?? 0, stock?.unit, stock?.bottleSize)})
+                    </span>
+                  )}
+                </div>
                 <button
                   type="button"
                   className="sl-adj-remove-line"
