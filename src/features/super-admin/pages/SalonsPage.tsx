@@ -495,12 +495,6 @@ export default function SalonsPage() {
           </p>
         </div>
         <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-          <button onClick={openCreateModal} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 18px", borderRadius: 10, border: "none", background: "#6366f1", color: "#fff", fontWeight: 700, fontSize: 13.5, cursor: "pointer", boxShadow: "0 2px 10px rgba(99,102,241,0.3)", transition: "background 0.15s" }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = "#4f46e5")}
-            onMouseLeave={(e) => (e.currentTarget.style.background = "#6366f1")}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Create Account
-          </button>
           <div style={{ position: "relative" }}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}>
               <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
@@ -513,15 +507,21 @@ export default function SalonsPage() {
             />
           </div>
           <select value={expiryFilter} onChange={(e) => { setExpiryFilter(e.target.value as ExpiryBucket | ""); setPage(1); }}
-            title="Filter by plan expiry status"
+            title="Filter by days remaining on subscription"
             style={{ padding: "9px 30px 9px 12px", borderRadius: 9, border: "1.5px solid #e2e8f0", background: "#fff", color: expiryFilter ? "#0f172a" : "#64748b", fontSize: 13, outline: "none", cursor: "pointer", appearance: "none", fontWeight: expiryFilter ? 600 : 400 }}
             onFocus={(e) => (e.target.style.borderColor = "#6366f1")}
             onBlur={(e)  => (e.target.style.borderColor = "#e2e8f0")}>
-            <option value="">All Expiry Status</option>
+            <option value="">All Date Remaining</option>
             {EXPIRY_FILTERS.map(({ key, label }) => (
               <option key={key} value={key}>{label}</option>
             ))}
           </select>
+          <button onClick={openCreateModal} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 18px", borderRadius: 10, border: "none", background: "#6366f1", color: "#fff", fontWeight: 700, fontSize: 13.5, cursor: "pointer", boxShadow: "0 2px 10px rgba(99,102,241,0.3)", transition: "background 0.15s" }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = "#4f46e5")}
+            onMouseLeave={(e) => (e.currentTarget.style.background = "#6366f1")}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Create Account
+          </button>
         </div>
       </div>
 
