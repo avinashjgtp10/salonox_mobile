@@ -3,6 +3,7 @@ import { DASHBOARD } from "@/services/api/endpoints";
 import { formatAppTime } from "@/utils/dateTime";
 
 type DashboardSummaryResponse = {
+  allTimeRevenue?: number | null;
   lastMonthRevenue?: number | null;
   quick_sale_revenue?: number | null;
   quickSaleRevenue?: number | null;
@@ -99,6 +100,10 @@ type DashboardApiResponse = {
 };
 
 export type DashboardMetrics = {
+  // True all-time revenue, not scoped to any month. Imported/backfilled sales
+  // keep their original bill date, so historical revenue only ever shows up
+  // here — never in monthlyRevenue below.
+  allTimeRevenue: number;
   bookings: number;
   lastMonthRevenue: number;
   monthlyRevenue: number;
@@ -406,6 +411,7 @@ export const dashboardService = {
     const summary = data?.summary;
 
     const metrics: DashboardMetrics = {
+      allTimeRevenue: toSafeNumber(summary?.allTimeRevenue),
       bookings: toSafeNumber(summary?.todayAppointmentsCount),
       lastMonthRevenue: toSafeNumber(summary?.lastMonthRevenue),
       monthlyRevenue: toSafeNumber(summary?.totalRevenue),
