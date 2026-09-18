@@ -1,7 +1,15 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { router, type Href } from "expo-router";
-import { useMemo } from "react";
-import { StyleSheet, Text, TouchableOpacity, View, useWindowDimensions, type DimensionValue } from "react-native";
+import { useMemo, useState } from "react";
+import {
+  Pressable,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  useWindowDimensions,
+  type DimensionValue,
+} from "react-native";
 
 import { IconBadge } from "@/components/ui/IconBadge";
 import {
@@ -22,6 +30,13 @@ import { formatDashboardRevenue } from "@/utils/dashboard";
 // Card fills lifted from the dashboard redesign. Light mode only — the dark
 // palette keeps its existing solid tokens, since these pastels would leave the
 // tile values unreadable against light-on-dark text.
+type RevenueScope = "allTime" | "month";
+
+const REVENUE_SCOPES: { label: string; value: RevenueScope }[] = [
+  { label: "This Month", value: "month" },
+  { label: "All Time", value: "allTime" },
+];
+
 const STAT_TILE_GRADIENTS = {
   bookings: ["#FEF3C7", "#FDE68A"],
   clients: ["#EDE9FE", "#DDD6FE"],
@@ -123,6 +138,11 @@ export default function DashboardStatTiles() {
   const dashboardMetrics = useAppSelector(selectDashboardMetrics);
   const isDashboardLoading = useAppSelector(selectDashboardIsLoading);
   const totalClients = useAppSelector(selectClientsTotalCount);
+  // Imported/backfilled sales keep their original bill date, so historical
+  // revenue never appears in the current-month figure. The All Time scope
+  // makes that money visible without changing what "This Month" means.
+  const [revenueScope, setRevenueScope] = useState<RevenueScope>("month");
+  const isAllTimeRevenue = revenueScope === "allTime";
   const revenueComparison = useMemo(
     () =>
       getRevenueComparison(
@@ -145,10 +165,13 @@ export default function DashboardStatTiles() {
         color: Colors.dashboardRevenueAccent,
         gradient: STAT_TILE_GRADIENTS.monthRevenue,
         icon: "cash-outline" as const,
-        label: "This Month Revenue",
+        kind: "scopedRevenue" as const,
+        label: isAllTimeRevenue ? "All Time Revenue" : "This Month Revenue",
         route: "/monthly-revenue" as Href,
-        subtitle: "Current Calendar Month",
-        value: formatDashboardRevenue(dashboardMetrics.monthlyRevenue),
+        subtitle: isAllTimeRevenue ? "All Sales Ever Recorded" : "Current Calendar Month",
+        value: formatDashboardRevenue(
+          isAllTimeRevenue ? dashboardMetrics.allTimeRevenue : dashboardMetrics.monthlyRevenue,
+        ),
       },
       {
         accent: "sky" as const,
@@ -194,10 +217,12 @@ export default function DashboardStatTiles() {
     ],
     [
       Colors,
+      dashboardMetrics.allTimeRevenue,
       dashboardMetrics.bookings,
       dashboardMetrics.lastMonthRevenue,
       dashboardMetrics.monthlyRevenue,
       dashboardMetrics.todaysRevenue,
+      isAllTimeRevenue,
       totalClients,
       revenueComparison,
     ],
@@ -296,6 +321,42 @@ export default function DashboardStatTiles() {
                     <Text style={[styles.subtitle, !stat.subtitle && styles.subtitlePlaceholder]}>
                       {stat.subtitle || " "}
                     </Text>
+                    {"kind" in stat && stat.kind === "scopedRevenue" ? (
+                      <View style={styles.scopeToggle}>
+                        {REVENUE_SCOPES.map((scope) => {
+                          const isActive = revenueScope === scope.value;
+
+                          return (
+                            <Pressable
+                              accessibilityRole="button"
+                              accessibilityState={{ selected: isActive }}
+                              hitSlop={6}
+                              key={scope.value}
+                              // Stops the tap bubbling to the tile, which
+                              // would navigate away instead of switching scope.
+                              onPress={(event) => {
+                                event.stopPropagation();
+                                setRevenueScope(scope.value);
+                              }}
+                              style={[
+                                styles.scopeChip,
+                                isActive && { backgroundColor: stat.color },
+                              ]}
+                            >
+                              <Text
+                                numberOfLines={1}
+                                style={[
+                                  styles.scopeChipText,
+                                  isActive && styles.scopeChipTextActive,
+                                ]}
+                              >
+                                {scope.label}
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                    ) : null}
                   </>
                 )}
               </View>
@@ -424,6 +485,30 @@ const createStyles = (Colors: ThemeColors, isCompact: boolean) => StyleSheet.cre
   },
   subtitlePlaceholder: {
     opacity: 0,
+  },
+  scopeToggle: {
+    backgroundColor: Colors.dashboardCard,
+    borderColor: Colors.border,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    flexDirection: "row",
+    marginTop: isCompact ? 8 : 10,
+    padding: 2,
+  },
+  scopeChip: {
+    alignItems: "center",
+    borderRadius: Radius.full,
+    justifyContent: "center",
+    paddingHorizontal: isCompact ? 8 : 10,
+    paddingVertical: isCompact ? 4 : 5,
+  },
+  scopeChipText: {
+    color: Colors.text2,
+    fontSize: isCompact ? 9 : 10,
+    fontWeight: Typography.fontWeights.bold,
+  },
+  scopeChipTextActive: {
+    color: "#FFFFFF",
   },
   titleDivider: {
     backgroundColor: Colors.border,
