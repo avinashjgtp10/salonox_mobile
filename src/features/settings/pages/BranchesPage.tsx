@@ -6,6 +6,9 @@ import { fetchBranchesThunk, createBranchThunk, updateBranchThunk } from "../../
 import api from "../../../services/api/axios";
 import { SALON } from "../../../services/api/endpoints";
 import Button from "../../../components/ui/Button";
+import Modal from "../../../components/ui/Modal";
+import SettingsSection from "../components/SettingsSection";
+import SettingsToggle from "../components/SettingsToggle";
 import type { Branch } from "../../../types/salon.types";
 
 interface BranchFormState {
@@ -115,13 +118,22 @@ function BranchEditor({ branch, onClose, onSaved }: { branch: Branch | "new"; on
   };
 
   return (
-    <div className="spm-overlay" onClick={(e) => e.target === e.currentTarget && !saving && onClose()}>
+    <>
       {overlay}
-      <div className="spm-panel" style={{ maxWidth: 620 }}>
-        <div className="spm-header">
-          <p className="spm-name">{isNew ? "Add Branch" : "Edit Branch"}</p>
-        </div>
-        <div style={{ padding: "12px 20px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+      <Modal
+        show
+        onClose={() => !saving && onClose()}
+        title={isNew ? "Add Branch" : "Edit Branch"}
+        size="lg"
+        disableBackdropClose={saving}
+        footer={
+          <>
+            <Button size="sm" variant="outline-secondary" onClick={onClose} disabled={saving}>Cancel</Button>
+            <Button size="sm" variant="primary" onClick={handleSave} loading={saving}>Save</Button>
+          </>
+        }
+      >
+        <div className="settings-form-grid">
           <Field label="Branch name" value={form.name} onChange={setField("name")} full />
           <Field label="Address line 1" value={form.address_line1} onChange={setField("address_line1")} full />
           <Field label="Address line 2" value={form.address_line2} onChange={setField("address_line2")} full />
@@ -133,47 +145,42 @@ function BranchEditor({ branch, onClose, onSaved }: { branch: Branch | "new"; on
           <Field label="Email" value={form.email} onChange={setField("email")} />
           <Field label="Opening time" value={form.opening_time} onChange={setField("opening_time")} type="time" />
           <Field label="Closing time" value={form.closing_time} onChange={setField("closing_time")} type="time" />
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, gridColumn: "1 / -1" }}>
-            <input type="checkbox" checked={form.is_main} onChange={(e) => setField("is_main")(e.target.checked)} />
-            Main branch
-          </label>
+          <div className="settings-form-group span-2 d-flex align-items-center gap-2">
+            <SettingsToggle checked={form.is_main} onChange={() => setField("is_main")(!form.is_main)} />
+            <label className="settings-label mb-0">Main branch</label>
+          </div>
         </div>
 
         {!isNew && (
-          <div style={{ padding: "0 20px 12px" }}>
-            <p style={{ fontSize: 12, fontWeight: 600, color: "#374151", marginBottom: 6 }}>Holidays</p>
+          <div className="mt-3">
+            <p className="settings-label mb-2">Holidays</p>
             {holidays.map((h) => (
-              <div key={h.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, padding: "4px 0", borderBottom: "1px solid #f3f4f6" }}>
+              <div key={h.id} className="d-flex justify-content-between align-items-center py-1" style={{ fontSize: 12.5, borderBottom: "1px solid #f3f4f6" }}>
                 <span>{h.holiday_date} {h.reason && `— ${h.reason}`}</span>
-                <button className="spm-reset-link" onClick={() => deleteHoliday(h.id)}>Remove</button>
+                <Button size="sm" variant="ghost" onClick={() => deleteHoliday(h.id)}>Remove</Button>
               </div>
             ))}
-            <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
-              <input type="date" value={newHolidayDate} onChange={(e) => setNewHolidayDate(e.target.value)} style={{ fontSize: 12, padding: "4px 6px", border: "1px solid #e5e7eb", borderRadius: 4 }} />
-              <input type="text" placeholder="Reason (optional)" value={newHolidayReason} onChange={(e) => setNewHolidayReason(e.target.value)} style={{ fontSize: 12, padding: "4px 6px", border: "1px solid #e5e7eb", borderRadius: 4, flex: 1 }} />
+            <div className="d-flex gap-2 mt-2">
+              <input className="settings-input" type="date" value={newHolidayDate} onChange={(e) => setNewHolidayDate(e.target.value)} style={{ height: 34, maxWidth: 160 }} />
+              <input className="settings-input" type="text" placeholder="Reason (optional)" value={newHolidayReason} onChange={(e) => setNewHolidayReason(e.target.value)} style={{ height: 34 }} />
               <Button size="sm" variant="outline-secondary" onClick={addHoliday}>Add</Button>
             </div>
           </div>
         )}
-
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, padding: "12px 20px", borderTop: "1px solid #f3f4f6" }}>
-          <Button size="sm" variant="outline-secondary" onClick={onClose} disabled={saving}>Cancel</Button>
-          <Button size="sm" variant="primary" onClick={handleSave} disabled={saving}>{saving ? "Saving…" : "Save"}</Button>
-        </div>
-      </div>
-    </div>
+      </Modal>
+    </>
   );
 }
 
 function Field({ label, value, onChange, full, type = "text" }: { label: string; value: string; onChange: (v: string) => void; full?: boolean; type?: string }) {
   return (
-    <div style={{ gridColumn: full ? "1 / -1" : undefined }}>
-      <label style={{ fontSize: 12, fontWeight: 600, color: "#374151" }}>{label}</label>
+    <div className={`settings-form-group${full ? " span-2" : ""}`}>
+      <label className="settings-label">{label}</label>
       <input
+        className="settings-input"
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        style={{ width: "100%", padding: "6px 10px", border: "1px solid #e5e7eb", borderRadius: 6, fontSize: 13, marginTop: 4 }}
       />
     </div>
   );
@@ -197,41 +204,36 @@ export default function BranchesPage() {
         <p className="settings-page-subtitle">Manage your salon's locations, hours and holidays.</p>
       </div>
 
-      <div className="settings-section">
-        <div className="settings-section-header">
-          <div>
-            <p className="settings-section-title">All Branches</p>
-          </div>
-          <Button size="sm" variant="primary" onClick={() => setEditing("new")}>
-            <Plus size={14} /> Add branch
+      <SettingsSection
+        title="All Branches"
+        headerAction={
+          <Button size="sm" variant="primary" onClick={() => setEditing("new")} iconLeft={<Plus size={14} />}>
+            Add branch
           </Button>
-        </div>
-        <div className="settings-section-body">
-          {loading ? (
-            <p style={{ fontSize: 13, color: "#6b7280" }}>Loading branches…</p>
-          ) : branches.length === 0 ? (
-            <p style={{ fontSize: 13, color: "#6b7280" }}>No branches yet.</p>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-              {branches.map((b) => (
-                <div key={b.id} className="settings-security-item">
-                  <div className="settings-security-info">
-                    <p className="settings-security-name">
-                      {b.name}
-                      {b.is_main && <span className="s-badge s-badge-warning" style={{ fontSize: 10, marginLeft: 6 }}><Star size={9} /> Main</span>}
-                      {!b.is_active && <span className="s-badge s-badge-gray" style={{ fontSize: 10, marginLeft: 6 }}>Inactive</span>}
-                    </p>
-                    <p className="settings-security-desc">{b.address_line1}, {b.city}, {b.state} {b.pincode}</p>
-                  </div>
-                  <button className="spm-customize-btn" onClick={() => setEditing(b)}>
-                    <Pencil size={13} /> Edit
-                  </button>
-                </div>
-              ))}
+        }
+      >
+        {loading ? (
+          <p className="settings-hint">Loading branches…</p>
+        ) : branches.length === 0 ? (
+          <p className="settings-hint">No branches yet.</p>
+        ) : (
+          branches.map((b) => (
+            <div key={b.id} className="settings-security-item">
+              <div className="settings-security-info">
+                <p className="settings-security-name">
+                  {b.name}
+                  {b.is_main && <span className="s-badge s-badge-warning" style={{ fontSize: 10, marginLeft: 6 }}><Star size={9} /> Main</span>}
+                  {!b.is_active && <span className="s-badge s-badge-gray" style={{ fontSize: 10, marginLeft: 6 }}>Inactive</span>}
+                </p>
+                <p className="settings-security-desc">{b.address_line1}, {b.city}, {b.state} {b.pincode}</p>
+              </div>
+              <Button size="sm" variant="outline-secondary" onClick={() => setEditing(b)} iconLeft={<Pencil size={13} />}>
+                Edit
+              </Button>
             </div>
-          )}
-        </div>
-      </div>
+          ))
+        )}
+      </SettingsSection>
 
       {editing && (
         <BranchEditor

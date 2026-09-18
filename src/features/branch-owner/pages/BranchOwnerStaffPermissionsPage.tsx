@@ -6,15 +6,21 @@ import { fetchMySalonsThunk, fetchAllStaffThunk, updateSalonStaffPermissionsThun
 import StaffPermissionsModal from "../../settings/components/StaffPermissionsModal";
 import { defaultPermissions } from "../../settings/data/permissionMatrix";
 import { SectionCard, BoEmptyState, Shimmer, usePagination, BoPagination } from "../components/BranchOwnerUI";
-import { JiraFilterMenu } from "../../../components/ui";
+import { JiraFilterMenu, Badge, Button, Table } from "../../../components/ui";
 import type { JiraFilterField } from "../../../components/ui";
 import type { Staff } from "../../../types/staff.types";
 
-const ROLE_STYLE: Record<string, { label: string; bg: string; text: string }> = {
-  salon_owner: { label: "Owner",   bg: "#fffbeb", text: "#d97706" },
-  admin:       { label: "Admin",   bg: "#fef2f2", text: "#dc2626" },
-  manager:     { label: "Manager", bg: "#f5f3ff", text: "#7c3aed" },
-  staff:       { label: "Staff",   bg: "#eff6ff", text: "#2563eb" },
+const ROLE_VARIANT: Record<string, "warning" | "danger" | "info" | "secondary"> = {
+  salon_owner: "warning",
+  admin: "danger",
+  manager: "info",
+  staff: "secondary",
+};
+const ROLE_LABEL: Record<string, string> = {
+  salon_owner: "Owner",
+  admin: "Admin",
+  manager: "Manager",
+  staff: "Staff",
 };
 
 const ROLE_OPTIONS = [
@@ -33,10 +39,6 @@ const PERMISSIONS_OPTIONS = [
   { id: "customised", label: "Customised" },
   { id: "default", label: "Role default" },
 ];
-
-function Pill({ label, bg, text }: { label: string; bg: string; text: string }) {
-  return <span style={{ padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600, background: bg, color: text, whiteSpace: "nowrap" }}>{label}</span>;
-}
 
 // A staff row's `role` column is almost always "staff" — the meaningful
 // distinction (Staff vs Manager) lives in `permission_level`/`designation`
@@ -157,57 +159,65 @@ export default function BranchOwnerStaffPermissionsPage() {
           <BoEmptyState icon={<PersonBadge size={26} />} text="No staff members match the current filters." />
         ) : (
           <>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5 }}>
-              <thead>
-                <tr style={{ background: "#f8fafc" }}>
-                  {["Staff", "Salon", "Contact", "Role", "Status", "Permissions", "Action"].map((h) => (
-                    <th key={h} style={{ padding: "10px 20px", textAlign: "left", color: "#64748b", fontWeight: 600, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.04em" }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {staffPage.pageItems.map((member) => {
-                  const name = member.fullName || member.first_name || member.email || "Unnamed";
-                  const initials = String(name).split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2);
-                  const hasCustom = member.custom_permissions != null;
-                  const roleKey = resolveRoleKey(member);
-                  const roleStyle = ROLE_STYLE[roleKey] ?? { label: roleKey, bg: "#f8fafc", text: "#64748b" };
-                  return (
-                    <tr key={`${member.salonId}-${member.id}`} style={{ borderTop: "1px solid #f8fafc" }}>
-                      <td style={{ padding: "11px 20px" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                          <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#e0f2fe", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#0369a1", flexShrink: 0 }}>
-                            {member.avatar_url
-                              ? <img src={member.avatar_url} alt={name} style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover" }} />
-                              : initials}
-                          </div>
-                          <span style={{ fontWeight: 700, color: "#0f172a" }}>{name}</span>
+            <Table<StaffRow>
+              data={staffPage.pageItems}
+              columns={[
+                {
+                  header: "Staff", key: "name",
+                  render: (member) => {
+                    const name = member.fullName || member.first_name || member.email || "Unnamed";
+                    const initials = String(name).split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2);
+                    return (
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#e0f2fe", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#0369a1", flexShrink: 0 }}>
+                          {member.avatar_url
+                            ? <img src={member.avatar_url} alt={name} style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover" }} />
+                            : initials}
                         </div>
-                      </td>
-                      <td style={{ padding: "11px 20px", color: "#475569" }}>{member.salonName}</td>
-                      <td style={{ padding: "11px 20px", color: "#475569" }}>{member.email || member.designation || "—"}</td>
-                      <td style={{ padding: "11px 20px" }}><Pill label={roleStyle.label} bg={roleStyle.bg} text={roleStyle.text} /></td>
-                      <td style={{ padding: "11px 20px" }}>
-                        {member.is_active === false
-                          ? <Pill label="Inactive" bg="#f8fafc" text="#64748b" />
-                          : <Pill label="Active" bg="#f0fdf4" text="#16a34a" />}
-                      </td>
-                      <td style={{ padding: "11px 20px" }}>
-                        {hasCustom ? <Pill label="Customised" bg="#eef2ff" text="#6366f1" /> : <span style={{ color: "#94a3b8", fontSize: 12.5 }}>Role default</span>}
-                      </td>
-                      <td style={{ padding: "11px 20px" }}>
-                        <button
-                          onClick={() => setSelectedStaff(member)}
-                          style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 7, fontSize: 12, fontWeight: 600, border: hasCustom ? "1.5px solid #6366f1" : "1.5px solid #e2e8f0", cursor: "pointer", background: hasCustom ? "#eef2ff" : "#fff", color: hasCustom ? "#6366f1" : "#374151", whiteSpace: "nowrap" }}>
-                          <SlidersHorizontal size={13} />
-                          {hasCustom ? "Edit" : "Customize"}
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                        <span style={{ fontWeight: 700, color: "#0f172a" }}>{name}</span>
+                      </div>
+                    );
+                  },
+                },
+                { header: "Salon", key: "salonName", className: "text-secondary" },
+                { header: "Contact", key: "email", className: "text-secondary", render: (member) => member.email || member.designation || "—" },
+                {
+                  header: "Role", key: "role",
+                  render: (member) => {
+                    const roleKey = resolveRoleKey(member);
+                    return <Badge variant={ROLE_VARIANT[roleKey] ?? "secondary"}>{ROLE_LABEL[roleKey] ?? roleKey}</Badge>;
+                  },
+                },
+                {
+                  header: "Status", key: "is_active",
+                  render: (member) => member.is_active === false
+                    ? <Badge variant="secondary">Inactive</Badge>
+                    : <Badge variant="success">Active</Badge>,
+                },
+                {
+                  header: "Permissions", key: "custom_permissions",
+                  render: (member) => member.custom_permissions != null
+                    ? <Badge variant="primary">Customised</Badge>
+                    : <span style={{ color: "#94a3b8", fontSize: 12.5 }}>Role default</span>,
+                },
+                {
+                  header: "Action", key: "action",
+                  render: (member) => {
+                    const hasCustom = member.custom_permissions != null;
+                    return (
+                      <Button
+                        size="sm"
+                        variant={hasCustom ? "primary" : "outline-secondary"}
+                        iconLeft={<SlidersHorizontal size={13} />}
+                        onClick={() => setSelectedStaff(member)}
+                      >
+                        {hasCustom ? "Edit" : "Customize"}
+                      </Button>
+                    );
+                  },
+                },
+              ]}
+            />
             <BoPagination {...staffPage} />
           </>
         )}
