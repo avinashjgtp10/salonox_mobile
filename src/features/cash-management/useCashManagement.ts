@@ -9,8 +9,8 @@ import {
   createCashExpense,
   deleteCashExpense,
   fetchCashExpenses,
+  fetchCashSummaryBundle,
   fetchCashTransactions,
-  fetchTodaysRevenue,
   updateCashExpense,
 } from "./cashManagement.api";
 import type {
@@ -150,21 +150,31 @@ export function useCashManagement() {
     return next;
   }, [runTask]);
 
-  const loadTodayRevenue = useCallback(async () => {
-    const next = await runTask("todayRevenue", () => fetchTodaysRevenue());
-    setTodayRevenue(next);
-    return next;
-  }, [runTask]);
+  const loadSummaryBundle = useCallback(async () => {
+    setLoading((current) => ({ ...current, transactions: true, expenses: true, todayRevenue: true }));
+    try {
+      const next = await fetchCashSummaryBundle();
+      setTransactions(next.transactions);
+      setExpenses(next.expenses);
+      setTodayRevenue(next.todayRevenue);
+      return next;
+    } finally {
+      setLoading((current) => ({ ...current, transactions: false, expenses: false, todayRevenue: false }));
+    }
+  }, []);
 
+  // Full-page load: one POST (transactions + expenses + today's revenue) via
+  // the summary-bundle endpoint, run alongside the dashboard's own Redux-
+  // backed fetch (kept separate, see loadDashboard above).
   const refreshAll = useCallback(async () => {
     setError(null);
     try {
-      await Promise.all([loadDashboard(), loadTransactions(), loadExpenses(), loadTodayRevenue()]);
+      await Promise.all([loadDashboard(), loadSummaryBundle()]);
     } catch (err: unknown) {
       const message = getApiErrorMessage(err, "Failed to load cash management data");
       setError(shouldSuppressCashCounterNotification(message) ? null : message);
     }
-  }, [loadDashboard, loadExpenses, loadTransactions, loadTodayRevenue]);
+  }, [loadDashboard, loadSummaryBundle]);
 
   const refreshDashboard = useCallback(async () => {
     setError(null);
@@ -198,17 +208,6 @@ export function useCashManagement() {
       throw err;
     }
   }, [loadExpenses]);
-
-  const refreshTodayRevenue = useCallback(async () => {
-    try {
-      await loadTodayRevenue();
-    } catch (err: unknown) {
-      // Deliberately not surfaced via the shared `error`/notification banner —
-      // this card should never look broken just because the cash counter
-      // (a separate concern) has an issue.
-      console.error("[cash-management] today's revenue refresh failed", err);
-    }
-  }, [loadTodayRevenue]);
 
   useEffect(() => {
     void refreshAll();
@@ -291,7 +290,6 @@ const handleDeleteExpense = useCallback(async (id: string) => {
     refreshDashboard,
     refreshTransactions,
     refreshExpenses,
-    refreshTodayRevenue,
     openCounter: handleOpenCounter,
     closeCounter: handleCloseCounter,
     createExpense: handleCreateExpense,
