@@ -12,6 +12,7 @@ export const REPORT = {
 export const SALES_REPORT = {
   SUMMARY: () => `/api/report/sales-summary`,
   DETAIL: (saleId: string) => `/api/report/sales-summary/${saleId}`,
+  CHART: () => `/api/report/sales-summary/chart`,
 } as const;
 
 // Independent Daily Sheet reporting API — reads sales/sale_items directly,
