@@ -4,11 +4,10 @@ import { useAppSelector, useAppDispatch } from "../../hooks/useAppRedux";
 import { refreshSessionThunk } from "../../middleware/auth/authThunk";
 import { logout } from "../../store/authSlice";
 
-export default function SuperAdminGuard() {
+export default function BranchOwnerGuard() {
   const { accessToken, refreshToken, role } = useAppSelector((s) => s.auth);
   const dispatch = useAppDispatch();
 
-  // On refresh, accessToken is null (not persisted). Wait while we restore it.
   const [restoring, setRestoring] = useState(!accessToken && !!refreshToken);
 
   useEffect(() => {
@@ -28,7 +27,7 @@ export default function SuperAdminGuard() {
     </div>
   );
   if (!accessToken) return <Navigate to="/login" replace />;
-  if (role !== "super_admin") return <Navigate to="/login" replace />;
+  if (role !== "branch_owner") return <Navigate to="/login" replace />;
 
   return <Outlet />;
 }

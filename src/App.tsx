@@ -6,6 +6,7 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import { AuthRoutes, OnboardingRoutes, DashboardRoutes } from "./routes";
 import { LandingRoutes } from "./routes/LandingRoutes";
 import { SuperAdminRoutes } from "./routes/SuperAdminRoutes";
+import { BranchOwnerRoutes } from "./routes/BranchOwnerRoutes";
 import { PublicBookingRoutes } from "./routes/PublicBookingRoutes";
 import { DigitalMenuRoutes } from "./routes/DigitalMenuRoutes";
 import { FeedbackRoutes } from "./routes/FeedbackRoutes";
@@ -60,6 +61,8 @@ function App() {
             {DashboardRoutes}
             {/* SUPER ADMIN (SuperAdminGuard protected) */}
             {SuperAdminRoutes}
+            {/* BRANCH OWNER (BranchOwnerGuard protected) */}
+            {BranchOwnerRoutes}
             {/* Fallback */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

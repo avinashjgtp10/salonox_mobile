@@ -24,6 +24,8 @@ export { default as PageHeader } from "./PageHeader";
 export { default as Select } from "./Select";
 export { default as Skeleton, SkeletonText, SkeletonCard } from "./Skeleton";
 export { default as StatCard } from "./StatCard";
+export { default as SummaryCardRow } from "./SummaryCardRow";
+export type { SummaryCardItem } from "./SummaryCardRow";
 export { default as Table } from "./Table";
 export { default as Tabs } from "./Tabs";
 export type { TabItem } from "./Tabs";

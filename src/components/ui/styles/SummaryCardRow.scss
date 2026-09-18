@@ -1,0 +1,54 @@
+/* Reusable summary-card row — same visual spec as the Reports pages'
+   .rp-sra-summary-row/-card/-val/-label (analytics/styles/_reportDetailBase.scss),
+   extracted here so any feature (not just Reports) can render the identical
+   card instead of re-styling its own copy inline. */
+
+.ui-summary-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.ui-summary-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px 14px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  flex: 1 1 160px;
+  max-width: 220px;
+}
+
+.ui-summary-card__icon {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+  color: #6366f1;
+
+  svg { width: 15px; height: 15px; }
+}
+
+.ui-summary-card__val {
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.2;
+  margin-bottom: 2px;
+  color: #111827;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ui-summary-card__label {
+  font-size: 11.5px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.ui-summary-card__sub {
+  font-size: 10.5px;
+  color: #94a3b8;
+  margin-top: 1px;
+}

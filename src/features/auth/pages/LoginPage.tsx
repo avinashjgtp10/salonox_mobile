@@ -79,6 +79,8 @@ export default function LoginPage() {
       const { isOnboardingComplete, user } = result.payload;
       if (user?.role === "super_admin") {
         navigate("/super-admin");
+      } else if (user?.role === "branch_owner") {
+        navigate("/branch-owner");
       } else if (user?.role === "staff" || isOnboardingComplete) {
         navigate("/dashboard");
       } else {

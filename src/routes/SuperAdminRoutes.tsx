@@ -2,10 +2,10 @@ import { lazy } from "react";
 import { Route } from "react-router-dom";
 import SuperAdminGuard from "../components/guards/SuperAdminGuard";
 
-const SuperAdminLoginPage = lazy(() => import("../features/super-admin/pages/SuperAdminLoginPage"));
 const SuperAdminLayout    = lazy(() => import("../features/super-admin/components/SuperAdminLayout"));
 const OverviewPage        = lazy(() => import("../features/super-admin/pages/OverviewPage"));
 const SalonsPage          = lazy(() => import("../features/super-admin/pages/SalonsPage"));
+const BranchOwnersPage    = lazy(() => import("../features/super-admin/pages/BranchOwnersPage"));
 const SalonDetailPage     = lazy(() => import("../features/super-admin/pages/SalonDetailPage"));
 const DataCleanupPage     = lazy(() => import("../features/super-admin/pages/DataCleanupPage"));
 const VisitedPage         = lazy(() => import("../features/super-admin/pages/VisitedPage"));
@@ -21,13 +21,12 @@ const SpotlightAdminPage          = lazy(() => import("../features/feature-spotl
 
 export const SuperAdminRoutes = (
   <>
-    <Route path="/super-admin/login" element={<SuperAdminLoginPage />} />
-
     <Route element={<SuperAdminGuard />}>
       <Route path="/super-admin" element={<SuperAdminLayout />}>
         <Route index               element={<OverviewPage />} />
         <Route path="salons"       element={<SalonsPage />} />
         <Route path="salons/:salonId" element={<SalonDetailPage />} />
+        <Route path="branch-owners" element={<BranchOwnersPage />} />
         <Route path="data-cleanup" element={<DataCleanupPage />} />
         <Route path="visited"      element={<VisitedPage />} />
         <Route path="permissions"  element={<PermissionsPage />} />
