@@ -23,6 +23,7 @@ import salonReducer from "@/store/salon/salon.slice";
 import salonCommissionsReducer from "@/store/staff/salonCommissions.slice";
 import salonTipsReducer from "@/store/staff/salonTips.slice";
 import serviceReducer from "@/store/service/service.slice";
+import spotlightReducer from "@/store/spotlight/spotlight.slice";
 import staffReducer from "@/store/staff/staff.slice";
 import staffAvailabilityReducer from "@/store/staff/staffAvailability.slice";
 import staffBlockedTimesReducer from "@/store/staff/staffBlockedTimes.slice";
@@ -57,6 +58,7 @@ const appReducer = combineReducers({
   salonCommissions: salonCommissionsReducer,
   salonTips: salonTipsReducer,
   service: serviceReducer,
+  spotlight: spotlightReducer,
   staff: staffReducer,
   staffAvailability: staffAvailabilityReducer,
   staffBlockedTimes: staffBlockedTimesReducer,
