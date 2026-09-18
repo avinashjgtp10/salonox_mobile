@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Search as SearchIcon, Check, CheckLg, StarFill, PeopleFill,
   Scissors, CalendarEvent, PersonFill, GeoAltFill, TelephoneFill,
-  Instagram, Facebook, Globe, PinMapFill,
+  Instagram, Facebook, Globe, PinMapFill, Plus,
 } from "react-bootstrap-icons";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import api from "../../../services/api/axios";
@@ -41,8 +41,9 @@ function shortBookingId(id?: string | null): string {
 
 const STEP_LABELS = ["Services", "Stylist", "Date & Time", "Details"] as const;
 
-// Landing = 0, then the four stepper screens, then review and confirmation.
-type Step = 0 | 1 | 2 | 3 | 4 | 5 | 6;
+// 1 = salon page + catalogue (the landing), then stylist, date, details,
+// review, confirmation.
+type Step = 1 | 2 | 3 | 4 | 5 | 6;
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -56,8 +57,10 @@ export default function PublicBookingPage() {
   const dispatch = useAppDispatch();
   const { salonDetails, loading, bookingLoading, error } = useAppSelector((s) => s.onlineBooking);
 
-  const [step, setStep] = useState<Step>(0);
+  // Starts on the catalogue, not a splash screen.
+  const [step, setStep] = useState<Step>(1);
   const [search, setSearch] = useState("");
+  const [activeCat, setActiveCat] = useState<string>("All");
   const [selServices, setSelServices] = useState<ServiceItem[]>([]);
   const [selStaff, setSelStaff] = useState<StaffMember | "any" | null>("any");
   const [selDate, setSelDate] = useState<Date>(new Date());
@@ -71,9 +74,11 @@ export default function PublicBookingPage() {
     if (slug) dispatch(fetchPublicSalonBySlugThunk(slug));
   }, [slug, dispatch]);
 
-  // Each screen is its own page in this flow, so a step change starts at the top
-  // rather than wherever the previous screen was scrolled to.
-  useEffect(() => { window.scrollTo({ top: 0, behavior: "smooth" }); }, [step]);
+  // Each screen is its own page in this flow, so a step change starts at the top.
+  // Scrolls the page root, not the window: index.css pins body to
+  // `overflow: hidden`, so window.scrollTo is a no-op here.
+  const rootRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { rootRef.current?.scrollTo({ top: 0, behavior: "smooth" }); }, [step]);
 
   const services: ServiceItem[] = salonDetails?.services ?? [];
   const staffList: StaffMember[] = salonDetails?.staff ?? [];
@@ -182,9 +187,36 @@ export default function PublicBookingPage() {
     return () => { cancelled = true; };
   }, [salon?.id, selDate, selStaff, totalDuration]);
 
-  const filtered = services.filter(
-    (s) => !search || s.name.toLowerCase().includes(search.toLowerCase())
-  );
+  // ── Catalogue ───────────────────────────────────────────────────────────────
+  // A salon can publish hundreds of services (one has 496), so browsing needs a
+  // way in: categories with counts, and a most-booked shortcut.
+  const categories = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const s of services) {
+      const name = String((s as any).category_name || "Other");
+      counts.set(name, (counts.get(name) ?? 0) + 1);
+    }
+    return Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, count]) => ({ name, count }));
+  }, [services]);
+
+  const popular = useMemo(() => {
+    if (search || activeCat !== "All") return [];
+    return [...services]
+      .filter((s) => Number((s as any).booking_count) > 0)
+      .sort((a, b) => Number((b as any).booking_count) - Number((a as any).booking_count))
+      .slice(0, 6);
+  }, [services, search, activeCat]);
+
+  const filtered = useMemo(() => services.filter((s) => {
+    const catOk = activeCat === "All" || String((s as any).category_name || "Other") === activeCat;
+    const q = search.trim().toLowerCase();
+    const searchOk = !q
+      || s.name.toLowerCase().includes(q)
+      || String((s as any).category_name || "").toLowerCase().includes(q);
+    return catOk && searchOk;
+  }), [services, activeCat, search]);
 
   function toggleService(svc: ServiceItem) {
     setSelServices((prev) => {
@@ -273,7 +305,7 @@ export default function PublicBookingPage() {
 
   // ── Shared chrome ───────────────────────────────────────────────────────────
 
-  const goBack = () => setStep((s) => (s > 0 ? ((s - 1) as Step) : s));
+  const goBack = () => setStep((s) => (s > 1 ? ((s - 1) as Step) : s));
 
   const TopBar = ({ onBack }: { onBack?: () => void }) => (
     <div className="pb__topbar">
@@ -302,64 +334,100 @@ export default function PublicBookingPage() {
     </div>
   );
 
+  // Neutral by default; a salon's own brand kit overrides the accent so the page
+  // reads as theirs. No brand kit exists for any salon today (the editor was
+  // removed), so in practice everyone gets the neutral palette — the wiring is
+  // here so it just works the moment one is populated.
+  const brand = (salon as any)?.brand_kit ?? null;
+  const isHex = (v: unknown): v is string => typeof v === "string" && /^#[0-9a-f]{3,8}$/i.test(v.trim());
+  const brandAccent = isHex(brand?.primary_color) ? brand.primary_color
+    : isHex(brand?.accent_color) ? brand.accent_color
+    : null;
+
   const styleVars = {
-    "--pb-accent": C.accent,
-    "--pb-light": C.light,
-    "--pb-med": C.med,
-    "--pb-border": C.border,
-    "--pb-border-soft": "#f0ecfb",
-    "--pb-text": C.text,
-    "--pb-muted": C.muted,
-    "--pb-white": C.white,
-    "--pb-ink": "#111827",
+    "--pb-light": "#f7f7f8",
+    "--pb-med": "#f1f2f4",
+    "--pb-border": "#e5e7eb",
+    "--pb-border-soft": "#f0f1f3",
+    "--pb-text": isHex(brand?.text_color) ? brand.text_color : "#111827",
+    "--pb-muted": "#6b7280",
+    "--pb-white": "#ffffff",
+    ...(brandAccent ? { "--pb-accent": brandAccent, "--pb-ink": brandAccent } : {}),
+    ...(brand?.body_font ? { fontFamily: `${brand.body_font}, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif` } : {}),
   } as React.CSSProperties;
 
-  const serviceAvatar = (svc: ServiceItem) => (
-    <span className="pb__avatar" style={{ background: `hsl(${hashHue(svc.id)},52%,52%)` }}>
-      <Scissors size={18} />
-    </span>
-  );
+  // None of these services have photos (image_url is empty across the entire
+  // catalogue), so a grid of image frames would be a grid of empty boxes. A
+  // monogram tile keyed to the category keeps the grid varied and scannable.
+  const ServiceCard = ({ svc, popular: isPopular }: { svc: ServiceItem; popular?: boolean }) => {
+    const on = selServices.some((s) => s.id === svc.id);
+    return (
+      <button
+        type="button"
+        className={`pb__svc ${on ? "is-selected" : ""}`}
+        onClick={() => toggleService(svc)}
+        aria-pressed={on}
+      >
+        {serviceTile(svc)}
+        <span className="pb__svc-body">
+          <span className="pb__svc-name">{svc.name}</span>
+          <span className="pb__svc-meta">
+            <span className="pb__svc-price">{fmtPrice(svc.price, currencyCode)}</span>
+            {Number(svc.duration) > 0 && (
+              <>
+                <span className="pb__svc-dot">·</span>
+                <span>{fmtDur(Number(svc.duration))}</span>
+              </>
+            )}
+            {isPopular && <span className="pb__badge">Popular</span>}
+          </span>
+        </span>
+        <span className="pb__svc-add" aria-hidden="true">
+          {on ? <Check size={14} /> : <Plus size={15} />}
+        </span>
+      </button>
+    );
+  };
+
+  const serviceTile = (svc: ServiceItem) => {
+    const img = (svc as any).image_url;
+    const key = String((svc as any).category_name || svc.name);
+    return (
+      <span className="pb__svc-tile" style={{ background: `hsl(${hashHue(key)},46%,46%)` }}>
+        {img ? <img src={img} alt="" /> : key.trim().charAt(0).toUpperCase() || <Scissors size={16} />}
+      </span>
+    );
+  };
 
   // ── Screens ─────────────────────────────────────────────────────────────────
 
   return (
-    <div className="pb" style={styleVars}>
+    <div className="pb" ref={rootRef} style={styleVars}>
 
-      {/* 1 — Landing */}
-      {step === 0 && (
+      {/* 1 — Salon page: hero + service catalogue.
+           Deliberately not a splash screen you click through. Landing straight
+           on the catalogue is the browse-first model, one less tap, and it
+           fills a desktop viewport instead of floating a card in white space. */}
+      {step === 1 && (
         <>
-          <TopBar />
-          <div className="pb__shell pb__shell--landing">
-            <section className="pb__hero">
-              <div className="pb__hero-media">
-                <img src={coverUrl} alt="" />
-              </div>
-              <div className="pb__hero-body">
+          <div className="pb__hero">
+            <div className="pb__hero-media">
+              <img src={coverUrl} alt="" />
+            </div>
+            <div className="pb__hero-overlay">
+              <div className="pb__hero-inner">
                 <p className="pb__hero-eyebrow">Look good • Feel great</p>
-                <h1 className="pb__hero-title">Book Your Appointment</h1>
-                <p className="pb__hero-copy">
-                  {description
-                    || `Choose from ${salonName}'s range of services and get the best experience.`}
+                <h1 className="pb__hero-title">{salonName}</h1>
+                <p className="pb__hero-meta">
+                  {address && <span><GeoAltFill size={12} /> {address}</span>}
+                  {Number(salon?.rating) > 0 && (
+                    <span><StarFill size={12} /> {Number(salon.rating).toFixed(1)}
+                      {Number(salon?.review_count) > 0 ? ` (${salon.review_count})` : ""}
+                    </span>
+                  )}
+                  <span>{services.length} services</span>
                 </p>
-                <button
-                  type="button"
-                  className="pb__btn pb__btn--primary pb__btn--auto"
-                  onClick={() => setStep(1)}
-                  disabled={services.length === 0}
-                >
-                  {services.length === 0 ? "No services available" : "Book Now"}
-                  {services.length > 0 && <span aria-hidden="true">→</span>}
-                </button>
-              </div>
-            </section>
-
-            {(instagramUrl || facebookUrl || websiteUrl || mapQuery || phone) && (
-              <div className="pb__help">
-                <div>
-                  <p className="pb__help-title">{salonName}</p>
-                  {address && <p className="pb__help-sub">{address}</p>}
-                </div>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <div className="pb__hero-actions">
                   {phone && (
                     <a className="pb__btn pb__btn--ghost pb__btn--auto" href={`tel:${phone}`}>
                       <TelephoneFill size={13} /> Call
@@ -372,41 +440,24 @@ export default function PublicBookingPage() {
                     </a>
                   )}
                   {instagramUrl && (
-                    <a className="pb__btn pb__btn--ghost pb__btn--auto" href={instagramUrl} target="_blank" rel="noopener noreferrer" aria-label="Instagram">
-                      <Instagram size={14} />
-                    </a>
+                    <a className="pb__btn pb__btn--ghost pb__btn--auto" href={instagramUrl}
+                      target="_blank" rel="noopener noreferrer" aria-label="Instagram"><Instagram size={14} /></a>
                   )}
                   {facebookUrl && (
-                    <a className="pb__btn pb__btn--ghost pb__btn--auto" href={facebookUrl} target="_blank" rel="noopener noreferrer" aria-label="Facebook">
-                      <Facebook size={14} />
-                    </a>
+                    <a className="pb__btn pb__btn--ghost pb__btn--auto" href={facebookUrl}
+                      target="_blank" rel="noopener noreferrer" aria-label="Facebook"><Facebook size={14} /></a>
                   )}
                   {websiteUrl && (
-                    <a className="pb__btn pb__btn--ghost pb__btn--auto" href={websiteUrl} target="_blank" rel="noopener noreferrer" aria-label="Website">
-                      <Globe size={14} />
-                    </a>
+                    <a className="pb__btn pb__btn--ghost pb__btn--auto" href={websiteUrl}
+                      target="_blank" rel="noopener noreferrer" aria-label="Website"><Globe size={14} /></a>
                   )}
                 </div>
               </div>
-            )}
-          </div>
-        </>
-      )}
-
-      {/* 2 — Select Services */}
-      {step === 1 && (
-        <>
-          <TopBar onBack={() => setStep(0)} />
-          <div className="pb__shell">
-            <Stepper current={1} />
-            <div className="pb__heading">
-              <h1 className="pb__title">Select Services</h1>
-              <p className="pb__subtitle">
-                {allowMultipleServices
-                  ? "Choose the services you want to book."
-                  : "Choose the service you want to book."}
-              </p>
             </div>
+          </div>
+
+          <div className="pb__shell pb__shell--wide">
+            {description && <p className="pb__about">{description}</p>}
 
             <div className="pb__search">
               <SearchIcon size={15} />
@@ -415,42 +466,94 @@ export default function PublicBookingPage() {
                 className="pb__search-input"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search services..."
+                placeholder={`Search ${services.length} services…`}
                 aria-label="Search services"
               />
             </div>
 
-            {filtered.length === 0 ? (
-              <p className="pb__empty">
-                {search ? `No services match "${search}".` : "This salon hasn't published any services yet."}
-              </p>
-            ) : (
-              <div className="pb__list">
-                {filtered.map((svc) => {
-                  const on = selServices.some((s) => s.id === svc.id);
-                  return (
-                    <button
-                      key={svc.id}
-                      type="button"
-                      className="pb__row"
-                      onClick={() => toggleService(svc)}
-                      aria-pressed={on}
-                    >
-                      {serviceAvatar(svc)}
-                      <span className="pb__row-main">
-                        <span className="pb__row-title">{svc.name}</span>
-                        <span className="pb__row-meta">
-                          {fmtDur(Number(svc.duration) || 0)} · {fmtPrice(svc.price, currencyCode)}
-                        </span>
-                      </span>
-                      <span className={`pb__check ${on ? "is-on" : ""}`} aria-hidden="true">
-                        {on && <Check size={15} />}
-                      </span>
+            <div className="pb__catalogue">
+              {/* Category rail — vertical on desktop, the scrolling pill bar
+                  below it is the same control at phone widths. */}
+              {categories.length > 1 && (
+                <aside className="pb__side" aria-label="Service categories">
+                  <p className="pb__side-title">Categories</p>
+                  <div className="pb__side-list" role="tablist" aria-orientation="vertical">
+                    <button type="button" role="tab" aria-selected={activeCat === "All"}
+                      className={`pb__side-item ${activeCat === "All" ? "is-active" : ""}`}
+                      onClick={() => setActiveCat("All")}>
+                      <span className="pb__side-name">All services</span>
+                      <span className="pb__side-count">{services.length}</span>
                     </button>
-                  );
-                })}
+                    {categories.map((c) => (
+                      <button key={c.name} type="button" role="tab" aria-selected={activeCat === c.name}
+                        className={`pb__side-item ${activeCat === c.name ? "is-active" : ""}`}
+                        onClick={() => setActiveCat(c.name)}>
+                        <span className="pb__side-name">{c.name}</span>
+                        <span className="pb__side-count">{c.count}</span>
+                      </button>
+                    ))}
+                  </div>
+                </aside>
+              )}
+
+              <div className="pb__main">
+
+            {categories.length > 1 && (
+              <div className="pb__catbar" role="tablist" aria-label="Service categories">
+                <button type="button" role="tab" aria-selected={activeCat === "All"}
+                  className={`pb__cat ${activeCat === "All" ? "is-active" : ""}`}
+                  onClick={() => setActiveCat("All")}>
+                  All <span className="pb__cat-count">{services.length}</span>
+                </button>
+                {categories.map((c) => (
+                  <button key={c.name} type="button" role="tab" aria-selected={activeCat === c.name}
+                    className={`pb__cat ${activeCat === c.name ? "is-active" : ""}`}
+                    onClick={() => setActiveCat(c.name)}>
+                    {c.name} <span className="pb__cat-count">{c.count}</span>
+                  </button>
+                ))}
               </div>
             )}
+
+            {/* Most booked — real appointment counts, not a curated guess. Only
+                on the unfiltered view, where it's a way in rather than noise. */}
+            {popular.length > 0 && (
+              <>
+                <div className="pb__section-head">
+                  <h2 className="pb__section-title">Most booked</h2>
+                  <p className="pb__section-note">Popular at this salon</p>
+                </div>
+                <div className="pb__grid">
+                  {popular.map((svc) => (
+                    <ServiceCard key={`pop-${svc.id}`} svc={svc} popular />
+                  ))}
+                </div>
+              </>
+            )}
+
+            <div className="pb__section-head">
+              <h2 className="pb__section-title">
+                {activeCat === "All" ? "All services" : activeCat}
+              </h2>
+              <p className="pb__section-note">
+                {filtered.length} {filtered.length === 1 ? "service" : "services"}
+              </p>
+            </div>
+
+            {filtered.length === 0 ? (
+              <p className="pb__empty">
+                {search
+                  ? `No services match “${search}”.`
+                  : "This salon hasn't published any services yet."}
+              </p>
+            ) : (
+              <div className="pb__grid">
+                {filtered.map((svc) => <ServiceCard key={svc.id} svc={svc} />)}
+              </div>
+            )}
+
+              </div>
+            </div>
 
             {selServices.length > 0 && (
               <div className="pb__sticky">

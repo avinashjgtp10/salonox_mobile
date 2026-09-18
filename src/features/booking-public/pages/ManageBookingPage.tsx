@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import {
@@ -67,7 +67,10 @@ export default function ManageBookingPage() {
       .finally(() => setLoading(false));
   }, [appointmentId, token, dispatch]);
 
-  useEffect(() => { window.scrollTo({ top: 0, behavior: "smooth" }); }, [mode]);
+  // Scrolls the page root, not the window — index.css pins body to
+  // `overflow: hidden`, so window.scrollTo does nothing here.
+  const rootRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { rootRef.current?.scrollTo({ top: 0, behavior: "smooth" }); }, [mode]);
 
   useEffect(() => {
     if (mode !== "reschedule" || !booking?.salon_id) return;
@@ -146,7 +149,7 @@ export default function ManageBookingPage() {
 
   if (loading) {
     return (
-      <div className="pb" style={styleVars}>
+      <div className="pb" ref={rootRef} style={styleVars}>
         <div className="pb__center"><div className="pb__spinner" /></div>
       </div>
     );
@@ -154,7 +157,7 @@ export default function ManageBookingPage() {
 
   if (loadError || !booking) {
     return (
-      <div className="pb" style={styleVars}>
+      <div className="pb" ref={rootRef} style={styleVars}>
         <div className="pb__center">
           <h2 className="pb__title">Booking not found</h2>
           <p className="pb__subtitle">{loadError || "This booking link is invalid or has expired."}</p>
@@ -201,7 +204,7 @@ export default function ManageBookingPage() {
   // ── Reschedule ──────────────────────────────────────────────────────────────
   if (mode === "reschedule") {
     return (
-      <div className="pb" style={styleVars}>
+      <div className="pb" ref={rootRef} style={styleVars}>
         <TopBar onBack={() => { setMode("view"); setSelTime(null); }} />
         <div className="pb__shell pb__shell--wide">
           <div className="pb__heading">
@@ -270,7 +273,7 @@ export default function ManageBookingPage() {
   // ── Cancel ──────────────────────────────────────────────────────────────────
   if (mode === "cancel") {
     return (
-      <div className="pb" style={styleVars}>
+      <div className="pb" ref={rootRef} style={styleVars}>
         <TopBar onBack={() => setMode("view")} />
         <div className="pb__shell">
           <div className="pb__heading">
@@ -332,7 +335,7 @@ export default function ManageBookingPage() {
 
   // ── View ────────────────────────────────────────────────────────────────────
   return (
-    <div className="pb" style={styleVars}>
+    <div className="pb" ref={rootRef} style={styleVars}>
       <TopBar />
       <div className="pb__shell">
         <div className="pb__heading">
