@@ -13,6 +13,7 @@ export * from "./profile.endpoints";
 export * from "./sales.endpoints";
 export * from "./report.endpoints";
 export * from "./service.endpoints";
+export * from "./spotlight.endpoints";
 export * from "./staff.endpoints";
 export * from "./pricing.endpoints";
 export * from "./subscription.endpoints";
