@@ -22,12 +22,12 @@ import { selectStaffLoading, selectStaffMembers } from "@/store/staff/staff.slic
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { StaffMember } from "@/data/teamData";
 import type { AttendanceRecord } from "@/types/attendance";
+import { formatAttendancePlaceLabel } from "@/utils/attendancePlaceLabel";
 
 type AttendancePresentation = {
   bg: string;
   color: string;
   label: string;
-  time: string;
 };
 
 const formatDisplayDate = (dateKey: string) => {
@@ -48,7 +48,6 @@ const getAttendancePresentation = (
     bg: config.bg,
     color: config.color,
     label: config.label,
-    time: formatAttendanceTime(record?.checkInTime),
   };
 };
 
@@ -177,10 +176,27 @@ export default function StaffWorkload() {
                         {attendance.label}
                       </Text>
                     </View>
-                    <View style={styles.timeChip}>
-                      <Ionicons name="time-outline" size={13} color={Colors.text2} />
-                      <Text style={styles.timeChipText}>{attendance.time}</Text>
-                    </View>
+                  </View>
+
+                  <View style={styles.punchList}>
+                    {([
+                      { label: "Check-in", time: attendanceRecord?.checkInTime, location: attendanceRecord?.checkInLocation },
+                      { label: "Checkout", time: attendanceRecord?.checkOutTime, location: attendanceRecord?.checkOutLocation },
+                    ]).map((punch) => (
+                      <View key={punch.label} style={styles.punch}>
+                        <Text style={styles.punchTime}>
+                          {punch.label}: {punch.time ? formatAttendanceTime(punch.time) : "Not recorded"}
+                        </Text>
+                        {punch.time ? (
+                          <View style={styles.locationRow}>
+                            <Ionicons name="location-outline" size={14} color={Colors.text2} />
+                            <Text style={styles.locationText}>
+                              {formatAttendancePlaceLabel(punch.location) || "Location not recorded"}
+                            </Text>
+                          </View>
+                        ) : null}
+                      </View>
+                    ))}
                   </View>
 
                   <Text style={styles.memberMeta}>
@@ -394,21 +410,27 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontSize: 12,
     fontWeight: "900",
   },
-  timeChip: {
-    alignItems: "center",
-    backgroundColor: Colors.dashboardCardMuted,
-    borderColor: Colors.border,
-    borderRadius: Radius.full,
-    borderWidth: 1,
-    flexDirection: "row",
-    gap: 5,
-    paddingHorizontal: 9,
-    paddingVertical: 6,
+  punchList: {
+    gap: 10,
   },
-  timeChipText: {
-    color: Colors.text2,
+  punch: {
+    gap: 4,
+  },
+  punchTime: {
+    color: Colors.heading,
     fontSize: 12,
-    fontWeight: "800",
+    fontWeight: "700",
+  },
+  locationRow: {
+    alignItems: "flex-start",
+    flexDirection: "row",
+    gap: 4,
+  },
+  locationText: {
+    color: Colors.text2,
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 17,
   },
   memberMeta: {
     color: Colors.text2,
