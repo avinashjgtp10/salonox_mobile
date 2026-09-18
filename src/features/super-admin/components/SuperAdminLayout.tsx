@@ -64,7 +64,7 @@ const NAV = [
 export default function SuperAdminLayout() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const { role, user } = useAppSelector((s) => s.auth) as any;
+  const { user } = useAppSelector((s) => s.auth) as any;
 
   function handleLogout() {
     dispatch(logout());

@@ -1,3 +1,4 @@
+import { useCallback, useMemo } from "react";
 import { useAppSelector } from "./useAppRedux";
 import { getCurrencyDef } from "../config/currencies";
 
@@ -9,14 +10,18 @@ import { getCurrencyDef } from "../config/currencies";
  */
 export function useCurrency() {
   const code = useAppSelector((s) => s.salon.currentSalon?.currency);
-  const def = getCurrencyDef(code);
-  return {
-    currencyCode: def.code,
-    currencySymbol: def.symbol,
-    formatAmount: (n: number) =>
+  const def = useMemo(() => getCurrencyDef(code), [code]);
+  const formatAmount = useCallback(
+    (n: number) =>
       `${def.symbol}${(Number(n) || 0).toLocaleString(def.locale, {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
       })}`,
+    [def],
+  );
+  return {
+    currencyCode: def.code,
+    currencySymbol: def.symbol,
+    formatAmount,
   };
 }

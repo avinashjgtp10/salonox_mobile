@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Search, TelephoneFill, GeoAltFill, X, Clock } from "react-bootstrap-icons";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";

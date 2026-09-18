@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAppDispatch, useAppSelector } from "../../hooks/useAppRedux";
 import {
   closeCashCounterThunk,
@@ -9,8 +9,8 @@ import {
   createCashExpense,
   deleteCashExpense,
   fetchCashExpenses,
+  fetchCashSummaryBundle,
   fetchCashTransactions,
-  fetchTodaysRevenue,
   updateCashExpense,
 } from "./cashManagement.api";
 import type {
@@ -43,6 +43,9 @@ const emptySummary: CashDashboardSummary = {
   closingBalance: 0,
   inStoreCash: 0,
   reconciliationAmount: 0,
+  upiAmount: 0,
+  cardAmount: 0,
+  cashAmount: 0,
   openedAt: null,
   closedAt: null,
   remarks: null,
@@ -79,6 +82,21 @@ export function useCashManagement() {
   // shared with the main navbar's Close Counter shortcut, so opening or
   // closing the counter from either place updates both instantly.
   const dashboardState = useAppSelector((state) => state.cashCounter.dashboard);
+  const dashboardStateRef = useRef(dashboardState);
+  dashboardStateRef.current = dashboardState;
+  // DashboardLayout also dispatches fetchCashCounterDashboardThunk on its own
+  // mount (it needs the counter status app-wide, to gate the "unclosed
+  // counter" prompt from any page) — on a hard refresh landing directly on
+  // /cash-management, DashboardLayout and this hook both mount in the same
+  // tick and would otherwise fire this identical request twice. Tracked in a
+  // ref (not just read inline) so loadDashboard's useCallback below always
+  // sees the latest value without needing either as a dependency — putting
+  // them in the dependency array would recreate loadDashboard (and
+  // everything downstream: refreshAll, the mount effect) on every fetch,
+  // since fetching is exactly what changes these values, risking a loop.
+  const cashCounterLoading = useAppSelector((state) => state.cashCounter.loading);
+  const cashCounterLoadingRef = useRef(cashCounterLoading);
+  cashCounterLoadingRef.current = cashCounterLoading;
   const [transactions, setTransactions] = useState<CashTransactionRecord[]>([]);
   const [expenses, setExpenses] = useState<CashExpenseRecord[]>([]);
   // Kept separate from `dashboard` (the cash counter) on purpose — the
@@ -111,6 +129,12 @@ export function useCashManagement() {
   }, []);
 
   const loadDashboard = useCallback(async () => {
+    // A fetch dispatched moments ago by DashboardLayout's own mount effect
+    // is still in flight for this exact same data — piggyback on it instead
+    // of firing an identical, redundant request. It's already reflected in
+    // Redux the moment it resolves, so no separate wait/subscribe is needed
+    // here; the component just rerenders off `dashboardState` as usual.
+    if (cashCounterLoadingRef.current) return dashboardStateRef.current;
     return runTask("dashboard", () => dispatch(fetchCashCounterDashboardThunk()).unwrap());
   }, [runTask, dispatch]);
 
@@ -126,21 +150,31 @@ export function useCashManagement() {
     return next;
   }, [runTask]);
 
-  const loadTodayRevenue = useCallback(async () => {
-    const next = await runTask("todayRevenue", () => fetchTodaysRevenue());
-    setTodayRevenue(next);
-    return next;
-  }, [runTask]);
+  const loadSummaryBundle = useCallback(async () => {
+    setLoading((current) => ({ ...current, transactions: true, expenses: true, todayRevenue: true }));
+    try {
+      const next = await fetchCashSummaryBundle();
+      setTransactions(next.transactions);
+      setExpenses(next.expenses);
+      setTodayRevenue(next.todayRevenue);
+      return next;
+    } finally {
+      setLoading((current) => ({ ...current, transactions: false, expenses: false, todayRevenue: false }));
+    }
+  }, []);
 
+  // Full-page load: one POST (transactions + expenses + today's revenue) via
+  // the summary-bundle endpoint, run alongside the dashboard's own Redux-
+  // backed fetch (kept separate, see loadDashboard above).
   const refreshAll = useCallback(async () => {
     setError(null);
     try {
-      await Promise.all([loadDashboard(), loadTransactions(), loadExpenses(), loadTodayRevenue()]);
+      await Promise.all([loadDashboard(), loadSummaryBundle()]);
     } catch (err: unknown) {
       const message = getApiErrorMessage(err, "Failed to load cash management data");
       setError(shouldSuppressCashCounterNotification(message) ? null : message);
     }
-  }, [loadDashboard, loadExpenses, loadTransactions, loadTodayRevenue]);
+  }, [loadDashboard, loadSummaryBundle]);
 
   const refreshDashboard = useCallback(async () => {
     setError(null);
@@ -174,17 +208,6 @@ export function useCashManagement() {
       throw err;
     }
   }, [loadExpenses]);
-
-  const refreshTodayRevenue = useCallback(async () => {
-    try {
-      await loadTodayRevenue();
-    } catch (err: unknown) {
-      // Deliberately not surfaced via the shared `error`/notification banner —
-      // this card should never look broken just because the cash counter
-      // (a separate concern) has an issue.
-      console.error("[cash-management] today's revenue refresh failed", err);
-    }
-  }, [loadTodayRevenue]);
 
   useEffect(() => {
     void refreshAll();
@@ -267,7 +290,6 @@ const handleDeleteExpense = useCallback(async (id: string) => {
     refreshDashboard,
     refreshTransactions,
     refreshExpenses,
-    refreshTodayRevenue,
     openCounter: handleOpenCounter,
     closeCounter: handleCloseCounter,
     createExpense: handleCreateExpense,

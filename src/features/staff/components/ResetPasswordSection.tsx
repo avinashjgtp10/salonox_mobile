@@ -9,17 +9,26 @@ import { sendEmailOtpThunk, verifyEmailOtpThunk } from "../../../middleware/auth
 interface ResetPasswordSectionProps {
   staffId: string;
   email: string;
+  // True whenever this staff member already has a working login (a password
+  // is already set) — the backend only ever activates a login that way after
+  // an OTP-verified email, either at creation or a prior reset (see
+  // staffService.create's activateImmediately gate). Re-verifying the same
+  // already-proven inbox on every subsequent reset is redundant, so the OTP
+  // gate below is skipped entirely when this is true.
+  emailAlreadyVerified?: boolean;
   onSuccess?: () => void;
   onError?: (message: string) => void;
 }
 
 /**
  * Self-contained "existing login has a password → Reset Password → New/Confirm
- * Password + OTP-gated Update Password" flow. Reusable anywhere a staff member's
- * password needs resetting (Edit Staff, staff detail drawers, etc.) — owns its
- * own state and fires its own PATCH, independent of any surrounding form/Save.
+ * Password" flow. When the staff member's email is already verified (the normal
+ * case for anyone with an existing login), Update Password is available directly;
+ * otherwise it stays OTP-gated. Reusable anywhere a staff member's password needs
+ * resetting (Edit Staff, staff detail drawers, etc.) — owns its own state and
+ * fires its own PATCH, independent of any surrounding form/Save.
  */
-const ResetPasswordSection: FC<ResetPasswordSectionProps> = ({ staffId, email, onSuccess, onError }) => {
+const ResetPasswordSection: FC<ResetPasswordSectionProps> = ({ staffId, email, emailAlreadyVerified, onSuccess, onError }) => {
   const dispatch = useAppDispatch();
 
   const [showPasswordReset, setShowPasswordReset] = useState(false);
@@ -42,6 +51,13 @@ const ResetPasswordSection: FC<ResetPasswordSectionProps> = ({ staffId, email, o
 
   const isNewPasswordInvalid = attempted && newPassword.trim().length < 8;
   const isConfirmNewPasswordInvalid = attempted && confirmNewPassword !== newPassword;
+
+  // Skip the OTP gate entirely for an email that's already proven verified —
+  // otpVerified only tracks a fresh verification done in THIS session, so an
+  // already-verified email needs this separate escape hatch rather than
+  // seeding otpVerified's initial state (which would incorrectly stay true
+  // even after the staff member's email is edited elsewhere).
+  const effectiveOtpVerified = emailAlreadyVerified || otpVerified;
 
   const resetOtpState = () => {
     setOtp("");
@@ -107,7 +123,7 @@ const ResetPasswordSection: FC<ResetPasswordSectionProps> = ({ staffId, email, o
 
   const handleUpdatePassword = async () => {
     setAttempted(true);
-    if (newPassword.trim().length < 8 || confirmNewPassword !== newPassword || !otpVerified) return;
+    if (newPassword.trim().length < 8 || confirmNewPassword !== newPassword || !effectiveOtpVerified) return;
 
     setLoading(true);
     try {
@@ -180,59 +196,71 @@ const ResetPasswordSection: FC<ResetPasswordSectionProps> = ({ staffId, email, o
         </div>
       </div>
 
-      {/* OTP gate — Update Password stays disabled until this passes */}
-      <div className="emp-field emp-otp-field">
-        <div className="emp-input-row">
-          <button
-            type="button"
-            className={`emp-otp-btn ${otpVerified ? "emp-otp-btn--verified" : ""}`}
-            onClick={handleSendOtp}
-            disabled={otpLoading || otpVerified}
-          >
-            {otpLoading && !otpSent ? "Sending…" : otpVerified ? "Verified" : otpSent ? "Resend OTP" : "Send OTP"}
-          </button>
-          {otpVerified && (
-            <span className="emp-verified-tag emp-verified-tag--email">
-              <span className="emp-verified-tag__check">✓</span>
-              Email verified
-            </span>
-          )}
-        </div>
-        {otpMsg && <span className={`emp-otp-msg emp-otp-msg--${otpMsg.type}`}>{otpMsg.text}</span>}
-        {!otpSent && !otpVerified && !otpMsg && (
-          <span className="emp-field__hint">
-            OTP verification of this staff member's email is required to update the password.
+      {/* OTP gate — skipped entirely when this email is already verified
+          (the normal case: it was proven once at account creation or the
+          last reset, and doesn't need re-proving every time). Only a staff
+          member whose login isn't active yet still needs it here. */}
+      {emailAlreadyVerified ? (
+        <div className="emp-field emp-otp-field">
+          <span className="emp-verified-tag emp-verified-tag--email">
+            <span className="emp-verified-tag__check">✓</span>
+            Email verified
           </span>
-        )}
-
-        {otpSent && !otpVerified && (
-          <div className="emp-input-row emp-otp-verify-row">
-            <input
-              className="emp-input"
-              placeholder="6-digit OTP"
-              value={otp}
-              maxLength={6}
-              onChange={(e) => {
-                setOtp(e.target.value.replace(/\D/g, ""));
-                if (otpError) setOtpError(null);
-              }}
-              onKeyDown={(e) => e.key === "Enter" && handleVerifyOtp()}
-            />
+        </div>
+      ) : (
+        <div className="emp-field emp-otp-field">
+          <div className="emp-input-row">
             <button
               type="button"
-              className="emp-verify-btn"
-              onClick={handleVerifyOtp}
-              disabled={otpLoading || otp.length < 6}
+              className={`emp-otp-btn ${otpVerified ? "emp-otp-btn--verified" : ""}`}
+              onClick={handleSendOtp}
+              disabled={otpLoading || otpVerified}
             >
-              {otpLoading ? "Verifying…" : "Verify"}
+              {otpLoading && !otpSent ? "Sending…" : otpVerified ? "Verified" : otpSent ? "Resend OTP" : "Send OTP"}
             </button>
+            {otpVerified && (
+              <span className="emp-verified-tag emp-verified-tag--email">
+                <span className="emp-verified-tag__check">✓</span>
+                Email verified
+              </span>
+            )}
           </div>
-        )}
-        {otpError && <span className="emp-field__error">{otpError}</span>}
-        {attempted && !otpVerified && newPassword.trim().length >= 8 && confirmNewPassword === newPassword && (
-          <span className="emp-field__error">Verify the OTP before updating the password</span>
-        )}
-      </div>
+          {otpMsg && <span className={`emp-otp-msg emp-otp-msg--${otpMsg.type}`}>{otpMsg.text}</span>}
+          {!otpSent && !otpVerified && !otpMsg && (
+            <span className="emp-field__hint">
+              OTP verification of this staff member's email is required to update the password.
+            </span>
+          )}
+
+          {otpSent && !otpVerified && (
+            <div className="emp-input-row emp-otp-verify-row">
+              <input
+                className="emp-input"
+                placeholder="6-digit OTP"
+                value={otp}
+                maxLength={6}
+                onChange={(e) => {
+                  setOtp(e.target.value.replace(/\D/g, ""));
+                  if (otpError) setOtpError(null);
+                }}
+                onKeyDown={(e) => e.key === "Enter" && handleVerifyOtp()}
+              />
+              <button
+                type="button"
+                className="emp-verify-btn"
+                onClick={handleVerifyOtp}
+                disabled={otpLoading || otp.length < 6}
+              >
+                {otpLoading ? "Verifying…" : "Verify"}
+              </button>
+            </div>
+          )}
+          {otpError && <span className="emp-field__error">{otpError}</span>}
+          {attempted && !otpVerified && newPassword.trim().length >= 8 && confirmNewPassword === newPassword && (
+            <span className="emp-field__error">Verify the OTP before updating the password</span>
+          )}
+        </div>
+      )}
 
       <div className="emp-password-actions">
         <button type="button" className="btn btn-outline-secondary btn-sm" onClick={closeReset} disabled={loading}>
@@ -242,7 +270,7 @@ const ResetPasswordSection: FC<ResetPasswordSectionProps> = ({ staffId, email, o
           type="button"
           className="btn add-staff__btn-add btn-sm"
           onClick={handleUpdatePassword}
-          disabled={loading || !otpVerified}
+          disabled={loading || !effectiveOtpVerified}
         >
           {loading ? "Updating..." : "Update Password"}
         </button>

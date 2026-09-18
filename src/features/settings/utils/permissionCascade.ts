@@ -65,6 +65,7 @@ export const REVEAL_ON_MASTER_TOGGLE: string[] = [
   "view_report_product_margin_inventory", "view_report_product_inventory", "view_report_slow_moving_products",
   "view_report_fast_moving_products", "view_report_brand_performance", "view_report_purchase_vs_sales",
   "view_report_consumable_usage", "view_report_supplier_report", "view_report_purchase_history",
+  "view_report_stock_movement",
   "view_report_staff_sales", "view_report_staff_performance", "view_report_staff_item_sales",
   "view_report_commission_report", "view_report_tip_report", "view_report_attendance_report",
   "view_report_payroll_history", "view_report_rebooking_rate", "view_report_package_sale",

@@ -26,7 +26,6 @@ function App() {
   const dispatch = useAppDispatch();
   const subscriptionExpired = useAppSelector((s) => s.billing.subscriptionExpired);
   const accessToken = useAppSelector((s) => s.auth.accessToken);
-  const role = useAppSelector((s) => s.auth.role);
   const permissionDialog = useAppSelector((s) => s.permissionDialog);
   const { refreshNow } = useSubscriptionPoller();
   const location = useLocation();

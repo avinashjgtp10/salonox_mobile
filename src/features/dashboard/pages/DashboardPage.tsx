@@ -1541,7 +1541,7 @@ export default function DashboardPage() {
       {/* ── HEADER ── */}
       <div className="db-header">
         <div>
-          <h1 className="db-title">salonox!</h1>
+          <h1 className="db-title">salonox</h1>
           <p className="db-subtitle">{today} · Here's what's happening today</p>
         </div>
         <div className="db-header-actions">

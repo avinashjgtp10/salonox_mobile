@@ -1,0 +1,580 @@
+/* ================================================================
+   Assign Membership Modal  (.amm)
+   ================================================================ */
+
+.amm {
+  font-family: Inter, -apple-system, sans-serif;
+  color: #0f172a;
+
+  &__hint {
+    margin: 0 0 18px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: #64748b;
+  }
+
+  /* ── Form ───────────────────────────────────────────────────── */
+  &__form {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+
+    /* The client picker spans the full width — its results dropdown needs
+       the room, and it reads as the primary choice of the form. */
+    > .amm__field:first-child {
+      grid-column: 1 / -1;
+    }
+  }
+
+  &__field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  &__label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #334155;
+  }
+
+  &__input {
+    width: 100%;
+    padding: 9px 12px;
+    font-size: 13px;
+    color: #0f172a;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    outline: none;
+    transition: border-color .15s, box-shadow .15s;
+
+    &::placeholder { color: #94a3b8; }
+
+    &:focus {
+      border-color: #6366f1;
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, .12);
+    }
+  }
+
+  /* ── Chosen client chip (replaces the search input once picked) ── */
+  &__chosen {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 12px;
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+  }
+
+  &__chosen-name {
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  &__chosen-sub {
+    font-size: 12px;
+    color: #64748b;
+  }
+
+  &__chosen-clear {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    padding: 4px;
+    color: #64748b;
+    background: none;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+
+    &:hover { background: #e2e8f0; color: #0f172a; }
+  }
+
+  &__error {
+    margin-top: 14px;
+    padding: 9px 12px;
+    font-size: 12.5px;
+    color: #b91c1c;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 8px;
+  }
+
+  /* ── Assigned list ──────────────────────────────────────────── */
+  &__list {
+    margin-top: 24px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  &__list-head {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 10px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #334155;
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  &__empty {
+    padding: 22px 14px;
+    font-size: 13px;
+    text-align: center;
+    color: #94a3b8;
+  }
+
+  &__table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+
+    th {
+      padding: 9px 14px;
+      font-size: 11px;
+      font-weight: 600;
+      text-align: left;
+      text-transform: uppercase;
+      letter-spacing: .03em;
+      color: #64748b;
+      border-bottom: 1px solid #f1f5f9;
+    }
+
+    td {
+      padding: 10px 14px;
+      border-bottom: 1px solid #f1f5f9;
+    }
+
+    tr:last-child td { border-bottom: none; }
+  }
+
+  /* Expired/exhausted rows stay listed but recede — they are still useful
+     (they show what needs renewing) without competing with active ones. */
+  &__row--inactive {
+    opacity: .5;
+  }
+
+  &__tag {
+    display: inline-block;
+    padding: 3px 10px;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #fff;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+
+  /* The shared .ui-pagination already brings its own top border, padding and
+     wrapping — this only strips the bottom radius it carries for use as a
+     card footer, since here it sits inside the list box’s own rounded border. */
+  &__pager .ui-pagination {
+    border-radius: 0;
+    padding: 10px 14px;
+  }
+
+  &__td-actions {
+    width: 44px;
+    text-align: right;
+  }
+
+  &__remove {
+    display: inline-flex;
+    align-items: center;
+    padding: 5px;
+    color: #94a3b8;
+    background: none;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: color .15s, background .15s;
+
+    &:hover { color: #dc2626; background: #fef2f2; }
+  }
+}
+
+/* ── Responsive ───────────────────────────────────────────────────
+   Two breakpoints, because the two problems are different:
+   768px  — the two-up form has no room for side-by-side fields.
+   560px  — the tables stop fitting at all. Rather than scroll them
+            sideways (which hides the Status column, the one thing you
+            need after a bulk run), each row collapses into a stacked
+            card and every cell prints its own column name from the
+            data-label attribute the TSX sets.
+   ---------------------------------------------------------------- */
+
+@media (max-width: 768px) {
+  .amm {
+    &__form { grid-template-columns: 1fr; }
+
+    /* A long name + phone must not push the clear button off the chip. */
+    &__chosen { flex-wrap: wrap; }
+    &__chosen-clear { margin-left: auto; }
+  }
+
+  .amm-bulk {
+    &__template { flex-direction: column; align-items: flex-start; gap: 8px; }
+    &__drop { padding: 26px 16px; }
+
+    /* Taller on a phone: the viewport is short, but a 300px window showing
+       ~3 rows of a 200-row file is less useful than one that fills it. */
+    &__tablewrap { max-height: 50vh; }
+  }
+}
+
+@media (max-width: 560px) {
+  .amm {
+    /* Stacked cards — the wrapper keeps its border, each row draws its own. */
+    &__list { overflow: visible; }
+
+    &__table {
+      display: block;
+
+      thead { display: none; }
+      tbody { display: block; }
+
+      tr {
+        display: block;
+        padding: 10px 14px;
+        border-bottom: 1px solid #f1f5f9;
+        position: relative;
+      }
+
+      tr:last-child { border-bottom: none; }
+
+      td {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 3px 0;
+        border-bottom: none;
+
+        /* The column name, printed per cell. */
+        &::before {
+          content: attr(data-label);
+          flex: 0 0 auto;
+          font-size: 11px;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: .03em;
+          color: #94a3b8;
+        }
+      }
+    }
+
+    &__pager .ui-pagination {
+      /* space-between strands the page-size select and the page buttons at
+         opposite edges on a narrow screen — centre and stack them instead. */
+      justify-content: center;
+      gap: 10px;
+      padding: 10px;
+    }
+
+    /* The delete button has no label and belongs in the card's top corner,
+       not on a row of its own. */
+    &__td-actions {
+      position: absolute;
+      top: 8px;
+      right: 10px;
+      width: auto;
+      padding: 0;
+
+      &::before { content: none; }
+    }
+  }
+
+  .amm-bulk {
+    &__filebar {
+      flex-wrap: wrap;
+      row-gap: 4px;
+      padding-right: 40px;      /* room for the clear button, pinned below */
+      position: relative;
+    }
+
+    &__filename { flex: 1 1 100%; }
+    &__counts   { margin-left: 0; white-space: normal; }
+    &__clear    { position: absolute; top: 8px; right: 10px; }
+
+    &__tablewrap { max-height: 60vh; }
+
+    &__table {
+      display: block;
+
+      thead { display: none; }
+      tbody { display: block; }
+
+      tr {
+        display: block;
+        padding: 10px 12px;
+        border-bottom: 1px solid #e2e8f0;
+      }
+
+      tr:last-child { border-bottom: none; }
+
+      td {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 3px 0;
+        border-bottom: none;
+        text-align: right;
+
+        &::before {
+          content: attr(data-label);
+          flex: 0 0 auto;
+          font-size: 11px;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: .03em;
+          color: #94a3b8;
+          text-align: left;
+        }
+      }
+    }
+
+    /* The row number is card-level context, not a field worth its own line. */
+    &__td-n {
+      padding: 0 0 4px;
+      font-size: 11px;
+      color: #94a3b8;
+      justify-content: flex-start;
+
+      &::before { content: attr(data-label) " "; }
+    }
+
+    &__client, &__mobile { text-align: right; }
+
+    /* Error text is the long one — let it wrap instead of forcing the card wide. */
+    &__st {
+      text-align: left;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+    }
+
+    &__actions { flex-direction: column; align-items: stretch; }
+    &__run     { width: 100%; }
+    &__summary { text-align: center; }
+  }
+}
+
+/* ── Tabs (One client / Bulk import) ──────────────────────────── */
+.amm {
+  &__tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 18px;
+    padding: 3px;
+    background: #f1f5f9;
+    border-radius: 9px;
+  }
+
+  &__tab {
+    flex: 1;
+    padding: 7px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #64748b;
+    background: none;
+    border: none;
+    border-radius: 7px;
+    cursor: pointer;
+    transition: background .15s, color .15s;
+
+    &:hover:not(.is-active) { color: #0f172a; }
+
+    &.is-active {
+      color: #0f172a;
+      background: #fff;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, .08);
+    }
+  }
+}
+
+/* ── Bulk import panel ────────────────────────────────────────── */
+.amm-bulk {
+  &__template {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+    font-size: 12.5px;
+    color: #64748b;
+  }
+
+  &__template-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #4338ca;
+    background: #eef2ff;
+    border: none;
+    border-radius: 7px;
+    cursor: pointer;
+
+    &:hover { background: #e0e7ff; }
+  }
+
+  /* Upload dropzone */
+  &__drop {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 7px;
+    width: 100%;
+    padding: 34px 20px;
+    color: #64748b;
+    background: #f8fafc;
+    border: 1.5px dashed #cbd5e1;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+
+    &:hover:not(:disabled) { border-color: #6366f1; background: #f5f3ff; }
+    &:disabled { cursor: default; opacity: .7; }
+
+    strong { font-size: 13.5px; color: #0f172a; }
+    span   { font-size: 12px; }
+  }
+
+  /* Chosen-file bar */
+  &__filebar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 9px 12px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 9px 9px 0 0;
+    border-bottom: none;
+  }
+
+  &__filename {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #0f172a;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__counts {
+    margin-left: auto;
+    font-size: 12px;
+    color: #64748b;
+    white-space: nowrap;
+
+    b { font-weight: 600; }
+    .ok  { color: #15803d; }
+    .bad { color: #b91c1c; }
+  }
+
+  &__clear {
+    display: inline-flex;
+    padding: 3px;
+    color: #64748b;
+    background: none;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+
+    &:hover:not(:disabled) { background: #e2e8f0; color: #0f172a; }
+    &:disabled { opacity: .4; cursor: default; }
+  }
+
+  /* Preview table — capped so a 500-row file can't push the modal's own
+     actions off screen; the rows scroll inside this box instead. */
+  &__tablewrap {
+    max-height: 300px;
+    overflow: auto;
+    border: 1px solid #e2e8f0;
+  }
+
+  &__table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+
+    thead th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      padding: 8px 12px;
+      font-size: 11px;
+      font-weight: 600;
+      text-align: left;
+      text-transform: uppercase;
+      letter-spacing: .03em;
+      color: #64748b;
+      background: #fff;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    td {
+      padding: 8px 12px;
+      vertical-align: top;
+      border-bottom: 1px solid #f1f5f9;
+    }
+
+    tr:last-child td { border-bottom: none; }
+  }
+
+  &__row--bad { background: #fffbfb; }
+
+  &__client { font-weight: 600; color: #0f172a; }
+  &__mobile { font-size: 11.5px; color: #94a3b8; }
+
+  &__st {
+    display: inline-flex;
+    align-items: flex-start;
+    gap: 5px;
+    color: #64748b;
+
+    &.ok  { color: #15803d; }
+    &.bad { color: #b91c1c; }
+  }
+
+  &__actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 12px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-top: none;
+    border-radius: 0 0 9px 9px;
+  }
+
+  &__summary {
+    font-size: 12.5px;
+    color: #475569;
+  }
+
+  &__run {
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #fff;
+    background: #4f46e5;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background .15s;
+
+    &:hover:not(:disabled) { background: #4338ca; }
+    &:disabled { background: #cbd5e1; cursor: default; }
+  }
+}

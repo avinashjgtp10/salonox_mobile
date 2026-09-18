@@ -727,7 +727,14 @@ export const AppointmentModal: React.FC<Props> = ({
   // callbacks that DO (runPosSuccessTail, openPosPaymentForAppointment,
   // handlePosModalClose) live just above handlePay instead, so their
   // dependency arrays don't reference a const before its declaration.
-  const { enabledProvider: posProvider, terminals: posTerminals } = usePosSettings();
+  // Deferred until showPaymentSection actually flips true — that's the real
+  // "user is heading toward Pay" moment for BOTH flows: the regular booking
+  // modal's own Continue-to-Payment click, and Quick Sale's "Add services,
+  // then Continue to Payment" step (Quick Sale is one screen, but it still
+  // has a client/services phase before payment — quickSale alone doesn't
+  // mean payment is imminent). Without this, Quick Sale fired both POS GETs
+  // on every page refresh/mount, before the user had picked anything.
+  const { enabledProvider: posProvider, terminals: posTerminals } = usePosSettings(showPaymentSection);
   const posMethodOptions = useMemo(
     () => (posProvider ? [...SINGLE_METHODS, POS_MACHINE_METHOD] : undefined),
     [posProvider]
@@ -792,11 +799,11 @@ export const AppointmentModal: React.FC<Props> = ({
   // coveredServices below, which now reads it too.
   const packageBudgets = useMemo(() => {
     const map = new Map<string, number>();
-    nonExpiredPackages.forEach((pkg) => {
+    nonExpiredPackages.forEach((pkg: any) => {
       if (pkg.expireAfterServices == null) {
         map.set(pkg.id, Infinity);
       } else {
-        const completed = pkg.services.reduce((sum, s) => sum + s.completedSessions, 0);
+        const completed = pkg.services.reduce((sum: number, s: any) => sum + s.completedSessions, 0);
         map.set(pkg.id, Math.max(0, pkg.expireAfterServices - completed));
       }
     });
@@ -805,14 +812,14 @@ export const AppointmentModal: React.FC<Props> = ({
 
   const coveredServices = useMemo(() => {
     const map = new Map<string, Array<{ packageId: string; remaining: number }>>();
-    nonExpiredPackages.forEach((pkg) => {
+    nonExpiredPackages.forEach((pkg: any) => {
       // A package that's already spent its own cap has nothing left to
       // offer from ANY of its services, even ones that individually still
       // show sessions unused — e.g. a 12-service package capped at 4 stops
       // being selectable once 4 total are used, not just once each
       // individual service's own count hits zero (see packageBudgets above).
       if ((packageBudgets.get(pkg.id) ?? Infinity) <= 0) return;
-      pkg.services.forEach((svc) => {
+      pkg.services.forEach((svc: any) => {
         if (svc.remainingSessions > 0) {
           const key = svc.catalogServiceId ?? `name:${svc.serviceName.toLowerCase()}`;
           const arr = map.get(key) ?? [];
@@ -1288,7 +1295,7 @@ export const AppointmentModal: React.FC<Props> = ({
 
       for (const pkg of pkgs) {
         if (sessionsLeftToMark <= 0) break;
-        const svc = pkg.services.find((s) => {
+        const svc = pkg.services.find((s: any) => {
           if (s.remainingSessions <= 0) return false;
           if (rowCatalogId && s.catalogServiceId) return s.catalogServiceId === rowCatalogId;
           return s.serviceName.toLowerCase() === nameKey;
@@ -1722,13 +1729,13 @@ export const AppointmentModal: React.FC<Props> = ({
       .filter((m) => m.status === "active")
       .map((m) => ({ membershipName: m.membershipName, membershipWalletBalance: m.membershipWalletBalance, expiresAt: m.expiresAt })),
     activePackages: nonExpiredPackages
-      .filter((p) => p.status === "Active")
-      .map((p) => ({
+      .filter((p: any) => p.status === "Active")
+      .map((p: any) => ({
         packageName: p.packageName,
-        remaining: p.services.reduce((s, sv) => s + sv.remainingSessions, 0),
-        total: p.services.reduce((s, sv) => s + sv.totalSessions, 0),
+        remaining: p.services.reduce((s: number, sv: any) => s + sv.remainingSessions, 0),
+        total: p.services.reduce((s: number, sv: any) => s + sv.totalSessions, 0),
       }))
-      .filter((p) => p.remaining > 0),
+      .filter((p: any) => p.remaining > 0),
   };
 
   // ── Sequential benefit caps ──────────────────────────────────────────────
@@ -2740,13 +2747,13 @@ export const AppointmentModal: React.FC<Props> = ({
     const cards: BenefitCardConfig[] = [];
 
     if (coveredServices.size > 0 && firstActivePkg && hasPackageEligibleRow) {
-      const rawRemaining = firstActivePkg.services.reduce((s, svc) => s + svc.remainingSessions, 0);
+      const rawRemaining = firstActivePkg.services.reduce((s: number, svc: any) => s + svc.remainingSessions, 0);
       // Bounded by the package's own cap, if it has one — otherwise this
       // card would keep advertising e.g. "8 Remaining" from services' own
       // unused session counts even after the cap already closed the
       // package to further coverage (see coveredServices/packageBudgets).
       const pkgRemaining = Math.min(rawRemaining, packageBudgets.get(firstActivePkg.id) ?? Infinity);
-      const pkgTotal = firstActivePkg.services.reduce((s, svc) => s + svc.totalSessions, 0);
+      const pkgTotal = firstActivePkg.services.reduce((s: number, svc: any) => s + svc.totalSessions, 0);
       cards.push({
         key: "package",
         icon: BoxSeamFill,

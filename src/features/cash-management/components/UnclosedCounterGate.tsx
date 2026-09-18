@@ -1,9 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { CalendarEvent, CashStack, JournalText, Safe2, Wallet2 } from "react-bootstrap-icons";
-import { Button, Modal } from "../../../components/ui";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
-import { useCurrency } from "../../../hooks/useCurrency";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import {
   closeCashCounterThunk,
@@ -11,8 +8,9 @@ import {
 } from "../../../middleware/cashCounter/cashCounter.thunk";
 import { logout } from "../../../store/authSlice";
 import { disconnectSocket } from "../../../services/socket/socket";
-import { sendDailySummaryEmail, fetchTodaysPaymentMethodCounts } from "../cashManagement.api";
-import { OpenCounterModal } from "../pages/CashManagementModals";
+import { sendDailySummaryEmail } from "../cashManagement.api";
+import { CloseCounterModal, OpenCounterModal } from "../pages/CashManagementModals";
+import type { CloseCounterPayload } from "../cashManagement.types";
 import { showGlobalToast } from "../../../utils/globalToast";
 
 import { selectUserProfile } from "../../../store/selectors/slices.selectors";
@@ -38,7 +36,6 @@ export default function UnclosedCounterGate() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const location = useLocation();
-  const { formatAmount } = useCurrency();
   const dashboard = useAppSelector((state) => state.cashCounter.dashboard);
   const cashCounterLoading = useAppSelector((state) => state.cashCounter.loading);
   const userProfile = useAppSelector(selectUserProfile);
@@ -46,15 +43,8 @@ export default function UnclosedCounterGate() {
   const { showSuccess, showError, overlay } = useStatusOverlay();
 
   const [closing, setClosing] = useState(false);
-  const [error, setError] = useState("");
   const [showOpenTodayModal, setShowOpenTodayModal] = useState(false);
   const [openingLoading, setOpeningLoading] = useState(false);
-  const [paymentMethodCounts, setPaymentMethodCounts] = useState({
-    upi: 0,
-    card: 0,
-    cash: 0,
-    amounts: { upi: 0, card: 0, cash: 0 },
-  });
 
   const today = formatDateInput(new Date());
   const openedDateKey = dashboard?.openedAt ? formatDateInput(new Date(dashboard.openedAt)) : null;
@@ -101,85 +91,27 @@ export default function UnclosedCounterGate() {
     }
   }, [cashCounterLoading, dashboardLoaded, isOnCashManagementPage, needsOpenCounterToday, hasOpenCounterToday]);
 
-  useEffect(() => {
-    if (!showPendingModal || !openedDateKey) return;
-    let cancelled = false;
-    fetchTodaysPaymentMethodCounts(openedDateKey).then((counts) => {
-      if (!cancelled) setPaymentMethodCounts(counts);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [showPendingModal, openedDateKey]);
-
-  const handleClosePreviousCounter = useCallback(async () => {
+  const handleClosePreviousCounter = useCallback(async (payload: CloseCounterPayload) => {
     setClosing(true);
-    setError("");
     try {
-      let closedData = dashboard;
+      const action = await dispatch(closeCashCounterThunk(payload));
+      const closedData = closeCashCounterThunk.fulfilled.match(action) ? action.payload : dashboard;
 
-      // 1. Dispatch backend close counter request if active counter ID exists
-      if (dashboard?.cashManagementId) {
-        const candidate = dashboard.inStoreCash ?? dashboard.closingBalance ?? 0;
-        const numericInStoreCash = Number(candidate);
-        const inStoreCash = Number.isFinite(numericInStoreCash) ? Math.max(0, numericInStoreCash) : 0;
-
-        const action = await dispatch(
-          closeCashCounterThunk({
-            cash_management_id: dashboard.cashManagementId,
-            in_store_cash: inStoreCash,
-            remarks: dashboard.remarks ?? "",
-          }),
-        );
-        if (closeCashCounterThunk.fulfilled.match(action)) {
-          closedData = action.payload;
-        }
-      }
-
-      // 2. Prepare Daily Summary data
-      const summaryData = closedData || dashboard || {
-        cashManagementId: "preview-id",
-        status: "closed",
-        openingBalance: 0,
-        cashRevenue: 0,
-        cashExpense: 0,
-        closingBalance: 0,
-        inStoreCash: 0,
-        reconciliationAmount: 0,
-        openedAt: new Date().toISOString(),
-        closedAt: new Date().toISOString(),
-        remarks: null,
-        upiAmount: 0,
-        cardAmount: 0,
-        cashAmount: 0,
-      };
-
-      // 3. Send summary via email to Salon Owner's registered email address
+      // Send summary via email to Salon Owner's registered email address
       // (no PDF attachment). Sent silently — no notification either way.
       try {
-        await sendDailySummaryEmail(
-          dashboard?.cashManagementId ?? "",
-          { ...summaryData, paymentCounts: paymentMethodCounts },
-          userEmail,
-        );
+        await sendDailySummaryEmail(payload.cash_management_id, closedData ?? dashboard ?? undefined, userEmail);
       } catch (emailErr: any) {
         console.error("[UnclosedCounterGate] Email delivery error:", emailErr);
       }
       showGlobalToast("success", "Previous counter closed", "The stale counter was closed successfully.");
 
-      // 4. Directly display Open Today's Counter modal
+      // Directly display Open Today's Counter modal
       setShowOpenTodayModal(true);
-    } catch (err: any) {
-      setError(
-        err?.response?.data?.message ??
-        err?.response?.data?.error ??
-        err?.message ??
-        "Failed to close the previous counter.",
-      );
     } finally {
       setClosing(false);
     }
-  }, [dashboard, dispatch, userEmail, paymentMethodCounts]);
+  }, [dashboard, dispatch, userEmail]);
 
   const handleLogout = useCallback(() => {
     disconnectSocket();
@@ -187,125 +119,24 @@ export default function UnclosedCounterGate() {
     navigate("/login");
   }, [dispatch, navigate]);
 
-  const openedAtFormatted = dashboard?.openedAt
-    ? new Date(dashboard.openedAt).toLocaleString("en-IN", {
-      dateStyle: "medium",
-      timeStyle: "short",
-    })
-    : null;
-
   return (
     <>
       {overlay}
-      <Modal
-        show={showPendingModal}
-        onClose={() => { }}
-        hideCloseButton
-        title="Cash Counter Pending"
-        size="md"
-        footer={
-          <div className="topbar-confirm-footer">
-            <Button variant="ghost" onClick={handleLogout} disabled={closing}>
-              Logout
-            </Button>
-            <Button
-              variant="danger"
-              loading={closing}
-              disabled={closing}
-              onClick={() => void handleClosePreviousCounter()}
-            >
-              Close Previous Counter
-            </Button>
-          </div>
-        }
-      >
-        <div className="d-flex flex-column gap-3">
-          <p className="topbar-confirm-copy mb-0">
-            The cash counter from a previous session is still open. Please review the daily summary below and close it before opening today's counter.
-          </p>
-
-          {dashboard ? (
-            <div className="p-3 bg-light rounded-3 border">
-              <div className="d-flex align-items-center gap-2 mb-3 text-muted small fw-semibold border-bottom pb-2">
-                <CalendarEvent size={15} />
-                <span>Opened on: {openedAtFormatted || "Previous Session"}</span>
-              </div>
-
-              <div className="row g-2">
-                <div className="col-6">
-                  <div className="p-2 bg-white rounded border">
-                    <div className="text-muted small d-flex align-items-center gap-1">
-                      <Wallet2 size={13} className="text-primary" /> Opening Balance
-                    </div>
-                    <div className="fw-bold text-dark fs-6 mt-1">
-                      {formatAmount(dashboard.openingBalance ?? 0)}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="col-6">
-                  <div className="p-2 bg-white rounded border">
-                    <div className="text-muted small d-flex align-items-center gap-1">
-                      <CashStack size={13} className="text-success" /> Cash Revenue
-                    </div>
-                    <div className="fw-bold text-success fs-6 mt-1">
-                      {formatAmount(dashboard.cashRevenue ?? 0)}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="col-6">
-                  <div className="p-2 bg-white rounded border">
-                    <div className="text-muted small d-flex align-items-center gap-1">
-                      <JournalText size={13} className="text-warning" /> Cash Expense
-                    </div>
-                    <div className="fw-bold text-warning fs-6 mt-1">
-                      {formatAmount(dashboard.cashExpense ?? 0)}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="col-6">
-                  <div className="p-2 bg-white rounded border">
-                    <div className="text-muted small d-flex align-items-center gap-1">
-                      <Safe2 size={13} className="text-dark" /> Expected Closing
-                    </div>
-                    <div className="fw-bold text-dark fs-6 mt-1">
-                      {formatAmount(dashboard.closingBalance ?? 0)}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="col-6">
-                  <div className="p-2 bg-white rounded border">
-                    <div className="text-muted small d-flex align-items-center gap-1">
-                      <CashStack size={13} className="text-primary" /> UPI Payments
-                    </div>
-                    <div className="fw-bold text-dark fs-6 mt-1">
-                      {formatAmount(paymentMethodCounts.amounts.upi)}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="col-6">
-                  <div className="p-2 bg-white rounded border">
-                    <div className="text-muted small d-flex align-items-center gap-1">
-                      <Wallet2 size={13} className="text-primary" /> Card Payments
-                    </div>
-                    <div className="fw-bold text-dark fs-6 mt-1">
-                      {formatAmount(paymentMethodCounts.amounts.card)}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : null}
-
-          {error ? (
-            <p className="topbar-confirm-copy topbar-confirm-copy--error mb-0">{error}</p>
-          ) : null}
-        </div>
-      </Modal>
+      {dashboard && (
+        <CloseCounterModal
+          show={showPendingModal}
+          dashboard={dashboard}
+          loading={closing}
+          mandatory
+          onLogout={handleLogout}
+          onClose={() => { }}
+          onNotify={(tone, message) => {
+            if (tone === "error") showError(message);
+            else showSuccess(message);
+          }}
+          onSubmit={handleClosePreviousCounter}
+        />
+      )}
 
       <OpenCounterModal
         show={showOpenTodayModal}

@@ -84,11 +84,11 @@ export const fetchManagedBookingThunk = createAsyncThunk<
 
 export const cancelManagedBookingThunk = createAsyncThunk<
   any,
-  ManagedBookingParams,
+  ManagedBookingParams & { reason?: string },
   { rejectValue: string }
->("onlineBooking/cancelManagedBooking", async ({ appointmentId, token }, { rejectWithValue }) => {
+>("onlineBooking/cancelManagedBooking", async ({ appointmentId, token, reason }, { rejectWithValue }) => {
   try {
-    const res = await api.post(ONLINE_BOOKING.CANCEL_MANAGED_BOOKING(appointmentId), { token });
+    const res = await api.post(ONLINE_BOOKING.CANCEL_MANAGED_BOOKING(appointmentId), { token, reason });
     return res.data.data;
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);

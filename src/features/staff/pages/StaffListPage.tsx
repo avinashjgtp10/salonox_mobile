@@ -324,6 +324,19 @@ export default function StaffListPage() {
       } else {
         await dispatch(activateStaffThunk(member.id)).unwrap();
       }
+      // This page's table reads from its own locally-fetched, paginated
+      // `items` (see the comment at fetchStaff's declaration) — the thunks
+      // above only update the separate, unpaginated staff Redux slice, so a
+      // successful activate/deactivate never showed up here until the next
+      // fetchStaff() call (page change, filter change, etc.). Patch the row
+      // in place for an immediate status flip, THEN also refetch so the
+      // active/archived filter and any status-dependent sort stay correct
+      // too — same two-step pattern TeamMemberDrawer's own toggle already
+      // uses via its onUpdated callback.
+      setItems((prev) =>
+        prev.map((m) => (m.id === member.id ? { ...m, is_active: !isActive } : m))
+      );
+      fetchStaff();
       showToast(`${member.first_name} ${isActive ? "deactivated" : "activated"} successfully`);
     } catch {
       showToast("Failed to update status", "error");

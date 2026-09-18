@@ -26,10 +26,12 @@ export const fetchBookingsThunk = createAsyncThunk<
 >("booking/fetchAll", async (filters, { rejectWithValue, getState }) => {
   try {
     const state = getState() as any;
-    const salonId = state.salon?.currentSalon?.id ?? state.auth?.salonId;
     const servicesList = state.scheduler?.servicesList || [];
     const params = new URLSearchParams();
-    if (salonId) params.set("salon_id", String(salonId));
+    // salon_id is deliberately NOT sent — appointments.controller.ts's list()
+    // reads salonId only from req.user.salonId (the JWT) and ignores this
+    // query param entirely, so passing it was dead weight (and could
+    // misleadingly suggest the backend trusts a client-supplied salon scope).
     if (filters?.staffId && filters.staffId !== "all") params.set("staff_id", filters.staffId);
     if (filters?.status && filters.status !== "all") params.set("status", filters.status);
     if (filters?.page) params.set("page", String(filters.page));

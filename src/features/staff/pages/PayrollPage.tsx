@@ -98,12 +98,6 @@ const emptyCommissionSummary: CommissionSummary = {
   calculated_commission: 0,
 };
 
-const emptyTipSummary: TipSummary = {
-  total_tips: 0,
-  pending_payout: 0,
-  paid_out: 0,
-};
-
 // Types
 
 type PayrollStatus = "no_data" | "pending" | "in_progress" | "done";
@@ -456,7 +450,7 @@ async function fetchAllStaffEarnedCommissions(
     await Promise.all(
       months.map((month) =>
         api
-          .get(`${STAFF.BASE}/commissions/earned?salon_id=${salonId}&month=${month}`)
+          .get(`${STAFF.BASE}/commissions/earned?month=${month}`)
           .then((res) => res.data?.data ?? res.data ?? [])
           .catch(() => [])
       )
@@ -528,7 +522,7 @@ async function fetchAllStaffEarnedTips(
   if (!salonId) return {};
 
   const rows = await api
-    .get(`${STAFF.BASE}/tips/earned`, { params: { salon_id: salonId, start_date: startDate, end_date: endDate } })
+    .get(`${STAFF.BASE}/tips/earned`, { params: { start_date: startDate, end_date: endDate } })
     .then((res) => res.data?.data ?? res.data ?? [])
     .catch(() => []);
 

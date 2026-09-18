@@ -153,6 +153,10 @@
 
     .drf-custom__tab-label { color: #6c5ce7; }
   }
+
+  &--error {
+    border-bottom-color: #dc2626;
+  }
 }
 
 .drf-custom__tab-label {
@@ -167,6 +171,26 @@
   font-size: 13px;
   font-weight: 600;
   color: #111827;
+}
+
+.drf-custom__tab-input {
+  width: 100%;
+  padding: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 600;
+  color: #111827;
+  font-family: inherit;
+
+  &::placeholder { color: #9ca3af; font-weight: 500; }
+}
+
+.drf-custom__tab-error {
+  font-size: 10.5px;
+  font-weight: 500;
+  color: #dc2626;
 }
 
 .drf-custom__nav {

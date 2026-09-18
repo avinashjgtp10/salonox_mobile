@@ -37,6 +37,11 @@ interface ImportResult {
   success: number;
   failed: number;
   skipped: number;
+  // Bill Amount — the sale value excluding tax (amount - discount).
+  total_bill_amount: number;
+  // Tax Amount — the GST/tax summed across all rows.
+  total_tax_amount: number;
+  // Total Sale — total_bill_amount + total_tax_amount.
   total_billed: number;
   new_clients: number;
   new_staff: number;
@@ -258,7 +263,9 @@ export default function BulkBillingImportPage() {
               <div className="bbi-stat bbi-stat--success"><span className="bbi-stat-value">{result.success}</span><span className="bbi-stat-label">{finalResult ? "Invoices created" : "Valid"}</span></div>
               <div className="bbi-stat bbi-stat--warn"><span className="bbi-stat-value">{result.skipped}</span><span className="bbi-stat-label">Skipped</span></div>
               <div className="bbi-stat bbi-stat--error"><span className="bbi-stat-value">{result.failed}</span><span className="bbi-stat-label">Failed</span></div>
-              <div className="bbi-stat"><span className="bbi-stat-value">{formatAmount(result.total_billed)}</span><span className="bbi-stat-label">{finalResult ? "Total billed" : "Would bill"}</span></div>
+              <div className="bbi-stat"><span className="bbi-stat-value">{formatAmount(result.total_bill_amount)}</span><span className="bbi-stat-label">Bill Amount</span></div>
+              <div className="bbi-stat"><span className="bbi-stat-value">{formatAmount(result.total_tax_amount)}</span><span className="bbi-stat-label">Tax Amount</span></div>
+              <div className="bbi-stat"><span className="bbi-stat-value">{formatAmount(result.total_billed)}</span><span className="bbi-stat-label">Total Sale</span></div>
               {result.new_clients > 0 && (
                 <div className="bbi-stat"><span className="bbi-stat-value">{result.new_clients}</span><span className="bbi-stat-label">{finalResult ? "New clients added" : "New clients"}</span></div>
               )}
@@ -385,9 +392,9 @@ export default function BulkBillingImportPage() {
         .bbi-page { display:flex; flex-direction:column; gap:16px; }
         .bbi-header { display:flex; flex-direction:column; gap:4px; }
         .bbi-title { font-size:16px; font-weight:600; color:#111827; margin:0; }
-        .bbi-subtitle { font-size:13px; color:#6b7280; margin:0; max-width:620px; }
+        .bbi-subtitle { font-size:13px; color:#6b7280; margin:0; max-width:900px; }
 
-        .bbi-card { background:#fff; border:1px solid #e5e7eb; border-radius:14px; padding:24px; display:flex; flex-direction:column; gap:18px; max-width:720px; }
+        .bbi-card { background:#fff; border:1px solid #e5e7eb; border-radius:14px; padding:24px; display:flex; flex-direction:column; gap:18px; max-width:1100px; }
 
         .bbi-template-row { display:flex; align-items:center; justify-content:space-between; }
         .bbi-template-label { font-size:13px; color:#6b7280; }
@@ -429,9 +436,20 @@ export default function BulkBillingImportPage() {
         .bbi-result--preview .bbi-result-title { color:#1e40af; }
         .bbi-result--final .bbi-result-title { color:#15803d; }
         .bbi-result-title { font-size:15px; font-weight:600; }
-        .bbi-result-stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(100px,1fr)); gap:12px; margin-bottom:4px; }
-        .bbi-stat { background:#fff; border-radius:8px; padding:12px; text-align:center; border:1px solid #e5e7eb; display:flex; flex-direction:column; gap:4px; }
-        .bbi-stat-value { font-size:20px; font-weight:700; color:#111827; }
+        /* Fixed 5-per-row — auto-fit/minmax packed as many as fit (7 on a wide
+           screen), which is what made cards cramped enough to wrap currency
+           values mid-number. A fixed column count always wraps to a new row
+           after the 5th card, regardless of container width. */
+        .bbi-result-stats { display:grid; grid-template-columns:repeat(5,1fr); gap:12px; margin-bottom:4px; }
+        /* min-width:0 overrides the grid item's default min-width:auto —
+           without it, a long unbroken currency string (e.g. "₹1,46,79,961.00")
+           forces its column wider than the 130px track, which visually
+           overflows/clips the figure instead of wrapping it onto a second
+           line. Large rupee totals on an 8,000+ row import made this show up
+           immediately; short integer stats (Total rows, New staff, etc.)
+           never hit it because they're short enough to fit either way. */
+        .bbi-stat { min-width:0; background:#fff; border-radius:8px; padding:12px 8px; text-align:center; border:1px solid #e5e7eb; display:flex; flex-direction:column; gap:4px; }
+        .bbi-stat-value { font-size:20px; font-weight:700; color:#111827; overflow-wrap:break-word; word-break:break-word; }
         .bbi-stat-label { font-size:11px; color:#6b7280; }
         .bbi-stat--success .bbi-stat-value { color:#16a34a; }
         .bbi-stat--warn .bbi-stat-value { color:#d97706; }

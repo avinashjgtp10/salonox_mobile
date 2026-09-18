@@ -7,7 +7,7 @@ import {
   PencilSquare, Trash3, FileEarmarkPdf,
   FileEarmarkExcel, FiletypeCsv, CardList,
   Award, CheckCircleFill,
-  ThreeDotsVertical, X,
+  ThreeDotsVertical, X, PersonPlus,
 } from "react-bootstrap-icons";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { getCurrencyIcon } from "../../../utils/currencyIcon";
@@ -30,6 +30,7 @@ import {
   selectMembershipsTotal,
 } from "../../../store/selectors/membership.selectors";
 import MembershipDetailsDrawer from "../components/MembershipDetailsDrawer";
+import AssignMembershipModal from "../components/AssignMembershipModal";
 import api from "../../../services/api/axios";
 import { JiraFilterMenu, Pagination } from "../../../components/ui";
 import type { FilterDropdownOption, JiraFilterField } from "../../../components/ui";
@@ -113,6 +114,7 @@ const MembershipsListPage: React.FC = () => {
   const [exporting,  setExporting]  = useState<"csv" | "excel" | "pdf" | null>(null);
   const [pageSize,   setPageSize]   = useState(DEFAULT_PAGE_SIZE);
   const [validForOptions, setValidForOptions] = useState<string[]>([]);
+  const [assignOpen, setAssignOpen] = useState(false);
 
   // Distinct valid_for values for this salon — see the note above
   // PRICING_TYPE_OPTIONS for why these can't be a fixed list.
@@ -306,6 +308,16 @@ const MembershipsListPage: React.FC = () => {
               </ul>
             )}
           </div>
+          <button
+            className="msp__btn msp__btn--outline"
+            style={!can("create_memberships") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+            onClick={() => {
+              if (!can("create_memberships")) { denyPerm("create_memberships"); return; }
+              setAssignOpen(true);
+            }}
+          >
+            <PersonPlus size={15} /> Assign to client
+          </button>
           <div className="msp__add-wrap">
             <button
               className="msp__btn msp__btn--dark"
@@ -613,6 +625,16 @@ const MembershipsListPage: React.FC = () => {
           onChange={(e) => setDeleteInput(e.target.value)}
         />
       </Modal>
+
+      {/* Assign an existing client a membership tag + expiry, with no sale.
+          Refetches the plans list on success: a tag name used for the first
+          time creates the zero-price plan backing it, which belongs in the
+          table above. */}
+      <AssignMembershipModal
+        show={assignOpen}
+        onClose={() => setAssignOpen(false)}
+        onAssigned={() => dispatch(fetchMembershipsThunk(buildQuery()))}
+      />
 
     </div>
   );

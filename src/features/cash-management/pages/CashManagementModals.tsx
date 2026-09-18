@@ -14,7 +14,6 @@ import {
   getCustomExpenseTypes,
   saveCustomExpenseType,
 } from "../cashManagement.expenseTypes";
-import { fetchTodaysPaymentMethodCounts } from "../cashManagement.api";
 import type {
   CashDashboardSummary,
   CashExpenseRecord,
@@ -22,6 +21,7 @@ import type {
   OpenCounterPayload,
 } from "../cashManagement.types";
 import type { CashManagementNotificationTone } from "./CashManagementNotificationBanner";
+import "../styles/CashManagementPage.scss";
 
 type Notify = (tone: CashManagementNotificationTone, message: string) => void;
 type FieldErrors = Record<string, string>;
@@ -79,6 +79,10 @@ interface CloseCounterModalProps {
    *  must be closed before a new one can be started — hides Cancel/close and
    *  blocks dismissal so the user can't skip straight past it. */
   mandatory?: boolean;
+  /** Shown as a footer escape hatch in place of Cancel when `mandatory` is
+   *  true, so a user who can't/won't close the stale counter right now isn't
+   *  stuck on the modal with no way out. */
+  onLogout?: () => void;
   onClose: () => void;
   onNotify: Notify;
   onSubmit: (payload: CloseCounterPayload) => Promise<void>;
@@ -231,55 +235,59 @@ export function OpenCounterModal({
       title="Open Counter"
       hideCloseButton={mandatory}
       footer={
-        <div className="cash-mgmt__modal-footer">
-          {!mandatory && (
-            <Button variant="ghost" onClick={handleClose} disabled={loading}>
-              Cancel
-            </Button>
-          )}
-          <Button
-            variant="dark"
-            loading={loading}
-            disabled={loading}
-            onClick={async () => {
-              setSubmitError("");
-              if (!validateForm()) return;
+        <div className="cash-mgmt">
+          <div className="cash-mgmt__modal-footer">
+            {!mandatory && (
+              <Button variant="ghost" onClick={handleClose} disabled={loading}>
+                Cancel
+              </Button>
+            )}
+            <Button
+              variant="dark"
+              loading={loading}
+              disabled={loading}
+              onClick={async () => {
+                setSubmitError("");
+                if (!validateForm()) return;
 
-              try {
-                await onSubmit({
-                  opening_balance: Number(form.opening_balance || 0),
-                });
-              } catch (err: any) {
-                const message = getApiErrorMessage(err, "Failed to open counter.");
-                setSubmitError(message);
-                onNotify("error", message);
-              }
-            }}
-          >
-            Start Counter
-          </Button>
+                try {
+                  await onSubmit({
+                    opening_balance: Number(form.opening_balance || 0),
+                  });
+                } catch (err: any) {
+                  const message = getApiErrorMessage(err, "Failed to open counter.");
+                  setSubmitError(message);
+                  onNotify("error", message);
+                }
+              }}
+            >
+              Start Counter
+            </Button>
+          </div>
         </div>
       }
     >
-      {mandatory ? (
-        <div className="cash-mgmt__modal-message cash-mgmt__modal-message--warning">
-          No cash counter is open for today. Enter the opening balance to start one before
-          continuing.
+      <div className="cash-mgmt">
+        {mandatory ? (
+          <div className="cash-mgmt__modal-message cash-mgmt__modal-message--warning">
+            No cash counter is open for today. Enter the opening balance to start one before
+            continuing.
+          </div>
+        ) : null}
+        {submitError ? (
+          <div className="cash-mgmt__modal-message cash-mgmt__modal-message--error">
+            {submitError}
+          </div>
+        ) : null}
+        <div className="cash-mgmt__modal-form">
+          <Input
+            label="Opening Balance"
+            type="number"
+            value={form.opening_balance}
+            error={errors.opening_balance}
+            onChange={(event) => updateOpeningBalance(event.target.value)}
+          />
         </div>
-      ) : null}
-      {submitError ? (
-        <div className="cash-mgmt__modal-message cash-mgmt__modal-message--error">
-          {submitError}
-        </div>
-      ) : null}
-      <div className="cash-mgmt__modal-form">
-        <Input
-          label="Opening Balance"
-          type="number"
-          value={form.opening_balance}
-          error={errors.opening_balance}
-          onChange={(event) => updateOpeningBalance(event.target.value)}
-        />
       </div>
     </Modal>
   );
@@ -618,6 +626,7 @@ export function CloseCounterModal({
   dashboard,
   loading,
   mandatory = false,
+  onLogout,
   onClose,
   onNotify,
   onSubmit,
@@ -627,12 +636,16 @@ export function CloseCounterModal({
   const [remarks, setRemarks] = useState("");
   const [errors, setErrors] = useState<FieldErrors>({});
   const [submitError, setSubmitError] = useState("");
-  // dashboard.upiAmount/cardAmount come from the cash-management dashboard
-  // endpoint, which never actually populates those fields (always 0), and
-  // dashboard.cashRevenue excludes the cash leg of split payments — the
-  // real per-payment-method totals (split-aware) only exist in today's
-  // daily-sheet rows, so they're fetched and aggregated separately here.
-  const [paymentMethodAmounts, setPaymentMethodAmounts] = useState({ upi: 0, card: 0, cash: 0 });
+  // dashboard.upiAmount/cardAmount/cashAmount come straight from the
+  // cash-management dashboard (/cashdashboard) endpoint's own
+  // getPaymentMethodCounts query, which is already split-payment-aware (a
+  // Cash+UPI split correctly credits both legs) and scoped to this counter's
+  // own opened_at -> closed_at session window — no separate fetch needed.
+  const paymentMethodAmounts = {
+    upi: dashboard.upiAmount,
+    card: dashboard.cardAmount,
+    cash: dashboard.cashAmount,
+  };
 
   const handleClose = () => {
     if (loading || mandatory) return;
@@ -652,17 +665,6 @@ export function CloseCounterModal({
     setErrors({});
     setSubmitError("");
   }, [dashboard, show]);
-
-  useEffect(() => {
-    if (!show) return;
-    let cancelled = false;
-    fetchTodaysPaymentMethodCounts().then((counts) => {
-      if (!cancelled) setPaymentMethodAmounts(counts.amounts);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [show]);
 
   const validateForm = () => {
     const nextErrors: FieldErrors = {};
@@ -709,96 +711,105 @@ export function CloseCounterModal({
       hideCloseButton={mandatory}
       disableBackdropClose
       footer={
-        <div className="cash-mgmt__modal-footer">
-          {!mandatory && (
-            <Button variant="ghost" onClick={handleClose} disabled={loading}>
-              Cancel
-            </Button>
-          )}
-          <Button
-            variant="danger"
-            loading={loading}
-            disabled={loading}
-            onClick={async () => {
-              setSubmitError("");
-              if (!validateForm()) return;
+        <div className="cash-mgmt">
+          <div className="cash-mgmt__modal-footer">
+            {!mandatory && (
+              <Button variant="ghost" onClick={handleClose} disabled={loading}>
+                Cancel
+              </Button>
+            )}
+            {mandatory && onLogout && (
+              <Button variant="ghost" onClick={onLogout} disabled={loading}>
+                Logout
+              </Button>
+            )}
+            <Button
+              variant="danger"
+              loading={loading}
+              disabled={loading}
+              onClick={async () => {
+                setSubmitError("");
+                if (!validateForm()) return;
 
-              try {
-                await onSubmit({
-                  cash_management_id: dashboard.cashManagementId,
-                  in_store_cash: Number(inStoreCash || 0),
-                  remarks: trimText(remarks),
-                });
-              } catch (err: any) {
-                const message = getApiErrorMessage(err, "Failed to close counter.");
-                setSubmitError(message);
-                onNotify("error", message);
-              }
-            }}
-          >
-            Yes, Close Counter
-          </Button>
+                try {
+                  await onSubmit({
+                    cash_management_id: dashboard.cashManagementId,
+                    in_store_cash: Number(inStoreCash || 0),
+                    remarks: trimText(remarks),
+                  });
+                } catch (err: any) {
+                  const message = getApiErrorMessage(err, "Failed to close counter.");
+                  setSubmitError(message);
+                  onNotify("error", message);
+                }
+              }}
+            >
+              Yes, Close Counter
+            </Button>
+          </div>
         </div>
       }
     >
-      <div className="cash-mgmt__close-scroll">
-        {mandatory ? (
-          <p className="cash-mgmt__close-copy">
-            Previous day's cash counter is still open. Please close it first before opening today's
-            counter.
-          </p>
-        ) : (
-          <p className="cash-mgmt__close-copy">
-            Are you sure you want to close today's cash counter? You cannot reopen it again today.
-          </p>
-        )}
-        {submitError ? (
-          <div className="cash-mgmt__modal-message cash-mgmt__modal-message--error">
-            {submitError}
+      <div className="cash-mgmt">
+        <div className="cash-mgmt__close-scroll">
+          {mandatory ? (
+            <p className="cash-mgmt__close-copy">
+              Previous day's cash counter is still open. Please close it first before opening today's
+              counter.
+            </p>
+          ) : (
+            <p className="cash-mgmt__close-copy">
+              Are you sure you want to close today's cash counter? You cannot reopen it again today.
+            </p>
+          )}
+          {submitError ? (
+            <div className="cash-mgmt__modal-message cash-mgmt__modal-message--error">
+              {submitError}
+            </div>
+          ) : null}
+          <div className="cash-mgmt__modal-form">
+            <div className="cash-mgmt__close-grid">
+              <div className="cash-mgmt__close-card">
+                <span><Wallet2 size={13} className="cash-mgmt__close-icon cash-mgmt__close-icon--primary" /> Opening Balance</span>
+                <strong>{formatAmount(dashboard.openingBalance)}</strong>
+              </div>
+              <div className="cash-mgmt__close-card">
+                <span><CashStack size={13} className="cash-mgmt__close-icon cash-mgmt__close-icon--success" /> Cash Revenue</span>
+                <strong className="cash-mgmt__amount-positive">{formatAmount(paymentMethodAmounts.cash)}</strong>
+              </div>
+              <div className="cash-mgmt__close-card">
+                <span><JournalText size={13} className="cash-mgmt__close-icon cash-mgmt__close-icon--warning" /> Cash Expense</span>
+                <strong>{formatAmount(dashboard.cashExpense)}</strong>
+              </div>
+              <div className="cash-mgmt__close-card">
+                <span><Safe2 size={13} className="cash-mgmt__close-icon" /> Expected Closing</span>
+                <strong>{formatAmount(dashboard.openingBalance + paymentMethodAmounts.cash - dashboard.cashExpense)}</strong>
+              </div>
+              <div className="cash-mgmt__close-card">
+                <span><CurrencyRupee size={13} className="cash-mgmt__close-icon cash-mgmt__close-icon--primary" /> UPI Payments</span>
+                <strong>{formatAmount(paymentMethodAmounts.upi)}</strong>
+              </div>
+              <div className="cash-mgmt__close-card">
+                <span><Wallet2 size={13} className="cash-mgmt__close-icon cash-mgmt__close-icon--primary" /> Card Payments</span>
+                <strong>{formatAmount(paymentMethodAmounts.card)}</strong>
+              </div>
+            </div>
+            <Input
+              label="In Store Cash"
+              type="number"
+              min={0}
+              value={inStoreCash}
+              error={errors.in_store_cash}
+              onChange={(event) => updateInStoreCash(event.target.value)}
+            />
+            <Input
+              label="Remarks"
+              multiline
+              rows={3}
+              value={remarks}
+              onChange={(event) => updateRemarks(event.target.value)}
+            />
           </div>
-        ) : null}
-        <div className="cash-mgmt__modal-form">
-          <div className="cash-mgmt__close-grid">
-            <div className="cash-mgmt__close-card">
-              <span><Wallet2 size={13} className="cash-mgmt__close-icon cash-mgmt__close-icon--primary" /> Opening Balance</span>
-              <strong>{formatAmount(dashboard.openingBalance)}</strong>
-            </div>
-            <div className="cash-mgmt__close-card">
-              <span><CashStack size={13} className="cash-mgmt__close-icon cash-mgmt__close-icon--success" /> Cash Revenue</span>
-              <strong className="cash-mgmt__amount-positive">{formatAmount(paymentMethodAmounts.cash)}</strong>
-            </div>
-            <div className="cash-mgmt__close-card">
-              <span><JournalText size={13} className="cash-mgmt__close-icon cash-mgmt__close-icon--warning" /> Cash Expense</span>
-              <strong>{formatAmount(dashboard.cashExpense)}</strong>
-            </div>
-            <div className="cash-mgmt__close-card">
-              <span><Safe2 size={13} className="cash-mgmt__close-icon" /> Expected Closing</span>
-              <strong>{formatAmount(dashboard.openingBalance + paymentMethodAmounts.cash - dashboard.cashExpense)}</strong>
-            </div>
-            <div className="cash-mgmt__close-card">
-              <span><CurrencyRupee size={13} className="cash-mgmt__close-icon cash-mgmt__close-icon--primary" /> UPI Payments</span>
-              <strong>{formatAmount(paymentMethodAmounts.upi)}</strong>
-            </div>
-            <div className="cash-mgmt__close-card">
-              <span><Wallet2 size={13} className="cash-mgmt__close-icon cash-mgmt__close-icon--primary" /> Card Payments</span>
-              <strong>{formatAmount(paymentMethodAmounts.card)}</strong>
-            </div>
-          </div>
-          <Input
-            label="In Store Cash"
-            type="number"
-            min={0}
-            value={inStoreCash}
-            error={errors.in_store_cash}
-            onChange={(event) => updateInStoreCash(event.target.value)}
-          />
-          <Input
-            label="Remarks"
-            multiline
-            rows={3}
-            value={remarks}
-            onChange={(event) => updateRemarks(event.target.value)}
-          />
         </div>
       </div>
     </Modal>

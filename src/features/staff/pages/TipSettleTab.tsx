@@ -81,11 +81,11 @@ export default function TipSettleTab() {
     setLoading(true);
     try {
       const params = dateRange.startDate && dateRange.endDate
-        ? `&start_date=${dateRange.startDate}&end_date=${dateRange.endDate}`
+        ? `?start_date=${dateRange.startDate}&end_date=${dateRange.endDate}`
         : "";
       const [summaryRes, earnedRes] = await Promise.all([
-        api.get(`${STAFF.TIP_SUMMARY}?salon_id=${salonId}${params}`),
-        api.get(`${STAFF.TIP_EARNED}?salon_id=${salonId}${params}`),
+        api.get(`${STAFF.TIP_SUMMARY}${params}`),
+        api.get(`${STAFF.TIP_EARNED}${params}`),
       ]);
       setSummary(summaryRes.data?.data ?? null);
       setEarnedByStaff(earnedRes.data?.data ?? []);

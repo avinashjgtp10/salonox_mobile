@@ -28,7 +28,7 @@ type AsyncSource = {
 
 interface DownloadButtonProps extends Omit<
   React.ButtonHTMLAttributes<HTMLButtonElement>,
-  "onClick"
+  "onClick" | "onError"
 > {
   /** Download file name, e.g. "staff.csv" */
   filename: string;

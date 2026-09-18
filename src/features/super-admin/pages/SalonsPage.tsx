@@ -1,5 +1,6 @@
-import { useEffect, useState, useCallback } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
+import { useNavigate } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { fetchSuperAdminSalonsThunk, setSalonStatusThunk, forceOnboardingThunk, impersonateSalonThunk, deleteSalonThunk, createUserThunk } from "../../../middleware/superAdmin/superAdmin.thunk";
 import Pagination from "../components/Pagination";
@@ -10,25 +11,44 @@ type MenuAction = { label: string; color: string; bg: string; onClick: () => voi
 function ActionsMenu({ actions, rowId, openId, setOpenId }: { actions: MenuAction[]; rowId: string; openId: string | null; setOpenId: (id: string | null) => void }) {
   const open = openId === rowId;
   const [hov, setHov] = useState(false);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const [coords, setCoords] = useState<{ top: number; left: number } | null>(null);
 
   useEffect(() => {
     if (!open) return;
     const close = () => setOpenId(null);
     window.addEventListener("click", close);
-    return () => window.removeEventListener("click", close);
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    return () => {
+      window.removeEventListener("click", close);
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+    };
   }, [open, setOpenId]);
 
+  function toggle() {
+    if (!open && btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect();
+      setCoords({ top: rect.bottom + 4, left: rect.right - 160 });
+    }
+    setOpenId(open ? null : rowId);
+  }
+
   return (
-    <div style={{ position: "relative", display: "inline-block" }} onClick={(e) => e.stopPropagation()}>
+    <div style={{ display: "inline-block" }} onClick={(e) => e.stopPropagation()}>
       <button
-        onClick={() => setOpenId(open ? null : rowId)}
+        ref={btnRef}
+        onClick={toggle}
         onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
         title="Actions"
         style={{ width: 30, height: 30, borderRadius: 7, border: "1.5px solid #e2e8f0", background: hov || open ? "#f8fafc" : "#fff", color: "#374151", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s" }}>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>
       </button>
-      {open && (
-        <div style={{ position: "absolute", right: 0, top: "calc(100% + 4px)", zIndex: 50, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", minWidth: 160, padding: 6, display: "flex", flexDirection: "column", gap: 3 }}>
+      {open && coords && createPortal(
+        <div
+          onClick={(e) => e.stopPropagation()}
+          style={{ position: "fixed", top: coords.top, left: coords.left, zIndex: 1000, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", minWidth: 160, padding: 6, display: "flex", flexDirection: "column", gap: 3 }}>
           {actions.map((a, i) => (
             <button key={i}
               onClick={() => { setOpenId(null); a.onClick(); }}
@@ -39,7 +59,8 @@ function ActionsMenu({ actions, rowId, openId, setOpenId }: { actions: MenuActio
               {a.label}
             </button>
           ))}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
@@ -460,12 +481,6 @@ export default function SalonsPage() {
           </p>
         </div>
         <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-          <button onClick={openCreateModal} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 18px", borderRadius: 10, border: "none", background: "#6366f1", color: "#fff", fontWeight: 700, fontSize: 13.5, cursor: "pointer", boxShadow: "0 2px 10px rgba(99,102,241,0.3)", transition: "background 0.15s" }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = "#4f46e5")}
-            onMouseLeave={(e) => (e.currentTarget.style.background = "#6366f1")}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Create Account
-          </button>
           <div style={{ position: "relative" }}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}>
               <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
@@ -478,15 +493,21 @@ export default function SalonsPage() {
             />
           </div>
           <select value={expiryFilter} onChange={(e) => { setExpiryFilter(e.target.value as ExpiryBucket | ""); setPage(1); }}
-            title="Filter by plan expiry status"
+            title="Filter by days remaining on subscription"
             style={{ padding: "9px 30px 9px 12px", borderRadius: 9, border: "1.5px solid #e2e8f0", background: "#fff", color: expiryFilter ? "#0f172a" : "#64748b", fontSize: 13, outline: "none", cursor: "pointer", appearance: "none", fontWeight: expiryFilter ? 600 : 400 }}
             onFocus={(e) => (e.target.style.borderColor = "#6366f1")}
             onBlur={(e)  => (e.target.style.borderColor = "#e2e8f0")}>
-            <option value="">All Expiry Status</option>
+            <option value="">All Date Remaining</option>
             {EXPIRY_FILTERS.map(({ key, label }) => (
               <option key={key} value={key}>{label}</option>
             ))}
           </select>
+          <button onClick={openCreateModal} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 18px", borderRadius: 10, border: "none", background: "#6366f1", color: "#fff", fontWeight: 700, fontSize: 13.5, cursor: "pointer", boxShadow: "0 2px 10px rgba(99,102,241,0.3)", transition: "background 0.15s" }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = "#4f46e5")}
+            onMouseLeave={(e) => (e.currentTarget.style.background = "#6366f1")}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Create Account
+          </button>
         </div>
       </div>
 
