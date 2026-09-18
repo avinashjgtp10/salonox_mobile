@@ -47,6 +47,7 @@ export default function BranchOwnerPaymentsPage() {
   const [dateRange, setDateRange] = useState<DateRangeFilterValue>({ preset: "all_time", ...getDateRangePresetValue("all_time") });
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
   const [methodFilter, setMethodFilter] = useState<string[]>([]);
+  const [salonFilter, setSalonFilter] = useState<string[]>([]);
   const [search, setSearch] = useState("");
 
   useEffect(() => {
@@ -63,16 +64,33 @@ export default function BranchOwnerPaymentsPage() {
     return Array.from(seen.entries()).map(([id, label]) => ({ id, label }));
   }, [payments]);
 
+  // Keyed by salon_id when present, falling back to the salon name itself —
+  // a handful of payment rows can lack salon_id (see BranchOwnerPayment's
+  // optional field), and without this fallback those salons would have no
+  // way to appear in the filter at all.
+  const salonOptions = useMemo(() => {
+    const seen = new Map<string, string>();
+    payments.forEach((p) => {
+      const key = p.salon_id || p.salon_name;
+      if (key && !seen.has(key)) seen.set(key, p.salon_name);
+    });
+    return Array.from(seen.entries())
+      .map(([id, label]) => ({ id, label }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [payments]);
+
   const filterFields: JiraFilterField[] = useMemo(() => [
+    { key: "salon", label: "Salon Name", options: salonOptions, searchable: true },
     { key: "status", label: "Payment Status", options: STATUS_OPTIONS },
     { key: "method", label: "Payment Method", options: methodOptions, searchable: true },
-  ], [methodOptions]);
+  ], [salonOptions, methodOptions]);
 
-  const filterMenuSelected = useMemo(() => ({ status: statusFilter, method: methodFilter }), [statusFilter, methodFilter]);
+  const filterMenuSelected = useMemo(() => ({ status: statusFilter, method: methodFilter, salon: salonFilter }), [statusFilter, methodFilter, salonFilter]);
 
   const handleFiltersApply = (next: Record<string, string[]>) => {
     setStatusFilter(next.status ?? []);
     setMethodFilter(next.method ?? []);
+    setSalonFilter(next.salon ?? []);
   };
 
   const { startDate, endDate } = dateRange;
@@ -83,13 +101,14 @@ export default function BranchOwnerPaymentsPage() {
       if (startDate && (!p.created_at || p.created_at.slice(0, 10) < startDate)) return false;
       if (endDate && (!p.created_at || p.created_at.slice(0, 10) > endDate)) return false;
       if (methodFilter.length && !methodFilter.includes(p.payment_method)) return false;
+      if (salonFilter.length && !salonFilter.includes(p.salon_id || p.salon_name)) return false;
       if (q) {
         const haystack = `${p.salon_name} ${p.invoice_number ?? ""}`.toLowerCase();
         if (!haystack.includes(q)) return false;
       }
       return true;
     });
-  }, [payments, startDate, endDate, methodFilter, search]);
+  }, [payments, startDate, endDate, methodFilter, salonFilter, search]);
 
   const total = filteredPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
 

@@ -220,6 +220,18 @@ export const deleteUserThunk = createAsyncThunk<void, { id: string; force?: bool
   }
 );
 
+export const updateUserThunk = createAsyncThunk<any, { id: string; first_name: string; last_name?: string; email: string; phone?: string }, { rejectValue: string }>(
+  "superAdmin/updateUser",
+  async ({ id, ...payload }, { rejectWithValue }) => {
+    try {
+      const res = await api.put(SUPER_ADMIN.USER_UPDATE(id), payload);
+      return res.data?.data ?? res.data;
+    } catch (err: any) {
+      return rejectWithValue(err?.response?.data?.error?.message ?? err?.message ?? "Failed to update user");
+    }
+  }
+);
+
 export const createUserThunk = createAsyncThunk<any, { first_name: string; last_name?: string; email: string; password: string; phone?: string; role: string; business_name?: string; address?: string }, { rejectValue: string }>(
   "superAdmin/createUser",
   async (payload, { rejectWithValue }) => {

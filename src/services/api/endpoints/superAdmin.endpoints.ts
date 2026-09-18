@@ -27,6 +27,7 @@ export const SUPER_ADMIN = {
   USER_RESET_PW:     (id: string) => `/api/v1/super-admin/users/${id}/reset-password`,
   USER_IMPERSONATE:  (id: string) => `/api/v1/super-admin/users/${id}/impersonate`,
   USER_DELETE:       (id: string) => `/api/v1/super-admin/users/${id}`,
+  USER_UPDATE:       (id: string) => `/api/v1/super-admin/users/${id}`,
   USER_CREATE:       "/api/v1/super-admin/users/create",
   BRANCH_OWNER_SALONS_GET:      (id: string) => `/api/v1/super-admin/users/${id}/branch-salons`,
   BRANCH_OWNER_SALONS_PUT:      (id: string) => `/api/v1/super-admin/users/${id}/branch-salons`,

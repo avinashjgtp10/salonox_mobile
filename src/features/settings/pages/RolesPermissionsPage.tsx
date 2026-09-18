@@ -11,6 +11,12 @@ import {
   bulkResetOverridesThunk,
 } from "../../../middleware/roles/roles.thunk";
 import Button from "../../../components/ui/Button";
+import Tabs from "../../../components/ui/Tabs";
+import Dropdown from "../../../components/ui/Dropdown";
+import Badge from "../../../components/ui/Badge";
+import ConfirmDialog from "../../../components/ui/ConfirmDialog";
+import Loader from "../../../components/ui/Loader";
+import EmptyState from "../../../components/ui/EmptyState";
 import RolePermissionPanel from "../components/RolePermissionPanel";
 import PermissionActivityTab from "../components/PermissionActivityTab";
 // This page (and RolePermissionPanel/StaffPermissionEditor-derived styles it
@@ -147,18 +153,13 @@ export default function RolesPermissionsPage() {
         </p>
       </div>
 
-      <div className="rp-top-tabs">
-        {TOP_TABS.map((t) => (
-          <button
-            key={t.key}
-            type="button"
-            className={topTab === t.key ? "rp-top-tab rp-top-tab--active" : "rp-top-tab"}
-            onClick={() => navigate(t.to)}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <Tabs
+        className="rp-top-tabs"
+        variant="underline"
+        tabs={TOP_TABS.map((t) => ({ key: t.key, label: t.label }))}
+        activeKey={topTab}
+        onChange={(key) => navigate(TOP_TABS.find((t) => t.key === key)?.to ?? TOP_TABS[0].to)}
+      />
 
       {topTab !== "activity" && (
         <div className="rp-page-search">
@@ -245,37 +246,42 @@ export default function RolesPermissionsPage() {
             {isOwner && selectedIds.size > 0 && (
               <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "#f9fafb", borderRadius: 8, marginBottom: 12 }}>
                 <span style={{ fontSize: 12, fontWeight: 600 }}>{selectedIds.size} selected</span>
-                <select value={bulkRoleId} onChange={(e) => setBulkRoleId(e.target.value)} style={{ fontSize: 12, padding: "4px 8px", borderRadius: 4, border: "1px solid #e5e7eb" }}>
-                  <option value="">Assign role…</option>
-                  {roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
-                </select>
+                <Dropdown
+                  value={bulkRoleId}
+                  onChange={setBulkRoleId}
+                  placeholder="Assign role…"
+                  searchable={false}
+                  options={roles.map((r) => ({ id: r.id, name: r.name }))}
+                  style={{ fontSize: 12, padding: "4px 8px", borderRadius: 4, border: "1px solid #e5e7eb", minWidth: 140 }}
+                />
                 <Button size="sm" variant="outline-secondary" disabled={!bulkRoleId || bulkBusy} onClick={handleBulkAssign}>Apply</Button>
-                {confirmBulkReset ? (
-                  <>
-                    <span style={{ fontSize: 12 }}>Reset overrides for all selected?</span>
-                    <Button size="sm" variant="outline-secondary" disabled={bulkBusy} onClick={handleBulkReset}>Yes</Button>
-                    <Button size="sm" variant="outline-secondary" onClick={() => setConfirmBulkReset(false)}>Cancel</Button>
-                  </>
-                ) : (
-                  <Button size="sm" variant="outline-secondary" disabled={bulkBusy} onClick={() => setConfirmBulkReset(true)}>Reset overrides</Button>
-                )}
+                <Button size="sm" variant="outline-secondary" disabled={bulkBusy} onClick={() => setConfirmBulkReset(true)}>Reset overrides</Button>
                 <Button size="sm" variant="outline-secondary" onClick={() => setSelectedIds(new Set())}>Clear selection</Button>
               </div>
             )}
 
+            {confirmBulkReset && (
+              <ConfirmDialog
+                title="Reset overrides"
+                message={`Reset permission overrides for all ${selectedIds.size} selected staff member(s)? They'll fall back to their assigned role's default permissions.`}
+                confirmLabel="Reset"
+                danger
+                onConfirm={handleBulkReset}
+                onCancel={() => setConfirmBulkReset(false)}
+              />
+            )}
+
             {staffLoading.fetchAll ? (
-              <p style={{ fontSize: 13, color: "#6b7280" }}>Loading staff…</p>
+              <Loader message="Loading staff…" />
             ) : filteredStaffList.length === 0 ? (
-              <p style={{ fontSize: 13, color: "#6b7280" }}>
-                {staffList.length === 0 ? (
-                  <>
-                    No staff members yet. Add staff from the{" "}
-                    <a href="/dashboard/team" style={{ color: "#111827", fontWeight: 600 }}>Staff section</a>.
-                  </>
-                ) : (
-                  "No staff match your search."
-                )}
-              </p>
+              staffList.length === 0 ? (
+                <EmptyState
+                  title="No staff members yet."
+                  action={<a href="/dashboard/team" style={{ color: "#111827", fontWeight: 600 }}>Add staff from the Staff section</a>}
+                />
+              ) : (
+                <EmptyState title="No staff match your search." />
+              )
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
                 {filteredStaffList.map((member: any) => {
@@ -309,9 +315,7 @@ export default function RolesPermissionsPage() {
                         <p className="settings-security-desc">{member.email || member.designation || "Staff member"}</p>
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        {hasCustom && (
-                          <span className="s-badge s-badge-info" style={{ fontSize: 11 }}>Custom</span>
-                        )}
+                        {hasCustom && <Badge variant="info" style={{ fontSize: 11 }}>Custom</Badge>}
                         {/* The real Roles & Permissions tier (role_name,
                             joined from role_id in staff.repository.ts's
                             list()) — member.role doesn't even exist on the
@@ -319,23 +323,22 @@ export default function RolesPermissionsPage() {
                             hardcoded "staff" default before, regardless of
                             the member's actual assigned role. */}
                         {member.role_name ? (
-                          <span className={`s-badge ${member.role_name === "Manager" ? "s-badge-warning" : "s-badge-info"}`} style={{ fontSize: 11 }}>
+                          <Badge variant={member.role_name === "Manager" ? "warning" : "info"} style={{ fontSize: 11 }}>
                             {member.role_name}
-                          </span>
+                          </Badge>
                         ) : (
-                          <span className="s-badge s-badge-gray" style={{ fontSize: 11 }}>No role</span>
+                          <Badge variant="secondary" style={{ fontSize: 11 }}>No role</Badge>
                         )}
-                        {!member.is_active && (
-                          <span className="s-badge s-badge-gray" style={{ fontSize: 11 }}>Inactive</span>
-                        )}
+                        {!member.is_active && <Badge variant="secondary" style={{ fontSize: 11 }}>Inactive</Badge>}
                         {isOwner && (
-                          <button
-                            className={`spm-customize-btn ${hasCustom ? "has-custom" : ""}`}
+                          <Button
+                            size="sm"
+                            variant={hasCustom ? "primary" : "outline-secondary"}
+                            iconLeft={<SlidersHorizontal size={13} />}
                             onClick={() => navigate(`/dashboard/settings/roles/individual-staff/${member.id}`)}
                           >
-                            <SlidersHorizontal size={13} />
                             {hasCustom ? "Edit permissions" : "Customize"}
-                          </button>
+                          </Button>
                         )}
                       </div>
                     </div>

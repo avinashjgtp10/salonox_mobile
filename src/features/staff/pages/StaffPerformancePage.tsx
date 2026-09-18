@@ -18,6 +18,13 @@ import { useCurrency } from "../../../hooks/useCurrency";
 import { getCurrencyIcon } from "../../../utils/currencyIcon";
 import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
 import Dropdown from "../../../components/ui/Dropdown";
+import StatCard from "../../../components/ui/StatCard";
+import Table from "../../../components/ui/Table";
+import Badge from "../../../components/ui/Badge";
+import Loader from "../../../components/ui/Loader";
+import Skeleton from "../../../components/ui/Skeleton";
+import EmptyState from "../../../components/ui/EmptyState";
+import Button from "../../../components/ui/Button";
 import "../styles/StaffPerformancePage.scss";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -99,11 +106,11 @@ function fmtTime(val?: string) {
   catch { return val; }
 }
 
-const STATUS_CLASS: Record<string, string> = {
-  confirmed: "spp-badge--blue",
-  pending: "spp-badge--amber",
-  completed: "spp-badge--green",
-  cancelled: "spp-badge--red",
+const STATUS_VARIANT: Record<string, "info" | "warning" | "success" | "danger"> = {
+  confirmed: "info",
+  pending: "warning",
+  completed: "success",
+  cancelled: "danger",
 };
 
 const TYPE_LABEL: Record<string, string> = {
@@ -112,6 +119,14 @@ const TYPE_LABEL: Record<string, string> = {
   membership: "Membership",
   gift_card: "Gift Card",
   quick: "Quick",
+};
+
+const TYPE_VARIANT: Record<string, "primary" | "info" | "warning" | "success" | "secondary"> = {
+  service: "primary",
+  product: "info",
+  membership: "warning",
+  gift_card: "success",
+  quick: "secondary",
 };
 
 // ── Main component ───────────────────────────────────────────────────────────
@@ -308,7 +323,7 @@ export default function StaffPerformancePage() {
         <div className="spp__staff-select-wrap">
           <PersonFill size={14} className="spp__staff-icon" />
           {staffLoading ? (
-            <div className="spp__staff-skeleton" />
+            <Skeleton height={42} borderRadius={8} />
           ) : (
             <Dropdown
               className="spp__staff-select"
@@ -329,9 +344,9 @@ export default function StaffPerformancePage() {
         {/* Calendar panel */}
         <div className="spp__calendar-panel">
           <div className="spp__cal-nav">
-            <button className="spp__cal-nav-btn" onClick={prevMonth}><ChevronLeft size={14} /></button>
+            <Button variant="ghost" size="sm" className="spp__cal-nav-btn" onClick={prevMonth}><ChevronLeft size={14} /></Button>
             <span className="spp__cal-month-label">{MONTH_NAMES[viewMonth]} {viewYear}</span>
-            <button className="spp__cal-nav-btn" onClick={nextMonth}><ChevronRight size={14} /></button>
+            <Button variant="ghost" size="sm" className="spp__cal-nav-btn" onClick={nextMonth}><ChevronRight size={14} /></Button>
           </div>
 
           <div className="spp__cal-grid">
@@ -362,10 +377,10 @@ export default function StaffPerformancePage() {
         {/* Detail panel */}
         <div className="spp__detail-panel">
           {!selectedStaffId ? (
-            <div className="spp__empty-state">
-              <PersonFill size={40} className="spp__empty-icon" />
-              <p className="spp__empty-text">Select a staff member to view their performance.</p>
-            </div>
+            <EmptyState
+              icon={<PersonFill size={40} />}
+              title="Select a staff member to view their performance."
+            />
           ) : (
             <>
               {/* Date heading */}
@@ -378,34 +393,15 @@ export default function StaffPerformancePage() {
               </div>
 
               {dayLoading ? (
-                <div className="spp__detail-loading">
-                  <div className="spp__spinner" />
-                  <span>Loading…</span>
-                </div>
+                <Loader message="Loading…" />
               ) : dayData ? (
                 <>
                   {/* Summary cards */}
                   <div className="spp__summary-grid">
-                    <div className="spp__summary-card spp__summary-card--blue">
-                      <div className="spp__summary-icon"><CalendarEvent size={18} /></div>
-                      <div className="spp__summary-val">{dayData.bookings}</div>
-                      <div className="spp__summary-label">Bookings</div>
-                    </div>
-                    <div className="spp__summary-card spp__summary-card--purple">
-                      <div className="spp__summary-icon"><Scissors size={18} /></div>
-                      <div className="spp__summary-val">{dayData.servicesSold}</div>
-                      <div className="spp__summary-label">Services Sold</div>
-                    </div>
-                    <div className="spp__summary-card spp__summary-card--orange">
-                      <div className="spp__summary-icon"><Cart3 size={18} /></div>
-                      <div className="spp__summary-val">{dayData.productsSold}</div>
-                      <div className="spp__summary-label">Products Sold</div>
-                    </div>
-                    <div className="spp__summary-card spp__summary-card--green">
-                      <div className="spp__summary-icon"><CurrencyIcon size={18} /></div>
-                      <div className="spp__summary-val">{fmtCurrency(dayData.revenue)}</div>
-                      <div className="spp__summary-label">Revenue</div>
-                    </div>
+                    <StatCard variant="indigo" icon={<CalendarEvent size={18} />} value={dayData.bookings} label="Bookings" />
+                    <StatCard variant="purple" icon={<Scissors size={18} />} value={dayData.servicesSold} label="Services Sold" />
+                    <StatCard variant="amber" icon={<Cart3 size={18} />} value={dayData.productsSold} label="Products Sold" />
+                    <StatCard variant="emerald" icon={<CurrencyIcon size={18} />} value={fmtCurrency(dayData.revenue)} label="Revenue" />
                   </div>
 
                   {/* Appointments */}
@@ -414,48 +410,36 @@ export default function StaffPerformancePage() {
                       <CalendarEvent size={14} />
                       Appointments ({dayData.appointments.length})
                     </div>
-                    {dayData.appointments.length === 0 ? (
-                      <div className="spp__no-data">No appointments on this date.</div>
-                    ) : (
-                      <div className="spp__table-wrap">
-                        <table className="spp__table">
-                          <thead>
-                            <tr>
-                              <th>Time</th>
-                              <th>Client</th>
-                              <th>Service</th>
-                              <th>Status</th>
-                              <th>Amount</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {dayData.appointments.map((a) => (
-                              <tr key={a.id}>
-                                <td>
-                                  <span className="spp__time">
-                                    <Clock size={11} />
-                                    {fmtTime(a.start_time)}
-                                    {a.end_time ? ` – ${fmtTime(a.end_time)}` : ""}
-                                  </span>
-                                </td>
-                                <td className="spp__cell-primary">{a.client_name || "—"}</td>
-                                <td className="spp__cell-muted">{a.service_name || "—"}</td>
-                                <td>
-                                  {a.status ? (
-                                    <span className={`spp__badge ${STATUS_CLASS[a.status.toLowerCase()] ?? "spp__badge--gray"}`}>
-                                      {a.status.charAt(0).toUpperCase() + a.status.slice(1)}
-                                    </span>
-                                  ) : "—"}
-                                </td>
-                                <td className="spp__cell-amount">
-                                  {a.total != null ? fmtCurrency(parseFloat(String(a.total)) || 0) : "—"}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
+                    <Table<ApptRow>
+                      data={dayData.appointments}
+                      emptyMessage="No appointments on this date."
+                      columns={[
+                        {
+                          header: "Time", key: "start_time",
+                          render: (a) => (
+                            <span className="spp__time">
+                              <Clock size={11} />
+                              {fmtTime(a.start_time)}
+                              {a.end_time ? ` – ${fmtTime(a.end_time)}` : ""}
+                            </span>
+                          ),
+                        },
+                        { header: "Client", key: "client_name", className: "spp__cell-primary", render: (a) => a.client_name || "—" },
+                        { header: "Service", key: "service_name", className: "spp__cell-muted", render: (a) => a.service_name || "—" },
+                        {
+                          header: "Status", key: "status",
+                          render: (a) => a.status ? (
+                            <Badge variant={STATUS_VARIANT[a.status.toLowerCase()] ?? "secondary"}>
+                              {a.status.charAt(0).toUpperCase() + a.status.slice(1)}
+                            </Badge>
+                          ) : "—",
+                        },
+                        {
+                          header: "Amount", key: "total", className: "spp__cell-amount",
+                          render: (a) => a.total != null ? fmtCurrency(parseFloat(String(a.total)) || 0) : "—",
+                        },
+                      ]}
+                    />
                   </div>
 
                   {/* Quick Sales */}
@@ -464,47 +448,34 @@ export default function StaffPerformancePage() {
                       <Receipt size={14} />
                       Quick Sales ({dayData.saleItems.length} item{dayData.saleItems.length !== 1 ? "s" : ""})
                     </div>
-                    {dayData.saleItems.length === 0 ? (
-                      <div className="spp__no-data">No quick sale items on this date.</div>
-                    ) : (
-                      <div className="spp__table-wrap">
-                        <table className="spp__table">
-                          <thead>
-                            <tr>
-                              <th>Item</th>
-                              <th>Type</th>
-                              <th>Client</th>
-                              <th>Qty</th>
-                              <th>Amount</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {dayData.saleItems.map((it, idx) => (
-                              <tr key={`${it.sale_id}-${idx}`}>
-                                <td className="spp__cell-primary">{it.name}</td>
-                                <td>
-                                  <span className={`spp__type-pill spp__type-pill--${it.item_type}`}>
-                                    {TYPE_LABEL[it.item_type] ?? it.item_type}
-                                  </span>
-                                </td>
-                                <td className="spp__cell-muted">{it.client_name || "—"}</td>
-                                <td className="spp__cell-muted">{it.quantity}</td>
-                                <td className="spp__cell-amount">
-                                  {fmtCurrency(parseFloat(it.total_price) || 0)}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
+                    <Table<SaleRow & { id: string }>
+                      data={dayData.saleItems.map((it, idx) => ({ ...it, id: `${it.sale_id}-${idx}` }))}
+                      emptyMessage="No quick sale items on this date."
+                      columns={[
+                        { header: "Item", key: "name", className: "spp__cell-primary" },
+                        {
+                          header: "Type", key: "item_type",
+                          render: (it) => (
+                            <Badge variant={TYPE_VARIANT[it.item_type] ?? "secondary"}>
+                              {TYPE_LABEL[it.item_type] ?? it.item_type}
+                            </Badge>
+                          ),
+                        },
+                        { header: "Client", key: "client_name", className: "spp__cell-muted", render: (it) => it.client_name || "—" },
+                        { header: "Qty", key: "quantity", className: "spp__cell-muted" },
+                        {
+                          header: "Amount", key: "total_price", className: "spp__cell-amount",
+                          render: (it) => fmtCurrency(parseFloat(it.total_price) || 0),
+                        },
+                      ]}
+                    />
                   </div>
                 </>
               ) : (
-                <div className="spp__empty-state">
-                  <CalendarEvent size={36} className="spp__empty-icon" />
-                  <p className="spp__empty-text">Click a date on the calendar to view activity.</p>
-                </div>
+                <EmptyState
+                  icon={<CalendarEvent size={36} />}
+                  title="Click a date on the calendar to view activity."
+                />
               )}
             </>
           )}
