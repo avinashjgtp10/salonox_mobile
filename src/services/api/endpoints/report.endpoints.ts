@@ -63,6 +63,13 @@ export const PURCHASE_VS_SALES_REPORT = {
   SUMMARY: () => `/api/report/purchase-vs-sales`,
 } as const;
 
+// Independent Stock Movement reporting API — one row per product per day it
+// moved, with opening/in/out/closing balances. Reads stock_ledger directly,
+// never through the operational Stock Ledger API. Mounted at /api/report.
+export const STOCK_MOVEMENT_REPORT = {
+  SUMMARY: () => `/api/report/stock-movement`,
+} as const;
+
 // Independent Service Sale reporting API — reads sales/sale_items directly,
 // never through the Appointment API. Mounted at /api/report.
 export const SERVICE_SALE_REPORT = {
