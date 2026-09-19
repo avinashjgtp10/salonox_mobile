@@ -13,6 +13,12 @@ export interface IncludedService {
  */
 export type MembershipPricingType = 'value' | 'percentage' | 'loyalty';
 
+// The two mutually exclusive benefit models a percentage plan can run on.
+// 'discount_balance': hand out the % until a monetary pool is spent, then stop.
+// 'validity': no pool and no consumption — the % applies to every eligible
+// bill until the membership expires. Defaults to 'discount_balance'.
+export type MembershipBenefitType = 'discount_balance' | 'validity';
+
 /** Which line items a membership's benefit is eligible to cover. */
 export type MembershipAppliesTo = 'services' | 'products' | 'both';
 
@@ -51,7 +57,11 @@ export interface Membership {
   productIds?: string[];
   pricingType?: MembershipPricingType;
   discountPercent?: number;
-  /** 'percentage' only — the depleting pool of discount this plan may hand out. */
+  /** 'percentage' only — which of the two mutually exclusive benefit models
+   *  this plan runs on. See MembershipBenefitType. */
+  benefitType?: MembershipBenefitType;
+  /** 'percentage' + benefitType 'discount_balance' only — the depleting pool
+   *  of discount this plan may hand out. Not written for a validity plan. */
   discountBalance?: number;
   /** 'loyalty' only — the tier ladder (visits → discount%), ascending by thresholdValue. */
   loyaltyTiers?: LoyaltyTier[];
@@ -91,7 +101,11 @@ export interface CreateMembershipDTO {
   productIds?: string[];
   pricingType?: MembershipPricingType;
   discountPercent?: number;
-  /** 'percentage' only — the depleting pool of discount this plan may hand out. */
+  /** 'percentage' only — which of the two mutually exclusive benefit models
+   *  this plan runs on. See MembershipBenefitType. */
+  benefitType?: MembershipBenefitType;
+  /** 'percentage' + benefitType 'discount_balance' only — the depleting pool
+   *  of discount this plan may hand out. Not written for a validity plan. */
   discountBalance?: number;
   /** 'loyalty' only — the tier ladder (visits → discount%), ascending by thresholdValue. */
   loyaltyTiers?: LoyaltyTier[];

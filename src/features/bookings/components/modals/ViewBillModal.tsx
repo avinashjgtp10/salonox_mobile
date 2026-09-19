@@ -18,6 +18,7 @@ import { useListClientPackagesQuery } from "../../../../services/api/endpoints/p
 import { printReceipt } from "../../utils/receipt";
 import { fetchSettingsThunk } from "../../../../middleware/setting/setting.thunk";
 import { buildClientWhatsAppLink } from "../../../../utils/whatsapp";
+import { formatDateDDMMYYYY } from "../../../../utils/dateFormat";
 import { maskMobile } from "../../../../utils/maskMobile";
 import { normalizePaymentStatus } from "../../utils/bookingMapper";
 import { useFocusTrap } from "../../../../hooks/useFocusTrap";
@@ -230,8 +231,12 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                 <div className="vbm-info-row" key={m.id}>
                   <div className="vbm-info-row__label">Membership</div>
                   <div className="vbm-info-row__value">
-                    {m.membershipName} ({currencySymbol}
-                    {(m.pricingType === "percentage" ? (m.discountBalanceRemaining ?? 0) : m.membershipWalletBalance).toFixed(2)} left)
+                    {/* A validity-based plan has no balance to run down — its
+                        limit is the expiry date, so quoting "₹0.00 left" for
+                        one would read as exhausted when it's perfectly live. */}
+                    {m.membershipName} {m.pricingType === "percentage" && m.benefitType === "validity"
+                      ? `(${m.discountPercent ?? 0}% off till ${formatDateDDMMYYYY(m.expiresAt)})`
+                      : `(${currencySymbol}${(m.pricingType === "percentage" ? (m.discountBalanceRemaining ?? 0) : m.membershipWalletBalance).toFixed(2)} left)`}
                   </div>
                 </div>
               ))}

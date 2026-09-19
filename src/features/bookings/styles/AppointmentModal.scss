@@ -2247,6 +2247,13 @@ $item-field-text-inset: 9px;
   &__pkg-badge {
     display: inline-flex;
     align-items: center;
+    // The badge is a flex item in a column-direction .svc-field, so the
+    // default `align-items: stretch` sized it to the COLUMN's width, not its
+    // own content — in a narrow track (Price is ~80px) the nowrap text then
+    // ran straight out of the green background and the pill rendered as a
+    // stub with the amount floating past its right edge. Sizing to content
+    // keeps the label and the amount inside one whole pill in every column.
+    align-self: flex-start;
     gap: 3px;
     margin-top: 3px;
     padding: 1px 6px;

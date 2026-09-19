@@ -490,7 +490,17 @@ export const ClientStatCard: React.FC<Props> = ({
                           {m.totalSessions === 0 ? "Unlimited" : `${m.usedSessions} used / ${m.totalSessions} total`}
                         </span>
                       </div>
-                      {m.pricingType === "percentage" ? (
+                      {m.pricingType === "percentage" && m.benefitType === "validity" ? (
+                        // No pool on a validity plan — what limits it is the
+                        // expiry shown elsewhere on this card, so reporting a
+                        // balance here would just read as ₹0 / exhausted.
+                        <div className="pkg-card__row">
+                          <span className="pkg-card__lbl">Discount:</span>
+                          <span className="pkg-card__val">
+                            {m.discountPercent ? `${m.discountPercent}% off` : "—"} · until expiry
+                          </span>
+                        </div>
+                      ) : m.pricingType === "percentage" ? (
                         <div className="pkg-card__row">
                           <span className="pkg-card__lbl">Discount Balance Remaining:</span>
                           <span className="pkg-card__val">

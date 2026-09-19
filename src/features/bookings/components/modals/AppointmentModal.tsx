@@ -24,6 +24,7 @@ import { postPaymentThunk } from "../../../../middleware/booking/payment.thunk";
 import { checkoutBookingThunk } from "../../../../middleware/booking/booking.thunk";
 import { fetchReceiptPdfThunk } from "../../../../middleware/booking/booking.thunk";
 import { downloadBlob } from "../../../../utils/downloadBlob";
+import { formatDateDDMMYYYY } from "../../../../utils/dateFormat";
 import { fetchSettingsThunk } from "../../../../middleware/setting/setting.thunk";
 import { getActiveTaxes } from "../../../settings/utils/taxSettings";
 import { getTaxModuleConfig } from "../../../settings/utils/taxModuleSettings";
@@ -1207,8 +1208,14 @@ export const AppointmentModal: React.FC<Props> = ({
   // fully determined by its own discount %, the eligible rows, and (for
   // percentage) any balance left — there's nothing for staff to type, only
   // opt in or out of.
+  // Usable = has something left to give. For a discount-balance plan that's
+  // pool remaining; for a validity plan there IS no pool (it's always 0), so
+  // testing the balance alone would hide the benefit entirely and staff would
+  // never get the checkbox. Mirrors findActivePercentageForClient's SQL gate,
+  // which is the authority — expiry is enforced there, server-side.
   const percentageMembership = useMemo(
-    () => clientMemberships.find((m) => m.pricingType === "percentage" && (m.discountBalanceRemaining ?? 0) > 0),
+    () => clientMemberships.find((m) => m.pricingType === "percentage"
+      && (m.benefitType === "validity" || (m.discountBalanceRemaining ?? 0) > 0)),
     [clientMemberships],
   );
   const loyaltyEligibility = ((clientDetailsForModal as any)?.loyalty_eligibility ?? null) as any;
@@ -1217,6 +1224,8 @@ export const AppointmentModal: React.FC<Props> = ({
         name: percentageMembership.membershipName,
         discountPercent: percentageMembership.discountPercent ?? 0,
         balanceRemaining: percentageMembership.discountBalanceRemaining,
+        isValidityBased: percentageMembership.benefitType === "validity",
+        expiresAt: percentageMembership.expiresAt,
       }
     : null;
   const loyaltyDiscountSource = loyaltyEligibility?.eligible
@@ -1239,6 +1248,30 @@ export const AppointmentModal: React.FC<Props> = ({
   const [applyLoyaltyDiscount, setApplyLoyaltyDiscount] = useState(
     () => !!existingBooking?.applyLoyaltyDiscount
   );
+  // The discount RATE staff are applying on this bill — the plan's own % by
+  // default, editable down on the Membership Discount card (a 20% plan run at
+  // 10% today). The amount in rupees stays the engine's to compute from it,
+  // along with the row totals and GST; nothing here multiplies anything.
+  const membershipPlanPercent = percentageMembership?.discountPercent ?? 0;
+  const [membershipDiscountPercent, setMembershipDiscountPercent] = useState(0);
+  // Whether that rate was deliberately typed. Until it is, the field just
+  // follows the plan's own rate, so re-picking a client (or the plan changing
+  // underneath) doesn't leave a stale number pinned to the bill.
+  const membershipDiscountPercentIsCustomRef = useRef(false);
+  useEffect(() => {
+    if (!applyMembershipDiscount) { membershipDiscountPercentIsCustomRef.current = false; setMembershipDiscountPercent(0); return; }
+    setMembershipDiscountPercent((prev) => (membershipDiscountPercentIsCustomRef.current
+      ? Math.min(prev, membershipPlanPercent)
+      : membershipPlanPercent));
+  }, [applyMembershipDiscount, membershipPlanPercent]);
+  const handleSetMembershipDiscountPercent = useCallback((v: number) => {
+    membershipDiscountPercentIsCustomRef.current = true;
+    // Never above what the plan actually grants — the backend clamps to the
+    // same ceiling, this just stops the field showing a rate that would come
+    // back smaller.
+    setMembershipDiscountPercent(Math.max(0, Math.min(v, membershipPlanPercent)));
+  }, [membershipPlanPercent]);
+
   const applyMembershipDiscountMounted = useRef(false);
   useEffect(() => {
     if (!applyMembershipDiscountMounted.current) { applyMembershipDiscountMounted.current = true; return; }
@@ -1363,6 +1396,7 @@ export const AppointmentModal: React.FC<Props> = ({
   // which only affect effectiveTotal. Tracked separately (display-only) so it
   // can be shown as its own line, same pattern as referralDiscountPreview.
   const [appliedMembershipDiscount, setAppliedMembershipDiscount] = useState(0);
+
   // Per-row GST from the pricing preview (index-aligned with the rows we sent),
   // so the live sale-building screen can show each item's own tax — same real
   // figure that gets stored per sale_item at checkout.
@@ -1492,6 +1526,12 @@ export const AppointmentModal: React.FC<Props> = ({
           applyMembershipWallet: applyMembership,
           membershipWalletRequested: applyMembership ? membershipWalletAmt : 0,
           applyMembershipDiscount,
+          // Only sent once staff actually type a rate — otherwise the plan's
+          // own % decides, and sending the last auto-followed value would pin
+          // the bill to a stale rate if the plan or client changed.
+          membershipDiscountPercentRequested: (applyMembershipDiscount && membershipDiscountPercentIsCustomRef.current)
+            ? membershipDiscountPercent
+            : undefined,
           applyLoyaltyDiscount,
           applyRewardPoints: useRewardPoints,
           rewardPointsToRedeem: useRewardPoints ? rewardPointsToRedeem : 0,
@@ -1518,6 +1558,7 @@ export const AppointmentModal: React.FC<Props> = ({
           });
           setReferralDiscountPreview(data.referralDiscountPreview ?? 0);
           setAppliedMembershipDiscount(data.appliedMembershipDiscount ?? 0);
+
           setRowTaxPreview(data.rowTax ?? null);
           setRowMembershipDiscountPreview(data.rowMembershipDiscount ?? null);
           setRowMembershipWalletPreview(data.rowMembershipWallet ?? null);
@@ -1550,7 +1591,7 @@ export const AppointmentModal: React.FC<Props> = ({
     // preview stays stuck at its pre-link value (usually ₹0) until some
     // unrelated field happens to change and coincidentally retriggers this effect.
     referral.applied,
-    useEWallet, eWalletAmt, applyMembership, membershipWalletAmt, applyMembershipDiscount, applyLoyaltyDiscount,
+    useEWallet, eWalletAmt, applyMembership, membershipWalletAmt, applyMembershipDiscount, membershipDiscountPercent, applyLoyaltyDiscount,
     useRewardPoints, rewardPointsToRedeem, useReferralCredit, referralCreditAmt,
     selectedClient?.id, existingBooking?.id, apiAppointmentId,
   ]);
@@ -2245,6 +2286,9 @@ export const AppointmentModal: React.FC<Props> = ({
       applyMembershipWallet: applyMembership,
       membershipWalletRequested: membershipWalletAmt,
       applyMembershipDiscount,
+      // Only when staff typed one — otherwise the charge re-derives the
+      // plan's own rate server-side, exactly as the preview just did.
+      membershipDiscountPercentRequested: membershipDiscountPercentIsCustomRef.current ? membershipDiscountPercent : undefined,
       applyLoyaltyDiscount,
       gstAmount:         totals.gstAmount,
       taxBreakdown:      totals.taxBreakdown,
@@ -2444,6 +2488,9 @@ export const AppointmentModal: React.FC<Props> = ({
       applyMembershipWallet: applyMembership,
       membershipWalletRequested: membershipWalletAmt,
       applyMembershipDiscount,
+      // Only when staff typed one — otherwise the charge re-derives the
+      // plan's own rate server-side, exactly as the preview just did.
+      membershipDiscountPercentRequested: membershipDiscountPercentIsCustomRef.current ? membershipDiscountPercent : undefined,
       applyLoyaltyDiscount,
       gstAmount:         totals.gstAmount,
       taxBreakdown:      totals.taxBreakdown,
@@ -2797,10 +2844,29 @@ export const AppointmentModal: React.FC<Props> = ({
         icon: Percent,
         variantClass: "benefit-card--membership",
         title: "Membership Discount",
-        value: `${percentageDiscountSource.discountPercent}% Off`,
-        subtitle: `${percentageDiscountSource.name} · ${formatAmount(percentageDiscountSource.balanceRemaining ?? 0)} balance left`,
+        // The rate actually being applied, so dialling it to 10% on a 20% plan
+        // reads as "10% Off" rather than contradicting the field below it.
+        value: `${applyMembershipDiscount ? membershipDiscountPercent : percentageDiscountSource.discountPercent}% Off`,
+        // A validity plan has no balance to report — saying "₹0.00 balance
+        // left" next to a live benefit reads as broken, so it states what
+        // actually limits it instead.
+        subtitle: percentageDiscountSource.isValidityBased
+          ? `${percentageDiscountSource.name} · valid till ${formatDateDDMMYYYY(percentageDiscountSource.expiresAt)}`
+          : `${percentageDiscountSource.name} · ${formatAmount(percentageDiscountSource.balanceRemaining ?? 0)} balance left`,
         checked: applyMembershipDiscount,
         onToggle: setApplyMembershipDiscount,
+        // Editable RATE, not an amount: the plan's own % fills it in, and
+        // staff can dial it down for this bill (run a 20% plan at 10% today).
+        // The engine applies that % to the eligible rows and recomputes each
+        // row's discount, the GST and the payable total from it — see
+        // membershipDiscountPercentRequested in pricing.service.ts.
+        input: {
+          value: membershipDiscountPercent,
+          max: membershipPlanPercent,
+          step: 0.5,
+          suffix: "%",
+          onChange: handleSetMembershipDiscountPercent,
+        },
       });
     }
 
