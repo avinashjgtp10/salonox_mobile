@@ -1253,6 +1253,12 @@ export const AppointmentModal: React.FC<Props> = ({
   // 10% today). The amount in rupees stays the engine's to compute from it,
   // along with the row totals and GST; nothing here multiplies anything.
   const membershipPlanPercent = percentageMembership?.discountPercent ?? 0;
+  // The rate may be raised above the plan's own (a goodwill gesture, same as
+  // the manual bill discount) — 100% is the ceiling because that's a full
+  // write-off of the line. A discount-balance plan still can't pay out more
+  // than it has left, so a raised rate drains the pool faster and then stops;
+  // the preview shows what actually landed.
+  const MEMBERSHIP_DISCOUNT_MAX_PERCENT = 100;
   const [membershipDiscountPercent, setMembershipDiscountPercent] = useState(0);
   // Whether that rate was deliberately typed. Until it is, the field just
   // follows the plan's own rate, so re-picking a client (or the plan changing
@@ -1261,16 +1267,13 @@ export const AppointmentModal: React.FC<Props> = ({
   useEffect(() => {
     if (!applyMembershipDiscount) { membershipDiscountPercentIsCustomRef.current = false; setMembershipDiscountPercent(0); return; }
     setMembershipDiscountPercent((prev) => (membershipDiscountPercentIsCustomRef.current
-      ? Math.min(prev, membershipPlanPercent)
+      ? Math.min(prev, MEMBERSHIP_DISCOUNT_MAX_PERCENT)
       : membershipPlanPercent));
   }, [applyMembershipDiscount, membershipPlanPercent]);
   const handleSetMembershipDiscountPercent = useCallback((v: number) => {
     membershipDiscountPercentIsCustomRef.current = true;
-    // Never above what the plan actually grants — the backend clamps to the
-    // same ceiling, this just stops the field showing a rate that would come
-    // back smaller.
-    setMembershipDiscountPercent(Math.max(0, Math.min(v, membershipPlanPercent)));
-  }, [membershipPlanPercent]);
+    setMembershipDiscountPercent(Math.max(0, Math.min(v, MEMBERSHIP_DISCOUNT_MAX_PERCENT)));
+  }, []);
 
   const applyMembershipDiscountMounted = useRef(false);
   useEffect(() => {
@@ -2856,13 +2859,14 @@ export const AppointmentModal: React.FC<Props> = ({
         checked: applyMembershipDiscount,
         onToggle: setApplyMembershipDiscount,
         // Editable RATE, not an amount: the plan's own % fills it in, and
-        // staff can dial it down for this bill (run a 20% plan at 10% today).
-        // The engine applies that % to the eligible rows and recomputes each
-        // row's discount, the GST and the payable total from it — see
-        // membershipDiscountPercentRequested in pricing.service.ts.
+        // staff can change it for this bill in either direction (run a 20%
+        // plan at 10%, or at 30%). The engine applies that % to the eligible
+        // rows and recomputes each row's discount, the GST and the payable
+        // total from it — see membershipDiscountPercentRequested in
+        // pricing.service.ts.
         input: {
           value: membershipDiscountPercent,
-          max: membershipPlanPercent,
+          max: MEMBERSHIP_DISCOUNT_MAX_PERCENT,
           step: 0.5,
           suffix: "%",
           onChange: handleSetMembershipDiscountPercent,
