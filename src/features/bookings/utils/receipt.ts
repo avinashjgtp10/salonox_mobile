@@ -877,6 +877,20 @@ export function printReceipt(
     if (tipAmt > 0.005) {
       tipBreakdown.forEach((t) => push(`  ${t.staffName}`, t.amount, { muted: true }));
     }
+    // Redemptions — the A4 invoice has always listed these, this compact
+    // template never did, so a bill part-settled from a wallet printed
+    // "Subtotal ₹1,000 … TOTAL ₹690" with the missing ₹400 unexplained and
+    // the arithmetic looking simply wrong to whoever was handed the paper.
+    // Same order and sign as the A4 summary above, so the two reconcile line
+    // for line.
+    push("Membership Wallet Used", -membershipWalletUsedAmt, { muted: true });
+    push("eWallet Used", -ewalletUsedAmt, { muted: true });
+    push("Reward Points Used", -rewardPointsValuePaid, { muted: true });
+    push("Referral Credit Used", -referralCreditUsedAmt, { muted: true });
+    // The rounding that produced the printed TOTAL, for the same reason the
+    // A4 receipt shows it: without it the column above doesn't add up to the
+    // figure at the bottom.
+    if (!isPackagePaid) push("Round Off", roundOff, { muted: true });
 
     const payments: ThermalReceiptData["payments"] = [];
     if (Math.abs(paidAmt) > 0.005) payments.push({ label: "Paid", value: fmt(paidAmt) });
