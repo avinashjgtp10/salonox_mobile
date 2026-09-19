@@ -4,8 +4,6 @@ import Card from "../../../components/ui/Card";
 import Badge from "../../../components/ui/Badge";
 import Button from "../../../components/ui/Button";
 import EmptyState from "../../../components/ui/EmptyState";
-import Skeleton from "../../../components/ui/Skeleton";
-import StatCard from "../../../components/ui/StatCard";
 import { Pagination as UIPagination } from "../../../components/ui/Pagination";
 
 // Thin Branch-Owner-flavored wrappers around the app's real shared
@@ -44,14 +42,22 @@ export function SectionCard({ title, subtitle, action, children, noPadding }: {
   );
 }
 
-const STAT_VARIANTS = ["indigo", "emerald", "rose", "amber", "purple"] as const;
-export function StatTile({ icon, label: l, value, variantIndex = 0, sub }: {
-  icon: ReactNode; label: string; value: string | number; variantIndex?: number; sub?: string;
+// Plain white KPI card — same border/shadow-free treatment as the Reports
+// page's own cards (see ReportsPage.scss's .rp-fav-card), not StatCard's
+// colored gradient variants.
+export function StatTile({ icon, label: l, value, sub }: {
+  icon: ReactNode; label: string; value: string | number; sub?: string;
 }) {
   return (
-    <div>
-      <StatCard label={l} value={value} icon={icon} variant={STAT_VARIANTS[variantIndex % STAT_VARIANTS.length]} />
-      {sub && <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 6, paddingLeft: 4 }}>{sub}</div>}
+    <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 12, padding: "14px 16px", display: "flex", alignItems: "center", gap: 12 }}>
+      <div style={{ width: 38, height: 38, borderRadius: 10, background: "#f3f4f6", color: "#374151", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+        {icon}
+      </div>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ color: "#6b7280", fontSize: 11.5, fontWeight: 500 }}>{l}</div>
+        <div style={{ color: "#111827", fontSize: 18, fontWeight: 800, lineHeight: 1.3 }}>{value}</div>
+        {sub && <div style={{ color: "#9ca3af", fontSize: 10.5, marginTop: 1 }}>{sub}</div>}
+      </div>
     </div>
   );
 }
@@ -106,10 +112,6 @@ export function GhostButton({ children, onClick, disabled, tone = "neutral" }: {
 }) {
   const variant = tone === "danger" ? "outline-danger" : tone === "success" ? "outline-success" : "outline-secondary";
   return <Button variant={variant} size="sm" onClick={onClick} disabled={disabled}>{children}</Button>;
-}
-
-export function Shimmer({ h = 90 }: { h?: number }) {
-  return <Skeleton height={h} borderRadius={14} />;
 }
 
 // ── Pagination ────────────────────────────────────────────────────────────────

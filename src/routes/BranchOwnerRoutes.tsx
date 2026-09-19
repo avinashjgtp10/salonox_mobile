@@ -11,6 +11,7 @@ const BranchOwnerInventoryPage = lazy(() => import("../features/branch-owner/pag
 const BranchOwnerFinancePage   = lazy(() => import("../features/branch-owner/pages/BranchOwnerFinancePage"));
 const BranchOwnerStaffPerformancePage = lazy(() => import("../features/branch-owner/pages/BranchOwnerStaffPerformancePage"));
 const BranchOwnerStaffPermissionsPage = lazy(() => import("../features/branch-owner/pages/BranchOwnerStaffPermissionsPage"));
+const BranchOwnerStaffPermissionsDetailPage = lazy(() => import("../features/branch-owner/pages/BranchOwnerStaffPermissionsDetailPage"));
 const BranchOwnerSettingsPage = lazy(() => import("../features/branch-owner/pages/BranchOwnerSettingsPage"));
 const BranchOwnerHelpPage = lazy(() => import("../features/branch-owner/pages/BranchOwnerHelpPage"));
 
@@ -21,6 +22,7 @@ export const BranchOwnerRoutes = (
       <Route path="salons" element={<BranchOwnerSalonsPage />} />
       <Route path="payments" element={<BranchOwnerPaymentsPage />} />
       <Route path="staff-permissions" element={<BranchOwnerStaffPermissionsPage />} />
+      <Route path="staff-permissions/:staffId" element={<BranchOwnerStaffPermissionsDetailPage />} />
       <Route path="inventory" element={<BranchOwnerInventoryPage />} />
       <Route path="finance" element={<BranchOwnerFinancePage />} />
       <Route path="staff-performance" element={<BranchOwnerStaffPerformancePage />} />

@@ -6,10 +6,11 @@ import {
 import { useAppSelector } from "../../../hooks/useAppRedux";
 import api from "../../../services/api/axios";
 import Dropdown from "../../../components/ui/Dropdown";
+import Loader from "../../../components/ui/Loader";
 import { BRANCH_OWNER } from "../../../services/api/endpoints/branchOwner.endpoints";
 import {
   SectionCard, StatTile, StatusBadge, BoEmptyState, PrimaryButton,
-  Shimmer, inputStyle, label as labelStyle,
+  inputStyle, label as labelStyle,
   usePagination, BoPagination,
 } from "../components/BranchOwnerUI";
 
@@ -195,14 +196,12 @@ export default function BranchOwnerInventoryPage() {
 
       {/* KPIs */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 20 }}>
-        {!loaded ? [...Array(4)].map((_, i) => <Shimmer key={i} h={104} />) : (<>
-          <div onClick={openCategoryPopup} style={{ cursor: "pointer" }}>
-            <StatTile icon={<BoxSeam size={18} />} label="Products" value={summary?.total_products ?? 0} variantIndex={0} sub="Tap to browse by category" />
-          </div>
-          <StatTile icon={<CurrencyRupee size={18} />} label="Stock Value" value={fmtMoney(summary?.total_stock_value ?? 0)} variantIndex={1} />
-          <StatTile icon={<ExclamationTriangleFill size={16} />} label="Low Stock" value={summary?.low_stock_count ?? 0} variantIndex={2} />
-          <StatTile icon={<ClockHistory size={17} />} label="Transfers Today" value={recent.filter((t) => new Date(t.created_at).toDateString() === new Date().toDateString()).length} variantIndex={3} />
-        </>)}
+        <div onClick={openCategoryPopup} style={{ cursor: "pointer" }}>
+          <StatTile icon={<BoxSeam size={18} />} label="Products" value={loaded ? summary?.total_products ?? 0 : "—"} sub="Tap to browse by category" />
+        </div>
+        <StatTile icon={<CurrencyRupee size={18} />} label="Stock Value" value={loaded ? fmtMoney(summary?.total_stock_value ?? 0) : "—"} />
+        <StatTile icon={<ExclamationTriangleFill size={16} />} label="Low Stock" value={loaded ? summary?.low_stock_count ?? 0 : "—"} />
+        <StatTile icon={<ClockHistory size={17} />} label="Transfers Today" value={loaded ? recent.filter((t) => new Date(t.created_at).toDateString() === new Date().toDateString()).length : "—"} />
       </div>
 
       {/* Filters */}
@@ -223,7 +222,7 @@ export default function BranchOwnerInventoryPage() {
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
         {/* Branch Stock Overview */}
         <SectionCard title="Branch Stock Overview" noPadding>
-          {!loaded ? <div style={{ padding: 20 }}><Shimmer h={140} /></div> : visibleBranchOverview.length === 0 ? (
+          {!loaded ? <Loader message="Loading branch overview…" /> : visibleBranchOverview.length === 0 ? (
             <BoEmptyState icon={<Building size={26} />} text="No branch data yet." />
           ) : (<>
             <div style={{ padding: "6px 20px 16px" }}>
@@ -248,7 +247,7 @@ export default function BranchOwnerInventoryPage() {
 
         {/* Low Stock Alerts */}
         <SectionCard title="Low Stock Alerts" noPadding>
-          {!loaded ? <div style={{ padding: 20 }}><Shimmer h={140} /></div> : lowStock.length === 0 ? (
+          {!loaded ? <Loader message="Loading low stock alerts…" /> : lowStock.length === 0 ? (
             <BoEmptyState icon={<CheckCircleFill size={26} />} text="Nothing low on stock." />
           ) : (<>
             {lowStockPage.pageItems.map((r) => (
@@ -375,7 +374,7 @@ export default function BranchOwnerInventoryPage() {
 
       {/* Recent Stock Movements */}
       <SectionCard title="Recent Stock Movements" noPadding>
-        {!loaded ? <div style={{ padding: 20 }}><Shimmer h={160} /></div> : recent.length === 0 ? (
+        {!loaded ? <Loader message="Loading stock movements…" /> : recent.length === 0 ? (
           <BoEmptyState icon={<BoxSeam size={26} />} text="No transfers yet." />
         ) : (<>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5 }}>

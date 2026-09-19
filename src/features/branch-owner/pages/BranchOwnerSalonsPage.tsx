@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
-import { Building, CheckCircle, PersonFill, CashCoin } from "react-bootstrap-icons";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Building, CheckCircle, PersonFill, CashCoin, Search, GeoAlt, CalendarEvent, EnvelopeAt } from "react-bootstrap-icons";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { fetchMySalonsThunk, enterSalonThunk, resetSalonOwnerPasswordThunk, deleteSalonThunk } from "../../../middleware/branchOwner/branchOwner.thunk";
 import type { BranchOwnerSalon } from "../../../store/branchOwnerSlice";
 import { JiraFilterMenu, Button, Table, Modal, ConfirmDialog, Input, Card } from "../../../components/ui";
 import type { JiraFilterField } from "../../../components/ui";
-import { StatTile, StatusBadge, Shimmer, BoSearchInput, usePagination, BoPagination } from "../components/BranchOwnerUI";
+import { StatTile, StatusBadge, usePagination, BoPagination } from "../components/BranchOwnerUI";
 
 const STATUS_OPTIONS = [
   { id: "active", label: "Active" },
@@ -49,11 +49,74 @@ function ResetPasswordModal({ salonName, onConfirm, onCancel, loading, error }: 
   );
 }
 
+// Shown when a salon row is clicked — the same details already in the table
+// (name, owner, status, staff/customers/appointments/revenue), just laid out
+// as a single-salon detail card instead of scanning across a row, plus the
+// same actions the row's own buttons offer.
+function SalonDetailModal({ salon, onClose, onEnter, entering, onResetPassword, onDelete }: {
+  salon: BranchOwnerSalon;
+  onClose: () => void;
+  onEnter: () => void;
+  entering: boolean;
+  onResetPassword: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <Modal show title={salon.name} onClose={onClose} size="lg"
+      footer={(
+        <>
+          <Button variant="outline-danger" onClick={onDelete}>Delete</Button>
+          <Button variant="outline-warning" onClick={onResetPassword}>Reset Password</Button>
+          <Button variant="primary" loading={entering} onClick={onEnter}>{entering ? "Opening…" : "Enter Salon"}</Button>
+        </>
+      )}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
+        <StatusBadge status={salon.status} />
+        {salon.has_active_plan
+          ? <span className="badge bg-primary">Active Plan</span>
+          : <span className="badge bg-secondary">No Active Plan</span>}
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 18 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5, color: "#374151" }}>
+          <PersonFill size={13} color="#9ca3af" />
+          <span>{salon.owner_name || "—"}</span>
+        </div>
+        {salon.owner_email && (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5, color: "#374151" }}>
+            <EnvelopeAt size={13} color="#9ca3af" />
+            <span>{salon.owner_email}</span>
+          </div>
+        )}
+        {salon.location && (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5, color: "#374151" }}>
+            <GeoAlt size={13} color="#9ca3af" />
+            <span>{salon.location}</span>
+          </div>
+        )}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5, color: "#374151" }}>
+          <CalendarEvent size={13} color="#9ca3af" />
+          <span>Onboarded {salon.created_at ? new Date(salon.created_at).toLocaleDateString("en-IN") : "—"}</span>
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
+        <StatTile icon={<PersonFill size={16} />} label="Staff" value={salon.staff_count ?? 0} />
+        <StatTile icon={<PersonFill size={16} />} label="Customers" value={(salon.client_count ?? 0).toLocaleString("en-IN")} />
+        <StatTile icon={<CalendarEvent size={16} />} label="Today's Appointments" value={salon.appointments_today ?? 0} />
+        <StatTile icon={<CashCoin size={16} />} label="Revenue Today" value={formatCurrency(salon.revenue_today ?? 0)} />
+      </div>
+    </Modal>
+  );
+}
+
 export default function BranchOwnerSalonsPage() {
   const dispatch = useAppDispatch();
   const { salons, loading: loadingState } = useAppSelector((s) => s.branchOwner);
   const loading = loadingState.salons;
   const [enteringId, setEnteringId] = useState<string | null>(null);
+  const [selectedSalon, setSelectedSalon] = useState<BranchOwnerSalon | null>(null);
 
   const [resetTarget, setResetTarget] = useState<{ id: string; name: string } | null>(null);
   const [resetLoading, setResetLoading] = useState(false);
@@ -66,8 +129,22 @@ export default function BranchOwnerSalonsPage() {
   const [salonFilter, setSalonFilter] = useState<string[]>([]);
   const [planFilter, setPlanFilter] = useState<string[]>([]);
   const [search, setSearch] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { dispatch(fetchMySalonsThunk()); }, [dispatch]);
+
+  // Same Ctrl/Cmd + / focus shortcut as the Reports page's header search —
+  // ported alongside its look, not just its styling.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "/" && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        searchRef.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   // Salon name is always populated (unlike city, which most salons in this
   // dataset never set), so it's a reliably useful multi-select filter.
@@ -154,24 +231,46 @@ export default function BranchOwnerSalonsPage() {
 
   return (
     <div style={{ padding: "28px 28px 40px", fontFamily: "'Inter','Segoe UI',system-ui,sans-serif" }}>
-      <div style={{ marginBottom: 24 }}>
-        <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: "#0f172a", letterSpacing: "-0.3px" }}>My Salons</h1>
-        <p style={{ margin: "4px 0 0", color: "#94a3b8", fontSize: 13 }}>{filteredSalons.length} salon{filteredSalons.length !== 1 ? "s" : ""} assigned to you</p>
+      {/* Header — same layout/styling as the Reports page's own header
+          (icon badge + title/subtitle on the left, search on the right
+          with the same Ctrl+/ shortcut hint), see ReportsPage.scss's
+          .rp-header/.rp-search-* rules. */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16, marginBottom: 24 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <div style={{ width: 42, height: 42, borderRadius: 12, background: "#111827", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <Building size={20} />
+          </div>
+          <div>
+            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: "#111827" }}>My Salons</h1>
+            <p style={{ margin: "2px 0 0", color: "#6b7280", fontSize: 13 }}>{filteredSalons.length} salon{filteredSalons.length !== 1 ? "s" : ""} assigned to you</p>
+          </div>
+        </div>
+        <div style={{ position: "relative", width: 320, maxWidth: "100%" }}>
+          <Search size={14} style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", color: "#9ca3af" }} />
+          <input
+            ref={searchRef}
+            type="text"
+            placeholder="Search salon or owner..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{ width: "100%", padding: "9px 68px 9px 38px", border: "1px solid #e5e7eb", borderRadius: 8, fontSize: 13.5, color: "#111827", background: "#fff", outline: "none", boxSizing: "border-box" }}
+          />
+          <span style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", fontSize: 10.5, fontWeight: 600, color: "#9ca3af", background: "#f3f4f6", border: "1px solid #e5e7eb", borderRadius: 5, padding: "2px 6px", pointerEvents: "none" }}>
+            Ctrl + /
+          </span>
+        </div>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 14, marginBottom: 20 }}>
-        {loading ? [...Array(5)].map((_, i) => <Shimmer key={i} h={72} />) : (<>
-          <StatTile icon={<Building size={16} />} label="Total Salons" value={kpis.total} variantIndex={0} />
-          <StatTile icon={<CheckCircle size={16} />} label="Active Salons" value={kpis.activeCount} variantIndex={1} sub={`${kpis.total - kpis.activeCount} inactive`} />
-          <StatTile icon={<PersonFill size={16} />} label="Total Staff" value={kpis.totalStaff} variantIndex={2} />
-          <StatTile icon={<CashCoin size={16} />} label="Revenue Today" value={formatCurrency(kpis.revenueToday)} variantIndex={3} />
-          <StatTile icon={<Building size={16} />} label="Without Active Plan" value={kpis.noPlanCount} variantIndex={4} />
-        </>)}
+        <StatTile icon={<Building size={16} />} label="Total Salons" value={loading ? "—" : kpis.total} />
+        <StatTile icon={<CheckCircle size={16} />} label="Active Salons" value={loading ? "—" : kpis.activeCount} sub={loading ? undefined : `${kpis.total - kpis.activeCount} inactive`} />
+        <StatTile icon={<PersonFill size={16} />} label="Total Staff" value={loading ? "—" : kpis.totalStaff} />
+        <StatTile icon={<CashCoin size={16} />} label="Revenue Today" value={loading ? "—" : formatCurrency(kpis.revenueToday)} />
+        <StatTile icon={<Building size={16} />} label="Without Active Plan" value={loading ? "—" : kpis.noPlanCount} />
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 18 }}>
         <JiraFilterMenu fields={filterFields} selected={filterMenuSelected} onApply={handleFiltersApply} triggerLabel="Filters" />
-        <BoSearchInput value={search} onChange={setSearch} placeholder="Search salon or owner" />
       </div>
 
       <Card noPadding shadow="sm">
@@ -179,6 +278,7 @@ export default function BranchOwnerSalonsPage() {
           loading={loading}
           data={salonsPage.pageItems}
           emptyMessage={salons.length === 0 ? "No salons assigned yet" : "No salons match these filters"}
+          onRowClick={(s) => setSelectedSalon(s)}
           columns={[
             { header: "Salon", key: "name", render: (s) => <span className="fw-bold text-dark">{s.name}</span> },
             {
@@ -198,7 +298,10 @@ export default function BranchOwnerSalonsPage() {
             {
               header: "Actions", key: "actions",
               render: (s) => (
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                // Row itself opens the detail card — actions must not also
+                // trigger that when clicked, so their click never bubbles up
+                // to the row's own onClick.
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }} onClick={(e) => e.stopPropagation()}>
                   <Button size="sm" variant="outline-primary" loading={enteringId === s.id} onClick={() => handleEnter(s.id)}>
                     {enteringId === s.id ? "Opening…" : "Enter Salon"}
                   </Button>
@@ -215,6 +318,24 @@ export default function BranchOwnerSalonsPage() {
         />
         <BoPagination {...salonsPage} />
       </Card>
+
+      {selectedSalon && (
+        <SalonDetailModal
+          salon={selectedSalon}
+          entering={enteringId === selectedSalon.id}
+          onClose={() => setSelectedSalon(null)}
+          onEnter={() => handleEnter(selectedSalon.id)}
+          onResetPassword={() => {
+            setResetErr("");
+            setResetTarget({ id: selectedSalon.id, name: selectedSalon.name });
+            setSelectedSalon(null);
+          }}
+          onDelete={() => {
+            setDeleteTarget({ id: selectedSalon.id, name: selectedSalon.name });
+            setSelectedSalon(null);
+          }}
+        />
+      )}
 
       {resetTarget && (
         <ResetPasswordModal

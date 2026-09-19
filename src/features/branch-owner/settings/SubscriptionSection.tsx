@@ -3,8 +3,9 @@ import { Search, X } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { fetchMySalonsThunk, fetchSalonSubscriptionThunk, fetchSalonInvoicesThunk } from "../../../middleware/branchOwner/branchOwner.thunk";
 import Dropdown from "../../../components/ui/Dropdown";
+import Loader from "../../../components/ui/Loader";
 import SettingsSection from "../../settings/components/SettingsSection";
-import { Shimmer, inputStyle } from "../components/BranchOwnerUI";
+import { inputStyle } from "../components/BranchOwnerUI";
 import type { Subscription, SubscriptionPlan, Invoice } from "../../../features/billing/types/billing.types";
 
 const fmtDate = (iso: string | null) =>
@@ -176,26 +177,20 @@ export default function BranchOwnerSubscriptionSection() {
         <p className="settings-page-subtitle">Manage subscriptions for all your salon branches. Read-only — plan changes are made by the salon owner.</p>
       </div>
 
-      {!loaded ? (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: 20 }}>
-          {[...Array(3)].map((_, i) => <Shimmer key={i} h={80} />)}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: 20 }}>
+        <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, padding: "16px 18px" }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.04em" }}>Total Salons</div>
+          <div style={{ fontSize: 26, fontWeight: 800, color: "#0f172a", marginTop: 4 }}>{loaded ? totalSalons : "—"}</div>
         </div>
-      ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: 20 }}>
-          <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, padding: "16px 18px" }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.04em" }}>Total Salons</div>
-            <div style={{ fontSize: 26, fontWeight: 800, color: "#0f172a", marginTop: 4 }}>{totalSalons}</div>
-          </div>
-          <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, padding: "16px 18px" }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.04em" }}>Active Plans</div>
-            <div style={{ fontSize: 26, fontWeight: 800, color: "#16a34a", marginTop: 4 }}>{activePlans}</div>
-          </div>
-          <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, padding: "16px 18px" }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.04em" }}>Monthly Cost (approx.)</div>
-            <div style={{ fontSize: 26, fontWeight: 800, color: "#0f172a", marginTop: 4 }}>{fmtMoney(Math.round(monthlyCost))}</div>
-          </div>
+        <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, padding: "16px 18px" }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.04em" }}>Active Plans</div>
+          <div style={{ fontSize: 26, fontWeight: 800, color: "#16a34a", marginTop: 4 }}>{loaded ? activePlans : "—"}</div>
         </div>
-      )}
+        <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, padding: "16px 18px" }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.04em" }}>Monthly Cost (approx.)</div>
+          <div style={{ fontSize: 26, fontWeight: 800, color: "#0f172a", marginTop: 4 }}>{loaded ? fmtMoney(Math.round(monthlyCost)) : "—"}</div>
+        </div>
+      </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
         <div style={{ position: "relative", flex: "1 1 220px", maxWidth: 280 }}>
@@ -232,7 +227,7 @@ export default function BranchOwnerSubscriptionSection() {
 
       <SettingsSection title="Salon Subscriptions" noPadding>
         {!loaded ? (
-          <div style={{ padding: 20 }}><Shimmer h={200} /></div>
+          <Loader message="Loading subscriptions…" />
         ) : filteredRows.length === 0 ? (
           <p style={{ fontSize: 13, color: "#6b7280", padding: "16px 22px" }}>No salons match the current filters.</p>
         ) : (

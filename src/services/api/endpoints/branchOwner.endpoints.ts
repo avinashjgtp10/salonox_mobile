@@ -7,7 +7,12 @@ export const BRANCH_OWNER = {
   SALON_RESET_PASSWORD: (id: string) => `/api/v1/branch-owner/salons/${id}/reset-password`,
   SALON_DELETE: (id: string) => `/api/v1/branch-owner/salons/${id}`,
   SALON_STAFF: (salonId: string) => `/api/v1/branch-owner/salons/${salonId}/staff`,
+  // Roles & Permissions (real system) — mirrors src/services/api/endpoints/
+  // roles.endpoints.ts's ROLES/STAFF_PERMISSIONS, salon-scoped by path
+  // instead of the caller's own JWT salonId (a branch_owner token has none).
+  SALON_ROLES: (salonId: string) => `/api/v1/branch-owner/salons/${salonId}/roles`,
   SALON_STAFF_PERMISSIONS: (salonId: string, staffId: string) => `/api/v1/branch-owner/salons/${salonId}/staff/${staffId}/permissions`,
+  SALON_STAFF_ROLE: (salonId: string, staffId: string) => `/api/v1/branch-owner/salons/${salonId}/staff/${staffId}/role`,
   SALON_SUBSCRIPTION: (salonId: string) => `/api/v1/branch-owner/salons/${salonId}/subscription`,
   SALON_INVOICES: (salonId: string) => `/api/v1/branch-owner/salons/${salonId}/invoices`,
   PAYMENTS:    "/api/v1/branch-owner/payments",
