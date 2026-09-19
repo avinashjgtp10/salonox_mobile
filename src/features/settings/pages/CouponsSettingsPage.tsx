@@ -25,6 +25,7 @@ import api from "../../../services/api/axios";
 import { useAppSelector } from "../../../hooks/useAppRedux";
 import { COUPON, type Coupon, type CreateCouponPayload, type CreateBulkCouponsPayload } from "../../../services/api/endpoints/coupon.endpoints";
 import { printCoupons } from "../utils/printCoupons";
+import PrintCouponModal from "../components/PrintCouponModal";
 import { useCurrency } from "../../../hooks/useCurrency";
 import "../styles/CouponsSettingsPage.scss";
 
@@ -36,6 +37,13 @@ interface CouponForm {
   max_uses: string; // "" = unlimited
   expires_at: string; // yyyy-mm-dd
   is_active: boolean;
+  // ── Print/display customization — all optional, feed the Print Coupon
+  // modal's templates, not the redemption math above. ──────────────────────
+  name: string;
+  valid_from: string; // yyyy-mm-dd, "" = valid immediately
+  max_discount: string; // "" = uncapped; percentage coupons only
+  terms: string;
+  show_barcode: boolean;
 }
 
 interface FormErrors {
@@ -44,7 +52,10 @@ interface FormErrors {
   expires_at?: string;
 }
 
-interface BulkForm extends Omit<CouponForm, "code"> {
+// Bulk Create deliberately doesn't touch name/valid_from/max_discount/terms/
+// show_barcode — those live on the single-coupon Create/Edit form only, and
+// createBulk()/CreateBulkCouponsBody (backend) never accepted them.
+interface BulkForm extends Omit<CouponForm, "code" | "name" | "valid_from" | "max_discount" | "terms" | "show_barcode"> {
   prefix: string;
   count: string;
 }
@@ -64,6 +75,11 @@ const EMPTY_FORM: CouponForm = {
   max_uses: "",
   expires_at: "",
   is_active: true,
+  name: "",
+  valid_from: "",
+  max_discount: "",
+  terms: "",
+  show_barcode: true,
 };
 
 const EMPTY_BULK_FORM: BulkForm = {
@@ -92,6 +108,11 @@ function couponToForm(c: Coupon): CouponForm {
     max_uses: c.max_uses != null ? String(c.max_uses) : "",
     expires_at: c.expires_at ? c.expires_at.slice(0, 10) : "",
     is_active: c.is_active,
+    name: c.name ?? "",
+    valid_from: c.valid_from ? c.valid_from.slice(0, 10) : "",
+    max_discount: c.max_discount != null ? String(c.max_discount) : "",
+    terms: c.terms ?? "",
+    show_barcode: c.show_barcode ?? true,
   };
 }
 
@@ -104,6 +125,13 @@ function formToPayload(f: CouponForm): CreateCouponPayload {
     max_uses: f.max_uses.trim() ? Number(f.max_uses) : null,
     expires_at: f.expires_at,
     is_active: f.is_active,
+    name: f.name.trim() || null,
+    valid_from: f.valid_from || null,
+    // Only meaningful (and only accepted server-side) for a percentage
+    // coupon — see validateCouponFields in coupons.service.ts.
+    max_discount: f.type === "percentage" && f.max_discount.trim() ? Number(f.max_discount) : null,
+    terms: f.terms.trim() || null,
+    show_barcode: f.show_barcode,
   };
 }
 
@@ -157,6 +185,10 @@ export default function CouponsSettingsPage() {
 
   // Bulk creation
   const [showBulkModal, setShowBulkModal] = useState(false);
+  // The specific coupon the Print Coupon modal is configured for — set from
+  // either the list row's print icon or the Coupon Details panel's own
+  // button, both open the exact same modal against whichever coupon.
+  const [printTarget, setPrintTarget] = useState<Coupon | null>(null);
   const [bulkForm, setBulkForm] = useState<BulkForm>(EMPTY_BULK_FORM);
   const [bulkErrors, setBulkErrors] = useState<BulkFormErrors>({});
   const [bulkSaving, setBulkSaving] = useState(false);
@@ -494,6 +526,14 @@ export default function CouponsSettingsPage() {
                       <span className={`cp-list__item-badge${status.variant ? ` cp-list__item-badge--${status.variant}` : ""}`}>
                         {status.label}
                       </span>
+                      <button
+                        type="button"
+                        className="cp-list__item-print"
+                        title="Print Coupon"
+                        onClick={(e) => { e.stopPropagation(); setPrintTarget(coupon); }}
+                      >
+                        <Printer size={13} />
+                      </button>
                     </div>
                   );
                 }
@@ -598,13 +638,25 @@ export default function CouponsSettingsPage() {
                     to until it exists. Opens the full-screen designer and
                     comes back here on close. */}
                 {!isCreating && selectedId && (
-                  <button
-                    className="cp-btn cp-detail__design"
-                    onClick={() => navigate(`/dashboard/settings/coupon-designer?coupon=${selectedId}`)}
-                    title="Design artwork for this coupon"
-                  >
-                    <Palette size={14} /> Design
-                  </button>
+                  <>
+                    <button
+                      className="cp-btn cp-detail__print"
+                      onClick={() => {
+                        const coupon = items.find((c) => c.id === selectedId);
+                        if (coupon) setPrintTarget(coupon);
+                      }}
+                      title="Print this coupon"
+                    >
+                      <Printer size={14} /> Print Coupon
+                    </button>
+                    <button
+                      className="cp-btn cp-detail__design"
+                      onClick={() => navigate(`/dashboard/settings/coupon-designer?coupon=${selectedId}`)}
+                      title="Design artwork for this coupon"
+                    >
+                      <Palette size={14} /> Design
+                    </button>
+                  </>
                 )}
                 <label className="cp-toggle">
                   <input
@@ -726,7 +778,76 @@ export default function CouponsSettingsPage() {
                     <div className="cp-field__hint">Select expiry date for this coupon</div>
                   )}
                 </div>
-                <div className="cp-field" />
+                <div className="cp-field">
+                  <label className="cp-field__label">Valid From</label>
+                  <input
+                    type="date"
+                    className="cp-input"
+                    value={form.valid_from}
+                    onChange={(e) => setField("valid_from", e.target.value)}
+                    disabled={!isEditing}
+                  />
+                  <div className="cp-field__hint">Leave blank to make it valid immediately</div>
+                </div>
+              </div>
+
+              {/* Name/Max Discount/Terms/barcode toggle feed the Print Coupon
+                  modal's templates — none of them affect redemption math
+                  above except Max Discount, which caps the % discount at
+                  checkout the same way it's shown capped on a printed coupon. */}
+              <div className="cp-form-row">
+                <div className="cp-field">
+                  <label className="cp-field__label">Coupon Name</label>
+                  <input
+                    type="text"
+                    className="cp-input"
+                    placeholder="e.g. Summer Sale"
+                    value={form.name}
+                    onChange={(e) => setField("name", e.target.value)}
+                    disabled={!isEditing}
+                  />
+                  <div className="cp-field__hint">Shown on the printed coupon and its preview</div>
+                </div>
+                {form.type === "percentage" && (
+                  <div className="cp-field">
+                    <label className="cp-field__label">Max Discount ({currencySymbol})</label>
+                    <input
+                      type="number"
+                      className="cp-input"
+                      min={0}
+                      placeholder="Uncapped"
+                      value={form.max_discount}
+                      onChange={(e) => setField("max_discount", e.target.value)}
+                      disabled={!isEditing}
+                    />
+                    <div className="cp-field__hint">Caps the % discount on a large bill</div>
+                  </div>
+                )}
+              </div>
+
+              <div className="cp-field">
+                <label className="cp-field__label">Terms &amp; Conditions</label>
+                <textarea
+                  className="cp-input cp-textarea"
+                  rows={2}
+                  placeholder="e.g. Not valid with other offers. One per customer."
+                  value={form.terms}
+                  onChange={(e) => setField("terms", e.target.value)}
+                  disabled={!isEditing}
+                />
+                <div className="cp-field__hint">Printed under the coupon code, when set</div>
+              </div>
+
+              <div className="cp-check-row">
+                <label className="cp-check-item">
+                  <input
+                    type="checkbox"
+                    checked={form.show_barcode}
+                    onChange={(e) => setField("show_barcode", e.target.checked)}
+                    disabled={!isEditing}
+                  />
+                  Show QR code / barcode when printed
+                </label>
               </div>
 
               <div className="cp-preview">
@@ -948,6 +1069,15 @@ export default function CouponsSettingsPage() {
             )}
           </div>
         </div>
+      )}
+
+      {printTarget && (
+        <PrintCouponModal
+          coupon={printTarget}
+          salon={currentSalon}
+          formatAmount={formatAmount}
+          onClose={() => setPrintTarget(null)}
+        />
       )}
     </div>
   );

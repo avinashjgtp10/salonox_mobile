@@ -512,10 +512,30 @@
     display: flex;
     align-items: center;
     flex: 1;
+    // A flex item's default min-width is `auto` (its own content width), not
+    // 0 — without this, a row of 12+ nowrap tabs refuses to shrink to the
+    // panel's actual width at all, so overflow-x: auto below never gets the
+    // chance to activate; the excess just gets silently clipped by
+    // .chp-detail's own `overflow: hidden` a level up, with no way to reach
+    // it. This is the actual "tabs not accessible" bug, not just a missing
+    // scrollbar — the scrollbar was invisible for the tabs that WERE
+    // reachable, but the ones past the clip line weren't reachable at all.
+    min-width: 0;
     padding: 0 20px;
     overflow-x: auto;
+    // Visible, slim scrollbar — this used to set `::-webkit-scrollbar { height: 0; }`,
+    // hiding it entirely, so even where scrolling did work, the only way to
+    // find out was a trackpad swipe or shift+wheel; unusable with a plain
+    // mouse and no visual cue anything was hidden. Same treatment already
+    // used elsewhere in the app (see _reportDetailBase.scss) — shows up only
+    // when the tabs actually overflow, native to overflow-x: auto.
+    scrollbar-width: thin; // Firefox
+    scrollbar-color: #d1d5db transparent;
 
-    &::-webkit-scrollbar { height: 0; }
+    &::-webkit-scrollbar { height: 5px; }
+    &::-webkit-scrollbar-track { background: transparent; }
+    &::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 4px; }
+    &::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
   }
 
   .chp-tab {

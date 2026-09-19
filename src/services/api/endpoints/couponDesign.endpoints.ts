@@ -12,7 +12,14 @@ export interface ExportDesignPayload {
   values?: Record<string, string>;
   /** Set to render an A4 sheet of copies instead of one artboard. */
   perPage?: 1 | 2 | 4 | 6 | 8 | 10 | 12;
+  /** Real physical cell size (mm) to print at — same Small/Medium/Large/
+   *  Custom concept as the Print Coupon modal (couponPrintSheet.ts). Drives
+   *  how many fit per A4 page; takes priority over perPage if both are set. */
+  sizeMm?: { width: number; height: number };
   cropMarks?: boolean;
+  /** Total copies wanted, spanning as many A4 pages as it takes (1–500).
+   *  Omitted = exactly one page's worth, however many fit at the chosen size. */
+  quantity?: number;
 }
 
 export interface ExportDesignResult {

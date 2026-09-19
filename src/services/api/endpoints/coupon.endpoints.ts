@@ -25,6 +25,14 @@ export interface Coupon {
   batch_label: string | null;
   created_at: string;
   updated_at: string;
+  // ── Print/display customization ───────────────────────────────────────────
+  // All nullable/defaulted — see coupons.types.ts (backend) for the same
+  // fields; NULL max_discount = uncapped, NULL valid_from = valid immediately.
+  name: string | null;
+  valid_from: string | null;
+  max_discount: number | null;
+  terms: string | null;
+  show_barcode: boolean;
 }
 
 export interface CreateCouponPayload {
@@ -35,6 +43,11 @@ export interface CreateCouponPayload {
   max_uses?: number | null;
   expires_at: string;
   is_active?: boolean;
+  name?: string | null;
+  valid_from?: string | null;
+  max_discount?: number | null;
+  terms?: string | null;
+  show_barcode?: boolean;
 }
 
 export type UpdateCouponPayload = Partial<CreateCouponPayload>;

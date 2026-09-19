@@ -253,6 +253,9 @@ $radius: 12px;
 
   &--outline { background: $white; color: $primary; &:hover { background: #f9fafb; } }
   &--danger { background: #fee2e2; color: $danger; border-color: #fca5a5; &:hover { background: #fecaca; } }
+  &--success { background: #d1fae5; color: $success; border-color: #6ee7b7; &:hover { background: #a7f3d0; } }
+
+  &:disabled { opacity: 0.6; cursor: not-allowed; &:hover { background: inherit; } }
 }
 
 // ── SKELETON ──

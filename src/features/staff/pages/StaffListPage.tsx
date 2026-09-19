@@ -8,6 +8,7 @@ import { STAFF } from "../../../services/api/endpoints";
 import {
   Search as SearchIcon,
   ToggleOn,
+  ToggleOff,
   ChevronDown,
   ArrowDownUp,
   PersonBadge,
@@ -344,6 +345,53 @@ export default function StaffListPage() {
     setActionMenuId(null);
   };
 
+  // Bulk Active/Inactive from the selection bar — always both options,
+  // regardless of the selected staff's own current mix of statuses (unlike
+  // the per-row toggle above, which only ever shows the ONE action that
+  // makes sense for that single member). "Deactivate" cannot un-delete or
+  // otherwise destroy anything (see staffService.deactivate — one column
+  // flip), so this fires every request in parallel rather than the
+  // sequential-await-per-item pattern the bulk delete confirm above uses,
+  // and reports one aggregate result instead of a toast per staff member.
+  const [bulkStatusUpdating, setBulkStatusUpdating] = useState(false);
+  const handleBulkStatusChange = async (activate: boolean) => {
+    if (!can("deactivate_staff")) { denyPerm("deactivate_staff"); return; }
+    const ids = selectedIds;
+    if (ids.length === 0 || bulkStatusUpdating) return;
+    setBulkStatusUpdating(true);
+    try {
+      const results = await Promise.allSettled(
+        ids.map((id) => dispatch(activate ? activateStaffThunk(id) : deactivateStaffThunk(id)).unwrap())
+      );
+      const succeeded = new Set(ids.filter((_, i) => results[i].status === "fulfilled"));
+      const failedCount = ids.length - succeeded.size;
+      // Same immediate-patch-then-refetch pattern as the single-row toggle
+      // above (see its comment) — this page's table reads its own locally-
+      // fetched `items`, not the staff Redux slice the thunks above update.
+      if (succeeded.size > 0) {
+        setItems((prev) =>
+          prev.map((m) => (succeeded.has(m.id) ? { ...m, is_active: activate } : m))
+        );
+        // Clear the completed portion of the selection — matches bulk delete's
+        // own effect (each handleDeleteStaff call already drops its own id),
+        // so a finished bulk action always ends with a clean selection rather
+        // than leaving already-updated rows checked with stale status badges.
+        setSelectedIds((prev) => prev.filter((id) => !succeeded.has(id)));
+      }
+      fetchStaff();
+      const verb = activate ? "activated" : "deactivated";
+      if (failedCount === 0) {
+        showToast(`${succeeded.size} staff member${succeeded.size === 1 ? "" : "s"} ${verb} successfully`);
+      } else if (succeeded.size === 0) {
+        showToast(`Failed to update status for ${failedCount} staff member${failedCount === 1 ? "" : "s"}`, "error");
+      } else {
+        showToast(`${succeeded.size} ${verb}, ${failedCount} failed`, "error");
+      }
+    } finally {
+      setBulkStatusUpdating(false);
+    }
+  };
+
   // Pulls every staff member matching the current search/filters/sort — not
   // just the page on screen — for CSV/Excel/PDF export. Same page-looping
   // approach as SuppliersListPage/OrdersListPage/ProductsListPage's export,
@@ -532,6 +580,22 @@ export default function StaffListPage() {
             </button>
           </div>
           <div className="slp-bulk-actions">
+            <button
+              className="slp-bulk-btn slp-bulk-btn--success"
+              disabled={bulkStatusUpdating}
+              style={!can("deactivate_staff") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+              onClick={() => handleBulkStatusChange(true)}
+            >
+              <ToggleOn size={13} /> {bulkStatusUpdating ? "Updating..." : "Active"}
+            </button>
+            <button
+              className="slp-bulk-btn slp-bulk-btn--outline"
+              disabled={bulkStatusUpdating}
+              style={!can("deactivate_staff") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+              onClick={() => handleBulkStatusChange(false)}
+            >
+              <ToggleOff size={13} /> {bulkStatusUpdating ? "Updating..." : "Inactive"}
+            </button>
             <button
               className="slp-bulk-btn slp-bulk-btn--danger"
               style={!can("delete_staff") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
