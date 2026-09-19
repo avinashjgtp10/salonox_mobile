@@ -5,10 +5,11 @@ import {
 import { useAppSelector } from "../../../hooks/useAppRedux";
 import api from "../../../services/api/axios";
 import Dropdown from "../../../components/ui/Dropdown";
+import Loader from "../../../components/ui/Loader";
 import { BRANCH_OWNER } from "../../../services/api/endpoints/branchOwner.endpoints";
 import {
   SectionCard, StatTile, BoEmptyState, PrimaryButton, GhostButton,
-  Shimmer, inputStyle,
+  inputStyle,
   usePagination, BoPagination,
 } from "../components/BranchOwnerUI";
 
@@ -120,18 +121,16 @@ export default function BranchOwnerFinancePage() {
 
       {/* KPIs */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 20 }}>
-        {!loaded ? [...Array(4)].map((_, i) => <Shimmer key={i} h={104} />) : (<>
-          <StatTile icon={<CurrencyRupee size={18} />} label="Revenue (This Month)" value={fmtMoney(overview?.totals.totalRevenue ?? 0)} variantIndex={0} />
-          <StatTile icon={<GraphUpArrow size={18} />} label="All-Time Revenue" value={fmtMoney(overview?.totals.allTimeRevenue ?? 0)} variantIndex={1} />
-          <StatTile icon={<ClockHistory size={17} />} label="Pending Commission" value={fmtMoney(overview?.totals.pendingPayout ?? 0)} variantIndex={2} />
-          <StatTile icon={<CheckCircleFill size={16} />} label="Commission Paid Out" value={fmtMoney(overview?.totals.paidOut ?? 0)} variantIndex={3} />
-        </>)}
+        <StatTile icon={<CurrencyRupee size={18} />} label="Revenue (This Month)" value={loaded ? fmtMoney(overview?.totals.totalRevenue ?? 0) : "—"} />
+        <StatTile icon={<GraphUpArrow size={18} />} label="All-Time Revenue" value={loaded ? fmtMoney(overview?.totals.allTimeRevenue ?? 0) : "—"} />
+        <StatTile icon={<ClockHistory size={17} />} label="Pending Commission" value={loaded ? fmtMoney(overview?.totals.pendingPayout ?? 0) : "—"} />
+        <StatTile icon={<CheckCircleFill size={16} />} label="Commission Paid Out" value={loaded ? fmtMoney(overview?.totals.paidOut ?? 0) : "—"} />
       </div>
 
       {/* Revenue by branch */}
       <div style={{ marginBottom: 16 }}>
         <SectionCard title="Revenue by Branch" noPadding>
-          {!loaded ? <div style={{ padding: 20 }}><Shimmer h={160} /></div> : (overview?.salons.length ?? 0) === 0 ? (
+          {!loaded ? <Loader message="Loading revenue…" /> : (overview?.salons.length ?? 0) === 0 ? (
             <BoEmptyState icon={<Wallet2 size={26} />} text="No revenue data yet." />
           ) : (<>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5 }}>
@@ -163,14 +162,14 @@ export default function BranchOwnerFinancePage() {
       {/* Cash management across branches */}
       <div style={{ marginBottom: 16 }}>
         <SectionCard title="Cash Management" noPadding>
-          {!cashLoaded ? <div style={{ padding: 20 }}><Shimmer h={160} /></div> : (cashOverview?.salons.length ?? 0) === 0 ? (
+          {!cashLoaded ? <Loader message="Loading cash management…" /> : (cashOverview?.salons.length ?? 0) === 0 ? (
             <BoEmptyState icon={<Wallet2 size={26} />} text="No cash counter activity yet." />
           ) : (<>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, padding: 20 }}>
-              <StatTile icon={<CurrencyRupee size={18} />} label="Cash Revenue" value={fmtMoney(cashOverview?.totals.cashRevenue ?? 0)} variantIndex={0} />
-              <StatTile icon={<GraphUpArrow size={18} />} label="Cash Expense" value={fmtMoney(cashOverview?.totals.cashExpense ?? 0)} variantIndex={1} />
-              <StatTile icon={<Wallet2 size={17} />} label="Closing Balance" value={fmtMoney(cashOverview?.totals.closingBalance ?? 0)} variantIndex={2} />
-              <StatTile icon={<CheckCircleFill size={16} />} label="Open / Closed Sessions" value={`${cashOverview?.totals.openSessions ?? 0} / ${cashOverview?.totals.closedSessions ?? 0}`} variantIndex={3} />
+              <StatTile icon={<CurrencyRupee size={18} />} label="Cash Revenue" value={fmtMoney(cashOverview?.totals.cashRevenue ?? 0)} />
+              <StatTile icon={<GraphUpArrow size={18} />} label="Cash Expense" value={fmtMoney(cashOverview?.totals.cashExpense ?? 0)} />
+              <StatTile icon={<Wallet2 size={17} />} label="Closing Balance" value={fmtMoney(cashOverview?.totals.closingBalance ?? 0)} />
+              <StatTile icon={<CheckCircleFill size={16} />} label="Open / Closed Sessions" value={`${cashOverview?.totals.openSessions ?? 0} / ${cashOverview?.totals.closedSessions ?? 0}`} />
             </div>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5 }}>
               <thead>
@@ -210,7 +209,7 @@ export default function BranchOwnerFinancePage() {
           />
         </div>
       }>
-        {!commissionsLoaded ? <div style={{ padding: 20 }}><Shimmer h={160} /></div> : commissions.length === 0 ? (
+        {!commissionsLoaded ? <Loader message="Loading commissions…" /> : commissions.length === 0 ? (
           <BoEmptyState icon={<PersonBadge size={26} />} text="No commission activity for this branch yet." />
         ) : (<>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5 }}>

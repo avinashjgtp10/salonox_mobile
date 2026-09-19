@@ -1,17 +1,63 @@
 import { useEffect, useMemo, useState } from "react";
-import { CashCoin, CheckCircle, ClockHistory, XCircle } from "react-bootstrap-icons";
+import { CashCoin, CheckCircle, ClockHistory, XCircle, PersonFill, Telephone, Building, Receipt, CalendarEvent } from "react-bootstrap-icons";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { fetchBranchOwnerPaymentsThunk } from "../../../middleware/branchOwner/branchOwner.thunk";
-import { DateRangeFilter, JiraFilterMenu, getDateRangePresetValue, Table, Card } from "../../../components/ui";
+import { DateRangeFilter, JiraFilterMenu, getDateRangePresetValue, Table, Card, Modal } from "../../../components/ui";
 import type { DateRangeFilterValue, JiraFilterField } from "../../../components/ui";
 import type { BranchOwnerPayment } from "../../../store/branchOwnerSlice";
-import { StatTile, StatusBadge, Shimmer, BoSearchInput, usePagination, BoPagination } from "../components/BranchOwnerUI";
+import { StatTile, StatusBadge, BoSearchInput, usePagination, BoPagination } from "../components/BranchOwnerUI";
 
 const STATUS_OPTIONS = [
   { id: "paid", label: "Paid" },
   { id: "pending", label: "Pending" },
   { id: "failed", label: "Failed" },
 ];
+
+// Shown when a payment row is clicked — same fields already in the table,
+// plus the client name/phone the table has no room for, laid out as a
+// single-payment detail card instead of scanning across a row.
+function PaymentDetailModal({ payment, onClose }: { payment: BranchOwnerPayment; onClose: () => void }) {
+  const fmt = (n: any) => n != null ? `₹${Number(n).toLocaleString("en-IN")}` : "—";
+  return (
+    <Modal show title={payment.client_name || "Walk-in Client"} onClose={onClose} size="md">
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
+        <StatusBadge status={payment.status} />
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 18 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5, color: "#374151" }}>
+          <PersonFill size={13} color="#9ca3af" />
+          <span>{payment.client_name || "Walk-in Client"}</span>
+        </div>
+        {payment.client_phone && (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5, color: "#374151" }}>
+            <Telephone size={13} color="#9ca3af" />
+            <span>{payment.client_phone}</span>
+          </div>
+        )}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5, color: "#374151" }}>
+          <Building size={13} color="#9ca3af" />
+          <span>{payment.salon_name}</span>
+        </div>
+        {payment.invoice_number && (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5, color: "#374151" }}>
+            <Receipt size={13} color="#9ca3af" />
+            <span>Invoice #{payment.invoice_number}</span>
+          </div>
+        )}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5, color: "#374151" }}>
+          <CalendarEvent size={13} color="#9ca3af" />
+          <span>{payment.created_at ? new Date(payment.created_at).toLocaleString("en-IN") : "—"}</span>
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
+        <StatTile icon={<CashCoin size={16} />} label="Payment Received" value={fmt(payment.amount)} />
+        <StatTile icon={<CheckCircle size={16} />} label="Payment Method" value={payment.payment_method || "—"} />
+      </div>
+    </Modal>
+  );
+}
 
 export default function BranchOwnerPaymentsPage() {
   const dispatch = useAppDispatch();
@@ -21,6 +67,7 @@ export default function BranchOwnerPaymentsPage() {
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
   const [methodFilter, setMethodFilter] = useState<string[]>([]);
   const [salonFilter, setSalonFilter] = useState<string[]>([]);
+  const [selectedPayment, setSelectedPayment] = useState<BranchOwnerPayment | null>(null);
   const [search, setSearch] = useState("");
 
   useEffect(() => {
@@ -76,7 +123,7 @@ export default function BranchOwnerPaymentsPage() {
       if (methodFilter.length && !methodFilter.includes(p.payment_method)) return false;
       if (salonFilter.length && !salonFilter.includes(p.salon_id || p.salon_name)) return false;
       if (q) {
-        const haystack = `${p.salon_name} ${p.invoice_number ?? ""}`.toLowerCase();
+        const haystack = `${p.salon_name} ${p.invoice_number ?? ""} ${p.client_name ?? ""}`.toLowerCase();
         if (!haystack.includes(q)) return false;
       }
       return true;
@@ -102,18 +149,16 @@ export default function BranchOwnerPaymentsPage() {
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 20 }}>
-        {loading.payments ? [...Array(4)].map((_, i) => <Shimmer key={i} h={72} />) : (<>
-          <StatTile icon={<CashCoin size={16} />} label="Total Amount" value={fmt(kpis.total)} variantIndex={0} sub={`${kpis.count} payment${kpis.count !== 1 ? "s" : ""}`} />
-          <StatTile icon={<CheckCircle size={16} />} label="Paid" value={kpis.paidCount} variantIndex={1} />
-          <StatTile icon={<ClockHistory size={16} />} label="Pending" value={kpis.pendingCount} variantIndex={2} />
-          <StatTile icon={<XCircle size={16} />} label="Failed" value={kpis.failedCount} variantIndex={3} />
-        </>)}
+        <StatTile icon={<CashCoin size={16} />} label="Total Amount" value={loading.payments ? "—" : fmt(kpis.total)} sub={loading.payments ? undefined : `${kpis.count} payment${kpis.count !== 1 ? "s" : ""}`} />
+        <StatTile icon={<CheckCircle size={16} />} label="Paid" value={loading.payments ? "—" : kpis.paidCount} />
+        <StatTile icon={<ClockHistory size={16} />} label="Pending" value={loading.payments ? "—" : kpis.pendingCount} />
+        <StatTile icon={<XCircle size={16} />} label="Failed" value={loading.payments ? "—" : kpis.failedCount} />
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 18 }}>
         <DateRangeFilter value={dateRange} onChange={setDateRange} />
         <JiraFilterMenu fields={filterFields} selected={filterMenuSelected} onApply={handleFiltersApply} triggerLabel="Filters" />
-        <BoSearchInput value={search} onChange={setSearch} placeholder="Search salon or invoice no." />
+        <BoSearchInput value={search} onChange={setSearch} placeholder="Search client, salon or invoice no." />
       </div>
 
       <Card noPadding shadow="sm">
@@ -121,8 +166,10 @@ export default function BranchOwnerPaymentsPage() {
           loading={loading.payments}
           data={paymentsPage.pageItems}
           emptyMessage="No payments found"
+          onRowClick={(p) => setSelectedPayment(p)}
           columns={[
-            { header: "Salon Name", key: "salon_name", render: (p) => <span className="fw-bold text-dark">{p.salon_name}</span> },
+            { header: "Client", key: "client_name", render: (p) => <span className="fw-bold text-dark">{p.client_name || "Walk-in Client"}</span> },
+            { header: "Salon Name", key: "salon_name", className: "text-secondary" },
             { header: "Invoice Number", key: "invoice_number", render: (p) => p.invoice_number || "—" },
             { header: "Payment Received", key: "amount", render: (p) => <span className="fw-bold" style={{ color: "#16a34a" }}>{fmt(p.amount)}</span> },
             { header: "Payment Method", key: "payment_method", className: "text-capitalize", render: (p) => p.payment_method || "—" },
@@ -132,6 +179,10 @@ export default function BranchOwnerPaymentsPage() {
         />
         <BoPagination {...paymentsPage} />
       </Card>
+
+      {selectedPayment && (
+        <PaymentDetailModal payment={selectedPayment} onClose={() => setSelectedPayment(null)} />
+      )}
     </div>
   );
 }

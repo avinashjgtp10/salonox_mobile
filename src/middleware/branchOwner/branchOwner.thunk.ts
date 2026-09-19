@@ -4,6 +4,7 @@ import { BRANCH_OWNER } from "../../services/api/endpoints/branchOwner.endpoints
 import type { BranchOwnerSalon, BranchOwnerStats, BranchOwnerPayment, BranchOwnerDashboard } from "../../store/branchOwnerSlice";
 import type { Staff } from "../../types/staff.types";
 import type { Subscription, SubscriptionPlan, Invoice } from "../../features/billing/types/billing.types";
+import type { Role, StaffPermissionsView } from "../../types/roles.types";
 
 // One POST call for the whole My Salons page — replaces the old GET.
 export const fetchMySalonsThunk = createAsyncThunk<BranchOwnerSalon[], void, { rejectValue: string }>(
@@ -118,18 +119,68 @@ export const fetchAllStaffThunk = createAsyncThunk<Staff[], void, { rejectValue:
   }
 );
 
-export const updateSalonStaffPermissionsThunk = createAsyncThunk<
-  Staff,
-  { salonId: string; staffId: string; customPermissions: Record<string, boolean> | null },
+// ── Roles & Permissions (real system) ────────────────────────────────────────
+// Branch-owner-scoped proxies into the same Roles & Permissions system
+// Settings uses (see src/middleware/roles/roles.thunk.ts) — salon-scoped by
+// an explicit salonId argument instead of the caller's own JWT salonId,
+// since a branch_owner token manages many salons and has none of its own.
+export const fetchSalonRolesThunk = createAsyncThunk<Role[], string, { rejectValue: string }>(
+  "branchOwner/fetchSalonRoles",
+  async (salonId, { rejectWithValue }) => {
+    try {
+      const res = await api.get(BRANCH_OWNER.SALON_ROLES(salonId));
+      const data = res.data?.data ?? res.data;
+      return Array.isArray(data) ? data : [];
+    } catch (err: any) {
+      return rejectWithValue(err?.response?.data?.error?.message ?? err?.message ?? "Failed to fetch roles");
+    }
+  }
+);
+
+export const fetchSalonStaffPermissionsThunk = createAsyncThunk<
+  StaffPermissionsView,
+  { salonId: string; staffId: string },
   { rejectValue: string }
 >(
-  "branchOwner/updateSalonStaffPermissions",
-  async ({ salonId, staffId, customPermissions }, { rejectWithValue }) => {
+  "branchOwner/fetchSalonStaffPermissions",
+  async ({ salonId, staffId }, { rejectWithValue }) => {
     try {
-      const res = await api.patch(BRANCH_OWNER.SALON_STAFF_PERMISSIONS(salonId, staffId), { custom_permissions: customPermissions });
+      const res = await api.get(BRANCH_OWNER.SALON_STAFF_PERMISSIONS(salonId, staffId));
       return res.data?.data ?? res.data;
     } catch (err: any) {
-      return rejectWithValue(err?.response?.data?.error?.message ?? err?.message ?? "Failed to update permissions");
+      return rejectWithValue(err?.response?.data?.error?.message ?? err?.message ?? "Failed to fetch staff permissions");
+    }
+  }
+);
+
+export const setSalonStaffOverridesThunk = createAsyncThunk<
+  StaffPermissionsView,
+  { salonId: string; staffId: string; overrides: Record<string, boolean | null> },
+  { rejectValue: string }
+>(
+  "branchOwner/setSalonStaffOverrides",
+  async ({ salonId, staffId, overrides }, { rejectWithValue }) => {
+    try {
+      const res = await api.patch(BRANCH_OWNER.SALON_STAFF_PERMISSIONS(salonId, staffId), { overrides });
+      return res.data?.data ?? res.data;
+    } catch (err: any) {
+      return rejectWithValue(err?.response?.data?.error?.message ?? err?.message ?? "Failed to update permission overrides");
+    }
+  }
+);
+
+export const assignSalonStaffRoleThunk = createAsyncThunk<
+  StaffPermissionsView,
+  { salonId: string; staffId: string; roleId: string },
+  { rejectValue: string }
+>(
+  "branchOwner/assignSalonStaffRole",
+  async ({ salonId, staffId, roleId }, { rejectWithValue }) => {
+    try {
+      const res = await api.patch(BRANCH_OWNER.SALON_STAFF_ROLE(salonId, staffId), { role_id: roleId });
+      return res.data?.data ?? res.data;
+    } catch (err: any) {
+      return rejectWithValue(err?.response?.data?.error?.message ?? err?.message ?? "Failed to assign role");
     }
   }
 );

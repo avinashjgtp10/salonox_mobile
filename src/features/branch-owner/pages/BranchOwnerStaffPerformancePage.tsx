@@ -8,11 +8,15 @@ import Dropdown from "../../../components/ui/Dropdown";
 import { DateRangeFilter, JiraFilterMenu, getDateRangePresetValue, SummaryCardRow, Table, Modal, Button } from "../../../components/ui";
 import type { DateRangeFilterValue, JiraFilterField, SummaryCardItem } from "../../../components/ui";
 import {
-  SectionCard, BoEmptyState, Shimmer, BoSearchInput,
+  SectionCard, BoEmptyState, BoSearchInput,
   usePagination, BoPagination,
 } from "../components/BranchOwnerUI";
 
 interface StaffPerformanceRow {
+  // Composite of staffId+salonId — same value used as the table's row key —
+  // present only so this satisfies the shared Table component's row
+  // constraint; not returned by the API itself.
+  id: string;
   staffId: string; name: string; role: string;
   salonId: string; salonName: string;
   revenue: number; commissionEarned: number; pendingPayout: number; paidOut: number; transactionCount: number;
@@ -95,7 +99,7 @@ export default function BranchOwnerStaffPerformancePage() {
   useEffect(() => {
     setLoaded(false);
     api.post(BRANCH_OWNER.STAFF_PERFORMANCE_LIST, { period: apiPeriod })
-      .then((r) => setRows(r.data?.data ?? []))
+      .then((r) => setRows((r.data?.data ?? []).map((row: Omit<StaffPerformanceRow, "id">) => ({ ...row, id: `${row.staffId}-${row.salonId}` }))))
       .catch(() => setRows([]))
       .finally(() => setLoaded(true));
   }, [apiPeriod]);
@@ -177,19 +181,13 @@ export default function BranchOwnerStaffPerformancePage() {
       {/* KPIs — same shared SummaryCardRow the Reports pages' cards are
           built on (components/ui/SummaryCardRow.tsx + .scss), not a
           page-local copy. */}
-      {!loaded ? (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 16 }}>
-          {[...Array(3)].map((_, i) => <div key={i} style={{ flex: "1 1 160px", maxWidth: 220 }}><Shimmer h={72} /></div>)}
-        </div>
-      ) : (
-        <SummaryCardRow
-          items={[
-            { key: "staff", icon: <PeopleFill size={18} />, value: uniqueStaff, label: "Staff Rows", sub: `across ${uniqueSalons} salon${uniqueSalons !== 1 ? "s" : ""}` },
-            { key: "revenue", icon: <CurrencyRupee size={18} />, value: fmtMoney(totalRevenue), label: "Revenue Generated" },
-            { key: "commission", icon: <GraphUpArrow size={18} />, value: fmtMoney(totalCommission), label: "Commission Earned" },
-          ] as SummaryCardItem[]}
-        />
-      )}
+      <SummaryCardRow
+        items={[
+          { key: "staff", icon: <PeopleFill size={18} />, value: loaded ? uniqueStaff : "—", label: "Staff Rows", sub: `across ${uniqueSalons} salon${uniqueSalons !== 1 ? "s" : ""}` },
+          { key: "revenue", icon: <CurrencyRupee size={18} />, value: loaded ? fmtMoney(totalRevenue) : "—", label: "Revenue Generated" },
+          { key: "commission", icon: <GraphUpArrow size={18} />, value: loaded ? fmtMoney(totalCommission) : "—", label: "Commission Earned" },
+        ] as SummaryCardItem[]}
+      />
 
       {/* Filters */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
@@ -202,26 +200,23 @@ export default function BranchOwnerStaffPerformancePage() {
       </div>
 
       <SectionCard title="Staff Performance" noPadding>
-        {!loaded ? <div style={{ padding: 20 }}><Shimmer h={200} /></div> : (
-          <>
-            <Table<StaffPerformanceRow>
-              data={page.pageItems}
-              emptyMessage={rows.length === 0 ? "No staff activity for this date range yet." : "No staff match the current filters."}
-              columns={[
-                { header: "Staff", key: "name", render: (r) => <span className="fw-bold text-dark">{r.name}</span> },
-                { header: "Salon", key: "salonName", className: "text-secondary" },
-                { header: "Role", key: "role", className: "text-muted" },
-                { header: "Transactions", key: "transactionCount", className: "text-secondary" },
-                { header: "Revenue", key: "revenue", render: (r) => <span className="fw-semibold text-dark">{fmtMoney(r.revenue)}</span> },
-                { header: "Commission Earned", key: "commissionEarned", className: "text-secondary", render: (r) => fmtMoney(r.commissionEarned) },
-                { header: "Avg / Transaction", key: "avg", className: "text-secondary", render: (r) => fmtMoneyFull(r.transactionCount > 0 ? r.revenue / r.transactionCount : 0) },
-                { header: "Pending", key: "pendingPayout", render: (r) => <span className="fw-semibold" style={{ color: r.pendingPayout > 0 ? "#d97706" : "#94a3b8" }}>{fmtMoney(r.pendingPayout)}</span> },
-                { header: "", key: "action", render: (r) => <Button size="sm" variant="outline-secondary" onClick={() => setSelectedRow(r)}>View</Button> },
-              ]}
-            />
-            <BoPagination {...page} />
-          </>
-        )}
+        <Table<StaffPerformanceRow>
+          data={page.pageItems}
+          loading={!loaded}
+          emptyMessage={rows.length === 0 ? "No staff activity for this date range yet." : "No staff match the current filters."}
+          columns={[
+            { header: "Staff", key: "name", render: (r) => <span className="fw-bold text-dark">{r.name}</span> },
+            { header: "Salon", key: "salonName", className: "text-secondary" },
+            { header: "Role", key: "role", className: "text-muted" },
+            { header: "Transactions", key: "transactionCount", className: "text-secondary" },
+            { header: "Revenue", key: "revenue", render: (r) => <span className="fw-semibold text-dark">{fmtMoney(r.revenue)}</span> },
+            { header: "Commission Earned", key: "commissionEarned", className: "text-secondary", render: (r) => fmtMoney(r.commissionEarned) },
+            { header: "Avg / Transaction", key: "avg", className: "text-secondary", render: (r) => fmtMoneyFull(r.transactionCount > 0 ? r.revenue / r.transactionCount : 0) },
+            { header: "Pending", key: "pendingPayout", render: (r) => <span className="fw-semibold" style={{ color: r.pendingPayout > 0 ? "#d97706" : "#94a3b8" }}>{fmtMoney(r.pendingPayout)}</span> },
+            { header: "", key: "action", render: (r) => <Button size="sm" variant="outline-secondary" onClick={() => setSelectedRow(r)}>View</Button> },
+          ]}
+        />
+        {loaded && <BoPagination {...page} />}
       </SectionCard>
 
       {selectedRow && <StaffDetailDrawer row={selectedRow} onClose={() => setSelectedRow(null)} />}

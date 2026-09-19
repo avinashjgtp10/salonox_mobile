@@ -1,50 +1,5 @@
 import { useAppSelector } from "./useAppRedux";
 
-type PermMatrix = Record<string, { owner: boolean; staff: boolean }>;
-
-// Last-resort fallback, used only before /users/me's effective_permissions
-// has loaded for the first time (e.g. the instant after login, or a page
-// reload before fetchMeThunk resolves) — mirrors permission.middleware.ts's
-// own DEFAULT_STAFF_PERMS. This is NOT the source of truth once real data is
-// available; see the main resolution below.
-const defaultPermsMap: PermMatrix = {
-  view_dashboard: { owner: true, staff: true },
-  view_campaigns: { owner: true, staff: false },
-  create_campaigns: { owner: true, staff: false },
-  design_coupons: { owner: true, staff: false },
-  view_calendar: { owner: true, staff: true },
-  manage_calendar: { owner: true, staff: false },
-  view_clients: { owner: true, staff: true },
-  create_clients: { owner: true, staff: true },
-  edit_clients: { owner: true, staff: true },
-  delete_clients: { owner: true, staff: false },
-  view_sales: { owner: true, staff: true },
-  create_sales: { owner: true, staff: true },
-  view_services: { owner: true, staff: true },
-  create_services: { owner: true, staff: false },
-  edit_services: { owner: true, staff: false },
-  view_digital_menu: { owner: true, staff: true },
-  view_products: { owner: true, staff: true },
-  create_products: { owner: true, staff: false },
-  view_packages: { owner: true, staff: true },
-  create_packages: { owner: true, staff: false },
-  view_memberships: { owner: true, staff: true },
-  create_memberships: { owner: true, staff: false },
-  view_inventory: { owner: true, staff: true },
-  manage_inventory: { owner: true, staff: false },
-  stock_adjustment: { owner: true, staff: false },
-  view_booking: { owner: true, staff: true },
-  view_team: { owner: true, staff: true },
-  add_team_member: { owner: true, staff: false },
-  edit_team_member: { owner: true, staff: false },
-  manage_shifts: { owner: true, staff: false },
-  view_payroll: { owner: true, staff: false },
-  view_reports: { owner: true, staff: false },
-  export_reports: { owner: true, staff: false },
-  manage_pos_payments: { owner: true, staff: false },
-  view_enquiries: { owner: true, staff: true },
-};
-
 const DEV = import.meta.env.DEV;
 
 // Some nav-level guards need to gate on "any permission in a group" rather than
@@ -171,18 +126,16 @@ export function usePermissions() {
   }
 
   // effective_permissions hasn't loaded yet (first render after login/reload,
-  // before fetchMeThunk resolves) — use the static fallback so the UI doesn't
-  // flash "no access" everywhere, then re-render with real data a moment later.
+  // before fetchMeThunk resolves). Roles & Permissions (RolesPermissionsPage.tsx
+  // / roles.thunk.ts) is fully backend-configurable per salon now — an owner
+  // can grant or revoke any permission on any role at any time — so there is
+  // no fixed client-side default that could stand in for it without risking
+  // staff seeing (or being blocked from) the wrong things for a moment. Deny
+  // by default instead of guessing; effective_permissions above takes over
+  // within one request round-trip of fetchMeThunk resolving.
   if (DEV && role === "staff") {
-    console.warn("[Permissions] effective_permissions not loaded yet — using static fallback until /users/me resolves.");
+    console.warn("[Permissions] effective_permissions not loaded yet — denying by default until /users/me resolves.");
   }
 
-  const can = (permKey: string): boolean => {
-    if (role === "staff") {
-      return resolveKeys(permKey).some((k) => defaultPermsMap[k]?.staff ?? false);
-    }
-    return false;
-  };
-
-  return { can, role };
+  return { can: () => false, role };
 }

@@ -39,6 +39,8 @@ export interface BranchOwnerPayment {
   payment_method: string;
   created_at: string;
   invoice_number?: string | null;
+  client_name?: string | null;
+  client_phone?: string | null;
 }
 
 export interface BranchOwnerRevenuePoint {

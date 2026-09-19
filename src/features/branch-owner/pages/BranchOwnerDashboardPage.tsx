@@ -11,7 +11,7 @@ import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { fetchBranchOwnerDashboardThunk, enterSalonThunk } from "../../../middleware/branchOwner/branchOwner.thunk";
 import Dropdown from "../../../components/ui/Dropdown";
 import Tabs from "../../../components/ui/Tabs";
-import Skeleton from "../../../components/ui/Skeleton";
+import Loader from "../../../components/ui/Loader";
 import api from "../../../services/api/axios";
 import { BRANCH_OWNER } from "../../../services/api/endpoints/branchOwner.endpoints";
 import type { BranchOwnerRevenuePoint } from "../../../store/branchOwnerSlice";
@@ -28,10 +28,6 @@ const REVENUE_PERIOD_SUBTITLE: Record<RevenuePeriod, string> = {
   weekly: "Last 12 weeks, across every salon you manage",
   monthly: "Last 12 months, across every salon you manage",
 };
-
-function Shimmer({ h = 110 }: { h?: number }) {
-  return <Skeleton height={h} borderRadius={14} />;
-}
 
 const fmt = (n: any) => n != null ? `₹${Number(n).toLocaleString("en-IN")}` : "—";
 const fmtCompact = (n: number) => (n >= 100000 ? `₹${(n / 100000).toFixed(1)}L` : n >= 1000 ? `₹${(n / 1000).toFixed(1)}K` : `₹${Math.round(n)}`);
@@ -295,25 +291,23 @@ export default function BranchOwnerDashboardPage() {
         <div className="bod-main-col">
           {/* Top KPI cards */}
           <div className="bod-kpi-row bod-kpi-row--five">
-            {loading.stats ? [...Array(5)].map((_, i) => <Shimmer key={i} />) : (<>
-              <KpiCard label="Total Salons" value={stats?.total_salons ?? salons.length}
-                bg="#eff6ff" icon={<Building size={17} color="#2563eb" />}
-              />
-              <KpiCard label="Total Revenue" value={fmt(stats?.total_revenue)}
-                bg="#f0fdf4" trendPct={revenueTrendPct}
-                icon={<CashCoin size={17} color="#16a34a" />}
-              />
-              <KpiCard label="Total Staff" value={stats?.total_staff ?? "—"}
-                bg="#faf5ff" icon={<PersonPlusFill size={17} color="#7c3aed" />}
-              />
-              <KpiCard label="Total Bookings" value={stats?.total_bookings ?? "—"}
-                sub={stats?.bookings_today ? `${stats.bookings_today} today` : undefined}
-                bg="#fff7ed" icon={<CalendarPlus size={17} color="#ea580c" />}
-              />
-              <KpiCard label="Total Customers" value={stats?.total_clients ?? "—"}
-                bg="#ecfeff" icon={<People size={17} color="#0891b2" />}
-              />
-            </>)}
+            <KpiCard label="Total Salons" value={loading.stats ? "—" : stats?.total_salons ?? salons.length}
+              bg="#eff6ff" icon={<Building size={17} color="#2563eb" />}
+            />
+            <KpiCard label="Total Revenue" value={loading.stats ? "—" : fmt(stats?.total_revenue)}
+              bg="#f0fdf4" trendPct={loading.stats ? null : revenueTrendPct}
+              icon={<CashCoin size={17} color="#16a34a" />}
+            />
+            <KpiCard label="Total Staff" value={loading.stats ? "—" : stats?.total_staff ?? "—"}
+              bg="#faf5ff" icon={<PersonPlusFill size={17} color="#7c3aed" />}
+            />
+            <KpiCard label="Total Bookings" value={loading.stats ? "—" : stats?.total_bookings ?? "—"}
+              sub={!loading.stats && stats?.bookings_today ? `${stats.bookings_today} today` : undefined}
+              bg="#fff7ed" icon={<CalendarPlus size={17} color="#ea580c" />}
+            />
+            <KpiCard label="Total Customers" value={loading.stats ? "—" : stats?.total_clients ?? "—"}
+              bg="#ecfeff" icon={<People size={17} color="#0891b2" />}
+            />
           </div>
 
           {/* Revenue trend */}
@@ -336,7 +330,7 @@ export default function BranchOwnerDashboardPage() {
               onChange={handleRevenuePeriodChange}
               className="bod-chart-period-tabs"
             />
-            {loading.stats || revenueTrendLoading ? <Shimmer h={180} /> : revenueTrend.length === 0 ? (
+            {loading.stats || revenueTrendLoading ? <Loader message="Loading revenue trend…" /> : revenueTrend.length === 0 ? (
               <div className="bod-empty">No revenue recorded in this window yet.</div>
             ) : (
               <RevenueTrendChart points={revenueTrend} />
