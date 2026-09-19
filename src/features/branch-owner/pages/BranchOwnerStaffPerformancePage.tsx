@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
-import { PersonBadge, CurrencyRupee, GraphUpArrow, Search, PeopleFill, X } from "react-bootstrap-icons";
+import { PersonBadge, CurrencyRupee, GraphUpArrow, PeopleFill } from "react-bootstrap-icons";
 import { useAppSelector } from "../../../hooks/useAppRedux";
 import api from "../../../services/api/axios";
 import { BRANCH_OWNER } from "../../../services/api/endpoints/branchOwner.endpoints";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import Dropdown from "../../../components/ui/Dropdown";
-import { DateRangeFilter, JiraFilterMenu, getDateRangePresetValue, SummaryCardRow } from "../../../components/ui";
+import { DateRangeFilter, JiraFilterMenu, getDateRangePresetValue, SummaryCardRow, Table, Modal, Button } from "../../../components/ui";
 import type { DateRangeFilterValue, JiraFilterField, SummaryCardItem } from "../../../components/ui";
 import {
-  SectionCard, BoEmptyState, Shimmer,
+  SectionCard, BoEmptyState, Shimmer, BoSearchInput,
   usePagination, BoPagination,
 } from "../components/BranchOwnerUI";
 
@@ -35,47 +35,41 @@ function presetToApiPeriod(preset: DateRangeFilterValue["preset"]): string {
 function StaffDetailDrawer({ row, onClose }: { row: StaffPerformanceRow; onClose: () => void }) {
   const avgPerTxn = row.transactionCount > 0 ? row.revenue / row.transactionCount : 0;
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 9998, background: "rgba(15,23,42,0.45)", display: "flex", alignItems: "center", justifyContent: "center" }} onClick={onClose}>
-      <div style={{ background: "#fff", borderRadius: 14, padding: "24px 28px", maxWidth: 440, width: "90%", boxShadow: "0 20px 60px rgba(0,0,0,0.18)" }} onClick={(e) => e.stopPropagation()}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-          <div style={{ fontWeight: 700, fontSize: 17, color: "#0f172a" }}>{row.name}</div>
-          <button onClick={onClose} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#94a3b8" }}><X size={18} /></button>
-        </div>
-        <div style={{ fontSize: 12.5, color: "#94a3b8", marginBottom: 18 }}>{row.role} · {row.salonName}</div>
+    <Modal show title={row.name} onClose={onClose} size="sm">
+      <div style={{ fontSize: 12.5, color: "#94a3b8", marginTop: -8, marginBottom: 18 }}>{row.role} · {row.salonName}</div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 20 }}>
-          <div style={{ background: "#f8fafc", borderRadius: 10, padding: "10px 12px" }}>
-            <div style={{ fontSize: 10.5, color: "#94a3b8", fontWeight: 700, textTransform: "uppercase" }}>Revenue</div>
-            <div style={{ fontSize: 15, fontWeight: 800, color: "#0f172a", marginTop: 3 }}>{fmtMoney(row.revenue)}</div>
-          </div>
-          <div style={{ background: "#f8fafc", borderRadius: 10, padding: "10px 12px" }}>
-            <div style={{ fontSize: 10.5, color: "#94a3b8", fontWeight: 700, textTransform: "uppercase" }}>Commission</div>
-            <div style={{ fontSize: 15, fontWeight: 800, color: "#0f172a", marginTop: 3 }}>{fmtMoney(row.commissionEarned)}</div>
-          </div>
-          <div style={{ background: "#f8fafc", borderRadius: 10, padding: "10px 12px" }}>
-            <div style={{ fontSize: 10.5, color: "#94a3b8", fontWeight: 700, textTransform: "uppercase" }}>Transactions</div>
-            <div style={{ fontSize: 15, fontWeight: 800, color: "#0f172a", marginTop: 3 }}>{row.transactionCount}</div>
-          </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 20 }}>
+        <div style={{ background: "#f8fafc", borderRadius: 10, padding: "10px 12px" }}>
+          <div style={{ fontSize: 10.5, color: "#94a3b8", fontWeight: 700, textTransform: "uppercase" }}>Revenue</div>
+          <div style={{ fontSize: 15, fontWeight: 800, color: "#0f172a", marginTop: 3 }}>{fmtMoney(row.revenue)}</div>
         </div>
-
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5 }}>
-          <tbody>
-            <tr style={{ borderTop: "1px solid #f1f5f9" }}>
-              <td style={{ padding: "9px 0", color: "#64748b" }}>Average / transaction</td>
-              <td style={{ padding: "9px 0", color: "#0f172a", fontWeight: 600, textAlign: "right" }}>{fmtMoneyFull(avgPerTxn)}</td>
-            </tr>
-            <tr style={{ borderTop: "1px solid #f1f5f9" }}>
-              <td style={{ padding: "9px 0", color: "#64748b" }}>Paid out</td>
-              <td style={{ padding: "9px 0", color: "#0f172a", fontWeight: 600, textAlign: "right" }}>{fmtMoneyFull(row.paidOut)}</td>
-            </tr>
-            <tr style={{ borderTop: "1px solid #f1f5f9" }}>
-              <td style={{ padding: "9px 0", color: "#64748b" }}>Pending payout</td>
-              <td style={{ padding: "9px 0", color: row.pendingPayout > 0 ? "#d97706" : "#0f172a", fontWeight: 600, textAlign: "right" }}>{fmtMoneyFull(row.pendingPayout)}</td>
-            </tr>
-          </tbody>
-        </table>
+        <div style={{ background: "#f8fafc", borderRadius: 10, padding: "10px 12px" }}>
+          <div style={{ fontSize: 10.5, color: "#94a3b8", fontWeight: 700, textTransform: "uppercase" }}>Commission</div>
+          <div style={{ fontSize: 15, fontWeight: 800, color: "#0f172a", marginTop: 3 }}>{fmtMoney(row.commissionEarned)}</div>
+        </div>
+        <div style={{ background: "#f8fafc", borderRadius: 10, padding: "10px 12px" }}>
+          <div style={{ fontSize: 10.5, color: "#94a3b8", fontWeight: 700, textTransform: "uppercase" }}>Transactions</div>
+          <div style={{ fontSize: 15, fontWeight: 800, color: "#0f172a", marginTop: 3 }}>{row.transactionCount}</div>
+        </div>
       </div>
-    </div>
+
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5 }}>
+        <tbody>
+          <tr style={{ borderTop: "1px solid #f1f5f9" }}>
+            <td style={{ padding: "9px 0", color: "#64748b" }}>Average / transaction</td>
+            <td style={{ padding: "9px 0", color: "#0f172a", fontWeight: 600, textAlign: "right" }}>{fmtMoneyFull(avgPerTxn)}</td>
+          </tr>
+          <tr style={{ borderTop: "1px solid #f1f5f9" }}>
+            <td style={{ padding: "9px 0", color: "#64748b" }}>Paid out</td>
+            <td style={{ padding: "9px 0", color: "#0f172a", fontWeight: 600, textAlign: "right" }}>{fmtMoneyFull(row.paidOut)}</td>
+          </tr>
+          <tr style={{ borderTop: "1px solid #f1f5f9" }}>
+            <td style={{ padding: "9px 0", color: "#64748b" }}>Pending payout</td>
+            <td style={{ padding: "9px 0", color: row.pendingPayout > 0 ? "#d97706" : "#0f172a", fontWeight: 600, textAlign: "right" }}>{fmtMoneyFull(row.pendingPayout)}</td>
+          </tr>
+        </tbody>
+      </table>
+    </Modal>
   );
 }
 
@@ -204,58 +198,30 @@ export default function BranchOwnerStaffPerformancePage() {
         <div style={{ width: 190 }}>
           <Dropdown value={sortBy} onChange={setSortBy} options={SORT_OPTIONS} searchable={false} style={{ padding: "9px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, background: "#fff" }} />
         </div>
-        <div style={{ position: "relative", flex: "1 1 220px", maxWidth: 300 }}>
-          <Search size={13} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#94a3b8" }} />
-          <input
-            type="text"
-            placeholder="Search staff or salon"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={{ width: "100%", padding: "9px 12px 9px 32px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none", boxSizing: "border-box", background: "#fff" }}
-          />
-        </div>
+        <BoSearchInput value={search} onChange={setSearch} placeholder="Search staff or salon" maxWidth={300} />
       </div>
 
       <SectionCard title="Staff Performance" noPadding>
-        {!loaded ? <div style={{ padding: 20 }}><Shimmer h={200} /></div> : visible.length === 0 ? (
-          <BoEmptyState icon={<PersonBadge size={26} />} text={rows.length === 0 ? "No staff activity for this date range yet." : "No staff match the current filters."} />
-        ) : (<>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5 }}>
-            <thead>
-              <tr style={{ background: "#f8fafc" }}>
-                {["Staff", "Salon", "Role", "Transactions", "Revenue", "Commission Earned", "Avg / Transaction", "Pending", ""].map((h) => (
-                  <th key={h} style={{ padding: "10px 20px", textAlign: "left", color: "#64748b", fontWeight: 600, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.04em" }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {page.pageItems.map((r) => {
-                const avg = r.transactionCount > 0 ? r.revenue / r.transactionCount : 0;
-                return (
-                  <tr key={`${r.staffId}-${r.salonId}`} style={{ borderTop: "1px solid #f8fafc" }}>
-                    <td style={{ padding: "11px 20px", fontWeight: 700, color: "#0f172a" }}>{r.name}</td>
-                    <td style={{ padding: "11px 20px", color: "#475569" }}>{r.salonName}</td>
-                    <td style={{ padding: "11px 20px", color: "#94a3b8" }}>{r.role}</td>
-                    <td style={{ padding: "11px 20px", color: "#475569" }}>{r.transactionCount}</td>
-                    <td style={{ padding: "11px 20px", color: "#0f172a", fontWeight: 600 }}>{fmtMoney(r.revenue)}</td>
-                    <td style={{ padding: "11px 20px", color: "#475569" }}>{fmtMoney(r.commissionEarned)}</td>
-                    <td style={{ padding: "11px 20px", color: "#475569" }}>{fmtMoneyFull(avg)}</td>
-                    <td style={{ padding: "11px 20px", color: r.pendingPayout > 0 ? "#d97706" : "#94a3b8", fontWeight: 600 }}>{fmtMoney(r.pendingPayout)}</td>
-                    <td style={{ padding: "11px 20px" }}>
-                      <button
-                        onClick={() => setSelectedRow(r)}
-                        style={{ padding: "5px 12px", borderRadius: 7, fontSize: 12, fontWeight: 600, border: "1.5px solid #e2e8f0", cursor: "pointer", background: "#fff", color: "#374151" }}
-                      >
-                        View
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          <BoPagination {...page} />
-        </>)}
+        {!loaded ? <div style={{ padding: 20 }}><Shimmer h={200} /></div> : (
+          <>
+            <Table<StaffPerformanceRow>
+              data={page.pageItems}
+              emptyMessage={rows.length === 0 ? "No staff activity for this date range yet." : "No staff match the current filters."}
+              columns={[
+                { header: "Staff", key: "name", render: (r) => <span className="fw-bold text-dark">{r.name}</span> },
+                { header: "Salon", key: "salonName", className: "text-secondary" },
+                { header: "Role", key: "role", className: "text-muted" },
+                { header: "Transactions", key: "transactionCount", className: "text-secondary" },
+                { header: "Revenue", key: "revenue", render: (r) => <span className="fw-semibold text-dark">{fmtMoney(r.revenue)}</span> },
+                { header: "Commission Earned", key: "commissionEarned", className: "text-secondary", render: (r) => fmtMoney(r.commissionEarned) },
+                { header: "Avg / Transaction", key: "avg", className: "text-secondary", render: (r) => fmtMoneyFull(r.transactionCount > 0 ? r.revenue / r.transactionCount : 0) },
+                { header: "Pending", key: "pendingPayout", render: (r) => <span className="fw-semibold" style={{ color: r.pendingPayout > 0 ? "#d97706" : "#94a3b8" }}>{fmtMoney(r.pendingPayout)}</span> },
+                { header: "", key: "action", render: (r) => <Button size="sm" variant="outline-secondary" onClick={() => setSelectedRow(r)}>View</Button> },
+              ]}
+            />
+            <BoPagination {...page} />
+          </>
+        )}
       </SectionCard>
 
       {selectedRow && <StaffDetailDrawer row={selectedRow} onClose={() => setSelectedRow(null)} />}
