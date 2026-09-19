@@ -321,6 +321,19 @@
   font-weight: 500;
 }
 
+/* Graph page card shell — was Sales-Summary-only (SalesSummaryReport.scss),
+   moved here once Product Retail's own Graph page (ProductSaleGraphPage.tsx)
+   started reusing the exact same card, so both stay in sync from one
+   definition instead of two copies drifting apart. */
+.rp-graph-card {
+  background: $white;
+  border: 1px solid $dashboard-border;
+  border-radius: 12px;
+  padding: 18px 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  height: 100%;
+}
+
 /* Toolbar: search + show-N */
 .rp-detail-toolbar {
   display: flex;

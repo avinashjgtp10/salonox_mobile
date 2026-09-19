@@ -6,17 +6,6 @@
   @media (max-width: 1100px) { grid-template-columns: repeat(2, 1fr); }
 }
 
-// Graph page (Overview tab) chart containers — same card language as
-// .rp-sra-summary-card above, just sized for a chart instead of one stat.
-.rp-graph-card {
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  padding: 18px 20px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-  height: 100%;
-}
-
 .rp-ss-run-btn {
   border-radius: 6px;
 }
