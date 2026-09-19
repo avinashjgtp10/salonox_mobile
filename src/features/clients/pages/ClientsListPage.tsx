@@ -51,6 +51,25 @@ import { useTranslation } from "react-i18next";
 
 import "../styles/ClientsListPage.scss";
 
+// clients.gender is free-form text, not a constrained enum at the DB level —
+// the Add/Edit Client form writes Title Case ("Male"/"Female"/"Other"), but
+// the gender FILTER above accepts values this form never offers
+// ("non_binary"/"prefer_not_to_say" — see GenderFilter in the backend's
+// clients.types.ts), which presumably reach clients through some other entry
+// point (import, a different client), quite possibly lowercase/underscored.
+// Normalizing display here means every casing/underscore convention a row
+// might carry still reads as a clean label, rather than only the exact
+// casing the Add form happens to write today.
+function formatGender(raw: string | null | undefined): string {
+  const s = String(raw ?? "").trim();
+  if (!s) return "—";
+  return s
+    .replace(/_/g, " ")
+    .split(" ")
+    .map((w) => (w ? w[0].toUpperCase() + w.slice(1).toLowerCase() : w))
+    .join(" ");
+}
+
 export default function ClientsListPage() {
   const { t } = useTranslation();
   const { currencySymbol, formatAmount } = useCurrency();
@@ -91,7 +110,9 @@ export default function ClientsListPage() {
   // every fetchClients() call site (pagination, sort, search, refresh-after-
   // mutation) would be error-prone. fetchClients reads the currently-applied
   // range values from this ref instead; it's kept in sync with the state below.
-  const rangeFiltersRef = useRef({ dateFrom: "", dateTo: "", minRevenue: "", maxRevenue: "" });
+  // packageMembership rides along here too, same reasoning — it's another
+  // server-side-only filter with no positional slot of its own.
+  const rangeFiltersRef = useRef({ dateFrom: "", dateTo: "", minRevenue: "", maxRevenue: "", packageMembership: "" });
 
   const sortMap: Record<string, { sort_by: string; sort_order: string }> = {
     "First name (A-Z)": { sort_by: "full_name", sort_order: "asc" },
@@ -130,12 +151,13 @@ export default function ClientsListPage() {
       };
       if (gender && gender !== "All") params.gender = gender.toLowerCase();
       if (search && search.trim()) params.search = search.trim();
-      const { dateFrom: df, dateTo: dt, minRevenue: minRev, maxRevenue: maxRev } =
+      const { dateFrom: df, dateTo: dt, minRevenue: minRev, maxRevenue: maxRev, packageMembership: pmf } =
         rangeFiltersRef.current;
       if (df) params.created_from = df;
       if (dt) params.created_to = dt;
       if (minRev !== "") params.min_sales = minRev;
       if (maxRev !== "") params.max_sales = maxRev;
+      if (pmf) params.package_membership = pmf;
       const res = await api.get(CLIENT.BASE, { params });
       const payload = res.data?.data;
       const items = payload?.items ?? [];
@@ -172,10 +194,12 @@ export default function ClientsListPage() {
   const [dateRange, setDateRange] = useState<DateRangeFilterValue>({ preset: "all_time", startDate: "", endDate: "" });
   const [minRevenue, setMinRevenue] = useState("");
   const [maxRevenue, setMaxRevenue] = useState("");
+  // "" = All Clients (no filter) — one of has_package/has_membership/has_both/has_none otherwise.
+  const [packageMembershipFilter, setPackageMembershipFilter] = useState("");
 
   useEffect(() => {
-    rangeFiltersRef.current = { dateFrom: dateRange.startDate, dateTo: dateRange.endDate, minRevenue, maxRevenue };
-  }, [dateRange, minRevenue, maxRevenue]);
+    rangeFiltersRef.current = { dateFrom: dateRange.startDate, dateTo: dateRange.endDate, minRevenue, maxRevenue, packageMembership: packageMembershipFilter };
+  }, [dateRange, minRevenue, maxRevenue, packageMembershipFilter]);
 
   // Date range applies immediately (it's a standalone toolbar control, not
   // part of the deferred-apply Filters panel) — sync the ref synchronously
@@ -183,7 +207,7 @@ export default function ClientsListPage() {
   // update above won't have flushed through the sync effect yet.
   const handleDateRangeChange = (next: DateRangeFilterValue) => {
     setDateRange(next);
-    rangeFiltersRef.current = { dateFrom: next.startDate, dateTo: next.endDate, minRevenue, maxRevenue };
+    rangeFiltersRef.current = { dateFrom: next.startDate, dateTo: next.endDate, minRevenue, maxRevenue, packageMembership: packageMembershipFilter };
     fetchClients(1, selectedSort, selectedGender);
   };
 
@@ -192,6 +216,16 @@ export default function ClientsListPage() {
       { id: "Female", label: "Female" },
       { id: "Male", label: "Male" },
       { id: "Other", label: "Other" },
+    ] },
+    // Single-select by convention, same as Gender above: JiraFilterMenu's
+    // checkbox list is generic multi-select, but handleFiltersApply below
+    // only ever keeps the LAST ticked id — an "All Clients" state is simply
+    // nothing ticked, so it isn't offered as its own checkbox option.
+    { key: "packageMembership", label: "Package / Membership", options: [
+      { id: "has_package", label: "Has Package" },
+      { id: "has_membership", label: "Has Membership" },
+      { id: "has_both", label: "Has Package & Membership" },
+      { id: "has_none", label: "No Package / Membership" },
     ] },
     {
       key: "revenue",
@@ -225,8 +259,9 @@ export default function ClientsListPage() {
 
   const filterMenuSelected = useMemo(() => ({
     gender: selectedGender ? [selectedGender] : [],
+    packageMembership: packageMembershipFilter ? [packageMembershipFilter] : [],
     revenue: minRevenue || maxRevenue ? [minRevenue, maxRevenue] : [],
-  }), [selectedGender, minRevenue, maxRevenue]);
+  }), [selectedGender, packageMembershipFilter, minRevenue, maxRevenue]);
 
   // Mirrors what the old Apply button did: commit every field at once, sync
   // the ref synchronously (fetchClients reads ranges from it, and the state
@@ -235,8 +270,12 @@ export default function ClientsListPage() {
   // control, so this menu must not silently clear it.
   const handleFiltersApply = (next: Record<string, string[]>) => {
     const gender = next.gender?.length ? next.gender[next.gender.length - 1] : null;
+    // Same "last ticked wins" convention as gender — see the field definition
+    // above for why "All Clients" has no checkbox of its own.
+    const pkgMem = next.packageMembership?.length ? next.packageMembership[next.packageMembership.length - 1] : "";
     const [min = "", max = ""] = next.revenue ?? [];
     setSelectedGender(gender);
+    setPackageMembershipFilter(pkgMem);
     setMinRevenue(min);
     setMaxRevenue(max);
     rangeFiltersRef.current = {
@@ -244,6 +283,7 @@ export default function ClientsListPage() {
       dateTo: dateRange.endDate,
       minRevenue: min,
       maxRevenue: max,
+      packageMembership: pkgMem,
     };
     fetchClients(1, selectedSort, gender);
   };
@@ -285,8 +325,9 @@ export default function ClientsListPage() {
     if (dateRange.endDate) params.created_to = dateRange.endDate;
     if (minRevenue !== "") params.min_sales = minRevenue;
     if (maxRevenue !== "") params.max_sales = maxRevenue;
+    if (packageMembershipFilter) params.package_membership = packageMembershipFilter;
     return params;
-  }, [selectedSort, selectedGender, searchQuery, dateRange, minRevenue, maxRevenue]);
+  }, [selectedSort, selectedGender, searchQuery, dateRange, minRevenue, maxRevenue, packageMembershipFilter]);
 
   // Debounced live filter: typing in the search box re-fetches the table
   // itself (page 1) instead of showing a separate floating results dropdown.
@@ -797,6 +838,7 @@ export default function ClientsListPage() {
                 </div>
                 <div className="col-referral">Referral code</div>
                 <div className="col-mobile">Mobile number</div>
+                <div className="col-gender">Gender</div>
                 <div className="col-reviews">Reviews</div>
                 <div className="col-sales">Sales</div>
                 <div className="col-created">Created at</div>
@@ -883,6 +925,9 @@ export default function ClientsListPage() {
 
                     <div className="col-mobile" title={maskMobile(client.phone_number) || "-"}>
                       {maskMobile(client.phone_number) || "-"}
+                    </div>
+                    <div className="col-gender" title={formatGender(client.gender)}>
+                      {formatGender(client.gender)}
                     </div>
                     <div className="col-reviews">
                       {client.reviews_count > 0

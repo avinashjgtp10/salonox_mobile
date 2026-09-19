@@ -569,7 +569,8 @@
     .table-header,
     .table-row {
       display: grid;
-      grid-template-columns: 72px minmax(0, 2fr) 140px minmax(0, 1.2fr) 110px 120px 120px 48px;
+      // checkbox | name | referral | mobile | gender | reviews | sales | created | row-menu
+      grid-template-columns: 72px minmax(0, 2fr) 140px minmax(0, 1.2fr) 100px 110px 120px 120px 48px;
       align-items: center;
       padding: 14px 18px;
       font-size: 14px;
@@ -736,6 +737,7 @@
     }
 
     .col-mobile,
+    .col-gender,
     .col-reviews,
     .col-sales,
     .col-created {
@@ -782,7 +784,7 @@
     @media (max-width: 1024px) {
       .table-header,
       .table-row {
-        grid-template-columns: 64px minmax(0, 2fr) 120px minmax(0, 1.2fr) 92px 108px 104px 48px;
+        grid-template-columns: 64px minmax(0, 2fr) 120px minmax(0, 1.2fr) 88px 92px 108px 104px 48px;
         column-gap: 10px;
       }
     }
@@ -795,6 +797,10 @@
         padding: 14px 12px;
       }
 
+      // Grouped with the other "nice to have, not core identification"
+      // columns already hidden at this width — Gender joins them rather than
+      // crowding out Name/Mobile/Sales on a narrow screen.
+      .col-gender,
       .col-reviews,
       .col-created,
       .col-referral {
