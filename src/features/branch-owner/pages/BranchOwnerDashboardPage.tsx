@@ -4,10 +4,14 @@ import {
   Building, PersonPlusFill, CalendarPlus, CashCoin, People, Gear, GraphUpArrow,
   ArrowUpRight, ArrowDownRight, X, ExclamationTriangleFill, ClockHistory, ReceiptCutoff, ChevronRight,
 } from "react-bootstrap-icons";
+import {
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+} from "recharts";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { fetchBranchOwnerDashboardThunk, enterSalonThunk } from "../../../middleware/branchOwner/branchOwner.thunk";
 import Dropdown from "../../../components/ui/Dropdown";
 import Tabs from "../../../components/ui/Tabs";
+import Skeleton from "../../../components/ui/Skeleton";
 import api from "../../../services/api/axios";
 import { BRANCH_OWNER } from "../../../services/api/endpoints/branchOwner.endpoints";
 import type { BranchOwnerRevenuePoint } from "../../../store/branchOwnerSlice";
@@ -26,7 +30,7 @@ const REVENUE_PERIOD_SUBTITLE: Record<RevenuePeriod, string> = {
 };
 
 function Shimmer({ h = 110 }: { h?: number }) {
-  return <div className="bod-shimmer" style={{ height: h }} />;
+  return <Skeleton height={h} borderRadius={14} />;
 }
 
 const fmt = (n: any) => n != null ? `₹${Number(n).toLocaleString("en-IN")}` : "—";
@@ -59,56 +63,61 @@ function KpiCard({ label, value, sub, icon, bg, trendPct }: {
   );
 }
 
-// Plain SVG line chart — 14 points is far below where a charting library
-// earns its weight, and this keeps the bundle untouched.
+// Custom tooltip matching the dark pill the previous hand-rolled SVG chart
+// used (dark navy background, white bold compact-formatted amount) — kept
+// visually identical rather than falling back to recharts' default tooltip.
+function RevenueTrendTooltip({ active, payload }: any) {
+  if (!active || !payload?.length) return null;
+  const point = payload[0]?.payload;
+  if (!point) return null;
+  return (
+    <div style={{ background: "#0f172a", color: "#fff", borderRadius: 6, padding: "5px 10px", fontSize: 10.5, fontWeight: 700 }}>
+      {fmtCompact(point.revenue)}
+    </div>
+  );
+}
+
+// recharts AreaChart — mirrors the same indigo gradient/line treatment
+// (#6366f1) the previous hand-rolled SVG chart used, and the salon owner's
+// own dashboard's charting approach (DashboardPage.tsx's revenue AreaChart),
+// so both dashboards share one real charting library instead of a
+// module-specific SVG implementation.
 function RevenueTrendChart({ points }: { points: { day: string; revenue: number }[] }) {
-  const width = 640, height = 180, padX = 8, padY = 16;
-  const max = Math.max(1, ...points.map((p) => p.revenue));
-  const stepX = points.length > 1 ? (width - padX * 2) / (points.length - 1) : 0;
-
-  const coords = points.map((p, i) => {
-    const x = padX + i * stepX;
-    const y = height - padY - (p.revenue / max) * (height - padY * 2);
-    return { x, y, ...p };
-  });
-
-  const linePath = coords.map((c, i) => `${i === 0 ? "M" : "L"} ${c.x.toFixed(1)} ${c.y.toFixed(1)}`).join(" ");
-  const areaPath = `${linePath} L ${coords[coords.length - 1]?.x.toFixed(1)} ${height - padY} L ${coords[0]?.x.toFixed(1)} ${height - padY} Z`;
-
-  const [hover, setHover] = useState<number | null>(null);
   const fmtDay = (d: string) => new Date(d).toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+  const tickInterval = points.length > 20 ? Math.ceil(points.length / 10) : points.length > 8 ? 1 : 0;
 
   return (
-    <svg viewBox={`0 0 ${width} ${height + 20}`} width="100%" height={height + 20} style={{ display: "block", overflow: "visible" }}>
-      <defs>
-        <linearGradient id="bo-rev-fill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#6366f1" stopOpacity="0.18" />
-          <stop offset="100%" stopColor="#6366f1" stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      {[0.25, 0.5, 0.75].map((f) => (
-        <line key={f} x1={padX} x2={width - padX} y1={height - padY - f * (height - padY * 2)} y2={height - padY - f * (height - padY * 2)} stroke="#f1f5f9" strokeWidth={1} />
-      ))}
-      <path d={areaPath} fill="url(#bo-rev-fill)" stroke="none" />
-      <path d={linePath} fill="none" stroke="#6366f1" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
-      {coords.map((c, i) => (
-        <g key={c.day} onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)}>
-          <circle cx={c.x} cy={c.y} r={hover === i ? 5 : 3} fill="#fff" stroke="#6366f1" strokeWidth={2} />
-          <rect x={c.x - stepX / 2} y={0} width={stepX || width} height={height} fill="transparent" />
-          {(i === 0 || i === coords.length - 1 || i % 3 === 0) && (
-            <text x={c.x} y={height + 14} fill="#94a3b8" fontSize="9" textAnchor="middle">{fmtDay(c.day)}</text>
-          )}
-          {hover === i && (
-            <g>
-              <rect x={Math.min(Math.max(c.x - 38, 0), width - 76)} y={Math.max(c.y - 34, 0)} width={76} height={26} rx={6} fill="#0f172a" />
-              <text x={Math.min(Math.max(c.x - 38, 0), width - 76) + 38} y={Math.max(c.y - 34, 0) + 17} fill="#fff" fontSize="10.5" textAnchor="middle" fontWeight={700}>
-                {fmtCompact(c.revenue)}
-              </text>
-            </g>
-          )}
-        </g>
-      ))}
-    </svg>
+    <ResponsiveContainer width="100%" height={200}>
+      <AreaChart data={points} margin={{ top: 10, right: 8, left: 8, bottom: 0 }}>
+        <defs>
+          <linearGradient id="bo-rev-fill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#6366f1" stopOpacity={0.18} />
+            <stop offset="100%" stopColor="#6366f1" stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        <CartesianGrid stroke="#f1f5f9" vertical={false} />
+        <XAxis
+          dataKey="day"
+          tickFormatter={fmtDay}
+          tick={{ fontSize: 9, fill: "#94a3b8" }}
+          axisLine={false}
+          tickLine={false}
+          interval={tickInterval}
+        />
+        <YAxis hide domain={[0, (max: number) => max * 1.1]} />
+        <Tooltip content={<RevenueTrendTooltip />} />
+        <Area
+          type="monotone"
+          dataKey="revenue"
+          name="Revenue"
+          stroke="#6366f1"
+          strokeWidth={2.5}
+          fill="url(#bo-rev-fill)"
+          dot={{ r: 3, fill: "#fff", stroke: "#6366f1", strokeWidth: 2 }}
+          activeDot={{ r: 5, fill: "#fff", stroke: "#6366f1", strokeWidth: 2 }}
+        />
+      </AreaChart>
+    </ResponsiveContainer>
   );
 }
 
@@ -364,7 +373,7 @@ export default function BranchOwnerDashboardPage() {
               <div className="bod-attention-empty">Nothing needs your attention right now.</div>
             ) : (
               <div className="bod-attention-list">
-                {attentionItems.map((item) => <AttentionRow key={item.key} {...item} />)}
+                {attentionItems.map(({ key, ...item }) => <AttentionRow key={key} {...item} />)}
               </div>
             )}
           </div>

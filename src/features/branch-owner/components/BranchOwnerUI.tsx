@@ -1,4 +1,5 @@
 import { useState, useMemo, type ReactNode } from "react";
+import { Search } from "react-bootstrap-icons";
 import Card from "../../../components/ui/Card";
 import Badge from "../../../components/ui/Badge";
 import Button from "../../../components/ui/Button";
@@ -55,7 +56,7 @@ export function StatTile({ icon, label: l, value, variantIndex = 0, sub }: {
   );
 }
 
-const STATUS_VARIANT: Record<string, "warning" | "success" | "secondary" | "danger"> = {
+const STATUS_VARIANT: Record<string, "warning" | "success" | "secondary" | "danger" | "info" | "primary"> = {
   pending: "warning",
   completed: "success",
   cancelled: "secondary",
@@ -63,6 +64,9 @@ const STATUS_VARIANT: Record<string, "warning" | "success" | "secondary" | "dang
   inactive: "secondary",
   unsettled: "warning",
   settled: "success",
+  paid: "success",
+  failed: "danger",
+  partial: "info",
 };
 
 export function StatusBadge({ status }: { status: string }) {
@@ -71,6 +75,26 @@ export function StatusBadge({ status }: { status: string }) {
 
 export function BoEmptyState({ icon, text }: { icon: ReactNode; text: string }) {
   return <EmptyState icon={icon} title={text} />;
+}
+
+// One reusable search box — icon-left input, used by every Branch Owner
+// list page (Salons, Payments, Staff Performance, Staff & Permissions) so
+// the search affordance stays pixel-identical instead of four inline copies.
+export function BoSearchInput({ value, onChange, placeholder, maxWidth = 320 }: {
+  value: string; onChange: (value: string) => void; placeholder: string; maxWidth?: number;
+}) {
+  return (
+    <div style={{ position: "relative", flex: "1 1 220px", maxWidth }}>
+      <Search size={13} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#94a3b8" }} />
+      <input
+        type="text"
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        style={{ width: "100%", padding: "9px 12px 9px 32px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none", boxSizing: "border-box", background: "#fff" }}
+      />
+    </div>
+  );
 }
 
 export function PrimaryButton({ children, onClick, disabled }: { children: ReactNode; onClick: () => void; disabled?: boolean }) {

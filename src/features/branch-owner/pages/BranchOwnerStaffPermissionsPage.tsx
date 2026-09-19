@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { PersonBadge, Search } from "react-bootstrap-icons";
+import { PersonBadge } from "react-bootstrap-icons";
 import { SlidersHorizontal } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { fetchMySalonsThunk, fetchAllStaffThunk, updateSalonStaffPermissionsThunk } from "../../../middleware/branchOwner/branchOwner.thunk";
 import StaffPermissionsModal from "../../settings/components/StaffPermissionsModal";
 import { defaultPermissions } from "../../settings/data/permissionMatrix";
-import { SectionCard, BoEmptyState, Shimmer, usePagination, BoPagination } from "../components/BranchOwnerUI";
+import { SectionCard, BoEmptyState, Shimmer, BoSearchInput, usePagination, BoPagination } from "../components/BranchOwnerUI";
 import { JiraFilterMenu, Badge, Button, Table } from "../../../components/ui";
 import type { JiraFilterField } from "../../../components/ui";
 import type { Staff } from "../../../types/staff.types";
@@ -133,16 +133,7 @@ export default function BranchOwnerStaffPermissionsPage() {
       {loaded && staffList.length > 0 && (
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
           <JiraFilterMenu fields={filterFields} selected={filterMenuSelected} onApply={handleFiltersApply} triggerLabel="Filters" />
-          <div style={{ position: "relative", flex: "1 1 240px", maxWidth: 320 }}>
-            <Search size={13} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#94a3b8" }} />
-            <input
-              type="text"
-              placeholder="Search staff, email or salon"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              style={{ width: "100%", padding: "9px 12px 9px 32px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none", boxSizing: "border-box", background: "#fff" }}
-            />
-          </div>
+          <BoSearchInput value={search} onChange={setSearch} placeholder="Search staff, email or salon" />
         </div>
       )}
 

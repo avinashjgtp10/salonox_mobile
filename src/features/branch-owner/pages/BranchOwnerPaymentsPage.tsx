@@ -1,38 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { Search, CashCoin, CheckCircle, ClockHistory, XCircle } from "react-bootstrap-icons";
+import { CashCoin, CheckCircle, ClockHistory, XCircle } from "react-bootstrap-icons";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { fetchBranchOwnerPaymentsThunk } from "../../../middleware/branchOwner/branchOwner.thunk";
-import { DateRangeFilter, JiraFilterMenu, getDateRangePresetValue } from "../../../components/ui";
+import { DateRangeFilter, JiraFilterMenu, getDateRangePresetValue, Table, Card } from "../../../components/ui";
 import type { DateRangeFilterValue, JiraFilterField } from "../../../components/ui";
-import { usePagination, BoPagination } from "../components/BranchOwnerUI";
-
-function KpiCard({ icon, bg, label, value, sub }: {
-  icon: React.ReactNode; bg: string; label: string; value: string | number; sub?: string;
-}) {
-  return (
-    <div style={{ background: "#fff", borderRadius: 14, padding: "14px 16px", border: "1px solid #e2e8f0", boxShadow: "0 1px 4px rgba(15,23,42,0.04)", display: "flex", alignItems: "center", gap: 12 }}>
-      <div style={{ width: 36, height: 36, borderRadius: 10, background: bg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{icon}</div>
-      <div style={{ minWidth: 0 }}>
-        <div style={{ color: "#64748b", fontSize: 11.5, fontWeight: 500 }}>{label}</div>
-        <div style={{ color: "#0f172a", fontSize: 18, fontWeight: 800, lineHeight: 1.3 }}>{value}</div>
-        {sub && <div style={{ color: "#94a3b8", fontSize: 10.5, marginTop: 1 }}>{sub}</div>}
-      </div>
-    </div>
-  );
-}
-
-const statusStyle: Record<string, { bg: string; text: string }> = {
-  paid:      { bg: "#f0fdf4", text: "#16a34a" },
-  completed: { bg: "#f0fdf4", text: "#16a34a" },
-  pending:   { bg: "#fffbeb", text: "#d97706" },
-  failed:    { bg: "#fef2f2", text: "#dc2626" },
-  partial:   { bg: "#eff6ff", text: "#2563eb" },
-};
-
-function Badge({ status }: { status: string }) {
-  const c = statusStyle[status] ?? { bg: "#f8fafc", text: "#64748b" };
-  return <span style={{ padding: "3px 10px", borderRadius: 20, fontSize: 11.5, fontWeight: 600, background: c.bg, color: c.text, textTransform: "capitalize" }}>{status}</span>;
-}
+import type { BranchOwnerPayment } from "../../../store/branchOwnerSlice";
+import { StatTile, StatusBadge, Shimmer, BoSearchInput, usePagination, BoPagination } from "../components/BranchOwnerUI";
 
 const STATUS_OPTIONS = [
   { id: "paid", label: "Paid" },
@@ -129,66 +102,36 @@ export default function BranchOwnerPaymentsPage() {
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 20 }}>
-        <KpiCard icon={<CashCoin size={16} color="#2563eb" />} bg="#eff6ff" label="Total Amount" value={fmt(kpis.total)} sub={`${kpis.count} payment${kpis.count !== 1 ? "s" : ""}`} />
-        <KpiCard icon={<CheckCircle size={16} color="#16a34a" />} bg="#f0fdf4" label="Paid" value={kpis.paidCount} />
-        <KpiCard icon={<ClockHistory size={16} color="#d97706" />} bg="#fffbeb" label="Pending" value={kpis.pendingCount} />
-        <KpiCard icon={<XCircle size={16} color="#dc2626" />} bg="#fef2f2" label="Failed" value={kpis.failedCount} />
+        {loading.payments ? [...Array(4)].map((_, i) => <Shimmer key={i} h={72} />) : (<>
+          <StatTile icon={<CashCoin size={16} />} label="Total Amount" value={fmt(kpis.total)} variantIndex={0} sub={`${kpis.count} payment${kpis.count !== 1 ? "s" : ""}`} />
+          <StatTile icon={<CheckCircle size={16} />} label="Paid" value={kpis.paidCount} variantIndex={1} />
+          <StatTile icon={<ClockHistory size={16} />} label="Pending" value={kpis.pendingCount} variantIndex={2} />
+          <StatTile icon={<XCircle size={16} />} label="Failed" value={kpis.failedCount} variantIndex={3} />
+        </>)}
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 18 }}>
         <DateRangeFilter value={dateRange} onChange={setDateRange} />
         <JiraFilterMenu fields={filterFields} selected={filterMenuSelected} onApply={handleFiltersApply} triggerLabel="Filters" />
-        <div style={{ position: "relative", flex: "1 1 240px", maxWidth: 320 }}>
-          <Search size={13} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#94a3b8" }} />
-          <input
-            type="text"
-            placeholder="Search salon or invoice no."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={{ width: "100%", padding: "9px 12px 9px 32px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none", boxSizing: "border-box", background: "#fff" }}
-          />
-        </div>
+        <BoSearchInput value={search} onChange={setSearch} placeholder="Search salon or invoice no." />
       </div>
 
-      <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #e2e8f0", overflow: "auto", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5, minWidth: 820 }}>
-          <thead>
-            <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
-              {["Salon Name", "Invoice Number", "Payment Received", "Payment Method", "Payment Status", "Payment Date"].map((h) => (
-                <th key={h} style={{ padding: "11px 16px", textAlign: "left", color: "#64748b", fontWeight: 600, fontSize: 11.5, textTransform: "uppercase", letterSpacing: "0.04em", whiteSpace: "nowrap" }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {loading.payments ? (
-              [...Array(5)].map((_, i) => (
-                <tr key={i} style={{ borderTop: "1px solid #f1f5f9" }}>
-                  {[...Array(6)].map((_, j) => (
-                    <td key={j} style={{ padding: "14px 16px" }}>
-                      <div style={{ height: 13, borderRadius: 4, background: "linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%)", backgroundSize: "200% 100%", animation: "bop-shimmer 1.4s infinite" }} />
-                    </td>
-                  ))}
-                </tr>
-              ))
-            ) : filteredPayments.length === 0 ? (
-              <tr><td colSpan={6} style={{ padding: "48px 0", textAlign: "center", color: "#94a3b8", fontSize: 13.5 }}>No payments found</td></tr>
-            ) : (
-              paymentsPage.pageItems.map((p) => (
-                <tr key={p.id} style={{ borderTop: "1px solid #f1f5f9" }}>
-                  <td style={{ padding: "13px 16px", color: "#0f172a", fontWeight: 700 }}>{p.salon_name}</td>
-                  <td style={{ padding: "13px 16px", color: "#374151" }}>{p.invoice_number || "—"}</td>
-                  <td style={{ padding: "13px 16px", color: "#16a34a", fontWeight: 700 }}>{fmt(p.amount)}</td>
-                  <td style={{ padding: "13px 16px", color: "#374151", textTransform: "capitalize" }}>{p.payment_method || "—"}</td>
-                  <td style={{ padding: "13px 16px" }}><Badge status={p.status} /></td>
-                  <td style={{ padding: "13px 16px", color: "#64748b", fontSize: 12.5 }}>{p.created_at ? new Date(p.created_at).toLocaleDateString("en-IN") : "—"}</td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+      <Card noPadding shadow="sm">
+        <Table<BranchOwnerPayment>
+          loading={loading.payments}
+          data={paymentsPage.pageItems}
+          emptyMessage="No payments found"
+          columns={[
+            { header: "Salon Name", key: "salon_name", render: (p) => <span className="fw-bold text-dark">{p.salon_name}</span> },
+            { header: "Invoice Number", key: "invoice_number", render: (p) => p.invoice_number || "—" },
+            { header: "Payment Received", key: "amount", render: (p) => <span className="fw-bold" style={{ color: "#16a34a" }}>{fmt(p.amount)}</span> },
+            { header: "Payment Method", key: "payment_method", className: "text-capitalize", render: (p) => p.payment_method || "—" },
+            { header: "Payment Status", key: "status", render: (p) => <StatusBadge status={p.status} /> },
+            { header: "Payment Date", key: "created_at", render: (p) => p.created_at ? new Date(p.created_at).toLocaleDateString("en-IN") : "—" },
+          ]}
+        />
         <BoPagination {...paymentsPage} />
-      </div>
-      <style>{`@keyframes bop-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }`}</style>
+      </Card>
     </div>
   );
 }
