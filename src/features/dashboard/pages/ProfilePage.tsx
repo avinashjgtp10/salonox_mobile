@@ -415,12 +415,22 @@ export default function ProfilePage() {
   const roleBadge   = formatRole(profile?.role ?? authRole);
   const memberSince = formatDate(profile?.createdAt);
   const isVerified  = profile?.isVerified;
+  // Personal photo takes priority once the owner has actually uploaded one
+  // (via the camera button below, which posts to /users/me/avatar and lands
+  // in profile.avatarUrl — a separate field/endpoint from the salon's own
+  // logo_url, set from Settings > Business). The business logo is only the
+  // DEFAULT shown before that — this used to read logo_url unconditionally,
+  // so the camera button's upload always "succeeded" (toast + 200 response)
+  // but could never actually change what was on screen for any salon that
+  // already had a logo set, since nothing here ever looked at avatarUrl at all.
+  const personalAvatarUrl = profile?.avatarUrl || null;
   const businessLogoUrl = currentSalon?.logo_url || null;
-  // Reset whenever the logo URL itself changes (new upload, salon switch) so
-  // a stale "this one failed" doesn't stick around and hide a working image.
-  const [businessLogoFailed, setBusinessLogoFailed] = useState(false);
-  useEffect(() => { setBusinessLogoFailed(false); }, [businessLogoUrl]);
-  const showBusinessLogo = !!businessLogoUrl && !businessLogoFailed;
+  const profileImageUrl = personalAvatarUrl || businessLogoUrl;
+  // Reset whenever the resolved image URL changes (new upload, salon switch)
+  // so a stale "this one failed" doesn't stick around and hide a working image.
+  const [profileImageFailed, setProfileImageFailed] = useState(false);
+  useEffect(() => { setProfileImageFailed(false); }, [profileImageUrl]);
+  const showProfileImage = !!profileImageUrl && !profileImageFailed;
 
   // ── Loading ───────────────────────────────────────────────────────────────
   if (fetching && !profile) {
@@ -479,12 +489,12 @@ export default function ProfilePage() {
               {uploading && (
                 <div className="pp-avatar-uploading"><span className="pp-spinner" /></div>
               )}
-              {showBusinessLogo ? (
+              {showProfileImage ? (
                 <img
-                  src={businessLogoUrl!}
+                  src={profileImageUrl!}
                   alt={displayName}
                   className={`pp-avatar-img ${uploading ? "pp-avatar-img--dim" : ""}`}
-                  onError={() => setBusinessLogoFailed(true)}
+                  onError={() => setProfileImageFailed(true)}
                 />
               ) : (
                 <div className={`pp-avatar-initials ${uploading ? "pp-avatar-initials--dim" : ""}`}>
