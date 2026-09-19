@@ -25,6 +25,7 @@ export const DAILY_SHEET_REPORT = {
 // directly, never through the Appointment API. Mounted at /api/report.
 export const PRODUCT_RETAIL_REPORT = {
   SUMMARY: () => `/api/report/product-retail`,
+  CHART: () => `/api/report/product-retail/chart`,
 } as const;
 
 // Per-product units-sold + revenue, keyed by product_id — powers the "Sales"

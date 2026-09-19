@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { Search } from "react-bootstrap-icons";
+import { Search, GraphUp } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { PRODUCT_RETAIL_REPORT } from "../../../services/api/endpoints";
 import ReportRefreshButton from "./ReportRefreshButton";
@@ -14,6 +14,7 @@ import { useProducts } from "../../catalog/hooks/useProducts";
 import { useRowSelection } from "./useRowSelection";
 import { SendCampaignBar } from "./SendCampaignBar";
 import { SendCampaignModal } from "../../marketing/components";
+import ProductSaleGraphPage from "./ProductSaleGraphPage";
 import "./ProductSaleReport.scss";
 
 const REPORT_NAME = "Product Retail";
@@ -102,6 +103,7 @@ export default function ProductSaleReport({ onBack, category, categoryKey }: { o
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const selection = useRowSelection();
   const [showCampaignModal, setShowCampaignModal] = useState(false);
+  const [showChart, setShowChart] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -110,6 +112,17 @@ export default function ProductSaleReport({ onBack, category, categoryKey }: { o
   }, [search]);
 
   useEffect(() => { fetchBrands(); fetchCategories(); }, [fetchBrands, fetchCategories]);
+
+  // Shared with the Graph page below — same filter set the table/stats use,
+  // minus pagination (the chart groups everything by day instead).
+  const buildFilterBody = useCallback((): Record<string, any> => {
+    const body: Record<string, any> = { start_date: dateFrom, end_date: dateTo };
+    if (debouncedSearch) body.search = debouncedSearch;
+    if (staffFilterIds.length > 0) body.staff_ids = staffFilterIds;
+    if (brandIds.length > 0) body.brand_ids = brandIds;
+    if (categoryIds.length > 0) body.category_ids = categoryIds;
+    return body;
+  }, [dateFrom, dateTo, debouncedSearch, staffFilterIds, brandIds, categoryIds]);
 
   // Real server-side pagination — page/limit are sent on every request, and
   // only that page's rows come back, along with stats computed by the
@@ -121,14 +134,7 @@ export default function ProductSaleReport({ onBack, category, categoryKey }: { o
     abortRef.current = ctrl;
     setLoading(true);
     try {
-      const body: Record<string, any> = {
-        start_date: dateFrom, end_date: dateTo,
-        page: currentPage, limit: pageSize,
-      };
-      if (debouncedSearch) body.search = debouncedSearch;
-      if (staffFilterIds.length > 0) body.staff_ids = staffFilterIds;
-      if (brandIds.length > 0) body.brand_ids = brandIds;
-      if (categoryIds.length > 0) body.category_ids = categoryIds;
+      const body = { ...buildFilterBody(), page: currentPage, limit: pageSize };
       const res = await api.post(PRODUCT_RETAIL_REPORT.SUMMARY(), body, { signal: ctrl.signal });
       const data = res.data?.data;
       const raw: any[] = Array.isArray(data?.rows) ? data.rows : [];
@@ -151,7 +157,7 @@ export default function ProductSaleReport({ onBack, category, categoryKey }: { o
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [dateFrom, dateTo, debouncedSearch, staffFilterIds, brandIds, categoryIds, currentPage, pageSize]);
+  }, [buildFilterBody, currentPage, pageSize, dateFrom, dateTo]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -181,12 +187,36 @@ export default function ProductSaleReport({ onBack, category, categoryKey }: { o
   // Total column is gross = line base + its own GST (so ₹399 @ 5% reads ₹418.95).
   const exportRows = () => rows.map(r => [r.date, r.invoiceNo, r.client, r.staff, r.productName, r.category, r.brand, r.quantity, r.total + r.taxAmount, r.paidAmount, r.paymentMethod, r.status]);
 
+  // Graph icon opens this in place of the table — same full-page pattern
+  // (not a modal) Sales Summary uses, via Breadcrumb's own back-navigation.
+  if (showChart) {
+    return (
+      <ProductSaleGraphPage
+        reportName={REPORT_NAME}
+        onBack={onBack}
+        onClose={() => setShowChart(false)}
+        dateFrom={dateFrom}
+        dateTo={dateTo}
+        buildFilterBody={buildFilterBody}
+        statCards={[
+          { label: "Total Quantity Sold", value: stats.totalQty.toString() },
+          { label: "Total Revenue", value: formatAmount(stats.totalRev) },
+          { label: "Products Sold", value: stats.productsSold.toString() },
+          { label: "Total Transactions", value: stats.totalTransactions.toString() },
+        ]}
+      />
+    );
+  }
+
   return (
     <div className="rp-detail-view">
       <div className="rp-detail-header">
         <div className="rp-detail-back-row">
           <Breadcrumb current={REPORT_NAME} category={category} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
+            <button className="rp-detail-icon-btn" title="View graph" onClick={() => setShowChart(true)}>
+              <GraphUp size={16} />
+            </button>
             <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename={`product-retail-${dateFrom}-${dateTo}`} variant="button" csv reportId={reportId} />
           </div>
         </div>
