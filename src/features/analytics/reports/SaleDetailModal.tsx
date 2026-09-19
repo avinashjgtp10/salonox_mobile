@@ -134,7 +134,21 @@ export default function SaleDetailModal({ saleId, staffName, onClose }: { saleId
                   membershipWalletUsed: data.payment?.membership_wallet_used || 0,
                   ewalletUsed: data.payment?.ewallet_used || 0,
                   rewardPointsValue: data.payment?.reward_points_value || 0,
-                  grandTotal: data.sale.total_amount || 0,
+                  // sales.total_amount is the bill's REVENUE value — it's
+                  // computed with no redemption subtracted (see
+                  // sales.repository.ts), which is right for every report that
+                  // sums it. computeBillBreakdown's grandTotal means the
+                  // amount left to collect, though: it derives Round Off as
+                  // grandTotal minus a waterfall that already takes the
+                  // wallet/eWallet/points off. Feeding it the revenue figure
+                  // showed a bill fully paid from a membership wallet as
+                  // "Round Off +₹25.00" — the redemption added straight back
+                  // on. Net them off here so the two agree.
+                  grandTotal: Math.max(0, Math.round(((data.sale.total_amount || 0)
+                    - (data.payment?.membership_wallet_used || 0)
+                    - (data.payment?.ewallet_used || 0)
+                    - (data.payment?.reward_points_value || 0)
+                    - (data.payment?.referral_credit_used || 0)) * 100) / 100),
                 });
                 const hiddenLabels = new Set(["Membership Wallet Used", "eWallet Used", "Reward Points Used"]);
                 return rows

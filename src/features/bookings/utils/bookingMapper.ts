@@ -347,13 +347,40 @@ export function mapApiBooking(
   const reconstructedFromPayment = rawPaidAmount > 0
     ? rawPaidAmount + rawDueAmount
     : 0;
-  const grandTotalVal = isPackagePaid ? 0
+  // A wallet/eWallet/points/referral-credit redemption SETTLES the bill; it
+  // doesn't change what the bill was worth. Every persisted figure below is
+  // therefore the bill's REVENUE value — sales.total_amount and
+  // computed_grand_total are both computed with no redemption subtracted —
+  // whereas Booking.grandTotal means the amount actually left to collect.
+  // That's the figure the receipt, the totals panel and ViewBillModal all
+  // reconcile their Round Off against (see receipt.ts / billBreakdown.ts:
+  // roundOff = grandTotal − the waterfall, and the waterfall subtracts these
+  // redemptions). Handing them the revenue figure is what made a bill fully
+  // paid from a membership wallet print "Round Off +₹25.00" — the ₹25 taken
+  // off by the wallet being added straight back on. Subtract it once, here,
+  // at the boundary, so every consumer keeps the meaning it documents.
+  const redemptionsUsed =
+    (Number(appt.membership_wallet_used ?? appt.membershipWalletUsed ?? 0) || 0)
+    + (Number(appt.ewallet_used ?? appt.ewalletUsed ?? 0) || 0)
+    + (Number(appt.reward_points_value ?? appt.rewardPointsValue ?? 0) || 0)
+    + (Number(appt.referral_credit_used ?? appt.referralCreditUsed ?? 0) || 0);
+  const persistedRevenueTotal = parseFloat(String(appt.grand_total ?? appt.grandTotal ?? appt.total_amount ?? 0)) || 0;
+  const computedRevenueTotal = computedGrandTotal != null ? Number(computedGrandTotal) : null;
+  // paid + due is the one source that is ALREADY net of redemptions (both
+  // were recorded server-side against the post-redemption bill), so it must
+  // not have them taken off a second time.
+  const usesSettledFigure = !persistedRevenueTotal && computedRevenueTotal == null && reconstructedFromPayment > 0;
+  // What the bill was worth, unchanged from what this always computed.
+  const revenueTotalVal = isPackagePaid ? 0
     : hasPerServicePackage
       ? Math.max(0, [...services, ...productItems, ...packageItems, ...membershipItems]
           .reduce((sum, item: any) => sum + (Number(item.total) || 0), 0)) + taxFromBreakdown
-      : (parseFloat(String(appt.grand_total ?? appt.grandTotal ?? appt.total_amount ?? 0))
-          || (computedGrandTotal != null ? Number(computedGrandTotal) : reconstructedFromPayment)
+      : (persistedRevenueTotal
+          || (computedRevenueTotal != null ? computedRevenueTotal : reconstructedFromPayment)
           || (computedTotal + taxFromBreakdown));
+  const grandTotalVal = (isPackagePaid || usesSettledFigure)
+    ? revenueTotalVal
+    : Math.max(0, Math.round((revenueTotalVal - redemptionsUsed) * 100) / 100);
 
   // ── Subtotal / discount / taxable amount ──────────────────────────────────
   const subtotalVal = parseFloat(String(appt.subtotal ?? 0)) || computedTotal;
@@ -394,7 +421,12 @@ export function mapApiBooking(
   } else if (appt.payingNow != null && Number(appt.payingNow) > 0) {
     payingNow = Number(appt.payingNow);
   } else if (isPaidStatus) {
-    payingNow = grandTotalVal;
+    // Deliberately the REVENUE figure, not grandTotalVal: this branch only
+    // runs when payments.paid_amount is 0, which on a settled bill means the
+    // whole thing was covered by redemptions. What the client "paid" is then
+    // exactly what the bill was worth — taking the redemption off here too
+    // would report a fully-paid bill as ₹0.00 paid.
+    payingNow = revenueTotalVal;
   } else {
     payingNow = 0;
   }

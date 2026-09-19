@@ -87,7 +87,17 @@ export async function resolvePlanId(
 /** Assigns one membership. Throws on failure so callers can report per-row. */
 export async function assignMembership(
   dispatch: AppDispatch,
-  args: { clientId: string; name: string; expiryIso: string },
+  args: {
+    clientId: string;
+    name: string;
+    expiryIso: string;
+    /** When the client actually got this membership. Omitted by the
+     *  single-client form, which is always assigning something as of today —
+     *  the backend then leaves purchased_at on its DEFAULT NOW(). Supplied by
+     *  the bulk import, where the rows are historical: without it every
+     *  imported membership is stamped with the minute the file was uploaded. */
+    purchasedIso?: string;
+  },
   cache?: Map<string, string>,
 ): Promise<void> {
   const membershipId = await resolvePlanId(dispatch, args.name, args.expiryIso, cache);
@@ -98,6 +108,10 @@ export async function assignMembership(
     colour: DEFAULT_COLOUR,
     totalSessions: 0,          // 0 = unlimited; this tag doesn't meter sessions
     expiresAt: args.expiryIso,
+    // Only sent when there's a real date to send — an explicit undefined would
+    // serialize away anyway, but keeping the key out entirely makes the
+    // "defaults to now" path identical to what it has always posted.
+    ...(args.purchasedIso ? { purchasedAt: args.purchasedIso } : {}),
     pricePaid: 0,
     paymentMethod: "complimentary",
     // Suppresses the membership_purchased WhatsApp + purchase-receipt PDF —

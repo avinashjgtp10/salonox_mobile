@@ -25,7 +25,7 @@ import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
 // Header aliases, lowercased. Spreadsheets in the wild label these columns a
 // dozen ways, and a silent "column not recognised" is the single most common
 // way an import appears to succeed while importing nothing.
-const HEADER_MAP: Record<string, "mobile" | "clientName" | "membership" | "expiry"> = {
+const HEADER_MAP: Record<string, "mobile" | "clientName" | "membership" | "expiry" | "purchased"> = {
   "mobile": "mobile", "mobile number": "mobile", "phone": "mobile",
   "phone number": "mobile", "contact": "mobile", "contact number": "mobile",
   "client name": "clientName", "name": "clientName", "client": "clientName",
@@ -33,12 +33,21 @@ const HEADER_MAP: Record<string, "mobile" | "clientName" | "membership" | "expir
   "plan": "membership", "tag": "membership",
   "expires on": "expiry", "expiry": "expiry", "expiry date": "expiry",
   "expires": "expiry", "valid till": "expiry", "valid until": "expiry",
+  // Optional — the whole point of importing history is that these rows were
+  // sold weeks or months ago, and without this every one of them lands
+  // stamped with the moment of upload. A file that omits the column still
+  // imports exactly as before, each row defaulting to now.
+  "purchase date": "purchased", "purchased on": "purchased", "purchased": "purchased",
+  "purchase on": "purchased", "start date": "purchased", "bought on": "purchased",
+  "sold on": "purchased",
 };
 
-const TEMPLATE_COLUMNS = ["Mobile", "Client name", "Membership", "Expires on"];
+const TEMPLATE_COLUMNS = ["Mobile", "Client name", "Membership", "Expires on", "Purchase date"];
 const TEMPLATE_ROWS = [
-  ["9876543210", "Priya Sharma", "Gold", "31-12-2027"],
-  ["9123456780", "Ravi Kumar", "Silver", "30-06-2027"],
+  ["9876543210", "Priya Sharma", "Gold", "31-12-2027", "01-01-2027"],
+  // Second row deliberately leaves Purchase date blank — it's optional, and
+  // the template is the only place that says so before someone uploads.
+  ["9123456780", "Ravi Kumar", "Silver", "30-06-2027", ""],
 ];
 
 type RowStatus = "ready" | "invalid" | "assigning" | "done" | "failed";
@@ -50,6 +59,11 @@ interface ParsedRow {
   membership: string;
   expiryRaw: string;
   expiryIso: string | null;
+  /** Optional back-date. null means "not given" — the row still assigns, and
+   *  the backend leaves purchased_at on NOW(), which is the pre-existing
+   *  behaviour for every file that has no such column. */
+  purchasedRaw: string;
+  purchasedIso: string | null;
   clientId: string | null;
   matchedName: string | null;
   status: RowStatus;
@@ -161,7 +175,8 @@ const BulkAssignMembershipPanel: React.FC<Props> = ({ onAssigned }) => {
         const row: ParsedRow = {
           n: i + 2,            // +2: 1-based, and row 1 is the header
           mobile: "", clientName: "", membership: "", expiryRaw: "",
-          expiryIso: null, clientId: null, matchedName: null,
+          expiryIso: null, purchasedRaw: "", purchasedIso: null,
+          clientId: null, matchedName: null,
           status: "ready", error: null,
         };
         for (const [key, value] of Object.entries(r)) {
@@ -169,14 +184,20 @@ const BulkAssignMembershipPanel: React.FC<Props> = ({ onAssigned }) => {
           if (!canon) continue;
           const v = String(value ?? "").trim();
           if (canon === "expiry") row.expiryRaw = v;
+          else if (canon === "purchased") row.purchasedRaw = v;
           else row[canon] = v;
         }
         row.expiryIso = parseDateToISO(row.expiryRaw);
+        row.purchasedIso = parseDateToISO(row.purchasedRaw);
 
         if (!row.mobile) { row.status = "invalid"; row.error = "Mobile number is required"; }
         else if (!row.membership) { row.status = "invalid"; row.error = "Membership name is required"; }
         else if (!row.expiryRaw) { row.status = "invalid"; row.error = "Expiry date is required"; }
         else if (!row.expiryIso) { row.status = "invalid"; row.error = `Unreadable date "${row.expiryRaw}" — use DD-MM-YYYY`; }
+        // Only rejected when something WAS typed and couldn't be read. A blank
+        // purchase date is valid and simply means "today" — silently importing
+        // a typo as today's date is the exact bug this column exists to fix.
+        else if (row.purchasedRaw && !row.purchasedIso) { row.status = "invalid"; row.error = `Unreadable purchase date "${row.purchasedRaw}" — use DD-MM-YYYY`; }
         return row;
       });
 
@@ -212,7 +233,14 @@ const BulkAssignMembershipPanel: React.FC<Props> = ({ onAssigned }) => {
       try {
         await assignMembership(
           dispatch,
-          { clientId: row.clientId, name: row.membership, expiryIso: row.expiryIso },
+          {
+            clientId: row.clientId,
+            name: row.membership,
+            expiryIso: row.expiryIso,
+            // undefined, not null, when the column is absent/blank — that's
+            // what keeps the key out of the POST body entirely.
+            purchasedIso: row.purchasedIso ?? undefined,
+          },
           planCache,
         );
         working[i] = { ...row, status: "done", error: null };
@@ -268,7 +296,7 @@ const BulkAssignMembershipPanel: React.FC<Props> = ({ onAssigned }) => {
         >
           <CloudUpload size={26} />
           <strong>{parsing ? "Reading…" : "Choose a CSV or Excel file"}</strong>
-          <span>Columns: Mobile, Client name, Membership, Expires on</span>
+          <span>Columns: Mobile, Client name, Membership, Expires on, Purchase date (optional)</span>
         </button>
       ) : (
         <>
@@ -289,7 +317,7 @@ const BulkAssignMembershipPanel: React.FC<Props> = ({ onAssigned }) => {
           <div className="amm-bulk__tablewrap">
             <table className="amm-bulk__table">
               <thead>
-                <tr><th>#</th><th>Client</th><th>Membership</th><th>Expires</th><th>Status</th></tr>
+                <tr><th>#</th><th>Client</th><th>Membership</th><th>Purchased</th><th>Expires</th><th>Status</th></tr>
               </thead>
               <tbody>
                 {rows.map((r) => (
@@ -300,6 +328,12 @@ const BulkAssignMembershipPanel: React.FC<Props> = ({ onAssigned }) => {
                       <div className="amm-bulk__mobile">{r.mobile || "—"}</div>
                     </td>
                     <td data-label="Membership">{r.membership || "—"}</td>
+                    {/* "Today" rather than a dash for a blank cell: the row
+                        genuinely will be stamped with now, and showing that
+                        before the run is the whole point of the column. */}
+                    <td data-label="Purchased">{r.purchasedIso
+                      ? formatDateDDMMYYYY(new Date(`${r.purchasedIso}T00:00:00`))
+                      : (r.purchasedRaw || "Today")}</td>
                     <td data-label="Expires">{r.expiryIso ? formatDateDDMMYYYY(new Date(`${r.expiryIso}T00:00:00`)) : (r.expiryRaw || "—")}</td>
                     <td data-label="Status">
                       {r.status === "done" ? (
