@@ -14,9 +14,10 @@ import {
   rescheduleManagedBookingThunk,
 } from "../../../middleware/onlineBooking/onlineBooking.thunk";
 import {
-  C, DAYS, MONTHS, fmtPrice, salonDateStr, toSalonInstant,
+  DAYS, MONTHS, fmtPrice, salonDateStr, toSalonInstant,
 } from "../../online-booking/components/BookingFlow/shared";
 import CalendarPicker from "../components/CalendarPicker";
+import { useDisplayFont } from "../useDisplayFont";
 import "../styles/PublicBooking.scss";
 
 // Predefined reasons from the cancellation spec, plus a free-text fallback.
@@ -38,6 +39,8 @@ export default function ManageBookingPage() {
   const [searchParams] = useSearchParams();
   const token = searchParams.get("token") || "";
   const dispatch = useAppDispatch();
+
+  useDisplayFont();
 
   const [booking, setBooking] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -93,18 +96,6 @@ export default function ManageBookingPage() {
     return () => { cancelled = true; };
   }, [mode, booking?.salon_id, booking?.duration_minutes, booking?.staff_id, selDate]);
 
-  const styleVars = {
-    "--pb-accent": C.accent,
-    "--pb-light": C.light,
-    "--pb-med": C.med,
-    "--pb-border": C.border,
-    "--pb-border-soft": "#f0ecfb",
-    "--pb-text": C.text,
-    "--pb-muted": C.muted,
-    "--pb-white": C.white,
-    "--pb-ink": "#111827",
-  } as React.CSSProperties;
-
   async function handleCancel() {
     if (!appointmentId) return;
     setActionLoading(true);
@@ -149,7 +140,7 @@ export default function ManageBookingPage() {
 
   if (loading) {
     return (
-      <div className="pb" ref={rootRef} style={styleVars}>
+      <div className="pb" ref={rootRef}>
         <div className="pb__center"><div className="pb__spinner" /></div>
       </div>
     );
@@ -157,7 +148,7 @@ export default function ManageBookingPage() {
 
   if (loadError || !booking) {
     return (
-      <div className="pb" ref={rootRef} style={styleVars}>
+      <div className="pb" ref={rootRef}>
         <div className="pb__center">
           <h2 className="pb__title">Booking not found</h2>
           <p className="pb__subtitle">{loadError || "This booking link is invalid or has expired."}</p>
@@ -204,7 +195,7 @@ export default function ManageBookingPage() {
   // ── Reschedule ──────────────────────────────────────────────────────────────
   if (mode === "reschedule") {
     return (
-      <div className="pb" ref={rootRef} style={styleVars}>
+      <div className="pb" ref={rootRef}>
         <TopBar onBack={() => { setMode("view"); setSelTime(null); }} />
         <div className="pb__shell pb__shell--wide">
           <div className="pb__heading">
@@ -273,7 +264,7 @@ export default function ManageBookingPage() {
   // ── Cancel ──────────────────────────────────────────────────────────────────
   if (mode === "cancel") {
     return (
-      <div className="pb" ref={rootRef} style={styleVars}>
+      <div className="pb" ref={rootRef}>
         <TopBar onBack={() => setMode("view")} />
         <div className="pb__shell">
           <div className="pb__heading">
@@ -335,7 +326,7 @@ export default function ManageBookingPage() {
 
   // ── View ────────────────────────────────────────────────────────────────────
   return (
-    <div className="pb" ref={rootRef} style={styleVars}>
+    <div className="pb" ref={rootRef}>
       <TopBar />
       <div className="pb__shell">
         <div className="pb__heading">
