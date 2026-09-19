@@ -390,7 +390,9 @@ function RulesTable({
                   : names.length === 0 ? "Staff member"
                   : names.length === 1 ? names[0]
                   : `${names.length} staff`;
-                const value = rule.type === "percentage" ? `${Number(rule.rate)}%` : fmtMoney(Number(rule.rate));
+                const value = rule.type === "percentage" ? `${Number(rule.rate)}%`
+                  : rule.type === "tiered_target" ? `${Number(rule.rate)}% → ${Number(rule.rate_after_target)}%`
+                  : fmtMoney(Number(rule.rate));
                 return (
                   <tr key={group.key} onClick={() => onOpenDetail(group)}>
                     <td>{(page - 1) * pageSize + i + 1}</td>

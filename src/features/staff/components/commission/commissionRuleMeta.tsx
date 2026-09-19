@@ -24,7 +24,7 @@ export function groupCommissionRules(rules: CommissionRule[]): RuleGroup[] {
   const map = new Map<string, RuleGroup>();
 
   for (const r of rules) {
-    const key = [r.name, r.source, r.type, r.rate, r.condition_target, r.condition_metric, r.frequency, r.status].join("::");
+    const key = [r.name, r.source, r.type, r.rate, r.rate_after_target, r.condition_target, r.condition_metric, r.frequency, r.status].join("::");
 
     let group = map.get(key);
     if (!group) {

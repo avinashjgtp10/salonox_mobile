@@ -29,11 +29,13 @@ const SOURCES: CommissionRuleSource[] = ["services", "products", "memberships", 
 const TYPE_OPTIONS: { key: CommissionRuleType; label: string }[] = [
   { key: "percentage", label: "Percentage" },
   { key: "fixed", label: "Fixed Amount" },
+  { key: "tiered_target", label: "Monthly Target" },
 ];
 const TYPE_FIELD_LABEL: Record<CommissionRuleType, string> = {
   percentage: "Commission",
   fixed: "Amount",
   milestone: "Reward",
+  tiered_target: "Commission",
 };
 const FREQUENCY_OPTIONS: CommissionFrequency[] = ["daily", "monthly"];
 const FREQUENCY_LABELS: Record<CommissionFrequency, string> = { daily: "Daily", weekly: "Weekly", biweekly: "Bi-Weekly", monthly: "Monthly", custom: "Custom Date" };
@@ -50,6 +52,7 @@ export default function RuleWizard({ staffOptions, staffLoading, editing, initia
   const [source, setSource] = useState<CommissionRuleSource>(editing?.source ?? "services");
   const [type, setType] = useState<CommissionRuleType>(editing?.type === "milestone" ? "percentage" : editing?.type ?? "percentage");
   const [rate, setRate] = useState(editing?.rate != null ? String(editing.rate) : "");
+  const [rateAfterTarget, setRateAfterTarget] = useState(editing?.rate_after_target != null ? String(editing.rate_after_target) : "");
 
   const [selectedStaffIds, setSelectedStaffIds] = useState<string[]>(
     initialStaffIds && initialStaffIds.length > 0
@@ -70,12 +73,14 @@ export default function RuleWizard({ staffOptions, staffLoading, editing, initia
 
   const isNameInvalid = attempted && !name.trim();
   const isRateInvalid = attempted && !(Number(rate) > 0);
+  const isRateAfterInvalid = attempted && type === "tiered_target" && !(Number(rateAfterTarget) > 0);
   const isScopeInvalid = attempted && selectedStaffIds.length === 0;
-  const isConditionInvalid = attempted && type === "milestone" && !(Number(conditionTarget) > 0);
+  const isConditionInvalid = attempted && (type === "milestone" || type === "tiered_target") && !(Number(conditionTarget) > 0);
 
   const buildPayload = (finalStatus: CommissionRuleStatus): CommissionRuleFormData | null => {
     if (!name.trim() || !(Number(rate) > 0) || selectedStaffIds.length === 0 ||
-      (type === "milestone" && !(Number(conditionTarget) > 0))) {
+      ((type === "milestone" || type === "tiered_target") && !(Number(conditionTarget) > 0)) ||
+      (type === "tiered_target" && !(Number(rateAfterTarget) > 0))) {
       return null;
     }
 
@@ -91,6 +96,8 @@ export default function RuleWizard({ staffOptions, staffLoading, editing, initia
 
     if (selectedStaffIds.length === 1) data.scope_id = selectedStaffIds[0];
     else data.scope_ids = selectedStaffIds;
+
+    if (type === "tiered_target") data.rate_after_target = Number(rateAfterTarget);
 
     if (conditionTarget.trim()) {
       data.condition_target = Number(conditionTarget);
@@ -165,45 +172,97 @@ export default function RuleWizard({ staffOptions, staffLoading, editing, initia
           </div>
 
           {/* Type-specific rate/amount/reward field */}
-          <div className="rw-field">
-            <label className="rw-field-label">{TYPE_FIELD_LABEL[type]}</label>
-            <div className={`rw-rate-input-wrap ${isRateInvalid ? "rw-invalid" : ""}`}>
-              <span className="rw-rate-prefix">{type === "percentage" ? "%" : currencySymbol}</span>
-              <input
-                type="number"
-                min={0}
-                className="rw-rate-input"
-                placeholder={type === "percentage" ? "e.g. 10" : type === "fixed" ? "e.g. 100" : "e.g. 200"}
-                value={rate}
-                onChange={(e) => setRate(e.target.value)}
-              />
+          {type !== "tiered_target" && (
+            <div className="rw-field">
+              <label className="rw-field-label">{TYPE_FIELD_LABEL[type]}</label>
+              <div className={`rw-rate-input-wrap ${isRateInvalid ? "rw-invalid" : ""}`}>
+                <span className="rw-rate-prefix">{type === "percentage" ? "%" : currencySymbol}</span>
+                <input
+                  type="number"
+                  min={0}
+                  className="rw-rate-input"
+                  placeholder={type === "percentage" ? "e.g. 10" : type === "fixed" ? "e.g. 100" : "e.g. 200"}
+                  value={rate}
+                  onChange={(e) => setRate(e.target.value)}
+                />
+              </div>
+              {isRateInvalid && <span className="rw-error">Enter a value greater than 0</span>}
             </div>
-            {isRateInvalid && <span className="rw-error">Enter a value greater than 0</span>}
-          </div>
+          )}
 
-          {/* Condition */}
-          <div className="rw-field">
-            <label className="rw-field-label">
-              Condition {type !== "milestone" && <span className="rw-optional">(optional — leave blank to always apply)</span>}
-            </label>
-            <div className="rw-condition-sentence">
-              <span>They will receive</span>
-              <strong className="rw-condition-value">
-                {rate ? (type === "percentage" ? `${rate}%` : `${currencySymbol}${rate}`) : "—"}
-              </strong>
-              <span>when they generate</span>
+          {/* Monthly Target — target amount + before/after commission rates */}
+          {type === "tiered_target" && (
+            <div className="rw-field">
+              <label className="rw-field-label">Monthly Sales Target</label>
               <div className={`rw-condition-input-wrap ${isConditionInvalid ? "rw-invalid" : ""}`}>
                 <span>{currencySymbol}</span>
                 <input
                   type="number" min={0}
-                  placeholder="e.g. 20000"
+                  placeholder="e.g. 100000"
                   value={conditionTarget}
                   onChange={(e) => setConditionTarget(e.target.value)}
                 />
               </div>
+              {isConditionInvalid && <span className="rw-error">Enter a monthly target amount</span>}
+
+              <div className="rw-tiered-rates">
+                <div className="rw-tiered-rate">
+                  <label>Commission below target</label>
+                  <div className={`rw-rate-input-wrap ${isRateInvalid ? "rw-invalid" : ""}`}>
+                    <span className="rw-rate-prefix">%</span>
+                    <input
+                      type="number" min={0}
+                      className="rw-rate-input"
+                      placeholder="e.g. 5"
+                      value={rate}
+                      onChange={(e) => setRate(e.target.value)}
+                    />
+                  </div>
+                  {isRateInvalid && <span className="rw-error">Enter a value greater than 0</span>}
+                </div>
+                <div className="rw-tiered-rate">
+                  <label>Commission at/above target</label>
+                  <div className={`rw-rate-input-wrap ${isRateAfterInvalid ? "rw-invalid" : ""}`}>
+                    <span className="rw-rate-prefix">%</span>
+                    <input
+                      type="number" min={0}
+                      className="rw-rate-input"
+                      placeholder="e.g. 10"
+                      value={rateAfterTarget}
+                      onChange={(e) => setRateAfterTarget(e.target.value)}
+                    />
+                  </div>
+                  {isRateAfterInvalid && <span className="rw-error">Enter a value greater than 0</span>}
+                </div>
+              </div>
             </div>
-            {isConditionInvalid && <span className="rw-error">Milestone rules need a target amount</span>}
-          </div>
+          )}
+
+          {/* Condition */}
+          {type !== "tiered_target" && (
+            <div className="rw-field">
+              <label className="rw-field-label">
+                Condition {type !== "milestone" && <span className="rw-optional">(optional — leave blank to always apply)</span>}
+              </label>
+              <div className="rw-condition-sentence">
+                <span>They will receive</span>
+                <strong className="rw-condition-value">
+                  {rate ? (type === "percentage" ? `${rate}%` : `${currencySymbol}${rate}`) : "—"}
+                </strong>
+                <span>when they generate</span>
+                <div className={`rw-condition-input-wrap ${isConditionInvalid ? "rw-invalid" : ""}`}>
+                  <span>{currencySymbol}</span>
+                  <input
+                    type="number" min={0}
+                    placeholder="e.g. 20000"
+                    value={conditionTarget}
+                    onChange={(e) => setConditionTarget(e.target.value)}
+                  />
+                </div>
+              </div>
+              {isConditionInvalid && <span className="rw-error">Milestone rules need a target amount</span>}
+            </div>
+          )}
 
           {/* Who receives this commission */}
           <div className="rw-field">
