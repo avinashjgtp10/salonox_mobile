@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, Navigate } from "react-router-dom";
 import { Search, TelephoneFill, GeoAltFill, X, Clock } from "react-bootstrap-icons";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { fetchPublicDigitalMenuThunk } from "../../../middleware/digitalMenu/digitalMenu.thunk";
@@ -55,6 +55,19 @@ export default function PublicDigitalMenuPage() {
   }, [categories, search, activeCategory]);
 
   const totalServiceCount = filteredCategories.reduce((sum, c) => sum + c.services.length, 0);
+
+  // The digital menu and the booking page are the same catalogue twice over,
+  // so a QR code that lands on a read-only price list is a dead end. Hand the
+  // customer straight to the page they can actually book from.
+  //
+  // `booking_slug` is only non-null when the salon has published online
+  // booking (the API checks), so a salon that hasn't opted in — or hasn't got
+  // a slug — still gets the menu below rather than "Booking unavailable".
+  // `replace` keeps Back on the customer's previous page instead of bouncing
+  // them between the two.
+  if (publicMenu?.status === "active" && publicMenu.booking_slug) {
+    return <Navigate to={`/book/${publicMenu.booking_slug}`} replace />;
+  }
 
   if (publicLoading) {
     return (
@@ -203,14 +216,6 @@ export default function PublicDigitalMenuPage() {
                   <span className="pdm-detail__duration"><Clock size={13} /> {formatDuration(detailService.duration)}</span>
                 )}
               </div>
-              {publicMenu.booking_slug && (
-                <a
-                  className="pdm-detail__book-btn"
-                  href={`/book/${publicMenu.booking_slug}?serviceId=${detailService.id}`}
-                >
-                  Book Appointment
-                </a>
-              )}
             </div>
           </div>
         </div>
