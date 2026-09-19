@@ -78,10 +78,15 @@ export function StaffSelfProfileScreen() {
   const { detailsError, detailsLoading, refresh, staffMember } = useStaffDetails(staffId);
   const profile = staffMember ?? currentStaff;
   const loading = currentStaffLoading || detailsLoading;
+  // GET /staff/:id (and the address / emergency-contact reads behind it) are
+  // gated on view_team / manage_staff_personal_data, which a staff member does
+  // not hold even for their own record. Those calls are enrichment only —
+  // selectCurrentStaff already carries this user's profile — so their failure
+  // must not surface as an error once there is something to render.
   const error =
     currentStaffError ??
     (!staffId && !currentStaffLoading ? "Staff profile is not available for this session." : null) ??
-    detailsError;
+    (profile ? null : detailsError);
 
   return (
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
