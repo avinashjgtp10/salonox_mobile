@@ -5,6 +5,7 @@ import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { fetchSuperAdminSalonsThunk, setSalonStatusThunk, forceOnboardingThunk, impersonateSalonThunk, deleteSalonThunk, createUserThunk } from "../../../middleware/superAdmin/superAdmin.thunk";
 import Pagination from "../components/Pagination";
 import { Badge, ActionBtn, Toast } from "../components/SuperAdminUI";
+import { EMAIL_REGEX } from "../../../components/Landing/shared";
 
 type MenuAction = { label: string; color: string; bg: string; onClick: () => void; disabled?: boolean };
 
@@ -182,6 +183,7 @@ export default function SalonsPage() {
   async function handleCreate() {
     if (!form.first_name.trim()) { setCreateErr("First name is required."); return; }
     if (!form.email.trim()) { setCreateErr("Email is required."); return; }
+    if (!EMAIL_REGEX.test(form.email.trim())) { setCreateErr("Enter a valid email address."); return; }
     if (form.password.length < 6) { setCreateErr("Password must be at least 6 characters."); return; }
     if (form.phone.trim() && form.phone.replace(/\D/g, "").length < 10) { setCreateErr("Phone number must have at least 10 digits."); return; }
     if (form.role === "salon_owner" && !form.business_name.trim()) { setCreateErr("Business name is required for Salon Owner."); return; }

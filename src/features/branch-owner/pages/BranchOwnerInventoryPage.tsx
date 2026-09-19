@@ -70,14 +70,24 @@ export default function BranchOwnerInventoryPage() {
     if (salons.length >= 2 && !destSalonId) setDestSalonId(salons[1].id);
   }, [salons, sourceSalonId, destSalonId]);
 
+  // Fetches the full product list for the selected From Branch — search is
+  // filtered client-side by the Dropdown itself (see below), so this must
+  // NOT depend on the page's `search` box: that box filters the unrelated
+  // Branch Stock Overview panel, and wiring it in here meant typing there
+  // silently narrowed (or emptied) the transfer product list and wiped any
+  // already-selected products every keystroke.
   useEffect(() => {
     if (!sourceSalonId) return;
-    api.get(BRANCH_OWNER.SALON_PRODUCTS(sourceSalonId), { params: search ? { search } : undefined })
+    api.get(BRANCH_OWNER.SALON_PRODUCTS(sourceSalonId))
       .then((res) => setSourceProducts(res.data?.data ?? []))
       .catch(() => setSourceProducts([]));
     setSourceProductIds([]);
     setProductRows({});
-  }, [sourceSalonId, search]);
+  }, [sourceSalonId]);
+
+  // Zero-stock products can't be transferred, so they're excluded from the
+  // picker entirely rather than being selectable with nothing to send.
+  const transferableProducts = sourceProducts.filter((p) => p.amount > 0);
 
   // Toggling a product on fetches its suggested destination match once and
   // seeds its row; toggling off just drops the row — same "toggle by id,
@@ -291,12 +301,17 @@ export default function BranchOwnerInventoryPage() {
           <Dropdown
             multiple
             value={sourceProductIds}
-            options={sourceProducts.map((p) => ({ id: p.id, name: `${p.name} — ${p.amount} ${p.measure_unit} available` }))}
+            options={transferableProducts.map((p) => ({ id: p.id, name: `${p.name} — ${p.amount} ${p.measure_unit} available` }))}
             onChange={toggleSourceProduct}
             placeholder="Search and select products…"
             className="bo-transfer-product-dropdown"
             style={inputStyle}
           />
+          {sourceProducts.length > 0 && transferableProducts.length === 0 && (
+            <div style={{ marginTop: 8, fontSize: 12, color: "#94a3b8" }}>
+              No products with available stock at this branch to transfer.
+            </div>
+          )}
 
           {sourceProductIds.length > 0 && (
             <div style={{ marginTop: 12, marginBottom: 4 }}>
