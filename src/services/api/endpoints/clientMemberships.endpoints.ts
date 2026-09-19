@@ -1,4 +1,4 @@
-import type { MembershipAppliesTo } from "./memberships.endpoints";
+import type { MembershipAppliesTo, MembershipBenefitType } from "./memberships.endpoints";
 
 export const CLIENT_MEMBERSHIPS = {
   BASE:    '/api/v1/client-memberships',
@@ -43,7 +43,14 @@ export interface ClientMembership {
   description?: string;
   pricingType?: 'value' | 'percentage' | 'loyalty';
   discountPercent?: number;
-  /** 'percentage' only — discount still available to hand out, depletes by discount given. */
+  /** 'percentage' only — the benefit model this membership was SOLD under,
+   *  snapshotted at purchase. 'validity' has no balance and runs until expiry;
+   *  'discount_balance' (the default, and everything sold before this existed)
+   *  spends discountBalanceRemaining down and stops at 0. */
+  benefitType?: MembershipBenefitType;
+  /** 'percentage' + 'discount_balance' only — discount still available to hand
+   *  out, depletes by discount given. Always 0 on a validity membership, which
+   *  is why nothing may treat 0 here as "no benefit" without checking the type. */
   discountBalanceRemaining?: number;
   usageLog?: UsageLogEntry[];
   createdAt: string;

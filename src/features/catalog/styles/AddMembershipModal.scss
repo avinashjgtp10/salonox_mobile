@@ -149,6 +149,16 @@
     @media (max-width: 640px) { grid-template-columns: 1fr; }
   }
 
+  /* Benefit Type — the same card affordance as the type row above, but two
+     across instead of three, and inside a field rather than its own card. */
+  &__benefit-row {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+
+    @media (max-width: 640px) { grid-template-columns: 1fr; }
+  }
+
   /* ── Card list, switches per selected type ────────────────────── */
   &__form {
     display: flex;

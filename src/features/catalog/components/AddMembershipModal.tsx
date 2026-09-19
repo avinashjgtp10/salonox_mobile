@@ -22,7 +22,7 @@ import type { AppDispatch, RootState } from "../../../store/store";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { getCurrencyIcon } from "../../../utils/currencyIcon";
 import { toTitleCase } from "../../../utils/titleCase";
-import { DatePicker } from "../../../components/ui";
+import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
 import { createMembershipThunk, updateMembershipThunk } from "../../../middleware/membership/membership.thunk";
 import { selectMembershipsSubmitting, selectMembershipsError } from "../../../store/selectors/membership.selectors";
 import { clearMembershipError } from "../../../store/membershipSlice";
@@ -30,7 +30,7 @@ import { fetchCategoriesThunk } from "../../../middleware/services/categories.th
 import { fetchServicesThunk } from "../../../middleware/services/services.thunk";
 import { searchProductsThunk } from "../../../middleware/catalog/products.thunk";
 import { selectServiceCategories, selectProductCategories, selectAllServices } from "../../../store/selectors/slices.selectors";
-import type { MembershipPricingType, MembershipAppliesTo, LoyaltyTier } from "../../../services/api/endpoints/memberships.endpoints";
+import type { MembershipPricingType, MembershipBenefitType, MembershipAppliesTo, LoyaltyTier } from "../../../services/api/endpoints/memberships.endpoints";
 import api from "../../../services/api/axios";
 import Dropdown from "../../../components/ui/Dropdown";
 import ItemRestrictionPicker from "./ItemRestrictionPicker";
@@ -51,36 +51,28 @@ function addDays(date: Date, days: number): Date {
   return d;
 }
 
-function toIsoDate(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
+// The plan's expiry is stored as a relative "valid for N days" duration — the
+// backend applies it from whenever a client actually BUYS the plan, not from
+// now (see computeExpiryDate in client-memberships.repository.ts), so the day
+// count is the real setting and a calendar date is only ever a preview of it.
+// This used to be entered as a date and back-converted to days; staff now type
+// the duration itself and the date under the field is what's derived.
+const DEFAULT_VALID_DAYS = 365;
+const MAX_VALID_DAYS = 36500; // 100 years — well past the legacy "lifetime" bucket
 
-// The plan's expiry is stored as a relative "valid for N days" duration (the
-// backend applies it from whenever a client actually buys it, not from now) —
-// picking a calendar date here is just a friendlier way to say "N days from
-// today" than asking staff to do the day-count math themselves.
-function daysFromToday(isoDate: string): number {
-  if (!isoDate) return 0;
-  const picked = new Date(`${isoDate}T00:00:00`);
-  return Math.round((picked.getTime() - todayMidnight().getTime()) / 86400000);
-}
-
-// Reads an existing plan's stored validFor back into a calendar date for the
-// picker — handles the new "N days" format plus the legacy fixed buckets
-// older plans may still carry.
-function parseValidForToDate(validFor: string | undefined | null): string {
+// Reads an existing plan's stored validFor back into a day count for the field
+// — handles the "N days" format plus the legacy fixed buckets older plans may
+// still carry.
+function parseValidForToDays(validFor: string | undefined | null): string {
   const daysMatch = /^(\d+)\s*days?$/i.exec((validFor ?? "").trim());
-  if (daysMatch) return toIsoDate(addDays(todayMidnight(), parseInt(daysMatch[1], 10)));
+  if (daysMatch) return daysMatch[1];
   switch (validFor) {
-    case "1 month":  return toIsoDate(addDays(todayMidnight(), 30));
-    case "3 months": return toIsoDate(addDays(todayMidnight(), 90));
-    case "6 months": return toIsoDate(addDays(todayMidnight(), 180));
-    case "1 year":   return toIsoDate(addDays(todayMidnight(), 365));
-    case "lifetime": return toIsoDate(addDays(todayMidnight(), 365 * 50));
-    default:          return toIsoDate(addDays(todayMidnight(), 365));
+    case "1 month":  return "30";
+    case "3 months": return "90";
+    case "6 months": return "180";
+    case "1 year":   return "365";
+    case "lifetime": return String(365 * 50);
+    default:         return String(DEFAULT_VALID_DAYS);
   }
 }
 
@@ -105,10 +97,20 @@ interface FormState {
   bonusCredit: string;       // value only — extra wallet credit on top of price
   discount: string;          // percentage only — loyalty uses loyaltyTiers instead
   loyaltyTiers: LoyaltyTierInput[];
-  /** ISO date (yyyy-mm-dd) picked via the Expire calendar — value + percentage
-   *  only, loyalty has no expiry. Converted to a "N days from today" duration
-   *  on save; see daysFromToday(). */
-  expiryDate: string;
+  /** How many days the plan stays valid, counted from each client's purchase
+   *  date — value + percentage only, loyalty has no expiry. Saved verbatim as
+   *  "N days"; the date shown under the field is only a preview of that. */
+  validForDays: string;
+  /** 'percentage' only — which of the two mutually exclusive benefit models
+   *  this plan runs on. 'discount_balance' spends the pool below down to ₹0
+   *  and stops; 'validity' has no pool and keeps discounting until the
+   *  membership expires (validForDays above is then the only limit). */
+  benefitType: MembershipBenefitType;
+  /** 'percentage' + 'discount_balance' only — the pool of discount the plan
+   *  hands out over its life. Blank defaults to the membership fee, which is
+   *  what this always silently was before the field was exposed. Ignored
+   *  entirely (and never sent) for a validity plan. */
+  discountBalance: string;
   appliesTo: MembershipAppliesTo;
   /** Optional narrowing of appliesTo to specific service_categories ids —
    *  tracked independently per side: service_categories is one shared table
@@ -127,7 +129,9 @@ interface FormState {
 const emptyForm = (): FormState => ({
   name: "", description: "", price: "", bonusCredit: "", discount: "",
   loyaltyTiers: [emptyTier()],
-  expiryDate: toIsoDate(addDays(todayMidnight(), 365)),
+  validForDays: String(DEFAULT_VALID_DAYS),
+  benefitType: "discount_balance",
+  discountBalance: "",
   appliesTo: "services",
   serviceCategoryIds: [],
   productCategoryIds: [],
@@ -214,7 +218,7 @@ const AddMembershipModal: React.FC<Props> = ({ editId, onCancel, onSaved }) => {
 
   const patch = (p: Partial<FormState>) => {
     setForm((prev) => ({ ...prev, ...p }));
-    // Field names line up 1:1 with error keys (name/price/discount/expiryDate)
+    // Field names line up 1:1 with error keys (name/price/discount/validForDays)
     // — clear a field's inline error as soon as it's edited, otherwise a
     // message set by validate() on Save just sits there forever even after
     // the user fixes the value, since nothing else ever touches `errors`.
@@ -252,7 +256,11 @@ const AddMembershipModal: React.FC<Props> = ({ editId, onCancel, onSaved }) => {
         bonusCredit,
         discount: type === "percentage" && d.discountPercent ? String(d.discountPercent) : "",
         loyaltyTiers,
-        expiryDate: parseValidForToDate(d.validFor),
+        validForDays: parseValidForToDays(d.validFor),
+        // Anything not explicitly 'validity' is the balance model — that's the
+        // default for every plan created before benefit types existed.
+        benefitType: d.benefitType === "validity" ? "validity" : "discount_balance",
+        discountBalance: d.discountBalance != null ? String(d.discountBalance) : "",
         appliesTo: d.appliesTo ?? "services",
         serviceCategoryIds: Array.isArray(d.serviceCategoryIds) ? d.serviceCategoryIds : [],
         productCategoryIds: Array.isArray(d.productCategoryIds) ? d.productCategoryIds : [],
@@ -265,6 +273,18 @@ const AddMembershipModal: React.FC<Props> = ({ editId, onCancel, onSaved }) => {
   const priceNum           = parseFloat(form.price)                 || 0;
   const bonusCreditNum     = parseFloat(form.bonusCredit)            || 0;
   const discountNum        = parseFloat(form.discount)               || 0;
+  // Blank = "same as the fee", which is exactly what the pool always was
+  // before this became an editable field — so leaving it alone reproduces
+  // today's behaviour rather than creating a ₹0 (instantly dead) plan.
+  const discountBalanceNum = form.discountBalance.trim() === ""
+    ? parseFloat(form.price) || 0
+    : parseFloat(form.discountBalance) || 0;
+
+  const validDaysNum       = parseInt(form.validForDays, 10)         || 0;
+  // Preview only — the countdown really starts on the client's purchase date,
+  // so this reads as "what a plan sold today would expire on", not as a value
+  // that gets stored anywhere.
+  const previewExpiry      = validDaysNum > 0 ? formatDateDDMMYYYY(addDays(todayMidnight(), validDaysNum)) : "—";
   const walletValue        = priceNum + bonusCreditNum;
 
   const addTier = () => patch({ loyaltyTiers: [...form.loyaltyTiers, emptyTier()] });
@@ -293,6 +313,11 @@ const AddMembershipModal: React.FC<Props> = ({ editId, onCancel, onSaved }) => {
     if (pricingType === "percentage") {
       if (!priceNum || priceNum <= 0) e.price = "Membership fee must be greater than 0";
       if (!discountNum || discountNum <= 0 || discountNum > 100) e.discount = "Enter a valid discount %";
+      // Only the balance model has a pool to validate — a validity plan with
+      // a ₹0 pool is correct, not broken.
+      if (form.benefitType === "discount_balance" && discountBalanceNum <= 0) {
+        e.discountBalance = "Discount balance must be greater than 0";
+      }
     }
     if (pricingType === "loyalty") {
       let prevThreshold = 0;
@@ -306,7 +331,8 @@ const AddMembershipModal: React.FC<Props> = ({ editId, onCancel, onSaved }) => {
       });
     }
     if (pricingType !== "loyalty") {
-      if (!form.expiryDate || daysFromToday(form.expiryDate) < 1) e.expiryDate = "Pick a future expiry date";
+      if (!validDaysNum) e.validForDays = "Enter how many days the plan stays valid";
+      else if (validDaysNum > MAX_VALID_DAYS) e.validForDays = `Must be ${MAX_VALID_DAYS} days or fewer`;
     }
 
     setErrors(e);
@@ -327,19 +353,26 @@ const AddMembershipModal: React.FC<Props> = ({ editId, onCancel, onSaved }) => {
       includedServices: [],
       sessionType: "unlimited",
       // Loyalty has no expiry concept (free, evergreen) — "lifetime" satisfies
-      // the backend's required validFor without exposing an Expire field. Other
-      // types send the picked calendar date as a "N days" duration — the
-      // backend applies it from whenever a client actually buys the plan.
-      validFor: pricingType === "loyalty" ? "lifetime" : `${daysFromToday(form.expiryDate)} days`,
+      // the backend's required validFor without exposing a validity field.
+      // Other types send the typed day count straight through — the backend
+      // applies it from whenever a client actually buys the plan.
+      validFor: pricingType === "loyalty" ? "lifetime" : `${validDaysNum} days`,
       price: pricingType === "loyalty" ? 0 : priceNum,
       taxRate: undefined,
       colour: DEFAULT_COLOUR,
       pricingType,
       discountPercent: pricingType === "percentage" ? discountNum : undefined,
-      // The discount pool always equals the fee paid — not an independently
-      // set number — so a ₹5,000 plan gives out ₹5,000 of discount (at 20%
-      // off, whatever that adds up to) before it runs out.
-      discountBalance: pricingType === "percentage" ? priceNum : undefined,
+      // Which of the two benefit models this plan runs on. Only meaningful
+      // for 'percentage'; the others always send the default so the column
+      // never holds something misleading for a wallet/loyalty plan.
+      benefitType: pricingType === "percentage" ? form.benefitType : "discount_balance",
+      // A validity plan has no pool at all — sending undefined keeps the
+      // column NULL so the two models can't both look configured. The balance
+      // model sends the typed figure, which defaults to the fee (the value it
+      // was permanently hardcoded to before this field existed).
+      discountBalance: pricingType === "percentage" && form.benefitType === "discount_balance"
+        ? discountBalanceNum
+        : undefined,
       loyaltyTiers: pricingType === "loyalty"
         ? form.loyaltyTiers.map((t) => ({
             thresholdValue: parseInt(t.threshold, 10) || 0,
@@ -418,6 +451,28 @@ const AddMembershipModal: React.FC<Props> = ({ editId, onCancel, onSaved }) => {
     );
   };
 
+  // Benefit Type picker — same card/radio affordance as the Membership Type
+  // row above, but always switchable: unlike the pricing type, changing the
+  // benefit model doesn't invalidate anything already sold (existing client
+  // memberships keep the model they were bought under, snapshotted at
+  // purchase in client_memberships.benefit_type).
+  const benefitCard = (type: MembershipBenefitType, title: string, sub: string) => {
+    const selected = form.benefitType === type;
+    return (
+      <button
+        type="button"
+        className={`amm__type-card amm__type-card--benefit${selected ? " amm__type-card--on amm__type-card--percentage" : ""}`}
+        onClick={() => patch({ benefitType: type })}
+      >
+        <span className="amm__type-copy">
+          <span className="amm__type-title">{title}</span>
+          <span className="amm__type-sub">{sub}</span>
+        </span>
+        <span className="amm__radio" />
+      </button>
+    );
+  };
+
   return (
     <div className="amm-overlay" onClick={onCancel}>
       <div className="amm" onClick={(e) => e.stopPropagation()}>
@@ -470,15 +525,18 @@ const AddMembershipModal: React.FC<Props> = ({ editId, onCancel, onSaved }) => {
                 <div className={pricingType !== "loyalty" ? "amm__grid2" : undefined}>
                   {pricingType !== "loyalty" && (
                     <div className="amm__field">
-                      <label className="amm__label">Expiry <span className="amm__req">*</span></label>
-                      <DatePicker
-                        min={toIsoDate(addDays(todayMidnight(), 1))}
-                        value={form.expiryDate}
-                        onChange={(d) => patch({ expiryDate: d })}
+                      <label className="amm__label">Validity (Days) <span className="amm__req">*</span></label>
+                      <input
+                        className={`amm__input${errors.validForDays ? " amm__input--err" : ""}`}
+                        inputMode="numeric"
+                        maxLength={5}
+                        placeholder="365"
+                        value={form.validForDays}
+                        onChange={(e) => patch({ validForDays: e.target.value.replace(/\D/g, "") })}
                       />
-                      {errors.expiryDate
-                        ? <p className="amm__err">{errors.expiryDate}</p>
-                        : <p className="amm__hint">Valid for {Math.max(0, daysFromToday(form.expiryDate))} days from today.</p>}
+                      {errors.validForDays
+                        ? <p className="amm__err">{errors.validForDays}</p>
+                        : <p className="amm__hint">Expires {previewExpiry} if bought today — the {validDaysNum || 0} days run from each client's purchase date.</p>}
                     </div>
                   )}
 
@@ -619,10 +677,56 @@ const AddMembershipModal: React.FC<Props> = ({ editId, onCancel, onSaved }) => {
                       </div>
                     </div>
 
-                    <div className="amm__wallet-preview amm__wallet-preview--percentage">
-                      <span>Discount Balance</span>
-                      <strong>{formatAmount(priceNum)}</strong>
+                    {/* Benefit Type — the two models are mutually exclusive
+                        by construction: one value, and only that model's
+                        fields render below it. */}
+                    <div className="amm__field">
+                      <label className="amm__label">Benefit Type <span className="amm__req">*</span></label>
+                      <div className="amm__benefit-row">
+                        {benefitCard(
+                          "discount_balance",
+                          "Discount Balance",
+                          "Discount is consumed from a set pool, and stops at ₹0",
+                        )}
+                        {benefitCard(
+                          "validity",
+                          "Validity Based",
+                          "Discount applies to every eligible bill until the membership expires",
+                        )}
+                      </div>
                     </div>
+
+                    {form.benefitType === "discount_balance" ? (
+                      <>
+                        <div className="amm__field">
+                          <label className="amm__label">Discount Balance <span className="amm__req">*</span></label>
+                          <div className="amm__pfx-wrap">
+                            <span className="amm__pfx">{currencySymbol}</span>
+                            <input
+                              type="number" min={0} step={1}
+                              className={`amm__input amm__input--pfx${errors.discountBalance ? " amm__input--err" : ""}`}
+                              placeholder={form.price || "0"}
+                              value={form.discountBalance}
+                              onChange={(e) => patch({ discountBalance: e.target.value })}
+                              onWheel={(e) => e.currentTarget.blur()}
+                            />
+                          </div>
+                          {errors.discountBalance
+                            ? <p className="amm__err">{errors.discountBalance}</p>
+                            : <p className="amm__hint">Total discount this plan can hand out. Leave blank to match the membership fee.</p>}
+                        </div>
+
+                        <div className="amm__wallet-preview amm__wallet-preview--percentage">
+                          <span>Discount Balance</span>
+                          <strong>{formatAmount(discountBalanceNum)}</strong>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="amm__wallet-preview amm__wallet-preview--percentage">
+                        <span>{form.discount || 0}% off every eligible bill</span>
+                        <strong>{validDaysNum || 0} days</strong>
+                      </div>
+                    )}
                   </>
                 )}
 
