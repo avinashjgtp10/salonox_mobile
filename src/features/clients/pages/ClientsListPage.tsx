@@ -148,6 +148,11 @@ export default function ClientsListPage() {
         pageSize: resolvedPageSize,
         sort_by,
         sort_order,
+        // Opt-in trimmed projection — this table only ever renders name/
+        // referral/mobile/gender/reviews/sales/created_at, so there's no
+        // reason to pull every client column (address/notes/tags/ltv/
+        // ewallet/reward-balances/etc.) over the wire for every page load.
+        fields: "list",
       };
       if (gender && gender !== "All") params.gender = gender.toLowerCase();
       if (search && search.trim()) params.search = search.trim();

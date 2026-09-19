@@ -187,6 +187,7 @@ const ServicesListPage: React.FC = () => {
   const [deletingService, setDeletingService]   = useState<Service | null>(null);
   const [deleteServiceInput, setDeleteServiceInput] = useState("");
   const [deleteLoading, setDeleteLoading]       = useState(false);
+  const [deleteServiceError, setDeleteServiceError] = useState<string | null>(null);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
 
   // Bulk selection state
@@ -194,6 +195,7 @@ const ServicesListPage: React.FC = () => {
   const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
   const [deleteBulkLoading, setDeleteBulkLoading]     = useState(false);
   const [deleteBulkInput, setDeleteBulkInput]         = useState("");
+  const [bulkDeleteError, setBulkDeleteError]         = useState<string | null>(null);
 
   const optMenuRef = useRef<HTMLDivElement>(null);
   const [showOptMenu, setShowOptMenu] = useState(false);
@@ -326,7 +328,7 @@ const ServicesListPage: React.FC = () => {
   }, [openCardMenu]);
 
   // Reset the "type DELETE to confirm" field whenever a delete target opens/closes
-  useEffect(() => { setDeleteServiceInput(""); }, [deletingService]);
+  useEffect(() => { setDeleteServiceInput(""); setDeleteServiceError(null); }, [deletingService]);
 
   // Re-fetch the currently-viewed page/pageSize/search/filters combination —
   // every action that mutates the list (delete, bulk delete, category
@@ -791,6 +793,7 @@ const ServicesListPage: React.FC = () => {
               style={!can("delete_services") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
               onClick={() => {
                 if (!can("delete_services")) { denyPerm("delete_services"); return; }
+                setBulkDeleteError(null);
                 setShowBulkDeleteModal(true);
               }}
             >
@@ -1219,6 +1222,11 @@ const ServicesListPage: React.FC = () => {
                   autoFocus
                 />
               </div>
+              {deleteServiceError && (
+                <p className="small mb-0 mt-2" style={{ color: "#ef4444" }}>
+                  {deleteServiceError}
+                </p>
+              )}
             </div>
             <div className="slp__modal-footer">
               <button
@@ -1232,9 +1240,16 @@ const ServicesListPage: React.FC = () => {
                 disabled={deleteServiceInput !== "DELETE" || deleteLoading}
                 onClick={async () => {
                   if (!can("delete_services")) { denyPerm("delete_services"); setDeletingService(null); return; }
+                  setDeleteServiceError(null);
                   setDeleteLoading(true);
-                  await dispatch(deleteServiceThunk(deletingService.id));
+                  const result = await dispatch(deleteServiceThunk(deletingService.id));
                   setDeleteLoading(false);
+                  if (deleteServiceThunk.rejected.match(result)) {
+                    setDeleteServiceError(
+                      (result.payload as string) || "This service could not be deleted.",
+                    );
+                    return;
+                  }
                   setDeletingService(null);
                   refetchCurrentPage();
                 }}
@@ -1281,6 +1296,11 @@ const ServicesListPage: React.FC = () => {
                   autoFocus
                 />
               </div>
+              {bulkDeleteError && (
+                <p className="small mb-0 mt-2" style={{ color: "#ef4444" }}>
+                  {bulkDeleteError}
+                </p>
+              )}
             </div>
             <div className="slp__modal-footer">
               <button
@@ -1293,16 +1313,34 @@ const ServicesListPage: React.FC = () => {
                 className="slp__btn slp__btn--danger"
                 disabled={deleteBulkInput !== "DELETE" || deleteBulkLoading}
                 onClick={async () => {
+                  setBulkDeleteError(null);
                   setDeleteBulkLoading(true);
                   const idsToDelete = Array.from(selectedServiceIds);
-                  await Promise.allSettled(
+                  const results = await Promise.all(
                     idsToDelete.map((id) => dispatch(deleteServiceThunk(id)))
                   );
                   setDeleteBulkLoading(false);
+                  refetchCurrentPage();
+
+                  const failedIds = idsToDelete.filter((_, i) => deleteServiceThunk.rejected.match(results[i]));
+                  if (failedIds.length > 0) {
+                    const firstFailure = results.find(deleteServiceThunk.rejected.match);
+                    const firstMsg = firstFailure?.payload || "one or more services could not be deleted.";
+                    setBulkDeleteError(
+                      failedIds.length === idsToDelete.length
+                        ? `None of the selected services could be deleted. ${firstMsg}`
+                        : `${failedIds.length} of ${idsToDelete.length} service(s) could not be deleted. ${firstMsg}`
+                    );
+                    // Keep the failed ones selected (and the modal open) so the
+                    // user sees why and can retry after clearing the block —
+                    // successfully-deleted ones are dropped from selection.
+                    setSelectedServiceIds(new Set(failedIds));
+                    return;
+                  }
+
                   setShowBulkDeleteModal(false);
                   setDeleteBulkInput("");
                   setSelectedServiceIds(new Set());
-                  refetchCurrentPage();
                 }}
               >
                 {deleteBulkLoading ? "Deleting…" : `Delete ${selectedServiceIds.size} service(s)`}
