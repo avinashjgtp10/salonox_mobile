@@ -242,6 +242,7 @@ export const STAFF_PERFORMANCE_REPORT = {
 // never through the Appointment API. Mounted at /api/report.
 export const STAFF_ITEM_SALES_REPORT = {
   SUMMARY: () => `/api/report/staff-item-sales`,
+  CHART: () => `/api/report/staff-item-sales/chart`,
 } as const;
 
 // Independent Rebooking Rate reporting API — one row per staff member,
