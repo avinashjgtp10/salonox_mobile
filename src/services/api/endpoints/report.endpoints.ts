@@ -40,6 +40,7 @@ export const PRODUCT_INVENTORY_SALES_REPORT = {
 // never through the Appointment API. Mounted at /api/report.
 export const PRODUCT_INVENTORY_REPORT = {
   SUMMARY: () => `/api/report/product-inventory`,
+  CHART: () => `/api/report/product-inventory/chart`,
 } as const;
 
 // Independent Slow Moving Products reporting API — products with low/no
@@ -257,6 +258,7 @@ export const REBOOKING_RATE_REPORT = {
 // Mounted at /api/report.
 export const PACKAGE_SALE_REPORT = {
   SUMMARY: () => `/api/report/package-sale`,
+  CHART: () => `/api/report/package-sale/chart`,
 } as const;
 
 // Independent Payroll History reporting API — reads payroll_entries
@@ -275,6 +277,7 @@ export const PACKAGE_HISTORY_REPORT = {
 // directly. Mounted at /api/report.
 export const MEMBER_SALE_REPORT = {
   SUMMARY: () => `/api/report/member-sale`,
+  CHART: () => `/api/report/member-sale/chart`,
 } as const;
 
 // Independent Appointment Detail reporting API — reads the appointments

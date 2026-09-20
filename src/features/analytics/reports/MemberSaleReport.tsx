@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { Search } from "react-bootstrap-icons";
+import { Search, GraphUp } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { MEMBER_SALE_REPORT } from "../../../services/api/endpoints";
 import ReportRefreshButton from "./ReportRefreshButton";
@@ -13,6 +13,7 @@ import { useCurrency } from "../../../hooks/useCurrency";
 import { useRowSelection } from "./useRowSelection";
 import { SendCampaignBar } from "./SendCampaignBar";
 import { SendCampaignModal } from "../../marketing/components";
+import MemberSaleGraphPage from "./MemberSaleGraphPage";
 import "./MemberSaleReport.scss";
 
 const REPORT_NAME = "Membership Sale";
@@ -114,12 +115,27 @@ export default function MemberSaleReport({ onBack, category, categoryKey }: { on
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const selection = useRowSelection();
   const [showCampaignModal, setShowCampaignModal] = useState(false);
+  const [showChart, setShowChart] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search.trim()), 300);
     return () => clearTimeout(t);
   }, [search]);
+
+  // Shared with the Graph page below — same filter set the table/stats use,
+  // minus pagination.
+  const buildFilterBody = useCallback((): Record<string, any> => {
+    const body: Record<string, any> = { start_date: dateFrom, end_date: dateTo };
+    if (debouncedSearch) body.search = debouncedSearch;
+    if (statusFilter.length > 0) body.statuses = statusFilter;
+    if (membershipFilter.length > 0) body.membership_ids = membershipFilter;
+    if (pricingTypeFilter.length > 0) body.pricing_types = pricingTypeFilter;
+    if (staffFilterIds.length > 0) body.staff_ids = staffFilterIds;
+    if (minPrice !== "") body.price_min = Number(minPrice);
+    if (maxPrice !== "") body.price_max = Number(maxPrice);
+    return body;
+  }, [dateFrom, dateTo, debouncedSearch, statusFilter, membershipFilter, pricingTypeFilter, staffFilterIds, minPrice, maxPrice]);
 
   // Real server-side pagination — page/limit are sent on every request, and
   // only that page's rows come back, along with stats computed by the
@@ -131,17 +147,7 @@ export default function MemberSaleReport({ onBack, category, categoryKey }: { on
     abortRef.current = ctrl;
     setLoading(true);
     try {
-      const body: Record<string, any> = {
-        start_date: dateFrom, end_date: dateTo,
-        page: currentPage, limit: pageSize,
-      };
-      if (debouncedSearch) body.search = debouncedSearch;
-      if (statusFilter.length > 0) body.statuses = statusFilter;
-      if (membershipFilter.length > 0) body.membership_ids = membershipFilter;
-      if (pricingTypeFilter.length > 0) body.pricing_types = pricingTypeFilter;
-      if (staffFilterIds.length > 0) body.staff_ids = staffFilterIds;
-      if (minPrice !== "") body.price_min = Number(minPrice);
-      if (maxPrice !== "") body.price_max = Number(maxPrice);
+      const body = { ...buildFilterBody(), page: currentPage, limit: pageSize };
       const res = await api.post(MEMBER_SALE_REPORT.SUMMARY(), body, { signal: ctrl.signal });
       const data = res.data?.data;
       const raw: any[] = Array.isArray(data?.rows) ? data.rows : [];
@@ -168,7 +174,7 @@ export default function MemberSaleReport({ onBack, category, categoryKey }: { on
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [dateFrom, dateTo, debouncedSearch, statusFilter, membershipFilter, pricingTypeFilter, staffFilterIds, minPrice, maxPrice, currentPage, pageSize]);
+  }, [buildFilterBody, currentPage, pageSize]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, debouncedSearch, statusFilter, membershipFilter, pricingTypeFilter, staffFilterIds, minPrice, maxPrice]);
@@ -208,12 +214,36 @@ export default function MemberSaleReport({ onBack, category, categoryKey }: { on
     STATUS_OPTIONS.find(o => o.id === r.status)?.label ?? r.status,
   ]);
 
+  // Graph icon opens this in place of the table — same full-page pattern
+  // every other report graph page uses.
+  if (showChart) {
+    return (
+      <MemberSaleGraphPage
+        reportName={REPORT_NAME}
+        onBack={onBack}
+        onClose={() => setShowChart(false)}
+        dateFrom={dateFrom}
+        dateTo={dateTo}
+        buildFilterBody={buildFilterBody}
+        statCards={[
+          { label: "Memberships Sold", value: stats.membershipsSold.toString() },
+          { label: "Total Revenue",    value: formatAmount(stats.totalRevenue) },
+          { label: "Active",           value: stats.activeCount.toString() },
+          { label: "Expiry Soon",      value: stats.expirySoonCount.toString() },
+        ]}
+      />
+    );
+  }
+
   return (
     <div className="rp-detail-view">
       <div className="rp-detail-header">
         <div className="rp-detail-back-row">
           <Breadcrumb current={REPORT_NAME} category={category} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
+            <button className="rp-detail-icon-btn" title="View graph" onClick={() => setShowChart(true)}>
+              <GraphUp size={16} />
+            </button>
             <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename={`membership-sale-${dateFrom}-${dateTo}`} variant="button" csv reportId="member_sale" />
           </div>
         </div>

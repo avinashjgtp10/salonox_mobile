@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { Search } from "react-bootstrap-icons";
+import { Search, GraphUp } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { PRODUCT_INVENTORY_REPORT } from "../../../services/api/endpoints";
 import { useProducts } from "../../catalog/hooks/useProducts";
@@ -10,6 +10,7 @@ import { Pagination, JiraFilterMenu, DateRangeFilter } from "../../../components
 import type { JiraFilterField, DateRangeFilterValue } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import { useCurrency } from "../../../hooks/useCurrency";
+import ProductInventoryGraphPage from "./ProductInventoryGraphPage";
 import "./ProductInventoryReport.scss";
 
 const REPORT_NAME = "Product Inventory";
@@ -161,6 +162,7 @@ export default function ProductInventoryReport({ onBack, category: reportCategor
   const [loading,     setLoading]     = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize,    setPageSize]    = useState(10);
+  const [showChart,   setShowChart]   = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   const dateRangeError = dateFrom && dateTo && dateTo < dateFrom
@@ -192,6 +194,23 @@ export default function ProductInventoryReport({ onBack, category: reportCategor
     return () => clearTimeout(t);
   }, [search]);
 
+  // Shared with the Graph page below — same filter set the table/stats use,
+  // minus pagination.
+  const buildFilterBody = useCallback((): Record<string, any> => {
+    const body: Record<string, any> = {};
+    if (debouncedSearch) body.search = debouncedSearch;
+    if (categoryFilter.length > 0) body.category_ids = categoryFilter;
+    if (brandFilter.length > 0) body.brand_ids = brandFilter;
+    // Backend stock_status is a single enum — only send it when exactly
+    // one option is checked; 0 or 2+ selected means "All".
+    if (stockStatusFilter.length === 1) body.stock_status = stockStatusFilter[0];
+    if (dateFrom) body.date_from = dateFrom;
+    if (dateTo) body.date_to = dateTo;
+    if (expiryFrom) body.expiry_from = expiryFrom;
+    if (expiryTo) body.expiry_to = expiryTo;
+    return body;
+  }, [debouncedSearch, categoryFilter, brandFilter, stockStatusFilter, dateFrom, dateTo, expiryFrom, expiryTo]);
+
   // Real server-side pagination — page/limit are sent on every request, and
   // only that page's rows come back, along with stats computed by the
   // backend over the WHOLE filtered set (not just the current page).
@@ -202,17 +221,7 @@ export default function ProductInventoryReport({ onBack, category: reportCategor
     abortRef.current = ctrl;
     setLoading(true);
     try {
-      const body: Record<string, any> = { page: currentPage, limit: pageSize };
-      if (debouncedSearch) body.search = debouncedSearch;
-      if (categoryFilter.length > 0) body.category_ids = categoryFilter;
-      if (brandFilter.length > 0) body.brand_ids = brandFilter;
-      // Backend stock_status is a single enum — only send it when exactly
-      // one option is checked; 0 or 2+ selected means "All".
-      if (stockStatusFilter.length === 1) body.stock_status = stockStatusFilter[0];
-      if (dateFrom) body.date_from = dateFrom;
-      if (dateTo) body.date_to = dateTo;
-      if (expiryFrom) body.expiry_from = expiryFrom;
-      if (expiryTo) body.expiry_to = expiryTo;
+      const body = { ...buildFilterBody(), page: currentPage, limit: pageSize };
       const res = await api.post(PRODUCT_INVENTORY_REPORT.SUMMARY(), body, { signal: ctrl.signal });
       const data = res.data?.data;
       const raw: any[] = Array.isArray(data?.rows) ? data.rows : [];
@@ -233,7 +242,7 @@ export default function ProductInventoryReport({ onBack, category: reportCategor
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [debouncedSearch, categoryFilter, brandFilter, stockStatusFilter, dateFrom, dateTo, expiryFrom, expiryTo, currentPage, pageSize, dateRangeError]);
+  }, [buildFilterBody, currentPage, pageSize, dateRangeError]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => {
@@ -278,12 +287,34 @@ export default function ProductInventoryReport({ onBack, category: reportCategor
   const statusClass = (s: InventoryRow["status"]) =>
     s === "in_stock" ? "rp-inv-status--ok" : s === "low_stock" ? "rp-inv-status--low" : "rp-inv-status--out";
 
+  // Graph icon opens this in place of the table — same full-page pattern
+  // every other report graph page uses.
+  if (showChart) {
+    return (
+      <ProductInventoryGraphPage
+        reportName={REPORT_NAME}
+        onBack={onBack}
+        onClose={() => setShowChart(false)}
+        buildFilterBody={buildFilterBody}
+        statCards={[
+          { label: "Total Products",     value: stats.totalProducts.toString() },
+          { label: "Total Stock Value",  value: formatAmount(stats.totalStockValue) },
+          { label: "Low Stock Items",    value: stats.lowStockItems.toString() },
+          { label: "Out of Stock Items", value: stats.outOfStockItems.toString() },
+        ]}
+      />
+    );
+  }
+
   return (
     <div className="rp-detail-view">
       <div className="rp-detail-header">
         <div className="rp-detail-back-row">
           <Breadcrumb current={REPORT_NAME} category={reportCategory} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
+            <button className="rp-detail-icon-btn" title="View graph" onClick={() => setShowChart(true)}>
+              <GraphUp size={16} />
+            </button>
             <ReportExportButton
               title={REPORT_NAME}
               headers={HEADERS}

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { Search } from "react-bootstrap-icons";
+import { Search, GraphUp } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { PACKAGE_SALE_REPORT } from "../../../services/api/endpoints";
 import ReportRefreshButton from "./ReportRefreshButton";
@@ -13,6 +13,7 @@ import { useCurrency } from "../../../hooks/useCurrency";
 import { useRowSelection } from "./useRowSelection";
 import { SendCampaignBar } from "./SendCampaignBar";
 import { SendCampaignModal } from "../../marketing/components";
+import PackageSaleGraphPage from "./PackageSaleGraphPage";
 import "./PackageSaleReport.scss";
 
 const REPORT_NAME = "Package Sale";
@@ -117,12 +118,28 @@ export default function PackageSaleReport({ onBack, category, categoryKey }: { o
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const selection = useRowSelection();
   const [showCampaignModal, setShowCampaignModal] = useState(false);
+  const [showChart, setShowChart] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search.trim()), 300);
     return () => clearTimeout(t);
   }, [search]);
+
+  // Shared with the Graph page below — same filter set the table/stats use,
+  // minus pagination.
+  const buildFilterBody = useCallback((): Record<string, any> => {
+    const body: Record<string, any> = { start_date: dateFrom, end_date: dateTo };
+    if (debouncedSearch) body.search = debouncedSearch;
+    if (staffFilterIds.length > 0) body.staff_ids = staffFilterIds;
+    if (packageFilter.length > 0) body.package_names = packageFilter;
+    if (packageStatusFilter.length > 0) body.package_statuses = packageStatusFilter;
+    if (paymentStatusFilter.length > 0) body.payment_statuses = paymentStatusFilter;
+    if (paymentMethodFilter.length > 0) body.payment_methods = paymentMethodFilter;
+    if (minAmount !== "") body.min_amount = Number(minAmount);
+    if (maxAmount !== "") body.max_amount = Number(maxAmount);
+    return body;
+  }, [dateFrom, dateTo, debouncedSearch, staffFilterIds, packageFilter, packageStatusFilter, paymentStatusFilter, paymentMethodFilter, minAmount, maxAmount]);
 
   // Real server-side pagination — page/limit are sent on every request, and
   // only that page's rows come back, along with stats computed by the
@@ -134,18 +151,7 @@ export default function PackageSaleReport({ onBack, category, categoryKey }: { o
     abortRef.current = ctrl;
     setLoading(true);
     try {
-      const body: Record<string, any> = {
-        start_date: dateFrom, end_date: dateTo,
-        page: currentPage, limit: pageSize,
-      };
-      if (debouncedSearch) body.search = debouncedSearch;
-      if (staffFilterIds.length > 0) body.staff_ids = staffFilterIds;
-      if (packageFilter.length > 0) body.package_names = packageFilter;
-      if (packageStatusFilter.length > 0) body.package_statuses = packageStatusFilter;
-      if (paymentStatusFilter.length > 0) body.payment_statuses = paymentStatusFilter;
-      if (paymentMethodFilter.length > 0) body.payment_methods = paymentMethodFilter;
-      if (minAmount !== "") body.min_amount = Number(minAmount);
-      if (maxAmount !== "") body.max_amount = Number(maxAmount);
+      const body = { ...buildFilterBody(), page: currentPage, limit: pageSize };
       const res = await api.post(PACKAGE_SALE_REPORT.SUMMARY(), body, { signal: ctrl.signal });
       const data = res.data?.data;
       const raw: any[] = Array.isArray(data?.rows) ? data.rows : [];
@@ -170,7 +176,7 @@ export default function PackageSaleReport({ onBack, category, categoryKey }: { o
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [dateFrom, dateTo, debouncedSearch, staffFilterIds, packageFilter, packageStatusFilter, paymentStatusFilter, paymentMethodFilter, minAmount, maxAmount, currentPage, pageSize]);
+  }, [buildFilterBody, currentPage, pageSize]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -205,12 +211,36 @@ export default function PackageSaleReport({ onBack, category, categoryKey }: { o
   const HEADERS = ["Date", "Invoice No", "Client", "Staff", "Package Name", "Expiry Date", `Total Amount (${currencySymbol})`, `GST (${currencySymbol})`, `Paid (${currencySymbol})`, `Balance Due (${currencySymbol})`, "Payment Method", "Status"];
   const exportRows = () => rows.map(r => [r.date, r.invoiceNo, r.client, r.staff, r.packageName, r.expiryDate, r.totalAmount, r.gstAmount, r.paidAmount, r.pendingAmount, r.paymentMethod, r.status]);
 
+  // Graph icon opens this in place of the table — same full-page pattern
+  // every other report graph page uses.
+  if (showChart) {
+    return (
+      <PackageSaleGraphPage
+        reportName={REPORT_NAME}
+        onBack={onBack}
+        onClose={() => setShowChart(false)}
+        dateFrom={dateFrom}
+        dateTo={dateTo}
+        buildFilterBody={buildFilterBody}
+        statCards={[
+          { label: "Packages Sold",         value: stats.packagesSold.toString() },
+          { label: "Total Sale Value",      value: formatAmount(stats.totalSaleValue) },
+          { label: "Total Received",        value: formatAmount(stats.totalReceived) },
+          { label: "Outstanding Balance",   value: formatAmount(stats.outstandingBalance) },
+        ]}
+      />
+    );
+  }
+
   return (
     <div className="rp-detail-view">
       <div className="rp-detail-header">
         <div className="rp-detail-back-row">
           <Breadcrumb current={REPORT_NAME} category={category} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
+            <button className="rp-detail-icon-btn" title="View graph" onClick={() => setShowChart(true)}>
+              <GraphUp size={16} />
+            </button>
             <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename={`package-sale-${dateFrom}-${dateTo}`} variant="button" csv reportId="package_sale" />
           </div>
         </div>
