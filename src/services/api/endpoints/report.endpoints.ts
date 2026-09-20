@@ -76,6 +76,7 @@ export const STOCK_MOVEMENT_REPORT = {
 // never through the Appointment API. Mounted at /api/report.
 export const SERVICE_SALE_REPORT = {
   SUMMARY: () => `/api/report/service-sale`,
+  CHART: () => `/api/report/service-sale/chart`,
 } as const;
 
 // Independent GST/Taxes reporting API — reads sales directly, never through
@@ -107,6 +108,7 @@ export const EWALLET_REPORT = {
 // never through the Appointment API. Mounted at /api/report.
 export const CLIENT_REVENUE_REPORT = {
   SUMMARY: () => `/api/report/client-revenue`,
+  CHART: () => `/api/report/client-revenue/chart`,
 } as const;
 
 // Independent All Clients reporting API — pure client-profile listing (no
@@ -191,6 +193,7 @@ export const MEMBERSHIP_HISTORY_REPORT = {
 // links by appointment_id (there is no sale_id). Mounted at /api/report.
 export const PAYMENT_COLLECTION_REPORT = {
   SUMMARY: () => `/api/report/payment-collection`,
+  CHART: () => `/api/report/payment-collection/chart`,
 } as const;
 
 // Independent Pending Payment reporting API — one row per bill still carrying

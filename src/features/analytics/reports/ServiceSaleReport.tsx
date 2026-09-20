@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { Search, ChevronUp, ChevronDown } from "react-bootstrap-icons";
+import { Search, ChevronUp, ChevronDown, GraphUp } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { SERVICE_SALE_REPORT } from "../../../services/api/endpoints";
 import ReportRefreshButton from "./ReportRefreshButton";
@@ -15,6 +15,7 @@ import { servicesInCategories } from "./serviceCategoryFilter";
 import { useRowSelection } from "./useRowSelection";
 import { SendCampaignBar } from "./SendCampaignBar";
 import { SendCampaignModal } from "../../marketing/components";
+import ServiceSaleGraphPage from "./ServiceSaleGraphPage";
 import "./ServiceSaleReport.scss";
 
 const REPORT_NAME = "Service Sale";
@@ -113,6 +114,7 @@ export default function ServiceSaleReport({ onBack, category, categoryKey }: { o
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const selection = useRowSelection();
   const [showCampaignModal, setShowCampaignModal] = useState(false);
+  const [showChart, setShowChart] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -121,6 +123,20 @@ export default function ServiceSaleReport({ onBack, category, categoryKey }: { o
   }, [search]);
 
   useEffect(() => { fetchServices({ limit: 1000 }); }, [fetchServices]);
+
+  // Shared with the Graph page below — same filter set the table/stats use,
+  // minus pagination/sort (the chart groups everything by day instead).
+  const buildFilterBody = useCallback((): Record<string, any> => {
+    const body: Record<string, any> = { start_date: dateFrom, end_date: dateTo };
+    if (debouncedSearch) body.search = debouncedSearch;
+    if (categoryIds.length > 0) body.category_ids = categoryIds;
+    if (serviceIds.length > 0) body.service_ids = serviceIds;
+    if (minPrice !== "") body.min_price = Number(minPrice);
+    if (maxPrice !== "") body.max_price = Number(maxPrice);
+    if (staffFilterIds.length > 0) body.staff_ids = staffFilterIds;
+    if (paymentMethods.length > 0) body.payment_methods = paymentMethods;
+    return body;
+  }, [dateFrom, dateTo, debouncedSearch, categoryIds, serviceIds, minPrice, maxPrice, staffFilterIds, paymentMethods]);
 
   // Real server-side pagination — page/limit are sent on every request, and
   // only that page's rows come back, along with stats computed by the
@@ -132,18 +148,7 @@ export default function ServiceSaleReport({ onBack, category, categoryKey }: { o
     abortRef.current = ctrl;
     setLoading(true);
     try {
-      const body: Record<string, any> = {
-        start_date: dateFrom, end_date: dateTo,
-        page: currentPage, limit: pageSize,
-        sort_by: sortBy, sort_dir: sortDir,
-      };
-      if (debouncedSearch) body.search = debouncedSearch;
-      if (categoryIds.length > 0) body.category_ids = categoryIds;
-      if (serviceIds.length > 0) body.service_ids = serviceIds;
-      if (minPrice !== "") body.min_price = Number(minPrice);
-      if (maxPrice !== "") body.max_price = Number(maxPrice);
-      if (staffFilterIds.length > 0) body.staff_ids = staffFilterIds;
-      if (paymentMethods.length > 0) body.payment_methods = paymentMethods;
+      const body = { ...buildFilterBody(), page: currentPage, limit: pageSize, sort_by: sortBy, sort_dir: sortDir };
       const res = await api.post(SERVICE_SALE_REPORT.SUMMARY(), body, { signal: ctrl.signal });
       const data = res.data?.data;
       const raw: any[] = Array.isArray(data?.rows) ? data.rows : [];
@@ -168,7 +173,7 @@ export default function ServiceSaleReport({ onBack, category, categoryKey }: { o
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [dateFrom, dateTo, debouncedSearch, categoryIds, serviceIds, minPrice, maxPrice, staffFilterIds, paymentMethods, sortBy, sortDir, currentPage, pageSize]);
+  }, [buildFilterBody, sortBy, sortDir, currentPage, pageSize, dateFrom, dateTo]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -215,12 +220,37 @@ export default function ServiceSaleReport({ onBack, category, categoryKey }: { o
   // Total column is gross = line base + its own GST.
   const exportRows = () => rows.map(r => [r.date, r.invoiceNo, r.client, r.staff, r.serviceName, r.category, r.price + r.taxAmount, r.paidAmount, r.paymentMethod, r.status]);
 
+  // Graph icon opens this in place of the table — same full-page pattern
+  // (not a modal) Sales Summary/Product Retail use, via Breadcrumb's own
+  // back-navigation.
+  if (showChart) {
+    return (
+      <ServiceSaleGraphPage
+        reportName={REPORT_NAME}
+        onBack={onBack}
+        onClose={() => setShowChart(false)}
+        dateFrom={dateFrom}
+        dateTo={dateTo}
+        buildFilterBody={buildFilterBody}
+        statCards={[
+          { label: "Services Sold", value: stats.servicesSold.toString() },
+          { label: "Total Revenue", value: formatAmount(stats.totalRev) },
+          { label: "Average Ticket", value: formatAmount(stats.avgTicket) },
+          { label: "Frequently Sold Services", value: stats.topService ? `${stats.topService.name} (${stats.topService.count})` : "—" },
+        ]}
+      />
+    );
+  }
+
   return (
     <div className="rp-detail-view">
       <div className="rp-detail-header">
         <div className="rp-detail-back-row">
           <Breadcrumb current={REPORT_NAME} category={category} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
+            <button className="rp-detail-icon-btn" title="View graph" onClick={() => setShowChart(true)}>
+              <GraphUp size={16} />
+            </button>
             <ReportExportButton
               title={REPORT_NAME}
               headers={HEADERS}
