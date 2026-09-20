@@ -73,6 +73,7 @@ export const REVEAL_ON_MASTER_TOGGLE: string[] = [
   "view_report_wa_campaign", "view_report_mkt_feedback", "view_report_open_rate",
   "view_report_reply_rate", "view_report_birthday_campaign", "view_report_new_client_follow_up",
   "view_report_cancellation_recovery", "view_report_membership_opportunity",
+  "view_report_birthday", "view_report_anniversary",
   // Catalog
   "view_memberships",
   "view_services",

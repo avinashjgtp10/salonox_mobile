@@ -119,6 +119,20 @@ export const ALL_CLIENTS_REPORT = {
   SUMMARY: () => `/api/report/all-clients`,
 } as const;
 
+// Independent Birthday reporting API — reads clients directly, never the
+// Appointment API. One row per client with a birthday on file, next
+// occurrence computed server-side.
+export const BIRTHDAY_REPORT = {
+  SUMMARY: () => `/api/report/birthday`,
+} as const;
+
+// Independent Anniversary reporting API — reads clients directly, never the
+// Appointment API. One row per client with an anniversary on file, next
+// occurrence computed server-side.
+export const ANNIVERSARY_REPORT = {
+  SUMMARY: () => `/api/report/anniversary`,
+} as const;
+
 // Independent Customer Frequency reporting API — reads clients/sales
 // directly, never through the Appointment API. Mounted at /api/report.
 export const CUSTOMER_FREQUENCY_REPORT = {
