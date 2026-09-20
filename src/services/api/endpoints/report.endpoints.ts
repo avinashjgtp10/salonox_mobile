@@ -122,6 +122,7 @@ export const ALL_CLIENTS_REPORT = {
 // directly, never through the Appointment API. Mounted at /api/report.
 export const CUSTOMER_FREQUENCY_REPORT = {
   SUMMARY: () => `/api/report/customer-frequency`,
+  CHART: () => `/api/report/customer-frequency/chart`,
 } as const;
 
 // Independent New Client Follow-Up reporting API — clients who joined within
@@ -155,6 +156,7 @@ export const NO_SHOW_RECOVERY_REPORT = {
 // richer filters and KPI stats. Mounted at /api/report.
 export const ENQUIRY_REPORT = {
   SUMMARY: () => `/api/report/enquiries`,
+  CHART: () => `/api/report/enquiries/chart`,
 } as const;
 
 // Independent Lost Customers reporting API — standalone report, separate
@@ -178,6 +180,7 @@ export const CUSTOMER_SPEND_REPORT = {
 // /api/report.
 export const SERVICE_FREQUENCY_REPORT = {
   SUMMARY: () => `/api/report/service-frequency`,
+  CHART: () => `/api/report/service-frequency/chart`,
 } as const;
 
 // Independent Membership History reporting API — one row per membership
@@ -209,6 +212,7 @@ export const PENDING_PAYMENT_REPORT = {
 // module's own operational API. Mounted at /api/report.
 export const CASH_MANAGEMENT_REPORT = {
   SUMMARY: () => `/api/report/cash-management`,
+  CHART: () => `/api/report/cash-management/chart`,
 } as const;
 
 // Independent Referral reporting API — one row per referred client, joined
@@ -223,6 +227,7 @@ export const REFERRAL_REPORT = {
 // never through the Appointment API. Mounted at /api/report.
 export const STAFF_SALES_REPORT = {
   SUMMARY: () => `/api/report/staff-sales`,
+  CHART: () => `/api/report/staff-sales/chart`,
 } as const;
 
 // Independent Staff Performance reporting API — one row per staff member,
@@ -230,6 +235,7 @@ export const STAFF_SALES_REPORT = {
 // Mounted at /api/report.
 export const STAFF_PERFORMANCE_REPORT = {
   SUMMARY: () => `/api/report/staff-performance`,
+  CHART: () => `/api/report/staff-performance/chart`,
 } as const;
 
 // Independent Staff Item Sales reporting API — reads sale_items directly,

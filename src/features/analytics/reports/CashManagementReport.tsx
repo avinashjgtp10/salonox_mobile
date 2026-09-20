@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { Search } from "react-bootstrap-icons";
+import { Search, GraphUp } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { CASH_MANAGEMENT_REPORT } from "../../../services/api/endpoints";
 import ReportRefreshButton from "./ReportRefreshButton";
@@ -9,6 +9,7 @@ import { Pagination, JiraFilterMenu, DateRangeFilter, getDateRangePresetValue } 
 import type { JiraFilterField, DateRangeFilterValue } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import { useCurrency } from "../../../hooks/useCurrency";
+import CashManagementGraphPage from "./CashManagementGraphPage";
 
 const REPORT_NAME = "Cash Management Report";
 
@@ -74,6 +75,7 @@ export default function CashManagementReport({ onBack, category, categoryKey }: 
   const [loading, setLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize,    setPageSize]    = useState(10);
+  const [showChart, setShowChart] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   const dateRangeError = dateFrom && dateTo && dateTo < dateFrom
@@ -85,6 +87,15 @@ export default function CashManagementReport({ onBack, category, categoryKey }: 
     return () => clearTimeout(t);
   }, [search]);
 
+  // Shared with the Graph page below — same filter set the table/stats use,
+  // minus pagination.
+  const buildFilterBody = useCallback((): Record<string, any> => {
+    const body: Record<string, any> = { start_date: dateFrom, end_date: dateTo };
+    if (statusFilter.length > 0) body.statuses = statusFilter;
+    if (debouncedSearch) body.search = debouncedSearch;
+    return body;
+  }, [dateFrom, dateTo, statusFilter, debouncedSearch]);
+
   const fetchData = useCallback(async () => {
     if (dateRangeError) return;
     abortRef.current?.abort();
@@ -92,12 +103,7 @@ export default function CashManagementReport({ onBack, category, categoryKey }: 
     abortRef.current = ctrl;
     setLoading(true);
     try {
-      const body: Record<string, any> = {
-        start_date: dateFrom, end_date: dateTo,
-        page: currentPage, limit: pageSize,
-      };
-      if (statusFilter.length > 0) body.statuses = statusFilter;
-      if (debouncedSearch) body.search = debouncedSearch;
+      const body = { ...buildFilterBody(), page: currentPage, limit: pageSize };
       const res = await api.post(CASH_MANAGEMENT_REPORT.SUMMARY(), body, { signal: ctrl.signal });
       const data = res.data?.data;
       const raw: any[] = Array.isArray(data?.rows) ? data.rows : [];
@@ -130,7 +136,7 @@ export default function CashManagementReport({ onBack, category, categoryKey }: 
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [dateFrom, dateTo, statusFilter, debouncedSearch, currentPage, pageSize]);
+  }, [buildFilterBody, currentPage, pageSize, dateRangeError]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, statusFilter, debouncedSearch]);
@@ -165,12 +171,37 @@ export default function CashManagementReport({ onBack, category, categoryKey }: 
     ...(debouncedSearch ? [`Search: "${debouncedSearch}"`] : []),
   ];
 
+  // Graph icon opens this in place of the table — same full-page pattern
+  // every other report graph page uses.
+  if (showChart) {
+    return (
+      <CashManagementGraphPage
+        reportName={REPORT_NAME}
+        onBack={onBack}
+        onClose={() => setShowChart(false)}
+        dateFrom={dateFrom}
+        dateTo={dateTo}
+        buildFilterBody={buildFilterBody}
+        statCards={[
+          { label: "Cash Revenue", value: formatAmount(stats.totalCashRevenue) },
+          { label: "Cash Expense", value: formatAmount(stats.totalCashExpense) },
+          { label: "Closing Balance", value: formatAmount(stats.totalClosingBalance) },
+          { label: "Reconciliation", value: formatAmount(stats.totalReconciliationAmount) },
+          { label: "Open / Closed Sessions", value: `${stats.openSessions} / ${stats.closedSessions}` },
+        ]}
+      />
+    );
+  }
+
   return (
     <div className="rp-detail-view">
       <div className="rp-detail-header">
         <div className="rp-detail-back-row">
           <Breadcrumb current={REPORT_NAME} category={category} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
+            <button className="rp-detail-icon-btn" title="View graph" onClick={() => setShowChart(true)}>
+              <GraphUp size={16} />
+            </button>
             <ReportExportButton
               title={REPORT_NAME}
               headers={HEADERS}
