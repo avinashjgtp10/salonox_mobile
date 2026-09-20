@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useDispatch } from "react-redux";
-import { Search } from "react-bootstrap-icons";
+import { Search, GraphUp } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { STAFF_ITEM_SALES_REPORT } from "../../../services/api/endpoints";
 import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
@@ -13,6 +13,7 @@ import type { DateRangeFilterValue } from "../../../components/ui";
 import type { JiraFilterField } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import { useCurrency } from "../../../hooks/useCurrency";
+import StaffItemSalesGraphPage from "./StaffItemSalesGraphPage";
 import "./StaffItemSalesReport.scss";
 
 const REPORT_NAME = "Service, Product, Membership & Package Sold by Staff";
@@ -67,6 +68,7 @@ export default function StaffItemSalesReport({ onBack, category, categoryKey }: 
   const [stats,         setStats]         = useState({ totalQty: 0, totalRev: 0, topItem: "—", topStaff: "—" });
   const [currentPage,   setCurrentPage]   = useState(1);
   const [pageSize,      setPageSize]      = useState(10);
+  const [showChart,     setShowChart]     = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -84,6 +86,15 @@ export default function StaffItemSalesReport({ onBack, category, categoryKey }: 
     return () => clearTimeout(t);
   }, [search]);
 
+  // Shared with the Graph page below — same filter set the table/stats use,
+  // minus pagination.
+  const buildFilterBody = useCallback((): Record<string, any> => {
+    const body: Record<string, any> = { start_date: dateFrom, end_date: dateTo, item_type: itemType };
+    if (staffFilterIds.length > 0) body.staff_ids = staffFilterIds;
+    if (debouncedSearch) body.search = debouncedSearch;
+    return body;
+  }, [dateFrom, dateTo, itemType, staffFilterIds, debouncedSearch]);
+
   // Real server-side pagination — page/limit are sent on every request, and
   // only that page's rows come back, along with stats computed by the
   // backend over the WHOLE filtered set (not just the current page).
@@ -93,12 +104,7 @@ export default function StaffItemSalesReport({ onBack, category, categoryKey }: 
     abortRef.current = ctrl;
     setLoading(true);
     try {
-      const body: Record<string, any> = {
-        start_date: dateFrom, end_date: dateTo, item_type: itemType,
-        page: currentPage, limit: pageSize,
-      };
-      if (staffFilterIds.length > 0) body.staff_ids = staffFilterIds;
-      if (debouncedSearch) body.search = debouncedSearch;
+      const body = { ...buildFilterBody(), page: currentPage, limit: pageSize };
       const res = await api.post(STAFF_ITEM_SALES_REPORT.SUMMARY(), body, { signal: ctrl.signal });
       const data = res.data?.data;
       const raw: any[] = Array.isArray(data?.rows) ? data.rows : [];
@@ -119,7 +125,7 @@ export default function StaffItemSalesReport({ onBack, category, categoryKey }: 
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [dateFrom, dateTo, itemType, staffFilterIds, debouncedSearch, currentPage, pageSize]);
+  }, [buildFilterBody, currentPage, pageSize]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, itemType, staffFilterIds, debouncedSearch]);
@@ -149,12 +155,36 @@ export default function StaffItemSalesReport({ onBack, category, categoryKey }: 
   const HEADERS = ["Date", "Staff Name", itemColLabel, "Quantity", `Revenue (${currencySymbol})`];
   const exportRows = () => rows.map(r => [r.date, r.staffName, r.itemName, r.quantity, r.revenue]);
 
+  // Graph icon opens this in place of the table — same full-page pattern
+  // every other report graph page uses.
+  if (showChart) {
+    return (
+      <StaffItemSalesGraphPage
+        reportName={REPORT_NAME}
+        onBack={onBack}
+        onClose={() => setShowChart(false)}
+        dateFrom={dateFrom}
+        dateTo={dateTo}
+        buildFilterBody={buildFilterBody}
+        statCards={[
+          { label: "Total Quantity Sold", value: stats.totalQty.toString() },
+          { label: "Total Revenue",       value: formatAmount(stats.totalRev) },
+          { label: "Top Selling Item",    value: stats.topItem },
+          { label: "Top Performing Staff", value: stats.topStaff },
+        ]}
+      />
+    );
+  }
+
   return (
     <div className="rp-detail-view">
       <div className="rp-detail-header">
         <div className="rp-detail-back-row">
           <Breadcrumb current={REPORT_NAME} category={category} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
+            <button className="rp-detail-icon-btn" title="View graph" onClick={() => setShowChart(true)}>
+              <GraphUp size={16} />
+            </button>
             <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename={`staff-item-sales-${itemType}-${dateFrom}-${dateTo}`} variant="button" csv reportId="staff_item_sales" />
           </div>
         </div>
