@@ -15,6 +15,9 @@ import type {
   ReceiveOrderPayload,
   CorrectReceivedQtyPayload,
   OrderSignature,
+  OrderReceiptWithItems,
+  SaveReceiptDraftPayload,
+  ConfirmReceiptPayload,
   ConsumableListFilters,
   ConsumableListRow,
   ConsumableKpis,
@@ -212,12 +215,19 @@ export const updateOrderThunk = createAsyncThunk<
 
 export const fetchOrdersThunk = createAsyncThunk<
   { data: Order[]; total: number },
-  { search?: string; status?: Order["status"]; page?: number; limit?: number } | void,
+  { search?: string; status?: Order["status"] | Order["status"][]; page?: number; limit?: number } | void,
   { rejectValue: string }
 >("inventory/fetchOrders", async (filters, { rejectWithValue }) => {
   try {
+    // Array form (the Orders page's "Receiving" tab: sent + partially_received)
+    // joined into one comma-separated query param — same convention as
+    // fetchConsumablesDashboardThunk's multi-select filters — rather than
+    // relying on axios's array param serialization.
+    const params = filters
+      ? { ...filters, status: Array.isArray(filters.status) ? filters.status.join(",") : filters.status }
+      : undefined;
     const res = await api.get<InventoryResponse<{ data: Order[]; total: number }>>(INVENTORY.ORDERS, {
-      params: filters ?? undefined,
+      params,
     });
     return res.data.data;
   } catch (err: any) {
@@ -270,6 +280,59 @@ export const correctReceivedQtyThunk = createAsyncThunk<
   } catch (err: any) {
     console.error("correctReceivedQtyThunk error:", err);
     return rejectWithValue(err?.response?.data?.error?.message || err?.message || "Failed to update received quantity");
+  }
+});
+
+// Fetches the order's open draft receipt (creating one if none exists,
+// seeded from order_items' current cumulative totals) — the Receiving tab's
+// one working session per order.
+export const fetchOrCreateDraftReceiptThunk = createAsyncThunk<
+  OrderReceiptWithItems,
+  string,
+  { rejectValue: string }
+>("inventory/fetchOrCreateDraftReceipt", async (orderId, { rejectWithValue }) => {
+  try {
+    const res = await api.get<InventoryResponse<OrderReceiptWithItems>>(INVENTORY.ORDER_RECEIPT_DRAFT(orderId));
+    return res.data.data;
+  } catch (err: any) {
+    console.error("fetchOrCreateDraftReceiptThunk error:", err);
+    return rejectWithValue(err?.response?.data?.error?.message || err?.message || "Failed to load draft receipt");
+  }
+});
+
+// Save Draft — no stock effect, just persists location/staff + per-line
+// Confirmed/Damaged targets so the clerk can come back and finish later.
+export const saveReceiptDraftThunk = createAsyncThunk<
+  OrderReceiptWithItems,
+  { orderId: string; receiptId: string; payload: SaveReceiptDraftPayload },
+  { rejectValue: string }
+>("inventory/saveReceiptDraft", async ({ orderId, receiptId, payload }, { rejectWithValue }) => {
+  try {
+    const res = await api.post<InventoryResponse<OrderReceiptWithItems>>(
+      INVENTORY.ORDER_RECEIPT_ITEMS(orderId, receiptId), payload,
+    );
+    return res.data.data;
+  } catch (err: any) {
+    console.error("saveReceiptDraftThunk error:", err);
+    return rejectWithValue(err?.response?.data?.error?.message || err?.message || "Failed to save draft");
+  }
+});
+
+// Confirm Receiving — the one action that actually moves stock (creates a
+// linked Purchase for the confirmed delta on the receipt's chosen branch).
+export const confirmReceiptThunk = createAsyncThunk<
+  { order: Order; receipt: OrderReceiptWithItems },
+  { orderId: string; receiptId: string; payload: ConfirmReceiptPayload },
+  { rejectValue: string }
+>("inventory/confirmReceipt", async ({ orderId, receiptId, payload }, { rejectWithValue }) => {
+  try {
+    const res = await api.post<InventoryResponse<{ order: Order; receipt: OrderReceiptWithItems }>>(
+      INVENTORY.ORDER_RECEIPT_CONFIRM(orderId, receiptId), payload,
+    );
+    return res.data.data;
+  } catch (err: any) {
+    console.error("confirmReceiptThunk error:", err);
+    return rejectWithValue(err?.response?.data?.error?.message || err?.message || "Failed to confirm receiving");
   }
 });
 

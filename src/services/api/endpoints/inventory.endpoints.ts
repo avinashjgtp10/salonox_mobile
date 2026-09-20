@@ -54,6 +54,13 @@ export const INVENTORY = {
   ORDER_UPLOAD_SIGNATURE: "/api/v1/inventory/orders/upload-signature",
   ORDER_SIGNATURES: "/api/v1/inventory/orders/signatures",
 
+  // Order Receiving (draft -> confirm) — replaces the single-shot
+  // ORDER_RECEIVE above with a session the clerk can save as a draft (zero
+  // stock effect); only ORDER_RECEIPT_CONFIRM moves stock.
+  ORDER_RECEIPT_DRAFT: (orderId: string) => `/api/v1/inventory/orders/${orderId}/receipts/draft`,
+  ORDER_RECEIPT_ITEMS: (orderId: string, receiptId: string) => `/api/v1/inventory/orders/${orderId}/receipts/${receiptId}/items`,
+  ORDER_RECEIPT_CONFIRM: (orderId: string, receiptId: string) => `/api/v1/inventory/orders/${orderId}/receipts/${receiptId}/confirm`,
+
   // Product Audit — count physical stock against system quantities. Never
   // adjusts real stock; see product-audit.repository.ts on the backend.
   PRODUCT_AUDITS: "/api/v1/inventory/product-audits",
