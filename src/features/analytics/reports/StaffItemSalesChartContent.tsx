@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from "react";
-import { ChevronRight, ArrowLeft } from "react-bootstrap-icons";
 import {
   ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
 } from "recharts";
@@ -16,24 +15,6 @@ type TrendMode = "bar_line" | "bar" | "line";
 function formatIsoDate(value: string): string {
   const [y, m, d] = String(value ?? "").split("-");
   return y && m && d ? `${d}-${m}-${y}` : String(value ?? "—");
-}
-
-interface StatCardDef {
-  label: string;
-  value: string;
-}
-
-function StatCardRow({ cards }: { cards: StatCardDef[] }) {
-  return (
-    <div className="rp-sra-summary-row rp-sales-stat-row mb-4">
-      {cards.map((c) => (
-        <div key={c.label} className="rp-sra-summary-card">
-          <div className="rp-sra-summary-val">{c.value}</div>
-          <div className="rp-sra-summary-label">{c.label}</div>
-        </div>
-      ))}
-    </div>
-  );
 }
 
 // Same "list of ranked horizontal bars" layout every other report graph
@@ -81,16 +62,15 @@ function RankedBarList({
   );
 }
 
-export default function StaffItemSalesGraphPage({
-  reportName, onBack, onClose,
-  dateFrom, dateTo, statCards, buildFilterBody,
+// Chart content only — no header/breadcrumb/back-nav/stat cards of its own.
+// It renders in place of the table, below the SAME header, date range,
+// filters and stat cards the table view uses, so toggling Table View/Chart
+// View swaps only the data area, not the whole page.
+export default function StaffItemSalesChartContent({
+  dateFrom, dateTo, buildFilterBody,
 }: {
-  reportName: string;
-  onBack: () => void;
-  onClose: () => void;
   dateFrom: string;
   dateTo: string;
-  statCards: StatCardDef[];
   buildFilterBody: () => Record<string, any>;
 }) {
   const { formatAmount: money } = useCurrency();
@@ -142,37 +122,7 @@ export default function StaffItemSalesGraphPage({
   useEffect(() => { fetchOverview(); }, [fetchOverview]);
 
   return (
-    <div className="rp-detail-view">
-      <div className="rp-detail-header">
-        <div className="rp-detail-back-row">
-          <nav className="rp-breadcrumb" aria-label="Breadcrumb">
-            <button type="button" className="rp-breadcrumb-link" onClick={onBack}>Reports</button>
-            <ChevronRight size={11} className="rp-breadcrumb-sep" />
-            <button type="button" className="rp-breadcrumb-link" onClick={onClose}>{reportName}</button>
-            <ChevronRight size={11} className="rp-breadcrumb-sep" />
-            <span className="rp-breadcrumb-current">Graph</span>
-          </nav>
-        </div>
-      </div>
-
-      <button
-        type="button"
-        className="rp-breadcrumb-link d-inline-flex align-items-center gap-1 mb-3"
-        style={{ fontSize: 13 }}
-        onClick={onClose}
-      >
-        <ArrowLeft size={14} /> Back to {reportName}
-      </button>
-
-      <div className="mb-3">
-        <h4 className="fw-bold mb-1">{reportName} — Graph</h4>
-        <p className="text-muted mb-0" style={{ fontSize: 13 }}>
-          {dateFrom && dateTo ? `${formatIsoDate(dateFrom)} to ${formatIsoDate(dateTo)}` : "Selected date range"} · same filters as the table
-        </p>
-      </div>
-
-      <StatCardRow cards={statCards} />
-
+    <div className="rp-staff-item-sales-chart-content">
       {error && <div className="text-center text-danger py-3">{error}</div>}
 
       {/* ── Quantity / Revenue Trend ─────────────────── */}
@@ -255,7 +205,7 @@ export default function StaffItemSalesGraphPage({
       </div>
 
       <div className="text-muted text-center mt-3" style={{ fontSize: 12 }}>
-        All charts and summary cards are based on the currently applied filters. Data is calculated on the entire filtered set, not just the visible page.
+        All charts are based on the currently applied filters. Data is calculated on the entire filtered set, not just the visible page.
       </div>
     </div>
   );

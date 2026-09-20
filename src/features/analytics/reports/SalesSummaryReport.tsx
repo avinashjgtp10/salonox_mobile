@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useDispatch } from "react-redux";
 import { useAppSelector } from "../../../hooks/useAppRedux";
-import { Search, GraphUp } from "react-bootstrap-icons";
+import { Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { SALES_REPORT } from "../../../services/api/endpoints";
 import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
@@ -23,7 +23,8 @@ import { servicesInCategories } from "./serviceCategoryFilter";
 import { maskMobile } from "../../../utils/maskMobile";
 import { SendCampaignBar } from "./SendCampaignBar";
 import { SendCampaignModal } from "../../marketing/components";
-import SalesSummaryGraphPage from "./SalesSummaryGraphPage";
+import SalesSummaryChartContent from "./SalesSummaryChartContent";
+import ReportViewToggle from "./ReportViewToggle";
 import "./SalesSummaryReport.scss";
 
 const REPORT_NAME = "Sales Summary";
@@ -360,48 +361,13 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
   const exportRows = () => rows.map(r => [r.date, r.invoiceNo, r.name, canViewFullContact ? r.contact : maskMobile(r.contact), r.itemTypes, r.staffName, r.discountAmount, r.couponCode, r.couponDiscount, r.referralDiscount, r.taxAmount, r.grandTotal, r.paid, r.membershipWalletUsed, r.packageUsed, r.ewalletUsed, r.rewardPointsValue, r.referralCreditUsed, r.dueAmount, r.modes, r.status, r.description]);
   const paged = rows;
 
-  // Graph icon opens this in place of the table — a full-page view (not a
-  // modal), consistent with how the rest of Reports navigates (Breadcrumb's
-  // own back-navigation model), rather than a small dialog over the data.
-  // Graph icon opens this in place of the table — a full-page view (not a
-  // modal), consistent with how the rest of Reports navigates (Breadcrumb's
-  // own back-navigation model), rather than a small dialog over the data.
-  if (showChart) {
-    return (
-      <SalesSummaryGraphPage
-        reportName={REPORT_NAME}
-        onBack={onBack}
-        onClose={() => setShowChart(false)}
-        dateFrom={dateFrom}
-        dateTo={dateTo}
-        buildFilterBody={buildFilterBody}
-        statCards={[
-          { label: "Total Bill", value: stats.totalBill.toString() },
-          { label: "Total Sale", value: money(stats.totalSale) },
-          { label: "Received Amount", value: money(stats.received) },
-          { label: "Total E-Wallet", value: money(stats.totalEwallet) },
-          { label: "Total Rewards", value: money(stats.totalRewardValue) },
-          { label: "Total Referral", value: money(stats.totalReferralCredit) },
-          { label: "Average Bill", value: money(stats.billAverage) },
-          { label: "Total Discount", value: money(stats.totalDiscount) },
-          { label: "Total GST", value: money(stats.totalGST) },
-          { label: "Total Tip", value: money(stats.totalTip) },
-          { label: "Membership Wallet Used", value: money(stats.totalMembershipWallet) },
-          { label: "Package Used", value: money(stats.totalPackageUsed) },
-        ]}
-      />
-    );
-  }
-
   return (
     <div className="rp-detail-view">
       <div className="rp-detail-header">
         <div className="rp-detail-back-row">
           <Breadcrumb current={REPORT_NAME} category={category} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
-            <button className="rp-detail-icon-btn" title="View graph" onClick={() => setShowChart(true)}>
-              <GraphUp size={16} />
-            </button>
+            <ReportViewToggle view={showChart ? "chart" : "table"} onChange={(v) => setShowChart(v === "chart")} />
             <ReportExportButton
               title={REPORT_NAME}
               headers={HEADERS}
@@ -444,6 +410,10 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
         </div>
       )}
 
+      {showChart ? (
+        <SalesSummaryChartContent dateFrom={dateFrom} dateTo={dateTo} buildFilterBody={buildFilterBody} />
+      ) : (
+      <>
       <div className="rp-detail-toolbar">
         <div className="rp-detail-search-wrap">
           <Search size={13} className="rp-detail-search-ic" />
@@ -552,6 +522,8 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
         onPageChange={setCurrentPage}
         onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }}
       />
+      </>
+      )}
 
       {selectedRow && (
         selectedRow.appointmentId ? (

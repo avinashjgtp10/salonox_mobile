@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from "react";
-import { ChevronRight, ArrowLeft } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { PRODUCT_INVENTORY_REPORT } from "../../../services/api/endpoints";
 import { useCurrency } from "../../../hooks/useCurrency";
@@ -11,26 +10,8 @@ const STATUS_LABELS: Record<string, string> = {
   out_of_stock: "Out of Stock",
 };
 
-interface StatCardDef {
-  label: string;
-  value: string;
-}
-
-function StatCardRow({ cards }: { cards: StatCardDef[] }) {
-  return (
-    <div className="rp-sra-summary-row rp-sales-stat-row mb-4">
-      {cards.map((c) => (
-        <div key={c.label} className="rp-sra-summary-card">
-          <div className="rp-sra-summary-val">{c.value}</div>
-          <div className="rp-sra-summary-label">{c.label}</div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// Same "list of ranked horizontal bars" layout every other report graph
-// page uses for its own Top N breakdown.
+// Same "list of ranked horizontal bars" layout every other report chart
+// content uses for its own Top N breakdown.
 function RankedBarList({
   title, subtitle, items, money,
 }: {
@@ -74,13 +55,15 @@ function RankedBarList({
   );
 }
 
-export default function ProductInventoryGraphPage({
-  reportName, onBack, onClose, statCards, buildFilterBody,
+// Chart content only — no header/breadcrumb/back-nav/stat cards of its own.
+// It renders in place of the table, below the SAME header, filters and stat
+// cards the table view uses, so toggling Table View/Chart View swaps only
+// the data area, not the whole page. Inventory is a snapshot (no date
+// range affects it beyond what buildFilterBody already encodes), so there
+// are no dateFrom/dateTo props here — same as the old GraphPage.
+export default function ProductInventoryChartContent({
+  buildFilterBody,
 }: {
-  reportName: string;
-  onBack: () => void;
-  onClose: () => void;
-  statCards: StatCardDef[];
   buildFilterBody: () => Record<string, any>;
 }) {
   const { formatAmount: money } = useCurrency();
@@ -128,37 +111,7 @@ export default function ProductInventoryGraphPage({
   useEffect(() => { fetchOverview(); }, [fetchOverview]);
 
   return (
-    <div className="rp-detail-view">
-      <div className="rp-detail-header">
-        <div className="rp-detail-back-row">
-          <nav className="rp-breadcrumb" aria-label="Breadcrumb">
-            <button type="button" className="rp-breadcrumb-link" onClick={onBack}>Reports</button>
-            <ChevronRight size={11} className="rp-breadcrumb-sep" />
-            <button type="button" className="rp-breadcrumb-link" onClick={onClose}>{reportName}</button>
-            <ChevronRight size={11} className="rp-breadcrumb-sep" />
-            <span className="rp-breadcrumb-current">Graph</span>
-          </nav>
-        </div>
-      </div>
-
-      <button
-        type="button"
-        className="rp-breadcrumb-link d-inline-flex align-items-center gap-1 mb-3"
-        style={{ fontSize: 13 }}
-        onClick={onClose}
-      >
-        <ArrowLeft size={14} /> Back to {reportName}
-      </button>
-
-      <div className="mb-3">
-        <h4 className="fw-bold mb-1">{reportName} — Graph</h4>
-        <p className="text-muted mb-0" style={{ fontSize: 13 }}>
-          Current stock snapshot · same filters as the table
-        </p>
-      </div>
-
-      <StatCardRow cards={statCards} />
-
+    <div className="rp-inv-chart-content">
       {error && <div className="text-center text-danger py-3">{error}</div>}
 
       {/* ── Stock Value by Status ─────────────────── */}

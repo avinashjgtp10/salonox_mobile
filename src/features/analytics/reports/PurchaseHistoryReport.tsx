@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Search, X, GraphUp } from "react-bootstrap-icons";
+import { Search, X } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { INVENTORY } from "../../../services/api/endpoints/inventory.endpoints";
 import { useCurrency } from "../../../hooks/useCurrency";
@@ -10,7 +10,8 @@ import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination, JiraFilterMenu, DateRangeFilter, getDateRangePresetValue } from "../../../components/ui";
 import type { JiraFilterField, DateRangeFilterValue } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
-import PurchaseHistoryGraphPage from "./PurchaseHistoryGraphPage";
+import PurchaseHistoryChartContent from "./PurchaseHistoryChartContent";
+import ReportViewToggle from "./ReportViewToggle";
 import "./PurchaseHistoryReport.scss";
 
 const REPORT_NAME = "Supplier Purchase History";
@@ -185,28 +186,13 @@ export default function PurchaseHistoryReport({
   const HEADERS = ["Supplier Number", "Supplier", "Purchase Date", "Products", "Total Amount"];
   const exportRows = () => rows.map((r) => [r.purchaseNumber, r.supplierName, formatDate(r.purchaseDate), r.itemCount, r.totalAmount]);
 
-  // Graph icon opens this in place of the table — same full-page pattern
-  // every other report graph page uses.
-  if (showChart) {
-    return (
-      <PurchaseHistoryGraphPage
-        reportName={REPORT_NAME}
-        onBack={onBack}
-        onClose={() => setShowChart(false)}
-        buildFilterParams={buildFilterParams}
-      />
-    );
-  }
-
   return (
     <div className="rp-detail-view">
       <div className="rp-detail-header">
         <div className="rp-detail-back-row">
           <Breadcrumb current={REPORT_NAME} category={reportCategory} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
-            <button className="rp-detail-icon-btn" title="View graph" onClick={() => setShowChart(true)}>
-              <GraphUp size={16} />
-            </button>
+            <ReportViewToggle view={showChart ? "chart" : "table"} onChange={(v) => setShowChart(v === "chart")} />
             <ReportExportButton
               title={REPORT_NAME}
               headers={HEADERS}
@@ -247,6 +233,10 @@ export default function PurchaseHistoryReport({
         </div>
       )}
 
+      {showChart ? (
+        <PurchaseHistoryChartContent buildFilterParams={buildFilterParams} />
+      ) : (
+      <>
       <div className="rp-detail-toolbar">
         <div className="rp-detail-search-wrap">
           <Search size={13} className="rp-detail-search-ic" />
@@ -296,6 +286,8 @@ export default function PurchaseHistoryReport({
         onPageChange={setCurrentPage}
         onPageSizeChange={(size) => { setPageSize(size); setCurrentPage(1); }}
       />
+      </>
+      )}
 
       {detailFor && (
         <PurchaseDetailModal

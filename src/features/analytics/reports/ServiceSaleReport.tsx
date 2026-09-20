@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { Search, ChevronUp, ChevronDown, GraphUp } from "react-bootstrap-icons";
+import { Search, ChevronUp, ChevronDown } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { SERVICE_SALE_REPORT } from "../../../services/api/endpoints";
 import ReportRefreshButton from "./ReportRefreshButton";
@@ -15,7 +15,8 @@ import { servicesInCategories } from "./serviceCategoryFilter";
 import { useRowSelection } from "./useRowSelection";
 import { SendCampaignBar } from "./SendCampaignBar";
 import { SendCampaignModal } from "../../marketing/components";
-import ServiceSaleGraphPage from "./ServiceSaleGraphPage";
+import ServiceSaleChartContent from "./ServiceSaleChartContent";
+import ReportViewToggle from "./ReportViewToggle";
 import "./ServiceSaleReport.scss";
 
 const REPORT_NAME = "Service Sale";
@@ -220,37 +221,13 @@ export default function ServiceSaleReport({ onBack, category, categoryKey }: { o
   // Total column is gross = line base + its own GST.
   const exportRows = () => rows.map(r => [r.date, r.invoiceNo, r.client, r.staff, r.serviceName, r.category, r.price + r.taxAmount, r.paidAmount, r.paymentMethod, r.status]);
 
-  // Graph icon opens this in place of the table — same full-page pattern
-  // (not a modal) Sales Summary/Product Retail use, via Breadcrumb's own
-  // back-navigation.
-  if (showChart) {
-    return (
-      <ServiceSaleGraphPage
-        reportName={REPORT_NAME}
-        onBack={onBack}
-        onClose={() => setShowChart(false)}
-        dateFrom={dateFrom}
-        dateTo={dateTo}
-        buildFilterBody={buildFilterBody}
-        statCards={[
-          { label: "Services Sold", value: stats.servicesSold.toString() },
-          { label: "Total Revenue", value: formatAmount(stats.totalRev) },
-          { label: "Average Ticket", value: formatAmount(stats.avgTicket) },
-          { label: "Frequently Sold Services", value: stats.topService ? `${stats.topService.name} (${stats.topService.count})` : "—" },
-        ]}
-      />
-    );
-  }
-
   return (
     <div className="rp-detail-view">
       <div className="rp-detail-header">
         <div className="rp-detail-back-row">
           <Breadcrumb current={REPORT_NAME} category={category} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
-            <button className="rp-detail-icon-btn" title="View graph" onClick={() => setShowChart(true)}>
-              <GraphUp size={16} />
-            </button>
+            <ReportViewToggle view={showChart ? "chart" : "table"} onChange={(v) => setShowChart(v === "chart")} />
             <ReportExportButton
               title={REPORT_NAME}
               headers={HEADERS}
@@ -293,6 +270,10 @@ export default function ServiceSaleReport({ onBack, category, categoryKey }: { o
         </div>
       )}
 
+      {showChart ? (
+        <ServiceSaleChartContent dateFrom={dateFrom} dateTo={dateTo} buildFilterBody={buildFilterBody} />
+      ) : (
+      <>
       <SendCampaignBar count={selection.selectedIds.size} onSendClick={() => setShowCampaignModal(true)} />
 
       <div className="rp-detail-toolbar">
@@ -362,6 +343,8 @@ export default function ServiceSaleReport({ onBack, category, categoryKey }: { o
 
       <Pagination currentPage={currentPage} pageSize={pageSize} totalItems={total}
         onPageChange={setCurrentPage} onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }} />
+      </>
+      )}
 
       {selectedClientId && (
         <ClientHistoryModal clientId={selectedClientId} onClose={() => setSelectedClientId(null)} initialTab="services" />

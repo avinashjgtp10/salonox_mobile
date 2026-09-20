@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, TelephoneFill, Whatsapp, PersonPlusFill, PencilSquare, GraphUp } from "react-bootstrap-icons";
+import { Search, TelephoneFill, Whatsapp, PersonPlusFill, PencilSquare } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { ENQUIRY_REPORT } from "../../../services/api/endpoints";
 import { ENQUIRY } from "../../../services/api/endpoints/enquiries.endpoints";
 import ReportRefreshButton from "./ReportRefreshButton";
-import EnquiryGraphPage from "./EnquiryGraphPage";
+import EnquiryChartContent from "./EnquiryChartContent";
+import ReportViewToggle from "./ReportViewToggle";
 import Breadcrumb from "../../../components/ui/Breadcrumb";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination, JiraFilterMenu, DateRangeFilter, getDateRangePresetValue } from "../../../components/ui";
@@ -230,36 +231,13 @@ export default function EnquiryReport({ onBack, category, categoryKey }: { onBac
     r.source ?? "—", formatFollowUpAt(r.followUpAt), r.notes ?? "—", formatDate(r.createdAt),
   ]);
 
-  if (showChart) {
-    return (
-      <EnquiryGraphPage
-        reportName={REPORT_NAME}
-        onBack={onBack}
-        onClose={() => setShowChart(false)}
-        dateFrom={dateRange.startDate ?? ""}
-        dateTo={dateRange.endDate ?? ""}
-        buildFilterBody={buildFilterBody}
-        statCards={[
-          { label: "Total Enquiries", value: String(stats.totalEnquiries) },
-          { label: "New Enquiries", value: String(stats.newEnquiries) },
-          { label: "Pending Follow-ups", value: String(stats.pendingFollowUps) },
-          { label: "Converted", value: String(stats.convertedEnquiries) },
-          { label: "Lost", value: String(stats.lostEnquiries) },
-          { label: "Conversion Rate", value: `${stats.conversionRate}%` },
-        ]}
-      />
-    );
-  }
-
   return (
     <div className="rp-detail-view">
       <div className="rp-detail-header">
         <div className="rp-detail-back-row">
           <Breadcrumb current={REPORT_NAME} category={category} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
-            <button className="rp-detail-icon-btn" title="View graph" onClick={() => setShowChart(true)}>
-              <GraphUp size={16} />
-            </button>
+            <ReportViewToggle view={showChart ? "chart" : "table"} onChange={(v) => setShowChart(v === "chart")} />
             <ReportExportButton
               title={REPORT_NAME}
               headers={HEADERS}
@@ -305,6 +283,10 @@ export default function EnquiryReport({ onBack, category, categoryKey }: { onBac
         </div>
       )}
 
+      {showChart ? (
+        <EnquiryChartContent dateFrom={dateRange.startDate ?? ""} dateTo={dateRange.endDate ?? ""} buildFilterBody={buildFilterBody} />
+      ) : (
+      <>
       <div className="rp-detail-toolbar">
         <div className="rp-detail-search-wrap">
           <Search size={13} className="rp-detail-search-ic" />
@@ -369,6 +351,8 @@ export default function EnquiryReport({ onBack, category, categoryKey }: { onBac
 
       <Pagination currentPage={currentPage} pageSize={pageSize} totalItems={total}
         onPageChange={setCurrentPage} onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }} />
+      </>
+      )}
     </div>
   );
 }

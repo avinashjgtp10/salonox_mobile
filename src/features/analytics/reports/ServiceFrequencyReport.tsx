@@ -1,13 +1,14 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useDispatch } from "react-redux";
 import { useAppSelector } from "../../../hooks/useAppRedux";
-import { Search, GraphUp } from "react-bootstrap-icons";
+import { Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { SERVICE_FREQUENCY_REPORT } from "../../../services/api/endpoints";
 import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
 import type { AppDispatch } from "../../../store/store";
 import ReportRefreshButton from "./ReportRefreshButton";
-import ServiceFrequencyGraphPage from "./ServiceFrequencyGraphPage";
+import ServiceFrequencyChartContent from "./ServiceFrequencyChartContent";
+import ReportViewToggle from "./ReportViewToggle";
 import Breadcrumb from "../../../components/ui/Breadcrumb";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination, JiraFilterMenu, DateRangeFilter, getDateRangePresetValue } from "../../../components/ui";
@@ -213,34 +214,13 @@ export default function ServiceFrequencyReport({ onBack, category, categoryKey }
     ...(debouncedSearch ? [`Search: "${debouncedSearch}"`] : []),
   ];
 
-  if (showChart) {
-    return (
-      <ServiceFrequencyGraphPage
-        reportName={REPORT_NAME}
-        onBack={onBack}
-        onClose={() => setShowChart(false)}
-        dateFrom={dateFrom}
-        dateTo={dateTo}
-        buildFilterBody={buildFilterBody}
-        statCards={[
-          { label: "Client-Service Pairs", value: String(stats.totalPairs) },
-          { label: "Repeat Pairs", value: String(stats.repeatPairs) },
-          { label: "Total Visits", value: String(stats.totalVisits) },
-          { label: "Total Revenue", value: formatAmount(stats.totalRevenue) },
-        ]}
-      />
-    );
-  }
-
   return (
     <div className="rp-detail-view">
       <div className="rp-detail-header">
         <div className="rp-detail-back-row">
           <Breadcrumb current={REPORT_NAME} category={category} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
-            <button className="rp-detail-icon-btn" title="View graph" onClick={() => setShowChart(true)}>
-              <GraphUp size={16} />
-            </button>
+            <ReportViewToggle view={showChart ? "chart" : "table"} onChange={(v) => setShowChart(v === "chart")} />
             <ReportExportButton
               title={REPORT_NAME}
               headers={HEADERS}
@@ -280,6 +260,10 @@ export default function ServiceFrequencyReport({ onBack, category, categoryKey }
         </div>
       )}
 
+      {showChart ? (
+        <ServiceFrequencyChartContent dateFrom={dateFrom} dateTo={dateTo} buildFilterBody={buildFilterBody} />
+      ) : (
+      <>
       <SendCampaignBar count={selection.selectedIds.size} onSendClick={() => setShowCampaignModal(true)} />
 
       <div className="rp-detail-toolbar">
@@ -343,6 +327,8 @@ export default function ServiceFrequencyReport({ onBack, category, categoryKey }
 
       <Pagination currentPage={currentPage} pageSize={pageSize} totalItems={total}
         onPageChange={setCurrentPage} onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }} />
+      </>
+      )}
 
       {selectedClientId && (
         <ClientHistoryModal clientId={selectedClientId} onClose={() => setSelectedClientId(null)} />

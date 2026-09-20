@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { Search, GraphUp } from "react-bootstrap-icons";
+import { Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { PRODUCT_INVENTORY_REPORT } from "../../../services/api/endpoints";
 import { useProducts } from "../../catalog/hooks/useProducts";
@@ -10,7 +10,8 @@ import { Pagination, JiraFilterMenu, DateRangeFilter } from "../../../components
 import type { JiraFilterField, DateRangeFilterValue } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import { useCurrency } from "../../../hooks/useCurrency";
-import ProductInventoryGraphPage from "./ProductInventoryGraphPage";
+import ProductInventoryChartContent from "./ProductInventoryChartContent";
+import ReportViewToggle from "./ReportViewToggle";
 import "./ProductInventoryReport.scss";
 
 const REPORT_NAME = "Product Inventory";
@@ -287,34 +288,13 @@ export default function ProductInventoryReport({ onBack, category: reportCategor
   const statusClass = (s: InventoryRow["status"]) =>
     s === "in_stock" ? "rp-inv-status--ok" : s === "low_stock" ? "rp-inv-status--low" : "rp-inv-status--out";
 
-  // Graph icon opens this in place of the table — same full-page pattern
-  // every other report graph page uses.
-  if (showChart) {
-    return (
-      <ProductInventoryGraphPage
-        reportName={REPORT_NAME}
-        onBack={onBack}
-        onClose={() => setShowChart(false)}
-        buildFilterBody={buildFilterBody}
-        statCards={[
-          { label: "Total Products",     value: stats.totalProducts.toString() },
-          { label: "Total Stock Value",  value: formatAmount(stats.totalStockValue) },
-          { label: "Low Stock Items",    value: stats.lowStockItems.toString() },
-          { label: "Out of Stock Items", value: stats.outOfStockItems.toString() },
-        ]}
-      />
-    );
-  }
-
   return (
     <div className="rp-detail-view">
       <div className="rp-detail-header">
         <div className="rp-detail-back-row">
           <Breadcrumb current={REPORT_NAME} category={reportCategory} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
-            <button className="rp-detail-icon-btn" title="View graph" onClick={() => setShowChart(true)}>
-              <GraphUp size={16} />
-            </button>
+            <ReportViewToggle view={showChart ? "chart" : "table"} onChange={(v) => setShowChart(v === "chart")} />
             <ReportExportButton
               title={REPORT_NAME}
               headers={HEADERS}
@@ -372,6 +352,10 @@ export default function ProductInventoryReport({ onBack, category: reportCategor
         </div>
       )}
 
+      {showChart ? (
+        <ProductInventoryChartContent buildFilterBody={buildFilterBody} />
+      ) : (
+      <>
       <div className="rp-detail-toolbar">
         <div className="rp-detail-search-wrap">
           <Search size={13} className="rp-detail-search-ic" />
@@ -432,6 +416,8 @@ export default function ProductInventoryReport({ onBack, category: reportCategor
 
       <Pagination currentPage={currentPage} pageSize={pageSize} totalItems={total}
         onPageChange={setCurrentPage} onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }} />
+      </>
+      )}
     </div>
   );
 }

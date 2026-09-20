@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useDispatch } from "react-redux";
 import { useAppSelector } from "../../../hooks/useAppRedux";
-import { Search, GraphUp } from "react-bootstrap-icons";
+import { Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { STAFF_SALES_REPORT } from "../../../services/api/endpoints";
 import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
@@ -18,7 +18,8 @@ import { useCurrency } from "../../../hooks/useCurrency";
 import { formatPaymentMode } from "../../../utils/paymentMode";
 import SaleDetailModal from "./SaleDetailModal";
 import { maskMobile } from "../../../utils/maskMobile";
-import StaffSalesGraphPage from "./StaffSalesGraphPage";
+import StaffSalesChartContent from "./StaffSalesChartContent";
+import ReportViewToggle from "./ReportViewToggle";
 import "./StaffSalesReport.scss";
 
 const REPORT_NAME = "Staff Sales";
@@ -217,36 +218,13 @@ export default function StaffSalesReport({ onBack, category, categoryKey }: { on
   const HEADERS = ["Staff Name", "Contact", "Item Type", "Description", `Total Sales (${currencySymbol})`, `Paid (${currencySymbol})`, `Due Amount (${currencySymbol})`, `Commission (${currencySymbol})`, "Payment Mode", "Status", "Date"];
   const exportRows = () => rows.map(r => [r.staffName, canViewFullContact ? r.contact : maskMobile(r.contact), r.itemType, r.description, r.totalSales, r.paid, r.due, r.commission, r.paymentMode, r.status, r.date]);
 
-  // Graph icon opens this in place of the table — same full-page pattern
-  // every other report graph page uses.
-  if (showChart) {
-    return (
-      <StaffSalesGraphPage
-        reportName={REPORT_NAME}
-        onBack={onBack}
-        onClose={() => setShowChart(false)}
-        dateFrom={dateFrom}
-        dateTo={dateTo}
-        buildFilterBody={buildFilterBody}
-        statCards={[
-          { label: "Total Sales", value: formatAmount(stats.totalSale) },
-          { label: "Total Paid", value: formatAmount(stats.totalPaid) },
-          { label: "Total Due", value: formatAmount(stats.totalDue) },
-          { label: "Total Commission", value: formatAmount(stats.totalCommission) },
-        ]}
-      />
-    );
-  }
-
   return (
     <div className="rp-detail-view">
       <div className="rp-detail-header">
         <div className="rp-detail-back-row">
           <Breadcrumb current={REPORT_NAME} category={category} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
-            <button className="rp-detail-icon-btn" title="View graph" onClick={() => setShowChart(true)}>
-              <GraphUp size={16} />
-            </button>
+            <ReportViewToggle view={showChart ? "chart" : "table"} onChange={(v) => setShowChart(v === "chart")} />
             <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename={`staff-sales-${dateFrom}-${dateTo}`} variant="button" csv reportId="staff_sales" />
           </div>
         </div>
@@ -298,6 +276,10 @@ export default function StaffSalesReport({ onBack, category, categoryKey }: { on
         </div>
       )}
 
+      {showChart ? (
+        <StaffSalesChartContent dateFrom={dateFrom} dateTo={dateTo} buildFilterBody={buildFilterBody} />
+      ) : (
+      <>
       <div className="rp-detail-toolbar">
         <div className="rp-detail-search-wrap">
           <Search size={13} className="rp-detail-search-ic" />
@@ -354,6 +336,8 @@ export default function StaffSalesReport({ onBack, category, categoryKey }: { on
       </div>
       <Pagination currentPage={currentPage} pageSize={pageSize} totalItems={total}
         onPageChange={setCurrentPage} onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }} />
+      </>
+      )}
 
       {selectedSaleId && (
         <SaleDetailModal

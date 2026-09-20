@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { Search, GraphUp } from "react-bootstrap-icons";
+import { Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { STAFF_PERFORMANCE_REPORT } from "../../../services/api/endpoints";
 import ReportRefreshButton from "./ReportRefreshButton";
@@ -10,7 +10,8 @@ import type { JiraFilterField, DateRangeFilterValue } from "../../../components/
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { useCurrency } from "../../../hooks/useCurrency";
 import StaffHistoryModal from "../../staff/components/StaffHistoryModal";
-import StaffPerformanceGraphPage from "./StaffPerformanceGraphPage";
+import StaffPerformanceChartContent from "./StaffPerformanceChartContent";
+import ReportViewToggle from "./ReportViewToggle";
 import "./StaffPerformanceReport.scss";
 
 const REPORT_NAME = "Staff Performance";
@@ -246,36 +247,13 @@ export default function StaffPerformanceReport({ onBack, category, categoryKey }
     r.totalRevenue, r.avgBill, r.commission, r.due,
   ]);
 
-  // Graph icon opens this in place of the table — same full-page pattern
-  // every other report graph page uses.
-  if (showChart) {
-    return (
-      <StaffPerformanceGraphPage
-        reportName={REPORT_NAME}
-        onBack={onBack}
-        onClose={() => setShowChart(false)}
-        dateFrom={dateFrom}
-        dateTo={dateTo}
-        buildFilterBody={buildFilterBody}
-        statCards={[
-          { label: "Total Staff", value: String(stats.totalStaff) },
-          { label: "Total Revenue", value: formatAmount(stats.totalRevenue) },
-          { label: "Total Commission", value: formatAmount(stats.totalCommission) },
-          { label: "Average Revenue per Staff", value: formatAmount(stats.avgRevenuePerStaff) },
-        ]}
-      />
-    );
-  }
-
   return (
     <div className="rp-detail-view">
       <div className="rp-detail-header">
         <div className="rp-detail-back-row">
           <Breadcrumb current={REPORT_NAME} category={category} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
-            <button className="rp-detail-icon-btn" title="View graph" onClick={() => setShowChart(true)}>
-              <GraphUp size={16} />
-            </button>
+            <ReportViewToggle view={showChart ? "chart" : "table"} onChange={(v) => setShowChart(v === "chart")} />
             <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename={`staff-performance-${dateFrom}-${dateTo}`} variant="button" csv reportId="staff_performance" />
           </div>
         </div>
@@ -315,6 +293,10 @@ export default function StaffPerformanceReport({ onBack, category, categoryKey }
         </div>
       )}
 
+      {showChart ? (
+        <StaffPerformanceChartContent dateFrom={dateFrom} dateTo={dateTo} buildFilterBody={buildFilterBody} />
+      ) : (
+      <>
       <div className="rp-detail-table-wrap">
         <table className="rp-detail-table rp-sp-table">
           <thead>
@@ -370,6 +352,8 @@ export default function StaffPerformanceReport({ onBack, category, categoryKey }
 
       <Pagination currentPage={currentPage} pageSize={pageSize} totalItems={total}
         onPageChange={setCurrentPage} onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }} />
+      </>
+      )}
 
       <StaffHistoryModal staffId={historyStaffId} onClose={() => setHistoryStaffId(null)} />
     </div>

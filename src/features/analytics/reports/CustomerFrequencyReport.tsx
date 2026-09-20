@@ -1,13 +1,14 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useDispatch } from "react-redux";
 import { useAppSelector } from "../../../hooks/useAppRedux";
-import { Search, GraphUp } from "react-bootstrap-icons";
+import { Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { CUSTOMER_FREQUENCY_REPORT } from "../../../services/api/endpoints";
 import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
 import type { AppDispatch } from "../../../store/store";
 import ReportRefreshButton from "./ReportRefreshButton";
-import CustomerFrequencyGraphPage from "./CustomerFrequencyGraphPage";
+import CustomerFrequencyChartContent from "./CustomerFrequencyChartContent";
+import ReportViewToggle from "./ReportViewToggle";
 import Breadcrumb from "../../../components/ui/Breadcrumb";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination, JiraFilterMenu, DateRangeFilter, getDateRangePresetValue } from "../../../components/ui";
@@ -206,34 +207,13 @@ export default function CustomerFrequencyReport({ onBack, category, categoryKey 
     CUSTOMER_TYPE_LABELS[r.customerType] ?? r.customerType,
   ]);
 
-  if (showChart) {
-    return (
-      <CustomerFrequencyGraphPage
-        reportName={REPORT_NAME}
-        onBack={onBack}
-        onClose={() => setShowChart(false)}
-        dateFrom={dateFrom}
-        dateTo={dateTo}
-        buildFilterBody={buildFilterBody}
-        statCards={[
-          { label: "Total Clients", value: String(stats.totalClients) },
-          { label: "New Clients", value: String(stats.newClients) },
-          { label: "Returning Clients", value: String(stats.returningClients) },
-          { label: "Lost Clients", value: String(stats.lostClients) },
-        ]}
-      />
-    );
-  }
-
   return (
     <div className="rp-detail-view">
       <div className="rp-detail-header">
         <div className="rp-detail-back-row">
           <Breadcrumb current={REPORT_NAME} category={category} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
-            <button className="rp-detail-icon-btn" title="View graph" onClick={() => setShowChart(true)}>
-              <GraphUp size={16} />
-            </button>
+            <ReportViewToggle view={showChart ? "chart" : "table"} onChange={(v) => setShowChart(v === "chart")} />
             <ReportExportButton
               title={REPORT_NAME}
               headers={HEADERS}
@@ -276,6 +256,10 @@ export default function CustomerFrequencyReport({ onBack, category, categoryKey 
         </div>
       )}
 
+      {showChart ? (
+        <CustomerFrequencyChartContent dateFrom={dateFrom} dateTo={dateTo} buildFilterBody={buildFilterBody} />
+      ) : (
+      <>
       <SendCampaignBar count={selection.selectedIds.size} onSendClick={() => setShowCampaignModal(true)} />
 
       <div className="rp-detail-toolbar">
@@ -345,6 +329,8 @@ export default function CustomerFrequencyReport({ onBack, category, categoryKey 
 
       <Pagination currentPage={currentPage} pageSize={pageSize} totalItems={total}
         onPageChange={setCurrentPage} onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }} />
+      </>
+      )}
 
       {selectedClientId && (
         <ClientHistoryModal clientId={selectedClientId} onClose={() => setSelectedClientId(null)} />

@@ -91,6 +91,38 @@
   &:hover { background: #f3f4f6; color: $dashboard-primary; }
 }
 
+// Explicit "Table View / Chart View" segmented toggle — used in place of a
+// single icon button where a report wants its current mode always visible.
+.rp-view-toggle {
+  display: flex;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  overflow: hidden;
+  height: 34px;
+}
+
+.rp-view-toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #6b7280;
+  background: $white;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+
+  &:not(:last-child) { border-right: 1px solid #e5e7eb; }
+  &:hover { background: #f3f4f6; }
+
+  &.active {
+    background: $dashboard-primary;
+    color: $white;
+  }
+}
+
 .rp-download-btn {
   display: inline-flex;
   align-items: center;

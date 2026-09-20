@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { Search, GraphUp } from "react-bootstrap-icons";
+import { Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { PACKAGE_SALE_REPORT } from "../../../services/api/endpoints";
 import ReportRefreshButton from "./ReportRefreshButton";
@@ -13,7 +13,8 @@ import { useCurrency } from "../../../hooks/useCurrency";
 import { useRowSelection } from "./useRowSelection";
 import { SendCampaignBar } from "./SendCampaignBar";
 import { SendCampaignModal } from "../../marketing/components";
-import PackageSaleGraphPage from "./PackageSaleGraphPage";
+import PackageSaleChartContent from "./PackageSaleChartContent";
+import ReportViewToggle from "./ReportViewToggle";
 import "./PackageSaleReport.scss";
 
 const REPORT_NAME = "Package Sale";
@@ -211,36 +212,13 @@ export default function PackageSaleReport({ onBack, category, categoryKey }: { o
   const HEADERS = ["Date", "Invoice No", "Client", "Staff", "Package Name", "Expiry Date", `Total Amount (${currencySymbol})`, `GST (${currencySymbol})`, `Paid (${currencySymbol})`, `Balance Due (${currencySymbol})`, "Payment Method", "Status"];
   const exportRows = () => rows.map(r => [r.date, r.invoiceNo, r.client, r.staff, r.packageName, r.expiryDate, r.totalAmount, r.gstAmount, r.paidAmount, r.pendingAmount, r.paymentMethod, r.status]);
 
-  // Graph icon opens this in place of the table — same full-page pattern
-  // every other report graph page uses.
-  if (showChart) {
-    return (
-      <PackageSaleGraphPage
-        reportName={REPORT_NAME}
-        onBack={onBack}
-        onClose={() => setShowChart(false)}
-        dateFrom={dateFrom}
-        dateTo={dateTo}
-        buildFilterBody={buildFilterBody}
-        statCards={[
-          { label: "Packages Sold",         value: stats.packagesSold.toString() },
-          { label: "Total Sale Value",      value: formatAmount(stats.totalSaleValue) },
-          { label: "Total Received",        value: formatAmount(stats.totalReceived) },
-          { label: "Outstanding Balance",   value: formatAmount(stats.outstandingBalance) },
-        ]}
-      />
-    );
-  }
-
   return (
     <div className="rp-detail-view">
       <div className="rp-detail-header">
         <div className="rp-detail-back-row">
           <Breadcrumb current={REPORT_NAME} category={category} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
-            <button className="rp-detail-icon-btn" title="View graph" onClick={() => setShowChart(true)}>
-              <GraphUp size={16} />
-            </button>
+            <ReportViewToggle view={showChart ? "chart" : "table"} onChange={(v) => setShowChart(v === "chart")} />
             <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename={`package-sale-${dateFrom}-${dateTo}`} variant="button" csv reportId="package_sale" />
           </div>
         </div>
@@ -272,6 +250,10 @@ export default function PackageSaleReport({ onBack, category, categoryKey }: { o
         </div>
       )}
 
+      {showChart ? (
+        <PackageSaleChartContent dateFrom={dateFrom} dateTo={dateTo} buildFilterBody={buildFilterBody} />
+      ) : (
+      <>
       <SendCampaignBar count={selection.selectedIds.size} onSendClick={() => setShowCampaignModal(true)} />
 
       <div className="rp-detail-toolbar">
@@ -336,6 +318,8 @@ export default function PackageSaleReport({ onBack, category, categoryKey }: { o
 
       <Pagination currentPage={currentPage} pageSize={pageSize} totalItems={total}
         onPageChange={setCurrentPage} onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }} />
+      </>
+      )}
 
       <SendCampaignModal
         show={showCampaignModal}

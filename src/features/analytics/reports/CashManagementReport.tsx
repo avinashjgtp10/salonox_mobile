@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { Search, GraphUp } from "react-bootstrap-icons";
+import { Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { CASH_MANAGEMENT_REPORT } from "../../../services/api/endpoints";
 import ReportRefreshButton from "./ReportRefreshButton";
@@ -9,7 +9,8 @@ import { Pagination, JiraFilterMenu, DateRangeFilter, getDateRangePresetValue } 
 import type { JiraFilterField, DateRangeFilterValue } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import { useCurrency } from "../../../hooks/useCurrency";
-import CashManagementGraphPage from "./CashManagementGraphPage";
+import CashManagementChartContent from "./CashManagementChartContent";
+import ReportViewToggle from "./ReportViewToggle";
 
 const REPORT_NAME = "Cash Management Report";
 
@@ -171,37 +172,13 @@ export default function CashManagementReport({ onBack, category, categoryKey }: 
     ...(debouncedSearch ? [`Search: "${debouncedSearch}"`] : []),
   ];
 
-  // Graph icon opens this in place of the table — same full-page pattern
-  // every other report graph page uses.
-  if (showChart) {
-    return (
-      <CashManagementGraphPage
-        reportName={REPORT_NAME}
-        onBack={onBack}
-        onClose={() => setShowChart(false)}
-        dateFrom={dateFrom}
-        dateTo={dateTo}
-        buildFilterBody={buildFilterBody}
-        statCards={[
-          { label: "Cash Revenue", value: formatAmount(stats.totalCashRevenue) },
-          { label: "Cash Expense", value: formatAmount(stats.totalCashExpense) },
-          { label: "Closing Balance", value: formatAmount(stats.totalClosingBalance) },
-          { label: "Reconciliation", value: formatAmount(stats.totalReconciliationAmount) },
-          { label: "Open / Closed Sessions", value: `${stats.openSessions} / ${stats.closedSessions}` },
-        ]}
-      />
-    );
-  }
-
   return (
     <div className="rp-detail-view">
       <div className="rp-detail-header">
         <div className="rp-detail-back-row">
           <Breadcrumb current={REPORT_NAME} category={category} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
-            <button className="rp-detail-icon-btn" title="View graph" onClick={() => setShowChart(true)}>
-              <GraphUp size={16} />
-            </button>
+            <ReportViewToggle view={showChart ? "chart" : "table"} onChange={(v) => setShowChart(v === "chart")} />
             <ReportExportButton
               title={REPORT_NAME}
               headers={HEADERS}
@@ -243,6 +220,10 @@ export default function CashManagementReport({ onBack, category, categoryKey }: 
         </div>
       )}
 
+      {showChart ? (
+        <CashManagementChartContent dateFrom={dateFrom} dateTo={dateTo} buildFilterBody={buildFilterBody} />
+      ) : (
+      <>
       <div className="rp-detail-toolbar">
         <div className="rp-detail-search-wrap">
           <Search size={13} className="rp-detail-search-ic" />
@@ -290,6 +271,8 @@ export default function CashManagementReport({ onBack, category, categoryKey }: 
 
       <Pagination currentPage={currentPage} pageSize={pageSize} totalItems={total}
         onPageChange={setCurrentPage} onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }} />
+      </>
+      )}
     </div>
   );
 }
