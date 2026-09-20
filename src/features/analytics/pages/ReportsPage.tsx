@@ -6,7 +6,7 @@ import {
   PieChartFill, Bag, Scissors, BarChartLine, Receipt, Award, Wallet2,
   PersonCircle, PersonCheck, PeopleFill, PersonLinesFill, Droplet, Whatsapp, FileEarmarkBarGraph,
   CashCoin, PersonCheckFill, Truck, ChatDots, PersonDash, ArrowRepeat, ArrowLeftRight,
-  Gift, HourglassSplit, LightningChargeFill, PersonPlusFill, CalendarX, ChatSquareText,
+  Gift, HourglassSplit, LightningChargeFill, PersonPlusFill, CalendarX, ChatSquareText, CalendarHeart,
 } from "react-bootstrap-icons";
 import "../styles/ReportsPage.scss";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
@@ -32,6 +32,8 @@ import RewardReport from "../reports/RewardReport";
 import EwalletReport from "../reports/EwalletReport";
 import ClientRevenueReport from "../reports/ClientRevenueReport";
 import AllClientsReport from "../reports/AllClientsReport";
+import BirthdayReport from "../reports/BirthdayReport";
+import AnniversaryReport from "../reports/AnniversaryReport";
 import CustomerFrequencyReport from "../reports/CustomerFrequencyReport";
 import LostCustomersReport from "../reports/LostCustomersReport";
 import ServiceFrequencyReport from "../reports/ServiceFrequencyReport";
@@ -152,6 +154,8 @@ const REPORTS: ReportDef[] = [
   { id: "new_client_follow_up",   slug: "new-client-follow-up",   name: "New Client Follow-Up Report",                        description: "New clients from a chosen window who haven't had a completed visit yet — select rows and send a WhatsApp follow-up template directly.", category: "marketing", icon: PersonPlusFill, Component: NewClientFollowUpReport },
   { id: "cancellation_recovery",  slug: "cancellation-recovery",  name: "Cancellation Recovery Report",                       description: "Clients whose most recent appointment was cancelled and never rebooked — select rows and send a WhatsApp recovery template directly.", category: "marketing", icon: ArrowRepeat, Component: CancellationRecoveryReport },
   { id: "membership_opportunity", slug: "membership-opportunity", name: "Membership Opportunity Report",                      description: "Frequent visitors with no active membership yet — select rows and promote membership directly via WhatsApp.", category: "marketing", icon: PersonBadge, Component: MembershipOpportunityReport },
+  { id: "birthday",               slug: "birthday-report",        name: "Birthday Report",                                    description: "Clients with a birthday on file, next occurrence and days until — select rows and send birthday wishes directly via WhatsApp.", category: "marketing", icon: Gift, Component: BirthdayReport },
+  { id: "anniversary",            slug: "anniversary-report",     name: "Anniversary Report",                                 description: "Clients with an anniversary on file, next occurrence and days until — select rows and send anniversary wishes directly via WhatsApp.", category: "marketing", icon: CalendarHeart, Component: AnniversaryReport },
 ];
 
 // Reports whose detail view renders SendCampaignBar (select rows -> send a
@@ -159,7 +163,7 @@ const REPORTS: ReportDef[] = [
 // reference rather than a separately-maintained id list, so this can't drift
 // out of sync if a report's underlying component ever changes.
 const WHATSAPP_CAMPAIGN_COMPONENTS = new Set<ReportDef["Component"]>([
-  AllClientsReport, BirthdayCampaignReport, CancellationRecoveryReport,
+  AllClientsReport, AnniversaryReport, BirthdayCampaignReport, BirthdayReport, CancellationRecoveryReport,
   ClientRatingReport, ClientRevenueReport, CustomerFrequencyReport,
   CustomerSpendReport, EwalletReport, LostCustomersReport, MemberSaleReport,
   MembershipHistoryReport, MembershipOpportunityReport, NewClientFollowUpReport,
