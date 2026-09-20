@@ -39,6 +39,7 @@ export const INVENTORY = {
   // touched, so the table can patch itself without a follow-up GET.
   PRODUCT_INVENTORY_PURCHASES: "/api/v1/inventory/product-inventory/purchases",
   PRODUCT_INVENTORY_PURCHASE_BY_ID: (id: string) => `/api/v1/inventory/product-inventory/purchases/${id}`,
+  PRODUCT_INVENTORY_PURCHASES_CHART: "/api/v1/inventory/product-inventory/purchases/chart",
 
   // Orders — a purchase-order document. Receiving against one creates a
   // linked Purchase (see PRODUCT_INVENTORY_PURCHASES above) which is what
