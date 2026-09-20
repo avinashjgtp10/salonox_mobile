@@ -363,6 +363,9 @@ export interface OrderItem {
   total_cost_wo_tax: number;
   total_tax: number;
   received_qty: number;
+  // Cumulative confirmed-damaged total — set only via a confirmed
+  // OrderReceipt (see below). received_qty + damaged_qty never exceeds qty.
+  damaged_qty: number;
   batch_number?: string | null;
   created_at: string;
 }
@@ -451,4 +454,61 @@ export interface OrderSignature {
   url: string;
   created_by: string | null;
   created_at: string;
+}
+
+// ─── Order Receiving (draft -> confirm) ──────────────────────────────────────
+// Replaces the old single-shot Receive modal: a receipt lets a clerk enter
+// Confirmed/Damaged quantities per line, pick a Receiving Location (branch)
+// and Received By (staff), and Save Draft with zero stock effect. Only
+// Confirm Receiving moves stock. See OrderReceiptsTab.tsx.
+
+export type OrderReceiptStatus = "draft" | "confirmed";
+
+export interface OrderReceiptItem {
+  id: string;
+  order_receipt_id: string;
+  order_item_id: string;
+  product_id: string;
+  product_name?: string;
+  // Absolute cumulative targets (not deltas) — defaults to the order item's
+  // current received_qty/damaged_qty when the draft is first created.
+  confirmed_qty: number;
+  damaged_qty: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OrderReceipt {
+  id: string;
+  salon_id: string;
+  order_id: string;
+  branch_id: string | null;
+  branch_name?: string | null;
+  received_by: string | null;
+  received_by_name?: string | null;
+  status: OrderReceiptStatus;
+  created_by: string | null;
+  confirmed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OrderReceiptWithItems extends OrderReceipt {
+  items: OrderReceiptItem[];
+}
+
+export interface UpsertReceiptItemPayload {
+  order_item_id: string;
+  confirmed_qty: number;
+  damaged_qty: number;
+}
+
+export interface SaveReceiptDraftPayload {
+  branch_id?: string | null;
+  received_by?: string | null;
+  items?: UpsertReceiptItemPayload[];
+}
+
+export interface ConfirmReceiptPayload {
+  purchase_date?: string;
 }

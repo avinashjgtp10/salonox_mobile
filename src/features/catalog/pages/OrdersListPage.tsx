@@ -5,7 +5,7 @@ import { useSelector } from "react-redux";
 import { Dropdown } from "react-bootstrap";
 import { Search, FileEarmarkText, FileEarmarkPdf, FileEarmarkExcel, FiletypeCsv, PlusLg, X, ThreeDotsVertical, PencilSquare, Trash3, BoxSeam } from "react-bootstrap-icons";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
-import { fetchOrdersThunk, deleteOrderThunk, fetchOrderByIdThunk, receiveOrderThunk } from "../../../middleware/inventory/inventory.thunk";
+import { fetchOrdersThunk, deleteOrderThunk, fetchOrderByIdThunk } from "../../../middleware/inventory/inventory.thunk";
 import type { Order } from "../../../types/inventory.types";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
@@ -24,9 +24,12 @@ import Input from "../../../components/ui/Input";
 import EmptyState from "../../../components/ui/EmptyState";
 import { formatDateDDMMYYYY as fmtDate } from "../../../utils/dateFormat";
 import Modal from "../../../components/ui/Modal";
+import Tabs from "../../../components/ui/Tabs";
+import type { TabItem } from "../../../components/ui/Tabs";
 import { JiraFilterMenu } from "../../../components/ui";
 import type { JiraFilterField } from "../../../components/ui";
 import OrderDetailsDrawer from "../components/OrderDetailsDrawer";
+import ReceivingTab from "../components/ReceivingTab";
 import "../styles/SuppliersListPage.scss";
 import "../styles/OrdersListPage.scss";
 
@@ -44,6 +47,9 @@ const STATUS_BADGE: Record<Order["status"], "paid" | "due" | "overdue" | "partia
   received: "paid",
   cancelled: "overdue",
 };
+
+// Orders still awaiting receipt — the Orders page's "Receiving" tab queue.
+const RECEIVING_QUEUE_STATUSES: Order["status"][] = ["sent", "partially_received"];
 
 // Orders list — same list-page pattern as SuppliersListPage.tsx (header,
 // search, table, pagination, empty state) so Orders reads as part of the
@@ -128,17 +134,17 @@ const OrdersListPage: React.FC = () => {
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
+  // Receiving — a queue of orders still awaiting receipt (Sent/Partially
+  // Received), so a clerk doesn't have to hunt through the full Orders list
+  // via the kebab menu to find what needs receiving. Same page, same table,
+  // just a forced status filter and a visible Receive button per row.
+  const [activeTab, setActiveTab] = useState<"orders" | "receiving">("orders");
+
   const [openRowMenuId, setOpenRowMenuId] = useState<string | null>(null);
   const [kebabPos, setKebabPos] = useState<{ top: number; right: number } | null>(null);
   const kebabPortalRef = useRef<HTMLUListElement>(null);
   const [deleteTarget, setDeleteTarget] = useState<Order | null>(null);
   const [deleting, setDeleting] = useState(false);
-
-  const [receiveOrder, setReceiveOrder] = useState<Order | null>(null);
-  const [receiveLoading, setReceiveLoading] = useState(false);
-  const [receiveQtys, setReceiveQtys] = useState<Record<string, string>>({});
-  const [receiveBatchNumbers, setReceiveBatchNumbers] = useState<Record<string, string>>({});
-  const [submittingReceive, setSubmittingReceive] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 350);
@@ -150,7 +156,7 @@ const OrdersListPage: React.FC = () => {
       await dispatch(
         fetchOrdersThunk({
           search: debouncedSearch || undefined,
-          status: statusFilter || undefined,
+          status: activeTab === "receiving" ? RECEIVING_QUEUE_STATUSES : (statusFilter || undefined),
           page: currentPage,
           limit: pageSize,
         }),
@@ -158,7 +164,7 @@ const OrdersListPage: React.FC = () => {
     } catch (err: any) {
       showError(typeof err === "string" ? err : "Couldn't load orders");
     }
-  }, [dispatch, debouncedSearch, statusFilter, currentPage, pageSize, showError]);
+  }, [dispatch, debouncedSearch, statusFilter, activeTab, currentPage, pageSize, showError]);
 
   // Tracks whether we're past the initial mount, so the effect below doesn't
   // also fire (redundantly) on first render — mirrors SuppliersListPage.tsx.
@@ -185,7 +191,7 @@ const OrdersListPage: React.FC = () => {
   // page 1, reset to page 1 without firing a second (stale-page) fetch in
   // the same tick — the page-1 reset alone triggers this effect again with
   // the corrected page.
-  const filtersKey = JSON.stringify({ debouncedSearch, statusFilter });
+  const filtersKey = JSON.stringify({ debouncedSearch, statusFilter, activeTab });
   const prevFiltersKeyRef = useRef(filtersKey);
   useEffect(() => {
     if (!isMountedRef.current) return;
@@ -198,7 +204,7 @@ const OrdersListPage: React.FC = () => {
     }
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPage, pageSize, debouncedSearch, statusFilter, filtersKey]);
+  }, [currentPage, pageSize, debouncedSearch, statusFilter, activeTab, filtersKey]);
 
   useEffect(() => {
     if (!openRowMenuId) return;
@@ -231,68 +237,35 @@ const OrdersListPage: React.FC = () => {
     navigate("/dashboard/inventory/orders/new-order");
   };
 
-  const remainingByItem = useMemo(() => {
-    const map = new Map<string, number>();
-    (receiveOrder?.items ?? []).forEach((it) => map.set(it.id, Math.max(0, Number(it.qty) - Number(it.received_qty))));
-    return map;
-  }, [receiveOrder]);
+  // Receiving (draft -> confirm, with branch/damage tracking) opens right
+  // here as a modal instead of navigating to the full Order Detail page —
+  // the list only holds summary fields per row, so the full order (with line
+  // items) is fetched first.
+  const [receivingOrder, setReceivingOrder] = useState<Order | null>(null);
+  // Scoped to the specific row being fetched (same pattern as
+  // downloadingPdfId below) — a plain boolean here would disable every row's
+  // Receive button while only one order is loading.
+  const [receivingLoadingId, setReceivingLoadingId] = useState<string | null>(null);
 
-  const openReceive = async (o: Order) => {
+  const openReceivingModal = async (o: Order) => {
     if (!can("receive_order")) {
       dispatch(showPermissionDenied(friendlyPermissionDenied("receive_order")));
       return;
     }
-    setReceiveLoading(true);
+    setReceivingLoadingId(o.id);
     try {
       const full = await dispatch(fetchOrderByIdThunk(o.id)).unwrap();
-      const defaults: Record<string, string> = {};
-      (full.items ?? []).forEach((it) => {
-        const remaining = Math.max(0, Number(it.qty) - Number(it.received_qty));
-        defaults[it.id] = remaining > 0 ? String(remaining) : "";
-      });
-      setReceiveQtys(defaults);
-      setReceiveBatchNumbers({});
-      setReceiveOrder(full);
+      setReceivingOrder(full);
     } catch (err: any) {
       showError(typeof err === "string" ? err : "Couldn't load order");
     } finally {
-      setReceiveLoading(false);
+      setReceivingLoadingId(null);
     }
   };
 
-  const submitReceive = async () => {
-    if (!receiveOrder) return;
-    const items = Object.entries(receiveQtys)
-      .map(([order_item_id, v]) => ({
-        order_item_id,
-        received_qty: parseFloat(v) || 0,
-        batch_number: receiveBatchNumbers[order_item_id]?.trim() || undefined,
-      }))
-      .filter((i) => i.received_qty > 0);
-
-    if (!items.length) {
-      showError("Enter a received quantity for at least one item");
-      return;
-    }
-    for (const i of items) {
-      const remaining = remainingByItem.get(i.order_item_id) ?? 0;
-      if (i.received_qty > remaining) {
-        showError("Received quantity can't exceed what's still outstanding on this order");
-        return;
-      }
-    }
-
-    setSubmittingReceive(true);
-    try {
-      await dispatch(receiveOrderThunk({ orderId: receiveOrder.id, payload: { items } })).unwrap();
-      setReceiveOrder(null);
-      showSuccess("Order received — stock and supplier balance updated");
-      load();
-    } catch (err: any) {
-      showError(typeof err === "string" ? err : "Failed to receive order");
-    } finally {
-      setSubmittingReceive(false);
-    }
+  const closeReceivingModal = () => {
+    setReceivingOrder(null);
+    load();
   };
 
   const handleDelete = async () => {
@@ -412,6 +385,14 @@ const OrdersListPage: React.FC = () => {
         </div>
       </header>
 
+      <Tabs
+        tabs={([{ key: "orders", label: "Orders" }, { key: "receiving", label: "Receiving" }] as TabItem[])}
+        activeKey={activeTab}
+        onChange={(k) => setActiveTab(k as "orders" | "receiving")}
+        variant="underline"
+        className="mb-3"
+      />
+
       <div className="suppliers-list-page__controls">
         <Input
           containerClass="search-box mb-0"
@@ -431,12 +412,14 @@ const OrdersListPage: React.FC = () => {
             </button>
           ) : undefined}
         />
-        <JiraFilterMenu
-          fields={filterFields}
-          selected={filterMenuSelected}
-          onApply={handleFiltersApply}
-          triggerLabel="Filters"
-        />
+        {activeTab === "orders" && (
+          <JiraFilterMenu
+            fields={filterFields}
+            selected={filterMenuSelected}
+            onApply={handleFiltersApply}
+            triggerLabel="Filters"
+          />
+        )}
       </div>
 
       <main className="suppliers-list-page__content">
@@ -451,7 +434,7 @@ const OrdersListPage: React.FC = () => {
                 <th>Total Quantity</th>
                 <th>Total Price</th>
                 <th>Payment Terms</th>
-                <th className="actions-cell" style={{ width: 56 }} />
+                <th className="actions-cell" style={{ width: activeTab === "receiving" ? 150 : 56 }} />
               </tr>
             </thead>
             <tbody>
@@ -480,7 +463,7 @@ const OrdersListPage: React.FC = () => {
                 <th>Total Quantity</th>
                 <th>Total Price</th>
                 <th>Payment Terms</th>
-                <th className="actions-cell" style={{ width: 56 }} />
+                <th className="actions-cell" style={{ width: activeTab === "receiving" ? 150 : 56 }} />
               </tr>
             </thead>
             <tbody>
@@ -501,7 +484,23 @@ const OrdersListPage: React.FC = () => {
                   <td>{o.total_quantity ?? 0}</td>
                   <td>{formatAmount(o.total_price ?? 0)}</td>
                   <td>{o.payment_terms_days != null ? `${o.payment_terms_days} days` : "—"}</td>
-                  <td className="actions-cell orders-kebab-wrap" onClick={(e) => { console.log("[OrdersListPage] td stopPropagation"); e.stopPropagation(); }}>
+                  <td
+                    className="actions-cell orders-kebab-wrap"
+                    style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8 }}
+                    onClick={(e) => { console.log("[OrdersListPage] td stopPropagation"); e.stopPropagation(); }}
+                  >
+                    {activeTab === "receiving" && (
+                      <Button
+                        variant="dark"
+                        size="sm"
+                        iconLeft={<BoxSeam size={14} />}
+                        disabled={receivingLoadingId === o.id}
+                        style={!can("receive_order") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                        onClick={() => openReceivingModal(o)}
+                      >
+                        Receive
+                      </Button>
+                    )}
                     <button
                       className="orders-kebab-btn"
                       title="Actions"
@@ -523,15 +522,14 @@ const OrdersListPage: React.FC = () => {
                         className="orders-kebab-menu"
                         style={{ position: "fixed", top: kebabPos.top, right: kebabPos.right }}
                       >
-                        {o.status === "sent" && (
+                        {activeTab === "orders" && (o.status === "sent" || o.status === "partially_received") && (
                           <li>
                             <button
                               className="orders-kebab-item"
-                              disabled={receiveLoading}
                               style={!can("receive_order") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
                               onClick={() => {
                                 setOpenRowMenuId(null);
-                                openReceive(o);
+                                openReceivingModal(o);
                               }}
                             >
                               <BoxSeam size={14} /> Receive Order
@@ -595,12 +593,22 @@ const OrdersListPage: React.FC = () => {
           <EmptyState
             className="suppliers-empty-card"
             icon={<FileEarmarkText size={40} />}
-            title={debouncedSearch ? "No orders match your search." : "No orders yet"}
-            description="Click here to create your first order."
+            title={
+              activeTab === "receiving"
+                ? "Nothing awaiting receipt"
+                : debouncedSearch ? "No orders match your search." : "No orders yet"
+            }
+            description={
+              activeTab === "receiving"
+                ? "Every order is either fully received, still a draft, or cancelled."
+                : "Click here to create your first order."
+            }
             action={
-              <Button variant="dark" size="sm" iconLeft={<PlusLg size={13} />} onClick={goToNewOrder}>
-                New Order
-              </Button>
+              activeTab === "receiving" ? undefined : (
+                <Button variant="dark" size="sm" iconLeft={<PlusLg size={13} />} onClick={goToNewOrder}>
+                  New Order
+                </Button>
+              )
             }
           />
         )}
@@ -625,64 +633,16 @@ const OrdersListPage: React.FC = () => {
         onDeleted={load}
       />
 
-      {receiveOrder && (
-        <Modal show onClose={() => setReceiveOrder(null)} title="Receive Order" size="lg">
-          <p className="text-muted mb-3">
-            Enter how much of each item actually arrived in this delivery. This creates a Purchase record,
-            adds the received quantity to stock, and updates the supplier's balance.
-          </p>
-          <table className="phist-table--compact w-100">
-            <thead>
-              <tr>
-                <th>Product</th>
-                <th className="phist-num">Ordered</th>
-                <th className="phist-num">Already Received</th>
-                <th className="phist-num">Receiving Now</th>
-                <th>Batch / Lot No.</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(receiveOrder.items ?? []).map((item) => {
-                const remaining = remainingByItem.get(item.id) ?? 0;
-                return (
-                  <tr key={item.id}>
-                    <td>{item.product_name || "—"}</td>
-                    <td className="phist-num">{item.qty}</td>
-                    <td className="phist-num">{item.received_qty}</td>
-                    <td className="phist-num">
-                      <input
-                        type="number"
-                        min="0"
-                        max={remaining}
-                        step="any"
-                        className="new-order-input--sm"
-                        value={receiveQtys[item.id] ?? ""}
-                        disabled={remaining <= 0}
-                        onChange={(e) => setReceiveQtys((prev) => ({ ...prev, [item.id]: e.target.value }))}
-                        onWheel={(e) => e.currentTarget.blur()}
-                      />
-                    </td>
-                    <td>
-                      <input
-                        type="text"
-                        className="new-order-input--sm"
-                        placeholder="Optional"
-                        value={receiveBatchNumbers[item.id] ?? ""}
-                        disabled={remaining <= 0}
-                        onChange={(e) => setReceiveBatchNumbers((prev) => ({ ...prev, [item.id]: e.target.value }))}
-                      />
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          <div className="d-flex justify-content-end gap-2 mt-4">
-            <Button variant="outline-dark" onClick={() => setReceiveOrder(null)} disabled={submittingReceive}>Cancel</Button>
-            <Button variant="dark" onClick={submitReceive} disabled={submittingReceive}>
-              {submittingReceive ? "Receiving…" : "Confirm Receive"}
-            </Button>
-          </div>
+      {receivingOrder && (
+        <Modal show onClose={closeReceivingModal} title={`Receive — ${receivingOrder.order_number}`} size="lg">
+          <ReceivingTab
+            order={receivingOrder}
+            can={can}
+            denyPerm={(permKey) => dispatch(showPermissionDenied(friendlyPermissionDenied(permKey)))}
+            showSuccess={showSuccess}
+            showError={showError}
+            onOrderUpdated={setReceivingOrder}
+          />
         </Modal>
       )}
 
