@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useDispatch } from "react-redux";
 import { useAppSelector } from "../../../hooks/useAppRedux";
-import { Search } from "react-bootstrap-icons";
+import { Search, GraphUp } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { SERVICE_FREQUENCY_REPORT } from "../../../services/api/endpoints";
 import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
 import type { AppDispatch } from "../../../store/store";
 import ReportRefreshButton from "./ReportRefreshButton";
+import ServiceFrequencyGraphPage from "./ServiceFrequencyGraphPage";
 import Breadcrumb from "../../../components/ui/Breadcrumb";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination, JiraFilterMenu, DateRangeFilter, getDateRangePresetValue } from "../../../components/ui";
@@ -96,6 +97,7 @@ export default function ServiceFrequencyReport({ onBack, category, categoryKey }
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const selection = useRowSelection();
   const [showCampaignModal, setShowCampaignModal] = useState(false);
+  const [showChart, setShowChart] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   const dateRangeError = dateFrom && dateTo && dateTo < dateFrom
@@ -119,6 +121,15 @@ export default function ServiceFrequencyReport({ onBack, category, categoryKey }
     return () => clearTimeout(t);
   }, [search]);
 
+  const buildFilterBody = useCallback((): Record<string, any> => {
+    const body: Record<string, any> = { start_date: dateFrom, end_date: dateTo };
+    if (debouncedSearch) body.search = debouncedSearch;
+    if (serviceIds.length > 0) body.service_ids = serviceIds;
+    if (categoryIds.length > 0) body.category_ids = categoryIds;
+    if (staffFilterIds.length > 0) body.staff_ids = staffFilterIds;
+    return body;
+  }, [dateFrom, dateTo, debouncedSearch, serviceIds, categoryIds, staffFilterIds]);
+
   const fetchData = useCallback(async () => {
     if (dateRangeError) return;
     abortRef.current?.abort();
@@ -126,14 +137,7 @@ export default function ServiceFrequencyReport({ onBack, category, categoryKey }
     abortRef.current = ctrl;
     setLoading(true);
     try {
-      const body: Record<string, any> = {
-        start_date: dateFrom, end_date: dateTo,
-        page: currentPage, limit: pageSize,
-      };
-      if (debouncedSearch) body.search = debouncedSearch;
-      if (serviceIds.length > 0) body.service_ids = serviceIds;
-      if (categoryIds.length > 0) body.category_ids = categoryIds;
-      if (staffFilterIds.length > 0) body.staff_ids = staffFilterIds;
+      const body = { ...buildFilterBody(), page: currentPage, limit: pageSize };
       const res = await api.post(SERVICE_FREQUENCY_REPORT.SUMMARY(), body, { signal: ctrl.signal });
       const data = res.data?.data;
       const raw: any[] = Array.isArray(data?.rows) ? data.rows : [];
@@ -154,7 +158,7 @@ export default function ServiceFrequencyReport({ onBack, category, categoryKey }
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [dateFrom, dateTo, debouncedSearch, serviceIds, categoryIds, staffFilterIds, currentPage, pageSize]);
+  }, [buildFilterBody, currentPage, pageSize, dateRangeError]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, debouncedSearch, serviceIds, categoryIds, staffFilterIds]);
@@ -209,12 +213,34 @@ export default function ServiceFrequencyReport({ onBack, category, categoryKey }
     ...(debouncedSearch ? [`Search: "${debouncedSearch}"`] : []),
   ];
 
+  if (showChart) {
+    return (
+      <ServiceFrequencyGraphPage
+        reportName={REPORT_NAME}
+        onBack={onBack}
+        onClose={() => setShowChart(false)}
+        dateFrom={dateFrom}
+        dateTo={dateTo}
+        buildFilterBody={buildFilterBody}
+        statCards={[
+          { label: "Client-Service Pairs", value: String(stats.totalPairs) },
+          { label: "Repeat Pairs", value: String(stats.repeatPairs) },
+          { label: "Total Visits", value: String(stats.totalVisits) },
+          { label: "Total Revenue", value: formatAmount(stats.totalRevenue) },
+        ]}
+      />
+    );
+  }
+
   return (
     <div className="rp-detail-view">
       <div className="rp-detail-header">
         <div className="rp-detail-back-row">
           <Breadcrumb current={REPORT_NAME} category={category} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
+            <button className="rp-detail-icon-btn" title="View graph" onClick={() => setShowChart(true)}>
+              <GraphUp size={16} />
+            </button>
             <ReportExportButton
               title={REPORT_NAME}
               headers={HEADERS}

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useDispatch } from "react-redux";
 import { useAppSelector } from "../../../hooks/useAppRedux";
-import { Search } from "react-bootstrap-icons";
+import { Search, GraphUp } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { STAFF_SALES_REPORT } from "../../../services/api/endpoints";
 import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
@@ -18,6 +18,7 @@ import { useCurrency } from "../../../hooks/useCurrency";
 import { formatPaymentMode } from "../../../utils/paymentMode";
 import SaleDetailModal from "./SaleDetailModal";
 import { maskMobile } from "../../../utils/maskMobile";
+import StaffSalesGraphPage from "./StaffSalesGraphPage";
 import "./StaffSalesReport.scss";
 
 const REPORT_NAME = "Staff Sales";
@@ -121,6 +122,7 @@ export default function StaffSalesReport({ onBack, category, categoryKey }: { on
   const [pageSize,       setPageSize]       = useState(10);
   const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
   const [selectedStaffName, setSelectedStaffName] = useState<string | null>(null);
+  const [showChart, setShowChart] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -138,22 +140,26 @@ export default function StaffSalesReport({ onBack, category, categoryKey }: { on
     return () => clearTimeout(t);
   }, [search]);
 
+  // Shared with the Graph page below — same filter set the table/stats use,
+  // minus pagination.
+  const buildFilterBody = useCallback((): Record<string, any> => {
+    const body: Record<string, any> = { start_date: dateFrom, end_date: dateTo };
+    if (staffFilterIds.length > 0) body.staff_ids = staffFilterIds;
+    if (debouncedSearch) body.search = debouncedSearch;
+    if (paymentModeFilter.length > 0) body.payment_modes = paymentModeFilter;
+    if (itemTypeFilter.length > 0) body.item_types = itemTypeFilter;
+    if (paymentStatusFilter.length > 0) body.payment_statuses = paymentStatusFilter;
+    if (sortFilter !== "None") body.sort = sortFilter;
+    return body;
+  }, [dateFrom, dateTo, staffFilterIds, debouncedSearch, paymentModeFilter, itemTypeFilter, paymentStatusFilter, sortFilter]);
+
   const fetchData = useCallback(async () => {
     abortRef.current?.abort();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
     setLoading(true);
     try {
-      const body: Record<string, any> = {
-        start_date: dateFrom, end_date: dateTo,
-        page: currentPage, limit: pageSize,
-      };
-      if (staffFilterIds.length > 0) body.staff_ids = staffFilterIds;
-      if (debouncedSearch) body.search = debouncedSearch;
-      if (paymentModeFilter.length > 0) body.payment_modes = paymentModeFilter;
-      if (itemTypeFilter.length > 0) body.item_types = itemTypeFilter;
-      if (paymentStatusFilter.length > 0) body.payment_statuses = paymentStatusFilter;
-      if (sortFilter !== "None") body.sort = sortFilter;
+      const body = { ...buildFilterBody(), page: currentPage, limit: pageSize };
       const res = await api.post(STAFF_SALES_REPORT.SUMMARY(), body, { signal: ctrl.signal });
       const data = res.data?.data;
       const raw: any[] = Array.isArray(data?.rows) ? data.rows : [];
@@ -182,7 +188,7 @@ export default function StaffSalesReport({ onBack, category, categoryKey }: { on
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [dateFrom, dateTo, staffFilterIds, debouncedSearch, currentPage, pageSize, paymentModeFilter, itemTypeFilter, paymentStatusFilter, sortFilter]);
+  }, [buildFilterBody, currentPage, pageSize]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, staffFilterIds, debouncedSearch, paymentModeFilter, itemTypeFilter, paymentStatusFilter, sortFilter]);
@@ -211,12 +217,36 @@ export default function StaffSalesReport({ onBack, category, categoryKey }: { on
   const HEADERS = ["Staff Name", "Contact", "Item Type", "Description", `Total Sales (${currencySymbol})`, `Paid (${currencySymbol})`, `Due Amount (${currencySymbol})`, `Commission (${currencySymbol})`, "Payment Mode", "Status", "Date"];
   const exportRows = () => rows.map(r => [r.staffName, canViewFullContact ? r.contact : maskMobile(r.contact), r.itemType, r.description, r.totalSales, r.paid, r.due, r.commission, r.paymentMode, r.status, r.date]);
 
+  // Graph icon opens this in place of the table — same full-page pattern
+  // every other report graph page uses.
+  if (showChart) {
+    return (
+      <StaffSalesGraphPage
+        reportName={REPORT_NAME}
+        onBack={onBack}
+        onClose={() => setShowChart(false)}
+        dateFrom={dateFrom}
+        dateTo={dateTo}
+        buildFilterBody={buildFilterBody}
+        statCards={[
+          { label: "Total Sales", value: formatAmount(stats.totalSale) },
+          { label: "Total Paid", value: formatAmount(stats.totalPaid) },
+          { label: "Total Due", value: formatAmount(stats.totalDue) },
+          { label: "Total Commission", value: formatAmount(stats.totalCommission) },
+        ]}
+      />
+    );
+  }
+
   return (
     <div className="rp-detail-view">
       <div className="rp-detail-header">
         <div className="rp-detail-back-row">
           <Breadcrumb current={REPORT_NAME} category={category} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
+            <button className="rp-detail-icon-btn" title="View graph" onClick={() => setShowChart(true)}>
+              <GraphUp size={16} />
+            </button>
             <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename={`staff-sales-${dateFrom}-${dateTo}`} variant="button" csv reportId="staff_sales" />
           </div>
         </div>

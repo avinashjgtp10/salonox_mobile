@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { Search } from "react-bootstrap-icons";
+import { Search, GraphUp } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { STAFF_PERFORMANCE_REPORT } from "../../../services/api/endpoints";
 import ReportRefreshButton from "./ReportRefreshButton";
@@ -10,6 +10,7 @@ import type { JiraFilterField, DateRangeFilterValue } from "../../../components/
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { useCurrency } from "../../../hooks/useCurrency";
 import StaffHistoryModal from "../../staff/components/StaffHistoryModal";
+import StaffPerformanceGraphPage from "./StaffPerformanceGraphPage";
 import "./StaffPerformanceReport.scss";
 
 const REPORT_NAME = "Staff Performance";
@@ -109,6 +110,7 @@ export default function StaffPerformanceReport({ onBack, category, categoryKey }
   const [loading, setLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [showChart, setShowChart] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -116,25 +118,28 @@ export default function StaffPerformanceReport({ onBack, category, categoryKey }
     return () => clearTimeout(t);
   }, [search]);
 
+  // Shared with the Graph page below — same filter set the table/stats use,
+  // minus pagination.
+  const buildFilterBody = useCallback((): Record<string, any> => {
+    const body: Record<string, any> = { start_date: dateFrom, end_date: dateTo };
+    if (debouncedSearch) body.search = debouncedSearch;
+    if (staffFilterIds.length > 0) body.staff_ids = staffFilterIds;
+    if (paymentModeFilter.length > 0) body.payment_modes = paymentModeFilter;
+    if (paymentStatusFilter.length > 0) body.payment_statuses = paymentStatusFilter;
+    if (itemTypeFilter.length > 0) body.item_types = itemTypeFilter;
+    if (packageFilter.length > 0) body.package_ids = packageFilter;
+    if (membershipFilter.length > 0) body.membership_ids = membershipFilter;
+    body.include_gst = includeGst;
+    return body;
+  }, [dateFrom, dateTo, debouncedSearch, staffFilterIds, paymentModeFilter, paymentStatusFilter, itemTypeFilter, packageFilter, membershipFilter, includeGst]);
+
   const fetchData = useCallback(async () => {
     abortRef.current?.abort();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
     setLoading(true);
     try {
-      const body: Record<string, any> = {
-        start_date: dateFrom, end_date: dateTo,
-        page: currentPage, limit: pageSize,
-      };
-      if (debouncedSearch) body.search = debouncedSearch;
-      if (staffFilterIds.length > 0) body.staff_ids = staffFilterIds;
-      if (paymentModeFilter.length > 0) body.payment_modes = paymentModeFilter;
-      if (paymentStatusFilter.length > 0) body.payment_statuses = paymentStatusFilter;
-      if (itemTypeFilter.length > 0) body.item_types = itemTypeFilter;
-      if (packageFilter.length > 0) body.package_ids = packageFilter;
-      if (membershipFilter.length > 0) body.membership_ids = membershipFilter;
-      body.include_gst = includeGst;
-
+      const body = { ...buildFilterBody(), page: currentPage, limit: pageSize };
       const res = await api.post(STAFF_PERFORMANCE_REPORT.SUMMARY(), body, { signal: ctrl.signal });
       const data = res.data?.data;
       const raw: any[] = Array.isArray(data?.rows) ? data.rows : [];
@@ -164,7 +169,7 @@ export default function StaffPerformanceReport({ onBack, category, categoryKey }
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [dateFrom, dateTo, staffFilterIds, paymentModeFilter, paymentStatusFilter, itemTypeFilter, packageFilter, membershipFilter, includeGst, debouncedSearch, currentPage, pageSize]);
+  }, [buildFilterBody, currentPage, pageSize]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => {
@@ -241,12 +246,36 @@ export default function StaffPerformanceReport({ onBack, category, categoryKey }
     r.totalRevenue, r.avgBill, r.commission, r.due,
   ]);
 
+  // Graph icon opens this in place of the table — same full-page pattern
+  // every other report graph page uses.
+  if (showChart) {
+    return (
+      <StaffPerformanceGraphPage
+        reportName={REPORT_NAME}
+        onBack={onBack}
+        onClose={() => setShowChart(false)}
+        dateFrom={dateFrom}
+        dateTo={dateTo}
+        buildFilterBody={buildFilterBody}
+        statCards={[
+          { label: "Total Staff", value: String(stats.totalStaff) },
+          { label: "Total Revenue", value: formatAmount(stats.totalRevenue) },
+          { label: "Total Commission", value: formatAmount(stats.totalCommission) },
+          { label: "Average Revenue per Staff", value: formatAmount(stats.avgRevenuePerStaff) },
+        ]}
+      />
+    );
+  }
+
   return (
     <div className="rp-detail-view">
       <div className="rp-detail-header">
         <div className="rp-detail-back-row">
           <Breadcrumb current={REPORT_NAME} category={category} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
+            <button className="rp-detail-icon-btn" title="View graph" onClick={() => setShowChart(true)}>
+              <GraphUp size={16} />
+            </button>
             <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename={`staff-performance-${dateFrom}-${dateTo}`} variant="button" csv reportId="staff_performance" />
           </div>
         </div>
