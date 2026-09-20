@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useAppSelector } from "../../../hooks/useAppRedux";
-import { Search, GraphUp } from "react-bootstrap-icons";
+import { Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { PAYMENT_COLLECTION_REPORT } from "../../../services/api/endpoints";
 import ReportRefreshButton from "./ReportRefreshButton";
@@ -12,7 +12,8 @@ import ReportExportButton from "../../../components/ui/ReportExportButton";
 import AppointmentDetailModal from "../../bookings/components/modals/AppointmentDetailModal";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { maskMobile } from "../../../utils/maskMobile";
-import PaymentCollectionGraphPage from "./PaymentCollectionGraphPage";
+import PaymentCollectionChartContent from "./PaymentCollectionChartContent";
+import ReportViewToggle from "./ReportViewToggle";
 import "./PaymentCollectionReport.scss";
 
 const REPORT_NAME = "Payment Collection Report";
@@ -217,38 +218,13 @@ export default function PaymentCollectionReport({ onBack, category, categoryKey 
     ...(debouncedSearch ? [`Search: "${debouncedSearch}"`] : []),
   ];
 
-  // Graph icon opens this in place of the table — same full-page pattern
-  // every other report graph page uses.
-  if (showChart) {
-    return (
-      <PaymentCollectionGraphPage
-        reportName={REPORT_NAME}
-        onBack={onBack}
-        onClose={() => setShowChart(false)}
-        dateFrom={dateFrom}
-        dateTo={dateTo}
-        buildFilterBody={buildFilterBody}
-        statCards={[
-          { label: "Total Paid", value: formatAmount(stats.totalCollected) },
-          { label: "Total Pending Amount", value: formatAmount(stats.totalPendingAmount) },
-          { label: "Total Pending Transactions", value: stats.totalPendingTransactions.toString() },
-          { label: "Clients With Due Amount", value: stats.totalCustomersWithDue.toString() },
-          { label: "Average Pending Amount", value: formatAmount(stats.averagePendingAmount) },
-          { label: "Oldest Pending Payment", value: formatDate(stats.oldestPendingPaymentDate) },
-        ]}
-      />
-    );
-  }
-
   return (
     <div className="rp-detail-view">
       <div className="rp-detail-header">
         <div className="rp-detail-back-row">
           <Breadcrumb current={REPORT_NAME} category={category} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
-            <button className="rp-detail-icon-btn" title="View graph" onClick={() => setShowChart(true)}>
-              <GraphUp size={16} />
-            </button>
+            <ReportViewToggle view={showChart ? "chart" : "table"} onChange={(v) => setShowChart(v === "chart")} />
             <ReportExportButton
               title={REPORT_NAME}
               headers={HEADERS}
@@ -296,6 +272,10 @@ export default function PaymentCollectionReport({ onBack, category, categoryKey 
         </div>
       )}
 
+      {showChart ? (
+        <PaymentCollectionChartContent dateFrom={dateFrom} dateTo={dateTo} buildFilterBody={buildFilterBody} />
+      ) : (
+      <>
       <div className="rp-detail-toolbar">
         <div className="rp-detail-search-wrap">
           <Search size={13} className="rp-detail-search-ic" />
@@ -347,6 +327,8 @@ export default function PaymentCollectionReport({ onBack, category, categoryKey 
 
       <Pagination currentPage={currentPage} pageSize={pageSize} totalItems={total}
         onPageChange={setCurrentPage} onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }} />
+      </>
+      )}
 
       {selectedAppointmentId && (
         <AppointmentDetailModal

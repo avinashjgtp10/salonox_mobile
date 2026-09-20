@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useDispatch } from "react-redux";
 import { useAppSelector } from "../../../hooks/useAppRedux";
-import { Search,  StarFill, Star, GraphUp } from "react-bootstrap-icons";
+import { Search,  StarFill, Star } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { CLIENT_REVENUE_REPORT } from "../../../services/api/endpoints";
 import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
@@ -19,7 +19,8 @@ import { maskMobile } from "../../../utils/maskMobile";
 import { useRowSelection } from "./useRowSelection";
 import { SendCampaignBar } from "./SendCampaignBar";
 import { SendCampaignModal } from "../../marketing/components";
-import ClientRevenueGraphPage from "./ClientRevenueGraphPage";
+import ClientRevenueChartContent from "./ClientRevenueChartContent";
+import ReportViewToggle from "./ReportViewToggle";
 import "./ClientRevenueReport.scss";
 
 const REPORT_NAME = "Client Revenue";
@@ -250,36 +251,13 @@ export default function ClientRevenueReport({ onBack, category, categoryKey }: {
   const HEADERS = ["Client Name", "Contact", "Total Visits", `Total Spend (${currencySymbol})`, `Average Ticket Size (${currencySymbol})`, "Last Visit", "Marketing Feedback"];
   const exportRows = () => rows.map(r => [r.client, canViewFullContact ? r.contact : maskMobile(r.contact), r.visits, r.totalSpend, r.avgTicket, r.lastVisit ? formatDate(r.lastVisit) : "—", r.avgRating != null ? `${r.avgRating} ★ (${r.reviewCount})` : "—"]);
 
-  // Graph icon opens this in place of the table — same full-page pattern
-  // every other report graph page uses.
-  if (showChart) {
-    return (
-      <ClientRevenueGraphPage
-        reportName={REPORT_NAME}
-        onBack={onBack}
-        onClose={() => setShowChart(false)}
-        dateFrom={dateFrom}
-        dateTo={dateTo}
-        buildFilterBody={buildFilterBody}
-        statCards={[
-          { label: "Total Clients", value: stats.totalClients.toString() },
-          { label: "Total Revenue", value: formatAmount(stats.totalRevenue) },
-          { label: "Average Spend / Client", value: formatAmount(stats.avgSpend) },
-          { label: "Top Client", value: stats.topClient },
-        ]}
-      />
-    );
-  }
-
   return (
     <div className="rp-detail-view">
       <div className="rp-detail-header">
         <div className="rp-detail-back-row">
           <Breadcrumb current={REPORT_NAME} category={category} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
-            <button className="rp-detail-icon-btn" title="View graph" onClick={() => setShowChart(true)}>
-              <GraphUp size={16} />
-            </button>
+            <ReportViewToggle view={showChart ? "chart" : "table"} onChange={(v) => setShowChart(v === "chart")} />
             <ReportExportButton
               title={REPORT_NAME}
               headers={HEADERS}
@@ -334,6 +312,10 @@ export default function ClientRevenueReport({ onBack, category, categoryKey }: {
         </div>
       )}
 
+      {showChart ? (
+        <ClientRevenueChartContent dateFrom={dateFrom} dateTo={dateTo} buildFilterBody={buildFilterBody} />
+      ) : (
+      <>
       <SendCampaignBar count={selection.selectedIds.size} onSendClick={() => setShowCampaignModal(true)} />
 
       <div className="rp-detail-toolbar">
@@ -399,6 +381,8 @@ export default function ClientRevenueReport({ onBack, category, categoryKey }: {
 
       <Pagination currentPage={currentPage} pageSize={pageSize} totalItems={total}
         onPageChange={setCurrentPage} onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }} />
+      </>
+      )}
 
       {selectedClientId && (
         <ClientHistoryModal clientId={selectedClientId} onClose={() => setSelectedClientId(null)} />

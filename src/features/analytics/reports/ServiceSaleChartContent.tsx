@@ -1,51 +1,27 @@
 import { useCallback, useEffect, useState } from "react";
-import { ChevronRight, ArrowLeft } from "react-bootstrap-icons";
 import {
   ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
 } from "recharts";
 import api from "../../../services/api/axios";
-import { STAFF_SALES_REPORT } from "../../../services/api/endpoints";
+import { SERVICE_SALE_REPORT } from "../../../services/api/endpoints";
 import { useCurrency } from "../../../hooks/useCurrency";
+import { formatPaymentMode } from "../../../utils/paymentMode";
 import ReportPieChart from "./ReportPieChart";
 
 type Granularity = "day" | "week" | "month";
 type TrendMode = "bar_line" | "bar" | "line";
 
-const ITEM_TYPE_LABELS: Record<string, string> = {
-  service: "Service",
-  product: "Product",
-  package: "Package",
-  membership: "Membership",
-};
-
-// Same string-manipulation date formatter every report graph page uses —
-// a bare Date parse of a date-only string rolls over at the browser's own
-// local timezone.
+// Same string-manipulation date formatter every report chart content uses
+// (SalesSummaryChartContent/CashManagementChartContent) — a bare Date parse
+// of a date-only string rolls over at the browser's own local timezone.
 function formatIsoDate(value: string): string {
   const [y, m, d] = String(value ?? "").split("-");
   return y && m && d ? `${d}-${m}-${y}` : String(value ?? "—");
 }
 
-interface StatCardDef {
-  label: string;
-  value: string;
-}
-
-function StatCardRow({ cards }: { cards: StatCardDef[] }) {
-  return (
-    <div className="rp-sra-summary-row rp-sales-stat-row mb-4">
-      {cards.map((c) => (
-        <div key={c.label} className="rp-sra-summary-card">
-          <div className="rp-sra-summary-val">{c.value}</div>
-          <div className="rp-sra-summary-label">{c.label}</div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// Same "list of ranked horizontal bars" layout every other report graph
-// page uses for its own Top N breakdown.
+// Same "list of ranked horizontal bars" layout other report chart content
+// components use for their own Top N breakdowns — reused as-is (identical
+// markup/classes) rather than duplicated again.
 function RankedBarList({
   title, subtitle, items, money,
 }: {
@@ -89,16 +65,15 @@ function RankedBarList({
   );
 }
 
-export default function StaffSalesGraphPage({
-  reportName, onBack, onClose,
-  dateFrom, dateTo, statCards, buildFilterBody,
+// Chart content only — no header/breadcrumb/back-nav/stat cards of its own.
+// It renders in place of the table, below the SAME header, date range,
+// filters and stat cards the table view uses, so toggling Table View/Chart
+// View swaps only the data area, not the whole page.
+export default function ServiceSaleChartContent({
+  dateFrom, dateTo, buildFilterBody,
 }: {
-  reportName: string;
-  onBack: () => void;
-  onClose: () => void;
   dateFrom: string;
   dateTo: string;
-  statCards: StatCardDef[];
   buildFilterBody: () => Record<string, any>;
 }) {
   const { formatAmount: money } = useCurrency();
@@ -108,16 +83,18 @@ export default function StaffSalesGraphPage({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [daily, setDaily] = useState<{ date: string; revenue: number; commission: number }[]>([]);
-  const [byItemType, setByItemType] = useState<{ key: string; name: string; value: number }[]>([]);
-  const [topStaff, setTopStaff] = useState<{ id: string; name: string; revenue: number }[]>([]);
+  const [daily, setDaily] = useState<{ date: string; count: number; revenue: number }[]>([]);
+  const [paymentModes, setPaymentModes] = useState<{ mode: string; label: string; revenue: number }[]>([]);
+  const [topServices, setTopServices] = useState<{ serviceId: string | null; name: string; revenue: number }[]>([]);
+  const [topCategories, setTopCategories] = useState<{ categoryId: string | null; name: string; revenue: number }[]>([]);
+  const [topStaff, setTopStaff] = useState<{ staffId: string | null; name: string; revenue: number }[]>([]);
 
   const fetchOverview = useCallback(async () => {
     if (dateTo && dateFrom && dateTo < dateFrom) return;
     setLoading(true);
     setError(null);
     try {
-      const res = await api.post(STAFF_SALES_REPORT.CHART(), {
+      const res = await api.post(SERVICE_SALE_REPORT.CHART(), {
         ...buildFilterBody(),
         granularity,
         top_limit: topLimit,
@@ -126,19 +103,31 @@ export default function StaffSalesGraphPage({
 
       setDaily((Array.isArray(data.daily) ? data.daily : []).map((p: any) => ({
         date: formatIsoDate(p.date),
+        count: Number(p.count) || 0,
         revenue: Number(p.revenue) || 0,
-        commission: Number(p.commission) || 0,
       })));
 
-      setByItemType((Array.isArray(data.by_item_type) ? data.by_item_type : []).map((t: any) => ({
-        key: String(t.item_type ?? "unknown"),
-        name: ITEM_TYPE_LABELS[String(t.item_type)] ?? String(t.item_type ?? "Unknown"),
-        value: Number(t.revenue) || 0,
+      setPaymentModes((Array.isArray(data.payment_modes) ? data.payment_modes : []).map((m: any) => ({
+        mode: String(m.payment_mode ?? "unknown"),
+        label: formatPaymentMode(m.payment_mode),
+        revenue: Number(m.revenue) || 0,
+      })));
+
+      setTopServices((Array.isArray(data.top_services) ? data.top_services : []).map((s: any) => ({
+        serviceId: s.service_id ? String(s.service_id) : null,
+        name: String(s.service_name ?? "Unknown"),
+        revenue: Number(s.revenue) || 0,
+      })));
+
+      setTopCategories((Array.isArray(data.top_categories) ? data.top_categories : []).map((c: any) => ({
+        categoryId: c.category_id ? String(c.category_id) : null,
+        name: String(c.category_name ?? "Unknown"),
+        revenue: Number(c.revenue) || 0,
       })));
 
       setTopStaff((Array.isArray(data.top_staff) ? data.top_staff : []).map((s: any) => ({
-        id: s.staff_id ? String(s.staff_id) : String(s.staff_name ?? "unknown"),
-        name: String(s.staff_name ?? "Unassigned"),
+        staffId: s.staff_id ? String(s.staff_id) : null,
+        name: String(s.staff_name ?? "Unknown"),
         revenue: Number(s.revenue) || 0,
       })));
     } catch {
@@ -151,45 +140,15 @@ export default function StaffSalesGraphPage({
   useEffect(() => { fetchOverview(); }, [fetchOverview]);
 
   return (
-    <div className="rp-detail-view">
-      <div className="rp-detail-header">
-        <div className="rp-detail-back-row">
-          <nav className="rp-breadcrumb" aria-label="Breadcrumb">
-            <button type="button" className="rp-breadcrumb-link" onClick={onBack}>Reports</button>
-            <ChevronRight size={11} className="rp-breadcrumb-sep" />
-            <button type="button" className="rp-breadcrumb-link" onClick={onClose}>{reportName}</button>
-            <ChevronRight size={11} className="rp-breadcrumb-sep" />
-            <span className="rp-breadcrumb-current">Graph</span>
-          </nav>
-        </div>
-      </div>
-
-      <button
-        type="button"
-        className="rp-breadcrumb-link d-inline-flex align-items-center gap-1 mb-3"
-        style={{ fontSize: 13 }}
-        onClick={onClose}
-      >
-        <ArrowLeft size={14} /> Back to {reportName}
-      </button>
-
-      <div className="mb-3">
-        <h4 className="fw-bold mb-1">{reportName} — Graph</h4>
-        <p className="text-muted mb-0" style={{ fontSize: 13 }}>
-          {dateFrom && dateTo ? `${formatIsoDate(dateFrom)} to ${formatIsoDate(dateTo)}` : "Selected date range"} · same filters as the table
-        </p>
-      </div>
-
-      <StatCardRow cards={statCards} />
-
+    <div className="rp-svc-sale-chart-content">
       {error && <div className="text-center text-danger py-3">{error}</div>}
 
-      {/* ── Revenue / Commission Trend ─────────────────── */}
+      {/* ── Sales Trend ─────────────────────────────────────────────── */}
       <div className="rp-graph-card mb-4">
         <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-1">
           <div>
             <h5 className="fw-bold mb-1">Sales Trend</h5>
-            <p className="text-muted mb-0" style={{ fontSize: 12.5 }}>Total Sales and Commission</p>
+            <p className="text-muted mb-0" style={{ fontSize: 12.5 }}>Services Sold and Revenue</p>
           </div>
           <div className="d-flex align-items-center gap-2">
             <div className="btn-group btn-group-sm" role="group">
@@ -220,37 +179,32 @@ export default function StaffSalesGraphPage({
         {loading ? (
           <div className="text-center text-muted py-5">Loading…</div>
         ) : daily.length === 0 ? (
-          <div className="text-center text-muted py-5">No staff sales in this range.</div>
+          <div className="text-center text-muted py-5">No service sales in this range.</div>
         ) : (
           <ResponsiveContainer width="100%" height={340}>
             <ComposedChart data={daily} margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
               <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
-              <YAxis width={80} tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} tickFormatter={(v) => money(v)} />
-              <Tooltip formatter={(value: number, name: string) => [money(value), name]} />
+              <YAxis yAxisId="left" width={80} tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} tickFormatter={(v) => money(v)} />
+              <YAxis yAxisId="right" orientation="right" width={50} tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+              <Tooltip formatter={(value: number, name: string) => [name === "Revenue" ? money(value) : value, name]} />
               <Legend wrapperStyle={{ fontSize: 12 }} />
-              {trendMode !== "line" && <Bar dataKey="revenue" name="Total Sales" fill="#c7d2fe" radius={[4, 4, 0, 0]} />}
-              {trendMode !== "bar" && <Line type="monotone" dataKey="commission" name="Commission" stroke="#22c55e" strokeWidth={2} dot={{ r: 3 }} />}
+              {trendMode !== "line" && <Bar yAxisId="left" dataKey="revenue" name="Revenue" fill="#c7d2fe" radius={[4, 4, 0, 0]} />}
+              {trendMode !== "bar" && <Line yAxisId="right" type="monotone" dataKey="count" name="Services Sold" stroke="#22c55e" strokeWidth={2} dot={{ r: 3 }} />}
             </ComposedChart>
           </ResponsiveContainer>
         )}
       </div>
 
-      {/* ── Sales by Item Type + Top Staff ──────────────────────── */}
-      <div className="d-flex justify-content-end mb-2">
-        <select className="form-select form-select-sm" style={{ width: "auto" }} value={topLimit} onChange={(e) => setTopLimit(Number(e.target.value))}>
-          <option value={5}>Top 5</option>
-          <option value={10}>Top 10</option>
-        </select>
-      </div>
+      {/* ── Payment Mode Split + Top Categories ────────────────────────── */}
       <div className="row g-4 mb-1">
         <div className="col-12 col-lg-6">
           <div className="rp-graph-card">
-            <h5 className="fw-bold mb-1">Sales by Item Type</h5>
-            <p className="text-muted mb-3" style={{ fontSize: 12.5 }}>Revenue share by Service, Product, Package and Membership</p>
+            <h5 className="fw-bold mb-1">Payment Mode Split</h5>
+            <p className="text-muted mb-3" style={{ fontSize: 12.5 }}>Revenue by payment method</p>
             <ReportPieChart
-              data={byItemType.map((t) => ({ name: t.name, value: t.value }))}
-              formatValue={(n) => money(n)}
+              data={paymentModes.map((p) => ({ name: p.label, value: p.revenue }))}
+              formatValue={money}
               height={260}
               innerRadiusRatio={0.6}
               emptyMessage="No data in this range."
@@ -259,15 +213,41 @@ export default function StaffSalesGraphPage({
         </div>
         <div className="col-12 col-lg-6">
           <RankedBarList
-            title="Top Staff by Sales"
-            subtitle="Total Sales revenue"
-            items={topStaff.map((s) => ({ key: s.id, name: s.name, value: s.revenue }))}
+            title="Top Categories by Revenue"
+            subtitle="Revenue"
+            items={topCategories.map((c) => ({ key: c.categoryId ?? c.name, name: c.name, value: c.revenue }))}
             money={money}
           />
         </div>
       </div>
 
-      <div className="text-muted text-center mt-3" style={{ fontSize: 12 }}>
+      {/* ── Top Services / Top Staff ──────────────────────────── */}
+      <div className="d-flex justify-content-end mb-2">
+        <select className="form-select form-select-sm" style={{ width: "auto" }} value={topLimit} onChange={(e) => setTopLimit(Number(e.target.value))}>
+          <option value={5}>Top 5</option>
+          <option value={10}>Top 10</option>
+        </select>
+      </div>
+      <div className="row g-4 mb-4">
+        <div className="col-12 col-lg-6">
+          <RankedBarList
+            title="Top Services by Revenue"
+            subtitle="Revenue"
+            items={topServices.map((s) => ({ key: s.serviceId ?? s.name, name: s.name, value: s.revenue }))}
+            money={money}
+          />
+        </div>
+        <div className="col-12 col-lg-6">
+          <RankedBarList
+            title="Top Staff by Service Sales"
+            subtitle="Revenue"
+            items={topStaff.map((s) => ({ key: s.staffId ?? s.name, name: s.name, value: s.revenue }))}
+            money={money}
+          />
+        </div>
+      </div>
+
+      <div className="text-muted text-center" style={{ fontSize: 12 }}>
         All charts and summary cards are based on the currently applied filters. Data is calculated on the entire filtered set, not just the visible page.
       </div>
     </div>

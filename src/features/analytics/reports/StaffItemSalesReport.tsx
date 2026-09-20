@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useDispatch } from "react-redux";
-import { Search, GraphUp } from "react-bootstrap-icons";
+import { Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { STAFF_ITEM_SALES_REPORT } from "../../../services/api/endpoints";
 import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
@@ -13,7 +13,8 @@ import type { DateRangeFilterValue } from "../../../components/ui";
 import type { JiraFilterField } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import { useCurrency } from "../../../hooks/useCurrency";
-import StaffItemSalesGraphPage from "./StaffItemSalesGraphPage";
+import StaffItemSalesChartContent from "./StaffItemSalesChartContent";
+import ReportViewToggle from "./ReportViewToggle";
 import "./StaffItemSalesReport.scss";
 
 const REPORT_NAME = "Service, Product, Membership & Package Sold by Staff";
@@ -155,36 +156,13 @@ export default function StaffItemSalesReport({ onBack, category, categoryKey }: 
   const HEADERS = ["Date", "Staff Name", itemColLabel, "Quantity", `Revenue (${currencySymbol})`];
   const exportRows = () => rows.map(r => [r.date, r.staffName, r.itemName, r.quantity, r.revenue]);
 
-  // Graph icon opens this in place of the table — same full-page pattern
-  // every other report graph page uses.
-  if (showChart) {
-    return (
-      <StaffItemSalesGraphPage
-        reportName={REPORT_NAME}
-        onBack={onBack}
-        onClose={() => setShowChart(false)}
-        dateFrom={dateFrom}
-        dateTo={dateTo}
-        buildFilterBody={buildFilterBody}
-        statCards={[
-          { label: "Total Quantity Sold", value: stats.totalQty.toString() },
-          { label: "Total Revenue",       value: formatAmount(stats.totalRev) },
-          { label: "Top Selling Item",    value: stats.topItem },
-          { label: "Top Performing Staff", value: stats.topStaff },
-        ]}
-      />
-    );
-  }
-
   return (
     <div className="rp-detail-view">
       <div className="rp-detail-header">
         <div className="rp-detail-back-row">
           <Breadcrumb current={REPORT_NAME} category={category} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
-            <button className="rp-detail-icon-btn" title="View graph" onClick={() => setShowChart(true)}>
-              <GraphUp size={16} />
-            </button>
+            <ReportViewToggle view={showChart ? "chart" : "table"} onChange={(v) => setShowChart(v === "chart")} />
             <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename={`staff-item-sales-${itemType}-${dateFrom}-${dateTo}`} variant="button" csv reportId="staff_item_sales" />
           </div>
         </div>
@@ -225,6 +203,10 @@ export default function StaffItemSalesReport({ onBack, category, categoryKey }: 
         </div>
       )}
 
+      {showChart ? (
+        <StaffItemSalesChartContent dateFrom={dateFrom} dateTo={dateTo} buildFilterBody={buildFilterBody} />
+      ) : (
+      <>
       <div className="rp-detail-toolbar">
         <div className="rp-detail-search-wrap">
           <Search size={13} className="rp-detail-search-ic" />
@@ -264,6 +246,8 @@ export default function StaffItemSalesReport({ onBack, category, categoryKey }: 
       </div>
       <Pagination currentPage={currentPage} pageSize={pageSize} totalItems={total}
         onPageChange={setCurrentPage} onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }} />
+      </>
+      )}
     </div>
   );
 }
