@@ -11,7 +11,6 @@ import { fetchMySalonsThunk } from "../../../middleware/branchOwner/branchOwner.
 import { formatDateDDMMYYYY, formatTimeAgo } from "../../../utils/dateFormat";
 import api from "../../../services/api/axios";
 import { BRANCH_OWNER } from "../../../services/api/endpoints/branchOwner.endpoints";
-import salonoxLogo from "../../../assets/salonox_full_logo.png";
 import "../styles/BranchOwnerTopbar.scss";
 
 // Same shape as the main dashboard's Notification type (DashboardTopbar.tsx)
@@ -139,10 +138,6 @@ export default function BranchOwnerTopbar() {
   return (
     <div className="topbar">
       <div className="topbar-left">
-        <h2 className="brand">
-          <img src={salonoxLogo} alt="SalonOX" className="brand-logo" width="190" height="61" />
-        </h2>
-
         {salons.length > 0 && (
           <select
             className="bot-branch-select"

@@ -5,11 +5,11 @@ import api from "../../../services/api/axios";
 import { BRANCH_OWNER } from "../../../services/api/endpoints/branchOwner.endpoints";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import Dropdown from "../../../components/ui/Dropdown";
-import { DateRangeFilter, JiraFilterMenu, getDateRangePresetValue, SummaryCardRow, Table, Modal, Button } from "../../../components/ui";
+import { DateRangeFilter, JiraFilterMenu, getDateRangePresetValue, SummaryCardRow, Modal } from "../../../components/ui";
 import type { DateRangeFilterValue, JiraFilterField, SummaryCardItem } from "../../../components/ui";
 import {
   SectionCard, BoEmptyState, BoSearchInput,
-  usePagination, BoPagination,
+  usePagination, BoPagination, BoTable,
 } from "../components/BranchOwnerUI";
 
 interface StaffPerformanceRow {
@@ -199,25 +199,34 @@ export default function BranchOwnerStaffPerformancePage() {
         <BoSearchInput value={search} onChange={setSearch} placeholder="Search staff or salon" maxWidth={300} />
       </div>
 
-      <SectionCard title="Staff Performance" noPadding>
-        <Table<StaffPerformanceRow>
-          data={page.pageItems}
-          loading={!loaded}
-          emptyMessage={rows.length === 0 ? "No staff activity for this date range yet." : "No staff match the current filters."}
-          columns={[
-            { header: "Staff", key: "name", render: (r) => <span className="fw-bold text-dark">{r.name}</span> },
-            { header: "Salon", key: "salonName", className: "text-secondary" },
-            { header: "Role", key: "role", className: "text-muted" },
-            { header: "Transactions", key: "transactionCount", className: "text-secondary" },
-            { header: "Revenue", key: "revenue", render: (r) => <span className="fw-semibold text-dark">{fmtMoney(r.revenue)}</span> },
-            { header: "Commission Earned", key: "commissionEarned", className: "text-secondary", render: (r) => fmtMoney(r.commissionEarned) },
-            { header: "Avg / Transaction", key: "avg", className: "text-secondary", render: (r) => fmtMoneyFull(r.transactionCount > 0 ? r.revenue / r.transactionCount : 0) },
-            { header: "Pending", key: "pendingPayout", render: (r) => <span className="fw-semibold" style={{ color: r.pendingPayout > 0 ? "#d97706" : "#94a3b8" }}>{fmtMoney(r.pendingPayout)}</span> },
-            { header: "", key: "action", render: (r) => <Button size="sm" variant="outline-secondary" onClick={() => setSelectedRow(r)}>View</Button> },
-          ]}
-        />
-        {loaded && <BoPagination {...page} />}
-      </SectionCard>
+      <h2 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", margin: "0 0 12px" }}>Staff Performance</h2>
+      <BoTable<StaffPerformanceRow>
+        data={page.pageItems}
+        loading={!loaded}
+        emptyMessage={rows.length === 0 ? "No staff activity for this date range yet." : "No staff match the current filters."}
+        columns={[
+          { header: "Staff", key: "name", render: (r) => <span style={{ color: "#0f172a", fontWeight: 700 }}>{r.name}</span> },
+          { header: "Salon", key: "salonName", render: (r) => <span style={{ color: "#64748b" }}>{r.salonName}</span> },
+          { header: "Role", key: "role", render: (r) => <span style={{ color: "#94a3b8" }}>{r.role}</span> },
+          { header: "Transactions", key: "transactionCount", render: (r) => <span style={{ color: "#64748b" }}>{r.transactionCount}</span> },
+          { header: "Revenue", key: "revenue", render: (r) => <span style={{ color: "#0f172a", fontWeight: 600 }}>{fmtMoney(r.revenue)}</span> },
+          { header: "Commission Earned", key: "commissionEarned", render: (r) => <span style={{ color: "#64748b" }}>{fmtMoney(r.commissionEarned)}</span> },
+          { header: "Avg / Transaction", key: "avg", render: (r) => <span style={{ color: "#64748b" }}>{fmtMoneyFull(r.transactionCount > 0 ? r.revenue / r.transactionCount : 0)}</span> },
+          { header: "Pending", key: "pendingPayout", render: (r) => <span style={{ fontWeight: 600, color: r.pendingPayout > 0 ? "#d97706" : "#94a3b8" }}>{fmtMoney(r.pendingPayout)}</span> },
+          {
+            header: "", key: "action",
+            render: (r) => (
+              <button
+                onClick={() => setSelectedRow(r)}
+                style={{ padding: "6px 12px", borderRadius: 7, border: "1.5px solid #e2e8f0", background: "#fff", color: "#374151", fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}
+              >
+                View
+              </button>
+            ),
+          },
+        ]}
+      />
+      {loaded && <BoPagination {...page} />}
 
       {selectedRow && <StaffDetailDrawer row={selectedRow} onClose={() => setSelectedRow(null)} />}
     </div>

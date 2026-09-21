@@ -373,34 +373,39 @@ export default function BranchOwnerInventoryPage() {
       </div>
 
       {/* Recent Stock Movements */}
-      <SectionCard title="Recent Stock Movements" noPadding>
-        {!loaded ? <Loader message="Loading stock movements…" /> : recent.length === 0 ? (
+      <h2 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", margin: "0 0 12px" }}>Recent Stock Movements</h2>
+      {!loaded ? <Loader message="Loading stock movements…" /> : recent.length === 0 ? (
+        <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #e2e8f0", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
           <BoEmptyState icon={<BoxSeam size={26} />} text="No transfers yet." />
-        ) : (<>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5 }}>
+        </div>
+      ) : (
+        <div className="bo-table-scroll" style={{ background: "#fff", borderRadius: 14, border: "1px solid #e2e8f0", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5, minWidth: 780 }}>
             <thead>
-              <tr style={{ background: "#f8fafc" }}>
+              <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
                 {["Product", "From", "To", "Qty", "Status", "Date"].map((h) => (
-                  <th key={h} style={{ padding: "10px 20px", textAlign: "left", color: "#64748b", fontWeight: 600, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.04em" }}>{h}</th>
+                  <th key={h} style={{ padding: "11px 16px", textAlign: "left", color: "#64748b", fontWeight: 600, fontSize: 11.5, textTransform: "uppercase", letterSpacing: "0.04em" }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {recentPage.pageItems.map((t) => (
-                <tr key={t.id} style={{ borderTop: "1px solid #f8fafc" }}>
-                  <td style={{ padding: "11px 20px", fontWeight: 600, color: "#0f172a" }}>{t.product_name}</td>
-                  <td style={{ padding: "11px 20px", color: "#475569" }}>{t.source_salon_name}</td>
-                  <td style={{ padding: "11px 20px", color: "#475569" }}>{t.dest_salon_name}</td>
-                  <td style={{ padding: "11px 20px", color: "#0f172a", fontWeight: 600 }}>{t.quantity}</td>
-                  <td style={{ padding: "11px 20px" }}><StatusBadge status={t.status} /></td>
-                  <td style={{ padding: "11px 20px", color: "#94a3b8" }}>{new Date(t.created_at).toLocaleDateString()}</td>
+                <tr key={t.id} style={{ borderTop: "1px solid #f1f5f9" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "#f8fafc")}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "#fff")}>
+                  <td style={{ padding: "13px 16px", fontWeight: 700, color: "#0f172a" }}>{t.product_name}</td>
+                  <td style={{ padding: "13px 16px", color: "#64748b" }}>{t.source_salon_name}</td>
+                  <td style={{ padding: "13px 16px", color: "#64748b" }}>{t.dest_salon_name}</td>
+                  <td style={{ padding: "13px 16px", color: "#0f172a", fontWeight: 600 }}>{t.quantity}</td>
+                  <td style={{ padding: "13px 16px" }}><StatusBadge status={t.status} /></td>
+                  <td style={{ padding: "13px 16px", color: "#94a3b8" }}>{new Date(t.created_at).toLocaleDateString()}</td>
                 </tr>
               ))}
             </tbody>
           </table>
           <BoPagination {...recentPage} />
-        </>)}
-      </SectionCard>
+        </div>
+      )}
 
       {/* Category popup */}
       {showCategoryPopup && (

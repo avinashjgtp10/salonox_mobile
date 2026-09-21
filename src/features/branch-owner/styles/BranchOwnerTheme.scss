@@ -1,0 +1,47 @@
+// Repositions the shared .topbar/.main (from DashboardPage.scss — fixed,
+// left:0 / margin-left:196px by default) around BranchOwnerSidebar.tsx,
+// which is now a fully bespoke fixed-position rail (own brand/collapse
+// header + scrollable nav + pinned profile footer) rather than the shared
+// .sidebar/.nav-btn auto-fit rail every other portal uses. Its current
+// width is read from --bo-sidebar-w (set by BranchOwnerSidebar.tsx itself
+// on mount/collapse toggle) — falls back to 232px so nothing collapses to
+// 0 before that effect runs.
+.bo-portal {
+  --bo-sidebar-w: 232px;
+
+  .topbar {
+    left: var(--bo-sidebar-w);
+    width: calc(100% - var(--bo-sidebar-w));
+    transition: left 0.2s ease, width 0.2s ease;
+  }
+
+  .main {
+    margin-left: var(--bo-sidebar-w);
+    background: #f8fafc;
+    transition: margin-left 0.2s ease;
+  }
+}
+
+// Same always-visible horizontal scrollbar treatment as the Reports page's
+// .rp-detail-table-wrap (_reportDetailBase.scss) — a real 8px gray track/
+// thumb instead of each browser's own thin/inset default — applied to every
+// table's overflow-x wrapper across the Branch Owner portal (BoTable, My
+// Salons, Inventory, Finance, Subscription) via this one shared class.
+.bo-table-scroll {
+  overflow-x: auto;
+  scrollbar-width: thin;
+
+  &::-webkit-scrollbar {
+    height: 8px;
+  }
+  &::-webkit-scrollbar-track {
+    background: #f3f4f6;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+  }
+  &::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+  }
+}

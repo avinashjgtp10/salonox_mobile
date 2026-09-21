@@ -231,7 +231,8 @@ export default function BranchOwnerSubscriptionSection() {
         ) : filteredRows.length === 0 ? (
           <p style={{ fontSize: 13, color: "#6b7280", padding: "16px 22px" }}>No salons match the current filters.</p>
         ) : (
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5 }}>
+          <div className="bo-table-scroll">
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5, minWidth: 850 }}>
             <thead>
               <tr style={{ background: "#f8fafc" }}>
                 {["Salon", "Plan", "Staff", "Valid Till", "Status", ""].map((h) => (
@@ -259,6 +260,7 @@ export default function BranchOwnerSubscriptionSection() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </SettingsSection>
 
@@ -269,7 +271,8 @@ export default function BranchOwnerSubscriptionSection() {
           ) : allInvoices.length === 0 ? (
             <p style={{ fontSize: 13, color: "#6b7280", padding: "16px 22px" }}>No invoices yet.</p>
           ) : (
-            <table className="settings-billing-table">
+            <div className="bo-table-scroll">
+            <table className="settings-billing-table" style={{ minWidth: 700 }}>
               <thead className="settings-billing-head">
                 <tr><th>Salon</th><th>Invoice</th><th>Date</th><th>Amount</th><th>Status</th></tr>
               </thead>
@@ -293,6 +296,7 @@ export default function BranchOwnerSubscriptionSection() {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </SettingsSection>
       </div>

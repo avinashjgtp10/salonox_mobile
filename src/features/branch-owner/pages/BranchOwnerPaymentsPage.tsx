@@ -2,10 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { CashCoin, CheckCircle, ClockHistory, XCircle, PersonFill, Telephone, Building, Receipt, CalendarEvent } from "react-bootstrap-icons";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { fetchBranchOwnerPaymentsThunk } from "../../../middleware/branchOwner/branchOwner.thunk";
-import { DateRangeFilter, JiraFilterMenu, getDateRangePresetValue, Table, Card, Modal } from "../../../components/ui";
+import { DateRangeFilter, JiraFilterMenu, getDateRangePresetValue, Modal } from "../../../components/ui";
 import type { DateRangeFilterValue, JiraFilterField } from "../../../components/ui";
 import type { BranchOwnerPayment } from "../../../store/branchOwnerSlice";
-import { StatTile, StatusBadge, BoSearchInput, usePagination, BoPagination } from "../components/BranchOwnerUI";
+import { StatTile, StatusBadge, BoSearchInput, usePagination, BoPagination, BoTable } from "../components/BranchOwnerUI";
 
 const STATUS_OPTIONS = [
   { id: "paid", label: "Paid" },
@@ -161,24 +161,22 @@ export default function BranchOwnerPaymentsPage() {
         <BoSearchInput value={search} onChange={setSearch} placeholder="Search client, salon or invoice no." />
       </div>
 
-      <Card noPadding shadow="sm">
-        <Table<BranchOwnerPayment>
-          loading={loading.payments}
-          data={paymentsPage.pageItems}
-          emptyMessage="No payments found"
-          onRowClick={(p) => setSelectedPayment(p)}
-          columns={[
-            { header: "Client", key: "client_name", render: (p) => <span className="fw-bold text-dark">{p.client_name || "Walk-in Client"}</span> },
-            { header: "Salon Name", key: "salon_name", className: "text-secondary" },
-            { header: "Invoice Number", key: "invoice_number", render: (p) => p.invoice_number || "—" },
-            { header: "Payment Received", key: "amount", render: (p) => <span className="fw-bold" style={{ color: "#16a34a" }}>{fmt(p.amount)}</span> },
-            { header: "Payment Method", key: "payment_method", className: "text-capitalize", render: (p) => p.payment_method || "—" },
-            { header: "Payment Status", key: "status", render: (p) => <StatusBadge status={p.status} /> },
-            { header: "Payment Date", key: "created_at", render: (p) => p.created_at ? new Date(p.created_at).toLocaleDateString("en-IN") : "—" },
-          ]}
-        />
-        <BoPagination {...paymentsPage} />
-      </Card>
+      <BoTable<BranchOwnerPayment>
+        loading={loading.payments}
+        data={paymentsPage.pageItems}
+        emptyMessage="No payments found"
+        onRowClick={(p) => setSelectedPayment(p)}
+        columns={[
+          { header: "Client", key: "client_name", render: (p) => <span style={{ color: "#0f172a", fontWeight: 700 }}>{p.client_name || "Walk-in Client"}</span> },
+          { header: "Salon Name", key: "salon_name", render: (p) => <span style={{ color: "#64748b" }}>{p.salon_name}</span> },
+          { header: "Invoice Number", key: "invoice_number", render: (p) => p.invoice_number || "—" },
+          { header: "Payment Received", key: "amount", render: (p) => <span style={{ color: "#16a34a", fontWeight: 700 }}>{fmt(p.amount)}</span> },
+          { header: "Payment Method", key: "payment_method", render: (p) => <span style={{ textTransform: "capitalize" }}>{p.payment_method || "—"}</span> },
+          { header: "Payment Status", key: "status", render: (p) => <StatusBadge status={p.status} /> },
+          { header: "Payment Date", key: "created_at", render: (p) => p.created_at ? new Date(p.created_at).toLocaleDateString("en-IN") : "—" },
+        ]}
+      />
+      <BoPagination {...paymentsPage} />
 
       {selectedPayment && (
         <PaymentDetailModal payment={selectedPayment} onClose={() => setSelectedPayment(null)} />
