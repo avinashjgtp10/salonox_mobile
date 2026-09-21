@@ -18,6 +18,14 @@ import type {
   OrderReceiptWithItems,
   SaveReceiptDraftPayload,
   ConfirmReceiptPayload,
+  SupplierProduct,
+  ResolveSupplierProductPayload,
+  ProductSupplierMapping,
+  AddProductSupplierPayload,
+  UpdateProductSupplierPayload,
+  ProductDetailAggregate,
+  StockLedgerTimelineEntry,
+  ProductPurchaseHistoryRow,
   ConsumableListFilters,
   ConsumableListRow,
   ConsumableKpis,
@@ -333,6 +341,147 @@ export const confirmReceiptThunk = createAsyncThunk<
   } catch (err: any) {
     console.error("confirmReceiptThunk error:", err);
     return rejectWithValue(err?.response?.data?.error?.message || err?.message || "Failed to confirm receiving");
+  }
+});
+
+// Fetches a supplier's imported product catalog — used both for the
+// Suggested Products panel (matched_only=true) and the "Needs attention"
+// unmatched-rows list right after an import.
+export const fetchSupplierProductsThunk = createAsyncThunk<
+  SupplierProduct[],
+  { supplierId: string; matchedOnly?: boolean },
+  { rejectValue: string }
+>("inventory/fetchSupplierProducts", async ({ supplierId, matchedOnly }, { rejectWithValue }) => {
+  try {
+    const res = await api.get<InventoryResponse<SupplierProduct[]>>(INVENTORY.SUPPLIER_PRODUCTS(supplierId), {
+      params: matchedOnly ? { matched_only: "true" } : undefined,
+    });
+    return res.data.data;
+  } catch (err: any) {
+    console.error("fetchSupplierProductsThunk error:", err);
+    return rejectWithValue(err?.response?.data?.error?.message || err?.message || "Failed to fetch supplier catalog");
+  }
+});
+
+// Resolves a still-unmatched catalog row: link to an existing product,
+// create a new product from exactly the row's own data, or ignore it.
+export const resolveSupplierProductThunk = createAsyncThunk<
+  SupplierProduct,
+  { supplierId: string; catalogId: string; payload: ResolveSupplierProductPayload },
+  { rejectValue: string }
+>("inventory/resolveSupplierProduct", async ({ supplierId, catalogId, payload }, { rejectWithValue }) => {
+  try {
+    const res = await api.patch<InventoryResponse<SupplierProduct>>(
+      INVENTORY.SUPPLIER_PRODUCT_RESOLVE(supplierId, catalogId), payload,
+    );
+    return res.data.data;
+  } catch (err: any) {
+    console.error("resolveSupplierProductThunk error:", err);
+    return rejectWithValue(err?.response?.data?.error?.message || err?.message || "Failed to resolve catalog row");
+  }
+});
+
+// ─── Product Inventory detail drawer + multi-supplier pricing ────────────────
+
+export const fetchProductDetailThunk = createAsyncThunk<
+  ProductDetailAggregate,
+  string,
+  { rejectValue: string }
+>("inventory/fetchProductDetail", async (productId, { rejectWithValue }) => {
+  try {
+    const res = await api.get<InventoryResponse<ProductDetailAggregate>>(INVENTORY.PRODUCT_INVENTORY_DETAIL(productId));
+    return res.data.data;
+  } catch (err: any) {
+    console.error("fetchProductDetailThunk error:", err);
+    return rejectWithValue(err?.response?.data?.error?.message || err?.message || "Failed to fetch product detail");
+  }
+});
+
+export const fetchProductSupplierMappingsThunk = createAsyncThunk<
+  ProductSupplierMapping[],
+  string,
+  { rejectValue: string }
+>("inventory/fetchProductSupplierMappings", async (productId, { rejectWithValue }) => {
+  try {
+    const res = await api.get<InventoryResponse<ProductSupplierMapping[]>>(INVENTORY.PRODUCT_SUPPLIERS(productId));
+    return res.data.data;
+  } catch (err: any) {
+    console.error("fetchProductSupplierMappingsThunk error:", err);
+    return rejectWithValue(err?.response?.data?.error?.message || err?.message || "Failed to fetch product suppliers");
+  }
+});
+
+export const addProductSupplierMappingThunk = createAsyncThunk<
+  ProductSupplierMapping,
+  { productId: string; payload: AddProductSupplierPayload },
+  { rejectValue: string }
+>("inventory/addProductSupplierMapping", async ({ productId, payload }, { rejectWithValue }) => {
+  try {
+    const res = await api.post<InventoryResponse<ProductSupplierMapping>>(INVENTORY.PRODUCT_SUPPLIERS(productId), payload);
+    return res.data.data;
+  } catch (err: any) {
+    console.error("addProductSupplierMappingThunk error:", err);
+    return rejectWithValue(err?.response?.data?.error?.message || err?.message || "Failed to add supplier");
+  }
+});
+
+export const updateProductSupplierMappingThunk = createAsyncThunk<
+  ProductSupplierMapping,
+  { productId: string; mappingId: string; payload: UpdateProductSupplierPayload },
+  { rejectValue: string }
+>("inventory/updateProductSupplierMapping", async ({ productId, mappingId, payload }, { rejectWithValue }) => {
+  try {
+    const res = await api.patch<InventoryResponse<ProductSupplierMapping>>(
+      INVENTORY.PRODUCT_SUPPLIER_BY_ID(productId, mappingId), payload,
+    );
+    return res.data.data;
+  } catch (err: any) {
+    console.error("updateProductSupplierMappingThunk error:", err);
+    return rejectWithValue(err?.response?.data?.error?.message || err?.message || "Failed to update supplier");
+  }
+});
+
+export const removeProductSupplierMappingThunk = createAsyncThunk<
+  { productId: string; mappingId: string },
+  { productId: string; mappingId: string },
+  { rejectValue: string }
+>("inventory/removeProductSupplierMapping", async ({ productId, mappingId }, { rejectWithValue }) => {
+  try {
+    await api.delete(INVENTORY.PRODUCT_SUPPLIER_BY_ID(productId, mappingId));
+    return { productId, mappingId };
+  } catch (err: any) {
+    console.error("removeProductSupplierMappingThunk error:", err);
+    return rejectWithValue(err?.response?.data?.error?.message || err?.message || "Failed to remove supplier");
+  }
+});
+
+export const fetchProductStockLedgerTimelineThunk = createAsyncThunk<
+  StockLedgerTimelineEntry[],
+  string,
+  { rejectValue: string }
+>("inventory/fetchProductStockLedgerTimeline", async (productId, { rejectWithValue }) => {
+  try {
+    const res = await api.get<InventoryResponse<StockLedgerTimelineEntry[]>>(INVENTORY.STOCK_LEDGER_PRODUCT_TIMELINE(productId));
+    return res.data.data;
+  } catch (err: any) {
+    console.error("fetchProductStockLedgerTimelineThunk error:", err);
+    return rejectWithValue(err?.response?.data?.error?.message || err?.message || "Failed to fetch stock history");
+  }
+});
+
+export const fetchProductPurchaseHistoryThunk = createAsyncThunk<
+  { data: ProductPurchaseHistoryRow[]; total: number },
+  string,
+  { rejectValue: string }
+>("inventory/fetchProductPurchaseHistory", async (productId, { rejectWithValue }) => {
+  try {
+    const res = await api.get<InventoryResponse<{ data: ProductPurchaseHistoryRow[]; total: number }>>(
+      INVENTORY.PRODUCT_INVENTORY_PURCHASES, { params: { product_id: productId, limit: 100 } },
+    );
+    return res.data.data;
+  } catch (err: any) {
+    console.error("fetchProductPurchaseHistoryThunk error:", err);
+    return rejectWithValue(err?.response?.data?.error?.message || err?.message || "Failed to fetch purchase history");
   }
 });
 

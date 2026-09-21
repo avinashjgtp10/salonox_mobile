@@ -31,6 +31,7 @@ export interface Supplier {
   postal_state: string | null;
   postal_zip_code: string | null;
   postal_country: string | null;
+  is_active: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -59,6 +60,7 @@ export interface CreateSupplierPayload {
   postal_state?: string | null;
   postal_zip_code?: string | null;
   postal_country?: string | null;
+  is_active?: boolean;
 }
 
 export type UpdateSupplierPayload = Partial<CreateSupplierPayload>;
@@ -76,6 +78,10 @@ export interface SupplierWithBalance extends Supplier {
   due_amount: number;
   due_date: string | null;
   status: SupplierPaymentStatus;
+  // Operationally open (Sent/Partially Received) orders — different from
+  // pending_order_count above (unpaid-balance orders). Powers the Suppliers
+  // list's "Open Orders" column.
+  open_order_count: number;
 }
 
 export interface SupplierOrderRow {
@@ -511,4 +517,120 @@ export interface SaveReceiptDraftPayload {
 
 export interface ConfirmReceiptPayload {
   purchase_date?: string;
+}
+
+// ─── Supplier Products Catalog ───────────────────────────────────────────────
+// A supplier's imported product list (Excel/CSV), matched against the
+// salon's own products where possible. "matched" rows are addable to a New
+// Order as Suggested Products; "unmatched" rows need a manual resolve
+// (link/create_product/ignore) before they can be added.
+
+export type SupplierProductMatchStatus = "matched" | "unmatched";
+
+export interface SupplierProduct {
+  id: string;
+  salon_id: string;
+  supplier_id: string;
+  product_id: string | null;
+  linked_product_name?: string | null;
+  name: string;
+  barcode: string | null;
+  brand_id: string | null;
+  brand_name?: string | null;
+  category_id: string | null;
+  category_name?: string | null;
+  supplier_sku: string | null;
+  price: number | null;
+  hsn_sac: string | null;
+  match_status: SupplierProductMatchStatus;
+  ignored: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export type ResolveSupplierProductAction = "link" | "create_product" | "ignore";
+
+export interface ResolveSupplierProductPayload {
+  action: ResolveSupplierProductAction;
+  product_id?: string;
+}
+
+export interface SupplierProductImportIssue {
+  row: number;
+  name?: string;
+  status: "failed";
+  reason: string;
+}
+
+export interface SupplierCatalogImportResult {
+  total: number;
+  matched: number;
+  unmatched: number;
+  updated: number;
+  failed: number;
+  issues: SupplierProductImportIssue[];
+}
+
+// ─── Product Suppliers (multi-supplier pricing per product) ─────────────────
+// Additive alongside products.supplier_id/supply_price, which stay "the
+// preferred/default supplier" for every existing reader of those columns.
+
+export interface ProductSupplierMapping {
+  id: string;
+  salon_id: string;
+  product_id: string;
+  supplier_id: string;
+  supplier_name?: string;
+  supplier_sku: string | null;
+  price: number | null;
+  is_preferred: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AddProductSupplierPayload {
+  supplier_id: string;
+  supplier_sku?: string;
+  price?: number;
+  is_preferred?: boolean;
+}
+
+export type UpdateProductSupplierPayload = Partial<Omit<AddProductSupplierPayload, "supplier_id">>;
+
+// ─── Product Inventory detail drawer ─────────────────────────────────────────
+
+export interface ProductDetailAggregate {
+  row: {
+    id: string; name: string; sku: string | null; barcode: string | null;
+    category: string | null; supplier: string | null; measure_unit: string | null;
+    bottle_size: number | null; amount: number; stock: number;
+    retail_price: number | null; supply_price: number | null;
+    expiry_date: string | null; status: string; last_updated: string | null;
+  };
+  on_order: number;
+  last_purchase_price: number | null;
+  suppliers: ProductSupplierMapping[];
+}
+
+export interface StockLedgerTimelineEntry {
+  id: string;
+  created_at: string;
+  transaction_type: string;
+  reference: string | null;
+  quantity: number;
+  unit_cost: string | null;
+  balance_after: number;
+  reason: string | null;
+  notes: string | null;
+  supplier_name: string | null;
+  created_by_name: string | null;
+}
+
+export interface ProductPurchaseHistoryRow {
+  id: string;
+  purchase_number: string;
+  purchase_date: string;
+  supplier_name: string | null;
+  item_count: number;
+  total_amount: number;
 }

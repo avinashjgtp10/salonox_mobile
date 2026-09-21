@@ -155,6 +155,7 @@ const inventorySlice = createSlice({
         due_amount: 0,
         due_date: null,
         status: "paid",
+        open_order_count: 0,
       });
     });
 

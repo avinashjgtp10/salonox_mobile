@@ -1,0 +1,86 @@
+// Import Supplier Catalog modal + the inline Resolve row it (and the
+// Suggested Products panel) both use. Self-contained — mirrors
+// ServiceImportModal.tsx's inline styles (renamed iscm- prefix) so this
+// looks right regardless of which pages have loaded before it.
+
+.import-supplier-catalog-modal { display:flex; flex-direction:column; gap:16px; }
+
+.iscm-template-row { display:flex; align-items:center; justify-content:space-between; }
+.iscm-template-label { font-size:13px; color:#6b7280; }
+.iscm-template-btn { display:flex; align-items:center; gap:5px; font-size:13px; font-weight:500; color:#4f46e5; background:none; border:none; cursor:pointer; padding:0; }
+.iscm-template-btn:hover { text-decoration:underline; }
+
+.iscm-columns-wrap { background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px; padding:12px; }
+.iscm-columns-title { font-size:12px; font-weight:600; color:#374151; margin:0 0 8px; }
+.iscm-columns-list { display:flex; flex-wrap:wrap; gap:6px; }
+.iscm-col-chip { background:#e0e7ff; color:#4338ca; font-size:11px; font-weight:500; padding:2px 8px; border-radius:999px; }
+
+.iscm-dropzone { border:2px dashed #d1d5db; border-radius:12px; padding:32px; display:flex; flex-direction:column; align-items:center; gap:10px; cursor:pointer; transition:border-color .2s,background .2s; }
+.iscm-dropzone:hover, .iscm-dropzone--dragging { border-color:#4f46e5; background:#f5f3ff; }
+.iscm-dropzone--has-file { cursor:default; padding:20px 24px; }
+.iscm-upload-icon { color:#9ca3af; }
+.iscm-drop-text { font-size:14px; color:#374151; margin:0; text-align:center; }
+.iscm-browse-link { color:#4f46e5; font-weight:500; }
+.iscm-drop-hint { font-size:12px; color:#9ca3af; margin:0; }
+
+.iscm-selected-file { display:flex; align-items:center; gap:12px; width:100%; }
+.iscm-file-icon--csv { color:#22c55e; }
+.iscm-file-icon--xlsx { color:#16a34a; }
+.iscm-file-info { flex:1; display:flex; flex-direction:column; }
+.iscm-file-name { font-size:14px; font-weight:500; color:#111827; }
+.iscm-file-size { font-size:12px; color:#9ca3af; }
+.iscm-remove-file { background:none; border:none; color:#9ca3af; cursor:pointer; display:flex; align-items:center; padding:4px; border-radius:4px; }
+.iscm-remove-file:hover { color:#ef4444; background:#fee2e2; }
+
+.iscm-alert { display:flex; align-items:flex-start; gap:10px; padding:14px 16px; border-radius:8px; font-size:13px; }
+.iscm-alert--error { background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; }
+.iscm-alert-icon { flex-shrink:0; margin-top:1px; }
+.iscm-alert-title { font-size:14px; font-weight:700; margin:0 0 4px; color:#991b1b; }
+
+.iscm-result { background:#f0fdf4; border:1px solid #bbf7d0; border-radius:12px; padding:20px; display:flex; flex-direction:column; gap:16px; }
+.iscm-result-header { display:flex; align-items:center; gap:8px; }
+.iscm-result-icon { color:#16a34a; flex-shrink:0; }
+.iscm-result-title { font-size:15px; font-weight:600; color:#15803d; }
+.iscm-result-stats { display:grid; grid-template-columns:repeat(auto-fit, minmax(100px, 1fr)); gap:12px; }
+.iscm-stat { background:#fff; border-radius:8px; padding:12px; text-align:center; border:1px solid #e5e7eb; display:flex; flex-direction:column; gap:4px; }
+.iscm-stat-value { font-size:22px; font-weight:700; color:#111827; }
+.iscm-stat-label { font-size:11px; color:#6b7280; }
+.iscm-stat--success .iscm-stat-value { color:#16a34a; }
+.iscm-stat--warn .iscm-stat-value { color:#d97706; }
+.iscm-stat--error .iscm-stat-value { color:#dc2626; }
+
+.iscm-needs-attention { background:#fff; border:1px solid #e5e7eb; border-radius:8px; padding:14px; display:flex; flex-direction:column; gap:10px; }
+.iscm-needs-attention-title { font-size:13px; font-weight:700; color:#111827; margin:0; }
+.iscm-needs-attention-hint { font-size:12px; color:#6b7280; margin:-6px 0 2px; }
+
+.iscm-errors-wrap { background:#fef9c3; border:1px solid #fde68a; border-radius:8px; padding:12px; }
+.iscm-errors-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; flex-wrap:wrap; }
+.iscm-errors-title { font-size:13px; font-weight:600; color:#92400e; margin:0; }
+.iscm-report-btn { display:flex; align-items:center; gap:5px; font-size:11.5px; font-weight:600; color:#92400e; background:#fff; border:1px solid #fde68a; border-radius:6px; padding:5px 10px; cursor:pointer; white-space:nowrap; }
+.iscm-report-btn:hover { background:#fef3c7; }
+
+.iscm-issues-table-wrap { max-height:280px; overflow-y:auto; overflow-x:auto; border:1px solid #fde68a; border-radius:6px; background:#fffdf5; }
+.iscm-issues-table { width:100%; border-collapse:collapse; font-size:12px; }
+.iscm-issues-table thead th { position:sticky; top:0; background:#fef3c7; color:#92400e; text-align:left; font-weight:600; padding:8px 12px; white-space:nowrap; border-bottom:1px solid #fde68a; }
+.iscm-issues-table tbody td { padding:8px 12px; color:#78350f; border-bottom:1px solid #fef3c7; vertical-align:top; }
+.iscm-issues-table tbody tr:last-child td { border-bottom:none; }
+.iscm-product-name-col { font-weight:600; }
+
+.iscm-footer-btns { display:flex; gap:10px; justify-content:flex-end; width:100%; }
+.iscm-btn { display:flex; align-items:center; padding:9px 20px; border-radius:8px; font-size:14px; font-weight:500; cursor:pointer; border:none; transition:background .15s; }
+.iscm-btn--primary { background:#111827; color:#fff; }
+.iscm-btn--primary:hover:not(:disabled) { background:#1f2937; }
+.iscm-btn--primary:disabled { opacity:.5; cursor:not-allowed; }
+.iscm-btn--ghost { background:transparent; color:#374151; border:1px solid #d1d5db; }
+.iscm-btn--ghost:hover:not(:disabled) { background:#f3f4f6; }
+
+// ─── Resolve row (ResolveSupplierProductRow.tsx) — shared by this modal's
+// "Needs attention" list and SuggestedProductsModal.tsx's own list ──────────
+.rspr-list { display:flex; flex-direction:column; gap:8px; max-height:280px; overflow-y:auto; }
+.rspr-row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 12px; border:1px solid #e5e7eb; border-radius:8px; background:#fafafa; flex-wrap:wrap; }
+.rspr-info { display:flex; flex-direction:column; gap:2px; min-width:120px; }
+.rspr-name { font-size:13.5px; font-weight:600; color:#111827; }
+.rspr-sub { font-size:11.5px; color:#6b7280; }
+.rspr-actions { display:flex; gap:6px; flex-wrap:wrap; }
+.rspr-link-search { display:flex; align-items:center; gap:8px; flex:1; min-width:220px; }
+.rspr-link-search > div:first-child { flex:1; }

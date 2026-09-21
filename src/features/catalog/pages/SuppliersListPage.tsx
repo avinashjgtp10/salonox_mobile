@@ -17,7 +17,7 @@ import {
 } from "react-bootstrap-icons";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { fetchSuppliersThunk, fetchSupplierFilterOptionsThunk, deleteSupplierThunk } from "../../../middleware/inventory/inventory.thunk";
-import type { Supplier, SupplierWithBalance, SupplierPaymentStatus } from "../../../types/inventory.types";
+import type { Supplier, SupplierWithBalance } from "../../../types/inventory.types";
 import { useCurrency } from "../../../hooks/useCurrency";
 import api from "../../../services/api/axios";
 import { INVENTORY } from "../../../services/api/endpoints/inventory.endpoints";
@@ -36,21 +36,8 @@ import Input from "../../../components/ui/Input";
 import EmptyState from "../../../components/ui/EmptyState";
 import CreatePayoutModal from "../components/CreatePayoutModal";
 import SupplierPendingDetailsModal from "../components/SupplierPendingDetailsModal";
+import SupplierDetailPage from "./SupplierDetailPage";
 import "../styles/SuppliersListPage.scss";
-
-const fmtDate = (value?: string | null) => {
-  if (!value) return "—";
-  const d = new Date(value);
-  if (isNaN(d.getTime())) return "—";
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()}`;
-};
-
-const STATUS_LABEL: Record<SupplierPaymentStatus, string> = {
-  paid: "Paid",
-  due: "Due",
-  overdue: "Overdue",
-};
 
 interface RowActionItem {
   label: string;
@@ -183,6 +170,11 @@ const SuppliersListPage: React.FC = () => {
   // supplier picker (top-level "Create Payout" entry point).
   const [payoutSupplierId, setPayoutSupplierId] = useState<string | undefined>(undefined);
   const [payoutOpen, setPayoutOpen] = useState(false);
+
+  // Row click opens the Supplier Detail popup in place instead of
+  // navigating away — same popup pattern used for Receiving and Product
+  // Inventory's detail drawer.
+  const [detailSupplierId, setDetailSupplierId] = useState<string | null>(null);
 
   // Delete modal state
   const [deletingSupplier, setDeletingSupplier] = useState<Supplier | null>(null);
@@ -444,12 +436,10 @@ const SuppliersListPage: React.FC = () => {
           <table className="supplier-table">
             <thead>
               <tr>
-                <th>Supplier name</th>
-                <th>Phone</th>
-                <th>Total Amount</th>
-                <th>Pending Orders</th>
-                <th>Due Amount</th>
-                <th>Due Date</th>
+                <th>Supplier</th>
+                <th>Contact</th>
+                <th>Open Orders</th>
+                <th>Outstanding</th>
                 <th>Status</th>
                 <th className="actions-cell" style={{ width: "56px" }} />
               </tr>
@@ -464,9 +454,7 @@ const SuppliersListPage: React.FC = () => {
                     </div>
                   </td>
                   <td><Skeleton width="40%" height={12} /></td>
-                  <td><Skeleton width="50%" height={12} /></td>
                   <td><Skeleton width="30%" height={12} /></td>
-                  <td><Skeleton width="50%" height={12} /></td>
                   <td><Skeleton width="50%" height={12} /></td>
                   <td><Skeleton width="40%" height={12} /></td>
                   <td className="actions-cell" />
@@ -478,12 +466,10 @@ const SuppliersListPage: React.FC = () => {
           <table className="supplier-table">
             <thead>
               <tr>
-                <th>Supplier name</th>
-                <th>Phone</th>
-                <th>Total Amount</th>
-                <th>Pending Orders</th>
-                <th>Due Amount</th>
-                <th>Due Date</th>
+                <th>Supplier</th>
+                <th>Contact</th>
+                <th>Open Orders</th>
+                <th>Outstanding</th>
                 <th>Status</th>
                 <th className="actions-cell" style={{ width: "56px" }} />
               </tr>
@@ -491,25 +477,20 @@ const SuppliersListPage: React.FC = () => {
             <tbody>
               {suppliers.map((s) => {
                 const sb = s as SupplierWithBalance;
-                const status: SupplierPaymentStatus = sb.status ?? "paid";
                 return (
                 <tr
                   key={s.id}
                   style={{ cursor: "pointer" }}
-                  onClick={() => navigate(`/dashboard/inventory/suppliers/${s.id}`)}
+                  onClick={() => setDetailSupplierId(s.id)}
                 >
                   <td className="supplier-name-cell">
                     <div className="supplier-icon"><Shop size={18} /></div>
                     <div className="name-info">
                       <span className="name">{s.name}</span>
-                      {(s.first_name || s.last_name) && (
-                        <span className="contact">{[s.first_name, s.last_name].filter(Boolean).join(" ")}</span>
-                      )}
                     </div>
                   </td>
-                  <td>{s.mobile_number || s.telephone_number || "—"}</td>
-                  <td>{formatAmount(sb.total_purchase_amount ?? 0)}</td>
-                  <td>{sb.pending_order_count ?? 0}</td>
+                  <td>{[s.first_name, s.last_name].filter(Boolean).join(" ") || s.mobile_number || s.telephone_number || "—"}</td>
+                  <td>{sb.open_order_count ?? 0}</td>
                   <td>
                     <button
                       type="button"
@@ -519,10 +500,9 @@ const SuppliersListPage: React.FC = () => {
                       {formatAmount(sb.due_amount ?? 0)}
                     </button>
                   </td>
-                  <td>{fmtDate(sb.due_date)}</td>
                   <td>
-                    <span className={`supplier-status-badge supplier-status-badge--${status}`}>
-                      {STATUS_LABEL[status]}
+                    <span className={`supplier-status-badge supplier-status-badge--${s.is_active ? "paid" : "overdue"}`}>
+                      {s.is_active ? "Active" : "Inactive"}
                     </span>
                   </td>
                   <td className="actions-cell" onClick={(e) => e.stopPropagation()}>
@@ -640,6 +620,10 @@ const SuppliersListPage: React.FC = () => {
         onClose={() => setPendingDetailsSupplierId(undefined)}
         supplierId={pendingDetailsSupplierId}
       />
+
+      {detailSupplierId && (
+        <SupplierDetailPage id={detailSupplierId} onClose={() => setDetailSupplierId(null)} />
+      )}
     </div>
   );
 };

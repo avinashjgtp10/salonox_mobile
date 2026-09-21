@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Trash, PlusLg, Upload, Images, Lock } from "react-bootstrap-icons";
+import { Trash, PlusLg, Upload, Images, Lock, BoxSeam, CloudUpload } from "react-bootstrap-icons";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import {
   fetchSuppliersThunk,
@@ -11,7 +11,7 @@ import {
   fetchOrderSignaturesThunk,
 } from "../../../middleware/inventory/inventory.thunk";
 import { fetchSettingsThunk } from "../../../middleware/setting/setting.thunk";
-import type { CreateOrderItemPayload, OrderTaxType } from "../../../types/inventory.types";
+import type { CreateOrderItemPayload, OrderTaxType, SupplierProduct } from "../../../types/inventory.types";
 import { getActiveTaxes } from "../../../features/settings/utils/taxSettings";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
@@ -20,6 +20,8 @@ import Modal from "../../../components/ui/Modal";
 import { Dropdown } from "../../../components/ui/Dropdown";
 import { DatePicker } from "../../../components/ui";
 import ProductSearchSelect, { type ProductSearchResult } from "../components/ProductSearchSelect";
+import ImportSupplierCatalogModal from "../components/ImportSupplierCatalogModal";
+import SuggestedProductsModal from "../components/SuggestedProductsModal";
 import AddSupplierPage from "./AddSupplierPage";
 import "../styles/PurchaseHistoryTable.scss";
 import "../styles/AddSupplierPage.scss";
@@ -131,6 +133,8 @@ const NewOrderPage: React.FC = () => {
   // picked product's name — clicking the name itself re-opens search
   // in place (no separate "Change" button).
   const [editingProductKey, setEditingProductKey] = useState<string | null>(null);
+  const [importCatalogOpen, setImportCatalogOpen] = useState(false);
+  const [suggestedOpen, setSuggestedOpen] = useState(false);
 
   // Tax — kept as one flat order-level rate (not per-line), sourced from the
   // salon's existing tax settings, per product decision. The rate itself is
@@ -237,6 +241,33 @@ const NewOrderPage: React.FC = () => {
 
   function removeLine(key: string) {
     setLines((prev) => (prev.length > 1 ? prev.filter((l) => l.key !== key) : prev));
+  }
+
+  // Bulk-adds Suggested Products (matched supplier_products rows, each with
+  // a resolved product_id) — mirrors exactly what ProductSearchSelect's
+  // onSelect callback already does per-row above (product/sku/unitCost),
+  // just for many rows in one go. Drops the single leading blank row if
+  // it's still untouched, same as a manual first pick would overwrite it.
+  function addSuggestedProducts(selected: SupplierProduct[]) {
+    setLines((prev) => {
+      const additions: OrderLine[] = selected
+        .filter((sp) => sp.product_id)
+        .map((sp) => ({
+          ...emptyLine(),
+          product: {
+            id: sp.product_id!,
+            name: sp.linked_product_name || sp.name,
+            barcode: sp.barcode,
+            sku: null,
+            supply_price: sp.price,
+            retail_price: null,
+          },
+          sku: sp.barcode || "",
+          unitCost: sp.price != null ? String(sp.price) : "",
+        }));
+      const base = prev.length === 1 && !prev[0].product ? [] : prev;
+      return [...base, ...additions];
+    });
   }
 
   function lineMath(line: OrderLine) {
@@ -589,6 +620,27 @@ const NewOrderPage: React.FC = () => {
         <section className="form-section">
           <h3>Order Items</h3>
 
+          {selectedSupplier && (
+            <div className="d-flex gap-2 mb-3">
+              <Button
+                variant="outline-dark"
+                size="sm"
+                iconLeft={<BoxSeam size={13} />}
+                onClick={() => setSuggestedOpen(true)}
+              >
+                Suggested Products
+              </Button>
+              <Button
+                variant="outline-dark"
+                size="sm"
+                iconLeft={<CloudUpload size={13} />}
+                onClick={() => setImportCatalogOpen(true)}
+              >
+                Import Supplier Catalog
+              </Button>
+            </div>
+          )}
+
           <div className="field-row-3">
             <div className="field-group">
               <label>Tax Type</label>
@@ -857,6 +909,24 @@ const NewOrderPage: React.FC = () => {
             />
           </div>
         </div>
+      )}
+
+      {selectedSupplier && (
+        <>
+          <ImportSupplierCatalogModal
+            show={importCatalogOpen}
+            onClose={() => setImportCatalogOpen(false)}
+            onSuccess={() => { /* Needs-attention list refreshes itself inside the modal */ }}
+            supplierId={selectedSupplier.id}
+          />
+          <SuggestedProductsModal
+            show={suggestedOpen}
+            onClose={() => setSuggestedOpen(false)}
+            supplierId={selectedSupplier.id}
+            supplierName={selectedSupplier.name}
+            onAdd={addSuggestedProducts}
+          />
+        </>
       )}
 
       <Modal show={galleryOpen} onClose={() => setGalleryOpen(false)} title="Signature Gallery" size="md">

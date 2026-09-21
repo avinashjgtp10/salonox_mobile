@@ -84,6 +84,7 @@ const AddSupplierPage: React.FC<AddSupplierPageProps> = ({
   const [postalCity, setPostalCity] = useState("");
 
   const [sameAsPostal, setSameAsPostal] = useState(true);
+  const [isActive, setIsActive] = useState(true);
 
   // UI state
   const [saving, setSaving] = useState(false);
@@ -177,6 +178,7 @@ const AddSupplierPage: React.FC<AddSupplierPageProps> = ({
       setPhysCity(s.city || "");
       setPhysZip(s.zip_code || "");
       setSameAsPostal(s.same_as_physical);
+      setIsActive(s.is_active ?? true);
       if (!s.same_as_physical) {
         setPostalStreet(s.postal_street || "");
         setPostalSuburb(s.postal_suburb || "");
@@ -215,6 +217,7 @@ const AddSupplierPage: React.FC<AddSupplierPageProps> = ({
       zip_code: physZip.trim() || undefined,
       country: physCountry || undefined,
       same_as_physical: sameAsPostal,
+      is_active: isActive,
       postal_street: sameAsPostal ? null : postalStreet.trim() || null,
       postal_suburb: sameAsPostal ? null : postalSuburb.trim() || null,
       postal_city: sameAsPostal ? null : postalCity || null,
@@ -292,6 +295,15 @@ const AddSupplierPage: React.FC<AddSupplierPageProps> = ({
               onChange={(e) => setDescription(e.target.value)}
             />
           </div>
+
+          <label className="checkbox-label">
+            <input
+              type="checkbox"
+              checked={isActive}
+              onChange={(e) => setIsActive(e.target.checked)}
+            />
+            Active
+          </label>
         </section>
 
         <section className="form-section">
