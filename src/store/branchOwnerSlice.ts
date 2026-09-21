@@ -14,6 +14,12 @@ export interface BranchOwnerSalon {
   appointments_today?: number;
   revenue_today?: number;
   has_active_plan?: boolean;
+  /** trial_end (while trialing) or current_period_end (once paid) from the
+   * salon's latest Razorpay-hosted subscription row — null if it never had
+   * one. Drives the "Expired on {date}" plan status, independent of
+   * `status` (the salon account's own active/inactive flag). */
+  plan_expires_at?: string | null;
+  subscription_status?: string | null;
 }
 
 export interface BranchOwnerStats {

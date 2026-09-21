@@ -3,7 +3,7 @@ import { Building, CheckCircle, PersonFill, CashCoin, Search, GeoAlt, CalendarEv
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { fetchMySalonsThunk, enterSalonThunk, resetSalonOwnerPasswordThunk, deleteSalonThunk } from "../../../middleware/branchOwner/branchOwner.thunk";
 import type { BranchOwnerSalon } from "../../../store/branchOwnerSlice";
-import { JiraFilterMenu, Button, Table, Modal, ConfirmDialog, Input, Card } from "../../../components/ui";
+import { JiraFilterMenu, Button, Table, Modal, ConfirmDialog, Input, Card, Badge } from "../../../components/ui";
 import type { JiraFilterField } from "../../../components/ui";
 import { StatTile, StatusBadge, usePagination, BoPagination } from "../components/BranchOwnerUI";
 
@@ -19,6 +19,28 @@ const PLAN_OPTIONS = [
 
 function formatCurrency(amount: number): string {
   return `₹${Number(amount ?? 0).toLocaleString("en-IN")}`;
+}
+
+const fmtDateShort = (iso?: string | null) =>
+  iso ? new Date(iso).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—";
+
+// Plan status is derived from the salon's actual subscription expiry date
+// (plan_expires_at, from the latest row in the Razorpay-hosted
+// `subscriptions` table — see branch-owner.repository.ts::getMySalons),
+// not from `has_active_plan` alone or the salon's own active/inactive flag,
+// so an expired plan always reads "Expired on {date}" regardless of either.
+// Uses the same shared Badge component (and success/danger/secondary
+// variant palette) as StatusBadge above, so it reads as the same pill style
+// as every other badge on this page instead of a mismatched solid block.
+function PlanStatusBadge({ salon }: { salon: BranchOwnerSalon }) {
+  if (!salon.plan_expires_at) {
+    return <Badge variant="secondary">No Plan</Badge>;
+  }
+  const expired = new Date(salon.plan_expires_at).getTime() < Date.now();
+  if (expired) {
+    return <Badge variant="danger">Expired {fmtDateShort(salon.plan_expires_at)}</Badge>;
+  }
+  return <Badge variant="success">Active — expires {fmtDateShort(salon.plan_expires_at)}</Badge>;
 }
 
 function ResetPasswordModal({ salonName, onConfirm, onCancel, loading, error }: {
@@ -73,9 +95,7 @@ function SalonDetailModal({ salon, onClose, onEnter, entering, onResetPassword, 
     >
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
         <StatusBadge status={salon.status} />
-        {salon.has_active_plan
-          ? <span className="badge bg-primary">Active Plan</span>
-          : <span className="badge bg-secondary">No Active Plan</span>}
+        <PlanStatusBadge salon={salon} />
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 18 }}>
@@ -295,6 +315,7 @@ export default function BranchOwnerSalonsPage() {
             { header: "Today's Appointments", key: "appointments_today", render: (s) => s.appointments_today ?? 0 },
             { header: "Revenue", key: "revenue_today", render: (s) => formatCurrency(s.revenue_today ?? 0) },
             { header: "Status", key: "status", render: (s) => <StatusBadge status={s.status} /> },
+            { header: "Plan", key: "plan_expires_at", render: (s) => <PlanStatusBadge salon={s} /> },
             {
               header: "Actions", key: "actions",
               render: (s) => (

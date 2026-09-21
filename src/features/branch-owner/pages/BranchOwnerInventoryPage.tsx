@@ -27,7 +27,7 @@ interface Summary { total_products: number; total_stock_value: number; low_stock
 interface CategoryRow { category_name: string; product_count: number; }
 interface CategoryProduct { id: string; name: string; amount: number; measure_unit: string; salon_name: string; }
 
-const fmtMoney = (n: number) => (n >= 100000 ? `₹${(n / 100000).toFixed(2)}L` : `₹${n.toLocaleString("en-IN")}`);
+const fmtMoney = (n: number) => `₹${n.toLocaleString("en-IN")}`;
 
 export default function BranchOwnerInventoryPage() {
   const salons = useAppSelector((s) => s.branchOwner.salons);
