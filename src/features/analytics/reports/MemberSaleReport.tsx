@@ -10,7 +10,8 @@ import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import ClientHistoryModal from "../../clients/components/ClientHistoryModal";
 import { useCurrency } from "../../../hooks/useCurrency";
-import { useRowSelection } from "./useRowSelection";
+import { useBulkMembershipDelete } from "./useBulkMembershipDelete";
+import { BulkDeleteBar, BulkDeleteConfirmModal } from "./BulkDeleteBar";
 import { SendCampaignBar } from "./SendCampaignBar";
 import { SendCampaignModal } from "../../marketing/components";
 import MemberSaleChartContent from "./MemberSaleChartContent";
@@ -114,7 +115,6 @@ export default function MemberSaleReport({ onBack, category, categoryKey }: { on
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize,    setPageSize]    = useState(10);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
-  const selection = useRowSelection();
   const [showCampaignModal, setShowCampaignModal] = useState(false);
   const [showChart, setShowChart] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
@@ -176,6 +176,12 @@ export default function MemberSaleReport({ onBack, category, categoryKey }: { on
       if (!ctrl.signal.aborted) setLoading(false);
     }
   }, [buildFilterBody, currentPage, pageSize]);
+
+  // Same checkbox selection drives both bulk delete and Send Campaign —
+  // matches the Sales Summary Report's pattern exactly. Each delete removes
+  // the client's membership assignment AND the sale it created (revenue
+  // drops accordingly), via clientMembershipsService.delete() on the backend.
+  const bulkDelete = useBulkMembershipDelete(fetchData);
 
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, debouncedSearch, statusFilter, membershipFilter, pricingTypeFilter, staffFilterIds, minPrice, maxPrice]);
@@ -258,7 +264,8 @@ export default function MemberSaleReport({ onBack, category, categoryKey }: { on
         <MemberSaleChartContent dateFrom={dateFrom} dateTo={dateTo} buildFilterBody={buildFilterBody} />
       ) : (
       <>
-      <SendCampaignBar count={selection.selectedIds.size} onSendClick={() => setShowCampaignModal(true)} />
+      <BulkDeleteBar count={bulkDelete.selectedIds.size} onDeleteClick={() => bulkDelete.setShowConfirm(true)} itemLabel="membership" />
+      <SendCampaignBar count={bulkDelete.selectedIds.size} onSendClick={() => setShowCampaignModal(true)} />
 
       <div className="rp-detail-toolbar">
         <div className="rp-detail-search-wrap">
@@ -275,8 +282,8 @@ export default function MemberSaleReport({ onBack, category, categoryKey }: { on
                 <input
                   type="checkbox"
                   className="rp-row-checkbox"
-                  checked={rows.length > 0 && rows.every(r => selection.selectedIds.has(r.id))}
-                  onChange={() => selection.toggleAll(rows.map(r => r.id))}
+                  checked={rows.length > 0 && rows.every(r => bulkDelete.selectedIds.has(r.id))}
+                  onChange={() => bulkDelete.toggleAll(rows.map(r => r.id))}
                 />
               </th>
               <th>Date</th><th>Expiry Date</th><th>Invoice No</th><th>Client</th><th>Staff</th><th>Membership</th>
@@ -298,8 +305,8 @@ export default function MemberSaleReport({ onBack, category, categoryKey }: { on
                   <input
                     type="checkbox"
                     className="rp-row-checkbox"
-                    checked={selection.selectedIds.has(r.id)}
-                    onChange={() => selection.toggleOne(r.id)}
+                    checked={bulkDelete.selectedIds.has(r.id)}
+                    onChange={() => bulkDelete.toggleOne(r.id)}
                   />
                 </td>
                 <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{r.purchasedAt}</td>
@@ -328,15 +335,26 @@ export default function MemberSaleReport({ onBack, category, categoryKey }: { on
         show={showCampaignModal}
         onClose={() => setShowCampaignModal(false)}
         contacts={rows
-          .filter(r => selection.selectedIds.has(r.id) && r.clientPhone)
+          .filter(r => bulkDelete.selectedIds.has(r.id) && r.clientPhone)
           .map(r => ({ phone: r.clientPhone, name: r.clientName }))}
         defaultCampaignName="Membership Sale"
-        onSent={selection.clearSelection}
+        onSent={bulkDelete.clearSelection}
       />
 
       {selectedClientId && (
         <ClientHistoryModal clientId={selectedClientId} onClose={() => setSelectedClientId(null)} initialTab="memberships" />
       )}
+
+      <BulkDeleteConfirmModal
+        show={bulkDelete.showConfirm}
+        count={bulkDelete.selectedIds.size}
+        names={rows.filter(r => bulkDelete.selectedIds.has(r.id)).map(r => r.membershipName)}
+        deleting={bulkDelete.deleting}
+        error={bulkDelete.error}
+        itemLabel="membership"
+        onCancel={() => { bulkDelete.setShowConfirm(false); bulkDelete.setError(null); }}
+        onConfirm={bulkDelete.confirmDelete}
+      />
     </div>
   );
 }
