@@ -2,6 +2,7 @@ import { createSlice } from "@reduxjs/toolkit";
 import {
   fetchDigitalMenuThunk,
   saveDigitalMenuThunk,
+  deleteDigitalMenuThunk,
   fetchPublicDigitalMenuThunk,
 } from "../middleware/digitalMenu/digitalMenu.thunk";
 import type {
@@ -64,6 +65,19 @@ const digitalMenuSlice = createSlice({
     builder.addCase(saveDigitalMenuThunk.rejected, (state, action) => {
       state.saving = false;
       state.error = action.payload ?? "Failed to save digital menu";
+    });
+
+    builder.addCase(deleteDigitalMenuThunk.pending, (state) => {
+      state.saving = true;
+      state.error = null;
+    });
+    builder.addCase(deleteDigitalMenuThunk.fulfilled, (state) => {
+      state.saving = false;
+      state.menu = null;
+    });
+    builder.addCase(deleteDigitalMenuThunk.rejected, (state, action) => {
+      state.saving = false;
+      state.error = action.payload ?? "Failed to delete digital menu";
     });
 
     builder.addCase(fetchPublicDigitalMenuThunk.pending, (state) => {

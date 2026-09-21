@@ -45,6 +45,7 @@ export const defaultPermissions: Permission[] = [
   { key: "view_digital_menu",           label: "View Digital Menu",           desc: "View the digital/QR menu dashboard",   category: "Catalog", group: "Digital Menu", owner: true, staff: true,  manager: true },
   { key: "create_digital_menu",         label: "Create Digital Menu",         desc: "Create the salon's digital menu",      category: "Catalog", group: "Digital Menu", owner: true, staff: false, manager: true },
   { key: "edit_digital_menu",           label: "Edit Digital Menu",           desc: "Change menu name and selected services", category: "Catalog", group: "Digital Menu", owner: true, staff: false, manager: true },
+  { key: "delete_digital_menu",         label: "Delete Digital Menu",         desc: "Permanently delete the salon's digital menu", category: "Catalog", group: "Digital Menu", owner: true, staff: false, manager: true },
   { key: "manage_digital_menu_qr",      label: "Manage QR Code",              desc: "View, download, print and share the menu QR code", category: "Catalog", group: "Digital Menu", owner: true, staff: false, manager: true },
   { key: "enable_disable_digital_menu", label: "Enable/Disable Digital Menu", desc: "Turn the public menu on or off",       category: "Catalog", group: "Digital Menu", owner: true, staff: false, manager: true },
 
