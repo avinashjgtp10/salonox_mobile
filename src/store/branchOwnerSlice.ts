@@ -45,6 +45,10 @@ export interface BranchOwnerPayment {
   status: string;
   payment_method: string;
   created_at: string;
+  /** Actual payment transaction time (paid_at, falling back to created_at
+   * server-side) — use this for date filtering/display, not created_at,
+   * so a payment made yesterday stays under Yesterday. */
+  payment_date?: string;
   invoice_number?: string | null;
   client_name?: string | null;
   client_phone?: string | null;
