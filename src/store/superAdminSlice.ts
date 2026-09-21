@@ -52,6 +52,9 @@ export interface SuperAdminUser {
   is_active: boolean;
   last_login?: string;
   login_count?: number;
+  /** Salons assigned to this branch owner via branch_owner_salons — only
+   * meaningful for role === "branch_owner". */
+  branch_count?: number;
 }
 
 export interface SuperAdminSalonStaff {
