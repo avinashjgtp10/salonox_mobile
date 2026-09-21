@@ -552,6 +552,9 @@ export default function BranchOwnersPage() {
   useEffect(() => { load(); }, [load]);
 
   const branchOwners = users.filter((u: any) => u.role === "branch_owner");
+  const totalBranches = branchOwners.reduce((sum: number, u: any) => sum + (u.branch_count ?? 0), 0);
+  const activeBranchOwners = branchOwners.filter((u: any) => u.status === "active").length;
+  const avgBranches = branchOwners.length ? (totalBranches / branchOwners.length) : 0;
 
   function showToast(msg: string, ok = true) { setToast({ msg, ok }); setTimeout(() => setToast(null), 3000); }
 
@@ -605,11 +608,18 @@ export default function BranchOwnersPage() {
         <p style={{ margin: "4px 0 0", color: "#94a3b8", fontSize: 13 }}>{branchOwners.length} branch owner{branchOwners.length !== 1 ? "s" : ""}</p>
       </div>
 
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 24 }}>
+        <StatChip label="Branch Owners" value={branchOwners.length} />
+        <StatChip label="Active" value={activeBranchOwners} />
+        <StatChip label="Total Branches" value={totalBranches} />
+        <StatChip label="Avg Branches / Owner" value={avgBranches.toFixed(1)} />
+      </div>
+
       <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #e2e8f0", overflow: "auto", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5, minWidth: 500 }}>
           <thead>
             <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
-              {["Name", "Email", "Status", "Created", "Actions"].map((h) => (
+              {["Name", "Email", "Status", "Salon Count", "Created", "Actions"].map((h) => (
                 <th key={h} style={{ padding: "11px 16px", textAlign: "left", color: "#64748b", fontWeight: 600, fontSize: 11.5, textTransform: "uppercase", letterSpacing: "0.04em", whiteSpace: "nowrap" }}>{h}</th>
               ))}
             </tr>
@@ -618,7 +628,7 @@ export default function BranchOwnersPage() {
             {loading.users ? (
               [...Array(4)].map((_, i) => (
                 <tr key={i} style={{ borderTop: "1px solid #f1f5f9" }}>
-                  {[...Array(5)].map((_, j) => (
+                  {[...Array(6)].map((_, j) => (
                     <td key={j} style={{ padding: "14px 16px" }}>
                       <div style={{ height: 13, borderRadius: 4, background: "linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%)", backgroundSize: "200% 100%", animation: "bo-shimmer 1.4s infinite" }} />
                     </td>
@@ -626,7 +636,7 @@ export default function BranchOwnersPage() {
                 </tr>
               ))
             ) : branchOwners.length === 0 ? (
-              <tr><td colSpan={5} style={{ padding: "48px 0", textAlign: "center", color: "#94a3b8", fontSize: 13.5 }}>
+              <tr><td colSpan={6} style={{ padding: "48px 0", textAlign: "center", color: "#94a3b8", fontSize: 13.5 }}>
                 No branch owners yet. Create one from the Salons page (Create Account → Role: Branch Owner).
               </td></tr>
             ) : (
@@ -638,6 +648,7 @@ export default function BranchOwnersPage() {
                   <td style={{ padding: "13px 16px", color: "#0f172a", fontWeight: 700 }}>{u.name}</td>
                   <td style={{ padding: "13px 16px", color: "#374151" }}>{u.email}</td>
                   <td style={{ padding: "13px 16px" }}><Badge status={u.status} /></td>
+                  <td style={{ padding: "13px 16px", color: "#0f172a", fontWeight: 600 }}>{u.branch_count ?? 0}</td>
                   <td style={{ padding: "13px 16px", color: "#64748b", whiteSpace: "nowrap" }}>{fmtDateShort(u.created_at)}</td>
                   <td style={{ padding: "13px 16px" }} onClick={(e) => e.stopPropagation()}>
                     <ActionsMenu
