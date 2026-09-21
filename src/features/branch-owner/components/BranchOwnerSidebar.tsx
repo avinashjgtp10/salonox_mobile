@@ -1,7 +1,7 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
-import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
-import { logout } from "../../../store/authSlice";
+import { useAppSelector } from "../../../hooks/useAppRedux";
+import { performLogout } from "../../../utils/performLogout";
 import salonoxLogo from "../../../assets/salonox_full_logo.png";
 import salonoxMark from "../../../assets/salonox_full_logo.png";
 
@@ -52,7 +52,6 @@ const HELP_ITEM = {
 // structurally different from the shared shell (which has no per-portal
 // header or footer), so reusing those classes wasn't an option here.
 export default function BranchOwnerSidebar() {
-  const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { user } = useAppSelector((s) => s.auth) as any;
   const [collapsed, setCollapsed] = useState(false);
@@ -81,8 +80,7 @@ export default function BranchOwnerSidebar() {
   const initials = (user?.first_name?.[0] ?? "B").toUpperCase() + (user?.last_name?.[0] ?? "").toUpperCase();
 
   function handleLogout() {
-    dispatch(logout());
-    navigate("/login", { replace: true });
+    performLogout(navigate);
   }
 
   function navStyle(isActive: boolean): React.CSSProperties {

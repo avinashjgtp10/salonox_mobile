@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { useAppSelector, useAppDispatch } from "../../../hooks/useAppRedux";
-import { logout } from "../../../store/authSlice";
+import { performLogout } from "../../../utils/performLogout";
 import { createSubscriptionThunk } from "../../../store/billingSlice";
 import api from "../../../services/api/axios";
 import { SALON_PLANS } from "../../../services/api/endpoints";
@@ -42,12 +42,11 @@ export default function SubscriptionWall() {
   const [plansError, setPlansError] = useState("");
   const [payingTier, setPayingTier] = useState<string | null>(null);
 
-  // Same session-clearing pattern as DashboardLayout's handleLogout — clears
-  // the persisted auth slice (tokens/role/salonId) and redirects to /login,
-  // so a user stuck behind this wall can still leave without renewing.
+  // Same shared logout path every other Logout button uses — clears every
+  // Redux slice + persisted storage and revokes the refresh token server-
+  // side, so a user stuck behind this wall can still leave without renewing.
   const handleLogout = () => {
-    dispatch(logout());
-    navigate("/login");
+    performLogout(navigate);
   };
 
   useEffect(() => {

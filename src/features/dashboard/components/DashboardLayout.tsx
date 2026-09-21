@@ -2,7 +2,8 @@ import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { useState, useEffect, useRef, Suspense } from "react";
 import { PageLoader } from "../../../components/ui";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
-import { logout, setCustomPermissions } from "../../../store/authSlice";
+import { setCustomPermissions } from "../../../store/authSlice";
+import { performLogout } from "../../../utils/performLogout";
 import { getMySalonThunk } from "../../../middleware/salon/salon.thunk";
 import { fetchMeThunk } from "../../../middleware/user/user.thunk";
 import { fetchSettingsThunk } from "../../../middleware/setting/setting.thunk";
@@ -127,8 +128,7 @@ export default function DashboardLayout() {
   }, []);
 
   const handleLogout = () => {
-    dispatch(logout());
-    navigate("/login");
+    performLogout(navigate);
   };
 
   const isFlushPage =

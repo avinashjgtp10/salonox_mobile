@@ -7,7 +7,7 @@ import SettingsToggle from "../../settings/components/SettingsToggle";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { useAppDispatch } from "../../../hooks/useAppRedux";
 import { changePasswordThunk } from "../../../middleware/user/user.thunk";
-import { logout } from "../../../store/authSlice";
+import { performLogout } from "../../../utils/performLogout";
 import api from "../../../services/api/axios";
 
 interface PwErrors { currentPassword?: string; newPassword?: string; confirmPassword?: string }
@@ -99,8 +99,11 @@ export default function BranchOwnerAccountSecuritySection() {
     try {
       await api.post("/api/v1/auth/logout-all");
       showSuccess("Logged out of all devices");
-      dispatch(logout());
-      navigate("/login");
+      // logout-all already revoked every refresh token server-side
+      // (including this session's own) — performLogout's own revoke call
+      // just no-ops against an already-deleted token; its real job here is
+      // the full client-side reset (every Redux slice + persisted storage).
+      await performLogout(navigate);
     } catch {
       showError("Failed to log out all devices");
     } finally {
