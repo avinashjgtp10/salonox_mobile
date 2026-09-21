@@ -6,7 +6,7 @@ const TIER_COLORS: Record<PlanTier, { bg: string; text: string; border: string }
   pro:     { bg: "#faf5ff", text: "#9333ea", border: "#e9d5ff" },
 };
 
-const TIER_LABELS: Record<PlanTier, string> = { basic: "Basic", advance: "Advance", pro: "Pro" };
+const TIER_LABELS: Record<PlanTier, string> = { basic: "Basic", advance: "Advance", pro: "Growth" };
 
 export default function PlanTierBadge({ tier, size = "md" }: { tier: PlanTier; size?: "sm" | "md" }) {
   const c = TIER_COLORS[tier];

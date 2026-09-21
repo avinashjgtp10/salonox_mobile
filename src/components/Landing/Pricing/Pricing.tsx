@@ -76,10 +76,10 @@ const FALLBACK_PLANS: PurchasePlan[] = [
     ],
   },
   {
-    name: 'Pro',
+    name: 'Growth',
     price: '₹15,000',
     description: 'For growing business that need advanced digital and multi-branch capabilities.',
-    cta: 'Buy Pro',
+    cta: 'Buy Growth',
     badge: '',
     featured: false,
     premium: true,
@@ -99,7 +99,7 @@ const FALLBACK_PLANS: PurchasePlan[] = [
 const TIER_ORDER = ['basic', 'advance', 'pro'];
 
 interface CatalogEntry {
-  tier: 'basic' | 'advance' | 'pro';
+  tier: 'basic' | 'advance' | 'pro'; // 'pro' tier id, displayed as "Growth"
   name: string;
   tagline: string | null;
   price: string;

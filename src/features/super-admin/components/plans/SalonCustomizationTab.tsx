@@ -158,7 +158,7 @@ export default function SalonCustomizationTab() {
   const selectedPlan = draft ? definitions.find((d) => d.tier === draft.base_tier) : null;
 
   // The salon's actual effective feature set right now: everything its base
-  // tier includes (cumulative, Basic ⊆ Advance ⊆ Pro), with per-salon
+  // tier includes (cumulative, Basic ⊆ Advance ⊆ Growth), with per-salon
   // feature_overrides applied on top — an override can both add a feature
   // the base tier lacks (true) and remove one it has (false). This is what
   // requirePlanFeature() on the backend actually checks against, so it's
@@ -276,7 +276,7 @@ export default function SalonCustomizationTab() {
                 <div>
                   <div style={{ fontSize: 12.5, fontWeight: 700, color: "#0f172a", marginBottom: 8 }}>Base Plan</div>
                   <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 10 }}>
-                    Choose which of the 3 fixed plans this salon is built on — customization always starts from one of Basic, Advance or Pro, never a separate plan.
+                    Choose which of the 3 fixed plans this salon is built on — customization always starts from one of Basic, Advance or Growth, never a separate plan.
                   </div>
                   <div style={{ display: "flex", gap: 8 }}>
                     {PLAN_TIER_ORDER.map((tier) => (

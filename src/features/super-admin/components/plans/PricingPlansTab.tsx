@@ -30,6 +30,10 @@ export default function PricingPlansTab() {
   const [editPrice, setEditPrice] = useState("");
   const [saving, setSaving] = useState(false);
 
+  const [editingNameTier, setEditingNameTier] = useState<PlanTier | null>(null);
+  const [editName, setEditName] = useState("");
+  const [savingName, setSavingName] = useState(false);
+
   const [editingFeaturesTier, setEditingFeaturesTier] = useState<PlanTier | null>(null);
   const [editFeatures, setEditFeatures] = useState<string[]>([]);
   const [newFeatureText, setNewFeatureText] = useState("");
@@ -55,6 +59,27 @@ export default function PricingPlansTab() {
   function startEdit(plan: PlanDefinition) {
     setEditingTier(plan.tier);
     setEditPrice(plan.price);
+  }
+
+  function startEditName(plan: PlanDefinition) {
+    setEditingNameTier(plan.tier);
+    setEditName(plan.name);
+  }
+
+  async function saveName(tier: PlanTier) {
+    const name = editName.trim();
+    if (!name) return;
+    setSavingName(true);
+    try {
+      const res = await api.put(SALON_PLANS.DEFINITION_UPDATE(tier), { name });
+      const updated = res.data?.data as PlanDefinition;
+      setDefinitions((prev) => prev.map((d) => (d.tier === tier ? updated : d)));
+      setEditingNameTier(null);
+    } catch {
+      setError("Failed to update plan name. Please try again.");
+    } finally {
+      setSavingName(false);
+    }
   }
 
   async function savePrice(tier: PlanTier) {
@@ -169,7 +194,30 @@ export default function PricingPlansTab() {
                 </svg>
               </div>
 
-              <h3 style={{ margin: 0, fontSize: 19, fontWeight: 800, color: "#0f172a" }}>{plan.name}</h3>
+              {editingNameTier === tier ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <input
+                    autoFocus value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && saveName(tier)}
+                    style={{ flex: 1, minWidth: 0, padding: "6px 8px", borderRadius: 8, border: "1.5px solid #6366f1", fontSize: 17, fontWeight: 800, color: "#0f172a", outline: "none", fontFamily: "inherit" }}
+                  />
+                  <button onClick={() => saveName(tier)} disabled={savingName} style={{ background: "#6366f1", color: "#fff", border: "none", borderRadius: 6, padding: "6px 10px", fontSize: 11.5, fontWeight: 700, cursor: "pointer" }}>
+                    {savingName ? "…" : "Save"}
+                  </button>
+                  <button onClick={() => setEditingNameTier(null)} style={{ background: "#f1f5f9", color: "#64748b", border: "none", borderRadius: 6, padding: "6px 10px", fontSize: 11.5, fontWeight: 700, cursor: "pointer" }}>
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <h3
+                  onClick={() => startEditName(plan)}
+                  title="Click to rename"
+                  style={{ margin: 0, fontSize: 19, fontWeight: 800, color: "#0f172a", cursor: "pointer" }}
+                >
+                  {plan.name}
+                </h3>
+              )}
               <p style={{ margin: "4px 0 18px", fontSize: 12.5, color: "#94a3b8", minHeight: 48 }}>{plan.tagline}</p>
 
               <div style={{ marginBottom: 20 }}>
@@ -269,7 +317,7 @@ export default function PricingPlansTab() {
                 </button>
               )}
 
-              <div style={{ fontSize: 10.5, color: "#94a3b8", textAlign: "center" }}>Click the price to edit</div>
+              <div style={{ fontSize: 10.5, color: "#94a3b8", textAlign: "center" }}>Click the name or price to edit</div>
             </div>
           );
         })}

@@ -28,7 +28,7 @@ const planIcons: Record<string, React.ReactNode> = {
   pro:     <Building2 size={16} color="#374151" />,
 };
 
-// The salon's actual Basic/Advance/Pro assignment — from
+// The salon's actual Basic/Advance/Growth assignment — from
 // /salon-plans/my-plan (modules/salon-plans on the backend), NOT the
 // separate Razorpay billing_plans/billing_subscriptions system
 // (billingSlice's `plans`/`subscription`), which has no relationship to
@@ -72,7 +72,7 @@ export default function BillingPage() {
   const [payingTier, setPayingTier] = useState<string | null>(null);
   const { showSuccess, showError, overlay } = useStatusOverlay();
 
-  // The salon's real Basic/Advance/Pro assignment — see MyPlanResponse
+  // The salon's real Basic/Advance/Growth assignment — see MyPlanResponse
   // comment above for why this replaces billingSlice's `plans` for display.
   const [myPlan, setMyPlan] = useState<MyPlanResponse | null>(null);
   const [myPlanLoading, setMyPlanLoading] = useState(true);
@@ -139,7 +139,7 @@ export default function BillingPage() {
     { label: "Analytics reports",       used: 0,                limit: 50,   icon: <BarChart2 size={15} />,    estimate: true },
   ], [staffList.length]);
 
-  // Days remaining until myPlan.expiry_date (the real Basic/Advance/Pro
+  // Days remaining until myPlan.expiry_date (the real Basic/Advance/Growth
   // assignment's own expiry, not Razorpay's current_period_end), floor-
   // rounded so "30 days or less" reads naturally. null when there's no
   // expiry date set (open-ended plan) — callers treat null as "don't show
@@ -207,7 +207,7 @@ export default function BillingPage() {
       </div>
 
       {/* Current Plan — from /salon-plans/my-plan, the salon's real
-          Basic/Advance/Pro assignment (see MyPlanResponse comment above). */}
+          Basic/Advance/Growth assignment (see MyPlanResponse comment above). */}
       {!subPerms.view_subscription ? (
         <div className="settings-billing-plan mb-4" style={{ background: "#f9fafb", border: "1px solid #e5e7eb" }}>
           <p className="settings-billing-plan-label" style={{ color: "#6b7280" }}>Subscription details unavailable</p>
@@ -295,7 +295,7 @@ export default function BillingPage() {
         })}
       </SettingsSection>
 
-      {/* Plans — the same Basic/Advance/Pro catalog super admin manages in
+      {/* Plans — the same Basic/Advance/Growth catalog super admin manages in
           Plans & Subscriptions → Pricing Plans, not the separate Razorpay
           billing_plans catalog. Plan changes are admin-managed (Salon
           Customization tab), not self-serve Razorpay checkout, so this is
