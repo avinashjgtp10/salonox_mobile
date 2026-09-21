@@ -29,6 +29,7 @@ import {
   exportInventoryCSV,
 } from "../utils/productInventoryExport";
 import PurchaseModal from "../components/PurchaseModal";
+import ProductDetailDrawer from "../components/ProductDetailDrawer";
 import "../styles/ProductInventoryPage.scss";
 
 // Product Inventory — stock position and stock-in for RETAIL products.
@@ -151,6 +152,7 @@ export default function ProductInventoryPage() {
   const [brands, setBrands] = useState<Option[]>([]);
 
   const [historyFor, setHistoryFor] = useState<InventoryRow | "all" | null>(null);
+  const [detailFor, setDetailFor] = useState<InventoryRow | null>(null);
   const [purchaseOpen, setPurchaseOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<InventoryRow | null>(null);
   const [deleteInput, setDeleteInput] = useState("");
@@ -474,6 +476,8 @@ export default function ProductInventoryPage() {
                     key={r.id}
                     ref={r.id === highlightId ? highlightRowRef : undefined}
                     className={`${r.low_stock ? "pinv-row--low" : ""}${r.id === highlightId ? " pinv-row--highlight" : ""}`}
+                    style={{ cursor: "pointer" }}
+                    onClick={() => setDetailFor(r)}
                   >
                     <td className="product-name-cell pinv-product-cell" title={r.name}>
                       <div className="product-icon"><BoxSeam size={20} /></div>
@@ -574,6 +578,10 @@ export default function ProductInventoryPage() {
           onClose={() => setHistoryFor(null)}
           onError={showError}
         />
+      )}
+
+      {detailFor && (
+        <ProductDetailDrawer productId={detailFor.id} onClose={() => setDetailFor(null)} />
       )}
 
       {purchaseOpen && (

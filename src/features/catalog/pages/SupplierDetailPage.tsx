@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, BoxSeam, CashCoin } from "react-bootstrap-icons";
+import { ArrowLeft, BoxSeam, CashCoin, X } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { INVENTORY } from "../../../services/api/endpoints/inventory.endpoints";
 import { useAppDispatch } from "../../../hooks/useAppRedux";
@@ -51,8 +51,17 @@ interface PurchaseDetail extends SupplierOrderRow {
   items: PurchaseItemDetail[];
 }
 
-const SupplierDetailPage: React.FC = () => {
-  const { id } = useParams<{ id: string }>();
+interface Props {
+  // Popup mode: an explicit id + onClose, used when opened as a popup from
+  // SuppliersListPage.tsx instead of navigated to as its own route. Omitted
+  // when rendered at its normal /suppliers/:id route.
+  id?: string;
+  onClose?: () => void;
+}
+
+const SupplierDetailPage: React.FC<Props> = ({ id: propId, onClose }) => {
+  const { id: routeId } = useParams<{ id: string }>();
+  const id = propId ?? routeId;
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { can } = usePermissions();
@@ -123,21 +132,33 @@ const SupplierDetailPage: React.FC = () => {
     return () => { cancelled = true; };
   }, [detailFor, showError]);
 
+  const isPopup = !!onClose;
+
   if (!supplier) {
-    return (
+    const loadingBody = (
       <div className="supplier-detail-page">
         <Skeleton width="30%" height={24} />
+      </div>
+    );
+    if (!isPopup) return loadingBody;
+    return (
+      <div className="sdp-popup-overlay" onClick={onClose}>
+        <div className="sdp-popup-panel" onClick={(e) => e.stopPropagation()}>{loadingBody}</div>
       </div>
     );
   }
 
   const status = supplier.status ?? "paid";
 
-  return (
+  const content = (
     <div className="supplier-detail-page">
-      <button className="supplier-detail-page__back" onClick={() => navigate(-1)}>
-        <ArrowLeft size={14} /> Back to Suppliers
-      </button>
+      {isPopup ? (
+        <button className="sdp-popup-close" onClick={onClose}><X size={20} /></button>
+      ) : (
+        <button className="supplier-detail-page__back" onClick={() => navigate(-1)}>
+          <ArrowLeft size={14} /> Back to Suppliers
+        </button>
+      )}
 
       <header className="supplier-detail-page__header">
         <div>
@@ -321,6 +342,14 @@ const SupplierDetailPage: React.FC = () => {
           setPaymentsRefreshKey((k) => k + 1);
         }}
       />
+    </div>
+  );
+
+  if (!isPopup) return content;
+
+  return (
+    <div className="sdp-popup-overlay" onClick={onClose}>
+      <div className="sdp-popup-panel" onClick={(e) => e.stopPropagation()}>{content}</div>
     </div>
   );
 };
