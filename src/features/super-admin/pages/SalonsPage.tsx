@@ -182,7 +182,7 @@ export default function SalonsPage() {
   const [createModal, setCreateModal] = useState(false);
   const [creating, setCreating]       = useState(false);
   const [createErr, setCreateErr]     = useState("");
-  const [createdUser, setCreatedUser] = useState<{ email: string; password: string; role: string; name: string } | null>(null);
+  const [createdUser, setCreatedUser] = useState<{ email: string; password: string; role: string; name: string; status: string } | null>(null);
   const [form, setForm] = useState({ first_name: "", last_name: "", email: "", password: "", phone: "", role: "salon_owner", business_name: "", address: "" });
   const [showFormPw, setShowFormPw] = useState(false);
 
@@ -217,7 +217,7 @@ export default function SalonsPage() {
     }));
     setCreating(false);
     if (createUserThunk.fulfilled.match(r)) {
-      setCreatedUser({ email: form.email, password: form.password, role: form.role, name: `${form.first_name} ${form.last_name}`.trim() });
+      setCreatedUser({ email: form.email, password: form.password, role: form.role, name: `${form.first_name} ${form.last_name}`.trim(), status: (r.payload as any)?.status || "active" });
       load(search || undefined);
     } else {
       setCreateErr((r.payload as string) || "Failed to create user.");
@@ -511,7 +511,10 @@ export default function SalonsPage() {
                     </div>
                     <div>
                       <div style={{ color: "#0f172a", fontWeight: 700, fontSize: 14 }}>{createdUser.name}</div>
-                      <div style={{ color: "#64748b", fontSize: 12 }}>{createdUser.role.replace("_", " ")}</div>
+                      <div style={{ color: "#64748b", fontSize: 12, textTransform: "capitalize" }}>{createdUser.role.replace("_", " ")}</div>
+                    </div>
+                    <div style={{ marginLeft: "auto" }}>
+                      <Badge status={createdUser.status} />
                     </div>
                   </div>
                   <p style={{ margin: "0 0 12px", color: "#15803d", fontSize: 13, fontWeight: 600 }}>✓ Account created successfully!</p>
