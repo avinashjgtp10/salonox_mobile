@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
-import { fetchSuperAdminSalonsThunk, fetchSuperAdminUsersThunk, fetchBranchOwnerSalonsThunk, assignBranchOwnerSalonsThunk, updateUserThunk, deleteUserThunk, resetUserPasswordThunk } from "../../../middleware/superAdmin/superAdmin.thunk";
+import { fetchSuperAdminSalonsThunk, fetchSuperAdminUsersThunk, fetchBranchOwnerSalonsThunk, assignBranchOwnerSalonsThunk, updateUserThunk, deleteUserThunk, resetUserPasswordThunk, impersonateUserThunk } from "../../../middleware/superAdmin/superAdmin.thunk";
 import { Badge, Toast } from "../components/SuperAdminUI";
 
 type MenuAction = { label: string; color: string; bg: string; onClick: () => void; disabled?: boolean };
@@ -543,6 +543,7 @@ export default function BranchOwnersPage() {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [actionId, setActionId] = useState<string | null>(null);
 
   const load = useCallback(() => {
     dispatch(fetchSuperAdminUsersThunk({ role: "branch_owner" }));
@@ -566,6 +567,33 @@ export default function BranchOwnersPage() {
       showToast((r.payload as any)?.message || "Failed to delete branch owner.", false);
     }
     setDeleteTarget(null);
+  }
+
+  // Mints a token for the account and opens its dashboard in a new tab.
+  // The tab must be opened synchronously, right here, before the `await`
+  // below — once an async gap passes, browsers stop treating window.open as
+  // directly triggered by the click and silently block it (no tab, no
+  // error, page just sits there looking like nothing happened). Opening a
+  // blank tab now and redirecting it once the token arrives keeps the
+  // click's permission alive.
+  async function handleImpersonate(id: string) {
+    setActionId(id);
+    const newTab = window.open("", "_blank");
+    const r = await dispatch(impersonateUserThunk(id));
+    if (impersonateUserThunk.fulfilled.match(r)) {
+      const { token, refreshToken, isOnboardingComplete = true } = (r.payload as any) ?? {};
+      if (!newTab) {
+        showToast("Popup blocked — please allow popups for this site and try again.", false);
+      } else if (token) {
+        const params = new URLSearchParams({ token, isOnboardingComplete: String(isOnboardingComplete) });
+        if (refreshToken) params.set("refreshToken", refreshToken);
+        newTab.location.href = `${window.location.origin}/oauth/success?${params.toString()}`;
+      }
+    } else {
+      newTab?.close();
+      showToast((r.payload as string) || "Impersonate failed.", false);
+    }
+    setActionId(null);
   }
 
   return (
@@ -618,6 +646,7 @@ export default function BranchOwnersPage() {
                       setOpenId={setOpenMenuId}
                       actions={[
                         { label: "Assign Salons",  color: "#6366f1", bg: "#eef2ff", onClick: () => setAssignTarget({ id: u.id, name: u.name }) },
+                        { label: "Impersonate",    color: "#6366f1", bg: "#eef2ff", onClick: () => handleImpersonate(u.id), disabled: actionId === u.id },
                         { label: "Edit",           color: "#0f172a", bg: "#f1f5f9", onClick: () => setEditTarget({ id: u.id, name: u.name, email: u.email, phone: u.phone }) },
                         { label: "Reset Password", color: "#d97706", bg: "#fffbeb", onClick: () => setResetTarget({ id: u.id, name: u.name, email: u.email }) },
                         { label: "Delete",         color: "#dc2626", bg: "#fef2f2", onClick: () => setDeleteTarget({ id: u.id, name: u.name, email: u.email }) },

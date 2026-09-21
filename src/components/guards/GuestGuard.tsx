@@ -50,6 +50,13 @@ const GuestGuard = () => {
     // isOnboardingComplete.
     if (role === "super_admin") {
       return <Navigate to="/super-admin" replace />;
+    } else if (role === "branch_owner") {
+      // Branch owners never go through salon onboarding — without this
+      // check they fall through to the isOnboardingComplete branch below,
+      // which is false for a branch owner (that flag is salon-owner-only),
+      // sending a super-admin "Impersonate" straight into /business-name
+      // instead of the branch owner's own dashboard.
+      return <Navigate to="/branch-owner" replace />;
     } else if (isOnboardingComplete || impersonatedBy === "branch_owner") {
       // Branch-owner-entered salons are always already onboarded.
       return <Navigate to="/dashboard" replace />;
