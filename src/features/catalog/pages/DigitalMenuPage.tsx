@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
-import { QrCode, Eye, PencilSquare, ToggleOn, ToggleOff, Grid } from "react-bootstrap-icons";
-import { PageHeader, EmptyState, Badge, Button, PageLoader } from "../../../components/ui";
+import { QrCode, Eye, PencilSquare, ToggleOn, ToggleOff, Grid, Trash } from "react-bootstrap-icons";
+import { PageHeader, EmptyState, Badge, Button, PageLoader, ConfirmDialog } from "../../../components/ui";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { usePermissions } from "../../../hooks/usePermissions";
 import { showPermissionDenied } from "../../../store/permissionDialogSlice";
-import { fetchDigitalMenuThunk, saveDigitalMenuThunk } from "../../../middleware/digitalMenu/digitalMenu.thunk";
+import { fetchDigitalMenuThunk, saveDigitalMenuThunk, deleteDigitalMenuThunk } from "../../../middleware/digitalMenu/digitalMenu.thunk";
 import DigitalMenuConfigModal from "../components/DigitalMenuConfigModal";
 import DigitalMenuQrModal from "../components/DigitalMenuQrModal";
 import "../styles/DigitalMenu.scss";
@@ -16,6 +16,7 @@ export default function DigitalMenuPage() {
 
   const [showConfig, setShowConfig] = useState(false);
   const [showQr, setShowQr] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
     dispatch(fetchDigitalMenuThunk());
@@ -57,6 +58,17 @@ export default function DigitalMenuPage() {
   const handleViewMenu = () => {
     if (!menu) return;
     window.open(`${window.location.origin}/menu/${menu.public_token}`, "_blank", "noopener,noreferrer");
+  };
+
+  const handleDeleteClick = () => {
+    if (!can("delete_digital_menu")) { denyPerm("delete_digital_menu"); return; }
+    setShowDeleteConfirm(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!menu) return;
+    const result = await dispatch(deleteDigitalMenuThunk(menu.id));
+    if (deleteDigitalMenuThunk.fulfilled.match(result)) setShowDeleteConfirm(false);
   };
 
   if (loading && !menu) return <PageLoader fullHeight />;
@@ -123,6 +135,14 @@ export default function DigitalMenuPage() {
             >
               {menu.status === "active" ? "Disable" : "Enable"}
             </Button>
+            <Button
+              variant="outline-danger"
+              size="sm"
+              iconLeft={<Trash size={14} />}
+              onClick={handleDeleteClick}
+            >
+              Delete
+            </Button>
           </div>
         </div>
       )}
@@ -135,6 +155,23 @@ export default function DigitalMenuPage() {
       )}
       {showQr && menu && (
         <DigitalMenuQrModal menu={menu} onClose={() => setShowQr(false)} />
+      )}
+
+      {showDeleteConfirm && menu && (
+        <ConfirmDialog
+          title="Delete Digital Menu"
+          message={(
+            <>
+              Are you sure you want to delete the <strong>{menu.name}</strong> digital menu? Its QR code will stop
+              working immediately and this action cannot be undone.
+            </>
+          )}
+          confirmLabel={saving ? "Deleting…" : "Delete"}
+          danger
+          confirmDisabled={saving}
+          onConfirm={handleDeleteConfirm}
+          onCancel={() => !saving && setShowDeleteConfirm(false)}
+        />
       )}
     </div>
   );

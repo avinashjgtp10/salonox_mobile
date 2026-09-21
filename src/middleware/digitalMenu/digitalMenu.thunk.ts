@@ -42,6 +42,19 @@ export const saveDigitalMenuThunk = createAsyncThunk<
   }
 });
 
+export const deleteDigitalMenuThunk = createAsyncThunk<
+  void,
+  string,
+  { rejectValue: string }
+>("digitalMenu/delete", async (id, { rejectWithValue }) => {
+  try {
+    await api.delete(DIGITAL_MENU.DELETE(id));
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to delete digital menu.");
+  }
+});
+
 export const fetchPublicDigitalMenuThunk = createAsyncThunk<
   PublicMenuResponse,
   string,
