@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useReducer, useRef, useState } 
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Undo2, Redo2, ZoomIn, ZoomOut, Eye, Download, Check } from "lucide-react";
 import api from "../../../services/api/axios";
+import { API_ORIGIN } from "../../../services/api/baseUrl";
 import { useAppSelector } from "../../../hooks/useAppRedux";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import {
@@ -348,11 +349,11 @@ const CouponDesignerPage: React.FC = () => {
    * stored doc, so exporting an unsaved design would silently export the
    * previous version.
    */
-  async function runExport(opts: ExportDesignPayload) {
+  async function runExport(opts: ExportDesignPayload, popup: Window | null) {
     setShowSizePicker(false);
     let id = designId;
     if (!id || state.dirty) { await save(true); id = designId; }
-    if (!id) { showError("Save the design first"); return; }
+    if (!id) { showError("Save the design first"); popup?.close(); return; }
 
     setExporting(true);
     try {
@@ -365,11 +366,26 @@ const CouponDesignerPage: React.FC = () => {
       } else {
         showSuccess(`Exported ${out.fileName}`);
       }
-      window.open(out.url, "_blank");
+      // out.url is a path on the BACKEND's own /uploads static mount
+      // (coupon-designs.controller.ts deliberately returns it unprefixed —
+      // see its comment), not the frontend's origin — needs API_ORIGIN or a
+      // frontend/backend split deploy resolves it against whatever page
+      // we're on and 404s into the SPA's own fallback route.
+      //
+      // Navigates a tab opened SYNCHRONOUSLY back in handleDownload(), not
+      // window.open() here — calling window.open() only after this await
+      // has already resolved runs outside the original click's "user
+      // activation" window, so Chromium browsers (Brave especially) silently
+      // block it with no error at all. Redirecting an already-open tab has
+      // no such restriction.
+      const fileUrl = `${API_ORIGIN}${out.url}`;
+      if (popup) popup.location.href = fileUrl;
+      else window.open(fileUrl, "_blank"); // popup was itself blocked — best effort
       setDownloadSizeId(null);
     } catch (err: unknown) {
       const e = err as { response?: { data?: { error?: { message?: string } } } };
       showError(e?.response?.data?.error?.message ?? "Export failed");
+      popup?.close();
     } finally {
       setExporting(false);
     }
@@ -416,11 +432,15 @@ const CouponDesignerPage: React.FC = () => {
       customUnit,
     });
     if (!resolved) { setSizeError("Please enter a valid coupon width and height."); return; }
+    // Opened here, synchronously, still inside the click's own call stack —
+    // see runExport()'s comment on why this can't be deferred until after
+    // the export request resolves without the browser silently blocking it.
+    const popup = window.open("", "_blank");
     runExport({
       format: "pdf",
       sizeMm: { width: resolved.widthMm, height: resolved.heightMm },
       quantity,
-    });
+    }, popup);
   }
 
   if (loading) return <div className="dz-loading">Loading design…</div>;
