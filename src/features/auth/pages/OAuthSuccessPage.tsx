@@ -3,6 +3,22 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import { login } from "../../../store/authSlice";
 
+// Also the landing page for super-admin "Impersonate" links (opened via
+// window.open, see BranchOwnersPage/SalonsPage handleImpersonate) — those
+// tokens can carry a role other than salon owner (e.g. branch_owner), which
+// has its own guarded dashboard route, so the landing route below is decided
+// from the token's own `role` claim rather than always assuming /dashboard.
+function decodeRole(token: string): string | null {
+  try {
+    const payload = token.split(".")[1];
+    const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
+    return JSON.parse(atob(padded))?.role ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * OAuthSuccessPage
  * ─────────────────
@@ -31,7 +47,12 @@ export default function OAuthSuccessPage() {
     // Dispatch the tokens and status
     dispatch(login({ accessToken, refreshToken, isOnboardingComplete }));
 
-    if (isOnboardingComplete) {
+    const role = decodeRole(accessToken);
+    if (role === "branch_owner") {
+      navigate("/branch-owner");
+    } else if (role === "super_admin") {
+      navigate("/super-admin");
+    } else if (isOnboardingComplete) {
       navigate("/dashboard");
     } else {
       navigate("/business-name");

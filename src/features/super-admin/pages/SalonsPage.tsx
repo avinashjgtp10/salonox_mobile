@@ -445,17 +445,29 @@ export default function SalonsPage() {
     load(search || undefined); setActionId(null);
   }
 
+  // The tab must be opened synchronously, right here, before the `await`
+  // below — once an async gap passes, browsers stop treating window.open as
+  // directly triggered by the click and silently block it (no tab, no
+  // error, page just sits there looking like nothing happened). Opening a
+  // blank tab now and redirecting it once the token arrives keeps the
+  // click's permission alive.
   async function handleImpersonate(id: string) {
     setActionId(id);
+    const newTab = window.open("", "_blank");
     const r = await dispatch(impersonateSalonThunk(id));
     if (impersonateSalonThunk.fulfilled.match(r)) {
       const { token, refreshToken, isOnboardingComplete = true } = (r.payload as any) ?? {};
-      if (token) {
+      if (!newTab) {
+        showToast("Popup blocked — please allow popups for this site and try again.", false);
+      } else if (token) {
         const params = new URLSearchParams({ token, isOnboardingComplete: String(isOnboardingComplete) });
         if (refreshToken) params.set("refreshToken", refreshToken);
-        window.open(`${window.location.origin}/oauth/success?${params.toString()}`, "_blank");
+        newTab.location.href = `${window.location.origin}/oauth/success?${params.toString()}`;
       }
-    } else { showToast("Impersonate failed.", false); }
+    } else {
+      newTab?.close();
+      showToast("Impersonate failed.", false);
+    }
     setActionId(null);
   }
 
