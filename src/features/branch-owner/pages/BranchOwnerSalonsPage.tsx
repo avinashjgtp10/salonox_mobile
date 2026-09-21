@@ -332,7 +332,7 @@ export default function BranchOwnerSalonsPage() {
   }
 
   async function handleDelete() {
-    if (!deleteTarget) return;
+    if (!deleteTarget || deleteLoading) return;
     setDeleteLoading(true);
     const r = await dispatch(deleteSalonThunk(deleteTarget.id));
     setDeleteLoading(false);
@@ -486,9 +486,10 @@ export default function BranchOwnerSalonsPage() {
       {deleteTarget && (
         <ConfirmDialog
           title="Delete Salon"
-          message={`Are you sure you want to delete ${deleteTarget.name}? All associated data will be permanently removed. This action cannot be undone.`}
+          message={<>Are you sure you want to delete <strong>{deleteTarget.name}</strong>? All associated data will be permanently removed. This action cannot be undone.</>}
           confirmLabel={deleteLoading ? "Deleting…" : "Delete Salon"}
           danger
+          confirmDisabled={deleteLoading}
           onConfirm={handleDelete}
           onCancel={() => !deleteLoading && setDeleteTarget(null)}
         />
