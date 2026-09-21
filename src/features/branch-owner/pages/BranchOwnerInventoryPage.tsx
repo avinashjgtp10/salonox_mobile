@@ -56,15 +56,23 @@ export default function BranchOwnerInventoryPage() {
   const [formError, setFormError] = useState("");
   const [formBusy, setFormBusy] = useState(false);
 
+  // Summary/Low Stock/Recent Transfers are all scoped server-side to the
+  // selected branch (salon_id query param) — Branch Overview deliberately
+  // stays unscoped since it's the cross-branch comparison list (the select
+  // just highlights/narrows it to one row client-side, see
+  // visibleBranchOverview below).
   const loadAll = () => {
+    const salonId = branchFilter !== "all" ? branchFilter : undefined;
+    const salonParams = salonId ? { params: { salon_id: salonId } } : {};
+    setLoaded(false);
     Promise.all([
-      api.get(BRANCH_OWNER.INVENTORY_SUMMARY).then((r) => setSummary(r.data?.data ?? null)).catch(() => {}),
+      api.get(BRANCH_OWNER.INVENTORY_SUMMARY, salonParams).then((r) => setSummary(r.data?.data ?? null)).catch(() => {}),
       api.get(BRANCH_OWNER.INVENTORY_BRANCH_OVERVIEW).then((r) => setBranchOverview(r.data?.data ?? [])).catch(() => {}),
-      api.get(BRANCH_OWNER.INVENTORY_LOW_STOCK).then((r) => setLowStock(r.data?.data ?? [])).catch(() => {}),
-      api.get(BRANCH_OWNER.STOCK_TRANSFERS).then((r) => setRecent(r.data?.data ?? [])).catch(() => {}),
+      api.get(BRANCH_OWNER.INVENTORY_LOW_STOCK, salonParams).then((r) => setLowStock(r.data?.data ?? [])).catch(() => {}),
+      api.get(BRANCH_OWNER.STOCK_TRANSFERS, salonParams).then((r) => setRecent(r.data?.data ?? [])).catch(() => {}),
     ]).finally(() => setLoaded(true));
   };
-  useEffect(() => { loadAll(); }, []);
+  useEffect(() => { loadAll(); }, [branchFilter]);
 
   useEffect(() => {
     if (salons.length >= 2 && !sourceSalonId) setSourceSalonId(salons[0].id);
