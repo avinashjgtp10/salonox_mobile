@@ -1,11 +1,102 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Building, CheckCircle, PersonFill, CashCoin, Search, GeoAlt, CalendarEvent, EnvelopeAt } from "react-bootstrap-icons";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { fetchMySalonsThunk, enterSalonThunk, resetSalonOwnerPasswordThunk, deleteSalonThunk } from "../../../middleware/branchOwner/branchOwner.thunk";
 import type { BranchOwnerSalon } from "../../../store/branchOwnerSlice";
-import { JiraFilterMenu, Button, Table, Modal, ConfirmDialog, Input, Card, Badge } from "../../../components/ui";
+import { JiraFilterMenu, Button, Modal, ConfirmDialog, Input, Badge } from "../../../components/ui";
 import type { JiraFilterField } from "../../../components/ui";
 import { StatTile, StatusBadge, usePagination, BoPagination } from "../components/BranchOwnerUI";
+
+// ── Super Admin table look-and-feel, reproduced exactly ─────────────────────
+// components/ui's Table/Badge (Bootstrap solid pills, zebra rows) can't hit
+// Super Admin's soft-pastel/plain-table look without fighting Bootstrap's
+// own CSS, so this table is bespoke-styled (matching SalonsPage.tsx's own
+// inline styles 1:1: header bg #f8fafc, row hover #f8fafc, soft pill
+// badges, three-dot ActionsMenu) rather than reused from the shared kit.
+function SoftBadge({ status }: { status: string }) {
+  const map: Record<string, { bg: string; text: string }> = {
+    active: { bg: "#f0fdf4", text: "#16a34a" },
+    inactive: { bg: "#fef2f2", text: "#dc2626" },
+  };
+  const c = map[status] ?? { bg: "#f8fafc", text: "#64748b" };
+  return <span style={{ padding: "3px 10px", borderRadius: 20, fontSize: 11.5, fontWeight: 600, background: c.bg, color: c.text, textTransform: "capitalize" }}>{status}</span>;
+}
+
+function daysRemaining(iso?: string | null): number | null {
+  if (!iso) return null;
+  const ms = new Date(iso).getTime() - Date.now();
+  return Math.ceil(ms / (1000 * 60 * 60 * 24));
+}
+
+type MenuAction = { label: string; color: string; bg: string; onClick: () => void; disabled?: boolean };
+
+function ActionsMenu({ actions, rowId, openId, setOpenId }: { actions: MenuAction[]; rowId: string; openId: string | null; setOpenId: (id: string | null) => void }) {
+  const open = openId === rowId;
+  const [hov, setHov] = useState(false);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const [coords, setCoords] = useState<{ top: number; left: number } | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setOpenId(null);
+    window.addEventListener("click", close);
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    return () => {
+      window.removeEventListener("click", close);
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+    };
+  }, [open, setOpenId]);
+
+  function toggle() {
+    if (!open && btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect();
+      setCoords({ top: rect.bottom + 4, left: rect.right - 170 });
+    }
+    setOpenId(open ? null : rowId);
+  }
+
+  return (
+    <div style={{ display: "inline-block" }} onClick={(e) => e.stopPropagation()}>
+      <button
+        ref={btnRef}
+        onClick={toggle}
+        onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
+        title="Actions"
+        style={{ width: 30, height: 30, borderRadius: 7, border: "1.5px solid #e2e8f0", background: hov || open ? "#f8fafc" : "#fff", color: "#374151", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s" }}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>
+      </button>
+      {open && coords && createPortal(
+        <div
+          onClick={(e) => e.stopPropagation()}
+          style={{ position: "fixed", top: coords.top, left: coords.left, zIndex: 10000, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", minWidth: 170, padding: 6, display: "flex", flexDirection: "column", gap: 3 }}>
+          {actions.map((a, i) => (
+            <button key={i}
+              onClick={() => { setOpenId(null); a.onClick(); }}
+              disabled={a.disabled}
+              style={{ display: "flex", alignItems: "center", padding: "8px 10px", borderRadius: 7, border: "none", background: "transparent", color: a.color, fontSize: 12.5, fontWeight: 600, cursor: a.disabled ? "not-allowed" : "pointer", opacity: a.disabled ? 0.5 : 1, textAlign: "left", transition: "background 0.12s" }}
+              onMouseEnter={(e) => !a.disabled && (e.currentTarget.style.background = a.bg)}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
+              {a.label}
+            </button>
+          ))}
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+}
+
+function DateRemainingCell({ iso }: { iso?: string | null }) {
+  const days = daysRemaining(iso);
+  if (days === null) return <span style={{ color: "#cbd5e1" }}>—</span>;
+  if (days < 0) return <span style={{ color: "#dc2626", fontWeight: 600, fontSize: 12.5 }}>Expired {fmtDateShort(iso)}</span>;
+  if (days === 0) return <span style={{ color: "#d97706", fontWeight: 700, fontSize: 12.5 }}>Expires today</span>;
+  if (days <= 7) return <span style={{ color: "#d97706", fontWeight: 700, fontSize: 12.5 }}>{days} day{days !== 1 ? "s" : ""} left</span>;
+  return <span style={{ color: "#374151", fontSize: 12.5 }}>{days} days left</span>;
+}
 
 const STATUS_OPTIONS = [
   { id: "active", label: "Active" },
@@ -137,6 +228,7 @@ export default function BranchOwnerSalonsPage() {
   const loading = loadingState.salons;
   const [enteringId, setEnteringId] = useState<string | null>(null);
   const [selectedSalon, setSelectedSalon] = useState<BranchOwnerSalon | null>(null);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
   const [resetTarget, setResetTarget] = useState<{ id: string; name: string } | null>(null);
   const [resetLoading, setResetLoading] = useState(false);
@@ -293,52 +385,75 @@ export default function BranchOwnerSalonsPage() {
         <JiraFilterMenu fields={filterFields} selected={filterMenuSelected} onApply={handleFiltersApply} triggerLabel="Filters" />
       </div>
 
-      <Card noPadding shadow="sm">
-        <Table<BranchOwnerSalon>
-          loading={loading}
-          data={salonsPage.pageItems}
-          emptyMessage={salons.length === 0 ? "No salons assigned yet" : "No salons match these filters"}
-          onRowClick={(s) => setSelectedSalon(s)}
-          columns={[
-            { header: "Salon", key: "name", render: (s) => <span className="fw-bold text-dark">{s.name}</span> },
-            {
-              header: "Owner", key: "owner_name",
-              render: (s) => (
-                <div>
-                  <div className="text-dark" style={{ fontSize: 13 }}>{s.owner_name || "—"}</div>
-                  <div className="text-muted" style={{ fontSize: 11.5 }}>{s.owner_email}</div>
-                </div>
-              ),
-            },
-            { header: "Staff", key: "staff_count", render: (s) => s.staff_count ?? 0 },
-            { header: "Customers", key: "client_count", render: (s) => (s.client_count ?? 0).toLocaleString("en-IN") },
-            { header: "Today's Appointments", key: "appointments_today", render: (s) => s.appointments_today ?? 0 },
-            { header: "Revenue", key: "revenue_today", render: (s) => formatCurrency(s.revenue_today ?? 0) },
-            { header: "Status", key: "status", render: (s) => <StatusBadge status={s.status} /> },
-            { header: "Plan", key: "plan_expires_at", render: (s) => <PlanStatusBadge salon={s} /> },
-            {
-              header: "Actions", key: "actions",
-              render: (s) => (
-                // Row itself opens the detail card — actions must not also
-                // trigger that when clicked, so their click never bubbles up
-                // to the row's own onClick.
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }} onClick={(e) => e.stopPropagation()}>
-                  <Button size="sm" variant="outline-primary" loading={enteringId === s.id} onClick={() => handleEnter(s.id)}>
-                    {enteringId === s.id ? "Opening…" : "Enter Salon"}
-                  </Button>
-                  <Button size="sm" variant="outline-warning" onClick={() => { setResetErr(""); setResetTarget({ id: s.id, name: s.name }); }}>
-                    Reset Password
-                  </Button>
-                  <Button size="sm" variant="outline-danger" onClick={() => setDeleteTarget({ id: s.id, name: s.name })}>
-                    Delete
-                  </Button>
-                </div>
-              ),
-            },
-          ]}
-        />
+      <div className="bo-table-scroll" style={{ background: "#fff", borderRadius: 14, border: "1px solid #e2e8f0", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5, minWidth: 1100 }}>
+          <thead>
+            <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
+              {["Salon", "Owner", "Plan", "Date Remaining", "Staff", "Clients", "Revenue", "Created Date", "Status", "Actions"].map((h) => (
+                <th key={h} style={{ padding: "11px 16px", textAlign: "left", color: "#64748b", fontWeight: 600, fontSize: 11.5, textTransform: "uppercase", letterSpacing: "0.04em", whiteSpace: "nowrap" }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              [...Array(6)].map((_, i) => (
+                <tr key={i} style={{ borderTop: "1px solid #f1f5f9" }}>
+                  {[...Array(10)].map((_, j) => (
+                    <td key={j} style={{ padding: "14px 16px" }}>
+                      <div style={{ height: 13, borderRadius: 4, background: "linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%)", backgroundSize: "200% 100%", animation: "bo-sal-shimmer 1.4s infinite" }} />
+                    </td>
+                  ))}
+                </tr>
+              ))
+            ) : salonsPage.pageItems.length === 0 ? (
+              <tr><td colSpan={10} style={{ padding: "48px 0", textAlign: "center", color: "#94a3b8", fontSize: 13.5 }}>
+                {salons.length === 0 ? "No salons assigned yet" : "No salons match these filters"}
+              </td></tr>
+            ) : (
+              salonsPage.pageItems.map((s) => (
+                <tr key={s.id} style={{ borderTop: "1px solid #f1f5f9", cursor: "pointer" }}
+                  onClick={() => setSelectedSalon(s)}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "#f8fafc")}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "#fff")}>
+                  <td style={{ padding: "13px 16px" }}>
+                    <span style={{ color: "#0f172a", fontWeight: 700, fontSize: 13.5 }}>{s.name}</span>
+                  </td>
+                  <td style={{ padding: "13px 16px" }}>
+                    <div style={{ color: "#374151", fontSize: 13 }}>{s.owner_name || "—"}</div>
+                    <div style={{ color: "#94a3b8", fontSize: 11.5 }}>{s.owner_email}</div>
+                  </td>
+                  <td style={{ padding: "13px 16px" }}>
+                    {s.plan_name ? <span style={{ color: "#6366f1", fontWeight: 600, fontSize: 12.5 }}>{s.plan_name}</span> : <span style={{ color: "#cbd5e1" }}>—</span>}
+                  </td>
+                  <td style={{ padding: "13px 16px", whiteSpace: "nowrap" }}>
+                    <DateRemainingCell iso={s.plan_expires_at} />
+                  </td>
+                  <td style={{ padding: "13px 16px", color: "#374151" }}>{s.staff_count ?? 0}</td>
+                  <td style={{ padding: "13px 16px", color: "#374151" }}>{(s.client_count ?? 0).toLocaleString("en-IN")}</td>
+                  <td style={{ padding: "13px 16px", color: "#16a34a", fontWeight: 700 }}>{formatCurrency(s.revenue_today ?? 0)}</td>
+                  <td style={{ padding: "13px 16px", color: "#374151", whiteSpace: "nowrap" }}>{fmtDateShort(s.created_at)}</td>
+                  <td style={{ padding: "13px 16px" }}><SoftBadge status={s.status} /></td>
+                  <td style={{ padding: "13px 16px" }} onClick={(e) => e.stopPropagation()}>
+                    <ActionsMenu
+                      rowId={s.id}
+                      openId={openMenuId}
+                      setOpenId={setOpenMenuId}
+                      actions={[
+                        { label: enteringId === s.id ? "Opening…" : "Enter Salon", color: "#6366f1", bg: "#eef2ff", onClick: () => handleEnter(s.id), disabled: enteringId === s.id },
+                        { label: "Reset Password", color: "#d97706", bg: "#fffbeb", onClick: () => { setResetErr(""); setResetTarget({ id: s.id, name: s.name }); } },
+                        { label: "Delete", color: "#dc2626", bg: "#fef2f2", onClick: () => setDeleteTarget({ id: s.id, name: s.name }) },
+                      ]}
+                    />
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
         <BoPagination {...salonsPage} />
-      </Card>
+      </div>
+
+      <style>{`@keyframes bo-sal-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }`}</style>
 
       {selectedSalon && (
         <SalonDetailModal

@@ -4,8 +4,8 @@ import { PersonBadge } from "react-bootstrap-icons";
 import { SlidersHorizontal } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { fetchMySalonsThunk, fetchAllStaffThunk } from "../../../middleware/branchOwner/branchOwner.thunk";
-import { SectionCard, BoEmptyState, BoSearchInput, usePagination, BoPagination } from "../components/BranchOwnerUI";
-import { JiraFilterMenu, Badge, Button, Table } from "../../../components/ui";
+import { BoEmptyState, BoSearchInput, usePagination, BoPagination, BoTable, SoftBadge } from "../components/BranchOwnerUI";
+import { JiraFilterMenu } from "../../../components/ui";
 import type { JiraFilterField } from "../../../components/ui";
 import type { Staff } from "../../../types/staff.types";
 
@@ -120,77 +120,79 @@ export default function BranchOwnerStaffPermissionsPage() {
         </div>
       )}
 
-      <SectionCard
-        title="Team Members"
-        subtitle="Click Customize on any staff member to assign a role or set individual permissions."
-        noPadding
-      >
-        {loaded && staffList.length === 0 ? (
-          <BoEmptyState icon={<PersonBadge size={26} />} text="No staff members across your salons yet." />
-        ) : loaded && filteredStaff.length === 0 ? (
-          <BoEmptyState icon={<PersonBadge size={26} />} text="No staff members match the current filters." />
-        ) : (
-          <>
-            <Table<StaffRow>
-              loading={!loaded}
-              data={staffPage.pageItems}
-              columns={[
-                {
-                  header: "Staff", key: "name",
-                  render: (member) => {
-                    const name = member.fullName || member.first_name || member.email || "Unnamed";
-                    const initials = String(name).split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2);
-                    return (
-                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#e0f2fe", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#0369a1", flexShrink: 0 }}>
-                          {member.avatar_url
-                            ? <img src={member.avatar_url} alt={name} style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover" }} />
-                            : initials}
-                        </div>
-                        <span style={{ fontWeight: 700, color: "#0f172a" }}>{name}</span>
+      <h2 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", margin: "0 0 4px" }}>Team Members</h2>
+      <p style={{ margin: "0 0 12px", color: "#94a3b8", fontSize: 12.5 }}>Click Customize on any staff member to assign a role or set individual permissions.</p>
+
+      {loaded && staffList.length === 0 ? (
+        <BoEmptyState icon={<PersonBadge size={26} />} text="No staff members across your salons yet." />
+      ) : loaded && filteredStaff.length === 0 ? (
+        <BoEmptyState icon={<PersonBadge size={26} />} text="No staff members match the current filters." />
+      ) : (
+        <>
+          <BoTable<StaffRow>
+            loading={!loaded}
+            data={staffPage.pageItems}
+            columns={[
+              {
+                header: "Staff", key: "name",
+                render: (member) => {
+                  const name = member.fullName || member.first_name || member.email || "Unnamed";
+                  const initials = String(name).split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2);
+                  return (
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#e0f2fe", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#0369a1", flexShrink: 0 }}>
+                        {member.avatar_url
+                          ? <img src={member.avatar_url} alt={name} style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover" }} />
+                          : initials}
                       </div>
-                    );
-                  },
+                      <span style={{ fontWeight: 700, color: "#0f172a" }}>{name}</span>
+                    </div>
+                  );
                 },
-                { header: "Salon", key: "salonName", className: "text-secondary" },
-                { header: "Contact", key: "email", className: "text-secondary", render: (member) => member.email || member.designation || "—" },
-                {
-                  header: "Role", key: "role_name",
-                  render: (member) => member.role_name
-                    ? <Badge variant={member.role_name === "Manager" ? "warning" : "info"}>{member.role_name}</Badge>
-                    : <Badge variant="secondary">No role</Badge>,
-                },
-                {
-                  header: "Status", key: "is_active",
-                  render: (member) => member.is_active === false
-                    ? <Badge variant="secondary">Inactive</Badge>
-                    : <Badge variant="success">Active</Badge>,
-                },
-                {
-                  header: "Permissions", key: "has_overrides",
-                  render: (member) => member.has_overrides
-                    ? <Badge variant="primary">Customised</Badge>
-                    : <span style={{ color: "#94a3b8", fontSize: 12.5 }}>Role default</span>,
-                },
-                {
-                  header: "Action", key: "action",
-                  render: (member) => (
-                    <Button
-                      size="sm"
-                      variant={member.has_overrides ? "primary" : "outline-secondary"}
-                      iconLeft={<SlidersHorizontal size={13} />}
-                      onClick={() => navigate(`/branch-owner/staff-permissions/${member.id}`)}
-                    >
-                      {member.has_overrides ? "Edit" : "Customize"}
-                    </Button>
-                  ),
-                },
-              ]}
-            />
-            {loaded && <BoPagination {...staffPage} />}
-          </>
-        )}
-      </SectionCard>
+              },
+              { header: "Salon", key: "salonName", render: (member) => <span style={{ color: "#64748b" }}>{member.salonName}</span> },
+              { header: "Contact", key: "email", render: (member) => <span style={{ color: "#64748b" }}>{member.email || member.designation || "—"}</span> },
+              {
+                header: "Role", key: "role_name",
+                render: (member) => member.role_name
+                  ? <SoftBadge variant={member.role_name === "Manager" ? "warning" : "info"}>{member.role_name}</SoftBadge>
+                  : <SoftBadge variant="secondary">No role</SoftBadge>,
+              },
+              {
+                header: "Status", key: "is_active",
+                render: (member) => member.is_active === false
+                  ? <SoftBadge variant="secondary">Inactive</SoftBadge>
+                  : <SoftBadge variant="success">Active</SoftBadge>,
+              },
+              {
+                header: "Permissions", key: "has_overrides",
+                render: (member) => member.has_overrides
+                  ? <SoftBadge variant="primary">Customised</SoftBadge>
+                  : <span style={{ color: "#94a3b8", fontSize: 12.5 }}>Role default</span>,
+              },
+              {
+                header: "Action", key: "action",
+                render: (member) => (
+                  <button
+                    onClick={() => navigate(`/branch-owner/staff-permissions/${member.id}`)}
+                    style={{
+                      display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 7,
+                      border: member.has_overrides ? "none" : "1.5px solid #e2e8f0",
+                      background: member.has_overrides ? "#6366f1" : "#fff",
+                      color: member.has_overrides ? "#fff" : "#374151",
+                      fontSize: 12.5, fontWeight: 600, cursor: "pointer",
+                    }}
+                  >
+                    <SlidersHorizontal size={13} />
+                    {member.has_overrides ? "Edit" : "Customize"}
+                  </button>
+                ),
+              },
+            ]}
+          />
+          {loaded && <BoPagination {...staffPage} />}
+        </>
+      )}
     </div>
   );
 }

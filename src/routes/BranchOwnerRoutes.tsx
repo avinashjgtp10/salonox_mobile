@@ -6,7 +6,6 @@ const BranchOwnerLayout        = lazy(() => import("../features/branch-owner/com
 const BranchOwnerDashboardPage = lazy(() => import("../features/branch-owner/pages/BranchOwnerDashboardPage"));
 const BranchOwnerSalonsPage    = lazy(() => import("../features/branch-owner/pages/BranchOwnerSalonsPage"));
 const BranchOwnerPaymentsPage  = lazy(() => import("../features/branch-owner/pages/BranchOwnerPaymentsPage"));
-const BranchOwnerPlaceholderPage = lazy(() => import("../features/branch-owner/pages/BranchOwnerPlaceholderPage"));
 const BranchOwnerInventoryPage = lazy(() => import("../features/branch-owner/pages/BranchOwnerInventoryPage"));
 const BranchOwnerFinancePage   = lazy(() => import("../features/branch-owner/pages/BranchOwnerFinancePage"));
 const BranchOwnerStaffPerformancePage = lazy(() => import("../features/branch-owner/pages/BranchOwnerStaffPerformancePage"));

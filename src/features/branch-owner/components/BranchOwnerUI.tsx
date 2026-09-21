@@ -1,4 +1,5 @@
-import { useState, useMemo, type ReactNode } from "react";
+import { useState, useMemo, useEffect, useRef, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { Search } from "react-bootstrap-icons";
 import Card from "../../../components/ui/Card";
 import Badge from "../../../components/ui/Badge";
@@ -75,8 +76,163 @@ const STATUS_VARIANT: Record<string, "warning" | "success" | "secondary" | "dang
   partial: "info",
 };
 
+// Super Admin's soft-pastel pill look (e.g. SalonsPage.tsx's Badge/status
+// cells) instead of Bootstrap's solid-color-plus-white-text badge — same
+// variant keys as STATUS_VARIANT above so callers don't need to change.
+const SOFT_VARIANT_COLORS: Record<string, { bg: string; text: string }> = {
+  warning: { bg: "#fffbeb", text: "#d97706" },
+  success: { bg: "#f0fdf4", text: "#16a34a" },
+  secondary: { bg: "#f8fafc", text: "#64748b" },
+  danger: { bg: "#fef2f2", text: "#dc2626" },
+  info: { bg: "#eff6ff", text: "#3b82f6" },
+  primary: { bg: "#eef2ff", text: "#6366f1" },
+};
+
+export function SoftBadge({ variant, children }: { variant: keyof typeof SOFT_VARIANT_COLORS; children: ReactNode }) {
+  const c = SOFT_VARIANT_COLORS[variant] ?? SOFT_VARIANT_COLORS.secondary;
+  return (
+    <span style={{ padding: "3px 10px", borderRadius: 20, fontSize: 11.5, fontWeight: 600, background: c.bg, color: c.text, textTransform: "capitalize", whiteSpace: "nowrap" }}>
+      {children}
+    </span>
+  );
+}
+
 export function StatusBadge({ status }: { status: string }) {
-  return <Badge variant={STATUS_VARIANT[status] ?? "secondary"} style={{ textTransform: "capitalize" }}>{status}</Badge>;
+  return <SoftBadge variant={STATUS_VARIANT[status] ?? "secondary"}>{status}</SoftBadge>;
+}
+
+// ── Three-dot row actions menu ───────────────────────────────────────────────
+// Same Super Admin pattern (SalonsPage.tsx's ActionsMenu) — a single button
+// that opens a portal-rendered dropdown, instead of a row of separate
+// outline buttons crowding the Actions column.
+export type BoMenuAction = { label: string; color: string; bg: string; onClick: () => void; disabled?: boolean };
+
+export function BoActionsMenu({ actions, rowId, openId, setOpenId }: {
+  actions: BoMenuAction[]; rowId: string; openId: string | null; setOpenId: (id: string | null) => void;
+}) {
+  const open = openId === rowId;
+  const [hov, setHov] = useState(false);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const [coords, setCoords] = useState<{ top: number; left: number } | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setOpenId(null);
+    window.addEventListener("click", close);
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    return () => {
+      window.removeEventListener("click", close);
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+    };
+  }, [open, setOpenId]);
+
+  function toggle() {
+    if (!open && btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect();
+      setCoords({ top: rect.bottom + 4, left: rect.right - 170 });
+    }
+    setOpenId(open ? null : rowId);
+  }
+
+  return (
+    <div style={{ display: "inline-block" }} onClick={(e) => e.stopPropagation()}>
+      <button
+        ref={btnRef}
+        onClick={toggle}
+        onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
+        title="Actions"
+        style={{ width: 30, height: 30, borderRadius: 7, border: "1.5px solid #e2e8f0", background: hov || open ? "#f8fafc" : "#fff", color: "#374151", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s" }}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>
+      </button>
+      {open && coords && createPortal(
+        <div
+          onClick={(e) => e.stopPropagation()}
+          style={{ position: "fixed", top: coords.top, left: coords.left, zIndex: 10000, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", minWidth: 170, padding: 6, display: "flex", flexDirection: "column", gap: 3 }}>
+          {actions.map((a, i) => (
+            <button key={i}
+              onClick={() => { setOpenId(null); a.onClick(); }}
+              disabled={a.disabled}
+              style={{ display: "flex", alignItems: "center", padding: "8px 10px", borderRadius: 7, border: "none", background: "transparent", color: a.color, fontSize: 12.5, fontWeight: 600, cursor: a.disabled ? "not-allowed" : "pointer", opacity: a.disabled ? 0.5 : 1, textAlign: "left", transition: "background 0.12s" }}
+              onMouseEnter={(e) => !a.disabled && (e.currentTarget.style.background = a.bg)}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
+              {a.label}
+            </button>
+          ))}
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+}
+
+// ── Bespoke table (Super Admin look) ─────────────────────────────────────────
+// Same columns/data/loading/emptyMessage/onRowClick contract as
+// components/ui's Table, so any page can swap `Table` for `BoTable` with no
+// other JSX changes — just rendered with Super Admin's own inline styles
+// (header bg #f8fafc uppercase, plain white rows + #f8fafc hover, no zebra
+// stripe) instead of Bootstrap's table classes, which is the look
+// Bootstrap's utility-class table can't hit without fighting its own CSS.
+export interface BoColumn<T> {
+  header: ReactNode;
+  key: string;
+  render?: (item: T) => ReactNode;
+  width?: string | number;
+  align?: "left" | "center" | "right";
+}
+
+export function BoTable<T extends { id?: string | number }>({
+  columns, data, loading = false, emptyMessage, onRowClick,
+}: {
+  columns: BoColumn<T>[]; data: T[]; loading?: boolean; emptyMessage?: ReactNode; onRowClick?: (item: T) => void;
+}) {
+  return (
+    <div className="bo-table-scroll" style={{ background: "#fff", borderRadius: 14, border: "1px solid #e2e8f0", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5, minWidth: Math.max(700, columns.length * 130) }}>
+        <thead>
+          <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
+            {columns.map((col, i) => (
+              <th key={i} style={{ padding: "11px 16px", textAlign: col.align || "left", color: "#64748b", fontWeight: 600, fontSize: 11.5, textTransform: "uppercase", letterSpacing: "0.04em", whiteSpace: "nowrap", width: col.width }}>
+                {col.header}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {loading ? (
+            [...Array(6)].map((_, i) => (
+              <tr key={i} style={{ borderTop: "1px solid #f1f5f9" }}>
+                {columns.map((_, j) => (
+                  <td key={j} style={{ padding: "14px 16px" }}>
+                    <div style={{ height: 13, borderRadius: 4, background: "linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%)", backgroundSize: "200% 100%", animation: "bo-table-shimmer 1.4s infinite" }} />
+                  </td>
+                ))}
+              </tr>
+            ))
+          ) : data.length === 0 ? (
+            <tr><td colSpan={columns.length} style={{ padding: "48px 0", textAlign: "center", color: "#94a3b8", fontSize: 13.5 }}>
+              {emptyMessage ?? "No results found"}
+            </td></tr>
+          ) : (
+            data.map((item, i) => (
+              <tr key={item.id ?? i} style={{ borderTop: "1px solid #f1f5f9", cursor: onRowClick ? "pointer" : "default" }}
+                onClick={() => onRowClick?.(item)}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "#f8fafc")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "#fff")}>
+                {columns.map((col, j) => (
+                  <td key={j} style={{ padding: "13px 16px", textAlign: col.align || "left", color: "#374151", width: col.width }}>
+                    {col.render ? col.render(item) : (item as any)[col.key]}
+                  </td>
+                ))}
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+      <style>{`@keyframes bo-table-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }`}</style>
+    </div>
+  );
 }
 
 export function BoEmptyState({ icon, text }: { icon: ReactNode; text: string }) {
