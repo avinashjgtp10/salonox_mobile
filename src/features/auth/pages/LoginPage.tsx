@@ -87,7 +87,7 @@ export default function LoginPage() {
         navigate("/business-name");
       }
     } else {
-      setErrors({ api: "Invalid credentials." });
+      setErrors({ api: (result.payload as string) || "Invalid credentials." });
     }
   };
 

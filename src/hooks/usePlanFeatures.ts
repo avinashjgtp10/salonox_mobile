@@ -3,7 +3,7 @@ import { useAppSelector } from "./useAppRedux";
 import api from "../services/api/axios";
 import { SALON_PLANS } from "../services/api/endpoints";
 
-// Salon-level plan-feature gate (Basic/Advance/Pro + per-salon overrides —
+// Salon-level plan-feature gate (Basic/Advance/Growth + per-salon overrides —
 // see modules/salon-plans on the backend and requirePlanFeature.middleware.ts).
 // Deliberately separate from usePermissions() (staff-vs-owner role axis,
 // always true for salon_owner/admin) — this axis applies to the OWNER too,

@@ -7,7 +7,7 @@ import { createSubscriptionThunk } from "../../../store/billingSlice";
 import api from "../../../services/api/axios";
 import { SALON_PLANS } from "../../../services/api/endpoints";
 
-// The real Basic/Advance/Pro catalog super admin manages in Plans &
+// The real Basic/Advance/Growth catalog super admin manages in Plans &
 // Subscriptions → Pricing Plans — same source as BillingPage.tsx's
 // "Available Plans", NOT the old Razorpay billing_plans catalog this wall
 // used to read via fetchPlansThunk (which only ever had one plan seeded,

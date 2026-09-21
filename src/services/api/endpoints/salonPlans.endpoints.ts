@@ -1,5 +1,5 @@
 // Mostly the super-admin-only "Plans & Subscriptions" screen: the 3-tier
-// catalog (Basic/Advance/Pro) and per-salon customization. Backed by
+// catalog (Basic/Advance/Growth) and per-salon customization. Backed by
 // modules/salon-plans on the backend — deliberately separate from
 // billing.endpoints.ts (the self-serve Razorpay checkout a salon owner uses
 // themselves), see that backend module's own top-of-file comment for why.
