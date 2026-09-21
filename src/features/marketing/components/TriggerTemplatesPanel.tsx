@@ -22,7 +22,7 @@ import "../styles/TriggerTemplatesPanel.scss";
 // ── Category grouping ───────────────────────────────────────────────────────
 // client_welcome and bill_receipt are shared — they show up under both Quick
 // Sale and Calendar (same underlying template either way, edited once).
-type TriggerCategory = "quick_sale" | "calendar" | "other";
+type TriggerCategory = "quick_sale" | "calendar" | "other" | "upcoming" | "cash_management";
 
 const CATEGORY_META: Record<TriggerCategory, { label: string; icon: string; desc: string }> = {
   quick_sale: {
@@ -39,6 +39,16 @@ const CATEGORY_META: Record<TriggerCategory, { label: string; icon: string; desc
     label: "Other",
     icon:  "ti-dots-circle-horizontal",
     desc:  "Lifecycle alerts, redemptions, and rewards — expiry warnings, session/wallet use, reminders",
+  },
+  upcoming: {
+    label: "Upcoming",
+    icon:  "ti-cake",
+    desc:  "Fires automatically on the client's own date — no manual sending, no list to pick",
+  },
+  cash_management: {
+    label: "Cash Management",
+    icon:  "ti-cash",
+    desc:  "Sent to the salon owner's own WhatsApp number when a cash counter is opened or closed — not to a client",
   },
 };
 
@@ -67,9 +77,15 @@ const EVENT_CATEGORIES: Record<PurchaseEventType, TriggerCategory[]> = {
   ewallet_used:                     ["other"],
   referral_credit_used:             ["other"],
   reward_points_used:               ["other"],
+
+  birthday_wishes:    ["upcoming"],
+  anniversary_wishes: ["upcoming"],
+
+  cash_counter_opened: ["cash_management"],
+  cash_counter_closed: ["cash_management"],
 };
 
-const CATEGORY_ORDER: TriggerCategory[] = ["quick_sale", "calendar", "other"];
+const CATEGORY_ORDER: TriggerCategory[] = ["quick_sale", "calendar", "other", "upcoming", "cash_management"];
 
 // Every PURCHASE_EVENTS member now goes through Meta template submission —
 // bill_receipt included (its PDF is the template's document HEADER). Kept as
@@ -77,7 +93,7 @@ const CATEGORY_ORDER: TriggerCategory[] = ["quick_sale", "calendar", "other"];
 const CAPTION_ONLY_EVENTS: PurchaseEventType[] = [];
 
 const EVENT_LABELS: Record<PurchaseEventType, { label: string; hint: string }> = {
-  client_welcome:       { label: "New Client Welcome", hint: "Sent right after a new client is added, from Quick Sale or Calendar" },
+  client_welcome:       { label: "New Client Welcome", hint: "Sent right after a new client is added, from Quick Sale or Calendar — includes the client's own referral code" },
   bill_receipt:          { label: "Bill Receipt (Thank You + Feedback)", hint: "Sent as a document-header template alongside the bill PDF, right after checkout completes — itemizes everything purchased, so it's the only confirmation for a Quick Sale" },
   package_purchased:    { label: "Package Purchased", hint: "Sent only when a package is sold standalone (not as part of a bigger checkout, which already sends Bill Receipt)" },
   membership_purchased: { label: "Membership Purchased", hint: "Sent only when a membership is sold standalone (not as part of a bigger checkout, which already sends Bill Receipt)" },
@@ -98,6 +114,10 @@ const EVENT_LABELS: Record<PurchaseEventType, { label: string; hint: string }> =
   ewallet_used:         { label: "eWallet Used", hint: "Sent whenever a payment is settled (fully or partly) using eWallet balance" },
   referral_credit_used: { label: "Referral Credit Used", hint: "Sent whenever a payment is settled (fully or partly) using Referral Balance" },
   reward_points_used:   { label: "Reward Points Used", hint: "Sent whenever a payment is settled (fully or partly) using Reward Points" },
+  birthday_wishes:      { label: "Birthday Wishes", hint: "Sent automatically on the client's birthday — no manual sending needed" },
+  anniversary_wishes:   { label: "Anniversary Wishes", hint: "Sent automatically on the client's anniversary — no manual sending needed" },
+  cash_counter_opened:  { label: "Cash Counter Opened", hint: "Sent to the salon owner's WhatsApp number when a staff member opens the cash counter" },
+  cash_counter_closed:  { label: "Cash Counter Closed", hint: "Sent to the salon owner's WhatsApp number when the cash counter is closed" },
 };
 
 // What each placeholder turns into in the message the customer receives.
@@ -109,6 +129,7 @@ const VARIABLE_EXPLANATIONS: Record<PurchaseEventType, Array<{ token: string; me
   client_welcome: [
     { token: "{{customer_name}}", meaning: "Customer's name" },
     { token: "{{salon_name}}", meaning: "Your salon's name" },
+    { token: "{{referral_code}}", meaning: "This client's own referral code, to share with friends/family" },
   ],
   bill_receipt: [
     { token: "{{customer_name}}", meaning: "Customer's name" },
@@ -205,6 +226,24 @@ const VARIABLE_EXPLANATIONS: Record<PurchaseEventType, Array<{ token: string; me
   reward_points_used: [
     { token: "{{customer_name}}", meaning: "Customer's name" }, { token: "{{points_used}}", meaning: "Points used" },
     { token: "{{salon_name}}", meaning: "Your salon's name" }, { token: "{{remaining_points}}", meaning: "Remaining reward points" },
+  ],
+  birthday_wishes: [
+    { token: "{{customer_name}}", meaning: "Customer's name" }, { token: "{{salon_name}}", meaning: "Your salon's name" },
+  ],
+  anniversary_wishes: [
+    { token: "{{customer_name}}", meaning: "Customer's name" }, { token: "{{salon_name}}", meaning: "Your salon's name" },
+  ],
+  cash_counter_opened: [
+    { token: "{{salon_name}}", meaning: "Your salon's name" },
+    { token: "{{opening_date}}", meaning: "Date the counter was opened" }, { token: "{{opening_time}}", meaning: "Time the counter was opened" },
+    { token: "{{opening_amount}}", meaning: "Opening cash amount" },
+  ],
+  cash_counter_closed: [
+    { token: "{{salon_name}}", meaning: "Your salon's name" },
+    { token: "{{closing_date}}", meaning: "Date the counter was closed" }, { token: "{{closing_time}}", meaning: "Time the counter was closed" },
+    { token: "{{collection_breakdown}}", meaning: "Cash, Card and UPI totals for this session, one per line (built automatically)" },
+    { token: "{{total_collection}}", meaning: "Cash + Card + UPI combined" },
+    { token: "{{variance}}", meaning: "Difference between counted cash and expected closing amount" },
   ],
 };
 
@@ -407,7 +446,7 @@ export default function TriggerTemplatesPanel() {
       acc[cat] = (Object.keys(EVENT_CATEGORIES) as PurchaseEventType[]).filter((et) => EVENT_CATEGORIES[et].includes(cat));
       return acc;
     },
-    { quick_sale: [], calendar: [], other: [] }
+    { quick_sale: [], calendar: [], other: [], upcoming: [], cash_management: [] }
   );
 
   const visibleEvents = eventsInCategory[activeCategory];

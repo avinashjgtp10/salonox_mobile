@@ -65,7 +65,14 @@ export type PurchaseEventType =
   | "referral_reward"
   | "ewallet_used"
   | "referral_credit_used"
-  | "reward_points_used";
+  | "reward_points_used"
+  // Upcoming — fires automatically on the client's own date, no manual send
+  | "birthday_wishes"
+  | "anniversary_wishes"
+  // Cash Management — owner-facing alerts, sent to the salon owner's own
+  // WhatsApp number rather than a client
+  | "cash_counter_opened"
+  | "cash_counter_closed";
 
 export type TemplateSubmissionStatus = "DRAFT" | "PENDING" | "APPROVED" | "REJECTED";
 

@@ -37,6 +37,15 @@ export function useBulkAppointmentDelete(onDeleted: () => void) {
     });
   };
 
+  // Unconditionally adds every id, unlike toggleAll — for "Select all N
+  // matching this filter" (fetches beyond the current page), where the
+  // already-selected set is a subset of what's being added, not equal to
+  // it, so toggleAll's "everything already selected → deselect" branch would
+  // never fire here anyway; this just makes the intent unambiguous.
+  const selectAll = (ids: string[]) => {
+    setSelectedIds(prev => new Set([...prev, ...ids]));
+  };
+
   const clearSelection = () => setSelectedIds(new Set());
 
   const confirmDelete = async () => {
@@ -58,7 +67,7 @@ export function useBulkAppointmentDelete(onDeleted: () => void) {
   };
 
   return {
-    selectedIds, toggleOne, toggleAll, clearSelection,
+    selectedIds, toggleOne, toggleAll, selectAll, clearSelection,
     showConfirm, setShowConfirm, deleting, error, setError,
     successMessage, confirmDelete,
   };

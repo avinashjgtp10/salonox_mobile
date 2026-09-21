@@ -207,6 +207,14 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
   const [pageSize,      setPageSize]      = useState(10);
   const [selectedRow,   setSelectedRow]   = useState<{ saleId: string; appointmentId: string | null } | null>(null);
   const [showCampaignModal, setShowCampaignModal] = useState(false);
+  // Populated only by "Select all N matching this filter" — the currently
+  // loaded `rows` is just the active page (max 100), so once a selection
+  // reaches beyond that, contacts for the extra ids have to come from here
+  // instead. Never cleared on filter change: it's re-fetched fresh on every
+  // click, and a stale id's own name/phone don't change meaning even if it
+  // no longer matches the current filter.
+  const [allMatchingRows, setAllMatchingRows] = useState<SaleRow[] | null>(null);
+  const [selectingAll,    setSelectingAll]    = useState(false);
   const [showChart,     setShowChart]     = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -292,6 +300,28 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
   // Only sale rows linked to a real appointment can be bulk-deleted — walk-in
   // sales with no appointment_id have nothing on the Appointment API to delete.
   const deletableIds = rows.filter(r => r.appointmentId).map(r => r.appointmentId as string);
+
+  // "Select all N matching this filter" — reuses the same endpoint/filters as
+  // fetchData, but with is_export instead of page/limit, which the backend
+  // already supports (it's what powers the Export button on every report,
+  // just never wired up for that either — same underlying gap this closes
+  // for campaign sending too). Selects every id this returns, not just what's
+  // on the current page.
+  const handleSelectAllMatching = useCallback(async () => {
+    setSelectingAll(true);
+    try {
+      const body = { ...buildFilterBody(), is_export: true };
+      const res = await api.post(SALES_REPORT.SUMMARY(), body);
+      const list: any[] = Array.isArray(res.data?.data?.rows) ? res.data.data.rows : [];
+      const mapped = list.map(mapAppointment);
+      setAllMatchingRows(mapped);
+      bulkDelete.selectAll(mapped.filter(r => r.appointmentId).map(r => r.appointmentId as string));
+    } catch {
+      // Best-effort — the "Select all" link just stays clickable again on failure.
+    } finally {
+      setSelectingAll(false);
+    }
+  }, [buildFilterBody, bulkDelete]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -428,7 +458,13 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
       </div>
 
       <BulkDeleteBar count={bulkDelete.selectedIds.size} onDeleteClick={() => bulkDelete.setShowConfirm(true)} />
-      <SendCampaignBar count={bulkDelete.selectedIds.size} onSendClick={() => setShowCampaignModal(true)} />
+      <SendCampaignBar
+        count={bulkDelete.selectedIds.size}
+        onSendClick={() => setShowCampaignModal(true)}
+        totalMatching={total}
+        onSelectAllClick={handleSelectAllMatching}
+        selectingAll={selectingAll}
+      />
 
       <div className="rp-detail-table-wrap">
         <table className="rp-detail-table">
@@ -551,11 +587,20 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
       <SendCampaignModal
         show={showCampaignModal}
         onClose={() => setShowCampaignModal(false)}
-        contacts={rows
-          .filter(r => r.appointmentId && bulkDelete.selectedIds.has(r.appointmentId) && r.contact && r.contact !== "—")
-          .map(r => ({ phone: r.contact, name: r.name }))}
+        // Looks up from allMatchingRows first (the full "Select all" fetch,
+        // a superset of what's on this page) so a selection reaching beyond
+        // the current page still resolves every contact's phone/name —
+        // falling back to the loaded page's own rows for anyone selected the
+        // normal way, before "Select all" was ever used this session.
+        contacts={Array.from(
+          new Map(
+            [...(allMatchingRows ?? []), ...rows]
+              .filter(r => r.appointmentId && bulkDelete.selectedIds.has(r.appointmentId) && r.contact && r.contact !== "—")
+              .map(r => [r.appointmentId as string, { phone: r.contact, name: r.name }])
+          ).values()
+        )}
         defaultCampaignName="Sales Summary"
-        onSent={bulkDelete.clearSelection}
+        onSent={() => { bulkDelete.clearSelection(); setAllMatchingRows(null); }}
       />
 
     </div>

@@ -105,7 +105,12 @@ export default function SendCampaignModal({ show, onClose, contacts: rawContacts
       show={show}
       onClose={onClose}
       title="Send Campaign"
-      size="md"
+      size="lg"
+      // Modal's default (scrollable: true) sets overflow:hidden on
+      // modal-content for independent body scrolling — but that clips the
+      // WhatsApp Template Dropdown's absolutely-positioned option list right
+      // at the modal's edge. This form is short and non-scrolling, so opt out.
+      scrollable={false}
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
