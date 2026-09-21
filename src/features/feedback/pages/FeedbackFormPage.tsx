@@ -248,7 +248,10 @@ export default function FeedbackFormPage() {
               <p className="fb-success-title">Thank you</p>
               <p className="fb-success-sub">Your feedback was submitted to {context.salonName}.</p>
             </div>
-            {context.googleReviewUrl && (
+            {/* Only a happy client (4-5 stars) gets steered toward a public
+                Google review — a 1-3 star submission stays internal so the
+                salon can follow up privately instead of it landing on Google. */}
+            {context.googleReviewUrl && overallRating >= 4 && (
               <a
                 href={context.googleReviewUrl}
                 target="_blank"

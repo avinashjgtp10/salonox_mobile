@@ -131,7 +131,7 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
   // Distinct from the items purchased on THIS booking — this reflects the client's
   // current balance, shown "if had" on both the screen view and the printed receipt.
   const clientIdForExtras = booking.clientId && booking.clientId !== "walk-in" ? booking.clientId : undefined;
-  const { stats: clientExtraStats } = useClientDetails(clientIdForExtras);
+  const { stats: clientExtraStats, loading: clientExtrasLoading } = useClientDetails(clientIdForExtras);
   const { memberships: clientActiveMemberships } = useClientMembershipWallet(clientIdForExtras);
   const { data: clientPkgsData } = useListClientPackagesQuery(
     { clientId: clientIdForExtras, status: "Active", limit: 50 },
@@ -395,6 +395,18 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                     onClick={() => {
                       setShowDotMenu(false);
                       if (!canPaymentDetailsPerm) { denyPerm("view_payment_details"); return; }
+                      // clientExtraStats (referral code/earnings) loads async via
+                      // useClientDetails — printing before it resolves silently
+                      // fell back to referralCode: null / referralEarnings: 0, so
+                      // the receipt showed a ₹0.00 Referral Earnings line (looks
+                      // like real data) but no Referral Code line at all (visibly
+                      // missing), even though the client had a real one. Block
+                      // the print itself rather than let it render with
+                      // half-loaded client data.
+                      if (clientIdForExtras && clientExtrasLoading) {
+                        toast("Still loading this client's details — try again in a moment.");
+                        return;
+                      }
                       // undefined/null = genuinely never computed (e.g. an unpaid
                       // booking, or one loaded from a path that doesn't attach it) —
                       // re-derive from CURRENT tax settings so the printed invoice
