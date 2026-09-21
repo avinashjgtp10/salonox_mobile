@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
@@ -6,6 +6,8 @@ import { fetchSuperAdminSalonsThunk, setSalonStatusThunk, forceOnboardingThunk, 
 import Pagination from "../components/Pagination";
 import { Badge, ActionBtn, Toast } from "../components/SuperAdminUI";
 import { EMAIL_REGEX } from "../../../components/Landing/shared";
+import { JiraFilterMenu } from "../../../components/ui";
+import type { JiraFilterField } from "../../../components/ui";
 
 type MenuAction = { label: string; color: string; bg: string; onClick: () => void; disabled?: boolean };
 
@@ -157,6 +159,24 @@ export default function SalonsPage() {
   const [perPage, setPerPage] = useState(20);
   const [createdSort, setCreatedSort] = useState<"asc" | "desc" | null>(null);
   const [expiryFilter, setExpiryFilter] = useState<ExpiryBucket | "">("");
+  const [statusFilter, setStatusFilter] = useState<"active" | "inactive" | "">("");
+  const [onboardingFilter, setOnboardingFilter] = useState<"done" | "pending" | "">("");
+  // "Date Remaining" as an exact manually-typed range — separate from the
+  // quick-bucket presets above (expiryFilter), same "custom render field
+  // inside the same Filters panel" pattern as Clients' Revenue min/max (see
+  // ClientsListPage.tsx's filterFields) — both can be applied together.
+  const [expiryDateFrom, setExpiryDateFrom] = useState("");
+  const [expiryDateTo, setExpiryDateTo] = useState("");
+  // Plan is multi-select (unlike Status/Onboarding/Date Remaining above) —
+  // plan_name is free text off subscription_plans.name ("SalonOx Growth",
+  // "SalonOx Pro", plain "Pro", etc., not a fixed tier enum), so picking just
+  // one at a time would be too narrow; ticking several is an OR within the
+  // field, same as every other multi-select JiraFilterMenu field.
+  const [planFilter, setPlanFilter] = useState<string[]>([]);
+  const [createdDateFrom, setCreatedDateFrom] = useState("");
+  const [createdDateTo, setCreatedDateTo] = useState("");
+  const [minRevenue, setMinRevenue] = useState("");
+  const [maxRevenue, setMaxRevenue] = useState("");
 
   // Create account modal
   const [createModal, setCreateModal] = useState(false);
@@ -226,11 +246,39 @@ export default function SalonsPage() {
   // Search already hits the backend, which now also matches against a
   // "DD Mon YYYY" formatted created_at (see super-admin.repository.ts::
   // getAllSalons), so typing e.g. "19 Jul 2026" filters by Created Date too.
-  // Sorting by Created Date is applied client-side on top of whatever page
-  // of results comes back.
-  const expiryFiltered = expiryFilter
-    ? salons.filter((s: any) => expiryBucket(s.plan_expires_at) === expiryFilter)
-    : salons;
+  // Every other filter below (Status, Onboarding, Plan, Date Remaining
+  // bucket, the manually-typed expiry/created date ranges, and Revenue) is
+  // applied client-side on top of whatever page of results comes back, then
+  // AND-combined — all must match for a salon to stay in the list (Plan
+  // itself is multi-select, so a salon matches if it has ANY of the ticked
+  // plan names). Sorting by Created Date is applied on top of that.
+  const anyFilterActive = !!(
+    statusFilter || onboardingFilter || expiryFilter || expiryDateFrom || expiryDateTo ||
+    planFilter.length > 0 || createdDateFrom || createdDateTo || minRevenue || maxRevenue
+  );
+
+  const expiryFiltered = salons.filter((s: any) => {
+    if (statusFilter && s.status !== statusFilter) return false;
+    if (onboardingFilter === "done" && !s.is_onboarding_complete) return false;
+    if (onboardingFilter === "pending" && s.is_onboarding_complete) return false;
+    if (expiryFilter && expiryBucket(s.plan_expires_at) !== expiryFilter) return false;
+    if (expiryDateFrom || expiryDateTo) {
+      if (!s.plan_expires_at) return false;
+      const d = String(s.plan_expires_at).slice(0, 10);
+      if (expiryDateFrom && d < expiryDateFrom) return false;
+      if (expiryDateTo && d > expiryDateTo) return false;
+    }
+    if (planFilter.length > 0 && !planFilter.includes(s.plan_name || "")) return false;
+    if (createdDateFrom || createdDateTo) {
+      if (!s.created_at) return false;
+      const d = String(s.created_at).slice(0, 10);
+      if (createdDateFrom && d < createdDateFrom) return false;
+      if (createdDateTo && d > createdDateTo) return false;
+    }
+    if (minRevenue && Number(s.revenue ?? 0) < Number(minRevenue)) return false;
+    if (maxRevenue && Number(s.revenue ?? 0) > Number(maxRevenue)) return false;
+    return true;
+  });
 
   const sortedSalons = createdSort
     ? [...expiryFiltered].sort((a: any, b: any) => {
@@ -239,6 +287,147 @@ export default function SalonsPage() {
         return createdSort === "asc" ? da - db : db - da;
       })
     : expiryFiltered;
+
+  // Distinct plan_name values actually present in the currently loaded
+  // salons — plan_name is free text off subscription_plans.name ("SalonOx
+  // Growth", "SalonOx Pro", plain "Pro", etc.), not a fixed tier enum, so
+  // the Plan filter's options are derived from real data rather than a
+  // hardcoded list that could drift out of sync with it.
+  const planOptions = useMemo(() => {
+    const names = new Set<string>();
+    for (const s of salons as any[]) if (s.plan_name) names.add(s.plan_name);
+    return Array.from(names).sort().map((name) => ({ id: name, label: name }));
+  }, [salons]);
+
+  // Same "Filters" pattern reports use (JiraFilterMenu — draft state inside
+  // the panel, nothing touches the list until Apply is clicked; Clear resets
+  // and applies immediately). Status/Onboarding/Date-Remaining-bucket are
+  // single-select by convention (last ticked id wins, same as Gender in
+  // ClientsListPage.tsx) — "All" is simply nothing ticked. Plan is a normal
+  // multi-select checkbox list (OR within the field). "Expiry Date (Manual)",
+  // "Created Date (Manual)" and "Revenue" are custom render fields, same
+  // escape hatch Clients' Revenue min/max uses, so exact values/ranges can be
+  // typed in directly instead of picking a preset.
+  const filterFields: JiraFilterField[] = useMemo(() => [
+    { key: "status", label: "Status", options: [
+      { id: "active",   label: "Active" },
+      { id: "inactive", label: "Inactive" },
+    ] },
+    { key: "onboarding", label: "Onboarding", options: [
+      { id: "done",    label: "Completed" },
+      { id: "pending", label: "Pending" },
+    ] },
+    { key: "plan", label: "Plan", options: planOptions, searchable: planOptions.length > 8 },
+    { key: "expiryBucket", label: "Date Remaining", options: EXPIRY_FILTERS.map(({ key, label }) => ({ id: key, label })) },
+    {
+      key: "expiryRange",
+      label: "Expiry Date (Manual)",
+      options: [],
+      // draft is [fromISO, toISO]; either half may be blank (open-ended).
+      render: (draft, setDraft) => (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: 2 }}>
+          <div>
+            <label style={{ display: "block", fontSize: 11.5, fontWeight: 600, color: "#64748b", marginBottom: 5 }}>From</label>
+            <input
+              type="date"
+              value={draft[0] ?? ""}
+              onChange={(e) => setDraft([e.target.value, draft[1] ?? ""])}
+              style={{ width: "100%", padding: "7px 9px", borderRadius: 7, border: "1.5px solid #e2e8f0", fontSize: 12.5, outline: "none", boxSizing: "border-box", fontFamily: "inherit" }}
+            />
+          </div>
+          <div>
+            <label style={{ display: "block", fontSize: 11.5, fontWeight: 600, color: "#64748b", marginBottom: 5 }}>To</label>
+            <input
+              type="date"
+              value={draft[1] ?? ""}
+              onChange={(e) => setDraft([draft[0] ?? "", e.target.value])}
+              style={{ width: "100%", padding: "7px 9px", borderRadius: 7, border: "1.5px solid #e2e8f0", fontSize: 12.5, outline: "none", boxSizing: "border-box", fontFamily: "inherit" }}
+            />
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "createdRange",
+      label: "Created Date (Manual)",
+      options: [],
+      render: (draft, setDraft) => (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: 2 }}>
+          <div>
+            <label style={{ display: "block", fontSize: 11.5, fontWeight: 600, color: "#64748b", marginBottom: 5 }}>From</label>
+            <input
+              type="date"
+              value={draft[0] ?? ""}
+              onChange={(e) => setDraft([e.target.value, draft[1] ?? ""])}
+              style={{ width: "100%", padding: "7px 9px", borderRadius: 7, border: "1.5px solid #e2e8f0", fontSize: 12.5, outline: "none", boxSizing: "border-box", fontFamily: "inherit" }}
+            />
+          </div>
+          <div>
+            <label style={{ display: "block", fontSize: 11.5, fontWeight: 600, color: "#64748b", marginBottom: 5 }}>To</label>
+            <input
+              type="date"
+              value={draft[1] ?? ""}
+              onChange={(e) => setDraft([draft[0] ?? "", e.target.value])}
+              style={{ width: "100%", padding: "7px 9px", borderRadius: 7, border: "1.5px solid #e2e8f0", fontSize: 12.5, outline: "none", boxSizing: "border-box", fontFamily: "inherit" }}
+            />
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "revenue",
+      label: "Revenue (₹)",
+      options: [],
+      // draft is [min, max]; either half may be blank (open-ended).
+      render: (draft, setDraft) => (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: 2 }}>
+          <input
+            type="number" min="0" placeholder="Min"
+            value={draft[0] ?? ""}
+            onChange={(e) => setDraft([e.target.value, draft[1] ?? ""])}
+            style={{ width: "100%", padding: "7px 9px", borderRadius: 7, border: "1.5px solid #e2e8f0", fontSize: 12.5, outline: "none", boxSizing: "border-box", fontFamily: "inherit" }}
+          />
+          <span style={{ color: "#94a3b8", fontSize: 12 }}>to</span>
+          <input
+            type="number" min="0" placeholder="Max"
+            value={draft[1] ?? ""}
+            onChange={(e) => setDraft([draft[0] ?? "", e.target.value])}
+            style={{ width: "100%", padding: "7px 9px", borderRadius: 7, border: "1.5px solid #e2e8f0", fontSize: 12.5, outline: "none", boxSizing: "border-box", fontFamily: "inherit" }}
+          />
+        </div>
+      ),
+    },
+  ], [planOptions]);
+
+  const filterMenuSelected = useMemo(() => ({
+    status: statusFilter ? [statusFilter] : [],
+    onboarding: onboardingFilter ? [onboardingFilter] : [],
+    plan: planFilter,
+    expiryBucket: expiryFilter ? [expiryFilter] : [],
+    expiryRange: (expiryDateFrom || expiryDateTo) ? [expiryDateFrom, expiryDateTo] : [],
+    createdRange: (createdDateFrom || createdDateTo) ? [createdDateFrom, createdDateTo] : [],
+    revenue: (minRevenue || maxRevenue) ? [minRevenue, maxRevenue] : [],
+  }), [statusFilter, onboardingFilter, planFilter, expiryFilter, expiryDateFrom, expiryDateTo, createdDateFrom, createdDateTo, minRevenue, maxRevenue]);
+
+  const handleFiltersApply = (next: Record<string, string[]>) => {
+    const status = next.status?.length ? next.status[next.status.length - 1] : "";
+    const onboarding = next.onboarding?.length ? next.onboarding[next.onboarding.length - 1] : "";
+    const bucket = next.expiryBucket?.length ? next.expiryBucket[next.expiryBucket.length - 1] : "";
+    const [expFrom = "", expTo = ""] = next.expiryRange ?? [];
+    const [createdFrom = "", createdTo = ""] = next.createdRange ?? [];
+    const [minRev = "", maxRev = ""] = next.revenue ?? [];
+    setStatusFilter(status as "active" | "inactive" | "");
+    setOnboardingFilter(onboarding as "done" | "pending" | "");
+    setPlanFilter(next.plan ?? []);
+    setExpiryFilter(bucket as ExpiryBucket | "");
+    setExpiryDateFrom(expFrom);
+    setExpiryDateTo(expTo);
+    setCreatedDateFrom(createdFrom);
+    setCreatedDateTo(createdTo);
+    setMinRevenue(minRev);
+    setMaxRevenue(maxRev);
+    setPage(1);
+  };
 
   function showToast(msg: string, ok = true) { setToast({ msg, ok }); setTimeout(() => setToast(null), 3000); }
 
@@ -477,7 +666,7 @@ export default function SalonsPage() {
         <div>
           <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: "#0f172a", letterSpacing: "-0.3px" }}>Salon Management</h1>
           <p style={{ margin: "4px 0 0", color: "#94a3b8", fontSize: 13 }}>
-            {expiryFilter
+            {anyFilterActive
               ? `${sortedSalons.length} of ${salons.length} salon${salons.length !== 1 ? "s" : ""} match filter`
               : `${salons.length} salon${salons.length !== 1 ? "s" : ""} registered`}
           </p>
@@ -494,16 +683,7 @@ export default function SalonsPage() {
               onBlur={(e)  => (e.target.style.borderColor = "#e2e8f0")}
             />
           </div>
-          <select value={expiryFilter} onChange={(e) => { setExpiryFilter(e.target.value as ExpiryBucket | ""); setPage(1); }}
-            title="Filter by days remaining on subscription"
-            style={{ padding: "9px 30px 9px 12px", borderRadius: 9, border: "1.5px solid #e2e8f0", background: "#fff", color: expiryFilter ? "#0f172a" : "#64748b", fontSize: 13, outline: "none", cursor: "pointer", appearance: "none", fontWeight: expiryFilter ? 600 : 400 }}
-            onFocus={(e) => (e.target.style.borderColor = "#6366f1")}
-            onBlur={(e)  => (e.target.style.borderColor = "#e2e8f0")}>
-            <option value="">All Date Remaining</option>
-            {EXPIRY_FILTERS.map(({ key, label }) => (
-              <option key={key} value={key}>{label}</option>
-            ))}
-          </select>
+          <JiraFilterMenu fields={filterFields} selected={filterMenuSelected} onApply={handleFiltersApply} triggerLabel="Filters" />
           <button onClick={openCreateModal} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 18px", borderRadius: 10, border: "none", background: "#6366f1", color: "#fff", fontWeight: 700, fontSize: 13.5, cursor: "pointer", boxShadow: "0 2px 10px rgba(99,102,241,0.3)", transition: "background 0.15s" }}
             onMouseEnter={(e) => (e.currentTarget.style.background = "#4f46e5")}
             onMouseLeave={(e) => (e.currentTarget.style.background = "#6366f1")}>
