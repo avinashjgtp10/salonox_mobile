@@ -5,18 +5,22 @@
 // Appointment option; reusable anywhere else that needs the same shape.
 export interface ConfirmDialogProps {
   title: string;
-  message: string;
+  message: React.ReactNode;
   confirmLabel?: string;
   cancelLabel?: string;
   /** Red confirm button for destructive actions (the default) — false for a
    *  neutral confirmation. */
   danger?: boolean;
+  /** Disables both buttons — pass the caller's own in-flight/loading state
+   *  so a slow request can't be fired twice by clicking Confirm again (or
+   *  Cancel mid-request) before the first call resolves. */
+  confirmDisabled?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }
 
 export default function ConfirmDialog({
-  title, message, confirmLabel = "Confirm", cancelLabel = "Cancel", danger = true, onConfirm, onCancel,
+  title, message, confirmLabel = "Confirm", cancelLabel = "Cancel", danger = true, confirmDisabled = false, onConfirm, onCancel,
 }: ConfirmDialogProps) {
   return (
     <div
@@ -29,13 +33,15 @@ export default function ConfirmDialog({
         <div style={{ display: "flex", gap: 10 }}>
           <button
             onClick={onCancel}
-            style={{ flex: 1, padding: "10px 16px", borderRadius: 10, fontSize: 13.5, fontWeight: 600, cursor: "pointer", border: "1px solid #e2e8f0", background: "#fff", color: "#0f172a" }}
+            disabled={confirmDisabled}
+            style={{ flex: 1, padding: "10px 16px", borderRadius: 10, fontSize: 13.5, fontWeight: 600, cursor: confirmDisabled ? "not-allowed" : "pointer", border: "1px solid #e2e8f0", background: "#fff", color: "#0f172a", opacity: confirmDisabled ? 0.6 : 1 }}
           >
             {cancelLabel}
           </button>
           <button
             onClick={onConfirm}
-            style={{ flex: 1, padding: "10px 16px", borderRadius: 10, fontSize: 13.5, fontWeight: 700, cursor: "pointer", border: "none", background: danger ? "#ef4444" : "#0f172a", color: "#fff" }}
+            disabled={confirmDisabled}
+            style={{ flex: 1, padding: "10px 16px", borderRadius: 10, fontSize: 13.5, fontWeight: 700, cursor: confirmDisabled ? "not-allowed" : "pointer", border: "none", background: danger ? "#ef4444" : "#0f172a", color: "#fff", opacity: confirmDisabled ? 0.7 : 1 }}
           >
             {confirmLabel}
           </button>
