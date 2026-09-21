@@ -6,7 +6,7 @@ import {
   CheckCircleFill, XCircleFill, ExclamationTriangleFill,
 } from "react-bootstrap-icons";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
-import { logout } from "../../../store/authSlice";
+import { performLogout } from "../../../utils/performLogout";
 import { fetchMySalonsThunk } from "../../../middleware/branchOwner/branchOwner.thunk";
 import { formatDateDDMMYYYY, formatTimeAgo } from "../../../utils/dateFormat";
 import api from "../../../services/api/axios";
@@ -128,8 +128,7 @@ export default function BranchOwnerTopbar() {
   }, []);
 
   function handleLogout() {
-    dispatch(logout());
-    navigate("/login", { replace: true });
+    performLogout(navigate);
   }
 
   const name = user?.first_name ? `${user.first_name} ${user.last_name ?? ""}`.trim() : "Branch Owner";

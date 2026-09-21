@@ -1,6 +1,6 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
-import { logout } from "../../../store/authSlice";
+import { useAppSelector } from "../../../hooks/useAppRedux";
+import { performLogout } from "../../../utils/performLogout";
 
 const NAV = [
   {
@@ -62,13 +62,11 @@ const NAV = [
 ];
 
 export default function SuperAdminLayout() {
-  const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { user } = useAppSelector((s) => s.auth) as any;
 
   function handleLogout() {
-    dispatch(logout());
-    navigate("/login", { replace: true });
+    performLogout(navigate);
   }
 
   const name = user?.first_name

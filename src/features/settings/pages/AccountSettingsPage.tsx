@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
-import { logout } from "../../../store/authSlice";
+import { performLogout } from "../../../utils/performLogout";
 import { changePasswordThunk } from "../../../middleware/user/user.thunk";
 import { useNavigate } from "react-router-dom";
 import api from "../../../services/api/axios";
@@ -205,8 +205,11 @@ export default function AccountSettingsPage() {
     try {
       await api.post("/api/v1/auth/logout-all");
       showSuccess("Logged out of all devices");
-      dispatch(logout());
-      navigate("/login");
+      // logout-all already revoked every refresh token server-side
+      // (including this session's own) — performLogout's own revoke call
+      // just no-ops against an already-deleted token; its real job here is
+      // the full client-side reset (every Redux slice + persisted storage).
+      await performLogout(navigate);
     } catch {
       showError("Failed to log out all devices");
     }
@@ -221,8 +224,7 @@ export default function AccountSettingsPage() {
     try {
       await api.delete("/api/v1/auth/account");
       showSuccess("Account deletion requested");
-      dispatch(logout());
-      navigate("/login");
+      await performLogout(navigate);
     } catch {
       showError("Failed to delete account. Contact support.");
     } finally {

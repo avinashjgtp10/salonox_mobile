@@ -5,12 +5,10 @@ import { Download } from "react-bootstrap-icons";
 import Button from "../../../components/ui/Button";
 import SettingsSection from "../../settings/components/SettingsSection";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
-import { useAppDispatch } from "../../../hooks/useAppRedux";
-import { logout } from "../../../store/authSlice";
+import { performLogout } from "../../../utils/performLogout";
 import api from "../../../services/api/axios";
 
 export default function BranchOwnerDataPrivacySection() {
-  const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { showSuccess, showError, overlay } = useStatusOverlay();
 
@@ -26,8 +24,7 @@ export default function BranchOwnerDataPrivacySection() {
     try {
       await api.delete("/api/v1/auth/account");
       showSuccess("Account deletion requested");
-      dispatch(logout());
-      navigate("/login");
+      await performLogout(navigate);
     } catch {
       showError("Failed to delete account. Contact support.");
     } finally {

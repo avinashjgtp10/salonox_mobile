@@ -6,7 +6,7 @@ import {
   closeCashCounterThunk,
   openCashCounterThunk,
 } from "../../../middleware/cashCounter/cashCounter.thunk";
-import { logout } from "../../../store/authSlice";
+import { performLogout } from "../../../utils/performLogout";
 import { disconnectSocket } from "../../../services/socket/socket";
 import { sendDailySummaryEmail } from "../cashManagement.api";
 import { CloseCounterModal, OpenCounterModal } from "../pages/CashManagementModals";
@@ -115,9 +115,8 @@ export default function UnclosedCounterGate() {
 
   const handleLogout = useCallback(() => {
     disconnectSocket();
-    dispatch(logout());
-    navigate("/login");
-  }, [dispatch, navigate]);
+    performLogout(navigate);
+  }, [navigate]);
 
   return (
     <>
