@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { Search } from "react-bootstrap-icons";
+import { Search, Trash } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { PACKAGE_SALE_REPORT } from "../../../services/api/endpoints";
 import ReportRefreshButton from "./ReportRefreshButton";
-import { Pagination, JiraFilterMenu, DateRangeFilter, getDateRangePresetValue } from "../../../components/ui";
+import { Pagination, JiraFilterMenu, DateRangeFilter, getDateRangePresetValue, ConfirmDialog } from "../../../components/ui";
 import type { JiraFilterField, DateRangeFilterValue } from "../../../components/ui";
 import Breadcrumb from "../../../components/ui/Breadcrumb";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
@@ -20,6 +20,7 @@ import "./PackageSaleReport.scss";
 const REPORT_NAME = "Package Sale";
 
 interface PackageSaleRow {
+  id: string;
   date: string;
   invoiceNo: string;
   client: string;
@@ -74,6 +75,7 @@ function formatDate(input: string): string {
 // the Appointment API) to the table's existing PackageSaleRow shape.
 function mapRow(row: any): PackageSaleRow {
   return {
+    id: String(row.id ?? ""),
     date: row.date ? formatDate(row.date) : "—",
     invoiceNo: row.invoice_no ?? "—",
     client: row.client_name || "—",
@@ -121,6 +123,15 @@ export default function PackageSaleReport({ onBack, category, categoryKey }: { o
   const [showCampaignModal, setShowCampaignModal] = useState(false);
   const [showChart, setShowChart] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+
+  // Deleting a row here removes the client's assigned package AND every
+  // record tied to that specific assignment (usage/redemption history,
+  // future-booked sessions, and — critically — the sale/sale_item/commission
+  // trail it created), so revenue reports drop accordingly too — see
+  // clientPackagesRepository.delete() for the full cleanup this triggers.
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; packageName: string; client: string } | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search.trim()), 300);
@@ -180,6 +191,25 @@ export default function PackageSaleReport({ onBack, category, categoryKey }: { o
   }, [buildFilterBody, currentPage, pageSize]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  async function handleDeletePackage() {
+    if (!deleteTarget || deleteBusy) return;
+    setDeleteBusy(true);
+    setDeleteError("");
+    try {
+      await api.delete(`/api/v1/client-packages/${deleteTarget.id}`);
+      setDeleteTarget(null);
+      // Re-fetch rather than splicing the row out locally — stats (Total
+      // Sale Value, Total Received, Outstanding Balance) are computed
+      // server-side over the whole filtered set, so they need a real
+      // refetch to reflect the removed sale, not just the table row.
+      fetchData();
+    } catch (err: any) {
+      setDeleteError(err?.response?.data?.error?.message || "Failed to delete this package sale.");
+    } finally {
+      setDeleteBusy(false);
+    }
+  }
 
   // Filter/search changes go back to page 1 — page/pageSize changes
   // themselves should not reset back to page 1.
@@ -277,14 +307,14 @@ export default function PackageSaleReport({ onBack, category, categoryKey }: { o
               </th>
               <th>Date</th><th>Invoice No</th><th>Client</th><th>Staff</th><th>Package Name</th><th>Expiry Date</th>
               <th>Total Amount ({currencySymbol})</th><th>GST ({currencySymbol})</th><th>Paid ({currencySymbol})</th>
-              <th>Balance Due ({currencySymbol})</th><th>Payment Method</th><th>Status</th>
+              <th>Balance Due ({currencySymbol})</th><th>Payment Method</th><th>Status</th><th className="rp-pkg-actions-col">Actions</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <SkeletonTableRows columns={13} />
+              <SkeletonTableRows columns={14} />
             ) : rows.length === 0 ? (
-              <tr><td colSpan={13} className="rp-detail-empty-cell">No package sales found</td></tr>
+              <tr><td colSpan={14} className="rp-detail-empty-cell">No package sales found</td></tr>
             ) : rows.map((r, i) => (
               <tr
                 key={i}
@@ -310,6 +340,19 @@ export default function PackageSaleReport({ onBack, category, categoryKey }: { o
                 <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{formatAmount(r.pendingAmount)}</td>
                 <td className="rp-pkg-payment" onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{r.paymentMethod}</td>
                 <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}><span className={`rp-status-badge rp-status-${(r.status ?? "").toLowerCase()}`}>{r.status}</span></td>
+                <td className="rp-pkg-actions-col" onClick={e => e.stopPropagation()}>
+                  {r.id && (
+                    <button
+                      type="button"
+                      className="rp-pkg-delete-btn"
+                      title="Delete this package sale"
+                      onClick={() => { setDeleteError(""); setDeleteTarget({ id: r.id, packageName: r.packageName, client: r.client }); }}
+                      style={{ background: "none", border: "none", color: "#dc2626", cursor: "pointer", padding: 4, display: "inline-flex", alignItems: "center" }}
+                    >
+                      <Trash size={14} />
+                    </button>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -333,6 +376,25 @@ export default function PackageSaleReport({ onBack, category, categoryKey }: { o
 
       {selectedClientId && (
         <ClientHistoryModal clientId={selectedClientId} onClose={() => setSelectedClientId(null)} initialTab="packages" />
+      )}
+
+      {deleteTarget && (
+        <ConfirmDialog
+          title="Delete Package Sale"
+          message={(
+            <>
+              Are you sure you want to delete the <strong>{deleteTarget.packageName}</strong> package assigned to{" "}
+              <strong>{deleteTarget.client}</strong>? This removes the client's assigned package, its usage/session
+              history, and the sale it created — revenue reports will update accordingly. This action cannot be undone.
+              {deleteError && <div style={{ marginTop: 10, color: "#dc2626", fontSize: 12.5 }}>{deleteError}</div>}
+            </>
+          )}
+          confirmLabel={deleteBusy ? "Deleting…" : "Delete"}
+          danger
+          confirmDisabled={deleteBusy}
+          onConfirm={handleDeletePackage}
+          onCancel={() => !deleteBusy && setDeleteTarget(null)}
+        />
       )}
     </div>
   );
