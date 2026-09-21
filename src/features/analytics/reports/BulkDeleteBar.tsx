@@ -6,15 +6,17 @@ import Button from "../../../components/ui/Button";
 interface BulkDeleteBarProps {
   count: number;
   onDeleteClick: () => void;
+  /** Singular noun for what a row represents — "appointment" (default) or e.g. "membership". */
+  itemLabel?: string;
 }
 
 // Small toolbar that appears above a report table once at least one row
-// checkbox is selected. Shared by every appointment-linked report.
-export function BulkDeleteBar({ count, onDeleteClick }: BulkDeleteBarProps) {
+// checkbox is selected. Shared by every report with row-level bulk delete.
+export function BulkDeleteBar({ count, onDeleteClick, itemLabel = "appointment" }: BulkDeleteBarProps) {
   if (count === 0) return null;
   return (
     <div className="rp-bulk-bar">
-      <span>{count} appointment{count !== 1 ? "s" : ""} selected</span>
+      <span>{count} {itemLabel}{count !== 1 ? "s" : ""} selected</span>
       <Button variant="danger" className="rp-bulk-delete-btn" onClick={onDeleteClick}>
         <Trash size={14} /> Delete Selected
       </Button>
@@ -31,18 +33,21 @@ interface BulkDeleteConfirmModalProps {
   error: string | null;
   onCancel: () => void;
   onConfirm: () => void;
+  /** Singular noun for what a row represents — "appointment" (default) or e.g. "membership". */
+  itemLabel?: string;
 }
 
 const CONFIRM_WORD = "DELETE";
 
-// Confirmation dialog shown before the selected appointments are permanently
-// (soft-)deleted. Matches the "type DELETE to confirm" pattern already used
+// Confirmation dialog shown before the selected rows are permanently
+// deleted. Matches the "type DELETE to confirm" pattern already used
 // for Delete Service/Category/etc. elsewhere in the app (e.g.
 // ServicesListPage.tsx) — the delete button stays disabled until the exact
 // word is typed, so there's no accidental delete-on-click.
-export function BulkDeleteConfirmModal({ show, count, names, deleting, error, onCancel, onConfirm }: BulkDeleteConfirmModalProps) {
+export function BulkDeleteConfirmModal({ show, count, names, deleting, error, onCancel, onConfirm, itemLabel = "appointment" }: BulkDeleteConfirmModalProps) {
   const [confirmText, setConfirmText] = useState("");
   const canDelete = confirmText.trim().toUpperCase() === CONFIRM_WORD && !deleting;
+  const itemLabelCap = itemLabel.charAt(0).toUpperCase() + itemLabel.slice(1);
 
   const handleCancel = () => {
     setConfirmText("");
@@ -56,19 +61,19 @@ export function BulkDeleteConfirmModal({ show, count, names, deleting, error, on
 
   const subject = names && names.length > 0 && names.length <= 3
     ? names.map(n => `"${n}"`).join(", ")
-    : `${count} appointment${count !== 1 ? "s" : ""}`;
+    : `${count} ${itemLabel}${count !== 1 ? "s" : ""}`;
 
   return (
     <Modal
       show={show}
       onClose={deleting ? () => {} : handleCancel}
-      title={count === 1 ? "Delete Appointment" : "Delete Appointments"}
+      title={count === 1 ? `Delete ${itemLabelCap}` : `Delete ${itemLabelCap}s`}
       size="md"
       footer={
         <>
           <Button variant="ghost" onClick={handleCancel} disabled={deleting}>Cancel</Button>
           <Button variant="danger" onClick={handleConfirm} loading={deleting} disabled={!canDelete}>
-            Delete {count === 1 ? "Appointment" : "Appointments"}
+            Delete {count === 1 ? itemLabelCap : `${itemLabelCap}s`}
           </Button>
         </>
       }
