@@ -83,6 +83,15 @@ export interface RenderOptions {
   /** Adds a print toolbar + auto-print behaviour for the browser print path. */
   printable?: boolean;
   title?: string;
+  /**
+   * Raw @font-face CSS to drop into <head>. This window/document is separate
+   * from the app's own — it doesn't inherit the @fontsource imports
+   * CouponDesignerPage.tsx pulls in, so without this every decorative font
+   * (Cinzel, Great Vibes, ...) silently falls back to the browser default and
+   * the popup no longer matches the editor. Collected by the DOM-touching
+   * caller (printDesign) rather than here, since this function stays pure.
+   */
+  extraCss?: string;
 }
 
 export function renderDesignToHtml(doc: DesignDoc, opts: RenderOptions = {}): string {
@@ -131,7 +140,9 @@ export function renderDesignToHtml(doc: DesignDoc, opts: RenderOptions = {}): st
        letterbox the design onto a default A4 sheet. */
     @page{size:${width}px ${height}px;margin:0}
   }
-</style></head>
+</style>
+${opts.extraCss ? `<style>${opts.extraCss}</style>` : ""}
+</head>
 <body>
   ${toolbar}
   <div class="stage"><div class="design" style="${canvasStyle}">${body}</div></div>
@@ -139,11 +150,78 @@ export function renderDesignToHtml(doc: DesignDoc, opts: RenderOptions = {}): st
 </body></html>`;
 }
 
+/**
+ * Pulls the already-loaded @font-face rules for this design's decorative
+ * fonts (Cinzel, Great Vibes, ...) out of the app's own stylesheets.
+ *
+ * They're self-hosted via @fontsource imports in CouponDesignerPage.tsx, so
+ * the browser has already fetched them into THIS document — a popup opened
+ * with window.open("", ...) starts blank and shares none of that, so without
+ * copying the rules across it silently falls back to a default sans-serif.
+ */
+function collectFontFaceCss(families: string[] | undefined): string {
+  if (!families?.length) return "";
+  const wanted = new Set(families.map((f) => f.replace(/^['"]|['"]$/g, "")));
+  const blocks: string[] = [];
+  for (const sheet of Array.from(document.styleSheets)) {
+    let rules: CSSRuleList;
+    try { rules = sheet.cssRules; } catch { continue; } // cross-origin sheet — can't read it, nothing to copy
+    for (const rule of Array.from(rules)) {
+      if (rule instanceof CSSFontFaceRule) {
+        const family = rule.style.getPropertyValue("font-family").replace(/^['"]|['"]$/g, "");
+        if (wanted.has(family)) blocks.push(rule.cssText);
+      }
+    }
+  }
+  return blocks.join("\n");
+}
+
 /** Opens the design in a new window with the browser's own print dialog. */
 export function printDesign(doc: DesignDoc, values: Record<string, string>, title?: string) {
-  const html = renderDesignToHtml(doc, { values, printable: true, title });
+  const extraCss = collectFontFaceCss(doc.fonts);
+  const html = renderDesignToHtml(doc, { values, printable: true, title, extraCss });
   const win = window.open("", "_blank", "width=1000,height=880");
   if (!win) { alert("Please allow popups to print this design."); return; }
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+}
+
+/**
+ * Shows an already-exported file (the server-rendered PDF, not this file's
+ * own client-side render) inside a popup window with the same dark toolbar
+ * `printDesign` uses, instead of just navigating a bare tab to the raw file —
+ * so Download reads as an in-app "print preview" rather than leaving the app.
+ *
+ * `win` is a window opened SYNCHRONOUSLY inside the triggering click (see
+ * CouponDesignerPage's handleDownload) — writing into it isn't subject to the
+ * popup-blocker's user-activation window the way a fresh window.open() is.
+ */
+export function showExportedFile(win: Window, fileUrl: string, fileName: string) {
+  const html = `<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8">
+<title>${esc(fileName)}</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:#e5e7eb;font-family:Inter,'Segoe UI',Helvetica,Arial,sans-serif}
+  .pt{position:fixed;top:0;left:0;right:0;height:50px;background:#101828;color:#fff;display:flex;
+      align-items:center;justify-content:space-between;padding:0 20px;font-size:13px;font-weight:600;z-index:9}
+  .pt button{padding:7px 14px;border:none;border-radius:6px;font-size:12px;font-weight:600;
+             cursor:pointer;background:#2563eb;color:#fff}
+  .pt button.x{background:rgba(239,68,68,.15);color:#fca5a5;margin-left:8px}
+  .pt a{text-decoration:none}
+  iframe{position:fixed;top:50px;left:0;right:0;bottom:0;width:100%;height:calc(100% - 50px);border:none;background:#fff}
+</style></head>
+<body>
+  <div class="pt">
+    <span>${esc(fileName)}</span>
+    <span>
+      <a href="${esc(fileUrl)}" download="${esc(fileName)}"><button>Download</button></a>
+      <button class="x" onclick="window.close()">Close</button>
+    </span>
+  </div>
+  <iframe src="${esc(fileUrl)}"></iframe>
+</body></html>`;
   win.document.write(html);
   win.document.close();
   win.focus();
