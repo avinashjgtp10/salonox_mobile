@@ -42,7 +42,6 @@ import {
   ArrowRepeat,
   CashStack,
   Cake2,
-  BellFill,
   CreditCard2Front,
   PersonFill,
   Whatsapp,
@@ -52,7 +51,7 @@ import {
 } from "react-bootstrap-icons";
 import type { ReactNode } from "react";
 import { getInitialsFromFullName } from "../../../utils/initials";
-import { formatDateDDMMYYYY, formatTimeAgo } from "../../../utils/dateFormat";
+import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
 import { buildClientWhatsAppLink } from "../../../utils/whatsapp";
 import { formatPaymentMode } from "../../../utils/paymentMode";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
@@ -60,7 +59,6 @@ import Skeleton from "../../../components/ui/Skeleton";
 import {
   fetchDashboardAll,
   fetchRevenueChart,
-  fetchStaffRevenue,
   fetchPaymentModeBreakdown,
 } from "../../../middleware/dashboard/dashboard.thunk";
 import type { TodayAppointment } from "../../../types/dashboard.types";
@@ -70,19 +68,12 @@ import { useMaskedCurrency } from "../hooks/useMaskedCurrency";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const SVC_CHART_COLORS = [
-  "#7c6cf2", "#4f46e5", "#10b981", "#f97316",
-  "#60a5fa", "#f472b6", "#eab308", "#ef4444",
-];
-
-// Stable empty-array fallbacks for the selectors below. `?? []` inline would
+// Stable empty-array fallback for the selector below. `?? []` inline would
 // create a brand-new array reference every time the selector runs, which
 // defeats useAppSelector's reference-equality check and forces the whole
-// page to re-render on any unrelated dashboard-slice update (e.g. the staff
-// revenue filter changing) for as long as `data` stays null.
+// page to re-render on any unrelated dashboard-slice update for as long as
+// `data` stays null.
 const EMPTY_REVENUE_CHART: DashboardAllResponse["revenueChart"] = [];
-const EMPTY_TOP_STAFF: TopStaffEntry[] = [];
-const EMPTY_ACTIVITY: DashboardAllResponse["recentActivity"] = [];
 
 
 const PAGE_SIZE = 5;
@@ -273,36 +264,6 @@ const TableRowsSkeleton = memo(function TableRowsSkeleton({ rows = 5 }: { rows?:
           <Skeleton width="14%" height={12} />
           <Skeleton width="10%" height={12} />
           <Skeleton width="10%" height={12} />
-        </div>
-      ))}
-    </div>
-  );
-});
-
-const DonutSkeleton = memo(function DonutSkeleton() {
-  return (
-    <div className="db-skel-donut">
-      <Skeleton width={140} height={140} borderRadius="50%" />
-      <div className="db-skel-donut__list">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton key={i} width={i === 3 ? "50%" : "85%"} height={13} />
-        ))}
-      </div>
-    </div>
-  );
-});
-
-const StaffListSkeleton = memo(function StaffListSkeleton() {
-  return (
-    <div className="db-skel-staff-list">
-      {Array.from({ length: 3 }).map((_, i) => (
-        <div key={i} className="db-skel-staff-list__row">
-          <Skeleton width={36} height={36} borderRadius="50%" />
-          <div className="db-skel-staff-list__info">
-            <Skeleton width="55%" height={13} />
-            <Skeleton width="35%" height={11} />
-          </div>
-          <Skeleton width={50} height={13} />
         </div>
       ))}
     </div>
@@ -554,51 +515,6 @@ const KpiCardsGrid = memo(function KpiCardsGrid({
           defaultTab={card.defaultTab}
         />
       ))}
-    </div>
-  );
-});
-
-// ─── Section: Recent Activity ──────────────────────────────────────────────────
-
-const ACTIVITY_ICON: Record<string, React.ReactNode> = {
-  appointment: <CalendarCheck size={14} color="#4f46e5" />,
-  payment:     <CashStack size={14} color="#16a34a" />,
-  client:      <PersonPlus size={14} color="#2563eb" />,
-  campaign:    <Megaphone size={14} color="#d97706" />,
-};
-
-const RecentActivityCard = memo(function RecentActivityCard({
-  activity, loading, error,
-}: {
-  activity: Array<{ id: string; type: string; title: string; body: string | null; createdAt: string }>;
-  loading: boolean;
-  error: string | null;
-}) {
-  return (
-    <div className="db-card">
-      <div className="db-card-header">
-        <h3 className="db-card-title">Recent Activity</h3>
-      </div>
-      {loading ? (
-        <TableRowsSkeleton rows={4} />
-      ) : error ? (
-        <div className="db-empty">Couldn't load recent activity.</div>
-      ) : activity.length === 0 ? (
-        <div className="db-empty">No recent activity yet.</div>
-      ) : (
-        <div className="db-activity-list">
-          {activity.map((a) => (
-            <div key={a.id} className="db-activity-row">
-              <span className="db-activity-row__icon">{ACTIVITY_ICON[a.type] ?? <BellFill size={14} color="#6b7280" />}</span>
-              <div className="db-activity-row__body">
-                <div className="db-activity-row__title">{a.title}</div>
-                {a.body && <div className="db-activity-row__sub">{a.body}</div>}
-              </div>
-              <span className="db-activity-row__time">{formatTimeAgo(a.createdAt)}</span>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 });
@@ -921,6 +837,11 @@ const PAYMENT_MODE_ICON: Record<string, { icon: ReactNode; bg: string; fg: strin
 };
 const DEFAULT_MODE_ICON = { icon: <Wallet2 size={16} />, bg: "#f8fafc", fg: "#64748b" };
 
+// Requested display order — Cash, UPI, Card always lead regardless of which
+// one collected the most; anything else (Wallet, Split, …) falls in after,
+// sorted by amount like before.
+const PAYMENT_MODE_ORDER: Record<string, number> = { cash: 0, upi: 1, card: 2 };
+
 const OverallCollectionPanel = memo(function OverallCollectionPanel({
   entries,
   total,
@@ -940,6 +861,18 @@ const OverallCollectionPanel = memo(function OverallCollectionPanel({
 }) {
   const { formatAmount, canSeeFinancials } = useMaskedCurrency();
   const fmt = (n: number) => (canSeeFinancials ? formatAmount(n) : "₹******");
+
+  // Cash/UPI/Card lead in that fixed order regardless of amount; anything
+  // else keeps the backend's amount-descending order after them.
+  const sortedEntries = useMemo(
+    () => [...entries].sort((a, b) => {
+      const ra = PAYMENT_MODE_ORDER[a.method] ?? 99;
+      const rb = PAYMENT_MODE_ORDER[b.method] ?? 99;
+      if (ra !== rb) return ra - rb;
+      return b.amount - a.amount;
+    }),
+    [entries]
+  );
 
   return (
     <div className="db-card db-card-md">
@@ -970,7 +903,7 @@ const OverallCollectionPanel = memo(function OverallCollectionPanel({
         <div className="db-empty">No payments collected in this period.</div>
       ) : (
         <div className="db-collection-list">
-          {entries.map((e) => {
+          {sortedEntries.map((e) => {
             const style = PAYMENT_MODE_ICON[e.method] ?? DEFAULT_MODE_ICON;
             return (
               <div key={e.method} className="db-collection-row">
@@ -1180,215 +1113,6 @@ const AppointmentsTable = memo(function AppointmentsTable({
   );
 });
 
-// ─── Section: Staff Revenue Donut Card ────────────────────────────────────────
-// Replaces the old Services donut — same visual layout, but shows how much
-// revenue each staff member generated, with its own period filter (independent
-// of the Revenue Trend chart above).
-
-type StaffRevSlice = {
-  id: string;
-  name: string;
-  role: string;
-  value: number;
-  color: string;
-  colorIndex: number;
-};
-
-const StaffRevenueCard = memo(function StaffRevenueCard({
-  entries,
-  period,
-  onPeriodChange,
-  loading,
-  error,
-  onRetry,
-}: {
-  entries: Array<{ id: string; name: string; role: string; revenue: number }>;
-  period: RevPeriod;
-  onPeriodChange: (p: RevPeriod) => void;
-  loading: boolean;
-  error: string | null;
-  onRetry: () => void;
-}) {
-  const { formatAmount, canSeeFinancials } = useMaskedCurrency();
-  // Real slice sizes compare staff performance visually even with the ₹
-  // labels masked (a much bigger slice for one staff member says something
-  // financial on its own) — equal-sized slices when masked, same reasoning
-  // as the Revenue Overview chart above.
-  const slices: StaffRevSlice[] = useMemo(
-    () => entries.map((e, i) => ({
-      id: e.id, name: e.name, role: e.role, value: canSeeFinancials ? e.revenue : 1,
-      color: SVC_CHART_COLORS[i % SVC_CHART_COLORS.length],
-      colorIndex: i % SVC_CHART_COLORS.length,
-    })),
-    [entries, canSeeFinancials]
-  );
-
-  // The on-screen total must still read as masked text (fmt handles that),
-  // but the underlying number driving it should be the real total, not the
-  // flattened slice values above — otherwise "total revenue" would show a
-  // meaningless small number instead of a clean masked placeholder.
-  const totalValue = useMemo(
-    () => entries.reduce((sum, e) => sum + (Number(e.revenue) || 0), 0),
-    [entries]
-  );
-
-  return (
-    <div className="db-card db-svc-card">
-      <div className="db-card-header">
-        <div>
-          <h3 className="db-card-title">Staff Revenue</h3>
-          <p className="db-card-sub">How much revenue each staff member generated</p>
-        </div>
-        <div className="db-rev-filters">
-          {(["today", "weekly", "monthly", "yearly"] as const).map((p) => (
-            <button
-              key={p}
-              className={`db-rev-filter-btn${period === p ? " active" : ""}`}
-              onClick={() => onPeriodChange(p)}
-            >
-              {p.charAt(0).toUpperCase() + p.slice(1)}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {loading ? (
-        <DonutSkeleton />
-      ) : error ? (
-        <SectionError message={error} onRetry={onRetry} />
-      ) : slices.length === 0 ? (
-        <div className="db-empty">No staff revenue in this period yet.</div>
-      ) : (
-        <div className="db-svc-donut-layout">
-          <div className="db-svc-donut-wrap">
-            <ResponsiveContainer width="100%" height={200}>
-              <PieChart>
-                <Pie
-                  data={slices}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={58}
-                  outerRadius={88}
-                  paddingAngle={2}
-                  dataKey="value"
-                  stroke="none"
-                >
-                  {slices.map((entry, idx) => (
-                    <Cell key={`staff-${idx}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  formatter={(val: any) => [formatAmount(val || 0), ""]}
-                  contentStyle={{ borderRadius: 10, fontSize: 12 }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="db-svc-donut-center">
-              <span className="db-svc-donut-total">{formatAmount(totalValue)}</span>
-              <span className="db-svc-donut-label">total revenue</span>
-            </div>
-          </div>
-
-          <div className="db-svc-donut-list">
-            {slices.map((s) => {
-              // s.value is flattened (see slices above) when masked, so
-              // computing a percentage from it against the real totalValue
-              // would show a meaningless number, not a clean mask — show a
-              // placeholder instead of a wrong-looking figure.
-              const pct = !canSeeFinancials
-                ? "**"
-                : totalValue > 0 ? ((s.value / totalValue) * 100).toFixed(1) : "0.0";
-              return (
-                <div className="db-svc-donut-row" key={s.id}>
-                  <span className={`db-svc-donut-dot db-svc-donut-dot--${s.colorIndex}`} />
-                  <div className="db-svc-donut-info">
-                    <span className="db-svc-donut-name">{s.name}</span>
-                    <span className="db-svc-donut-meta">{s.role}</span>
-                  </div>
-                  <div className="db-svc-donut-right">
-                    <span className="db-svc-donut-price">{formatAmount(s.value)}</span>
-                    <span className="db-svc-donut-pct">{pct}%</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-});
-
-// ─── Section: Top Staff Card ──────────────────────────────────────────────────
-
-type TopStaffEntry = {
-  id: string;
-  name: string;
-  role: string;
-  avatar: string;
-  clientCount: number;
-  revenue: number;
-  bookings: number;
-};
-
-const TopStaffCard = memo(function TopStaffCard({
-  topStaff,
-  loading,
-  error,
-  onNavigate,
-  onRetry,
-}: {
-  topStaff: TopStaffEntry[];
-  loading: boolean;
-  error: string | null;
-  onNavigate: () => void;
-  onRetry: () => void;
-}) {
-  const { formatAmount } = useMaskedCurrency();
-  return (
-    <div className="db-card">
-      <div className="db-card-header">
-        <div>
-          <h3 className="db-card-title">Top Staff</h3>
-          <p className="db-card-sub">Top 3 performers this month</p>
-        </div>
-        <button className="db-view-all" onClick={onNavigate}>
-          View all <ChevronRight size={14} />
-        </button>
-      </div>
-      {loading ? (
-        <StaffListSkeleton />
-      ) : error ? (
-        <SectionError message={error} onRetry={onRetry} />
-      ) : topStaff.length === 0 ? (
-        <div className="db-empty">No staff data available.</div>
-      ) : (
-        <div className="db-staff-list">
-          {topStaff.slice(0, 3).map((s, i) => {
-            const initials = (s.avatar || getInitialsFromFullName(s.name)).trim();
-            const rev      = s.revenue ?? 0;
-            return (
-              <div className="db-staff-item" key={s.id}>
-                <span className="db-rank">#{i + 1}</span>
-                <div className="db-staff-avatar">{initials ? initials.slice(0, 2).toUpperCase() : <PersonFill size={14} />}</div>
-                <div className="db-staff-info">
-                  <div className="db-staff-name">{s.name}</div>
-                  <div className="db-staff-role">{s.role ?? "Staff"}</div>
-                </div>
-                <div className="db-staff-stats">
-                  <div className="db-staff-rev">
-                    {formatAmount(rev)}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-});
-
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
@@ -1399,24 +1123,18 @@ export default function DashboardPage() {
   const [apptStatusFilter, setApptStatusFilter] = useState<ApptStatusFilter>("all");
   const [revPeriod, setRevPeriod] = useState<RevPeriod>("monthly");
   const [revGender, setRevGender] = useState<string>("all");
-  const [staffRevPeriod, setStaffRevPeriod] = useState<RevPeriod>("monthly");
   const [collectionPeriod, setCollectionPeriod] = useState<CollectionPeriod>("today");
 
   // ── Granular selectors — each section only re-renders when its own slice changes
   const summary      = useAppSelector((s) => s.dashboard.data?.summary);
   const { appointments, loading: apptsLoading, error: apptsError, refetch: refetchAppts } = useTodayAppointments();
   const revenueChart = useAppSelector((s) => s.dashboard.data?.revenueChart ?? EMPTY_REVENUE_CHART);
-  const topStaff     = useAppSelector((s) => s.dashboard.data?.topStaff ?? EMPTY_TOP_STAFF) as TopStaffEntry[];
-  const staffRevenue        = useAppSelector((s) => s.dashboard.staffRevenue);
-  const staffRevenueLoading = useAppSelector((s) => s.dashboard.staffRevenueLoading);
-  const staffRevenueError   = useAppSelector((s) => s.dashboard.staffRevenueError);
   const paymentModeBreakdown        = useAppSelector((s) => s.dashboard.paymentModeBreakdown);
   const paymentModeBreakdownLoading = useAppSelector((s) => s.dashboard.paymentModeBreakdownLoading);
   const paymentModeBreakdownError   = useAppSelector((s) => s.dashboard.paymentModeBreakdownError);
   const pendingPayments = useAppSelector((s) => s.dashboard.data?.pendingPayments);
   const todaysBirthdays = useAppSelector((s) => s.dashboard.data?.todaysBirthdays);
   const salonName = useAppSelector((s: any) => s.salon?.currentSalon?.business_name) || "our salon";
-  const recentActivity  = useAppSelector((s) => s.dashboard.data?.recentActivity ?? EMPTY_ACTIVITY);
   const dashLoading  = useAppSelector((s) => s.dashboard.loading);
   const chartLoading = useAppSelector((s) => s.dashboard.chartLoading);
   const chartError   = useAppSelector((s) => s.dashboard.chartError);
@@ -1426,7 +1144,6 @@ export default function DashboardPage() {
   useEffect(() => {
     const today = new Date().toISOString().split("T")[0];
     dispatch(fetchDashboardAll({ period: revPeriod, date: today }));
-    dispatch(fetchStaffRevenue({ period: staffRevPeriod }));
     dispatch(fetchPaymentModeBreakdown({ period: collectionPeriod }));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1458,19 +1175,6 @@ export default function DashboardPage() {
     },
     [dispatch, revPeriod]
   );
-
-  // Staff Revenue card's period filter is independent of the Revenue Trend chart's.
-  const handleStaffRevPeriodChange = useCallback(
-    (p: RevPeriod) => {
-      setStaffRevPeriod(p);
-      dispatch(fetchStaffRevenue({ period: p }));
-    },
-    [dispatch]
-  );
-
-  const retryStaffRevenue = useCallback(() => {
-    dispatch(fetchStaffRevenue({ period: staffRevPeriod }));
-  }, [dispatch, staffRevPeriod]);
 
   // Overall Collection card's Today/Yesterday/Week filter is independent of
   // every other period control on this page.
@@ -1506,10 +1210,9 @@ export default function DashboardPage() {
     // endpoint has no gender param) — re-apply an active gender filter with
     // its own fetch so Refresh doesn't silently drop back to "All Genders".
     if (revGender !== "all") dispatch(fetchRevenueChart({ period: revPeriod, gender: revGender }));
-    dispatch(fetchStaffRevenue({ period: staffRevPeriod }));
     dispatch(fetchPaymentModeBreakdown({ period: collectionPeriod }));
     refetchAppts();
-  }, [dispatch, revPeriod, revGender, staffRevPeriod, collectionPeriod, refetchAppts]);
+  }, [dispatch, revPeriod, revGender, collectionPeriod, refetchAppts]);
 
   // Deliberately NO tab-focus/visibilitychange auto-refresh here — the
   // dashboard must stay exactly as it is until the user clicks Refresh,
@@ -1570,7 +1273,6 @@ export default function DashboardPage() {
   const goToClients   = useCallback(() => navigate("/dashboard/clients/add"),     [navigate]);
   const goToSales     = useCallback(() => navigate("/dashboard/sales/quick"),      [navigate]);
   const goToMarketing = useCallback(() => navigate("/dashboard/marketing"),        [navigate]);
-  const goToStaff     = useCallback(() => navigate("/dashboard/team/members"),     [navigate]);
   // "Collect Now" on the Pending Payments card — goes to the Pending Payment
   // Report, which lists every bill still carrying a due balance (amount due,
   // days pending, client/staff/method), instead of the Detailed Appointment
@@ -1684,30 +1386,6 @@ export default function DashboardPage() {
         onNavigatePendingAppointments={goToPendingAppointments}
         salonName={salonName}
       />
-
-      {/* ── STAFF REVENUE / TOP STAFF / RECENT ACTIVITY ── */}
-      <div className="db-bottom-row db-bottom-row--triple">
-        <StaffRevenueCard
-          entries={staffRevenue}
-          period={staffRevPeriod}
-          onPeriodChange={handleStaffRevPeriodChange}
-          loading={staffRevenueLoading}
-          error={staffRevenueError}
-          onRetry={retryStaffRevenue}
-        />
-        <TopStaffCard
-          topStaff={topStaff}
-          loading={dashLoading}
-          error={dashError}
-          onNavigate={goToStaff}
-          onRetry={retryFull}
-        />
-        <RecentActivityCard
-          activity={recentActivity}
-          loading={dashLoading}
-          error={dashError}
-        />
-      </div>
 
     </div>
   );
