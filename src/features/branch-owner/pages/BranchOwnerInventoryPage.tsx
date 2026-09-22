@@ -22,7 +22,10 @@ interface Transfer {
   product_name: string; quantity: number; status: string; reason: string | null; created_at: string;
 }
 interface BranchOverviewRow { salon_id: string; salon_name: string; product_count: number; stock_value: number; }
-interface LowStockRow { product_id: string; product_name: string; amount: number; qty_alert: number; salon_name: string; }
+interface LowStockRow {
+  product_id: string; product_name: string; amount: number; qty_alert: number; salon_name: string;
+  updated_at?: string; severity?: "out_of_stock" | "low_stock"; message?: string;
+}
 interface Summary { total_products: number; total_stock_value: number; low_stock_count: number; pending_transfers_count: number; }
 interface CategoryRow { category_name: string; product_count: number; }
 interface CategoryProduct { id: string; name: string; amount: number; measure_unit: string; salon_name: string; }
@@ -31,6 +34,11 @@ const fmtMoney = (n: number) => `₹${n.toLocaleString("en-IN")}`;
 
 export default function BranchOwnerInventoryPage() {
   const salons = useAppSelector((s) => s.branchOwner.salons);
+  // Stock can only move between branches that are actually open — an
+  // inactive salon has no staff running it to receive/hand off stock, so it
+  // must never appear as a From/To option even though it still shows up
+  // elsewhere (e.g. the branch filter above, which covers all branches).
+  const activeSalons = salons.filter((s) => s.status === "active");
 
   const [summary, setSummary] = useState<Summary | null>(null);
   const [branchOverview, setBranchOverview] = useState<BranchOverviewRow[]>([]);
@@ -75,9 +83,9 @@ export default function BranchOwnerInventoryPage() {
   useEffect(() => { loadAll(); }, [branchFilter]);
 
   useEffect(() => {
-    if (salons.length >= 2 && !sourceSalonId) setSourceSalonId(salons[0].id);
-    if (salons.length >= 2 && !destSalonId) setDestSalonId(salons[1].id);
-  }, [salons, sourceSalonId, destSalonId]);
+    if (activeSalons.length >= 2 && !sourceSalonId) setSourceSalonId(activeSalons[0].id);
+    if (activeSalons.length >= 2 && !destSalonId) setDestSalonId(activeSalons[1].id);
+  }, [activeSalons, sourceSalonId, destSalonId]);
 
   // Fetches the full product list for the selected From Branch — search is
   // filtered client-side by the Dropdown itself (see below), so this must
@@ -184,12 +192,12 @@ export default function BranchOwnerInventoryPage() {
   const lowStockPage = usePagination(lowStock, 5);
   const recentPage = usePagination(recent, 8);
 
-  if (salons.length < 2) {
+  if (activeSalons.length < 2) {
     return (
       <div style={{ padding: 28, fontFamily: "'Inter','Segoe UI',system-ui,sans-serif" }}>
         <h1 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: "#0f172a" }}>Inventory &amp; Stock Transfer</h1>
         <SectionCard title="">
-          <BoEmptyState icon={<BoxSeam size={30} />} text="You need at least two salons to transfer stock between them." />
+          <BoEmptyState icon={<BoxSeam size={30} />} text="You need at least two active salons to transfer stock between them." />
         </SectionCard>
       </div>
     );
@@ -258,18 +266,27 @@ export default function BranchOwnerInventoryPage() {
           {!loaded ? <Loader message="Loading low stock alerts…" /> : lowStock.length === 0 ? (
             <BoEmptyState icon={<CheckCircleFill size={26} />} text="Nothing low on stock." />
           ) : (<>
-            {lowStockPage.pageItems.map((r) => (
+            {/* Ordered by the backend as most relevant first (out-of-stock
+                ahead of merely-low) then most recent within that — so the
+                single alert shown at the top of a scrolled/collapsed view
+                is always the one that most needs attention right now. */}
+            {lowStockPage.pageItems.map((r) => {
+              const isOut = r.severity === "out_of_stock" || r.amount <= 0;
+              return (
               <div key={`${r.product_id}-${r.salon_name}`} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 20px", borderBottom: "1px solid #f8fafc" }}>
-                <div style={{ width: 30, height: 30, borderRadius: 8, background: "#fef2f2", color: "#dc2626", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <div style={{ width: 30, height: 30, borderRadius: 8, background: isOut ? "#fef2f2" : "#fffbeb", color: isOut ? "#dc2626" : "#d97706", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                   <ExclamationTriangleFill size={13} />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.product_name}</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {r.message || `${r.product_name} is low on stock — ${r.amount} left (threshold: ${r.qty_alert}).`}
+                  </div>
                   <div style={{ fontSize: 11.5, color: "#94a3b8" }}>{r.salon_name}</div>
                 </div>
-                <span style={{ fontSize: 13, fontWeight: 800, color: "#dc2626" }}>{r.amount}</span>
+                <span style={{ fontSize: 13, fontWeight: 800, color: isOut ? "#dc2626" : "#d97706" }}>{r.amount}</span>
               </div>
-            ))}
+              );
+            })}
             <BoPagination {...lowStockPage} />
           </>)}
         </SectionCard>
@@ -284,7 +301,7 @@ export default function BranchOwnerInventoryPage() {
               <Dropdown
                 value={sourceSalonId}
                 onChange={setSourceSalonId}
-                options={salons.map((s) => ({ id: s.id, name: s.name }))}
+                options={activeSalons.map((s) => ({ id: s.id, name: s.name }))}
                 placeholder="Select branch…"
                 style={inputStyle}
               />
@@ -297,7 +314,7 @@ export default function BranchOwnerInventoryPage() {
               <Dropdown
                 value={destSalonId}
                 onChange={setDestSalonId}
-                options={salons.map((s) => ({ id: s.id, name: s.name }))}
+                options={activeSalons.map((s) => ({ id: s.id, name: s.name }))}
                 placeholder="Select branch…"
                 style={inputStyle}
               />
