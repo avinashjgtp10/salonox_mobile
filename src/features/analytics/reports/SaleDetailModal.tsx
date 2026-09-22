@@ -131,6 +131,14 @@ export default function SaleDetailModal({ saleId, staffName, onClose }: { saleId
                   exCharges: data.sale.ex_charges || 0,
                   discountAmount: hasGranularDiscount ? (data.sale.manual_discount_amount || 0) : (data.sale.discount_amount || 0),
                   referralDiscount: data.sale.referral_discount_amount || 0,
+                  // Already baked into sale.total_amount (a pre-tax price
+                  // cut, unlike the wallet/eWallet/points/referral redemptions
+                  // below, which come off AFTER total_amount) — omitting this
+                  // used to leave the waterfall recomputing the bill as if no
+                  // membership discount had ever applied, so a 100%-off
+                  // membership sale showed a phantom "Round Off −₹X.00" for
+                  // the whole subtotal instead of the Membership Discount row.
+                  membershipPercentageDiscountAmount: data.payment?.membership_discount_used || 0,
                   membershipWalletUsed: data.payment?.membership_wallet_used || 0,
                   ewalletUsed: data.payment?.ewallet_used || 0,
                   rewardPointsValue: data.payment?.reward_points_value || 0,

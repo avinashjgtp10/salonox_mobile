@@ -306,11 +306,22 @@
   &--due { font-size: 13px; color: $danger; font-weight: 700; margin-top: 4px; }
 
   // Per-staff tip breakdown row, nested under the Staff Tip line (see
-  // StaffTipsModal.tsx) — indented and muted so it reads as a sub-line.
+  // StaffTipsModal.tsx) — indented and muted so it reads as a sub-line. Also
+  // used by the Payment Method breakdown just below Paid.
   &--sub {
     padding-left: 14px;
     font-size: 11px;
     color: #98a2b3;
+  }
+
+  // "Payment Method" sub-heading above the per-method breakdown rows.
+  &--section-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: #9ca3af;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin-top: 8px;
   }
 }
 

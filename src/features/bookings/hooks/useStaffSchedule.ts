@@ -79,6 +79,18 @@ export function useStaffSchedule(salonId?: string | null) {
 
     const mapped: Staff[] = apiStaff
       .filter((s: any) => s.is_active !== false && s.allow_calendar_bookings !== false)
+      // Reorder Staff popup's saved sequence — scheduler_order is NULL for
+      // anyone never explicitly sequenced, who then keeps their existing
+      // (API default) position at the end via Array.sort's stability rather
+      // than jumping to the front.
+      .slice()
+      .sort((a: any, b: any) => {
+        const ao = a.scheduler_order, bo = b.scheduler_order;
+        if (ao == null && bo == null) return 0;
+        if (ao == null) return 1;
+        if (bo == null) return -1;
+        return ao - bo;
+      })
       .map((s: any, i: number) => {
         const fromParts = `${s.first_name || ""} ${s.last_name || ""}`.trim();
         const rawFull   = s.fullName || s.full_name || "";

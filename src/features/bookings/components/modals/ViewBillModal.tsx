@@ -23,6 +23,7 @@ import { maskMobile } from "../../../../utils/maskMobile";
 import { normalizePaymentStatus } from "../../utils/bookingMapper";
 import { useFocusTrap } from "../../../../hooks/useFocusTrap";
 import { computeBillBreakdown } from "../../../../components/shared/billBreakdown";
+import { getPaymentMethodBreakdown } from "../../utils/paymentUtils";
 import { fetchReceiptPdfThunk } from "../../../../middleware/booking/booking.thunk";
 import { downloadBlob } from "../../../../utils/downloadBlob";
 import { ConfirmDialog } from "../../../../components/ui";
@@ -186,6 +187,8 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
   // condition, so a real ₹1,147 membership-wallet-covered bill got same as a
   // ₹0 package and rendered every row and the Grand Total as ₹0.00.
   const isPackagePaid = String((booking as any).paymentMode || "").toLowerCase() === "package";
+
+  const paymentMethodBreakdown = useMemo(() => getPaymentMethodBreakdown(booking), [booking]);
 
   return (
     <>
@@ -677,6 +680,27 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                   })()}
                   <div className="vbm-breakdown-row vbm-breakdown-row--grand"><span>Grand Total</span><span>{currencySymbol}{(isPackagePaid ? 0 : (booking.grandTotal || 0)).toFixed(2)}</span></div>
                   <div className="vbm-breakdown-row vbm-breakdown-row--paid"><span>Paid</span><span>{currencySymbol}{(booking.payingNow || 0).toFixed(2)}</span></div>
+
+                  {/* Per-method breakdown of the actual payment — Cash/Card/
+                      UPI/eWallet each with their own real amount, never the
+                      full bill total against every method. Sourced from the
+                      same paymentUtils.ts helper the receipt/PDF's own "Paid
+                      via X" lines use, so this can never disagree with what
+                      the client's receipt says. Skipped for a package-covered
+                      appointment (isPackagePaid) — no real money changed
+                      hands to attribute to a method. */}
+                  {!isPackagePaid && paymentMethodBreakdown.length > 0 && (
+                    <>
+                      <div className="vbm-breakdown-row vbm-breakdown-row--section-label">Payment Method</div>
+                      {paymentMethodBreakdown.map((m) => (
+                        <div key={m.method} className="vbm-breakdown-row vbm-breakdown-row--sub">
+                          <span>{m.method}</span>
+                          <span>{currencySymbol}{m.amount.toFixed(2)}</span>
+                        </div>
+                      ))}
+                    </>
+                  )}
+
                   {(booking.dueAmount || 0) > 0 && (
                     <div className="vbm-breakdown-row vbm-breakdown-row--due"><span>Balance Due</span><span>{currencySymbol}{(booking.dueAmount || 0).toFixed(2)}</span></div>
                   )}
