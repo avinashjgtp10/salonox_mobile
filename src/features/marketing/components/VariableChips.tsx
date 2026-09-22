@@ -32,7 +32,7 @@ export const EVENT_VARIABLE_TOKENS: Record<PurchaseEventType, string[]> = {
   birthday_wishes: ["customer_name", "salon_name"],
   anniversary_wishes: ["customer_name", "salon_name"],
   cash_counter_opened: ["salon_name", "opening_date", "opening_time", "opening_amount"],
-  cash_counter_closed: ["salon_name", "closing_date", "closing_time", "collection_breakdown", "total_collection", "variance"],
+  cash_counter_closed: ["salon_name", "closing_date", "closing_time", "collection_breakdown", "total_collection"],
 };
 
 interface Props {
