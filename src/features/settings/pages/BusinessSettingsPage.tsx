@@ -4,27 +4,33 @@ import {
   Globe,
   FileText,
   Phone,
+  MessageCircle,
   Mail,
   MapPin,
   Hash,
   Save,
   Pencil,
   X,
-  Upload,
   Store,
   Users,
   Star,
+  User,
+  Upload,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { getMySalonThunk, updateSalonThunk } from "../../../middleware/salon/salon.thunk";
+import { fetchMeThunk, updateUserThunk } from "../../../middleware/user/user.thunk";
 import Button from "../../../components/ui/Button";
 import api from "../../../services/api/axios";
+import { resolveMediaUrl } from "../../../utils/mediaUrl";
 import type { Salon, UpdateSalonPayload } from "../../../types/salon.types";
 import { TAX_ID_MESSAGES } from "../../../constants/message";
 import { toTitleCase } from "../../../utils/titleCase";
-import { resolveMediaUrl } from "../../../utils/mediaUrl";
+// Self-imported (not just relying on SettingsLayout's import) so this page's
+// settings-* classnames stay styled even when mounted outside Settings — e.g.
+// at /dashboard/profile.
+import "../styles/SettingsPage.scss";
 
 const GSTIN_LENGTH = 15;
 const PAN_LENGTH = 10;
@@ -35,7 +41,12 @@ const PAN_FORMAT_RE = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
 const MAX_LOGO_SIZE = 2 * 1024 * 1024;
 const ALLOWED_LOGO_TYPES = ["image/jpeg", "image/png"];
 
-type BusinessForm = Omit<UpdateSalonPayload, "phone" | "address">;
+// Phone and address are both independently business-level fields — neither
+// mirrors the owner's Personal Profile. Cash counter WhatsApp alerts
+// (cash-management.service.ts's resolveOwnerNotifyPhone) prefer this
+// business phone and only fall back to the owner's personal number when it's
+// empty, so leaving it blank here doesn't break that flow.
+type BusinessForm = UpdateSalonPayload;
 type FormErrors = Partial<Record<"gst_number" | "pan_number", string>>;
 
 function salonToForm(salon: Salon): BusinessForm {
@@ -44,10 +55,18 @@ function salonToForm(salon: Salon): BusinessForm {
     business_type: salon.business_type ?? "",
     description: salon.description ?? "",
     email: salon.email ?? "",
+    phone: salon.phone ?? "",
     website_url: salon.website_url ?? "",
     google_review_url: salon.google_review_url ?? "",
     gst_number: salon.gst_number ?? "",
     pan_number: salon.pan_number ?? "",
+    gst_registration_type: salon.gst_registration_type ?? undefined,
+    address: salon.address ?? "",
+    address_line2: salon.address_line2 ?? "",
+    city: salon.city ?? "",
+    state: salon.state ?? "",
+    country: salon.country ?? "",
+    pincode: salon.pincode ?? "",
     location_type: salon.location_type ?? undefined,
     team_type: salon.team_type ?? undefined,
     team_size: salon.team_size ?? undefined,
@@ -59,33 +78,47 @@ const EMPTY_FORM: BusinessForm = {
   business_type: "",
   description: "",
   email: "",
+  phone: "",
   website_url: "",
   google_review_url: "",
   gst_number: "",
   pan_number: "",
+  gst_registration_type: undefined,
+  address: "",
+  address_line2: "",
+  city: "",
+  state: "",
+  country: "",
+  pincode: "",
   location_type: undefined,
   team_type: undefined,
   team_size: undefined,
 };
 
+const Required = () => <span className="settings-required">*</span>;
+
 export default function BusinessSettingsPage() {
   const dispatch = useAppDispatch();
-  const navigate = useNavigate();
   const { currentSalon } = useAppSelector((s) => s.salon);
+  const profile = useAppSelector((s) => s.user.profile);
 
-  // Phone/address are intentionally excluded from this form — they always
-  // mirror the owner's Personal Profile (Settings > Profile) now, so they're
-  // read-only here rather than a second, independently-editable copy.
   const [form, setForm] = useState<BusinessForm>(EMPTY_FORM);
-
-  // Single page-level View <-> Edit toggle (not per-section) — every field
-  // across every section becomes editable together, and saves together.
+  const [fullName, setFullName] = useState("");
+  // The owner's own number — separate from Business Phone (which prints on
+  // receipts/invoices). This is where cash counter open/close and other
+  // internal owner alerts go; never shown to clients. Lives on users.phone,
+  // same as before, just no longer doubling as the printed business number.
+  const [alertsPhone, setAlertsPhone] = useState("");
+  // Single page-level Edit toggle — every field below (except the logo,
+  // which stays its own immediate action) is disabled until Edit is
+  // clicked, and Save Changes only appears once it is.
   const [isEditing, setIsEditing] = useState(false);
-  const [isDirty,   setIsDirty]   = useState(false);
-  const [saving,    setSaving]    = useState(false);
-  const [errors,    setErrors]    = useState<FormErrors>({});
+  const [saving, setSaving] = useState(false);
+  const [errors, setErrors] = useState<FormErrors>({});
   const { showSuccess, showError, overlay } = useStatusOverlay();
 
+  // ── Logo state (single logo, salons.logo_url — used everywhere: navbar
+  // dropdown, receipts/print, invoices, online booking page, digital menu) ──
   const [logoUploading, setLogoUploading] = useState(false);
   const [logoPreviewUrl, setLogoPreviewUrl] = useState("");
   const [logoLoadFailed, setLogoLoadFailed] = useState(false);
@@ -93,33 +126,29 @@ export default function BusinessSettingsPage() {
 
   useEffect(() => {
     dispatch(getMySalonThunk());
+    dispatch(fetchMeThunk());
   }, [dispatch]);
+
+  // Only re-sync from the server while NOT editing — otherwise a background
+  // refetch (getMySalonThunk/fetchMeThunk run on every mount, and other
+  // pages can trigger them too) would silently overwrite in-progress edits
+  // out from under the user before they ever reach Save Changes.
+  useEffect(() => {
+    if (currentSalon && !isEditing) setForm(salonToForm(currentSalon));
+  }, [currentSalon, isEditing]);
+
+  useEffect(() => {
+    if (profile && !isEditing) {
+      setFullName(profile.fullName ?? "");
+      setAlertsPhone(profile.phone ?? "");
+    }
+  }, [profile, isEditing]);
 
   useEffect(() => {
     return () => {
       if (logoPreviewUrl.startsWith("blob:")) URL.revokeObjectURL(logoPreviewUrl);
     };
   }, [logoPreviewUrl]);
-
-  // Only re-sync from the server while NOT editing — otherwise a background
-  // refetch (e.g. another tab saving) would silently overwrite in-progress
-  // edits out from under the user.
-  useEffect(() => {
-    if (currentSalon && !isEditing) {
-      setForm(salonToForm(currentSalon));
-    }
-  }, [currentSalon, isEditing]);
-
-  // Warn on tab close/refresh with unsaved changes still pending.
-  useEffect(() => {
-    if (!isEditing || !isDirty) return;
-    const handler = (e: BeforeUnloadEvent) => {
-      e.preventDefault();
-      e.returnValue = "";
-    };
-    window.addEventListener("beforeunload", handler);
-    return () => window.removeEventListener("beforeunload", handler);
-  }, [isEditing, isDirty]);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -148,7 +177,6 @@ export default function BusinessSettingsPage() {
     }
 
     setForm((prev) => ({ ...prev, [name]: value || undefined }));
-    setIsDirty(true);
   };
 
   const validateForm = () => {
@@ -174,26 +202,29 @@ export default function BusinessSettingsPage() {
 
   const startEditing = () => {
     setIsEditing(true);
-    setIsDirty(false);
     setErrors({});
   };
 
   const handleCancel = () => {
-    if (isDirty && !window.confirm("Discard your unsaved changes?")) return;
     if (currentSalon) setForm(salonToForm(currentSalon));
+    if (profile) {
+      setFullName(profile.fullName ?? "");
+      setAlertsPhone(profile.phone ?? "");
+    }
     setErrors({});
-    setIsDirty(false);
     setIsEditing(false);
   };
 
+  // One Save Changes button persists both the personal Full Name (users
+  // table, via updateUserThunk) and every business field (salons table, via
+  // updateSalonThunk) together.
   const handleSave = async () => {
     if (!currentSalon?.id) {
       showError("Salon information not found");
       return;
     }
-    if (!isDirty) {
-      // Nothing changed — just leave edit mode instead of firing a no-op save.
-      setIsEditing(false);
+    if (!fullName.trim()) {
+      showError("Full name is required");
       return;
     }
     if (!validateForm()) {
@@ -202,20 +233,26 @@ export default function BusinessSettingsPage() {
     }
 
     setSaving(true);
-    const result = await dispatch(
-      updateSalonThunk({
+    const [userResult, salonResult] = await Promise.all([
+      dispatch(updateUserThunk({ fullName: toTitleCase(fullName.trim()), phone: alertsPhone.trim() })),
+      dispatch(updateSalonThunk({
         id: currentSalon.id,
         payload: { ...form, business_name: toTitleCase((form.business_name ?? "").trim()) },
-      })
-    );
+      })),
+    ]);
     setSaving(false);
 
-    if (updateSalonThunk.fulfilled.match(result)) {
-      showSuccess("Business settings saved");
-      setIsDirty(false);
+    const userOk = updateUserThunk.fulfilled.match(userResult);
+    const salonOk = updateSalonThunk.fulfilled.match(salonResult);
+
+    if (userOk && salonOk) {
+      showSuccess("Settings saved");
       setIsEditing(false);
     } else {
-      showError((result.payload as string) || "Failed to save business settings");
+      const msg = !salonOk
+        ? String((salonResult as any).payload ?? "Failed to save business settings")
+        : String((userResult as any).payload ?? "Failed to save profile");
+      showError(msg);
     }
   };
 
@@ -242,24 +279,18 @@ export default function BusinessSettingsPage() {
     const formData = new FormData();
     formData.append("image", file);
     try {
-      // Same upload endpoint the Online Booking marketplace profile uses for
-      // its logo (see MarketplaceProfilePage) — it writes the salon's own
-      // logo_url, which is what Business Settings reads, so this is a
-      // separate image from the owner's Personal Profile photo (uploaded via
-      // uploadAvatarThunk to /users/me/avatar) and updating one never touches
-      // the other.
       const res = await api.post("/api/v1/marketplace/logo", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-      const saved = res.data?.data ?? res.data ?? {};
+      const savedData = res.data?.data ?? res.data ?? {};
       const uploadedLogoUrl =
-        typeof saved.logo_url === "string" && saved.logo_url.trim()
-          ? resolveMediaUrl(saved.logo_url)
+        typeof savedData.logo_url === "string" && savedData.logo_url.trim()
+          ? resolveMediaUrl(savedData.logo_url)
           : localPreviewUrl;
       setLogoPreviewUrl(uploadedLogoUrl);
       setLogoLoadFailed(false);
       void dispatch(getMySalonThunk());
-      showSuccess("Business logo updated!");
+      showSuccess("Logo updated!");
     } catch (err: unknown) {
       setLogoPreviewUrl((current) => (current === localPreviewUrl ? "" : current));
       URL.revokeObjectURL(localPreviewUrl);
@@ -284,25 +315,21 @@ export default function BusinessSettingsPage() {
     setLogoUploading(true);
 
     const result = await dispatch(
-      updateSalonThunk({
-        id: currentSalon.id,
-        payload: { logo_url: "" },
-      }),
+      updateSalonThunk({ id: currentSalon.id, payload: { logo_url: "" } }),
     );
 
     setLogoUploading(false);
 
     if (updateSalonThunk.fulfilled.match(result)) {
-      showSuccess("Business logo removed.");
+      showSuccess("Logo removed.");
       void dispatch(getMySalonThunk());
       return;
     }
 
     setLogoPreviewUrl(previousPreviewUrl);
-    showError((result.payload as string) || "Failed to remove business logo.");
+    showError((result.payload as string) || "Failed to remove logo.");
   };
 
-  // Derive initials for the logo placeholder
   const logoInitials = (form.business_name || "B")
     .split(" ")
     .map((w) => w[0])
@@ -316,12 +343,15 @@ export default function BusinessSettingsPage() {
   return (
     <>
       {overlay}
-      {/* Page Header */}
+
+      {/* Page Header — one global Edit toggle for the whole page (not a
+          per-section one). Every field below is disabled until Edit is
+          clicked; Save Changes only appears once it is. */}
       <div className="settings-page-header settings-page-header--with-actions">
         <div>
-          <h2 className="settings-page-title">Business Settings</h2>
+          <h2 className="settings-page-title">Settings</h2>
           <p className="settings-page-subtitle">
-            Manage your salon's public profile, contact information, and operational details.
+            Manage your personal and business information.
           </p>
         </div>
         {!isEditing ? (
@@ -351,20 +381,19 @@ export default function BusinessSettingsPage() {
               disabled={saving}
               iconLeft={<Save size={14} />}
             >
-              Save changes
+              Save Changes
             </Button>
           </div>
         )}
       </div>
 
-      {/* Logo & Branding — an independent, immediate action (not part of the
-          view/edit form below), so it stays available regardless of edit mode. */}
+      {/* Logo & Profile */}
       <div className="settings-section">
         <div className="settings-section-header">
           <div>
-            <p className="settings-section-title">Logo & Branding</p>
+            <p className="settings-section-title">Logo & Profile</p>
             <p className="settings-section-desc">
-              Your logo appears on invoices, receipts, and the online booking page.
+              This logo represents you and your business. It will be used on invoices, receipts, and your online booking page.
             </p>
           </div>
         </div>
@@ -378,7 +407,7 @@ export default function BusinessSettingsPage() {
               {displayLogoUrl ? (
                 <img
                   src={displayLogoUrl}
-                  alt="Business logo"
+                  alt="Logo"
                   onLoad={() => setLogoLoadFailed(false)}
                   onError={() => setLogoLoadFailed(true)}
                 />
@@ -392,26 +421,21 @@ export default function BusinessSettingsPage() {
                 ref={logoFileRef}
                 type="file"
                 accept=".jpg,.jpeg,.png"
-                aria-label="Upload business logo"
+                aria-label="Upload logo"
                 style={{ display: "none" }}
                 onChange={handleLogoUpload}
               />
             </div>
             <div className="settings-avatar-info">
-              <p className="settings-avatar-name">
-                {form.business_name || "Your Business"}
-              </p>
-              <p className="settings-avatar-meta">
-                Recommended: 400×400px PNG or JPG, max 2 MB
-              </p>
               <div className="settings-avatar-actions">
                 <Button
                   size="sm"
                   variant="outline-secondary"
                   loading={logoUploading}
                   onClick={() => logoFileRef.current?.click()}
+                  iconLeft={<Upload size={13} />}
                 >
-                  Upload logo
+                  Upload Logo
                 </Button>
                 {displayLogoUrl && (
                   <Button
@@ -425,6 +449,9 @@ export default function BusinessSettingsPage() {
                   </Button>
                 )}
               </div>
+              <p className="settings-avatar-meta">
+                Recommended: 400×400px (PNG or JPG, max 2 MB)
+              </p>
             </div>
           </div>
         </div>
@@ -434,19 +461,32 @@ export default function BusinessSettingsPage() {
       <div className="settings-section">
         <div className="settings-section-header">
           <div>
-            <p className="settings-section-title">Business Information</p>
+            <p className="settings-section-title">Basic Information</p>
             <p className="settings-section-desc">
-              Core details about your business.
+              Your personal and business details.
             </p>
           </div>
         </div>
         <div className="settings-section-body">
-          <div className="settings-form-grid">
-            {/* Business Name */}
+          <div className="settings-form-grid settings-form-grid--3">
+            <div className="settings-form-group">
+              <label className="settings-label">
+                <User size={13} className="me-1" />
+                Full Name <Required />
+              </label>
+              <input
+                className="settings-input"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                disabled={!isEditing}
+                placeholder="Your full name"
+              />
+            </div>
+
             <div className="settings-form-group">
               <label className="settings-label">
                 <Building2 size={13} className="me-1" />
-                Business Name
+                Business Name <Required />
               </label>
               <input
                 className="settings-input"
@@ -458,7 +498,6 @@ export default function BusinessSettingsPage() {
               />
             </div>
 
-            {/* Business Type */}
             <div className="settings-form-group">
               <label className="settings-label">
                 <Store size={13} className="me-1" />
@@ -483,8 +522,7 @@ export default function BusinessSettingsPage() {
               </select>
             </div>
 
-            {/* Description */}
-            <div className="settings-form-group span-2">
+            <div className="settings-form-group span-3">
               <label className="settings-label">
                 <FileText size={13} className="me-1" />
                 Business Description
@@ -497,230 +535,341 @@ export default function BusinessSettingsPage() {
                 disabled={!isEditing}
                 placeholder="Tell clients what makes your business special..."
                 rows={3}
+                maxLength={500}
               />
               <span className="settings-hint">
-                Shown on your online booking page (max 500 characters).
+                {(form.description ?? "").length}/500
               </span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Contact Details */}
-      <div className="settings-section">
-        <div className="settings-section-header">
-          <div>
-            <p className="settings-section-title">Contact Details</p>
-            <p className="settings-section-desc">
-              Public contact info shown on your booking page.
-            </p>
+      {/* Contact Details + Business Address — side by side */}
+      <div className="settings-pair-row">
+        <div className="settings-section">
+          <div className="settings-section-header">
+            <div>
+              <p className="settings-section-title">Contact Details</p>
+              <p className="settings-section-desc">
+                Public contact info shown on your booking page.
+              </p>
+            </div>
+          </div>
+          <div className="settings-section-body">
+            <div className="settings-form-grid">
+              <div className="settings-form-group">
+                <label className="settings-label">
+                  <Mail size={13} className="me-1" />
+                  Business Email <Required />
+                </label>
+                <input
+                  className="settings-input"
+                  type="email"
+                  name="email"
+                  value={form.email ?? ""}
+                  onChange={handleChange}
+                  disabled={!isEditing}
+                  placeholder="hello@yoursalon.com"
+                />
+              </div>
+
+              <div className="settings-form-group">
+                <label className="settings-label">
+                  <Phone size={13} className="me-1" />
+                  Business Phone <Required />
+                </label>
+                <input
+                  className="settings-input"
+                  name="phone"
+                  value={form.phone ?? ""}
+                  onChange={handleChange}
+                  disabled={!isEditing}
+                  placeholder="+91 98765 43210"
+                />
+                <span className="settings-hint">Shown to clients on invoices, receipts, and your booking page.</span>
+              </div>
+
+              <div className="settings-form-group">
+                <label className="settings-label">
+                  <MessageCircle size={13} className="me-1" />
+                  WhatsApp Alerts Number
+                </label>
+                <input
+                  className="settings-input"
+                  value={alertsPhone}
+                  onChange={(e) => setAlertsPhone(e.target.value)}
+                  disabled={!isEditing}
+                  placeholder="+91 98765 43210"
+                />
+                <span className="settings-hint">Your own number — cash counter open/close and other owner alerts go here. Never shown to clients.</span>
+              </div>
+
+              <div className="settings-form-group">
+                <label className="settings-label">
+                  <Mail size={13} className="me-1" />
+                  Alerts Email
+                </label>
+                <input
+                  className="settings-input"
+                  value={profile?.email ?? ""}
+                  readOnly
+                  disabled
+                />
+                <span className="settings-hint">
+                  Your login email — where "New Appointment"/"New Payment" alerts go. Contact support to change it.
+                </span>
+              </div>
+
+              <div className="settings-form-group">
+                <label className="settings-label">
+                  <Globe size={13} className="me-1" />
+                  Website URL
+                </label>
+                <input
+                  className="settings-input"
+                  name="website_url"
+                  value={form.website_url ?? ""}
+                  onChange={handleChange}
+                  disabled={!isEditing}
+                  placeholder="https://yoursalon.com"
+                />
+              </div>
+
+              <div className="settings-form-group">
+                <label className="settings-label">
+                  <Star size={13} className="me-1" />
+                  Google Review Link
+                </label>
+                <input
+                  className="settings-input"
+                  name="google_review_url"
+                  value={form.google_review_url ?? ""}
+                  onChange={handleChange}
+                  disabled={!isEditing}
+                  placeholder="https://g.page/r/your-salon/review"
+                />
+              </div>
+            </div>
           </div>
         </div>
-        <div className="settings-section-body">
-          <div className="settings-form-grid">
-            <div className="settings-form-group">
-              <label className="settings-label">
-                <Mail size={13} className="me-1" />
-                Business Email
-              </label>
-              <input
-                className="settings-input"
-                type="email"
-                name="email"
-                value={form.email ?? ""}
-                onChange={handleChange}
-                disabled={!isEditing}
-                placeholder="hello@yoursalon.com"
-              />
-            </div>
 
-            <div className="settings-form-group">
-              <label className="settings-label">
-                <Phone size={13} className="me-1" />
-                Business Phone
-              </label>
-              <input
-                className="settings-input"
-                value={currentSalon?.phone || "Not set"}
-                readOnly
-                disabled
-              />
-              <span className="settings-hint">
-                Synced from your{" "}
-                <a href="#" onClick={(e) => { e.preventDefault(); navigate("/dashboard/settings/profile"); }}>
-                  Personal Profile
-                </a>.
-              </span>
-            </div>
-
-            <div className="settings-form-group">
-              <label className="settings-label">
-                <Globe size={13} className="me-1" />
-                Website URL
-              </label>
-              <input
-                className="settings-input"
-                name="website_url"
-                value={form.website_url ?? ""}
-                onChange={handleChange}
-                disabled={!isEditing}
-                placeholder="https://yoursalon.com"
-              />
-            </div>
-
-            <div className="settings-form-group">
-              <label className="settings-label">
-                <Star size={13} className="me-1" />
-                Google Review Link
-              </label>
-              <input
-                className="settings-input"
-                name="google_review_url"
-                value={form.google_review_url ?? ""}
-                onChange={handleChange}
-                disabled={!isEditing}
-                placeholder="https://g.page/r/your-salon/review"
-              />
-              <span className="settings-hint">
-                Shown to clients after they submit feedback, so happy customers can leave you a Google review too.
-              </span>
-            </div>
-
-            <div className="settings-form-group span-2">
-              <label className="settings-label">
-                <MapPin size={13} className="me-1" />
-                Business Address
-              </label>
-              <input
-                className="settings-input"
-                value={currentSalon?.address || "Not set"}
-                readOnly
-                disabled
-              />
-              <span className="settings-hint">
-                Synced from your{" "}
-                <a href="#" onClick={(e) => { e.preventDefault(); navigate("/dashboard/settings/profile"); }}>
-                  Personal Profile
-                </a>.
-              </span>
+        <div className="settings-section">
+          <div className="settings-section-header">
+            <div>
+              <p className="settings-section-title">Business Address</p>
+              <p className="settings-section-desc">Your salon's address.</p>
             </div>
           </div>
+          <div className="settings-section-body">
+            <div className="settings-form-grid">
+              <div className="settings-form-group">
+                <label className="settings-label">
+                  <MapPin size={13} className="me-1" />
+                  Address Line 1 <Required />
+                </label>
+                <input
+                  className="settings-input"
+                  name="address"
+                  value={form.address ?? ""}
+                  onChange={handleChange}
+                  disabled={!isEditing}
+                  placeholder="Shop No. 12, ABC Complex"
+                />
+              </div>
 
+              <div className="settings-form-group">
+                <label className="settings-label">
+                  <MapPin size={13} className="me-1" />
+                  Address Line 2
+                </label>
+                <input
+                  className="settings-input"
+                  name="address_line2"
+                  value={form.address_line2 ?? ""}
+                  onChange={handleChange}
+                  disabled={!isEditing}
+                  placeholder="Apartment, Floor, etc."
+                />
+              </div>
+
+              <div className="settings-form-group">
+                <label className="settings-label">City <Required /></label>
+                <input
+                  className="settings-input"
+                  name="city"
+                  value={form.city ?? ""}
+                  onChange={handleChange}
+                  disabled={!isEditing}
+                  placeholder="City"
+                />
+              </div>
+
+              <div className="settings-form-group">
+                <label className="settings-label">State <Required /></label>
+                <input
+                  className="settings-input"
+                  name="state"
+                  value={form.state ?? ""}
+                  onChange={handleChange}
+                  disabled={!isEditing}
+                  placeholder="State"
+                />
+              </div>
+
+              <div className="settings-form-group">
+                <label className="settings-label">Pincode <Required /></label>
+                <input
+                  className="settings-input"
+                  name="pincode"
+                  value={form.pincode ?? ""}
+                  onChange={handleChange}
+                  disabled={!isEditing}
+                  placeholder="400001"
+                />
+              </div>
+
+              <div className="settings-form-group">
+                <label className="settings-label">Country <Required /></label>
+                <input
+                  className="settings-input"
+                  name="country"
+                  value={form.country ?? ""}
+                  onChange={handleChange}
+                  disabled={!isEditing}
+                  placeholder="India"
+                />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Tax & Compliance */}
-      <div className="settings-section">
-        <div className="settings-section-header">
-          <div>
-            <p className="settings-section-title">Tax & Compliance</p>
-            <p className="settings-section-desc">
-              Required for invoices and tax filings.
-            </p>
-          </div>
-        </div>
-        <div className="settings-section-body">
-          <div className="settings-form-grid">
-            <div className="settings-form-group">
-              <label className="settings-label">
-                <Hash size={13} className="me-1" />
-                GST Number
-              </label>
-              <input
-                className="settings-input"
-                name="gst_number"
-                value={form.gst_number ?? ""}
-                onChange={handleChange}
-                maxLength={GSTIN_LENGTH}
-                disabled={!isEditing}
-                placeholder="22AAAAA0000A1Z5"
-              />
-              {errors.gst_number && <span className="settings-error">{errors.gst_number}</span>}
-            </div>
-
-            <div className="settings-form-group">
-              <label className="settings-label">
-                <Hash size={13} className="me-1" />
-                PAN Number
-              </label>
-              <input
-                className="settings-input"
-                name="pan_number"
-                value={form.pan_number ?? ""}
-                onChange={handleChange}
-                maxLength={PAN_LENGTH}
-                disabled={!isEditing}
-                placeholder="AAAAA0000A"
-              />
-              {errors.pan_number && <span className="settings-error">{errors.pan_number}</span>}
+      {/* Tax & Compliance + Business Profile — side by side */}
+      <div className="settings-pair-row">
+        <div className="settings-section">
+          <div className="settings-section-header">
+            <div>
+              <p className="settings-section-title">Tax & Compliance</p>
+              <p className="settings-section-desc">Required for invoices and tax filings.</p>
             </div>
           </div>
-        </div>
-      </div>
+          <div className="settings-section-body">
+            <div className="settings-form-grid">
+              <div className="settings-form-group">
+                <label className="settings-label">
+                  <Hash size={13} className="me-1" />
+                  GST Number
+                </label>
+                <input
+                  className="settings-input"
+                  name="gst_number"
+                  value={form.gst_number ?? ""}
+                  onChange={handleChange}
+                  maxLength={GSTIN_LENGTH}
+                  disabled={!isEditing}
+                  placeholder="22AAAAA0000A1Z5"
+                />
+                {errors.gst_number && <span className="settings-error">{errors.gst_number}</span>}
+              </div>
 
-      {/* Operations */}
-      <div className="settings-section">
-        <div className="settings-section-header">
-          <div>
-            <p className="settings-section-title">Operations</p>
-            <p className="settings-section-desc">
-              Configure how your business operates.
-            </p>
+              <div className="settings-form-group">
+                <label className="settings-label">
+                  <Hash size={13} className="me-1" />
+                  PAN Number
+                </label>
+                <input
+                  className="settings-input"
+                  name="pan_number"
+                  value={form.pan_number ?? ""}
+                  onChange={handleChange}
+                  maxLength={PAN_LENGTH}
+                  disabled={!isEditing}
+                  placeholder="AAAAA0000A"
+                />
+                {errors.pan_number && <span className="settings-error">{errors.pan_number}</span>}
+              </div>
+
+              <div className="settings-form-group span-2">
+                <label className="settings-label">GST Registration Type</label>
+                <select
+                  className="settings-select"
+                  name="gst_registration_type"
+                  value={form.gst_registration_type ?? ""}
+                  onChange={handleChange}
+                  disabled={!isEditing}
+                >
+                  <option value="">Select type</option>
+                  <option value="regular">Regular</option>
+                  <option value="composition">Composition</option>
+                  <option value="unregistered">Unregistered</option>
+                </select>
+              </div>
+            </div>
           </div>
         </div>
-        <div className="settings-section-body">
-          <div className="settings-form-grid">
-            <div className="settings-form-group">
-              <label className="settings-label">
-                <MapPin size={13} className="me-1" />
-                Location Type
-              </label>
-              <select
-                className="settings-select"
-                name="location_type"
-                value={form.location_type ?? ""}
-                onChange={handleChange}
-                disabled={!isEditing}
-              >
-                <option value="">Select type</option>
-                <option value="physical">Physical — clients come to you</option>
-                <option value="mobile">Mobile — you go to clients</option>
-                <option value="virtual">Virtual — remote services</option>
-              </select>
-            </div>
 
-            <div className="settings-form-group">
-              <label className="settings-label">
-                <Users size={13} className="me-1" />
-                Staff Type
-              </label>
-              <select
-                className="settings-select"
-                name="team_type"
-                value={form.team_type ?? ""}
-                onChange={handleChange}
-                disabled={!isEditing}
-              >
-                <option value="">Select type</option>
-                <option value="independent">Independent — just me</option>
-                <option value="team">Staff team — multiple staff</option>
-              </select>
+        <div className="settings-section">
+          <div className="settings-section-header">
+            <div>
+              <p className="settings-section-title">Business Profile</p>
+              <p className="settings-section-desc">Basic details about your operations.</p>
             </div>
+          </div>
+          <div className="settings-section-body">
+            <div className="settings-form-grid">
+              <div className="settings-form-group">
+                <label className="settings-label">
+                  <MapPin size={13} className="me-1" />
+                  Location Type
+                </label>
+                <select
+                  className="settings-select"
+                  name="location_type"
+                  value={form.location_type ?? ""}
+                  onChange={handleChange}
+                  disabled={!isEditing}
+                >
+                  <option value="">Select type</option>
+                  <option value="physical">Physical — clients come to you</option>
+                  <option value="mobile">Mobile — you go to clients</option>
+                  <option value="virtual">Virtual — remote services</option>
+                </select>
+              </div>
 
-            <div className="settings-form-group">
-              <label className="settings-label">Staff Size</label>
-              <select
-                className="settings-select"
-                name="team_size"
-                value={form.team_size ?? ""}
-                onChange={handleChange}
-                disabled={!isEditing}
-              >
-                <option value="">Select size</option>
-                <option value="2-5">2–5 people</option>
-                <option value="6-10">6–10 people</option>
-                <option value="11+">11+ people</option>
-              </select>
+              <div className="settings-form-group">
+                <label className="settings-label">
+                  <Users size={13} className="me-1" />
+                  Staff Type
+                </label>
+                <select
+                  className="settings-select"
+                  name="team_type"
+                  value={form.team_type ?? ""}
+                  onChange={handleChange}
+                  disabled={!isEditing}
+                >
+                  <option value="">Select type</option>
+                  <option value="independent">Independent — just me</option>
+                  <option value="team">Staff team — multiple staff</option>
+                </select>
+              </div>
+
+              <div className="settings-form-group span-2">
+                <label className="settings-label">Staff Size</label>
+                <select
+                  className="settings-select"
+                  name="team_size"
+                  value={form.team_size ?? ""}
+                  onChange={handleChange}
+                  disabled={!isEditing}
+                >
+                  <option value="">Select size</option>
+                  <option value="2-5">2–5 people</option>
+                  <option value="6-10">6–10 people</option>
+                  <option value="11+">11+ people</option>
+                </select>
+              </div>
             </div>
           </div>
         </div>
