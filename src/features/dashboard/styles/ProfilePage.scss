@@ -140,6 +140,23 @@
   margin: 8px 0 0;
 }
 
+.pp-avatar-remove-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 11px;
+  color: $danger;
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+}
+
 .pp-avatar-name {
   font-size: 17px;
   font-weight: 700;

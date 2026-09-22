@@ -21,7 +21,6 @@ import {
   Upload,
 } from "lucide-react";
 import ProfileSettingsPage from "../pages/ProfileSettingsPage";
-import BusinessSettingsPage from "../pages/BusinessSettingsPage";
 import BranchesPage from "../pages/BranchesPage";
 import AccountSettingsPage from "../pages/AccountSettingsPage";
 import NotificationsPage from "../pages/NotificationsPage";
@@ -68,8 +67,15 @@ const navGroups: NavGroup[] = [
   {
     groupLabel: "Account",
     items: [
-      { id: "profile",  label: "Profile",             description: "Manage your personal details and profile photo.",                icon: <User size={18} />,        Component: ProfileSettingsPage,   permKey: "view_settings_profile" },
-      { id: "business", label: "Business",            description: "Manage your salon's public profile, contact info, and hours.",    icon: <Building2 size={18} />,   Component: BusinessSettingsPage,  permKey: "view_settings_business" },
+      { id: "profile",  label: "Profile & Business",  description: "Manage your personal details, profile photo, and your salon's public profile.", icon: <User size={18} />,        Component: ProfileSettingsPage,   permKey: "view_settings_profile" },
+      // Not shown on the Settings home grid (see hidden below) — Profile and
+      // Business used to be two separate cards/pages; they're now one merged
+      // page (ProfileSettingsPage renders both sections). This entry only
+      // keeps old deep links (e.g. the GST module's link in
+      // SettingsManagementPage.tsx) and anyone whose role only has the
+      // "view_settings_business" permission — not "view_settings_profile" —
+      // still able to reach the merged page.
+      { id: "business", label: "Business",            description: "",                                                                 icon: <Building2 size={18} />,   Component: ProfileSettingsPage,   hidden: true, permKey: "view_settings_business" },
       { id: "account",  label: "Account & Security",  description: "Update your password and manage account security.",               icon: <ShieldCheck size={18} />, Component: AccountSettingsPage,   permKey: "view_settings_account_security" },
       { id: "branches", label: "Branches",            description: "Manage your salon's locations, hours, and holidays.",              icon: <MapPin size={18} />,      Component: BranchesPage,          permKey: "view_branches" },
     ],
