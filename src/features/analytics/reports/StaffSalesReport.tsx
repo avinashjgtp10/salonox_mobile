@@ -277,10 +277,9 @@ export default function StaffSalesReport({ onBack, category, categoryKey }: { on
         </div>
       </div>
 
-      {loading ? <SkeletonStatCards count={4} /> : (
+      {loading ? <SkeletonStatCards count={3} /> : (
         <div className="rp-sra-summary-row">
           {[
-            { label: "Total Sales",      value: formatAmount(stats.totalSale) },
             { label: "Total Paid",       value: formatAmount(stats.totalPaid) },
             { label: "Total Due",        value: formatAmount(stats.totalDue) },
             { label: "Total Commission", value: formatAmount(stats.totalCommission) },
