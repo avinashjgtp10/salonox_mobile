@@ -130,26 +130,3 @@ export const fetchPaymentModeBreakdown = createAsyncThunk<
   }
 );
 
-export interface StaffRevenueEntry {
-  id: string;
-  name: string;
-  role: string;
-  revenue: number;
-}
-
-// Staff Revenue card — its own period filter, independent of the Revenue Trend chart's.
-export const fetchStaffRevenue = createAsyncThunk<
-  StaffRevenueEntry[],
-  { period: string }
->(
-  "dashboard/fetchStaffRevenue",
-  async ({ period }, { rejectWithValue }) => {
-    try {
-      const res = await api.get(`/api/v1/dashboard/staff/revenue?period=${period}`);
-      const payload = res.data.data ?? res.data;
-      return Array.isArray(payload) ? payload : [];
-    } catch (err: any) {
-      return rejectWithValue(err.response?.data || err.message);
-    }
-  }
-);
