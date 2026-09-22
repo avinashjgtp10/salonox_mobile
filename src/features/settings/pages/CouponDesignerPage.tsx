@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Undo2, Redo2, ZoomIn, ZoomOut, Eye, Download, Check } from "lucide-react";
+import { ArrowLeft, Undo2, Redo2, ZoomIn, ZoomOut, Eye, Download, Check, Save as SaveIcon } from "lucide-react";
 import api from "../../../services/api/axios";
 import { API_ORIGIN } from "../../../services/api/baseUrl";
 import { useAppSelector } from "../../../hooks/useAppRedux";
@@ -24,7 +24,7 @@ import {
   type CouponSizeId,
   type CouponSizeUnit,
 } from "../utils/couponPrintSheet";
-import { printDesign, resolveTokens } from "../designer/core/renderHtml";
+import { printDesign, resolveTokens, showExportedFile } from "../designer/core/renderHtml";
 import { regenerateCode } from "../designer/core/codes";
 import DesignCanvas from "../designer/DesignCanvas";
 import PropertyPanel from "../designer/PropertyPanel";
@@ -48,11 +48,9 @@ import "../styles/CouponDesignerPage.scss";
  *
  * Three-panel editor: asset sidebar, canvas, properties. Drag, rotate,
  * 8-handle resize, multi-select, snapping, align/distribute, undo/redo,
- * autosave, and server-side export to PNG/JPEG/PDF at 72/150/300 DPI plus
- * printable multi-up A4 sheets with crop marks.
+ * an explicit Save button (Ctrl+S), and server-side export to PNG/JPEG/PDF
+ * at 72/150/300 DPI plus printable multi-up A4 sheets with crop marks.
  */
-
-const AUTOSAVE_MS = 2500;
 
 const COUPONS_PATH = "/dashboard/settings/coupons";
 
@@ -275,17 +273,6 @@ const CouponDesignerPage: React.FC = () => {
     }
   }, [designId, name, state.doc, showSuccess, showError]);
 
-  // Autosave. Keyed on the doc so it only fires after an actual change, and
-  // debounced so a drag doesn't produce a request per frame.
-  const dirtyRef = useRef(state.dirty);
-  dirtyRef.current = state.dirty;
-  useEffect(() => {
-    if (!state.dirty || loading) return;
-    const t = setTimeout(() => { if (dirtyRef.current) save(true); }, AUTOSAVE_MS);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.doc, state.dirty, loading]);
-
   /* ── Keyboard ─────────────────────────────────────────────────────── */
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -372,14 +359,14 @@ const CouponDesignerPage: React.FC = () => {
       // frontend/backend split deploy resolves it against whatever page
       // we're on and 404s into the SPA's own fallback route.
       //
-      // Navigates a tab opened SYNCHRONOUSLY back in handleDownload(), not
-      // window.open() here — calling window.open() only after this await
-      // has already resolved runs outside the original click's "user
+      // Fills the tab opened SYNCHRONOUSLY back in handleDownload(), not a
+      // fresh window.open() here — calling window.open() only after this
+      // await has already resolved runs outside the original click's "user
       // activation" window, so Chromium browsers (Brave especially) silently
-      // block it with no error at all. Redirecting an already-open tab has
+      // block it with no error at all. Writing into an already-open tab has
       // no such restriction.
       const fileUrl = `${API_ORIGIN}${out.url}`;
-      if (popup) popup.location.href = fileUrl;
+      if (popup) showExportedFile(popup, fileUrl, out.fileName);
       else window.open(fileUrl, "_blank"); // popup was itself blocked — best effort
       setDownloadSizeId(null);
     } catch (err: unknown) {
@@ -481,9 +468,14 @@ const CouponDesignerPage: React.FC = () => {
             <option value="__manage">Manage coupons…</option>
           </select>
 
-          <span className={`dz-status${state.dirty ? " dz-status--dirty" : ""}`}>
-            {saving ? "Saving…" : state.dirty ? "Unsaved" : "Saved"}
-          </span>
+          <button
+            className="dz-btn dz-btn--primary"
+            disabled={saving || !state.dirty}
+            onClick={() => save()}
+            title="Save (Ctrl+S)"
+          >
+            <SaveIcon size={14} /> {saving ? "Saving…" : state.dirty ? "Save" : "Saved"}
+          </button>
         </div>
 
         <div className="dz-topbar__center">

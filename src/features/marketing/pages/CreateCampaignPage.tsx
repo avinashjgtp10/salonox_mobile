@@ -337,7 +337,7 @@ export default function CreateCampaignPage() {
             style={!can("create_campaigns") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
             onClick={handleLaunch}
           >
-            {scheduledAt ? "📅 Schedule Campaign" : "🚀 Launch Campaign"}
+            {scheduledAt ? "📅 Schedule Campaign" : "Launch Campaign"}
           </Button>
         </div>
       </div>
