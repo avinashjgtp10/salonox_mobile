@@ -3,8 +3,11 @@ import {
   fetchDashboardAll,
   fetchRevenueChart,
   fetchStaffRevenue,
+  fetchPaymentModeBreakdown,
 } from "../middleware/dashboard/dashboard.thunk";
-import type { DashboardAllResponse, StaffRevenueEntry } from "../middleware/dashboard/dashboard.thunk";
+import type { DashboardAllResponse, StaffRevenueEntry, PaymentModeBreakdown } from "../middleware/dashboard/dashboard.thunk";
+
+const EMPTY_PAYMENT_MODE_BREAKDOWN: PaymentModeBreakdown = { entries: [], total: 0 };
 
 interface DashboardState {
   data: DashboardAllResponse | null;
@@ -17,6 +20,11 @@ interface DashboardState {
   staffRevenue: StaffRevenueEntry[];
   staffRevenueLoading: boolean;
   staffRevenueError: string | null;
+  // Overall Collection card (payment mode breakdown) — its own
+  // Today/Yesterday/Week filter, independent of everything else.
+  paymentModeBreakdown: PaymentModeBreakdown;
+  paymentModeBreakdownLoading: boolean;
+  paymentModeBreakdownError: string | null;
 }
 
 const initialState: DashboardState = {
@@ -28,6 +36,9 @@ const initialState: DashboardState = {
   staffRevenue: [],
   staffRevenueLoading: false,
   staffRevenueError: null,
+  paymentModeBreakdown: EMPTY_PAYMENT_MODE_BREAKDOWN,
+  paymentModeBreakdownLoading: false,
+  paymentModeBreakdownError: null,
 };
 
 const dashboardSlice = createSlice({
@@ -81,6 +92,21 @@ const dashboardSlice = createSlice({
       .addCase(fetchStaffRevenue.rejected, (state, action) => {
         state.staffRevenueLoading = false;
         state.staffRevenueError = action.payload as string;
+      });
+
+    // ── Overall Collection card (own Today/Yesterday/Week filter) ─────────────
+    builder
+      .addCase(fetchPaymentModeBreakdown.pending, (state) => {
+        state.paymentModeBreakdownLoading = true;
+        state.paymentModeBreakdownError = null;
+      })
+      .addCase(fetchPaymentModeBreakdown.fulfilled, (state, action) => {
+        state.paymentModeBreakdownLoading = false;
+        state.paymentModeBreakdown = action.payload;
+      })
+      .addCase(fetchPaymentModeBreakdown.rejected, (state, action) => {
+        state.paymentModeBreakdownLoading = false;
+        state.paymentModeBreakdownError = action.payload as string;
       });
   },
 });
