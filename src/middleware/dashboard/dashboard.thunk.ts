@@ -82,18 +82,48 @@ export const fetchDashboardAll = createAsyncThunk<
   }
 );
 
-// Chart-only reload — called when the period filter changes
+// Chart-only reload — called when the period or gender filter changes
 export const fetchRevenueChart = createAsyncThunk<
   Array<{ month: string; fullLabel: string; revenue: number; expenses: number }>,
-  { period: string }
+  { period: string; gender?: string }
 >(
   "dashboard/fetchRevenueChart",
-  async ({ period }, { rejectWithValue }) => {
+  async ({ period, gender }, { rejectWithValue }) => {
     try {
-      const res = await api.get(`/api/v1/dashboard/revenue?period=${period}`);
+      const query = new URLSearchParams({ period });
+      if (gender && gender !== "all") query.set("gender", gender);
+      const res = await api.get(`/api/v1/dashboard/revenue?${query.toString()}`);
       // Backend may return { data: [...] } or [...] directly
       const payload = res.data.data ?? res.data;
       return Array.isArray(payload) ? payload : [];
+    } catch (err: any) {
+      return rejectWithValue(err.response?.data || err.message);
+    }
+  }
+);
+
+export interface PaymentModeBreakdownEntry {
+  method: string;
+  amount: number;
+  percentage: number;
+}
+export interface PaymentModeBreakdown {
+  entries: PaymentModeBreakdownEntry[];
+  total: number;
+}
+
+// "Overall Collection" card — its own Today/Yesterday/Week filter,
+// independent of the Revenue Overview chart's period.
+export const fetchPaymentModeBreakdown = createAsyncThunk<
+  PaymentModeBreakdown,
+  { period: string }
+>(
+  "dashboard/fetchPaymentModeBreakdown",
+  async ({ period }, { rejectWithValue }) => {
+    try {
+      const res = await api.get(`/api/v1/dashboard/payment-mode-breakdown?period=${period}`);
+      const payload = res.data.data ?? res.data;
+      return payload && Array.isArray(payload.entries) ? payload : { entries: [], total: 0 };
     } catch (err: any) {
       return rejectWithValue(err.response?.data || err.message);
     }

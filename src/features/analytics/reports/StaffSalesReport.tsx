@@ -111,6 +111,12 @@ export default function StaffSalesReport({ onBack, category, categoryKey }: { on
   const [itemTypeFilter,      setItemTypeFilter]      = useState<string[]>([]);
   const [paymentStatusFilter, setPaymentStatusFilter] = useState<string[]>([]);
   const [sortFilter, setSortFilter] = useState("None");
+  // GST toggle under Filter -> Other, same pattern as Staff Performance
+  // Report — on by default (revenue shown gross of GST); a single-element
+  // array ("1"/"0") is reused here so it still fits JiraFilterMenu's
+  // per-field string[] draft/Apply/Clear lifecycle.
+  const [gstFilter, setGstFilter] = useState<string[]>(["1"]);
+  const includeGst = gstFilter[0] !== "0";
   const [paymentModeOptions, setPaymentModeOptions] = useState<{ id: string; label: string }[]>([]);
   const [loading,        setLoading]        = useState(false);
   const [rows,           setRows]           = useState<StaffSaleRow[]>([]);
@@ -151,8 +157,9 @@ export default function StaffSalesReport({ onBack, category, categoryKey }: { on
     if (itemTypeFilter.length > 0) body.item_types = itemTypeFilter;
     if (paymentStatusFilter.length > 0) body.payment_statuses = paymentStatusFilter;
     if (sortFilter !== "None") body.sort = sortFilter;
+    body.include_gst = includeGst;
     return body;
-  }, [dateFrom, dateTo, staffFilterIds, debouncedSearch, paymentModeFilter, itemTypeFilter, paymentStatusFilter, sortFilter]);
+  }, [dateFrom, dateTo, staffFilterIds, debouncedSearch, paymentModeFilter, itemTypeFilter, paymentStatusFilter, sortFilter, includeGst]);
 
   const fetchData = useCallback(async () => {
     abortRef.current?.abort();
@@ -192,13 +199,31 @@ export default function StaffSalesReport({ onBack, category, categoryKey }: { on
   }, [buildFilterBody, currentPage, pageSize]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
-  useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, staffFilterIds, debouncedSearch, paymentModeFilter, itemTypeFilter, paymentStatusFilter, sortFilter]);
+  useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, staffFilterIds, debouncedSearch, paymentModeFilter, itemTypeFilter, paymentStatusFilter, sortFilter, includeGst]);
 
   const filterFields: JiraFilterField[] = useMemo(() => [
     { key: "staff", label: "Staff Member", options: staffOptions, searchable: true },
     { key: "payment_mode", label: "Payment Mode", options: paymentModeOptions },
     { key: "item_type", label: "Item Type", options: ITEM_TYPE_OPTIONS },
     { key: "payment_status", label: "Payment Status", options: PAYMENT_STATUS_OPTIONS },
+    {
+      key: "other",
+      label: "Other",
+      options: [],
+      render: (draft, setDraft) => {
+        const checked = draft[0] !== "0";
+        return (
+          <label className="jfm-option">
+            <input
+              type="checkbox"
+              checked={checked}
+              onChange={() => setDraft([checked ? "0" : "1"])}
+            />
+            <span>Include GST in revenue</span>
+          </label>
+        );
+      },
+    },
   ], [staffOptions, paymentModeOptions]);
 
   const filterMenuSelected = useMemo(() => ({
@@ -206,13 +231,21 @@ export default function StaffSalesReport({ onBack, category, categoryKey }: { on
     payment_mode: paymentModeFilter,
     item_type: itemTypeFilter,
     payment_status: paymentStatusFilter,
-  }), [staffFilterIds, paymentModeFilter, itemTypeFilter, paymentStatusFilter]);
+    // Only surfaced when GST is switched OFF (non-default) — otherwise the
+    // Filters button's applied-count badge would permanently read "1" even
+    // with no real filter active, since this field's draft is never empty.
+    other: includeGst ? [] : gstFilter,
+  }), [staffFilterIds, paymentModeFilter, itemTypeFilter, paymentStatusFilter, includeGst, gstFilter]);
 
   const handleFiltersApply = (next: Record<string, string[]>) => {
     setStaffFilterIds(next.staff ?? []);
     setPaymentModeFilter(next.payment_mode ?? []);
     setItemTypeFilter(next.item_type ?? []);
     setPaymentStatusFilter(next.payment_status ?? []);
+    // "Other" (GST) isn't a multi-select list — an empty/missing draft here
+    // means "cleared", which for a single on/off toggle should fall back to
+    // the default (GST included), not read as "0 selected -> false".
+    setGstFilter(next.other && next.other.length > 0 ? next.other : ["1"]);
   };
 
   const HEADERS = ["Staff Name", "Contact", "Item Type", "Description", `Total Sales (${currencySymbol})`, `Paid (${currencySymbol})`, `Due Amount (${currencySymbol})`, `Commission (${currencySymbol})`, "Payment Mode", "Status", "Date"];

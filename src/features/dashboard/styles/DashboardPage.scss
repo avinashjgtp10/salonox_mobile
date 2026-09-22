@@ -1003,6 +1003,21 @@ $sidebar-nav-active-text: #101828;
   gap: 4px;
 }
 
+.db-rev-gender-select {
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid $dashboard-border;
+  border-radius: 6px;
+  background: transparent;
+  color: $dashboard-secondary;
+  cursor: pointer;
+
+  &:hover {
+    color: $dashboard-primary;
+  }
+}
+
 .db-rev-filter-btn {
   padding: 4px 10px;
   font-size: 12px;
@@ -1024,6 +1039,65 @@ $sidebar-nav-active-text: #101828;
     color: $white;
     border-color: $dashboard-primary;
   }
+}
+
+/* ── OVERALL COLLECTION (payment mode breakdown) ── */
+.db-collection-filters {
+  margin: 2px 0 16px;
+}
+
+.db-collection-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.db-collection-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid $dashboard-border;
+  border-radius: 12px;
+
+  &--total {
+    border-style: dashed;
+  }
+}
+
+.db-collection-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+.db-collection-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.db-collection-label {
+  font-size: 12.5px;
+  color: $dashboard-secondary;
+}
+
+.db-collection-amount {
+  font-size: 15px;
+  font-weight: 700;
+  color: $dashboard-primary;
+  margin-top: 2px;
+}
+
+.db-collection-pct {
+  font-size: 12.5px;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: 20px;
+  white-space: nowrap;
 }
 
 /* ── TOOLTIP ── */

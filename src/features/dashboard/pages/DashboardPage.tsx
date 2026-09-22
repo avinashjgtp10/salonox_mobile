@@ -12,8 +12,6 @@ import { useNavigate } from "react-router-dom";
 import {
   AreaChart,
   Area,
-  BarChart,
-  Bar,
   PieChart,
   Pie,
   Cell,
@@ -40,7 +38,6 @@ import {
   Megaphone,
   ChevronRight,
   ChevronLeft,
-  CircleFill,
   ExclamationTriangleFill,
   ArrowRepeat,
   CashStack,
@@ -50,16 +47,21 @@ import {
   PersonFill,
   Whatsapp,
   LockFill,
+  Wifi,
+  Wallet2,
 } from "react-bootstrap-icons";
+import type { ReactNode } from "react";
 import { getInitialsFromFullName } from "../../../utils/initials";
 import { formatDateDDMMYYYY, formatTimeAgo } from "../../../utils/dateFormat";
 import { buildClientWhatsAppLink } from "../../../utils/whatsapp";
+import { formatPaymentMode } from "../../../utils/paymentMode";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import Skeleton from "../../../components/ui/Skeleton";
 import {
   fetchDashboardAll,
   fetchRevenueChart,
   fetchStaffRevenue,
+  fetchPaymentModeBreakdown,
 } from "../../../middleware/dashboard/dashboard.thunk";
 import type { TodayAppointment } from "../../../types/dashboard.types";
 import type { DashboardAllResponse } from "../../../middleware/dashboard/dashboard.thunk";
@@ -344,20 +346,6 @@ const RevenueTooltip = memo(function RevenueTooltip({ active, payload, label }: 
   );
 });
 
-const ApptTooltip = memo(function ApptTooltip({ active, payload, label }: any) {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="db-tooltip">
-      <p className="db-tooltip-label">{label}</p>
-      {payload.map((p: any) => (
-        <p key={p.name} className={`db-tooltip-series db-tooltip-series--${p.dataKey ?? "default"}`}>
-          {p.name}: {p.value}
-        </p>
-      ))}
-    </div>
-  );
-});
-
 // ─── Section: KPI Cards ───────────────────────────────────────────────────────
 
 type NormSummary = {
@@ -387,7 +375,7 @@ interface KpiFace {
 }
 
 const TabKpiCard = memo(function TabKpiCard({
-  theme, icon, tabLabels, front, back, loading, error, onRetry,
+  theme, icon, tabLabels, front, back, loading, error, onRetry, defaultTab = 0,
 }: {
   theme: string;
   icon: React.ReactNode;
@@ -398,11 +386,15 @@ const TabKpiCard = memo(function TabKpiCard({
   loading: boolean;
   error: string | null;
   onRetry: () => void;
+  /** Which face is shown before the user touches the toggle. Defaults to
+   * front (0) — only the Revenue card overrides this to open on This Month
+   * (1) instead of All Time. */
+  defaultTab?: 0 | 1;
 }) {
   // Explicit, static choice — no auto-advancing timer and no flip animation.
   // Both stats are always one click away via the pill toggle, but nothing on
   // the card moves on its own.
-  const [activeTab, setActiveTab] = useState<0 | 1>(0);
+  const [activeTab, setActiveTab] = useState<0 | 1>(defaultTab);
 
   if (loading) {
     return (
@@ -479,6 +471,7 @@ const KpiCardsGrid = memo(function KpiCardsGrid({
       theme: "revenue",
       icon:  <CurrencyIcon size={20} />,
       tabLabels: ["All Time", "This Month"] as [string, string],
+      defaultTab: 1 as const,
       front: {
         label:  "Total Revenue",
         value:  fmtRounded(summary?.allTimeRevenue),
@@ -558,6 +551,7 @@ const KpiCardsGrid = memo(function KpiCardsGrid({
           loading={loading}
           error={error}
           onRetry={onRetry}
+          defaultTab={card.defaultTab}
         />
       ))}
     </div>
@@ -727,12 +721,20 @@ const PeakDotLabel = memo(function PeakDotLabel(props: any) {
   );
 });
 
+const REV_GENDER_OPTIONS: { id: string; label: string }[] = [
+  { id: "all", label: "All Genders" },
+  { id: "male", label: "Male" },
+  { id: "female", label: "Female" },
+];
+
 const RevenueChartPanel = memo(function RevenueChartPanel({
   revenue,
   chartLoading,
   error,
   revPeriod,
   onPeriodChange,
+  revGender,
+  onGenderChange,
   onRetry,
 }: {
   revenue: Array<{ month: string; fullLabel: string; revenue: number; expenses: number }>;
@@ -740,6 +742,8 @@ const RevenueChartPanel = memo(function RevenueChartPanel({
   error: string | null;
   revPeriod: RevPeriod;
   onPeriodChange: (p: RevPeriod) => void;
+  revGender: string;
+  onGenderChange: (g: string) => void;
   onRetry: () => void;
 }) {
   const { formatAmount, currencySymbol, canSeeFinancials } = useMaskedCurrency();
@@ -802,6 +806,16 @@ const RevenueChartPanel = memo(function RevenueChartPanel({
             <span className="db-rev-total__value">{fmt(periodTotal)}</span>
             <span className="db-rev-total__label">total</span>
           </div>
+          <select
+            className="db-rev-gender-select"
+            value={revGender}
+            onChange={(e) => onGenderChange(e.target.value)}
+            aria-label="Filter revenue by client gender"
+          >
+            {REV_GENDER_OPTIONS.map((o) => (
+              <option key={o.id} value={o.id}>{o.label}</option>
+            ))}
+          </select>
           <div className="db-rev-filters">
             {(["today", "weekly", "monthly", "yearly"] as const).map((p) => (
               <button
@@ -886,55 +900,106 @@ const RevenueChartPanel = memo(function RevenueChartPanel({
   );
 });
 
-// ─── Section: Appointment Summary Bar Chart ───────────────────────────────────
+// ─── Section: Overall Collection (payment mode breakdown) ─────────────────────
+// Replaces the old appointment-status "Today's Summary" bar chart — this
+// salon runs on cash/UPI collection at the front desk, so a live breakdown of
+// how today's money actually came in is more actionable here than another
+// view of appointment counts (which the table below already covers).
 
-type ApptChartEntry = { label: string; completed: number; pending: number; partial: number; cancelled: number; noShow: number };
+type CollectionPeriod = "today" | "yesterday" | "week";
 
-const AppointmentSummaryPanel = memo(function AppointmentSummaryPanel({
-  apptChartData,
+const COLLECTION_PERIOD_LABELS: Record<CollectionPeriod, string> = {
+  today: "Today",
+  yesterday: "Yesterday",
+  week: "This week",
+};
+
+const PAYMENT_MODE_ICON: Record<string, { icon: ReactNode; bg: string; fg: string }> = {
+  cash:   { icon: <CashStack size={16} />,        bg: "#f0fdf4", fg: "#16a34a" },
+  upi:    { icon: <Wifi size={16} />,              bg: "#eff6ff", fg: "#3b82f6" },
+  card:   { icon: <CreditCard2Front size={16} />,  bg: "#eef2ff", fg: "#6366f1" },
+};
+const DEFAULT_MODE_ICON = { icon: <Wallet2 size={16} />, bg: "#f8fafc", fg: "#64748b" };
+
+const OverallCollectionPanel = memo(function OverallCollectionPanel({
+  entries,
+  total,
+  period,
+  onPeriodChange,
   loading,
+  error,
+  onRetry,
 }: {
-  apptChartData: ApptChartEntry[];
+  entries: Array<{ method: string; amount: number; percentage: number }>;
+  total: number;
+  period: CollectionPeriod;
+  onPeriodChange: (p: CollectionPeriod) => void;
   loading: boolean;
+  error: string | null;
+  onRetry: () => void;
 }) {
+  const { formatAmount, canSeeFinancials } = useMaskedCurrency();
+  const fmt = (n: number) => (canSeeFinancials ? formatAmount(n) : "₹******");
+
   return (
     <div className="db-card db-card-md">
       <div className="db-card-header">
         <div>
-          <h3 className="db-card-title">Today's Summary</h3>
-          <p className="db-card-sub">Appointment status breakdown</p>
+          <h3 className="db-card-title">Overall Collection</h3>
+          <p className="db-card-sub">{COLLECTION_PERIOD_LABELS[period]}'s payment mode breakdown</p>
         </div>
       </div>
+
+      <div className="db-rev-filters db-collection-filters">
+        {(["today", "yesterday", "week"] as const).map((p) => (
+          <button
+            key={p}
+            className={`db-rev-filter-btn${period === p ? " active" : ""}`}
+            onClick={() => onPeriodChange(p)}
+          >
+            {p.charAt(0).toUpperCase() + p.slice(1)}
+          </button>
+        ))}
+      </div>
+
       {loading ? (
         <ChartSkeleton />
+      ) : error ? (
+        <SectionError message={error} onRetry={onRetry} />
+      ) : entries.length === 0 ? (
+        <div className="db-empty">No payments collected in this period.</div>
       ) : (
-        <>
-          <ResponsiveContainer width="100%" height={240}>
-            <BarChart
-              data={apptChartData}
-              margin={{ top: 15, right: 15, left: 0, bottom: 0 }}
-              barSize={22}
-              barGap={4}
-            >
-              <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
-              <XAxis dataKey="label" tick={{ fontSize: 12, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
-              <YAxis width={35} tick={{ fontSize: 12, fill: "#9ca3af", dx: -4 }} axisLine={false} tickLine={false} allowDecimals={false} />
-              <Tooltip content={<ApptTooltip />} />
-              <Bar dataKey="completed" name="Completed" fill="#111827" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="pending"   name="Upcoming"  fill="#d1d5db" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="partial"   name="Partial"   fill="#93c5fd" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="cancelled" name="Cancelled" fill="#fecaca" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="noShow"    name="No Show"   fill="#c4b5fd" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-          <div className="db-bar-legend">
-            <span><CircleFill size={8} color="#111827" /> Completed</span>
-            <span><CircleFill size={8} color="#d1d5db" /> Upcoming</span>
-            <span><CircleFill size={8} color="#93c5fd" /> Partial</span>
-            <span><CircleFill size={8} color="#fecaca" /> Cancelled</span>
-            <span><CircleFill size={8} color="#c4b5fd" /> No Show</span>
+        <div className="db-collection-list">
+          {entries.map((e) => {
+            const style = PAYMENT_MODE_ICON[e.method] ?? DEFAULT_MODE_ICON;
+            return (
+              <div key={e.method} className="db-collection-row">
+                <span className="db-collection-icon" style={{ background: style.bg, color: style.fg }}>
+                  {style.icon}
+                </span>
+                <div className="db-collection-info">
+                  <div className="db-collection-label">{formatPaymentMode(e.method)}</div>
+                  <div className="db-collection-amount">{fmt(e.amount)}</div>
+                </div>
+                <span className="db-collection-pct" style={{ background: style.bg, color: style.fg }}>
+                  {e.percentage}%
+                </span>
+              </div>
+            );
+          })}
+          <div className="db-collection-row db-collection-row--total">
+            <span className="db-collection-icon" style={{ background: "#f5f3ff", color: "#7c3aed" }}>
+              <CreditCard2Front size={16} />
+            </span>
+            <div className="db-collection-info">
+              <div className="db-collection-label">Payments Received {COLLECTION_PERIOD_LABELS[period]}</div>
+              <div className="db-collection-amount">{fmt(total)}</div>
+            </div>
+            <span className="db-collection-pct" style={{ background: "#f5f3ff", color: "#7c3aed" }}>
+              100%
+            </span>
           </div>
-        </>
+        </div>
       )}
     </div>
   );
@@ -1333,7 +1398,9 @@ export default function DashboardPage() {
   const [apptPage,  setApptPage]  = useState(1);
   const [apptStatusFilter, setApptStatusFilter] = useState<ApptStatusFilter>("all");
   const [revPeriod, setRevPeriod] = useState<RevPeriod>("monthly");
+  const [revGender, setRevGender] = useState<string>("all");
   const [staffRevPeriod, setStaffRevPeriod] = useState<RevPeriod>("monthly");
+  const [collectionPeriod, setCollectionPeriod] = useState<CollectionPeriod>("today");
 
   // ── Granular selectors — each section only re-renders when its own slice changes
   const summary      = useAppSelector((s) => s.dashboard.data?.summary);
@@ -1343,6 +1410,9 @@ export default function DashboardPage() {
   const staffRevenue        = useAppSelector((s) => s.dashboard.staffRevenue);
   const staffRevenueLoading = useAppSelector((s) => s.dashboard.staffRevenueLoading);
   const staffRevenueError   = useAppSelector((s) => s.dashboard.staffRevenueError);
+  const paymentModeBreakdown        = useAppSelector((s) => s.dashboard.paymentModeBreakdown);
+  const paymentModeBreakdownLoading = useAppSelector((s) => s.dashboard.paymentModeBreakdownLoading);
+  const paymentModeBreakdownError   = useAppSelector((s) => s.dashboard.paymentModeBreakdownError);
   const pendingPayments = useAppSelector((s) => s.dashboard.data?.pendingPayments);
   const todaysBirthdays = useAppSelector((s) => s.dashboard.data?.todaysBirthdays);
   const salonName = useAppSelector((s: any) => s.salon?.currentSalon?.business_name) || "our salon";
@@ -1357,6 +1427,7 @@ export default function DashboardPage() {
     const today = new Date().toISOString().split("T")[0];
     dispatch(fetchDashboardAll({ period: revPeriod, date: today }));
     dispatch(fetchStaffRevenue({ period: staffRevPeriod }));
+    dispatch(fetchPaymentModeBreakdown({ period: collectionPeriod }));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset appointment page when list or the active status filter changes
@@ -1374,9 +1445,18 @@ export default function DashboardPage() {
   const handlePeriodChange = useCallback(
     (p: RevPeriod) => {
       setRevPeriod(p);
-      dispatch(fetchRevenueChart({ period: p }));
+      dispatch(fetchRevenueChart({ period: p, gender: revGender }));
     },
-    [dispatch]
+    [dispatch, revGender]
+  );
+
+  // Gender change: same "only re-fetch the chart" treatment as the period toggle.
+  const handleGenderChange = useCallback(
+    (g: string) => {
+      setRevGender(g);
+      dispatch(fetchRevenueChart({ period: revPeriod, gender: g }));
+    },
+    [dispatch, revPeriod]
   );
 
   // Staff Revenue card's period filter is independent of the Revenue Trend chart's.
@@ -1391,6 +1471,20 @@ export default function DashboardPage() {
   const retryStaffRevenue = useCallback(() => {
     dispatch(fetchStaffRevenue({ period: staffRevPeriod }));
   }, [dispatch, staffRevPeriod]);
+
+  // Overall Collection card's Today/Yesterday/Week filter is independent of
+  // every other period control on this page.
+  const handleCollectionPeriodChange = useCallback(
+    (p: CollectionPeriod) => {
+      setCollectionPeriod(p);
+      dispatch(fetchPaymentModeBreakdown({ period: p }));
+    },
+    [dispatch]
+  );
+
+  const retryPaymentModeBreakdown = useCallback(() => {
+    dispatch(fetchPaymentModeBreakdown({ period: collectionPeriod }));
+  }, [dispatch, collectionPeriod]);
 
   // ── Retry callbacks ────────────────────────────────────────────────────────
   const retryFull = useCallback(() => {
@@ -1408,9 +1502,14 @@ export default function DashboardPage() {
     // either: the chart's loading prop already ORs in the general dashLoading
     // flag (see chartLoading={dashLoading || chartLoading} below).
     dispatch(fetchDashboardAll({ period: revPeriod, date: today }));
+    // fetchDashboardAll's bundled chart is always all-gender (that combined
+    // endpoint has no gender param) — re-apply an active gender filter with
+    // its own fetch so Refresh doesn't silently drop back to "All Genders".
+    if (revGender !== "all") dispatch(fetchRevenueChart({ period: revPeriod, gender: revGender }));
     dispatch(fetchStaffRevenue({ period: staffRevPeriod }));
+    dispatch(fetchPaymentModeBreakdown({ period: collectionPeriod }));
     refetchAppts();
-  }, [dispatch, revPeriod, staffRevPeriod, refetchAppts]);
+  }, [dispatch, revPeriod, revGender, staffRevPeriod, collectionPeriod, refetchAppts]);
 
   // Deliberately NO tab-focus/visibilitychange auto-refresh here — the
   // dashboard must stay exactly as it is until the user clicks Refresh,
@@ -1421,8 +1520,8 @@ export default function DashboardPage() {
   // the Refresh button instead.
 
   const retryChart = useCallback(() => {
-    dispatch(fetchRevenueChart({ period: revPeriod }));
-  }, [dispatch, revPeriod]);
+    dispatch(fetchRevenueChart({ period: revPeriod, gender: revGender }));
+  }, [dispatch, revPeriod, revGender]);
 
   // ── Memoized derived state ─────────────────────────────────────────────────
   const normAppts = useMemo(
@@ -1447,53 +1546,6 @@ export default function DashboardPage() {
     () => filteredAppts.slice((apptPage - 1) * PAGE_SIZE, apptPage * PAGE_SIZE),
     [filteredAppts, apptPage]
   );
-
-  const apptChartData = useMemo<ApptChartEntry[]>(() => {
-    const parseHour = (timeStr: string): number | null => {
-      if (!timeStr || timeStr === "—") return null;
-      const match = timeStr.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
-      if (!match) return null;
-      let h = parseInt(match[1], 10);
-      const period = match[3].toUpperCase();
-      if (period === "PM" && h !== 12) h += 12;
-      if (period === "AM" && h === 12) h = 0;
-      return h;
-    };
-
-    if (normAppts.length === 0) {
-      return [{ label: "Today", completed: 0, pending: 0, partial: 0, cancelled: 0, noShow: 0 }];
-    }
-
-    const hourSet = new Set<number>();
-    normAppts.forEach(a => { const h = parseHour(a.time); if (h !== null) hourSet.add(h); });
-
-    if (hourSet.size === 0) {
-      return [{
-        label: "Today",
-        completed: normAppts.filter(a => a.status === "completed").length,
-        pending:   normAppts.filter(a => a.status === "upcoming").length,
-        partial:   normAppts.filter(a => a.status === "partial").length,
-        cancelled: normAppts.filter(a => a.status === "cancelled").length,
-        noShow:    normAppts.filter(a => a.status === "no-show").length,
-      }];
-    }
-
-    const minH = Math.min(...hourSet);
-    const maxH = Math.max(...hourSet);
-    return Array.from({ length: maxH - minH + 1 }, (_, i) => {
-      const h = minH + i;
-      const slot = normAppts.filter(a => parseHour(a.time) === h);
-      const label = h === 0 ? "12AM" : h < 12 ? `${h}AM` : h === 12 ? "12PM" : `${h - 12}PM`;
-      return {
-        label,
-        completed: slot.filter(a => a.status === "completed").length,
-        pending:   slot.filter(a => a.status === "upcoming").length,
-        partial:   slot.filter(a => a.status === "partial").length,
-        cancelled: slot.filter(a => a.status === "cancelled").length,
-        noShow:    slot.filter(a => a.status === "no-show").length,
-      };
-    });
-  }, [normAppts]);
 
   // Revenue Overview must reflect actual completed sales, not quoted/booked
   // appointment amounts (which include upcoming and cancelled appointments
@@ -1591,12 +1643,19 @@ export default function DashboardPage() {
           error={chartError ?? dashError}
           revPeriod={revPeriod}
           onPeriodChange={handlePeriodChange}
+          revGender={revGender}
+          onGenderChange={handleGenderChange}
           onRetry={retryChart}
         />
 
-        <AppointmentSummaryPanel
-          apptChartData={apptChartData}
-          loading={dashLoading}
+        <OverallCollectionPanel
+          entries={paymentModeBreakdown.entries}
+          total={paymentModeBreakdown.total}
+          period={collectionPeriod}
+          onPeriodChange={handleCollectionPeriodChange}
+          loading={paymentModeBreakdownLoading}
+          error={paymentModeBreakdownError}
+          onRetry={retryPaymentModeBreakdown}
         />
 
       </div>
