@@ -135,6 +135,21 @@ export default function BranchOwnerInventoryPage() {
 
   const salonName = (id: string) => salons.find((s) => s.id === id)?.name ?? id;
 
+  // From/To must never end up on the same salon — a product can't be
+  // transferred to the branch it's already sitting in. Rather than letting
+  // that happen and only catching it as a form-submit error, each dropdown's
+  // options exclude whatever the OTHER one currently has selected, and
+  // picking a branch that's already selected on the other side swaps the two
+  // instead of silently landing on an invalid same-same pair.
+  function handleSourceChange(id: string) {
+    setSourceSalonId(id);
+    if (id === destSalonId) setDestSalonId(sourceSalonId);
+  }
+  function handleDestChange(id: string) {
+    setDestSalonId(id);
+    if (id === sourceSalonId) setSourceSalonId(destSalonId);
+  }
+
   async function handleCreateTransfer() {
     setFormError("");
     if (!sourceSalonId || !destSalonId || sourceProductIds.length === 0) {
@@ -300,8 +315,8 @@ export default function BranchOwnerInventoryPage() {
               <label style={labelStyle}>From Branch</label>
               <Dropdown
                 value={sourceSalonId}
-                onChange={setSourceSalonId}
-                options={activeSalons.map((s) => ({ id: s.id, name: s.name }))}
+                onChange={handleSourceChange}
+                options={activeSalons.filter((s) => s.id !== destSalonId).map((s) => ({ id: s.id, name: s.name }))}
                 placeholder="Select branch…"
                 style={inputStyle}
               />
@@ -313,8 +328,8 @@ export default function BranchOwnerInventoryPage() {
               <label style={labelStyle}>To Branch</label>
               <Dropdown
                 value={destSalonId}
-                onChange={setDestSalonId}
-                options={activeSalons.map((s) => ({ id: s.id, name: s.name }))}
+                onChange={handleDestChange}
+                options={activeSalons.filter((s) => s.id !== sourceSalonId).map((s) => ({ id: s.id, name: s.name }))}
                 placeholder="Select branch…"
                 style={inputStyle}
               />
