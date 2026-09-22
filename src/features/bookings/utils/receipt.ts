@@ -6,6 +6,7 @@ import type { PaperProfile } from "../../settings/utils/printSettings";
 import { buildThermalDocument, buildPageCss, type ThermalReceiptData } from "./printTemplates";
 import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
 import { maskMobile } from "../../../utils/maskMobile";
+import { getSplitPaymentEntries, getEwalletUsedAmount } from "./paymentUtils";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Single reusable source for "print a bill/receipt" — every entry point in the
@@ -434,10 +435,9 @@ export function printReceipt(
   // eWallet can arrive either as its own field (calendar prints patch it from
   // the saved payment) or as a leg inside splitDetails (older records) — show
   // one dedicated line either way, and drop the splitDetails leg below so the
-  // same amount is never printed twice.
-  const splitDetailsRaw = ((booking as any).splitDetails || {}) as Record<string, unknown>;
-  const splitEwallet = Number(Object.entries(splitDetailsRaw).find(([k]) => k.toLowerCase() === "ewallet")?.[1]) || 0;
-  const ewalletUsedAmt = Number((booking as any).ewalletUsed || 0) || splitEwallet;
+  // same amount is never printed twice. Shared with ViewBillModal.tsx's
+  // Payment Method section (see paymentUtils.ts) so the two can't disagree.
+  const ewalletUsedAmt = getEwalletUsedAmount(booking as any);
   // Bill Discount (manualDisc) is a POST-tax deduction — applied to the bill
   // total after GST, not the pre-tax subtotal (matches pricing.engine.ts's
   // computeBillTotals). Coupon/membership discounts are unaffected and still
@@ -468,9 +468,7 @@ export function printReceipt(
   // Per-method breakdown of the actual payment (Cash/Card/UPI/Package —
   // eWallet/membership wallet aren't part of this map, they're tracked
   // separately above).
-  const splitEntries = Object.entries(splitDetailsRaw)
-    .map(([k, v]) => [k, Number(v) || 0] as [string, number])
-    .filter(([k, v]) => v > 0 && k.toLowerCase() !== "ewallet");
+  const splitEntries = getSplitPaymentEntries(booking as any).map((e) => [e.method, e.amount] as [string, number]);
   // Only call out the breakdown when it's genuinely mixed, or the sole method
   // is something other than plain Cash/Card/UPI (eWallet/Package) — a plain
   // single-method Cash payment already has "Amount Paid" + the Payment Method

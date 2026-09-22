@@ -342,11 +342,22 @@ export function mapApiBooking(
   // wallet/eWallet/points/referral-credit have already been subtracted out
   // server-side by the time paid_amount/due_amount were recorded, so adding
   // them back here would double-count and overstate the reconstructed total.
+  // Hoisted from where this was declared further down (still used there,
+  // unchanged) — needed here too, one tier of the SAME "0 is falsy" bug
+  // documented below: `rawPaidAmount > 0` used to gate whether paid+due was
+  // trusted, but a 100%-discounted bill legitimately has paid_amount = 0,
+  // making that gate indistinguishable from "no payment was ever made at
+  // all". `hasRealPayment` (a real, unified appointment status) is the
+  // correct signal — it's true regardless of whether the actual amount
+  // settled happens to be zero.
+  const rawStatus = String(appt.status ?? "booked").toLowerCase();
+  const hasRealPayment = rawStatus === "paid" || rawStatus === "partial";
   const rawPaidAmount = Number(appt.paid_amount ?? 0) || 0;
   const rawDueAmount = Number(appt.due_amount ?? appt.dueAmount ?? 0) || 0;
-  const reconstructedFromPayment = rawPaidAmount > 0
-    ? rawPaidAmount + rawDueAmount
-    : 0;
+  // null (not 0) when there's no real payment record at all, so the fallback
+  // chain below can tell "trustworthy zero" apart from "nothing to go on"
+  // with `??`/`!= null` instead of `||`, which treated both identically.
+  const reconstructedFromPayment = hasRealPayment ? (rawPaidAmount + rawDueAmount) : null;
   // A wallet/eWallet/points/referral-credit redemption SETTLES the bill; it
   // doesn't change what the bill was worth. Every persisted figure below is
   // therefore the bill's REVENUE value — sales.total_amount and
@@ -364,20 +375,35 @@ export function mapApiBooking(
     + (Number(appt.ewallet_used ?? appt.ewalletUsed ?? 0) || 0)
     + (Number(appt.reward_points_value ?? appt.rewardPointsValue ?? 0) || 0)
     + (Number(appt.referral_credit_used ?? appt.referralCreditUsed ?? 0) || 0);
-  const persistedRevenueTotal = parseFloat(String(appt.grand_total ?? appt.grandTotal ?? appt.total_amount ?? 0)) || 0;
+  // Presence, not truthiness — a bill fully wiped out by a 100% membership/
+  // coupon discount legitimately persists grand_total/total_amount as 0, and
+  // `0` is falsy. `persistedRevenueTotal || (...)` treated that real, correct
+  // ₹0 exactly like a genuinely MISSING field and fell through the whole
+  // fallback chain to computedTotal + taxFromBreakdown — the raw, pre-
+  // discount item-price sum — silently undoing the entire discount on
+  // screen (and, via the isPaidStatus branch below, into `payingNow` too):
+  // a ₹499 100%-off membership bill showed Grand Total ₹499 and a phantom
+  // "Round Off +₹499.00" line reconciling the correct ₹0 waterfall against
+  // that wrongly-reconstructed total. hasPersistedRevenueTotal checks the RAW
+  // field before the `?? 0` default below, so a real 0 is trusted outright
+  // and only a truly absent field (old data with no such column at all)
+  // still falls through to the next source.
+  const rawPersistedRevenueTotal = appt.grand_total ?? appt.grandTotal ?? appt.total_amount;
+  const hasPersistedRevenueTotal = rawPersistedRevenueTotal !== undefined && rawPersistedRevenueTotal !== null;
+  const persistedRevenueTotal = parseFloat(String(rawPersistedRevenueTotal ?? 0)) || 0;
   const computedRevenueTotal = computedGrandTotal != null ? Number(computedGrandTotal) : null;
   // paid + due is the one source that is ALREADY net of redemptions (both
   // were recorded server-side against the post-redemption bill), so it must
   // not have them taken off a second time.
-  const usesSettledFigure = !persistedRevenueTotal && computedRevenueTotal == null && reconstructedFromPayment > 0;
+  const usesSettledFigure = !hasPersistedRevenueTotal && computedRevenueTotal == null && reconstructedFromPayment != null;
   // What the bill was worth, unchanged from what this always computed.
   const revenueTotalVal = isPackagePaid ? 0
     : hasPerServicePackage
       ? Math.max(0, [...services, ...productItems, ...packageItems, ...membershipItems]
           .reduce((sum, item: any) => sum + (Number(item.total) || 0), 0)) + taxFromBreakdown
-      : (persistedRevenueTotal
-          || (computedRevenueTotal != null ? computedRevenueTotal : reconstructedFromPayment)
-          || (computedTotal + taxFromBreakdown));
+      : hasPersistedRevenueTotal
+        ? persistedRevenueTotal
+        : (computedRevenueTotal ?? reconstructedFromPayment ?? (computedTotal + taxFromBreakdown));
   const grandTotalVal = (isPackagePaid || usesSettledFigure)
     ? revenueTotalVal
     : Math.max(0, Math.round((revenueTotalVal - redemptionsUsed) * 100) / 100);
@@ -407,8 +433,8 @@ export function mapApiBooking(
     || Math.max(0, subtotalVal - discountAmountVal);
 
   // ── Booking status is unified — appt.status carries the payment state too,
-  //    no separate payment_status field anymore. ────────────────────────────
-  const rawStatus = String(appt.status ?? "booked").toLowerCase();
+  //    no separate payment_status field anymore. (rawStatus itself is
+  //    hoisted above, next to reconstructedFromPayment, which needs it too.)
   const isPaidStatus = rawStatus === "paid";
 
   // ── Compute payingNow / dueAmount ─────────────────────────────────────────

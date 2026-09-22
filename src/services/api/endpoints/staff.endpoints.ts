@@ -56,6 +56,9 @@ export const STAFF = {
   LEAVE_BY_ID: (staffId: string | number, id: string | number) =>
     `/api/v1/staff/${staffId}/leaves/${id}`,
 
+  // ── Scheduler staff sequence ───────────────────────────────────────────────
+  SCHEDULER_ORDER: "/api/v1/staff/scheduler-order",
+
   // ── Legacy (kept for compatibility) ────────────────────────────────────────
   SEARCH: (query: string) => `/api/v1/staff?search=${encodeURIComponent(query)}`,
   ACTIVATE: (id: string | number) => `/api/v1/staff/${id}/activate`,
