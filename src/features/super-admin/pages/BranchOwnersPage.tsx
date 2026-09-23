@@ -456,7 +456,7 @@ function BranchOwnerDetailModal({ branchOwner, allSalons, onClose }: { branchOwn
 
   const assignedSalons = assignedIds ? allSalons.filter((s: any) => assignedIds.has(s.id)) : [];
   const totalStaff = assignedSalons.reduce((sum, s) => sum + (s.staff_count ?? 0), 0);
-  const totalRevenue = assignedSalons.reduce((sum, s) => sum + (s.revenue ?? 0), 0);
+  const totalRevenue = assignedSalons.reduce((sum, s) => sum + (Number(s.revenue) || 0), 0);
   const activePlans = assignedSalons.filter((s) => (daysRemaining(s.plan_expires_at) ?? -1) >= 0).length;
 
   return (
