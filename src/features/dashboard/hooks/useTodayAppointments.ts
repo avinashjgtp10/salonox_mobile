@@ -1,6 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import api from "../../../services/api/axios";
-import { BOOKING } from "../../../services/api/endpoints";
+import { useMemo } from "react";
 import { mapApiBooking } from "../../bookings/utils/bookingMapper";
 import type { TodayAppointment } from "../../../types/dashboard.types";
 
@@ -65,118 +63,77 @@ function toUtcAmPm(iso: string): string {
 }
 
 /**
- * The backend's /dashboard/all endpoint returns todayAppointments as a stale
- * snapshot — amount doesn't reflect items added after the booking was created,
- * and status is never updated to "no-show" once a slot is missed. Both are
- * visibly correct in the calendar (it reads live booking data), so this fetches
- * that same live data instead of trusting the dashboard snapshot.
+ * Flattens raw enriched appointment rows (same shape as GET /api/v1/appointments,
+ * i.e. appointmentsService.list output — tax-aware grand total, live status/edits,
+ * not a stale dashboard-specific snapshot) into one row per SERVICE, not per
+ * appointment. A booking with multiple services (each with its own staff/time)
+ * would otherwise collapse into a single "Hair Spa +1 more" row showing only the
+ * first service and the appointment-level staff, hiding who actually did the
+ * second service and when. Products/packages/memberships/wallet items are
+ * deliberately excluded — an appointment with none of its own `services`
+ * produces no row at all.
  */
-export function useTodayAppointments() {
-  const [appointments, setAppointments] = useState<TodayAppointment[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const abortRef = useRef<AbortController | null>(null);
+export function mapAppointmentsToTodayAppointments(appts: any[]): TodayAppointment[] {
+  return appts.flatMap((appt) => {
+    // "Delete Appointment" is a hard delete now, so a fresh fetch never
+    // returns one — this guards only against any pre-existing row from
+    // before that change that might still carry deleted_at.
+    if (appt.deleted_at) return [];
+    const services: any[] = Array.isArray(appt.services) ? appt.services : [];
+    if (services.length === 0) return [];
 
-  // Mount, document.visibilitychange, and window's "focus" event can each
-  // independently call refetch() — the latter two commonly fire together on
-  // a single tab-switch, and React StrictMode double-invokes the mount
-  // effect in dev — so without this, a still-in-flight call kept getting
-  // aborted-and-restarted by a second trigger firing milliseconds later,
-  // showing up as a wasted, visibly "failed" cancelled request even though
-  // nothing had actually changed between the two triggers. Skipping the
-  // restart when one's already running coalesces those into a single real
-  // request, while a later, genuinely separate trigger (nothing in flight
-  // by then) still refetches normally.
-  const refetch = useCallback(async () => {
-    if (abortRef.current) return;
-    const ctrl = new AbortController();
-    abortRef.current = ctrl;
-    setLoading(true);
-    setError(null);
-    try {
-      const today = new Date().toISOString().slice(0, 10);
-      const res = await api.get(BOOKING.BASE, {
-        params: { start_date: today, end_date: today, limit: "200" },
-        signal: ctrl.signal,
-      });
-      const raw = res.data?.data;
-      const appts: any[] =
-        Array.isArray(raw?.items) ? raw.items :
-        Array.isArray(raw?.data)  ? raw.data  :
-        Array.isArray(raw)        ? raw        : [];
+    const status = computeStatus(appt);
+    const totalPaid = Number(appt.paid_amount) || 0;
+    const billTotal = computeAmount(appt);
+    // Sum of raw pre-tax/pre-discount line items, used only as the base
+    // to split billTotal (GST-inclusive) proportionally across rows below.
+    const rawItemsTotal = services.reduce((s, svc) => s + computeServiceAmount(svc), 0);
 
-      // One row per SERVICE, not per appointment — a booking with multiple
-      // services (each with its own staff/time) used to collapse into a
-      // single "Hair Spa +1 more" row showing only the first service and the
-      // appointment-level staff, hiding who actually did the second service
-      // and when. Products/packages/memberships/wallet items are deliberately
-      // excluded — an appointment with none of its own `services` produces no
-      // row at all.
-      const mapped: TodayAppointment[] = appts.flatMap((appt) => {
-        // "Delete Appointment" is a hard delete now, so a fresh fetch never
-        // returns one — this guards only against any pre-existing row from
-        // before that change that might still carry deleted_at.
-        if (appt.deleted_at) return [];
-        const services: any[] = Array.isArray(appt.services) ? appt.services : [];
-        if (services.length === 0) return [];
+    return services.map((svc, idx) => {
+      const svcRaw = computeServiceAmount(svc);
+      // Each row must show its share of the bill's true GST-inclusive
+      // grand total, not the raw pre-tax line-item price — otherwise the
+      // dashboard's Amount column silently excludes GST/discount/tip that
+      // the same booking's grand total (shown on Calendar/Appointments)
+      // already includes.
+      const svcAmount = rawItemsTotal > 0
+        ? Math.round(billTotal * (svcRaw / rawItemsTotal))
+        : Math.round(billTotal / services.length);
+      // Splits the appointment's overall paid amount proportionally by
+      // each service's own share of the bill — so "₹X of ₹Y" per row
+      // still sums back to what was actually collected on this booking,
+      // instead of repeating the full appointment-level paid amount on
+      // every one of its service rows.
+      const svcPaid = billTotal > 0 ? Math.round(totalPaid * (svcAmount / billTotal)) : 0;
+      return {
+        id: `${appt.id}-${svc.service_id ?? idx}`,
+        clientName: appt.client_name ?? "Walk-in",
+        serviceName: svc.name || svc.service_name || "Service",
+        staffName: svc.staff_name || appt.staff_name || "—",
+        startTime: svc.start_time
+          ? toUtcAmPm(svc.start_time)
+          : (appt.scheduled_at ? toUtcAmPm(appt.scheduled_at) : "—"),
+        status,
+        amount: svcAmount,
+        // appointments.repository.ts's listBySalonId already sums this
+        // across payments (status IN completed/partial) per appointment —
+        // used to show "₹X of ₹Y" instead of implying the full bill was paid.
+        paidAmount: svcPaid,
+      };
+    });
+  });
+}
 
-        const status = computeStatus(appt);
-        const totalPaid = Number(appt.paid_amount) || 0;
-        const billTotal = computeAmount(appt);
-        // Sum of raw pre-tax/pre-discount line items, used only as the base
-        // to split billTotal (GST-inclusive) proportionally across rows below.
-        const rawItemsTotal = services.reduce((s, svc) => s + computeServiceAmount(svc), 0);
-
-        return services.map((svc, idx) => {
-          const svcRaw = computeServiceAmount(svc);
-          // Each row must show its share of the bill's true GST-inclusive
-          // grand total, not the raw pre-tax line-item price — otherwise the
-          // dashboard's Amount column silently excludes GST/discount/tip that
-          // the same booking's grand total (shown on Calendar/Appointments)
-          // already includes.
-          const svcAmount = rawItemsTotal > 0
-            ? Math.round(billTotal * (svcRaw / rawItemsTotal))
-            : Math.round(billTotal / services.length);
-          // Splits the appointment's overall paid amount proportionally by
-          // each service's own share of the bill — so "₹X of ₹Y" per row
-          // still sums back to what was actually collected on this booking,
-          // instead of repeating the full appointment-level paid amount on
-          // every one of its service rows.
-          const svcPaid = billTotal > 0 ? Math.round(totalPaid * (svcAmount / billTotal)) : 0;
-          return {
-            id: `${appt.id}-${svc.service_id ?? idx}`,
-            clientName: appt.client_name ?? "Walk-in",
-            serviceName: svc.name || svc.service_name || "Service",
-            staffName: svc.staff_name || appt.staff_name || "—",
-            startTime: svc.start_time
-              ? toUtcAmPm(svc.start_time)
-              : (appt.scheduled_at ? toUtcAmPm(appt.scheduled_at) : "—"),
-            status,
-            amount: svcAmount,
-            // appointments.repository.ts's listBySalonId already sums this
-            // across payments (status IN completed/partial) per appointment —
-            // used to show "₹X of ₹Y" instead of implying the full bill was paid.
-            paidAmount: svcPaid,
-          };
-        });
-      });
-      setAppointments(mapped);
-    } catch (e: any) {
-      if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") {
-        setAppointments([]);
-        setError(e?.response?.data?.message || e?.message || "Failed to load today's appointments");
-      }
-    } finally {
-      setLoading(false);
-      abortRef.current = null;
-    }
-  }, []);
-
-  useEffect(() => { refetch(); }, [refetch]);
-
-  // Deliberately NO tab-focus/visibilitychange auto-refetch here — this
-  // hook only loads on mount; use the dashboard's Refresh button (which
-  // calls `refetch`) to pick up changes made elsewhere.
-
-  return { appointments, loading, error, refetch };
+/**
+ * Derives the dashboard's "Today's Appointments" rows from the combined
+ * dashboard payload's raw appointment rows — no separate network call.
+ * Memoized on the raw array reference (stable per Redux state until the
+ * next combined fetch), so this only re-flattens when new data actually lands.
+ */
+export function useTodayAppointments(rawAppointments: any[] | undefined) {
+  const appointments = useMemo(
+    () => mapAppointmentsToTodayAppointments(rawAppointments ?? []),
+    [rawAppointments]
+  );
+  return { appointments };
 }

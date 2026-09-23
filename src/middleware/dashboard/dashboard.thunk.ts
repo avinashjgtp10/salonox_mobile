@@ -1,90 +1,68 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
 import api from "../../services/api/axios";
 
-export interface DashboardAllResponse {
+export interface PaymentModeBreakdownEntry {
+  method: string;
+  amount: number;
+  percentage: number;
+}
+export interface PaymentModeBreakdown {
+  entries: PaymentModeBreakdownEntry[];
+  total: number;
+}
+
+// Raw enriched appointment row shape — same as GET /api/v1/appointments
+// (appointmentsService.list output), consumed via the shared mapApiBooking()
+// normalizer rather than a dashboard-specific shape.
+export type DashboardRawAppointment = Record<string, unknown>;
+
+export interface DashboardCombinedResponse {
   summary: {
     totalRevenue: number;
     allTimeRevenue: number;
-    totalAppointments: number;
-    totalClients: number;
     todayRevenue: number;
     revenueChange: number | null;
-    appointmentsChange: number | null;
-    clientsChange: number | null;
     todayRevenueChange: number | null;
     todayAppointmentsCount: number;
-    avgBillValue: number;
-    avgBillValueChange: number | null;
+    yesterdayAppointmentsCount: number;
     lastMonthRevenue: number;
     yesterdayRevenue: number;
     newClientsToday: number;
     newClientsThisMonth: number;
   };
-  todayAppointments: Array<{
-    id: string;
-    clientName: string;
-    service: string;
-    staffName: string;
-    time: string;
-    status: "completed" | "upcoming" | "partial" | "cancelled" | "no-show" | "deleted";
-    amount: number;
-  }>;
-  revenueChart: Array<{ month: string; fullLabel: string; revenue: number; expenses: number }>;
-  topStaff: Array<{
-    id: string;
-    name: string;
-    role: string;
-    avatar: string;
-    clientCount: number;
-    revenue: number;
-    bookings: number;
-  }>;
-  serviceMix: Array<{ name: string; value: number }>;
-  services: Array<{
-    id: string | number;
-    name: string;
-    price: string | number;
-    duration: number;
-    category_name: string | null;
-    price_type?: "fixed" | "from" | "free";
-    is_active: boolean;
-  }>;
-  todayOverview: {
-    bookings: number;
-    waiting: number;
-    delayed: number;
-    paymentDue: number;
-    runningLate: number;
-  };
-  todayTimeline: Array<{ hour: string; count: number }>;
+  todayAppointments: DashboardRawAppointment[];
+  revenueChart: Array<{ month: string; fullLabel: string; revenue: number }>;
   pendingPayments: { count: number; amount: number };
-  todaysBirthdays: { count: number; clients: Array<{ id: string; name: string; phone: string | null; phoneCountryCode: string | null }> };
-  inactiveClients: { count: number };
-  recentActivity: Array<{ id: string; type: string; title: string; body: string | null; createdAt: string }>;
+  todaysBirthdays: { clients: Array<{ id: string; name: string; phone: string | null; phoneCountryCode: string | null }> };
+  paymentModeBreakdown: PaymentModeBreakdown;
 }
 
-// Full dashboard load — called once on mount
-export const fetchDashboardAll = createAsyncThunk<
-  DashboardAllResponse,
-  { period?: string; date?: string }
+// Single combined load — called once on mount, and again whenever the
+// Overall Collection card's filter changes (collectionPeriod travels in the
+// body alongside it, so that filter click doesn't need its own round trip).
+// Replaces the previous 3 separate calls: GET /dashboard/all, the live
+// GET /appointments (today's appointments table), and
+// GET /dashboard/payment-mode-breakdown.
+export const fetchDashboardCombined = createAsyncThunk<
+  DashboardCombinedResponse,
+  { period?: string; date?: string; collectionPeriod?: string }
 >(
-  "dashboard/fetchAll",
+  "dashboard/fetchCombined",
   async (params, { rejectWithValue }) => {
     try {
-      const { period = "monthly", date } = params;
-      const query = new URLSearchParams({ period });
-      if (date) query.set("date", date);
-      const res = await api.get(`/api/v1/dashboard/all?${query.toString()}`);
-      return res.data.data as DashboardAllResponse;
+      const { period = "monthly", date, collectionPeriod = "today" } = params;
+      const res = await api.post("/api/v1/dashboard", { period, date, collectionPeriod });
+      return res.data.data as DashboardCombinedResponse;
     } catch (err: any) {
       return rejectWithValue(err.response?.data || err.message);
     }
   }
 );
 
-// Chart-only reload — called when the period or gender filter changes
+// Chart-only reload — called when the Revenue Overview's own period/gender
+// filter changes, independent of the combined load above.
 export const fetchRevenueChart = createAsyncThunk<
-  Array<{ month: string; fullLabel: string; revenue: number; expenses: number }>,
+  Array<{ month: string; fullLabel: string; revenue: number }>,
   { period: string; gender?: string }
 >(
   "dashboard/fetchRevenueChart",
@@ -96,34 +74,6 @@ export const fetchRevenueChart = createAsyncThunk<
       // Backend may return { data: [...] } or [...] directly
       const payload = res.data.data ?? res.data;
       return Array.isArray(payload) ? payload : [];
-    } catch (err: any) {
-      return rejectWithValue(err.response?.data || err.message);
-    }
-  }
-);
-
-export interface PaymentModeBreakdownEntry {
-  method: string;
-  amount: number;
-  percentage: number;
-}
-export interface PaymentModeBreakdown {
-  entries: PaymentModeBreakdownEntry[];
-  total: number;
-}
-
-// "Overall Collection" card — its own Today/Yesterday/Week filter,
-// independent of the Revenue Overview chart's period.
-export const fetchPaymentModeBreakdown = createAsyncThunk<
-  PaymentModeBreakdown,
-  { period: string }
->(
-  "dashboard/fetchPaymentModeBreakdown",
-  async ({ period }, { rejectWithValue }) => {
-    try {
-      const res = await api.get(`/api/v1/dashboard/payment-mode-breakdown?period=${period}`);
-      const payload = res.data.data ?? res.data;
-      return payload && Array.isArray(payload.entries) ? payload : { entries: [], total: 0 };
     } catch (err: any) {
       return rejectWithValue(err.response?.data || err.message);
     }
