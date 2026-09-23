@@ -15,7 +15,7 @@ const env = ENVIRONMENTS[appEnv];
 // old version would let new JS be served to binaries that can't run it.
 // ConfigContext's `config.version` is NOT usable for this: the project has no
 // app.json, so it is always undefined.
-const APP_VERSION = "1.0.0";
+const APP_VERSION = "1.0.1";
 
 const existsInProject = (relativePath: string) => fs.existsSync(path.resolve(__dirname, relativePath));
 
@@ -128,6 +128,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     },
     plugins: [
       "expo-router",
+      ["expo-secure-store", { configureAndroidBackup: true, faceIDPermission: false }],
       "./plugins/with-launcher-logo-padding",
       // Style mods unwind in reverse order; this override must run last.
       "./plugins/with-plain-launch-screen",
