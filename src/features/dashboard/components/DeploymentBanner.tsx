@@ -100,9 +100,8 @@ export default function DeploymentBanner() {
 
   return (
     <div className="deployment-banner" role="status" ref={bannerRef}>
-      <span className="deployment-banner__icon">🚧</span>
       <span className="deployment-banner__text">
-        <strong>Deployment in Progress</strong> — {announcement.message}
+        {announcement.message}
         {" "}Estimated completion: {formatRemaining(announcement.end_time)}.
       </span>
     </div>

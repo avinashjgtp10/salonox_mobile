@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
-import { fetchSuperAdminSalonsThunk, setSalonStatusThunk, forceOnboardingThunk, impersonateSalonThunk, deleteSalonThunk, createUserThunk } from "../../../middleware/superAdmin/superAdmin.thunk";
+import { fetchSuperAdminSalonsThunk, setSalonStatusThunk, forceOnboardingThunk, impersonateSalonThunk, deleteSalonThunk, createUserThunk, fetchSuperAdminUsersThunk, resetUserPasswordThunk } from "../../../middleware/superAdmin/superAdmin.thunk";
 import Pagination from "../components/Pagination";
 import { Badge, ActionBtn, Toast } from "../components/SuperAdminUI";
 import { EMAIL_REGEX } from "../../../components/Landing/shared";
@@ -145,10 +145,125 @@ function ConfirmDeleteModal({ salonName, onConfirm, onCancel, loading }: { salon
   );
 }
 
+function genPassword() {
+  const chars = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789@#$";
+  return Array.from({ length: 10 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+}
+
+function ResetPasswordModal({ owner, onClose }: { owner: { id: string; name: string; email: string }; onClose: () => void }) {
+  const dispatch = useAppDispatch();
+  const [password, setPassword] = useState(genPassword());
+  const [showPw, setShowPw] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
+  const [done, setDone] = useState(false);
+
+  async function handleReset() {
+    if (password.length < 6) { setErr("Password must be at least 6 characters."); return; }
+    setSaving(true); setErr("");
+    const r = await dispatch(resetUserPasswordThunk({ id: owner.id, password }));
+    setSaving(false);
+    if (resetUserPasswordThunk.fulfilled.match(r)) {
+      setDone(true);
+    } else {
+      setErr((r.payload as string) || "Failed to reset password.");
+    }
+  }
+
+  const inputStyle: React.CSSProperties = { width: "100%", padding: "9px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13.5, color: "#0f172a", outline: "none", boxSizing: "border-box" };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: 16 }}>
+      <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #e2e8f0", padding: "28px 32px", width: 420, boxShadow: "0 24px 48px rgba(0,0,0,0.18)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+          <div>
+            <h3 style={{ margin: 0, color: "#0f172a", fontSize: 16, fontWeight: 700 }}>Reset Password</h3>
+            <p style={{ margin: "4px 0 0", color: "#94a3b8", fontSize: 12.5 }}>{owner.name || owner.email}</p>
+          </div>
+          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#94a3b8", fontSize: 22, padding: 0, lineHeight: 1 }}>×</button>
+        </div>
+
+        {done ? (
+          <div>
+            <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 12, padding: "16px 18px", marginBottom: 20 }}>
+              <p style={{ margin: "0 0 12px", color: "#15803d", fontSize: 13, fontWeight: 600 }}>✓ Password reset successfully!</p>
+              <p style={{ margin: "0 0 6px", color: "#374151", fontSize: 12.5 }}>Share this new password with the user:</p>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#fff", border: "1px solid #d1fae5", borderRadius: 8, padding: "9px 12px" }}>
+                <div>
+                  <div style={{ color: "#64748b", fontSize: 10.5, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>Password</div>
+                  <div style={{ color: "#0f172a", fontSize: 13.5, fontWeight: 600, fontFamily: "monospace" }}>{password}</div>
+                </div>
+                <button onClick={() => navigator.clipboard.writeText(password)} title="Copy"
+                  style={{ background: "none", border: "none", cursor: "pointer", color: "#6366f1", padding: "4px 6px", borderRadius: 6 }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                </button>
+              </div>
+            </div>
+            <button onClick={onClose}
+              style={{ width: "100%", padding: "10px 0", borderRadius: 8, border: "none", background: "#6366f1", color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
+              Close
+            </button>
+          </div>
+        ) : (
+          <>
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 5 }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "#64748b" }}>New Password</label>
+                <button type="button" onClick={() => setPassword(genPassword())}
+                  style={{ fontSize: 11.5, color: "#6366f1", fontWeight: 600, background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+                  ↻ Generate
+                </button>
+              </div>
+              <div style={{ position: "relative" }}>
+                <input type={showPw ? "text" : "password"} value={password}
+                  autoComplete="new-password"
+                  onChange={(e) => setPassword(e.target.value)}
+                  style={{ ...inputStyle, fontFamily: showPw ? "inherit" : "monospace", paddingRight: 40 }}
+                />
+                <button type="button" onClick={() => setShowPw((v) => !v)}
+                  style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#94a3b8", padding: 0 }}>
+                  {showPw
+                    ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                    : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>}
+                </button>
+              </div>
+              <p style={{ margin: "5px 0 0", color: "#94a3b8", fontSize: 11 }}>Min 6 characters.</p>
+            </div>
+
+            {err && (
+              <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, padding: "10px 14px", color: "#dc2626", fontSize: 13, marginTop: 14 }}>
+                {err}
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
+              <button onClick={onClose} disabled={saving}
+                style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", color: "#64748b", fontWeight: 600, fontSize: 14, cursor: saving ? "not-allowed" : "pointer" }}>
+                Cancel
+              </button>
+              <button onClick={handleReset} disabled={saving}
+                style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "none", background: "#6366f1", color: "#fff", fontWeight: 700, fontSize: 14, cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.7 : 1 }}>
+                {saving ? "Resetting…" : "Reset Password"}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function SalonsPage() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { salons, loading } = useAppSelector((s) => s.superAdmin);
+  // Salon rows only carry the owner's email/name, not their user id — the
+  // reset-password endpoint operates on a user id (/users/:id/reset-password),
+  // so owner ids are resolved from the general salon_owner users list by
+  // matching email, same source BranchOwnersPage already uses for its own
+  // Reset Password action.
+  const [ownerIdByEmail, setOwnerIdByEmail] = useState<Record<string, string>>({});
+  const [resetTarget, setResetTarget] = useState<{ id: string; name: string; email: string } | null>(null);
   const [search, setSearch]   = useState("");
   const [actionId, setActionId] = useState<string | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
@@ -189,10 +304,15 @@ export default function SalonsPage() {
   const load = useCallback((q?: string) => { dispatch(fetchSuperAdminSalonsThunk(q)); }, [dispatch]);
   useEffect(() => { load(); }, [load]);
 
-  function genPassword() {
-    const chars = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789@#$";
-    return Array.from({ length: 10 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
-  }
+  useEffect(() => {
+    dispatch(fetchSuperAdminUsersThunk({ role: "salon_owner" })).then((r) => {
+      if (fetchSuperAdminUsersThunk.fulfilled.match(r)) {
+        const map: Record<string, string> = {};
+        for (const u of r.payload) map[u.email.toLowerCase()] = u.id;
+        setOwnerIdByEmail(map);
+      }
+    });
+  }, [dispatch]);
 
   function openCreateModal() {
     const pw = genPassword();
@@ -499,6 +619,13 @@ export default function SalonsPage() {
         />
       )}
 
+      {resetTarget && (
+        <ResetPasswordModal
+          owner={resetTarget}
+          onClose={() => setResetTarget(null)}
+        />
+      )}
+
       {/* ── Create Account modal ──────────────────────────────────────────── */}
       {createModal && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: 16 }}>
@@ -781,6 +908,9 @@ export default function SalonsPage() {
                           ? [{ label: "Force Complete", color: "#d97706", bg: "#fffbeb", onClick: () => handleOnboarding(s.id), disabled: actionId === s.id }]
                           : []),
                         { label: "Impersonate", color: "#6366f1", bg: "#eef2ff", onClick: () => handleImpersonate(s.id), disabled: actionId === s.id },
+                        ...(ownerIdByEmail[String(s.owner_email || "").toLowerCase()]
+                          ? [{ label: "Reset Password", color: "#d97706", bg: "#fffbeb", onClick: () => setResetTarget({ id: ownerIdByEmail[String(s.owner_email).toLowerCase()], name: s.owner_name || s.name, email: s.owner_email }) }]
+                          : []),
                         { label: "Delete", color: "#dc2626", bg: "#fef2f2", onClick: () => setDeleteTarget({ id: s.id, name: s.name }), disabled: actionId === s.id },
                       ]}
                     />
