@@ -57,12 +57,11 @@ import { formatPaymentMode } from "../../../utils/paymentMode";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import Skeleton from "../../../components/ui/Skeleton";
 import {
-  fetchDashboardAll,
+  fetchDashboardCombined,
   fetchRevenueChart,
-  fetchPaymentModeBreakdown,
 } from "../../../middleware/dashboard/dashboard.thunk";
 import type { TodayAppointment } from "../../../types/dashboard.types";
-import type { DashboardAllResponse } from "../../../middleware/dashboard/dashboard.thunk";
+import type { DashboardCombinedResponse } from "../../../middleware/dashboard/dashboard.thunk";
 import { useTodayAppointments } from "../hooks/useTodayAppointments";
 import { useMaskedCurrency } from "../hooks/useMaskedCurrency";
 
@@ -73,8 +72,8 @@ import { useMaskedCurrency } from "../hooks/useMaskedCurrency";
 // defeats useAppSelector's reference-equality check and forces the whole
 // page to re-render on any unrelated dashboard-slice update for as long as
 // `data` stays null.
-const EMPTY_REVENUE_CHART: DashboardAllResponse["revenueChart"] = [];
-
+const EMPTY_REVENUE_CHART: DashboardCombinedResponse["revenueChart"] = [];
+const EMPTY_PAYMENT_MODE_BREAKDOWN: DashboardCombinedResponse["paymentModeBreakdown"] = { entries: [], total: 0 };
 
 const PAGE_SIZE = 5;
 
@@ -311,17 +310,11 @@ const RevenueTooltip = memo(function RevenueTooltip({ active, payload, label }: 
 
 type NormSummary = {
   totalRevenue?: number;
-  allTimeRevenue?: number;
   todayRevenue?: number;
-  totalAppointments?: number;
-  totalClients?: number;
   revenueChange?: number | null;
   todayRevenueChange?: number | null;
-  appointmentsChange?: number | null;
-  clientsChange?: number | null;
   todayAppointmentsCount?: number;
-  avgBillValue?: number;
-  avgBillValueChange?: number | null;
+  yesterdayAppointmentsCount?: number;
   lastMonthRevenue?: number;
   yesterdayRevenue?: number;
   newClientsToday?: number;
@@ -340,16 +333,14 @@ const TabKpiCard = memo(function TabKpiCard({
 }: {
   theme: string;
   icon: React.ReactNode;
-  /** Short labels for the two-way pill toggle, e.g. ["All Time", "This Month"]. */
+  /** Short labels for the two-way pill toggle, e.g. ["This Month", "Last Month"]. */
   tabLabels: [string, string];
   front: KpiFace;
   back: KpiFace;
   loading: boolean;
   error: string | null;
   onRetry: () => void;
-  /** Which face is shown before the user touches the toggle. Defaults to
-   * front (0) — only the Revenue card overrides this to open on This Month
-   * (1) instead of All Time. */
+  /** Which face is shown before the user touches the toggle. Defaults to front (0). */
   defaultTab?: 0 | 1;
 }) {
   // Explicit, static choice — no auto-advancing timer and no flip animation.
@@ -431,36 +422,37 @@ const KpiCardsGrid = memo(function KpiCardsGrid({
     {
       theme: "revenue",
       icon:  <CurrencyIcon size={20} />,
-      tabLabels: ["All Time", "This Month"] as [string, string],
-      defaultTab: 1 as const,
+      tabLabels: ["This Month", "Last Month"] as [string, string],
+      defaultTab: 0 as const,
       front: {
         label:  "Total Revenue",
-        value:  fmtRounded(summary?.allTimeRevenue),
-        change: null,
-        sub:    "",
+        value:  fmtRounded(summary?.totalRevenue),
+        change: fmtChange(summary?.revenueChange ?? undefined),
+        sub:    "this month",
       },
       back: {
-        label:  "This Month's Revenue",
-        value:  fmtRounded(summary?.totalRevenue),
+        label:  "Last Month's Revenue",
+        value:  fmtRounded(summary?.lastMonthRevenue),
         change: null,
-        sub:    "",
+        sub:    "last month",
       },
     },
     {
       theme: "appointments",
       icon:  <CalendarCheck size={20} />,
-      tabLabels: ["This Month", "Today"] as [string, string],
+      tabLabels: ["Today", "Yesterday"] as [string, string],
+      defaultTab: 0 as const,
       front: {
-        label:  "Appointments",
-        value:  summary?.totalAppointments?.toLocaleString("en-IN") ?? "—",
-        change: fmtChange(summary?.appointmentsChange ?? undefined),
-        sub:    "this month",
-      },
-      back: {
         label:  "Appointments Today",
         value:  String(summary?.todayAppointmentsCount ?? normApptCount),
         change: null,
         sub:    "today",
+      },
+      back: {
+        label:  "Appointments Yesterday",
+        value:  summary?.yesterdayAppointmentsCount?.toLocaleString("en-IN") ?? "—",
+        change: null,
+        sub:    "yesterday",
       },
     },
     {
@@ -525,7 +517,7 @@ const BottomStatCards = memo(function BottomStatCards({
   pendingPayments, birthdays, loading, pendingLoading, onNavigatePendingAppointments, salonName,
 }: {
   pendingPayments: { count: number; amount: number } | undefined;
-  birthdays: { count: number; clients: Array<{ id: string; name: string; phone: string | null; phoneCountryCode: string | null }> } | undefined;
+  birthdays: { clients: Array<{ id: string; name: string; phone: string | null; phoneCountryCode: string | null }> } | undefined;
   loading: boolean;
   pendingLoading: boolean;
   onNavigatePendingAppointments: () => void;
@@ -822,12 +814,13 @@ const RevenueChartPanel = memo(function RevenueChartPanel({
 // how today's money actually came in is more actionable here than another
 // view of appointment counts (which the table below already covers).
 
-type CollectionPeriod = "today" | "yesterday" | "week";
+type CollectionPeriod = "today" | "yesterday" | "week" | "month";
 
 const COLLECTION_PERIOD_LABELS: Record<CollectionPeriod, string> = {
   today: "Today",
   yesterday: "Yesterday",
   week: "This week",
+  month: "This month",
 };
 
 const PAYMENT_MODE_ICON: Record<string, { icon: ReactNode; bg: string; fg: string }> = {
@@ -884,7 +877,7 @@ const OverallCollectionPanel = memo(function OverallCollectionPanel({
       </div>
 
       <div className="db-rev-filters db-collection-filters">
-        {(["today", "yesterday", "week"] as const).map((p) => (
+        {(["today", "yesterday", "week", "month"] as const).map((p) => (
           <button
             key={p}
             className={`db-rev-filter-btn${period === p ? " active" : ""}`}
@@ -1127,11 +1120,10 @@ export default function DashboardPage() {
 
   // ── Granular selectors — each section only re-renders when its own slice changes
   const summary      = useAppSelector((s) => s.dashboard.data?.summary);
-  const { appointments, loading: apptsLoading, error: apptsError, refetch: refetchAppts } = useTodayAppointments();
+  const rawAppointments = useAppSelector((s) => s.dashboard.data?.todayAppointments);
+  const { appointments } = useTodayAppointments(rawAppointments);
   const revenueChart = useAppSelector((s) => s.dashboard.data?.revenueChart ?? EMPTY_REVENUE_CHART);
-  const paymentModeBreakdown        = useAppSelector((s) => s.dashboard.paymentModeBreakdown);
-  const paymentModeBreakdownLoading = useAppSelector((s) => s.dashboard.paymentModeBreakdownLoading);
-  const paymentModeBreakdownError   = useAppSelector((s) => s.dashboard.paymentModeBreakdownError);
+  const paymentModeBreakdown = useAppSelector((s) => s.dashboard.data?.paymentModeBreakdown ?? EMPTY_PAYMENT_MODE_BREAKDOWN);
   const pendingPayments = useAppSelector((s) => s.dashboard.data?.pendingPayments);
   const todaysBirthdays = useAppSelector((s) => s.dashboard.data?.todaysBirthdays);
   const salonName = useAppSelector((s: any) => s.salon?.currentSalon?.business_name) || "our salon";
@@ -1140,11 +1132,10 @@ export default function DashboardPage() {
   const chartError   = useAppSelector((s) => s.dashboard.chartError);
   const dashError    = useAppSelector((s) => s.dashboard.error);
 
-  // ── Mount: full load once ─────────────────────────────────────────────────
+  // ── Mount: single combined load ───────────────────────────────────────────
   useEffect(() => {
     const today = new Date().toISOString().split("T")[0];
-    dispatch(fetchDashboardAll({ period: revPeriod, date: today }));
-    dispatch(fetchPaymentModeBreakdown({ period: collectionPeriod }));
+    dispatch(fetchDashboardCombined({ period: revPeriod, date: today, collectionPeriod }));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset appointment page when list or the active status filter changes
@@ -1177,42 +1168,45 @@ export default function DashboardPage() {
   );
 
   // Overall Collection card's Today/Yesterday/Week filter is independent of
-  // every other period control on this page.
+  // every other period control on this page. Its filter now travels as part
+  // of the same combined fetch as everything else (see fetchDashboardCombined),
+  // so changing it re-fetches the whole bundle rather than just this card —
+  // heavier per click, but keeps the dashboard down to one endpoint.
   const handleCollectionPeriodChange = useCallback(
     (p: CollectionPeriod) => {
       setCollectionPeriod(p);
-      dispatch(fetchPaymentModeBreakdown({ period: p }));
+      const today = new Date().toISOString().split("T")[0];
+      dispatch(fetchDashboardCombined({ period: revPeriod, date: today, collectionPeriod: p }));
     },
-    [dispatch]
+    [dispatch, revPeriod]
   );
 
   const retryPaymentModeBreakdown = useCallback(() => {
-    dispatch(fetchPaymentModeBreakdown({ period: collectionPeriod }));
-  }, [dispatch, collectionPeriod]);
+    const today = new Date().toISOString().split("T")[0];
+    dispatch(fetchDashboardCombined({ period: revPeriod, date: today, collectionPeriod }));
+  }, [dispatch, revPeriod, collectionPeriod]);
 
   // ── Retry callbacks ────────────────────────────────────────────────────────
   const retryFull = useCallback(() => {
     const today = new Date().toISOString().split("T")[0];
-    dispatch(fetchDashboardAll({ period: revPeriod, date: today }));
-    refetchAppts();
-  }, [dispatch, revPeriod, refetchAppts]);
+    dispatch(fetchDashboardCombined({ period: revPeriod, date: today, collectionPeriod }));
+  }, [dispatch, revPeriod, collectionPeriod]);
 
   const handleRefresh = useCallback(() => {
     const today = new Date().toISOString().split("T")[0];
-    // fetchDashboardAll already returns revenueChart as part of its bundled
-    // response (see salon-dashboard.repository.ts's getAll()) — the separate
-    // fetchRevenueChart call here was fetching the exact same data a second
-    // time on every refresh/tab-focus. Its own chartLoading isn't needed
-    // either: the chart's loading prop already ORs in the general dashLoading
-    // flag (see chartLoading={dashLoading || chartLoading} below).
-    dispatch(fetchDashboardAll({ period: revPeriod, date: today }));
-    // fetchDashboardAll's bundled chart is always all-gender (that combined
-    // endpoint has no gender param) — re-apply an active gender filter with
-    // its own fetch so Refresh doesn't silently drop back to "All Genders".
+    // fetchDashboardCombined already returns revenueChart as part of its
+    // bundled response — the separate fetchRevenueChart call here was
+    // fetching the exact same data a second time on every refresh/tab-focus.
+    // Its own chartLoading isn't needed either: the chart's loading prop
+    // already ORs in the general dashLoading flag (see
+    // chartLoading={dashLoading || chartLoading} below).
+    dispatch(fetchDashboardCombined({ period: revPeriod, date: today, collectionPeriod }));
+    // fetchDashboardCombined's bundled chart is always all-gender (that
+    // combined endpoint has no gender param) — re-apply an active gender
+    // filter with its own fetch so Refresh doesn't silently drop back to
+    // "All Genders".
     if (revGender !== "all") dispatch(fetchRevenueChart({ period: revPeriod, gender: revGender }));
-    dispatch(fetchPaymentModeBreakdown({ period: collectionPeriod }));
-    refetchAppts();
-  }, [dispatch, revPeriod, revGender, collectionPeriod, refetchAppts]);
+  }, [dispatch, revPeriod, revGender, collectionPeriod]);
 
   // Deliberately NO tab-focus/visibilitychange auto-refresh here — the
   // dashboard must stay exactly as it is until the user clicks Refresh,
@@ -1355,8 +1349,8 @@ export default function DashboardPage() {
           total={paymentModeBreakdown.total}
           period={collectionPeriod}
           onPeriodChange={handleCollectionPeriodChange}
-          loading={paymentModeBreakdownLoading}
-          error={paymentModeBreakdownError}
+          loading={dashLoading}
+          error={dashError}
           onRetry={retryPaymentModeBreakdown}
         />
 
@@ -1371,8 +1365,8 @@ export default function DashboardPage() {
         totalApptPages={totalApptPages}
         statusFilter={apptStatusFilter}
         onStatusFilterChange={handleApptStatusFilterChange}
-        loading={dashLoading || apptsLoading}
-        error={apptsError || dashError}
+        loading={dashLoading}
+        error={dashError}
         onPageChange={setApptPage}
         onRetry={retryFull}
       />
