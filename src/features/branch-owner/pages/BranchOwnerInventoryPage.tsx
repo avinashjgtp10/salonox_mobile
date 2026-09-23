@@ -136,11 +136,10 @@ export default function BranchOwnerInventoryPage() {
   const salonName = (id: string) => salons.find((s) => s.id === id)?.name ?? id;
 
   // From/To must never end up on the same salon — a product can't be
-  // transferred to the branch it's already sitting in. Rather than letting
-  // that happen and only catching it as a form-submit error, each dropdown's
-  // options exclude whatever the OTHER one currently has selected, and
-  // picking a branch that's already selected on the other side swaps the two
-  // instead of silently landing on an invalid same-same pair.
+  // transferred to the branch it's already sitting in. From Branch always
+  // lists every branch; To Branch excludes whichever one is currently
+  // selected as From. Picking a From Branch that's already selected as To
+  // swaps the two instead of silently landing on an invalid same-same pair.
   function handleSourceChange(id: string) {
     setSourceSalonId(id);
     if (id === destSalonId) setDestSalonId(sourceSalonId);
@@ -316,7 +315,7 @@ export default function BranchOwnerInventoryPage() {
               <Dropdown
                 value={sourceSalonId}
                 onChange={handleSourceChange}
-                options={activeSalons.filter((s) => s.id !== destSalonId).map((s) => ({ id: s.id, name: s.name }))}
+                options={activeSalons.map((s) => ({ id: s.id, name: s.name }))}
                 placeholder="Select branch…"
                 style={inputStyle}
               />
