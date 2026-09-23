@@ -309,7 +309,13 @@ export const applyInterceptors = (instance: AxiosInstance) => {
       }
 
       // ── 403 SUBSCRIPTION_REQUIRED: show full-screen subscription wall ────
-      if (status === 403 && errorCode === SUBSCRIPTION_REQUIRED_CODE) {
+      // Skipped for a super-admin-impersonated session (any impersonatedBy
+      // other than the existing branch_owner entry path) — a super admin
+      // inspecting/managing a salon must never be blocked by that salon's own
+      // subscription state, same reasoning as the cash-counter gate bypass.
+      const impersonatedBy = storeRef?.getState()?.auth?.impersonatedBy ?? null;
+      const isSuperAdminEntry = Boolean(impersonatedBy) && impersonatedBy !== "branch_owner";
+      if (status === 403 && errorCode === SUBSCRIPTION_REQUIRED_CODE && !isSuperAdminEntry) {
         if (storeRef) {
           // Dynamically import to avoid circular dependency
           import("../../store/billingSlice").then(({ setSubscriptionExpired }) => {

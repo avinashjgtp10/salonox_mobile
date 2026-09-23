@@ -26,6 +26,11 @@ function App() {
   const dispatch = useAppDispatch();
   const subscriptionExpired = useAppSelector((s) => s.billing.subscriptionExpired);
   const accessToken = useAppSelector((s) => s.auth.accessToken);
+  const impersonatedBy = useAppSelector((s) => s.auth.impersonatedBy);
+  // A super admin impersonating a salon must never be blocked by that
+  // salon's own subscription expiry — same isSuperAdminEntry reasoning as
+  // DashboardLayout's cash-counter gate bypass.
+  const isSuperAdminEntry = Boolean(impersonatedBy) && impersonatedBy !== "branch_owner";
   const permissionDialog = useAppSelector((s) => s.permissionDialog);
   const { refreshNow } = useSubscriptionPoller();
   const location = useLocation();
@@ -71,7 +76,7 @@ function App() {
       <SalonOxBot />
       <CallHelpButton />
       {/* Full-screen subscription wall — renders over authenticated routes only */}
-      {accessToken && subscriptionExpired && <SubscriptionWall />}
+      {accessToken && subscriptionExpired && !isSuperAdminEntry && <SubscriptionWall />}
       {/* Generic "Access Denied" popup — shown app-wide whenever any API call
           403s with a permission-denial message (see interceptors.ts), so
           every page gets the same popup instead of each needing its own
