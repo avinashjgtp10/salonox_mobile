@@ -48,6 +48,13 @@ export default function DashboardLayout() {
   const dispatch = useAppDispatch();
   const role = useAppSelector((s) => s.auth.role);
   const effectivePermissions = useAppSelector((s) => s.user.profile?.effective_permissions);
+  const impersonatedBy = useAppSelector((s) => s.auth.impersonatedBy);
+  // A super admin entering a salon account (any impersonation that isn't the
+  // existing branch-owner entry path) must never be gated behind opening a
+  // cash counter — they're inspecting/managing the account, not running its
+  // till. See UnclosedCounterGate/AutoOpenCounterForNewAccount below, which
+  // read this same flag to skip their mandatory modals entirely.
+  const isSuperAdminEntry = Boolean(impersonatedBy) && impersonatedBy !== "branch_owner";
 
   const handleMenuChange = (menu: string | null) => {
     setOpenMenu(menu);
@@ -92,7 +99,7 @@ export default function DashboardLayout() {
   useEffect(() => {
     const isOwnerOrAdmin = role === "salon_owner" || role === "admin";
     const canSeeCashManagement = isOwnerOrAdmin || effectivePermissions?.view_cash_management === true;
-    if (!canSeeCashManagement || cashCounterLoaded || cashCounterLoading) return;
+    if (isSuperAdminEntry || !canSeeCashManagement || cashCounterLoaded || cashCounterLoading) return;
     // This effect's deps (role, effectivePermissions) can legitimately
     // re-run more than once while auth/permissions settle in — without this
     // guard, every one of those re-runs where canSeeCashManagement is still
@@ -113,7 +120,7 @@ export default function DashboardLayout() {
       const t = setTimeout(() => dispatch(fetchCashCounterDashboardThunk()), 2000);
       return () => clearTimeout(t);
     }
-  }, [dispatch, role, effectivePermissions, cashCounterLoaded, cashCounterLoading, cashCounterError]);
+  }, [dispatch, role, effectivePermissions, isSuperAdminEntry, cashCounterLoaded, cashCounterLoading, cashCounterError]);
 
   useEffect(() => {
     setOpenMenu(detectOpenMenu(location.pathname));
@@ -153,8 +160,12 @@ export default function DashboardLayout() {
         collapsed={collapsed}
         onToggleCollapsed={() => setCollapsed((c) => !c)}
       />
-      <UnclosedCounterGate />
-      <AutoOpenCounterForNewAccount />
+      {!isSuperAdminEntry && (
+        <>
+          <UnclosedCounterGate />
+          <AutoOpenCounterForNewAccount />
+        </>
+      )}
 
       <div className={`dashboard-body${collapsed ? " dashboard-body--collapsed" : ""}`}>
         <DashboardSidebar
