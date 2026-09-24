@@ -243,6 +243,8 @@ const VARIABLE_EXPLANATIONS: Record<PurchaseEventType, Array<{ token: string; me
     { token: "{{closing_date}}", meaning: "Date the counter was closed" }, { token: "{{closing_time}}", meaning: "Time the counter was closed" },
     { token: "{{collection_breakdown}}", meaning: "Cash, Card and UPI totals for this session, e.g. \"Cash: ₹500.00 | Card: ₹200.00 | UPI: ₹100.00\" (built automatically — WhatsApp doesn't allow line breaks inside a single value)" },
     { token: "{{total_collection}}", meaning: "Cash + Card + UPI combined" },
+    { token: "{{expenses}}", meaning: "Cash expenses recorded during this shift" },
+    { token: "{{in_store_cash}}", meaning: "Physical cash counted and entered when closing the counter" },
   ],
 };
 
