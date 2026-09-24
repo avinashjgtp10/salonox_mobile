@@ -7,6 +7,17 @@
   &__content {
     padding: 18px 24px 24px;
     max-width: 1600px;
+    // .main (the flex child this page renders inside — see DashboardLayout)
+    // keeps overflow-x: hidden and shrinks its own width when a sub-sidebar
+    // flyout (e.g. the Staff panel) is open. Without min-width: 0 here, this
+    // block defaults to its content's intrinsic width instead of respecting
+    // that shrunk .main, so the table below silently overflowed .main's edge
+    // and got clipped there — .sched-table's own overflow-x: auto (further
+    // down) never got the chance to become the actual horizontal scroll
+    // host, since nothing above it was ever narrower than its content.
+    min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
     margin: 0 auto;
   }
 
@@ -258,7 +269,17 @@
   &__el {
     width: 100%;
     border-collapse: collapse;
-    min-width: 940px;
+    // table-layout: fixed makes each column's declared width/min-width (on
+    // the header cells below) actually authoritative, and every row then
+    // follows those same column widths. Without this, the browser's default
+    // auto-layout sizes columns from cell CONTENT and treats % widths as
+    // mere hints — so the table just sat at its content's natural width
+    // (close to the min-width floor below) and never visibly shrank as the
+    // container narrowed; only table-layout: fixed lets it track the
+    // container fluidly and only fall back to min-width/scrolling once that
+    // floor is actually hit.
+    table-layout: fixed;
+    min-width: 620px;
     font-size: 0.875rem;
   }
 
@@ -279,8 +300,11 @@
     font-weight: 700;
     color: #111827;
     border-right: 1px solid #f1f5f9;
-    min-width: 180px;
-    width: 220px;
+    // table-layout: fixed ignores min-width on cells — width is the only
+    // thing that matters once it's set, so the table's own min-width (see
+    // .sched-table__el) is what stops this column shrinking past readable,
+    // not a per-cell min-width here.
+    width: 16%;
     border-radius: 14px 0 0 0;
   }
 
@@ -288,7 +312,7 @@
     text-align: center;
     padding: 10px 6px;
     border-right: 1px solid #f1f5f9;
-    min-width: 120px;
+    width: 10.5%;
     vertical-align: middle;
   }
 
@@ -307,7 +331,7 @@
   }
 
   &__th-copy {
-    min-width: 74px;
+    width: 10.5%;
     border: none;
     border-radius: 0 14px 0 0;
   }
@@ -332,8 +356,7 @@
     z-index: 10;
     background: #fff;
     border-right: 1px solid #f1f5f9;
-    min-width: 150px;
-    max-width: 150px;
+    width: 16%;
     padding: 0;
     transition: background 0.12s;
   }
@@ -422,8 +445,7 @@
     border-right: 1px solid #f1f5f9;
     padding: 0;
     vertical-align: top;
-    width: 120px;
-    min-width: 120px;
+    width: 10.5%;
   }
 
   &__td-copy {
@@ -685,6 +707,7 @@
 // components/ui/styles/Pagination.scss. This just places it under the table.
 
 .sched-table-wrap {
+  min-width: 0;
   transition: opacity 0.15s;
 
   &--loading {
@@ -700,4 +723,101 @@
 // ── Keyframes ────────────────────────────────────────────────────────────────
 @keyframes schedSpin {
   to { transform: rotate(360deg); }
+}
+
+// ── Responsive ─────────────────────────────────────────────────────────────────
+// The weekly grid itself stays a horizontally-scrollable table with a sticky
+// Staff Member column at every width — stacking 7 day-columns vertically on
+// mobile would make comparing a staff member's week across days unreadable,
+// so scrolling the same grid sideways (thumb-swipe on touch) is the better
+// fit here than a second, cut-down mobile layout. Everything below only
+// tightens the header controls (breadcrumb/title/Add Shift/legend/nav) and
+// the table's own padding/font sizes so they don't feel oversized once the
+// grid needs its horizontal scrollbar.
+@media (max-width: 900px) {
+  .sched-page {
+    &__content {
+      padding: 14px 16px 20px;
+    }
+
+    &__title {
+      font-size: 1.25rem;
+    }
+
+    &__heading-row {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    &__heading-right {
+      flex-wrap: wrap;
+    }
+
+    &__now-pill {
+      flex: 1;
+      justify-content: center;
+    }
+
+    &__add-shift-btn {
+      flex: 1;
+      justify-content: center;
+    }
+
+    &__controls {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    &__legend {
+      justify-content: flex-start;
+    }
+
+    &__nav {
+      justify-content: space-between;
+    }
+
+    &__nav-btn--date {
+      flex: 1;
+      min-width: 0;
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .sched-page {
+    &__now-pill,
+    &__add-shift-btn {
+      font-size: 0.78rem;
+      padding: 8px 12px;
+    }
+
+    &__legend-item {
+      padding: 5px 10px;
+      font-size: 0.72rem;
+    }
+
+    &__nav-btn {
+      width: 30px;
+      height: 30px;
+    }
+  }
+
+  .sched-table {
+    &__el {
+      // table-layout: fixed ignores per-cell min-width — this table-level
+      // min-width is the only floor that matters; below it .sched-table's
+      // own overflow-x: auto takes over.
+      min-width: 500px;
+      font-size: 0.82rem;
+    }
+  }
+
+  .sched-cell {
+    min-height: 56px;
+
+    &__add,
+    &__add-icon {
+      min-height: 56px;
+    }
+  }
 }
