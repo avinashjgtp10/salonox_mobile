@@ -22,6 +22,7 @@ import {
 import { isUserLogoutInProgress } from "@/services/authLifecycle";
 import { isNetworkOnline, waitForNetworkOnline } from "@/services/networkStatus";
 import { tokenStorage } from "@/services/tokenStorage";
+import { notifySessionInvalidated } from "@/services/sessionInvalidation";
 import type { ApiResponse, RefreshTokenResponseData } from "@/types/auth";
 
 export const API_BASE_URL = environmentConfig.apiBaseUrl;
@@ -232,6 +233,7 @@ const waitForOnlineIfNeeded = async (config: InternalAxiosRequestConfig) => {
 };
 
 const toApiError = (error: unknown) => {
+  if (error instanceof ApiError) return error;
   if (isAxiosError<ApiErrorPayload>(error)) {
     if (!error.response) {
       return new ApiError(OFFLINE_MESSAGE, undefined, undefined, undefined, error.code);
@@ -300,6 +302,7 @@ const refreshAccessToken = async (reason: string) => {
       if (!refreshToken) {
         logAuthEvent("refresh_missing_refresh_token", { reason });
         await tokenStorage.clearSession();
+        notifySessionInvalidated("missing_refresh_token");
         throw new ApiError("Your session has expired.", 401);
       }
 
@@ -346,6 +349,7 @@ const refreshAccessToken = async (reason: string) => {
 
         if (shouldClearSession) {
           await tokenStorage.clearSession();
+          notifySessionInvalidated("refresh_failed");
         }
 
         throw toApiError(refreshError);
