@@ -10,6 +10,8 @@ export const MARKETING_ENDPOINTS = {
   CAMPAIGN_PAUSE:    (id: string | number) => `/api/v1/campaigns/${id}/pause`,
   CAMPAIGN_RESUME:   (id: string | number) => `/api/v1/campaigns/${id}/resume`,
   CAMPAIGN_CONTACTS: (id: string | number) => `/api/v1/campaigns/${id}/contacts`,
+  CAMPAIGN_CONTACT_RESEND: (id: string | number, contactId: string) => `/api/v1/campaigns/${id}/contacts/${contactId}/resend`,
+  CAMPAIGN_CONTACTS_RESEND_BULK: (id: string | number) => `/api/v1/campaigns/${id}/contacts/resend`,
   CAMPAIGN_REPORT:   (id: string | number, type: string) => `/api/v1/campaigns/${id}/report/${type}`,
 
   WA_CONFIG:              '/api/v1/wa-config',

@@ -117,8 +117,19 @@ export default function TemplatePreviewModal({ template, onClose }: Props) {
           </div>
         </div>
 
-        {/* Approved stamp */}
-        <div className="tpm-approved-badge">✓ Approved by Meta</div>
+        {/* Status stamp — reflects the template's REAL status, not always
+            "Approved". This modal is reachable for a PENDING/REJECTED
+            template too, so it must never claim an approval that hasn't
+            happened. */}
+        {template.status === "APPROVED" && (
+          <div className="tpm-approved-badge">✓ Approved by Meta</div>
+        )}
+        {template.status === "PENDING" && (
+          <div className="tpm-approved-badge tpm-approved-badge--pending">⏳ Awaiting Meta review</div>
+        )}
+        {template.status === "REJECTED" && (
+          <div className="tpm-approved-badge tpm-approved-badge--rejected">✗ Rejected by Meta</div>
+        )}
       </div>
     </div>
   );

@@ -5,6 +5,8 @@ import {
   fetchCampaignContactsThunk,
   pauseCampaignThunk,
   resumeCampaignThunk,
+  resendCampaignContactThunk,
+  resendCampaignContactsBulkThunk,
 } from "../../../middleware/marketing/marketing.thunk";
 import ResendCampaignModal from "../components/ResendCampaignModal";
 import { Button, Badge, Input, DateRangeFilter, Pagination, JiraFilterMenu } from "../../../components/ui";
@@ -164,6 +166,7 @@ export default function CampaignHistoryPage() {
   }, [dispatch, cntPageSize]);
 
   const toggleExpand = async (id: string) => {
+  setSelectedContactIds(new Set());
   if (expandedId === id) { setExpandedId(null); return; }
   setExpandedId(id);
   if (!contactData[id]) {
@@ -172,11 +175,13 @@ export default function CampaignHistoryPage() {
 };
 
   const handleFilterTab = (campaignId: string, f: ContactFilter) => {
+    setSelectedContactIds(new Set());
     setCntFilter(prev => ({ ...prev, [campaignId]: f }));
     loadContacts(campaignId, 1, f);
   };
 
   const handleContactPageSizeChange = (campaignId: string, size: number) => {
+    setSelectedContactIds(new Set());
     setCntPageSize(prev => ({ ...prev, [campaignId]: size }));
     loadContacts(campaignId, 1, cntFilter[campaignId] ?? "ALL", size);
   };
@@ -202,6 +207,78 @@ export default function CampaignHistoryPage() {
   const handleResendClick = (id: string, name: string, totalContacts: number) => {
     if (!can("send_campaign")) { denyPerm("send_campaign"); return; }
     setResendTarget({ id, name, totalContacts });
+  };
+
+  // ── Per-contact Resend (one FAILED/BLOCKED recipient only) ────────────────
+  const [resendingContactId, setResendingContactId] = useState<string | null>(null);
+
+  const handleResendContact = async (campaignId: string, contactId: string) => {
+    if (!can("send_campaign")) { denyPerm("send_campaign"); return; }
+    setResendingContactId(contactId);
+    try {
+      const res = await dispatch(resendCampaignContactThunk({ campaignId, contactId }));
+      if (resendCampaignContactThunk.fulfilled.match(res)) {
+        showSuccess("Message resent to this contact");
+        // Refresh just this campaign's currently-shown contact page so the
+        // row's status/timestamps reflect the fresh attempt.
+        await loadContacts(campaignId, contactData[campaignId]?.page ?? 1, cntFilter[campaignId] ?? "ALL");
+        dispatch(fetchCampaignsThunk());
+      } else {
+        showError((res.payload as string) ?? "Failed to resend message to this contact");
+      }
+    } finally {
+      setResendingContactId(null);
+    }
+  };
+
+  // ── Bulk Resend (select multiple FAILED/BLOCKED contacts, one action) ─────
+  // Selection is scoped to whichever contacts are currently loaded on screen
+  // for the currently-expanded campaign (i.e. the current filter tab + page)
+  // — cleared whenever the filter, page, or expanded campaign changes, so a
+  // stale selection from a different view never carries over silently.
+  const [selectedContactIds, setSelectedContactIds] = useState<Set<string>>(new Set());
+  const [bulkResending, setBulkResending] = useState(false);
+
+  const toggleContactSelected = (contactId: string) => {
+    setSelectedContactIds(prev => {
+      const next = new Set(prev);
+      if (next.has(contactId)) next.delete(contactId); else next.add(contactId);
+      return next;
+    });
+  };
+
+  const resendableIdsOnScreen = (campaignId: string): string[] => {
+    const cd = contactData[campaignId];
+    if (!cd) return [];
+    return cd.contacts.filter((ct: any) => ct.status === "FAILED" || ct.status === "BLOCKED").map((ct: any) => ct.id);
+  };
+
+  const handleSelectAllToggle = (campaignId: string) => {
+    const resendable = resendableIdsOnScreen(campaignId);
+    const allSelected = resendable.length > 0 && resendable.every(id => selectedContactIds.has(id));
+    setSelectedContactIds(allSelected ? new Set() : new Set(resendable));
+  };
+
+  const handleBulkResend = async (campaignId: string) => {
+    if (!can("send_campaign")) { denyPerm("send_campaign"); return; }
+    const contactIds = Array.from(selectedContactIds);
+    if (contactIds.length === 0) return;
+    setBulkResending(true);
+    try {
+      const res = await dispatch(resendCampaignContactsBulkThunk({ campaignId, contactIds }));
+      if (resendCampaignContactsBulkThunk.fulfilled.match(res)) {
+        const { queued, skipped } = res.payload;
+        if (queued.length > 0) showSuccess(`Resent to ${queued.length} contact${queued.length === 1 ? "" : "s"}`);
+        if (skipped.length > 0) showError(`${skipped.length} contact${skipped.length === 1 ? "" : "s"} could not be resent (already succeeded or not found)`);
+        setSelectedContactIds(new Set());
+        await loadContacts(campaignId, contactData[campaignId]?.page ?? 1, cntFilter[campaignId] ?? "ALL");
+        dispatch(fetchCampaignsThunk());
+      } else {
+        showError((res.payload as string) ?? "Failed to resend to the selected contacts");
+      }
+    } finally {
+      setBulkResending(false);
+    }
   };
 
   // Export must fetch every contact, not just the current on-screen page —
@@ -472,6 +549,36 @@ export default function CampaignHistoryPage() {
                         </div>
                       )}
 
+                      {/* Bulk resend bar — only meaningful once at least one
+                          FAILED/BLOCKED contact is actually on screen (e.g.
+                          filtered to the BLOCKED tab). Selection only ever
+                          covers the currently-loaded page/filter, never
+                          "every blocked contact across every page" silently. */}
+                      {cd && resendableIdsOnScreen(String(c.id)).length > 0 && (
+                        <div className="ch-bulk-bar">
+                          <label className="ch-bulk-select-all">
+                            <input
+                              type="checkbox"
+                              checked={resendableIdsOnScreen(String(c.id)).every(id => selectedContactIds.has(id))}
+                              onChange={() => handleSelectAllToggle(String(c.id))}
+                            />
+                            Select all {resendableIdsOnScreen(String(c.id)).length} failed/blocked on this page
+                          </label>
+                          {selectedContactIds.size > 0 && (
+                            <Button
+                              variant="success"
+                              size="sm"
+                              loading={bulkResending}
+                              disabled={bulkResending}
+                              style={!can("send_campaign") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                              onClick={() => handleBulkResend(String(c.id))}
+                            >
+                              ↻ Resend Selected ({selectedContactIds.size})
+                            </Button>
+                          )}
+                        </div>
+                      )}
+
                       {/* Loading */}
                       {loadingId === String(c.id) ? (
                         <div className="ch-detail-loading">Loading contacts...</div>
@@ -484,15 +591,29 @@ export default function CampaignHistoryPage() {
                           {/* Contact table */}
                           <div className="ch-contact-table">
                             <div className="ch-contact-row ch-contact-row--head">
+                              <span />
                               <span>Phone</span>
                               <span>Name</span>
                               <span>Status</span>
+                              <span>Reason</span>
                               <span>Sent At</span>
                               <span>Delivered At</span>
                               <span>Read At</span>
+                              <span>Action</span>
                             </div>
-                            {cd.contacts.map((ct: any) => (
+                            {cd.contacts.map((ct: any) => {
+                              const isResendable = ct.status === "FAILED" || ct.status === "BLOCKED";
+                              return (
                               <div key={ct.id} className="ch-contact-row" title={CONTACT_STATUS_HINT[ct.status] ?? ""}>
+                                <span>
+                                  {isResendable && (
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedContactIds.has(ct.id)}
+                                      onChange={() => toggleContactSelected(ct.id)}
+                                    />
+                                  )}
+                                </span>
                                 <span className="ch-contact-phone">📱 {maskMobile(ct.phone)}</span>
                                 <span>{ct.name ?? "—"}</span>
                                 <span className="ch-contact-status" style={{ color: CONTACT_STATUS_COLOR[ct.status] ?? "#9ca3af" }}>
@@ -501,11 +622,29 @@ export default function CampaignHistoryPage() {
                                     <span className="ch-contact-hint" title="User daily limit reached">⚠️</span>
                                   )}
                                 </span>
+                                <span className="ch-contact-reason" title={ct.error_message || ""}>
+                                  {ct.error_message || (isResendable ? CONTACT_STATUS_HINT[ct.status] : "—")}
+                                </span>
                                 <span>{ct.sent_at      ? new Date(ct.sent_at).toLocaleTimeString("en-IN",      { hour: "2-digit", minute: "2-digit" }) : "—"}</span>
                                 <span>{ct.delivered_at ? new Date(ct.delivered_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) : "—"}</span>
                                 <span>{ct.read_at      ? new Date(ct.read_at).toLocaleTimeString("en-IN",      { hour: "2-digit", minute: "2-digit" }) : "—"}</span>
+                                <span>
+                                  {isResendable && (
+                                    <Button
+                                      variant="outline-primary"
+                                      size="sm"
+                                      loading={resendingContactId === ct.id}
+                                      disabled={!!resendingContactId}
+                                      style={!can("send_campaign") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                                      onClick={() => handleResendContact(String(c.id), ct.id)}
+                                    >
+                                      ↻ Resend
+                                    </Button>
+                                  )}
+                                </span>
                               </div>
-                            ))}
+                              );
+                            })}
                           </div>
 
                           {/* Contact pagination */}
@@ -513,7 +652,7 @@ export default function CampaignHistoryPage() {
                             currentPage={cd.page}
                             pageSize={cntPageSize[String(c.id)] ?? DEFAULT_CONTACT_PAGE_SIZE}
                             totalItems={cd.total}
-                            onPageChange={(pg) => loadContacts(String(c.id), pg, cFilter)}
+                            onPageChange={(pg) => { setSelectedContactIds(new Set()); loadContacts(String(c.id), pg, cFilter); }}
                             onPageSizeChange={(size) => handleContactPageSizeChange(String(c.id), size)}
                             pageSizeOptions={[25, 50, 100, 200]}
                           />

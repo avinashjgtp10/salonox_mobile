@@ -153,4 +153,14 @@
   color: #16a34a;
   border-top: $border;
   background: $green-light;
+
+  &--pending {
+    color: #b45309;
+    background: #fef3c7;
+  }
+
+  &--rejected {
+    color: #dc2626;
+    background: #fee2e2;
+  }
 }

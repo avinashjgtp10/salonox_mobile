@@ -202,6 +202,47 @@ export const resendCampaignThunk = createAsyncThunk<
   }
 );
 
+// Per-contact manual Resend — distinct from resendCampaignThunk above, which
+// relaunches the WHOLE campaign to every original contact regardless of
+// status. This only ever targets one FAILED/BLOCKED contact.
+export const resendCampaignContactThunk = createAsyncThunk<
+  any,
+  { campaignId: string | number; contactId: string },
+  { rejectValue: string }
+>(
+  "marketing/resendCampaignContact",
+  async ({ campaignId, contactId }, { rejectWithValue }) => {
+    try {
+      const res = await api.post(MARKETING.CAMPAIGN_CONTACT_RESEND(campaignId, contactId));
+      return res.data.data ?? res.data;
+    } catch (err: any) {
+      if (err instanceof ApiError) return rejectWithValue(err.message);
+      return rejectWithValue("Failed to resend message to this contact");
+    }
+  }
+);
+
+// Bulk variant of resendCampaignContactThunk — "select all blocked/failed,
+// resend" from the Contact Details table's filter tab. Contacts that don't
+// qualify (already succeeded, or vanished) come back in `skipped`, not
+// silently dropped, so the caller can tell the user which ones didn't go.
+export const resendCampaignContactsBulkThunk = createAsyncThunk<
+  { queued: string[]; skipped: Array<{ contactId: string; reason: string }> },
+  { campaignId: string | number; contactIds: string[] },
+  { rejectValue: string }
+>(
+  "marketing/resendCampaignContactsBulk",
+  async ({ campaignId, contactIds }, { rejectWithValue }) => {
+    try {
+      const res = await api.post(MARKETING.CAMPAIGN_CONTACTS_RESEND_BULK(campaignId), { contactIds });
+      return res.data.data ?? res.data;
+    } catch (err: any) {
+      if (err instanceof ApiError) return rejectWithValue(err.message);
+      return rejectWithValue("Failed to resend messages to the selected contacts");
+    }
+  }
+);
+
 export const fetchCampaignByIdThunk = createAsyncThunk<Campaign, string | number, { rejectValue: string }>(
   "marketing/fetchCampaignById",
   async (id, { rejectWithValue }) => {
