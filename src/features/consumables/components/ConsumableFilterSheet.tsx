@@ -130,14 +130,17 @@ export function ConsumableFilterSheet({
       <View style={styles.chipRow}>
         {SORT_OPTIONS.map((option) => {
           const active = draft.sortBy === option.value;
+          const unavailable = option.value === "updated_at";
           return (
             <TouchableOpacity
               key={option.value}
               activeOpacity={0.84}
+              disabled={unavailable}
+              accessibilityState={{ disabled: unavailable, selected: active }}
               onPress={() => setDraft((current) => ({ ...current, sortBy: option.value }))}
-              style={[styles.chip, active && styles.chipActive]}
+              style={[styles.chip, active && styles.chipActive, unavailable && { opacity: 0.5 }]}
             >
-              <Text style={[styles.chipText, active && styles.chipTextActive]}>{option.label}</Text>
+              <Text style={[styles.chipText, active && styles.chipTextActive]}>{option.label}{unavailable ? " (Unavailable)" : ""}</Text>
             </TouchableOpacity>
           );
         })}

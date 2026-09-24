@@ -813,16 +813,19 @@ export default function ClientsScreen() {
               <View style={styles.filterOptionList}>
                 {CLIENT_SORT_OPTIONS.map((option) => {
                   const isActive = option === draftSortOption;
+                  const unavailable = option === "Last Visit";
 
                   return (
                     <TouchableOpacity
                       key={option}
                       activeOpacity={0.82}
+                      disabled={unavailable}
+                      accessibilityState={{ disabled: unavailable, selected: isActive }}
                       onPress={() => setDraftSortOption(option)}
-                      style={[styles.sheetListOption, isActive && styles.sheetListOptionActive]}
+                      style={[styles.sheetListOption, isActive && styles.sheetListOptionActive, unavailable && { opacity: 0.5 }]}
                     >
                       <Text style={[styles.sheetOptionText, isActive && styles.sheetOptionTextActive]}>
-                        {option}
+                        {unavailable ? `${option} (Unavailable)` : option}
                       </Text>
                       {isActive ? <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" /> : null}
                     </TouchableOpacity>
