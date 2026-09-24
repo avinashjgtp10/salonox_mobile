@@ -972,7 +972,6 @@ function AttendanceTab({ staffId }: { staffId: string }) {
             options={[
               { id: "all", name: "All Statuses" },
               { id: "present", name: "Present" },
-              { id: "late", name: "Late" },
               { id: "half_day", name: "Half Day" },
               { id: "absent", name: "Absent" },
               { id: "on_leave", name: "On Leave" },
@@ -1078,7 +1077,7 @@ export function StaffHistoryContent({ staffId, initialTab = "overview" }: { staf
   const attendancePct = {
     loading: attendanceForPct.loading, error: attendanceForPct.error,
     value: attendanceForPct.data.length === 0 ? null : Math.round(
-      (attendanceForPct.data.filter((a) => a.status === "present" || a.status === "late").length / attendanceForPct.data.length) * 100
+      (attendanceForPct.data.filter((a) => a.status === "present").length / attendanceForPct.data.length) * 100
     ),
     retry: attendanceForPct.retry,
   };

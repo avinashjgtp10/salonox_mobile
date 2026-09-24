@@ -1,24 +1,16 @@
-export type DeductionType = "fixed" | "salary_per_hour";
 export type StaffRuleScope = "all" | "selected";
 
 export interface HalfDayRuleConfig {
   active: boolean;
   threshold_hours: number;
-  late_rule_active: boolean;
-  grace_period_hours: number;
-  late_deduction_type: DeductionType;
-  late_deduction_amount: number;
-  late_deduction_after_hours: number;
-  max_late_deduction: number | null;
   half_day_deduction_amount: number;
   staff_scope: StaffRuleScope;
   selected_staff_ids: string[];
 }
 
 export interface AttendanceEvaluation {
-  status: "present" | "late" | "half_day";
+  status: "present" | "half_day";
   lateMinutes: number;
-  lateDeduction: number;
   halfDayDeduction: number;
   totalDeduction: number;
 }
@@ -26,12 +18,6 @@ export interface AttendanceEvaluation {
 export const DEFAULT_HALF_DAY_RULE_CONFIG: HalfDayRuleConfig = {
   active: false,
   threshold_hours: 2,
-  late_rule_active: false,
-  grace_period_hours: 0.25,
-  late_deduction_type: "fixed",
-  late_deduction_amount: 0,
-  late_deduction_after_hours: 0.25,
-  max_late_deduction: null,
   half_day_deduction_amount: 0,
   staff_scope: "all",
   selected_staff_ids: [],
@@ -48,19 +34,11 @@ function numericField(obj: Record<string, unknown>, key: string, fallback: numbe
   return numeric !== null ? numeric : fallback;
 }
 
-function nullableNumericField(obj: Record<string, unknown>, key: string): number | null {
-  const raw = obj[key];
-  if (raw === null || raw === undefined || raw === "") return null;
-  const numeric = Number(raw);
-  return Number.isFinite(numeric) ? numeric : null;
-}
-
 function boolField(obj: Record<string, unknown>, key: string, fallback: boolean): boolean {
   return typeof obj[key] === "boolean" ? obj[key] : fallback;
 }
 
 function pickHalfDayRuleFields(obj: Record<string, unknown>): HalfDayRuleConfig {
-  const lateType = obj.late_deduction_type === "salary_per_hour" ? "salary_per_hour" : "fixed";
   const staffScope = obj.staff_scope === "selected" ? "selected" : "all";
   const selectedStaffIds = Array.isArray(obj.selected_staff_ids)
     ? obj.selected_staff_ids.map(String)
@@ -69,12 +47,6 @@ function pickHalfDayRuleFields(obj: Record<string, unknown>): HalfDayRuleConfig 
   return {
     active: boolField(obj, "active", DEFAULT_HALF_DAY_RULE_CONFIG.active),
     threshold_hours: numericField(obj, "threshold_hours", DEFAULT_HALF_DAY_RULE_CONFIG.threshold_hours),
-    late_rule_active: boolField(obj, "late_rule_active", DEFAULT_HALF_DAY_RULE_CONFIG.late_rule_active),
-    grace_period_hours: numericField(obj, "grace_period_hours", DEFAULT_HALF_DAY_RULE_CONFIG.grace_period_hours),
-    late_deduction_type: lateType,
-    late_deduction_amount: numericField(obj, "late_deduction_amount", DEFAULT_HALF_DAY_RULE_CONFIG.late_deduction_amount),
-    late_deduction_after_hours: numericField(obj, "late_deduction_after_hours", DEFAULT_HALF_DAY_RULE_CONFIG.late_deduction_after_hours),
-    max_late_deduction: nullableNumericField(obj, "max_late_deduction"),
     half_day_deduction_amount: numericField(obj, "half_day_deduction_amount", DEFAULT_HALF_DAY_RULE_CONFIG.half_day_deduction_amount),
     staff_scope: staffScope,
     selected_staff_ids: selectedStaffIds,
@@ -151,14 +123,12 @@ export function evaluateAttendanceCheckIn(
   shiftStartISO: string | null,
   checkInISO: string,
   staffId?: string | number | null,
-  baseSalary = 0,
-  totalWorkingDays = 0,
 ): AttendanceEvaluation {
   const lateMinutes = lateMinutesFromShift(shiftStartISO, checkInISO);
   const scoped = appliesToStaff(rule, staffId);
 
   if (!scoped || !shiftStartISO) {
-    return { status: "present", lateMinutes, lateDeduction: 0, halfDayDeduction: 0, totalDeduction: 0 };
+    return { status: "present", lateMinutes, halfDayDeduction: 0, totalDeduction: 0 };
   }
 
   if (rule.active && lateMinutes >= Math.round(rule.threshold_hours * 60)) {
@@ -166,32 +136,10 @@ export function evaluateAttendanceCheckIn(
     return {
       status: "half_day",
       lateMinutes,
-      lateDeduction: 0,
       halfDayDeduction,
       totalDeduction: halfDayDeduction,
     };
   }
 
-  const graceMinutes = Math.round(rule.grace_period_hours * 60);
-  const deductionAfterMinutes = Math.round(rule.late_deduction_after_hours * 60);
-  if (!rule.late_rule_active || lateMinutes <= graceMinutes || lateMinutes <= deductionAfterMinutes) {
-    return { status: "present", lateMinutes, lateDeduction: 0, halfDayDeduction: 0, totalDeduction: 0 };
-  }
-
-  const perHourSalary = baseSalary > 0 && totalWorkingDays > 0 ? baseSalary / totalWorkingDays / 8 : 0;
-  const rawLateDeduction = rule.late_deduction_type === "salary_per_hour"
-    ? perHourSalary * (lateMinutes / 60)
-    : Number(rule.late_deduction_amount) || 0;
-  const cappedLateDeduction = rule.max_late_deduction != null
-    ? Math.min(rawLateDeduction, rule.max_late_deduction)
-    : rawLateDeduction;
-  const lateDeduction = Number(Math.max(0, cappedLateDeduction).toFixed(2));
-
-  return {
-    status: "late",
-    lateMinutes,
-    lateDeduction,
-    halfDayDeduction: 0,
-    totalDeduction: lateDeduction,
-  };
+  return { status: "present", lateMinutes, halfDayDeduction: 0, totalDeduction: 0 };
 }

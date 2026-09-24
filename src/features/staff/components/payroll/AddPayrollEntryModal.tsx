@@ -84,7 +84,6 @@ interface AttendanceRecord {
   scheduled_start?: string | null;
   late_minutes?: string | number | null;
   late_duration_minutes?: string | number | null;
-  late_deduction?: string | number | null;
   half_day_deduction?: string | number | null;
   attendance_deduction?: string | number | null;
 }
@@ -484,21 +483,12 @@ export default function AddPayrollEntryModal({
   const safeLateHours = numericOrZero(attendanceSummary.total_late_hours);
   const safeLateDays = numericOrZero(attendanceSummary.total_late_days);
   const safeHalfDays = numericOrZero(attendanceSummary.total_half_days);
-  const billableLateHours = safeLateHours > 0 ? Math.max(1, safeLateHours) : 0;
-  const lateDeduction = attendanceRule.late_rule_active
-    ? attendanceRule.late_deduction_type === "salary_per_hour"
-      ? perHourSalary * billableLateHours
-      : numericOrZero(attendanceRule.late_deduction_amount) * safeLateDays
-    : 0;
-  const cappedLateDeduction = attendanceRule.max_late_deduction != null
-    ? Math.min(lateDeduction, attendanceRule.max_late_deduction)
-    : lateDeduction;
   const configuredHalfDayAmount = Math.max(0, numericOrZero(attendanceRule.half_day_deduction_amount));
   const halfDayAmount = configuredHalfDayAmount > 0 ? configuredHalfDayAmount : perDaySalary / 2;
   const halfDayDeduction = safeHalfDays > 0 ? safeHalfDays * halfDayAmount : 0;
   const autoDeduction = useMemo(
-    () => Number((Math.max(0, cappedLateDeduction) + Math.max(0, halfDayDeduction)).toFixed(2)),
-    [cappedLateDeduction, halfDayDeduction]
+    () => Number(Math.max(0, halfDayDeduction).toFixed(2)),
+    [halfDayDeduction]
   );
 
   const showStaffError = submitted && !isStaffValid;
@@ -718,10 +708,6 @@ export default function AddPayrollEntryModal({
             </div>
           </div>
           <div className="d-flex gap-2 mt-2">
-            <div className="flex-fill rounded bg-white border p-2">
-              <div className="text-muted small">Late Deduction</div>
-              <div className="fw-bold text-danger">{attendanceLoading ? "..." : money(cappedLateDeduction)}</div>
-            </div>
             <div className="flex-fill rounded bg-white border p-2">
               <div className="text-muted small">Half Day Deduction</div>
               <div className="fw-bold text-danger">{attendanceLoading ? "..." : money(halfDayDeduction)}</div>

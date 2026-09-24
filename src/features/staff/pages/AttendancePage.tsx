@@ -5,7 +5,6 @@ import {
   XCircleFill,
   DashCircleFill,
   CircleHalf,
-  ExclamationCircleFill,
   Plus,
   ArrowRepeat,
   ChevronLeft,
@@ -35,7 +34,7 @@ import "../styles/AttendancePage.scss";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type AttendanceStatus = "present" | "absent" | "half_day" | "late" | "on_leave";
+type AttendanceStatus = "present" | "absent" | "half_day" | "on_leave";
 
 interface TodayStaffRecord {
   staff_id: string;
@@ -54,7 +53,6 @@ interface DailySummary {
   date: string;
   present: number;
   absent: number;
-  late: number;
   on_leave: number;
   half_day: number;
   total_staff: number;
@@ -97,7 +95,6 @@ const AVATAR_GRADIENTS = [
 const STATUS_CFG = {
   present:    { label: "Present",    badge: "ap-badge--present",  dot: "ap-dot--green"  },
   absent:     { label: "Absent",     badge: "ap-badge--absent",   dot: "ap-dot--red"    },
-  late:       { label: "Late",       badge: "ap-badge--late",     dot: "ap-dot--amber"  },
   half_day:   { label: "Half Day",   badge: "ap-badge--half",     dot: "ap-dot--blue"   },
   on_leave:   { label: "On Leave",   badge: "ap-badge--leave",    dot: "ap-dot--purple" },
   not_marked: { label: "Not Marked", badge: "ap-badge--unmarked", dot: "ap-dot--gray"   },
@@ -359,10 +356,6 @@ function CheckInModal({ record, date, isToday, schedule, onClose, onDone }: {
               <p className="at-modal-error">
                 Late by more than {halfDayRule.threshold_hours}h — this check-in will be marked Half Day.
               </p>
-            ) : evaluation.status === "late" ? (
-              <p className="at-modal-error">
-                Late by {evaluation.lateMinutes} min - this check-in will be marked Late.
-              </p>
             ) : (
               <p className="at-modal-meta at-modal-meta--success">
                 This check-in will be marked Present.
@@ -500,7 +493,6 @@ function EditModal({ record, date, onClose, onDone }: {
               options={[
                 { id: "present", name: "Present" },
                 { id: "absent", name: "Absent" },
-                { id: "late", name: "Late" },
                 { id: "half_day", name: "Half Day" },
                 { id: "on_leave", name: "On Leave" },
               ]}
@@ -1012,13 +1004,6 @@ export default function AttendancePage() {
           <div>
             <div className="ap-stat-num ap-stat-num--green">{loading ? "—" : summary?.present ?? 0}</div>
             <div className="ap-stat-label">Present</div>
-          </div>
-        </div>
-        <div className="ap-stat-card">
-          <div className="ap-stat-icon ap-stat-icon--amber"><ExclamationCircleFill size={18} /></div>
-          <div>
-            <div className="ap-stat-num ap-stat-num--amber">{loading ? "—" : summary?.late ?? 0}</div>
-            <div className="ap-stat-label">Late</div>
           </div>
         </div>
         <div className="ap-stat-card">
