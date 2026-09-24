@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { Avatar } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { fetchNotificationsThunk, markNotificationReadThunk } from "@/middleware/notification/notification.thunk";
@@ -94,11 +95,9 @@ export function DashboardNotificationsModal({ onClose, visible }: DashboardNotif
                 <TouchableOpacity
                   activeOpacity={0.8}
                   onPress={() => handleNotificationPress(item)}
-                  style={[styles.row, !item.isRead && styles.rowUnread]}
+                  style={styles.row}
                 >
-                  <View style={styles.alertIcon}>
-                    <View style={styles.alertTriangle}><Ionicons color="#FFFFFF" name="alert" size={17} /></View>
-                  </View>
+                  <Avatar.Icon color="#BE6A9F" icon="bell-outline" size={50} style={styles.alertIcon} />
                   <View style={styles.notificationCopy}>
                     <View style={styles.titleRow}>
                       <Text numberOfLines={1} style={styles.title}>{item.title || "SalonOX Alert"}</Text>
@@ -185,24 +184,8 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingVertical: 17,
   },
-  rowUnread: {
-    backgroundColor: "#FCF4F9",
-  },
   alertIcon: {
-    alignItems: "center",
     backgroundColor: "#E2E2E2",
-    borderRadius: 25,
-    height: 50,
-    justifyContent: "center",
-    width: 50,
-  },
-  alertTriangle: {
-    alignItems: "center",
-    backgroundColor: "#BE6A9F",
-    borderRadius: 6,
-    height: 30,
-    justifyContent: "center",
-    width: 30,
   },
   notificationCopy: {
     flex: 1,
