@@ -439,10 +439,6 @@ export default function StaffListPage() {
             {optionsOpen && (
               <div className="slp-options-menu">
 
-                <div className="slp-option-item" onClick={() => setOptionsOpen(false)}>
-                  <span>⚙️</span> Staff settings
-                </div>
-                <div className="slp-option-divider" />
                 <div className="slp-option-label">Import</div>
                 <div
                   className="slp-option-item"
