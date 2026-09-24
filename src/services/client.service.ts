@@ -1032,12 +1032,9 @@ export const clientService = {
     return getClientList(CLIENT.LIST, query, salonId);
   },
 
-  // GET /clients/search has its own contract, distinct from GET /clients:
-  // it only accepts `q` (not `search`) and `limit` — sending `search` (as
-  // the shared getClientList() would) means the backend's own validator
-  // never sees a query at all and rejects every request with 400 "q query
-  // param is required". It also has no OFFSET support server-side, so
-  // there is never a "next page" to load for a search result set.
+  // The list endpoint supports search, ordering and pagination together.
+  // /clients/search only returns a limited relevance-ordered result, ignoring
+  // the selected sort and omitting matches beyond its first result batch.
   async searchClients(
     query: ClientListQuery,
     salonId?: string | null,
@@ -1053,22 +1050,7 @@ export const clientService = {
       };
     }
 
-    const response = await api.get<ClientListApiResponse>(CLIENT.SEARCH, {
-      params: {
-        limit: query.limit,
-        q: term,
-        ...(salonId ? { salon_id: salonId } : {}),
-      },
-    });
-
-    const clients = getClientArray(response.data.data).map(normalizeClient);
-
-    return {
-      clients,
-      pagination: { hasMore: false, limit: query.limit, nextOffset: clients.length, offset: 0 },
-      query,
-      totalCount: clients.length,
-    };
+    return getClientList(CLIENT.LIST, { ...query, search: term }, salonId);
   },
 
   async filterClients(
@@ -1077,13 +1059,44 @@ export const clientService = {
     salonId?: string | null,
     options?: { membership?: "all" | "has" | "none"; status?: "active" | "all" | "blocked" | "inactive" },
   ): Promise<ClientListResponse> {
-    return getClientList(CLIENT.FILTER, query, salonId, {
-      filter,
-      ...(options?.status && options.status !== "all" ? { status: options.status, status_filter: options.status } : {}),
-      ...(options?.membership && options.membership !== "all"
-        ? { membership: options.membership, membership_filter: options.membership }
-        : {}),
+    // The campaign-filter endpoint returns only id/name/phone, alphabetically,
+    // and ignores pagination/sort parameters. Use it for membership of the
+    // result set, then obtain full records in the list endpoint's global order.
+    const response = await api.get<ClientListApiResponse>(CLIENT.FILTER, {
+      params: {
+        filter,
+        ...(salonId ? { salon_id: salonId } : {}),
+        ...(options?.status && options.status !== "all" ? { status: options.status, status_filter: options.status } : {}),
+        ...(options?.membership && options.membership !== "all"
+          ? { membership: options.membership, membership_filter: options.membership }
+          : {}),
+      },
     });
+    const matchingIds = new Set(getClientArray(response.data.data).map((client) => toSafeString(client.id)));
+    const matchingClients: ClientListItem[] = [];
+    const seenIds = new Set<string>();
+    let offset = 0;
+    while (matchingIds.size > 0) {
+      const page = await getClientList(CLIENT.LIST, { ...query, offset, limit: 200 }, salonId);
+      const fresh = page.clients.filter((client) => !seenIds.has(client.id));
+      for (const client of fresh) {
+        seenIds.add(client.id);
+        if (matchingIds.delete(client.id)) matchingClients.push(client);
+      }
+      if (!page.pagination.hasMore) break;
+      if (fresh.length === 0 || page.pagination.nextOffset <= offset) {
+        throw new Error("Unable to load the full client list. Please try again.");
+      }
+      offset = page.pagination.nextOffset;
+    }
+    const clients = matchingClients.slice(query.offset, query.offset + query.limit);
+    return {
+      clients, query, totalCount: matchingClients.length,
+      pagination: {
+        limit: query.limit, offset: query.offset, nextOffset: query.offset + clients.length,
+        hasMore: query.offset + clients.length < matchingClients.length,
+      },
+    };
   },
 
   async getClient(clientId: string): Promise<ClientListItem> {

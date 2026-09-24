@@ -577,8 +577,17 @@ export const salesService = {
     });
 
     const apiSales = getSaleArray(response.data.data);
-    const sales = apiSales.map(normalizeSaleListItem);
-    const totalCount = getSalesTotalCount(response.data.data, sales.length);
+    // /sales returns the complete matching list and ignores search/sort params.
+    // Apply these to the full result, not just the currently visible page.
+    const search = query.search.trim().toLocaleLowerCase();
+    const sales = apiSales.map(normalizeSaleListItem).filter((sale) =>
+      !search || [sale.clientName, sale.receiptNumber].some((value) => value.toLocaleLowerCase().includes(search)),
+    );
+    if (query.sort_by === "total" || query.sort_by === "total_amount") {
+      const direction = query.sort_order === "asc" ? 1 : -1;
+      sales.sort((left, right) => direction * (left.total - right.total) || left.id.localeCompare(right.id));
+    }
+    const totalCount = sales.length;
 
     return {
       pagination: getSalesPagination(query, sales.length),

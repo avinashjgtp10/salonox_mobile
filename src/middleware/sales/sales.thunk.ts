@@ -94,7 +94,8 @@ export const fetchSalesThunk = createAsyncThunk<
     search: args?.search ?? salesState.query.search,
     sort_by: args?.sort_by ?? salesState.query.sort_by,
     sort_order: args?.sort_order ?? salesState.query.sort_order,
-    ...(args?.status !== undefined ? { status: args.status } : { status: salesState.query.status }),
+    // Explicit undefined means the user selected All; omitted means retain the filter.
+    status: args && "status" in args ? args.status : salesState.query.status,
   };
 
   try {
