@@ -35,7 +35,6 @@ export default function TemplateCard({
   const [showPreview, setShowPreview] = useState(false);
   const [starring,    setStarring]    = useState(false);
 
-  const isApproved      = template.status === "APPROVED";
   const isRejected      = template.status === "REJECTED";
   const isFavorite      = (template as any).is_favorite ?? false;
   const rejectionReason = template.rejection_reason ?? template.rejectionReason;
@@ -53,11 +52,11 @@ export default function TemplateCard({
         className={[
           "tcard",
           `tcard--${template.status.toLowerCase()}`,
-          isApproved ? "tcard--clickable" : "",
-          isFavorite ? "tcard--favorite"  : "",
+          "tcard--clickable",
+          isFavorite ? "tcard--favorite" : "",
         ].join(" ").trim()}
-        onClick={() => { if (isApproved) setShowPreview(true); }}
-        title={isApproved ? "Click to preview" : undefined}
+        onClick={() => setShowPreview(true)}
+        title="Click to preview"
       >
         {/* Header row: name + star + badge */}
         <div className="tcard-header">
@@ -133,6 +132,14 @@ export default function TemplateCard({
               : "—"}
           </span>
           <div className="tcard-actions">
+            <Button
+              variant="outline-secondary"
+              size="sm"
+              title="View message preview"
+              onClick={(e) => { e?.stopPropagation(); setShowPreview(true); }}
+            >
+              👁 View
+            </Button>
             <Button
               variant="outline-secondary"
               size="sm"

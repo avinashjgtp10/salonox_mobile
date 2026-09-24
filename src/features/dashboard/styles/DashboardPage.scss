@@ -1018,6 +1018,26 @@ $sidebar-nav-active-text: #101828;
   }
 }
 
+// "Overall Collection" > Yesterday's Resend to WhatsApp action.
+.db-collection-resend-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid #25d366;
+  border-radius: 6px;
+  background: #f0fdf4;
+  color: #16a34a;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, opacity 0.15s;
+
+  &:hover:not(:disabled) { background: #dcfce7; }
+  &:disabled { opacity: 0.6; cursor: default; }
+}
+
 .db-rev-filter-btn {
   padding: 4px 10px;
   font-size: 12px;

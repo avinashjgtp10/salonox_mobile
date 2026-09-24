@@ -61,6 +61,8 @@ import type { TodayAppointment } from "../../../types/dashboard.types";
 import type { DashboardCombinedResponse } from "../../../middleware/dashboard/dashboard.thunk";
 import { useTodayAppointments } from "../hooks/useTodayAppointments";
 import { useMaskedCurrency } from "../hooks/useMaskedCurrency";
+import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
+import { resendClosedCounterMessage } from "../../cash-management/cashManagement.api";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -77,6 +79,20 @@ const PAGE_SIZE = 5;
 type RevPeriod = "today" | "weekly" | "monthly" | "yearly";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+// IST calendar date (YYYY-MM-DD) for "yesterday" — matches how the backend
+// (cash-management.repository.ts's closeCounter) dates a counter's own
+// close-message collection, so Resend re-sends the SAME day it looks like
+// on screen, not whatever the server's own local timezone happens to be.
+function yesterdayIsoDateIST(): string {
+  const now = new Date();
+  const istNow = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
+  istNow.setDate(istNow.getDate() - 1);
+  const y = istNow.getFullYear();
+  const m = String(istNow.getMonth() + 1).padStart(2, "0");
+  const d = String(istNow.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
 
 function getPageNumbers(current: number, total: number): (number | "...")[] {
   if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
@@ -852,6 +868,8 @@ const OverallCollectionPanel = memo(function OverallCollectionPanel({
 }) {
   const { formatAmount, canSeeFinancials } = useMaskedCurrency();
   const fmt = (n: number) => (canSeeFinancials ? formatAmount(n) : "₹******");
+  const { showSuccess, showError, overlay } = useStatusOverlay();
+  const [resending, setResending] = useState(false);
 
   // Cash/UPI/Card lead in that fixed order regardless of amount; anything
   // else keeps the backend's amount-descending order after them.
@@ -865,13 +883,43 @@ const OverallCollectionPanel = memo(function OverallCollectionPanel({
     [entries]
   );
 
+  const handleResend = async () => {
+    setResending(true);
+    try {
+      const result = await resendClosedCounterMessage(yesterdayIsoDateIST());
+      if (result.sent) {
+        showSuccess("Yesterday's Close Counter message resent to WhatsApp");
+      } else if (result.status === "IN_PROGRESS") {
+        showSuccess("Resend queued — it'll arrive on WhatsApp shortly");
+      } else {
+        showError(result.failure_reason || "Could not resend — no closed counter found for yesterday");
+      }
+    } catch (err: any) {
+      showError(err?.response?.data?.message || "Could not resend the message");
+    } finally {
+      setResending(false);
+    }
+  };
+
   return (
     <div className="db-card db-card-md">
+      {overlay}
       <div className="db-card-header">
         <div>
           <h3 className="db-card-title">Overall Collection</h3>
           <p className="db-card-sub">{COLLECTION_PERIOD_LABELS[period]}'s payment mode breakdown</p>
         </div>
+        {period === "yesterday" && (
+          <button
+            className="db-collection-resend-btn"
+            title="Resend yesterday's Close Counter details to WhatsApp"
+            disabled={resending}
+            onClick={handleResend}
+          >
+            {resending ? <ArrowRepeat size={14} className="db-refresh-spin" /> : <Whatsapp size={14} />}
+            {resending ? "Resending…" : "Resend"}
+          </button>
+        )}
       </div>
 
       <div className="db-rev-filters db-collection-filters">

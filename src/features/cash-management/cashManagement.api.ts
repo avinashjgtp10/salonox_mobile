@@ -232,6 +232,16 @@ export async function closeCashCounter(payload: CloseCounterPayload) {
   }
 }
 
+// Dashboard > Overall Collection's "Resend to WhatsApp" action (shown only
+// for the "Yesterday" filter) — dateIso is the IST calendar date (YYYY-MM-DD)
+// that day's counter opened on, matching how the original close message was
+// dated. Read-only from the caller's perspective — it only re-sends an
+// already-computed message, never touches the counter itself.
+export async function resendClosedCounterMessage(dateIso: string) {
+  const response = await api.post(`${BASE}/resend-closed-message`, { date: dateIso });
+  return unwrapData<{ sent: boolean; status: string; failure_reason: string | null }>(response);
+}
+
 export async function sendDailySummaryEmail(
   cashManagementId: string,
   summaryData?: Partial<DailySummaryData>,
