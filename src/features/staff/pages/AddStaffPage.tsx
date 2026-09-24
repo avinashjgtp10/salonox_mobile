@@ -61,7 +61,7 @@ const AddStaffPage: React.FC = () => {
   })();
 
   const [form, setForm] = useState({
-    name: "", email: "", dob: "", doj: today,
+    name: "", email: "", dob: "", doj: "",
     phone: "", phoneCountryCode: "+91",
     address: "", gender: "", designation: "",
     hourlyRate: "", fixedSalary: "", workingHoursPerDay: "", holidays: "",
@@ -70,12 +70,20 @@ const AddStaffPage: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [staffLoginEnabled, setStaffLoginEnabled] = useState(false);
-  // Edit mode only: an existing staff member with login already set up shows
-  // a read-only "has a password" state with Reset Password beside it —
-  // handled entirely by the reusable ResetPasswordSection component (its own
-  // New/Confirm/OTP fields and Update Password API call), independent of
-  // this page's main Save.
-  const hasExistingLogin = isEdit && staffLoginEnabled;
+  // Whether this staff member ALREADY had a login (an email on file) when the
+  // page loaded — distinct from staffLoginEnabled, which also flips true the
+  // moment the admin turns the toggle on for a staff member who never had one.
+  // Without this split, a staff member saved earlier with no email (Staff
+  // Login left off) would show Reset Password instead of the initial
+  // Password/Confirm Password setup fields the instant the toggle was
+  // switched on during this edit — as if they already had a working login to
+  // reset, when they've never had one.
+  const [hadLoginOnLoad, setHadLoginOnLoad] = useState(false);
+  // Edit mode, staff member already had a login: shows a read-only "has a
+  // password" state with Reset Password beside it — handled entirely by the
+  // reusable ResetPasswordSection component (its own New/Confirm/OTP fields
+  // and Update Password API call), independent of this page's main Save.
+  const hasExistingLogin = isEdit && staffLoginEnabled && hadLoginOnLoad;
 
   const [avatarUrl, setAvatarUrl] = useState("");
   const [avatarPreview, setAvatarPreview] = useState("");
@@ -144,7 +152,7 @@ const AddStaffPage: React.FC = () => {
           dob: staff.birthday_day && staff.birthday_month
             ? `${staff.birthday_year || DOB_PLACEHOLDER_YEAR}-${String(staff.birthday_month).padStart(2, "0")}-${String(staff.birthday_day).padStart(2, "0")}`
             : "",
-          doj: staff.joined_date ? String(staff.joined_date).slice(0, 10) : today,
+          doj: staff.joined_date ? String(staff.joined_date).slice(0, 10) : "",
           phone: staff.phone_number || staff.phone || "",
           phoneCountryCode: staff.phone_country_code || "+91",
           address: staff.address || "",
@@ -159,6 +167,7 @@ const AddStaffPage: React.FC = () => {
         // optional when OFF" would have let an existing logged-in staff
         // member's email be silently cleared on save.
         setStaffLoginEnabled(!!staff.email);
+        setHadLoginOnLoad(!!staff.email);
         // Seeds shouldShowEmailOtp's "has this address actually changed"
         // check — an existing staff member's on-file email is already how
         // they log in today, so leaving it untouched needs no
@@ -225,11 +234,12 @@ const AddStaffPage: React.FC = () => {
 
   const isHolidaysInvalid = attemptedSubmit && form.holidays !== "" && Number(form.holidays) < 0;
 
-  // Add-staff mode still sets an initial password as part of the regular
-  // form/Save flow. Edit mode's password change is handled entirely by
-  // ResetPasswordSection below.
-  const isPasswordInvalid = attemptedSubmit && !isEdit && staffLoginEnabled && form.password.trim() !== "" && form.password.trim().length < 8;
-  const isConfirmPasswordInvalid = attemptedSubmit && !isEdit && staffLoginEnabled && form.password.trim() !== "" && form.confirmPassword !== form.password;
+  // Initial password setup applies whenever this staff member doesn't yet
+  // have a login — new staff, or an existing one having Staff Login turned
+  // on for the first time. A staff member who already had a login instead
+  // changes their password entirely through ResetPasswordSection below.
+  const isPasswordInvalid = attemptedSubmit && !hasExistingLogin && staffLoginEnabled && form.password.trim() !== "" && form.password.trim().length < 8;
+  const isConfirmPasswordInvalid = attemptedSubmit && !hasExistingLogin && staffLoginEnabled && form.password.trim() !== "" && form.confirmPassword !== form.password;
 
   const setField = (key: keyof typeof form) => (val: string) => {
     setForm((prev) => ({ ...prev, [key]: val }));
@@ -528,12 +538,6 @@ const AddStaffPage: React.FC = () => {
                   max={minAdultDob}
                   value={form.dob}
                   onChange={(e) => setField("dob")(e.target.value)}
-                  onFocus={() => {
-                    if (!form.dob) {
-                      const defaultYear = new Date().getFullYear() - 25;
-                      setField("dob")(`${defaultYear}-01-01`);
-                    }
-                  }}
                 />
                 {isDobInvalid && <span className="emp-field__error">{dobErrorMessage}</span>}
               </div>
@@ -818,8 +822,10 @@ const AddStaffPage: React.FC = () => {
             />
           )}
 
-          {/* Add-staff flow: unchanged initial password fields */}
-          {staffLoginEnabled && !isEdit && (
+          {/* Initial password setup — new staff, or an existing staff member
+              who never had a login before (Staff Login just switched on for
+              the first time during this edit, see hadLoginOnLoad above). */}
+          {staffLoginEnabled && !hasExistingLogin && (
             <>
               <div className="emp-login-grid">
                 <div className="emp-field">
