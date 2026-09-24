@@ -134,7 +134,6 @@ interface StaffPayroll {
   half_day_dates: string[];
   late_count: number;
   late_hours: number;
-  late_deduction: number;
   attendance_working_days: number;
   per_day_salary: number;
   per_hour_salary: number;
@@ -168,7 +167,6 @@ interface AttendanceRecord {
   scheduled_start?: string | null;
   late_minutes?: string | number | null;
   late_duration_minutes?: string | number | null;
-  late_deduction?: string | number | null;
   half_day_deduction?: string | number | null;
   attendance_deduction?: string | number | null;
 }
@@ -178,7 +176,6 @@ interface HalfDayDeductionSummary {
   halfDayAmount: number;
   lateCount: number;
   lateHours: number;
-  lateAmount: number;
   totalWorkingDays: number;
   perDaySalary: number;
   perHourSalary: number;
@@ -546,7 +543,7 @@ function tipStatusFor(summary: TipSummary | undefined): StaffPayroll["tip_status
 // Derived payroll math
 
 function netPay(e: StaffPayroll): number {
-  return e.base_salary + e.commission + e.tips + e.bonus - e.salary_advance - e.deductions - e.half_day_deduction - e.late_deduction;
+  return e.base_salary + e.commission + e.tips + e.bonus - e.salary_advance - e.deductions - e.half_day_deduction;
 }
 function pendingAmount(e: StaffPayroll): number {
   return Math.max(0, netPay(e) - e.paid_amount);
@@ -560,7 +557,6 @@ function hasPreviewPayrollData(e: StaffPayroll): boolean {
     e.salary_advance,
     e.deductions,
     e.half_day_deduction,
-    e.late_deduction,
     e.late_count,
     e.late_hours,
     e.attendance_working_days,
@@ -707,7 +703,6 @@ function mapEntryToRow(r: any): StaffPayroll {
     half_day_dates: [],
     late_count: 0,
     late_hours: 0,
-    late_deduction: 0,
     attendance_working_days: 0,
     per_day_salary: 0,
     per_hour_salary: 0,
@@ -755,7 +750,6 @@ function mapStaffToEmptyPayroll(s: any, fixedSalary = 0): StaffPayroll {
     half_day_dates: [],
     late_count: 0,
     late_hours: 0,
-    late_deduction: 0,
     attendance_working_days: 0,
     per_day_salary: 0,
     per_hour_salary: 0,
@@ -776,7 +770,7 @@ function SummaryCards({ data, periodLabel }: { data: StaffPayroll[]; periodLabel
   // otherwise Gross minus this card's total silently disagrees with Net
   // Payroll by however much salary advance was deducted, with no card
   // showing where that amount went.
-  const totalDeductions = data.reduce((s, e) => s + e.deductions + e.half_day_deduction + e.late_deduction + e.salary_advance, 0);
+  const totalDeductions = data.reduce((s, e) => s + e.deductions + e.half_day_deduction + e.salary_advance, 0);
   const netPayroll      = data.reduce((s, e) => s + netPay(e), 0);
   const totalPaid       = data.reduce((s, e) => s + e.paid_amount, 0);
   const totalPending    = data.reduce((s, e) => s + pendingAmount(e), 0);
@@ -874,12 +868,6 @@ function PayrollDetailsModal({
     { label: "Per Day Salary", amount: staff.per_day_salary, showWhenAmountExists: true },
     { label: "Per Hour Salary", amount: staff.per_hour_salary, showWhenAmountExists: true },
     {
-      label: "Late Deduction",
-      amount: -staff.late_deduction,
-      negative: true,
-      showWhenAmountExists: true,
-    },
-    {
       label: "Half Day Deduction",
       amount: -staff.half_day_deduction,
       negative: true,
@@ -890,10 +878,10 @@ function PayrollDetailsModal({
     },
     {
       label: "Total Auto Deduction",
-      amount: -(staff.late_deduction + staff.half_day_deduction),
+      amount: -staff.half_day_deduction,
       negative: true,
       showWhenAmountExists: true,
-      note: staff.late_deduction + staff.half_day_deduction > 0 ? "Source: Attendance Rule" : undefined,
+      note: staff.half_day_deduction > 0 ? "Source: Attendance Rule" : undefined,
     },
   ];
   const hasSalary = staff.base_salary > 0;
@@ -1530,7 +1518,6 @@ export default function PayrollPage() {
         halfDayAmount: 0,
         lateCount: 0,
         lateHours: 0,
-        lateAmount: 0,
         totalWorkingDays,
         perDaySalary,
         perHourSalary,
@@ -1540,7 +1527,7 @@ export default function PayrollPage() {
       const checkInISO = attendanceCheckInISO(record);
       const shiftStartISO = attendanceShiftStartISO(record, scheduleByStaffId, defaultShiftStart);
       const evaluation = checkInISO && shiftStartISO
-        ? evaluateAttendanceCheckIn(attendanceRule, shiftStartISO, checkInISO, staffId, monthlySalary, totalWorkingDays)
+        ? evaluateAttendanceCheckIn(attendanceRule, shiftStartISO, checkInISO, staffId)
         : null;
       const status = storedStatus === "half_day" || storedStatus === "late"
         ? storedStatus
@@ -1549,21 +1536,12 @@ export default function PayrollPage() {
 
       const lateMinutes = evaluation?.lateMinutes ?? numericOrZero(record.late_minutes ?? record.late_duration_minutes);
       const lateHours = Math.max(0, lateMinutes / 60);
-      const billableLateHours = lateHours > 0 ? Math.max(1, lateHours) : 0;
-      const rawLateDeduction = attendanceRule.late_deduction_type === "salary_per_hour"
-        ? perHourSalary * billableLateHours
-        : numericOrZero(attendanceRule.late_deduction_amount);
-      const nextLateAmount = existing.lateAmount + (status === "late" && attendanceRule.late_rule_active ? Math.max(0, rawLateDeduction) : 0);
-      const cappedLateAmount = attendanceRule.max_late_deduction != null
-        ? Math.min(nextLateAmount, attendanceRule.max_late_deduction)
-        : nextLateAmount;
 
       acc[staffId] = {
         count: existing.count + (status === "half_day" ? 1 : 0),
         halfDayAmount: existing.halfDayAmount + (status === "half_day" ? (Math.max(0, numericOrZero(attendanceRule.half_day_deduction_amount)) || (perDaySalary / 2)) : 0),
         lateCount: existing.lateCount + (status === "late" ? 1 : 0),
         lateHours: existing.lateHours + (status === "late" ? lateHours : 0),
-        lateAmount: cappedLateAmount,
         totalWorkingDays,
         perDaySalary,
         perHourSalary,
@@ -1597,7 +1575,6 @@ export default function PayrollPage() {
         half_day_dates: deduction.dates,
         late_count: deduction.lateCount,
         late_hours: deduction.lateHours,
-        late_deduction: deduction.lateAmount,
         attendance_working_days: deduction.totalWorkingDays,
         per_day_salary: deduction.perDaySalary,
         per_hour_salary: deduction.perHourSalary,
@@ -1934,7 +1911,6 @@ export default function PayrollPage() {
         salary_advance: row.salary_advance,
         deductions: row.deductions,
         half_day_deduction: row.half_day_deduction,
-        late_deduction: row.late_deduction,
         paid_amount: row.paid_amount,
         payment_method: row.payment_method,
         payment_date: row.payment_date,
@@ -2123,7 +2099,7 @@ export default function PayrollPage() {
                 <th>Bonus / Incentive</th>
                 <th>Salary Advance</th>
                 <th>Deductions</th>
-                <th>Late/Half-Day Deduction</th>
+                <th>Half-Day Deduction</th>
                 <th>Net Pay</th>
                 <th>Paid Amount</th>
                 <th>Pending Amount</th>
@@ -2200,7 +2176,7 @@ export default function PayrollPage() {
                         )}
                       </td>
                       {amountCell(e.deductions)}
-                      {amountCell(e.late_deduction + e.half_day_deduction, "pr-deduct", false, true)}
+                      {amountCell(e.half_day_deduction, "pr-deduct", false, true)}
                       {amountCell(net, "pr-col--net", true)}
                       {amountCell(e.paid_amount)}
                       {amountCell(pending)}

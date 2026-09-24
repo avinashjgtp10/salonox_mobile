@@ -17,7 +17,6 @@ export interface PayrollReceiptEntry {
   salary_advance: number;
   deductions: number;
   half_day_deduction: number;
-  late_deduction: number;
   paid_amount: number;
   payment_method?: string;
   payment_date?: string;
@@ -69,7 +68,6 @@ export function printPayrollReceipt(
     entry.salary_advance > 0 ? row("Salary Advance", `−${fmt(entry.salary_advance)}`, false, "#dc2626") : "",
     entry.deductions > 0 ? row("Deductions", `−${fmt(entry.deductions)}`, false, "#dc2626") : "",
     entry.half_day_deduction > 0 ? row("Half-Day Deduction", `−${fmt(entry.half_day_deduction)}`, false, "#dc2626") : "",
-    entry.late_deduction > 0 ? row("Late Deduction", `−${fmt(entry.late_deduction)}`, false, "#dc2626") : "",
     row("Net Pay", fmt(net), true, "#111827"),
     row("Amount Paid", fmt(entry.paid_amount), false, "#15803d"),
     pending > 0 ? row("Balance Due", fmt(pending), true, "#dc2626") : "",
