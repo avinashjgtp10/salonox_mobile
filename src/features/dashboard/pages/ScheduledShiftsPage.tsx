@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import type { AppDispatch, RootState } from "../../../store/store";
 import {
@@ -45,9 +46,18 @@ const INITIAL_DRAWER: DrawerState = { mode: null, staffId: null, date: null };
 
 const ScheduledShiftsPage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
+  const navigate = useNavigate();
   const { staffMembers, shifts, staffTotal, loading } = useSelector(
     (s: RootState) => s.shift
   );
+
+  // Live clock for the header's date/time pill — ticks every minute, which
+  // is as fine-grained as the pill's display (HH:MM) actually shows.
+  const [now, setNow] = useState<Date>(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   const [sunday, setSunday] = useState<Date>(() => getSundayOf(new Date()));
   const [drawer, setDrawer] = useState<DrawerState>(INITIAL_DRAWER);
@@ -116,6 +126,20 @@ const ScheduledShiftsPage: React.FC = () => {
     setDrawer({ mode, staffId, date });
   const closeDrawer = () => setDrawer(INITIAL_DRAWER);
   const closeCopy = () => setCopyStaffId(null);
+
+  // Header's "+ Add Shift" — opens the same working-hours drawer every
+  // per-cell "+" already uses, for the first staff member on the current
+  // page and today's date. Not a staff/date picker (there isn't one yet);
+  // the admin can still change staff/date the normal way via that cell's own
+  // "+" once the drawer's open, or by clicking a different cell directly.
+  const handleAddShift = () => {
+    const first = staffMembers.find((s) => s.isActive !== false);
+    if (!first) return;
+    const isAdding = shifts[first.id]?.[toDateKey(new Date())]?.type !== "working";
+    const permKey = isAdding ? "add_working_hours" : "edit_working_hours";
+    if (!can(permKey)) { denyPerm(permKey); return; }
+    openDrawer("edit", first.id, toDateKey(new Date()));
+  };
 
   // ── Cell action handlers ──────────────────────────────────────────────────────
   // "edit" mode covers both Add Working Hours (no shift yet) and Edit
@@ -316,20 +340,62 @@ const ScheduledShiftsPage: React.FC = () => {
       : "Apply Changes";
   const copyStaff = staffMembers.find((s) => s.id === copyStaffId) ?? null;
   const todayDisplay = formatNavDate(new Date());
+  const weekRangeDisplay = `${formatNavDate(weekDates[0].date).slice(0, 5)} – ${formatNavDate(weekDates[6].date)}`;
+  const nowTimeDisplay = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true });
 
   return (
     <div className="sched-page">
       {overlay}
       <div className="sched-page__content" style={deleteTarget ? { pointerEvents: "none" } : undefined}>
 
-        <h1 className="sched-page__title">Staff Schedule</h1>
+        {/* Breadcrumb */}
+        <nav className="sched-page__breadcrumb" aria-label="Breadcrumb">
+          <button type="button" className="sched-page__breadcrumb-link" onClick={() => navigate("/dashboard/team/members")}>
+            Staff
+          </button>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="sched-page__breadcrumb-sep">
+            <path d="M9 18l6-6-6-6" />
+          </svg>
+          <span className="sched-page__breadcrumb-current">Schedule</span>
+        </nav>
+
+        <div className="sched-page__heading-row">
+          <div>
+            <h1 className="sched-page__title">Staff Schedule</h1>
+            <p className="sched-page__subtitle">Manage and track your team's working hours and shifts.</p>
+          </div>
+
+          <div className="sched-page__heading-right">
+            <span className="sched-page__now-pill">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="4" width="18" height="18" rx="2" />
+                <path d="M16 2v4M8 2v4M3 10h18" />
+              </svg>
+              {todayDisplay}
+              <span className="sched-page__now-pill-sep" />
+              {nowTimeDisplay}
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="sched-page__now-pill-chevron">
+                <path d="M6 9l6 6 6-6" />
+              </svg>
+            </span>
+            <button
+              className="sched-page__add-shift-btn"
+              onClick={handleAddShift}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+              Add Shift
+            </button>
+          </div>
+        </div>
 
         {/* Legend + navigation */}
         <div className="sched-page__controls">
           <div className="sched-page__legend">
             <span className="sched-page__legend-item sched-page__legend-item--working">
               <span className="sched-page__legend-dot sched-page__legend-dot--working" />
-              Daily Working Hours
+              Working Hours
             </span>
             <span className="sched-page__legend-item sched-page__legend-item--blocked">
               <span className="sched-page__legend-dot sched-page__legend-dot--blocked" />
@@ -347,12 +413,16 @@ const ScheduledShiftsPage: React.FC = () => {
                 <path d="M15 18l-6-6 6-6" />
               </svg>
             </button>
-            <button className="sched-page__nav-btn sched-page__nav-btn--today" onClick={goToToday}>
-              Today
+            <button className="sched-page__nav-btn sched-page__nav-btn--date" onClick={goToToday}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="4" width="18" height="18" rx="2" />
+                <path d="M16 2v4M8 2v4M3 10h18" />
+              </svg>
+              {weekRangeDisplay}
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M6 9l6 6 6-6" />
+              </svg>
             </button>
-            <span className="sched-page__nav-btn sched-page__nav-btn--date">
-              {todayDisplay}
-            </span>
             <button className="sched-page__nav-btn" onClick={nextWeek} aria-label="Next week">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <path d="M9 18l6-6-6-6" />

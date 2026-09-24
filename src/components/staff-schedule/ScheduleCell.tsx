@@ -78,24 +78,37 @@ const ScheduleCell: React.FC<ScheduleCellProps> = ({
     );
   }
 
-  // ── Day off: still show "+" to re-open menu ───────────────────────────────────
+  // ── Day off ────────────────────────────────────────────────────────────────
   if (shift.type === "dayoff") {
     return (
-      <div ref={cellRef} className={`sched-cell ${typeClass} ${readOnly ? "sched-cell--readonly" : ""}`}>
+      <div
+        ref={cellRef}
+        className={`sched-cell ${typeClass} ${readOnly ? "sched-cell--readonly" : ""}`}
+        onClick={readOnly ? undefined : () => setOpen((p) => !p)}
+      >
         {!readOnly && (
           <button
             ref={btnRef}
-            className="sched-cell__add"
-            onClick={() => setOpen((p) => !p)}
+            className="sched-cell__edit"
+            onClick={(e) => { e.stopPropagation(); setOpen((p) => !p); }}
             aria-label="Manage day off"
           >
-            <span className="sched-cell__add-icon" style={{ borderColor: "#a16207", color: "#a16207" }}>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                <path d="M12 5v14M5 12h14" />
-              </svg>
-            </span>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
+            </svg>
           </button>
         )}
+
+        <div className="sched-cell__info">
+          <div className="sched-cell__range">
+            <span className="sched-cell__off-dot" /> OFF
+          </div>
+          <span className="sched-cell__pill">
+            <span className="sched-cell__pill-dot" />
+            Day Off
+          </span>
+        </div>
+
         {open && !readOnly && (
           <CellDropdown
             anchorRef={cellRef}
@@ -132,11 +145,11 @@ const ScheduleCell: React.FC<ScheduleCellProps> = ({
       )}
 
       <div className="sched-cell__info">
-        <div className="sched-cell__time">{shift.startTime}</div>
-        <div className="sched-cell__time">{shift.endTime}</div>
-        {shift.totalHours && (
-          <div className="sched-cell__hours">{shift.totalHours}</div>
-        )}
+        <div className="sched-cell__range">{shift.startTime} – {shift.endTime}</div>
+        <span className="sched-cell__pill">
+          <span className="sched-cell__pill-dot" />
+          {shift.type === "blocked" ? "Blocked" : "Working"}
+        </span>
       </div>
 
       {open && !readOnly && (
