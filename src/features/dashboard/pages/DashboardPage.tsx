@@ -12,9 +12,6 @@ import { useNavigate } from "react-router-dom";
 import {
   AreaChart,
   Area,
-  PieChart,
-  Pie,
-  Cell,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -645,7 +642,7 @@ const RevenueChartPanel = memo(function RevenueChartPanel({
   onGenderChange,
   onRetry,
 }: {
-  revenue: Array<{ month: string; fullLabel: string; revenue: number; expenses: number }>;
+  revenue: Array<{ month: string; fullLabel: string; revenue: number }>;
   chartLoading: boolean;
   error: string | null;
   revPeriod: RevPeriod;
@@ -663,7 +660,7 @@ const RevenueChartPanel = memo(function RevenueChartPanel({
   // something financial without a single digit shown. Flattening every
   // point to the same value keeps the shape present but unreadable.
   const localRevenue = useMemo(
-    () => canSeeFinancials ? revenue : revenue.map((pt) => ({ ...pt, revenue: 1, expenses: 1 })),
+    () => canSeeFinancials ? revenue : revenue.map((pt) => ({ ...pt, revenue: 1 })),
     [revenue, canSeeFinancials]
   );
 
@@ -831,8 +828,9 @@ const PAYMENT_MODE_ICON: Record<string, { icon: ReactNode; bg: string; fg: strin
 const DEFAULT_MODE_ICON = { icon: <Wallet2 size={16} />, bg: "#f8fafc", fg: "#64748b" };
 
 // Requested display order — Cash, UPI, Card always lead regardless of which
-// one collected the most; anything else (Wallet, Split, …) falls in after,
-// sorted by amount like before.
+// one collected the most; anything else (Wallet, …) falls in after, sorted
+// by amount like before. 'split' is excluded entirely server-side (see
+// getPaymentModeBreakdown) since it isn't a real collection channel.
 const PAYMENT_MODE_ORDER: Record<string, number> = { cash: 0, upi: 1, card: 2 };
 
 const OverallCollectionPanel = memo(function OverallCollectionPanel({
