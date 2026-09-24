@@ -41,7 +41,7 @@ const ScheduleTable: React.FC<ScheduleTableProps> = ({
       <table className="sched-table__el">
         <thead>
           <tr className="sched-table__head-row">
-            <th className="sched-table__th-name">Name</th>
+            <th className="sched-table__th-name">Staff Member</th>
             {weekDates.map(({ dateKey, dateLabel, dayLabel }) => (
               <th key={dateKey} className="sched-table__th-date">
                 <div className="sched-table__th-date-val">{dateLabel}</div>
