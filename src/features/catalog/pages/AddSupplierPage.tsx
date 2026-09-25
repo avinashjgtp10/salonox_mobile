@@ -6,7 +6,7 @@ import { createSupplierThunk, updateSupplierThunk, fetchSupplierByIdThunk } from
 import { SUPPLIER_MESSAGES } from "../../../constants/messages";
 import Dropdown from "../../../components/ui/Dropdown";
 import { toTitleCase } from "../../../utils/titleCase";
-import type { Supplier } from "../../../types/inventory.types";
+import type { Supplier, SupplierType } from "../../../types/inventory.types";
 import "../styles/AddSupplierPage.scss";
 
 const COUNTRIES = Country.getAllCountries().map((c) => ({
@@ -26,6 +26,23 @@ const getCities = (countryCode: string, stateCode: string) =>
 
 const codeOf = (name: string) =>
   COUNTRIES.find((c) => c.name === name)?.code ?? "";
+
+const SUPPLIER_TYPE_OPTIONS: { id: SupplierType; name: string }[] = [
+  { id: "product", name: "Product" },
+  { id: "consumable", name: "Consumable" },
+  { id: "both", name: "Both" },
+];
+
+const PAYMENT_TERMS_OPTIONS = [
+  { id: "0", name: "Immediate" },
+  { id: "7", name: "7 Days" },
+  { id: "15", name: "15 Days" },
+  { id: "30", name: "30 Days" },
+];
+
+const GSTIN_RE = /^[0-9]{2}[A-Za-z]{5}[0-9]{4}[A-Za-z]{1}[1-9A-Za-z]{1}Z[0-9A-Za-z]{1}$/;
+const PAN_RE = /^[A-Za-z]{5}[0-9]{4}[A-Za-z]{1}$/;
+const IFSC_RE = /^[A-Za-z]{4}0[A-Za-z0-9]{6}$/;
 
 interface AddSupplierPageProps {
   supplierId?: string;
@@ -48,42 +65,42 @@ const AddSupplierPage: React.FC<AddSupplierPageProps> = ({
   const isEdit = !!effectiveId;
   const dispatch = useAppDispatch();
 
-  // Supplier details
+  // 1. Basic Information
   const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-
-  // Contact info
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
+  const [supplierCode, setSupplierCode] = useState<string | null>(null);
+  const [supplierType, setSupplierType] = useState<SupplierType>("product");
+  const [contactPerson, setContactPerson] = useState("");
   const [mobileNumber, setMobileNumber] = useState("");
   const [email, setEmail] = useState("");
   const [website, setWebsite] = useState("");
 
-  // Physical address
-  const [physStreet, setPhysStreet] = useState("");
-  const [physSuburb, setPhysSuburb] = useState("");
-  const [physZip, setPhysZip] = useState("");
-
-  // Postal address
-  const [postalStreet, setPostalStreet] = useState("");
-  const [postalSuburb, setPostalSuburb] = useState("");
-  const [postalZip, setPostalZip] = useState("");
-
-  // Dial codes
+  // Dial code (part of Mobile Number)
   const [mobileDialCode, setMobileDialCode] = useState(INDIA.dial);
   const [mobileSearch, setMobileSearch] = useState("");
   const [mobileDropOpen, setMobileDropOpen] = useState(false);
 
-  // Location dropdowns
-  const [physCountry, setPhysCountry] = useState("India");
-  const [physState, setPhysState] = useState("");
-  const [physCity, setPhysCity] = useState("");
+  // 2. Address
+  const [address, setAddress] = useState("");
+  const [country, setCountry] = useState("India");
+  const [state, setState] = useState("");
+  const [city, setCity] = useState("");
+  const [zipCode, setZipCode] = useState("");
 
-  const [postalCountry, setPostalCountry] = useState("India");
-  const [postalState, setPostalState] = useState("");
-  const [postalCity, setPostalCity] = useState("");
+  // 3. Business & Tax
+  const [gstin, setGstin] = useState("");
+  const [pan, setPan] = useState("");
+  const [businessRegNumber, setBusinessRegNumber] = useState("");
+  const [paymentTermsDays, setPaymentTermsDays] = useState("0");
+  const [creditLimit, setCreditLimit] = useState("");
 
-  const [sameAsPostal, setSameAsPostal] = useState(true);
+  // 4. Bank Details (optional)
+  const [bankAccountHolderName, setBankAccountHolderName] = useState("");
+  const [bankName, setBankName] = useState("");
+  const [bankAccountNumber, setBankAccountNumber] = useState("");
+  const [bankIfscCode, setBankIfscCode] = useState("");
+
+  // 5. Additional
+  const [notes, setNotes] = useState("");
   const [isActive, setIsActive] = useState(true);
 
   // UI state
@@ -91,6 +108,9 @@ const AddSupplierPage: React.FC<AddSupplierPageProps> = ({
   const [nameError, setNameError] = useState(false);
   const [emailTouched, setEmailTouched] = useState(false);
   const [mobileTouched, setMobileTouched] = useState(false);
+  const [gstinTouched, setGstinTouched] = useState(false);
+  const [panTouched, setPanTouched] = useState(false);
+  const [ifscTouched, setIfscTouched] = useState(false);
 
   const emailError = !email.trim()
     ? SUPPLIER_MESSAGES.EMAIL_REQUIRED
@@ -102,6 +122,9 @@ const AddSupplierPage: React.FC<AddSupplierPageProps> = ({
     : mobileNumber.trim().length !== 10
       ? SUPPLIER_MESSAGES.MOBILE_INVALID
       : "";
+  const gstinError = gstin.trim() && !GSTIN_RE.test(gstin.trim()) ? SUPPLIER_MESSAGES.GSTIN_INVALID : "";
+  const panError = pan.trim() && !PAN_RE.test(pan.trim()) ? SUPPLIER_MESSAGES.PAN_INVALID : "";
+  const ifscError = bankIfscCode.trim() && !IFSC_RE.test(bankIfscCode.trim()) ? SUPPLIER_MESSAGES.IFSC_INVALID : "";
 
   const filteredMobile = useMemo(
     () =>
@@ -113,44 +136,18 @@ const AddSupplierPage: React.FC<AddSupplierPageProps> = ({
     [mobileSearch],
   );
 
-  const physStates = useMemo(
-    () => getStates(codeOf(physCountry)),
-    [physCountry],
-  );
-  const physCities = useMemo(
-    () => getCities(codeOf(physCountry), physState),
-    [physCountry, physState],
-  );
+  const states = useMemo(() => getStates(codeOf(country)), [country]);
+  const cities = useMemo(() => getCities(codeOf(country), state), [country, state]);
 
-  const postalStates = useMemo(
-    () => getStates(codeOf(postalCountry)),
-    [postalCountry],
-  );
-  const postalCities = useMemo(
-    () => getCities(codeOf(postalCountry), postalState),
-    [postalCountry, postalState],
-  );
-
-  const handlePhysCountry = (val: string) => {
-    setPhysCountry(val);
-    setPhysState("");
-    setPhysCity("");
+  const handleCountry = (val: string) => {
+    setCountry(val);
+    setState("");
+    setCity("");
   };
 
-  const handlePhysState = (code: string) => {
-    setPhysState(code);
-    setPhysCity("");
-  };
-
-  const handlePostalCountry = (val: string) => {
-    setPostalCountry(val);
-    setPostalState("");
-    setPostalCity("");
-  };
-
-  const handlePostalState = (code: string) => {
-    setPostalState(code);
-    setPostalCity("");
+  const handleState = (code: string) => {
+    setState(code);
+    setCity("");
   };
 
   // Fetches the specific supplier being edited directly by id, rather than
@@ -164,29 +161,29 @@ const AddSupplierPage: React.FC<AddSupplierPageProps> = ({
     dispatch(fetchSupplierByIdThunk(effectiveId)).unwrap().then((s) => {
       if (cancelled) return;
       setName(s.name);
-      setDescription(s.description || "");
-      setFirstName(s.first_name || "");
-      setLastName(s.last_name || "");
+      setSupplierCode(s.supplier_code);
+      setSupplierType(s.supplier_type || "product");
+      setContactPerson(s.contact_person || "");
       setMobileDialCode(s.mobile_country_code || INDIA.dial);
       setMobileNumber(s.mobile_number || "");
       setEmail(s.email || "");
       setWebsite(s.website || "");
-      setPhysStreet(s.street || "");
-      setPhysSuburb(s.suburb || "");
-      setPhysCountry(s.country || "India");
-      setPhysState(s.state || "");
-      setPhysCity(s.city || "");
-      setPhysZip(s.zip_code || "");
-      setSameAsPostal(s.same_as_physical);
+      setAddress(s.address || "");
+      setCountry(s.country || "India");
+      setState(s.state || "");
+      setCity(s.city || "");
+      setZipCode(s.zip_code || "");
+      setGstin(s.gstin || "");
+      setPan(s.pan || "");
+      setBusinessRegNumber(s.business_registration_number || "");
+      setPaymentTermsDays(String(s.payment_terms_days ?? 0));
+      setCreditLimit(s.credit_limit ? String(s.credit_limit) : "");
+      setBankAccountHolderName(s.bank_account_holder_name || "");
+      setBankName(s.bank_name || "");
+      setBankAccountNumber(s.bank_account_number || "");
+      setBankIfscCode(s.bank_ifsc_code || "");
+      setNotes(s.notes || "");
       setIsActive(s.is_active ?? true);
-      if (!s.same_as_physical) {
-        setPostalStreet(s.postal_street || "");
-        setPostalSuburb(s.postal_suburb || "");
-        setPostalCountry(s.postal_country || "India");
-        setPostalState(s.postal_state || "");
-        setPostalCity(s.postal_city || "");
-        setPostalZip(s.postal_zip_code || "");
-      }
     }).catch(() => {});
     return () => { cancelled = true; };
   }, [isEdit, effectiveId, dispatch]);
@@ -194,36 +191,40 @@ const AddSupplierPage: React.FC<AddSupplierPageProps> = ({
   const handleSave = async () => {
     setEmailTouched(true);
     setMobileTouched(true);
+    setGstinTouched(true);
+    setPanTouched(true);
+    setIfscTouched(true);
     if (!name.trim()) {
       setNameError(true);
       return;
     }
     setNameError(false);
-    if (emailError || mobileError) return;
+    if (emailError || mobileError || gstinError || panError || ifscError) return;
 
     const payload = {
       name: toTitleCase(name.trim()),
-      description: description.trim() || undefined,
-      first_name: firstName.trim() ? toTitleCase(firstName.trim()) : undefined,
-      last_name: lastName.trim() ? toTitleCase(lastName.trim()) : undefined,
+      supplier_type: supplierType,
+      contact_person: contactPerson.trim() ? toTitleCase(contactPerson.trim()) : undefined,
       mobile_country_code: mobileDialCode || undefined,
       mobile_number: mobileNumber.trim() || undefined,
       email: email.trim() || undefined,
       website: website.trim() || undefined,
-      street: physStreet.trim() || undefined,
-      suburb: physSuburb.trim() || undefined,
-      city: physCity || undefined,
-      state: physState || undefined,
-      zip_code: physZip.trim() || undefined,
-      country: physCountry || undefined,
-      same_as_physical: sameAsPostal,
+      address: address.trim() || undefined,
+      city: city || undefined,
+      state: state || undefined,
+      zip_code: zipCode.trim() || undefined,
+      country: country || undefined,
+      gstin: gstin.trim() ? gstin.trim().toUpperCase() : undefined,
+      pan: pan.trim() ? pan.trim().toUpperCase() : undefined,
+      business_registration_number: businessRegNumber.trim() || undefined,
+      payment_terms_days: Number(paymentTermsDays),
+      credit_limit: creditLimit.trim() ? Number(creditLimit) : undefined,
+      bank_account_holder_name: bankAccountHolderName.trim() ? toTitleCase(bankAccountHolderName.trim()) : undefined,
+      bank_name: bankName.trim() || undefined,
+      bank_account_number: bankAccountNumber.trim() || undefined,
+      bank_ifsc_code: bankIfscCode.trim() ? bankIfscCode.trim().toUpperCase() : undefined,
+      notes: notes.trim() || undefined,
       is_active: isActive,
-      postal_street: sameAsPostal ? null : postalStreet.trim() || null,
-      postal_suburb: sameAsPostal ? null : postalSuburb.trim() || null,
-      postal_city: sameAsPostal ? null : postalCity || null,
-      postal_state: sameAsPostal ? null : postalState || null,
-      postal_zip_code: sameAsPostal ? null : postalZip.trim() || null,
-      postal_country: sameAsPostal ? null : postalCountry || null,
     };
 
     try {
@@ -266,80 +267,59 @@ const AddSupplierPage: React.FC<AddSupplierPageProps> = ({
 
       <div className="add-supplier-page__body">
         <section className="form-section">
-          <h3>Basic Details</h3>
+          <h3>Basic Information</h3>
 
-          <div className={`field-group${nameError ? " field-group--error" : ""}`}>
-            <label>
-              Supplier name <span style={{ color: "red" }}>*</span>
-            </label>
-            <input
-              type="text"
-              placeholder="e.g. L'Oréal"
-              value={name}
-              onChange={(e) => {
-                setName(e.target.value);
-                if (e.target.value.trim()) setNameError(false);
-              }}
-            />
-            {nameError && (
-              <span className="field-error">Supplier name is required</span>
-            )}
+          <div className="field-row-3">
+            <div className={`field-group${nameError ? " field-group--error" : ""}`}>
+              <label>
+                Supplier name <span style={{ color: "red" }}>*</span>
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. L'Oréal"
+                value={name}
+                onChange={(e) => {
+                  setName(e.target.value);
+                  if (e.target.value.trim()) setNameError(false);
+                }}
+              />
+              {nameError && (
+                <span className="field-error">Supplier name is required</span>
+              )}
+            </div>
+
+            <div className="field-group">
+              <label>Supplier code</label>
+              <input
+                type="text"
+                value={supplierCode ?? ""}
+                placeholder="Auto-generated on save"
+                disabled
+              />
+            </div>
+
+            <div className="field-group">
+              <label>Supplier type</label>
+              <Dropdown
+                searchable={false}
+                value={supplierType}
+                options={SUPPLIER_TYPE_OPTIONS}
+                onChange={(id) => setSupplierType(id as SupplierType)}
+              />
+            </div>
           </div>
-
-          <div className="field-group">
-            <label>Supplier description</label>
-            <textarea
-              placeholder="e.g. Local provider of hair products"
-              rows={3}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-            />
-          </div>
-
-          <label className="checkbox-label">
-            <input
-              type="checkbox"
-              checked={isActive}
-              onChange={(e) => setIsActive(e.target.checked)}
-            />
-            Active
-          </label>
-        </section>
-
-        <section className="form-section">
-          <h3>Contact Details</h3>
 
           <div className="field-row-3">
             <div className="field-group">
-              <label>First name</label>
+              <label>Contact person</label>
               <input
                 type="text"
-                placeholder="e.g. John"
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
+                placeholder="e.g. John Doe"
+                value={contactPerson}
+                onChange={(e) => setContactPerson(e.target.value)}
               />
             </div>
-            <div className="field-group">
-              <label>Last name</label>
-              <input
-                type="text"
-                placeholder="e.g. Doe"
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-              />
-            </div>
-            <div className="field-group">
-              <label>Website</label>
-              <input
-                type="url"
-                placeholder="www.google.com"
-                value={website}
-                onChange={(e) => setWebsite(e.target.value)}
-              />
-            </div>
-          </div>
 
-          <div className="field-row-2">
             <div className={`field-group${mobileTouched && mobileError ? " field-group--error" : ""}`}>
               <label>
                 Mobile number <span style={{ color: "red" }}>*</span>
@@ -419,184 +399,232 @@ const AddSupplierPage: React.FC<AddSupplierPageProps> = ({
               )}
             </div>
           </div>
+
+          <div className="field-group">
+            <label>Website</label>
+            <input
+              type="url"
+              placeholder="www.example.com"
+              value={website}
+              onChange={(e) => setWebsite(e.target.value)}
+            />
+          </div>
         </section>
 
         <section className="form-section">
-          <h3>Physical Address</h3>
+          <h3>Address</h3>
 
-          <div className="field-row-3">
-            <div className="field-group">
-              <label>Street</label>
-              <input
-                type="text"
-                placeholder="e.g. 12 Main Street"
-                value={physStreet}
-                onChange={(e) => setPhysStreet(e.target.value)}
-              />
-            </div>
-
-            <div className="field-group">
-              <label>Locality</label>
-              <input
-                type="text"
-                value={physSuburb}
-                onChange={(e) => setPhysSuburb(e.target.value)}
-              />
-            </div>
-
-            <div className="field-group">
-              <label>Country</label>
-              <Dropdown
-                value={physCountry}
-                options={COUNTRIES.map((c) => ({ id: c.name, name: `${c.flag} ${c.name}` }))}
-                onChange={handlePhysCountry}
-              />
-            </div>
+          <div className="field-group">
+            <label>Address</label>
+            <textarea
+              placeholder="e.g. 12 Main Street"
+              rows={2}
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+            />
           </div>
 
           <div className="field-row-3">
             <div className="field-group">
+              <label>Country</label>
+              <Dropdown
+                value={country}
+                options={COUNTRIES.map((c) => ({ id: c.name, name: `${c.flag} ${c.name}` }))}
+                onChange={handleCountry}
+              />
+            </div>
+
+            <div className="field-group">
               <label>State</label>
-              {physStates.length > 0 ? (
+              {states.length > 0 ? (
                 <Dropdown
                   placeholder="— Select state —"
-                  value={physState}
-                  options={physStates.map((s) => ({ id: s.isoCode, name: s.name }))}
-                  onChange={handlePhysState}
+                  value={state}
+                  options={states.map((s) => ({ id: s.isoCode, name: s.name }))}
+                  onChange={handleState}
                 />
               ) : (
                 <input
                   type="text"
                   placeholder="State / Province"
-                  value={physState}
-                  onChange={(e) => setPhysState(e.target.value)}
+                  value={state}
+                  onChange={(e) => setState(e.target.value)}
                 />
               )}
             </div>
 
             <div className="field-group">
               <label>City</label>
-              {physCities.length > 0 ? (
+              {cities.length > 0 ? (
                 <Dropdown
                   placeholder="— Select city —"
-                  value={physCity}
-                  options={physCities.map((city) => ({ id: city.name, name: city.name }))}
-                  onChange={setPhysCity}
+                  value={city}
+                  options={cities.map((c) => ({ id: c.name, name: c.name }))}
+                  onChange={setCity}
                 />
               ) : (
                 <input
                   type="text"
                   placeholder="City"
-                  value={physCity}
-                  onChange={(e) => setPhysCity(e.target.value)}
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
                 />
+              )}
+            </div>
+          </div>
+
+          <div className="field-row-3">
+            <div className="field-group">
+              <label>PIN code</label>
+              <input
+                type="text"
+                value={zipCode}
+                onChange={(e) => setZipCode(e.target.value)}
+              />
+            </div>
+          </div>
+        </section>
+
+        <section className="form-section">
+          <h3>Business &amp; Tax</h3>
+
+          <div className="field-row-3">
+            <div className={`field-group${gstinTouched && gstinError ? " field-group--error" : ""}`}>
+              <label>GSTIN</label>
+              <input
+                type="text"
+                placeholder="e.g. 22AAAAA0000A1Z5"
+                maxLength={15}
+                value={gstin}
+                onChange={(e) => setGstin(e.target.value.toUpperCase())}
+                onBlur={() => setGstinTouched(true)}
+              />
+              {gstinTouched && gstinError && (
+                <span className="field-error">{gstinError}</span>
+              )}
+            </div>
+
+            <div className={`field-group${panTouched && panError ? " field-group--error" : ""}`}>
+              <label>PAN</label>
+              <input
+                type="text"
+                placeholder="e.g. AAAAA0000A"
+                maxLength={10}
+                value={pan}
+                onChange={(e) => setPan(e.target.value.toUpperCase())}
+                onBlur={() => setPanTouched(true)}
+              />
+              {panTouched && panError && (
+                <span className="field-error">{panError}</span>
               )}
             </div>
 
             <div className="field-group">
-              <label>Zip / Postal Code</label>
+              <label>Business registration number</label>
               <input
                 type="text"
-                value={physZip}
-                onChange={(e) => setPhysZip(e.target.value)}
+                value={businessRegNumber}
+                onChange={(e) => setBusinessRegNumber(e.target.value)}
               />
             </div>
+          </div>
+
+          <div className="field-row-3">
+            <div className="field-group">
+              <label>Payment terms</label>
+              <Dropdown
+                searchable={false}
+                value={paymentTermsDays}
+                options={PAYMENT_TERMS_OPTIONS}
+                onChange={setPaymentTermsDays}
+              />
+            </div>
+
+            <div className="field-group">
+              <label>Credit limit</label>
+              <input
+                type="number"
+                min={0}
+                placeholder="0"
+                value={creditLimit}
+                onChange={(e) => setCreditLimit(e.target.value)}
+              />
+            </div>
+          </div>
+        </section>
+
+        <section className="form-section">
+          <h3>Bank Details <span style={{ fontWeight: 400, color: "#9ca3af" }}>(optional)</span></h3>
+
+          <div className="field-row-3">
+            <div className="field-group">
+              <label>Account holder name</label>
+              <input
+                type="text"
+                value={bankAccountHolderName}
+                onChange={(e) => setBankAccountHolderName(e.target.value)}
+              />
+            </div>
+
+            <div className="field-group">
+              <label>Bank name</label>
+              <input
+                type="text"
+                value={bankName}
+                onChange={(e) => setBankName(e.target.value)}
+              />
+            </div>
+
+            <div className="field-group">
+              <label>Account number</label>
+              <input
+                type="text"
+                value={bankAccountNumber}
+                onChange={(e) => setBankAccountNumber(e.target.value.replace(/\D/g, ""))}
+              />
+            </div>
+          </div>
+
+          <div className="field-row-3">
+            <div className={`field-group${ifscTouched && ifscError ? " field-group--error" : ""}`}>
+              <label>IFSC code</label>
+              <input
+                type="text"
+                placeholder="e.g. HDFC0001234"
+                maxLength={11}
+                value={bankIfscCode}
+                onChange={(e) => setBankIfscCode(e.target.value.toUpperCase())}
+                onBlur={() => setIfscTouched(true)}
+              />
+              {ifscTouched && ifscError && (
+                <span className="field-error">{ifscError}</span>
+              )}
+            </div>
+          </div>
+        </section>
+
+        <section className="form-section">
+          <h3>Additional</h3>
+
+          <div className="field-group">
+            <label>Notes</label>
+            <textarea
+              placeholder="e.g. Preferred supplier for hair products"
+              rows={3}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+            />
           </div>
 
           <label className="checkbox-label">
             <input
               type="checkbox"
-              checked={sameAsPostal}
-              onChange={(e) => setSameAsPostal(e.target.checked)}
+              checked={isActive}
+              onChange={(e) => setIsActive(e.target.checked)}
             />
-            Same as postal address
+            Active
           </label>
         </section>
-
-        {!sameAsPostal && (
-          <section className="form-section">
-            <h3>Postal Address</h3>
-
-            <div className="field-row-3">
-              <div className="field-group">
-                <label>Street</label>
-                <input
-                  type="text"
-                  placeholder="e.g. 12 Main Street"
-                  value={postalStreet}
-                  onChange={(e) => setPostalStreet(e.target.value)}
-                />
-              </div>
-
-              <div className="field-group">
-                <label>Locality</label>
-                <input
-                  type="text"
-                  value={postalSuburb}
-                  onChange={(e) => setPostalSuburb(e.target.value)}
-                />
-              </div>
-
-              <div className="field-group">
-                <label>Country</label>
-                <Dropdown
-                  value={postalCountry}
-                  options={COUNTRIES.map((c) => ({ id: c.name, name: `${c.flag} ${c.name}` }))}
-                  onChange={handlePostalCountry}
-                />
-              </div>
-            </div>
-
-            <div className="field-row-3">
-              <div className="field-group">
-                <label>State</label>
-                {postalStates.length > 0 ? (
-                  <Dropdown
-                    placeholder="— Select state —"
-                    value={postalState}
-                    options={postalStates.map((s) => ({ id: s.isoCode, name: s.name }))}
-                    onChange={handlePostalState}
-                  />
-                ) : (
-                  <input
-                    type="text"
-                    placeholder="State / Province"
-                    value={postalState}
-                    onChange={(e) => setPostalState(e.target.value)}
-                  />
-                )}
-              </div>
-
-              <div className="field-group">
-                <label>City</label>
-                {postalCities.length > 0 ? (
-                  <Dropdown
-                    placeholder="— Select city —"
-                    value={postalCity}
-                    options={postalCities.map((city) => ({ id: city.name, name: city.name }))}
-                    onChange={setPostalCity}
-                  />
-                ) : (
-                  <input
-                    type="text"
-                    placeholder="City"
-                    value={postalCity}
-                    onChange={(e) => setPostalCity(e.target.value)}
-                  />
-                )}
-              </div>
-
-              <div className="field-group">
-                <label>Zip / Postal Code</label>
-                <input
-                  type="text"
-                  value={postalZip}
-                  onChange={(e) => setPostalZip(e.target.value)}
-                />
-              </div>
-            </div>
-          </section>
-        )}
       </div>
     </div>
   );

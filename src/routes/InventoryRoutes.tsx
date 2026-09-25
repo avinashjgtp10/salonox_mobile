@@ -78,6 +78,9 @@ export const InventoryRoutes = () => (
             Warehouse -> Orders ticket) — split out from the shared
             manage_inventory guard below, same pattern as Suppliers. */}
         <Route element={<PermissionGuard permKey="view_orders" />}>
+          {/* Bare /orders (no ?status=) redirects itself to Create Order —
+              see OrdersListPage.tsx. With ?status=draft|sent|... (from the
+              stepper header) it renders the filtered table instead. */}
           <Route path="orders" element={<OrdersListPage />} />
           <Route path="orders/:id" element={<OrderDetailPage />} />
         </Route>

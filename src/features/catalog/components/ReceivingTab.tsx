@@ -296,7 +296,7 @@ const ReceivingTab: React.FC<Props> = ({ order, can, denyPerm, showSuccess, show
           disabled={saving || confirming}
           style={disabled ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
         >
-          {confirming ? "Confirming…" : "Confirm Receiving"}
+          {confirming ? "Confirming…" : "Confirm Receipt"}
         </Button>
       </div>
     </div>

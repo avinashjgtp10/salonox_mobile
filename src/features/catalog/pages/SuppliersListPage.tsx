@@ -489,7 +489,7 @@ const SuppliersListPage: React.FC = () => {
                       <span className="name">{s.name}</span>
                     </div>
                   </td>
-                  <td>{[s.first_name, s.last_name].filter(Boolean).join(" ") || s.mobile_number || s.telephone_number || "—"}</td>
+                  <td>{s.contact_person || [s.first_name, s.last_name].filter(Boolean).join(" ") || s.mobile_number || s.telephone_number || "—"}</td>
                   <td>{sb.open_order_count ?? 0}</td>
                   <td>
                     <button

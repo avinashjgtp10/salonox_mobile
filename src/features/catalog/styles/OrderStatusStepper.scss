@@ -1,0 +1,99 @@
+// Order lifecycle header — Create Order / Draft / Ordered / Verify Order /
+// Received, each an icon+label chip joined by a connector line, with
+// Cancelled branching off after a dashed connector instead of following
+// Received directly. Sits flush below the page's own topbar as a full-bleed
+// header bar, same white/border-bottom/padding language as the surrounding
+// page chrome.
+.order-status-stepper {
+  display: flex;
+  align-items: center;
+  list-style: none;
+  margin: 0;
+  padding: 14px 40px;
+  background: #fff;
+  border-bottom: 1px solid #f3f4f6;
+  min-height: 52px;
+  box-sizing: border-box;
+  flex-wrap: nowrap;
+  overflow-x: hidden;
+
+  &__step {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+
+    // Solid connector after every step EXCEPT the one right before the
+    // dashed branch connector (Received) — otherwise that gap would get
+    // both a solid and a dashed line stacked on top of each other.
+    &:not(:last-child):not(:has(+ .order-status-stepper__step--branch))::after {
+      content: "";
+      width: 28px;
+      height: 1px;
+      background: #e5e7eb;
+      margin: 0 6px;
+      flex-shrink: 0;
+    }
+
+    // The connector immediately before Cancelled — dashed, marking it as a
+    // branch off the normal flow rather than the step after Received.
+    &--branch::before {
+      content: "";
+      width: 28px;
+      height: 0;
+      border-top: 1px dashed #d0d5dd;
+      margin: 0 6px;
+      flex-shrink: 0;
+    }
+  }
+
+  &__chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    border: 1px solid #e5e7eb;
+    background: #fff;
+    color: #6b7280;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 7px 14px;
+    border-radius: 10px;
+    white-space: nowrap;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+  }
+
+  button.order-status-stepper__chip {
+    cursor: pointer;
+
+    &:hover:not(&--current) {
+      background: #f9fafb;
+      border-color: #d0d5dd;
+      color: #374151;
+    }
+  }
+
+  &__chip--current {
+    background: #111827;
+    border-color: #111827;
+    color: #fff;
+  }
+
+  &__chip--done {
+    background: #eef2ff;
+    border-color: #c7d2fe;
+    color: #4338ca;
+  }
+
+  &__chip--cancelled {
+    background: #dc2626;
+    border-color: #dc2626;
+    color: #fff;
+  }
+
+  @media (max-width: 900px) {
+    padding: 12px 16px;
+    overflow-x: auto;
+    &__chip { font-size: 12px; padding: 6px 10px; }
+    &__step:not(:last-child)::after,
+    &__step--branch::before { width: 16px; }
+  }
+}

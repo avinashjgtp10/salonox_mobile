@@ -63,6 +63,8 @@ export const INVENTORY = {
   ORDER_RECEIVE: (id: string) => `/api/v1/inventory/orders/${id}/receive`,
   ORDER_CORRECT_RECEIVED: (id: string, itemId: string) => `/api/v1/inventory/orders/${id}/items/${itemId}/correct-received`,
   ORDER_CANCEL: (id: string) => `/api/v1/inventory/orders/${id}/cancel`,
+  ORDER_PLACE: (id: string) => `/api/v1/inventory/orders/${id}/place`,
+  ORDER_START_VERIFICATION: (id: string) => `/api/v1/inventory/orders/${id}/start-verification`,
   ORDER_DELETE: (id: string) => `/api/v1/inventory/orders/${id}/delete`,
   ORDER_UPDATE: (id: string) => `/api/v1/inventory/orders/${id}/update`,
   ORDER_UPLOAD_SIGNATURE: "/api/v1/inventory/orders/upload-signature",

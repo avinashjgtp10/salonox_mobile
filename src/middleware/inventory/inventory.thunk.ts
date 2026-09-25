@@ -499,6 +499,40 @@ export const cancelOrderThunk = createAsyncThunk<
   }
 });
 
+// Draft → Ordered. A plain status flip — placing a draft never touches
+// stock/the ledger (receive() is the only thing that does), so unlike
+// create/update it needs no items/totals payload at all.
+export const placeOrderThunk = createAsyncThunk<
+  Order,
+  string,
+  { rejectValue: string }
+>("inventory/placeOrder", async (orderId, { rejectWithValue }) => {
+  try {
+    const res = await api.post<InventoryResponse<Order>>(INVENTORY.ORDER_PLACE(orderId));
+    return res.data.data;
+  } catch (err: any) {
+    console.error("placeOrderThunk error:", err);
+    return rejectWithValue(err?.response?.data?.error?.message || err?.message || "Failed to place order");
+  }
+});
+
+// "Confirm Order" on a Verify-eligible ("sent") order — doesn't move status
+// or stock, just marks verification as started so the order shows on the
+// Verify Order list (see OrdersListPage.tsx) before anything's received yet.
+export const startVerificationThunk = createAsyncThunk<
+  Order,
+  string,
+  { rejectValue: string }
+>("inventory/startVerification", async (orderId, { rejectWithValue }) => {
+  try {
+    const res = await api.post<InventoryResponse<Order>>(INVENTORY.ORDER_START_VERIFICATION(orderId));
+    return res.data.data;
+  } catch (err: any) {
+    console.error("startVerificationThunk error:", err);
+    return rejectWithValue(err?.response?.data?.error?.message || err?.message || "Failed to start verification");
+  }
+});
+
 // POST, not DELETE — matches the backend route (see orders.controller.ts).
 export const deleteOrderThunk = createAsyncThunk<
   string,
