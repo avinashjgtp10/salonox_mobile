@@ -41,9 +41,6 @@ const ProductAuditPage = lazy(
 const StockLedgerPage = lazy(
   () => import("../features/catalog/pages/StockLedgerPage"),
 );
-const AddStockPage = lazy(
-  () => import("../features/catalog/pages/AddStockPage"),
-);
 
 import { PageLoader } from "../components/ui";
 
@@ -121,18 +118,15 @@ export const InventoryRoutes = () => (
           <Route path="audit" element={<ProductAuditPage />} />
         </Route>
 
-        {/* Stock Ledger now has its own independent View/Edit/Stock
-            Adjustment permissions too (see the Warehouse -> Stock Ledger
-            ticket) — split out from the shared manage_inventory guard,
-            same pattern as every other Warehouse section above. */}
+        {/* Stock Ledger now has its own independent View/Stock Adjustment
+            permissions too (see the Warehouse -> Stock Ledger ticket) —
+            split out from the shared manage_inventory guard, same pattern
+            as every other Warehouse section above. The only way to record a
+            manual stock change is the Stock Adjustment modal inside
+            StockLedgerPage.tsx itself (POST /stock-ledger) — the standalone
+            Add Stock page/edit-entry flow was removed. */}
         <Route element={<PermissionGuard permKey="view_stock_ledger" />}>
           <Route path="ledger" element={<StockLedgerPage />} />
-        </Route>
-        <Route element={<PermissionGuard permKey="stock_ledger_adjustment" />}>
-          <Route path="ledger/add-stock" element={<AddStockPage />} />
-        </Route>
-        <Route element={<PermissionGuard permKey="edit_stock_ledger" />}>
-          <Route path="ledger/edit/:id" element={<AddStockPage />} />
         </Route>
 
         {/* manage_inventory still covers the few legacy screens with no nav

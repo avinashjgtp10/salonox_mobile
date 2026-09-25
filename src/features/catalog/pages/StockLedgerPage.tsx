@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { useNavigate } from "react-router-dom";
 import { Dropdown as BsDropdown } from "react-bootstrap";
 import {
   ClipboardData, FileEarmarkExcel,
-  PencilSquare, PlusLg, Search, Sliders2Vertical, ThreeDotsVertical, Trash, X,
+  PlusLg, Search, Sliders2Vertical, ThreeDotsVertical, Trash, X,
 } from "react-bootstrap-icons";
 import type { AppDispatch, RootState } from "../../../store/store";
 import api from "../../../services/api/axios";
@@ -137,7 +136,6 @@ const fmtBalance = (n: number, unit?: string | null, bottleSize?: number | null)
 };
 
 export default function StockLedgerPage() {
-  const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
   const { showError } = useStatusOverlay();
   const { can } = usePermissions();
@@ -370,17 +368,6 @@ export default function StockLedgerPage() {
           >
             Stock Adjustment
           </Button>
-          <Button
-            variant="dark"
-            iconLeft={<PlusLg size={14} />}
-            style={!can("stock_ledger_adjustment") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
-            onClick={() => {
-              if (!can("stock_ledger_adjustment")) { denyPerm("stock_ledger_adjustment"); return; }
-              navigate("/dashboard/inventory/ledger/add-stock");
-            }}
-          >
-            Add Stock
-          </Button>
         </div>
       </header>
 
@@ -476,16 +463,6 @@ export default function StockLedgerPage() {
                             <ThreeDotsVertical size={16} />
                           </BsDropdown.Toggle>
                           <BsDropdown.Menu className="shadow-sm border-0 rounded-3 py-2" style={{ minWidth: "160px" }}>
-                            <BsDropdown.Item
-                              onClick={() => {
-                                if (!can("edit_stock_ledger")) { denyPerm("edit_stock_ledger"); return; }
-                                navigate(`/dashboard/inventory/ledger/edit/${r.id}`);
-                              }}
-                              style={!can("edit_stock_ledger") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
-                              className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark"
-                            >
-                              <PencilSquare size={14} /> Edit
-                            </BsDropdown.Item>
                             <BsDropdown.Item
                               onClick={() => {
                                 if (!can("delete_stock_ledger")) { denyPerm("delete_stock_ledger"); return; }
