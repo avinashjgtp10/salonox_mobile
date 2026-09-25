@@ -1,13 +1,13 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, BoxSeam, CashCoin, X } from "react-bootstrap-icons";
+import { ArrowLeft, BoxSeam, CashCoin, CloudUpload, X } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { INVENTORY } from "../../../services/api/endpoints/inventory.endpoints";
 import { useAppDispatch } from "../../../hooks/useAppRedux";
 import { usePermissions } from "../../../hooks/usePermissions";
 import { showPermissionDenied } from "../../../store/permissionDialogSlice";
-import { fetchSupplierByIdThunk } from "../../../middleware/inventory/inventory.thunk";
-import type { SupplierOrderRow, SupplierPaymentStatus, SupplierWithBalance } from "../../../types/inventory.types";
+import { fetchSupplierByIdThunk, fetchSupplierProductsThunk } from "../../../middleware/inventory/inventory.thunk";
+import type { SupplierOrderRow, SupplierPaymentStatus, SupplierWithBalance, SupplierProduct } from "../../../types/inventory.types";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import Button from "../../../components/ui/Button";
@@ -17,9 +17,12 @@ import Skeleton from "../../../components/ui/Skeleton";
 import EmptyState from "../../../components/ui/EmptyState";
 import CreatePayoutModal from "../components/CreatePayoutModal";
 import SupplierPaymentHistory from "../components/SupplierPaymentHistory";
+import ImportSupplierCatalogModal from "../components/ImportSupplierCatalogModal";
+import ResolveSupplierProductRow from "../components/ResolveSupplierProductRow";
 import "../styles/PurchaseHistoryTable.scss";
 import "../styles/SuppliersListPage.scss";
 import "../styles/SupplierDetailPage.scss";
+import "../styles/ImportSupplierCatalogModal.scss";
 
 const PAGE_SIZE = 10;
 
@@ -67,6 +70,11 @@ const SupplierDetailPage: React.FC<Props> = ({ id: propId, onClose }) => {
   const { can } = usePermissions();
   const { formatAmount } = useCurrency();
   const { showError } = useStatusOverlay();
+  // Same reusable denyPerm helper pattern as OrderDetailPage.tsx, instead of
+  // inlining the permission-denied message at each call site.
+  const denyPerm = (permKey: string) => dispatch(showPermissionDenied(
+    `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+  ));
   // Fetched directly by id rather than found in the (now paginated)
   // suppliers list — see fetchSupplierByIdThunk for why.
   const [supplier, setSupplier] = useState<SupplierWithBalance | null>(null);
@@ -79,9 +87,32 @@ const SupplierDetailPage: React.FC<Props> = ({ id: propId, onClose }) => {
 
   useEffect(() => { loadSupplier(); }, [loadSupplier]);
 
-  const [tab, setTab] = useState<"orders" | "payments">("orders");
+  const [tab, setTab] = useState<"orders" | "payments" | "catalog">("orders");
   const [payoutOpen, setPayoutOpen] = useState(false);
   const [paymentsRefreshKey, setPaymentsRefreshKey] = useState(0);
+
+  // Catalog tab — the supplier_products list built via Import Supplier
+  // Catalog. Deliberately no "Suggested Products"-style add-to-order action
+  // here (this page has no order to add into); it's just import + resolve.
+  const [catalogRows, setCatalogRows] = useState<SupplierProduct[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(true);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
+  const [importCatalogOpen, setImportCatalogOpen] = useState(false);
+
+  const loadCatalog = useCallback(async () => {
+    if (!id) return;
+    setCatalogLoading(true);
+    try {
+      const rows = await dispatch(fetchSupplierProductsThunk({ supplierId: id })).unwrap();
+      setCatalogRows(rows);
+    } catch (err: any) {
+      setCatalogError(typeof err === "string" ? err : "Couldn't load supplier catalog");
+    } finally {
+      setCatalogLoading(false);
+    }
+  }, [id, dispatch]);
+
+  useEffect(() => { if (tab === "catalog") loadCatalog(); }, [tab, loadCatalog]);
 
   // Orders tab state — mirrors PurchaseHistoryListPage's list+detail pattern.
   const [orders, setOrders] = useState<SupplierOrderRow[]>([]);
@@ -167,15 +198,19 @@ const SupplierDetailPage: React.FC<Props> = ({ id: propId, onClose }) => {
         </div>
         <div className="d-flex gap-2">
           <Button
-            variant="dark"
+            variant="outline-dark"
+            size="sm"
+            iconLeft={<CloudUpload size={14} />}
+            onClick={() => setImportCatalogOpen(true)}
+          >
+            Import Supplier Catalog
+          </Button>
+          <Button
+            variant="outline-dark"
+            size="sm"
             iconLeft={<CashCoin size={14} />}
             onClick={() => {
-              if (!can("supplier_payout")) {
-                dispatch(showPermissionDenied(
-                  `Your account does not have the "supplier_payout" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
-                ));
-                return;
-              }
+              if (!can("supplier_payout")) { denyPerm("supplier_payout"); return; }
               setPayoutOpen(true);
             }}
             style={can("supplier_payout") ? undefined : { opacity: 0.5, cursor: "not-allowed" }}
@@ -216,6 +251,9 @@ const SupplierDetailPage: React.FC<Props> = ({ id: propId, onClose }) => {
         </button>
         <button className={tab === "payments" ? "active" : ""} onClick={() => setTab("payments")}>
           Payments
+        </button>
+        <button className={tab === "catalog" ? "active" : ""} onClick={() => setTab("catalog")}>
+          Catalog
         </button>
       </div>
 
@@ -281,9 +319,72 @@ const SupplierDetailPage: React.FC<Props> = ({ id: propId, onClose }) => {
             />
           )}
         </div>
-      ) : (
+      ) : tab === "payments" ? (
         <SupplierPaymentHistory supplierId={supplier.id} refreshKey={paymentsRefreshKey} />
+      ) : (
+        <div className="phist-page phist-page--tab">
+          {catalogLoading ? (
+            <Skeleton width="100%" height={160} />
+          ) : catalogError ? (
+            <p className="text-muted small mb-0">{catalogError}</p>
+          ) : catalogRows.length === 0 ? (
+            <EmptyState
+              icon={<BoxSeam size={32} />}
+              title="No catalog yet for this supplier"
+              description="Import their product list to reuse it on every order for this supplier."
+            />
+          ) : (
+            <>
+              {catalogRows.filter((r) => r.match_status === "matched" && !r.ignored).length > 0 && (
+                <div className="mb-3">
+                  <p className="iscm-needs-attention-title mb-2">
+                    Ready to use ({catalogRows.filter((r) => r.match_status === "matched" && !r.ignored).length})
+                  </p>
+                  <div className="rspr-list">
+                    {catalogRows.filter((r) => r.match_status === "matched" && !r.ignored).map((row) => (
+                      <div key={row.id} className="rspr-row">
+                        <div className="rspr-info">
+                          <span className="rspr-name">{row.linked_product_name || row.name}</span>
+                          <span className="rspr-sub">
+                            {[row.barcode, row.price != null ? `₹${row.price}` : null].filter(Boolean).join(" · ") || "—"}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {catalogRows.filter((r) => r.match_status === "unmatched" && !r.ignored).length > 0 && (
+                <div className="iscm-needs-attention">
+                  <p className="iscm-needs-attention-title">
+                    Needs attention ({catalogRows.filter((r) => r.match_status === "unmatched" && !r.ignored).length})
+                  </p>
+                  <p className="iscm-needs-attention-hint">
+                    These items couldn't be matched to an existing product — link them to one, create a new product, or ignore them.
+                  </p>
+                  {catalogRows.filter((r) => r.match_status === "unmatched" && !r.ignored).map((row) => (
+                    <ResolveSupplierProductRow
+                      key={row.id}
+                      supplierId={supplier.id}
+                      row={row}
+                      onResolved={(updated) => setCatalogRows((prev) => prev.map((r) => (r.id === updated.id ? updated : r)))}
+                      onError={setCatalogError}
+                    />
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
       )}
+
+      <ImportSupplierCatalogModal
+        show={importCatalogOpen}
+        onClose={() => setImportCatalogOpen(false)}
+        onSuccess={loadCatalog}
+        supplierId={supplier.id}
+      />
 
       {detailFor && (
         <Modal show onClose={() => setDetailFor(null)} title="Order Details" size="lg">

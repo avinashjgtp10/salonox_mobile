@@ -24,6 +24,13 @@
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
 
   .supplier-detail-page { padding: 24px; max-width: none; }
+
+  // The close "x" is absolutely positioned over this same corner — with two
+  // buttons now in the header (Import Supplier Catalog + Create Payout),
+  // its own padding alone let their row run right under the icon.
+  .supplier-detail-page__header {
+    padding-right: 32px;
+  }
 }
 
 .sdp-popup-close {

@@ -5,26 +5,6 @@
 // on a fresh load of the Order Detail page.
 
 .receiving-tab {
-  &__field-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-
-    @media (max-width: 480px) {
-      grid-template-columns: 1fr;
-    }
-  }
-
-  &__label {
-    display: block;
-    font-size: 13px;
-    font-weight: 600;
-    color: #344054;
-    margin-bottom: 6px;
-  }
-
-  &__req { color: #d92d20; }
-
   &__table {
     width: 100%;
     border-collapse: collapse;
@@ -45,26 +25,5 @@
     }
 
     .receiving-tab__num { text-align: right; }
-  }
-
-  &__input {
-    width: 90px;
-    padding: 6px 8px;
-    border: 1px solid #d0d5dd;
-    border-radius: 6px;
-    font-size: 13px;
-    text-align: right;
-    box-sizing: border-box;
-
-    &:focus {
-      outline: none;
-      border-color: #6366f1;
-      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
-    }
-
-    &:disabled {
-      background: #f2f4f7;
-      cursor: not-allowed;
-    }
   }
 }
