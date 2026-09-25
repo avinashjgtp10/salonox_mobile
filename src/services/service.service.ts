@@ -393,6 +393,42 @@ export const serviceService = {
       ...(salonId ? { salon_id: salonId } : {}),
     };
 
+    // This endpoint only orders by created_at DESC. For the other UI sorts,
+    // collect the matching catalogue before sorting so later pages can contain
+    // the cheapest/name-first items. Sorting one server page would be misleading.
+    if (query.sort_by === "name" || query.sort_by === "price" || query.sort_order === "asc") {
+      const allServices: ServiceListItem[] = [];
+      const seenIds = new Set<string>();
+      let nextPage = 1;
+      while (true) {
+        const response = await api.get<ServiceListApiResponse>(SERVICE.LIST, {
+          params: { ...requestParams, page: nextPage, limit: 200 },
+        });
+        const payload = response.data.data;
+        const items = getServiceArray(payload).map(normalizeService);
+        const newItems = items.filter((item) => !seenIds.has(item.id));
+        newItems.forEach((item) => { seenIds.add(item.id); allServices.push(item); });
+        const pageLimit = Array.isArray(payload) ? 200 : toSafeNumber(payload.pagination?.limit) || 200;
+        const pageQuery = { ...query, limit: pageLimit, offset: (nextPage - 1) * pageLimit };
+        const pagination = getPagination(payload, pageQuery, items.length, getTotalCount(payload, allServices.length));
+        if (!pagination.hasMore) break;
+        if (newItems.length === 0) throw new Error("Unable to load the full service list. Please try again.");
+        nextPage += 1;
+      }
+      const direction = query.sort_order === "asc" ? 1 : -1;
+      allServices.sort((left, right) => {
+        const compared = query.sort_by === "price" ? left.price - right.price
+          : query.sort_by === "name" ? left.name.localeCompare(right.name, undefined, { sensitivity: "base", numeric: true })
+            : (Date.parse(left.createdAt ?? "") || 0) - (Date.parse(right.createdAt ?? "") || 0);
+        return direction * compared || left.id.localeCompare(right.id);
+      });
+      const services = allServices.slice(offset, offset + limit);
+      return {
+        services, query, totalCount: allServices.length,
+        pagination: { offset, limit, nextOffset: offset + services.length, hasMore: offset + services.length < allServices.length },
+      };
+    }
+
     const response = await api.get<ServiceListApiResponse>(SERVICE.LIST, {
       params: requestParams,
     });

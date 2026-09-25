@@ -2,18 +2,19 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import type { AuthTokens, AuthUser } from "@/types/auth";
 import { normalizeAuthUser } from "@/utils/authUser";
+import { protectedTokenStorage } from "@/services/protectedTokenStorage";
+import { createTokenVault } from "@/services/tokenVault";
 
-const ACCESS_TOKEN_KEY = "salonox.accessToken";
-const REFRESH_TOKEN_KEY = "salonox.refreshToken";
 const AUTH_USER_KEY = "salonox.user";
+const vault = createTokenVault(protectedTokenStorage, AsyncStorage);
 
 export const tokenStorage = {
   async getAccessToken() {
-    return AsyncStorage.getItem(ACCESS_TOKEN_KEY);
+    return (await vault.getTokens()).accessToken;
   },
 
   async getRefreshToken() {
-    return AsyncStorage.getItem(REFRESH_TOKEN_KEY);
+    return (await vault.getTokens()).refreshToken;
   },
 
   async getStoredUser() {
@@ -34,24 +35,19 @@ export const tokenStorage = {
   },
 
   async getSession() {
-    const [accessToken, refreshToken, user] = await Promise.all([
-      this.getAccessToken(),
-      this.getRefreshToken(),
+    const [tokens, user] = await Promise.all([
+      vault.getTokens(),
       this.getStoredUser(),
     ]);
 
     return {
-      accessToken,
-      refreshToken,
+      ...tokens,
       user,
     };
   },
 
   async setTokens(tokens: AuthTokens) {
-    await Promise.all([
-      AsyncStorage.setItem(ACCESS_TOKEN_KEY, tokens.accessToken),
-      AsyncStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken),
-    ]);
+    await vault.setTokens(tokens);
   },
 
   async setStoredUser(user: AuthUser) {
@@ -61,7 +57,7 @@ export const tokenStorage = {
   },
 
   async updateAccessToken(accessToken: string) {
-    await AsyncStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
+    await vault.updateAccessToken(accessToken);
   },
 
   async clearStoredUser() {
@@ -74,8 +70,7 @@ export const tokenStorage = {
 
   async clearSession() {
     await Promise.all([
-      AsyncStorage.removeItem(ACCESS_TOKEN_KEY),
-      AsyncStorage.removeItem(REFRESH_TOKEN_KEY),
+      vault.clear(),
       AsyncStorage.removeItem(AUTH_USER_KEY),
     ]);
   },

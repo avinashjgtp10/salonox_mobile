@@ -19,7 +19,16 @@ if (!fs.existsSync(sourcePath)) {
 }
 
 const source = fs.readFileSync(sourcePath, "utf8");
-let existing = fs.existsSync(targetPath) ? fs.readFileSync(targetPath, "utf8") : "";
+const existing = fs.existsSync(targetPath) ? fs.readFileSync(targetPath, "utf8") : "";
+const existingValues = new Map(existing.split(/\r?\n/).map((line) => {
+  const separator = line.indexOf("=");
+  return [line.slice(0, separator).trim(), line.slice(separator + 1).trim()];
+}));
+// Repeated development starts retain local overrides. Switching from QA or
+// production still loads the development defaults, avoiding cross-env URLs.
+const preserveDevUrls = environmentName === "development" &&
+  existingValues.get("APP_ENV")?.replace(/^["']|["']$/g, "") === "development";
+const localUrlKeys = new Set(["EXPO_PUBLIC_API_BASE_URL", "EXPO_PUBLIC_SOCKET_URL"]);
 
 const managedKeys = new Set([
   "APP_ENV",
@@ -35,7 +44,12 @@ const preservedLines = existing
   });
 
 const nextEnv = [
-  ...source.trim().split(/\r?\n/),
+  ...source.trim().split(/\r?\n/).map((line) => {
+    const key = line.split("=")[0].trim();
+    const localValue = existingValues.get(key);
+    return preserveDevUrls && localUrlKeys.has(key) && localValue
+      ? `${key}=${localValue}` : line;
+  }),
   ...preservedLines,
 ]
   .filter(Boolean)

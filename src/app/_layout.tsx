@@ -4,6 +4,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Provider } from 'react-redux';
 import { Pressable, Text, View } from 'react-native';
+import { PaperProvider } from 'react-native-paper';
 import { Portal } from '@/components/ui/Portal';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import SimpleSplash from '../components/simple-splash';
@@ -25,6 +26,8 @@ import { store } from '@/store';
 import { resetBranchState, selectActiveBranchId, setActiveBranchId } from '@/store/branch/branch.slice';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { clearCurrentStaff } from '@/store/staff/staff.slice';
+import { PaperIcon } from '@/theme/paperIcon';
+import { buildPaperTheme } from '@/theme/paperTheme';
 import { ThemeProvider as AppThemeProvider, useAppTheme } from '@/theme/ThemeProvider';
 import {
   isOwnerRouteGroup,
@@ -58,6 +61,9 @@ function buildNavigationTheme(scheme: 'light' | 'dark', colors: ThemeColors): Th
     },
   };
 }
+
+// Hoisted so PaperProvider never sees a new `settings` object on re-render.
+const PAPER_SETTINGS = { icon: PaperIcon };
 
 const PUBLIC_ROUTES = new Set([
   "index",
@@ -350,54 +356,59 @@ function AppShell() {
   const [isNavigationReady, setIsNavigationReady] = useState(false);
   const handleNavigationReady = useCallback(() => setIsNavigationReady(true), []);
   const navigationTheme = useMemo(() => buildNavigationTheme(scheme, colors), [scheme, colors]);
+  const paperTheme = useMemo(() => buildPaperTheme(scheme, colors), [scheme, colors]);
 
   return (
-    <NavigationThemeProvider value={navigationTheme}>
-      <Provider store={store}>
-        <AuthProvider>
-          <PortalProvider>
-            <AuthNavigationHandler onReady={handleNavigationReady} />
-            <NetworkSetup />
-            <AppUpdateSetup />
-            <PushNotificationsSetup />
-            <RealtimeSyncSetup />
-            <BranchBootstrap />
-            <StaffIdentityBootstrap />
-            <Stack
-              initialRouteName="login"
-              screenOptions={{
-                animation: "slide_from_right",
-                contentStyle: { backgroundColor: colors.bg },
-                headerShown: false,
-                navigationBarColor: colors.bg,
-              }}
-            >
-              <Stack.Screen name="login" />
-              <Stack.Screen name="forgot-password" />
-              <Stack.Screen name="verify-otp" />
-              <Stack.Screen name="reset-password" />
-              <Stack.Screen name="verify-email" />
-              <Stack.Screen name="onboarding" />
-              <Stack.Screen name="subscription" />
-              <Stack.Screen name="profile" />
-              <Stack.Screen name="notifications" />
-              <Stack.Screen name="change-password" />
-              <Stack.Screen name="salon-settings" />
-              <Stack.Screen name="appearance" />
-              <Stack.Screen name="notification-settings" />
-              <Stack.Screen name="privacy-policy" />
-              <Stack.Screen name="(tabs)" />
-              <Stack.Screen name="(staff)" />
-              <Stack.Screen name="index" />
-              <Stack.Screen name="explore" />
-            </Stack>
-            <SimpleSplash backgroundColor={colors.bg} isReady={isThemeHydrated && isNavigationReady} />
-            <NetworkErrorModal />
-            <AppToast />
-          </PortalProvider>
-        </AuthProvider>
-      </Provider>
-    </NavigationThemeProvider>
+    <PaperProvider settings={PAPER_SETTINGS} theme={paperTheme}>
+      <NavigationThemeProvider value={navigationTheme}>
+        <Provider store={store}>
+          <AuthProvider>
+            <PortalProvider>
+              <AuthNavigationHandler onReady={handleNavigationReady} />
+              <NetworkSetup />
+              <AppUpdateSetup />
+              <PushNotificationsSetup />
+              <RealtimeSyncSetup />
+              <BranchBootstrap />
+              <StaffIdentityBootstrap />
+              <Stack
+                initialRouteName="login"
+                screenOptions={{
+                  animation: "slide_from_right",
+                  contentStyle: { backgroundColor: colors.bg },
+                  headerShown: false,
+                  navigationBarColor: colors.bg,
+                }}
+              >
+                <Stack.Screen name="login" />
+                <Stack.Screen name="forgot-password" />
+                <Stack.Screen name="verify-otp" />
+                <Stack.Screen name="reset-password" />
+                <Stack.Screen name="verify-email" />
+                <Stack.Screen name="onboarding" />
+                <Stack.Screen name="subscription" />
+                <Stack.Screen name="profile" />
+                <Stack.Screen name="notifications" />
+                <Stack.Screen name="inbox" />
+                <Stack.Screen name="today-revenue" />
+                <Stack.Screen name="change-password" />
+                <Stack.Screen name="salon-settings" />
+                <Stack.Screen name="appearance" />
+                <Stack.Screen name="notification-settings" />
+                <Stack.Screen name="privacy-policy" />
+                <Stack.Screen name="(tabs)" />
+                <Stack.Screen name="(staff)" />
+                <Stack.Screen name="index" />
+                <Stack.Screen name="explore" />
+              </Stack>
+              <SimpleSplash backgroundColor={colors.bg} isReady={isThemeHydrated && isNavigationReady} />
+              <NetworkErrorModal />
+              <AppToast />
+            </PortalProvider>
+          </AuthProvider>
+        </Provider>
+      </NavigationThemeProvider>
+    </PaperProvider>
   );
 }
 

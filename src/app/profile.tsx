@@ -538,7 +538,7 @@ export default function ProfileScreen() {
         <Ionicons name="arrow-back" size={18} color={Colors.primary} />
       </TouchableOpacity>
       <Text style={styles.headerTitle}>Profile</Text>
-      {rightAction ?? <View style={styles.headerButton} />}
+      {rightAction ?? <View style={styles.headerButtonGhost} />}
     </View>
   );
 
@@ -878,6 +878,9 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     borderWidth: 1,
     height: AppLayout.headerActionSize,
     justifyContent: "center",
+    width: AppLayout.headerActionSize,
+  },
+  headerButtonGhost: {
     width: AppLayout.headerActionSize,
   },
   headerTextButton: {

@@ -597,7 +597,7 @@ export default function ClientDetailsScreen() {
               <Ionicons name="arrow-back" size={18} color={Colors.primary} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Client Profile</Text>
-            <View style={[styles.backButton, { opacity: 0 }]} />
+            <View style={styles.backButtonPlaceholder} />
           </View>
           <View style={styles.centeredContent}>
             <ActivityIndicator size="large" color={Colors.primary} />
@@ -617,7 +617,7 @@ export default function ClientDetailsScreen() {
               <Ionicons name="arrow-back" size={18} color={Colors.primary} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Client Profile</Text>
-            <View style={[styles.backButton, { opacity: 0 }]} />
+            <View style={styles.backButtonPlaceholder} />
           </View>
           <View style={styles.notFoundCard}>
             <Text style={styles.notFoundTitle}>Unable to load client</Text>
@@ -1028,6 +1028,9 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     borderWidth: 1,
     height: AppLayout.headerActionSize,
     justifyContent: "center",
+    width: AppLayout.headerActionSize,
+  },
+  backButtonPlaceholder: {
     width: AppLayout.headerActionSize,
   },
   headerAction: {

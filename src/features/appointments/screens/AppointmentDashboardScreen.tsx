@@ -102,7 +102,7 @@ export function AppointmentDashboardScreen() {
           <Ionicons name="arrow-back" size={18} color={Colors.primary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Appointments</Text>
-        <View style={styles.iconButton} />
+        <View style={styles.iconButtonGhost} />
       </View>
 
       <FilterBar
