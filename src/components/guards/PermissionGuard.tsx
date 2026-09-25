@@ -82,9 +82,9 @@ export default function PermissionGuard({ permKey }: Props) {
 
   // A staff member blocked from one module/page shouldn't be left on a dead
   // page — send them to the first module they DO have access to instead
-  // (e.g. denied Team → Payroll but still has view_team lands them on Team →
-  // Members, not a wall). Only the true dead-end case — no module allowed
-  // anywhere — falls through to NoPermissionPage below.
+  // (e.g. denied Team → Attendance but still has view_team lands them on
+  // Team → Members, not a wall). Only the true dead-end case — no module
+  // allowed anywhere — falls through to NoPermissionPage below.
   //
   // Dashboard, Quick Sale, Calendar, and the 3 Clients pages are
   // deliberately excluded from this redirect. Dashboard is the default
@@ -103,7 +103,7 @@ export default function PermissionGuard({ permKey }: Props) {
     "view_services", "view_digital_menu", "view_products", "view_memberships",
     "view_client_packages", "view_package_templates",
     "view_team", "access_staff", "view_scheduled_shifts", "view_team_commissions",
-    "view_attendance_list", "view_payroll", "view_staff_history",
+    "view_attendance_list", "view_staff_history",
     "view_cash_management", "access_warehouse",
     "view_marketing", "view_marketing_dashboard", "view_marketing_analytics",
     "view_campaigns", "view_templates", "view_scheduled_templates",

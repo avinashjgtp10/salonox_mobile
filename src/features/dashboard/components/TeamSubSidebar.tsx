@@ -17,10 +17,10 @@ interface Props {
 // disabled — per the Staff History ticket's explicit requirement.
 const NAV_ITEMS: { to: string; label: string; featureKey?: string; permKey?: string; hideOnDeny?: boolean }[] = [
   { to: "/dashboard/team/members",     label: "Staff Members", featureKey: "staff", permKey: "view_team" },
+  { to: "/dashboard/team/payroll",     label: "Payroll", featureKey: "payroll", permKey: "view_payroll" },
   { to: "/dashboard/team/shifts",      label: "Scheduled shifts", featureKey: "staff", permKey: "view_scheduled_shifts" },
   { to: "/dashboard/team/commissions", label: "Tip & Commission", featureKey: "staff", permKey: "view_team_commissions" },
   { to: "/dashboard/team/attendance",  label: "Attendance", featureKey: "staff", permKey: "view_attendance_list" },
-  { to: "/dashboard/team/payroll",     label: "Payroll", featureKey: "payroll", permKey: "view_payroll" },
   { to: "/dashboard/team/history",     label: "Staff History", featureKey: "staff", permKey: "view_staff_history", hideOnDeny: true },
 ];
 

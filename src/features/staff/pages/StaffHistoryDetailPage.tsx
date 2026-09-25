@@ -247,7 +247,6 @@ const TABS = [
   { key: "sales",      label: "Sales" },
   { key: "commission", label: "Commission" },
   { key: "attendance", label: "Attendance" },
-  { key: "payroll",    label: "Payroll" },
   { key: "notes",      label: "Notes & Feedback" },
 ] as const;
 export type TabKey = typeof TABS[number]["key"];
@@ -1180,13 +1179,6 @@ export function StaffHistoryContent({ staffId, initialTab = "overview" }: { staf
             {activeTab === "sales"      && <SalesTab staffId={staff.id} />}
             {activeTab === "commission" && <CommissionTab staffId={staff.id} />}
             {activeTab === "attendance" && <AttendanceTab staffId={staff.id} />}
-            {activeTab === "payroll" && (
-              <EmptyState
-                icon={<Wallet2 size={26} />}
-                text="Payroll history isn't tracked in the backend yet."
-                note="The Payroll page isn't wired to any real payroll history data yet, so there's nothing to show here yet."
-              />
-            )}
             {activeTab === "notes" && <ReviewsTab staffId={staff.id} />}
           </div>
         </>

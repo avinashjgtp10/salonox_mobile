@@ -149,7 +149,7 @@ export default function DashboardLayout() {
     // that Create Staff's flush header doesn't have.
     location.pathname.startsWith("/dashboard/catalog/products/create") ||
     location.pathname.startsWith("/dashboard/catalog/products/edit/") ||
-    (location.pathname.startsWith("/dashboard/team/") && !["members", "dashboard", "shifts", "payroll", "payruns", "commissions", "attendance", "history"].some((p) => location.pathname.endsWith(p))) ||
+    (location.pathname.startsWith("/dashboard/team/") && !["members", "dashboard", "shifts", "payruns", "commissions", "attendance", "history"].some((p) => location.pathname.endsWith(p))) ||
     (location.pathname.startsWith("/dashboard/clients/") && !["list", "groups", "reviews", "import"].some((p) => location.pathname.endsWith(p)));
 
   return (
