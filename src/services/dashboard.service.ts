@@ -374,10 +374,20 @@ export const dashboardService = {
     };
   },
 
-  async getStaffRevenue(date = new Date(), salonId?: string | null) {
+  // `period` maps onto the backend's own date windows (salon-dashboard
+  // .repository.getStaffRevenue): "today" is CURRENT_DATE, anything else falls
+  // through to the current calendar month. Note the endpoint ignores `date`
+  // entirely and is always relative to NOW(), so this cannot look at past
+  // months — the param is kept only for the shared query-params helper.
+  async getStaffRevenue(
+    date = new Date(),
+    salonId?: string | null,
+    period: "monthly" | "today" = "monthly",
+  ) {
     const params = this.getDashboardQueryParams(date);
     const requestParams = {
       ...params,
+      period,
       ...(salonId ? { salon_id: salonId } : {}),
     };
 

@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -22,6 +23,7 @@ import {
   selectNotificationsListRefreshing,
 } from "@/store/notification/notification.slice";
 import type { NotificationItem } from "@/types/notification";
+import { resolveNotificationRoute } from "@/utils/notificationRouting";
 
 type DashboardNotificationsModalProps = {
   onClose: () => void;
@@ -58,6 +60,9 @@ export function DashboardNotificationsModal({ onClose, visible }: DashboardNotif
     if (!notification.isRead) {
       void dispatch(markNotificationReadThunk(notification.id));
     }
+
+    onClose();
+    router.push(resolveNotificationRoute(notification));
   };
 
   return (

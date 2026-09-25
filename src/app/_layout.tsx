@@ -389,6 +389,8 @@ function AppShell() {
                 <Stack.Screen name="subscription" />
                 <Stack.Screen name="profile" />
                 <Stack.Screen name="notifications" />
+                <Stack.Screen name="inbox" />
+                <Stack.Screen name="today-revenue" />
                 <Stack.Screen name="change-password" />
                 <Stack.Screen name="salon-settings" />
                 <Stack.Screen name="appearance" />
