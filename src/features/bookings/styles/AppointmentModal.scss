@@ -2305,6 +2305,12 @@ $item-field-text-inset: 9px;
     &:hover { background: #f3f4f6; }
 
     &--active { background: #eef2ff; }
+
+    &--disabled {
+      cursor: not-allowed;
+      opacity: 0.6;
+      &:hover { background: none; }
+    }
   }
 
   // flex:1 + min-width:0 keeps a long name wrapping within its own space

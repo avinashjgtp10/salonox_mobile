@@ -87,6 +87,11 @@ interface ServiceRowProps {
    *  excluded from this row's own taxable base server-side, shown here so
    *  it's visible against the price it actually reduced. */
   membershipDiscountAmount?: number;
+  /** True when the Membership Discount checkbox is on but this row's service
+   *  isn't one the active percentage membership is configured for (see
+   *  serviceMembershipDiscountIneligibleByRow in AppointmentModal.tsx) —
+   *  shown so staff understand why the row's discount stayed at ₹0. */
+  membershipDiscountIneligible?: boolean;
   /** Live Actual Qty edits for this row's consumables, keyed by productId —
    *  a sibling of row.consumables (see AppointmentModal's consumableActuals
    *  state), read here to render the current value; edits are reported back
@@ -211,6 +216,7 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
   membershipWalletInfo,
   taxAmount,
   membershipDiscountAmount,
+  membershipDiscountIneligible,
   consumableActuals,
   onConsumableActualChange,
   clientName,
@@ -1251,6 +1257,9 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
             <span className="svc-field__pkg-badge" title="Membership discount — GST is calculated on the price after this reduction">
               ✓ Membership −{currencySymbol}{membershipDiscountAmount.toFixed(2)}
             </span>
+          )}
+          {!isPackageCovered && membershipDiscountIneligible && (
+            <span className="svc-field__err">This membership benefit is not applicable to the selected service.</span>
           )}
         </div>
 

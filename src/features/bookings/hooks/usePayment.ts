@@ -63,6 +63,11 @@ interface CompletePaymentParams {
   // charge the plan's own rate.
   applyMembershipDiscount?: boolean;
   membershipDiscountPercentRequested?: number;
+  // Which of the client's several eligible percentage memberships staff
+  // actually ticked in Available Benefits — undefined/[] both send "none of
+  // them specifically" only when applyMembershipDiscount is itself false;
+  // when true, this is always the non-empty set staff selected.
+  membershipDiscountIds?: string[];
   // Independent sibling flag for the salon-wide Loyalty discount — stacks
   // additively with applyMembershipDiscount above when both are checked.
   applyLoyaltyDiscount?: boolean;
@@ -91,7 +96,7 @@ export function buildPaymentPayload(params: CompletePaymentParams): {
     alreadyPaidAmount, eWalletAmt, couponDiscount, couponApplied,
     paymentMode, singleMethod, splitEntries, partialAmtInput,
     useEWallet, applyMembershipWallet,
-    membershipWalletRequested, applyMembershipDiscount, membershipDiscountPercentRequested, applyLoyaltyDiscount,
+    membershipWalletRequested, applyMembershipDiscount, membershipDiscountPercentRequested, membershipDiscountIds, applyLoyaltyDiscount,
     taxBreakdown, rewardPointsToRedeem, referralCreditAmt,
     includeGst,
   } = params;
@@ -163,6 +168,7 @@ export function buildPaymentPayload(params: CompletePaymentParams): {
     membership_wallet_requested: applyMembershipWallet ? membershipWalletRequested : undefined,
     apply_membership_discount: !!applyMembershipDiscount,
     membership_discount_percent_requested: applyMembershipDiscount ? membershipDiscountPercentRequested : undefined,
+    membership_discount_ids: applyMembershipDiscount ? membershipDiscountIds : undefined,
     apply_loyalty_discount: !!applyLoyaltyDiscount,
     tax_breakdown: taxBreakdown && taxBreakdown.length > 0 ? taxBreakdown : undefined,
     reward_points_used: rewardPointsToRedeem || undefined,
