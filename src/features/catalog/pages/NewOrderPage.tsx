@@ -465,16 +465,11 @@ const NewOrderPage: React.FC = () => {
     }
   }
 
-  const handleClose = () => navigate("/dashboard/inventory/orders");
-
   if (loadingOrder) {
     return (
       <div className="add-supplier-page new-order-page">
         <div className="add-supplier-page__topbar">
           <h2>Edit Purchase Order</h2>
-          <div className="topbar-actions">
-            <button className="btn-close-top" onClick={handleClose}>Close</button>
-          </div>
         </div>
         <div className="new-order-page__loading">Loading order…</div>
       </div>
@@ -494,7 +489,6 @@ const NewOrderPage: React.FC = () => {
       <div className="add-supplier-page__topbar">
         <h2>{isEditMode ? `Edit Purchase Order ${orderNumber}` : "New Purchase Order"}</h2>
         <div className="topbar-actions">
-          <button className="btn-close-top" onClick={handleClose}>Close</button>
           {!isEditMode && (
             <Button variant="outline-dark" onClick={() => handleSave("draft")} disabled={saving || !canSave} loading={savingStatus === "draft"}>
               Save Draft

@@ -8,8 +8,6 @@ import {
   createSupplierPaymentThunk,
   createOrderThunk,
   updateOrderThunk,
-  receiveOrderThunk,
-  correctReceivedQtyThunk,
   cancelOrderThunk,
   deleteOrderThunk,
   fetchConsumablesDashboardThunk,
@@ -104,6 +102,12 @@ const inventorySlice = createSlice({
     },
     clearConsumableDetail: (state) => {
       state.consumableDetail = null;
+    },
+    // Dispatched directly by PurchaseModal.tsx after receiving against an
+    // order — that call is a plain axios POST (needed the raw response's
+    // updatedProducts), so it isn't a thunk the addMatcher below can catch.
+    markSuppliersStale: (state) => {
+      state.suppliersStale = true;
     },
   },
   extraReducers: (builder) => {
@@ -210,19 +214,22 @@ const inventorySlice = createSlice({
     });
 
     // Anything that can move a supplier's due_amount/status behind the list's
-    // back — a payout, or any order create/update/receive/correct/cancel/
-    // delete — marks the cached suppliers list stale so the next mount of
-    // SuppliersListPage refetches instead of showing outdated balances.
-    // Must come after every addCase above — RTK requires all addCase calls
-    // before any addMatcher in the same builder chain.
+    // back — a payout, or any order create/update/cancel/delete — marks the
+    // cached suppliers list stale so the next mount of SuppliersListPage
+    // refetches instead of showing outdated balances. Must come after every
+    // addCase above — RTK requires all addCase calls before any addMatcher
+    // in the same builder chain.
+    //
+    // Receiving against an order (PurchaseModal.tsx's ORDER_RECEIVE call)
+    // also moves due_amount, but that call is a plain axios POST, not a
+    // thunk — see the markSuppliersStale reducer/action below, dispatched
+    // directly from there instead of being caught by this matcher.
     builder.addMatcher(
       (action): action is { type: string } =>
         [
           createSupplierPaymentThunk.fulfilled.type,
           createOrderThunk.fulfilled.type,
           updateOrderThunk.fulfilled.type,
-          receiveOrderThunk.fulfilled.type,
-          correctReceivedQtyThunk.fulfilled.type,
           cancelOrderThunk.fulfilled.type,
           deleteOrderThunk.fulfilled.type,
         ].includes(action.type),
@@ -233,5 +240,5 @@ const inventorySlice = createSlice({
   },
 });
 
-export const { clearInventoryError, clearConsumableDetail } = inventorySlice.actions;
+export const { clearInventoryError, clearConsumableDetail, markSuppliersStale } = inventorySlice.actions;
 export default inventorySlice.reducer;

@@ -60,8 +60,10 @@ export const INVENTORY = {
   // actually moves stock.
   ORDERS: "/api/v1/inventory/orders",
   ORDER_BY_ID: (id: string) => `/api/v1/inventory/orders/${id}`,
+  // The only place left that actually receives stock against an order —
+  // called directly from PurchaseModal.tsx's "receive against this PO" flow.
+  // Orders' own Verify Order tab is view-only now (see ReceivingTab.tsx).
   ORDER_RECEIVE: (id: string) => `/api/v1/inventory/orders/${id}/receive`,
-  ORDER_CORRECT_RECEIVED: (id: string, itemId: string) => `/api/v1/inventory/orders/${id}/items/${itemId}/correct-received`,
   ORDER_CANCEL: (id: string) => `/api/v1/inventory/orders/${id}/cancel`,
   ORDER_PLACE: (id: string) => `/api/v1/inventory/orders/${id}/place`,
   ORDER_START_VERIFICATION: (id: string) => `/api/v1/inventory/orders/${id}/start-verification`,
@@ -69,13 +71,6 @@ export const INVENTORY = {
   ORDER_UPDATE: (id: string) => `/api/v1/inventory/orders/${id}/update`,
   ORDER_UPLOAD_SIGNATURE: "/api/v1/inventory/orders/upload-signature",
   ORDER_SIGNATURES: "/api/v1/inventory/orders/signatures",
-
-  // Order Receiving (draft -> confirm) — replaces the single-shot
-  // ORDER_RECEIVE above with a session the clerk can save as a draft (zero
-  // stock effect); only ORDER_RECEIPT_CONFIRM moves stock.
-  ORDER_RECEIPT_DRAFT: (orderId: string) => `/api/v1/inventory/orders/${orderId}/receipts/draft`,
-  ORDER_RECEIPT_ITEMS: (orderId: string, receiptId: string) => `/api/v1/inventory/orders/${orderId}/receipts/${receiptId}/items`,
-  ORDER_RECEIPT_CONFIRM: (orderId: string, receiptId: string) => `/api/v1/inventory/orders/${orderId}/receipts/${receiptId}/confirm`,
 
   // Product Audit — count physical stock against system quantities. Never
   // adjusts real stock; see product-audit.repository.ts on the backend.

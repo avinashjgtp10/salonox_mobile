@@ -4,6 +4,7 @@ import { Trash, PlusLg, BoxSeam, X as XIcon } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { INVENTORY } from "../../../services/api/endpoints/inventory.endpoints";
 import { fetchSuppliersThunk, createSupplierThunk } from "../../../middleware/inventory/inventory.thunk";
+import { markSuppliersStale } from "../../../store/inventorySlice";
 import type { AppDispatch, RootState } from "../../../store/store";
 import type { Order } from "../../../types/inventory.types";
 import { useCurrency } from "../../../hooks/useCurrency";
@@ -192,6 +193,10 @@ export default function PurchaseModal({ onClose, onSaved, onError }: Props) {
           })),
         });
         const data = res.data?.data;
+        // Moves this supplier's due_amount — not caught by inventorySlice's
+        // thunk-fulfilled matcher since this is a plain axios call, so mark
+        // the suppliers list stale directly.
+        dispatch(markSuppliersStale());
         onSaved({
           purchaseNumber: receivingOrder.order_number,
           updatedProducts: data?.updatedProducts ?? [],
