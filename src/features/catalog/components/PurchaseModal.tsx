@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { Trash, PlusLg } from "react-bootstrap-icons";
+import { Trash, PlusLg, BoxSeam, X as XIcon } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { INVENTORY } from "../../../services/api/endpoints/inventory.endpoints";
 import { fetchSuppliersThunk, createSupplierThunk } from "../../../middleware/inventory/inventory.thunk";
 import type { AppDispatch, RootState } from "../../../store/store";
+import type { Order } from "../../../types/inventory.types";
 import { useCurrency } from "../../../hooks/useCurrency";
+import { formatDateDDMMYYYY as fmtDate } from "../../../utils/dateFormat";
 import Modal from "../../../components/ui/Modal";
 import Button from "../../../components/ui/Button";
 import Dropdown from "../../../components/ui/Dropdown";
@@ -20,6 +22,11 @@ interface PurchaseLine {
   quantity: string;
   purchasePrice: string;
   expiryDate: string;
+  // Set only when this line was populated from an order's own line item
+  // (see loadOrderIntoLines) — links back to it for the /receive payload,
+  // and caps quantity at what's actually still outstanding on that order.
+  orderItemId?: string;
+  maxQty?: number;
 }
 
 function emptyLine(): PurchaseLine {
@@ -60,9 +67,73 @@ export default function PurchaseModal({ onClose, onSaved, onError }: Props) {
   // than leaving the user wondering why "1.5" silently became "15".
   const [decimalAttempted, setDecimalAttempted] = useState(false);
 
+  // Set once a PO has been picked below — the Products table is then
+  // populated FROM that order (see loadOrderIntoLines) and Save calls
+  // ORDER_RECEIVE instead of the plain ad-hoc PRODUCT_INVENTORY_PURCHASES
+  // endpoint, so this receipt stays linked to the order (received_qty/
+  // status update) instead of creating a disconnected Purchase record.
+  const [receivingOrder, setReceivingOrder] = useState<{ id: string; order_number: string } | null>(null);
+  const [loadingOrderItems, setLoadingOrderItems] = useState(false);
+
   // page_limit:100 — this is the Supplier dropdown, not the paginated
   // Suppliers list page, so it needs the full set.
   useEffect(() => { dispatch(fetchSuppliersThunk({ page_limit: 100 })); }, [dispatch]);
+
+  // Purchase Orders this supplier already has open (Ordered/Verify Order) —
+  // a straight GET, not the fetchOrdersThunk used by OrdersListPage, so this
+  // doesn't clobber that page's own filtered `orders` redux state.
+  const [supplierOrders, setSupplierOrders] = useState<Order[]>([]);
+  const [loadingSupplierOrders, setLoadingSupplierOrders] = useState(false);
+  useEffect(() => {
+    if (!supplierId) { setSupplierOrders([]); return; }
+    let cancelled = false;
+    setLoadingSupplierOrders(true);
+    api.get(INVENTORY.ORDERS, { params: { supplier_id: supplierId, status: "sent,partially_received", limit: 20 } })
+      .then((res) => { if (!cancelled) setSupplierOrders(res.data?.data?.data ?? []); })
+      .catch(() => { if (!cancelled) setSupplierOrders([]); })
+      .finally(() => { if (!cancelled) setLoadingSupplierOrders(false); });
+    return () => { cancelled = true; };
+  }, [supplierId]);
+
+  // Pulls the order's own line items in (product, outstanding qty, cost
+  // price) right into the Products table below, instead of navigating away
+  // to the Verify Order tab — Save then posts straight to ORDER_RECEIVE.
+  async function loadOrderIntoLines(orderId: string) {
+    setLoadingOrderItems(true);
+    try {
+      const res = await api.get(INVENTORY.ORDER_BY_ID(orderId));
+      const order = res.data?.data;
+      const outstanding = (order?.items ?? []).filter(
+        (it: any) => Number(it.qty) - Number(it.received_qty) > 0.001,
+      );
+      if (!outstanding.length) {
+        onError("Every item on this order has already been received");
+        return;
+      }
+      setLines(outstanding.map((it: any) => {
+        const remaining = Number(it.qty) - Number(it.received_qty);
+        return {
+          key: it.id,
+          product: { id: it.product_id, name: it.product_name },
+          quantity: String(remaining),
+          purchasePrice: String(it.cost_price),
+          expiryDate: "",
+          orderItemId: it.id,
+          maxQty: remaining,
+        };
+      }));
+      setReceivingOrder({ id: order.id, order_number: order.order_number });
+    } catch (err: any) {
+      onError(err?.response?.data?.message || "Couldn't load this order's items");
+    } finally {
+      setLoadingOrderItems(false);
+    }
+  }
+
+  function clearReceivingOrder() {
+    setReceivingOrder(null);
+    setLines([emptyLine()]);
+  }
 
   async function handleAddSupplier(name: string) {
     const result = await dispatch(createSupplierThunk({ name })).unwrap();
@@ -80,7 +151,8 @@ export default function PurchaseModal({ onClose, onSaved, onError }: Props) {
   const validLines = lines.filter((l) => {
     const qty = parseFloat(l.quantity);
     const price = parseFloat(l.purchasePrice);
-    return l.product && Number.isInteger(qty) && qty > 0 && Number.isFinite(price) && price >= 0;
+    return l.product && Number.isInteger(qty) && qty > 0 && Number.isFinite(price) && price >= 0
+      && (l.maxQty == null || qty <= l.maxQty);
   });
 
   const totalAmount = validLines.reduce(
@@ -94,7 +166,8 @@ export default function PurchaseModal({ onClose, onSaved, onError }: Props) {
     if (!l.product) return false;
     const qty = parseFloat(l.quantity);
     const price = parseFloat(l.purchasePrice);
-    return !(Number.isInteger(qty) && qty > 0) || !(Number.isFinite(price) && price >= 0);
+    return !(Number.isInteger(qty) && qty > 0) || !(Number.isFinite(price) && price >= 0)
+      || (l.maxQty != null && qty > l.maxQty);
   });
 
   const canSave = !!supplierId && validLines.length > 0 && !hasIncompleteLine;
@@ -104,6 +177,28 @@ export default function PurchaseModal({ onClose, onSaved, onError }: Props) {
     if (!canSave || saving) return;
     setSaving(true);
     try {
+      if (receivingOrder) {
+        // Receiving against a PO — posts to the order's own receive
+        // endpoint (order_item_id + received_qty per line) so
+        // order_items.received_qty/order.status update, not a disconnected
+        // ad-hoc Purchase. Backend returns the same updatedProducts shape
+        // as PRODUCT_INVENTORY_PURCHASES so the patch-in-place below works
+        // identically either way.
+        const res = await api.post(INVENTORY.ORDER_RECEIVE(receivingOrder.id), {
+          purchase_date: purchaseDate,
+          items: validLines.filter((l) => l.orderItemId).map((l) => ({
+            order_item_id: l.orderItemId,
+            received_qty: parseFloat(l.quantity),
+          })),
+        });
+        const data = res.data?.data;
+        onSaved({
+          purchaseNumber: receivingOrder.order_number,
+          updatedProducts: data?.updatedProducts ?? [],
+        });
+        return;
+      }
+
       const res = await api.post(INVENTORY.PRODUCT_INVENTORY_PURCHASES, {
         supplier_id: supplierId,
         purchase_date: purchaseDate,
@@ -129,7 +224,7 @@ export default function PurchaseModal({ onClose, onSaved, onError }: Props) {
     <Modal
       show
       onClose={onClose}
-      title="Record Purchase"
+      title={receivingOrder ? `Receive ${receivingOrder.order_number}` : "Record Purchase"}
       size="lg"
       disableBackdropClose
       footer={
@@ -140,7 +235,7 @@ export default function PurchaseModal({ onClose, onSaved, onError }: Props) {
           <div className="d-flex gap-2">
             <Button variant="outline-dark" onClick={onClose} disabled={saving}>Cancel</Button>
             <Button variant="dark" onClick={handleSave} disabled={saving || !canSave} loading={saving}>
-              Save Purchase
+              {receivingOrder ? "Confirm Receipt" : "Save Purchase"}
             </Button>
           </div>
         </div>
@@ -153,10 +248,49 @@ export default function PurchaseModal({ onClose, onSaved, onError }: Props) {
           options={suppliers.map((s) => ({ id: s.id, name: s.name }))}
           placeholder="Search supplier…"
           onChange={setSupplierId}
+          disabled={!!receivingOrder}
         />
-        <QuickAdd label="Add a supplier" onAdd={handleAddSupplier} />
+        {!receivingOrder && <QuickAdd label="Add a supplier" onAdd={handleAddSupplier} />}
         {touched && !supplierId && <span className="pm-err">Select a supplier</span>}
       </div>
+
+      {receivingOrder ? (
+        <div className="pm-receiving-banner">
+          <BoxSeam size={14} />
+          <span>Receiving against <strong>{receivingOrder.order_number}</strong></span>
+          <button type="button" onClick={clearReceivingOrder}>
+            <XIcon size={13} /> Switch to purchase with no PO
+          </button>
+        </div>
+      ) : (
+        <>
+          {supplierId && (loadingSupplierOrders || loadingOrderItems) && (
+            <p className="text-muted small">
+              {loadingOrderItems ? "Loading this order's items…" : "Checking for open purchase orders…"}
+            </p>
+          )}
+
+          {supplierId && !loadingSupplierOrders && !loadingOrderItems && supplierOrders.length > 0 && (
+            <div className="pm-field">
+              <label className="pm-label">Open purchase orders from this supplier</label>
+              <div className="pm-po-list">
+                {supplierOrders.map((o) => (
+                  <button key={o.id} type="button" className="pm-po-row" onClick={() => loadOrderIntoLines(o.id)}>
+                    <BoxSeam size={14} />
+                    <span className="pm-po-row__number">{o.order_number}</span>
+                    <span className="pm-po-row__date">{fmtDate(o.order_date)}</span>
+                    <span className="pm-po-row__qty">{o.total_quantity} items</span>
+                    <span className="pm-po-row__cta">Receive →</span>
+                  </button>
+                ))}
+              </div>
+              <p className="text-muted small mb-0">
+                Pick one above to load its items here — or record a purchase with no PO below.
+              </p>
+            </div>
+          )}
+        </>
+      )}
 
       <div className="pm-field">
         <label className="pm-label">Purchase Date <span className="pm-req">*</span></label>
@@ -184,9 +318,13 @@ export default function PurchaseModal({ onClose, onSaved, onError }: Props) {
                   {line.product ? (
                     <div className="pm-selected-product">
                       <span>{line.product.name}</span>
-                      <button type="button" onClick={() => patchLine(line.key, { product: null })}>
-                        Change
-                      </button>
+                      {/* Locked once it's tied to a PO line — swapping the
+                          product wouldn't map to a real order_item_id. */}
+                      {!line.orderItemId && (
+                        <button type="button" onClick={() => patchLine(line.key, { product: null })}>
+                          Change
+                        </button>
+                      )}
                     </div>
                   ) : (
                     <ProductSearchSelect
@@ -202,18 +340,21 @@ export default function PurchaseModal({ onClose, onSaved, onError }: Props) {
                     />
                   )}
                 </div>
-                <input
-                  className="pm-input pm-input--sm"
-                  type="text"
-                  inputMode="numeric"
-                  placeholder="Qty"
-                  value={line.quantity}
-                  onChange={(e) => {
-                    const raw = e.target.value;
-                    if (raw.includes(".")) setDecimalAttempted(true);
-                    patchLine(line.key, { quantity: raw.replace(/[^0-9]/g, "") });
-                  }}
-                />
+                <div>
+                  <input
+                    className="pm-input pm-input--sm"
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="Qty"
+                    value={line.quantity}
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      if (raw.includes(".")) setDecimalAttempted(true);
+                      patchLine(line.key, { quantity: raw.replace(/[^0-9]/g, "") });
+                    }}
+                  />
+                  {line.maxQty != null && <span className="pm-max-hint">of {line.maxQty} ordered</span>}
+                </div>
                 <input
                   className="pm-input pm-input--sm"
                   type="number"
@@ -244,11 +385,18 @@ export default function PurchaseModal({ onClose, onSaved, onError }: Props) {
             );
           })}
         </div>
-        <button type="button" className="pm-add-line" onClick={() => setLines((prev) => [...prev, emptyLine()])}>
-          <PlusLg size={13} /> Add Product
-        </button>
+        {!receivingOrder && (
+          <button type="button" className="pm-add-line" onClick={() => setLines((prev) => [...prev, emptyLine()])}>
+            <PlusLg size={13} /> Add Product
+          </button>
+        )}
         {touched && validLines.length === 0 && <span className="pm-err">Add at least one product</span>}
-        {touched && hasIncompleteLine && <span className="pm-err">Every product needs a whole-number quantity and purchase price</span>}
+        {touched && hasIncompleteLine && !lines.some((l) => l.maxQty != null && parseFloat(l.quantity) > l.maxQty) && (
+          <span className="pm-err">Every product needs a whole-number quantity and purchase price</span>
+        )}
+        {touched && lines.some((l) => l.maxQty != null && parseFloat(l.quantity) > l.maxQty) && (
+          <span className="pm-err">Received quantity can't exceed what's still outstanding on the order</span>
+        )}
         {decimalAttempted && <span className="pm-err">Add Qty must be a whole number — decimals aren't allowed</span>}
       </div>
     </Modal>

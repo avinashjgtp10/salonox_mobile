@@ -49,6 +49,78 @@
   }
 }
 
+.pm-receiving-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid #ddd6fe;
+  background: #f5f3ff;
+  border-radius: 8px;
+  color: #5b21b6;
+  font-size: 13px;
+  margin-bottom: 16px;
+
+  strong { color: #4c1d95; }
+
+  button {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border: none;
+    background: none;
+    color: #6b7280;
+    font-size: 12px;
+    cursor: pointer;
+
+    &:hover { color: #374151; }
+  }
+}
+
+.pm-max-hint {
+  display: block;
+  margin-top: 3px;
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+.pm-po-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.pm-po-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+  color: #374151;
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s, background 0.15s;
+
+  &:hover {
+    border-color: #7c3aed;
+    background: #faf5ff;
+  }
+
+  &__number { font-weight: 600; color: #111827; }
+  &__date, &__qty { color: #6b7280; }
+  &__cta {
+    margin-left: auto;
+    font-weight: 600;
+    color: #7c3aed;
+  }
+}
+
 .pm-lines {
   border: 1px solid #e5e7eb;
   border-radius: 10px;
