@@ -12,6 +12,7 @@ import clientMembershipReducer from "@/store/clientMembership/clientMembership.s
 import clientReducer from "@/store/client/client.slice";
 import consumableReducer from "@/store/consumable/consumable.slice";
 import dashboardReducer from "@/store/dashboard/dashboard.slice";
+import inboxReducer from "@/store/inbox/inbox.slice";
 import membershipReducer from "@/store/membership/membership.slice";
 import networkReducer from "@/store/network/network.slice";
 import notificationReducer from "@/store/notification/notification.slice";
@@ -47,6 +48,7 @@ const appReducer = combineReducers({
   clientMembership: clientMembershipReducer,
   consumable: consumableReducer,
   dashboard: dashboardReducer,
+  inbox: inboxReducer,
   membership: membershipReducer,
   network: networkReducer,
   notification: notificationReducer,

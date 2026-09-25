@@ -157,7 +157,7 @@ export default function DashboardStatTiles() {
         gradient: STAT_TILE_GRADIENTS.todayRevenue,
         icon: "trending-up-outline" as const,
         label: "Today's Revenue",
-        route: "/sales" as Href,
+        route: "/today-revenue" as Href,
         value: formatDashboardRevenue(dashboardMetrics.todaysRevenue),
       },
       {
