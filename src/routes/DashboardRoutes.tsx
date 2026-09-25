@@ -129,15 +129,15 @@ export const DashboardRoutes = (
           "inventory" is still enforced inside InventoryRoutes.tsx. */}
       <Route path="inventory/*" element={<InventoryRoutes />} />
 
-      {/* Team — requires access_staff (view_team OR any of Payroll/Scheduled
+      {/* Team — requires access_staff (view_team OR any of Scheduled
           Shifts/Commissions/Tips — sidebar nav dimming ticket). Previously
           gated on view_team alone, which incorrectly blocked the whole
           /dashboard/team/* tree for a staff member granted only e.g.
-          view_payroll, since Team's 5 sections are independent top-level
+          view_commissions, since Team's sections are independent top-level
           permissions with no single real key uniting them (unlike
-          Marketing/Reports, which already had one). featureKey
-          "staff"/"payroll" enforced per-section inside TeamRoutes.tsx
-          already, same as each section's own specific permission. */}
+          Marketing/Reports, which already had one). featureKey "staff"
+          enforced per-section inside TeamRoutes.tsx already, same as each
+          section's own specific permission. */}
       <Route element={<PermissionGuard permKey="access_staff" />}>
         <Route path="team/*" element={<TeamRoutes />} />
       </Route>

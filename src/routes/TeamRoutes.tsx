@@ -1,8 +1,10 @@
 import { lazy, Suspense } from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, Outlet } from "react-router-dom";
 import { PageLoader } from "../components/ui";
 import PermissionGuard from "../components/guards/PermissionGuard";
 import PlanFeatureGuard from "../components/guards/PlanFeatureGuard";
+import NoPermissionPage from "../components/guards/NoPermissionPage";
+import { usePermissions } from "../hooks/usePermissions";
 
 const StaffListPage       = lazy(() => import("../features/staff/pages/StaffListPage"));
 const ImportStaffPage     = lazy(() => import("../features/staff/pages/ImportStaffPage"));
@@ -21,10 +23,21 @@ const StaffPerformancePage   = lazy(() => import("../features/staff/pages/StaffP
 
 const CommissionsPage = lazy(() => import("../features/staff/pages/CommissionsPage"));
 const AttendancePage  = lazy(() => import("../features/staff/pages/AttendancePage"));
-const PayrollPage     = lazy(() => import("../features/staff/pages/PayrollPage"));
 
 const StaffHistoryListPage   = lazy(() => import("../features/staff/pages/StaffHistoryListPage"));
 const StaffHistoryDetailPage = lazy(() => import("../features/staff/pages/StaffHistoryDetailPage"));
+
+const PayrollPage = lazy(() => import("../features/staff/pages/PayrollPage"));
+const PayrollAdjustPage = lazy(() => import("../features/staff/pages/PayrollAdjustPage"));
+
+// PayRuns has no dedicated permission key — the backend only ever allowed
+// owner/admin roles for /staff/:id/pay-runs, so this mirrors that exactly
+// rather than inventing a new permission key.
+function OwnerAdminGuard() {
+  const { role } = usePermissions();
+  if (role === "salon_owner" || role === "admin") return <Outlet />;
+  return <NoPermissionPage />;
+}
 
 export const TeamRoutes = () => (
   <Suspense fallback={<PageLoader />}>
@@ -87,14 +100,18 @@ export const TeamRoutes = () => (
         <Route path="repeating-shifts/:id" element={<RepeatingShiftsPage />} />
       </Route>
 
-      {/* featureKey "payroll" (Advance tier and up) wraps view_payroll —
-          a salon whose plan lacks Payroll sees the upgrade screen regardless
-          of staff permissions. */}
+      <Route element={<OwnerAdminGuard />}>
+        <Route path="payruns"     element={<PayRunsPage />} />
+        <Route path="payruns/:id" element={<PayRunBreakdownPage />} />
+      </Route>
+
+      {/* Payroll — data-driven rebuild. featureKey "payroll" (Advance tier)
+          + view_payroll, same wrapper pattern as every other guarded route
+          here. */}
       <Route element={<PlanFeatureGuard featureKey="payroll" label="Payroll" />}>
         <Route element={<PermissionGuard permKey="view_payroll" />}>
-          <Route path="payroll"     element={<PayrollPage />} />
-          <Route path="payruns"     element={<PayRunsPage />} />
-          <Route path="payruns/:id" element={<PayRunBreakdownPage />} />
+          <Route path="payroll" element={<PayrollPage />} />
+          <Route path="payroll/:staffId/adjust" element={<PayrollAdjustPage />} />
         </Route>
       </Route>
     </Routes>

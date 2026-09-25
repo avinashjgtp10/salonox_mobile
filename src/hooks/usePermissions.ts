@@ -21,7 +21,7 @@ const VIRTUAL_PERMS: Record<string, string[]> = {
   // Sidebar nav dimming ticket: Warehouse and Staff each have several
   // independent top-level master keys (7 for Warehouse — Suppliers/Orders/
   // Product Inventory/Consumable Inventory/Product Audit/Stock Ledger/
-  // Inventory itself; 5 for Staff — Staff List/Payroll/Scheduled Shifts/
+  // Inventory itself; 4 for Staff — Staff List/Scheduled Shifts/
   // Commissions/Tips) with no single real permission uniting them, unlike
   // Catalog/Marketing/Reports which already had one. Purely frontend-only
   // virtual keys, same shape as view_catalog/view_marketing above — used
@@ -30,7 +30,7 @@ const VIRTUAL_PERMS: Record<string, string[]> = {
   // catalog permission. access_staff is ALSO used as Team's outer
   // DashboardRoutes.tsx route guard (replacing the too-narrow view_team,
   // which incorrectly blocked the whole /dashboard/team/* tree for a staff
-  // member granted only e.g. view_payroll).
+  // member granted only e.g. view_commissions).
   access_warehouse: [
     "view_suppliers", "view_orders", "view_product_inventory",
     "view_consumable_inventory", "view_product_audit", "view_stock_ledger", "view_inventory",
