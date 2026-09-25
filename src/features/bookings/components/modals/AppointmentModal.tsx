@@ -43,6 +43,7 @@ import { computePointsEarned, computeEWalletCredit, computeMaxWalletUsable, comp
 import {
   selectPackagesList, selectProductsList, selectMembershipsList, selectBookings,
 } from "../../../../store/selectors/scheduler.selectors";
+import { selectServiceCategories, selectProductCategories } from "../../../../store/selectors/slices.selectors";
 import {
   PersonFill, Scissors, TagFill, FileText,
   BellFill, PencilFill, BoxSeamFill, AwardFill,
@@ -381,6 +382,59 @@ export const AppointmentModal: React.FC<Props> = ({
     [productsFromSelector],
   );
   const availableMemberships = useAppSelector(selectMembershipsList);
+
+  // ── Name lookups for the "applicable services" text on discount-type
+  // Available Benefits cards below — resolves the restriction's raw
+  // categoryIds/itemIds into readable names. Read-only selectors (unlike
+  // AddMembershipModal, this modal never needs to dispatch the fetch itself
+  // — by the time a client's membership discount is relevant here, the
+  // service/product catalog has already been loaded for the bill's own
+  // pickers) so an empty list here just falls back to a plain count instead
+  // of names, rather than triggering a redundant fetch.
+  const serviceCategoriesForScope = useAppSelector(selectServiceCategories) as { id: string | number; name: string }[];
+  const productCategoriesForScope = useAppSelector(selectProductCategories) as { id: string | number; name: string }[];
+  const serviceCategoryNameById = useMemo(
+    () => new Map(serviceCategoriesForScope.map((c) => [String(c.id), c.name])),
+    [serviceCategoriesForScope],
+  );
+  const productCategoryNameById = useMemo(
+    () => new Map(productCategoriesForScope.map((c) => [String(c.id), c.name])),
+    [productCategoriesForScope],
+  );
+  const serviceNameById = useMemo(
+    () => new Map(catalogServiceOptions.map((s) => [String(s.id), s.name])),
+    [catalogServiceOptions],
+  );
+  const productNameById = useMemo(
+    () => new Map(productsFromSelector.map((p: any) => [String(p.id), p.name])),
+    [productsFromSelector],
+  );
+  // Human-readable summary of what a membership's discount actually applies
+  // to, e.g. "Hair Cut" or "Hair, Skin Care" or "All services" when
+  // unrestricted — mirrors the same empty-array-means-unrestricted rule the
+  // checkout math already uses (rowMatchesMembershipRestriction below).
+  const describeMembershipScope = useCallback((m: {
+    appliesTo: string; serviceCategoryIds?: string[]; serviceIds?: string[];
+    productCategoryIds?: string[]; productIds?: string[];
+  }) => {
+    const parts: string[] = [];
+    if (m.appliesTo !== "products") {
+      const names = [
+        ...(m.serviceCategoryIds ?? []).map((id) => serviceCategoryNameById.get(id) ?? null),
+        ...(m.serviceIds ?? []).map((id) => serviceNameById.get(id) ?? null),
+      ].filter((n): n is string => !!n);
+      if (names.length) parts.push(names.join(", "));
+    }
+    if (m.appliesTo !== "services") {
+      const names = [
+        ...(m.productCategoryIds ?? []).map((id) => productCategoryNameById.get(id) ?? null),
+        ...(m.productIds ?? []).map((id) => productNameById.get(id) ?? null),
+      ].filter((n): n is string => !!n);
+      if (names.length) parts.push(names.join(", "));
+    }
+    return parts.length ? parts.join(" + ") : "All services";
+  }, [serviceCategoryNameById, serviceNameById, productCategoryNameById, productNameById]);
+
   const allBookings          = useAppSelector(selectBookings);
   const blockedTimes   = useAppSelector((s: any) => s.scheduler?.blockedTimes ?? []);
   const schedulerStaff = useAppSelector((s: any) => s.scheduler?.staffList ?? []);
@@ -1213,11 +1267,17 @@ export const AppointmentModal: React.FC<Props> = ({
   // testing the balance alone would hide the benefit entirely and staff would
   // never get the checkbox. Mirrors findActivePercentageForClient's SQL gate,
   // which is the authority — expiry is enforced there, server-side.
-  const percentageMembership = useMemo(
-    () => clientMemberships.find((m) => m.pricingType === "percentage"
+  // Every eligible percentage-type membership, not just the one the backend
+  // will actually apply — used purely to LIST them in Available Benefits
+  // (see SCRUM ticket "Show Applied Services for Membership Benefits").
+  // Checkout (findActivePercentageForClient) still only ever combines with
+  // ONE of these per bill, same as before this list existed.
+  const eligiblePercentageMemberships = useMemo(
+    () => clientMemberships.filter((m) => m.pricingType === "percentage"
       && (m.benefitType === "validity" || (m.discountBalanceRemaining ?? 0) > 0)),
     [clientMemberships],
   );
+  const percentageMembership = eligiblePercentageMemberships[0];
   const loyaltyEligibility = ((clientDetailsForModal as any)?.loyalty_eligibility ?? null) as any;
   const percentageDiscountSource = percentageMembership
     ? {
@@ -1238,13 +1298,41 @@ export const AppointmentModal: React.FC<Props> = ({
       }
     : null;
 
-  // Restored to checked when reopening a booking previously saved with this
-  // discount applied — same reasoning as applyMembership above.
-  const [applyMembershipDiscount, setApplyMembershipDiscount] = useState(
-    () => !!existingBooking && (
-      !!existingBooking.applyMembershipDiscount || Number(existingBooking.membershipDiscountUsed) > 0
-    )
+  // Which specific percentage-discount memberships staff have ticked — a
+  // client can hold several at once (e.g. one restricted to Hair Cut,
+  // another to Facial), each independently opted in/out, rather than one
+  // shared all-or-nothing flag. applyMembershipDiscount below is just "is
+  // at least one of them selected" — everything downstream that only cares
+  // about that (payload building, the ineligibility check, etc.) keeps
+  // reading it unchanged.
+  const [selectedMembershipDiscountIds, setSelectedMembershipDiscountIds] = useState<string[]>([]);
+  const applyMembershipDiscount = selectedMembershipDiscountIds.length > 0;
+  const toggleMembershipDiscountId = useCallback((id: string) => {
+    setSelectedMembershipDiscountIds((prev) => (
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    ));
+  }, []);
+  // Reopening a booking previously saved with this discount applied — which
+  // exact membership(s) were used isn't persisted on the booking record, so
+  // this restores by selecting the first eligible one once the client's
+  // memberships have loaded, same net effect the old single-membership
+  // design always had.
+  const restoreMembershipDiscountOnEdit = useRef(
+    !!existingBooking && (!!existingBooking.applyMembershipDiscount || Number(existingBooking.membershipDiscountUsed) > 0)
   );
+  useEffect(() => {
+    if (!restoreMembershipDiscountOnEdit.current || !eligiblePercentageMemberships.length) return;
+    restoreMembershipDiscountOnEdit.current = false;
+    setSelectedMembershipDiscountIds([eligiblePercentageMemberships[0].id]);
+  }, [eligiblePercentageMemberships]);
+  // Drop a selection the moment its membership stops being eligible (balance
+  // ran out, expired) rather than silently keep an id nothing can spend.
+  useEffect(() => {
+    setSelectedMembershipDiscountIds((prev) => {
+      const next = prev.filter((id) => eligiblePercentageMemberships.some((m) => m.id === id));
+      return next.length === prev.length ? prev : next;
+    });
+  }, [eligiblePercentageMemberships]);
   const [applyLoyaltyDiscount, setApplyLoyaltyDiscount] = useState(
     () => !!existingBooking?.applyLoyaltyDiscount
   );
@@ -1252,7 +1340,13 @@ export const AppointmentModal: React.FC<Props> = ({
   // default, editable down on the Membership Discount card (a 20% plan run at
   // 10% today). The amount in rupees stays the engine's to compute from it,
   // along with the row totals and GST; nothing here multiplies anything.
-  const membershipPlanPercent = percentageMembership?.discountPercent ?? 0;
+  // Only meaningful (and only ever shown as editable) when exactly one
+  // percentage membership is selected — see onlyOneSelectedPercentageMembership
+  // in the Available Benefits card-building below.
+  const soleSelectedPercentageMembership = selectedMembershipDiscountIds.length === 1
+    ? eligiblePercentageMemberships.find((m) => m.id === selectedMembershipDiscountIds[0])
+    : undefined;
+  const membershipPlanPercent = soleSelectedPercentageMembership?.discountPercent ?? 0;
   // The rate may be raised above the plan's own (a goodwill gesture, same as
   // the manual bill discount) — 100% is the ceiling because that's a full
   // write-off of the line. A discount-balance plan still can't pay out more
@@ -1278,17 +1372,87 @@ export const AppointmentModal: React.FC<Props> = ({
   const applyMembershipDiscountMounted = useRef(false);
   useEffect(() => {
     if (!applyMembershipDiscountMounted.current) { applyMembershipDiscountMounted.current = true; return; }
-    setApplyMembershipDiscount(false);
+    setSelectedMembershipDiscountIds([]);
     setApplyLoyaltyDiscount(false);
   }, [clientIdForPkg]);
   // Nothing left to apply it to (plan changed, balance ran out) — don't leave
-  // a stale checked box that would silently apply ₹0.
+  // a stale checked selection that would silently apply ₹0. (The per-eligible
+  // pruning effect above handles the case where SOME are still eligible;
+  // this covers none being left at all.)
   useEffect(() => {
-    if (!percentageDiscountSource) setApplyMembershipDiscount(false);
+    if (!percentageDiscountSource) setSelectedMembershipDiscountIds([]);
   }, [percentageDiscountSource]);
   useEffect(() => {
     if (!loyaltyDiscountSource) setApplyLoyaltyDiscount(false);
   }, [loyaltyDiscountSource]);
+
+  // Flags rows the Membership Discount checkbox can't actually reach — the
+  // server (pricing.service.ts's resolveMembershipDiscount) already zeroes
+  // out any row that doesn't match the membership's own applicable
+  // services/categories before splitting the discount, so a filled, priced
+  // row landing at exactly ₹0 while the checkbox is on means "not eligible",
+  // not "nothing to discount". Surfaced here purely to explain that ₹0 to
+  // staff (see the "not applicable" message in ServiceRow.tsx) — never used
+  // to gate or recompute the amount itself, which stays server-authoritative.
+  // Same idea for the WALLET checkbox (Discount Balance's ₹ balance, "Apply
+  // Membership") — restriction is checked directly against
+  // membershipServiceRestriction/membershipProductRestriction (the pooled
+  // categoryIds/itemIds already computed above for membershipEligibleTotal)
+  // rather than off the resulting ₹ amount, since a row can legitimately land
+  // at ₹0 coverage just because the wallet ran dry, which isn't the same
+  // thing as "this service isn't what the membership covers".
+  const serviceMembershipWalletIneligibleByRow = useMemo(() => {
+    const map = new Map<string, boolean>();
+    if (!applyMembership || !membershipCoversServices) return map;
+    serviceRows.forEach((row, i) => {
+      if (!row.service.trim() || (row as any).isPackageService) return;
+      if ((Number(row.total) || 0) <= 0) return;
+      const rowItemId = (row as any).service_id || (row as any).id;
+      if (rowMatchesMembershipRestriction((row as any).categoryId, rowItemId, membershipServiceRestriction.categoryIds, membershipServiceRestriction.itemIds)) return;
+      map.set((row as any).tempId || String(i), true);
+    });
+    return map;
+  }, [applyMembership, membershipCoversServices, serviceRows, membershipServiceRestriction]);
+  const productMembershipWalletIneligibleByRow = useMemo(() => {
+    const map = new Map<string, boolean>();
+    if (!applyMembership || !membershipCoversProducts) return map;
+    productRows.forEach((row, i) => {
+      if ((Number(row.total) || 0) <= 0) return;
+      const rowItemId = (row as any).productId || (row as any).id;
+      if (rowMatchesMembershipRestriction((row as any).categoryId, rowItemId, membershipProductRestriction.categoryIds, membershipProductRestriction.itemIds)) return;
+      map.set((row as any).tempId || String(i), true);
+    });
+    return map;
+  }, [applyMembership, membershipCoversProducts, productRows, membershipProductRestriction]);
+
+  const serviceMembershipDiscountIneligibleByRow = useMemo(() => {
+    const map = new Map<string, boolean>();
+    serviceRows.forEach((row, i) => {
+      if (!row.service.trim() || (row as any).isPackageService) return;
+      if ((Number(row.total) || 0) <= 0) return;
+      const tempId = (row as any).tempId || String(i);
+      // rowMembershipDiscountPreview sums the percentage plan AND loyalty
+      // into one combined per-row amount (see resolveMembershipDiscount in
+      // pricing.service.ts), so either checkbox being on is enough to expect
+      // *something* — a real ₹0 with either checked means neither source
+      // actually covers this row.
+      const discountIneligible = (applyMembershipDiscount && !!percentageDiscountSource || applyLoyaltyDiscount && !!loyaltyDiscountSource)
+        && (serviceMembershipDiscountByRow.get(tempId) ?? 0) <= 0;
+      if (discountIneligible || serviceMembershipWalletIneligibleByRow.get(tempId)) map.set(tempId, true);
+    });
+    return map;
+  }, [applyMembershipDiscount, percentageDiscountSource, applyLoyaltyDiscount, loyaltyDiscountSource, serviceRows, serviceMembershipDiscountByRow, serviceMembershipWalletIneligibleByRow]);
+  const productMembershipDiscountIneligibleByRow = useMemo(() => {
+    const map = new Map<string, boolean>();
+    productRows.forEach((row, i) => {
+      if ((Number(row.total) || 0) <= 0) return;
+      const tempId = (row as any).tempId || String(i);
+      const discountIneligible = (applyMembershipDiscount && !!percentageDiscountSource || applyLoyaltyDiscount && !!loyaltyDiscountSource)
+        && (productMembershipDiscountByRow.get(tempId) ?? 0) <= 0;
+      if (discountIneligible || productMembershipWalletIneligibleByRow.get(tempId)) map.set(tempId, true);
+    });
+    return map;
+  }, [applyMembershipDiscount, percentageDiscountSource, applyLoyaltyDiscount, loyaltyDiscountSource, productRows, productMembershipDiscountByRow, productMembershipWalletIneligibleByRow]);
 
   // Marks package sessions as complete for each covered service row after appointment is done.
   // appointmentId links each consumed session back to the sale that used it (for audit/reporting).
@@ -1535,6 +1699,7 @@ export const AppointmentModal: React.FC<Props> = ({
           membershipDiscountPercentRequested: (applyMembershipDiscount && membershipDiscountPercentIsCustomRef.current)
             ? membershipDiscountPercent
             : undefined,
+          membershipDiscountIds: applyMembershipDiscount ? selectedMembershipDiscountIds : undefined,
           applyLoyaltyDiscount,
           applyRewardPoints: useRewardPoints,
           rewardPointsToRedeem: useRewardPoints ? rewardPointsToRedeem : 0,
@@ -2292,6 +2457,7 @@ export const AppointmentModal: React.FC<Props> = ({
       // Only when staff typed one — otherwise the charge re-derives the
       // plan's own rate server-side, exactly as the preview just did.
       membershipDiscountPercentRequested: membershipDiscountPercentIsCustomRef.current ? membershipDiscountPercent : undefined,
+      membershipDiscountIds: selectedMembershipDiscountIds,
       applyLoyaltyDiscount,
       gstAmount:         totals.gstAmount,
       taxBreakdown:      totals.taxBreakdown,
@@ -2494,6 +2660,7 @@ export const AppointmentModal: React.FC<Props> = ({
       // Only when staff typed one — otherwise the charge re-derives the
       // plan's own rate server-side, exactly as the preview just did.
       membershipDiscountPercentRequested: membershipDiscountPercentIsCustomRef.current ? membershipDiscountPercent : undefined,
+      membershipDiscountIds: selectedMembershipDiscountIds,
       applyLoyaltyDiscount,
       gstAmount:         totals.gstAmount,
       taxBreakdown:      totals.taxBreakdown,
@@ -2701,6 +2868,8 @@ export const AppointmentModal: React.FC<Props> = ({
           membershipTaxByRow={membershipTaxByRow}
           serviceMembershipDiscountByRow={serviceMembershipDiscountByRow}
           productMembershipDiscountByRow={productMembershipDiscountByRow}
+          serviceMembershipDiscountIneligibleByRow={serviceMembershipDiscountIneligibleByRow}
+          productMembershipDiscountIneligibleByRow={productMembershipDiscountIneligibleByRow}
           frozen={false}
           svcErrors={svcErrors}
           pkgErrors={pkgErrors}
@@ -2816,63 +2985,72 @@ export const AppointmentModal: React.FC<Props> = ({
       });
     }
 
+    // One card PER active wallet-balance membership (not one combined card)
+    // — the balance itself is still pooled and applied together (same single
+    // applyMembership/membershipWalletAmt state as before), so every card
+    // here shares that one checkbox/amount; only the first shows the
+    // editable ₹ amount, to avoid N duplicate inputs all editing the same
+    // pooled number.
     const activeMembershipsWithBalance = clientMemberships.filter((m) => Number(m.membershipWalletBalance) > 0);
-    if (membershipTotalBalance > 0) {
+    activeMembershipsWithBalance.forEach((m, idx) => {
       cards.push({
-        key: "membership",
+        key: `membership-wallet-${m.id}`,
         icon: AwardFill,
         variantClass: "benefit-card--membership",
-        title: activeMembershipsWithBalance.length > 1 ? `Membership (${activeMembershipsWithBalance.length})` : "Membership",
-        value: `${formatAmount(membershipTotalBalance)} Remaining`,
-        subtitle: activeMembershipsWithBalance.length > 1
-          ? activeMembershipsWithBalance.map((m) => m.membershipName).join(", ")
-          : (activeMembershipsWithBalance[0]?.membershipName ?? primaryMembership?.membershipName ?? ""),
+        title: m.membershipName,
+        value: `${formatAmount(Number(m.membershipWalletBalance) || 0)} Remaining`,
+        subtitle: describeMembershipScope(m),
         checked: applyMembership,
         onToggle: setApplyMembership,
-        input: {
+        readOnly: idx > 0,
+        disabledReason: (!applyMembership && membershipEligibleTotal <= 0)
+          ? "This membership benefit is not applicable to the selected service(s)."
+          : undefined,
+        input: idx === 0 ? {
           value: membershipWalletAmt,
           max: membershipMaxUsable,
           step: 0.01,
           prefix: currencySymbol,
           onChange: handleSetMembershipWalletAmt,
-        },
+        } : undefined,
       });
-    }
+    });
 
-    // Two independent chips — staff picks either or both; checking both
-    // stacks their discounts additively (see applyMembershipDiscountForBooking).
-    if (percentageDiscountSource) {
+    // One card PER eligible percentage-discount membership, each with its OWN
+    // independent checkbox — checking several applies all of them together,
+    // each only against the rows its own applicable-services restriction
+    // covers (see resolveMembershipDiscount/applyMembershipDiscountForBooking
+    // in the backend, which sum every SELECTED membership's own allocation).
+    // The editable RATE only makes sense when there's exactly one selected —
+    // otherwise a single % field would be ambiguous about which plan it
+    // re-rates, so with several checked at once each keeps its own plan rate.
+    const onlyOneSelectedPercentageMembership = selectedMembershipDiscountIds.length === 1;
+    eligiblePercentageMemberships.forEach((m) => {
+      const isSelected = selectedMembershipDiscountIds.includes(m.id);
+      const isValidityBased = m.benefitType === "validity";
       cards.push({
-        key: "membership-discount",
+        key: `membership-discount-${m.id}`,
         icon: Percent,
         variantClass: "benefit-card--membership",
-        title: "Membership Discount",
-        // The rate actually being applied, so dialling it to 10% on a 20% plan
-        // reads as "10% Off" rather than contradicting the field below it.
-        value: `${applyMembershipDiscount ? membershipDiscountPercent : percentageDiscountSource.discountPercent}% Off`,
-        // A validity plan has no balance to report — saying "₹0.00 balance
-        // left" next to a live benefit reads as broken, so it states what
-        // actually limits it instead.
-        subtitle: percentageDiscountSource.isValidityBased
-          ? `${percentageDiscountSource.name} · valid till ${formatDateDDMMYYYY(percentageDiscountSource.expiresAt)}`
-          : `${percentageDiscountSource.name} · ${formatAmount(percentageDiscountSource.balanceRemaining ?? 0)} balance left`,
-        checked: applyMembershipDiscount,
-        onToggle: setApplyMembershipDiscount,
-        // Editable RATE, not an amount: the plan's own % fills it in, and
-        // staff can change it for this bill in either direction (run a 20%
-        // plan at 10%, or at 30%). The engine applies that % to the eligible
-        // rows and recomputes each row's discount, the GST and the payable
-        // total from it — see membershipDiscountPercentRequested in
-        // pricing.service.ts.
-        input: {
+        title: m.membershipName,
+        value: `${isSelected && onlyOneSelectedPercentageMembership ? membershipDiscountPercent : (m.discountPercent ?? 0)}% Off`,
+        // Applicable services first (what this ticket asks for), then
+        // validity/balance — a validity plan has no pool to report, so it
+        // states what actually limits it instead of a meaningless ₹0.00.
+        subtitle: `${describeMembershipScope(m)} · ${isValidityBased
+          ? `valid till ${formatDateDDMMYYYY(m.expiresAt)}`
+          : `${formatAmount(m.discountBalanceRemaining ?? 0)} balance left`}`,
+        checked: isSelected,
+        onToggle: () => toggleMembershipDiscountId(m.id),
+        input: (isSelected && onlyOneSelectedPercentageMembership) ? {
           value: membershipDiscountPercent,
           max: MEMBERSHIP_DISCOUNT_MAX_PERCENT,
           step: 0.5,
           suffix: "%",
           onChange: handleSetMembershipDiscountPercent,
-        },
+        } : undefined,
       });
-    }
+    });
 
     if (loyaltyDiscountSource) {
       cards.push({
@@ -2881,9 +3059,9 @@ export const AppointmentModal: React.FC<Props> = ({
         variantClass: "benefit-card--membership",
         title: "Loyalty Discount",
         value: `${loyaltyDiscountSource.discountPercent}% Off`,
-        subtitle: loyaltyDiscountSource.nextTierHint
+        subtitle: `${describeMembershipScope(loyaltyEligibility)} · ${loyaltyDiscountSource.nextTierHint
           ? `${loyaltyDiscountSource.name} · ${loyaltyDiscountSource.nextTierHint}`
-          : loyaltyDiscountSource.name,
+          : loyaltyDiscountSource.name}`,
         checked: applyLoyaltyDiscount,
         onToggle: setApplyLoyaltyDiscount,
       });
@@ -2983,8 +3161,10 @@ export const AppointmentModal: React.FC<Props> = ({
   }, [
     coveredServices, firstActivePkg, hasPackageEligibleRow, applyPackage, packageBudgets,
     clientMemberships, membershipTotalBalance, primaryMembership, applyMembership,
-    membershipWalletAmt, membershipMaxUsable, membershipWalletUsedTotal, handleSetMembershipWalletAmt,
-    percentageDiscountSource, loyaltyDiscountSource, applyMembershipDiscount, applyLoyaltyDiscount, formatAmount,
+    membershipWalletAmt, membershipMaxUsable, membershipEligibleTotal, membershipWalletUsedTotal, handleSetMembershipWalletAmt,
+    eligiblePercentageMemberships, selectedMembershipDiscountIds, toggleMembershipDiscountId,
+    loyaltyDiscountSource, loyaltyEligibility, applyLoyaltyDiscount, formatAmount,
+    describeMembershipScope,
     clientStats, useEWallet, eWalletAmt, eWalletMaxAmt, remainingAfterMembership, handleSetEWalletAmt,
     useRewardPoints, rewardPointsToRedeem, rewardPointsMaxRedeem, rewardPointsRedeemedValue, remainingAfterEWallet, handleSetRewardPointsToRedeem,
     useReferralCredit, referralCreditAmt, referralCreditMaxAmt, remainingAfterRewardPoints, handleSetReferralCreditAmt, referralConfig,

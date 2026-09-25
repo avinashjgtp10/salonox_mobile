@@ -23,6 +23,12 @@ export interface BenefitCardConfig {
    * to apply to. Blocks turning it on and explains why, instead of silently
    * flashing checked then immediately un-checking itself. */
   disabledReason?: string;
+  /** True for a card that's part of a group applied together as one action
+   * (e.g. several memberships all included under one "Membership Discount"
+   * toggle) but isn't itself the control for it — shows its checkbox as a
+   * plain reflection of the group's state instead of a second, independent
+   * toggle that would visually fight the real one when clicked. */
+  readOnly?: boolean;
   input?: {
     value: number;
     max: number;
@@ -46,18 +52,19 @@ export const AvailableBenefitsPanel: React.FC<Props> = ({ cards }) => {
       {cards.map((card) => {
         const Icon = card.icon;
         const blocked = !!card.disabledReason && !card.checked;
+        const inert = blocked || card.readOnly;
         return (
           <div
             key={card.key}
             className={`benefit-card ${card.variantClass}${card.checked ? " benefit-card--active" : ""}${blocked ? " benefit-card--disabled" : ""}`}
-            onClick={() => { if (!blocked) card.onToggle(!card.checked); }}
+            onClick={() => { if (!inert) card.onToggle(!card.checked); }}
           >
             <input
               type="checkbox"
               className="benefit-card__checkbox"
               checked={card.checked}
-              disabled={blocked}
-              onChange={(e) => { if (!blocked) card.onToggle(e.target.checked); }}
+              disabled={inert}
+              onChange={(e) => { if (!inert) card.onToggle(e.target.checked); }}
               onClick={(e) => e.stopPropagation()}
             />
             <div className="benefit-card__icon-wrap">
