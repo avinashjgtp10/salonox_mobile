@@ -23,6 +23,7 @@ import ProductSearchSelect, { type ProductSearchResult } from "../components/Pro
 import ImportSupplierCatalogModal from "../components/ImportSupplierCatalogModal";
 import SuggestedProductsModal from "../components/SuggestedProductsModal";
 import AddSupplierPage from "./AddSupplierPage";
+import OrderStatusStepper, { type OrderStepKey } from "../components/OrderStatusStepper";
 import "../styles/PurchaseHistoryTable.scss";
 import "../styles/AddSupplierPage.scss";
 // Pulled in for .cf-quick-add-link — the same "+ Add a category"-style
@@ -101,6 +102,7 @@ const NewOrderPage: React.FC = () => {
   const { showSuccess, showError, overlay } = useStatusOverlay();
   const [loadingOrder, setLoadingOrder] = useState(isEditMode);
   const [orderNumber, setOrderNumber] = useState("");
+  const [stepperStatus, setStepperStatus] = useState<OrderStepKey>("create");
 
   const { suppliers } = useAppSelector((s) => s.inventory);
   const { items: settingItems } = useAppSelector((s) => s.setting);
@@ -158,7 +160,11 @@ const NewOrderPage: React.FC = () => {
   const [notes, setNotes] = useState("");
   const [termsConditions, setTermsConditions] = useState("");
 
-  const [saving, setSaving] = useState(false);
+  // Tracks WHICH of the two save actions is in flight — a single shared
+  // boolean here was making both Save Draft and Create Order spin/disable
+  // together no matter which one was actually clicked.
+  const [savingStatus, setSavingStatus] = useState<"draft" | "sent" | null>(null);
+  const saving = savingStatus !== null;
   const [touched, setTouched] = useState(false);
 
   const [galleryOpen, setGalleryOpen] = useState(false);
@@ -184,6 +190,7 @@ const NewOrderPage: React.FC = () => {
       .then((order) => {
         if (cancelled) return;
         setOrderNumber(order.order_number);
+        setStepperStatus(order.status);
         setSupplierId(order.supplier_id);
         setOrderDate(order.order_date ? order.order_date.slice(0, 10) : todayISO());
         setDeliveryDate(order.delivery_date ? order.delivery_date.slice(0, 10) : "");
@@ -393,7 +400,7 @@ const NewOrderPage: React.FC = () => {
   async function handleSave(status: "draft" | "sent") {
     setTouched(true);
     if (!canSave || saving) return;
-    setSaving(true);
+    setSavingStatus(status);
     try {
       const items: CreateOrderItemPayload[] = validLines.map((l) => {
         const m = lineMath(l);
@@ -454,7 +461,7 @@ const NewOrderPage: React.FC = () => {
     } catch (err: any) {
       showError(typeof err === "string" ? err : "Couldn't create order");
     } finally {
-      setSaving(false);
+      setSavingStatus(null);
     }
   }
 
@@ -477,16 +484,23 @@ const NewOrderPage: React.FC = () => {
   return (
     <div className="add-supplier-page new-order-page">
       {overlay}
+
+      <OrderStatusStepper
+        current={stepperStatus}
+        showProgress={isEditMode}
+        onStepClick={(key) => { if (key !== "create") navigate(`/dashboard/inventory/orders?status=${key}`); }}
+      />
+
       <div className="add-supplier-page__topbar">
         <h2>{isEditMode ? `Edit Purchase Order ${orderNumber}` : "New Purchase Order"}</h2>
         <div className="topbar-actions">
           <button className="btn-close-top" onClick={handleClose}>Close</button>
           {!isEditMode && (
-            <Button variant="outline-dark" onClick={() => handleSave("draft")} disabled={saving || !canSave} loading={saving}>
+            <Button variant="outline-dark" onClick={() => handleSave("draft")} disabled={saving || !canSave} loading={savingStatus === "draft"}>
               Save Draft
             </Button>
           )}
-          <Button variant="dark" onClick={() => handleSave("sent")} disabled={saving || !canSave} loading={saving}>
+          <Button variant="dark" onClick={() => handleSave("sent")} disabled={saving || !canSave} loading={savingStatus === "sent"}>
             {isEditMode ? "Save Changes" : "Create Order"}
           </Button>
         </div>
@@ -532,15 +546,13 @@ const NewOrderPage: React.FC = () => {
                 <div>
                   <span className="label">Address</span>
                   <span className="value">
-                    {[selectedSupplier.street, selectedSupplier.city, selectedSupplier.state]
+                    {[selectedSupplier.address || selectedSupplier.street, selectedSupplier.city, selectedSupplier.state]
                       .filter(Boolean).join(", ") || "—"}
                   </span>
                 </div>
                 <div>
-                  {/* No GST/Tax ID field exists on Supplier yet (backend or
-                      frontend) — shown as unavailable rather than fabricated. */}
                   <span className="label">GST / Tax ID</span>
-                  <span className="value">—</span>
+                  <span className="value">{selectedSupplier.gstin || "—"}</span>
                 </div>
               </div>
             </div>

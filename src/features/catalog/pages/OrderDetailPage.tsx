@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useSelector } from "react-redux";
-import { ArrowLeft, XCircle, Trash, PencilSquare, FileEarmarkPdf } from "react-bootstrap-icons";
+import { ArrowLeft, XCircle, Trash, PencilSquare, FileEarmarkPdf, ClipboardCheck } from "react-bootstrap-icons";
 import { useAppDispatch } from "../../../hooks/useAppRedux";
-import { fetchOrderByIdThunk, correctReceivedQtyThunk, cancelOrderThunk, deleteOrderThunk } from "../../../middleware/inventory/inventory.thunk";
+import { fetchOrderByIdThunk, correctReceivedQtyThunk, cancelOrderThunk, placeOrderThunk, startVerificationThunk, deleteOrderThunk } from "../../../middleware/inventory/inventory.thunk";
 import type { Order, OrderStatus } from "../../../types/inventory.types";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
@@ -16,6 +16,7 @@ import Modal from "../../../components/ui/Modal";
 import Tabs from "../../../components/ui/Tabs";
 import type { TabItem } from "../../../components/ui/Tabs";
 import ReceivingTab from "../components/ReceivingTab";
+import OrderStatusStepper from "../components/OrderStatusStepper";
 import { formatDateDDMMYYYY as fmtDate } from "../../../utils/dateFormat";
 import { generateOrderBillPdf } from "../utils/orderBillPdf";
 import { generatePurchaseOrderPdf } from "../utils/purchaseOrderPdf";
@@ -25,8 +26,8 @@ import "../styles/SupplierDetailPage.scss";
 
 const STATUS_LABEL: Record<OrderStatus, string> = {
   draft: "Draft",
-  sent: "Sent",
-  partially_received: "Partially Received",
+  sent: "Ordered",
+  partially_received: "Verify Order",
   received: "Received",
   cancelled: "Cancelled",
 };
@@ -35,8 +36,19 @@ const STATUS_LABEL: Record<OrderStatus, string> = {
 // Receiving records a linked Purchase (via the backend's receive() reusing
 // purchasesRepository.create()) — that's the only thing that actually moves
 // products.amount; creating the order itself never did.
-const OrderDetailPage: React.FC = () => {
-  const { id } = useParams<{ id: string }>();
+interface OrderDetailPageProps {
+  /** Set when embedded as a popup (see OrdersListPage.tsx) — overrides the
+   *  :id route param so the same component works as a route AND a popup. */
+  orderId?: string;
+  /** Set when embedded as a popup — used instead of navigating away for
+   *  Close/Back and after a delete. Same optional-prop convention as
+   *  AddSupplierPage's panelMode/onClose. */
+  onClose?: () => void;
+}
+
+const OrderDetailPage: React.FC<OrderDetailPageProps> = ({ orderId: orderIdProp, onClose }) => {
+  const { id: routeId } = useParams<{ id: string }>();
+  const id = orderIdProp ?? routeId;
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useAppDispatch();
@@ -58,6 +70,8 @@ const OrderDetailPage: React.FC = () => {
   const [correctItem, setCorrectItem] = useState<{ id: string; product_name?: string; qty: number } | null>(null);
   const [correctQty, setCorrectQty] = useState("");
   const [correcting, setCorrecting] = useState(false);
+  const [placing, setPlacing] = useState(false);
+  const [confirmingOrder, setConfirmingOrder] = useState(false);
 
   const handleDelete = async () => {
     if (!id) return;
@@ -66,7 +80,7 @@ const OrderDetailPage: React.FC = () => {
     try {
       await dispatch(deleteOrderThunk(id)).unwrap();
       showSuccess("Order deleted successfully");
-      navigate("/dashboard/inventory/orders");
+      if (onClose) onClose(); else navigate("/dashboard/inventory/orders");
     } catch (err: any) {
       showError(typeof err === "string" ? err : "Couldn't delete order");
       setDeleting(false);
@@ -103,7 +117,7 @@ const OrderDetailPage: React.FC = () => {
 
   const tabs: TabItem[] = useMemo(() => {
     const list: TabItem[] = [{ key: "overview", label: "Overview" }];
-    if (canReceive) list.push({ key: "receiving", label: "Receiving" });
+    if (canReceive) list.push({ key: "receiving", label: "Verify Order" });
     return list;
   }, [canReceive]);
 
@@ -162,6 +176,42 @@ const OrderDetailPage: React.FC = () => {
     }
   }
 
+  // Draft → Ordered. Nothing is recalculated here — the draft's items/totals
+  // are already final, this just flips the status server-side.
+  async function handlePlaceOrder() {
+    if (!order) return;
+    if (!can("create_order")) { denyPerm("create_order"); return; }
+    setPlacing(true);
+    try {
+      const updated = await dispatch(placeOrderThunk(order.id)).unwrap();
+      setOrder(updated);
+      showSuccess("Order placed");
+    } catch (err: any) {
+      showError(typeof err === "string" ? err : "Failed to place order");
+    } finally {
+      setPlacing(false);
+    }
+  }
+
+  // Ordered → Verify Order. Doesn't change order.status — just timestamps
+  // that verification has begun (see orders.repository.ts's
+  // startVerification) so this order now shows on the Verify Order list too,
+  // then switches straight to that tab to actually check quantities.
+  async function handleConfirmOrder() {
+    if (!order) return;
+    if (!can("receive_order")) { denyPerm("receive_order"); return; }
+    setConfirmingOrder(true);
+    try {
+      const updated = await dispatch(startVerificationThunk(order.id)).unwrap();
+      setOrder(updated);
+      setActiveTab("receiving");
+    } catch (err: any) {
+      showError(typeof err === "string" ? err : "Failed to move order to verification");
+    } finally {
+      setConfirmingOrder(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="supplier-detail-page">
@@ -175,8 +225,8 @@ const OrderDetailPage: React.FC = () => {
     return (
       <div className="supplier-detail-page">
         {overlay}
-        <button className="supplier-detail-page__back" onClick={() => navigate(-1)}>
-          <ArrowLeft size={14} /> Back to Orders
+        <button className="supplier-detail-page__back" onClick={onClose ?? (() => navigate(-1))}>
+          <ArrowLeft size={14} /> {onClose ? "Close" : "Back to Orders"}
         </button>
         <p className="text-muted">Order not found.</p>
       </div>
@@ -186,8 +236,13 @@ const OrderDetailPage: React.FC = () => {
   return (
     <div className="supplier-detail-page">
       {overlay}
-      <button className="supplier-detail-page__back" onClick={() => navigate(-1)}>
-        <ArrowLeft size={14} /> Back to Orders
+      {/* The stepper's steps navigate away to the filtered orders list —
+          not meaningful/wanted while this is open as a popup over that
+          same list, so it's route-only. */}
+      {!onClose && <OrderStatusStepper current={order.status} showProgress />}
+
+      <button className="supplier-detail-page__back" onClick={onClose ?? (() => navigate(-1))}>
+        <ArrowLeft size={14} /> {onClose ? "Close" : "Back to Orders"}
       </button>
 
       <header className="supplier-detail-page__header">
@@ -201,9 +256,49 @@ const OrderDetailPage: React.FC = () => {
           <p>{order.supplier_name || "—"}</p>
         </div>
         <div className="d-flex gap-2">
+          {order.status === "draft" && (
+            <Button
+              variant="outline-dark"
+              size="sm"
+              iconLeft={<PencilSquare size={14} />}
+              style={!can("edit_order") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+              onClick={() => {
+                if (!can("edit_order")) { denyPerm("edit_order"); return; }
+                navigate(`/dashboard/inventory/orders/${order.id}/edit`);
+              }}
+            >
+              Edit
+            </Button>
+          )}
+          {order.status === "draft" && (
+            <Button
+              variant="dark"
+              size="sm"
+              style={!can("create_order") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+              onClick={handlePlaceOrder}
+              disabled={placing}
+              loading={placing}
+            >
+              Place Order
+            </Button>
+          )}
+          {order.status === "sent" && (
+            <Button
+              variant="dark"
+              size="sm"
+              iconLeft={<ClipboardCheck size={14} />}
+              style={!can("receive_order") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+              onClick={handleConfirmOrder}
+              disabled={confirmingOrder}
+              loading={confirmingOrder}
+            >
+              Confirm Order
+            </Button>
+          )}
           {canCancel && (
             <Button
               variant="outline-dark"
+              size="sm"
               iconLeft={<XCircle size={14} />}
               style={!can("cancel_order") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
               onClick={handleCancel}
@@ -213,6 +308,7 @@ const OrderDetailPage: React.FC = () => {
           )}
           <Button
             variant="outline-dark"
+            size="sm"
             iconLeft={<FileEarmarkPdf size={14} />}
             style={(!can("download_order_pdf") || !can("export_pdf")) ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
             onClick={handleDownloadPurchaseOrder}
@@ -222,6 +318,7 @@ const OrderDetailPage: React.FC = () => {
           {canDownloadBill && (
             <Button
               variant="outline-dark"
+              size="sm"
               iconLeft={<FileEarmarkPdf size={14} />}
               style={(!can("download_order_pdf") || !can("export_pdf")) ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
               onClick={handleDownloadBill}
@@ -239,7 +336,7 @@ const OrderDetailPage: React.FC = () => {
               setDeleteOpen(true);
             }}
           >
-            Delete
+            {order.status === "draft" ? "Delete Draft" : "Delete"}
           </Button>
         </div>
       </header>

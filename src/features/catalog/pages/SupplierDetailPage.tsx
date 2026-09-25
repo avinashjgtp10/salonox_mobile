@@ -163,7 +163,7 @@ const SupplierDetailPage: React.FC<Props> = ({ id: propId, onClose }) => {
       <header className="supplier-detail-page__header">
         <div>
           <h1>{supplier.name}</h1>
-          <p>{[supplier.first_name, supplier.last_name].filter(Boolean).join(" ") || supplier.email || "—"}</p>
+          <p>{supplier.contact_person || [supplier.first_name, supplier.last_name].filter(Boolean).join(" ") || supplier.email || "—"}</p>
         </div>
         <div className="d-flex gap-2">
           <Button

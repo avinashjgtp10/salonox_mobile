@@ -18,6 +18,9 @@ export const SUPPLIER_MESSAGES = {
   EMAIL_INVALID: "Enter a valid email address",
   MOBILE_REQUIRED: "Mobile number is required",
   MOBILE_INVALID: "Mobile number must be exactly 10 digits",
+  GSTIN_INVALID: "Enter a valid 15-character GSTIN",
+  PAN_INVALID: "Enter a valid 10-character PAN",
+  IFSC_INVALID: "Enter a valid 11-character IFSC code",
 } as const;
 
 export const CURRENCY_MESSAGES = {

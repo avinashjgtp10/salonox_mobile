@@ -6,6 +6,8 @@ export interface InventoryResponse<T> {
 
 // ─── Supplier ────────────────────────────────────────────────────────────────
 
+export type SupplierType = "product" | "consumable" | "both";
+
 export interface Supplier {
   id: string;
   name: string;
@@ -32,34 +34,50 @@ export interface Supplier {
   postal_zip_code: string | null;
   postal_country: string | null;
   is_active: boolean;
+  // Supplier Master fields — populated by the current Add Supplier form.
+  supplier_code: string | null;
+  supplier_type: SupplierType;
+  contact_person: string | null;
+  address: string | null;
+  gstin: string | null;
+  pan: string | null;
+  business_registration_number: string | null;
+  payment_terms_days: number;
+  credit_limit: number;
+  bank_account_holder_name: string | null;
+  bank_name: string | null;
+  bank_account_number: string | null;
+  bank_ifsc_code: string | null;
+  notes: string | null;
   created_at: string;
   updated_at: string;
 }
 
+// Only what the current Add Supplier form actually collects — supplier_code
+// is server-generated, never sent from the client.
 export interface CreateSupplierPayload {
   name: string;
-  description?: string;
-  first_name?: string;
-  last_name?: string;
-  mobile_country_code?: string;
+  supplier_type?: SupplierType;
+  contact_person?: string;
   mobile_number?: string;
-  telephone_country_code?: string;
-  telephone_number?: string;
+  mobile_country_code?: string;
   email?: string;
   website?: string;
-  street?: string;
-  suburb?: string;
+  address?: string;
   city?: string;
   state?: string;
   zip_code?: string;
   country?: string;
-  same_as_physical?: boolean;
-  postal_street?: string | null;
-  postal_suburb?: string | null;
-  postal_city?: string | null;
-  postal_state?: string | null;
-  postal_zip_code?: string | null;
-  postal_country?: string | null;
+  gstin?: string;
+  pan?: string;
+  business_registration_number?: string;
+  payment_terms_days?: number;
+  credit_limit?: number;
+  bank_account_holder_name?: string;
+  bank_name?: string;
+  bank_account_number?: string;
+  bank_ifsc_code?: string;
+  notes?: string;
   is_active?: boolean;
 }
 
@@ -398,6 +416,9 @@ export interface Order {
   total_quantity: number;
   total_price: number;
   created_by: string | null;
+  // Set when "Confirm Order" is clicked on a "sent" order — gates whether it
+  // shows on the Verify Order list before anything's actually been received.
+  verification_started_at: string | null;
   created_at: string;
   updated_at: string;
   items?: OrderItem[];
