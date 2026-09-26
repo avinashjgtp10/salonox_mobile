@@ -216,6 +216,11 @@ export interface Booking {
   staffName?: string;
   staffPhone?: string;
   staffEmail?: string;
+  // Set only by the public Online Booking "Any Available" option — staffId
+  // above is still a real, auto-assigned stylist (for schedule/commission),
+  // this just says the customer never expressed a preference. Read by
+  // DayView.tsx to place the chip in the synthetic "Any" column instead.
+  isAnyStaff?: boolean;
   date: string;
   billDate: string;
   startTime: string;

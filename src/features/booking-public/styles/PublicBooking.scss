@@ -522,6 +522,19 @@
 
 .pb__layout--single { max-width: 680px; }
 
+// Reset back to one column above 1024px — otherwise this modifier only
+// changed max-width, and the confirmation screen's single panel silently
+// inherited the two-column services/summary grid from the base .pb__layout
+// rule above. With only one child, it landed in column 1 alone (~320px, not
+// the intended 680px) while an empty ~360px second column sat invisibly
+// beside it — same root cause behind both "content pinned to the left with a
+// dead gap next to it" and the confirmation card's text wrapping character-
+// by-character, and only visible above 680px width (below that, both
+// columns collapse to nothing to argue over).
+@media (min-width: 1024px) {
+  .pb__layout--single { grid-template-columns: minmax(0, 1fr); }
+}
+
 .pb__col-main { display: grid; gap: 20px; min-width: 0; }
 
 .pb__col-side { display: grid; gap: 16px; min-width: 0; }

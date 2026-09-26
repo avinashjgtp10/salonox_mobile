@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from "react";
-import type { Booking, BlockedTime } from "../../types/booking.types";
+import type { Booking, BlockedTime, Staff } from "../../types/booking.types";
 import { useScheduler, SLOT_HEIGHT } from "../../hooks/useScheduler";
 import { useSchedulerContext } from "../../store/SchedulerContext";
 import type { DragCandidate, ResizeState } from "../../hooks/useDragDrop";
@@ -20,6 +20,22 @@ const EMPTY_BLOCKS: BlockedTime[] = [];
 // Must match .dv-gutter width and .dv-header-row height in DayView.scss
 const GUTTER_WIDTH = 72;
 const HEADER_HEIGHT = 56;
+
+// Synthetic column (not a real staff row) for online bookings where the
+// customer picked "Any Available" — a real stylist is still assigned
+// underneath (schedule/commission logic needs one), but the column groups
+// these by customer intent rather than by whichever stylist auto-assignment
+// happened to pick. Read-only: BookingChip locks dragging/resizing for any
+// booking with isAnyStaff, and this column has no real staff schedule to
+// validate a slot-click booking against, so slot clicks and the staff header
+// menu (Add Block Time, etc.) are both disabled for it below.
+const ANY_STAFF_COL_ID = "any-staff";
+const ANY_STAFF_COLUMN: Staff = {
+  id: ANY_STAFF_COL_ID,
+  name: "Any Available",
+  initials: "A",
+  color: "#6b7280",
+};
 
 interface StaffSegment { time: string; endTime: string; }
 
@@ -108,9 +124,23 @@ const DayView: React.FC<DayViewProps> = ({
 
   // Empty selection = "All Staff" — otherwise show only the selected staff
   // members' columns, side by side, so schedules can be compared directly.
-  const visibleStaff = useMemo(
+  const realVisibleStaff = useMemo(
     () => selectedStaffIds.length > 0 ? staffList.filter((s) => selectedStaffIds.includes(s.id)) : staffList,
     [staffList, selectedStaffIds],
+  );
+
+  // The "Any" column only appears on a day that actually has one of these
+  // bookings — an always-present empty column would waste screen space on
+  // every other day for a salon whose customers mostly pick a specific
+  // stylist. Named `visibleStaff` (not `realVisibleStaff`) since this is what
+  // every render/layout computation below should treat as "the columns".
+  const hasAnyStaffToday = useMemo(
+    () => bookings.some((b) => b.date === currentDate && b.isAnyStaff),
+    [bookings, currentDate],
+  );
+  const visibleStaff = useMemo(
+    () => hasAnyStaffToday ? [ANY_STAFF_COLUMN, ...realVisibleStaff] : realVisibleStaff,
+    [realVisibleStaff, hasAnyStaffToday],
   );
 
   const today = new Date().toISOString().slice(0, 10);
@@ -337,7 +367,12 @@ const DayView: React.FC<DayViewProps> = ({
           const deltaX = e.clientX - prev.startX;
           const colShift = Math.round(deltaX / COL_WIDTH);
           const origIndex = visibleStaff.findIndex((s) => s.id === prev.originalStaffId);
-          const newIndex = Math.max(0, Math.min(visibleStaff.length - 1, origIndex + colShift));
+          // A dragged booking always originates on a real staff column (the
+          // Any column's own chips can't be dragged — see BookingChip's
+          // isReadOnly), so the drop target must skip index 0 whenever
+          // that's the synthetic Any column, never treating it as landable.
+          const minDragIndex = hasAnyStaffToday ? 1 : 0;
+          const newIndex = Math.max(minDragIndex, Math.min(visibleStaff.length - 1, origIndex + colShift));
           return {
             ...prev,
             currentTop: Math.max(0, snapped),
@@ -357,7 +392,8 @@ const DayView: React.FC<DayViewProps> = ({
         const rawTop = dragCandidate.originalTop + deltaY;
         const snapped = Math.round(rawTop / SLOT_HEIGHT) * SLOT_HEIGHT;
         const colShift = Math.round(deltaX / COL_WIDTH);
-        const newIndex = Math.max(0, Math.min(visibleStaff.length - 1, dragCandidate.currentStaffIndex + colShift));
+        const minDragIndex = hasAnyStaffToday ? 1 : 0;
+        const newIndex = Math.max(minDragIndex, Math.min(visibleStaff.length - 1, dragCandidate.currentStaffIndex + colShift));
 
         setDragging({
           booking: dragCandidate.booking,
@@ -503,7 +539,7 @@ const DayView: React.FC<DayViewProps> = ({
       window.removeEventListener("mouseup", onMouseUp);
       window.removeEventListener("blur", onBlur);
     };
-  }, [isDragActive, intervalMins, updateBooking, COL_WIDTH, visibleStaff]);
+  }, [isDragActive, intervalMins, updateBooking, COL_WIDTH, visibleStaff, hasAnyStaffToday]);
 
   useEffect(() => {
     if (!resizing) return;
@@ -634,8 +670,31 @@ const DayView: React.FC<DayViewProps> = ({
     const clampSameDayEnd = (start: string, end: string) => (toMinsLocal(end) <= toMinsLocal(start) ? "23:59" : end);
 
     visibleStaff.forEach((staff) => {
+      // The synthetic "Any" column buckets purely by the isAnyStaff flag —
+      // there's no real schedule/segments to match against, and dragging is
+      // already locked for these in BookingChip so draggingOriginalStaffId/
+      // draggingCurrentStaffId can never legitimately equal this column's id.
+      if (staff.id === ANY_STAFF_COL_ID) {
+        const staffBookings = dayBookings
+          .filter((b) => b.isAnyStaff)
+          .map((b) => ({ booking: b, staffStart: b.startTime, staffEnd: clampSameDayEnd(b.startTime, b.endTime) }));
+        const overlapLayout = computeOverlapLayout(
+          staffBookings.map(({ booking: b, staffStart, staffEnd }) => ({
+            id: `${b.id}-${staff.id}`,
+            startMin: toMinsLocal(staffStart),
+            endMin: toMinsLocal(staffEnd),
+          }))
+        );
+        map.set(staff.id, { staffBookings, overlapLayout });
+        return;
+      }
+
       const staffBookings = dayBookings
         .filter((b) => {
+          // Shown only in the Any column above, never under whichever real
+          // stylist auto-assignment happened to pick — otherwise it would
+          // render twice.
+          if (b.isAnyStaff) return false;
           if (draggingBookingId === b.id
               && (staff.id === draggingOriginalStaffId || staff.id === draggingCurrentStaffId)) {
             return draggingCurrentStaffId === staff.id;
@@ -744,6 +803,9 @@ const DayView: React.FC<DayViewProps> = ({
                     style={{ width: COL_WIDTH }}
                     onClick={(e) => {
                       e.stopPropagation();
+                      // Not a real staff member — nothing in the menu
+                      // (Add Block Time, etc.) applies to it.
+                      if (staff.id === ANY_STAFF_COL_ID) return;
                       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
                       setStaffMenu((prev) => prev?.staffId === staff.id ? null : { staffId: staff.id, x: rect.left, y: rect.bottom + 4 });
                     }}
@@ -795,10 +857,15 @@ const DayView: React.FC<DayViewProps> = ({
 
                   {slots.map((t) => {
                     const [, m] = t.split(":").map(Number);
-                    const offHours = isSlotOffHours(staff.id, t);
-                    const blocked = isSlotBlocked(staff.id, t);
-                    const booked = !blocked && !offHours && isSlotBooked(staff.id, t);
-                    const unavailable = blocked || booked || offHours;
+                    // Not a real staff member — there's no schedule/blocked-
+                    // time data to check, and clicking to create a new
+                    // appointment here would submit a bogus staffId. Neutral
+                    // (non-blocked-looking) but inert.
+                    const isAnyCol = staff.id === ANY_STAFF_COL_ID;
+                    const offHours = !isAnyCol && isSlotOffHours(staff.id, t);
+                    const blocked = !isAnyCol && isSlotBlocked(staff.id, t);
+                    const booked = !isAnyCol && !blocked && !offHours && isSlotBooked(staff.id, t);
+                    const unavailable = blocked || booked || offHours || isAnyCol;
                     return (
                       <div
                         key={t}
@@ -807,7 +874,7 @@ const DayView: React.FC<DayViewProps> = ({
                           onSlotClick(staff.id, t);
                         }}
                         className={`dv-slot${m === 0 ? " dv-slot--hour" : ""}${blocked ? " dv-slot--blocked" : ""}${booked ? " dv-slot--booked" : ""}${offHours ? " dv-slot--off-hours" : ""}${isInteracting ? " dv-slot--interacting" : ""}`}
-                        style={isInteracting ? { cursor: "grabbing" } : undefined}
+                        style={isInteracting ? { cursor: "grabbing" } : (isAnyCol ? { cursor: "default" } : undefined)}
                         onMouseEnter={(e) => { if (!unavailable && !isInteracting) (e.currentTarget as HTMLElement).classList.add("dv-slot--hover"); }}
                         onMouseLeave={(e) => { (e.currentTarget as HTMLElement).classList.remove("dv-slot--hover"); }}
                       />

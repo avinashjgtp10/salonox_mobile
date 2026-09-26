@@ -187,6 +187,11 @@ export function useAppointment() {
       const baseData = {
         salon_id:         salonId || undefined,
         ...(source ? { source } : {}),
+        // Editing an "Any Available" online booking through this modal is a
+        // deliberate staff decision — the moment it's saved here, it's no
+        // longer ambiguous, so it stops going back to the Calendar's
+        // synthetic "Any" column even if the stylist ends up unchanged.
+        ...(existingBooking?.isAnyStaff ? { is_any_staff: false } : {}),
         client_id:   (clientId && isRealId(clientId) && clientId !== 'walk-in') ? clientId : undefined,
         staff_id:         toApiStaffId(firstRow?.staffId ?? (booking as any).staffId),
         scheduled_at:     new Date(bookingStartMs).toISOString(),
