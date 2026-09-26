@@ -39,6 +39,20 @@ for (const route of server.routes) {
   console.log(`prerendered ${route.path.padEnd(10)} -> ${path.basename(out)} (${(html.length / 1024).toFixed(1)} kB)`);
 }
 
+// nginx must fall back to the SPA shell for exactly the app route prefixes in
+// seo.config.ts; a mismatch would 404 real app pages (or serve the shell for
+// junk URLs), so fail the build instead of shipping it.
+const nginxConf = fs.readFileSync(path.resolve("nginx.conf"), "utf8");
+const appLocation = nginxConf.match(/location\s+~\s+\^\/\(([^)]*)\)\(\/\|\$\)/);
+if (!appLocation) throw new Error("prerender: nginx.conf has no app-route location regex");
+const inNginx = new Set(appLocation[1].split("|"));
+const inConfig = new Set(server.appRoutePrefixes.map((p) => p.slice(1)));
+const missing = [...inConfig].filter((p) => !inNginx.has(p));
+const extra = [...inNginx].filter((p) => !inConfig.has(p));
+if (missing.length || extra.length) {
+  throw new Error(`prerender: nginx.conf app routes differ from seo.config.ts (missing in nginx: [${missing}], only in nginx: [${extra}])`);
+}
+
 // 404 page: served by nginx (error_page 404) with a real 404 status at any
 // unknown URL, so it carries no canonical and is noindex.
 const notFound = template
