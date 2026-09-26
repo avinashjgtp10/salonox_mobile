@@ -18,6 +18,29 @@ const server = await import(pathToFileURL(path.resolve("dist-ssr/entry-server.js
 
 const fileNameFor = (routePath) => (routePath === "/" ? "home.html" : `${routePath.slice(1)}.html`);
 
+// Structured data must parse, and every price it advertises must be visible in
+// the same rendered page (Google treats a mismatch as misleading markup).
+function assertStructuredData(route, html) {
+  const blocks = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map((m) => m[1]);
+  for (const raw of blocks) {
+    let data;
+    try {
+      data = JSON.parse(raw);
+    } catch (e) {
+      throw new Error(`prerender: ${route.path} has JSON-LD that does not parse: ${e.message}`);
+    }
+    if (data["@type"] !== "SoftwareApplication") continue;
+    for (const offer of data.offers?.offers ?? []) {
+      if (offer.priceCurrency !== "INR") continue;
+      const visible = `₹${Number(offer.price).toLocaleString("en-IN")}`;
+      if (!html.includes(visible)) {
+        throw new Error(`prerender: ${route.path} JSON-LD offer "${offer.name}" ${visible} is not visible on the page`);
+      }
+    }
+  }
+  return blocks.length;
+}
+
 for (const marker of ["<!--app-head-->", "<!--app-html-->"]) {
   if (!template.includes(marker)) throw new Error(`prerender: marketing.html is missing ${marker}`);
 }
@@ -33,6 +56,8 @@ for (const route of server.routes) {
     throw new Error(`prerender: ${route.path} is missing its <title>`);
   }
   if (!html.includes('rel="canonical"')) throw new Error(`prerender: ${route.path} has no canonical`);
+
+  assertStructuredData(route, html);
 
   const out = path.join(dist, fileNameFor(route.path));
   fs.writeFileSync(out, html);

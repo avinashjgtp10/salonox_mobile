@@ -1,9 +1,8 @@
-import { MARKETING_ROUTES, NOT_FOUND_PAGE, SITE, type MarketingRoute } from "./seo.config";
+import { jsonLdFor, serializeJsonLd } from "./jsonld";
+import { absoluteUrl, MARKETING_ROUTES, NOT_FOUND_PAGE, SITE, type MarketingRoute } from "./seo.config";
 
-// Everything here builds absolute URLs from SITE.origin — never from the
-// request host — so canonical / og:url / og:image are identical wherever the
-// page is served from (www, apex, dev, qa).
-export const absoluteUrl = (p: string) => (/^https?:\/\//.test(p) ? p : `${SITE.origin}${p}`);
+// Canonical / og:url / og:image are built with absoluteUrl (SITE.origin), so
+// they are identical wherever the page is served from (www, apex, dev, qa).
 
 export function routeFor(pathname: string): MarketingRoute | undefined {
   const normalized = pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
@@ -54,7 +53,8 @@ export function buildHeadTags(route: MarketingRoute): string {
         .map(([k, v]) => `${k}="${esc(v)}"`)
         .join(" ")} />`,
   );
-  return [`<title>${esc(route.title)}</title>`, ...lines].join("\n    ");
+  const ld = jsonLdFor(route).map((o) => `<script type="application/ld+json">${serializeJsonLd(o)}</script>`);
+  return [`<title>${esc(route.title)}</title>`, ...lines, ...ld].join("\n    ");
 }
 
 /** Head for the prerendered 404 page: no canonical/og:url (it is served at any URL). */
@@ -78,5 +78,12 @@ export function applyHeadToDocument(route: MarketingRoute): void {
       document.head.appendChild(el);
     }
     for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+  }
+  document.head.querySelectorAll('script[type="application/ld+json"]').forEach((n) => n.remove());
+  for (const obj of jsonLdFor(route)) {
+    const el = document.createElement("script");
+    el.type = "application/ld+json";
+    el.textContent = serializeJsonLd(obj);
+    document.head.appendChild(el);
   }
 }

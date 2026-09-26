@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../../services/api/axios';
 import { SALON_PLANS } from '../../../services/api/endpoints';
+import { PLANS } from '../../../marketing/seo.config';
 import {
   Icon,
   Reveal,
@@ -20,81 +21,65 @@ interface PurchasePlan {
   features: string[];
 }
 
-// Hardcoded fallback — shown if the live catalog fails to load (landing
-// page has no auth session to retry with, unlike the dashboard), so a
-// backend hiccup never means the pricing section renders blank for a
-// visitor still deciding whether to sign up. Kept in sync by hand with
-// whatever super admin currently has configured; drifts are cosmetic only
-// (this never determines what a real purchase actually charges — see
-// GET /salon-plans/definitions, the live source of truth this component
-// fetches on mount).
-const FALLBACK_PLANS: PurchasePlan[] = [
-  {
-    name: 'Basic',
-    price: '₹8,000',
-    description: 'For business looking for essential management features to get started.',
-    cta: 'Buy Basic',
-    badge: '',
-    featured: false,
-    premium: false,
-    features: [
-      'Mobile App',
-      'Dashboard',
-      'Quick Sale',
-      'Calendar',
-      'Services',
-      'Products',
-      'Limited Reports',
-    ],
-  },
-  {
-    name: 'Advance',
-    price: '₹12,000',
-    description: 'For business that need complete salon management functionality.',
-    cta: 'Buy Advance',
-    badge: '',
-    featured: true,
-    premium: false,
-    features: [
-      'Mobile App',
-      'All Basic Plan features',
-      'Full Dashboard access',
-      'Quick Sale',
-      'Calendar',
-      'Services',
-      'Products',
-      'Memberships',
-      'Packages',
-      'Full Reports',
-      'Staff Management',
-      'Client Management',
-      'Inventory Management',
-      'Payroll',
-      'Enquiry',
-      'Cash Management',
-      'Settings',
-    ],
-  },
-  {
-    name: 'Growth',
-    price: '₹15,000',
-    description: 'For growing business that need advanced digital and multi-branch capabilities.',
-    cta: 'Buy Growth',
-    badge: '',
-    featured: false,
-    premium: true,
-    features: [
-      'Mobile App',
-      'Everything in Advance Plan',
-      'Web Building',
-      'Google SEO',
-      'Meta Marketing',
-      'Multi-Branch Handling',
-      'Advanced Reports',
-      'Consultation',
-    ],
-  },
-];
+// Fallback — shown if the live catalog fails to load (landing page has no auth
+// session to retry with, unlike the dashboard), so a backend hiccup never means
+// the pricing section renders blank. It is also what the prerendered page and
+// crawlers see. Names/prices/descriptions come from PLANS in
+// src/marketing/seo.config.ts (the same list feeds the JSON-LD offers, which
+// must match this section); keep that list in sync with the live plans. Drifts
+// are cosmetic only — this never determines what a real purchase charges (see
+// GET /salon-plans/definitions, the live source of truth fetched on mount).
+const FALLBACK_FEATURES: Record<(typeof PLANS)[number]['tier'], string[]> = {
+  basic: [
+    'Mobile App',
+    'Dashboard',
+    'Quick Sale',
+    'Calendar',
+    'Services',
+    'Products',
+    'Limited Reports',
+  ],
+  advance: [
+    'Mobile App',
+    'All Basic Plan features',
+    'Full Dashboard access',
+    'Quick Sale',
+    'Calendar',
+    'Services',
+    'Products',
+    'Memberships',
+    'Packages',
+    'Full Reports',
+    'Staff Management',
+    'Client Management',
+    'Inventory Management',
+    'Payroll',
+    'Enquiry',
+    'Cash Management',
+    'Settings',
+  ],
+  pro: [
+    'Mobile App',
+    'Everything in Advance Plan',
+    'Web Building',
+    'Google SEO',
+    'Meta Marketing',
+    'Multi-Branch Handling',
+    'Advanced Reports',
+    'Consultation',
+  ],
+};
+
+const FALLBACK_PLANS: PurchasePlan[] = PLANS.map((plan) => ({
+  name: plan.name,
+  price: `₹${plan.price.toLocaleString('en-IN')}`,
+  description: plan.description,
+  cta: `Buy ${plan.name}`,
+  badge: '',
+  featured: plan.tier === 'advance',
+  premium: plan.tier === 'pro',
+  features: FALLBACK_FEATURES[plan.tier],
+}));
 
 const TIER_ORDER = ['basic', 'advance', 'pro'];
 
