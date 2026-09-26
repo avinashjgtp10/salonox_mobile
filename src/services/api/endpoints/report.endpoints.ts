@@ -301,6 +301,13 @@ export const APPOINTMENT_DETAIL_REPORT = {
   SUMMARY: () => `/api/report/appointment-detail`,
 } as const;
 
+// Independent Online Appointment reporting API — same query as Appointment
+// Detail, filtered server-side to appointments classified as booked online.
+// Mounted at /api/report.
+export const ONLINE_APPOINTMENT_REPORT = {
+  SUMMARY: () => `/api/report/online-appointment`,
+} as const;
+
 // Independent Upcoming Appointments reporting API — reads the appointments
 // table directly via SQL, never through the Appointment HTTP API/service.
 // Scoped server-side to future, still-booked appointments. Mounted at

@@ -61,6 +61,7 @@ export const REVEAL_ON_MASTER_TOGGLE: string[] = [
   "view_report_client_revenue", "view_report_customer_frequency", "view_report_lost_customers",
   "view_report_customer_spend", "view_report_service_frequency", "view_report_referral_report",
   "view_report_client_rating", "view_report_enquiry_report", "view_report_appointment_detail",
+  "view_report_online_appointment",
   "view_report_upcoming_appointments", "view_report_no_show_recovery", "view_report_product_sale_inventory",
   "view_report_product_margin_inventory", "view_report_product_inventory", "view_report_slow_moving_products",
   "view_report_fast_moving_products", "view_report_brand_performance", "view_report_purchase_vs_sales",
