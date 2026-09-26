@@ -34,7 +34,6 @@ import TeamMemberDrawer from "../components/TeamMemberDrawer";
 import { exportStaffPDF, exportStaffCSV, exportStaffExcel } from "../utils/staffExport";
 import { usePermissions } from "../../../hooks/usePermissions";
 import { showPermissionDenied } from "../../../store/permissionDialogSlice";
-import LearnMoreLink from "../../../components/shared/LearnMoreLink";
 
 interface StaffMember {
   id: string;
@@ -424,7 +423,6 @@ export default function StaffListPage() {
           </div>
           <p className="slp-subtitle">
             Manage your staff, their roles and access levels.
-            <LearnMoreLink topic="staff-list" className="slp-learn-more">Learn more</LearnMoreLink>
           </p>
         </div>
         <div className="slp-header__right">

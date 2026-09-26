@@ -191,30 +191,25 @@ const ScheduledShiftsPage: React.FC = () => {
   const handleConfirmDeleteTimeBlock = () => {
     if (!deleteTarget) return;
     const { staffId, date } = deleteTarget;
-
-    console.log("[DEBUG] deletingStaffId:", staffId);
-    console.log("[DEBUG] deletingDate:", date);
-
     const payload = { staff_id: staffId, date };
-    console.log("[DEBUG] delete payload:", payload);
 
     dispatch(removeShiftEntry({ staffId, date }));
-    const remainingCount = Math.max(
-      0,
-      Object.values(shifts).reduce((count, staffShifts) => count + Object.keys(staffShifts).length, 0) - 1
-    );
-    console.log("[DEBUG] remaining schedule count:", remainingCount);
 
     dispatch(deleteSingleShiftThunk(payload))
       .unwrap()
-      .then((res) => {
-        console.log("[DEBUG] API response:", res);
+      .then(() => {
         // Same cache-invalidation reason as handleSaveAvailability above.
         dispatch(bumpScheduleVersion());
       })
       .catch((err) => {
-        console.error("[DEBUG] Delete failed:", err);
+        console.error("Delete time block failed:", err);
         showError("Failed to delete time block");
+        // The dispatch above already removed the row from Redux state
+        // optimistically before the API call — on failure (including the
+        // backend's "nothing to delete" case) that row would otherwise stay
+        // gone from the grid, looking deleted, until the next full reload.
+        // Re-fetch the real server state for this week to undo it.
+        dispatch(fetchDailyShifts({ weekStartDate: weekStartKey, page, limit: pageSize }));
       });
 
     setDeleteTarget(null);
@@ -236,8 +231,6 @@ const ScheduledShiftsPage: React.FC = () => {
       : drawer.mode === "timeoff" ? "add_time_off"
       : isAddingWorkingHours ? "add_working_hours" : "edit_working_hours";
     if (!can(savePermKey)) { denyPerm(savePermKey); return; }
-    // 8. Add Temporary Debug Logs
-    console.log("[DEBUG] selectedDate:", date);
 
     if (drawer.mode === "dayoff" || !isAvailable) {
       dispatch(setDayOff({ staffId, date }));
@@ -263,13 +256,9 @@ const ScheduledShiftsPage: React.FC = () => {
       repeat_weekly: repeatWeekly,
     };
 
-    console.log("[DEBUG] save payload:", payload);
-    console.log("[DEBUG] number of records being saved:", 1);
-
     dispatch(saveSingleShiftThunk(payload))
       .unwrap()
-      .then((res) => {
-        console.log("[DEBUG] API response:", res);
+      .then(() => {
         showSuccess(
           repeatWeekly
             ? `${isAddingWorkingHours ? "Working hours added" : "Availability updated"} and set to repeat weekly`
@@ -283,7 +272,7 @@ const ScheduledShiftsPage: React.FC = () => {
         dispatch(bumpScheduleVersion());
       })
       .catch((err) => {
-        console.error("[DEBUG] Save failed:", err);
+        console.error("Save availability failed:", err);
         showError("Failed to save changes");
         // The dispatch above already wrote the optimistic change into Redux
         // state before the API call — on failure that phantom edit would
@@ -478,6 +467,12 @@ const ScheduledShiftsPage: React.FC = () => {
         // saying "works 2–3pm every Tuesday", which Online Booking would then
         // treat as this staff member's real Tuesday schedule.
         allowRepeatWeekly={drawer.mode === "edit" || drawer.mode === "dayoff"}
+        // Only "Edit Working Hours" should reject resubmitting the exact
+        // same range as a no-op — Day Off/Blocked/Time Off drawers pre-fill
+        // those same default times, so this guard would otherwise wrongly
+        // block e.g. flipping "Staff is Available" back on with the
+        // pre-filled defaults in the Manage Day Off drawer.
+        checkDuplicateRange={drawer.mode === "edit"}
         onClose={closeDrawer}
         onSave={handleSaveAvailability}
       />
