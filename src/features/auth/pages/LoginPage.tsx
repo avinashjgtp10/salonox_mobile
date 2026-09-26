@@ -46,7 +46,7 @@ export default function LoginPage() {
   };
 
   const handleEmailChange = (value: string) => {
-    setEmail(value);
+    setEmail(value.toLowerCase());
     if (submitted) {
       const msg = validateField("email", value);
       setErrors(prev => ({ ...prev, email: msg || undefined, api: undefined }));

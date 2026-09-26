@@ -142,6 +142,7 @@ export default function RegisterPage() {
     const checked = (e.target as HTMLInputElement).checked;
     const sanitized =
       name === "fullName" ? value.replace(/[^a-zA-Z\s]/g, "") :
+      name === "email" ? value.toLowerCase() :
       TEXT_ONLY_FIELDS.has(name) ? value.replace(/[0-9]/g, "") :
       value;
     setForm((prev) => ({
