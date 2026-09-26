@@ -1,0 +1,4 @@
+/* Bootstrap CSS for the marketing pages, imported through a local file so the
+   module is not assigned to chunk-bootstrap (which also holds the dashboard's
+   react-bootstrap-icons JS and would otherwise be downloaded for the CSS). */
+@import "bootstrap/dist/css/bootstrap.min.css";

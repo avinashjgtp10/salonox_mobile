@@ -111,6 +111,7 @@ export default defineConfig(({ mode }) => {
               id.includes('node_modules/immer/') ||
               id.includes('node_modules/reselect/') ||
               id.includes('node_modules/use-sync-external-store/') ||
+              id.includes('node_modules/classnames/') ||
               id.includes('node_modules/@standard-schema/')) {
             return 'chunk-react'
           }
@@ -119,6 +120,15 @@ export default defineConfig(({ mode }) => {
           if (id.includes('node_modules/react-router') ||
               id.includes('node_modules/@remix-run/')) {
             return 'chunk-router'
+          }
+
+          // ── Shared API layer (axios instance, interceptors, endpoint maps). Imported
+          // by the dashboard AND the public marketing pages, and it has no static
+          // imports back into the app (only lazy import()s of store slices). Left
+          // unpinned, Rollup folds it into chunk-calendar, so every marketing page
+          // downloaded the whole ~1 MB dashboard chunk plus its CSS.
+          if (id.includes('src/services/api/')) {
+            return 'chunk-api'
           }
 
           // ── Calendar / booking views (avoid "Scheduler" in chunk name — triggers ad blockers)
@@ -144,6 +154,21 @@ export default defineConfig(({ mode }) => {
               id.includes('node_modules/react-bootstrap/') ||
               id.includes('node_modules/react-bootstrap-icons/')) {
             return 'chunk-bootstrap'
+          }
+
+          // ── Libraries the public marketing page needs. Each used to sit in a shared
+          // bucket (chunk-vendor-misc / chunk-ui-libs) that holds the whole dashboard's
+          // dependencies, so importing one of them made every marketing page download
+          // ~875 KB (gzip) of unrelated code. Their only shared dependencies live in
+          // chunk-react (prop-types, classnames), so these chunks cannot form a cycle.
+          if (id.includes('node_modules/libphonenumber-js/') ||
+              id.includes('node_modules/react-phone-number-input/') ||
+              id.includes('node_modules/input-format/') ||
+              id.includes('node_modules/country-flag-icons/')) {
+            return 'chunk-phone'
+          }
+          if (id.includes('node_modules/react-icons/')) {
+            return 'chunk-icons'
           }
 
           // ── UI / icon libraries ─────────────────────────────────────────────
