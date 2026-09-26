@@ -3,6 +3,8 @@ import { Route, Routes, useLocation } from "react-router-dom";
 import LandingPage from "../features/marketing-site/pages/landing";
 import { applyHeadToDocument, routeFor } from "./head";
 import { NotFoundPage } from "./NotFoundPage";
+import { SeoLandingPage } from "./SeoLandingPage";
+import { seoPageFor } from "./seoPages";
 import { isAppPath, MARKETING_ROUTES } from "./seo.config";
 
 // This tree only knows the marketing routes. An app link (login, register,
@@ -19,6 +21,14 @@ function LeaveToApp() {
 export function MarketingApp() {
   const { pathname } = useLocation();
 
+  // Set statically in marketing.html; re-applied per route because the landing
+  // page removes it when it unmounts (e.g. navigating on to an SEO page).
+  useEffect(() => {
+    [document.documentElement, document.body, document.getElementById("root")].forEach((n) =>
+      n?.classList.add("landing-page-active"),
+    );
+  }, [pathname]);
+
   useEffect(() => {
     const route = routeFor(pathname);
     if (route) applyHeadToDocument(route);
@@ -26,9 +36,10 @@ export function MarketingApp() {
 
   return (
     <Routes>
-      {MARKETING_ROUTES.map((r) => (
-        <Route key={r.path} path={r.path} element={<LandingPage />} />
-      ))}
+      {MARKETING_ROUTES.map((r) => {
+        const seoPage = seoPageFor(r.path);
+        return <Route key={r.path} path={r.path} element={seoPage ? <SeoLandingPage page={seoPage} /> : <LandingPage />} />;
+      })}
       <Route path="*" element={isAppPath(pathname) ? <LeaveToApp /> : <NotFoundPage />} />
     </Routes>
   );

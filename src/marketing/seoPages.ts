@@ -1,0 +1,112 @@
+import type { JsonLdKind, MarketingRoute } from "./seo.config";
+
+// Config-driven SEO landing pages. To add a page, add ONE entry:
+//   - a business type  -> VERTICALS
+//   - a city           -> CITIES
+// Each becomes a prerendered page rendered by SeoLandingPage.tsx.
+//
+// Every page starts with indexable: false, so it is emitted with
+// <meta name="robots" content="noindex,follow">, left out of sitemap.xml and
+// emits no structured data. Replace the TODO copy, then set indexable: true
+// (per entry, or flip INDEXABLE_BY_DEFAULT below).
+
+const INDEXABLE_BY_DEFAULT = false;
+
+export interface SeoPage {
+  slug: string;
+  h1: string;
+  title: string;
+  description: string;
+  /** Singular, used in the WhatsApp message ("my salon"). */
+  audienceSingular: string;
+  city?: string;
+  /** "plans" shows the INR plans from PLANS; "todo" shows a placeholder. */
+  pricing: "plans" | "todo";
+  intro: string;
+  painPoints: { title: string; body: string }[];
+  features: { title: string; body: string }[];
+  faqs: { q: string; a: string }[];
+  indexable: boolean;
+}
+
+const todo = (what: string) => `TODO: ${what}`;
+
+interface Vertical {
+  slug: string;
+  h1: string;
+  titleKeyword: string;
+  audience: string;
+  audienceSingular: string;
+}
+
+const VERTICALS: Vertical[] = [
+  { slug: "salon-software", h1: "Salon Software for Billing, Appointments & Staff", titleKeyword: "Salon Management Software", audience: "salons", audienceSingular: "salon" },
+  { slug: "spa-software", h1: "Spa Software for Bookings, Packages & Therapist Scheduling", titleKeyword: "Spa Management Software", audience: "spas", audienceSingular: "spa" },
+  { slug: "beauty-clinic-software", h1: "Beauty Clinic Software for Appointments, Records & Billing", titleKeyword: "Beauty Clinic Software", audience: "beauty clinics", audienceSingular: "beauty clinic" },
+  { slug: "salon-billing-software", h1: "Salon Billing Software with GST Invoicing & Quick Sale", titleKeyword: "Salon Billing Software", audience: "salons", audienceSingular: "salon" },
+];
+
+interface City {
+  slug: string;
+  city: string;
+  /** Prices are only shown for INR markets; other markets show a TODO. */
+  pricing: "plans" | "todo";
+}
+
+const CITIES: City[] = [
+  { slug: "pune", city: "Pune", pricing: "plans" },
+  { slug: "mumbai", city: "Mumbai", pricing: "plans" },
+  { slug: "nashik", city: "Nashik", pricing: "plans" },
+  // TODO: AED pricing not decided yet, so the page shows a placeholder.
+  { slug: "dubai", city: "Dubai", pricing: "todo" },
+];
+
+function body(audience: string, place: string) {
+  return {
+    intro: todo(`intro paragraph for ${audience}${place}`),
+    painPoints: [1, 2, 3].map((n) => ({
+      title: todo(`pain point ${n} for ${audience}${place}`),
+      body: todo(`one or two sentences on pain point ${n}`),
+    })),
+    features: [1, 2, 3, 4, 5, 6].map((n) => ({
+      title: todo(`feature ${n} headline`),
+      body: todo(`one or two sentences on how SalonOX handles feature ${n} for ${audience}${place}`),
+    })),
+    faqs: [1, 2, 3, 4].map((n) => ({
+      q: todo(`FAQ ${n} question for ${audience}${place}`),
+      a: todo(`FAQ ${n} answer`),
+    })),
+  };
+}
+
+const verticalPages: SeoPage[] = VERTICALS.map((v) => ({
+  slug: v.slug,
+  h1: v.h1,
+  title: `${v.titleKeyword} for India | SalonOX`,
+  description: todo(`meta description (about 150 characters) for ${v.titleKeyword.toLowerCase()}`),
+  audienceSingular: v.audienceSingular,
+  pricing: "plans",
+  indexable: INDEXABLE_BY_DEFAULT,
+  ...body(v.audience, ""),
+}));
+
+const cityPages: SeoPage[] = CITIES.map((c) => ({
+  slug: `salon-software-${c.slug}`,
+  h1: `Salon Software in ${c.city}: Billing, Appointments & WhatsApp Marketing`,
+  title: `Salon Management Software in ${c.city} | SalonOX`,
+  description: todo(`meta description (about 150 characters) for salon software in ${c.city}`),
+  audienceSingular: "salon",
+  city: c.city,
+  pricing: c.pricing,
+  indexable: INDEXABLE_BY_DEFAULT,
+  ...body("salons", ` in ${c.city}`),
+}));
+
+export const SEO_PAGES: SeoPage[] = [...verticalPages, ...cityPages];
+
+export const seoPageFor = (pathname: string) => SEO_PAGES.find((p) => `/${p.slug}` === pathname);
+
+export const SEO_PAGE_ROUTES: MarketingRoute[] = SEO_PAGES.map((p) => {
+  const jsonLd: JsonLdKind[] = ["organization", ...(p.pricing === "plans" ? (["software"] as const) : []), "faq"];
+  return { path: `/${p.slug}`, title: p.title, description: p.description, indexable: p.indexable, jsonLd, faqs: p.faqs };
+});

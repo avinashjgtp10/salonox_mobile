@@ -1,6 +1,8 @@
 // Single source of truth for the public marketing site's SEO surface.
-// Pure data, no imports: it is consumed by the Vite build (sitemap/robots
-// generation, and later the prerender step) as well as by the app itself.
+// Pure data (plus seoPages.ts, which is data too): it is consumed by the Vite
+// build (sitemap/robots generation, the prerender step) as well as the app.
+
+import { SEO_PAGE_ROUTES } from "./seoPages";
 
 export const SITE = {
   // Canonical host. Every canonical URL, sitemap <loc> and og:url is built
@@ -62,7 +64,7 @@ export interface MarketingRoute {
 
 export type JsonLdKind = "organization" | "software" | "faq";
 
-export const MARKETING_ROUTES: MarketingRoute[] = [
+const CORE_ROUTES: MarketingRoute[] = [
   {
     path: "/",
     title: "Salon Management Software | Billing, Staff & Marketing",
@@ -92,6 +94,9 @@ export const MARKETING_ROUTES: MarketingRoute[] = [
     jsonLd: ["organization"],
   },
 ];
+
+// Core pages plus the config-driven SEO landing pages (see seoPages.ts).
+export const MARKETING_ROUTES: MarketingRoute[] = [...CORE_ROUTES, ...SEO_PAGE_ROUTES];
 
 // Top-level path prefixes owned by the SPA: auth, onboarding, dashboards and
 // the public per-salon pages. nginx falls back to the SPA shell ONLY for
