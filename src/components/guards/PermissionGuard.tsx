@@ -1,6 +1,5 @@
 import { useRef, useState, useEffect } from "react";
 import { Outlet, Navigate, useLocation } from "react-router-dom";
-import { Loader2 } from "lucide-react";
 import { usePermissions } from "../../hooks/usePermissions";
 import { useAppSelector, useAppDispatch } from "../../hooks/useAppRedux";
 import { fetchMeThunk } from "../../middleware/user/user.thunk";
@@ -52,27 +51,21 @@ export default function PermissionGuard({ permKey }: Props) {
   // Owners bypass immediately — no need to wait for settings
   if (isOwnerOrAdmin) return <Outlet />;
 
-  // While settings or profile are loading for the first time, show a spinner
-  // instead of a premature 403
-  if (!hasResolvedOnce.current && (settingsLoading || profileLoading)) {
-    return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "60vh" }}>
-        <Loader2 size={28} style={{ animation: "perm-spin 0.75s linear infinite", color: "#9ca3af" }} />
-      </div>
-    );
-  }
+  // While settings/profile are still loading for the first time, or the
+  // one-time stale-permission retry is in flight, render <Outlet/> instead
+  // of a spinner — the routed page's own API calls already enforce the real
+  // permission server-side, so nothing sensitive is exposed by rendering its
+  // shell a moment early. This previously returned a spinner <div> here and
+  // <Outlet/> once resolved — a different element at the same position,
+  // which made React unmount and remount everything under it (the routed
+  // page, including its own data-fetching effects) the instant loading
+  // finished, firing those effects a second time on every page refresh for
+  // every staff account. Deferring the DENIAL decision (not the rendering)
+  // until resolved keeps the "no premature 403" guarantee without the
+  // remount.
+  const stillResolving = (!hasResolvedOnce.current && (settingsLoading || profileLoading)) || retrying;
+  if (stillResolving) return <Outlet />;
   hasResolvedOnce.current = true;
-
-  // Same spinner while the one-time stale-permission retry above is in
-  // flight — avoids flashing a denial that a moment later turns out to be
-  // wrong once the fresh permissions land.
-  if (retrying) {
-    return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "60vh" }}>
-        <Loader2 size={28} style={{ animation: "perm-spin 0.75s linear infinite", color: "#9ca3af" }} />
-      </div>
-    );
-  }
 
   if (allowed) return <Outlet />;
 

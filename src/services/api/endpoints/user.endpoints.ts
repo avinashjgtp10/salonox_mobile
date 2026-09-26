@@ -1,5 +1,5 @@
 export const USER = {
-  ME: "/api/v1/users/me",
+  ME: "/api/v1/users/profile",
   UPDATE_ME: "/api/v1/users/me",
   UPDATE: "/api/v1/user/update",
   UPLOAD_AVATAR: "/api/v1/users/me/avatar",

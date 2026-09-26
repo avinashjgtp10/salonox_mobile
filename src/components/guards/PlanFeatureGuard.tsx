@@ -1,5 +1,5 @@
 import { Outlet, useNavigate } from "react-router-dom";
-import { Lock, Loader2 } from "lucide-react";
+import { Lock } from "lucide-react";
 import { usePlanFeatures } from "../../hooks/usePlanFeatures";
 
 interface Props {
@@ -20,17 +20,18 @@ export default function PlanFeatureGuard({ featureKey, label }: Props) {
   const navigate = useNavigate();
   const { hasFeature, loaded } = usePlanFeatures();
 
-  // hasFeature() fails open (returns true) while loading, so this spinner
-  // only ever shows for an instant on first mount, never as a false block.
-  if (!loaded) {
-    return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "60vh" }}>
-        <Loader2 size={28} style={{ animation: "perm-spin 0.75s linear infinite", color: "#9ca3af" }} />
-      </div>
-    );
-  }
-
-  if (hasFeature(featureKey)) return <Outlet />;
+  // hasFeature() fails open (returns true) while loading — so there's no
+  // need to withhold <Outlet/> during that window at all. Previously this
+  // rendered a spinner in place of <Outlet/> while !loaded, then swapped to
+  // <Outlet/> once the plan-features fetch resolved; that swap is a
+  // different element at the same position, so React unmounted and
+  // remounted the entire routed page (and everything under it) the instant
+  // usePlanFeatures() finished loading — firing its data fetch a second
+  // time on every page refresh. Rendering <Outlet/> unconditionally whenever
+  // the feature is allowed (loading or confirmed-allowed) keeps the routed
+  // page mounted exactly once; only the confirmed-denied case still needs
+  // its own screen instead of <Outlet/>.
+  if (!loaded || hasFeature(featureKey)) return <Outlet />;
 
   return (
     <div style={{
