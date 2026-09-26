@@ -1,4 +1,4 @@
-import { MARKETING_ROUTES, SITE, type MarketingRoute } from "./seo.config";
+import { MARKETING_ROUTES, NOT_FOUND_PAGE, SITE, type MarketingRoute } from "./seo.config";
 
 // Everything here builds absolute URLs from SITE.origin — never from the
 // request host — so canonical / og:url / og:image are identical wherever the
@@ -55,6 +55,15 @@ export function buildHeadTags(route: MarketingRoute): string {
         .join(" ")} />`,
   );
   return [`<title>${esc(route.title)}</title>`, ...lines].join("\n    ");
+}
+
+/** Head for the prerendered 404 page: no canonical/og:url (it is served at any URL). */
+export function buildNotFoundHeadTags(): string {
+  return [
+    `<title>${esc(NOT_FOUND_PAGE.title)}</title>`,
+    `<meta name="description" content="${esc(NOT_FOUND_PAGE.description)}" />`,
+    `<meta name="robots" content="noindex,nofollow" />`,
+  ].join("\n    ");
 }
 
 /** Keeps the head in sync on client-side navigation between marketing routes. */

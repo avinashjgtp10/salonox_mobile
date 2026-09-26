@@ -39,4 +39,13 @@ for (const route of server.routes) {
   console.log(`prerendered ${route.path.padEnd(10)} -> ${path.basename(out)} (${(html.length / 1024).toFixed(1)} kB)`);
 }
 
+// 404 page: served by nginx (error_page 404) with a real 404 status at any
+// unknown URL, so it carries no canonical and is noindex.
+const notFound = template
+  .replace("<!--app-head-->", () => server.renderNotFoundHead())
+  .replace("<!--app-html-->", () => server.renderNotFound());
+if (!/<h1[\s>]/.test(notFound)) throw new Error("prerender: 404 page has no <h1>");
+fs.writeFileSync(path.join(dist, "404.html"), notFound);
+console.log(`prerendered 404        -> 404.html (${(notFound.length / 1024).toFixed(1)} kB)`);
+
 fs.rmSync(templatePath);

@@ -55,12 +55,13 @@ export const MARKETING_ROUTES: MarketingRoute[] = [
   },
 ];
 
-// Authenticated app, auth/onboarding flow and private-token pages. Matched as
-// path prefixes by robots.txt (so "/oauth" also covers "/oauth-success").
-// Public per-salon pages (/book, /menu) are intentionally NOT listed.
-export const ROBOTS_DISALLOW_PREFIXES = [
-  "/api/",
-  "/uploads/",
+// Top-level path prefixes owned by the SPA: auth, onboarding, dashboards and
+// the public per-salon pages. nginx falls back to the SPA shell ONLY for
+// these; any other unknown path is a real 404. Matched on whole segments
+// ("/oauth" does not cover "/oauth-success", which is why both are listed).
+// nginx.conf must list the same set — scripts/prerender.mjs fails the build if
+// it does not.
+export const APP_ROUTE_PREFIXES = [
   "/dashboard",
   "/super-admin",
   "/branch-owner",
@@ -69,6 +70,7 @@ export const ROBOTS_DISALLOW_PREFIXES = [
   "/register",
   "/forgot-password",
   "/oauth",
+  "/oauth-success",
   "/accept-invite",
   "/join-business",
   "/business-name",
@@ -82,4 +84,26 @@ export const ROBOTS_DISALLOW_PREFIXES = [
   "/request-success",
   "/setup-complete",
   "/feedback",
+  "/book",
+  "/menu",
 ];
+
+export const isAppPath = (pathname: string) =>
+  APP_ROUTE_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+
+// Public per-salon pages: served by the SPA but deliberately NOT blocked in
+// robots.txt, so their noindex tag can be read (see PublicPageShell).
+const ROBOTS_ALLOWED_APP_PREFIXES = ["/book", "/menu"];
+
+export const ROBOTS_DISALLOW_PREFIXES = [
+  "/api/",
+  "/uploads/",
+  ...APP_ROUTE_PREFIXES.filter((p) => !ROBOTS_ALLOWED_APP_PREFIXES.includes(p)),
+];
+
+// Served (with a real 404 status) for every path that is neither a file, a
+// prerendered marketing page nor an app route.
+export const NOT_FOUND_PAGE = {
+  title: "Page not found | SalonOX",
+  description: "The page you are looking for does not exist or has moved.",
+} as const;

@@ -1,12 +1,14 @@
 import { renderToString } from "react-dom/server";
 import { StaticRouter } from "react-router-dom/server";
 import { MarketingApp } from "./MarketingApp";
-import { buildHeadTags } from "./head";
-import { MARKETING_ROUTES } from "./seo.config";
+import { buildHeadTags, buildNotFoundHeadTags } from "./head";
+import { APP_ROUTE_PREFIXES, MARKETING_ROUTES } from "./seo.config";
 
 // Build-time only: consumed by scripts/prerender.mjs, never shipped to browsers.
 export const routes = MARKETING_ROUTES;
 export const renderHead = buildHeadTags;
+export const renderNotFoundHead = buildNotFoundHeadTags;
+export const appRoutePrefixes = APP_ROUTE_PREFIXES;
 
 export function render(url: string): string {
   return renderToString(
@@ -15,3 +17,6 @@ export function render(url: string): string {
     </StaticRouter>,
   );
 }
+
+// Any path that is not a marketing or app route renders the 404 page.
+export const renderNotFound = () => render("/404");
