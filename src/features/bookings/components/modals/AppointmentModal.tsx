@@ -500,17 +500,26 @@ export const AppointmentModal: React.FC<Props> = ({
   );
 
   // ── Line items ───────────────────────────────────────────────────────────
+  // An "Any Available" online booking has a real staffId underneath (needed
+  // for schedule/commission), but showing it pre-filled here would look like
+  // that stylist was specifically chosen — the whole point of the Any column
+  // is that nobody has actually assigned this yet. Strip it back to blank so
+  // staff have to deliberately pick someone; handleSave below clears
+  // isAnyStaff once they do, so it stops going back to the Any column.
+  const stripAutoAssignedStaff = <T extends { staffId?: string; staff?: string }>(rows: T[]): T[] =>
+    existingBooking?.isAnyStaff ? rows.map((r) => ({ ...r, staffId: "", staff: "" })) : rows;
+
   const [serviceRows, setServiceRows]       = useState<ServiceItem[]>(() =>
     existingBooking
-      ? (existingBooking.services ?? [])
+      ? stripAutoAssignedStaff(existingBooking.services ?? [])
       : [emptyService(defaultStaffId, defaultTime)]
   );
   const [packageRows, setPackageRows]       = useState<PackageItem[]>(() => {
-    const base = existingBooking?.packageItems ?? [];
+    const base = stripAutoAssignedStaff(existingBooking?.packageItems ?? []);
     return initialCustomPackageItem ? [...base, initialCustomPackageItem] : base;
   });
-  const [productRows, setProductRows]       = useState<ProductItem[]>((existingBooking as any)?.productItems ?? []);
-  const [membershipRows, setMembershipRows] = useState<MembershipItem[]>((existingBooking as any)?.membershipItems ?? []);
+  const [productRows, setProductRows]       = useState<ProductItem[]>(() => stripAutoAssignedStaff((existingBooking as any)?.productItems ?? []));
+  const [membershipRows, setMembershipRows] = useState<MembershipItem[]>(() => stripAutoAssignedStaff((existingBooking as any)?.membershipItems ?? []));
 
   // Consumables panel (ServiceRow.tsx) shows Available/Remaining Stock from
   // schedulerContext.productsList — but that list was previously only ever

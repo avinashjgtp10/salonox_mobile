@@ -108,7 +108,15 @@ const BookingChipComponent: React.FC<Props> = ({
   // correctly, see appointments.service.ts's paid-edit reprice branch)
   // remains the way to reschedule one. No-show ones keep their normal chip
   // styling but stay fully draggable.
-  const isReadOnly  = isCancelled || isPaid || !!b.isDeleted;
+  //
+  // An "Any Available" online booking (b.isAnyStaff) is also locked here —
+  // it only ever renders in DayView's synthetic "Any" column (a real
+  // staff_id is assigned underneath for schedule/commission purposes, but
+  // there's no real staff schedule/off-hours/blocked-time data behind that
+  // column to validate a drag or resize against), so dragging/resizing it is
+  // disabled the same way. Editing (which reassigns a real stylist) is still
+  // the way to move it off the Any column.
+  const isReadOnly  = isCancelled || isPaid || !!b.isDeleted || !!b.isAnyStaff;
 
   const statusClass = computeChipStatusClass(b, new Date(nowTs));
 

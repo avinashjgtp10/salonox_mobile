@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import {
-  ArrowLeft, Check, CheckLg, StarFill, PersonFill, CalendarEvent,
+  ArrowLeft, Check, CheckLg, StarFill, PersonFill, PeopleFill, CalendarEvent,
   GeoAltFill, TelephoneFill, Instagram, Facebook, Globe, PinMapFill,
   Plus, X, ChevronLeft, ChevronRight,
   SunFill, SunsetFill, ShieldLockFill, LightningChargeFill, Gem,
@@ -38,6 +38,14 @@ function buildAddress(salon: any): string {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/;
 const OTP_RESEND_SECONDS = 30;
+
+// Sentinel "staff member" for "I don't mind who" — never sent to the backend
+// as a real staff_id (both the availability lookup and the booking payload
+// omit staff_id entirely when this is selected), so the server's existing
+// auto-assign-a-real-stylist logic runs exactly like it always has for an
+// unspecified staff_id.
+const ANY_STAFF_ID = "any";
+const ANY_STAFF: StaffMember = { id: ANY_STAFF_ID, name: "Any Available" };
 
 /** A UUID is unusable as something a customer reads out over the phone. */
 function shortBookingId(id?: string | null): string {
@@ -273,7 +281,10 @@ export default function PublicBookingPage() {
         // Lets the server narrow to staff who can actually perform what's in
         // the basket.
         serviceIds: selServices.map((s) => String(s.id)).join(","),
-        staffId: String(selStaff.id),
+        // Omitted (not sent) for "Any Available" — the server already treats
+        // a missing staffId as "anyone eligible", computing availability
+        // across every stylist who can do these services.
+        ...(selStaff.id !== ANY_STAFF_ID ? { staffId: String(selStaff.id) } : {}),
       },
     })
       .then((res) => {
@@ -417,7 +428,9 @@ export default function PublicBookingPage() {
         createPublicBookingThunk({
           salon_id: String(salon.id),
           service_ids: selServices.map((s) => String(s.id)),
-          staff_id: String(selStaff.id),
+          // Omitted for "Any Available" — the backend auto-assigns a real,
+          // eligible, available stylist when no staff_id is given.
+          ...(selStaff.id !== ANY_STAFF_ID ? { staff_id: String(selStaff.id) } : {}),
           scheduled_at: toSalonInstant(selDate, String(selTime)),
           client_name: form.name.trim(),
           client_email: form.email.trim(),
@@ -459,6 +472,20 @@ export default function PublicBookingPage() {
   const dateLabel = `${DAYS[selDate.getDay()]}, ${selDate.getDate()} ${MONTHS[selDate.getMonth()]} ${selDate.getFullYear()}`;
   const staffLabel = selStaff ? staffName(selStaff) : "Not selected yet";
   const bookingReady = selServices.length > 0 && !!selStaff && !!selTime;
+
+  // The mobile sticky bar's CTA — on a catalog with hundreds of services, a
+  // customer picking from the list has no way to reach Stylist/Date & Time
+  // without manually scrolling past everything else, since the bar's button
+  // just stayed disabled until all three were chosen. It now jumps straight
+  // to whichever section is still needed instead.
+  const mobileCta: { label: string; action: () => void; disabled: boolean } =
+    selServices.length === 0
+      ? { label: "Select services", action: () => {}, disabled: true }
+      : !selStaff
+      ? { label: "Select Staff", action: () => scrollTo(stylistRef), disabled: false }
+      : !selTime
+      ? { label: "Select Date & Time", action: () => scrollTo(whenRef), disabled: false }
+      : { label: "Continue", action: () => setStep(2), disabled: false };
 
   // Which numbered step reads as current.
   const activeStep: 1 | 2 | 3 = step >= 2 ? 3 : selServices.length > 0 ? 2 : 1;
@@ -734,6 +761,22 @@ export default function PublicBookingPage() {
                   </p>
                 ) : (
                   <div className="pb__grid">
+                    <button type="button"
+                      className={`pb__svc ${selStaff?.id === ANY_STAFF_ID ? "is-selected" : ""}`}
+                      onClick={() => pickStaff(ANY_STAFF)} aria-pressed={selStaff?.id === ANY_STAFF_ID}>
+                      <span className="pb__svc-thumb pb__svc-thumb--round" style={{ background: "#e9f1ec" }}>
+                        <PeopleFill size={18} color="#1e4634" />
+                      </span>
+                      <span className="pb__svc-body">
+                        <span className="pb__svc-name">Any Available</span>
+                        <span className="pb__svc-meta">
+                          <span>Best match for your slot</span>
+                        </span>
+                      </span>
+                      <span className={`pb__svc-add ${selStaff?.id === ANY_STAFF_ID ? "is-on" : ""}`} aria-hidden="true">
+                        {selStaff?.id === ANY_STAFF_ID ? <Check size={16} /> : <Plus size={16} />}
+                      </span>
+                    </button>
                     {staffList.map((s) => {
                       const on = selStaff?.id === s.id;
                       const name = staffName(s);
@@ -996,8 +1039,8 @@ export default function PublicBookingPage() {
               <p className="pb__sticky-total">{fmtPrice(totalPrice, currencyCode)}</p>
             </div>
             <button type="button" className="pb__btn pb__btn--primary pb__btn--auto"
-              disabled={!bookingReady} onClick={() => setStep(2)}>
-              Continue <span aria-hidden="true">→</span>
+              disabled={mobileCta.disabled} onClick={mobileCta.action}>
+              {mobileCta.label} <span aria-hidden="true">→</span>
             </button>
           </div>
         </>
@@ -1089,6 +1132,9 @@ export default function PublicBookingPage() {
                           {otpVerifying ? "Verifying…" : "Verify"}
                         </button>
                       </div>
+                      <p className="pb__field-hint">
+                        Don't see it? Check your spam or junk folder.
+                      </p>
                     </div>
                   )}
 
@@ -1103,6 +1149,12 @@ export default function PublicBookingPage() {
                     onChange={(e) => setForm({ ...form, notes: e.target.value })}
                     placeholder="Prefer a quieter time of day" />
                 </div>
+
+                <button type="button" className="pb__btn pb__btn--primary"
+                  disabled={!detailsValid || bookingLoading} onClick={handleSubmit}>
+                  {bookingLoading ? "Confirming…" : "Confirm Booking"}
+                  {!bookingLoading && <span aria-hidden="true">→</span>}
+                </button>
               </section>
             </div>
 

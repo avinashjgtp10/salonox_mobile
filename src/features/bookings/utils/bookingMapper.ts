@@ -561,6 +561,12 @@ export function mapApiBooking(
         || productItems.find((p: any) => p.staffId)?.staffId;
       return raw ? String(raw) : undefined;
     })(),
+    // Set only by the public Online Booking "Any Available" option — the
+    // customer never picked a stylist, a real one was auto-assigned to
+    // staffId above purely so schedule/commission logic keeps working. The
+    // Calendar's own "Any" column (DayView.tsx) uses this flag, not staffId,
+    // to decide where the chip belongs.
+    isAnyStaff: !!(appt.is_any_staff ?? appt.isAnyStaff),
     clientId: String(appt.clientId ?? appt.client_id ?? appt.client?.id ?? ""),
     date: appt.date
       ? toLocalDateStr(appt.date)
