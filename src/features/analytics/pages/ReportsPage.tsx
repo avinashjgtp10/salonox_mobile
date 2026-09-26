@@ -7,6 +7,7 @@ import {
   PersonCircle, PersonCheck, PeopleFill, PersonLinesFill, Droplet, Whatsapp, FileEarmarkBarGraph,
   CashCoin, PersonCheckFill, Truck, ChatDots, PersonDash, ArrowRepeat, ArrowLeftRight,
   Gift, HourglassSplit, LightningChargeFill, PersonPlusFill, CalendarX, ChatSquareText, CalendarHeart,
+  Globe,
 } from "react-bootstrap-icons";
 import "../styles/ReportsPage.scss";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
@@ -54,6 +55,7 @@ import PayrollHistoryReport from "../reports/PayrollHistoryReport";
 import PackageHistoryReport from "../reports/PackageHistoryReport";
 import MembershipHistoryReport from "../reports/MembershipHistoryReport";
 import AppointmentDetailReport from "../reports/AppointmentDetailReport";
+import OnlineAppointmentReport from "../reports/OnlineAppointmentReport";
 import UpcomingAppointmentsReport from "../reports/UpcomingAppointmentsReport";
 import WaCampaignReport from "../reports/WaCampaignReport";
 import OpenRateReport from "../reports/OpenRateReport";
@@ -131,6 +133,7 @@ const REPORTS: ReportDef[] = [
   { id: "payroll_history",        slug: "payroll-history",        name: "Payroll History Report",                      description: "Every payroll run per staff member — pay, deductions, net pay and payment status.",              category: "staff",        icon: CashCoin,       Component: PayrollHistoryReport },
   { id: "rebooking_rate",         slug: "rebooking-rate",         name: "Rebooking Rate Report",                       description: "How effectively each staff member retains clients — share of served visits where the client came back within your chosen window.", category: "staff", icon: ArrowRepeat, Component: RebookingRateReport },
   { id: "appointment_detail",     slug: "appointment-detail",     name: "Detailed Appointment Reports",                description: "Every appointment for a period, with status, staff, service and payment detail.",                 category: "appointments", icon: CalendarCheck,  Component: AppointmentDetailReport },
+  { id: "online_appointment",     slug: "online-appointment",     name: "Online Appointment Report",                   description: "Appointments booked online for a period, with status, staff, service and payment detail.",        category: "appointments", icon: Globe,          Component: OnlineAppointmentReport },
   { id: "upcoming_appointments",  slug: "upcoming-appointments",  name: "Upcoming Appointments Report",                description: "Future appointments still booked — date, time, client, service and staff.",                       category: "appointments", icon: ClockHistory,   Component: UpcomingAppointmentsReport },
   { id: "no_show_recovery",       slug: "no-show-recovery",       name: "No-Show Recovery Report",                            description: "Clients who booked but didn't show up — select rows and send a WhatsApp recovery template directly.", category: "appointments", icon: CalendarX, Component: NoShowRecoveryReport },
   { id: "product_inventory",      slug: "product-inventory",      name: "Product Inventory Report",                           description: "Current on-hand stock, reorder levels and stock value by product.",                                category: "inventory",    icon: BoxSeam,        Component: ProductInventoryReport },
