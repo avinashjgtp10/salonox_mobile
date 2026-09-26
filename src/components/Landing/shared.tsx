@@ -335,7 +335,7 @@ export const SHOWCASE = [
     icon: 'Bar' as keyof typeof Icon,
     title: 'Real-Time Dashboard',
     desc: 'Get a complete overview of your salon\'s performance at a glance — track total revenue, appointments, active clients, and daily earnings with live charts and actionable insights.',
-    image: '/screenshots/dashboard.png',
+    image: '/screenshots/dashboard.webp',
   },
   {
     icon: 'Card' as keyof typeof Icon,

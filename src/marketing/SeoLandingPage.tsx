@@ -18,7 +18,7 @@ export function SeoLandingPage({ page }: { page: SeoPage }) {
       <header className="seo-header">
         <div className="seo-container seo-header-inner">
           <a href="/" aria-label="SalonOX home">
-            <img src="/salonox-full-logo.png" alt="SalonOX" width="140" height="45" />
+            <img src="/salonox-full-logo.webp" alt="SalonOX" width="140" height="45" />
           </a>
           <nav className="seo-nav" aria-label="Primary">
             <Link to="/login" className="seo-link">Log in</Link>

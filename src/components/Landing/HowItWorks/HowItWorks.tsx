@@ -33,7 +33,7 @@ const HowItWorks: React.FC<HowItWorksProps> = ({ scrollToSection }) => (
               <article className={`showcase-story showcase-story--${item.theme}`}>
                 <div className="showcase-story-visual">
                   <img
-                    src="/screenshots/salonox-salon-hero.png"
+                    src="/screenshots/salonox-salon-hero.webp"
                     alt=""
                     className="showcase-salon-photo"
                     width="1672"

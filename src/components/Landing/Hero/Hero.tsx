@@ -25,7 +25,9 @@ const Hero: React.FC<HeroProps> = ({ heroRef, onPointerMove, onPointerLeave, scr
     >
     <div className="hero-photo" aria-hidden="true">
       <img
-        src="/screenshots/salonox-salon-hero.png"
+        src="/screenshots/salonox-salon-hero.webp"
+        srcSet="/screenshots/salonox-salon-hero-836.webp 836w, /screenshots/salonox-salon-hero.webp 1672w"
+        sizes="100vw"
         alt=""
         width="1672"
         height="939"
@@ -159,7 +161,7 @@ const Hero: React.FC<HeroProps> = ({ heroRef, onPointerMove, onPointerLeave, scr
         <div className="hero-dashboard-wrap">
           <div className="hero-dashboard-frame">
             <img
-              src="/screenshots/dashboard.png"
+              src="/screenshots/dashboard.webp"
               alt="SalonOX dashboard showing revenue, appointments, active clients, and salon performance analytics"
               width="1024"
               height="596"

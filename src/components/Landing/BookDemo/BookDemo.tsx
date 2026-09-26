@@ -122,8 +122,8 @@ const BookDemo: React.FC<BookDemoProps> = ({
     <SectionTransition from="light" />
     <SectionArtwork variant="contact" />
     <div className="demo-visual-layer" aria-hidden="true">
-      <img className="demo-salon-photo" src="/screenshots/salonox-salon-hero.png" alt="" loading="lazy" />
-      <img className="demo-dashboard-ghost" src="/screenshots/salonox-salon-hero.png" alt="" loading="lazy" />
+      <img className="demo-salon-photo" src="/screenshots/salonox-salon-hero.webp" alt="" loading="lazy" />
+      <img className="demo-dashboard-ghost" src="/screenshots/salonox-salon-hero.webp" alt="" loading="lazy" />
       <svg className="demo-connector-map" viewBox="0 0 1440 760" preserveAspectRatio="none" focusable="false">
         <path d="M550 150 C650 225 485 315 560 410 C650 520 815 410 920 500" />
         <path d="M760 135 C850 225 1010 160 1080 70" />

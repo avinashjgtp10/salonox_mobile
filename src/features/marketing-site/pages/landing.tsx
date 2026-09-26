@@ -1204,7 +1204,7 @@ const LandingPage: React.FC = () => {
       <nav ref={navRef} className={`nav ${scrolled ? 'nav-scrolled' : ''}`}>
         <div className="container nav-inner">
           <a href="#top" className="nav-logo" onClick={scrollToSection('top')}>
-            <img src="/salonox-full-logo.png" alt="SalonOX" className="logo-full" width="210" height="68" />
+            <img src="/salonox-full-logo.webp" alt="SalonOX" className="logo-full" width="210" height="68" />
           </a>
 
           <ul className="nav-links">
@@ -1241,7 +1241,7 @@ const LandingPage: React.FC = () => {
         <div className="mobile-drawer-panel" onClick={(e) => e.stopPropagation()}>
           <div className="mobile-drawer-header">
             <a href="#top" className="nav-logo" onClick={scrollToSection('top')}>
-              <img src="/salonox-full-logo.png" alt="SalonOX" className="logo-full" width="190" height="61" />
+              <img src="/salonox-full-logo.webp" alt="SalonOX" className="logo-full" width="190" height="61" />
             </a>
             <button type="button" className="mobile-close" aria-label="Close menu" onClick={() => setMobileOpen(false)}>
               <span />
