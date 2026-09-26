@@ -76,7 +76,7 @@ const Footer: React.FC<FooterProps> = ({
       </div>
 
       <div className="footer-bottom">
-        <p>&copy; {new Date().getFullYear()} SalonOX. All rights reserved.</p>
+        <p suppressHydrationWarning>&copy; {new Date().getFullYear()} SalonOX. All rights reserved.</p>
       </div>
     </div>
   </footer>

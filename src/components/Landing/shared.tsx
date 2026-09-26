@@ -544,18 +544,27 @@ export const HERO_TRUST_ITEMS = ['No Hidden Charges', 'Free Setup', '24×7 Suppo
 
 export function useReveal<T extends HTMLElement>() {
   const ref = useRef<T | null>(null);
-  const [visible, setVisible] = useState(() => typeof IntersectionObserver === 'undefined');
+  // Must start as true: the server has no IntersectionObserver, so prerendered
+  // HTML is fully revealed (crawlers and no-JS visitors see all content). The
+  // first client render has to match it or hydration mismatches. The
+  // observer's first callback hides nodes that are not on screen yet, so the
+  // scroll-reveal animation still plays for them.
+  const [visible, setVisible] = useState(true);
 
   useEffect(() => {
     const node = ref.current;
     if (!node || typeof IntersectionObserver === 'undefined') return;
 
+    let revealed = false;
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
+            revealed = true;
             setVisible(true);
             observer.unobserve(entry.target);
+          } else if (!revealed) {
+            setVisible(false);
           }
         });
       },
