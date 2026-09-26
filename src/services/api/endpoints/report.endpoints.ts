@@ -308,6 +308,13 @@ export const ONLINE_APPOINTMENT_REPORT = {
   SUMMARY: () => `/api/report/online-appointment`,
 } as const;
 
+// Independent Consumable Analytics reporting API — reads consumable_usage
+// directly, joined through appointments for the client. Mounted at
+// /api/report.
+export const CONSUMABLE_ANALYTICS_REPORT = {
+  SUMMARY: () => `/api/report/consumable-analytics`,
+} as const;
+
 // Independent Upcoming Appointments reporting API — reads the appointments
 // table directly via SQL, never through the Appointment HTTP API/service.
 // Scoped server-side to future, still-booked appointments. Mounted at
