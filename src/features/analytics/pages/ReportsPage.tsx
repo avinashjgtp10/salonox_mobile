@@ -24,6 +24,7 @@ import ProductInventoryReport from "../reports/ProductInventoryReport";
 import BrandPerformanceReport from "../reports/BrandPerformanceReport";
 import PurchaseVsSalesReport from "../reports/PurchaseVsSalesReport";
 import ConsumableUsageReport from "../reports/ConsumableUsageReport";
+import ConsumableAnalyticsReport from "../reports/ConsumableAnalyticsReport";
 import DailySheetReport from "../reports/DailySheetReport";
 import TaxesReport from "../reports/TaxesReport";
 import PackageSaleReport from "../reports/PackageSaleReport";
@@ -142,6 +143,7 @@ const REPORTS: ReportDef[] = [
   { id: "brand_performance",      slug: "brand-performance",      name: "Brand Performance Report",                    description: "Units sold, sales revenue and stock value grouped by product brand.",                              category: "inventory",    icon: Tags,           Component: BrandPerformanceReport },
   { id: "purchase_vs_sales",      slug: "purchase-vs-sales",      name: "Purchase vs Sales Inventory Report",          description: "Purchase value, sales value and stock consumption per product, with net movement and turnover.",   category: "inventory",    icon: ArrowLeftRight, Component: PurchaseVsSalesReport },
   { id: "consumable_usage",       slug: "consumable-usage",       name: "Consumable Usage Report",                            description: "Products used up by staff during services (back-bar stock), separate from client sales.",       category: "inventory",    icon: Droplet,        Component: ConsumableUsageReport },
+  { id: "consumable_analytics",   slug: "consumable-analytics",   name: "Consumable Analytics Report",                 description: "Consumable product usage per client, by service and date, with total quantity used per client.", category: "inventory",    icon: PieChartFill,   Component: ConsumableAnalyticsReport },
   { id: "supplier_report",        slug: "supplier-report",        name: "Supplier Report",                             description: "All suppliers on record, with contact details and location.",                                     category: "inventory",    icon: Truck,          Component: SupplierReport },
   { id: "purchase_history",       slug: "purchase-history",       name: "Supplier Purchase History",                   description: "Every purchase recorded from Product Inventory, with its Supplier Number and line items.",       category: "inventory",    icon: ClockHistory,   Component: PurchaseHistoryReport },
   { id: "stock_movement",         slug: "stock-movement",         name: "Stock Movement Report",                       description: "Every stock movement — purchases, usage, sales, adjustments and transfers — with running balance.", category: "inventory",  icon: ArrowLeftRight, Component: StockMovementReport },
