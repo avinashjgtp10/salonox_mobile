@@ -212,6 +212,41 @@ const AddStaffPage: React.FC = () => {
   const emailErrorMessage =
     duplicateEmailMessage || (isEmailRequiredAndMissing ? "Email is required" : "Enter a valid email address");
 
+  // Live "email already exists" check — as soon as the admin types a
+  // well-formed address into the Staff Login email field, ask the backend
+  // whether it's already taken instead of only finding out after clicking
+  // Save. Same duplicate rules Save's own 409 already enforces (see
+  // staffService.checkEmailAvailable), just surfaced earlier. Skipped
+  // entirely for the email unchanged from this staff member's own current
+  // one on Edit — that's never a duplicate of itself.
+  useEffect(() => {
+    if (!staffLoginEnabled) return;
+    const email = form.email.trim();
+    if (!email || !emailFormatValid) return;
+    if (isEdit && email === lastVerifiedEmailRef.current) return;
+
+    const ctrl = new AbortController();
+    const t = setTimeout(async () => {
+      try {
+        const res = await api.get(STAFF.CHECK_EMAIL(email, isEdit ? id : undefined), { signal: ctrl.signal });
+        const result = res.data?.data;
+        if (result && result.available === false) {
+          setDuplicateEmailMessage(result.reason || "A staff member with this email already exists.");
+        }
+      } catch (err: any) {
+        if (err?.name !== "CanceledError" && err?.code !== "ERR_CANCELED") {
+          console.error("Error checking email availability:", err);
+        }
+      }
+    }, 400);
+
+    return () => {
+      clearTimeout(t);
+      ctrl.abort();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.email, staffLoginEnabled, isEdit, id]);
+
   const isDobFuture = !!form.dob && form.dob > today;
   const isDobUnderage = !!form.dob && !isDobFuture && form.dob > minAdultDob;
   const isDobInvalid = attemptedSubmit && !!form.dob && (isDobFuture || isDobUnderage);

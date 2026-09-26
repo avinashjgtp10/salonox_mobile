@@ -2,6 +2,9 @@ export const STAFF = {
   // ── Core CRUD ──────────────────────────────────────────────────────────────
   BASE: "/api/v1/staff",
   BY_ID: (id: string | number) => `/api/v1/staff/${id}`,
+  // Live duplicate check for the Staff Login email field.
+  CHECK_EMAIL: (email: string, excludeStaffId?: string | number) =>
+    `/api/v1/staff/check-email?email=${encodeURIComponent(email)}${excludeStaffId ? `&exclude_staff_id=${encodeURIComponent(String(excludeStaffId))}` : ""}`,
 
   // ── Export ─────────────────────────────────────────────────────────────────
   EXPORT: (format: "excel" | "csv") => `/api/v1/staff/export/${format}`,
