@@ -199,15 +199,12 @@ const ResetPasswordSection: FC<ResetPasswordSectionProps> = ({ staffId, email, e
       {/* OTP gate — skipped entirely when this email is already verified
           (the normal case: it was proven once at account creation or the
           last reset, and doesn't need re-proving every time). Only a staff
-          member whose login isn't active yet still needs it here. */}
-      {emailAlreadyVerified ? (
-        <div className="emp-field emp-otp-field">
-          <span className="emp-verified-tag emp-verified-tag--email">
-            <span className="emp-verified-tag__check">✓</span>
-            Email verified
-          </span>
-        </div>
-      ) : (
+          member whose login isn't active yet still needs it here. The
+          "Email verified" badge for that case is already shown next to the
+          email field above (AddStaffPage.tsx) — repeating it here as well
+          just crowded the space right above Cancel/Update Password with no
+          new information. */}
+      {emailAlreadyVerified ? null : (
         <div className="emp-field emp-otp-field">
           <div className="emp-input-row">
             <button
