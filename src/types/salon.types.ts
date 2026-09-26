@@ -93,26 +93,6 @@ export type ApiResponse<T> = {
   data: T;
 };
 
-export type CreateBranchPayload = {
-  salon_id: string;
-  name: string;
-  address_line1: string;
-  address_line2?: string;
-  city: string;
-  state: string;
-  pincode: string;
-  country?: string;
-  phone?: string;
-  email?: string;
-  opening_time?: string;
-  closing_time?: string;
-  is_main?: boolean;
-};
-
-export type UpdateBranchPayload = Partial<Omit<CreateBranchPayload, "salon_id">> & {
-  is_active?: boolean;
-};
-
 export type CreateSalonResponse = {
   success: boolean;
   message: string;

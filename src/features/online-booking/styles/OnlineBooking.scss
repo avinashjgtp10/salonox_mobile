@@ -637,53 +637,6 @@
   line-height: 1.5;
 }
 
-/* ── Business hours table ── */
-.ob-hours-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.ob-hours-row {
-  display: grid;
-  grid-template-columns: 120px 1fr auto;
-  align-items: center;
-  gap: 12px;
-  padding: 11px 0;
-  border-bottom: 1px solid #f3f4f6;
-
-  &:last-child { border-bottom: none; }
-}
-
-.ob-hours-day {
-  font-size: 13px;
-  font-weight: 600;
-  color: $dashboard-primary;
-}
-
-.ob-hours-times {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-
-  .ob-input {
-    padding: 8px 10px;
-    font-size: 13px;
-    max-width: 110px;
-  }
-}
-
-.ob-hours-sep {
-  font-size: 12px;
-  color: $dashboard-secondary;
-  white-space: nowrap;
-}
-
-.ob-hours-closed {
-  font-size: 12px;
-  color: $dashboard-secondary;
-  font-style: italic;
-}
-
 /* ── Photo upload ── */
 .ob-photo-grid {
   display: grid;

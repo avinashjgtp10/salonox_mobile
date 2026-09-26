@@ -77,7 +77,7 @@ const navGroups: NavGroup[] = [
       // still able to reach the merged page.
       { id: "business", label: "Business",            description: "",                                                                 icon: <Building2 size={18} />,   Component: ProfileSettingsPage,   hidden: true, permKey: "view_settings_business" },
       { id: "account",  label: "Account & Security",  description: "Update your password and manage account security.",               icon: <ShieldCheck size={18} />, Component: AccountSettingsPage,   permKey: "view_settings_account_security" },
-      { id: "branches", label: "Branches",            description: "Manage your salon's locations, hours, and holidays.",              icon: <MapPin size={18} />,      Component: BranchesPage,          permKey: "view_branches" },
+      { id: "branches", label: "Business Hours",       description: "Manage your salon's business hours.",       icon: <MapPin size={18} />,      Component: BranchesPage,          permKey: "view_branches" },
     ],
   },
   {

@@ -154,7 +154,18 @@
   gap: 18px;
 }
 
-.pb__logo { display: flex; flex-direction: column; min-width: 0; }
+.pb__logo { display: flex; align-items: center; gap: 10px; min-width: 0; }
+
+.pb__logo-mark {
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.pb__logo-text { display: flex; flex-direction: column; min-width: 0; }
 
 .pb__logo-name {
   font-family: var(--pb-display);
@@ -223,27 +234,81 @@
 
 // ── Hero band ────────────────────────────────────────────────
 .pb__band {
+  position: relative;
   background: linear-gradient(180deg, #f1efe7 0%, var(--pb-bg) 100%);
   border-bottom: 1px solid var(--pb-border);
 }
 
+// Photo variant: full-strength image (no wash across the whole thing — that
+// read as blurry/hazy) with only a left-side scrim behind the text, so
+// whatever photo the salon uploads stays crisp on the right.
+.pb__band--photo {
+  overflow: hidden;
+  border-bottom: none;
+  // Was 420/560px — too tall for a modest-resolution gallery photo, forcing
+  // it to stretch across far more space than it has pixels for and reading
+  // as blurry. A shorter band needs much less upscaling.
+  min-height: 300px;
+}
+
+@media (min-width: 1024px) { .pb__band--photo { min-height: 380px; } }
+
+.pb__band-bg {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  transition: opacity 1.6s ease;
+}
+
+.pb__band-scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg,
+    rgba(10, 20, 16, 0.72) 0%,
+    rgba(10, 20, 16, 0.5) 32%,
+    rgba(10, 20, 16, 0.12) 58%,
+    rgba(10, 20, 16, 0) 72%
+  );
+}
+
 .pb__band-inner {
+  position: relative;
+  z-index: 1;
   width: 100%;
   max-width: 1360px;
   margin: 0 auto;
-  padding: 28px 20px 30px;
+  padding: 44px 20px 46px;
   display: grid;
   gap: 24px;
   align-items: center;
+}
+
+.pb__band--photo .pb__band-inner {
+  min-height: inherit;
+  align-content: center;
 }
 
 @media (min-width: 1024px) {
   .pb__band-inner {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr) minmax(0, 0.7fr);
     gap: 32px;
-    padding-block: 34px 36px;
+    padding-block: 56px 58px;
+  }
+  .pb__band--photo .pb__band-inner {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
+
+// White text directly on the photo (over the scrim), with a soft shadow so
+// it stays legible regardless of what's behind it.
+.pb__band--photo {
+  .pb__eyebrow, .pb__display, .pb__band-sub { color: #fff; text-shadow: 0 2px 12px rgba(0, 0, 0, 0.35); }
+  .pb__eyebrow { opacity: 0.85; }
+  .pb__band-sub { opacity: 0.92; }
+}
+
+.pb__band-cta { margin-top: 22px; }
 
 .pb__band-copy { min-width: 0; }
 
@@ -474,6 +539,12 @@
 
 // ── Panel ────────────────────────────────────────────────────
 .pb__panel {
+  // Without this, a grid item's automatic minimum width is its content's
+  // min-content size — with the category bar's buttons unable to wrap, that
+  // pulled the whole panel wider than its grid track (minmax(0, 1fr)) and
+  // spilled it out from under the sticky sidebar instead of scrolling inside
+  // its own row.
+  min-width: 0;
   border: 1px solid var(--pb-border);
   border-radius: 18px;
   background: var(--pb-surface);
@@ -597,6 +668,15 @@
 .pb__day-num  { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
 
 .pb__month { margin-bottom: 18px; }
+
+// Visually separates date selection (week strip / month calendar, above)
+// from time selection (available slots, below) so the two don't read as one
+// undifferentiated block.
+.pb__divider {
+  height: 1px;
+  background: var(--pb-border);
+  margin: 4px 0 18px;
+}
 
 .pb__col-title {
   margin: 0 0 12px;
@@ -1094,11 +1174,17 @@
   padding-bottom: 6px;
 }
 
-.pbc__pad { aspect-ratio: 1; }
+.pbc__pad { width: 100%; aspect-ratio: 1; }
 
 .pbc__day {
+  // A fixed size centered in its grid cell, not stretched to fill it — as a
+  // grid item, a bare aspect-ratio box with no width has nothing to derive
+  // its ratio from except the cell itself, which blew it up to a ~140px
+  // circle spanning into neighbouring rows/columns instead of a small button.
+  width: 100%;
+  max-width: 40px;
   aspect-ratio: 1;
-  max-width: 100%;
+  margin: 0 auto;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1222,7 +1308,18 @@
 
 .pb__textarea { min-height: 96px; resize: vertical; line-height: 1.5; }
 
-.pb__phone-row { display: flex; gap: 8px; }
+// flex-wrap so a longer sibling (e.g. the email field's "Resend in 30s"
+// button) drops to its own line on narrow phones instead of squeezing the
+// input down to an unreadable sliver; the phone-code + number row never
+// wraps in practice since 88px + a shrunk input still fits at any width
+// this app supports.
+.pb__phone-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+
+  .pb__input { flex: 1 1 160px; min-width: 0; }
+}
 
 .pb__phone-code {
   flex: 0 0 88px;
@@ -1248,6 +1345,17 @@
   line-height: 1.5;
 }
 
+.pb__field-hint {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 6px 0 0;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.pb__field-hint--success { color: #1e7a4c; }
+.pb__field-hint--error { color: #a4291f; }
+
 // ── Summary card (manage + confirmation screens) ─────────────
 .pb__summary {
   background: var(--pb-card);
@@ -1259,17 +1367,35 @@
 // Key/value grid used by the confirmation + manage screens.
 .pb__kv {
   display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 11px 16px;
+  grid-template-columns: 1fr;
+  gap: 3px 16px;
   padding: 16px 15px;
   font-size: 13px;
 
-  dt { color: var(--pb-muted); font-weight: 600; }
+  dt {
+    color: var(--pb-muted);
+    font-weight: 600;
+    margin-top: 8px;
+    &:first-child { margin-top: 0; }
+  }
   dd {
     margin: 0;
     font-weight: 700;
-    text-align: right;
-    overflow-wrap: anywhere;
+    text-align: left;
+    overflow-wrap: break-word;
+  }
+}
+
+// Narrow phones keep every value on its own full-width line (no cramped
+// right column forcing "Boy Hair Cut, Hair Blow Dry" or a booking ID to
+// break character-by-character); wider screens go back to a label/value row.
+@media (min-width: 480px) {
+  .pb__kv {
+    grid-template-columns: auto 1fr;
+    gap: 11px 16px;
+
+    dt { margin-top: 0; }
+    dd { text-align: right; overflow-wrap: anywhere; }
   }
 }
 
@@ -1431,11 +1557,19 @@
   display: flex;
   gap: 8px;
   overflow-x: auto;
-  scrollbar-width: none;
+  // Visible (if thin) on purpose — a salon with many service categories
+  // overflows this row, and a fully hidden scrollbar gave no hint that more
+  // categories existed off-screen.
+  scrollbar-width: thin;
   padding-bottom: 16px;
   -webkit-overflow-scrolling: touch;
 
-  &::-webkit-scrollbar { display: none; }
+  &::-webkit-scrollbar { height: 6px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb {
+    background: var(--pb-border-strong);
+    border-radius: 999px;
+  }
 }
 
 .pb__cat {
@@ -1465,4 +1599,4 @@
   }
 }
 
-
+
