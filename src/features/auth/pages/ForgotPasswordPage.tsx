@@ -140,7 +140,7 @@ const handleResend = async () => {
             className={`fp-input${error ? " fp-input--error" : ""}`}
             placeholder="name@example.com"
             value={email}
-            onChange={e => { setEmail(e.target.value); setLocalError(""); dispatch(clearError()); }}
+            onChange={e => { setEmail(e.target.value.toLowerCase()); setLocalError(""); dispatch(clearError()); }}
             onKeyDown={e => e.key === "Enter" && handleNext()}
             autoFocus
           />
