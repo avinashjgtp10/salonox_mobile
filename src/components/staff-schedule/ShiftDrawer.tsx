@@ -16,13 +16,19 @@ interface ShiftDrawerProps {
   /** Whether this drawer's mode describes a repeatable weekly pattern. Off for
    *  blocked time and time off, which are inherently single-date. */
   allowRepeatWeekly?: boolean;
+  /** Whether re-saving the exact same time range as already stored counts as
+   *  a no-op to reject. Only meaningful for the "edit working hours" drawer —
+   *  Day Off/Blocked/Time Off drawers pre-fill these same default times, so
+   *  the same guard would wrongly reject e.g. flipping "Staff is Available"
+   *  back on with the pre-filled defaults, which is a real, intended save. */
+  checkDuplicateRange?: boolean;
   onClose: () => void;
   onSave: (staffId: string, date: string, isAvailable: boolean, startTime: string, endTime: string, breaks: { start: string; end: string }[], repeatWeekly: boolean) => void;
 }
 
 const ShiftDrawer: React.FC<ShiftDrawerProps> = ({
   open, staff, date, shift, isCreating = false, title: titleProp, saveLabel: saveLabelProp,
-  allowRepeatWeekly = false, onClose, onSave,
+  allowRepeatWeekly = false, checkDuplicateRange = false, onClose, onSave,
 }) => {
   const [isAvailable, setIsAvailable] = useState(true);
   const [startTime, setStartTime] = useState("10:30 AM");
@@ -90,7 +96,7 @@ const ShiftDrawer: React.FC<ShiftDrawerProps> = ({
       // day rather than an actual change.
       // Re-saving the same range is still meaningful when it's being promoted
       // to a weekly repeat — that writes a baseline row this day didn't have.
-      if (!repeatWeekly && shift?.isAvailable && shift.startTime === startTime && shift.endTime === endTime) {
+      if (checkDuplicateRange && !repeatWeekly && shift?.isAvailable && shift.startTime === startTime && shift.endTime === endTime) {
         setError("This working-hour time range already exists. Please select a different time.");
         return;
       }
