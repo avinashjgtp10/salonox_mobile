@@ -13,6 +13,8 @@ import { ONLINE_BOOKING } from "../../../services/api/endpoints";
 import {
   fetchPublicSalonBySlugThunk,
   createPublicBookingThunk,
+  sendBookingEmailOtpThunk,
+  verifyBookingEmailOtpThunk,
 } from "../../../middleware/onlineBooking/onlineBooking.thunk";
 import {
   DAYS, MONTHS, staffName, initials, fmtDur, fmtPrice, hashHue,
@@ -33,6 +35,9 @@ function buildAddress(salon: any): string {
   }
   return [addr, salon.city, salon.state, salon.pincode].filter(Boolean).join(", ");
 }
+
+const EMAIL_RE = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/;
+const OTP_RESEND_SECONDS = 30;
 
 /** A UUID is unusable as something a customer reads out over the phone. */
 function shortBookingId(id?: string | null): string {
@@ -128,6 +133,18 @@ export default function PublicBookingPage() {
   const [showMonth, setShowMonth] = useState(false);
   const [form, setForm] = useState({ name: "", email: "", phone: "", countryCode: "+91", notes: "" });
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  // Email OTP — `emailVerifiedFor` pins the verification to the exact address
+  // it was granted for, so editing the email after a successful verify (or
+  // switching addresses) can't carry the old verification over.
+  const [otpSentTo, setOtpSentTo] = useState<string | null>(null);
+  const [otpCode, setOtpCode] = useState("");
+  const [emailVerifiedFor, setEmailVerifiedFor] = useState<string | null>(null);
+  const [otpSending, setOtpSending] = useState(false);
+  const [otpVerifying, setOtpVerifying] = useState(false);
+  const [otpError, setOtpError] = useState<string | null>(null);
+  const [resendIn, setResendIn] = useState(0);
+
   const [preselected, setPreselected] = useState(false);
   const [createdAppointment, setCreatedAppointment] = useState<any>(null);
 
@@ -163,6 +180,18 @@ export default function PublicBookingPage() {
   const city: string = [salon?.city, salon?.state].filter(Boolean).join(", ");
 
   const cancellationNoticeHours: number = Number(salon?.cancellation_notice_hours) || 0;
+
+  // Hero band photo: whichever gallery photos the salon has uploaded,
+  // rotating slowly behind the hero. Rendered full-strength (no wash across
+  // the whole image) with only a left-side scrim behind the text, so any
+  // photo the salon adds shows crisp rather than looking hazy/blurry.
+  const gallery: string[] = Array.isArray(salon?.gallery) ? salon.gallery : [];
+  const [heroPhotoIndex, setHeroPhotoIndex] = useState(0);
+  useEffect(() => {
+    if (gallery.length < 2) return;
+    const t = setInterval(() => setHeroPhotoIndex((i) => (i + 1) % gallery.length), 7000);
+    return () => clearInterval(t);
+  }, [gallery.length]);
 
   // A map link is only ever built from a real configured address. Falling back
   // to the salon's *name* hands Google a search term that resolves to an
@@ -330,8 +359,58 @@ export default function PublicBookingPage() {
     setSelTime(null);
   }
 
+  useEffect(() => {
+    if (resendIn <= 0) return;
+    const t = setTimeout(() => setResendIn((s) => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [resendIn]);
+
+  const emailValid = EMAIL_RE.test(form.email.trim());
+  const emailVerified = emailVerifiedFor !== null && emailVerifiedFor === form.email.trim().toLowerCase();
+
+  function handleEmailChange(value: string) {
+    setForm((f) => ({ ...f, email: value }));
+    // Any edit invalidates whatever OTP state applied to the previous value.
+    setOtpSentTo(null);
+    setOtpCode("");
+    setOtpError(null);
+    setEmailVerifiedFor(null);
+  }
+
+  async function handleSendOtp() {
+    const email = form.email.trim();
+    if (!emailValid || otpSending || resendIn > 0) return;
+    setOtpError(null);
+    setOtpSending(true);
+    try {
+      await dispatch(sendBookingEmailOtpThunk(email)).unwrap();
+      setOtpSentTo(email.toLowerCase());
+      setOtpCode("");
+      setResendIn(OTP_RESEND_SECONDS);
+    } catch (err: any) {
+      setOtpError(typeof err === "string" ? err : "Failed to send OTP. Please try again.");
+    } finally {
+      setOtpSending(false);
+    }
+  }
+
+  async function handleVerifyOtp() {
+    const email = form.email.trim();
+    if (otpCode.trim().length !== 6 || otpVerifying) return;
+    setOtpError(null);
+    setOtpVerifying(true);
+    try {
+      await dispatch(verifyBookingEmailOtpThunk({ email, otp: otpCode.trim() })).unwrap();
+      setEmailVerifiedFor(email.toLowerCase());
+    } catch (err: any) {
+      setOtpError(typeof err === "string" ? err : "Invalid or expired OTP.");
+    } finally {
+      setOtpVerifying(false);
+    }
+  }
+
   async function handleSubmit() {
-    if (!salon?.id || !selStaff || selServices.length === 0 || !selTime) return;
+    if (!salon?.id || !selStaff || selServices.length === 0 || !selTime || !emailVerified) return;
     setSubmitError(null);
     try {
       const appointment = await dispatch(
@@ -361,9 +440,22 @@ export default function PublicBookingPage() {
     setForm({ name: "", email: "", phone: "", countryCode: "+91", notes: "" });
     setCreatedAppointment(null);
     setSubmitError(null);
+    setOtpSentTo(null);
+    setOtpCode("");
+    setEmailVerifiedFor(null);
+    setOtpError(null);
+    setResendIn(0);
   }
 
-  const detailsValid = form.name.trim().length > 1 && form.phone.replace(/\D/g, "").length >= 8;
+  // +91 numbers are exactly 10 digits; other country codes vary by country,
+  // so those keep the looser 8-15 digit sanity check instead of a hard rule.
+  const phoneDigits = form.phone.replace(/\D/g, "");
+  const phoneValid = form.countryCode === "+91"
+    ? phoneDigits.length === 10
+    : phoneDigits.length >= 8 && phoneDigits.length <= 15;
+  const phoneTouched = phoneDigits.length > 0;
+
+  const detailsValid = form.name.trim().length > 1 && phoneValid && emailValid && emailVerified;
   const dateLabel = `${DAYS[selDate.getDay()]}, ${selDate.getDate()} ${MONTHS[selDate.getMonth()]} ${selDate.getFullYear()}`;
   const staffLabel = selStaff ? staffName(selStaff) : "Not selected yet";
   const bookingReady = selServices.length > 0 && !!selStaff && !!selTime;
@@ -429,8 +521,13 @@ export default function PublicBookingPage() {
     <header className="pb__nav">
       <div className="pb__nav-inner">
         <div className="pb__logo">
-          <span className="pb__logo-name">{salonName}</span>
-          <span className="pb__logo-tag">Look good. Feel great.</span>
+          {salon?.logo_url && (
+            <img className="pb__logo-mark" src={salon.logo_url} alt="" />
+          )}
+          <span className="pb__logo-text">
+            <span className="pb__logo-name">{salonName}</span>
+            <span className="pb__logo-tag">Look good. Feel great.</span>
+          </span>
         </div>
 
         {/* Links move within this page — nothing here navigates somewhere that
@@ -466,34 +563,53 @@ export default function PublicBookingPage() {
     </header>
   );
 
-  const Band = ({ title, sub }: { title: string; sub: string }) => (
-    <div className="pb__band">
-      <div className="pb__band-inner">
-        <div className="pb__band-copy">
-          <p className="pb__eyebrow">Online booking</p>
-          <h1 className="pb__display">{title}</h1>
-          <p className="pb__band-sub">{sub}</p>
+  const Band = ({ title, sub }: { title: string; sub: string }) => {
+    const hasPhoto = gallery.length > 0;
+    return (
+      <div className={`pb__band ${hasPhoto ? "pb__band--photo" : ""}`}>
+        {hasPhoto && gallery.map((url, i) => (
+          <div key={url} className="pb__band-bg" aria-hidden="true"
+            style={{ backgroundImage: `url(${url})`, opacity: i === heroPhotoIndex ? 1 : 0 }} />
+        ))}
+        {hasPhoto && <div className="pb__band-scrim" aria-hidden="true" />}
+
+        <div className="pb__band-inner">
+          <div className="pb__band-copy">
+            <p className="pb__eyebrow">Online booking</p>
+            <h1 className="pb__display">{title}</h1>
+            <p className="pb__band-sub">{sub}</p>
+            {hasPhoto && step === 1 && (
+              <button type="button" className="pb__btn pb__btn--primary pb__btn--auto pb__band-cta"
+                onClick={() => scrollTo(servicesRef)}>
+                Book Appointment <span aria-hidden="true">→</span>
+              </button>
+            )}
+          </div>
+
+          {!hasPhoto && (
+            <ol className="pb__steps" aria-label="Booking progress">
+              {STEP_LABELS.map((s, i) => {
+                const index = (i + 1) as 1 | 2 | 3;
+                const state = index === activeStep ? "is-active" : index < activeStep ? "is-done" : "";
+                return (
+                  <li key={s.label} className={`pb__step ${state}`}
+                    aria-current={index === activeStep ? "step" : undefined}>
+                    <span className="pb__step-dot">{index}</span>
+                    <span className="pb__step-label">{s.label}</span>
+                    <span className="pb__step-note">{s.note}</span>
+                  </li>
+                );
+              })}
+            </ol>
+          )}
+
+          {!hasPhoto && (
+            <p className="pb__band-script" aria-hidden="true">Self care looks good on you.</p>
+          )}
         </div>
-
-        <ol className="pb__steps" aria-label="Booking progress">
-          {STEP_LABELS.map((s, i) => {
-            const index = (i + 1) as 1 | 2 | 3;
-            const state = index === activeStep ? "is-active" : index < activeStep ? "is-done" : "";
-            return (
-              <li key={s.label} className={`pb__step ${state}`}
-                aria-current={index === activeStep ? "step" : undefined}>
-                <span className="pb__step-dot">{index}</span>
-                <span className="pb__step-label">{s.label}</span>
-                <span className="pb__step-note">{s.note}</span>
-              </li>
-            );
-          })}
-        </ol>
-
-        <p className="pb__band-script" aria-hidden="true">Self care looks good on you.</p>
       </div>
-    </div>
-  );
+    );
+  };
 
   const ServiceRow = ({ svc }: { svc: ServiceItem }) => {
     const on = selServices.some((s) => s.id === svc.id);
@@ -667,36 +783,40 @@ export default function PublicBookingPage() {
                   </button>
                 </div>
 
-                <div className="pb__week">
-                  <div className="pb__week-nav">
-                    <button type="button" className="pbc__nav" onClick={() => shiftWeek(-1)}
-                      disabled={atFirstWeek} aria-label="Previous week">
-                      <ChevronLeft size={14} />
-                    </button>
-                    <span className="pb__week-label">{weekLabel}</span>
-                    <button type="button" className="pbc__nav" onClick={() => shiftWeek(1)}
-                      aria-label="Next week">
-                      <ChevronRight size={14} />
-                    </button>
-                  </div>
+                {/* Exactly one date-picking widget at a time — showing the week
+                    strip's own nav ("‹ Sep 2026 ›") alongside the month
+                    calendar's near-identical nav read as two competing date
+                    pickers stacked on top of each other. */}
+                {!showMonth ? (
+                  <div className="pb__week">
+                    <div className="pb__week-nav">
+                      <button type="button" className="pbc__nav" onClick={() => shiftWeek(-1)}
+                        disabled={atFirstWeek} aria-label="Previous week">
+                        <ChevronLeft size={14} />
+                      </button>
+                      <span className="pb__week-label">{weekLabel}</span>
+                      <button type="button" className="pbc__nav" onClick={() => shiftWeek(1)}
+                        aria-label="Next week">
+                        <ChevronRight size={14} />
+                      </button>
+                    </div>
 
-                  <div className="pb__week-days">
-                    {weekDays.map((d) => {
-                      const off = isDayDisabled(d);
-                      const on = sameDay(d, selDate);
-                      return (
-                        <button key={d.toISOString()} type="button" disabled={off}
-                          className={`pb__day ${on ? "is-selected" : ""}`}
-                          aria-pressed={on} onClick={() => pickDate(d)}>
-                          <span className="pb__day-name">{DAYS[d.getDay()]}</span>
-                          <span className="pb__day-num">{d.getDate()}</span>
-                        </button>
-                      );
-                    })}
+                    <div className="pb__week-days">
+                      {weekDays.map((d) => {
+                        const off = isDayDisabled(d);
+                        const on = sameDay(d, selDate);
+                        return (
+                          <button key={d.toISOString()} type="button" disabled={off}
+                            className={`pb__day ${on ? "is-selected" : ""}`}
+                            aria-pressed={on} onClick={() => pickDate(d)}>
+                            <span className="pb__day-name">{DAYS[d.getDay()]}</span>
+                            <span className="pb__day-num">{d.getDate()}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-
-                {showMonth && (
+                ) : (
                   <div className="pb__month">
                     <CalendarPicker
                       value={selDate}
@@ -706,6 +826,8 @@ export default function PublicBookingPage() {
                     />
                   </div>
                 )}
+
+                <div className="pb__divider" role="separator" aria-hidden="true" />
 
                 <p className="pb__col-title">Available slots</p>
 
@@ -913,18 +1035,64 @@ export default function PublicBookingPage() {
                       <option value="+1">+1</option>
                     </select>
                     <input id="pb-phone" className="pb__input" value={form.phone}
-                      inputMode="tel" autoComplete="tel"
+                      inputMode="tel" autoComplete="tel" maxLength={form.countryCode === "+91" ? 10 : 15}
                       onChange={(e) => setForm({ ...form, phone: e.target.value.replace(/[^\d\s-]/g, "") })}
                       placeholder="9876543210" />
                   </div>
+                  {phoneTouched && !phoneValid && (
+                    <p className="pb__field-hint pb__field-hint--error">
+                      {form.countryCode === "+91"
+                        ? "Enter a valid 10-digit mobile number"
+                        : "Enter a valid phone number"}
+                    </p>
+                  )}
                 </div>
 
                 <div className="pb__field">
-                  <label className="pb__label" htmlFor="pb-email">
-                    Email <span className="pb__optional">(optional)</span>
-                  </label>
-                  <input id="pb-email" className="pb__input" value={form.email} type="email" autoComplete="email"
-                    onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="you@example.com" />
+                  <label className="pb__label" htmlFor="pb-email">Email *</label>
+                  <div className="pb__phone-row">
+                    <input id="pb-email" className="pb__input" value={form.email} type="email" autoComplete="email"
+                      disabled={emailVerified}
+                      onChange={(e) => handleEmailChange(e.target.value)} placeholder="you@example.com" />
+                    {!emailVerified && (
+                      <button type="button" className="pb__btn pb__btn--ghost pb__btn--auto"
+                        disabled={!emailValid || otpSending || resendIn > 0}
+                        onClick={handleSendOtp}>
+                        {otpSending
+                          ? "Sending…"
+                          : otpSentTo === form.email.trim().toLowerCase() && resendIn > 0
+                          ? `Resend in ${resendIn}s`
+                          : otpSentTo === form.email.trim().toLowerCase()
+                          ? "Resend OTP"
+                          : "Send OTP"}
+                      </button>
+                    )}
+                  </div>
+
+                  {emailVerified && (
+                    <p className="pb__field-hint pb__field-hint--success">
+                      <Check size={13} /> Email verified
+                    </p>
+                  )}
+
+                  {!emailVerified && otpSentTo === form.email.trim().toLowerCase() && (
+                    <div className="pb__field" style={{ marginTop: 8 }}>
+                      <label className="pb__label" htmlFor="pb-otp">Enter the 6-digit code sent to your email</label>
+                      <div className="pb__phone-row">
+                        <input id="pb-otp" className="pb__input" value={otpCode} inputMode="numeric"
+                          maxLength={6}
+                          onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                          placeholder="123456" />
+                        <button type="button" className="pb__btn pb__btn--primary pb__btn--auto"
+                          disabled={otpCode.length !== 6 || otpVerifying}
+                          onClick={handleVerifyOtp}>
+                          {otpVerifying ? "Verifying…" : "Verify"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {otpError && <p className="pb__field-hint pb__field-hint--error">{otpError}</p>}
                 </div>
 
                 <div className="pb__field">

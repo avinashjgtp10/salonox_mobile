@@ -15,6 +15,9 @@ const SocialBookingsPage = lazy(
 const LinkBuilderPage = lazy(
   () => import("../features/online-booking/pages/LinkBuilderPage"),
 );
+const DigitalMenuPage = lazy(
+  () => import("../features/catalog/pages/DigitalMenuPage"),
+);
 
 // Each channel has its own independent View toggle (Online Booking Channels
 // ticket) on top of the outer view_booking gate already applied in
@@ -35,6 +38,9 @@ export const OnlineBookingRoutes = () => (
       </Route>
       <Route element={<PermissionGuard permKey="view_link_builder" />}>
         <Route path="links" element={<LinkBuilderPage />} />
+      </Route>
+      <Route element={<PermissionGuard permKey="view_digital_menu" />}>
+        <Route path="digital-menu" element={<DigitalMenuPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/dashboard/online-booking" replace />} />
     </Routes>

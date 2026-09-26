@@ -1,12 +1,11 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import {
-  Globe, Upload, Clock, Eye, CheckCircle, InfoCircle, ImageFill,
+  Globe, Upload, CheckCircle, InfoCircle, ImageFill,
   Images, Trash3, ArrowRepeat, CloudArrowUp, PlusLg, XCircleFill,
 } from "react-bootstrap-icons";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import Dropdown from "../../../components/ui/Dropdown";
 import "../styles/OnlineBooking.scss";
-import BookingPreviewModal from "../components/BookingPreviewModal";
 import api from "../../../services/api/axios";
 import { MARKETPLACE } from "../../../services/api/endpoints/marketplace.endpoints";
 import { LINK_BUILDER } from "../../../services/api/endpoints/linkBuilder.endpoints";
@@ -154,7 +153,6 @@ export default function MarketplaceProfilePage() {
   const [phone,        setPhone]        = useState("");
   const [hours,        setHours]        = useState(defaultHours);
   const [saved,        setSaved]        = useState(false);
-  const [showPreview,  setShowPreview]  = useState(false);
   const [maxAdvance,   setMaxAdvance]   = useState("30");
   const [minNotice,    setMinNotice]    = useState("0");
   const [cancelNotice, setCancelNotice] = useState("0");
@@ -191,7 +189,6 @@ export default function MarketplaceProfilePage() {
       setWebsite(profile.website || "");
       setPhone(profile.business_phone || "");
       setLogoUrl(toRelativeUrl((profile as any).logo_url));
-      setCoverUrl(toRelativeUrl((profile as any).cover_url));
       if (profile.working_hours?.length) setHours(apiToHoursState(profile.working_hours));
       setMaxAdvance(String(profile.max_advance_days ?? 30));
       setMinNotice(String(profile.min_notice_hours ?? 0));
@@ -232,13 +229,12 @@ export default function MarketplaceProfilePage() {
   const galleryInput = useRef<HTMLInputElement>(null);
   const replaceInputs = useRef<Record<string, HTMLInputElement | null>>({});
 
-  // ── Logo & Cover state ──────────────────────────────────────────────────────
+  // ── Logo state ───────────────────────────────────────────────────────────────
+  // Cover photo upload removed (kept only Logo on this card) — the public
+  // booking page's hero background now comes from the gallery instead.
   const [logoUrl,        setLogoUrl]        = useState<string>("");
-  const [coverUrl,       setCoverUrl]       = useState<string>("");
   const [logoUploading,  setLogoUploading]  = useState(false);
-  const [coverUploading, setCoverUploading] = useState(false);
   const logoInput  = useRef<HTMLInputElement>(null);
-  const coverInput = useRef<HTMLInputElement>(null);
 
   const toRelativeUrl = (u?: string | null) => {
     if (!u) return "";
@@ -247,9 +243,6 @@ export default function MarketplaceProfilePage() {
   };
 
   // ── Existing handlers ───────────────────────────────────────────────────────
-  const updateHour = (day: string, key: keyof DayHours, value: string | boolean) =>
-    setHours((prev) => ({ ...prev, [day]: { ...prev[day], [key]: value } }));
-
   const handleSave = async () => {
     if (phone && phone.replace(/\D/g, "").length !== 10) {
       showError("Phone number must be exactly 10 digits");
@@ -522,7 +515,7 @@ export default function MarketplaceProfilePage() {
     []
   );
 
-  // ── Logo & Cover upload handlers ────────────────────────────────────────────
+  // ── Logo upload handler ──────────────────────────────────────────────────────
   const handleLogoUpload = async (file: File) => {
     const err = validateFile(file);
     if (err) { showError(err); return; }
@@ -545,35 +538,11 @@ export default function MarketplaceProfilePage() {
     }
   };
 
-  const handleCoverUpload = async (file: File) => {
-    const err = validateFile(file);
-    if (err) { showError(err); return; }
-    setCoverUrl(URL.createObjectURL(file));
-    setCoverUploading(true);
-    const formData = new FormData();
-    formData.append("image", file);
-    try {
-      const res = await api.post("/api/v1/marketplace/cover", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-      const saved = res.data?.data ?? res.data ?? {};
-      setCoverUrl(toRelativeUrl(saved.cover_url) || URL.createObjectURL(file));
-      showSuccess("Cover photo uploaded!");
-    } catch (err: unknown) {
-      const msg = (err as any)?.response?.data?.message ?? "Cover upload failed.";
-      showError(msg);
-    } finally {
-      setCoverUploading(false);
-    }
-  };
-
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setDragOver(false);
     if (e.dataTransfer.files.length) uploadFiles(e.dataTransfer.files);
   };
-
-  const savedPhotos = gallery.filter((g) => g.saved || g.uploading).map((g) => g.url);
 
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
@@ -591,9 +560,6 @@ export default function MarketplaceProfilePage() {
           </p>
         </div>
         <div className="ob-header-actions">
-          <button className="ob-btn-outline" onClick={() => setShowPreview(true)}>
-            <Eye size={15} /> Preview
-          </button>
           <button className="ob-btn-primary" onClick={handleSave}
             style={saved ? { background: "#16a34a" } : {}}>
             {saved ? <><CheckCircle size={15} /> Saved</> : "Save changes"}
@@ -681,49 +647,6 @@ export default function MarketplaceProfilePage() {
             </span>
             <input ref={logoInput} type="file" accept="image/jpeg,image/png,image/webp" hidden
               onChange={(e) => { if (e.target.files?.[0]) handleLogoUpload(e.target.files[0]); e.target.value = ""; }} />
-          </div>
-
-          {/* ── Cover photo slot ── */}
-          <div
-            className="ob-photo-slot"
-            onClick={() => !coverUploading && coverInput.current?.click()}
-            style={{ minHeight: 120, cursor: "pointer", position: "relative", overflow: "hidden",
-              padding: coverUrl ? 0 : undefined }}
-            title="Click to upload cover photo">
-            {coverUrl ? (
-              <img src={coverUrl} alt="Cover"
-                style={{ width: "100%", height: "100%", objectFit: "cover",
-                  borderRadius: "inherit", display: "block" }} />
-            ) : (
-              <>
-                <span className="ob-photo-upload-icon"><Upload size={22} /></span>
-                <span>Upload cover photo</span>
-                <span style={{ fontSize: 11.5, color: "#9ca3af" }}>PNG, JPG up to 5MB</span>
-              </>
-            )}
-            {coverUploading && (
-              <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.45)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                borderRadius: "inherit" }}>
-                <div style={{ width: 28, height: 28, border: "3px solid rgba(255,255,255,0.3)",
-                  borderTopColor: "#fff", borderRadius: "50%",
-                  animation: "gallery-spin 0.8s linear infinite" }} />
-              </div>
-            )}
-            {/* Hover overlay when cover exists */}
-            {coverUrl && (
-              <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.5)",
-                display: "flex", flexDirection: "column", alignItems: "center",
-                justifyContent: "center", gap: 6, opacity: 0, transition: "opacity 0.2s",
-                borderRadius: "inherit" }}
-                onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
-                onMouseLeave={(e) => (e.currentTarget.style.opacity = "0")}>
-                <Upload size={20} color="#fff" />
-                <span style={{ fontSize: 12, color: "#fff", fontWeight: 600 }}>Change cover</span>
-              </div>
-            )}
-            <input ref={coverInput} type="file" accept="image/jpeg,image/png,image/webp" hidden
-              onChange={(e) => { if (e.target.files?.[0]) handleCoverUpload(e.target.files[0]); e.target.value = ""; }} />
           </div>
         </div>
         <div className="ob-section-label">Details</div>
@@ -1195,44 +1118,9 @@ export default function MarketplaceProfilePage() {
         </div>
       </div>
 
-      {/* ════════════════════════════════════════════════════════════════════════
-          EXISTING — Business Hours
-      ═══════════════════════════════════════════════════════════════════════════ */}
-      <div className="ob-card">
-        <div className="ob-card-header">
-          <div>
-            <p className="ob-card-title">
-              <Clock size={16} style={{ marginRight: 7, verticalAlign: "middle" }} />
-              Business Hours
-            </p>
-            <p className="ob-card-sub">Set your opening times shown to clients on your booking page.</p>
-          </div>
-        </div>
-        {DAYS.map((day) => {
-          const h = hours[day];
-          return (
-            <div key={day} className="ob-hours-row">
-              <div className="ob-hours-day">{day}</div>
-              {h.open ? (
-                <div className="ob-hours-times">
-                  <input type="time" className="ob-input" value={h.from}
-                    onChange={(e) => updateHour(day, "from", e.target.value)} />
-                  <span className="ob-hours-sep">to</span>
-                  <input type="time" className="ob-input" value={h.to}
-                    onChange={(e) => updateHour(day, "to", e.target.value)} />
-                </div>
-              ) : (
-                <span className="ob-hours-closed">Closed</span>
-              )}
-              <label className="ob-switch">
-                <input type="checkbox" checked={h.open}
-                  onChange={(e) => updateHour(day, "open", e.target.checked)} />
-                <span className="ob-switch-track"><span className="ob-switch-thumb" /></span>
-              </label>
-            </div>
-          );
-        })}
-      </div>
+      {/* Business Hours now lives in Settings → Business Hours (writes the same
+          marketplace_working_hours data). `hours` is still fetched/saved here
+          so the booking-link preview below stays accurate. */}
 
       {/* ════════════════════════════════════════════════════════════════════════
           EXISTING — Booking Link
@@ -1257,16 +1145,6 @@ export default function MarketplaceProfilePage() {
         </div>
       </div>
 
-      {/* Preview Modal */}
-      <BookingPreviewModal
-        open={showPreview}
-        onClose={() => setShowPreview(false)}
-        previewName={businessName}
-        previewTagline={tagline}
-        previewDescription={description}
-        galleryPhotos={savedPhotos}
-        previewHours={DAYS.map((day) => ({ day, ...hours[day] }))}
-      />
     </div>
   );
 }

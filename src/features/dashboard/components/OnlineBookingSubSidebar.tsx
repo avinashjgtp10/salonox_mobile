@@ -5,6 +5,7 @@ import {
   Google,
   Facebook,
   Link45deg,
+  QrCode,
 } from "react-bootstrap-icons";
 import { usePermissions } from "../../../hooks/usePermissions";
 import { useAppDispatch } from "../../../hooks/useAppRedux";
@@ -47,6 +48,13 @@ const links = [
     label: "Link builder",
     desc: "Custom booking links & QR codes",
     permKey: "view_link_builder",
+  },
+  {
+    to: "/dashboard/online-booking/digital-menu",
+    icon: <QrCode size={15} />,
+    label: "Digital Menu",
+    desc: "QR-code service menu for walk-ins",
+    permKey: "view_digital_menu",
   },
 ];
 

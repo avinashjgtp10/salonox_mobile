@@ -40,9 +40,6 @@ const EditPackagePage = lazy(
 const PackageModule = lazy(
   () => import("../components/packages/PackageModule"),
 );
-const DigitalMenuPage = lazy(
-  () => import("../features/catalog/pages/DigitalMenuPage"),
-);
 
 import { PageLoader } from "../components/ui";
 
@@ -59,6 +56,17 @@ function LegacyInventoryRedirect() {
   return <Navigate to={`${target}${location.search}`} replace />;
 }
 
+// Digital Menu moved to Online Booking — see OnlineBookingRoutes.tsx. Same
+// bookmark-preserving redirect pattern as inventory above.
+function LegacyDigitalMenuRedirect() {
+  const location = useLocation();
+  const target = location.pathname.replace(
+    /^\/dashboard\/catalog\/digital-menu/,
+    "/dashboard/online-booking/digital-menu",
+  );
+  return <Navigate to={`${target}${location.search}`} replace />;
+}
+
 export const CatalogRoutes = () => (
   <Suspense fallback={<PageLoader />}>
     <Routes>
@@ -66,6 +74,8 @@ export const CatalogRoutes = () => (
       <Route index element={<Navigate to="/dashboard/catalog/services" replace />} />
       {/* Inventory lives at /dashboard/inventory/* now — see InventoryRoutes.tsx */}
       <Route path="inventory/*" element={<LegacyInventoryRedirect />} />
+      {/* Digital Menu lives at /dashboard/online-booking/digital-menu now — see OnlineBookingRoutes.tsx */}
+      <Route path="digital-menu" element={<LegacyDigitalMenuRedirect />} />
 
       {/* Service Menu — view_services now real (see the Service Menu ticket) */}
       <Route element={<PermissionGuard permKey="view_services" />}>
@@ -79,9 +89,6 @@ export const CatalogRoutes = () => (
       </Route>
       <Route element={<PermissionGuard permKey="manage_categories" />}>
         <Route path="services/categories" element={<CategoriesPage />} />
-      </Route>
-      <Route element={<PermissionGuard permKey="view_digital_menu" />}>
-        <Route path="digital-menu" element={<DigitalMenuPage />} />
       </Route>
 
       {/* Products — view_products now real (see the Products ticket) */}
