@@ -72,6 +72,12 @@ export default defineConfig(({ mode }) => {
     // it's a full country/state/city JSON dataset and is lazy-loaded only when needed.
     chunkSizeWarningLimit: 9500,
     rollupOptions: {
+      // Two HTML entries: the app shell, and the template that scripts/prerender.mjs
+      // fills in for each public marketing route.
+      input: {
+        main: path.resolve(__dirname, 'index.html'),
+        marketing: path.resolve(__dirname, 'marketing.html'),
+      },
       output: {
         manualChunks(id) {
           // ── Vite's dynamic-import preload helper is a shared runtime util with
