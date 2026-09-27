@@ -10,6 +10,7 @@ export const MARKETPLACE = {
   IMAGE_COVER: (id: string) => `/api/v1/marketplace/images/${id}/cover`,
   IMAGE_BY_ID: (id: string) => `/api/v1/marketplace/images/${id}`,
   FEATURES: "/api/v1/marketplace/features",
+  STAFF_VISIBILITY: "/api/v1/marketplace/staff-visibility",
   PUBLISH: "/api/v1/marketplace/publish",
   UNPUBLISH: "/api/v1/marketplace/unpublish",
 } as const;
