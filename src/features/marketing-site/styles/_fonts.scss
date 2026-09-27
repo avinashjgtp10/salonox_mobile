@@ -1,16 +1,10 @@
-// Self-hosted Inter and Plus Jakarta Sans (both SIL OFL 1.1), latin and latin-ext
-// subsets only, replacing the render-blocking @import of fonts.googleapis.com.
-// latin-ext is what carries the rupee sign, and the browser only downloads it
-// when a page actually uses one of its characters (unicode-range).
-@font-face {
-  font-family: 'Inter';
-  font-style: normal;
-  font-weight: 400 700;
-  font-display: swap;
-  src: url('/fonts/inter-latin-ext.woff2') format('woff2');
-  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
-}
-
+// Self-hosted Inter and Plus Jakarta Sans (both SIL OFL 1.1), replacing the
+// render-blocking @import of fonts.googleapis.com.
+// Inter ships latin only: its latin-ext file is 83 KB and the landing page only
+// ever needed it for the rupee sign, so the sign falls back to the system font
+// there. Plus Jakarta Sans keeps latin-ext (21 KB) so display prices keep its
+// rupee glyph; the browser fetches a file only when a character in its
+// unicode-range is rendered.
 @font-face {
   font-family: 'Inter';
   font-style: normal;
