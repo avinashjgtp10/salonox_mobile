@@ -17,7 +17,7 @@ export const SITE = {
 // Social profiles: the footer links and the Organization JSON-LD sameAs both
 // read this, so they cannot drift. Add a profile here only once it is real.
 export const SOCIAL = {
-  instagram: "https://www.instagram.com/salonox_crm",
+  instagram: "https://www.instagram.com/salonox_crm/",
 } as const;
 
 // Facts for Organization structured data. Only real, already-public details.
