@@ -1,3 +1,4 @@
+import { BRAND_NAME } from '../../marketing/seo.config';
 import React, { useEffect, useRef, useState, useCallback, useMemo, useId } from 'react';
 import { FaWhatsapp } from 'react-icons/fa';
 import { getCountryCallingCode, type Country } from 'react-phone-number-input';
@@ -223,7 +224,7 @@ export const WHY_FEATURE_DETAILS: WhyFeature[] = [
     desc: 'Manage unlimited branches from a single dashboard. Each branch gets its own staff, schedule, and reports under one roof.',
     tag: 'Enterprise',
     modalTitle: 'Run every branch without switching systems',
-    modalDesc: 'SalonOX gives owners and area managers one command center for all locations while keeping branch operations cleanly separated.',
+    modalDesc: 'SalonoX gives owners and area managers one command center for all locations while keeping branch operations cleanly separated.',
     metric: '12+',
     metricLabel: 'branches managed from one login',
     benefits: [
@@ -291,7 +292,7 @@ export const WHY_FEATURE_DETAILS: WhyFeature[] = [
     desc: 'Track revenue, bookings, staff performance, and client retention live. Make data-driven decisions with instant insights.',
     tag: 'Analytics',
     modalTitle: 'Know what is happening before the day ends',
-    modalDesc: 'SalonOX analytics surface live revenue, appointments, utilization, and retention insights so owners can act quickly.',
+    modalDesc: 'SalonoX analytics surface live revenue, appointments, utilization, and retention insights so owners can act quickly.',
     metric: 'Live',
     metricLabel: 'revenue, bookings, and staff performance',
     benefits: [
@@ -335,7 +336,7 @@ export const SHOWCASE = [
     icon: 'Bar' as keyof typeof Icon,
     title: 'Real-Time Dashboard',
     desc: 'Get a complete overview of your salon\'s performance at a glance — track total revenue, appointments, active clients, and daily earnings with live charts and actionable insights.',
-    image: '/screenshots/dashboard.png',
+    image: '/screenshots/dashboard.webp',
   },
   {
     icon: 'Card' as keyof typeof Icon,
@@ -363,12 +364,12 @@ export const TESTIMONIALS = [
   { name: 'Sophia Reed', role: 'Director, Lumière Salon', quote: 'Clients love the booking page and our front desk loves how little they have to manage manually.', initials: 'SR' },
   { name: 'Mia Brooks', role: 'Owner, The Glow Room', quote: 'The multi-branch dashboard is a game-changer. Managing three locations has become incredibly easy.', initials: 'MB' },
   { name: 'Isabella Hayes', role: 'Founder, Maison Hair', quote: 'Customer retention improved significantly thanks to the marketing automation features.', initials: 'IH' },
-  { name: 'Chloe Foster', role: 'Owner, Studio Luxe', quote: 'SalonOX has made managing appointments, staff, and daily operations effortless. The booking experience is smooth, and our clients love how simple everything has become.', initials: 'CF' },
+  { name: 'Chloe Foster', role: 'Owner, Studio Luxe', quote: 'SalonoX has made managing appointments, staff, and daily operations effortless. The booking experience is smooth, and our clients love how simple everything has become.', initials: 'CF' },
 ];
 
 export const DEMO_EMAIL = 'support@salonox.com';
 export const DEMO_SUBMIT_URL = `https://formsubmit.co/ajax/${DEMO_EMAIL}`;
-export const WHATSAPP_DEMO_URL = 'https://wa.me/919503302647?text=Hi%20SalonOX%20Team,%20I%20am%20interested%20in%20SalonOX.%20Please%20share%20more%20details%20and%20schedule%20a%20demo.';
+export const WHATSAPP_DEMO_URL = `https://wa.me/919503302647?text=${encodeURIComponent(`Hi ${BRAND_NAME} Team, I am interested in ${BRAND_NAME}. Please share more details and schedule a demo.`)}`;
 export const OFFICE_MAP_URL = 'https://www.google.com/maps/search/?api=1&query=123+MG+Road%2C+Koregaon+Park%2C+Pune%2C+Maharashtra+411001%2C+India';
 export const OFFICE_MAP_EMBED_URL = 'https://www.google.com/maps?q=18.16244,74.5814658&z=16&output=embed&hl=en';
 export const DEMO_VIDEO_EMBED_URL = 'https://www.youtube.com/embed/nbyWMKwCYtA?autoplay=1&rel=0';
@@ -383,35 +384,35 @@ export type TermsSection = {
 export const TERMS_SECTIONS: TermsSection[] = [
   {
     title: 'Acceptance of Terms',
-    body: 'By creating an account, accessing, or using SalonOX, you agree to these Terms & Conditions. These terms apply to the SalonOX web application, related features, support services, and connected tools made available as part of the SalonOX platform. If you use SalonOX on behalf of a salon, spa, clinic, or other business, you confirm that you have authority to accept these terms for that business.',
+    body: 'By creating an account, accessing, or using SalonoX, you agree to these Terms & Conditions. These terms apply to the SalonoX web application, related features, support services, and connected tools made available as part of the SalonoX platform. If you use SalonoX on behalf of a salon, spa, clinic, or other business, you confirm that you have authority to accept these terms for that business.',
   },
   {
     title: 'Definitions',
-    body: '"SalonOX" means the cloud-based salon and spa management software, including modules for appointments, clients, staff, services, inventory, marketing, billing, reporting, and integrations. "Customer" means the business or person subscribing to SalonOX. "User" means any owner, manager, employee, contractor, or invited person who accesses the Customer account. "Customer Data" means information entered, uploaded, imported, generated, or stored in SalonOX by or for the Customer.',
+    body: '"SalonoX" means the cloud-based salon and spa management software, including modules for appointments, clients, staff, services, inventory, marketing, billing, reporting, and integrations. "Customer" means the business or person subscribing to SalonoX. "User" means any owner, manager, employee, contractor, or invited person who accesses the Customer account. "Customer Data" means information entered, uploaded, imported, generated, or stored in SalonoX by or for the Customer.',
   },
   {
     title: 'Eligibility',
-    body: 'SalonOX is intended for lawful commercial use by salons, spas, wellness providers, and similar service businesses. You must be legally able to enter into a binding agreement and must provide accurate registration and billing information. SalonOX may refuse access where required to comply with law, security requirements, payment controls, or platform integrity standards.',
+    body: 'SalonoX is intended for lawful commercial use by salons, spas, wellness providers, and similar service businesses. You must be legally able to enter into a binding agreement and must provide accurate registration and billing information. SalonoX may refuse access where required to comply with law, security requirements, payment controls, or platform integrity standards.',
   },
   {
     title: 'User Accounts',
-    body: 'Customers are responsible for all activity under their SalonOX account and for assigning appropriate access permissions to their Users. Account credentials must be kept confidential and may not be shared outside the authorized staff. You agree to promptly update account information and notify SalonOX if you suspect unauthorized access, credential misuse, or a security incident involving your account.',
+    body: 'Customers are responsible for all activity under their SalonoX account and for assigning appropriate access permissions to their Users. Account credentials must be kept confidential and may not be shared outside the authorized staff. You agree to promptly update account information and notify SalonoX if you suspect unauthorized access, credential misuse, or a security incident involving your account.',
   },
   {
     title: 'Subscription & Payments',
-    body: 'SalonOX is offered on a subscription basis unless otherwise stated in a written order, invoice, or commercial agreement. Fees, billing cycles, plan limits, taxes, and included features are presented during purchase or renewal. You authorize SalonOX and its payment processors to charge applicable fees using the payment method provided. Late, failed, disputed, or incomplete payments may result in reminders, access limits, suspension, or termination.',
+    body: 'SalonoX is offered on a subscription basis unless otherwise stated in a written order, invoice, or commercial agreement. Fees, billing cycles, plan limits, taxes, and included features are presented during purchase or renewal. You authorize SalonoX and its payment processors to charge applicable fees using the payment method provided. Late, failed, disputed, or incomplete payments may result in reminders, access limits, suspension, or termination.',
   },
   {
     title: 'Free Trial (if applicable)',
-    body: 'SalonOX may offer a free trial or promotional access at its discretion. Trial availability, duration, included features, and conversion terms may vary by campaign, plan, or region. At the end of a trial, continued use may require an active paid subscription. SalonOX may modify, withdraw, or decline trial access where necessary to prevent misuse or ensure fair use of the platform.',
+    body: 'SalonoX may offer a free trial or promotional access at its discretion. Trial availability, duration, included features, and conversion terms may vary by campaign, plan, or region. At the end of a trial, continued use may require an active paid subscription. SalonoX may modify, withdraw, or decline trial access where necessary to prevent misuse or ensure fair use of the platform.',
   },
   {
     title: 'License to Use the Software',
-    body: 'Subject to these terms and payment of applicable fees, SalonOX grants the Customer a limited, non-exclusive, non-transferable, revocable license to access and use the software for internal salon or spa business operations. This license does not permit resale, sublicensing, copying, reverse engineering, source-code extraction, automated scraping, or use of SalonOX to build a competing product.',
+    body: 'Subject to these terms and payment of applicable fees, SalonoX grants the Customer a limited, non-exclusive, non-transferable, revocable license to access and use the software for internal salon or spa business operations. This license does not permit resale, sublicensing, copying, reverse engineering, source-code extraction, automated scraping, or use of SalonoX to build a competing product.',
   },
   {
     title: 'Acceptable Use Policy',
-    body: 'You agree not to use SalonOX in a way that harms SalonOX, other customers, end clients, third-party providers, or the reliability and security of the platform.',
+    body: 'You agree not to use SalonoX in a way that harms SalonoX, other customers, end clients, third-party providers, or the reliability and security of the platform.',
     bullets: [
       'Do not violate applicable laws, regulations, privacy obligations, or third-party rights.',
       'Do not send unlawful, misleading, abusive, unsolicited, or non-compliant communications.',
@@ -422,59 +423,59 @@ export const TERMS_SECTIONS: TermsSection[] = [
   },
   {
     title: 'User Responsibilities',
-    body: 'Customers are responsible for configuring SalonOX accurately, including business details, services, pricing, taxes, staff schedules, cancellation rules, customer records, messages, and payment settings. Customers must obtain any consents required to collect client information, send reminders or marketing messages, process payments, and use third-party integrations. Users must verify business records, appointment details, bills, and reports before relying on them for operational, tax, accounting, or compliance purposes.',
+    body: 'Customers are responsible for configuring SalonoX accurately, including business details, services, pricing, taxes, staff schedules, cancellation rules, customer records, messages, and payment settings. Customers must obtain any consents required to collect client information, send reminders or marketing messages, process payments, and use third-party integrations. Users must verify business records, appointment details, bills, and reports before relying on them for operational, tax, accounting, or compliance purposes.',
   },
   {
     title: 'Data & Privacy',
-    body: 'Customer Data remains the responsibility of the Customer. SalonOX uses Customer Data to provide, secure, support, maintain, and improve the software, process transactions, operate integrations, and comply with lawful obligations. SalonOX will handle personal information in accordance with reasonable security measures and applicable privacy requirements. Customers are responsible for the accuracy, legality, consent basis, retention needs, and permitted use of client and staff data entered into SalonOX.',
+    body: 'Customer Data remains the responsibility of the Customer. SalonoX uses Customer Data to provide, secure, support, maintain, and improve the software, process transactions, operate integrations, and comply with lawful obligations. SalonoX will handle personal information in accordance with reasonable security measures and applicable privacy requirements. Customers are responsible for the accuracy, legality, consent basis, retention needs, and permitted use of client and staff data entered into SalonoX.',
   },
   {
     title: 'Intellectual Property',
-    body: 'SalonOX and its software, interface, design, workflows, code, databases, documentation, trademarks, logos, content, analytics models, and related materials are owned by SalonOX or its licensors. These terms do not transfer any ownership rights to Customers or Users. Customer Data remains owned by the Customer or its lawful owners, subject to the rights granted to SalonOX to operate and support the platform.',
+    body: 'SalonoX and its software, interface, design, workflows, code, databases, documentation, trademarks, logos, content, analytics models, and related materials are owned by SalonoX or its licensors. These terms do not transfer any ownership rights to Customers or Users. Customer Data remains owned by the Customer or its lawful owners, subject to the rights granted to SalonoX to operate and support the platform.',
   },
   {
     title: 'Third-Party Services',
-    body: 'SalonOX may connect with third-party services such as WhatsApp, SMS providers, payment gateways, email providers, maps, analytics tools, cloud infrastructure, and other business applications. Third-party services are governed by their own terms, policies, fees, message limits, delivery rules, and availability. SalonOX is not responsible for failures, delays, data handling, policy enforcement, pricing changes, account restrictions, or service interruptions caused by third-party providers.',
+    body: 'SalonoX may connect with third-party services such as WhatsApp, SMS providers, payment gateways, email providers, maps, analytics tools, cloud infrastructure, and other business applications. Third-party services are governed by their own terms, policies, fees, message limits, delivery rules, and availability. SalonoX is not responsible for failures, delays, data handling, policy enforcement, pricing changes, account restrictions, or service interruptions caused by third-party providers.',
   },
   {
     title: 'Service Availability',
-    body: 'SalonOX aims to provide a reliable cloud service, but availability may be affected by maintenance, updates, internet connectivity, hosting providers, third-party systems, security events, force majeure events, or factors outside SalonOX control. SalonOX may perform scheduled or emergency maintenance and may temporarily limit features to protect security, performance, legal compliance, or platform stability.',
+    body: 'SalonoX aims to provide a reliable cloud service, but availability may be affected by maintenance, updates, internet connectivity, hosting providers, third-party systems, security events, force majeure events, or factors outside SalonoX control. SalonoX may perform scheduled or emergency maintenance and may temporarily limit features to protect security, performance, legal compliance, or platform stability.',
   },
   {
     title: 'Updates & Changes',
-    body: 'SalonOX may improve, modify, add, or remove features, interfaces, workflows, plan inclusions, integrations, and technical requirements from time to time. Updates may be released automatically because SalonOX is a cloud-based SaaS product. SalonOX will try to avoid unnecessary disruption, but changes may be required for security, compliance, product quality, scalability, or business reasons.',
+    body: 'SalonoX may improve, modify, add, or remove features, interfaces, workflows, plan inclusions, integrations, and technical requirements from time to time. Updates may be released automatically because SalonoX is a cloud-based SaaS product. SalonoX will try to avoid unnecessary disruption, but changes may be required for security, compliance, product quality, scalability, or business reasons.',
   },
   {
     title: 'Cancellation & Termination',
-    body: 'Customers may cancel their subscription according to the cancellation options available in SalonOX or by contacting support. Cancellation may stop future renewals but does not automatically refund fees already charged. SalonOX may suspend or terminate access for non-payment, security risk, unlawful use, material breach of these terms, misuse of the platform, or activity that may harm SalonOX, other customers, end clients, or third-party providers.',
+    body: 'Customers may cancel their subscription according to the cancellation options available in SalonoX or by contacting support. Cancellation may stop future renewals but does not automatically refund fees already charged. SalonoX may suspend or terminate access for non-payment, security risk, unlawful use, material breach of these terms, misuse of the platform, or activity that may harm SalonoX, other customers, end clients, or third-party providers.',
   },
   {
     title: 'Refund Policy',
-    body: 'Unless required by applicable law or expressly stated in a written agreement, subscription fees, setup fees, usage charges, communication credits, payment processing charges, and renewal fees are non-refundable. If SalonOX approves a refund as a courtesy or exception, that approval does not create an obligation to provide similar refunds in the future. Any approved refund may exclude taxes, third-party charges, gateway fees, or consumed usage.',
+    body: 'Unless required by applicable law or expressly stated in a written agreement, subscription fees, setup fees, usage charges, communication credits, payment processing charges, and renewal fees are non-refundable. If SalonoX approves a refund as a courtesy or exception, that approval does not create an obligation to provide similar refunds in the future. Any approved refund may exclude taxes, third-party charges, gateway fees, or consumed usage.',
   },
   {
     title: 'Limitation of Liability',
-    body: 'To the maximum extent permitted by law, SalonOX will not be liable for indirect, incidental, special, consequential, exemplary, or punitive damages, including loss of profits, revenue, goodwill, data, business opportunity, or customer relationships. SalonOX total liability for claims relating to the software or these terms will be limited to the subscription fees paid by the Customer for SalonOX during the three months immediately before the event giving rise to the claim.',
+    body: 'To the maximum extent permitted by law, SalonoX will not be liable for indirect, incidental, special, consequential, exemplary, or punitive damages, including loss of profits, revenue, goodwill, data, business opportunity, or customer relationships. SalonoX total liability for claims relating to the software or these terms will be limited to the subscription fees paid by the Customer for SalonoX during the three months immediately before the event giving rise to the claim.',
   },
   {
     title: 'Disclaimer of Warranties',
-    body: 'SalonOX is provided on an "as is" and "as available" basis. SalonOX does not warrant that the software will be uninterrupted, error-free, fully secure, compatible with every device or browser, or suitable for every business requirement. SalonOX does not provide legal, tax, accounting, medical, employment, financial, or regulatory advice. Customers should independently review outputs, reports, automated reminders, invoices, and compliance decisions before acting on them.',
+    body: 'SalonoX is provided on an "as is" and "as available" basis. SalonoX does not warrant that the software will be uninterrupted, error-free, fully secure, compatible with every device or browser, or suitable for every business requirement. SalonoX does not provide legal, tax, accounting, medical, employment, financial, or regulatory advice. Customers should independently review outputs, reports, automated reminders, invoices, and compliance decisions before acting on them.',
   },
   {
     title: 'Indemnification',
-    body: 'You agree to defend, indemnify, and hold SalonOX, its officers, employees, contractors, affiliates, and service providers harmless from claims, losses, liabilities, damages, costs, and expenses arising from your use of SalonOX, Customer Data, breach of these terms, violation of law, misuse of third-party services, infringement of third-party rights, or communications sent through your account.',
+    body: 'You agree to defend, indemnify, and hold SalonoX, its officers, employees, contractors, affiliates, and service providers harmless from claims, losses, liabilities, damages, costs, and expenses arising from your use of SalonoX, Customer Data, breach of these terms, violation of law, misuse of third-party services, infringement of third-party rights, or communications sent through your account.',
   },
   {
     title: 'Governing Law (India)',
-    body: 'These terms are governed by the laws of India, without regard to conflict-of-law principles. The parties agree to first attempt to resolve disputes in good faith through written communication. Subject to applicable law and any mandatory jurisdiction requirements, disputes relating to these terms or SalonOX may be brought before competent courts or forums in India.',
+    body: 'These terms are governed by the laws of India, without regard to conflict-of-law principles. The parties agree to first attempt to resolve disputes in good faith through written communication. Subject to applicable law and any mandatory jurisdiction requirements, disputes relating to these terms or SalonoX may be brought before competent courts or forums in India.',
   },
   {
     title: 'Changes to these Terms',
-    body: 'SalonOX may update these Terms & Conditions from time to time. When changes are material, SalonOX may provide notice through the platform, email, invoice notes, or another reasonable method. Continued access to or use of SalonOX after updated terms become effective means you accept the revised terms. If you do not agree to the revised terms, you should stop using SalonOX and cancel your subscription where applicable.',
+    body: 'SalonoX may update these Terms & Conditions from time to time. When changes are material, SalonoX may provide notice through the platform, email, invoice notes, or another reasonable method. Continued access to or use of SalonoX after updated terms become effective means you accept the revised terms. If you do not agree to the revised terms, you should stop using SalonoX and cancel your subscription where applicable.',
   },
   {
     title: 'Contact Us',
-    body: 'For questions about these Terms & Conditions or your SalonOX subscription, contact the SalonOX support team at',
+    body: 'For questions about these Terms & Conditions or your SalonoX subscription, contact the SalonoX support team at',
     email: 'support@salonox@gmail.com',
   },
 ];
@@ -544,18 +545,27 @@ export const HERO_TRUST_ITEMS = ['No Hidden Charges', 'Free Setup', '24×7 Suppo
 
 export function useReveal<T extends HTMLElement>() {
   const ref = useRef<T | null>(null);
-  const [visible, setVisible] = useState(() => typeof IntersectionObserver === 'undefined');
+  // Must start as true: the server has no IntersectionObserver, so prerendered
+  // HTML is fully revealed (crawlers and no-JS visitors see all content). The
+  // first client render has to match it or hydration mismatches. The
+  // observer's first callback hides nodes that are not on screen yet, so the
+  // scroll-reveal animation still plays for them.
+  const [visible, setVisible] = useState(true);
 
   useEffect(() => {
     const node = ref.current;
     if (!node || typeof IntersectionObserver === 'undefined') return;
 
+    let revealed = false;
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
+            revealed = true;
             setVisible(true);
             observer.unobserve(entry.target);
+          } else if (!revealed) {
+            setVisible(false);
           }
         });
       },
@@ -912,7 +922,7 @@ export const FeatureProductPreview: React.FC<{ feature: WhyFeature }> = ({ featu
       <div className="product-preview product-preview--billing">
         <div className="preview-window-top">
           <span><i /><i /><i /></span>
-          <strong>SalonOX Billing</strong>
+          <strong>SalonoX Billing</strong>
           <em>GST ready</em>
         </div>
         <div className="invoice-preview">
@@ -984,7 +994,7 @@ export const FeatureProductPreview: React.FC<{ feature: WhyFeature }> = ({ featu
         <div className="cloud-device cloud-device--desktop">
           <div className="preview-window-top">
             <span><i /><i /><i /></span>
-            <strong>SalonOX Cloud</strong>
+            <strong>SalonoX Cloud</strong>
           </div>
           <div className="cloud-dashboard">
             <div className="cloud-sidebar" />
@@ -1028,7 +1038,7 @@ export const FeatureProductPreview: React.FC<{ feature: WhyFeature }> = ({ featu
           </div>
         </div>
         <div className="whatsapp-phone">
-          <div className="phone-top">SalonOX</div>
+          <div className="phone-top">SalonoX</div>
           <p className="message message-in">Hi Riya, your spa booking is tomorrow at 4:30 PM.</p>
           <p className="message message-out">Confirm</p>
           <p className="message message-in">Thank you. See you at Glow Room.</p>
@@ -1082,7 +1092,7 @@ export const TermsContent: React.FC = () => (
           <span className="eyebrow"><span className="dot" /> Legal</span>
           <h1>Terms & Conditions</h1>
           <p>
-            Commercial terms for salons, spas, and staff using SalonOX cloud management software.
+            Commercial terms for salons, spas, and staff using SalonoX cloud management software.
           </p>
         </div>
         <div className="terms-effective">
@@ -1096,7 +1106,7 @@ export const TermsContent: React.FC = () => (
       <div className="container">
         <div className="terms-layout">
           <aside className="terms-summary" aria-label="Terms summary">
-            <span>SalonOX SaaS Agreement</span>
+            <span>SalonoX SaaS Agreement</span>
             <p>
               These terms cover account access, subscriptions, data handling, third-party services,
               acceptable use, cancellations, and support.
@@ -1137,11 +1147,11 @@ export const TermsContent: React.FC = () => (
 export const PRIVACY_SECTIONS: TermsSection[] = [
   {
     title: 'Introduction',
-    body: 'This Privacy Policy explains how SalonOX collects, uses, stores, shares, and protects the information of customers, staff members, and end clients when they use our cloud-based Salon & Spa Management Software (SaaS). SalonOX is designed for salons, spas, clinics, and multi-branch service businesses and supports appointment scheduling, billing, inventory, CRM, marketing, memberships, staff management, and multi-location operations. By using SalonOX, you acknowledge that your information may be processed as described in this Privacy Policy.',
+    body: 'This Privacy Policy explains how SalonoX collects, uses, stores, shares, and protects the information of customers, staff members, and end clients when they use our cloud-based Salon & Spa Management Software (SaaS). SalonoX is designed for salons, spas, clinics, and multi-branch service businesses and supports appointment scheduling, billing, inventory, CRM, marketing, memberships, staff management, and multi-location operations. By using SalonoX, you acknowledge that your information may be processed as described in this Privacy Policy.',
   },
   {
     title: 'Information We Collect',
-    body: 'SalonOX collects information that is necessary to create and manage accounts, deliver services, support operations, improve reliability, and meet legal obligations.',
+    body: 'SalonoX collects information that is necessary to create and manage accounts, deliver services, support operations, improve reliability, and meet legal obligations.',
     bullets: [
       'Personal Information: name, email address, phone number, business name, business address, tax details, and contact details for salon owners, managers, staff, or authorized representatives.',
       'Usage Information: appointment data, service history, billing records, purchase and refund activity, inventory movements, CRM notes, membership status, support tickets, communications, and platform activity logs.',
@@ -1150,27 +1160,27 @@ export const PRIVACY_SECTIONS: TermsSection[] = [
   },
   {
     title: 'How We Use Your Information',
-    body: 'SalonOX uses information to provide the platform and related services, service your account, process transactions, support multi-branch workflows, manage staff permissions, send service reminders, deliver customer communications, improve product quality, secure the platform, and comply with legal or contractual requirements.',
+    body: 'SalonoX uses information to provide the platform and related services, service your account, process transactions, support multi-branch workflows, manage staff permissions, send service reminders, deliver customer communications, improve product quality, secure the platform, and comply with legal or contractual requirements.',
   },
   {
     title: 'How We Share Your Information',
-    body: 'SalonOX may share information with trusted service providers, integration partners, and payment processors only where necessary to operate the platform and fulfill the services you request. We do not sell personal information for profit. We may share information when required by law, to protect the rights and safety of our customers or users, or as part of a legitimate business transfer such as a merger, asset sale, or restructuring.',
+    body: 'SalonoX may share information with trusted service providers, integration partners, and payment processors only where necessary to operate the platform and fulfill the services you request. We do not sell personal information for profit. We may share information when required by law, to protect the rights and safety of our customers or users, or as part of a legitimate business transfer such as a merger, asset sale, or restructuring.',
   },
   {
     title: 'Data Security',
-    body: 'SalonOX uses reasonable administrative, technical, and physical safeguards to reduce risk and protect information against unauthorized access, disclosure, alteration, or destruction. These controls may include encryption in transit, role-based access permissions, secure authentication, monitoring, and backup practices. No system can guarantee absolute security, so you should also protect your login credentials and report suspected misuse promptly.',
+    body: 'SalonoX uses reasonable administrative, technical, and physical safeguards to reduce risk and protect information against unauthorized access, disclosure, alteration, or destruction. These controls may include encryption in transit, role-based access permissions, secure authentication, monitoring, and backup practices. No system can guarantee absolute security, so you should also protect your login credentials and report suspected misuse promptly.',
   },
   {
     title: 'Data Retention',
-    body: 'SalonOX retains personal and business information for as long as needed to provide services, maintain account history, comply with legal obligations, resolve disputes, enforce agreements, and support legitimate business operations. When information is no longer required, SalonOX will delete or anonymize it in accordance with applicable standards and internal retention practices.',
+    body: 'SalonoX retains personal and business information for as long as needed to provide services, maintain account history, comply with legal obligations, resolve disputes, enforce agreements, and support legitimate business operations. When information is no longer required, SalonoX will delete or anonymize it in accordance with applicable standards and internal retention practices.',
   },
   {
     title: 'Your Privacy Rights',
-    body: 'Depending on your location and applicable law, you may have the right to access, correct, update, delete, or restrict certain personal information, and to object to or limit certain processing activities. You may also request a copy of the personal information SalonOX holds about you. To exercise these rights, contact us at support@salonox.com and we will respond in line with applicable legal requirements.',
+    body: 'Depending on your location and applicable law, you may have the right to access, correct, update, delete, or restrict certain personal information, and to object to or limit certain processing activities. You may also request a copy of the personal information SalonoX holds about you. To exercise these rights, contact us at support@salonox.com and we will respond in line with applicable legal requirements.',
   },
   {
     title: 'Third-Party Services',
-    body: 'SalonOX may rely on third-party services to deliver functionality and support your business. These may include:',
+    body: 'SalonoX may rely on third-party services to deliver functionality and support your business. These may include:',
     bullets: [
       'WhatsApp services for customer communications, reminders, and marketing messages.',
       'Payment gateways for secure card, wallet, or bank transfers and billing processing.',
@@ -1180,19 +1190,19 @@ export const PRIVACY_SECTIONS: TermsSection[] = [
   },
   {
     title: 'Cookies Policy',
-    body: 'SalonOX uses cookies and similar technologies to keep your account secure, remember preferences, support performance, and analyze product usage. You may control or disable cookies through your browser settings, although some features of SalonOX may not function properly if cookies are disabled.',
+    body: 'SalonoX uses cookies and similar technologies to keep your account secure, remember preferences, support performance, and analyze product usage. You may control or disable cookies through your browser settings, although some features of SalonoX may not function properly if cookies are disabled.',
   },
   {
     title: "Children's Privacy",
-    body: 'SalonOX is not intended for children under the age of 13, and we do not knowingly collect personal information from children without appropriate consent from a parent or guardian. If you believe a child has provided personal information to SalonOX without the required authorization, please contact us so we can take appropriate action.',
+    body: 'SalonoX is not intended for children under the age of 13, and we do not knowingly collect personal information from children without appropriate consent from a parent or guardian. If you believe a child has provided personal information to SalonoX without the required authorization, please contact us so we can take appropriate action.',
   },
   {
     title: 'Changes to this Privacy Policy',
-    body: 'SalonOX may update this Privacy Policy from time to time to reflect product changes, legal requirements, or security practices. When changes are material, we may notify you through the platform, email, or another reasonable method. Continued use of SalonOX after the updated policy becomes effective means you accept the revised terms.',
+    body: 'SalonoX may update this Privacy Policy from time to time to reflect product changes, legal requirements, or security practices. When changes are material, we may notify you through the platform, email, or another reasonable method. Continued use of SalonoX after the updated policy becomes effective means you accept the revised terms.',
   },
   {
     title: 'Contact Us',
-    body: 'If you have questions, requests, or concerns about this Privacy Policy or how SalonOX handles your information, please contact us at',
+    body: 'If you have questions, requests, or concerns about this Privacy Policy or how SalonoX handles your information, please contact us at',
     email: DEMO_EMAIL,
   },
 ];
@@ -1205,7 +1215,7 @@ export const PrivacyContent: React.FC = () => (
           <span className="eyebrow"><span className="dot" /> Legal</span>
           <h1>Privacy Policy</h1>
           <p>
-            How SalonOX collects, uses, protects, and shares information across our salon and spa management platform.
+            How SalonoX collects, uses, protects, and shares information across our salon and spa management platform.
           </p>
         </div>
         <div className="terms-effective">
@@ -1219,9 +1229,9 @@ export const PrivacyContent: React.FC = () => (
       <div className="container">
         <div className="terms-layout">
           <aside className="terms-summary" aria-label="Privacy policy summary">
-            <span>SalonOX Privacy Notice</span>
+            <span>SalonoX Privacy Notice</span>
             <p>
-              This notice explains the categories of information SalonOX collects, how the platform uses that information,
+              This notice explains the categories of information SalonoX collects, how the platform uses that information,
               and the choices available to customers and end users.
             </p>
             <a href={`mailto:${DEMO_EMAIL}`}>{DEMO_EMAIL}</a>
@@ -1272,15 +1282,15 @@ export const ABOUT_OFFERS = [
 export const WHY_CHOOSE = [
   {
     title: 'Built for real salon staff',
-    desc: 'SalonOX brings scheduling, checkout, client history, and operations into one elegant workspace so your staff can move faster with less friction.',
+    desc: 'SalonoX brings scheduling, checkout, client history, and operations into one elegant workspace so your staff can move faster with less friction.',
   },
   {
     title: 'Flexible for every growth stage',
-    desc: 'Whether you run one boutique salon or a growing chain, SalonOX adapts to your workflow with powerful modules and branch-ready controls.',
+    desc: 'Whether you run one boutique salon or a growing chain, SalonoX adapts to your workflow with powerful modules and branch-ready controls.',
   },
   {
     title: 'Reliable and secure',
-    desc: 'From secure access to consistent uptime, SalonOX is designed to help you run confidently while protecting sensitive customer and business data.',
+    desc: 'From secure access to consistent uptime, SalonoX is designed to help you run confidently while protecting sensitive customer and business data.',
   },
 ];
 
@@ -1293,10 +1303,10 @@ export const AboutContent: React.FC<AboutContentProps> = ({ onNavigateToBookDemo
     <section className="about-hero">
       <div className="container about-hero-grid">
         <div className="about-hero-copy">
-          <span className="eyebrow"><span className="dot" /> About SalonOX</span>
+          <span className="eyebrow"><span className="dot" /> About SalonoX</span>
           <h1>Modern salon software built for beauty businesses that want to grow with clarity.</h1>
           <p>
-            SalonOX is a cloud-based Salon & Spa Management Software designed to help owners, managers, and staff manage appointments, billing, inventory, CRM, memberships, staff workflows, and multi-branch operations from one place.
+            SalonoX is a cloud-based Salon & Spa Management Software designed to help owners, managers, and staff manage appointments, billing, inventory, CRM, memberships, staff workflows, and multi-branch operations from one place.
           </p>
           <div className="about-hero-actions">
             <a href="#book-demo" className="btn btn-primary" onClick={onNavigateToBookDemo}>
@@ -1309,7 +1319,7 @@ export const AboutContent: React.FC<AboutContentProps> = ({ onNavigateToBookDemo
         </div>
         <div className="about-hero-card">
           <span className="about-hero-card__kicker">Trusted by modern staff</span>
-          <h2>From first consultation to repeat bookings, SalonOX keeps every detail connected.</h2>
+          <h2>From first consultation to repeat bookings, SalonoX keeps every detail connected.</h2>
           <p>We simplify daily operations so salon and spa businesses can deliver exceptional service and make smarter decisions with real-time visibility.</p>
         </div>
       </div>
@@ -1320,7 +1330,7 @@ export const AboutContent: React.FC<AboutContentProps> = ({ onNavigateToBookDemo
         <article className="about-card">
           <h2>Who We Are</h2>
           <p>
-            SalonOX was created for businesses that need a premium operating system for salons and spas. Our platform combines elegant design with practical workflows so staff can focus on client experience instead of manual admin.
+            SalonoX was created for businesses that need a premium operating system for salons and spas. Our platform combines elegant design with practical workflows so staff can focus on client experience instead of manual admin.
           </p>
         </article>
 
@@ -1341,7 +1351,7 @@ export const AboutContent: React.FC<AboutContentProps> = ({ onNavigateToBookDemo
         </article>
 
         <article className="about-card">
-          <h2>Why Choose SalonOX</h2>
+          <h2>Why Choose SalonoX</h2>
           <div className="about-why-grid">
             {WHY_CHOOSE.map((item) => (
               <div className="about-why-card" key={item.title}>
@@ -1365,7 +1375,7 @@ export const AboutContent: React.FC<AboutContentProps> = ({ onNavigateToBookDemo
       <div className="container about-cta-card">
         <div>
           <span className="eyebrow"><span className="dot" /> Ready to grow</span>
-          <h2>See how SalonOX can simplify your salon operations.</h2>
+          <h2>See how SalonoX can simplify your salon operations.</h2>
           <p>Book a live demo or reach out to our team for a tailored walkthrough of the platform.</p>
         </div>
         <div className="about-hero-actions">

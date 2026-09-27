@@ -122,8 +122,8 @@ const BookDemo: React.FC<BookDemoProps> = ({
     <SectionTransition from="light" />
     <SectionArtwork variant="contact" />
     <div className="demo-visual-layer" aria-hidden="true">
-      <img className="demo-salon-photo" src="/screenshots/salonox-salon-hero.png" alt="" loading="lazy" />
-      <img className="demo-dashboard-ghost" src="/screenshots/salonox-salon-hero.png" alt="" loading="lazy" />
+      <img className="demo-salon-photo" src="/screenshots/salonox-salon-hero.webp" alt="" loading="lazy" />
+      <img className="demo-dashboard-ghost" src="/screenshots/salonox-salon-hero.webp" alt="" loading="lazy" />
       <svg className="demo-connector-map" viewBox="0 0 1440 760" preserveAspectRatio="none" focusable="false">
         <path d="M550 150 C650 225 485 315 560 410 C650 520 815 410 920 500" />
         <path d="M760 135 C850 225 1010 160 1080 70" />
@@ -185,7 +185,7 @@ const BookDemo: React.FC<BookDemoProps> = ({
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                <h3>SalonOX Tech</h3>
+                <h3>SalonoX Tech</h3>
                 <address>123 MG Road, Koregaon Park, Pune, Maharashtra 411001, India</address>
               </a>
               <a
@@ -218,7 +218,7 @@ const BookDemo: React.FC<BookDemoProps> = ({
                 </div>
               )}
               <h3>Schedule a Free Demo</h3>
-              <p>See SalonOX live in action and ask all your questions.</p>
+              <p>See SalonoX live in action and ask all your questions.</p>
               <form className="demo-form" onSubmit={handleDemoSubmit}>
                 <label className="demo-field">
                   <span>Your Name <span className="demo-required" aria-label="required">*</span></span>
@@ -415,7 +415,7 @@ const BookDemo: React.FC<BookDemoProps> = ({
                     checked={demoForm.agreed}
                     onChange={handleDemoChange('agreed')}
                   />
-                  <span>By checking, you agree to receive follow-up emails regarding SalonOX product demos.</span>
+                  <span>By checking, you agree to receive follow-up emails regarding SalonoX product demos.</span>
                 </label>
           </form>
             </>
@@ -424,7 +424,7 @@ const BookDemo: React.FC<BookDemoProps> = ({
       </Reveal>
     </div>
     <div className="container demo-trust-strip" aria-label="Demo benefits">
-      <span><i><Icon.Calendar /></i><strong>Live Product Demo</strong><em>See SalonOX in action</em></span>
+      <span><i><Icon.Calendar /></i><strong>Live Product Demo</strong><em>See SalonoX in action</em></span>
       <span><i><Icon.MessageCircle /></i><strong>Ask Anything</strong><em>Get answers instantly</em></span>
       <span><i><Icon.Spark /></i><strong>Tailored for You</strong><em>Solution for your salon</em></span>
       <span><i><Icon.Check /></i><strong>No Commitment</strong><em>Absolutely free</em></span>

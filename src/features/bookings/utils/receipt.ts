@@ -677,7 +677,7 @@ export function printReceipt(
 
 <!-- Screen toolbar -->
 <div class="print-toolbar">
-  <div class="pt-brand">Salonox &mdash; Receipt Preview <span>${invoiceNo}</span></div>
+  <div class="pt-brand">SalonoX &mdash; Receipt Preview <span>${invoiceNo}</span></div>
   <div class="pt-actions">
     <button class="pt-btn pt-btn--primary" onclick="doPrint()">Print</button>
     <button class="pt-btn pt-btn--ghost"   onclick="savePdf()">Save PDF</button>
@@ -806,7 +806,7 @@ export function printReceipt(
     <div class="inv-footer-right">
       This is a computer-generated receipt.<br>
       No signature required.<br>
-      <strong style="color:#374151;font-size:11px">Powered by Salonox</strong>
+      <strong style="color:#374151;font-size:11px">Powered by SalonoX</strong>
     </div>
   </div>
 

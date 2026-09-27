@@ -17,7 +17,7 @@ const Reviews: React.FC = () => (
         <div className="section-head">
           <span className="eyebrow"><span className="dot" /> Reviews</span>
           <h2>Loved by salon owners everywhere</h2>
-          <p>Real results from real staff who switched to SalonOX.</p>
+          <p>Real results from real staff who switched to SalonoX.</p>
         </div>
       </Reveal>
 

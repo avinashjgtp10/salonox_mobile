@@ -455,7 +455,7 @@ export default function DashboardTopbar({ onLogout, collapsed, onToggleCollapsed
             <ListUl size={20} />
           </button>
           <h2 className="brand">
-            <img src={salonoxLogo} alt="SalonOX" className="brand-logo" width="122" height="61" />
+            <img src={salonoxLogo} alt="SalonoX" className="brand-logo" width="122" height="61" />
           </h2>
         </div>
 

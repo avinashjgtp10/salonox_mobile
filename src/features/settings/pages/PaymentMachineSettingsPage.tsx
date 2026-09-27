@@ -34,7 +34,7 @@ const PROVIDERS: ProviderDef[] = [
   {
     id: "manual",
     name: "Manual / No direct integration",
-    desc: "For a terminal without API access, or as a fallback. Staff sends the customer to pay on the machine, then types in its printed transaction ID to confirm — Salonox never marks a bill paid on its own.",
+    desc: "For a terminal without API access, or as a fallback. Staff sends the customer to pay on the machine, then types in its printed transaction ID to confirm — SalonoX never marks a bill paid on its own.",
     icon: "🧾",
   },
 ];
@@ -310,7 +310,7 @@ export default function PaymentMachineSettingsPage() {
               </label>
               <input className="settings-input" placeholder="From the machine's info screen" value={newTerminal.provider_terminal_id} onChange={(e) => setNewTerminal((v) => ({ ...v, provider_terminal_id: e.target.value }))} />
               <span style={{ fontSize: 11.5, color: "#6b7280", marginTop: 3, display: "block" }}>
-                On the machine's info screen, next to MID. Required so Salonox can route a payment to this specific terminal.
+                On the machine's info screen, next to MID. Required so SalonoX can route a payment to this specific terminal.
               </span>
             </div>
             <div className="settings-form-group">

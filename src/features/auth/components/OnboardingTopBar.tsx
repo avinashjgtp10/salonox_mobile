@@ -38,7 +38,7 @@ export default function OnboardingTopBar() {
     <div className="ob-topbar">
       {/* Logo */}
       <div className="ob-topbar__logo">
-        <img src={salonoxLogo} alt="SalonOX" className="ob-topbar__logo-image" width="190" height="61" />
+        <img src={salonoxLogo} alt="SalonoX" className="ob-topbar__logo-image" width="190" height="61" />
       </div>
 
       {/* Steps */}

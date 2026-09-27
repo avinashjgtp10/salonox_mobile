@@ -40,6 +40,7 @@ import Pricing from '../../../components/Landing/Pricing/Pricing';
 import MobileApp from '../../../components/Landing/MobileApp/MobileApp';
 import BookDemo from '../../../components/Landing/BookDemo/BookDemo';
 import Footer from '../../../components/Landing/Footer/Footer';
+import { BRAND_NAME } from '../../../marketing/seo.config';
 
 const DEMO_NOTIFICATION_TIME_ZONE = 'Asia/Kolkata';
 const DEMO_OTP_COOLDOWN_SECONDS = 60;
@@ -133,9 +134,9 @@ const buildDemoNotificationEmail = (rows: DemoNotificationRow[]) => {
   return {
     subject: 'New Demo Booking Received',
     heading: 'New Demo Booking Received',
-    subtitle: 'A new demo request has been submitted through the SalonOX website.',
-    footer: 'This enquiry was submitted from the SalonOX website.',
-    text: `New Demo Booking Received\n\nA new demo request has been submitted through the SalonOX website.\n\n${textRows}\n\nThis enquiry was submitted from the SalonOX website.`,
+    subtitle: 'A new demo request has been submitted through the SalonoX website.',
+    footer: 'This enquiry was submitted from the SalonoX website.',
+    text: `New Demo Booking Received\n\nA new demo request has been submitted through the SalonoX website.\n\n${textRows}\n\nThis enquiry was submitted from the SalonoX website.`,
     html: `
       <!doctype html>
       <html>
@@ -149,11 +150,11 @@ const buildDemoNotificationEmail = (rows: DemoNotificationRow[]) => {
                       <table role="presentation" cellspacing="0" cellpadding="0">
                         <tr>
                           <td style="width:42px;height:42px;border-radius:14px;background:linear-gradient(135deg,#7C3AED,#10B981);color:#FFFFFF;text-align:center;font-size:22px;font-weight:900;line-height:42px;">△</td>
-                          <td style="padding-left:12px;color:#0F172A;font-size:24px;font-weight:900;letter-spacing:-0.04em;">Salon<span style="color:#10B981;">OX</span></td>
+                          <td style="padding-left:12px;color:#0F172A;font-size:24px;font-weight:900;letter-spacing:-0.04em;">${BRAND_NAME.slice(0, -1)}<span style="color:#10B981;">${BRAND_NAME.slice(-1)}</span></td>
                         </tr>
                       </table>
                       <h1 style="margin:28px 0 8px;color:#0F172A;font-size:28px;line-height:1.2;font-weight:900;letter-spacing:-0.04em;">New Demo Booking Received</h1>
-                      <p style="margin:0;color:#64748B;font-size:15px;line-height:1.65;">A new demo request has been submitted through the SalonOX website.</p>
+                      <p style="margin:0;color:#64748B;font-size:15px;line-height:1.65;">A new demo request has been submitted through the SalonoX website.</p>
                     </td>
                   </tr>
                   <tr>
@@ -171,7 +172,7 @@ const buildDemoNotificationEmail = (rows: DemoNotificationRow[]) => {
                   </tr>
                   <tr>
                     <td style="padding:22px 32px 30px;color:#64748B;font-size:13px;line-height:1.6;">
-                      This enquiry was submitted from the SalonOX website.
+                      This enquiry was submitted from the SalonoX website.
                     </td>
                   </tr>
                 </table>
@@ -1129,7 +1130,7 @@ const LandingPage: React.FC = () => {
         appendFormSubmitField(formSubmitData, '_template', 'table');
         appendFormSubmitField(formSubmitData, '_captcha', 'false');
         appendFormSubmitField(formSubmitData, '_replyto', demoForm.email);
-        appendFormSubmitField(formSubmitData, '_autoresponse', 'Thank you for booking a SalonOX demo. Our team will contact you shortly.');
+        appendFormSubmitField(formSubmitData, '_autoresponse', 'Thank you for booking a SalonoX demo. Our team will contact you shortly.');
         appendFormSubmitField(formSubmitData, 'Name', demoForm.name);
         appendFormSubmitField(formSubmitData, 'Work Email', demoForm.email);
         appendFormSubmitField(formSubmitData, 'Phone Number', demoForm.phone);
@@ -1137,7 +1138,7 @@ const LandingPage: React.FC = () => {
         appendFormSubmitField(formSubmitData, 'City', demoForm.city);
         appendFormSubmitField(formSubmitData, 'Number of Locations', demoForm.locations);
         appendFormSubmitField(formSubmitData, 'Submitted On', submittedOn.display);
-        appendFormSubmitField(formSubmitData, 'Source', 'SalonOX website');
+        appendFormSubmitField(formSubmitData, 'Source', 'SalonoX website');
 
         const formSubmitResponse = await fetch(DEMO_SUBMIT_URL, {
           method: 'POST',
@@ -1204,11 +1205,11 @@ const LandingPage: React.FC = () => {
       <nav ref={navRef} className={`nav ${scrolled ? 'nav-scrolled' : ''}`}>
         <div className="container nav-inner">
           <a href="#top" className="nav-logo" onClick={scrollToSection('top')}>
-            <img src="/salonox-full-logo.png" alt="SalonOX" className="logo-full" width="210" height="68" />
+            <img src="/salonox-full-logo.webp" alt="SalonoX" className="logo-full" width="210" height="68" />
           </a>
 
           <ul className="nav-links">
-            <li><a className={`nav-link${activeSection === 'why-salonox' ? ' is-active' : ''}`} aria-current={activeSection === 'why-salonox' ? 'location' : undefined} href="#why-salonox" onClick={scrollToSection('why-salonox')}>Why SalonOX</a></li>
+            <li><a className={`nav-link${activeSection === 'why-salonox' ? ' is-active' : ''}`} aria-current={activeSection === 'why-salonox' ? 'location' : undefined} href="#why-salonox" onClick={scrollToSection('why-salonox')}>Why SalonoX</a></li>
             <li><a className={`nav-link${activeSection === 'features' ? ' is-active' : ''}`} aria-current={activeSection === 'features' ? 'location' : undefined} href="#features" onClick={scrollToSection('features')}>Features</a></li>
             <li><a className={`nav-link${activeSection === 'multi-branch' ? ' is-active' : ''}`} aria-current={activeSection === 'multi-branch' ? 'location' : undefined} href="#multi-branch" onClick={scrollToSection('multi-branch')}>Multi-Branch</a></li>
             <li><a className={`nav-link nav-link-btn${activeSection === 'how' ? ' is-active' : ''}`} aria-current={activeSection === 'how' ? 'location' : undefined} href="#how" onClick={scrollToSection('how')}>How it works</a></li>
@@ -1241,14 +1242,14 @@ const LandingPage: React.FC = () => {
         <div className="mobile-drawer-panel" onClick={(e) => e.stopPropagation()}>
           <div className="mobile-drawer-header">
             <a href="#top" className="nav-logo" onClick={scrollToSection('top')}>
-              <img src="/salonox-full-logo.png" alt="SalonOX" className="logo-full" width="190" height="61" />
+              <img src="/salonox-full-logo.webp" alt="SalonoX" className="logo-full" width="190" height="61" />
             </a>
             <button type="button" className="mobile-close" aria-label="Close menu" onClick={() => setMobileOpen(false)}>
               <span />
               <span />
             </button>
           </div>
-          <a href="#why-salonox" className={`mobile-link${activeSection === 'why-salonox' ? ' is-active' : ''}`} aria-current={activeSection === 'why-salonox' ? 'location' : undefined} onClick={scrollToSection('why-salonox')}>Why SalonOX</a>
+          <a href="#why-salonox" className={`mobile-link${activeSection === 'why-salonox' ? ' is-active' : ''}`} aria-current={activeSection === 'why-salonox' ? 'location' : undefined} onClick={scrollToSection('why-salonox')}>Why SalonoX</a>
           <a href="#features" className={`mobile-link${activeSection === 'features' ? ' is-active' : ''}`} aria-current={activeSection === 'features' ? 'location' : undefined} onClick={scrollToSection('features')}>Features</a>
           <a href="#multi-branch" className={`mobile-link${activeSection === 'multi-branch' ? ' is-active' : ''}`} aria-current={activeSection === 'multi-branch' ? 'location' : undefined} onClick={scrollToSection('multi-branch')}>Multi-Branch</a>
           <a href="#how" className={`mobile-link${activeSection === 'how' ? ' is-active' : ''}`} aria-current={activeSection === 'how' ? 'location' : undefined} onClick={scrollToSection('how')}>How it works</a>
@@ -1417,8 +1418,8 @@ const LandingPage: React.FC = () => {
           >
             <div className="video-modal-header">
               <div>
-                <span>SalonOX Product Tour</span>
-                <h2 id="salonox-demo-video-title">See SalonOX in action</h2>
+                <span>SalonoX Product Tour</span>
+                <h2 id="salonox-demo-video-title">See SalonoX in action</h2>
               </div>
               <button
                 type="button"
@@ -1434,7 +1435,7 @@ const LandingPage: React.FC = () => {
               {videoIframeSrc && (
                 <iframe
                   src={videoIframeSrc}
-                  title="SalonOX product demo video"
+                  title="SalonoX product demo video"
                   allow="autoplay; encrypted-media; picture-in-picture"
                   allowFullScreen
                 />
@@ -1454,7 +1455,7 @@ const LandingPage: React.FC = () => {
       <a
         href={WHATSAPP_DEMO_URL}
         className="floating-whatsapp-cta"
-        aria-label="Chat with SalonOX on WhatsApp"
+        aria-label="Chat with SalonoX on WhatsApp"
         target="_blank"
         rel="noopener noreferrer"
       >

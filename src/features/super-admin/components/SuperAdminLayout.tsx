@@ -89,7 +89,7 @@ export default function SuperAdminLayout() {
               </svg>
             </div>
             <div>
-              <div style={{ color: "#0f172a", fontSize: 15, fontWeight: 700 }}>SalonOx</div>
+              <div style={{ color: "#0f172a", fontSize: 15, fontWeight: 700 }}>SalonoX</div>
               <div style={{ color: "#94a3b8", fontSize: 11 }}>Super Admin</div>
             </div>
           </div>

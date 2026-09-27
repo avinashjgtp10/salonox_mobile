@@ -135,7 +135,7 @@ export default function PrintSettingsPage() {
              ${SAMPLE.summary.map((s) => `<tr><td>${s.label}</td><td class="r">${s.value}</td></tr>`).join("")}
              <tr class="grand"><td>${SAMPLE.grandTotal.label}</td><td class="r">${SAMPLE.grandTotal.value}</td></tr>
            </tbody></table>
-           <div class="foot">Thank you for your visit! &nbsp;|&nbsp; Powered by Salonox</div>
+           <div class="foot">Thank you for your visit! &nbsp;|&nbsp; Powered by SalonoX</div>
          </div></body></html>`;
 
   const openPreview = () => {

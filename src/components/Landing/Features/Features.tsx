@@ -15,7 +15,7 @@ const Features: React.FC = () => (
     <SectionArtwork variant="features" />
     <img
       className="features-atmosphere features-atmosphere--left"
-      src="/screenshots/salonox-salon-hero.png"
+      src="/screenshots/salonox-salon-hero.webp"
       alt=""
       width="1672"
       height="939"
@@ -24,7 +24,7 @@ const Features: React.FC = () => (
     />
     <img
       className="features-atmosphere features-atmosphere--right"
-      src="/screenshots/salonox-salon-hero.png"
+      src="/screenshots/salonox-salon-hero.webp"
       alt=""
       width="1672"
       height="939"

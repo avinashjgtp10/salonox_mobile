@@ -20,7 +20,7 @@ const HowItWorks: React.FC<HowItWorksProps> = ({ scrollToSection }) => (
       <Reveal>
         <div className="section-head">
           <span className="eyebrow"><span className="dot" /> How It Works</span>
-          <h2>See SalonOX in Action</h2>
+          <h2>See SalonoX in Action</h2>
           <p>From dashboard to checkout — everything your salon needs, beautifully designed and ready to use from day one.</p>
         </div>
       </Reveal>
@@ -33,7 +33,7 @@ const HowItWorks: React.FC<HowItWorksProps> = ({ scrollToSection }) => (
               <article className={`showcase-story showcase-story--${item.theme}`}>
                 <div className="showcase-story-visual">
                   <img
-                    src="/screenshots/salonox-salon-hero.png"
+                    src="/screenshots/salonox-salon-hero.webp"
                     alt=""
                     className="showcase-salon-photo"
                     width="1672"
