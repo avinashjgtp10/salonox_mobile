@@ -17,7 +17,6 @@ export default function OwnerGuard() {
       </div>
       <h2 className="perm-guard-403__title">Access Denied</h2>
       <p className="perm-guard-403__sub">You do not have access to this page.</p>
-      <p className="perm-guard-403__code">403 Forbidden</p>
     </div>
   );
 }

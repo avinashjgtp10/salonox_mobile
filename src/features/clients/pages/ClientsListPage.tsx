@@ -84,6 +84,14 @@ export default function ClientsListPage() {
   const canDelete = can("delete_clients");
   const canImport = can("import_clients");
   const canExport = can("export_clients");
+  // Backend also independently requires the System "Export as Excel" master
+  // key (requireExportFormatPermission) on top of export_clients — every
+  // other export button in this app (Products, Packages, Staff, etc.) checks
+  // both before enabling; this one was missing the second half, so a role
+  // with export_clients on but export_excel left at its default off saw an
+  // enabled button that fired the request and failed with a generic error
+  // instead of being disabled with a clear message.
+  const canExportExcel = can("export_excel");
   const canBlock = can("block_client");
   const denyPerm = (key: string) => dispatch(showPermissionDenied(
     `Your account does not have the "${key}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
@@ -636,6 +644,11 @@ export default function ClientsListPage() {
                       denyPerm("export_clients");
                       throw new Error("export_clients permission required");
                     }
+                    if (!canExportExcel) {
+                      setOptionsOpen(false);
+                      denyPerm("export_excel");
+                      throw new Error("export_excel permission required");
+                    }
                     const res = await api.get(CLIENT.EXPORT("excel"), {
                       params: getExportParams(),
                       responseType: "blob",
@@ -647,7 +660,7 @@ export default function ClientsListPage() {
                   size="sm"
                   iconLeft={<FileEarmarkExcel size={14} className="me-2" />}
                   className="option-item w-100 text-start p-2 small"
-                  style={canExport ? undefined : { opacity: 0.5, cursor: "not-allowed" }}
+                  style={canExport && canExportExcel ? undefined : { opacity: 0.5, cursor: "not-allowed" }}
                 >
                   Excel
                 </DownloadButton>

@@ -9,8 +9,9 @@ import {
   updateRoleThunk,
 } from "../../../middleware/roles/roles.thunk";
 import { sortModuleNames, sortGroupNames } from "../utils/permissionModuleOrder";
-import { cascadeOnKeys, isRevealedChild, findEmptyMasterToggles, findMissingPrerequisites } from "../utils/permissionCascade";
+import { cascadeOnKeys, cascadeOffKeys, isRevealedChild, findEmptyMasterToggles, findMissingPrerequisites, lockedByMaster } from "../utils/permissionCascade";
 import { MODULE_ICON, DEFAULT_MODULE_ICON } from "../utils/permissionModuleIcons";
+import PermissionPreviewModal from "./PermissionPreviewModal";
 // .ispp-module-grid/.ispp-module-card* (the module card grid — same look as
 // IndividualStaffPermissionsPage) live in this stylesheet, not
 // SettingsPage.scss, so this component needs its own import rather than
@@ -40,13 +41,19 @@ const riskBadgeClass: Record<string, string> = {
 };
 
 // Shown a second time under the Quick Sale group (in addition to their real
-// home, Clients) — locked there unless QUICK_SALE_GATE_KEY is already on,
-// since editing a client or viewing their history from Quick Sale's own
-// client panel only matters once Quick Sale itself is accessible. Purely a
-// display/lock convenience in this one group; the keys behave completely
-// normally (unlocked) wherever else they're toggled, e.g. under Clients.
+// home, Clients) — since editing a client or viewing their history from
+// Quick Sale's own client panel only matters once Quick Sale itself is
+// accessible. Purely a display convenience in this one group; the keys
+// behave completely normally wherever else they're toggled, e.g. under
+// Clients. Locking (greying out until create_sales is on) is now handled
+// generically by lockedByMaster, same as Catalog > Products' children.
 const QUICK_SALE_DEPENDENT_KEYS = ["edit_clients", "view_clients"];
-const QUICK_SALE_GATE_KEY = "create_sales";
+
+// Human-readable name for a lock message (e.g. "Enable Access Quick Sale
+// first") — falls back to the raw key if the catalog hasn't loaded it yet.
+function byKeyName(catalog: { key: string; name: string }[], key: string): string {
+  return catalog.find((p) => p.key === key)?.name ?? key;
+}
 
 export default function RolePermissionPanel({ roleName, onClose }: Props) {
   const dispatch = useAppDispatch();
@@ -59,6 +66,13 @@ export default function RolePermissionPanel({ roleName, onClose }: Props) {
   const [loading, setLoading] = useState(true);
   const [roleId, setRoleId] = useState<string | null>(null);
   const [perms, setPerms] = useState<Record<string, boolean>>({});
+  // The last successfully saved (or freshly fetched) permission set — Save
+  // Changes must be disabled whenever `perms` is identical to this, not just
+  // whenever nothing has ever been touched. Kept in sync everywhere `perms`
+  // is set from the server (initial load, handleResetToSaved) and after a
+  // successful save.
+  const [savedPerms, setSavedPerms] = useState<Record<string, boolean>>({});
+  const [showPreview, setShowPreview] = useState(false);
   const [search, setSearch] = useState("");
   const [saving, setSaving] = useState(false);
   // Sections start collapsed; expanding one adds its module name here.
@@ -100,11 +114,13 @@ export default function RolePermissionPanel({ roleName, onClose }: Props) {
         if (!cancelled && fetchRoleByIdThunk.fulfilled.match(result)) {
           setRoleId(result.payload.id);
           setPerms(result.payload.permissions);
+          setSavedPerms(result.payload.permissions);
         }
       } else {
         // No role row yet for this tier — start blank; created on first save.
         setRoleId(null);
         setPerms({});
+        setSavedPerms({});
       }
       if (!cancelled) setLoading(false);
     })();
@@ -136,6 +152,16 @@ export default function RolePermissionPanel({ roleName, onClose }: Props) {
     return sortModuleNames(Array.from(byModule.entries()), ([module]) => module);
   }, [catalog, search]);
 
+  // True whenever any catalog permission's effective boolean differs from
+  // the saved baseline — compares every catalog key (not just keys present
+  // in `perms`/`savedPerms`, both of which are sparse) so a toggle sequence
+  // that nets back to the saved value, e.g. ON -> OFF -> ON, correctly
+  // re-disables Save Changes instead of leaving it permanently dirty.
+  const isDirty = useMemo(
+    () => catalog.some((p) => !!perms[p.key] !== !!savedPerms[p.key]),
+    [catalog, perms, savedPerms]
+  );
+
   const togglePerm = (key: string) => {
     setPerms((prev) => {
       const next = !prev[key];
@@ -147,6 +173,12 @@ export default function RolePermissionPanel({ roleName, onClose }: Props) {
       // Reports categories already had — now generalized to every
       // depends_on relationship instead of a Reports-only special case).
       if (next) for (const k of cascadeOnKeys(catalog, key)) updated[k] = true;
+      // Calendar's action permissions must read as OFF, not merely locked at
+      // their old value, the instant View Calendar/View Appointment goes
+      // off — see cascadeOffKeys' own doc comment for why this is an
+      // opt-in exception rather than the "OFF is never cascaded" default
+      // every other master in this catalog relies on.
+      else for (const k of cascadeOffKeys(catalog, key)) updated[k] = false;
       return updated;
     });
   };
@@ -185,6 +217,7 @@ export default function RolePermissionPanel({ roleName, onClose }: Props) {
     const ok = roleId ? updateRoleThunk.fulfilled.match(result) : createRoleThunk.fulfilled.match(result);
     if (ok) {
       showSuccess(`${roleName} permissions saved`);
+      setSavedPerms(perms);
       dispatch(fetchRolesThunk());
       onClose();
     } else {
@@ -198,12 +231,14 @@ export default function RolePermissionPanel({ roleName, onClose }: Props) {
   const handleResetToSaved = async () => {
     if (!existingRole) {
       setPerms({});
+      setSavedPerms({});
       return;
     }
     setLoading(true);
     const result = await dispatch(fetchRoleByIdThunk(existingRole.id));
     if (fetchRoleByIdThunk.fulfilled.match(result)) {
       setPerms(result.payload.permissions);
+      setSavedPerms(result.payload.permissions);
     }
     setLoading(false);
   };
@@ -272,7 +307,9 @@ export default function RolePermissionPanel({ roleName, onClose }: Props) {
                 return parentKey != null && !perms[parentKey];
               };
               const renderPerm = (perm: typeof modulePerms[number]) => {
-                const locked = moduleName === "Quick Sale" && QUICK_SALE_DEPENDENT_KEYS.includes(perm.key) && !perms[QUICK_SALE_GATE_KEY];
+                const lockMaster = lockedByMaster(perm.key, (k) => !!perms[k]);
+                const locked = lockMaster != null;
+                const lockMasterName = lockMaster != null ? byKeyName(catalog, lockMaster) : null;
                 return (
                 <div key={perm.key} className="spm-perm-row">
                   <div className="spm-perm-info">
@@ -283,10 +320,10 @@ export default function RolePermissionPanel({ roleName, onClose }: Props) {
                       )}
                     </p>
                     {perm.description && <p className="spm-perm-desc">{perm.description}</p>}
-                    {locked && <p className="spm-perm-desc" style={{ color: "#b45309" }}>Enable Quick Sale access first</p>}
+                    {locked && <p className="spm-perm-desc" style={{ color: "#b45309" }}>Enable {lockMasterName ?? "the required permission"} first</p>}
                   </div>
                   <div className="spm-perm-toggle">
-                    <label className="settings-toggle" title={locked ? "Enable Quick Sale access first" : undefined}>
+                    <label className="settings-toggle" title={locked ? `Enable ${lockMasterName ?? "the required permission"} first` : undefined}>
                       <input
                         type="checkbox"
                         checked={!!perms[perm.key]}
@@ -359,11 +396,18 @@ export default function RolePermissionPanel({ roleName, onClose }: Props) {
         </div>
 
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, padding: "12px 20px", borderTop: "1px solid #f3f4f6" }}>
+          <button className="btn btn-outline-secondary btn-sm" onClick={() => setShowPreview(true)} disabled={loading}>Preview</button>
           <button className="btn btn-outline-secondary btn-sm" onClick={onClose} disabled={saving}>Cancel</button>
-          <button className="btn btn-primary btn-sm" onClick={handleSave} disabled={saving || loading}>
+          <button className="btn btn-primary btn-sm" onClick={handleSave} disabled={saving || loading || !isDirty}>
             {saving ? <Loader2 size={13} className="perm-spin" /> : "Save changes"}
           </button>
         </div>
+      <PermissionPreviewModal
+        show={showPreview}
+        onClose={() => setShowPreview(false)}
+        draft={perms}
+        subjectLabel={roleName}
+      />
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { X, Pencil, Clipboard, ArrowLeft } from "react-bootstrap-icons";
+import { X, Pencil, Clipboard, ArrowLeft, ClockHistory } from "react-bootstrap-icons";
 import { useNavigate } from "react-router-dom";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { useCurrency } from "../../../hooks/useCurrency";
@@ -76,6 +76,7 @@ export default function ClientDetailsDrawer({
   const dispatch = useAppDispatch();
   const { can } = usePermissions();
   const canEdit = can("edit_clients");
+  const canViewHistory = can("view_client_history");
   const { formatAmount } = useCurrency();
   const [client, setClient] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -252,6 +253,21 @@ export default function ClientDetailsDrawer({
                 }}
               >
                 <Pencil size={14} /> Edit
+              </button>
+              <button
+                className="cdd-edit-btn"
+                style={canViewHistory ? undefined : { opacity: 0.5, cursor: "not-allowed" }}
+                onClick={() => {
+                  if (!canViewHistory) {
+                    dispatch(showPermissionDenied(
+                      `Your account does not have the "view_client_history" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+                    ));
+                    return;
+                  }
+                  navigate("/dashboard/clients/history", { state: { openClientId: activeClientId } });
+                }}
+              >
+                <ClockHistory size={14} /> History
               </button>
             </div>
 

@@ -96,7 +96,12 @@ const VIRTUAL_PERMS: Record<string, string[]> = {
   ],
 };
 
-function resolveKeys(permKey: string): string[] {
+// Exported for the Roles & Permissions Preview feature — it needs the exact
+// same VIRTUAL_PERMS umbrella-OR resolution this hook uses, evaluated
+// against a DRAFT (possibly unsaved) permission map instead of the real
+// logged-in user's Redux state. Pure and stateless, so reusing it here can't
+// regress usePermissions()'s own 100+ call sites.
+export function resolveKeys(permKey: string): string[] {
   return VIRTUAL_PERMS[permKey] ?? [permKey];
 }
 

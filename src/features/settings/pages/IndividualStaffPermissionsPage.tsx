@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ChevronRight, ChevronDown, Loader2, RotateCcw, Search, UserRound } from "lucide-react";
 import { MODULE_ICON, DEFAULT_MODULE_ICON } from "../utils/permissionModuleIcons";
+import PermissionPreviewModal from "../components/PermissionPreviewModal";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
@@ -13,7 +14,7 @@ import {
   assignStaffRoleThunk,
 } from "../../../middleware/roles/roles.thunk";
 import { sortModuleNames, sortGroupNames } from "../utils/permissionModuleOrder";
-import { cascadeOnKeys, isRevealedChild, findEmptyMasterToggles, findMissingPrerequisites } from "../utils/permissionCascade";
+import { cascadeOnKeys, cascadeOffKeys, isRevealedChild, findEmptyMasterToggles, findMissingPrerequisites, lockedByMaster } from "../utils/permissionCascade";
 // Shared .spm-perm-row/.spm-reset-link/.settings-toggle/.s-badge-* classes
 // reused here live in this stylesheet — see the same import in
 // RolesPermissionsPage.tsx for why this needs to be explicit now that
@@ -44,15 +45,20 @@ function avatarColorFor(name: string): string {
 }
 
 // Shown a second time under the Quick Sale group (in addition to their real
-// home, Clients) — locked there unless QUICK_SALE_GATE_KEY is already
-// effective, since editing a client or viewing their history from Quick
-// Sale's own client panel only matters once Quick Sale itself is accessible.
-// Purely a display/lock convenience in this one group; the keys behave
-// completely normally (unlocked) wherever else they're toggled, e.g. under
-// Clients. Kept in sync with the same constants in
-// RolePermissionPanel.tsx/StaffPermissionEditor.tsx.
+// home, Clients) — since editing a client or viewing their history from
+// Quick Sale's own client panel only matters once Quick Sale itself is
+// accessible. Purely a display convenience in this one group; the keys
+// behave completely normally wherever else they're toggled, e.g. under
+// Clients. Kept in sync with the same constant in RolePermissionPanel.tsx.
+// Locking (greying out until create_sales is on) is now handled generically
+// by lockedByMaster, same as Catalog > Products' children.
 const QUICK_SALE_DEPENDENT_KEYS = ["edit_clients", "view_clients"];
-const QUICK_SALE_GATE_KEY = "create_sales";
+
+// Human-readable name for a lock message — falls back to the raw key if the
+// catalog hasn't loaded it yet.
+function byKeyName(catalog: { key: string; name: string }[], key: string): string {
+  return catalog.find((p) => p.key === key)?.name ?? key;
+}
 
 // Full-page replacement for the old StaffPermissionEditor modal, reached
 // from Settings -> Roles & Permissions -> Individual Staff -> Edit
@@ -88,6 +94,7 @@ export default function IndividualStaffPermissionsPage() {
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
   const [confirmResetAll, setConfirmResetAll] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
   // Cards start collapsed, matching the same "closed by default" behavior
   // already applied to the Manager/Staff role panels.
   const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set());
@@ -140,8 +147,8 @@ export default function IndividualStaffPermissionsPage() {
   // Also sub-grouped by group_name (Suppliers/Orders/... within Warehouse) —
   // subGroups.length > 1 is what triggers the drill-down list instead of a
   // flat permission list for that module.
-  const groups = useMemo(() => {
-    if (!view) return [];
+  const groupsResult = useMemo(() => {
+    if (!view) return { groups: [] as { module: string; rows: any[]; subGroups: { groupName: string | null; rows: any[] }[] }[], effectiveByKey: new Map<string, boolean>() };
     const q = search.trim().toLowerCase();
     type Row = { key: string; effective: boolean; isCustom: boolean; name: string; desc: string | null; risk: string; groupName: string | null };
     const out: { module: string; rows: Row[]; subGroups: { groupName: string | null; rows: Row[] }[] }[] = [];
@@ -181,8 +188,9 @@ export default function IndividualStaffPermissionsPage() {
       const subGroups = sortGroupNames(module, Array.from(sg.entries()).map(([groupName, rows]) => ({ groupName, rows })), (sg) => sg.groupName);
       out.push({ module, rows, subGroups });
     }
-    return sortModuleNames(out, (g) => g.module);
+    return { groups: sortModuleNames(out, (g) => g.module), effectiveByKey: new Map(Array.from(rowByKey.entries()).map(([k, r]) => [k, r.effective])) };
   }, [view, catalogByKey, search, pending]);
+  const { groups, effectiveByKey } = groupsResult;
 
   const hasPendingChanges = Object.keys(pending).length > 0;
 
@@ -204,11 +212,35 @@ export default function IndividualStaffPermissionsPage() {
   // NOT symmetric in either direction — it never strips an
   // individually-granted child, and never re-locks a sibling that still
   // needs the same parent.
+  // Baseline (last-saved) effective value for a key — used to prune `pending`
+  // back to empty when a toggle sequence nets out to the saved state (e.g.
+  // ON -> OFF -> ON), so hasPendingChanges reflects a real diff instead of
+  // "was this key ever touched this session."
+  const baselineEffective = (key: string): boolean =>
+    view?.permissions.find((p) => p.key === key)?.effective ?? false;
+
   const toggleEffective = (key: string, currentEffective: boolean) => {
     const next = !currentEffective;
     setPending((prev) => {
-      const updated = { ...prev, [key]: next };
-      if (next) for (const k of cascadeOnKeys(catalog, key)) updated[k] = true;
+      const updated = { ...prev };
+      if (next === baselineEffective(key)) delete updated[key];
+      else updated[key] = next;
+      if (next) {
+        for (const k of cascadeOnKeys(catalog, key)) {
+          if (k === key) continue;
+          if (baselineEffective(k)) delete updated[k];
+          else updated[k] = true;
+        }
+      } else {
+        // Calendar's action permissions must read as OFF, not merely locked
+        // at their old value, the instant View Calendar/View Appointment
+        // goes off — see cascadeOffKeys' own doc comment.
+        for (const k of cascadeOffKeys(catalog, key)) {
+          if (k === key) continue;
+          if (baselineEffective(k) === false) delete updated[k];
+          else updated[k] = false;
+        }
+      }
       return updated;
     });
   };
@@ -446,9 +478,9 @@ export default function IndividualStaffPermissionsPage() {
                   return !group.rows.find((r) => r.key === parentKey)?.effective;
                 };
                 const renderRow = (row: (typeof group.rows)[number]) => {
-                  const locked = group.module === "Quick Sale"
-                    && QUICK_SALE_DEPENDENT_KEYS.includes(row.key)
-                    && !group.rows.find((r) => r.key === QUICK_SALE_GATE_KEY)?.effective;
+                  const lockMaster = lockedByMaster(row.key, (k) => !!effectiveByKey.get(k));
+                  const locked = lockMaster != null;
+                  const lockMasterName = lockMaster != null ? byKeyName(catalog, lockMaster) : null;
                   return (
                   <div key={row.key} className="spm-perm-row">
                     <div className="spm-perm-info">
@@ -460,10 +492,10 @@ export default function IndividualStaffPermissionsPage() {
                         )}
                       </p>
                       {row.desc && <p className="spm-perm-desc">{row.desc}</p>}
-                      {locked && <p className="spm-perm-desc" style={{ color: "#b45309" }}>Enable Quick Sale access first</p>}
+                      {locked && <p className="spm-perm-desc" style={{ color: "#b45309" }}>Enable {lockMasterName ?? "the required permission"} first</p>}
                     </div>
                     <div className="spm-perm-toggle" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <label className="settings-toggle" title={locked ? "Enable Quick Sale access first" : undefined}>
+                      <label className="settings-toggle" title={locked ? `Enable ${lockMasterName ?? "the required permission"} first` : undefined}>
                         <input
                           type="checkbox"
                           checked={row.effective}
@@ -545,6 +577,7 @@ export default function IndividualStaffPermissionsPage() {
           {activeOverrideCount} individual override{activeOverrideCount === 1 ? "" : "s"} active
         </span>
         <div className="ispp-footer-actions">
+          <button type="button" className="btn btn-outline-secondary btn-sm" onClick={() => setShowPreview(true)}>Preview</button>
           <button
             type="button"
             className="btn btn-outline-secondary btn-sm"
@@ -558,6 +591,12 @@ export default function IndividualStaffPermissionsPage() {
           </button>
         </div>
       </div>
+      <PermissionPreviewModal
+        show={showPreview}
+        onClose={() => setShowPreview(false)}
+        draft={Object.fromEntries(effectiveByKey)}
+        subjectLabel={staffName}
+      />
     </div>
   );
 }

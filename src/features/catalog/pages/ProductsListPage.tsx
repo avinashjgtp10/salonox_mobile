@@ -362,15 +362,23 @@ const ProductsListPage: React.FC = () => {
               className="shadow-sm border-0 rounded-3 py-2"
               style={{ minWidth: "220px" }}
             >
-              <Dropdown.Item onClick={() => setActiveModal("brands")} className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark">
+              <Dropdown.Item
+                onClick={() => {
+                  if (!can("manage_my_brands")) { denyPerm("manage_my_brands"); return; }
+                  setActiveModal("brands");
+                }}
+                style={!can("manage_my_brands") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark"
+              >
                 <Tag size={16} /> Manage my brands
               </Dropdown.Item>
               <Dropdown.Item
                 onClick={() => {
                   if (!can("import_products")) { denyPerm("import_products"); return; }
+                  if (!can("import_file")) { denyPerm("import_file"); return; }
                   navigate("/dashboard/catalog/products/import");
                 }}
-                style={!can("import_products") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                style={!can("import_products") || !can("import_file") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
                 className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark"
               >
                 <BoxArrowInDown size={16} /> Import products
@@ -881,7 +889,10 @@ const ProductsListPage: React.FC = () => {
                       <span>{b.name}</span>
                       <button
                         className="btn btn-sm btn-link text-danger p-0"
-                        onClick={() => deleteBrand(b.id)}
+                        onClick={() => {
+                          if (!can("manage_my_brands")) { denyPerm("manage_my_brands"); return; }
+                          deleteBrand(b.id);
+                        }}
                       >
                         <X size={16} />
                       </button>
@@ -939,6 +950,7 @@ const ProductsListPage: React.FC = () => {
               <Button
                 variant="primary"
                 onClick={async () => {
+                  if (!can("manage_my_brands")) { denyPerm("manage_my_brands"); return; }
                   if (brandName.trim()) {
                     await createBrand(brandName.trim());
                     setBrandName("");

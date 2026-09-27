@@ -43,7 +43,11 @@ import { showPermissionDenied } from "../../../store/permissionDialogSlice";
 import NoPermissionPage from "../../../components/guards/NoPermissionPage";
 import "../styles/SettingsPage.scss";
 
-interface NavItem {
+// Exported for the Roles & Permissions Preview feature — it needs to iterate
+// the exact same Settings section list this layout renders from, against a
+// draft (possibly unsaved) permission map. Structure only; the Component
+// field is never invoked by the preview.
+export interface NavItem {
   id: string;
   label: string;
   description: string;
@@ -56,14 +60,21 @@ interface NavItem {
    *  own key; coupons-manage shares "coupons"'s since it's the same section
    *  reached via a different deep link, not a distinct one. */
   permKey: string;
+  /** Permission audit ticket (Bulk Billing Import) — this section must stay
+   *  reachable even when permKey is off, greyed on the home card but still
+   *  openable, because the OFF behavior here is "let the page render with
+   *  its own actions disabled," not "block the section entirely" like every
+   *  other Settings card. Only the page's own action gating enforces the
+   *  permission when this is set. */
+  alwaysOpen?: boolean;
 }
 
-interface NavGroup {
+export interface NavGroup {
   groupLabel: string;
   items: NavItem[];
 }
 
-const navGroups: NavGroup[] = [
+export const navGroups: NavGroup[] = [
   {
     groupLabel: "Account",
     items: [
@@ -114,7 +125,7 @@ const navGroups: NavGroup[] = [
   {
     groupLabel: "Migration",
     items: [
-      { id: "bulk-billing-import", label: "Bulk Billing Import", description: "Import historical billing records from an Excel or CSV file.", icon: <Upload size={18} />, Component: BulkBillingImportPage, permKey: "view_settings_bulk_billing_import" },
+      { id: "bulk-billing-import", label: "Bulk Billing Import", description: "Import historical billing records from an Excel or CSV file.", icon: <Upload size={18} />, Component: BulkBillingImportPage, permKey: "view_settings_bulk_billing_import", alwaysOpen: true },
     ],
   },
   {
@@ -171,12 +182,12 @@ export default function SettingsLayout() {
 
   const handleSelect = (id: string) => {
     const item = allItems.find((i) => i.id === id);
-    if (item && !can(item.permKey)) { denyPerm(item.permKey); return; }
+    if (item && !item.alwaysOpen && !can(item.permKey)) { denyPerm(item.permKey); return; }
     navigate(`/dashboard/settings/${id}`);
   };
 
   const activeItem = activeId ? allItems.find((i) => i.id === activeId) : null;
-  const activeAllowed = activeItem ? can(activeItem.permKey) : true;
+  const activeAllowed = activeItem ? (activeItem.alwaysOpen || can(activeItem.permKey)) : true;
   const ActiveComponent = activeItem?.Component;
 
   return (
