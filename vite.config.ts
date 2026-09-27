@@ -9,6 +9,10 @@ export default defineConfig(({ mode }) => {
 
   return {
   plugins: [react(), seoFilesPlugin()],
+  // SEO_INCLUDE_DRAFTS=1 builds the not-yet-enabled SEO pages (noindex) for preview.
+  define: {
+    __SEO_INCLUDE_DRAFTS__: JSON.stringify(process.env.SEO_INCLUDE_DRAFTS === '1'),
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

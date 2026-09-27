@@ -5,12 +5,22 @@ import type { JsonLdKind, MarketingRoute } from "./seo.config";
 //   - a city           -> CITIES
 // Each becomes a prerendered page rendered by SeoLandingPage.tsx.
 //
-// Every page starts with indexable: false, so it is emitted with
-// <meta name="robots" content="noindex,follow">, left out of sitemap.xml and
-// emits no structured data. Replace the TODO copy, then set indexable: true
-// (per entry, or flip INDEXABLE_BY_DEFAULT below).
+// Every page starts as a draft (indexable: false). A draft is NOT built at all,
+// so its URL returns a real 404 in production and it never reaches the sitemap.
+// Enable pages one at a time: replace the TODO copy, then set `indexable: true`
+// on that VERTICALS / CITIES entry. An enabled page is emitted with
+// index,follow, listed in sitemap.xml and gets its structured data.
+//
+// To preview drafts while writing copy, build with SEO_INCLUDE_DRAFTS=1
+// (npm run build). They are then emitted with noindex,follow and no structured
+// data, and still left out of the sitemap.
 
 const INDEXABLE_BY_DEFAULT = false;
+
+// Injected by vite.config.ts from the SEO_INCLUDE_DRAFTS environment variable;
+// undefined when this file is evaluated outside a Vite build.
+declare const __SEO_INCLUDE_DRAFTS__: boolean | undefined;
+const INCLUDE_DRAFTS = typeof __SEO_INCLUDE_DRAFTS__ !== "undefined" && __SEO_INCLUDE_DRAFTS__;
 
 export interface SeoPage {
   slug: string;
@@ -37,6 +47,8 @@ interface Vertical {
   titleKeyword: string;
   audience: string;
   audienceSingular: string;
+  /** Set true once the copy is written. Defaults to INDEXABLE_BY_DEFAULT. */
+  indexable?: boolean;
 }
 
 const VERTICALS: Vertical[] = [
@@ -51,6 +63,8 @@ interface City {
   city: string;
   /** Prices are only shown for INR markets; other markets show a TODO. */
   pricing: "plans" | "todo";
+  /** Set true once the copy is written. Defaults to INDEXABLE_BY_DEFAULT. */
+  indexable?: boolean;
 }
 
 const CITIES: City[] = [
@@ -86,7 +100,7 @@ const verticalPages: SeoPage[] = VERTICALS.map((v) => ({
   description: todo(`meta description (about 150 characters) for ${v.titleKeyword.toLowerCase()}`),
   audienceSingular: v.audienceSingular,
   pricing: "plans",
-  indexable: INDEXABLE_BY_DEFAULT,
+  indexable: v.indexable ?? INDEXABLE_BY_DEFAULT,
   ...body(v.audience, ""),
 }));
 
@@ -98,7 +112,7 @@ const cityPages: SeoPage[] = CITIES.map((c) => ({
   audienceSingular: "salon",
   city: c.city,
   pricing: c.pricing,
-  indexable: INDEXABLE_BY_DEFAULT,
+  indexable: c.indexable ?? INDEXABLE_BY_DEFAULT,
   ...body("salons", ` in ${c.city}`),
 }));
 
@@ -106,7 +120,8 @@ export const SEO_PAGES: SeoPage[] = [...verticalPages, ...cityPages];
 
 export const seoPageFor = (pathname: string) => SEO_PAGES.find((p) => `/${p.slug}` === pathname);
 
-export const SEO_PAGE_ROUTES: MarketingRoute[] = SEO_PAGES.map((p) => {
+// Only enabled pages become routes (and so files); drafts appear only in preview builds.
+export const SEO_PAGE_ROUTES: MarketingRoute[] = SEO_PAGES.filter((p) => p.indexable || INCLUDE_DRAFTS).map((p) => {
   const jsonLd: JsonLdKind[] = ["organization", ...(p.pricing === "plans" ? (["software"] as const) : []), "faq"];
   return { path: `/${p.slug}`, title: p.title, description: p.description, indexable: p.indexable, jsonLd, faqs: p.faqs };
 });
