@@ -105,8 +105,8 @@ export default function BranchOwnerSidebar() {
       {/* Brand + collapse toggle */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 14px", borderBottom: "1px solid #f1f5f9", flexShrink: 0 }}>
         {collapsed
-          ? <img src={salonoxMark} alt="SalonOX" style={{ width: 28, height: 28, objectFit: "contain" }} />
-          : <img src={salonoxLogo} alt="SalonOX" style={{ height: 28, width: "auto", objectFit: "contain" }} />}
+          ? <img src={salonoxMark} alt="SalonoX" style={{ width: 28, height: 28, objectFit: "contain" }} />
+          : <img src={salonoxLogo} alt="SalonoX" style={{ height: 28, width: "auto", objectFit: "contain" }} />}
         <button
           onClick={() => setCollapsed((v) => !v)}
           title={collapsed ? "Expand sidebar" : "Collapse sidebar"}

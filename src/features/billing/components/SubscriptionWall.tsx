@@ -118,7 +118,7 @@ export default function SubscriptionWall() {
         <p style={styles.subtitle}>
           {isOwnerOrAdmin ? (
             <>
-              Your SalonOx access has been paused.
+              Your SalonoX access has been paused.
               <br />
               Renew your plan to continue managing your salon seamlessly.
             </>

@@ -220,7 +220,7 @@ export default function SpotlightListPage() {
               <em>Spotlights</em>
             </h1>
             <p className="spotlight-hero__subtitle">
-              Every release, a new SalonOX feature takes the spotlight. See what's new, read how it works, and start using it.
+              Every release, a new SalonoX feature takes the spotlight. See what's new, read how it works, and start using it.
             </p>
           </div>
           <div className="spotlight-hero__stat">

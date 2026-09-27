@@ -39,7 +39,7 @@ export default function SpotlightHighlightCard() {
         NEW
       </span>
       <div className="spotlight-highlight-card__body">
-        <span className="spotlight-highlight-card__eyebrow">What's New in SalonOX</span>
+        <span className="spotlight-highlight-card__eyebrow">What's New in SalonoX</span>
         <span className="spotlight-highlight-card__title">{feature.featureName}</span>
         <span className="spotlight-highlight-card__desc">{feature.shortDescription}</span>
       </div>

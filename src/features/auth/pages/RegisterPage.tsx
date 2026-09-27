@@ -280,7 +280,7 @@ export default function RegisterPage() {
 
       <div className="rp-inner">
         <div className="rp-brand">
-          <img src={salonoxLogo} alt="SalonOX" className="rp-brand__logo" width="210" height="68" />
+          <img src={salonoxLogo} alt="SalonoX" className="rp-brand__logo" width="210" height="68" />
         </div>
 
         <div className="rp-heading-block">

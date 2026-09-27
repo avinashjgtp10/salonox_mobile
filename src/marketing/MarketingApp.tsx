@@ -4,8 +4,7 @@ import LandingPage from "../features/marketing-site/pages/landing";
 import { applyHeadToDocument, routeFor } from "./head";
 import { NotFoundPage } from "./NotFoundPage";
 import { SeoLandingPage } from "./SeoLandingPage";
-import { seoPageFor } from "./seoPages";
-import { isAppPath, MARKETING_ROUTES } from "./seo.config";
+import { isAppPath, MARKETING_ROUTES, seoPageFor } from "./seo.config";
 
 // This tree only knows the marketing routes. An app link (login, register,
 // dashboard...) is handed to a real page load, which serves the full SPA shell

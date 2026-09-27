@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { WHATSAPP_DEMO_URL } from "../components/Landing/shared";
-import { PLAN_PERIOD, PLANS } from "./seo.config";
+import { BRAND_NAME, PLAN_PERIOD, PLANS } from "./seo.config";
 import type { SeoPage } from "./seoPages";
 import "./SeoLandingPage.scss";
 
@@ -10,15 +10,15 @@ const whatsappUrl = (text: string) => `${WHATSAPP_DEMO_URL.split("?")[0]}?text=$
 export function SeoLandingPage({ page }: { page: SeoPage }) {
   const place = page.city ? ` in ${page.city}` : "";
   const demoUrl = whatsappUrl(
-    `Hi SalonOX Team, I am interested in SalonOX for my ${page.audienceSingular}${place}. Please share more details and schedule a demo.`,
+    `Hi ${BRAND_NAME} Team, I am interested in ${BRAND_NAME} for my ${page.audienceSingular}${place}. Please share more details and schedule a demo.`,
   );
 
   return (
     <div className="seo-page">
       <header className="seo-header">
         <div className="seo-container seo-header-inner">
-          <a href="/" aria-label="SalonOX home">
-            <img src="/salonox-full-logo.webp" alt="SalonOX" width="140" height="45" />
+          <a href="/" aria-label={`${BRAND_NAME} home`}>
+            <img src="/salonox-full-logo.webp" alt={BRAND_NAME} width="140" height="45" />
           </a>
           <nav className="seo-nav" aria-label="Primary">
             <Link to="/login" className="seo-link">Log in</Link>
@@ -59,7 +59,7 @@ export function SeoLandingPage({ page }: { page: SeoPage }) {
 
         <section className="seo-section seo-section--alt">
           <div className="seo-container">
-            <h2>{`What SalonOX gives your ${page.audienceSingular}`}</h2>
+            <h2>{`What ${BRAND_NAME} gives your ${page.audienceSingular}`}</h2>
             <div className="seo-grid">
               {page.features.map((f) => (
                 <article key={f.title + f.body} className="seo-card">
@@ -104,7 +104,7 @@ export function SeoLandingPage({ page }: { page: SeoPage }) {
 
         <section className="seo-cta">
           <div className="seo-container">
-            <h2>{`See SalonOX running in your ${page.audienceSingular}`}</h2>
+            <h2>{`See ${BRAND_NAME} running in your ${page.audienceSingular}`}</h2>
             <a href={demoUrl} className="seo-btn seo-btn--primary" target="_blank" rel="noopener noreferrer">
               Book a demo on WhatsApp
             </a>
@@ -118,7 +118,7 @@ export function SeoLandingPage({ page }: { page: SeoPage }) {
           <a href="/about">About</a>
           <a href="/terms">Terms</a>
           <a href="/privacy">Privacy</a>
-          <span suppressHydrationWarning>{`© ${new Date().getFullYear()} SalonOX`}</span>
+          <span suppressHydrationWarning>{`© ${new Date().getFullYear()} ${BRAND_NAME}`}</span>
         </div>
       </footer>
     </div>

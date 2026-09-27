@@ -75,7 +75,7 @@ const CITIES: City[] = [
   { slug: "dubai", city: "Dubai", pricing: "todo" },
 ];
 
-function body(audience: string, place: string) {
+function body(brand: string, audience: string, place: string) {
   return {
     intro: todo(`intro paragraph for ${audience}${place}`),
     painPoints: [1, 2, 3].map((n) => ({
@@ -84,7 +84,7 @@ function body(audience: string, place: string) {
     })),
     features: [1, 2, 3, 4, 5, 6].map((n) => ({
       title: todo(`feature ${n} headline`),
-      body: todo(`one or two sentences on how SalonOX handles feature ${n} for ${audience}${place}`),
+      body: todo(`one or two sentences on how ${brand} handles feature ${n} for ${audience}${place}`),
     })),
     faqs: [1, 2, 3, 4].map((n) => ({
       q: todo(`FAQ ${n} question for ${audience}${place}`),
@@ -93,35 +93,38 @@ function body(audience: string, place: string) {
   };
 }
 
-const verticalPages: SeoPage[] = VERTICALS.map((v) => ({
+function verticalPages(brand: string): SeoPage[] {
+  return VERTICALS.map((v) => ({
   slug: v.slug,
   h1: v.h1,
-  title: `${v.titleKeyword} for India | SalonOX`,
+  title: `${v.titleKeyword} for India | ${brand}`,
   description: todo(`meta description (about 150 characters) for ${v.titleKeyword.toLowerCase()}`),
   audienceSingular: v.audienceSingular,
   pricing: "plans",
   indexable: v.indexable ?? INDEXABLE_BY_DEFAULT,
-  ...body(v.audience, ""),
+  ...body(brand, v.audience, ""),
 }));
+}
 
-const cityPages: SeoPage[] = CITIES.map((c) => ({
+function cityPages(brand: string): SeoPage[] {
+  return CITIES.map((c) => ({
   slug: `salon-software-${c.slug}`,
   h1: `Salon Software in ${c.city}: Billing, Appointments & WhatsApp Marketing`,
-  title: `Salon Management Software in ${c.city} | SalonOX`,
+  title: `Salon Management Software in ${c.city} | ${brand}`,
   description: todo(`meta description (about 150 characters) for salon software in ${c.city}`),
   audienceSingular: "salon",
   city: c.city,
   pricing: c.pricing,
   indexable: c.indexable ?? INDEXABLE_BY_DEFAULT,
-  ...body("salons", ` in ${c.city}`),
+  ...body(brand, "salons", ` in ${c.city}`),
 }));
+}
 
-export const SEO_PAGES: SeoPage[] = [...verticalPages, ...cityPages];
-
-export const seoPageFor = (pathname: string) => SEO_PAGES.find((p) => `/${p.slug}` === pathname);
+/** All configured pages (drafts included). The brand is passed in from seo.config.ts. */
+export const buildSeoPages = (brand: string): SeoPage[] => [...verticalPages(brand), ...cityPages(brand)];
 
 // Only enabled pages become routes (and so files); drafts appear only in preview builds.
-export const SEO_PAGE_ROUTES: MarketingRoute[] = SEO_PAGES.filter((p) => p.indexable || INCLUDE_DRAFTS).map((p) => {
+export const buildSeoPageRoutes = (pages: SeoPage[]): MarketingRoute[] => pages.filter((p) => p.indexable || INCLUDE_DRAFTS).map((p) => {
   const jsonLd: JsonLdKind[] = ["organization", ...(p.pricing === "plans" ? (["software"] as const) : []), "faq"];
   return { path: `/${p.slug}`, title: p.title, description: p.description, indexable: p.indexable, jsonLd, faqs: p.faqs };
 });

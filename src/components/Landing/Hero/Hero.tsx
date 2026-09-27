@@ -141,7 +141,7 @@ const Hero: React.FC<HeroProps> = ({ heroRef, onPointerMove, onPointerLeave, scr
           </a>
         </div>
 
-        <ul className="hero-premium-trust hero-premium-enter hero-premium-enter--5" aria-label="SalonOX benefits">
+        <ul className="hero-premium-trust hero-premium-enter hero-premium-enter--5" aria-label="SalonoX benefits">
           {HERO_TRUST_ITEMS.map((item) => (
             <li key={item}><span aria-hidden="true"><Icon.Check /></span>{item}</li>
           ))}
@@ -162,7 +162,7 @@ const Hero: React.FC<HeroProps> = ({ heroRef, onPointerMove, onPointerLeave, scr
           <div className="hero-dashboard-frame">
             <img
               src="/screenshots/dashboard.webp"
-              alt="SalonOX dashboard showing revenue, appointments, active clients, and salon performance analytics"
+              alt="SalonoX dashboard showing revenue, appointments, active clients, and salon performance analytics"
               width="1024"
               height="596"
               loading="eager"
@@ -171,7 +171,7 @@ const Hero: React.FC<HeroProps> = ({ heroRef, onPointerMove, onPointerLeave, scr
           </div>
         </div>
 
-        <ul className="hero-feature-cards" aria-label="SalonOX platform features">
+        <ul className="hero-feature-cards" aria-label="SalonoX platform features">
           {HERO_FEATURE_CARDS.map((feature, index) => {
             const FeatureIcon = Icon[feature.icon];
             return (
@@ -213,7 +213,7 @@ const Hero: React.FC<HeroProps> = ({ heroRef, onPointerMove, onPointerLeave, scr
           <div className="stats-grid">
             <div className="stat-cell">
               <div className="stat-num"><span>4,000+</span></div>
-              <div className="stat-label">Salons on SalonOX</div>
+              <div className="stat-label">Salons on SalonoX</div>
             </div>
             <div className="stat-cell">
               <div className="stat-num"><span>2.8M</span></div>

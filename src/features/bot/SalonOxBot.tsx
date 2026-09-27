@@ -27,7 +27,7 @@ const CATEGORY_CHIPS: Record<string, string[]> = {
 const INITIAL_MESSAGES: Message[] = [
   {
     role: 'bot',
-    text: "Hi! I'm your SalonOx Assistant. How can I help you today?",
+    text: "Hi! I'm your SalonoX Assistant. How can I help you today?",
     chips: ['Create appointment', 'Process payment', 'Add staff', 'Revenue report'],
   },
 ];
@@ -234,7 +234,7 @@ export default function SalonOxBot() {
         ref={fabRef}
         className={`sbot-fab ${open ? 'sbot-fab--open' : ''} ${fabPos ? 'sbot-fab--dragged' : ''}`}
         onMouseDown={onFabMouseDown}
-        aria-label="Toggle SalonOx Assistant"
+        aria-label="Toggle SalonoX Assistant"
       >
         {open ? (
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg>
@@ -256,7 +256,7 @@ export default function SalonOxBot() {
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
             </div>
             <div className="sbot-header-info">
-              <div className="sbot-name">SalonOx Assistant</div>
+              <div className="sbot-name">SalonoX Assistant</div>
               <div className="sbot-status">
                 <span className="sbot-dot" />
                 Online

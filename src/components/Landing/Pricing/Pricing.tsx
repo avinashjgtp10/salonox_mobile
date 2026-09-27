@@ -137,7 +137,7 @@ const Pricing: React.FC = () => {
         <div className="section-head">
           <span className="eyebrow"><span className="dot" /> Pricing</span>
           <h2>Purchase plans built for every salon stage.</h2>
-          <p>Choose the SalonOX plan that fits how your salon runs today and where it grows tomorrow.</p>
+          <p>Choose the SalonoX plan that fits how your salon runs today and where it grows tomorrow.</p>
         </div>
       </Reveal>
 

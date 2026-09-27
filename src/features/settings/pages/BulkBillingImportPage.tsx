@@ -168,12 +168,12 @@ export default function BulkBillingImportPage() {
       <div className="bbi-header">
         <h2 className="bbi-title">Bulk Billing Import</h2>
         <p className="bbi-subtitle">
-          Upload an Excel or CSV of historical billing records — Salonox will validate every row and generate
+          Upload an Excel or CSV of historical billing records — SalonoX will validate every row and generate
           correctly dated invoices, preserving each row's own billing date, amount, discount and tax. Client
           Phone is required on every row (used to reliably match or create the client — a bare name alone risks
           splitting an existing client into a duplicate). A Client or Staff name that doesn't match an existing
           record is added automatically (Staff auto-added this way only gets a name — email/phone/gender can be
-          filled in later from Team settings; Salonox assigns their Staff Code the same way it does for any new
+          filled in later from Team settings; SalonoX assigns their Staff Code the same way it does for any new
           staff member). The Service/Product column can list multiple items on one bill separated by commas
           (e.g. "Haircut, Hair Spa") — each must match your existing catalog exactly. For a bill with more than
           one item, Staff can likewise list one name per item in the same order (e.g. "Staff A, Staff B"), or a

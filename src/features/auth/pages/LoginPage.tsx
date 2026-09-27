@@ -102,7 +102,7 @@ export default function LoginPage() {
 
       <div className="lp-inner">
         <div className="lp-brand">
-          <img src={salonoxLogo} alt="SalonOX" className="lp-brand__logo" width="210" height="68" />
+          <img src={salonoxLogo} alt="SalonoX" className="lp-brand__logo" width="210" height="68" />
         </div>
 
         <div className="lp-heading-block">

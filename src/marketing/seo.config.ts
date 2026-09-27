@@ -2,13 +2,17 @@
 // Pure data (plus seoPages.ts, which is data too): it is consumed by the Vite
 // build (sitemap/robots generation, the prerender step) as well as the app.
 
-import { SEO_PAGE_ROUTES } from "./seoPages";
+import { buildSeoPageRoutes, buildSeoPages } from "./seoPages";
+
+// The official brand spelling. Every title, meta description, og:site_name,
+// JSON-LD name, "Powered by" link and footer on the marketing site reads this.
+export const BRAND_NAME = "SalonoX";
 
 export const SITE = {
   // Canonical host. Every canonical URL, sitemap <loc> and og:url is built
   // from this — never from the request host.
   origin: "https://www.salonox.com",
-  name: "SalonOX",
+  name: BRAND_NAME,
   // One-line swap point for the default social preview image. Path is
   // relative to the site root (i.e. a file under public/).
   ogImage: "/og/salonox-og.png",
@@ -22,8 +26,9 @@ export const SOCIAL = {
 
 // Facts for Organization structured data. Only real, already-public details.
 export const ORGANIZATION = {
-  name: "SalonOX",
-  logo: "/salonox-mark.jpg",
+  name: BRAND_NAME,
+  // Transparent-corner PNG: the JPEG mark has opaque black corners.
+  logo: "/salonox-mark-512.png",
   email: "support@salonox.com",
   telephone: "+919503302647",
   sameAs: [SOCIAL.instagram],
@@ -74,35 +79,35 @@ const CORE_ROUTES: MarketingRoute[] = [
   {
     path: "/",
     title: "Salon Management Software | Billing, Staff & Marketing",
-    description:
-      "SalonOx is salon management software for billing, appointments, staff, reports, customer management and bulk WhatsApp marketing.",
+    description: `${BRAND_NAME} is salon management software for billing, appointments, staff, reports, customer management and bulk WhatsApp marketing.`,
     indexable: true,
     jsonLd: ["organization", "software"],
   },
   {
     path: "/terms",
-    title: "Terms of Service | SalonOX",
-    description: "The terms that apply to using SalonOX salon management software.",
+    title: `Terms of Service | ${BRAND_NAME}`,
+    description: `The terms that apply to using ${BRAND_NAME} salon management software.`,
     indexable: true,
   },
   {
     path: "/privacy",
-    title: "Privacy Policy | SalonOX",
-    description: "How SalonOX collects, uses and protects your salon and customer data.",
+    title: `Privacy Policy | ${BRAND_NAME}`,
+    description: `How ${BRAND_NAME} collects, uses and protects your salon and customer data.`,
     indexable: true,
   },
   {
     path: "/about",
-    title: "About SalonOX | Salon Management Software",
-    description:
-      "SalonOX helps salons, spas and beauty clinics run billing, appointments, staff and WhatsApp marketing from one place.",
+    title: `About ${BRAND_NAME} | Salon Management Software`,
+    description: `${BRAND_NAME} helps salons, spas and beauty clinics run billing, appointments, staff and WhatsApp marketing from one place.`,
     indexable: true,
     jsonLd: ["organization"],
   },
 ];
 
 // Core pages plus the config-driven SEO landing pages (see seoPages.ts).
-export const MARKETING_ROUTES: MarketingRoute[] = [...CORE_ROUTES, ...SEO_PAGE_ROUTES];
+export const SEO_PAGES = buildSeoPages(BRAND_NAME);
+export const seoPageFor = (pathname: string) => SEO_PAGES.find((p) => `/${p.slug}` === pathname);
+export const MARKETING_ROUTES: MarketingRoute[] = [...CORE_ROUTES, ...buildSeoPageRoutes(SEO_PAGES)];
 
 // Top-level path prefixes owned by the SPA: auth, onboarding, dashboards and
 // the public per-salon pages. nginx falls back to the SPA shell ONLY for
@@ -153,6 +158,27 @@ export const ROBOTS_DISALLOW_PREFIXES = [
 // Served (with a real 404 status) for every path that is neither a file, a
 // prerendered marketing page nor an app route.
 export const NOT_FOUND_PAGE = {
-  title: "Page not found | SalonOX",
+  title: `Page not found | ${BRAND_NAME}`,
   description: "The page you are looking for does not exist or has moved.",
 } as const;
+
+// Favicon set. Every page (the SPA shell and every prerendered page) gets the
+// same <link> tags, generated from this list by the Vite HTML plugin, so the
+// URLs cannot differ between pages. The files live in public/ and must not be
+// disallowed in robots.txt; scripts/prerender.mjs checks both.
+export const ICONS = {
+  ico: "/favicon.ico",
+  png: [
+    { size: 48, href: "/favicon-48x48.png" },
+    { size: 96, href: "/favicon-96x96.png" },
+    { size: 192, href: "/favicon-192x192.png" },
+  ],
+  appleTouch: { size: 180, href: "/apple-touch-icon.png" },
+} as const;
+
+export const iconLinksHtml = () =>
+  [
+    `<link rel="icon" href="${ICONS.ico}" sizes="any" />`,
+    ...ICONS.png.map((i) => `<link rel="icon" type="image/png" sizes="${i.size}x${i.size}" href="${i.href}" />`),
+    `<link rel="apple-touch-icon" sizes="${ICONS.appleTouch.size}x${ICONS.appleTouch.size}" href="${ICONS.appleTouch.href}" />`,
+  ].join("\n    ");

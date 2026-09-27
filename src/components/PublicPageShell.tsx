@@ -1,5 +1,5 @@
 import { useEffect, type ReactNode } from "react";
-import { SITE } from "../marketing/seo.config";
+import { BRAND_NAME, SITE } from "../marketing/seo.config";
 
 // Per-salon public pages (/book, /menu) are not marketing content for
 // SalonOX, so they are kept out of the index. Set client-side: crawlers that
@@ -31,7 +31,7 @@ export default function PublicPageShell({ children }: { children: ReactNode }) {
       {children}
       <div style={{ textAlign: "center", padding: "16px 12px", fontSize: 12, color: "#6b7280" }}>
         <a href={SITE.origin} style={{ color: "inherit", textDecoration: "none" }}>
-          Powered by SalonOX
+          {`Powered by ${BRAND_NAME}`}
         </a>
       </div>
     </>

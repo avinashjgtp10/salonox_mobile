@@ -106,7 +106,7 @@ export default function SpotlightAdminPage() {
         <div>
           <h1 className="spotlight-page__title">Spotlight Features</h1>
           <p className="spotlight-page__subtitle">
-            Create and publish announcements for new SalonOX features.
+            Create and publish announcements for new SalonoX features.
           </p>
         </div>
       </div>

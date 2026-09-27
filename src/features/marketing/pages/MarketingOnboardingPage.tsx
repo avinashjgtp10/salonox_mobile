@@ -11,7 +11,7 @@ type Stage = "landing" | "requirements" | "setup";
 const FEATURES = [
   { icon: "📣", title: "Blast Campaigns",     desc: "Send WhatsApp messages to thousands of customers at once with approved templates." },
   { icon: "📊", title: "Real-time Analytics", desc: "Track delivery, read rates and campaign performance with live dashboards." },
-  { icon: "💬", title: "Two-way Inbox",       desc: "Reply to customer messages directly from SalonOx. Full conversation history." },
+  { icon: "💬", title: "Two-way Inbox",       desc: "Reply to customer messages directly from SalonoX. Full conversation history." },
   { icon: "📐", title: "Template Manager",    desc: "Create, submit and manage WhatsApp message templates for Meta approval." },
   { icon: "⏰", title: "Schedule Campaigns",  desc: "Schedule campaigns to go out at the perfect time for maximum engagement." },
   { icon: "🎯", title: "Smart Targeting",     desc: "Upload contacts or pick from existing salon clients for targeted messaging." },
@@ -283,7 +283,7 @@ function RequirementsStage({ onNext, onBack }: { onNext: () => void; onBack: () 
 
         <div className="mob-note">
           <strong>📡 No server setup needed</strong>
-          {" — SalonOx provides the webhook URL. You just copy and paste it in Meta."}
+          {" — SalonoX provides the webhook URL. You just copy and paste it in Meta."}
         </div>
 
         <button

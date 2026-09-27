@@ -5,7 +5,7 @@ import {
   Icon,
   WHATSAPP_DEMO_URL,
 } from '../shared';
-import { SOCIAL } from '../../../marketing/seo.config';
+import { BRAND_NAME, SOCIAL } from '../../../marketing/seo.config';
 
 type FooterProps = {
   scrollToSection: (id: string) => (event: React.MouseEvent<HTMLElement>) => void;
@@ -74,7 +74,7 @@ const Footer: React.FC<FooterProps> = ({
       </div>
 
       <div className="footer-bottom">
-        <p suppressHydrationWarning>&copy; {new Date().getFullYear()} SalonOX. All rights reserved.</p>
+        <p suppressHydrationWarning>{`© ${new Date().getFullYear()} ${BRAND_NAME}. All rights reserved.`}</p>
       </div>
     </div>
   </footer>
