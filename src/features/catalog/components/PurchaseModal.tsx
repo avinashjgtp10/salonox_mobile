@@ -46,6 +46,10 @@ interface Props {
    *  this directly, no follow-up GET. */
   onSaved: (result: { purchaseNumber: string; updatedProducts: any[] }) => void;
   onError: (msg: string) => void;
+  /** Set when opened from OrderDetailPage's "Verify Order" tab — skips the
+   *  supplier-pick-then-find-the-PO-again dance and jumps straight into
+   *  receiving against this exact order. */
+  initialOrderId?: string;
 }
 
 // Product Inventory → Purchase → Select Supplier → Add Products → Save
@@ -53,7 +57,7 @@ interface Props {
 // body) — see PRODUCT_INVENTORY_PURCHASES; the backend does the whole
 // multi-item transaction and returns the generated Supplier Number plus the
 // updated rows in that same response.
-export default function PurchaseModal({ onClose, onSaved, onError }: Props) {
+export default function PurchaseModal({ onClose, onSaved, onError, initialOrderId }: Props) {
   const dispatch = useDispatch<AppDispatch>();
   const suppliers = useSelector((s: RootState) => s.inventory.suppliers) as { id: string; name: string }[];
   const { currencySymbol, formatAmount } = useCurrency();
@@ -79,6 +83,14 @@ export default function PurchaseModal({ onClose, onSaved, onError }: Props) {
   // page_limit:100 — this is the Supplier dropdown, not the paginated
   // Suppliers list page, so it needs the full set.
   useEffect(() => { dispatch(fetchSuppliersThunk({ page_limit: 100 })); }, [dispatch]);
+
+  // Opened straight from OrderDetailPage's "Verify Order" tab — load this
+  // order's items immediately instead of making the owner pick the supplier
+  // and then find the same order again from a dropdown.
+  useEffect(() => {
+    if (initialOrderId) loadOrderIntoLines(initialOrderId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialOrderId]);
 
   // Purchase Orders this supplier already has open (Ordered/Verify Order) —
   // a straight GET, not the fetchOrdersThunk used by OrdersListPage, so this
@@ -123,6 +135,7 @@ export default function PurchaseModal({ onClose, onSaved, onError }: Props) {
           maxQty: remaining,
         };
       }));
+      if (order?.supplier_id) setSupplierId(order.supplier_id);
       setReceivingOrder({ id: order.id, order_number: order.order_number });
     } catch (err: any) {
       onError(err?.response?.data?.message || "Couldn't load this order's items");

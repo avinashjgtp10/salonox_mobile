@@ -4,6 +4,7 @@ import { useSelector } from "react-redux";
 import { ArrowLeft, XCircle, Trash, PencilSquare, FileEarmarkPdf, ClipboardCheck } from "react-bootstrap-icons";
 import { useAppDispatch } from "../../../hooks/useAppRedux";
 import { fetchOrderByIdThunk, cancelOrderThunk, placeOrderThunk, startVerificationThunk, deleteOrderThunk } from "../../../middleware/inventory/inventory.thunk";
+import { markSuppliersStale } from "../../../store/inventorySlice";
 import type { Order, OrderStatus } from "../../../types/inventory.types";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
@@ -405,7 +406,21 @@ const OrderDetailPage: React.FC<OrderDetailPageProps> = ({ orderId: orderIdProp,
       )}
 
       {activeTab === "receiving" && canReceive && (
-        <ReceivingTab order={order} />
+        can("receive_order") ? (
+          <ReceivingTab
+            order={order}
+            onReceived={(updated) => {
+              setOrder(updated);
+              showSuccess("Stock received");
+              dispatch(markSuppliersStale());
+            }}
+            onError={showError}
+          />
+        ) : (
+          <p className="text-muted">
+            You don't have the "receive_order" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.
+          </p>
+        )
       )}
 
       <Modal
