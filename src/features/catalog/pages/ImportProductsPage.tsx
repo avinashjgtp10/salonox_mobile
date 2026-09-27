@@ -3,6 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { CloudUpload, FiletypeCsv, FileEarmarkExcel, CheckCircleFill, ExclamationCircleFill, X, Download } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { PRODUCTS } from "../../../services/api/endpoints";
+import { usePermissions } from "../../../hooks/usePermissions";
+import { useAppDispatch } from "../../../hooks/useAppRedux";
+import { showPermissionDenied } from "../../../store/permissionDialogSlice";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface ImportIssue {
@@ -139,6 +142,22 @@ function downloadErrorReport(issues: ImportIssue[]) {
 export default function ImportProductsPage() {
   const navigate = useNavigate();
   const fileRef = useRef<HTMLInputElement>(null);
+  const dispatch = useAppDispatch();
+  const { can } = usePermissions();
+  // The route itself is already gated on import_products (CatalogRoutes.tsx),
+  // but the backend also independently requires the System "Import" master
+  // key (requirePermission("import_file")) — same class of gap item 21 found
+  // for export_excel: without this check, reaching this page with
+  // import_file off let the Import button fire, then fail deep in the
+  // request with a confusing "check your file" error instead of a disabled
+  // control.
+  const canImport = can("import_products") && can("import_file");
+  const denyImport = () => {
+    const missing = !can("import_products") ? "import_products" : "import_file";
+    dispatch(showPermissionDenied(
+      `Your account does not have the "${missing}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+    ));
+  };
 
   const [file, setFile] = useState<File | null>(null);
   const [dragging, setDragging] = useState(false);
@@ -149,6 +168,7 @@ export default function ImportProductsPage() {
   const ACCEPTED = [".csv", ".xlsx", ".xls"];
 
   function pickFile(f: File) {
+    if (!canImport) { denyImport(); return; }
     const ext = f.name.slice(f.name.lastIndexOf(".")).toLowerCase();
     if (!ACCEPTED.includes(ext)) {
       setError("Only CSV and Excel (.xlsx, .xls) files are supported.");
@@ -167,6 +187,7 @@ export default function ImportProductsPage() {
   }
 
   async function handleImport() {
+    if (!canImport) { denyImport(); return; }
     if (!file) return;
     setLoading(true);
     setError(null);
@@ -265,10 +286,12 @@ export default function ImportProductsPage() {
           {!result && (
             <div
               className={`pip-dropzone ${dragging ? "pip-dropzone--dragging" : ""} ${file ? "pip-dropzone--has-file" : ""}`}
-              onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+              style={!canImport ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+              title={!canImport ? "You don't have permission to import products." : undefined}
+              onDragOver={(e) => { e.preventDefault(); if (canImport) setDragging(true); }}
               onDragLeave={() => setDragging(false)}
-              onDrop={onDrop}
-              onClick={() => !file && fileRef.current?.click()}
+              onDrop={(e) => { if (!canImport) { e.preventDefault(); denyImport(); return; } onDrop(e); }}
+              onClick={() => { if (!canImport) { denyImport(); return; } if (!file) fileRef.current?.click(); }}
             >
               {file ? (
                 <div className="pip-selected-file">
@@ -436,7 +459,9 @@ export default function ImportProductsPage() {
               <button
                 className="pip-btn pip-btn--primary"
                 onClick={handleImport}
-                disabled={!file || loading}
+                disabled={canImport && (!file || loading)}
+                style={!canImport ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                title={!canImport ? "You don't have permission to import products." : undefined}
               >
                 {loading ? "Importing…" : "Import"}
               </button>

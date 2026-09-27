@@ -220,6 +220,13 @@ export const AppointmentModal: React.FC<Props> = ({
   const canRecordPaymentPerm = quickSale || can("edit_appointment");
   const canViewPaymentDetailsPerm = quickSale || can("view_payment_details");
   const canEditPerm = quickSale || can("edit_appointment");
+  // Despite its name, handleSaveAndPay's only call site (the brand-new-
+  // booking "Save Appointment" button) never records a payment — it just
+  // creates the appointment. Gating it on canRecordPaymentPerm reused the
+  // wrong flag: a create_appointment-only user got an "edit_appointment"
+  // Permission Required popup on a plain save with no payment step at all,
+  // contradicting create_appointment's own catalog description.
+  const canCreatePerm = quickSale || can("create_appointment");
   const canCancelPerm = can("cancel_appointment");
   const canDeletePerm = can("delete_appointment");
   const denyPerm = (key: string) => dispatch(showPermissionDenied(
@@ -259,8 +266,8 @@ export const AppointmentModal: React.FC<Props> = ({
   const reminderPresets = useMemo(() => getServiceReminderPresets(settingItems), [settingItems]);
 
   // ── Lazy on-demand fetching ───────────────────────────────────────────────
-  const [triggerPackages, { data: packagesData }]       = useLazyListPackagesQuery();
-  const [triggerTemplates, { data: packageTemplatesRaw }] = useLazyListPackageTemplatesQuery();
+  const [triggerPackages, { data: packagesData, error: packagesError }]       = useLazyListPackagesQuery();
+  const [triggerTemplates, { data: packageTemplatesRaw, error: packageTemplatesError }] = useLazyListPackageTemplatesQuery();
   const pkgRequested  = useRef(false);
   const prodRequested = useRef(false);
   const memRequested  = useRef(false);
@@ -303,6 +310,27 @@ export const AppointmentModal: React.FC<Props> = ({
       dispatch(fetchMembershipsThunk());
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Surface a real fetch failure (plan-locked, 500, network) instead of
+  // letting it look identical to "this salon truly has no packages" — the
+  // merge below can't tell the difference once packagesData/templatesRaw
+  // are both just undefined.
+  useEffect(() => {
+    if (packagesError) {
+      const status = (packagesError as any)?.status;
+      toast.error(
+        status === 403
+          ? "Packages aren't available on your current plan."
+          : "Couldn't load packages. Please try again.",
+      );
+    }
+  }, [packagesError]);
+
+  useEffect(() => {
+    if (packageTemplatesError) {
+      toast.error("Couldn't load package templates. Please try again.");
+    }
+  }, [packageTemplatesError]);
 
   // Map package API data → scheduler packagesList when it arrives
   useEffect(() => {
@@ -2268,7 +2296,7 @@ export const AppointmentModal: React.FC<Props> = ({
   }
 
   const handleSaveAndPay = useCallback(async () => {
-    if (!canRecordPaymentPerm) { denyPerm("edit_appointment"); return; }
+    if (!canCreatePerm) { denyPerm("create_appointment"); return; }
     if (totalsNotReady) return;
     if (!validate()) return;
     const id = await save(buildSavePayload());
@@ -2293,7 +2321,7 @@ export const AppointmentModal: React.FC<Props> = ({
   }, [save, dispatch, reconciledEffectiveTotal, selectedClient, serviceRows, packageRows, productRows, membershipRows,
       calDate, defaultTime, notes, staffAlert, salonId, existingBooking, defaultStaffId,
       discountType, discountValue, discountAppliesTo, exCharges, tip, tipBreakdown, activeTaxes, totals,
-      onRefresh, onClose, canRecordPaymentPerm]);
+      onRefresh, onClose, canCreatePerm]);
 
   const handleUpdate = useCallback(async () => {
     if (!canEditPerm) { denyPerm("edit_appointment"); return; }
@@ -4055,7 +4083,13 @@ export const AppointmentModal: React.FC<Props> = ({
                 </>
               ) : (
                 // New appointment (no existingBooking) — always save and close
-                <button className="btn btn-dark" style={{ width: "100%" }} onClick={handleSaveAndPay} disabled={isSaving || totalsNotReady}>
+                <button
+                  className="btn btn-dark"
+                  style={{ width: "100%", ...(canCreatePerm ? {} : { opacity: 0.5, cursor: "not-allowed" }) }}
+                  onClick={handleSaveAndPay}
+                  disabled={canCreatePerm && (isSaving || totalsNotReady)}
+                  title={!canCreatePerm ? "You don't have permission to create appointments." : undefined}
+                >
                   {isSaving ? "Saving…" : totalsNotReady ? (totalsError ? "Calculation failed — edit to retry" : "Confirming total…") : "Save Appointment"}
                 </button>
               )}

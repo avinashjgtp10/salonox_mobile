@@ -31,7 +31,6 @@ export default function NoPermissionPage({ permKey }: Props) {
             ? `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
             : "Your account doesn't have permission for any module yet. Ask your salon owner to enable at least one in Settings → Roles & Permissions."}
         </p>
-        <span className="no-perm-card__code">403 Forbidden</span>
         <div className="no-perm-card__dots" aria-hidden="true">
           {Array.from({ length: 12 }).map((_, i) => <span key={i} />)}
         </div>

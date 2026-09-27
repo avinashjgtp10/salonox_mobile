@@ -30,9 +30,6 @@ const ServiceDetailPanel: React.FC<ServiceDetailPanelProps> = ({
   const dispatch = useAppDispatch();
   const { can } = usePermissions();
   const { formatAmount } = useCurrency();
-  const denyPerm = (permKey: string) => dispatch(showPermissionDenied(
-    `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
-  ));
 
   const money = (value: string | number | null | undefined) => {
     const parsed = parseFloat(String(value ?? 0));
@@ -80,7 +77,10 @@ const ServiceDetailPanel: React.FC<ServiceDetailPanelProps> = ({
               iconLeft={<PencilSquare size={14} />}
               style={!can("edit_services") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
               onClick={() => {
-                if (!can("edit_services")) { denyPerm("edit_services"); return; }
+                if (!can("edit_services")) {
+                  dispatch(showPermissionDenied("You don't have permission to edit this service. Please contact the Owner."));
+                  return;
+                }
                 navigate(`/dashboard/catalog/services/${service.id}/edit`);
               }}
             >

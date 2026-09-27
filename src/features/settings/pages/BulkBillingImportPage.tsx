@@ -3,6 +3,9 @@ import { CloudUpload, FiletypeCsv, FileEarmarkExcel, CheckCircleFill, Exclamatio
 import api from "../../../services/api/axios";
 import { SALE } from "../../../services/api/endpoints";
 import { useCurrency } from "../../../hooks/useCurrency";
+import { usePermissions } from "../../../hooks/usePermissions";
+import { useAppDispatch } from "../../../hooks/useAppRedux";
+import { showPermissionDenied } from "../../../store/permissionDialogSlice";
 
 // ─── Types ────────────────────────────────────────────────────────────────
 interface ImportIssue {
@@ -90,6 +93,12 @@ function downloadErrorReport(issues: ImportIssue[]) {
 export default function BulkBillingImportPage() {
   const fileRef = useRef<HTMLInputElement>(null);
   const { formatAmount } = useCurrency();
+  const dispatch = useAppDispatch();
+  const { can } = usePermissions();
+  const canImport = can("view_settings_bulk_billing_import");
+  const denyImport = () => dispatch(showPermissionDenied(
+    `Your account does not have the "view_settings_bulk_billing_import" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+  ));
 
   const [file, setFile] = useState<File | null>(null);
   const [dragging, setDragging] = useState(false);
@@ -103,6 +112,7 @@ export default function BulkBillingImportPage() {
   const result = finalResult ?? preview;
 
   function pickFile(f: File) {
+    if (!canImport) { denyImport(); return; }
     const ext = f.name.slice(f.name.lastIndexOf(".")).toLowerCase();
     if (!ACCEPTED.includes(ext)) {
       setError("Only CSV and Excel (.xlsx, .xls) files are supported.");
@@ -122,6 +132,7 @@ export default function BulkBillingImportPage() {
   }
 
   async function runImport(dryRun: boolean) {
+    if (!canImport) { denyImport(); return; }
     if (!file) return;
     setLoading(true);
     setError(null);
@@ -204,10 +215,12 @@ export default function BulkBillingImportPage() {
         {!result && (
           <div
             className={`bbi-dropzone ${dragging ? "bbi-dropzone--dragging" : ""} ${file ? "bbi-dropzone--has-file" : ""}`}
-            onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+            style={!canImport ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+            title={!canImport ? "You don't have permission to import billing records." : undefined}
+            onDragOver={(e) => { e.preventDefault(); if (canImport) setDragging(true); }}
             onDragLeave={() => setDragging(false)}
-            onDrop={onDrop}
-            onClick={() => !file && fileRef.current?.click()}
+            onDrop={(e) => { if (!canImport) { e.preventDefault(); denyImport(); return; } onDrop(e); }}
+            onClick={() => { if (!canImport) { denyImport(); return; } if (!file) fileRef.current?.click(); }}
           >
             {file ? (
               <div className="bbi-selected-file">
@@ -366,7 +379,12 @@ export default function BulkBillingImportPage() {
         {/* Footer buttons */}
         <div className="bbi-footer">
           {!result && (
-            <button className="bbi-btn bbi-btn--primary" onClick={() => runImport(true)} disabled={!file || loading}>
+            <button
+              className="bbi-btn bbi-btn--primary"
+              onClick={() => { if (!canImport) { denyImport(); return; } runImport(true); }}
+              disabled={canImport && (!file || loading)}
+              title={!canImport ? "You don't have permission to import billing records." : undefined}
+            >
               {loading ? "Validating…" : "Preview"}
             </button>
           )}
@@ -375,8 +393,9 @@ export default function BulkBillingImportPage() {
               <button className="bbi-btn bbi-btn--ghost" onClick={handleReset} disabled={loading}>Choose a different file</button>
               <button
                 className="bbi-btn bbi-btn--primary"
-                onClick={() => runImport(false)}
-                disabled={loading || preview.success === 0 || blockedByDuplicate}
+                onClick={() => { if (!canImport) { denyImport(); return; } runImport(false); }}
+                disabled={canImport && (loading || preview.success === 0 || blockedByDuplicate)}
+                title={!canImport ? "You don't have permission to import billing records." : undefined}
               >
                 {loading ? "Generating…" : `Generate ${preview.success} Invoice${preview.success !== 1 ? "s" : ""}`}
               </button>

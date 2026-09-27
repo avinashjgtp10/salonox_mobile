@@ -16,6 +16,12 @@ export default function PermissionGuard({ permKey }: Props) {
   const location = useLocation();
   const settingsLoading = useAppSelector((s) => s.setting.loading.fetchAll);
   const profileLoading = useAppSelector((s) => s.user.loading.fetch);
+  // Durable "has the profile fetch actually completed at least once" signal —
+  // unlike profileLoading (a boolean that also reads false before the fetch
+  // has even started), this can't be misread as "already resolved" on the
+  // very first render after a hard reload, before DashboardLayout's mount
+  // effect has had a chance to dispatch fetchMeThunk at all.
+  const hasProfile = useAppSelector((s) => s.user.profile != null);
 
   // `state.setting.loading.fetchAll` is a global flag shared by every feature
   // that dispatches fetchSettingsThunk (e.g. AppointmentModal refetches tax
@@ -63,7 +69,18 @@ export default function PermissionGuard({ permKey }: Props) {
   // every staff account. Deferring the DENIAL decision (not the rendering)
   // until resolved keeps the "no premature 403" guarantee without the
   // remount.
-  const stillResolving = (!hasResolvedOnce.current && (settingsLoading || profileLoading)) || retrying;
+  // Latching hasResolvedOnce on any render where settingsLoading/profileLoading
+  // merely happened to read false was itself the bug — on a hard reload,
+  // React's first render of this whole subtree runs before DashboardLayout's
+  // mount effect has dispatched fetchMeThunk/fetchSettingsThunk, so both
+  // loading flags are still at their untouched initial `false`. That first
+  // render would latch "resolved" immediately, based on loading never having
+  // STARTED yet rather than having finished — permanently disabling the wait
+  // for that guard instance and letting `allowed` (which fails closed while
+  // effective_permissions is still empty) fall through to a denial. Waiting
+  // for hasProfile as well closes that window: the guard only ever commits to
+  // "resolved" once the profile fetch has genuinely completed at least once.
+  const stillResolving = (!hasResolvedOnce.current && (settingsLoading || profileLoading || !hasProfile)) || retrying;
   if (stillResolving) return <Outlet />;
   hasResolvedOnce.current = true;
 
