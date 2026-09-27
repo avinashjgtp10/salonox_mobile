@@ -93,3 +93,57 @@ fs.writeFileSync(path.join(dist, "404.html"), notFound);
 console.log(`prerendered 404        -> 404.html (${(notFound.length / 1024).toFixed(1)} kB)`);
 
 fs.rmSync(templatePath);
+
+// ── Site-wide guards (run over every HTML file in dist) ──────────────────────
+
+const htmlFiles = fs.readdirSync(dist).filter((f) => f.endsWith(".html"));
+
+// 1. Brand spelling: any spelling of the brand in visible text or in alt/aria/
+//    title/content attributes must be exactly the configured name. URLs, paths,
+//    class names and ids (salonox.com, /salonox-*.webp) are not text, so they
+//    are not looked at.
+function visibleBrandStrings(html) {
+  const noCode = html.replace(/<script[\s\S]*?<\/script>/g, " ").replace(/<style[\s\S]*?<\/style>/g, " ");
+  const texts = noCode.split(/<[^>]*>/);
+  const attrs = [...noCode.matchAll(/\s(?:alt|aria-label|title|content|placeholder)="([^"]*)"/g)].map((m) => m[1]);
+  // email addresses (support@salonox.com) are not brand text
+  return [...texts, ...attrs].join("\n").replace(/\S*@\S*/g, " ");
+}
+for (const f of htmlFiles) {
+  const bad = new Set();
+  for (const m of visibleBrandStrings(fs.readFileSync(path.join(dist, f), "utf8")).matchAll(/\bsalonox\b(?!\.|-|_|\/)/gi)) {
+    if (m[0] !== server.brand) bad.add(m[0]);
+  }
+  // a brand split across elements (Salon<span>OX</span>) only shows up with the tags removed outright
+  const joined = fs.readFileSync(path.join(dist, f), "utf8").replace(/<script[\s\S]*?<\/script>/g, "").replace(/<[^>]*>/g, "");
+  for (const m of joined.matchAll(/Salon(?:OX|Ox)(?![\w-])/g)) bad.add(m[0]);
+  if (bad.size) throw new Error(`prerender: ${f} spells the brand [${[...bad]}] but the official spelling is "${server.brand}"`);
+}
+
+// 2. The same favicon <link> block on every page, and the files behind it are real.
+for (const f of htmlFiles) {
+  if (!fs.readFileSync(path.join(dist, f), "utf8").includes(server.iconLinks)) {
+    throw new Error(`prerender: ${f} does not carry the standard favicon links`);
+  }
+}
+const pngSize = (file) => {
+  const b = fs.readFileSync(path.join(dist, file));
+  if (b.readUInt32BE(0) !== 0x89504e47) throw new Error(`prerender: ${file} is not a PNG`);
+  return [b.readUInt32BE(16), b.readUInt32BE(20)];
+};
+for (const i of [...server.icons.png, server.icons.appleTouch]) {
+  const [w, h] = pngSize(i.href);
+  if (w !== i.size || h !== i.size) throw new Error(`prerender: ${i.href} is ${w}x${h}, expected ${i.size}x${i.size}`);
+}
+const ico = fs.readFileSync(path.join(dist, server.icons.ico));
+if (ico.readUInt16LE(0) !== 0 || ico.readUInt16LE(2) !== 1 || ico.readUInt16LE(4) < 3) {
+  throw new Error(`prerender: ${server.icons.ico} is not an ICO with at least 3 frames`);
+}
+
+// 3. robots.txt must not block any icon URL.
+const disallowed = fs.readFileSync(path.join(dist, "robots.txt"), "utf8").split("\n").filter((l) => l.startsWith("Disallow:")).map((l) => l.slice(9).trim());
+for (const href of [server.icons.ico, ...server.icons.png.map((i) => i.href), server.icons.appleTouch.href]) {
+  const hit = disallowed.find((d) => d && href.startsWith(d));
+  if (hit) throw new Error(`prerender: robots.txt disallows ${hit}, which blocks ${href}`);
+}
+console.log(`guards ok: brand spelling, favicon links and files (${htmlFiles.length} html files), robots`);

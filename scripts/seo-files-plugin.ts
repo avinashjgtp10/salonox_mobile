@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { Plugin } from "vite";
-import { MARKETING_ROUTES, ROBOTS_DISALLOW_PREFIXES, SITE } from "../src/marketing/seo.config";
+import { BRAND_NAME, iconLinksHtml, MARKETING_ROUTES, ROBOTS_DISALLOW_PREFIXES, SITE } from "../src/marketing/seo.config";
 
 export function buildSitemapXml(): string {
   const urls = MARKETING_ROUTES.filter((r) => r.indexable)
@@ -13,6 +13,19 @@ export function buildSitemapXml(): string {
 export function buildRobotsTxt(): string {
   const disallow = ROBOTS_DISALLOW_PREFIXES.map((p) => `Disallow: ${p}`).join("\n");
   return `User-agent: *\nAllow: /\n${disallow}\n\nSitemap: ${SITE.origin}/sitemap.xml\n`;
+}
+
+// Fills %BRAND_NAME% and %ICON_LINKS% in every HTML entry (the SPA shell and the
+// marketing template) from seo.config.ts, so the spelling and the favicon set
+// have exactly one source. Runs before Vite own %ENV% replacement.
+export function seoHtmlPlugin(): Plugin {
+  return {
+    name: "salonox-seo-html",
+    transformIndexHtml: {
+      order: "pre",
+      handler: (html) => html.replaceAll("%BRAND_NAME%", BRAND_NAME).replaceAll("%ICON_LINKS%", iconLinksHtml()),
+    },
+  };
 }
 
 // Emits sitemap.xml and robots.txt into the build output, derived from
