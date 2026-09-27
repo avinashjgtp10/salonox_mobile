@@ -14,15 +14,19 @@ export const SITE = {
   ogImage: "/og/salonox-og.png",
 } as const;
 
-// Facts for Organization structured data. Only real, already-public details:
-// twitter/linkedin/facebook are "#" placeholders in the footer, so they are
-// deliberately not listed.
+// Social profiles: the footer links and the Organization JSON-LD sameAs both
+// read this, so they cannot drift. Add a profile here only once it is real.
+export const SOCIAL = {
+  instagram: "https://www.instagram.com/salonox_crm",
+} as const;
+
+// Facts for Organization structured data. Only real, already-public details.
 export const ORGANIZATION = {
   name: "SalonOX",
   logo: "/salonox-mark.jpg",
   email: "support@salonox.com",
   telephone: "+919503302647",
-  sameAs: ["https://www.instagram.com/salonox_crm"],
+  sameAs: [SOCIAL.instagram],
   areaServed: ["IN", "AE"],
 } as const;
 
@@ -32,8 +36,10 @@ export const ORGANIZATION = {
 // ever see these values: after load the page swaps to the live catalog from
 // GET /salon-plans/definitions (Super Admin -> Plans & Subscriptions).
 // KEEP THESE IN SYNC WITH THAT API PRICING whenever plans change.
-// No billing period is stated because the page does not show one; add it here
-// and on the page together if you want it in structured data.
+// All plans are billed per year: the page shows PLAN_PERIOD.label next to every
+// price and the JSON-LD offers carry the same period (priceSpecification), and
+// the build fails if either side is missing.
+export const PLAN_PERIOD = { label: "/year", duration: "P1Y", unitCode: "ANN", unitText: "year" } as const;
 export const PLANS = [
   { tier: "basic", name: "Basic", price: 8000, description: "For business looking for essential management features to get started." },
   { tier: "advance", name: "Advance", price: 12000, description: "For business that need complete salon management functionality." },

@@ -3900,6 +3900,14 @@ body.landing-page-active {
     line-height: 1;
   }
 
+  .purchase-plan-period {
+    margin-left: 6px;
+    color: var(--navy-softer);
+    font-family: var(--font-body);
+    font-size: 16px;
+    font-weight: 600;
+  }
+
   .purchase-plan-features {
     display: grid;
     gap: 12px;

@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { WHATSAPP_DEMO_URL } from "../components/Landing/shared";
-import { PLANS } from "./seo.config";
+import { PLAN_PERIOD, PLANS } from "./seo.config";
 import type { SeoPage } from "./seoPages";
 import "./SeoLandingPage.scss";
 
@@ -79,7 +79,7 @@ export function SeoLandingPage({ page }: { page: SeoPage }) {
                 {PLANS.map((plan) => (
                   <article key={plan.name} className="seo-card">
                     <h3>{plan.name}</h3>
-                    <p className="seo-price">{`₹${plan.price.toLocaleString("en-IN")}`}</p>
+                    <p className="seo-price">{`₹${plan.price.toLocaleString("en-IN")}`}<span className="seo-period">{PLAN_PERIOD.label}</span></p>
                     <p>{plan.description}</p>
                   </article>
                 ))}

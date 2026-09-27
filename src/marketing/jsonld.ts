@@ -1,4 +1,4 @@
-import { absoluteUrl, ORGANIZATION, PLAN_CURRENCY, PLANS, SITE, type JsonLdKind, type MarketingRoute } from "./seo.config";
+import { absoluteUrl, ORGANIZATION, PLAN_CURRENCY, PLAN_PERIOD, PLANS, SITE, type JsonLdKind, type MarketingRoute } from "./seo.config";
 
 const ORG_ID = `${SITE.origin}/#organization`;
 
@@ -47,6 +47,14 @@ function software(route: MarketingRoute) {
         description: p.description,
         price: String(p.price),
         priceCurrency: PLAN_CURRENCY,
+        priceSpecification: {
+          "@type": "UnitPriceSpecification",
+          price: String(p.price),
+          priceCurrency: PLAN_CURRENCY,
+          unitCode: PLAN_PERIOD.unitCode,
+          unitText: PLAN_PERIOD.unitText,
+          billingDuration: PLAN_PERIOD.duration,
+        },
         url: `${absoluteUrl(route.path)}#pricing`,
       })),
     },

@@ -1,4 +1,6 @@
 // Scoped to .seo-page so it cannot leak into (or depend on) the landing styles.
+@use "sass:color";
+
 $ink: #111827;
 $muted: #4b5563;
 $line: #e5e7eb;
@@ -27,7 +29,7 @@ $accent: #059669;
     display: inline-flex; align-items: center; justify-content: center;
     padding: 12px 22px; border-radius: 999px; font-weight: 700; font-size: 0.95rem;
     text-decoration: none; border: 1px solid transparent; cursor: pointer;
-    &--primary { background: $accent; color: #fff; &:hover { background: darken($accent, 6%); color: #fff; } }
+    &--primary { background: $accent; color: #fff; &:hover { background: color.adjust($accent, $lightness: -6%); color: #fff; } }
     &--ghost { background: #fff; color: $ink; border-color: $line; &:hover { border-color: $ink; color: $ink; } }
   }
 
@@ -39,6 +41,7 @@ $accent: #059669;
   .seo-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; }
   .seo-card { background: #fff; border: 1px solid $line; border-radius: 14px; padding: 22px; h3, p { margin-bottom: 8px; } }
   .seo-price { font-size: 1.6rem; font-weight: 800; color: $ink; }
+  .seo-period { margin-left: 4px; font-size: 0.95rem; font-weight: 600; color: $muted; }
   .seo-faq { border-top: 1px solid $line; padding: 16px 0; &:first-of-type { border-top: 0; } }
 
   .seo-cta { padding: 56px 0; text-align: center; background: $ink; h2 { color: #fff; } }

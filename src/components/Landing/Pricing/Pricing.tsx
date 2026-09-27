@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../../services/api/axios';
 import { SALON_PLANS } from '../../../services/api/endpoints';
-import { PLANS } from '../../../marketing/seo.config';
+import { PLAN_PERIOD, PLANS } from '../../../marketing/seo.config';
 import {
   Icon,
   Reveal,
@@ -155,7 +155,7 @@ const Pricing: React.FC = () => {
               {plan.badge && <span className="purchase-plan-badge">{plan.badge}</span>}
               <div className="purchase-plan-header">
                 <h3 id={`purchase-plan-${plan.name.toLowerCase()}`}>{plan.name}</h3>
-                <div className="purchase-plan-price">{plan.price}</div>
+                <div className="purchase-plan-price">{plan.price}<span className="purchase-plan-period">{PLAN_PERIOD.label}</span></div>
                 <p>{plan.description}</p>
               </div>
 

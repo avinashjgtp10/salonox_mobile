@@ -30,7 +30,12 @@ function assertStructuredData(route, html) {
       throw new Error(`prerender: ${route.path} has JSON-LD that does not parse: ${e.message}`);
     }
     if (data["@type"] !== "SoftwareApplication") continue;
-    for (const offer of data.offers?.offers ?? []) {
+    const offers = data.offers?.offers ?? [];
+    const annual = offers.filter((o) => o.priceSpecification?.billingDuration === "P1Y").length;
+    if (annual && [...html.matchAll(/>\/year</g)].length < annual) {
+      throw new Error(`prerender: ${route.path} JSON-LD says ${annual} offer(s) are billed per year but the page does not show "/year" next to each price`);
+    }
+    for (const offer of offers) {
       if (offer.priceCurrency !== "INR") continue;
       const visible = `₹${Number(offer.price).toLocaleString("en-IN")}`;
       if (!html.includes(visible)) {
