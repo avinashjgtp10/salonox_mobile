@@ -7,7 +7,10 @@ import { useCurrency } from "../../../hooks/useCurrency";
 import type { AppDispatch } from "../../../store/store";
 import type { Membership } from "../../../services/api/endpoints/memberships.endpoints";
 import { fetchCategoriesThunk } from "../../../middleware/services/categories.thunk";
-import { selectAllCategories } from "../../../store/selectors/slices.selectors";
+import { fetchServicesThunk } from "../../../middleware/services/services.thunk";
+import { searchProductsThunk } from "../../../middleware/catalog/products.thunk";
+import { selectAllCategories, selectAllServices } from "../../../store/selectors/slices.selectors";
+import type { RootState } from "../../../store/store";
 import { getMembershipMeta, TYPE_LABEL, APPLIES_TO_LABEL } from "../utils/membershipMeta";
 import { maskMobile } from "../../../utils/maskMobile";
 import "../styles/MembershipDetailsDrawer.scss";
@@ -31,12 +34,31 @@ const MembershipDetailsDrawer: React.FC<MembershipDetailsDrawerProps> = ({
   const [loading,    setLoading]    = useState(false);
 
   const categories = useSelector(selectAllCategories) as { id: string | number; name: string }[];
+  const allServices = useSelector(selectAllServices) as { id: string | number; name: string }[];
+  const allProducts = useSelector((s: RootState) => s.products.pickerItems) as { id: string; name: string }[];
   useEffect(() => { dispatch(fetchCategoriesThunk()); }, [dispatch]);
+  // Only needed to resolve serviceIds/productIds (individual-item picks) to
+  // display names below — same sources AddMembershipModal's own
+  // ItemRestrictionPicker uses.
+  useEffect(() => {
+    dispatch(fetchServicesThunk());
+    dispatch(searchProductsThunk({ pageSize: 200 }));
+  }, [dispatch]);
   const categoryNameById = useMemo(() => {
     const map = new Map<string, string>();
     categories.forEach((c) => map.set(String(c.id), c.name));
     return map;
   }, [categories]);
+  const serviceNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    allServices.forEach((s) => map.set(String(s.id), s.name));
+    return map;
+  }, [allServices]);
+  const productNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    allProducts.forEach((p) => map.set(String(p.id), p.name));
+    return map;
+  }, [allProducts]);
 
   const [assignedClient, setAssignedClient] = useState<{ id: string | null; name: string; phone: string | null } | null>(null);
 
@@ -92,12 +114,23 @@ const MembershipDetailsDrawer: React.FC<MembershipDetailsDrawerProps> = ({
   const appliesToLabel = APPLIES_TO_LABEL[membership?.appliesTo ?? "services"] ?? "Services";
   // Merge both sides for display — deduped, since a plan can restrict
   // services and products to different (or overlapping) category sets.
+  // Individual-item picks (serviceIds/productIds) are a SEPARATE, additive
+  // narrowing from whole-category picks (see ItemRestrictionPicker) — a plan
+  // can have 0 categories and still be restricted via specific items, so
+  // "no categories selected" must not be read as "unrestricted".
   const restrictedCategoryIds = Array.from(new Set([
     ...(membership?.serviceCategoryIds ?? []),
     ...(membership?.productCategoryIds ?? []),
   ]));
-  const categoriesLabel = restrictedCategoryIds.length
-    ? restrictedCategoryIds.map((id) => categoryNameById.get(id) ?? id).join(", ")
+  const restrictedItemNames = [
+    ...(membership?.serviceIds ?? []).map((id) => serviceNameById.get(id) ?? id),
+    ...(membership?.productIds ?? []).map((id) => productNameById.get(id) ?? id),
+  ];
+  const categoriesLabel = (restrictedCategoryIds.length || restrictedItemNames.length)
+    ? [
+        ...restrictedCategoryIds.map((id) => categoryNameById.get(id) ?? id),
+        ...restrictedItemNames,
+      ].join(", ")
     : "All categories";
   if (!isOpen) return null;
 

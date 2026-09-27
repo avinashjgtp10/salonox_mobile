@@ -94,6 +94,15 @@ function yesterdayIsoDateIST(): string {
   return `${y}-${m}-${d}`;
 }
 
+function todayIsoDateIST(): string {
+  const now = new Date();
+  const istNow = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
+  const y = istNow.getFullYear();
+  const m = String(istNow.getMonth() + 1).padStart(2, "0");
+  const d = String(istNow.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
 function getPageNumbers(current: number, total: number): (number | "...")[] {
   if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
   const pages: (number | "...")[] = [1];
@@ -870,6 +879,12 @@ const OverallCollectionPanel = memo(function OverallCollectionPanel({
   const fmt = (n: number) => (canSeeFinancials ? formatAmount(n) : "₹******");
   const { showSuccess, showError, overlay } = useStatusOverlay();
   const [resending, setResending] = useState(false);
+  // Today's counter is only resendable once actually closed — unlike
+  // "yesterday" (always closed by definition), "today" can still be open,
+  // in which case there's nothing to resend yet.
+  const cashDashboard = useAppSelector((s) => s.cashCounter.dashboard);
+  const todayCounterClosed = cashDashboard?.status === "closed";
+  const canResend = period === "yesterday" || (period === "today" && todayCounterClosed);
 
   // Cash/UPI/Card lead in that fixed order regardless of amount; anything
   // else keeps the backend's amount-descending order after them.
@@ -884,15 +899,16 @@ const OverallCollectionPanel = memo(function OverallCollectionPanel({
   );
 
   const handleResend = async () => {
+    const isToday = period === "today";
     setResending(true);
     try {
-      const result = await resendClosedCounterMessage(yesterdayIsoDateIST());
+      const result = await resendClosedCounterMessage(isToday ? todayIsoDateIST() : yesterdayIsoDateIST());
       if (result.sent) {
-        showSuccess("Yesterday's Close Counter message resent to WhatsApp");
+        showSuccess(`${isToday ? "Today's" : "Yesterday's"} Close Counter message resent to WhatsApp`);
       } else if (result.status === "IN_PROGRESS") {
         showSuccess("Resend queued — it'll arrive on WhatsApp shortly");
       } else {
-        showError(result.failure_reason || "Could not resend — no closed counter found for yesterday");
+        showError(result.failure_reason || `Could not resend — no closed counter found for ${isToday ? "today" : "yesterday"}`);
       }
     } catch (err: any) {
       showError(err?.response?.data?.message || "Could not resend the message");
@@ -909,10 +925,10 @@ const OverallCollectionPanel = memo(function OverallCollectionPanel({
           <h3 className="db-card-title">Overall Collection</h3>
           <p className="db-card-sub">{COLLECTION_PERIOD_LABELS[period]}'s payment mode breakdown</p>
         </div>
-        {period === "yesterday" && (
+        {canResend && (
           <button
             className="db-collection-resend-btn"
-            title="Resend yesterday's Close Counter details to WhatsApp"
+            title={`Resend ${period === "today" ? "today's" : "yesterday's"} Close Counter details to WhatsApp`}
             disabled={resending}
             onClick={handleResend}
           >

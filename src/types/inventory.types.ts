@@ -501,6 +501,10 @@ export type ResolveSupplierProductAction = "link" | "create_product" | "ignore";
 export interface ResolveSupplierProductPayload {
   action: ResolveSupplierProductAction;
   product_id?: string;
+  // Required when action === "create_product" — the row's supplier price is
+  // a cost price, never a selling price, so retail price must come from the
+  // staff member creating the product.
+  retail_price?: number;
 }
 
 export interface SupplierProductImportIssue {
