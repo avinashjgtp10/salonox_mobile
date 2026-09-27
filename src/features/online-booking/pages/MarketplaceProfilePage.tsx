@@ -10,7 +10,7 @@ import api from "../../../services/api/axios";
 import { MARKETPLACE } from "../../../services/api/endpoints/marketplace.endpoints";
 import { LINK_BUILDER } from "../../../services/api/endpoints/linkBuilder.endpoints";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
-import type { WorkingHoursDay } from "../../../types/marketplace.types";
+import type { WorkingHoursDay, Amenity, Highlight, Value } from "../../../types/marketplace.types";
 import {
   fetchMarketplaceProfileThunk,
   updateMarketplaceEssentialsThunk,
@@ -19,7 +19,42 @@ import {
   updateMarketplaceBookingPolicyThunk,
   publishMarketplaceThunk,
   unpublishMarketplaceThunk,
+  fetchStaffVisibilityThunk,
+  setStaffVisibilityThunk,
+  fetchMarketplaceFeaturesThunk,
+  updateMarketplaceFeaturesThunk,
+  type StaffVisibilityRow,
 } from "../../../middleware/marketplace/marketplace.thunk";
+
+// Human-readable labels for the fixed enum lists marketplace.validator.ts
+// (backend) accepts — kept here rather than derived, since the raw keys
+// ("wheelchair_accessible") aren't meant to be shown to an owner as-is.
+const AMENITY_LABELS: Record<Amenity, string> = {
+  parking_available: "Parking available",
+  near_public_transport: "Near public transport",
+  showers: "Showers",
+  lockers: "Lockers",
+  bath_towels: "Bath towels provided",
+  swimming_pool: "Swimming pool",
+  sauna: "Sauna",
+};
+const HIGHLIGHT_LABELS: Record<Highlight, string> = {
+  pet_friendly: "Pet friendly",
+  adults_only: "Adults only",
+  kid_friendly: "Kid friendly",
+  wheelchair_accessible: "Wheelchair accessible",
+};
+const VALUE_LABELS: Record<Value, string> = {
+  organic_products_only: "Organic products only",
+  vegan_products_only: "Vegan products only",
+  environmentally_friendly: "Environmentally friendly",
+  lgbtq_plus: "LGBTQ+ friendly",
+  black_owned: "Black-owned",
+  woman_owned: "Woman-owned",
+  asian_owned: "Asian-owned",
+  hispanic_owned: "Hispanic/Latinx-owned",
+  indigenous_owned: "Indigenous-owned",
+};
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -180,6 +215,58 @@ export default function MarketplaceProfilePage() {
     dispatch(fetchMarketplaceProfileThunk());
   }, [dispatch]);
 
+  // ── Staff Visibility ─────────────────────────────────────────────────────────
+  // Independent of "Photos & Logo"/publish state — each active staff member's
+  // own "Show in Online Booking" toggle, saved immediately per row rather
+  // than batched with the page's other Save-button fields.
+  const [staffVisibility, setStaffVisibility] = useState<StaffVisibilityRow[]>([]);
+  const [staffVisibilityLoading, setStaffVisibilityLoading] = useState(true);
+  const [savingStaffId, setSavingStaffId] = useState<string | null>(null);
+
+  useEffect(() => {
+    dispatch(fetchStaffVisibilityThunk())
+      .unwrap()
+      .then((rows) => setStaffVisibility(rows))
+      .catch(() => {})
+      .finally(() => setStaffVisibilityLoading(false));
+  }, [dispatch]);
+
+  const toggleStaffVisibility = async (staffId: string, next: boolean) => {
+    const previous = staffVisibility;
+    setStaffVisibility((rows) => rows.map((r) => r.id === staffId ? { ...r, show_in_online_booking: next } : r));
+    setSavingStaffId(staffId);
+    const result = await dispatch(setStaffVisibilityThunk({ staff_id: staffId, visible: next }));
+    setSavingStaffId(null);
+    if (!setStaffVisibilityThunk.fulfilled.match(result)) {
+      setStaffVisibility(previous);
+      showError((result as any)?.payload ?? "Failed to update staff visibility");
+    }
+  };
+
+  // ── Facilities/Amenities & Specialities (Highlights/Values) ────────────────────
+  // Saved via the same features endpoint that already existed on the backend
+  // — this UI was the missing piece (an earlier audit found the fetch/update
+  // wired up server-side with nothing in this page ever reading or writing it).
+  const [amenities,  setAmenities]  = useState<Amenity[]>([]);
+  const [highlights, setHighlights] = useState<Highlight[]>([]);
+  const [values,     setValues]     = useState<Value[]>([]);
+  const [featuresLoading, setFeaturesLoading] = useState(true);
+
+  useEffect(() => {
+    dispatch(fetchMarketplaceFeaturesThunk())
+      .unwrap()
+      .then((data) => {
+        setAmenities(data.amenities ?? []);
+        setHighlights(data.highlights ?? []);
+        setValues(data.values ?? []);
+      })
+      .catch(() => {})
+      .finally(() => setFeaturesLoading(false));
+  }, [dispatch]);
+
+  const toggleInList = <T,>(list: T[], item: T): T[] =>
+    list.includes(item) ? list.filter((x) => x !== item) : [...list, item];
+
   useEffect(() => {
     if (profile) {
       setEnabled(profile.is_published);
@@ -274,6 +361,10 @@ export default function MarketplaceProfilePage() {
         instagram_url: normalizedInstagram,
         facebook_url:  normalizedFacebook,
         about_enabled: aboutEnabled,
+      })).unwrap();
+
+      await dispatch(updateMarketplaceFeaturesThunk({
+        amenities, highlights, values,
       })).unwrap();
 
       await dispatch(updateMarketplaceWorkingHoursThunk({
@@ -710,7 +801,52 @@ export default function MarketplaceProfilePage() {
           </div>
         </div>
 
-        <div className="ob-toggle-row">
+        <div className="ob-section-label">Facilities &amp; Amenities</div>
+        <p className="ob-toggle-hint" style={{ marginBottom: 10 }}>
+          Shown to clients as part of your About Us section.
+        </p>
+        {featuresLoading ? (
+          <p className="ob-toggle-hint">Loading…</p>
+        ) : (
+          <div className="ob-checkbox-grid">
+            {(Object.keys(AMENITY_LABELS) as Amenity[]).map((key) => (
+              <label key={key} className="ob-checkbox-item">
+                <input type="checkbox" checked={amenities.includes(key)}
+                  onChange={() => setAmenities((prev) => toggleInList(prev, key))} />
+                <span>{AMENITY_LABELS[key]}</span>
+              </label>
+            ))}
+          </div>
+        )}
+
+        <div className="ob-section-label" style={{ marginTop: 20 }}>Salon Specialities</div>
+        <p className="ob-toggle-hint" style={{ marginBottom: 10 }}>
+          Highlights and values customers can filter or notice about your salon.
+        </p>
+        {!featuresLoading && (
+          <>
+            <div className="ob-checkbox-grid">
+              {(Object.keys(HIGHLIGHT_LABELS) as Highlight[]).map((key) => (
+                <label key={key} className="ob-checkbox-item">
+                  <input type="checkbox" checked={highlights.includes(key)}
+                    onChange={() => setHighlights((prev) => toggleInList(prev, key))} />
+                  <span>{HIGHLIGHT_LABELS[key]}</span>
+                </label>
+              ))}
+            </div>
+            <div className="ob-checkbox-grid" style={{ marginTop: 8 }}>
+              {(Object.keys(VALUE_LABELS) as Value[]).map((key) => (
+                <label key={key} className="ob-checkbox-item">
+                  <input type="checkbox" checked={values.includes(key)}
+                    onChange={() => setValues((prev) => toggleInList(prev, key))} />
+                  <span>{VALUE_LABELS[key]}</span>
+                </label>
+              ))}
+            </div>
+          </>
+        )}
+
+        <div className="ob-toggle-row" style={{ marginTop: 20 }}>
           <div className="ob-toggle-info">
             <p className="ob-toggle-label">Show About Us on the booking page</p>
             <p className="ob-toggle-hint">
@@ -982,6 +1118,49 @@ export default function MarketplaceProfilePage() {
         <input ref={galleryInput} type="file"
           accept="image/jpeg,image/png,image/webp" multiple hidden
           onChange={(e) => { if (e.target.files) uploadFiles(e.target.files); e.target.value = ""; }} />
+      </div>
+
+      {/* ════════════════════════════════════════════════════════════════════════
+          NEW — Staff Visibility
+      ═══════════════════════════════════════════════════════════════════════════ */}
+      <div className="ob-card">
+        <div className="ob-card-header">
+          <div>
+            <p className="ob-card-title">Staff Visibility</p>
+            <p className="ob-card-sub">
+              Choose which active staff members clients can select on your public booking page.
+              Turning a staff member off here doesn't affect their Calendar or anything else.
+            </p>
+          </div>
+        </div>
+
+        {staffVisibilityLoading ? (
+          <p className="ob-toggle-hint">Loading staff…</p>
+        ) : staffVisibility.length === 0 ? (
+          <p className="ob-toggle-hint">No active staff members yet.</p>
+        ) : (
+          staffVisibility.map((s) => (
+            <div key={s.id} className="ob-toggle-row">
+              <div className="ob-toggle-info">
+                <p className="ob-toggle-label">{[s.first_name, s.last_name].filter(Boolean).join(" ")}</p>
+                <p className="ob-toggle-hint">
+                  {s.show_in_online_booking
+                    ? "Shown to clients on the public booking page."
+                    : "Hidden from the public booking page."}
+                </p>
+              </div>
+              <label className="ob-switch">
+                <input
+                  type="checkbox"
+                  checked={s.show_in_online_booking}
+                  disabled={savingStaffId === s.id}
+                  onChange={(e) => toggleStaffVisibility(s.id, e.target.checked)}
+                />
+                <span className="ob-switch-track"><span className="ob-switch-thumb" /></span>
+              </label>
+            </div>
+          ))
+        )}
       </div>
 
       {/* ════════════════════════════════════════════════════════════════════════

@@ -181,15 +181,25 @@ export default function ManageBookingPage() {
         ? <span className="pb__pill pb__pill--neutral">No-show</span>
         : <span className="pb__pill">Confirmed</span>;
 
+  // Reuses the same .pb__nav green bar (and .pb__nav-back "labelled Back"
+  // pattern) as the main booking flow (PublicBookingPage.tsx) instead of this
+  // page's own plain cream bar + icon-only back arrow — two different top
+  // bars on pages of the same booking flow read as inconsistent/broken.
   const TopBar = ({ onBack }: { onBack?: () => void }) => (
-    <div className="pb__topbar">
-      {onBack && (
-        <button type="button" className="pb__back" onClick={onBack} aria-label="Go back">
-          <ArrowLeft size={18} />
-        </button>
-      )}
-      <span className="pb__brand">{salonName}</span>
-    </div>
+    <header className="pb__nav">
+      <div className="pb__nav-inner">
+        {onBack && (
+          <button type="button" className="pb__nav-back" onClick={onBack} aria-label="Back">
+            <ArrowLeft size={16} /> <span className="pb__nav-back-label">Back</span>
+          </button>
+        )}
+        <div className="pb__logo">
+          <span className="pb__logo-text">
+            <span className="pb__logo-name">{salonName}</span>
+          </span>
+        </div>
+      </div>
+    </header>
   );
 
   // ── Reschedule ──────────────────────────────────────────────────────────────

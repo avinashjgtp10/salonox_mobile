@@ -3,7 +3,7 @@ import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Check, CheckLg, StarFill, PersonFill, PeopleFill, CalendarEvent,
   GeoAltFill, TelephoneFill, Instagram, Facebook, Globe, PinMapFill,
-  Plus, X, ChevronLeft, ChevronRight,
+  Plus, X, ChevronLeft, ChevronRight, Search,
   SunFill, SunsetFill, ShieldLockFill, LightningChargeFill, Gem,
   Headset, CalendarWeek,
 } from "react-bootstrap-icons";
@@ -133,6 +133,10 @@ export default function PublicBookingPage() {
 
   const [step, setStep] = useState<Step>(1);
   const [activeCat, setActiveCat] = useState<string>("All");
+  const [serviceSearch, setServiceSearch] = useState("");
+  const catbarRef = useRef<HTMLDivElement>(null);
+  const [catbarOverflowing, setCatbarOverflowing] = useState(false);
+
   const [selServices, setSelServices] = useState<ServiceItem[]>([]);
   const [selStaff, setSelStaff] = useState<StaffMember | null>(null);
   const [selDate, setSelDate] = useState<Date>(new Date());
@@ -189,17 +193,32 @@ export default function PublicBookingPage() {
 
   const cancellationNoticeHours: number = Number(salon?.cancellation_notice_hours) || 0;
 
-  // Hero band photo: whichever gallery photos the salon has uploaded,
-  // rotating slowly behind the hero. Rendered full-strength (no wash across
-  // the whole image) with only a left-side scrim behind the text, so any
-  // photo the salon adds shows crisp rather than looking hazy/blurry.
+  // Hero band photo: whichever gallery photos the salon has uploaded, shown
+  // behind the hero. Rendered full-strength (no wash across the whole image)
+  // with only a left-side scrim behind the text, so any photo the salon adds
+  // shows crisp rather than looking hazy/blurry. Auto-advances every 4s, plus
+  // a left/right arrow pair on desktop, a swipe (native touch drag, tracked
+  // below) on mobile, and tap-able position dots on any device — any manual
+  // move is still respected, it just gets overridden by the next 4s tick.
   const gallery: string[] = Array.isArray(salon?.gallery) ? salon.gallery : [];
   const [heroPhotoIndex, setHeroPhotoIndex] = useState(0);
+  const heroSwipeStartX = useRef<number | null>(null);
+  const goHeroPhoto = (dir: 1 | -1) =>
+    setHeroPhotoIndex((i) => (i + dir + gallery.length) % gallery.length);
   useEffect(() => {
     if (gallery.length < 2) return;
-    const t = setInterval(() => setHeroPhotoIndex((i) => (i + 1) % gallery.length), 7000);
+    const t = setInterval(() => goHeroPhoto(1), 4000);
     return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gallery.length]);
+  const handleHeroTouchStart = (e: React.TouchEvent) => { heroSwipeStartX.current = e.touches[0].clientX; };
+  const handleHeroTouchEnd = (e: React.TouchEvent) => {
+    if (heroSwipeStartX.current === null) return;
+    const delta = e.changedTouches[0].clientX - heroSwipeStartX.current;
+    heroSwipeStartX.current = null;
+    if (Math.abs(delta) < 40) return; // not a deliberate swipe
+    goHeroPhoto(delta < 0 ? 1 : -1);
+  };
 
   // A map link is only ever built from a real configured address. Falling back
   // to the salon's *name* hands Google a search term that resolves to an
@@ -220,6 +239,19 @@ export default function PublicBookingPage() {
   const description: string = aboutEnabled
     ? String(salon?.marketplace_description ?? salon?.description ?? "").trim()
     : "";
+  // Facilities/Amenities + Salon Specialities — same fixed enum keys the
+  // admin Marketplace Profile checkboxes save (e.g. "wheelchair_accessible");
+  // humanized here rather than duplicating the admin page's exact label map,
+  // so the two never drift out of sync over a wording tweak on one side.
+  const humanizeKey = (key: string) => key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  const salonFeatures: string[] = aboutEnabled
+    ? [
+        ...(Array.isArray(salon?.amenities) ? salon.amenities : []),
+        ...(Array.isArray(salon?.highlights) ? salon.highlights : []),
+        ...(Array.isArray(salon?.values) ? salon.values : []),
+      ].map(humanizeKey)
+    : [];
+  const showAbout = !!(description || salonFeatures.length > 0 || mapQuery || instagramUrl || facebookUrl || websiteUrl);
 
   // 0/absent means "not configured" — fall back to the same 30-day default the
   // backend uses rather than locking the picker down to today.
@@ -312,9 +344,43 @@ export default function PublicBookingPage() {
       .map(([name, count]) => ({ name, count }));
   }, [services]);
 
-  const filtered = useMemo(() => services.filter((s) => (
-    activeCat === "All" || String((s as any).category_name || "Other") === activeCat
-  )), [services, activeCat]);
+  // Right-edge fade for the category bar — shown only while there's actually
+  // more to scroll to, hidden once scrolled to the end (or if everything
+  // already fits) so it never falsely implies more categories.
+  useEffect(() => {
+    const el = catbarRef.current;
+    if (!el) { setCatbarOverflowing(false); return; }
+    const update = () => setCatbarOverflowing(el.scrollWidth - el.scrollLeft - el.clientWidth > 4);
+    update();
+    el.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    return () => {
+      el.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
+  }, [categories.length]);
+
+  // Tapping a category previously only changed which chip looked active —
+  // on a long list (a salon can have 10+ categories) the chip you just
+  // tapped could still sit partly or fully scrolled out of view, especially
+  // near the end of the row. Bring it fully into view instead of leaving the
+  // customer to manually swipe and hunt for their own selection.
+  function scrollCatIntoView(el: HTMLElement) {
+    el.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+  }
+
+  const filtered = useMemo(() => {
+    const q = serviceSearch.trim().toLowerCase();
+    return services.filter((s) => {
+      const inCategory = activeCat === "All" || String((s as any).category_name || "Other") === activeCat;
+      if (!inCategory) return false;
+      if (!q) return true;
+      // Name only — a salon with a large catalogue (seen with 200+ services)
+      // has no other quick way to find one specific service beyond scrolling
+      // past every category.
+      return s.name.toLowerCase().includes(q);
+    });
+  }, [services, activeCat, serviceSearch]);
 
   function toggleService(svc: ServiceItem) {
     setSelServices((prev) => {
@@ -547,6 +613,20 @@ export default function PublicBookingPage() {
   const TopNav = () => (
     <header className="pb__nav">
       <div className="pb__nav-inner">
+        {/* A clear, labelled Back sits on the far left — the previous
+            arrow-only affordance lived on the right mixed in with other
+            actions, easy to miss and easy to mistake for "Book Appointment"'s
+            sibling rather than a distinct back action. Only step 2 has a
+            real previous step to return to; step 3 is a completed booking
+            with its own "Book Another Appointment" action in the confirmation
+            card itself, not something to "go back" from. */}
+        {step === 2 && (
+          <button type="button" className="pb__nav-back" onClick={() => setStep(1)}
+            aria-label="Back">
+            <ArrowLeft size={16} /> <span className="pb__nav-back-label">Back</span>
+          </button>
+        )}
+
         <div className="pb__logo">
           {salon?.logo_url && (
             <img className="pb__logo-mark" src={salon.logo_url} alt="" />
@@ -565,8 +645,8 @@ export default function PublicBookingPage() {
             {staffList.length > 0 && (
               <button type="button" onClick={() => scrollTo(stylistRef)}>Our Stylists</button>
             )}
-            {description && (
-              <button type="button" onClick={() => scrollTo(aboutRef)}>About</button>
+            {(description || salonFeatures.length > 0) && (
+              <button type="button" onClick={() => scrollTo(aboutRef)}>About Us</button>
             )}
             {phone && <a href={`tel:${phone}`}>Contact</a>}
           </nav>
@@ -574,15 +654,16 @@ export default function PublicBookingPage() {
 
         <div className="pb__nav-actions">
           {city && <span className="pb__nav-loc"><GeoAltFill size={12} /> {city}</span>}
-          {step === 1 ? (
-            <button type="button" className="pb__btn pb__btn--light pb__btn--auto"
+          {step === 1 && (
+            <button type="button" className="pb__btn pb__btn--light pb__btn--auto pb__btn--glow"
               onClick={() => scrollTo(servicesRef)}>
               Book Appointment
             </button>
-          ) : (
+          )}
+          {step === 3 && (
             <button type="button" className="pb__btn pb__btn--light pb__btn--auto"
-              onClick={() => (step === 3 ? resetBooking() : setStep(1))}>
-              <ArrowLeft size={14} /> {step === 3 ? "Book another" : "Back"}
+              onClick={resetBooking}>
+              <ArrowLeft size={14} /> Book another
             </button>
           )}
         </div>
@@ -592,13 +673,37 @@ export default function PublicBookingPage() {
 
   const Band = ({ title, sub }: { title: string; sub: string }) => {
     const hasPhoto = gallery.length > 0;
+    const hasMultiplePhotos = gallery.length > 1;
     return (
-      <div className={`pb__band ${hasPhoto ? "pb__band--photo" : ""}`}>
+      <div className={`pb__band ${hasPhoto ? "pb__band--photo" : ""}`}
+        onTouchStart={hasMultiplePhotos ? handleHeroTouchStart : undefined}
+        onTouchEnd={hasMultiplePhotos ? handleHeroTouchEnd : undefined}>
         {hasPhoto && gallery.map((url, i) => (
           <div key={url} className="pb__band-bg" aria-hidden="true"
             style={{ backgroundImage: `url(${url})`, opacity: i === heroPhotoIndex ? 1 : 0 }} />
         ))}
         {hasPhoto && <div className="pb__band-scrim" aria-hidden="true" />}
+
+        {hasMultiplePhotos && (
+          <>
+            <button type="button" className="pb__band-nav pb__band-nav--prev"
+              onClick={() => goHeroPhoto(-1)} aria-label="Previous photo">
+              <ChevronLeft size={18} />
+            </button>
+            <button type="button" className="pb__band-nav pb__band-nav--next"
+              onClick={() => goHeroPhoto(1)} aria-label="Next photo">
+              <ChevronRight size={18} />
+            </button>
+            <div className="pb__band-dots" role="tablist" aria-label="Photo">
+              {gallery.map((url, i) => (
+                <button key={url} type="button" role="tab" aria-selected={i === heroPhotoIndex}
+                  className={`pb__band-dot ${i === heroPhotoIndex ? "is-active" : ""}`}
+                  aria-label={`Show photo ${i + 1}`}
+                  onClick={() => setHeroPhotoIndex(i)} />
+              ))}
+            </div>
+          </>
+        )}
 
         <div className="pb__band-inner">
           <div className="pb__band-copy">
@@ -606,7 +711,7 @@ export default function PublicBookingPage() {
             <h1 className="pb__display">{title}</h1>
             <p className="pb__band-sub">{sub}</p>
             {hasPhoto && step === 1 && (
-              <button type="button" className="pb__btn pb__btn--primary pb__btn--auto pb__band-cta"
+              <button type="button" className="pb__btn pb__btn--primary pb__btn--auto pb__band-cta pb__btn--glow"
                 onClick={() => scrollTo(servicesRef)}>
                 Book Appointment <span aria-hidden="true">→</span>
               </button>
@@ -716,7 +821,7 @@ export default function PublicBookingPage() {
         <>
           <Band title="Your Next Look Awaits" sub="Book your favourite services in a few simple steps." />
 
-          <div className="pb__layout">
+          <div className={`pb__layout ${showAbout ? "pb__layout--tight-bottom" : ""}`}>
             <div className="pb__col-main">
 
               <section className="pb__panel" ref={servicesRef}>
@@ -727,21 +832,56 @@ export default function PublicBookingPage() {
                   </p>
                 </div>
 
-                {categories.length > 0 && (
-                  <div className="pb__catbar" role="tablist" aria-label="Service categories">
-                    <button type="button" role="tab" aria-selected={activeCat === "All"}
-                      className={`pb__cat ${activeCat === "All" ? "is-active" : ""}`}
-                      onClick={() => setActiveCat("All")}>All</button>
-                    {categories.map((c) => (
-                      <button key={c.name} type="button" role="tab" aria-selected={activeCat === c.name}
-                        className={`pb__cat ${activeCat === c.name ? "is-active" : ""}`}
-                        onClick={() => setActiveCat(c.name)}>{c.name}</button>
-                    ))}
+                {/* Sticks just under the top nav while the (possibly very
+                    long, e.g. 200-service) list below scrolls — otherwise
+                    finding a second service means scrolling back up to reach
+                    search/category filtering again. */}
+                <div className="pb__svc-sticky">
+                  <div className="pb__svc-search">
+                    <Search size={15} />
+                    <input
+                      type="text"
+                      value={serviceSearch}
+                      onChange={(e) => setServiceSearch(e.target.value)}
+                      placeholder="Search services…"
+                      aria-label="Search services"
+                    />
+                    {serviceSearch && (
+                      <button type="button" aria-label="Clear search" onClick={() => setServiceSearch("")}>
+                        <X size={15} />
+                      </button>
+                    )}
                   </div>
-                )}
+
+                  {categories.length > 0 && (
+                    <div className="pb__catbar-wrap">
+                      <div className="pb__catbar" ref={catbarRef} role="tablist" aria-label="Service categories">
+                        <button type="button" role="tab" aria-selected={activeCat === "All"}
+                          className={`pb__cat ${activeCat === "All" ? "is-active" : ""}`}
+                          onClick={(e) => { setActiveCat("All"); scrollCatIntoView(e.currentTarget); }}>All</button>
+                        {categories.map((c) => (
+                          <button key={c.name} type="button" role="tab" aria-selected={activeCat === c.name}
+                            className={`pb__cat ${activeCat === c.name ? "is-active" : ""}`}
+                            onClick={(e) => { setActiveCat(c.name); scrollCatIntoView(e.currentTarget); }}>{c.name}</button>
+                        ))}
+                      </div>
+                      {/* Fade hint that more categories continue off-screen — a
+                          visible scrollbar (see .pb__catbar) only helps desktop
+                          with a mouse; mobile shows no persistent scrollbar at
+                          rest, so a phone user has no way to tell "Hair Women"/
+                          "Wax Women" aren't the only two categories. Hidden once
+                          scrolled to the end so it doesn't keep implying more. */}
+                      {catbarOverflowing && <div className="pb__catbar-fade" aria-hidden="true" />}
+                    </div>
+                  )}
+                </div>
 
                 {filtered.length === 0 ? (
-                  <p className="pb__empty">This salon hasn't published any services yet.</p>
+                  <p className="pb__empty">
+                    {services.length === 0
+                      ? "This salon hasn't published any services yet."
+                      : "No services match your search."}
+                  </p>
                 ) : (
                   <div className="pb__grid">
                     {filtered.map((svc) => <ServiceRow key={svc.id} svc={svc} />)}
@@ -918,40 +1058,6 @@ export default function PublicBookingPage() {
                 )}
               </section>
 
-              {/* Only rendered when the salon has actually filled this in. */}
-              {(description || mapQuery || instagramUrl || facebookUrl || websiteUrl) && (
-                <section className="pb__panel" ref={aboutRef}>
-                  <div className="pb__panel-head">
-                    <h2 className="pb__panel-title">About {salonName}</h2>
-                  </div>
-                  {description && <p className="pb__about">{description}</p>}
-                  <div className="pb__about-actions">
-                    {phone && (
-                      <a className="pb__btn pb__btn--ghost pb__btn--auto" href={`tel:${phone}`}>
-                        <TelephoneFill size={13} /> {phone}
-                      </a>
-                    )}
-                    {mapQuery && (
-                      <a className="pb__btn pb__btn--ghost pb__btn--auto" target="_blank" rel="noopener noreferrer"
-                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapQuery)}`}>
-                        <PinMapFill size={13} /> Directions
-                      </a>
-                    )}
-                    {instagramUrl && (
-                      <a className="pb__btn pb__btn--ghost pb__btn--auto" href={instagramUrl}
-                        target="_blank" rel="noopener noreferrer" aria-label="Instagram"><Instagram size={14} /></a>
-                    )}
-                    {facebookUrl && (
-                      <a className="pb__btn pb__btn--ghost pb__btn--auto" href={facebookUrl}
-                        target="_blank" rel="noopener noreferrer" aria-label="Facebook"><Facebook size={14} /></a>
-                    )}
-                    {websiteUrl && (
-                      <a className="pb__btn pb__btn--ghost pb__btn--auto" href={websiteUrl}
-                        target="_blank" rel="noopener noreferrer" aria-label="Website"><Globe size={14} /></a>
-                    )}
-                  </div>
-                </section>
-              )}
             </div>
 
             <aside className="pb__col-side" aria-label="Your booking">
@@ -975,21 +1081,25 @@ export default function PublicBookingPage() {
                 <div className="pb__sum-row">
                   <span className="pb__sum-icon"><PersonFill size={15} /></span>
                   <span className="pb__sum-row-body">
-                    <span className="pb__sum-row-label">Preferred Stylist</span>
+                    <span className="pb__sum-row-label">{selStaff ? "Preferred Stylist" : "Select Staff"}</span>
                     <span className="pb__sum-row-value">{staffLabel}</span>
                   </span>
-                  <button type="button" className="pb__link" onClick={() => scrollTo(stylistRef)}>Change</button>
+                  <button type="button" className="pb__link" onClick={() => scrollTo(stylistRef)}>
+                    {selStaff ? "Change" : "Select"}
+                  </button>
                 </div>
 
                 <div className="pb__sum-row">
                   <span className="pb__sum-icon"><CalendarEvent size={15} /></span>
                   <span className="pb__sum-row-body">
-                    <span className="pb__sum-row-label">Date &amp; Time</span>
+                    <span className="pb__sum-row-label">{selTime ? "Date & Time" : "Select Date & Time"}</span>
                     <span className="pb__sum-row-value">
                       {selTime ? `${dateLabel} • ${selTime}` : "Not selected yet"}
                     </span>
                   </span>
-                  <button type="button" className="pb__link" onClick={() => scrollTo(whenRef)}>Change</button>
+                  <button type="button" className="pb__link" onClick={() => scrollTo(whenRef)}>
+                    {selTime ? "Change" : "Select"}
+                  </button>
                 </div>
 
                 <div className="pb__sum-total">
@@ -1028,6 +1138,55 @@ export default function PublicBookingPage() {
               )}
             </aside>
           </div>
+
+          {/* Moved out from under Services/Stylist/Date&Time (inside
+              .pb__col-main) to its own full-width row below the whole
+              two-column layout — previously it rendered above "Your Booking"
+              on mobile (col-main's own content all comes before col-side in
+              a single-column stack), when it reads better as the last thing
+              on the page, after the booking summary. */}
+          {showAbout && (
+            <div className="pb__layout pb__layout--single">
+              <section className="pb__panel" ref={aboutRef}>
+                <div className="pb__panel-head">
+                  <h2 className="pb__panel-title">About {salonName}</h2>
+                </div>
+                {description && <p className="pb__about">{description}</p>}
+                {salonFeatures.length > 0 && (
+                  <div className="pb__about-features">
+                    {salonFeatures.map((f) => (
+                      <span key={f} className="pb__about-feature-chip">{f}</span>
+                    ))}
+                  </div>
+                )}
+                <div className="pb__about-actions">
+                  {phone && (
+                    <a className="pb__btn pb__btn--ghost pb__btn--auto" href={`tel:${phone}`}>
+                      <TelephoneFill size={13} /> {phone}
+                    </a>
+                  )}
+                  {mapQuery && (
+                    <a className="pb__btn pb__btn--ghost pb__btn--auto" target="_blank" rel="noopener noreferrer"
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapQuery)}`}>
+                      <PinMapFill size={13} /> Directions
+                    </a>
+                  )}
+                  {instagramUrl && (
+                    <a className="pb__btn pb__btn--ghost pb__btn--auto" href={instagramUrl}
+                      target="_blank" rel="noopener noreferrer" aria-label="Instagram"><Instagram size={14} /></a>
+                  )}
+                  {facebookUrl && (
+                    <a className="pb__btn pb__btn--ghost pb__btn--auto" href={facebookUrl}
+                      target="_blank" rel="noopener noreferrer" aria-label="Facebook"><Facebook size={14} /></a>
+                  )}
+                  {websiteUrl && (
+                    <a className="pb__btn pb__btn--ghost pb__btn--auto" href={websiteUrl}
+                      target="_blank" rel="noopener noreferrer" aria-label="Website"><Globe size={14} /></a>
+                  )}
+                </div>
+              </section>
+            </div>
+          )}
 
           {/* Phone-width action bar — the summary card is below the fold there. */}
           <div className="pb__mobilebar">
@@ -1089,6 +1248,9 @@ export default function PublicBookingPage() {
                         : "Enter a valid phone number"}
                     </p>
                   )}
+                  <p className="pb__field-note">
+                    We'll use this number to send WhatsApp booking confirmations, appointment reminders, and other booking-related updates.
+                  </p>
                 </div>
 
                 <div className="pb__field">
