@@ -5,6 +5,7 @@ import {
   Icon,
   WHATSAPP_DEMO_URL,
 } from '../shared';
+import { SOCIAL } from '../../../marketing/seo.config';
 
 type FooterProps = {
   scrollToSection: (id: string) => (event: React.MouseEvent<HTMLElement>) => void;
@@ -23,8 +24,7 @@ const Footer: React.FC<FooterProps> = ({
         <div className="footer-brand">
           <p>The all-in-one platform for salons and spas to book, manage, and grow with confidence.</p>
           <div className="footer-social">
-            <a href="#" aria-label="Twitter"><Icon.Twitter /></a>
-            <a href="https://www.instagram.com/salonox_crm?igsh=eG40bHd4dG9mNnJn" aria-label="Instagram" target="_blank" rel="noopener noreferrer"><Icon.Instagram /></a>
+            <a href={SOCIAL.instagram} aria-label="Instagram" target="_blank" rel="noopener noreferrer"><Icon.Instagram /></a>
             <a
               href={WHATSAPP_DEMO_URL}
               aria-label="WhatsApp"
@@ -33,8 +33,6 @@ const Footer: React.FC<FooterProps> = ({
             >
               <Icon.WhatsApp />
             </a>
-            <a href="#" aria-label="LinkedIn"><Icon.Linkedin /></a>
-            <a href="#" aria-label="Facebook"><Icon.Facebook /></a>
           </div>
         </div>
 
