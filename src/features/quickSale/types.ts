@@ -51,6 +51,7 @@ export type CartConsumableItem = ConsumableUsageItem & {
 export type CartItem = {
   availableStock?: number;
   category: string | null;
+  categoryId?: string | null;
   // Copied from the service's recipe (Service.consumablesUsed) when the
   // service is added to the cart. Usage metadata only — never billed, never
   // sent anywhere except the appointment payload's services[].consumables[].

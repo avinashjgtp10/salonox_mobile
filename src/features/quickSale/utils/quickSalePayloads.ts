@@ -1,4 +1,6 @@
 import type { RedemptionPricingFlags } from "@/features/quickSale/hooks/useRedemptions";
+import type { DiscountApplyTarget } from "@/features/quickSale/components/checkout/types";
+import { toDiscountScope } from "@/features/quickSale/utils/discountScope";
 import type {
   CartItem,
   PendingCheckoutPayment,
@@ -76,6 +78,7 @@ export const buildSaleDraftPayload = ({
 export const buildAppointmentPayload = ({
   cartItems,
   clientId,
+  discountApplyTo = ["entireBill"],
   initialSlot,
   notes,
   salonId,
@@ -84,6 +87,7 @@ export const buildAppointmentPayload = ({
 }: {
   cartItems: CartItem[];
   clientId: string;
+  discountApplyTo?: DiscountApplyTarget[];
   initialSlot: QuickSaleSlot | null;
   notes: string;
   salonId?: string | null;
@@ -105,6 +109,7 @@ export const buildAppointmentPayload = ({
   return {
     ...(clientId ? { client_id: clientId } : {}),
     discount_type: "flat",
+    discount_applies_to: toDiscountScope(discountApplyTo),
     discount_value: totals.overallDiscount + totals.couponDiscount,
     duration_minutes: durationMinutes,
     end_time: endDate.toISOString(),
@@ -122,6 +127,7 @@ export const buildAppointmentPayload = ({
       total: Math.max(0, item.unitPrice * getCartItemBillableQuantity(item) - item.discountAmount),
     })),
     product_items: productItems.map((item) => ({
+      category_id: item.categoryId ?? undefined,
       name: item.name,
       price: item.unitPrice,
       product_id: item.itemId,
@@ -136,6 +142,7 @@ export const buildAppointmentPayload = ({
     service_id: firstService?.itemId,
     service_name: firstService?.name,
     services: serviceItems.map((item) => ({
+      category_id: item.categoryId ?? undefined,
       consumables: toConsumableUsagePayload(item.consumables),
       is_package_service: getPackageCoveredQuantity(item) === item.quantity || undefined,
       name: item.name,

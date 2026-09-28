@@ -231,6 +231,7 @@ export type CreateAppointmentRequest = {
   client_id?: string;
   discount?: number;
   discount_type?: "flat" | "percentage";
+  discount_applies_to?: import("@/types/pricing").DiscountScope[];
   discount_value?: number;
   duration_minutes: number;
   end_time: string;
@@ -261,6 +262,7 @@ export type CreateAppointmentRequest = {
   payment_method?: string;
   price?: number;
   product_items?: {
+    category_id?: string;
     name: string;
     price: number;
     product_id?: string | null;
@@ -275,6 +277,7 @@ export type CreateAppointmentRequest = {
   service_id?: string;
   service_name?: string;
   services?: {
+    category_id?: string;
     // Wire shape only — the backend's flattenServiceConsumables() reads
     // c.product_id/c.qty/c.unit/c.actual_qty and silently skips any row
     // missing product_id, so this must stay ConsumableUsageRequestItem

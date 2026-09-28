@@ -1,4 +1,4 @@
-import { api } from "@/services/api";
+import { api, CHECKOUT_REQUEST_TIMEOUT_MS } from "@/services/api";
 import { PAYMENT } from "@/services/api/endpoints";
 import type { ApiResponse } from "@/types/auth";
 import type { CreatePaymentRequest, CreatePaymentResponse, PaymentApiData } from "@/types/payment";
@@ -16,7 +16,9 @@ const getPaymentData = (payload: unknown): PaymentApiData => {
 
 export const paymentService = {
   async createPayment(payload: CreatePaymentRequest): Promise<CreatePaymentResponse> {
-    const response = await api.post<PaymentApiResponse>(PAYMENT.BASE, payload);
+    const response = await api.post<PaymentApiResponse>(PAYMENT.BASE, payload, {
+      timeout: CHECKOUT_REQUEST_TIMEOUT_MS,
+    });
 
     return {
       data: getPaymentData(response.data.data ?? ({} as PaymentApiData)),

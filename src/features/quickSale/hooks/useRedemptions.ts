@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { parseAmount } from "@/features/quickSale/utils/money";
+import { hasMembershipDiscount } from "@/features/quickSale/utils/membershipEligibility";
 import { clientMembershipService } from "@/services/clientMembership.service";
 import { clientService } from "@/services/client.service";
 import { ewalletService } from "@/services/ewallet.service";
@@ -51,6 +52,8 @@ export const useRedemptions = (clientId: string, salonId?: string | null) => {
   const requestIdRef = useRef(0);
 
   const reset = useCallback(() => {
+    requestIdRef.current += 1;
+    setIsLoadingBalances(false);
     setEWalletBalance(0);
     setRewardPointsBalance(0);
     setReferralBalance(0);
@@ -130,19 +133,15 @@ export const useRedemptions = (clientId: string, salonId?: string | null) => {
   useEffect(() => {
     reset();
     void refreshBalances(clientId);
-    // reset() is intentionally excluded: it's stable identity-wise but
-    // re-running it whenever refreshBalances changes would wipe user toggles.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clientId]);
+    return () => { requestIdRef.current += 1; };
+  }, [clientId, refreshBalances, reset]);
 
   const membershipWalletAssignment =
     membershipAssignments.find(
       (assignment) => assignment.pricingType === "value" && (assignment.walletBalance ?? 0) > 0,
     ) ?? null;
   const membershipDiscountAssignment =
-    membershipAssignments.find(
-      (assignment) => assignment.pricingType === "percentage" && (assignment.discountBalanceRemaining ?? 0) > 0,
-    ) ?? null;
+    membershipAssignments.find(hasMembershipDiscount) ?? null;
   const isLoyaltyEligible = loyaltyEligibility?.eligible ?? false;
   const loyaltyNextTierHint = loyaltyEligibility?.nextTier
     ? `next: ${loyaltyEligibility.nextTier.discountPercent}% at ${loyaltyEligibility.nextTier.thresholdValue} visits`
@@ -203,6 +202,7 @@ export const useRedemptions = (clientId: string, salonId?: string | null) => {
     loyaltyName: loyaltyEligibility?.name ?? null,
     loyaltyNextTierHint,
     membershipDiscountBalanceRemaining: membershipDiscountAssignment?.discountBalanceRemaining ?? 0,
+    isValidityMembershipDiscount: membershipDiscountAssignment?.benefitType === "validity",
     membershipDiscountName: membershipDiscountAssignment?.membershipName ?? null,
     membershipDiscountPercent: membershipDiscountAssignment?.discountPercent ?? 0,
     membershipWalletBalance: membershipWalletAssignment?.walletBalance ?? null,

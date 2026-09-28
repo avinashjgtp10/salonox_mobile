@@ -8,6 +8,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { KeyboardAwareScrollView } from "@/components/ui/KeyboardAwareScrollView";
+import { UserGuideButton } from "@/features/userGuide/UserGuide";
 import { Badge } from "@/components/ui/Badge";
 import { InitialsAvatar } from "@/components/ui/InitialsAvatar";
 import { AppLayout, AppRadius } from "@/constants/layout";
@@ -293,6 +294,7 @@ export function StaffSettingsScreen() {
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
       <AppStatusBar />
       <KeyboardAwareScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <UserGuideButton />
         <Text style={styles.title}>Settings</Text>
         <Text style={styles.subtitle}>Manage your staff account, preferences, security, and app info.</Text>
 
