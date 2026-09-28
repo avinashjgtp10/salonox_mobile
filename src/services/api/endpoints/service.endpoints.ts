@@ -1,5 +1,4 @@
 export const SERVICE = {
-  CATEGORIES: "/services/categories",
   CREATE: "/services",
   DELETE: "/services",
   LIST: "/services",

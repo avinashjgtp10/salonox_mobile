@@ -13,6 +13,7 @@ import { NetworkErrorModal } from '@/components/ui/NetworkErrorModal';
 import { PortalProvider } from '@/components/ui/PortalProvider';
 import { UpdateAnnouncementModal } from '@/components/ui/UpdateAnnouncementModal';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
+import { FirstLoginGuide } from '@/features/userGuide/UserGuide';
 import type { ThemeColors } from '@/constants/theme';
 import { useAppUpdateAnnouncement } from '@/hooks/useAppUpdateAnnouncement';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
@@ -259,14 +260,16 @@ function NetworkSetup() {
   return null;
 }
 
-function AppUpdateSetup() {
+function AppUpdateSetup({ ready }: { ready: boolean }) {
   const { close, reopen, isVisible, updateInfo } = useAppUpdateAnnouncement();
 
   if (!updateInfo) {
-    return null;
+    return <FirstLoginGuide enabled={ready} />;
   }
 
   return (
+    <>
+    <FirstLoginGuide enabled={ready && !isVisible} />
     <UpdateAnnouncementModal
       androidStoreUrl={updateInfo.androidStoreUrl}
       currentVersion={updateInfo.currentVersion}
@@ -280,6 +283,7 @@ function AppUpdateSetup() {
       title={updateInfo.title}
       visible={isVisible}
     />
+    </>
   );
 }
 
@@ -366,7 +370,7 @@ function AppShell() {
             <PortalProvider>
               <AuthNavigationHandler onReady={handleNavigationReady} />
               <NetworkSetup />
-              <AppUpdateSetup />
+              <AppUpdateSetup ready={isThemeHydrated && isNavigationReady} />
               <PushNotificationsSetup />
               <RealtimeSyncSetup />
               <BranchBootstrap />

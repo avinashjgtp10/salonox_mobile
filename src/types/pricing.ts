@@ -1,9 +1,12 @@
+export type DiscountScope = "service" | "product" | "packages" | "membership" | "bill";
+
 export interface LineItem {
   price: number;
   qty: number;
   discount?: number;
   total?: number;
   categoryId?: string;
+  itemId?: string;
   isPackageService?: boolean;
   walletUsed?: number;
   membershipDiscountUsed?: number;
@@ -20,6 +23,7 @@ export interface CalculateTotalsBody {
 
   discountType: "percentage" | "flat";
   discountValue: number;
+  discountAppliesTo?: DiscountScope[];
 
   couponCode?: string;
 
@@ -55,6 +59,7 @@ export interface CalculateTotalsResponse {
   itemDiscountTotal: number;
   subtotal: number;
   manualDiscount: number;
+  discountBase?: number;
   totalDisc: number;
   taxable: number;
   gstAmount: number;

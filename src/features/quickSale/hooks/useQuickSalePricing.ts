@@ -2,8 +2,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type { RedemptionPricingFlags } from "@/features/quickSale/hooks/useRedemptions";
 import type { CartItem } from "@/features/quickSale/types";
+import type { DiscountApplyTarget } from "@/features/quickSale/components/checkout/types";
+import { toDiscountScope } from "@/features/quickSale/utils/discountScope";
 import {
   adaptPricingResponseToBillTotals,
+  buildPricingLine,
   type BillTotals,
 } from "@/features/quickSale/utils/calculations";
 import { parseAmount } from "@/features/quickSale/utils/money";
@@ -17,6 +20,7 @@ type UseQuickSalePricingInput = {
   cartItems: CartItem[];
   convenienceFeeInput: string;
   discountPercent: number;
+  discountApplyTo: DiscountApplyTarget[];
   discountType: "flat" | "percentage";
   includeGst: boolean;
   otherChargesInput: string;
@@ -57,6 +61,7 @@ export const useQuickSalePricing = ({
   cartItems,
   convenienceFeeInput,
   discountPercent,
+  discountApplyTo,
   discountType,
   includeGst,
   otherChargesInput,
@@ -94,13 +99,7 @@ export const useQuickSalePricing = ({
         const membershipRows: ApiLineItem[] = [];
 
         cartItems.forEach((item) => {
-          const qty = Math.max(1, item.quantity);
-          const line: ApiLineItem = {
-            price: item.unitPrice,
-            qty,
-            discount: item.discountAmount,
-            total: item.unitPrice * qty - item.discountAmount,
-          };
+          const line = buildPricingLine(item);
           if (item.itemType === "service") serviceRows.push(line);
           else if (item.itemType === "product") productRows.push(line);
           else if (item.itemType === "package") packageRows.push(line);
@@ -114,6 +113,7 @@ export const useQuickSalePricing = ({
           productRows,
           membershipRows,
           discountType,
+          discountAppliesTo: toDiscountScope(discountApplyTo),
           discountValue:
             discountType === "percentage"
               ? discountPercent
@@ -146,6 +146,7 @@ export const useQuickSalePricing = ({
     buildPricingFlags,
     cartItems,
     discountPercent,
+    discountApplyTo,
     discountType,
     extraChargesTotal,
     includeGst,

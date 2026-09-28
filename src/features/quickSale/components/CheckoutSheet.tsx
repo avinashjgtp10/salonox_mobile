@@ -364,6 +364,7 @@ function CheckoutSheetComponent({
   const splitMismatch = paymentMethod === "split" && Math.round(splitTotal * 100) !== Math.round(amountToCollect * 100);
   const discountValue = parseAmount(discountDraft);
   const discountEligibleSubtotal = useMemo(() => {
+    if (totals.discountBase !== undefined) return totals.discountBase;
     if (discountApplyTo.includes("entireBill")) {
       return totals.subtotal;
     }
@@ -378,10 +379,11 @@ function CheckoutSheetComponent({
         item.unitPrice * getCartItemBillableQuantity(item) - item.discountAmount,
       );
     }, 0);
-  }, [discountApplyTo, items, totals.subtotal]);
+  }, [discountApplyTo, items, totals.subtotal, totals.discountBase]);
   const invalidDiscountPercentage = discountMode === "percent" && discountValue > 100;
   const discountExceedsEligibleSubtotal = totals.overallDiscount > discountEligibleSubtotal + 0.005;
-  const discountExceedsSubtotal = totals.overallDiscount + totals.couponDiscount > totals.subtotal + 0.005;
+  const discountExceedsSubtotal = totals.discountBase === undefined
+    && totals.overallDiscount + totals.couponDiscount > totals.subtotal + 0.005;
   const customTipInvalid = customTipVisible && tipInput.trim().length === 0;
   const chargesInvalid =
     discountExceedsEligibleSubtotal || discountExceedsSubtotal || invalidDiscountPercentage || customTipInvalid;
@@ -444,7 +446,7 @@ function CheckoutSheetComponent({
         icon: "pricetag-outline",
         key: "membership-discount",
         onToggle: redemptions.setApplyMembershipDiscount,
-        subtitle: `${redemptions.membershipDiscountName ?? "Membership"} · ${formatCurrency(redemptions.membershipDiscountBalanceRemaining)} left`,
+        subtitle: `${redemptions.membershipDiscountName ?? "Membership"} · ${redemptions.isValidityMembershipDiscount ? "Valid membership" : `${formatCurrency(redemptions.membershipDiscountBalanceRemaining)} left`}`,
         title: "Membership Discount",
         value: `${redemptions.membershipDiscountPercent}% Off`,
       });
@@ -690,7 +692,18 @@ function CheckoutSheetComponent({
 
   const checkoutOverlay = (
         <View style={styles.modalRoot}>
-        <Animated.View pointerEvents="none" style={[styles.backdrop, { opacity: backdropOpacity }]} />
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.backdrop,
+            // Inline means this sheet is inside the calendar's Quick Sale
+            // modal, which already paints its own scrim. Stacking the full
+            // strength dim on top of that reads as an extra dark screen
+            // behind the sheet rather than one backdrop.
+            renderInline && styles.backdropInline,
+            { opacity: backdropOpacity },
+          ]}
+        />
         <Pressable accessibilityLabel="Close checkout" onPress={requestClose} style={styles.backdropPressTarget} />
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -1768,6 +1781,9 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   backdrop: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(20, 18, 16, 0.82)",
+  },
+  backdropInline: {
+    backgroundColor: "rgba(20, 18, 16, 0.45)",
   },
   backdropPressTarget: {
     ...StyleSheet.absoluteFillObject,

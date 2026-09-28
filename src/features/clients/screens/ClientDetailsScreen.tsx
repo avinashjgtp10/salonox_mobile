@@ -584,6 +584,8 @@ export default function ClientDetailsScreen() {
 
     if (assignClientMembershipThunk.fulfilled.match(result) || changeClientMembershipThunk.fulfilled.match(result)) {
       setPickerVisible(false);
+    } else {
+      Alert.alert("Error", result.payload?.message ?? "Unable to update membership.");
     }
   };
 

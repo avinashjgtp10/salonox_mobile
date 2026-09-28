@@ -9,6 +9,7 @@ import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { Badge } from "@/components/ui/Badge";
 import { InitialsAvatar } from "@/components/ui/InitialsAvatar";
 import { useAuth } from "@/context/AuthContext";
+import { UserGuideButton } from "@/features/userGuide/UserGuide";
 import { getApiErrorMessage } from "@/services/api";
 import { authService } from "@/services/authService";
 import { supportService } from "@/services/support.service";
@@ -329,6 +330,7 @@ export default function MoreScreen() {
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
       <AppStatusBar />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <UserGuideButton />
         <Text style={styles.title}>Settings</Text>
         <Text style={styles.subtitle}>
           SalonOX · Manage your workspace

@@ -15,14 +15,17 @@ export const createOverlaysStyles = (Colors: ThemeColors) => StyleSheet.create({
   quickSaleModalSurface: {
     backgroundColor: Colors.bg,
     borderRadius: 8,
-    elevation: 24,
+    // Kept deliberately low: this card already sits on a dimmed backdrop
+    // inside a native Modal, and a high elevation drew a heavy dark halo
+    // around all four edges that read as a second stacked screen behind it.
+    elevation: 6,
     height: "94%",
     maxWidth: 620,
     overflow: "hidden",
     shadowColor: "#000000",
-    shadowOffset: { height: 12, width: 0 },
-    shadowOpacity: 0.28,
-    shadowRadius: 24,
+    shadowOffset: { height: 4, width: 0 },
+    shadowOpacity: 0.16,
+    shadowRadius: 12,
     width: "100%",
   },
   modalActions: {

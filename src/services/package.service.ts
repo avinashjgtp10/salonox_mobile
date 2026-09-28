@@ -274,22 +274,22 @@ export const packageService = {
   },
 
   async getClientPackages(clientId: string, salonId?: string | null): Promise<ClientPackage[]> {
-    const response = await api.get<ApiResponse<PackageEnvelope>>(PACKAGE.CLIENT_ASSIGNMENTS, {
-      params: {
-        clientId,
-        client_id: clientId,
-        limit: 500,
-        status: "active",
-        ...(salonId ? { salon_id: salonId } : {}),
-      },
-      validateStatus: (status) => (status >= 200 && status < 300) || status === 404,
-    });
-
-    if (response.status === 404) {
-      return [];
+    const packages: ClientPackage[] = [];
+    for (let page = 1; ; page += 1) {
+      const response = await api.get<ApiResponse<PackageEnvelope>>(PACKAGE.CLIENT_ASSIGNMENTS, {
+        params: {
+          clientId,
+          limit: 100,
+          page,
+          status: "Active",
+          ...(salonId ? { salon_id: salonId } : {}),
+        },
+      });
+      const batch = extractItems(response.data.data).map(normalizeClientPackage);
+      packages.push(...batch);
+      const total = extractTotal(response.data.data, packages.length);
+      if (batch.length === 0 || packages.length >= total) return packages;
     }
-
-    return extractItems(response.data.data).map(normalizeClientPackage);
   },
 
   async getPackageTemplates(salonId?: string | null): Promise<PackageTemplate[]> {

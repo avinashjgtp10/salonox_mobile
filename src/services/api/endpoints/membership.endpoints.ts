@@ -13,9 +13,6 @@ export const MEMBERSHIP = {
 export const CLIENT_MEMBERSHIP = {
   ASSIGN: "/client-memberships",
   CANCEL: (assignmentId: string) => `/client-memberships/${assignmentId}/cancel`,
-  CHANGE: (assignmentId: string) => `/client-memberships/${assignmentId}`,
   CLIENT_ASSIGNMENTS: "/client-memberships",
   DETAIL: (assignmentId: string) => `/client-memberships/${assignmentId}`,
-  MEMBERSHIP_CLIENTS: (membershipId: string) => `/memberships/${membershipId}/clients`,
-  RENEW: (assignmentId: string) => `/client-memberships/${assignmentId}/renew`,
 } as const;
