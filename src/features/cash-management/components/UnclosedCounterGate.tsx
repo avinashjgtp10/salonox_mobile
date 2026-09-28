@@ -141,6 +141,7 @@ export default function UnclosedCounterGate() {
         show={showOpenTodayModal}
         loading={openingLoading}
         mandatory={true}
+        onLogout={handleLogout}
         onClose={() => setShowOpenTodayModal(false)}
         onNotify={(tone, message) => {
           if (tone === "error") showError(message);
