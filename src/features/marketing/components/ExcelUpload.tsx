@@ -41,7 +41,16 @@ export default function ExcelUpload({ onContactsLoaded }: Props) {
         const nameCol = cols.find(c => c.toLowerCase().includes("name"));
 
         const contacts: Contact[] = rows.map((row: Record<string, any>) => {
-          const raw    = String(row[phoneCol] ?? "").trim();
+          const rawCell = String(row[phoneCol] ?? "").trim();
+          // Some cells carry a primary + alternate number ("9876543210 /
+          // 9012345678", "9876543210, 9012345678") — take only the first one.
+          // Previously this stripped only spaces/dashes/parens/dots (not the
+          // separator itself) and ran digit-extraction over the WHOLE cell,
+          // concatenating both numbers' digits into one ~20-digit string that
+          // silently passed client-side validation, then hit Postgres's
+          // phone varchar(20) column and aborted the entire campaign's insert
+          // (confirmed root cause of a real prod failure).
+          const raw    = rawCell.split(/[\/,]|(?:\s+and\s+)/i)[0].trim();
           const digits = raw.replace(/\D/g, "");
           let phone    = raw.replace(/[\s\-().]/g, "");
           if (digits.length === 10)                             phone = `+91${digits}`;
@@ -52,7 +61,7 @@ export default function ExcelUpload({ onContactsLoaded }: Props) {
             name: nameCol ? String(row[nameCol] ?? "").trim() || undefined : undefined,
             ...Object.fromEntries(cols.map((c: string) => [c, String(row[c] ?? "")])),
           };
-        }).filter(c => c.phone.replace(/\D/g, "").length >= 10);
+        }).filter(c => c.phone.replace(/\D/g, "").length >= 10 && c.phone.length <= 20);
 
         if (!contacts.length) { setError("No valid phone numbers found."); return; }
 
