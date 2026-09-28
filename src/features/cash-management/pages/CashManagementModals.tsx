@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  ArrowRight,
   CashStack,
   ChevronDown,
   CurrencyRupee,
+  InfoCircle,
   JournalText,
   Safe2,
   Wallet2,
@@ -33,6 +35,10 @@ interface OpenCounterModalProps {
    *  started before the rest of the app can be used — hides Cancel/close and
    *  blocks dismissal so the user can't skip straight past it. */
   mandatory?: boolean;
+  /** Shown as a footer escape hatch in place of Cancel when `mandatory` is
+   *  true, so a user who can't/won't open today's counter right now isn't
+   *  stuck on the modal with no way out. */
+  onLogout?: () => void;
   onClose: () => void;
   onNotify: Notify;
   onSubmit: (payload: OpenCounterPayload) => Promise<void>;
@@ -185,13 +191,16 @@ export function OpenCounterModal({
   show,
   loading,
   mandatory = false,
+  onLogout,
   onClose,
   onNotify,
   onSubmit,
 }: OpenCounterModalProps) {
+  const { currencySymbol } = useCurrency();
   const [form, setForm] = useState({ opening_balance: "" });
   const [errors, setErrors] = useState<FieldErrors>({});
   const [submitError, setSubmitError] = useState("");
+  const amountInputRef = useRef<HTMLInputElement>(null);
 
   const handleClose = () => {
     if (loading || mandatory) return;
@@ -202,6 +211,15 @@ export function OpenCounterModal({
     setForm({ opening_balance: "" });
     setErrors({});
     setSubmitError("");
+  }, [show]);
+
+  // Keep the amount field auto-focused every time the modal opens — Modal
+  // mounts its content fresh on `show`, but the ref only exists once that
+  // render lands, so focus on the next tick rather than in the effect above.
+  useEffect(() => {
+    if (!show) return;
+    const id = window.setTimeout(() => amountInputRef.current?.focus(), 0);
+    return () => window.clearTimeout(id);
   }, [show]);
 
   const validateForm = () => {
@@ -228,65 +246,110 @@ export function OpenCounterModal({
     setSubmitError("");
   };
 
+  const handleSubmit = async () => {
+    if (loading) return;
+    setSubmitError("");
+    if (!validateForm()) return;
+
+    try {
+      await onSubmit({
+        opening_balance: Number(form.opening_balance || 0),
+      });
+    } catch (err: any) {
+      const message = getApiErrorMessage(err, "Failed to open counter.");
+      setSubmitError(message);
+      onNotify("error", message);
+    }
+  };
+
   return (
     <Modal
       show={show}
       onClose={handleClose}
-      title="Open Counter"
-      hideCloseButton={mandatory}
-      footer={
-        <div className="cash-mgmt">
-          <div className="cash-mgmt__modal-footer">
-            {!mandatory && (
-              <Button variant="ghost" onClick={handleClose} disabled={loading}>
-                Cancel
-              </Button>
-            )}
-            <Button
-              variant="dark"
-              loading={loading}
-              disabled={loading}
-              onClick={async () => {
-                setSubmitError("");
-                if (!validateForm()) return;
-
-                try {
-                  await onSubmit({
-                    opening_balance: Number(form.opening_balance || 0),
-                  });
-                } catch (err: any) {
-                  const message = getApiErrorMessage(err, "Failed to open counter.");
-                  setSubmitError(message);
-                  onNotify("error", message);
-                }
-              }}
-            >
-              Start Counter
-            </Button>
-          </div>
-        </div>
-      }
+      hideCloseButton
+      size="md"
+      scrollable={false}
     >
       <div className="cash-mgmt">
-        {mandatory ? (
-          <div className="cash-mgmt__modal-message cash-mgmt__modal-message--warning">
-            No cash counter is open for today. Enter the opening balance to start one before
-            continuing.
+        <div className="cash-mgmt__open-counter">
+          <div className="cash-mgmt__open-counter-icon">
+            <Wallet2 size={26} />
           </div>
-        ) : null}
-        {submitError ? (
-          <div className="cash-mgmt__modal-message cash-mgmt__modal-message--error">
-            {submitError}
+          <h5 className="cash-mgmt__open-counter-title">Open Cash Counter</h5>
+          <p className="cash-mgmt__open-counter-lead">
+            {mandatory
+              ? "No cash counter is open for today. Enter the opening balance to start one before continuing."
+              : "Enter the opening balance to start today's cash counter."}
+          </p>
+
+          {submitError ? (
+            <div className="cash-mgmt__modal-message cash-mgmt__modal-message--error">
+              {submitError}
+            </div>
+          ) : null}
+
+          <div className="cash-mgmt__modal-form">
+            <Input
+              ref={amountInputRef}
+              label="Opening Balance"
+              type="number"
+              min={0}
+              inputMode="decimal"
+              placeholder="0.00"
+              iconLeft={<span className="cash-mgmt__open-counter-currency">{currencySymbol}</span>}
+              value={form.opening_balance}
+              error={errors.opening_balance}
+              autoFocus
+              containerClass="mb-0"
+              onChange={(event) => updateOpeningBalance(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  handleSubmit();
+                }
+              }}
+            />
           </div>
-        ) : null}
-        <div className="cash-mgmt__modal-form">
-          <Input
-            label="Opening Balance"
-            type="number"
-            value={form.opening_balance}
-            error={errors.opening_balance}
-            onChange={(event) => updateOpeningBalance(event.target.value)}
-          />
+
+          <div className="cash-mgmt__open-counter-note">
+            <InfoCircle size={15} />
+            <span>You can update the closing balance later.</span>
+          </div>
+
+          <Button
+            variant="dark"
+            loading={loading}
+            disabled={loading}
+            fullWidth
+            iconRight={<ArrowRight size={16} />}
+            onClick={handleSubmit}
+            className="cash-mgmt__open-counter-submit"
+          >
+            Start Counter
+          </Button>
+
+          {!mandatory && (
+            <Button
+              variant="ghost"
+              onClick={handleClose}
+              disabled={loading}
+              fullWidth
+              className="cash-mgmt__open-counter-cancel"
+            >
+              Cancel
+            </Button>
+          )}
+          {mandatory && onLogout && (
+            <Button
+              variant="ghost"
+              onClick={onLogout}
+              disabled={loading}
+              fullWidth
+              className="cash-mgmt__open-counter-cancel"
+            >
+              Logout
+            </Button>
+          )}
         </div>
       </div>
     </Modal>

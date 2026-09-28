@@ -27,9 +27,12 @@ import {
   exportCashManagementExcel,
   exportCashManagementPDF,
 } from "../cashManagement.export";
+import { useNavigate } from "react-router-dom";
 import { sendDailySummaryEmail } from "../cashManagement.api";
 import { selectUserProfile } from "../../../store/selectors/slices.selectors";
 import { useAppSelector, useAppDispatch } from "../../../hooks/useAppRedux";
+import { performLogout } from "../../../utils/performLogout";
+import { disconnectSocket } from "../../../services/socket/socket";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { showGlobalToast } from "../../../utils/globalToast";
 import { usePermissions } from "../../../hooks/usePermissions";
@@ -99,6 +102,11 @@ const getErrorMessage = (err: unknown, fallback: string) => {
 export default function CashManagementPage() {
   const { formatAmount } = useCurrency();
   const dispatch = useAppDispatch();
+  const navigate = useNavigate();
+  const handleLogout = () => {
+    disconnectSocket();
+    performLogout(navigate);
+  };
   const { can } = usePermissions();
   const denyPerm = (permKey: string) => dispatch(showPermissionDenied(
     `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
@@ -724,6 +732,7 @@ export default function CashManagementPage() {
         show={showOpenModal && !counterStatusOverlay}
         loading={loading.openCounter}
         mandatory={needsOpenCounter}
+        onLogout={handleLogout}
         onClose={() => setShowOpenModal(false)}
         onSubmit={async (payload) => {
           await openCounter(payload);
@@ -811,6 +820,7 @@ export default function CashManagementPage() {
         dashboard={dashboard}
         loading={loading.closeCounter}
         mandatory={isStaleOpenCounter}
+        onLogout={handleLogout}
         onClose={() => setShowCloseModal(false)}
         onSubmit={async (payload) => {
           const closed = await closeCounter(payload);
