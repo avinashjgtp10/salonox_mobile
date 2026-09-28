@@ -1,18 +1,10 @@
+import { TourScrollView, TourView, withScreenTour } from "@/features/userGuide/DashboardTour";
+import { screenTours } from "@/features/userGuide/screenTours";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router, type Href } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  ActivityIndicator,
-  Pressable,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-  useWindowDimensions,
-} from "react-native";
+import { ActivityIndicator, Pressable, RefreshControl, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
@@ -287,7 +279,7 @@ const getAverageRating = (appointments: AppointmentListItem[]) => {
 
 const toDisplayName = (name: string) => name.trim().split(/\s+/)[0]?.toUpperCase() || "STAFF";
 
-export default function StaffHomeRoute() {
+function StaffHomeRouteContent() {
   const Colors = useThemeColors();
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -410,7 +402,7 @@ export default function StaffHomeRoute() {
   return (
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
       <AppStatusBar />
-      <ScrollView
+      <TourScrollView
         contentContainerStyle={styles.content}
         refreshControl={
           <RefreshControl
@@ -487,7 +479,7 @@ export default function StaffHomeRoute() {
           remaining={remainingCount}
         />
 
-      </ScrollView>
+      </TourScrollView>
     </SafeAreaView>
   );
 }
@@ -542,7 +534,7 @@ function AttendanceCard({
   const checkedOut = checkOutLabel !== "--:--";
 
   return (
-    <View style={stylesStatic.attendanceCard}>
+    <TourView tourId="attendance" style={stylesStatic.attendanceCard}>
       <View style={stylesStatic.attendanceTop}>
         <View style={[stylesStatic.attendanceIcon, { backgroundColor: tone.bg }]}>
           <Ionicons name={icon} size={24} color={tone.color} />
@@ -584,7 +576,7 @@ function AttendanceCard({
       {checkInLocation ? <Text style={{ color: Colors.text2, marginTop: 10 }}>Check-in location: {checkInLocation}</Text> : null}
       {checkOutLocation ? <Text style={{ color: Colors.text2, marginTop: 8 }}>Checkout location: {checkOutLocation}</Text> : null}
       {error ? <Text style={stylesStatic.inlineError}>{error}</Text> : null}
-    </View>
+    </TourView>
   );
 }
 
@@ -772,14 +764,14 @@ function ProgressCard({
   const stylesStatic = useMemo(() => getStylesStatic(Colors), [Colors]);
 
   return (
-    <View style={stylesStatic.progressCard}>
+    <TourView tourId="progress" style={stylesStatic.progressCard}>
       <Text style={stylesStatic.cardTitleMuted}>{"Today's Progress"}</Text>
       <View style={stylesStatic.progressRow}>
         <ProgressMetric bg="rgba(65, 154, 72, 0.78)" icon="shield-checkmark" label="Completed" value={String(completed)} />
         <ProgressMetric bg="#F0A10C" icon="time-outline" label="Remaining" value={String(remaining)} />
         <ProgressMetric bg="#EEC313" icon="star" label="Avg. Rating" value={averageRating} />
       </View>
-    </View>
+    </TourView>
   );
 }
 
@@ -1293,3 +1285,5 @@ const getStylesStatic = (Colors: ThemeColors) => {
   },
   });
 };
+
+export default withScreenTour(StaffHomeRouteContent, screenTours.staffHome);

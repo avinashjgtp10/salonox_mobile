@@ -6,6 +6,7 @@ import { Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native
 
 import { BranchSelectorSheet } from "@/components/dashboard/BranchSelectorSheet";
 import { NotificationBadge } from "@/components/notifications/NotificationBadge";
+import { TourButton, useDashboardTour } from "@/features/userGuide/DashboardTour";
 import {
   DashboardTypography as Typography,
   type ThemeColors,
@@ -45,6 +46,7 @@ type DashboardHeroProps = {
 };
 
 export default function DashboardHero({ onOpenNotifications, onOpenQuickActions }: DashboardHeroProps) {
+  const tour = useDashboardTour();
   const { colors: Colors, scheme, setMode } = useAppTheme();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const isDark = scheme === "dark";
@@ -71,7 +73,7 @@ export default function DashboardHero({ onOpenNotifications, onOpenQuickActions 
     <View style={styles.wrapper}>
       <View style={styles.topBar}>
         <View style={styles.leadingBrand}>
-          <TouchableOpacity
+          <TourButton tourId="menu"
             accessibilityLabel="Open quick actions"
             accessibilityRole="button"
             activeOpacity={0.7}
@@ -79,7 +81,7 @@ export default function DashboardHero({ onOpenNotifications, onOpenQuickActions 
             style={styles.headerIconButton}
           >
             <Ionicons name="menu-outline" size={24} color={Colors.onPrimary} />
-          </TouchableOpacity>
+          </TourButton>
           <View style={styles.brandLogoFrame}>
             <Image contentFit="contain" source={LOGO_SOURCE} style={styles.brandLogo} />
           </View>
@@ -101,7 +103,7 @@ export default function DashboardHero({ onOpenNotifications, onOpenQuickActions 
           ) : null}
         </TouchableOpacity>
 
-        <TouchableOpacity
+        <TourButton tourId="notifications"
           accessibilityLabel="Open notifications"
           activeOpacity={0.7}
           onPress={onOpenNotifications ?? (() => router.push("/notifications" as Href))}
@@ -112,7 +114,7 @@ export default function DashboardHero({ onOpenNotifications, onOpenQuickActions 
             count={unreadNotificationCount}
             style={{ right: -4, top: -4, borderColor: Colors.dashboardTopBar }}
           />
-        </TouchableOpacity>
+        </TourButton>
       </View>
 
       <View style={styles.row}>
@@ -130,6 +132,9 @@ export default function DashboardHero({ onOpenNotifications, onOpenQuickActions 
           <Text numberOfLines={1} style={styles.ownerName}>
             Salon status for today
           </Text>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Start dashboard tour" onPress={tour?.start} style={{ alignSelf: "flex-start", paddingVertical: 10 }}>
+            <Text style={{ color: Colors.primary, fontWeight: "700", fontSize: 13 }}>Take a dashboard tour →</Text>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.avatarColumn}>

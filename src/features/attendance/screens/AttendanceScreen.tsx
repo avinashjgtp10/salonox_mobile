@@ -1,20 +1,9 @@
+import { TourView, TourFlatList, withScreenTour } from "@/features/userGuide/DashboardTour";
+import { screenTours } from "@/features/userGuide/screenTours";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker, { type DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { useMemo, useState } from "react";
-import {
-  ActivityIndicator,
-  FlatList,
-  Modal,
-  Platform,
-  Pressable,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-  type ListRenderItem,
-} from "react-native";
+import { ActivityIndicator, Modal, Platform, Pressable, RefreshControl, StyleSheet, Text, TextInput, TouchableOpacity, View, type ListRenderItem } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppBackButton } from "@/components/ui/AppBackButton";
@@ -45,7 +34,7 @@ const toDateValue = (dateKey: string) => {
   return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
 };
 
-export default function AttendanceScreen() {
+function AttendanceScreenContent() {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const {
@@ -149,7 +138,7 @@ export default function AttendanceScreen() {
 
       <AttendanceSummaryCards summary={summary} />
 
-      <View style={styles.dateNavCard}>
+      <TourView tourId="date" style={styles.dateNavCard}>
         <TouchableOpacity activeOpacity={0.84} onPress={onPreviousDay} style={styles.dateNavButton}>
           <Ionicons name="chevron-back" size={16} color={Colors.primaryDark} />
         </TouchableOpacity>
@@ -174,9 +163,9 @@ export default function AttendanceScreen() {
             <Text style={styles.todayButtonText}>Today</Text>
           </TouchableOpacity>
         ) : null}
-      </View>
+      </TourView>
 
-      <View style={styles.searchWrap}>
+      <TourView tourId="search" style={styles.searchWrap}>
         <Ionicons name="search-outline" size={16} color={Colors.text2} />
         <TextInput
           onChangeText={onSearchChange}
@@ -190,7 +179,7 @@ export default function AttendanceScreen() {
             <Ionicons name="close-circle" size={17} color={Colors.text2} />
           </TouchableOpacity>
         ) : null}
-      </View>
+      </TourView>
 
       {recordsError ? <Text style={styles.errorText}>{recordsError}</Text> : null}
 
@@ -207,7 +196,7 @@ export default function AttendanceScreen() {
   return (
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
       <AppStatusBar />
-      <FlatList
+      <TourFlatList
         contentContainerStyle={styles.content}
         data={isInitialLoading ? [] : rows}
         keyExtractor={(item) => item.staffMember.id}
@@ -426,3 +415,5 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "800",
   },
 });
+
+export default withScreenTour(AttendanceScreenContent, screenTours.attendance);

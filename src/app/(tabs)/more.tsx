@@ -1,8 +1,10 @@
+import { TourScrollView, TourButton, withScreenTour } from "@/features/userGuide/DashboardTour";
+import { screenTours } from "@/features/userGuide/screenTours";
 import Constants from "expo-constants";
 import { Ionicons } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
 import { router, type Href } from "expo-router";
-import { ActivityIndicator, Alert, Linking, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Linking, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
@@ -111,7 +113,7 @@ const MENU_ITEMS = [
   },
 ];
 
-export default function MoreScreen() {
+function MoreScreenContent() {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const { signOut, signOutAll } = useAuth();
@@ -329,7 +331,7 @@ export default function MoreScreen() {
   return (
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
       <AppStatusBar />
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <TourScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <UserGuideButton />
         <Text style={styles.title}>Settings</Text>
         <Text style={styles.subtitle}>
@@ -372,7 +374,7 @@ export default function MoreScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>Tools</Text>
           {visibleMenuItems.map((item, index) => (
-            <TouchableOpacity
+            <TourButton tourId={item.title}
               key={item.title}
               activeOpacity={0.84}
               onPress={() => router.push(item.route)}
@@ -393,7 +395,7 @@ export default function MoreScreen() {
                 </View>
               </View>
               <Ionicons name="chevron-forward" size={18} color={Colors.text2} />
-            </TouchableOpacity>
+            </TourButton>
           ))}
         </View>
 
@@ -520,7 +522,7 @@ export default function MoreScreen() {
             {isLoggingOut ? "Logging out..." : "Logout"}
           </Text>
         </TouchableOpacity>
-      </ScrollView>
+      </TourScrollView>
       <Modal
         animationType="slide"
         onRequestClose={() => setIsReportModalVisible(false)}
@@ -832,3 +834,5 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     color: Colors.error,
   },
 });
+
+export default withScreenTour(MoreScreenContent, screenTours.settings);

@@ -1,19 +1,9 @@
+import { TourFlatList, TourView, TourButton, withScreenTour } from "@/features/userGuide/DashboardTour";
+import { screenTours } from "@/features/userGuide/screenTours";
 import { Ionicons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  Modal,
-  Pressable,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { ActivityIndicator, Alert, Modal, Pressable, RefreshControl, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
@@ -217,7 +207,7 @@ function EmptyState({ queryActive }: { queryActive: boolean }) {
   );
 }
 
-export default function SalesHistoryScreen() {
+function SalesHistoryScreenContent() {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
@@ -357,7 +347,7 @@ export default function SalesHistoryScreen() {
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
       <AppStatusBar />
 
-      <FlatList
+      <TourFlatList
         ListEmptyComponent={
           showInitialLoading ? (
             <View>
@@ -398,7 +388,7 @@ export default function SalesHistoryScreen() {
                 <Text style={styles.headerTitle}>Sales Summary</Text>
                 <View style={styles.backButtonPlaceholder} />
               </View>
-              <View style={styles.summaryCard}>
+              <TourView tourId="summary" style={styles.summaryCard}>
                 <View style={styles.summaryMetric}>
                   <Text style={styles.summaryLabel}>Total Sales</Text>
                   <Text style={styles.summaryValue}>
@@ -410,10 +400,10 @@ export default function SalesHistoryScreen() {
                   <Text style={styles.summaryLabel}>Total Revenue</Text>
                   <Text style={styles.summaryValue}>{formatCurrency(summary?.totalRevenue ?? 0)}</Text>
                 </View>
-              </View>
+              </TourView>
             </View>
 
-            <View style={styles.searchWrap}>
+            <TourView tourId="search" style={styles.searchWrap}>
               <Ionicons name="search-outline" size={20} color={Colors.text2} />
               <TextInput
                 onChangeText={setQuery}
@@ -427,9 +417,9 @@ export default function SalesHistoryScreen() {
                   <Ionicons name="close-circle" size={18} color={Colors.placeholder} />
                 </TouchableOpacity>
               ) : null}
-            </View>
+            </TourView>
 
-            <View style={styles.filterRow}>
+            <TourView tourId="filters" style={styles.filterRow}>
               {SALE_FILTERS.map((filter) => {
                 const isActive = filter === activeFilter;
 
@@ -446,20 +436,20 @@ export default function SalesHistoryScreen() {
                   </TouchableOpacity>
                 );
               })}
-            </View>
+            </TourView>
 
             <View style={styles.sortRow}>
               <Text style={styles.sortMeta}>
                 {sales.length} sale{sales.length === 1 ? "" : "s"}
               </Text>
-              <TouchableOpacity
+              <TourButton tourId="sort"
                 activeOpacity={0.82}
                 onPress={() => setIsSortVisible(true)}
                 style={styles.sortButton}
               >
                 <Ionicons name="swap-vertical-outline" size={16} color={Colors.primary} />
                 <Text style={styles.sortButtonText}>{sortOption}</Text>
-              </TouchableOpacity>
+              </TourButton>
             </View>
           </View>
         }
@@ -911,3 +901,5 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     color: Colors.primary,
   },
 });
+
+export default withScreenTour(SalesHistoryScreenContent, screenTours.sales);

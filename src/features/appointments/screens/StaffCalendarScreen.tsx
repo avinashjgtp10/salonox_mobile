@@ -1,3 +1,5 @@
+import { withScreenTour } from "@/features/userGuide/DashboardTour";
+import { screenTours } from "@/features/userGuide/screenTours";
 import { CalendarPreview } from "@/features/appointments/components/calendar/CalendarPreview";
 import { ReadOnlyBlockedTimesSummary } from "@/features/appointments/components/calendar/ReadOnlyBlockedTimesSummary";
 import { StaffAvailabilitySummary } from "@/features/appointments/components/form/StaffAvailabilitySummary";
@@ -17,7 +19,7 @@ import { selectStaffAvailability, selectStaffAvailabilityError, selectStaffAvail
 import type { Href } from "expo-router";
 import { useCallback, useEffect, useMemo } from "react";
 
-export function StaffCalendarScreen() {
+function StaffCalendarScreenContent() {
   const appointments = useAppSelector(selectAppointments);
   const appointmentsError = useAppSelector(selectAppointmentsError);
   const appointmentsLoading = useAppSelector(selectAppointmentsIsLoading);
@@ -134,3 +136,5 @@ export function StaffCalendarScreen() {
     </ScreenShell>
   );
 }
+
+export const StaffCalendarScreen = withScreenTour(StaffCalendarScreenContent, screenTours.staffCalendar);
