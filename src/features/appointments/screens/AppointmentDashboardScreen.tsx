@@ -1,3 +1,5 @@
+import { TourView, TourFlatList, withScreenTour } from "@/features/userGuide/DashboardTour";
+import { screenTours } from "@/features/userGuide/screenTours";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { PaginationControls } from "@/components/ui/PaginationControls";
 import { AppointmentCard } from "@/features/appointments/components/shared/AppointmentCard";
@@ -19,10 +21,10 @@ import { Ionicons } from "@expo/vector-icons";
 import type { Href } from "expo-router";
 import { router } from "expo-router";
 import { useCallback, useEffect, useMemo } from "react";
-import { FlatList, RefreshControl, Text, TouchableOpacity, useWindowDimensions, View } from "react-native";
+import { RefreshControl, Text, TouchableOpacity, useWindowDimensions, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-export function AppointmentDashboardScreen() {
+function AppointmentDashboardScreenContent() {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const appointments = useAppSelector(selectAppointments);
@@ -116,7 +118,7 @@ export function AppointmentDashboardScreen() {
         status={status}
       />
 
-      <View style={styles.summaryGrid}>
+      <TourView tourId="summary" style={styles.summaryGrid}>
         <View style={[styles.summaryTileWrap, { width: tileWidth }]}>
           <SummaryTile icon="today-outline" label="Today" value={String(counts.today)} />
         </View>
@@ -135,7 +137,7 @@ export function AppointmentDashboardScreen() {
         <View style={[styles.summaryTileWrap, { width: tileWidth }]}>
           <SummaryTile icon="cash-outline" label="Revenue" value={formatCurrency(counts.revenue)} />
         </View>
-      </View>
+      </TourView>
 
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Today&apos;s appointments</Text>
@@ -168,7 +170,7 @@ export function AppointmentDashboardScreen() {
   return (
     <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
       <AppStatusBar />
-      <FlatList
+      <TourFlatList
         contentContainerStyle={styles.flatListContent}
         data={loading || error ? [] : filtered}
         keyExtractor={(item) => item.id}
@@ -206,3 +208,5 @@ export function AppointmentDashboardScreen() {
     </SafeAreaView>
   );
 }
+
+export const AppointmentDashboardScreen = withScreenTour(AppointmentDashboardScreenContent, screenTours.bookings);

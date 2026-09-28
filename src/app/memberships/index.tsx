@@ -1,19 +1,9 @@
+import { TourFlatList, TourView, TourButton, withScreenTour } from "@/features/userGuide/DashboardTour";
+import { screenTours } from "@/features/userGuide/screenTours";
 import { Ionicons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import {
-  ActivityIndicator,
-  FlatList,
-  Modal,
-  Pressable,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { ActivityIndicator, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppLayout, AppRadius } from "@/constants/layout";
@@ -203,7 +193,7 @@ function MenuAction({ danger, icon, label, onPress }: { danger?: boolean; icon: 
   );
 }
 
-export default function MembershipsScreen() {
+function MembershipsScreenContent() {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
@@ -264,7 +254,7 @@ export default function MembershipsScreen() {
   return (
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
       <AppStatusBar />
-      <FlatList
+      <TourFlatList
         contentContainerStyle={styles.content}
         data={loading && items.length === 0 ? [] : visibleItems}
         keyExtractor={(item) => item.id}
@@ -280,7 +270,7 @@ export default function MembershipsScreen() {
               <Text style={styles.title}>Memberships</Text>
               <View style={styles.headerButtonGhost} />
             </View>
-            <View style={styles.searchWrap}>
+            <TourView tourId="search" style={styles.searchWrap}>
               <Ionicons name="search-outline" size={18} color={Colors.text2} />
               <TextInput value={query} onChangeText={setQuery} placeholder="Search memberships" placeholderTextColor={Colors.placeholder} style={styles.searchInput} />
               {query ? (
@@ -288,7 +278,7 @@ export default function MembershipsScreen() {
                   <Ionicons name="close-circle" size={18} color={Colors.placeholder} />
                 </TouchableOpacity>
               ) : null}
-            </View>
+            </TourView>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
               {FILTERS.map((item) => {
                 const active = item === filter;
@@ -299,12 +289,12 @@ export default function MembershipsScreen() {
                 );
               })}
             </ScrollView>
-            <View style={styles.summaryGrid}>
+            <TourView tourId="summary" style={styles.summaryGrid}>
               <SummaryCard icon="albums-outline" label="Total Memberships" value={String(total)} />
               <SummaryCard icon="pulse-outline" label="Active" value={String(activeCount)} />
               <SummaryCard icon="hourglass-outline" label="Expired" value="0" />
               <SummaryCard icon="cash-outline" label="Revenue" value={formatMoney(revenue)} />
-            </View>
+            </TourView>
           </View>
         }
         ListEmptyComponent={
@@ -352,9 +342,9 @@ export default function MembershipsScreen() {
         showsVerticalScrollIndicator={false}
       />
 
-      <TouchableOpacity activeOpacity={0.9} onPress={() => router.push("/memberships/new" as Href)} style={[styles.fab, { bottom: insets.bottom + 18 }]}>
+      <TourButton tourId="add" activeOpacity={0.9} onPress={() => router.push("/memberships/new" as Href)} style={[styles.fab, { bottom: insets.bottom + 18 }]}>
         <Ionicons name="add" size={28} color="#FFFFFF" />
-      </TouchableOpacity>
+      </TourButton>
 
       <DeleteDialog membership={deleteTarget} onCancel={() => setDeleteTarget(null)} onConfirm={() => void confirmDelete()} />
       {toast ? <View style={[styles.toast, { bottom: insets.bottom + 86 }]}><Text style={styles.toastText}>{toast}</Text></View> : null}
@@ -472,3 +462,5 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   toast: { alignSelf: "center", backgroundColor: Colors.heading, borderRadius: Radius.full, paddingHorizontal: Spacing.lg, paddingVertical: 12, position: "absolute" },
   toastText: { color: Colors.bg, fontSize: 12, fontWeight: "900" },
 });
+
+export default withScreenTour(MembershipsScreenContent, screenTours.memberships);

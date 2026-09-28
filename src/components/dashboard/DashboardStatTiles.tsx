@@ -1,7 +1,8 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { router, type Href } from "expo-router";
 import { useMemo } from "react";
-import { Platform, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions, type DimensionValue } from "react-native";
+import { Platform, StyleSheet, Text, View, useWindowDimensions, type DimensionValue } from "react-native";
+import { TourButton, TourView } from "@/features/userGuide/DashboardTour";
 
 import { IconBadge } from "@/components/ui/IconBadge";
 import {
@@ -308,7 +309,7 @@ export default function DashboardStatTiles() {
 
         if (route) {
           return (
-            <TouchableOpacity
+            <TourButton tourId={stat.label}
               accessibilityRole="button"
               activeOpacity={0.86}
               key={stat.label}
@@ -316,14 +317,14 @@ export default function DashboardStatTiles() {
               style={tileStyle}
             >
               {tileContent}
-            </TouchableOpacity>
+            </TourButton>
           );
         }
 
         return (
-          <View key={stat.label} style={tileStyle}>
+          <TourView tourId={stat.label} key={stat.label} style={tileStyle}>
             {tileContent}
-          </View>
+          </TourView>
         );
       })}
     </View>

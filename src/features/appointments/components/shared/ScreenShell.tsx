@@ -1,3 +1,4 @@
+import { TourScrollView } from "@/features/userGuide/DashboardTour";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { AppLayout } from "@/constants/layout";
 import { AppointmentSnackbar } from "@/features/appointments/components/shared/AppointmentSnackbar";
@@ -8,7 +9,7 @@ import { Ionicons } from "@expo/vector-icons";
 import type { Href } from "expo-router";
 import { router } from "expo-router";
 import { useMemo } from "react";
-import { RefreshControl, ScrollView, Text, TouchableOpacity, useWindowDimensions, View } from "react-native";
+import { RefreshControl, Text, TouchableOpacity, useWindowDimensions, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export function ScreenShell({
@@ -86,7 +87,7 @@ export function ScreenShell({
     <SafeAreaView edges={safeAreaEdges} style={styles.safeArea}>
       <AppStatusBar />
       {scrollable ? (
-        <ScrollView
+        <TourScrollView
           contentContainerStyle={[styles.content, contentStyle]}
           keyboardShouldPersistTaps="handled"
           refreshControl={
@@ -102,7 +103,7 @@ export function ScreenShell({
           showsVerticalScrollIndicator={false}
         >
           {content}
-        </ScrollView>
+        </TourScrollView>
       ) : (
         <View style={[styles.content, styles.fixedContent, contentStyle, { paddingBottom: contentBottomPadding }]}>{content}</View>
       )}

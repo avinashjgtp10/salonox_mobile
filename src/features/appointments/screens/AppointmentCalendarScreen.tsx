@@ -1,3 +1,5 @@
+import { TourButton, TourView, withScreenTour } from "@/features/userGuide/DashboardTour";
+import { screenTours } from "@/features/userGuide/screenTours";
 import { CalendarPreview } from "@/features/appointments/components/calendar/CalendarPreview";
 import { CalendarStaffGate } from "@/features/appointments/components/calendar/CalendarStaffGate";
 import { CalendarStatusFilter } from "@/features/appointments/components/calendar/CalendarStatusFilter";
@@ -19,7 +21,7 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Modal, Pressable, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 
-export function AppointmentCalendarScreen() {
+function AppointmentCalendarScreenContent() {
   return <CalendarStaffGate><AppointmentCalendarContent /></CalendarStaffGate>;
 }
 
@@ -118,20 +120,20 @@ function AppointmentCalendarContent() {
       <View style={styles.dinggToolbar}>
         <View style={styles.calendarHeadingRow}>
           <Text accessibilityRole="header" style={styles.calendarHeading}>Calendar</Text>
-          <TouchableOpacity accessibilityLabel="Change calendar view" onPress={() => setViewMenuVisible(true)} style={styles.calendarViewButton}>
+          <TourButton tourId="view" accessibilityLabel="Change calendar view" onPress={() => setViewMenuVisible(true)} style={styles.calendarViewButton}>
             <Text style={styles.dinggTodayText}>{viewMode === "day" ? "Day" : viewMode === "week" ? "Week" : "List"}</Text>
             <Ionicons name="chevron-down" size={14} color={Colors.appointmentTextSecondary} />
-          </TouchableOpacity>
+          </TourButton>
         </View>
         <View style={styles.dinggToolbarActions}>
           <TouchableOpacity onPress={() => setDate(todayIsoDate())} style={styles.dinggTodayButton}><Text style={styles.dinggTodayText}>Today</Text></TouchableOpacity>
-          <View style={styles.dinggRangeControls}>
+          <TourView tourId="date" style={styles.dinggRangeControls}>
             <TouchableOpacity hitSlop={8} onPress={() => changeDate(viewMode === "week" ? -7 : -1)}><Ionicons name="chevron-back" size={17} color={Colors.appointmentAccent} /></TouchableOpacity>
             <TouchableOpacity accessibilityLabel="Select date" onPress={() => setDatePickerVisible(true)} style={styles.dinggRangeButton}><Text style={styles.dinggRangeText}>{formatAppDate(`${date}T00:00:00`)}{viewMode === "week" ? ` -\n${formatAppDate(rangeEnd)}` : ""}</Text><Ionicons name="chevron-down" size={16} color={Colors.appointmentText} /></TouchableOpacity>
             <TouchableOpacity hitSlop={8} onPress={() => changeDate(viewMode === "week" ? 7 : 1)}><Ionicons name="chevron-forward" size={17} color={Colors.appointmentAccent} /></TouchableOpacity>
-          </View>
+          </TourView>
           <View style={styles.dinggToolbarIcons}>
-            <TouchableOpacity accessibilityLabel="Search appointments" onPress={() => setCalendarSearchOpen((open) => !open)} style={styles.dinggToolbarIcon}><Ionicons name="search-outline" size={19} color={Colors.appointmentText} /></TouchableOpacity>
+            <TourButton tourId="search" accessibilityLabel="Search appointments" onPress={() => setCalendarSearchOpen((open) => !open)} style={styles.dinggToolbarIcon}><Ionicons name="search-outline" size={19} color={Colors.appointmentText} /></TourButton>
             <TouchableOpacity accessibilityLabel="Select date" onPress={() => setDatePickerVisible(true)} style={styles.dinggToolbarIcon}><Ionicons name="calendar-outline" size={21} color={Colors.appointmentText} /></TouchableOpacity>
           </View>
         </View>
@@ -143,10 +145,10 @@ function AppointmentCalendarContent() {
           </View>
         ) : null}
         {datePickerVisible ? <DateTimePicker mode="date" onChange={(event, selected) => { setDatePickerVisible(false); if (event.type !== "dismissed" && selected) setDate(`${selected.getFullYear()}-${String(selected.getMonth() + 1).padStart(2, "0")}-${String(selected.getDate()).padStart(2, "0")}`); }} value={new Date(`${date}T00:00:00`)} /> : null}
-        <View style={styles.calendarFilterRow}>
+        <TourView tourId="filters" style={styles.calendarFilterRow}>
           <TouchableOpacity onPress={() => setStaffFilterVisible(true)} style={[styles.dinggStylistSummary, styles.calendarStaffFilter]}><Text style={styles.dinggStylistLabel}>Staff:</Text><Text numberOfLines={1} style={styles.dinggStylistValue}>{selectedStaffLabel}</Text><Ionicons name="chevron-down" size={15} color={Colors.appointmentTextSecondary} /></TouchableOpacity>
           <CalendarStatusFilter statuses={selectedStatuses} onChange={setSelectedStatuses} />
-        </View>
+        </TourView>
       </View>
       <CalendarPreview
         showEmptyState={!loading && !error}
@@ -165,3 +167,5 @@ function AppointmentCalendarContent() {
     </ScreenShell>
   );
 }
+
+export const AppointmentCalendarScreen = withScreenTour(AppointmentCalendarScreenContent, screenTours.calendar);
