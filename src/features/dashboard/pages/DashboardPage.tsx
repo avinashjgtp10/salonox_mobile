@@ -62,6 +62,7 @@ import type { DashboardCombinedResponse } from "../../../middleware/dashboard/da
 import { useTodayAppointments } from "../hooks/useTodayAppointments";
 import { useMaskedCurrency } from "../hooks/useMaskedCurrency";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
+import { usePermissions } from "../../../hooks/usePermissions";
 import { resendClosedCounterMessage } from "../../cash-management/cashManagement.api";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -425,12 +426,14 @@ const KpiCardsGrid = memo(function KpiCardsGrid({
   loading,
   error,
   onRetry,
+  can,
 }: {
   summary: NormSummary | undefined;
   normApptCount: number;
   loading: boolean;
   error: string | null;
   onRetry: () => void;
+  can: (permKey: string) => boolean;
 }) {
   const { formatAmount, currencySymbol, currencyCode, canSeeFinancials } = useMaskedCurrency();
   const fmt = (n?: number) => (n != null ? formatAmount(n) : "—");
@@ -443,6 +446,7 @@ const KpiCardsGrid = memo(function KpiCardsGrid({
   const cards = [
     {
       theme: "revenue",
+      permKey: "view_dashboard_card_total_revenue",
       icon:  <CurrencyIcon size={20} />,
       tabLabels: ["This Month", "Last Month"] as [string, string],
       defaultTab: 0 as const,
@@ -461,6 +465,7 @@ const KpiCardsGrid = memo(function KpiCardsGrid({
     },
     {
       theme: "appointments",
+      permKey: "view_dashboard_card_appointments",
       icon:  <CalendarCheck size={20} />,
       tabLabels: ["Today", "Yesterday"] as [string, string],
       defaultTab: 0 as const,
@@ -479,6 +484,7 @@ const KpiCardsGrid = memo(function KpiCardsGrid({
     },
     {
       theme: "today-revenue",
+      permKey: "view_dashboard_card_today_revenue",
       icon:  <CurrencyIcon size={20} />,
       tabLabels: ["Today", "Yesterday"] as [string, string],
       front: {
@@ -496,6 +502,7 @@ const KpiCardsGrid = memo(function KpiCardsGrid({
     },
     {
       theme: "new-clients",
+      permKey: "view_dashboard_card_new_clients",
       icon:  <PersonPlus size={20} />,
       tabLabels: ["Today", "This Month"] as [string, string],
       front: {
@@ -515,7 +522,7 @@ const KpiCardsGrid = memo(function KpiCardsGrid({
 
   return (
     <div className="db-kpi-row">
-      {cards.map((card) => (
+      {cards.filter((card) => can(card.permKey)).map((card) => (
         <TabKpiCard
           key={card.theme}
           theme={card.theme}
@@ -536,7 +543,7 @@ const KpiCardsGrid = memo(function KpiCardsGrid({
 // ─── Section: Bottom Stat Cards (Pending Payments / Birthdays / Inactive Clients) ──
 
 const BottomStatCards = memo(function BottomStatCards({
-  pendingPayments, birthdays, loading, pendingLoading, onNavigatePendingAppointments, salonName,
+  pendingPayments, birthdays, loading, pendingLoading, onNavigatePendingAppointments, salonName, can,
 }: {
   pendingPayments: { count: number; amount: number } | undefined;
   birthdays: { clients: Array<{ id: string; name: string; phone: string | null; phoneCountryCode: string | null }> } | undefined;
@@ -544,72 +551,81 @@ const BottomStatCards = memo(function BottomStatCards({
   pendingLoading: boolean;
   onNavigatePendingAppointments: () => void;
   salonName: string;
+  can: (permKey: string) => boolean;
 }) {
   const { formatAmount } = useMaskedCurrency();
   const fmt = (n?: number) => (n != null ? formatAmount(n) : "—");
   const birthdayClients = birthdays?.clients ?? [];
+  const showDueAmount = can("view_dashboard_card_due_amount");
+  const showBirthdays = can("view_dashboard_card_birthdays");
+
+  if (!showDueAmount && !showBirthdays) return null;
 
   return (
     <div className="db-mini-stats-row">
-      <div className="db-mini-stat-card db-mini-stat-card--danger">
-        <div className="db-mini-stat-card__top">
-          <span className="db-mini-stat-card__label">Due amount</span>
-          <span className="db-mini-stat-card__icon"><CreditCard2Front size={18} /></span>
-        </div>
-        {pendingLoading ? (
-          <Skeleton width="50%" height={26} className="db-mini-stat-card__value-skel" />
-        ) : (
-          <div className="db-mini-stat-card__value">{fmt(pendingPayments?.amount)}</div>
-        )}
-        <div className="db-mini-stat-card__sub">
-          {pendingPayments?.count ?? 0} client{(pendingPayments?.count ?? 0) !== 1 ? "s" : ""}
-        </div>
-        <button className="db-mini-stat-card__cta" onClick={onNavigatePendingAppointments}>
-          Collect Now <ChevronRight size={11} />
-        </button>
-      </div>
-
-      <div className="db-mini-stat-card db-mini-stat-card--pink">
-        <div className="db-mini-stat-card__top">
-          <span className="db-mini-stat-card__label">Today's Birthdays</span>
-          <span className="db-mini-stat-card__icon"><Cake2 size={18} /></span>
-        </div>
-        {loading ? (
-          <Skeleton width="50%" height={26} className="db-mini-stat-card__value-skel" />
-        ) : birthdayClients.length > 0 ? (
-          <div className="db-birthday-list">
-            {birthdayClients.map((c) => {
-              const waLink = buildClientWhatsAppLink(c.phone, c.phoneCountryCode);
-              const text = `Happy Birthday, ${c.name}! 🎉 Wishing you a wonderful day, from all of us at ${salonName}.`;
-              return (
-                <div key={c.id} className="db-birthday-list__row">
-                  <span className="db-birthday-list__name" title={c.name}>{c.name}</span>
-                  {waLink ? (
-                    <a
-                      className="db-birthday-list__wa"
-                      href={`${waLink}?text=${encodeURIComponent(text)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      title={`Send birthday wishes to ${c.name} on WhatsApp`}
-                    >
-                      <Whatsapp size={15} />
-                    </a>
-                  ) : (
-                    <span className="db-birthday-list__wa db-birthday-list__wa--disabled" title="No phone number on file">
-                      <Whatsapp size={15} />
-                    </span>
-                  )}
-                </div>
-              );
-            })}
+      {showDueAmount && (
+        <div className="db-mini-stat-card db-mini-stat-card--danger">
+          <div className="db-mini-stat-card__top">
+            <span className="db-mini-stat-card__label">Due amount</span>
+            <span className="db-mini-stat-card__icon"><CreditCard2Front size={18} /></span>
           </div>
-        ) : (
-          <>
-            <div className="db-mini-stat-card__value">0</div>
-            <div className="db-mini-stat-card__sub">None today</div>
-          </>
-        )}
-      </div>
+          {pendingLoading ? (
+            <Skeleton width="50%" height={26} className="db-mini-stat-card__value-skel" />
+          ) : (
+            <div className="db-mini-stat-card__value">{fmt(pendingPayments?.amount)}</div>
+          )}
+          <div className="db-mini-stat-card__sub">
+            {pendingPayments?.count ?? 0} client{(pendingPayments?.count ?? 0) !== 1 ? "s" : ""}
+          </div>
+          <button className="db-mini-stat-card__cta" onClick={onNavigatePendingAppointments}>
+            Collect Now <ChevronRight size={11} />
+          </button>
+        </div>
+      )}
+
+      {showBirthdays && (
+        <div className="db-mini-stat-card db-mini-stat-card--pink">
+          <div className="db-mini-stat-card__top">
+            <span className="db-mini-stat-card__label">Today's Birthdays</span>
+            <span className="db-mini-stat-card__icon"><Cake2 size={18} /></span>
+          </div>
+          {loading ? (
+            <Skeleton width="50%" height={26} className="db-mini-stat-card__value-skel" />
+          ) : birthdayClients.length > 0 ? (
+            <div className="db-birthday-list">
+              {birthdayClients.map((c) => {
+                const waLink = buildClientWhatsAppLink(c.phone, c.phoneCountryCode);
+                const text = `Happy Birthday, ${c.name}! 🎉 Wishing you a wonderful day, from all of us at ${salonName}.`;
+                return (
+                  <div key={c.id} className="db-birthday-list__row">
+                    <span className="db-birthday-list__name" title={c.name}>{c.name}</span>
+                    {waLink ? (
+                      <a
+                        className="db-birthday-list__wa"
+                        href={`${waLink}?text=${encodeURIComponent(text)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title={`Send birthday wishes to ${c.name} on WhatsApp`}
+                      >
+                        <Whatsapp size={15} />
+                      </a>
+                    ) : (
+                      <span className="db-birthday-list__wa db-birthday-list__wa--disabled" title="No phone number on file">
+                        <Whatsapp size={15} />
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <>
+              <div className="db-mini-stat-card__value">0</div>
+              <div className="db-mini-stat-card__sub">None today</div>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 });
@@ -1173,6 +1189,7 @@ const AppointmentsTable = memo(function AppointmentsTable({
 export default function DashboardPage() {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
+  const { can } = usePermissions();
 
   const [apptPage,  setApptPage]  = useState(1);
   const [apptStatusFilter, setApptStatusFilter] = useState<ApptStatusFilter>("all");
@@ -1389,34 +1406,41 @@ export default function DashboardPage() {
         loading={dashLoading}
         error={dashError}
         onRetry={retryFull}
+        can={can}
       />
 
       {/* ── REVENUE OVERVIEW + TODAY'S SUMMARY ── */}
-      <div className="db-overview-row">
+      {(can("view_dashboard_card_revenue_overview") || can("view_dashboard_card_overall_collection")) && (
+        <div className="db-overview-row">
 
-        {/* Revenue chart — only re-renders when chart data or chartLoading changes */}
-        <RevenueChartPanel
-          revenue={displayRevenueChart}
-          chartLoading={dashLoading || chartLoading}
-          error={chartError ?? dashError}
-          revPeriod={revPeriod}
-          onPeriodChange={handlePeriodChange}
-          revGender={revGender}
-          onGenderChange={handleGenderChange}
-          onRetry={retryChart}
-        />
+          {/* Revenue chart — only re-renders when chart data or chartLoading changes */}
+          {can("view_dashboard_card_revenue_overview") && (
+            <RevenueChartPanel
+              revenue={displayRevenueChart}
+              chartLoading={dashLoading || chartLoading}
+              error={chartError ?? dashError}
+              revPeriod={revPeriod}
+              onPeriodChange={handlePeriodChange}
+              revGender={revGender}
+              onGenderChange={handleGenderChange}
+              onRetry={retryChart}
+            />
+          )}
 
-        <OverallCollectionPanel
-          entries={paymentModeBreakdown.entries}
-          total={paymentModeBreakdown.total}
-          period={collectionPeriod}
-          onPeriodChange={handleCollectionPeriodChange}
-          loading={dashLoading}
-          error={dashError}
-          onRetry={retryPaymentModeBreakdown}
-        />
+          {can("view_dashboard_card_overall_collection") && (
+            <OverallCollectionPanel
+              entries={paymentModeBreakdown.entries}
+              total={paymentModeBreakdown.total}
+              period={collectionPeriod}
+              onPeriodChange={handleCollectionPeriodChange}
+              loading={dashLoading}
+              error={dashError}
+              onRetry={retryPaymentModeBreakdown}
+            />
+          )}
 
-      </div>
+        </div>
+      )}
 
       {/* ── TODAY'S APPOINTMENTS TABLE ── */}
       <AppointmentsTable
@@ -1441,6 +1465,7 @@ export default function DashboardPage() {
         pendingLoading={dashLoading}
         onNavigatePendingAppointments={goToPendingAppointments}
         salonName={salonName}
+        can={can}
       />
 
     </div>

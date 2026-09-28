@@ -14,7 +14,23 @@ const asErrorMessage = (err: any, fallback: string) =>
 // sales.routes.ts and it stays granted-by-default (permissionMatrix.ts /
 // role seeds), so hiding it here is purely cosmetic and can't lock anyone
 // out of Sales.
-const HIDDEN_CATALOG_KEYS = new Set(["view_sales"]);
+//
+// The 4 view_dashboard_* umbrella keys (appointments/client_info/financials/
+// staff_performance) are superseded by the 8 granular view_dashboard_card_*
+// keys for the main Dashboard's own cards (see
+// add_dashboard_card_visibility_permissions.sql) — having both sets visible
+// side by side in the same "Dashboard" module was confusing (2 toggles
+// controlling the same card). They stay in the DB and still gate their own
+// separate routes (Cash Management's summary bundle, the Appointments list
+// route, and the staff revenue leaderboard respectively — none of which the
+// 8 new keys touch), so hiding them here is purely cosmetic.
+const HIDDEN_CATALOG_KEYS = new Set([
+  "view_sales",
+  "view_dashboard_appointments",
+  "view_dashboard_client_info",
+  "view_dashboard_financials",
+  "view_dashboard_staff_performance",
+]);
 
 // ── Permission catalog ──────────────────────────────────────────────────────────
 export const fetchPermissionsCatalogThunk = createAsyncThunk<
