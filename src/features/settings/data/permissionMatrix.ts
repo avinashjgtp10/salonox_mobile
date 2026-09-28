@@ -22,7 +22,13 @@ export const defaultPermissions: Permission[] = [
   // that override existed (customPerms["view_sales"] was always undefined).
   // There's no backend concept of a separate "edit"/"delete" quick sale
   // action — updates and deletes both go through the same create_sales key.
-  { key: "view_sales",          label: "View Sales",          desc: "Access sales records and daily summaries", category: "Quick Sale",   owner: true,  staff: true,  manager: true },
+  //
+  // "View Sales" itself is intentionally NOT listed here — it's hidden from
+  // every permissions UI (redundant next to Create Sales, which already
+  // covers view+create+checkout) but the backend still enforces view_sales
+  // on sales.routes.ts and it stays granted-by-default via
+  // permission.middleware.ts's fallback, so omitting the toggle can't lock
+  // anyone out of Sales.
   { key: "create_sales",        label: "Create Sales",        desc: "Create, edit and checkout sales",      category: "Quick Sale",     owner: true,  staff: true,  manager: true },
   { key: "import_sales",        label: "Import Billing Data", desc: "Bulk-import historical invoices from an Excel/CSV file", category: "Quick Sale", owner: true, staff: false, manager: true },
 
