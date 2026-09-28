@@ -27,6 +27,11 @@ import { resolveMediaUrl } from "../../../utils/mediaUrl";
 import type { Salon, UpdateSalonPayload } from "../../../types/salon.types";
 import { TAX_ID_MESSAGES } from "../../../constants/message";
 import { toTitleCase } from "../../../utils/titleCase";
+// Backend's phone format only allows an optional leading "+" then digits
+// (see users.validator.ts / salons validator) — strip spaces/dashes/parens
+// so a number typed the way the "+91 98765 43210" placeholder suggests
+// doesn't fail validation.
+const normalizePhoneForSave = (phone: string) => phone.replace(/[\s\-().]/g, "");
 // Self-imported (not just relying on SettingsLayout's import) so this page's
 // settings-* classnames stay styled even when mounted outside Settings — e.g.
 // at /dashboard/profile.
@@ -47,7 +52,7 @@ const ALLOWED_LOGO_TYPES = ["image/jpeg", "image/png"];
 // business phone and only fall back to the owner's personal number when it's
 // empty, so leaving it blank here doesn't break that flow.
 type BusinessForm = UpdateSalonPayload;
-type FormErrors = Partial<Record<"gst_number" | "pan_number", string>>;
+type FormErrors = Partial<Record<"gst_number" | "pan_number" | "phone", string>>;
 
 function salonToForm(salon: Salon): BusinessForm {
   return {
@@ -96,6 +101,14 @@ const EMPTY_FORM: BusinessForm = {
 };
 
 const Required = () => <span className="settings-required">*</span>;
+
+// Business Phone and WhatsApp Alerts Number are both plain 10-digit mobile
+// numbers (no country code) — their inputs strip non-digits and cap length
+// as the user types (see handleChange/alertsPhone's onChange), so this just
+// re-checks the final value at submit time.
+const MOBILE_DIGIT_LENGTH = 10;
+const isValidMobile10 = (phone: string) => normalizePhoneForSave(phone).length === MOBILE_DIGIT_LENGTH
+  && /^\d+$/.test(normalizePhoneForSave(phone));
 
 export default function BusinessSettingsPage() {
   const dispatch = useAppDispatch();
@@ -176,6 +189,16 @@ export default function BusinessSettingsPage() {
       }));
     }
 
+    if (name === "phone") {
+      value = value.replace(/\D/g, "").slice(0, MOBILE_DIGIT_LENGTH);
+      setErrors((prev) => ({
+        ...prev,
+        phone: value
+          ? (value.length !== MOBILE_DIGIT_LENGTH ? "Enter a valid 10-digit mobile number" : undefined)
+          : "Business Phone is required",
+      }));
+    }
+
     setForm((prev) => ({ ...prev, [name]: value || undefined }));
   };
 
@@ -183,6 +206,13 @@ export default function BusinessSettingsPage() {
     const nextErrors: FormErrors = {};
     const gstNumber = form.gst_number?.trim() ?? "";
     const panNumber = form.pan_number?.trim() ?? "";
+    const businessPhone = (form.phone ?? "").trim();
+
+    if (!businessPhone) {
+      nextErrors.phone = "Business Phone is required";
+    } else if (!isValidMobile10(businessPhone)) {
+      nextErrors.phone = "Enter a valid 10-digit mobile number";
+    }
 
     if (gstNumber && !GSTIN_FORMAT_RE.test(gstNumber)) {
       nextErrors.gst_number = gstNumber.length !== GSTIN_LENGTH
@@ -227,6 +257,14 @@ export default function BusinessSettingsPage() {
       showError("Full name is required");
       return;
     }
+    if (!alertsPhone.trim()) {
+      showError("WhatsApp Alerts Number is required");
+      return;
+    }
+    if (!isValidMobile10(alertsPhone)) {
+      showError("Enter a valid 10-digit WhatsApp mobile number");
+      return;
+    }
     if (!validateForm()) {
       showError("Please fix the highlighted fields before saving");
       return;
@@ -234,10 +272,17 @@ export default function BusinessSettingsPage() {
 
     setSaving(true);
     const [userResult, salonResult] = await Promise.all([
-      dispatch(updateUserThunk({ fullName: toTitleCase(fullName.trim()), phone: alertsPhone.trim() })),
+      dispatch(updateUserThunk({
+        fullName: toTitleCase(fullName.trim()),
+        phone: normalizePhoneForSave(alertsPhone.trim()),
+      })),
       dispatch(updateSalonThunk({
         id: currentSalon.id,
-        payload: { ...form, business_name: toTitleCase((form.business_name ?? "").trim()) },
+        payload: {
+          ...form,
+          business_name: toTitleCase((form.business_name ?? "").trim()),
+          phone: normalizePhoneForSave((form.phone ?? "").trim()),
+        },
       })),
     ]);
     setSaving(false);
@@ -585,22 +630,23 @@ export default function BusinessSettingsPage() {
                   value={form.phone ?? ""}
                   onChange={handleChange}
                   disabled={!isEditing}
-                  placeholder="+91 98765 43210"
+                  placeholder="9876543210"
                 />
+                {errors.phone && <span className="settings-error">{errors.phone}</span>}
                 <span className="settings-hint">Shown to clients on invoices, receipts, and your booking page.</span>
               </div>
 
               <div className="settings-form-group">
                 <label className="settings-label">
                   <MessageCircle size={13} className="me-1" />
-                  WhatsApp Alerts Number
+                  WhatsApp Alerts Number <Required />
                 </label>
                 <input
                   className="settings-input"
                   value={alertsPhone}
-                  onChange={(e) => setAlertsPhone(e.target.value)}
+                  onChange={(e) => setAlertsPhone(e.target.value.replace(/\D/g, "").slice(0, MOBILE_DIGIT_LENGTH))}
                   disabled={!isEditing}
-                  placeholder="+91 98765 43210"
+                  placeholder="9876543210"
                 />
                 <span className="settings-hint">Your own number — cash counter open/close and other owner alerts go here. Never shown to clients.</span>
               </div>
