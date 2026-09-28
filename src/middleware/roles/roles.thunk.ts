@@ -7,6 +7,15 @@ import type { Permission, Role, RoleWithPermissions, StaffPermissionsView } from
 const asErrorMessage = (err: any, fallback: string) =>
   err instanceof ApiError ? err.message : fallback;
 
+// Hidden from every Permissions UI (Roles panel, Individual Staff overrides,
+// Branch Owner staff detail) per product request — Quick Sale's "View Sales"
+// toggle was confusing next to "Create Sales" (which already covers
+// view+create+checkout). The backend still enforces view_sales on
+// sales.routes.ts and it stays granted-by-default (permissionMatrix.ts /
+// role seeds), so hiding it here is purely cosmetic and can't lock anyone
+// out of Sales.
+const HIDDEN_CATALOG_KEYS = new Set(["view_sales"]);
+
 // ── Permission catalog ──────────────────────────────────────────────────────────
 export const fetchPermissionsCatalogThunk = createAsyncThunk<
   Permission[],
@@ -15,7 +24,8 @@ export const fetchPermissionsCatalogThunk = createAsyncThunk<
 >("roles/fetchPermissionsCatalog", async (_, { rejectWithValue }) => {
   try {
     const res = await api.get<any>(PERMISSIONS_CATALOG.BASE);
-    return res.data?.data?.items ?? [];
+    const items: Permission[] = res.data?.data?.items ?? [];
+    return items.filter((p) => !HIDDEN_CATALOG_KEYS.has(p.key));
   } catch (err: any) {
     return rejectWithValue(asErrorMessage(err, "Failed to fetch permission catalog"));
   }
