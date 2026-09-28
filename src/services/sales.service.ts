@@ -1,4 +1,4 @@
-import { api } from "@/services/api";
+import { api, CHECKOUT_REQUEST_TIMEOUT_MS } from "@/services/api";
 import { SALES } from "@/services/api/endpoints";
 import type { ApiResponse } from "@/types/auth";
 import { normalizeSaleId } from "@/utils/apiNormalize";
@@ -58,7 +58,6 @@ type SalesListApiData =
 type SalesListApiResponse = ApiResponse<SalesListApiData>;
 type StaffSaleItemsApiResponse = ApiResponse<SalesListApiData>;
 type SalesSummaryApiResponse = ApiResponse<UnknownRecord | null>;
-type ExportSalesApiResponse = ApiResponse<UnknownRecord | string | null>;
 
 const AVATAR_PALETTE = [
   { background: "#F2EFE9", color: "#726A63" },
@@ -560,6 +559,7 @@ export const salesService = {
     const response = await api.post<SaleApiResponse>(
       SALES.CHECKOUT(saleId),
       buildCheckoutRequestBody(payload),
+      { timeout: CHECKOUT_REQUEST_TIMEOUT_MS },
     );
 
     return {
@@ -577,8 +577,17 @@ export const salesService = {
     });
 
     const apiSales = getSaleArray(response.data.data);
-    const sales = apiSales.map(normalizeSaleListItem);
-    const totalCount = getSalesTotalCount(response.data.data, sales.length);
+    // /sales returns the complete matching list and ignores search/sort params.
+    // Apply these to the full result, not just the currently visible page.
+    const search = query.search.trim().toLocaleLowerCase();
+    const sales = apiSales.map(normalizeSaleListItem).filter((sale) =>
+      !search || [sale.clientName, sale.receiptNumber].some((value) => value.toLocaleLowerCase().includes(search)),
+    );
+    if (query.sort_by === "total" || query.sort_by === "total_amount") {
+      const direction = query.sort_order === "asc" ? 1 : -1;
+      sales.sort((left, right) => direction * (left.total - right.total) || left.id.localeCompare(right.id));
+    }
+    const totalCount = sales.length;
 
     return {
       pagination: getSalesPagination(query, sales.length),
@@ -643,20 +652,16 @@ export const salesService = {
   },
 
   async exportSales(query?: Partial<SalesListQuery>, format: ExportFormat = "csv"): Promise<ExportSalesResponse> {
-    const endpoint = format === "csv" ? SALES.EXPORT_CSV : format === "excel" ? SALES.EXPORT_EXCEL : SALES.EXPORT_PDF;
-    const response = await api.get<ExportSalesApiResponse>(endpoint, {
-      params: query,
+    const response = await api.get<string | ArrayBuffer>(SALES.EXPORT, {
+      params: { ...query, format },
+      responseType: format === "csv" ? "text" : "arraybuffer",
     });
-
-    const rawData = response.data.data;
-    const url =
-      typeof rawData === "string"
-        ? rawData
-        : toSafeString(firstValue(asRecord(rawData), ["url", "file_url", "fileUrl", "download_url"]));
-
     return {
-      message: response.data.message,
-      url: url || null,
+      data: response.data,
+      contentType: String(response.headers["content-type"] ?? "application/octet-stream"),
+      filename: String(response.headers["content-disposition"] ?? "").match(/filename="?([^";]+)"?/)?.[1]
+        ?? `sales.${format === "excel" ? "xlsx" : format}`,
+      format,
     };
   },
 };

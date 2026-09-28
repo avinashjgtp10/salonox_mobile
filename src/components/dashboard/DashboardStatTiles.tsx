@@ -1,7 +1,7 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { router, type Href } from "expo-router";
 import { useMemo } from "react";
-import { StyleSheet, Text, TouchableOpacity, View, useWindowDimensions, type DimensionValue } from "react-native";
+import { Platform, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions, type DimensionValue } from "react-native";
 
 import { IconBadge } from "@/components/ui/IconBadge";
 import {
@@ -157,7 +157,7 @@ export default function DashboardStatTiles() {
         gradient: STAT_TILE_GRADIENTS.todayRevenue,
         icon: "trending-up-outline" as const,
         label: "Today's Revenue",
-        route: "/sales" as Href,
+        route: "/today-revenue" as Href,
         value: formatDashboardRevenue(dashboardMetrics.todaysRevenue),
       },
       {
@@ -290,7 +290,7 @@ export default function DashboardStatTiles() {
                 ) : (
                   <>
                     <Text style={[styles.label, { color: stat.color }]}>{stat.label}</Text>
-                    <Text adjustsFontSizeToFit minimumFontScale={0.72} numberOfLines={1} style={styles.value}>
+                    <Text adjustsFontSizeToFit minimumFontScale={0.72} numberOfLines={1} style={[styles.value, Platform.OS === "ios" && styles.iosValue]}>
                       {stat.value}
                     </Text>
                     <Text style={[styles.subtitle, !stat.subtitle && styles.subtitlePlaceholder]}>
@@ -401,6 +401,12 @@ const createStyles = (Colors: ThemeColors, isCompact: boolean) => StyleSheet.cre
     lineHeight: isCompact ? 32 : 38,
     marginTop: isCompact ? 8 : 10,
     textAlign: "left",
+  },
+  // Give iOS auto-fit the full content width, using the existing Android
+  // font size, padding and card dimensions as the shared baseline.
+  iosValue: {
+    width: "100%",
+    flexShrink: 0,
   },
   label: {
     color: Colors.text2,

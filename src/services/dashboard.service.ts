@@ -3,6 +3,7 @@ import { DASHBOARD } from "@/services/api/endpoints";
 import { formatAppTime } from "@/utils/dateTime";
 
 type DashboardSummaryResponse = {
+  allTimeRevenue?: number | null;
   lastMonthRevenue?: number | null;
   quick_sale_revenue?: number | null;
   quickSaleRevenue?: number | null;
@@ -26,6 +27,13 @@ type DashboardAppointmentStatus =
 
 type DashboardAppointmentResponse = {
   amount?: number | null;
+  computed_grand_total?: number | string | null;
+  total?: number | string | null;
+  client_name?: string | null;
+  service_name?: string | null;
+  services?: { name?: string | null; staff_name?: string | null; staff_id?: string | null }[] | null;
+  staff_name?: string | null;
+  staff_id?: string | null;
   // Candidate fields for the appointment's actual scheduled start datetime.
   // Deliberately does NOT include created_at/updated_at/booking_time — those
   // are record bookkeeping timestamps, not the scheduled start time.
@@ -99,6 +107,10 @@ type DashboardApiResponse = {
 };
 
 export type DashboardMetrics = {
+  // True all-time revenue, not scoped to any month. Imported/backfilled sales
+  // keep their original bill date, so historical revenue only ever shows up
+  // here — never in monthlyRevenue below.
+  allTimeRevenue: number;
   bookings: number;
   lastMonthRevenue: number;
   monthlyRevenue: number;
@@ -291,13 +303,14 @@ const normalizeAppointment = (
   const scheduledAtMs = parseScheduledAtMs(appointment);
 
   return {
-    amount: toSafeNumber(appointment.amount),
-    clientName: toSafeString(appointment.clientName, "Walk-in Client"),
+    amount: toSafeNumber(appointment.computed_grand_total ?? appointment.amount ?? appointment.total),
+    clientName: toSafeString(appointment.client_name ?? appointment.clientName, "Walk-in Client"),
     id: toSafeString(appointment.id, `dashboard-appointment-${index + 1}`),
     scheduledAtMs,
-    service: toSafeString(appointment.service, "Service not added"),
-    staffName: toSafeString(appointment.staffName, "Staff not assigned"),
-    staffId: toSafeString(appointment.staffId) || null,
+    service: toSafeString(appointment.services?.map((service) => service.name).filter(Boolean).join(", "))
+      || toSafeString(appointment.service_name ?? appointment.service, "Service not added"),
+    staffName: toSafeString(appointment.staff_name ?? appointment.staffName ?? appointment.services?.[0]?.staff_name, "Staff not assigned"),
+    staffId: toSafeString(appointment.staff_id ?? appointment.staffId ?? appointment.services?.[0]?.staff_id) || null,
     status: toSafeAppointmentStatus(appointment.status),
     // Prefer deriving the display time from the real scheduled datetime; only
     // fall back to the backend's own pre-formatted string when no parseable
@@ -369,10 +382,20 @@ export const dashboardService = {
     };
   },
 
-  async getStaffRevenue(date = new Date(), salonId?: string | null) {
+  // `period` maps onto the backend's own date windows (salon-dashboard
+  // .repository.getStaffRevenue): "today" is CURRENT_DATE, anything else falls
+  // through to the current calendar month. Note the endpoint ignores `date`
+  // entirely and is always relative to NOW(), so this cannot look at past
+  // months — the param is kept only for the shared query-params helper.
+  async getStaffRevenue(
+    date = new Date(),
+    salonId?: string | null,
+    period: "monthly" | "today" = "monthly",
+  ) {
     const params = this.getDashboardQueryParams(date);
     const requestParams = {
       ...params,
+      period,
       ...(salonId ? { salon_id: salonId } : {}),
     };
 
@@ -399,13 +422,12 @@ export const dashboardService = {
       ...(salonId ? { salon_id: salonId } : {}),
     };
 
-    const response = await api.get<DashboardApiResponse>(DASHBOARD.ALL, {
-      params: requestParams,
-    });
+    const response = await api.post<DashboardApiResponse>(DASHBOARD.COMBINED, requestParams);
     const data = response.data.data;
     const summary = data?.summary;
 
     const metrics: DashboardMetrics = {
+      allTimeRevenue: toSafeNumber(summary?.allTimeRevenue),
       bookings: toSafeNumber(summary?.todayAppointmentsCount),
       lastMonthRevenue: toSafeNumber(summary?.lastMonthRevenue),
       monthlyRevenue: toSafeNumber(summary?.totalRevenue),

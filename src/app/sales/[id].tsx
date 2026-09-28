@@ -167,7 +167,7 @@ export default function SaleDetailsScreen() {
           )}
         </TouchableOpacity>
       ) : (
-        <View style={[styles.backButton, { opacity: 0 }]} />
+        <View style={styles.backButtonPlaceholder} />
       )}
     </View>
   );
@@ -335,6 +335,9 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     borderWidth: 1,
     height: AppLayout.headerActionSize,
     justifyContent: "center",
+    width: AppLayout.headerActionSize,
+  },
+  backButtonPlaceholder: {
     width: AppLayout.headerActionSize,
   },
   headerTitle: {

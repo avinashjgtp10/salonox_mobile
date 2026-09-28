@@ -60,6 +60,8 @@ import {
 } from "@/features/quickSale/types";
 import { ITEM_TYPE_CHIPS, type CatalogTab } from "@/features/quickSale/constants";
 import { clientFromListItem } from "@/features/quickSale/utils/client";
+import { getExpectedSaleRevenue } from "@/features/quickSale/utils/calculations";
+import { consumePackageSessions } from "@/features/quickSale/utils/consumePackageSessions";
 import { getActionError } from "@/features/quickSale/utils/errors";
 import {
   mapDraftSaleToCartItems,
@@ -374,7 +376,7 @@ export default function QuickSaleScreen({
     setOverallDiscountInput(String(restoredOverallDiscount || ""));
     lastValidatedCouponContextRef.current =
       sale.couponCode && couponDiscount > 0
-        ? `${sale.couponCode.toUpperCase()}|${Math.max(0, sale.subtotal - restoredOverallDiscount)}`
+        ? `${sale.couponCode.toUpperCase()}|${Math.max(0, sale.subtotal)}`
         : null;
 
     const productIds = restoredItems
@@ -562,7 +564,8 @@ export default function QuickSaleScreen({
     cartItems: cart.items,
     convenienceFeeInput,
     discountPercent: draftDiscountPercent,
-    discountType: effectiveDiscountType,
+    discountType: draftDiscountType,
+    discountApplyTo,
     includeGst,
     otherChargesInput,
     overallDiscountInput,
@@ -651,14 +654,7 @@ export default function QuickSaleScreen({
       resetQuickSaleSession();
     }
   }, [params.resetSale, resetQuickSaleSession]);
-  // The coupon API accepts only `orderAmount`. Tax, tips, and extra charges
-  // are deliberately excluded because the backend cannot use them for
-  // eligibility. An overall discount reduces the amount the coupon applies
-  // to, so changing it must revalidate the coupon.
-  const couponOrderAmount = useMemo(
-    () => Math.max(0, totals.subtotal - parseAmount(overallDiscountInput)),
-    [overallDiscountInput, totals.subtotal],
-  );
+  const couponOrderAmount = Math.max(0, totals.subtotal);
 
   const staffOptions = useMemo(() => initData?.staff ?? [], [initData?.staff]);
   const singleEligibleStaff = staffOptions.length === 1 ? staffOptions[0] : null;
@@ -717,6 +713,7 @@ export default function QuickSaleScreen({
       cart.addItem({
         availableStock: product.stockQuantity,
         category: product.category,
+        categoryId: product.categoryId,
         defaultStaffId: defaultLineStaff?.id ?? null,
         defaultStaffName: defaultLineStaff?.name ?? null,
         itemId: product.id,
@@ -975,6 +972,10 @@ export default function QuickSaleScreen({
       setCouponCode(result.couponCode);
       lastValidatedCouponContextRef.current =
         `${result.couponCode.toUpperCase()}|${couponOrderAmount}`;
+      if (!amountsReconcile(result.discountAmount, totals.couponDiscount) || totals.couponRejectedReason) {
+        setCouponError("Coupon pricing changed. Review the updated total before continuing.");
+        return false;
+      }
       return true;
     } catch (error) {
       if (requestId === couponValidationRequestRef.current) {
@@ -992,7 +993,7 @@ export default function QuickSaleScreen({
         setIsApplyingCoupon(false);
       }
     }
-  }, [appliedCoupon, couponOrderAmount]);
+  }, [appliedCoupon, couponOrderAmount, totals.couponDiscount, totals.couponRejectedReason]);
 
   const handleClearGlobalSearch = useCallback(() => {
     setGlobalSearchQuery("");
@@ -1083,6 +1084,7 @@ export default function QuickSaleScreen({
 
       cart.addItem({
         category: service.category,
+        categoryId: service.categoryId,
         consumables: service.consumablesUsed,
         defaultStaffId: defaultLineStaff?.id ?? null,
         defaultStaffName: defaultLineStaff?.name ?? null,
@@ -1154,6 +1156,7 @@ export default function QuickSaleScreen({
     return mapAppointmentPayload({
       cartItems: cart.items,
       clientId: selectedClient.id,
+      discountApplyTo,
       initialSlot,
       notes: saleNotes,
       salonId,
@@ -1163,6 +1166,7 @@ export default function QuickSaleScreen({
   }, [
     cart.items,
     getQuickSaleStaff,
+    discountApplyTo,
     initialSlot,
     saleNotes,
     salonId,
@@ -1210,36 +1214,15 @@ export default function QuickSaleScreen({
     [cart.items],
   );
 
-  const markPackageSessions = useCallback(
-    async (appointmentId?: string) => {
-      for (const consumption of packageSessionConsumptions) {
-        for (let session = 0; session < consumption.quantity; session += 1) {
-          await packageService.completeClientPackageSession(consumption.clientPackageId, {
-            appointmentId,
-            serviceId: consumption.serviceId,
-            staffName: consumption.staffName,
-          });
-        }
-      }
-    },
-    [packageSessionConsumptions],
-  );
-
   const markPackageSessionsAfterCheckout = useCallback(
-    async (appointmentId?: string) => {
-      if (packageSessionConsumptions.length === 0) {
-        return;
-      }
-
-      try {
-        await markPackageSessions(appointmentId);
-      } catch (error) {
-        console.error("[Quick Sale] Package session consumption failed after checkout", {
-          message: error instanceof Error ? error.message : "Unknown package completion error",
-        });
-      }
-    },
-    [markPackageSessions, packageSessionConsumptions.length],
+    (appointmentId?: string) => consumePackageSessions(packageSessionConsumptions, (consumption) =>
+      packageService.completeClientPackageSession(consumption.clientPackageId, {
+        appointmentId,
+        serviceId: consumption.serviceId,
+        staffName: consumption.staffName,
+      }),
+    ),
+    [packageSessionConsumptions],
   );
 
   const buildPaymentPayload = useCallback(
@@ -1435,13 +1418,26 @@ export default function QuickSaleScreen({
             localTotal: totals.grandTotal,
             saleId: completedSale.id,
           });
-          setSubmitError(
-            "This sale's saved total doesn't match what was shown here, so it wasn't marked complete. Check Sales Summary before retrying.",
+          checkoutSubmission.commitSuccess();
+          setIsSaleFinalized(true);
+          allowExpectedExitRef.current = true;
+          setIsCheckoutVisible(false);
+          Alert.alert(
+            "Sale total needs review",
+            `Checkout was saved, but the total differs from the amount shown. Check Sales Summary for sale ${completedSale.id}. Do not collect payment again.`,
           );
           return;
         }
 
-        await markPackageSessionsAfterCheckout();
+        const packageWarning = await markPackageSessionsAfterCheckout();
+        if (packageWarning) {
+          checkoutSubmission.commitSuccess();
+          setIsSaleFinalized(true);
+          allowExpectedExitRef.current = true;
+          setIsCheckoutVisible(false);
+          Alert.alert("Package sessions need review", `${packageWarning}\nSale: ${completedSale.id}`);
+          return;
+        }
 
         if (!checkoutSubmission.commitSuccess()) {
           return;
@@ -1473,6 +1469,11 @@ export default function QuickSaleScreen({
           },
           pathname: "/quick-sale/checkout",
         });
+        // Embedded means this screen lives inside the calendar's <Modal>, a
+        // separate native window on Android. The receipt route above replaces
+        // the screen UNDERNEATH it, so without closing the modal the operator
+        // just sees Quick Sale again and assumes the sale failed.
+        onRequestClose?.();
         return;
       }
 
@@ -1549,28 +1550,37 @@ export default function QuickSaleScreen({
         }
       }
 
-      if (
-        finalizedSaleTotal !== null &&
-        !amountsReconcile(finalizedSaleTotal, paymentBody.net_amount)
-      ) {
+      // sales.total_amount is RECOGNIZED REVENUE, not what the client handed
+      // over. payments.service.ts deliberately subtracts membership wallet and
+      // membership discount from it (that money was already booked as revenue
+      // when the membership was sold) but deliberately does NOT subtract
+      // eWallet, reward points or referral credit — those were never counted as
+      // revenue on top-up, only when spent. net_amount, by contrast, is net of
+      // all of them. Comparing the two directly reported a false mismatch on
+      // every sale that redeemed a wallet, points or referral credit, and
+      // refused to finalize a perfectly valid sale. Add those three back so
+      // both sides of the comparison mean the same thing.
+      const expectedSaleTotal = getExpectedSaleRevenue(totals);
+
+      if (finalizedSaleTotal !== null && !amountsReconcile(finalizedSaleTotal, expectedSaleTotal)) {
         console.error("[Quick Sale] Backend/local total mismatch after checkout", {
           appointmentId,
           backendTotal: finalizedSaleTotal,
-          localTotal: paymentBody.net_amount,
+          expectedSaleTotal,
+          localNetAmount: paymentBody.net_amount,
           saleId: checkout.saleId,
         });
-        // Unlike finishAsIncomplete above, this must NOT commit success —
-        // the payment/checkout already happened server-side, but the amount
-        // it recorded doesn't match what this screen showed, so the sale is
-        // deliberately left un-finalized (cart intact, checkout sheet open)
-        // until someone verifies it in Sales Summary.
-        setSubmitError(
-          "The payment was saved, but the finalized total didn't match what was shown here. Check Sales Summary before retrying — this sale was not marked complete.",
+        finishAsIncomplete(
+          `Payment and checkout were saved, but the sale total needs review. Expected ${formatCurrency(expectedSaleTotal)}, saved ${formatCurrency(finalizedSaleTotal)}. Check Sales Summary for sale ${checkout.saleId}. Do not collect payment again.`,
         );
         return;
       }
 
-      await markPackageSessionsAfterCheckout(appointmentId);
+      const packageWarning = await markPackageSessionsAfterCheckout(appointmentId);
+      if (packageWarning) {
+        finishAsIncomplete(`${packageWarning}\nAppointment: ${appointmentId}`);
+        return;
+      }
 
       if (!checkoutSubmission.commitSuccess()) {
         return;
@@ -1611,6 +1621,9 @@ export default function QuickSaleScreen({
         },
         pathname: "/quick-sale/checkout",
       });
+      // See the draft-checkout path above — the calendar's modal must close or
+      // the receipt screen is hidden behind it.
+      onRequestClose?.();
     } catch (error) {
       setSubmitError(getApiErrorMessage(error));
     } finally {
@@ -2372,6 +2385,7 @@ export default function QuickSaleScreen({
           if (changeServiceLineId) {
             cart.replaceItem(changeServiceLineId, {
               category: service.category,
+              categoryId: service.categoryId,
               consumables: service.consumablesUsed,
               duration: service.durationMinutes ? `${service.durationMinutes} min` : undefined,
               itemId: service.id,
@@ -2392,7 +2406,7 @@ export default function QuickSaleScreen({
       <CheckoutSheet
         appliedCoupon={appliedCoupon}
         couponCode={couponCode}
-        couponError={couponError}
+        couponError={couponError ?? totals.couponRejectedReason ?? null}
         discountApplyTo={discountApplyTo}
         extraCharges={{
           convenienceFee: convenienceFeeInput,

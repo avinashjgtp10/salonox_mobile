@@ -84,7 +84,7 @@ export default function ConsumableUsageHistoryScreen() {
         <Text numberOfLines={1} style={styles.title}>
           {scopedConsumable ? `${scopedConsumable.name} — Usage` : "Usage History"}
         </Text>
-        <View style={styles.iconButton} />
+        <View style={styles.iconButtonGhost} />
       </View>
 
       <View style={styles.chipRow}>
@@ -215,6 +215,9 @@ const createStyles = (Colors: ThemeColors) =>
       borderWidth: 1,
       height: AppLayout.headerActionSize,
       justifyContent: "center",
+      width: AppLayout.headerActionSize,
+    },
+    iconButtonGhost: {
       width: AppLayout.headerActionSize,
     },
     title: { color: Colors.heading, flex: 1, fontSize: 17, fontWeight: "800", marginHorizontal: Spacing.sm, textAlign: "center" },

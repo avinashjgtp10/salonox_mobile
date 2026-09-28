@@ -12,6 +12,7 @@ import clientMembershipReducer from "@/store/clientMembership/clientMembership.s
 import clientReducer from "@/store/client/client.slice";
 import consumableReducer from "@/store/consumable/consumable.slice";
 import dashboardReducer from "@/store/dashboard/dashboard.slice";
+import inboxReducer from "@/store/inbox/inbox.slice";
 import membershipReducer from "@/store/membership/membership.slice";
 import networkReducer from "@/store/network/network.slice";
 import notificationReducer from "@/store/notification/notification.slice";
@@ -23,6 +24,7 @@ import salonReducer from "@/store/salon/salon.slice";
 import salonCommissionsReducer from "@/store/staff/salonCommissions.slice";
 import salonTipsReducer from "@/store/staff/salonTips.slice";
 import serviceReducer from "@/store/service/service.slice";
+import spotlightReducer from "@/store/spotlight/spotlight.slice";
 import staffReducer from "@/store/staff/staff.slice";
 import staffAvailabilityReducer from "@/store/staff/staffAvailability.slice";
 import staffBlockedTimesReducer from "@/store/staff/staffBlockedTimes.slice";
@@ -46,6 +48,7 @@ const appReducer = combineReducers({
   clientMembership: clientMembershipReducer,
   consumable: consumableReducer,
   dashboard: dashboardReducer,
+  inbox: inboxReducer,
   membership: membershipReducer,
   network: networkReducer,
   notification: notificationReducer,
@@ -57,6 +60,7 @@ const appReducer = combineReducers({
   salonCommissions: salonCommissionsReducer,
   salonTips: salonTipsReducer,
   service: serviceReducer,
+  spotlight: spotlightReducer,
   staff: staffReducer,
   staffAvailability: staffAvailabilityReducer,
   staffBlockedTimes: staffBlockedTimesReducer,

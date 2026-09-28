@@ -2,6 +2,8 @@ import Constants from "expo-constants";
 import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
+import { tokenStorage } from "@/services/tokenStorage";
+import { isNotificationRegistrationPaused } from "@/services/notificationRegistrationLifecycle";
 
 import {
   isNotificationTypeEnabled,
@@ -29,9 +31,15 @@ export class PushTokenGenerationError extends Error {
 // ("show native notification banner" even in foreground).
 Notifications.setNotificationHandler({
   handleNotification: async (notification) => {
+    const session = await tokenStorage.getSession();
+    const data = notification.request.content.data;
+    const recipientSalon = data?.salon_id ?? data?.salonId;
+    const userSalon = session.user?.salonId;
+    const sessionAllowsNotification = Boolean(session.accessToken && session.user &&
+      !isNotificationRegistrationPaused() && (!recipientSalon || recipientSalon === userSalon));
     const type = String(notification.request.content.data?.event_key ?? notification.request.content.data?.type ?? "general");
     const preferences = await notificationPreferencesStorage.getPreferences();
-    const isEnabled = isNotificationTypeEnabled(type, preferences);
+    const isEnabled = sessionAllowsNotification && isNotificationTypeEnabled(type, preferences);
 
     return {
       shouldPlaySound: isEnabled,

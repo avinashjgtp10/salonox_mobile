@@ -34,6 +34,7 @@ export type MarkAllNotificationsReadResponse = {
 export type DevicePlatform = "android" | "ios";
 
 export type RegisterDeviceRequest = {
+  installation_id?: string;
   app_env?: string;
   platform: DevicePlatform;
   role?: string | null;

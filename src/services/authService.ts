@@ -96,7 +96,7 @@ export const authService = {
   },
 
   async getCurrentUser() {
-    const response = await api.get<ApiResponse<AuthUser>>(USER.ME);
+    const response = await api.get<ApiResponse<AuthUser>>(USER.PROFILE);
 
     const normalizedUser = normalizeAuthUser(response.data.data);
 

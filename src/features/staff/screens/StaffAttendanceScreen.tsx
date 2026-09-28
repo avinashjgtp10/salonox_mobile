@@ -20,9 +20,11 @@ import {
   formatAttendanceTime,
   getAttendanceAction,
   getAttendanceBadgeConfig,
+  getAttendanceErrorMessage,
   getTodayAttendanceDateKey,
   getWorkingHoursLabel,
 } from "@/features/attendance/utils/attendanceStatus";
+import type { AttendanceRejectValue } from "@/middleware/attendance/attendance.thunk";
 import {
   checkInThunk,
   checkOutThunk,
@@ -44,6 +46,23 @@ import {
   selectCurrentStaffLoading,
 } from "@/store/staff/staff.slice";
 import { useThemeColors } from "@/theme/ThemeProvider";
+import {
+  getAttendanceLocationErrorMessage,
+  getCurrentAttendancePlaceName,
+} from "@/utils/attendanceLocation";
+
+// The check-in / check-out thunks reject with an AttendanceRejectValue, which
+// `unwrap()` rethrows as a plain object rather than an Error — so map it back
+// to the shared, human-readable copy instead of testing for `instanceof Error`.
+const toAttendanceActionErrorMessage = (error: unknown): string => {
+  if (error && typeof error === "object" && "kind" in error) {
+    const rejection = error as AttendanceRejectValue;
+
+    return getAttendanceErrorMessage(rejection.kind, rejection.message);
+  }
+
+  return error instanceof Error ? error.message : getAttendanceErrorMessage(null);
+};
 
 const formatValue = (value?: string | number | null) =>
   value === null || value === undefined || value === "" ? "—" : String(value);
@@ -79,6 +98,9 @@ export function StaffAttendanceScreen() {
   const recordsRefreshing = useAppSelector(selectAttendanceRecordsRefreshing);
   const isOffline = useAppSelector(selectAttendanceIsOffline);
   const [actionError, setActionError] = useState<string | null>(null);
+  // Tracks the GPS lookup that precedes the API call, so the button stays
+  // disabled (and explains itself) for the whole punch, not just the request.
+  const [locating, setLocating] = useState(false);
 
   const todayKey = useMemo(() => getTodayAttendanceDateKey(), []);
   const currentStaffId = currentStaff?.id ?? null;
@@ -90,7 +112,7 @@ export function StaffAttendanceScreen() {
   const action = getAttendanceAction(selfRecord);
   const checkingIn = useAppSelector((state) => selectAttendanceIsCheckingIn(state, currentStaffId));
   const checkingOut = useAppSelector((state) => selectAttendanceIsCheckingOut(state, currentStaffId));
-  const actionBusy = checkingIn || checkingOut;
+  const actionBusy = checkingIn || checkingOut || locating;
   const loading = currentStaffLoading || recordsLoading;
   const error = currentStaffError ?? recordsError;
 
@@ -112,23 +134,57 @@ export function StaffAttendanceScreen() {
   }, [loadAttendance]);
 
   const handlePrimaryAction = useCallback(async () => {
-    if (!currentStaffId || action.kind === "edit") {
+    // `edit` means the day is already complete (checked in and out), so there
+    // is nothing valid to punch; actionBusy blocks a second tap mid-request,
+    // which is what would otherwise create a duplicate check-in.
+    if (!currentStaffId || action.kind === "edit" || actionBusy) {
       return;
     }
 
     setActionError(null);
 
+    let location: string;
+
+    setLocating(true);
+
+    // Resolve the place name first and abort the punch if it fails, so a
+    // record is never created without the location it is supposed to carry.
+    try {
+      location = await getCurrentAttendancePlaceName();
+    } catch (error) {
+      setActionError(getAttendanceLocationErrorMessage(error));
+      return;
+    } finally {
+      setLocating(false);
+    }
+
+    const punchedAt = new Date().toISOString();
+
     try {
       if (action.kind === "checkIn") {
-        await dispatch(checkInThunk({ date: todayKey, staffId: currentStaffId })).unwrap();
+        await dispatch(
+          checkInThunk({
+            checkInTime: punchedAt,
+            date: todayKey,
+            location,
+            staffId: currentStaffId,
+          }),
+        ).unwrap();
         return;
       }
 
-      await dispatch(checkOutThunk({ date: todayKey, staffId: currentStaffId })).unwrap();
+      await dispatch(
+        checkOutThunk({
+          checkOutTime: punchedAt,
+          date: todayKey,
+          location,
+          staffId: currentStaffId,
+        }),
+      ).unwrap();
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : "Unable to update attendance.");
+      setActionError(toAttendanceActionErrorMessage(error));
     }
-  }, [action.kind, currentStaffId, dispatch, todayKey]);
+  }, [action.kind, actionBusy, currentStaffId, dispatch, todayKey]);
 
   return (
     <SafeAreaView edges={["top"]} style={[styles.safeArea, { backgroundColor: Colors.bg }]}>
@@ -220,7 +276,11 @@ export function StaffAttendanceScreen() {
               >
                 {actionBusy ? <ActivityIndicator color="#FFFFFF" size="small" /> : null}
                 <Text style={styles.primaryButtonText}>
-                  {action.kind === "edit" ? "Attendance Complete" : action.label}
+                  {locating
+                    ? "Getting location…"
+                    : action.kind === "edit"
+                      ? "Attendance Complete"
+                      : action.label}
                 </Text>
               </Pressable>
             </>

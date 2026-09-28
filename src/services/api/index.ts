@@ -22,9 +22,18 @@ import {
 import { isUserLogoutInProgress } from "@/services/authLifecycle";
 import { isNetworkOnline, waitForNetworkOnline } from "@/services/networkStatus";
 import { tokenStorage } from "@/services/tokenStorage";
+import { notifySessionInvalidated } from "@/services/sessionInvalidation";
 import type { ApiResponse, RefreshTokenResponseData } from "@/types/auth";
 
 export const API_BASE_URL = environmentConfig.apiBaseUrl;
+
+// The default 15s suits ordinary reads, but checkout is a chain of heavy
+// server-side writes — creating an appointment, recording a payment, then
+// building the sale and recalculating commissions and tips. Those were timing
+// out and surfacing as a connectivity error, so they get a longer budget.
+// Deliberately opt-in per call rather than a higher global default: a server
+// that is genuinely unreachable should still fail fast everywhere else.
+export const CHECKOUT_REQUEST_TIMEOUT_MS = 45000;
 
 type RetryableRequestConfig = InternalAxiosRequestConfig & {
   _logoutAbortController?: AbortController;
@@ -206,6 +215,18 @@ const formatErrorMessage = (message: string): string => {
 // instead so callers can rely on ApiError.status === undefined to mean
 // "couldn't reach the server" without re-deriving it from raw axios text.
 const OFFLINE_MESSAGE = "Unable to connect. Please check your internet connection and try again.";
+// A timeout is NOT the same as being offline, and saying "check your internet"
+// sends people to look at their wifi when the request actually reached the
+// server and ran too long. It also matters that the work may have completed
+// server-side: checkout creates an appointment, a payment and a sale, so a
+// blind retry after a timeout can double-charge a client.
+const TIMEOUT_MESSAGE =
+  "The server took too long to respond. The request may still have gone through — check before trying again.";
+
+const isTimeoutError = (error: { code?: string; message?: string }) =>
+  error.code === "ECONNABORTED" ||
+  error.code === "ETIMEDOUT" ||
+  /timeout/i.test(error.message ?? "");
 const OFFLINE_MUTATION_MESSAGE = "You are offline. Your changes are still on this screen; reconnect and try again.";
 const LOGOUT_CANCELLATION_MESSAGE = "Protected request cancelled during logout.";
 
@@ -232,9 +253,14 @@ const waitForOnlineIfNeeded = async (config: InternalAxiosRequestConfig) => {
 };
 
 const toApiError = (error: unknown) => {
+  if (error instanceof ApiError) return error;
   if (isAxiosError<ApiErrorPayload>(error)) {
     if (!error.response) {
-      return new ApiError(OFFLINE_MESSAGE, undefined, undefined, undefined, error.code);
+      // Only call it a timeout when the device still believes it is online —
+      // a timeout while genuinely offline really is a connectivity problem.
+      const message = isTimeoutError(error) && isNetworkOnline() ? TIMEOUT_MESSAGE : OFFLINE_MESSAGE;
+
+      return new ApiError(message, undefined, undefined, undefined, error.code);
     }
 
     const rawMessage =
@@ -300,6 +326,7 @@ const refreshAccessToken = async (reason: string) => {
       if (!refreshToken) {
         logAuthEvent("refresh_missing_refresh_token", { reason });
         await tokenStorage.clearSession();
+        notifySessionInvalidated("missing_refresh_token");
         throw new ApiError("Your session has expired.", 401);
       }
 
@@ -346,6 +373,7 @@ const refreshAccessToken = async (reason: string) => {
 
         if (shouldClearSession) {
           await tokenStorage.clearSession();
+          notifySessionInvalidated("refresh_failed");
         }
 
         throw toApiError(refreshError);

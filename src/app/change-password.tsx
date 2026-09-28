@@ -1,17 +1,17 @@
-import { Ionicons } from "@expo/vector-icons";
+/**
+ * Paper pilot screen. The layout scaffold (gradient, logo, card) is still the
+ * shared `PasswordRecoveryScaffold`, but every control inside it is now a
+ * react-native-paper component driven by the MD3 theme built in
+ * `@/theme/paperTheme`. The `Recovery*` primitives are deliberately left in
+ * place for forgot-password / reset-password so this migration stays isolated.
+ */
+
 import { router } from "expo-router";
 import { useState } from "react";
-import { Pressable } from "react-native";
+import { StyleSheet, View } from "react-native";
+import { Banner, Button, HelperText, TextInput, useTheme } from "react-native-paper";
 
-import {
-  PasswordRecoveryScaffold,
-  RecoveryMessage,
-  RecoveryPrimaryButton,
-  RecoveryTextButton,
-  RecoveryTextInput,
-  passwordRecoveryStyles,
-} from "@/components/auth/passwordRecoveryUi";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { PasswordRecoveryScaffold } from "@/components/auth/passwordRecoveryUi";
 import { getApiErrorMessage } from "@/services/api";
 import { authService } from "@/services/authService";
 import {
@@ -21,7 +21,7 @@ import {
 } from "@/utils/validation";
 
 export default function ChangePasswordScreen() {
-  const Colors = useThemeColors();
+  const theme = useTheme();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -118,87 +118,135 @@ export default function ChangePasswordScreen() {
     }
   };
 
-  const passwordToggle = (
-    <Pressable
-      hitSlop={12}
-      onPress={() => setShowPassword((currentValue) => !currentValue)}
-      style={passwordRecoveryStyles.passwordToggle}
-    >
-      <Ionicons
-        name={showPassword ? "eye-outline" : "eye-off-outline"}
-        size={20}
-        color={Colors.secondary}
-      />
-    </Pressable>
-  );
+  // One shared toggle descriptor — each TextInput still needs its own
+  // TextInput.Icon element, but they all flip the same piece of state.
+  const passwordVisibilityIcon = showPassword ? "eye-off-outline" : "eye-outline";
+  const togglePasswordVisibility = () => setShowPassword((currentValue) => !currentValue);
 
   return (
     <PasswordRecoveryScaffold
       title="Change Password"
       subtitle="Update your SalonOX password to keep your account secure."
       footer={
-        <RecoveryTextButton
+        <Button
           disabled={isLoading}
-          label="Back"
+          mode="text"
           onPress={() => (router.canGoBack() ? router.back() : undefined)}
-        />
+        >
+          Back
+        </Button>
       }
     >
-      <RecoveryMessage message={successMessage} type="success" />
+      <Banner
+        icon="check-circle-outline"
+        style={[styles.banner, { backgroundColor: theme.colors.surface }]}
+        visible={Boolean(successMessage)}
+      >
+        {successMessage ?? ""}
+      </Banner>
 
-      <RecoveryTextInput
-        autoCapitalize="none"
-        autoComplete="current-password"
-        error={currentPasswordError ?? undefined}
-        iconName="lock-closed-outline"
-        label="Current Password"
-        onChangeText={handleCurrentPasswordChange}
-        placeholder="Enter current password"
-        returnKeyType="next"
-        rightAccessory={passwordToggle}
-        secureTextEntry={!showPassword}
-        textContentType="password"
-        value={currentPassword}
-      />
+      <View style={styles.field}>
+        <TextInput
+          autoCapitalize="none"
+          autoComplete="current-password"
+          error={Boolean(currentPasswordError)}
+          label="Current Password"
+          left={<TextInput.Icon icon="lock-outline" />}
+          mode="outlined"
+          onChangeText={handleCurrentPasswordChange}
+          returnKeyType="next"
+          right={
+            <TextInput.Icon icon={passwordVisibilityIcon} onPress={togglePasswordVisibility} />
+          }
+          secureTextEntry={!showPassword}
+          textContentType="password"
+          value={currentPassword}
+        />
+        <HelperText type="error" visible={Boolean(currentPasswordError)}>
+          {currentPasswordError ?? ""}
+        </HelperText>
+      </View>
 
-      <RecoveryTextInput
-        autoCapitalize="none"
-        autoComplete="password-new"
-        error={newPasswordError ?? undefined}
-        iconName="lock-closed-outline"
-        label="New Password"
-        onChangeText={handleNewPasswordChange}
-        placeholder="Enter new password"
-        returnKeyType="next"
-        rightAccessory={passwordToggle}
-        secureTextEntry={!showPassword}
-        textContentType="newPassword"
-        value={newPassword}
-      />
+      <View style={styles.field}>
+        <TextInput
+          autoCapitalize="none"
+          autoComplete="password-new"
+          error={Boolean(newPasswordError)}
+          label="New Password"
+          left={<TextInput.Icon icon="lock-outline" />}
+          mode="outlined"
+          onChangeText={handleNewPasswordChange}
+          returnKeyType="next"
+          right={
+            <TextInput.Icon icon={passwordVisibilityIcon} onPress={togglePasswordVisibility} />
+          }
+          secureTextEntry={!showPassword}
+          textContentType="newPassword"
+          value={newPassword}
+        />
+        <HelperText type="error" visible={Boolean(newPasswordError)}>
+          {newPasswordError ?? ""}
+        </HelperText>
+      </View>
 
-      <RecoveryTextInput
-        autoCapitalize="none"
-        autoComplete="password-new"
-        error={confirmPasswordError ?? undefined}
-        iconName="lock-closed-outline"
-        label="Confirm Password"
-        onChangeText={handleConfirmPasswordChange}
-        onSubmitEditing={handleChangePassword}
-        placeholder="Confirm new password"
-        returnKeyType="done"
-        rightAccessory={passwordToggle}
-        secureTextEntry={!showPassword}
-        textContentType="newPassword"
-        value={confirmPassword}
-      />
+      <View style={styles.field}>
+        <TextInput
+          autoCapitalize="none"
+          autoComplete="password-new"
+          error={Boolean(confirmPasswordError)}
+          label="Confirm Password"
+          left={<TextInput.Icon icon="lock-outline" />}
+          mode="outlined"
+          onChangeText={handleConfirmPasswordChange}
+          onSubmitEditing={handleChangePassword}
+          returnKeyType="done"
+          right={
+            <TextInput.Icon icon={passwordVisibilityIcon} onPress={togglePasswordVisibility} />
+          }
+          secureTextEntry={!showPassword}
+          textContentType="newPassword"
+          value={confirmPassword}
+        />
+        <HelperText type="error" visible={Boolean(confirmPasswordError)}>
+          {confirmPasswordError ?? ""}
+        </HelperText>
+      </View>
 
-      <RecoveryMessage message={formError} type="error" />
+      <Banner
+        icon="alert-circle-outline"
+        style={[styles.banner, { backgroundColor: theme.colors.errorContainer }]}
+        visible={Boolean(formError)}
+      >
+        {formError ?? ""}
+      </Banner>
 
-      <RecoveryPrimaryButton
-        isLoading={isLoading}
-        label="Update Password"
+      <Button
+        contentStyle={styles.submitContent}
+        disabled={isLoading}
+        loading={isLoading}
+        mode="contained"
         onPress={handleChangePassword}
-      />
+        style={styles.submit}
+      >
+        Update Password
+      </Button>
     </PasswordRecoveryScaffold>
   );
 }
+
+const styles = StyleSheet.create({
+  banner: {
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  field: {
+    marginBottom: 4,
+  },
+  submit: {
+    marginBottom: 12,
+    marginTop: 8,
+  },
+  submitContent: {
+    height: 50,
+  },
+});

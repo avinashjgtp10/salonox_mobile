@@ -8,6 +8,7 @@ import {
 } from "react";
 
 import { unregisterDeviceThunk } from "@/middleware/notification/notification.thunk";
+import { pauseNotificationRegistration, resumeNotificationRegistration } from "@/services/notificationRegistrationLifecycle";
 import { fetchCurrentUserThunk } from "@/middleware/user/user.thunk";
 import { ApiError, cancelProtectedApiRequests, getApiErrorMessage } from "@/services/api";
 import { beginUserLogout, finishUserLogin } from "@/services/authLifecycle";
@@ -119,12 +120,17 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, []);
 
   const unregisterNotificationDevice = useCallback(async () => {
+    pauseNotificationRegistration();
     try {
-      await store.dispatch(unregisterDeviceThunk());
+      await store.dispatch(unregisterDeviceThunk()).unwrap();
     } catch (unregisterError) {
       logAuthEvent("notification_device_unregister_failed", {
         message: getApiErrorMessage(unregisterError),
       });
+      resumeNotificationRegistration();
+      const message = "Could not disconnect this phone from salon notifications. Check your connection and try logging out again.";
+      setError(message);
+      throw new Error(message);
     }
   }, []);
 

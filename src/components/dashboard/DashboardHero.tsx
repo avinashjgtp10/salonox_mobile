@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router, type Href } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { BranchSelectorSheet } from "@/components/dashboard/BranchSelectorSheet";
 import { NotificationBadge } from "@/components/notifications/NotificationBadge";
@@ -120,9 +120,10 @@ export default function DashboardHero({ onOpenNotifications, onOpenQuickActions 
           <Text numberOfLines={1} style={styles.eyebrow}>{greeting}</Text>
           <Text
             numberOfLines={1}
-            adjustsFontSizeToFit
+            adjustsFontSizeToFit={Platform.OS !== "ios"}
             minimumFontScale={0.82}
-            style={styles.name}
+            ellipsizeMode="tail"
+            style={[styles.name, Platform.OS === "ios" && styles.iosName]}
           >
             Hi, {firstName}
           </Text>
@@ -262,6 +263,11 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "900",
     letterSpacing: 0,
     lineHeight: 34,
+  },
+  // Avoid iOS shrinking the greeting during intrinsic text measurement.
+  iosName: {
+    width: "100%",
+    flexShrink: 0,
   },
   ownerName: {
     color: Colors.text2,

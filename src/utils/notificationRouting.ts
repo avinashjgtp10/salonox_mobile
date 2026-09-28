@@ -19,6 +19,13 @@ const OWNER_ROUTE_BUILDERS: Record<string, (referenceId: string | null) => Href>
   payment: (id) => (id ? (`/sales/${id}` as Href) : ("/sales" as Href)),
   sale: (id) => (id ? (`/sales/${id}` as Href) : ("/sales" as Href)),
   staff: (id) => (id ? (`/team/${id}` as Href) : ("/team" as Href)),
+  // WhatsApp inbound messages create a `whatsapp` notification with NO
+  // reference_id (see salon_mgm_backend webhooks.service.ts — it has msg.from
+  // in scope but doesn't pass it), so there is nothing here identifying which
+  // conversation fired. Until the backend sends the contact phone as
+  // reference_id, this deliberately opens the inbox list rather than guessing
+  // a thread. The `id ?` branch is already in place for when it does.
+  whatsapp: (id) => (id ? (`/inbox/${encodeURIComponent(id)}` as Href) : ("/inbox" as Href)),
 };
 
 const STAFF_ROUTE_BUILDERS: Record<string, (referenceId: string | null) => Href> = {

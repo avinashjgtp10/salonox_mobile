@@ -190,8 +190,7 @@ const getPagination = (
 const buildDashboardParams = (query: ConsumableListQuery, salonId?: string | null) => ({
   limit: query.limit,
   page: query.page,
-  sort_by: query.sortBy,
-  sort_order: query.sortOrder,
+  sort_by: query.sortBy === "name" ? "a_z" : "newest",
   ...(query.search ? { search: query.search } : {}),
   ...(query.categoryId?.length ? { category_id: query.categoryId.join(",") } : {}),
   ...(query.brandId?.length ? { brand_id: query.brandId.join(",") } : {}),
@@ -257,6 +256,51 @@ const getUsageHistoryArray = (payload: ConsumableUsageHistoryApiData): Consumabl
 
 export const consumableService = {
   async getDashboard(query: ConsumableListQuery, salonId?: string | null): Promise<ConsumableDashboardResponse> {
+    // The API only supports named sort presets, not arbitrary fields/directions.
+    // Updated timestamps are absent from its list response.
+    if (query.sortBy === "updated_at") {
+      throw new Error("Sorting by recently updated is not available.");
+    }
+    const serverSorted = (query.sortBy === "name" && query.sortOrder === "asc") ||
+      (query.sortBy === "created_at" && query.sortOrder === "desc");
+    if (!serverSorted) {
+      const all: ConsumableListItem[] = [];
+      const seen = new Set<string>();
+      let kpis = getKpis(null);
+      for (let page = 1; ; page += 1) {
+        const pageQuery = { ...query, page, limit: 200 };
+        const response = await api.get<ConsumableDashboardApiResponse>(CONSUMABLE.DASHBOARD, {
+          params: buildDashboardParams(pageQuery, salonId),
+        });
+        const payload = response.data.data ?? {};
+        if (page === 1) kpis = getKpis(payload.kpis ?? payload.summary ?? null);
+        const rows = getConsumableArray(payload.list ?? null).map(normalizeConsumable);
+        const previousCount = all.length;
+        for (const row of rows) {
+          if (!seen.has(row.id)) { seen.add(row.id); all.push(row); }
+        }
+        if (!getPagination(payload.list, pageQuery, rows.length).hasMore) break;
+        if (all.length === previousCount) throw new Error("Unable to load all consumables for sorting.");
+      }
+      const direction = query.sortOrder === "asc" ? 1 : -1;
+      if (query.sortBy === "created_at") {
+        // The complete API result is newest-first even though dates are omitted.
+        all.reverse();
+      } else {
+        all.sort((left, right) => {
+          const comparison = query.sortBy === "name"
+            ? left.name.localeCompare(right.name, undefined, { sensitivity: "base", numeric: true })
+            : query.sortBy === "amount" ? left.amount - right.amount : left.qtyAlert - right.qtyAlert;
+          return direction * comparison || left.id.localeCompare(right.id);
+        });
+      }
+      const offset = (query.page - 1) * query.limit;
+      return {
+        consumables: all.slice(offset, offset + query.limit), kpis, query,
+        pagination: { page: query.page, limit: query.limit, totalRecords: all.length,
+          totalPages: Math.ceil(all.length / query.limit), hasMore: offset + query.limit < all.length },
+      };
+    }
     const response = await api.get<ConsumableDashboardApiResponse>(CONSUMABLE.DASHBOARD, {
       params: buildDashboardParams(query, salonId),
     });

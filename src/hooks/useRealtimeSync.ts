@@ -16,8 +16,11 @@ import {
   type RealtimeEntity,
 } from "@/services/realtimeEvents";
 import { realtimeSocket } from "@/services/realtimeSocket";
+import { normalizeConversation, normalizeMessage } from "@/services/inbox.service";
 import { selectActiveBranchId } from "@/store/branch/branch.slice";
+import { inboxConversationsReceived, inboxMessageReceived } from "@/store/inbox/inbox.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { asRecord, toSafeString } from "@/utils/apiNormalize";
 
 const REALTIME_ACTIONS = ["created", "updated", "deleted", "changed"] as const;
 
@@ -249,6 +252,44 @@ export const useRealtimeSync = (isAuthenticated: boolean) => {
         }
       });
 
+      // WhatsApp inbox — inboxService.handleInboundMessage emits both of these
+      // to room salon:{salonId} on every inbound message. They carry the full
+      // payload, so unlike the entity events above they update the store
+      // directly instead of triggering a debounced refetch.
+      bindHandler(socket, "inbox:message", (payload) => {
+        const record = asRecord(payload);
+        const contactPhone = toSafeString(record.contactPhone ?? record.contact_phone);
+        const messageRecord = asRecord(record.message);
+
+        if (!contactPhone || !messageRecord.id) {
+          return;
+        }
+
+        dispatch(
+          inboxMessageReceived({
+            contactName: toSafeString(record.contactName ?? record.contact_name) || null,
+            contactPhone,
+            message: normalizeMessage(messageRecord),
+          }),
+        );
+
+        // The inbound message also creates a `whatsapp` notification
+        // (webhooks.service.ts), so keep the feed and badge in step.
+        scheduleRefresh("notifications", payload);
+      });
+
+      bindHandler(socket, "inbox:conversations", (payload) => {
+        if (!Array.isArray(payload)) {
+          return;
+        }
+
+        dispatch(
+          inboxConversationsReceived(
+            payload.map((entry) => normalizeConversation(asRecord(entry))),
+          ),
+        );
+      });
+
       bindHandler(socket, "payment_updated", (payload) => {
         scheduleRefresh("appointments", payload);
         scheduleRefresh("sales", payload);
@@ -275,7 +316,7 @@ export const useRealtimeSync = (isAuthenticated: boolean) => {
       });
       refreshTimersRef.current = {};
     };
-  }, [activeBranchId, isAuthenticated, refreshEntity]);
+  }, [activeBranchId, dispatch, isAuthenticated, refreshEntity]);
 
   useEffect(() => {
     if (!isAuthenticated) {

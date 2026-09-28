@@ -90,7 +90,7 @@ export function getSortQuery(sortOption: ClientSortOption) {
     case "Name A-Z":
       return { sort_by: "full_name", sort_order: "asc" as const };
     case "Highest Spending":
-      return { sort_by: "lifetime_spend", sort_order: "desc" as const };
+      return { sort_by: "total_sales", sort_order: "desc" as const };
     case "Last Visit":
       return { sort_by: "last_visit", sort_order: "desc" as const };
     case "Recent":

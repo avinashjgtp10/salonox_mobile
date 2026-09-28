@@ -1,3 +1,5 @@
+import { resumeNotificationRegistration } from "@/services/notificationRegistrationLifecycle";
+
 let userLogoutInProgress = false;
 
 export const beginUserLogout = () => {
@@ -5,6 +7,7 @@ export const beginUserLogout = () => {
 };
 
 export const finishUserLogin = () => {
+  resumeNotificationRegistration();
   userLogoutInProgress = false;
 };
 

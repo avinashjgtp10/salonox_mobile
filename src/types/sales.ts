@@ -216,6 +216,8 @@ export type SalesSummary = {
 export type ExportFormat = "csv" | "excel" | "pdf";
 
 export type ExportSalesResponse = {
-  message?: string;
-  url: string | null;
+  data: string | ArrayBuffer;
+  contentType: string;
+  filename: string;
+  format: ExportFormat;
 };

@@ -20,6 +20,8 @@ import { Badge } from "@/components/ui/Badge";
 import { AppLayout } from "@/constants/layout";
 import { DashboardRadius as Radius, type ThemeColors } from "@/constants/theme";
 import { findAttendanceRecordForStaff } from "@/features/attendance/utils/attendanceMatching";
+import { getCurrentAttendancePlaceName } from "@/utils/attendanceLocation";
+import { formatAttendancePlaceLabel } from "@/utils/attendancePlaceLabel";
 import {
   formatAttendanceTime,
   getAttendanceAction,
@@ -307,6 +309,7 @@ export default function StaffHomeRoute() {
   const notificationsRefreshing = useAppSelector(selectNotificationsListRefreshing);
   const unreadCount = useAppSelector(selectUnreadCount);
   const [attendanceActionError, setAttendanceActionError] = useState<string | null>(null);
+  const [capturingAttendanceLocation, setCapturingAttendanceLocation] = useState(false);
   const [now, setNow] = useState(Date.now());
   const todayKey = getTodayAttendanceDateKey();
   const currentStaffId = currentStaff?.id ?? "";
@@ -319,12 +322,11 @@ export default function StaffHomeRoute() {
   const attendanceAction = getAttendanceAction(selfAttendance);
   const checkingIn = useAppSelector((state) => selectAttendanceIsCheckingIn(state, currentStaffId));
   const checkingOut = useAppSelector((state) => selectAttendanceIsCheckingOut(state, currentStaffId));
-  const attendanceBusy = checkingIn || checkingOut;
+  const attendanceBusy = checkingIn || checkingOut || capturingAttendanceLocation;
   const attendanceBadge = getAttendanceBadgeConfig(selfAttendance, Colors);
   const attendanceStateLabel = getStaffAttendanceStateLabel(selfAttendance, attendanceBadge.label);
   const attendanceTone = getAttendanceTone(attendanceStateLabel, Colors);
   const DASHBOARD = getDashboardTones(Colors);
-  const stylesStatic = useMemo(() => getStylesStatic(Colors), [Colors]);
 
   const todayAppointments = useMemo(
     () =>
@@ -381,23 +383,27 @@ export default function StaffHomeRoute() {
   };
 
   const handleAttendanceAction = async () => {
-    if (!currentStaffId || attendanceAction.kind === "edit") {
+    if (!currentStaffId || attendanceBusy || attendanceAction.kind === "edit") {
       return;
     }
 
     setAttendanceActionError(null);
+    setCapturingAttendanceLocation(true);
 
     try {
+      const location = await getCurrentAttendancePlaceName();
       if (attendanceAction.kind === "checkIn") {
-        await dispatch(checkInThunk({ date: todayKey, staffId: currentStaffId })).unwrap();
+        await dispatch(checkInThunk({ date: todayKey, staffId: currentStaffId, location })).unwrap();
       } else {
-        await dispatch(checkOutThunk({ date: todayKey, staffId: currentStaffId })).unwrap();
+        await dispatch(checkOutThunk({ date: todayKey, staffId: currentStaffId, location })).unwrap();
       }
 
       await dispatch(fetchAttendanceOverviewThunk(todayKey)).unwrap();
       loadStaffHome(true);
     } catch (error) {
       setAttendanceActionError(error instanceof Error ? error.message : "Unable to update attendance.");
+    } finally {
+      setCapturingAttendanceLocation(false);
     }
   };
 
@@ -461,6 +467,8 @@ export default function StaffHomeRoute() {
           badgeLabel={attendanceStateLabel}
           checkInLabel={formatAttendanceTime(selfAttendance?.checkInTime)}
           checkOutLabel={formatAttendanceTime(selfAttendance?.checkOutTime)}
+          checkInLocation={selfAttendance?.checkInTime ? formatAttendancePlaceLabel(selfAttendance.checkInLocation) || "Location not recorded" : null}
+          checkOutLocation={selfAttendance?.checkOutTime ? formatAttendancePlaceLabel(selfAttendance.checkOutLocation) || "Location not recorded" : null}
           disabled={attendanceBusy || !currentStaffId || attendanceAction.kind === "edit"}
           error={attendanceActionError}
           icon={attendanceBadge.icon}
@@ -470,40 +478,6 @@ export default function StaffHomeRoute() {
           tone={attendanceTone}
           workingLabel={formatWorkingTime(selfAttendance?.checkInTime, selfAttendance?.checkOutTime, now)}
         />
-
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
-        </View>
-        <View style={stylesStatic.quickGrid}>
-          <View style={stylesStatic.quickRow}>
-            <QuickAction
-              icon="calendar-number-outline"
-              iconBg={DASHBOARD.beigeSoft}
-              label="Appointments"
-              onPress={() => router.push(STAFF_ROUTES.appointments)}
-            />
-            <QuickAction
-              icon="calendar-outline"
-              iconBg={DASHBOARD.beigeSoft}
-              label="Calendar"
-              onPress={() => router.push(STAFF_ROUTES.calendar)}
-            />
-          </View>
-          <View style={stylesStatic.quickRow}>
-            <QuickAction
-              icon="time-outline"
-              iconBg="rgba(16, 185, 129, 0.14)"
-              label="Attendance"
-              onPress={() => router.push(STAFF_ROUTES.attendance)}
-            />
-            <QuickAction
-              icon="settings-outline"
-              iconBg={DASHBOARD.purpleSoft}
-              label="Settings"
-              onPress={() => router.push(STAFF_ROUTES.settings)}
-            />
-          </View>
-        </View>
 
         <TodayAppointmentsCard appointments={todayAppointments} loading={appointmentsLoading} />
 
@@ -536,6 +510,8 @@ function AttendanceCard({
   badgeLabel,
   checkInLabel,
   checkOutLabel,
+  checkInLocation,
+  checkOutLocation,
   disabled,
   error,
   icon,
@@ -549,6 +525,8 @@ function AttendanceCard({
   badgeLabel: string;
   checkInLabel: string;
   checkOutLabel: string;
+  checkInLocation: string | null;
+  checkOutLocation: string | null;
   disabled: boolean;
   error: string | null;
   icon: keyof typeof Ionicons.glyphMap;
@@ -603,6 +581,8 @@ function AttendanceCard({
           <Metric dotColor={tone.color} label="Status" value={statusLabel} />
         )}
       </View>
+      {checkInLocation ? <Text style={{ color: Colors.text2, marginTop: 10 }}>Check-in location: {checkInLocation}</Text> : null}
+      {checkOutLocation ? <Text style={{ color: Colors.text2, marginTop: 8 }}>Checkout location: {checkOutLocation}</Text> : null}
       {error ? <Text style={stylesStatic.inlineError}>{error}</Text> : null}
     </View>
   );
@@ -717,31 +697,6 @@ function NextAppointmentCard({
 }
 
 void NextAppointmentCard;
-
-function QuickAction({
-  icon,
-  iconBg,
-  label,
-  onPress,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  iconBg: string;
-  label: string;
-  onPress: () => void;
-}) {
-  const Colors = useThemeColors();
-  const DASHBOARD = getDashboardTones(Colors);
-  const stylesStatic = useMemo(() => getStylesStatic(Colors), [Colors]);
-
-  return (
-    <TouchableOpacity activeOpacity={0.82} onPress={onPress} style={stylesStatic.quickCard}>
-      <View style={[stylesStatic.quickIcon, { backgroundColor: iconBg }]}>
-        <Ionicons name={icon} size={27} color={DASHBOARD.text} />
-      </View>
-      <Text numberOfLines={1} style={stylesStatic.quickTitle}>{label}</Text>
-    </TouchableOpacity>
-  );
-}
 
 function TodayAppointmentsCard({ appointments, loading }: { appointments: AppointmentListItem[]; loading: boolean }) {
   const Colors = useThemeColors();
@@ -1252,36 +1207,6 @@ const getStylesStatic = (Colors: ThemeColors) => {
     color: DASHBOARD.text,
     fontSize: 25,
     fontWeight: "900",
-  },
-  quickCard: {
-    ...baseCard,
-    alignItems: "center",
-    flex: 1,
-    height: 102,
-    justifyContent: "center",
-    paddingHorizontal: 10,
-  },
-  quickGrid: {
-    gap: 14,
-  },
-  quickRow: {
-    flexDirection: "row",
-    gap: 14,
-  },
-  quickIcon: {
-    alignItems: "center",
-    backgroundColor: "rgba(10, 12, 14, 0.42)",
-    borderRadius: 18,
-    height: 50,
-    justifyContent: "center",
-    width: 50,
-  },
-  quickTitle: {
-    color: DASHBOARD.text,
-    fontSize: 18,
-    fontWeight: "900",
-    marginTop: 18,
-    textAlign: "center",
   },
   startButton: {
     alignItems: "center",

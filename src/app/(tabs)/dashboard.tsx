@@ -17,6 +17,7 @@ import DashboardHero from "@/components/dashboard/DashboardHero";
 import { DashboardNotificationsModal } from "@/components/dashboard/DashboardNotificationsModal";
 import { DashboardSideDrawer } from "@/components/dashboard/DashboardSideDrawer";
 import DashboardStatTiles from "@/components/dashboard/DashboardStatTiles";
+import SpotlightAnnouncementCard from "@/components/dashboard/SpotlightAnnouncementCard";
 import QuickActions from "@/components/dashboard/QuickActions";
 import StaffWorkload from "@/components/dashboard/StaffWorkload";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
@@ -303,6 +304,7 @@ export default function DashboardScreen() {
         ) : (
           <>
             <DashboardHero onOpenNotifications={() => setIsNotificationsModalOpen(true)} onOpenQuickActions={() => setIsQuickActionsDrawerOpen(true)} />
+            <SpotlightAnnouncementCard />
             <View style={styles.summaryBlock}>
               <DashboardStatTiles />
             </View>

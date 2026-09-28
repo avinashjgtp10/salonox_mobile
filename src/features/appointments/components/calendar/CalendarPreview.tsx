@@ -15,11 +15,16 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Modal, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 
+const STAFF_COLORS = ["#6366F1", "#8B5CF6", "#EC4899", "#D97706", "#059669", "#2563EB"];
+const staffColor = (id: string) => STAFF_COLORS[Array.from(id).reduce((sum, letter) => sum + letter.charCodeAt(0), 0) % STAFF_COLORS.length];
+const initials = (name: string) => name.trim().split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
+
 export function CalendarPreview({
   appointments,
   date,
   onRefresh,
   refreshing = false,
+  showEmptyState = true,
   resolveStaffId,
   staffColumns = [],
   viewMode = "week",
@@ -28,6 +33,7 @@ export function CalendarPreview({
   date: string;
   onRefresh?: () => void;
   refreshing?: boolean;
+  showEmptyState?: boolean;
   /** Maps an appointment to the staff option id owning it. */
   resolveStaffId?: (appointment: AppointmentListItem) => string;
   staffColumns?: CalendarStaffOption[];
@@ -60,7 +66,7 @@ export function CalendarPreview({
       ? staffColumns.map((option) => ({ key: date, label: option.label, staffId: option.id, staffName: option.name }))
       : [{ key: date, label: "All Staff", staffId: "", staffName: "" }])
     : days.map((day) => ({ ...day, staffId: "", staffName: "" })), [date, days, staffColumns, viewMode]);
-  const columnWidth = viewMode === "day" ? 132 : 118;
+  const columnWidth = viewMode === "day" ? 156 : 118;
   const calendarContentWidth = 54 + columns.length * columnWidth;
   // Keep the full grid mounted: native scrolling can outrun JS-driven render windows,
   // exposing blank rows/columns during flings or programmatic scrolls.
@@ -113,7 +119,16 @@ export function CalendarPreview({
         <View style={{ height: "100%", width: calendarContentWidth }}>
           <View style={styles.dinggCalendarHeader}>
             <View style={styles.dinggTimeHeader}>{viewMode === "day" ? <Text style={styles.dinggStaffHeader}>Staff</Text> : null}</View>
-            {columns.map((column, index) => <View key={`${column.key}-${column.label}-${index}`} style={[styles.dinggDayHeader, { width: columnWidth }]}>{viewMode === "day" ? <Ionicons name="person-outline" size={12} color={Colors.appointmentAccent} /> : null}<Text numberOfLines={1} style={styles.dinggDayHeaderText}>{column.label}</Text></View>)}
+            {columns.map((column, index) => (
+              <View key={`${column.key}-${column.label}-${index}`} style={[styles.dinggDayHeader, { width: columnWidth }]}>
+                {viewMode === "day" ? (
+                  <View style={[styles.calendarStaffAvatar, { backgroundColor: staffColor(column.staffId || column.label) }]}>
+                    <Text style={styles.calendarStaffInitials}>{initials(column.staffName || column.label)}</Text>
+                  </View>
+                ) : null}
+                <Text numberOfLines={2} style={styles.dinggDayHeaderText}>{column.label}</Text>
+              </View>
+            ))}
           </View>
           <ScrollView
             nestedScrollEnabled
@@ -208,6 +223,15 @@ export function CalendarPreview({
           </ScrollView>
         </View>
       </ScrollView>
+      {showEmptyState && !refreshing && appointmentsByColumn.every((items) => items.length === 0) ? (
+        <View pointerEvents="none" style={styles.calendarEmptyOverlay}>
+          <View style={styles.calendarEmptyIcon}><Ionicons name="calendar-outline" size={30} color={Colors.appointmentAccent} /></View>
+          <Text style={styles.calendarEmptyTitle}>
+            {viewMode === "week" ? "No appointments this week" : date === todayIsoDate() ? "No appointments today" : "No appointments on this day"}
+          </Text>
+          <Text style={styles.calendarEmptyHint}>Tap a time slot to add one</Text>
+        </View>
+      ) : null}
       <AppointmentPreviewSheet
         appointment={previewAppointment}
         onClose={() => setPreviewAppointment(null)}

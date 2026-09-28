@@ -396,7 +396,7 @@ export default function SalesHistoryScreen() {
                   <Ionicons name="arrow-back" size={18} color={Colors.primary} />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Sales Summary</Text>
-                <View style={styles.backButton} />
+                <View style={styles.backButtonPlaceholder} />
               </View>
               <View style={styles.summaryCard}>
                 <View style={styles.summaryMetric}>
@@ -559,6 +559,9 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.05,
     shadowRadius: 14,
+    width: AppLayout.headerActionSize,
+  },
+  backButtonPlaceholder: {
     width: AppLayout.headerActionSize,
   },
   headerTitle: {

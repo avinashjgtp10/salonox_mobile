@@ -26,6 +26,7 @@ import type {
 const DASHBOARD_STALE_MS = 5 * 60 * 1000;
 
 const EMPTY_DASHBOARD_METRICS: DashboardMetrics = {
+  allTimeRevenue: 0,
   bookings: 0,
   lastMonthRevenue: 0,
   monthlyRevenue: 0,

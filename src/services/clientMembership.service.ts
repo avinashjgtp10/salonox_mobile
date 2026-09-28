@@ -1,4 +1,5 @@
 import { api } from "@/services/api";
+import { membershipService } from "@/services/membership.service";
 import { CLIENT_MEMBERSHIP } from "@/services/api/endpoints";
 import type { ApiResponse } from "@/types/auth";
 import type {
@@ -74,6 +75,7 @@ const normalizeStatus = (value: unknown, expiresAt?: string | null): ClientMembe
   if (raw.includes("cancel")) return "cancelled";
   if (raw.includes("expire")) return "expired";
   if (raw.includes("inactive")) return "inactive";
+  if (raw === "exhausted") return "exhausted";
   if (expiresAt) {
     const expiryTime = new Date(expiresAt).getTime();
     if (Number.isFinite(expiryTime) && expiryTime < Date.now()) return "expired";
@@ -164,6 +166,10 @@ const normalizeAssignment = (raw: AnyRecord): ClientMembershipAssignment => {
 
   return {
     appliesTo: normalizeAppliesTo(membershipAppliesTo),
+    benefitType: (firstValue(raw, ["benefitType", "benefit_type"])
+      ?? firstValue(membership, ["benefitType", "benefit_type"])) === "validity"
+      ? "validity"
+      : "discount_balance",
     assignedAt: toNullableString(firstValue(raw, ["assignedAt", "assigned_at", "createdAt", "created_at"])),
     benefits,
     cancelledAt: toNullableString(firstValue(raw, ["cancelledAt", "cancelled_at", "canceledAt", "canceled_at"])),
@@ -230,18 +236,31 @@ const normalizeAssignmentResponse = (payload: AssignmentEnvelope): ClientMembers
 const normalizeAssignmentListResponse = (payload: AssignmentEnvelope): ClientMembershipAssignment[] =>
   extractAssignments(payload).map(normalizeAssignment);
 
-const assignmentPayload = (payload: ClientMembershipAssignmentRequest) => ({
-  clientId: payload.clientId,
-  client_id: payload.clientId,
-  membershipId: payload.membershipId,
-  membership_id: payload.membershipId,
-  ...(payload.startDate ? { startDate: payload.startDate, start_date: payload.startDate } : {}),
-});
+const listAssignments = async (params: Record<string, string>) => {
+  const assignments: ClientMembershipAssignment[] = [];
+  for (let page = 1; ; page += 1) {
+    const response = await api.get<ApiResponse<{ items: AnyRecord[]; total: number }>>(
+      CLIENT_MEMBERSHIP.CLIENT_ASSIGNMENTS,
+      { params: { ...params, page, limit: 100 } },
+    );
+    const batch = normalizeAssignmentListResponse(response.data.data);
+    assignments.push(...batch);
+    if (batch.length === 0 || assignments.length >= response.data.data.total) return assignments;
+  }
+};
 
 export const clientMembershipService = {
   async assign(payload: ClientMembershipAssignmentRequest, salonId?: string | null) {
+    const membership = await membershipService.getMembershipById(payload.membershipId);
     const response = await api.post<ApiResponse<AssignmentEnvelope>>(CLIENT_MEMBERSHIP.ASSIGN, {
-      ...assignmentPayload(payload),
+      clientId: payload.clientId,
+      membershipId: payload.membershipId,
+      membershipName: membership.name,
+      totalSessions: membership.numberOfSessions ?? 0,
+      colour: membership.colour,
+      pricePaid: 0,
+      silent: true,
+      ...(payload.startDate ? { purchasedAt: payload.startDate } : {}),
       ...(salonId ? { salon_id: salonId, salonId } : {}),
     });
 
@@ -249,52 +268,44 @@ export const clientMembershipService = {
   },
 
   async cancel(assignmentId: string, payload: CancelClientMembershipRequest = {}) {
-    const response = await api.post<ApiResponse<AssignmentEnvelope>>(CLIENT_MEMBERSHIP.CANCEL(assignmentId), payload);
-
-    return normalizeAssignmentResponse(response.data.data);
+    const response = await api.get<ApiResponse<AssignmentEnvelope>>(CLIENT_MEMBERSHIP.DETAIL(assignmentId));
+    const assignment = normalizeAssignmentResponse(response.data.data);
+    await api.patch(CLIENT_MEMBERSHIP.CANCEL(assignmentId), payload);
+    return { ...assignment, status: "cancelled" as const };
   },
 
-  async change(assignmentId: string, payload: ChangeClientMembershipRequest, salonId?: string | null) {
-    const response = await api.patch<ApiResponse<AssignmentEnvelope>>(CLIENT_MEMBERSHIP.CHANGE(assignmentId), {
-      membershipId: payload.membershipId,
-      membership_id: payload.membershipId,
-      ...(payload.startDate ? { startDate: payload.startDate, start_date: payload.startDate } : {}),
-      ...(salonId ? { salon_id: salonId, salonId } : {}),
-    });
+  // The server has no "change plan" route, so a change is composed from the
+  // two it does have. Assign first, cancel second: if the cancel fails the
+  // client is left with both plans (recoverable by cancelling one), whereas
+  // the reverse order could leave them with none.
+  async change(assignmentId: string, payload: ChangeClientMembershipRequest, salonId?: string | null): Promise<ClientMembershipAssignment> {
+    const response = await api.get<ApiResponse<AssignmentEnvelope>>(CLIENT_MEMBERSHIP.DETAIL(assignmentId));
+    const current = normalizeAssignmentResponse(response.data.data);
+    if (current.membershipId === payload.membershipId) return current;
+    if (!current.clientId) throw new Error("Unable to change membership: the current assignment has no client.");
 
-    return normalizeAssignmentResponse(response.data.data);
+    const next = await clientMembershipService.assign(
+      { clientId: current.clientId, membershipId: payload.membershipId, startDate: payload.startDate },
+      salonId,
+    );
+    try {
+      await api.patch(CLIENT_MEMBERSHIP.CANCEL(assignmentId), {});
+    } catch {
+      throw new Error("The new membership was assigned, but the previous one could not be cancelled. Please cancel it manually.");
+    }
+    return next;
   },
 
   async getClientAssignments(clientId: string, salonId?: string | null) {
-    const response = await api.get<ApiResponse<AssignmentEnvelope>>(CLIENT_MEMBERSHIP.CLIENT_ASSIGNMENTS, {
-      params: {
-        client_id: clientId,
-        clientId,
-        ...(salonId ? { salon_id: salonId } : {}),
-      },
-      validateStatus: (status) => (status >= 200 && status < 300) || status === 404,
-    });
-
-    if (response.status === 404) {
-      return [];
-    }
-
-    return normalizeAssignmentListResponse(response.data.data);
+    return listAssignments({ clientId, ...(salonId ? { salon_id: salonId } : {}) });
   },
 
   async getMembershipClients(membershipId: string, salonId?: string | null) {
-    const response = await api.get<ApiResponse<AssignmentEnvelope>>(CLIENT_MEMBERSHIP.MEMBERSHIP_CLIENTS(membershipId), {
-      params: salonId ? { salon_id: salonId } : undefined,
-    });
-
-    return normalizeAssignmentListResponse(response.data.data);
+    const assignments = await listAssignments(salonId ? { salon_id: salonId } : {});
+    return assignments.filter((assignment) => assignment.membershipId === membershipId);
   },
 
-  async renew(assignmentId: string, payload: RenewClientMembershipRequest = {}) {
-    const response = await api.post<ApiResponse<AssignmentEnvelope>>(CLIENT_MEMBERSHIP.RENEW(assignmentId), payload.startDate
-      ? { startDate: payload.startDate, start_date: payload.startDate }
-      : {});
-
-    return normalizeAssignmentResponse(response.data.data);
+  async renew(_assignmentId: string, _payload: RenewClientMembershipRequest = {}): Promise<ClientMembershipAssignment> {
+    throw new Error("Renewing an assigned membership is not supported by the server.");
   },
 };

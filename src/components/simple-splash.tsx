@@ -13,7 +13,7 @@ type SimpleSplashProps = {
   // resolved and the initial login-vs-dashboard redirect decision has been
   // applied. Holding the splash on this instead of a fixed timer is what
   // prevents the Login screen (or the wrong theme) from flashing when the
-  // session check (token refresh, /users/me) takes longer than a hardcoded
+  // session check (token refresh, /users/profile) takes longer than a hardcoded
   // delay would allow for.
   isReady: boolean;
 };

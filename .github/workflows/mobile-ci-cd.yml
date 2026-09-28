@@ -66,6 +66,9 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Regression tests
+        run: npm run test:ci
+
       # Resolves the dynamic app.config.ts once per environment: catches a
       # config that only breaks under a particular APP_ENV, which a single
       # default-environment check would miss.

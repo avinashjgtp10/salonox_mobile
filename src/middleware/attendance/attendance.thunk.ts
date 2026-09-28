@@ -9,6 +9,8 @@ import { attendanceCache } from "@/services/attendanceCache";
 import { emitRealtimeEntityChanged } from "@/services/realtimeEvents";
 import type { RootState } from "@/store";
 import { selectActiveBranchId } from "@/store/branch/branch.slice";
+import { selectCurrentUser } from "@/store/user/user.slice";
+import { isStaffExperienceUser } from "@/utils/routeResolver";
 import type {
   AttendanceSummary,
   AttendanceToday,
@@ -140,12 +142,14 @@ export const checkInThunk = createAsyncThunk<
   CheckInResponse,
   CheckInRequest & { date?: string },
   { rejectValue: AttendanceRejectValue; state: RootState }
->("attendance/checkIn", async (payload, { dispatch, rejectWithValue }) => {
+>("attendance/checkIn", async (payload, { dispatch, getState, rejectWithValue }) => {
   try {
     const response = await attendanceService.checkIn(payload);
 
     void dispatch(fetchAttendanceOverviewThunk(payload.date));
-    void dispatch(fetchDashboardThunk());
+    if (!isStaffExperienceUser(selectCurrentUser(getState()))) {
+      void dispatch(fetchDashboardThunk());
+    }
     void dispatch(fetchStaffThunk({ page: 1, refresh: true, reset: true }));
     void dispatch(fetchUnreadCountThunk());
     emitRealtimeEntityChanged({
@@ -168,12 +172,14 @@ export const checkOutThunk = createAsyncThunk<
   CheckOutResponse,
   CheckOutRequest & { date?: string },
   { rejectValue: AttendanceRejectValue; state: RootState }
->("attendance/checkOut", async (payload, { dispatch, rejectWithValue }) => {
+>("attendance/checkOut", async (payload, { dispatch, getState, rejectWithValue }) => {
   try {
     const response = await attendanceService.checkOut(payload);
 
     void dispatch(fetchAttendanceOverviewThunk(payload.date));
-    void dispatch(fetchDashboardThunk());
+    if (!isStaffExperienceUser(selectCurrentUser(getState()))) {
+      void dispatch(fetchDashboardThunk());
+    }
     void dispatch(fetchStaffThunk({ page: 1, refresh: true, reset: true }));
     void dispatch(fetchUnreadCountThunk());
     emitRealtimeEntityChanged({
@@ -196,12 +202,14 @@ export const markAttendanceThunk = createAsyncThunk<
   MarkAttendanceResponse,
   MarkAttendanceRequest,
   { rejectValue: AttendanceRejectValue; state: RootState }
->("attendance/mark", async (payload, { dispatch, rejectWithValue }) => {
+>("attendance/mark", async (payload, { dispatch, getState, rejectWithValue }) => {
   try {
     const response = await attendanceService.markAttendance(payload);
 
     void dispatch(fetchAttendanceOverviewThunk(payload.date));
-    void dispatch(fetchDashboardThunk());
+    if (!isStaffExperienceUser(selectCurrentUser(getState()))) {
+      void dispatch(fetchDashboardThunk());
+    }
 
     return response;
   } catch (error) {
@@ -215,12 +223,14 @@ export const updateAttendanceThunk = createAsyncThunk<
   UpdateAttendanceResponse,
   { attendanceId: string; date?: string; updates: UpdateAttendanceRequest },
   { rejectValue: AttendanceRejectValue; state: RootState }
->("attendance/update", async ({ attendanceId, date, updates }, { dispatch, rejectWithValue }) => {
+>("attendance/update", async ({ attendanceId, date, updates }, { dispatch, getState, rejectWithValue }) => {
   try {
     const response = await attendanceService.updateAttendance(attendanceId, updates);
 
     void dispatch(fetchAttendanceOverviewThunk(date));
-    void dispatch(fetchDashboardThunk());
+    if (!isStaffExperienceUser(selectCurrentUser(getState()))) {
+      void dispatch(fetchDashboardThunk());
+    }
 
     return response;
   } catch (error) {
@@ -234,12 +244,14 @@ export const updateAttendanceSettingsThunk = createAsyncThunk<
   UpdateAttendanceSettingsResponse,
   UpdateAttendanceSettingsRequest,
   { rejectValue: AttendanceRejectValue; state: RootState }
->("attendance/updateSettings", async (updates, { dispatch, rejectWithValue }) => {
+>("attendance/updateSettings", async (updates, { dispatch, getState, rejectWithValue }) => {
   try {
     const response = await attendanceService.updateSettings(updates);
 
     void dispatch(fetchAttendanceOverviewThunk());
-    void dispatch(fetchDashboardThunk());
+    if (!isStaffExperienceUser(selectCurrentUser(getState()))) {
+      void dispatch(fetchDashboardThunk());
+    }
 
     return response;
   } catch (error) {

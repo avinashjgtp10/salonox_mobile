@@ -231,7 +231,7 @@ export default function StaffProfileScreen() {
               <Ionicons name="arrow-back" size={18} color={Colors.primaryDark} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Staff Profile</Text>
-            <View style={[styles.headerAction, { opacity: 0 }]} />
+            <View style={styles.headerActionPlaceholder} />
           </View>
           <View style={styles.centeredContent}>
             <ActivityIndicator size="large" color={Colors.primary} />
@@ -251,7 +251,7 @@ export default function StaffProfileScreen() {
               <Ionicons name="arrow-back" size={18} color={Colors.primaryDark} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Staff Profile</Text>
-            <View style={[styles.headerAction, { opacity: 0 }]} />
+            <View style={styles.headerActionPlaceholder} />
           </View>
           <View style={styles.missingCard}>
             <Text style={styles.missingTitle}>Unable to load staff</Text>
@@ -272,7 +272,7 @@ export default function StaffProfileScreen() {
               <Ionicons name="arrow-back" size={18} color={Colors.primaryDark} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Staff Profile</Text>
-            <View style={[styles.headerAction, { opacity: 0 }]} />
+            <View style={styles.headerActionPlaceholder} />
           </View>
 
           <View style={styles.missingCard}>
@@ -304,7 +304,7 @@ export default function StaffProfileScreen() {
           <Text style={styles.headerTitle}>Staff Profile</Text>
           {/* Spacer keeps "Staff Profile" centred in the space-between header.
               Editing is reached from the hero card's Edit quick action. */}
-          <View style={[styles.headerAction, { opacity: 0 }]} />
+          <View style={styles.headerActionPlaceholder} />
         </View>
 
         <View style={styles.heroCard}>
@@ -469,6 +469,9 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     borderWidth: 1,
     height: AppLayout.headerActionSize,
     justifyContent: "center",
+    width: AppLayout.headerActionSize,
+  },
+  headerActionPlaceholder: {
     width: AppLayout.headerActionSize,
   },
   heroCard: {

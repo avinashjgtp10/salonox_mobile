@@ -30,6 +30,7 @@ import {
 import { selectCurrentStaff, selectCurrentStaffLoading } from "@/store/staff/staff.slice";
 import { selectCurrentUser } from "@/store/user/user.slice";
 import { appEnv } from "@/config/environment";
+import { isNotificationRegistrationPaused } from "@/services/notificationRegistrationLifecycle";
 import { resolveRouteFromPushData } from "@/utils/notificationRouting";
 import { isStaffExperienceUser } from "@/utils/routeResolver";
 
@@ -65,9 +66,14 @@ export const usePushNotifications = (isAuthenticated: boolean) => {
   isAuthenticatedRef.current = isAuthenticated;
 
   const syncDeviceToken = useCallback(async () => {
+    const startedUser = currentUserRef.current;
+    const isCurrentSession = () => isAuthenticatedRef.current && !isNotificationRegistrationPaused() &&
+      startedUser?.id === currentUserRef.current?.id && startedUser?.salonId === currentUserRef.current?.salonId;
+    if (!isCurrentSession()) return;
     try {
       const preferences = await salonNotificationPreferences.get();
       await notificationPreferencesStorage.setPreferences(preferences, false);
+      if (!isCurrentSession()) return;
 
       if (!hasEnabledNotificationPreference(preferences)) {
         confirmedRegistrationSignatureRef.current = null;
@@ -104,6 +110,7 @@ export const usePushNotifications = (isAuthenticated: boolean) => {
 
       const token = await getExpoPushToken();
       const expoPushToken = token.trim();
+      if (!isCurrentSession()) return;
 
       console.log("[PushNotifications] Token obtained");
 
@@ -204,7 +211,7 @@ export const usePushNotifications = (isAuthenticated: boolean) => {
     void dispatch(hydrateRegisteredDeviceTokenThunk()).finally(() => {
       void syncDeviceToken();
     });
-  }, [currentStaff?.id, currentStaffLoading, currentUser?.id, currentUser?.role, isAuthenticated, dispatch, syncDeviceToken]);
+  }, [currentStaff?.id, currentStaffLoading, currentUser?.id, currentUser?.salonId, currentUser?.role, isAuthenticated, dispatch, syncDeviceToken]);
 
   // Token rotation can happen at any time (app reinstall keeps the same
   // device but Expo may issue a new token) — re-check on every return to

@@ -28,7 +28,7 @@ export const fetchCurrentUserThunk = createAsyncThunk<
           }
           throw err;
         });
-    const response = await timeStartup("/users/me", () => api.get<ApiResponse<AuthUser>>(USER.ME));
+    const response = await timeStartup("/users/profile", () => api.get<ApiResponse<AuthUser>>(USER.PROFILE));
     const normalizedUser = normalizeAuthUser(response.data.data);
     const mergedUser = preserveSalonId(normalizedUser, currentUser);
 
