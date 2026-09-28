@@ -3,24 +3,31 @@ import type { ThemeColors } from '@/constants/theme';
 import { StyleSheet } from 'react-native';
 
 export const createCalendarControlsStyles = (Colors: ThemeColors) => StyleSheet.create({
+  calendarHeadingRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingTop: 14, paddingBottom: 10 },
+  calendarHeading: { color: Colors.appointmentText, fontSize: 23, fontWeight: "700", letterSpacing: -0.5 },
+  calendarViewButton: { flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1, borderColor: Colors.appointmentBorder, borderRadius: 8, paddingHorizontal: 12, minHeight: 40 },
   dinggToolbar: {
     backgroundColor: Colors.appointmentSurface,
     borderBottomColor: Colors.appointmentDivider,
     borderBottomWidth: 1,
     marginHorizontal: -AppLayout.contentHorizontalPadding,
     paddingBottom: 8,
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
   },
   dinggToolbarActions: {
     alignItems: "center",
     flexDirection: "row",
     justifyContent: "space-between",
-    minHeight: 42,
+    minHeight: 52,
   },
   dinggTodayButton: {
-    minHeight: 32,
+    backgroundColor: Colors.appointmentSurfaceMuted,
+    borderColor: Colors.appointmentDivider,
+    borderWidth: 1,
+    borderRadius: 8,
+    minHeight: 38,
     justifyContent: "center",
-    paddingHorizontal: 4,
+    paddingHorizontal: 10,
   },
   dinggTodayText: {
     color: Colors.appointmentText,
@@ -30,7 +37,7 @@ export const createCalendarControlsStyles = (Colors: ThemeColors) => StyleSheet.
   dinggToolbarIcons: {
     alignItems: "center",
     flexDirection: "row",
-    gap: 8,
+    gap: 4,
   },
   dinggRangeControls: {
     alignItems: "center",
@@ -56,7 +63,7 @@ export const createCalendarControlsStyles = (Colors: ThemeColors) => StyleSheet.
   calendarFilterRow: {
     alignItems: "center",
     borderTopColor: Colors.appointmentDivider,
-    borderTopWidth: 1,
+    borderTopWidth: 0,
     flexDirection: "row",
     gap: 8,
     paddingRight: 4,
@@ -72,7 +79,7 @@ export const createCalendarControlsStyles = (Colors: ThemeColors) => StyleSheet.
     borderTopWidth: 1,
     flexDirection: "row",
     gap: 8,
-    minHeight: 48,
+    minHeight: 44,
     paddingHorizontal: 10,
   },
   dinggStylistLabel: {
@@ -88,20 +95,25 @@ export const createCalendarControlsStyles = (Colors: ThemeColors) => StyleSheet.
   dinggSearchField: {
     alignItems: "center",
     backgroundColor: Colors.appointmentSurfaceMuted,
-    borderRadius: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.appointmentDivider,
     flexDirection: "row",
     gap: 8,
     marginBottom: 8,
-    minHeight: 40,
+    minHeight: 44,
     paddingHorizontal: 10,
   },
   dinggSearchInput: {
     color: Colors.appointmentText,
     flex: 1,
-    fontSize: 12,
-    minHeight: 40,
+    fontSize: 13,
+    minHeight: 44,
   },
   dinggToolbarIcon: {
+    borderWidth: 1,
+    borderColor: Colors.appointmentDivider,
+    borderRadius: 8,
     alignItems: "center",
     height: 34,
     justifyContent: "center",

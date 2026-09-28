@@ -1,4 +1,4 @@
 export const DASHBOARD = {
-  ALL: "/dashboard/all",
+  COMBINED: "/dashboard",
   STAFF_REVENUE: "/dashboard/staff/revenue",
 } as const;

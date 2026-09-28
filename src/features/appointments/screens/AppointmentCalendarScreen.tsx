@@ -8,7 +8,7 @@ import { createStyles } from "@/features/appointments/styles/appointmentStyles";
 import { todayIsoDate } from "@/features/appointments/utils/appointmentDateTime";
 import { buildCalendarStaffOptions, buildCanonicalStaffIdByAlias, buildFallbackStaffIdByName, resolveAppointmentStaffId, SYNTHETIC_STAFF_ID_PREFIX } from "@/features/appointments/utils/calendarStaff";
 import { matchesCalendarStatuses } from "@/features/appointments/utils/calendarStatusFilters";
-import { selectAppointments, selectAppointmentsRefreshing } from "@/store/appointment/appointment.slice";
+import { selectAppointments, selectAppointmentsRefreshing, selectAppointmentsIsLoading, selectAppointmentsError } from "@/store/appointment/appointment.slice";
 import { useAppSelector } from "@/store/hooks";
 import { selectStaffMembers } from "@/store/staff/staff.slice";
 import { useThemeColors } from "@/theme/ThemeProvider";
@@ -29,6 +29,8 @@ function AppointmentCalendarContent() {
   const appointments = useAppSelector(selectAppointments);
   const staffMembers = useAppSelector(selectStaffMembers);
   const refreshing = useAppSelector(selectAppointmentsRefreshing);
+  const loading = useAppSelector(selectAppointmentsIsLoading);
+  const error = useAppSelector(selectAppointmentsError);
   const { date, search, setDate, setSearch } = useAppointmentListFilters();
   const [selectedStatuses, setSelectedStatuses] = useState<AppointmentStatus[]>([]);
   // The list API supports a single status. Fetch the unfiltered calendar data
@@ -40,7 +42,7 @@ function AppointmentCalendarContent() {
   // selectable.
   const [selectedStaffIds, setSelectedStaffIds] = useState<string[]>([]);
   const [datePickerVisible, setDatePickerVisible] = useState(false);
-  const [calendarSearchOpen, setCalendarSearchOpen] = useState(false);
+  const [calendarSearchOpen, setCalendarSearchOpen] = useState(true);
   const [viewMode, setViewMode] = useState<"week" | "day" | "list">("day");
   const [viewMenuVisible, setViewMenuVisible] = useState(false);
   const [staffFilterVisible, setStaffFilterVisible] = useState(false);
@@ -114,11 +116,18 @@ function AppointmentCalendarContent() {
       title="Calendar"
     >
       <View style={styles.dinggToolbar}>
+        <View style={styles.calendarHeadingRow}>
+          <Text accessibilityRole="header" style={styles.calendarHeading}>Calendar</Text>
+          <TouchableOpacity accessibilityLabel="Change calendar view" onPress={() => setViewMenuVisible(true)} style={styles.calendarViewButton}>
+            <Text style={styles.dinggTodayText}>{viewMode === "day" ? "Day" : viewMode === "week" ? "Week" : "List"}</Text>
+            <Ionicons name="chevron-down" size={14} color={Colors.appointmentTextSecondary} />
+          </TouchableOpacity>
+        </View>
         <View style={styles.dinggToolbarActions}>
           <TouchableOpacity onPress={() => setDate(todayIsoDate())} style={styles.dinggTodayButton}><Text style={styles.dinggTodayText}>Today</Text></TouchableOpacity>
           <View style={styles.dinggRangeControls}>
             <TouchableOpacity hitSlop={8} onPress={() => changeDate(viewMode === "week" ? -7 : -1)}><Ionicons name="chevron-back" size={17} color={Colors.appointmentAccent} /></TouchableOpacity>
-            <TouchableOpacity onPress={() => setViewMenuVisible(true)} style={styles.dinggRangeButton}><Text style={styles.dinggRangeText}>{formatAppDate(`${date}T00:00:00`)}{viewMode === "week" ? ` -\n${formatAppDate(rangeEnd)}` : ""}</Text><Ionicons name="chevron-down" size={16} color={Colors.appointmentText} /></TouchableOpacity>
+            <TouchableOpacity accessibilityLabel="Select date" onPress={() => setDatePickerVisible(true)} style={styles.dinggRangeButton}><Text style={styles.dinggRangeText}>{formatAppDate(`${date}T00:00:00`)}{viewMode === "week" ? ` -\n${formatAppDate(rangeEnd)}` : ""}</Text><Ionicons name="chevron-down" size={16} color={Colors.appointmentText} /></TouchableOpacity>
             <TouchableOpacity hitSlop={8} onPress={() => changeDate(viewMode === "week" ? 7 : 1)}><Ionicons name="chevron-forward" size={17} color={Colors.appointmentAccent} /></TouchableOpacity>
           </View>
           <View style={styles.dinggToolbarIcons}>
@@ -140,6 +149,7 @@ function AppointmentCalendarContent() {
         </View>
       </View>
       <CalendarPreview
+        showEmptyState={!loading && !error}
         appointments={visibleAppointments}
         date={date}
         onRefresh={() => void fetchAppointments(viewMode === "week" ? { fromDate: date, limit: 200, refresh: true, search, staffId: selectedStaffId, status, toDate: rangeEndKey } : { date, limit: 200, refresh: true, search, staffId: selectedStaffId, status })}

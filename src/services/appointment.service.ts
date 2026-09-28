@@ -1,4 +1,4 @@
-import { api } from "@/services/api";
+import { api, CHECKOUT_REQUEST_TIMEOUT_MS } from "@/services/api";
 import { APPOINTMENT, CLIENT } from "@/services/api/endpoints";
 import type { ApiResponse } from "@/types/auth";
 import { normalizeSaleId } from "@/utils/apiNormalize";
@@ -525,7 +525,9 @@ export const appointmentService = {
       console.log("[Appointments] Final create payload", JSON.stringify(requestPayload, null, 2));
     }
 
-    const response = await api.post<AppointmentDetailApiResponse>(APPOINTMENT.CREATE, requestPayload);
+    const response = await api.post<AppointmentDetailApiResponse>(APPOINTMENT.CREATE, requestPayload, {
+      timeout: CHECKOUT_REQUEST_TIMEOUT_MS,
+    });
     return {
       appointment: normalizeAppointment(getAppointmentFromPayload(response.data.data)),
       message: response.data.message,
@@ -605,6 +607,7 @@ export const appointmentService = {
     const response = await api.post<AppointmentDetailApiResponse>(
       APPOINTMENT.CHECKOUT(appointmentId),
       {},
+      { timeout: CHECKOUT_REQUEST_TIMEOUT_MS },
     );
     const payload = response.data.data;
     const saleId = normalizeSaleId(payload);

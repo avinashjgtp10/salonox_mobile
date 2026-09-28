@@ -164,7 +164,6 @@ export default function InboxThreadScreen() {
             </Text>
           ) : null}
         </View>
-        <View style={styles.iconButton} />
       </View>
 
       <KeyboardAvoidingView

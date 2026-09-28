@@ -11,6 +11,7 @@ import type { SaleLineItemRequest } from "@/types/sales";
 export type AddItemInput = {
   availableStock?: number;
   category?: string | null;
+  categoryId?: string | null;
   // The service's standard recipe (Service.consumablesUsed) — only ever set
   // when itemType is "service". Scaled/copied onto the cart line by the
   // reducer, never used as-is.
@@ -104,6 +105,7 @@ const cartReducer = (state: CartItem[], action: CartAction): CartItem[] => {
             ? normalizeAvailableStock(action.input.availableStock ?? 0)
             : undefined,
         category: action.input.category ?? null,
+        categoryId: action.input.categoryId,
         consumables: buildInitialConsumables(action.input.consumables, 1),
         discountAmount: 0,
         duration: action.input.duration,
@@ -239,6 +241,7 @@ const cartReducer = (state: CartItem[], action: CartAction): CartItem[] => {
           ? {
               ...item,
               category: action.input.category ?? null,
+              categoryId: action.input.categoryId,
               consumables: buildInitialConsumables(action.input.consumables, item.quantity),
               duration: action.input.duration,
               itemId: action.input.itemId,

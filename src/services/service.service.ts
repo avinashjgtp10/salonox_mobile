@@ -487,19 +487,11 @@ export const serviceService = {
       type,
     };
 
-    try {
-      const response = await api.get<ApiResponse<unknown>>("/categories", {
-        params,
-      });
+    const response = await api.get<ApiResponse<unknown>>("/categories", {
+      params,
+    });
 
-      return normalizeCategoryList(response.data?.data ?? response.data);
-    } catch {
-      const response = await api.get<ApiResponse<unknown>>(SERVICE.CATEGORIES, {
-        params,
-      });
-
-      return normalizeCategoryList(response.data?.data ?? response.data);
-    }
+    return normalizeCategoryList(response.data?.data ?? response.data);
   },
 
   async createCategory(
@@ -512,27 +504,11 @@ export const serviceService = {
       throw new Error("Category name is required.");
     }
 
-    let rawCategory: unknown = null;
-
-    try {
-      const response = await api.post<ApiResponse<unknown>>("/categories", {
-        name: trimmedName,
-        type,
-      });
-
-      rawCategory = response.data?.data ?? response.data;
-    } catch (primaryError) {
-      try {
-        const response = await api.post<ApiResponse<unknown>>(SERVICE.CATEGORIES, {
-          name: trimmedName,
-          type,
-        });
-
-        rawCategory = response.data?.data ?? response.data;
-      } catch {
-        throw primaryError;
-      }
-    }
+    const response = await api.post<ApiResponse<unknown>>("/categories", {
+      name: trimmedName,
+      type,
+    });
+    const rawCategory: unknown = response.data?.data ?? response.data;
 
     const record = getCategoryRecord(rawCategory) ?? (rawCategory as ServiceApiCategory | null);
     const categoryRecord =

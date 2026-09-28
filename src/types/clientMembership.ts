@@ -1,4 +1,4 @@
-export type ClientMembershipStatus = "active" | "cancelled" | "expired" | "inactive";
+export type ClientMembershipStatus = "active" | "cancelled" | "expired" | "inactive" | "exhausted";
 
 export type ClientMembershipPricingType = "percentage" | "value";
 
@@ -23,6 +23,7 @@ export type ClientMembershipHistoryItem = {
 };
 
 export type ClientMembershipAssignment = {
+  benefitType?: "discount_balance" | "validity";
   appliesTo: ClientMembershipAppliesTo | null;
   assignedAt: string | null;
   benefits: ClientMembershipBenefit[];
