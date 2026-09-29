@@ -1,129 +1,118 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Icon,
-  Reveal,
-  SectionArtwork,
   SectionTransition,
 } from '../shared';
+import { BILLING_NOTE, BILLING_PERIODS, PRICING_PLANS, formatPrice, getPlanPricing } from './pricing.config';
+import type { BillingPeriod } from './pricing.config';
 
-const PURCHASE_PLANS = [
-  {
-    name: 'Basic',
-    price: '₹8,000',
-    description: 'For business looking for essential management features to get started.',
-    cta: 'Buy Basic',
-    badge: '',
-    featured: false,
-    premium: false,
-    features: [
-      'Mobile App',
-      'Dashboard',
-      'Quick Sale',
-      'Calendar',
-      'Services',
-      'Products',
-      'Limited Reports',
-    ],
-  },
-  {
-    name: 'Advance',
-    price: '₹12,000',
-    description: 'For business that need complete salon management functionality.',
-    cta: 'Buy Advance',
-    badge: '',
-    featured: true,
-    premium: false,
-    features: [
-      'Mobile App',
-      'All Basic Plan features',
-      'Full Dashboard access',
-      'Quick Sale',
-      'Calendar',
-      'Services',
-      'Products',
-      'Memberships',
-      'Packages',
-      'Full Reports',
-      'Staff Management',
-      'Client Management',
-      'Inventory Management',
-      'Payroll',
-      'Enquiry',
-      'Cash Management',
-      'Settings',
-    ],
-  },
-  {
-    name: 'Pro',
-    price: '₹15,000',
-    description: 'For growing business that need advanced digital and multi-branch capabilities.',
-    cta: 'Buy Pro',
-    badge: '',
-    featured: false, 
-    premium: true,
-    features: [
-      'Mobile App',
-      'Everything in Advance Plan',
-      'Web Building',
-      'Google SEO',
-      'Meta Marketing',
-      'Multi-Branch Handling',
-      'Advanced Reports',
-      'Consultation',
-    ],
-  },
-] as const;
+const Pricing: React.FC = () => {
+  const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>('monthly');
+  const billing = BILLING_PERIODS[billingPeriod];
 
-const Pricing: React.FC = () => (
-  <section id="pricing" className="pricing">
-    <SectionTransition from="dark" />
-    <SectionArtwork variant="pricing" />
-    <div className="container">
-      <Reveal>
+  return (
+    <section id="pricing" className="pricing" aria-labelledby="pricing-heading">
+      <SectionTransition from="dark" />
+      <div className="container">
         <div className="section-head">
-          <span className="eyebrow"><span className="dot" /> Pricing</span>
-          <h2>Purchase plans built for every salon stage.</h2>
-          <p>Choose the SalonOX plan that fits how your salon runs today and where it grows tomorrow.</p>
+          <span className="eyebrow">Pricing</span>
+          <h2 id="pricing-heading">Pricing that grows with your salon</h2>
+          <p>Choose the plan that fits your salon today and upgrade as your business grows.</p>
         </div>
-      </Reveal>
+        <fieldset className="pricing-billing-selector">
+          <legend>Choose your billing period</legend>
+          <div className="pricing-billing-options">
+            {(Object.keys(BILLING_PERIODS) as BillingPeriod[]).map((period) => (
+              <label key={period} className="pricing-billing-option">
+                <input
+                  type="radio"
+                  name="salonox-billing-period"
+                  value={period}
+                  checked={billingPeriod === period}
+                  onChange={() => setBillingPeriod(period)}
+                  aria-controls="pricing-plans"
+                />
+                <span>{BILLING_PERIODS[period].label}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+        {BILLING_NOTE && <p className="pricing-billing-note">{BILLING_NOTE}</p>}
 
-      <div className="pricing-grid">
-        {PURCHASE_PLANS.map((plan, index) => (
-          <Reveal delay={index as 0 | 1 | 2} key={plan.name}>
-            <article
-              className={[
-                'purchase-plan-card',
-                plan.featured ? 'purchase-plan-card--recommended' : '',
-                plan.premium ? 'purchase-plan-card--premium' : '',
-              ].filter(Boolean).join(' ')}
-              aria-labelledby={`purchase-plan-${plan.name.toLowerCase()}`}
-            >
-              {plan.badge && <span className="purchase-plan-badge">{plan.badge}</span>}
-              <div className="purchase-plan-header">
-                <h3 id={`purchase-plan-${plan.name.toLowerCase()}`}>{plan.name}</h3>
-                <div className="purchase-plan-price">{plan.price}</div>
-                <p>{plan.description}</p>
-              </div>
+        <div id="pricing-plans" className="pricing-grid">
+          {PRICING_PLANS.map((plan) => {
+            const price = getPlanPricing(plan, billingPeriod);
+            return (
+              <article
+                key={plan.id}
+                className={[
+                  'purchase-plan-card',
+                  plan.featured ? 'purchase-plan-card--recommended' : '',
+                  plan.premium ? 'purchase-plan-card--premium' : '',
+                ].filter(Boolean).join(' ')}
+                aria-labelledby={`purchase-plan-${plan.name.toLowerCase()}`}
+              >
+                <div className="purchase-plan-header">
+                  <div className="purchase-plan-title">
+                    <h3 id={`purchase-plan-${plan.name.toLowerCase()}`}>{plan.name}</h3>
+                    {plan.badge && <span className="purchase-plan-badge">{plan.badge}</span>}
+                  </div>
+                  <p>{plan.description}</p>
+                </div>
+                <div
+                  className={`purchase-plan-billing${billingPeriod !== 'monthly' ? ' purchase-plan-billing--comparison' : ''}`}
+                  role="status"
+                  aria-label={`${plan.name} pricing`}
+                  aria-atomic="true"
+                >
+                  {price ? (
+                    <div key={billingPeriod} className="purchase-plan-billing-content">
+                      <div className="purchase-plan-price">
+                        {formatPrice(price.monthlyEquivalent)}<span> / month</span>
+                      </div>
+                      <p className="purchase-plan-billing-frequency">{billing.billed}</p>
+                      {billingPeriod !== 'monthly' && price.monthlyComparison !== null && (
+                        <p className="purchase-plan-comparison">
+                          Paying monthly for {billing.months} months: {formatPrice(price.monthlyComparison)} + GST
+                        </p>
+                      )}
+                      {price.savingsAmount > 0 && (
+                        <span className="purchase-plan-savings">
+                          Save {formatPrice(price.savingsAmount)}
+                          {price.savingsPercent > 0 ? ` (${price.savingsPercent}%)` : ''} before GST
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <div key={billingPeriod} className="purchase-plan-billing-content">
+                      <p className="purchase-plan-price-pending">Pricing coming soon</p>
+                      <p className="purchase-plan-billing-frequency">{billing.label} pricing for {plan.name} is not yet published.</p>
+                    </div>
+                  )}
+                </div>
+                <Link to="/register" className="btn btn-block purchase-plan-cta">
+                  {plan.cta} <span aria-hidden="true"><Icon.Arrow /></span>
+                </Link>
 
-              <ul className="purchase-plan-features">
-                {plan.features.map((feature) => (
-                  <li key={feature}>
-                    <span className="purchase-plan-check" aria-hidden="true"><Icon.Check /></span>
-                    <span>{feature}</span>
-                  </li>
-                ))}
-              </ul>
-
-              <Link to="/register" className="btn btn-primary btn-block purchase-plan-cta">
-                {plan.cta} <Icon.Arrow />
-              </Link>
-            </article>
-          </Reveal>
-        ))}
+                <ul className="purchase-plan-features">
+                  {plan.features.map((feature) => (
+                    <li
+                      key={feature}
+                      className={feature.startsWith('Everything in') ? 'purchase-plan-inherited' : undefined}
+                    >
+                      <span className="purchase-plan-check" aria-hidden="true"><Icon.Check /></span>
+                      <span>{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+              </article>
+            );
+          })}
+        </div>
       </div>
-    </div>
-  </section>
-);
+    </section>
+  );
+};
 
 export default React.memo(Pricing);
