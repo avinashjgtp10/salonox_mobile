@@ -84,7 +84,14 @@ function buildServiceApiItems(
         start_time: new Date(svcStartMs).toISOString(),
         end_time: new Date(svcStartMs + (s.duration || 30) * 60000).toISOString(),
         price,
-        qty,
+        // Backend's Appointment services schema (and computeAppointmentTotals's
+        // toRow) reads `quantity`, not `qty` — package_items/product_items/
+        // membership_items below all send `quantity: qty` correctly; this row
+        // sent the bare shorthand `qty` instead, so the backend's re-price-on-
+        // paid-edit path (appointments.service.ts#update) never saw a quantity
+        // at all, defaulted to 1, and silently dropped the ×qty multiplier from
+        // the recomputed Grand Total.
+        quantity: qty,
         total: apiTotal,
         // Persist the discount % itself, not just its resulting total — total
         // alone can't be redisplayed as a Disc % once the row's price/qty are
@@ -180,6 +187,11 @@ export function useAppointment() {
       const baseData = {
         salon_id:         salonId || undefined,
         ...(source ? { source } : {}),
+        // Editing an "Any Available" online booking through this modal is a
+        // deliberate staff decision — the moment it's saved here, it's no
+        // longer ambiguous, so it stops going back to the Calendar's
+        // synthetic "Any" column even if the stylist ends up unchanged.
+        ...(existingBooking?.isAnyStaff ? { is_any_staff: false } : {}),
         client_id:   (clientId && isRealId(clientId) && clientId !== 'walk-in') ? clientId : undefined,
         staff_id:         toApiStaffId(firstRow?.staffId ?? (booking as any).staffId),
         scheduled_at:     new Date(bookingStartMs).toISOString(),

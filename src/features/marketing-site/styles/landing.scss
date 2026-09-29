@@ -3,7 +3,7 @@
    Self-contained styles. All rules are scoped under .salonox-landing
    ========================================================================== */
 
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+@use 'fonts';
 
 html {
   scroll-behavior: smooth;
@@ -4038,6 +4038,14 @@ body.landing-page-active {
       letter-spacing: 0;
       white-space: nowrap;
     }
+  }
+
+  .purchase-plan-period {
+    margin-left: 6px;
+    color: var(--navy-softer);
+    font-family: var(--font-body);
+    font-size: 16px;
+    font-weight: 600;
   }
 
   .purchase-plan-features {

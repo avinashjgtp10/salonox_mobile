@@ -4,6 +4,7 @@ import { toggleTemplateFavoriteThunk } from "../../../middleware/marketing/marke
 import type { Template, TemplateStatus } from "../../../types/marketing.types";
 import TemplatePreviewModal from "./TemplatePreviewModal";
 import { Button, Badge } from "../../../components/ui";
+import { usePermissions } from "../../../hooks/usePermissions";
 import "../styles/TemplateCard.scss";
 
 interface Props {
@@ -30,10 +31,10 @@ export default function TemplateCard({
   template, onDelete, onSync, syncLoading, deleteLoading,
 }: Props) {
   const dispatch                      = useAppDispatch();
+  const { can }                       = usePermissions();
   const [showPreview, setShowPreview] = useState(false);
   const [starring,    setStarring]    = useState(false);
 
-  const isApproved      = template.status === "APPROVED";
   const isRejected      = template.status === "REJECTED";
   const isFavorite      = (template as any).is_favorite ?? false;
   const rejectionReason = template.rejection_reason ?? template.rejectionReason;
@@ -51,11 +52,11 @@ export default function TemplateCard({
         className={[
           "tcard",
           `tcard--${template.status.toLowerCase()}`,
-          isApproved ? "tcard--clickable" : "",
-          isFavorite ? "tcard--favorite"  : "",
+          "tcard--clickable",
+          isFavorite ? "tcard--favorite" : "",
         ].join(" ").trim()}
-        onClick={() => { if (isApproved) setShowPreview(true); }}
-        title={isApproved ? "Click to preview" : undefined}
+        onClick={() => setShowPreview(true)}
+        title="Click to preview"
       >
         {/* Header row: name + star + badge */}
         <div className="tcard-header">
@@ -134,8 +135,17 @@ export default function TemplateCard({
             <Button
               variant="outline-secondary"
               size="sm"
+              title="View message preview"
+              onClick={(e) => { e?.stopPropagation(); setShowPreview(true); }}
+            >
+              👁 View
+            </Button>
+            <Button
+              variant="outline-secondary"
+              size="sm"
               loading={syncLoading}
-              disabled={syncLoading || deleteLoading}
+              disabled={(syncLoading || deleteLoading) && can("edit_template")}
+              style={!can("edit_template") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
               title="Sync status from Meta"
               onClick={(e) => { e?.stopPropagation(); onSync(String(template.id)); }}
             >
@@ -145,7 +155,8 @@ export default function TemplateCard({
               variant="outline-danger"
               size="sm"
               loading={deleteLoading}
-              disabled={syncLoading || deleteLoading}
+              disabled={(syncLoading || deleteLoading) && can("delete_template")}
+              style={!can("delete_template") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
               title="Delete template"
               onClick={(e) => { e?.stopPropagation(); onDelete(String(template.id)); }}
             >

@@ -56,11 +56,18 @@ interface CompletePaymentParams {
   // Staff-chosen cap ("only use ₹150 of the wallet") — the backend still
   // clamps further by real balance/eligible items.
   membershipWalletRequested?: number;
-  // Percentage/loyalty membership discount — intent only. There is no
-  // matching "requested" field: the amount is fully determined server-side by
-  // the plan's percentage, the eligible line total, and any discount balance
-  // left, same reasoning as reward points/referral credit below.
+  // Percentage/loyalty membership discount. The amount is decided server-side
+  // (plan %, eligible line total, discount balance left), but staff can lower
+  // the RATE for one bill from the Available Benefits panel —
+  // membershipDiscountPercentRequested carries that percentage. Undefined =
+  // charge the plan's own rate.
   applyMembershipDiscount?: boolean;
+  membershipDiscountPercentRequested?: number;
+  // Which of the client's several eligible percentage memberships staff
+  // actually ticked in Available Benefits — undefined/[] both send "none of
+  // them specifically" only when applyMembershipDiscount is itself false;
+  // when true, this is always the non-empty set staff selected.
+  membershipDiscountIds?: string[];
   // Independent sibling flag for the salon-wide Loyalty discount — stacks
   // additively with applyMembershipDiscount above when both are checked.
   applyLoyaltyDiscount?: boolean;
@@ -89,7 +96,7 @@ export function buildPaymentPayload(params: CompletePaymentParams): {
     alreadyPaidAmount, eWalletAmt, couponDiscount, couponApplied,
     paymentMode, singleMethod, splitEntries, partialAmtInput,
     useEWallet, applyMembershipWallet,
-    membershipWalletRequested, applyMembershipDiscount, applyLoyaltyDiscount,
+    membershipWalletRequested, applyMembershipDiscount, membershipDiscountPercentRequested, membershipDiscountIds, applyLoyaltyDiscount,
     taxBreakdown, rewardPointsToRedeem, referralCreditAmt,
     includeGst,
   } = params;
@@ -160,6 +167,8 @@ export function buildPaymentPayload(params: CompletePaymentParams): {
     apply_membership_wallet: !!applyMembershipWallet,
     membership_wallet_requested: applyMembershipWallet ? membershipWalletRequested : undefined,
     apply_membership_discount: !!applyMembershipDiscount,
+    membership_discount_percent_requested: applyMembershipDiscount ? membershipDiscountPercentRequested : undefined,
+    membership_discount_ids: applyMembershipDiscount ? membershipDiscountIds : undefined,
     apply_loyalty_discount: !!applyLoyaltyDiscount,
     tax_breakdown: taxBreakdown && taxBreakdown.length > 0 ? taxBreakdown : undefined,
     reward_points_used: rewardPointsToRedeem || undefined,

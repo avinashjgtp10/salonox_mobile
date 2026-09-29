@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import {
@@ -7,6 +7,7 @@ import {
   submitPurchaseTemplateThunk,
   resetPurchaseTemplateThunk,
   syncPurchaseTemplateThunk,
+  sendPurchaseTemplateTestThunk,
   fetchWaAutomationSettingsThunk,
   updateWaAutomationSettingThunk,
 } from "../../../middleware/marketing/wa-automation.thunk";
@@ -14,70 +15,65 @@ import {
   fetchNotificationChannelTemplatesThunk,
   setChannelEnabledThunk,
 } from "../../../middleware/marketing/notification-channels.thunk";
-import { Button } from "../../../components/ui";
-import TriggerEventCard from "./TriggerEventCard";
+import { Button, Badge } from "../../../components/ui";
+import ChannelSmsSection from "./ChannelSmsSection";
+import ChannelEmailSection from "./ChannelEmailSection";
+import VariableChips from "./VariableChips";
+import { renderSamplePreview } from "../utils/sampleValues";
 import type { PurchaseEventType, PurchaseTemplate } from "../../../types/marketing.types";
 import "../styles/TriggerTemplatesPanel.scss";
 
-// ── Category grouping ───────────────────────────────────────────────────────
+// ── Category grouping (display only — purely a left-panel filter) ──────────
+type DisplayCategory = "quick_sale" | "calendar" | "membership" | "packages" | "payments" | "other";
+
+const CATEGORY_LABEL: Record<DisplayCategory, string> = {
+  quick_sale: "Quick Sale", calendar: "Calendar", membership: "Membership",
+  packages: "Packages", payments: "Payments", other: "Other",
+};
+const CATEGORY_ORDER: DisplayCategory[] = ["quick_sale", "calendar", "membership", "packages", "payments", "other"];
+
 // client_welcome and bill_receipt are shared — they show up under both Quick
 // Sale and Calendar (same underlying template either way, edited once).
-type TriggerCategory = "quick_sale" | "calendar" | "other";
-
-const CATEGORY_META: Record<TriggerCategory, { label: string; icon: string; desc: string }> = {
-  quick_sale: {
-    label: "Quick Sale",
-    icon:  "ti-shopping-cart",
-    desc:  "Fires on a walk-in sale — no appointment involved",
-  },
-  calendar: {
-    label: "Calendar",
-    icon:  "ti-calendar-event",
-    desc:  "Fires around a scheduled booking — confirmation, reschedule, cancellation, payment",
-  },
-  other: {
-    label: "Other",
-    icon:  "ti-dots-circle-horizontal",
-    desc:  "Lifecycle alerts, redemptions, and rewards — expiry warnings, session/wallet use, reminders",
-  },
-};
-
-const EVENT_CATEGORIES: Record<PurchaseEventType, TriggerCategory[]> = {
+const EVENT_CATEGORIES: Record<PurchaseEventType, DisplayCategory[]> = {
   client_welcome:      ["quick_sale", "calendar"],
   bill_receipt:        ["quick_sale", "calendar"],
-
   package_purchased:    ["quick_sale"],
   membership_purchased: ["quick_sale"],
-
   appointment_confirmation: ["calendar"],
   appointment_rescheduled:  ["calendar"],
   appointment_cancelled:    ["calendar"],
   payment_received:         ["calendar"],
-
-  package_expiring_7d:              ["other"],
-  package_expiring_24h:             ["other"],
-  membership_expiring_7d:           ["other"],
-  membership_expiring_24h:          ["other"],
-  package_session_used:             ["other"],
-  membership_session_used:          ["other"],
-  package_appointment_reminder_24h: ["other"],
-  service_reminder_24h:             ["other"],
-  reward_points_earned:             ["other"],
-  referral_reward:                  ["other"],
-  ewallet_used:                     ["other"],
-  referral_credit_used:             ["other"],
-  reward_points_used:               ["other"],
+  package_appointment_reminder_24h: ["calendar"],
+  service_reminder_24h:             ["calendar"],
+  membership_expiring_7d:  ["membership"],
+  membership_expiring_24h: ["membership"],
+  membership_session_used: ["membership"],
+  package_expiring_7d:  ["packages"],
+  package_expiring_24h: ["packages"],
+  package_session_used: ["packages"],
+  ewallet_used:         ["payments"],
+  referral_credit_used: ["payments"],
+  reward_points_used:   ["payments"],
+  reward_points_earned: ["payments"],
+  referral_reward:      ["payments"],
+  birthday_wishes:      ["other"],
+  anniversary_wishes:   ["other"],
+  cash_counter_opened:  ["other"],
+  cash_counter_closed:  ["other"],
 };
 
-const CATEGORY_ORDER: TriggerCategory[] = ["quick_sale", "calendar", "other"];
-
-// Every PURCHASE_EVENTS member now goes through Meta template submission —
-// bill_receipt included (its PDF is the template's document HEADER). Kept as
-// an extensibility point in case a future event opts out again.
-const CAPTION_ONLY_EVENTS: PurchaseEventType[] = [];
+const EVENT_ICON: Record<PurchaseEventType, string> = {
+  client_welcome: "👤", bill_receipt: "🧾", package_purchased: "📦", membership_purchased: "🎁",
+  appointment_confirmation: "📅", appointment_rescheduled: "🔄", appointment_cancelled: "❌", payment_received: "💳",
+  package_expiring_7d: "⏰", package_expiring_24h: "⏰", membership_expiring_7d: "⏰", membership_expiring_24h: "⏰",
+  package_session_used: "✅", membership_session_used: "✅",
+  package_appointment_reminder_24h: "🔔", service_reminder_24h: "🔔",
+  reward_points_earned: "⭐", referral_reward: "🤝", ewallet_used: "👛", referral_credit_used: "🤝", reward_points_used: "⭐",
+  birthday_wishes: "🎂", anniversary_wishes: "💐", cash_counter_opened: "💰", cash_counter_closed: "💰",
+};
 
 const EVENT_LABELS: Record<PurchaseEventType, { label: string; hint: string }> = {
-  client_welcome:       { label: "New Client Welcome", hint: "Sent right after a new client is added, from Quick Sale or Calendar" },
+  client_welcome:       { label: "New Client Welcome", hint: "Sent right after a new client is added, from Quick Sale or Calendar — includes the client's own referral code" },
   bill_receipt:          { label: "Bill Receipt (Thank You + Feedback)", hint: "Sent as a document-header template alongside the bill PDF, right after checkout completes — itemizes everything purchased, so it's the only confirmation for a Quick Sale" },
   package_purchased:    { label: "Package Purchased", hint: "Sent only when a package is sold standalone (not as part of a bigger checkout, which already sends Bill Receipt)" },
   membership_purchased: { label: "Membership Purchased", hint: "Sent only when a membership is sold standalone (not as part of a bigger checkout, which already sends Bill Receipt)" },
@@ -98,125 +94,27 @@ const EVENT_LABELS: Record<PurchaseEventType, { label: string; hint: string }> =
   ewallet_used:         { label: "eWallet Used", hint: "Sent whenever a payment is settled (fully or partly) using eWallet balance" },
   referral_credit_used: { label: "Referral Credit Used", hint: "Sent whenever a payment is settled (fully or partly) using Referral Balance" },
   reward_points_used:   { label: "Reward Points Used", hint: "Sent whenever a payment is settled (fully or partly) using Reward Points" },
-};
-
-// What each placeholder turns into in the message the customer receives.
-// Every event uses the same named-placeholder format ({{customer_name}},
-// {{salon_name}}, ...) — for the 19 that go to Meta, the backend converts
-// these to Meta's required {{1}}/{{2}}/{{3}}... only at submission time; the
-// wording shown/edited here always stays in this named form.
-const VARIABLE_EXPLANATIONS: Record<PurchaseEventType, Array<{ token: string; meaning: string }>> = {
-  client_welcome: [
-    { token: "{{customer_name}}", meaning: "Customer's name" },
-    { token: "{{salon_name}}", meaning: "Your salon's name" },
-  ],
-  bill_receipt: [
-    { token: "{{customer_name}}", meaning: "Customer's name" },
-    { token: "{{salon_name}}", meaning: "Your salon's name" },
-    { token: "{{items}}", meaning: "Itemized bill breakdown, built automatically" },
-    { token: "{{feedback_line}}", meaning: "Feedback ask + link (or a fallback line for a walk-in with no appointment), built automatically" },
-  ],
-  package_purchased: [
-    { token: "{{customer_name}}", meaning: "Customer's name" }, { token: "{{package_name}}", meaning: "Package name" },
-    { token: "{{services}}", meaning: "Services included in the package, comma-separated" }, { token: "{{total_sessions}}", meaning: "Total sessions" },
-    { token: "{{expiry_date}}", meaning: "Expiry date" }, { token: "{{package_value}}", meaning: "Package value" },
-    { token: "{{invoice_number}}", meaning: "Invoice number" },
-  ],
-  membership_purchased: [
-    { token: "{{customer_name}}", meaning: "Customer's name" }, { token: "{{membership_name}}", meaning: "Membership name" },
-    { token: "{{benefit}}", meaning: "Plain-text description of the membership's benefit" }, { token: "{{start_date}}", meaning: "Purchase/start date" },
-    { token: "{{expiry_date}}", meaning: "Expiry date" }, { token: "{{membership_price}}", meaning: "Membership price" },
-    { token: "{{invoice_number}}", meaning: "Invoice number" },
-  ],
-  appointment_confirmation: [
-    { token: "{{customer_name}}", meaning: "Customer's name" }, { token: "{{salon_name}}", meaning: "Your salon's name" },
-    { token: "{{appointment_date}}", meaning: "Appointment date" }, { token: "{{appointment_time}}", meaning: "Appointment time" },
-    { token: "{{service_name}}", meaning: "Service name" }, { token: "{{staff_name}}", meaning: "Staff name" },
-  ],
-  appointment_rescheduled: [
-    { token: "{{customer_name}}", meaning: "Customer's name" }, { token: "{{salon_name}}", meaning: "Your salon's name" },
-    { token: "{{old_date}}", meaning: "Old date" }, { token: "{{old_time}}", meaning: "Old time" },
-    { token: "{{new_date}}", meaning: "New date" }, { token: "{{new_time}}", meaning: "New time" },
-    { token: "{{service_name}}", meaning: "Service name" }, { token: "{{staff_name}}", meaning: "Staff name" },
-  ],
-  appointment_cancelled: [
-    { token: "{{customer_name}}", meaning: "Customer's name" }, { token: "{{salon_name}}", meaning: "Your salon's name" },
-    { token: "{{appointment_date}}", meaning: "Appointment date" }, { token: "{{appointment_time}}", meaning: "Appointment time" },
-    { token: "{{service_name}}", meaning: "Service name" },
-  ],
-  payment_received: [
-    { token: "{{customer_name}}", meaning: "Customer's name" }, { token: "{{amount}}", meaning: "Total bill amount paid" },
-    { token: "{{salon_name}}", meaning: "Your salon's name" }, { token: "{{appointment_date}}", meaning: "Appointment date" },
-    { token: "{{appointment_time}}", meaning: "Appointment time" },
-  ],
-  package_expiring_7d: [
-    { token: "{{customer_name}}", meaning: "Customer's name" }, { token: "{{package_name}}", meaning: "Package name" },
-    { token: "{{expiry_date}}", meaning: "Expiry date" }, { token: "{{remaining_sessions}}", meaning: "Sessions remaining" },
-  ],
-  package_expiring_24h: [
-    { token: "{{customer_name}}", meaning: "Customer's name" }, { token: "{{package_name}}", meaning: "Package name" },
-    { token: "{{remaining_sessions}}", meaning: "Sessions remaining" }, { token: "{{expiry_date}}", meaning: "Expiry date" },
-  ],
-  membership_expiring_7d: [
-    { token: "{{customer_name}}", meaning: "Customer's name" }, { token: "{{membership_name}}", meaning: "Membership name" },
-    { token: "{{expiry_date}}", meaning: "Expiry date" }, { token: "{{remaining_balance}}", meaning: "Balance remaining" },
-  ],
-  membership_expiring_24h: [
-    { token: "{{customer_name}}", meaning: "Customer's name" }, { token: "{{membership_name}}", meaning: "Membership name" },
-    { token: "{{remaining_balance}}", meaning: "Balance remaining" }, { token: "{{expiry_date}}", meaning: "Expiry date" },
-  ],
-  package_session_used: [
-    { token: "{{customer_name}}", meaning: "Customer's name" }, { token: "{{service_name}}", meaning: "Service redeemed" },
-    { token: "{{package_name}}", meaning: "Package name" }, { token: "{{remaining_sessions}}", meaning: "Sessions remaining" },
-    { token: "{{salon_name}}", meaning: "Your salon's name" },
-  ],
-  membership_session_used: [
-    { token: "{{customer_name}}", meaning: "Customer's name" }, { token: "{{service_name}}", meaning: "Service redeemed" },
-    { token: "{{amount_used}}", meaning: "Amount used" }, { token: "{{remaining_balance}}", meaning: "Remaining balance" },
-    { token: "{{salon_name}}", meaning: "Your salon's name" },
-  ],
-  package_appointment_reminder_24h: [
-    { token: "{{customer_name}}", meaning: "Customer's name" }, { token: "{{salon_name}}", meaning: "Your salon's name" },
-    { token: "{{appointment_date}}", meaning: "Appointment date" }, { token: "{{appointment_time}}", meaning: "Appointment time" },
-    { token: "{{service_name}}", meaning: "Service name" }, { token: "{{package_name}}", meaning: "Package name" },
-  ],
-  service_reminder_24h: [
-    { token: "{{customer_name}}", meaning: "Customer's name" }, { token: "{{salon_name}}", meaning: "Your salon's name" },
-    { token: "{{appointment_date}}", meaning: "Appointment date" }, { token: "{{appointment_time}}", meaning: "Appointment time" },
-    { token: "{{service_name}}", meaning: "Service name" }, { token: "{{staff_name}}", meaning: "Staff name" },
-  ],
-  reward_points_earned: [
-    { token: "{{customer_name}}", meaning: "Customer's name" }, { token: "{{points_earned}}", meaning: "Points earned" },
-    { token: "{{salon_name}}", meaning: "Your salon's name" }, { token: "{{total_points}}", meaning: "Total points balance" },
-  ],
-  referral_reward: [
-    { token: "{{customer_name}}", meaning: "Referrer's name" }, { token: "{{referred_customer_name}}", meaning: "Referred client's name" },
-    { token: "{{salon_name}}", meaning: "Your salon's name" }, { token: "{{reward}}", meaning: "Reward amount" },
-    { token: "{{total_points}}", meaning: "Total referral balance" },
-  ],
-  ewallet_used: [
-    { token: "{{customer_name}}", meaning: "Customer's name" }, { token: "{{amount_used}}", meaning: "Amount used from eWallet" },
-    { token: "{{salon_name}}", meaning: "Your salon's name" }, { token: "{{remaining_balance}}", meaning: "Remaining eWallet balance" },
-  ],
-  referral_credit_used: [
-    { token: "{{customer_name}}", meaning: "Customer's name" }, { token: "{{amount_used}}", meaning: "Amount used from Referral Balance" },
-    { token: "{{salon_name}}", meaning: "Your salon's name" }, { token: "{{remaining_balance}}", meaning: "Remaining Referral Balance" },
-  ],
-  reward_points_used: [
-    { token: "{{customer_name}}", meaning: "Customer's name" }, { token: "{{points_used}}", meaning: "Points used" },
-    { token: "{{salon_name}}", meaning: "Your salon's name" }, { token: "{{remaining_points}}", meaning: "Remaining reward points" },
-  ],
+  birthday_wishes:      { label: "Birthday Wishes", hint: "Sent automatically on the client's birthday — no manual sending needed" },
+  anniversary_wishes:   { label: "Anniversary Wishes", hint: "Sent automatically on the client's anniversary — no manual sending needed" },
+  cash_counter_opened:  { label: "Cash Counter Opened", hint: "Sent to the salon owner's WhatsApp number when a staff member opens the cash counter" },
+  cash_counter_closed:  { label: "Cash Counter Closed", hint: "Sent to the salon owner's WhatsApp number when the cash counter is closed" },
 };
 
 const POLL_INTERVAL = 120_000; // 2 minutes
 
-// "Effective" status for a card — whichever of the two tracks (live status,
-// or an in-flight resubmission's pending_status) is actually the one a
-// pending check applies to. Used both to decide what to poll and to detect a
-// status change worth toasting about.
+// "Effective" status — whichever of the two tracks (live status, or an
+// in-flight resubmission's pending_status) is actually the one a pending
+// check applies to. Used both to decide what to poll and to detect a status
+// change worth toasting about.
 function effectiveStatus(t: PurchaseTemplate): string {
   return t.status === "APPROVED" && t.pending_status ? t.pending_status : t.status;
 }
+
+const STATUS_VARIANT: Record<string, "success" | "warning" | "danger" | "secondary"> = {
+  APPROVED: "success", PENDING: "warning", REJECTED: "danger", DRAFT: "secondary",
+};
+
+type ChannelTab = "whatsapp" | "sms" | "email";
 
 export default function TriggerTemplatesPanel() {
   const dispatch = useAppDispatch();
@@ -224,18 +122,27 @@ export default function TriggerTemplatesPanel() {
   const { purchaseTemplates, channelTemplates, loading } = useAppSelector((s: any) => s.marketing);
   const { showSuccess, showError, overlay } = useStatusOverlay();
 
-  const [activeCategory, setActiveCategory] = useState<TriggerCategory>("quick_sale");
+  const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState<DisplayCategory | "all">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
+  const [selectedEvent, setSelectedEvent] = useState<PurchaseEventType | null>(null);
+  const [activeTab, setActiveTab] = useState<ChannelTab>("whatsapp");
+
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [savingKey, setSavingKey] = useState<string | null>(null);
-  const [infoKey, setInfoKey] = useState<string | null>(null);
   const [isSyncingAll, setIsSyncingAll] = useState(false);
   const [countdown, setCountdown] = useState(POLL_INTERVAL / 1000);
   const prevStatuses = useRef<Record<string, string>>({});
 
-  // WhatsApp's own per-event enabled toggle — an existing endpoint
-  // (previously only used by PackageSettingsPage.tsx), wired in here for
-  // the new checkbox row. The backend treats a MISSING row as enabled, so
-  // an event absent from the fetched list defaults to true, not false.
+  const [smsEnabledOpen, setSmsEnabledOpen] = useState(false);
+  const [emailEnabledOpen, setEmailEnabledOpen] = useState(false);
+
+  const [testPhone, setTestPhone] = useState("");
+  const [testingWa, setTestingWa] = useState(false);
+
+  // WhatsApp's own per-event enabled toggle — the backend treats a MISSING
+  // row as enabled, so an event absent from the fetched list defaults to
+  // true, not false.
   const [waEnabledByEvent, setWaEnabledByEvent] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
@@ -346,6 +253,38 @@ export default function TriggerTemplatesPanel() {
     [purchaseTemplates]
   );
 
+  const allEvents = Object.keys(EVENT_CATEGORIES) as PurchaseEventType[];
+
+  // Default to the first event once data is available.
+  useEffect(() => {
+    if (!selectedEvent && allEvents.length > 0) setSelectedEvent(allEvents[0]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [purchaseTemplates.length]);
+
+  useEffect(() => {
+    setActiveTab("whatsapp");
+    setTestPhone("");
+  }, [selectedEvent]);
+
+  const visibleEvents = useMemo(() => {
+    return allEvents.filter((et) => {
+      if (categoryFilter !== "all" && !EVENT_CATEGORIES[et].includes(categoryFilter)) return false;
+      if (search.trim() && !EVENT_LABELS[et].label.toLowerCase().includes(search.trim().toLowerCase())) return false;
+      const active = waEnabledByEvent[et] ?? true;
+      if (statusFilter === "active" && !active) return false;
+      if (statusFilter === "inactive" && active) return false;
+      return true;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allEvents, categoryFilter, search, statusFilter, waEnabledByEvent]);
+
+  const categoryCounts = useMemo(() => {
+    const counts: Record<DisplayCategory, number> = { quick_sale: 0, calendar: 0, membership: 0, packages: 0, payments: 0, other: 0 };
+    for (const et of allEvents) for (const cat of EVENT_CATEGORIES[et]) counts[cat]++;
+    return counts;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleSave = async (eventType: PurchaseEventType) => {
     if (!salonId) return;
     setSavingKey(eventType);
@@ -402,15 +341,36 @@ export default function TriggerTemplatesPanel() {
     }
   };
 
-  const eventsInCategory = (CATEGORY_ORDER as TriggerCategory[]).reduce<Record<TriggerCategory, PurchaseEventType[]>>(
-    (acc, cat) => {
-      acc[cat] = (Object.keys(EVENT_CATEGORIES) as PurchaseEventType[]).filter((et) => EVENT_CATEGORIES[et].includes(cat));
-      return acc;
-    },
-    { quick_sale: [], calendar: [], other: [] }
-  );
+  const handleSendWaTest = async (eventType: PurchaseEventType) => {
+    if (!salonId || !testPhone.trim()) return;
+    setTestingWa(true);
+    try {
+      const res = await dispatch(sendPurchaseTemplateTestThunk({ salonId, eventType, phone: testPhone.trim() }));
+      if (sendPurchaseTemplateTestThunk.fulfilled.match(res)) {
+        if (res.payload.sent) showSuccess("Test message sent");
+        else if (res.payload.status === "IN_PROGRESS") showSuccess("Test message queued — it'll arrive shortly");
+        else showError(res.payload.failure_reason || "Test message failed to send");
+      } else {
+        showError((res.payload as string) ?? "Failed to send test message");
+      }
+    } finally {
+      setTestingWa(false);
+    }
+  };
 
-  const visibleEvents = eventsInCategory[activeCategory];
+  const insertToken = (eventType: PurchaseEventType, token: string) => {
+    setDrafts((d) => ({ ...d, [eventType]: (d[eventType] ?? "") + `{{${token}}}` }));
+  };
+
+  // ── Selected event's derived data ─────────────────────────────────────────
+  const tpl = selectedEvent ? byEvent(selectedEvent) : undefined;
+  const status = tpl ? effectiveStatus(tpl) : "DRAFT";
+  const isLive = !!tpl && tpl.status === "APPROVED";
+  const draft = selectedEvent ? drafts[selectedEvent] ?? "" : "";
+  const isBusy = selectedEvent === savingKey;
+  const smsTpl = selectedEvent ? smsTplByEvent(selectedEvent) : undefined;
+  const emailTpl = selectedEvent ? emailTplByEvent(selectedEvent) : undefined;
+  const previewText = renderSamplePreview(draft);
 
   return (
     <div className="tp-panel">
@@ -427,51 +387,240 @@ export default function TriggerTemplatesPanel() {
         </div>
       )}
 
-      <div className="tp-category-row">
-        {CATEGORY_ORDER.map((cat) => (
-          <button
-            key={cat}
-            className={`tp-category-btn ${activeCategory === cat ? "tp-category-btn--active" : ""}`}
-            onClick={() => setActiveCategory(cat)}
-          >
-            <i className={`ti ${CATEGORY_META[cat].icon}`} />
-            {CATEGORY_META[cat].label}
-            <span className="tp-category-count">{eventsInCategory[cat].length}</span>
-          </button>
-        ))}
-      </div>
-      <p className="tp-category-desc">{CATEGORY_META[activeCategory].desc}</p>
-
       {loading.fetchPurchaseTemplates && purchaseTemplates.length === 0 ? (
         <div className="tp-loading">Loading trigger templates...</div>
       ) : (
-        <div className="tp-grid">
-          {visibleEvents.map((eventType) => (
-            <TriggerEventCard
-              key={eventType}
-              salonId={salonId}
-              eventType={eventType}
-              meta={EVENT_LABELS[eventType]}
-              variableExplanations={VARIABLE_EXPLANATIONS[eventType]}
-              isCaptionOnly={CAPTION_ONLY_EVENTS.includes(eventType)}
-              tpl={byEvent(eventType)}
-              draftText={drafts[eventType] ?? ""}
-              onDraftChange={(text) => setDrafts((d) => ({ ...d, [eventType]: text }))}
-              isBusy={savingKey === eventType}
-              infoOpen={infoKey === eventType}
-              onToggleInfo={() => setInfoKey(infoKey === eventType ? null : eventType)}
-              onSave={() => handleSave(eventType)}
-              onSubmit={() => handleSubmit(eventType)}
-              onReset={() => handleReset(eventType)}
-              onSync={() => handleSync(eventType)}
-              waEnabled={waEnabledByEvent[eventType] ?? true}
-              onToggleWaEnabled={(enabled) => handleToggleWaEnabled(eventType, enabled)}
-              smsTpl={smsTplByEvent(eventType)}
-              emailTpl={emailTplByEvent(eventType)}
-              onToggleSmsEnabled={(enabled) => handleToggleChannelEnabled(eventType, "sms", enabled)}
-              onToggleEmailEnabled={(enabled) => handleToggleChannelEnabled(eventType, "email", enabled)}
-            />
-          ))}
+        <div className="tp-layout">
+
+          {/* ── Left: event list ── */}
+          <div className="tp-list-col">
+            <div className="tp-list-toolbar">
+              <input
+                className="tp-search"
+                placeholder="Search messages..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+              <select className="tp-status-select" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as any)}>
+                <option value="all">Active (All)</option>
+                <option value="active">Active only</option>
+                <option value="inactive">Stopped only</option>
+              </select>
+            </div>
+
+            <div className="tp-category-tabs">
+              <button className={`tp-cat-tab${categoryFilter === "all" ? " tp-cat-tab--active" : ""}`} onClick={() => setCategoryFilter("all")}>
+                All <span className="tp-cat-tab-count">{allEvents.length}</span>
+              </button>
+              {CATEGORY_ORDER.map((cat) => (
+                <button key={cat} className={`tp-cat-tab${categoryFilter === cat ? " tp-cat-tab--active" : ""}`} onClick={() => setCategoryFilter(cat)}>
+                  {CATEGORY_LABEL[cat]} <span className="tp-cat-tab-count">{categoryCounts[cat]}</span>
+                </button>
+              ))}
+            </div>
+
+            <div className="tp-event-list">
+              {visibleEvents.map((eventType) => {
+                const t = byEvent(eventType);
+                const st = t ? effectiveStatus(t) : "DRAFT";
+                const preview = (t?.status === "APPROVED" ? t?.pending_body_text ?? t?.body_text : t?.body_text) ?? "";
+                const active = waEnabledByEvent[eventType] ?? true;
+                return (
+                  <button
+                    key={eventType}
+                    className={`tp-event-row${selectedEvent === eventType ? " tp-event-row--active" : ""}`}
+                    onClick={() => setSelectedEvent(eventType)}
+                  >
+                    <span className="tp-event-icon">{EVENT_ICON[eventType]}</span>
+                    <span className="tp-event-info">
+                      <span className="tp-event-name">{EVENT_LABELS[eventType].label}</span>
+                      <span className="tp-event-preview">{preview || "Not written yet"}</span>
+                    </span>
+                    <Badge variant={STATUS_VARIANT[st] ?? "secondary"} pill>{st}</Badge>
+                    <label className="tp-active-toggle" onClick={(e) => e.stopPropagation()} title={active ? "Sending — click to stop" : "Stopped — click to resume"}>
+                      <input type="checkbox" checked={active} onChange={(e) => handleToggleWaEnabled(eventType, e.target.checked)} />
+                      <span className="tp-active-toggle-track"><span className="tp-active-toggle-thumb" /></span>
+                    </label>
+                    <span className="tp-event-chevron">›</span>
+                  </button>
+                );
+              })}
+              {visibleEvents.length === 0 && <div className="tp-list-empty">No messages match your filters.</div>}
+            </div>
+          </div>
+
+          {/* ── Middle + Right: selected event detail ── */}
+          {!selectedEvent || !tpl ? (
+            <div className="tp-detail-empty">Select a message on the left to view and edit it.</div>
+          ) : (
+            <>
+              <div className="tp-detail-col">
+                <div className="tp-detail-header">
+                  <span className="tp-detail-icon">{EVENT_ICON[selectedEvent]}</span>
+                  <div className="tp-detail-heading">
+                    <div className="tp-detail-name">{EVENT_LABELS[selectedEvent].label}</div>
+                    <div className="tp-detail-hint">{EVENT_LABELS[selectedEvent].hint}</div>
+                  </div>
+                  <Badge variant={STATUS_VARIANT[status] ?? "secondary"} pill>{status}</Badge>
+                </div>
+
+                {isLive && (
+                  <div className="tp-live-note">Currently sending — editing below drafts a replacement version, submitted only when you choose to.</div>
+                )}
+                {!isLive && tpl.status === "REJECTED" && tpl.rejection_reason && (
+                  <div className="tp-rejection">Rejected by Meta: {tpl.rejection_reason}</div>
+                )}
+                {isLive && tpl.pending_status === "REJECTED" && tpl.pending_rejection_reason && (
+                  <div className="tp-rejection">Update rejected by Meta: {tpl.pending_rejection_reason}</div>
+                )}
+
+                <div className="tp-content-card">
+                  <div className="tp-content-title">Message Content</div>
+
+                  <div className="tp-channel-tabs">
+                    <button className={`tp-channel-tab${activeTab === "whatsapp" ? " tp-channel-tab--active tp-channel-tab--whatsapp" : ""}`} onClick={() => setActiveTab("whatsapp")}>
+                      💬 WhatsApp
+                    </button>
+                    <button className={`tp-channel-tab${activeTab === "sms" ? " tp-channel-tab--active" : ""}`} onClick={() => setActiveTab("sms")}>
+                      SMS
+                    </button>
+                    <button className={`tp-channel-tab${activeTab === "email" ? " tp-channel-tab--active" : ""}`} onClick={() => setActiveTab("email")}>
+                      Email
+                    </button>
+                  </div>
+
+                  {activeTab === "whatsapp" && (
+                    <>
+                      <textarea
+                        className="tp-textarea"
+                        rows={9}
+                        value={draft}
+                        placeholder="Message wording..."
+                        onChange={(e) => setDrafts((d) => ({ ...d, [selectedEvent]: e.target.value }))}
+                      />
+                      <div className="tp-char-count">
+                        <span>Variables (click to add)</span>
+                        <span>{draft.length}/1000</span>
+                      </div>
+                      <VariableChips eventType={selectedEvent} onInsert={(token) => insertToken(selectedEvent, token)} />
+
+                      <div className="tp-content-actions">
+                        <Button size="sm" variant="dark" loading={isBusy} disabled={isBusy} onClick={() => handleSave(selectedEvent)}>
+                          💾 Save Changes
+                        </Button>
+                        <Button size="sm" variant="outline-secondary" disabled={isBusy} onClick={() => setDrafts((d) => ({ ...d, [selectedEvent]: tpl.body_text ?? "" }))}>
+                          ⟲ Reset
+                        </Button>
+
+                        {!isLive && (status === "DRAFT" || status === "REJECTED") && (
+                          <Button size="sm" variant="primary" loading={isBusy} disabled={isBusy || !draft.trim()} onClick={() => handleSubmit(selectedEvent)}>
+                            Submit to Meta
+                          </Button>
+                        )}
+                        {!isLive && status === "PENDING" && (
+                          <Button size="sm" variant="outline-warning" loading={isBusy} disabled={isBusy} onClick={() => handleSync(selectedEvent)}>
+                            ↻ Check Status
+                          </Button>
+                        )}
+                        {!isLive && status === "REJECTED" && (
+                          <Button size="sm" variant="outline-danger" loading={isBusy} disabled={isBusy} onClick={() => handleReset(selectedEvent)}>
+                            Reset Submission
+                          </Button>
+                        )}
+                        {isLive && (tpl.pending_status === null || tpl.pending_status === "REJECTED") && (
+                          <Button size="sm" variant="primary" loading={isBusy} disabled={isBusy || !draft.trim()} onClick={() => handleSubmit(selectedEvent)}>
+                            Submit Update
+                          </Button>
+                        )}
+                        {isLive && tpl.pending_status === "PENDING" && (
+                          <Button size="sm" variant="outline-warning" loading={isBusy} disabled={isBusy} onClick={() => handleSync(selectedEvent)}>
+                            ↻ Check Update Status
+                          </Button>
+                        )}
+                        {isLive && tpl.pending_status === "REJECTED" && (
+                          <Button size="sm" variant="outline-danger" loading={isBusy} disabled={isBusy} onClick={() => handleReset(selectedEvent)}>
+                            Dismiss
+                          </Button>
+                        )}
+                      </div>
+                    </>
+                  )}
+
+                  {activeTab === "sms" && (
+                    <>
+                      <label className="tp-channel-enable">
+                        <input type="checkbox" checked={smsEnabledOpen || (smsTpl?.enabled ?? false)} onChange={(e) => { setSmsEnabledOpen(e.target.checked); handleToggleChannelEnabled(selectedEvent, "sms", e.target.checked); }} />
+                        Send via SMS for this event
+                      </label>
+                      {(smsEnabledOpen || smsTpl?.enabled) && (
+                        <ChannelSmsSection salonId={salonId} eventType={selectedEvent} tpl={smsTpl} />
+                      )}
+                    </>
+                  )}
+
+                  {activeTab === "email" && (
+                    <>
+                      <label className="tp-channel-enable">
+                        <input type="checkbox" checked={emailEnabledOpen || (emailTpl?.enabled ?? false)} onChange={(e) => { setEmailEnabledOpen(e.target.checked); handleToggleChannelEnabled(selectedEvent, "email", e.target.checked); }} />
+                        Send via Email for this event
+                      </label>
+                      {(emailEnabledOpen || emailTpl?.enabled) && (
+                        <ChannelEmailSection salonId={salonId} eventType={selectedEvent} tpl={emailTpl} />
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* ── Right: Preview ── */}
+              {activeTab === "whatsapp" && (
+                <div className="tp-preview-col">
+                  <div className="tp-preview-title">Preview</div>
+
+                  <div className="tp-preview-phone">
+                    <div className="tp-preview-phone-bar">
+                      <div className="tp-preview-phone-avatar">S</div>
+                      <div>
+                        <div className="tp-preview-phone-name">Salon Bot</div>
+                        <div className="tp-preview-phone-status">online</div>
+                      </div>
+                    </div>
+                    <div className="tp-preview-phone-body">
+                      <div className="tp-preview-bubble">
+                        <p className="tp-preview-bubble-text">{previewText || "—"}</p>
+                        <div className="tp-preview-bubble-time">
+                          {new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })} ✓✓
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="tp-test-card">
+                    <div className="tp-test-title">Test Message</div>
+                    <input
+                      className="tp-test-input"
+                      type="tel"
+                      placeholder="Enter phone number"
+                      value={testPhone}
+                      onChange={(e) => setTestPhone(e.target.value)}
+                    />
+                    <Button
+                      size="sm"
+                      variant="dark"
+                      fullWidth
+                      loading={testingWa}
+                      disabled={testingWa || !testPhone.trim() || !isLive}
+                      title={!isLive ? "Template must be approved by Meta before sending a test" : undefined}
+                      onClick={() => handleSendWaTest(selectedEvent)}
+                    >
+                      ✈ Send Test
+                    </Button>
+                    {!isLive && <div className="tp-test-hint">Approve this template with Meta to enable test sends.</div>}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
         </div>
       )}
     </div>

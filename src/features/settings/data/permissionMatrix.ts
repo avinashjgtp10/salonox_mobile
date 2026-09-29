@@ -14,10 +14,23 @@ export const defaultPermissions: Permission[] = [
   { key: "view_dashboard",      label: "View Dashboard",      desc: "Access the main dashboard",            category: "Dashboard",      owner: true,  staff: false, manager: true },
 
   // ── Quick Sale ────────────────────────────────────────────────────────────
-  { key: "view_quick_sale",     label: "View Quick Sale",     desc: "Access the quick sale screen",         category: "Quick Sale",     owner: true,  staff: true,  manager: true },
-  { key: "create_quick_sale",   label: "Create Quick Sale",   desc: "Process quick sales",                  category: "Quick Sale",     owner: true,  staff: true,  manager: true },
-  { key: "edit_quick_sale",     label: "Edit Quick Sale",     desc: "Edit pending quick sales",             category: "Quick Sale",     owner: true,  staff: false, manager: true },
-  { key: "delete_quick_sale",   label: "Delete Quick Sale",   desc: "Delete quick sale records",            category: "Quick Sale",     owner: true,  staff: false, manager: true },
+  // Reconciled to the keys the backend actually enforces (sales.routes.ts
+  // checks view_sales/create_sales) — previously this matrix showed
+  // view_quick_sale/create_quick_sale/edit_quick_sale/delete_quick_sale,
+  // none of which the backend ever checked, so any staff member with a
+  // custom permission override silently lost all Sales access the moment
+  // that override existed (customPerms["view_sales"] was always undefined).
+  // There's no backend concept of a separate "edit"/"delete" quick sale
+  // action — updates and deletes both go through the same create_sales key.
+  //
+  // "View Sales" itself is intentionally NOT listed here — it's hidden from
+  // every permissions UI (redundant next to Create Sales, which already
+  // covers view+create+checkout) but the backend still enforces view_sales
+  // on sales.routes.ts and it stays granted-by-default via
+  // permission.middleware.ts's fallback, so omitting the toggle can't lock
+  // anyone out of Sales.
+  { key: "create_sales",        label: "Create Sales",        desc: "Create, edit and checkout sales",      category: "Quick Sale",     owner: true,  staff: true,  manager: true },
+  { key: "import_sales",        label: "Import Billing Data", desc: "Bulk-import historical invoices from an Excel/CSV file", category: "Quick Sale", owner: true, staff: false, manager: true },
 
   // ── Calendar ──────────────────────────────────────────────────────────────
   { key: "view_calendar",       label: "View Calendar",       desc: "See all appointments on calendar",     category: "Calendar",       owner: true,  staff: true,  manager: true },
@@ -33,6 +46,14 @@ export const defaultPermissions: Permission[] = [
   { key: "view_services",       label: "View Services",       desc: "See all salon services",               category: "Catalog", group: "Services",    owner: true, staff: true,  manager: true },
   { key: "create_services",     label: "Create Services",     desc: "Add new services",                     category: "Catalog", group: "Services",    owner: true, staff: false, manager: true },
   { key: "edit_services",       label: "Edit Services",       desc: "Modify service details and pricing",   category: "Catalog", group: "Services",    owner: true, staff: false, manager: true },
+
+  // ── Catalog › Digital Menu ────────────────────────────────────────────────
+  { key: "view_digital_menu",           label: "View Digital Menu",           desc: "View the digital/QR menu dashboard",   category: "Online Booking", group: "Digital Menu", owner: true, staff: true,  manager: true },
+  { key: "create_digital_menu",         label: "Create Digital Menu",         desc: "Create the salon's digital menu",      category: "Online Booking", group: "Digital Menu", owner: true, staff: false, manager: true },
+  { key: "edit_digital_menu",           label: "Edit Digital Menu",           desc: "Change menu name and selected services", category: "Online Booking", group: "Digital Menu", owner: true, staff: false, manager: true },
+  { key: "delete_digital_menu",         label: "Delete Digital Menu",         desc: "Permanently delete the salon's digital menu", category: "Online Booking", group: "Digital Menu", owner: true, staff: false, manager: true },
+  { key: "manage_digital_menu_qr",      label: "Manage QR Code",              desc: "View, download, print and share the menu QR code", category: "Online Booking", group: "Digital Menu", owner: true, staff: false, manager: true },
+  { key: "enable_disable_digital_menu", label: "Enable/Disable Digital Menu", desc: "Turn the public menu on or off",       category: "Online Booking", group: "Digital Menu", owner: true, staff: false, manager: true },
 
   // ── Catalog › Memberships ─────────────────────────────────────────────────
   { key: "view_memberships",    label: "View Memberships",    desc: "See membership plans",                 category: "Catalog", group: "Memberships", owner: true, staff: true,  manager: true },

@@ -5,6 +5,8 @@ import api from "../../../services/api/axios";
 import { ENQUIRY_REPORT } from "../../../services/api/endpoints";
 import { ENQUIRY } from "../../../services/api/endpoints/enquiries.endpoints";
 import ReportRefreshButton from "./ReportRefreshButton";
+import EnquiryChartContent from "./EnquiryChartContent";
+import ReportViewToggle from "./ReportViewToggle";
 import Breadcrumb from "../../../components/ui/Breadcrumb";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination, JiraFilterMenu, DateRangeFilter, getDateRangePresetValue } from "../../../components/ui";
@@ -110,6 +112,7 @@ export default function EnquiryReport({ onBack, category, categoryKey }: { onBac
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
+  const [showChart, setShowChart] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -117,21 +120,26 @@ export default function EnquiryReport({ onBack, category, categoryKey }: { onBac
     return () => clearTimeout(t);
   }, [search]);
 
+  const buildFilterBody = useCallback((): Record<string, any> => {
+    const body: Record<string, any> = {};
+    if (dateRange.startDate) body.start_date = dateRange.startDate;
+    if (dateRange.endDate) body.end_date = dateRange.endDate;
+    if (staffFilter.length) body.staff_ids = staffFilter;
+    if (serviceFilter.length) body.service_ids = serviceFilter;
+    if (statusFilter.length) body.statuses = statusFilter;
+    if (sourceFilter.length) body.sources = sourceFilter;
+    if (followUpDate) body.follow_up_date = followUpDate;
+    if (debouncedSearch) body.search = debouncedSearch;
+    return body;
+  }, [dateRange, staffFilter, serviceFilter, statusFilter, sourceFilter, followUpDate, debouncedSearch]);
+
   const fetchData = useCallback(async () => {
     abortRef.current?.abort();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
     setLoading(true);
     try {
-      const body: Record<string, any> = { page: currentPage, limit: pageSize };
-      if (dateRange.startDate) body.start_date = dateRange.startDate;
-      if (dateRange.endDate) body.end_date = dateRange.endDate;
-      if (staffFilter.length) body.staff_ids = staffFilter;
-      if (serviceFilter.length) body.service_ids = serviceFilter;
-      if (statusFilter.length) body.statuses = statusFilter;
-      if (sourceFilter.length) body.sources = sourceFilter;
-      if (followUpDate) body.follow_up_date = followUpDate;
-      if (debouncedSearch) body.search = debouncedSearch;
+      const body = { ...buildFilterBody(), page: currentPage, limit: pageSize };
       const res = await api.post(ENQUIRY_REPORT.SUMMARY(), body, { signal: ctrl.signal });
       const data = res.data?.data;
       const raw: any[] = Array.isArray(data?.rows) ? data.rows : [];
@@ -158,7 +166,7 @@ export default function EnquiryReport({ onBack, category, categoryKey }: { onBac
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [dateRange, staffFilter, serviceFilter, statusFilter, sourceFilter, followUpDate, debouncedSearch, currentPage, pageSize]);
+  }, [buildFilterBody, currentPage, pageSize]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => { setCurrentPage(1); }, [dateRange, staffFilter, serviceFilter, statusFilter, sourceFilter, followUpDate, debouncedSearch]);
@@ -229,10 +237,12 @@ export default function EnquiryReport({ onBack, category, categoryKey }: { onBac
         <div className="rp-detail-back-row">
           <Breadcrumb current={REPORT_NAME} category={category} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
+            <ReportViewToggle view={showChart ? "chart" : "table"} onChange={(v) => setShowChart(v === "chart")} />
             <ReportExportButton
               title={REPORT_NAME}
               headers={HEADERS}
               rows={exportRows}
+              reportId="enquiry_report"
               filename="enquiry-report"
               variant="button"
               csv
@@ -273,6 +283,10 @@ export default function EnquiryReport({ onBack, category, categoryKey }: { onBac
         </div>
       )}
 
+      {showChart ? (
+        <EnquiryChartContent dateFrom={dateRange.startDate ?? ""} dateTo={dateRange.endDate ?? ""} buildFilterBody={buildFilterBody} />
+      ) : (
+      <>
       <div className="rp-detail-toolbar">
         <div className="rp-detail-search-wrap">
           <Search size={13} className="rp-detail-search-ic" />
@@ -337,6 +351,8 @@ export default function EnquiryReport({ onBack, category, categoryKey }: { onBac
 
       <Pagination currentPage={currentPage} pageSize={pageSize} totalItems={total}
         onPageChange={setCurrentPage} onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }} />
+      </>
+      )}
     </div>
   );
 }

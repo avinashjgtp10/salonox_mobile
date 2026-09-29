@@ -105,7 +105,12 @@ export default function SendCampaignModal({ show, onClose, contacts: rawContacts
       show={show}
       onClose={onClose}
       title="Send Campaign"
-      size="md"
+      size="lg"
+      // Modal's default (scrollable: true) sets overflow:hidden on
+      // modal-content for independent body scrolling — but that clips the
+      // WhatsApp Template Dropdown's absolutely-positioned option list right
+      // at the modal's edge. This form is short and non-scrolling, so opt out.
+      scrollable={false}
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
@@ -135,25 +140,22 @@ export default function SendCampaignModal({ show, onClose, contacts: rawContacts
 
         <div className="scm-field">
           <label className="scm-label">WhatsApp Template *</label>
-          {templates.length === 0 ? (
-            <p className="scm-hint">No templates yet — create one under Marketing → Templates.</p>
+          {approved.length === 0 ? (
+            <p className="scm-hint">
+              {templates.length === 0
+                ? "No templates yet — create one under Marketing → Templates."
+                : "⏳ No approved templates yet — a template must be Meta-approved before it can be used in a campaign."}
+            </p>
           ) : (
             <Dropdown
               searchable
               placeholder="Select a template"
               value={templateId}
-              options={templates.map(t => ({
-                id: t.id as string,
-                name: t.status === "APPROVED" ? t.name : `${t.name} (${t.status})`,
-                disabled: t.status !== "APPROVED",
-              }))}
+              options={approved.map(t => ({ id: t.id as string, name: t.name }))}
               onChange={id => { setTemplateId(id); setErrors(p => ({ ...p, templateId: "" })); }}
             />
           )}
           {errors.templateId && <span className="scm-error">{errors.templateId}</span>}
-          {templates.length > 0 && approved.length === 0 && (
-            <p className="scm-hint">⏳ No approved templates yet.</p>
-          )}
         </div>
 
         <div className="scm-field">

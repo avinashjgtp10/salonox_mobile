@@ -7,10 +7,12 @@ import { useSchedulerContext } from "../../store/SchedulerContext";
 import { formatDateLabel } from "../../utils/timeUtils";
 import { DatePickerPanel } from "../../../../components/ui";
 import { useAppSelector } from "../../../../hooks/useAppRedux";
+import { usePermissions } from "../../../../hooks/usePermissions";
 import api from "../../../../services/api/axios";
 import { formatDateDDMMYYYY } from "../../../../utils/dateFormat";
 import { maskMobile } from "../../../../utils/maskMobile";
 import ClientHistoryModal from "../../../clients/components/ClientHistoryModal";
+import StaffSequenceModal from "../modals/StaffSequenceModal";
 import "../../styles/TopBar.scss";
 
 const AVATAR_COLORS = ["#6366f1","#8b5cf6","#ec4899","#f59e0b","#10b981","#3b82f6","#ef4444","#14b8a6"];
@@ -33,6 +35,11 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefres
   } = useSchedulerContext();
   const navTo   = useNavigate();
   const salonId = useAppSelector((s: any) => s.salon?.currentSalon?.id ?? s.auth?.salonId ?? "");
+  const { can } = usePermissions();
+  // Visual cue only — onNewAppointment/onBlockTime (from Scheduler) still
+  // fire on click either way and handle the actual permission-denied popup
+  // themselves; this just dims the buttons so they read as disabled too.
+  const canCreateAppointment = can("create_appointment");
 
   // ── Client search ──────────────────────────────────────────────────────────
   const [clientQuery, setClientQuery]         = useState("");
@@ -41,6 +48,7 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefres
   const [clientSearching, setClientSearching] = useState(false);
   const [searchDone, setSearchDone]           = useState(false);
   const [historyClientId, setHistoryClientId] = useState<string | null>(null);
+  const [showStaffSequence, setShowStaffSequence] = useState(false);
   const searchRef   = useRef<HTMLDivElement>(null);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -364,6 +372,17 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefres
           <span className="topbar__arrow">▼</span>
         </button>
 
+        {/* Reorder Staff — customizes the column order staffList renders in,
+            saved server-side via PUT /staff/scheduler-order (see
+            StaffSequenceModal). */}
+        <button
+          className="topbar__block-btn"
+          onClick={() => setShowStaffSequence(true)}
+          title="Reorder the staff columns on this Scheduler"
+        >
+          Reorder Staff
+        </button>
+
         {/* Refresh */}
         <button
           className={`topbar__refresh-btn${isRefreshing ? " topbar__refresh-btn--busy" : ""}`}
@@ -405,10 +424,18 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefres
         </div>
 
         {/* Add + */}
-        <button className="topbar__add-btn" onClick={onNewAppointment}>Add +</button>
+        <button
+          className="topbar__add-btn"
+          onClick={onNewAppointment}
+          style={canCreateAppointment ? undefined : { opacity: 0.5, cursor: "not-allowed" }}
+        >Add +</button>
 
         {/* Block Time */}
-        <button className="topbar__block-btn" onClick={onBlockTime}>Block Time</button>
+        <button
+          className="topbar__block-btn"
+          onClick={onBlockTime}
+          style={canCreateAppointment ? undefined : { opacity: 0.5, cursor: "not-allowed" }}
+        >Block Time</button>
       </div>
 
       {/* ── View dropdown PORTAL ── */}
@@ -488,6 +515,11 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefres
             if (clientQuery.trim().length >= 3 && clientResults.length > 0) setShowClientDrop(true);
           }}
         />,
+        document.body,
+      )}
+
+      {showStaffSequence && ReactDOM.createPortal(
+        <StaffSequenceModal onClose={() => setShowStaffSequence(false)} />,
         document.body,
       )}
     </>

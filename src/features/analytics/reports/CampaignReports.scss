@@ -6,6 +6,7 @@
 // The .rp-camp-preset* date-preset pills that used to live here were removed
 // once Open Rate / Reply Rate moved to the shared DateRangeFilter, whose own
 // preset list replaced their separate button row.
+@use "../styles/reportDetailBase" as *;
 
 // ── "No delivery receipts" notice ───────────────────────────────────────────
 .rp-camp-notice {

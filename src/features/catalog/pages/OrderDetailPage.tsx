@@ -1,26 +1,34 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useSelector } from "react-redux";
-import { ArrowLeft, BoxSeam, XCircle, Trash, PencilSquare, FileEarmarkPdf } from "react-bootstrap-icons";
+import { ArrowLeft, XCircle, Trash, PencilSquare, FileEarmarkPdf, ClipboardCheck } from "react-bootstrap-icons";
 import { useAppDispatch } from "../../../hooks/useAppRedux";
-import { fetchOrderByIdThunk, receiveOrderThunk, correctReceivedQtyThunk, cancelOrderThunk, deleteOrderThunk } from "../../../middleware/inventory/inventory.thunk";
+import { fetchOrderByIdThunk, cancelOrderThunk, placeOrderThunk, startVerificationThunk, deleteOrderThunk } from "../../../middleware/inventory/inventory.thunk";
+import { markSuppliersStale } from "../../../store/inventorySlice";
 import type { Order, OrderStatus } from "../../../types/inventory.types";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { selectCurrentSalon } from "../../../store/selectors/slices.selectors";
+import { usePermissions } from "../../../hooks/usePermissions";
+import { showPermissionDenied } from "../../../store/permissionDialogSlice";
 import Skeleton from "../../../components/ui/Skeleton";
 import Button from "../../../components/ui/Button";
 import Modal from "../../../components/ui/Modal";
+import Tabs from "../../../components/ui/Tabs";
+import type { TabItem } from "../../../components/ui/Tabs";
+import ReceivingTab from "../components/ReceivingTab";
+import OrderStatusStepper from "../components/OrderStatusStepper";
 import { formatDateDDMMYYYY as fmtDate } from "../../../utils/dateFormat";
 import { generateOrderBillPdf } from "../utils/orderBillPdf";
+import { generatePurchaseOrderPdf } from "../utils/purchaseOrderPdf";
 import "../styles/SuppliersListPage.scss";
 import "../styles/PurchaseHistoryTable.scss";
 import "../styles/SupplierDetailPage.scss";
 
 const STATUS_LABEL: Record<OrderStatus, string> = {
   draft: "Draft",
-  sent: "Sent",
-  partially_received: "Partially Received",
+  sent: "Ordered",
+  partially_received: "Verify Order",
   received: "Received",
   cancelled: "Cancelled",
 };
@@ -29,34 +37,48 @@ const STATUS_LABEL: Record<OrderStatus, string> = {
 // Receiving records a linked Purchase (via the backend's receive() reusing
 // purchasesRepository.create()) — that's the only thing that actually moves
 // products.amount; creating the order itself never did.
-const OrderDetailPage: React.FC = () => {
-  const { id } = useParams<{ id: string }>();
+interface OrderDetailPageProps {
+  /** Set when embedded as a popup (see OrdersListPage.tsx) — overrides the
+   *  :id route param so the same component works as a route AND a popup. */
+  orderId?: string;
+  /** Set when embedded as a popup — used instead of navigating away for
+   *  Close/Back and after a delete. Same optional-prop convention as
+   *  AddSupplierPage's panelMode/onClose. */
+  onClose?: () => void;
+}
+
+const OrderDetailPage: React.FC<OrderDetailPageProps> = ({ orderId: orderIdProp, onClose }) => {
+  const { id: routeId } = useParams<{ id: string }>();
+  const id = orderIdProp ?? routeId;
   const navigate = useNavigate();
+  const location = useLocation();
   const dispatch = useAppDispatch();
+  const { can } = usePermissions();
   const { formatAmount, currencySymbol } = useCurrency();
   const { showError, showSuccess, overlay } = useStatusOverlay();
   const currentSalon = useSelector(selectCurrentSalon);
 
+  const denyPerm = (permKey: string) => dispatch(showPermissionDenied(
+    `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+  ));
+
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
-  const [receiveOpen, setReceiveOpen] = useState(false);
-  const [receiveQtys, setReceiveQtys] = useState<Record<string, string>>({});
-  const [receiveBatchNumbers, setReceiveBatchNumbers] = useState<Record<string, string>>({});
-  const [submitting, setSubmitting] = useState(false);
+  const [activeTab, setActiveTab] = useState<"overview" | "receiving">("overview");
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  const [correctItem, setCorrectItem] = useState<{ id: string; product_name?: string; qty: number } | null>(null);
-  const [correctQty, setCorrectQty] = useState("");
-  const [correcting, setCorrecting] = useState(false);
+  const [placing, setPlacing] = useState(false);
+  const [confirmingOrder, setConfirmingOrder] = useState(false);
 
   const handleDelete = async () => {
     if (!id) return;
+    if (!can("cancel_order")) { denyPerm("cancel_order"); setDeleteOpen(false); return; }
     setDeleting(true);
     try {
       await dispatch(deleteOrderThunk(id)).unwrap();
       showSuccess("Order deleted successfully");
-      navigate("/dashboard/inventory/orders");
+      if (onClose) onClose(); else navigate("/dashboard/inventory/orders");
     } catch (err: any) {
       showError(typeof err === "string" ? err : "Couldn't delete order");
       setDeleting(false);
@@ -80,102 +102,84 @@ const OrderDetailPage: React.FC = () => {
   useEffect(() => { load(); }, [id]);
 
   const canReceive = !!order && (order.status === "sent" || order.status === "partially_received");
+
+  // Arriving from OrdersListPage's "Receive Order" row action — lands
+  // straight on the Receiving tab instead of Overview.
+  useEffect(() => {
+    if (canReceive && (location.state as { openReceiving?: boolean } | null)?.openReceiving) {
+      setActiveTab("receiving");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canReceive]);
   const canCancel = !!order && (order.status === "draft" || order.status === "sent");
 
-  const remainingByItem = useMemo(() => {
-    const map = new Map<string, number>();
-    (order?.items ?? []).forEach((it) => map.set(it.id, Math.max(0, Number(it.qty) - Number(it.received_qty))));
-    return map;
-  }, [order]);
-
-  function openReceive() {
-    const defaults: Record<string, string> = {};
-    (order?.items ?? []).forEach((it) => {
-      const remaining = remainingByItem.get(it.id) ?? 0;
-      defaults[it.id] = remaining > 0 ? String(remaining) : "";
-    });
-    setReceiveQtys(defaults);
-    setReceiveBatchNumbers({});
-    setReceiveOpen(true);
-  }
-
-  async function submitReceive() {
-    if (!order) return;
-    const items = Object.entries(receiveQtys)
-      .map(([order_item_id, v]) => ({
-        order_item_id,
-        received_qty: parseFloat(v) || 0,
-        batch_number: receiveBatchNumbers[order_item_id]?.trim() || undefined,
-      }))
-      .filter((i) => i.received_qty > 0);
-
-    if (!items.length) {
-      showError("Enter a received quantity for at least one item");
-      return;
-    }
-    for (const i of items) {
-      const remaining = remainingByItem.get(i.order_item_id) ?? 0;
-      if (i.received_qty > remaining) {
-        showError("Received quantity can't exceed what's still outstanding on this order");
-        return;
-      }
-    }
-
-    setSubmitting(true);
-    try {
-      const updated = await dispatch(receiveOrderThunk({ orderId: order.id, payload: { items } })).unwrap();
-      setOrder(updated);
-      setReceiveOpen(false);
-      showSuccess("Order received — stock and supplier balance updated");
-    } catch (err: any) {
-      showError(typeof err === "string" ? err : "Failed to receive order");
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  async function submitCorrectReceived() {
-    if (!order || !correctItem) return;
-    const newQty = parseFloat(correctQty);
-    if (!Number.isFinite(newQty) || newQty < 0) {
-      showError("Enter a valid received quantity");
-      return;
-    }
-    if (newQty > correctItem.qty) {
-      showError(`Received quantity can't exceed the ordered quantity (${correctItem.qty})`);
-      return;
-    }
-
-    setCorrecting(true);
-    try {
-      const updated = await dispatch(
-        correctReceivedQtyThunk({ orderId: order.id, itemId: correctItem.id, payload: { received_qty: newQty } }),
-      ).unwrap();
-      setOrder(updated);
-      setCorrectItem(null);
-      showSuccess("Received quantity updated");
-    } catch (err: any) {
-      showError(typeof err === "string" ? err : "Failed to update received quantity");
-    } finally {
-      setCorrecting(false);
-    }
-  }
+  const tabs: TabItem[] = useMemo(() => {
+    const list: TabItem[] = [{ key: "overview", label: "Overview" }];
+    if (canReceive) list.push({ key: "receiving", label: "Verify Order" });
+    return list;
+  }, [canReceive]);
 
   const canDownloadBill = order?.bill_payment_status === "paid" || order?.bill_payment_status === "partial";
 
   function handleDownloadBill() {
     if (!order) return;
+    if (!can("download_order_pdf")) { denyPerm("download_order_pdf"); return; }
+    if (!can("export_pdf")) { denyPerm("export_pdf"); return; }
     generateOrderBillPdf(order, { salon: currentSalon, currencySymbol });
+  }
+
+  function handleDownloadPurchaseOrder() {
+    if (!order) return;
+    if (!can("download_order_pdf")) { denyPerm("download_order_pdf"); return; }
+    if (!can("export_pdf")) { denyPerm("export_pdf"); return; }
+    generatePurchaseOrderPdf(order, { salon: currentSalon, currencySymbol });
   }
 
   async function handleCancel() {
     if (!order) return;
+    if (!can("cancel_order")) { denyPerm("cancel_order"); return; }
     try {
       const updated = await dispatch(cancelOrderThunk(order.id)).unwrap();
       setOrder(updated);
       showSuccess("Order cancelled");
     } catch (err: any) {
       showError(typeof err === "string" ? err : "Failed to cancel order");
+    }
+  }
+
+  // Draft → Ordered. Nothing is recalculated here — the draft's items/totals
+  // are already final, this just flips the status server-side.
+  async function handlePlaceOrder() {
+    if (!order) return;
+    if (!can("create_order")) { denyPerm("create_order"); return; }
+    setPlacing(true);
+    try {
+      const updated = await dispatch(placeOrderThunk(order.id)).unwrap();
+      setOrder(updated);
+      showSuccess("Order placed");
+    } catch (err: any) {
+      showError(typeof err === "string" ? err : "Failed to place order");
+    } finally {
+      setPlacing(false);
+    }
+  }
+
+  // Ordered → Verify Order. Doesn't change order.status — just timestamps
+  // that verification has begun (see orders.repository.ts's
+  // startVerification) so this order now shows on the Verify Order list too,
+  // then switches straight to that tab to actually check quantities.
+  async function handleConfirmOrder() {
+    if (!order) return;
+    if (!can("receive_order")) { denyPerm("receive_order"); return; }
+    setConfirmingOrder(true);
+    try {
+      const updated = await dispatch(startVerificationThunk(order.id)).unwrap();
+      setOrder(updated);
+      setActiveTab("receiving");
+    } catch (err: any) {
+      showError(typeof err === "string" ? err : "Failed to move order to verification");
+    } finally {
+      setConfirmingOrder(false);
     }
   }
 
@@ -192,8 +196,8 @@ const OrderDetailPage: React.FC = () => {
     return (
       <div className="supplier-detail-page">
         {overlay}
-        <button className="supplier-detail-page__back" onClick={() => navigate(-1)}>
-          <ArrowLeft size={14} /> Back to Orders
+        <button className="supplier-detail-page__back" onClick={onClose ?? (() => navigate(-1))}>
+          <ArrowLeft size={14} /> {onClose ? "Close" : "Back to Orders"}
         </button>
         <p className="text-muted">Order not found.</p>
       </div>
@@ -203,8 +207,13 @@ const OrderDetailPage: React.FC = () => {
   return (
     <div className="supplier-detail-page">
       {overlay}
-      <button className="supplier-detail-page__back" onClick={() => navigate(-1)}>
-        <ArrowLeft size={14} /> Back to Orders
+      {/* The stepper's steps navigate away to the filtered orders list —
+          not meaningful/wanted while this is open as a popup over that
+          same list, so it's route-only. */}
+      {!onClose && <OrderStatusStepper current={order.status} showProgress />}
+
+      <button className="supplier-detail-page__back" onClick={onClose ?? (() => navigate(-1))}>
+        <ArrowLeft size={14} /> {onClose ? "Close" : "Back to Orders"}
       </button>
 
       <header className="supplier-detail-page__header">
@@ -218,209 +227,200 @@ const OrderDetailPage: React.FC = () => {
           <p>{order.supplier_name || "—"}</p>
         </div>
         <div className="d-flex gap-2">
+          {order.status === "draft" && (
+            <Button
+              variant="outline-dark"
+              size="sm"
+              iconLeft={<PencilSquare size={14} />}
+              style={!can("edit_order") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+              onClick={() => {
+                if (!can("edit_order")) { denyPerm("edit_order"); return; }
+                navigate(`/dashboard/inventory/orders/${order.id}/edit`);
+              }}
+            >
+              Edit
+            </Button>
+          )}
+          {order.status === "draft" && (
+            <Button
+              variant="dark"
+              size="sm"
+              style={!can("create_order") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+              onClick={handlePlaceOrder}
+              disabled={placing}
+              loading={placing}
+            >
+              Place Order
+            </Button>
+          )}
+          {order.status === "sent" && (
+            <Button
+              variant="dark"
+              size="sm"
+              iconLeft={<ClipboardCheck size={14} />}
+              style={!can("receive_order") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+              onClick={handleConfirmOrder}
+              disabled={confirmingOrder}
+              loading={confirmingOrder}
+            >
+              Confirm Order
+            </Button>
+          )}
           {canCancel && (
-            <Button variant="outline-dark" iconLeft={<XCircle size={14} />} onClick={handleCancel}>
+            <Button
+              variant="outline-dark"
+              size="sm"
+              iconLeft={<XCircle size={14} />}
+              style={!can("cancel_order") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+              onClick={handleCancel}
+            >
               Cancel Order
             </Button>
           )}
-          {canReceive && (
-            <Button variant="dark" iconLeft={<BoxSeam size={14} />} onClick={openReceive}>
-              Receive
-            </Button>
-          )}
+          <Button
+            variant="outline-dark"
+            size="sm"
+            iconLeft={<FileEarmarkPdf size={14} />}
+            style={(!can("download_order_pdf") || !can("export_pdf")) ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+            onClick={handleDownloadPurchaseOrder}
+          >
+            Download PDF
+          </Button>
           {canDownloadBill && (
-            <Button variant="outline-dark" iconLeft={<FileEarmarkPdf size={14} />} onClick={handleDownloadBill}>
+            <Button
+              variant="outline-dark"
+              size="sm"
+              iconLeft={<FileEarmarkPdf size={14} />}
+              style={(!can("download_order_pdf") || !can("export_pdf")) ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+              onClick={handleDownloadBill}
+            >
               Download Bill PDF
             </Button>
           )}
-          <Button variant="outline-danger" size="sm" iconLeft={<Trash size={14} />} onClick={() => setDeleteOpen(true)}>
-            Delete
+          <Button
+            variant="outline-danger"
+            size="sm"
+            iconLeft={<Trash size={14} />}
+            style={!can("cancel_order") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+            onClick={() => {
+              if (!can("cancel_order")) { denyPerm("cancel_order"); return; }
+              setDeleteOpen(true);
+            }}
+          >
+            {order.status === "draft" ? "Delete Draft" : "Delete"}
           </Button>
         </div>
       </header>
 
-      <div className="supplier-detail-page__stats">
-        <div className="stat-card">
-          <span className="stat-label">Order Date</span>
-          <span className="stat-value">{fmtDate(order.order_date)}</span>
-        </div>
-        <div className="stat-card">
-          <span className="stat-label">Total Quantity</span>
-          <span className="stat-value">{order.total_quantity}</span>
-        </div>
-        <div className="stat-card">
-          <span className="stat-label">Total Price</span>
-          <span className="stat-value">{formatAmount(order.total_price)}</span>
-        </div>
-        <div className="stat-card">
-          <span className="stat-label">Payment Terms</span>
-          <span className="stat-value">{order.payment_terms_days != null ? `${order.payment_terms_days} days` : "—"}</span>
-        </div>
-        <div className="stat-card">
-          <span className="stat-label">Delivery Date</span>
-          <span className="stat-value">{fmtDate(order.delivery_date)}</span>
-        </div>
-        {order.status !== "cancelled" && order.status !== "draft" && order.status !== "sent" && (
-          <>
-            <div className="stat-card">
-              <span className="stat-label">Paid Amount</span>
-              <span className="stat-value">{formatAmount(order.paid_amount ?? 0)}</span>
-            </div>
-            <div className="stat-card">
-              <span className="stat-label">Pending Amount</span>
-              <span className="stat-value">{formatAmount(order.pending_amount ?? 0)}</span>
-            </div>
-            <div className="stat-card">
-              <span className="stat-label">Payment Status</span>
-              <span className={`supplier-status-badge supplier-status-badge--${order.bill_payment_status === "paid" ? "paid" : order.bill_payment_status === "partial" ? "partial" : "due"}`}>
-                {order.bill_payment_status === "paid" ? "Paid" : order.bill_payment_status === "partial" ? "Partial" : "Unpaid"}
-              </span>
-            </div>
-          </>
-        )}
-      </div>
-
-      <div className="phist-page">
-        <table className="phist-table">
-          <thead>
-            <tr>
-              <th>Product</th>
-              <th>Product Code</th>
-              <th className="phist-num">Qty</th>
-              <th className="phist-num">Received</th>
-              <th className="phist-num">Selling Price</th>
-              <th className="phist-num">Discount</th>
-              <th className="phist-num">Cost Price</th>
-              <th className="phist-num">Total Cost W/O Tax</th>
-              <th className="phist-num">Total Tax</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(order.items ?? []).map((item) => (
-              <tr key={item.id}>
-                <td>{item.product_name || "—"}</td>
-                <td>{item.product_code || "—"}</td>
-                <td className="phist-num">{item.qty}</td>
-                <td className="phist-num">
-                  {item.received_qty} / {item.qty}
-                  {order.status !== "cancelled" && item.received_qty > 0 && (
-                    <button
-                      type="button"
-                      className="phist-edit-received-btn"
-                      title="Edit received quantity"
-                      onClick={() => {
-                        setCorrectItem({ id: item.id, product_name: item.product_name, qty: item.qty });
-                        setCorrectQty(String(item.received_qty));
-                      }}
-                    >
-                      <PencilSquare size={12} />
-                    </button>
-                  )}
-                </td>
-                <td className="phist-num">{formatAmount(item.selling_price)}</td>
-                <td className="phist-num">{item.discount_percent}%</td>
-                <td className="phist-num">{formatAmount(item.cost_price)}</td>
-                <td className="phist-num">{formatAmount(item.total_cost_wo_tax)}</td>
-                <td className="phist-num">{formatAmount(item.total_tax)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {order.remark && (
-        <p className="text-muted mt-3"><strong>Remark:</strong> {order.remark}</p>
-      )}
-      {order.terms_conditions && (
-        <p className="text-muted"><strong>Terms and Conditions:</strong> {order.terms_conditions}</p>
+      {tabs.length > 1 && (
+        <Tabs tabs={tabs} activeKey={activeTab} onChange={(k) => setActiveTab(k as "overview" | "receiving")} variant="underline" className="mb-3" />
       )}
 
-      {receiveOpen && (
-        <Modal show onClose={() => setReceiveOpen(false)} title="Receive Order" size="lg">
-          <p className="text-muted mb-3">
-            Enter how much of each item actually arrived in this delivery. This creates a Purchase record,
-            adds the received quantity to stock, and updates the supplier's balance.
-          </p>
-          <table className="phist-table--compact w-100">
-            <thead>
-              <tr>
-                <th>Product</th>
-                <th className="phist-num">Ordered</th>
-                <th className="phist-num">Already Received</th>
-                <th className="phist-num">Receiving Now</th>
-                <th>Batch / Lot No.</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(order.items ?? []).map((item) => {
-                const remaining = remainingByItem.get(item.id) ?? 0;
-                return (
+      {activeTab === "overview" && (
+        <>
+          <div className="supplier-detail-page__stats">
+            <div className="stat-card">
+              <span className="stat-label">Order Date</span>
+              <span className="stat-value">{fmtDate(order.order_date)}</span>
+            </div>
+            <div className="stat-card">
+              <span className="stat-label">Total Quantity</span>
+              <span className="stat-value">{Number(order.total_quantity) || 0}</span>
+            </div>
+            <div className="stat-card">
+              <span className="stat-label">Total Price</span>
+              <span className="stat-value">{formatAmount(order.total_price)}</span>
+            </div>
+            <div className="stat-card">
+              <span className="stat-label">Payment Terms</span>
+              <span className="stat-value">{order.payment_terms_days != null ? `${order.payment_terms_days} days` : "—"}</span>
+            </div>
+            <div className="stat-card">
+              <span className="stat-label">Delivery Date</span>
+              <span className="stat-value">{fmtDate(order.delivery_date)}</span>
+            </div>
+            {order.status !== "cancelled" && order.status !== "draft" && order.status !== "sent" && (
+              <>
+                <div className="stat-card">
+                  <span className="stat-label">Paid Amount</span>
+                  <span className="stat-value">{formatAmount(order.paid_amount ?? 0)}</span>
+                </div>
+                <div className="stat-card">
+                  <span className="stat-label">Pending Amount</span>
+                  <span className="stat-value">{formatAmount(order.pending_amount ?? 0)}</span>
+                </div>
+                <div className="stat-card">
+                  <span className="stat-label">Payment Status</span>
+                  <span className={`supplier-status-badge supplier-status-badge--${order.bill_payment_status === "paid" ? "paid" : order.bill_payment_status === "partial" ? "partial" : "due"}`}>
+                    {order.bill_payment_status === "paid" ? "Paid" : order.bill_payment_status === "partial" ? "Partial" : "Unpaid"}
+                  </span>
+                </div>
+              </>
+            )}
+          </div>
+
+          <div className="phist-page">
+            <table className="phist-table">
+              <thead>
+                <tr>
+                  <th>Product</th>
+                  <th>Product Code</th>
+                  <th className="phist-num">Qty</th>
+                  <th className="phist-num">Received</th>
+                  <th className="phist-num">Damaged</th>
+                  <th className="phist-num">Selling Price</th>
+                  <th className="phist-num">Discount</th>
+                  <th className="phist-num">Cost Price</th>
+                  <th className="phist-num">Total Cost W/O Tax</th>
+                  <th className="phist-num">Total Tax</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(order.items ?? []).map((item) => (
                   <tr key={item.id}>
                     <td>{item.product_name || "—"}</td>
-                    <td className="phist-num">{item.qty}</td>
-                    <td className="phist-num">{item.received_qty}</td>
+                    <td>{item.product_code || "—"}</td>
+                    <td className="phist-num">{Number(item.qty) || 0}</td>
                     <td className="phist-num">
-                      <input
-                        type="number"
-                        min="0"
-                        max={remaining}
-                        step="any"
-                        className="new-order-input--sm"
-                        value={receiveQtys[item.id] ?? ""}
-                        disabled={remaining <= 0}
-                        onChange={(e) => setReceiveQtys((prev) => ({ ...prev, [item.id]: e.target.value }))}
-                        onWheel={(e) => e.currentTarget.blur()}
-                      />
+                      {Number(item.received_qty) || 0} / {Number(item.qty) || 0}
                     </td>
-                    <td>
-                      <input
-                        type="text"
-                        className="new-order-input--sm"
-                        placeholder="Optional"
-                        value={receiveBatchNumbers[item.id] ?? ""}
-                        disabled={remaining <= 0}
-                        onChange={(e) => setReceiveBatchNumbers((prev) => ({ ...prev, [item.id]: e.target.value }))}
-                      />
-                    </td>
+                    <td className="phist-num">{Number(item.damaged_qty) || 0}</td>
+                    <td className="phist-num">{formatAmount(item.selling_price)}</td>
+                    <td className="phist-num">{Number(item.discount_percent) || 0}%</td>
+                    <td className="phist-num">{formatAmount(item.cost_price)}</td>
+                    <td className="phist-num">{formatAmount(item.total_cost_wo_tax)}</td>
+                    <td className="phist-num">{formatAmount(item.total_tax)}</td>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          <div className="d-flex justify-content-end gap-2 mt-4">
-            <Button variant="outline-dark" onClick={() => setReceiveOpen(false)} disabled={submitting}>Cancel</Button>
-            <Button variant="dark" onClick={submitReceive} disabled={submitting}>
-              {submitting ? "Receiving…" : "Confirm Receive"}
-            </Button>
+                ))}
+              </tbody>
+            </table>
           </div>
-        </Modal>
+
+          {order.remark && (
+            <p className="text-muted mt-3"><strong>Remark:</strong> {order.remark}</p>
+          )}
+          {order.terms_conditions && (
+            <p className="text-muted"><strong>Terms and Conditions:</strong> {order.terms_conditions}</p>
+          )}
+        </>
       )}
 
-      {correctItem && (
-        <Modal show onClose={() => setCorrectItem(null)} title="Edit Received Quantity">
-          <p className="text-muted mb-3">
-            Corrects the received quantity for <strong>{correctItem.product_name || "this item"}</strong> and adjusts
-            stock to match. This does not change the original Purchase record.
-          </p>
-          <label className="form-label small text-muted">Received Quantity (of {correctItem.qty} ordered)</label>
-          <input
-            type="number"
-            min="0"
-            max={correctItem.qty}
-            step="any"
-            className="new-order-input--sm w-100"
-            value={correctQty}
-            onChange={(e) => setCorrectQty(e.target.value)}
-            onWheel={(e) => e.currentTarget.blur()}
-            autoFocus
+      {activeTab === "receiving" && canReceive && (
+        can("receive_order") ? (
+          <ReceivingTab
+            order={order}
+            onReceived={(updated) => {
+              setOrder(updated);
+              showSuccess("Stock received");
+              dispatch(markSuppliersStale());
+            }}
+            onError={showError}
           />
-          <div className="d-flex justify-content-end gap-2 mt-4">
-            <Button variant="outline-dark" onClick={() => setCorrectItem(null)} disabled={correcting}>Cancel</Button>
-            <Button variant="dark" onClick={submitCorrectReceived} disabled={correcting}>
-              {correcting ? "Saving…" : "Save"}
-            </Button>
-          </div>
-        </Modal>
+        ) : (
+          <p className="text-muted">
+            You don't have the "receive_order" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.
+          </p>
+        )
       )}
 
       <Modal

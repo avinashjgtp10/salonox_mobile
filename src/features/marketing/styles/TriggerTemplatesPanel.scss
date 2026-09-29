@@ -1,6 +1,6 @@
 @use './marketing-tokens' as *;
 
-.tp-panel { display: flex; flex-direction: column; }
+.tp-panel { display: flex; flex-direction: column; height: 100%; }
 
 // ── Auto-sync banner ──────────────────────────────────────────────────────────
 .tp-autopoll-banner {
@@ -20,77 +20,199 @@
   50%       { opacity: 0.5; transform: scale(0.85); }
 }
 
-// ── Category switcher ────────────────────────────────────────────────────────
-.tp-category-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
-.tp-category-btn {
-  display: inline-flex; align-items: center; gap: 6px;
-  font-size: 12px; font-weight: 500; color: $gray-500;
-  background: #fff; border: 1px solid $gray-200; border-radius: $radius-md;
-  padding: 7px 12px; cursor: pointer; transition: all 0.15s;
-  i { font-size: 13px; }
-  &:hover { border-color: $gray-400; color: $black; }
-  &--active { border-color: $black; background: $black; color: #fff; }
-}
-.tp-category-count {
-  font-size: 10px; font-weight: 700; min-width: 16px; text-align: center;
-  background: rgba(255,255,255,0.2); border-radius: 20px; padding: 1px 5px;
-  .tp-category-btn:not(.tp-category-btn--active) & { background: $gray-100; color: $gray-500; }
-}
-.tp-category-desc {
-  font-size: 11.5px; color: $gray-400; margin: 0 0 14px; line-height: 1.5;
-}
-
-// ── Card grid ─────────────────────────────────────────────────────────────────
 .tp-loading { padding: 30px; text-align: center; font-size: 13px; color: $gray-400; }
 
-.tp-grid {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px;
+// ── 3-column layout ───────────────────────────────────────────────────────────
+.tp-layout {
+  display: grid;
+  grid-template-columns: 320px 1fr 300px;
+  gap: 16px;
+  align-items: start;
+  min-height: 560px;
+
+  @media (max-width: 1280px) { grid-template-columns: 280px 1fr; }
+  @media (max-width: 960px)  { grid-template-columns: 1fr; }
 }
 
-.tp-card {
+// ── Left: event list ──────────────────────────────────────────────────────────
+.tp-list-col {
+  background: #fff; border: 0.5px solid $gray-200; border-radius: $radius-lg;
+  overflow: hidden; display: flex; flex-direction: column;
+  max-height: 720px;
+}
+
+.tp-list-toolbar {
+  display: flex; gap: 8px; padding: 12px; border-bottom: 0.5px solid $gray-100;
+}
+.tp-search {
+  flex: 1; border: 0.5px solid $gray-200; border-radius: $radius-sm;
+  padding: 7px 10px; font-size: 12.5px; outline: none;
+  &:focus { border-color: $green; }
+}
+.tp-status-select {
+  border: 0.5px solid $gray-200; border-radius: $radius-sm;
+  padding: 7px 8px; font-size: 12px; color: $gray-600; background: #fff; cursor: pointer;
+}
+
+.tp-category-tabs {
+  display: flex; gap: 4px; flex-wrap: wrap; padding: 10px 12px;
+  border-bottom: 0.5px solid $gray-100;
+}
+.tp-cat-tab {
+  font-size: 11.5px; font-weight: 500; color: $gray-500;
+  background: $gray-50; border: 0.5px solid $gray-200; border-radius: 20px;
+  padding: 5px 10px; cursor: pointer; transition: all 0.15s; white-space: nowrap;
+  &:hover { border-color: $gray-400; color: $black; }
+  &--active { background: $black; border-color: $black; color: #fff; }
+}
+.tp-cat-tab-count { font-size: 10px; opacity: 0.7; margin-left: 2px; }
+
+.tp-event-list { overflow-y: auto; flex: 1; }
+.tp-list-empty { padding: 24px; text-align: center; font-size: 12.5px; color: $gray-400; }
+
+.tp-event-row {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 11px 12px; border: none; background: none; border-bottom: 0.5px solid $gray-100;
+  cursor: pointer; text-align: left; transition: background 0.12s;
+  &:hover { background: $gray-50; }
+  &--active { background: $green-dim; box-shadow: inset 2px 0 0 $green; }
+  &:last-child { border-bottom: none; }
+}
+.tp-event-icon {
+  width: 32px; height: 32px; border-radius: $radius-sm; background: $gray-50;
+  display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0;
+}
+.tp-event-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.tp-event-name {
+  font-size: 12.5px; font-weight: 600; color: $black;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.tp-event-preview {
+  font-size: 11px; color: $gray-400;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.tp-event-chevron { font-size: 16px; color: $gray-300; flex-shrink: 0; }
+
+// ── Active (stop/resume) toggle ─────────────────────────────────────────────
+.tp-active-toggle {
+  display: inline-flex; cursor: pointer; flex-shrink: 0;
+  input { position: absolute; opacity: 0; width: 0; height: 0; }
+}
+.tp-active-toggle-track {
+  display: inline-flex; align-items: center;
+  width: 32px; height: 18px; border-radius: 20px;
+  background: $gray-200; transition: background 0.15s; position: relative; flex-shrink: 0;
+  input:checked + & { background: $green; }
+}
+.tp-active-toggle-thumb {
+  width: 14px; height: 14px; border-radius: 50%; background: #fff;
+  position: absolute; left: 2px; transition: left 0.15s; box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+  input:checked ~ .tp-active-toggle-track & { left: 16px; }
+}
+
+// ── Middle: detail panel ──────────────────────────────────────────────────────
+.tp-detail-empty {
+  grid-column: span 2; background: #fff; border: 1px dashed $gray-200; border-radius: $radius-lg;
+  padding: 60px 20px; text-align: center; color: $gray-400; font-size: 13px;
+  @media (max-width: 960px) { grid-column: auto; }
+}
+
+.tp-detail-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+
+.tp-detail-header {
+  display: flex; align-items: flex-start; gap: 12px;
+  background: #fff; border: 0.5px solid $gray-200; border-radius: $radius-lg; padding: 14px 16px;
+}
+.tp-detail-icon {
+  width: 40px; height: 40px; border-radius: $radius-md; background: $gray-50;
+  display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0;
+}
+.tp-detail-heading { flex: 1; min-width: 0; }
+.tp-detail-name { font-size: 14.5px; font-weight: 700; color: $black; }
+.tp-detail-hint { font-size: 11.5px; color: $gray-400; margin-top: 2px; line-height: 1.4; }
+
+.tp-live-note {
+  font-size: 11.5px; color: $gray-500; background: $gray-50; border-radius: $radius-sm;
+  padding: 8px 12px;
+}
+.tp-rejection {
+  font-size: 11.5px; color: $red; background: $red-dim; border-radius: $radius-sm; padding: 8px 12px;
+}
+
+.tp-content-card {
+  background: #fff; border: 0.5px solid $gray-200; border-radius: $radius-lg; padding: 16px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.tp-content-title { font-size: 13px; font-weight: 700; color: $black; }
+
+.tp-channel-tabs { display: flex; gap: 6px; border-bottom: 0.5px solid $gray-100; padding-bottom: 10px; margin-bottom: 2px; }
+.tp-channel-tab {
+  font-size: 12px; font-weight: 500; color: $gray-500;
+  background: #fff; border: 0.5px solid $gray-200; border-radius: $radius-sm;
+  padding: 7px 14px; cursor: pointer; transition: all 0.15s; display: inline-flex; align-items: center; gap: 6px;
+  &:hover { border-color: $gray-400; color: $black; }
+  &--active { border-color: $gray-300; background: $gray-50; color: $black; font-weight: 600; }
+  &--whatsapp.tp-channel-tab--active { border-color: $green; background: $green-dim; color: #16a34a; }
+}
+
+.tp-textarea {
+  width: 100%; resize: vertical; border: 0.5px solid $gray-200; border-radius: $radius-md;
+  padding: 12px; font-size: 13px; line-height: 1.6; color: $black; outline: none; font-family: inherit;
+  &:focus { border-color: $green; }
+}
+
+.tp-char-count {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 11px; color: $gray-400;
+}
+
+.tp-content-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+
+.tp-channel-enable {
+  display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: $gray-600; cursor: pointer;
+  input[type="checkbox"] { accent-color: $black; cursor: pointer; }
+}
+
+// ── Right: preview panel ──────────────────────────────────────────────────────
+.tp-preview-col {
+  display: flex; flex-direction: column; gap: 12px;
+  @media (max-width: 1280px) { display: none; }
+}
+.tp-preview-title { font-size: 13px; font-weight: 700; color: $black; }
+
+.tp-preview-phone {
+  border: 0.5px solid $gray-200; border-radius: $radius-lg; overflow: hidden;
+  background: #ece5dd;
+}
+.tp-preview-phone-bar {
+  display: flex; align-items: center; gap: 8px;
+  background: #fff; padding: 8px 12px; border-bottom: 0.5px solid $gray-200;
+}
+.tp-preview-phone-avatar {
+  width: 26px; height: 26px; border-radius: 50%; background: $green; color: #fff;
+  display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; flex-shrink: 0;
+}
+.tp-preview-phone-name   { font-size: 11.5px; font-weight: 600; color: $black; line-height: 1.3; }
+.tp-preview-phone-status { font-size: 10px; color: $green; }
+.tp-preview-phone-body   { padding: 12px; }
+.tp-preview-bubble {
+  background: #fff; border-radius: 0 8px 8px 8px; padding: 9px 10px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.08); max-width: 100%;
+}
+.tp-preview-bubble-text {
+  margin: 0; font-size: 12px; color: $black; line-height: 1.5; white-space: pre-wrap; word-break: break-word;
+}
+.tp-preview-bubble-time {
+  font-size: 9.5px; color: $gray-400; text-align: right; margin-top: 4px;
+}
+
+.tp-test-card {
   background: #fff; border: 0.5px solid $gray-200; border-radius: $radius-lg; padding: 14px;
   display: flex; flex-direction: column; gap: 8px;
 }
-
-.tp-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
-.tp-card-label { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: $black; }
-.tp-card-hint  { font-size: 11px; color: $gray-400; margin-top: 2px; line-height: 1.4; }
-
-.tp-live-note {
-  font-size: 10.5px; color: $gray-400; font-style: italic; margin-top: -2px;
+.tp-test-title { font-size: 12.5px; font-weight: 700; color: $black; }
+.tp-test-input {
+  border: 0.5px solid $gray-200; border-radius: $radius-sm; padding: 8px 10px; font-size: 12.5px; outline: none;
+  &:focus { border-color: $green; }
 }
-
-.tp-info-btn {
-  background: none; border: none; padding: 2px; display: flex; color: $gray-400; cursor: pointer;
-  &:hover { color: $gray-600; }
-}
-
-.tp-info-panel {
-  background: $gray-50; border: 0.5px solid $gray-200; border-radius: $radius-md;
-  padding: 8px 10px; font-size: 11px; color: $gray-600; line-height: 1.5;
-  p { margin: 0 0 5px; }
-  ul { margin: 0; padding-left: 14px; }
-  code { background: $gray-100; border-radius: 4px; padding: 1px 4px; font-size: 10.5px; }
-}
-.tp-info-panel-head {
-  display: flex; align-items: center; justify-content: space-between;
-  font-weight: 600; color: $black; margin-bottom: 5px;
-}
-.tp-info-close { background: none; border: none; padding: 0; color: $gray-400; cursor: pointer; display: flex; }
-
-.tp-rejection {
-  font-size: 11px; color: $red; background: $red-dim; border-radius: $radius-sm; padding: 5px 8px;
-}
-
-.tp-card-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 2px; }
-
-// ── Channel checkboxes (WhatsApp / SMS / Email) ─────────────────────────────
-.tec-channels {
-  display: flex; gap: 14px; padding: 6px 0 2px;
-  border-top: 0.5px solid $gray-100; border-bottom: 0.5px solid $gray-100;
-}
-.tec-channel-toggle {
-  display: flex; align-items: center; gap: 5px;
-  font-size: 11.5px; font-weight: 500; color: $gray-600; cursor: pointer;
-  input[type="checkbox"] { accent-color: $black; cursor: pointer; }
-}
+.tp-test-hint { font-size: 10.5px; color: $gray-400; line-height: 1.4; }

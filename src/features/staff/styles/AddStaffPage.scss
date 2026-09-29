@@ -60,11 +60,19 @@ $transition:      0.18s ease;
     font-size: 13px;
     color: #111827;
     cursor: pointer;
-    transition: all 0.2s;
+    // Only the properties that actually change are transitioned — a bare
+    // `all` transitioning alongside Bootstrap's own .btn transition (a
+    // different duration/property list) on the same element was the
+    // flicker: two transitions racing on overlapping properties.
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+    box-shadow: none;
 
-    &:hover {
+    &:hover,
+    &:focus {
       background: #f9fafb;
       border-color: #d1d5db;
+      color: #111827;
+      box-shadow: none;
     }
   }
 
@@ -77,17 +85,23 @@ $transition:      0.18s ease;
     font-size: 13px;
     color: #ffffff;
     cursor: pointer;
-    transition: all 0.2s;
+    // No transform on hover — a sub-pixel translateY under a broad
+    // transition was causing visible jitter/flicker on hover, and fighting
+    // with Bootstrap's own .btn hover/focus transition timing.
+    transition: background-color 0.15s ease;
+    box-shadow: none;
 
-    &:hover {
-      opacity: 0.9;
-      transform: translateY(-0.5px);
+    &:hover,
+    &:focus {
+      background: #1a1a1a;
+      color: #ffffff;
+      box-shadow: none;
     }
 
     &:disabled {
       background: #9ca3af;
+      color: #ffffff;
       cursor: not-allowed;
-      transform: none;
     }
   }
 }
@@ -150,16 +164,35 @@ $transition:      0.18s ease;
   padding: 8px 20px;
   font-size: 14px;
   font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+  box-shadow: none;
 
   &--cancel {
+    background: #fff;
     border: 1px solid $border;
     color: #374151;
+
+    &:hover,
+    &:focus {
+      background: #f9fafb;
+      border-color: #d1d5db;
+      color: #374151;
+      box-shadow: none;
+    }
   }
 
   &--discard {
     background: #111827;
     color: #fff;
     border: none;
+
+    &:hover,
+    &:focus {
+      background: #000;
+      color: #fff;
+      box-shadow: none;
+    }
   }
 }
 
@@ -217,6 +250,18 @@ $transition:      0.18s ease;
     color: $text-muted;
   }
 
+  &__readonly-tag {
+    margin-left: 6px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    color: $text-muted;
+    background: #eef0f3;
+    border-radius: 999px;
+    padding: 1px 7px;
+  }
+
   &__error {
     font-size: 11px;
     color: $danger;
@@ -236,6 +281,11 @@ $transition:      0.18s ease;
   gap: 14px 16px;
   max-width: 520px;
   margin-bottom: 10px;
+}
+
+.emp-password-actions {
+  display: flex;
+  gap: 10px;
 }
 
 .emp-input {
@@ -263,6 +313,15 @@ $transition:      0.18s ease;
   &--invalid {
     border-color: $danger;
     &:focus { box-shadow: 0 0 0 1px $danger; }
+  }
+
+  &:disabled,
+  &--readonly {
+    background: #f0f1f3;
+    color: $text-muted;
+    cursor: not-allowed;
+    &:hover { border-color: $border; }
+    &:focus { border-color: $border; box-shadow: none; }
   }
 }
 

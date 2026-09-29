@@ -73,7 +73,7 @@ export function getActiveTaxes(items: Setting[]): TaxRow[] {
     .filter((s) => isTaxSetting(s) && parseTaxValue(s.value).active)
     .map((s) => {
       const parsed = parseTaxValue(s.value);
-      const applicable = parsed.applicable_for ?? {};
+      const applicable: Partial<TaxApplicableFor> = parsed.applicable_for ?? {};
       return {
         id: s.id,
         tax_name: s.key ?? "",

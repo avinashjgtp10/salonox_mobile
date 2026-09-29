@@ -6,6 +6,7 @@ import type { PaperProfile } from "../../settings/utils/printSettings";
 import { buildThermalDocument, buildPageCss, type ThermalReceiptData } from "./printTemplates";
 import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
 import { maskMobile } from "../../../utils/maskMobile";
+import { getSplitPaymentEntries, getEwalletUsedAmount } from "./paymentUtils";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Single reusable source for "print a bill/receipt" — every entry point in the
@@ -434,10 +435,9 @@ export function printReceipt(
   // eWallet can arrive either as its own field (calendar prints patch it from
   // the saved payment) or as a leg inside splitDetails (older records) — show
   // one dedicated line either way, and drop the splitDetails leg below so the
-  // same amount is never printed twice.
-  const splitDetailsRaw = ((booking as any).splitDetails || {}) as Record<string, unknown>;
-  const splitEwallet = Number(Object.entries(splitDetailsRaw).find(([k]) => k.toLowerCase() === "ewallet")?.[1]) || 0;
-  const ewalletUsedAmt = Number((booking as any).ewalletUsed || 0) || splitEwallet;
+  // same amount is never printed twice. Shared with ViewBillModal.tsx's
+  // Payment Method section (see paymentUtils.ts) so the two can't disagree.
+  const ewalletUsedAmt = getEwalletUsedAmount(booking as any);
   // Bill Discount (manualDisc) is a POST-tax deduction — applied to the bill
   // total after GST, not the pre-tax subtotal (matches pricing.engine.ts's
   // computeBillTotals). Coupon/membership discounts are unaffected and still
@@ -468,9 +468,7 @@ export function printReceipt(
   // Per-method breakdown of the actual payment (Cash/Card/UPI/Package —
   // eWallet/membership wallet aren't part of this map, they're tracked
   // separately above).
-  const splitEntries = Object.entries(splitDetailsRaw)
-    .map(([k, v]) => [k, Number(v) || 0] as [string, number])
-    .filter(([k, v]) => v > 0 && k.toLowerCase() !== "ewallet");
+  const splitEntries = getSplitPaymentEntries(booking as any).map((e) => [e.method, e.amount] as [string, number]);
   // Only call out the breakdown when it's genuinely mixed, or the sole method
   // is something other than plain Cash/Card/UPI (eWallet/Package) — a plain
   // single-method Cash payment already has "Amount Paid" + the Payment Method
@@ -679,7 +677,7 @@ export function printReceipt(
 
 <!-- Screen toolbar -->
 <div class="print-toolbar">
-  <div class="pt-brand">Salonox &mdash; Receipt Preview <span>${invoiceNo}</span></div>
+  <div class="pt-brand">SalonoX &mdash; Receipt Preview <span>${invoiceNo}</span></div>
   <div class="pt-actions">
     <button class="pt-btn pt-btn--primary" onclick="doPrint()">Print</button>
     <button class="pt-btn pt-btn--ghost"   onclick="savePdf()">Save PDF</button>
@@ -808,7 +806,7 @@ export function printReceipt(
     <div class="inv-footer-right">
       This is a computer-generated receipt.<br>
       No signature required.<br>
-      <strong style="color:#374151;font-size:11px">Powered by Salonox</strong>
+      <strong style="color:#374151;font-size:11px">Powered by SalonoX</strong>
     </div>
   </div>
 
@@ -877,6 +875,20 @@ export function printReceipt(
     if (tipAmt > 0.005) {
       tipBreakdown.forEach((t) => push(`  ${t.staffName}`, t.amount, { muted: true }));
     }
+    // Redemptions — the A4 invoice has always listed these, this compact
+    // template never did, so a bill part-settled from a wallet printed
+    // "Subtotal ₹1,000 … TOTAL ₹690" with the missing ₹400 unexplained and
+    // the arithmetic looking simply wrong to whoever was handed the paper.
+    // Same order and sign as the A4 summary above, so the two reconcile line
+    // for line.
+    push("Membership Wallet Used", -membershipWalletUsedAmt, { muted: true });
+    push("eWallet Used", -ewalletUsedAmt, { muted: true });
+    push("Reward Points Used", -rewardPointsValuePaid, { muted: true });
+    push("Referral Credit Used", -referralCreditUsedAmt, { muted: true });
+    // The rounding that produced the printed TOTAL, for the same reason the
+    // A4 receipt shows it: without it the column above doesn't add up to the
+    // figure at the bottom.
+    if (!isPackagePaid) push("Round Off", roundOff, { muted: true });
 
     const payments: ThermalReceiptData["payments"] = [];
     if (Math.abs(paidAmt) > 0.005) payments.push({ label: "Paid", value: fmt(paidAmt) });
@@ -895,6 +907,16 @@ export function printReceipt(
         clientName: booking.clientName || "Walk-In",
         clientPhone: clientPhone || undefined,
         staffName: allStaffDisplay,
+        // Reads the same booking.paymentMode the A4 invoice does
+        // (infoCell("Payment Method", ...) above), so the two documents can't
+        // disagree. Only the label is tidied: the stored values are raw
+        // lowercase enum strings ("cash", "gift_card", "upi").
+        paymentMethod:
+          String((booking as any).paymentMode ?? "")
+            .trim()
+            .replace(/_/g, " ")
+            .replace(/\b[a-z]/g, (c) => c.toUpperCase())
+            .replace(/\bUpi\b/g, "UPI") || undefined,
         items: thermalItems,
         summary,
         grandTotal: { label: "TOTAL", value: fmt(grandTotal) },

@@ -15,6 +15,8 @@ import { servicesInCategories } from "./serviceCategoryFilter";
 import { useRowSelection } from "./useRowSelection";
 import { SendCampaignBar } from "./SendCampaignBar";
 import { SendCampaignModal } from "../../marketing/components";
+import ServiceSaleChartContent from "./ServiceSaleChartContent";
+import ReportViewToggle from "./ReportViewToggle";
 import "./ServiceSaleReport.scss";
 
 const REPORT_NAME = "Service Sale";
@@ -113,6 +115,7 @@ export default function ServiceSaleReport({ onBack, category, categoryKey }: { o
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const selection = useRowSelection();
   const [showCampaignModal, setShowCampaignModal] = useState(false);
+  const [showChart, setShowChart] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -121,6 +124,20 @@ export default function ServiceSaleReport({ onBack, category, categoryKey }: { o
   }, [search]);
 
   useEffect(() => { fetchServices({ limit: 1000 }); }, [fetchServices]);
+
+  // Shared with the Graph page below — same filter set the table/stats use,
+  // minus pagination/sort (the chart groups everything by day instead).
+  const buildFilterBody = useCallback((): Record<string, any> => {
+    const body: Record<string, any> = { start_date: dateFrom, end_date: dateTo };
+    if (debouncedSearch) body.search = debouncedSearch;
+    if (categoryIds.length > 0) body.category_ids = categoryIds;
+    if (serviceIds.length > 0) body.service_ids = serviceIds;
+    if (minPrice !== "") body.min_price = Number(minPrice);
+    if (maxPrice !== "") body.max_price = Number(maxPrice);
+    if (staffFilterIds.length > 0) body.staff_ids = staffFilterIds;
+    if (paymentMethods.length > 0) body.payment_methods = paymentMethods;
+    return body;
+  }, [dateFrom, dateTo, debouncedSearch, categoryIds, serviceIds, minPrice, maxPrice, staffFilterIds, paymentMethods]);
 
   // Real server-side pagination — page/limit are sent on every request, and
   // only that page's rows come back, along with stats computed by the
@@ -132,18 +149,7 @@ export default function ServiceSaleReport({ onBack, category, categoryKey }: { o
     abortRef.current = ctrl;
     setLoading(true);
     try {
-      const body: Record<string, any> = {
-        start_date: dateFrom, end_date: dateTo,
-        page: currentPage, limit: pageSize,
-        sort_by: sortBy, sort_dir: sortDir,
-      };
-      if (debouncedSearch) body.search = debouncedSearch;
-      if (categoryIds.length > 0) body.category_ids = categoryIds;
-      if (serviceIds.length > 0) body.service_ids = serviceIds;
-      if (minPrice !== "") body.min_price = Number(minPrice);
-      if (maxPrice !== "") body.max_price = Number(maxPrice);
-      if (staffFilterIds.length > 0) body.staff_ids = staffFilterIds;
-      if (paymentMethods.length > 0) body.payment_methods = paymentMethods;
+      const body = { ...buildFilterBody(), page: currentPage, limit: pageSize, sort_by: sortBy, sort_dir: sortDir };
       const res = await api.post(SERVICE_SALE_REPORT.SUMMARY(), body, { signal: ctrl.signal });
       const data = res.data?.data;
       const raw: any[] = Array.isArray(data?.rows) ? data.rows : [];
@@ -168,7 +174,7 @@ export default function ServiceSaleReport({ onBack, category, categoryKey }: { o
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [dateFrom, dateTo, debouncedSearch, categoryIds, serviceIds, minPrice, maxPrice, staffFilterIds, paymentMethods, sortBy, sortDir, currentPage, pageSize]);
+  }, [buildFilterBody, sortBy, sortDir, currentPage, pageSize, dateFrom, dateTo]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -221,10 +227,12 @@ export default function ServiceSaleReport({ onBack, category, categoryKey }: { o
         <div className="rp-detail-back-row">
           <Breadcrumb current={REPORT_NAME} category={category} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
+            <ReportViewToggle view={showChart ? "chart" : "table"} onChange={(v) => setShowChart(v === "chart")} />
             <ReportExportButton
               title={REPORT_NAME}
               headers={HEADERS}
               rows={exportRows}
+              reportId="service_sale"
               filename={`service-sale-${dateFrom}-${dateTo}`}
               variant="button"
               csv
@@ -262,6 +270,10 @@ export default function ServiceSaleReport({ onBack, category, categoryKey }: { o
         </div>
       )}
 
+      {showChart ? (
+        <ServiceSaleChartContent dateFrom={dateFrom} dateTo={dateTo} buildFilterBody={buildFilterBody} />
+      ) : (
+      <>
       <SendCampaignBar count={selection.selectedIds.size} onSendClick={() => setShowCampaignModal(true)} />
 
       <div className="rp-detail-toolbar">
@@ -331,6 +343,8 @@ export default function ServiceSaleReport({ onBack, category, categoryKey }: { o
 
       <Pagination currentPage={currentPage} pageSize={pageSize} totalItems={total}
         onPageChange={setCurrentPage} onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }} />
+      </>
+      )}
 
       {selectedClientId && (
         <ClientHistoryModal clientId={selectedClientId} onClose={() => setSelectedClientId(null)} initialTab="services" />

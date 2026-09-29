@@ -89,7 +89,7 @@ export default function AcceptInvitePage() {
               gap: '12px'
             }}>
               <div className="logo" style={{ background: '#fff', width: '36px', height: '36px', borderRadius: '10px' }} />
-              <span style={{ fontSize: '2rem', fontWeight: 800 }}>Salonox</span>
+              <span style={{ fontSize: '2rem', fontWeight: 800 }}>SalonoX</span>
             </div>
 
             {success ? (
@@ -100,10 +100,10 @@ export default function AcceptInvitePage() {
                   marginBottom: '2rem'
                 }}>✓</div>
                 <h2 style={{ fontSize: '2.5rem', fontWeight: 800, color: '#fff', marginBottom: '1.5rem' }}>
-                  Welcome to the Salonox Staff!
+                  Welcome to the SalonoX Staff!
                 </h2>
                 <p style={{ fontSize: '1.25rem', color: 'rgba(255, 255, 255, 0.9)', lineHeight: 1.6, marginBottom: '1.5rem' }}>
-                  You are now an active member of the Salonox staff.
+                  You are now an active member of the SalonoX staff.
                 </p>
                 <p style={{ fontSize: '1.1rem', color: 'rgba(255, 255, 255, 0.7)', lineHeight: 1.6 }}>
                   Thank you for joining us. Your account is ready and you can safely close this window.

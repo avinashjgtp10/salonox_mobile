@@ -30,7 +30,7 @@ export const DEFAULT_SUBSCRIPTION_PERMISSIONS: SubscriptionPermissions = {
   manage_payment_methods: true,
 };
 
-function parseValue(raw: Setting["value"]): Partial<SubscriptionPermissions> {
+function parseValue(raw: Setting["value"] | undefined): Partial<SubscriptionPermissions> {
   if (raw && typeof raw === "object") return raw as Partial<SubscriptionPermissions>;
   if (typeof raw === "string") {
     try {

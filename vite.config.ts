@@ -1,13 +1,18 @@
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
+import { seoFilesPlugin, seoHtmlPlugin } from './scripts/seo-files-plugin'
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   const proxyTarget = env.VITE_API_PROXY_TARGET || 'http://localhost:3000';
 
   return {
-  plugins: [react()],
+  plugins: [react(), seoHtmlPlugin(), seoFilesPlugin()],
+  // SEO_INCLUDE_DRAFTS=1 builds the not-yet-enabled SEO pages (noindex) for preview.
+  define: {
+    __SEO_INCLUDE_DRAFTS__: JSON.stringify(process.env.SEO_INCLUDE_DRAFTS === '1'),
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
@@ -45,6 +50,17 @@ export default defineConfig(({ mode }) => {
         timeout: 30000,
         proxyTimeout: 30000,
       },
+      // Only reached when VITE_API_BASE_URL is empty, i.e. the app is talking to
+      // the API through this proxy rather than at an absolute origin — which is
+      // what makes the dev server usable from a phone on the LAN, where
+      // "localhost:3000" would mean the phone itself. socket.ts then connects to
+      // the page's own origin, so the websocket needs forwarding too or live
+      // calendar updates silently stop working.
+      '/socket.io': {
+        target: proxyTarget,
+        changeOrigin: true,
+        ws: true,
+      },
     },
   },
   esbuild: {
@@ -60,6 +76,12 @@ export default defineConfig(({ mode }) => {
     // it's a full country/state/city JSON dataset and is lazy-loaded only when needed.
     chunkSizeWarningLimit: 9500,
     rollupOptions: {
+      // Two HTML entries: the app shell, and the template that scripts/prerender.mjs
+      // fills in for each public marketing route.
+      input: {
+        main: path.resolve(__dirname, 'index.html'),
+        marketing: path.resolve(__dirname, 'marketing.html'),
+      },
       output: {
         manualChunks(id) {
           // ── Vite's dynamic-import preload helper is a shared runtime util with
@@ -93,6 +115,7 @@ export default defineConfig(({ mode }) => {
               id.includes('node_modules/immer/') ||
               id.includes('node_modules/reselect/') ||
               id.includes('node_modules/use-sync-external-store/') ||
+              id.includes('node_modules/classnames/') ||
               id.includes('node_modules/@standard-schema/')) {
             return 'chunk-react'
           }
@@ -101,6 +124,15 @@ export default defineConfig(({ mode }) => {
           if (id.includes('node_modules/react-router') ||
               id.includes('node_modules/@remix-run/')) {
             return 'chunk-router'
+          }
+
+          // ── Shared API layer (axios instance, interceptors, endpoint maps). Imported
+          // by the dashboard AND the public marketing pages, and it has no static
+          // imports back into the app (only lazy import()s of store slices). Left
+          // unpinned, Rollup folds it into chunk-calendar, so every marketing page
+          // downloaded the whole ~1 MB dashboard chunk plus its CSS.
+          if (id.includes('src/services/api/')) {
+            return 'chunk-api'
           }
 
           // ── Calendar / booking views (avoid "Scheduler" in chunk name — triggers ad blockers)
@@ -126,6 +158,21 @@ export default defineConfig(({ mode }) => {
               id.includes('node_modules/react-bootstrap/') ||
               id.includes('node_modules/react-bootstrap-icons/')) {
             return 'chunk-bootstrap'
+          }
+
+          // ── Libraries the public marketing page needs. Each used to sit in a shared
+          // bucket (chunk-vendor-misc / chunk-ui-libs) that holds the whole dashboard's
+          // dependencies, so importing one of them made every marketing page download
+          // ~875 KB (gzip) of unrelated code. Their only shared dependencies live in
+          // chunk-react (prop-types, classnames), so these chunks cannot form a cycle.
+          if (id.includes('node_modules/libphonenumber-js/') ||
+              id.includes('node_modules/react-phone-number-input/') ||
+              id.includes('node_modules/input-format/') ||
+              id.includes('node_modules/country-flag-icons/')) {
+            return 'chunk-phone'
+          }
+          if (id.includes('node_modules/react-icons/')) {
+            return 'chunk-icons'
           }
 
           // ── UI / icon libraries ─────────────────────────────────────────────

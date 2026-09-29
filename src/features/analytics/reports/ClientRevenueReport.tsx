@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useDispatch } from "react-redux";
 import { useAppSelector } from "../../../hooks/useAppRedux";
-import { Search, X, StarFill, Star } from "react-bootstrap-icons";
+import { Search,  StarFill, Star } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { CLIENT_REVENUE_REPORT } from "../../../services/api/endpoints";
 import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
@@ -19,6 +19,8 @@ import { maskMobile } from "../../../utils/maskMobile";
 import { useRowSelection } from "./useRowSelection";
 import { SendCampaignBar } from "./SendCampaignBar";
 import { SendCampaignModal } from "../../marketing/components";
+import ClientRevenueChartContent from "./ClientRevenueChartContent";
+import ReportViewToggle from "./ReportViewToggle";
 import "./ClientRevenueReport.scss";
 
 const REPORT_NAME = "Client Revenue";
@@ -139,6 +141,7 @@ export default function ClientRevenueReport({ onBack, category, categoryKey }: {
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const selection = useRowSelection();
   const [showCampaignModal, setShowCampaignModal] = useState(false);
+  const [showChart, setShowChart] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -160,6 +163,25 @@ export default function ClientRevenueReport({ onBack, category, categoryKey }: {
     return () => clearTimeout(t);
   }, [search]);
 
+  // Shared with the Graph page below — same filter set the table/stats use,
+  // minus pagination/sort (the chart groups everything by day instead).
+  const buildFilterBody = useCallback((): Record<string, any> => {
+    const body: Record<string, any> = { start_date: dateFrom, end_date: dateTo };
+    if (debouncedSearch) body.search = debouncedSearch;
+    // Backend's gender/membership_status knobs are single values —
+    // checking exactly one option narrows normally; checking both (or
+    // neither) means "no filter", so nothing is sent (same pattern used
+    // for Reward Status / Ewallet Balance Status).
+    if (genderFilter.length === 1) body.gender = genderFilter[0];
+    if (membershipFilter.length === 1) body.membership_status = membershipFilter[0];
+    if (staffFilterIds.length > 0) body.staff_ids = staffFilterIds;
+    if (lastVisitRange.startDate && lastVisitRange.endDate) {
+      body.last_visit_from = lastVisitRange.startDate;
+      body.last_visit_to = lastVisitRange.endDate;
+    }
+    return body;
+  }, [dateFrom, dateTo, debouncedSearch, genderFilter, membershipFilter, staffFilterIds, lastVisitRange]);
+
   // Real server-side pagination — page/limit are sent on every request, and
   // only that page's rows come back, along with stats computed by the
   // backend over the WHOLE filtered set (not just the current page).
@@ -170,24 +192,7 @@ export default function ClientRevenueReport({ onBack, category, categoryKey }: {
     abortRef.current = ctrl;
     setLoading(true);
     try {
-      const body: Record<string, any> = {
-        start_date: dateFrom, end_date: dateTo,
-        page: currentPage, limit: pageSize,
-      };
-      if (debouncedSearch) body.search = debouncedSearch;
-      // Backend's gender/membership_status knobs are single values —
-      // checking exactly one option narrows normally; checking both (or
-      // neither) means "no filter", so nothing is sent (same pattern used
-      // for Reward Status / Ewallet Balance Status).
-      if (genderFilter.length === 1) body.gender = genderFilter[0];
-      if (membershipFilter.length === 1) body.membership_status = membershipFilter[0];
-      if (staffFilterIds.length > 0) body.staff_ids = staffFilterIds;
-      if (lastVisitRange.startDate && lastVisitRange.endDate) {
-        body.last_visit_from = lastVisitRange.startDate;
-        body.last_visit_to = lastVisitRange.endDate;
-      }
-      body.sort_by = sortBy;
-      body.sort_dir = sortDir;
+      const body = { ...buildFilterBody(), page: currentPage, limit: pageSize, sort_by: sortBy, sort_dir: sortDir };
       const res = await api.post(CLIENT_REVENUE_REPORT.SUMMARY(), body, { signal: ctrl.signal });
       const data = res.data?.data;
       const raw: any[] = Array.isArray(data?.rows) ? data.rows : [];
@@ -208,11 +213,7 @@ export default function ClientRevenueReport({ onBack, category, categoryKey }: {
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [
-    dateFrom, dateTo, debouncedSearch,
-    genderFilter, membershipFilter, staffFilterIds, lastVisitRange,
-    sortBy, sortDir, currentPage, pageSize,
-  ]);
+  }, [buildFilterBody, sortBy, sortDir, currentPage, pageSize, dateRangeError]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => {
@@ -256,10 +257,12 @@ export default function ClientRevenueReport({ onBack, category, categoryKey }: {
         <div className="rp-detail-back-row">
           <Breadcrumb current={REPORT_NAME} category={category} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
+            <ReportViewToggle view={showChart ? "chart" : "table"} onChange={(v) => setShowChart(v === "chart")} />
             <ReportExportButton
               title={REPORT_NAME}
               headers={HEADERS}
               rows={exportRows}
+              reportId="client_revenue"
               filename={`client-revenue-${dateFrom}-${dateTo}`}
               variant="button"
               csv
@@ -309,6 +312,10 @@ export default function ClientRevenueReport({ onBack, category, categoryKey }: {
         </div>
       )}
 
+      {showChart ? (
+        <ClientRevenueChartContent dateFrom={dateFrom} dateTo={dateTo} buildFilterBody={buildFilterBody} />
+      ) : (
+      <>
       <SendCampaignBar count={selection.selectedIds.size} onSendClick={() => setShowCampaignModal(true)} />
 
       <div className="rp-detail-toolbar">
@@ -374,6 +381,8 @@ export default function ClientRevenueReport({ onBack, category, categoryKey }: {
 
       <Pagination currentPage={currentPage} pageSize={pageSize} totalItems={total}
         onPageChange={setCurrentPage} onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }} />
+      </>
+      )}
 
       {selectedClientId && (
         <ClientHistoryModal clientId={selectedClientId} onClose={() => setSelectedClientId(null)} />

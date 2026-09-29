@@ -8,26 +8,20 @@ import {
   syncTemplateThunk,
 } from "../../../middleware/marketing/marketing.thunk";
 import { TemplateCard } from "../components";
-import TriggerTemplatesPanel from "../components/TriggerTemplatesPanel";
-import { Button, Input, Modal, PageHeader, Tabs } from "../../../components/ui";
+import { Button, Input, Modal, PageHeader } from "../../../components/ui";
+import { usePermissions } from "../../../hooks/usePermissions";
+import { showPermissionDenied } from "../../../store/permissionDialogSlice";
 import "../styles/TemplatesListPage.scss";
 
 type StatusFilter = "ALL" | "APPROVED" | "PENDING" | "REJECTED" | "FAVORITE";
-type TemplateTab = "campaign" | "trigger";
 
 const POLL_INTERVAL = 60_000;
 
 export default function TemplatesListPage() {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const { templates, loading, waConfig } = useAppSelector((s) => s.marketing);
-  // WhatsApp Campaign templates need a connected WhatsApp account; Trigger
-  // Templates (SMS/Email included) don't — this page is now reachable
-  // without WhatsApp configured (see MarketingRoutes.tsx), so default to the
-  // tab that's actually usable instead of landing on an empty Campaign list.
-  const isWaConfigured = !!((waConfig as any)?.phoneNumberId ?? (waConfig as any)?.phone_number_id);
+  const { templates, loading } = useAppSelector((s) => s.marketing);
 
-  const [activeTab, setActiveTab] = useState<TemplateTab>(isWaConfigured ? "campaign" : "trigger");
   const [search,   setSearch]   = useState("");
   const [status,   setStatus]   = useState<StatusFilter>("ALL");
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -47,6 +41,10 @@ export default function TemplatesListPage() {
   const prevStatuses = useRef<Record<string, string>>({});
   const [countdown, setCountdown] = useState(POLL_INTERVAL / 1000);
   const { showSuccess, showError, overlay } = useStatusOverlay();
+  const { can } = usePermissions();
+  const denyPerm = (permKey: string) => dispatch(showPermissionDenied(
+    `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+  ));
 
   useEffect(() => { dispatch(fetchTemplatesThunk()); }, [dispatch]);
 
@@ -109,6 +107,7 @@ export default function TemplatesListPage() {
 
   // ── FIXED: open confirm with ids stored — no useOnce wrapping ─────────────
   const openDeleteConfirm = (ids: string[], isBulk = false) => {
+    if (!can("delete_template")) { denyPerm("delete_template"); return; }
     const msg = isBulk
       ? `Delete ${ids.length} template(s)? This cannot be undone.`
       : "Delete this template? This cannot be undone.";
@@ -144,6 +143,7 @@ export default function TemplatesListPage() {
   };
 
   const handleSyncAll = async () => {
+    if (!can("edit_template")) { denyPerm("edit_template"); return; }
     const pending = templates.filter(t => t.status === "PENDING");
     if (!pending.length) { showError("No pending templates to sync"); return; }
     setIsSyncing(true);
@@ -154,6 +154,7 @@ export default function TemplatesListPage() {
 
   // ── FIXED: per-card sync — no useOnce ────────────────────────────────────
   const handleSync = async (id: string) => {
+    if (!can("edit_template")) { denyPerm("edit_template"); return; }
     setSyncingId(id);
     try {
       const res = await dispatch(syncTemplateThunk(id));
@@ -173,42 +174,36 @@ export default function TemplatesListPage() {
       {/* Header */}
       <PageHeader
         title="Templates"
-        subtitle={
-          activeTab === "campaign"
-            ? "Sent manually to a list via a Blast Campaign"
-            : "Fire automatically off a real event — a sale, a booking, a lifecycle date"
-        }
+        subtitle="Sent manually to a list via a Blast Campaign"
         actions={
-          activeTab === "campaign" ? (
-            <Button variant="primary" size="sm" onClick={() => navigate("/dashboard/marketing/templates/create")}>
-              + New Template
-            </Button>
-          ) : undefined
+          <Button
+            variant="primary"
+            size="sm"
+            style={!can("add_template") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+            onClick={() => {
+              if (!can("add_template")) { denyPerm("add_template"); return; }
+              navigate("/dashboard/marketing/templates/create");
+            }}
+          >
+            + New Template
+          </Button>
         }
       />
 
-      <Tabs
-        className="tl-tabs"
-        variant="underline"
-        activeKey={activeTab}
-        onChange={(key) => setActiveTab(key as TemplateTab)}
-        tabs={[
-          { key: "campaign", label: "Campaign Templates" },
-          { key: "trigger",  label: "Trigger Templates" },
-        ]}
-      />
-
-      {activeTab === "trigger" ? (
-        <TriggerTemplatesPanel />
-      ) : (
-      <>
       {/* Auto-sync banner */}
       {hasPending && (
         <div className="tl-autopoll-banner">
           <span className="tl-autopoll-dot" />
           <span className="tl-autopoll-text">Auto-checking Meta approval every 60s</span>
           <span className="tl-autopoll-countdown">Next check in <strong>{countdown}s</strong></span>
-          <Button variant="outline-warning" size="sm" loading={isSyncing} disabled={isSyncing} onClick={handleSyncAll}>
+          <Button
+            variant="outline-warning"
+            size="sm"
+            loading={isSyncing}
+            disabled={isSyncing && can("edit_template")}
+            style={!can("edit_template") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+            onClick={handleSyncAll}
+          >
             ↻ Check Now
           </Button>
         </div>
@@ -246,7 +241,8 @@ export default function TemplatesListPage() {
             <Button
               variant="outline-danger"
               size="sm"
-              disabled={isDeleting}
+              disabled={isDeleting && can("delete_template")}
+              style={!can("delete_template") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
               onClick={() => openDeleteConfirm(Array.from(selected), true)}
             >
               🗑 Delete ({selected.size})
@@ -268,7 +264,14 @@ export default function TemplatesListPage() {
           <div className="tl-empty-icon">🎨</div>
           <p>{templates.length === 0 ? "No templates yet." : "No templates match your filter."}</p>
           {templates.length === 0 && (
-            <Button variant="primary" onClick={() => navigate("/dashboard/marketing/templates/create")}>
+            <Button
+              variant="primary"
+              style={!can("add_template") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+              onClick={() => {
+                if (!can("add_template")) { denyPerm("add_template"); return; }
+                navigate("/dashboard/marketing/templates/create");
+              }}
+            >
               Create your first template →
             </Button>
           )}
@@ -300,8 +303,6 @@ export default function TemplatesListPage() {
             </div>
           ))}
         </div>
-      )}
-      </>
       )}
 
       {/* Confirm Delete Modal */}

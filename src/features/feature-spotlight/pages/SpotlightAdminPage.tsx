@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Stars, PencilSquare, Trash, ImageFill, Plus, ArrowLeft } from "react-bootstrap-icons";
+import { Stars, PencilSquare, Trash, ImageFill, Plus, ArrowLeft, Send } from "react-bootstrap-icons";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import Button from "../../../components/ui/Button";
 import Modal from "../../../components/ui/Modal";
@@ -12,6 +12,7 @@ import {
   createSpotlightFeatureThunk,
   updateSpotlightFeatureThunk,
   deleteSpotlightFeatureThunk,
+  publishSpotlightFeatureThunk,
 } from "../../../middleware/spotlight/spotlight.thunk";
 import type { SpotlightFeature, SpotlightCreatePayload } from "../types";
 import { resolveMediaUrl } from "../../../utils/mediaUrl";
@@ -34,6 +35,8 @@ export default function SpotlightAdminPage() {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState("");
   const [saveError, setSaveError] = useState("");
+  const [publishingId, setPublishingId] = useState<string | null>(null);
+  const [publishError, setPublishError] = useState("");
 
   useEffect(() => {
     dispatch(fetchAdminSpotlightFeaturesThunk());
@@ -67,6 +70,17 @@ export default function SpotlightAdminPage() {
     setEditing(null);
   };
 
+  const handlePublish = async (feature: SpotlightFeature) => {
+    setPublishingId(feature.id);
+    setPublishError("");
+    const result = await dispatch(publishSpotlightFeatureThunk(feature.id));
+    setPublishingId(null);
+
+    if (publishSpotlightFeatureThunk.rejected.match(result)) {
+      setPublishError(result.payload || "Failed to publish this feature. Please try again.");
+    }
+  };
+
   const handleDelete = async () => {
     if (!pendingDeleteId) return;
     setDeleteLoading(true);
@@ -92,7 +106,7 @@ export default function SpotlightAdminPage() {
         <div>
           <h1 className="spotlight-page__title">Spotlight Features</h1>
           <p className="spotlight-page__subtitle">
-            Create and publish announcements for new SalonOX features.
+            Create and publish announcements for new SalonoX features.
           </p>
         </div>
       </div>
@@ -108,6 +122,8 @@ export default function SpotlightAdminPage() {
           </Button>
         </div>
       </div>
+
+      {publishError && <div className="sf-error mb-3">{publishError}</div>}
 
       <div className="spotlight-admin__table-wrap">
         {features.length === 0 ? (
@@ -134,6 +150,18 @@ export default function SpotlightAdminPage() {
                 {feature.status.charAt(0).toUpperCase() + feature.status.slice(1)}
               </span>
               <div className="spotlight-admin__row-actions">
+                {feature.status !== "published" && (
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    iconLeft={<Send size={13} />}
+                    loading={publishingId === feature.id}
+                    disabled={publishingId === feature.id}
+                    onClick={() => handlePublish(feature)}
+                  >
+                    Publish
+                  </Button>
+                )}
                 <Button variant="outline-dark" size="sm" iconLeft={<PencilSquare size={13} />} onClick={() => openEdit(feature)}>
                   Edit
                 </Button>

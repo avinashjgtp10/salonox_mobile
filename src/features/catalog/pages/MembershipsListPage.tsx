@@ -7,7 +7,7 @@ import {
   PencilSquare, Trash3, FileEarmarkPdf,
   FileEarmarkExcel, FiletypeCsv, CardList,
   Award, CheckCircleFill,
-  ThreeDotsVertical, X,
+  ThreeDotsVertical, X, PersonPlus,
 } from "react-bootstrap-icons";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { getCurrencyIcon } from "../../../utils/currencyIcon";
@@ -30,11 +30,17 @@ import {
   selectMembershipsTotal,
 } from "../../../store/selectors/membership.selectors";
 import MembershipDetailsDrawer from "../components/MembershipDetailsDrawer";
+import AssignMembershipModal from "../components/AssignMembershipModal";
 import api from "../../../services/api/axios";
 import { JiraFilterMenu, Pagination } from "../../../components/ui";
 import type { FilterDropdownOption, JiraFilterField } from "../../../components/ui";
 import { getMembershipMeta, TYPE_LABEL, APPLIES_TO_LABEL, loyaltyBenefit, walletBenefit } from "../utils/membershipMeta";
+import { usePermissions } from "../../../hooks/usePermissions";
+import { showPermissionDenied } from "../../../store/permissionDialogSlice";
 import "../styles/MembershipsListPage.scss";
+
+const friendlyPermissionDenied = (permKey: string) =>
+  `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`;
 
 // Starting page size only — the shared Pagination lets the user change it, so
 // the live value lives in state (see `pageSize` below) rather than this const.
@@ -82,6 +88,8 @@ function formatDate(value?: string | Date) {
 const MembershipsListPage: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
+  const { can } = usePermissions();
+  const denyPerm = useCallback((permKey: string) => dispatch(showPermissionDenied(friendlyPermissionDenied(permKey))), [dispatch]);
   const { formatAmount, currencyCode } = useCurrency();
   const CurrencyIcon = getCurrencyIcon(currencyCode);
 
@@ -106,6 +114,7 @@ const MembershipsListPage: React.FC = () => {
   const [exporting,  setExporting]  = useState<"csv" | "excel" | "pdf" | null>(null);
   const [pageSize,   setPageSize]   = useState(DEFAULT_PAGE_SIZE);
   const [validForOptions, setValidForOptions] = useState<string[]>([]);
+  const [assignOpen, setAssignOpen] = useState(false);
 
   // Distinct valid_for values for this salon — see the note above
   // PRICING_TYPE_OPTIONS for why these can't be a fixed list.
@@ -207,12 +216,14 @@ const MembershipsListPage: React.FC = () => {
   };
 
   const openDeleteModal = (ids: string[]) => {
+    if (!can("delete_memberships")) { denyPerm("delete_memberships"); return; }
     setOpenRowMenuId(null);
     setMembershipsToDelete(ids);
   };
 
   const handleConfirmDelete = async () => {
     if (!membershipsToDelete.length) return;
+    if (!can("delete_memberships")) { denyPerm("delete_memberships"); setMembershipsToDelete([]); return; }
     setIsDeleting(true);
     try {
       await Promise.all(membershipsToDelete.map(id => dispatch(deleteMembershipThunk(id))));
@@ -225,6 +236,8 @@ const MembershipsListPage: React.FC = () => {
   };
 
   const handleExport = async (type: "csv" | "excel" | "pdf") => {
+    const permKey = type === "csv" ? "download_membership_csv" : type === "excel" ? "download_membership_excel" : "download_membership_pdf";
+    if (!can(permKey)) { denyPerm(permKey); setOptOpen(false); return; }
     setExporting(type); setOptOpen(false);
     if (type === "csv")   await dispatch(exportMembershipsCsvThunk(buildQuery()));
     if (type === "excel") await dispatch(exportMembershipsExcelThunk(buildQuery()));
@@ -278,27 +291,41 @@ const MembershipsListPage: React.FC = () => {
             {optOpen && (
               <ul className="msp__dd-menu msp__dd-menu--right">
                 <li>
-                  <button className="msp__dd-item" onClick={() => handleExport("csv")} disabled={exporting !== null}>
+                  <button className="msp__dd-item" style={!can("download_membership_csv") ? { opacity: 0.5, cursor: "not-allowed" } : undefined} onClick={() => handleExport("csv")} disabled={exporting !== null}>
                     <FiletypeCsv size={15} /> {exporting === "csv" ? "Exporting…" : "Download CSV"}
                   </button>
                 </li>
                 <li>
-                  <button className="msp__dd-item" onClick={() => handleExport("excel")} disabled={exporting !== null}>
+                  <button className="msp__dd-item" style={!can("download_membership_excel") ? { opacity: 0.5, cursor: "not-allowed" } : undefined} onClick={() => handleExport("excel")} disabled={exporting !== null}>
                     <FileEarmarkExcel size={15} /> {exporting === "excel" ? "Exporting…" : "Download Excel"}
                   </button>
                 </li>
                 <li>
-                  <button className="msp__dd-item" onClick={() => handleExport("pdf")} disabled={exporting !== null}>
+                  <button className="msp__dd-item" style={!can("download_membership_pdf") ? { opacity: 0.5, cursor: "not-allowed" } : undefined} onClick={() => handleExport("pdf")} disabled={exporting !== null}>
                     <FileEarmarkPdf size={15} /> {exporting === "pdf" ? "Exporting…" : "Download PDF"}
                   </button>
                 </li>
               </ul>
             )}
           </div>
+          <button
+            className="msp__btn msp__btn--outline"
+            style={!can("create_memberships") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+            onClick={() => {
+              if (!can("create_memberships")) { denyPerm("create_memberships"); return; }
+              setAssignOpen(true);
+            }}
+          >
+            <PersonPlus size={15} /> Assign to client
+          </button>
           <div className="msp__add-wrap">
             <button
               className="msp__btn msp__btn--dark"
-              onClick={() => navigate("/dashboard/catalog/memberships/create")}
+              style={!can("create_memberships") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+              onClick={() => {
+                if (!can("create_memberships")) { denyPerm("create_memberships"); return; }
+                navigate("/dashboard/catalog/memberships/create");
+              }}
             >
               <PlusLg size={15} /> Add membership
             </button>
@@ -362,7 +389,11 @@ const MembershipsListPage: React.FC = () => {
             <button className="msp__bulk-clear" onClick={() => setSelectedMemberships([])} aria-label="Clear selection">
               <X size={16} />
             </button>
-            <button className="msp__bulk-delete" onClick={() => openDeleteModal(selectedMemberships)}>
+            <button
+              className="msp__bulk-delete"
+              style={!can("delete_memberships") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+              onClick={() => openDeleteModal(selectedMemberships)}
+            >
               <Trash3 size={13} /> Delete
             </button>
           </div>
@@ -478,7 +509,12 @@ const MembershipsListPage: React.FC = () => {
                             <li>
                               <button
                                 className="msp__dd-item"
-                                onClick={() => { setOpenRowMenuId(null); navigate(`/dashboard/catalog/memberships/edit/${m.id}`); }}
+                                style={!can("edit_memberships") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                                onClick={() => {
+                                  setOpenRowMenuId(null);
+                                  if (!can("edit_memberships")) { denyPerm("edit_memberships"); return; }
+                                  navigate(`/dashboard/catalog/memberships/edit/${m.id}`);
+                                }}
                               >
                                 <PencilSquare size={14} /> Edit
                               </button>
@@ -486,6 +522,7 @@ const MembershipsListPage: React.FC = () => {
                             <li>
                               <button
                                 className="msp__dd-item msp__dd-item--danger"
+                                style={!can("delete_memberships") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
                                 onClick={() => openDeleteModal([String(m.id)])}
                               >
                                 <Trash3 size={13} /> Delete
@@ -510,7 +547,11 @@ const MembershipsListPage: React.FC = () => {
                       {!search && (
                         <button
                           className="msp__btn msp__btn--dark"
-                          onClick={() => navigate("/dashboard/catalog/memberships/create")}
+                          style={!can("create_memberships") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                          onClick={() => {
+                            if (!can("create_memberships")) { denyPerm("create_memberships"); return; }
+                            navigate("/dashboard/catalog/memberships/create");
+                          }}
                         >
                           <PlusLg size={14} /> Add membership
                         </button>
@@ -584,6 +625,16 @@ const MembershipsListPage: React.FC = () => {
           onChange={(e) => setDeleteInput(e.target.value)}
         />
       </Modal>
+
+      {/* Assign an existing client a membership tag + expiry, with no sale.
+          Refetches the plans list on success: a tag name used for the first
+          time creates the zero-price plan backing it, which belongs in the
+          table above. */}
+      <AssignMembershipModal
+        show={assignOpen}
+        onClose={() => setAssignOpen(false)}
+        onAssigned={() => dispatch(fetchMembershipsThunk(buildQuery()))}
+      />
 
     </div>
   );

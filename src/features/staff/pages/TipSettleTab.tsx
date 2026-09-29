@@ -10,6 +10,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import { selectCurrentSalon } from "../../../store/selectors/slices.selectors";
 import api from "../../../services/api/axios";
+import { ApiError } from "../../../services/api/interceptors";
 import { STAFF } from "../../../services/api/endpoints";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { useCurrency } from "../../../hooks/useCurrency";
@@ -20,6 +21,9 @@ import DateRangeFilter, {
   type DateRangeFilterValue, DEFAULT_DATE_RANGE_FILTER_VALUE, getDateRangePresetValue,
 } from "../../../components/ui/DateRangeFilter";
 import SettleTipModal, { type TipSettlementPaymentMethod } from "../components/tip/SettleTipModal";
+import { usePermissions } from "../../../hooks/usePermissions";
+import { useAppDispatch } from "../../../hooks/useAppRedux";
+import { showPermissionDenied } from "../../../store/permissionDialogSlice";
 import "../styles/TipSettleTab.scss";
 
 const DEFAULT_TABLE_PAGE_SIZE = 10;
@@ -51,6 +55,11 @@ export default function TipSettleTab() {
   const { formatAmount: fmt, currencyCode } = useCurrency();
   const CurrencyIcon = getCurrencyIcon(currencyCode);
   const { showSuccess, showError, overlay } = useStatusOverlay();
+  const { can } = usePermissions();
+  const dispatch = useAppDispatch();
+  const denyPerm = (permKey: string) => dispatch(showPermissionDenied(
+    `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+  ));
 
   const [dateRange, setDateRange] = useState<DateRangeFilterValue>(() => ({
     ...DEFAULT_DATE_RANGE_FILTER_VALUE,
@@ -72,17 +81,22 @@ export default function TipSettleTab() {
     setLoading(true);
     try {
       const params = dateRange.startDate && dateRange.endDate
-        ? `&start_date=${dateRange.startDate}&end_date=${dateRange.endDate}`
+        ? `?start_date=${dateRange.startDate}&end_date=${dateRange.endDate}`
         : "";
       const [summaryRes, earnedRes] = await Promise.all([
-        api.get(`${STAFF.TIP_SUMMARY}?salon_id=${salonId}${params}`),
-        api.get(`${STAFF.TIP_EARNED}?salon_id=${salonId}${params}`),
+        api.get(`${STAFF.TIP_SUMMARY}${params}`),
+        api.get(`${STAFF.TIP_EARNED}${params}`),
       ]);
       setSummary(summaryRes.data?.data ?? null);
       setEarnedByStaff(earnedRes.data?.data ?? []);
       setSummaryPage(1);
     } catch (err: any) {
-      showError(err?.message ?? "Failed to load tips");
+      // A view_tips 403 already pops the global "Permission Required" dialog
+      // via the axios interceptor — showing this too would stack a second,
+      // raw-message popup on top of it for the same denial.
+      if (!(err instanceof ApiError && err.status === 403)) {
+        showError(err?.message ?? "Failed to load tips");
+      }
     } finally {
       setLoading(false);
     }
@@ -92,6 +106,7 @@ export default function TipSettleTab() {
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
   const handleSettle = async (staffId: string, name: string, amount: number, paymentMethod: TipSettlementPaymentMethod) => {
+    if (!can("edit_tip")) { denyPerm("edit_tip"); setSettleTarget(null); return; }
     setSettlingId(staffId);
     try {
       await api.post(STAFF.SETTLE_TIP(staffId), { amount, payment_method: paymentMethod });
@@ -118,98 +133,104 @@ export default function TipSettleTab() {
         </div>
       </div>
 
-      <div className="tc-stats">
-        <div className="tc-stat">
-          <span className="tc-stat-icon tc-stat-icon--pink"><Gift size={16} /></span>
-          <span className="tc-stat-label">Total Tips</span>
-          <strong className="tc-stat-val">{summary ? fmt(summary.total_tips) : "—"}</strong>
-        </div>
-        <div className="tc-stat-div" />
-        <div className="tc-stat">
-          <span className="tc-stat-icon tc-stat-icon--green"><CurrencyIcon size={15} /></span>
-          <span className="tc-stat-label">Tips Paid</span>
-          <strong className="tc-stat-val">{summary ? fmt(summary.paid_out) : "—"}</strong>
-        </div>
-        <div className="tc-stat-div" />
-        <div className="tc-stat">
-          <span className="tc-stat-icon tc-stat-icon--amber"><Wallet size={15} /></span>
-          <span className="tc-stat-label">Pending Tips</span>
-          <strong className="tc-stat-val">{summary ? fmt(summary.pending_payout) : "—"}</strong>
-        </div>
-        <div className="tc-stat-div" />
-        <div className="tc-stat">
-          <span className="tc-stat-icon tc-stat-icon--violet"><Calculator size={15} /></span>
-          <span className="tc-stat-label">Total Accrued</span>
-          <strong className="tc-stat-val">{summary ? fmt(summary.total_tips) : "—"}</strong>
-        </div>
-      </div>
-
-      <div className="ts-range-row">
-        <DateRangeFilter value={dateRange} onChange={setDateRange} />
-      </div>
-
-      <div className="tc-toolbar">
-        <span className="tc-toolbar-title">Tip Summary</span>
-      </div>
-      <div className="tc-table-wrap">
-        {loading ? (
-          <div className="cm-ov-empty"><Gift size={28} /><p>Loading…</p></div>
-        ) : earnedByStaff.length === 0 ? (
-          <div className="cm-ov-empty">
-            <Gift size={28} />
-            <p>No tips in this date range</p>
-            <span className="cm-ov-empty-sub">Tips appear here after checkouts</span>
+      <div className="cm-overview">
+        <div className="tc-stats">
+          <div className="tc-stat">
+            <span className="tc-stat-icon tc-stat-icon--pink"><Gift size={16} /></span>
+            <span className="tc-stat-label">Total Tips</span>
+            <strong className="tc-stat-val">{summary ? fmt(summary.total_tips) : "—"}</strong>
           </div>
-        ) : (
-          <table className="tc-table">
-            <thead>
-              <tr>
-                <th>#</th><th>Staff Name</th><th>Total Tips ({currencyCode})</th>
-                <th>Tips Paid ({currencyCode})</th><th>Pending Payout ({currencyCode})</th>
-                <th>Status</th><th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pagedSummary.map((e, i) => {
-                const name = fullName(e.staff_first_name, e.staff_last_name);
-                const status = e.pending_payout > 0 && e.paid_out > 0 ? "Partial" : e.pending_payout > 0 ? "Pending" : "Settled";
-                return (
-                  <tr key={e.staff_id}>
-                    <td>{(summaryPage - 1) * summaryPageSize + i + 1}</td>
-                    <td className="tc-table__name">{name}</td>
-                    <td>{fmt(e.total_tips)}</td>
-                    <td>{fmt(e.paid_out)}</td>
-                    <td>{fmt(e.pending_payout)}</td>
-                    <td><span className={`tc-status tc-status--${status.toLowerCase()}`}>{status}</span></td>
-                    <td>
-                      {e.pending_payout > 0 ? (
-                        <button
-                          className="tc-settle-btn"
-                          disabled={settlingId === e.staff_id}
-                          onClick={() => setSettleTarget({ staffId: e.staff_id, name, pending: e.pending_payout })}
-                        >
-                          {settlingId === e.staff_id ? "Settling…" : "Settle"}
-                        </button>
-                      ) : (
-                        <span className="tc-view-btn">View</span>
-                      )}
-                    </td>
+          <div className="tc-stat-div" />
+          <div className="tc-stat">
+            <span className="tc-stat-icon tc-stat-icon--green"><CurrencyIcon size={15} /></span>
+            <span className="tc-stat-label">Tips Paid</span>
+            <strong className="tc-stat-val">{summary ? fmt(summary.paid_out) : "—"}</strong>
+          </div>
+          <div className="tc-stat-div" />
+          <div className="tc-stat">
+            <span className="tc-stat-icon tc-stat-icon--amber"><Wallet size={15} /></span>
+            <span className="tc-stat-label">Pending Tips</span>
+            <strong className="tc-stat-val">{summary ? fmt(summary.pending_payout) : "—"}</strong>
+          </div>
+          <div className="tc-stat-div" />
+          <div className="tc-stat">
+            <span className="tc-stat-icon tc-stat-icon--violet"><Calculator size={15} /></span>
+            <span className="tc-stat-label">Total Accrued</span>
+            <strong className="tc-stat-val">{summary ? fmt(summary.total_tips) : "—"}</strong>
+          </div>
+        </div>
+
+        <div className="ts-range-row">
+          <DateRangeFilter value={dateRange} onChange={setDateRange} />
+        </div>
+
+        <div className="tc-toolbar">
+          <span className="tc-toolbar-title">Tip Summary</span>
+        </div>
+
+        <div className="tc-table-block">
+          <div className="tc-table-wrap">
+            {loading ? (
+              <div className="cm-ov-empty"><Gift size={28} /><p>Loading…</p></div>
+            ) : earnedByStaff.length === 0 ? (
+              <div className="cm-ov-empty">
+                <Gift size={28} />
+                <p>No tips in this date range</p>
+                <span className="cm-ov-empty-sub">Tips appear here after checkouts</span>
+              </div>
+            ) : (
+              <table className="tc-table">
+                <thead>
+                  <tr>
+                    <th>#</th><th>Staff Name</th><th>Total Tips ({currencyCode})</th>
+                    <th>Tips Paid ({currencyCode})</th><th>Pending Payout ({currencyCode})</th>
+                    <th>Status</th><th>Action</th>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
+                </thead>
+                <tbody>
+                  {pagedSummary.map((e, i) => {
+                    const name = fullName(e.staff_first_name, e.staff_last_name);
+                    const status = e.pending_payout > 0 && e.paid_out > 0 ? "Partial" : e.pending_payout > 0 ? "Pending" : "Settled";
+                    return (
+                      <tr key={e.staff_id}>
+                        <td>{(summaryPage - 1) * summaryPageSize + i + 1}</td>
+                        <td className="tc-table__name">{name}</td>
+                        <td>{fmt(e.total_tips)}</td>
+                        <td>{fmt(e.paid_out)}</td>
+                        <td>{fmt(e.pending_payout)}</td>
+                        <td><span className={`tc-status tc-status--${status.toLowerCase()}`}>{status}</span></td>
+                        <td>
+                          {e.pending_payout > 0 ? (
+                            <button
+                              className="tc-settle-btn"
+                              disabled={settlingId === e.staff_id}
+                              onClick={() => setSettleTarget({ staffId: e.staff_id, name, pending: e.pending_payout })}
+                            >
+                              {settlingId === e.staff_id ? "Settling…" : "Settle"}
+                            </button>
+                          ) : (
+                            <span className="tc-view-btn">View</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+          {earnedByStaff.length > 0 && (
+            <Pagination
+              className="tc-pagination"
+              currentPage={summaryPage}
+              pageSize={summaryPageSize}
+              totalItems={earnedByStaff.length}
+              onPageChange={setSummaryPage}
+              onPageSizeChange={(size) => { setSummaryPageSize(size); setSummaryPage(1); }}
+            />
+          )}
+        </div>
       </div>
-      {earnedByStaff.length > 0 && (
-        <Pagination
-          currentPage={summaryPage}
-          pageSize={summaryPageSize}
-          totalItems={earnedByStaff.length}
-          onPageChange={setSummaryPage}
-          onPageSizeChange={(size) => { setSummaryPageSize(size); setSummaryPage(1); }}
-        />
-      )}
 
       <p className="ts-footnote">Tips are collected from clients and distributed to staff as per your policy.</p>
 

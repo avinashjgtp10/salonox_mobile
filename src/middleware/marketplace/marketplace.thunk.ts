@@ -39,7 +39,7 @@ export const updateMarketplaceEssentialsThunk = createAsyncThunk<
 
 export const updateMarketplaceBookingPolicyThunk = createAsyncThunk<
   void,
-  { max_advance_days?: number; min_notice_hours?: number; cancellation_notice_hours?: number; slot_interval_minutes?: number; },
+  { max_advance_days?: number; min_notice_hours?: number; cancellation_notice_hours?: number; slot_interval_minutes?: number; allow_same_day_booking?: boolean; allow_multiple_services?: boolean; },
   { rejectValue: string }
 >("marketplace/updateBookingPolicy", async (payload, { rejectWithValue }) => {
   try {
@@ -52,7 +52,7 @@ export const updateMarketplaceBookingPolicyThunk = createAsyncThunk<
 
 export const updateMarketplaceAboutThunk = createAsyncThunk<
   void,
-  { venue_description: string; },
+  { venue_description: string; instagram_url?: string | null; facebook_url?: string | null; about_enabled?: boolean; },
   { rejectValue: string }
 >("marketplace/updateAbout", async (payload, { rejectWithValue }) => {
   try {
@@ -86,6 +86,55 @@ export const updateMarketplaceWorkingHoursThunk = createAsyncThunk<
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);
     return rejectWithValue("Failed to update working hours.");
+  }
+});
+
+export interface StaffVisibilityRow {
+  id: string;
+  first_name: string;
+  last_name: string | null;
+  show_in_online_booking: boolean;
+}
+
+export const fetchStaffVisibilityThunk = createAsyncThunk<
+  StaffVisibilityRow[],
+  void,
+  { rejectValue: string }
+>("marketplace/fetchStaffVisibility", async (_, { rejectWithValue }) => {
+  try {
+    const res = await api.get(MARKETPLACE.STAFF_VISIBILITY);
+    return res.data.data;
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to fetch staff visibility.");
+  }
+});
+
+export const setStaffVisibilityThunk = createAsyncThunk<
+  StaffVisibilityRow[],
+  { staff_id: string; visible: boolean },
+  { rejectValue: string }
+>("marketplace/setStaffVisibility", async (payload, { rejectWithValue }) => {
+  try {
+    const res = await api.put(MARKETPLACE.STAFF_VISIBILITY, payload);
+    return res.data.data;
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to update staff visibility.");
+  }
+});
+
+export const fetchMarketplaceFeaturesThunk = createAsyncThunk<
+  { amenities: Amenity[]; highlights: Highlight[]; values: Value[] },
+  void,
+  { rejectValue: string }
+>("marketplace/fetchFeatures", async (_, { rejectWithValue }) => {
+  try {
+    const res = await api.get(MARKETPLACE.FEATURES);
+    return res.data.data;
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to fetch amenities and highlights.");
   }
 });
 

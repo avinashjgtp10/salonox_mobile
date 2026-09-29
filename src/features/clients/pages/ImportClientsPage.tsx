@@ -37,8 +37,8 @@ const SALONOX_COLUMNS = [
   {
     key: "gender",
     label: "Gender",
-    required: true,
-    hint: "Gender of the client. Required for import.",
+    required: false,
+    hint: "Gender of the client.",
   },
   {
     key: "birthday",

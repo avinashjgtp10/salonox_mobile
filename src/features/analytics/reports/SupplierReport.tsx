@@ -102,7 +102,7 @@ export default function SupplierReport({ onBack, category: reportCategory, categ
         <div className="rp-detail-back-row">
           <Breadcrumb current={REPORT_NAME} category={reportCategory} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
-            <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename="supplier-report" variant="button" csv />
+            <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename="supplier-report" variant="button" csv reportId="supplier_report" />
           </div>
         </div>
       </div>

@@ -27,11 +27,16 @@ import {
   exportCashManagementExcel,
   exportCashManagementPDF,
 } from "../cashManagement.export";
-import { sendDailySummaryEmail, fetchTodaysPaymentMethodCounts } from "../cashManagement.api";
+import { useNavigate } from "react-router-dom";
+import { sendDailySummaryEmail } from "../cashManagement.api";
 import { selectUserProfile } from "../../../store/selectors/slices.selectors";
-import { useAppSelector } from "../../../hooks/useAppRedux";
+import { useAppSelector, useAppDispatch } from "../../../hooks/useAppRedux";
+import { performLogout } from "../../../utils/performLogout";
+import { disconnectSocket } from "../../../services/socket/socket";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { showGlobalToast } from "../../../utils/globalToast";
+import { usePermissions } from "../../../hooks/usePermissions";
+import { showPermissionDenied } from "../../../store/permissionDialogSlice";
 import type { CashExpenseRecord } from "../cashManagement.types";
 import { useCashManagement } from "../useCashManagement";
 import CashManagementExpensesTab from "./CashManagementExpensesTab";
@@ -96,6 +101,16 @@ const getErrorMessage = (err: unknown, fallback: string) => {
 
 export default function CashManagementPage() {
   const { formatAmount } = useCurrency();
+  const dispatch = useAppDispatch();
+  const navigate = useNavigate();
+  const handleLogout = () => {
+    disconnectSocket();
+    performLogout(navigate);
+  };
+  const { can } = usePermissions();
+  const denyPerm = (permKey: string) => dispatch(showPermissionDenied(
+    `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+  ));
   const userProfile = useAppSelector(selectUserProfile);
   const userEmail = userProfile?.email;
   // Open/Close Counter use the shared success/error overlay (same as the
@@ -126,23 +141,6 @@ export default function CashManagementPage() {
   const [activeTab, setActiveTab] = useState<ActiveTab>("transactions");
   const [showOpenModal, setShowOpenModal] = useState(false);
   const [showCloseModal, setShowCloseModal] = useState(false);
-  const [paymentMethodCounts, setPaymentMethodCounts] = useState({
-    upi: 0,
-    card: 0,
-    cash: 0,
-    amounts: { upi: 0, card: 0, cash: 0 },
-  });
-
-  useEffect(() => {
-    if (!showCloseModal) return;
-    let cancelled = false;
-    fetchTodaysPaymentMethodCounts().then((counts) => {
-      if (!cancelled) setPaymentMethodCounts(counts);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [showCloseModal]);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [editingExpense, setEditingExpense] = useState<CashExpenseRecord | null>(null);
   const [deletingExpense, setDeletingExpense] = useState<CashExpenseRecord | null>(null);
@@ -396,6 +394,7 @@ export default function CashManagementPage() {
   );
   const openExpenseCreate = () => {
     if (expenseActionsLoading) return;
+    if (!can("add_expense")) { denyPerm("add_expense"); return; }
     // Both "Add Expenses" buttons live outside the Daily Cash Flow tabs, so
     // clicking them switches Daily Cash Flow to its Expenses tab (showing
     // the full history) at the same time the add-expense modal opens on top
@@ -409,6 +408,7 @@ export default function CashManagementPage() {
 
   const openExpenseEdit = (expense: CashExpenseRecord) => {
     if (expenseActionsLoading) return;
+    if (!can("edit_expense")) { denyPerm("edit_expense"); return; }
     setEditingExpense(expense);
     setShowExpenseModal(true);
   };
@@ -416,6 +416,28 @@ export default function CashManagementPage() {
 
   const runExport = async (format: CashManagementExportFormat) => {
     if (!exportDataset || exportingFormat) return;
+    // Entirely client-side (exportCashManagement*() below take an
+    // already-built dataset, no API call) — no backend call to deny, so
+    // this is the only enforcement point these dedicated Cash Management
+    // export keys actually have (distinct from the generic export_pdf/
+    // export_csv/export_excel used by other modules like Reports).
+    const permKey = format === "pdf" ? "export_cash_management_pdf" : format === "excel" ? "export_cash_management_excel" : "export_cash_management_csv";
+    if (!can(permKey)) {
+      dispatch(showPermissionDenied(
+        `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+      ));
+      return;
+    }
+    // export_csv/export_excel/export_pdf (System) are now global master
+    // gates — checked in addition to the module-specific key (Global
+    // Download Switches ticket).
+    const globalKey = format === "pdf" ? "export_pdf" : format === "excel" ? "export_excel" : "export_csv";
+    if (!can(globalKey)) {
+      dispatch(showPermissionDenied(
+        `Your account does not have the "${globalKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+      ));
+      return;
+    }
     setExportingFormat(format);
     try {
       const options = {
@@ -493,17 +515,25 @@ export default function CashManagementPage() {
             <Button
               variant="dark"
               iconLeft={<PlusCircle size={14} />}
-              onClick={() => setShowOpenModal(true)}
-              disabled={!activeCounterClosed || closedToday}
+              onClick={() => {
+                if (!can("open_counter")) { denyPerm("open_counter"); return; }
+                setShowOpenModal(true);
+              }}
+              disabled={(!activeCounterClosed || closedToday) && can("open_counter")}
               title={closedToday ? "You can open the cash counter only once per day." : undefined}
+              style={!can("open_counter") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
             >
               Open Counter
             </Button>
             <Button
               variant="outline-danger"
               iconLeft={<CheckCircle size={14} />}
-              onClick={() => setShowCloseModal(true)}
-              disabled={activeCounterClosed}
+              onClick={() => {
+                if (!can("close_counter")) { denyPerm("close_counter"); return; }
+                setShowCloseModal(true);
+              }}
+              disabled={activeCounterClosed && can("close_counter")}
+              style={!can("close_counter") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
             >
               Close Counter
             </Button>
@@ -553,8 +583,9 @@ export default function CashManagementPage() {
               variant="dark"
               iconLeft={<PlusLg size={14} />}
               onClick={openExpenseCreate}
-              disabled={activeCounterClosed || expenseActionsLoading}
+              disabled={(activeCounterClosed || expenseActionsLoading) && can("add_expense")}
               title={activeCounterClosed ? "Open the cash counter to add an expense." : undefined}
+              style={!can("add_expense") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
             >
               Add Expenses
             </Button>
@@ -618,6 +649,7 @@ export default function CashManagementPage() {
                       className="cash-mgmt__export-option"
                       onClick={() => void runExport("pdf")}
                       disabled={Boolean(exportingFormat) || (activeTab === "expenses" && expenseActionsLoading)}
+                      style={(!can("export_cash_management_pdf") || !can("export_pdf")) ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
                     >
                       {exportingFormat === "pdf" ? "Generating PDF..." : "Export PDF"}
                     </button>
@@ -626,6 +658,7 @@ export default function CashManagementPage() {
                       className="cash-mgmt__export-option"
                       onClick={() => void runExport("excel")}
                       disabled={Boolean(exportingFormat) || (activeTab === "expenses" && expenseActionsLoading)}
+                      style={(!can("export_cash_management_excel") || !can("export_excel")) ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
                     >
                       {exportingFormat === "excel" ? "Generating Excel..." : "Export Excel"}
                     </button>
@@ -634,6 +667,7 @@ export default function CashManagementPage() {
                       className="cash-mgmt__export-option"
                       onClick={() => void runExport("csv")}
                       disabled={Boolean(exportingFormat) || (activeTab === "expenses" && expenseActionsLoading)}
+                      style={(!can("export_cash_management_csv") || !can("export_csv")) ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
                     >
                       {exportingFormat === "csv" ? "Generating CSV..." : "Export CSV"}
                     </button>
@@ -670,6 +704,8 @@ export default function CashManagementPage() {
                 loading={loading.expenses}
                 canManage={!activeCounterClosed}
                 actionsDisabled={expenseActionsLoading}
+                editDisabled={!can("edit_expense")}
+                deleteDisabled={!can("delete_expense")}
                 sharedDateFilter={dateRange.preset}
                 sharedDateFrom={dateRange.startDate}
                 sharedDateTo={dateRange.endDate}
@@ -678,6 +714,7 @@ export default function CashManagementPage() {
                 onEdit={openExpenseEdit}
                 onDelete={(expense) => {
                   if (expenseActionsLoading) return;
+                  if (!can("delete_expense")) { denyPerm("delete_expense"); return; }
                   setDeletingExpense(expense);
                 }}
               />
@@ -695,6 +732,7 @@ export default function CashManagementPage() {
         show={showOpenModal && !counterStatusOverlay}
         loading={loading.openCounter}
         mandatory={needsOpenCounter}
+        onLogout={handleLogout}
         onClose={() => setShowOpenModal(false)}
         onSubmit={async (payload) => {
           await openCounter(payload);
@@ -782,13 +820,18 @@ export default function CashManagementPage() {
         dashboard={dashboard}
         loading={loading.closeCounter}
         mandatory={isStaleOpenCounter}
+        onLogout={handleLogout}
         onClose={() => setShowCloseModal(false)}
         onSubmit={async (payload) => {
           const closed = await closeCounter(payload);
           try {
+            // closed/dashboard already carry split-aware upiAmount/cardAmount
+            // straight from the cashdashboard endpoint — DailySummaryData
+            // prefers those over paymentCounts.amounts (see its comment), so
+            // no separate fetch is needed to build this payload.
             await sendDailySummaryEmail(
               dashboard.cashManagementId,
-              { ...(closed || dashboard), paymentCounts: paymentMethodCounts },
+              closed || dashboard,
               userEmail,
             );
           } catch (emailErr) {

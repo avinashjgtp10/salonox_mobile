@@ -142,6 +142,7 @@ export default function RegisterPage() {
     const checked = (e.target as HTMLInputElement).checked;
     const sanitized =
       name === "fullName" ? value.replace(/[^a-zA-Z\s]/g, "") :
+      name === "email" ? value.toLowerCase() :
       TEXT_ONLY_FIELDS.has(name) ? value.replace(/[0-9]/g, "") :
       value;
     setForm((prev) => ({
@@ -279,7 +280,7 @@ export default function RegisterPage() {
 
       <div className="rp-inner">
         <div className="rp-brand">
-          <img src={salonoxLogo} alt="SalonOX" className="rp-brand__logo" width="210" height="68" />
+          <img src={salonoxLogo} alt="SalonoX" className="rp-brand__logo" width="210" height="68" />
         </div>
 
         <div className="rp-heading-block">

@@ -29,6 +29,10 @@ export interface LoginResponse {
       id?: string;
       email?: string;
       role?: string;
+      /** Staff's assigned role NAME from Roles & Permissions (e.g. "Manager",
+       * "Staff") — display only. Never the same thing as `role` above, which
+       * is always "staff" for any non-owner/admin account. */
+      roleName?: string | null;
       first_name?: string;
       last_name?: string;
       salonId?: string | null;

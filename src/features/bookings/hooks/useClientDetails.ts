@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import api from "../../../services/api/axios";
 import type { ClientDetails, ClientStats } from "../types";
 import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
@@ -62,6 +62,13 @@ export function useClientDetails(
   // one response instead of a fast Phase 1 + background Phase 2.
   const [historyLoading, setHistoryLoading] = useState(false);
   const [error, setError]       = useState<string | null>(null);
+  // Set by seedNewClient() right before its id becomes `clientId` — the
+  // effect below checks this to skip firing POST /clients/:id/details for
+  // that one id, since seedNewClient already populated details/stats
+  // locally. Cleared once consumed so any LATER change back to this same id
+  // (e.g. re-selecting the same client after picking someone else) still
+  // fetches normally instead of silently reusing stale seeded data forever.
+  const skipFetchIdRef = useRef<string | null>(null);
 
   const fetch = useCallback(async (id: string) => {
     setLoading(true);
@@ -119,8 +126,33 @@ export function useClientDetails(
       setHistoryLoading(false);
       return;
     }
+    if (skipFetchIdRef.current === clientId) {
+      skipFetchIdRef.current = null;
+      return;
+    }
     fetch(clientId);
   }, [clientId, fetch, refreshKey]);
+
+  // A client just created inline (e.g. Quick Sale's "Add Client" form) has
+  // no packages/memberships/history/loyalty by definition — every field
+  // POST /clients/:id/details would return is already known to be zero, so
+  // there's nothing that call could tell us. Seeds details/stats directly
+  // with that known-empty shape and marks this id to skip the effect's next
+  // fetch, avoiding a real network round-trip for data that can't exist yet.
+  const seedNewClient = useCallback((client: { id: string; first_name?: string; last_name?: string; phone_number?: string }) => {
+    skipFetchIdRef.current = client.id;
+    const empty: ClientDetails = {
+      id: client.id,
+      first_name: client.first_name,
+      last_name: client.last_name,
+      phone_number: client.phone_number,
+    };
+    setDetails(empty);
+    setStats(buildStats(empty));
+    setError(null);
+    setLoading(false);
+    setHistoryLoading(false);
+  }, []);
 
   /** Call after a payment to bump unpaidAmt locally without re-fetching */
   const patchUnpaidAmt = useCallback((newAmt: number) => {
@@ -132,5 +164,5 @@ export function useClientDetails(
     });
   }, []);
 
-  return { details, stats, loading, historyLoading, error, patchUnpaidAmt };
+  return { details, stats, loading, historyLoading, error, patchUnpaidAmt, seedNewClient };
 }

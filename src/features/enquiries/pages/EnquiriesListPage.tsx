@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
-import { Search, PlusLg, PencilSquare, Trash3, ChatSquareText, ThreeDotsVertical, CalendarCheck, ArrowCounterclockwise, ExclamationCircle } from "react-bootstrap-icons";
+import { Search, PlusLg, PencilSquare, Trash3, ChatSquareText, ThreeDotsVertical, CalendarCheck, ArrowCounterclockwise, ExclamationCircle, Telephone, Whatsapp } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { ENQUIRY } from "../../../services/api/endpoints";
 import { Pagination, JiraFilterMenu, Modal, Button, Input, DateRangeFilter } from "../../../components/ui";
@@ -10,6 +10,9 @@ import EnquiryViewModal from "../components/EnquiryViewModal";
 import EnquiryRescheduleModal from "../components/EnquiryRescheduleModal";
 import { formatEnquiryId, formatEnquiryDate, formatFollowUpAt, datetimeLocalToIso } from "../utils/enquiryFormat";
 import { ENQUIRY_STATUSES, type Enquiry, type EnquiryFormValues } from "../types/enquiry.types";
+import { usePermissions } from "../../../hooks/usePermissions";
+import { useAppDispatch } from "../../../hooks/useAppRedux";
+import { showPermissionDenied } from "../../../store/permissionDialogSlice";
 import "../styles/EnquiriesListPage.scss";
 
 const STATUS_FILTER_FIELDS: JiraFilterField[] = [
@@ -28,6 +31,14 @@ function getEnquiryDateStr(iso: string): string {
 
 export default function EnquiriesListPage() {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
+  const { can } = usePermissions();
+  const canAdd = can("add_enquiries");
+  const canEdit = can("edit_enquiries");
+  const canDelete = can("delete_enquiries");
+  const denyPerm = (key: string) => dispatch(showPermissionDenied(
+    `Your account does not have the "${key}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+  ));
   const [enquiries, setEnquiries] = useState<Enquiry[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -162,6 +173,7 @@ export default function EnquiriesListPage() {
   }, [enquiries, statusFilter, debouncedSearch, startDate, endDate, dateError]);
 
   const handleStatusChange = async (enquiry: Enquiry, status: EnquiryFormValues["status"]) => {
+    if (!canEdit) { denyPerm("edit_enquiries"); return; }
     if (status === enquiry.status) return;
     setUpdatingStatusId(enquiry.id);
     // Optimistic update — reverted below if the request fails.
@@ -176,6 +188,7 @@ export default function EnquiriesListPage() {
   };
 
   const handleReschedule = async (followUpAtLocal: string) => {
+    if (!canEdit) { denyPerm("edit_enquiries"); return; }
     if (!reschedulingEnquiry) return;
     setIsRescheduling(true);
     try {
@@ -191,6 +204,7 @@ export default function EnquiriesListPage() {
   };
 
   const handleDelete = async () => {
+    if (!canDelete) { denyPerm("delete_enquiries"); return; }
     if (!deletingEnquiry) return;
     setIsDeleting(true);
     try {
@@ -210,7 +224,12 @@ export default function EnquiriesListPage() {
           <h1 className="enq-title">Enquiries</h1>
           <p className="enq-subtitle">Track and follow up on client enquiries</p>
         </div>
-        <button type="button" className="enq-btn enq-btn--primary" onClick={() => navigate("/dashboard/enquiries/add")}>
+        <button
+          type="button"
+          className="enq-btn enq-btn--primary"
+          style={canAdd ? undefined : { opacity: 0.5, cursor: "not-allowed" }}
+          onClick={() => { if (!canAdd) { denyPerm("add_enquiries"); return; } navigate("/dashboard/enquiries/add"); }}
+        >
           <PlusLg size={14} /> Create Enquiry
         </button>
       </div>
@@ -302,7 +321,8 @@ export default function EnquiriesListPage() {
                     <button
                       type="button"
                       className="enq-reschedule-btn"
-                      onClick={() => setReschedulingEnquiry(e)}
+                      style={canEdit ? undefined : { opacity: 0.5, cursor: "not-allowed" }}
+                      onClick={() => { if (!canEdit) { denyPerm("edit_enquiries"); return; } setReschedulingEnquiry(e); }}
                     >
                       <CalendarCheck size={13} />
                       {e.follow_up_at ? formatFollowUpAt(e.follow_up_at) : "Reschedule"}
@@ -313,6 +333,8 @@ export default function EnquiriesListPage() {
                       className={`enq-status-badge enq-status-select enq-status-${e.status.toLowerCase().replace(/\s|-/g, "")}`}
                       value={e.status}
                       disabled={updatingStatusId === e.id}
+                      style={canEdit ? undefined : { opacity: 0.5, cursor: "not-allowed" }}
+                      onMouseDown={(ev) => { if (!canEdit) { ev.preventDefault(); denyPerm("edit_enquiries"); } }}
                       onChange={(ev) => handleStatusChange(e, ev.target.value as EnquiryFormValues["status"])}
                     >
                       {ENQUIRY_STATUSES.map((s) => (
@@ -321,6 +343,22 @@ export default function EnquiriesListPage() {
                     </select>
                   </td>
                   <td className="enq-actions-cell" onClick={(ev) => ev.stopPropagation()}>
+                    <a
+                      href={`tel:${e.phone}`}
+                      className="enq-icon-btn enq-icon-btn--call"
+                      title="Call"
+                    >
+                      <Telephone size={14} />
+                    </a>
+                    <a
+                      href={`https://wa.me/${e.phone.replace(/\D/g, "")}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="enq-icon-btn enq-icon-btn--whatsapp"
+                      title="WhatsApp"
+                    >
+                      <Whatsapp size={14} />
+                    </a>
                     <button
                       type="button"
                       className="enq-kebab-btn"
@@ -343,15 +381,50 @@ export default function EnquiriesListPage() {
                         style={{ position: "fixed", top: kebabPos.top, right: kebabPos.right, zIndex: 9999 }}
                       >
                         <li>
-                          <button type="button" onClick={() => { navigate(`/dashboard/enquiries/edit/${e.id}`); setOpenRowMenuId(null); }}>
+                          <button
+                            type="button"
+                            style={canEdit ? undefined : { opacity: 0.5, cursor: "not-allowed" }}
+                            onClick={() => {
+                              setOpenRowMenuId(null);
+                              if (!canEdit) { denyPerm("edit_enquiries"); return; }
+                              navigate(`/dashboard/enquiries/edit/${e.id}`);
+                            }}
+                          >
                             <PencilSquare size={14} /> Edit
                           </button>
                         </li>
                         <li>
                           <button
                             type="button"
+                            style={canEdit ? undefined : { opacity: 0.5, cursor: "not-allowed" }}
+                            onClick={() => {
+                              setOpenRowMenuId(null);
+                              if (!canEdit) { denyPerm("edit_enquiries"); return; }
+                              setReschedulingEnquiry(e);
+                            }}
+                          >
+                            <CalendarCheck size={13} /> Set Follow-up
+                          </button>
+                        </li>
+                        <li>
+                          <button
+                            type="button"
+                            style={canEdit ? undefined : { opacity: 0.5, cursor: "not-allowed" }}
+                            onClick={() => { setOpenRowMenuId(null); handleStatusChange(e, "Converted"); }}
+                          >
+                            <ChatSquareText size={13} /> Mark as Converted
+                          </button>
+                        </li>
+                        <li>
+                          <button
+                            type="button"
                             className="enq-kebab-menu__item--danger"
-                            onClick={() => { setDeletingEnquiry(e); setOpenRowMenuId(null); }}
+                            style={canDelete ? undefined : { opacity: 0.5, cursor: "not-allowed" }}
+                            onClick={() => {
+                              setOpenRowMenuId(null);
+                              if (!canDelete) { denyPerm("delete_enquiries"); return; }
+                              setDeletingEnquiry(e);
+                            }}
                           >
                             <Trash3 size={13} /> Delete
                           </button>

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Reveal } from '../shared';
+import { BRAND_NAME } from '../../../marketing/seo.config';
 
 const featureItems = [
   'Dashboard Overview',
@@ -22,19 +23,19 @@ const MobileAppMark: React.FC = () => (
 const appScreens = [
   {
     src: '/screenshots/mobile-app-home.jpg',
-    alt: 'SalonOX mobile app home dashboard screen',
+    alt: 'SalonoX mobile app home dashboard screen',
   },
   {
     src: '/screenshots/mobile-app-calendar.jpg',
-    alt: 'SalonOX mobile app appointment calendar screen',
+    alt: 'SalonoX mobile app appointment calendar screen',
   },
   {
     src: '/screenshots/mobile-app-quick-sale.jpg',
-    alt: 'SalonOX mobile app quick sale review cart screen',
+    alt: 'SalonoX mobile app quick sale review cart screen',
   },
   {
     src: '/screenshots/mobile-app-reports.jpg',
-    alt: 'SalonOX mobile app reports screen',
+    alt: 'SalonoX mobile app reports screen',
   },
 ] as const;
 
@@ -57,7 +58,7 @@ const MobileApp: React.FC = () => (
       <Reveal className="mobile-app-copy">
         <div className="mobile-app-brand">
           <MobileAppMark />
-          <span>Salon<span>OX</span></span>
+          <span>{BRAND_NAME.slice(0, -1)}<span>{BRAND_NAME.slice(-1)}</span></span>
         </div>
 
         <h2 id="mobile-app-heading">
@@ -86,7 +87,7 @@ const MobileApp: React.FC = () => (
       </Reveal>
 
       <Reveal delay={1} className="mobile-app-visual">
-        <div className="mobile-app-phone-pair" aria-label="SalonOX mobile app preview screens">
+        <div className="mobile-app-phone-pair" aria-label="SalonoX mobile app preview screens">
           {appScreens.map((screen, index) => (
             <figure className={`mobile-app-preview-phone mobile-app-preview-phone--${index + 1}`} key={screen.src}>
               <img src={screen.src} alt={screen.alt} loading="lazy" decoding="async" />

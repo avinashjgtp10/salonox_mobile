@@ -6,7 +6,9 @@ import { useAppDispatch, useAppSelector } from '../../../hooks/useAppRedux'
 import {
   fetchConversationsThunk,
   fetchMessagesThunk,
+  fetchCustomerInfoThunk,
   sendReplyThunk,
+  type InboxCustomerInfo,
 } from '../../../middleware/marketing/inbox.thunk'
 import {
   setActivePhone,
@@ -16,6 +18,10 @@ import {
 import type { WAConversation, WAMessage } from '../../../store/inboxSlice'
 import { API_ORIGIN } from '../../../services/api/baseUrl'
 import Dropdown from '../../../components/ui/Dropdown'
+import ClientHistoryModal from '../../clients/components/ClientHistoryModal'
+import { useListClientPackagesQuery } from '../../../services/api/endpoints/packages.endpoints'
+import { usePermissions } from '../../../hooks/usePermissions'
+import { showPermissionDenied } from '../../../store/permissionDialogSlice'
 import '../styles/InboxPage.scss'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -104,6 +110,15 @@ function groupMessagesByDate(messages: WAMessage[]) {
     }
   }
   return groups
+}
+
+function formatMoney(n: number): string {
+  return '₹' + n.toLocaleString('en-IN', { maximumFractionDigits: 0 })
+}
+
+function formatVisitDate(iso: string | null): string {
+  if (!iso) return '—'
+  return new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
 function get24hrWindow(messages: WAMessage[]): number | null {
@@ -222,14 +237,15 @@ function MessageBubble({ msg, onDelete }: { msg: WAMessage; onDelete: (id: strin
 // ConversationItem
 // ─────────────────────────────────────────────────────────────────────────────
 
-function ConversationItem({ conv, isActive, onClick }: {
-  conv: WAConversation; isActive: boolean; onClick: () => void
+function ConversationItem({ conv, isActive, onClick, disabled }: {
+  conv: WAConversation; isActive: boolean; onClick: () => void; disabled?: boolean
 }) {
   const color = avatarColor(conv.contactName ?? conv.contactPhone)
 
   return (
     <button
       className={'inbox-conv-item' + (isActive ? ' active' : '') + (conv.unreadCount > 0 ? ' unread' : '')}
+      style={disabled ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
       onClick={onClick}
     >
       <div className="inbox-conv-avatar" style={{ background: color }}>
@@ -261,6 +277,14 @@ export default function InboxPage() {
   const dispatch = useAppDispatch()
   const { conversations, messages, activePhone, loading } = useAppSelector(s => s.inbox)
   const salonId = useAppSelector(s => s.salon.currentSalon?.id ?? s.auth?.salonId)
+  const { can } = usePermissions()
+  const denyPerm = (permKey: string) => dispatch(showPermissionDenied(
+    `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+  ))
+  // Trimmed from 4 Inbox keys to 2 on request — view_conversation folded
+  // into view_inbox, send_message removed in favor of reply_to_conversation
+  // (see inbox.routes.ts).
+  const canSend = can('reply_to_conversation')
 
   // ── Theme toggle — persisted to localStorage ──────────────────────────────
   const [theme, setTheme] = useState<Theme_>(() =>
@@ -281,6 +305,16 @@ export default function InboxPage() {
   const [showCanned,      setShowCanned]      = useState(false)
   const [sortMode,        setSortMode]        = useState<SortMode>('latest')
   const [filterMode,      setFilterMode]      = useState<FilterMode>('all')
+  const [customerInfo,    setCustomerInfo]    = useState<InboxCustomerInfo | null>(null)
+  const [loadingCustomer, setLoadingCustomer] = useState(false)
+  const [historyClientId, setHistoryClientId] = useState<string | null>(null)
+  const [infoPanelOpen,   setInfoPanelOpen]   = useState(true)
+
+  const { data: clientPackagesData } = useListClientPackagesQuery(
+    { clientId: customerInfo?.id, status: 'Active' },
+    { skip: !customerInfo?.id }
+  )
+  const activePackages = clientPackagesData?.items ?? []
 
   const messagesListRef = useRef<HTMLDivElement>(null)
   const emojiPickerRef = useRef<HTMLDivElement>(null)
@@ -328,20 +362,29 @@ export default function InboxPage() {
   }, [displayMessages])
 
   const handleSelectConversation = useCallback((phone: string) => {
+    if (!can('view_inbox')) { denyPerm('view_inbox'); return }
     dispatch(setActivePhone(phone))
     dispatch(fetchMessagesThunk(phone))
     setShowEmojiPicker(false)
     setShowCanned(false)
-  }, [dispatch])
+    setCustomerInfo(null)
+    setLoadingCustomer(true)
+    setInfoPanelOpen(true)
+    dispatch(fetchCustomerInfoThunk(phone)).then((res) => {
+      if (fetchCustomerInfoThunk.fulfilled.match(res)) setCustomerInfo(res.payload)
+      setLoadingCustomer(false)
+    })
+  }, [dispatch, can])
 
   const handleSend = useCallback(async () => {
     const text = replyText.trim()
     if (!text || !activePhone || loading.sendReply) return
+    if (!canSend) { denyPerm('send_message'); return }
     setReplyText('')
     setShowEmojiPicker(false)
     setShowCanned(false)
     await dispatch(sendReplyThunk({ phone: activePhone, message: text }))
-  }, [replyText, activePhone, loading.sendReply, dispatch])
+  }, [replyText, activePhone, loading.sendReply, dispatch, canSend])
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() }
@@ -471,6 +514,7 @@ export default function InboxPage() {
               key={conv.id}
               conv={conv}
               isActive={conv.contactPhone === activePhone}
+              disabled={!can('view_inbox')}
               onClick={() => handleSelectConversation(conv.contactPhone)}
             />
           ))}
@@ -497,6 +541,15 @@ export default function InboxPage() {
                 <span className="inbox-chat-phone">{activeConv?.contactName ? activePhone : 'WhatsApp'}</span>
               </div>
               <div className="inbox-chat-actions">
+                {!infoPanelOpen && (
+                  <button
+                    className="inbox-refresh-btn"
+                    title="Show customer info"
+                    onClick={() => setInfoPanelOpen(true)}
+                  >
+                    ⓘ
+                  </button>
+                )}
                 <button
                   className="inbox-refresh-btn"
                   title="Refresh messages"
@@ -624,7 +677,8 @@ export default function InboxPage() {
               <button
                 className={'inbox-send-btn' + (loading.sendReply ? ' sending' : '')}
                 onClick={handleSend}
-                disabled={!replyText.trim() || loading.sendReply || windowExpired}
+                disabled={(!replyText.trim() || loading.sendReply || windowExpired) && canSend}
+                style={!canSend ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
               >
                 {loading.sendReply ? <span className="inbox-send-spinner" /> : '➤'}
               </button>
@@ -632,6 +686,85 @@ export default function InboxPage() {
           </>
         )}
       </main>
+
+      {/* ── Customer Info ── */}
+      {activePhone && infoPanelOpen && (
+        <aside className="inbox-info-panel">
+          <div className="inbox-info-header-row">
+            <div className="inbox-info-header">Customer Info</div>
+            <button className="inbox-info-close" title="Close" onClick={() => setInfoPanelOpen(false)}>✕</button>
+          </div>
+          {loadingCustomer ? (
+            <div className="inbox-info-loading">Loading…</div>
+          ) : customerInfo ? (
+            <>
+              <div className="inbox-info-profile">
+                <div className="inbox-info-avatar" style={{ background: activeColor }}>
+                  {getInitials(customerInfo.fullName, activePhone)}
+                </div>
+                <div className="inbox-info-name">{customerInfo.fullName || activePhone}</div>
+                <div className="inbox-info-phone">{activePhone}</div>
+                <button className="inbox-info-link" onClick={() => setHistoryClientId(customerInfo.id)}>
+                  View Profile →
+                </button>
+              </div>
+
+              <div className="inbox-info-stats">
+                <div className="inbox-info-stat-row">
+                  <span className="inbox-info-stat-label">Total Visits</span>
+                  <span className="inbox-info-stat-value inbox-info-stat-value--blue">{customerInfo.totalVisits}</span>
+                </div>
+                <div className="inbox-info-stat-row">
+                  <span className="inbox-info-stat-label">Total Spend</span>
+                  <span className="inbox-info-stat-value inbox-info-stat-value--green">{formatMoney(customerInfo.lifetimeSpend)}</span>
+                </div>
+                <div className="inbox-info-stat-row">
+                  <span className="inbox-info-stat-label">Last Visit</span>
+                  <span className="inbox-info-stat-value inbox-info-stat-value--purple">{formatVisitDate(customerInfo.lastVisitDate)}</span>
+                </div>
+                <div className="inbox-info-stat-row">
+                  <span className="inbox-info-stat-label">Member</span>
+                  <span className={`inbox-info-stat-value ${customerInfo.membershipName ? 'inbox-info-stat-value--gold' : 'inbox-info-stat-value--muted'}`}>
+                    {customerInfo.membershipName ? `Yes (${customerInfo.membershipName})` : 'No'}
+                  </span>
+                </div>
+              </div>
+
+              {activePackages.length > 0 && (
+                <div className="inbox-info-recent">
+                  <div className="inbox-info-recent-title">Packages</div>
+                  {activePackages.map(pkg => {
+                    const totalRemaining = pkg.services.reduce((sum, s) => sum + s.remainingSessions, 0)
+                    const totalSessions  = pkg.services.reduce((sum, s) => sum + s.totalSessions, 0)
+                    return (
+                      <div key={pkg.id} className="inbox-info-recent-row">
+                        <span className="inbox-info-recent-icon" style={{ background: activeColor }}>📦</span>
+                        <div>
+                          <div className="inbox-info-recent-text">{pkg.packageName}</div>
+                          <div className="inbox-info-recent-time">
+                            {totalRemaining}/{totalSessions} sessions left
+                            {pkg.expiryDate ? ` · Expires ${formatVisitDate(pkg.expiryDate)}` : ''}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="inbox-info-empty">
+              <span className="inbox-info-empty-icon">🙍</span>
+              <p>Not a saved client yet.</p>
+              <span>This number hasn't been added to your Clients list.</span>
+            </div>
+          )}
+        </aside>
+      )}
+
+      {historyClientId && (
+        <ClientHistoryModal clientId={historyClientId} onClose={() => setHistoryClientId(null)} />
+      )}
     </div>
   )
 }

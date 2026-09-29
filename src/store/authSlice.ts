@@ -1,20 +1,21 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
-function decodeJwt(token: string): { role: string | null; salonId: string | null; expiresAt: number | null } {
+function decodeJwt(token: string): { role: string | null; salonId: string | null; impersonatedBy: string | null; expiresAt: number | null } {
   try {
     const payload = token.split(".")[1];
     const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
     const padded  = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
     const decoded = JSON.parse(atob(padded));
     return {
-      role:    decoded?.role     ?? null,
-      salonId: decoded?.salonId  ?? decoded?.salon_id ?? null,
+      role:           decoded?.role     ?? null,
+      salonId:        decoded?.salonId  ?? decoded?.salon_id ?? null,
+      impersonatedBy: decoded?.impersonatedBy ?? null,
       // JWT `exp` is seconds since epoch; convert to ms so it lines up with
       // Date.now() for the proactive-refresh scheduler in interceptors.ts.
       expiresAt: typeof decoded?.exp === "number" ? decoded.exp * 1000 : null,
     };
   } catch {
-    return { role: null, salonId: null, expiresAt: null };
+    return { role: null, salonId: null, impersonatedBy: null, expiresAt: null };
   }
 }
 import {
@@ -50,7 +51,12 @@ export interface AuthState {
   accessTokenExpiresAt: number | null;
   isOnboardingComplete: boolean;
   role: string | null;
+  /** Staff's assigned role NAME from Roles & Permissions (e.g. "Manager",
+   * "Staff") — display only, never the authorization value. See `role`
+   * above for that (always "staff" for any non-owner/admin account). */
+  roleName: string | null;
   salonId: string | null;
+  impersonatedBy: string | null;
   custom_permissions: Record<string, boolean> | null;
   loading: AuthLoadingState;
   error: string | null;
@@ -62,7 +68,9 @@ const initialState: AuthState = {
   accessTokenExpiresAt: null,
   isOnboardingComplete: false,
   role: null,
+  roleName: null,
   salonId: null,
+  impersonatedBy: null,
   custom_permissions: null,
   loading: {
     login: false,
@@ -95,16 +103,18 @@ const authSlice = createSlice({
       state.refreshToken = refreshToken ?? null;
       state.isOnboardingComplete = isOnboardingComplete;
       const jwt = decodeJwt(accessToken);
-      state.role    = jwt.role;
-      state.salonId = jwt.salonId;
+      state.role           = jwt.role;
+      state.salonId        = jwt.salonId;
+      state.impersonatedBy = jwt.impersonatedBy;
       state.accessTokenExpiresAt = jwt.expiresAt;
     },
 
     updateToken(state, action: PayloadAction<string>) {
       state.accessToken = action.payload;
       const jwt = decodeJwt(action.payload);
-      state.role    = jwt.role;
-      state.salonId = jwt.salonId;
+      state.role           = jwt.role;
+      state.salonId        = jwt.salonId;
+      state.impersonatedBy = jwt.impersonatedBy;
       state.accessTokenExpiresAt = jwt.expiresAt;
     },
 
@@ -123,6 +133,7 @@ const authSlice = createSlice({
       state.isOnboardingComplete = false;
       state.role = null;
       state.salonId = null;
+      state.impersonatedBy = null;
       state.custom_permissions = null;
       state.error = null;
     },
@@ -145,8 +156,10 @@ const authSlice = createSlice({
         state.refreshToken = payload.refreshToken;
         state.isOnboardingComplete = payload.isOnboardingComplete;
         const jwt = decodeJwt(payload.accessToken);
-        state.role    = payload.user?.role    ?? jwt.role;
-        state.salonId = payload.user?.salonId ?? jwt.salonId;
+        state.role           = payload.user?.role     ?? jwt.role;
+        state.roleName       = payload.user?.roleName ?? null;
+        state.salonId        = payload.user?.salonId  ?? jwt.salonId;
+        state.impersonatedBy = jwt.impersonatedBy;
         state.custom_permissions = payload.user?.custom_permissions ?? null;
         state.accessTokenExpiresAt = jwt.expiresAt;
       })
@@ -163,8 +176,9 @@ const authSlice = createSlice({
       .addCase(refreshSessionThunk.fulfilled, (state, { payload }) => {
         state.accessToken = payload;
         const jwt = decodeJwt(payload);
-        state.role    = jwt.role;
-        state.salonId = jwt.salonId;
+        state.role           = jwt.role;
+        state.salonId        = jwt.salonId;
+        state.impersonatedBy = jwt.impersonatedBy;
         state.accessTokenExpiresAt = jwt.expiresAt;
       })
       .addCase(refreshSessionThunk.rejected, (state) => {

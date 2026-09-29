@@ -115,7 +115,14 @@ export function mapApiBooking(
     const staffNameStr = (() => { const sf = s.staff; if (!sf) return ""; if (typeof sf === "object") return (sf as any)?.name || ""; return String(sf); })();
     const sPrice = parseFloat(String(s.price ?? 0)) || 0;
     const sQty   = Number(s.qty ?? s.quantity ?? 1) || 1;
-    const sTotal = parseFloat(String(s.total ?? 0)) || 0;
+    // Falls back to price (same as productItems/packageItems/membershipItems
+    // below) when total was never computed — e.g. a service on an
+    // appointment created by the historical Bulk Billing Import, which only
+    // ever sets `price` on its JSONB service rows, not `total`. Without this
+    // fallback, s.total ?? 0 read as a real ₹0 line item instead of "never
+    // priced", so every imported historical service showed ₹0.00 here (and
+    // in ViewBillModal.tsx's per-service total) despite billing correctly.
+    const sTotal = parseFloat(String(s.total ?? s.price ?? 0)) || 0;
     // Per-row discount is a percentage of price × qty — derive it back from the
     // stored total so the edit form shows the % that was originally applied.
     const derivedDiscount = (sTotal > 0 && sPrice * sQty > sTotal)
@@ -124,7 +131,7 @@ export function mapApiBooking(
     const isServiceFromPackage = !!(s.is_package_service || (s as any).isPackageService);
     return {
       ...s,
-      ...(isPackagePaid || isServiceFromPackage ? { total: 0 } : {}),
+      total: isPackagePaid || isServiceFromPackage ? 0 : sTotal,
       isPackageService: isServiceFromPackage,
       // Exact package-service link (schedule-at-sale feature) — distinct
       // from the fuzzy isPackageService coverage flag above.
@@ -132,6 +139,14 @@ export function mapApiBooking(
       clientPackageServiceId: s.client_package_service_id ?? (s as any).clientPackageServiceId ?? undefined,
       name: sName,
       service: sName,
+      // Normalize explicitly, same as productItems/packageItems/membership
+      // items below — the raw `...s` spread above can carry either `qty` or
+      // `quantity` depending on where the appointment was last saved from
+      // (useAppointment.ts's buildServiceApiItems sends services under
+      // `quantity`, unlike product/package/membership rows), so anything
+      // downstream reading `.qty` off a mapped Booking (e.g. ViewBillModal's
+      // Qty column) saw it as undefined without this.
+      qty: sQty,
       staff: staffNameStr,
       staffId: anyServiceHasOwnStaff
         ? ((s.staffId || s.staff_id) ? String(s.staffId || s.staff_id) : undefined)
@@ -327,18 +342,71 @@ export function mapApiBooking(
   // wallet/eWallet/points/referral-credit have already been subtracted out
   // server-side by the time paid_amount/due_amount were recorded, so adding
   // them back here would double-count and overstate the reconstructed total.
+  // Hoisted from where this was declared further down (still used there,
+  // unchanged) — needed here too, one tier of the SAME "0 is falsy" bug
+  // documented below: `rawPaidAmount > 0` used to gate whether paid+due was
+  // trusted, but a 100%-discounted bill legitimately has paid_amount = 0,
+  // making that gate indistinguishable from "no payment was ever made at
+  // all". `hasRealPayment` (a real, unified appointment status) is the
+  // correct signal — it's true regardless of whether the actual amount
+  // settled happens to be zero.
+  const rawStatus = String(appt.status ?? "booked").toLowerCase();
+  const hasRealPayment = rawStatus === "paid" || rawStatus === "partial";
   const rawPaidAmount = Number(appt.paid_amount ?? 0) || 0;
   const rawDueAmount = Number(appt.due_amount ?? appt.dueAmount ?? 0) || 0;
-  const reconstructedFromPayment = rawPaidAmount > 0
-    ? rawPaidAmount + rawDueAmount
-    : 0;
-  const grandTotalVal = isPackagePaid ? 0
+  // null (not 0) when there's no real payment record at all, so the fallback
+  // chain below can tell "trustworthy zero" apart from "nothing to go on"
+  // with `??`/`!= null` instead of `||`, which treated both identically.
+  const reconstructedFromPayment = hasRealPayment ? (rawPaidAmount + rawDueAmount) : null;
+  // A wallet/eWallet/points/referral-credit redemption SETTLES the bill; it
+  // doesn't change what the bill was worth. Every persisted figure below is
+  // therefore the bill's REVENUE value — sales.total_amount and
+  // computed_grand_total are both computed with no redemption subtracted —
+  // whereas Booking.grandTotal means the amount actually left to collect.
+  // That's the figure the receipt, the totals panel and ViewBillModal all
+  // reconcile their Round Off against (see receipt.ts / billBreakdown.ts:
+  // roundOff = grandTotal − the waterfall, and the waterfall subtracts these
+  // redemptions). Handing them the revenue figure is what made a bill fully
+  // paid from a membership wallet print "Round Off +₹25.00" — the ₹25 taken
+  // off by the wallet being added straight back on. Subtract it once, here,
+  // at the boundary, so every consumer keeps the meaning it documents.
+  const redemptionsUsed =
+    (Number(appt.membership_wallet_used ?? appt.membershipWalletUsed ?? 0) || 0)
+    + (Number(appt.ewallet_used ?? appt.ewalletUsed ?? 0) || 0)
+    + (Number(appt.reward_points_value ?? appt.rewardPointsValue ?? 0) || 0)
+    + (Number(appt.referral_credit_used ?? appt.referralCreditUsed ?? 0) || 0);
+  // Presence, not truthiness — a bill fully wiped out by a 100% membership/
+  // coupon discount legitimately persists grand_total/total_amount as 0, and
+  // `0` is falsy. `persistedRevenueTotal || (...)` treated that real, correct
+  // ₹0 exactly like a genuinely MISSING field and fell through the whole
+  // fallback chain to computedTotal + taxFromBreakdown — the raw, pre-
+  // discount item-price sum — silently undoing the entire discount on
+  // screen (and, via the isPaidStatus branch below, into `payingNow` too):
+  // a ₹499 100%-off membership bill showed Grand Total ₹499 and a phantom
+  // "Round Off +₹499.00" line reconciling the correct ₹0 waterfall against
+  // that wrongly-reconstructed total. hasPersistedRevenueTotal checks the RAW
+  // field before the `?? 0` default below, so a real 0 is trusted outright
+  // and only a truly absent field (old data with no such column at all)
+  // still falls through to the next source.
+  const rawPersistedRevenueTotal = appt.grand_total ?? appt.grandTotal ?? appt.total_amount;
+  const hasPersistedRevenueTotal = rawPersistedRevenueTotal !== undefined && rawPersistedRevenueTotal !== null;
+  const persistedRevenueTotal = parseFloat(String(rawPersistedRevenueTotal ?? 0)) || 0;
+  const computedRevenueTotal = computedGrandTotal != null ? Number(computedGrandTotal) : null;
+  // paid + due is the one source that is ALREADY net of redemptions (both
+  // were recorded server-side against the post-redemption bill), so it must
+  // not have them taken off a second time.
+  const usesSettledFigure = !hasPersistedRevenueTotal && computedRevenueTotal == null && reconstructedFromPayment != null;
+  // What the bill was worth, unchanged from what this always computed.
+  const revenueTotalVal = isPackagePaid ? 0
     : hasPerServicePackage
       ? Math.max(0, [...services, ...productItems, ...packageItems, ...membershipItems]
           .reduce((sum, item: any) => sum + (Number(item.total) || 0), 0)) + taxFromBreakdown
-      : (parseFloat(String(appt.grand_total ?? appt.grandTotal ?? appt.total_amount ?? 0))
-          || (computedGrandTotal != null ? Number(computedGrandTotal) : reconstructedFromPayment)
-          || (computedTotal + taxFromBreakdown));
+      : hasPersistedRevenueTotal
+        ? persistedRevenueTotal
+        : (computedRevenueTotal ?? reconstructedFromPayment ?? (computedTotal + taxFromBreakdown));
+  const grandTotalVal = (isPackagePaid || usesSettledFigure)
+    ? revenueTotalVal
+    : Math.max(0, Math.round((revenueTotalVal - redemptionsUsed) * 100) / 100);
 
   // ── Subtotal / discount / taxable amount ──────────────────────────────────
   const subtotalVal = parseFloat(String(appt.subtotal ?? 0)) || computedTotal;
@@ -365,8 +433,8 @@ export function mapApiBooking(
     || Math.max(0, subtotalVal - discountAmountVal);
 
   // ── Booking status is unified — appt.status carries the payment state too,
-  //    no separate payment_status field anymore. ────────────────────────────
-  const rawStatus = String(appt.status ?? "booked").toLowerCase();
+  //    no separate payment_status field anymore. (rawStatus itself is
+  //    hoisted above, next to reconstructedFromPayment, which needs it too.)
   const isPaidStatus = rawStatus === "paid";
 
   // ── Compute payingNow / dueAmount ─────────────────────────────────────────
@@ -379,7 +447,12 @@ export function mapApiBooking(
   } else if (appt.payingNow != null && Number(appt.payingNow) > 0) {
     payingNow = Number(appt.payingNow);
   } else if (isPaidStatus) {
-    payingNow = grandTotalVal;
+    // Deliberately the REVENUE figure, not grandTotalVal: this branch only
+    // runs when payments.paid_amount is 0, which on a settled bill means the
+    // whole thing was covered by redemptions. What the client "paid" is then
+    // exactly what the bill was worth — taking the redemption off here too
+    // would report a fully-paid bill as ₹0.00 paid.
+    payingNow = revenueTotalVal;
   } else {
     payingNow = 0;
   }
@@ -488,6 +561,12 @@ export function mapApiBooking(
         || productItems.find((p: any) => p.staffId)?.staffId;
       return raw ? String(raw) : undefined;
     })(),
+    // Set only by the public Online Booking "Any Available" option — the
+    // customer never picked a stylist, a real one was auto-assigned to
+    // staffId above purely so schedule/commission logic keeps working. The
+    // Calendar's own "Any" column (DayView.tsx) uses this flag, not staffId,
+    // to decide where the chip belongs.
+    isAnyStaff: !!(appt.is_any_staff ?? appt.isAnyStaff),
     clientId: String(appt.clientId ?? appt.client_id ?? appt.client?.id ?? ""),
     date: appt.date
       ? toLocalDateStr(appt.date)
@@ -550,6 +629,13 @@ export function mapApiBooking(
     discount: parseFloat(String(appt.discount_value ?? 0)) || 0,
     discountAmount: discountAmountVal,
     discountType: appt.discount_type === "flat" ? "Flat (₹)" : "Percentage (%)",
+    // Only ever lands on the linked sale (payment-time only, never copied back
+    // onto the appointment row itself) — see appointments.repository.ts's
+    // findById/listBySalonId, which now join it in. Without this, a coupon
+    // applied at checkout was invisible in Sales Summary and its ₹ reduction
+    // silently showed up as part of Round Off instead.
+    couponDiscount: parseFloat(String(appt.coupon_discount_amount ?? appt.couponDiscount ?? 0)) || 0,
+    couponCode: appt.coupon_code ?? appt.couponCode ?? undefined,
     // Left undefined (not defaulted to all four) when the column is NULL —
     // that's a bill from before the "Apply to" feature, and undefined is what
     // tells the engine to price it the legacy way it was actually charged.

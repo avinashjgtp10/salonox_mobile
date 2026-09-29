@@ -1,6 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Pencil } from "react-bootstrap-icons";
 import { useCurrency } from "../../../../hooks/useCurrency";
+import { usePermissions } from "../../../../hooks/usePermissions";
+import { useAppDispatch } from "../../../../hooks/useAppRedux";
+import { showPermissionDenied } from "../../../../store/permissionDialogSlice";
 import type { ClientStats } from "../../types";
 import type { ClientPackage } from "../../../../services/api/endpoints/packages.endpoints";
 import type { ClientMembership } from "../../../../services/api/endpoints/clientMemberships.endpoints";
@@ -117,6 +120,15 @@ export const ClientStatCard: React.FC<Props> = ({
   historyLoading = false, rewardPointsConfig, onEdit,
 }) => {
   const { formatAmount } = useCurrency();
+  const { can } = usePermissions();
+  const dispatch = useAppDispatch();
+  // Never hide these actions when a client is selected — only gate whether
+  // they're clickable. Denying silently (hiding the button) leaves staff
+  // guessing why "Edit"/"View History" vanished; showing it disabled with
+  // the same "Permission Required" popup used everywhere else makes the
+  // cause explicit instead.
+  const canEdit = can("edit_clients");
+  const canViewHistory = can("view_clients");
   const STAT_ROWS = buildStatRows(formatAmount);
   const initial = name?.charAt(0)?.toUpperCase() || "?";
   const rewardPopover = usePopover();
@@ -165,10 +177,17 @@ export const ClientStatCard: React.FC<Props> = ({
           {onEdit && (
             <button
               type="button"
-              className="client-edit-btn"
-              title="Edit client"
+              className={`client-edit-btn${canEdit ? "" : " client-edit-btn--disabled"}`}
+              title={canEdit ? "Edit client" : "You do not have permission to edit clients"}
               aria-label="Edit client"
-              onClick={onEdit}
+              aria-disabled={!canEdit}
+              onClick={() =>
+                canEdit
+                  ? onEdit()
+                  : dispatch(showPermissionDenied(
+                      `Your account does not have the "edit_clients" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+                    ))
+              }
             >
               <Pencil size={12} />
             </button>
@@ -471,7 +490,17 @@ export const ClientStatCard: React.FC<Props> = ({
                           {m.totalSessions === 0 ? "Unlimited" : `${m.usedSessions} used / ${m.totalSessions} total`}
                         </span>
                       </div>
-                      {m.pricingType === "percentage" ? (
+                      {m.pricingType === "percentage" && m.benefitType === "validity" ? (
+                        // No pool on a validity plan — what limits it is the
+                        // expiry shown elsewhere on this card, so reporting a
+                        // balance here would just read as ₹0 / exhausted.
+                        <div className="pkg-card__row">
+                          <span className="pkg-card__lbl">Discount:</span>
+                          <span className="pkg-card__val">
+                            {m.discountPercent ? `${m.discountPercent}% off` : "—"} · until expiry
+                          </span>
+                        </div>
+                      ) : m.pricingType === "percentage" ? (
                         <div className="pkg-card__row">
                           <span className="pkg-card__lbl">Discount Balance Remaining:</span>
                           <span className="pkg-card__val">
@@ -542,15 +571,24 @@ export const ClientStatCard: React.FC<Props> = ({
           {/* View History */}
           {(onViewHistory || historyUrl) && (
             <div className="info-cell info-cell--history-btn">
-              {onViewHistory ? (
-                <button type="button" onClick={onViewHistory} className="btn-view-history">
-                  View History
-                </button>
-              ) : (
-                <a href={historyUrl} rel="noreferrer" className="btn-view-history">
-                  View History
-                </a>
-              )}
+              <button
+                type="button"
+                onClick={() => {
+                  if (!canViewHistory) {
+                    dispatch(showPermissionDenied(
+                      `Your account does not have the "view_clients" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+                    ));
+                    return;
+                  }
+                  if (onViewHistory) onViewHistory();
+                  else if (historyUrl) window.open(historyUrl, "_blank", "noreferrer");
+                }}
+                className={`btn-view-history${canViewHistory ? "" : " btn-view-history--disabled"}`}
+                aria-disabled={!canViewHistory}
+                title={canViewHistory ? undefined : "You do not have permission to view client history"}
+              >
+                View History
+              </button>
             </div>
           )}
         </div>

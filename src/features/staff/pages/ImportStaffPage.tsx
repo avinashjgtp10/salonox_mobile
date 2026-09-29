@@ -13,8 +13,8 @@ type Step = 1 | 2 | 3 | 4;
 
 const STAFF_COLUMNS = [
   { key: "name",                  label: "Name",                required: true,  hint: "Full name of the staff member. Required for import." },
-  { key: "contact",               label: "Contact",             required: false, hint: "Phone/contact number of the staff member." },
-  { key: "email",                 label: "Email",               required: true,  hint: "Email address of the staff member. Required for import." },
+  { key: "contact",               label: "Contact",             required: true,  hint: "Phone/contact number of the staff member. Required for import." },
+  { key: "email",                 label: "Email",               required: false, hint: "Email address of the staff member." },
   { key: "address",               label: "Address",             required: false, hint: "Residential address of the staff member." },
   { key: "gender",                label: "Gender",              required: false, hint: "Gender of the staff member." },
   { key: "doj",                   label: "DOJ (dd-mm-YYYY)",    required: false, hint: "Date of joining in dd-mm-YYYY format." },

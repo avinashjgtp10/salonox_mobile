@@ -106,11 +106,20 @@ export const deleteSalonThunk = createAsyncThunk<void, string, { rejectValue: st
   }
 );
 
-export const clearSalonDataThunk = createAsyncThunk<void, string, { rejectValue: string }>(
+// Returns just the cleared salon's id so the reducer can patch only that
+// row in state.salons (staff/client/booking/revenue counts reset to 0)
+// instead of forcing a full re-fetch of every other unrelated row.
+export const clearSalonDataThunk = createAsyncThunk<string, string, { rejectValue: string }>(
   "superAdmin/clearSalonData",
   async (id, { rejectWithValue }) => {
     try {
-      await api.post(SUPER_ADMIN.SALON_CLEAR_DATA(id));
+      // clearSalonData runs ~140 sequential DELETEs against RDS — for a
+      // salon with enough rows spread across enough tables this comfortably
+      // exceeds the shared 35s axios default (each DELETE is its own network
+      // round-trip), so this call gets its own longer timeout rather than
+      // raising the default for every other request.
+      await api.post(SUPER_ADMIN.SALON_CLEAR_DATA(id), undefined, { timeout: 120_000 });
+      return id;
     } catch (err: any) {
       return rejectWithValue(err?.response?.data?.error?.message ?? err?.message ?? "Failed to clear salon data");
     }
@@ -211,6 +220,18 @@ export const deleteUserThunk = createAsyncThunk<void, { id: string; force?: bool
   }
 );
 
+export const updateUserThunk = createAsyncThunk<any, { id: string; first_name: string; last_name?: string; email: string; phone?: string }, { rejectValue: string }>(
+  "superAdmin/updateUser",
+  async ({ id, ...payload }, { rejectWithValue }) => {
+    try {
+      const res = await api.put(SUPER_ADMIN.USER_UPDATE(id), payload);
+      return res.data?.data ?? res.data;
+    } catch (err: any) {
+      return rejectWithValue(err?.response?.data?.error?.message ?? err?.message ?? "Failed to update user");
+    }
+  }
+);
+
 export const createUserThunk = createAsyncThunk<any, { first_name: string; last_name?: string; email: string; password: string; phone?: string; role: string; business_name?: string; address?: string }, { rejectValue: string }>(
   "superAdmin/createUser",
   async (payload, { rejectWithValue }) => {
@@ -231,6 +252,34 @@ export const impersonateUserThunk = createAsyncThunk<{ token: string; refreshTok
       return res.data?.data ?? res.data;
     } catch (err: any) {
       return rejectWithValue(err?.message ?? "Failed");
+    }
+  }
+);
+
+// ── BRANCH OWNER SALON ASSIGNMENT ─────────────────────────────────────────────
+
+export const fetchBranchOwnerSalonsThunk = createAsyncThunk<any[], string, { rejectValue: string }>(
+  "superAdmin/fetchBranchOwnerSalons",
+  async (branchOwnerId, { rejectWithValue }) => {
+    try {
+      const res = await api.get(SUPER_ADMIN.BRANCH_OWNER_SALONS_GET(branchOwnerId));
+      const data = res.data?.data ?? res.data;
+      return Array.isArray(data) ? data : [];
+    } catch (err: any) {
+      return rejectWithValue(err?.response?.data?.error?.message ?? err?.message ?? "Failed to fetch assigned salons");
+    }
+  }
+);
+
+export const assignBranchOwnerSalonsThunk = createAsyncThunk<any[], { branchOwnerId: string; salonIds: string[] }, { rejectValue: string }>(
+  "superAdmin/assignBranchOwnerSalons",
+  async ({ branchOwnerId, salonIds }, { rejectWithValue }) => {
+    try {
+      const res = await api.put(SUPER_ADMIN.BRANCH_OWNER_SALONS_PUT(branchOwnerId), { salonIds });
+      const data = res.data?.data ?? res.data;
+      return Array.isArray(data) ? data : [];
+    } catch (err: any) {
+      return rejectWithValue(err?.response?.data?.error?.message ?? err?.message ?? "Failed to assign salons");
     }
   }
 );

@@ -5,18 +5,132 @@
   background: #f8f9fb;
 
   &__content {
-    padding: 14px 24px;
+    padding: 18px 24px 24px;
     max-width: 1600px;
+    // .main (the flex child this page renders inside — see DashboardLayout)
+    // keeps overflow-x: hidden and shrinks its own width when a sub-sidebar
+    // flyout (e.g. the Staff panel) is open. Without min-width: 0 here, this
+    // block defaults to its content's intrinsic width instead of respecting
+    // that shrunk .main, so the table below silently overflowed .main's edge
+    // and got clipped there — .sched-table's own overflow-x: auto (further
+    // down) never got the chance to become the actual horizontal scroll
+    // host, since nothing above it was ever narrower than its content.
+    min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
     margin: 0 auto;
   }
 
-  &__title {
-    font-size: 1rem;
-    font-weight: 700;
+  // ── Breadcrumb ────────────────────────────────────────────────────────────
+  &__breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 10px;
+    font-size: 0.8rem;
+  }
+
+  &__breadcrumb-link {
+    all: unset;
+    color: #6b7280;
+    cursor: pointer;
+    font-weight: 500;
+
+    &:hover {
+      color: #374151;
+      text-decoration: underline;
+    }
+  }
+
+  &__breadcrumb-sep {
+    color: #cbd5e1;
+    flex-shrink: 0;
+  }
+
+  &__breadcrumb-current {
     color: #111827;
-    margin: 0 0 10px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid #e5e7eb;
+    font-weight: 600;
+  }
+
+  // ── Heading row (title + Add Shift) ──────────────────────────────────────
+  &__heading-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-bottom: 18px;
+  }
+
+  &__title {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #0f172a;
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+
+  &__subtitle {
+    font-size: 0.85rem;
+    color: #6b7280;
+    margin: 4px 0 0;
+  }
+
+  &__heading-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+
+  &__now-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    border: 1px solid #e2e8f0;
+    border-radius: 999px;
+    background: #fff;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #334155;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+
+    svg { flex-shrink: 0; color: #94a3b8; }
+  }
+
+  &__now-pill-sep {
+    width: 1px;
+    height: 12px;
+    background: #e2e8f0;
+  }
+
+  &__now-pill-chevron {
+    color: #94a3b8;
+    margin-left: 2px;
+  }
+
+  &__add-shift-btn {
+    all: unset;
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 16px;
+    border-radius: 10px;
+    background: #0f172a;
+    color: #fff;
+    font-size: 0.84rem;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s;
+
+    svg { flex-shrink: 0; }
+
+    &:hover {
+      background: #1e293b;
+    }
   }
 
   &__controls {
@@ -25,7 +139,7 @@
     justify-content: space-between;
     flex-wrap: wrap;
     gap: 12px;
-    margin-bottom: 10px;
+    margin-bottom: 14px;
   }
 
   // ── Legend ──────────────────────────────────────────────────────────────────
@@ -39,10 +153,10 @@
   &__legend-item {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 3px 10px;
+    gap: 7px;
+    padding: 6px 14px;
     border-radius: 999px;
-    font-size: 0.72rem;
+    font-size: 0.78rem;
     font-weight: 600;
     border: 1px solid transparent;
 
@@ -80,19 +194,19 @@
   &__nav {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 6px;
   }
 
   &__nav-btn {
     all: unset;
     box-sizing: border-box;
-    width: 28px;
-    height: 28px;
+    width: 34px;
+    height: 34px;
     display: flex;
     align-items: center;
     justify-content: center;
-    border: 1px solid #e5e7eb;
-    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
     color: #6b7280;
     cursor: pointer;
     background: #fff;
@@ -106,29 +220,23 @@
       border-color: #d1d5db;
     }
 
-    &--today {
-      padding: 0 12px;
-      width: auto;
-      font-size: 0.78rem;
-      font-weight: 600;
-      color: #374151;
-    }
-
     &--date {
       width: auto;
-      padding: 0 12px;
-      font-size: 0.78rem;
-      font-weight: 600;
-      color: #1f2937;
+      gap: 8px;
+      padding: 0 14px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: #1e293b;
       background: #fff;
-      cursor: default;
-      min-width: 120px;
+      min-width: 150px;
       justify-content: center;
 
+      svg:first-child { color: #94a3b8; }
+      svg:last-child { color: #94a3b8; margin-left: 2px; }
+
       &:hover {
-        background: #fff;
-        color: #1f2937;
-        border-color: #e5e7eb;
+        background: #f8fafc;
+        border-color: #cbd5e1;
       }
     }
   }
@@ -153,66 +261,79 @@
 
 .sched-table {
   background: #fff;
-  border-radius: 10px;
+  border-radius: 14px;
   border: 1px solid #e5e7eb;
-  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.04);
   overflow-x: auto;        // horizontal scroll only — NO overflow:hidden so dropdowns aren't clipped
 
   &__el {
     width: 100%;
     border-collapse: collapse;
-    min-width: 720px;
+    // table-layout: fixed makes each column's declared width/min-width (on
+    // the header cells below) actually authoritative, and every row then
+    // follows those same column widths. Without this, the browser's default
+    // auto-layout sizes columns from cell CONTENT and treats % widths as
+    // mere hints — so the table just sat at its content's natural width
+    // (close to the min-width floor below) and never visibly shrank as the
+    // container narrowed; only table-layout: fixed lets it track the
+    // container fluidly and only fall back to min-width/scrolling once that
+    // floor is actually hit.
+    table-layout: fixed;
+    min-width: 620px;
     font-size: 0.875rem;
   }
 
-  // ── Header ───────────────────────────────────────────────────────────────────
+  // ── Header (light, matches the mockup) ──────────────────────────────────────
   &__head-row {
-    background: #1e293b;
+    background: #fff;
+    border-bottom: 1px solid #e5e7eb;
   }
 
   &__th-name {
     position: sticky;
     left: 0;
     z-index: 20;
-    background: #1e293b;
+    background: #fff;
     text-align: left;
-    padding: 8px 14px;
-    font-size: 0.75rem;
+    padding: 14px 14px;
+    font-size: 0.8rem;
     font-weight: 700;
-    color: #94a3b8;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    border-right: 1px solid #334155;
-    min-width: 150px;
-    border-radius: 10px 0 0 0;   // round top-left of the table
+    color: #111827;
+    border-right: 1px solid #f1f5f9;
+    // table-layout: fixed ignores min-width on cells — width is the only
+    // thing that matters once it's set, so the table's own min-width (see
+    // .sched-table__el) is what stops this column shrinking past readable,
+    // not a per-cell min-width here.
+    width: 16%;
+    border-radius: 14px 0 0 0;
   }
 
   &__th-date {
     text-align: center;
-    padding: 7px 6px;
-    border-right: 1px solid #334155;
-    min-width: 92px;
+    padding: 10px 6px;
+    border-right: 1px solid #f1f5f9;
+    width: 10.5%;
     vertical-align: middle;
   }
 
   &__th-date-val {
-    font-size: 0.8rem;
+    font-size: 0.82rem;
     font-weight: 700;
-    color: #f1f5f9;
+    color: #0f172a;
     line-height: 1.3;
   }
 
   &__th-date-day {
     font-size: 0.7rem;
-    font-weight: 400;
-    color: #64748b;
+    font-weight: 500;
+    color: #94a3b8;
     margin-top: 2px;
   }
 
   &__th-copy {
-    min-width: 74px;
+    width: 10.5%;
     border: none;
-    border-radius: 0 10px 0 0;  // round top-right of the table
+    border-radius: 0 14px 0 0;
   }
 
   // ── Body ─────────────────────────────────────────────────────────────────────
@@ -234,9 +355,8 @@
     left: 0;
     z-index: 10;
     background: #fff;
-    border-right: 1px solid #e5e7eb;
-    min-width: 150px;
-    max-width: 150px;
+    border-right: 1px solid #f1f5f9;
+    width: 16%;
     padding: 0;
     transition: background 0.12s;
   }
@@ -245,12 +365,12 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 6px 12px;
+    padding: 10px 12px;
   }
 
   &__avatar {
-    width: 28px;
-    height: 28px;
+    width: 30px;
+    height: 30px;
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -263,13 +383,13 @@
   }
 
   &__name {
-    font-size: 0.845rem;
-    font-weight: 600;
-    color: #1e293b;
-    flex: 1;
+    font-size: 0.86rem;
+    font-weight: 700;
+    color: #0f172a;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    min-width: 0;
   }
 
   &__inactive-badge {
@@ -308,7 +428,7 @@
     align-items: center;
     justify-content: center;
     border-radius: 6px;
-    color: #94a3b8;
+    color: #cbd5e1;
     cursor: pointer;
     flex-shrink: 0;
     transition: background 0.15s, color 0.15s;
@@ -325,8 +445,7 @@
     border-right: 1px solid #f1f5f9;
     padding: 0;
     vertical-align: top;
-    width: 92px;
-    min-width: 92px;
+    width: 10.5%;
   }
 
   &__td-copy {
@@ -341,13 +460,13 @@
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    padding: 4px 8px;
-    font-size: 0.7rem;
+    padding: 5px 10px;
+    font-size: 0.72rem;
     font-weight: 600;
     color: #475569;
     background: #fff;
     border: 1px solid #e2e8f0;
-    border-radius: 6px;
+    border-radius: 7px;
     cursor: pointer;
     white-space: nowrap;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
@@ -398,7 +517,7 @@
 .sched-cell {
   position: relative;
   width: 100%;
-  min-height: 50px;
+  min-height: 64px;
   cursor: pointer;
   transition: filter 0.12s;
 
@@ -442,7 +561,7 @@
     all: unset;
     box-sizing: border-box;
     width: 100%;
-    min-height: 50px;
+    min-height: 64px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -450,8 +569,8 @@
   }
 
   &__add-icon {
-    width: 22px;
-    height: 22px;
+    width: 24px;
+    height: 24px;
     border-radius: 50%;
     border: 1.5px solid #cbd5e1;
     display: flex;
@@ -474,8 +593,8 @@
     all: unset;
     box-sizing: border-box;
     position: absolute;
-    top: 5px;
-    right: 5px;
+    top: 6px;
+    right: 6px;
     width: 22px;
     height: 22px;
     display: flex;
@@ -495,29 +614,60 @@
     }
   }
 
-  // ── Time info ─────────────────────────────────────────────────────────────────
+  // ── Time info + status pill ──────────────────────────────────────────────────
   &__info {
-    padding: 6px 8px;
+    padding: 10px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
   }
 
-  &__time {
+  &__range {
+    display: flex;
+    align-items: center;
+    gap: 5px;
     font-size: 0.72rem;
     font-weight: 700;
     line-height: 1.3;
 
-    .sched-cell--working  & { color: #166534; }
-    .sched-cell--blocked  & { color: #9f1239; }
-    .sched-cell--dayoff   & { color: #92400e; }
+    .sched-cell--working  & { color: #14532d; }
+    .sched-cell--blocked  & { color: #881337; }
+    .sched-cell--dayoff   & { color: #78350f; }
   }
 
-  &__hours {
-    font-size: 0.66rem;
-    font-weight: 500;
-    margin-top: 2px;
+  &__off-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #f59e0b;
+    flex-shrink: 0;
+  }
 
-    .sched-cell--working  & { color: #16a34a; }
-    .sched-cell--blocked  & { color: #e11d48; }
-    .sched-cell--dayoff   & { color: #d97706; }
+  &__pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    align-self: flex-start;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 0.63rem;
+    font-weight: 700;
+    white-space: nowrap;
+
+    .sched-cell--working  & { background: #dcfce7; color: #15803d; }
+    .sched-cell--blocked  & { background: #ffe4e6; color: #be123c; }
+    .sched-cell--dayoff   & { background: #fef9c3; color: #a16207; }
+  }
+
+  &__pill-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+
+    .sched-cell--working  & { background: #22c55e; }
+    .sched-cell--blocked  & { background: #ef4444; }
+    .sched-cell--dayoff   & { background: #facc15; }
   }
 }
 
@@ -552,88 +702,122 @@
 }
 
 // ── Pagination ─────────────────────────────────────────────────────────────────
+// Uses the shared components/ui/Pagination component (see ScheduledShiftsPage)
+// instead of page-specific markup/classes — its own styles live in
+// components/ui/styles/Pagination.scss. This just places it under the table.
 
-.sched-pagination {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 8px;
-  padding: 8px 4px;
-  border-top: 1px solid #e5e7eb;
+.sched-table-wrap {
+  min-width: 0;
+  transition: opacity 0.15s;
 
-  &__info {
-    font-size: 0.82rem;
-    color: #6b7280;
-
-    strong {
-      color: #1e293b;
-      font-weight: 600;
-    }
+  &--loading {
+    opacity: 0.5;
+    pointer-events: none;
   }
+}
 
-  &__controls {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-  }
-
-  &__btn {
-    all: unset;
-    box-sizing: border-box;
-    min-width: 30px;
-    height: 30px;
-    padding: 0 8px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.8rem;
-    font-weight: 500;
-    color: #374151;
-    background: #fff;
-    border: 1px solid #e5e7eb;
-    border-radius: 7px;
-    cursor: pointer;
-    transition: background 0.15s, border-color 0.15s, color 0.15s;
-
-    svg { display: block; pointer-events: none; }
-
-    &:hover:not(:disabled) {
-      background: #f1f5f9;
-      border-color: #cbd5e1;
-      color: #111827;
-    }
-
-    &:disabled {
-      opacity: 0.4;
-      cursor: not-allowed;
-    }
-
-    &--active {
-      background: #1e293b;
-      border-color: #1e293b;
-      color: #fff;
-      font-weight: 700;
-
-      &:hover:not(:disabled) {
-        background: #1e293b;
-        border-color: #1e293b;
-        color: #fff;
-      }
-    }
-  }
-
-  &__ellipsis {
-    min-width: 28px;
-    text-align: center;
-    font-size: 0.8rem;
-    color: #9ca3af;
-    user-select: none;
-  }
+.sched-page__pagination {
+  margin-top: 10px;
 }
 
 // ── Keyframes ────────────────────────────────────────────────────────────────
 @keyframes schedSpin {
   to { transform: rotate(360deg); }
+}
+
+// ── Responsive ─────────────────────────────────────────────────────────────────
+// The weekly grid itself stays a horizontally-scrollable table with a sticky
+// Staff Member column at every width — stacking 7 day-columns vertically on
+// mobile would make comparing a staff member's week across days unreadable,
+// so scrolling the same grid sideways (thumb-swipe on touch) is the better
+// fit here than a second, cut-down mobile layout. Everything below only
+// tightens the header controls (breadcrumb/title/Add Shift/legend/nav) and
+// the table's own padding/font sizes so they don't feel oversized once the
+// grid needs its horizontal scrollbar.
+@media (max-width: 900px) {
+  .sched-page {
+    &__content {
+      padding: 14px 16px 20px;
+    }
+
+    &__title {
+      font-size: 1.25rem;
+    }
+
+    &__heading-row {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    &__heading-right {
+      flex-wrap: wrap;
+    }
+
+    &__now-pill {
+      flex: 1;
+      justify-content: center;
+    }
+
+    &__add-shift-btn {
+      flex: 1;
+      justify-content: center;
+    }
+
+    &__controls {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    &__legend {
+      justify-content: flex-start;
+    }
+
+    &__nav {
+      justify-content: space-between;
+    }
+
+    &__nav-btn--date {
+      flex: 1;
+      min-width: 0;
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .sched-page {
+    &__now-pill,
+    &__add-shift-btn {
+      font-size: 0.78rem;
+      padding: 8px 12px;
+    }
+
+    &__legend-item {
+      padding: 5px 10px;
+      font-size: 0.72rem;
+    }
+
+    &__nav-btn {
+      width: 30px;
+      height: 30px;
+    }
+  }
+
+  .sched-table {
+    &__el {
+      // table-layout: fixed ignores per-cell min-width — this table-level
+      // min-width is the only floor that matters; below it .sched-table's
+      // own overflow-x: auto takes over.
+      min-width: 500px;
+      font-size: 0.82rem;
+    }
+  }
+
+  .sched-cell {
+    min-height: 56px;
+
+    &__add,
+    &__add-icon {
+      min-height: 56px;
+    }
+  }
 }

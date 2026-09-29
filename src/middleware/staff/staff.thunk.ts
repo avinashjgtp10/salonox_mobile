@@ -15,27 +15,53 @@ export const fetchStaffThunk = createAsyncThunk<
   Staff[],
   void,
   { rejectValue: string }
->("staff/fetchAll", async (_, { rejectWithValue, getState }) => {
-  const state = getState() as any;
-  const salonId = state.salon?.currentSalon?.id;
-  const params = new URLSearchParams();
-  if (salonId) params.set("salon_id", String(salonId));
-  const url = `${STAFF.BASE}?${params.toString()}`;
+>("staff/fetchAll", async (_, { rejectWithValue }) => {
+  // salon_id is derived server-side from the authenticated JWT
+  // (getSalonId(req)) — not sent here, so a client-manipulated query param
+  // can never shadow the authenticated salon.
+  //
+  // This asked for GET /staff with NO query params, which meant it silently
+  // got only the first page — staffRepository.list defaults to limit 50. Every
+  // consumer of this thunk wants the WHOLE roster (the Calendar's staff
+  // columns, Quick Sale, the package staff picker, every report's staff filter
+  // dropdown), so a salon with more than 50 staff was missing the rest
+  // everywhere, with no indication why: before the ordering fix the page was
+  // created_at DESC, so it was the 50 most recently added who showed and the
+  // established staff who vanished. Now it pages through to the end, using the
+  // `total` the endpoint already returns rather than a hardcoded ceiling.
+  // (StaffListPage does its own paginated fetch and is unaffected.)
+  const PAGE_SIZE = 200;
+  const pageUrl = (page: number) => `${STAFF.BASE}?page=${page}&limit=${PAGE_SIZE}`;
 
   // Auto-retry twice — this is the primary Team Members list, and a single
   // failed attempt (the DB connection has occasional transient blips) would
   // otherwise show "No team members yet" for a salon that actually has staff,
   // with no automatic recovery since the next poll is 30s away.
-  const attempt = (n: number): Promise<any> =>
+  const attempt = (n: number, url: string): Promise<any> =>
     api.get<any>(url).catch((e: any) => {
       if (n <= 0) throw e;
-      return new Promise((resolve) => setTimeout(resolve, 600)).then(() => attempt(n - 1));
+      return new Promise((resolve) => setTimeout(resolve, 600)).then(() => attempt(n - 1, url));
     });
 
-  try {
-    const res = await attempt(2);
-    const data = res.data?.data;
+  // Tolerates both response shapes the old code did: {items, pagination} and a
+  // bare array (no pagination metadata — then one page is all there is).
+  const itemsOf = (res: any): any[] => {
+    const data = res?.data?.data;
     return Array.isArray(data?.items) ? data.items : (Array.isArray(data) ? data : []);
+  };
+
+  try {
+    const first = await attempt(2, pageUrl(1));
+    const items = itemsOf(first);
+    const total = Number(first?.data?.data?.pagination?.total ?? items.length);
+    if (!Number.isFinite(total) || items.length >= total) return items;
+
+    // Remaining pages in parallel — the count is small (470 staff, the largest
+    // roster on record, is two extra requests) and they're independent.
+    const rest = await Promise.all(
+      Array.from({ length: Math.ceil(total / PAGE_SIZE) - 1 }, (_, i) => attempt(2, pageUrl(i + 2))),
+    );
+    return items.concat(...rest.map(itemsOf));
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);
     return rejectWithValue("Failed to fetch staff");

@@ -20,10 +20,6 @@ export const loginThunk = createAsyncThunk<
   try {
     const payload: LoginPayload = { email, password };
     const res = await api.post<LoginResponse>(AUTH.LOGIN, payload);
-    if (import.meta.env.DEV) {
-      console.log("[Auth] Login response user:", res.data.data.user);
-      console.log("[Auth] custom_permissions from login:", res.data.data.user?.custom_permissions ?? "NOT IN RESPONSE");
-    }
     return res.data.data;
   } catch (err: any) {
     if (err instanceof ApiError) {

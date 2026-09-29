@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useSelector as useReduxSelector } from "react-redux";
 import { X, Search, Printer, InfoCircle, ChevronDown } from "react-bootstrap-icons";
-import api from "../../../services/api/axios";
-import { SERVICES } from "../../../services/api/endpoints/services.endpoints";
 import type { Service } from "../types/catalog.types";
+import { fetchAllActiveServices, groupByCategory } from "../utils/serviceSelection";
 import { useAppSelector, useAppDispatch } from "../../../hooks/useAppRedux";
+import { usePermissions } from "../../../hooks/usePermissions";
+import { showPermissionDenied } from "../../../store/permissionDialogSlice";
 import { selectCurrentSalon } from "../../../store/selectors/slices.selectors";
 import { fetchSettingsThunk } from "../../../middleware/setting/setting.thunk";
 import { getActiveTaxes } from "../../settings/utils/taxSettings";
@@ -19,60 +20,6 @@ import {
 
 interface Props {
   onClose: () => void;
-}
-
-interface ServicesListPayload {
-  data: Service[];
-  pagination?: { total_pages?: number };
-}
-interface ServicesListResponse {
-  data?: Service[] | ServicesListPayload;
-  pagination?: { total_pages?: number };
-}
-
-// Independent of the main Service Menu table's own paginated Redux state
-// (useServices()/fetchServicesThunk) — fetching "all services" through that
-// shared slice would overwrite whatever page/filters the owner has open
-// behind this modal. Mirrors ServicesListPage.tsx's own
-// fetchFilteredServicesForExport, minus the search/category filters (the
-// picker below shows the FULL active catalog regardless of what's currently
-// filtered on the page — a menu card is a deliberate, separate curation).
-async function fetchAllActiveServices(): Promise<Service[]> {
-  const all: Service[] = [];
-  let page = 1;
-  let totalPages = 1;
-
-  while (page <= totalPages) {
-    const res = await api.get(SERVICES.LIST(`page=${page}&limit=200&is_active=true`));
-    const responseData = res.data as ServicesListResponse;
-    const payload = responseData?.data;
-
-    if (Array.isArray(payload)) {
-      all.push(...payload);
-      totalPages = responseData.pagination?.total_pages ?? totalPages;
-      page += 1;
-      continue;
-    }
-    if (payload && Array.isArray(payload.data)) {
-      all.push(...payload.data);
-      totalPages = payload.pagination?.total_pages ?? totalPages;
-      page += 1;
-      continue;
-    }
-    break;
-  }
-
-  return all;
-}
-
-function groupByCategory(services: Service[]): { category: string; services: Service[] }[] {
-  const map = new Map<string, Service[]>();
-  services.forEach((s) => {
-    const key = s.category_name?.trim() || "Other Services";
-    if (!map.has(key)) map.set(key, []);
-    map.get(key)!.push(s);
-  });
-  return Array.from(map.entries()).map(([category, services]) => ({ category, services }));
 }
 
 const TEXT_SIZE_OPTIONS: { id: string; label: string; scale: number }[] = [
@@ -158,6 +105,7 @@ const PrintMenuCardModal: React.FC<Props> = ({ onClose }) => {
   const currentSalon = useReduxSelector(selectCurrentSalon);
   const { formatAmount } = useCurrency();
   const dispatch = useAppDispatch();
+  const { can } = usePermissions();
   const settingItems = useAppSelector((s) => s.setting.items);
 
   useEffect(() => { if (settingItems.length === 0) dispatch(fetchSettingsThunk()); }, [dispatch, settingItems.length]);
@@ -263,6 +211,14 @@ const PrintMenuCardModal: React.FC<Props> = ({ onClose }) => {
 
   const handlePrint = () => {
     if (!canPrint) return;
+    // Entirely client-side (window.print()) — no backend call to deny, so
+    // this is the only enforcement point print_menu_card has.
+    if (!can("print_menu_card")) {
+      dispatch(showPermissionDenied(
+        `Your account does not have the "print_menu_card" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+      ));
+      return;
+    }
     const html = buildMenuCardDocument({ services: selectedServices, salon: currentSalon, templateId, gstPercent, formatAmount, fontScale }, true);
     openMenuCardPrintWindow(html);
   };

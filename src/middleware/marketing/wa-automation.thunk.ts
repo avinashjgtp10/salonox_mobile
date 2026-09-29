@@ -92,6 +92,25 @@ export const syncPurchaseTemplateThunk = createAsyncThunk<
   }
 );
 
+export const sendPurchaseTemplateTestThunk = createAsyncThunk<
+  { sent: boolean; status: string; failure_reason: string | null },
+  { salonId: string; eventType: string; phone: string },
+  { rejectValue: string }
+>(
+  "marketing/sendPurchaseTemplateTest",
+  async ({ salonId, eventType, phone }, { rejectWithValue }) => {
+    try {
+      const res = await api.post<{ data: { sent: boolean; status: string; failure_reason: string | null } }>(
+        WA_AUTOMATION.PURCHASE_TEMPLATE_TEST_SEND(salonId, eventType), { phone }
+      );
+      return res.data.data;
+    } catch (err: any) {
+      if (err instanceof ApiError) return rejectWithValue(err.message);
+      return rejectWithValue("Failed to send test message");
+    }
+  }
+);
+
 // ── Per-event automation on/off ───────────────────────────────────────────────
 // A row is only written once an event has been explicitly toggled, and the
 // backend reads a MISSING row as enabled — so the fetch returns a partial

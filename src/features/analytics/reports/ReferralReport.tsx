@@ -197,6 +197,7 @@ export default function ReferralReport({ onBack, category, categoryKey }: { onBa
               title={REPORT_NAME}
               headers={HEADERS}
               rows={exportRows}
+              reportId="referral_report"
               filename={`referral-report-${dateFrom}-${dateTo}`}
               variant="button"
               csv

@@ -1,22 +1,16 @@
 import { createSlice } from "@reduxjs/toolkit";
 import {
-  fetchDashboardAll,
+  fetchDashboardCombined,
   fetchRevenueChart,
-  fetchStaffRevenue,
 } from "../middleware/dashboard/dashboard.thunk";
-import type { DashboardAllResponse, StaffRevenueEntry } from "../middleware/dashboard/dashboard.thunk";
+import type { DashboardCombinedResponse } from "../middleware/dashboard/dashboard.thunk";
 
 interface DashboardState {
-  data: DashboardAllResponse | null;
-  loading: boolean;       // full-page initial load
-  chartLoading: boolean;  // chart-only reload on period change
+  data: DashboardCombinedResponse | null;
+  loading: boolean;       // full-page initial load (also covers Overall Collection filter changes)
+  chartLoading: boolean;  // chart-only reload on period/gender change
   error: string | null;
   chartError: string | null;
-  // Staff Revenue card — its own period filter, independent of the Revenue
-  // Trend chart above, so it gets its own slice of state.
-  staffRevenue: StaffRevenueEntry[];
-  staffRevenueLoading: boolean;
-  staffRevenueError: string | null;
 }
 
 const initialState: DashboardState = {
@@ -25,9 +19,6 @@ const initialState: DashboardState = {
   chartLoading: false,
   error: null,
   chartError: null,
-  staffRevenue: [],
-  staffRevenueLoading: false,
-  staffRevenueError: null,
 };
 
 const dashboardSlice = createSlice({
@@ -35,22 +26,23 @@ const dashboardSlice = createSlice({
   initialState,
   reducers: {},
   extraReducers: (builder) => {
-    // ── Full dashboard load ────────────────────────────────────────────────────
+    // ── Combined dashboard load (summary, today's appointments, chart,
+    // pending payments, birthdays, Overall Collection) ────────────────────────
     builder
-      .addCase(fetchDashboardAll.pending, (state) => {
+      .addCase(fetchDashboardCombined.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
-      .addCase(fetchDashboardAll.fulfilled, (state, action) => {
+      .addCase(fetchDashboardCombined.fulfilled, (state, action) => {
         state.loading = false;
         state.data = action.payload;
       })
-      .addCase(fetchDashboardAll.rejected, (state, action) => {
+      .addCase(fetchDashboardCombined.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload as string;
       });
 
-    // ── Chart-only reload (period filter) ─────────────────────────────────────
+    // ── Chart-only reload (Revenue Overview's own period/gender filter) ───────
     builder
       .addCase(fetchRevenueChart.pending, (state) => {
         state.chartLoading = true;
@@ -66,21 +58,6 @@ const dashboardSlice = createSlice({
       .addCase(fetchRevenueChart.rejected, (state, action) => {
         state.chartLoading = false;
         state.chartError = action.payload as string;
-      });
-
-    // ── Staff Revenue card (own period filter) ─────────────────────────────────
-    builder
-      .addCase(fetchStaffRevenue.pending, (state) => {
-        state.staffRevenueLoading = true;
-        state.staffRevenueError = null;
-      })
-      .addCase(fetchStaffRevenue.fulfilled, (state, action) => {
-        state.staffRevenueLoading = false;
-        state.staffRevenue = action.payload;
-      })
-      .addCase(fetchStaffRevenue.rejected, (state, action) => {
-        state.staffRevenueLoading = false;
-        state.staffRevenueError = action.payload as string;
       });
   },
 });

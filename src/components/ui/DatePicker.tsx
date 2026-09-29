@@ -193,6 +193,11 @@ export function DatePickerPanel({
 // breathing room, used to decide which edge to anchor to before the panel
 // itself has mounted.
 const PANEL_WIDTH = 268;
+// Approximate rendered height (padding + month/year row + day-name row +
+// 6-row day grid + footer) — the panel isn't mounted yet when this decision
+// is made, so this is an estimate, deliberately padded a little high rather
+// than cutting it close.
+const PANEL_HEIGHT_ESTIMATE = 360;
 
 export default function DatePicker({
   value, onChange, placeholder = "Select date", min, max, disabled = false, className = "", separator = "/",
@@ -219,7 +224,18 @@ export default function DatePicker({
     const left = rect.left + PANEL_WIDTH > window.innerWidth - 8
       ? Math.max(8, rect.right - PANEL_WIDTH)
       : rect.left;
-    setCoords({ top: rect.bottom + 6, left });
+    // Flip to open above the trigger when there isn't enough room below it
+    // — e.g. Quick Sale's Edit Client "Date of Birth" field, which sits low
+    // enough in that modal that opening downward ran the panel past the
+    // modal's own footer (Save/Cancel) and, on shorter screens, past the
+    // bottom of the viewport itself. Only flips when there's actually more
+    // room above than below would need — otherwise falls back to the usual
+    // below placement rather than picking a worse spot.
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const top = spaceBelow < PANEL_HEIGHT_ESTIMATE && rect.top > PANEL_HEIGHT_ESTIMATE
+      ? Math.max(8, rect.top - PANEL_HEIGHT_ESTIMATE - 6)
+      : rect.bottom + 6;
+    setCoords({ top, left });
   };
 
   useEffect(() => {
@@ -269,7 +285,12 @@ export default function DatePicker({
       </button>
 
       {open && coords && createPortal(
-        <div ref={panelRef} style={{ position: "fixed", top: coords.top, left: coords.left, zIndex: 2000 }}>
+        // Must outrank any modal overlay this trigger can sit inside — several
+        // pages (e.g. SubscriptionPermissionsPage) use ad-hoc fixed-position
+        // modals at z-index 9998/9999, which previously sat on top of this
+        // panel and made the calendar invisible/unclickable when opened from
+        // inside one.
+        <div ref={panelRef} style={{ position: "fixed", top: coords.top, left: coords.left, zIndex: 100000 }}>
           {/* Remounted per open (key on `value`) so the grid always re-seeds
               to the current selection rather than wherever it was left
               last time. */}

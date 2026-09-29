@@ -3,6 +3,8 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import type { AppDispatch } from "../../../store/store";
 import { deactivateStaffThunk, activateStaffThunk } from "../../../middleware/staff/staff.thunk";
+import { usePermissions } from "../../../hooks/usePermissions";
+import { showPermissionDenied } from "../../../store/permissionDialogSlice";
 import {
   ArrowLeft, PencilSquare, PersonX, PersonCheck, TelephoneFill, Calendar2Check,
   GraphUp, CashCoin, ClockHistory, Scissors, CreditCard2Front,
@@ -245,10 +247,9 @@ const TABS = [
   { key: "sales",      label: "Sales" },
   { key: "commission", label: "Commission" },
   { key: "attendance", label: "Attendance" },
-  { key: "payroll",    label: "Payroll" },
   { key: "notes",      label: "Notes & Feedback" },
 ] as const;
-type TabKey = typeof TABS[number]["key"];
+export type TabKey = typeof TABS[number]["key"];
 
 const TAB_PAGE_SIZE = 10;
 
@@ -970,7 +971,6 @@ function AttendanceTab({ staffId }: { staffId: string }) {
             options={[
               { id: "all", name: "All Statuses" },
               { id: "present", name: "Present" },
-              { id: "late", name: "Late" },
               { id: "half_day", name: "Half Day" },
               { id: "absent", name: "Absent" },
               { id: "on_leave", name: "On Leave" },
@@ -1016,14 +1016,19 @@ function AttendanceTab({ staffId }: { staffId: string }) {
   );
 }
 
-// ─── Main page ───────────────────────────────────────────────────────────────
+// ─── Shared content — the staff header + tabs, reused by both the full page
+// below and StaffHistoryModal.tsx (opened as a popup from the Staff
+// Performance report instead of navigating away) ─────────────────────────────
 
-export default function StaffHistoryDetailPage() {
-  const { staffId } = useParams<{ staffId: string }>();
+export function StaffHistoryContent({ staffId, initialTab = "overview" }: { staffId: string; initialTab?: TabKey }) {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
+  const { can } = usePermissions();
+  const denyPerm = (permKey: string) => dispatch(showPermissionDenied(
+    `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+  ));
 
-  const [activeTab, setActiveTab] = useState<TabKey>("overview");
+  const [activeTab, setActiveTab] = useState<TabKey>(initialTab);
   const [busy, setBusy] = useState(false);
 
   const { data: staff, loading: staffLoading, error: staffError, retry: retryStaff } = useFetch<StaffDetail | null>(
@@ -1071,13 +1076,14 @@ export default function StaffHistoryDetailPage() {
   const attendancePct = {
     loading: attendanceForPct.loading, error: attendanceForPct.error,
     value: attendanceForPct.data.length === 0 ? null : Math.round(
-      (attendanceForPct.data.filter((a) => a.status === "present" || a.status === "late").length / attendanceForPct.data.length) * 100
+      (attendanceForPct.data.filter((a) => a.status === "present").length / attendanceForPct.data.length) * 100
     ),
     retry: attendanceForPct.retry,
   };
 
   async function toggleActive() {
     if (!staff) return;
+    if (!can("deactivate_staff")) { denyPerm("deactivate_staff"); return; }
     setBusy(true);
     try {
       if (staff.is_active === false) await dispatch(activateStaffThunk(staff.id)).unwrap();
@@ -1087,14 +1093,8 @@ export default function StaffHistoryDetailPage() {
     finally { setBusy(false); }
   }
 
-  if (!staffId) return null;
-
   return (
-    <div className="shp-page">
-      <button className="shp-back" onClick={() => navigate("/dashboard/team/history")}>
-        <ArrowLeft size={14} /> Back to Staff
-      </button>
-
+    <>
       {staffLoading ? (
         <LoadingState />
       ) : staffError || !staff ? (
@@ -1126,10 +1126,22 @@ export default function StaffHistoryDetailPage() {
               </div>
             </div>
             <div className="shp-header__actions">
-              <button className="shp-btn shp-btn--outline" onClick={() => navigate(`/dashboard/team/${staff.id}`)}>
+              <button
+                className="shp-btn shp-btn--outline"
+                style={!can("edit_team_member") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                onClick={() => {
+                  if (!can("edit_team_member")) { denyPerm("edit_team_member"); return; }
+                  navigate(`/dashboard/team/${staff.id}`);
+                }}
+              >
                 <PencilSquare size={14} /> Edit Staff
               </button>
-              <button className="shp-btn shp-btn--danger" onClick={toggleActive} disabled={busy}>
+              <button
+                className="shp-btn shp-btn--danger"
+                style={!can("deactivate_staff") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                onClick={toggleActive}
+                disabled={busy}
+              >
                 {staff.is_active === false ? <PersonCheck size={14} /> : <PersonX size={14} />}
                 {staff.is_active === false ? "Activate" : "Deactivate"}
               </button>
@@ -1167,17 +1179,28 @@ export default function StaffHistoryDetailPage() {
             {activeTab === "sales"      && <SalesTab staffId={staff.id} />}
             {activeTab === "commission" && <CommissionTab staffId={staff.id} />}
             {activeTab === "attendance" && <AttendanceTab staffId={staff.id} />}
-            {activeTab === "payroll" && (
-              <EmptyState
-                icon={<Wallet2 size={26} />}
-                text="Payroll history isn't tracked in the backend yet."
-                note="The Payroll page isn't wired to any real payroll history data yet, so there's nothing to show here yet."
-              />
-            )}
             {activeTab === "notes" && <ReviewsTab staffId={staff.id} />}
           </div>
         </>
       )}
+    </>
+  );
+}
+
+// ─── Full page — thin wrapper: back-navigation + the shared content above ──
+
+export default function StaffHistoryDetailPage() {
+  const { staffId } = useParams<{ staffId: string }>();
+  const navigate = useNavigate();
+
+  if (!staffId) return null;
+
+  return (
+    <div className="shp-page">
+      <button className="shp-back" onClick={() => navigate("/dashboard/team/history")}>
+        <ArrowLeft size={14} /> Back to Staff
+      </button>
+      <StaffHistoryContent staffId={staffId} />
     </div>
   );
 }

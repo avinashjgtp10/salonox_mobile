@@ -1,0 +1,477 @@
+.bod-page {
+  padding: 28px 28px 40px;
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  max-width: 1440px;
+}
+
+/* ── Header ── */
+.bod-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.bod-title {
+  margin: 0;
+  font-size: 23px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.3px;
+}
+
+.bod-salon-count {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 8px 14px;
+
+  &__dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #10b981;
+  }
+
+  &__label {
+    color: #64748b;
+    font-size: 12.5px;
+    font-weight: 500;
+  }
+}
+
+/* ── Layout grid ── */
+.bod-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 20px;
+  align-items: start;
+
+  @media (max-width: 960px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.bod-main-col {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.bod-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* ── Card shell reused everywhere ── */
+.bod-card {
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.04);
+}
+
+.bod-card--padded {
+  padding: 20px 22px;
+}
+
+.bod-card-head {
+  padding: 16px 20px;
+  border-bottom: 1px solid #f1f5f9;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.bod-card-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.bod-empty {
+  padding: 32px;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 13px;
+}
+
+/* ── KPI cards ── */
+.bod-kpi-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+
+  @media (max-width: 700px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.bod-kpi-row--five {
+  grid-template-columns: repeat(5, 1fr);
+
+  @media (max-width: 1180px) {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  @media (max-width: 700px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.bod-kpi-card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 18px 20px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.bod-kpi-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.bod-kpi-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bod-kpi-trend {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 20px;
+  border: 1px solid transparent;
+
+  &--up {
+    background: #f0fdf4;
+    color: #16a34a;
+    border-color: #bbf7d0;
+  }
+
+  &--down {
+    background: #fef2f2;
+    color: #dc2626;
+    border-color: #fecaca;
+  }
+}
+
+.bod-kpi-label {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: 3px;
+}
+
+.bod-kpi-value {
+  color: #0f172a;
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.4px;
+}
+
+.bod-kpi-sub {
+  color: #94a3b8;
+  font-size: 11px;
+  margin-top: 4px;
+}
+
+/* ── Revenue chart card ── */
+.bod-chart-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.bod-chart-period-tabs {
+  margin-bottom: 14px;
+}
+
+.bod-chart-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.bod-chart-subtitle {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.bod-chart-trend {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 20px;
+
+  &--up {
+    background: #f0fdf4;
+    color: #16a34a;
+  }
+
+  &--down {
+    background: #fef2f2;
+    color: #dc2626;
+  }
+}
+
+/* ── Quick Actions ── */
+.bod-quick-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.bod-quick-action {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px 10px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  cursor: pointer;
+  transition: background 0.15s;
+
+  &:hover { background: #f8fafc; }
+}
+
+.bod-quick-action-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bod-quick-action-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #0f172a;
+  text-align: center;
+}
+
+/* ── Needs Attention ── */
+.bod-attention-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 16px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  border-top: 1px solid #f1f5f9;
+
+  &:hover { background: #f8fafc; }
+}
+
+.bod-attention-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.bod-attention-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.bod-attention-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.bod-attention-desc {
+  font-size: 11.5px;
+  color: #94a3b8;
+}
+
+.bod-attention-count {
+  font-size: 13px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.bod-attention-chevron {
+  color: #cbd5e1;
+}
+
+.bod-attention-empty {
+  padding: 24px 16px 20px;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 12.5px;
+}
+
+/* ── Modal (salon picker) ── */
+.bod-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bod-modal {
+  background: #fff;
+  border-radius: 14px;
+  padding: 24px 28px;
+  max-width: 380px;
+  width: 90%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
+}
+
+.bod-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.bod-modal-title {
+  font-weight: 700;
+  font-size: 16px;
+  color: #0f172a;
+}
+
+.bod-modal-close {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: #94a3b8;
+}
+
+.bod-modal-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #374151;
+  display: block;
+  margin-bottom: 6px;
+}
+
+.bod-modal-dropdown {
+  width: 100%;
+  padding: 10px 13px;
+  border-radius: 10px;
+  border: 1.5px solid #e2e8f0;
+  font-size: 13.5px;
+  background: #fff;
+  margin-bottom: 18px;
+}
+
+.bod-modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.bod-btn-secondary {
+  padding: 8px 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1.5px solid #e2e8f0;
+  background: #fff;
+  color: #374151;
+  cursor: pointer;
+}
+
+.bod-btn-primary {
+  padding: 8px 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  background: #6366f1;
+  color: #fff;
+  cursor: pointer;
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+}
+
+.bod-quick-actions-card {
+  padding: 18px;
+}
+
+.bod-quick-actions-title {
+  margin-bottom: 14px;
+}
+
+.bod-attention-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 16px 12px;
+
+  .bod-card-title { padding: 0; }
+}
+
+.bod-attention-viewall {
+  border: none;
+  background: transparent;
+  color: #6366f1;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+
+  &:hover { text-decoration: underline; }
+}
+
+.bod-attention-list {
+  padding-bottom: 6px;
+}
+
+.bod-toast {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: #0f172a;
+  color: #fff;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-size: 12.5px;
+  font-weight: 600;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}

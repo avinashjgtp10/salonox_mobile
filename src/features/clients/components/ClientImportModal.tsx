@@ -47,7 +47,7 @@ const FIELDS: FieldDef[] = [
   { key: "email", label: "Email", type: "text", hint: "" },
   { key: "mobile", label: "Mobile number", required: true, type: "text", hint: "Required. 10 digits." },
   { key: "hasWhatsapp", label: "Available on WhatsApp", type: "boolean", hint: "Yes/No — default Yes." },
-  { key: "gender", label: "Gender", required: true, type: "text", hint: "Required. Male / Female / Other." },
+  { key: "gender", label: "Gender", type: "text", hint: "Optional. Male / Female / Other." },
   { key: "clientSource", label: "Client source", type: "text", hint: "e.g. Walk-in, Instagram, Google." },
   { key: "birthday", label: "Birthday", type: "text", hint: "YYYY-MM-DD or DD-MM-YYYY." },
   { key: "anniversary", label: "Anniversary", type: "text", hint: "YYYY-MM-DD or DD-MM-YYYY." },
@@ -104,8 +104,8 @@ interface Props {
 
 const SAMPLE_COLUMNS: FieldKey[] = FIELDS.map((f) => f.key);
 
-// Two example rows — the second leaves every optional field blank to make
-// clear only First name/Mobile/Gender are actually required.
+// Two example rows — the second leaves every optional field (including
+// Gender) blank to make clear only First name/Mobile are actually required.
 const SAMPLE_ROWS: Record<FieldKey, string>[] = [
   {
     firstName: "John", lastName: "Doe", email: "john@example.com", mobile: "9876543210",
@@ -120,7 +120,7 @@ const SAMPLE_ROWS: Record<FieldKey, string>[] = [
   },
   {
     firstName: "Jane", lastName: "Smith", email: "jane@example.com", mobile: "8765432109",
-    hasWhatsapp: "", gender: "Female", clientSource: "",
+    hasWhatsapp: "", gender: "", clientSource: "",
     birthday: "", anniversary: "",
     gstNumber: "", state: "", address: "", zipCode: "",
     clientCode: "", identificationNumber: "",
@@ -240,17 +240,19 @@ function parseDateToISO(raw: string): string | null {
   return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
 
-// Validates the required-field/format rules the Client Add/Edit form itself
-// enforces (AddClientPage.tsx's handleSave) — first name, a 10-digit mobile,
-// gender, and (only when present) a valid email/GSTIN/birthday-not-in-future/
-// additional-mobile. Duplicates against existing clients in the database are
-// still caught by the backend and surfaced as "Failed" rows from its response.
+// Validates the required-field/format rules for import — first name, a
+// 10-digit mobile, and (only when present) a valid email/GSTIN/
+// birthday-not-in-future/additional-mobile. Gender is deliberately NOT
+// required here even though the manual Add/Edit form (AddClientPage.tsx's
+// handleSave) still requires it — bulk import files commonly don't carry
+// gender for every row, and it's stored as nullable. Duplicates against
+// existing clients in the database are still caught by the backend and
+// surfaced as "Failed" rows from its response.
 function validateRow(row: ImportRow, seenEmails?: Set<string>): string | null {
   if (!row.firstName.trim()) return "First name is required.";
   if (!row.mobile.trim()) return "Mobile number is required.";
   const digits = row.mobile.replace(/\D/g, "");
   if (!/^\d{10}$/.test(digits)) return "Enter a valid 10-digit mobile number.";
-  if (!row.gender.trim()) return "Gender is required.";
 
   if (row.email.trim()) {
     if (!EMAIL_REGEX.test(row.email.trim())) return "Enter a valid email address.";

@@ -66,6 +66,32 @@ const fmtLabel = (iso: string) => {
   return `${dd}/${mm}/${d.getFullYear()}`;
 };
 
+// Digits-only progressive formatter for the From/To text inputs — turns
+// whatever's typed (or pasted) into "DD/MM/YYYY", inserting the slashes as
+// the user goes rather than requiring them to type separators themselves.
+const formatDateInput = (raw: string): string => {
+  const digits = raw.replace(/\D/g, "").slice(0, 8);
+  const parts: string[] = [];
+  if (digits.length > 0) parts.push(digits.slice(0, 2));
+  if (digits.length > 2) parts.push(digits.slice(2, 4));
+  if (digits.length > 4) parts.push(digits.slice(4, 8));
+  return parts.join("/");
+};
+
+// Strict "DD/MM/YYYY" -> "YYYY-MM-DD", rejecting both malformed strings and
+// real-but-nonexistent dates (e.g. 31/02/2026) — a naive `new Date(y,m,d)`
+// silently rolls those over into the next month instead of erroring, which
+// would make a mistyped date apply as a different, wrong one.
+const parseTypedDate = (text: string): string | null => {
+  const m = text.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (!m) return null;
+  const day = Number(m[1]), month = Number(m[2]), year = Number(m[3]);
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+  const d = new Date(year, month - 1, day);
+  if (d.getFullYear() !== year || d.getMonth() !== month - 1 || d.getDate() !== day) return null;
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+};
+
 const startOfWeek = (d: Date) => {
   const s = new Date(d);
   s.setDate(d.getDate() - d.getDay());
@@ -150,6 +176,15 @@ export default function DateRangeFilter({ value, onChange, className = "" }: Dat
   const [panelMode, setPanelMode] = useState<"list" | "custom">("list");
   const [draftFrom, setDraftFrom] = useState("");
   const [draftTo, setDraftTo] = useState("");
+  // Raw editable text for the From/To fields ("DD/MM/YYYY", matching the
+  // app's display format) — kept separate from draftFrom/draftTo (which
+  // stay "YYYY-MM-DD" and only update once what's typed is a complete,
+  // valid date) so a still-mid-typing value never gets treated as a
+  // finished selection.
+  const [fromText, setFromText] = useState("");
+  const [toText, setToText] = useState("");
+  const [fromError, setFromError] = useState<string | null>(null);
+  const [toError, setToError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"from" | "to">("from");
   const [viewYear, setViewYear] = useState(() => new Date().getFullYear());
   const [viewMonth0, setViewMonth0] = useState(() => new Date().getMonth());
@@ -210,6 +245,10 @@ export default function DateRangeFilter({ value, onChange, className = "" }: Dat
     const seedTo = value.preset === "custom" ? value.endDate : "";
     setDraftFrom(seedFrom);
     setDraftTo(seedTo);
+    setFromText(fmtLabel(seedFrom));
+    setToText(fmtLabel(seedTo));
+    setFromError(null);
+    setToError(null);
     setActiveTab(seedFrom ? "to" : "from");
     const seedIso = seedFrom || seedTo || toISO(new Date());
     setViewYear(Number(seedIso.slice(0, 4)));
@@ -229,25 +268,74 @@ export default function DateRangeFilter({ value, onChange, className = "" }: Dat
   const pickDay = (day: string) => {
     if (activeTab === "from") {
       setDraftFrom(day);
-      if (draftTo && day > draftTo) setDraftTo("");
+      setFromText(fmtLabel(day));
+      setFromError(null);
+      if (draftTo && day > draftTo) { setDraftTo(""); setToText(""); }
       setActiveTab("to");
     } else if (draftFrom && day < draftFrom) {
       setDraftFrom(day);
+      setFromText(fmtLabel(day));
+      setFromError(null);
       setDraftTo("");
+      setToText("");
       setActiveTab("to");
     } else {
       setDraftTo(day);
+      setToText(fmtLabel(day));
+      setToError(null);
     }
   };
 
   const clearDraft = () => {
     setDraftFrom("");
     setDraftTo("");
+    setFromText("");
+    setToText("");
+    setFromError(null);
+    setToError(null);
     setActiveTab("from");
   };
 
+  // Typed-input handlers — format as-you-type, and only ever commit a fully
+  // valid, complete date into draftFrom/draftTo. An incomplete or invalid
+  // string just sits in the text field with no error yet (still typing);
+  // the error only appears once the field is left in that state — see the
+  // blur handlers below.
+  const handleFromTextChange = (raw: string) => {
+    const formatted = formatDateInput(raw);
+    setFromText(formatted);
+    setFromError(null);
+    if (formatted.length < 10) { if (!formatted) setDraftFrom(""); return; }
+    const iso = parseTypedDate(formatted);
+    if (!iso) { setFromError("Enter a valid date"); return; }
+    if (draftTo && iso > draftTo) { setFromError("Start date cannot be later than End date"); return; }
+    setDraftFrom(iso);
+    setViewYear(Number(iso.slice(0, 4)));
+    setViewMonth0(Number(iso.slice(5, 7)) - 1);
+  };
+
+  const handleToTextChange = (raw: string) => {
+    const formatted = formatDateInput(raw);
+    setToText(formatted);
+    setToError(null);
+    if (formatted.length < 10) { if (!formatted) setDraftTo(""); return; }
+    const iso = parseTypedDate(formatted);
+    if (!iso) { setToError("Enter a valid date"); return; }
+    if (draftFrom && iso < draftFrom) { setToError("End date cannot be earlier than Start date"); return; }
+    setDraftTo(iso);
+    setViewYear(Number(iso.slice(0, 4)));
+    setViewMonth0(Number(iso.slice(5, 7)) - 1);
+  };
+
+  const handleFromBlur = () => {
+    if (fromText && fromText.length < 10 && !fromError) setFromError("Enter date as DD/MM/YYYY");
+  };
+  const handleToBlur = () => {
+    if (toText && toText.length < 10 && !toError) setToError("Enter date as DD/MM/YYYY");
+  };
+
   const applyCustom = () => {
-    if (!draftFrom || !draftTo) return;
+    if (!draftFrom || !draftTo || fromError || toError || draftFrom > draftTo) return;
     onChange({ preset: "custom", startDate: draftFrom, endDate: draftTo });
     setOpen(false);
   };
@@ -322,22 +410,38 @@ export default function DateRangeFilter({ value, onChange, className = "" }: Dat
             <div className="drf-custom">
               <div className="drf-custom__title">Custom range</div>
               <div className="drf-custom__tabs">
-                <button
-                  type="button"
-                  className={`drf-custom__tab${activeTab === "from" ? " drf-custom__tab--active" : ""}`}
-                  onClick={() => setActiveTab("from")}
+                <label
+                  className={`drf-custom__tab${activeTab === "from" ? " drf-custom__tab--active" : ""}${fromError ? " drf-custom__tab--error" : ""}`}
                 >
                   <span className="drf-custom__tab-label">From</span>
-                  <span className="drf-custom__tab-value">{draftFrom ? fmtLabel(draftFrom) : "Select date"}</span>
-                </button>
-                <button
-                  type="button"
-                  className={`drf-custom__tab${activeTab === "to" ? " drf-custom__tab--active" : ""}`}
-                  onClick={() => setActiveTab("to")}
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="DD/MM/YYYY"
+                    className="drf-custom__tab-input"
+                    value={fromText}
+                    onFocus={() => setActiveTab("from")}
+                    onChange={e => handleFromTextChange(e.target.value)}
+                    onBlur={handleFromBlur}
+                  />
+                  {fromError && <span className="drf-custom__tab-error">{fromError}</span>}
+                </label>
+                <label
+                  className={`drf-custom__tab${activeTab === "to" ? " drf-custom__tab--active" : ""}${toError ? " drf-custom__tab--error" : ""}`}
                 >
                   <span className="drf-custom__tab-label">To</span>
-                  <span className="drf-custom__tab-value">{draftTo ? fmtLabel(draftTo) : "Select date"}</span>
-                </button>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="DD/MM/YYYY"
+                    className="drf-custom__tab-input"
+                    value={toText}
+                    onFocus={() => setActiveTab("to")}
+                    onChange={e => handleToTextChange(e.target.value)}
+                    onBlur={handleToBlur}
+                  />
+                  {toError && <span className="drf-custom__tab-error">{toError}</span>}
+                </label>
               </div>
 
               <div className="drf-custom__nav">
@@ -375,7 +479,14 @@ export default function DateRangeFilter({ value, onChange, className = "" }: Dat
 
               <div className="drf-custom__footer">
                 <button type="button" className="drf-custom__clear" onClick={clearDraft}>Clear</button>
-                <button type="button" className="drf-custom__apply" disabled={!draftFrom || !draftTo} onClick={applyCustom}>Apply</button>
+                <button
+                  type="button"
+                  className="drf-custom__apply"
+                  disabled={!draftFrom || !draftTo || !!fromError || !!toError || draftFrom > draftTo}
+                  onClick={applyCustom}
+                >
+                  Apply
+                </button>
               </div>
             </div>
           )}

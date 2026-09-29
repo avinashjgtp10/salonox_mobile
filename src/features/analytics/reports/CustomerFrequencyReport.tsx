@@ -7,6 +7,8 @@ import { CUSTOMER_FREQUENCY_REPORT } from "../../../services/api/endpoints";
 import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
 import type { AppDispatch } from "../../../store/store";
 import ReportRefreshButton from "./ReportRefreshButton";
+import CustomerFrequencyChartContent from "./CustomerFrequencyChartContent";
+import ReportViewToggle from "./ReportViewToggle";
 import Breadcrumb from "../../../components/ui/Breadcrumb";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination, JiraFilterMenu, DateRangeFilter, getDateRangePresetValue } from "../../../components/ui";
@@ -111,6 +113,7 @@ export default function CustomerFrequencyReport({ onBack, category, categoryKey 
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const selection = useRowSelection();
   const [showCampaignModal, setShowCampaignModal] = useState(false);
+  const [showChart, setShowChart] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   const dateRangeError = dateFrom && dateTo && dateTo < dateFrom
@@ -132,6 +135,14 @@ export default function CustomerFrequencyReport({ onBack, category, categoryKey 
     return () => clearTimeout(t);
   }, [search]);
 
+  const buildFilterBody = useCallback((): Record<string, any> => {
+    const body: Record<string, any> = { start_date: dateFrom, end_date: dateTo };
+    if (staffFilterIds.length > 0) body.staff_ids = staffFilterIds;
+    if (customerType) body.customer_type = customerType;
+    if (debouncedSearch) body.search = debouncedSearch;
+    return body;
+  }, [dateFrom, dateTo, staffFilterIds, customerType, debouncedSearch]);
+
   // Real server-side pagination — page/limit are sent on every request, and
   // only that page's rows come back, along with stats computed by the
   // backend over the WHOLE filtered set (not just the current page).
@@ -142,13 +153,7 @@ export default function CustomerFrequencyReport({ onBack, category, categoryKey 
     abortRef.current = ctrl;
     setLoading(true);
     try {
-      const body: Record<string, any> = {
-        start_date: dateFrom, end_date: dateTo,
-        page: currentPage, limit: pageSize,
-      };
-      if (staffFilterIds.length > 0) body.staff_ids = staffFilterIds;
-      if (customerType) body.customer_type = customerType;
-      if (debouncedSearch) body.search = debouncedSearch;
+      const body = { ...buildFilterBody(), page: currentPage, limit: pageSize };
       const res = await api.post(CUSTOMER_FREQUENCY_REPORT.SUMMARY(), body, { signal: ctrl.signal });
       const data = res.data?.data;
       const raw: any[] = Array.isArray(data?.rows) ? data.rows : [];
@@ -169,7 +174,7 @@ export default function CustomerFrequencyReport({ onBack, category, categoryKey 
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [dateFrom, dateTo, staffFilterIds, customerType, debouncedSearch, currentPage, pageSize]);
+  }, [buildFilterBody, currentPage, pageSize, dateRangeError]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, staffFilterIds, customerType, debouncedSearch]);
@@ -208,10 +213,12 @@ export default function CustomerFrequencyReport({ onBack, category, categoryKey 
         <div className="rp-detail-back-row">
           <Breadcrumb current={REPORT_NAME} category={category} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
+            <ReportViewToggle view={showChart ? "chart" : "table"} onChange={(v) => setShowChart(v === "chart")} />
             <ReportExportButton
               title={REPORT_NAME}
               headers={HEADERS}
               rows={exportRows}
+              reportId="customer_frequency"
               filename={`customer-frequency-${dateFrom}-${dateTo}`}
               variant="button"
               csv
@@ -249,6 +256,10 @@ export default function CustomerFrequencyReport({ onBack, category, categoryKey 
         </div>
       )}
 
+      {showChart ? (
+        <CustomerFrequencyChartContent dateFrom={dateFrom} dateTo={dateTo} buildFilterBody={buildFilterBody} />
+      ) : (
+      <>
       <SendCampaignBar count={selection.selectedIds.size} onSendClick={() => setShowCampaignModal(true)} />
 
       <div className="rp-detail-toolbar">
@@ -318,6 +329,8 @@ export default function CustomerFrequencyReport({ onBack, category, categoryKey 
 
       <Pagination currentPage={currentPage} pageSize={pageSize} totalItems={total}
         onPageChange={setCurrentPage} onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }} />
+      </>
+      )}
 
       {selectedClientId && (
         <ClientHistoryModal clientId={selectedClientId} onClose={() => setSelectedClientId(null)} />

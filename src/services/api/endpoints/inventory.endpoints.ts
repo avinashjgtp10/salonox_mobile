@@ -2,9 +2,15 @@ export const INVENTORY = {
   BASE: "/api/v1/inventory",
   SUPPLIERS: "/api/v1/inventory/suppliers",
   SUPPLIERS_LIST: "/api/v1/inventory/suppliers/list",
-  SUPPLIER_LOCATIONS: "/api/v1/inventory/suppliers/locations",
+  SUPPLIER_FILTER_OPTIONS: "/api/v1/inventory/suppliers/filter-options",
   SUPPLIER_BY_ID: (id: string) => `/api/v1/inventory/suppliers/${id}`,
   SUPPLIER_PAYMENTS: (id: string) => `/api/v1/inventory/suppliers/${id}/payments`,
+
+  // Supplier Products Catalog (Excel/CSV import + Suggested Products on New Order)
+  SUPPLIER_PRODUCTS: (id: string) => `/api/v1/inventory/suppliers/${id}/products`,
+  SUPPLIER_PRODUCTS_IMPORT: (id: string) => `/api/v1/inventory/suppliers/${id}/products/import`,
+  SUPPLIER_PRODUCT_RESOLVE: (supplierId: string, catalogId: string) =>
+    `/api/v1/inventory/suppliers/${supplierId}/products/${catalogId}/resolve`,
 
   STOCK_MOVEMENTS: "/api/v1/inventory/stock-movements",
   MOVEMENT_BY_ID: (id: string) => `/api/v1/inventory/stock-movements/${id}`,
@@ -18,6 +24,8 @@ export const INVENTORY = {
   CONSUMABLES: "/api/v1/inventory/consumables",
   CONSUMABLES_DASHBOARD: "/api/v1/inventory/consumables/dashboard",
   CONSUMABLES_USAGE_HISTORY: "/api/v1/inventory/consumables/usage-history",
+  CONSUMABLES_USAGE_REVERT: (usageId: string) =>
+    `/api/v1/inventory/consumables/usage-history/${usageId}/revert`,
   CONSUMABLE_BY_ID: (id: string) => `/api/v1/inventory/consumables/${id}`,
   CONSUMABLE_ADJUST: (id: string) => `/api/v1/inventory/consumables/${id}/adjust`,
   CONSUMABLE_ASSIGNED_SERVICES: (id: string) => `/api/v1/inventory/consumables/${id}/assigned-services`,
@@ -29,6 +37,14 @@ export const INVENTORY = {
   PRODUCT_INVENTORY: "/api/v1/inventory/product-inventory",
   PRODUCT_INVENTORY_FILTER_OPTIONS: "/api/v1/inventory/product-inventory/filter-options",
   PRODUCT_INVENTORY_HISTORY: "/api/v1/inventory/product-inventory/history",
+  // Detail drawer aggregate: current stock, on-order, last purchase price, suppliers.
+  PRODUCT_INVENTORY_DETAIL: (id: string) => `/api/v1/inventory/product-inventory/${id}/detail`,
+
+  // Multi-supplier pricing per product — additive alongside
+  // products.supplier_id/supply_price (the preferred/default supplier).
+  PRODUCT_SUPPLIERS: (productId: string) => `/api/v1/inventory/product-inventory/${productId}/suppliers`,
+  PRODUCT_SUPPLIER_BY_ID: (productId: string, mappingId: string) =>
+    `/api/v1/inventory/product-inventory/${productId}/suppliers/${mappingId}`,
 
   // Purchases — supplier deliveries recorded from the Product Inventory page's
   // "Receive Stock" button. Saving hits PRODUCT_INVENTORY_PURCHASES once (supplier +
@@ -37,15 +53,20 @@ export const INVENTORY = {
   // touched, so the table can patch itself without a follow-up GET.
   PRODUCT_INVENTORY_PURCHASES: "/api/v1/inventory/product-inventory/purchases",
   PRODUCT_INVENTORY_PURCHASE_BY_ID: (id: string) => `/api/v1/inventory/product-inventory/purchases/${id}`,
+  PRODUCT_INVENTORY_PURCHASES_CHART: "/api/v1/inventory/product-inventory/purchases/chart",
 
   // Orders — a purchase-order document. Receiving against one creates a
   // linked Purchase (see PRODUCT_INVENTORY_PURCHASES above) which is what
   // actually moves stock.
   ORDERS: "/api/v1/inventory/orders",
   ORDER_BY_ID: (id: string) => `/api/v1/inventory/orders/${id}`,
+  // The only place left that actually receives stock against an order —
+  // called directly from PurchaseModal.tsx's "receive against this PO" flow.
+  // Orders' own Verify Order tab is view-only now (see ReceivingTab.tsx).
   ORDER_RECEIVE: (id: string) => `/api/v1/inventory/orders/${id}/receive`,
-  ORDER_CORRECT_RECEIVED: (id: string, itemId: string) => `/api/v1/inventory/orders/${id}/items/${itemId}/correct-received`,
   ORDER_CANCEL: (id: string) => `/api/v1/inventory/orders/${id}/cancel`,
+  ORDER_PLACE: (id: string) => `/api/v1/inventory/orders/${id}/place`,
+  ORDER_START_VERIFICATION: (id: string) => `/api/v1/inventory/orders/${id}/start-verification`,
   ORDER_DELETE: (id: string) => `/api/v1/inventory/orders/${id}/delete`,
   ORDER_UPDATE: (id: string) => `/api/v1/inventory/orders/${id}/update`,
   ORDER_UPLOAD_SIGNATURE: "/api/v1/inventory/orders/upload-signature",

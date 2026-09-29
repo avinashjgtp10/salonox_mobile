@@ -121,7 +121,6 @@ export const ClientPanel: React.FC<Props> = ({
   const [addLast, setAddLast] = useState(defaultNameSplit.last);
   const [addPhone, setAddPhone] = useState(defaultPhone ?? "");
   const [addGender, setAddGender] = useState("");
-  const [addReferredBy, setAddReferredBy] = useState("");
   const [addErrors, setAddErrors] = useState<{ first?: string; phone?: string; gender?: string }>({});
   const [noResults, setNoResults] = useState(false);
   const [searching, setSearching] = useState(false);
@@ -138,7 +137,7 @@ export const ClientPanel: React.FC<Props> = ({
   // (pass a null clientId so the hook's effect never fires a request) —
   // otherwise fall back to fetching independently.
   const ownFetch = useClientDetails(clientDetailsResult ? null : selectedClientId, refreshKey);
-  const { details, stats, loading: statsLoading, historyLoading } = clientDetailsResult ?? ownFetch;
+  const { details, stats, loading: statsLoading, historyLoading, seedNewClient } = clientDetailsResult ?? ownFetch;
   const allBookings = useAppSelector(selectBookings);
 
   // Calculate real unpaid amount from Redux — API always returns 0.
@@ -336,12 +335,23 @@ export const ClientPanel: React.FC<Props> = ({
         gender: addGender,
       });
       const c = res.data?.data ?? res.data;
+      const newClientId = String(c?.id ?? "");
       const newClient: Client = {
-        id: String(c?.id ?? ""),
+        id: newClientId,
         name: `${addFirst} ${addLast}`.trim(),
         phone: addPhone,
         eWallet: 0,
       };
+      // A brand-new client has no packages/memberships/history/loyalty by
+      // definition — seed that known-empty state directly instead of
+      // letting the selection change below trigger a real
+      // POST /clients/:id/details fetch that can only ever come back empty.
+      seedNewClient({
+        id: newClientId,
+        first_name: addFirst,
+        last_name: addLast,
+        phone_number: addPhone,
+      });
       selectClient(newClient);
       setShowAddForm(false);
       setAddFirst(""); setAddLast(""); setAddPhone(""); setAddGender(""); setAddErrors({});

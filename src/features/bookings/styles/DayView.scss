@@ -470,6 +470,18 @@
     opacity: 0.7;
   }
 
+  // Cancelled/deleted/paid — locked from dragging/resizing (see
+  // BookingChip.tsx's isReadOnly). Without this override every chip still
+  // shows the base rule's cursor: grab above, which is misleading once
+  // mousedown on it is a silent no-op.
+  &--readonly {
+    cursor: default;
+
+    .dv-chip__resize-handle {
+      cursor: default;
+    }
+  }
+
   &--dragging {
     z-index: 100;
     opacity: 0.92;
@@ -525,7 +537,7 @@
 
   &__service {
     display: -webkit-box;
-    -webkit-line-clamp: 3;
+   
     -webkit-box-orient: vertical;
     overflow: hidden;
     text-overflow: ellipsis;

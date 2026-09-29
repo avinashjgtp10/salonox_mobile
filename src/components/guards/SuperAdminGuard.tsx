@@ -21,14 +21,16 @@ export default function SuperAdminGuard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (restoring) return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "#f8fafc" }}>
-      <div style={{ width: 36, height: 36, borderRadius: "50%", border: "3px solid #e2e8f0", borderTop: "3px solid #6366f1", animation: "spin 0.8s linear infinite" }} />
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-    </div>
-  );
-  if (!accessToken) return <Navigate to="/super-admin/login" replace />;
-  if (role !== "super_admin") return <Navigate to="/super-admin/login" replace />;
+  // Rendered as null, not a spinner element, while restoring — restoring
+  // only ever goes true -> false once (never back to true after mount), so
+  // null here means nothing under this guard exists yet to tear down when it
+  // switches to <Outlet/>. A spinner <div/> in its place would make that
+  // switch a real element-type change at the same position, forcing React to
+  // unmount/remount the routed page (and re-fire its data-fetching effects)
+  // the instant the token restore finishes, on every page refresh.
+  if (restoring) return null;
+  if (!accessToken) return <Navigate to="/login" replace />;
+  if (role !== "super_admin") return <Navigate to="/login" replace />;
 
   return <Outlet />;
 }

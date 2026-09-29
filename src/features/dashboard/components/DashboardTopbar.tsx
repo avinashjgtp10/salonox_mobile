@@ -15,16 +15,13 @@ import {
   ChatDots,
   LockFill,
   X,
-  Wallet2,
-  CashStack,
-  JournalText,
-  Safe2,
   CheckCircleFill,
   XCircleFill,
   ExclamationTriangleFill,
   BoxSeam,
   CalendarX,
   Stars,
+  ListUl,
 } from "react-bootstrap-icons";
 import type { RootState } from "../../../store/store";
 import salonoxLogo from "../../../assets/salonox_full_logo.png";
@@ -34,13 +31,15 @@ import api from "../../../services/api/axios";
 import { NOTIFICATIONS } from "../../../services/api/endpoints";
 import { connectSocket, disconnectSocket } from "../../../services/socket/socket";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
+import { usePermissions } from "../../../hooks/usePermissions";
+import { showPermissionDenied } from "../../../store/permissionDialogSlice";
 import { closeCashCounterThunk } from "../../../middleware/cashCounter/cashCounter.thunk";
-import { sendDailySummaryEmail, fetchTodaysPaymentMethodCounts } from "../../cash-management/cashManagement.api";
-import { useCurrency } from "../../../hooks/useCurrency";
-import { Button, Modal } from "../../../components/ui";
+import { sendDailySummaryEmail } from "../../cash-management/cashManagement.api";
+import { CloseCounterModal } from "../../cash-management/pages/CashManagementModals";
+import type { CloseCounterPayload } from "../../cash-management/cashManagement.types";
 import { onGlobalToast } from "../../../utils/globalToast";
-import { selectNewFeatures, selectSpotlightFetched } from "../../../store/spotlightSlice";
-import { fetchSpotlightFeaturesThunk } from "../../../middleware/spotlight/spotlight.thunk";
+import { selectNewFeatures } from "../../../store/spotlightSlice";
+import PlanExpiryBanner from "./PlanExpiryBanner";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -123,16 +122,17 @@ const getInitials = (name?: string) => {
 
 interface Props {
   onLogout: () => void;
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
 }
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
-export default function DashboardTopbar({ onLogout }: Props) {
+export default function DashboardTopbar({ onLogout, collapsed, onToggleCollapsed }: Props) {
   const navigate = useNavigate();
   const userProfile = useSelector((s: RootState) => s.user.profile);
+  const currentSalon = useSelector((s: RootState) => s.salon.currentSalon);
   const salonId = useSelector((s: RootState) => s.auth.salonId);
-  const { formatAmount } = useCurrency();
-
   const [showSearch, setShowSearch] = useState(false);
   const [showNotif, setShowNotif] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
@@ -142,18 +142,16 @@ export default function DashboardTopbar({ onLogout }: Props) {
 
   // ── Cash counter: "Close Counter" navbar shortcut ────────────────────────────
   const dispatch = useAppDispatch();
+  const { can } = usePermissions();
+  const canViewNotifications = can("view_notifications");
+  const denyNotifPerm = () => dispatch(showPermissionDenied(
+    `Your account does not have the "view_notifications" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+  ));
   const cashDashboard = useAppSelector((s) => s.cashCounter.dashboard);
   const newSpotlightFeatures = useAppSelector(selectNewFeatures);
-  const spotlightFetched = useAppSelector(selectSpotlightFetched);
   const isCashCounterOpen = cashDashboard?.status === "open" && Boolean(cashDashboard.cashManagementId);
   const [showCloseCounterConfirm, setShowCloseCounterConfirm] = useState(false);
   const [closingCounter, setClosingCounter] = useState(false);
-  const [paymentMethodCounts, setPaymentMethodCounts] = useState({
-    upi: 0,
-    card: 0,
-    cash: 0,
-    amounts: { upi: 0, card: 0, cash: 0 },
-  });
 
   const notifRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
@@ -161,9 +159,18 @@ export default function DashboardTopbar({ onLogout }: Props) {
   const toastTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   const unreadCount = notifs.filter(n => !n.is_read).length;
-  const initials = getInitials(userProfile?.fullName);
-  const displayName = userProfile?.fullName ?? "Salon Owner";
+  // The navbar profile shows the salon/business identity, not the logged-in
+  // user's own name — "App" (personal) vs "App Testing" (business). Email
+  // stays the personal account's own login email; only name + avatar swap.
+  const displayName = currentSalon?.business_name || userProfile?.fullName || "Salon Owner";
+  const initials = getInitials(displayName);
   const email = userProfile?.email ?? "";
+  const businessLogoUrl = currentSalon?.logo_url || null;
+  // Reset whenever the logo URL itself changes (new upload, salon switch) so
+  // a stale "this one failed" doesn't stick around and hide a working image.
+  const [businessLogoFailed, setBusinessLogoFailed] = useState(false);
+  useEffect(() => { setBusinessLogoFailed(false); }, [businessLogoUrl]);
+  const showBusinessLogo = !!businessLogoUrl && !businessLogoFailed;
 
   // Live clock — ticks every minute so the topbar always shows the actual
   // current time, not just the time the component happened to mount.
@@ -225,16 +232,17 @@ export default function DashboardTopbar({ onLogout }: Props) {
   }, []);
 
   useEffect(() => {
-    fetchNotifications();
-  }, [fetchNotifications]);
+    // Disabled actions must not trigger the related API — skip the fetch
+    // entirely (not just hide the result) when view_notifications is off.
+    if (canViewNotifications) fetchNotifications();
+  }, [fetchNotifications, canViewNotifications]);
 
-  // Powers the topbar's Spotlight icon — fetched once here (topbar is
-  // mounted on every dashboard page, unlike DashboardPage) so the "new
-  // feature available" indicator shows up regardless of which page the
-  // user lands on, not just the dashboard home.
-  useEffect(() => {
-    if (!spotlightFetched) dispatch(fetchSpotlightFeaturesThunk());
-  }, [dispatch, spotlightFetched]);
+  // Spotlight data itself is NOT fetched here — DashboardLayout (the only
+  // place that ever renders this topbar) already dispatches
+  // fetchSpotlightFeaturesThunk unconditionally on its own mount, and since
+  // both mount in the same render pass, a second dispatch here always raced
+  // that one and duplicated the GET. Reading `spotlightFetched`/the derived
+  // selectors below is enough for the topbar's "new feature" indicator.
 
   // ── WebSocket: real-time notifications ───────────────────────────────────────
 
@@ -244,6 +252,10 @@ export default function DashboardTopbar({ onLogout }: Props) {
     const socket = connectSocket(salonId);
 
     const handleNotification = (notification: Notification) => {
+      // view_notifications off must disable the feature entirely, not just
+      // the bell click/fetch — real-time pushes were slipping through and
+      // still populating the badge count + popping the toast regardless.
+      if (!canViewNotifications) return;
       // Add to bell list (deduplicated)
       setNotifs(prev => {
         if (prev.some(n => n.id === notification.id)) return prev;
@@ -258,7 +270,7 @@ export default function DashboardTopbar({ onLogout }: Props) {
     return () => {
       socket.off("notification", handleNotification);
     };
-  }, [salonId, showToast]);
+  }, [salonId, showToast, canViewNotifications]);
 
   // Disconnect on unmount
   useEffect(() => {
@@ -364,32 +376,10 @@ export default function DashboardTopbar({ onLogout }: Props) {
     });
   }, [showToast]);
 
-  useEffect(() => {
-    if (!showCloseCounterConfirm) return;
-    let cancelled = false;
-    fetchTodaysPaymentMethodCounts().then((counts) => {
-      if (!cancelled) setPaymentMethodCounts(counts);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [showCloseCounterConfirm]);
-
-  const handleConfirmCloseCounter = useCallback(async () => {
-    if (!cashDashboard?.cashManagementId) {
-      setShowCloseCounterConfirm(false);
-      return;
-    }
-
+  const handleConfirmCloseCounter = useCallback(async (payload: CloseCounterPayload) => {
     setClosingCounter(true);
     try {
-      const closedDashboard = await dispatch(
-        closeCashCounterThunk({
-          cash_management_id: cashDashboard.cashManagementId,
-          in_store_cash: Number(cashDashboard.inStoreCash || cashDashboard.closingBalance || 0),
-          remarks: cashDashboard.remarks ?? "",
-        }),
-      ).unwrap();
+      const closedDashboard = await dispatch(closeCashCounterThunk(payload)).unwrap();
       setShowCloseCounterConfirm(false);
       showCashCounterToast("Counter closed", "The cash counter was closed successfully.");
 
@@ -398,22 +388,14 @@ export default function DashboardTopbar({ onLogout }: Props) {
       // Sent silently: no notification either way, since the user only asked
       // to be told the counter closed, not about the email's delivery status.
       try {
-        await sendDailySummaryEmail(
-          cashDashboard.cashManagementId,
-          { ...(closedDashboard ?? cashDashboard), paymentCounts: paymentMethodCounts },
-          email,
-        );
+        await sendDailySummaryEmail(payload.cash_management_id, closedDashboard ?? cashDashboard, email);
       } catch (emailErr: any) {
         console.error("[DashboardTopbar] Daily summary email failed:", emailErr);
       }
-    } catch (err: any) {
-      const message =
-        err?.response?.data?.message ?? err?.response?.data?.error ?? err?.message ?? "Failed to close counter.";
-      showCashCounterToast("Close counter failed", message);
     } finally {
       setClosingCounter(false);
     }
-  }, [cashDashboard, dispatch, email, showCashCounterToast, paymentMethodCounts]);
+  }, [cashDashboard, dispatch, email, showCashCounterToast]);
 
   // ── Render ────────────────────────────────────────────────────────────────────
 
@@ -463,12 +445,24 @@ export default function DashboardTopbar({ onLogout }: Props) {
       {/* ── TOPBAR ── */}
       <div className="topbar">
         <div className="topbar-left">
+          <button
+            type="button"
+            className="topbar-icon-btn topbar-collapse-btn"
+            onClick={onToggleCollapsed}
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            <ListUl size={20} />
+          </button>
           <h2 className="brand">
-            <img src={salonoxLogo} alt="SalonOX" className="brand-logo" width="122" height="61" />
+            <img src={salonoxLogo} alt="SalonoX" className="brand-logo" width="122" height="61" />
           </h2>
         </div>
 
         <div className="topbar-right">
+
+          {/* Plan expiry warning pill — click opens a modal with details */}
+          <PlanExpiryBanner />
 
           {/* Current date & time */}
           <span className="topbar-datetime" title="Today's date and time">
@@ -499,7 +493,11 @@ export default function DashboardTopbar({ onLogout }: Props) {
             <button
               className={`topbar-icon-btn topbar-notif-btn ${showNotif ? "topbar-icon-btn--active" : ""}`}
               title="Notifications"
-              onClick={() => { setShowNotif(v => !v); setShowProfile(false); }}
+              style={canViewNotifications ? undefined : { opacity: 0.5, cursor: "not-allowed" }}
+              onClick={() => {
+                if (!canViewNotifications) { denyNotifPerm(); return; }
+                setShowNotif(v => !v); setShowProfile(false);
+              }}
               aria-label="Notifications"
             >
               <Bell size={19} />
@@ -508,7 +506,7 @@ export default function DashboardTopbar({ onLogout }: Props) {
               )}
             </button>
 
-            {showNotif && (
+            {showNotif && canViewNotifications && (
               <div className="topbar-notif-dropdown" role="menu">
                 <div className="topbar-notif-header">
                   <span className="topbar-notif-title">
@@ -573,8 +571,13 @@ export default function DashboardTopbar({ onLogout }: Props) {
               aria-label="Profile menu"
               title="Profile"
             >
-              {userProfile?.avatarUrl ? (
-                <img src={userProfile.avatarUrl} alt={displayName} className="topbar-profile-avatar-img" />
+              {showBusinessLogo ? (
+                <img
+                  src={businessLogoUrl!}
+                  alt={displayName}
+                  className="topbar-profile-avatar-img"
+                  onError={() => setBusinessLogoFailed(true)}
+                />
               ) : (
                 <span className="topbar-profile-initials">{initials}</span>
               )}
@@ -584,8 +587,13 @@ export default function DashboardTopbar({ onLogout }: Props) {
               <div className="topbar-profile-dropdown" role="menu">
                 <div className="topbar-profile-info">
                   <div className="topbar-profile-info-av">
-                    {userProfile?.avatarUrl ? (
-                      <img src={userProfile.avatarUrl} alt={displayName} className="topbar-profile-avatar-img topbar-profile-avatar-img--lg" />
+                    {showBusinessLogo ? (
+                      <img
+                        src={businessLogoUrl!}
+                        alt={displayName}
+                        className="topbar-profile-avatar-img topbar-profile-avatar-img--lg"
+                        onError={() => setBusinessLogoFailed(true)}
+                      />
                     ) : (
                       <span className="topbar-profile-initials topbar-profile-initials--lg">{initials}</span>
                     )}
@@ -631,114 +639,18 @@ export default function DashboardTopbar({ onLogout }: Props) {
 
       {showSearch && <SearchOverlay onClose={() => setShowSearch(false)} />}
 
-      <Modal
-        show={showCloseCounterConfirm}
-        onClose={() => { if (!closingCounter) setShowCloseCounterConfirm(false); }}
-        title="Close Cash Counter"
-        size="md"
-        footer={
-          <div className="topbar-confirm-footer">
-            <Button
-              variant="ghost"
-              onClick={() => setShowCloseCounterConfirm(false)}
-              disabled={closingCounter}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="danger"
-              loading={closingCounter}
-              disabled={closingCounter}
-              onClick={() => void handleConfirmCloseCounter()}
-            >
-              Yes, Close Counter
-            </Button>
-          </div>
-        }
-      >
-        <div className="d-flex flex-column gap-3">
-          <p className="topbar-confirm-copy mb-0">
-            Are you sure you want to close today's cash counter? You cannot reopen it again today. A copy of the
-            daily summary below will be emailed to {email || "the salon owner"} automatically.
-          </p>
-
-          {cashDashboard ? (
-            <div className="p-3 bg-light rounded-3 border">
-              <div className="row g-2">
-                <div className="col-6">
-                  <div className="p-2 bg-white rounded border">
-                    <div className="text-muted small d-flex align-items-center gap-1">
-                      <Wallet2 size={13} className="text-primary" /> Opening Balance
-                    </div>
-                    <div className="fw-bold text-dark fs-6 mt-1">
-                      {formatAmount(cashDashboard.openingBalance ?? 0)}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="col-6">
-                  <div className="p-2 bg-white rounded border">
-                    <div className="text-muted small d-flex align-items-center gap-1">
-                      <CashStack size={13} className="text-success" /> Cash Revenue
-                    </div>
-                    <div className="fw-bold text-success fs-6 mt-1">
-                      {formatAmount(paymentMethodCounts.amounts.cash)}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="col-6">
-                  <div className="p-2 bg-white rounded border">
-                    <div className="text-muted small d-flex align-items-center gap-1">
-                      <JournalText size={13} className="text-warning" /> Cash Expense
-                    </div>
-                    <div className="fw-bold text-warning fs-6 mt-1">
-                      {formatAmount(cashDashboard.cashExpense ?? 0)}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="col-6">
-                  <div className="p-2 bg-white rounded border">
-                    <div className="text-muted small d-flex align-items-center gap-1">
-                      <Safe2 size={13} className="text-dark" /> Expected Closing
-                    </div>
-                    <div className="fw-bold text-dark fs-6 mt-1">
-                      {formatAmount(
-                        (cashDashboard.openingBalance ?? 0) +
-                          paymentMethodCounts.amounts.cash -
-                          (cashDashboard.cashExpense ?? 0)
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="col-6">
-                  <div className="p-2 bg-white rounded border">
-                    <div className="text-muted small d-flex align-items-center gap-1">
-                      <CurrencyRupee size={13} className="text-primary" /> UPI Payments
-                    </div>
-                    <div className="fw-bold text-dark fs-6 mt-1">
-                      {formatAmount(paymentMethodCounts.amounts.upi)}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="col-6">
-                  <div className="p-2 bg-white rounded border">
-                    <div className="text-muted small d-flex align-items-center gap-1">
-                      <Wallet2 size={13} className="text-primary" /> Card Payments
-                    </div>
-                    <div className="fw-bold text-dark fs-6 mt-1">
-                      {formatAmount(paymentMethodCounts.amounts.card)}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : null}
-        </div>
-      </Modal>
+      {cashDashboard && (
+        <CloseCounterModal
+          show={showCloseCounterConfirm}
+          dashboard={cashDashboard}
+          loading={closingCounter}
+          onClose={() => setShowCloseCounterConfirm(false)}
+          onNotify={(tone, message) =>
+            showCashCounterToast(tone === "success" ? "Counter closed" : "Close counter failed", message)
+          }
+          onSubmit={handleConfirmCloseCounter}
+        />
+      )}
     </>
   );
 }

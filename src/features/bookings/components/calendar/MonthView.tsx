@@ -28,7 +28,7 @@ interface MonthViewProps {
 
 const MonthViewComponent: React.FC<MonthViewProps> = ({ onDayClick, onViewBill }) => {
   const { currentDate } = useScheduler();
-  const allBookings = useAppSelector((s: any) => s.scheduler?.bookings ?? []);
+  const allBookings = useAppSelector((s: any) => s.scheduler?.bookings ?? EMPTY_BOOKINGS);
   // Ticks every minute so a still-"booked" chip whose end time has now passed
   // flips to no-show live, without needing a page reload.
   const [nowTime, setNowTime] = useState(() => new Date());

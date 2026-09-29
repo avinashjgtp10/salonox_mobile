@@ -46,7 +46,7 @@ export default function LoginPage() {
   };
 
   const handleEmailChange = (value: string) => {
-    setEmail(value);
+    setEmail(value.toLowerCase());
     if (submitted) {
       const msg = validateField("email", value);
       setErrors(prev => ({ ...prev, email: msg || undefined, api: undefined }));
@@ -79,13 +79,15 @@ export default function LoginPage() {
       const { isOnboardingComplete, user } = result.payload;
       if (user?.role === "super_admin") {
         navigate("/super-admin");
+      } else if (user?.role === "branch_owner") {
+        navigate("/branch-owner");
       } else if (user?.role === "staff" || isOnboardingComplete) {
         navigate("/dashboard");
       } else {
         navigate("/business-name");
       }
     } else {
-      setErrors({ api: "Invalid credentials." });
+      setErrors({ api: (result.payload as string) || "Invalid credentials." });
     }
   };
 
@@ -100,7 +102,7 @@ export default function LoginPage() {
 
       <div className="lp-inner">
         <div className="lp-brand">
-          <img src={salonoxLogo} alt="SalonOX" className="lp-brand__logo" width="210" height="68" />
+          <img src={salonoxLogo} alt="SalonoX" className="lp-brand__logo" width="210" height="68" />
         </div>
 
         <div className="lp-heading-block">

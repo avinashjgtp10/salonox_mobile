@@ -594,6 +594,88 @@
   color: #98a2b3;
 }
 
+/* Download's own size picker — same Small/Medium/Large/Custom concept as the
+   Print Coupon modal's pcm-size-card, condensed to fit a toolbar dropdown
+   instead of a full modal panel. */
+.dz-dd__menu--size {
+  min-width: 260px;
+}
+
+.dz-qty-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 10px 8px;
+}
+
+.dz-qty-input {
+  width: 100%;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid #eaecf0;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #344054;
+}
+
+.dz-qty-hint {
+  font-size: 10.5px;
+  color: #98a2b3;
+}
+
+.dz-size-opt {
+  display: flex !important;
+  align-items: center;
+  gap: 6px;
+  border: 1.5px solid transparent !important;
+
+  &__dims {
+    margin-left: auto;
+    font-size: 11px;
+    color: #98a2b3;
+  }
+
+  &--selected {
+    border-color: #6366f1 !important;
+    background: #eef2ff !important;
+    color: #4f46e5 !important;
+  }
+}
+
+.dz-custom-size {
+  display: grid;
+  grid-template-columns: 1fr 1fr 70px;
+  gap: 6px;
+  margin: 6px 10px;
+
+  input, select {
+    width: 100%;
+    height: 32px;
+    padding: 0 8px;
+    border: 1px solid #eaecf0;
+    border-radius: 6px;
+    font-size: 12px;
+    color: #344054;
+  }
+}
+
+.dz-dd__error {
+  margin: 4px 10px 2px;
+  font-size: 11.5px;
+  color: #dc2626;
+  font-weight: 500;
+}
+
+.dz-dd__confirm {
+  margin-top: 4px !important;
+  text-align: center !important;
+  background: #6366f1 !important;
+  color: #fff !important;
+  font-weight: 600;
+
+  &:hover { background: #4f46e5 !important; color: #fff !important; }
+}
+
 /* Template picker */
 .dz-templates {
   display: flex;

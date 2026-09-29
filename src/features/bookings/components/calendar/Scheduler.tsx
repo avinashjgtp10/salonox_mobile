@@ -3,12 +3,14 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useSingleClick } from "../../../../utils/singleClick";
 import type { Booking, BlockedTime } from "../../types/booking.types";
 import { useAppDispatch, useAppSelector } from "../../../../hooks/useAppRedux";
+import { usePermissions } from "../../../../hooks/usePermissions";
+import { showPermissionDenied } from "../../../../store/permissionDialogSlice";
 import { fetchBookingByIdThunk, fetchBookingsThunk, cancelBookingThunk, deleteBookingThunk } from "../../../../middleware/booking/booking.thunk";
 import { setBookings, clearDragPatch, deleteBooking } from "../../../../store/schedulerSlice";
 import { store } from "../../../../store/store";
 import { useSchedulerContext } from "../../store/SchedulerContext";
 // ── NEW: 2 focused hooks replace useSchedulerInit ─────────────────────────────
-import { useBookings, getViewRange } from "../../hooks/useBookings";
+import { useBookings, getViewRange, claimRefresh } from "../../hooks/useBookings";
 import { useStaffSchedule } from "../../hooks/useStaffSchedule";
 // ── NEW: mapApiBooking now lives in utils ─────────────────────────────────────
 import { mapApiBooking } from "../../utils/bookingMapper";
@@ -40,6 +42,26 @@ const SchedulerContent: React.FC = () => {
   const dispatch    = useAppDispatch();
   const location    = useLocation();
   const navigate    = useNavigate();
+  const { can }     = usePermissions();
+  // Each Calendar action is now independently permissioned (see the
+  // Calendar permissions ticket) — view_calendar alone (needed just to see
+  // the grid) shouldn't be enough to reach any of these. Without this
+  // guard, a view-only staff member could open the full New Appointment
+  // form and only discover it can't be saved after filling it out — this
+  // stops them at the click instead, via the same global "Permission
+  // Required" popup every other gated action in the app uses.
+  const requirePerm = (key: string) => {
+    if (can(key)) return true;
+    dispatch(showPermissionDenied(
+      `Your account does not have the "${key}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+    ));
+    return false;
+  };
+  const requireCreateAppointment = () => requirePerm("create_appointment");
+  const requireEditAppointment = () => requirePerm("edit_appointment");
+  const requireViewAppointment = () => requirePerm("view_appointment");
+  const requireCancelAppointment = () => requirePerm("cancel_appointment");
+  const requireDeleteAppointment = () => requirePerm("delete_appointment");
   const salonId     = useAppSelector((s: any) => s.salon?.currentSalon?.id ?? s.auth?.salonId ?? "");
   const { viewMode, setViewMode, currentDate, setCurrentDate, setHighlightedBookingId } = useSchedulerContext();
 
@@ -103,66 +125,37 @@ const SchedulerContent: React.FC = () => {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSlotClick = useSingleClick((staffId: string, time: string) => {
+    if (!requireCreateAppointment()) return;
     setApptDefaults({ staffId, defaultTime: time });
     setEditingBooking(null);
     setShowNewAppt(true);
   });
 
-  const handleEditBooking = useSingleClick(async (booking: Booking) => {
-    if (booking.status === "paid") {
-      setViewingBooking(booking);
-      return;
+  // Every calendar view (Day/Week/Month/List Week) routes its booking click
+  // through here, so the billed-vs-unbilled split below applies uniformly —
+  // Week/Month/List used to call setViewingBooking directly and always
+  // landed on the view panel.
+  //
+  // Not billed yet → open the edit form directly, since there's no bill to
+  // look at (ViewBillModal would just render a "Not billed yet" header over a
+  // preview of what the total would be). Already billed → the read-only View
+  // Appointment panel, with Edit still reachable from inside it.
+  //
+  // The edit shortcut is deliberately conditional on edit_appointment: a staff
+  // member who can only view would otherwise get a permission popup on an
+  // ordinary calendar click, so they keep landing on the view panel instead.
+  const handleEditBooking = useSingleClick((booking: Booking) => {
+    if (!requireViewAppointment()) return;
+    const isBilled = !!(booking as any).invoiceNumber;
+    if (!isBilled && can("edit_appointment")) {
+      return handleForceEdit(booking);
     }
-    const isApiBooking = !String(booking.id).startsWith("b_");
-    if (isApiBooking) {
-      try {
-        const action = await (dispatch(fetchBookingByIdThunk(booking.id)) as any);
-        if (fetchBookingByIdThunk.fulfilled.match(action)) {
-          const enriched = mapApiBooking(action.payload, apiServices, apiStaff, apiClients);
-          const localPriceMap = new Map(
-            (booking.services || []).map((s: any) => [String(s.id), s])
-          );
-          const localServices = booking.services || [];
-          const mergedServices = enriched.services.length
-            ? enriched.services.map((svc: any, idx: number) => {
-                // Match by ID first; fall back to position for newly created services
-                const local = localPriceMap.get(String(svc.id)) ?? localServices[idx];
-                // Prefer detail-API staffId — it has per-service staff_id from DB.
-                // local comes from the list endpoint which collapses all services to appointment-level staffId.
-                const resolvedStaffId = svc.staffId || local?.staffId;
-                const resolvedStaff = resolvedStaffId
-                  ? (apiStaff.find((s: any) => String(s.id) === String(resolvedStaffId)) as any)?.name || svc.staff
-                  : svc.staff;
-                return {
-                  ...svc,
-                  price: (svc.price || 0) > 0 ? svc.price : (local?.price || 0),
-                  total: (svc.total || 0) > 0 ? svc.total : (local?.total || local?.price || 0),
-                  qty: svc.qty || local?.qty || 1,
-                  staffId: resolvedStaffId,
-                  staff: resolvedStaff,
-                };
-              })
-            : booking.services;
-          setEditingBooking({
-            ...booking,
-            ...enriched,
-            services: mergedServices,
-            status: booking.status,
-            payingNow: booking.payingNow != null ? booking.payingNow : enriched.payingNow,
-            dueAmount: booking.dueAmount != null ? booking.dueAmount : enriched.dueAmount,
-            grandTotal: (booking.grandTotal || 0) > 0 ? booking.grandTotal : enriched.grandTotal,
-          });
-          setShowNewAppt(true);
-          return;
-        }
-      } catch { /* fall through */ }
-    }
-    setEditingBooking(booking);
-    setShowNewAppt(true);
+    setViewingBooking(booking);
   });
 
   // Force-open edit modal regardless of payment status (called from ViewBillModal Edit button)
   const handleForceEdit = useSingleClick(async (booking: Booking) => {
+    if (!requireEditAppointment()) return;
     setViewingBooking(null);
     const isApiBooking = !String(booking.id).startsWith("b_");
     if (isApiBooking) {
@@ -194,12 +187,14 @@ const SchedulerContent: React.FC = () => {
   });
 
   const handleBlockTime = useSingleClick((staffId?: string) => {
+    if (!requireCreateAppointment()) return;
     setBlockStaffId(staffId);
     setEditingBlockTime(undefined);
     setShowBlockTime(true);
   });
 
   const handleEditBlockTime = useSingleClick((block: BlockedTime) => {
+    if (!requireEditAppointment()) return;
     setEditingBlockTime(block);
     setBlockStaffId(undefined);
     setShowBlockTime(true);
@@ -217,6 +212,14 @@ const SchedulerContent: React.FC = () => {
     // now uses the same view-aware range useBookings.ts's own refresh() does.
     const dateStr = currentDate || new Date().toISOString().slice(0, 10);
     const { startDate, endDate } = getViewRange(viewMode, dateStr);
+
+    // The save/payment that triggers this also fires a backend socket event
+    // ("notification"/"payment_updated") for the same mutation, which
+    // useBookings.ts's own listener reacts to by refetching this exact same
+    // range — without this guard both ran their full paginated fetch back to
+    // back for one save. claimRefresh() lets only the first of the two win;
+    // see its definition in useBookings.ts for the full rationale.
+    if (!claimRefresh(startDate, endDate)) return;
 
     // A week/month range can exceed the backend's 200-record page cap where a
     // single day rarely would — page through it the same way useBookings.ts's
@@ -293,16 +296,19 @@ const SchedulerContent: React.FC = () => {
   }
 
   const handleCancelBooking = useSingleClick(async (booking: Booking) => {
+    if (!requireCancelAppointment()) return;
     const result = await (dispatch(cancelBookingThunk(booking.id)) as any);
     if (cancelBookingThunk.fulfilled.match(result)) handleRefresh();
   });
 
   const handleDeleteBooking = useSingleClick(async (booking: Booking) => {
+    if (!requireDeleteAppointment()) return;
     const result = await (dispatch(deleteBookingThunk(booking.id)) as any);
     if (deleteBookingThunk.fulfilled.match(result)) dispatch(deleteBooking(String(booking.id)));
   });
 
   const handleNewAppointment = useSingleClick(() => {
+    if (!requireCreateAppointment()) return;
     setEditingBooking(null);
     setDefaultClient(null);
     setApptDefaults({});
@@ -310,6 +316,7 @@ const SchedulerContent: React.FC = () => {
   });
 
   const handleNewAppointmentForClient = useSingleClick((client: { id: string; name: string; phone: string }) => {
+    if (!requireCreateAppointment()) return;
     setEditingBooking(null);
     setApptDefaults({ defaultTime: getGlobalSearchDefaultTime() });
     setDefaultClient(client);
@@ -342,7 +349,13 @@ const SchedulerContent: React.FC = () => {
             </svg>
             <p className="scheduler__empty-title">No staff available</p>
             <p className="scheduler__empty-subtitle">Add staff members to start scheduling appointments.</p>
-            <a href="/dashboard/team" className="scheduler__empty-link">+ Add Staff</a>
+            <button
+              type="button"
+              className="scheduler__empty-link"
+              onClick={() => navigate("/dashboard/team/add", { state: { returnTo: "/dashboard/calendar" } })}
+            >
+              + Add Staff
+            </button>
           </div>
         ) : (
           <>
@@ -357,13 +370,13 @@ const SchedulerContent: React.FC = () => {
               />
             )}
             {viewMode === "Week" && (
-              <WeekView onSlotClick={handleSlotClick} onViewBill={setViewingBooking} />
+              <WeekView onSlotClick={handleSlotClick} onViewBill={handleEditBooking} />
             )}
             {viewMode === "Month" && (
-              <MonthView onDayClick={handleDayClick} onViewBill={setViewingBooking} />
+              <MonthView onDayClick={handleDayClick} onViewBill={handleEditBooking} />
             )}
             {viewMode === "List Week" && (
-              <ListWeekView onViewBill={setViewingBooking} />
+              <ListWeekView onViewBill={handleEditBooking} />
             )}
           </>
         )}

@@ -12,11 +12,6 @@ import { useNavigate } from "react-router-dom";
 import {
   AreaChart,
   Area,
-  BarChart,
-  Bar,
-  PieChart,
-  Pie,
-  Cell,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -40,53 +35,74 @@ import {
   Megaphone,
   ChevronRight,
   ChevronLeft,
-  CircleFill,
   ExclamationTriangleFill,
   ArrowRepeat,
   CashStack,
   Cake2,
-  BellFill,
   CreditCard2Front,
   PersonFill,
   Whatsapp,
+  LockFill,
+  Wifi,
+  Wallet2,
 } from "react-bootstrap-icons";
+import type { ReactNode } from "react";
 import { getInitialsFromFullName } from "../../../utils/initials";
-import { formatDateDDMMYYYY, formatTimeAgo } from "../../../utils/dateFormat";
+import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
 import { buildClientWhatsAppLink } from "../../../utils/whatsapp";
+import { formatPaymentMode } from "../../../utils/paymentMode";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import Skeleton from "../../../components/ui/Skeleton";
 import {
-  fetchDashboardAll,
+  fetchDashboardCombined,
   fetchRevenueChart,
-  fetchStaffRevenue,
 } from "../../../middleware/dashboard/dashboard.thunk";
 import type { TodayAppointment } from "../../../types/dashboard.types";
-import type { DashboardAllResponse } from "../../../middleware/dashboard/dashboard.thunk";
+import type { DashboardCombinedResponse } from "../../../middleware/dashboard/dashboard.thunk";
 import { useTodayAppointments } from "../hooks/useTodayAppointments";
-import { useCurrency } from "../../../hooks/useCurrency";
+import { useMaskedCurrency } from "../hooks/useMaskedCurrency";
+import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
+import { usePermissions } from "../../../hooks/usePermissions";
+import { resendClosedCounterMessage } from "../../cash-management/cashManagement.api";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const SVC_CHART_COLORS = [
-  "#7c6cf2", "#4f46e5", "#10b981", "#f97316",
-  "#60a5fa", "#f472b6", "#eab308", "#ef4444",
-];
-
-// Stable empty-array fallbacks for the selectors below. `?? []` inline would
+// Stable empty-array fallback for the selector below. `?? []` inline would
 // create a brand-new array reference every time the selector runs, which
 // defeats useAppSelector's reference-equality check and forces the whole
-// page to re-render on any unrelated dashboard-slice update (e.g. the staff
-// revenue filter changing) for as long as `data` stays null.
-const EMPTY_REVENUE_CHART: DashboardAllResponse["revenueChart"] = [];
-const EMPTY_TOP_STAFF: TopStaffEntry[] = [];
-const EMPTY_ACTIVITY: DashboardAllResponse["recentActivity"] = [];
-
+// page to re-render on any unrelated dashboard-slice update for as long as
+// `data` stays null.
+const EMPTY_REVENUE_CHART: DashboardCombinedResponse["revenueChart"] = [];
+const EMPTY_PAYMENT_MODE_BREAKDOWN: DashboardCombinedResponse["paymentModeBreakdown"] = { entries: [], total: 0 };
 
 const PAGE_SIZE = 5;
 
 type RevPeriod = "today" | "weekly" | "monthly" | "yearly";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+// IST calendar date (YYYY-MM-DD) for "yesterday" — matches how the backend
+// (cash-management.repository.ts's closeCounter) dates a counter's own
+// close-message collection, so Resend re-sends the SAME day it looks like
+// on screen, not whatever the server's own local timezone happens to be.
+function yesterdayIsoDateIST(): string {
+  const now = new Date();
+  const istNow = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
+  istNow.setDate(istNow.getDate() - 1);
+  const y = istNow.getFullYear();
+  const m = String(istNow.getMonth() + 1).padStart(2, "0");
+  const d = String(istNow.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function todayIsoDateIST(): string {
+  const now = new Date();
+  const istNow = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
+  const y = istNow.getFullYear();
+  const m = String(istNow.getMonth() + 1).padStart(2, "0");
+  const d = String(istNow.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
 
 function getPageNumbers(current: number, total: number): (number | "...")[] {
   if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
@@ -199,6 +215,17 @@ function normalise(appt: TodayAppointment) {
 
 // ─── Shared UI atoms ──────────────────────────────────────────────────────────
 
+// Matches the backend's standard permission-denial message ("You do not
+// have permission to perform this action (permKey)") — several dashboard
+// sections (Today's Appointments needs view_calendar, Staff Revenue needs
+// view_dashboard_staff_performance, etc.) fetch from their own module's API
+// rather than the bundled dashboard endpoint, so they can fail independently
+// of the page's own view_dashboard/view_dashboard_financials permissions.
+// That's an expected, permanent state — not a transient failure — so it
+// gets its own honest copy instead of the raw backend string, and no Retry
+// button, since retrying can never succeed without a permission change.
+const PERMISSION_DENIED_RE = /^You do not have permission to perform this action \(([^)]+)\)/;
+
 const SectionError = memo(function SectionError({
   message,
   onRetry,
@@ -206,6 +233,14 @@ const SectionError = memo(function SectionError({
   message: string;
   onRetry: () => void;
 }) {
+  if (PERMISSION_DENIED_RE.test(message)) {
+    return (
+      <div className="db-section-error db-section-error--perm">
+        <LockFill size={13} className="me-1" />
+        You don't have permission to view this section. Ask your salon owner to enable it in Settings → Roles &amp; Permissions.
+      </div>
+    );
+  }
   return (
     <div className="db-section-error">
       <ExclamationTriangleFill size={14} className="me-1" />
@@ -257,36 +292,6 @@ const TableRowsSkeleton = memo(function TableRowsSkeleton({ rows = 5 }: { rows?:
   );
 });
 
-const DonutSkeleton = memo(function DonutSkeleton() {
-  return (
-    <div className="db-skel-donut">
-      <Skeleton width={140} height={140} borderRadius="50%" />
-      <div className="db-skel-donut__list">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton key={i} width={i === 3 ? "50%" : "85%"} height={13} />
-        ))}
-      </div>
-    </div>
-  );
-});
-
-const StaffListSkeleton = memo(function StaffListSkeleton() {
-  return (
-    <div className="db-skel-staff-list">
-      {Array.from({ length: 3 }).map((_, i) => (
-        <div key={i} className="db-skel-staff-list__row">
-          <Skeleton width={36} height={36} borderRadius="50%" />
-          <div className="db-skel-staff-list__info">
-            <Skeleton width="55%" height={13} />
-            <Skeleton width="35%" height={11} />
-          </div>
-          <Skeleton width={50} height={13} />
-        </div>
-      ))}
-    </div>
-  );
-});
-
 const StatusBadge = memo(function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; cls: string }> = {
     completed:     { label: "Completed",   cls: "db-badge-success" },
@@ -303,7 +308,7 @@ const StatusBadge = memo(function StatusBadge({ status }: { status: string }) {
 // ─── Chart tooltips ───────────────────────────────────────────────────────────
 
 const RevenueTooltip = memo(function RevenueTooltip({ active, payload, label }: any) {
-  const { formatAmount } = useCurrency();
+  const { formatAmount } = useMaskedCurrency();
   if (!active || !payload?.length) return null;
   const rev = payload.find((p: any) => p.dataKey === "revenue");
   // fullLabel carries the complete date/time context ("Tue, 28 Jul 2026" for
@@ -324,35 +329,15 @@ const RevenueTooltip = memo(function RevenueTooltip({ active, payload, label }: 
   );
 });
 
-const ApptTooltip = memo(function ApptTooltip({ active, payload, label }: any) {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="db-tooltip">
-      <p className="db-tooltip-label">{label}</p>
-      {payload.map((p: any) => (
-        <p key={p.name} className={`db-tooltip-series db-tooltip-series--${p.dataKey ?? "default"}`}>
-          {p.name}: {p.value}
-        </p>
-      ))}
-    </div>
-  );
-});
-
 // ─── Section: KPI Cards ───────────────────────────────────────────────────────
 
 type NormSummary = {
   totalRevenue?: number;
-  allTimeRevenue?: number;
   todayRevenue?: number;
-  totalAppointments?: number;
-  totalClients?: number;
   revenueChange?: number | null;
   todayRevenueChange?: number | null;
-  appointmentsChange?: number | null;
-  clientsChange?: number | null;
   todayAppointmentsCount?: number;
-  avgBillValue?: number;
-  avgBillValueChange?: number | null;
+  yesterdayAppointmentsCount?: number;
   lastMonthRevenue?: number;
   yesterdayRevenue?: number;
   newClientsToday?: number;
@@ -367,22 +352,24 @@ interface KpiFace {
 }
 
 const TabKpiCard = memo(function TabKpiCard({
-  theme, icon, tabLabels, front, back, loading, error, onRetry,
+  theme, icon, tabLabels, front, back, loading, error, onRetry, defaultTab = 0,
 }: {
   theme: string;
   icon: React.ReactNode;
-  /** Short labels for the two-way pill toggle, e.g. ["All Time", "This Month"]. */
+  /** Short labels for the two-way pill toggle, e.g. ["This Month", "Last Month"]. */
   tabLabels: [string, string];
   front: KpiFace;
   back: KpiFace;
   loading: boolean;
   error: string | null;
   onRetry: () => void;
+  /** Which face is shown before the user touches the toggle. Defaults to front (0). */
+  defaultTab?: 0 | 1;
 }) {
   // Explicit, static choice — no auto-advancing timer and no flip animation.
   // Both stats are always one click away via the pill toggle, but nothing on
   // the card moves on its own.
-  const [activeTab, setActiveTab] = useState<0 | 1>(0);
+  const [activeTab, setActiveTab] = useState<0 | 1>(defaultTab);
 
   if (loading) {
     return (
@@ -439,53 +426,65 @@ const KpiCardsGrid = memo(function KpiCardsGrid({
   loading,
   error,
   onRetry,
+  can,
 }: {
   summary: NormSummary | undefined;
   normApptCount: number;
   loading: boolean;
   error: string | null;
   onRetry: () => void;
+  can: (permKey: string) => boolean;
 }) {
-  const { formatAmount, currencyCode } = useCurrency();
+  const { formatAmount, currencySymbol, currencyCode, canSeeFinancials } = useMaskedCurrency();
   const fmt = (n?: number) => (n != null ? formatAmount(n) : "—");
+  // Revenue KPI card only — a whole-rupee figure (no paise) reads cleaner on
+  // this tile than the paise-precise amount formatAmount() gives everywhere
+  // else (receipts, Sales Summary, etc., which must stay exact to the paisa).
+  const fmtRounded = (n?: number) =>
+    !canSeeFinancials ? `${currencySymbol}******` : n != null ? `${currencySymbol}${Math.round(n).toLocaleString("en-IN")}` : "—";
   const CurrencyIcon = getCurrencyIcon(currencyCode);
   const cards = [
     {
       theme: "revenue",
+      permKey: "view_dashboard_card_total_revenue",
       icon:  <CurrencyIcon size={20} />,
-      tabLabels: ["All Time", "This Month"] as [string, string],
+      tabLabels: ["This Month", "Last Month"] as [string, string],
+      defaultTab: 0 as const,
       front: {
         label:  "Total Revenue",
-        value:  fmt(summary?.allTimeRevenue),
-        change: null,
-        sub:    "",
+        value:  fmtRounded(summary?.totalRevenue),
+        change: fmtChange(summary?.revenueChange ?? undefined),
+        sub:    "this month",
       },
       back: {
-        label:  "This Month's Revenue",
-        value:  fmt(summary?.totalRevenue),
+        label:  "Last Month's Revenue",
+        value:  fmtRounded(summary?.lastMonthRevenue),
         change: null,
-        sub:    "",
+        sub:    "last month",
       },
     },
     {
       theme: "appointments",
+      permKey: "view_dashboard_card_appointments",
       icon:  <CalendarCheck size={20} />,
-      tabLabels: ["This Month", "Today"] as [string, string],
+      tabLabels: ["Today", "Yesterday"] as [string, string],
+      defaultTab: 0 as const,
       front: {
-        label:  "Appointments",
-        value:  summary?.totalAppointments?.toLocaleString("en-IN") ?? "—",
-        change: fmtChange(summary?.appointmentsChange ?? undefined),
-        sub:    "this month",
-      },
-      back: {
         label:  "Appointments Today",
         value:  String(summary?.todayAppointmentsCount ?? normApptCount),
         change: null,
         sub:    "today",
       },
+      back: {
+        label:  "Appointments Yesterday",
+        value:  summary?.yesterdayAppointmentsCount?.toLocaleString("en-IN") ?? "—",
+        change: null,
+        sub:    "yesterday",
+      },
     },
     {
       theme: "today-revenue",
+      permKey: "view_dashboard_card_today_revenue",
       icon:  <CurrencyIcon size={20} />,
       tabLabels: ["Today", "Yesterday"] as [string, string],
       front: {
@@ -503,6 +502,7 @@ const KpiCardsGrid = memo(function KpiCardsGrid({
     },
     {
       theme: "new-clients",
+      permKey: "view_dashboard_card_new_clients",
       icon:  <PersonPlus size={20} />,
       tabLabels: ["Today", "This Month"] as [string, string],
       front: {
@@ -522,7 +522,7 @@ const KpiCardsGrid = memo(function KpiCardsGrid({
 
   return (
     <div className="db-kpi-row">
-      {cards.map((card) => (
+      {cards.filter((card) => can(card.permKey)).map((card) => (
         <TabKpiCard
           key={card.theme}
           theme={card.theme}
@@ -533,53 +533,9 @@ const KpiCardsGrid = memo(function KpiCardsGrid({
           loading={loading}
           error={error}
           onRetry={onRetry}
+          defaultTab={card.defaultTab}
         />
       ))}
-    </div>
-  );
-});
-
-// ─── Section: Recent Activity ──────────────────────────────────────────────────
-
-const ACTIVITY_ICON: Record<string, React.ReactNode> = {
-  appointment: <CalendarCheck size={14} color="#4f46e5" />,
-  payment:     <CashStack size={14} color="#16a34a" />,
-  client:      <PersonPlus size={14} color="#2563eb" />,
-  campaign:    <Megaphone size={14} color="#d97706" />,
-};
-
-const RecentActivityCard = memo(function RecentActivityCard({
-  activity, loading, error,
-}: {
-  activity: Array<{ id: string; type: string; title: string; body: string | null; createdAt: string }>;
-  loading: boolean;
-  error: string | null;
-}) {
-  return (
-    <div className="db-card">
-      <div className="db-card-header">
-        <h3 className="db-card-title">Recent Activity</h3>
-      </div>
-      {loading ? (
-        <TableRowsSkeleton rows={4} />
-      ) : error ? (
-        <div className="db-empty">Couldn't load recent activity.</div>
-      ) : activity.length === 0 ? (
-        <div className="db-empty">No recent activity yet.</div>
-      ) : (
-        <div className="db-activity-list">
-          {activity.map((a) => (
-            <div key={a.id} className="db-activity-row">
-              <span className="db-activity-row__icon">{ACTIVITY_ICON[a.type] ?? <BellFill size={14} color="#6b7280" />}</span>
-              <div className="db-activity-row__body">
-                <div className="db-activity-row__title">{a.title}</div>
-                {a.body && <div className="db-activity-row__sub">{a.body}</div>}
-              </div>
-              <span className="db-activity-row__time">{formatTimeAgo(a.createdAt)}</span>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 });
@@ -587,80 +543,89 @@ const RecentActivityCard = memo(function RecentActivityCard({
 // ─── Section: Bottom Stat Cards (Pending Payments / Birthdays / Inactive Clients) ──
 
 const BottomStatCards = memo(function BottomStatCards({
-  pendingPayments, birthdays, loading, pendingLoading, onNavigatePendingAppointments, salonName,
+  pendingPayments, birthdays, loading, pendingLoading, onNavigatePendingAppointments, salonName, can,
 }: {
   pendingPayments: { count: number; amount: number } | undefined;
-  birthdays: { count: number; clients: Array<{ id: string; name: string; phone: string | null; phoneCountryCode: string | null }> } | undefined;
+  birthdays: { clients: Array<{ id: string; name: string; phone: string | null; phoneCountryCode: string | null }> } | undefined;
   loading: boolean;
   pendingLoading: boolean;
   onNavigatePendingAppointments: () => void;
   salonName: string;
+  can: (permKey: string) => boolean;
 }) {
-  const { formatAmount } = useCurrency();
+  const { formatAmount } = useMaskedCurrency();
   const fmt = (n?: number) => (n != null ? formatAmount(n) : "—");
   const birthdayClients = birthdays?.clients ?? [];
+  const showDueAmount = can("view_dashboard_card_due_amount");
+  const showBirthdays = can("view_dashboard_card_birthdays");
+
+  if (!showDueAmount && !showBirthdays) return null;
 
   return (
     <div className="db-mini-stats-row">
-      <div className="db-mini-stat-card db-mini-stat-card--danger">
-        <div className="db-mini-stat-card__top">
-          <span className="db-mini-stat-card__label">Due amount</span>
-          <span className="db-mini-stat-card__icon"><CreditCard2Front size={18} /></span>
-        </div>
-        {pendingLoading ? (
-          <Skeleton width="50%" height={26} className="db-mini-stat-card__value-skel" />
-        ) : (
-          <div className="db-mini-stat-card__value">{fmt(pendingPayments?.amount)}</div>
-        )}
-        <div className="db-mini-stat-card__sub">
-          {pendingPayments?.count ?? 0} client{(pendingPayments?.count ?? 0) !== 1 ? "s" : ""}
-        </div>
-        <button className="db-mini-stat-card__cta" onClick={onNavigatePendingAppointments}>
-          Collect Now <ChevronRight size={11} />
-        </button>
-      </div>
-
-      <div className="db-mini-stat-card db-mini-stat-card--pink">
-        <div className="db-mini-stat-card__top">
-          <span className="db-mini-stat-card__label">Today's Birthdays</span>
-          <span className="db-mini-stat-card__icon"><Cake2 size={18} /></span>
-        </div>
-        {loading ? (
-          <Skeleton width="50%" height={26} className="db-mini-stat-card__value-skel" />
-        ) : birthdayClients.length > 0 ? (
-          <div className="db-birthday-list">
-            {birthdayClients.map((c) => {
-              const waLink = buildClientWhatsAppLink(c.phone, c.phoneCountryCode);
-              const text = `Happy Birthday, ${c.name}! 🎉 Wishing you a wonderful day, from all of us at ${salonName}.`;
-              return (
-                <div key={c.id} className="db-birthday-list__row">
-                  <span className="db-birthday-list__name" title={c.name}>{c.name}</span>
-                  {waLink ? (
-                    <a
-                      className="db-birthday-list__wa"
-                      href={`${waLink}?text=${encodeURIComponent(text)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      title={`Send birthday wishes to ${c.name} on WhatsApp`}
-                    >
-                      <Whatsapp size={15} />
-                    </a>
-                  ) : (
-                    <span className="db-birthday-list__wa db-birthday-list__wa--disabled" title="No phone number on file">
-                      <Whatsapp size={15} />
-                    </span>
-                  )}
-                </div>
-              );
-            })}
+      {showDueAmount && (
+        <div className="db-mini-stat-card db-mini-stat-card--danger">
+          <div className="db-mini-stat-card__top">
+            <span className="db-mini-stat-card__label">Due amount</span>
+            <span className="db-mini-stat-card__icon"><CreditCard2Front size={18} /></span>
           </div>
-        ) : (
-          <>
-            <div className="db-mini-stat-card__value">0</div>
-            <div className="db-mini-stat-card__sub">None today</div>
-          </>
-        )}
-      </div>
+          {pendingLoading ? (
+            <Skeleton width="50%" height={26} className="db-mini-stat-card__value-skel" />
+          ) : (
+            <div className="db-mini-stat-card__value">{fmt(pendingPayments?.amount)}</div>
+          )}
+          <div className="db-mini-stat-card__sub">
+            {pendingPayments?.count ?? 0} client{(pendingPayments?.count ?? 0) !== 1 ? "s" : ""}
+          </div>
+          <button className="db-mini-stat-card__cta" onClick={onNavigatePendingAppointments}>
+            Collect Now <ChevronRight size={11} />
+          </button>
+        </div>
+      )}
+
+      {showBirthdays && (
+        <div className="db-mini-stat-card db-mini-stat-card--pink">
+          <div className="db-mini-stat-card__top">
+            <span className="db-mini-stat-card__label">Today's Birthdays</span>
+            <span className="db-mini-stat-card__icon"><Cake2 size={18} /></span>
+          </div>
+          {loading ? (
+            <Skeleton width="50%" height={26} className="db-mini-stat-card__value-skel" />
+          ) : birthdayClients.length > 0 ? (
+            <div className="db-birthday-list">
+              {birthdayClients.map((c) => {
+                const waLink = buildClientWhatsAppLink(c.phone, c.phoneCountryCode);
+                const text = `Happy Birthday, ${c.name}! 🎉 Wishing you a wonderful day, from all of us at ${salonName}.`;
+                return (
+                  <div key={c.id} className="db-birthday-list__row">
+                    <span className="db-birthday-list__name" title={c.name}>{c.name}</span>
+                    {waLink ? (
+                      <a
+                        className="db-birthday-list__wa"
+                        href={`${waLink}?text=${encodeURIComponent(text)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title={`Send birthday wishes to ${c.name} on WhatsApp`}
+                      >
+                        <Whatsapp size={15} />
+                      </a>
+                    ) : (
+                      <span className="db-birthday-list__wa db-birthday-list__wa--disabled" title="No phone number on file">
+                        <Whatsapp size={15} />
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <>
+              <div className="db-mini-stat-card__value">0</div>
+              <div className="db-mini-stat-card__sub">None today</div>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 });
@@ -702,28 +667,51 @@ const PeakDotLabel = memo(function PeakDotLabel(props: any) {
   );
 });
 
+const REV_GENDER_OPTIONS: { id: string; label: string }[] = [
+  { id: "all", label: "All Genders" },
+  { id: "male", label: "Male" },
+  { id: "female", label: "Female" },
+];
+
 const RevenueChartPanel = memo(function RevenueChartPanel({
   revenue,
   chartLoading,
   error,
   revPeriod,
   onPeriodChange,
+  revGender,
+  onGenderChange,
   onRetry,
 }: {
-  revenue: Array<{ month: string; fullLabel: string; revenue: number; expenses: number }>;
+  revenue: Array<{ month: string; fullLabel: string; revenue: number }>;
   chartLoading: boolean;
   error: string | null;
   revPeriod: RevPeriod;
   onPeriodChange: (p: RevPeriod) => void;
+  revGender: string;
+  onGenderChange: (g: string) => void;
   onRetry: () => void;
 }) {
-  const { formatAmount, currencySymbol } = useCurrency();
+  const { formatAmount, currencySymbol, canSeeFinancials } = useMaskedCurrency();
   const fmt = (n?: number) => (n != null ? formatAmount(n) : "—");
-  const localRevenue = revenue;
+  // When financials are masked, the chart still has to render (container/
+  // labels/period toggle all stay visible) but real relative bar/area
+  // heights would themselves leak comparative revenue info even with the
+  // numbers hidden — a much bigger November bar than October's says
+  // something financial without a single digit shown. Flattening every
+  // point to the same value keeps the shape present but unreadable.
+  const localRevenue = useMemo(
+    () => canSeeFinancials ? revenue : revenue.map((pt) => ({ ...pt, revenue: 1 })),
+    [revenue, canSeeFinancials]
+  );
 
+  // Computed from the real `revenue` prop, not the flattened localRevenue —
+  // this drives both the masked-text header total (fmt() hides the number
+  // either way) and the "no revenue this period" empty state below, which
+  // must still reflect real data even when the chart itself is flattened.
   const periodTotal = useMemo(
-    () => localRevenue.reduce((sum, r) => sum + (Number(r.revenue) || 0), 0),
-    [localRevenue]
+    () => revenue.reduce((sum, r) => sum + (Number(r.revenue) || 0), 0),
+    [revenue]
   );
 
   // Highlight the single best-performing point on the chart and track its index position
@@ -764,6 +752,16 @@ const RevenueChartPanel = memo(function RevenueChartPanel({
             <span className="db-rev-total__value">{fmt(periodTotal)}</span>
             <span className="db-rev-total__label">total</span>
           </div>
+          <select
+            className="db-rev-gender-select"
+            value={revGender}
+            onChange={(e) => onGenderChange(e.target.value)}
+            aria-label="Filter revenue by client gender"
+          >
+            {REV_GENDER_OPTIONS.map((o) => (
+              <option key={o.id} value={o.id}>{o.label}</option>
+            ))}
+          </select>
           <div className="db-rev-filters">
             {(["today", "weekly", "monthly", "yearly"] as const).map((p) => (
               <button
@@ -811,7 +809,7 @@ const RevenueChartPanel = memo(function RevenueChartPanel({
               tick={{ fontSize: 11, fill: "#9ca3af", dx: -4 }}
               axisLine={false}
               tickLine={false}
-              tickFormatter={(v) => v >= 1000 ? `${currencySymbol}${(v / 1000).toFixed(0)}k` : `${currencySymbol}${v}`}
+              tickFormatter={(v) => !canSeeFinancials ? `${currencySymbol}**` : v >= 1000 ? `${currencySymbol}${(v / 1000).toFixed(0)}k` : `${currencySymbol}${v}`}
             />
             <Tooltip content={<RevenueTooltip />} />
             <Area
@@ -848,55 +846,164 @@ const RevenueChartPanel = memo(function RevenueChartPanel({
   );
 });
 
-// ─── Section: Appointment Summary Bar Chart ───────────────────────────────────
+// ─── Section: Overall Collection (payment mode breakdown) ─────────────────────
+// Replaces the old appointment-status "Today's Summary" bar chart — this
+// salon runs on cash/UPI collection at the front desk, so a live breakdown of
+// how today's money actually came in is more actionable here than another
+// view of appointment counts (which the table below already covers).
 
-type ApptChartEntry = { label: string; completed: number; pending: number; partial: number; cancelled: number; noShow: number };
+type CollectionPeriod = "today" | "yesterday" | "week" | "month";
 
-const AppointmentSummaryPanel = memo(function AppointmentSummaryPanel({
-  apptChartData,
+const COLLECTION_PERIOD_LABELS: Record<CollectionPeriod, string> = {
+  today: "Today",
+  yesterday: "Yesterday",
+  week: "This week",
+  month: "This month",
+};
+
+const PAYMENT_MODE_ICON: Record<string, { icon: ReactNode; bg: string; fg: string }> = {
+  cash:   { icon: <CashStack size={16} />,        bg: "#f0fdf4", fg: "#16a34a" },
+  upi:    { icon: <Wifi size={16} />,              bg: "#eff6ff", fg: "#3b82f6" },
+  card:   { icon: <CreditCard2Front size={16} />,  bg: "#eef2ff", fg: "#6366f1" },
+};
+const DEFAULT_MODE_ICON = { icon: <Wallet2 size={16} />, bg: "#f8fafc", fg: "#64748b" };
+
+// Requested display order — Cash, UPI, Card always lead regardless of which
+// one collected the most; anything else (Wallet, …) falls in after, sorted
+// by amount like before. 'split' is excluded entirely server-side (see
+// getPaymentModeBreakdown) since it isn't a real collection channel.
+const PAYMENT_MODE_ORDER: Record<string, number> = { cash: 0, upi: 1, card: 2 };
+
+const OverallCollectionPanel = memo(function OverallCollectionPanel({
+  entries,
+  total,
+  period,
+  onPeriodChange,
   loading,
+  error,
+  onRetry,
 }: {
-  apptChartData: ApptChartEntry[];
+  entries: Array<{ method: string; amount: number; percentage: number }>;
+  total: number;
+  period: CollectionPeriod;
+  onPeriodChange: (p: CollectionPeriod) => void;
   loading: boolean;
+  error: string | null;
+  onRetry: () => void;
 }) {
+  const { formatAmount, canSeeFinancials } = useMaskedCurrency();
+  const fmt = (n: number) => (canSeeFinancials ? formatAmount(n) : "₹******");
+  const { showSuccess, showError, overlay } = useStatusOverlay();
+  const [resending, setResending] = useState(false);
+  // Today's counter is only resendable once actually closed — unlike
+  // "yesterday" (always closed by definition), "today" can still be open,
+  // in which case there's nothing to resend yet.
+  const cashDashboard = useAppSelector((s) => s.cashCounter.dashboard);
+  const todayCounterClosed = cashDashboard?.status === "closed";
+  const canResend = period === "yesterday" || (period === "today" && todayCounterClosed);
+
+  // Cash/UPI/Card lead in that fixed order regardless of amount; anything
+  // else keeps the backend's amount-descending order after them.
+  const sortedEntries = useMemo(
+    () => [...entries].sort((a, b) => {
+      const ra = PAYMENT_MODE_ORDER[a.method] ?? 99;
+      const rb = PAYMENT_MODE_ORDER[b.method] ?? 99;
+      if (ra !== rb) return ra - rb;
+      return b.amount - a.amount;
+    }),
+    [entries]
+  );
+
+  const handleResend = async () => {
+    const isToday = period === "today";
+    setResending(true);
+    try {
+      const result = await resendClosedCounterMessage(isToday ? todayIsoDateIST() : yesterdayIsoDateIST());
+      if (result.sent) {
+        showSuccess(`${isToday ? "Today's" : "Yesterday's"} Close Counter message resent to WhatsApp`);
+      } else if (result.status === "IN_PROGRESS") {
+        showSuccess("Resend queued — it'll arrive on WhatsApp shortly");
+      } else {
+        showError(result.failure_reason || `Could not resend — no closed counter found for ${isToday ? "today" : "yesterday"}`);
+      }
+    } catch (err: any) {
+      showError(err?.response?.data?.message || "Could not resend the message");
+    } finally {
+      setResending(false);
+    }
+  };
+
   return (
     <div className="db-card db-card-md">
+      {overlay}
       <div className="db-card-header">
         <div>
-          <h3 className="db-card-title">Today's Summary</h3>
-          <p className="db-card-sub">Appointment status breakdown</p>
+          <h3 className="db-card-title">Overall Collection</h3>
+          <p className="db-card-sub">{COLLECTION_PERIOD_LABELS[period]}'s payment mode breakdown</p>
         </div>
+        {canResend && (
+          <button
+            className="db-collection-resend-btn"
+            title={`Resend ${period === "today" ? "today's" : "yesterday's"} Close Counter details to WhatsApp`}
+            disabled={resending}
+            onClick={handleResend}
+          >
+            {resending ? <ArrowRepeat size={14} className="db-refresh-spin" /> : <Whatsapp size={14} />}
+            {resending ? "Resending…" : "Resend"}
+          </button>
+        )}
       </div>
+
+      <div className="db-rev-filters db-collection-filters">
+        {(["today", "yesterday", "week", "month"] as const).map((p) => (
+          <button
+            key={p}
+            className={`db-rev-filter-btn${period === p ? " active" : ""}`}
+            onClick={() => onPeriodChange(p)}
+          >
+            {p.charAt(0).toUpperCase() + p.slice(1)}
+          </button>
+        ))}
+      </div>
+
       {loading ? (
         <ChartSkeleton />
+      ) : error ? (
+        <SectionError message={error} onRetry={onRetry} />
+      ) : entries.length === 0 ? (
+        <div className="db-empty">No payments collected in this period.</div>
       ) : (
-        <>
-          <ResponsiveContainer width="100%" height={240}>
-            <BarChart
-              data={apptChartData}
-              margin={{ top: 15, right: 15, left: 0, bottom: 0 }}
-              barSize={22}
-              barGap={4}
-            >
-              <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
-              <XAxis dataKey="label" tick={{ fontSize: 12, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
-              <YAxis width={35} tick={{ fontSize: 12, fill: "#9ca3af", dx: -4 }} axisLine={false} tickLine={false} allowDecimals={false} />
-              <Tooltip content={<ApptTooltip />} />
-              <Bar dataKey="completed" name="Completed" fill="#111827" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="pending"   name="Upcoming"  fill="#d1d5db" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="partial"   name="Partial"   fill="#93c5fd" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="cancelled" name="Cancelled" fill="#fecaca" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="noShow"    name="No Show"   fill="#c4b5fd" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-          <div className="db-bar-legend">
-            <span><CircleFill size={8} color="#111827" /> Completed</span>
-            <span><CircleFill size={8} color="#d1d5db" /> Upcoming</span>
-            <span><CircleFill size={8} color="#93c5fd" /> Partial</span>
-            <span><CircleFill size={8} color="#fecaca" /> Cancelled</span>
-            <span><CircleFill size={8} color="#c4b5fd" /> No Show</span>
+        <div className="db-collection-list">
+          {sortedEntries.map((e) => {
+            const style = PAYMENT_MODE_ICON[e.method] ?? DEFAULT_MODE_ICON;
+            return (
+              <div key={e.method} className="db-collection-row">
+                <span className="db-collection-icon" style={{ background: style.bg, color: style.fg }}>
+                  {style.icon}
+                </span>
+                <div className="db-collection-info">
+                  <div className="db-collection-label">{formatPaymentMode(e.method)}</div>
+                  <div className="db-collection-amount">{fmt(e.amount)}</div>
+                </div>
+                <span className="db-collection-pct" style={{ background: style.bg, color: style.fg }}>
+                  {e.percentage}%
+                </span>
+              </div>
+            );
+          })}
+          <div className="db-collection-row db-collection-row--total">
+            <span className="db-collection-icon" style={{ background: "#f5f3ff", color: "#7c3aed" }}>
+              <CreditCard2Front size={16} />
+            </span>
+            <div className="db-collection-info">
+              <div className="db-collection-label">Payments Received {COLLECTION_PERIOD_LABELS[period]}</div>
+              <div className="db-collection-amount">{fmt(total)}</div>
+            </div>
+            <span className="db-collection-pct" style={{ background: "#f5f3ff", color: "#7c3aed" }}>
+              100%
+            </span>
           </div>
-        </>
+        </div>
       )}
     </div>
   );
@@ -933,7 +1040,7 @@ const AppointmentsTable = memo(function AppointmentsTable({
   onPageChange: (p: number) => void;
   onRetry: () => void;
 }) {
-  const { formatAmount } = useCurrency();
+  const { formatAmount } = useMaskedCurrency();
   // Chip counts always reflect the FULL day's list regardless of which filter
   // is active — only the table rows below narrow down, so a chip never
   // changes its own count out from under the user when they click it.
@@ -1077,234 +1184,37 @@ const AppointmentsTable = memo(function AppointmentsTable({
   );
 });
 
-// ─── Section: Staff Revenue Donut Card ────────────────────────────────────────
-// Replaces the old Services donut — same visual layout, but shows how much
-// revenue each staff member generated, with its own period filter (independent
-// of the Revenue Trend chart above).
-
-type StaffRevSlice = {
-  id: string;
-  name: string;
-  role: string;
-  value: number;
-  color: string;
-  colorIndex: number;
-};
-
-const StaffRevenueCard = memo(function StaffRevenueCard({
-  entries,
-  period,
-  onPeriodChange,
-  loading,
-  error,
-  onRetry,
-}: {
-  entries: Array<{ id: string; name: string; role: string; revenue: number }>;
-  period: RevPeriod;
-  onPeriodChange: (p: RevPeriod) => void;
-  loading: boolean;
-  error: string | null;
-  onRetry: () => void;
-}) {
-  const { formatAmount } = useCurrency();
-  const slices: StaffRevSlice[] = useMemo(
-    () => entries.map((e, i) => ({
-      id: e.id, name: e.name, role: e.role, value: e.revenue,
-      color: SVC_CHART_COLORS[i % SVC_CHART_COLORS.length],
-      colorIndex: i % SVC_CHART_COLORS.length,
-    })),
-    [entries]
-  );
-
-  const totalValue = useMemo(
-    () => slices.reduce((sum, s) => sum + s.value, 0),
-    [slices]
-  );
-
-  return (
-    <div className="db-card db-svc-card">
-      <div className="db-card-header">
-        <div>
-          <h3 className="db-card-title">Staff Revenue</h3>
-          <p className="db-card-sub">How much revenue each staff member generated</p>
-        </div>
-        <div className="db-rev-filters">
-          {(["today", "weekly", "monthly", "yearly"] as const).map((p) => (
-            <button
-              key={p}
-              className={`db-rev-filter-btn${period === p ? " active" : ""}`}
-              onClick={() => onPeriodChange(p)}
-            >
-              {p.charAt(0).toUpperCase() + p.slice(1)}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {loading ? (
-        <DonutSkeleton />
-      ) : error ? (
-        <SectionError message={error} onRetry={onRetry} />
-      ) : slices.length === 0 ? (
-        <div className="db-empty">No staff revenue in this period yet.</div>
-      ) : (
-        <div className="db-svc-donut-layout">
-          <div className="db-svc-donut-wrap">
-            <ResponsiveContainer width="100%" height={200}>
-              <PieChart>
-                <Pie
-                  data={slices}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={58}
-                  outerRadius={88}
-                  paddingAngle={2}
-                  dataKey="value"
-                  stroke="none"
-                >
-                  {slices.map((entry, idx) => (
-                    <Cell key={`staff-${idx}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  formatter={(val: any) => [formatAmount(val || 0), ""]}
-                  contentStyle={{ borderRadius: 10, fontSize: 12 }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="db-svc-donut-center">
-              <span className="db-svc-donut-total">{formatAmount(totalValue)}</span>
-              <span className="db-svc-donut-label">total revenue</span>
-            </div>
-          </div>
-
-          <div className="db-svc-donut-list">
-            {slices.map((s) => {
-              const pct = totalValue > 0 ? ((s.value / totalValue) * 100).toFixed(1) : "0.0";
-              return (
-                <div className="db-svc-donut-row" key={s.id}>
-                  <span className={`db-svc-donut-dot db-svc-donut-dot--${s.colorIndex}`} />
-                  <div className="db-svc-donut-info">
-                    <span className="db-svc-donut-name">{s.name}</span>
-                    <span className="db-svc-donut-meta">{s.role}</span>
-                  </div>
-                  <div className="db-svc-donut-right">
-                    <span className="db-svc-donut-price">{formatAmount(s.value)}</span>
-                    <span className="db-svc-donut-pct">{pct}%</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-});
-
-// ─── Section: Top Staff Card ──────────────────────────────────────────────────
-
-type TopStaffEntry = {
-  id: string;
-  name: string;
-  role: string;
-  avatar: string;
-  clientCount: number;
-  revenue: number;
-  bookings: number;
-};
-
-const TopStaffCard = memo(function TopStaffCard({
-  topStaff,
-  loading,
-  error,
-  onNavigate,
-  onRetry,
-}: {
-  topStaff: TopStaffEntry[];
-  loading: boolean;
-  error: string | null;
-  onNavigate: () => void;
-  onRetry: () => void;
-}) {
-  const { formatAmount } = useCurrency();
-  return (
-    <div className="db-card">
-      <div className="db-card-header">
-        <div>
-          <h3 className="db-card-title">Top Staff</h3>
-          <p className="db-card-sub">Top 3 performers this month</p>
-        </div>
-        <button className="db-view-all" onClick={onNavigate}>
-          View all <ChevronRight size={14} />
-        </button>
-      </div>
-      {loading ? (
-        <StaffListSkeleton />
-      ) : error ? (
-        <SectionError message={error} onRetry={onRetry} />
-      ) : topStaff.length === 0 ? (
-        <div className="db-empty">No staff data available.</div>
-      ) : (
-        <div className="db-staff-list">
-          {topStaff.slice(0, 3).map((s, i) => {
-            const initials = (s.avatar || getInitialsFromFullName(s.name)).trim();
-            const rev      = s.revenue ?? 0;
-            return (
-              <div className="db-staff-item" key={s.id}>
-                <span className="db-rank">#{i + 1}</span>
-                <div className="db-staff-avatar">{initials ? initials.slice(0, 2).toUpperCase() : <PersonFill size={14} />}</div>
-                <div className="db-staff-info">
-                  <div className="db-staff-name">{s.name}</div>
-                  <div className="db-staff-role">{s.role ?? "Staff"}</div>
-                </div>
-                <div className="db-staff-stats">
-                  <div className="db-staff-rev">
-                    {formatAmount(rev)}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-});
-
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
+  const { can } = usePermissions();
 
   const [apptPage,  setApptPage]  = useState(1);
   const [apptStatusFilter, setApptStatusFilter] = useState<ApptStatusFilter>("all");
   const [revPeriod, setRevPeriod] = useState<RevPeriod>("monthly");
-  const [staffRevPeriod, setStaffRevPeriod] = useState<RevPeriod>("monthly");
+  const [revGender, setRevGender] = useState<string>("all");
+  const [collectionPeriod, setCollectionPeriod] = useState<CollectionPeriod>("today");
 
   // ── Granular selectors — each section only re-renders when its own slice changes
   const summary      = useAppSelector((s) => s.dashboard.data?.summary);
-  const { appointments, loading: apptsLoading, error: apptsError, refetch: refetchAppts } = useTodayAppointments();
+  const rawAppointments = useAppSelector((s) => s.dashboard.data?.todayAppointments);
+  const { appointments } = useTodayAppointments(rawAppointments);
   const revenueChart = useAppSelector((s) => s.dashboard.data?.revenueChart ?? EMPTY_REVENUE_CHART);
-  const topStaff     = useAppSelector((s) => s.dashboard.data?.topStaff ?? EMPTY_TOP_STAFF) as TopStaffEntry[];
-  const staffRevenue        = useAppSelector((s) => s.dashboard.staffRevenue);
-  const staffRevenueLoading = useAppSelector((s) => s.dashboard.staffRevenueLoading);
-  const staffRevenueError   = useAppSelector((s) => s.dashboard.staffRevenueError);
+  const paymentModeBreakdown = useAppSelector((s) => s.dashboard.data?.paymentModeBreakdown ?? EMPTY_PAYMENT_MODE_BREAKDOWN);
   const pendingPayments = useAppSelector((s) => s.dashboard.data?.pendingPayments);
   const todaysBirthdays = useAppSelector((s) => s.dashboard.data?.todaysBirthdays);
   const salonName = useAppSelector((s: any) => s.salon?.currentSalon?.business_name) || "our salon";
-  const recentActivity  = useAppSelector((s) => s.dashboard.data?.recentActivity ?? EMPTY_ACTIVITY);
   const dashLoading  = useAppSelector((s) => s.dashboard.loading);
   const chartLoading = useAppSelector((s) => s.dashboard.chartLoading);
   const chartError   = useAppSelector((s) => s.dashboard.chartError);
   const dashError    = useAppSelector((s) => s.dashboard.error);
 
-  // ── Mount: full load once ─────────────────────────────────────────────────
+  // ── Mount: single combined load ───────────────────────────────────────────
   useEffect(() => {
     const today = new Date().toISOString().split("T")[0];
-    dispatch(fetchDashboardAll({ period: revPeriod, date: today }));
-    dispatch(fetchStaffRevenue({ period: staffRevPeriod }));
+    dispatch(fetchDashboardCombined({ period: revPeriod, date: today, collectionPeriod }));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset appointment page when list or the active status filter changes
@@ -1322,43 +1232,60 @@ export default function DashboardPage() {
   const handlePeriodChange = useCallback(
     (p: RevPeriod) => {
       setRevPeriod(p);
-      dispatch(fetchRevenueChart({ period: p }));
+      dispatch(fetchRevenueChart({ period: p, gender: revGender }));
     },
-    [dispatch]
+    [dispatch, revGender]
   );
 
-  // Staff Revenue card's period filter is independent of the Revenue Trend chart's.
-  const handleStaffRevPeriodChange = useCallback(
-    (p: RevPeriod) => {
-      setStaffRevPeriod(p);
-      dispatch(fetchStaffRevenue({ period: p }));
+  // Gender change: same "only re-fetch the chart" treatment as the period toggle.
+  const handleGenderChange = useCallback(
+    (g: string) => {
+      setRevGender(g);
+      dispatch(fetchRevenueChart({ period: revPeriod, gender: g }));
     },
-    [dispatch]
+    [dispatch, revPeriod]
   );
 
-  const retryStaffRevenue = useCallback(() => {
-    dispatch(fetchStaffRevenue({ period: staffRevPeriod }));
-  }, [dispatch, staffRevPeriod]);
+  // Overall Collection card's Today/Yesterday/Week filter is independent of
+  // every other period control on this page. Its filter now travels as part
+  // of the same combined fetch as everything else (see fetchDashboardCombined),
+  // so changing it re-fetches the whole bundle rather than just this card —
+  // heavier per click, but keeps the dashboard down to one endpoint.
+  const handleCollectionPeriodChange = useCallback(
+    (p: CollectionPeriod) => {
+      setCollectionPeriod(p);
+      const today = new Date().toISOString().split("T")[0];
+      dispatch(fetchDashboardCombined({ period: revPeriod, date: today, collectionPeriod: p }));
+    },
+    [dispatch, revPeriod]
+  );
+
+  const retryPaymentModeBreakdown = useCallback(() => {
+    const today = new Date().toISOString().split("T")[0];
+    dispatch(fetchDashboardCombined({ period: revPeriod, date: today, collectionPeriod }));
+  }, [dispatch, revPeriod, collectionPeriod]);
 
   // ── Retry callbacks ────────────────────────────────────────────────────────
   const retryFull = useCallback(() => {
     const today = new Date().toISOString().split("T")[0];
-    dispatch(fetchDashboardAll({ period: revPeriod, date: today }));
-    refetchAppts();
-  }, [dispatch, revPeriod, refetchAppts]);
+    dispatch(fetchDashboardCombined({ period: revPeriod, date: today, collectionPeriod }));
+  }, [dispatch, revPeriod, collectionPeriod]);
 
   const handleRefresh = useCallback(() => {
     const today = new Date().toISOString().split("T")[0];
-    // fetchDashboardAll already returns revenueChart as part of its bundled
-    // response (see salon-dashboard.repository.ts's getAll()) — the separate
-    // fetchRevenueChart call here was fetching the exact same data a second
-    // time on every refresh/tab-focus. Its own chartLoading isn't needed
-    // either: the chart's loading prop already ORs in the general dashLoading
-    // flag (see chartLoading={dashLoading || chartLoading} below).
-    dispatch(fetchDashboardAll({ period: revPeriod, date: today }));
-    dispatch(fetchStaffRevenue({ period: staffRevPeriod }));
-    refetchAppts();
-  }, [dispatch, revPeriod, staffRevPeriod, refetchAppts]);
+    // fetchDashboardCombined already returns revenueChart as part of its
+    // bundled response — the separate fetchRevenueChart call here was
+    // fetching the exact same data a second time on every refresh/tab-focus.
+    // Its own chartLoading isn't needed either: the chart's loading prop
+    // already ORs in the general dashLoading flag (see
+    // chartLoading={dashLoading || chartLoading} below).
+    dispatch(fetchDashboardCombined({ period: revPeriod, date: today, collectionPeriod }));
+    // fetchDashboardCombined's bundled chart is always all-gender (that
+    // combined endpoint has no gender param) — re-apply an active gender
+    // filter with its own fetch so Refresh doesn't silently drop back to
+    // "All Genders".
+    if (revGender !== "all") dispatch(fetchRevenueChart({ period: revPeriod, gender: revGender }));
+  }, [dispatch, revPeriod, revGender, collectionPeriod]);
 
   // Deliberately NO tab-focus/visibilitychange auto-refresh here — the
   // dashboard must stay exactly as it is until the user clicks Refresh,
@@ -1369,8 +1296,8 @@ export default function DashboardPage() {
   // the Refresh button instead.
 
   const retryChart = useCallback(() => {
-    dispatch(fetchRevenueChart({ period: revPeriod }));
-  }, [dispatch, revPeriod]);
+    dispatch(fetchRevenueChart({ period: revPeriod, gender: revGender }));
+  }, [dispatch, revPeriod, revGender]);
 
   // ── Memoized derived state ─────────────────────────────────────────────────
   const normAppts = useMemo(
@@ -1396,53 +1323,6 @@ export default function DashboardPage() {
     [filteredAppts, apptPage]
   );
 
-  const apptChartData = useMemo<ApptChartEntry[]>(() => {
-    const parseHour = (timeStr: string): number | null => {
-      if (!timeStr || timeStr === "—") return null;
-      const match = timeStr.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
-      if (!match) return null;
-      let h = parseInt(match[1], 10);
-      const period = match[3].toUpperCase();
-      if (period === "PM" && h !== 12) h += 12;
-      if (period === "AM" && h === 12) h = 0;
-      return h;
-    };
-
-    if (normAppts.length === 0) {
-      return [{ label: "Today", completed: 0, pending: 0, partial: 0, cancelled: 0, noShow: 0 }];
-    }
-
-    const hourSet = new Set<number>();
-    normAppts.forEach(a => { const h = parseHour(a.time); if (h !== null) hourSet.add(h); });
-
-    if (hourSet.size === 0) {
-      return [{
-        label: "Today",
-        completed: normAppts.filter(a => a.status === "completed").length,
-        pending:   normAppts.filter(a => a.status === "upcoming").length,
-        partial:   normAppts.filter(a => a.status === "partial").length,
-        cancelled: normAppts.filter(a => a.status === "cancelled").length,
-        noShow:    normAppts.filter(a => a.status === "no-show").length,
-      }];
-    }
-
-    const minH = Math.min(...hourSet);
-    const maxH = Math.max(...hourSet);
-    return Array.from({ length: maxH - minH + 1 }, (_, i) => {
-      const h = minH + i;
-      const slot = normAppts.filter(a => parseHour(a.time) === h);
-      const label = h === 0 ? "12AM" : h < 12 ? `${h}AM` : h === 12 ? "12PM" : `${h - 12}PM`;
-      return {
-        label,
-        completed: slot.filter(a => a.status === "completed").length,
-        pending:   slot.filter(a => a.status === "upcoming").length,
-        partial:   slot.filter(a => a.status === "partial").length,
-        cancelled: slot.filter(a => a.status === "cancelled").length,
-        noShow:    slot.filter(a => a.status === "no-show").length,
-      };
-    });
-  }, [normAppts]);
-
   // Revenue Overview must reflect actual completed sales, not quoted/booked
   // appointment amounts (which include upcoming and cancelled appointments
   // and don't match the final billed total). The backend's "today" chart is
@@ -1466,7 +1346,6 @@ export default function DashboardPage() {
   const goToClients   = useCallback(() => navigate("/dashboard/clients/add"),     [navigate]);
   const goToSales     = useCallback(() => navigate("/dashboard/sales/quick"),      [navigate]);
   const goToMarketing = useCallback(() => navigate("/dashboard/marketing"),        [navigate]);
-  const goToStaff     = useCallback(() => navigate("/dashboard/team/members"),     [navigate]);
   // "Collect Now" on the Pending Payments card — goes to the Pending Payment
   // Report, which lists every bill still carrying a due balance (amount due,
   // days pending, client/staff/method), instead of the Detailed Appointment
@@ -1489,7 +1368,7 @@ export default function DashboardPage() {
       {/* ── HEADER ── */}
       <div className="db-header">
         <div>
-          <h1 className="db-title">salonox!</h1>
+          <h1 className="db-title">salonox</h1>
           <p className="db-subtitle">{today} · Here's what's happening today</p>
         </div>
         <div className="db-header-actions">
@@ -1527,27 +1406,41 @@ export default function DashboardPage() {
         loading={dashLoading}
         error={dashError}
         onRetry={retryFull}
+        can={can}
       />
 
       {/* ── REVENUE OVERVIEW + TODAY'S SUMMARY ── */}
-      <div className="db-overview-row">
+      {(can("view_dashboard_card_revenue_overview") || can("view_dashboard_card_overall_collection")) && (
+        <div className="db-overview-row">
 
-        {/* Revenue chart — only re-renders when chart data or chartLoading changes */}
-        <RevenueChartPanel
-          revenue={displayRevenueChart}
-          chartLoading={dashLoading || chartLoading}
-          error={chartError ?? dashError}
-          revPeriod={revPeriod}
-          onPeriodChange={handlePeriodChange}
-          onRetry={retryChart}
-        />
+          {/* Revenue chart — only re-renders when chart data or chartLoading changes */}
+          {can("view_dashboard_card_revenue_overview") && (
+            <RevenueChartPanel
+              revenue={displayRevenueChart}
+              chartLoading={dashLoading || chartLoading}
+              error={chartError ?? dashError}
+              revPeriod={revPeriod}
+              onPeriodChange={handlePeriodChange}
+              revGender={revGender}
+              onGenderChange={handleGenderChange}
+              onRetry={retryChart}
+            />
+          )}
 
-        <AppointmentSummaryPanel
-          apptChartData={apptChartData}
-          loading={dashLoading}
-        />
+          {can("view_dashboard_card_overall_collection") && (
+            <OverallCollectionPanel
+              entries={paymentModeBreakdown.entries}
+              total={paymentModeBreakdown.total}
+              period={collectionPeriod}
+              onPeriodChange={handleCollectionPeriodChange}
+              loading={dashLoading}
+              error={dashError}
+              onRetry={retryPaymentModeBreakdown}
+            />
+          )}
 
-      </div>
+        </div>
+      )}
 
       {/* ── TODAY'S APPOINTMENTS TABLE ── */}
       <AppointmentsTable
@@ -1558,8 +1451,8 @@ export default function DashboardPage() {
         totalApptPages={totalApptPages}
         statusFilter={apptStatusFilter}
         onStatusFilterChange={handleApptStatusFilterChange}
-        loading={dashLoading || apptsLoading}
-        error={apptsError || dashError}
+        loading={dashLoading}
+        error={dashError}
         onPageChange={setApptPage}
         onRetry={retryFull}
       />
@@ -1572,31 +1465,8 @@ export default function DashboardPage() {
         pendingLoading={dashLoading}
         onNavigatePendingAppointments={goToPendingAppointments}
         salonName={salonName}
+        can={can}
       />
-
-      {/* ── STAFF REVENUE / TOP STAFF / RECENT ACTIVITY ── */}
-      <div className="db-bottom-row db-bottom-row--triple">
-        <StaffRevenueCard
-          entries={staffRevenue}
-          period={staffRevPeriod}
-          onPeriodChange={handleStaffRevPeriodChange}
-          loading={staffRevenueLoading}
-          error={staffRevenueError}
-          onRetry={retryStaffRevenue}
-        />
-        <TopStaffCard
-          topStaff={topStaff}
-          loading={dashLoading}
-          error={dashError}
-          onNavigate={goToStaff}
-          onRetry={retryFull}
-        />
-        <RecentActivityCard
-          activity={recentActivity}
-          loading={dashLoading}
-          error={dashError}
-        />
-      </div>
 
     </div>
   );

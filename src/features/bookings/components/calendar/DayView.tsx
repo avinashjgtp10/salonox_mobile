@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from "react";
-import type { Booking, BlockedTime } from "../../types/booking.types";
+import type { Booking, BlockedTime, Staff } from "../../types/booking.types";
 import { useScheduler, SLOT_HEIGHT } from "../../hooks/useScheduler";
 import { useSchedulerContext } from "../../store/SchedulerContext";
 import type { DragCandidate, ResizeState } from "../../hooks/useDragDrop";
@@ -9,6 +9,9 @@ import BookingTooltipCard from "../shared/BookingTooltipCard";
 import BookingChip from "./BookingChip";
 import { computeOverlapLayout } from "../../utils/overlapLayout";
 import { useStatusOverlay } from "../../../../hooks/useStatusOverlay";
+import { usePermissions } from "../../../../hooks/usePermissions";
+import { useAppDispatch } from "../../../../hooks/useAppRedux";
+import { showPermissionDenied } from "../../../../store/permissionDialogSlice";
 import "../../styles/DayView.scss";
 
 // Stable empty array — avoids allocating a new [] on every render for staff with no blocks
@@ -17,6 +20,22 @@ const EMPTY_BLOCKS: BlockedTime[] = [];
 // Must match .dv-gutter width and .dv-header-row height in DayView.scss
 const GUTTER_WIDTH = 72;
 const HEADER_HEIGHT = 56;
+
+// Synthetic column (not a real staff row) for online bookings where the
+// customer picked "Any Available" — a real stylist is still assigned
+// underneath (schedule/commission logic needs one), but the column groups
+// these by customer intent rather than by whichever stylist auto-assignment
+// happened to pick. Read-only: BookingChip locks dragging/resizing for any
+// booking with isAnyStaff, and this column has no real staff schedule to
+// validate a slot-click booking against, so slot clicks and the staff header
+// menu (Add Block Time, etc.) are both disabled for it below.
+const ANY_STAFF_COL_ID = "any-staff";
+const ANY_STAFF_COLUMN: Staff = {
+  id: ANY_STAFF_COL_ID,
+  name: "Any Available",
+  initials: "A",
+  color: "#6b7280",
+};
 
 interface StaffSegment { time: string; endTime: string; }
 
@@ -88,12 +107,40 @@ const DayView: React.FC<DayViewProps> = ({
   const { currentDate, slots, timeToPx, durationToPx, intervalMins } = useScheduler();
   const { blockedTimes, deleteBlockedTime, updateBooking, staffList, selectedStaffIds, bookings, highlightedBookingId, staffSchedules } = useSchedulerContext();
   const { showError, overlay: dragErrorOverlay } = useStatusOverlay();
+  const { can } = usePermissions();
+  const dispatch = useAppDispatch();
+  // Drag-reschedule and resize-duration both modify the appointment, so
+  // both fall under Edit Appointment (see the Calendar permissions ticket).
+  // Gated at drag/resize START, not just on the eventual PATCH call — a
+  // denied staff member's chip must never even visually move before
+  // snapping back, it should just not move at all.
+  const requireEditForDrag = () => {
+    if (can("edit_appointment")) return true;
+    dispatch(showPermissionDenied(
+      `Your account does not have the "edit_appointment" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+    ));
+    return false;
+  };
 
   // Empty selection = "All Staff" — otherwise show only the selected staff
   // members' columns, side by side, so schedules can be compared directly.
-  const visibleStaff = useMemo(
+  const realVisibleStaff = useMemo(
     () => selectedStaffIds.length > 0 ? staffList.filter((s) => selectedStaffIds.includes(s.id)) : staffList,
     [staffList, selectedStaffIds],
+  );
+
+  // The "Any" column only appears on a day that actually has one of these
+  // bookings — an always-present empty column would waste screen space on
+  // every other day for a salon whose customers mostly pick a specific
+  // stylist. Named `visibleStaff` (not `realVisibleStaff`) since this is what
+  // every render/layout computation below should treat as "the columns".
+  const hasAnyStaffToday = useMemo(
+    () => bookings.some((b) => b.date === currentDate && b.isAnyStaff),
+    [bookings, currentDate],
+  );
+  const visibleStaff = useMemo(
+    () => hasAnyStaffToday ? [ANY_STAFF_COLUMN, ...realVisibleStaff] : realVisibleStaff,
+    [realVisibleStaff, hasAnyStaffToday],
   );
 
   const today = new Date().toISOString().slice(0, 10);
@@ -179,13 +226,15 @@ const DayView: React.FC<DayViewProps> = ({
 
   // Stable handlers for BookingChip — useCallback(fn,[]) since setters are stable
   const handleStartDragCandidate = useCallback((candidate: DragCandidate) => {
+    if (!requireEditForDrag()) return;
     setHovered(null);
     setDragCandidate(candidate);
-  }, []);
+  }, [can]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleStartResize = useCallback((state: ResizeState) => {
+    if (!requireEditForDrag()) return;
     setResizing(state);
-  }, []);
+  }, [can]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const justDraggedRef = useRef(false);
 
@@ -318,7 +367,12 @@ const DayView: React.FC<DayViewProps> = ({
           const deltaX = e.clientX - prev.startX;
           const colShift = Math.round(deltaX / COL_WIDTH);
           const origIndex = visibleStaff.findIndex((s) => s.id === prev.originalStaffId);
-          const newIndex = Math.max(0, Math.min(visibleStaff.length - 1, origIndex + colShift));
+          // A dragged booking always originates on a real staff column (the
+          // Any column's own chips can't be dragged — see BookingChip's
+          // isReadOnly), so the drop target must skip index 0 whenever
+          // that's the synthetic Any column, never treating it as landable.
+          const minDragIndex = hasAnyStaffToday ? 1 : 0;
+          const newIndex = Math.max(minDragIndex, Math.min(visibleStaff.length - 1, origIndex + colShift));
           return {
             ...prev,
             currentTop: Math.max(0, snapped),
@@ -338,7 +392,8 @@ const DayView: React.FC<DayViewProps> = ({
         const rawTop = dragCandidate.originalTop + deltaY;
         const snapped = Math.round(rawTop / SLOT_HEIGHT) * SLOT_HEIGHT;
         const colShift = Math.round(deltaX / COL_WIDTH);
-        const newIndex = Math.max(0, Math.min(visibleStaff.length - 1, dragCandidate.currentStaffIndex + colShift));
+        const minDragIndex = hasAnyStaffToday ? 1 : 0;
+        const newIndex = Math.max(minDragIndex, Math.min(visibleStaff.length - 1, dragCandidate.currentStaffIndex + colShift));
 
         setDragging({
           booking: dragCandidate.booking,
@@ -484,7 +539,7 @@ const DayView: React.FC<DayViewProps> = ({
       window.removeEventListener("mouseup", onMouseUp);
       window.removeEventListener("blur", onBlur);
     };
-  }, [isDragActive, intervalMins, updateBooking, COL_WIDTH, visibleStaff]);
+  }, [isDragActive, intervalMins, updateBooking, COL_WIDTH, visibleStaff, hasAnyStaffToday]);
 
   useEffect(() => {
     if (!resizing) return;
@@ -595,9 +650,93 @@ const DayView: React.FC<DayViewProps> = ({
       .sort((a, b) => (a.startTime || "").localeCompare(b.startTime || ""));
   }, [bookings, currentDate]);
 
+  // Primitive identity of the current drag, extracted so the memo below only
+  // recomputes when WHICH booking/column is being dragged changes — not on
+  // every mousemove tick, which is when `dragging`'s own currentTop mutates.
+  const draggingBookingId = dragging?.booking.id ?? null;
+  const draggingOriginalStaffId = dragging?.originalStaffId ?? null;
+  const draggingCurrentStaffId = dragging?.currentStaffId ?? null;
+
+  // Precomputed once per staff column, independent of the live drag/resize
+  // pixel values (currentTop/currentHeight) that change on every mousemove —
+  // only the drag's booking/column IDENTITY (which booking, which columns)
+  // is a dependency. Previously this filter + O(n log n) collision-layout
+  // sort ran inline inside the render loop for every staff column on every
+  // mousemove tick while dragging/resizing, which was the main source of
+  // drag jank on a day with several staff/appointments.
+  const staffLayouts = useMemo(() => {
+    const map = new Map<string, { staffBookings: { booking: Booking; staffStart: string; staffEnd: string }[]; overlapLayout: Map<string, { col: number; totalCols: number }> }>();
+    const toMinsLocal = (t: string) => { const [hh, mm] = (t || "00:00").split(":").map(Number); return hh * 60 + mm; };
+    const clampSameDayEnd = (start: string, end: string) => (toMinsLocal(end) <= toMinsLocal(start) ? "23:59" : end);
+
+    visibleStaff.forEach((staff) => {
+      // The synthetic "Any" column buckets purely by the isAnyStaff flag —
+      // there's no real schedule/segments to match against, and dragging is
+      // already locked for these in BookingChip so draggingOriginalStaffId/
+      // draggingCurrentStaffId can never legitimately equal this column's id.
+      if (staff.id === ANY_STAFF_COL_ID) {
+        const staffBookings = dayBookings
+          .filter((b) => b.isAnyStaff)
+          .map((b) => ({ booking: b, staffStart: b.startTime, staffEnd: clampSameDayEnd(b.startTime, b.endTime) }));
+        const overlapLayout = computeOverlapLayout(
+          staffBookings.map(({ booking: b, staffStart, staffEnd }) => ({
+            id: `${b.id}-${staff.id}`,
+            startMin: toMinsLocal(staffStart),
+            endMin: toMinsLocal(staffEnd),
+          }))
+        );
+        map.set(staff.id, { staffBookings, overlapLayout });
+        return;
+      }
+
+      const staffBookings = dayBookings
+        .filter((b) => {
+          // Shown only in the Any column above, never under whichever real
+          // stylist auto-assignment happened to pick — otherwise it would
+          // render twice.
+          if (b.isAnyStaff) return false;
+          if (draggingBookingId === b.id
+              && (staff.id === draggingOriginalStaffId || staff.id === draggingCurrentStaffId)) {
+            return draggingCurrentStaffId === staff.id;
+          }
+          if (getStaffSegments(b, staff.id).length > 0) return true;
+          const anyItemHasStaff =
+            (b.services || []).some((s: any) => s.staffId) ||
+            (b.packageItems || []).some((p: any) => p.staffId) ||
+            (b.productItems || []).some((p: any) => p.staffId) ||
+            (b.membershipItems || []).some((m: any) => m.staffId);
+          if (b.staffId && String(b.staffId) === String(staff.id) && !anyItemHasStaff) return true;
+          return false;
+        })
+        .map((b) => {
+          const segs = getStaffSegments(b, staff.id);
+          const staffStart = segs.length > 0
+            ? segs.reduce((min, s) => toMinsLocal(s.time) < toMinsLocal(min) ? s.time : min, segs[0].time)
+            : b.startTime;
+          const staffEnd = segs.length > 0
+            ? segs.reduce((max, s) => toMinsLocal(s.endTime) > toMinsLocal(max) ? s.endTime : max, segs[0].endTime)
+            : clampSameDayEnd(staffStart, b.endTime);
+          return { booking: b, staffStart, staffEnd };
+        })
+        .filter(({ staffStart, staffEnd }) => !isTimeRangeUnavailable(staff.id, staffStart, staffEnd));
+
+      const overlapLayout = computeOverlapLayout(
+        staffBookings.map(({ booking: b, staffStart, staffEnd }) => ({
+          id: `${b.id}-${staff.id}`,
+          startMin: toMinsLocal(staffStart),
+          endMin: toMinsLocal(staffEnd),
+        }))
+      );
+
+      map.set(staff.id, { staffBookings, overlapLayout });
+    });
+
+    return map;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dayBookings, visibleStaff, dayBlocked, staffSchedules, currentDate, draggingBookingId, draggingOriginalStaffId, draggingCurrentStaffId]);
+
   const nowPx = timeToPx(nowTime);
   const isInteracting = !!(dragging || resizing);
-  const toMinsLocal = (t: string) => { const [hh, mm] = (t || "00:00").split(":").map(Number); return hh * 60 + mm; };
   const totalWidth = visibleStaff.length * COL_WIDTH;
   const totalGridHeight = slots.length * SLOT_HEIGHT;
 
@@ -664,6 +803,9 @@ const DayView: React.FC<DayViewProps> = ({
                     style={{ width: COL_WIDTH }}
                     onClick={(e) => {
                       e.stopPropagation();
+                      // Not a real staff member — nothing in the menu
+                      // (Add Block Time, etc.) applies to it.
+                      if (staff.id === ANY_STAFF_COL_ID) return;
                       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
                       setStaffMenu((prev) => prev?.staffId === staff.id ? null : { staffId: staff.id, x: rect.left, y: rect.bottom + 4 });
                     }}
@@ -715,10 +857,15 @@ const DayView: React.FC<DayViewProps> = ({
 
                   {slots.map((t) => {
                     const [, m] = t.split(":").map(Number);
-                    const offHours = isSlotOffHours(staff.id, t);
-                    const blocked = isSlotBlocked(staff.id, t);
-                    const booked = !blocked && !offHours && isSlotBooked(staff.id, t);
-                    const unavailable = blocked || booked || offHours;
+                    // Not a real staff member — there's no schedule/blocked-
+                    // time data to check, and clicking to create a new
+                    // appointment here would submit a bogus staffId. Neutral
+                    // (non-blocked-looking) but inert.
+                    const isAnyCol = staff.id === ANY_STAFF_COL_ID;
+                    const offHours = !isAnyCol && isSlotOffHours(staff.id, t);
+                    const blocked = !isAnyCol && isSlotBlocked(staff.id, t);
+                    const booked = !isAnyCol && !blocked && !offHours && isSlotBooked(staff.id, t);
+                    const unavailable = blocked || booked || offHours || isAnyCol;
                     return (
                       <div
                         key={t}
@@ -727,7 +874,7 @@ const DayView: React.FC<DayViewProps> = ({
                           onSlotClick(staff.id, t);
                         }}
                         className={`dv-slot${m === 0 ? " dv-slot--hour" : ""}${blocked ? " dv-slot--blocked" : ""}${booked ? " dv-slot--booked" : ""}${offHours ? " dv-slot--off-hours" : ""}${isInteracting ? " dv-slot--interacting" : ""}`}
-                        style={isInteracting ? { cursor: "grabbing" } : undefined}
+                        style={isInteracting ? { cursor: "grabbing" } : (isAnyCol ? { cursor: "default" } : undefined)}
                         onMouseEnter={(e) => { if (!unavailable && !isInteracting) (e.currentTarget as HTMLElement).classList.add("dv-slot--hover"); }}
                         onMouseLeave={(e) => { (e.currentTarget as HTMLElement).classList.remove("dv-slot--hover"); }}
                       />
@@ -822,51 +969,12 @@ const DayView: React.FC<DayViewProps> = ({
                   ))}
 
                   {(() => {
-                    const staffBookings = dayBookings
-                      .filter((b) => {
-                        // Only the segment actually being dragged needs special handling —
-                        // hide it from its original column and show it only under the
-                        // current drag-target column. A multi-staff booking's OTHER
-                        // segments (e.g. a package on a different staff) are unrelated to
-                        // this drag and must keep rendering normally in their own columns.
-                        if (dragging?.booking.id === b.id
-                            && (staff.id === dragging.originalStaffId || staff.id === dragging.currentStaffId)) {
-                          return dragging.currentStaffId === staff.id;
-                        }
-                        // Per-item staff (service/package/product/membership): show chip
-                        // under each item's own staff column.
-                        if (getStaffSegments(b, staff.id).length > 0) return true;
-                        // Backward compat: if NO item anywhere carries its own staffId,
-                        // fall back to the appointment-level staffId.
-                        const anyItemHasStaff =
-                          (b.services || []).some((s: any) => s.staffId) ||
-                          (b.packageItems || []).some((p: any) => p.staffId) ||
-                          (b.productItems || []).some((p: any) => p.staffId) ||
-                          (b.membershipItems || []).some((m: any) => m.staffId);
-                        if (b.staffId && String(b.staffId) === String(staff.id) && !anyItemHasStaff) return true;
-                        return false;
-                      })
-                      .map((b) => {
-                        const segs = getStaffSegments(b, staff.id);
-                        const staffStart = segs.length > 0
-                          ? segs.reduce((min, s) => toMinsLocal(s.time) < toMinsLocal(min) ? s.time : min, segs[0].time)
-                          : b.startTime;
-                        const staffEnd = segs.length > 0
-                          ? segs.reduce((max, s) => toMinsLocal(s.endTime) > toMinsLocal(max) ? s.endTime : max, segs[0].endTime)
-                          : clampSameDayEnd(staffStart, b.endTime);
-                        return { booking: b, staffStart, staffEnd };
-                      })
-                      .filter(({ staffStart, staffEnd }) => !isTimeRangeUnavailable(staff.id, staffStart, staffEnd));
-
-                    // Concurrent appointments for the same staff (e.g. hair-color processing
-                    // time) are allowed — lay them out side-by-side instead of stacking.
-                    const overlapLayout = computeOverlapLayout(
-                      staffBookings.map(({ booking: b, staffStart, staffEnd }) => ({
-                        id: `${b.id}-${staff.id}`,
-                        startMin: toMinsLocal(staffStart),
-                        endMin: toMinsLocal(staffEnd),
-                      }))
-                    );
+                    // Precomputed in staffLayouts (see its definition above) —
+                    // recomputed only when the underlying data or the drag's
+                    // identity changes, not on every mousemove-driven render.
+                    const layout = staffLayouts.get(staff.id);
+                    const staffBookings = layout?.staffBookings ?? [];
+                    const overlapLayout = layout?.overlapLayout;
 
                     return staffBookings.map(({ booking: b, staffStart, staffEnd }) => {
                       // Match by staff column too — the same booking can render in up to
@@ -882,7 +990,7 @@ const DayView: React.FC<DayViewProps> = ({
                       // Full width while being dragged/resized so layout doesn't jump mid-interaction
                       const { col, totalCols } = (isDraggingThis || isResizingThis)
                         ? { col: 0, totalCols: 1 }
-                        : overlapLayout.get(key) ?? { col: 0, totalCols: 1 };
+                        : overlapLayout?.get(key) ?? { col: 0, totalCols: 1 };
                       return (
                         <BookingChip
                           key={key}

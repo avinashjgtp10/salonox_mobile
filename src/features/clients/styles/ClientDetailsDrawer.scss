@@ -908,6 +908,43 @@
       }
     }
 
+    /* Membership tag + expiry — one row per active membership. */
+    .cdd-memberships {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 10px 0;
+      border-bottom: 1px solid #f3f4f6;
+
+      &--empty {
+        font-size: 13px;
+        color: #9ca3af;
+      }
+    }
+
+    .cdd-membership {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+
+      &__tag {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 999px;
+        color: #fff;
+        font-size: 12px;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+
+      &__exp {
+        font-size: 13px;
+        color: #6b7280;
+        white-space: nowrap;
+      }
+    }
+
     .cdd-wallet-row {
       display: flex;
       justify-content: space-between;

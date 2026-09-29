@@ -739,13 +739,16 @@
   &__empty-link {
     margin-top: 8px;
     padding: 8px 20px;
+    border: none;
     border-radius: $radius-lg;
     background: #6366f1;
     color: #fff;
+    font-family: inherit;
     font-weight: 600;
     font-size: $font-size-md;
     text-decoration: none;
     display: inline-block;
+    cursor: pointer;
     transition: background 0.15s;
 
     &:hover { background: #4f46e5; color: #fff; }

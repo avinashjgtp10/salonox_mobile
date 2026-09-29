@@ -5,6 +5,8 @@ import MultiSelectCheckbox from "../../../../components/ui/MultiSelectCheckbox";
 import Dropdown from "../../../../components/ui/Dropdown";
 import { useCurrency } from "../../../../hooks/useCurrency";
 import { useAppSelector, useAppDispatch } from "../../../../hooks/useAppRedux";
+import { usePermissions } from "../../../../hooks/usePermissions";
+import { showPermissionDenied } from "../../../../store/permissionDialogSlice";
 import { useAppointment }    from "../../hooks/useAppointment";
 import { usePayment, buildPaymentPayload, buildPaymentStatusPatch } from "../../hooks/usePayment";
 import { usePosSettings }    from "../../hooks/usePosSettings";
@@ -15,19 +17,21 @@ import { useServices }       from "../../hooks/useServices";
 import { useServices as useCatalogServices } from "../../../catalog/hooks/useServices";
 import { useLazyListPackagesQuery, useLazyListPackageTemplatesQuery, useCompleteClientPackageSessionMutation } from "../../../../services/api/endpoints/packages.endpoints";
 import { useClientDetails } from "../../hooks/useClientDetails";
-import { fetchProductsThunk } from "../../../../middleware/catalog/products.thunk";
+import { searchProductsThunk } from "../../../../middleware/catalog/products.thunk";
 import { fetchMembershipsThunk } from "../../../../middleware/membership/membership.thunk";
 import { setPackagesList, patchPaymentStatus } from "../../../../store/schedulerSlice";
 import { postPaymentThunk } from "../../../../middleware/booking/payment.thunk";
 import { checkoutBookingThunk } from "../../../../middleware/booking/booking.thunk";
 import { fetchReceiptPdfThunk } from "../../../../middleware/booking/booking.thunk";
 import { downloadBlob } from "../../../../utils/downloadBlob";
+import { formatDateDDMMYYYY } from "../../../../utils/dateFormat";
 import { fetchSettingsThunk } from "../../../../middleware/setting/setting.thunk";
 import { getActiveTaxes } from "../../../settings/utils/taxSettings";
 import { getTaxModuleConfig } from "../../../settings/utils/taxModuleSettings";
 import { getPaperProfile } from "../../../settings/utils/printSettings";
 import { getRewardPointsConfig } from "../../../settings/utils/rewardPointsSettings";
 import { getReferralConfig } from "../../../settings/utils/referralSettings";
+import { getServiceReminderPresets } from "../../../catalog/utils/serviceReminderSettings";
 import { isRealId } from "../../utils/paymentUtils";
 import { normalizePaymentStatus } from "../../utils/bookingMapper";
 import { isPackageExpired } from "../../utils/packageStatus";
@@ -35,10 +39,11 @@ import { sanitizeDecimalInput } from "../../utils/lineItemInput";
 import type { TotalsResult } from "../../utils/totalsUtils";
 import api from "../../../../services/api/axios";
 import { PRICING, PAYMENT } from "../../../../services/api/endpoints";
-import { computePointsEarned, computeEWalletCredit, computeMaxWalletUsable, EWALLET_REDEEM_MINIMUM } from "../../utils/paymentUtils";
+import { computePointsEarned, computeEWalletCredit, computeMaxWalletUsable, computeMaxReferralRedeemable, EWALLET_REDEEM_MINIMUM } from "../../utils/paymentUtils";
 import {
   selectPackagesList, selectProductsList, selectMembershipsList, selectBookings,
 } from "../../../../store/selectors/scheduler.selectors";
+import { selectServiceCategories, selectProductCategories } from "../../../../store/selectors/slices.selectors";
 import {
   PersonFill, Scissors, TagFill, FileText,
   BellFill, PencilFill, BoxSeamFill, AwardFill,
@@ -196,6 +201,37 @@ export const AppointmentModal: React.FC<Props> = ({
 }) => {
   const dispatch = useAppDispatch();
   const { currencySymbol, formatAmount } = useCurrency();
+  const { can } = usePermissions();
+  // This modal doubles as Quick Sale's checkout screen (quickSale===true) —
+  // that flow is already fully gated by its own create_sales permission at
+  // the route level (PermissionGuard on /dashboard/sales/quick), so
+  // re-checking the Calendar-specific edit_appointment/view_payment_details
+  // keys there would incorrectly double-gate an unrelated permission.
+  // Cancel/Delete aren't reachable from Quick Sale at all (no such action
+  // exists there), so those two don't need the same exception.
+  //
+  // Recording/collecting payment (any Save & Pay / Continue to Payment /
+  // Pay button below, whether on a brand-new or an existing appointment) is
+  // gated by edit_appointment (Edit & Payment Appointment), not
+  // create_appointment (Create Booking Appointment) — the two were split
+  // apart so booking a new appointment never implies payment access
+  // (Calendar permissions rename ticket). create_appointment alone lets a
+  // staff member save a new Booked appointment with no payment step at all.
+  const canRecordPaymentPerm = quickSale || can("edit_appointment");
+  const canViewPaymentDetailsPerm = quickSale || can("view_payment_details");
+  const canEditPerm = quickSale || can("edit_appointment");
+  // Despite its name, handleSaveAndPay's only call site (the brand-new-
+  // booking "Save Appointment" button) never records a payment — it just
+  // creates the appointment. Gating it on canRecordPaymentPerm reused the
+  // wrong flag: a create_appointment-only user got an "edit_appointment"
+  // Permission Required popup on a plain save with no payment step at all,
+  // contradicting create_appointment's own catalog description.
+  const canCreatePerm = quickSale || can("create_appointment");
+  const canCancelPerm = can("cancel_appointment");
+  const canDeletePerm = can("delete_appointment");
+  const denyPerm = (key: string) => dispatch(showPermissionDenied(
+    `Your account does not have the "${key}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+  ));
 
   // Keyboard accessibility: trap Tab inside the drawer, Escape closes it,
   // focus returns to whatever triggered it. Not a modal when embedded as a
@@ -223,10 +259,15 @@ export const AppointmentModal: React.FC<Props> = ({
   const paperProfile = useMemo(() => getPaperProfile(settingItems), [settingItems]);
   const rewardPointsConfig = useMemo(() => getRewardPointsConfig(settingItems), [settingItems]);
   const referralConfig = useMemo(() => getReferralConfig(settingItems), [settingItems]);
+  // Configurable dropdown options for the per-service redo reminder (Catalog
+  // → Services → Options → "Service reminder options") — threaded down to
+  // ServicesPanel/ServiceRow so staff pick from these instead of typing a
+  // number every time.
+  const reminderPresets = useMemo(() => getServiceReminderPresets(settingItems), [settingItems]);
 
   // ── Lazy on-demand fetching ───────────────────────────────────────────────
-  const [triggerPackages, { data: packagesData }]       = useLazyListPackagesQuery();
-  const [triggerTemplates, { data: packageTemplatesRaw }] = useLazyListPackageTemplatesQuery();
+  const [triggerPackages, { data: packagesData, error: packagesError }]       = useLazyListPackagesQuery();
+  const [triggerTemplates, { data: packageTemplatesRaw, error: packageTemplatesError }] = useLazyListPackageTemplatesQuery();
   const pkgRequested  = useRef(false);
   const prodRequested = useRef(false);
   const memRequested  = useRef(false);
@@ -257,7 +298,12 @@ export const AppointmentModal: React.FC<Props> = ({
     }
     if ((existingBooking as any)?.productItems?.length && !prodRequested.current && availableProducts.length === 0) {
       prodRequested.current = true;
-      dispatch(fetchProductsThunk({ pageSize: PRODUCT_FETCH_PAGE_SIZE }));
+      // searchProductsThunk (POST /products/search), not fetchProductsThunk
+      // (GET /products) — the GET route's validator caps pageSize at 100 and
+      // rejects anything above with "pageSize must not exceed 100", which
+      // PRODUCT_FETCH_PAGE_SIZE's 200 always tripped. The POST route runs the
+      // same query with a 500 cap instead, with no search term required.
+      dispatch(searchProductsThunk({ pageSize: PRODUCT_FETCH_PAGE_SIZE }));
     }
     if ((existingBooking as any)?.membershipItems?.length && !memRequested.current && availableMemberships.length === 0) {
       memRequested.current = true;
@@ -265,20 +311,53 @@ export const AppointmentModal: React.FC<Props> = ({
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Surface a real fetch failure (plan-locked, 500, network) instead of
+  // letting it look identical to "this salon truly has no packages" — the
+  // merge below can't tell the difference once packagesData/templatesRaw
+  // are both just undefined.
+  useEffect(() => {
+    if (packagesError) {
+      const status = (packagesError as any)?.status;
+      toast.error(
+        status === 403
+          ? "Packages aren't available on your current plan."
+          : "Couldn't load packages. Please try again.",
+      );
+    }
+  }, [packagesError]);
+
+  useEffect(() => {
+    if (packageTemplatesError) {
+      toast.error("Couldn't load package templates. Please try again.");
+    }
+  }, [packageTemplatesError]);
+
   // Map package API data → scheduler packagesList when it arrives
   useEffect(() => {
     const templates = packageTemplatesRaw ?? [];
-    const fromCatalog = (packagesData?.items || []).map((p: any) => ({
-      id: String(p.id || ""), name: p.name || "", price: p.basePrice || 0,
-      // Real catalog service ids — combo packages have no per-service
-      // name/price/session breakdown of their own (unlike templates), so the
-      // "+ Package" row's scheduling UI resolves name/price for each of
-      // these against the loaded services catalog (see PackageRow).
-      services: (p.serviceIds ?? []) as string[],
-      // Catalog packages are the only ones with a description column; they
-      // carry no per-service session data, hence no serviceDetails.
-      description: typeof p.description === "string" ? p.description : undefined,
-    }));
+    // Row price shown/billed in Quick Sale and Calendar's "+Package" must be
+    // the actual sell price (basePrice minus its own discount) — raw
+    // basePrice silently dropped any discount configured on the
+    // package/template, overcharging the client relative to what
+    // PackageCreateForm/PackageDashboard treat as that package's real price.
+    const fromCatalog = (packagesData?.items || []).map((p: any) => {
+      const base = p.basePrice || 0;
+      const discountAmt = p.discountType === "fixed"
+        ? (p.discountValue || 0)
+        : base * ((p.discountValue || 0) / 100);
+      return {
+        id: String(p.id || ""), name: p.name || "",
+        price: Math.max(0, parseFloat((base - discountAmt).toFixed(2))),
+        // Real catalog service ids — combo packages have no per-service
+        // name/price/session breakdown of their own (unlike templates), so the
+        // "+ Package" row's scheduling UI resolves name/price for each of
+        // these against the loaded services catalog (see PackageRow).
+        services: (p.serviceIds ?? []) as string[],
+        // Catalog packages are the only ones with a description column; they
+        // carry no per-service session data, hence no serviceDetails.
+        description: typeof p.description === "string" ? p.description : undefined,
+      };
+    });
     // A template with a real (non-"never expires") expiry of 0 days or less is
     // mis-configured — any instance purchased from it today would be born
     // already expired (expiry_date = purchase date + expiryDays). Never offer
@@ -286,7 +365,8 @@ export const AppointmentModal: React.FC<Props> = ({
     const fromTemplates = templates
       .filter((t: any) => t.neverExpires || t.expiryDays == null || t.expiryDays > 0)
       .map((t: any) => ({
-        id: String(t.id || ""), name: t.name || "", price: t.basePrice || 0,
+        id: String(t.id || ""), name: t.name || "",
+        price: Math.max(0, parseFloat(((t.basePrice || 0) - (t.discount || 0)).toFixed(2))),
         services: (t.services || []).map((s: any) => s.serviceName),
         description: typeof t.description === "string" ? t.description : undefined,
         // Shown alongside the description (older templates have none), so the
@@ -330,6 +410,59 @@ export const AppointmentModal: React.FC<Props> = ({
     [productsFromSelector],
   );
   const availableMemberships = useAppSelector(selectMembershipsList);
+
+  // ── Name lookups for the "applicable services" text on discount-type
+  // Available Benefits cards below — resolves the restriction's raw
+  // categoryIds/itemIds into readable names. Read-only selectors (unlike
+  // AddMembershipModal, this modal never needs to dispatch the fetch itself
+  // — by the time a client's membership discount is relevant here, the
+  // service/product catalog has already been loaded for the bill's own
+  // pickers) so an empty list here just falls back to a plain count instead
+  // of names, rather than triggering a redundant fetch.
+  const serviceCategoriesForScope = useAppSelector(selectServiceCategories) as { id: string | number; name: string }[];
+  const productCategoriesForScope = useAppSelector(selectProductCategories) as { id: string | number; name: string }[];
+  const serviceCategoryNameById = useMemo(
+    () => new Map(serviceCategoriesForScope.map((c) => [String(c.id), c.name])),
+    [serviceCategoriesForScope],
+  );
+  const productCategoryNameById = useMemo(
+    () => new Map(productCategoriesForScope.map((c) => [String(c.id), c.name])),
+    [productCategoriesForScope],
+  );
+  const serviceNameById = useMemo(
+    () => new Map(catalogServiceOptions.map((s) => [String(s.id), s.name])),
+    [catalogServiceOptions],
+  );
+  const productNameById = useMemo(
+    () => new Map(productsFromSelector.map((p: any) => [String(p.id), p.name])),
+    [productsFromSelector],
+  );
+  // Human-readable summary of what a membership's discount actually applies
+  // to, e.g. "Hair Cut" or "Hair, Skin Care" or "All services" when
+  // unrestricted — mirrors the same empty-array-means-unrestricted rule the
+  // checkout math already uses (rowMatchesMembershipRestriction below).
+  const describeMembershipScope = useCallback((m: {
+    appliesTo: string; serviceCategoryIds?: string[]; serviceIds?: string[];
+    productCategoryIds?: string[]; productIds?: string[];
+  }) => {
+    const parts: string[] = [];
+    if (m.appliesTo !== "products") {
+      const names = [
+        ...(m.serviceCategoryIds ?? []).map((id) => serviceCategoryNameById.get(id) ?? null),
+        ...(m.serviceIds ?? []).map((id) => serviceNameById.get(id) ?? null),
+      ].filter((n): n is string => !!n);
+      if (names.length) parts.push(names.join(", "));
+    }
+    if (m.appliesTo !== "services") {
+      const names = [
+        ...(m.productCategoryIds ?? []).map((id) => productCategoryNameById.get(id) ?? null),
+        ...(m.productIds ?? []).map((id) => productNameById.get(id) ?? null),
+      ].filter((n): n is string => !!n);
+      if (names.length) parts.push(names.join(", "));
+    }
+    return parts.length ? parts.join(" + ") : "All services";
+  }, [serviceCategoryNameById, serviceNameById, productCategoryNameById, productNameById]);
+
   const allBookings          = useAppSelector(selectBookings);
   const blockedTimes   = useAppSelector((s: any) => s.scheduler?.blockedTimes ?? []);
   const schedulerStaff = useAppSelector((s: any) => s.scheduler?.staffList ?? []);
@@ -395,17 +528,26 @@ export const AppointmentModal: React.FC<Props> = ({
   );
 
   // ── Line items ───────────────────────────────────────────────────────────
+  // An "Any Available" online booking has a real staffId underneath (needed
+  // for schedule/commission), but showing it pre-filled here would look like
+  // that stylist was specifically chosen — the whole point of the Any column
+  // is that nobody has actually assigned this yet. Strip it back to blank so
+  // staff have to deliberately pick someone; handleSave below clears
+  // isAnyStaff once they do, so it stops going back to the Any column.
+  const stripAutoAssignedStaff = <T extends { staffId?: string; staff?: string }>(rows: T[]): T[] =>
+    existingBooking?.isAnyStaff ? rows.map((r) => ({ ...r, staffId: "", staff: "" })) : rows;
+
   const [serviceRows, setServiceRows]       = useState<ServiceItem[]>(() =>
     existingBooking
-      ? (existingBooking.services ?? [])
+      ? stripAutoAssignedStaff(existingBooking.services ?? [])
       : [emptyService(defaultStaffId, defaultTime)]
   );
   const [packageRows, setPackageRows]       = useState<PackageItem[]>(() => {
-    const base = existingBooking?.packageItems ?? [];
+    const base = stripAutoAssignedStaff(existingBooking?.packageItems ?? []);
     return initialCustomPackageItem ? [...base, initialCustomPackageItem] : base;
   });
-  const [productRows, setProductRows]       = useState<ProductItem[]>((existingBooking as any)?.productItems ?? []);
-  const [membershipRows, setMembershipRows] = useState<MembershipItem[]>((existingBooking as any)?.membershipItems ?? []);
+  const [productRows, setProductRows]       = useState<ProductItem[]>(() => stripAutoAssignedStaff((existingBooking as any)?.productItems ?? []));
+  const [membershipRows, setMembershipRows] = useState<MembershipItem[]>(() => stripAutoAssignedStaff((existingBooking as any)?.membershipItems ?? []));
 
   // Consumables panel (ServiceRow.tsx) shows Available/Remaining Stock from
   // schedulerContext.productsList — but that list was previously only ever
@@ -435,7 +577,9 @@ export const AppointmentModal: React.FC<Props> = ({
     const cachedIds = new Set(productsFromSelector.map((p: any) => String(p.id)));
     if (neededIds.every((id) => cachedIds.has(id))) return;
     prodRequested.current = true;
-    dispatch(fetchProductsThunk({ pageSize: PRODUCT_FETCH_PAGE_SIZE }));
+    // See the other dispatch(searchProductsThunk(...)) above for why this
+    // isn't fetchProductsThunk — same 100-row GET cap would reject pageSize 200.
+    dispatch(searchProductsThunk({ pageSize: PRODUCT_FETCH_PAGE_SIZE }));
   }, [serviceRows, productsFromSelector, dispatch]);
 
   // Actual-qty edits for each row's consumables — deliberately a SIBLING
@@ -675,7 +819,14 @@ export const AppointmentModal: React.FC<Props> = ({
   // callbacks that DO (runPosSuccessTail, openPosPaymentForAppointment,
   // handlePosModalClose) live just above handlePay instead, so their
   // dependency arrays don't reference a const before its declaration.
-  const { enabledProvider: posProvider, terminals: posTerminals } = usePosSettings();
+  // Deferred until showPaymentSection actually flips true — that's the real
+  // "user is heading toward Pay" moment for BOTH flows: the regular booking
+  // modal's own Continue-to-Payment click, and Quick Sale's "Add services,
+  // then Continue to Payment" step (Quick Sale is one screen, but it still
+  // has a client/services phase before payment — quickSale alone doesn't
+  // mean payment is imminent). Without this, Quick Sale fired both POS GETs
+  // on every page refresh/mount, before the user had picked anything.
+  const { enabledProvider: posProvider, terminals: posTerminals } = usePosSettings(showPaymentSection);
   const posMethodOptions = useMemo(
     () => (posProvider ? [...SINGLE_METHODS, POS_MACHINE_METHOD] : undefined),
     [posProvider]
@@ -740,11 +891,11 @@ export const AppointmentModal: React.FC<Props> = ({
   // coveredServices below, which now reads it too.
   const packageBudgets = useMemo(() => {
     const map = new Map<string, number>();
-    nonExpiredPackages.forEach((pkg) => {
+    nonExpiredPackages.forEach((pkg: any) => {
       if (pkg.expireAfterServices == null) {
         map.set(pkg.id, Infinity);
       } else {
-        const completed = pkg.services.reduce((sum, s) => sum + s.completedSessions, 0);
+        const completed = pkg.services.reduce((sum: number, s: any) => sum + s.completedSessions, 0);
         map.set(pkg.id, Math.max(0, pkg.expireAfterServices - completed));
       }
     });
@@ -753,14 +904,14 @@ export const AppointmentModal: React.FC<Props> = ({
 
   const coveredServices = useMemo(() => {
     const map = new Map<string, Array<{ packageId: string; remaining: number }>>();
-    nonExpiredPackages.forEach((pkg) => {
+    nonExpiredPackages.forEach((pkg: any) => {
       // A package that's already spent its own cap has nothing left to
       // offer from ANY of its services, even ones that individually still
       // show sessions unused — e.g. a 12-service package capped at 4 stops
       // being selectable once 4 total are used, not just once each
       // individual service's own count hits zero (see packageBudgets above).
       if ((packageBudgets.get(pkg.id) ?? Infinity) <= 0) return;
-      pkg.services.forEach((svc) => {
+      pkg.services.forEach((svc: any) => {
         if (svc.remainingSessions > 0) {
           const key = svc.catalogServiceId ?? `name:${svc.serviceName.toLowerCase()}`;
           const arr = map.get(key) ?? [];
@@ -1148,16 +1299,30 @@ export const AppointmentModal: React.FC<Props> = ({
   // fully determined by its own discount %, the eligible rows, and (for
   // percentage) any balance left — there's nothing for staff to type, only
   // opt in or out of.
-  const percentageMembership = useMemo(
-    () => clientMemberships.find((m) => m.pricingType === "percentage" && (m.discountBalanceRemaining ?? 0) > 0),
+  // Usable = has something left to give. For a discount-balance plan that's
+  // pool remaining; for a validity plan there IS no pool (it's always 0), so
+  // testing the balance alone would hide the benefit entirely and staff would
+  // never get the checkbox. Mirrors findActivePercentageForClient's SQL gate,
+  // which is the authority — expiry is enforced there, server-side.
+  // Every eligible percentage-type membership, not just the one the backend
+  // will actually apply — used purely to LIST them in Available Benefits
+  // (see SCRUM ticket "Show Applied Services for Membership Benefits").
+  // Checkout (findActivePercentageForClient) still only ever combines with
+  // ONE of these per bill, same as before this list existed.
+  const eligiblePercentageMemberships = useMemo(
+    () => clientMemberships.filter((m) => m.pricingType === "percentage"
+      && (m.benefitType === "validity" || (m.discountBalanceRemaining ?? 0) > 0)),
     [clientMemberships],
   );
+  const percentageMembership = eligiblePercentageMemberships[0];
   const loyaltyEligibility = ((clientDetailsForModal as any)?.loyalty_eligibility ?? null) as any;
   const percentageDiscountSource = percentageMembership
     ? {
         name: percentageMembership.membershipName,
         discountPercent: percentageMembership.discountPercent ?? 0,
         balanceRemaining: percentageMembership.discountBalanceRemaining,
+        isValidityBased: percentageMembership.benefitType === "validity",
+        expiresAt: percentageMembership.expiresAt,
       }
     : null;
   const loyaltyDiscountSource = loyaltyEligibility?.eligible
@@ -1170,30 +1335,161 @@ export const AppointmentModal: React.FC<Props> = ({
       }
     : null;
 
-  // Restored to checked when reopening a booking previously saved with this
-  // discount applied — same reasoning as applyMembership above.
-  const [applyMembershipDiscount, setApplyMembershipDiscount] = useState(
-    () => !!existingBooking && (
-      !!existingBooking.applyMembershipDiscount || Number(existingBooking.membershipDiscountUsed) > 0
-    )
+  // Which specific percentage-discount memberships staff have ticked — a
+  // client can hold several at once (e.g. one restricted to Hair Cut,
+  // another to Facial), each independently opted in/out, rather than one
+  // shared all-or-nothing flag. applyMembershipDiscount below is just "is
+  // at least one of them selected" — everything downstream that only cares
+  // about that (payload building, the ineligibility check, etc.) keeps
+  // reading it unchanged.
+  const [selectedMembershipDiscountIds, setSelectedMembershipDiscountIds] = useState<string[]>([]);
+  const applyMembershipDiscount = selectedMembershipDiscountIds.length > 0;
+  const toggleMembershipDiscountId = useCallback((id: string) => {
+    setSelectedMembershipDiscountIds((prev) => (
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    ));
+  }, []);
+  // Reopening a booking previously saved with this discount applied — which
+  // exact membership(s) were used isn't persisted on the booking record, so
+  // this restores by selecting the first eligible one once the client's
+  // memberships have loaded, same net effect the old single-membership
+  // design always had.
+  const restoreMembershipDiscountOnEdit = useRef(
+    !!existingBooking && (!!existingBooking.applyMembershipDiscount || Number(existingBooking.membershipDiscountUsed) > 0)
   );
+  useEffect(() => {
+    if (!restoreMembershipDiscountOnEdit.current || !eligiblePercentageMemberships.length) return;
+    restoreMembershipDiscountOnEdit.current = false;
+    setSelectedMembershipDiscountIds([eligiblePercentageMemberships[0].id]);
+  }, [eligiblePercentageMemberships]);
+  // Drop a selection the moment its membership stops being eligible (balance
+  // ran out, expired) rather than silently keep an id nothing can spend.
+  useEffect(() => {
+    setSelectedMembershipDiscountIds((prev) => {
+      const next = prev.filter((id) => eligiblePercentageMemberships.some((m) => m.id === id));
+      return next.length === prev.length ? prev : next;
+    });
+  }, [eligiblePercentageMemberships]);
   const [applyLoyaltyDiscount, setApplyLoyaltyDiscount] = useState(
     () => !!existingBooking?.applyLoyaltyDiscount
   );
+  // The discount RATE staff are applying on this bill — the plan's own % by
+  // default, editable down on the Membership Discount card (a 20% plan run at
+  // 10% today). The amount in rupees stays the engine's to compute from it,
+  // along with the row totals and GST; nothing here multiplies anything.
+  // Only meaningful (and only ever shown as editable) when exactly one
+  // percentage membership is selected — see onlyOneSelectedPercentageMembership
+  // in the Available Benefits card-building below.
+  const soleSelectedPercentageMembership = selectedMembershipDiscountIds.length === 1
+    ? eligiblePercentageMemberships.find((m) => m.id === selectedMembershipDiscountIds[0])
+    : undefined;
+  const membershipPlanPercent = soleSelectedPercentageMembership?.discountPercent ?? 0;
+  // The rate may be raised above the plan's own (a goodwill gesture, same as
+  // the manual bill discount) — 100% is the ceiling because that's a full
+  // write-off of the line. A discount-balance plan still can't pay out more
+  // than it has left, so a raised rate drains the pool faster and then stops;
+  // the preview shows what actually landed.
+  const MEMBERSHIP_DISCOUNT_MAX_PERCENT = 100;
+  const [membershipDiscountPercent, setMembershipDiscountPercent] = useState(0);
+  // Whether that rate was deliberately typed. Until it is, the field just
+  // follows the plan's own rate, so re-picking a client (or the plan changing
+  // underneath) doesn't leave a stale number pinned to the bill.
+  const membershipDiscountPercentIsCustomRef = useRef(false);
+  useEffect(() => {
+    if (!applyMembershipDiscount) { membershipDiscountPercentIsCustomRef.current = false; setMembershipDiscountPercent(0); return; }
+    setMembershipDiscountPercent((prev) => (membershipDiscountPercentIsCustomRef.current
+      ? Math.min(prev, MEMBERSHIP_DISCOUNT_MAX_PERCENT)
+      : membershipPlanPercent));
+  }, [applyMembershipDiscount, membershipPlanPercent]);
+  const handleSetMembershipDiscountPercent = useCallback((v: number) => {
+    membershipDiscountPercentIsCustomRef.current = true;
+    setMembershipDiscountPercent(Math.max(0, Math.min(v, MEMBERSHIP_DISCOUNT_MAX_PERCENT)));
+  }, []);
+
   const applyMembershipDiscountMounted = useRef(false);
   useEffect(() => {
     if (!applyMembershipDiscountMounted.current) { applyMembershipDiscountMounted.current = true; return; }
-    setApplyMembershipDiscount(false);
+    setSelectedMembershipDiscountIds([]);
     setApplyLoyaltyDiscount(false);
   }, [clientIdForPkg]);
   // Nothing left to apply it to (plan changed, balance ran out) — don't leave
-  // a stale checked box that would silently apply ₹0.
+  // a stale checked selection that would silently apply ₹0. (The per-eligible
+  // pruning effect above handles the case where SOME are still eligible;
+  // this covers none being left at all.)
   useEffect(() => {
-    if (!percentageDiscountSource) setApplyMembershipDiscount(false);
+    if (!percentageDiscountSource) setSelectedMembershipDiscountIds([]);
   }, [percentageDiscountSource]);
   useEffect(() => {
     if (!loyaltyDiscountSource) setApplyLoyaltyDiscount(false);
   }, [loyaltyDiscountSource]);
+
+  // Flags rows the Membership Discount checkbox can't actually reach — the
+  // server (pricing.service.ts's resolveMembershipDiscount) already zeroes
+  // out any row that doesn't match the membership's own applicable
+  // services/categories before splitting the discount, so a filled, priced
+  // row landing at exactly ₹0 while the checkbox is on means "not eligible",
+  // not "nothing to discount". Surfaced here purely to explain that ₹0 to
+  // staff (see the "not applicable" message in ServiceRow.tsx) — never used
+  // to gate or recompute the amount itself, which stays server-authoritative.
+  // Same idea for the WALLET checkbox (Discount Balance's ₹ balance, "Apply
+  // Membership") — restriction is checked directly against
+  // membershipServiceRestriction/membershipProductRestriction (the pooled
+  // categoryIds/itemIds already computed above for membershipEligibleTotal)
+  // rather than off the resulting ₹ amount, since a row can legitimately land
+  // at ₹0 coverage just because the wallet ran dry, which isn't the same
+  // thing as "this service isn't what the membership covers".
+  const serviceMembershipWalletIneligibleByRow = useMemo(() => {
+    const map = new Map<string, boolean>();
+    if (!applyMembership || !membershipCoversServices) return map;
+    serviceRows.forEach((row, i) => {
+      if (!row.service.trim() || (row as any).isPackageService) return;
+      if ((Number(row.total) || 0) <= 0) return;
+      const rowItemId = (row as any).service_id || (row as any).id;
+      if (rowMatchesMembershipRestriction((row as any).categoryId, rowItemId, membershipServiceRestriction.categoryIds, membershipServiceRestriction.itemIds)) return;
+      map.set((row as any).tempId || String(i), true);
+    });
+    return map;
+  }, [applyMembership, membershipCoversServices, serviceRows, membershipServiceRestriction]);
+  const productMembershipWalletIneligibleByRow = useMemo(() => {
+    const map = new Map<string, boolean>();
+    if (!applyMembership || !membershipCoversProducts) return map;
+    productRows.forEach((row, i) => {
+      if ((Number(row.total) || 0) <= 0) return;
+      const rowItemId = (row as any).productId || (row as any).id;
+      if (rowMatchesMembershipRestriction((row as any).categoryId, rowItemId, membershipProductRestriction.categoryIds, membershipProductRestriction.itemIds)) return;
+      map.set((row as any).tempId || String(i), true);
+    });
+    return map;
+  }, [applyMembership, membershipCoversProducts, productRows, membershipProductRestriction]);
+
+  const serviceMembershipDiscountIneligibleByRow = useMemo(() => {
+    const map = new Map<string, boolean>();
+    serviceRows.forEach((row, i) => {
+      if (!row.service.trim() || (row as any).isPackageService) return;
+      if ((Number(row.total) || 0) <= 0) return;
+      const tempId = (row as any).tempId || String(i);
+      // rowMembershipDiscountPreview sums the percentage plan AND loyalty
+      // into one combined per-row amount (see resolveMembershipDiscount in
+      // pricing.service.ts), so either checkbox being on is enough to expect
+      // *something* — a real ₹0 with either checked means neither source
+      // actually covers this row.
+      const discountIneligible = (applyMembershipDiscount && !!percentageDiscountSource || applyLoyaltyDiscount && !!loyaltyDiscountSource)
+        && (serviceMembershipDiscountByRow.get(tempId) ?? 0) <= 0;
+      if (discountIneligible || serviceMembershipWalletIneligibleByRow.get(tempId)) map.set(tempId, true);
+    });
+    return map;
+  }, [applyMembershipDiscount, percentageDiscountSource, applyLoyaltyDiscount, loyaltyDiscountSource, serviceRows, serviceMembershipDiscountByRow, serviceMembershipWalletIneligibleByRow]);
+  const productMembershipDiscountIneligibleByRow = useMemo(() => {
+    const map = new Map<string, boolean>();
+    productRows.forEach((row, i) => {
+      if ((Number(row.total) || 0) <= 0) return;
+      const tempId = (row as any).tempId || String(i);
+      const discountIneligible = (applyMembershipDiscount && !!percentageDiscountSource || applyLoyaltyDiscount && !!loyaltyDiscountSource)
+        && (productMembershipDiscountByRow.get(tempId) ?? 0) <= 0;
+      if (discountIneligible || productMembershipWalletIneligibleByRow.get(tempId)) map.set(tempId, true);
+    });
+    return map;
+  }, [applyMembershipDiscount, percentageDiscountSource, applyLoyaltyDiscount, loyaltyDiscountSource, productRows, productMembershipDiscountByRow, productMembershipWalletIneligibleByRow]);
 
   // Marks package sessions as complete for each covered service row after appointment is done.
   // appointmentId links each consumed session back to the sale that used it (for audit/reporting).
@@ -1236,7 +1532,7 @@ export const AppointmentModal: React.FC<Props> = ({
 
       for (const pkg of pkgs) {
         if (sessionsLeftToMark <= 0) break;
-        const svc = pkg.services.find((s) => {
+        const svc = pkg.services.find((s: any) => {
           if (s.remainingSessions <= 0) return false;
           if (rowCatalogId && s.catalogServiceId) return s.catalogServiceId === rowCatalogId;
           return s.serviceName.toLowerCase() === nameKey;
@@ -1288,6 +1584,15 @@ export const AppointmentModal: React.FC<Props> = ({
   const [totals, setTotals] = useState<TotalsResult>(ZERO_TOTALS);
   const [totalsConfirmed, setTotalsConfirmed] = useState(false);
   const [totalsError, setTotalsError] = useState(false);
+  // Why the backend's re-validation of an already-applied coupon just failed
+  // on this recalc (e.g. the bill dropped below its min order amount, it hit
+  // its usage limit, or it expired) — coupon.discount/coupon.error only ever
+  // reflect the state from the moment "Apply" was clicked, so without this a
+  // coupon silently losing validity as the bill changes later (more/fewer
+  // rows, a qty edit, etc.) just made the Coupon/Total Discount row vanish
+  // with no explanation at all. Cleared whenever a recalc succeeds without
+  // a rejection, or when there's nothing left to price.
+  const [couponRejectedReason, setCouponRejectedReason] = useState<string | null>(null);
   const [referralDiscountPreview, setReferralDiscountPreview] = useState(0);
   // Server-confirmed discount a percentage/loyalty membership would give on the
   // current rows — a genuine pre-tax price reduction, already folded into
@@ -1295,6 +1600,7 @@ export const AppointmentModal: React.FC<Props> = ({
   // which only affect effectiveTotal. Tracked separately (display-only) so it
   // can be shown as its own line, same pattern as referralDiscountPreview.
   const [appliedMembershipDiscount, setAppliedMembershipDiscount] = useState(0);
+
   // Per-row GST from the pricing preview (index-aligned with the rows we sent),
   // so the live sale-building screen can show each item's own tax — same real
   // figure that gets stored per sale_item at checkout.
@@ -1396,6 +1702,7 @@ export const AppointmentModal: React.FC<Props> = ({
       setRowTaxPreview(null);
       setRowMembershipDiscountPreview(null);
       setRowMembershipWalletPreview(null);
+      setCouponRejectedReason(null);
       setTotalsConfirmed(true);
       return;
     }
@@ -1423,6 +1730,13 @@ export const AppointmentModal: React.FC<Props> = ({
           applyMembershipWallet: applyMembership,
           membershipWalletRequested: applyMembership ? membershipWalletAmt : 0,
           applyMembershipDiscount,
+          // Only sent once staff actually type a rate — otherwise the plan's
+          // own % decides, and sending the last auto-followed value would pin
+          // the bill to a stale rate if the plan or client changed.
+          membershipDiscountPercentRequested: (applyMembershipDiscount && membershipDiscountPercentIsCustomRef.current)
+            ? membershipDiscountPercent
+            : undefined,
+          membershipDiscountIds: applyMembershipDiscount ? selectedMembershipDiscountIds : undefined,
           applyLoyaltyDiscount,
           applyRewardPoints: useRewardPoints,
           rewardPointsToRedeem: useRewardPoints ? rewardPointsToRedeem : 0,
@@ -1449,9 +1763,14 @@ export const AppointmentModal: React.FC<Props> = ({
           });
           setReferralDiscountPreview(data.referralDiscountPreview ?? 0);
           setAppliedMembershipDiscount(data.appliedMembershipDiscount ?? 0);
+
           setRowTaxPreview(data.rowTax ?? null);
           setRowMembershipDiscountPreview(data.rowMembershipDiscount ?? null);
           setRowMembershipWalletPreview(data.rowMembershipWallet ?? null);
+          // Set only while a coupon is actually applied — once cleared (or
+          // never applied), any leftover reason from a prior attempt would
+          // otherwise keep showing next to a Coupon field that's now empty.
+          setCouponRejectedReason(coupon.applied ? (data.couponRejectedReason ?? null) : null);
           setTotalsConfirmed(true);
         }
       } catch (err: any) {
@@ -1477,7 +1796,7 @@ export const AppointmentModal: React.FC<Props> = ({
     // preview stays stuck at its pre-link value (usually ₹0) until some
     // unrelated field happens to change and coincidentally retriggers this effect.
     referral.applied,
-    useEWallet, eWalletAmt, applyMembership, membershipWalletAmt, applyMembershipDiscount, applyLoyaltyDiscount,
+    useEWallet, eWalletAmt, applyMembership, membershipWalletAmt, applyMembershipDiscount, membershipDiscountPercent, applyLoyaltyDiscount,
     useRewardPoints, rewardPointsToRedeem, useReferralCredit, referralCreditAmt,
     selectedClient?.id, existingBooking?.id, apiAppointmentId,
   ]);
@@ -1656,13 +1975,13 @@ export const AppointmentModal: React.FC<Props> = ({
       .filter((m) => m.status === "active")
       .map((m) => ({ membershipName: m.membershipName, membershipWalletBalance: m.membershipWalletBalance, expiresAt: m.expiresAt })),
     activePackages: nonExpiredPackages
-      .filter((p) => p.status === "Active")
-      .map((p) => ({
+      .filter((p: any) => p.status === "Active")
+      .map((p: any) => ({
         packageName: p.packageName,
-        remaining: p.services.reduce((s, sv) => s + sv.remainingSessions, 0),
-        total: p.services.reduce((s, sv) => s + sv.totalSessions, 0),
+        remaining: p.services.reduce((s: number, sv: any) => s + sv.remainingSessions, 0),
+        total: p.services.reduce((s: number, sv: any) => s + sv.totalSessions, 0),
       }))
-      .filter((p) => p.remaining > 0),
+      .filter((p: any) => p.remaining > 0),
   };
 
   // ── Sequential benefit caps ──────────────────────────────────────────────
@@ -1747,8 +2066,14 @@ export const AppointmentModal: React.FC<Props> = ({
   // membership + eWallet + reward points ──────────────────────────────────
   const referralCreditMaxAmt = useMemo(() => {
     const balance = clientStats?.referralBalance ?? 0;
-    return Math.max(0, Math.min(balance, remainingAfterRewardPoints));
-  }, [clientStats, remainingAfterRewardPoints]);
+    // Salon-configured ceiling: referral credit alone may never cover more
+    // than max_redeem_percent of the bill BEFORE any redemption (same
+    // preRedemptionTotal basis reward points is capped against), no matter
+    // how large the client's credit balance is. Matches the backend's own
+    // enforcement in payments.service.ts/pricing.service.ts.
+    const percentCapValue = computeMaxReferralRedeemable(totals.preRedemptionTotal, referralConfig);
+    return Math.max(0, Math.min(balance, remainingAfterRewardPoints, percentCapValue));
+  }, [clientStats, remainingAfterRewardPoints, referralConfig, totals.preRedemptionTotal]);
 
   const referralCreditIsCustomRef = useRef(false);
   useEffect(() => {
@@ -1971,6 +2296,7 @@ export const AppointmentModal: React.FC<Props> = ({
   }
 
   const handleSaveAndPay = useCallback(async () => {
+    if (!canCreatePerm) { denyPerm("create_appointment"); return; }
     if (totalsNotReady) return;
     if (!validate()) return;
     const id = await save(buildSavePayload());
@@ -1995,9 +2321,10 @@ export const AppointmentModal: React.FC<Props> = ({
   }, [save, dispatch, reconciledEffectiveTotal, selectedClient, serviceRows, packageRows, productRows, membershipRows,
       calDate, defaultTime, notes, staffAlert, salonId, existingBooking, defaultStaffId,
       discountType, discountValue, discountAppliesTo, exCharges, tip, tipBreakdown, activeTaxes, totals,
-      onRefresh, onClose]);
+      onRefresh, onClose, canCreatePerm]);
 
   const handleUpdate = useCallback(async () => {
+    if (!canEditPerm) { denyPerm("edit_appointment"); return; }
     if (totalsNotReady) return;
     if (!validate()) return;
     const id = await save(buildSavePayload());
@@ -2006,22 +2333,24 @@ export const AppointmentModal: React.FC<Props> = ({
   }, [save, selectedClient, serviceRows, packageRows, productRows, membershipRows,
       calDate, defaultTime, notes, staffAlert, salonId, existingBooking, defaultStaffId,
       discountType, discountValue, discountAppliesTo, exCharges, tip, tipBreakdown, activeTaxes, totals,
-      onRefresh, onClose]);
+      onRefresh, onClose, canEditPerm]);
 
   // Reveal the payment section only — does NOT persist anything. The
   // appointment is only actually saved/updated once the client confirms
   // payment (see handlePay / handleZeroPackagePayment), so simply opening
   // the payment step on an existing booking no longer fires an update call.
   const handleContinueToPaymentZero = useCallback(() => {
+    if (!canRecordPaymentPerm) { denyPerm("edit_appointment"); return; }
     if (totalsNotReady) return;
     if (!validate()) return;
     setShowPaymentSection(true);
     setTimeout(() => { paymentSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }, 50);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [totalsNotReady, selectedClient, serviceRows, packageRows, productRows, membershipRows]);
+  }, [totalsNotReady, selectedClient, serviceRows, packageRows, productRows, membershipRows, canRecordPaymentPerm]);
 
   // Same as above but requires a real (non-walk-in) client.
   const handleContinueToPayment = useCallback(() => {
+    if (!canRecordPaymentPerm) { denyPerm("edit_appointment"); return; }
     if (totalsNotReady) return;
     const isWalkIn = !selectedClient || selectedClient.id === "walk-in";
     if (isWalkIn) {
@@ -2036,7 +2365,7 @@ export const AppointmentModal: React.FC<Props> = ({
       paymentSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 50);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [totalsNotReady, selectedClient, serviceRows, packageRows, productRows, membershipRows]);
+  }, [totalsNotReady, selectedClient, serviceRows, packageRows, productRows, membershipRows, canRecordPaymentPerm]);
 
   // ── Payment Machine (POS terminal) — success/dispatch callbacks ─────────
   // Placed here (not up with the rest of the POS state above) because they
@@ -2114,6 +2443,7 @@ export const AppointmentModal: React.FC<Props> = ({
 
   // ── Pay ──────────────────────────────────────────────────────────────────
   const handlePay = useCallback(async () => {
+    if (!canRecordPaymentPerm) { denyPerm("edit_appointment"); return; }
     if (totalsNotReady) return;
     // Validate payment method first — stop completely if not selected. Skipped
     // once the bill is fully covered (package, or a wallet/membership/points
@@ -2161,6 +2491,10 @@ export const AppointmentModal: React.FC<Props> = ({
       applyMembershipWallet: applyMembership,
       membershipWalletRequested: membershipWalletAmt,
       applyMembershipDiscount,
+      // Only when staff typed one — otherwise the charge re-derives the
+      // plan's own rate server-side, exactly as the preview just did.
+      membershipDiscountPercentRequested: membershipDiscountPercentIsCustomRef.current ? membershipDiscountPercent : undefined,
+      membershipDiscountIds: selectedMembershipDiscountIds,
       applyLoyaltyDiscount,
       gstAmount:         totals.gstAmount,
       taxBreakdown:      totals.taxBreakdown,
@@ -2211,13 +2545,14 @@ export const AppointmentModal: React.FC<Props> = ({
     reconciledEffectiveTotal, remainingDue, applyMembershipDiscount, applyLoyaltyDiscount,
     includeGst, consumableActuals, isPackageZero,
     printClientExtras, showTaxBreakupOnInvoice, formatAmount,
-    openPosPaymentForAppointment,
+    openPosPaymentForAppointment, canRecordPaymentPerm,
   ]);
 
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
   const [sendingReceipt, setSendingReceipt] = useState(false);
   // ── Zero-payment for fully package-covered appointments ─────────────────
   const handleZeroPackagePayment = useCallback(async () => {
+    if (!canRecordPaymentPerm) { denyPerm("edit_appointment"); return; }
     // Persist the current services/prices first — Continue to Payment no
     // longer saves eagerly, so the appointment isn't guaranteed to already
     // reflect this session's edits until this point.
@@ -2264,7 +2599,7 @@ export const AppointmentModal: React.FC<Props> = ({
       onClose();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dispatch, save, existingBooking, apiAppointmentId, selectedClient, salonId, serviceRows, finishWithPaidPopup, onClose]);
+  }, [dispatch, save, existingBooking, apiAppointmentId, selectedClient, salonId, serviceRows, finishWithPaidPopup, onClose, canRecordPaymentPerm]);
 
   // ── Quick Sale: single "Checkout" click — saves the appointment and
   // completes payment in one step, no separate "Continue to Payment" reveal.
@@ -2359,6 +2694,10 @@ export const AppointmentModal: React.FC<Props> = ({
       applyMembershipWallet: applyMembership,
       membershipWalletRequested: membershipWalletAmt,
       applyMembershipDiscount,
+      // Only when staff typed one — otherwise the charge re-derives the
+      // plan's own rate server-side, exactly as the preview just did.
+      membershipDiscountPercentRequested: membershipDiscountPercentIsCustomRef.current ? membershipDiscountPercent : undefined,
+      membershipDiscountIds: selectedMembershipDiscountIds,
       applyLoyaltyDiscount,
       gstAmount:         totals.gstAmount,
       taxBreakdown:      totals.taxBreakdown,
@@ -2566,6 +2905,8 @@ export const AppointmentModal: React.FC<Props> = ({
           membershipTaxByRow={membershipTaxByRow}
           serviceMembershipDiscountByRow={serviceMembershipDiscountByRow}
           productMembershipDiscountByRow={productMembershipDiscountByRow}
+          serviceMembershipDiscountIneligibleByRow={serviceMembershipDiscountIneligibleByRow}
+          productMembershipDiscountIneligibleByRow={productMembershipDiscountIneligibleByRow}
           frozen={false}
           svcErrors={svcErrors}
           pkgErrors={pkgErrors}
@@ -2591,6 +2932,7 @@ export const AppointmentModal: React.FC<Props> = ({
             if (n[i]) n[i] = { ...n[i], [field]: false };
             return n;
           })}
+          reminderPresets={reminderPresets}
         />
       </div>
 
@@ -2661,13 +3003,13 @@ export const AppointmentModal: React.FC<Props> = ({
     const cards: BenefitCardConfig[] = [];
 
     if (coveredServices.size > 0 && firstActivePkg && hasPackageEligibleRow) {
-      const rawRemaining = firstActivePkg.services.reduce((s, svc) => s + svc.remainingSessions, 0);
+      const rawRemaining = firstActivePkg.services.reduce((s: number, svc: any) => s + svc.remainingSessions, 0);
       // Bounded by the package's own cap, if it has one — otherwise this
       // card would keep advertising e.g. "8 Remaining" from services' own
       // unused session counts even after the cap already closed the
       // package to further coverage (see coveredServices/packageBudgets).
       const pkgRemaining = Math.min(rawRemaining, packageBudgets.get(firstActivePkg.id) ?? Infinity);
-      const pkgTotal = firstActivePkg.services.reduce((s, svc) => s + svc.totalSessions, 0);
+      const pkgTotal = firstActivePkg.services.reduce((s: number, svc: any) => s + svc.totalSessions, 0);
       cards.push({
         key: "package",
         icon: BoxSeamFill,
@@ -2680,43 +3022,72 @@ export const AppointmentModal: React.FC<Props> = ({
       });
     }
 
+    // One card PER active wallet-balance membership (not one combined card)
+    // — the balance itself is still pooled and applied together (same single
+    // applyMembership/membershipWalletAmt state as before), so every card
+    // here shares that one checkbox/amount; only the first shows the
+    // editable ₹ amount, to avoid N duplicate inputs all editing the same
+    // pooled number.
     const activeMembershipsWithBalance = clientMemberships.filter((m) => Number(m.membershipWalletBalance) > 0);
-    if (membershipTotalBalance > 0) {
+    activeMembershipsWithBalance.forEach((m, idx) => {
       cards.push({
-        key: "membership",
+        key: `membership-wallet-${m.id}`,
         icon: AwardFill,
         variantClass: "benefit-card--membership",
-        title: activeMembershipsWithBalance.length > 1 ? `Membership (${activeMembershipsWithBalance.length})` : "Membership",
-        value: `${formatAmount(membershipTotalBalance)} Remaining`,
-        subtitle: activeMembershipsWithBalance.length > 1
-          ? activeMembershipsWithBalance.map((m) => m.membershipName).join(", ")
-          : (activeMembershipsWithBalance[0]?.membershipName ?? primaryMembership?.membershipName ?? ""),
+        title: m.membershipName,
+        value: `${formatAmount(Number(m.membershipWalletBalance) || 0)} Remaining`,
+        subtitle: describeMembershipScope(m),
         checked: applyMembership,
         onToggle: setApplyMembership,
-        input: {
+        readOnly: idx > 0,
+        disabledReason: (!applyMembership && membershipEligibleTotal <= 0)
+          ? "This membership benefit is not applicable to the selected service(s)."
+          : undefined,
+        input: idx === 0 ? {
           value: membershipWalletAmt,
           max: membershipMaxUsable,
           step: 0.01,
           prefix: currencySymbol,
           onChange: handleSetMembershipWalletAmt,
-        },
+        } : undefined,
       });
-    }
+    });
 
-    // Two independent chips — staff picks either or both; checking both
-    // stacks their discounts additively (see applyMembershipDiscountForBooking).
-    if (percentageDiscountSource) {
+    // One card PER eligible percentage-discount membership, each with its OWN
+    // independent checkbox — checking several applies all of them together,
+    // each only against the rows its own applicable-services restriction
+    // covers (see resolveMembershipDiscount/applyMembershipDiscountForBooking
+    // in the backend, which sum every SELECTED membership's own allocation).
+    // The editable RATE only makes sense when there's exactly one selected —
+    // otherwise a single % field would be ambiguous about which plan it
+    // re-rates, so with several checked at once each keeps its own plan rate.
+    const onlyOneSelectedPercentageMembership = selectedMembershipDiscountIds.length === 1;
+    eligiblePercentageMemberships.forEach((m) => {
+      const isSelected = selectedMembershipDiscountIds.includes(m.id);
+      const isValidityBased = m.benefitType === "validity";
       cards.push({
-        key: "membership-discount",
+        key: `membership-discount-${m.id}`,
         icon: Percent,
         variantClass: "benefit-card--membership",
-        title: "Membership Discount",
-        value: `${percentageDiscountSource.discountPercent}% Off`,
-        subtitle: `${percentageDiscountSource.name} · ${formatAmount(percentageDiscountSource.balanceRemaining ?? 0)} balance left`,
-        checked: applyMembershipDiscount,
-        onToggle: setApplyMembershipDiscount,
+        title: m.membershipName,
+        value: `${isSelected && onlyOneSelectedPercentageMembership ? membershipDiscountPercent : (m.discountPercent ?? 0)}% Off`,
+        // Applicable services first (what this ticket asks for), then
+        // validity/balance — a validity plan has no pool to report, so it
+        // states what actually limits it instead of a meaningless ₹0.00.
+        subtitle: `${describeMembershipScope(m)} · ${isValidityBased
+          ? `valid till ${formatDateDDMMYYYY(m.expiresAt)}`
+          : `${formatAmount(m.discountBalanceRemaining ?? 0)} balance left`}`,
+        checked: isSelected,
+        onToggle: () => toggleMembershipDiscountId(m.id),
+        input: (isSelected && onlyOneSelectedPercentageMembership) ? {
+          value: membershipDiscountPercent,
+          max: MEMBERSHIP_DISCOUNT_MAX_PERCENT,
+          step: 0.5,
+          suffix: "%",
+          onChange: handleSetMembershipDiscountPercent,
+        } : undefined,
       });
-    }
+    });
 
     if (loyaltyDiscountSource) {
       cards.push({
@@ -2725,9 +3096,9 @@ export const AppointmentModal: React.FC<Props> = ({
         variantClass: "benefit-card--membership",
         title: "Loyalty Discount",
         value: `${loyaltyDiscountSource.discountPercent}% Off`,
-        subtitle: loyaltyDiscountSource.nextTierHint
+        subtitle: `${describeMembershipScope(loyaltyEligibility)} · ${loyaltyDiscountSource.nextTierHint
           ? `${loyaltyDiscountSource.name} · ${loyaltyDiscountSource.nextTierHint}`
-          : loyaltyDiscountSource.name,
+          : loyaltyDiscountSource.name}`,
         checked: applyLoyaltyDiscount,
         onToggle: setApplyLoyaltyDiscount,
       });
@@ -2791,14 +3162,16 @@ export const AppointmentModal: React.FC<Props> = ({
     }
 
     const referralBal = clientStats?.referralBalance ?? 0;
-    if (referralBal > 0) {
+    if (referralBal > 0 && referralConfig.redeem_enabled) {
       cards.push({
         key: "referral",
         icon: PeopleFill,
         variantClass: "benefit-card--referral",
         title: "Referral Credit",
         value: formatAmount(referralBal),
-        subtitle: "Available Credit",
+        subtitle: referralConfig.max_redeem_percent < 100
+          ? `Available Credit · up to ${referralConfig.max_redeem_percent}% of bill`
+          : "Available Credit",
         checked: useReferralCredit,
         onToggle: setUseReferralCredit,
         disabledReason: (!useReferralCredit && remainingAfterRewardPoints <= 0)
@@ -2825,11 +3198,13 @@ export const AppointmentModal: React.FC<Props> = ({
   }, [
     coveredServices, firstActivePkg, hasPackageEligibleRow, applyPackage, packageBudgets,
     clientMemberships, membershipTotalBalance, primaryMembership, applyMembership,
-    membershipWalletAmt, membershipMaxUsable, membershipWalletUsedTotal, handleSetMembershipWalletAmt,
-    percentageDiscountSource, loyaltyDiscountSource, applyMembershipDiscount, applyLoyaltyDiscount, formatAmount,
+    membershipWalletAmt, membershipMaxUsable, membershipEligibleTotal, membershipWalletUsedTotal, handleSetMembershipWalletAmt,
+    eligiblePercentageMemberships, selectedMembershipDiscountIds, toggleMembershipDiscountId,
+    loyaltyDiscountSource, loyaltyEligibility, applyLoyaltyDiscount, formatAmount,
+    describeMembershipScope,
     clientStats, useEWallet, eWalletAmt, eWalletMaxAmt, remainingAfterMembership, handleSetEWalletAmt,
     useRewardPoints, rewardPointsToRedeem, rewardPointsMaxRedeem, rewardPointsRedeemedValue, remainingAfterEWallet, handleSetRewardPointsToRedeem,
-    useReferralCredit, referralCreditAmt, referralCreditMaxAmt, remainingAfterRewardPoints, handleSetReferralCreditAmt,
+    useReferralCredit, referralCreditAmt, referralCreditMaxAmt, remainingAfterRewardPoints, handleSetReferralCreditAmt, referralConfig,
   ]);
 
   // Turning a benefit ON with nothing on the bill is what gets blocked (and
@@ -3062,13 +3437,27 @@ export const AppointmentModal: React.FC<Props> = ({
               <span className="appt-header-status-badge" style={{ background: "#fee2e2", color: "#dc2626", border: "1px solid #fca5a5" }}>
                 CANCELLED
               </span>
-            ) : (
+            ) : canViewPaymentDetailsPerm ? (
+              // Paid/Partial/Unpaid is a payment detail — independent of
+              // edit_appointment (Calendar payment-details independence
+              // ticket). This badge previously rendered unconditionally to
+              // anyone who could reach this modal at all (i.e. anyone with
+              // edit_appointment, including Owner via its unconditional
+              // bypass), with no view_payment_details check whatsoever.
               <span className={`appt-header-status-badge appt-header-status-badge--${
                 existingBooking.status === "paid" ? "paid"
                 : existingBooking.status === "partial" ? "partial"
                 : "unpaid"
               }`}>
                 {normalizePaymentStatus(existingBooking.status)}
+              </span>
+            ) : (
+              <span
+                className="appt-header-status-badge"
+                style={{ background: "#f3f4f6", color: "#9ca3af", border: "1px solid #e5e7eb" }}
+                title={`Your account does not have the "view_payment_details" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`}
+              >
+                🔒 Payment status
               </span>
             )
           )}
@@ -3098,9 +3487,10 @@ export const AppointmentModal: React.FC<Props> = ({
                   }}>
                     {(existingBooking.status === "paid" || existingBooking.status === "partial") && (
                       <button
-                        style={apptMenuItemStyle}
+                        style={{ ...apptMenuItemStyle, opacity: canViewPaymentDetailsPerm ? 1 : 0.5, cursor: canViewPaymentDetailsPerm ? "pointer" : "not-allowed" }}
                         onClick={() => {
                           setHeaderMenuOpen(false);
+                          if (!canViewPaymentDetailsPerm) { denyPerm("view_payment_details"); return; }
                           printReceipt(existingBooking as any, schedulerStaff, currentSalon, printClientExtras, { showTaxBreakup: showTaxBreakupOnInvoice, formatAmount, paperProfile });
                         }}
                       >
@@ -3109,10 +3499,11 @@ export const AppointmentModal: React.FC<Props> = ({
                     )}
                     {(existingBooking.status === "paid" || existingBooking.status === "partial") && (
                       <button
-                        style={{ ...apptMenuItemStyle, opacity: sendingReceipt ? 0.6 : 1 }}
+                        style={{ ...apptMenuItemStyle, opacity: sendingReceipt ? 0.6 : (canViewPaymentDetailsPerm ? 1 : 0.5), cursor: canViewPaymentDetailsPerm ? undefined : "not-allowed" }}
                         disabled={sendingReceipt}
                         onClick={async () => {
                           setHeaderMenuOpen(false);
+                          if (!canViewPaymentDetailsPerm) { denyPerm("view_payment_details"); return; }
                           const waLink = buildClientWhatsAppLink(existingBooking.clientPhone, existingBooking.clientPhoneCode);
                           setSendingReceipt(true);
                           const result: any = await dispatch(fetchReceiptPdfThunk(existingBooking.id));
@@ -3194,16 +3585,24 @@ export const AppointmentModal: React.FC<Props> = ({
                         be deleted, never "cancelled" in the traditional sense. */}
                     {(existingBooking.status === "booked" || existingBooking.status === "no-show") && onCancelBooking && (
                       <button
-                        style={apptMenuItemStyle}
-                        onClick={() => { setHeaderMenuOpen(false); onCancelBooking(existingBooking); onClose(); }}
+                        style={{ ...apptMenuItemStyle, opacity: canCancelPerm ? 1 : 0.5, cursor: canCancelPerm ? "pointer" : "not-allowed" }}
+                        onClick={() => {
+                          setHeaderMenuOpen(false);
+                          if (!canCancelPerm) { denyPerm("cancel_appointment"); return; }
+                          onCancelBooking(existingBooking); onClose();
+                        }}
                       >
                         🚫 Cancel Appointment
                       </button>
                     )}
                     {(existingBooking.status === "paid" || existingBooking.status === "partial") && onDeleteBooking && (
                       <button
-                        style={{ ...apptMenuItemStyle, color: "#ef4444" }}
-                        onClick={() => { setHeaderMenuOpen(false); setShowDeleteConfirm(true); }}
+                        style={{ ...apptMenuItemStyle, color: "#ef4444", opacity: canDeletePerm ? 1 : 0.5, cursor: canDeletePerm ? "pointer" : "not-allowed" }}
+                        onClick={() => {
+                          setHeaderMenuOpen(false);
+                          if (!canDeletePerm) { denyPerm("delete_appointment"); return; }
+                          setShowDeleteConfirm(true);
+                        }}
                       >
                         🗑️ Delete Appointment
                       </button>
@@ -3377,7 +3776,7 @@ export const AppointmentModal: React.FC<Props> = ({
                     onApplyCoupon={() => coupon.apply(totals.subtotal)}
                     couponDiscount={coupon.discount}
                     couponMessage={coupon.message}
-                    couponError={coupon.error}
+                    couponError={coupon.error || couponRejectedReason || ""}
                     couponLoading={coupon.loading}
                     showReferral={showReferralField}
                     referralInput={referral.input}
@@ -3473,6 +3872,7 @@ export const AppointmentModal: React.FC<Props> = ({
                         manualDiscount={totals.manualDiscount}
                         couponDiscount={coupon.discount}
                         couponCode={coupon.applied}
+                        couponWarning={couponRejectedReason}
                         referralDiscount={referralDiscountPreview}
                         membershipDiscountUsed={appliedMembershipDiscount}
                         totalDiscount={totals.totalDisc}
@@ -3531,6 +3931,7 @@ export const AppointmentModal: React.FC<Props> = ({
                         manualDiscount={totals.manualDiscount}
                         couponDiscount={coupon.discount}
                         couponCode={coupon.applied}
+                        couponWarning={couponRejectedReason}
                         referralDiscount={referralDiscountPreview}
                         membershipDiscountUsed={appliedMembershipDiscount}
                         totalDiscount={totals.totalDisc}
@@ -3580,7 +3981,7 @@ export const AppointmentModal: React.FC<Props> = ({
                     onApplyCoupon={() => coupon.apply(totals.subtotal)}
                     couponDiscount={coupon.discount}
                     couponMessage={coupon.message}
-                    couponError={coupon.error}
+                    couponError={coupon.error || couponRejectedReason || ""}
                     couponLoading={coupon.loading}
                     showReferral={showReferralField}
                     referralInput={referral.input}
@@ -3682,7 +4083,13 @@ export const AppointmentModal: React.FC<Props> = ({
                 </>
               ) : (
                 // New appointment (no existingBooking) — always save and close
-                <button className="btn btn-dark" style={{ width: "100%" }} onClick={handleSaveAndPay} disabled={isSaving || totalsNotReady}>
+                <button
+                  className="btn btn-dark"
+                  style={{ width: "100%", ...(canCreatePerm ? {} : { opacity: 0.5, cursor: "not-allowed" }) }}
+                  onClick={handleSaveAndPay}
+                  disabled={canCreatePerm && (isSaving || totalsNotReady)}
+                  title={!canCreatePerm ? "You don't have permission to create appointments." : undefined}
+                >
                   {isSaving ? "Saving…" : totalsNotReady ? (totalsError ? "Calculation failed — edit to retry" : "Confirming total…") : "Save Appointment"}
                 </button>
               )}

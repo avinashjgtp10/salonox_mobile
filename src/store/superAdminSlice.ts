@@ -9,6 +9,7 @@ import {
   fetchSuperAdminDemoRequestsThunk,
   setDemoRequestStatusThunk,
   fetchSalonStaffThunk,
+  clearSalonDataThunk,
 } from "../middleware/superAdmin/superAdmin.thunk";
 
 export interface SuperAdminSalon {
@@ -25,6 +26,7 @@ export interface SuperAdminSalon {
   revenue?: number;
   is_onboarding_complete?: boolean;
   subscription_status?: string;
+  data_cleared_at?: string | null;
 }
 
 export interface SuperAdminPayment {
@@ -50,6 +52,9 @@ export interface SuperAdminUser {
   is_active: boolean;
   last_login?: string;
   login_count?: number;
+  /** Salons assigned to this branch owner via branch_owner_salons — only
+   * meaningful for role === "branch_owner". */
+  branch_count?: number;
 }
 
 export interface SuperAdminSalonStaff {
@@ -197,6 +202,28 @@ const superAdminSlice = createSlice({
       .addCase(setDemoRequestStatusThunk.fulfilled, (state, { payload }) => {
         const idx = state.demoRequests.findIndex((r) => r.id === payload.id);
         if (idx !== -1) state.demoRequests[idx] = payload;
+      });
+
+    // Patches only the cleared salon's row — staff/client/booking/revenue
+    // counts reset to reflect the wipe. plan_name/subscription_status are
+    // deliberately left untouched: the backend's clearSalonData explicitly
+    // excludes billing_subscriptions/subscriptions from deletion (see
+    // salons.repository.ts's SALON_CLEAR_DATA_TABLES comment), so the
+    // salon's plan must keep showing here too. Every other row in
+    // state.salons is untouched by this reducer.
+    builder
+      .addCase(clearSalonDataThunk.fulfilled, (state, { payload: salonId }) => {
+        const idx = state.salons.findIndex((s) => s.id === salonId);
+        if (idx !== -1) {
+          state.salons[idx] = {
+            ...state.salons[idx],
+            staff_count: 0,
+            client_count: 0,
+            total_bookings: 0,
+            revenue: 0,
+            data_cleared_at: new Date().toISOString(),
+          };
+        }
       });
   },
 });

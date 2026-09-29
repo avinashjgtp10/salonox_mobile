@@ -1,6 +1,8 @@
 import { lazy, Suspense, useEffect } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { PageLoader } from "../components/ui";
+import PlanFeatureGuard from "../components/guards/PlanFeatureGuard";
+import PermissionGuard from "../components/guards/PermissionGuard";
 import { useAppDispatch, useAppSelector } from "../hooks/useAppRedux";
 import { fetchWaConfigThunk } from "../middleware/marketing/marketing.thunk";
 import MarketingOnboardingPage from "../features/marketing/pages/MarketingOnboardingPage";
@@ -8,9 +10,11 @@ import MarketingOnboardingPage from "../features/marketing/pages/MarketingOnboar
 const MarketingDashboardPage = lazy(() => import("../features/marketing/pages/MarketingDashboardPage"));
 const AnalyticsPage          = lazy(() => import("../features/marketing/pages/AnalyticsPage"));
 const TemplatesListPage      = lazy(() => import("../features/marketing/pages/TemplatesListPage"));
+const MessageSettingsPage    = lazy(() => import("../features/marketing/pages/MessageSettingsPage"));
 const ScheduledTemplatesPage = lazy(() => import("../features/marketing/pages/ScheduledTemplatesPage"));
 const CreateTemplatePage     = lazy(() => import("../features/marketing/pages/CreateTemplatePage"));
-const CampaignsPage          = lazy(() => import("../features/marketing/pages/CampaignsPage"));
+const CreateCampaignPage     = lazy(() => import("../features/marketing/pages/CreateCampaignPage"));
+const CampaignHistoryPage    = lazy(() => import("../features/marketing/pages/CampaignHistoryPage"));
 const InboxPage              = lazy(() => import("../features/marketing/pages/InboxPage"));
 const WaConfigPage           = lazy(() => import("../features/marketing/pages/WaConfigPage"));
 
@@ -42,14 +46,14 @@ export const MarketingRoutes = () => {
         <Routes>
           {/* Config page always accessible */}
           <Route path="config" element={<WaConfigPage />} />
-          {/* Templates hosts both Campaign Templates (WhatsApp-only, still
-              effectively blocked by TemplatesListPage defaulting to the
-              Trigger tab below) and Trigger Templates (SMS/Email + WhatsApp
-              per event) — SMS/Email don't need WhatsApp connected at all, so
-              a salon without WhatsApp shouldn't be locked out of them too.
-              templates/create stays gated: that's WhatsApp Campaign template
-              creation specifically, genuinely nothing to do without WA. */}
-          <Route path="templates" element={<TemplatesListPage />} />
+          {/* Message Settings (per-event trigger wording + SMS/Email/WhatsApp
+              on-off toggles — formerly the "Trigger Templates" tab inside
+              Templates) doesn't need WhatsApp connected at all — SMS/Email
+              work regardless — so a salon without WhatsApp shouldn't be
+              locked out of it. Templates (Campaign Templates, WhatsApp-only)
+              genuinely has nothing to do without WA, so it's NOT listed here
+              — it falls through to onboarding like everything else. */}
+          <Route path="message-settings" element={<MessageSettingsPage />} />
           {/* Everything else → onboarding */}
           <Route path="*" element={<MarketingOnboardingPage />} />
         </Routes>
@@ -60,15 +64,38 @@ export const MarketingRoutes = () => {
   return (
     <Suspense fallback={<PageLoader />}>
       <Routes>
-        <Route index                    element={<MarketingDashboardPage />} />
-        <Route path="analytics"         element={<AnalyticsPage />} />
-        <Route path="templates"         element={<TemplatesListPage />} />
-        <Route path="templates/create"  element={<CreateTemplatePage />} />
-        <Route path="scheduled-templates" element={<ScheduledTemplatesPage />} />
-        <Route path="campaigns/create"  element={<CampaignsPage />} />
-        <Route path="campaigns/history" element={<CampaignsPage />} />
-        <Route path="inbox"             element={<InboxPage />} />
-        <Route path="config"            element={<WaConfigPage />} />
+        <Route element={<PermissionGuard permKey="view_marketing_dashboard" />}>
+          <Route index element={<MarketingDashboardPage />} />
+        </Route>
+        <Route element={<PermissionGuard permKey="view_marketing_analytics" />}>
+          <Route path="analytics" element={<AnalyticsPage />} />
+        </Route>
+        <Route element={<PermissionGuard permKey="view_templates" />}>
+          <Route path="templates" element={<TemplatesListPage />} />
+          <Route path="templates/create" element={<CreateTemplatePage />} />
+        </Route>
+        <Route element={<PermissionGuard permKey="view_templates" />}>
+          <Route path="message-settings" element={<MessageSettingsPage />} />
+        </Route>
+        <Route element={<PermissionGuard permKey="view_scheduled_templates" />}>
+          <Route path="scheduled-templates" element={<ScheduledTemplatesPage />} />
+        </Route>
+        {/* Only Campaigns is actually gated backend-side (featureKey
+            "marketing", Advance tier — see campaigns.routes.ts); the rest of
+            this Marketing section stays available to every tier. */}
+        <Route element={<PlanFeatureGuard featureKey="marketing" label="Marketing Campaigns" />}>
+          <Route element={<PermissionGuard permKey="view_campaigns" />}>
+            <Route path="campaigns/create"  element={<CreateCampaignPage />} />
+            <Route path="campaigns/history" element={<CampaignHistoryPage />} />
+            <Route path="campaigns" element={<Navigate to="/dashboard/marketing/campaigns/history" replace />} />
+          </Route>
+        </Route>
+        <Route element={<PermissionGuard permKey="view_inbox" />}>
+          <Route path="inbox" element={<InboxPage />} />
+        </Route>
+        <Route element={<PermissionGuard permKey="view_whatsapp_config" />}>
+          <Route path="config" element={<WaConfigPage />} />
+        </Route>
         <Route path="*"                 element={<Navigate to="/dashboard/marketing" replace />} />
       </Routes>
     </Suspense>

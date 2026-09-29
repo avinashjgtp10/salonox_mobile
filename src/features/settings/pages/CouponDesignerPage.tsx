@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Undo2, Redo2, ZoomIn, ZoomOut, Eye, Save, Download } from "lucide-react";
+import { ArrowLeft, Undo2, Redo2, ZoomIn, ZoomOut, Eye, Download, Check, Save as SaveIcon } from "lucide-react";
 import api from "../../../services/api/axios";
+import { API_ORIGIN } from "../../../services/api/baseUrl";
 import { useAppSelector } from "../../../hooks/useAppRedux";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import {
@@ -16,7 +17,14 @@ import {
   canUndo, canRedo, editorReducer, initialEditorState,
 } from "../designer/core/editorReducer";
 import { PRESETS, type DesignDoc, type ImageElement } from "../designer/core/schema";
-import { printDesign, resolveTokens } from "../designer/core/renderHtml";
+import {
+  COUPON_SIZE_PRESETS,
+  resolveCouponSize,
+  MAX_COUPON_QUANTITY,
+  type CouponSizeId,
+  type CouponSizeUnit,
+} from "../utils/couponPrintSheet";
+import { printDesign, resolveTokens, showExportedFile } from "../designer/core/renderHtml";
 import { regenerateCode } from "../designer/core/codes";
 import DesignCanvas from "../designer/DesignCanvas";
 import PropertyPanel from "../designer/PropertyPanel";
@@ -40,11 +48,9 @@ import "../styles/CouponDesignerPage.scss";
  *
  * Three-panel editor: asset sidebar, canvas, properties. Drag, rotate,
  * 8-handle resize, multi-select, snapping, align/distribute, undo/redo,
- * autosave, and server-side export to PNG/JPEG/PDF at 72/150/300 DPI plus
- * printable multi-up A4 sheets with crop marks.
+ * an explicit Save button (Ctrl+S), and server-side export to PNG/JPEG/PDF
+ * at 72/150/300 DPI plus printable multi-up A4 sheets with crop marks.
  */
-
-const AUTOSAVE_MS = 2500;
 
 const COUPONS_PATH = "/dashboard/settings/coupons";
 
@@ -67,9 +73,23 @@ const CouponDesignerPage: React.FC = () => {
   const [coupon, setCoupon] = useState<Record<string, unknown> | null>(null);
   const [coupons, setCoupons] = useState<Record<string, unknown>[]>([]);
   const [brand, setBrand] = useState<BrandKit | null>(null);
-  const [showExport, setShowExport] = useState(false);
+  const [showSizePicker, setShowSizePicker] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const exportRef = useRef<HTMLDivElement>(null);
+  const sizePickerRef = useRef<HTMLDivElement>(null);
+  // Download's own size picker — same Small/Medium/Large/Custom concept as
+  // the Print Coupon modal, no default selection (matches that modal's own
+  // "must choose" behaviour rather than silently assuming one).
+  const [downloadSizeId, setDownloadSizeId] = useState<CouponSizeId | null>(null);
+  const [customWidth, setCustomWidth] = useState("");
+  const [customHeight, setCustomHeight] = useState("");
+  const [customUnit, setCustomUnit] = useState<CouponSizeUnit>("in");
+  const [sizeError, setSizeError] = useState("");
+  // How many total copies, across as many A4 pages as it takes — same
+  // MAX_QUANTITY/validation shape as the Print Coupon modal's own quantity
+  // field, default 1 (a single page's worth once resolved, see
+  // handleDownload/renderSheet's "never below perPage" floor).
+  const [downloadQty, setDownloadQty] = useState("1");
+  const [qtyError, setQtyError] = useState("");
 
   const [state, dispatch] = useReducer(editorReducer, undefined, () => initialEditorState());
   const [designId, setDesignId] = useState<string | null>(id ?? null);
@@ -253,17 +273,6 @@ const CouponDesignerPage: React.FC = () => {
     }
   }, [designId, name, state.doc, showSuccess, showError]);
 
-  // Autosave. Keyed on the doc so it only fires after an actual change, and
-  // debounced so a drag doesn't produce a request per frame.
-  const dirtyRef = useRef(state.dirty);
-  dirtyRef.current = state.dirty;
-  useEffect(() => {
-    if (!state.dirty || loading) return;
-    const t = setTimeout(() => { if (dirtyRef.current) save(true); }, AUTOSAVE_MS);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.doc, state.dirty, loading]);
-
   /* ── Keyboard ─────────────────────────────────────────────────────── */
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -303,13 +312,13 @@ const CouponDesignerPage: React.FC = () => {
 
   // Close the export menu when clicking away from it.
   useEffect(() => {
-    if (!showExport) return;
+    if (!showSizePicker) return;
     const onDown = (e: MouseEvent) => {
-      if (exportRef.current && !exportRef.current.contains(e.target as Node)) setShowExport(false);
+      if (sizePickerRef.current && !sizePickerRef.current.contains(e.target as Node)) setShowSizePicker(false);
     };
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
-  }, [showExport]);
+  }, [showSizePicker]);
 
   // Warn before losing unsaved work.
   useEffect(() => {
@@ -327,11 +336,11 @@ const CouponDesignerPage: React.FC = () => {
    * stored doc, so exporting an unsaved design would silently export the
    * previous version.
    */
-  async function runExport(opts: ExportDesignPayload) {
-    setShowExport(false);
+  async function runExport(opts: ExportDesignPayload, popup: Window | null) {
+    setShowSizePicker(false);
     let id = designId;
     if (!id || state.dirty) { await save(true); id = designId; }
-    if (!id) { showError("Save the design first"); return; }
+    if (!id) { showError("Save the design first"); popup?.close(); return; }
 
     setExporting(true);
     try {
@@ -344,13 +353,81 @@ const CouponDesignerPage: React.FC = () => {
       } else {
         showSuccess(`Exported ${out.fileName}`);
       }
-      window.open(out.url, "_blank");
+      // out.url is a path on the BACKEND's own /uploads static mount
+      // (coupon-designs.controller.ts deliberately returns it unprefixed —
+      // see its comment), not the frontend's origin — needs API_ORIGIN or a
+      // frontend/backend split deploy resolves it against whatever page
+      // we're on and 404s into the SPA's own fallback route.
+      //
+      // Fills the tab opened SYNCHRONOUSLY back in handleDownload(), not a
+      // fresh window.open() here — calling window.open() only after this
+      // await has already resolved runs outside the original click's "user
+      // activation" window, so Chromium browsers (Brave especially) silently
+      // block it with no error at all. Writing into an already-open tab has
+      // no such restriction.
+      const fileUrl = `${API_ORIGIN}${out.url}`;
+      if (popup) showExportedFile(popup, fileUrl, out.fileName);
+      else window.open(fileUrl, "_blank"); // popup was itself blocked — best effort
+      setDownloadSizeId(null);
     } catch (err: unknown) {
       const e = err as { response?: { data?: { error?: { message?: string } } } };
       showError(e?.response?.data?.error?.message ?? "Export failed");
+      popup?.close();
     } finally {
       setExporting(false);
     }
+  }
+
+  // Resolves whichever size (and quantity) is currently selected, then runs
+  // the same runExport() the old format/dpi menu used — just always with
+  // format: "pdf", a sizeMm instead of perPage, and however many total
+  // copies were asked for (spanning as many A4 pages as that takes — see
+  // design-render.ts's renderSheet()). Mirrors the Print Coupon modal's own
+  // validate-then-resolve shape (couponPrintSheet.ts's resolveCouponSize) so
+  // the two "pick a size" UIs behave identically.
+  function handleDownload() {
+    let ok = true;
+    if (!downloadSizeId) { setSizeError("Please select a coupon size."); ok = false; }
+    else setSizeError("");
+
+    const qtyTrimmed = downloadQty.trim();
+    let quantity = 1;
+    if (qtyTrimmed === "") {
+      setQtyError("Please enter the number of coupons to download.");
+      ok = false;
+    } else if (!/^\d+$/.test(qtyTrimmed)) {
+      setQtyError("Please enter a valid number of coupons.");
+      ok = false;
+    } else {
+      quantity = parseInt(qtyTrimmed, 10);
+      if (quantity === 0) {
+        setQtyError("Number of coupons must be at least 1.");
+        ok = false;
+      } else if (quantity > MAX_COUPON_QUANTITY) {
+        setQtyError(`Number of coupons cannot exceed ${MAX_COUPON_QUANTITY}.`);
+        ok = false;
+      } else {
+        setQtyError("");
+      }
+    }
+
+    if (!ok || !downloadSizeId) return;
+    const resolved = resolveCouponSize({
+      sizeId: downloadSizeId,
+      customWidth,
+      customHeight,
+      customUnit,
+    });
+    if (!resolved) { setSizeError("Please enter a valid coupon width and height."); return; }
+    // Opened here, synchronously, still inside the click's own call stack —
+    // see runExport()'s comment on why this can't be deferred until after
+    // the export request resolves without the browser silently blocking it.
+    const popup = window.open("", "_blank");
+    runExport({
+      format: "pdf",
+      sizeMm: { width: resolved.widthMm, height: resolved.heightMm },
+      quantity,
+    }, popup);
   }
 
   if (loading) return <div className="dz-loading">Loading design…</div>;
@@ -391,9 +468,14 @@ const CouponDesignerPage: React.FC = () => {
             <option value="__manage">Manage coupons…</option>
           </select>
 
-          <span className={`dz-status${state.dirty ? " dz-status--dirty" : ""}`}>
-            {saving ? "Saving…" : state.dirty ? "Unsaved" : "Saved"}
-          </span>
+          <button
+            className="dz-btn dz-btn--primary"
+            disabled={saving || !state.dirty}
+            onClick={() => save()}
+            title="Save (Ctrl+S)"
+          >
+            <SaveIcon size={14} /> {saving ? "Saving…" : state.dirty ? "Save" : "Saved"}
+          </button>
         </div>
 
         <div className="dz-topbar__center">
@@ -437,37 +519,89 @@ const CouponDesignerPage: React.FC = () => {
               mismatch shows up here rather than after downloading. */}
           <button className="dz-btn" onClick={onPreview}><Eye size={14} /> Preview</button>
 
-          {/* Server-side export. Needs a saved design, since the renderer
-              reads the stored doc rather than trusting the client. */}
-          <div className="dz-dd" ref={exportRef}>
+          {/* Server-side export, always PDF at a real physical coupon size —
+              same Small/Medium/Large/Custom concept as the Print Coupon
+              modal (couponPrintSheet.ts), tiled as many-per-A4-page as
+              actually fit (cellsForSize() on the backend). No separate Save
+              button any more: autosave (above) already keeps designId/doc
+              current, and runExport() itself saves first if anything's still
+              dirty — Download always has a saved design to render from. */}
+          <div className="dz-dd" ref={sizePickerRef}>
             <button
-              className="dz-btn"
+              className="dz-btn dz-btn--primary"
               disabled={exporting}
-              onClick={() => (designId ? setShowExport((v) => !v) : save().then(() => setShowExport(true)))}
+              onClick={() => setShowSizePicker((v) => !v)}
             >
-              <Download size={14} /> {exporting ? "Exporting…" : "Export"}
+              <Download size={14} /> {exporting ? "Downloading…" : "Download"}
             </button>
-            {showExport && (
-              <div className="dz-dd__menu">
-                <p className="dz-dd__label">Single design</p>
-                <button onClick={() => runExport({ format: "png", dpi: 72 })}>PNG · screen (72 dpi)</button>
-                <button onClick={() => runExport({ format: "png", dpi: 150 })}>PNG · print (150 dpi)</button>
-                <button onClick={() => runExport({ format: "png", dpi: 300 })}>PNG · press (300 dpi)</button>
-                <button onClick={() => runExport({ format: "jpeg", dpi: 150 })}>JPEG · 150 dpi</button>
-                <button onClick={() => runExport({ format: "pdf" })}>PDF · vector text</button>
-                <p className="dz-dd__label">Printable A4 sheet</p>
-                {([2, 4, 8, 12] as const).map((n) => (
-                  <button key={n} onClick={() => runExport({ format: "pdf", perPage: n, cropMarks: true })}>
-                    {n} per page · with crop marks
+            {showSizePicker && (
+              <div className="dz-dd__menu dz-dd__menu--size">
+                <p className="dz-dd__label">Number of Coupons</p>
+                <div className="dz-qty-row">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    className="dz-qty-input"
+                    value={downloadQty}
+                    onChange={(e) => { setDownloadQty(e.target.value.replace(/[^\d]/g, "")); setQtyError(""); }}
+                    placeholder="1"
+                  />
+                  <span className="dz-qty-hint">1–{MAX_COUPON_QUANTITY}, across as many pages as it takes</span>
+                </div>
+                {qtyError && <p className="dz-dd__error">{qtyError}</p>}
+
+                <p className="dz-dd__label">Coupon Size</p>
+                {COUPON_SIZE_PRESETS.map((p) => (
+                  <button
+                    key={p.id}
+                    className={`dz-size-opt${downloadSizeId === p.id ? " dz-size-opt--selected" : ""}`}
+                    onClick={() => { setDownloadSizeId(p.id); setSizeError(""); }}
+                  >
+                    {downloadSizeId === p.id && <Check size={12} />}
+                    <span>{p.label}</span>
+                    <span className="dz-size-opt__dims">{p.widthIn} × {p.heightIn} in</span>
                   </button>
                 ))}
+                <button
+                  className={`dz-size-opt${downloadSizeId === "custom" ? " dz-size-opt--selected" : ""}`}
+                  onClick={() => { setDownloadSizeId("custom"); setSizeError(""); }}
+                >
+                  {downloadSizeId === "custom" && <Check size={12} />}
+                  <span>Custom</span>
+                  <span className="dz-size-opt__dims">User-defined</span>
+                </button>
+
+                {downloadSizeId === "custom" && (
+                  <div className="dz-custom-size">
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="Width"
+                      value={customWidth}
+                      onChange={(e) => { setCustomWidth(e.target.value.replace(/[^\d.]/g, "")); setSizeError(""); }}
+                    />
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="Height"
+                      value={customHeight}
+                      onChange={(e) => { setCustomHeight(e.target.value.replace(/[^\d.]/g, "")); setSizeError(""); }}
+                    />
+                    <select value={customUnit} onChange={(e) => setCustomUnit(e.target.value as CouponSizeUnit)}>
+                      <option value="in">inch</option>
+                      <option value="mm">mm</option>
+                    </select>
+                  </div>
+                )}
+
+                {sizeError && <p className="dz-dd__error">{sizeError}</p>}
+
+                <button className="dz-btn dz-btn--primary dz-dd__confirm" disabled={exporting} onClick={handleDownload}>
+                  {exporting ? "Downloading…" : "Download PDF"}
+                </button>
               </div>
             )}
           </div>
-
-          <button className="dz-btn dz-btn--primary" disabled={saving} onClick={() => save()}>
-            <Save size={14} /> Save
-          </button>
         </div>
       </header>
 

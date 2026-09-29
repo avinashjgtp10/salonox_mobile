@@ -13,10 +13,12 @@ import type { Order } from "../../../types/inventory.types";
 // uses — see the comment there), so the PDF always matches what's on
 // screen. Paid/Pending/Status come from ordersRepository.getById()'s
 // billing fields, derived from the Purchase(s) recorded on Receive.
+//
+// Layout mirrors purchaseOrderPdf.ts (bordered title bar, two-column info
+// panel, gridded items table, boxed totals) rather than loose floating text.
 
 // jsPDF's built-in Helvetica can't render ₹ (U+20B9) — silently drops to a
 // blank glyph — so any rupee sign is transliterated before being drawn.
-// Mirrors productInventoryExport.ts's own sanitize().
 const sanitize = (v: string) => v.replace(/₹/g, "Rs.");
 
 interface Options {
@@ -35,6 +37,10 @@ const STATUS_LABEL: Record<string, string> = {
   partial: "Partial",
   unpaid: "Unpaid",
 };
+
+const BLACK: [number, number, number] = [17, 24, 39];
+const GRAY: [number, number, number] = [107, 114, 128];
+const BORDER: [number, number, number] = [30, 33, 40];
 
 export const generateOrderBillPdf = (order: Order, options: Options) => {
   const money = (n: number) => sanitize(`${options.currencySymbol}${(Number(n) || 0).toLocaleString(undefined, {
@@ -55,66 +61,80 @@ export const generateOrderBillPdf = (order: Order, options: Options) => {
   const paidAmount = Number(order.paid_amount) || 0;
   const pendingAmount = Number(order.pending_amount) || 0;
   const status = order.bill_payment_status ?? "unpaid";
+  const statusColor: [number, number, number] = status === "paid" ? [2, 122, 72] : [181, 71, 8];
 
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const pageWidth = doc.internal.pageSize.getWidth();
-  const margin = 14;
+  const margin = 10;
+  const contentW = pageWidth - margin * 2;
+  const right = pageWidth - margin;
 
-  const salonName = options.salon?.business_name || "Salon";
-  const addressStr = [options.salon?.address, options.salon?.city, options.salon?.state]
-    .filter(Boolean).join(", ");
+  doc.setDrawColor(...BORDER);
 
+  // ── Title bar ────────────────────────────────────────────────────────────
+  const titleBarH = 13;
+  let y = margin;
+  doc.setLineWidth(0.5);
+  doc.rect(margin, y, contentW, titleBarH);
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(15);
-  doc.setTextColor(17, 24, 39);
-  doc.text(sanitize(salonName), margin, 16);
-
+  doc.setFontSize(14);
+  doc.setTextColor(...BLACK);
+  doc.text("BILL", margin + 4, y + 8.5);
+  doc.setFontSize(10.5);
+  doc.text(sanitize(order.order_number), right - 4, y + 6.5, { align: "right" });
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
-  doc.setTextColor(107, 114, 128);
-  let y = 21;
-  if (addressStr) { doc.text(sanitize(addressStr), margin, y); y += 4.5; }
-  if (options.salon?.phone) { doc.text(`Phone: ${options.salon.phone}`, margin, y); y += 4.5; }
-
-  // Bill title on the left, status badge-style text on the right.
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(13);
-  doc.setTextColor(17, 24, 39);
-  doc.text("Bill", margin, y + 5);
-
-  const statusColor: [number, number, number] = status === "paid" ? [2, 122, 72] : [181, 71, 8];
-  doc.setFontSize(11);
   doc.setTextColor(...statusColor);
-  doc.text(STATUS_LABEL[status] ?? status, pageWidth - margin, y + 5, { align: "right" });
+  doc.text(STATUS_LABEL[status] ?? status, right - 4, y + 11, { align: "right" });
+  y += titleBarH;
 
-  y += 12;
+  // ── Two-column info panel: From (salon) | Bill details ───────────────────
+  const panelH = 32;
+  const midX = margin + contentW / 2;
+  doc.setLineWidth(0.3);
+  doc.rect(margin, y, contentW, panelH);
+  doc.line(midX, y, midX, y + panelH);
 
-  // Two-column header info block: order/date on the left, supplier/terms on
-  // the right — mirrors the app's own stat-card pairing (order number +
-  // date, supplier + payment terms) rather than one long stacked list.
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(9.5);
-  const leftX = margin;
-  const rightX = pageWidth / 2 + 5;
-  const labelColor: [number, number, number] = [107, 114, 128];
-  const valueColor: [number, number, number] = [17, 24, 39];
-
-  const infoRow = (label: string, value: string, x: number, rowY: number) => {
-    doc.setTextColor(...labelColor);
-    doc.text(label, x, rowY);
-    doc.setTextColor(...valueColor);
-    doc.setFont("helvetica", "bold");
-    doc.text(sanitize(value), x, rowY + 4.5);
-    doc.setFont("helvetica", "normal");
+  const padX = 4;
+  const value = (text: string, x: number, rowY: number, size = 9.5, bold = true) => {
+    doc.setFont("helvetica", bold ? "bold" : "normal");
+    doc.setFontSize(size);
+    doc.setTextColor(...BLACK);
+    doc.text(sanitize(text), x, rowY);
   };
 
-  infoRow("Order Number", order.order_number, leftX, y);
-  infoRow("Supplier", order.supplier_name || "—", rightX, y);
-  y += 11;
-  infoRow("Bill Date", formatDateDDMMYYYY(order.order_date), leftX, y);
-  infoRow("Payment Terms", order.payment_terms_days != null ? `${order.payment_terms_days} days` : "—", rightX, y);
-  y += 12;
+  // Left column — From (salon).
+  let ly = y + 6;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.setTextColor(...GRAY);
+  doc.text("FROM", margin + padX, ly);
+  ly += 5;
+  value(options.salon?.business_name || "Salon", margin + padX, ly, 11);
+  ly += 5.5;
+  const addressStr = [options.salon?.address, options.salon?.city, options.salon?.state].filter(Boolean).join(", ");
+  if (addressStr) { value(addressStr, margin + padX, ly, 8.5, false); ly += 4.5; }
+  if (options.salon?.phone) { value(`Phone: ${options.salon.phone}`, margin + padX, ly, 8.5, false); }
 
+  // Right column — bill meta, as label:value pairs.
+  const metaX = midX + padX;
+  let ry = y + 6;
+  const metaRow = (l: string, v: string) => {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.5);
+    doc.setTextColor(...GRAY);
+    doc.text(l, metaX, ry);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...BLACK);
+    doc.text(sanitize(v), midX + contentW / 2 - padX, ry, { align: "right" });
+    ry += 6;
+  };
+  metaRow("Supplier", order.supplier_name || "—");
+  metaRow("Bill Date", formatDateDDMMYYYY(order.order_date));
+  metaRow("Payment Terms", order.payment_terms_days != null ? `${order.payment_terms_days} days` : "—");
+  y += panelH;
+
+  // ── Line items ────────────────────────────────────────────────────────────
   autoTable(doc, {
     startY: y,
     head: [["Product", "Product Code", "Qty", "Price", "Discount", "Tax", "Total"]],
@@ -132,9 +152,9 @@ export const generateOrderBillPdf = (order: Order, options: Options) => {
       ];
     }),
     theme: "grid",
-    styles: { fontSize: 8.5, cellPadding: 2.5, lineColor: [229, 231, 235], textColor: [31, 41, 55] },
-    headStyles: { fillColor: [16, 24, 40], textColor: 255, fontStyle: "bold", fontSize: 8.5 },
-    alternateRowStyles: { fillColor: [249, 250, 251] },
+    styles: { fontSize: 8.5, cellPadding: 2.5, lineColor: BORDER, lineWidth: 0.3, textColor: [31, 41, 55] },
+    headStyles: { fillColor: BLACK, textColor: 255, fontStyle: "bold", fontSize: 8.5, lineColor: BORDER, lineWidth: 0.3 },
+    alternateRowStyles: { fillColor: [246, 247, 249] },
     columnStyles: {
       2: { halign: "right" },
       3: { halign: "right" },
@@ -145,32 +165,53 @@ export const generateOrderBillPdf = (order: Order, options: Options) => {
     margin: { left: margin, right: margin },
   });
 
-  // Totals block — right-aligned, Paid/Pending pulled out visually since
-  // that's the whole point of this document.
-  let totalsY = (doc as any).lastAutoTable.finalY + 8;
-  const labelX = pageWidth - margin - 55;
-  const valueX = pageWidth - margin;
+  // ── Totals — boxed, bottom-right (Paid/Pending pulled out, since that's
+  // the whole point of this document) ──────────────────────────────────────
+  const tableEndY = (doc as any).lastAutoTable.finalY;
+  const totalsW = 80;
+  const totalsX = right - totalsW;
+  const rowH = 6;
+  const rows: [string, string, boolean, [number, number, number] | null][] = [
+    ["Subtotal", money(rawSubtotal), false, null],
+  ];
+  if (discountAmount > 0.005) rows.push(["Discount", `-${money(discountAmount)}`, false, null]);
+  if (taxAmount > 0.005) rows.push(["Tax", money(taxAmount), false, null]);
+  if (shippingCost > 0.005) rows.push(["Shipping", money(shippingCost), false, null]);
+  rows.push(["Total Amount", money(totalAmount), true, null]);
+  rows.push(["Paid Amount", money(paidAmount), false, [2, 122, 72]]);
+  rows.push(["Pending Amount", money(pendingAmount), false, pendingAmount > 0.005 ? [181, 71, 8] : BLACK]);
+  rows.push(["Payment Status", STATUS_LABEL[status] ?? status, true, statusColor]);
 
-  const totalsRow = (label: string, value: string, bold = false, color: [number, number, number] = valueColor) => {
+  const totalsH = rowH * rows.length + 3;
+  doc.setLineWidth(0.3);
+  doc.rect(totalsX, tableEndY, totalsW, totalsH);
+
+  const dividerAfterIdx = rows.findIndex((r) => r[0] === "Total Amount");
+  let trY = tableEndY + rowH - 1.5;
+  rows.forEach(([l, v, bold, color], i) => {
+    if (i === dividerAfterIdx) {
+      doc.setLineWidth(0.3);
+      doc.line(totalsX, tableEndY + i * rowH, right, tableEndY + i * rowH);
+    }
     doc.setFont("helvetica", bold ? "bold" : "normal");
-    doc.setFontSize(bold ? 10.5 : 9.5);
-    doc.setTextColor(...labelColor);
-    doc.text(label, labelX, totalsY);
-    doc.setTextColor(...color);
-    doc.text(value, valueX, totalsY, { align: "right" });
-    totalsY += bold ? 6.5 : 5.5;
-  };
+    doc.setFontSize(bold ? 10.5 : 9);
+    doc.setTextColor(...(bold ? BLACK : GRAY));
+    doc.text(l, totalsX + 3, trY);
+    doc.setTextColor(...(color ?? BLACK));
+    doc.text(v, right - 3, trY, { align: "right" });
+    trY += rowH;
+  });
 
-  totalsRow("Subtotal", money(rawSubtotal));
-  if (discountAmount > 0.005) totalsRow("Discount", `-${money(discountAmount)}`);
-  if (taxAmount > 0.005) totalsRow("Tax", money(taxAmount));
-  if (shippingCost > 0.005) totalsRow("Shipping", money(shippingCost));
-  doc.setDrawColor(229, 231, 235);
-  doc.line(labelX, totalsY - 3.5, valueX, totalsY - 3.5);
-  totalsRow("Total Amount", money(totalAmount), true);
-  totalsRow("Paid Amount", money(paidAmount), false, [2, 122, 72]);
-  totalsRow("Pending Amount", money(pendingAmount), false, pendingAmount > 0.005 ? [181, 71, 8] : valueColor);
-  totalsRow("Payment Status", STATUS_LABEL[status] ?? status, true, statusColor);
+  // ── Footer note ───────────────────────────────────────────────────────────
+  const footerY = tableEndY + totalsH + 10;
+  doc.setFont("helvetica", "italic");
+  doc.setFontSize(7.5);
+  doc.setTextColor(...GRAY);
+  doc.text("This is a system-generated bill and does not require a signature.", margin, footerY);
+
+  // ── Outer document border, wrapping everything laid out above ───────────
+  doc.setLineWidth(0.5);
+  doc.rect(margin, margin, contentW, footerY + 4 - margin);
 
   doc.save(`bill-${order.order_number}.pdf`);
 };

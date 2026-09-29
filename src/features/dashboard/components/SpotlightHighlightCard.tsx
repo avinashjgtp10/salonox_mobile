@@ -1,9 +1,9 @@
-import { useEffect } from "react";
+import { type MouseEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { Stars, ChevronRight } from "react-bootstrap-icons";
+import { Stars, ChevronRight, X } from "react-bootstrap-icons";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { selectNewFeatures, selectSpotlightFetched } from "../../../store/spotlightSlice";
-import { fetchSpotlightFeaturesThunk } from "../../../middleware/spotlight/spotlight.thunk";
+import { markSpotlightReadThunk } from "../../../middleware/spotlight/spotlight.thunk";
 import "../styles/SpotlightHighlightCard.scss";
 
 // "NEW" highlight card for the Salon Dashboard home — shows the most
@@ -20,13 +20,17 @@ export default function SpotlightHighlightCard() {
   const newFeatures = useAppSelector(selectNewFeatures);
   const fetched = useAppSelector(selectSpotlightFetched);
 
-  useEffect(() => {
-    if (!fetched) dispatch(fetchSpotlightFeaturesThunk());
-  }, [dispatch, fetched]);
-
+  // Not fetched here — DashboardLayout (the parent of every dashboard page,
+  // this one included) already dispatches fetchSpotlightFeaturesThunk
+  // unconditionally on its own mount. This card only reads the result.
   if (!fetched || newFeatures.length === 0) return null;
 
   const feature = newFeatures[0];
+
+  const handleDismiss = (e: MouseEvent) => {
+    e.stopPropagation();
+    dispatch(markSpotlightReadThunk(feature.id));
+  };
 
   return (
     <div className="spotlight-highlight-card">
@@ -35,7 +39,7 @@ export default function SpotlightHighlightCard() {
         NEW
       </span>
       <div className="spotlight-highlight-card__body">
-        <span className="spotlight-highlight-card__eyebrow">What's New in SalonOX</span>
+        <span className="spotlight-highlight-card__eyebrow">What's New in SalonoX</span>
         <span className="spotlight-highlight-card__title">{feature.featureName}</span>
         <span className="spotlight-highlight-card__desc">{feature.shortDescription}</span>
       </div>
@@ -49,6 +53,14 @@ export default function SpotlightHighlightCard() {
       {newFeatures.length > 1 && (
         <span className="spotlight-highlight-card__more">+{newFeatures.length - 1} more</span>
       )}
+      <button
+        type="button"
+        className="spotlight-highlight-card__close"
+        onClick={handleDismiss}
+        title="Dismiss"
+      >
+        <X size={16} />
+      </button>
     </div>
   );
 }

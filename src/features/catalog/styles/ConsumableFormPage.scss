@@ -567,6 +567,30 @@
     font-size: 13px;
     cursor: pointer;
     &:hover { background: #f3f4f6; }
+
+    &--empty {
+      color: #9ca3af;
+      cursor: default;
+      &:hover { background: none; }
+    }
+  }
+
+  // Checkbox variant — a row is a <label> wrapping just the checkbox + name,
+  // so checking one doesn't pick-and-close the way the old plain-click rows
+  // did; the dropdown only closes on an outside click, letting several be
+  // ticked in one open/close cycle.
+  &--checklist &__item--check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    input[type="checkbox"] {
+      width: 15px;
+      height: 15px;
+      flex-shrink: 0;
+      accent-color: #111827;
+      cursor: pointer;
+    }
   }
 }
 

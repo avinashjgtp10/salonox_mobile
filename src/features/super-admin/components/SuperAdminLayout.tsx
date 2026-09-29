@@ -1,6 +1,6 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
-import { logout } from "../../../store/authSlice";
+import { useAppSelector } from "../../../hooks/useAppRedux";
+import { performLogout } from "../../../utils/performLogout";
 
 const NAV = [
   {
@@ -10,6 +10,10 @@ const NAV = [
   {
     label: "Salons", to: "/super-admin/salons",
     icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
+  },
+  {
+    label: "Branch Owners", to: "/super-admin/branch-owners",
+    icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
   },
   {
     label: "Visited", to: "/super-admin/visited",
@@ -22,6 +26,10 @@ const NAV = [
   {
     label: "Subscription Permissions", to: "/super-admin/subscription-permissions",
     icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/><path d="M6 15h4"/></svg>,
+  },
+  {
+    label: "Plans & Subscriptions", to: "/super-admin/plans",
+    icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2l2.9 6L22 9l-5 4.9L18.2 21 12 17.3 5.8 21 7 13.9 2 9l7.1-1z"/></svg>,
   },
   {
     label: "Data Cleanup", to: "/super-admin/data-cleanup",
@@ -44,19 +52,21 @@ const NAV = [
     icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>,
   },
   {
+    label: "History", to: "/super-admin/history",
+    icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
+  },
+  {
     label: "Spotlight", to: "/super-admin/spotlight",
     icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2l1.9 5.8L20 9.5l-5.4 2.6L12 18l-2.6-5.9L4 9.5l6.1-1.7z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>,
   },
 ];
 
 export default function SuperAdminLayout() {
-  const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const { role, user } = useAppSelector((s) => s.auth) as any;
+  const { user } = useAppSelector((s) => s.auth) as any;
 
   function handleLogout() {
-    dispatch(logout());
-    navigate("/login", { replace: true });
+    performLogout(navigate);
   }
 
   const name = user?.first_name
@@ -79,7 +89,7 @@ export default function SuperAdminLayout() {
               </svg>
             </div>
             <div>
-              <div style={{ color: "#0f172a", fontSize: 15, fontWeight: 700 }}>SalonOx</div>
+              <div style={{ color: "#0f172a", fontSize: 15, fontWeight: 700 }}>SalonoX</div>
               <div style={{ color: "#94a3b8", fontSize: 11 }}>Super Admin</div>
             </div>
           </div>

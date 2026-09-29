@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { useAppDispatch } from "../../../hooks/useAppRedux";
-import { logout } from "../../../store/authSlice";
+import { performLogout } from "../../../utils/performLogout";
 import { useNavigate } from "react-router-dom";
 import { exportSettingsThunk } from "../../../middleware/setting/setting.thunk";
 import api from "../../../services/api/axios";
@@ -200,8 +200,7 @@ export default function DataPrivacyPage() {
     try {
       await api.delete("/api/v1/auth/account");
       showSuccess("Account deletion requested. Data will be erased within 30 days.");
-      dispatch(logout());
-      navigate("/login");
+      await performLogout(navigate);
     } catch {
       showError("Failed to submit deletion request. Contact support.");
     } finally {

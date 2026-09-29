@@ -2,6 +2,9 @@ export const STAFF = {
   // ── Core CRUD ──────────────────────────────────────────────────────────────
   BASE: "/api/v1/staff",
   BY_ID: (id: string | number) => `/api/v1/staff/${id}`,
+  // Live duplicate check for the Staff Login email field.
+  CHECK_EMAIL: (email: string, excludeStaffId?: string | number) =>
+    `/api/v1/staff/check-email?email=${encodeURIComponent(email)}${excludeStaffId ? `&exclude_staff_id=${encodeURIComponent(String(excludeStaffId))}` : ""}`,
 
   // ── Export ─────────────────────────────────────────────────────────────────
   EXPORT: (format: "excel" | "csv") => `/api/v1/staff/export/${format}`,
@@ -55,6 +58,9 @@ export const STAFF = {
   LEAVES: (staffId: string | number) => `/api/v1/staff/${staffId}/leaves`,
   LEAVE_BY_ID: (staffId: string | number, id: string | number) =>
     `/api/v1/staff/${staffId}/leaves/${id}`,
+
+  // ── Scheduler staff sequence ───────────────────────────────────────────────
+  SCHEDULER_ORDER: "/api/v1/staff/scheduler-order",
 
   // ── Legacy (kept for compatibility) ────────────────────────────────────────
   SEARCH: (query: string) => `/api/v1/staff?search=${encodeURIComponent(query)}`,

@@ -1,4 +1,4 @@
-import { configureStore, type Reducer } from "@reduxjs/toolkit";
+import { combineReducers, configureStore, type Reducer } from "@reduxjs/toolkit";
 // @ts-ignore
 import { persistReducer, persistStore, FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER } from "redux-persist";
 // @ts-ignore
@@ -9,6 +9,7 @@ import salonReducer from "./salonSlice";
 import clientReducer from "./clientSlice";
 import userReducer from "./userSlice";
 import staffReducer from "./staffSlice";
+import rolesReducer from "./rolesSlice";
 import catalogReducer from "./catalogSlice";
 import settingReducer from "./settingSlice";
 import appReducer from "./appSlice";
@@ -30,9 +31,12 @@ import billingReducer from "./billingSlice";
 import marketplaceReducer from "./marketplaceSlice";
 import onlineBookingReducer from "./onlineBookingSlice";
 import superAdminReducer from "./superAdminSlice";
+import branchOwnerReducer from "./branchOwnerSlice";
 import supportReducer from "./supportSlice";
 import cashCounterReducer from "./cashCounterSlice";
 import spotlightReducer from "./spotlightSlice";
+import permissionDialogReducer from "./permissionDialogSlice";
+import digitalMenuReducer from "./digitalMenuSlice";
 
 // An impersonation/oauth-success tab (opened via window.open, e.g. Super
 // Admin's "Impersonate") shares localStorage with every other tab on this
@@ -75,40 +79,62 @@ const schedulerPersistConfig = {
   whitelist: ["serviceStaffCache"],
 };
 
+const combinedReducer = combineReducers({
+  auth: persistReducer(authPersistConfig, authReducer) as unknown as Reducer<AuthState>,
+  salon: salonReducer,
+  client: clientReducer,
+  user: userReducer,
+  staff: staffReducer,
+  roles: rolesReducer,
+  catalog: catalogReducer,
+  setting: settingReducer,
+  app: appReducer,
+  scheduler: persistReducer(schedulerPersistConfig, schedulerReducer) as unknown as Reducer<ReturnType<typeof schedulerReducer>>,
+  marketing: marketingReducer,
+  inbox: inboxReducer,
+  services: servicesReducer,
+  categories: categoriesReducer,
+  serviceFilters: serviceFiltersReducer,
+  memberships: membershipReducer,
+  clientMemberships: clientMembershipReducer,
+  inventory: inventoryReducer,
+  [packagesApi.reducerPath]: packagesApi.reducer,
+  [clientPackagesApi.reducerPath]: clientPackagesApi.reducer,
+  [packageTemplatesApi.reducerPath]: packageTemplatesApi.reducer,
+  products: productsReducer,
+  shift: persistReducer(shiftPersistConfig, shiftReducer) as unknown as Reducer<ShiftState>,
+  payRun: payRunReducer,
+  dashboard: dashboardReducer,
+  billing: billingReducer,
+  marketplace: marketplaceReducer,
+  onlineBooking: onlineBookingReducer,
+  superAdmin: superAdminReducer,
+  branchOwner: branchOwnerReducer,
+  support: supportReducer,
+  cashCounter: cashCounterReducer,
+  spotlight: spotlightReducer,
+  permissionDialog: permissionDialogReducer,
+  digitalMenu: digitalMenuReducer,
+});
+
+// Logout must clear more than the auth slice — every other slice (salon,
+// clients, staff, products, RTK Query's own API caches, etc.) otherwise
+// stayed populated with the previous session's data in memory, so a second
+// user logging in on the same browser/tab could see stale data until each
+// slice happened to be overwritten by its own fresh fetch. Resetting state
+// to undefined on this exact action type makes every reducer (including the
+// persisted auth/shift/scheduler ones) fall back to its own initialState in
+// one atomic step — see utils/performLogout.ts, the single place this
+// action should ever be dispatched from.
+const rootReducer: typeof combinedReducer = (state, action) => {
+  if (action.type === "auth/logout") {
+    state = undefined;
+  }
+  return combinedReducer(state, action);
+};
+
 export const store = configureStore({
-  reducer: {
-    auth: persistReducer(authPersistConfig, authReducer) as unknown as Reducer<AuthState>,
-    salon: salonReducer,
-    client: clientReducer,
-    user: userReducer,
-    staff: staffReducer,
-    catalog: catalogReducer,
-    setting: settingReducer,
-    app: appReducer,
-    scheduler: persistReducer(schedulerPersistConfig, schedulerReducer) as unknown as Reducer<ReturnType<typeof schedulerReducer>>,
-    marketing: marketingReducer,
-    inbox: inboxReducer,
-    services: servicesReducer,
-    categories: categoriesReducer,
-    serviceFilters: serviceFiltersReducer,
-    memberships: membershipReducer,
-    clientMemberships: clientMembershipReducer,
-    inventory: inventoryReducer,
-    [packagesApi.reducerPath]: packagesApi.reducer,
-    [clientPackagesApi.reducerPath]: clientPackagesApi.reducer,
-    [packageTemplatesApi.reducerPath]: packageTemplatesApi.reducer,
-    products: productsReducer,
-    shift: persistReducer(shiftPersistConfig, shiftReducer) as unknown as Reducer<ShiftState>,
-    payRun: payRunReducer,
-    dashboard: dashboardReducer,
-    billing: billingReducer,
-    marketplace: marketplaceReducer,
-    onlineBooking: onlineBookingReducer,
-    superAdmin: superAdminReducer,
-    support: supportReducer,
-    cashCounter: cashCounterReducer,
-    spotlight: spotlightReducer,
-  },
+  reducer: rootReducer,
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
       serializableCheck: {

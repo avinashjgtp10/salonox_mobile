@@ -49,6 +49,34 @@ export const fetchPublicSalonBySlugThunk = createAsyncThunk<
   }
 });
 
+export const sendBookingEmailOtpThunk = createAsyncThunk<
+  { message: string },
+  string,
+  { rejectValue: string }
+>("onlineBooking/sendEmailOtp", async (email, { rejectWithValue }) => {
+  try {
+    const res = await api.post(ONLINE_BOOKING.SEND_EMAIL_OTP, { email });
+    return res.data.data;
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to send OTP.");
+  }
+});
+
+export const verifyBookingEmailOtpThunk = createAsyncThunk<
+  { success: boolean },
+  { email: string; otp: string },
+  { rejectValue: string }
+>("onlineBooking/verifyEmailOtp", async (payload, { rejectWithValue }) => {
+  try {
+    const res = await api.post(ONLINE_BOOKING.VERIFY_EMAIL_OTP, payload);
+    return res.data.data;
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to verify OTP.");
+  }
+});
+
 export const createPublicBookingThunk = createAsyncThunk<
   any,
   CreatePublicBookingPayload,
@@ -84,11 +112,11 @@ export const fetchManagedBookingThunk = createAsyncThunk<
 
 export const cancelManagedBookingThunk = createAsyncThunk<
   any,
-  ManagedBookingParams,
+  ManagedBookingParams & { reason?: string },
   { rejectValue: string }
->("onlineBooking/cancelManagedBooking", async ({ appointmentId, token }, { rejectWithValue }) => {
+>("onlineBooking/cancelManagedBooking", async ({ appointmentId, token, reason }, { rejectWithValue }) => {
   try {
-    const res = await api.post(ONLINE_BOOKING.CANCEL_MANAGED_BOOKING(appointmentId), { token });
+    const res = await api.post(ONLINE_BOOKING.CANCEL_MANAGED_BOOKING(appointmentId), { token, reason });
     return res.data.data;
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);

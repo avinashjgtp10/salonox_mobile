@@ -1,0 +1,30 @@
+// Branch Owner Settings home grid — same shell/cards as the salon owner's
+// Settings page (SettingsPage.scss), just sized up: fewer sections here (no
+// Business/Billing/Tax/Coupons/etc.) so each card can afford to be roomier
+// without the grid growing unreasonably tall.
+.bo-settings-home {
+  .settings-home-grid {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 18px;
+  }
+
+  .settings-home-card {
+    min-height: 148px;
+    padding: 22px;
+    gap: 10px;
+    border-radius: 14px;
+  }
+
+  .settings-home-card-icon svg {
+    width: 26px;
+    height: 26px;
+  }
+
+  .settings-home-card-title {
+    font-size: 15.5px;
+  }
+
+  .settings-home-card-desc {
+    font-size: 13px;
+  }
+}

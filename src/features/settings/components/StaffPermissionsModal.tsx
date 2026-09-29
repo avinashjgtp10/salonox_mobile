@@ -29,6 +29,11 @@ interface Props {
   onClose: () => void;
   /** Called after a successful save so the parent can update its list */
   onSaved: (staffId: EntityId, customPerms: Record<string, boolean> | null) => void;
+  /** Override how a permission change is persisted — defaults to the direct
+   *  `/staff/:id` PATCH used by the salon owner's Settings page. The Branch
+   *  Owner portal passes its own salon-scoped save here, since a branch_owner
+   *  token can't call that route directly (see updateSalonStaffPermissionsThunk). */
+  savePermissions?: (staffId: EntityId, customPerms: Record<string, boolean> | null) => Promise<boolean>;
 }
 
 export default function StaffPermissionsModal({
@@ -36,6 +41,7 @@ export default function StaffPermissionsModal({
   globalPermissions,
   onClose,
   onSaved,
+  savePermissions,
 }: Props) {
   const dispatch = useAppDispatch();
 
@@ -60,23 +66,23 @@ export default function StaffPermissionsModal({
   const initials = displayName.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2);
 
   // ── Save helper ──────────────────────────────────────────────────────────────
+  const persist = async (customPerms: Record<string, boolean> | null): Promise<boolean> => {
+    if (savePermissions) return savePermissions(staff.id, customPerms);
+    const result = await dispatch(updateStaffThunk({ id: staff.id, data: { custom_permissions: customPerms } }));
+    return updateStaffThunk.fulfilled.match(result);
+  };
+
   const saveCustomPerms = async (nextPerms: Permission[]): Promise<boolean> => {
     const record = permsToRecord(nextPerms);
-    const result = await dispatch(updateStaffThunk({ id: staff.id, data: { custom_permissions: record } }));
-    if (updateStaffThunk.fulfilled.match(result)) {
-      onSaved(staff.id, record);
-      return true;
-    }
-    return false;
+    const ok = await persist(record);
+    if (ok) onSaved(staff.id, record);
+    return ok;
   };
 
   const clearCustomPerms = async (): Promise<boolean> => {
-    const result = await dispatch(updateStaffThunk({ id: staff.id, data: { custom_permissions: null } }));
-    if (updateStaffThunk.fulfilled.match(result)) {
-      onSaved(staff.id, null);
-      return true;
-    }
-    return false;
+    const ok = await persist(null);
+    if (ok) onSaved(staff.id, null);
+    return ok;
   };
 
   // ── Toggle a single permission ───────────────────────────────────────────────

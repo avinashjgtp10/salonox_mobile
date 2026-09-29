@@ -9,6 +9,8 @@ import { Pagination, JiraFilterMenu, DateRangeFilter, getDateRangePresetValue } 
 import type { JiraFilterField, DateRangeFilterValue } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import { useCurrency } from "../../../hooks/useCurrency";
+import CashManagementChartContent from "./CashManagementChartContent";
+import ReportViewToggle from "./ReportViewToggle";
 
 const REPORT_NAME = "Cash Management Report";
 
@@ -74,6 +76,7 @@ export default function CashManagementReport({ onBack, category, categoryKey }: 
   const [loading, setLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize,    setPageSize]    = useState(10);
+  const [showChart, setShowChart] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   const dateRangeError = dateFrom && dateTo && dateTo < dateFrom
@@ -85,6 +88,15 @@ export default function CashManagementReport({ onBack, category, categoryKey }: 
     return () => clearTimeout(t);
   }, [search]);
 
+  // Shared with the Graph page below — same filter set the table/stats use,
+  // minus pagination.
+  const buildFilterBody = useCallback((): Record<string, any> => {
+    const body: Record<string, any> = { start_date: dateFrom, end_date: dateTo };
+    if (statusFilter.length > 0) body.statuses = statusFilter;
+    if (debouncedSearch) body.search = debouncedSearch;
+    return body;
+  }, [dateFrom, dateTo, statusFilter, debouncedSearch]);
+
   const fetchData = useCallback(async () => {
     if (dateRangeError) return;
     abortRef.current?.abort();
@@ -92,12 +104,7 @@ export default function CashManagementReport({ onBack, category, categoryKey }: 
     abortRef.current = ctrl;
     setLoading(true);
     try {
-      const body: Record<string, any> = {
-        start_date: dateFrom, end_date: dateTo,
-        page: currentPage, limit: pageSize,
-      };
-      if (statusFilter.length > 0) body.statuses = statusFilter;
-      if (debouncedSearch) body.search = debouncedSearch;
+      const body = { ...buildFilterBody(), page: currentPage, limit: pageSize };
       const res = await api.post(CASH_MANAGEMENT_REPORT.SUMMARY(), body, { signal: ctrl.signal });
       const data = res.data?.data;
       const raw: any[] = Array.isArray(data?.rows) ? data.rows : [];
@@ -130,7 +137,7 @@ export default function CashManagementReport({ onBack, category, categoryKey }: 
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [dateFrom, dateTo, statusFilter, debouncedSearch, currentPage, pageSize]);
+  }, [buildFilterBody, currentPage, pageSize, dateRangeError]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, statusFilter, debouncedSearch]);
@@ -171,10 +178,12 @@ export default function CashManagementReport({ onBack, category, categoryKey }: 
         <div className="rp-detail-back-row">
           <Breadcrumb current={REPORT_NAME} category={category} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
+            <ReportViewToggle view={showChart ? "chart" : "table"} onChange={(v) => setShowChart(v === "chart")} />
             <ReportExportButton
               title={REPORT_NAME}
               headers={HEADERS}
               rows={exportRows}
+              reportId="cash_management"
               filename={`cash-management-${dateFrom}-${dateTo}`}
               variant="button"
               csv
@@ -211,6 +220,10 @@ export default function CashManagementReport({ onBack, category, categoryKey }: 
         </div>
       )}
 
+      {showChart ? (
+        <CashManagementChartContent dateFrom={dateFrom} dateTo={dateTo} buildFilterBody={buildFilterBody} />
+      ) : (
+      <>
       <div className="rp-detail-toolbar">
         <div className="rp-detail-search-wrap">
           <Search size={13} className="rp-detail-search-ic" />
@@ -258,6 +271,8 @@ export default function CashManagementReport({ onBack, category, categoryKey }: 
 
       <Pagination currentPage={currentPage} pageSize={pageSize} totalItems={total}
         onPageChange={setCurrentPage} onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }} />
+      </>
+      )}
     </div>
   );
 }

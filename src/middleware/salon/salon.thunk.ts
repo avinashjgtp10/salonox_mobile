@@ -9,7 +9,6 @@ import type {
   ApiResponse,
   Salon,
   Branch,
-  CreateBranchPayload,
 } from "../../types/salon.types";
 
 // ── Save Salon (Create or Update) ─────────────────────────────────────────────
@@ -121,17 +120,3 @@ export const fetchBranchesThunk = createAsyncThunk<
   }
 });
 
-// ── Create Branch ─────────────────────────────────────────────────────────────
-export const createBranchThunk = createAsyncThunk<
-  Branch,
-  CreateBranchPayload,
-  { rejectValue: string }
->("salon/createBranch", async (payload, { rejectWithValue }) => {
-  try {
-    const res = await api.post<ApiResponse<Branch>>(SALON.CREATE_BRANCH, payload);
-    return res.data.data;
-  } catch (err: any) {
-    if (err instanceof ApiError) return rejectWithValue(err.message);
-    return rejectWithValue("Failed to create branch.");
-  }
-});

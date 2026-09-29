@@ -19,7 +19,7 @@ interface WeekViewProps {
 
 const WeekViewComponent: React.FC<WeekViewProps> = ({ onSlotClick, onViewBill }) => {
   const { currentDate, slots, timeToPx, durationToPx, intervalMins } = useScheduler();
-  const allBookings = useAppSelector((s: any) => s.scheduler?.bookings ?? []);
+  const allBookings = useAppSelector((s: any) => s.scheduler?.bookings ?? EMPTY_BOOKINGS);
   const bookingsByDate = useMemo(() => {
     const map = new Map<string, any[]>();
     allBookings.forEach((b: any) => {

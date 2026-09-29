@@ -9,6 +9,9 @@ import type { Service } from "../../types/catalog.types";
 import { useCurrency } from "../../../../hooks/useCurrency";
 import { getCurrencyIcon } from "../../../../utils/currencyIcon";
 import { formatDuration } from "../../utils/duration";
+import { usePermissions } from "../../../../hooks/usePermissions";
+import { useAppDispatch } from "../../../../hooks/useAppRedux";
+import { showPermissionDenied } from "../../../../store/permissionDialogSlice";
 
 interface ServiceCardProps {
   service: Service;
@@ -26,6 +29,11 @@ const ServiceCard: React.FC<ServiceCardProps> = React.memo(
   ({ service, openMenuId, onMenuToggle, onEdit, onDelete, onClick, highlighted = false, isSelected = false, onSelect }) => {
     const { currencyCode, currencySymbol } = useCurrency();
     const CurrencyIcon = getCurrencyIcon(currencyCode);
+    const { can } = usePermissions();
+    const dispatch = useAppDispatch();
+    const denyPerm = (permKey: string) => dispatch(showPermissionDenied(
+      `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+    ));
 
     // staff_count of 0 is NOT "nobody" — no service_staff rows is how the
     // backend stores "every staff member, including future hires", so it reads
@@ -152,7 +160,11 @@ const ServiceCard: React.FC<ServiceCardProps> = React.memo(
               <li>
                 <button
                   className="slp__dd-item"
-                  onClick={() => onEdit(service.id)}
+                  style={!can("edit_services") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                  onClick={() => {
+                    if (!can("edit_services")) { denyPerm("edit_services"); return; }
+                    onEdit(service.id);
+                  }}
                 >
                   <PencilSquare size={13} /> Edit
                 </button>
@@ -160,7 +172,11 @@ const ServiceCard: React.FC<ServiceCardProps> = React.memo(
               <li>
                 <button
                   className="slp__dd-item slp__dd-item--danger"
-                  onClick={() => onDelete(service.id)}
+                  style={!can("delete_services") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                  onClick={() => {
+                    if (!can("delete_services")) { denyPerm("delete_services"); return; }
+                    onDelete(service.id);
+                  }}
                 >
                   <Trash3 size={13} /> Delete
                 </button>

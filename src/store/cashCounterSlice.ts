@@ -12,11 +12,19 @@ import {
 interface CashCounterState {
   dashboard: CashDashboardSummary | null;
   loading: boolean;
+  // True after a fetchCashCounterDashboardThunk call actually fails (a real
+  // error, not the "no counter for this salon" case, which resolves with a
+  // confirmed value instead of rejecting) — lets DashboardLayout's mount
+  // effect retry instead of leaving `dashboard` stuck at null (and the
+  // mandatory open/close-counter modals silently never appearing) for the
+  // rest of the session after one transient failure right after login.
+  error: boolean;
 }
 
 const initialState: CashCounterState = {
   dashboard: null,
   loading: false,
+  error: false,
 };
 
 const summaryAmountKeys: Array<
@@ -80,6 +88,7 @@ const cashCounterSlice = createSlice({
     builder
       .addCase(fetchCashCounterDashboardThunk.pending, (state) => {
         state.loading = true;
+        state.error = false;
       })
       .addCase(fetchCashCounterDashboardThunk.fulfilled, (state, action) => {
         state.loading = false;
@@ -87,6 +96,7 @@ const cashCounterSlice = createSlice({
       })
       .addCase(fetchCashCounterDashboardThunk.rejected, (state) => {
         state.loading = false;
+        state.error = true;
       })
       .addCase(openCashCounterThunk.fulfilled, (state, action) => {
         state.dashboard = action.payload;

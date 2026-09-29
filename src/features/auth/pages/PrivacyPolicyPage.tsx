@@ -6,7 +6,7 @@ const sections = [
     title: "Introduction",
     content: (
       <>
-        Welcome to Salonox. We are committed to protecting your personal information and your right to privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our platform.
+        Welcome to SalonoX. We are committed to protecting your personal information and your right to privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our platform.
       </>
     ),
   },
@@ -32,7 +32,7 @@ const sections = [
       <>
         We use the information we collect to:
         <ul>
-          <li>Provide, operate, and maintain the Salonox platform</li>
+          <li>Provide, operate, and maintain the SalonoX platform</li>
           <li>Process transactions and send related information</li>
           <li>Send administrative information, updates, and security alerts</li>
           <li>Respond to comments, questions, and requests</li>

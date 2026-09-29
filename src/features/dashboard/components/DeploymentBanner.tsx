@@ -93,16 +93,15 @@ export default function DeploymentBanner() {
     } else {
       root.style.removeProperty("--deployment-banner-height");
     }
-    return () => root.style.removeProperty("--deployment-banner-height");
+    return () => { root.style.removeProperty("--deployment-banner-height"); };
   }, [announcement]);
 
   if (!announcement) return null;
 
   return (
     <div className="deployment-banner" role="status" ref={bannerRef}>
-      <span className="deployment-banner__icon">🚧</span>
       <span className="deployment-banner__text">
-        <strong>Deployment in Progress</strong> — {announcement.message}
+        {announcement.message}
         {" "}Estimated completion: {formatRemaining(announcement.end_time)}.
       </span>
     </div>

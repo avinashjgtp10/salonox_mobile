@@ -978,6 +978,15 @@ $item-field-text-inset: 9px;
       cursor: pointer;
       flex-shrink: 0;
       &:hover { background: #f3f4f6; border-color: #9ca3af; color: #374151; }
+
+      // Still visible and still clickable (click shows the "Permission
+      // Required" popup) — this only signals "won't work" at a glance,
+      // it never disables pointer-events.
+      &.client-edit-btn--disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+        &:hover { background: #fff; border-color: #d1d5db; color: #6b7280; }
+      }
     }
 
     // Staff Alert / Notes — same .pkg-info-btn ℹ button used for Reward/
@@ -1064,6 +1073,15 @@ $item-field-text-inset: 9px;
   text-decoration: none;
   transition: background 0.15s;
   &:hover { background: #374151; }
+
+  // Still visible and still clickable (click shows the "Permission
+  // Required" popup) — this only signals "won't work" at a glance,
+  // it never disables pointer-events.
+  &.btn-view-history--disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    &:hover { background: $primary; }
+  }
 }
 
 // ── Package cell inside the stats grid ───────────────────────────────────────
@@ -2229,6 +2247,13 @@ $item-field-text-inset: 9px;
   &__pkg-badge {
     display: inline-flex;
     align-items: center;
+    // The badge is a flex item in a column-direction .svc-field, so the
+    // default `align-items: stretch` sized it to the COLUMN's width, not its
+    // own content — in a narrow track (Price is ~80px) the nowrap text then
+    // ran straight out of the green background and the pill rendered as a
+    // stub with the amount floating past its right edge. Sizing to content
+    // keeps the label and the amount inside one whole pill in every column.
+    align-self: flex-start;
     gap: 3px;
     margin-top: 3px;
     padding: 1px 6px;
@@ -2280,6 +2305,12 @@ $item-field-text-inset: 9px;
     &:hover { background: #f3f4f6; }
 
     &--active { background: #eef2ff; }
+
+    &--disabled {
+      cursor: not-allowed;
+      opacity: 0.6;
+      &:hover { background: none; }
+    }
   }
 
   // flex:1 + min-width:0 keeps a long name wrapping within its own space
@@ -2554,7 +2585,7 @@ $item-field-text-inset: 9px;
       // hide number input spinners
       &::-webkit-outer-spin-button,
       &::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-      -moz-appearance: textfield;
+     
     }
   }
 
@@ -2648,7 +2679,7 @@ $item-field-text-inset: 9px;
     &:focus { border-color: #3b82f6; }
     &::-webkit-outer-spin-button,
     &::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-    -moz-appearance: textfield;
+    
 
     &--error {
       border-color: #ef4444;
@@ -2957,7 +2988,7 @@ $item-field-text-inset: 9px;
     // hide number input spinners
     &::-webkit-outer-spin-button,
     &::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-    -moz-appearance: textfield;
+   
   }
 
   &__err {
@@ -2966,6 +2997,19 @@ $item-field-text-inset: 9px;
     color: #ef4444;
     margin-top: 6px;
     text-align: left;
+  }
+
+  &__link {
+    display: inline-block;
+    margin-top: 8px;
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: 12px;
+    font-weight: 600;
+    color: #3b82f6;
+    cursor: pointer;
+    &:hover { text-decoration: underline; }
   }
 
   &__actions {
@@ -2998,6 +3042,111 @@ $item-field-text-inset: 9px;
       &:hover { background: #2563eb; border-color: #2563eb; }
       &:disabled { opacity: 0.6; cursor: not-allowed; }
     }
+  }
+}
+
+// Anchored reminder popover (ServiceRow.tsx) — a compact dropdown, not the
+// full-screen .svc-reminder-overlay/.svc-reminder-modal chrome above (that
+// pair is still used by the Consumable Usage and Remark modals).
+.svc-reminder-pop {
+  background: $white;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.16);
+  padding: 10px;
+  min-width: 170px;
+  max-width: 220px;
+
+  &__title {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: $secondary;
+    padding: 2px 6px 8px;
+    border-bottom: 1px solid #f1f5f9;
+    margin-bottom: 6px;
+
+    strong { color: $primary; }
+  }
+
+  &__list {
+    list-style: none;
+    margin: 0 0 4px;
+    padding: 0;
+    max-height: 220px;
+    overflow-y: auto;
+  }
+
+  &__item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: none;
+    padding: 8px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-family: inherit;
+    color: $primary;
+    cursor: pointer;
+    &:hover { background: #f3f4f6; }
+    &--active { background: #eef2ff; color: #4338ca; font-weight: 600; }
+  }
+
+  &__link {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: none;
+    padding: 6px 8px 2px;
+    font-size: 12px;
+    font-weight: 600;
+    font-family: inherit;
+    color: #3b82f6;
+    cursor: pointer;
+    &:hover { text-decoration: underline; }
+  }
+
+  &__custom {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  &__input {
+    height: 36px;
+    padding: 0 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 13px;
+    font-family: inherit;
+    color: $primary;
+    outline: none;
+    &:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12); }
+    &--error { border-color: #ef4444; }
+    &::-webkit-outer-spin-button,
+    &::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    
+  }
+
+  &__save {
+    height: 32px;
+    border: none;
+    border-radius: 6px;
+    background: #3b82f6;
+    color: $white;
+    font-weight: 600;
+    font-size: 12.5px;
+    font-family: inherit;
+    cursor: pointer;
+    &:hover { background: #2563eb; }
+  }
+
+  &__err {
+    font-size: 11px;
+    color: #ef4444;
+    display: block;
+    margin-top: 2px;
   }
 }
 

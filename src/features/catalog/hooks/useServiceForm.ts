@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import type { AppDispatch } from "../../../store/store";
 import {
@@ -161,6 +161,12 @@ export const useServiceForm = (serviceId?: string | number, allStaffIds: string[
   const [error, setError] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<Record<string, string[]>>({});
   const [isSubmitted, setIsSubmitted] = useState(false);
+  // Synchronous guard — the `loading` state above can't stop a second click
+  // that lands in the same tick as the first (e.g. a fast double-click, or a
+  // duplicate touch+click event on mobile) before React re-renders the Save
+  // button as disabled. A ref updates immediately, so the second call sees
+  // it and bails before ever dispatching a second create/update request.
+  const isSubmittingRef = useRef(false);
 
   useEffect(() => {
     if (cachedServices.length === 0) {
@@ -276,6 +282,9 @@ export const useServiceForm = (serviceId?: string | number, allStaffIds: string[
     setIsSubmitted(true);
     if (!validate(formData)) return false;
 
+    if (isSubmittingRef.current) return false;
+    isSubmittingRef.current = true;
+
     setLoading(true);
     setError(null);
 
@@ -330,6 +339,7 @@ export const useServiceForm = (serviceId?: string | number, allStaffIds: string[
       return false;
     } finally {
       setLoading(false);
+      isSubmittingRef.current = false;
     }
   };
 

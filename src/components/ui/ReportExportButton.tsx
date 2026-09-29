@@ -3,7 +3,19 @@ import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { BoxArrowUp, FileEarmarkSpreadsheet, FiletypePdf, FileEarmarkText, ChevronDown } from "react-bootstrap-icons";
+import { usePermissions } from "../../hooks/usePermissions";
+import { useAppDispatch } from "../../hooks/useAppRedux";
+import { showPermissionDenied } from "../../store/permissionDialogSlice";
 import "./ReportExportButton.scss";
+
+// Same friendly copy PermissionGuard and the interceptor-driven global popup
+// already use for a backend 403 — this component never hits the backend
+// (the file is built entirely client-side from already-fetched rows), so
+// this is the only enforcement point export_csv/export_excel/export_pdf
+// actually have for Reports; without it, toggling them off in Settings had
+// no effect here at all.
+const friendlyDenied = (permKey: string) =>
+  `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`;
 
 interface ReportExportButtonProps {
   /** PDF title / Excel sheet header */
@@ -26,14 +38,69 @@ interface ReportExportButtonProps {
   filterLines?: string[];
   /** Optional summary/stat lines rendered in the PDF header, above the table */
   summaryLines?: string[];
+  /**
+   * When set, this instance is one of the 53 named reports on ReportsPage —
+   * matches the `id` field in ReportsPage.tsx's REPORTS array. Gates every
+   * export on the single dedicated `download_report_<reportId>` permission
+   * instead of the generic export_csv/export_excel/export_pdf triplet (which
+   * 4 other non-report pages — Cash Management, Products, Orders, Suppliers
+   * — still use unchanged when this prop is omitted).
+   */
+  reportId?: string;
 }
 
 const ReportExportButton = ({
   title, headers, rows, filename, variant = "icon", csv = false,
-  disabled = false, dateRangeLabel, filterLines = [], summaryLines = [],
+  disabled = false, dateRangeLabel, filterLines = [], summaryLines = [], reportId,
 }: ReportExportButtonProps) => {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const { can } = usePermissions();
+  const dispatch = useAppDispatch();
+
+  // Returns true (and lets the caller proceed) only if the relevant
+  // permission is granted; otherwise shows the same popup a blocked backend
+  // call would and stops the export before any file is built. For a named
+  // report, one single download_report_<id> key covers every format — the
+  // ticket's "Download" toggle isn't split by file type.
+  //
+  // export_csv/export_excel/export_pdf (System) are now global master gates
+  // (Global Download Switches ticket) — checked in ADDITION to the specific
+  // key, even for named reports, so switching one of these off blocks that
+  // file type everywhere, including every report on ReportsPage.
+  const requireExportPermission = (formatKey: "export_csv" | "export_excel" | "export_pdf") => {
+    const specificKey = reportId ? `download_report_${reportId}` : formatKey;
+    if (!can(specificKey)) {
+      dispatch(showPermissionDenied(friendlyDenied(specificKey)));
+      setOpen(false);
+      return false;
+    }
+    if (!can(formatKey)) {
+      dispatch(showPermissionDenied(friendlyDenied(formatKey)));
+      setOpen(false);
+      return false;
+    }
+    return true;
+  };
+  // Named reports (reportId set): without the matching download_report_<id>
+  // permission, the button shows greyed out and clicking it goes straight to
+  // the denial popup instead of opening the dropdown — NOT a native
+  // `disabled` button, since a real disabled attribute never fires onClick,
+  // which silently swallowed the click with no explanation (caught
+  // 2026-09-11 right after first trying the native-disabled version). The 4
+  // non-report pages still on the generic export_csv/export_excel/export_pdf
+  // triplet (reportId unset) are untouched — requireExportPermission() below
+  // is still what gates those, unchanged.
+  const permDisabled = reportId != null && !can(`download_report_${reportId}`);
+  const downloadPermStyle: React.CSSProperties | undefined =
+    permDisabled ? { opacity: 0.5, cursor: "not-allowed" } : undefined;
+  const handleTriggerClick = () => {
+    if (permDisabled) {
+      dispatch(showPermissionDenied(friendlyDenied(`download_report_${reportId}`)));
+      return;
+    }
+    setOpen((v) => !v);
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -47,6 +114,7 @@ const ReportExportButton = ({
   }, [open]);
 
   const exportCsv = () => {
+    if (!requireExportPermission("export_csv")) return;
     const data = rows();
     // Excel's CSV importer auto-detects date-like strings (our own
     // "DD-MM-YYYY" values) and long digit-only strings (phone numbers,
@@ -81,6 +149,7 @@ const ReportExportButton = ({
   };
 
   const exportExcel = () => {
+    if (!requireExportPermission("export_excel")) return;
     const data = rows();
     const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
     ws["!cols"] = headers.map((h, i) => ({
@@ -111,6 +180,7 @@ const ReportExportButton = ({
       .trim();
 
   const exportPdf = () => {
+    if (!requireExportPermission("export_pdf")) return;
     const data = rows();
     // Real one-click file download (no print dialog, no popup to be
     // blocked) — same jsPDF + autoTable pattern already used by
@@ -216,11 +286,11 @@ const ReportExportButton = ({
   return (
     <div className="rp-detail-export-wrap" ref={wrapRef}>
       {variant === "button" ? (
-        <button className="rp-download-btn" onClick={() => setOpen(v => !v)} disabled={disabled}>
+        <button className="rp-download-btn" style={downloadPermStyle} onClick={handleTriggerClick} disabled={disabled}>
           <BoxArrowUp size={14} /> Download <ChevronDown size={11} />
         </button>
       ) : (
-        <button className="rp-detail-icon-btn" title="Export" onClick={() => setOpen(v => !v)} disabled={disabled}>
+        <button className="rp-detail-icon-btn" title="Export" style={downloadPermStyle} onClick={handleTriggerClick} disabled={disabled}>
           <BoxArrowUp size={16} />
         </button>
       )}

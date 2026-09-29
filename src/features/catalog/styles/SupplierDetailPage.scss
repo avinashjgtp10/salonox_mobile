@@ -1,8 +1,59 @@
+// Popup-mode shell (SupplierDetailPage rendered from SuppliersListPage.tsx's
+// row click instead of navigated to as its own route) — same centered-card
+// pattern as ProductDetailDrawer.scss's .pdd-overlay/.pdd-panel, just its
+// own class names since this page's content is noticeably wider (5 stat
+// cards + a 6-column table) and needs more room.
+.sdp-popup-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 1040;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.sdp-popup-panel {
+  width: 960px;
+  max-width: 100%;
+  max-height: 88vh;
+  background: #fff;
+  border-radius: 12px;
+  overflow-y: auto;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+
+  .supplier-detail-page { padding: 24px; max-width: none; }
+
+  // The close "x" is absolutely positioned over this same corner — with two
+  // buttons now in the header (Import Supplier Catalog + Create Payout),
+  // its own padding alone let their row run right under the icon.
+  .supplier-detail-page__header {
+    padding-right: 32px;
+  }
+}
+
+.sdp-popup-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: none;
+  border: none;
+  color: #667085;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  z-index: 1;
+
+  &:hover { background: #f2f4f7; color: #101828; }
+}
+
 // Reuses .phist-table / .phist-pagination (PurchaseHistoryListPage.scss) for
 // the Orders tab and .supplier-status-badge (SuppliersListPage.scss) for the
 // status pill — this file only covers what's unique to the detail page:
 // header, stat cards, tabs.
 .supplier-detail-page {
+  position: relative;
   padding: 32px;
   max-width: 1200px;
   margin: 0 auto;
@@ -49,28 +100,28 @@
     // Status) on top of the usual 5 — auto-fit/minmax keeps both counts
     // looking like even rows instead of hard-coding a column count that
     // only fits one of them.
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+    gap: 12px;
     margin-bottom: 24px;
 
     .stat-card {
       background: #fff;
       border: 1px solid #eaecf0;
-      border-radius: 12px;
-      padding: 16px;
+      border-radius: 10px;
+      padding: 12px 14px;
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 4px;
 
       .stat-label {
-        font-size: 12px;
+        font-size: 11px;
         font-weight: 500;
         color: #667085;
         text-transform: uppercase;
       }
 
       .stat-value {
-        font-size: 18px;
+        font-size: 16px;
         font-weight: 600;
         color: #101828;
       }

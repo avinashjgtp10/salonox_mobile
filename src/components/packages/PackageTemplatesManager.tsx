@@ -10,6 +10,12 @@ import {
 import type { PackageTemplate } from "../../services/api/endpoints/packages.endpoints";
 import { useCurrency } from "../../hooks/useCurrency";
 import PackageCreateForm from "./PackageCreateForm";
+import { usePermissions } from "../../hooks/usePermissions";
+import { useAppDispatch } from "../../hooks/useAppRedux";
+import { showPermissionDenied } from "../../store/permissionDialogSlice";
+
+const friendlyPermissionDenied = (permKey: string) =>
+  `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -36,6 +42,9 @@ interface TemplateCardProps {
 
 function TemplateCard({ template: t, index, deleting, onEdit, onDelete }: TemplateCardProps) {
   const { formatAmount } = useCurrency();
+  const { can } = usePermissions();
+  const canEdit = can("edit_package_template");
+  const canDelete = can("delete_package_template");
   const gradient = CARD_GRADIENTS[index % CARD_GRADIENTS.length];
   const gstAmt = (t.basePrice - t.discount) * t.gstPercentage / 100;
   const total  = t.basePrice - t.discount + gstAmt;
@@ -85,11 +94,6 @@ function TemplateCard({ template: t, index, deleting, onEdit, onDelete }: Templa
             <CreditCard2Front size={10} />
             {payLabel}
           </span>
-          {t.gstPercentage > 0 && (
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "rgba(255,255,255,.2)", color: "#fff", borderRadius: 20, padding: "3px 9px", fontSize: 11, fontWeight: 500 }}>
-              GST {t.gstPercentage}%
-            </span>
-          )}
         </div>
       </div>
 
@@ -128,9 +132,10 @@ function TemplateCard({ template: t, index, deleting, onEdit, onDelete }: Templa
             display: "inline-flex", alignItems: "center", gap: 6,
             padding: "6px 14px", border: "1px solid #e5e7eb", borderRadius: 8,
             background: "#fff", color: "#374151", fontSize: 12, fontWeight: 600,
-            cursor: "pointer", fontFamily: "inherit", transition: "all .15s",
+            cursor: canEdit ? "pointer" : "not-allowed", fontFamily: "inherit", transition: "all .15s",
+            opacity: canEdit ? 1 : 0.5,
           }}
-          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#7c3aed"; (e.currentTarget as HTMLButtonElement).style.color = "#7c3aed"; }}
+          onMouseEnter={e => { if (canEdit) { (e.currentTarget as HTMLButtonElement).style.borderColor = "#7c3aed"; (e.currentTarget as HTMLButtonElement).style.color = "#7c3aed"; } }}
           onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#e5e7eb"; (e.currentTarget as HTMLButtonElement).style.color = "#374151"; }}
         >
           <PencilSquare size={12} /> Edit
@@ -142,10 +147,10 @@ function TemplateCard({ template: t, index, deleting, onEdit, onDelete }: Templa
             display: "inline-flex", alignItems: "center", gap: 6,
             padding: "6px 12px", border: "1px solid #fee2e2", borderRadius: 8,
             background: "#fff", color: "#dc2626", fontSize: 12, fontWeight: 600,
-            cursor: "pointer", fontFamily: "inherit", transition: "all .15s",
-            opacity: deleting ? 0.5 : 1,
+            cursor: deleting ? "default" : canDelete ? "pointer" : "not-allowed", fontFamily: "inherit", transition: "all .15s",
+            opacity: deleting ? 0.5 : canDelete ? 1 : 0.5,
           }}
-          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "#fef2f2"; }}
+          onMouseEnter={e => { if (canDelete) (e.currentTarget as HTMLButtonElement).style.background = "#fef2f2"; }}
           onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "#fff"; }}
         >
           {deleting ? <Loader2 size={12} className={styles.spin} /> : <Trash size={12} />}
@@ -160,6 +165,9 @@ function TemplateCard({ template: t, index, deleting, onEdit, onDelete }: Templa
 const PackageTemplatesManager: React.FC = () => {
   const { data: templates = [], isLoading } = useListPackageTemplatesQuery();
   const [deleteTemplate] = useDeletePackageTemplateMutation();
+  const { can } = usePermissions();
+  const dispatch = useAppDispatch();
+  const denyPerm = useCallback((permKey: string) => dispatch(showPermissionDenied(friendlyPermissionDenied(permKey))), [dispatch]);
 
   const [modalOpen,       setModalOpen]       = useState(false);
   // The full template being edited, not just its id — PackageCreateForm's
@@ -169,14 +177,16 @@ const PackageTemplatesManager: React.FC = () => {
   const [deletingId,      setDeletingId]      = useState<string | null>(null);
 
   const openCreate = useCallback(() => {
+    if (!can("add_package_template")) { denyPerm("add_package_template"); return; }
     setEditingTemplate(null);
     setModalOpen(true);
-  }, []);
+  }, [can, denyPerm]);
 
   const openEdit = useCallback((t: PackageTemplate) => {
+    if (!can("edit_package_template")) { denyPerm("edit_package_template"); return; }
     setEditingTemplate(t);
     setModalOpen(true);
-  }, []);
+  }, [can, denyPerm]);
 
   const closeModal = useCallback(() => {
     setModalOpen(false);
@@ -184,6 +194,7 @@ const PackageTemplatesManager: React.FC = () => {
   }, []);
 
   const handleDelete = useCallback(async (id: string) => {
+    if (!can("delete_package_template")) { denyPerm("delete_package_template"); return; }
     if (!confirm("Delete this template? This cannot be undone.")) return;
     setDeletingId(id);
     try {
@@ -191,7 +202,7 @@ const PackageTemplatesManager: React.FC = () => {
     } finally {
       setDeletingId(null);
     }
-  }, [deleteTemplate]);
+  }, [can, denyPerm, deleteTemplate]);
 
   return (
     <div>
@@ -214,9 +225,10 @@ const PackageTemplatesManager: React.FC = () => {
             display: "inline-flex", alignItems: "center", gap: 7,
             background: "linear-gradient(135deg,#667eea,#764ba2)", color: "#fff",
             border: "none", borderRadius: 10, padding: "10px 18px",
-            fontSize: 13, fontWeight: 700, cursor: "pointer",
+            fontSize: 13, fontWeight: 700, cursor: can("add_package_template") ? "pointer" : "not-allowed",
             fontFamily: "inherit", whiteSpace: "nowrap",
             boxShadow: "0 4px 14px rgba(102,126,234,.4)",
+            opacity: can("add_package_template") ? 1 : 0.5,
             transition: "all .15s",
           }}
           onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)"; (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 6px 18px rgba(102,126,234,.5)"; }}
@@ -251,8 +263,9 @@ const PackageTemplatesManager: React.FC = () => {
               display: "inline-flex", alignItems: "center", gap: 7,
               background: "linear-gradient(135deg,#667eea,#764ba2)", color: "#fff",
               border: "none", borderRadius: 10, padding: "10px 20px",
-              fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+              fontSize: 13, fontWeight: 700, cursor: can("add_package_template") ? "pointer" : "not-allowed", fontFamily: "inherit",
               boxShadow: "0 4px 14px rgba(102,126,234,.35)",
+              opacity: can("add_package_template") ? 1 : 0.5,
             }}
           >
             <Plus size={15} /> Create First Template

@@ -1,0 +1,55 @@
+// Scoped to .seo-page so it cannot leak into (or depend on) the landing styles.
+@use "sass:color";
+
+$ink: #111827;
+$muted: #4b5563;
+$line: #e5e7eb;
+$soft: #f9fafb;
+$accent: #059669;
+
+.seo-page {
+  color: $ink;
+  background: #fff;
+  line-height: 1.6;
+
+  .seo-container { width: 100%; max-width: 1080px; margin: 0 auto; padding: 0 20px; }
+
+  h1 { font-size: clamp(2rem, 4.5vw, 3.1rem); line-height: 1.12; letter-spacing: -0.02em; font-weight: 800; margin: 0 0 16px; }
+  h2 { font-size: clamp(1.5rem, 3vw, 2rem); line-height: 1.2; font-weight: 700; margin: 0 0 24px; }
+  h3 { font-size: 1.05rem; font-weight: 700; margin: 0 0 8px; }
+  p { margin: 0 0 12px; color: $muted; }
+
+  .seo-header { border-bottom: 1px solid $line; background: #fff; }
+  .seo-header-inner { display: flex; align-items: center; justify-content: space-between; min-height: 72px; }
+  .seo-header img { display: block; height: auto; }
+  .seo-nav { display: flex; align-items: center; gap: 16px; }
+  .seo-link { color: $ink; font-weight: 600; text-decoration: none; }
+
+  .seo-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    padding: 12px 22px; border-radius: 999px; font-weight: 700; font-size: 0.95rem;
+    text-decoration: none; border: 1px solid transparent; cursor: pointer;
+    &--primary { background: $accent; color: #fff; &:hover { background: color.adjust($accent, $lightness: -6%); color: #fff; } }
+    &--ghost { background: #fff; color: $ink; border-color: $line; &:hover { border-color: $ink; color: $ink; } }
+  }
+
+  .seo-hero { padding: 64px 0 48px; background: linear-gradient(180deg, $soft 0%, #fff 100%); }
+  .seo-lead { font-size: 1.15rem; max-width: 720px; }
+  .seo-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
+
+  .seo-section { padding: 56px 0; &--alt { background: $soft; } }
+  .seo-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; }
+  .seo-card { background: #fff; border: 1px solid $line; border-radius: 14px; padding: 22px; h3, p { margin-bottom: 8px; } }
+  .seo-price { font-size: 1.6rem; font-weight: 800; color: $ink; }
+  .seo-period { margin-left: 4px; font-size: 0.95rem; font-weight: 600; color: $muted; }
+  .seo-faq { border-top: 1px solid $line; padding: 16px 0; &:first-of-type { border-top: 0; } }
+
+  .seo-cta { padding: 56px 0; text-align: center; background: $ink; h2 { color: #fff; } }
+
+  .seo-footer {
+    padding: 24px 0; border-top: 1px solid $line; font-size: 0.9rem; color: $muted;
+    .seo-container { display: flex; flex-wrap: wrap; gap: 20px; align-items: center; }
+    a { color: $muted; text-decoration: none; &:hover { color: $ink; } }
+    span { margin-left: auto; }
+  }
+}

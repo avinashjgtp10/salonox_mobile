@@ -11,6 +11,25 @@
   text-transform: capitalize;
 }
 
+// Pinned to the right edge of the table's own scroll container (not the
+// page) so the Delete action stays visible without scrolling all the way
+// across this report's 14 columns — it was previously the very last column,
+// easy to miss/assume missing on a normal-width screen. `right: 0` anchors
+// to .rp-detail-table-wrap since that's the nearest scrolling ancestor.
+.rp-pkg-actions-col {
+  position: sticky;
+  right: 0;
+  // Literal, not $white — reportDetailBase.scss's own use of that variable
+  // doesn't make it available here too; @use "as *" only exposes a file's
+  // OWN members, not ones it transitively pulled in without @forward.
+  background: #ffffff;
+  box-shadow: -2px 0 4px rgba(0, 0, 0, 0.05);
+}
+
+thead .rp-pkg-actions-col {
+  z-index: 2;
+}
+
 .rp-pkg-amount-range {
   display: flex;
   align-items: center;

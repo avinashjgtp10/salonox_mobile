@@ -56,9 +56,16 @@ body {
 .topbar-left {
   display: flex;
   align-items: center;
-  gap: 0;
+  gap: 10px;
   min-width: 0;
   justify-content: flex-start;
+}
+
+// The sidebar's own collapse toggle used to live inside .sidebar (its own
+// dark-rail "Collapse" row) — moved here so it reads as anchored to the
+// logo/top-left corner instead of buried among the nav items below it.
+.topbar-collapse-btn {
+  flex-shrink: 0;
 }
 
 .brand {
@@ -239,91 +246,198 @@ body {
 }
 
 /* ================= SIDEBAR ================= */
+// Scoped to this file — no shared brand token for it yet. Monochrome by
+// choice: white fill + black text on the dark rail, not a color accent.
+$sidebar-nav-active: #ffffff;
+$sidebar-nav-active-text: #101828;
+
 .sidebar {
-  width: 90px;
-  background: $sidebar-bg;
+  width: 196px;
+  // Subtle top-to-bottom gradient instead of a flat rgba fill — there's
+  // rarely any real content directly behind this fixed panel for a
+  // backdrop-filter to actually blur, so a flat translucent color read as
+  // plain rather than "glassy". The gradient plus a soft inner highlight at
+  // the top edge is what actually carries the depth.
+  background: linear-gradient(180deg, rgba(32, 35, 41, 0.94) 0%, rgba(20, 22, 26, 0.96) 100%);
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.04);
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;
   // Extra slack beyond what items need (--nav-item-h * count) is spread
-  // evenly between them as gaps, rather than each item stretching to fill it.
+  // evenly between them as gaps, rather than each item stretching to fill
+  // it. DashboardSidebar.tsx's fit() effect sizes --nav-item-h so `count`
+  // items fill the sidebar's real available height on most screens — but
+  // --nav-item-h is floored (never shrinks below a usable row height), so
+  // on a short enough viewport the floor is hit before everything fits and
+  // the tail end of the list would otherwise be clipped with no way to
+  // reach it. overflow-y here is that safety net, not the normal case.
   justify-content: space-evenly;
-  padding: 6px 0;
+  padding: 10px 10px;
   height: calc(100vh - var(--topbar-height, 56px) - var(--deployment-banner-height, 0px));
   position: fixed;
   left: 0;
   top: calc(var(--topbar-height, 56px) + var(--deployment-banner-height, 0px));
   z-index: 100;
+  // Matches .main's own margin transition — collapsing/expanding now
+  // animates instead of snapping between the two widths instantly.
+  transition: width 0.22s ease;
+
+  overflow-y: auto;
+  overflow-x: hidden;
+  // Scrollbar-on-the-left trick: flipping the container to RTL moves the
+  // browser-drawn scrollbar to its left edge, then flipping every child
+  // back to LTR undoes that for the actual icon/label content so nothing
+  // about the nav rows themselves reads right-to-left.
+  direction: rtl;
+  > * { direction: ltr; }
+
+  &::-webkit-scrollbar { width: 4px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+  }
+
+  // Not enough room for icon+label rows below tablet width — collapses
+  // back to the icon-only rail .main's own @media(max-width:768px) rule
+  // already assumes (margin-left: 64px), same idea as .sub-sidebar
+  // floating over content instead of pushing it on narrow viewports.
+  @media (max-width: 768px) {
+    width: 64px;
+    padding: 10px 6px;
+  }
 }
 
 .nav-btn {
-  width: 76px;
+  width: 100%;
   // Set by DashboardSidebar.tsx's fit() — sized so exactly `count` items
   // always fill the sidebar's real available height with no scrolling and
-  // nothing pushed past the bottom edge, regardless of screen height.
-  height: var(--nav-item-h, 52px);
-  border-radius: 14px;
+  // nothing pushed past the bottom edge, regardless of screen height. Only
+  // ever adjusts row height/padding — the label's own font size below is a
+  // fixed constant, never shrunk or hidden.
+  height: var(--nav-item-h, 40px);
+  // A radius this large always exceeds half the row's own height, so the
+  // browser clamps it down to exactly that — a true capsule/pill on a wide
+  // expanded row, and a perfect circle once collapsed to icon-only (row
+  // width ≈ row height there). No separate collapsed-state override needed.
+  border-radius: 999px;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  justify-content: center;
-  gap: 3px;
-  color: $sidebar-text;
+  justify-content: flex-start;
+  gap: 12px;
+  color: rgba(240, 241, 243, 0.75);
   cursor: pointer;
-  transition: 0.2s ease;
+  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
   background: transparent;
   border: none;
   outline: none;
-  padding: 4px;
+  padding: 0 14px;
   position: relative;
   box-sizing: border-box;
   flex-shrink: 0;
-  &:hover { background: $sidebar-hover; color: $sidebar-active; }
+  &:hover {
+    background: rgba(255, 255, 255, 0.06);
+    color: $sidebar-active;
+  }
+  &:active { transform: scale(0.98); }
   &:focus-visible {
     outline: 2px solid $sidebar-active;
     outline-offset: 2px;
     z-index: 1;
   }
-  &.route-active { background: $btn-primary; color: $white; }
+  &.route-active,
   &.menu-active {
-    background: rgba(255, 255, 255, 0.14);
-    color: $sidebar-active;
-
-    &::before {
-      content: "";
-      position: absolute;
-      left: -8px;
-      top: 50%;
-      transform: translateY(-50%);
-      width: 4px;
-      height: 22px;
-      border-radius: 0 4px 4px 0;
-      background: $sidebar-active;
-    }
+    background: $sidebar-nav-active;
+    color: $sidebar-nav-active-text;
+    // The soft glow (not just the flat fill) is what reads as "raised/
+    // selected" rather than just a different flat color among others —
+    // neutral white glow now, no color tint.
+    box-shadow: 0 4px 14px rgba(255, 255, 255, 0.18);
   }
 
   svg {
-    width: var(--nav-icon-size, 22px);
-    height: var(--nav-icon-size, 22px);
+    width: 18px;
+    height: 18px;
     flex-shrink: 0;
+  }
+
+  @media (max-width: 768px) {
+    justify-content: center;
+    padding: 0;
+    gap: 0;
+  }
+
+  // Visible but not usable — permission denied for this item (e.g. Home
+  // without view_dashboard). Still clickable, just to surface the
+  // "Permission Required" popup rather than navigate; never hidden from the
+  // sidebar entirely.
+  &.nav-btn--disabled {
+    color: rgba(240, 241, 243, 0.35);
+    cursor: not-allowed;
+    &:hover { background: transparent; color: rgba(240, 241, 243, 0.35); }
+    &:active { transform: none; }
   }
 }
 
 .nav-label {
-  font-size: var(--nav-label-size, 10px);
-  display: var(--nav-label-display, block);
-  font-weight: 600;
-  line-height: 1.15;
-  text-align: center;
+  font-size: 13.5px;
+  display: block;
+  font-weight: 500;
+  line-height: 1.2;
+  text-align: left;
   color: inherit;
-  max-width: 66px;
+  // Fills whatever room the row has instead of a fixed narrow box — the
+  // sidebar is wide enough now that a label never needs to wrap; ellipsis
+  // is a defensive fallback, not the expected case.
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   letter-spacing: 0.01em;
+
+  // No room for a label next to the icon once the sidebar collapses to an
+  // icon-only rail below tablet width (see .sidebar's own breakpoint above).
+  @media (max-width: 768px) {
+    display: none;
+  }
+}
+
+// Manually collapsed (via .topbar-collapse-btn, DashboardTopbar.tsx) or auto-collapsed when a
+// flyout submenu opens (see DashboardLayout.tsx) — same icon-only rail the
+// ≤768px breakpoint above already falls back to, just triggered by state
+// instead of viewport width. All of .main's shifted offsets below are
+// (sub-sidebar's own width) + 64px instead of + 196px, so the flyout panel
+// still sits flush against the now-narrower sidebar.
+//
+// Scoped to >768px on purpose: below that, the sidebar is already forced
+// icon-only by its own media query, .sub-sidebar/.main already have their
+// own mobile-specific values, and there's nothing left for these rules to
+// usefully change.
+@media (min-width: 769px) {
+  .dashboard-body--collapsed {
+    .sidebar { width: 64px; }
+    .nav-btn { justify-content: center; padding: 0; gap: 0; }
+    .nav-label { display: none; }
+    .sub-sidebar { left: 64px; }
+
+    .main {
+      margin-left: 64px;
+      &.shifted { margin-left: 384px; }
+      &.shifted--team { margin-left: 324px; }
+      &.shifted--marketing { margin-left: 334px; }
+      &.shifted--clients { margin-left: 314px; }
+      &.shifted--catalog { margin-left: 334px; }
+      &.shifted--inventory { margin-left: 334px; }
+    }
+  }
 }
 
 /* ================= SUB SIDEBAR ================= */
 .sub-sidebar {
   position: fixed;
-  left: 90px;
+  left: 196px;
   top: calc(var(--topbar-height, 56px) + var(--deployment-banner-height, 0px));
   width: 320px;
   height: calc(100vh - var(--topbar-height, 56px) - var(--deployment-banner-height, 0px));
@@ -334,6 +448,10 @@ body {
   padding: 28px 24px;
   z-index: 110;
   box-shadow: $card-shadow;
+  // Matches .sidebar's own width transition so the two move in step when a
+  // flyout's auto-collapse (or a manual toggle while one's already open)
+  // changes the sidebar's width out from under this panel.
+  transition: left 0.22s ease;
 
   &--team {
     width: 260px;
@@ -435,7 +553,7 @@ body {
 .main {
   flex: 1;
   min-width: 0; // lets a flex child actually shrink instead of forcing the row wider
-  margin-left: 90px;
+  margin-left: 196px;
   padding: 20px;
   background: #f9fafb;
   height: calc(100vh - var(--topbar-height, 56px) - var(--deployment-banner-height, 0px));
@@ -453,20 +571,20 @@ body {
   &:has(.cf-page) {
     padding: 0;
   }
-  &.shifted { margin-left: 410px; }
-  &.shifted--team { margin-left: 350px; }
-  &.shifted--marketing { margin-left: 360px; }
-  &.shifted--clients { margin-left: 340px; }
-  &.shifted--catalog { margin-left: 360px; }
-  &.shifted--inventory { margin-left: 360px; }
+  &.shifted { margin-left: 516px; }
+  &.shifted--team { margin-left: 456px; }
+  &.shifted--marketing { margin-left: 466px; }
+  &.shifted--clients { margin-left: 446px; }
+  &.shifted--catalog { margin-left: 466px; }
+  &.shifted--inventory { margin-left: 466px; }
 
   // Below this width (iPad portrait and smaller), pushing content over by
-  // 350-410px leaves almost nothing to work with. The sub-sidebars are
+  // 440-520px leaves almost nothing to work with. The sub-sidebars are
   // already `position: fixed` overlays, so on narrow viewports just let
   // them float on top of the content instead of shifting it — same pattern
   // as a mobile off-canvas nav.
   @media (max-width: 1024px) {
-    &.shifted, &.shifted--team, &.shifted--marketing, &.shifted--clients, &.shifted--catalog, &.shifted--inventory { margin-left: 90px; }
+    &.shifted, &.shifted--team, &.shifted--marketing, &.shifted--clients, &.shifted--catalog, &.shifted--inventory { margin-left: 196px; }
   }
 
   @media (max-width: 768px) {
@@ -885,6 +1003,41 @@ body {
   gap: 4px;
 }
 
+.db-rev-gender-select {
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid $dashboard-border;
+  border-radius: 6px;
+  background: transparent;
+  color: $dashboard-secondary;
+  cursor: pointer;
+
+  &:hover {
+    color: $dashboard-primary;
+  }
+}
+
+// "Overall Collection" > Yesterday's Resend to WhatsApp action.
+.db-collection-resend-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid #25d366;
+  border-radius: 6px;
+  background: #f0fdf4;
+  color: #16a34a;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, opacity 0.15s;
+
+  &:hover:not(:disabled) { background: #dcfce7; }
+  &:disabled { opacity: 0.6; cursor: default; }
+}
+
 .db-rev-filter-btn {
   padding: 4px 10px;
   font-size: 12px;
@@ -906,6 +1059,65 @@ body {
     color: $white;
     border-color: $dashboard-primary;
   }
+}
+
+/* ── OVERALL COLLECTION (payment mode breakdown) ── */
+.db-collection-filters {
+  margin: 2px 0 16px;
+}
+
+.db-collection-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.db-collection-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid $dashboard-border;
+  border-radius: 12px;
+
+  &--total {
+    border-style: dashed;
+  }
+}
+
+.db-collection-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+.db-collection-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.db-collection-label {
+  font-size: 12.5px;
+  color: $dashboard-secondary;
+}
+
+.db-collection-amount {
+  font-size: 15px;
+  font-weight: 700;
+  color: $dashboard-primary;
+  margin-top: 2px;
+}
+
+.db-collection-pct {
+  font-size: 12.5px;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: 20px;
+  white-space: nowrap;
 }
 
 /* ── TOOLTIP ── */
@@ -1941,8 +2153,14 @@ body {
   color: $dashboard-primary;
   line-height: 1;
 
+  // The small trigger (.topbar-profile-btn) has a light gray background, so
+  // dark text works there — but this same class's --lg variant only ever
+  // renders inside .topbar-profile-info-av, whose background is
+  // $dashboard-primary (dark). Without this override the initials were dark
+  // text on a dark circle — invisible, not just low-contrast.
   &--lg {
     font-size: 18px;
+    color: $white;
   }
 }
 
@@ -2458,6 +2676,14 @@ body {
   font-size: 12.5px;
   color: #dc2626;
   margin: 12px 0;
+
+  // A missing permission isn't a failure — muted slate instead of alarm red,
+  // and no Retry button (nothing to retry).
+  &.db-section-error--perm {
+    background: #f8fafc;
+    border-color: #e2e8f0;
+    color: #64748b;
+  }
 }
 
 .db-refresh-btn {

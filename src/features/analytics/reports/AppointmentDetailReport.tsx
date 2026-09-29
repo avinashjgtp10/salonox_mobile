@@ -201,6 +201,7 @@ export default function AppointmentDetailReport({ onBack, category, categoryKey 
               title={REPORT_NAME}
               headers={HEADERS}
               rows={exportRows}
+              reportId="appointment_detail"
               filename={`${REPORT_NAME}-${dateFrom}-${dateTo}`}
               variant="button"
               csv

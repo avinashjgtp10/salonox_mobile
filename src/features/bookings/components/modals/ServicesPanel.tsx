@@ -137,6 +137,10 @@ interface Props {
   // GST above, shown separately against the Price box.
   serviceMembershipDiscountByRow?: Map<string, number>;
   productMembershipDiscountByRow?: Map<string, number>;
+  // Rows the Membership Discount checkbox can't reach — the membership's
+  // applicable services/categories don't cover this row (see AppointmentModal.tsx).
+  serviceMembershipDiscountIneligibleByRow?: Map<string, boolean>;
+  productMembershipDiscountIneligibleByRow?: Map<string, boolean>;
 
   svcErrors?: Array<{ service?: boolean; staff?: boolean; time?: boolean }>;
   pkgErrors?: Array<{ item?: boolean; staff?: boolean; time?: boolean }>;
@@ -146,6 +150,11 @@ interface Props {
   onClearPkgError?: (index: number, field: string) => void;
   onClearProdError?: (index: number, field: string) => void;
   onClearMemError?: (index: number, field: string) => void;
+  // Configurable dropdown options for ServiceRow's "Service Reminder" popup
+  // (Catalog → Services → Options → Service reminder options). Threaded
+  // straight through — empty/omitted falls back to ServiceRow's own free-text
+  // input.
+  reminderPresets?: number[];
 }
 
 type SearchableItemRowProps =
@@ -192,6 +201,7 @@ type SearchableItemRowProps =
       membershipWalletInfo?: { walletUsed: number; payable: number };
       taxAmount?: number;
       membershipDiscountAmount?: number;
+      membershipDiscountIneligible?: boolean;
     };
 
 function getSafeQty(qty?: number) {
@@ -1132,6 +1142,7 @@ function SearchableItemRow(props: SearchableItemRowProps) {
   const onAutoFocusHandled = kind === "product" ? props.onAutoFocusHandled : undefined;
   const membershipWalletInfo = kind === "product" ? props.membershipWalletInfo : undefined;
   const membershipDiscountAmount = kind === "product" ? props.membershipDiscountAmount : undefined;
+  const membershipDiscountIneligible = kind === "product" ? props.membershipDiscountIneligible : undefined;
   // Looked up live from the catalog list rather than cached on the row — the
   // row is created once at selection time, but stock keeps changing (other
   // sales, restocks), so a value captured back then would go stale.
@@ -1382,9 +1393,9 @@ function SearchableItemRow(props: SearchableItemRowProps) {
   }
 
   function handleSelect(item: SearchableCatalogItem) {
-    // Out-of-stock products are selectable — being out of stock must never
-    // block a sale. The dropdown still labels them "(Out of stock)" in red so
-    // the shortfall is visible; it's a warning, not a gate.
+    if (kind === "product" && item.stock !== undefined && item.stock <= 0) {
+      return;
+    }
     userTypedRef.current = false;
     const qty = getSafeQty(row.qty);
     const discount = parseDiscountPercent(discountInput);
@@ -1639,10 +1650,12 @@ function SearchableItemRow(props: SearchableItemRowProps) {
                       id={`${kind}-search-option-${item.id}`}
                       role="option"
                       aria-selected={i === activeIndex}
-                      className={`svc-dropdown__item${i === activeIndex ? " svc-dropdown__item--active" : ""}`}
+                      aria-disabled={isOutOfStock || undefined}
+                      disabled={isOutOfStock}
+                      className={`svc-dropdown__item${i === activeIndex ? " svc-dropdown__item--active" : ""}${isOutOfStock ? " svc-dropdown__item--disabled" : ""}`}
                       onMouseDown={() => handleSelect(item)}
                       onMouseEnter={() => setActiveIndex(i)}
-                      title={isOutOfStock ? "Out of stock — can still be sold" : undefined}
+                      title={isOutOfStock ? "Out of stock" : undefined}
                     >
                       <span className="svc-dropdown__name" style={isOutOfStock ? { color: "#dc2626" } : undefined}>
                         {item.name}
@@ -1726,6 +1739,9 @@ function SearchableItemRow(props: SearchableItemRowProps) {
             <span className="svc-field__pkg-badge" title="Membership discount — GST is calculated on the price after this reduction">
               ✓ Membership −{currencySymbol}{membershipDiscountAmount.toFixed(2)}
             </span>
+          )}
+          {membershipDiscountIneligible && (
+            <span className="svc-field__err">This membership benefit is not applicable to the selected product.</span>
           )}
         </div>
       ) : (
@@ -1816,8 +1832,10 @@ export const ServicesPanel: React.FC<Props> = ({
   consumableActuals, onConsumableActualChange, clientName,
   packageTaxByRow, productTaxByRow, membershipTaxByRow,
   serviceMembershipDiscountByRow, productMembershipDiscountByRow,
+  serviceMembershipDiscountIneligibleByRow, productMembershipDiscountIneligibleByRow,
   svcErrors, pkgErrors, prodErrors, memErrors, onClearSvcError,
   onClearPkgError, onClearProdError, onClearMemError,
+  reminderPresets,
 }) => {
   const { staffList, interval } = useSchedulerContext();
   const [pendingProductFocusIndex, setPendingProductFocusIndex] = useState<number | null>(null);
@@ -1862,9 +1880,11 @@ export const ServicesPanel: React.FC<Props> = ({
             membershipWalletInfo={membershipWalletInfo?.get((row as any).tempId || String(i))}
             taxAmount={serviceTaxByRow?.get((row as any).tempId || String(i))}
             membershipDiscountAmount={serviceMembershipDiscountByRow?.get((row as any).tempId || String(i))}
+            membershipDiscountIneligible={serviceMembershipDiscountIneligibleByRow?.get((row as any).tempId || String(i))}
             consumableActuals={consumableActuals?.[(row as any).tempId || String(i)]}
             onConsumableActualChange={(productId, actualQty) => onConsumableActualChange?.((row as any).tempId || String(i), productId, actualQty)}
             clientName={clientName}
+            reminderPresets={reminderPresets}
           />
         ))}
       </>
@@ -1902,6 +1922,7 @@ export const ServicesPanel: React.FC<Props> = ({
             membershipWalletInfo={membershipWalletInfo?.get(`product:${(row as any).tempId || String(i)}`)}
             taxAmount={productTaxByRow?.get((row as any).tempId || String(i))}
             membershipDiscountAmount={productMembershipDiscountByRow?.get((row as any).tempId || String(i))}
+            membershipDiscountIneligible={productMembershipDiscountIneligibleByRow?.get((row as any).tempId || String(i))}
           />
         ))}
       </>

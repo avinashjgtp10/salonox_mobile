@@ -1,0 +1,1813 @@
+// ============================================================
+// SalonOx — Public booking flow
+// Dark editorial storefront: the salon's photography carries the
+// colour, everything else is near-black with a single warm accent.
+// Mobile-first — base rules target a phone and the wider layouts
+// open up at breakpoints.
+// ============================================================
+
+.pb {
+  --pb-radius: 16px;
+  --pb-gap: 14px;
+
+  // Warm cream ground, white cards, deep forest green accent. The cream is
+  // off-white rather than #fff so the cards have something to sit on.
+  --pb-bg: #f6f5f0;
+  --pb-surface: #ffffff;
+  --pb-surface-2: #f1f0ea;
+
+  // Cards get a barely-there top-down gradient rather than a flat fill.
+  --pb-card: linear-gradient(180deg, #ffffff 0%, #fcfcf9 100%);
+
+  // Borders carry the same warm cast as the ground — a neutral grey hairline
+  // on cream reads as dirty.
+  --pb-border: #e7e5dd;
+  --pb-border-strong: #cdd3cb;
+
+  --pb-text: #1b2a22;   // near-black with a green undertone
+  --pb-muted: #7b877f;
+
+  // Deep forest green. The accent is a gradient on anything solid-filled,
+  // with the pale mint used for selected/summary surfaces.
+  --pb-accent: #1e4634;
+  --pb-accent-deep: #16382a;
+  --pb-accent-grad: linear-gradient(135deg, #285b42 0%, #1e4634 55%, #16382a 100%);
+  --pb-accent-soft: #e9f1ec;
+  --pb-accent-line: #cbdfd3;
+  --pb-on-accent: #ffffff;
+
+  --pb-display: "Playfair Display", ui-serif, Georgia, "Times New Roman", serif;
+
+  // index.css pins html/body/#root to `overflow: hidden !important` — the app is
+  // a fixed-height dashboard shell whose panes each scroll internally. A public
+  // page relying on the window scrolling therefore cannot scroll at all, so this
+  // root is its own scroll container.
+  height: 100vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+
+  background:
+    radial-gradient(1100px 520px at 50% -8%, rgba(30, 70, 52, 0.05), transparent 68%),
+    var(--pb-bg);
+  color: var(--pb-text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  color-scheme: light;
+
+  *, *::before, *::after { box-sizing: border-box; }
+}
+
+// ── Shell ────────────────────────────────────────────────────
+.pb__shell {
+  width: 100%;
+  max-width: 520px;
+  margin: 0 auto;
+  padding-inline: 16px;
+  padding-block: 0 40px;
+}
+
+// Catalogue and calendar screens get real room.
+.pb__shell--wide { max-width: 1240px; }
+
+@media (min-width: 720px) {
+  .pb__shell { padding-inline: 28px; }
+}
+
+// ── Section heading ──────────────────────────────────────────
+.pb__heading { margin: 16px 0 14px; }
+
+.pb__title {
+  margin: 0;
+  font-family: var(--pb-display);
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+
+.pb__subtitle {
+  margin: 6px 0 0;
+  font-size: 13.5px;
+  color: var(--pb-muted);
+  line-height: 1.55;
+}
+
+// ── Top nav ──────────────────────────────────────────────────
+.pb__nav {
+  background: var(--pb-accent);
+  color: #fff;
+}
+
+.pb__nav-inner {
+  width: 100%;
+  max-width: 1360px;
+  margin: 0 auto;
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+// A clear, labelled Back action on the far left of the nav — previously an
+// icon-only arrow mixed in with unrelated right-side actions (Book
+// Appointment, the location chip), easy to miss and easy to mistake for
+// something else. flex-shrink: 0 so it never gets squeezed out by the logo
+// text at narrow widths; the label hides below 380px, where the icon alone
+// (with its aria-label) still reads clearly as "go back" in the space available.
+.pb__nav-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex-shrink: 0;
+  padding: 8px 14px 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 999px;
+  background: transparent;
+  color: #fff;
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+
+  &:hover { background: rgba(255, 255, 255, 0.1); border-color: rgba(255, 255, 255, 0.4); }
+  &:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.6); outline-offset: 2px; }
+}
+
+@media (max-width: 380px) {
+  .pb__nav-back { padding: 9px; gap: 0; }
+  .pb__nav-back-label { display: none; }
+}
+
+.pb__logo { display: flex; align-items: center; gap: 10px; min-width: 0; }
+
+.pb__logo-mark {
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.pb__logo-text { display: flex; flex-direction: column; min-width: 0; }
+
+.pb__logo-name {
+  font-family: var(--pb-display);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pb__logo-tag {
+  font-size: 11px;
+  font-weight: 500;
+  opacity: 0.72;
+  margin-top: 2px;
+}
+
+.pb__nav-links {
+  display: none;
+  margin-inline: auto;
+  gap: 26px;
+
+  button, a {
+    padding: 0;
+    border: none;
+    background: none;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.85);
+    text-decoration: none;
+    cursor: pointer;
+
+    &:hover { color: #fff; }
+    &:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.6); outline-offset: 3px; border-radius: 4px; }
+  }
+}
+
+.pb__nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.pb__nav-loc {
+  display: none;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 15px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+@media (min-width: 1024px) {
+  .pb__nav-links { display: flex; }
+  .pb__nav-loc { display: inline-flex; }
+  .pb__nav-actions { margin-left: 0; }
+}
+
+// ── Hero band ────────────────────────────────────────────────
+.pb__band {
+  position: relative;
+  background: linear-gradient(180deg, #f1efe7 0%, var(--pb-bg) 100%);
+  border-bottom: 1px solid var(--pb-border);
+}
+
+// Photo variant: full-strength image (no wash across the whole thing — that
+// read as blurry/hazy) with only a left-side scrim behind the text, so
+// whatever photo the salon uploads stays crisp on the right.
+.pb__band--photo {
+  overflow: hidden;
+  border-bottom: none;
+  // Was 420/560px — too tall for a modest-resolution gallery photo, forcing
+  // it to stretch across far more space than it has pixels for and reading
+  // as blurry. A shorter band needs much less upscaling.
+  min-height: 300px;
+}
+
+@media (min-width: 1024px) { .pb__band--photo { min-height: 380px; } }
+
+.pb__band-bg {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  transition: opacity 1.6s ease;
+}
+
+.pb__band-scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg,
+    rgba(10, 20, 16, 0.72) 0%,
+    rgba(10, 20, 16, 0.5) 32%,
+    rgba(10, 20, 16, 0.12) 58%,
+    rgba(10, 20, 16, 0) 72%
+  );
+}
+
+// Manual hero-photo controls — arrows are desktop-only (a phone drags/swipes
+// the band itself, tracked via touch handlers in the component instead).
+.pb__band-nav {
+  display: none;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  background: rgba(10, 20, 16, 0.35);
+  color: #fff;
+  cursor: pointer;
+  z-index: 2;
+  transition: background 0.15s, border-color 0.15s;
+
+  &:hover { background: rgba(10, 20, 16, 0.55); border-color: rgba(255, 255, 255, 0.5); }
+  &:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+
+  &--prev { left: 14px; }
+  &--next { right: 14px; }
+}
+
+@media (min-width: 1024px) {
+  .pb__band-nav { display: flex; }
+}
+
+// Position dots — shown on every width (a lightweight, always-visible "which
+// photo" indicator; unlike the arrows, tapping one works fine on a phone too
+// since it's a discrete target, not a drag gesture).
+.pb__band-dots {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 7px;
+  z-index: 2;
+}
+
+.pb__band-dot {
+  width: 7px;
+  height: 7px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.45);
+  cursor: pointer;
+  transition: background 0.15s, width 0.15s;
+
+  &.is-active { background: #fff; width: 18px; border-radius: 4px; }
+  &:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+}
+
+.pb__band-inner {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 1360px;
+  margin: 0 auto;
+  padding: 44px 20px 46px;
+  display: grid;
+  gap: 24px;
+  align-items: center;
+}
+
+.pb__band--photo .pb__band-inner {
+  min-height: inherit;
+  align-content: center;
+}
+
+@media (min-width: 1024px) {
+  .pb__band-inner {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr) minmax(0, 0.7fr);
+    gap: 32px;
+    padding-block: 56px 58px;
+  }
+  .pb__band--photo .pb__band-inner {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+// White text directly on the photo (over the scrim), with a soft shadow so
+// it stays legible regardless of what's behind it.
+.pb__band--photo {
+  .pb__eyebrow, .pb__display, .pb__band-sub { color: #fff; text-shadow: 0 2px 12px rgba(0, 0, 0, 0.35); }
+  .pb__eyebrow { opacity: 0.85; }
+  .pb__band-sub { opacity: 0.92; }
+}
+
+// Hidden on phone — the top nav's own "Book Appointment" pill is already
+// visible there at the same time, so both together just duplicated the same
+// action. Desktop keeps both since the nav pill is easy to miss up there
+// alongside the location chip, but the hero CTA has room to stand out too.
+// `.pb__btn.pb__band-cta` (not just `.pb__band-cta`) — the base `.pb__btn`
+// rule (defined further down) also sets `display`, and a plain single-class
+// selector here loses that tie-break purely on being declared earlier in the
+// file, silently never actually hiding the button.
+.pb__btn.pb__band-cta { display: none; margin-top: 22px; }
+
+@media (min-width: 720px) {
+  .pb__btn.pb__band-cta { display: inline-flex; }
+}
+
+.pb__band-copy { min-width: 0; }
+
+.pb__eyebrow {
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--pb-muted);
+}
+
+.pb__display {
+  margin: 0;
+  font-family: var(--pb-display);
+  font-size: clamp(30px, 4.4vw, 46px);
+  line-height: 1.06;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+.pb__band-sub {
+  margin: 12px 0 0;
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--pb-muted);
+  max-width: 46ch;
+}
+
+// Hand-written aside from the reference. Purely decorative, so it's hidden
+// from assistive tech and dropped entirely on small screens.
+.pb__band-script {
+  display: none;
+  margin: 0;
+  font-family: "Segoe Script", "Bradley Hand", "Brush Script MT", cursive;
+  font-size: 22px;
+  line-height: 1.5;
+  color: var(--pb-muted);
+  transform: rotate(-4deg);
+  text-align: center;
+}
+
+@media (min-width: 1160px) { .pb__band-script { display: block; } }
+
+// ── Numbered stepper ─────────────────────────────────────────
+.pb__steps {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pb__step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+  min-width: 0;
+  text-align: center;
+
+  // Connector to the previous step, behind the numbered disc.
+  &::before {
+    content: "";
+    position: absolute;
+    top: 17px;
+    right: 50%;
+    width: 100%;
+    height: 1px;
+    background: var(--pb-border-strong);
+  }
+  &:first-child::before { display: none; }
+
+  &.is-done::before { background: var(--pb-accent); }
+}
+
+.pb__step-dot {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid var(--pb-border-strong);
+  background: var(--pb-surface);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--pb-muted);
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+
+  .pb__step.is-active &,
+  .pb__step.is-done & {
+    background: var(--pb-accent-grad);
+    border-color: var(--pb-accent);
+    color: var(--pb-on-accent);
+  }
+}
+
+.pb__step-label {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--pb-muted);
+  line-height: 1.25;
+
+  .pb__step.is-active & { color: var(--pb-text); }
+}
+
+.pb__step-note {
+  display: none;
+  font-size: 11.5px;
+  color: var(--pb-muted);
+  line-height: 1.3;
+}
+
+@media (min-width: 720px) { .pb__step-note { display: block; } }
+
+.pb__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  padding: 7px 13px;
+  border-radius: 999px;
+  background: var(--pb-accent-soft);
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--pb-accent);
+  white-space: nowrap;
+}
+
+// ── Buttons ──────────────────────────────────────────────────
+.pb__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 50px;
+  padding: 14px 22px;
+  border: none;
+  border-radius: 12px;
+  font-size: 14.5px;
+  font-weight: 700;
+  font-family: inherit;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  transition: opacity 0.18s, transform 0.18s, background 0.18s, border-color 0.18s;
+
+  &:focus-visible { outline: 2px solid var(--pb-accent); outline-offset: 2px; }
+  &:active:not(:disabled) { transform: translateY(1px); }
+  &:disabled { opacity: 0.4; cursor: not-allowed; }
+}
+
+.pb__btn--primary {
+  background: var(--pb-accent-grad);
+  color: var(--pb-on-accent);
+  box-shadow: 0 6px 20px rgba(30, 70, 52, 0.22);
+}
+.pb__btn--primary:hover:not(:disabled) {
+  filter: brightness(1.06);
+  box-shadow: 0 8px 26px rgba(30, 70, 52, 0.3);
+}
+
+.pb__btn--ghost {
+  background: var(--pb-surface-2);
+  color: var(--pb-text);
+  border: 1px solid var(--pb-border);
+}
+.pb__btn--ghost:hover:not(:disabled) { border-color: var(--pb-border-strong); background: #eceae3; }
+
+.pb__btn--danger { background: #b4342a; color: #fff; }
+
+.pb__btn--auto { width: auto; }
+
+// Sits on the dark nav bar, so it inverts.
+.pb__btn--light {
+  background: #fff;
+  color: var(--pb-accent);
+  min-height: 42px;
+  padding: 11px 20px;
+  font-size: 13.5px;
+  border-radius: 999px;
+
+  &:hover:not(:disabled) { background: #f2f0e9; }
+}
+
+// Applied only to the actual "Book Appointment" call-to-action buttons (top
+// nav pill + hero CTA) — never the shared .pb__btn--primary/--light classes
+// generally, which also style Continue/Confirm/Back elsewhere and shouldn't
+// glow. A real bright halo (large blurred spread, not a thin ring) in a
+// vivid mint-green — brighter/higher-contrast than the brand's deep forest
+// accent so it actually reads as glowing rather than a subtle shadow shift,
+// while staying a SalonOx green rather than an unrelated color.
+.pb__btn--glow {
+  position: relative;
+  z-index: 1;
+  animation: pb-glow-pulse 2s ease-in-out infinite;
+}
+.pb__btn--glow:hover:not(:disabled) {
+  animation-play-state: paused;
+}
+
+@keyframes pb-glow-pulse {
+  0%, 100% {
+    box-shadow:
+      0 0 6px 1px rgba(74, 222, 128, 0.35),
+      0 0 16px 4px rgba(74, 222, 128, 0.2),
+      0 6px 20px rgba(30, 70, 52, 0.3);
+  }
+  50% {
+    box-shadow:
+      0 0 12px 3px rgba(74, 222, 128, 0.6),
+      0 0 26px 8px rgba(74, 222, 128, 0.35),
+      0 6px 20px rgba(30, 70, 52, 0.3);
+  }
+}
+
+// ── Two-column body ──────────────────────────────────────────
+.pb__layout {
+  width: 100%;
+  max-width: 1360px;
+  margin: 0 auto;
+  padding: 22px 20px 120px;
+  display: grid;
+  gap: 20px;
+  align-items: start;
+}
+
+@media (min-width: 1024px) {
+  .pb__layout {
+    grid-template-columns: minmax(0, 1fr) minmax(340px, 400px);
+    gap: 26px;
+    padding-bottom: 60px;
+  }
+}
+
+.pb__layout--single { max-width: 680px; }
+
+// The base 120px/60px bottom padding exists to clear the fixed mobile sticky
+// bar sitting right after .pb__layout — correct when that layout is the last
+// thing before it, wrong once the About Us section (its own .pb__layout,
+// which keeps the full clearance) was moved to render after this one instead.
+.pb__layout--tight-bottom { padding-bottom: 22px; }
+@media (min-width: 1024px) {
+  .pb__layout--tight-bottom { padding-bottom: 26px; }
+}
+
+// Reset back to one column above 1024px — otherwise this modifier only
+// changed max-width, and the confirmation screen's single panel silently
+// inherited the two-column services/summary grid from the base .pb__layout
+// rule above. With only one child, it landed in column 1 alone (~320px, not
+// the intended 680px) while an empty ~360px second column sat invisibly
+// beside it — same root cause behind both "content pinned to the left with a
+// dead gap next to it" and the confirmation card's text wrapping character-
+// by-character, and only visible above 680px width (below that, both
+// columns collapse to nothing to argue over).
+@media (min-width: 1024px) {
+  .pb__layout--single { grid-template-columns: minmax(0, 1fr); }
+}
+
+.pb__col-main { display: grid; gap: 20px; min-width: 0; }
+
+.pb__col-side { display: grid; gap: 16px; min-width: 0; }
+
+@media (min-width: 1024px) {
+  .pb__col-side {
+    position: sticky;
+    top: 88px;
+    max-height: calc(100vh - 110px);
+    overflow-y: auto;
+    scrollbar-width: thin;
+    padding-right: 2px;
+  }
+}
+
+// ── Panel ────────────────────────────────────────────────────
+.pb__panel {
+  // Without this, a grid item's automatic minimum width is its content's
+  // min-content size — with the category bar's buttons unable to wrap, that
+  // pulled the whole panel wider than its grid track (minmax(0, 1fr)) and
+  // spilled it out from under the sticky sidebar instead of scrolling inside
+  // its own row.
+  min-width: 0;
+  border: 1px solid var(--pb-border);
+  border-radius: 18px;
+  background: var(--pb-surface);
+  padding: 20px;
+}
+
+@media (min-width: 720px) { .pb__panel { padding: 24px; } }
+
+.pb__panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.pb__panel-title {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+
+.pb__panel-note {
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--pb-muted);
+  white-space: nowrap;
+}
+
+.pb__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0;
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--pb-accent);
+  cursor: pointer;
+  white-space: nowrap;
+
+  &:hover { text-decoration: underline; }
+  &:focus-visible { outline: 2px solid var(--pb-accent); outline-offset: 3px; border-radius: 4px; }
+}
+
+.pb__about {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--pb-muted);
+  max-width: 72ch;
+  // A <p> collapses newlines by default — the admin's description textarea
+  // lets an owner write paragraph breaks, which silently vanished here.
+  white-space: pre-wrap;
+}
+
+.pb__about-features {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.pb__about-feature-chip {
+  padding: 6px 13px;
+  border-radius: 999px;
+  background: var(--pb-accent-soft);
+  color: var(--pb-accent);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.pb__about-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-top: 16px;
+}
+
+// ── Week strip ───────────────────────────────────────────────
+.pb__week {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+@media (min-width: 860px) {
+  .pb__week { grid-template-columns: minmax(0, 230px) minmax(0, 1fr); align-items: center; gap: 14px; }
+}
+
+.pb__week-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 12px;
+  border: 1px solid var(--pb-border);
+  border-radius: 12px;
+  background: var(--pb-surface);
+}
+
+.pb__week-label { font-size: 14px; font-weight: 700; white-space: nowrap; }
+
+.pb__week-days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.pb__day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 9px 2px;
+  border: 1px solid var(--pb-border);
+  border-radius: 12px;
+  background: var(--pb-surface);
+  font-family: inherit;
+  color: var(--pb-text);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+
+  &:hover:not(:disabled):not(.is-selected) { border-color: var(--pb-border-strong); }
+  &:disabled { opacity: 0.4; cursor: not-allowed; }
+  &:focus-visible { outline: 2px solid var(--pb-accent); outline-offset: 2px; }
+
+  &.is-selected {
+    background: var(--pb-accent-grad);
+    border-color: var(--pb-accent);
+    color: var(--pb-on-accent);
+  }
+}
+
+.pb__day-name { font-size: 11px; font-weight: 600; opacity: 0.75; }
+.pb__day-num  { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+.pb__month { margin-bottom: 18px; }
+
+// Visually separates date selection (week strip / month calendar, above)
+// from time selection (available slots, below) so the two don't read as one
+// undifferentiated block.
+.pb__divider {
+  height: 1px;
+  background: var(--pb-border);
+  margin: 4px 0 18px;
+}
+
+.pb__col-title {
+  margin: 0 0 12px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+// ── Service / stylist rows ───────────────────────────────────
+.pb__grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+@media (min-width: 720px) { .pb__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+.pb__svc {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  width: 100%;
+  padding: 14px;
+  border: 1px solid var(--pb-border);
+  border-radius: 14px;
+  background: var(--pb-surface);
+  text-align: left;
+  font-family: inherit;
+  color: inherit;
+  cursor: pointer;
+  transition: border-color 0.16s, background 0.16s, box-shadow 0.16s;
+
+  &:hover { border-color: var(--pb-border-strong); box-shadow: 0 8px 20px rgba(27, 42, 34, 0.06); }
+  &:focus-visible { outline: 2px solid var(--pb-accent); outline-offset: 2px; }
+
+  &.is-selected {
+    border-color: var(--pb-accent);
+    background: var(--pb-accent-soft);
+  }
+}
+
+.pb__svc-thumb {
+  flex: 0 0 auto;
+  width: 62px;
+  height: 62px;
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--pb-display);
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--pb-accent);
+
+  img { width: 100%; height: 100%; object-fit: cover; }
+}
+
+.pb__svc-thumb--round { border-radius: 50%; font-size: 18px; }
+
+.pb__svc-body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+.pb__svc-name {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+
+.pb__svc-meta {
+  margin: 5px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: var(--pb-muted);
+}
+
+.pb__svc-price { font-weight: 700; color: var(--pb-text); font-variant-numeric: tabular-nums; }
+
+.pb__svc-dot { opacity: 0.45; }
+
+.pb__svc-desc {
+  margin: 7px 0 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--pb-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.pb__svc-add {
+  flex: 0 0 auto;
+  align-self: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid var(--pb-border-strong);
+  background: var(--pb-surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--pb-muted);
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+
+  &.is-on {
+    background: var(--pb-accent-grad);
+    border-color: var(--pb-accent);
+    color: var(--pb-on-accent);
+  }
+}
+
+// ── Summary card ─────────────────────────────────────────────
+.pb__sum { padding: 20px; }
+
+.pb__sum-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--pb-border);
+}
+
+.pb__sum-title {
+  margin: 0;
+  font-family: var(--pb-display);
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.pb__sum-sub { margin: 3px 0 0; font-size: 12.5px; color: var(--pb-muted); }
+
+.pb__sum-empty {
+  margin: 0;
+  padding: 20px 0;
+  font-size: 13px;
+  color: var(--pb-muted);
+  text-align: center;
+}
+
+.pb__sum-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--pb-border);
+}
+
+.pb__sum-thumb {
+  flex: 0 0 auto;
+  width: 46px;
+  height: 46px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--pb-display);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--pb-accent);
+}
+
+.pb__sum-item-body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+.pb__sum-item-name {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.pb__sum-item-meta { margin-top: 3px; font-size: 12.5px; color: var(--pb-muted); }
+
+.pb__sum-item-price {
+  flex-shrink: 0;
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.pb__sum-remove {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  color: var(--pb-muted);
+  cursor: pointer;
+
+  &:hover { background: var(--pb-surface-2); color: var(--pb-text); }
+  &:focus-visible { outline: 2px solid var(--pb-accent); outline-offset: 1px; }
+}
+
+.pb__sum-add {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 14px 0;
+  border: none;
+  border-bottom: 1px solid var(--pb-border);
+  background: none;
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--pb-text);
+  cursor: pointer;
+
+  &:hover { color: var(--pb-accent); }
+  &:focus-visible { outline: 2px solid var(--pb-accent); outline-offset: -2px; }
+
+  svg { color: var(--pb-accent); }
+}
+
+.pb__sum-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--pb-border);
+}
+
+.pb__sum-icon { flex-shrink: 0; color: var(--pb-muted); display: flex; }
+
+.pb__sum-row-body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+.pb__sum-row-label { font-size: 13.5px; font-weight: 700; }
+
+.pb__sum-row-value {
+  margin-top: 2px;
+  font-size: 12.5px;
+  color: var(--pb-muted);
+  overflow-wrap: anywhere;
+}
+
+.pb__sum-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 16px 0;
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--pb-accent-soft);
+  font-size: 14.5px;
+  font-weight: 700;
+}
+
+.pb__sum-total-amount {
+  font-size: 21px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--pb-accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.pb__sum-secure {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin: 12px 0 0;
+  font-size: 12px;
+  color: var(--pb-muted);
+  text-align: center;
+  line-height: 1.5;
+}
+
+.pb__sum-badges {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 18px;
+  padding: 16px 10px;
+  border-radius: 12px;
+  background: var(--pb-surface-2);
+
+  span {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 7px;
+    font-size: 11.5px;
+    font-weight: 600;
+    text-align: center;
+    line-height: 1.35;
+    color: var(--pb-muted);
+  }
+
+  svg { color: var(--pb-accent); }
+}
+
+.pb__helpcard {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 20px;
+  text-decoration: none;
+  color: inherit;
+
+  &:hover { border-color: var(--pb-border-strong); }
+
+  > svg:last-child { flex-shrink: 0; color: var(--pb-muted); }
+}
+
+.pb__helpcard-icon { flex-shrink: 0; display: flex; color: var(--pb-accent); }
+.pb__helpcard-body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.pb__helpcard-title { font-size: 14px; font-weight: 700; }
+.pb__helpcard-sub { margin-top: 3px; font-size: 12.5px; color: var(--pb-muted); }
+
+// ── Phone action bar ─────────────────────────────────────────
+// The summary card sits below the sections at phone widths, so the total and
+// the primary action follow the customer up the page instead.
+.pb__mobilebar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 35;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px max(12px, env(safe-area-inset-bottom));
+  background: var(--pb-surface);
+  border-top: 1px solid var(--pb-border);
+  box-shadow: 0 -8px 24px rgba(27, 42, 34, 0.07);
+}
+
+@media (min-width: 1024px) { .pb__mobilebar { display: none; } }
+
+.pb__sticky-info { flex: 1; min-width: 0; }
+
+.pb__sticky-count { margin: 0; font-size: 11.5px; color: var(--pb-muted); font-weight: 600; }
+
+.pb__sticky-total {
+  margin: 2px 0 0;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+// ── Selectable rows (stylists) ───────────────────────────────
+.pb__list { display: flex; flex-direction: column; }
+
+.pb__row {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  width: 100%;
+  padding: 13px 4px;
+  border: none;
+  border-bottom: 1px solid var(--pb-border);
+  background: transparent;
+  text-align: left;
+  font-family: inherit;
+  color: inherit;
+  cursor: pointer;
+
+  &:last-child { border-bottom: none; }
+  &:focus-visible { outline: 2px solid var(--pb-accent); outline-offset: -2px; }
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+}
+
+.pb__row-main { flex: 1; min-width: 0; }
+
+.pb__row-title {
+  margin: 0;
+  font-size: 14.5px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+
+.pb__rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 700;
+  color: var(--pb-text);
+
+  svg { color: var(--pb-accent); }
+}
+
+.pb__muted { color: var(--pb-muted); font-weight: 500; }
+
+// Checkbox / radio indicators
+.pb__radio {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  border: 1.5px solid var(--pb-border-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--pb-on-accent);
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.pb__radio { border-radius: 50%; }
+
+.pb__radio.is-on { background: var(--pb-accent-grad); border-color: var(--pb-accent); }
+
+.pb__radio-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--pb-on-accent); }
+
+// ── Sticky action bar ────────────────────────────────────────
+.pb__sticky {
+  position: sticky;
+  bottom: 0;
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 18px;
+  padding: 14px 0 max(14px, env(safe-area-inset-bottom));
+  background: linear-gradient(to top, var(--pb-bg) 72%, rgba(246, 245, 240, 0));
+}
+
+.pb__sticky-info { flex: 1; min-width: 0; }
+
+.pb__sticky-count {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--pb-muted);
+  font-weight: 600;
+}
+
+.pb__sticky-total {
+  margin: 2px 0 0;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.pb__sticky .pb__btn { width: auto; min-width: 132px; }
+
+// ── Calendar ─────────────────────────────────────────────────
+.pbc {
+  background: var(--pb-card);
+  border: 1px solid var(--pb-border);
+  border-radius: var(--pb-radius);
+  padding: 16px;
+}
+
+.pbc__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.pbc__title { font-size: 14.5px; font-weight: 700; letter-spacing: -0.01em; }
+
+.pbc__nav {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--pb-border);
+  border-radius: 10px;
+  background: var(--pb-surface-2);
+  color: var(--pb-text);
+  cursor: pointer;
+
+  &:hover:not(:disabled) { border-color: var(--pb-border-strong); }
+  &:disabled { opacity: 0.3; cursor: not-allowed; }
+  &:focus-visible { outline: 2px solid var(--pb-accent); outline-offset: 2px; }
+}
+
+.pbc__weekdays,
+.pbc__grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+}
+
+.pbc__weekday {
+  text-align: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--pb-muted);
+  padding-bottom: 6px;
+}
+
+.pbc__pad { width: 100%; aspect-ratio: 1; }
+
+.pbc__day {
+  // A fixed size centered in its grid cell, not stretched to fill it — as a
+  // grid item, a bare aspect-ratio box with no width has nothing to derive
+  // its ratio from except the cell itself, which blew it up to a ~140px
+  // circle spanning into neighbouring rows/columns instead of a small button.
+  width: 100%;
+  max-width: 40px;
+  aspect-ratio: 1;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--pb-text);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+
+  &:hover:not(:disabled):not(.is-selected) { background: var(--pb-surface-2); }
+  &:disabled { color: #c7cbc5; cursor: not-allowed; }
+  &:focus-visible { outline: 2px solid var(--pb-accent); outline-offset: -2px; }
+
+  &.is-selected {
+    background: var(--pb-accent-grad);
+    color: var(--pb-on-accent);
+    font-weight: 800;
+    box-shadow: 0 4px 14px rgba(30, 70, 52, 0.28);
+  }
+  &.is-today { box-shadow: inset 0 0 0 1px var(--pb-border-strong); }
+}
+
+// ── Slots ────────────────────────────────────────────────────
+.pb__datetime { display: grid; gap: 16px; }
+
+@media (min-width: 720px) {
+  .pb__datetime { grid-template-columns: 1.25fr 1fr; align-items: start; }
+}
+
+.pb__slots-panel {
+  background: var(--pb-card);
+  border: 1px solid var(--pb-border);
+  border-radius: var(--pb-radius);
+  padding: 16px;
+}
+
+.pb__slots-title {
+  margin: 0 0 11px;
+  font-size: 13.5px;
+  font-weight: 700;
+}
+
+.pb__slots {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+  gap: 8px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.pb__slot {
+  min-height: 44px;
+  padding: 10px 6px;
+  border: 1px solid var(--pb-border);
+  border-radius: 11px;
+  background: var(--pb-surface-2);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--pb-text);
+  cursor: pointer;
+  transition: all 0.15s;
+
+  &:hover:not(.is-selected) { border-color: var(--pb-border-strong); }
+  &.is-selected {
+    background: var(--pb-accent-grad);
+    border-color: var(--pb-accent);
+    color: var(--pb-on-accent);
+    font-weight: 800;
+    box-shadow: 0 4px 14px rgba(30, 70, 52, 0.26);
+  }
+  &:focus-visible { outline: 2px solid var(--pb-accent); outline-offset: 2px; }
+}
+
+.pb__slot-group-label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 14px 0 8px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--pb-muted);
+
+  &:first-child { margin-top: 0; }
+}
+
+// ── Form ─────────────────────────────────────────────────────
+.pb__field { margin-bottom: 15px; }
+
+.pb__label {
+  display: block;
+  margin-bottom: 7px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--pb-text);
+}
+
+.pb__optional { font-weight: 500; color: var(--pb-muted); }
+
+.pb__input,
+.pb__textarea {
+  width: 100%;
+  min-height: 50px;
+  padding: 14px 15px;
+  border: 1px solid var(--pb-border);
+  border-radius: 12px;
+  background: var(--pb-surface);
+  font-size: 15px; // >=16px avoids iOS zoom-on-focus; 15 is the practical floor with this padding
+  font-family: inherit;
+  color: var(--pb-text);
+
+  &::placeholder { color: var(--pb-muted); }
+  &:focus { outline: none; border-color: var(--pb-accent-line); }
+}
+
+.pb__textarea { min-height: 96px; resize: vertical; line-height: 1.5; }
+
+// flex-wrap so a longer sibling (e.g. the email field's "Resend in 30s"
+// button) drops to its own line on narrow phones instead of squeezing the
+// input down to an unreadable sliver; the phone-code + number row never
+// wraps in practice since 88px + a shrunk input still fits at any width
+// this app supports.
+.pb__phone-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+
+  .pb__input { flex: 1 1 160px; min-width: 0; }
+}
+
+.pb__phone-code {
+  flex: 0 0 88px;
+  min-height: 50px;
+  padding: 14px 10px;
+  border: 1px solid var(--pb-border);
+  border-radius: 12px;
+  background: var(--pb-surface);
+  font-family: inherit;
+  font-size: 15px;
+  color: var(--pb-text);
+}
+
+.pb__error {
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #fdeceb;
+  border: 1px solid #f4c7c3;
+  color: #a4291f;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.pb__field-hint {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 6px 0 0;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.pb__field-hint--success { color: #1e7a4c; }
+.pb__field-hint--error { color: #a4291f; }
+
+// Neutral, always-visible informational note (not a validation state) — e.g.
+// explaining what the phone number is used for, shown regardless of whether
+// the field is valid/touched/focused.
+.pb__field-note {
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--pb-muted);
+}
+
+// ── Summary card (manage + confirmation screens) ─────────────
+.pb__summary {
+  background: var(--pb-card);
+  border: 1px solid var(--pb-border);
+  border-radius: var(--pb-radius);
+  overflow: hidden;
+}
+
+// Key/value grid used by the confirmation + manage screens.
+.pb__kv {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 3px 16px;
+  padding: 16px 15px;
+  font-size: 13px;
+
+  dt {
+    color: var(--pb-muted);
+    font-weight: 600;
+    margin-top: 8px;
+    &:first-child { margin-top: 0; }
+  }
+  dd {
+    margin: 0;
+    font-weight: 700;
+    text-align: left;
+    overflow-wrap: break-word;
+  }
+}
+
+// Narrow phones keep every value on its own full-width line (no cramped
+// right column forcing "Boy Hair Cut, Hair Blow Dry" or a booking ID to
+// break character-by-character); wider screens go back to a label/value row.
+@media (min-width: 480px) {
+  .pb__kv {
+    grid-template-columns: auto 1fr;
+    gap: 11px 16px;
+
+    dt { margin-top: 0; }
+    dd { text-align: right; overflow-wrap: anywhere; }
+  }
+}
+
+// ── Status pill ──────────────────────────────────────────────
+.pb__pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 800;
+  background: #e6f4ec;
+  color: #1b7a4b;
+
+  &::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+}
+
+.pb__pill--cancelled { background: #fdeceb; color: #a4291f; }
+.pb__pill--neutral   { background: var(--pb-surface-2); color: var(--pb-muted); }
+
+// ── Confirmation ─────────────────────────────────────────────
+.pb__confirm { text-align: center; padding-top: 30px; }
+
+.pb__confirm-mark {
+  width: 70px;
+  height: 70px;
+  margin: 0 auto 20px;
+  border-radius: 50%;
+  background: var(--pb-accent-grad);
+  box-shadow: 0 10px 30px rgba(30, 70, 52, 0.26);
+  color: var(--pb-on-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pb__confirm-title {
+  margin: 0 0 8px;
+  font-family: var(--pb-display);
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.pb__confirm-sub {
+  margin: 0 0 24px;
+  font-size: 13.5px;
+  color: var(--pb-muted);
+  line-height: 1.55;
+}
+
+.pb__confirm-note {
+  margin: 16px 0 0;
+  font-size: 12px;
+  color: var(--pb-muted);
+  line-height: 1.55;
+}
+
+.pb__actions { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
+
+// ── Manage screen action rows ────────────────────────────────
+.pb__action-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 17px 15px;
+  border: 1px solid var(--pb-border);
+  border-radius: var(--pb-radius);
+  background: var(--pb-card);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--pb-text);
+  text-align: left;
+  cursor: pointer;
+  margin-bottom: 10px;
+
+  &:hover:not(:disabled) { border-color: var(--pb-border-strong); }
+  &:disabled { opacity: 0.45; cursor: not-allowed; }
+  &:focus-visible { outline: 2px solid var(--pb-accent); outline-offset: 2px; }
+
+  svg:last-child { margin-left: auto; flex-shrink: 0; color: var(--pb-muted); }
+}
+
+.pb__help {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 16px 15px;
+  border-radius: var(--pb-radius);
+  border: 1px solid var(--pb-border);
+  background: var(--pb-surface);
+  margin-top: 18px;
+}
+
+.pb__help-title { margin: 0; font-size: 13px; font-weight: 700; }
+.pb__help-sub   { margin: 3px 0 0; font-size: 12px; color: var(--pb-muted); }
+
+// ── Warning / confirmation callout ───────────────────────────
+.pb__callout {
+  display: flex;
+  gap: 12px;
+  padding: 16px;
+  border-radius: var(--pb-radius);
+  background: #fdeceb;
+  border: 1px solid #f4c7c3;
+  margin-bottom: 18px;
+
+  svg { flex-shrink: 0; color: #b4342a; margin-top: 1px; }
+}
+
+.pb__callout-title { margin: 0 0 5px; font-size: 14px; font-weight: 800; color: #a4291f; }
+.pb__callout-text  { margin: 0; font-size: 12.5px; color: #a4291f; line-height: 1.55; opacity: 0.85; }
+
+// ── Empty / loading states ───────────────────────────────────
+.pb__empty {
+  padding: 30px 16px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--pb-muted);
+  line-height: 1.6;
+
+  a { color: var(--pb-accent); }
+}
+
+.pb__center {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+  text-align: center;
+}
+
+.pb__spinner {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 3px solid var(--pb-border);
+  border-top-color: var(--pb-accent);
+  animation: pb-spin 0.8s linear infinite;
+}
+
+@keyframes pb-spin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .pb__spinner { animation-duration: 2s; }
+  .pb *, .pb *::before, .pb *::after { transition-duration: 0.01ms !important; }
+  .pb__btn--glow { animation: none; }
+}
+
+// Sticks the search box + category bar just under the top nav while the
+// service list scrolls underneath — an opaque background (matching the
+// panel's own) so scrolled-past service rows don't show through behind it.
+// No negative margins needed: it only needs to span the panel's padded
+// content width, not bleed to the panel's rounded outer edge.
+.pb__svc-sticky {
+  position: sticky;
+  top: 0; // the top nav itself no longer stays fixed, so this sticks to the viewport edge
+  z-index: 15;
+  background: var(--pb-surface);
+  padding-top: 2px; // avoids clipping the search input's focus ring
+  margin-top: -2px;
+}
+
+// ── Service search box ───────────────────────────────────────
+// A salon catalogue can run into the hundreds of services (seen up to 200+);
+// category chips alone don't help find one specific service by name.
+.pb__svc-search {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 14px;
+  margin-bottom: 14px;
+  border: 1px solid var(--pb-border);
+  border-radius: 12px;
+  background: var(--pb-surface);
+  color: var(--pb-muted);
+
+  input {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    outline: none;
+    background: none;
+    font-family: inherit;
+    font-size: 15px; // >=16px avoids iOS zoom-on-focus; 15 is the practical floor with this padding
+    color: var(--pb-text);
+
+    &::placeholder { color: var(--pb-muted); }
+  }
+
+  button {
+    display: inline-flex;
+    flex-shrink: 0;
+    border: none;
+    background: none;
+    padding: 2px;
+    color: var(--pb-muted);
+    cursor: pointer;
+
+    &:hover { color: var(--pb-text); }
+  }
+
+  &:focus-within { border-color: var(--pb-accent-line); }
+}
+
+// ── Category pill bar (phone) ────────────────────────────────
+.pb__catbar-wrap { position: relative; }
+
+// The scrollbar below only reads as "more content" on desktop with a mouse —
+// mobile shows no persistent scrollbar at rest, so a phone user has no way to
+// tell there are more categories than fit on screen. This fade (JS-toggled,
+// see catbarOverflowing) fills that gap on every input method.
+.pb__catbar-fade {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 16px; // stop above the scrollbar track, not over it
+  width: 36px;
+  background: linear-gradient(to right, transparent, var(--pb-surface));
+  pointer-events: none;
+}
+
+.pb__catbar {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  // Visible (if thin) on purpose — a salon with many service categories
+  // overflows this row, and a fully hidden scrollbar gave no hint that more
+  // categories existed off-screen.
+  scrollbar-width: thin;
+  padding-bottom: 16px;
+  -webkit-overflow-scrolling: touch;
+
+  &::-webkit-scrollbar { height: 6px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb {
+    background: var(--pb-border-strong);
+    border-radius: 999px;
+  }
+}
+
+.pb__cat {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 15px;
+  border: 1px solid var(--pb-border);
+  border-radius: 999px;
+  background: var(--pb-surface);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--pb-text);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+
+  &:hover { border-color: var(--pb-border-strong); }
+  &:focus-visible { outline: 2px solid var(--pb-accent); outline-offset: 2px; }
+
+  &.is-active {
+    background: var(--pb-accent-grad);
+    border-color: var(--pb-accent);
+    color: var(--pb-on-accent);
+  }
+}
+
+

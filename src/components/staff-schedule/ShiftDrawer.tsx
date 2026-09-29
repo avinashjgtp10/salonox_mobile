@@ -13,17 +13,28 @@ interface ShiftDrawerProps {
   isCreating?: boolean;
   title?: string;
   saveLabel?: string;
+  /** Whether this drawer's mode describes a repeatable weekly pattern. Off for
+   *  blocked time and time off, which are inherently single-date. */
+  allowRepeatWeekly?: boolean;
+  /** Whether re-saving the exact same time range as already stored counts as
+   *  a no-op to reject. Only meaningful for the "edit working hours" drawer —
+   *  Day Off/Blocked/Time Off drawers pre-fill these same default times, so
+   *  the same guard would wrongly reject e.g. flipping "Staff is Available"
+   *  back on with the pre-filled defaults, which is a real, intended save. */
+  checkDuplicateRange?: boolean;
   onClose: () => void;
-  onSave: (staffId: string, date: string, isAvailable: boolean, startTime: string, endTime: string, breaks: { start: string; end: string }[]) => void;
+  onSave: (staffId: string, date: string, isAvailable: boolean, startTime: string, endTime: string, breaks: { start: string; end: string }[], repeatWeekly: boolean) => void;
 }
 
 const ShiftDrawer: React.FC<ShiftDrawerProps> = ({
-  open, staff, date, shift, isCreating = false, title: titleProp, saveLabel: saveLabelProp, onClose, onSave,
+  open, staff, date, shift, isCreating = false, title: titleProp, saveLabel: saveLabelProp,
+  allowRepeatWeekly = false, checkDuplicateRange = false, onClose, onSave,
 }) => {
   const [isAvailable, setIsAvailable] = useState(true);
   const [startTime, setStartTime] = useState("10:30 AM");
   const [endTime, setEndTime] = useState("09:00 PM");
   const [breaks, setBreaks] = useState<{ id: number; start: string; end: string }[]>([]);
+  const [repeatWeekly, setRepeatWeekly] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -40,6 +51,7 @@ const ShiftDrawer: React.FC<ShiftDrawerProps> = ({
       setEndTime("09:00 PM");
       setBreaks([]);
     }
+    if (open) setRepeatWeekly(false);
     setError(null);
   }, [open, shift]);
 
@@ -82,19 +94,22 @@ const ShiftDrawer: React.FC<ShiftDrawerProps> = ({
       // Only one shift record exists per staff/day, so "already saved" means
       // resubmitting the exact same range as what's already stored for this
       // day rather than an actual change.
-      if (shift?.isAvailable && shift.startTime === startTime && shift.endTime === endTime) {
+      // Re-saving the same range is still meaningful when it's being promoted
+      // to a weekly repeat — that writes a baseline row this day didn't have.
+      if (checkDuplicateRange && !repeatWeekly && shift?.isAvailable && shift.startTime === startTime && shift.endTime === endTime) {
         setError("This working-hour time range already exists. Please select a different time.");
         return;
       }
     }
 
     setError(null);
-    onSave(staff.id, date, isAvailable, startTime, endTime, breaks.map((b) => ({ start: b.start, end: b.end })));
+    onSave(staff.id, date, isAvailable, startTime, endTime, breaks.map((b) => ({ start: b.start, end: b.end })), allowRepeatWeekly && repeatWeekly);
     onClose();
   };
 
   if (!open || !staff || !date) return null;
 
+  const weekdayName = new Date(`${date}T12:00:00`).toLocaleDateString("en-US", { weekday: "long" });
   const title = titleProp ?? (isCreating ? "Add Working Hours" : "Update Availability");
   const saveLabel = saveLabelProp ?? (isCreating ? "Add Working Hours" : "Apply Changes");
 
@@ -238,6 +253,35 @@ const ShiftDrawer: React.FC<ShiftDrawerProps> = ({
               </div>
 
             </div>
+          )}
+
+          {/* Repeat weekly — writes the recurring baseline for this weekday.
+              Without one, Online Booking has nothing to fall back to on dates
+              this staff member has no row for. */}
+          {allowRepeatWeekly && (
+          <div className="shift-drawer__repeat">
+            <div className="shift-drawer__repeat-text">
+              <span className="shift-drawer__availability-label" id="shift-drawer-repeat-label">
+                Repeat every {weekdayName}
+              </span>
+              <span className="shift-drawer__repeat-hint">
+                {isAvailable
+                  ? `Makes these the default hours for every ${weekdayName}, including in Online Booking. Individual dates can still be changed.`
+                  : `Marks every ${weekdayName} as a non-working day by default.`}
+              </span>
+            </div>
+            <label className={`shift-drawer__toggle${repeatWeekly ? " shift-drawer__toggle--on" : ""}`}>
+              <input
+                type="checkbox"
+                id="shift-drawer-repeat-weekly"
+                className="shift-drawer__toggle-input"
+                aria-labelledby="shift-drawer-repeat-label"
+                checked={repeatWeekly}
+                onChange={(e) => setRepeatWeekly(e.target.checked)}
+              />
+              <span className={`shift-drawer__toggle-thumb${repeatWeekly ? " shift-drawer__toggle-thumb--on" : ""}`} />
+            </label>
+          </div>
           )}
         </div>
 

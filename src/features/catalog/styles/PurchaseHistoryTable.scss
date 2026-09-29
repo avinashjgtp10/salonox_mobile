@@ -11,6 +11,16 @@
   max-width: 1100px;
   margin: 0 auto;
 
+  // Used as a tab pane inside SupplierDetailPage/OrderDetailPage's own
+  // already-padded shell (.supplier-detail-page__tabs already adds its own
+  // margin-bottom) — the full 32px on top of that stacked into a much
+  // bigger gap than a plain page-level use of .phist-page needs.
+  &--tab {
+    padding: 0;
+    max-width: none;
+    margin: 0;
+  }
+
   &__header {
     margin-bottom: 32px;
 
@@ -106,26 +116,6 @@
     }
 
     tr:last-child td { border-bottom: none; }
-  }
-}
-
-.phist-edit-received-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  margin-left: 6px;
-  padding: 2px;
-  border: none;
-  background: transparent;
-  color: #98a2b3;
-  cursor: pointer;
-  border-radius: 4px;
-  vertical-align: middle;
-
-  &:hover,
-  &:focus {
-    background: #f2f4f7;
-    color: #101828;
   }
 }
 

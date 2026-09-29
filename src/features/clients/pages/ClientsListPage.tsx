@@ -4,6 +4,9 @@ import { CLIENT } from "../../../services/api/endpoints";
 import Pagination from "../../../components/ui/Pagination";
 import Dropdown from "../../../components/ui/Dropdown";
 import { useNavigate, useLocation } from "react-router-dom";
+import { usePermissions } from "../../../hooks/usePermissions";
+import { useAppDispatch } from "../../../hooks/useAppRedux";
+import { showPermissionDenied } from "../../../store/permissionDialogSlice";
 import {
   ChevronDown,
   ChevronUp,
@@ -48,11 +51,51 @@ import { useTranslation } from "react-i18next";
 
 import "../styles/ClientsListPage.scss";
 
+// clients.gender is free-form text, not a constrained enum at the DB level —
+// the Add/Edit Client form writes Title Case ("Male"/"Female"/"Other"), but
+// the gender FILTER above accepts values this form never offers
+// ("non_binary"/"prefer_not_to_say" — see GenderFilter in the backend's
+// clients.types.ts), which presumably reach clients through some other entry
+// point (import, a different client), quite possibly lowercase/underscored.
+// Normalizing display here means every casing/underscore convention a row
+// might carry still reads as a clean label, rather than only the exact
+// casing the Add form happens to write today.
+function formatGender(raw: string | null | undefined): string {
+  const s = String(raw ?? "").trim();
+  if (!s) return "—";
+  return s
+    .replace(/_/g, " ")
+    .split(" ")
+    .map((w) => (w ? w[0].toUpperCase() + w.slice(1).toLowerCase() : w))
+    .join(" ");
+}
+
 export default function ClientsListPage() {
   const { t } = useTranslation();
   const { currencySymbol, formatAmount } = useCurrency();
   const navigate = useNavigate();
   const location = useLocation();
+  const dispatch = useAppDispatch();
+  const { can } = usePermissions();
+  // Never hide these — visible always, disabled (dim + popup on click) when
+  // the specific permission is off.
+  const canAdd = can("create_clients");
+  const canEdit = can("edit_clients");
+  const canDelete = can("delete_clients");
+  const canImport = can("import_clients");
+  const canExport = can("export_clients");
+  // Backend also independently requires the System "Export as Excel" master
+  // key (requireExportFormatPermission) on top of export_clients — every
+  // other export button in this app (Products, Packages, Staff, etc.) checks
+  // both before enabling; this one was missing the second half, so a role
+  // with export_clients on but export_excel left at its default off saw an
+  // enabled button that fired the request and failed with a generic error
+  // instead of being disabled with a clear message.
+  const canExportExcel = can("export_excel");
+  const canBlock = can("block_client");
+  const denyPerm = (key: string) => dispatch(showPermissionDenied(
+    `Your account does not have the "${key}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+  ));
   const [clients, setClients] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -75,7 +118,9 @@ export default function ClientsListPage() {
   // every fetchClients() call site (pagination, sort, search, refresh-after-
   // mutation) would be error-prone. fetchClients reads the currently-applied
   // range values from this ref instead; it's kept in sync with the state below.
-  const rangeFiltersRef = useRef({ dateFrom: "", dateTo: "", minRevenue: "", maxRevenue: "" });
+  // packageMembership rides along here too, same reasoning — it's another
+  // server-side-only filter with no positional slot of its own.
+  const rangeFiltersRef = useRef({ dateFrom: "", dateTo: "", minRevenue: "", maxRevenue: "", packageMembership: "" });
 
   const sortMap: Record<string, { sort_by: string; sort_order: string }> = {
     "First name (A-Z)": { sort_by: "full_name", sort_order: "asc" },
@@ -111,15 +156,21 @@ export default function ClientsListPage() {
         pageSize: resolvedPageSize,
         sort_by,
         sort_order,
+        // Opt-in trimmed projection — this table only ever renders name/
+        // referral/mobile/gender/reviews/sales/created_at, so there's no
+        // reason to pull every client column (address/notes/tags/ltv/
+        // ewallet/reward-balances/etc.) over the wire for every page load.
+        fields: "list",
       };
       if (gender && gender !== "All") params.gender = gender.toLowerCase();
       if (search && search.trim()) params.search = search.trim();
-      const { dateFrom: df, dateTo: dt, minRevenue: minRev, maxRevenue: maxRev } =
+      const { dateFrom: df, dateTo: dt, minRevenue: minRev, maxRevenue: maxRev, packageMembership: pmf } =
         rangeFiltersRef.current;
       if (df) params.created_from = df;
       if (dt) params.created_to = dt;
       if (minRev !== "") params.min_sales = minRev;
       if (maxRev !== "") params.max_sales = maxRev;
+      if (pmf) params.package_membership = pmf;
       const res = await api.get(CLIENT.BASE, { params });
       const payload = res.data?.data;
       const items = payload?.items ?? [];
@@ -156,10 +207,12 @@ export default function ClientsListPage() {
   const [dateRange, setDateRange] = useState<DateRangeFilterValue>({ preset: "all_time", startDate: "", endDate: "" });
   const [minRevenue, setMinRevenue] = useState("");
   const [maxRevenue, setMaxRevenue] = useState("");
+  // "" = All Clients (no filter) — one of has_package/has_membership/has_both/has_none otherwise.
+  const [packageMembershipFilter, setPackageMembershipFilter] = useState("");
 
   useEffect(() => {
-    rangeFiltersRef.current = { dateFrom: dateRange.startDate, dateTo: dateRange.endDate, minRevenue, maxRevenue };
-  }, [dateRange, minRevenue, maxRevenue]);
+    rangeFiltersRef.current = { dateFrom: dateRange.startDate, dateTo: dateRange.endDate, minRevenue, maxRevenue, packageMembership: packageMembershipFilter };
+  }, [dateRange, minRevenue, maxRevenue, packageMembershipFilter]);
 
   // Date range applies immediately (it's a standalone toolbar control, not
   // part of the deferred-apply Filters panel) — sync the ref synchronously
@@ -167,7 +220,7 @@ export default function ClientsListPage() {
   // update above won't have flushed through the sync effect yet.
   const handleDateRangeChange = (next: DateRangeFilterValue) => {
     setDateRange(next);
-    rangeFiltersRef.current = { dateFrom: next.startDate, dateTo: next.endDate, minRevenue, maxRevenue };
+    rangeFiltersRef.current = { dateFrom: next.startDate, dateTo: next.endDate, minRevenue, maxRevenue, packageMembership: packageMembershipFilter };
     fetchClients(1, selectedSort, selectedGender);
   };
 
@@ -176,6 +229,16 @@ export default function ClientsListPage() {
       { id: "Female", label: "Female" },
       { id: "Male", label: "Male" },
       { id: "Other", label: "Other" },
+    ] },
+    // Single-select by convention, same as Gender above: JiraFilterMenu's
+    // checkbox list is generic multi-select, but handleFiltersApply below
+    // only ever keeps the LAST ticked id — an "All Clients" state is simply
+    // nothing ticked, so it isn't offered as its own checkbox option.
+    { key: "packageMembership", label: "Package / Membership", options: [
+      { id: "has_package", label: "Has Package" },
+      { id: "has_membership", label: "Has Membership" },
+      { id: "has_both", label: "Has Package & Membership" },
+      { id: "has_none", label: "No Package / Membership" },
     ] },
     {
       key: "revenue",
@@ -209,8 +272,9 @@ export default function ClientsListPage() {
 
   const filterMenuSelected = useMemo(() => ({
     gender: selectedGender ? [selectedGender] : [],
+    packageMembership: packageMembershipFilter ? [packageMembershipFilter] : [],
     revenue: minRevenue || maxRevenue ? [minRevenue, maxRevenue] : [],
-  }), [selectedGender, minRevenue, maxRevenue]);
+  }), [selectedGender, packageMembershipFilter, minRevenue, maxRevenue]);
 
   // Mirrors what the old Apply button did: commit every field at once, sync
   // the ref synchronously (fetchClients reads ranges from it, and the state
@@ -219,8 +283,12 @@ export default function ClientsListPage() {
   // control, so this menu must not silently clear it.
   const handleFiltersApply = (next: Record<string, string[]>) => {
     const gender = next.gender?.length ? next.gender[next.gender.length - 1] : null;
+    // Same "last ticked wins" convention as gender — see the field definition
+    // above for why "All Clients" has no checkbox of its own.
+    const pkgMem = next.packageMembership?.length ? next.packageMembership[next.packageMembership.length - 1] : "";
     const [min = "", max = ""] = next.revenue ?? [];
     setSelectedGender(gender);
+    setPackageMembershipFilter(pkgMem);
     setMinRevenue(min);
     setMaxRevenue(max);
     rangeFiltersRef.current = {
@@ -228,6 +296,7 @@ export default function ClientsListPage() {
       dateTo: dateRange.endDate,
       minRevenue: min,
       maxRevenue: max,
+      packageMembership: pkgMem,
     };
     fetchClients(1, selectedSort, gender);
   };
@@ -269,8 +338,9 @@ export default function ClientsListPage() {
     if (dateRange.endDate) params.created_to = dateRange.endDate;
     if (minRevenue !== "") params.min_sales = minRevenue;
     if (maxRevenue !== "") params.max_sales = maxRevenue;
+    if (packageMembershipFilter) params.package_membership = packageMembershipFilter;
     return params;
-  }, [selectedSort, selectedGender, searchQuery, dateRange, minRevenue, maxRevenue]);
+  }, [selectedSort, selectedGender, searchQuery, dateRange, minRevenue, maxRevenue, packageMembershipFilter]);
 
   // Debounced live filter: typing in the search box re-fetches the table
   // itself (page 1) instead of showing a separate floating results dropdown.
@@ -545,8 +615,10 @@ export default function ClientsListPage() {
               >
                 <div
                   className="option-item p-2 cursor-pointer"
+                  style={canImport ? undefined : { opacity: 0.5, cursor: "not-allowed" }}
                   onClick={() => {
                     setOptionsOpen(false);
+                    if (!canImport) { denyPerm("import_clients"); return; }
                     setImportModalOpen(true);
                   }}
                 >
@@ -567,6 +639,16 @@ export default function ClientsListPage() {
                 <DownloadButton
                   filename="clients.xlsx"
                   fetcher={async () => {
+                    if (!canExport) {
+                      setOptionsOpen(false);
+                      denyPerm("export_clients");
+                      throw new Error("export_clients permission required");
+                    }
+                    if (!canExportExcel) {
+                      setOptionsOpen(false);
+                      denyPerm("export_excel");
+                      throw new Error("export_excel permission required");
+                    }
                     const res = await api.get(CLIENT.EXPORT("excel"), {
                       params: getExportParams(),
                       responseType: "blob",
@@ -578,6 +660,7 @@ export default function ClientsListPage() {
                   size="sm"
                   iconLeft={<FileEarmarkExcel size={14} className="me-2" />}
                   className="option-item w-100 text-start p-2 small"
+                  style={canExport && canExportExcel ? undefined : { opacity: 0.5, cursor: "not-allowed" }}
                 >
                   Excel
                 </DownloadButton>
@@ -590,7 +673,8 @@ export default function ClientsListPage() {
             variant="dark"
             pill
             iconLeft={<PersonPlus size={14} />}
-            onClick={() => navigate("/dashboard/clients/add")}
+            onClick={() => { if (canAdd) navigate("/dashboard/clients/add"); else denyPerm("create_clients"); }}
+            style={canAdd ? undefined : { opacity: 0.5, cursor: "not-allowed" }}
           >
             Add
           </Button>
@@ -711,8 +795,10 @@ export default function ClientsListPage() {
                           ) ? (
                             <div
                               className="bulk-edit-item"
+                              style={canBlock ? undefined : { opacity: 0.5, cursor: "not-allowed" }}
                               onClick={() => {
                                 setBulkEditOpen(false);
+                                if (!canBlock) { denyPerm("block_client"); return; }
                                 handleUnblockClients();
                               }}
                             >
@@ -721,8 +807,10 @@ export default function ClientsListPage() {
                           ) : (
                             <div
                               className="bulk-edit-item"
+                              style={canBlock ? undefined : { opacity: 0.5, cursor: "not-allowed" }}
                               onClick={() => {
                                 setBulkEditOpen(false);
+                                if (!canBlock) { denyPerm("block_client"); return; }
                                 setBlockModalOpen(true);
                               }}
                             >
@@ -734,7 +822,8 @@ export default function ClientsListPage() {
                     </div>
                     <button
                       className="btn-outline text-danger"
-                      onClick={() => setDeleteModalOpen(true)}
+                      style={canDelete ? undefined : { opacity: 0.5, cursor: "not-allowed" }}
+                      onClick={() => canDelete ? setDeleteModalOpen(true) : denyPerm("delete_clients")}
                     >
                       Delete
                     </button>
@@ -767,6 +856,7 @@ export default function ClientsListPage() {
                 </div>
                 <div className="col-referral">Referral code</div>
                 <div className="col-mobile">Mobile number</div>
+                <div className="col-gender">Gender</div>
                 <div className="col-reviews">Reviews</div>
                 <div className="col-sales">Sales</div>
                 <div className="col-created">Created at</div>
@@ -854,6 +944,9 @@ export default function ClientsListPage() {
                     <div className="col-mobile" title={maskMobile(client.phone_number) || "-"}>
                       {maskMobile(client.phone_number) || "-"}
                     </div>
+                    <div className="col-gender" title={formatGender(client.gender)}>
+                      {formatGender(client.gender)}
+                    </div>
                     <div className="col-reviews">
                       {client.reviews_count > 0
                         ? `${parseFloat(client.reviews_avg || "0").toFixed(1)} ★ (${client.reviews_count})`
@@ -909,8 +1002,10 @@ export default function ClientsListPage() {
                         >
                           <div
                             className="row-menu-item"
+                            style={canEdit ? undefined : { opacity: 0.5, cursor: "not-allowed" }}
                             onClick={() => {
                               setOpenRowMenuId(null);
+                              if (!canEdit) { denyPerm("edit_clients"); return; }
                               navigate(`/dashboard/clients/edit/${client.id}`);
                             }}
                           >
@@ -919,8 +1014,10 @@ export default function ClientsListPage() {
                           {client.is_blocked ? (
                             <div
                               className="row-menu-item success"
+                              style={canBlock ? undefined : { opacity: 0.5, cursor: "not-allowed" }}
                               onClick={() => {
                                 setOpenRowMenuId(null);
+                                if (!canBlock) { denyPerm("block_client"); return; }
                                 handleUnblockSingle(String(client.id));
                               }}
                             >
@@ -929,8 +1026,10 @@ export default function ClientsListPage() {
                           ) : (
                             <div
                               className="row-menu-item warning"
+                              style={canBlock ? undefined : { opacity: 0.5, cursor: "not-allowed" }}
                               onClick={() => {
                                 setOpenRowMenuId(null);
+                                if (!canBlock) { denyPerm("block_client"); return; }
                                 handleBlockSingle(String(client.id));
                               }}
                             >
@@ -939,8 +1038,10 @@ export default function ClientsListPage() {
                           )}
                           <div
                             className="row-menu-item danger"
+                            style={canDelete ? undefined : { opacity: 0.5, cursor: "not-allowed" }}
                             onClick={() => {
                               setOpenRowMenuId(null);
+                              if (!canDelete) { denyPerm("delete_clients"); return; }
                               setSelectedClients([String(client.id)]);
                               setDeleteModalOpen(true);
                             }}
@@ -965,7 +1066,7 @@ export default function ClientsListPage() {
         totalItems={total}
         onPageChange={(page) => fetchClients(page, selectedSort, selectedGender, pageSize)}
         onPageSizeChange={(sz) => fetchClients(1, selectedSort, selectedGender, sz)}
-        className="mt-4"
+        className="clients-pagination"
       />
 
       {/* ================= DELETE MODAL ================= */}

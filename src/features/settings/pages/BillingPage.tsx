@@ -1,19 +1,19 @@
-import { useEffect, useState, useMemo, useContext } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
-import { SubscriptionRefreshContext } from "../../../App";
 import {
   CheckCircle2, Zap, Building2, Download,
   ArrowUpRight, Users, Calendar, MessageCircle, BarChart2, Sparkles,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import api from "../../../services/api/axios";
+import { SALON_PLANS } from "../../../services/api/endpoints";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import {
   fetchSubscriptionThunk,
   fetchInvoicesThunk,
-  cancelSubscriptionThunk,
-  fetchPlansThunk,
   verifySubscriptionThunk,
   setSubscriptionExpired,
+  createSubscriptionThunk,
 } from "../../../store/billingSlice";
 import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
 import { fetchSettingsThunk } from "../../../middleware/setting/setting.thunk";
@@ -21,18 +21,44 @@ import { getSubscriptionPermissions } from "../utils/subscriptionPermissions";
 import Button from "../../../components/ui/Button";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import SettingsSection from "../components/SettingsSection";
-import UpgradeButton from "../../billing/components/UpgradeButton";
 
 const planIcons: Record<string, React.ReactNode> = {
-  starter:    <Zap size={16} color="#6b7280" />,
-  growth:     <Sparkles size={16} color="#111827" />,
-  enterprise: <Building2 size={16} color="#374151" />,
+  basic:   <Zap size={16} color="#6b7280" />,
+  advance: <Sparkles size={16} color="#111827" />,
+  pro:     <Building2 size={16} color="#374151" />,
 };
+
+// The salon's actual Basic/Advance/Growth assignment — from
+// /salon-plans/my-plan (modules/salon-plans on the backend), NOT the
+// separate Razorpay billing_plans/billing_subscriptions system
+// (billingSlice's `plans`/`subscription`), which has no relationship to
+// what super admin configures in Plans & Subscriptions → Salon
+// Customization. Billing History below still reads the Razorpay invoices —
+// that catalog swap wasn't part of this change.
+interface MyPlanCatalogEntry {
+  tier: "basic" | "advance" | "pro";
+  name: string;
+  tagline: string | null;
+  price: string;
+  features: string[];
+  // subscription_plans.id (modules/subscriptions — the module with actual
+  // working Razorpay checkout), set once a super admin runs "sync to
+  // Razorpay" for that tier. null = no live checkout yet for this plan.
+  linked_subscription_plan_id: string | null;
+}
+interface MyPlanResponse {
+  base_tier: "basic" | "advance" | "pro";
+  effective_price: string | null;
+  is_customized: boolean;
+  start_date: string;
+  expiry_date: string | null;
+  catalog: MyPlanCatalogEntry[];
+}
 
 export default function BillingPage() {
   const dispatch = useAppDispatch();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { subscription, invoices, plans, loading } = useAppSelector((s) => s.billing);
+  const { invoices, loading } = useAppSelector((s) => s.billing);
   const { currentSalon } = useAppSelector((s) => s.salon);
   const { items: staffList } = useAppSelector((s) => s.staff);
   const settingItems = useAppSelector((s: any) => s.setting.items);
@@ -42,10 +68,20 @@ export default function BillingPage() {
   // requireSubscriptionPermission() (subscriptionPermission.middleware.ts).
   const subPerms = useMemo(() => getSubscriptionPermissions(settingItems), [settingItems]);
 
-  const [cancelLoading, setCancelLoading] = useState(false);
   const [verifying, setVerifying] = useState(false);
+  const [payingTier, setPayingTier] = useState<string | null>(null);
   const { showSuccess, showError, overlay } = useStatusOverlay();
-  const refreshSubscriptionStatus = useContext(SubscriptionRefreshContext);
+
+  // The salon's real Basic/Advance/Growth assignment — see MyPlanResponse
+  // comment above for why this replaces billingSlice's `plans` for display.
+  const [myPlan, setMyPlan] = useState<MyPlanResponse | null>(null);
+  const [myPlanLoading, setMyPlanLoading] = useState(true);
+  useEffect(() => {
+    api.get(SALON_PLANS.MY_PLAN)
+      .then((res) => setMyPlan(res.data?.data ?? null))
+      .catch(() => setMyPlan(null))
+      .finally(() => setMyPlanLoading(false));
+  }, []);
 
   // ── Detect redirect back from Razorpay after payment ─────────────────────
   useEffect(() => {
@@ -83,11 +119,6 @@ export default function BillingPage() {
     }
   }, [currentSalon?.id]);
 
-  // Fetch plans
-  useEffect(() => {
-    dispatch(fetchPlansThunk());
-  }, [dispatch]);
-
   useEffect(() => {
     dispatch(fetchStaffThunk());
   }, [dispatch]);
@@ -108,33 +139,44 @@ export default function BillingPage() {
     { label: "Analytics reports",       used: 0,                limit: 50,   icon: <BarChart2 size={15} />,    estimate: true },
   ], [staffList.length]);
 
-  // A subscription row can exist in a not-yet-paid state (e.g. "created",
-  // right after clicking Upgrade but before Razorpay checkout completes —
-  // or if the user backs out of the hosted payment page). Only an
-  // active/trialing subscription actually counts as the current plan;
-  // anything else should still show as unsubscribed / offer Upgrade.
-  const isSubscriptionLive = subscription?.status === "active" || subscription?.status === "trialing";
-  const currentPlanId = isSubscriptionLive ? subscription!.plan_id : null;
+  // Days remaining until myPlan.expiry_date (the real Basic/Advance/Growth
+  // assignment's own expiry, not Razorpay's current_period_end), floor-
+  // rounded so "30 days or less" reads naturally. null when there's no
+  // expiry date set (open-ended plan) — callers treat null as "don't show
+  // the warning".
+  const daysUntilExpiry = useMemo(() => {
+    if (!myPlan?.expiry_date) return null;
+    const msPerDay = 1000 * 60 * 60 * 24;
+    return Math.floor((new Date(myPlan.expiry_date).getTime() - Date.now()) / msPerDay);
+  }, [myPlan?.expiry_date]);
 
-  const handleCancelPlan = async () => {
-    if (!subscription?.id) return;
-    setCancelLoading(true);
-    const result = await dispatch(cancelSubscriptionThunk({ id: subscription.id }));
-    setCancelLoading(false);
-    if (cancelSubscriptionThunk.fulfilled.match(result)) {
-      showSuccess("Subscription cancelled");
-      refreshSubscriptionStatus();
-    } else {
-      showError((result.payload as string) || "Failed to cancel subscription");
+  const isExpiringSoon = daysUntilExpiry !== null && daysUntilExpiry >= 0 && daysUntilExpiry <= 30;
+
+  // Same flow as SubscriptionWall.tsx's handlePayAndContinue — see that
+  // component's comment for why linked_subscription_plan_id (not the tier
+  // itself) is what gets passed as plan_id.
+  const handlePayAndContinue = async (plan: MyPlanCatalogEntry) => {
+    if (!plan.linked_subscription_plan_id || !currentSalon?.id) return;
+    setPayingTier(plan.tier);
+    try {
+      const result = await dispatch(createSubscriptionThunk({
+        plan_id: plan.linked_subscription_plan_id,
+        salon_id: currentSalon.id,
+        total_count: 1,
+      }));
+      if (!createSubscriptionThunk.fulfilled.match(result)) {
+        showError((result.payload as string) || "Failed to initiate payment");
+        return;
+      }
+      const { short_url } = result.payload;
+      if (!short_url) {
+        showError("Could not get payment link. Please try again.");
+        return;
+      }
+      window.location.href = short_url;
+    } finally {
+      setPayingTier(null);
     }
-  };
-
-  const statusBadge = (status: string) => {
-    const map: Record<string, string> = {
-      active: "s-badge-success", trialing: "s-badge-info",
-      past_due: "s-badge-warning", cancelled: "s-badge-gray", inactive: "s-badge-gray",
-    };
-    return <span className={`s-badge ${map[status] ?? "s-badge-gray"}`}>{status}</span>;
   };
 
   const invoiceStatusBadge = (status: string) => {
@@ -164,7 +206,8 @@ export default function BillingPage() {
         </p>
       </div>
 
-      {/* Current Plan */}
+      {/* Current Plan — from /salon-plans/my-plan, the salon's real
+          Basic/Advance/Growth assignment (see MyPlanResponse comment above). */}
       {!subPerms.view_subscription ? (
         <div className="settings-billing-plan mb-4" style={{ background: "#f9fafb", border: "1px solid #e5e7eb" }}>
           <p className="settings-billing-plan-label" style={{ color: "#6b7280" }}>Subscription details unavailable</p>
@@ -172,54 +215,56 @@ export default function BillingPage() {
             Your account does not have permission to view subscription details. Contact support if you believe this is a mistake.
           </p>
         </div>
-      ) : loading.subscription ? (
+      ) : myPlanLoading ? (
         <div className="settings-section">
           <div className="settings-section-body" style={{ padding: 24, color: "#6b7280", fontSize: 13 }}>
             Loading subscription…
           </div>
         </div>
-      ) : isSubscriptionLive && subscription ? (
+      ) : myPlan ? (
         <div className="settings-billing-plan mb-4">
+          {isExpiringSoon && (
+            <div style={{
+              background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 10,
+              padding: "10px 14px", marginBottom: 14, fontSize: 13, color: "#92400e",
+              display: "flex", alignItems: "center", gap: 8,
+            }}>
+              <span aria-hidden="true">⚠️</span>
+              <span>
+                Your plan will expire soon. Please renew your plan to continue using all features without interruption.
+                {" "}({daysUntilExpiry === 0 ? "expires today" : `${daysUntilExpiry} day${daysUntilExpiry === 1 ? "" : "s"} remaining`})
+              </span>
+            </div>
+          )}
           <p className="settings-billing-plan-label">Current Plan</p>
           <p className="settings-billing-plan-name">
-            {plans.find(p => p.id === currentPlanId)?.name ?? "Plan"} &nbsp;
-            {statusBadge(subscription.status)}
+            {myPlan.catalog.find((p) => p.tier === myPlan.base_tier)?.name ?? myPlan.base_tier} &nbsp;
+            {myPlan.is_customized && (
+              <span className="s-badge s-badge-info">Special pricing</span>
+            )}
           </p>
           <p className="settings-billing-plan-price">
             {/* Intentionally fixed to ₹ — this is our own SaaS subscription charge,
-                settled via Razorpay in INR regardless of the salon's own display
-                currency (Settings → Configuration → Currency), which only governs
-                how the salon prices its own clients. Do not swap for useCurrency(). */}
-            ₹{parseFloat(subscription.total_amount).toLocaleString()} / year
-            {subscription.current_period_end && (
+                regardless of the salon's own display currency (Settings →
+                Configuration → Currency), which only governs how the salon
+                prices its own clients. Do not swap for useCurrency(). */}
+            {myPlan.effective_price !== null && `₹${parseFloat(myPlan.effective_price).toLocaleString()} / year`}
+            {myPlan.expiry_date && (
               <>
                 &nbsp;·&nbsp; Renews{" "}
-                {new Date(subscription.current_period_end).toLocaleDateString("en-IN", {
+                {new Date(myPlan.expiry_date).toLocaleDateString("en-IN", {
                   day: "numeric", month: "short", year: "numeric",
                 })}
               </>
             )}
           </p>
-          {subPerms.cancel_subscription && (
-            <div className="settings-billing-plan-actions">
-              <Button
-                size="sm"
-                variant="outline-light"
-                loading={cancelLoading}
-                onClick={handleCancelPlan}
-                disabled={subscription.status === "cancelled"}
-              >
-                {subscription.status === "cancelled" ? "Cancelled" : "Cancel plan"}
-              </Button>
-            </div>
-          )}
         </div>
       ) : (
         <div className="settings-billing-plan mb-4" style={{ background: "#f9fafb", border: "1px solid #e5e7eb" }}>
           <p className="settings-billing-plan-label" style={{ color: "#6b7280" }}>No Active Plan</p>
           <p className="settings-billing-plan-name" style={{ color: "#111827" }}>Free tier</p>
           <p className="settings-billing-plan-price" style={{ color: "#6b7280" }}>
-            Choose a plan below to unlock all features
+            Contact support to set up a plan
           </p>
         </div>
       )}
@@ -250,52 +295,66 @@ export default function BillingPage() {
         })}
       </SettingsSection>
 
-      {/* Plans */}
-      <SettingsSection title="Available Plans" desc="Upgrade at any time.">
-        {loading.plans ? (
+      {/* Plans — the same Basic/Advance/Growth catalog super admin manages in
+          Plans & Subscriptions → Pricing Plans, not the separate Razorpay
+          billing_plans catalog. Plan changes are admin-managed (Salon
+          Customization tab), not self-serve Razorpay checkout, so this is
+          read-only with a contact-support CTA rather than an upgrade button. */}
+      <SettingsSection title="Available Plans" desc="Contact support to upgrade or change your plan.">
+        {myPlanLoading ? (
           <p style={{ fontSize: 13, color: "#6b7280" }}>Loading plans…</p>
-        ) : plans.length === 0 ? (
+        ) : !myPlan || myPlan.catalog.length === 0 ? (
           <p style={{ fontSize: 13, color: "#6b7280" }}>No plans available.</p>
         ) : (
           <div className="settings-plans-grid">
-            {plans.map((plan) => {
-              const isCurrent = plan.id === currentPlanId;
+            {myPlan.catalog.map((plan) => {
+              const isCurrent = plan.tier === myPlan.base_tier;
               return (
-                <div key={plan.id} className={`settings-plan-card${isCurrent ? " current" : ""}`}>
+                <div key={plan.tier} className={`settings-plan-card${isCurrent ? " current" : ""}`}>
                   <div className="settings-plan-header">
                     <div className="settings-plan-name-row">
-                      {planIcons[plan.name.toLowerCase()] ?? <Zap size={16} />}
+                      {planIcons[plan.tier] ?? <Zap size={16} />}
                       <span className="settings-plan-name">{plan.name}</span>
                     </div>
                     <p className="settings-plan-price">
-                      ₹{plan.price.toLocaleString()}
+                      ₹{parseFloat(plan.price).toLocaleString()}
                       <span> /yr</span>
                     </p>
-                    {plan.description && (
-                      <p className="settings-plan-desc">{plan.description}</p>
+                    {plan.tagline && (
+                      <p className="settings-plan-desc">{plan.tagline}</p>
                     )}
                   </div>
-                  {plan.features && (
+                  {plan.features && plan.features.length > 0 && (
                     <ul className="settings-plan-features">
-                      {Object.entries(plan.features)
-                        .filter(([, v]) => v)
-                        .map(([k]) => (
-                          <li key={k} className="settings-plan-feature-item">
-                            <CheckCircle2 size={13} color="#10b981" strokeWidth={2.5} />
-                            {k.replace(/_/g, " ")}
-                          </li>
-                        ))}
+                      {plan.features.map((f) => (
+                        <li key={f} className="settings-plan-feature-item">
+                          <CheckCircle2 size={13} color="#10b981" strokeWidth={2.5} />
+                          {f}
+                        </li>
+                      ))}
                     </ul>
                   )}
                   {isCurrent ? (
                     <Button fullWidth size="sm" variant="outline-secondary" disabled>
                       Current plan
                     </Button>
-                  ) : (subPerms.renew_subscription || subPerms.upgrade_subscription || subPerms.downgrade_subscription) ? (
-                    <UpgradeButton plan={plan} />
+                  ) : plan.linked_subscription_plan_id ? (
+                    <Button
+                      fullWidth size="sm" variant="primary"
+                      loading={payingTier === plan.tier}
+                      disabled={payingTier === plan.tier}
+                      onClick={() => handlePayAndContinue(plan)}
+                    >
+                      Pay & Continue
+                    </Button>
                   ) : (
-                    <Button fullWidth size="sm" variant="outline-secondary" disabled title="Your account does not have permission to change plans">
-                      Plan changes disabled
+                    // Not synced to a real Razorpay plan yet — see
+                    // MyPlanCatalogEntry comment above.
+                    <Button
+                      fullWidth size="sm" variant="outline-secondary"
+                      onClick={() => { window.location.href = "mailto:support@salonox.com?subject=Plan%20Change%20Request"; }}
+                    >
+                      Contact support to switch
                     </Button>
                   )}
                 </div>

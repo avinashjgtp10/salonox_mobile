@@ -84,9 +84,8 @@ interface Props {
   templateToEdit?: PackageTemplate | null;
   /** Quick Sale/Calendar's "+ Sell Package" entry point — builds a brand-new
    *  custom package definition but never calls a create API here. Hides
-   *  Payment Method and the per-package GST% picker (this bill's own shared
-   *  tax engine prices the row the same way it prices every other line, so a
-   *  separate custom rate here would be misleading) and per-service
+   *  Payment Method (this bill's own shared tax engine prices the row the
+   *  same way it prices every other line) and per-service
    *  scheduling (nothing exists to schedule against yet — the real
    *  client_package is only created once the bill is actually paid).
    *  "Add to Bill" calls onAddLineItem with the definition instead of
@@ -131,8 +130,6 @@ function dateToDays(dateStr: string): number | null {
   const exp = new Date(y, m - 1, d);
   return Math.round((exp.getTime() - start.getTime()) / 86_400_000);
 }
-
-const GST_OPTIONS = [0, 5, 12, 18, 28];
 
 // Matches Quick Sale/Calendar's own payment method set (SINGLE_METHODS in
 // features/bookings/types/payment.types.ts) — package sale used to offer an
@@ -469,6 +466,11 @@ const PackageCreateForm: React.FC<Props> = ({
         basePrice:     pkgPrice,
         gstPercentage: gstPct,
         discount:      discountVal,
+        // Send the exact figure shown in the "Total amount" row rather than
+        // letting the backend re-derive it — guarantees what the user saw is
+        // what gets saved, immune to any future drift between this formula
+        // and the backend's copy of it.
+        totalAmount:   totalAmount,
         paymentMethod: paymentMode === "split" ? "split" : toBackendPaymentMethod(singleMethod!),
         staffId:       staffId || undefined,
         services: validServices.map(s => ({
@@ -1101,7 +1103,7 @@ const PackageCreateForm: React.FC<Props> = ({
           <div className={styles.cardTitle}>Pricing</div>
         </div>
         <div className={styles.cardBody}>
-          <div style={{ display: "grid", gridTemplateColumns: lineItemMode ? "1fr 1fr" : "1fr 1fr 1fr", gap: 12, marginBottom: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
             <div className={styles.formField}>
               <label className={`${styles.formLabel} ${styles.formLabelRequired}`}>Package price ({currencySymbol})</label>
               <div className={styles.inputPrefix}>
@@ -1124,14 +1126,6 @@ const PackageCreateForm: React.FC<Props> = ({
                 />
               </div>
             </div>
-            {!lineItemMode && (
-              <div className={styles.formField}>
-                <label className={styles.formLabel}>GST (%)</label>
-                <select value={gstPct} onChange={e => setGstPct(+e.target.value)} className={styles.select} style={frozenStyle} disabled={isFromTemplate}>
-                  {GST_OPTIONS.map(g => <option key={g} value={g}>{g === 0 ? "0% (Exempt)" : `${g}%`}</option>)}
-                </select>
-              </div>
-            )}
             <div className={styles.formField}>
               <label className={styles.formLabel}>Discount</label>
               <div style={{ display: "flex", gap: 6 }}>
@@ -1175,12 +1169,6 @@ const PackageCreateForm: React.FC<Props> = ({
               <div className={`${styles.priceRow} ${styles["priceRow--accent"]}`}>
                 <span>Discount{discountType === "percent" ? ` (${Math.min(Math.max(discount, 0), 100)}%)` : ""}</span>
                 <span>− {formatAmount(discountVal)}</span>
-              </div>
-            )}
-            {gstPct > 0 && (
-              <div className={styles.priceRow}>
-                <span>GST ({gstPct}%)</span>
-                <span>{formatAmount(gstAmount)}</span>
               </div>
             )}
             <div className={`${styles.priceRow} ${styles["priceRow--total"]}`}>

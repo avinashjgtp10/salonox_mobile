@@ -23,6 +23,18 @@ export function computeMaxWalletUsable(grandTotal: number, config: ReferralConfi
   return (grandTotal * pct) / 100;
 }
 
+/**
+ * Max ₹ of a bill (before any redemption) that Referral Credit alone is
+ * allowed to cover, per the salon's configured Redeem settings. Returns 0
+ * when redemption is switched off — unlike computeMaxWalletUsable's 0-means-
+ * unset fallback, 0% here is a deliberately valid, fully-restrictive setting
+ * (see ReferralSettingsPage's 0–100 range), not an "unconfigured" sentinel.
+ */
+export function computeMaxReferralRedeemable(preRedemptionTotal: number, config: ReferralConfig = DEFAULT_REFERRAL_CONFIG): number {
+  if (!config.redeem_enabled) return 0;
+  return Math.max(0, (preRedemptionTotal * config.max_redeem_percent) / 100);
+}
+
 /** Membership tier label from lifetime revenue */
 export function computeMembershipTier(totalRevenue: number): string {
   if (totalRevenue >= MEMBERSHIP_TIERS.Platinum) return "Platinum";
@@ -74,4 +86,63 @@ export function buildMethodLabel(
 /** Computes the total of a split entries map */
 export function splitTotal(methods: Record<string, number>): number {
   return Object.values(methods).reduce((a, b) => a + b, 0);
+}
+
+// ─── Payment method breakdown (Sales Summary panel + receipt/PDF) ─────────────
+//
+// splitDetails (sales.payment_reference) is only ever written by the backend
+// when payment_method === "split" (see sales.service.ts) — a plain
+// single-method payment leaves it empty and the one real method is only
+// recorded in paymentMode. getSplitPaymentEntries/getEwalletUsedAmount below
+// are the exact same computation receipt.ts's printReceipt() uses for its own
+// "Paid via X" lines; ViewBillModal.tsx's Payment Method section calls the
+// same two functions (via getPaymentMethodBreakdown) so the panel can never
+// drift from what the receipt/PDF prints for the same booking.
+
+export interface PaymentMethodEntry { method: string; amount: number }
+
+type PaymentBookingLike = {
+  splitDetails?: Record<string, number> | null;
+  ewalletUsed?: number | null;
+  paymentMode?: string | null;
+  payingNow?: number | null;
+};
+
+/** Raw split-payment legs (Cash/Card/UPI/…), eWallet excluded — it's tracked separately below. */
+export function getSplitPaymentEntries(booking: PaymentBookingLike): PaymentMethodEntry[] {
+  const raw = booking.splitDetails || {};
+  return Object.entries(raw)
+    .map(([method, amt]) => ({ method, amount: Number(amt) || 0 }))
+    .filter((e) => e.amount > 0 && e.method.toLowerCase() !== "ewallet");
+}
+
+/** ₹ of this payment covered by eWallet — arrives either as its own field or as a leg inside splitDetails (older records). */
+export function getEwalletUsedAmount(booking: PaymentBookingLike): number {
+  const raw = booking.splitDetails || {};
+  const splitEwallet = Number(Object.entries(raw).find(([k]) => k.toLowerCase() === "ewallet")?.[1]) || 0;
+  return Number(booking.ewalletUsed || 0) || splitEwallet;
+}
+
+/**
+ * Every real-money method that actually paid for this booking (Cash/Card/
+ * UPI/…), each with its own amount — never the full bill total. Deliberately
+ * excludes eWallet: booking.payingNow (backend payments.paid_amount) already
+ * excludes it too — eWallet is a pre-payment credit that reduces what's owed
+ * BEFORE this figure, tracked by its own separate "eWallet Used" deduction
+ * line (see billBreakdown.ts/receipt.ts) — so the entries returned here
+ * always sum to exactly `payingNow`, matching the ticket's own
+ * "Cash ₹500, Card ₹300, Total Paid ₹800" example. Falls back to paymentMode
+ * + the total paid when splitDetails is empty — the plain single-method case
+ * that never gets a splitDetails row at all.
+ */
+export function getPaymentMethodBreakdown(booking: PaymentBookingLike): PaymentMethodEntry[] {
+  const entries = getSplitPaymentEntries(booking);
+  if (entries.length > 0) return entries;
+
+  const mode = String(booking.paymentMode || "").trim();
+  const paid = Number(booking.payingNow || 0);
+  if (mode && !["package", "split", "ewallet"].includes(mode.toLowerCase()) && paid > 0) {
+    return [{ method: mode, amount: paid }];
+  }
+  return [];
 }

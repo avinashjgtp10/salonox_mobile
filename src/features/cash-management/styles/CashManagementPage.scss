@@ -160,6 +160,88 @@
   justify-content: flex-end;
 }
 
+.cash-mgmt__open-counter {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.55rem;
+  text-align: center;
+  padding: 0.15rem 0 0;
+  min-height: 380px;
+  justify-content: center;
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+}
+
+.cash-mgmt__open-counter-icon {
+  width: 4.25rem;
+  height: 4.25rem;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #ece9fe;
+  color: #4f46e5;
+  margin-bottom: 0.1rem;
+}
+
+.cash-mgmt__open-counter-title {
+  margin: 0;
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.cash-mgmt__open-counter-lead {
+  margin: 0;
+  color: var(--cash-mgmt-text-muted);
+  font-size: 14.5px;
+  line-height: 1.5;
+  max-width: 26rem;
+}
+
+.cash-mgmt__open-counter .cash-mgmt__modal-form {
+  width: 100%;
+  margin-top: 0.2rem;
+}
+
+.cash-mgmt__open-counter .form-control {
+  font-size: 1.3rem;
+  font-weight: 700;
+  text-align: left;
+  padding-top: 0.85rem;
+  padding-bottom: 0.85rem;
+}
+
+.cash-mgmt__open-counter .ui-input__label {
+  text-align: left;
+  display: block;
+}
+
+.cash-mgmt__open-counter-currency {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: #0f172a;
+}
+
+.cash-mgmt__open-counter-note {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  color: var(--cash-mgmt-text-muted);
+  font-size: 13.5px;
+}
+
+.cash-mgmt__open-counter-submit,
+.cash-mgmt__open-counter-cancel {
+  width: 100%;
+  padding-top: 0.7rem;
+  padding-bottom: 0.7rem;
+  font-weight: 700;
+}
+
 .cash-mgmt__header-copy,
 .cash-mgmt__section-copy,
 .cash-mgmt__surface-copy {

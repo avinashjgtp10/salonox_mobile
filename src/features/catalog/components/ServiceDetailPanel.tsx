@@ -5,6 +5,9 @@ import Button from "../../../components/ui/Button";
 import type { Service } from "../types/catalog.types";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { formatDuration } from "../utils/duration";
+import { usePermissions } from "../../../hooks/usePermissions";
+import { useAppDispatch } from "../../../hooks/useAppRedux";
+import { showPermissionDenied } from "../../../store/permissionDialogSlice";
 import "../styles/ProductDrawer.scss";
 
 // Built on the same `pd-` panel system as ProductDrawer (and shaped like the
@@ -24,6 +27,8 @@ const ServiceDetailPanel: React.FC<ServiceDetailPanelProps> = ({
   onDelete,
 }) => {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
+  const { can } = usePermissions();
   const { formatAmount } = useCurrency();
 
   const money = (value: string | number | null | undefined) => {
@@ -70,7 +75,14 @@ const ServiceDetailPanel: React.FC<ServiceDetailPanelProps> = ({
               variant="outline-dark"
               size="sm"
               iconLeft={<PencilSquare size={14} />}
-              onClick={() => navigate(`/dashboard/catalog/services/${service.id}/edit`)}
+              style={!can("edit_services") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+              onClick={() => {
+                if (!can("edit_services")) {
+                  dispatch(showPermissionDenied("You don't have permission to edit this service. Please contact the Owner."));
+                  return;
+                }
+                navigate(`/dashboard/catalog/services/${service.id}/edit`);
+              }}
             >
               Edit
             </Button>

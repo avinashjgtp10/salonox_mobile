@@ -1,15 +1,25 @@
 // src/components/packages/PackageDashboard.tsx
 import React, { useState, useMemo, useEffect } from "react";
-import { Package, CheckCircle2, Clock, Target, Search, History, X, Loader2, Sparkles, PenLine, ChevronRight, Layers, MoreVertical } from "lucide-react";
+import { Package, CheckCircle2, Clock, Target, Search, History, X, Loader2, Sparkles, PenLine, ChevronRight, Layers, MoreVertical, Trash2, Minus, Plus } from "lucide-react";
 import styles from "./packages.module.scss";
 import { Pagination } from "../ui/Pagination";
-import type { PackageTemplate } from "../../services/api/endpoints/packages.endpoints";
-import { useListPackageTemplatesQuery } from "../../services/api/endpoints/packages.endpoints";
+import type { PackageTemplate, ClientPackage } from "../../services/api/endpoints/packages.endpoints";
+import {
+  useListPackageTemplatesQuery,
+  useUpdateClientPackageMutation,
+  useDeleteClientPackageMutation,
+} from "../../services/api/endpoints/packages.endpoints";
 import type { ClientSearchResult } from "../../features/clients/components/ClientSearchInput";
 import { useGetClientPackages } from "../../hooks/packages/usePackages";
 import { useCurrency } from "../../hooks/useCurrency";
 import { getPackageServiceDisplayStatus, type PackageServiceDisplayStatus } from "../../features/bookings/utils/packageServiceStatus";
 import { maskMobile } from "../../utils/maskMobile";
+import { usePermissions } from "../../hooks/usePermissions";
+import { useAppDispatch } from "../../hooks/useAppRedux";
+import { showPermissionDenied } from "../../store/permissionDialogSlice";
+
+const friendlyPermissionDenied = (permKey: string) =>
+  `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`;
 
 const SCHEDULE_STATUS_BADGE: Record<PackageServiceDisplayStatus, string> = {
   "Not Scheduled": "",
@@ -47,6 +57,9 @@ const PackageDashboard: React.FC<Props> = ({
   selectedClient, onCreateNew, onCreateFromTemplate,
 }) => {
   const { formatAmount } = useCurrency();
+  const { can } = usePermissions();
+  const dispatch = useAppDispatch();
+  const denyPerm = (permKey: string) => dispatch(showPermissionDenied(friendlyPermissionDenied(permKey)));
   const [activeTab,       setActiveTab]       = useState("");
 
   // List is salon-wide now — no client selection gates it. `search` stays
@@ -67,12 +80,76 @@ const PackageDashboard: React.FC<Props> = ({
   const [showChoice,      setShowChoice]      = useState(false);
   const [showTmplPicker,  setShowTmplPicker]  = useState(false);
 
+  // Per-row "⋮" actions menu (Edit / Delete) — separate from expandedId
+  // (the read-only detail panel a row-click opens), so opening the actions
+  // menu never also opens/closes that panel.
+  const [actionsMenuId,   setActionsMenuId]   = useState<string | null>(null);
+  const [editingPkg,      setEditingPkg]      = useState<ClientPackage | null>(null);
+  const [sessionEdits,    setSessionEdits]    = useState<Record<string, number>>({});
+  const [savingEdit,      setSavingEdit]      = useState(false);
+  const [deletingId,      setDeletingId]      = useState<string | null>(null);
+
   useEffect(() => { setPage(1); }, [debouncedSearch, pageSize]);
 
   const { data: templates = [] } = useListPackageTemplatesQuery();
 
   const { packages: allPkgs, total, isLoading, isError, refetch } =
     useGetClientPackages({ search: debouncedSearch.trim() || undefined, page, limit: pageSize });
+
+  const [updateClientPackage] = useUpdateClientPackageMutation();
+  const [deleteClientPackage] = useDeleteClientPackageMutation();
+
+  // Close the actions menu on any outside click — the actions cell below
+  // stops click propagation for anything inside it (button + menu), so this
+  // only ever fires for genuine outside clicks. Same pattern used for
+  // ServiceCard's/ClientsListPage's own per-row menus.
+  useEffect(() => {
+    if (!actionsMenuId) return;
+    const handler = () => setActionsMenuId(null);
+    document.addEventListener("click", handler);
+    return () => document.removeEventListener("click", handler);
+  }, [actionsMenuId]);
+
+  function openEditSessions(pkg: ClientPackage) {
+    if (!can("edit_package")) { denyPerm("edit_package"); return; }
+    setSessionEdits(Object.fromEntries(pkg.services.map(s => [s.serviceId, s.totalSessions])));
+    setEditingPkg(pkg);
+  }
+
+  async function handleSaveSessionEdits() {
+    if (!editingPkg) return;
+    if (!can("edit_package")) { denyPerm("edit_package"); setEditingPkg(null); return; }
+    setSavingEdit(true);
+    try {
+      await updateClientPackage({
+        id: editingPkg.id,
+        data: {
+          services: editingPkg.services.map(svc => ({
+            serviceId: svc.serviceId,
+            totalSessions: sessionEdits[svc.serviceId] ?? svc.totalSessions,
+          })),
+        },
+      }).unwrap();
+      setEditingPkg(null);
+    } catch {
+      // Mutation error is surfaced via its own isError state if needed later —
+      // keeping this in line with how Templates' delete already handles it.
+    } finally {
+      setSavingEdit(false);
+    }
+  }
+
+  async function handleDeletePackage(pkg: ClientPackage) {
+    if (!can("delete_package")) { denyPerm("delete_package"); return; }
+    if (!confirm(`Delete ${pkg.packageName} for ${pkg.clientName}? This cannot be undone.`)) return;
+    setDeletingId(pkg.id);
+    try {
+      await deleteClientPackage(pkg.id).unwrap();
+      if (expandedId === pkg.id) setExpandedId(null);
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   // expiry is a derived concept (computed from expiryDate), not trusted from
   // the stored `status` column — mirrors the previous per-client logic, just
@@ -124,8 +201,12 @@ const PackageDashboard: React.FC<Props> = ({
         </div>
         <div className={styles.headerActions}>
           <button
-            onClick={() => setShowChoice(true)}
+            onClick={() => {
+              if (!can("create_package")) { denyPerm("create_package"); return; }
+              setShowChoice(true);
+            }}
             className={styles.btnPrimary}
+            style={!can("create_package") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
           >
             + Create Package
           </button>
@@ -202,7 +283,16 @@ const PackageDashboard: React.FC<Props> = ({
                   : "No packages sold yet."}
               </div>
               {!search && statusFilter === "all" && (
-                <span onClick={() => setShowChoice(true)} className={styles.emptyLink}>Create a package →</span>
+                <span
+                  onClick={() => {
+                    if (!can("create_package")) { denyPerm("create_package"); return; }
+                    setShowChoice(true);
+                  }}
+                  className={styles.emptyLink}
+                  style={!can("create_package") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                >
+                  Create a package →
+                </span>
               )}
             </div>
           </div>
@@ -244,14 +334,37 @@ const PackageDashboard: React.FC<Props> = ({
                           <span className={styles.badgeDot} /> {expired ? "Expired" : pkg.status}
                         </span>
                       </td>
-                      <td className={styles.tableTd} onClick={(e) => e.stopPropagation()}>
+                      <td className={styles.tableTd} onClick={(e) => e.stopPropagation()} style={{ position: "relative" }}>
                         <button
                           className={styles.kebabBtn}
-                          onClick={() => toggleExpand(pkg.id)}
-                          title="View package details"
+                          onClick={() => setActionsMenuId(prev => (prev === pkg.id ? null : pkg.id))}
+                          title="Package actions"
                         >
                           <MoreVertical size={16} />
                         </button>
+                        {actionsMenuId === pkg.id && (
+                          <ul className={styles.actionsMenu}>
+                            <li>
+                              <button
+                                className={styles.actionsItem}
+                                style={!can("edit_package") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                                onClick={() => { setActionsMenuId(null); openEditSessions(pkg); }}
+                              >
+                                <PenLine size={13} /> Edit Package
+                              </button>
+                            </li>
+                            <li>
+                              <button
+                                className={`${styles.actionsItem} ${styles["actionsItem--danger"]}`}
+                                disabled={deletingId === pkg.id}
+                                style={!can("delete_package") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                                onClick={() => { setActionsMenuId(null); handleDeletePackage(pkg); }}
+                              >
+                                <Trash2 size={13} /> {deletingId === pkg.id ? "Deleting…" : "Delete"}
+                              </button>
+                            </li>
+                          </ul>
+                        )}
                       </td>
                     </tr>
                   );
@@ -636,6 +749,91 @@ const PackageDashboard: React.FC<Props> = ({
                   </button>
                 );
               })}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ── Edit Package modal — increase/decrease remaining sessions per
+          service. A session already completed can't be un-completed, so each
+          stepper is floored at that service's own completedSessions. ──────── */}
+      {editingPkg && (
+        <>
+          <div
+            style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", zIndex: 1060 }}
+            onClick={() => setEditingPkg(null)}
+          />
+          <div style={{
+            position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)",
+            background: "#fff", borderRadius: 20, width: "min(480px,92vw)", maxHeight: "80vh",
+            display: "flex", flexDirection: "column",
+            zIndex: 1070, boxShadow: "0 24px 60px rgba(0,0,0,.2)",
+          }}>
+            <div style={{ padding: "22px 24px 16px", borderBottom: "1px solid #f0f1f3", flexShrink: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div>
+                  <div style={{ fontSize: 17, fontWeight: 800, color: "#111827", letterSpacing: "-.02em" }}>Edit Package</div>
+                  <div style={{ fontSize: 13, color: "#6b7280", marginTop: 3 }}>
+                    {editingPkg.packageName} — adjust total sessions per service
+                  </div>
+                </div>
+                <button
+                  onClick={() => setEditingPkg(null)}
+                  style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid #e5e7eb", background: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#6b7280", flexShrink: 0 }}
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
+
+            <div style={{ overflowY: "auto", padding: "18px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
+              {editingPkg.services.map(svc => {
+                const value = sessionEdits[svc.serviceId] ?? svc.totalSessions;
+                const floor = Math.max(svc.completedSessions, 1);
+                return (
+                  <div key={svc.serviceId} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 600, fontSize: 13.5, color: "#111827" }}>{svc.serviceName}</div>
+                      <div style={{ fontSize: 11.5, color: "#6b7280" }}>{svc.completedSessions} session{svc.completedSessions !== 1 ? "s" : ""} already completed</div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+                      <button
+                        type="button"
+                        disabled={value <= floor}
+                        onClick={() => setSessionEdits(prev => ({ ...prev, [svc.serviceId]: Math.max(floor, value - 1) }))}
+                        style={{ width: 28, height: 28, borderRadius: 8, border: "1px solid #e5e7eb", background: "#fff", cursor: value <= floor ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: value <= floor ? "#d1d5db" : "#374151" }}
+                      >
+                        <Minus size={14} />
+                      </button>
+                      <span style={{ minWidth: 26, textAlign: "center", fontWeight: 700, fontSize: 14, color: "#111827" }}>{value}</span>
+                      <button
+                        type="button"
+                        onClick={() => setSessionEdits(prev => ({ ...prev, [svc.serviceId]: value + 1 }))}
+                        style={{ width: 28, height: 28, borderRadius: 8, border: "1px solid #e5e7eb", background: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#374151" }}
+                      >
+                        <Plus size={14} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div style={{ padding: "16px 24px", borderTop: "1px solid #f0f1f3", flexShrink: 0, display: "flex", justifyContent: "flex-end", gap: 10 }}>
+              <button
+                onClick={() => setEditingPkg(null)}
+                disabled={savingEdit}
+                style={{ padding: "9px 18px", borderRadius: 8, border: "1px solid #e5e7eb", background: "#fff", color: "#374151", fontSize: 13.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveSessionEdits}
+                disabled={savingEdit}
+                style={{ padding: "9px 18px", borderRadius: 8, border: "none", background: "#7c3aed", color: "#fff", fontSize: 13.5, fontWeight: 600, cursor: savingEdit ? "not-allowed" : "pointer", fontFamily: "inherit", opacity: savingEdit ? 0.6 : 1 }}
+              >
+                {savingEdit ? "Saving…" : "Save Changes"}
+              </button>
             </div>
           </div>
         </>

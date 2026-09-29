@@ -19,7 +19,7 @@ const WhySalonOX: React.FC<WhySalonOXProps> = ({ onSelectFeature }) => (
     <div className="container">
       <Reveal>
         <div className="section-head">
-          <span className="eyebrow"><span className="dot" /> Why SalonOX</span>
+          <span className="eyebrow"><span className="dot" /> Why SalonoX</span>
           <h2>Built for the way modern salons operate</h2>
           <p>Every feature is designed around real salon workflows — so your staff is productive from day one, not after weeks of training.</p>
         </div>

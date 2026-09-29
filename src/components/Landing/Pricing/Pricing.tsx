@@ -1,15 +1,70 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import api from '../../../services/api/axios';
+import { SALON_PLANS } from '../../../services/api/endpoints';
 import {
   Icon,
   SectionTransition,
 } from '../shared';
-import { BILLING_NOTE, BILLING_PERIODS, PRICING_PLANS, formatPrice, getPlanPricing } from './pricing.config';
-import type { BillingPeriod } from './pricing.config';
+import { BILLING_NOTE, BILLING_PERIODS, PRICING_PLANS as PLAN_PERIOD_PLANS, formatPrice, getPlanPricing } from './pricing.config';
+import type { BillingPeriod, PricingPlan } from './pricing.config';
+
+// The public catalog currently exposes one annual price per tier. Keep the
+// configured monthly/quarterly amounts until the API supports those periods.
+interface CatalogEntry {
+  tier: 'basic' | 'advance' | 'pro';
+  name: string;
+  tagline: string | null;
+  price: string;
+  features: string[];
+}
+
+function toPricingPlans(catalog: CatalogEntry[]): PricingPlan[] {
+  return PLAN_PERIOD_PLANS.map((fallback) => {
+    const tier = fallback.id === 'growth' ? 'pro' : fallback.id;
+    const entry = catalog.find((plan) => plan?.tier === tier);
+    if (!entry) return fallback;
+
+    const annualPrice = typeof entry.price === 'string' && entry.price.trim() !== ''
+      ? Number(entry.price)
+      : NaN;
+    const name = typeof entry.name === 'string' && entry.name.trim() ? entry.name : fallback.name;
+    return {
+      ...fallback,
+      name,
+      cta: `Start with ${name}`,
+      description: entry.tagline ?? fallback.description,
+      features: Array.isArray(entry.features) && entry.features.every((feature) => typeof feature === 'string')
+        ? entry.features
+        : fallback.features,
+      prices: {
+        ...fallback.prices,
+        yearly: Number.isFinite(annualPrice) && annualPrice >= 0 ? annualPrice : fallback.prices.yearly,
+      },
+    };
+  });
+}
 
 const Pricing: React.FC = () => {
   const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>('monthly');
   const billing = BILLING_PERIODS[billingPeriod];
+  const [plans, setPlans] = useState<readonly PricingPlan[]>(PLAN_PERIOD_PLANS);
+
+  useEffect(() => {
+    let cancelled = false;
+    api.get(SALON_PLANS.DEFINITIONS)
+      .then((res) => {
+        const catalog: CatalogEntry[] = res.data?.data;
+        if (!cancelled && Array.isArray(catalog) && catalog.length > 0) {
+          setPlans(toPricingPlans(catalog));
+        }
+      })
+      .catch(() => {
+        // Preserve configured pricing when the public catalog is unavailable.
+      });
+    return () => { cancelled = true; };
+  }, []);
+
 
   return (
     <section id="pricing" className="pricing" aria-labelledby="pricing-heading">
@@ -41,7 +96,7 @@ const Pricing: React.FC = () => {
         {BILLING_NOTE && <p className="pricing-billing-note">{BILLING_NOTE}</p>}
 
         <div id="pricing-plans" className="pricing-grid">
-          {PRICING_PLANS.map((plan) => {
+          {plans.map((plan) => {
             const price = getPlanPricing(plan, billingPeriod);
             return (
               <article

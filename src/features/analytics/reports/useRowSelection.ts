@@ -30,7 +30,15 @@ export function useRowSelection() {
     });
   };
 
+  // Unconditionally adds every id, unlike toggleAll — for "Select all N
+  // matching this filter" (a fetch beyond the current page), where the
+  // already-selected set is a subset of what's being added, so toggleAll's
+  // "everything already selected → deselect" branch would never apply here.
+  const selectAll = (ids: string[]) => {
+    setSelectedIds(prev => new Set([...prev, ...ids]));
+  };
+
   const clearSelection = () => setSelectedIds(new Set());
 
-  return { selectedIds, toggleOne, toggleAll, clearSelection };
+  return { selectedIds, toggleOne, toggleAll, selectAll, clearSelection };
 }

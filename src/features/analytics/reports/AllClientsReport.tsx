@@ -5,7 +5,7 @@ import api from "../../../services/api/axios";
 import { ALL_CLIENTS_REPORT } from "../../../services/api/endpoints";
 import ReportRefreshButton from "./ReportRefreshButton";
 import Breadcrumb from "../../../components/ui/Breadcrumb";
-import { Pagination, JiraFilterMenu, DateRangeFilter, getDateRangePresetValue, DATE_RANGE_PRESET_LABELS } from "../../../components/ui";
+import { Pagination, JiraFilterMenu, DateRangeFilter , DATE_RANGE_PRESET_LABELS } from "../../../components/ui";
 import type { JiraFilterField, DateRangeFilterValue } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
@@ -283,6 +283,7 @@ export default function AllClientsReport({ onBack, category, categoryKey }: { on
               title={REPORT_NAME}
               headers={HEADERS}
               rows={exportRows}
+              reportId="all_clients"
               filename={`all-clients-${new Date().toISOString().slice(0, 10)}`}
               variant="button"
               csv

@@ -12,6 +12,8 @@ import ReportExportButton from "../../../components/ui/ReportExportButton";
 import AppointmentDetailModal from "../../bookings/components/modals/AppointmentDetailModal";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { maskMobile } from "../../../utils/maskMobile";
+import PaymentCollectionChartContent from "./PaymentCollectionChartContent";
+import ReportViewToggle from "./ReportViewToggle";
 import "./PaymentCollectionReport.scss";
 
 const REPORT_NAME = "Payment Collection Report";
@@ -92,6 +94,7 @@ export default function PaymentCollectionReport({ onBack, category, categoryKey 
   // Clicking a row opens the real bill drawer, where a pending balance can be
   // collected via its "Collect Due" action — the whole point of this report.
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
+  const [showChart, setShowChart] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   const dateRangeError = dateFrom && dateTo && dateTo < dateFrom
@@ -106,6 +109,19 @@ export default function PaymentCollectionReport({ onBack, category, categoryKey 
     return () => clearTimeout(t);
   }, [search]);
 
+  // Shared with the Graph page below — same filter set the table/stats use,
+  // minus pagination.
+  const buildFilterBody = useCallback((): Record<string, any> => {
+    const body: Record<string, any> = { start_date: dateFrom, end_date: dateTo };
+    if (staffFilterIds.length > 0) body.staff_ids = staffFilterIds;
+    // Both statuses selected is the same as no status filter — sending
+    // neither keeps the backend's WHERE clause off entirely.
+    if (statusFilter.length === 1) body.payment_statuses = statusFilter;
+    if (methodFilter.length > 0) body.payment_methods = methodFilter;
+    if (debouncedSearch) body.search = debouncedSearch;
+    return body;
+  }, [dateFrom, dateTo, staffFilterIds, statusFilter, methodFilter, debouncedSearch]);
+
   const fetchData = useCallback(async () => {
     if (dateRangeError) return;
     abortRef.current?.abort();
@@ -113,16 +129,7 @@ export default function PaymentCollectionReport({ onBack, category, categoryKey 
     abortRef.current = ctrl;
     setLoading(true);
     try {
-      const body: Record<string, any> = {
-        start_date: dateFrom, end_date: dateTo,
-        page: currentPage, limit: pageSize,
-      };
-      if (staffFilterIds.length > 0) body.staff_ids = staffFilterIds;
-      // Both statuses selected is the same as no status filter — sending
-      // neither keeps the backend's WHERE clause off entirely.
-      if (statusFilter.length === 1) body.payment_statuses = statusFilter;
-      if (methodFilter.length > 0) body.payment_methods = methodFilter;
-      if (debouncedSearch) body.search = debouncedSearch;
+      const body = { ...buildFilterBody(), page: currentPage, limit: pageSize };
       const res = await api.post(PAYMENT_COLLECTION_REPORT.SUMMARY(), body, { signal: ctrl.signal });
       const data = res.data?.data;
       const raw: any[] = Array.isArray(data?.rows) ? data.rows : [];
@@ -161,7 +168,7 @@ export default function PaymentCollectionReport({ onBack, category, categoryKey 
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [dateFrom, dateTo, staffFilterIds, statusFilter, methodFilter, debouncedSearch, currentPage, pageSize]);
+  }, [buildFilterBody, currentPage, pageSize, dateRangeError]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, staffFilterIds, statusFilter, methodFilter, debouncedSearch]);
@@ -217,10 +224,12 @@ export default function PaymentCollectionReport({ onBack, category, categoryKey 
         <div className="rp-detail-back-row">
           <Breadcrumb current={REPORT_NAME} category={category} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
+            <ReportViewToggle view={showChart ? "chart" : "table"} onChange={(v) => setShowChart(v === "chart")} />
             <ReportExportButton
               title={REPORT_NAME}
               headers={HEADERS}
               rows={exportRows}
+              reportId="payment_collection"
               filename={`payment-collection-${dateFrom}-${dateTo}`}
               variant="button"
               csv
@@ -263,6 +272,10 @@ export default function PaymentCollectionReport({ onBack, category, categoryKey 
         </div>
       )}
 
+      {showChart ? (
+        <PaymentCollectionChartContent dateFrom={dateFrom} dateTo={dateTo} buildFilterBody={buildFilterBody} />
+      ) : (
+      <>
       <div className="rp-detail-toolbar">
         <div className="rp-detail-search-wrap">
           <Search size={13} className="rp-detail-search-ic" />
@@ -314,6 +327,8 @@ export default function PaymentCollectionReport({ onBack, category, categoryKey 
 
       <Pagination currentPage={currentPage} pageSize={pageSize} totalItems={total}
         onPageChange={setCurrentPage} onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }} />
+      </>
+      )}
 
       {selectedAppointmentId && (
         <AppointmentDetailModal

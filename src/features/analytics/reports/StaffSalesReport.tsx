@@ -18,6 +18,8 @@ import { useCurrency } from "../../../hooks/useCurrency";
 import { formatPaymentMode } from "../../../utils/paymentMode";
 import SaleDetailModal from "./SaleDetailModal";
 import { maskMobile } from "../../../utils/maskMobile";
+import StaffSalesChartContent from "./StaffSalesChartContent";
+import ReportViewToggle from "./ReportViewToggle";
 import "./StaffSalesReport.scss";
 
 const REPORT_NAME = "Staff Sales";
@@ -109,6 +111,12 @@ export default function StaffSalesReport({ onBack, category, categoryKey }: { on
   const [itemTypeFilter,      setItemTypeFilter]      = useState<string[]>([]);
   const [paymentStatusFilter, setPaymentStatusFilter] = useState<string[]>([]);
   const [sortFilter, setSortFilter] = useState("None");
+  // GST toggle under Filter -> Other, same pattern as Staff Performance
+  // Report — on by default (revenue shown gross of GST); a single-element
+  // array ("1"/"0") is reused here so it still fits JiraFilterMenu's
+  // per-field string[] draft/Apply/Clear lifecycle.
+  const [gstFilter, setGstFilter] = useState<string[]>(["1"]);
+  const includeGst = gstFilter[0] !== "0";
   const [paymentModeOptions, setPaymentModeOptions] = useState<{ id: string; label: string }[]>([]);
   const [loading,        setLoading]        = useState(false);
   const [rows,           setRows]           = useState<StaffSaleRow[]>([]);
@@ -121,6 +129,7 @@ export default function StaffSalesReport({ onBack, category, categoryKey }: { on
   const [pageSize,       setPageSize]       = useState(10);
   const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
   const [selectedStaffName, setSelectedStaffName] = useState<string | null>(null);
+  const [showChart, setShowChart] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -138,22 +147,27 @@ export default function StaffSalesReport({ onBack, category, categoryKey }: { on
     return () => clearTimeout(t);
   }, [search]);
 
+  // Shared with the Graph page below — same filter set the table/stats use,
+  // minus pagination.
+  const buildFilterBody = useCallback((): Record<string, any> => {
+    const body: Record<string, any> = { start_date: dateFrom, end_date: dateTo };
+    if (staffFilterIds.length > 0) body.staff_ids = staffFilterIds;
+    if (debouncedSearch) body.search = debouncedSearch;
+    if (paymentModeFilter.length > 0) body.payment_modes = paymentModeFilter;
+    if (itemTypeFilter.length > 0) body.item_types = itemTypeFilter;
+    if (paymentStatusFilter.length > 0) body.payment_statuses = paymentStatusFilter;
+    if (sortFilter !== "None") body.sort = sortFilter;
+    body.include_gst = includeGst;
+    return body;
+  }, [dateFrom, dateTo, staffFilterIds, debouncedSearch, paymentModeFilter, itemTypeFilter, paymentStatusFilter, sortFilter, includeGst]);
+
   const fetchData = useCallback(async () => {
     abortRef.current?.abort();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
     setLoading(true);
     try {
-      const body: Record<string, any> = {
-        start_date: dateFrom, end_date: dateTo,
-        page: currentPage, limit: pageSize,
-      };
-      if (staffFilterIds.length > 0) body.staff_ids = staffFilterIds;
-      if (debouncedSearch) body.search = debouncedSearch;
-      if (paymentModeFilter.length > 0) body.payment_modes = paymentModeFilter;
-      if (itemTypeFilter.length > 0) body.item_types = itemTypeFilter;
-      if (paymentStatusFilter.length > 0) body.payment_statuses = paymentStatusFilter;
-      if (sortFilter !== "None") body.sort = sortFilter;
+      const body = { ...buildFilterBody(), page: currentPage, limit: pageSize };
       const res = await api.post(STAFF_SALES_REPORT.SUMMARY(), body, { signal: ctrl.signal });
       const data = res.data?.data;
       const raw: any[] = Array.isArray(data?.rows) ? data.rows : [];
@@ -182,16 +196,34 @@ export default function StaffSalesReport({ onBack, category, categoryKey }: { on
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [dateFrom, dateTo, staffFilterIds, debouncedSearch, currentPage, pageSize, paymentModeFilter, itemTypeFilter, paymentStatusFilter, sortFilter]);
+  }, [buildFilterBody, currentPage, pageSize]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
-  useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, staffFilterIds, debouncedSearch, paymentModeFilter, itemTypeFilter, paymentStatusFilter, sortFilter]);
+  useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, staffFilterIds, debouncedSearch, paymentModeFilter, itemTypeFilter, paymentStatusFilter, sortFilter, includeGst]);
 
   const filterFields: JiraFilterField[] = useMemo(() => [
     { key: "staff", label: "Staff Member", options: staffOptions, searchable: true },
     { key: "payment_mode", label: "Payment Mode", options: paymentModeOptions },
     { key: "item_type", label: "Item Type", options: ITEM_TYPE_OPTIONS },
     { key: "payment_status", label: "Payment Status", options: PAYMENT_STATUS_OPTIONS },
+    {
+      key: "other",
+      label: "Other",
+      options: [],
+      render: (draft, setDraft) => {
+        const checked = draft[0] !== "0";
+        return (
+          <label className="jfm-option">
+            <input
+              type="checkbox"
+              checked={checked}
+              onChange={() => setDraft([checked ? "0" : "1"])}
+            />
+            <span>Include GST in revenue</span>
+          </label>
+        );
+      },
+    },
   ], [staffOptions, paymentModeOptions]);
 
   const filterMenuSelected = useMemo(() => ({
@@ -199,13 +231,21 @@ export default function StaffSalesReport({ onBack, category, categoryKey }: { on
     payment_mode: paymentModeFilter,
     item_type: itemTypeFilter,
     payment_status: paymentStatusFilter,
-  }), [staffFilterIds, paymentModeFilter, itemTypeFilter, paymentStatusFilter]);
+    // Only surfaced when GST is switched OFF (non-default) — otherwise the
+    // Filters button's applied-count badge would permanently read "1" even
+    // with no real filter active, since this field's draft is never empty.
+    other: includeGst ? [] : gstFilter,
+  }), [staffFilterIds, paymentModeFilter, itemTypeFilter, paymentStatusFilter, includeGst, gstFilter]);
 
   const handleFiltersApply = (next: Record<string, string[]>) => {
     setStaffFilterIds(next.staff ?? []);
     setPaymentModeFilter(next.payment_mode ?? []);
     setItemTypeFilter(next.item_type ?? []);
     setPaymentStatusFilter(next.payment_status ?? []);
+    // "Other" (GST) isn't a multi-select list — an empty/missing draft here
+    // means "cleared", which for a single on/off toggle should fall back to
+    // the default (GST included), not read as "0 selected -> false".
+    setGstFilter(next.other && next.other.length > 0 ? next.other : ["1"]);
   };
 
   const HEADERS = ["Staff Name", "Contact", "Item Type", "Description", `Total Sales (${currencySymbol})`, `Paid (${currencySymbol})`, `Due Amount (${currencySymbol})`, `Commission (${currencySymbol})`, "Payment Mode", "Status", "Date"];
@@ -217,7 +257,8 @@ export default function StaffSalesReport({ onBack, category, categoryKey }: { on
         <div className="rp-detail-back-row">
           <Breadcrumb current={REPORT_NAME} category={category} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
-            <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename={`staff-sales-${dateFrom}-${dateTo}`} variant="button" csv />
+            <ReportViewToggle view={showChart ? "chart" : "table"} onChange={(v) => setShowChart(v === "chart")} />
+            <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename={`staff-sales-${dateFrom}-${dateTo}`} variant="button" csv reportId="staff_sales" />
           </div>
         </div>
       </div>
@@ -236,10 +277,9 @@ export default function StaffSalesReport({ onBack, category, categoryKey }: { on
         </div>
       </div>
 
-      {loading ? <SkeletonStatCards count={4} /> : (
+      {loading ? <SkeletonStatCards count={3} /> : (
         <div className="rp-sra-summary-row">
           {[
-            { label: "Total Sales",      value: formatAmount(stats.totalSale) },
             { label: "Total Paid",       value: formatAmount(stats.totalPaid) },
             { label: "Total Due",        value: formatAmount(stats.totalDue) },
             { label: "Total Commission", value: formatAmount(stats.totalCommission) },
@@ -268,6 +308,10 @@ export default function StaffSalesReport({ onBack, category, categoryKey }: { on
         </div>
       )}
 
+      {showChart ? (
+        <StaffSalesChartContent dateFrom={dateFrom} dateTo={dateTo} buildFilterBody={buildFilterBody} />
+      ) : (
+      <>
       <div className="rp-detail-toolbar">
         <div className="rp-detail-search-wrap">
           <Search size={13} className="rp-detail-search-ic" />
@@ -324,6 +368,8 @@ export default function StaffSalesReport({ onBack, category, categoryKey }: { on
       </div>
       <Pagination currentPage={currentPage} pageSize={pageSize} totalItems={total}
         onPageChange={setCurrentPage} onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }} />
+      </>
+      )}
 
       {selectedSaleId && (
         <SaleDetailModal

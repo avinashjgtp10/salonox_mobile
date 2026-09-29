@@ -140,7 +140,7 @@ const handleResend = async () => {
             className={`fp-input${error ? " fp-input--error" : ""}`}
             placeholder="name@example.com"
             value={email}
-            onChange={e => { setEmail(e.target.value); setLocalError(""); dispatch(clearError()); }}
+            onChange={e => { setEmail(e.target.value.toLowerCase()); setLocalError(""); dispatch(clearError()); }}
             onKeyDown={e => e.key === "Enter" && handleNext()}
             autoFocus
           />
@@ -275,7 +275,7 @@ const handleResend = async () => {
 
       <div className="fp-inner">
         <div className="fp-brand">
-          <img src={salonoxLogo} alt="SalonOX" className="fp-brand__logo" width="210" height="68" />
+          <img src={salonoxLogo} alt="SalonoX" className="fp-brand__logo" width="210" height="68" />
         </div>
 
         <div className="fp-step-content" key={step}>

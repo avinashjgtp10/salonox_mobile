@@ -34,7 +34,6 @@ interface UnitConversionDraft {
   conversion_to_base: string;
 }
 
-const MIN_SEARCH_LENGTH = 2;
 const MAX_NAME_LENGTH = 100;
 
 const PRODUCT_TYPE_OPTIONS: { value: ProductType; label: string }[] = [
@@ -93,12 +92,28 @@ const ProductFormPage: React.FC = () => {
   const [unitConversions, setUnitConversions] = useState<UnitConversionDraft[]>([]);
 
   // ── Service assignment (consumable/both only) ───────────────────────────
+  // A real dropdown again (opens on focus, closes on outside click) — just
+  // with a checkbox per row instead of a single click both picking AND
+  // closing it, so more than one service can be checked in one open/close
+  // cycle. The whole catalog is fetched once (not paged/debounced per
+  // keystroke); serviceSearch only filters which rows are visible while open.
   const [assignedServices, setAssignedServices] = useState<AssignedServiceDraft[]>([]);
   const [originalAssignedIds, setOriginalAssignedIds] = useState<Set<string>>(new Set());
+  const [allServices, setAllServices] = useState<{ id: string; name: string }[]>([]);
   const [serviceSearch, setServiceSearch] = useState("");
-  const [serviceResults, setServiceResults] = useState<{ id: string; name: string }[]>([]);
   const [showServiceDrop, setShowServiceDrop] = useState(false);
-  const serviceDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const serviceDropRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!showServiceDrop) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (serviceDropRef.current && !serviceDropRef.current.contains(e.target as Node)) {
+        setShowServiceDrop(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showServiceDrop]);
 
   // ── Supply info ──────────────────────────────────────────────────────────
   const [supplyPrice, setSupplyPrice] = useState("");
@@ -191,28 +206,38 @@ const ProductFormPage: React.FC = () => {
     })();
   }, [isEdit, id]);
 
-  // ── Service search ──────────────────────────────────────────────────────
-  function handleServiceSearch(term: string) {
-    setServiceSearch(term);
-    setShowServiceDrop(true);
-    if (serviceDebounceRef.current) clearTimeout(serviceDebounceRef.current);
-    if (term.trim().length < MIN_SEARCH_LENGTH) { setServiceResults([]); return; }
-    serviceDebounceRef.current = setTimeout(async () => {
+  // ── Service assignment ───────────────────────────────────────────────────
+  // Fetched once (not re-queried per keystroke) so every active service has
+  // a checkbox to show/hide via serviceSearch's client-side filter below.
+  useEffect(() => {
+    if (!isConsumable || allServices.length > 0) return;
+    (async () => {
       try {
-        const res = await api.get(SERVICES.LIST(`search=${encodeURIComponent(term.trim())}&is_active=true&limit=20`));
+        const res = await api.get(SERVICES.LIST(`is_active=true&limit=500`));
         const raw = res.data?.data?.data ?? res.data?.data ?? [];
-        setServiceResults(Array.isArray(raw) ? raw.map((s: any) => ({ id: String(s.id), name: s.name })) : []);
+        setAllServices(Array.isArray(raw) ? raw.map((s: any) => ({ id: String(s.id), name: s.name })) : []);
       } catch {
-        setServiceResults([]);
+        setAllServices([]);
       }
-    }, 300);
-  }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isConsumable]);
 
-  function assignService(service: { id: string; name: string }) {
-    if (assignedServices.some((a) => a.service_id === service.id)) { setServiceSearch(""); setShowServiceDrop(false); return; }
-    setAssignedServices((prev) => [...prev, { service_id: service.id, name: service.name, qty: unitSize || "1", unit }]);
-    setServiceSearch("");
-    setShowServiceDrop(false);
+  const visibleServices = useMemo(() => {
+    const q = serviceSearch.trim().toLowerCase();
+    return q.length === 0
+      ? allServices
+      : allServices.filter((s) => s.name.toLowerCase().includes(q));
+  }, [serviceSearch, allServices]);
+
+  // Checking assigns at qty 0, always — never a pre-filled guess (this used
+  // to default to the product's own unit size, e.g. a 1000ml bottle's whole
+  // size, which read as a real recorded usage amount nobody had actually
+  // entered). Unchecking removes it, same as removeAssignedService below.
+  function toggleService(service: { id: string; name: string }, checked: boolean) {
+    if (!checked) { removeAssignedService(service.id); return; }
+    if (assignedServices.some((a) => a.service_id === service.id)) return;
+    setAssignedServices((prev) => [...prev, { service_id: service.id, name: service.name, qty: "0", unit }]);
   }
 
   async function handleAddCategory(name: string) {
@@ -668,19 +693,38 @@ const ProductFormPage: React.FC = () => {
           <section className="cf-card">
             <h3>Service Assignment</h3>
             <p className="cf-hint">Assign this product to the services that consume it, with how much each one uses.</p>
-            <div className="cf-service-search">
+            <div className="cf-service-search" ref={serviceDropRef}>
               <input
                 placeholder="Search a service to assign…"
                 value={serviceSearch}
-                onChange={(e) => handleServiceSearch(e.target.value)}
                 onFocus={() => setShowServiceDrop(true)}
-                onBlur={() => setTimeout(() => setShowServiceDrop(false), 180)}
+                onChange={(e) => { setServiceSearch(e.target.value); setShowServiceDrop(true); }}
               />
-              {showServiceDrop && serviceResults.length > 0 && (
-                <div className="cf-service-drop">
-                  {serviceResults.map((s) => (
-                    <div key={s.id} className="cf-service-drop__item" onMouseDown={() => assignService(s)}>{s.name}</div>
-                  ))}
+              {showServiceDrop && (
+                <div className="cf-service-drop cf-service-drop--checklist">
+                  {visibleServices.length === 0 ? (
+                    <div className="cf-service-drop__item cf-service-drop__item--empty">
+                      {allServices.length === 0 ? "No services found" : `No services match "${serviceSearch}"`}
+                    </div>
+                  ) : (
+                    visibleServices.map((s) => {
+                      const checked = assignedServices.some((a) => a.service_id === s.id);
+                      return (
+                        // A checkbox row, not a click-to-pick row — checking
+                        // one keeps the dropdown open so several can be
+                        // ticked before closing it (click outside, or the
+                        // search input's own blur).
+                        <label key={s.id} className="cf-service-drop__item cf-service-drop__item--check">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(e) => toggleService(s, e.target.checked)}
+                          />
+                          {s.name}
+                        </label>
+                      );
+                    })
+                  )}
                 </div>
               )}
             </div>
@@ -692,6 +736,7 @@ const ProductFormPage: React.FC = () => {
                     <input
                       type="number" min={0} className="cf-assigned-row__qty"
                       value={a.qty}
+                      placeholder="0"
                       onChange={(e) => updateAssignedServiceQty(a.service_id, e.target.value)}
                     />
                     <span className="cf-assigned-row__unit">{unit}</span>

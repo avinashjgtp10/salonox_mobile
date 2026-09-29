@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate, useLocation } from "react-router-dom";
+import { Dropdown } from "react-bootstrap";
 import {
   Search,
   Shop,
@@ -10,11 +11,20 @@ import {
   PlusLg,
   CashCoin,
   X,
+  FileEarmarkPdf,
+  FileEarmarkExcel,
+  FiletypeCsv,
 } from "react-bootstrap-icons";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
-import { fetchSuppliersThunk, fetchSupplierLocationsThunk, deleteSupplierThunk } from "../../../middleware/inventory/inventory.thunk";
-import type { Supplier, SupplierWithBalance, SupplierPaymentStatus } from "../../../types/inventory.types";
+import { fetchSuppliersThunk, fetchSupplierFilterOptionsThunk, deleteSupplierThunk } from "../../../middleware/inventory/inventory.thunk";
+import type { Supplier, SupplierWithBalance } from "../../../types/inventory.types";
 import { useCurrency } from "../../../hooks/useCurrency";
+import api from "../../../services/api/axios";
+import { INVENTORY } from "../../../services/api/endpoints/inventory.endpoints";
+import { downloadBlob } from "../../../utils/downloadBlob";
+import { exportSuppliersPDF, exportSuppliersCSV, exportSuppliersExcel } from "../utils/supplierExport";
+import { usePermissions } from "../../../hooks/usePermissions";
+import { showPermissionDenied } from "../../../store/permissionDialogSlice";
 import LearnMoreLink from "../../../components/shared/LearnMoreLink";
 import Pagination from "../../../components/ui/Pagination";
 import { JiraFilterMenu } from "../../../components/ui";
@@ -26,27 +36,19 @@ import Input from "../../../components/ui/Input";
 import EmptyState from "../../../components/ui/EmptyState";
 import CreatePayoutModal from "../components/CreatePayoutModal";
 import SupplierPendingDetailsModal from "../components/SupplierPendingDetailsModal";
+import SupplierDetailPage from "./SupplierDetailPage";
 import "../styles/SuppliersListPage.scss";
-
-const fmtDate = (value?: string | null) => {
-  if (!value) return "—";
-  const d = new Date(value);
-  if (isNaN(d.getTime())) return "—";
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()}`;
-};
-
-const STATUS_LABEL: Record<SupplierPaymentStatus, string> = {
-  paid: "Paid",
-  due: "Due",
-  overdue: "Overdue",
-};
 
 interface RowActionItem {
   label: string;
   icon: React.ReactNode;
   onClick: () => void;
   danger?: boolean;
+  // Visual only — never hidden, just dimmed. onClick still always fires;
+  // each handler (goToEditSupplier/openPayout/delete trigger) decides for
+  // itself whether to proceed or show the permission-denied popup, same
+  // convention as everywhere else this session.
+  disabled?: boolean;
 }
 
 // "⋮" row-actions menu — portaled and hand-positioned rather than
@@ -113,6 +115,7 @@ const SupplierRowActionsMenu: React.FC<{ items: RowActionItem[] }> = ({ items })
               type="button"
               key={i}
               className={`supplier-row-actions-menu__item${item.danger ? " supplier-row-actions-menu__item--danger" : ""}`}
+              style={item.disabled ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
               onClick={() => { item.onClick(); setOpen(false); }}
             >
               {item.icon} {item.label}
@@ -132,14 +135,25 @@ interface FilterState {
 
 const DEFAULT_FILTERS: FilterState = { city: "", state: "" };
 
+// Same friendly copy PermissionGuard and the interceptor-driven global popup
+// already use for a backend 403. Export is built entirely client-side (no
+// backend call to deny), so this is the only enforcement point
+// export_pdf/export_csv/export_excel have; Add/Edit/Payout below also use
+// it for the popup shown before the (real, backend-enforced) navigation/
+// action is even attempted.
+const friendlyPermissionDenied = (permKey: string) =>
+  `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`;
+
 const SuppliersListPage: React.FC = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
+  const { can } = usePermissions();
   const location = useLocation();
   const { formatAmount } = useCurrency();
   const {
-    suppliers, suppliersTotal, supplierCities, supplierStates, loading,
+    suppliers, suppliersTotal, supplierCities, supplierStates, supplierFilterOptionsLoaded, suppliersStale, loading,
   } = useAppSelector((state) => state.inventory);
+  const currentSalonId = useAppSelector((state) => state.salon?.currentSalon?.id);
 
   const [search, setSearch] = useState("");
   // The input stays controlled by `search` for instant typing feedback, but
@@ -156,6 +170,11 @@ const SuppliersListPage: React.FC = () => {
   // supplier picker (top-level "Create Payout" entry point).
   const [payoutSupplierId, setPayoutSupplierId] = useState<string | undefined>(undefined);
   const [payoutOpen, setPayoutOpen] = useState(false);
+
+  // Row click opens the Supplier Detail popup in place instead of
+  // navigating away — same popup pattern used for Receiving and Product
+  // Inventory's detail drawer.
+  const [detailSupplierId, setDetailSupplierId] = useState<string | null>(null);
 
   // Delete modal state
   const [deletingSupplier, setDeletingSupplier] = useState<Supplier | null>(null);
@@ -189,17 +208,28 @@ const SuppliersListPage: React.FC = () => {
   const isMountedRef = useRef(false);
 
   // Initial fetch on mount — skipped when the store already has data from a
-  // previous visit AND this mount wasn't triggered by a successful Add/Edit
-  // save. AddSupplierPage navigates back with location.state.refresh only
-  // after a save; a plain Close navigates back with no state at all, so
-  // returning from Close reuses what's already in the store instead of
-  // calling the API again.
+  // previous visit AND nothing has happened since that would make that data
+  // wrong. That's either a successful Add/Edit save (AddSupplierPage
+  // navigates back with location.state.refresh only after a save; a plain
+  // Close carries no state) or `suppliersStale`, set in inventorySlice
+  // whenever an order/payout action elsewhere moves a supplier's due_amount
+  // — those don't go through AddSupplierPage at all, so the refresh flag
+  // alone can't catch them.
   useEffect(() => {
     const justSaved = (location.state as { refresh?: boolean } | null)?.refresh;
-    if (suppliers.length === 0 || justSaved) {
+    if (suppliers.length === 0 || justSaved || suppliersStale) {
       dispatch(fetchSuppliersThunk({ page: 1, page_limit: pageSize }));
     }
-    dispatch(fetchSupplierLocationsThunk());
+    // Same "don't refetch what's already loaded" reasoning as the list
+    // above — this was previously unconditional, so even a plain Close
+    // (no data change at all) still re-hit the locations endpoint on every
+    // return to this page. Gated on a dedicated "loaded" flag rather than
+    // array length, since a salon with no supplier city/state data gets
+    // back empty arrays every time — length alone can't tell that apart
+    // from "never fetched".
+    if (!supplierFilterOptionsLoaded) {
+      dispatch(fetchSupplierFilterOptionsThunk());
+    }
     const t = setTimeout(() => { isMountedRef.current = true; }, 0);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -243,10 +273,19 @@ const SuppliersListPage: React.FC = () => {
 
   const handleClearSearch = () => setSearch("");
 
-  const goToAddSupplier = () => navigate("/dashboard/inventory/suppliers/new");
-  const goToEditSupplier = (id: string) => navigate(`/dashboard/inventory/suppliers/${id}/edit`);
+  const denyPerm = (permKey: string) => dispatch(showPermissionDenied(friendlyPermissionDenied(permKey)));
+
+  const goToAddSupplier = () => {
+    if (!can("create_suppliers")) { denyPerm("create_suppliers"); return; }
+    navigate("/dashboard/inventory/suppliers/new");
+  };
+  const goToEditSupplier = (id: string) => {
+    if (!can("edit_suppliers")) { denyPerm("edit_suppliers"); return; }
+    navigate(`/dashboard/inventory/suppliers/${id}/edit`);
+  };
 
   const openPayout = (supplierId?: string) => {
+    if (!can("supplier_payout")) { denyPerm("supplier_payout"); return; }
     setPayoutSupplierId(supplierId);
     setPayoutOpen(true);
   };
@@ -255,6 +294,55 @@ const SuppliersListPage: React.FC = () => {
     setPayoutOpen(false);
     setPayoutSupplierId(undefined);
   };
+
+  const [isExporting, setIsExporting] = useState(false);
+
+  // Pulls every supplier matching the current search/filters, not just the
+  // page currently on screen — same page-looping approach as
+  // ProductsListPage's export, since SUPPLIERS_LIST is server-paginated.
+  const fetchAllSuppliersForExport = useCallback(async (): Promise<SupplierWithBalance[]> => {
+    const all: SupplierWithBalance[] = [];
+    let page = 1;
+    const page_limit = 100;
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const res = await api.post(INVENTORY.SUPPLIERS_LIST, {
+        salon_id: currentSalonId,
+        page,
+        page_limit,
+        search: debouncedSearch || undefined,
+        city: appliedFilters.city || undefined,
+        state: appliedFilters.state || undefined,
+      });
+      const chunk: SupplierWithBalance[] = res.data?.data?.data ?? [];
+      all.push(...chunk);
+      if (chunk.length < page_limit) break;
+      page += 1;
+    }
+    return all;
+  }, [currentSalonId, debouncedSearch, appliedFilters]);
+
+  const handleExport = useCallback(async (format: "pdf" | "csv" | "excel") => {
+    const permKey = format === "pdf" ? "export_pdf" : format === "csv" ? "export_csv" : "export_excel";
+    if (!can(permKey)) { dispatch(showPermissionDenied(friendlyPermissionDenied(permKey))); return; }
+    setIsExporting(true);
+    try {
+      const all = await fetchAllSuppliersForExport();
+      if (format === "pdf") {
+        downloadBlob(exportSuppliersPDF(all, formatAmount), "suppliers.pdf", "application/pdf");
+      } else if (format === "csv") {
+        downloadBlob(exportSuppliersCSV(all, formatAmount), "suppliers.csv", "text/csv;charset=utf-8;");
+      } else {
+        const blob = await exportSuppliersExcel(all, formatAmount);
+        downloadBlob(blob, "suppliers.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      }
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error(`Supplier ${format.toUpperCase()} export failed:`, err);
+    } finally {
+      setIsExporting(false);
+    }
+  }, [can, dispatch, fetchAllSuppliersForExport, formatAmount]);
 
   return (
     <div className="suppliers-list-page">
@@ -269,10 +357,48 @@ const SuppliersListPage: React.FC = () => {
           </p>
         </div>
         <div className="d-flex gap-2">
-          <Button variant="outline-dark" iconLeft={<CashCoin size={14} />} onClick={() => openPayout()}>
+          <Dropdown>
+            <Dropdown.Toggle
+              variant="outline-secondary"
+              className="btn-options bg-white border-subtle d-flex align-items-center fw-medium"
+              id="suppliers-options-dropdown"
+              disabled={isExporting}
+            >
+              Options
+            </Dropdown.Toggle>
+            <Dropdown.Menu
+              align="end"
+              className="shadow-sm border-0 rounded-3 py-2"
+              style={{ minWidth: "220px" }}
+            >
+              <Dropdown.Header className="px-3 py-1 text-muted fw-bold" style={{ fontSize: "12px", textTransform: "uppercase" }}>
+                Export
+              </Dropdown.Header>
+              <Dropdown.Item onClick={() => handleExport("pdf")} disabled={isExporting} className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark">
+                <FileEarmarkPdf size={16} /> Export All Data as PDF
+              </Dropdown.Item>
+              <Dropdown.Item onClick={() => handleExport("excel")} disabled={isExporting} className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark">
+                <FileEarmarkExcel size={16} /> Export All Data as Excel
+              </Dropdown.Item>
+              <Dropdown.Item onClick={() => handleExport("csv")} disabled={isExporting} className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark">
+                <FiletypeCsv size={16} /> Export All Data as CSV
+              </Dropdown.Item>
+            </Dropdown.Menu>
+          </Dropdown>
+          <Button
+            variant="outline-dark"
+            iconLeft={<CashCoin size={14} />}
+            onClick={() => openPayout()}
+            style={can("supplier_payout") ? undefined : { opacity: 0.5, cursor: "not-allowed" }}
+          >
             Create Payout
           </Button>
-          <Button variant="dark" iconLeft={<PlusLg size={14} />} onClick={goToAddSupplier}>
+          <Button
+            variant="dark"
+            iconLeft={<PlusLg size={14} />}
+            onClick={goToAddSupplier}
+            style={can("create_suppliers") ? undefined : { opacity: 0.5, cursor: "not-allowed" }}
+          >
             Add
           </Button>
         </div>
@@ -310,12 +436,10 @@ const SuppliersListPage: React.FC = () => {
           <table className="supplier-table">
             <thead>
               <tr>
-                <th>Supplier name</th>
-                <th>Phone</th>
-                <th>Total Amount</th>
-                <th>Pending Orders</th>
-                <th>Due Amount</th>
-                <th>Due Date</th>
+                <th>Supplier</th>
+                <th>Contact</th>
+                <th>Open Orders</th>
+                <th>Outstanding</th>
                 <th>Status</th>
                 <th className="actions-cell" style={{ width: "56px" }} />
               </tr>
@@ -330,9 +454,7 @@ const SuppliersListPage: React.FC = () => {
                     </div>
                   </td>
                   <td><Skeleton width="40%" height={12} /></td>
-                  <td><Skeleton width="50%" height={12} /></td>
                   <td><Skeleton width="30%" height={12} /></td>
-                  <td><Skeleton width="50%" height={12} /></td>
                   <td><Skeleton width="50%" height={12} /></td>
                   <td><Skeleton width="40%" height={12} /></td>
                   <td className="actions-cell" />
@@ -344,12 +466,10 @@ const SuppliersListPage: React.FC = () => {
           <table className="supplier-table">
             <thead>
               <tr>
-                <th>Supplier name</th>
-                <th>Phone</th>
-                <th>Total Amount</th>
-                <th>Pending Orders</th>
-                <th>Due Amount</th>
-                <th>Due Date</th>
+                <th>Supplier</th>
+                <th>Contact</th>
+                <th>Open Orders</th>
+                <th>Outstanding</th>
                 <th>Status</th>
                 <th className="actions-cell" style={{ width: "56px" }} />
               </tr>
@@ -357,25 +477,20 @@ const SuppliersListPage: React.FC = () => {
             <tbody>
               {suppliers.map((s) => {
                 const sb = s as SupplierWithBalance;
-                const status: SupplierPaymentStatus = sb.status ?? "paid";
                 return (
                 <tr
                   key={s.id}
                   style={{ cursor: "pointer" }}
-                  onClick={() => navigate(`/dashboard/inventory/suppliers/${s.id}`)}
+                  onClick={() => setDetailSupplierId(s.id)}
                 >
                   <td className="supplier-name-cell">
                     <div className="supplier-icon"><Shop size={18} /></div>
                     <div className="name-info">
                       <span className="name">{s.name}</span>
-                      {(s.first_name || s.last_name) && (
-                        <span className="contact">{[s.first_name, s.last_name].filter(Boolean).join(" ")}</span>
-                      )}
                     </div>
                   </td>
-                  <td>{s.mobile_number || s.telephone_number || "—"}</td>
-                  <td>{formatAmount(sb.total_purchase_amount ?? 0)}</td>
-                  <td>{sb.pending_order_count ?? 0}</td>
+                  <td>{s.contact_person || [s.first_name, s.last_name].filter(Boolean).join(" ") || s.mobile_number || s.telephone_number || "—"}</td>
+                  <td>{sb.open_order_count ?? 0}</td>
                   <td>
                     <button
                       type="button"
@@ -385,22 +500,25 @@ const SuppliersListPage: React.FC = () => {
                       {formatAmount(sb.due_amount ?? 0)}
                     </button>
                   </td>
-                  <td>{fmtDate(sb.due_date)}</td>
                   <td>
-                    <span className={`supplier-status-badge supplier-status-badge--${status}`}>
-                      {STATUS_LABEL[status]}
+                    <span className={`supplier-status-badge supplier-status-badge--${s.is_active ? "paid" : "overdue"}`}>
+                      {s.is_active ? "Active" : "Inactive"}
                     </span>
                   </td>
                   <td className="actions-cell" onClick={(e) => e.stopPropagation()}>
                     <SupplierRowActionsMenu
                       items={[
-                        { label: "Edit", icon: <PencilSquare size={14} />, onClick: () => goToEditSupplier(s.id) },
-                        { label: "Payout", icon: <CashCoin size={14} />, onClick: () => openPayout(s.id) },
+                        { label: "Edit", icon: <PencilSquare size={14} />, onClick: () => goToEditSupplier(s.id), disabled: !can("edit_suppliers") },
+                        { label: "Payout", icon: <CashCoin size={14} />, onClick: () => openPayout(s.id), disabled: !can("supplier_payout") },
                         {
                           label: "Delete",
                           icon: <Trash size={14} />,
-                          onClick: () => { setDeletingSupplier(s); setDeleteInput(""); },
+                          onClick: () => {
+                            if (!can("delete_suppliers")) { denyPerm("delete_suppliers"); return; }
+                            setDeletingSupplier(s); setDeleteInput("");
+                          },
                           danger: true,
+                          disabled: !can("delete_suppliers"),
                         },
                       ]}
                     />
@@ -416,7 +534,13 @@ const SuppliersListPage: React.FC = () => {
             title="No suppliers yet"
             description="Click here to add a supplier now."
             action={
-              <Button variant="dark" size="sm" iconLeft={<PlusLg size={13} />} onClick={goToAddSupplier}>
+              <Button
+                variant="dark"
+                size="sm"
+                iconLeft={<PlusLg size={13} />}
+                onClick={goToAddSupplier}
+                style={can("create_suppliers") ? undefined : { opacity: 0.5, cursor: "not-allowed" }}
+              >
                 Add Supplier
               </Button>
             }
@@ -496,6 +620,10 @@ const SuppliersListPage: React.FC = () => {
         onClose={() => setPendingDetailsSupplierId(undefined)}
         supplierId={pendingDetailsSupplierId}
       />
+
+      {detailSupplierId && (
+        <SupplierDetailPage id={detailSupplierId} onClose={() => setDetailSupplierId(null)} />
+      )}
     </div>
   );
 };

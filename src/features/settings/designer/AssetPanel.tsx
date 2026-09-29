@@ -14,6 +14,7 @@ import {
   diya, crescentStar, starburst, sparkle, laurel, confetti, botanical,
 } from "./core/ornaments";
 import { makeBarcodeDataUri, makeQrDataUri, type BarcodeFormat } from "./core/codes";
+import { ConfirmDialog } from "../../../components/ui";
 
 /**
  * Left rail + swapping panel, in place of one long stacked sidebar.
@@ -93,13 +94,18 @@ const TemplatesPanel: React.FC<{
   state: EditorState; dispatch: React.Dispatch<EditorAction>;
   designName: string; onRename: (n: string) => void;
 }> = ({ state, dispatch, designName, onRename }) => {
+  const [pending, setPending] = useState<(typeof TEMPLATES)[number] | null>(null);
+
+  const load = (t: (typeof TEMPLATES)[number]) => {
+    dispatch({ type: "load", doc: t.build(state.doc.preset) });
+    if (designName === "Untitled design") onRename(t.label);
+  };
+
   const apply = (t: (typeof TEMPLATES)[number]) => {
     // Replacing the document is destructive, so it asks once there is
     // actually something to lose.
-    if (state.doc.elements.length > 0 &&
-        !window.confirm("Apply this template? It replaces everything on the canvas.")) return;
-    dispatch({ type: "load", doc: t.build(state.doc.preset) });
-    if (designName === "Untitled design") onRename(t.label);
+    if (state.doc.elements.length > 0) { setPending(t); return; }
+    load(t);
   };
 
   // Grouped, because a flat list of fifteen is a wall of near-identical rows.
@@ -122,6 +128,17 @@ const TemplatesPanel: React.FC<{
           </React.Fragment>
         );
       })}
+
+      {pending && (
+        <ConfirmDialog
+          title="Apply this template?"
+          message="It replaces everything on the canvas."
+          confirmLabel="Apply"
+          danger={false}
+          onConfirm={() => { load(pending); setPending(null); }}
+          onCancel={() => setPending(null)}
+        />
+      )}
     </div>
   );
 };

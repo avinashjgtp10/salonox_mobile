@@ -8,7 +8,7 @@ import "../styles/VariableChips.scss";
 // imported) only for the token list; the human "meaning" strings stay in
 // the WhatsApp info panel, which every channel already sits beside.
 export const EVENT_VARIABLE_TOKENS: Record<PurchaseEventType, string[]> = {
-  client_welcome: ["customer_name", "salon_name"],
+  client_welcome: ["customer_name", "salon_name", "referral_code"],
   package_purchased: ["customer_name", "package_name", "services", "total_sessions", "expiry_date", "package_value", "invoice_number"],
   membership_purchased: ["customer_name", "membership_name", "benefit", "start_date", "expiry_date", "membership_price", "invoice_number"],
   bill_receipt: ["customer_name", "salon_name", "items", "feedback_line"],
@@ -29,6 +29,10 @@ export const EVENT_VARIABLE_TOKENS: Record<PurchaseEventType, string[]> = {
   ewallet_used: ["customer_name", "amount_used", "salon_name", "remaining_balance"],
   referral_credit_used: ["customer_name", "amount_used", "salon_name", "remaining_balance"],
   reward_points_used: ["customer_name", "points_used", "salon_name", "remaining_points"],
+  birthday_wishes: ["customer_name", "salon_name"],
+  anniversary_wishes: ["customer_name", "salon_name"],
+  cash_counter_opened: ["salon_name", "opening_date", "opening_time", "opening_amount"],
+  cash_counter_closed: ["salon_name", "closing_date", "closing_time", "collection_breakdown", "total_collection", "expenses", "in_store_cash"],
 };
 
 interface Props {

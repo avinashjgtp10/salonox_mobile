@@ -21,6 +21,11 @@ interface TotalsPanelProps {
   manualDiscount?: number; // bill-level "Bill Discount" only, excludes coupon
   couponDiscount?: number;
   couponCode?: string;
+  /** Why an applied coupon's server-side re-validation just failed on this
+   *  recalc (e.g. a min/max order-amount threshold, expiry, usage limit) —
+   *  couponDiscount silently drops to 0 in that case, so without this the
+   *  Coupon/Total Discount row just disappears with no explanation. */
+  couponWarning?: string | null;
   /** First-bill referral welcome discount (see referralDiscountPreview in
    * AppointmentModal.tsx) — already folded into grandTotal by the backend,
    * but wasn't broken out as its own line here, so the gap between Subtotal
@@ -81,7 +86,7 @@ interface TotalsPanelProps {
 const TotalsPanel: React.FC<TotalsPanelProps> = ({
   subtotal, displaySubtotal, catalogTotal, itemDiscountTotal = 0,
   serviceTotal, packageTotal, productTotal, membershipTotal,
-  exCharges, discount, discountType, manualDiscount, couponDiscount = 0, couponCode,
+  exCharges, discount, discountType, manualDiscount, couponDiscount = 0, couponCode, couponWarning,
   referralDiscount = 0, membershipDiscountUsed = 0,
   totalDiscount: totalDiscountProp,
   gstAmount = 0, taxBreakdown = [], tip = 0, tipBreakdown = [],
@@ -205,6 +210,11 @@ const TotalsPanel: React.FC<TotalsPanelProps> = ({
     <div className="card border rounded-3 shadow-sm" style={{ minWidth: 220 }}>
       <div className="card-body p-3">
         <div className="text-uppercase fw-bold text-muted mb-2" style={{ fontSize: 10, letterSpacing: "0.5px" }}>Summary</div>
+        {couponWarning && (
+          <div className="text-danger mb-2" style={{ fontSize: 11.5 }}>
+            Coupon not applied: {couponWarning}
+          </div>
+        )}
         {rows.map(({ label, value, color, bold }) => (
           <div key={label} className={`d-flex justify-content-between align-items-center py-1${bold ? " border-top mt-1 pt-2" : ""}`}>
             <span className={`${bold ? "fw-bold" : "text-secondary"}`} style={{ fontSize: bold ? 13 : 12 }}>{label}</span>

@@ -1,22 +1,17 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { Camera, Eye, EyeSlash } from "react-bootstrap-icons";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "../styles/AddStaffPage.scss";
 import api from "../../../services/api/axios";
 import { STAFF } from "../../../services/api/endpoints";
-import {
-  defaultPermissions,
-  PERM_CATEGORIES,
-  buildPermissions,
-  permsToRecord,
-  type Permission,
-} from "../../settings/data/permissionMatrix";
+import ResetPasswordSection from "../components/ResetPasswordSection";
 import CountryCodeSelect from "../../clients/components/CountryCodeSelect";
 import Dropdown from "../../../components/ui/Dropdown";
 import { useAppDispatch } from "../../../hooks/useAppRedux";
 import { sendEmailOtpThunk, verifyEmailOtpThunk } from "../../../middleware/auth/otpThunk";
+import { fetchRolesThunk, createRoleThunk, assignStaffRoleThunk } from "../../../middleware/roles/roles.thunk";
 import { toTitleCase } from "../../../utils/titleCase";
 
 // Three real choices only. There used to be a leading { value: "", label:
@@ -48,8 +43,14 @@ const DOB_PLACEHOLDER_YEAR = 2000;
 const AddStaffPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const dispatch = useAppDispatch();
   const isEdit = !!id && id !== "undefined" && id !== "add";
+  // Where to go after Save/Discard — defaults to the Team Members list, but
+  // callers like the Calendar's "no staff yet" empty state pass their own
+  // path so the user lands back where they started instead of a page they
+  // never visited.
+  const returnTo = (location.state as { returnTo?: string } | null)?.returnTo || "/dashboard/team/members";
 
   const today = new Date().toISOString().slice(0, 10);
 
@@ -60,7 +61,7 @@ const AddStaffPage: React.FC = () => {
   })();
 
   const [form, setForm] = useState({
-    name: "", email: "", dob: "", doj: today,
+    name: "", email: "", dob: "", doj: "",
     phone: "", phoneCountryCode: "+91",
     address: "", gender: "", designation: "",
     hourlyRate: "", fixedSalary: "", workingHoursPerDay: "", holidays: "",
@@ -69,15 +70,30 @@ const AddStaffPage: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [staffLoginEnabled, setStaffLoginEnabled] = useState(false);
+  // Whether this staff member ALREADY had a login (an email on file) when the
+  // page loaded — distinct from staffLoginEnabled, which also flips true the
+  // moment the admin turns the toggle on for a staff member who never had one.
+  // Without this split, a staff member saved earlier with no email (Staff
+  // Login left off) would show Reset Password instead of the initial
+  // Password/Confirm Password setup fields the instant the toggle was
+  // switched on during this edit — as if they already had a working login to
+  // reset, when they've never had one.
+  const [hadLoginOnLoad, setHadLoginOnLoad] = useState(false);
+  // Edit mode, staff member already had a login: shows a read-only "has a
+  // password" state with Reset Password beside it — handled entirely by the
+  // reusable ResetPasswordSection component (its own New/Confirm/OTP fields
+  // and Update Password API call), independent of this page's main Save.
+  const hasExistingLogin = isEdit && staffLoginEnabled && hadLoginOnLoad;
 
   const [avatarUrl, setAvatarUrl] = useState("");
   const [avatarPreview, setAvatarPreview] = useState("");
   const [avatarUploading, setAvatarUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Individual permission overrides are managed separately, post-creation,
+  // from Settings → Roles & Permissions — this form only sets the broad
+  // Staff/Manager role tier (below), never staff.custom_permissions directly.
   const [permissionLevel, setPermissionLevel] = useState("Low");
-  const [permissionsEnabled, setPermissionsEnabled] = useState(false);
-  const [perms, setPerms] = useState<Permission[]>(() => buildPermissions(defaultPermissions, null));
 
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -94,7 +110,13 @@ const AddStaffPage: React.FC = () => {
   const [emailOtpMsg, setEmailOtpMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [emailOtpError, setEmailOtpError] = useState<string | null>(null);
   const lastVerifiedEmailRef = useRef("");
-  const shouldShowEmailOtp = !isEdit && staffLoginEnabled;
+  // Editing an existing login's email now needs the same OTP flow Add-staff
+  // already has — only while the address has actually changed from the one
+  // this staff member's login was last verified against (lastVerifiedEmailRef,
+  // seeded from the loaded record below when it already has a working login).
+  // Leaving it untouched needs no re-verification; typing a different
+  // address does, same as Add.
+  const shouldShowEmailOtp = staffLoginEnabled && form.email.trim() !== lastVerifiedEmailRef.current;
   const emailVerifiedForCurrentAddress = emailOtpVerified && lastVerifiedEmailRef.current === form.email.trim();
   const isEmailVerificationInvalid = attemptedSubmit && shouldShowEmailOtp && !emailVerifiedForCurrentAddress;
 
@@ -130,7 +152,7 @@ const AddStaffPage: React.FC = () => {
           dob: staff.birthday_day && staff.birthday_month
             ? `${staff.birthday_year || DOB_PLACEHOLDER_YEAR}-${String(staff.birthday_month).padStart(2, "0")}-${String(staff.birthday_day).padStart(2, "0")}`
             : "",
-          doj: staff.joined_date ? String(staff.joined_date).slice(0, 10) : today,
+          doj: staff.joined_date ? String(staff.joined_date).slice(0, 10) : "",
           phone: staff.phone_number || staff.phone || "",
           phoneCountryCode: staff.phone_country_code || "+91",
           address: staff.address || "",
@@ -139,15 +161,22 @@ const AddStaffPage: React.FC = () => {
           hourlyRate: "", fixedSalary: "", workingHoursPerDay: staff.working_hours_per_day ?? "", holidays: staff.holidays ?? "",
           password: "", confirmPassword: "",
         });
+        // Staff Login reflects whether this staff member already has an
+        // email on file — without this, the toggle always defaulted to OFF
+        // on Edit regardless of the real state, which combined with "Email
+        // optional when OFF" would have let an existing logged-in staff
+        // member's email be silently cleared on save.
+        setStaffLoginEnabled(!!staff.email);
+        setHadLoginOnLoad(!!staff.email);
+        // Seeds shouldShowEmailOtp's "has this address actually changed"
+        // check — an existing staff member's on-file email is already how
+        // they log in today, so leaving it untouched needs no
+        // re-verification here; editing it to a different address does.
+        if (staff.email) {
+          lastVerifiedEmailRef.current = staff.email;
+        }
         setAvatarUrl(staff.avatar_url || "");
         setPermissionLevel(LEVEL_TO_ROLE[staff.permission_level] || "Low");
-
-        if (staff.custom_permissions) {
-          setPermissionsEnabled(true);
-          setPerms(buildPermissions(defaultPermissions, staff.custom_permissions));
-        } else {
-          setPerms(buildPermissions(defaultPermissions, null));
-        }
 
         const wages = wagesRes?.data?.data;
         if (wages) {
@@ -171,12 +200,52 @@ const AddStaffPage: React.FC = () => {
   // ── Field validation ─────────────────────────────────────────────────────────
   const isNameInvalid = attemptedSubmit && form.name.trim() === "";
 
+  // Email is only mandatory when Staff Login is on — an admin adding a
+  // staff member who won't log in at all shouldn't be blocked for lacking
+  // one. If a value IS entered, it must still be a real address either way.
   const emailFormatValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim());
+  const isEmailRequiredAndMissing = staffLoginEnabled && form.email.trim() === "";
   const isEmailInvalid =
     !!duplicateEmailMessage ||
-    (attemptedSubmit && (form.email.trim() === "" || !emailFormatValid));
+    (attemptedSubmit && isEmailRequiredAndMissing) ||
+    (attemptedSubmit && form.email.trim() !== "" && !emailFormatValid);
   const emailErrorMessage =
-    duplicateEmailMessage || (form.email.trim() === "" ? "Email is required" : "Enter a valid email address");
+    duplicateEmailMessage || (isEmailRequiredAndMissing ? "Email is required" : "Enter a valid email address");
+
+  // Live "email already exists" check — as soon as the admin types a
+  // well-formed address into the Staff Login email field, ask the backend
+  // whether it's already taken instead of only finding out after clicking
+  // Save. Same duplicate rules Save's own 409 already enforces (see
+  // staffService.checkEmailAvailable), just surfaced earlier. Skipped
+  // entirely for the email unchanged from this staff member's own current
+  // one on Edit — that's never a duplicate of itself.
+  useEffect(() => {
+    if (!staffLoginEnabled) return;
+    const email = form.email.trim();
+    if (!email || !emailFormatValid) return;
+    if (isEdit && email === lastVerifiedEmailRef.current) return;
+
+    const ctrl = new AbortController();
+    const t = setTimeout(async () => {
+      try {
+        const res = await api.get(STAFF.CHECK_EMAIL(email, isEdit ? id : undefined), { signal: ctrl.signal });
+        const result = res.data?.data;
+        if (result && result.available === false) {
+          setDuplicateEmailMessage(result.reason || "A staff member with this email already exists.");
+        }
+      } catch (err: any) {
+        if (err?.name !== "CanceledError" && err?.code !== "ERR_CANCELED") {
+          console.error("Error checking email availability:", err);
+        }
+      }
+    }, 400);
+
+    return () => {
+      clearTimeout(t);
+      ctrl.abort();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.email, staffLoginEnabled, isEdit, id]);
 
   const isDobFuture = !!form.dob && form.dob > today;
   const isDobUnderage = !!form.dob && !isDobFuture && form.dob > minAdultDob;
@@ -190,8 +259,6 @@ const AddStaffPage: React.FC = () => {
   const isPhoneInvalid = attemptedSubmit && (form.phone.trim() === "" || !/^\d{10}$/.test(form.phone.trim()));
   const phoneErrorMessage = form.phone.trim() === "" ? "Contact is required" : "Enter a valid 10-digit phone number";
 
-  const isGenderInvalid = attemptedSubmit && form.gender.trim() === "";
-
   const isHourlyRateInvalid = attemptedSubmit && form.hourlyRate !== "" && Number(form.hourlyRate) <= 0;
   const isFixedSalaryInvalid = attemptedSubmit && form.fixedSalary !== "" && Number(form.fixedSalary) <= 0;
   const isCompensationConflict = attemptedSubmit && form.hourlyRate !== "" && form.fixedSalary !== "";
@@ -202,8 +269,12 @@ const AddStaffPage: React.FC = () => {
 
   const isHolidaysInvalid = attemptedSubmit && form.holidays !== "" && Number(form.holidays) < 0;
 
-  const isPasswordInvalid = attemptedSubmit && staffLoginEnabled && form.password.trim() !== "" && form.password.trim().length < 8;
-  const isConfirmPasswordInvalid = attemptedSubmit && staffLoginEnabled && form.password.trim() !== "" && form.confirmPassword !== form.password;
+  // Initial password setup applies whenever this staff member doesn't yet
+  // have a login — new staff, or an existing one having Staff Login turned
+  // on for the first time. A staff member who already had a login instead
+  // changes their password entirely through ResetPasswordSection below.
+  const isPasswordInvalid = attemptedSubmit && !hasExistingLogin && staffLoginEnabled && form.password.trim() !== "" && form.password.trim().length < 8;
+  const isConfirmPasswordInvalid = attemptedSubmit && !hasExistingLogin && staffLoginEnabled && form.password.trim() !== "" && form.confirmPassword !== form.password;
 
   const setField = (key: keyof typeof form) => (val: string) => {
     setForm((prev) => ({ ...prev, [key]: val }));
@@ -290,20 +361,15 @@ const AddStaffPage: React.FC = () => {
     }
   };
 
-  // ── Permissions ──────────────────────────────────────────────────────────────
-  const togglePerm = (key: string) => {
-    setPerms((prev) => prev.map((p) => (p.key === key ? { ...p, staff: !p.staff } : p)));
-    setPermissionsEnabled(true);
-  };
-
   // ── Submit ───────────────────────────────────────────────────────────────────
   const handleSave = async () => {
     setAttemptedSubmit(true);
     setDuplicateEmailMessage(null);
 
     if (
-      form.name.trim() === "" || form.email.trim() === "" || !emailFormatValid || form.phone.trim() === "" || isPhoneInvalid ||
-      form.doj.trim() === "" || form.gender.trim() === "" || isDobInvalid ||
+      form.name.trim() === "" || isEmailRequiredAndMissing || (form.email.trim() !== "" && !emailFormatValid) ||
+      form.phone.trim() === "" || isPhoneInvalid ||
+      form.doj.trim() === "" || isDobInvalid ||
       isHourlyRateInvalid || isFixedSalaryInvalid || isCompensationConflict || isWorkingHoursInvalid || isHolidaysInvalid ||
       isPasswordInvalid || isConfirmPasswordInvalid || isEmailVerificationInvalid
     ) {
@@ -331,7 +397,10 @@ const AddStaffPage: React.FC = () => {
       const payload: Record<string, unknown> = {
         first_name,
         last_name,
-        email: form.email.trim(),
+        // undefined (not "") when blank — an explicit empty string reads as
+        // "clear the email" to the API, which isn't the intent of simply
+        // leaving the field untouched/empty.
+        email: form.email.trim() || undefined,
         phone: form.phone.trim(),
         phone_country_code: form.phoneCountryCode,
         job_title: form.designation || undefined,
@@ -358,12 +427,6 @@ const AddStaffPage: React.FC = () => {
 
       if (staffLoginEnabled && form.password.trim()) {
         payload.password = form.password.trim();
-      }
-
-      if (permissionsEnabled) {
-        payload.custom_permissions = permsToRecord(perms);
-      } else if (isEdit) {
-        payload.custom_permissions = null;
       }
 
       let staffId = id;
@@ -397,12 +460,35 @@ const AddStaffPage: React.FC = () => {
         }
       }
 
+      // This "Role" field used to only write staff.permission_level, a
+      // display-only column the real permission resolver (staffHasPermission
+      // in permission.middleware.ts) never reads — selecting "Manager" here
+      // silently did nothing to the staff member's actual access, which is
+      // controlled entirely by staff.role_id / the role_permissions table
+      // (see Settings → Roles & Permissions). Now also assigns them to the
+      // matching named role there, auto-creating it (blank) if this salon
+      // has never configured that tier yet — same auto-heal the "Individual
+      // Staff" override endpoint already does for the Staff tier.
+      if (staffId) {
+        try {
+          const roleName = permissionLevel === "Manager" ? "Manager" : "Staff";
+          const roles = await dispatch(fetchRolesThunk()).unwrap();
+          let targetRole = roles.find((r) => r.name === roleName);
+          if (!targetRole) {
+            targetRole = await dispatch(createRoleThunk({ name: roleName, permissions: {} })).unwrap();
+          }
+          await dispatch(assignStaffRoleThunk({ staffId, roleId: targetRole.id })).unwrap();
+        } catch (roleError) {
+          console.error("Error assigning staff role:", roleError);
+        }
+      }
+
       if (isEdit) {
         showSuccess("Staff updated successfully");
       } else {
         showSuccess(emailVerifiedForCurrentAddress ? "Staff created and email verified successfully" : "Staff created successfully");
       }
-      navigate("/dashboard/team/members");
+      navigate(returnTo);
     } catch (error: unknown) {
       console.error("Error saving staff:", error);
       const err = error as {
@@ -455,7 +541,7 @@ const AddStaffPage: React.FC = () => {
               <button className="btn add-staff__dialog-btn add-staff__dialog-btn--cancel" onClick={() => setShowUnsavedDialog(false)}>
                 Cancel
               </button>
-              <button className="btn add-staff__dialog-btn add-staff__dialog-btn--discard" onClick={() => navigate("/dashboard/team/members")}>
+              <button className="btn add-staff__dialog-btn add-staff__dialog-btn--discard" onClick={() => navigate(returnTo)}>
                 Discard changes
               </button>
             </div>
@@ -480,82 +566,6 @@ const AddStaffPage: React.FC = () => {
                 {isNameInvalid && <span className="emp-field__error">Name is required</span>}
               </div>
               <div className="emp-field">
-                <label className="emp-field__label">Email<span className="text-danger">*</span></label>
-                <div className="emp-input-row">
-                  <input
-                    className={`emp-input ${isEmailInvalid ? "emp-input--invalid" : ""}`}
-                    placeholder="Email"
-                    type="email"
-                    value={form.email}
-                    onChange={(e) => setField("email")(e.target.value)}
-                    disabled={isEdit}
-                  />
-                  {shouldShowEmailOtp && (
-                    <button
-                      type="button"
-                      className={`emp-otp-btn ${emailOtpVerified ? "emp-otp-btn--verified" : ""}`}
-                      onClick={handleSendEmailOtp}
-                      disabled={emailOtpLoading || emailOtpVerified}
-                    >
-                      {emailOtpLoading && !emailOtpSent
-                        ? "Sending…"
-                        : emailOtpVerified
-                          ? "Verified"
-                          : emailOtpSent
-                            ? "Resend"
-                            : "Send OTP"}
-                    </button>
-                  )}
-                </div>
-                {isEmailInvalid && <span className="emp-field__error">{emailErrorMessage}</span>}
-                {!isEmailInvalid && emailOtpMsg && (
-                  <span className={`emp-otp-msg emp-otp-msg--${emailOtpMsg.type}`}>{emailOtpMsg.text}</span>
-                )}
-                {!isEmailInvalid && isEmailVerificationInvalid && (
-                  <span className="emp-field__error">Email OTP verification is required when Staff Login is enabled</span>
-                )}
-                {shouldShowEmailOtp && !emailOtpVerified && !emailOtpMsg && !isEmailVerificationInvalid && (
-                  <span className="emp-field__hint">
-                    Verify this email so the staff member can log in.
-                  </span>
-                )}
-                {shouldShowEmailOtp && emailOtpVerified && (
-                  <span className="emp-verified-tag emp-verified-tag--email">
-                    <span className="emp-verified-tag__check">✓</span>
-                    Email verified
-                  </span>
-                )}
-              </div>
-
-              {shouldShowEmailOtp && emailOtpSent && !emailOtpVerified && (
-                <div className="emp-field emp-otp-field">
-                  <label className="emp-field__label">Enter Email OTP</label>
-                  <div className="emp-input-row">
-                    <input
-                      className="emp-input"
-                      placeholder="6-digit OTP"
-                      value={emailOtp}
-                      maxLength={6}
-                      onChange={(e) => {
-                        setEmailOtp(e.target.value.replace(/\D/g, ""));
-                        if (emailOtpError) setEmailOtpError(null);
-                      }}
-                      onKeyDown={(e) => e.key === "Enter" && handleVerifyEmailOtp()}
-                    />
-                    <button
-                      type="button"
-                      className="emp-verify-btn"
-                      onClick={handleVerifyEmailOtp}
-                      disabled={emailOtpLoading || emailOtp.length < 6}
-                    >
-                      {emailOtpLoading ? "Verifying…" : "Verify"}
-                    </button>
-                  </div>
-                  {emailOtpError && <span className="emp-field__error">{emailOtpError}</span>}
-                </div>
-              )}
-
-              <div className="emp-field">
                 <label className="emp-field__label">Date of Birth</label>
                 <input
                   className={`emp-input ${isDobInvalid ? "emp-input--invalid" : ""}`}
@@ -563,12 +573,6 @@ const AddStaffPage: React.FC = () => {
                   max={minAdultDob}
                   value={form.dob}
                   onChange={(e) => setField("dob")(e.target.value)}
-                  onFocus={() => {
-                    if (!form.dob) {
-                      const defaultYear = new Date().getFullYear() - 25;
-                      setField("dob")(`${defaultYear}-01-01`);
-                    }
-                  }}
                 />
                 {isDobInvalid && <span className="emp-field__error">{dobErrorMessage}</span>}
               </div>
@@ -616,15 +620,14 @@ const AddStaffPage: React.FC = () => {
               </div>
 
               <div className="emp-field">
-                <label className="emp-field__label">Gender<span className="text-danger">*</span></label>
+                <label className="emp-field__label">Gender</label>
                 <Dropdown
                   value={form.gender}
                   onChange={(val: string) => setField("gender")(val)}
                   options={GENDER_OPTIONS}
                   placeholder="Gender"
-                  className={`emp-input emp-select ${isGenderInvalid ? "emp-input--invalid" : ""}`}
+                  className="emp-input emp-select"
                 />
-                {isGenderInvalid && <span className="emp-field__error">Gender is required</span>}
               </div>
               <div className="emp-field">
                 <label className="emp-field__label">Designation</label>
@@ -746,6 +749,118 @@ const AddStaffPage: React.FC = () => {
           </div>
 
           {staffLoginEnabled && (
+            <div className="emp-login-grid">
+              <div className="emp-field">
+                <label className="emp-field__label">
+                  Email<span className="text-danger">*</span>
+                </label>
+                <div className="emp-input-row">
+                  <input
+                    className={`emp-input ${isEmailInvalid ? "emp-input--invalid" : ""}`}
+                    placeholder="Email"
+                    type="email"
+                    value={form.email}
+                    onChange={(e) => setField("email")(e.target.value)}
+                  />
+                  {shouldShowEmailOtp && (
+                    <button
+                      type="button"
+                      className={`emp-otp-btn ${emailOtpVerified ? "emp-otp-btn--verified" : ""}`}
+                      onClick={handleSendEmailOtp}
+                      disabled={emailOtpLoading || emailOtpVerified}
+                    >
+                      {emailOtpLoading && !emailOtpSent
+                        ? "Sending…"
+                        : emailOtpVerified
+                          ? "Verified"
+                          : emailOtpSent
+                            ? "Resend"
+                            : "Send OTP"}
+                    </button>
+                  )}
+                </div>
+                {isEmailInvalid && <span className="emp-field__error">{emailErrorMessage}</span>}
+                {!isEmailInvalid && emailOtpMsg && (
+                  <span className={`emp-otp-msg emp-otp-msg--${emailOtpMsg.type}`}>{emailOtpMsg.text}</span>
+                )}
+                {!isEmailInvalid && isEmailVerificationInvalid && (
+                  <span className="emp-field__error">Email OTP verification is required when Staff Login is enabled</span>
+                )}
+                {shouldShowEmailOtp && !emailOtpVerified && !emailOtpMsg && !isEmailVerificationInvalid && (
+                  <span className="emp-field__hint">
+                    {isEdit
+                      ? "This email is changing — verify it so the staff member can keep logging in."
+                      : "Verify this email so the staff member can log in."}
+                  </span>
+                )}
+                {emailOtpVerified && (
+                  <span className="emp-verified-tag emp-verified-tag--email">
+                    <span className="emp-verified-tag__check">✓</span>
+                    Email verified
+                  </span>
+                )}
+                {/* Unchanged from the address this login already works with —
+                    already proven, so shown as verified without re-asking
+                    for OTP (see lastVerifiedEmailRef, seeded on load). */}
+                {!shouldShowEmailOtp && !emailOtpVerified && staffLoginEnabled && lastVerifiedEmailRef.current && (
+                  <span className="emp-verified-tag emp-verified-tag--email">
+                    <span className="emp-verified-tag__check">✓</span>
+                    Email verified
+                  </span>
+                )}
+              </div>
+
+              {shouldShowEmailOtp && emailOtpSent && !emailOtpVerified && (
+                <div className="emp-field emp-otp-field">
+                  <label className="emp-field__label">Enter Email OTP</label>
+                  <div className="emp-input-row">
+                    <input
+                      className="emp-input"
+                      placeholder="6-digit OTP"
+                      value={emailOtp}
+                      maxLength={6}
+                      onChange={(e) => {
+                        setEmailOtp(e.target.value.replace(/\D/g, ""));
+                        if (emailOtpError) setEmailOtpError(null);
+                      }}
+                      onKeyDown={(e) => e.key === "Enter" && handleVerifyEmailOtp()}
+                    />
+                    <button
+                      type="button"
+                      className="emp-verify-btn"
+                      onClick={handleVerifyEmailOtp}
+                      disabled={emailOtpLoading || emailOtp.length < 6}
+                    >
+                      {emailOtpLoading ? "Verifying…" : "Verify"}
+                    </button>
+                  </div>
+                  {emailOtpError && <span className="emp-field__error">{emailOtpError}</span>}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Existing login: masked password + Reset Password, or the New/Confirm
+              Password + Update Password flow once clicked. emailAlreadyVerified
+              tracks the email field above — true while it's still the
+              address this login already works with, false once the admin
+              edits it to something new (which then needs its own fresh OTP,
+              same gate ResetPasswordSection already applies when this is
+              false, before a password reset can go out to an unproven inbox). */}
+          {staffLoginEnabled && hasExistingLogin && (
+            <ResetPasswordSection
+              staffId={id!}
+              email={form.email}
+              emailAlreadyVerified={!shouldShowEmailOtp}
+              onSuccess={() => showSuccess("Password updated successfully")}
+              onError={showError}
+            />
+          )}
+
+          {/* Initial password setup — new staff, or an existing staff member
+              who never had a login before (Staff Login just switched on for
+              the first time during this edit, see hadLoginOnLoad above). */}
+          {staffLoginEnabled && !hasExistingLogin && (
             <>
               <div className="emp-login-grid">
                 <div className="emp-field">
@@ -788,41 +903,6 @@ const AddStaffPage: React.FC = () => {
           )}
         </div>
 
-        {/* ── Staff Permissions ── */}
-        <div className="emp-card">
-          <div className="emp-permissions-header">
-            <div className="emp-permissions-header__left">
-              <span className="emp-card__title emp-card__title--inline">Staff Permissions</span>
-              <label className="emp-toggle">
-                <input
-                  type="checkbox"
-                  checked={permissionsEnabled}
-                  onChange={(e) => setPermissionsEnabled(e.target.checked)}
-                />
-                <span className="emp-toggle__slider" />
-              </label>
-            </div>
-          </div>
-
-          <div className={`emp-permissions-grid ${!permissionsEnabled ? "emp-permissions-grid--disabled" : ""}`}>
-            {PERM_CATEGORIES.map((cat) => (
-              <div key={cat} className="emp-perm-category">
-                <p className="emp-perm-category__title">{cat}</p>
-                {perms.filter((p) => p.category === cat).map((perm) => (
-                  <label key={perm.key} className="emp-checkbox-row emp-checkbox-row--perm">
-                    <input
-                      type="checkbox"
-                      checked={perm.staff}
-                      disabled={!permissionsEnabled}
-                      onChange={() => togglePerm(perm.key)}
-                    />
-                    <span>{perm.label}</span>
-                  </label>
-                ))}
-              </div>
-            ))}
-          </div>
-        </div>
       </div>
     </div>
   );

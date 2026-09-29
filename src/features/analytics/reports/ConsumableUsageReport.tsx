@@ -117,7 +117,7 @@ export default function ConsumableUsageReport({ onBack, category: reportCategory
         <div className="rp-detail-back-row">
           <Breadcrumb current={REPORT_NAME} category={reportCategory} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
-            <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename="consumable-usage" variant="button" csv />
+            <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename="consumable-usage" variant="button" csv reportId="consumable_usage" />
           </div>
         </div>
       </div>

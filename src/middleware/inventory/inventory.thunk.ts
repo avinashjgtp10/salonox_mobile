@@ -12,9 +12,15 @@ import type {
   SupplierPayment,
   Order,
   CreateOrderPayload,
-  ReceiveOrderPayload,
-  CorrectReceivedQtyPayload,
   OrderSignature,
+  SupplierProduct,
+  ResolveSupplierProductPayload,
+  ProductSupplierMapping,
+  AddProductSupplierPayload,
+  UpdateProductSupplierPayload,
+  ProductDetailAggregate,
+  StockLedgerTimelineEntry,
+  ProductPurchaseHistoryRow,
   ConsumableListFilters,
   ConsumableListRow,
   ConsumableKpis,
@@ -27,6 +33,7 @@ import type {
   ListProductAuditsFilters,
   CreateProductAuditPayload,
   UpdateAuditItemPayload,
+  SubmitAuditItemUpdate,
 } from "../../types/inventory.types";
 
 // ─── Fetch suppliers (paginated) ───────────────────────────────────────────────
@@ -102,16 +109,16 @@ export const fetchSupplierByIdThunk = createAsyncThunk<
 // Distinct across every supplier, independent of whichever page is loaded —
 // see inventory.repository.ts's listDistinctLocations for why this can't
 // just be derived from the currently-loaded page anymore.
-export const fetchSupplierLocationsThunk = createAsyncThunk<
+export const fetchSupplierFilterOptionsThunk = createAsyncThunk<
   { cities: string[]; states: string[] },
   void,
   { rejectValue: string }
->("inventory/fetchSupplierLocations", async (_, { rejectWithValue }) => {
+>("inventory/fetchSupplierFilterOptions", async (_, { rejectWithValue }) => {
   try {
-    const res = await api.get<InventoryResponse<{ cities: string[]; states: string[] }>>(INVENTORY.SUPPLIER_LOCATIONS);
+    const res = await api.get<InventoryResponse<{ cities: string[]; states: string[] }>>(INVENTORY.SUPPLIER_FILTER_OPTIONS);
     return res.data.data;
   } catch (err: any) {
-    return rejectWithValue(err?.response?.data?.error?.message || "Failed to fetch supplier locations");
+    return rejectWithValue(err?.response?.data?.error?.message || "Failed to fetch supplier filter options");
   }
 });
 
@@ -211,12 +218,19 @@ export const updateOrderThunk = createAsyncThunk<
 
 export const fetchOrdersThunk = createAsyncThunk<
   { data: Order[]; total: number },
-  { search?: string; status?: Order["status"]; page?: number; limit?: number } | void,
+  { search?: string; status?: Order["status"] | Order["status"][]; page?: number; limit?: number } | void,
   { rejectValue: string }
 >("inventory/fetchOrders", async (filters, { rejectWithValue }) => {
   try {
+    // Array form (the Orders page's "Receiving" tab: sent + partially_received)
+    // joined into one comma-separated query param — same convention as
+    // fetchConsumablesDashboardThunk's multi-select filters — rather than
+    // relying on axios's array param serialization.
+    const params = filters
+      ? { ...filters, status: Array.isArray(filters.status) ? filters.status.join(",") : filters.status }
+      : undefined;
     const res = await api.get<InventoryResponse<{ data: Order[]; total: number }>>(INVENTORY.ORDERS, {
-      params: filters ?? undefined,
+      params,
     });
     return res.data.data;
   } catch (err: any) {
@@ -239,36 +253,144 @@ export const fetchOrderByIdThunk = createAsyncThunk<
   }
 });
 
-// Records a delivery against this order — creates a linked Purchase (moves
-// products.amount + supplier balance the same way the standalone Purchase
-// flow does) and advances the order's status toward "received".
-export const receiveOrderThunk = createAsyncThunk<
-  Order,
-  { orderId: string; payload: ReceiveOrderPayload },
+// Fetches a supplier's imported product catalog — used both for the
+// Suggested Products panel (matched_only=true) and the "Needs attention"
+// unmatched-rows list right after an import.
+export const fetchSupplierProductsThunk = createAsyncThunk<
+  SupplierProduct[],
+  { supplierId: string; matchedOnly?: boolean },
   { rejectValue: string }
->("inventory/receiveOrder", async ({ orderId, payload }, { rejectWithValue }) => {
+>("inventory/fetchSupplierProducts", async ({ supplierId, matchedOnly }, { rejectWithValue }) => {
   try {
-    const res = await api.post<InventoryResponse<Order>>(INVENTORY.ORDER_RECEIVE(orderId), payload);
+    const res = await api.get<InventoryResponse<SupplierProduct[]>>(INVENTORY.SUPPLIER_PRODUCTS(supplierId), {
+      params: matchedOnly ? { matched_only: "true" } : undefined,
+    });
     return res.data.data;
   } catch (err: any) {
-    console.error("receiveOrderThunk error:", err);
-    return rejectWithValue(err?.response?.data?.error?.message || err?.message || "Failed to receive order");
+    console.error("fetchSupplierProductsThunk error:", err);
+    return rejectWithValue(err?.response?.data?.error?.message || err?.message || "Failed to fetch supplier catalog");
   }
 });
 
-// Corrects a mis-entered received_qty on one order line after the fact.
-// Does not create a new Purchase — just fixes stock + the order line + status.
-export const correctReceivedQtyThunk = createAsyncThunk<
-  Order,
-  { orderId: string; itemId: string; payload: CorrectReceivedQtyPayload },
+// Resolves a still-unmatched catalog row: link to an existing product,
+// create a new product from exactly the row's own data, or ignore it.
+export const resolveSupplierProductThunk = createAsyncThunk<
+  SupplierProduct,
+  { supplierId: string; catalogId: string; payload: ResolveSupplierProductPayload },
   { rejectValue: string }
->("inventory/correctReceivedQty", async ({ orderId, itemId, payload }, { rejectWithValue }) => {
+>("inventory/resolveSupplierProduct", async ({ supplierId, catalogId, payload }, { rejectWithValue }) => {
   try {
-    const res = await api.post<InventoryResponse<Order>>(INVENTORY.ORDER_CORRECT_RECEIVED(orderId, itemId), payload);
+    const res = await api.patch<InventoryResponse<SupplierProduct>>(
+      INVENTORY.SUPPLIER_PRODUCT_RESOLVE(supplierId, catalogId), payload,
+    );
     return res.data.data;
   } catch (err: any) {
-    console.error("correctReceivedQtyThunk error:", err);
-    return rejectWithValue(err?.response?.data?.error?.message || err?.message || "Failed to update received quantity");
+    console.error("resolveSupplierProductThunk error:", err);
+    return rejectWithValue(err?.response?.data?.error?.message || err?.message || "Failed to resolve catalog row");
+  }
+});
+
+// ─── Product Inventory detail drawer + multi-supplier pricing ────────────────
+
+export const fetchProductDetailThunk = createAsyncThunk<
+  ProductDetailAggregate,
+  string,
+  { rejectValue: string }
+>("inventory/fetchProductDetail", async (productId, { rejectWithValue }) => {
+  try {
+    const res = await api.get<InventoryResponse<ProductDetailAggregate>>(INVENTORY.PRODUCT_INVENTORY_DETAIL(productId));
+    return res.data.data;
+  } catch (err: any) {
+    console.error("fetchProductDetailThunk error:", err);
+    return rejectWithValue(err?.response?.data?.error?.message || err?.message || "Failed to fetch product detail");
+  }
+});
+
+export const fetchProductSupplierMappingsThunk = createAsyncThunk<
+  ProductSupplierMapping[],
+  string,
+  { rejectValue: string }
+>("inventory/fetchProductSupplierMappings", async (productId, { rejectWithValue }) => {
+  try {
+    const res = await api.get<InventoryResponse<ProductSupplierMapping[]>>(INVENTORY.PRODUCT_SUPPLIERS(productId));
+    return res.data.data;
+  } catch (err: any) {
+    console.error("fetchProductSupplierMappingsThunk error:", err);
+    return rejectWithValue(err?.response?.data?.error?.message || err?.message || "Failed to fetch product suppliers");
+  }
+});
+
+export const addProductSupplierMappingThunk = createAsyncThunk<
+  ProductSupplierMapping,
+  { productId: string; payload: AddProductSupplierPayload },
+  { rejectValue: string }
+>("inventory/addProductSupplierMapping", async ({ productId, payload }, { rejectWithValue }) => {
+  try {
+    const res = await api.post<InventoryResponse<ProductSupplierMapping>>(INVENTORY.PRODUCT_SUPPLIERS(productId), payload);
+    return res.data.data;
+  } catch (err: any) {
+    console.error("addProductSupplierMappingThunk error:", err);
+    return rejectWithValue(err?.response?.data?.error?.message || err?.message || "Failed to add supplier");
+  }
+});
+
+export const updateProductSupplierMappingThunk = createAsyncThunk<
+  ProductSupplierMapping,
+  { productId: string; mappingId: string; payload: UpdateProductSupplierPayload },
+  { rejectValue: string }
+>("inventory/updateProductSupplierMapping", async ({ productId, mappingId, payload }, { rejectWithValue }) => {
+  try {
+    const res = await api.patch<InventoryResponse<ProductSupplierMapping>>(
+      INVENTORY.PRODUCT_SUPPLIER_BY_ID(productId, mappingId), payload,
+    );
+    return res.data.data;
+  } catch (err: any) {
+    console.error("updateProductSupplierMappingThunk error:", err);
+    return rejectWithValue(err?.response?.data?.error?.message || err?.message || "Failed to update supplier");
+  }
+});
+
+export const removeProductSupplierMappingThunk = createAsyncThunk<
+  { productId: string; mappingId: string },
+  { productId: string; mappingId: string },
+  { rejectValue: string }
+>("inventory/removeProductSupplierMapping", async ({ productId, mappingId }, { rejectWithValue }) => {
+  try {
+    await api.delete(INVENTORY.PRODUCT_SUPPLIER_BY_ID(productId, mappingId));
+    return { productId, mappingId };
+  } catch (err: any) {
+    console.error("removeProductSupplierMappingThunk error:", err);
+    return rejectWithValue(err?.response?.data?.error?.message || err?.message || "Failed to remove supplier");
+  }
+});
+
+export const fetchProductStockLedgerTimelineThunk = createAsyncThunk<
+  StockLedgerTimelineEntry[],
+  string,
+  { rejectValue: string }
+>("inventory/fetchProductStockLedgerTimeline", async (productId, { rejectWithValue }) => {
+  try {
+    const res = await api.get<InventoryResponse<StockLedgerTimelineEntry[]>>(INVENTORY.STOCK_LEDGER_PRODUCT_TIMELINE(productId));
+    return res.data.data;
+  } catch (err: any) {
+    console.error("fetchProductStockLedgerTimelineThunk error:", err);
+    return rejectWithValue(err?.response?.data?.error?.message || err?.message || "Failed to fetch stock history");
+  }
+});
+
+export const fetchProductPurchaseHistoryThunk = createAsyncThunk<
+  { data: ProductPurchaseHistoryRow[]; total: number },
+  string,
+  { rejectValue: string }
+>("inventory/fetchProductPurchaseHistory", async (productId, { rejectWithValue }) => {
+  try {
+    const res = await api.get<InventoryResponse<{ data: ProductPurchaseHistoryRow[]; total: number }>>(
+      INVENTORY.PRODUCT_INVENTORY_PURCHASES, { params: { product_id: productId, limit: 100 } },
+    );
+    return res.data.data;
+  } catch (err: any) {
+    console.error("fetchProductPurchaseHistoryThunk error:", err);
+    return rejectWithValue(err?.response?.data?.error?.message || err?.message || "Failed to fetch purchase history");
   }
 });
 
@@ -283,6 +405,40 @@ export const cancelOrderThunk = createAsyncThunk<
   } catch (err: any) {
     console.error("cancelOrderThunk error:", err);
     return rejectWithValue(err?.response?.data?.error?.message || err?.message || "Failed to cancel order");
+  }
+});
+
+// Draft → Ordered. A plain status flip — placing a draft never touches
+// stock/the ledger (receive() is the only thing that does), so unlike
+// create/update it needs no items/totals payload at all.
+export const placeOrderThunk = createAsyncThunk<
+  Order,
+  string,
+  { rejectValue: string }
+>("inventory/placeOrder", async (orderId, { rejectWithValue }) => {
+  try {
+    const res = await api.post<InventoryResponse<Order>>(INVENTORY.ORDER_PLACE(orderId));
+    return res.data.data;
+  } catch (err: any) {
+    console.error("placeOrderThunk error:", err);
+    return rejectWithValue(err?.response?.data?.error?.message || err?.message || "Failed to place order");
+  }
+});
+
+// "Confirm Order" on a Verify-eligible ("sent") order — doesn't move status
+// or stock, just marks verification as started so the order shows on the
+// Verify Order list (see OrdersListPage.tsx) before anything's received yet.
+export const startVerificationThunk = createAsyncThunk<
+  Order,
+  string,
+  { rejectValue: string }
+>("inventory/startVerification", async (orderId, { rejectWithValue }) => {
+  try {
+    const res = await api.post<InventoryResponse<Order>>(INVENTORY.ORDER_START_VERIFICATION(orderId));
+    return res.data.data;
+  } catch (err: any) {
+    console.error("startVerificationThunk error:", err);
+    return rejectWithValue(err?.response?.data?.error?.message || err?.message || "Failed to start verification");
   }
 });
 
@@ -524,11 +680,13 @@ export const updateProductAuditItemThunk = createAsyncThunk<
 
 export const submitProductAuditThunk = createAsyncThunk<
   ProductAuditWithDetail,
-  string,
+  { auditId: string; items?: SubmitAuditItemUpdate[] },
   { rejectValue: string }
->("inventory/submitProductAudit", async (auditId, { rejectWithValue }) => {
+>("inventory/submitProductAudit", async ({ auditId, items }, { rejectWithValue }) => {
   try {
-    const res = await api.post<InventoryResponse<ProductAuditWithDetail>>(INVENTORY.PRODUCT_AUDIT_SUBMIT(auditId));
+    const res = await api.post<InventoryResponse<ProductAuditWithDetail>>(
+      INVENTORY.PRODUCT_AUDIT_SUBMIT(auditId), items && items.length > 0 ? { items } : {},
+    );
     return res.data.data;
   } catch (err: any) {
     return rejectWithValue(auditErrorMessage(err, "Failed to submit audit for review"));

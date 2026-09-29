@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
   Search, PlusLg, X, ClipboardData, ThreeDotsVertical, Eye,
-  CheckCircle, XCircle, ArrowRepeat,
+  CheckCircle, XCircle, ArrowRepeat, FileEarmarkExcel,
 } from "react-bootstrap-icons";
 import { Dropdown } from "react-bootstrap";
 import Button from "../../../components/ui/Button";
@@ -24,7 +24,16 @@ import ProductAuditDetailsModal from "../components/ProductAuditDetailsModal";
 import CreateAuditModal from "../components/CreateAuditModal";
 import ReviewAuditModal from "../components/ReviewAuditModal";
 import type { ProductAuditListRow, ProductAuditStatus } from "../../../types/inventory.types";
+import { exportProductAuditsExcel } from "../utils/productAuditExport";
+import { usePermissions } from "../../../hooks/usePermissions";
+import { showPermissionDenied } from "../../../store/permissionDialogSlice";
 import "../styles/ProductAuditPage.scss";
+
+// Same friendly copy PermissionGuard and the interceptor-driven global popup
+// already use for a backend 403 — export is built entirely client-side (no
+// backend call to deny), so this is the only enforcement point it has.
+const friendlyPermissionDenied = (permKey: string) =>
+  `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`;
 
 const PAGE_SIZES = [10, 20, 50];
 
@@ -55,10 +64,12 @@ export default function ProductAuditPage() {
   const dispatch = useDispatch<AppDispatch>();
   const { currentSalon, branches } = useSelector((state: RootState) => state.salon);
   const { showSuccess, showError, overlay } = useStatusOverlay();
+  const { can } = usePermissions();
 
   const [rows, setRows] = useState<ProductAuditListRow[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [isExporting, setIsExporting] = useState(false);
 
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -69,8 +80,15 @@ export default function ProductAuditPage() {
   const [detailsId, setDetailsId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
 
+  // Branches are only needed to default-select one when creating a NEW
+  // audit — viewing the audit list never needs them. Gating this fetch on
+  // create_product_audit avoids a spurious "Permission Required" popup for
+  // view_branches (a separate, mostly-unbuilt permission with no Roles &
+  // Permissions toggle of its own yet) for anyone who can view audits but
+  // not create them.
   useEffect(() => {
-    if (currentSalon?.id) dispatch(fetchBranchesThunk(currentSalon.id));
+    if (currentSalon?.id && can("create_product_audit")) dispatch(fetchBranchesThunk(currentSalon.id));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch, currentSalon?.id]);
 
   const defaultBranchId = useMemo(
@@ -107,6 +125,39 @@ export default function ProductAuditPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  const handleExportExcel = useCallback(async () => {
+    if (!can("export_product_audit_excel")) { dispatch(showPermissionDenied(friendlyPermissionDenied("export_product_audit_excel"))); return; }
+    // export_excel (System) is now a global master gate (Global Download
+    // Switches ticket) — checked in addition to the module-specific key.
+    if (!can("export_excel")) { dispatch(showPermissionDenied(friendlyPermissionDenied("export_excel"))); return; }
+    setIsExporting(true);
+    try {
+      // Loops every page with the currently-applied filters (status/search)
+      // — exported data always matches the on-screen list + filters exactly,
+      // independent of whatever page/page-size is currently displayed.
+      const all: ProductAuditListRow[] = [];
+      let page_ = 1;
+      const limit = 200;
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const result = await dispatch(fetchProductAuditsThunk({
+          status: statusFilter || undefined,
+          search: debouncedSearch || undefined,
+          page: page_,
+          limit,
+        })).unwrap();
+        all.push(...result.data);
+        if (all.length >= result.total || result.data.length < limit) break;
+        page_ += 1;
+      }
+      exportProductAuditsExcel(all);
+    } catch (err: any) {
+      showError(typeof err === "string" ? err : "Couldn't export product audits");
+    } finally {
+      setIsExporting(false);
+    }
+  }, [can, dispatch, statusFilter, debouncedSearch, showError]);
+
   const filterFields: JiraFilterField[] = useMemo(() => [
     {
       key: "status", label: "Status",
@@ -123,7 +174,10 @@ export default function ProductAuditPage() {
     setStatusFilter(one(next.status) as ProductAuditStatus | "");
   };
 
+  const denyPerm = (permKey: string) => dispatch(showPermissionDenied(friendlyPermissionDenied(permKey)));
+
   const handleCreate = async (draft: { name: string; branch: string; notes: string; auditorId: string }) => {
+    if (!can("create_product_audit")) { denyPerm("create_product_audit"); setCreateOpen(false); return; }
     try {
       const created = await dispatch(createProductAuditThunk({
         branch_id: draft.branch,
@@ -141,8 +195,9 @@ export default function ProductAuditPage() {
   };
 
   const quickAction = async (audit: ProductAuditListRow, action: "submit" | "reopen") => {
+    if (!can("create_product_audit")) { denyPerm("create_product_audit"); return; }
     try {
-      if (action === "submit") await dispatch(submitProductAuditThunk(audit.id)).unwrap();
+      if (action === "submit") await dispatch(submitProductAuditThunk({ auditId: audit.id })).unwrap();
       else await dispatch(reopenProductAuditThunk(audit.id)).unwrap();
       showSuccess("Audit updated");
       load();
@@ -156,6 +211,7 @@ export default function ProductAuditPage() {
 
   const confirmReview = async ({ reviewerId, reason }: { reviewerId: string; reason?: string }) => {
     if (!reviewTarget) return;
+    if (!can("approve_product_audit")) { denyPerm("approve_product_audit"); setReviewTarget(null); return; }
     setReviewing(true);
     try {
       if (reviewTarget.mode === "approve") {
@@ -186,9 +242,29 @@ export default function ProductAuditPage() {
           </h1>
           <p>Count physical stock against system quantities and reconcile differences.</p>
         </div>
-        <Button variant="dark" iconLeft={<PlusLg size={14} />} onClick={() => setCreateOpen(true)} disabled={!defaultBranchId}>
-          New Audit
-        </Button>
+        <div className="d-flex gap-2">
+          <Button
+            variant="outline-dark"
+            iconLeft={<FileEarmarkExcel size={14} />}
+            onClick={handleExportExcel}
+            disabled={isExporting}
+            style={(!can("export_product_audit_excel") || !can("export_excel")) ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+          >
+            {isExporting ? "Exporting…" : "Export to Excel"}
+          </Button>
+          <Button
+            variant="dark"
+            iconLeft={<PlusLg size={14} />}
+            style={!can("create_product_audit") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+            onClick={() => {
+              if (!can("create_product_audit")) { denyPerm("create_product_audit"); return; }
+              setCreateOpen(true);
+            }}
+            disabled={!defaultBranchId}
+          >
+            New Audit
+          </Button>
+        </div>
       </header>
 
       <div className="paudit-page__controls">
@@ -291,7 +367,11 @@ export default function ProductAuditPage() {
                               <Eye size={14} /> View / Edit
                             </Dropdown.Item>
                             {a.status === "in_progress" && (
-                              <Dropdown.Item onClick={() => quickAction(a, "submit")} className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark">
+                              <Dropdown.Item
+                                onClick={() => quickAction(a, "submit")}
+                                style={!can("create_product_audit") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                                className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark"
+                              >
                                 <CheckCircle size={14} /> Submit for Review
                               </Dropdown.Item>
                             )}
@@ -302,16 +382,34 @@ export default function ProductAuditPage() {
                                 so Approve/Reject stay available regardless of who's logged in. */}
                             {a.status === "pending_review" && (
                               <>
-                                <Dropdown.Item onClick={() => setReviewTarget({ audit: a, mode: "approve" })} className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-success">
+                                <Dropdown.Item
+                                  onClick={() => {
+                                    if (!can("approve_product_audit")) { denyPerm("approve_product_audit"); return; }
+                                    setReviewTarget({ audit: a, mode: "approve" });
+                                  }}
+                                  style={!can("approve_product_audit") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                                  className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-success"
+                                >
                                   <CheckCircle size={14} /> Approve
                                 </Dropdown.Item>
-                                <Dropdown.Item onClick={() => setReviewTarget({ audit: a, mode: "reject" })} className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-danger">
+                                <Dropdown.Item
+                                  onClick={() => {
+                                    if (!can("approve_product_audit")) { denyPerm("approve_product_audit"); return; }
+                                    setReviewTarget({ audit: a, mode: "reject" });
+                                  }}
+                                  style={!can("approve_product_audit") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                                  className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-danger"
+                                >
                                   <XCircle size={14} /> Reject
                                 </Dropdown.Item>
                               </>
                             )}
                             {a.status === "rejected" && (
-                              <Dropdown.Item onClick={() => quickAction(a, "reopen")} className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark">
+                              <Dropdown.Item
+                                onClick={() => quickAction(a, "reopen")}
+                                style={!can("create_product_audit") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                                className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark"
+                              >
                                 <ArrowRepeat size={14} /> Reopen
                               </Dropdown.Item>
                             )}
@@ -359,6 +457,13 @@ export default function ProductAuditPage() {
 
       {detailsId && (
         <ProductAuditDetailsModal
+          // Forces a fresh mount whenever a different audit is opened (the
+          // dropdown/row-click paths below can set a new detailsId directly,
+          // without detailsId ever passing through null) — without this, the
+          // modal's own pendingEdits/debounce-timer state from the PREVIOUS
+          // audit would survive into the new one, risking a save landing
+          // against the wrong audit/item id.
+          key={detailsId}
           auditId={detailsId}
           onClose={() => setDetailsId(null)}
           onChanged={load}

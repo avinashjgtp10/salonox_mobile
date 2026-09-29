@@ -10,9 +10,11 @@ import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import type { AppDispatch } from "../../../store/store";
 import {
   fetchProductAuditByIdThunk, addProductAuditItemsThunk, removeProductAuditItemThunk,
-  updateProductAuditItemThunk, submitProductAuditThunk, approveProductAuditThunk,
+  submitProductAuditThunk, approveProductAuditThunk,
   rejectProductAuditThunk, reopenProductAuditThunk,
 } from "../../../middleware/inventory/inventory.thunk";
+import { usePermissions } from "../../../hooks/usePermissions";
+import { showPermissionDenied } from "../../../store/permissionDialogSlice";
 import type { ProductAuditWithDetail, ProductAuditStatus } from "../../../types/inventory.types";
 import AddAuditProductModal from "./AddAuditProductModal";
 import ReviewAuditModal from "./ReviewAuditModal";
@@ -49,9 +51,16 @@ const fmtDateTime = (value?: string | null) => {
 
 const diffOf = (systemQty: number, physicalQty: number | null) => (physicalQty == null ? null : physicalQty - systemQty);
 
+const fmtQty = (value: number) => Math.round(value).toString();
+
 export default function ProductAuditDetailsModal({ auditId, onClose, onChanged }: Props) {
   const dispatch = useDispatch<AppDispatch>();
-  const { showSuccess, showError, overlay } = useStatusOverlay();
+  const { can } = usePermissions();
+  const { showError, overlay } = useStatusOverlay();
+
+  const denyPerm = (permKey: string) => dispatch(showPermissionDenied(
+    `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+  ));
 
   const [audit, setAudit] = useState<ProductAuditWithDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -59,86 +68,33 @@ export default function ProductAuditDetailsModal({ auditId, onClose, onChanged }
   const [addOpen, setAddOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState<"approve" | "reject" | null>(null);
   const [busy, setBusy] = useState(false);
-  // Debounced per-row qty/reason edits pending a PATCH, so every keystroke
-  // doesn't fire a request — mirrors the search-debounce pattern used
-  // elsewhere (ProductInventoryPage's 350ms search debounce).
+  // Whether a product was added/removed this session — the only two
+  // mutations here that DON'T already call onChanged() themselves (submit/
+  // approve/reject/reopen all do, right when they happen), but which do
+  // change what the list's own Products/Differences/Last Updated columns
+  // show. Tracked so closing the modal only re-fetches the list on the rare
+  // path where that's actually stale, not on every close.
+  const [itemsChanged, setItemsChanged] = useState(false);
+  // Every qty/reason edit lives here, in local state only, until Submit —
+  // no API call fires while entering/changing a field or moving between
+  // fields (not even a debounced autosave or an on-blur flush, which this
+  // used to have). Submit is the one and only place this gets sent, as a
+  // single batched request — see submitForReview below.
   const [pendingEdits, setPendingEdits] = useState<Record<string, { physicalQty: number | null; reason: string }>>({});
 
-  // silent=true skips the loading-placeholder swap — used for the
-  // post-save refresh after a debounced qty/reason edit, so the modal's
-  // inputs stay mounted and don't drop focus mid-type (the full-page
-  // "Loading…" branch below used to unmount them on every autosave).
-  const load = useCallback(async (silent = false) => {
-    if (!silent) setLoading(true);
+  const load = useCallback(async () => {
+    setLoading(true);
     try {
       const result = await dispatch(fetchProductAuditByIdThunk(auditId)).unwrap();
       setAudit(result);
     } catch (err: any) {
       showError(typeof err === "string" ? err : "Couldn't load audit");
     } finally {
-      if (!silent) setLoading(false);
+      setLoading(false);
     }
   }, [dispatch, auditId, showError]);
 
   useEffect(() => { load(); }, [load]);
-
-  // Flush a row's pending edit to the server 500ms after the last change.
-  // Skips rows the server is guaranteed to reject (a nonzero difference with
-  // no reason yet) — otherwise every keystroke on the qty field before the
-  // user gets to the reason field fires a failing PATCH, over and over as
-  // they keep typing. Those rows stay held in local state (still shown,
-  // still block Submit for Review via withPendingReasons) until the reason
-  // is filled in or the qty is changed back to match system_qty.
-  useEffect(() => {
-    const ids = Object.keys(pendingEdits).filter((itemId) => {
-      const edit = pendingEdits[itemId];
-      const item = audit?.items.find((i) => i.id === itemId);
-      if (!item) return false;
-      const d = diffOf(item.system_qty, edit.physicalQty);
-      return d == null || d === 0 || !!edit.reason.trim();
-    });
-    if (ids.length === 0) return;
-    const t = setTimeout(async () => {
-      let savedCount = 0;
-      const failedNames: string[] = [];
-      for (const itemId of ids) {
-        const edit = pendingEdits[itemId];
-        const item = audit?.items.find((i) => i.id === itemId);
-        try {
-          await dispatch(updateProductAuditItemThunk({
-            auditId, itemId, payload: { physical_qty: edit.physicalQty, reason: edit.reason },
-          })).unwrap();
-          savedCount++;
-          setPendingEdits((prev) => {
-            const next = { ...prev };
-            delete next[itemId];
-            return next;
-          });
-        } catch (err: any) {
-          // Left in pendingEdits (not cleared) so the value the user typed
-          // isn't lost — retried the next time pendingEdits changes again
-          // (e.g. the user edits any row), since nothing else re-triggers
-          // this effect on its own. Previously this failure was swallowed
-          // completely — no error ever reached the user, so a save that
-          // kept failing (e.g. a permission or validation error) looked
-          // exactly like a save that silently wasn't happening at all.
-          failedNames.push(item?.product_name || "a product");
-        }
-      }
-      if (failedNames.length > 0) {
-        showError(
-          failedNames.length === 1
-            ? `Couldn't save the reason for ${failedNames[0]} — it'll retry on your next edit.`
-            : `Couldn't save ${failedNames.length} items (${failedNames.join(", ")}) — they'll retry on your next edit.`
-        );
-      } else if (savedCount > 0) {
-        showSuccess(savedCount === 1 ? "Audit item updated" : `${savedCount} audit items updated`);
-      }
-      load(true);
-    }, 500);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingEdits]);
 
   const editable = audit?.status === "in_progress";
   // Who to record as reviewer is picked inside ReviewAuditModal, which
@@ -189,10 +145,12 @@ export default function ProductAuditDetailsModal({ auditId, onClose, onChanged }
   };
 
   const removeItem = async (itemId: string) => {
+    if (!can("create_product_audit")) { denyPerm("create_product_audit"); return; }
     setBusy(true);
     try {
       const updated = await dispatch(removeProductAuditItemThunk({ auditId, itemId })).unwrap();
       setAudit(updated);
+      setItemsChanged(true);
     } catch (err: any) {
       showError(typeof err === "string" ? err : "Couldn't remove product");
     } finally {
@@ -201,11 +159,13 @@ export default function ProductAuditDetailsModal({ auditId, onClose, onChanged }
   };
 
   const addProducts = async (productIds: string[]) => {
+    if (!can("create_product_audit")) { denyPerm("create_product_audit"); setAddOpen(false); return; }
     setBusy(true);
     try {
       const updated = await dispatch(addProductAuditItemsThunk({ auditId, productIds })).unwrap();
       setAudit(updated);
       setAddOpen(false);
+      setItemsChanged(true);
     } catch (err: any) {
       showError(typeof err === "string" ? err : "Couldn't add products");
     } finally {
@@ -215,10 +175,20 @@ export default function ProductAuditDetailsModal({ auditId, onClose, onChanged }
 
   const submitForReview = async () => {
     if (withPendingReasons.length > 0) return;
+    if (!can("create_product_audit")) { denyPerm("create_product_audit"); return; }
     setBusy(true);
     try {
-      const updated = await dispatch(submitProductAuditThunk(auditId)).unwrap();
+      // Every locally-held edit goes out in this one request — nothing was
+      // sent to the server before now (see pendingEdits above), so this is
+      // the single API call the whole form makes.
+      const items = Object.keys(pendingEdits).map((itemId) => ({
+        item_id: itemId,
+        physical_qty: pendingEdits[itemId].physicalQty,
+        reason: pendingEdits[itemId].reason,
+      }));
+      const updated = await dispatch(submitProductAuditThunk({ auditId, items })).unwrap();
       setAudit(updated);
+      setPendingEdits({});
       onChanged();
     } catch (err: any) {
       showError(typeof err === "string" ? err : "Couldn't submit for review");
@@ -228,6 +198,7 @@ export default function ProductAuditDetailsModal({ auditId, onClose, onChanged }
   };
 
   const confirmReview = async ({ reviewerId, reason }: { reviewerId: string; reason?: string }) => {
+    if (!can("approve_product_audit")) { denyPerm("approve_product_audit"); setReviewOpen(null); return; }
     setBusy(true);
     try {
       const updated = reviewOpen === "approve"
@@ -244,6 +215,7 @@ export default function ProductAuditDetailsModal({ auditId, onClose, onChanged }
   };
 
   const reopen = async () => {
+    if (!can("create_product_audit")) { denyPerm("create_product_audit"); return; }
     setBusy(true);
     try {
       const updated = await dispatch(reopenProductAuditThunk(auditId)).unwrap();
@@ -256,8 +228,13 @@ export default function ProductAuditDetailsModal({ auditId, onClose, onChanged }
     }
   };
 
-  const closeAndRefresh = () => {
-    onChanged();
+  const handleClose = () => {
+    // Only refresh the list if something it actually displays went stale —
+    // submit/approve/reject/reopen already call onChanged() themselves the
+    // moment they happen, so this only ever fires for the add/remove-item
+    // case. A plain view-only session (open, look, close) now closes with
+    // no API call at all.
+    if (itemsChanged) onChanged();
     onClose();
   };
 
@@ -278,7 +255,7 @@ export default function ProductAuditDetailsModal({ auditId, onClose, onChanged }
   return (
     <Modal
       show
-      onClose={closeAndRefresh}
+      onClose={handleClose}
       title={audit.name}
       size="xl"
       footer={
@@ -295,31 +272,51 @@ export default function ProductAuditDetailsModal({ auditId, onClose, onChanged }
           <div className="d-flex gap-2">
             {editable && (
               <>
-                <Button variant="outline-dark" onClick={closeAndRefresh} disabled={busy}>
+                <Button variant="outline-dark" onClick={handleClose} disabled={busy}>
                   Close
                 </Button>
-                <Button variant="dark" onClick={submitForReview} disabled={busy || withPendingReasons.length > 0 || effectiveItems.length === 0}>
+                <Button
+                  variant="dark"
+                  onClick={submitForReview}
+                  disabled={busy || withPendingReasons.length > 0 || effectiveItems.length === 0}
+                  style={!can("create_product_audit") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                >
                   Submit for Review
                 </Button>
               </>
             )}
             {canReview && (
               <>
-                <Button variant="outline-danger" onClick={() => setReviewOpen("reject")} disabled={busy}>
+                <Button
+                  variant="outline-danger"
+                  onClick={() => { if (!can("approve_product_audit")) { denyPerm("approve_product_audit"); return; } setReviewOpen("reject"); }}
+                  disabled={busy}
+                  style={!can("approve_product_audit") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                >
                   Reject
                 </Button>
-                <Button variant="success" onClick={() => setReviewOpen("approve")} disabled={busy}>
+                <Button
+                  variant="success"
+                  onClick={() => { if (!can("approve_product_audit")) { denyPerm("approve_product_audit"); return; } setReviewOpen("approve"); }}
+                  disabled={busy}
+                  style={!can("approve_product_audit") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                >
                   Approve & Complete
                 </Button>
               </>
             )}
             {audit.status === "rejected" && (
-              <Button variant="dark" onClick={reopen} disabled={busy}>
+              <Button
+                variant="dark"
+                onClick={reopen}
+                disabled={busy}
+                style={!can("create_product_audit") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+              >
                 Reopen for Recount
               </Button>
             )}
             {audit.status === "complete" && (
-              <Button variant="outline-dark" onClick={closeAndRefresh}>Close</Button>
+              <Button variant="outline-dark" onClick={handleClose}>Close</Button>
             )}
           </div>
         </div>
@@ -347,7 +344,16 @@ export default function ProductAuditDetailsModal({ auditId, onClose, onChanged }
         <div>
           {editable && (
             <div className="d-flex justify-content-end mb-2">
-              <Button variant="outline-dark" size="sm" iconLeft={<PlusLg size={14} />} onClick={() => setAddOpen(true)}>
+              <Button
+                variant="outline-dark"
+                size="sm"
+                iconLeft={<PlusLg size={14} />}
+                style={!can("create_product_audit") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                onClick={() => {
+                  if (!can("create_product_audit")) { denyPerm("create_product_audit"); return; }
+                  setAddOpen(true);
+                }}
+              >
                 Add Products
               </Button>
             </div>
@@ -380,7 +386,7 @@ export default function ProductAuditDetailsModal({ auditId, onClose, onChanged }
                             <span className="sub">{p.sku || "—"} · {p.category || "—"}</span>
                           </div>
                         </td>
-                        <td className="paudit-num">{p.system_qty}</td>
+                        <td className="paudit-num">{fmtQty(p.system_qty)}</td>
                         <td className="paudit-num">
                           {editable ? (
                             <input
@@ -395,7 +401,7 @@ export default function ProductAuditDetailsModal({ auditId, onClose, onChanged }
                               onWheel={(e) => e.currentTarget.blur()}
                             />
                           ) : (
-                            p.physical_qty ?? "—"
+                            p.physical_qty != null ? fmtQty(p.physical_qty) : "—"
                           )}
                         </td>
                         <td className="paudit-num">
@@ -403,7 +409,7 @@ export default function ProductAuditDetailsModal({ auditId, onClose, onChanged }
                             "—"
                           ) : (
                             <span className={d === 0 ? "paudit-diff-zero" : d > 0 ? "paudit-diff-over" : "paudit-diff-short"}>
-                              {d > 0 ? `+${d}` : d}
+                              {d > 0 ? `+${fmtQty(d)}` : fmtQty(d)}
                             </span>
                           )}
                         </td>
@@ -423,7 +429,13 @@ export default function ProductAuditDetailsModal({ auditId, onClose, onChanged }
                         </td>
                         {editable && (
                           <td>
-                            <button className="paudit-row-remove" onClick={() => removeItem(p.id)} aria-label="Remove product" disabled={busy}>
+                            <button
+                              className="paudit-row-remove"
+                              onClick={() => removeItem(p.id)}
+                              aria-label="Remove product"
+                              disabled={busy}
+                              style={!can("create_product_audit") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                            >
                               <Trash size={14} />
                             </button>
                           </td>

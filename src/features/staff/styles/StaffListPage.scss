@@ -253,6 +253,9 @@ $radius: 12px;
 
   &--outline { background: $white; color: $primary; &:hover { background: #f9fafb; } }
   &--danger { background: #fee2e2; color: $danger; border-color: #fca5a5; &:hover { background: #fecaca; } }
+  &--success { background: #d1fae5; color: $success; border-color: #6ee7b7; &:hover { background: #a7f3d0; } }
+
+  &:disabled { opacity: 0.6; cursor: not-allowed; &:hover { background: inherit; } }
 }
 
 // ── SKELETON ──
@@ -547,111 +550,12 @@ $radius: 12px;
 
 .slp-action-divider { height: 1px; background: $border; margin: 4px 0; }
 
-// ── FOOTER ──
+// ── FOOTER / PAGINATION ──
+// Uses the shared components/ui/Pagination component (see StaffListPage.tsx)
+// instead of page-specific prev/next/page-number markup — its own styles
+// live in components/ui/styles/Pagination.scss. This just places it under
+// the table with the same rhythm the old hand-rolled footer had.
 .slp-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
   margin-top: 16px;
-  padding: 0 4px;
-}
-
-.slp-footer-results { font-size: 12px; color: $muted; strong { color: #1e293b; } }
-
-.slp-footer-size {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  color: $muted;
-}
-
-.slp-footer-size-wrap {
-  position: relative;
-  display: flex;
-  align-items: center;
-
-  select {
-    height: 30px;
-    padding: 0 26px 0 10px;
-    border: 1px solid $border;
-    border-radius: 7px;
-    font-size: 12px;
-    font-weight: 600;
-    color: $primary;
-    background: $white;
-    cursor: pointer;
-    outline: none;
-    appearance: none;
-    font-family: $font;
-
-    &:focus { border-color: $accent; }
-  }
-}
-
-.slp-footer-size-icon {
-  position: absolute;
-  right: 8px;
-  color: $muted;
-  pointer-events: none;
-}
-
-.slp-pagination {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.slp-page-btn {
-  all: unset;
-  box-sizing: border-box;
-  min-width: 34px;
-  height: 34px;
-  padding: 0 8px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.82rem;
-  font-weight: 500;
-  color: #374151;
-  background: #fff;
-  border: 1px solid #e5e7eb;
-  border-radius: 7px;
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
-
-  svg { display: block; pointer-events: none; }
-
-  &:hover:not(:disabled) {
-    background: #f1f5f9;
-    border-color: #cbd5e1;
-    color: #111827;
-  }
-
-  &:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
-
-  &--active {
-    background: #1e293b;
-    border-color: #1e293b;
-    color: #fff;
-    font-weight: 700;
-
-    &:hover:not(:disabled) {
-      background: #1e293b;
-      border-color: #1e293b;
-      color: #fff;
-    }
-  }
-}
-
-.slp-page-ellipsis {
-  min-width: 28px;
-  text-align: center;
-  font-size: 0.82rem;
-  color: #9ca3af;
-  user-select: none;
 }
 

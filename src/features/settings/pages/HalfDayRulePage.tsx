@@ -7,7 +7,6 @@ import {
   DEFAULT_HALF_DAY_RULE_CONFIG,
   resolveAttendanceRuleConfig,
   saveAttendanceRuleConfig,
-  type DeductionType,
   type HalfDayRuleConfig,
   type StaffRuleScope,
 } from "../utils/halfDayRuleSettings";
@@ -19,12 +18,6 @@ const CLEARED_ATTENDANCE_RULE_CONFIG: HalfDayRuleConfig = {
   ...DEFAULT_HALF_DAY_RULE_CONFIG,
   active: false,
   threshold_hours: 0,
-  late_rule_active: false,
-  grace_period_hours: 0,
-  late_deduction_type: "fixed",
-  late_deduction_amount: 0,
-  late_deduction_after_hours: 0,
-  max_late_deduction: null,
   half_day_deduction_amount: 0,
   staff_scope: "all",
   selected_staff_ids: [],
@@ -176,7 +169,6 @@ export default function HalfDayRulePage({ onClose, onSaved }: HalfDayRulePagePro
 
   function validate() {
     if (config.active && config.threshold_hours <= 0) return "Half Day time must be at least 1 minute";
-    if (config.late_rule_active && config.late_deduction_after_hours <= 0) return "Late deduction time must be at least 1 minute";
     if (config.staff_scope === "selected" && config.selected_staff_ids.length === 0) return "Select at least one staff member";
     return undefined;
   }
@@ -264,86 +256,9 @@ export default function HalfDayRulePage({ onClose, onSaved }: HalfDayRulePagePro
         <div className="hd-header__text">
           <h2 className="hd-header__title">Attendance Rules</h2>
           <p className="hd-header__desc">
-            Configure grace time, late deductions, half-day marking, and staff scope for payroll.
+            Configure half-day marking and staff scope for payroll.
           </p>
           <div className="hd-header__note">Clear only resets this form. Save Changes applies it to payroll.</div>
-        </div>
-      </div>
-
-      <div className="hd-card">
-        <div className="hd-section-title">Late Attendance Rule</div>
-        <label className="hd-header__toggle hd-inline-toggle">
-          <input
-            type="checkbox"
-            checked={config.late_rule_active}
-            onChange={() => patchConfig({ late_rule_active: !config.late_rule_active })}
-          />
-          <span className="hd-header__toggle-track"><span className="hd-header__toggle-thumb" /></span>
-          <span className="hd-header__toggle-label">{config.late_rule_active ? "Enabled" : "Disabled"}</span>
-        </label>
-        <DurationField
-          label="Grace Period"
-          value={config.grace_period_hours}
-          onChange={(value) => patchConfig({ grace_period_hours: value })}
-        />
-        <div className="hd-preview">
-          <Info size={14} />
-          <span>With a 10:00 AM shift, check-in until <strong>{exampleTime(config.grace_period_hours)}</strong> has no late deduction.</span>
-        </div>
-      </div>
-
-      <div className={`hd-card${!config.late_rule_active ? " hd-disabled" : ""}`}>
-        <div className="hd-section-title">Late Deduction Rule</div>
-        <div className="hd-field">
-          <label className="hd-field__label">Deduction Type</label>
-          <Dropdown
-            className="hd-select"
-            value={config.late_deduction_type}
-            options={[
-              { id: "fixed", name: "Fixed Amount" },
-              { id: "salary_per_hour", name: "Salary Based / Per Hour" },
-            ]}
-            onChange={(id) => patchConfig({ late_deduction_type: id as DeductionType })}
-          />
-        </div>
-        <div className="hd-field">
-          <label className="hd-field__label">Deduction Amount</label>
-          <div className="hd-input-wrap">
-            <input
-              type="number"
-              min={0}
-              step="0.01"
-              placeholder="0"
-              value={moneyInput(config.late_deduction_amount)}
-              onChange={(e) => {
-                const val = e.target.value;
-                patchConfig({ late_deduction_amount: val === "" ? 0 : Math.max(0, parseFloat(val) || 0) });
-              }}
-            />
-            <span>₹</span>
-          </div>
-        </div>
-        <DurationField
-          label="Deduction After"
-          value={config.late_deduction_after_hours}
-          onChange={(value) => patchConfig({ late_deduction_after_hours: value })}
-        />
-        <div className="hd-field">
-          <label className="hd-field__label">Maximum Deduction</label>
-          <div className="hd-input-wrap">
-            <input
-              type="number"
-              min={0}
-              step="0.01"
-              placeholder="Optional"
-              value={moneyInput(config.max_late_deduction)}
-              onChange={(e) => {
-                const val = e.target.value;
-                patchConfig({ max_late_deduction: val.trim() === "" ? null : Math.max(0, parseFloat(val) || 0) });
-              }}
-            />
-            <span>₹</span>
-          </div>
         </div>
       </div>
 

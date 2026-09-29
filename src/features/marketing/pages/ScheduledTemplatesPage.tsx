@@ -13,9 +13,11 @@ import {
   resendScheduledThunk,
 } from "../../../middleware/marketing/scheduled-templates.thunk";
 import type { ScheduledMessage, ScheduledMessageStatus } from "../../../types/marketing.types";
-import { PageHeader, Input, Button, Modal, Pagination, DateRangeFilter, JiraFilterMenu } from "../../../components/ui";
+import { PageHeader, Input, Button, Modal, Pagination, DateRangeFilter, JiraFilterMenu, DatePicker } from "../../../components/ui";
 import type { DateRangeFilterValue, JiraFilterField } from "../../../components/ui";
 import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
+import { usePermissions } from "../../../hooks/usePermissions";
+import { showPermissionDenied } from "../../../store/permissionDialogSlice";
 import "../styles/ScheduledTemplatesPage.scss";
 
 const EVENT_LABELS: Record<string, string> = {
@@ -26,12 +28,31 @@ const EVENT_LABELS: Record<string, string> = {
   package_appointment_reminder_24h: "Package Appointment Reminder",
   service_reminder_24h:             "Appointment Reminder",
   birthday_wishes:                  "Birthday Wishes",
+  anniversary_wishes:               "Anniversary Wishes",
   new_year_campaign:                "New Year Campaign",
   pending_payment_reminder:         "Pending Payment Reminder",
   we_miss_you_30d:                  "We Miss You (30 Days)",
   we_miss_you_60d:                  "We Miss You (60 Days)",
   we_miss_you_90d:                  "We Miss You (90 Days)",
 };
+
+// Coarser grouping over the same event_type values EVENT_LABELS already
+// covers — lets a salon filter "all Package reminders" in one click instead
+// of ticking package_expiring_7d/24h/package_appointment_reminder_24h
+// individually under Trigger. Purely a frontend convenience: selecting a
+// category just OR's its member event types into the same eventType query
+// param the Trigger filter already sends (see filteredEventTypes below), so
+// Category and Trigger stay fully interchangeable/combinable.
+const CATEGORY_GROUPS: { id: string; label: string; events: string[] }[] = [
+  { id: "package",     label: "Package",     events: ["package_expiring_7d", "package_expiring_24h", "package_appointment_reminder_24h"] },
+  { id: "membership",  label: "Membership",  events: ["membership_expiring_7d", "membership_expiring_24h"] },
+  { id: "reminder",    label: "Reminder",    events: ["service_reminder_24h", "pending_payment_reminder"] },
+  { id: "birthday",    label: "Birthday",    events: ["birthday_wishes"] },
+  { id: "anniversary", label: "Anniversary", events: ["anniversary_wishes"] },
+  { id: "other",       label: "Other",       events: ["new_year_campaign", "we_miss_you_30d", "we_miss_you_60d", "we_miss_you_90d"] },
+];
+const CATEGORY_OPTIONS = CATEGORY_GROUPS.map(g => ({ id: g.id, label: g.label }));
+const CATEGORY_EVENTS_BY_ID: Record<string, string[]> = Object.fromEntries(CATEGORY_GROUPS.map(g => [g.id, g.events]));
 
 const STATUS_META: Record<ScheduledMessageStatus, { label: string; dotClass: string }> = {
   SCHEDULED: { label: "Scheduled", dotClass: "st-dot--scheduled" },
@@ -80,6 +101,11 @@ export default function ScheduledTemplatesPage() {
   const dispatch = useAppDispatch();
   const salonId = useAppSelector((s: any) => s.auth.salonId);
   const { showSuccess, showError, overlay } = useStatusOverlay();
+  const { can } = usePermissions();
+  const denyPerm = (permKey: string) => dispatch(showPermissionDenied(
+    `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+  ));
+  const kebabItemStyle = (permKey: string) => (!can(permKey) ? { opacity: 0.5, cursor: "not-allowed" } : undefined);
 
   const [rows, setRows] = useState<ScheduledMessage[]>([]);
   const [total, setTotal] = useState(0);
@@ -88,7 +114,17 @@ export default function ScheduledTemplatesPage() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilterIds, setStatusFilterIds] = useState<string[]>([]);
   const [eventFilterIds, setEventFilterIds] = useState<string[]>([]);
+  const [categoryFilterIds, setCategoryFilterIds] = useState<string[]>([]);
   const [dateRange, setDateRange] = useState<DateRangeFilterValue>({ preset: "all_time", startDate: "", endDate: "" });
+  // Dedicated single-day pickers for "who's got a birthday/anniversary
+  // message going out on this date" — mutually exclusive with each other
+  // (picking one clears the other) since a single dateFrom/dateTo pair can't
+  // express two different specific days at once. When set, these take
+  // precedence over the general date range above for that request, and
+  // implicitly scope to their own event type (see filteredEventTypes/
+  // effectiveDateBounds below) — no need to also touch Category/Trigger.
+  const [birthdayDate, setBirthdayDate] = useState("");
+  const [anniversaryDate, setAnniversaryDate] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
@@ -107,7 +143,28 @@ export default function ScheduledTemplatesPage() {
     return () => clearTimeout(t);
   }, [search]);
 
-  useEffect(() => { setCurrentPage(1); }, [debouncedSearch, statusFilterIds, eventFilterIds, dateRange.startDate, dateRange.endDate]);
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearch, statusFilterIds, eventFilterIds, categoryFilterIds, dateRange.startDate, dateRange.endDate, birthdayDate, anniversaryDate]);
+
+  // Union of Trigger's individually-picked events + every event belonging to
+  // a selected Category + the single event a Birthday/Anniversary Date
+  // picker implies — all OR'd together into the one eventType param the API
+  // already accepts an array for.
+  const filteredEventTypes = (() => {
+    const set = new Set<string>(eventFilterIds);
+    for (const catId of categoryFilterIds) for (const ev of CATEGORY_EVENTS_BY_ID[catId] ?? []) set.add(ev);
+    if (birthdayDate) set.add("birthday_wishes");
+    if (anniversaryDate) set.add("anniversary_wishes");
+    return Array.from(set);
+  })();
+
+  // A specific occasion date is more precise than the general range, so it
+  // wins for this request when set — the DateRangeFilter widget's own value
+  // stays untouched either way.
+  const occasionDate = birthdayDate || anniversaryDate || "";
+  const effectiveDateFrom = occasionDate || dateRange.startDate || undefined;
+  const effectiveDateTo   = occasionDate || dateRange.endDate   || undefined;
 
   const load = useCallback(async () => {
     if (!salonId) return;
@@ -116,10 +173,10 @@ export default function ScheduledTemplatesPage() {
       const result = await dispatch(fetchScheduledMessagesThunk({
         salonId,
         status:    statusFilterIds.length ? statusFilterIds : undefined,
-        eventType: eventFilterIds.length ? eventFilterIds : undefined,
+        eventType: filteredEventTypes.length ? filteredEventTypes : undefined,
         search:    debouncedSearch || undefined,
-        dateFrom:  dateRange.startDate || undefined,
-        dateTo:    dateRange.endDate || undefined,
+        dateFrom:  effectiveDateFrom,
+        dateTo:    effectiveDateTo,
         page:      currentPage,
         limit:     pageSize,
       })).unwrap();
@@ -131,7 +188,8 @@ export default function ScheduledTemplatesPage() {
     } finally {
       setLoading(false);
     }
-  }, [dispatch, salonId, statusFilterIds, eventFilterIds, debouncedSearch, dateRange, currentPage, pageSize, showError]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dispatch, salonId, statusFilterIds, eventFilterIds, categoryFilterIds, debouncedSearch, dateRange, birthdayDate, anniversaryDate, currentPage, pageSize, showError]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -148,15 +206,17 @@ export default function ScheduledTemplatesPage() {
   }, [openRowMenuId]);
 
   const filterFields: JiraFilterField[] = [
-    { key: "status", label: "Status", options: STATUS_OPTIONS.map(o => ({ id: o.id, label: o.label })) },
-    { key: "event",  label: "Trigger", options: EVENT_OPTIONS.map(o => ({ id: o.id, label: o.label })), searchable: true },
+    { key: "status",   label: "Status",   options: STATUS_OPTIONS.map(o => ({ id: o.id, label: o.label })) },
+    { key: "category", label: "Category", options: CATEGORY_OPTIONS },
+    { key: "event",    label: "Trigger",  options: EVENT_OPTIONS.map(o => ({ id: o.id, label: o.label })), searchable: true },
   ];
-  const filterMenuSelected = { status: statusFilterIds, event: eventFilterIds };
+  const filterMenuSelected = { status: statusFilterIds, category: categoryFilterIds, event: eventFilterIds };
   const handleFiltersApply = (next: Record<string, string[]>) => {
     // Genuine multi-select — every ticked checkbox stays applied (an OR
-    // across all selected statuses/triggers), matching what the checkbox UI
-    // itself implies.
+    // across all selected statuses/categories/triggers), matching what the
+    // checkbox UI itself implies.
     setStatusFilterIds(next.status ?? []);
+    setCategoryFilterIds(next.category ?? []);
     setEventFilterIds(next.event ?? []);
   };
 
@@ -191,26 +251,35 @@ export default function ScheduledTemplatesPage() {
     }
   };
 
-  const handleSendNow = (row: ScheduledMessage) =>
+  const handleSendNow = (row: ScheduledMessage) => {
+    if (!can("send_now_scheduled_template")) { denyPerm("send_now_scheduled_template"); return; }
     runAction("Sent", () => dispatch(sendNowThunk({ salonId, id: row.id })).unwrap());
-  const handleRetryNow = (row: ScheduledMessage) =>
+  };
+  const handleRetryNow = (row: ScheduledMessage) => {
+    if (!can("send_now_scheduled_template")) { denyPerm("send_now_scheduled_template"); return; }
     runAction("Retried", () => dispatch(retryNowThunk({ salonId, id: row.id })).unwrap());
+  };
   const handleReschedule = () => {
     if (!modalRow) return;
+    if (!can("edit_scheduled_template")) { denyPerm("edit_scheduled_template"); return; }
     const iso = buildIso(rescheduleDate, rescheduleTime);
     if (!iso) return;
     runAction("Rescheduled", () => dispatch(rescheduleThunk({ salonId, id: modalRow.id, scheduledAt: iso })).unwrap());
   };
   const handleSkip = () => {
     if (!modalRow) return;
+    if (!can("delete_scheduled_template")) { denyPerm("delete_scheduled_template"); return; }
     runAction("Skipped", () => dispatch(skipThunk({ salonId, id: modalRow.id })).unwrap());
   };
   const handleCancel = () => {
     if (!modalRow) return;
+    if (!can("delete_scheduled_template")) { denyPerm("delete_scheduled_template"); return; }
     runAction("Cancelled", () => dispatch(cancelScheduledThunk({ salonId, id: modalRow.id })).unwrap());
   };
-  const handleResend = (row: ScheduledMessage) =>
+  const handleResend = (row: ScheduledMessage) => {
+    if (!can("resend_scheduled_template")) { denyPerm("resend_scheduled_template"); return; }
     runAction("Resent", () => dispatch(resendScheduledThunk({ salonId, id: row.id })).unwrap());
+  };
 
   return (
     <div className="st-page">
@@ -223,6 +292,16 @@ export default function ScheduledTemplatesPage() {
       <div className="st-toolbar">
         <JiraFilterMenu fields={filterFields} selected={filterMenuSelected} onApply={handleFiltersApply} triggerLabel="Filters" />
         <DateRangeFilter value={dateRange} onChange={setDateRange} />
+        <DatePicker
+          placeholder="Birthday Date"
+          value={birthdayDate}
+          onChange={(v) => { setBirthdayDate(v); if (v) setAnniversaryDate(""); }}
+        />
+        <DatePicker
+          placeholder="Anniversary Date"
+          value={anniversaryDate}
+          onChange={(v) => { setAnniversaryDate(v); if (v) setBirthdayDate(""); }}
+        />
         <Input
           containerClass="mb-0 st-search"
           placeholder="Search by phone number"
@@ -271,25 +350,25 @@ export default function ScheduledTemplatesPage() {
                         {row.status === "SCHEDULED" && (
                           <>
                             <li><button className="st-kebab-item" onClick={() => { setOpenRowMenuId(null); setModalRow(row); setModalKind("view"); }}>View Details</button></li>
-                            <li><button className="st-kebab-item" onClick={() => { setOpenRowMenuId(null); handleSendNow(row); }}>Send Now</button></li>
-                            <li><button className="st-kebab-item" onClick={() => { setOpenRowMenuId(null); openReschedule(row); }}>Reschedule</button></li>
-                            <li><button className="st-kebab-item" onClick={() => { setOpenRowMenuId(null); setModalRow(row); setModalKind("skip"); }}>Skip This Occurrence</button></li>
-                            <li><button className="st-kebab-item st-kebab-item--danger" onClick={() => { setOpenRowMenuId(null); setModalRow(row); setModalKind("cancel"); }}>Cancel Schedule</button></li>
+                            <li><button className="st-kebab-item" style={kebabItemStyle("send_now_scheduled_template")} onClick={() => { setOpenRowMenuId(null); handleSendNow(row); }}>Send Now</button></li>
+                            <li><button className="st-kebab-item" style={kebabItemStyle("edit_scheduled_template")} onClick={() => { setOpenRowMenuId(null); if (!can("edit_scheduled_template")) { denyPerm("edit_scheduled_template"); return; } openReschedule(row); }}>Reschedule</button></li>
+                            <li><button className="st-kebab-item" style={kebabItemStyle("delete_scheduled_template")} onClick={() => { setOpenRowMenuId(null); if (!can("delete_scheduled_template")) { denyPerm("delete_scheduled_template"); return; } setModalRow(row); setModalKind("skip"); }}>Skip This Occurrence</button></li>
+                            <li><button className="st-kebab-item st-kebab-item--danger" style={kebabItemStyle("delete_scheduled_template")} onClick={() => { setOpenRowMenuId(null); if (!can("delete_scheduled_template")) { denyPerm("delete_scheduled_template"); return; } setModalRow(row); setModalKind("cancel"); }}>Cancel Schedule</button></li>
                           </>
                         )}
                         {row.status === "SENT" && (
                           <>
                             <li><button className="st-kebab-item" onClick={() => { setOpenRowMenuId(null); setModalRow(row); setModalKind("view"); }}>View Message</button></li>
-                            <li><button className="st-kebab-item" onClick={() => { setOpenRowMenuId(null); handleResend(row); }}>Resend</button></li>
+                            <li><button className="st-kebab-item" style={kebabItemStyle("resend_scheduled_template")} onClick={() => { setOpenRowMenuId(null); handleResend(row); }}>Resend</button></li>
                             <li><button className="st-kebab-item" onClick={() => { setOpenRowMenuId(null); setModalRow(row); setModalKind("view"); }}>View Delivery Status</button></li>
                           </>
                         )}
                         {row.status === "FAILED" && (
                           <>
                             <li><button className="st-kebab-item" onClick={() => { setOpenRowMenuId(null); setModalRow(row); setModalKind("view"); }}>View Failure Reason</button></li>
-                            <li><button className="st-kebab-item" onClick={() => { setOpenRowMenuId(null); handleRetryNow(row); }}>Retry Now</button></li>
-                            <li><button className="st-kebab-item" onClick={() => { setOpenRowMenuId(null); openReschedule(row); }}>Reschedule</button></li>
-                            <li><button className="st-kebab-item st-kebab-item--danger" onClick={() => { setOpenRowMenuId(null); setModalRow(row); setModalKind("cancel"); }}>Cancel</button></li>
+                            <li><button className="st-kebab-item" style={kebabItemStyle("send_now_scheduled_template")} onClick={() => { setOpenRowMenuId(null); handleRetryNow(row); }}>Retry Now</button></li>
+                            <li><button className="st-kebab-item" style={kebabItemStyle("edit_scheduled_template")} onClick={() => { setOpenRowMenuId(null); if (!can("edit_scheduled_template")) { denyPerm("edit_scheduled_template"); return; } openReschedule(row); }}>Reschedule</button></li>
+                            <li><button className="st-kebab-item st-kebab-item--danger" style={kebabItemStyle("delete_scheduled_template")} onClick={() => { setOpenRowMenuId(null); if (!can("delete_scheduled_template")) { denyPerm("delete_scheduled_template"); return; } setModalRow(row); setModalKind("cancel"); }}>Cancel</button></li>
                           </>
                         )}
                         {["SKIPPED", "CANCELLED", "SENDING"].includes(row.status) && (

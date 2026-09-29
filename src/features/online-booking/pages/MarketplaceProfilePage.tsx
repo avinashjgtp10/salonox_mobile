@@ -1,17 +1,16 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import {
-  Globe, Upload, Clock, Eye, CheckCircle, InfoCircle, ImageFill,
+  Globe, Upload, CheckCircle, InfoCircle, ImageFill,
   Images, Trash3, ArrowRepeat, CloudArrowUp, PlusLg, XCircleFill,
 } from "react-bootstrap-icons";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import Dropdown from "../../../components/ui/Dropdown";
 import "../styles/OnlineBooking.scss";
-import BookingPreviewModal from "../components/BookingPreviewModal";
 import api from "../../../services/api/axios";
 import { MARKETPLACE } from "../../../services/api/endpoints/marketplace.endpoints";
 import { LINK_BUILDER } from "../../../services/api/endpoints/linkBuilder.endpoints";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
-import type { WorkingHoursDay } from "../../../types/marketplace.types";
+import type { WorkingHoursDay, Amenity, Highlight, Value } from "../../../types/marketplace.types";
 import {
   fetchMarketplaceProfileThunk,
   updateMarketplaceEssentialsThunk,
@@ -20,7 +19,42 @@ import {
   updateMarketplaceBookingPolicyThunk,
   publishMarketplaceThunk,
   unpublishMarketplaceThunk,
+  fetchStaffVisibilityThunk,
+  setStaffVisibilityThunk,
+  fetchMarketplaceFeaturesThunk,
+  updateMarketplaceFeaturesThunk,
+  type StaffVisibilityRow,
 } from "../../../middleware/marketplace/marketplace.thunk";
+
+// Human-readable labels for the fixed enum lists marketplace.validator.ts
+// (backend) accepts — kept here rather than derived, since the raw keys
+// ("wheelchair_accessible") aren't meant to be shown to an owner as-is.
+const AMENITY_LABELS: Record<Amenity, string> = {
+  parking_available: "Parking available",
+  near_public_transport: "Near public transport",
+  showers: "Showers",
+  lockers: "Lockers",
+  bath_towels: "Bath towels provided",
+  swimming_pool: "Swimming pool",
+  sauna: "Sauna",
+};
+const HIGHLIGHT_LABELS: Record<Highlight, string> = {
+  pet_friendly: "Pet friendly",
+  adults_only: "Adults only",
+  kid_friendly: "Kid friendly",
+  wheelchair_accessible: "Wheelchair accessible",
+};
+const VALUE_LABELS: Record<Value, string> = {
+  organic_products_only: "Organic products only",
+  vegan_products_only: "Vegan products only",
+  environmentally_friendly: "Environmentally friendly",
+  lgbtq_plus: "LGBTQ+ friendly",
+  black_owned: "Black-owned",
+  woman_owned: "Woman-owned",
+  asian_owned: "Asian-owned",
+  hispanic_owned: "Hispanic/Latinx-owned",
+  indigenous_owned: "Indigenous-owned",
+};
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -37,6 +71,9 @@ interface GalleryPhoto {
   progress: number;
   error: string | null;
   saved: boolean;
+  // The one image customers see first on the public booking page. Exactly one
+  // saved photo carries this; the backend clears the rest when it's set.
+  isPrimary: boolean;
 }
 
 const defaultHours: Record<string, DayHours> = {
@@ -96,6 +133,46 @@ function fmtSize(bytes: number): string {
     : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
+// Upper bounds for the two free-text booking-window fields. Both are generous
+// — they exist to stop a stray keystroke turning into a five-digit value, not
+// to express a product opinion. Mirrored by the backend validator.
+const MAX_ADVANCE_DAYS_LIMIT = 365;
+const MIN_NOTICE_HOURS_LIMIT = 720; // 30 days
+
+// People type "instagram.com/glow" far more often than a full URL. The backend
+// requires an http(s) scheme, and because the About call is awaited before
+// working hours and booking settings, a rejected URL used to abort the whole
+// save — hours and toggles silently never sent, with only a generic error.
+// Normalising here means the common shorthand just works; anything still
+// unusable is reported against the field instead of failing the save.
+function normalizeSocialUrl(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return "";
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (/^[a-z][a-z0-9+.-]*:/i.test(trimmed)) return trimmed; // some other scheme — leave it to be rejected
+  return `https://${trimmed}`;
+}
+
+function socialUrlError(label: string, raw: string): string | null {
+  const value = normalizeSocialUrl(raw);
+  if (!value) return null;
+  if (value.length > 255) return `${label} link is too long (max 255 characters).`;
+  let parsed: URL;
+  try { parsed = new URL(value); }
+  catch { return `${label} link doesn't look like a valid web address.`; }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:")
+    return `${label} link must start with http:// or https://`;
+  return null;
+}
+
+// A numeric field the user is mid-edit can legitimately be "" or "0" — only
+// settle it to a valid number on blur and on save, never while typing.
+function clampNum(raw: string, min: number, max: number, fallback: number): number {
+  const n = Math.floor(Number(raw));
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, n));
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function MarketplaceProfilePage() {
@@ -111,11 +188,34 @@ export default function MarketplaceProfilePage() {
   const [phone,        setPhone]        = useState("");
   const [hours,        setHours]        = useState(defaultHours);
   const [saved,        setSaved]        = useState(false);
-  const [showPreview,  setShowPreview]  = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+  // Synchronous ref, not just `savingProfile` state — a rapid double-click
+  // fires handleSave a second time before React's state update from the
+  // first click has re-rendered the disabled button, letting two overlapping
+  // save sequences race the same PUT /marketplace/features call. That
+  // endpoint does a bare DELETE-then-INSERT with no ON CONFLICT handling
+  // (marketplace.repository.ts's upsert), so two concurrent requests can
+  // both pass the DELETE and then collide on the unique
+  // (profile_id, feature_type, feature_key) constraint, surfacing as a 409.
+  const savingProfileRef = useRef(false);
   const [maxAdvance,   setMaxAdvance]   = useState("30");
   const [minNotice,    setMinNotice]    = useState("0");
   const [cancelNotice, setCancelNotice] = useState("0");
   const [slotInterval, setSlotInterval] = useState("15");
+  const [sameDayBooking, setSameDayBooking] = useState(true);
+  const [multipleServices, setMultipleServices] = useState(true);
+  const [aboutEnabled,  setAboutEnabled]  = useState(true);
+  const [instagramUrl,  setInstagramUrl]  = useState("");
+  const [facebookUrl,   setFacebookUrl]   = useState("");
+
+  // Shows the owner the actual last bookable date, so "30 days" is concrete
+  // rather than something they have to work out on a calendar.
+  const maxAdvanceDateLabel = useMemo(() => {
+    const days = clampNum(maxAdvance, 1, MAX_ADVANCE_DAYS_LIMIT, 30);
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    return d.toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" });
+  }, [maxAdvance]);
   const [bookingLink,  setBookingLink]  = useState<string | null>(null);
   const [linkCopied,   setLinkCopied]   = useState(false);
   const { showSuccess, showError, overlay } = useStatusOverlay();
@@ -124,6 +224,58 @@ export default function MarketplaceProfilePage() {
   useEffect(() => {
     dispatch(fetchMarketplaceProfileThunk());
   }, [dispatch]);
+
+  // ── Staff Visibility ─────────────────────────────────────────────────────────
+  // Independent of "Photos & Logo"/publish state — each active staff member's
+  // own "Show in Online Booking" toggle, saved immediately per row rather
+  // than batched with the page's other Save-button fields.
+  const [staffVisibility, setStaffVisibility] = useState<StaffVisibilityRow[]>([]);
+  const [staffVisibilityLoading, setStaffVisibilityLoading] = useState(true);
+  const [savingStaffId, setSavingStaffId] = useState<string | null>(null);
+
+  useEffect(() => {
+    dispatch(fetchStaffVisibilityThunk())
+      .unwrap()
+      .then((rows) => setStaffVisibility(rows))
+      .catch(() => {})
+      .finally(() => setStaffVisibilityLoading(false));
+  }, [dispatch]);
+
+  const toggleStaffVisibility = async (staffId: string, next: boolean) => {
+    const previous = staffVisibility;
+    setStaffVisibility((rows) => rows.map((r) => r.id === staffId ? { ...r, show_in_online_booking: next } : r));
+    setSavingStaffId(staffId);
+    const result = await dispatch(setStaffVisibilityThunk({ staff_id: staffId, visible: next }));
+    setSavingStaffId(null);
+    if (!setStaffVisibilityThunk.fulfilled.match(result)) {
+      setStaffVisibility(previous);
+      showError((result as any)?.payload ?? "Failed to update staff visibility");
+    }
+  };
+
+  // ── Facilities/Amenities & Specialities (Highlights/Values) ────────────────────
+  // Saved via the same features endpoint that already existed on the backend
+  // — this UI was the missing piece (an earlier audit found the fetch/update
+  // wired up server-side with nothing in this page ever reading or writing it).
+  const [amenities,  setAmenities]  = useState<Amenity[]>([]);
+  const [highlights, setHighlights] = useState<Highlight[]>([]);
+  const [values,     setValues]     = useState<Value[]>([]);
+  const [featuresLoading, setFeaturesLoading] = useState(true);
+
+  useEffect(() => {
+    dispatch(fetchMarketplaceFeaturesThunk())
+      .unwrap()
+      .then((data) => {
+        setAmenities(data.amenities ?? []);
+        setHighlights(data.highlights ?? []);
+        setValues(data.values ?? []);
+      })
+      .catch(() => {})
+      .finally(() => setFeaturesLoading(false));
+  }, [dispatch]);
+
+  const toggleInList = <T,>(list: T[], item: T): T[] =>
+    list.includes(item) ? list.filter((x) => x !== item) : [...list, item];
 
   useEffect(() => {
     if (profile) {
@@ -134,12 +286,18 @@ export default function MarketplaceProfilePage() {
       setWebsite(profile.website || "");
       setPhone(profile.business_phone || "");
       setLogoUrl(toRelativeUrl((profile as any).logo_url));
-      setCoverUrl(toRelativeUrl((profile as any).cover_url));
       if (profile.working_hours?.length) setHours(apiToHoursState(profile.working_hours));
       setMaxAdvance(String(profile.max_advance_days ?? 30));
       setMinNotice(String(profile.min_notice_hours ?? 0));
       setCancelNotice(String(profile.cancellation_notice_hours ?? 0));
       setSlotInterval(String(profile.slot_interval_minutes ?? 15));
+      // Absent (column not migrated yet, or an older profile row) means ON —
+      // same permissive default the backend uses.
+      setSameDayBooking(profile.allow_same_day_booking !== false);
+      setMultipleServices(profile.allow_multiple_services !== false);
+      setAboutEnabled(profile.about_enabled !== false);
+      setInstagramUrl(profile.instagram_url || "");
+      setFacebookUrl(profile.facebook_url || "");
     }
   }, [profile]);
 
@@ -168,13 +326,12 @@ export default function MarketplaceProfilePage() {
   const galleryInput = useRef<HTMLInputElement>(null);
   const replaceInputs = useRef<Record<string, HTMLInputElement | null>>({});
 
-  // ── Logo & Cover state ──────────────────────────────────────────────────────
+  // ── Logo state ───────────────────────────────────────────────────────────────
+  // Cover photo upload removed (kept only Logo on this card) — the public
+  // booking page's hero background now comes from the gallery instead.
   const [logoUrl,        setLogoUrl]        = useState<string>("");
-  const [coverUrl,       setCoverUrl]       = useState<string>("");
   const [logoUploading,  setLogoUploading]  = useState(false);
-  const [coverUploading, setCoverUploading] = useState(false);
   const logoInput  = useRef<HTMLInputElement>(null);
-  const coverInput = useRef<HTMLInputElement>(null);
 
   const toRelativeUrl = (u?: string | null) => {
     if (!u) return "";
@@ -183,16 +340,29 @@ export default function MarketplaceProfilePage() {
   };
 
   // ── Existing handlers ───────────────────────────────────────────────────────
-  const updateHour = (day: string, key: keyof DayHours, value: string | boolean) =>
-    setHours((prev) => ({ ...prev, [day]: { ...prev[day], [key]: value } }));
-
   const handleSave = async () => {
-    if (phone && phone.replace(/\D/g, "").length !== 10) {
-      showError("Phone number must be exactly 10 digits");
-      return;
-    }
+    if (savingProfileRef.current) return;
+    savingProfileRef.current = true;
+    setSavingProfile(true);
 
     try {
+      if (phone && phone.replace(/\D/g, "").length !== 10) {
+        showError("Phone number must be exactly 10 digits");
+        return;
+      }
+
+      // Checked before anything is dispatched — the saves run in sequence, so a
+      // value the backend will reject must not be allowed to abort the ones
+      // after it.
+      const socialError = socialUrlError("Instagram", instagramUrl) ?? socialUrlError("Facebook", facebookUrl);
+      if (socialError) { showError(socialError); return; }
+
+      const normalizedInstagram = normalizeSocialUrl(instagramUrl);
+      const normalizedFacebook  = normalizeSocialUrl(facebookUrl);
+      // Reflect the normalised form back so the owner sees what was stored.
+      if (normalizedInstagram !== instagramUrl) setInstagramUrl(normalizedInstagram);
+      if (normalizedFacebook !== facebookUrl)   setFacebookUrl(normalizedFacebook);
+
       await dispatch(updateMarketplaceEssentialsThunk({
         display_name: businessName,
         tagline,
@@ -202,6 +372,13 @@ export default function MarketplaceProfilePage() {
 
       await dispatch(updateMarketplaceAboutThunk({
         venue_description: description,
+        instagram_url: normalizedInstagram,
+        facebook_url:  normalizedFacebook,
+        about_enabled: aboutEnabled,
+      })).unwrap();
+
+      await dispatch(updateMarketplaceFeaturesThunk({
+        amenities, highlights, values,
       })).unwrap();
 
       await dispatch(updateMarketplaceWorkingHoursThunk({
@@ -209,10 +386,12 @@ export default function MarketplaceProfilePage() {
       })).unwrap();
 
       await dispatch(updateMarketplaceBookingPolicyThunk({
-        max_advance_days: Number(maxAdvance),
-        min_notice_hours: Number(minNotice),
+        max_advance_days: clampNum(maxAdvance, 1, MAX_ADVANCE_DAYS_LIMIT, 30),
+        min_notice_hours: clampNum(minNotice, 0, MIN_NOTICE_HOURS_LIMIT, 0),
         cancellation_notice_hours: Number(cancelNotice),
         slot_interval_minutes: Number(slotInterval),
+        allow_same_day_booking: sameDayBooking,
+        allow_multiple_services: multipleServices,
       })).unwrap();
 
       if (enabled && !profile?.is_published) {
@@ -226,6 +405,9 @@ export default function MarketplaceProfilePage() {
       setTimeout(() => setSaved(false), 2500);
     } catch (err: any) {
       showError(err || "Failed to save profile");
+    } finally {
+      savingProfileRef.current = false;
+      setSavingProfile(false);
     }
   };
 
@@ -234,7 +416,7 @@ export default function MarketplaceProfilePage() {
     setGalleryLoading(true);
     try {
       const res = await api.get(MARKETPLACE.IMAGES);
-      const raw: Array<{ id: string; image_url?: string; url?: string; filename?: string; size?: number }> =
+      const raw: Array<{ id: string; image_url?: string; url?: string; filename?: string; size?: number; is_cover?: boolean }> =
         res.data?.data ?? res.data ?? [];
       const toRelative = (u?: string) => {
         if (!u) return "";
@@ -252,6 +434,7 @@ export default function MarketplaceProfilePage() {
           progress:  100,
           error:     null,
           saved:     true,
+          isPrimary: Boolean(p.is_cover),
         }))
       );
     } catch {
@@ -283,6 +466,7 @@ export default function MarketplaceProfilePage() {
       progress:  0,
       error:     null,
       saved:     false,
+      isPrimary: false,
     }));
     setGallery((prev) => [...prev, ...previews]);
 
@@ -327,6 +511,53 @@ export default function MarketplaceProfilePage() {
   }, []);
 
   // ── Gallery: delete ─────────────────────────────────────────────────────────
+  // Reorder by one position. Applied to local state first so the grid responds
+  // instantly, then persisted as the full id order the backend expects; a
+  // failed save is rolled back rather than left looking applied.
+  // Computed from the current `gallery` value rather than inside a setGallery
+  // updater. Reading values back out of an updater looks equivalent but isn't:
+  // React may defer it behind another pending update (an in-flight upload's
+  // progress, say), in which case the captured arrays are still empty when the
+  // next line runs — which sent `image_ids: []` and then blanked the grid on
+  // the rollback.
+  const movePhoto = useCallback(async (photo: GalleryPhoto, direction: -1 | 1) => {
+    if (!photo.saved) return;
+
+    const previous = gallery;
+    const savedPhotos = previous.filter((g) => g.saved);
+    const from = savedPhotos.findIndex((g) => g.id === photo.id);
+    const to = from + direction;
+    if (from < 0 || to < 0 || to >= savedPhotos.length) return; // already at an end
+
+    const reordered = [...savedPhotos];
+    [reordered[from], reordered[to]] = [reordered[to], reordered[from]];
+    // Unsaved uploads stay pinned after the saved ones, where they render.
+    const nextOrder = [...reordered, ...previous.filter((g) => !g.saved)];
+    setGallery(nextOrder);
+
+    try {
+      await api.patch(MARKETPLACE.IMAGES_REORDER, {
+        image_ids: reordered.map((g) => g.id),
+      });
+    } catch {
+      setGallery(previous);
+      showError("Couldn't save the new photo order. Please try again.");
+    }
+  }, [gallery, showError]);
+
+  const setPrimaryPhoto = useCallback(async (photo: GalleryPhoto) => {
+    if (!photo.saved || photo.isPrimary) return;
+    const previous = gallery;
+    setGallery(previous.map((g) => ({ ...g, isPrimary: g.id === photo.id })));
+    try {
+      await api.patch(MARKETPLACE.IMAGE_COVER(photo.id));
+      showSuccess("Cover photo updated");
+    } catch {
+      setGallery(previous);
+      showError("Couldn't set that photo as the cover. Please try again.");
+    }
+  }, [gallery, showError, showSuccess]);
+
   const deletePhoto = useCallback(async (photo: GalleryPhoto) => {
     // Remove optimistically
     setGallery((p) => p.filter((g) => g.id !== photo.id));
@@ -392,7 +623,7 @@ export default function MarketplaceProfilePage() {
     []
   );
 
-  // ── Logo & Cover upload handlers ────────────────────────────────────────────
+  // ── Logo upload handler ──────────────────────────────────────────────────────
   const handleLogoUpload = async (file: File) => {
     const err = validateFile(file);
     if (err) { showError(err); return; }
@@ -415,35 +646,11 @@ export default function MarketplaceProfilePage() {
     }
   };
 
-  const handleCoverUpload = async (file: File) => {
-    const err = validateFile(file);
-    if (err) { showError(err); return; }
-    setCoverUrl(URL.createObjectURL(file));
-    setCoverUploading(true);
-    const formData = new FormData();
-    formData.append("image", file);
-    try {
-      const res = await api.post("/api/v1/marketplace/cover", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-      const saved = res.data?.data ?? res.data ?? {};
-      setCoverUrl(toRelativeUrl(saved.cover_url) || URL.createObjectURL(file));
-      showSuccess("Cover photo uploaded!");
-    } catch (err: unknown) {
-      const msg = (err as any)?.response?.data?.message ?? "Cover upload failed.";
-      showError(msg);
-    } finally {
-      setCoverUploading(false);
-    }
-  };
-
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setDragOver(false);
     if (e.dataTransfer.files.length) uploadFiles(e.dataTransfer.files);
   };
-
-  const savedPhotos = gallery.filter((g) => g.saved || g.uploading).map((g) => g.url);
 
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
@@ -461,12 +668,9 @@ export default function MarketplaceProfilePage() {
           </p>
         </div>
         <div className="ob-header-actions">
-          <button className="ob-btn-outline" onClick={() => setShowPreview(true)}>
-            <Eye size={15} /> Preview
-          </button>
-          <button className="ob-btn-primary" onClick={handleSave}
+          <button className="ob-btn-primary" onClick={handleSave} disabled={savingProfile}
             style={saved ? { background: "#16a34a" } : {}}>
-            {saved ? <><CheckCircle size={15} /> Saved</> : "Save changes"}
+            {saved ? <><CheckCircle size={15} /> Saved</> : savingProfile ? "Saving…" : "Save changes"}
           </button>
         </div>
       </div>
@@ -552,49 +756,6 @@ export default function MarketplaceProfilePage() {
             <input ref={logoInput} type="file" accept="image/jpeg,image/png,image/webp" hidden
               onChange={(e) => { if (e.target.files?.[0]) handleLogoUpload(e.target.files[0]); e.target.value = ""; }} />
           </div>
-
-          {/* ── Cover photo slot ── */}
-          <div
-            className="ob-photo-slot"
-            onClick={() => !coverUploading && coverInput.current?.click()}
-            style={{ minHeight: 120, cursor: "pointer", position: "relative", overflow: "hidden",
-              padding: coverUrl ? 0 : undefined }}
-            title="Click to upload cover photo">
-            {coverUrl ? (
-              <img src={coverUrl} alt="Cover"
-                style={{ width: "100%", height: "100%", objectFit: "cover",
-                  borderRadius: "inherit", display: "block" }} />
-            ) : (
-              <>
-                <span className="ob-photo-upload-icon"><Upload size={22} /></span>
-                <span>Upload cover photo</span>
-                <span style={{ fontSize: 11.5, color: "#9ca3af" }}>PNG, JPG up to 5MB</span>
-              </>
-            )}
-            {coverUploading && (
-              <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.45)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                borderRadius: "inherit" }}>
-                <div style={{ width: 28, height: 28, border: "3px solid rgba(255,255,255,0.3)",
-                  borderTopColor: "#fff", borderRadius: "50%",
-                  animation: "gallery-spin 0.8s linear infinite" }} />
-              </div>
-            )}
-            {/* Hover overlay when cover exists */}
-            {coverUrl && (
-              <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.5)",
-                display: "flex", flexDirection: "column", alignItems: "center",
-                justifyContent: "center", gap: 6, opacity: 0, transition: "opacity 0.2s",
-                borderRadius: "inherit" }}
-                onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
-                onMouseLeave={(e) => (e.currentTarget.style.opacity = "0")}>
-                <Upload size={20} color="#fff" />
-                <span style={{ fontSize: 12, color: "#fff", fontWeight: 600 }}>Change cover</span>
-              </div>
-            )}
-            <input ref={coverInput} type="file" accept="image/jpeg,image/png,image/webp" hidden
-              onChange={(e) => { if (e.target.files?.[0]) handleCoverUpload(e.target.files[0]); e.target.value = ""; }} />
-          </div>
         </div>
         <div className="ob-section-label">Details</div>
         <div className="ob-form-group">
@@ -636,6 +797,90 @@ export default function MarketplaceProfilePage() {
             <input className="ob-input" value={website}
               onChange={(e) => setWebsite(e.target.value)} placeholder="https://yoursalon.com" />
           </div>
+        </div>
+
+        <div className="ob-form-grid">
+          <div className="ob-form-group">
+            <label className="ob-label" htmlFor="instagram-url">
+              Instagram <span className="ob-label-optional">(optional)</span>
+            </label>
+            <input id="instagram-url" className="ob-input" value={instagramUrl} maxLength={255}
+              onChange={(e) => setInstagramUrl(e.target.value)}
+              placeholder="https://instagram.com/yoursalon" />
+          </div>
+          <div className="ob-form-group">
+            <label className="ob-label" htmlFor="facebook-url">
+              Facebook <span className="ob-label-optional">(optional)</span>
+            </label>
+            <input id="facebook-url" className="ob-input" value={facebookUrl} maxLength={255}
+              onChange={(e) => setFacebookUrl(e.target.value)}
+              placeholder="https://facebook.com/yoursalon" />
+          </div>
+        </div>
+
+        <div className="ob-section-label">Facilities &amp; Amenities</div>
+        <p className="ob-toggle-hint" style={{ marginBottom: 10 }}>
+          Shown to clients as part of your About Us section.
+        </p>
+        {featuresLoading ? (
+          <p className="ob-toggle-hint">Loading…</p>
+        ) : (
+          <div className="ob-checkbox-grid">
+            {(Object.keys(AMENITY_LABELS) as Amenity[]).map((key) => (
+              <label key={key} className="ob-checkbox-item">
+                <input type="checkbox" checked={amenities.includes(key)}
+                  onChange={() => setAmenities((prev) => toggleInList(prev, key))} />
+                <span>{AMENITY_LABELS[key]}</span>
+              </label>
+            ))}
+          </div>
+        )}
+
+        <div className="ob-section-label" style={{ marginTop: 20 }}>Salon Specialities</div>
+        <p className="ob-toggle-hint" style={{ marginBottom: 10 }}>
+          Highlights and values customers can filter or notice about your salon.
+        </p>
+        {!featuresLoading && (
+          <>
+            <div className="ob-checkbox-grid">
+              {(Object.keys(HIGHLIGHT_LABELS) as Highlight[]).map((key) => (
+                <label key={key} className="ob-checkbox-item">
+                  <input type="checkbox" checked={highlights.includes(key)}
+                    onChange={() => setHighlights((prev) => toggleInList(prev, key))} />
+                  <span>{HIGHLIGHT_LABELS[key]}</span>
+                </label>
+              ))}
+            </div>
+            <div className="ob-checkbox-grid" style={{ marginTop: 8 }}>
+              {(Object.keys(VALUE_LABELS) as Value[]).map((key) => (
+                <label key={key} className="ob-checkbox-item">
+                  <input type="checkbox" checked={values.includes(key)}
+                    onChange={() => setValues((prev) => toggleInList(prev, key))} />
+                  <span>{VALUE_LABELS[key]}</span>
+                </label>
+              ))}
+            </div>
+          </>
+        )}
+
+        <div className="ob-toggle-row" style={{ marginTop: 20 }}>
+          <div className="ob-toggle-info">
+            <p className="ob-toggle-label">Show About Us on the booking page</p>
+            <p className="ob-toggle-hint">
+              {aboutEnabled
+                ? "Clients see your description, website and social links while booking."
+                : "Your description, website and social links are hidden from clients. Nothing is deleted."}
+            </p>
+          </div>
+          <label className="ob-switch">
+            <input
+              type="checkbox"
+              id="about-enabled"
+              checked={aboutEnabled}
+              onChange={(e) => setAboutEnabled(e.target.checked)}
+            />
+            <span className="ob-switch-track"><span className="ob-switch-thumb" /></span>
+          </label>
         </div>
       </div>
 
@@ -801,14 +1046,19 @@ export default function MarketplaceProfilePage() {
 
               <div style={{ display: "grid",
                 gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 16 }}>
-                {gallery.map((photo) => (
+                {gallery.map((photo, idx) => (
                   <GalleryCard
                     key={photo.id}
                     photo={photo}
+                    canMoveBack={photo.saved && idx > 0}
+                    canMoveForward={photo.saved && idx < gallery.filter((g) => g.saved).length - 1}
                     replaceInputRef={(el) => { replaceInputs.current[photo.id] = el; }}
                     onDelete={() => deletePhoto(photo)}
                     onReplace={(file) => replacePhoto(photo, file)}
                     onRetry={() => galleryInput.current?.click()}
+                    onMoveBack={() => movePhoto(photo, -1)}
+                    onMoveForward={() => movePhoto(photo, 1)}
+                    onSetPrimary={() => setPrimaryPhoto(photo)}
                   />
                 ))}
 
@@ -888,6 +1138,49 @@ export default function MarketplaceProfilePage() {
       </div>
 
       {/* ════════════════════════════════════════════════════════════════════════
+          NEW — Staff Visibility
+      ═══════════════════════════════════════════════════════════════════════════ */}
+      <div className="ob-card">
+        <div className="ob-card-header">
+          <div>
+            <p className="ob-card-title">Staff Visibility</p>
+            <p className="ob-card-sub">
+              Choose which active staff members clients can select on your public booking page.
+              Turning a staff member off here doesn't affect their Calendar or anything else.
+            </p>
+          </div>
+        </div>
+
+        {staffVisibilityLoading ? (
+          <p className="ob-toggle-hint">Loading staff…</p>
+        ) : staffVisibility.length === 0 ? (
+          <p className="ob-toggle-hint">No active staff members yet.</p>
+        ) : (
+          staffVisibility.map((s) => (
+            <div key={s.id} className="ob-toggle-row">
+              <div className="ob-toggle-info">
+                <p className="ob-toggle-label">{[s.first_name, s.last_name].filter(Boolean).join(" ")}</p>
+                <p className="ob-toggle-hint">
+                  {s.show_in_online_booking
+                    ? "Shown to clients on the public booking page."
+                    : "Hidden from the public booking page."}
+                </p>
+              </div>
+              <label className="ob-switch">
+                <input
+                  type="checkbox"
+                  checked={s.show_in_online_booking}
+                  disabled={savingStaffId === s.id}
+                  onChange={(e) => toggleStaffVisibility(s.id, e.target.checked)}
+                />
+                <span className="ob-switch-track"><span className="ob-switch-thumb" /></span>
+              </label>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* ════════════════════════════════════════════════════════════════════════
           EXISTING — Booking Settings
       ═══════════════════════════════════════════════════════════════════════════ */}
       <div className="ob-card">
@@ -899,35 +1192,47 @@ export default function MarketplaceProfilePage() {
         </div>
         <div className="ob-form-grid">
           <div className="ob-form-group">
-            <label className="ob-label">Maximum advance booking</label>
-            <Dropdown
-              className="ob-select"
-              searchable={false}
-              value={maxAdvance}
-              onChange={setMaxAdvance}
-              options={[
-                { id: "30", name: "1 month" },
-                { id: "60", name: "2 months" },
-                { id: "90", name: "3 months" },
-                { id: "180", name: "6 months" },
-              ]}
-            />
+            <label className="ob-label" htmlFor="max-advance-days">Maximum advance booking</label>
+            <div className="ob-unit-field">
+              <input
+                id="max-advance-days"
+                className="ob-input"
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={MAX_ADVANCE_DAYS_LIMIT}
+                value={maxAdvance}
+                onChange={(e) => setMaxAdvance(e.target.value)}
+                onBlur={() => setMaxAdvance(String(clampNum(maxAdvance, 1, MAX_ADVANCE_DAYS_LIMIT, 30)))}
+              />
+              <span className="ob-unit-suffix">Days</span>
+            </div>
+            <p className="ob-field-hint">
+              Clients can book up to {clampNum(maxAdvance, 1, MAX_ADVANCE_DAYS_LIMIT, 30)} days ahead
+              {maxAdvanceDateLabel ? ` — currently until ${maxAdvanceDateLabel}.` : "."}
+            </p>
           </div>
           <div className="ob-form-group">
-            <label className="ob-label">Minimum notice period</label>
-            <Dropdown
-              className="ob-select"
-              searchable={false}
-              value={minNotice}
-              onChange={setMinNotice}
-              options={[
-                { id: "0", name: "No notice required" },
-                { id: "1", name: "1 hour" },
-                { id: "4", name: "4 hours" },
-                { id: "24", name: "24 hours" },
-                { id: "48", name: "48 hours" },
-              ]}
-            />
+            <label className="ob-label" htmlFor="min-notice-hours">Minimum booking notice</label>
+            <div className="ob-unit-field">
+              <input
+                id="min-notice-hours"
+                className="ob-input"
+                type="number"
+                inputMode="numeric"
+                min={0}
+                max={MIN_NOTICE_HOURS_LIMIT}
+                value={minNotice}
+                onChange={(e) => setMinNotice(e.target.value)}
+                onBlur={() => setMinNotice(String(clampNum(minNotice, 0, MIN_NOTICE_HOURS_LIMIT, 0)))}
+              />
+              <span className="ob-unit-suffix">Hours</span>
+            </div>
+            <p className="ob-field-hint">
+              {clampNum(minNotice, 0, MIN_NOTICE_HOURS_LIMIT, 0) === 0
+                ? "Clients can book any slot that hasn't already passed."
+                : `Slots within the next ${clampNum(minNotice, 0, MIN_NOTICE_HOURS_LIMIT, 0)} hour${clampNum(minNotice, 0, MIN_NOTICE_HOURS_LIMIT, 0) === 1 ? "" : "s"} won't be offered.`}
+            </p>
           </div>
           <div className="ob-form-group">
             <label className="ob-label">Cancellation notice</label>
@@ -959,6 +1264,46 @@ export default function MarketplaceProfilePage() {
             />
           </div>
         </div>
+
+        <div className="ob-toggle-row">
+          <div className="ob-toggle-info">
+            <p className="ob-toggle-label">Allow same-day booking</p>
+            <p className="ob-toggle-hint">
+              {sameDayBooking
+                ? "Clients can book today, as long as the time is still ahead and meets your minimum notice."
+                : "Clients can only book from tomorrow onwards. Appointments already in your calendar for today are unaffected."}
+            </p>
+          </div>
+          <label className="ob-switch">
+            <input
+              type="checkbox"
+              id="allow-same-day-booking"
+              checked={sameDayBooking}
+              onChange={(e) => setSameDayBooking(e.target.checked)}
+            />
+            <span className="ob-switch-track"><span className="ob-switch-thumb" /></span>
+          </label>
+        </div>
+
+        <div className="ob-toggle-row">
+          <div className="ob-toggle-info">
+            <p className="ob-toggle-label">Allow multiple services</p>
+            <p className="ob-toggle-hint">
+              {multipleServices
+                ? "Clients can book several services in one appointment; the duration and price add up."
+                : "Clients book one service per appointment."}
+            </p>
+          </div>
+          <label className="ob-switch">
+            <input
+              type="checkbox"
+              id="allow-multiple-services"
+              checked={multipleServices}
+              onChange={(e) => setMultipleServices(e.target.checked)}
+            />
+            <span className="ob-switch-track"><span className="ob-switch-thumb" /></span>
+          </label>
+        </div>
         <div className="ob-info-banner">
           <InfoCircle size={16} className="ob-info-icon" />
           <p className="ob-info-text">
@@ -969,44 +1314,9 @@ export default function MarketplaceProfilePage() {
         </div>
       </div>
 
-      {/* ════════════════════════════════════════════════════════════════════════
-          EXISTING — Business Hours
-      ═══════════════════════════════════════════════════════════════════════════ */}
-      <div className="ob-card">
-        <div className="ob-card-header">
-          <div>
-            <p className="ob-card-title">
-              <Clock size={16} style={{ marginRight: 7, verticalAlign: "middle" }} />
-              Business Hours
-            </p>
-            <p className="ob-card-sub">Set your opening times shown to clients on your booking page.</p>
-          </div>
-        </div>
-        {DAYS.map((day) => {
-          const h = hours[day];
-          return (
-            <div key={day} className="ob-hours-row">
-              <div className="ob-hours-day">{day}</div>
-              {h.open ? (
-                <div className="ob-hours-times">
-                  <input type="time" className="ob-input" value={h.from}
-                    onChange={(e) => updateHour(day, "from", e.target.value)} />
-                  <span className="ob-hours-sep">to</span>
-                  <input type="time" className="ob-input" value={h.to}
-                    onChange={(e) => updateHour(day, "to", e.target.value)} />
-                </div>
-              ) : (
-                <span className="ob-hours-closed">Closed</span>
-              )}
-              <label className="ob-switch">
-                <input type="checkbox" checked={h.open}
-                  onChange={(e) => updateHour(day, "open", e.target.checked)} />
-                <span className="ob-switch-track"><span className="ob-switch-thumb" /></span>
-              </label>
-            </div>
-          );
-        })}
-      </div>
+      {/* Business Hours now lives in Settings → Business Hours (writes the same
+          marketplace_working_hours data). `hours` is still fetched/saved here
+          so the booking-link preview below stays accurate. */}
 
       {/* ════════════════════════════════════════════════════════════════════════
           EXISTING — Booking Link
@@ -1031,16 +1341,6 @@ export default function MarketplaceProfilePage() {
         </div>
       </div>
 
-      {/* Preview Modal */}
-      <BookingPreviewModal
-        open={showPreview}
-        onClose={() => setShowPreview(false)}
-        previewName={businessName}
-        previewTagline={tagline}
-        previewDescription={description}
-        galleryPhotos={savedPhotos}
-        previewHours={DAYS.map((day) => ({ day, ...hours[day] }))}
-      />
     </div>
   );
 }
@@ -1049,14 +1349,35 @@ export default function MarketplaceProfilePage() {
 
 interface GalleryCardProps {
   photo: GalleryPhoto;
+  canMoveBack: boolean;
+  canMoveForward: boolean;
   replaceInputRef: (el: HTMLInputElement | null) => void;
   onDelete: () => void;
   onReplace: (file: File) => void;
   onRetry: () => void;
+  onMoveBack: () => void;
+  onMoveForward: () => void;
+  onSetPrimary: () => void;
 }
 
-function GalleryCard({ photo, replaceInputRef, onDelete, onReplace }: GalleryCardProps) {
+function GalleryCard({
+  photo, canMoveBack, canMoveForward, replaceInputRef,
+  onDelete, onReplace, onMoveBack, onMoveForward, onSetPrimary,
+}: GalleryCardProps) {
   const [hovered, setHovered] = useState(false);
+
+  // Ordering and cover controls only apply to a photo the server already has —
+  // an id that's still a local placeholder can't be reordered or made cover.
+  const showControls = photo.saved && !photo.uploading && !photo.error;
+
+  const ctrlBtn = (enabled: boolean): React.CSSProperties => ({
+    display: "flex", alignItems: "center", justifyContent: "center",
+    width: 28, height: 28, borderRadius: 8, border: "none",
+    background: "rgba(255,255,255,0.92)", color: enabled ? "#0f172a" : "#cbd5e1",
+    cursor: enabled ? "pointer" : "not-allowed",
+    boxShadow: "0 2px 6px rgba(0,0,0,0.18)", fontSize: 14, fontWeight: 800,
+    lineHeight: 1, padding: 0,
+  });
 
   return (
     <div
@@ -1092,6 +1413,40 @@ function GalleryCard({ photo, replaceInputRef, onDelete, onReplace }: GalleryCar
               ? "linear-gradient(to top, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0) 100%)"
               : "linear-gradient(to top, rgba(0,0,0,0.35) 0%, transparent 50%)",
             transition: "background 0.3s" }} />
+        )}
+
+        {/* Cover badge — always visible, so the primary photo is identifiable
+            without hovering every tile to find it. */}
+        {showControls && photo.isPrimary && (
+          <div style={{ position: "absolute", top: 10, left: 10,
+            display: "flex", alignItems: "center", gap: 5,
+            padding: "4px 9px", borderRadius: 999,
+            background: "linear-gradient(135deg,#0f172a,#334155)", color: "#fff",
+            fontSize: 10.5, fontWeight: 800, letterSpacing: "0.03em",
+            boxShadow: "0 2px 8px rgba(15,23,42,0.35)" }}>
+            ★ COVER
+          </div>
+        )}
+
+        {/* Order + cover controls */}
+        {showControls && hovered && (
+          <div style={{ position: "absolute", top: 10, right: 10, display: "flex", gap: 6 }}>
+            <button type="button" aria-label="Move photo earlier"
+              title={canMoveBack ? "Move earlier" : "Already first"}
+              disabled={!canMoveBack}
+              onClick={(e) => { e.stopPropagation(); onMoveBack(); }}
+              style={ctrlBtn(canMoveBack)}>‹</button>
+            <button type="button" aria-label="Move photo later"
+              title={canMoveForward ? "Move later" : "Already last"}
+              disabled={!canMoveForward}
+              onClick={(e) => { e.stopPropagation(); onMoveForward(); }}
+              style={ctrlBtn(canMoveForward)}>›</button>
+            {!photo.isPrimary && (
+              <button type="button" aria-label="Set as cover photo" title="Set as cover"
+                onClick={(e) => { e.stopPropagation(); onSetPrimary(); }}
+                style={ctrlBtn(true)}>★</button>
+            )}
+          </div>
         )}
 
         {/* Upload progress overlay */}

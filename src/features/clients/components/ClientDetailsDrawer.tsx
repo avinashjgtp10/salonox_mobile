@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { X, Pencil, Clipboard, ArrowLeft } from "react-bootstrap-icons";
+import { X, Pencil, Clipboard, ArrowLeft, ClockHistory } from "react-bootstrap-icons";
 import { useNavigate } from "react-router-dom";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { useCurrency } from "../../../hooks/useCurrency";
@@ -9,6 +9,9 @@ import { Loader } from "../../../components/ui";
 import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
 import { maskMobile } from "../../../utils/maskMobile";
 import WalletBreakdownModal from "./WalletBreakdownModal";
+import { usePermissions } from "../../../hooks/usePermissions";
+import { useAppDispatch } from "../../../hooks/useAppRedux";
+import { showPermissionDenied } from "../../../store/permissionDialogSlice";
 import "../styles/ClientDetailsDrawer.scss";
 
 interface ClientDetailsDrawerProps {
@@ -70,10 +73,18 @@ export default function ClientDetailsDrawer({
   onClose,
 }: ClientDetailsDrawerProps) {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
+  const { can } = usePermissions();
+  const canEdit = can("edit_clients");
+  const canViewHistory = can("view_client_history");
   const { formatAmount } = useCurrency();
   const [client, setClient] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [showWalletModal, setShowWalletModal] = useState(false);
+  // Memberships the client holds. Fetched separately from the profile call
+  // (CLIENT.BY_ID returns no membership data) so the drawer can show the tag
+  // and expiry — the same two facts the booking flow shows on ClientStatCard.
+  const [memberships, setMemberships] = useState<any[]>([]);
   const { showSuccess, clear: clearStatusOverlay, overlay } = useStatusOverlay();
 
   // Which client the drawer is currently showing. It starts as the client the
@@ -126,6 +137,16 @@ export default function ClientDetailsDrawer({
     };
   }, [isOpen, activeClientId]);
 
+  useEffect(() => {
+    if (!isOpen || activeClientId == null) { setMemberships([]); return; }
+    let isMounted = true;
+    api
+      .get("/api/v1/client-memberships", { params: { clientId: activeClientId, limit: 50 } })
+      .then((r) => { if (isMounted) setMemberships(r.data?.data?.items ?? []); })
+      .catch(() => { if (isMounted) setMemberships([]); });
+    return () => { isMounted = false; };
+  }, [isOpen, activeClientId]);
+
   // Warm the lazy-loaded Add/Edit client page chunk (and its heavy
   // country-state-city import) as soon as the drawer opens, so clicking
   // "Edit" navigates instantly instead of waiting on a cold chunk fetch.
@@ -161,6 +182,18 @@ export default function ClientDetailsDrawer({
     : null;
 
   const walletBalance = Number(client?.wallet_balance ?? client?.ewallet_balance ?? 0);
+
+  // Active and not past its expiry date. The status check alone isn't enough:
+  // a membership whose date has passed keeps status 'active' until something
+  // server-side flips it, so an expired tag would otherwise still read as
+  // current here. Same guard as useClientMembershipWallet's.
+  const activeMemberships = memberships.filter((m: any) => {
+    if ((m.status ?? "").toLowerCase() !== "active") return false;
+    if (!m.expiresAt) return true;
+    const exp = new Date(m.expiresAt);
+    return Number.isNaN(exp.getTime()) || exp.getTime() >= Date.now();
+  });
+
   const referralCode = client?.referral_code || null;
   const totalReferralEarnings = formatAmount(Number(client?.total_referral_earnings ?? 0));
   const totalSuccessfulReferrals = String(client?.total_successful_referrals ?? 0);
@@ -208,9 +241,33 @@ export default function ClientDetailsDrawer({
               </div>
               <button
                 className="cdd-edit-btn"
-                onClick={() => navigate(`/dashboard/clients/edit/${activeClientId}`)}
+                style={canEdit ? undefined : { opacity: 0.5, cursor: "not-allowed" }}
+                onClick={() => {
+                  if (!canEdit) {
+                    dispatch(showPermissionDenied(
+                      `Your account does not have the "edit_clients" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+                    ));
+                    return;
+                  }
+                  navigate(`/dashboard/clients/edit/${activeClientId}`);
+                }}
               >
                 <Pencil size={14} /> Edit
+              </button>
+              <button
+                className="cdd-edit-btn"
+                style={canViewHistory ? undefined : { opacity: 0.5, cursor: "not-allowed" }}
+                onClick={() => {
+                  if (!canViewHistory) {
+                    dispatch(showPermissionDenied(
+                      `Your account does not have the "view_client_history" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+                    ));
+                    return;
+                  }
+                  navigate("/dashboard/clients/history", { state: { openClientId: activeClientId } });
+                }}
+              >
+                <ClockHistory size={14} /> History
               </button>
             </div>
 
@@ -223,6 +280,27 @@ export default function ClientDetailsDrawer({
               <InfoRow label="Birthday" value={birthday} />
               <InfoRow label="Anniversary" value={anniversary} />
               <InfoRow label="Gender" value={gender} />
+
+              {/* Membership — tag + expiry only. An expired row is dropped
+                  rather than greyed: this panel is a quick "what is true
+                  about this client now" read, not a history. */}
+              <div className="cdd-section-title cdd-section-title--mt">Membership</div>
+              {activeMemberships.length === 0 ? (
+                <div className="cdd-memberships cdd-memberships--empty">None</div>
+              ) : (
+                <div className="cdd-memberships">
+                  {activeMemberships.map((m: any) => (
+                    <div className="cdd-membership" key={m.id}>
+                      <span className="cdd-membership__tag" style={{ background: m.colour || "#1a1a2e" }}>
+                        {m.membershipName}
+                      </span>
+                      <span className="cdd-membership__exp">
+                        {m.expiresAt ? `Expires ${formatDateDDMMYYYY(new Date(m.expiresAt))}` : "No expiry"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               <div className="cdd-section-title cdd-section-title--mt">Wallet</div>
               <div className="cdd-wallet-row">

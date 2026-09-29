@@ -1,9 +1,12 @@
 import { useCallback, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { openCashCounterThunk } from "../../../middleware/cashCounter/cashCounter.thunk";
 import { OpenCounterModal } from "../pages/CashManagementModals";
 import { showGlobalToast } from "../../../utils/globalToast";
+import { performLogout } from "../../../utils/performLogout";
+import { disconnectSocket } from "../../../services/socket/socket";
 
 // Mounted once at the dashboard layout level, same pattern as UnclosedCounterGate.
 //
@@ -17,6 +20,7 @@ import { showGlobalToast } from "../../../utils/globalToast";
 // clear, or scope per browser/device.
 export default function AutoOpenCounterForNewAccount() {
   const dispatch = useAppDispatch();
+  const navigate = useNavigate();
   const dashboard = useAppSelector((state) => state.cashCounter.dashboard);
   const { showSuccess, showError, overlay } = useStatusOverlay();
 
@@ -28,6 +32,10 @@ export default function AutoOpenCounterForNewAccount() {
   const show = hasNeverOpenedCounter && !dismissed;
 
   const dismiss = useCallback(() => setDismissed(true), []);
+  const handleLogout = useCallback(() => {
+    disconnectSocket();
+    performLogout(navigate);
+  }, [navigate]);
 
   return (
     <>
@@ -36,6 +44,7 @@ export default function AutoOpenCounterForNewAccount() {
         show={show}
         loading={loading}
         mandatory
+        onLogout={handleLogout}
         onClose={dismiss}
         onNotify={(tone, message) => {
           if (tone === "error") showError(message);

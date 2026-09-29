@@ -91,6 +91,38 @@
   &:hover { background: #f3f4f6; color: $dashboard-primary; }
 }
 
+// Explicit "Table View / Chart View" segmented toggle — used in place of a
+// single icon button where a report wants its current mode always visible.
+.rp-view-toggle {
+  display: flex;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  overflow: hidden;
+  height: 34px;
+}
+
+.rp-view-toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #6b7280;
+  background: $white;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+
+  &:not(:last-child) { border-right: 1px solid #e5e7eb; }
+  &:hover { background: #f3f4f6; }
+
+  &.active {
+    background: $dashboard-primary;
+    color: $white;
+  }
+}
+
 .rp-download-btn {
   display: inline-flex;
   align-items: center;
@@ -321,6 +353,19 @@
   font-weight: 500;
 }
 
+/* Graph page card shell — was Sales-Summary-only (SalesSummaryReport.scss),
+   moved here once Product Retail's own Graph page (ProductSaleGraphPage.tsx)
+   started reusing the exact same card, so both stay in sync from one
+   definition instead of two copies drifting apart. */
+.rp-graph-card {
+  background: $white;
+  border: 1px solid $dashboard-border;
+  border-radius: 12px;
+  padding: 18px 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  height: 100%;
+}
+
 /* Toolbar: search + show-N */
 .rp-detail-toolbar {
   display: flex;
@@ -408,6 +453,40 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+
+// SendCampaignBar reuses .rp-bulk-bar's shape (delete-bar's red/pink is wrong
+// for a "send" action) — light green bar background here only, scoped to
+// .rp-bulk-bar--campaign so the plain .rp-bulk-bar delete-bar elsewhere
+// (Appointment Detail / Sales Summary / Daily Sheet) keeps its red styling.
+.rp-bulk-bar.rp-bulk-bar--campaign {
+  background: #d1fae5;
+  border-color: #6ee7b7;
+  color: #065f46;
+}
+
+// "Select all N matching this filter" — a plain-looking link inline with the
+// "X clients selected" text, since it's a secondary action next to the
+// primary Send Campaign button.
+.rp-select-all-matching-link {
+  background: none;
+  border: none;
+  padding: 0;
+  margin-left: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #047857;
+  text-decoration: underline;
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  &:hover:not(:disabled) {
+    color: #065f46;
+  }
 }
 
 .rp-row-checkbox-col {

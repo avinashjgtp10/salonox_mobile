@@ -11,25 +11,28 @@ const COLOR_KEY_TO_HEX: Record<string, string> = {
   teal: "#14b8a6", cyan: "#06b6d4",
 };
 
+export interface FetchDailyShiftsParams {
+  weekStartDate: string;
+  page?: number;
+  limit?: number;
+}
+
 export const fetchDailyShifts = createAsyncThunk(
   "shift/fetchDailyShifts",
-  async (weekStartDate: string, { rejectWithValue, getState }) => {
+  async ({ weekStartDate, page = 1, limit = 10 }: FetchDailyShiftsParams, { rejectWithValue }) => {
     try {
-      // Use staff already in Redux store to avoid a duplicate /api/v1/staff call
-      // when the staff list page has already fetched them.
-      const state = getState() as any;
-      const cachedStaff: any[] = state.staff?.items ?? [];
-
-      let rawStaff: any[];
-      if (cachedStaff.length > 0) {
-        rawStaff = cachedStaff;
-      } else {
-        const staffRes = await api.get("/api/v1/staff");
-        rawStaff = staffRes.data?.data?.items || staffRes.data?.data || [];
-      }
+      // Always a fresh paginated call — Schedule Shift now windows staff
+      // server-side via the shared Pagination component, so unlike before it
+      // can't shortcut through an already-loaded "all staff" list cached by
+      // the Staff Members page: that list isn't guaranteed to hold the exact
+      // page being requested here.
+      const staffRes = await api.get("/api/v1/staff", { params: { page, limit } });
+      const rawStaff: any[] = staffRes.data?.data?.items || [];
+      const pagination = staffRes.data?.data?.pagination
+        ?? { total: rawStaff.length, page, limit, total_pages: 1 };
 
       if (!Array.isArray(rawStaff)) {
-        return { staff: [], shifts: {} };
+        return { staff: [], shifts: {}, pagination };
       }
 
       // Inactive staff still keep their configured schedule (see the schedule
@@ -105,6 +108,7 @@ export const fetchDailyShifts = createAsyncThunk(
       return {
         staff: staffList,
         shifts: shiftsMap,
+        pagination,
       };
     } catch (err: any) {
       return rejectWithValue(err.response?.data?.message || "Server connection failed");
@@ -207,7 +211,7 @@ export const saveStaffSchedule = createAsyncThunk(
 
 export const saveSingleShiftThunk = createAsyncThunk(
   "shift/saveSingleShift",
-  async (payload: { staff_id: string; date: string; start_time: string; end_time: string; breaks?: { start_time: string; end_time: string }[] }, { rejectWithValue }) => {
+  async (payload: { staff_id: string; date: string; start_time: string; end_time: string; breaks?: { start_time: string; end_time: string }[]; repeat_weekly?: boolean }, { rejectWithValue }) => {
     try {
       const res = await shiftApi.saveSingleShift(payload);
       return { ...res.data, payload }; // Return payload so reducer can use it if needed

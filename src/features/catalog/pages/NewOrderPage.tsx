@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Trash, PlusLg, Upload, Images, Lock } from "react-bootstrap-icons";
+import { Trash, PlusLg, Upload, Images, Lock, BoxSeam, CloudUpload } from "react-bootstrap-icons";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import {
   fetchSuppliersThunk,
@@ -10,8 +10,8 @@ import {
   uploadOrderSignatureThunk,
   fetchOrderSignaturesThunk,
 } from "../../../middleware/inventory/inventory.thunk";
-import { fetchSettingsThunk, createSettingThunk } from "../../../middleware/setting/setting.thunk";
-import type { CreateOrderItemPayload, OrderTaxType } from "../../../types/inventory.types";
+import { fetchSettingsThunk } from "../../../middleware/setting/setting.thunk";
+import type { CreateOrderItemPayload, OrderTaxType, SupplierProduct } from "../../../types/inventory.types";
 import { getActiveTaxes } from "../../../features/settings/utils/taxSettings";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
@@ -20,7 +20,10 @@ import Modal from "../../../components/ui/Modal";
 import { Dropdown } from "../../../components/ui/Dropdown";
 import { DatePicker } from "../../../components/ui";
 import ProductSearchSelect, { type ProductSearchResult } from "../components/ProductSearchSelect";
+import ImportSupplierCatalogModal from "../components/ImportSupplierCatalogModal";
+import SuggestedProductsModal from "../components/SuggestedProductsModal";
 import AddSupplierPage from "./AddSupplierPage";
+import OrderStatusStepper, { type OrderStepKey } from "../components/OrderStatusStepper";
 import "../styles/PurchaseHistoryTable.scss";
 import "../styles/AddSupplierPage.scss";
 // Pulled in for .cf-quick-add-link — the same "+ Add a category"-style
@@ -37,21 +40,6 @@ interface OrderLine {
   qty: string;
   unitCost: string;
   discountPercent: string;
-}
-
-// "Save Default" reuses the generic salon_settings key/value store (the
-// same one tax/general settings already live in — see setting.thunk.ts) —
-// one row keyed by ORDER_DEFAULTS_SETTING_KEY, value is this shape
-// JSON.stringify'd. No new table/endpoint needed.
-const ORDER_DEFAULTS_SETTING_KEY = "order_defaults";
-interface OrderDefaults {
-  supplier_id?: string;
-  payment_terms_days?: string;
-  tax_type?: OrderTaxType;
-  tax_group?: string;
-  tax_rate_percent?: string;
-  delivery_address?: string;
-  delivery_instructions?: string;
 }
 
 const PAYMENT_TERMS_OPTIONS = [
@@ -114,6 +102,7 @@ const NewOrderPage: React.FC = () => {
   const { showSuccess, showError, overlay } = useStatusOverlay();
   const [loadingOrder, setLoadingOrder] = useState(isEditMode);
   const [orderNumber, setOrderNumber] = useState("");
+  const [stepperStatus, setStepperStatus] = useState<OrderStepKey>("create");
 
   const { suppliers } = useAppSelector((s) => s.inventory);
   const { items: settingItems } = useAppSelector((s) => s.setting);
@@ -146,6 +135,8 @@ const NewOrderPage: React.FC = () => {
   // picked product's name — clicking the name itself re-opens search
   // in place (no separate "Change" button).
   const [editingProductKey, setEditingProductKey] = useState<string | null>(null);
+  const [importCatalogOpen, setImportCatalogOpen] = useState(false);
+  const [suggestedOpen, setSuggestedOpen] = useState(false);
 
   // Tax — kept as one flat order-level rate (not per-line), sourced from the
   // salon's existing tax settings, per product decision. The rate itself is
@@ -169,8 +160,11 @@ const NewOrderPage: React.FC = () => {
   const [notes, setNotes] = useState("");
   const [termsConditions, setTermsConditions] = useState("");
 
-  const [saving, setSaving] = useState(false);
-  const [savingDefault, setSavingDefault] = useState(false);
+  // Tracks WHICH of the two save actions is in flight — a single shared
+  // boolean here was making both Save Draft and Create Order spin/disable
+  // together no matter which one was actually clicked.
+  const [savingStatus, setSavingStatus] = useState<"draft" | "sent" | null>(null);
+  const saving = savingStatus !== null;
   const [touched, setTouched] = useState(false);
 
   const [galleryOpen, setGalleryOpen] = useState(false);
@@ -186,30 +180,6 @@ const NewOrderPage: React.FC = () => {
     dispatch(fetchSettingsThunk());
   }, [dispatch]);
 
-  // Apply the saved "order defaults" (see handleSaveDefault below) once
-  // settings finish loading — new orders only; an order being edited already
-  // has its own real values coming from fetchOrderByIdThunk below, which
-  // must never be overwritten by a stored default.
-  useEffect(() => {
-    if (isEditMode) return;
-    const stored = settingItems.find((s: any) => s.key === ORDER_DEFAULTS_SETTING_KEY);
-    if (!stored) return;
-    try {
-      const raw = (stored as any).value;
-      const defaults: OrderDefaults = typeof raw === "string" ? JSON.parse(raw) : raw;
-      if (defaults.supplier_id) setSupplierId(defaults.supplier_id);
-      if (defaults.payment_terms_days) setPaymentTermsDays(defaults.payment_terms_days);
-      if (defaults.tax_type) setTaxType(defaults.tax_type);
-      if (defaults.tax_group) setTaxGroup(defaults.tax_group);
-      if (defaults.tax_rate_percent) setTaxRatePercent(defaults.tax_rate_percent);
-      if (defaults.delivery_address) setDeliveryAddress(defaults.delivery_address);
-      if (defaults.delivery_instructions) setDeliveryInstructions(defaults.delivery_instructions);
-    } catch {
-      // Malformed stored value — ignore rather than block the form.
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEditMode, settingItems]);
-
   // Edit mode: load the existing order and prefill every field with it.
   useEffect(() => {
     if (!editOrderId) return;
@@ -220,6 +190,7 @@ const NewOrderPage: React.FC = () => {
       .then((order) => {
         if (cancelled) return;
         setOrderNumber(order.order_number);
+        setStepperStatus(order.status);
         setSupplierId(order.supplier_id);
         setOrderDate(order.order_date ? order.order_date.slice(0, 10) : todayISO());
         setDeliveryDate(order.delivery_date ? order.delivery_date.slice(0, 10) : "");
@@ -279,6 +250,33 @@ const NewOrderPage: React.FC = () => {
     setLines((prev) => (prev.length > 1 ? prev.filter((l) => l.key !== key) : prev));
   }
 
+  // Bulk-adds Suggested Products (matched supplier_products rows, each with
+  // a resolved product_id) — mirrors exactly what ProductSearchSelect's
+  // onSelect callback already does per-row above (product/sku/unitCost),
+  // just for many rows in one go. Drops the single leading blank row if
+  // it's still untouched, same as a manual first pick would overwrite it.
+  function addSuggestedProducts(selected: SupplierProduct[]) {
+    setLines((prev) => {
+      const additions: OrderLine[] = selected
+        .filter((sp) => sp.product_id)
+        .map((sp) => ({
+          ...emptyLine(),
+          product: {
+            id: sp.product_id!,
+            name: sp.linked_product_name || sp.name,
+            barcode: sp.barcode,
+            sku: null,
+            supply_price: sp.price,
+            retail_price: null,
+          },
+          sku: sp.barcode || "",
+          unitCost: sp.price != null ? String(sp.price) : "",
+        }));
+      const base = prev.length === 1 && !prev[0].product ? [] : prev;
+      return [...base, ...additions];
+    });
+  }
+
   function lineMath(line: OrderLine) {
     const qty = parseFloat(line.qty) || 0;
     const unitCost = parseFloat(line.unitCost) || 0;
@@ -303,9 +301,50 @@ const NewOrderPage: React.FC = () => {
     return m.qty > 0 && l.unitCost.trim() !== "" && m.unitCost >= 0;
   };
 
+  interface LineErrors {
+    product?: string;
+    qty?: string;
+    unitCost?: string;
+    discountPercent?: string;
+  }
+
+  // Per-field messages for one row, shown right under the offending cell —
+  // a fully blank row (the trailing "Add More" placeholder, most commonly)
+  // has nothing entered at all, so it's silently ignored rather than
+  // flagged, same as before this validation existed.
+  function getLineErrors(l: OrderLine): LineErrors {
+    const hasAnyInput = !!l.product || l.qty.trim() !== "" || l.unitCost.trim() !== "" || l.discountPercent.trim() !== "";
+    if (!hasAnyInput) return {};
+
+    const errors: LineErrors = {};
+    if (!l.product) errors.product = "Select a product";
+
+    const qty = parseFloat(l.qty);
+    if (l.qty.trim() === "" || !Number.isFinite(qty) || qty <= 0) {
+      errors.qty = "Enter a quantity greater than 0";
+    }
+
+    const unitCost = parseFloat(l.unitCost);
+    if (l.unitCost.trim() === "" || !Number.isFinite(unitCost) || unitCost < 0) {
+      errors.unitCost = "Enter a valid unit cost (0 or more)";
+    }
+
+    if (l.discountPercent.trim() !== "") {
+      const discount = parseFloat(l.discountPercent);
+      if (!Number.isFinite(discount) || discount < 0 || discount > 100) {
+        errors.discountPercent = "Must be between 0 and 100";
+      }
+    }
+
+    return errors;
+  }
+
   const validLines = lines.filter((l) => l.product && isLineComplete(l));
 
-  const hasIncompleteLine = lines.some((l) => l.product && !isLineComplete(l));
+  // Was `l.product && !isLineComplete(l)` — missed a row where the user
+  // typed a qty/cost but never actually picked a product, which just
+  // vanished silently instead of blocking Save with a clear reason.
+  const hasIncompleteLine = lines.some((l) => Object.keys(getLineErrors(l)).length > 0);
 
   const subtotal = validLines.reduce((sum, l) => sum + lineMath(l).subtotal, 0);
   const totalDiscount = validLines.reduce((sum, l) => sum + lineMath(l).discountAmount, 0);
@@ -313,7 +352,20 @@ const NewOrderPage: React.FC = () => {
   const shippingCostNumber = parseFloat(shippingCost) || 0;
   const grandTotal = subtotal - totalDiscount + totalTax + shippingCostNumber;
 
-  const canSave = !!supplierId && validLines.length > 0 && !hasIncompleteLine;
+  const isOrderDateValid = !!orderDate;
+
+  const isTaxRateValid = taxRatePercent.trim() === "" || (() => {
+    const n = parseFloat(taxRatePercent);
+    return Number.isFinite(n) && n >= 0 && n <= 100;
+  })();
+
+  const isShippingValid = shippingCost.trim() === "" || (() => {
+    const n = parseFloat(shippingCost);
+    return Number.isFinite(n) && n >= 0;
+  })();
+
+  const canSave = !!supplierId && isOrderDateValid && isTaxRateValid && isShippingValid
+    && validLines.length > 0 && !hasIncompleteLine;
 
   async function handleUploadClick() {
     fileInputRef.current?.click();
@@ -348,7 +400,7 @@ const NewOrderPage: React.FC = () => {
   async function handleSave(status: "draft" | "sent") {
     setTouched(true);
     if (!canSave || saving) return;
-    setSaving(true);
+    setSavingStatus(status);
     try {
       const items: CreateOrderItemPayload[] = validLines.map((l) => {
         const m = lineMath(l);
@@ -360,7 +412,12 @@ const NewOrderPage: React.FC = () => {
           // Cost) — selling_price is the product's own catalog retail price
           // when known, not a duplicate of the cost, so margin reporting
           // built on these two columns isn't comparing a number to itself.
-          selling_price: l.product!.retail_price ?? m.unitCost,
+          // retail_price comes back from the product search API as a string
+          // (Postgres NUMERIC, not cast to a real number server-side) even
+          // though its TS type claims `number | null` — Number(...) here
+          // avoids sending a string where the backend validator strictly
+          // requires typeof === "number" (see orders.validator.ts).
+          selling_price: l.product!.retail_price != null ? Number(l.product!.retail_price) : m.unitCost,
           discount_percent: m.discountPercent || undefined,
           cost_price: m.unitCost,
         };
@@ -404,49 +461,15 @@ const NewOrderPage: React.FC = () => {
     } catch (err: any) {
       showError(typeof err === "string" ? err : "Couldn't create order");
     } finally {
-      setSaving(false);
+      setSavingStatus(null);
     }
   }
-
-  // Saves the current Supplier/Order-settings fields as the default applied
-  // to future new orders (see the apply-defaults effect above) — reuses the
-  // existing generic settings upsert (createSettingThunk already upserts by
-  // key server-side, see settings.repository.ts), not a new endpoint.
-  async function handleSaveDefault() {
-    setSavingDefault(true);
-    try {
-      const defaults: OrderDefaults = {
-        supplier_id: supplierId || undefined,
-        payment_terms_days: paymentTermsDays || undefined,
-        tax_type: taxType,
-        tax_group: taxGroup || undefined,
-        tax_rate_percent: taxRatePercent || undefined,
-        delivery_address: deliveryAddress.trim() || undefined,
-        delivery_instructions: deliveryInstructions.trim() || undefined,
-      };
-      await dispatch(createSettingThunk({
-        key: ORDER_DEFAULTS_SETTING_KEY,
-        value: JSON.stringify(defaults),
-        description: "Default values applied when creating a new Purchase Order",
-      })).unwrap();
-      showSuccess("Default order settings saved");
-    } catch (err: any) {
-      showError(typeof err === "string" ? err : "Couldn't save default settings");
-    } finally {
-      setSavingDefault(false);
-    }
-  }
-
-  const handleClose = () => navigate("/dashboard/inventory/orders");
 
   if (loadingOrder) {
     return (
       <div className="add-supplier-page new-order-page">
         <div className="add-supplier-page__topbar">
           <h2>Edit Purchase Order</h2>
-          <div className="topbar-actions">
-            <button className="btn-close-top" onClick={handleClose}>Close</button>
-          </div>
         </div>
         <div className="new-order-page__loading">Loading order…</div>
       </div>
@@ -456,19 +479,22 @@ const NewOrderPage: React.FC = () => {
   return (
     <div className="add-supplier-page new-order-page">
       {overlay}
+
+      <OrderStatusStepper
+        current={stepperStatus}
+        showProgress={isEditMode}
+        onStepClick={(key) => { if (key !== "create") navigate(`/dashboard/inventory/orders?status=${key}`); }}
+      />
+
       <div className="add-supplier-page__topbar">
         <h2>{isEditMode ? `Edit Purchase Order ${orderNumber}` : "New Purchase Order"}</h2>
         <div className="topbar-actions">
-          <button className="btn-close-top" onClick={handleClose}>Close</button>
-          <Button variant="outline-dark" onClick={handleSaveDefault} disabled={savingDefault} loading={savingDefault}>
-            Save Default
-          </Button>
           {!isEditMode && (
-            <Button variant="outline-dark" onClick={() => handleSave("draft")} disabled={saving || !canSave} loading={saving}>
+            <Button variant="outline-dark" onClick={() => handleSave("draft")} disabled={saving || !canSave} loading={savingStatus === "draft"}>
               Save Draft
             </Button>
           )}
-          <Button variant="dark" onClick={() => handleSave("sent")} disabled={saving || !canSave} loading={saving}>
+          <Button variant="dark" onClick={() => handleSave("sent")} disabled={saving || !canSave} loading={savingStatus === "sent"}>
             {isEditMode ? "Save Changes" : "Create Order"}
           </Button>
         </div>
@@ -514,15 +540,13 @@ const NewOrderPage: React.FC = () => {
                 <div>
                   <span className="label">Address</span>
                   <span className="value">
-                    {[selectedSupplier.street, selectedSupplier.city, selectedSupplier.state]
+                    {[selectedSupplier.address || selectedSupplier.street, selectedSupplier.city, selectedSupplier.state]
                       .filter(Boolean).join(", ") || "—"}
                   </span>
                 </div>
                 <div>
-                  {/* No GST/Tax ID field exists on Supplier yet (backend or
-                      frontend) — shown as unavailable rather than fabricated. */}
                   <span className="label">GST / Tax ID</span>
-                  <span className="value">—</span>
+                  <span className="value">{selectedSupplier.gstin || "—"}</span>
                 </div>
               </div>
             </div>
@@ -548,10 +572,11 @@ const NewOrderPage: React.FC = () => {
           </div>
 
           <div className="field-row-3">
-            <div className="field-group">
+            <div className={`field-group${touched && !isOrderDateValid ? " field-group--error" : ""}`}>
               <label>Order Date <span style={{ color: "red" }}>*</span></label>
               <DatePicker value={orderDate} onChange={setOrderDate} />
-              <span className="new-order-date-label">{fmtDateLabel(orderDate)}</span>
+              {orderDate && <span className="new-order-date-label">{fmtDateLabel(orderDate)}</span>}
+              {touched && !isOrderDateValid && <span className="field-error">Order date is required</span>}
             </div>
             <div className="field-group">
               <label>Payment Terms</label>
@@ -601,6 +626,27 @@ const NewOrderPage: React.FC = () => {
         <section className="form-section">
           <h3>Order Items</h3>
 
+          {selectedSupplier && (
+            <div className="d-flex gap-2 mb-3">
+              <Button
+                variant="outline-dark"
+                size="sm"
+                iconLeft={<BoxSeam size={13} />}
+                onClick={() => setSuggestedOpen(true)}
+              >
+                Suggested Products
+              </Button>
+              <Button
+                variant="outline-dark"
+                size="sm"
+                iconLeft={<CloudUpload size={13} />}
+                onClick={() => setImportCatalogOpen(true)}
+              >
+                Import Supplier Catalog
+              </Button>
+            </div>
+          )}
+
           <div className="field-row-3">
             <div className="field-group">
               <label>Tax Type</label>
@@ -628,16 +674,18 @@ const NewOrderPage: React.FC = () => {
                 allowNone
               />
             </div>
-            <div className="field-group">
+            <div className={`field-group${touched && !isTaxRateValid ? " field-group--error" : ""}`}>
               <label>Tax Rate (%)</label>
               <input
                 type="number"
                 min="0"
+                max="100"
                 step="any"
                 value={taxRatePercent}
                 onChange={(e) => setTaxRatePercent(e.target.value)}
                 onWheel={(e) => e.currentTarget.blur()}
               />
+              {touched && !isTaxRateValid && <span className="field-error">Must be between 0 and 100</span>}
             </div>
           </div>
 
@@ -657,6 +705,7 @@ const NewOrderPage: React.FC = () => {
               <tbody>
                 {lines.map((line) => {
                   const m = lineMath(line);
+                  const errs = touched ? getLineErrors(line) : {};
                   return (
                     <tr key={line.key}>
                       <td
@@ -687,28 +736,31 @@ const NewOrderPage: React.FC = () => {
                             }}
                           />
                         )}
+                        {errs.product && <span className="new-order-cell-error">{errs.product}</span>}
                       </td>
                       <td>
                         <input
                           type="number"
                           min="0"
                           step="any"
-                          className="new-order-input--sm"
+                          className={`new-order-input--sm${errs.qty ? " new-order-input--error" : ""}`}
                           value={line.qty}
                           onChange={(e) => patchLine(line.key, { qty: e.target.value })}
                           onWheel={(e) => e.currentTarget.blur()}
                         />
+                        {errs.qty && <span className="new-order-cell-error">{errs.qty}</span>}
                       </td>
                       <td>
                         <input
                           type="number"
                           min="0"
                           step="any"
-                          className="new-order-input--sm"
+                          className={`new-order-input--sm${errs.unitCost ? " new-order-input--error" : ""}`}
                           value={line.unitCost}
                           onChange={(e) => patchLine(line.key, { unitCost: e.target.value })}
                           onWheel={(e) => e.currentTarget.blur()}
                         />
+                        {errs.unitCost && <span className="new-order-cell-error">{errs.unitCost}</span>}
                       </td>
                       <td>
                         <input
@@ -716,7 +768,7 @@ const NewOrderPage: React.FC = () => {
                           min="0"
                           max="100"
                           step="any"
-                          className="new-order-input--sm"
+                          className={`new-order-input--sm${errs.discountPercent ? " new-order-input--error" : ""}`}
                           value={line.discountPercent}
                           onChange={(e) => {
                             const raw = e.target.value;
@@ -726,6 +778,7 @@ const NewOrderPage: React.FC = () => {
                           }}
                           onWheel={(e) => e.currentTarget.blur()}
                         />
+                        {errs.discountPercent && <span className="new-order-cell-error">{errs.discountPercent}</span>}
                       </td>
                       <td className="new-order-table__readonly">{selectedTaxRate}%</td>
                       <td className="new-order-table__readonly">{formatAmount(m.lineTotal)}</td>
@@ -747,7 +800,7 @@ const NewOrderPage: React.FC = () => {
             </table>
           </div>
           {touched && validLines.length === 0 && <span className="field-error">Add at least one product</span>}
-          {touched && hasIncompleteLine && <span className="field-error">Every product needs a quantity and unit cost</span>}
+          {touched && hasIncompleteLine && <span className="field-error">Fix the highlighted line item(s) above before saving</span>}
 
           <Button
             variant="outline-dark"
@@ -764,7 +817,7 @@ const NewOrderPage: React.FC = () => {
         <section className="form-section">
           <h3>Order Summary</h3>
 
-          <div className="field-group" style={{ maxWidth: 260 }}>
+          <div className={`field-group${touched && !isShippingValid ? " field-group--error" : ""}`} style={{ maxWidth: 260 }}>
             <label>Shipping</label>
             <input
               type="number"
@@ -774,6 +827,7 @@ const NewOrderPage: React.FC = () => {
               onChange={(e) => setShippingCost(e.target.value)}
               onWheel={(e) => e.currentTarget.blur()}
             />
+            {touched && !isShippingValid && <span className="field-error">Shipping cost can't be negative</span>}
           </div>
 
           <div className="new-order-summary">
@@ -861,6 +915,24 @@ const NewOrderPage: React.FC = () => {
             />
           </div>
         </div>
+      )}
+
+      {selectedSupplier && (
+        <>
+          <ImportSupplierCatalogModal
+            show={importCatalogOpen}
+            onClose={() => setImportCatalogOpen(false)}
+            onSuccess={() => { /* Needs-attention list refreshes itself inside the modal */ }}
+            supplierId={selectedSupplier.id}
+          />
+          <SuggestedProductsModal
+            show={suggestedOpen}
+            onClose={() => setSuggestedOpen(false)}
+            supplierId={selectedSupplier.id}
+            supplierName={selectedSupplier.name}
+            onAdd={addSuggestedProducts}
+          />
+        </>
       )}
 
       <Modal show={galleryOpen} onClose={() => setGalleryOpen(false)} title="Signature Gallery" size="md">

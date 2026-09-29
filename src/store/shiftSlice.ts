@@ -1,6 +1,6 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import type { ShiftMap, StaffMember, ShiftEntry } from "../components/staff-schedule/types";
-import { buildSeedShifts, getSundayOf, calcTotalHours } from "../components/staff-schedule/utils";
+import { getSundayOf, calcTotalHours } from "../components/staff-schedule/utils";
 import {
   fetchDailyShifts,
   addTimeOff,
@@ -19,6 +19,11 @@ export interface ShiftState {
   loading: boolean;
   error: string | null;
   apiConnected: boolean;
+  // Total staff count for the current fetchDailyShifts page — page/pageSize
+  // themselves stay as local component state in ScheduledShiftsPage (same
+  // split as suppliersTotal/ordersTotal in inventorySlice), this is just
+  // what the shared Pagination component needs to render totals/page count.
+  staffTotal: number;
 }
 
 const initialState: ShiftState = {
@@ -27,6 +32,7 @@ const initialState: ShiftState = {
   loading: false,
   error: null,
   apiConnected: false,
+  staffTotal: 0,
 };
 
 const shiftSlice = createSlice({
@@ -93,20 +99,6 @@ const shiftSlice = createSlice({
         state.shifts[payload.staffId][payload.date] = newEntry;
       }
     },
-    refreshSeedForWeek(state, { payload }: PayloadAction<string>) {
-      // payload = sunday ISO date key
-      const sunday = new Date(payload + "T12:00:00");
-      const newShifts = buildSeedShifts(sunday);
-      // Merge without overriding user edits — only fill missing
-      Object.entries(newShifts).forEach(([staffId, dates]) => {
-        if (!state.shifts[staffId]) state.shifts[staffId] = {};
-        Object.entries(dates).forEach(([date, entry]) => {
-          if (!state.shifts[staffId][date]) {
-            state.shifts[staffId][date] = entry;
-          }
-        });
-      });
-    },
   },
   extraReducers: (builder) => {
     builder
@@ -116,6 +108,7 @@ const shiftSlice = createSlice({
         state.apiConnected = true;
         if (payload?.staff) state.staffMembers = payload.staff;
         if (payload?.shifts) state.shifts = payload.shifts;
+        state.staffTotal = payload?.pagination?.total ?? 0;
       })
       .addCase(fetchDailyShifts.rejected, (state) => {
         state.loading = false;
@@ -214,7 +207,7 @@ const shiftSlice = createSlice({
 
 export const {
   setShiftEntry, removeShiftEntry, setDayOff, setBlocked,
-  updateAvailability, refreshSeedForWeek,
+  updateAvailability,
 } = shiftSlice.actions;
 
 export default shiftSlice.reducer;

@@ -5,7 +5,6 @@ import {
   XCircleFill,
   DashCircleFill,
   CircleHalf,
-  ExclamationCircleFill,
   Plus,
   ArrowRepeat,
   ChevronLeft,
@@ -25,6 +24,9 @@ import {
 } from "../../settings/utils/halfDayRuleSettings";
 import HalfDayRulePage from "../../settings/pages/HalfDayRulePage";
 import { scheduleDateToYMD } from "../../../components/staff-schedule/utils";
+import { usePermissions } from "../../../hooks/usePermissions";
+import { useAppDispatch } from "../../../hooks/useAppRedux";
+import { showPermissionDenied } from "../../../store/permissionDialogSlice";
 import Dropdown from "../../../components/ui/Dropdown";
 import TimeDropdown from "../../../components/ui/TimeDropdown";
 import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
@@ -32,7 +34,7 @@ import "../styles/AttendancePage.scss";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type AttendanceStatus = "present" | "absent" | "half_day" | "late" | "on_leave";
+type AttendanceStatus = "present" | "absent" | "half_day" | "on_leave";
 
 interface TodayStaffRecord {
   staff_id: string;
@@ -51,7 +53,6 @@ interface DailySummary {
   date: string;
   present: number;
   absent: number;
-  late: number;
   on_leave: number;
   half_day: number;
   total_staff: number;
@@ -94,7 +95,6 @@ const AVATAR_GRADIENTS = [
 const STATUS_CFG = {
   present:    { label: "Present",    badge: "ap-badge--present",  dot: "ap-dot--green"  },
   absent:     { label: "Absent",     badge: "ap-badge--absent",   dot: "ap-dot--red"    },
-  late:       { label: "Late",       badge: "ap-badge--late",     dot: "ap-dot--amber"  },
   half_day:   { label: "Half Day",   badge: "ap-badge--half",     dot: "ap-dot--blue"   },
   on_leave:   { label: "On Leave",   badge: "ap-badge--leave",    dot: "ap-dot--purple" },
   not_marked: { label: "Not Marked", badge: "ap-badge--unmarked", dot: "ap-dot--gray"   },
@@ -356,10 +356,6 @@ function CheckInModal({ record, date, isToday, schedule, onClose, onDone }: {
               <p className="at-modal-error">
                 Late by more than {halfDayRule.threshold_hours}h — this check-in will be marked Half Day.
               </p>
-            ) : evaluation.status === "late" ? (
-              <p className="at-modal-error">
-                Late by {evaluation.lateMinutes} min - this check-in will be marked Late.
-              </p>
             ) : (
               <p className="at-modal-meta at-modal-meta--success">
                 This check-in will be marked Present.
@@ -497,7 +493,6 @@ function EditModal({ record, date, onClose, onDone }: {
               options={[
                 { id: "present", name: "Present" },
                 { id: "absent", name: "Absent" },
-                { id: "late", name: "Late" },
                 { id: "half_day", name: "Half Day" },
                 { id: "on_leave", name: "On Leave" },
               ]}
@@ -837,6 +832,11 @@ export default function AttendancePage() {
   const [search, setSearch]     = useState("");
   const [modal, setModal]       = useState<ModalState>(null);
   const [showHalfDayRule, setShowHalfDayRule] = useState(false);
+  const { can } = usePermissions();
+  const dispatch = useAppDispatch();
+  const denyPerm = (permKey: string) => dispatch(showPermissionDenied(
+    `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+  ));
 
   // staffId -> schedule[], fetched once from the staff list (which now embeds
   // each member's schedule server-side) so the Check-In modal can look up a
@@ -873,6 +873,13 @@ export default function AttendancePage() {
   const [editDevice,    setEditDevice]    = useState<Device | null>(null);
   const [connectTarget, setConnectTarget] = useState<PendingDevice | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  // The Connected Devices card sits at the bottom of a long page — polling
+  // it every 30s regardless of scroll position meant every Attendance visit
+  // kept firing devices/pending requests for as long as the tab stayed open,
+  // even for staff who never scrolled down to see it. Only poll while the
+  // card is actually on screen.
+  const devicesCardRef = useRef<HTMLDivElement>(null);
+  const [devicesCardVisible, setDevicesCardVisible] = useState(false);
 
   async function deleteDevice(id: string) {
     try {
@@ -896,10 +903,22 @@ export default function AttendancePage() {
   }, []);
 
   useEffect(() => {
+    const el = devicesCardRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setDevicesCardVisible(entry.isIntersecting),
+      { threshold: 0.1 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!devicesCardVisible) return;
     loadDevices();
     const interval = setInterval(loadDevices, 30_000);
     return () => clearInterval(interval);
-  }, [loadDevices]);
+  }, [devicesCardVisible, loadDevices]);
 
   const load = useCallback(async (date: string, silent = false) => {
     if (silent) setRefreshing(true);
@@ -957,7 +976,11 @@ export default function AttendancePage() {
           </button>
           <button
             className="ap-btn ap-btn--primary"
-            onClick={() => setShowHalfDayRule(true)}
+            style={!can("view_attendance_rules") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+            onClick={() => {
+              if (!can("view_attendance_rules")) { denyPerm("view_attendance_rules"); return; }
+              setShowHalfDayRule(true);
+            }}
           >
             <Clock size={15} />
             Attendance Rules
@@ -981,13 +1004,6 @@ export default function AttendancePage() {
           <div>
             <div className="ap-stat-num ap-stat-num--green">{loading ? "—" : summary?.present ?? 0}</div>
             <div className="ap-stat-label">Present</div>
-          </div>
-        </div>
-        <div className="ap-stat-card">
-          <div className="ap-stat-icon ap-stat-icon--amber"><ExclamationCircleFill size={18} /></div>
-          <div>
-            <div className="ap-stat-num ap-stat-num--amber">{loading ? "—" : summary?.late ?? 0}</div>
-            <div className="ap-stat-label">Late</div>
           </div>
         </div>
         <div className="ap-stat-card">
@@ -1144,7 +1160,7 @@ export default function AttendancePage() {
       </div>
 
       {/* ── Connected Devices ── */}
-      <div className="ap-card">
+      <div className="ap-card" ref={devicesCardRef}>
         <div className="ap-card-header">
           <div>
             <h3 className="ap-card-title">Connected Devices</h3>

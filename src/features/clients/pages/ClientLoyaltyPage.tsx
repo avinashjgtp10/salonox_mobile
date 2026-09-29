@@ -20,6 +20,10 @@ interface LoyaltyClientRow {
   referralStatus: "pending" | "completed" | null;
   refereeRewarded: boolean;
   referredByClientId: string | null;
+  // Lifetime ₹ earned via the referral program (referring others AND/or this
+  // client's own welcome bonus) — not the current spendable referral_balance,
+  // which nets out redemptions. See clients.repository.ts's referral_points_earned.
+  referralPointsEarned: number;
   isActive: boolean;
   createdAt: string;
 }
@@ -36,6 +40,7 @@ function mapClient(c: any): LoyaltyClientRow {
     referralStatus: c.referral_reward_status ?? null,
     refereeRewarded: !!c.referral_referee_rewarded,
     referredByClientId: c.referred_by_client_id ?? null,
+    referralPointsEarned: Number(c.referral_points_earned) || 0,
     isActive: c.is_active !== false,
     createdAt: c.created_at ?? "",
   };
@@ -148,6 +153,7 @@ export default function ClientLoyaltyPage() {
               <th>Wallet Balance</th>
               <th>Referral Code</th>
               <th>Referral Status</th>
+              <th>Referral Points</th>
               <th>Reward Points</th>
               <th>Status</th>
               <th>Joined</th>
@@ -155,9 +161,9 @@ export default function ClientLoyaltyPage() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={8} className="loyalty-empty-cell"><Loader message="Loading clients..." /></td></tr>
+              <tr><td colSpan={9} className="loyalty-empty-cell"><Loader message="Loading clients..." /></td></tr>
             ) : rows.length === 0 ? (
-              <tr><td colSpan={8} className="loyalty-empty-cell">No clients found</td></tr>
+              <tr><td colSpan={9} className="loyalty-empty-cell">No clients found</td></tr>
             ) : rows.map(r => (
               <tr key={r.id} className="loyalty-row" onClick={() => setSelectedClientId(r.id)}>
                 <td className="fw-semibold">{r.name}</td>
@@ -172,6 +178,7 @@ export default function ClientLoyaltyPage() {
                     ? <span className={`loyalty-badge loyalty-badge--${r.referralStatus}`}>{r.referralStatus}</span>
                     : <span className="loyalty-muted">—</span>}
                 </td>
+                <td className="fw-semibold">{r.referralPointsEarned > 0 ? money(r.referralPointsEarned) : <span className="loyalty-muted">—</span>}</td>
                 <td>{r.rewardPointsBalance > 0 ? r.rewardPointsBalance : <span className="loyalty-muted">—</span>}</td>
                 <td>
                   <span className={`loyalty-badge loyalty-badge--${r.isActive ? "active" : "inactive"}`}>

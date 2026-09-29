@@ -11,6 +11,8 @@ import {
 import { deleteCategoryThunk } from "../../../middleware/services/categories.thunk";
 import type { FetchServicesParams } from "../../../middleware/services/services.thunk";
 import { exportServicesPDF, exportServicesExcel, exportServicesCSV } from "../utils/serviceExport";
+import { usePermissions } from "../../../hooks/usePermissions";
+import { showPermissionDenied } from "../../../store/permissionDialogSlice";
 import type { Service } from "../types/catalog.types";
 import {
   Search,
@@ -25,6 +27,7 @@ import {
   PencilSquare,
   Printer,
   X,
+  Clock,
 } from "react-bootstrap-icons";
 import { useServices, type CategoryView } from "../hooks/useServices.ts";
 import { useCategories } from "../hooks/useCategories.ts";
@@ -41,6 +44,7 @@ import type { FilterDropdownOption, JiraFilterField } from "../../../components/
 import ManageOrderModal from "../components/ManageOrderModal.tsx";
 import ServiceImportModal from "../components/ServiceImportModal.tsx";
 import PrintMenuCardModal from "../components/PrintMenuCardModal.tsx";
+import ServiceReminderPresetsModal from "../components/ServiceReminderPresetsModal.tsx";
 import ServiceDetailPanel from "../components/ServiceDetailPanel.tsx";
 import ServiceCard from "../components/shared/ServiceCard.tsx";
 import { ServiceListSkeleton } from "../components/shared/LoadingSkeletons.tsx";
@@ -131,9 +135,17 @@ const sortServices = (list: Service[], sortBy: SortId): Service[] => {
   return copy;
 };
 
+// Same friendly copy PermissionGuard and the interceptor-driven global popup
+// already use for a backend 403 — the PDF/Excel/CSV export here is built
+// entirely client-side (no backend call to deny), so this is the only
+// enforcement point those permissions actually have.
+const friendlyPermissionDenied = (permKey: string) =>
+  `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`;
+
 const ServicesListPage: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
+  const { can } = usePermissions();
   const { services, categories, loading, error, pagination, fetchServices } =
     useServices();
   const { createCategory, updateCategory, deleteCategory, loading: catLoading } =
@@ -155,6 +167,7 @@ const ServicesListPage: React.FC = () => {
   const [showManageOrder, setShowManageOrder]     = useState(false);
   const [showImport, setShowImport]               = useState(false);
   const [showPrintMenuCard, setShowPrintMenuCard] = useState(false);
+  const [showReminderPresets, setShowReminderPresets] = useState(false);
   const [selectedCategory, setSelectedCategory]  = useState<string>("all");
   const [openCardMenu, setOpenCardMenu]           = useState<string | null>(null);
   const [searchQuery, setSearchQuery]             = useState("");
@@ -174,6 +187,7 @@ const ServicesListPage: React.FC = () => {
   const [deletingService, setDeletingService]   = useState<Service | null>(null);
   const [deleteServiceInput, setDeleteServiceInput] = useState("");
   const [deleteLoading, setDeleteLoading]       = useState(false);
+  const [deleteServiceError, setDeleteServiceError] = useState<string | null>(null);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
 
   // Bulk selection state
@@ -181,6 +195,7 @@ const ServicesListPage: React.FC = () => {
   const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
   const [deleteBulkLoading, setDeleteBulkLoading]     = useState(false);
   const [deleteBulkInput, setDeleteBulkInput]         = useState("");
+  const [bulkDeleteError, setBulkDeleteError]         = useState<string | null>(null);
 
   const optMenuRef = useRef<HTMLDivElement>(null);
   const [showOptMenu, setShowOptMenu] = useState(false);
@@ -299,8 +314,21 @@ const ServicesListPage: React.FC = () => {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  // Close the per-service kebab menu on any outside click. Unlike the
+  // dropdowns above, each ServiceCard's menu has no shared ref to check
+  // against (there's one per row) — instead ServiceCard's own wrapper
+  // (.slp__dd-wrap) stops click propagation for anything inside it, so this
+  // document-level "click" listener only ever fires for genuine outside
+  // clicks. Same pattern ClientsListPage uses for its per-row menu.
+  useEffect(() => {
+    if (!openCardMenu) return;
+    const handler = () => setOpenCardMenu(null);
+    document.addEventListener("click", handler);
+    return () => document.removeEventListener("click", handler);
+  }, [openCardMenu]);
+
   // Reset the "type DELETE to confirm" field whenever a delete target opens/closes
-  useEffect(() => { setDeleteServiceInput(""); }, [deletingService]);
+  useEffect(() => { setDeleteServiceInput(""); setDeleteServiceError(null); }, [deletingService]);
 
   // Re-fetch the currently-viewed page/pageSize/search/filters combination —
   // every action that mutates the list (delete, bulk delete, category
@@ -375,8 +403,11 @@ const ServicesListPage: React.FC = () => {
     return allServices;
   }, [filters, searchQuery, selectedCategory]);
 
+  const denyPerm = useCallback((permKey: string) => dispatch(showPermissionDenied(friendlyPermissionDenied(permKey))), [dispatch]);
+
   const handleDownloadPdf = useCallback(async () => {
     setShowOptMenu(false);
+    if (!can("download_service_menu_pdf")) { denyPerm("download_service_menu_pdf"); return; }
     try {
       const filteredServices = await fetchFilteredServicesForExport();
       exportServicesPDF(filteredServices, {
@@ -386,19 +417,21 @@ const ServicesListPage: React.FC = () => {
     } catch (err) {
       console.error("[ServicesListPage] PDF export failed:", err);
     }
-  }, [fetchFilteredServicesForExport, currentSalon, userProfile]);
+  }, [can, denyPerm, fetchFilteredServicesForExport, currentSalon, userProfile]);
 
   const handleDownloadExcel = useCallback(async () => {
     setShowOptMenu(false);
+    if (!can("download_service_menu_excel")) { denyPerm("download_service_menu_excel"); return; }
     try { exportServicesExcel(await fetchFilteredServicesForExport()); }
     catch (err) { console.error("[ServicesListPage] Excel export failed:", err); }
-  }, [fetchFilteredServicesForExport]);
+  }, [can, denyPerm, fetchFilteredServicesForExport]);
 
   const handleDownloadCsv = useCallback(async () => {
     setShowOptMenu(false);
+    if (!can("download_service_menu_csv")) { denyPerm("download_service_menu_csv"); return; }
     try { exportServicesCSV(await fetchFilteredServicesForExport()); }
     catch (err) { console.error("[ServicesListPage] CSV export failed:", err); }
-  }, [fetchFilteredServicesForExport]);
+  }, [can, denyPerm, fetchFilteredServicesForExport]);
 
   // ── Client-side filtering for Duration, Price Range, and Category ─────────
   const filteredServices = useMemo(() => {
@@ -522,33 +555,54 @@ const ServicesListPage: React.FC = () => {
                   </button>
                 </li> */}
                 <li>
-                  <button className="slp__dd-item" onClick={() => { setShowPrintMenuCard(true); setShowOptMenu(false); }}>
+                  <button
+                    className="slp__dd-item"
+                    style={!can("print_menu_card") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                    onClick={() => {
+                      if (!can("print_menu_card")) { denyPerm("print_menu_card"); return; }
+                      setShowPrintMenuCard(true); setShowOptMenu(false);
+                    }}
+                  >
                     <Printer size={15} /> Print menu card
                   </button>
                 </li>
                 <li>
-                  <button className="slp__dd-item" onClick={() => { setShowManageCategories(true); setShowOptMenu(false); }}>
+                  <button
+                    className="slp__dd-item"
+                    style={!can("manage_categories") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                    onClick={() => {
+                      if (!can("manage_categories")) { denyPerm("manage_categories"); return; }
+                      setShowManageCategories(true); setShowOptMenu(false);
+                    }}
+                  >
                     <TagFill size={15} /> Manage categories
                   </button>
                 </li>
                 <li>
-                  <button className="slp__dd-item" onClick={() => { setShowImport(true); setShowOptMenu(false); }}>
+                  <button
+                    className="slp__dd-item"
+                    style={!can("import_services") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                    onClick={() => {
+                      if (!can("import_services")) { denyPerm("import_services"); return; }
+                      setShowImport(true); setShowOptMenu(false);
+                    }}
+                  >
                     <FiletypeCsv size={15} /> Import services
                   </button>
                 </li>
                 <li><hr className="slp__dd-divider" /></li>
                 <li>
-                  <button className="slp__dd-item" onClick={handleDownloadPdf}>
+                  <button className="slp__dd-item" style={!can("download_service_menu_pdf") ? { opacity: 0.5, cursor: "not-allowed" } : undefined} onClick={handleDownloadPdf}>
                     <FileEarmarkPdf size={15} /> Download PDF
                   </button>
                 </li>
                 <li>
-                  <button className="slp__dd-item" onClick={handleDownloadExcel}>
+                  <button className="slp__dd-item" style={!can("download_service_menu_excel") ? { opacity: 0.5, cursor: "not-allowed" } : undefined} onClick={handleDownloadExcel}>
                     <FileEarmarkExcel size={15} /> Download Excel
                   </button>
                 </li>
                 <li>
-                  <button className="slp__dd-item" onClick={handleDownloadCsv}>
+                  <button className="slp__dd-item" style={!can("download_service_menu_csv") ? { opacity: 0.5, cursor: "not-allowed" } : undefined} onClick={handleDownloadCsv}>
                     <FiletypeCsv size={15} /> Download CSV
                   </button>
                 </li>
@@ -559,7 +613,11 @@ const ServicesListPage: React.FC = () => {
           {/* Add button */}
           <button
             className="slp__btn slp__btn--dark"
-            onClick={() => navigate("/dashboard/catalog/services/add?type=single")}
+            style={!can("create_services") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+            onClick={() => {
+              if (!can("create_services")) { denyPerm("create_services"); return; }
+              navigate("/dashboard/catalog/services/add?type=single");
+            }}
           >
             Add
           </button>
@@ -689,6 +747,16 @@ const ServicesListPage: React.FC = () => {
             </ul>
           )}
         </div>
+        <button
+          className="slp__ctrl-btn"
+          style={!can("manage_categories") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+          onClick={() => {
+            if (!can("manage_categories")) { denyPerm("manage_categories"); return; }
+            setShowReminderPresets(true);
+          }}
+        >
+          <Clock size={13} /> Reminder options
+        </button>
         {/* <button
           className="slp__ctrl-btn slp__ctrl-btn--order"
           onClick={() => setShowManageOrder(true)}
@@ -722,7 +790,12 @@ const ServicesListPage: React.FC = () => {
             </button>
             <button
               className="slp__btn slp__btn--danger"
-              onClick={() => setShowBulkDeleteModal(true)}
+              style={!can("delete_services") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+              onClick={() => {
+                if (!can("delete_services")) { denyPerm("delete_services"); return; }
+                setBulkDeleteError(null);
+                setShowBulkDeleteModal(true);
+              }}
             >
               <Trash3 size={14} /> Delete selected ({selectedServiceIds.size})
             </button>
@@ -766,8 +839,10 @@ const ServicesListPage: React.FC = () => {
                 !hasActiveFilters
                   ? {
                       label: "Add service",
-                      onClick: () =>
-                        navigate("/dashboard/catalog/services/add?type=single"),
+                      onClick: () => {
+                        if (!can("create_services")) { denyPerm("create_services"); return; }
+                        navigate("/dashboard/catalog/services/add?type=single");
+                      },
                     }
                   : undefined
               }
@@ -828,6 +903,7 @@ const ServicesListPage: React.FC = () => {
             service={selectedService}
             onClose={() => setSelectedService(null)}
             onDelete={(svc) => {
+              if (!can("delete_services")) { denyPerm("delete_services"); return; }
               setDeletingService(svc);
               setSelectedService(null);
             }}
@@ -868,6 +944,9 @@ const ServicesListPage: React.FC = () => {
       />
       {showPrintMenuCard && (
         <PrintMenuCardModal onClose={() => setShowPrintMenuCard(false)} />
+      )}
+      {showReminderPresets && (
+        <ServiceReminderPresetsModal onClose={() => setShowReminderPresets(false)} />
       )}
 
 
@@ -1143,6 +1222,11 @@ const ServicesListPage: React.FC = () => {
                   autoFocus
                 />
               </div>
+              {deleteServiceError && (
+                <p className="small mb-0 mt-2" style={{ color: "#ef4444" }}>
+                  {deleteServiceError}
+                </p>
+              )}
             </div>
             <div className="slp__modal-footer">
               <button
@@ -1155,9 +1239,17 @@ const ServicesListPage: React.FC = () => {
                 className="slp__btn slp__btn--danger"
                 disabled={deleteServiceInput !== "DELETE" || deleteLoading}
                 onClick={async () => {
+                  if (!can("delete_services")) { denyPerm("delete_services"); setDeletingService(null); return; }
+                  setDeleteServiceError(null);
                   setDeleteLoading(true);
-                  await dispatch(deleteServiceThunk(deletingService.id));
+                  const result = await dispatch(deleteServiceThunk(deletingService.id));
                   setDeleteLoading(false);
+                  if (deleteServiceThunk.rejected.match(result)) {
+                    setDeleteServiceError(
+                      (result.payload as string) || "This service could not be deleted.",
+                    );
+                    return;
+                  }
                   setDeletingService(null);
                   refetchCurrentPage();
                 }}
@@ -1204,6 +1296,11 @@ const ServicesListPage: React.FC = () => {
                   autoFocus
                 />
               </div>
+              {bulkDeleteError && (
+                <p className="small mb-0 mt-2" style={{ color: "#ef4444" }}>
+                  {bulkDeleteError}
+                </p>
+              )}
             </div>
             <div className="slp__modal-footer">
               <button
@@ -1216,16 +1313,34 @@ const ServicesListPage: React.FC = () => {
                 className="slp__btn slp__btn--danger"
                 disabled={deleteBulkInput !== "DELETE" || deleteBulkLoading}
                 onClick={async () => {
+                  setBulkDeleteError(null);
                   setDeleteBulkLoading(true);
                   const idsToDelete = Array.from(selectedServiceIds);
-                  await Promise.allSettled(
+                  const results = await Promise.all(
                     idsToDelete.map((id) => dispatch(deleteServiceThunk(id)))
                   );
                   setDeleteBulkLoading(false);
+                  refetchCurrentPage();
+
+                  const failedIds = idsToDelete.filter((_, i) => deleteServiceThunk.rejected.match(results[i]));
+                  if (failedIds.length > 0) {
+                    const firstFailure = results.find(deleteServiceThunk.rejected.match);
+                    const firstMsg = firstFailure?.payload || "one or more services could not be deleted.";
+                    setBulkDeleteError(
+                      failedIds.length === idsToDelete.length
+                        ? `None of the selected services could be deleted. ${firstMsg}`
+                        : `${failedIds.length} of ${idsToDelete.length} service(s) could not be deleted. ${firstMsg}`
+                    );
+                    // Keep the failed ones selected (and the modal open) so the
+                    // user sees why and can retry after clearing the block —
+                    // successfully-deleted ones are dropped from selection.
+                    setSelectedServiceIds(new Set(failedIds));
+                    return;
+                  }
+
                   setShowBulkDeleteModal(false);
                   setDeleteBulkInput("");
                   setSelectedServiceIds(new Set());
-                  refetchCurrentPage();
                 }}
               >
                 {deleteBulkLoading ? "Deleting…" : `Delete ${selectedServiceIds.size} service(s)`}

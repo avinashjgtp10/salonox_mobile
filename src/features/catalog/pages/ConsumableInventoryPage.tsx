@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
-import { Search, PlusLg, X, ThreeDotsVertical } from "react-bootstrap-icons";
+import { Search, PlusLg, X, ThreeDotsVertical, ChevronDown } from "react-bootstrap-icons";
 import { useDispatch, useSelector } from "react-redux";
 import type { AppDispatch, RootState } from "../../../store/store";
 import {
@@ -14,30 +14,43 @@ import { Pagination, JiraFilterMenu } from "../../../components/ui";
 import Dropdown from "../../../components/ui/Dropdown";
 import type { FilterDropdownOption, JiraFilterField } from "../../../components/ui";
 import Skeleton from "../../../components/ui/Skeleton";
-import type { ConsumableListFilters, ConsumableStatus } from "../../../types/inventory.types";
+import type { ConsumableListFilters, ConsumableListRow, ConsumableStatus } from "../../../types/inventory.types";
 import ConsumableDetailPanel from "../components/ConsumableDetailPanel";
 import AssignedServicesPopup from "../components/AssignedServicesPopup";
+import api from "../../../services/api/axios";
+import { INVENTORY } from "../../../services/api/endpoints/inventory.endpoints";
+import { exportConsumablesPDF, exportConsumablesExcel, exportConsumablesCSV } from "../utils/consumableExport";
+import { usePermissions } from "../../../hooks/usePermissions";
+import { showPermissionDenied } from "../../../store/permissionDialogSlice";
+import { selectCurrentSalon, selectUserProfile } from "../../../store/selectors/slices.selectors";
 import "../styles/ConsumableInventoryPage.scss";
 
 interface RowActionItem {
   label: string;
   onClick: () => void;
   danger?: boolean;
+  disabled?: boolean;
 }
 
-// "⋮" row-actions menu, local to this page — a plain absolutely-positioned
-// dropdown (even react-bootstrap's Dropdown with popperConfig strategy:
-// "fixed") gets clipped or mispositioned here: the table wrapper needs
-// overflow-x:auto for horizontal scroll (which clips it), and "fixed" itself
-// stops being relative to the viewport the moment any ancestor up the page's
-// layout has a transform (which one does, elsewhere in the app). Rendering
-// into a portal on document.body and positioning from the trigger's own
-// getBoundingClientRect() sidesteps both problems regardless of what's above
-// it in the DOM.
-const RowActionsMenu: React.FC<{ items: RowActionItem[] }> = ({ items }) => {
+// Row-actions ("⋮") AND toolbar (Export) dropdown menu, local to this page —
+// a plain absolutely-positioned dropdown (even react-bootstrap's Dropdown
+// with popperConfig strategy: "fixed") gets clipped or mispositioned here:
+// the table wrapper needs overflow-x:auto for horizontal scroll (which
+// clips it), and "fixed" itself stops being relative to the viewport the
+// moment any ancestor up the page's layout has a transform (which one does,
+// elsewhere in the app). Rendering into a portal on document.body and
+// positioning from the trigger's own getBoundingClientRect() sidesteps both
+// problems regardless of what's above it in the DOM. `trigger` defaults to
+// the row-level "⋮" icon button; the toolbar Export button passes its own.
+const RowActionsMenu: React.FC<{
+  items: RowActionItem[];
+  trigger?: (toggle: () => void, open: boolean) => React.ReactNode;
+}> = ({ items, trigger }) => {
   const [open, setOpen] = useState(false);
   const [coords, setCoords] = useState<{ top: number; right: number } | null>(null);
-  const btnRef = useRef<HTMLButtonElement>(null);
+  // HTMLElement (not HTMLButtonElement) — the custom `trigger` render prop
+  // can wrap this ref around any element, e.g. the toolbar's <button>.
+  const btnRef = useRef<HTMLElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const toggle = () => {
@@ -73,9 +86,13 @@ const RowActionsMenu: React.FC<{ items: RowActionItem[] }> = ({ items }) => {
 
   return (
     <>
-      <button type="button" ref={btnRef} className="ci-row-actions-btn" onClick={toggle}>
-        <ThreeDotsVertical size={16} />
-      </button>
+      {trigger ? (
+        <span ref={btnRef as React.RefObject<HTMLSpanElement>} style={{ display: "inline-flex" }}>{trigger(toggle, open)}</span>
+      ) : (
+        <button type="button" ref={btnRef as React.RefObject<HTMLButtonElement>} className="ci-row-actions-btn" onClick={toggle}>
+          <ThreeDotsVertical size={16} />
+        </button>
+      )}
       {open && coords && createPortal(
         <div ref={menuRef} className="ci-row-actions-menu" style={{ top: coords.top, right: coords.right }}>
           {items.map((item, i) => (
@@ -83,6 +100,7 @@ const RowActionsMenu: React.FC<{ items: RowActionItem[] }> = ({ items }) => {
               type="button"
               key={i}
               className={`ci-row-actions-menu__item${item.danger ? " ci-row-actions-menu__item--danger" : ""}`}
+              style={item.disabled ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
               onClick={() => { item.onClick(); setOpen(false); }}
             >
               {item.label}
@@ -132,9 +150,23 @@ const PRODUCT_TYPE_OPTIONS: FilterDropdownOption[] = [
   { id: "both", label: "Both" },
 ];
 
+// Same friendly copy PermissionGuard and the interceptor-driven global popup
+// already use for a backend 403 — this export is built entirely client-side
+// (no backend call to deny), so this is the only enforcement point it has.
+const friendlyPermissionDenied = (permKey: string) =>
+  `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`;
+
 const ConsumableInventoryPage: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
+  const { can } = usePermissions();
+  const currentSalon = useSelector(selectCurrentSalon);
+  const userProfile = useSelector(selectUserProfile);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const denyPerm = (permKey: string) => dispatch(showPermissionDenied(
+    `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`
+  ));
 
   const { categories: rawCategories, brands } = useSelector((s: RootState) => s.products);
   // service_categories is one shared table — only a category explicitly
@@ -346,8 +378,60 @@ const ConsumableInventoryPage: React.FC = () => {
     lastFetchedAtRef.current = Date.now();
   }, [dispatch, filters]);
 
+  // Same "loop every page with the currently-applied filters" pattern as
+  // SuppliersListPage/OrdersListPage/ProductsListPage's own export fetchers —
+  // exported data always matches the on-screen list + filters exactly,
+  // independent of whatever page/page-size is currently displayed.
+  const fetchAllConsumablesForExport = useCallback(async (): Promise<ConsumableListRow[]> => {
+    const ARRAY_FILTER_KEYS = ["category_id", "brand_id", "supplier_id", "unit", "service_id", "status", "product_type"] as const;
+    const baseParams: Record<string, unknown> = { ...filters, sort_by: filters.sort_by };
+    ARRAY_FILTER_KEYS.forEach((key) => {
+      const value = (filters as any)[key];
+      baseParams[key] = Array.isArray(value) && value.length ? value.join(",") : undefined;
+    });
+
+    const all: ConsumableListRow[] = [];
+    let page = 1;
+    let totalPages = 1;
+    do {
+      const res = await api.get(INVENTORY.CONSUMABLES_DASHBOARD, { params: { ...baseParams, page, limit: 200 } });
+      const list = res.data?.data?.list;
+      if (list?.data) all.push(...list.data);
+      totalPages = list?.totalPages ?? 1;
+      page += 1;
+    } while (page <= totalPages);
+    return all;
+  }, [filters]);
+
+  const handleExport = useCallback(async (format: "pdf" | "csv" | "excel") => {
+    const permKey = format === "pdf" ? "download_consumable_inventory_pdf" : format === "csv" ? "download_consumable_inventory_csv" : "download_consumable_inventory_excel";
+    if (!can(permKey)) { dispatch(showPermissionDenied(friendlyPermissionDenied(permKey))); return; }
+    // export_csv/export_excel/export_pdf (System) are now global master
+    // gates (Global Download Switches ticket) — checked in addition to the
+    // module-specific key above.
+    const globalKey = format === "pdf" ? "export_pdf" : format === "csv" ? "export_csv" : "export_excel";
+    if (!can(globalKey)) { dispatch(showPermissionDenied(friendlyPermissionDenied(globalKey))); return; }
+    setIsExporting(true);
+    try {
+      const rows = await fetchAllConsumablesForExport();
+      const filterSummary = [
+        filters.search ? `Search: "${filters.search}"` : null,
+        ...activeChips.map((c) => c.label),
+      ].filter(Boolean).join("  •  ") || undefined;
+      const options = { salon: currentSalon, user: userProfile, filterSummary };
+      if (format === "pdf") exportConsumablesPDF(rows, options);
+      else if (format === "csv") exportConsumablesCSV(rows);
+      else exportConsumablesExcel(rows);
+    } catch (err) {
+      console.error(`Consumable ${format.toUpperCase()} export failed:`, err);
+    } finally {
+      setIsExporting(false);
+    }
+  }, [can, dispatch, fetchAllConsumablesForExport, filters.search, activeChips, currentSalon, userProfile]);
+
   async function confirmDeactivate() {
     if (!deactivateTarget) return;
+    if (!can("activate_deactivate_consumable")) { denyPerm("activate_deactivate_consumable"); setDeactivateTarget(null); return; }
     setDeactivating(true);
     try {
       await dispatch(updateProductThunk({ id: deactivateTarget.id, data: { is_active: false } })).unwrap();
@@ -362,6 +446,7 @@ const ConsumableInventoryPage: React.FC = () => {
   // Deactivate, which hides the product from every picker/list), so there's
   // nothing risky enough here to warrant an extra click.
   async function handleReactivate(productId: string) {
+    if (!can("activate_deactivate_consumable")) { denyPerm("activate_deactivate_consumable"); return; }
     await dispatch(updateProductThunk({ id: productId, data: { is_active: true } })).unwrap();
     refresh();
   }
@@ -384,7 +469,11 @@ const ConsumableInventoryPage: React.FC = () => {
             className="ci-btn ci-btn--primary"
             title="Add Consumable"
             aria-label="Add Consumable"
-            onClick={() => navigate("/dashboard/inventory/consumables/add")}
+            style={!can("add_consumable") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+            onClick={() => {
+              if (!can("add_consumable")) { denyPerm("add_consumable"); return; }
+              navigate("/dashboard/inventory/consumables/add");
+            }}
           >
             <PlusLg size={14} /> Add
           </button>
@@ -392,10 +481,33 @@ const ConsumableInventoryPage: React.FC = () => {
             className="ci-btn ci-btn--outline"
             title="Usage History"
             aria-label="Usage History"
-            onClick={() => navigate("/dashboard/inventory/consumables/usage-history")}
+            style={!can("view_consumable_usage") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+            onClick={() => {
+              if (!can("view_consumable_usage")) { denyPerm("view_consumable_usage"); return; }
+              navigate("/dashboard/inventory/consumables/usage-history");
+            }}
           >
             Usage
           </button>
+          <RowActionsMenu
+            items={[
+              { label: "Export as PDF", disabled: !can("download_consumable_inventory_pdf") || !can("export_pdf"), onClick: () => handleExport("pdf") },
+              { label: "Export as Excel", disabled: !can("download_consumable_inventory_excel") || !can("export_excel"), onClick: () => handleExport("excel") },
+              { label: "Export as CSV", disabled: !can("download_consumable_inventory_csv") || !can("export_csv"), onClick: () => handleExport("csv") },
+            ]}
+            trigger={(toggle) => (
+              <button
+                type="button"
+                className="ci-btn ci-btn--outline"
+                title="Export"
+                aria-label="Export"
+                disabled={isExporting}
+                onClick={toggle}
+              >
+                {isExporting ? "Exporting…" : "Export"} <ChevronDown size={12} />
+              </button>
+            )}
+          />
         </div>
       </div>
 
@@ -467,8 +579,11 @@ const ConsumableInventoryPage: React.FC = () => {
         <table className="ci-table">
           <thead>
             <tr>
-              <th>Product</th><th>Category</th><th>Supplier</th><th>Stock</th><th>Unit</th>
-              <th>Available Stock</th><th>Used (Month)</th><th>Assigned Services</th><th>Status</th><th></th>
+              <th>Product</th><th>Category</th><th>Supplier</th>
+              <th title="Rounded up to the nearest whole unit — a partial remainder still counts as one more. For the exact quantity, see Available Stock.">Stock (approx.)</th>
+              <th>Unit</th>
+              <th title="The precise quantity currently in stock, in the product's own unit.">Available Stock</th>
+              <th>Used (Month)</th><th>Assigned Services</th><th>Status</th><th></th>
             </tr>
           </thead>
           <tbody>
@@ -501,10 +616,16 @@ const ConsumableInventoryPage: React.FC = () => {
                       {row.supplier_name || "—"}
                     </span>
                   </td>
-                  {/* Stock = package/bottle count (1, 2, 3…); Unit = the
-                      configured package size itself (e.g. "100 ml" per
-                      Bottle) — never the multiplied total across all stock. */}
-                  <td>{row.product_qty.toLocaleString()}</td>
+                  {/* Stock = package/bottle count, CEIL(Available Stock /
+                      Unit) — rounded UP so a partial remainder still shows as
+                      needing a unit (matches the low-stock threshold check).
+                      It's DERIVED from Available Stock, not the other way
+                      around — Unit is the configured package size, and
+                      multiplying Stock × Unit back out does not recover the
+                      real remaining quantity (it overstates it by whatever
+                      the rounding added). Available Stock (below) is always
+                      the precise, correct figure. */}
+                  <td title="Rounded up — see Available Stock for the exact quantity">{row.product_qty.toLocaleString()}</td>
                   <td>{row.unit_size ? `${row.unit_size.toLocaleString()} ${row.unit}` : "—"}</td>
                   <td>{row.remaining_stock.toLocaleString()} {row.unit}</td>
                   <td>{row.used_this_month.toLocaleString()} {row.unit}</td>
@@ -532,11 +653,37 @@ const ConsumableInventoryPage: React.FC = () => {
                     <RowActionsMenu
                       items={[
                         { label: "View Details", onClick: () => setSelectedProduct({ id: row.product_id, openAdjust: false }) },
-                        { label: "Edit Product", onClick: () => navigate(`/dashboard/inventory/consumables/edit/${row.product_id}`) },
-                        { label: "Adjust Stock", onClick: () => setSelectedProduct({ id: row.product_id, openAdjust: true }) },
+                        {
+                          label: "Edit Product",
+                          disabled: !can("edit_consumable"),
+                          onClick: () => {
+                            if (!can("edit_consumable")) { denyPerm("edit_consumable"); return; }
+                            navigate(`/dashboard/inventory/consumables/edit/${row.product_id}`);
+                          },
+                        },
+                        {
+                          label: "Adjust Stock",
+                          disabled: !can("adjust_consumable_stock"),
+                          onClick: () => {
+                            if (!can("adjust_consumable_stock")) { denyPerm("adjust_consumable_stock"); return; }
+                            setSelectedProduct({ id: row.product_id, openAdjust: true });
+                          },
+                        },
                         row.status === "deactivated"
-                          ? { label: "Reactivate", onClick: () => handleReactivate(row.product_id) }
-                          : { label: "Deactivate", danger: true, onClick: () => setDeactivateTarget({ id: row.product_id, name: row.name }) },
+                          ? {
+                              label: "Reactivate",
+                              disabled: !can("activate_deactivate_consumable"),
+                              onClick: () => handleReactivate(row.product_id),
+                            }
+                          : {
+                              label: "Deactivate",
+                              danger: true,
+                              disabled: !can("activate_deactivate_consumable"),
+                              onClick: () => {
+                                if (!can("activate_deactivate_consumable")) { denyPerm("activate_deactivate_consumable"); return; }
+                                setDeactivateTarget({ id: row.product_id, name: row.name });
+                              },
+                            },
                       ]}
                     />
                   </td>

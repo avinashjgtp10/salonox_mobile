@@ -1,50 +1,110 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
 import { useAppSelector, useAppDispatch } from "../../../hooks/useAppRedux";
-import { logout } from "../../../store/authSlice";
-import { fetchPlansThunk } from "../../../store/billingSlice";
-import UpgradeButton from "./UpgradeButton";
+import { performLogout } from "../../../utils/performLogout";
+import { createSubscriptionThunk } from "../../../store/billingSlice";
+import api from "../../../services/api/axios";
+import { SALON_PLANS } from "../../../services/api/endpoints";
 
-// A condensed, scannable checklist replaces the old per-category bullet dump
-// (8 headers x 4-8 sub-items each) — same coverage, one line per item instead
-// of a wall of text.
-const PLAN_HIGHLIGHTS: string[] = [
-  "Booking & Calendar",
-  "Billing & POS (GST-ready)",
-  "Client Management & Loyalty",
-  "Staff Management & Payroll",
-  "Packages & Memberships",
-  "Inventory Tracking",
-  "Marketing & WhatsApp",
-  "30+ Reports & Analytics",
-  "Multi-user Access",
-  "Real-time Notifications",
-  "Multi-currency Support",
-];
+// The real Basic/Advance/Growth catalog super admin manages in Plans &
+// Subscriptions → Pricing Plans — same source as BillingPage.tsx's
+// "Available Plans", NOT the old Razorpay billing_plans catalog this wall
+// used to read via fetchPlansThunk (which only ever had one plan seeded,
+// hence "show all three plans here").
+//
+// linked_subscription_plan_id points at a row in the DIFFERENT
+// subscription_plans table (modules/subscriptions — the module with actual
+// working Razorpay checkout) — set once a super admin runs "sync to
+// Razorpay" for that tier (POST /salon-plans/definitions/:tier/sync-razorpay).
+// null until then, in which case Pay & Continue is disabled with an
+// explanatory message rather than attempting a checkout with nothing to
+// charge against.
+interface CatalogPlan {
+  tier: "basic" | "advance" | "pro";
+  name: string;
+  tagline: string | null;
+  price: string;
+  features: string[];
+  linked_subscription_plan_id: string | null;
+}
 
 export default function SubscriptionWall() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const role = useAppSelector((s) => s.auth.role);
-  const { plans, loading } = useAppSelector((s) => ({ plans: s.billing.plans, loading: s.billing.loading.plans }));
+  const { currentSalon } = useAppSelector((s) => s.salon);
 
   const isOwnerOrAdmin = role === "salon_owner" || role === "admin";
 
-  // Same session-clearing pattern as DashboardLayout's handleLogout — clears
-  // the persisted auth slice (tokens/role/salonId) and redirects to /login,
-  // so a user stuck behind this wall can still leave without renewing.
+  const [plans, setPlans] = useState<CatalogPlan[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [plansError, setPlansError] = useState("");
+  const [payingTier, setPayingTier] = useState<string | null>(null);
+
+  // Same shared logout path every other Logout button uses — clears every
+  // Redux slice + persisted storage and revokes the refresh token server-
+  // side, so a user stuck behind this wall can still leave without renewing.
   const handleLogout = () => {
-    dispatch(logout());
-    navigate("/login");
+    performLogout(navigate);
   };
 
   useEffect(() => {
-    if (isOwnerOrAdmin) dispatch(fetchPlansThunk());
-  }, [isOwnerOrAdmin, dispatch]);
+    if (!isOwnerOrAdmin) return;
+    api.get(SALON_PLANS.DEFINITIONS)
+      .then((res) => setPlans(res.data?.data ?? []))
+      .catch((err) => {
+        // Was previously swallowed silently ("No plans available" with no
+        // indication of WHY) — this wall is shown to users who are, by
+        // definition, in a broken/expired-access state, so a stale or
+        // expired token here is a real scenario worth surfacing rather than
+        // guessing at.
+        setPlansError(
+          err?.response?.status === 401
+            ? "Your session has expired — please log out and log back in."
+            : (err?.response?.data?.error?.message ?? "Failed to load plans.")
+        );
+        setPlans([]);
+      })
+      .finally(() => setLoading(false));
+  }, [isOwnerOrAdmin]);
+
+  // Same flow as UpgradeButton.tsx (the old billing_plans equivalent) — a
+  // Razorpay subscription's hosted checkout page, reached via a redirect to
+  // its short_url, not an inline widget. Yearly-only for this catalog (see
+  // salon-plans.service.ts's syncToRazorpay: billing_cycle is fixed to
+  // "yearly"), so total_count is always 1.
+  const handlePayAndContinue = async (plan: CatalogPlan) => {
+    if (!plan.linked_subscription_plan_id) return;
+    if (!currentSalon?.id) {
+      toast.error("No salon context found");
+      return;
+    }
+    setPayingTier(plan.tier);
+    try {
+      const result = await dispatch(createSubscriptionThunk({
+        plan_id: plan.linked_subscription_plan_id,
+        salon_id: currentSalon.id,
+        total_count: 1,
+      }));
+      if (!createSubscriptionThunk.fulfilled.match(result)) {
+        toast.error((result.payload as string) || "Failed to initiate payment");
+        return;
+      }
+      const { short_url } = result.payload;
+      if (!short_url) {
+        toast.error("Could not get payment link. Please try again.");
+        return;
+      }
+      window.location.href = short_url;
+    } finally {
+      setPayingTier(null);
+    }
+  };
 
   return (
     <div style={styles.overlay}>
-      <div style={{ ...styles.card, maxWidth: isOwnerOrAdmin ? "900px" : "460px" }}>
+      <div style={{ ...styles.card, maxWidth: isOwnerOrAdmin ? "1080px" : "460px" }}>
         <div style={styles.iconWrap}>
           <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="12" r="10" />
@@ -58,7 +118,7 @@ export default function SubscriptionWall() {
         <p style={styles.subtitle}>
           {isOwnerOrAdmin ? (
             <>
-              Your SalonOx access has been paused.
+              Your SalonoX access has been paused.
               <br />
               Renew your plan to continue managing your salon seamlessly.
             </>
@@ -82,39 +142,64 @@ export default function SubscriptionWall() {
           <div style={styles.plansWrap}>
             {loading ? (
               <p style={{ color: "#6b7280", fontSize: 13 }}>Loading plans…</p>
+            ) : plansError ? (
+              <p style={{ color: "#dc2626", fontSize: 13 }}>{plansError}</p>
             ) : plans.length === 0 ? (
               <p style={{ color: "#6b7280", fontSize: 13 }}>No plans available. Contact support.</p>
             ) : (
-              plans.map((plan, i) => (
-                <div key={plan.id} style={styles.planCard}>
-                  <div style={styles.planHeaderRow}>
-                    <div style={styles.planHeaderLeft}>
-                      <div style={styles.planIconChip}>👑</div>
-                      <div>
-                        <p style={styles.planName}>{plan.name}</p>
-                        <p style={styles.planPrice}>
-                          ₹{plan.price.toLocaleString()}
-                          <span style={{ fontSize: 13, fontWeight: 400, color: "#9ca3af" }}>
-                            {" "}/{({ monthly: "mo", yearly: "yr", weekly: "wk", daily: "day" } as Record<string, string>)[plan.billing_cycle] ?? "mo"}
-                          </span>
-                        </p>
+              <div style={styles.plansRow}>
+                {plans.map((plan) => (
+                  <div key={plan.tier} style={styles.planCard}>
+                    <div style={styles.planHeaderRow}>
+                      <div style={styles.planHeaderLeft}>
+                        <div style={styles.planIconChip}>👑</div>
+                        <div>
+                          <p style={styles.planName}>{plan.name}</p>
+                          <p style={styles.planPrice}>
+                            ₹{parseFloat(plan.price).toLocaleString()}
+                            <span style={{ fontSize: 13, fontWeight: 400, color: "#9ca3af" }}> /yr</span>
+                          </p>
+                        </div>
                       </div>
+                      {plan.tier === "advance" && <span style={styles.popularBadge}>★ Most Popular</span>}
                     </div>
-                    {i === 0 && <span style={styles.popularBadge}>★ Most Popular</span>}
-                  </div>
 
-                  <div style={styles.highlightsGrid}>
-                    {PLAN_HIGHLIGHTS.map((label) => (
-                      <div key={label} style={styles.highlightItem}>
-                        <span style={styles.highlightCheck} aria-hidden="true">✓</span>
-                        {label}
-                      </div>
-                    ))}
-                  </div>
+                    {plan.tagline && (
+                      <p style={{ margin: "-8px 0 0", fontSize: 13, color: "#6b7280" }}>{plan.tagline}</p>
+                    )}
 
-                  <UpgradeButton plan={plan} />
-                </div>
-              ))
+                    <div style={styles.highlightsGrid}>
+                      {plan.features.map((label) => (
+                        <div key={label} style={styles.highlightItem}>
+                          <span style={styles.highlightCheck} aria-hidden="true">✓</span>
+                          {label}
+                        </div>
+                      ))}
+                    </div>
+
+                    {plan.linked_subscription_plan_id ? (
+                      <button
+                        style={{ ...styles.upgradeBtn, opacity: payingTier === plan.tier ? 0.7 : 1 }}
+                        disabled={payingTier === plan.tier}
+                        onClick={() => handlePayAndContinue(plan)}
+                      >
+                        {payingTier === plan.tier ? "Redirecting to Razorpay…" : "Pay & Continue"}
+                      </button>
+                    ) : (
+                      // Not synced to a real Razorpay plan yet (super admin
+                      // hasn't run the sync action for this tier) — nothing
+                      // to charge against, so fall back to contact-support
+                      // instead of a checkout button that would 400.
+                      <button
+                        style={styles.upgradeBtn}
+                        onClick={() => window.open(`/#book-demo`, "_blank", "noopener,noreferrer")}
+                      >
+                        Contact support to renew
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
             )}
 
             <button
@@ -184,10 +269,21 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex", flexDirection: "column", gap: "16px",
     width: "100%", marginTop: "8px",
   },
+  plansRow: {
+    display: "flex", flexWrap: "wrap", gap: "16px",
+    width: "100%", alignItems: "stretch",
+  },
   planCard: {
+    flex: "1 1 280px", minWidth: "260px",
     border: "1px solid #e5e7eb", borderRadius: "16px", padding: "28px",
     display: "flex", flexDirection: "column", gap: "20px", textAlign: "left",
     background: "#fff",
+  },
+  upgradeBtn: {
+    background: "#7c3aed", color: "#fff", border: "none",
+    borderRadius: "10px", padding: "14px 24px",
+    fontSize: "14px", fontWeight: 700, cursor: "pointer",
+    width: "100%",
   },
   planHeaderRow: {
     display: "flex", alignItems: "center", justifyContent: "space-between",
@@ -206,9 +302,9 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: "999px", padding: "6px 14px", whiteSpace: "nowrap",
   },
   highlightsGrid: {
-    display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
-    gap: "10px 18px", borderTop: "1px solid #e5e7eb", borderBottom: "1px solid #e5e7eb",
-    padding: "18px 0",
+    display: "flex", flexDirection: "column",
+    gap: "10px", borderTop: "1px solid #e5e7eb", borderBottom: "1px solid #e5e7eb",
+    padding: "18px 0", flex: 1,
   },
   highlightItem: {
     display: "flex", alignItems: "center", gap: "8px",

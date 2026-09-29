@@ -23,6 +23,8 @@ import { servicesInCategories } from "./serviceCategoryFilter";
 import { maskMobile } from "../../../utils/maskMobile";
 import { SendCampaignBar } from "./SendCampaignBar";
 import { SendCampaignModal } from "../../marketing/components";
+import SalesSummaryChartContent from "./SalesSummaryChartContent";
+import ReportViewToggle from "./ReportViewToggle";
 import "./SalesSummaryReport.scss";
 
 const REPORT_NAME = "Sales Summary";
@@ -187,11 +189,17 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
   const [paymentStatuses,     setPaymentStatuses]     = useState<string[]>([]);
   const [itemTypes,           setItemTypes]           = useState<string[]>([]);
   const [serviceIds,          setServiceIds]          = useState<string[]>([]);
+  // GST toggle under Filter -> Other. On by default (Grand Total shown gross
+  // of GST); a single-element array ("1"/"0") reused so it still fits
+  // JiraFilterMenu's per-field string[] draft/Apply/Clear lifecycle.
+  const [gstFilter,           setGstFilter]           = useState<string[]>(["1"]);
+  const includeGst = gstFilter[0] !== "0";
   const [search,        setSearch]        = useState("");
   const [rows,          setRows]          = useState<SaleRow[]>([]);
   const [stats,         setStats]         = useState({
     totalBill: 0, billAverage: 0, totalSale: 0, received: 0, totalTip: 0,
     totalEwallet: 0, totalMembershipWallet: 0, totalPackageUsed: 0, totalRewardValue: 0, totalReferralCredit: 0,
+    totalDiscount: 0, totalGST: 0,
   });
   const [total,         setTotal]         = useState(0);
   const [loading,       setLoading]       = useState(false);
@@ -199,6 +207,15 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
   const [pageSize,      setPageSize]      = useState(10);
   const [selectedRow,   setSelectedRow]   = useState<{ saleId: string; appointmentId: string | null } | null>(null);
   const [showCampaignModal, setShowCampaignModal] = useState(false);
+  // Populated only by "Select all N matching this filter" — the currently
+  // loaded `rows` is just the active page (max 100), so once a selection
+  // reaches beyond that, contacts for the extra ids have to come from here
+  // instead. Never cleared on filter change: it's re-fetched fresh on every
+  // click, and a stale id's own name/phone don't change meaning even if it
+  // no longer matches the current filter.
+  const [allMatchingRows, setAllMatchingRows] = useState<SaleRow[] | null>(null);
+  const [selectingAll,    setSelectingAll]    = useState(false);
+  const [showChart,     setShowChart]     = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -213,6 +230,28 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
 
   useEffect(() => { fetchServices({ limit: 1000 }); }, [fetchServices]);
 
+  // Shared with fetchChartData below — same filter set the table/stats use,
+  // minus pagination (the chart groups everything by day instead).
+  // Sales Summary is a revenue report — only Paid/Partial Payment sales
+  // are actual revenue. Upcoming/Cancelled/No Show/Deleted etc. must
+  // never contribute to rows, stats, or the chart. The Payment Status
+  // filter narrows within that same paid/partial set.
+  const buildFilterBody = useCallback((): Record<string, any> => {
+    const effectiveStatuses = paymentStatuses.length > 0 ? paymentStatuses : ["paid", "partial"];
+    const body: Record<string, any> = {
+      start_date: dateFrom, end_date: dateTo,
+      payment_statuses: effectiveStatuses,
+    };
+    if (staffFilterIds.length > 0) body.staff_ids = staffFilterIds;
+    if (categoryIds.length > 0) body.category_ids = categoryIds;
+    if (paymentModes.length > 0) body.payment_modes = paymentModes;
+    if (itemTypes.length > 0) body.item_types = itemTypes;
+    if (serviceIds.length > 0) body.service_ids = serviceIds;
+    if (search.trim()) body.search = search.trim();
+    body.include_gst = includeGst;
+    return body;
+  }, [dateFrom, dateTo, staffFilterIds, categoryIds, paymentModes, paymentStatuses, itemTypes, serviceIds, includeGst, search]);
+
   // Real server-side pagination — page/limit are sent on every request, and
   // only that page's rows come back, along with stats computed by the
   // backend over the WHOLE filtered set (not just the current page).
@@ -223,24 +262,7 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
     abortRef.current = ctrl;
     setLoading(true);
     try {
-      // Sales Summary is a revenue report — only Paid/Partial Payment sales
-      // are actual revenue. Upcoming/Cancelled/No Show/Deleted etc. must
-      // never contribute to rows or the server-computed stats totals. The
-      // Payment Status filter narrows within that same paid/partial set.
-      // Now enforced server-side (payment_statuses, both stats and rows), so
-      // no client-side re-filter of the response is needed anymore.
-      const effectiveStatuses = paymentStatuses.length > 0 ? paymentStatuses : ["paid", "partial"];
-      const body: Record<string, any> = {
-        start_date: dateFrom, end_date: dateTo,
-        page: currentPage, limit: pageSize,
-        payment_statuses: effectiveStatuses,
-      };
-      if (staffFilterIds.length > 0) body.staff_ids = staffFilterIds;
-      if (categoryIds.length > 0) body.category_ids = categoryIds;
-      if (paymentModes.length > 0) body.payment_modes = paymentModes;
-      if (itemTypes.length > 0) body.item_types = itemTypes;
-      if (serviceIds.length > 0) body.service_ids = serviceIds;
-      if (search.trim()) body.search = search.trim();
+      const body = { ...buildFilterBody(), page: currentPage, limit: pageSize };
       const res = await api.post(SALES_REPORT.SUMMARY(), body, { signal: ctrl.signal });
       const data = res.data?.data;
       const list: any[] = Array.isArray(data?.rows) ? data.rows : [];
@@ -258,6 +280,8 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
         totalPackageUsed: Number(s.total_package) || 0,
         totalRewardValue: Number(s.total_rewards) || 0,
         totalReferralCredit: Number(s.total_referral) || 0,
+        totalDiscount: Number(s.total_discount) || 0,
+        totalGST: Number(s.total_gst) || 0,
       });
       const avail = data?.filters_available ?? {};
       if (Array.isArray(avail.payment_modes)) {
@@ -270,18 +294,40 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [dateFrom, dateTo, staffFilterIds, categoryIds, paymentModes, paymentStatuses, itemTypes, serviceIds, search, currentPage, pageSize]);
+  }, [buildFilterBody, currentPage, pageSize, dateFrom, dateTo]);
 
   const bulkDelete = useBulkAppointmentDelete(fetchData);
   // Only sale rows linked to a real appointment can be bulk-deleted — walk-in
   // sales with no appointment_id have nothing on the Appointment API to delete.
   const deletableIds = rows.filter(r => r.appointmentId).map(r => r.appointmentId as string);
 
+  // "Select all N matching this filter" — reuses the same endpoint/filters as
+  // fetchData, but with is_export instead of page/limit, which the backend
+  // already supports (it's what powers the Export button on every report,
+  // just never wired up for that either — same underlying gap this closes
+  // for campaign sending too). Selects every id this returns, not just what's
+  // on the current page.
+  const handleSelectAllMatching = useCallback(async () => {
+    setSelectingAll(true);
+    try {
+      const body = { ...buildFilterBody(), is_export: true };
+      const res = await api.post(SALES_REPORT.SUMMARY(), body);
+      const list: any[] = Array.isArray(res.data?.data?.rows) ? res.data.data.rows : [];
+      const mapped = list.map(mapAppointment);
+      setAllMatchingRows(mapped);
+      bulkDelete.selectAll(mapped.filter(r => r.appointmentId).map(r => r.appointmentId as string));
+    } catch {
+      // Best-effort — the "Select all" link just stays clickable again on failure.
+    } finally {
+      setSelectingAll(false);
+    }
+  }, [buildFilterBody, bulkDelete]);
+
   useEffect(() => { fetchData(); }, [fetchData]);
 
   // Filter/search changes go back to page 1 — page/pageSize changes
   // themselves should not reset back to page 1.
-  useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, staffFilterIds, categoryIds, paymentModes, paymentStatuses, itemTypes, serviceIds, search]);
+  useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, staffFilterIds, categoryIds, paymentModes, paymentStatuses, itemTypes, serviceIds, includeGst, search]);
 
   const filterFields: JiraFilterField[] = useMemo(() => [
     { key: "staff", label: "Staff", options: staffOptions, searchable: true },
@@ -295,6 +341,24 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
       dependsOn: "category",
       optionsFor: (catIds, ownIds) => servicesInCategories(services as any, catIds, ownIds),
     },
+    {
+      key: "other",
+      label: "Other",
+      options: [],
+      render: (draft, setDraft) => {
+        const checked = draft[0] !== "0";
+        return (
+          <label className="jfm-option">
+            <input
+              type="checkbox"
+              checked={checked}
+              onChange={() => setDraft([checked ? "0" : "1"])}
+            />
+            <span>Include GST in Grand Total</span>
+          </label>
+        );
+      },
+    },
   ], [staffOptions, categories, paymentModeOptions, services]);
 
   const filterMenuSelected = useMemo(() => ({
@@ -304,7 +368,11 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
     payment_status: paymentStatuses,
     item_type: itemTypes,
     service: serviceIds,
-  }), [staffFilterIds, categoryIds, paymentModes, paymentStatuses, itemTypes, serviceIds]);
+    // Only surfaced when GST is switched OFF (non-default) — otherwise the
+    // Filters button's applied-count badge would permanently read "1" even
+    // with no real filter active, since this field's draft is never empty.
+    other: includeGst ? [] : gstFilter,
+  }), [staffFilterIds, categoryIds, paymentModes, paymentStatuses, itemTypes, serviceIds, includeGst, gstFilter]);
 
   const handleFiltersApply = (next: Record<string, string[]>) => {
     setStaffFilterIds(next.staff ?? []);
@@ -313,6 +381,10 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
     setPaymentStatuses(next.payment_status ?? []);
     setItemTypes(next.item_type ?? []);
     setServiceIds(next.service ?? []);
+    // "Other" (GST) isn't a multi-select list — an empty/missing draft here
+    // means "cleared", which for a single on/off toggle should fall back to
+    // the default (GST included), not read as "0 selected -> false".
+    setGstFilter(next.other && next.other.length > 0 ? next.other : ["1"]);
   };
 
   const HEADERS = ["Date", "Invoice No", "Name", "Contact", "Item Types", "Staff Name", "Discount", "Coupon Code", "Coupon Discount", "Referral Discount", "GST", "Grand Total", "Paid", "Membership", "Package", "E-Wallet", "Rewards", "Referral Credit", "Due Amount", "Modes", "Status", "Description"];
@@ -325,10 +397,12 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
         <div className="rp-detail-back-row">
           <Breadcrumb current={REPORT_NAME} category={category} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
+            <ReportViewToggle view={showChart ? "chart" : "table"} onChange={(v) => setShowChart(v === "chart")} />
             <ReportExportButton
               title={REPORT_NAME}
               headers={HEADERS}
               rows={exportRows}
+              reportId="sales_summary"
               filename={`sales-summary-${dateFrom}-${dateTo}`}
               variant="button"
               csv
@@ -366,6 +440,10 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
         </div>
       )}
 
+      {showChart ? (
+        <SalesSummaryChartContent dateFrom={dateFrom} dateTo={dateTo} buildFilterBody={buildFilterBody} />
+      ) : (
+      <>
       <div className="rp-detail-toolbar">
         <div className="rp-detail-search-wrap">
           <Search size={13} className="rp-detail-search-ic" />
@@ -380,7 +458,13 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
       </div>
 
       <BulkDeleteBar count={bulkDelete.selectedIds.size} onDeleteClick={() => bulkDelete.setShowConfirm(true)} />
-      <SendCampaignBar count={bulkDelete.selectedIds.size} onSendClick={() => setShowCampaignModal(true)} />
+      <SendCampaignBar
+        count={bulkDelete.selectedIds.size}
+        onSendClick={() => setShowCampaignModal(true)}
+        totalMatching={total}
+        onSelectAllClick={handleSelectAllMatching}
+        selectingAll={selectingAll}
+      />
 
       <div className="rp-detail-table-wrap">
         <table className="rp-detail-table">
@@ -474,6 +558,8 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
         onPageChange={setCurrentPage}
         onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }}
       />
+      </>
+      )}
 
       {selectedRow && (
         selectedRow.appointmentId ? (
@@ -501,11 +587,20 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
       <SendCampaignModal
         show={showCampaignModal}
         onClose={() => setShowCampaignModal(false)}
-        contacts={rows
-          .filter(r => r.appointmentId && bulkDelete.selectedIds.has(r.appointmentId) && r.contact && r.contact !== "—")
-          .map(r => ({ phone: r.contact, name: r.name }))}
+        // Looks up from allMatchingRows first (the full "Select all" fetch,
+        // a superset of what's on this page) so a selection reaching beyond
+        // the current page still resolves every contact's phone/name —
+        // falling back to the loaded page's own rows for anyone selected the
+        // normal way, before "Select all" was ever used this session.
+        contacts={Array.from(
+          new Map(
+            [...(allMatchingRows ?? []), ...rows]
+              .filter(r => r.appointmentId && bulkDelete.selectedIds.has(r.appointmentId) && r.contact && r.contact !== "—")
+              .map(r => [r.appointmentId as string, { phone: r.contact, name: r.name }])
+          ).values()
+        )}
         defaultCampaignName="Sales Summary"
-        onSent={bulkDelete.clearSelection}
+        onSent={() => { bulkDelete.clearSelection(); setAllMatchingRows(null); }}
       />
 
     </div>

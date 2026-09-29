@@ -14,6 +14,8 @@ import { useProducts } from "../../catalog/hooks/useProducts";
 import { useRowSelection } from "./useRowSelection";
 import { SendCampaignBar } from "./SendCampaignBar";
 import { SendCampaignModal } from "../../marketing/components";
+import ProductSaleChartContent from "./ProductSaleChartContent";
+import ReportViewToggle from "./ReportViewToggle";
 import "./ProductSaleReport.scss";
 
 const REPORT_NAME = "Product Retail";
@@ -75,6 +77,7 @@ function mapRow(row: any): ProductSaleRow {
 interface FilterOption { id: string; label: string; }
 
 export default function ProductSaleReport({ onBack, category, categoryKey }: { onBack: () => void; category: string; categoryKey: string }) {
+  const reportId = categoryKey === "inventory" ? "product_sale_inventory" : "product_sale";
   const { currencySymbol, formatAmount } = useCurrency();
   // Same Brand/Category source as Catalog → Products (fetchBrandsThunk/
   // fetchCategoriesThunk) — the full catalog list, not just brands/categories
@@ -101,6 +104,7 @@ export default function ProductSaleReport({ onBack, category, categoryKey }: { o
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const selection = useRowSelection();
   const [showCampaignModal, setShowCampaignModal] = useState(false);
+  const [showChart, setShowChart] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -109,6 +113,17 @@ export default function ProductSaleReport({ onBack, category, categoryKey }: { o
   }, [search]);
 
   useEffect(() => { fetchBrands(); fetchCategories(); }, [fetchBrands, fetchCategories]);
+
+  // Shared with the Graph page below — same filter set the table/stats use,
+  // minus pagination (the chart groups everything by day instead).
+  const buildFilterBody = useCallback((): Record<string, any> => {
+    const body: Record<string, any> = { start_date: dateFrom, end_date: dateTo };
+    if (debouncedSearch) body.search = debouncedSearch;
+    if (staffFilterIds.length > 0) body.staff_ids = staffFilterIds;
+    if (brandIds.length > 0) body.brand_ids = brandIds;
+    if (categoryIds.length > 0) body.category_ids = categoryIds;
+    return body;
+  }, [dateFrom, dateTo, debouncedSearch, staffFilterIds, brandIds, categoryIds]);
 
   // Real server-side pagination — page/limit are sent on every request, and
   // only that page's rows come back, along with stats computed by the
@@ -120,14 +135,7 @@ export default function ProductSaleReport({ onBack, category, categoryKey }: { o
     abortRef.current = ctrl;
     setLoading(true);
     try {
-      const body: Record<string, any> = {
-        start_date: dateFrom, end_date: dateTo,
-        page: currentPage, limit: pageSize,
-      };
-      if (debouncedSearch) body.search = debouncedSearch;
-      if (staffFilterIds.length > 0) body.staff_ids = staffFilterIds;
-      if (brandIds.length > 0) body.brand_ids = brandIds;
-      if (categoryIds.length > 0) body.category_ids = categoryIds;
+      const body = { ...buildFilterBody(), page: currentPage, limit: pageSize };
       const res = await api.post(PRODUCT_RETAIL_REPORT.SUMMARY(), body, { signal: ctrl.signal });
       const data = res.data?.data;
       const raw: any[] = Array.isArray(data?.rows) ? data.rows : [];
@@ -150,7 +158,7 @@ export default function ProductSaleReport({ onBack, category, categoryKey }: { o
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [dateFrom, dateTo, debouncedSearch, staffFilterIds, brandIds, categoryIds, currentPage, pageSize]);
+  }, [buildFilterBody, currentPage, pageSize, dateFrom, dateTo]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -186,7 +194,8 @@ export default function ProductSaleReport({ onBack, category, categoryKey }: { o
         <div className="rp-detail-back-row">
           <Breadcrumb current={REPORT_NAME} category={category} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
-            <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename={`product-retail-${dateFrom}-${dateTo}`} variant="button" csv />
+            <ReportViewToggle view={showChart ? "chart" : "table"} onChange={(v) => setShowChart(v === "chart")} />
+            <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename={`product-retail-${dateFrom}-${dateTo}`} variant="button" csv reportId={reportId} />
           </div>
         </div>
       </div>
@@ -208,6 +217,10 @@ export default function ProductSaleReport({ onBack, category, categoryKey }: { o
         </div>
       )}
 
+      {showChart ? (
+        <ProductSaleChartContent dateFrom={dateFrom} dateTo={dateTo} buildFilterBody={buildFilterBody} />
+      ) : (
+      <>
       <SendCampaignBar count={selection.selectedIds.size} onSendClick={() => setShowCampaignModal(true)} />
 
       <div className="rp-detail-toolbar">
@@ -272,6 +285,8 @@ export default function ProductSaleReport({ onBack, category, categoryKey }: { o
 
       <Pagination currentPage={currentPage} pageSize={pageSize} totalItems={total}
         onPageChange={setCurrentPage} onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }} />
+      </>
+      )}
 
       {selectedClientId && (
         <ClientHistoryModal clientId={selectedClientId} onClose={() => setSelectedClientId(null)} initialTab="products" />

@@ -13,7 +13,7 @@ import "./AttendanceReport.scss";
 
 const REPORT_NAME = "Attendance Report";
 
-type AttendanceStatus = "present" | "absent" | "half_day" | "late" | "on_leave";
+type AttendanceStatus = "present" | "absent" | "half_day" | "on_leave";
 
 interface AttendanceRow {
   id: string;
@@ -37,7 +37,6 @@ interface FilterOption { id: string; label: string; }
 const STATUS_OPTIONS: FilterOption[] = [
   { id: "present", label: "Present" },
   { id: "absent", label: "Absent" },
-  { id: "late", label: "Late" },
   { id: "half_day", label: "Half Day" },
   { id: "on_leave", label: "On Leave" },
 ];
@@ -135,7 +134,7 @@ export default function AttendanceReport({ onBack, category, categoryKey }: { on
   };
 
   const counts = useMemo(() => {
-    const c = { present: 0, absent: 0, late: 0, half_day: 0, on_leave: 0 };
+    const c = { present: 0, absent: 0, half_day: 0, on_leave: 0 };
     rows.forEach(r => { if (r.status in c) c[r.status as keyof typeof c] += 1; });
     return c;
   }, [rows]);
@@ -170,7 +169,7 @@ export default function AttendanceReport({ onBack, category, categoryKey }: { on
         <div className="rp-detail-back-row">
           <Breadcrumb current={REPORT_NAME} category={category} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
-            <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename={`attendance-report-${dateFrom}-${dateTo}`} variant="button" csv />
+            <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename={`attendance-report-${dateFrom}-${dateTo}`} variant="button" csv reportId="attendance_report" />
           </div>
         </div>
       </div>
@@ -191,7 +190,6 @@ export default function AttendanceReport({ onBack, category, categoryKey }: { on
           <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{totalWorkingDays}</div><div className="rp-sra-summary-label">Total Working Days</div></div>
           <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{counts.present}</div><div className="rp-sra-summary-label">Present</div></div>
           <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{counts.absent}</div><div className="rp-sra-summary-label">Absent</div></div>
-          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{counts.late}</div><div className="rp-sra-summary-label">Late</div></div>
           <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{counts.half_day}</div><div className="rp-sra-summary-label">Half Day</div></div>
           <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{counts.on_leave}</div><div className="rp-sra-summary-label">On Leave</div></div>
           <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{avgHours.toFixed(1)}</div><div className="rp-sra-summary-label">Average Hours Worked</div></div>

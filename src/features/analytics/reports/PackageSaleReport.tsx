@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { Search } from "react-bootstrap-icons";
+import { Search, Trash } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { PACKAGE_SALE_REPORT } from "../../../services/api/endpoints";
 import ReportRefreshButton from "./ReportRefreshButton";
-import { Pagination, JiraFilterMenu, DateRangeFilter, getDateRangePresetValue } from "../../../components/ui";
+import { Pagination, JiraFilterMenu, DateRangeFilter, getDateRangePresetValue, ConfirmDialog } from "../../../components/ui";
 import type { JiraFilterField, DateRangeFilterValue } from "../../../components/ui";
 import Breadcrumb from "../../../components/ui/Breadcrumb";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
@@ -13,11 +13,14 @@ import { useCurrency } from "../../../hooks/useCurrency";
 import { useRowSelection } from "./useRowSelection";
 import { SendCampaignBar } from "./SendCampaignBar";
 import { SendCampaignModal } from "../../marketing/components";
+import PackageSaleChartContent from "./PackageSaleChartContent";
+import ReportViewToggle from "./ReportViewToggle";
 import "./PackageSaleReport.scss";
 
 const REPORT_NAME = "Package Sale";
 
 interface PackageSaleRow {
+  id: string;
   date: string;
   invoiceNo: string;
   client: string;
@@ -72,6 +75,7 @@ function formatDate(input: string): string {
 // the Appointment API) to the table's existing PackageSaleRow shape.
 function mapRow(row: any): PackageSaleRow {
   return {
+    id: String(row.id ?? ""),
     date: row.date ? formatDate(row.date) : "—",
     invoiceNo: row.invoice_no ?? "—",
     client: row.client_name || "—",
@@ -117,12 +121,37 @@ export default function PackageSaleReport({ onBack, category, categoryKey }: { o
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const selection = useRowSelection();
   const [showCampaignModal, setShowCampaignModal] = useState(false);
+  const [showChart, setShowChart] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+
+  // Deleting a row here removes the client's assigned package AND every
+  // record tied to that specific assignment (usage/redemption history,
+  // future-booked sessions, and — critically — the sale/sale_item/commission
+  // trail it created), so revenue reports drop accordingly too — see
+  // clientPackagesRepository.delete() for the full cleanup this triggers.
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; packageName: string; client: string } | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search.trim()), 300);
     return () => clearTimeout(t);
   }, [search]);
+
+  // Shared with the Graph page below — same filter set the table/stats use,
+  // minus pagination.
+  const buildFilterBody = useCallback((): Record<string, any> => {
+    const body: Record<string, any> = { start_date: dateFrom, end_date: dateTo };
+    if (debouncedSearch) body.search = debouncedSearch;
+    if (staffFilterIds.length > 0) body.staff_ids = staffFilterIds;
+    if (packageFilter.length > 0) body.package_names = packageFilter;
+    if (packageStatusFilter.length > 0) body.package_statuses = packageStatusFilter;
+    if (paymentStatusFilter.length > 0) body.payment_statuses = paymentStatusFilter;
+    if (paymentMethodFilter.length > 0) body.payment_methods = paymentMethodFilter;
+    if (minAmount !== "") body.min_amount = Number(minAmount);
+    if (maxAmount !== "") body.max_amount = Number(maxAmount);
+    return body;
+  }, [dateFrom, dateTo, debouncedSearch, staffFilterIds, packageFilter, packageStatusFilter, paymentStatusFilter, paymentMethodFilter, minAmount, maxAmount]);
 
   // Real server-side pagination — page/limit are sent on every request, and
   // only that page's rows come back, along with stats computed by the
@@ -134,18 +163,7 @@ export default function PackageSaleReport({ onBack, category, categoryKey }: { o
     abortRef.current = ctrl;
     setLoading(true);
     try {
-      const body: Record<string, any> = {
-        start_date: dateFrom, end_date: dateTo,
-        page: currentPage, limit: pageSize,
-      };
-      if (debouncedSearch) body.search = debouncedSearch;
-      if (staffFilterIds.length > 0) body.staff_ids = staffFilterIds;
-      if (packageFilter.length > 0) body.package_names = packageFilter;
-      if (packageStatusFilter.length > 0) body.package_statuses = packageStatusFilter;
-      if (paymentStatusFilter.length > 0) body.payment_statuses = paymentStatusFilter;
-      if (paymentMethodFilter.length > 0) body.payment_methods = paymentMethodFilter;
-      if (minAmount !== "") body.min_amount = Number(minAmount);
-      if (maxAmount !== "") body.max_amount = Number(maxAmount);
+      const body = { ...buildFilterBody(), page: currentPage, limit: pageSize };
       const res = await api.post(PACKAGE_SALE_REPORT.SUMMARY(), body, { signal: ctrl.signal });
       const data = res.data?.data;
       const raw: any[] = Array.isArray(data?.rows) ? data.rows : [];
@@ -170,9 +188,28 @@ export default function PackageSaleReport({ onBack, category, categoryKey }: { o
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [dateFrom, dateTo, debouncedSearch, staffFilterIds, packageFilter, packageStatusFilter, paymentStatusFilter, paymentMethodFilter, minAmount, maxAmount, currentPage, pageSize]);
+  }, [buildFilterBody, currentPage, pageSize]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  async function handleDeletePackage() {
+    if (!deleteTarget || deleteBusy) return;
+    setDeleteBusy(true);
+    setDeleteError("");
+    try {
+      await api.delete(`/api/v1/client-packages/${deleteTarget.id}`);
+      setDeleteTarget(null);
+      // Re-fetch rather than splicing the row out locally — stats (Total
+      // Sale Value, Total Received, Outstanding Balance) are computed
+      // server-side over the whole filtered set, so they need a real
+      // refetch to reflect the removed sale, not just the table row.
+      fetchData();
+    } catch (err: any) {
+      setDeleteError(err?.response?.data?.error?.message || "Failed to delete this package sale.");
+    } finally {
+      setDeleteBusy(false);
+    }
+  }
 
   // Filter/search changes go back to page 1 — page/pageSize changes
   // themselves should not reset back to page 1.
@@ -211,7 +248,8 @@ export default function PackageSaleReport({ onBack, category, categoryKey }: { o
         <div className="rp-detail-back-row">
           <Breadcrumb current={REPORT_NAME} category={category} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
-            <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename={`package-sale-${dateFrom}-${dateTo}`} variant="button" csv />
+            <ReportViewToggle view={showChart ? "chart" : "table"} onChange={(v) => setShowChart(v === "chart")} />
+            <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename={`package-sale-${dateFrom}-${dateTo}`} variant="button" csv reportId="package_sale" />
           </div>
         </div>
       </div>
@@ -242,12 +280,16 @@ export default function PackageSaleReport({ onBack, category, categoryKey }: { o
         </div>
       )}
 
+      {showChart ? (
+        <PackageSaleChartContent dateFrom={dateFrom} dateTo={dateTo} buildFilterBody={buildFilterBody} />
+      ) : (
+      <>
       <SendCampaignBar count={selection.selectedIds.size} onSendClick={() => setShowCampaignModal(true)} />
 
       <div className="rp-detail-toolbar">
         <div className="rp-detail-search-wrap">
           <Search size={13} className="rp-detail-search-ic" />
-          <input type="text" className="rp-detail-search-input" placeholder="Client or package name" value={search} onChange={e => setSearchInput(e.target.value)} />
+          <input type="text" className="rp-detail-search-input" placeholder="Client, package name, or invoice no" value={search} onChange={e => setSearchInput(e.target.value)} />
         </div>
       </div>
 
@@ -265,14 +307,14 @@ export default function PackageSaleReport({ onBack, category, categoryKey }: { o
               </th>
               <th>Date</th><th>Invoice No</th><th>Client</th><th>Staff</th><th>Package Name</th><th>Expiry Date</th>
               <th>Total Amount ({currencySymbol})</th><th>GST ({currencySymbol})</th><th>Paid ({currencySymbol})</th>
-              <th>Balance Due ({currencySymbol})</th><th>Payment Method</th><th>Status</th>
+              <th>Balance Due ({currencySymbol})</th><th>Payment Method</th><th>Status</th><th className="rp-pkg-actions-col">Actions</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <SkeletonTableRows columns={13} />
+              <SkeletonTableRows columns={14} />
             ) : rows.length === 0 ? (
-              <tr><td colSpan={13} className="rp-detail-empty-cell">No package sales found</td></tr>
+              <tr><td colSpan={14} className="rp-detail-empty-cell">No package sales found</td></tr>
             ) : rows.map((r, i) => (
               <tr
                 key={i}
@@ -298,6 +340,19 @@ export default function PackageSaleReport({ onBack, category, categoryKey }: { o
                 <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{formatAmount(r.pendingAmount)}</td>
                 <td className="rp-pkg-payment" onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{r.paymentMethod}</td>
                 <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}><span className={`rp-status-badge rp-status-${(r.status ?? "").toLowerCase()}`}>{r.status}</span></td>
+                <td className="rp-pkg-actions-col" onClick={e => e.stopPropagation()}>
+                  {r.id && (
+                    <button
+                      type="button"
+                      className="rp-pkg-delete-btn"
+                      title="Delete this package sale"
+                      onClick={() => { setDeleteError(""); setDeleteTarget({ id: r.id, packageName: r.packageName, client: r.client }); }}
+                      style={{ background: "none", border: "none", color: "#dc2626", cursor: "pointer", padding: 4, display: "inline-flex", alignItems: "center" }}
+                    >
+                      <Trash size={14} />
+                    </button>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -306,6 +361,8 @@ export default function PackageSaleReport({ onBack, category, categoryKey }: { o
 
       <Pagination currentPage={currentPage} pageSize={pageSize} totalItems={total}
         onPageChange={setCurrentPage} onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }} />
+      </>
+      )}
 
       <SendCampaignModal
         show={showCampaignModal}
@@ -319,6 +376,25 @@ export default function PackageSaleReport({ onBack, category, categoryKey }: { o
 
       {selectedClientId && (
         <ClientHistoryModal clientId={selectedClientId} onClose={() => setSelectedClientId(null)} initialTab="packages" />
+      )}
+
+      {deleteTarget && (
+        <ConfirmDialog
+          title="Delete Package Sale"
+          message={(
+            <>
+              Are you sure you want to delete the <strong>{deleteTarget.packageName}</strong> package assigned to{" "}
+              <strong>{deleteTarget.client}</strong>? This removes the client's assigned package, its usage/session
+              history, and the sale it created — revenue reports will update accordingly. This action cannot be undone.
+              {deleteError && <div style={{ marginTop: 10, color: "#dc2626", fontSize: 12.5 }}>{deleteError}</div>}
+            </>
+          )}
+          confirmLabel={deleteBusy ? "Deleting…" : "Delete"}
+          danger
+          confirmDisabled={deleteBusy}
+          onConfirm={handleDeletePackage}
+          onCancel={() => !deleteBusy && setDeleteTarget(null)}
+        />
       )}
     </div>
   );

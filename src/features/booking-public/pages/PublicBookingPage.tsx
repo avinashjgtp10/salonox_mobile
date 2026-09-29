@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
-import toast from "react-hot-toast";
 import {
-  ChevronRight, ChevronLeft, ChevronDown, StarFill, GeoAltFill, TelephoneFill, ShareFill,
-  Wifi, CarFrontFill, PeopleFill, Scissors,
-  Snow, ShieldCheck, PinMapFill, Search as SearchIcon,
+  ArrowLeft, Check, CheckLg, StarFill, PersonFill, PeopleFill, CalendarEvent,
+  GeoAltFill, TelephoneFill, Instagram, Facebook, Globe, PinMapFill,
+  Plus, X, ChevronLeft, ChevronRight, Search,
+  SunFill, SunsetFill, ShieldLockFill, LightningChargeFill, Gem,
+  Headset, CalendarWeek,
 } from "react-bootstrap-icons";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import api from "../../../services/api/axios";
@@ -12,27 +13,19 @@ import { ONLINE_BOOKING } from "../../../services/api/endpoints";
 import {
   fetchPublicSalonBySlugThunk,
   createPublicBookingThunk,
+  sendBookingEmailOtpThunk,
+  verifyBookingEmailOtpThunk,
 } from "../../../middleware/onlineBooking/onlineBooking.thunk";
 import {
-  C, GRADIENT, DAYS, MONTHS, staffName, initials, fmtDur, fmtPrice, nextDays, catMeta, hashHue, fmtClock,
-  StepBar, SectionHead, BackBtn, ServicesSummary, ServiceCard, StaffCard, TimeChip, SuccessScreen,
+  DAYS, MONTHS, staffName, initials, fmtDur, fmtPrice, hashHue,
+  salonDateStr, toSalonInstant,
   type ServiceItem, type StaffMember,
 } from "../../online-booking/components/BookingFlow/shared";
+import CalendarPicker from "../components/CalendarPicker";
+import { useDisplayFont } from "../useDisplayFont";
+import "../styles/PublicBooking.scss";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-// Shown as the hero background when a salon hasn't set a cover image yet.
-const DEFAULT_COVER_IMAGE = "https://images.unsplash.com/photo-1600948836101-f9ffda59d250?w=1600";
-
-function getTodayHours(workingHours: any): { open: boolean; from?: string; to?: string } | null {
-  if (!Array.isArray(workingHours) || workingHours.length === 0) return null;
-  const dow = new Date().getDay();
-  const today = workingHours.find((w: any) => w.day_of_week === dow);
-  if (!today) return null;
-  if (!today.is_open || !today.slots?.length) return { open: false };
-  const slot = today.slots[0];
-  return { open: true, from: slot.open_time, to: slot.close_time };
-}
 
 function buildAddress(salon: any): string {
   if (!salon) return "";
@@ -43,25 +36,85 @@ function buildAddress(salon: any): string {
   return [addr, salon.city, salon.state, salon.pincode].filter(Boolean).join(", ");
 }
 
-const REVIEW_PREVIEW_COUNT = 3;
+const EMAIL_RE = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/;
+const OTP_RESEND_SECONDS = 30;
 
-// Matches the real Amenity enum (marketplace.types.ts) — only keys the
-// Marketplace Profile features editor can actually produce.
-function amenityMeta(key: string): { icon: JSX.Element; label: string } {
-  const map: Record<string, { icon: JSX.Element; label: string }> = {
-    parking_available:      { icon: <CarFrontFill size={14} />,      label: "Parking" },
-    near_public_transport:  { icon: <GeoAltFill size={14} />,        label: "Near Transit" },
-    showers:                { icon: <Wifi size={14} />,              label: "Showers" },
-    lockers:                { icon: <ShieldCheck size={14} />,       label: "Lockers" },
-    bath_towels:            { icon: <ShieldCheck size={14} />,       label: "Bath Towels" },
-    swimming_pool:          { icon: <Snow size={14} />,              label: "Swimming Pool" },
-    sauna:                  { icon: <Snow size={14} />,              label: "Sauna" },
-  };
-  return map[key] ?? {
-    icon: <ShieldCheck size={14} />,
-    label: key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
-  };
+// Sentinel "staff member" for "I don't mind who" — never sent to the backend
+// as a real staff_id (both the availability lookup and the booking payload
+// omit staff_id entirely when this is selected), so the server's existing
+// auto-assign-a-real-stylist logic runs exactly like it always has for an
+// unspecified staff_id.
+const ANY_STAFF_ID = "any";
+const ANY_STAFF: StaffMember = { id: ANY_STAFF_ID, name: "Any Available" };
+
+/** A UUID is unusable as something a customer reads out over the phone. */
+function shortBookingId(id?: string | null): string {
+  if (!id) return "—";
+  return `#BK${String(id).replace(/-/g, "").slice(0, 8).toUpperCase()}`;
 }
+
+/** #rgb / #rrggbb / #rrggbbaa -> [r, g, b], or null if it isn't a hex colour. */
+function hexToRgb(hex: string): [number, number, number] | null {
+  const h = hex.trim().replace("#", "");
+  const full = h.length === 3 ? h.split("").map((c) => c + c).join("") : h;
+  if (full.length < 6) return null;
+  const n = parseInt(full.slice(0, 6), 16);
+  if (Number.isNaN(n)) return null;
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+/** A salon's brand colour can be light or dark; the text on it has to follow. */
+function readableOn(hex: string): string {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return "#ffffff";
+  const [r, g, b] = rgb;
+  return 0.299 * r + 0.587 * g + 0.114 * b > 150 ? "#17130a" : "#ffffff";
+}
+
+function withAlpha(hex: string, alpha: number): string {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return hex;
+  return `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${alpha})`;
+}
+
+// Monogram discs stand in for the photos no service has. A fixed set of muted
+// tints indexed by a hash, so a grid reads as one palette — a free-running hue
+// puts orange next to lime and fights the accent.
+const MARK_TONES = [
+  "linear-gradient(145deg, #e7efe9, #d5e3d9)", // sage
+  "linear-gradient(145deg, #efeae1, #e2dacd)", // sand
+  "linear-gradient(145deg, #e8e9f0, #d8dae6)", // lilac
+  "linear-gradient(145deg, #e5eef1, #d3e1e8)", // sky
+  "linear-gradient(145deg, #f0eae7, #e3d7d2)", // clay
+  "linear-gradient(145deg, #ecefe4, #dde3d0)", // olive
+  "linear-gradient(145deg, #efe8ec, #e1d6dc)", // mauve
+  "linear-gradient(145deg, #e3eeeb, #d1e3de)", // teal
+];
+
+const tileBg = (key: string): string => MARK_TONES[hashHue(key) % MARK_TONES.length];
+const monogram = (key: string): string => (key.trim().charAt(0) || "S").toUpperCase();
+
+const STEP_LABELS = [
+  { label: "Services", note: "Choose your service(s)" },
+  { label: "Date & Time", note: "Select a convenient slot" },
+  { label: "Confirm", note: "Review and book" },
+] as const;
+
+/** Monday of the week containing `d`. */
+function weekStartOf(d: Date): Date {
+  const out = new Date(d);
+  out.setHours(0, 0, 0, 0);
+  const shift = (out.getDay() + 6) % 7; // Mon = 0
+  out.setDate(out.getDate() - shift);
+  return out;
+}
+
+const sameDay = (a: Date, b: Date) =>
+  a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+
+// 1 = the booking page (services, stylist, date & time), 2 = confirm
+// (details + review), 3 = booked.
+type Step = 1 | 2 | 3;
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -73,177 +126,168 @@ export default function PublicBookingPage() {
   const navigate = useNavigate();
 
   const dispatch = useAppDispatch();
+
+  useDisplayFont();
+
   const { salonDetails, loading, bookingLoading, error } = useAppSelector((s) => s.onlineBooking);
 
-  const [step,       setStep]       = useState<1|2|3|4>(1);
-  const [activeCat,  setActiveCat]  = useState("All");
-  const [search,     setSearch]     = useState("");
+  const [step, setStep] = useState<Step>(1);
+  const [activeCat, setActiveCat] = useState<string>("All");
+  const [serviceSearch, setServiceSearch] = useState("");
+  const catbarRef = useRef<HTMLDivElement>(null);
+  const [catbarOverflowing, setCatbarOverflowing] = useState(false);
+
   const [selServices, setSelServices] = useState<ServiceItem[]>([]);
-  const [selStaff,   setSelStaff]   = useState<StaffMember | "any" | null>(null);
-  const [selDate,    setSelDate]    = useState<Date>(new Date());
-  const [selTime,    setSelTime]    = useState<string | null>(null);
-  const [form,       setForm]       = useState({ name: "", email: "", phone: "", gender: "", notes: "" });
+  const [selStaff, setSelStaff] = useState<StaffMember | null>(null);
+  const [selDate, setSelDate] = useState<Date>(new Date());
+  const [selTime, setSelTime] = useState<string | null>(null);
+  const [weekStart, setWeekStart] = useState<Date>(() => weekStartOf(new Date()));
+  const [showMonth, setShowMonth] = useState(false);
+  const [form, setForm] = useState({ name: "", email: "", phone: "", countryCode: "+91", notes: "" });
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  // Email OTP — `emailVerifiedFor` pins the verification to the exact address
+  // it was granted for, so editing the email after a successful verify (or
+  // switching addresses) can't carry the old verification over.
+  const [otpSentTo, setOtpSentTo] = useState<string | null>(null);
+  const [otpCode, setOtpCode] = useState("");
+  const [emailVerifiedFor, setEmailVerifiedFor] = useState<string | null>(null);
+  const [otpSending, setOtpSending] = useState(false);
+  const [otpVerifying, setOtpVerifying] = useState(false);
+  const [otpError, setOtpError] = useState<string | null>(null);
+  const [resendIn, setResendIn] = useState(0);
+
   const [preselected, setPreselected] = useState(false);
   const [createdAppointment, setCreatedAppointment] = useState<any>(null);
-  const [heroSlide, setHeroSlide] = useState(0);
-  const [reviewSlide, setReviewSlide] = useState(0);
-  const [catMenuOpen, setCatMenuOpen] = useState(false);
-  const [showAllReviews, setShowAllReviews] = useState(false);
-
-  const serviceSectionRef = useRef<HTMLDivElement>(null);
-  const pageRootRef = useRef<HTMLDivElement>(null);
-  const catMenuRef = useRef<HTMLDivElement>(null);
-  const bodyRef = useRef<HTMLDivElement>(null);
-  const prevStepRef = useRef(step);
-
-  useEffect(() => {
-    if (!catMenuOpen) return;
-    function handleOutsideClick(e: MouseEvent) {
-      if (catMenuRef.current && !catMenuRef.current.contains(e.target as Node)) {
-        setCatMenuOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleOutsideClick);
-    return () => document.removeEventListener("mousedown", handleOutsideClick);
-  }, [catMenuOpen]);
 
   useEffect(() => {
     if (slug) dispatch(fetchPublicSalonBySlugThunk(slug));
   }, [slug, dispatch]);
 
-  // Advancing a step (via a "Continue" button) jumps straight to the new
-  // step's content instead of the page top — the hero would otherwise sit
-  // between the user and content they already scrolled past to get here.
-  // Going back a step is left alone since the user is already scrolled to
-  // roughly the right place, and resetting to step 1 has its own explicit
-  // scroll handling (handleBackHome / handleBookAnother).
-  useEffect(() => {
-    const prevStep = prevStepRef.current;
-    prevStepRef.current = step;
-    if (step > prevStep) {
-      bodyRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  }, [step]);
+  // The page root is its own scroll container: index.css pins body to
+  // `overflow: hidden`, so window.scrollTo is a no-op here.
+  const rootRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { rootRef.current?.scrollTo({ top: 0, behavior: "smooth" }); }, [step]);
+
+  // Section anchors, used by the nav links and the summary's "Change" actions.
+  const servicesRef = useRef<HTMLElement>(null);
+  const stylistRef  = useRef<HTMLElement>(null);
+  const whenRef     = useRef<HTMLElement>(null);
+  const aboutRef    = useRef<HTMLElement>(null);
+
+  const scrollTo = (ref: React.RefObject<HTMLElement | null>) => {
+    const root = rootRef.current, el = ref.current;
+    if (!root || !el) return;
+    // offsetTop is relative to the scroll container, less the sticky nav.
+    root.scrollTo({ top: Math.max(0, el.offsetTop - 84), behavior: "smooth" });
+  };
 
   const services: ServiceItem[] = salonDetails?.services ?? [];
   const staffList: StaffMember[] = salonDetails?.staff ?? [];
   const salon = salonDetails?.salon ?? null;
   const salonName = salon?.business_name || salon?.display_name || salon?.name || "This salon";
   const currencyCode: string | undefined = salon?.currency;
+  const address = buildAddress(salon);
+  const phone: string = salon?.phone ?? "";
+  const city: string = [salon?.city, salon?.state].filter(Boolean).join(", ");
 
-  // Hero / sidebar derived fields (defensive — backend salon shape is loosely typed;
-  // banner_url is the real column, the rest are aliases some callers may send instead)
-  const logoUrl   = salon?.logo_url || salon?.logoUrl || "";
-  const coverUrl  = (
-    salon?.banner_url ||
-    salon?.cover_image ||
-    salon?.image_url ||
-    salon?.cover_url ||
-    salon?.bannerUrl ||
-    salon?.coverUrl ||
-    DEFAULT_COVER_IMAGE
-  ).trim();
-  const address   = buildAddress(salon);
-  const phone     = salon?.phone || salon?.business_phone || salon?.contact_number || "";
-  const rating    = typeof salon?.rating === "number" ? salon.rating : 0;
-  const reviewCount = typeof salon?.review_count === "number" ? salon.review_count : 0;
-  const ratingBreakdown: Record<number, number> = salon?.rating_breakdown ?? {};
-  const reviewsList: { name: string; rating: number; date: string; text: string }[] = Array.isArray(salon?.reviews)
-    ? salon.reviews.map((r: any) => ({
-        name: r.client_first_name || "Guest",
-        rating: r.rating,
-        date: new Date(r.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }),
-        text: r.review_text,
-      }))
-    : [];
-  const todayHours = getTodayHours(salon?.working_hours ?? salon?.hours);
-  const amenities: string[] = Array.isArray(salon?.amenities) ? salon.amenities : [];
   const cancellationNoticeHours: number = Number(salon?.cancellation_notice_hours) || 0;
-  const heroSlides = useMemo(() => [
-    {
-      eyebrow: "Hair Styling",
-      title: "Premium Hair Styling Experience",
-      copy: "Book certified stylists for the perfect haircut and styling.",
-      cta: "Book Now",
-      image: coverUrl,
-      badge: "4.9 (12,000 Reviews)",
-    },
-    {
-      eyebrow: "Professional Makeup",
-      title: "Look Gorgeous For Every Occasion",
-      copy: "Luxury artists, event-ready looks, and effortless booking.",
-      cta: "Explore Makeup",
-      image: "https://images.unsplash.com/photo-1522337660859-02fbefca4702?w=1800&auto=format&fit=crop",
-      badge: "20% OFF",
-    },
-    {
-      eyebrow: "Facial & Skin Care",
-      title: "Healthy Skin Starts Here",
-      copy: "Relax with premium facial treatments and skin-care experts.",
-      cta: "Book Facial",
-      image: "https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?w=1800&auto=format&fit=crop",
-      badge: "Glow Packages",
-    },
-    {
-      eyebrow: "Nail Art",
-      title: "Creative Nail Designs",
-      copy: "Discover luxury nail studios, nail extensions, and nail art.",
-      cta: "Explore Nails",
-      image: "https://images.unsplash.com/photo-1604654894610-df63bc536371?w=1800&auto=format&fit=crop",
-      badge: "Trending Now",
-    },
-    {
-      eyebrow: "Special Offers",
-      title: "Flat 30% OFF",
-      copy: "First Booking Special Offer on selected beauty services.",
-      cta: "Claim Offer",
-      image: "https://images.unsplash.com/photo-1516975080664-ed2fc6a32937?w=1800&auto=format&fit=crop",
-      badge: "First Booking",
-    },
-  ], [coverUrl]);
-  // Real reviews only — up to 3 for the hero's floating card carousel.
-  const reviewCards = reviewsList.slice(0, 3).map((r) => ({
-    title: "★".repeat(r.rating),
-    text: r.text,
-    name: r.name,
-  }));
 
+  // Hero band photo: whichever gallery photos the salon has uploaded, shown
+  // behind the hero. Rendered full-strength (no wash across the whole image)
+  // with only a left-side scrim behind the text, so any photo the salon adds
+  // shows crisp rather than looking hazy/blurry. Auto-advances every 4s, plus
+  // a left/right arrow pair on desktop, a swipe (native touch drag, tracked
+  // below) on mobile, and tap-able position dots on any device — any manual
+  // move is still respected, it just gets overridden by the next 4s tick.
+  const gallery: string[] = Array.isArray(salon?.gallery) ? salon.gallery : [];
+  const [heroPhotoIndex, setHeroPhotoIndex] = useState(0);
+  const heroSwipeStartX = useRef<number | null>(null);
+  const goHeroPhoto = (dir: 1 | -1) =>
+    setHeroPhotoIndex((i) => (i + dir + gallery.length) % gallery.length);
   useEffect(() => {
-    const id = window.setInterval(() => setHeroSlide((s) => (s + 1) % heroSlides.length), 5000);
-    return () => window.clearInterval(id);
-  }, [heroSlides.length]);
+    if (gallery.length < 2) return;
+    const t = setInterval(() => goHeroPhoto(1), 4000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gallery.length]);
+  const handleHeroTouchStart = (e: React.TouchEvent) => { heroSwipeStartX.current = e.touches[0].clientX; };
+  const handleHeroTouchEnd = (e: React.TouchEvent) => {
+    if (heroSwipeStartX.current === null) return;
+    const delta = e.changedTouches[0].clientX - heroSwipeStartX.current;
+    heroSwipeStartX.current = null;
+    if (Math.abs(delta) < 40) return; // not a deliberate swipe
+    goHeroPhoto(delta < 0 ? 1 : -1);
+  };
 
-  useEffect(() => {
-    if (reviewCards.length === 0) return;
-    const id = window.setInterval(() => setReviewSlide((s) => (s + 1) % reviewCards.length), 4200);
-    return () => window.clearInterval(id);
-  }, [reviewCards.length]);
+  // A map link is only ever built from a real configured address. Falling back
+  // to the salon's *name* hands Google a search term that resolves to an
+  // unrelated business — a confidently wrong pin is worse than none.
+  const mapQuery: string = useMemo(() => {
+    const trimmed = (address ?? "").trim();
+    return trimmed.length >= 6 ? trimmed : "";
+  }, [address]);
 
-  // Pre-select service/staff from the query params once data has loaded
+  // Only an explicit false narrows these — an older salon record, or a database
+  // without the columns yet, keeps today's behaviour.
+  const allowSameDay: boolean = salon?.allow_same_day_booking !== false;
+  const allowMultipleServices: boolean = salon?.allow_multiple_services !== false;
+  const aboutEnabled: boolean = salon?.about_enabled !== false;
+  const instagramUrl: string = aboutEnabled ? String(salon?.instagram_url ?? "").trim() : "";
+  const facebookUrl: string = aboutEnabled ? String(salon?.facebook_url ?? "").trim() : "";
+  const websiteUrl: string = aboutEnabled ? String(salon?.website ?? "").trim() : "";
+  const description: string = aboutEnabled
+    ? String(salon?.marketplace_description ?? salon?.description ?? "").trim()
+    : "";
+  // Facilities/Amenities + Salon Specialities — same fixed enum keys the
+  // admin Marketplace Profile checkboxes save (e.g. "wheelchair_accessible");
+  // humanized here rather than duplicating the admin page's exact label map,
+  // so the two never drift out of sync over a wording tweak on one side.
+  const humanizeKey = (key: string) => key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  const salonFeatures: string[] = aboutEnabled
+    ? [
+        ...(Array.isArray(salon?.amenities) ? salon.amenities : []),
+        ...(Array.isArray(salon?.highlights) ? salon.highlights : []),
+        ...(Array.isArray(salon?.values) ? salon.values : []),
+      ].map(humanizeKey)
+    : [];
+  const showAbout = !!(description || salonFeatures.length > 0 || mapQuery || instagramUrl || facebookUrl || websiteUrl);
+
+  // 0/absent means "not configured" — fall back to the same 30-day default the
+  // backend uses rather than locking the picker down to today.
+  const maxAdvanceDays: number = Number(salon?.max_advance_days) > 0
+    ? Number(salon.max_advance_days)
+    : 30;
+
+  // Pre-select service/staff from the query params once data has loaded.
   useEffect(() => {
     if (preselected || loading || (!preselectServiceId && !preselectStaffId)) return;
     if (services.length === 0 && staffList.length === 0) return;
 
-    let nextStep: 1 | 2 = 1;
-
     if (preselectServiceId) {
       const svc = services.find((s) => String(s.id) === preselectServiceId);
-      if (svc) {
-        setSelServices([svc]);
-        nextStep = 2;
-      }
+      if (svc) setSelServices([svc]);
     }
     if (preselectStaffId) {
       const st = staffList.find((s) => String(s.id) === preselectStaffId);
       if (st) setSelStaff(st);
     }
-
-    setStep(nextStep);
     setPreselected(true);
   }, [preselected, loading, services, staffList, preselectServiceId, preselectStaffId]);
 
-  const dates = useMemo(() => nextDays(8), []);
+  // The picker opens on today. If the salon doesn't take same-day bookings,
+  // move to tomorrow once the salon's settings have loaded, so the flow never
+  // starts on a date the picker has disabled.
+  useEffect(() => {
+    if (allowSameDay) return;
+    const today = new Date();
+    if (!sameDay(selDate, today)) return;
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    setSelDate(tomorrow);
+    setSelTime(null);
+  }, [allowSameDay, selDate]);
+
   const totalDuration = useMemo(
     () => selServices.reduce((sum, s) => sum + (Number(s.duration) || 0), 0),
     [selServices]
@@ -253,27 +297,33 @@ export default function PublicBookingPage() {
     [selServices]
   );
 
-  // Real availability — which staff (or which of "any" staff) are actually
-  // free for this date/duration, instead of a fake hash-of-the-date list.
+  // Real availability for the chosen stylist, date and total duration.
   const [slots, setSlots] = useState<{ morning: string[]; afternoon: string[] }>({ morning: [], afternoon: [] });
   const [slotsLoading, setSlotsLoading] = useState(false);
   useEffect(() => {
-    if (!salon?.id || totalDuration <= 0) { setSlots({ morning: [], afternoon: [] }); return; }
+    // Every slot list is per-stylist, so there is nothing meaningful to
+    // request until the customer has chosen one.
+    if (!salon?.id || !selStaff || totalDuration <= 0) { setSlots({ morning: [], afternoon: [] }); return; }
     let cancelled = false;
     setSlotsLoading(true);
-    const dateStr = `${selDate.getFullYear()}-${String(selDate.getMonth() + 1).padStart(2, "0")}-${String(selDate.getDate()).padStart(2, "0")}`;
     api.get(ONLINE_BOOKING.AVAILABILITY(String(salon.id)), {
       params: {
-        date: dateStr,
+        date: salonDateStr(selDate),
         durationMinutes: totalDuration,
-        ...(selStaff && selStaff !== "any" ? { staffId: String((selStaff as StaffMember).id) } : {}),
+        // Lets the server narrow to staff who can actually perform what's in
+        // the basket.
+        serviceIds: selServices.map((s) => String(s.id)).join(","),
+        // Omitted (not sent) for "Any Available" — the server already treats
+        // a missing staffId as "anyone eligible", computing availability
+        // across every stylist who can do these services.
+        ...(selStaff.id !== ANY_STAFF_ID ? { staffId: String(selStaff.id) } : {}),
       },
     })
       .then((res) => {
         if (cancelled) return;
         const all: string[] = res.data?.data?.slots ?? [];
         setSlots({
-          morning:   all.filter((t) => t.endsWith("AM")),
+          morning: all.filter((t) => t.endsWith("AM")),
           afternoon: all.filter((t) => t.endsWith("PM")),
         });
       })
@@ -282,1013 +332,1110 @@ export default function PublicBookingPage() {
     return () => { cancelled = true; };
   }, [salon?.id, selDate, selStaff, totalDuration]);
 
-  const categories = ["All", ...Array.from(new Set(services.map((s) => s.category_name ?? "Other")))];
-  const VISIBLE_CAT_COUNT = 6;
-  const visibleCategories = categories.slice(0, VISIBLE_CAT_COUNT);
-  const moreCategories = categories.slice(VISIBLE_CAT_COUNT);
-  const filtered = services.filter((s) => {
-    const catOk  = activeCat === "All" || s.category_name === activeCat;
-    const srchOk = !search || s.name.toLowerCase().includes(search.toLowerCase());
-    return catOk && srchOk;
-  });
+  // ── Catalogue ───────────────────────────────────────────────────────────────
+  const categories = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const s of services) {
+      const name = String((s as any).category_name || "Other");
+      counts.set(name, (counts.get(name) ?? 0) + 1);
+    }
+    return Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, count]) => ({ name, count }));
+  }, [services]);
+
+  // Right-edge fade for the category bar — shown only while there's actually
+  // more to scroll to, hidden once scrolled to the end (or if everything
+  // already fits) so it never falsely implies more categories.
+  useEffect(() => {
+    const el = catbarRef.current;
+    if (!el) { setCatbarOverflowing(false); return; }
+    const update = () => setCatbarOverflowing(el.scrollWidth - el.scrollLeft - el.clientWidth > 4);
+    update();
+    el.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    return () => {
+      el.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
+  }, [categories.length]);
+
+  // Tapping a category previously only changed which chip looked active —
+  // on a long list (a salon can have 10+ categories) the chip you just
+  // tapped could still sit partly or fully scrolled out of view, especially
+  // near the end of the row. Bring it fully into view instead of leaving the
+  // customer to manually swipe and hunt for their own selection.
+  function scrollCatIntoView(el: HTMLElement) {
+    el.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+  }
+
+  const filtered = useMemo(() => {
+    const q = serviceSearch.trim().toLowerCase();
+    return services.filter((s) => {
+      const inCategory = activeCat === "All" || String((s as any).category_name || "Other") === activeCat;
+      if (!inCategory) return false;
+      if (!q) return true;
+      // Name only — a salon with a large catalogue (seen with 200+ services)
+      // has no other quick way to find one specific service beyond scrolling
+      // past every category.
+      return s.name.toLowerCase().includes(q);
+    });
+  }, [services, activeCat, serviceSearch]);
 
   function toggleService(svc: ServiceItem) {
-    setSelServices((prev) =>
-      prev.some((s) => s.id === svc.id) ? prev.filter((s) => s.id !== svc.id) : [...prev, svc]
-    );
+    setSelServices((prev) => {
+      const already = prev.some((s) => s.id === svc.id);
+      if (already) return prev.filter((s) => s.id !== svc.id);
+      // When the salon books one service per appointment, picking a second
+      // replaces the first rather than adding to it.
+      return allowMultipleServices ? [...prev, svc] : [svc];
+    });
+    // Duration changes invalidate whichever slot was picked for the old total.
+    setSelTime(null);
+  }
+
+  function pickStaff(next: StaffMember) {
+    setSelStaff(next);
+    // Slots are per-stylist; keeping the old selection would submit a time the
+    // newly chosen stylist may not have free.
+    setSelTime(null);
+  }
+
+  // ── Week strip ──────────────────────────────────────────────────────────────
+  const weekDays = useMemo(() => Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(weekStart);
+    d.setDate(d.getDate() + i);
+    return d;
+  }), [weekStart]);
+
+  // Mirrors the rules the server enforces, so a day the customer can click is
+  // always a day the API will accept.
+  const isDayDisabled = useMemo(() => (d: Date) => {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const day = new Date(d); day.setHours(0, 0, 0, 0);
+    if (day < today) return true;
+    if (!allowSameDay && day.getTime() === today.getTime()) return true;
+    const max = new Date(today);
+    max.setDate(max.getDate() + maxAdvanceDays);
+    return day > max;
+  }, [allowSameDay, maxAdvanceDays]);
+
+  const weekLabel = `${MONTHS[weekDays[3].getMonth()]} ${weekDays[3].getFullYear()}`;
+  const atFirstWeek = weekStart.getTime() <= weekStartOf(new Date()).getTime();
+
+  function shiftWeek(delta: number) {
+    setWeekStart((w) => {
+      const next = new Date(w);
+      next.setDate(next.getDate() + delta * 7);
+      return next;
+    });
+  }
+
+  function pickDate(d: Date) {
+    setSelDate(d);
+    setSelTime(null);
+  }
+
+  useEffect(() => {
+    if (resendIn <= 0) return;
+    const t = setTimeout(() => setResendIn((s) => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [resendIn]);
+
+  const emailValid = EMAIL_RE.test(form.email.trim());
+  const emailVerified = emailVerifiedFor !== null && emailVerifiedFor === form.email.trim().toLowerCase();
+
+  function handleEmailChange(value: string) {
+    setForm((f) => ({ ...f, email: value }));
+    // Any edit invalidates whatever OTP state applied to the previous value.
+    setOtpSentTo(null);
+    setOtpCode("");
+    setOtpError(null);
+    setEmailVerifiedFor(null);
+  }
+
+  async function handleSendOtp() {
+    const email = form.email.trim();
+    if (!emailValid || otpSending || resendIn > 0) return;
+    setOtpError(null);
+    setOtpSending(true);
+    try {
+      await dispatch(sendBookingEmailOtpThunk(email)).unwrap();
+      setOtpSentTo(email.toLowerCase());
+      setOtpCode("");
+      setResendIn(OTP_RESEND_SECONDS);
+    } catch (err: any) {
+      setOtpError(typeof err === "string" ? err : "Failed to send OTP. Please try again.");
+    } finally {
+      setOtpSending(false);
+    }
+  }
+
+  async function handleVerifyOtp() {
+    const email = form.email.trim();
+    if (otpCode.trim().length !== 6 || otpVerifying) return;
+    setOtpError(null);
+    setOtpVerifying(true);
+    try {
+      await dispatch(verifyBookingEmailOtpThunk({ email, otp: otpCode.trim() })).unwrap();
+      setEmailVerifiedFor(email.toLowerCase());
+    } catch (err: any) {
+      setOtpError(typeof err === "string" ? err : "Invalid or expired OTP.");
+    } finally {
+      setOtpVerifying(false);
+    }
   }
 
   async function handleSubmit() {
-    if (!salon?.id || selServices.length === 0) return;
+    if (!salon?.id || !selStaff || selServices.length === 0 || !selTime || !emailVerified) return;
     setSubmitError(null);
     try {
       const appointment = await dispatch(
         createPublicBookingThunk({
           salon_id: String(salon.id),
           service_ids: selServices.map((s) => String(s.id)),
-          staff_id: selStaff === "any" ? undefined : String((selStaff as StaffMember)?.id),
-          scheduled_at: new Date(`${selDate.toDateString()} ${selTime}`).toISOString(),
-          client_name: form.name,
-          client_email: form.email,
-          client_phone: form.phone,
-          client_gender: form.gender || undefined,
-          notes: form.notes,
+          // Omitted for "Any Available" — the backend auto-assigns a real,
+          // eligible, available stylist when no staff_id is given.
+          ...(selStaff.id !== ANY_STAFF_ID ? { staff_id: String(selStaff.id) } : {}),
+          scheduled_at: toSalonInstant(selDate, String(selTime)),
+          client_name: form.name.trim(),
+          client_email: form.email.trim(),
+          client_phone: form.phone.trim(),
+          notes: form.notes.trim(),
         })
       ).unwrap();
       setCreatedAppointment(appointment);
-      setStep(4);
+      setStep(3);
     } catch (err: any) {
-      setSubmitError(err || "Failed to create booking. Please try again.");
+      setSubmitError(typeof err === "string" ? err : "Failed to create booking. Please try again.");
     }
-  }
-
-  function handleAddToCalendar() {
-    if (!createdAppointment?.id) return;
-    const dateStr = String(createdAppointment.scheduled_at ?? "").slice(0, 10)
-      || new Date(`${selDate.toDateString()} ${selTime}`).toISOString().slice(0, 10);
-    navigate("/dashboard/calendar", {
-      state: { focusAppointment: { id: createdAppointment.id, date: dateStr } },
-    });
-  }
-
-  function scrollToServices() {
-    setStep(1);
-    requestAnimationFrame(() =>
-      serviceSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
-    );
   }
 
   function resetBooking() {
-    setStep(1); setSelServices([]); setSelStaff(null);
-    setSelTime(null); setForm({ name: "", email: "", phone: "", gender: "", notes: "" });
+    setStep(1);
+    setSelServices([]);
+    setSelStaff(null);
+    setSelTime(null);
+    setForm({ name: "", email: "", phone: "", countryCode: "+91", notes: "" });
     setCreatedAppointment(null);
+    setSubmitError(null);
+    setOtpSentTo(null);
+    setOtpCode("");
+    setEmailVerifiedFor(null);
+    setOtpError(null);
+    setResendIn(0);
   }
 
-  function handleBookAnother() {
-    resetBooking();
-    requestAnimationFrame(() =>
-      serviceSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
-    );
-  }
+  // +91 numbers are exactly 10 digits; other country codes vary by country,
+  // so those keep the looser 8-15 digit sanity check instead of a hard rule.
+  const phoneDigits = form.phone.replace(/\D/g, "");
+  const phoneValid = form.countryCode === "+91"
+    ? phoneDigits.length === 10
+    : phoneDigits.length >= 8 && phoneDigits.length <= 15;
+  const phoneTouched = phoneDigits.length > 0;
 
-  function handleBackHome() {
-    resetBooking();
-    pageRootRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-  }
+  const detailsValid = form.name.trim().length > 1 && phoneValid && emailValid && emailVerified;
+  const dateLabel = `${DAYS[selDate.getDay()]}, ${selDate.getDate()} ${MONTHS[selDate.getMonth()]} ${selDate.getFullYear()}`;
+  const staffLabel = selStaff ? staffName(selStaff) : "Not selected yet";
+  const bookingReady = selServices.length > 0 && !!selStaff && !!selTime;
 
-  async function handleShare() {
-    const url = window.location.href;
-    const nav = navigator as Navigator & { share?: (data: ShareData) => Promise<void> };
-    if (nav.share) {
-      try { await nav.share({ title: salonName, url }); } catch { /* user cancelled */ }
-    } else {
-      try {
-        await navigator.clipboard.writeText(url);
-        toast.success("Booking link copied!");
-      } catch {
-        toast.error("Could not copy link.");
-      }
-    }
-  }
+  // The mobile sticky bar's CTA — on a catalog with hundreds of services, a
+  // customer picking from the list has no way to reach Stylist/Date & Time
+  // without manually scrolling past everything else, since the bar's button
+  // just stayed disabled until all three were chosen. It now jumps straight
+  // to whichever section is still needed instead.
+  const mobileCta: { label: string; action: () => void; disabled: boolean } =
+    selServices.length === 0
+      ? { label: "Select services", action: () => {}, disabled: true }
+      : !selStaff
+      ? { label: "Select Staff", action: () => scrollTo(stylistRef), disabled: false }
+      : !selTime
+      ? { label: "Select Date & Time", action: () => scrollTo(whenRef), disabled: false }
+      : { label: "Continue", action: () => setStep(2), disabled: false };
 
-  // No definitive answer yet (fetch hasn't resolved) — keep showing the
-  // loader instead of falling through to the "not found" state below.
-  // `loading` alone isn't enough: it starts `false` in the slice, so on the
-  // very first render (before the fetch dispatch's `pending` action lands)
-  // it would otherwise flash "Salon Not Found" for a frame.
+  // Which numbered step reads as current.
+  const activeStep: 1 | 2 | 3 = step >= 2 ? 3 : selServices.length > 0 ? 2 : 1;
+
+  // ── Loading / error ─────────────────────────────────────────────────────────
+
   if (!salonDetails && !error) {
     return (
-      <div className="pb-loading">
-        <div className="pb-spinner" />
-        <style>{`
-          .pb-loading {
-            display:flex; align-items:center; justify-content:center; min-height:100vh;
-            font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; background:${C.light};
-          }
-          .pb-spinner {
-            width:40px; height:40px; border-radius:50%;
-            border:3px solid ${C.med}; border-top-color:${C.accent};
-            animation:spin 0.7s linear infinite;
-          }
-          @keyframes spin { to { transform:rotate(360deg); } }
-        `}</style>
-      </div>
-    );
-  }
-
-  if (error || !salon) {
-    return (
-      <div className="pb-notfound">
-        <h2 className="pb-notfound-title">Booking page not found</h2>
-        <p className="pb-notfound-sub">
-          {error || "This salon doesn't have a public booking page yet."}
-        </p>
-        <style>{`
-          .pb-notfound {
-            display:flex; flex-direction:column; align-items:center; justify-content:center;
-            min-height:100vh; gap:12px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
-            padding:24px; text-align:center; background:${C.light};
-          }
-          .pb-notfound-title { margin:0; font-size:20px; color:${C.text}; }
-          .pb-notfound-sub { margin:0; color:${C.muted}; font-size:14px; }
-        `}</style>
-      </div>
-    );
-  }
-
-  return (
-    <div ref={pageRootRef} data-testid="pb-page-root" className="pb-root">
-
-      <style>{`
-        .pb-hero {
-          position: relative;
-          min-height: 340px;
-          flex-shrink: 0;
-          background-color: #111827;
-          display: flex;
-          align-items: flex-end;
-          overflow: hidden;
-        }
-        .pb-hero {
-          min-height:650px; height:auto; align-items:stretch; background:#0b0618;
-          font-family:Poppins,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
-        }
-        .pb-lux-hero { position:relative; width:100%; min-height:650px; overflow:hidden; }
-        .pb-lux-slide {
-          position:absolute; inset:0; opacity:0; transform:scale(1.04);
-          transition:opacity 900ms ease, transform 5200ms ease; pointer-events:none;
-        }
-        .pb-lux-slide.active { opacity:1; transform:scale(1); }
-        .pb-lux-slide img { width:100%; height:100%; object-fit:cover; display:block; }
-        .pb-lux-overlay {
-          position:absolute; inset:0; z-index:2;
-          background:
-            radial-gradient(circle at 76% 20%, rgba(236,72,153,0.28), transparent 32%),
-            radial-gradient(circle at 16% 82%, rgba(16,185,129,0.20), transparent 34%),
-            linear-gradient(90deg, rgba(0,0,0,0.42), rgba(37,18,70,0.30) 48%, rgba(0,0,0,0.10));
-          backdrop-filter:blur(1.5px); -webkit-backdrop-filter:blur(1.5px);
-        }
-        .pb-lux-inner {
-          position:relative; z-index:3; min-height:650px; max-width:1180px; margin:0 auto;
-          padding:70px 28px 70px; display:grid; grid-template-columns:minmax(0,1fr) 380px;
-          gap:48px; align-items:center; animation:pbHeroFade 700ms ease both;
-        }
-        .pb-lux-copy { max-width:640px; color:#fff; }
-        .pb-lux-brand { display:flex; align-items:center; gap:16px; margin-bottom:14px; }
-        .pb-lux-avatar {
-          width:60px; height:60px; border-radius:50%; flex-shrink:0; overflow:hidden;
-          border:3px solid rgba(255,255,255,0.85); background:linear-gradient(135deg,#a78bfa,#7c3aed);
-          display:flex; align-items:center; justify-content:center; color:#fff; font-weight:900; font-size:18px;
-          box-shadow:0 10px 24px rgba(0,0,0,0.32);
-        }
-        .pb-lux-avatar img { width:100%; height:100%; object-fit:cover; display:block; }
-        .pb-lux-copy h1 { margin:0; font-size:clamp(34px,4.2vw,50px); line-height:1.04; letter-spacing:-0.01em; font-weight:900; text-shadow:0 20px 50px rgba(0,0,0,0.34); }
-        .pb-lux-copy p { margin:14px 0 0; max-width:560px; color:rgba(255,255,255,0.86); font-size:17px; line-height:1.6; }
-        .pb-lux-rating { display:flex; align-items:center; gap:8px; color:#fff; font-size:14px; font-weight:800; }
-        .pb-lux-meta { display:flex; flex-wrap:wrap; gap:16px; margin-top:10px; }
-        .pb-lux-meta span { display:flex; align-items:center; gap:6px; color:rgba(255,255,255,0.85); font-size:13px; font-weight:600; }
-        .pb-lux-badges { display:flex; flex-wrap:wrap; gap:10px; margin-top:20px; }
-        .pb-lux-badge {
-          display:inline-flex; align-items:center; gap:7px; font-size:12.5px; font-weight:700; color:#fff;
-          background:rgba(76,29,149,0.38); border:1px solid rgba(255,255,255,0.3); border-radius:999px;
-          padding:8px 14px; backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
-        }
-        .pb-lux-quick-actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:14px; }
-        .pb-lux-quick-action {
-          display:inline-flex; align-items:center; gap:7px; font-size:12.5px; font-weight:700; color:#fff;
-          background:rgba(76,29,149,0.34); border:1px solid rgba(255,255,255,0.3); border-radius:999px;
-          padding:9px 16px; cursor:pointer; text-decoration:none; backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
-          transition:background 0.2s, transform 0.2s;
-        }
-        .pb-lux-quick-action:hover { background:rgba(124,58,237,0.5); transform:translateY(-1px); }
-        .pb-lux-cta-primary {
-          border:0; border-radius:999px; color:#fff; font-weight:900; cursor:pointer;
-          background:linear-gradient(135deg,#7C3AED,#9333EA,#EC4899); background-size:180% 180%;
-          box-shadow:0 16px 32px rgba(124,58,237,0.35); animation:pbGradientMove 5s ease infinite;
-          transition:transform 0.2s, box-shadow 0.2s;
-        }
-        .pb-lux-cta-primary:hover { transform:translateY(-2px); }
-        .pb-lux-ctas { display:flex; flex-wrap:wrap; gap:10px; margin-top:26px; }
-        .pb-lux-cta-primary {
-          min-height:54px; padding:0 24px; font-size:16px; display:inline-flex; align-items:center; gap:8px;
-        }
-        .pb-lux-side { position:relative; min-height:380px; }
-        .pb-lux-image-card {
-          position:relative; width:100%; height:380px; border-radius:28px; overflow:hidden;
-          box-shadow:0 30px 70px rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.18);
-        }
-        .pb-lux-image-card img { width:100%; height:100%; object-fit:cover; display:block; }
-        .pb-lux-image-badge {
-          position:absolute; top:16px; right:16px; padding:9px 16px; border-radius:999px;
-          background:rgba(255,255,255,0.92); color:#7c3aed; font-weight:900; font-size:12.5px;
-          box-shadow:0 8px 20px rgba(0,0,0,0.25); backdrop-filter:blur(8px);
-        }
-        .pb-review-float {
-          position:absolute; left:-24px; bottom:-30px; width:280px; padding:18px; border-radius:24px;
-          background:rgba(255,255,255,0.92); border:1px solid rgba(255,255,255,0.9);
-          box-shadow:0 24px 60px rgba(15,23,42,0.24); backdrop-filter:blur(18px);
-          animation:pbFloatCard 4.6s ease-in-out infinite;
-        }
-        .pb-review-float b { display:block; margin:8px 0 5px; color:#0f172a; font-size:16px; }
-        .pb-review-float p { margin:0; color:#475569; font-size:13px; line-height:1.5; }
-        .pb-review-float span { display:block; margin-top:10px; color:#7C3AED; font-size:12px; font-weight:900; }
-        .pb-hero-arrow {
-          position:absolute; z-index:5; top:50%; transform:translateY(-50%); width:44px; height:44px;
-          border:1px solid rgba(255,255,255,0.34); border-radius:50%; background:rgba(255,255,255,0.16);
-          color:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer; backdrop-filter:blur(12px);
-        }
-        .pb-hero-arrow.left { left:22px; } .pb-hero-arrow.right { right:22px; }
-        .pb-hero-dots { position:absolute; z-index:5; left:50%; bottom:26px; transform:translateX(-50%); display:flex; gap:8px; }
-        .pb-hero-dot { width:9px; height:9px; border-radius:999px; border:0; background:rgba(255,255,255,0.42); cursor:pointer; transition:all 0.2s; }
-        .pb-hero-dot.active { width:30px; background:#fff; }
-        @keyframes pbHeroFade { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:none; } }
-        @keyframes pbGradientMove { 0%,100% { background-position:0% 50%; } 50% { background-position:100% 50%; } }
-        @keyframes pbFloatCard { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-10px); } }
-
-        .pb-container { padding: 28px 24px 64px; max-width: 1180px; margin: 0 auto; }
-        .pb-layout { display:grid; grid-template-columns: 1fr 320px; gap: 28px; align-items:start; }
-        .pb-main { min-width:0; }
-        .pb-sidebar { display:flex; flex-direction:column; gap:18px; position:sticky; top:20px; }
-        .pb-sidebar-card { background:#fff; border:1px solid ${C.border}; border-radius:20px; padding:20px; box-shadow:0 2px 14px rgba(46,16,101,0.06); }
-        .pb-sidebar-title { display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:800; color:${C.text}; margin:0 0 14px; text-transform:uppercase; letter-spacing:0.05em; }
-        .pb-sidebar-row { display:flex; justify-content:space-between; align-items:center; padding:7px 0; font-size:12.5px; gap:10px; }
-        .pb-sidebar-row span:first-child { color:${C.muted}; }
-        .pb-sidebar-row span:last-child { color:${C.text}; font-weight:700; text-align:right; }
-        .pb-map-preview { height:112px; margin-top:12px; border-radius:14px; background:linear-gradient(135deg,${C.light},${C.med}); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; cursor:pointer; text-decoration:none; border:1.5px dashed ${C.border}; transition: all 0.2s; color:${C.accent}; }
-        .pb-map-preview-label { font-size:11.5px; font-weight:700; }
-        .pb-cancellation-text { margin:0; font-size:12.5px; color:${C.muted}; line-height:1.6; }
-        .pb-map-preview:hover { background:linear-gradient(135deg,${C.med},${C.light}); border-color:${C.accent}; }
-        .pb-amenity-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-        .pb-amenity { display:flex; align-items:center; gap:8px; font-size:11.5px; color:${C.text}; font-weight:600; background:${C.light}; border-radius:10px; padding:9px 10px; }
-        .pb-payment-row { display:flex; gap:8px; flex-wrap:wrap; }
-        .pb-payment-chip { display:flex; align-items:center; gap:6px; font-size:11.5px; font-weight:700; color:${C.accent}; background:${C.med}; border-radius:8px; padding:6px 10px; }
-
-        .pb-staff-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(168px,1fr)); gap:14px; margin-bottom:28px; }
-
-        .pb-date-row { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:28px; }
-        .pb-date-btn {
-          background:${C.white}; border:1.5px solid ${C.border}; border-radius:14px; padding:10px 14px;
-          cursor:pointer; text-align:center; color:${C.text}; min-width:58px; box-shadow:none;
-          transition:all 0.18s;
-        }
-        .pb-date-btn.active { background:${GRADIENT}; border-color:${C.accent}; color:${C.white}; box-shadow:0 4px 14px ${C.accent}40; }
-        .pb-date-day { font-size:9.5px; font-weight:700; opacity:0.55; margin-bottom:3px; letter-spacing:0.06em; }
-        .pb-date-btn.active .pb-date-day { opacity:0.85; }
-        .pb-date-num { font-size:20px; font-weight:900; line-height:1; }
-        .pb-date-month { font-size:9.5px; opacity:0.45; margin-top:3px; }
-        .pb-date-btn.active .pb-date-month { opacity:0.8; }
-
-        .pb-slot-label { font-size:11px; font-weight:700; color:${C.muted}; text-transform:uppercase; letter-spacing:0.07em; margin:0 0 10px; }
-        .pb-slot-row { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:18px; }
-        .pb-slot-row--last { margin-bottom:28px; }
-
-        .pb-step2-continue {
-          background:${GRADIENT}; color:${C.white}; border:none; border-radius:12px; padding:13px 28px;
-          font-size:14px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:8px;
-          box-shadow:0 4px 18px ${C.accent}40;
-        }
-        .pb-step2-continue:disabled {
-          background:${C.med}; color:${C.muted}; cursor:not-allowed; box-shadow:none;
-        }
-
-        .pb-form-grid { display:grid; grid-template-columns:1fr 300px; gap:24px; align-items:start; }
-        .pb-form-card { background:${C.white}; border-radius:20px; padding:24px; border:1px solid ${C.border}; box-shadow:0 2px 12px rgba(46,16,101,0.05); }
-        .pb-field { margin-bottom:18px; }
-        .pb-field-label { display:block; font-size:13px; font-weight:600; color:#374151; margin-bottom:6px; }
-        .pb-field-required { color:#dc2626; margin-left:2px; }
-        .pb-field-optional { font-weight:400; color:${C.muted}; }
-        .pb-field-input {
-          width:100%; padding:10px 14px; border:1.5px solid ${C.border}; border-radius:10px;
-          font-size:13.5px; outline:none; box-sizing:border-box; color:${C.text}; background:${C.white};
-          font-family:inherit;
-        }
-        .pb-field-select-empty { color:#9ca3af; }
-        .pb-field-textarea { resize:vertical; }
-
-        .pb-summary-title { font-size:14px; font-weight:700; color:${C.text}; margin:0 0 14px; }
-        .pb-summary-card { background:${C.white}; border-radius:20px; border:1.5px solid ${C.border}; overflow:hidden; box-shadow:0 4px 24px ${C.accent}18; }
-        .pb-summary-head { background:${GRADIENT}; padding:18px 20px; color:${C.white}; }
-        .pb-summary-service { margin:0 0 3px; font-weight:800; font-size:15px; }
-        .pb-summary-meta { margin:0; font-size:12.5px; opacity:0.85; }
-        .pb-summary-body { padding:16px 20px; display:flex; flex-direction:column; gap:10px; }
-        .pb-summary-row {
-          display:flex; justify-content:space-between; align-items:center; padding:8px 12px;
-          background:${C.light}; border-radius:9px; border:1px solid ${C.border};
-        }
-        .pb-summary-row-label { font-size:11px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.07em; }
-        .pb-summary-row-value { font-size:13px; color:#1e293b; font-weight:600; }
-        .pb-summary-total { border-top:1px solid ${C.med}; padding:14px 20px; display:flex; justify-content:space-between; align-items:center; }
-        .pb-summary-total-label { font-size:13px; font-weight:600; color:${C.muted}; }
-        .pb-summary-total-value { font-size:20px; font-weight:900; color:${C.accent}; }
-
-        .pb-submit-error { font-size:12.5px; color:#dc2626; margin-top:10px; }
-        .pb-confirm-btn {
-          margin-top:14px; width:100%; background:${GRADIENT}; color:${C.white}; border:none;
-          border-radius:12px; padding:13px; font-size:14px; font-weight:700; cursor:pointer;
-          box-shadow:0 4px 18px ${C.accent}40;
-        }
-        .pb-confirm-btn:disabled { background:${C.med}; color:${C.muted}; cursor:not-allowed; box-shadow:none; }
-        .pb-cancel-note { font-size:11.5px; color:${C.muted}; text-align:center; margin-top:10px; }
-
-        .pb-search-sticky { position:sticky; top:0; z-index:5; background:${C.light}; padding:10px 0 14px; margin-bottom:4px; }
-        .pb-search-wrap { position:relative; }
-        .pb-search-icon { position:absolute; left:18px; top:50%; transform:translateY(-50%); color:${C.muted}; pointer-events:none; }
-        .pb-search-input {
-          width:100%; padding:14px 18px 14px 44px; border:1.5px solid ${C.border}; border-radius:999px;
-          font-size:13.5px; outline:none; box-sizing:border-box; color:${C.text}; background:#fff;
-          box-shadow:0 4px 16px rgba(46,16,101,0.06);
-          transition:border-color 0.2s, box-shadow 0.2s;
-        }
-        .pb-search-input:focus { border-color:${C.accent}; box-shadow:0 0 0 4px ${C.accent}18, 0 4px 16px rgba(46,16,101,0.06); }
-
-        .pb-cat-row {
-          display:flex; gap:8px; flex-wrap:wrap; margin-bottom:24px;
-        }
-        .pb-cat-chip {
-          display:inline-flex; align-items:center; gap:6px; padding:8px 16px; border-radius:999px;
-          border:1.5px solid ${C.border}; background:${C.light}; color:${C.text}; font-size:12.5px;
-          font-weight:600; cursor:pointer; transition: all 0.18s; white-space:nowrap; flex-shrink:0;
-        }
-        .pb-cat-chip:hover { border-color:${C.accent}; transform: translateY(-1px); box-shadow:0 4px 12px rgba(124,58,237,0.15); }
-        .pb-cat-chip.active {
-          background:linear-gradient(135deg, #7c3aed, #ec4899); border-color:transparent; color:#fff;
-          box-shadow:0 4px 14px rgba(124,58,237,0.4);
-        }
-        .pb-cat-more-btn { display:inline-flex; align-items:center; gap:5px; }
-        .pb-cat-more-btn svg { transition:transform 0.2s; }
-        .pb-cat-more-btn.open svg { transform:rotate(180deg); }
-
-        .pb-cat-panel {
-          width:100%; margin:8px 0 24px; padding:18px; border-radius:20px;
-          background:#fff; border:1.5px solid ${C.border}; box-shadow:0 16px 40px rgba(46,16,101,0.14);
-          display:flex; flex-wrap:wrap; gap:10px;
-          animation:pbPanelIn 0.2s ease both;
-        }
-        @keyframes pbPanelIn { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
-        .pb-cat-panel-item {
-          display:inline-flex; align-items:center; gap:8px; padding:8px 16px 8px 8px; border-radius:999px;
-          background:${C.light}; border:1.5px solid transparent; color:${C.text}; font-size:13px; font-weight:700;
-          cursor:pointer; transition:all 0.2s ease;
-        }
-        .pb-cat-panel-item:hover { border-color:${C.accent}; transform:translateY(-1px); box-shadow:0 4px 12px rgba(124,58,237,0.15); }
-        .pb-cat-panel-item.active {
-          background:linear-gradient(135deg, #7c3aed, #ec4899); color:#fff;
-          box-shadow:0 4px 14px rgba(124,58,237,0.4);
-        }
-        .pb-cat-panel-icon {
-          width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center;
-          background:rgba(124,58,237,0.12); color:${C.accent}; flex-shrink:0; transition:all 0.2s ease;
-        }
-        .pb-cat-panel-item.active .pb-cat-panel-icon { background:rgba(255,255,255,0.25); color:#fff; }
-
-        .pb-services-grid { display:grid; grid-template-columns:repeat(2, 1fr); gap:18px; }
-
-        .pb-reviews { margin-top:48px; padding-top:32px; border-top:1px solid ${C.border}; }
-        .pb-reviews-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:24px; flex-wrap:wrap; gap:18px; }
-        .pb-reviews-head-title { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex:1; min-width:240px; }
-        .pb-write-review-btn {
-          flex-shrink:0; margin-top:2px; padding:10px 18px; border-radius:12px; border:1.5px solid ${C.accent};
-          background:#fff; color:${C.accent}; font-weight:700; font-size:13px; cursor:pointer; transition:all 0.18s;
-        }
-        .pb-write-review-btn:hover { background:${C.light}; }
-
-        .pb-review-form {
-          background:#fff; border:1.5px solid ${C.border}; border-radius:20px; padding:20px;
-          margin-bottom:24px; display:flex; flex-direction:column; gap:16px;
-          box-shadow:0 2px 12px rgba(46,16,101,0.05);
-        }
-        .pb-review-form-row { display:flex; flex-direction:column; }
-        .pb-review-form-stars { display:flex; gap:6px; margin-top:2px; }
-        .pb-review-star-btn { background:none; border:none; padding:2px; cursor:pointer; line-height:0; }
-        .pb-review-submit-btn {
-          align-self:flex-start; background:${GRADIENT}; color:${C.white}; border:none; border-radius:12px;
-          padding:11px 24px; font-size:13.5px; font-weight:700; cursor:pointer; box-shadow:0 4px 18px ${C.accent}40;
-        }
-        .pb-review-submit-btn:disabled { background:${C.med}; color:${C.muted}; cursor:not-allowed; box-shadow:none; }
-        .pb-rating-summary { display:flex; align-items:center; gap:22px; }
-        .pb-rating-big { font-size:42px; font-weight:900; color:${C.text}; line-height:1; }
-        .pb-rating-bars { display:flex; flex-direction:column; gap:4px; min-width:150px; }
-        .pb-rating-bar-row { display:flex; align-items:center; gap:8px; font-size:11px; color:${C.muted}; }
-        .pb-rating-bar-track { flex:1; height:6px; border-radius:4px; background:${C.med}; overflow:hidden; }
-        .pb-rating-bar-fill { height:100%; background:${GRADIENT}; border-radius:4px; }
-        .pb-review-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(260px,1fr)); gap:16px; }
-        .pb-review-card { position:relative; background:#fff; border:1px solid ${C.border}; border-radius:20px; padding:18px 38px 18px 18px; box-shadow:0 2px 10px rgba(46,16,101,0.04); }
-        .pb-review-remove-btn {
-          position:absolute; top:14px; right:14px; width:24px; height:24px; border-radius:50%;
-          border:1px solid ${C.border}; background:${C.light}; color:${C.muted};
-          display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all 0.18s;
-        }
-        .pb-review-remove-btn:hover { background:#fee2e2; border-color:#fca5a5; color:#dc2626; }
-        .pb-view-all-btn { display:inline-flex; align-items:center; gap:6px; margin-top:22px; padding:11px 22px; border-radius:12px; border:1.5px solid ${C.border}; background:#fff; color:${C.accent}; font-weight:700; font-size:13px; cursor:pointer; }
-        .pb-view-all-btn:hover { border-color:${C.accent}; background:${C.light}; }
-        .pb-view-all-btn svg { transition:transform 0.2s; }
-        .pb-view-all-icon-up { transform:rotate(-90deg); }
-
-        .pb-root { height:100vh; overflow-y:auto; display:flex; flex-direction:column;
-          font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; background:${C.light}; }
-        .pb-body { flex:1; }
-
-        .pb-empty-state { text-align:center; padding:48px 24px; background:#fff; border-radius:20px; border:1.5px dashed ${C.border}; }
-        .pb-empty-title { font-weight:700; color:${C.text}; margin:0 0 4px; }
-        .pb-empty-sub { font-size:13px; color:${C.muted}; margin:0; }
-
-        .pb-continue-bar {
-          position:sticky; bottom:16px; margin-top:24px; display:flex; align-items:center;
-          justify-content:space-between; gap:16px; background:rgba(255,255,255,0.75);
-          backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px);
-          border:1px solid rgba(255,255,255,0.6); border-radius:18px;
-          padding:14px 20px; box-shadow:0 12px 36px rgba(46,16,101,0.18);
-        }
-        .pb-continue-count { margin:0 0 2px; font-size:13px; font-weight:700; color:${C.text}; }
-        .pb-continue-meta { margin:0; font-size:12px; color:${C.muted}; }
-        .pb-continue-btn {
-          background:${GRADIENT}; color:#fff; border:none; border-radius:12px;
-          padding:12px 24px; font-size:14px; font-weight:700; cursor:pointer;
-          display:flex; align-items:center; gap:8px; box-shadow:0 4px 18px ${C.accent}40;
-        }
-
-        .pb-rating-stars { display:flex; gap:2px; margin-top:4px; }
-        .pb-rating-count { font-size:11.5px; color:${C.muted}; margin-top:4px; }
-        .pb-review-head { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
-        .pb-review-avatar {
-          width:36px; height:36px; border-radius:50%; background:${GRADIENT}; color:#fff;
-          display:flex; align-items:center; justify-content:center; font-weight:800; font-size:13px; flex-shrink:0;
-        }
-        .pb-review-who { min-width:0; }
-        .pb-review-name { margin:0; font-size:13px; font-weight:700; color:${C.text}; }
-        .pb-review-date { margin:0; font-size:11px; color:${C.muted}; }
-        .pb-review-stars { display:flex; gap:2px; margin-bottom:8px; }
-        .pb-review-text { margin:0; font-size:12.5px; color:#4b5563; line-height:1.6; }
-
-        @media (max-width: 1024px) {
-          .pb-hero, .pb-lux-hero { min-height:0; }
-          .pb-lux-inner { min-height:0; grid-template-columns:1fr; padding:58px 22px 60px; gap:36px; }
-          .pb-lux-side { min-height:0; }
-          .pb-lux-image-card { height:320px; }
-          .pb-review-float { left:16px; bottom:16px; }
-          .pb-layout { grid-template-columns: 1fr; }
-          .pb-sidebar { display:none; }
-        }
-        @media (max-width: 640px) {
-          .pb-hero, .pb-lux-hero { min-height:0; }
-          .pb-lux-inner { padding:48px 16px 48px; }
-          .pb-lux-copy h1 { font-size:34px; }
-          .pb-lux-copy p { font-size:15px; }
-          .pb-lux-cta-primary { width:100%; justify-content:center; font-size:16px; }
-          .pb-lux-image-card { height:240px; }
-          .pb-review-float { position:static; width:auto; margin-top:14px; }
-          .pb-hero-arrow { display:none; }
-          .pb-services-grid { grid-template-columns:1fr; }
-          .pb-review-grid { grid-template-columns:1fr; }
-          .pb-rating-summary { flex-direction:column; align-items:flex-start; gap:12px; }
-        }
-      `}</style>
-
-      {/* ── Premium Hero ── */}
-      <div className="pb-hero">
-        <div className="pb-lux-hero">
-          {heroSlides.map((slide, i) => (
-            <div key={slide.title} className={`pb-lux-slide ${i === heroSlide ? "active" : ""}`}>
-              <img src={slide.image} alt={slide.title} />
-            </div>
-          ))}
-          <div className="pb-lux-overlay" />
-
-          <button className="pb-hero-arrow left" onClick={() => setHeroSlide((s) => (s - 1 + heroSlides.length) % heroSlides.length)} aria-label="Previous hero slide">
-            <ChevronLeft size={20} />
-          </button>
-          <button className="pb-hero-arrow right" onClick={() => setHeroSlide((s) => (s + 1) % heroSlides.length)} aria-label="Next hero slide">
-            <ChevronRight size={20} />
-          </button>
-
-          <div className="pb-lux-inner">
-            <div className="pb-lux-copy">
-              <div className="pb-lux-brand">
-                <div className="pb-lux-avatar">
-                  {logoUrl ? <img src={logoUrl} alt={salonName} /> : salonName.slice(0, 2).toUpperCase()}
-                </div>
-                <h1>{salonName}</h1>
-              </div>
-              {reviewCount > 0 && (
-                <div className="pb-lux-rating">
-                  {[1,2,3,4,5].map((i) => (
-                    <StarFill key={i} size={15} color={i <= Math.round(rating) ? "#F59E0B" : "rgba(255,255,255,0.35)"} />
-                  ))}
-                  <span>{rating.toFixed(1)} · {reviewCount} review{reviewCount === 1 ? "" : "s"}</span>
-                </div>
-              )}
-              {(address || phone) && (
-                <div className="pb-lux-meta">
-                  {address && <span><GeoAltFill size={13} /> {address}</span>}
-                  {phone && <span><TelephoneFill size={13} /> {phone}</span>}
-                </div>
-              )}
-              <p>{heroSlides[heroSlide].copy}</p>
-
-              <div className="pb-lux-badges">
-                <span className="pb-lux-badge"><Scissors size={13} /> {services.length} Services</span>
-                <span className="pb-lux-badge"><PeopleFill size={13} /> {staffList.length} Staff</span>
-              </div>
-
-              <div className="pb-lux-ctas">
-                <button className="pb-lux-cta-primary" onClick={scrollToServices}>
-                  Book Appointment <ChevronRight size={18} />
-                </button>
-              </div>
-
-              <div className="pb-lux-quick-actions">
-                {phone && (
-                  <a className="pb-lux-quick-action" href={`tel:${phone}`}>
-                    <TelephoneFill size={13} /> Call Salon
-                  </a>
-                )}
-                {(address || salonName) && (
-                  <a className="pb-lux-quick-action" target="_blank" rel="noopener noreferrer"
-                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address || salonName)}`}>
-                    <GeoAltFill size={13} /> Get Directions
-                  </a>
-                )}
-                <button className="pb-lux-quick-action" onClick={handleShare}>
-                  <ShareFill size={13} /> Share
-                </button>
-              </div>
-            </div>
-
-            <div className="pb-lux-side">
-              <div className="pb-lux-image-card">
-                <img src={heroSlides[heroSlide].image} alt={salonName} />
-                <div className="pb-lux-image-badge">{heroSlides[heroSlide].badge}</div>
-              </div>
-              {reviewCards.length > 0 && (
-                <div className="pb-review-float">
-                  <div>{[1,2,3,4,5].map((i) => <StarFill key={i} size={13} color="#F59E0B" />)}</div>
-                  <b>{reviewCards[reviewSlide % reviewCards.length].title}</b>
-                  <p>{reviewCards[reviewSlide % reviewCards.length].text}</p>
-                  <span>- {reviewCards[reviewSlide % reviewCards.length].name}</span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="pb-hero-dots">
-            {heroSlides.map((slide, i) => (
-              <button key={slide.title} className={`pb-hero-dot ${i === heroSlide ? "active" : ""}`} onClick={() => setHeroSlide(i)} aria-label={`Show ${slide.title}`} />
-            ))}
-          </div>
+      <div className="pb">
+        <div className="pb__center">
+          <div className="pb__spinner" />
+          <p className="pb__subtitle">Loading booking page…</p>
         </div>
       </div>
+    );
+  }
 
-      {/* ── Body ── */}
-      <div className="pb-body" ref={bodyRef}>
-        {step === 4 ? (
-          <SuccessScreen
-            salonName={salonName}
-            selServices={selServices}
-            selStaff={selStaff}
-            selDate={selDate}
-            selTime={selTime}
-            form={form}
-            onReset={handleBookAnother}
-            onBackHome={handleBackHome}
-            onAddToCalendar={handleAddToCalendar}
-            onManage={
-              createdAppointment?.id && createdAppointment?.manage_token
-                ? () => navigate(`/book/${slug}/manage/${createdAppointment.id}?token=${createdAppointment.manage_token}`)
-                : undefined
-            }
-            currencyCode={currencyCode}
-          />
-        ) : (
-          <div className="pb-container">
-            <StepBar step={step} />
+  // Heading stays true for both cases the API distinguishes — a wrong link and
+  // a salon that has online booking switched off. The specific reason comes
+  // from the server and is shown beneath it.
+  if (error || !salon) {
+    return (
+      <div className="pb">
+        <div className="pb__center">
+          <h2 className="pb__title">Booking unavailable</h2>
+          <p className="pb__subtitle">
+            {error || "This salon doesn't have a public booking page yet."}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
-            {step === 1 && (
-              <div className="pb-layout">
-                <div className="pb-main" ref={serviceSectionRef}>
-                  <SectionHead title="Choose a Service" sub="Select what you'd like to book today" />
+  // Neutral by default; a salon's own brand kit overrides the accent so the page
+  // reads as theirs. No brand kit exists for any salon today (the editor was
+  // removed), so in practice everyone gets the default palette — the wiring is
+  // here so it just works the moment one is populated.
+  const brand = (salon as any)?.brand_kit ?? null;
+  const isHex = (v: unknown): v is string => typeof v === "string" && /^#[0-9a-f]{3,8}$/i.test(v.trim());
+  const brandAccent = isHex(brand?.primary_color) ? brand.primary_color
+    : isHex(brand?.accent_color) ? brand.accent_color
+    : null;
 
-                  <div className="pb-search-sticky">
-                    <div className="pb-search-wrap">
-                      <SearchIcon className="pb-search-icon" size={15} />
-                      <input
-                        className="pb-search-input"
-                        placeholder="Search for services..."
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                      />
-                    </div>
-                  </div>
+  const styleVars = {
+    ...(brandAccent
+      ? {
+          "--pb-accent": brandAccent,
+          "--pb-accent-grad": brandAccent,
+          "--pb-accent-soft": withAlpha(brandAccent, 0.1),
+          "--pb-accent-line": withAlpha(brandAccent, 0.3),
+          "--pb-on-accent": readableOn(brandAccent),
+        }
+      : {}),
+    ...(brand?.body_font ? { fontFamily: `${brand.body_font}, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif` } : {}),
+  } as React.CSSProperties;
 
-                  {categories.length > 2 && (
-                    <div ref={catMenuRef}>
-                      <div className="pb-cat-row">
-                        {visibleCategories.map((cat) => {
-                          const act = activeCat === cat;
-                          return (
-                            <button key={cat} className={`pb-cat-chip ${act ? "active" : ""}`}
-                              onClick={() => setActiveCat(cat)}>
-                              {cat}
-                            </button>
-                          );
-                        })}
-                        {moreCategories.length > 0 && (
-                          <button
-                            className={`pb-cat-chip pb-cat-more-btn ${moreCategories.includes(activeCat) ? "active" : ""} ${catMenuOpen ? "open" : ""}`}
-                            onClick={() => setCatMenuOpen((o) => !o)}>
-                            {moreCategories.includes(activeCat) ? activeCat : "More"}
-                            <ChevronDown size={12} />
-                          </button>
-                        )}
-                      </div>
+  // ── Shared chrome ───────────────────────────────────────────────────────────
 
-                      {catMenuOpen && moreCategories.length > 0 && (
-                        <div className="pb-cat-panel">
-                          {moreCategories.map((cat) => {
-                            const meta = catMeta(cat);
-                            const isActive = activeCat === cat;
-                            return (
-                              <button key={cat}
-                                className={`pb-cat-panel-item ${isActive ? "active" : ""}`}
-                                onClick={() => { setActiveCat(cat); setCatMenuOpen(false); }}>
-                                <span className="pb-cat-panel-icon"><meta.icon size={13} /></span>
-                                {cat}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  )}
+  const TopNav = () => (
+    <header className="pb__nav">
+      <div className="pb__nav-inner">
+        {/* A clear, labelled Back sits on the far left — the previous
+            arrow-only affordance lived on the right mixed in with other
+            actions, easy to miss and easy to mistake for "Book Appointment"'s
+            sibling rather than a distinct back action. Only step 2 has a
+            real previous step to return to; step 3 is a completed booking
+            with its own "Book Another Appointment" action in the confirmation
+            card itself, not something to "go back" from. */}
+        {step === 2 && (
+          <button type="button" className="pb__nav-back" onClick={() => setStep(1)}
+            aria-label="Back">
+            <ArrowLeft size={16} /> <span className="pb__nav-back-label">Back</span>
+          </button>
+        )}
 
-                  {filtered.length === 0 ? (
-                    <div className="pb-empty-state">
-                      <p className="pb-empty-title">No services available</p>
-                      <p className="pb-empty-sub">Please check back later.</p>
-                    </div>
-                  ) : (
-                    <div className="pb-services-grid">
-                      {filtered.map((svc) => (
-                        <ServiceCard key={svc.id} svc={svc}
-                          selected={selServices.some((s) => s.id === svc.id)}
-                          onPick={() => toggleService(svc)}
-                          currencyCode={currencyCode} />
-                      ))}
-                    </div>
-                  )}
+        <div className="pb__logo">
+          {salon?.logo_url && (
+            <img className="pb__logo-mark" src={salon.logo_url} alt="" />
+          )}
+          <span className="pb__logo-text">
+            <span className="pb__logo-name">{salonName}</span>
+            <span className="pb__logo-tag">Look good. Feel great.</span>
+          </span>
+        </div>
 
-                  {selServices.length > 0 && (
-                    <div className="pb-continue-bar">
-                      <div>
-                        <p className="pb-continue-count">
-                          {selServices.length} service{selServices.length > 1 ? "s" : ""} selected
-                        </p>
-                        <p className="pb-continue-meta">
-                          {fmtDur(totalDuration)} · {fmtPrice(totalPrice, currencyCode)}
-                        </p>
-                      </div>
-                      <button className="pb-continue-btn" onClick={() => setStep(2)}>
-                        Continue <ChevronRight size={15} />
-                      </button>
-                    </div>
-                  )}
+        {/* Links move within this page — nothing here navigates somewhere that
+            doesn't exist for a salon that only has a booking page. */}
+        {step === 1 && (
+          <nav className="pb__nav-links" aria-label="Sections">
+            <button type="button" onClick={() => scrollTo(servicesRef)}>Services</button>
+            {staffList.length > 0 && (
+              <button type="button" onClick={() => scrollTo(stylistRef)}>Our Stylists</button>
+            )}
+            {(description || salonFeatures.length > 0) && (
+              <button type="button" onClick={() => scrollTo(aboutRef)}>About Us</button>
+            )}
+            {phone && <a href={`tel:${phone}`}>Contact</a>}
+          </nav>
+        )}
 
-                  {/* ── Reviews — real reviews only, sourced from completed, rated
-                      appointments. There's no open public review form: reviews
-                      here come verified from the post-visit feedback flow, not
-                      an anonymous form anyone browsing could flood. ── */}
-                  <div className="pb-reviews">
-                    <div className="pb-reviews-head">
-                      <div className="pb-reviews-head-title">
-                        <SectionHead title="Customer Reviews" sub="What clients are saying" />
-                      </div>
-                      {reviewCount > 0 && (
-                        <div className="pb-rating-summary">
-                          <div>
-                            <div className="pb-rating-big">{rating.toFixed(1)}</div>
-                            <div className="pb-rating-stars">
-                              {[1,2,3,4,5].map((i) => (
-                                <StarFill key={i} size={13} color={i <= Math.round(rating) ? "#fbbf24" : C.border} />
-                              ))}
-                            </div>
-                            <div className="pb-rating-count">{reviewCount} review{reviewCount === 1 ? "" : "s"}</div>
-                          </div>
-                          <div className="pb-rating-bars">
-                            {[5, 4, 3, 2, 1].map((star) => (
-                              <div key={star} className="pb-rating-bar-row">
-                                <span>{star}★</span>
-                                <div className="pb-rating-bar-track">
-                                  <div className="pb-rating-bar-fill"
-                                    style={{ width: `${reviewCount ? ((ratingBreakdown[star] ?? 0) / reviewCount) * 100 : 0}%` }} />
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
+        <div className="pb__nav-actions">
+          {city && <span className="pb__nav-loc"><GeoAltFill size={12} /> {city}</span>}
+          {step === 1 && (
+            <button type="button" className="pb__btn pb__btn--light pb__btn--auto pb__btn--glow"
+              onClick={() => scrollTo(servicesRef)}>
+              Book Appointment
+            </button>
+          )}
+          {step === 3 && (
+            <button type="button" className="pb__btn pb__btn--light pb__btn--auto"
+              onClick={resetBooking}>
+              <ArrowLeft size={14} /> Book another
+            </button>
+          )}
+        </div>
+      </div>
+    </header>
+  );
 
-                    {reviewsList.length === 0 ? (
-                      <div className="pb-empty-state">
-                        <p className="pb-empty-title">No reviews yet</p>
-                        <p className="pb-empty-sub">Be the first to book and share your experience.</p>
-                      </div>
-                    ) : (
-                      <>
-                        <div className="pb-review-grid">
-                          {(showAllReviews ? reviewsList : reviewsList.slice(0, REVIEW_PREVIEW_COUNT)).map((rev, i) => (
-                            <div key={i} className="pb-review-card">
-                              <div className="pb-review-head">
-                                <div className="pb-review-avatar">
-                                  {initials(rev.name)}
-                                </div>
-                                <div className="pb-review-who">
-                                  <p className="pb-review-name">{rev.name}</p>
-                                  <p className="pb-review-date">{rev.date}</p>
-                                </div>
-                              </div>
-                              <div className="pb-review-stars">
-                                {[1,2,3,4,5].map((i2) => (
-                                  <StarFill key={i2} size={11} color={i2 <= rev.rating ? "#fbbf24" : C.border} />
-                                ))}
-                              </div>
-                              <p className="pb-review-text">{rev.text}</p>
-                            </div>
-                          ))}
-                        </div>
+  const Band = ({ title, sub }: { title: string; sub: string }) => {
+    const hasPhoto = gallery.length > 0;
+    const hasMultiplePhotos = gallery.length > 1;
+    return (
+      <div className={`pb__band ${hasPhoto ? "pb__band--photo" : ""}`}
+        onTouchStart={hasMultiplePhotos ? handleHeroTouchStart : undefined}
+        onTouchEnd={hasMultiplePhotos ? handleHeroTouchEnd : undefined}>
+        {hasPhoto && gallery.map((url, i) => (
+          <div key={url} className="pb__band-bg" aria-hidden="true"
+            style={{ backgroundImage: `url(${url})`, opacity: i === heroPhotoIndex ? 1 : 0 }} />
+        ))}
+        {hasPhoto && <div className="pb__band-scrim" aria-hidden="true" />}
 
-                        {reviewsList.length > REVIEW_PREVIEW_COUNT && (
-                          <button className="pb-view-all-btn" onClick={() => setShowAllReviews((v) => !v)}>
-                            {showAllReviews ? "Show Less" : "View All Reviews"}
-                            <ChevronRight size={13} className={showAllReviews ? "pb-view-all-icon-up" : ""} />
-                          </button>
-                        )}
-                      </>
-                    )}
-                  </div>
+        {hasMultiplePhotos && (
+          <>
+            <button type="button" className="pb__band-nav pb__band-nav--prev"
+              onClick={() => goHeroPhoto(-1)} aria-label="Previous photo">
+              <ChevronLeft size={18} />
+            </button>
+            <button type="button" className="pb__band-nav pb__band-nav--next"
+              onClick={() => goHeroPhoto(1)} aria-label="Next photo">
+              <ChevronRight size={18} />
+            </button>
+            <div className="pb__band-dots" role="tablist" aria-label="Photo">
+              {gallery.map((url, i) => (
+                <button key={url} type="button" role="tab" aria-selected={i === heroPhotoIndex}
+                  className={`pb__band-dot ${i === heroPhotoIndex ? "is-active" : ""}`}
+                  aria-label={`Show photo ${i + 1}`}
+                  onClick={() => setHeroPhotoIndex(i)} />
+              ))}
+            </div>
+          </>
+        )}
+
+        <div className="pb__band-inner">
+          <div className="pb__band-copy">
+            <p className="pb__eyebrow">Online booking</p>
+            <h1 className="pb__display">{title}</h1>
+            <p className="pb__band-sub">{sub}</p>
+            {hasPhoto && step === 1 && (
+              <button type="button" className="pb__btn pb__btn--primary pb__btn--auto pb__band-cta pb__btn--glow"
+                onClick={() => scrollTo(servicesRef)}>
+                Book Appointment <span aria-hidden="true">→</span>
+              </button>
+            )}
+          </div>
+
+          {!hasPhoto && (
+            <ol className="pb__steps" aria-label="Booking progress">
+              {STEP_LABELS.map((s, i) => {
+                const index = (i + 1) as 1 | 2 | 3;
+                const state = index === activeStep ? "is-active" : index < activeStep ? "is-done" : "";
+                return (
+                  <li key={s.label} className={`pb__step ${state}`}
+                    aria-current={index === activeStep ? "step" : undefined}>
+                    <span className="pb__step-dot">{index}</span>
+                    <span className="pb__step-label">{s.label}</span>
+                    <span className="pb__step-note">{s.note}</span>
+                  </li>
+                );
+              })}
+            </ol>
+          )}
+
+          {!hasPhoto && (
+            <p className="pb__band-script" aria-hidden="true">Self care looks good on you.</p>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const ServiceRow = ({ svc }: { svc: ServiceItem }) => {
+    const on = selServices.some((s) => s.id === svc.id);
+    const img = (svc as any).image_url;
+    const cat = String((svc as any).category_name || "").trim();
+    const key = cat || svc.name;
+    const desc = String((svc as any).description ?? "").trim();
+    return (
+      <button
+        type="button"
+        className={`pb__svc ${on ? "is-selected" : ""}`}
+        onClick={() => toggleService(svc)}
+        aria-pressed={on}
+      >
+        <span className="pb__svc-thumb" style={{ background: tileBg(key) }}>
+          {img ? <img src={img} alt="" /> : <span aria-hidden="true">{monogram(key)}</span>}
+        </span>
+        <span className="pb__svc-body">
+          <span className="pb__svc-name">{svc.name}</span>
+          <span className="pb__svc-meta">
+            {Number(svc.duration) > 0 && (
+              <>
+                <span>{fmtDur(Number(svc.duration))}</span>
+                <span className="pb__svc-dot">•</span>
+              </>
+            )}
+            <span className="pb__svc-price">{fmtPrice(svc.price, currencyCode)}</span>
+          </span>
+          {desc && <span className="pb__svc-desc">{desc}</span>}
+        </span>
+        <span className={`pb__svc-add ${on ? "is-on" : ""}`} aria-hidden="true">
+          {on ? <Check size={16} /> : <Plus size={16} />}
+        </span>
+      </button>
+    );
+  };
+
+  const SummaryItems = ({ removable }: { removable?: boolean }) => (
+    <>
+      {selServices.map((s) => {
+        const key = String((s as any).category_name || s.name);
+        return (
+          <div key={s.id} className="pb__sum-item">
+            <span className="pb__sum-thumb" style={{ background: tileBg(key) }}>
+              {monogram(key)}
+            </span>
+            <span className="pb__sum-item-body">
+              <span className="pb__sum-item-name">{s.name}</span>
+              {Number(s.duration) > 0 && (
+                <span className="pb__sum-item-meta">{fmtDur(Number(s.duration))}</span>
+              )}
+            </span>
+            <span className="pb__sum-item-price">{fmtPrice(s.price, currencyCode)}</span>
+            {removable && (
+              <button type="button" className="pb__sum-remove" onClick={() => toggleService(s)}
+                aria-label={`Remove ${s.name}`}>
+                <X size={16} />
+              </button>
+            )}
+          </div>
+        );
+      })}
+    </>
+  );
+
+  // ── Screens ─────────────────────────────────────────────────────────────────
+
+  return (
+    <div className="pb" ref={rootRef} style={styleVars}>
+      <TopNav />
+
+      {/* 1 — Everything the booking is made of: services, stylist, when.
+           One page with a running summary rather than a wizard: the choices
+           interact (a stylist changes the slots, a service changes the
+           duration), so they need to be visible together. */}
+      {step === 1 && (
+        <>
+          <Band title="Your Next Look Awaits" sub="Book your favourite services in a few simple steps." />
+
+          <div className={`pb__layout ${showAbout ? "pb__layout--tight-bottom" : ""}`}>
+            <div className="pb__col-main">
+
+              <section className="pb__panel" ref={servicesRef}>
+                <div className="pb__panel-head">
+                  <h2 className="pb__panel-title">1. Select Service(s)</h2>
+                  <p className="pb__panel-note">
+                    {filtered.length} {filtered.length === 1 ? "service" : "services"}
+                  </p>
                 </div>
 
-                {/* ── Sidebar (desktop only) ── */}
-                <aside className="pb-sidebar">
-                  <div className="pb-sidebar-card">
-                    <p className="pb-sidebar-title">Salon Information</p>
-                    {address && (
-                      <div className="pb-sidebar-row">
-                        <span>Address</span>
-                        <span>{address}</span>
-                      </div>
+                {/* Sticks just under the top nav while the (possibly very
+                    long, e.g. 200-service) list below scrolls — otherwise
+                    finding a second service means scrolling back up to reach
+                    search/category filtering again. */}
+                <div className="pb__svc-sticky">
+                  <div className="pb__svc-search">
+                    <Search size={15} />
+                    <input
+                      type="text"
+                      value={serviceSearch}
+                      onChange={(e) => setServiceSearch(e.target.value)}
+                      placeholder="Search services…"
+                      aria-label="Search services"
+                    />
+                    {serviceSearch && (
+                      <button type="button" aria-label="Clear search" onClick={() => setServiceSearch("")}>
+                        <X size={15} />
+                      </button>
                     )}
-                    {phone && (
-                      <div className="pb-sidebar-row">
-                        <span>Phone</span>
-                        <span>{phone}</span>
-                      </div>
-                    )}
-                    {todayHours && (
-                      <div className="pb-sidebar-row">
-                        <span>Today</span>
-                        <span>{todayHours.open ? `${fmtClock(todayHours.from)} – ${fmtClock(todayHours.to)}` : "Closed"}</span>
-                      </div>
-                    )}
-                    <a className="pb-map-preview"
-                      target="_blank" rel="noopener noreferrer"
-                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address || salonName)}`}>
-                      <PinMapFill size={20} />
-                      <span className="pb-map-preview-label">Open in Google Maps</span>
-                    </a>
                   </div>
 
-                  {amenities.length > 0 && (
-                  <div className="pb-sidebar-card">
-                    <p className="pb-sidebar-title">Amenities</p>
-                    <div className="pb-amenity-grid">
-                      {amenities.slice(0, 6).map((a) => {
-                        const m = amenityMeta(a);
+                  {categories.length > 0 && (
+                    <div className="pb__catbar-wrap">
+                      <div className="pb__catbar" ref={catbarRef} role="tablist" aria-label="Service categories">
+                        <button type="button" role="tab" aria-selected={activeCat === "All"}
+                          className={`pb__cat ${activeCat === "All" ? "is-active" : ""}`}
+                          onClick={(e) => { setActiveCat("All"); scrollCatIntoView(e.currentTarget); }}>All</button>
+                        {categories.map((c) => (
+                          <button key={c.name} type="button" role="tab" aria-selected={activeCat === c.name}
+                            className={`pb__cat ${activeCat === c.name ? "is-active" : ""}`}
+                            onClick={(e) => { setActiveCat(c.name); scrollCatIntoView(e.currentTarget); }}>{c.name}</button>
+                        ))}
+                      </div>
+                      {/* Fade hint that more categories continue off-screen — a
+                          visible scrollbar (see .pb__catbar) only helps desktop
+                          with a mouse; mobile shows no persistent scrollbar at
+                          rest, so a phone user has no way to tell "Hair Women"/
+                          "Wax Women" aren't the only two categories. Hidden once
+                          scrolled to the end so it doesn't keep implying more. */}
+                      {catbarOverflowing && <div className="pb__catbar-fade" aria-hidden="true" />}
+                    </div>
+                  )}
+                </div>
+
+                {filtered.length === 0 ? (
+                  <p className="pb__empty">
+                    {services.length === 0
+                      ? "This salon hasn't published any services yet."
+                      : "No services match your search."}
+                  </p>
+                ) : (
+                  <div className="pb__grid">
+                    {filtered.map((svc) => <ServiceRow key={svc.id} svc={svc} />)}
+                  </div>
+                )}
+              </section>
+
+              <section className="pb__panel" ref={stylistRef}>
+                <div className="pb__panel-head">
+                  <h2 className="pb__panel-title">2. Select Stylist</h2>
+                </div>
+
+                {staffList.length === 0 ? (
+                  <p className="pb__empty">
+                    This salon hasn't listed any stylists for online booking yet.
+                    {phone ? <> Please call them on <a href={`tel:${phone}`}>{phone}</a>.</> : null}
+                  </p>
+                ) : (
+                  <div className="pb__grid">
+                    <button type="button"
+                      className={`pb__svc ${selStaff?.id === ANY_STAFF_ID ? "is-selected" : ""}`}
+                      onClick={() => pickStaff(ANY_STAFF)} aria-pressed={selStaff?.id === ANY_STAFF_ID}>
+                      <span className="pb__svc-thumb pb__svc-thumb--round" style={{ background: "#e9f1ec" }}>
+                        <PeopleFill size={18} color="#1e4634" />
+                      </span>
+                      <span className="pb__svc-body">
+                        <span className="pb__svc-name">Any Available</span>
+                        <span className="pb__svc-meta">
+                          <span>Best match for your slot</span>
+                        </span>
+                      </span>
+                      <span className={`pb__svc-add ${selStaff?.id === ANY_STAFF_ID ? "is-on" : ""}`} aria-hidden="true">
+                        {selStaff?.id === ANY_STAFF_ID ? <Check size={16} /> : <Plus size={16} />}
+                      </span>
+                    </button>
+                    {staffList.map((s) => {
+                      const on = selStaff?.id === s.id;
+                      const name = staffName(s);
+                      const rating = Number((s as any).rating);
+                      const reviewCount = Number((s as any).review_count) || 0;
+                      const avatar = (s as any).avatar_url;
+                      return (
+                        <button key={s.id} type="button"
+                          className={`pb__svc ${on ? "is-selected" : ""}`}
+                          onClick={() => pickStaff(s)} aria-pressed={on}>
+                          <span className="pb__svc-thumb pb__svc-thumb--round"
+                            style={{ background: tileBg(String(s.id)) }}>
+                            {avatar ? <img src={avatar} alt="" /> : initials(name)}
+                          </span>
+                          <span className="pb__svc-body">
+                            <span className="pb__svc-name">{name}</span>
+                            <span className="pb__svc-meta">
+                              <span>{(s as any).designation || s.job_title || "Stylist"}</span>
+                              {/* Real review data only — a stylist with no
+                                  reviews shows nothing rather than a score. */}
+                              {Number.isFinite(rating) && reviewCount > 0 && (
+                                <>
+                                  <span className="pb__svc-dot">•</span>
+                                  <span className="pb__rating">
+                                    <StarFill size={11} /> {rating.toFixed(1)}
+                                    <span className="pb__muted">({reviewCount})</span>
+                                  </span>
+                                </>
+                              )}
+                            </span>
+                          </span>
+                          <span className={`pb__svc-add ${on ? "is-on" : ""}`} aria-hidden="true">
+                            {on ? <Check size={16} /> : <Plus size={16} />}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
+
+              <section className="pb__panel" ref={whenRef}>
+                <div className="pb__panel-head">
+                  <h2 className="pb__panel-title">3. Select Date &amp; Time</h2>
+                  <button type="button" className="pb__link" onClick={() => setShowMonth((v) => !v)}>
+                    <CalendarWeek size={14} /> {showMonth ? "Hide calendar" : "View calendar"}
+                  </button>
+                </div>
+
+                {/* Exactly one date-picking widget at a time — showing the week
+                    strip's own nav ("‹ Sep 2026 ›") alongside the month
+                    calendar's near-identical nav read as two competing date
+                    pickers stacked on top of each other. */}
+                {!showMonth ? (
+                  <div className="pb__week">
+                    <div className="pb__week-nav">
+                      <button type="button" className="pbc__nav" onClick={() => shiftWeek(-1)}
+                        disabled={atFirstWeek} aria-label="Previous week">
+                        <ChevronLeft size={14} />
+                      </button>
+                      <span className="pb__week-label">{weekLabel}</span>
+                      <button type="button" className="pbc__nav" onClick={() => shiftWeek(1)}
+                        aria-label="Next week">
+                        <ChevronRight size={14} />
+                      </button>
+                    </div>
+
+                    <div className="pb__week-days">
+                      {weekDays.map((d) => {
+                        const off = isDayDisabled(d);
+                        const on = sameDay(d, selDate);
                         return (
-                          <div key={a} className="pb-amenity">
-                            {m.icon} {m.label}
-                          </div>
+                          <button key={d.toISOString()} type="button" disabled={off}
+                            className={`pb__day ${on ? "is-selected" : ""}`}
+                            aria-pressed={on} onClick={() => pickDate(d)}>
+                            <span className="pb__day-name">{DAYS[d.getDay()]}</span>
+                            <span className="pb__day-num">{d.getDate()}</span>
+                          </button>
                         );
                       })}
                     </div>
                   </div>
-                  )}
-
-                  <div className="pb-sidebar-card">
-                    <p className="pb-sidebar-title">Cancellation Policy</p>
-                    <p className="pb-cancellation-text">
-                      {cancellationNoticeHours > 0
-                        ? `Free cancellation up to ${cancellationNoticeHours} hour${cancellationNoticeHours === 1 ? "" : "s"} before your appointment.`
-                        : "This salon accepts cancellations at any time before your appointment."}
-                    </p>
+                ) : (
+                  <div className="pb__month">
+                    <CalendarPicker
+                      value={selDate}
+                      onChange={(d) => { pickDate(d); setWeekStart(weekStartOf(d)); }}
+                      maxAdvanceDays={maxAdvanceDays}
+                      allowSameDay={allowSameDay}
+                    />
                   </div>
-                </aside>
-              </div>
-            )}
+                )}
 
-            {step === 2 && selServices.length > 0 && (
-              <>
-                <BackBtn label="Back to Services" onClick={() => setStep(1)} />
-                <ServicesSummary services={selServices} currencyCode={currencyCode} />
+                <div className="pb__divider" role="separator" aria-hidden="true" />
 
-                <SectionHead title="Pick Your Stylist" sub="Choose who you'd like to work with" />
-                <div className="pb-staff-grid">
-                  <StaffCard
-                    name="Any available" subtitle="Best match for your slot"
-                    initials="?" bg={C.muted}
-                    selected={selStaff === "any"}
-                    onClick={() => { setSelStaff("any"); setSelTime(null); }} />
-                  {staffList.map((s) => {
-                    const n = staffName(s);
-                    const hue = hashHue(String(s.id));
-                    return (
-                      <StaffCard key={s.id} name={n}
-                        subtitle={s.job_title || ("role" in s ? s.role : undefined) || "Stylist"}
-                        initials={initials(n)}
-                        bg={`hsl(${hue},55%,52%)`}
-                        selected={selStaff !== "any" && (selStaff as StaffMember)?.id === s.id}
-                        onClick={() => { setSelStaff(s); setSelTime(null); }} />
-                    );
-                  })}
-                </div>
+                <p className="pb__col-title">Available slots</p>
 
-                <SectionHead title="Choose a Date" sub="Select your preferred appointment day" />
-                <div className="pb-date-row">
-                  {dates.map((d, i) => {
-                    const act = d.toDateString() === selDate.toDateString();
-                    return (
-                      <button key={i} className={`pb-date-btn ${act ? "active" : ""}`}
-                        onClick={() => { setSelDate(d); setSelTime(null); }}>
-                        <div className="pb-date-day">
-                          {i === 0 ? "TODAY" : DAYS[d.getDay()].toUpperCase()}
-                        </div>
-                        <div className="pb-date-num">{d.getDate()}</div>
-                        <div className="pb-date-month">{MONTHS[d.getMonth()]}</div>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <SectionHead
-                  title="Available Times"
-                  sub={`${DAYS[selDate.getDay()]}, ${MONTHS[selDate.getMonth()]} ${selDate.getDate()}`}
-                />
-                {slotsLoading ? (
-                  <p className="pb-slot-label">Checking availability…</p>
+                {!selStaff ? (
+                  <p className="pb__empty">Choose a stylist above to see their available times.</p>
+                ) : selServices.length === 0 ? (
+                  <p className="pb__empty">Pick a service above to see available times.</p>
+                ) : slotsLoading ? (
+                  <p className="pb__empty">Checking availability…</p>
                 ) : slots.morning.length === 0 && slots.afternoon.length === 0 ? (
-                  <p className="pb-slot-label">No times available on this date — try another day.</p>
+                  <p className="pb__empty">
+                    No times available on this date for {staffName(selStaff)}.
+                    Try another date or stylist
+                    {phone ? <> or call the salon on <a href={`tel:${phone}`}>{phone}</a></> : null}.
+                  </p>
                 ) : (
                   <>
                     {slots.morning.length > 0 && (
                       <>
-                        <p className="pb-slot-label">Morning</p>
-                        <div className="pb-slot-row">
-                          {slots.morning.map((t) => <TimeChip key={t} t={t} sel={selTime} onPick={setSelTime} />)}
+                        <p className="pb__slot-group-label"><SunFill size={12} /> Morning</p>
+                        <div className="pb__slots">
+                          {slots.morning.map((t) => (
+                            <button key={t} type="button"
+                              className={`pb__slot ${selTime === t ? "is-selected" : ""}`}
+                              aria-pressed={selTime === t}
+                              onClick={() => setSelTime(t)}>{t}</button>
+                          ))}
                         </div>
                       </>
                     )}
                     {slots.afternoon.length > 0 && (
                       <>
-                        <p className="pb-slot-label">Afternoon</p>
-                        <div className="pb-slot-row pb-slot-row--last">
-                          {slots.afternoon.map((t) => <TimeChip key={t} t={t} sel={selTime} onPick={setSelTime} />)}
+                        <p className="pb__slot-group-label"><SunsetFill size={12} /> Afternoon &amp; Evening</p>
+                        <div className="pb__slots">
+                          {slots.afternoon.map((t) => (
+                            <button key={t} type="button"
+                              className={`pb__slot ${selTime === t ? "is-selected" : ""}`}
+                              aria-pressed={selTime === t}
+                              onClick={() => setSelTime(t)}>{t}</button>
+                          ))}
                         </div>
                       </>
                     )}
                   </>
                 )}
+              </section>
 
-                <button
-                  disabled={!selStaff || !selTime}
-                  onClick={() => setStep(3)}
-                  className="pb-step2-continue">
-                  Continue to Confirmation <ChevronRight size={15} />
-                </button>
-              </>
-            )}
+            </div>
 
-            {step === 3 && selServices.length > 0 && (
-              <>
-                <BackBtn label="Back" onClick={() => setStep(2)} />
-                <div className="pb-form-grid">
+            <aside className="pb__col-side" aria-label="Your booking">
+              <div className="pb__panel pb__sum">
+                <div className="pb__sum-head">
                   <div>
-                    <SectionHead title="Your Details" sub="Enter your contact info to complete the booking" />
-                    <div className="pb-form-card">
-                      {(["name", "email", "phone"] as const).map((field) => (
-                        <div key={field} className="pb-field">
-                          <label className="pb-field-label">
-                            {{ name:"Full Name", email:"Email Address", phone:"Phone Number" }[field]}
-                            <span className="pb-field-required">*</span>
-                          </label>
-                          <input
-                            type={{ name:"text", email:"email", phone:"tel" }[field]}
-                            placeholder={{ name:"Jane Smith", email:"jane@example.com", phone:"+1 (555) 000-0000" }[field]}
-                            value={form[field]}
-                            onChange={(e) => {
-                              let val = e.target.value;
-                              if (field === "phone") val = val.replace(/\D/g, "").slice(0, 10);
-                              setForm((f) => ({ ...f, [field]: val }));
-                            }}
-                            className="pb-field-input"
-                          />
-                        </div>
-                      ))}
-                      <div className="pb-field">
-                        <label className="pb-field-label">
-                          Gender <span className="pb-field-optional">(optional)</span>
-                        </label>
-                        <select
-                          value={form.gender}
-                          onChange={(e) => setForm((f) => ({ ...f, gender: e.target.value }))}
-                          className={`pb-field-input ${form.gender ? "" : "pb-field-select-empty"}`}>
-                          <option value="">Prefer not to say</option>
-                          <option value="female">Female</option>
-                          <option value="male">Male</option>
-                          <option value="non_binary">Non-binary</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="pb-field-label">
-                          Notes <span className="pb-field-optional">(optional)</span>
-                        </label>
-                        <textarea
-                          placeholder="Any requests or info for your stylist…"
-                          value={form.notes} rows={3}
-                          onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-                          className="pb-field-input pb-field-textarea"
-                        />
-                      </div>
-                    </div>
+                    <h2 className="pb__sum-title">Your Booking</h2>
+                    <p className="pb__sum-sub">Review your selections</p>
                   </div>
-
-                  <div>
-                    <p className="pb-summary-title">Booking Summary</p>
-                    <div className="pb-summary-card">
-                      <div className="pb-summary-head">
-                        <p className="pb-summary-service">
-                          {selServices.map((s) => s.name).join(", ")}
-                        </p>
-                        <p className="pb-summary-meta">
-                          {fmtDur(totalDuration)} · {fmtPrice(totalPrice, currencyCode)}
-                        </p>
-                      </div>
-                      <div className="pb-summary-body">
-                        {[
-                          { label:"Stylist", value: selStaff === "any" ? "Any available stylist" : selStaff ? staffName(selStaff as StaffMember) : "" },
-                          { label:"Date", value: `${DAYS[selDate.getDay()]}, ${MONTHS[selDate.getMonth()]} ${selDate.getDate()}` },
-                          { label:"Time", value: selTime ?? "" },
-                        ].map(({ label, value }) => (
-                          <div key={label} className="pb-summary-row">
-                            <span className="pb-summary-row-label">{label}</span>
-                            <span className="pb-summary-row-value">{value}</span>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="pb-summary-total">
-                        <span className="pb-summary-total-label">Total</span>
-                        <span className="pb-summary-total-value">{fmtPrice(totalPrice, currencyCode)}</span>
-                      </div>
-                    </div>
-
-                    {submitError && (
-                      <p className="pb-submit-error">{submitError}</p>
-                    )}
-
-                    <button
-                      disabled={bookingLoading || !form.name || !form.email || form.phone.length !== 10}
-                      onClick={handleSubmit}
-                      className="pb-confirm-btn">
-                      {bookingLoading ? "Confirming…" : "Confirm Booking"}
-                    </button>
-                    <p className="pb-cancel-note">
-                      Free cancellation up to 24 hours before.
-                    </p>
-                  </div>
+                  <span className="pb__chip">Step {activeStep} of 3</span>
                 </div>
-              </>
+
+                {selServices.length === 0
+                  ? <p className="pb__sum-empty">No services selected yet.</p>
+                  : <SummaryItems removable />}
+
+                <button type="button" className="pb__sum-add" onClick={() => scrollTo(servicesRef)}>
+                  <Plus size={14} /> Add more services
+                </button>
+
+                <div className="pb__sum-row">
+                  <span className="pb__sum-icon"><PersonFill size={15} /></span>
+                  <span className="pb__sum-row-body">
+                    <span className="pb__sum-row-label">{selStaff ? "Preferred Stylist" : "Select Staff"}</span>
+                    <span className="pb__sum-row-value">{staffLabel}</span>
+                  </span>
+                  <button type="button" className="pb__link" onClick={() => scrollTo(stylistRef)}>
+                    {selStaff ? "Change" : "Select"}
+                  </button>
+                </div>
+
+                <div className="pb__sum-row">
+                  <span className="pb__sum-icon"><CalendarEvent size={15} /></span>
+                  <span className="pb__sum-row-body">
+                    <span className="pb__sum-row-label">{selTime ? "Date & Time" : "Select Date & Time"}</span>
+                    <span className="pb__sum-row-value">
+                      {selTime ? `${dateLabel} • ${selTime}` : "Not selected yet"}
+                    </span>
+                  </span>
+                  <button type="button" className="pb__link" onClick={() => scrollTo(whenRef)}>
+                    {selTime ? "Change" : "Select"}
+                  </button>
+                </div>
+
+                <div className="pb__sum-total">
+                  <span>Total Amount</span>
+                  <span className="pb__sum-total-amount">{fmtPrice(totalPrice, currencyCode)}</span>
+                </div>
+
+                <button type="button" className="pb__btn pb__btn--primary"
+                  disabled={!bookingReady} onClick={() => setStep(2)}>
+                  Continue <span aria-hidden="true">→</span>
+                </button>
+
+                <p className="pb__sum-secure">
+                  <ShieldLockFill size={12} /> Your information is secure with us.
+                </p>
+
+                <div className="pb__sum-badges">
+                  <span><LightningChargeFill size={15} /> Instant<br />confirmation</span>
+                  <span><ShieldLockFill size={15} /> Secure<br />booking</span>
+                  <span>
+                    <Gem size={15} />
+                    {cancellationNoticeHours > 0 ? <>Free<br />cancellation</> : <>Trusted<br />professionals</>}
+                  </span>
+                </div>
+              </div>
+
+              {phone && (
+                <a className="pb__panel pb__helpcard" href={`tel:${phone}`}>
+                  <span className="pb__helpcard-icon"><Headset size={18} /></span>
+                  <span className="pb__helpcard-body">
+                    <span className="pb__helpcard-title">Need Help?</span>
+                    <span className="pb__helpcard-sub">Contact us or call <strong>{phone}</strong></span>
+                  </span>
+                  <ChevronRight size={16} />
+                </a>
+              )}
+            </aside>
+          </div>
+
+          {/* Moved out from under Services/Stylist/Date&Time (inside
+              .pb__col-main) to its own full-width row below the whole
+              two-column layout — previously it rendered above "Your Booking"
+              on mobile (col-main's own content all comes before col-side in
+              a single-column stack), when it reads better as the last thing
+              on the page, after the booking summary. */}
+          {showAbout && (
+            <div className="pb__layout pb__layout--single">
+              <section className="pb__panel" ref={aboutRef}>
+                <div className="pb__panel-head">
+                  <h2 className="pb__panel-title">About {salonName}</h2>
+                </div>
+                {description && <p className="pb__about">{description}</p>}
+                {salonFeatures.length > 0 && (
+                  <div className="pb__about-features">
+                    {salonFeatures.map((f) => (
+                      <span key={f} className="pb__about-feature-chip">{f}</span>
+                    ))}
+                  </div>
+                )}
+                <div className="pb__about-actions">
+                  {phone && (
+                    <a className="pb__btn pb__btn--ghost pb__btn--auto" href={`tel:${phone}`}>
+                      <TelephoneFill size={13} /> {phone}
+                    </a>
+                  )}
+                  {mapQuery && (
+                    <a className="pb__btn pb__btn--ghost pb__btn--auto" target="_blank" rel="noopener noreferrer"
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapQuery)}`}>
+                      <PinMapFill size={13} /> Directions
+                    </a>
+                  )}
+                  {instagramUrl && (
+                    <a className="pb__btn pb__btn--ghost pb__btn--auto" href={instagramUrl}
+                      target="_blank" rel="noopener noreferrer" aria-label="Instagram"><Instagram size={14} /></a>
+                  )}
+                  {facebookUrl && (
+                    <a className="pb__btn pb__btn--ghost pb__btn--auto" href={facebookUrl}
+                      target="_blank" rel="noopener noreferrer" aria-label="Facebook"><Facebook size={14} /></a>
+                  )}
+                  {websiteUrl && (
+                    <a className="pb__btn pb__btn--ghost pb__btn--auto" href={websiteUrl}
+                      target="_blank" rel="noopener noreferrer" aria-label="Website"><Globe size={14} /></a>
+                  )}
+                </div>
+              </section>
+            </div>
+          )}
+
+          {/* Phone-width action bar — the summary card is below the fold there. */}
+          <div className="pb__mobilebar">
+            <div className="pb__sticky-info">
+              <p className="pb__sticky-count">
+                {selServices.length} service{selServices.length !== 1 ? "s" : ""}
+                {totalDuration > 0 ? ` · ${fmtDur(totalDuration)}` : ""}
+              </p>
+              <p className="pb__sticky-total">{fmtPrice(totalPrice, currencyCode)}</p>
+            </div>
+            <button type="button" className="pb__btn pb__btn--primary pb__btn--auto"
+              disabled={mobileCta.disabled} onClick={mobileCta.action}>
+              {mobileCta.label} <span aria-hidden="true">→</span>
+            </button>
+          </div>
+        </>
+      )}
+
+      {/* 2 — Confirm: your details beside the whole booking. */}
+      {step === 2 && (
+        <>
+          <Band title="Confirm Your Booking" sub="A few details and you're done." />
+
+          <div className="pb__layout">
+            <div className="pb__col-main">
+              <section className="pb__panel">
+                <div className="pb__panel-head">
+                  <h2 className="pb__panel-title">Your Details</h2>
+                </div>
+
+                {submitError && <p className="pb__error">{submitError}</p>}
+
+                <div className="pb__field">
+                  <label className="pb__label" htmlFor="pb-name">Full Name *</label>
+                  <input id="pb-name" className="pb__input" value={form.name} autoComplete="name"
+                    onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Your name" />
+                </div>
+
+                <div className="pb__field">
+                  <label className="pb__label" htmlFor="pb-phone">Phone Number *</label>
+                  <div className="pb__phone-row">
+                    <select id="pb-country" className="pb__phone-code" aria-label="Country code"
+                      value={form.countryCode}
+                      onChange={(e) => setForm({ ...form, countryCode: e.target.value })}>
+                      <option value="+91">+91</option>
+                      <option value="+971">+971</option>
+                      <option value="+44">+44</option>
+                      <option value="+1">+1</option>
+                    </select>
+                    <input id="pb-phone" className="pb__input" value={form.phone}
+                      inputMode="tel" autoComplete="tel" maxLength={form.countryCode === "+91" ? 10 : 15}
+                      onChange={(e) => setForm({ ...form, phone: e.target.value.replace(/[^\d\s-]/g, "") })}
+                      placeholder="9876543210" />
+                  </div>
+                  {phoneTouched && !phoneValid && (
+                    <p className="pb__field-hint pb__field-hint--error">
+                      {form.countryCode === "+91"
+                        ? "Enter a valid 10-digit mobile number"
+                        : "Enter a valid phone number"}
+                    </p>
+                  )}
+                  <p className="pb__field-note">
+                    We'll use this number to send WhatsApp booking confirmations, appointment reminders, and other booking-related updates.
+                  </p>
+                </div>
+
+                <div className="pb__field">
+                  <label className="pb__label" htmlFor="pb-email">Email *</label>
+                  <div className="pb__phone-row">
+                    <input id="pb-email" className="pb__input" value={form.email} type="email" autoComplete="email"
+                      disabled={emailVerified}
+                      onChange={(e) => handleEmailChange(e.target.value)} placeholder="you@example.com" />
+                    {!emailVerified && (
+                      <button type="button" className="pb__btn pb__btn--ghost pb__btn--auto"
+                        disabled={!emailValid || otpSending || resendIn > 0}
+                        onClick={handleSendOtp}>
+                        {otpSending
+                          ? "Sending…"
+                          : otpSentTo === form.email.trim().toLowerCase() && resendIn > 0
+                          ? `Resend in ${resendIn}s`
+                          : otpSentTo === form.email.trim().toLowerCase()
+                          ? "Resend OTP"
+                          : "Send OTP"}
+                      </button>
+                    )}
+                  </div>
+
+                  {emailVerified && (
+                    <p className="pb__field-hint pb__field-hint--success">
+                      <Check size={13} /> Email verified
+                    </p>
+                  )}
+
+                  {!emailVerified && otpSentTo === form.email.trim().toLowerCase() && (
+                    <div className="pb__field" style={{ marginTop: 8 }}>
+                      <label className="pb__label" htmlFor="pb-otp">Enter the 6-digit code sent to your email</label>
+                      <div className="pb__phone-row">
+                        <input id="pb-otp" className="pb__input" value={otpCode} inputMode="numeric"
+                          maxLength={6}
+                          onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                          placeholder="123456" />
+                        <button type="button" className="pb__btn pb__btn--primary pb__btn--auto"
+                          disabled={otpCode.length !== 6 || otpVerifying}
+                          onClick={handleVerifyOtp}>
+                          {otpVerifying ? "Verifying…" : "Verify"}
+                        </button>
+                      </div>
+                      <p className="pb__field-hint">
+                        Don't see it? Check your spam or junk folder.
+                      </p>
+                    </div>
+                  )}
+
+                  {otpError && <p className="pb__field-hint pb__field-hint--error">{otpError}</p>}
+                </div>
+
+                <div className="pb__field">
+                  <label className="pb__label" htmlFor="pb-notes">
+                    Any special requests? <span className="pb__optional">(optional)</span>
+                  </label>
+                  <textarea id="pb-notes" className="pb__textarea" value={form.notes} rows={3}
+                    onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                    placeholder="Prefer a quieter time of day" />
+                </div>
+
+                <button type="button" className="pb__btn pb__btn--primary"
+                  disabled={!detailsValid || bookingLoading} onClick={handleSubmit}>
+                  {bookingLoading ? "Confirming…" : "Confirm Booking"}
+                  {!bookingLoading && <span aria-hidden="true">→</span>}
+                </button>
+              </section>
+            </div>
+
+            <aside className="pb__col-side" aria-label="Your booking">
+              <div className="pb__panel pb__sum">
+                <div className="pb__sum-head">
+                  <div>
+                    <h2 className="pb__sum-title">Your Booking</h2>
+                    <p className="pb__sum-sub">Review before confirming</p>
+                  </div>
+                  <span className="pb__chip">Step 3 of 3</span>
+                </div>
+
+                <SummaryItems />
+
+                <div className="pb__sum-row">
+                  <span className="pb__sum-icon"><PersonFill size={15} /></span>
+                  <span className="pb__sum-row-body">
+                    <span className="pb__sum-row-label">Stylist</span>
+                    <span className="pb__sum-row-value">{staffLabel}</span>
+                  </span>
+                </div>
+
+                <div className="pb__sum-row">
+                  <span className="pb__sum-icon"><CalendarEvent size={15} /></span>
+                  <span className="pb__sum-row-body">
+                    <span className="pb__sum-row-label">Date &amp; Time</span>
+                    <span className="pb__sum-row-value">{dateLabel} • {selTime}</span>
+                  </span>
+                </div>
+
+                <div className="pb__sum-total">
+                  <span>Total Amount</span>
+                  <span className="pb__sum-total-amount">{fmtPrice(totalPrice, currencyCode)}</span>
+                </div>
+
+                <button type="button" className="pb__btn pb__btn--primary"
+                  disabled={!detailsValid || bookingLoading} onClick={handleSubmit}>
+                  {bookingLoading ? "Confirming…" : "Confirm Booking"}
+                  {!bookingLoading && <span aria-hidden="true">→</span>}
+                </button>
+
+                {cancellationNoticeHours > 0 && (
+                  <p className="pb__sum-secure">
+                    Free cancellation up to {cancellationNoticeHours} hour
+                    {cancellationNoticeHours === 1 ? "" : "s"} before your appointment.
+                  </p>
+                )}
+              </div>
+            </aside>
+          </div>
+
+          <div className="pb__mobilebar">
+            <div className="pb__sticky-info">
+              <p className="pb__sticky-count">Total</p>
+              <p className="pb__sticky-total">{fmtPrice(totalPrice, currencyCode)}</p>
+            </div>
+            <button type="button" className="pb__btn pb__btn--primary pb__btn--auto"
+              disabled={!detailsValid || bookingLoading} onClick={handleSubmit}>
+              {bookingLoading ? "Confirming…" : "Confirm"}
+            </button>
+          </div>
+        </>
+      )}
+
+      {/* 3 — Booked */}
+      {step === 3 && (
+        <div className="pb__layout pb__layout--single">
+          <div className="pb__panel">
+            <div className="pb__confirm">
+              <div className="pb__confirm-mark"><CheckLg size={32} /></div>
+              <h1 className="pb__confirm-title">Booking Confirmed!</h1>
+              <p className="pb__confirm-sub">Your appointment has been booked successfully.</p>
+            </div>
+
+            <dl className="pb__kv">
+              <dt>Booking ID</dt>
+              <dd>{shortBookingId(createdAppointment?.id)}</dd>
+              <dt>Date &amp; Time</dt>
+              <dd>{dateLabel}, {selTime}</dd>
+              <dt>Services</dt>
+              <dd>{selServices.map((s) => s.name).join(", ")}</dd>
+              <dt>Stylist</dt>
+              <dd>{staffLabel}</dd>
+              <dt>Amount</dt>
+              <dd>{fmtPrice(totalPrice, currencyCode)}</dd>
+            </dl>
+
+            <div className="pb__actions">
+              {createdAppointment?.id && createdAppointment?.manage_token && (
+                <button type="button" className="pb__btn pb__btn--primary"
+                  onClick={() => navigate(`/book/${slug}/manage/${createdAppointment.id}?token=${createdAppointment.manage_token}`)}>
+                  View Booking
+                </button>
+              )}
+              <button type="button" className="pb__btn pb__btn--ghost" onClick={resetBooking}>
+                Book Another Appointment
+              </button>
+            </div>
+
+            <p className="pb__confirm-note">
+              A confirmation has been sent to your phone{form.email ? " and email" : ""}.
+            </p>
+
+            {mapQuery && (
+              <div className="pb__help">
+                <div>
+                  <p className="pb__help-title">Getting there</p>
+                  <p className="pb__help-sub">{address}</p>
+                </div>
+                <a className="pb__btn pb__btn--ghost pb__btn--auto" target="_blank" rel="noopener noreferrer"
+                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapQuery)}`}>
+                  <GeoAltFill size={13} /> Directions
+                </a>
+              </div>
             )}
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

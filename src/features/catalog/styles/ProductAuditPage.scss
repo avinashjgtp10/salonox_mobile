@@ -210,7 +210,16 @@
 
 .paudit-empty-cell { padding: 48px 16px; }
 
-.paudit-pagination { margin-top: 20px; }
+// Was margin-top: 20px — a gap no other table+pagination pair in this family
+// (see ProductInventoryPage.scss's .pinv-pagination) carries; this mirrors
+// that rule so Pagination sits flush under the table as one continuous card.
+.paudit-pagination {
+  margin-top: 0;
+  border: 1px solid #e4e7ec;
+  border-top: 0;
+  border-radius: 0 0 12px 12px;
+  box-shadow: 0 8px 20px rgba(16, 24, 40, 0.04);
+}
 
 // ── Details modal ────────────────────────────────────────────────────────
 .paudit-modal-meta {

@@ -10,6 +10,8 @@ import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination, JiraFilterMenu, DateRangeFilter, getDateRangePresetValue } from "../../../components/ui";
 import type { JiraFilterField, DateRangeFilterValue } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
+import PurchaseHistoryChartContent from "./PurchaseHistoryChartContent";
+import ReportViewToggle from "./ReportViewToggle";
 import "./PurchaseHistoryReport.scss";
 
 const REPORT_NAME = "Supplier Purchase History";
@@ -106,6 +108,7 @@ export default function PurchaseHistoryReport({
   const [loading, setLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [showChart, setShowChart] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   const [detailFor, setDetailFor] = useState<string | null>(null);
@@ -127,19 +130,26 @@ export default function PurchaseHistoryReport({
     return () => clearTimeout(t);
   }, [search]);
 
+  // Shared with the Graph page below — same filter set the table uses,
+  // minus pagination.
+  const buildFilterParams = useCallback((): Record<string, any> => {
+    const params: Record<string, any> = {};
+    if (debouncedSearch) params.search = debouncedSearch;
+    // The backend takes a single supplier_id — the filter panel is
+    // multi-select generically, but only the first pick is actually sent.
+    if (supplierFilter.length > 0) params.supplier_id = supplierFilter[0];
+    if (dateRange.startDate) params.date_from = dateRange.startDate;
+    if (dateRange.endDate) params.date_to = dateRange.endDate;
+    return params;
+  }, [debouncedSearch, supplierFilter, dateRange.startDate, dateRange.endDate]);
+
   const fetchData = useCallback(async () => {
     abortRef.current?.abort();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
     setLoading(true);
     try {
-      const params: Record<string, any> = { page: currentPage, limit: pageSize };
-      if (debouncedSearch) params.search = debouncedSearch;
-      // The backend takes a single supplier_id — the filter panel is
-      // multi-select generically, but only the first pick is actually sent.
-      if (supplierFilter.length > 0) params.supplier_id = supplierFilter[0];
-      if (dateRange.startDate) params.date_from = dateRange.startDate;
-      if (dateRange.endDate) params.date_to = dateRange.endDate;
+      const params = { ...buildFilterParams(), page: currentPage, limit: pageSize };
       const res = await api.get(INVENTORY.PRODUCT_INVENTORY_PURCHASES, { params, signal: ctrl.signal });
       setRows((res.data?.data?.data ?? []).map(mapRow));
       setTotal(Number(res.data?.data?.total) || 0);
@@ -151,7 +161,7 @@ export default function PurchaseHistoryReport({
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [debouncedSearch, supplierFilter, dateRange.startDate, dateRange.endDate, currentPage, pageSize]);
+  }, [buildFilterParams, currentPage, pageSize]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => { setCurrentPage(1); }, [debouncedSearch, supplierFilter, dateRange.startDate, dateRange.endDate]);
@@ -182,10 +192,12 @@ export default function PurchaseHistoryReport({
         <div className="rp-detail-back-row">
           <Breadcrumb current={REPORT_NAME} category={reportCategory} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
+            <ReportViewToggle view={showChart ? "chart" : "table"} onChange={(v) => setShowChart(v === "chart")} />
             <ReportExportButton
               title={REPORT_NAME}
               headers={HEADERS}
               rows={exportRows}
+              reportId="purchase_history"
               filename="purchase-history"
               variant="button"
               csv
@@ -221,6 +233,10 @@ export default function PurchaseHistoryReport({
         </div>
       )}
 
+      {showChart ? (
+        <PurchaseHistoryChartContent buildFilterParams={buildFilterParams} />
+      ) : (
+      <>
       <div className="rp-detail-toolbar">
         <div className="rp-detail-search-wrap">
           <Search size={13} className="rp-detail-search-ic" />
@@ -270,6 +286,8 @@ export default function PurchaseHistoryReport({
         onPageChange={setCurrentPage}
         onPageSizeChange={(size) => { setPageSize(size); setCurrentPage(1); }}
       />
+      </>
+      )}
 
       {detailFor && (
         <PurchaseDetailModal

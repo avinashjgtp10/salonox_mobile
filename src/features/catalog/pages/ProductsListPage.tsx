@@ -4,6 +4,8 @@ import api from "../../../services/api/axios";
 import { PRODUCTS } from "../../../services/api/endpoints";
 import { selectCurrentSalon, selectUserProfile } from "../../../store/selectors/slices.selectors";
 import { exportProductsPDF } from "../utils/productExport";
+import { usePermissions } from "../../../hooks/usePermissions";
+import { showPermissionDenied } from "../../../store/permissionDialogSlice";
 import {
   Search,
   BoxSeam,
@@ -63,10 +65,21 @@ const formatCategoryName = (name: unknown) =>
     .toLowerCase()
     .replace(/\b\w/g, (char) => char.toUpperCase());
 
+// Same friendly copy PermissionGuard and the interceptor-driven global popup
+// already use for a backend 403 — the PDF export here is built entirely
+// client-side (no backend call to deny), so this is the only enforcement
+// point export_pdf actually has for it. CSV/Excel export on this page go
+// through the backend (products.routes.ts's export_csv/export_excel gates),
+// so they're already covered by that same popup on denial.
+const friendlyPermissionDenied = (permKey: string) =>
+  `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`;
+
 const ProductsListPage: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
+  const { can } = usePermissions();
   const suppliers = useSelector((state: RootState) => state.inventory.suppliers);
+  const suppliersTotal = useSelector((state: RootState) => state.inventory.suppliersTotal);
   const currentSalon = useSelector(selectCurrentSalon);
   const userProfile = useSelector(selectUserProfile);
   const { formatAmount } = useCurrency();
@@ -150,7 +163,16 @@ const ProductsListPage: React.FC = () => {
     fetchCategories();
     // page_limit:100 — used here to build a full id->name lookup map for
     // display (supplierMap below), not the paginated Suppliers list page.
-    dispatch(fetchSuppliersThunk({ page_limit: 100 }));
+    // Skipped when the store already holds the complete set (suppliers.length
+    // === suppliersTotal) — that's true whether it got there via this same
+    // page_limit:100 fetch on an earlier visit, or because the salon simply
+    // has few enough suppliers that a smaller paginated fetch already
+    // happened to cover all of them. A plain "suppliers.length === 0" check
+    // would wrongly skip this after visiting the Suppliers List page (which
+    // only ever loads one page at a time), leaving names blank here.
+    if (suppliers.length === 0 || suppliers.length < suppliersTotal) {
+      dispatch(fetchSuppliersThunk({ page_limit: 100 }));
+    }
     const t = setTimeout(() => { isMountedRef.current = true; }, 0);
     return () => clearTimeout(t);
   }, []);
@@ -259,6 +281,7 @@ const ProductsListPage: React.FC = () => {
   };
 
   const openDeleteModal = (ids: string[]) => {
+    if (!can("delete_products")) { denyPerm("delete_products"); return; }
     setProductsToDelete(ids);
     setDeleteInput("");
     setDeleteModalOpen(true);
@@ -284,14 +307,17 @@ const ProductsListPage: React.FC = () => {
     return allProducts;
   }, [appliedFilters, searchQuery]);
 
+  const denyPerm = useCallback((permKey: string) => dispatch(showPermissionDenied(friendlyPermissionDenied(permKey))), [dispatch]);
+
   const handleDownloadPdf = useCallback(async () => {
+    if (!can("download_products_pdf")) { denyPerm("download_products_pdf"); return; }
     try {
       const allProds = await fetchFilteredProductsForExport();
-      
+
       // Build maps for fast lookup
       const bMap: Record<string, string> = {};
       brands.forEach((b: any) => { bMap[b.id] = b.name; });
-      
+
       exportProductsPDF(allProds, supplierMap, bMap, {
         salon: currentSalon,
         user: userProfile,
@@ -299,7 +325,7 @@ const ProductsListPage: React.FC = () => {
     } catch (err) {
       console.error("PDF export failed:", err);
     }
-  }, [fetchFilteredProductsForExport, supplierMap, brands, currentSalon, userProfile]);
+  }, [can, denyPerm, fetchFilteredProductsForExport, supplierMap, brands, currentSalon, userProfile]);
 
   const handleDeleteProducts = async () => {
     setIsDeleting(true);
@@ -336,30 +362,63 @@ const ProductsListPage: React.FC = () => {
               className="shadow-sm border-0 rounded-3 py-2"
               style={{ minWidth: "220px" }}
             >
-              <Dropdown.Item onClick={() => setActiveModal("brands")} className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark">
+              <Dropdown.Item
+                onClick={() => {
+                  if (!can("manage_my_brands")) { denyPerm("manage_my_brands"); return; }
+                  setActiveModal("brands");
+                }}
+                style={!can("manage_my_brands") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark"
+              >
                 <Tag size={16} /> Manage my brands
               </Dropdown.Item>
-              <Dropdown.Item onClick={() => navigate("/dashboard/catalog/products/import")} className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark">
+              <Dropdown.Item
+                onClick={() => {
+                  if (!can("import_products")) { denyPerm("import_products"); return; }
+                  if (!can("import_file")) { denyPerm("import_file"); return; }
+                  navigate("/dashboard/catalog/products/import");
+                }}
+                style={!can("import_products") || !can("import_file") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark"
+              >
                 <BoxArrowInDown size={16} /> Import products
               </Dropdown.Item>
               <Dropdown.Divider className="my-2" />
               <Dropdown.Header className="px-3 py-1 text-muted fw-bold" style={{ fontSize: "12px", textTransform: "uppercase" }}>
                 Export
               </Dropdown.Header>
-              <Dropdown.Item onClick={handleDownloadPdf} className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark">
+              <Dropdown.Item onClick={handleDownloadPdf} style={!can("download_products_pdf") ? { opacity: 0.5, cursor: "not-allowed" } : undefined} className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark">
                 <FileEarmarkPdf size={16} /> Download PDF
               </Dropdown.Item>
-              <Dropdown.Item onClick={() => exportExcel(buildFilterParams(searchQuery, appliedFilters))} className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark">
+              <Dropdown.Item
+                onClick={() => {
+                  if (!can("download_products_excel")) { denyPerm("download_products_excel"); return; }
+                  exportExcel(buildFilterParams(searchQuery, appliedFilters));
+                }}
+                style={!can("download_products_excel") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark"
+              >
                 <FileEarmarkExcel size={16} /> Download Excel
               </Dropdown.Item>
-              <Dropdown.Item onClick={() => exportCSV(buildFilterParams(searchQuery, appliedFilters))} className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark">
+              <Dropdown.Item
+                onClick={() => {
+                  if (!can("download_products_csv")) { denyPerm("download_products_csv"); return; }
+                  exportCSV(buildFilterParams(searchQuery, appliedFilters));
+                }}
+                style={!can("download_products_csv") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark"
+              >
                 <FiletypeCsv size={16} /> Download CSV
               </Dropdown.Item>
             </Dropdown.Menu>
           </Dropdown>
           <button
             className="btn-add"
-            onClick={() => navigate("/dashboard/catalog/products/create")}
+            style={!can("create_products") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+            onClick={() => {
+              if (!can("create_products")) { denyPerm("create_products"); return; }
+              navigate("/dashboard/catalog/products/create");
+            }}
           >
             Add
           </button>
@@ -489,6 +548,7 @@ const ProductsListPage: React.FC = () => {
               </ul>
             </div>
             <button className="btn text-danger fw-medium px-2"
+              style={!can("delete_products") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
               onClick={() => openDeleteModal(selectedProducts)}>
               Delete
             </button>
@@ -693,13 +753,18 @@ const ProductsListPage: React.FC = () => {
                         </Dropdown.Toggle>
                         <Dropdown.Menu className="shadow-sm border-0 rounded-3 py-2" style={{ minWidth: "160px" }}>
                           <Dropdown.Item
-                            onClick={() => navigate(`/dashboard/catalog/products/edit/${p.id}`)}
+                            onClick={() => {
+                              if (!can("edit_products")) { denyPerm("edit_products"); return; }
+                              navigate(`/dashboard/catalog/products/edit/${p.id}`);
+                            }}
+                            style={!can("edit_products") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
                             className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark"
                           >
                             <PencilSquare size={14} /> Edit
                           </Dropdown.Item>
                           <Dropdown.Item
                             onClick={() => openDeleteModal([p.id])}
+                            style={!can("delete_products") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
                             className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-danger"
                           >
                             <Trash size={14} /> Delete
@@ -824,7 +889,10 @@ const ProductsListPage: React.FC = () => {
                       <span>{b.name}</span>
                       <button
                         className="btn btn-sm btn-link text-danger p-0"
-                        onClick={() => deleteBrand(b.id)}
+                        onClick={() => {
+                          if (!can("manage_my_brands")) { denyPerm("manage_my_brands"); return; }
+                          deleteBrand(b.id);
+                        }}
                       >
                         <X size={16} />
                       </button>
@@ -882,6 +950,7 @@ const ProductsListPage: React.FC = () => {
               <Button
                 variant="primary"
                 onClick={async () => {
+                  if (!can("manage_my_brands")) { denyPerm("manage_my_brands"); return; }
                   if (brandName.trim()) {
                     await createBrand(brandName.trim());
                     setBrandName("");

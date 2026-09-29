@@ -11,6 +11,7 @@ import {
 import { Button, Badge, DateRangeFilter, PageHeader, EmptyState } from "../../../components/ui";
 import type { DateRangeFilterValue } from "../../../components/ui";
 import { maskMobile } from "../../../utils/maskMobile";
+import { usePermissions } from "../../../hooks/usePermissions";
 import "../styles/MarketingDashboardPage.scss";
 
 type CampaignStatusFilter = "ALL" | "RUNNING" | "COMPLETED" | "PAUSED" | "FAILED" | "SCHEDULED";
@@ -76,6 +77,7 @@ function RateBar({ value, color }: { value: number; color: string }) {
 export default function MarketingDashboardPage() {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
+  const { can } = usePermissions();
   const {
     dashboardStats: data,
     loading,
@@ -100,6 +102,12 @@ export default function MarketingDashboardPage() {
   }, [dispatch]);
 
   useEffect(() => {
+    // The Dashboard shows templates for overview purposes (via
+    // view_marketing_dashboard's OR-fallback on GET /templates), but
+    // auto-syncing a pending template's status is a real write action —
+    // a Dashboard-only viewer without edit_template shouldn't have this
+    // background poll silently 403 on their behalf.
+    if (!can("edit_template")) return;
     const pending = templates.filter((t) => t.status === "PENDING");
     if (pending.length === 0) return;
     const interval = setInterval(async () => {

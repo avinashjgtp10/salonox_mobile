@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { useSelector } from "react-redux";
 import { selectCurrentSalon } from "../../../store/selectors/slices.selectors";
 import api from "../../../services/api/axios";
+import { ApiError } from "../../../services/api/interceptors";
 import { STAFF, COMMISSION_RULES } from "../../../services/api/endpoints";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import {
@@ -31,6 +32,12 @@ import { SOURCE_META, FREQUENCY_LABELS, groupCommissionRules } from "../componen
 import { exportCommissionsPDF } from "../utils/commissionExport";
 import type { CommissionRule, CommissionRuleFormData, CommissionRuleSource, RuleGroup } from "../types/commissionRules.types";
 import TipSettleTab from "./TipSettleTab";
+import { usePermissions } from "../../../hooks/usePermissions";
+import { useAppDispatch } from "../../../hooks/useAppRedux";
+import { showPermissionDenied } from "../../../store/permissionDialogSlice";
+
+const friendlyPermissionDenied = (permKey: string) =>
+  `Your account does not have the "${permKey}" permission. Ask your salon owner to enable it in Settings → Roles & Permissions.`;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -155,63 +162,66 @@ function OverviewTab({
         <DateRangeFilter value={dateRange} onChange={onDateRangeChange} />
       </div>
 
-      <div className="tc-table-wrap">
-        {earnedByStaff.length === 0 ? (
-          <div className="cm-ov-empty">
-            <CurrencyIcon size={28} />
-            <p>No commissions earned in this date range</p>
-            <span className="cm-ov-empty-sub">Commissions appear here after checkouts</span>
-          </div>
-        ) : (
-          <table className="tc-table">
-            <thead>
-              <tr>
-                <th>#</th><th>Staff Name</th><th>Total Sales ({currencyCode})</th>
-                <th>Commission Accrued ({currencyCode})</th><th>Commission Paid ({currencyCode})</th>
-                <th>Pending Payout ({currencyCode})</th><th>Status</th><th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pagedStaff.map((e, i) => {
-                const name = `${e.staff_first_name} ${e.staff_last_name ?? ""}`.trim();
-                const status = e.pending_payout > 0 && e.paid_out > 0 ? "Partial" : e.pending_payout > 0 ? "Pending" : "Settled";
-                return (
-                  <tr key={e.staff_id} onClick={() => onOpenHistory(e.staff_id)}>
-                    <td>{(page - 1) * pageSize + i + 1}</td>
-                    <td className="tc-table__name">{name}</td>
-                    <td>{fmt(e.total_revenue)}</td>
-                    <td>{fmt(e.total_earned)}</td>
-                    <td>{fmt(e.paid_out)}</td>
-                    <td>{fmt(e.pending_payout)}</td>
-                    <td><span className={`tc-status tc-status--${status.toLowerCase()}`}>{status}</span></td>
-                    <td onClick={(ev) => ev.stopPropagation()}>
-                      {e.pending_payout > 0 ? (
-                        <button
-                          className="tc-settle-btn"
-                          disabled={settlingId === e.staff_id}
-                          onClick={() => onSettle(e.staff_id, name, e.pending_payout)}
-                        >
-                          {settlingId === e.staff_id ? "Settling…" : "Settle"}
-                        </button>
-                      ) : (
-                        <span className="tc-view-btn" onClick={() => onOpenHistory(e.staff_id)}>View</span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
-      </div>
+      <div className="tc-table-block">
+        <div className="tc-table-wrap">
+          {earnedByStaff.length === 0 ? (
+            <div className="cm-ov-empty">
+              <CurrencyIcon size={28} />
+              <p>No commissions earned in this date range</p>
+              <span className="cm-ov-empty-sub">Commissions appear here after checkouts</span>
+            </div>
+          ) : (
+            <table className="tc-table">
+              <thead>
+                <tr>
+                  <th>#</th><th>Staff Name</th><th>Total Sales ({currencyCode})</th>
+                  <th>Commission Accrued ({currencyCode})</th><th>Commission Paid ({currencyCode})</th>
+                  <th>Pending Payout ({currencyCode})</th><th>Status</th><th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pagedStaff.map((e, i) => {
+                  const name = `${e.staff_first_name} ${e.staff_last_name ?? ""}`.trim();
+                  const status = e.pending_payout > 0 && e.paid_out > 0 ? "Partial" : e.pending_payout > 0 ? "Pending" : "Settled";
+                  return (
+                    <tr key={e.staff_id} onClick={() => onOpenHistory(e.staff_id)}>
+                      <td>{(page - 1) * pageSize + i + 1}</td>
+                      <td className="tc-table__name">{name}</td>
+                      <td>{fmt(e.total_revenue)}</td>
+                      <td>{fmt(e.total_earned)}</td>
+                      <td>{fmt(e.paid_out)}</td>
+                      <td>{fmt(e.pending_payout)}</td>
+                      <td><span className={`tc-status tc-status--${status.toLowerCase()}`}>{status}</span></td>
+                      <td onClick={(ev) => ev.stopPropagation()}>
+                        {e.pending_payout > 0 ? (
+                          <button
+                            className="tc-settle-btn"
+                            disabled={settlingId === e.staff_id}
+                            onClick={() => onSettle(e.staff_id, name, e.pending_payout)}
+                          >
+                            {settlingId === e.staff_id ? "Settling…" : "Settle"}
+                          </button>
+                        ) : (
+                          <span className="tc-view-btn" onClick={() => onOpenHistory(e.staff_id)}>View</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
 
-      <Pagination
-        currentPage={page}
-        pageSize={pageSize}
-        totalItems={earnedByStaff.length}
-        onPageChange={setPage}
-        onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
-      />
+        <Pagination
+          className="tc-pagination"
+          currentPage={page}
+          pageSize={pageSize}
+          totalItems={earnedByStaff.length}
+          onPageChange={setPage}
+          onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
+        />
+      </div>
     </div>
   );
 }
@@ -338,7 +348,8 @@ function RulesTable({
         </div>
       </div>
 
-      <div className="tc-table-wrap" ref={tableWrapRef}>
+      <div className="tc-table-block">
+        <div className="tc-table-wrap" ref={tableWrapRef}>
         {rulesLoading ? (
           <div className="cm-loading">
             {[...Array(4)].map((_, i) => (
@@ -379,7 +390,9 @@ function RulesTable({
                   : names.length === 0 ? "Staff member"
                   : names.length === 1 ? names[0]
                   : `${names.length} staff`;
-                const value = rule.type === "percentage" ? `${Number(rule.rate)}%` : fmtMoney(Number(rule.rate));
+                const value = rule.type === "percentage" ? `${Number(rule.rate)}%`
+                  : rule.type === "tiered_target" ? `${Number(rule.rate)}% → ${Number(rule.rate_after_target)}%`
+                  : fmtMoney(Number(rule.rate));
                 return (
                   <tr key={group.key} onClick={() => onOpenDetail(group)}>
                     <td>{(page - 1) * pageSize + i + 1}</td>
@@ -440,15 +453,17 @@ function RulesTable({
         )}
       </div>
 
-      {filteredGroups.length > 0 && (
-        <Pagination
-          currentPage={page}
-          pageSize={pageSize}
-          totalItems={filteredGroups.length}
-          onPageChange={setPage}
-          onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
-        />
-      )}
+        {filteredGroups.length > 0 && (
+          <Pagination
+            className="tc-pagination"
+            currentPage={page}
+            pageSize={pageSize}
+            totalItems={filteredGroups.length}
+            onPageChange={setPage}
+            onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
+          />
+        )}
+      </div>
     </div>
   );
 }
@@ -643,6 +658,9 @@ function CommissionSettleTab({ view }: { view: "settle" | "rules" }) {
   const [showDeleteSuccess, setShowDeleteSuccess] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(false);
   const { showSuccess, showError, overlay } = useStatusOverlay();
+  const { can } = usePermissions();
+  const dispatch = useAppDispatch();
+  const denyPerm = (permKey: string) => dispatch(showPermissionDenied(friendlyPermissionDenied(permKey)));
 
   useEffect(() => {
     const handler = () => setOptionsOpen(false);
@@ -655,12 +673,15 @@ function CommissionSettleTab({ view }: { view: "settle" | "rules" }) {
     setLoading(true);
 
     try {
-      const staffRes = await api.get(`${STAFF.BASE}?limit=200&salon_id=${salonId}`);
+      const staffRes = await api.get(`${STAFF.BASE}?limit=200`);
 
       // Fetch earning summary + per-staff breakdown (non-blocking)
+      // salon_id deliberately omitted — the commissions endpoints derive it
+      // solely from the authenticated JWT (staff.controller.ts's getSalonId),
+      // so a client-supplied value here was already inert.
       Promise.all([
-        api.get(`${STAFF.BASE}/commissions/summary?salon_id=${salonId}&start_date=${dateRange.startDate}&end_date=${dateRange.endDate}`),
-        api.get(`${STAFF.BASE}/commissions/earned?salon_id=${salonId}&start_date=${dateRange.startDate}&end_date=${dateRange.endDate}`),
+        api.get(`${STAFF.BASE}/commissions/summary?start_date=${dateRange.startDate}&end_date=${dateRange.endDate}`),
+        api.get(`${STAFF.BASE}/commissions/earned?start_date=${dateRange.startDate}&end_date=${dateRange.endDate}`),
       ]).then(([summaryRes, earnedRes]) => {
         setEarnSummary(summaryRes.data?.data ?? null);
         setEarnedByStaff(earnedRes.data?.data ?? []);
@@ -670,7 +691,12 @@ function CommissionSettleTab({ view }: { view: "settle" | "rules" }) {
       const staff = allStaff.filter((s) => s.is_active !== false);
       setStaffList(staff);
     } catch (err: any) {
-      showError(err?.message ?? "Failed to load commissions");
+      // A permission-denial 403 already pops the global "Permission
+      // Required" dialog via the axios interceptor — showing this too would
+      // stack a second, raw-message popup on top of it for the same denial.
+      if (!(err instanceof ApiError && err.status === 403)) {
+        showError(err?.message ?? "Failed to load commissions");
+      }
     } finally {
       setLoading(false);
     }
@@ -685,7 +711,9 @@ function CommissionSettleTab({ view }: { view: "settle" | "rules" }) {
       const res = await api.get(COMMISSION_RULES.BASE);
       setCommissionRules(res.data?.data?.items ?? []);
     } catch (err: any) {
-      showError(err?.message ?? "Failed to load commission rules");
+      if (!(err instanceof ApiError && err.status === 403)) {
+        showError(err?.message ?? "Failed to load commission rules");
+      }
     } finally {
       setRulesLoading(false);
     }
@@ -694,6 +722,8 @@ function CommissionSettleTab({ view }: { view: "settle" | "rules" }) {
   useEffect(() => { fetchCommissionRules(); }, [fetchCommissionRules]);
 
   const handleSaveRule = async (data: CommissionRuleFormData) => {
+    const permKey = editingGroup ? "edit_commission_rule" : "add_commission_rule";
+    if (!can(permKey)) { denyPerm(permKey); return; }
     try {
       if (editingGroup) {
         // Editing a group = delete the old rows and fan out fresh ones with the new
@@ -722,6 +752,7 @@ function CommissionSettleTab({ view }: { view: "settle" | "rules" }) {
   };
 
   const handleToggleRuleStatus = async (group: RuleGroup) => {
+    if (!can("edit_commission_rule")) { denyPerm("edit_commission_rule"); return; }
     setTogglingRuleId(group.key);
     try {
       const nextStatus = group.primary.status === "active" ? "draft" : "active";
@@ -737,6 +768,7 @@ function CommissionSettleTab({ view }: { view: "settle" | "rules" }) {
   };
 
   const handleDeleteRule = async (group: RuleGroup) => {
+    if (!can("delete_commission_rule")) { denyPerm("delete_commission_rule"); return; }
     try {
       await Promise.all(group.rules.map((r) => api.delete(COMMISSION_RULES.BY_ID(r.id))));
       const idsInGroup = new Set(group.rules.map((r) => r.id));
@@ -767,8 +799,8 @@ function CommissionSettleTab({ view }: { view: "settle" | "rules" }) {
   useEffect(() => {
     if (!salonId) return;
     Promise.all([
-      api.get(`${STAFF.BASE}/commissions/summary?salon_id=${salonId}&start_date=${dateRange.startDate}&end_date=${dateRange.endDate}`),
-      api.get(`${STAFF.BASE}/commissions/earned?salon_id=${salonId}&start_date=${dateRange.startDate}&end_date=${dateRange.endDate}`),
+      api.get(`${STAFF.BASE}/commissions/summary?start_date=${dateRange.startDate}&end_date=${dateRange.endDate}`),
+      api.get(`${STAFF.BASE}/commissions/earned?start_date=${dateRange.startDate}&end_date=${dateRange.endDate}`),
     ]).then(([summaryRes, earnedRes]) => {
       setEarnSummary(summaryRes.data?.data ?? null);
       setEarnedByStaff(earnedRes.data?.data ?? []);
@@ -781,6 +813,7 @@ function CommissionSettleTab({ view }: { view: "settle" | "rules" }) {
     amount: number,
     paymentMethod: CommissionSettlementPaymentMethod,
   ) => {
+    if (!can("manage_commissions")) { denyPerm("manage_commissions"); return; }
     setSettlingId(staffId);
     try {
       // `amount` is sent to the backend so a partial entry only settles that
@@ -792,8 +825,8 @@ function CommissionSettleTab({ view }: { view: "settle" | "rules" }) {
       showSuccess(`${formatAmount(amount)} settled for ${name}`);
       setSettleTarget(null);
       const [summaryRes, earnedRes] = await Promise.all([
-        api.get(`${STAFF.BASE}/commissions/summary?salon_id=${salonId}&start_date=${dateRange.startDate}&end_date=${dateRange.endDate}`),
-        api.get(`${STAFF.BASE}/commissions/earned?salon_id=${salonId}&start_date=${dateRange.startDate}&end_date=${dateRange.endDate}`),
+        api.get(`${STAFF.BASE}/commissions/summary?start_date=${dateRange.startDate}&end_date=${dateRange.endDate}`),
+        api.get(`${STAFF.BASE}/commissions/earned?start_date=${dateRange.startDate}&end_date=${dateRange.endDate}`),
       ]);
       setEarnSummary(summaryRes.data?.data ?? null);
       setEarnedByStaff(earnedRes.data?.data ?? []);
@@ -830,35 +863,49 @@ function CommissionSettleTab({ view }: { view: "settle" | "rules" }) {
                   <button className="cm-option-item" onClick={async () => {
                     setOptionsOpen(false);
                     try {
-                      const res = await api.get(`${STAFF.BASE}/commissions/export?salon_id=${salonId}&month=${exportMonth}`, { responseType: "blob" });
+                      const res = await api.get(`${STAFF.BASE}/commissions/export?month=${exportMonth}`, { responseType: "blob" });
                       const url = URL.createObjectURL(new Blob([res.data]));
                       const a   = document.createElement("a");
                       a.href    = url;
                       a.download = `commissions_${exportMonth}.csv`;
                       a.click();
                       URL.revokeObjectURL(url);
-                    } catch { showError("Export failed"); }
+                    } catch (err: any) {
+                    // A permission denial (403) already shows the global
+                    // "Permission Required" popup (see interceptors.ts and
+                    // staff.routes.ts's requireExportFormatPermission) —
+                    // showing this overlay too would stack a second, jarring
+                    // centered popup on top of it for that one case.
+                    if (!(err instanceof ApiError && err.status === 403)) showError("Export failed");
+                  }
                   }}>
                     <Download size={14} /> Export CSV
                   </button>
                   <button className="cm-option-item" onClick={async () => {
                     setOptionsOpen(false);
                     try {
-                      const res = await api.get(`${STAFF.BASE}/commissions/export?salon_id=${salonId}&month=${exportMonth}&format=excel`, { responseType: "blob" });
+                      const res = await api.get(`${STAFF.BASE}/commissions/export?month=${exportMonth}&format=excel`, { responseType: "blob" });
                       const url = URL.createObjectURL(new Blob([res.data]));
                       const a   = document.createElement("a");
                       a.href    = url;
                       a.download = `commissions_${exportMonth}.xlsx`;
                       a.click();
                       URL.revokeObjectURL(url);
-                    } catch { showError("Export failed"); }
+                    } catch (err: any) {
+                    // A permission denial (403) already shows the global
+                    // "Permission Required" popup (see interceptors.ts and
+                    // staff.routes.ts's requireExportFormatPermission) —
+                    // showing this overlay too would stack a second, jarring
+                    // centered popup on top of it for that one case.
+                    if (!(err instanceof ApiError && err.status === 403)) showError("Export failed");
+                  }
                   }}>
                     <FileEarmarkExcel size={14} /> Export Excel
                   </button>
                   <button className="cm-option-item" onClick={async () => {
                     setOptionsOpen(false);
                     try {
-                      const res = await api.get(`${STAFF.BASE}/commissions/export?salon_id=${salonId}&month=${exportMonth}&format=json`);
+                      const res = await api.get(`${STAFF.BASE}/commissions/export?month=${exportMonth}&format=json`);
                       const rows = res.data?.data ?? [];
                       const blob = exportCommissionsPDF(rows, exportMonth);
                       const url  = URL.createObjectURL(blob);
@@ -867,7 +914,14 @@ function CommissionSettleTab({ view }: { view: "settle" | "rules" }) {
                       a.download = `commissions_${exportMonth}.pdf`;
                       a.click();
                       URL.revokeObjectURL(url);
-                    } catch { showError("Export failed"); }
+                    } catch (err: any) {
+                    // A permission denial (403) already shows the global
+                    // "Permission Required" popup (see interceptors.ts and
+                    // staff.routes.ts's requireExportFormatPermission) —
+                    // showing this overlay too would stack a second, jarring
+                    // centered popup on top of it for that one case.
+                    if (!(err instanceof ApiError && err.status === 403)) showError("Export failed");
+                  }
                   }}>
                     <FiletypePdf size={14} /> Export PDF
                   </button>
@@ -875,7 +929,14 @@ function CommissionSettleTab({ view }: { view: "settle" | "rules" }) {
               )}
             </div>
           ) : (
-            <button className="cm-add-btn" onClick={() => { setEditingGroup(null); setShowWizard(true); }}>
+            <button
+              className="cm-add-btn"
+              style={!can("add_commission_rule") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+              onClick={() => {
+                if (!can("add_commission_rule")) { denyPerm("add_commission_rule"); return; }
+                setEditingGroup(null); setShowWizard(true);
+              }}
+            >
               <Plus size={15} /> Add Commission Rule
             </button>
           )}
@@ -993,24 +1054,40 @@ const COMMISSION_SUB_TABS: { key: CommissionSubTab; label: string; icon: React.R
   { key: "rules",  label: "Commission Rule",   icon: <ListCheck  size={13} /> },
 ];
 
+// Tab-level permission gate — only Tip currently has one (the Commission tab
+// has no equivalent request to gate it the same way). Kept as a lookup so a
+// future ask to gate Commission too is a one-line addition, not a rewrite.
+const MAIN_TAB_PERM: Partial<Record<MainTab, string>> = { tip: "view_tips" };
+
 export default function CommissionsPage() {
   const [mainTab, setMainTab] = useState<MainTab>("commission");
   const [commissionSubTab, setCommissionSubTab] = useState<CommissionSubTab>("settle");
+  const { can } = usePermissions();
+  const dispatch = useAppDispatch();
+  const denyPerm = (permKey: string) => dispatch(showPermissionDenied(friendlyPermissionDenied(permKey)));
 
   return (
     <div className="tc-shell">
       <div className="tc-main-tabs">
-        {MAIN_TABS.map(({ key, label, icon }) => (
-          <button
-            key={key}
-            type="button"
-            className={`tc-main-tab ${mainTab === key ? "tc-main-tab--active" : ""}`}
-            onClick={() => setMainTab(key)}
-          >
-            {icon}
-            {label}
-          </button>
-        ))}
+        {MAIN_TABS.map(({ key, label, icon }) => {
+          const permKey = MAIN_TAB_PERM[key];
+          const allowed = !permKey || can(permKey);
+          return (
+            <button
+              key={key}
+              type="button"
+              className={`tc-main-tab ${mainTab === key ? "tc-main-tab--active" : ""}`}
+              style={!allowed ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+              onClick={() => {
+                if (!allowed) { denyPerm(permKey!); return; }
+                setMainTab(key);
+              }}
+            >
+              {icon}
+              {label}
+            </button>
+          );
+        })}
       </div>
 
       {mainTab === "commission" && (

@@ -12,6 +12,7 @@ export const REPORT = {
 export const SALES_REPORT = {
   SUMMARY: () => `/api/report/sales-summary`,
   DETAIL: (saleId: string) => `/api/report/sales-summary/${saleId}`,
+  CHART: () => `/api/report/sales-summary/chart`,
 } as const;
 
 // Independent Daily Sheet reporting API — reads sales/sale_items directly,
@@ -24,6 +25,7 @@ export const DAILY_SHEET_REPORT = {
 // directly, never through the Appointment API. Mounted at /api/report.
 export const PRODUCT_RETAIL_REPORT = {
   SUMMARY: () => `/api/report/product-retail`,
+  CHART: () => `/api/report/product-retail/chart`,
 } as const;
 
 // Per-product units-sold + revenue, keyed by product_id — powers the "Sales"
@@ -38,6 +40,7 @@ export const PRODUCT_INVENTORY_SALES_REPORT = {
 // never through the Appointment API. Mounted at /api/report.
 export const PRODUCT_INVENTORY_REPORT = {
   SUMMARY: () => `/api/report/product-inventory`,
+  CHART: () => `/api/report/product-inventory/chart`,
 } as const;
 
 // Independent Slow Moving Products reporting API — products with low/no
@@ -63,10 +66,18 @@ export const PURCHASE_VS_SALES_REPORT = {
   SUMMARY: () => `/api/report/purchase-vs-sales`,
 } as const;
 
+// Independent Stock Movement reporting API — one row per product per day it
+// moved, with opening/in/out/closing balances. Reads stock_ledger directly,
+// never through the operational Stock Ledger API. Mounted at /api/report.
+export const STOCK_MOVEMENT_REPORT = {
+  SUMMARY: () => `/api/report/stock-movement`,
+} as const;
+
 // Independent Service Sale reporting API — reads sales/sale_items directly,
 // never through the Appointment API. Mounted at /api/report.
 export const SERVICE_SALE_REPORT = {
   SUMMARY: () => `/api/report/service-sale`,
+  CHART: () => `/api/report/service-sale/chart`,
 } as const;
 
 // Independent GST/Taxes reporting API — reads sales directly, never through
@@ -98,6 +109,7 @@ export const EWALLET_REPORT = {
 // never through the Appointment API. Mounted at /api/report.
 export const CLIENT_REVENUE_REPORT = {
   SUMMARY: () => `/api/report/client-revenue`,
+  CHART: () => `/api/report/client-revenue/chart`,
 } as const;
 
 // Independent All Clients reporting API — pure client-profile listing (no
@@ -107,10 +119,25 @@ export const ALL_CLIENTS_REPORT = {
   SUMMARY: () => `/api/report/all-clients`,
 } as const;
 
+// Independent Birthday reporting API — reads clients directly, never the
+// Appointment API. One row per client with a birthday on file, next
+// occurrence computed server-side.
+export const BIRTHDAY_REPORT = {
+  SUMMARY: () => `/api/report/birthday`,
+} as const;
+
+// Independent Anniversary reporting API — reads clients directly, never the
+// Appointment API. One row per client with an anniversary on file, next
+// occurrence computed server-side.
+export const ANNIVERSARY_REPORT = {
+  SUMMARY: () => `/api/report/anniversary`,
+} as const;
+
 // Independent Customer Frequency reporting API — reads clients/sales
 // directly, never through the Appointment API. Mounted at /api/report.
 export const CUSTOMER_FREQUENCY_REPORT = {
   SUMMARY: () => `/api/report/customer-frequency`,
+  CHART: () => `/api/report/customer-frequency/chart`,
 } as const;
 
 // Independent New Client Follow-Up reporting API — clients who joined within
@@ -144,6 +171,7 @@ export const NO_SHOW_RECOVERY_REPORT = {
 // richer filters and KPI stats. Mounted at /api/report.
 export const ENQUIRY_REPORT = {
   SUMMARY: () => `/api/report/enquiries`,
+  CHART: () => `/api/report/enquiries/chart`,
 } as const;
 
 // Independent Lost Customers reporting API — standalone report, separate
@@ -167,6 +195,7 @@ export const CUSTOMER_SPEND_REPORT = {
 // /api/report.
 export const SERVICE_FREQUENCY_REPORT = {
   SUMMARY: () => `/api/report/service-frequency`,
+  CHART: () => `/api/report/service-frequency/chart`,
 } as const;
 
 // Independent Membership History reporting API — one row per membership
@@ -182,6 +211,7 @@ export const MEMBERSHIP_HISTORY_REPORT = {
 // links by appointment_id (there is no sale_id). Mounted at /api/report.
 export const PAYMENT_COLLECTION_REPORT = {
   SUMMARY: () => `/api/report/payment-collection`,
+  CHART: () => `/api/report/payment-collection/chart`,
 } as const;
 
 // Independent Pending Payment reporting API — one row per bill still carrying
@@ -197,6 +227,7 @@ export const PENDING_PAYMENT_REPORT = {
 // module's own operational API. Mounted at /api/report.
 export const CASH_MANAGEMENT_REPORT = {
   SUMMARY: () => `/api/report/cash-management`,
+  CHART: () => `/api/report/cash-management/chart`,
 } as const;
 
 // Independent Referral reporting API — one row per referred client, joined
@@ -211,6 +242,7 @@ export const REFERRAL_REPORT = {
 // never through the Appointment API. Mounted at /api/report.
 export const STAFF_SALES_REPORT = {
   SUMMARY: () => `/api/report/staff-sales`,
+  CHART: () => `/api/report/staff-sales/chart`,
 } as const;
 
 // Independent Staff Performance reporting API — one row per staff member,
@@ -218,12 +250,14 @@ export const STAFF_SALES_REPORT = {
 // Mounted at /api/report.
 export const STAFF_PERFORMANCE_REPORT = {
   SUMMARY: () => `/api/report/staff-performance`,
+  CHART: () => `/api/report/staff-performance/chart`,
 } as const;
 
 // Independent Staff Item Sales reporting API — reads sale_items directly,
 // never through the Appointment API. Mounted at /api/report.
 export const STAFF_ITEM_SALES_REPORT = {
   SUMMARY: () => `/api/report/staff-item-sales`,
+  CHART: () => `/api/report/staff-item-sales/chart`,
 } as const;
 
 // Independent Rebooking Rate reporting API — one row per staff member,
@@ -238,6 +272,7 @@ export const REBOOKING_RATE_REPORT = {
 // Mounted at /api/report.
 export const PACKAGE_SALE_REPORT = {
   SUMMARY: () => `/api/report/package-sale`,
+  CHART: () => `/api/report/package-sale/chart`,
 } as const;
 
 // Independent Payroll History reporting API — reads payroll_entries
@@ -256,6 +291,7 @@ export const PACKAGE_HISTORY_REPORT = {
 // directly. Mounted at /api/report.
 export const MEMBER_SALE_REPORT = {
   SUMMARY: () => `/api/report/member-sale`,
+  CHART: () => `/api/report/member-sale/chart`,
 } as const;
 
 // Independent Appointment Detail reporting API — reads the appointments
@@ -263,6 +299,20 @@ export const MEMBER_SALE_REPORT = {
 // Mounted at /api/report.
 export const APPOINTMENT_DETAIL_REPORT = {
   SUMMARY: () => `/api/report/appointment-detail`,
+} as const;
+
+// Independent Online Appointment reporting API — same query as Appointment
+// Detail, filtered server-side to appointments classified as booked online.
+// Mounted at /api/report.
+export const ONLINE_APPOINTMENT_REPORT = {
+  SUMMARY: () => `/api/report/online-appointment`,
+} as const;
+
+// Independent Consumable Analytics reporting API — reads consumable_usage
+// directly, joined through appointments for the client. Mounted at
+// /api/report.
+export const CONSUMABLE_ANALYTICS_REPORT = {
+  SUMMARY: () => `/api/report/consumable-analytics`,
 } as const;
 
 // Independent Upcoming Appointments reporting API — reads the appointments

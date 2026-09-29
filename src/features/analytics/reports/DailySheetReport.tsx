@@ -208,6 +208,7 @@ export default function DailySheetReport({ onBack, category, categoryKey }: { on
               title={REPORT_NAME}
               headers={HEADERS}
               rows={exportRows}
+              reportId="daily_sheet"
               filename={`${REPORT_NAME}-${date}`}
               variant="button"
               csv
