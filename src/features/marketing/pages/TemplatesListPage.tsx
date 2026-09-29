@@ -8,28 +8,20 @@ import {
   syncTemplateThunk,
 } from "../../../middleware/marketing/marketing.thunk";
 import { TemplateCard } from "../components";
-import TriggerTemplatesPanel from "../components/TriggerTemplatesPanel";
-import { Button, Input, Modal, PageHeader, Tabs } from "../../../components/ui";
+import { Button, Input, Modal, PageHeader } from "../../../components/ui";
 import { usePermissions } from "../../../hooks/usePermissions";
 import { showPermissionDenied } from "../../../store/permissionDialogSlice";
 import "../styles/TemplatesListPage.scss";
 
 type StatusFilter = "ALL" | "APPROVED" | "PENDING" | "REJECTED" | "FAVORITE";
-type TemplateTab = "campaign" | "trigger";
 
 const POLL_INTERVAL = 60_000;
 
 export default function TemplatesListPage() {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const { templates, loading, waConfig } = useAppSelector((s) => s.marketing);
-  // WhatsApp Campaign templates need a connected WhatsApp account; Trigger
-  // Templates (SMS/Email included) don't — this page is now reachable
-  // without WhatsApp configured (see MarketingRoutes.tsx), so default to the
-  // tab that's actually usable instead of landing on an empty Campaign list.
-  const isWaConfigured = !!((waConfig as any)?.phoneNumberId ?? (waConfig as any)?.phone_number_id);
+  const { templates, loading } = useAppSelector((s) => s.marketing);
 
-  const [activeTab, setActiveTab] = useState<TemplateTab>(isWaConfigured ? "campaign" : "trigger");
   const [search,   setSearch]   = useState("");
   const [status,   setStatus]   = useState<StatusFilter>("ALL");
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -182,43 +174,22 @@ export default function TemplatesListPage() {
       {/* Header */}
       <PageHeader
         title="Templates"
-        subtitle={
-          activeTab === "campaign"
-            ? "Sent manually to a list via a Blast Campaign"
-            : "Fire automatically off a real event — a sale, a booking, a lifecycle date"
-        }
+        subtitle="Sent manually to a list via a Blast Campaign"
         actions={
-          activeTab === "campaign" ? (
-            <Button
-              variant="primary"
-              size="sm"
-              style={!can("add_template") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
-              onClick={() => {
-                if (!can("add_template")) { denyPerm("add_template"); return; }
-                navigate("/dashboard/marketing/templates/create");
-              }}
-            >
-              + New Template
-            </Button>
-          ) : undefined
+          <Button
+            variant="primary"
+            size="sm"
+            style={!can("add_template") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+            onClick={() => {
+              if (!can("add_template")) { denyPerm("add_template"); return; }
+              navigate("/dashboard/marketing/templates/create");
+            }}
+          >
+            + New Template
+          </Button>
         }
       />
 
-      <Tabs
-        className="tl-tabs"
-        variant="underline"
-        activeKey={activeTab}
-        onChange={(key) => setActiveTab(key as TemplateTab)}
-        tabs={[
-          { key: "campaign", label: "Campaign Templates" },
-          { key: "trigger",  label: "Trigger Templates" },
-        ]}
-      />
-
-      {activeTab === "trigger" ? (
-        <TriggerTemplatesPanel />
-      ) : (
-      <>
       {/* Auto-sync banner */}
       {hasPending && (
         <div className="tl-autopoll-banner">
@@ -332,8 +303,6 @@ export default function TemplatesListPage() {
             </div>
           ))}
         </div>
-      )}
-      </>
       )}
 
       {/* Confirm Delete Modal */}

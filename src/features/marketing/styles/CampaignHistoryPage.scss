@@ -4,32 +4,26 @@
 
 // Header now uses the shared <PageHeader> component (components/ui).
 
-// ── Summary ───────────────────────────────────────────────────────────────────
-.ch-summary {
-  display: grid; grid-template-columns: repeat(5, 1fr);
-  gap: 14px; margin-bottom: 20px;
-  @media (max-width: 1024px) { grid-template-columns: repeat(3, 1fr); }
-  @media (max-width: 640px)  { grid-template-columns: repeat(2, 1fr); }
+// ── Status tabs ───────────────────────────────────────────────────────────────
+.ch-status-tabs {
+  display: flex; align-items: center; gap: 4px;
+  border-bottom: 1px solid #eef0f3; margin-bottom: 18px;
 }
-.ch-summary-card {
-  background: #fff; border: 1px solid #eef0f3; border-radius: 14px;
-  padding: 16px 18px; display: flex; flex-direction: column; gap: 4px;
-  position: relative; overflow: hidden;
-  box-shadow: 0 1px 2px rgba(16,24,40,0.03);
-  transition: box-shadow 0.2s ease, transform 0.2s ease;
-  &::before {
-    content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
-    background: var(--ch-accent, #cbd5e1);
-  }
-  &:nth-child(1) { --ch-accent: #94a3b8; }
-  &:nth-child(2) { --ch-accent: #10b981; }
-  &:nth-child(3) { --ch-accent: #3b82f6; }
-  &:nth-child(4) { --ch-accent: #f59e0b; }
-  &:nth-child(5) { --ch-accent: #8b5cf6; }
-  &:hover { box-shadow: 0 8px 20px rgba(16,24,40,0.07); transform: translateY(-1px); }
+.ch-status-tab {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 13.5px; font-weight: 600; color: #64748b;
+  background: none; border: none; cursor: pointer;
+  padding: 10px 16px; margin-bottom: -1px;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+  &:hover { color: #0f172a; }
+  &--active { color: #0f172a; border-bottom-color: #0f172a; }
 }
-.ch-summary-val   { font-size: 24px; font-weight: 700; color: #0f172a; letter-spacing: -0.6px; }
-.ch-summary-label { font-size: 10.5px; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px; }
+.ch-status-tab-count {
+  font-size: 11px; font-weight: 700; color: #94a3b8;
+  background: #f1f3f6; border-radius: 20px; padding: 1px 7px;
+  .ch-status-tab--active & { color: #0f172a; background: #eef0f3; }
+}
 
 // ── Toolbar ───────────────────────────────────────────────────────────────────
 .ch-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
@@ -84,32 +78,65 @@
 }
 .ch-empty-icon { font-size: 36px; opacity: 0.8; }
 
-// ── Campaign cards ────────────────────────────────────────────────────────────
-.ch-list { display: flex; flex-direction: column; gap: 12px; }
-
-.ch-card {
-  background: #fff; border: 1px solid #eef0f3; border-radius: 16px; overflow: hidden;
-  box-shadow: 0 1px 2px rgba(16,24,40,0.03);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
-  &:hover  { border-color: #dde1e7; box-shadow: 0 6px 16px rgba(16,24,40,0.06); }
-  &--open  { border-color: #c7cdd6; box-shadow: 0 10px 24px rgba(16,24,40,0.09); }
+// ── Campaign table ───────────────────────────────────────────────────────────
+.ch-table-wrap {
+  background: #fff; border: 1px solid #eef0f3; border-radius: 16px;
+  overflow: hidden; box-shadow: 0 1px 2px rgba(16,24,40,0.03);
+  overflow-x: auto;
 }
 
-.ch-card-header {
-  display: flex; align-items: center; gap: 16px; padding: 16px 18px;
-  cursor: pointer; transition: background 0.15s;
-  &:hover { background: #fafbfc; }
+.ch-table {
+  width: 100%; border-collapse: collapse; min-width: 860px;
+
+  thead th {
+    font-size: 10.5px; font-weight: 700; color: #94a3b8;
+    text-transform: uppercase; letter-spacing: 0.6px; text-align: left;
+    padding: 13px 16px; border-bottom: 1px solid #eef0f3;
+    white-space: nowrap;
+  }
+  .ch-th-name { min-width: 220px; }
+
+  tbody td {
+    font-size: 13px; color: #334155; padding: 13px 16px;
+    border-bottom: 1px solid #f5f6f8; white-space: nowrap;
+  }
 }
-.ch-card-left     { flex: 1; min-width: 0; }
-.ch-card-name     { font-size: 14.5px; font-weight: 700; color: #0f172a; margin: 0 0 3px; letter-spacing: -0.2px; }
-.ch-card-template { font-size: 11.5px; color: #94a3b8; margin: 0; }
-.ch-card-right    { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
-.ch-card-actions  { display: flex; gap: 6px; }
-.ch-expand-icon   { font-size: 10px; color: #cbd5e1; transition: transform 0.2s; }
+
+.ch-row {
+  cursor: pointer; transition: background 0.12s;
+  &:hover  { background: #fafbfc; }
+  &--open  { background: #f8fafc; }
+}
+
+.ch-detail-row td { padding: 0; border-bottom: 1px solid #eef0f3; }
+
+.ch-td-name { display: table-cell; }
+.ch-name-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; border-radius: 10px; background: #f1f3f6;
+  font-size: 16px; margin-right: 10px; vertical-align: middle;
+}
+.ch-td-name-text { display: inline-flex; flex-direction: column; gap: 3px; vertical-align: middle; }
+.ch-row-name { font-size: 13.5px; font-weight: 700; color: #0f172a; letter-spacing: -0.1px; white-space: normal; }
+.ch-td-template { color: #94a3b8; }
+.ch-td-date     { color: #94a3b8; }
+
+.ch-td-actions {
+  display: flex; align-items: center; gap: 4px; justify-content: flex-end;
+}
+.ch-icon-btn {
+  width: 28px; height: 28px; border-radius: 8px;
+  border: 1px solid #e5e7eb; background: #fff; color: #64748b;
+  font-size: 12px; cursor: pointer; display: flex;
+  align-items: center; justify-content: center;
+  transition: all 0.15s;
+  &:hover:not(:disabled) { border-color: #94a3b8; color: #0f172a; background: #f9fafb; }
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+}
+.ch-expand-icon { font-size: 9px; color: #cbd5e1; margin-left: 4px; }
 
 .ch-scheduled-time {
-  font-size: 11.5px; color: #7c3aed; background: #f5f3ff;
-  padding: 4px 9px; border-radius: 8px; font-weight: 600; white-space: nowrap;
+  font-size: 11px; color: #7c3aed; font-weight: 600; white-space: nowrap;
 }
 
 // ── Progress ──────────────────────────────────────────────────────────────────

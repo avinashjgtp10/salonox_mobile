@@ -13,7 +13,19 @@ const INBOX = {
     `/api/v1/inbox/conversations/${encodeURIComponent(phone)}/messages`,
   REPLY:         (phone: string) =>
     `/api/v1/inbox/conversations/${encodeURIComponent(phone)}/reply`,
+  CUSTOMER:      (phone: string) =>
+    `/api/v1/inbox/conversations/${encodeURIComponent(phone)}/customer`,
 } as const;
+
+export type InboxCustomerInfo = {
+  id:              string;
+  fullName:        string | null;
+  phoneNumber:     string | null;
+  totalVisits:     number;
+  lastVisitDate:   string | null;
+  lifetimeSpend:   number;
+  membershipName:  string | null;
+};
 
 // ── Thunks ─────────────────────────────────────────────────────────────────────
 
@@ -50,6 +62,30 @@ export const fetchMessagesThunk = createAsyncThunk<
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);
     return rejectWithValue("Failed to fetch messages");
+  }
+});
+
+export const fetchCustomerInfoThunk = createAsyncThunk<
+  InboxCustomerInfo | null,
+  string,
+  { rejectValue: string }
+>("inbox/fetchCustomerInfo", async (phone, { rejectWithValue }) => {
+  try {
+    const res = await api.get<{ data: any | null }>(INBOX.CUSTOMER(phone));
+    const c = res.data.data;
+    if (!c) return null;
+    return {
+      id:             c.id,
+      fullName:       c.full_name ?? null,
+      phoneNumber:    c.phone_number ?? null,
+      totalVisits:    Number(c.total_visits ?? 0),
+      lastVisitDate:  c.last_visit_date ?? null,
+      lifetimeSpend:  Number(c.lifetime_spend ?? 0),
+      membershipName: c.membership_name ?? null,
+    };
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to fetch customer info");
   }
 });
 
