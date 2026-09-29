@@ -188,6 +188,16 @@ export default function MarketplaceProfilePage() {
   const [phone,        setPhone]        = useState("");
   const [hours,        setHours]        = useState(defaultHours);
   const [saved,        setSaved]        = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+  // Synchronous ref, not just `savingProfile` state — a rapid double-click
+  // fires handleSave a second time before React's state update from the
+  // first click has re-rendered the disabled button, letting two overlapping
+  // save sequences race the same PUT /marketplace/features call. That
+  // endpoint does a bare DELETE-then-INSERT with no ON CONFLICT handling
+  // (marketplace.repository.ts's upsert), so two concurrent requests can
+  // both pass the DELETE and then collide on the unique
+  // (profile_id, feature_type, feature_key) constraint, surfacing as a 409.
+  const savingProfileRef = useRef(false);
   const [maxAdvance,   setMaxAdvance]   = useState("30");
   const [minNotice,    setMinNotice]    = useState("0");
   const [cancelNotice, setCancelNotice] = useState("0");
@@ -331,24 +341,28 @@ export default function MarketplaceProfilePage() {
 
   // ── Existing handlers ───────────────────────────────────────────────────────
   const handleSave = async () => {
-    if (phone && phone.replace(/\D/g, "").length !== 10) {
-      showError("Phone number must be exactly 10 digits");
-      return;
-    }
-
-    // Checked before anything is dispatched — the saves run in sequence, so a
-    // value the backend will reject must not be allowed to abort the ones
-    // after it.
-    const socialError = socialUrlError("Instagram", instagramUrl) ?? socialUrlError("Facebook", facebookUrl);
-    if (socialError) { showError(socialError); return; }
-
-    const normalizedInstagram = normalizeSocialUrl(instagramUrl);
-    const normalizedFacebook  = normalizeSocialUrl(facebookUrl);
-    // Reflect the normalised form back so the owner sees what was stored.
-    if (normalizedInstagram !== instagramUrl) setInstagramUrl(normalizedInstagram);
-    if (normalizedFacebook !== facebookUrl)   setFacebookUrl(normalizedFacebook);
+    if (savingProfileRef.current) return;
+    savingProfileRef.current = true;
+    setSavingProfile(true);
 
     try {
+      if (phone && phone.replace(/\D/g, "").length !== 10) {
+        showError("Phone number must be exactly 10 digits");
+        return;
+      }
+
+      // Checked before anything is dispatched — the saves run in sequence, so a
+      // value the backend will reject must not be allowed to abort the ones
+      // after it.
+      const socialError = socialUrlError("Instagram", instagramUrl) ?? socialUrlError("Facebook", facebookUrl);
+      if (socialError) { showError(socialError); return; }
+
+      const normalizedInstagram = normalizeSocialUrl(instagramUrl);
+      const normalizedFacebook  = normalizeSocialUrl(facebookUrl);
+      // Reflect the normalised form back so the owner sees what was stored.
+      if (normalizedInstagram !== instagramUrl) setInstagramUrl(normalizedInstagram);
+      if (normalizedFacebook !== facebookUrl)   setFacebookUrl(normalizedFacebook);
+
       await dispatch(updateMarketplaceEssentialsThunk({
         display_name: businessName,
         tagline,
@@ -391,6 +405,9 @@ export default function MarketplaceProfilePage() {
       setTimeout(() => setSaved(false), 2500);
     } catch (err: any) {
       showError(err || "Failed to save profile");
+    } finally {
+      savingProfileRef.current = false;
+      setSavingProfile(false);
     }
   };
 
@@ -651,9 +668,9 @@ export default function MarketplaceProfilePage() {
           </p>
         </div>
         <div className="ob-header-actions">
-          <button className="ob-btn-primary" onClick={handleSave}
+          <button className="ob-btn-primary" onClick={handleSave} disabled={savingProfile}
             style={saved ? { background: "#16a34a" } : {}}>
-            {saved ? <><CheckCircle size={15} /> Saved</> : "Save changes"}
+            {saved ? <><CheckCircle size={15} /> Saved</> : savingProfile ? "Saving…" : "Save changes"}
           </button>
         </div>
       </div>
