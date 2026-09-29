@@ -1,4 +1,5 @@
 import { absoluteUrl, ORGANIZATION, PLAN_CURRENCY, PLAN_PERIOD, PLANS, SITE, type JsonLdKind, type MarketingRoute } from "./seo.config";
+import { PRICING_PLANS, getPlanPricing } from "../components/Landing/Pricing/pricing.config";
 
 const ORG_ID = `${SITE.origin}/#organization`;
 
@@ -25,7 +26,19 @@ function organization() {
 }
 
 function software(route: MarketingRoute) {
-  const prices = PLANS.map((p) => p.price);
+  // The homepage prerenders the selector's default Monthly state. Describe
+  // those visible offers, not the annual plans displayed on the SEO pages.
+  const isHomepage = route.path === "/";
+  const plans = isHomepage
+    ? PRICING_PLANS.flatMap((plan) => {
+        const pricing = getPlanPricing(plan, "monthly");
+        return pricing ? [{ name: plan.name, description: plan.description, price: pricing.billingAmount }] : [];
+      })
+    : PLANS;
+  const period = isHomepage
+    ? { unitCode: "MON", unitText: "month", duration: "P1M" }
+    : PLAN_PERIOD;
+  const prices = plans.map((p) => p.price);
   return {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
@@ -40,8 +53,8 @@ function software(route: MarketingRoute) {
       priceCurrency: PLAN_CURRENCY,
       lowPrice: String(Math.min(...prices)),
       highPrice: String(Math.max(...prices)),
-      offerCount: PLANS.length,
-      offers: PLANS.map((p) => ({
+      offerCount: plans.length,
+      offers: plans.map((p) => ({
         "@type": "Offer",
         name: p.name,
         description: p.description,
@@ -51,9 +64,10 @@ function software(route: MarketingRoute) {
           "@type": "UnitPriceSpecification",
           price: String(p.price),
           priceCurrency: PLAN_CURRENCY,
-          unitCode: PLAN_PERIOD.unitCode,
-          unitText: PLAN_PERIOD.unitText,
-          billingDuration: PLAN_PERIOD.duration,
+          unitCode: period.unitCode,
+          unitText: period.unitText,
+          billingDuration: period.duration,
+          ...(isHomepage ? { valueAddedTaxIncluded: false } : {}),
         },
         url: `${absoluteUrl(route.path)}#pricing`,
       })),

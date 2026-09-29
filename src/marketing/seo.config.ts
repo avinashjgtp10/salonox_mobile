@@ -35,15 +35,10 @@ export const ORGANIZATION = {
   areaServed: ["IN", "AE"],
 } as const;
 
-// Plan prices shown in the landing page's pricing section AS PRERENDERED
-// (Pricing.tsx builds its fallback plans from this list) and emitted in the
-// SoftwareApplication JSON-LD offers, so the two cannot disagree. Crawlers only
-// ever see these values: after load the page swaps to the live catalog from
-// GET /salon-plans/definitions (Super Admin -> Plans & Subscriptions).
-// KEEP THESE IN SYNC WITH THAT API PRICING whenever plans change.
-// All plans are billed per year: the page shows PLAN_PERIOD.label next to every
-// price and the JSON-LD offers carry the same period (priceSpecification), and
-// the build fails if either side is missing.
+// Annual prices displayed by SeoLandingPage and its SoftwareApplication offers.
+// The homepage uses Pricing/pricing.config.ts and defaults to Monthly; jsonld.ts
+// reads that same configuration for the homepage's prerendered offers.
+// Keep this annual catalog in sync with the API pricing when plans change.
 export const PLAN_PERIOD = { label: "/year", duration: "P1Y", unitCode: "ANN", unitText: "year" } as const;
 export const PLANS = [
   { tier: "basic", name: "Basic", price: 8000, description: "For business looking for essential management features to get started." },

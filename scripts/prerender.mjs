@@ -35,6 +35,10 @@ function assertStructuredData(route, html) {
     if (annual && [...html.matchAll(/>\/year</g)].length < annual) {
       throw new Error(`prerender: ${route.path} JSON-LD says ${annual} offer(s) are billed per year but the page does not show "/year" next to each price`);
     }
+    const monthly = offers.filter((o) => o.priceSpecification?.billingDuration === "P1M").length;
+    if (monthly && [...html.matchAll(/>\s*\/\s*month\s*</g)].length < monthly) {
+      throw new Error(`prerender: ${route.path} JSON-LD says ${monthly} offer(s) are billed per month but the page does not show "/month" next to each price`);
+    }
     for (const offer of offers) {
       if (offer.priceCurrency !== "INR") continue;
       const visible = `₹${Number(offer.price).toLocaleString("en-IN")}`;
