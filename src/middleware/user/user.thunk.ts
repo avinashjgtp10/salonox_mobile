@@ -20,14 +20,6 @@ export const fetchCurrentUserThunk = createAsyncThunk<
 >("user/fetchCurrentUser", async (_, { getState, rejectWithValue }) => {
   try {
     const currentUser = getState().user.user;
-    const salonPromise = currentUser?.salonId
-      ? null
-      : salonService.getSalonMe().catch((err) => {
-          if (err instanceof ApiError && (err.status === 404 || (err.responseData as Record<string, unknown> | undefined)?.code === "NOT_FOUND")) {
-            return null;
-          }
-          throw err;
-        });
     const response = await timeStartup("/users/profile", () => api.get<ApiResponse<AuthUser>>(USER.PROFILE));
     const normalizedUser = normalizeAuthUser(response.data.data);
     const mergedUser = preserveSalonId(normalizedUser, currentUser);
@@ -37,7 +29,7 @@ export const fetchCurrentUserThunk = createAsyncThunk<
     }
 
     try {
-      const currentSalon = await (salonPromise ?? salonService.getSalonMe());
+      const currentSalon = await salonService.getSalonMe();
 
       if (currentSalon) {
         return {

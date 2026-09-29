@@ -6,44 +6,12 @@ import { tokenStorage } from "@/services/tokenStorage";
 import type { RootState } from "@/store";
 import { selectCurrentUser, setCurrentUser } from "@/store/user/user.slice";
 import type {
-  CreateSalonRequest,
-  CreateSalonResponse,
   GetSalonResponse,
   SalonListQuery,
   SalonListResponse,
   UpdateSalonFormFields,
   UpdateSalonResponse,
 } from "@/types/salon";
-
-type CreateSalonRejectValue = {
-  message: string;
-  responseBody?: unknown;
-  status?: number;
-};
-
-export const createSalonThunk = createAsyncThunk<
-  CreateSalonResponse,
-  CreateSalonRequest,
-  { rejectValue: CreateSalonRejectValue; state: RootState }
->("salon/createSalon", async (salonPayload, { rejectWithValue }) => {
-  try {
-    return await salonService.createSalon(salonPayload);
-  } catch (error) {
-    const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
-
-    console.error("[Salons] Create failed", {
-      message,
-      responseBody: error instanceof ApiError ? error.responseData : undefined,
-      status: error instanceof ApiError ? error.status : undefined,
-    });
-
-    return rejectWithValue({
-      message,
-      responseBody: error instanceof ApiError ? error.responseData : undefined,
-      status: error instanceof ApiError ? error.status : undefined,
-    });
-  }
-});
 
 type FetchSalonMeRejectValue = {
   message: string;

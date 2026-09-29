@@ -58,6 +58,7 @@ export default function LoginScreen() {
   const passwordInputRef = useRef<TextInput>(null);
   const fieldOffsets = useRef({ email: 0, password: 0 });
   const scrollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const loginInFlight = useRef(false);
   const [cardOpacity] = useState(() => new Animated.Value(0));
   const [cardTranslate] = useState(() => new Animated.Value(16));
   const canSubmit = Boolean(identifier.trim() && password);
@@ -96,6 +97,7 @@ export default function LoginScreen() {
   };
 
   const handleLogin = async () => {
+    if (isLoading || loginInFlight.current) return;
     const trimmedIdentifier = identifier.trim();
     if (!trimmedIdentifier || !password) {
       setFormError("Please enter your email address and password.");
@@ -108,6 +110,7 @@ export default function LoginScreen() {
 
     clearFeedback();
     try {
+      loginInFlight.current = true;
       const authData = await signIn({ email: trimmedIdentifier.toLowerCase(), password });
       setFailedLoginAttempts(0);
       router.replace(resolveLoginRoute(authData));
@@ -129,6 +132,8 @@ export default function LoginScreen() {
       } else {
         setFormError(getFriendlyLoginErrorMessage(loginError));
       }
+    } finally {
+      loginInFlight.current = false;
     }
   };
 
