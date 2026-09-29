@@ -1,4 +1,5 @@
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { Fragment, useEffect, useState, useMemo, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import {
   fetchCampaignsThunk,
@@ -9,8 +10,8 @@ import {
   resendCampaignContactsBulkThunk,
 } from "../../../middleware/marketing/marketing.thunk";
 import ResendCampaignModal from "../components/ResendCampaignModal";
-import { Button, Badge, Input, DateRangeFilter, Pagination, JiraFilterMenu } from "../../../components/ui";
-import type { DateRangeFilterValue, JiraFilterField } from "../../../components/ui";
+import { Button, Badge, Input, DateRangeFilter, Pagination, PageHeader } from "../../../components/ui";
+import type { DateRangeFilterValue } from "../../../components/ui";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { usePermissions } from "../../../hooks/usePermissions";
 import { showPermissionDenied } from "../../../store/permissionDialogSlice";
@@ -60,13 +61,16 @@ const CONTACT_STATUS_HINT: Record<string, string> = {
 type ContactFilter = "ALL" | "SENT" | "DELIVERED" | "READ" | "FAILED" | "BLOCKED" | "PENDING";
 type StatusFilter  = "ALL" | "RUNNING" | "COMPLETED" | "PAUSED" | "FAILED" | "SCHEDULED";
 
-const STATUS_OPTIONS = [
-  { id: "RUNNING",   label: "Running" },
-  { id: "COMPLETED", label: "Completed" },
-  { id: "PAUSED",    label: "Paused" },
-  { id: "FAILED",    label: "Failed" },
-  { id: "SCHEDULED", label: "Scheduled" },
-];
+// Icons purely for the Campaign Name cell's little colored avatar — cycles
+// by name hash so the same campaign always lands on the same one, no
+// meaning attached beyond visual variety (matches the reference table's
+// per-row campaign icon).
+const NAME_ICONS = ["🎉", "🎊", "✨", "🎁", "💇", "💅", "🌟", "🔔"];
+function nameIcon(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return NAME_ICONS[Math.abs(hash) % NAME_ICONS.length];
+}
 
 const DEFAULT_PAGE_SIZE = 10;
 const DEFAULT_CONTACT_PAGE_SIZE = 50;
@@ -99,6 +103,7 @@ const exportCSV = (campaign: any, contacts: any[], canViewFullContact: boolean) 
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function CampaignHistoryPage() {
+  const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { campaigns, loading } = useAppSelector((s) => s.marketing);
   const role = useAppSelector((s) => s.auth.role);
@@ -313,7 +318,8 @@ export default function CampaignHistoryPage() {
   // ── Campaign filtering + pagination ───────────────────────────────────────
   const filteredCampaigns = useMemo(() => {
     return campaigns.filter(c => {
-      if (statusFilter !== "ALL" && c.status !== statusFilter) return false;
+      if (statusFilter === "RUNNING" && !["SENDING", "RUNNING"].includes(c.status)) return false;
+      else if (statusFilter !== "ALL" && statusFilter !== "RUNNING" && c.status !== statusFilter) return false;
       if (search && !c.name?.toLowerCase().includes(search.toLowerCase())) return false;
       if (dateRange.startDate && new Date(c.created_at) < new Date(dateRange.startDate)) return false;
       if (dateRange.endDate   && new Date(c.created_at) > new Date(dateRange.endDate + "T23:59:59")) return false;
@@ -327,54 +333,64 @@ export default function CampaignHistoryPage() {
 
   const hasActiveFilters = !!(search || statusFilter !== "ALL" || dateRange.preset !== "all_time");
 
-  const filterFields: JiraFilterField[] = useMemo(() => [
-    { key: "status", label: "Status", options: STATUS_OPTIONS },
-  ], []);
-
-  const filterMenuSelected = useMemo(
-    () => ({ status: statusFilter !== "ALL" ? [statusFilter] : [] }),
-    [statusFilter],
-  );
-
-  // Behaves as single-select even though the checkbox list is multi-capable —
-  // picking a second status replaces the first, same convention as Client
-  // Rating's minimum-rating filter.
-  const handleFiltersApply = (next: Record<string, string[]>) => {
-    const picked = next.status ?? [];
-    setStatusFilter((picked.length ? picked[picked.length - 1] : "ALL") as StatusFilter);
-  };
-
   const counts = {
-    total:     campaigns.length,
-    completed: campaigns.filter(c => c.status === "COMPLETED").length,
-    active:    campaigns.filter(c => ["SENDING","RUNNING"].includes(c.status)).length,
-    paused:    campaigns.filter(c => c.status === "PAUSED").length,
+    all:       campaigns.length,
     scheduled: campaigns.filter(c => c.status === "SCHEDULED").length,
+    running:   campaigns.filter(c => ["SENDING", "RUNNING"].includes(c.status)).length,
+    completed: campaigns.filter(c => c.status === "COMPLETED").length,
+    failed:    campaigns.filter(c => c.status === "FAILED").length,
   };
+
+  const STATUS_TABS: { key: StatusFilter; label: string; count: number }[] = [
+    { key: "ALL",       label: "All",       count: counts.all },
+    { key: "SCHEDULED", label: "Scheduled", count: counts.scheduled },
+    { key: "RUNNING",   label: "Running",   count: counts.running },
+    { key: "COMPLETED", label: "Completed", count: counts.completed },
+    { key: "FAILED",    label: "Failed",    count: counts.failed },
+  ];
 
   return (
     <div className="ch-page">
       {overlay}
 
-      {/* Summary */}
-      <div className="ch-summary">
-        {[
-          { val: counts.total,     label: "Total",     color: undefined  },
-          { val: counts.completed, label: "Completed", color: "#10b981"  },
-          { val: counts.active,    label: "Active",    color: "#3b82f6"  },
-          { val: counts.paused,    label: "Paused",    color: "#f59e0b"  },
-          { val: counts.scheduled, label: "Scheduled", color: "#8b5cf6"  },
-        ].map(s => (
-          <div key={s.label} className="ch-summary-card">
-            <span className="ch-summary-val" style={s.color ? { color: s.color } : {}}>{s.val}</span>
-            <span className="ch-summary-label">{s.label}</span>
-          </div>
+      <PageHeader
+        title="Campaigns"
+        subtitle="Create and manage WhatsApp campaigns."
+        actions={
+          <Button
+            variant="primary"
+            style={!can("create_campaigns") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+            onClick={() => {
+              if (!can("create_campaigns")) { denyPerm("create_campaigns"); return; }
+              navigate("/dashboard/marketing/campaigns/create");
+            }}
+          >
+            + Create Campaign
+          </Button>
+        }
+      />
+
+      {/* Status tabs */}
+      <div className="ch-status-tabs">
+        {STATUS_TABS.map(t => (
+          <button
+            key={t.key}
+            className={`ch-status-tab${statusFilter === t.key ? " ch-status-tab--active" : ""}`}
+            onClick={() => setStatusFilter(t.key)}
+          >
+            {t.label} <span className="ch-status-tab-count">{t.count}</span>
+          </button>
         ))}
       </div>
 
       {/* Toolbar */}
       <div className="ch-toolbar">
-        <JiraFilterMenu fields={filterFields} selected={filterMenuSelected} onApply={handleFiltersApply} triggerLabel="Filters" />
+        <Input
+          placeholder="Search campaigns..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          containerClass="mb-0 ch-search"
+        />
 
         <DateRangeFilter value={dateRange} onChange={setDateRange} />
 
@@ -385,13 +401,6 @@ export default function CampaignHistoryPage() {
             Clear
           </button>
         )}
-
-        <Input
-          placeholder="Search campaigns..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          containerClass="mb-0 ch-search"
-        />
       </div>
 
       {/* Content */}
@@ -404,7 +413,22 @@ export default function CampaignHistoryPage() {
         </div>
       ) : (
         <>
-          <div className="ch-list">
+          <div className="ch-table-wrap">
+            <table className="ch-table">
+              <thead>
+                <tr>
+                  <th className="ch-th-name">Campaign Name</th>
+                  <th>Template</th>
+                  <th>Recipients</th>
+                  <th>Sent</th>
+                  <th>Delivered</th>
+                  <th>Read</th>
+                  <th>Status</th>
+                  <th>Date</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
             {pagedCampaigns.map((c) => {
               const sent      = Number(c.sent_count      ?? c.sent      ?? 0);
               const delivered = Number(c.delivered_count ?? c.delivered ?? 0);
@@ -419,109 +443,109 @@ export default function CampaignHistoryPage() {
               const cd        = contactData[String(c.id)];
 
               return (
-                <div key={c.id} className={`ch-card${isOpen ? " ch-card--open" : ""}`}>
-
-                  {/* Card header */}
-                  <div className="ch-card-header" onClick={() => toggleExpand(String(c.id))}>
-                    <div className="ch-card-left">
-                      <h3 className="ch-card-name">{c.name}</h3>
-                      <p className="ch-card-template">📨 {c.template_name ?? "—"}</p>
+                <Fragment key={c.id}>
+                <tr className={`ch-row${isOpen ? " ch-row--open" : ""}`} onClick={() => toggleExpand(String(c.id))}>
+                  <td className="ch-td-name">
+                    <span className="ch-name-icon">{nameIcon(c.name)}</span>
+                    <div className="ch-td-name-text">
+                      <span className="ch-row-name">{c.name}</span>
+                      {c.status === "SCHEDULED" && c.scheduled_at && (
+                        <span className="ch-scheduled-time">
+                          📅 {new Date(c.scheduled_at).toLocaleString("en-IN", { dateStyle: "short", timeStyle: "short" })}
+                        </span>
+                      )}
                     </div>
-                    <div className="ch-card-right">
-                      <Badge variant={STATUS_BADGE_VARIANT[c.status] ?? "secondary"}>
-                        {STATUS_LABEL[c.status] ?? c.status}
-                      </Badge>
-                      <div className="ch-card-actions" onClick={e => e.stopPropagation()}>
-                        {c.status === "SCHEDULED" && c.scheduled_at && (
-                          <span className="ch-scheduled-time">
-                            📅 {new Date(c.scheduled_at).toLocaleString("en-IN", { dateStyle: "short", timeStyle: "short" })}
-                          </span>
-                        )}
-                        {isActive && (
-                          <Button
-                            variant="outline-warning"
-                            size="sm"
-                            loading={pausingId === String(c.id)}
-                            disabled={(!!pausingId || !!resumingId) && can("send_campaign")}
-                            style={!can("send_campaign") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
-                            onClick={() => handlePause(String(c.id))}
-                          >
-                            ⏸ Pause
-                          </Button>
-                        )}
-                        {isPaused && (
-                          <Button
-                            variant="success"
-                            size="sm"
-                            loading={resumingId === String(c.id)}
-                            disabled={(!!pausingId || !!resumingId) && can("send_campaign")}
-                            style={!can("send_campaign") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
-                            onClick={() => handleResume(String(c.id))}
-                          >
-                            ▶ Resume
-                          </Button>
-                        )}
-                        {(c.status === "COMPLETED" || c.status === "FAILED") && (
-                          <Button
-                            variant="outline-primary"
-                            size="sm"
-                            style={!can("send_campaign") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
-                            onClick={() => handleResendClick(String(c.id), c.name, c.total_contacts ?? c.totalContacts ?? 0)}
-                          >
-                            ↻ Resend
-                          </Button>
-                        )}
-                        {cd && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            loading={exportingId === String(c.id)}
-                            disabled={!!exportingId}
-                            onClick={() => handleExport(c)}
-                          >
-                            ⬇ Export
-                          </Button>
-                        )}
-                      </div>
-                      <span className="ch-expand-icon">{isOpen ? "▲" : "▼"}</span>
-                    </div>
-                  </div>
+                  </td>
+                  <td className="ch-td-template">{c.template_name ?? "—"}</td>
+                  <td>{total.toLocaleString("en-IN")}</td>
+                  <td>{sent.toLocaleString("en-IN")}</td>
+                  <td>{delivered.toLocaleString("en-IN")}</td>
+                  <td>{read.toLocaleString("en-IN")}</td>
+                  <td>
+                    <Badge variant={STATUS_BADGE_VARIANT[c.status] ?? "secondary"}>
+                      {STATUS_LABEL[c.status] ?? c.status}
+                    </Badge>
+                  </td>
+                  <td className="ch-td-date">
+                    {new Date(c.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                  </td>
+                  <td className="ch-td-actions" onClick={e => e.stopPropagation()}>
+                    {isActive && (
+                      <button
+                        className="ch-icon-btn"
+                        title="Pause campaign"
+                        disabled={(!!pausingId || !!resumingId) && can("send_campaign")}
+                        style={!can("send_campaign") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                        onClick={() => handlePause(String(c.id))}
+                      >
+                        {pausingId === String(c.id) ? "…" : "⏸"}
+                      </button>
+                    )}
+                    {isPaused && (
+                      <button
+                        className="ch-icon-btn"
+                        title="Resume campaign"
+                        disabled={(!!pausingId || !!resumingId) && can("send_campaign")}
+                        style={!can("send_campaign") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                        onClick={() => handleResume(String(c.id))}
+                      >
+                        {resumingId === String(c.id) ? "…" : "▶"}
+                      </button>
+                    )}
+                    {(c.status === "COMPLETED" || c.status === "FAILED") && (
+                      <button
+                        className="ch-icon-btn"
+                        title="Resend campaign"
+                        style={!can("send_campaign") ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                        onClick={() => handleResendClick(String(c.id), c.name, c.total_contacts ?? c.totalContacts ?? 0)}
+                      >
+                        ↻
+                      </button>
+                    )}
+                    {cd && (
+                      <button
+                        className="ch-icon-btn"
+                        title="Export CSV"
+                        disabled={!!exportingId}
+                        onClick={() => handleExport(c)}
+                      >
+                        {exportingId === String(c.id) ? "…" : "⬇"}
+                      </button>
+                    )}
+                    <span className="ch-expand-icon">{isOpen ? "▲" : "▼"}</span>
+                  </td>
+                </tr>
 
-                  {/* Progress bar */}
-                  <div className="ch-progress-wrap">
-                    <div className="ch-progress-track">
-                      <div className="ch-progress-fill" style={{ width: total > 0 ? `${Math.round((sent / total) * 100)}%` : "0%" }} />
-                    </div>
-                    <span className="ch-progress-label">{sent}/{total} sent ({pct(sent, total)})</span>
-                  </div>
-
-                  {/* Stats row */}
-                  <div className="ch-stats-row">
-                    {[
-                      { label: "Sent",      val: sent,      color: "#10b981", base: total, hint: "Messages that left your system" },
-                      { label: "Delivered", val: delivered, color: "#3b82f6", base: sent,  hint: "Confirmed on recipient's phone" },
-                      { label: "Read",      val: read,      color: "#8b5cf6", base: sent,  hint: "Opened by recipient" },
-                      { label: "Failed",    val: failed,    color: "#ef4444", base: total, hint: "Could not be delivered" },
-                      { label: "Blocked",   val: blocked,   color: "#f59e0b", base: total, hint: "User daily limit reached (131049)" },
-                    ].map(s => (
-                      <div key={s.label} className="ch-stat" title={s.hint}>
-                        <span className="ch-stat-dot" style={{ background: s.color }} />
-                        <span className="ch-stat-val">{s.val.toLocaleString("en-IN")}</span>
-                        <span className="ch-stat-label">{s.label}</span>
-                        <span className="ch-stat-pct">{pct(s.val, s.base)}</span>
-                      </div>
-                    ))}
-                    <div className="ch-stat ch-stat-meta">
-                      <span className="ch-stat-label">Created:</span>
-                      <span className="ch-stat-val">
-                        {new Date(c.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Expanded contact details */}
-                  {isOpen && (
+                {/* Expanded contact details */}
+                {isOpen && (
+                  <tr className="ch-detail-row">
+                    <td colSpan={9}>
                     <div className="ch-detail">
+                      {/* Progress bar */}
+                      <div className="ch-progress-wrap">
+                        <div className="ch-progress-track">
+                          <div className="ch-progress-fill" style={{ width: total > 0 ? `${Math.round((sent / total) * 100)}%` : "0%" }} />
+                        </div>
+                        <span className="ch-progress-label">{sent}/{total} sent ({pct(sent, total)})</span>
+                      </div>
+
+                      {/* Stats row */}
+                      <div className="ch-stats-row">
+                        {[
+                          { label: "Sent",      val: sent,      color: "#10b981", base: total, hint: "Messages that left your system" },
+                          { label: "Delivered", val: delivered, color: "#3b82f6", base: sent,  hint: "Confirmed on recipient's phone" },
+                          { label: "Read",      val: read,      color: "#8b5cf6", base: sent,  hint: "Opened by recipient" },
+                          { label: "Failed",    val: failed,    color: "#ef4444", base: total, hint: "Could not be delivered" },
+                          { label: "Blocked",   val: blocked,   color: "#f59e0b", base: total, hint: "User daily limit reached (131049)" },
+                        ].map(s => (
+                          <div key={s.label} className="ch-stat" title={s.hint}>
+                            <span className="ch-stat-dot" style={{ background: s.color }} />
+                            <span className="ch-stat-val">{s.val.toLocaleString("en-IN")}</span>
+                            <span className="ch-stat-label">{s.label}</span>
+                            <span className="ch-stat-pct">{pct(s.val, s.base)}</span>
+                          </div>
+                        ))}
+                      </div>
                       <div className="ch-detail-header">
                         <span className="ch-detail-title">
                           📋 Contact Details
@@ -659,10 +683,14 @@ export default function CampaignHistoryPage() {
                         </>
                       )}
                     </div>
-                  )}
-                </div>
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
               );
             })}
+              </tbody>
+            </table>
           </div>
 
           {/* Campaign pagination */}

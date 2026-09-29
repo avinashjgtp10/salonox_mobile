@@ -4,7 +4,8 @@ import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { fetchTemplatesThunk, createCampaignThunk } from "../../../middleware/marketing/marketing.thunk";
 import { ExcelUpload } from "../components";
-import { Button, Input } from "../../../components/ui";
+import ClientContactPicker from "../components/ClientContactPicker";
+import { Button, Input, PageHeader } from "../../../components/ui";
 import Dropdown from "../../../components/ui/Dropdown";
 import { useOnce } from "../../../hooks/useOnce";
 import { toTitleCase } from "../../../utils/titleCase";
@@ -74,6 +75,7 @@ export default function CreateCampaignPage() {
 
   const [form,        setForm]        = useState({ name: "", templateId: "", batchSize: 50 });
   const [contacts,    setContacts]    = useState<any[]>([]);
+  const [contactSource, setContactSource] = useState<"excel" | "clients">("excel");
   const [errors,      setErrors]      = useState<Record<string, string>>({});
   const [schedDate,   setSchedDate]   = useState("");
   const [schedTime,   setSchedTime]   = useState("");
@@ -155,6 +157,16 @@ export default function CreateCampaignPage() {
   return (
     <div className="cc-page cc-page--simple">
       {overlay}
+
+      <PageHeader
+        title="Create Campaign"
+        subtitle="Send a bulk WhatsApp campaign to your contacts."
+        actions={
+          <Button variant="outline-secondary" onClick={() => navigate("/dashboard/marketing/campaigns/history")}>
+            ← Back to Campaigns
+          </Button>
+        }
+      />
 
       <div className="cc-simple-form">
 
@@ -290,10 +302,32 @@ export default function CreateCampaignPage() {
               </div>
             )}
 
-            <ExcelUpload onContactsLoaded={setContacts} />
+            <div className="cc-source-tabs">
+              <button
+                type="button"
+                className={`cc-source-tab${contactSource === "excel" ? " cc-source-tab--active" : ""}`}
+                onClick={() => { setContactSource("excel"); setContacts([]); }}
+              >
+                📊 Upload Excel
+              </button>
+              <button
+                type="button"
+                className={`cc-source-tab${contactSource === "clients" ? " cc-source-tab--active" : ""}`}
+                onClick={() => { setContactSource("clients"); setContacts([]); }}
+              >
+                👥 Select from Clients
+              </button>
+            </div>
+
+            {contactSource === "excel" ? (
+              <ExcelUpload onContactsLoaded={setContacts} />
+            ) : (
+              <ClientContactPicker onContactsLoaded={setContacts} />
+            )}
+
             {contacts.length > 0 && dailyLimit > 0 && contacts.length > dailyLimit && (
               <div className="cc-over-limit-warn">
-                🚫 Your Excel has {contacts.length.toLocaleString()} contacts but your daily limit is {dailyLimit.toLocaleString()}.
+                🚫 You've selected {contacts.length.toLocaleString()} contacts but your daily limit is {dailyLimit.toLocaleString()}.
               </div>
             )}
 

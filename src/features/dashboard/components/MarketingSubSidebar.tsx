@@ -72,7 +72,7 @@ export default function MarketingSubSidebar({ onClose }: Props) {
         <hr className="sub-divider" />
         <div className="sub-category">Campaigns</div>
 
-        {link("/dashboard/marketing/campaigns/create", "view_campaigns", "ti-send", "Campaigns", campaignsActive)}
+        {link("/dashboard/marketing/campaigns/history", "view_campaigns", "ti-send", "Campaigns", campaignsActive)}
         {link("/dashboard/marketing/templates", "view_templates", "ti-template", "Templates")}
         {link("/dashboard/marketing/scheduled-templates", "view_scheduled_templates", "ti-calendar-time", "Scheduled Templates")}
 
@@ -84,6 +84,7 @@ export default function MarketingSubSidebar({ onClose }: Props) {
         <hr className="sub-divider" />
         <div className="sub-category">Setup</div>
 
+        {link("/dashboard/marketing/message-settings", "view_templates", "ti-adjustments", "Message Settings")}
         {link("/dashboard/marketing/config", "view_whatsapp_config", "ti-settings", "WhatsApp Config")}
       </div>
     </div>

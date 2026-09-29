@@ -10,9 +10,11 @@ import MarketingOnboardingPage from "../features/marketing/pages/MarketingOnboar
 const MarketingDashboardPage = lazy(() => import("../features/marketing/pages/MarketingDashboardPage"));
 const AnalyticsPage          = lazy(() => import("../features/marketing/pages/AnalyticsPage"));
 const TemplatesListPage      = lazy(() => import("../features/marketing/pages/TemplatesListPage"));
+const MessageSettingsPage    = lazy(() => import("../features/marketing/pages/MessageSettingsPage"));
 const ScheduledTemplatesPage = lazy(() => import("../features/marketing/pages/ScheduledTemplatesPage"));
 const CreateTemplatePage     = lazy(() => import("../features/marketing/pages/CreateTemplatePage"));
-const CampaignsPage          = lazy(() => import("../features/marketing/pages/CampaignsPage"));
+const CreateCampaignPage     = lazy(() => import("../features/marketing/pages/CreateCampaignPage"));
+const CampaignHistoryPage    = lazy(() => import("../features/marketing/pages/CampaignHistoryPage"));
 const InboxPage              = lazy(() => import("../features/marketing/pages/InboxPage"));
 const WaConfigPage           = lazy(() => import("../features/marketing/pages/WaConfigPage"));
 
@@ -44,14 +46,14 @@ export const MarketingRoutes = () => {
         <Routes>
           {/* Config page always accessible */}
           <Route path="config" element={<WaConfigPage />} />
-          {/* Templates hosts both Campaign Templates (WhatsApp-only, still
-              effectively blocked by TemplatesListPage defaulting to the
-              Trigger tab below) and Trigger Templates (SMS/Email + WhatsApp
-              per event) — SMS/Email don't need WhatsApp connected at all, so
-              a salon without WhatsApp shouldn't be locked out of them too.
-              templates/create stays gated: that's WhatsApp Campaign template
-              creation specifically, genuinely nothing to do without WA. */}
-          <Route path="templates" element={<TemplatesListPage />} />
+          {/* Message Settings (per-event trigger wording + SMS/Email/WhatsApp
+              on-off toggles — formerly the "Trigger Templates" tab inside
+              Templates) doesn't need WhatsApp connected at all — SMS/Email
+              work regardless — so a salon without WhatsApp shouldn't be
+              locked out of it. Templates (Campaign Templates, WhatsApp-only)
+              genuinely has nothing to do without WA, so it's NOT listed here
+              — it falls through to onboarding like everything else. */}
+          <Route path="message-settings" element={<MessageSettingsPage />} />
           {/* Everything else → onboarding */}
           <Route path="*" element={<MarketingOnboardingPage />} />
         </Routes>
@@ -72,6 +74,9 @@ export const MarketingRoutes = () => {
           <Route path="templates" element={<TemplatesListPage />} />
           <Route path="templates/create" element={<CreateTemplatePage />} />
         </Route>
+        <Route element={<PermissionGuard permKey="view_templates" />}>
+          <Route path="message-settings" element={<MessageSettingsPage />} />
+        </Route>
         <Route element={<PermissionGuard permKey="view_scheduled_templates" />}>
           <Route path="scheduled-templates" element={<ScheduledTemplatesPage />} />
         </Route>
@@ -80,8 +85,9 @@ export const MarketingRoutes = () => {
             this Marketing section stays available to every tier. */}
         <Route element={<PlanFeatureGuard featureKey="marketing" label="Marketing Campaigns" />}>
           <Route element={<PermissionGuard permKey="view_campaigns" />}>
-            <Route path="campaigns/create"  element={<CampaignsPage />} />
-            <Route path="campaigns/history" element={<CampaignsPage />} />
+            <Route path="campaigns/create"  element={<CreateCampaignPage />} />
+            <Route path="campaigns/history" element={<CampaignHistoryPage />} />
+            <Route path="campaigns" element={<Navigate to="/dashboard/marketing/campaigns/history" replace />} />
           </Route>
         </Route>
         <Route element={<PermissionGuard permKey="view_inbox" />}>
