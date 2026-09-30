@@ -11,6 +11,7 @@ import {
 } from "axios";
 
 import { environmentConfig } from "@/config/environment";
+import { isUserLogoutInProgress } from "@/services/authLifecycle";
 import {
   getAuthErrorMessage,
   getAuthErrorStatus,
@@ -19,10 +20,9 @@ import {
   shouldInvalidateSession,
   shouldRefreshToken,
 } from "@/services/authSession";
-import { isUserLogoutInProgress } from "@/services/authLifecycle";
 import { isNetworkOnline, waitForNetworkOnline } from "@/services/networkStatus";
-import { tokenStorage } from "@/services/tokenStorage";
 import { notifySessionInvalidated } from "@/services/sessionInvalidation";
+import { tokenStorage } from "@/services/tokenStorage";
 import type { ApiResponse, RefreshTokenResponseData } from "@/types/auth";
 
 export const API_BASE_URL = environmentConfig.apiBaseUrl;
@@ -288,6 +288,10 @@ const toApiError = (error: unknown) => {
 
 const shouldSkipRefreshForRequest = (requestUrl: string) =>
   requestUrl.includes("/auth/login") ||
+
+requestUrl.includes("/auth/register") ||
+  requestUrl.includes("/auth/send-email-otp") ||
+  requestUrl.includes("/auth/verify-email-otp") ||
   requestUrl.includes("/auth/refresh") ||
   requestUrl.includes("/auth/logout") ||
   requestUrl.includes("/auth/forgot-password") ||
@@ -377,13 +381,11 @@ const refreshAccessToken = async (reason: string) => {
         }
 
         throw toApiError(refreshError);
-      } finally {
-        if (refreshAbortController === controller) {
-          refreshAbortController = null;
-        }
-        refreshAccessTokenPromise = null;
       }
-    })();
+    })().finally(() => {
+      refreshAbortController = null;
+      refreshAccessTokenPromise = null;
+    });
   }
 
   return refreshAccessTokenPromise;

@@ -5,11 +5,11 @@ import type { Branch } from "@/types/branch";
 
 // Exercise the real reducer/selectors without starting unrelated API services.
 jest.mock("@/middleware/branch/branch.thunk", () => {
-  const { createAsyncThunk } = require("@reduxjs/toolkit");
+  const { createAsyncThunk } = jest.requireActual<typeof import("@reduxjs/toolkit")>("@reduxjs/toolkit");
   return { fetchBranchesThunk: createAsyncThunk("branch/fetchBranches", async () => []) };
 });
 jest.mock("@/middleware/user/user.thunk", () => {
-  const { createAsyncThunk } = require("@reduxjs/toolkit");
+  const { createAsyncThunk } = jest.requireActual<typeof import("@reduxjs/toolkit")>("@reduxjs/toolkit");
   return { fetchCurrentUserThunk: createAsyncThunk("user/fetchCurrentUser", async () => null) };
 });
 

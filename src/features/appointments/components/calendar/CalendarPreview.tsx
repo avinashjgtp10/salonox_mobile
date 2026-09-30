@@ -12,12 +12,47 @@ import type { AppointmentListItem } from "@/types/appointment";
 import { formatAppTime } from "@/utils/dateTime";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Modal, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Modal, Pressable, RefreshControl, ScrollView, Text, View, type GestureResponderEvent } from "react-native";
+
+type CalendarStyles = ReturnType<typeof createStyles>;
+
+type CalendarColumn = {
+  key: string;
+  label: string;
+  staffId: string;
+  staffName: string;
+};
 
 const STAFF_COLORS = ["#6366F1", "#8B5CF6", "#EC4899", "#D97706", "#059669", "#2563EB"];
 const staffColor = (id: string) => STAFF_COLORS[Array.from(id).reduce((sum, letter) => sum + letter.charCodeAt(0), 0) % STAFF_COLORS.length];
 const initials = (name: string) => name.trim().split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
+const pad2 = (value: number) => String(value).padStart(2, "0");
+
+const START_HOUR = 0;
+const HOUR_HEIGHT = 160;
+const SLOT_MINUTES = 15;
+const SLOT_HEIGHT = HOUR_HEIGHT * (SLOT_MINUTES / 60);
+const TIME_COLUMN_WIDTH = 54;
+const HOURS = Array.from({ length: 24 }, (_, index) => START_HOUR + index);
+const GRID_HEIGHT = HOURS.length * HOUR_HEIGHT;
+
+// Intl formatters are expensive to construct on Hermes, so build them (and
+// the static time-rail labels) once instead of on every render.
+const HOUR_LABEL_FORMAT = new Intl.DateTimeFormat("en-IN", { hour: "numeric", hour12: true });
+const DAY_LABEL_FORMAT = new Intl.DateTimeFormat("en-IN", { weekday: "short", day: "2-digit", month: "short" });
+const TIME_SLOTS = Array.from({ length: HOURS.length * (60 / SLOT_MINUTES) }, (_, index) => {
+  const totalMinutes = START_HOUR * 60 + index * SLOT_MINUTES;
+  const hour = Math.floor(totalMinutes / 60);
+  const minute = totalMinutes % 60;
+  return {
+    hour,
+    label: minute === 0
+      ? HOUR_LABEL_FORMAT.format(new Date(2020, 0, 1, hour))
+      : `${pad2(hour % 12 || 12)}:${pad2(minute)}`,
+    minute,
+  };
+});
 
 export function CalendarPreview({
   appointments,
@@ -44,42 +79,51 @@ export function CalendarPreview({
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const [previewAppointment, setPreviewAppointment] = useState<AppointmentListItem | null>(null);
   const [quickSaleSlot, setQuickSaleSlot] = useState<QuickSaleSlot | null>(null);
-  const startHour = 0;
-  const hourHeight = 160;
-  const hours = useMemo(() => Array.from({ length: 24 }, (_, index) => startHour + index), []);
-  const timeSlots = useMemo(() => Array.from({ length: hours.length * 4 }, (_, index) => {
-    const totalMinutes = startHour * 60 + index * 15;
-    return { hour: Math.floor(totalMinutes / 60), minute: totalMinutes % 60 };
-  }), [hours.length]);
   const days = useMemo(() => Array.from({ length: 7 }, (_, index) => {
     const value = new Date(`${date}T00:00:00`);
     value.setDate(value.getDate() + index);
     return {
-      key: `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`,
-      label: new Intl.DateTimeFormat("en-IN", { weekday: "short", day: "2-digit", month: "short" }).format(value),
+      key: `${value.getFullYear()}-${pad2(value.getMonth() + 1)}-${pad2(value.getDate())}`,
+      label: DAY_LABEL_FORMAT.format(value),
     };
   }), [date]);
   // One column per staff *id* — same-named staff each get their own column
   // instead of being merged into one.
-  const columns = useMemo(() => viewMode === "day"
+  const columns = useMemo<CalendarColumn[]>(() => viewMode === "day"
     ? (staffColumns.length
       ? staffColumns.map((option) => ({ key: date, label: option.label, staffId: option.id, staffName: option.name }))
       : [{ key: date, label: "All Staff", staffId: "", staffName: "" }])
     : days.map((day) => ({ ...day, staffId: "", staffName: "" })), [date, days, staffColumns, viewMode]);
   const columnWidth = viewMode === "day" ? 156 : 118;
-  const calendarContentWidth = 54 + columns.length * columnWidth;
+  const calendarContentWidth = TIME_COLUMN_WIDTH + columns.length * columnWidth;
   // Keep the full grid mounted: native scrolling can outrun JS-driven render windows,
   // exposing blank rows/columns during flings or programmatic scrolls.
-  const appointmentsByColumn = useMemo(() => columns.map((column) => appointments.filter((appointment) => getDateKey(appointment.scheduledAt) === column.key && (!column.staffId || (resolveStaffId ? resolveStaffId(appointment) : appointment.staffId) === column.staffId))), [appointments, columns, resolveStaffId]);
+  const appointmentsByColumn = useMemo(() => {
+    const keyed = appointments.map((appointment) => ({ appointment, dateKey: getDateKey(appointment.scheduledAt) }));
+    return columns.map((column) => keyed
+      .filter(({ appointment, dateKey }) => dateKey === column.key && (!column.staffId || (resolveStaffId ? resolveStaffId(appointment) : appointment.staffId) === column.staffId))
+      .map(({ appointment }) => appointment));
+  }, [appointments, columns, resolveStaffId]);
   const now = new Date();
-  const currentMinuteOffset = now.getHours() * 60 + now.getMinutes() - startHour * 60;
-  const showCurrentTime = viewMode === "day" && date === todayIsoDate() && currentMinuteOffset >= 0 && currentMinuteOffset < hours.length * 60;
+  const currentMinuteOffset = now.getHours() * 60 + now.getMinutes() - START_HOUR * 60;
+  const showCurrentTime = viewMode === "day" && date === todayIsoDate() && currentMinuteOffset >= 0 && currentMinuteOffset < HOURS.length * 60;
   const verticalScrollRef = useRef<ScrollView>(null);
+  const previewId = previewAppointment?.id ?? null;
+
+  const openQuickSaleAt = useCallback((column: CalendarColumn, locationY: number) => {
+    const slotIndex = Math.min(TIME_SLOTS.length - 1, Math.max(0, Math.floor(locationY / SLOT_HEIGHT)));
+    const { hour, minute } = TIME_SLOTS[slotIndex];
+    setQuickSaleSlot({
+      date: column.key,
+      staffName: column.staffName || undefined,
+      time: `${pad2(hour)}:${pad2(minute)}`,
+    });
+  }, []);
 
   useEffect(() => {
     if (viewMode === "list") return;
-    const clampedOffset = Math.min(Math.max(currentMinuteOffset, 0), hours.length * 60);
-    const targetY = Math.max(0, (clampedOffset / 60) * hourHeight - hourHeight);
+    const clampedOffset = Math.min(Math.max(currentMinuteOffset, 0), HOURS.length * 60);
+    const targetY = Math.max(0, (clampedOffset / 60) * HOUR_HEIGHT - HOUR_HEIGHT);
     const frame = requestAnimationFrame(() => {
       verticalScrollRef.current?.scrollTo({ y: targetY, animated: false });
     });
@@ -87,7 +131,7 @@ export function CalendarPreview({
     // currentMinuteOffset intentionally excluded: it changes every render via `new Date()`,
     // and this should only re-scroll when the viewed day/mode changes, not every tick.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [date, viewMode, hours.length, hourHeight]);
+  }, [date, viewMode]);
 
   if (viewMode === "list") {
     return (
@@ -138,87 +182,30 @@ export function CalendarPreview({
             showsVerticalScrollIndicator
             style={styles.dinggVerticalScroller}
           >
-            <View style={[styles.dinggGridBody, { height: hours.length * hourHeight }]}>
-              <View style={styles.dinggTimeColumn}>
-                {timeSlots.map(({ hour, minute }) => (
-                  <View key={`${hour}-${minute}`} style={[styles.dinggTimeCell, { position: 'absolute', left: 0, right: 0, top: (hour + minute / 60) * hourHeight, height: hourHeight / 4 }]}>
-                    <Text style={[styles.dinggTimeText, minute === 0 && styles.dinggHourText]}>{minute === 0 ? new Intl.DateTimeFormat("en-IN", { hour: "numeric", hour12: true }).format(new Date(2020, 0, 1, hour)) : `${String(hour % 12 || 12).padStart(2, "0")}:${String(minute).padStart(2, "0")}`}</Text>
-                  </View>
-                ))}
-              </View>
+            <View style={[styles.dinggGridBody, { height: GRID_HEIGHT }]}>
+              <CalendarTimeColumn styles={styles} />
+              <CalendarGridLines
+                filled={viewMode === "day"}
+                styles={styles}
+                width={columns.length * columnWidth}
+              />
               {columns.map((column, columnIndex) => {
                 const columnAppointments = appointmentsByColumn[columnIndex];
                 return (
-                  <View key={`${column.key}-${column.staffId || columnIndex}`} style={[styles.dinggDayColumn, viewMode === "day" && (columnIndex % 2 === 0 ? styles.dinggColumnAvailable : styles.dinggColumnUnavailable), { width: columnWidth }]}>
-                    {timeSlots.map(({ hour, minute }) => (
-                      <Pressable
-                        accessibilityHint="Opens Quick Sale for this calendar slot"
-                        accessibilityLabel={`Quick Sale, ${column.label}, ${String(hour % 12 || 12)}:${String(minute).padStart(2, "0")}`}
-                        accessibilityRole="button"
-                        key={`quick-sale-slot-${column.key}-${columnIndex}-${hour}-${minute}`}
-                        onPress={() => setQuickSaleSlot({
-                          date: column.key,
-                          staffName: column.staffName || undefined,
-                          time: `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`,
-                        })}
-                        style={[styles.dinggQuickSaleSlot, { height: hourHeight / 4, top: (hour + minute / 60) * hourHeight }]}
-                      />
-                    ))}
-                    {hours.map((hour) => (
-                      <View key={`${column.key}-${hour}`} style={[styles.dinggHourCell, { position: 'absolute', left: 0, right: 0, top: hour * hourHeight, height: hourHeight }]}>
-                        <View style={[styles.dinggQuarterLine, { top: "25%" }]} />
-                        <View style={[styles.dinggQuarterLine, { top: "50%" }]} />
-                        <View style={[styles.dinggQuarterLine, { top: "75%" }]} />
-                      </View>
-                    ))}
-                    {columnAppointments.map((appointment) => {
-                      const scheduled = parseAppointmentDateTime(appointment.scheduledAt);
-                      if (!scheduled) return null;
-                      const offsetMinutes = scheduled.getHours() * 60 + scheduled.getMinutes() - startHour * 60;
-                      if (offsetMinutes < 0 || offsetMinutes >= hours.length * 60) return null;
-                      const appointmentRange = getAppointmentRange(appointment);
-                      const calendarDurationMinutes = appointmentRange
-                        ? Math.max((appointmentRange.end - appointmentRange.start) / 60_000, 1)
-                        : appointment.durationMinutes ?? 30;
-                      const height = Math.max((calendarDurationMinutes / 60) * hourHeight, 36);
-                      const top = (offsetMinutes / 60) * hourHeight;
-                      const appointmentTitle = getCalendarAppointmentTitle(appointment);
-                      const tokenLabel = getCalendarTokenLabel(appointment);
-                      const endTimeLabel = appointment.endTime
-                        ? formatTimeLabel(appointment.endTime)
-                        : appointmentRange
-                          ? formatAppTime(new Date(appointmentRange.end), "--:--")
-                          : "--:--";
-                      const appointmentSummary = [
-                        appointment.clientName || "Walk-In",
-                        tokenLabel,
-                        `${formatTimeLabel(appointment.scheduledAt)}-${endTimeLabel}`,
-                        appointmentTitle,
-                      ].filter(Boolean).join(", ");
-                      const summaryLineCount = Math.max(1, Math.floor((height - (height >= 54 ? 28 : 10)) / 14));
-                      const isReadonly = isReadonlyCalendarAppointment(appointment);
-                      const isOverlapping = columnAppointments.some((candidate) => candidate.id !== appointment.id && appointmentsOverlap(appointment, candidate));
-                      const isHighlighted = previewAppointment?.id === appointment.id || hasCalendarInteractionFlag(appointment, "isHighlighted", "is_highlighted");
-                      const isDragging = hasCalendarInteractionFlag(appointment, "isDragging", "is_dragging");
-                      const isResizing = hasCalendarInteractionFlag(appointment, "isResizing", "is_resizing");
-                      return (
-                        <Pressable
-                          disabled={isReadonly}
-                          key={appointment.id}
-                          onPress={() => !isReadonly && setPreviewAppointment(appointment)}
-                          style={[styles.dinggAppointmentCard, isOverlapping && styles.dinggAppointmentOverlapping, isHighlighted && styles.dinggAppointmentHighlighted, isDragging && styles.dinggAppointmentDragging, isResizing && styles.dinggAppointmentResizing, appointment.status === "Deleted" && styles.dinggAppointmentDeleted, { height, top }]}
-                        >
-                          <LinearGradient colors={getWebCalendarGradient(appointment)} end={{ x: 0, y: 1 }} start={{ x: 1, y: 0 }} style={styles.dinggAppointmentGradient}>
-                            {height >= 54 ? <View style={styles.dinggAppointmentIcons}><Ionicons name="male-outline" size={13} color="#ffffff" /><Ionicons name="gift-outline" size={13} color="#ffffff" /></View> : null}
-                            <Text numberOfLines={summaryLineCount} style={styles.dinggAppointmentSummary}>{appointmentSummary}</Text>
-                          </LinearGradient>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
+                  <CalendarDayColumn
+                    appointments={columnAppointments}
+                    column={column}
+                    // Only the column showing the previewed appointment re-renders on tap.
+                    highlightedId={previewId && columnAppointments.some((item) => item.id === previewId) ? previewId : null}
+                    key={`${column.key}-${column.staffId || columnIndex}`}
+                    onAppointmentPress={setPreviewAppointment}
+                    onSlotPress={openQuickSaleAt}
+                    styles={styles}
+                    width={columnWidth}
+                  />
                 );
               })}
-              {showCurrentTime ? <View pointerEvents="none" style={[styles.dinggCurrentTime, { top: (currentMinuteOffset / 60) * hourHeight }]}><Text style={styles.dinggCurrentTimeLabel}>{formatAppTime(now)}</Text><View style={styles.dinggCurrentTimeDot} /><View style={styles.dinggCurrentTimeLine} /></View> : null}
+              {showCurrentTime ? <View pointerEvents="none" style={[styles.dinggCurrentTime, { top: (currentMinuteOffset / 60) * HOUR_HEIGHT }]}><Text style={styles.dinggCurrentTimeLabel}>{formatAppTime(now)}</Text><View style={styles.dinggCurrentTimeDot} /><View style={styles.dinggCurrentTimeLine} /></View> : null}
             </View>
           </ScrollView>
         </View>
@@ -258,3 +245,124 @@ export function CalendarPreview({
     </View>
   );
 }
+
+/** The static time rail on the left; never changes after the first render. */
+const CalendarTimeColumn = memo(function CalendarTimeColumn({ styles }: { styles: CalendarStyles }) {
+  return (
+    <View style={styles.dinggTimeColumn}>
+      {TIME_SLOTS.map(({ hour, label, minute }) => (
+        <View key={`${hour}-${minute}`} style={[styles.dinggTimeCell, { position: "absolute", left: 0, right: 0, top: (hour + minute / 60) * HOUR_HEIGHT, height: SLOT_HEIGHT }]}>
+          <Text style={[styles.dinggTimeText, minute === 0 && styles.dinggHourText]}>{label}</Text>
+        </View>
+      ))}
+    </View>
+  );
+});
+
+/**
+ * Hour and quarter-hour lines, drawn once across every column rather than
+ * once per column. `filled` paints the day-view column background behind them.
+ */
+const CalendarGridLines = memo(function CalendarGridLines({
+  filled,
+  styles,
+  width,
+}: {
+  filled: boolean;
+  styles: CalendarStyles;
+  width: number;
+}) {
+  return (
+    <View
+      pointerEvents="none"
+      style={[styles.dinggGridLines, filled && styles.dinggColumnAvailable, { left: TIME_COLUMN_WIDTH, width }]}
+    >
+      {HOURS.map((hour) => (
+        <View key={hour} style={[styles.dinggHourCell, { position: "absolute", left: 0, right: 0, top: hour * HOUR_HEIGHT, height: HOUR_HEIGHT }]}>
+          <View style={[styles.dinggQuarterLine, { top: "25%" }]} />
+          <View style={[styles.dinggQuarterLine, { top: "50%" }]} />
+          <View style={[styles.dinggQuarterLine, { top: "75%" }]} />
+        </View>
+      ))}
+    </View>
+  );
+});
+
+const CalendarDayColumn = memo(function CalendarDayColumn({
+  appointments,
+  column,
+  highlightedId,
+  onAppointmentPress,
+  onSlotPress,
+  styles,
+  width,
+}: {
+  appointments: AppointmentListItem[];
+  column: CalendarColumn;
+  highlightedId: string | null;
+  onAppointmentPress: (appointment: AppointmentListItem) => void;
+  onSlotPress: (column: CalendarColumn, locationY: number) => void;
+  styles: CalendarStyles;
+  width: number;
+}) {
+  const handleSlotPress = useCallback(
+    (event: GestureResponderEvent) => onSlotPress(column, event.nativeEvent.locationY),
+    [column, onSlotPress],
+  );
+
+  return (
+    <View style={[styles.dinggDayColumn, { width }]}>
+      <Pressable
+        accessibilityHint="Opens Quick Sale at the tapped time"
+        accessibilityLabel={`Quick Sale, ${column.label}`}
+        accessibilityRole="button"
+        onPress={handleSlotPress}
+        style={styles.dinggQuickSaleLayer}
+      />
+      {appointments.map((appointment) => {
+        const scheduled = parseAppointmentDateTime(appointment.scheduledAt);
+        if (!scheduled) return null;
+        const offsetMinutes = scheduled.getHours() * 60 + scheduled.getMinutes() - START_HOUR * 60;
+        if (offsetMinutes < 0 || offsetMinutes >= HOURS.length * 60) return null;
+        const appointmentRange = getAppointmentRange(appointment);
+        const calendarDurationMinutes = appointmentRange
+          ? Math.max((appointmentRange.end - appointmentRange.start) / 60_000, 1)
+          : appointment.durationMinutes ?? 30;
+        const height = Math.max((calendarDurationMinutes / 60) * HOUR_HEIGHT, 36);
+        const top = (offsetMinutes / 60) * HOUR_HEIGHT;
+        const appointmentTitle = getCalendarAppointmentTitle(appointment);
+        const tokenLabel = getCalendarTokenLabel(appointment);
+        const endTimeLabel = appointment.endTime
+          ? formatTimeLabel(appointment.endTime)
+          : appointmentRange
+            ? formatAppTime(new Date(appointmentRange.end), "--:--")
+            : "--:--";
+        const appointmentSummary = [
+          appointment.clientName || "Walk-In",
+          tokenLabel,
+          `${formatTimeLabel(appointment.scheduledAt)}-${endTimeLabel}`,
+          appointmentTitle,
+        ].filter(Boolean).join(", ");
+        const summaryLineCount = Math.max(1, Math.floor((height - (height >= 54 ? 28 : 10)) / 14));
+        const isReadonly = isReadonlyCalendarAppointment(appointment);
+        const isOverlapping = appointments.some((candidate) => candidate.id !== appointment.id && appointmentsOverlap(appointment, candidate));
+        const isHighlighted = highlightedId === appointment.id || hasCalendarInteractionFlag(appointment, "isHighlighted", "is_highlighted");
+        const isDragging = hasCalendarInteractionFlag(appointment, "isDragging", "is_dragging");
+        const isResizing = hasCalendarInteractionFlag(appointment, "isResizing", "is_resizing");
+        return (
+          <Pressable
+            disabled={isReadonly}
+            key={appointment.id}
+            onPress={() => !isReadonly && onAppointmentPress(appointment)}
+            style={[styles.dinggAppointmentCard, isOverlapping && styles.dinggAppointmentOverlapping, isHighlighted && styles.dinggAppointmentHighlighted, isDragging && styles.dinggAppointmentDragging, isResizing && styles.dinggAppointmentResizing, appointment.status === "Deleted" && styles.dinggAppointmentDeleted, { height, top }]}
+          >
+            <LinearGradient colors={getWebCalendarGradient(appointment)} end={{ x: 0, y: 1 }} start={{ x: 1, y: 0 }} style={styles.dinggAppointmentGradient}>
+              {height >= 54 ? <View style={styles.dinggAppointmentIcons}><Ionicons name="male-outline" size={13} color="#ffffff" /><Ionicons name="gift-outline" size={13} color="#ffffff" /></View> : null}
+              <Text numberOfLines={summaryLineCount} style={styles.dinggAppointmentSummary}>{appointmentSummary}</Text>
+            </LinearGradient>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+});

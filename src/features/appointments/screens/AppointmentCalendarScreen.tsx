@@ -5,6 +5,7 @@ import { CalendarStaffGate } from "@/features/appointments/components/calendar/C
 import { CalendarStatusFilter } from "@/features/appointments/components/calendar/CalendarStatusFilter";
 import { ScreenShell } from "@/features/appointments/components/shared/ScreenShell";
 import { useAllStaffMembers } from "@/features/appointments/hooks/useAllStaffMembers";
+import { useDebouncedValue } from "@/features/quickSale/hooks/useDebouncedValue";
 import { useAppointmentListFilters, useFetchAppointments } from "@/features/appointments/hooks/useAppointmentList";
 import { createStyles } from "@/features/appointments/styles/appointmentStyles";
 import { todayIsoDate } from "@/features/appointments/utils/appointmentDateTime";
@@ -34,6 +35,8 @@ function AppointmentCalendarContent() {
   const loading = useAppSelector(selectAppointmentsIsLoading);
   const error = useAppSelector(selectAppointmentsError);
   const { date, search, setDate, setSearch } = useAppointmentListFilters();
+  // Typing updates the field immediately; the request waits for a pause.
+  const debouncedSearch = useDebouncedValue(search, 350);
   const [selectedStatuses, setSelectedStatuses] = useState<AppointmentStatus[]>([]);
   // The list API supports a single status. Fetch the unfiltered calendar data
   // so local multi-select never loses appointments belonging to another status.
@@ -103,13 +106,23 @@ function AppointmentCalendarContent() {
 
   useEffect(() => {
     void fetchAppointments(viewMode === "week"
-      ? { fromDate: date, limit: 200, reset: true, search, staffId: selectedStaffId, status, toDate: rangeEndKey }
-      : { date, limit: 200, reset: true, search, staffId: selectedStaffId, status });
-  }, [date, fetchAppointments, rangeEndKey, search, selectedStaffId, status, viewMode]);
+      ? { fromDate: date, limit: 200, reset: true, search: debouncedSearch, staffId: selectedStaffId, status, toDate: rangeEndKey }
+      : { date, limit: 200, reset: true, search: debouncedSearch, staffId: selectedStaffId, status });
+  }, [date, debouncedSearch, fetchAppointments, rangeEndKey, selectedStaffId, status, viewMode]);
+
+  const refreshAppointments = useCallback(() => {
+    void fetchAppointments(viewMode === "week"
+      ? { fromDate: date, limit: 200, refresh: true, search: debouncedSearch, staffId: selectedStaffId, status, toDate: rangeEndKey }
+      : { date, limit: 200, refresh: true, search: debouncedSearch, staffId: selectedStaffId, status });
+  }, [date, debouncedSearch, fetchAppointments, rangeEndKey, selectedStaffId, status, viewMode]);
+  const staffColumns = useMemo(
+    () => (selectedStaffIds.length ? staffOptions.filter((option) => selectedStaffIds.includes(option.id)) : staffOptions),
+    [selectedStaffIds, staffOptions],
+  );
 
   return (
     <ScreenShell
-      onRefresh={() => void fetchAppointments(viewMode === "week" ? { fromDate: date, limit: 200, refresh: true, search, staffId: selectedStaffId, status, toDate: rangeEndKey } : { date, limit: 200, refresh: true, search, staffId: selectedStaffId, status })}
+      onRefresh={refreshAppointments}
       refreshing={refreshing}
       hideHeader
       contentBottomPadding={0}
@@ -154,12 +167,10 @@ function AppointmentCalendarContent() {
         showEmptyState={!loading && !error}
         appointments={visibleAppointments}
         date={date}
-        onRefresh={() => void fetchAppointments(viewMode === "week" ? { fromDate: date, limit: 200, refresh: true, search, staffId: selectedStaffId, status, toDate: rangeEndKey } : { date, limit: 200, refresh: true, search, staffId: selectedStaffId, status })}
+        onRefresh={refreshAppointments}
         refreshing={refreshing}
         resolveStaffId={resolveStaffId}
-        staffColumns={selectedStaffIds.length
-          ? staffOptions.filter((option) => selectedStaffIds.includes(option.id))
-          : staffOptions}
+        staffColumns={staffColumns}
         viewMode={viewMode}
       />
       <Modal animationType="fade" onRequestClose={() => setViewMenuVisible(false)} transparent visible={viewMenuVisible}><Pressable onPress={() => setViewMenuVisible(false)} style={styles.calendarMenuBackdrop}><Pressable style={styles.calendarMenuCard}>{([['week', 'calendar-outline', 'Week view'], ['day', 'today-outline', 'Day view'], ['list', 'list-outline', 'List view']] as const).map(([value, icon, label]) => <TouchableOpacity key={value} onPress={() => { setViewMode(value); setViewMenuVisible(false); }} style={[styles.calendarMenuOption, viewMode === value && styles.calendarMenuOptionActive]}><Ionicons name={icon} size={18} color={Colors.appointmentText} /><Text style={styles.calendarMenuText}>{label}</Text>{viewMode === value ? <Ionicons name="radio-button-on" size={16} color={Colors.appointmentAccent} /> : null}</TouchableOpacity>)}</Pressable></Pressable></Modal>

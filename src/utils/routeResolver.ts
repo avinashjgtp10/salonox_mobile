@@ -12,7 +12,6 @@ export const STAFF_HOME_ROUTE = "/(staff)/home" as Href;
 // group-qualified constant for the experience you mean.
 export const OWNER_CALENDAR_ROUTE = "/(tabs)/calendar" as Href;
 export const STAFF_CALENDAR_ROUTE = "/(staff)/calendar" as Href;
-export const ONBOARDING_ROUTE = "/onboarding" as Href;
 export const SUBSCRIPTION_ROUTE = "/subscription" as Href;
 export const OWNER_ROUTE_GROUP = "(tabs)";
 export const STAFF_ROUTE_GROUP = "(staff)";
@@ -32,9 +31,9 @@ const OWNER_ONLY_TOP_LEVEL_ROUTES = new Set([
   "users",
 ]);
 
-// SCRUM-1838: no longer gated on isOnboardingComplete — the onboarding step
-// (salon setup wizard, src/app/onboarding.tsx) was removed from the launch
-// flow, so role is the only thing that decides staff vs owner experience.
+// SCRUM-1838: no longer gated on isOnboardingComplete — the salon setup
+// wizard was removed from the app, so role is the only thing that decides
+// staff vs owner experience.
 export const isStaffExperienceUser = (user?: AuthUser | null) =>
   !canManageStaffLifecycle(user?.role);
 

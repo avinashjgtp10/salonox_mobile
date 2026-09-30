@@ -150,7 +150,6 @@ function AuthNavigationHandler({ onReady }: { onReady: () => void }) {
 
     const topLevelSegment = String(segments[0] ?? "index");
     const isPublicRoute = PUBLIC_ROUTES.has(topLevelSegment);
-    const isOnboardingRoute = topLevelSegment === "onboarding";
     const isVerifyEmailRoute = topLevelSegment === "verify-email";
     const isSubscriptionRoute = topLevelSegment === "subscription";
 
@@ -162,9 +161,7 @@ function AuthNavigationHandler({ onReady }: { onReady: () => void }) {
 
       // SCRUM-1838: onboarding no longer gates authenticated routing — every
       // authenticated user goes straight through the subscription check into
-      // their dashboard/home, regardless of isOnboardingComplete. A user who
-      // somehow lands on /onboarding (e.g. a stale deep link) is bounced back
-      // out via isOnboardingRoute below, same as any other unexpected route.
+      // their dashboard/home, regardless of isOnboardingComplete.
       if (subscriptionCheck.status === "error") {
         onReady();
         return;
@@ -188,7 +185,7 @@ function AuthNavigationHandler({ onReady }: { onReady: () => void }) {
         (shouldUseStaffApp && isOwnerOnlyRoute(topLevelSegment)) ||
         (!shouldUseStaffApp && isStaffRouteGroup(topLevelSegment));
 
-      if (isPublicRoute || isOnboardingRoute || isSubscriptionRoute || isWrongAuthenticatedApp) {
+      if (isPublicRoute || isSubscriptionRoute || isWrongAuthenticatedApp) {
         router.replace(resolveAuthenticatedRoute(user));
       } else {
         // The target authenticated route (dashboard/home) is now active in the navigator.
@@ -389,7 +386,6 @@ function AppShell() {
                 <Stack.Screen name="verify-otp" />
                 <Stack.Screen name="reset-password" />
                 <Stack.Screen name="verify-email" />
-                <Stack.Screen name="onboarding" />
                 <Stack.Screen name="subscription" />
                 <Stack.Screen name="profile" />
                 <Stack.Screen name="notifications" />

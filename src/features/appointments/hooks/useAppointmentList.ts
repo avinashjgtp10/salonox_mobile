@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
 import { todayIsoDate } from "@/features/appointments/utils/appointmentDateTime";
 import { fetchAppointmentsThunk } from "@/middleware/appointment/appointment.thunk";
@@ -35,6 +35,11 @@ export function useFetchAppointments() {
   const dispatch = useAppDispatch();
   const pagination = useAppSelector(selectAppointmentsPagination);
   const query = useAppSelector(selectAppointmentsQuery);
+  // Each fetch stores its query in Redux. Reading it through a ref keeps
+  // `fetchAppointments` stable, so screens that list it as an effect
+  // dependency don't immediately fetch the same page a second time.
+  const queryRef = useRef(query);
+  queryRef.current = query;
 
   const fetchAppointments = useCallback(
     async ({
@@ -53,20 +58,20 @@ export function useFetchAppointments() {
         fetchAppointmentsThunk({
           date: date || undefined,
           from_date: fromDate,
-          limit: limit ?? query.limit,
+          limit: limit ?? queryRef.current.limit,
           page,
           refresh,
           reset,
           search,
-          sort_by: query.sort_by,
-          sort_order: query.sort_order,
+          sort_by: queryRef.current.sort_by,
+          sort_order: queryRef.current.sort_order,
           staff_id: staffId,
           status: status !== "All" ? appointmentStatusToListApiValue(status) : undefined,
           to_date: toDate,
         }),
       );
     },
-    [dispatch, query.limit, query.sort_by, query.sort_order],
+    [dispatch],
   );
 
   const fetchNext = useCallback(

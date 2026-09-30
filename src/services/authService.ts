@@ -87,12 +87,10 @@ export const authService = {
       ? { headers: { Authorization: `Bearer ${tokens.accessToken}` } }
       : undefined;
 
-    try {
-      await api.post<ApiResponse<{ message?: string }>>("/auth/logout", payload, config);
-    } finally {
-      await tokenStorage.clearSession();
-      logAuthEvent("logout_completed");
-    }
+    // AuthProvider clears locally before this background request. A later
+    // response must not clear tokens belonging to a subsequent login.
+    await api.post<ApiResponse<{ message?: string }>>("/auth/logout", payload, config);
+    logAuthEvent("logout_completed");
   },
 
   async getCurrentUser() {
@@ -167,23 +165,16 @@ export const authService = {
       ? { headers: { Authorization: `Bearer ${tokens.accessToken}` } }
       : undefined;
 
-    try {
-      await api.post<ApiResponse<{ message?: string }>>("/auth/logout-all", undefined, config);
-    } finally {
-      await tokenStorage.clearSession();
-      logAuthEvent("logout_all_completed");
-    }
+    await api.post<ApiResponse<{ message?: string }>>("/auth/logout-all", undefined, config);
+    logAuthEvent("logout_all_completed");
   },
 
   async deleteAccount(payload?: DeleteAccountRequest) {
-    try {
-      await api.delete<ApiResponse<{ message?: string }>>("/auth/account", {
-        ...(payload ? { data: payload } : {}),
-      });
-    } finally {
-      await tokenStorage.clearSession();
-      logAuthEvent("delete_account_completed");
-    }
+    await api.delete<ApiResponse<{ message?: string }>>("/auth/account", {
+      ...(payload ? { data: payload } : {}),
+    });
+    // AuthProvider clears the session only after deletion succeeds.
+    logAuthEvent("delete_account_completed");
   },
 
   async sendEmailOtp(payload: EmailOtpSendRequest) {
