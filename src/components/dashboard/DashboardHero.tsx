@@ -132,9 +132,11 @@ export default function DashboardHero({ onOpenNotifications, onOpenQuickActions 
           <Text numberOfLines={1} style={styles.ownerName}>
             Salon status for today
           </Text>
-          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Start dashboard tour" onPress={tour?.start} style={{ alignSelf: "flex-start", paddingVertical: 10 }}>
-            <Text style={{ color: Colors.primary, fontWeight: "700", fontSize: 13 }}>Take a dashboard tour →</Text>
-          </TouchableOpacity>
+          {tour?.offerTour ? (
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Start dashboard tour" onPress={tour.start} style={{ alignSelf: "flex-start", paddingVertical: 10 }}>
+              <Text style={{ color: Colors.primary, fontWeight: "700", fontSize: 13 }}>Take a dashboard tour →</Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
 
         <View style={styles.avatarColumn}>

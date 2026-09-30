@@ -1,8 +1,11 @@
-import { api } from "@/services/api";
+import { ApiError, api } from "@/services/api";
+import { clientService } from "@/services/client.service";
+import { inboxPhoneKey } from "@/utils/inboxPresentation";
 import { INBOX } from "@/services/api/endpoints";
 import type { ApiResponse } from "@/types/auth";
 import type {
   InboxConversation,
+  InboxCustomer,
   InboxConversationsResponse,
   InboxMessage,
   InboxMessageDirection,
@@ -96,8 +99,10 @@ export const normalizeMessage = (entry: UnknownRecord): InboxMessage => {
     id: toSafeString(firstValue(entry, ["id", "_id"])),
     sentAt,
     sentAtLabel: formatClockTime(sentAt),
-    status: toSafeString(firstValue(entry, ["status"]), "SENT"),
+    status: toSafeString(firstValue(entry, ["status"]), "SENT").toUpperCase(),
     wamid: toSafeString(firstValue(entry, ["wamid"])) || null,
+    mediaType: toSafeString(firstValue(entry, ["media_type", "mediaType"])).toLowerCase() || null,
+    mediaUrl: toSafeString(firstValue(entry, ["media_url", "mediaUrl"])) || null,
   };
 };
 
@@ -117,6 +122,43 @@ const getRecordArray = (payload: ConversationsApiData | MessagesApiData, keys: s
 };
 
 export const inboxService = {
+  async getCustomer(phone: string): Promise<InboxCustomer | null> {
+    try {
+      const response = await api.get<ApiResponse<UnknownRecord | null>>(INBOX.CUSTOMER(phone));
+      const record = response.data.data;
+      if (!record) return null;
+      return {
+        id: toSafeString(record.id),
+        fullName: toSafeString(firstValue(record, ["full_name", "fullName"])) || null,
+        phoneNumber: toSafeString(firstValue(record, ["phone_number", "phoneNumber"])) || phone,
+        totalVisits: toSafeNumber(firstValue(record, ["total_visits", "totalVisits"])),
+        lifetimeSpend: toSafeNumber(firstValue(record, ["lifetime_spend", "lifetimeSpend"])),
+        lastVisitDate: toSafeString(firstValue(record, ["last_visit_date", "lastVisitDate", "last_visit_at", "lastVisitAt", "last_visit", "lastVisit"])) || null,
+        membershipName: toSafeString(firstValue(record, ["membership_name", "membershipName"])) || null,
+      };
+    } catch (error) {
+      // Older deployments do not mount /customer. Do not hide auth or network
+      // failures behind a fallback or incorrectly label them "not a client".
+      if (!(error instanceof ApiError) || error.status !== 404) throw error;
+    }
+    const key = inboxPhoneKey(phone);
+    let offset = 0;
+    for (;;) {
+      const result = await clientService.searchClients({ search: key.slice(-10), limit: 100, offset, sort_by: "full_name", sort_order: "asc" });
+      const client = result.clients.find(item => inboxPhoneKey(item.phone, item.phoneCountryCode) === key);
+      if (client) {
+        const history = await clientService.getClientHistory(client.id);
+        return {
+          id: client.id, fullName: client.fullName, phoneNumber: phone,
+          totalVisits: history.stats.totalVisits, lifetimeSpend: history.stats.lifetimeSpend,
+          lastVisitDate: history.stats.lastVisit,
+          membershipName: history.memberships.find(item => item.status.toLowerCase() === "active")?.membershipName ?? client.membership,
+        };
+      }
+      if (!result.pagination.hasMore || result.pagination.nextOffset <= offset) return null;
+      offset = result.pagination.nextOffset;
+    }
+  },
   async getConversations(): Promise<InboxConversationsResponse> {
     // salonId comes from the JWT server-side (inbox.controller reads
     // req.user.salonId), so no branch/salon param is sent.
@@ -136,8 +178,8 @@ export const inboxService = {
       // Backend orders by sent_at ASC already; defensive re-sort so the
       // thread stays chronological even if that changes.
       .sort((a, b) => {
-        const aTime = a.sentAt ? new Date(a.sentAt).getTime() : 0;
-        const bTime = b.sentAt ? new Date(b.sentAt).getTime() : 0;
+        const aTime = parseAppDateTime(a.sentAt)?.getTime() ?? 0;
+        const bTime = parseAppDateTime(b.sentAt)?.getTime() ?? 0;
 
         return aTime - bTime;
       });

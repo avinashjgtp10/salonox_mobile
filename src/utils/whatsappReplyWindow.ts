@@ -6,9 +6,11 @@
 // whatsappMetaApi.sendTextMessage directly — so a send outside the window
 // fails at Meta after the fact. The app therefore computes the window itself
 // from the message list (getMessages returns `direction` and `sent_at`) and
-// disables the composer rather than letting a message fail silently.
+// disables the composer when history proves the window has expired. Missing
+// inbound history is inconclusive; canAttemptInboxReply defers to the API.
 
 import type { InboxMessage } from "@/types/inbox";
+import { parseAppDateTime } from "@/utils/dateTime";
 
 export const REPLY_WINDOW_MS = 24 * 60 * 60 * 1000;
 
@@ -35,7 +37,7 @@ export const getReplyWindow = (messages: InboxMessage[], now = Date.now()): Repl
       continue;
     }
 
-    const sentMs = new Date(message.sentAt).getTime();
+    const sentMs = parseAppDateTime(message.sentAt)?.getTime() ?? NaN;
 
     if (Number.isFinite(sentMs) && (lastInboundMs === null || sentMs > lastInboundMs)) {
       lastInboundMs = sentMs;
@@ -57,4 +59,11 @@ export const getReplyWindow = (messages: InboxMessage[], now = Date.now()): Repl
     isOpen: remainingMs > 0,
     lastInboundAt: new Date(lastInboundMs),
   };
+};
+
+// Match Web: missing inbound history is an unknown window, not proof that
+// replies are prohibited. The reply API is authoritative in that case.
+export const canAttemptInboxReply = (messages: InboxMessage[], now = Date.now()) => {
+  const window = getReplyWindow(messages, now);
+  return window.lastInboundAt === null || window.isOpen;
 };

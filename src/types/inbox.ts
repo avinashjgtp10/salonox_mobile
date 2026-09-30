@@ -3,9 +3,8 @@
 // +91… for bare 10-digit numbers), not by conversation id. Every route takes
 // the phone, so that is what the app routes on too.
 //
-// Note the backend only stores inbound messages where `msg.type === 'text'`
-// (webhooks.service.ts) — media arrives as nothing at all, so this app never
-// needs to render an image/audio/document bubble.
+// Media can also be present on campaign messages. A media_url can be a Meta
+// media ID rather than a publicly accessible URL; never treat IDs as URLs.
 
 export type InboxMessageDirection = "INBOUND" | "OUTBOUND";
 
@@ -33,6 +32,18 @@ export type InboxMessage = {
   sentAtLabel: string;
   status: InboxMessageStatus;
   wamid: string | null;
+  mediaType?: string | null;
+  mediaUrl?: string | null;
+};
+
+export type InboxCustomer = {
+  id: string;
+  fullName: string | null;
+  phoneNumber: string | null;
+  totalVisits: number;
+  lifetimeSpend: number;
+  lastVisitDate: string | null;
+  membershipName: string | null;
 };
 
 export type InboxConversationsResponse = {
