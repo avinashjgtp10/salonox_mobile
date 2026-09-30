@@ -60,6 +60,8 @@ export const sendInboxReplyThunk = createAsyncThunk<
   try {
     const response = await inboxService.sendReply({ message, phone });
 
+    if (!response.message?.id) void dispatch(fetchInboxMessagesThunk({ phone, refresh: true }));
+
     void dispatch(fetchInboxConversationsThunk({ refresh: true }));
 
     return response;

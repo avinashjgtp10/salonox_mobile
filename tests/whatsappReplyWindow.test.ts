@@ -1,7 +1,19 @@
 import type { InboxMessage } from "@/types/inbox";
-import { getReplyWindow, REPLY_WINDOW_MS } from "@/utils/whatsappReplyWindow";
+import { canAttemptInboxReply, getReplyWindow, REPLY_WINDOW_MS } from "@/utils/whatsappReplyWindow";
 
 const NOW = new Date("2026-09-24T12:00:00.000Z").getTime();
+
+test("outbound-only history permits an API attempt, matching the web inbox", () => {
+  expect(canAttemptInboxReply([message({ direction: "OUTBOUND" })], NOW)).toBe(true);
+});
+
+test("known expired inbound history still blocks free-form replies", () => {
+  expect(canAttemptInboxReply([message({ sentAt: new Date(NOW - REPLY_WINDOW_MS).toISOString() })], NOW)).toBe(false);
+});
+
+test("PostgreSQL timestamps are normalized before computing the reply window", () => {
+  expect(getReplyWindow([message({ sentAt: "2026-09-24 11:00:00+00" })], NOW).hoursRemaining).toBe(23);
+});
 
 const message = (overrides: Partial<InboxMessage>): InboxMessage => ({
   body: "hi",

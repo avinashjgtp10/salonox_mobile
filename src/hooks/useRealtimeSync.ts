@@ -18,7 +18,8 @@ import {
 import { realtimeSocket } from "@/services/realtimeSocket";
 import { normalizeConversation, normalizeMessage } from "@/services/inbox.service";
 import { selectActiveBranchId } from "@/store/branch/branch.slice";
-import { inboxConversationsReceived, inboxMessageReceived } from "@/store/inbox/inbox.slice";
+import { inboxConversationsReceived, inboxMessageReceived, inboxConnectionChanged } from "@/store/inbox/inbox.slice";
+import { fetchInboxConversationsThunk } from "@/middleware/inbox/inbox.thunk";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { asRecord, toSafeString } from "@/utils/apiNormalize";
 
@@ -298,7 +299,11 @@ export const useRealtimeSync = (isAuthenticated: boolean) => {
       // A reconnect means events may have been missed while offline. Replace
       // the active appointment query from the API instead of trusting cache.
       hasConnectedRef.current = socket.connected;
+      dispatch(inboxConnectionChanged(socket.connected));
+      bindHandler(socket, "disconnect", () => dispatch(inboxConnectionChanged(false)));
       bindHandler(socket, "connect", () => {
+        dispatch(inboxConnectionChanged(true));
+        void dispatch(fetchInboxConversationsThunk({ refresh: true }));
         if (hasConnectedRef.current) {
           scheduleRefresh("appointments", { reason: "socket_reconnected" });
         }
@@ -320,8 +325,9 @@ export const useRealtimeSync = (isAuthenticated: boolean) => {
 
   useEffect(() => {
     if (!isAuthenticated) {
+      dispatch(inboxConnectionChanged(false));
       hasConnectedRef.current = false;
       realtimeSocket.disconnect();
     }
-  }, [isAuthenticated]);
+  }, [dispatch, isAuthenticated]);
 };
