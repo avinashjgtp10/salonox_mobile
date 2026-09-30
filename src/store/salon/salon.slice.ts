@@ -1,7 +1,6 @@
 import { createSlice } from "@reduxjs/toolkit";
 
 import {
-  createSalonThunk,
   fetchSalonsThunk,
   fetchSalonMeThunk,
   updateSalonThunk,
@@ -15,8 +14,6 @@ import type {
 } from "@/types/salon";
 
 type SalonState = {
-  createError: string | null;
-  creating: boolean;
   currentRequestId: string | null;
   detailsError: string | null;
   detailsLoading: boolean;
@@ -50,8 +47,6 @@ const initialPagination: SalonListPagination = {
 };
 
 const initialState: SalonState = {
-  createError: null,
-  creating: false,
   currentRequestId: null,
   detailsError: null,
   detailsLoading: false,
@@ -99,19 +94,6 @@ const salonSlice = createSlice({
   reducers: {},
   extraReducers: (builder) => {
     builder
-      .addCase(createSalonThunk.pending, (state) => {
-        state.createError = null;
-        state.creating = true;
-      })
-      .addCase(createSalonThunk.fulfilled, (state, action) => {
-        state.createError = null;
-        state.creating = false;
-        state.salons = upsertSalon(state.salons, action.payload.salon);
-      })
-      .addCase(createSalonThunk.rejected, (state, action) => {
-        state.createError = action.payload?.message ?? action.error.message ?? "Unable to create salon.";
-        state.creating = false;
-      })
       .addCase(fetchSalonsThunk.pending, (state, action) => {
         const appendRequest = isAppendRequest(action.meta.arg);
 
@@ -182,8 +164,6 @@ const salonSlice = createSlice({
   },
 });
 
-export const selectSalonCreateError = (state: RootState) => state.salon.createError;
-export const selectSalonCreating = (state: RootState) => state.salon.creating;
 export const selectSalonDetailsError = (state: RootState) => state.salon.detailsError;
 export const selectSalonDetailsLoading = (state: RootState) => state.salon.detailsLoading;
 export const selectSalonsError = (state: RootState) => state.salon.error;

@@ -49,6 +49,7 @@ import {
   selectDashboardStatus,
 } from "@/store/dashboard/dashboard.slice";
 import { useThemeColors } from "@/theme/ThemeProvider";
+import { DashboardTourProvider, useDashboardTour } from "@/features/userGuide/DashboardTour";
 
 const getTodayDateKey = () => {
   const date = new Date();
@@ -60,6 +61,11 @@ const getTodayDateKey = () => {
 };
 
 export default function DashboardScreen() {
+  return <DashboardTourProvider><DashboardContent /></DashboardTourProvider>;
+}
+
+function DashboardContent() {
+  const tour = useDashboardTour();
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
@@ -259,9 +265,16 @@ export default function DashboardScreen() {
   }, [dispatch, isAuthenticated]);
 
   return (
-    <SafeAreaView edges={["top"]} style={styles.safeArea}>
+    <SafeAreaView edges={["top"]} style={styles.safeArea}
+      accessibilityElementsHidden={tour?.active}
+      importantForAccessibility={tour?.active ? "no-hide-descendants" : "auto"}>
       <AppStatusBar />
       <ScrollView
+        ref={tour?.scrollRef}
+        onScroll={(event) => { if (tour) tour.scrollOffset.current = event.nativeEvent.contentOffset.y; }}
+        scrollEventThrottle={16}
+        scrollEnabled={!tour?.active}
+        removeClippedSubviews={false}
         contentContainerStyle={styles.content}
         refreshControl={
           <RefreshControl
@@ -282,7 +295,7 @@ export default function DashboardScreen() {
           />
         }
         showsVerticalScrollIndicator={false}
-        stickyHeaderIndices={showErrorState ? [] : [2]}
+        stickyHeaderIndices={showErrorState || tour?.active ? [] : [2]}
       >
         {showErrorState ? (
           <View style={styles.errorWrap}>

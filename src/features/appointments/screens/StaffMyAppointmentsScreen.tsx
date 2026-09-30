@@ -1,3 +1,5 @@
+import { TourFlatList, TourView, withScreenTour } from "@/features/userGuide/DashboardTour";
+import { screenTours } from "@/features/userGuide/screenTours";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { PaginationControls } from "@/components/ui/PaginationControls";
 import { AppointmentCard } from "@/features/appointments/components/shared/AppointmentCard";
@@ -18,10 +20,10 @@ import { selectCurrentStaff, selectCurrentStaffError, selectCurrentStaffLoading 
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { Href } from "expo-router";
 import { useEffect, useMemo } from "react";
-import { FlatList, RefreshControl, Text, useWindowDimensions, View } from "react-native";
+import { RefreshControl, Text, useWindowDimensions, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-export function StaffMyAppointmentsScreen() {
+function StaffMyAppointmentsScreenContent() {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const { width } = useWindowDimensions();
@@ -83,7 +85,7 @@ export function StaffMyAppointmentsScreen() {
   return (
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
       <AppStatusBar />
-      <FlatList
+      <TourFlatList
         ListHeaderComponent={
           <View style={styles.listHeader}>
             <View style={styles.headerRow}>
@@ -91,7 +93,7 @@ export function StaffMyAppointmentsScreen() {
                 <Text style={[styles.headerTitle, headerTitleStyle]}>My Appointments</Text>
               </View>
             </View>
-            <View style={styles.summaryGrid}>
+            <TourView tourId="summary" style={styles.summaryGrid}>
               <View style={[styles.summaryTileWrap, { width: "48%" }]}>
                 <SummaryTile icon="today-outline" label="Today" value={String(counts.today)} />
               </View>
@@ -104,7 +106,7 @@ export function StaffMyAppointmentsScreen() {
               <View style={[styles.summaryTileWrap, { width: "48%" }]}>
                 <SummaryTile icon="close-circle-outline" label="Cancelled" value={String(counts.cancelled)} />
               </View>
-            </View>
+            </TourView>
           </View>
         }
         ListEmptyComponent={
@@ -173,3 +175,5 @@ export function StaffMyAppointmentsScreen() {
     </SafeAreaView>
   );
 }
+
+export const StaffMyAppointmentsScreen = withScreenTour(StaffMyAppointmentsScreenContent, screenTours.staffAppointments);

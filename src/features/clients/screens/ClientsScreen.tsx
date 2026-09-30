@@ -1,3 +1,5 @@
+import { TourFlatList, TourView, TourButton, withScreenTour } from "@/features/userGuide/DashboardTour";
+import { screenTours } from "@/features/userGuide/screenTours";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect, type Href } from "expo-router";
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -305,7 +307,7 @@ function EmptyState({ onAdd, queryActive }: { onAdd: () => void; queryActive: bo
   );
 }
 
-export default function ClientsScreen() {
+function ClientsScreenContent() {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
@@ -597,7 +599,7 @@ export default function ClientsScreen() {
       <SafeAreaView edges={["top"]} style={styles.safeArea}>
         <AppStatusBar />
 
-        <FlatList
+        <TourFlatList
           ListEmptyComponent={
             showInitialLoading ? (
               <View>
@@ -667,7 +669,7 @@ export default function ClientsScreen() {
               </View>
 
               <View style={styles.searchFilterRow}>
-                <View style={styles.searchWrap}>
+                <TourView tourId="search" style={styles.searchWrap}>
                   <Ionicons name="search-outline" size={20} color={Colors.text2} />
                   <TextInput
                     onChangeText={setQuery}
@@ -681,8 +683,8 @@ export default function ClientsScreen() {
                       <Ionicons name="close-circle" size={18} color={Colors.placeholder} />
                     </TouchableOpacity>
                   ) : null}
-                </View>
-                <TouchableOpacity
+                </TourView>
+                <TourButton tourId="filters"
                   activeOpacity={0.82}
                   onPress={openFilterSheet}
                   style={[styles.filterButton, activeFilterCount > 0 && styles.filterButtonActive]}
@@ -705,7 +707,7 @@ export default function ClientsScreen() {
                       <Text style={styles.filterCountText}>{activeFilterCount}</Text>
                     </View>
                   ) : null}
-                </TouchableOpacity>
+                </TourButton>
               </View>
 
               <View style={styles.sortRow}>
@@ -748,14 +750,14 @@ export default function ClientsScreen() {
         />
 
         <View style={[styles.stickyButtonWrap, { bottom: insets.bottom + 12 }]}>
-          <TouchableOpacity
+          <TourButton tourId="add"
             activeOpacity={0.88}
             onPress={handleAddClient}
             style={styles.stickyButton}
           >
             <Ionicons name="person-add-outline" size={18} color="#FFFFFF" />
             <Text style={styles.stickyButtonText}>Add Client</Text>
-          </TouchableOpacity>
+          </TourButton>
         </View>
 
         <Modal
@@ -1597,3 +1599,5 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "700",
   },
 });
+
+export default withScreenTour(ClientsScreenContent, screenTours.clients);

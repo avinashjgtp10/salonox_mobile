@@ -1,19 +1,9 @@
+import { TourFlatList, TourView, TourButton, withScreenTour } from "@/features/userGuide/DashboardTour";
+import { screenTours } from "@/features/userGuide/screenTours";
 import { Ionicons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  Modal,
-  Pressable,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { ActivityIndicator, Alert, Modal, Pressable, RefreshControl, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
@@ -193,7 +183,7 @@ function EmptyState({ queryActive }: { queryActive: boolean }) {
   );
 }
 
-export default function ServicesScreen() {
+function ServicesScreenContent() {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
@@ -334,7 +324,7 @@ export default function ServicesScreen() {
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
       <AppStatusBar />
 
-      <FlatList
+      <TourFlatList
         ListEmptyComponent={
           showInitialLoading ? (
             <View>
@@ -388,7 +378,7 @@ export default function ServicesScreen() {
               </View>
             </View>
 
-            <View style={styles.searchWrap}>
+            <TourView tourId="search" style={styles.searchWrap}>
               <Ionicons name="search-outline" size={20} color={Colors.text2} />
               <TextInput
                 onChangeText={setQuery}
@@ -402,20 +392,20 @@ export default function ServicesScreen() {
                   <Ionicons name="close-circle" size={18} color={Colors.placeholder} />
                 </TouchableOpacity>
               ) : null}
-            </View>
+            </TourView>
 
             <View style={styles.sortRow}>
               <Text style={styles.sortMeta}>
                 {services.length} service{services.length === 1 ? "" : "s"}
               </Text>
-              <TouchableOpacity
+              <TourButton tourId="sort"
                 activeOpacity={0.82}
                 onPress={() => setIsSortVisible(true)}
                 style={styles.sortButton}
               >
                 <Ionicons name="swap-vertical-outline" size={16} color={Colors.primary} />
                 <Text style={styles.sortButtonText}>{sortOption}</Text>
-              </TouchableOpacity>
+              </TourButton>
             </View>
           </View>
         }
@@ -446,14 +436,14 @@ export default function ServicesScreen() {
       />
 
       <View style={[styles.stickyButtonWrap, { bottom: insets.bottom + 12 }]}>
-        <TouchableOpacity
+        <TourButton tourId="add"
           activeOpacity={0.88}
           onPress={() => router.push("/services/new" as Href)}
           style={styles.stickyButton}
         >
           <Ionicons name="add-circle-outline" size={18} color="#FFFFFF" />
           <Text style={styles.stickyButtonText}>Add Service</Text>
-        </TouchableOpacity>
+        </TourButton>
       </View>
 
       <Modal
@@ -838,3 +828,5 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     color: Colors.primary,
   },
 });
+
+export default withScreenTour(ServicesScreenContent, screenTours.services);
