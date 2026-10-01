@@ -12,7 +12,7 @@ import { InboxAvatar, InboxIcon } from "./InboxControls";
 import { useInboxTheme } from "./inboxTheme";
 
 export default function InboxListScreen() {
-  const { styles: s, palette: p, scheme, setMode } = useInboxTheme();
+  const { styles: s, palette: p } = useInboxTheme();
   const dispatch = useAppDispatch();
   const inbox = useAppSelector(state => state.inbox);
   const [search, setSearch] = useState("");
@@ -27,8 +27,6 @@ export default function InboxListScreen() {
     <View style={s.header}>
       <InboxIcon name="arrow-back" label="Back" onPress={() => router.canGoBack() ? router.back() : router.replace("/dashboard" as Href)} />
       <Text style={s.title}>Inbox</Text>{unread > 0 && <View style={s.badge}><Text style={s.badgeText}>{unread > 999 ? "999+" : unread}</Text></View>}
-      <View style={s.fill} /><InboxIcon name={scheme === "dark" ? "sunny-outline" : "moon-outline"} label="Toggle theme" onPress={() => setMode(scheme === "dark" ? "light" : "dark")} />
-      <View style={{ alignItems: "center", gap: 5 }}><View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: inbox.connected ? p.green : p.muted }} /><Text style={[s.muted, { fontSize: 10 }]}>{inbox.connected ? "Live" : "Offline"}</Text></View>
     </View>
     <View style={s.search}><Ionicons name="search-outline" size={18} color={p.muted} /><TextInput accessibilityLabel="Search conversations" value={search} onChangeText={setSearch} placeholder="Search conversations…" placeholderTextColor={p.muted} autoCorrect={false} autoCapitalize="none" style={s.searchInput} />{search ? <InboxIcon name="close" label="Clear search" onPress={() => setSearch("")} /> : <View style={{ width: 12 }} />}</View>
     <View style={s.filters}>
