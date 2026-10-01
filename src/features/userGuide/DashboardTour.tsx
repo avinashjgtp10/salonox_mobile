@@ -6,13 +6,17 @@ import { useIsFocused } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 
 import { Portal } from "@/components/ui/Portal";
+import { useAuth } from "@/context/AuthContext";
 import { clipTourRect, dashboardTourSteps, type TourRect } from "./dashboardTourSteps";
+import { screenTourStorage } from "./guideStorage";
 
 export type ScreenTour = { title: string; steps: readonly { target: string; title: string; description: string }[] };
 type TourList = Pick<FlatList<unknown>, "getNativeScrollRef" | "scrollToOffset">;
 
 type TourContextValue = {
   active: boolean;
+  /** False once this user has finished or skipped this tour; hide tour prompts then. */
+  offerTour: boolean;
   start: () => void;
   register: (id: string, node: View | null) => void;
   scrollRef: RefObject<ScrollView | null>;
@@ -87,6 +91,30 @@ export function DashboardTourProvider({ children, config }: { children: ReactNod
   }, []);
   const close = useCallback(() => setIndex(null), []);
 
+  // A screen offers its tour ("Show me around" bar, or the dashboard's
+  // "Take a dashboard tour" link) until the user has finished or skipped it
+  // once. `null` = still reading storage, so prompts stay hidden rather than
+  // flashing in and out.
+  const userId = useAuth().user?.id ?? "";
+  const [offerTour, setOfferTour] = useState<boolean | null>(() =>
+    userId && screenTourStorage.hasSeenThisSession(userId, title) ? false : null);
+
+  useEffect(() => {
+    let active = true;
+    void screenTourStorage.hasSeen(userId, title).then((seen) => {
+      if (active) setOfferTour(!seen);
+    });
+    return () => { active = false; };
+  }, [title, userId]);
+
+  // Skip, Done and the hardware back button end the tour for good; leaving
+  // the screen mid-tour (the blur below) does not.
+  const finish = useCallback(() => {
+    setIndex(null);
+    setOfferTour(false);
+    void screenTourStorage.markSeen(userId, title);
+  }, [title, userId]);
+
   useEffect(() => {
     if (!focused) close();
     else if (tour === "1") {
@@ -95,20 +123,24 @@ export function DashboardTourProvider({ children, config }: { children: ReactNod
     }
   }, [close, focused, router, start, tour]);
 
-  const value = useMemo(() => ({ active: index !== null, start, register, scrollRef, scrollOffset, listRef }), [index, register, start]);
+  const value = useMemo(
+    () => ({ active: index !== null, offerTour: offerTour === true, start, register, scrollRef, scrollOffset, listRef }),
+    [index, offerTour, register, start],
+  );
   return (
     <TourContext.Provider value={value}>
       {config ? <View style={{ flex: 1 }}>
         <View style={{ flex: 1 }} accessibilityElementsHidden={index !== null} importantForAccessibility={index !== null ? "no-hide-descendants" : "auto"}>{children}</View>
+        {/* This strip also supplies the bottom safe-area inset, so keep it when the button is hidden. */}
         <View style={{ backgroundColor: colors.surface, paddingBottom: insets.bottom }}>
-          <Button icon="compass-outline" onPress={start}>Show me around · {title}</Button>
+          {offerTour ? <Button icon="compass-outline" onPress={start}>Show me around · {title}</Button> : null}
         </View>
       </View> : children}
       {focused && index !== null && (
         <Portal>
           <TourOverlay key={index} index={index} steps={steps} title={title} listRef={listRef} targets={targets.current} scrollRef={scrollRef} scrollOffset={scrollOffset}
-            onClose={close} onBack={() => setIndex(index - 1)}
-            onNext={() => index === steps.length - 1 ? close() : setIndex(index + 1)} />
+            onClose={finish} onBack={() => setIndex(index - 1)}
+            onNext={() => index === steps.length - 1 ? finish() : setIndex(index + 1)} />
         </Portal>
       )}
     </TourContext.Provider>
