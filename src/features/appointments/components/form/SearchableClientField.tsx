@@ -1,3 +1,4 @@
+import { Text, TextInput } from "@/components/ui/AppTypography";
 import { CLIENT_SEARCH_MIN_LETTERS } from "@/features/appointments/constants/appointmentConstants";
 import { createStyles } from "@/features/appointments/styles/appointmentStyles";
 import type { ClientBookingMode } from "@/features/appointments/types/appointmentForm";
@@ -6,7 +7,7 @@ import type { ClientListItem } from "@/types/client";
 import { Ionicons } from "@expo/vector-icons";
 import type { RefObject } from "react";
 import { useMemo } from "react";
-import { ActivityIndicator, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, ScrollView, TouchableOpacity, View } from "react-native";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 
 export function SearchableClientField({

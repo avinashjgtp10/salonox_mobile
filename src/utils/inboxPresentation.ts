@@ -1,14 +1,9 @@
 import type { InboxConversation, InboxMessage } from "@/types/inbox";
 import { parseAppDateTime } from "@/utils/dateTime";
 
-const AVATAR_COLORS = ["#00A884", "#21C963", "#0284C7", "#B45309", "#E11D48", "#7C3AED"];
 export function inboxAvatar(name: string | null | undefined, phone: string) {
-  const seed = name?.trim() || phone;
-  let hash = 0;
-  for (const char of seed) hash = (hash * 31 + char.charCodeAt(0)) | 0;
   const parts = name?.trim().split(/\s+/) ?? [];
   return {
-    color: AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length],
     initials: (parts.length > 1 ? parts[0][0] + parts[1][0] : parts[0]?.slice(0, 2) || phone.slice(-2)).toUpperCase(),
   };
 }

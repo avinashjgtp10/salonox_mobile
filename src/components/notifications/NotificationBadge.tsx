@@ -1,5 +1,6 @@
+import { Text } from "@/components/ui/AppTypography";
 import { useMemo } from "react";
-import { StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
+import { StyleSheet, View, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
 
 type NotificationBadgeProps = {
   count: number;

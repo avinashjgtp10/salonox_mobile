@@ -1,4 +1,5 @@
-import { StyleSheet, Text, View } from "react-native";
+import { Text } from "@/components/ui/AppTypography";
+import { StyleSheet, View } from "react-native";
 
 import { DashboardRadius as Radius } from "@/constants/theme";
 

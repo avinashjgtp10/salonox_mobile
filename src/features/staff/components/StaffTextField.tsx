@@ -1,5 +1,6 @@
+import { Text, TextInput } from "@/components/ui/AppTypography";
 import { forwardRef, useMemo } from "react";
-import { StyleSheet, Text, TextInput, View, type TextInputProps } from "react-native";
+import { StyleSheet, View, type TextInputProps } from "react-native";
 
 import {
   DashboardRadius as Radius,

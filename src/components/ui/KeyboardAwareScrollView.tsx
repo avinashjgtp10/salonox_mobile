@@ -1,3 +1,4 @@
+import { TextInput } from "react-native";
 /**
  * KeyboardAwareScrollView
  *
@@ -19,23 +20,7 @@ import React, {
   type PropsWithChildren,
   type RefObject,
 } from "react";
-import {
-  Dimensions,
-  FlatList,
-  Keyboard,
-  Platform,
-  Pressable,
-  ScrollView,
-  SectionList,
-  StyleSheet,
-  TextInput,
-  UIManager,
-  View,
-  findNodeHandle,
-  type FlatListProps,
-  type ScrollViewProps,
-  type SectionListProps,
-} from "react-native";
+import { Dimensions, FlatList, Keyboard, Platform, Pressable, ScrollView, SectionList, StyleSheet, UIManager, View, findNodeHandle, type FlatListProps, type ScrollViewProps, type SectionListProps } from "react-native";
 
 import { AppRadius } from "@/constants/layout";
 import { useThemeColors } from "@/theme/ThemeProvider";

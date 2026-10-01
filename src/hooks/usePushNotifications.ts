@@ -1,6 +1,7 @@
+import { appAlert as Alert } from "@/services/appAlert";
 import { router } from "expo-router";
 import { useCallback, useEffect, useRef } from "react";
-import { Alert, Platform } from "react-native";
+import { Platform } from "react-native";
 import * as Notifications from "expo-notifications";
 
 import { useAppForeground } from "@/hooks/useAppForeground";

@@ -1,3 +1,4 @@
+import { Text } from "@/components/ui/AppTypography";
 import { TourFlatList, TourView, withScreenTour } from "@/features/userGuide/DashboardTour";
 import { screenTours } from "@/features/userGuide/screenTours";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
@@ -20,7 +21,7 @@ import { selectCurrentStaff, selectCurrentStaffError, selectCurrentStaffLoading 
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { Href } from "expo-router";
 import { useEffect, useMemo } from "react";
-import { RefreshControl, Text, useWindowDimensions, View } from "react-native";
+import { RefreshControl, useWindowDimensions, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 function StaffMyAppointmentsScreenContent() {

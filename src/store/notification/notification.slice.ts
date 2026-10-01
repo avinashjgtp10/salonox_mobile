@@ -7,6 +7,7 @@ import {
   markAllNotificationsReadThunk,
   markNotificationReadThunk,
   registerDeviceThunk,
+  removeLocalNotificationThunk,
   unregisterDeviceThunk,
 } from "@/middleware/notification/notification.thunk";
 import type { RootState } from "@/store";
@@ -21,6 +22,8 @@ type NotificationState = {
   markingAllRead: boolean;
   markingReadIds: string[];
   notifications: NotificationItem[];
+  locallyRemovedIds: string[];
+  removingIds: string[];
   // The device token most recently confirmed registered with the backend —
   // lets the push-setup hook skip a redundant network call when the token
   // hasn't actually changed since last app launch.
@@ -38,6 +41,8 @@ const initialState: NotificationState = {
   markingAllRead: false,
   markingReadIds: [],
   notifications: [],
+  locallyRemovedIds: [],
+  removingIds: [],
   registeredDeviceToken: null,
   registerDeviceError: null,
   registerDeviceStatus: "idle",
@@ -63,10 +68,21 @@ const notificationSlice = createSlice({
         state.listStatus = hasExistingData || isRefresh ? "succeeded" : "loading";
       })
       .addCase(fetchNotificationsThunk.fulfilled, (state, action) => {
-        state.notifications = action.payload.notifications;
+        state.notifications = action.payload.notifications.filter((notification) => !state.locallyRemovedIds.includes(notification.id));
         state.listError = null;
         state.listRefreshing = false;
         state.listStatus = "succeeded";
+      })
+      .addCase(removeLocalNotificationThunk.pending, (state, action) => {
+        state.removingIds.push(action.meta.arg);
+      })
+      .addCase(removeLocalNotificationThunk.fulfilled, (state, action) => {
+        state.removingIds = state.removingIds.filter((id) => id !== action.meta.arg);
+        if (!state.locallyRemovedIds.includes(action.payload)) state.locallyRemovedIds.push(action.payload);
+        state.notifications = state.notifications.filter((notification) => notification.id !== action.payload);
+      })
+      .addCase(removeLocalNotificationThunk.rejected, (state, action) => {
+        state.removingIds = state.removingIds.filter((id) => id !== action.meta.arg);
       })
       .addCase(fetchNotificationsThunk.rejected, (state, action) => {
         const hasExistingData = state.notifications.length > 0;
@@ -168,6 +184,7 @@ export const selectUnreadCount = (state: RootState) => state.notification.unread
 export const selectUnreadCountStatus = (state: RootState) => state.notification.unreadCountStatus;
 
 export const selectMarkingReadIds = (state: RootState) => state.notification.markingReadIds;
+export const selectRemovingNotificationIds = (state: RootState) => state.notification.removingIds;
 export const selectMarkingAllRead = (state: RootState) => state.notification.markingAllRead;
 
 export const selectRegisteredDeviceToken = (state: RootState) => state.notification.registeredDeviceToken;

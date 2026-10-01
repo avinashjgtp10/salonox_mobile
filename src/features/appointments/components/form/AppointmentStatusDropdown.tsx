@@ -1,10 +1,11 @@
+import { Text } from "@/components/ui/AppTypography";
 import { FORM_STATUS_OPTIONS } from "@/features/appointments/constants/appointmentConstants";
 import { createStyles } from "@/features/appointments/styles/appointmentStyles";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { AppointmentStatus } from "@/types/appointment";
 import { Ionicons } from "@expo/vector-icons";
 import { useMemo, useState } from "react";
-import { Modal, Pressable, Text, TouchableOpacity, View } from "react-native";
+import { Modal, Pressable, TouchableOpacity, View } from "react-native";
 
 export function AppointmentStatusDropdown({
   error,

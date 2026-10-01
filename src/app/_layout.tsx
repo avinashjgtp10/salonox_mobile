@@ -1,15 +1,18 @@
+import { Text } from "@/components/ui/AppTypography";
 import { DarkTheme, DefaultTheme, ThemeProvider as NavigationThemeProvider, type Theme } from '@react-navigation/native';
 import { Stack, usePathname, useRootNavigationState, useRouter, useSegments, type Href } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
+import { useFonts } from 'expo-font';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Provider } from 'react-redux';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, View } from "react-native";
 import { PaperProvider } from 'react-native-paper';
 import { Portal } from '@/components/ui/Portal';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import SimpleSplash from '../components/simple-splash';
 import { AppToast } from '@/components/ui/AppToast';
 import { NetworkErrorModal } from '@/components/ui/NetworkErrorModal';
+import { AppAlertHost } from '@/components/ui/AppAlertHost';
 import { PortalProvider } from '@/components/ui/PortalProvider';
 import { UpdateAnnouncementModal } from '@/components/ui/UpdateAnnouncementModal';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
@@ -29,6 +32,8 @@ import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { clearCurrentStaff } from '@/store/staff/staff.slice';
 import { PaperIcon } from '@/theme/paperIcon';
 import { buildPaperTheme } from '@/theme/paperTheme';
+import { appFontAssets } from '@/theme/fontAssets';
+import { AppFonts } from '@/theme/typography';
 import { ThemeProvider as AppThemeProvider, useAppTheme } from '@/theme/ThemeProvider';
 import {
   isOwnerRouteGroup,
@@ -51,6 +56,12 @@ function buildNavigationTheme(scheme: 'light' | 'dark', colors: ThemeColors): Th
   return {
     ...base,
     dark: scheme === 'dark',
+    fonts: {
+      regular: { fontFamily: AppFonts.regular, fontWeight: '400' },
+      medium: { fontFamily: AppFonts.medium, fontWeight: '400' },
+      bold: { fontFamily: AppFonts.bold, fontWeight: '400' },
+      heavy: { fontFamily: AppFonts.extrabold, fontWeight: '400' },
+    },
     colors: {
       ...base.colors,
       primary: colors.primary,
@@ -404,6 +415,7 @@ function AppShell() {
               <SimpleSplash backgroundColor={colors.bg} isReady={isThemeHydrated && isNavigationReady} />
               <NetworkErrorModal />
               <AppToast />
+              <AppAlertHost />
             </PortalProvider>
           </AuthProvider>
         </Provider>
@@ -413,6 +425,12 @@ function AppShell() {
 }
 
 export default function RootLayout() {
+  const [fontsLoaded, fontError] = useFonts(appFontAssets);
+  useEffect(() => {
+    if (fontError) console.warn('[Typography] Unable to load bundled fonts', fontError);
+  }, [fontError]);
+  if (!fontsLoaded && !fontError) return null;
+
   return (
     <SafeAreaProvider>
       <AppThemeProvider>

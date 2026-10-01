@@ -1,9 +1,10 @@
+import { Text } from "@/components/ui/AppTypography";
 import { StateIllustration } from "@/components/ui/StateViews";
 import { createStyles } from "@/features/appointments/styles/appointmentStyles";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { Ionicons } from "@expo/vector-icons";
 import { useMemo } from "react";
-import { Text, TouchableOpacity } from "react-native";
+import { TouchableOpacity } from "react-native";
 import Animated, { FadeIn } from "react-native-reanimated";
 
 export function StateCard({

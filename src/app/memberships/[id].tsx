@@ -1,16 +1,9 @@
+import { Text } from "@/components/ui/AppTypography";
+import { ConfirmationModal } from "@/components/ui/ConfirmationModal";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams, type Href } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import {
-  ActivityIndicator,
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppLayout, AppRadius } from "@/constants/layout";
@@ -452,19 +445,15 @@ export default function MembershipDetailsScreen() {
 
       {toast ? <View style={[styles.toast, { bottom: insets.bottom + 86 }]}><Text style={styles.toastText}>{toast}</Text></View> : null}
 
-      <Modal transparent animationType="fade" visible={confirmDelete} onRequestClose={() => setConfirmDelete(false)}>
-        <View style={styles.dialogOverlay}>
-          <View style={styles.dialog}>
-            <View style={styles.dialogIcon}><Ionicons name="trash-outline" size={24} color={Colors.error} /></View>
-            <Text style={styles.dialogTitle}>Delete membership?</Text>
-            <Text style={styles.dialogText}>This action cannot be undone. Clients already assigned to this plan may be affected in backend records.</Text>
-            <View style={styles.dialogActions}>
-              <TouchableOpacity onPress={() => setConfirmDelete(false)} style={styles.cancelButton}><Text style={styles.cancelText}>Cancel</Text></TouchableOpacity>
-              <TouchableOpacity onPress={() => void deletePlan()} style={styles.deleteButton}><Text style={styles.deleteText}>Delete</Text></TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      <ConfirmationModal
+        visible={confirmDelete}
+        title="Delete membership?"
+        description="This action cannot be undone. Clients already assigned to this plan may be affected."
+        cancelLabel="Cancel"
+        confirmLabel="Delete"
+        onCancel={() => setConfirmDelete(false)}
+        onConfirm={deletePlan}
+      />
 
       <ClientPickerModal
         clients={clients}
@@ -593,7 +582,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   benefitTitle: { color: Colors.heading, fontSize: 14, fontWeight: "800" },
   benefitMeta: { color: Colors.text2, fontSize: 12, marginTop: 2 },
   mutedText: { color: Colors.text2, fontSize: 13, fontWeight: "700" },
-  errorText: { color: Colors.error, fontSize: 13, fontWeight: "700" },
   clientAssignmentBenefits: { color: Colors.primary, fontSize: 12, fontWeight: "900" },
   clientAssignmentCopy: { flex: 1, minWidth: 0 },
   clientAssignmentIcon: { alignItems: "center", backgroundColor: Colors.bg2, borderRadius: Radius.md, height: 36, justifyContent: "center", width: 36 },
@@ -620,14 +608,4 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   secondaryAction: { alignItems: "center", backgroundColor: Colors.bg2, borderRadius: Radius.full, height: 50, justifyContent: "center", width: 50 },
   toast: { alignSelf: "center", backgroundColor: Colors.heading, borderRadius: Radius.full, paddingHorizontal: Spacing.lg, paddingVertical: 12, position: "absolute" },
   toastText: { color: Colors.bg, fontSize: 12, fontWeight: "900" },
-  dialogOverlay: { alignItems: "center", backgroundColor: "rgba(0,0,0,0.34)", flex: 1, justifyContent: "center", padding: Spacing.lg },
-  dialog: { backgroundColor: Colors.card, borderRadius: Radius.xl, padding: Spacing.xl, width: "100%" },
-  dialogIcon: { alignItems: "center", backgroundColor: Colors.errorBg, borderRadius: Radius.lg, height: 52, justifyContent: "center", width: 52 },
-  dialogTitle: { color: Colors.heading, fontSize: 20, fontWeight: "900", marginTop: Spacing.md },
-  dialogText: { color: Colors.text2, fontSize: 13, lineHeight: 20, marginTop: Spacing.sm },
-  dialogActions: { flexDirection: "row", gap: Spacing.sm, marginTop: Spacing.xl },
-  cancelButton: { alignItems: "center", backgroundColor: Colors.bg2, borderRadius: Radius.full, flex: 1, paddingVertical: 13 },
-  deleteButton: { alignItems: "center", backgroundColor: Colors.error, borderRadius: Radius.full, flex: 1, paddingVertical: 13 },
-  cancelText: { color: Colors.heading, fontSize: 13, fontWeight: "900" },
-  deleteText: { color: "#FFFFFF", fontSize: 13, fontWeight: "900" },
 });

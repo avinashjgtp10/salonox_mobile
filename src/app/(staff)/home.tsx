@@ -1,10 +1,11 @@
+import { Text } from "@/components/ui/AppTypography";
 import { TourScrollView, TourView, withScreenTour } from "@/features/userGuide/DashboardTour";
 import { screenTours } from "@/features/userGuide/screenTours";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router, type Href } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, RefreshControl, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from "react-native";
+import { ActivityIndicator, Pressable, RefreshControl, StyleSheet, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
@@ -895,15 +896,6 @@ const createStyles = (Colors: ThemeColors, width = 393, bottomInset = 0) => {
       backgroundColor: DASHBOARD.black,
       flex: 1,
       width: "100%",
-    },
-    sectionHeader: {
-      marginBottom: 9,
-      marginTop: 16,
-    },
-    sectionTitle: {
-      color: DASHBOARD.text,
-      fontSize: width < 360 ? 18 : 20,
-      fontWeight: "900",
     },
     title: {
       color: DASHBOARD.text,

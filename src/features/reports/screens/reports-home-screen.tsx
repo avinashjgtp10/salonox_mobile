@@ -1,9 +1,10 @@
+import { Text } from "@/components/ui/AppTypography";
 import { TourScrollView, TourButton, withScreenTour } from "@/features/userGuide/DashboardTour";
 import { screenTours } from "@/features/userGuide/screenTours";
 import { Ionicons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
 import { memo, useMemo, useState } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
@@ -152,7 +153,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   subtitle: { color: Colors.text2, fontSize: 13, lineHeight: 20, maxWidth: 420 },
   section: { gap: Spacing.sm },
-  sectionTitle: { color: Colors.text2, fontSize: 10, fontWeight: "800", letterSpacing: 1.4 },
   categoryHeader: {
     alignItems: "center", backgroundColor: Colors.card, borderColor: Colors.border,
     borderRadius: AppRadius.card, borderWidth: 1, flexDirection: "row", gap: Spacing.md,

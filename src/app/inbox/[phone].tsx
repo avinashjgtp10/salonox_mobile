@@ -1,1 +1,1 @@
-﻿export { default } from "@/features/inbox/InboxThreadScreen";
+export { default } from "@/features/inbox/InboxThreadScreen";

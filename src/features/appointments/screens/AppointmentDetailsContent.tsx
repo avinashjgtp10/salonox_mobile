@@ -1,3 +1,4 @@
+import { Text } from "@/components/ui/AppTypography";
 import { ActionButton } from "@/features/appointments/components/shared/ActionButton";
 import { CompleteAppointmentAction } from "@/features/appointments/components/shared/CompleteAppointmentAction";
 import { DetailRow } from "@/features/appointments/components/shared/DetailRow";
@@ -18,7 +19,7 @@ import { selectCurrentStaff, selectCurrentStaffError, selectCurrentStaffLoading 
 import { formatInvoiceNumber } from "@/utils/receipt";
 import { useLocalSearchParams } from "expo-router";
 import { useEffect } from "react";
-import { Text, View } from "react-native";
+import { View } from "react-native";
 
 export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | "staff" } = {}) {
   const { styles } = useAppointmentStyles();

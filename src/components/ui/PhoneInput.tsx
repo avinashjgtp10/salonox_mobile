@@ -1,3 +1,4 @@
+import { Text, TextInput } from "@/components/ui/AppTypography";
 /**
  * PhoneInput — Production-ready international phone number input for SalonOX.
  *
@@ -73,21 +74,7 @@ import {
   useRef,
   useState,
 } from "react";
-import {
-  AccessibilityInfo,
-  Animated,
-  Dimensions,
-  FlatList,
-  Keyboard,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { AccessibilityInfo, Animated, Dimensions, FlatList, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   AsYouType,

@@ -1,7 +1,8 @@
+import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
 import { memo, useMemo } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, TouchableOpacity, View } from "react-native";
 
 import {
   DashboardRadius as Radius,
@@ -254,34 +255,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     height: AppLayout.headerActionSize,
     justifyContent: "center",
     width: AppLayout.headerActionSize,
-  },
-  metricsRow: {
-    flexDirection: "row",
-    gap: 8,
-    marginTop: Spacing.md,
-  },
-  metricChip: {
-    alignItems: "center",
-    backgroundColor: Colors.bg,
-    borderColor: Colors.border,
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    flex: 1,
-    minWidth: 0,
-    paddingHorizontal: 8,
-    paddingVertical: 10,
-  },
-  metricValue: {
-    color: Colors.heading,
-    fontSize: 12,
-    fontWeight: "800",
-    marginTop: 6,
-  },
-  metricLabel: {
-    color: Colors.text2,
-    fontSize: 10,
-    marginTop: 3,
-    textAlign: "center",
   },
   performanceSection: {
     marginTop: Spacing.md,

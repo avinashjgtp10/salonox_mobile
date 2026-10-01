@@ -1,6 +1,6 @@
+import { appAlert as Alert } from "@/services/appAlert";
 import * as ImagePicker from "expo-image-picker";
 import { useCallback, useState } from "react";
-import { Alert } from "react-native";
 
 import {
   getAvatarFileName,

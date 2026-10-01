@@ -419,14 +419,6 @@ export const createSharedStyles = (Colors: ThemeColors) => StyleSheet.create({
     minHeight: 52,
     paddingHorizontal: AppLayout.cardPadding,
   },
-  dangerButtonCompact: {
-    alignItems: "center",
-    backgroundColor: Colors.error,
-    borderRadius: AppRadius.pill,
-    flex: 1,
-    justifyContent: "center",
-    minHeight: 46,
-  },
   detailHero: {
     alignItems: "center",
     backgroundColor: Colors.card,

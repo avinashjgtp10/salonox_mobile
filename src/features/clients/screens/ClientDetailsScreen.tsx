@@ -1,17 +1,9 @@
+import { Text } from "@/components/ui/AppTypography";
+import { appAlert as Alert } from "@/services/appAlert";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams, type Href } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import {
-  ActivityIndicator,
-  Alert,
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppBackButton } from "@/components/ui/AppBackButton";
@@ -1035,122 +1027,16 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   backButtonPlaceholder: {
     width: AppLayout.headerActionSize,
   },
-  headerAction: {
-    alignItems: "center",
-    backgroundColor: Colors.card,
-    borderColor: Colors.border,
-    borderRadius: AppRadius.control,
-    borderWidth: 1,
-    height: AppLayout.headerActionSize,
-    justifyContent: "center",
-    width: AppLayout.headerActionSize,
-  },
   headerTitle: {
     color: Colors.heading,
     fontSize: AppLayout.headerTitleFontSize,
     fontWeight: AppLayout.screenTitleFontWeight,
-  },
-  heroCard: {
-    alignItems: "center",
-    backgroundColor: Colors.card,
-    borderColor: Colors.border,
-    borderRadius: AppRadius.card,
-    borderWidth: 1,
-    padding: AppLayout.cardPadding + Spacing.sm,
-    shadowColor: Colors.shadow,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.05,
-    shadowRadius: 18,
-    elevation: 2,
-  },
-  avatar: {
-    alignItems: "center",
-    borderRadius: 34,
-    height: 68,
-    justifyContent: "center",
-    width: 68,
-  },
-  avatarText: {
-    fontSize: 20,
-    fontWeight: "800",
   },
   clientName: {
     color: Colors.heading,
     fontSize: 22,
     fontWeight: "800",
     marginTop: Spacing.md,
-  },
-  clientPhone: {
-    color: Colors.text2,
-    fontSize: 13,
-    marginTop: 4,
-  },
-  membershipBadge: {
-    alignItems: "center",
-    backgroundColor: Colors.warningBg,
-    borderRadius: Radius.full,
-    flexDirection: "row",
-    gap: 4,
-    marginTop: Spacing.md,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-  },
-  membershipText: {
-    color: Colors.goldDark,
-    fontSize: 11,
-    fontWeight: "700",
-  },
-  statsGrid: {
-    width: "100%",
-    marginTop: Spacing.lg,
-    gap: Spacing.sm,
-  },
-  statsRow: {
-    flexDirection: "row",
-    gap: Spacing.sm,
-  },
-  statCard: {
-    alignItems: "center",
-    backgroundColor: Colors.bg2,
-    borderRadius: Radius.lg,
-    flex: 1,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.md,
-  },
-  statValue: {
-    color: Colors.heading,
-    fontSize: 15,
-    fontWeight: "800",
-  },
-  statLabel: {
-    color: Colors.text2,
-    fontSize: 11,
-    marginTop: 4,
-  },
-  quickActionsRow: {
-    flexDirection: "row",
-    gap: Spacing.sm,
-    marginBottom: Spacing.lg,
-    marginTop: Spacing.md,
-  },
-  quickAction: {
-    alignItems: "center",
-    backgroundColor: Colors.card,
-    borderColor: Colors.border,
-    borderRadius: Radius.lg,
-    borderWidth: 1,
-    flex: 1,
-    gap: 8,
-    paddingVertical: 14,
-  },
-  quickActionBlocked: {
-    borderColor: Colors.success,
-    backgroundColor: Colors.successBg,
-  },
-  quickActionText: {
-    color: Colors.text,
-    fontSize: 11,
-    fontWeight: "700",
   },
   detailRow: {
     alignItems: "center",
@@ -1212,183 +1098,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     textAlign: "center",
     marginVertical: 12,
   },
-  historyCard: {
-    backgroundColor: Colors.bg2,
-    borderColor: Colors.border,
-    borderRadius: Radius.lg,
-    borderWidth: 1,
-    padding: Spacing.md,
-    marginBottom: Spacing.sm,
-  },
-  historyHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 6,
-  },
-  historyTypeTag: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: Colors.card,
-    borderRadius: Radius.sm,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  historyTypeText: {
-    fontSize: 10,
-    fontWeight: "800",
-    color: Colors.primaryDark,
-  },
-  historyDate: {
-    fontSize: 11,
-    color: Colors.text2,
-  },
-  historyTitle: {
-    fontSize: 14,
-    fontWeight: "800",
-    color: Colors.heading,
-  },
-  historyDesc: {
-    fontSize: 12,
-    color: Colors.text,
-    marginTop: 4,
-  },
-  historyItemsList: {
-    marginTop: Spacing.xs,
-    paddingLeft: Spacing.xs,
-  },
-  historySubItem: {
-    fontSize: 12,
-    color: Colors.text2,
-    marginTop: 2,
-  },
-  historyFooter: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: Spacing.sm,
-    paddingTop: Spacing.xs,
-    borderTopColor: Colors.border,
-    borderTopWidth: 0.5,
-  },
-  historyStaff: {
-    fontSize: 11,
-    color: Colors.text2,
-  },
-  historyAmount: {
-    fontSize: 13,
-    fontWeight: "800",
-    color: Colors.heading,
-  },
-  assignMembershipButton: {
-    alignItems: "center",
-    alignSelf: "flex-start",
-    backgroundColor: Colors.primary,
-    borderRadius: Radius.full,
-    flexDirection: "row",
-    gap: 8,
-    marginTop: Spacing.md,
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: 12,
-  },
-  assignMembershipText: {
-    color: "#FFFFFF",
-    fontSize: 12,
-    fontWeight: "900",
-  },
-  assignmentStatusBadge: {
-    borderRadius: Radius.full,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  assignmentStatusText: {
-    fontSize: 10,
-    fontWeight: "900",
-  },
-  benefitList: {
-    gap: Spacing.xs,
-    marginTop: Spacing.md,
-  },
-  benefitName: {
-    color: Colors.heading,
-    flex: 1,
-    fontSize: 12,
-    fontWeight: "800",
-  },
-  benefitRemaining: {
-    color: Colors.primary,
-    fontSize: 12,
-    fontWeight: "900",
-  },
-  benefitRow: {
-    alignItems: "center",
-    backgroundColor: Colors.bg2,
-    borderRadius: Radius.md,
-    flexDirection: "row",
-    gap: Spacing.sm,
-    justifyContent: "space-between",
-    padding: Spacing.sm,
-  },
-  emptyMembershipCard: {
-    backgroundColor: Colors.bg2,
-    borderRadius: Radius.lg,
-    padding: Spacing.md,
-  },
-  membershipAction: {
-    alignItems: "center",
-    backgroundColor: Colors.bg2,
-    borderRadius: Radius.full,
-    flex: 1,
-    paddingVertical: 11,
-  },
-  membershipActionRow: {
-    flexDirection: "row",
-    gap: Spacing.sm,
-    marginTop: Spacing.md,
-  },
-  membershipActionText: {
-    color: Colors.primary,
-    fontSize: 12,
-    fontWeight: "900",
-  },
-  membershipDangerAction: {
-    alignItems: "center",
-    backgroundColor: Colors.errorBg,
-    borderRadius: Radius.full,
-    flex: 1,
-    paddingVertical: 11,
-  },
-  membershipDangerActionText: {
-    color: Colors.error,
-    fontSize: 12,
-    fontWeight: "900",
-  },
-  membershipHistoryCopy: {
-    flex: 1,
-  },
-  membershipHistoryDot: {
-    backgroundColor: Colors.primary,
-    borderRadius: 5,
-    height: 10,
-    marginTop: 4,
-    width: 10,
-  },
-  membershipHistoryMeta: {
-    color: Colors.text2,
-    fontSize: 12,
-    marginTop: 2,
-  },
-  membershipHistoryRow: {
-    flexDirection: "row",
-    gap: Spacing.sm,
-    paddingVertical: 9,
-  },
-  membershipHistoryTitle: {
-    color: Colors.heading,
-    fontSize: 13,
-    fontWeight: "900",
-  },
   membershipOption: {
     alignItems: "center",
     borderBottomColor: Colors.border,
@@ -1419,54 +1128,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     color: Colors.heading,
     fontSize: 14,
     fontWeight: "900",
-  },
-  membershipStatBox: {
-    backgroundColor: Colors.bg2,
-    borderRadius: Radius.lg,
-    flex: 1,
-    padding: Spacing.md,
-  },
-  membershipStatLabel: {
-    color: Colors.text2,
-    fontSize: 11,
-    marginTop: 4,
-  },
-  membershipStatValue: {
-    color: Colors.heading,
-    fontSize: 14,
-    fontWeight: "900",
-  },
-  membershipStatsRow: {
-    flexDirection: "row",
-    gap: Spacing.sm,
-    marginTop: Spacing.md,
-  },
-  membershipSummaryCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-  membershipSummaryIcon: {
-    alignItems: "center",
-    backgroundColor: Colors.bg2,
-    borderRadius: Radius.lg,
-    height: 46,
-    justifyContent: "center",
-    width: 46,
-  },
-  membershipSummaryMeta: {
-    color: Colors.text2,
-    fontSize: 12,
-    marginTop: 3,
-  },
-  membershipSummaryTitle: {
-    color: Colors.heading,
-    fontSize: 15,
-    fontWeight: "900",
-  },
-  membershipSummaryTop: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: Spacing.md,
   },
   modalOverlay: {
     backgroundColor: "rgba(0,0,0,0.36)",

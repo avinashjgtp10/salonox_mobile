@@ -1,3 +1,4 @@
+import { Text, TextInput } from "@/components/ui/AppTypography";
 import { TourButton, TourView, withScreenTour } from "@/features/userGuide/DashboardTour";
 import { screenTours } from "@/features/userGuide/screenTours";
 import { CalendarPreview } from "@/features/appointments/components/calendar/CalendarPreview";
@@ -20,7 +21,7 @@ import { formatAppDate } from "@/utils/dateTime";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Modal, Pressable, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Modal, Pressable, ScrollView, TouchableOpacity, View } from "react-native";
 
 function AppointmentCalendarScreenContent() {
   return <CalendarStaffGate><AppointmentCalendarContent /></CalendarStaffGate>;

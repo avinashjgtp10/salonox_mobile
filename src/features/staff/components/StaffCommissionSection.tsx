@@ -1,5 +1,6 @@
+import { Text } from "@/components/ui/AppTypography";
 import { useEffect, useMemo } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 
 import { DashboardRadius as Radius, type ThemeColors } from "@/constants/theme";
 import { StaffSectionCard } from "@/features/staff/components/StaffSectionCard";

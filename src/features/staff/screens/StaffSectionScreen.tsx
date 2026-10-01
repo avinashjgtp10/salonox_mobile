@@ -1,6 +1,7 @@
+import { Text } from "@/components/ui/AppTypography";
 import { router, useLocalSearchParams, type Href } from "expo-router";
 import { useMemo } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppBackButton } from "@/components/ui/AppBackButton";

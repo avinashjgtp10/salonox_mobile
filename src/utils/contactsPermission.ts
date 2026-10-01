@@ -1,5 +1,6 @@
+import { appAlert as Alert } from "@/services/appAlert";
 import * as Contacts from "expo-contacts";
-import { Alert, Linking, Platform } from "react-native";
+import { Linking, Platform } from "react-native";
 
 export interface ContactsPermissionResult {
   granted: boolean;

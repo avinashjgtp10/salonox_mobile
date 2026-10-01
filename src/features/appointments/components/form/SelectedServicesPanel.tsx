@@ -1,10 +1,11 @@
+import { Text } from "@/components/ui/AppTypography";
 import { createStyles } from "@/features/appointments/styles/appointmentStyles";
 import { formatCurrency, formatDurationLabel, getServicePricingTotals } from "@/features/appointments/utils/appointmentForm";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { ServiceListItem } from "@/types/service";
 import { Ionicons } from "@expo/vector-icons";
 import { useMemo } from "react";
-import { Text, TouchableOpacity, View } from "react-native";
+import { TouchableOpacity, View } from "react-native";
 
 export function SelectedServicesPanel({
   onRemove,
