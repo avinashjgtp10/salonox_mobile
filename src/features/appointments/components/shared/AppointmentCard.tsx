@@ -1,3 +1,4 @@
+import { Text } from "@/components/ui/AppTypography";
 import { ClientAvatar } from "@/features/appointments/components/shared/ClientAvatar";
 import { MetaPill } from "@/features/appointments/components/shared/MetaPill";
 import { StatusBadge } from "@/features/appointments/components/shared/StatusBadge";
@@ -9,7 +10,7 @@ import type { AppointmentListItem } from "@/types/appointment";
 import type { Href } from "expo-router";
 import { router } from "expo-router";
 import { useMemo } from "react";
-import { Text, TouchableOpacity, View } from "react-native";
+import { TouchableOpacity, View } from "react-native";
 import Animated, { Layout } from "react-native-reanimated";
 
 export function AppointmentCard({

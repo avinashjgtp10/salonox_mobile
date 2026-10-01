@@ -1,7 +1,8 @@
+import { Text, TextInput } from "@/components/ui/AppTypography";
 import { createStyles } from "@/features/appointments/styles/appointmentStyles";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { useMemo } from "react";
-import { Text, TextInput, TouchableOpacity, View } from "react-native";
+import { TouchableOpacity, View } from "react-native";
 
 export function TextField({
   actionLabel,

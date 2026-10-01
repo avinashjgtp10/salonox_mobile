@@ -1,3 +1,4 @@
+import { Text } from "@/components/ui/AppTypography";
 import { AppointmentPreviewSheet } from "@/features/appointments/components/calendar/AppointmentPreviewSheet";
 import { createStyles } from "@/features/appointments/styles/appointmentStyles";
 import { appointmentsOverlap, getAppointmentRange, getCalendarAppointmentTitle, getCalendarTokenLabel, getWebCalendarGradient, hasCalendarInteractionFlag, isReadonlyCalendarAppointment } from "@/features/appointments/utils/appointmentCalendar";
@@ -13,7 +14,7 @@ import { formatAppTime } from "@/utils/dateTime";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Modal, Pressable, RefreshControl, ScrollView, Text, View, type GestureResponderEvent } from "react-native";
+import { Modal, Pressable, RefreshControl, ScrollView, View, type GestureResponderEvent } from "react-native";
 
 type CalendarStyles = ReturnType<typeof createStyles>;
 

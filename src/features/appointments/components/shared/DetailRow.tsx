@@ -1,5 +1,6 @@
+import { Text } from "@/components/ui/AppTypography";
 import { useAppointmentStyles } from "@/features/appointments/styles/useAppointmentStyles";
-import { Text, View } from "react-native";
+import { View } from "react-native";
 
 export function DetailRow({ label, value }: { label: string; value?: string | number | null }) {
   const { styles } = useAppointmentStyles();

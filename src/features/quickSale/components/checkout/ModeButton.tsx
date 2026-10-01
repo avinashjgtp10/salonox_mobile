@@ -1,5 +1,6 @@
+import { Text } from "@/components/ui/AppTypography";
 import { useMemo } from "react";
-import { StyleSheet, Text, TouchableOpacity } from "react-native";
+import { StyleSheet, TouchableOpacity } from "react-native";
 
 import { DashboardRadius as Radius, type ThemeColors } from "@/constants/theme";
 import { useThemeColors } from "@/theme/ThemeProvider";

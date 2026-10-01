@@ -1,7 +1,8 @@
+import { Text } from "@/components/ui/AppTypography";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, type Href } from "expo-router";
 import { useMemo } from "react";
-import { Platform, StyleSheet, Text, View, useWindowDimensions, type DimensionValue } from "react-native";
+import { Platform, StyleSheet, View, useWindowDimensions, type DimensionValue } from "react-native";
 import { TourButton, TourView } from "@/features/userGuide/DashboardTour";
 
 import { IconBadge } from "@/components/ui/IconBadge";
@@ -376,11 +377,6 @@ const createStyles = (Colors: ThemeColors, isCompact: boolean) => StyleSheet.cre
     opacity: 0.28,
     width: 4,
   },
-  stockTile: {
-    alignItems: "center",
-    flexDirection: "column",
-    justifyContent: "center",
-  },
   comparisonTile: {
     alignItems: "flex-start",
     flexBasis: "100%",
@@ -447,13 +443,6 @@ const createStyles = (Colors: ThemeColors, isCompact: boolean) => StyleSheet.cre
     lineHeight: isCompact ? 20 : 22,
     marginTop: isCompact ? 4 : 6,
     textAlign: "center",
-    width: "100%",
-  },
-  stockRows: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: isCompact ? 16 : 18,
-    minWidth: 0,
     width: "100%",
   },
   comparisonChart: {

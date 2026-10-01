@@ -1,6 +1,7 @@
+import { Text } from "@/components/ui/AppTypography";
 import { router, type Href } from "expo-router";
 import { useMemo } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, TouchableOpacity, View } from "react-native";
 
 import {
   DashboardRadius as Radius,

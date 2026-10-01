@@ -1,3 +1,4 @@
+import { Text } from "@/components/ui/AppTypography";
 import type { StaffMember } from "@/data/teamData";
 import { createStyles } from "@/features/appointments/styles/appointmentStyles";
 import { minutesToDisplayTime, parseClockToMinutes, validateDate, validateTime } from "@/features/appointments/utils/appointmentDateTime";
@@ -6,7 +7,7 @@ import { useThemeColors } from "@/theme/ThemeProvider";
 import type { ServiceListItem } from "@/types/service";
 import { formatAppDate } from "@/utils/dateTime";
 import { useMemo } from "react";
-import { Text, View } from "react-native";
+import { View } from "react-native";
 
 export function AppointmentReviewSummary({
   clientLabel,

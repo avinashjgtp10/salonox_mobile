@@ -1,9 +1,11 @@
+import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect, useLocalSearchParams, type Href } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Alert, AppState, FlatList, KeyboardAvoidingView, Modal, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, AppState, FlatList, Keyboard, KeyboardAvoidingView, Modal, Platform, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
+import { ConfirmationModal } from "@/components/ui/ConfirmationModal";
 import { fetchInboxConversationsThunk, fetchInboxMessagesThunk, sendInboxReplyThunk } from "@/middleware/inbox/inbox.thunk";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { inboxActivePhoneChanged, inboxDraftChanged, selectInboxConversationByPhone, selectInboxMessages, selectInboxMessagesError, selectInboxMessagesLoading, selectInboxSendError, selectInboxSending } from "@/store/inbox/inbox.slice";
@@ -44,15 +46,12 @@ function Thread({ phone }: { phone: string }) {
   // View-only deletion, matching Web's local action. Keep the actual history
   // intact for reply-window calculation and retain hidden IDs across polling.
   const [hiddenIds, setHiddenIds] = useState<string[]>([]);
+  const [deleteMessageId, setDeleteMessageId] = useState<string | null>(null);
   const visibleMessages = messages.filter(message => !hiddenIds.includes(message.id));
-  const deleteFromView = (id: string) => Alert.alert(
-    "Delete message from this view?",
-    "This only hides it while this chat is open. It stays in server history and on the client’s WhatsApp. Reopening the chat restores it.",
-    [
-      { text: "Cancel", style: "cancel" },
-      { text: "Delete from view", style: "destructive", onPress: () => setHiddenIds(ids => ids.includes(id) ? ids : [...ids, id]) },
-    ],
-  );
+  const deleteFromView = (id: string) => {
+    Keyboard.dismiss();
+    setDeleteMessageId(id);
+  };
   const list = useRef<FlatList<InboxMessage>>(null);
   const nearBottom = useRef(true);
   const focused = useRef(false);
@@ -109,22 +108,37 @@ function Thread({ phone }: { phone: string }) {
       <FlatList ref={list} data={visibleMessages} keyExtractor={item => item.id} style={s.fill} contentContainerStyle={s.messageList} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag"
         onScroll={event => { const { contentSize, contentOffset, layoutMeasurement } = event.nativeEvent; nearBottom.current = contentSize.height - contentOffset.y - layoutMeasurement.height < 100; }} scrollEventThrottle={100}
         onContentSizeChange={() => { if (nearBottom.current) list.current?.scrollToEnd({ animated: false }); }}
-        ListEmptyComponent={<View style={s.empty}>{loading ? <ActivityIndicator color={p.green} /> : <><Ionicons name="chatbubble-ellipses-outline" size={36} color={p.muted} /><Text style={s.emptyText}>{error ? "Messages couldn’t be loaded." : hiddenIds.length ? "Messages are hidden from this view." : "No messages in this conversation yet."}</Text></>}</View>}
+        ListEmptyComponent={<View style={s.empty}>{loading ? <ActivityIndicator color={p.accent} /> : <><Ionicons name="chatbubble-ellipses-outline" size={36} color={p.muted} /><Text style={s.emptyText}>{error ? "Messages couldn’t be loaded." : hiddenIds.length ? "Messages are hidden from this view." : "No messages in this conversation yet."}</Text></>}</View>}
         renderItem={({ item, index }) => <View>{(index === 0 || messageDay(visibleMessages[index - 1].sentAt) !== messageDay(item.sentAt)) && <View style={s.day}><Text style={s.muted}>{messageDay(item.sentAt)}</Text></View>}<MessageBubble message={item} onDelete={deleteFromView} /></View>} />
-      {hiddenIds.length > 0 && <View style={[s.banner, s.row]}><Text style={[s.muted, s.fill]}>Message hidden from this view</Text><TouchableOpacity accessibilityRole="button" accessibilityLabel="Undo last message deletion" onPress={() => setHiddenIds(ids => ids.slice(0, -1))} style={s.button}><Text style={s.greenText}>Undo</Text></TouchableOpacity></View>}
+      {hiddenIds.length > 0 && <View style={[s.banner, s.row]}><Text style={[s.muted, s.fill]}>Message hidden from this view</Text><TouchableOpacity accessibilityRole="button" accessibilityLabel="Undo last message deletion" onPress={() => setHiddenIds(ids => ids.slice(0, -1))} style={s.button}><Text style={s.accentText}>Undo</Text></TouchableOpacity></View>}
       {!!sendError && <View accessibilityRole="alert" style={s.banner}><Text style={s.error}>{sendError} Your draft has been kept.</Text></View>}
       {!loading && (!allowed || !replyAllowed) ? <View style={s.banner}><Text style={[s.muted, { lineHeight: 19 }]}>{!allowed ? "Your account doesn’t have permission to reply to conversations." : "The 24-hour reply window has closed. Send an approved campaign template to re-engage this client."}</Text>{!!draft && <Text numberOfLines={2} style={[s.muted, { marginTop: 8 }]}>Saved draft: {draft}</Text>}</View>
         : <>
           {replyWindow.isOpen && replyWindow.hoursRemaining < 8 && <View style={s.banner}><Text style={s.muted}>Reply window closes in {Math.max(1, Math.ceil(((replyWindow.expiresAt?.getTime() ?? now) - now) / 60_000))} min</Text></View>}
-          {tray && <ScrollView style={s.tray} keyboardShouldPersistTaps="handled"><View style={s.row}><Text style={[s.heading, s.fill]}>{tray === "quick" ? "Quick replies" : "Emoji"}</Text><InboxIcon name="close" label="Close picker" onPress={() => setTray(null)} /></View>{tray === "quick" ? QUICK_REPLIES.map(reply => <TouchableOpacity accessibilityRole="button" key={reply.label} onPress={() => { setDraft(reply.text); setTray(null); }} style={s.quickReply}><Text style={s.heading}>{reply.label}</Text><Text style={s.muted}>{reply.text}</Text></TouchableOpacity>) : <View style={{ flexDirection: "row", flexWrap: "wrap" }}>{EMOJIS.map(emoji => <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Insert ${emoji}`} key={emoji} onPress={() => setDraft(draft + emoji)} style={s.icon}><Text style={{ fontSize: 24 }}>{emoji}</Text></TouchableOpacity>)}</View>}</ScrollView>}
+          {tray && <View style={s.tray}><View style={s.row}><Text style={[s.heading, s.fill]}>{tray === "quick" ? "Quick replies" : "Emoji"}</Text><InboxIcon name="close" label="Close picker" onPress={() => setTray(null)} /></View>{tray === "quick" ? QUICK_REPLIES.map(reply => <TouchableOpacity accessibilityRole="button" key={reply.label} onPress={() => { setDraft(reply.text); setTray(null); }} style={s.quickReply}><Text style={s.heading}>{reply.label}</Text><Text numberOfLines={1} style={s.muted}>{reply.text}</Text></TouchableOpacity>) : <View style={{ flexDirection: "row", flexWrap: "wrap" }}>{EMOJIS.map(emoji => <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Insert ${emoji}`} key={emoji} onPress={() => setDraft(draft + emoji)} style={s.icon}><Text style={{ fontSize: 24 }}>{emoji}</Text></TouchableOpacity>)}</View>}</View>}
           <View style={s.composer}>
-            <InboxIcon name="flash-outline" label="Quick replies" disabled={sending || loading} onPress={() => setTray(tray === "quick" ? null : "quick")} />
+            <InboxIcon name="flash-outline" label="Quick replies" disabled={sending || loading} onPress={() => { Keyboard.dismiss(); setTray(tray === "quick" ? null : "quick"); }} />
             <InboxIcon name="happy-outline" label="Insert emoji" disabled={sending || loading} onPress={() => setTray(tray === "emoji" ? null : "emoji")} />
-            <TextInput accessibilityLabel="Type a WhatsApp message" multiline maxLength={4096} editable={!sending && !loading && allowed && replyAllowed} value={draft} onChangeText={text => { if (text === "/" && !draft) { setTray("quick"); return; } setDraft(text); }} placeholder="Type a message…" placeholderTextColor={p.muted} style={s.input} />
-            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Send message" accessibilityState={{ disabled: !canSend }} disabled={!canSend} onPress={send} style={[s.icon, s.send, !canSend && { opacity: 0.4 }]}>{sending ? <ActivityIndicator color="#FFFFFF" /> : <Ionicons name="send" size={20} color="#FFFFFF" />}</TouchableOpacity>
+            <TextInput accessibilityLabel="Type a WhatsApp message" multiline maxLength={4096} editable={!sending && !loading && allowed && replyAllowed} value={draft} onChangeText={text => { if (text === "/" && !draft) { Keyboard.dismiss(); setTray("quick"); return; } setDraft(text); }} placeholder="Type a message…" placeholderTextColor={p.muted} style={s.input} />
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Send message" accessibilityState={{ disabled: !canSend }} disabled={!canSend} onPress={send} style={[s.icon, s.send, !canSend && { opacity: 0.4 }]}>{sending ? <ActivityIndicator color={p.onAccent} /> : <Ionicons name="send" size={20} color={p.onAccent} />}</TouchableOpacity>
           </View>
         </>}
     </KeyboardAvoidingView>
+    <ConfirmationModal
+      visible={deleteMessageId !== null}
+      title="Delete message from this view?"
+      description="This hides the message while this chat is open. It stays in the chat history and on the client’s WhatsApp. Reopening the chat restores it."
+      cancelLabel="Keep message"
+      confirmLabel="Delete from view"
+      onCancel={() => setDeleteMessageId(null)}
+      onConfirm={() => {
+        if (deleteMessageId !== null) {
+          const id = deleteMessageId;
+          setHiddenIds(ids => ids.includes(id) ? ids : [...ids, id]);
+        }
+        setDeleteMessageId(null);
+      }}
+    />
     <Modal visible={infoOpen} transparent animationType="slide" onRequestClose={() => setInfoOpen(false)}>
       <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.35)", justifyContent: "flex-end" }}>
         <TouchableOpacity accessibilityRole="button" accessibilityLabel="Close customer info" onPress={() => setInfoOpen(false)} style={{ flex: 1 }} />

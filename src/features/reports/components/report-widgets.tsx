@@ -1,7 +1,8 @@
+import { Text } from "@/components/ui/AppTypography";
 import { InfiniteScrollLoader } from "@/components/ui/InfiniteScrollLoader";
 import { Ionicons } from "@expo/vector-icons";
 import { memo, useMemo } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, TouchableOpacity, View } from "react-native";
 
 import { PaginationControls } from "@/components/ui/PaginationControls";
 import { SkeletonBlock, StateIllustration } from "@/components/ui/StateViews";
@@ -231,6 +232,5 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   retryText: { color: "#FFFFFF", fontSize: 13, fontWeight: "800" },
   footer: { alignItems: "center", flexDirection: "row", gap: Spacing.sm, justifyContent: "center", minHeight: 64 },
-  footerSkeleton: { backgroundColor: Colors.backgroundElement, borderRadius: 999, height: 12, width: 12 },
   footerText: { color: Colors.text2, fontSize: 12, fontWeight: "600" },
 });

@@ -1,5 +1,6 @@
+import { appAlert as Alert } from "@/services/appAlert";
 import * as Location from "expo-location";
-import { Alert, Linking, Platform } from "react-native";
+import { Linking, Platform } from "react-native";
 import { formatAttendancePlaceLabel } from "@/utils/attendancePlaceLabel";
 
 export type AttendanceLocationErrorCode =

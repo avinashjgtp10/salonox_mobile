@@ -1,21 +1,12 @@
+import { Text } from "@/components/ui/AppTypography";
+import { appAlert as Alert } from "@/services/appAlert";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Linking from "expo-linking";
 import type { ComponentProps } from "react";
 import { useEffect, useMemo, useState } from "react";
-import {
-  Alert,
-  BackHandler,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-  useWindowDimensions,
-} from "react-native";
+import { BackHandler, Platform, Pressable, ScrollView, StyleSheet, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import Animated, {
   Easing,
   interpolate,
@@ -458,42 +449,9 @@ const createStyles = (
       justifyContent: "center",
       width: 46,
     },
-    logoContainer: {
-      alignItems: "center",
-      backgroundColor: isDark ? Colors.backgroundElement : Colors.card,
-      borderColor: isDark ? withAlpha(Colors.primary, 0.28) : "#F8D7E5",
-      borderRadius: 16,
-      borderWidth: 1,
-      height: 44,
-      justifyContent: "center",
-      shadowColor: accentPink,
-      shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: isDark ? 0.25 : 0.18,
-      shadowRadius: 14,
-      width: 44,
-    },
     logo: {
       height: 32,
       width: 32,
-    },
-    badge: {
-      alignItems: "center",
-      backgroundColor: accentPink,
-      borderColor: Colors.card,
-      borderRadius: Radius.full,
-      borderWidth: 2,
-      height: 19,
-      justifyContent: "center",
-      position: "absolute",
-      right: -7,
-      top: -7,
-      width: 19,
-    },
-    badgeText: {
-      color: Colors.onPrimary,
-      fontSize: 11,
-      fontWeight: "900",
-      lineHeight: 14,
     },
     headerCopy: {
       flex: 1,
@@ -525,9 +483,6 @@ const createStyles = (
       borderRadius: Radius.full,
       height: 1,
       width: "100%",
-    },
-    copy: {
-      gap: Spacing.sm,
     },
     description: {
       color: Colors.text2,

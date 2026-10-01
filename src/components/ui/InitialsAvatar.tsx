@@ -1,5 +1,6 @@
+import { Text } from "@/components/ui/AppTypography";
 import { Image } from "expo-image";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 
 import { useThemeColors } from "@/theme/ThemeProvider";
 

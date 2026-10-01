@@ -1,8 +1,9 @@
+import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router, type Href } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Platform, StyleSheet, TouchableOpacity, View } from "react-native";
 
 import { BranchSelectorSheet } from "@/components/dashboard/BranchSelectorSheet";
 import { NotificationBadge } from "@/components/notifications/NotificationBadge";

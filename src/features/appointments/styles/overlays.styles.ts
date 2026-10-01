@@ -46,16 +46,6 @@ export const createOverlaysStyles = (Colors: ThemeColors) => StyleSheet.create({
     padding: AppLayout.cardPadding,
     width: "100%",
   },
-  modalText: {
-    color: Colors.text2,
-    fontSize: 14,
-    lineHeight: 20,
-    marginTop: Spacing.sm,
-  },
-  modalInlineAlert: {
-    marginBottom: 0,
-    marginTop: Spacing.md,
-  },
   modalTitle: {
     color: Colors.heading,
     fontSize: 18,

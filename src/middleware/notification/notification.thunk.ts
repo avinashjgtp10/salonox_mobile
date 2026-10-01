@@ -3,6 +3,7 @@ import { createAsyncThunk } from "@reduxjs/toolkit";
 import { ApiError, getApiErrorMessage } from "@/services/api";
 import { appEnv } from "@/config/environment";
 import { notificationService } from "@/services/notification.service";
+import { notificationLocalStorage } from "@/services/notificationLocalStorage";
 import { notificationDeviceStorage } from "@/services/notificationDeviceStorage";
 import { trackNotificationRegistration, waitForNotificationRegistrations } from "@/services/notificationRegistrationLifecycle";
 import type { RootState } from "@/store";
@@ -23,6 +24,12 @@ type RejectValue = { message: string };
 
 const reject = (error: unknown): RejectValue => ({ message: getApiErrorMessage(error) });
 
+const getLocalNotificationScope = (state: RootState) => JSON.stringify([
+  selectCurrentUser(state)?.id ?? null,
+  selectCurrentStaff(state)?.id ?? null,
+  selectActiveBranchId(state) ?? null,
+]);
+
 export type FetchNotificationsArgs = {
   refresh?: boolean;
 } | undefined;
@@ -38,7 +45,13 @@ export const fetchNotificationsThunk = createAsyncThunk<
   { rejectValue: RejectValue; state: RootState }
 >("notification/fetchNotifications", async (_args, { getState, rejectWithValue }) => {
   try {
-    return await notificationService.getNotifications(selectActiveBranchId(getState()));
+    const state = getState();
+    const [response, removedIds] = await Promise.all([
+      notificationService.getNotifications(selectActiveBranchId(state)),
+      notificationLocalStorage.getRemovedIds(getLocalNotificationScope(state)),
+    ]);
+    const removed = new Set(removedIds);
+    return { notifications: response.notifications.filter((notification) => !removed.has(notification.id)) };
   } catch (error) {
     return rejectWithValue(reject(error));
   }
@@ -70,6 +83,33 @@ export const markNotificationReadThunk = createAsyncThunk<
   } catch (error) {
     return rejectWithValue(reject(error));
   }
+}, {
+  condition: (notificationId, { getState }) =>
+    !getState().notification.markingReadIds.includes(notificationId),
+});
+
+export const removeLocalNotificationThunk = createAsyncThunk<
+  string,
+  string,
+  { rejectValue: RejectValue; state: RootState }
+>("notification/removeLocal", async (notificationId, { dispatch, getState, rejectWithValue }) => {
+  const state = getState();
+  const scope = getLocalNotificationScope(state);
+  try {
+    const target = state.notification.notifications.find((notification) => notification.id === notificationId);
+    if (target && !target.isRead) {
+      await dispatch(markNotificationReadThunk(notificationId)).unwrap();
+    }
+    await notificationLocalStorage.remove(scope, notificationId);
+    return notificationId;
+  } catch (error) {
+    return rejectWithValue(reject(error));
+  }
+}, {
+  condition: (notificationId, { getState }) => {
+    const state = getState().notification;
+    return !state.removingIds.includes(notificationId) && !state.markingReadIds.includes(notificationId);
+  },
 });
 
 export const markAllNotificationsReadThunk = createAsyncThunk<

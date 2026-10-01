@@ -1,19 +1,9 @@
+import { Text, TextInput } from "@/components/ui/AppTypography";
+import { appAlert as Alert } from "@/services/appAlert";
 import { Ionicons } from "@expo/vector-icons";
 import { Redirect, useFocusEffect } from "expo-router";
 import { useCallback, useDeferredValue, useMemo, useState } from "react";
-import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-  type ListRenderItem,
-} from "react-native";
+import { ActivityIndicator, FlatList, RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View, type ListRenderItem } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppBackButton, AppBackButtonPlaceholder } from "@/components/ui/AppBackButton";
@@ -445,11 +435,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "800",
     marginTop: 6,
   },
-  emptyText: {
-    color: Colors.text2,
-    fontSize: 12,
-    lineHeight: 18,
-  },
   searchWrap: {
     alignItems: "center",
     backgroundColor: Colors.bg2,
@@ -491,9 +476,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   filterChipTextActive: {
     color: "#FFFFFF",
-  },
-  listLoading: {
-    marginVertical: Spacing.xl,
   },
   row: {
     backgroundColor: Colors.card,

@@ -1,3 +1,4 @@
+import { Text } from "@/components/ui/AppTypography";
 import { TourView, TourFlatList, withScreenTour } from "@/features/userGuide/DashboardTour";
 import { screenTours } from "@/features/userGuide/screenTours";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
@@ -21,7 +22,7 @@ import { Ionicons } from "@expo/vector-icons";
 import type { Href } from "expo-router";
 import { router } from "expo-router";
 import { useCallback, useEffect, useMemo } from "react";
-import { RefreshControl, Text, TouchableOpacity, useWindowDimensions, View } from "react-native";
+import { RefreshControl, TouchableOpacity, useWindowDimensions, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 function AppointmentDashboardScreenContent() {

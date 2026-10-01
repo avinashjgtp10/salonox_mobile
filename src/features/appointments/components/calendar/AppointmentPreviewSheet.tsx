@@ -1,3 +1,5 @@
+import { Text } from "@/components/ui/AppTypography";
+import { appAlert as Alert } from "@/services/appAlert";
 import { createStyles } from "@/features/appointments/styles/appointmentStyles";
 import { formatBusinessDate, formatBusinessTime, maskPhone } from "@/features/appointments/utils/appointmentScreenHelpers";
 import { useThemeColors } from "@/theme/ThemeProvider";
@@ -6,7 +8,7 @@ import { Ionicons } from "@expo/vector-icons";
 import type { Href } from "expo-router";
 import { router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { Alert, Modal, Pressable, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { Modal, Pressable, ScrollView, TouchableOpacity, View } from "react-native";
 
 export function AppointmentPreviewSheet({
   appointment,

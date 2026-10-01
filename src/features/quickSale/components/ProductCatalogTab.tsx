@@ -1,7 +1,8 @@
+import { Text } from "@/components/ui/AppTypography";
 import { InfiniteScrollLoader } from "@/components/ui/InfiniteScrollLoader";
 import { Ionicons } from "@expo/vector-icons";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { FlatList, RefreshControl, StyleSheet, TouchableOpacity, View } from "react-native";
 import Animated, { FadeInUp, LinearTransition } from "react-native-reanimated";
 
 import { Badge } from "@/components/ui/Badge";
@@ -292,8 +293,5 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   skeletonCopy: {
     flex: 1,
     gap: 8,
-  },
-  footerLoader: {
-    paddingVertical: Spacing.lg,
   },
 });

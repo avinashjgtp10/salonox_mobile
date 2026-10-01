@@ -1,7 +1,8 @@
+import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect, type Href } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
-import { ActivityIndicator, FlatList, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, FlatList, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { fetchInboxConversationsThunk } from "@/middleware/inbox/inbox.thunk";
@@ -30,12 +31,12 @@ export default function InboxListScreen() {
     </View>
     <View style={s.search}><Ionicons name="search-outline" size={18} color={p.muted} /><TextInput accessibilityLabel="Search conversations" value={search} onChangeText={setSearch} placeholder="Search conversations…" placeholderTextColor={p.muted} autoCorrect={false} autoCapitalize="none" style={s.searchInput} />{search ? <InboxIcon name="close" label="Clear search" onPress={() => setSearch("")} /> : <View style={{ width: 12 }} />}</View>
     <View style={s.filters}>
-      {[false, true].map(value => <TouchableOpacity key={String(value)} accessibilityRole="button" accessibilityState={{ selected: unreadOnly === value }} onPress={() => setUnreadOnly(value)} style={[s.chip, unreadOnly === value && s.selected]}><Text style={[s.text, unreadOnly === value && s.greenText]}>{value ? "Unread" : "All"}</Text>{value && unread > 0 && <Text style={[s.muted, s.greenText]}>{unread}</Text>}</TouchableOpacity>)}
+      {[false, true].map(value => <TouchableOpacity key={String(value)} accessibilityRole="button" accessibilityState={{ selected: unreadOnly === value }} onPress={() => setUnreadOnly(value)} style={[s.chip, unreadOnly === value && s.selected]}><Text style={[s.text, unreadOnly === value && s.accentText]}>{value ? "Unread" : "All"}</Text>{value && unread > 0 && <Text style={[s.muted, s.accentText]}>{unread}</Text>}</TouchableOpacity>)}
       <View style={s.fill} /><TouchableOpacity accessibilityRole="button" accessibilityLabel={`Sort: ${unreadFirst ? "Unread first" : "Latest"}. Tap to change`} onPress={() => setUnreadFirst(value => !value)} style={s.chip}><Text style={s.muted}>{unreadFirst ? "Unread first" : "Latest"}</Text><Ionicons name="swap-vertical" color={p.muted} size={15} /></TouchableOpacity>
     </View>
     {inbox.conversationsError && <TouchableOpacity accessibilityRole="button" onPress={refresh} style={s.banner}><Text style={s.error}>{inbox.conversationsError} · Tap to retry</Text></TouchableOpacity>}
     <FlatList data={items} keyExtractor={item => item.contactPhone} onRefresh={refresh} refreshing={inbox.conversationsRefreshing} keyboardShouldPersistTaps="handled" contentContainerStyle={{ flexGrow: 1 }}
-      ListEmptyComponent={inbox.conversationsStatus === "loading" || (inbox.conversationsRefreshing && !inbox.conversations.length) ? <View style={s.empty}><ActivityIndicator color={p.green} /></View> : <View style={s.empty}><Ionicons name="chatbubbles-outline" size={36} color={p.green} /><Text style={s.heading}>{search ? "No chats found" : unreadOnly ? "You’re all caught up" : "Your chats start here"}</Text><Text style={s.emptyText}>{search || unreadOnly ? "Try another search or switch to All." : "Client replies to your WhatsApp messages will appear here."}</Text></View>}
+      ListEmptyComponent={inbox.conversationsStatus === "loading" || (inbox.conversationsRefreshing && !inbox.conversations.length) ? <View style={s.empty}><ActivityIndicator color={p.accent} /></View> : <View style={s.empty}><Ionicons name="chatbubbles-outline" size={36} color={p.accent} /><Text style={s.heading}>{search ? "No chats found" : unreadOnly ? "You’re all caught up" : "Your chats start here"}</Text><Text style={s.emptyText}>{search || unreadOnly ? "Try another search or switch to All." : "Client replies to your WhatsApp messages will appear here."}</Text></View>}
       renderItem={({ item }) => <TouchableOpacity accessibilityRole="button" accessibilityLabel={`${item.contactName || item.contactPhone}, ${item.unreadCount} unread messages`} onPress={() => router.push(`/inbox/${encodeURIComponent(item.contactPhone)}` as Href)} style={s.conversation}>
         <InboxAvatar name={item.contactName} phone={item.contactPhone} /><View style={[s.fill, { gap: 7 }]}><View style={s.row}><Text numberOfLines={1} style={[s.heading, s.fill]}>{item.contactName || item.contactPhone}</Text><Text style={s.muted}>{item.lastMessageLabel}</Text></View><View style={s.row}><Text numberOfLines={1} style={[s.muted, s.fill, { fontSize: 13 }]}>{item.lastMessage || "Attachment"}</Text>{item.unreadCount > 0 && <View style={s.badge}><Text style={s.badgeText}>{item.unreadCount > 99 ? "99+" : item.unreadCount}</Text></View>}</View></View>
       </TouchableOpacity>} />

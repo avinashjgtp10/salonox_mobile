@@ -1,3 +1,4 @@
+import { TextInput } from "@/components/ui/AppTypography";
 import { CLIENT_SEARCH_DEBOUNCE_MS, CLIENT_SEARCH_MIN_LETTERS, CLIENT_SEARCH_RESULT_LIMIT, STAFF_AVAILABILITY_REALTIME_ENTITIES } from "@/features/appointments/constants/appointmentConstants";
 import { useAllStaffMembers } from "@/features/appointments/hooks/useAllStaffMembers";
 import { createStyles } from "@/features/appointments/styles/appointmentStyles";
@@ -32,7 +33,7 @@ import type { StaffAvailabilitySlot } from "@/types/staffAvailability";
 import type { Href } from "expo-router";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Keyboard, TextInput } from "react-native";
+import { Keyboard } from "react-native";
 
 export function useAppointmentForm(mode: 'create' | 'edit') {
   const Colors = useThemeColors();

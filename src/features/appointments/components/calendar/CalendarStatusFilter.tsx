@@ -1,3 +1,4 @@
+import { Text } from "@/components/ui/AppTypography";
 import { Portal } from "@/components/ui/Portal";
 import { CALENDAR_STATUS_FILTERS } from "@/features/appointments/constants/appointmentConstants";
 import { createStyles } from "@/features/appointments/styles/appointmentStyles";
@@ -6,7 +7,7 @@ import { useThemeColors } from "@/theme/ThemeProvider";
 import type { AppointmentStatus } from "@/types/appointment";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { BackHandler, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { BackHandler, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export function CalendarStatusFilter({ statuses, onChange }: {

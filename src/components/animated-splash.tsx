@@ -1,6 +1,7 @@
+import { Text } from "@/components/ui/AppTypography";
 import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useMemo, useState } from 'react';
-import { Image, StyleSheet, Text, View, useWindowDimensions, type ViewStyle } from 'react-native';
+import { Image, StyleSheet, View, useWindowDimensions, type ViewStyle } from "react-native";
 import Animated, {
   cancelAnimation,
   Easing,

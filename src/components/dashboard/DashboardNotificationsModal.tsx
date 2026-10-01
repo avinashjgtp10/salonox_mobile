@@ -1,26 +1,22 @@
+import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import {
-  ActivityIndicator,
-  FlatList,
-  Modal,
-  Pressable,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { ActivityIndicator, FlatList, Modal, Pressable, StyleSheet, TouchableOpacity, View } from "react-native";
 import { Avatar } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { fetchNotificationsThunk, markNotificationReadThunk } from "@/middleware/notification/notification.thunk";
+import { fetchNotificationsThunk, markNotificationReadThunk, removeLocalNotificationThunk } from "@/middleware/notification/notification.thunk";
+import { NotificationSwipeRow } from "@/components/ui/NotificationSwipeRow";
+import { appAlert } from "@/services/appAlert";
 import { SegmentedTabs } from "@/components/ui/SegmentedTabs";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
   selectNotifications,
   selectNotificationsListLoading,
   selectNotificationsListRefreshing,
+  selectMarkingReadIds,
+  selectRemovingNotificationIds,
 } from "@/store/notification/notification.slice";
 import type { NotificationItem } from "@/types/notification";
 import { resolveNotificationRoute } from "@/utils/notificationRouting";
@@ -36,6 +32,8 @@ export function DashboardNotificationsModal({ onClose, visible }: DashboardNotif
   const notifications = useAppSelector(selectNotifications);
   const loading = useAppSelector(selectNotificationsListLoading);
   const refreshing = useAppSelector(selectNotificationsListRefreshing);
+  const markingReadIds = useAppSelector(selectMarkingReadIds);
+  const removingIds = useAppSelector(selectRemovingNotificationIds);
   const [filter, setFilter] = useState<"unread" | "all">("unread");
   const modalInsets = useMemo(() => ({ paddingBottom: Math.max(insets.bottom, 12) }), [insets.bottom]);
   const unreadCount = useMemo(
@@ -52,9 +50,9 @@ export function DashboardNotificationsModal({ onClose, visible }: DashboardNotif
   useEffect(() => {
     if (visible) {
       setFilter("unread");
-      void dispatch(fetchNotificationsThunk({ refresh: notifications.length > 0 }));
+      void dispatch(fetchNotificationsThunk({ refresh: true }));
     }
-  }, [dispatch, notifications.length, visible]);
+  }, [dispatch, visible]);
 
   const handleNotificationPress = (notification: NotificationItem) => {
     if (!notification.isRead) {
@@ -82,7 +80,7 @@ export function DashboardNotificationsModal({ onClose, visible }: DashboardNotif
               onChange={setFilter}
               segments={[
                 { key: "unread", label: `Unread${unreadCount > 0 ? ` (${unreadCount})` : ""}` },
-                { key: "all", label: "All Notifications" },
+                { key: "all", label: `All Notifications (${notifications.length})` },
               ]}
             />
           </View>
@@ -97,8 +95,20 @@ export function DashboardNotificationsModal({ onClose, visible }: DashboardNotif
               onRefresh={() => void dispatch(fetchNotificationsThunk({ refresh: true }))}
               refreshing={refreshing}
               renderItem={({ item }) => (
+                <NotificationSwipeRow
+                  disabled={markingReadIds.includes(item.id) || removingIds.includes(item.id)}
+                  onDismiss={() => {
+                    if (!item.isRead) void dispatch(markNotificationReadThunk(item.id)).unwrap().catch(() => {
+                      appAlert.alert("Unable to dismiss", "Please try again.");
+                    });
+                  }}
+                  onDelete={() => void dispatch(removeLocalNotificationThunk(item.id)).unwrap().catch(() => {
+                    appAlert.alert("Unable to remove notification", "Please try again.");
+                  })}
+                >
                 <TouchableOpacity
                   activeOpacity={0.8}
+                  disabled={markingReadIds.includes(item.id) || removingIds.includes(item.id)}
                   onPress={() => handleNotificationPress(item)}
                   style={styles.row}
                 >
@@ -111,6 +121,7 @@ export function DashboardNotificationsModal({ onClose, visible }: DashboardNotif
                     {item.body ? <Text style={styles.body}>{item.body}</Text> : null}
                   </View>
                 </TouchableOpacity>
+                </NotificationSwipeRow>
               )}
               ListEmptyComponent={
                 <View style={styles.centerState}>

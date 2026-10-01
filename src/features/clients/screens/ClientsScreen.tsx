@@ -1,21 +1,11 @@
+import { Text, TextInput } from "@/components/ui/AppTypography";
+import { appAlert as Alert } from "@/services/appAlert";
 import { TourFlatList, TourView, TourButton, withScreenTour } from "@/features/userGuide/DashboardTour";
 import { screenTours } from "@/features/userGuide/screenTours";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect, type Href } from "expo-router";
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  Modal,
-  Pressable,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { ActivityIndicator, FlatList, Modal, Pressable, RefreshControl, StyleSheet, TouchableOpacity, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 import Animated, { FadeInDown, LinearTransition } from "react-native-reanimated";
@@ -977,9 +967,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     shadowRadius: 14,
     width: AppLayout.headerActionSize,
   },
-  backButtonPlaceholder: {
-    width: AppLayout.headerActionSize,
-  },
   headerTitle: {
     color: Colors.heading,
     fontSize: AppLayout.headerTitleFontSize,
@@ -1330,18 +1317,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   footerWrap: {
     paddingBottom: 0,
-  },
-  loadingMoreWrap: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 8,
-    justifyContent: "center",
-    paddingVertical: Spacing.md,
-  },
-  loadingMoreText: {
-    color: Colors.text2,
-    fontSize: 12,
-    fontWeight: "600",
   },
   stickyButtonWrap: {
     left: AppLayout.floatingButtonRight,

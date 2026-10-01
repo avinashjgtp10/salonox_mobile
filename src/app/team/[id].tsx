@@ -1,15 +1,9 @@
+import { Text } from "@/components/ui/AppTypography";
+import { appAlert as Alert } from "@/services/appAlert";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams, type Href } from "expo-router";
 import { useMemo } from "react";
-import {
-  ActivityIndicator,
-  Alert,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { ActivityIndicator, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
@@ -461,16 +455,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontSize: AppLayout.headerTitleFontSize,
     fontWeight: AppLayout.screenTitleFontWeight,
   },
-  headerAction: {
-    alignItems: "center",
-    backgroundColor: Colors.card,
-    borderColor: Colors.border,
-    borderRadius: AppRadius.control,
-    borderWidth: 1,
-    height: AppLayout.headerActionSize,
-    justifyContent: "center",
-    width: AppLayout.headerActionSize,
-  },
   headerActionPlaceholder: {
     width: AppLayout.headerActionSize,
   },
@@ -565,122 +549,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "800",
     marginBottom: Spacing.md,
   },
-  sectionHeaderRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: Spacing.md,
-  },
-  sectionTitleInline: {
-    color: Colors.heading,
-    fontSize: 16,
-    fontWeight: "800",
-  },
-  addMiniButton: {
-    alignItems: "center",
-    backgroundColor: Colors.primary,
-    borderRadius: Radius.full,
-    flexDirection: "row",
-    gap: 4,
-    minHeight: 34,
-    paddingHorizontal: 12,
-  },
-  addMiniButtonText: {
-    color: "#FFFFFF",
-    fontSize: 12,
-    fontWeight: "800",
-  },
-  emptyContactBox: {
-    backgroundColor: Colors.bg2,
-    borderColor: Colors.border,
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-  },
-  emptyContactTitle: {
-    color: Colors.heading,
-    fontSize: 13,
-    fontWeight: "800",
-  },
-  emptyContactText: {
-    color: Colors.text2,
-    fontSize: 12,
-    lineHeight: 18,
-    marginTop: 4,
-  },
-  contactList: {
-    gap: 10,
-  },
-  emergencyContactRow: {
-    alignItems: "flex-start",
-    backgroundColor: Colors.bg2,
-    borderColor: Colors.border,
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    flexDirection: "row",
-    gap: 12,
-    padding: 14,
-  },
-  contactInfo: {
-    flex: 1,
-  },
-  contactTitleRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  contactName: {
-    color: Colors.heading,
-    flexShrink: 1,
-    fontSize: 14,
-    fontWeight: "800",
-  },
-  primaryPill: {
-    backgroundColor: Colors.successBg,
-    borderRadius: Radius.full,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  primaryPillText: {
-    color: Colors.success,
-    fontSize: 10,
-    fontWeight: "800",
-  },
-  contactMeta: {
-    color: Colors.primaryDark,
-    fontSize: 12,
-    fontWeight: "700",
-    marginTop: 5,
-  },
-  contactPhone: {
-    color: Colors.heading,
-    fontSize: 12,
-    fontWeight: "700",
-    marginTop: 5,
-  },
-  contactSubtle: {
-    color: Colors.text2,
-    fontSize: 12,
-    lineHeight: 18,
-    marginTop: 3,
-  },
-  editMiniButton: {
-    alignItems: "center",
-    backgroundColor: Colors.card,
-    borderColor: Colors.border,
-    borderRadius: Radius.full,
-    borderWidth: 1,
-    justifyContent: "center",
-    minHeight: 34,
-    paddingHorizontal: 12,
-  },
-  editMiniButtonText: {
-    color: Colors.primaryDark,
-    fontSize: 12,
-    fontWeight: "800",
-  },
   detailRow: {
     borderTopColor: Colors.border,
     borderTopWidth: 1,
@@ -742,135 +610,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     color: Colors.text2,
     fontSize: 13,
     lineHeight: 20,
-  },
-  modalOverlay: {
-    backgroundColor: "rgba(15, 23, 32, 0.36)",
-    flex: 1,
-    justifyContent: "flex-end",
-  },
-  modalKeyboardAvoiding: {
-    justifyContent: "flex-end",
-  },
-  sheetCard: {
-    backgroundColor: Colors.card,
-    borderTopLeftRadius: Radius.xl,
-    borderTopRightRadius: Radius.xl,
-    maxHeight: "90%",
-    paddingBottom: Spacing.lg,
-    paddingHorizontal: AppLayout.contentHorizontalPadding,
-    paddingTop: 10,
-  },
-  sheetHandle: {
-    alignSelf: "center",
-    backgroundColor: Colors.border,
-    borderRadius: Radius.full,
-    height: 4,
-    marginBottom: Spacing.md,
-    width: 42,
-  },
-  sheetHeader: {
-    alignItems: "flex-start",
-    flexDirection: "row",
-    gap: 12,
-    justifyContent: "space-between",
-  },
-  sheetHeaderCopy: {
-    flex: 1,
-  },
-  sheetTitle: {
-    color: Colors.heading,
-    fontSize: 18,
-    fontWeight: "800",
-  },
-  sheetSubtitle: {
-    color: Colors.text2,
-    fontSize: 12,
-    lineHeight: 18,
-    marginTop: 4,
-  },
-  sheetCloseButton: {
-    alignItems: "center",
-    backgroundColor: Colors.bg2,
-    borderRadius: AppRadius.control,
-    height: 38,
-    justifyContent: "center",
-    width: 38,
-  },
-  formContent: {
-    paddingTop: Spacing.lg,
-  },
-  inputGroup: {
-    marginBottom: Spacing.md,
-  },
-  inputLabel: {
-    color: Colors.heading,
-    fontSize: 12,
-    fontWeight: "800",
-    marginBottom: 8,
-  },
-  input: {
-    backgroundColor: Colors.bg2,
-    borderColor: Colors.border,
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    color: Colors.heading,
-    fontSize: 14,
-    minHeight: 48,
-    paddingHorizontal: 14,
-  },
-  textArea: {
-    minHeight: 86,
-    paddingTop: 13,
-    textAlignVertical: "top",
-  },
-  formError: {
-    color: Colors.error,
-    fontSize: 12,
-    fontWeight: "700",
-    lineHeight: 18,
-    marginBottom: Spacing.sm,
-  },
-  formHint: {
-    color: Colors.text2,
-    fontSize: 12,
-    lineHeight: 18,
-    marginBottom: Spacing.sm,
-  },
-  sheetFooter: {
-    flexDirection: "row",
-    gap: 10,
-    paddingTop: Spacing.md,
-  },
-  cancelSheetButton: {
-    alignItems: "center",
-    backgroundColor: Colors.card,
-    borderColor: Colors.border,
-    borderRadius: Radius.full,
-    borderWidth: 1,
-    flex: 1,
-    justifyContent: "center",
-    minHeight: 48,
-  },
-  cancelSheetButtonText: {
-    color: Colors.primaryDark,
-    fontSize: 13,
-    fontWeight: "800",
-  },
-  saveSheetButton: {
-    alignItems: "center",
-    backgroundColor: Colors.primary,
-    borderRadius: Radius.full,
-    flex: 1,
-    justifyContent: "center",
-    minHeight: 48,
-  },
-  saveSheetButtonDisabled: {
-    opacity: 0.55,
-  },
-  saveSheetButtonText: {
-    color: "#FFFFFF",
-    fontSize: 13,
-    fontWeight: "800",
   },
   missingWrap: {
     flex: 1,
