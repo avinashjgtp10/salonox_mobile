@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { BackHandler, FlatList, Keyboard, ScrollView, StyleSheet, TouchableOpacity, View, type FlatListProps, type ScrollViewProps, type TouchableOpacityProps, type ViewProps } from "react-native";
 import { Button, Text, useTheme } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { BottomTabBarHeightContext } from "@react-navigation/bottom-tabs";
 import { useIsFocused } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 
@@ -74,6 +75,8 @@ export function DashboardTourProvider({ children, config }: { children: ReactNod
   const title = config?.title ?? "Dashboard";
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const isInsideTabs = useContext(BottomTabBarHeightContext) != null;
+  const bottomInset = isInsideTabs ? 0 : insets.bottom;
   const [index, setIndex] = useState<number | null>(null);
   const focused = useIsFocused();
   const { tour } = useLocalSearchParams<{ tour?: string }>();
@@ -131,10 +134,12 @@ export function DashboardTourProvider({ children, config }: { children: ReactNod
     <TourContext.Provider value={value}>
       {config ? <View style={{ flex: 1 }}>
         <View style={{ flex: 1 }} accessibilityElementsHidden={index !== null} importantForAccessibility={index !== null ? "no-hide-descendants" : "auto"}>{children}</View>
-        {/* This strip also supplies the bottom safe-area inset, so keep it when the button is hidden. */}
-        <View style={{ backgroundColor: colors.surface, paddingBottom: insets.bottom }}>
-          {offerTour ? <Button icon="compass-outline" onPress={start}>Show me around · {title}</Button> : null}
-        </View>
+        {/* Outside tabs this strip also supplies the bottom safe-area inset; the tab bar already covers it inside tabs. */}
+        {offerTour || bottomInset > 0 ? (
+          <View style={{ backgroundColor: colors.surface, paddingBottom: bottomInset }}>
+            {offerTour ? <Button icon="compass-outline" onPress={start}>Show me around · {title}</Button> : null}
+          </View>
+        ) : null}
       </View> : children}
       {focused && index !== null && (
         <Portal>
