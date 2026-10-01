@@ -224,32 +224,6 @@ const LandingPage: React.FC = () => {
   const isAboutPage = location.pathname === '/about';
   const isContentPage = isTermsPage || isPrivacyPage || isAboutPage;
 
-  const handleHeroPointerMove = useCallback((event: React.PointerEvent<HTMLElement>) => {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches || event.pointerType === 'touch') return;
-
-    const hero = heroRef.current;
-    if (!hero) return;
-
-    const bounds = hero.getBoundingClientRect();
-    const x = ((event.clientX - bounds.left) / bounds.width - 0.5) * 2;
-    const y = ((event.clientY - bounds.top) / bounds.height - 0.5) * 2;
-
-    hero.style.setProperty('--hero-parallax-x', `${(x * 3).toFixed(2)}px`);
-    hero.style.setProperty('--hero-parallax-y', `${(y * 3).toFixed(2)}px`);
-    hero.style.setProperty('--hero-dashboard-x', `${(x * 2).toFixed(2)}px`);
-    hero.style.setProperty('--hero-dashboard-y', `${(y * 2).toFixed(2)}px`);
-  }, []);
-
-  const resetHeroParallax = useCallback(() => {
-    const hero = heroRef.current;
-    if (!hero) return;
-
-    hero.style.setProperty('--hero-parallax-x', '0px');
-    hero.style.setProperty('--hero-parallax-y', '0px');
-    hero.style.setProperty('--hero-dashboard-x', '0px');
-    hero.style.setProperty('--hero-dashboard-y', '0px');
-  }, []);
-
   const openVideoModal = useCallback((event: React.MouseEvent<HTMLElement>) => {
     event.preventDefault();
 
@@ -383,6 +357,24 @@ const LandingPage: React.FC = () => {
       body.style.removeProperty('overflow-y');
     };
   }, [mobileOpen, selectedWhyFeature, videoModalMounted]);
+
+  // Keep off-screen previews idle without adding React renders to scrolling.
+  useEffect(() => {
+    if (isContentPage || typeof IntersectionObserver === 'undefined') return;
+    const sections = Array.from(document.querySelectorAll<HTMLElement>(
+      '.salonox-landing section, .salonox-landing header.hero'
+    ));
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(({ target, isIntersecting }) => {
+        target.classList.toggle('landing-section-idle', !isIntersecting);
+      });
+    }, { rootMargin: '100px 0px' });
+    sections.forEach((section) => observer.observe(section));
+    return () => {
+      observer.disconnect();
+      sections.forEach((section) => section.classList.remove('landing-section-idle'));
+    };
+  }, [isContentPage]);
 
   useEffect(() => {
     const desktopQuery = window.matchMedia('(min-width: 1024px)');
@@ -1209,6 +1201,7 @@ const LandingPage: React.FC = () => {
           </a>
 
           <ul className="nav-links">
+            <li><Link to="/about" className={`nav-link${isAboutPage ? ' is-active' : ''}`} aria-current={isAboutPage ? 'page' : undefined} onClick={handleContentRouteClick('/about')}>About Us</Link></li>
             <li><a className={`nav-link${activeSection === 'why-salonox' ? ' is-active' : ''}`} aria-current={activeSection === 'why-salonox' ? 'location' : undefined} href="#why-salonox" onClick={scrollToSection('why-salonox')}>Why SalonoX</a></li>
             <li><a className={`nav-link${activeSection === 'features' ? ' is-active' : ''}`} aria-current={activeSection === 'features' ? 'location' : undefined} href="#features" onClick={scrollToSection('features')}>Features</a></li>
             <li><a className={`nav-link${activeSection === 'multi-branch' ? ' is-active' : ''}`} aria-current={activeSection === 'multi-branch' ? 'location' : undefined} href="#multi-branch" onClick={scrollToSection('multi-branch')}>Multi-Branch</a></li>
@@ -1249,6 +1242,7 @@ const LandingPage: React.FC = () => {
               <span />
             </button>
           </div>
+          <Link to="/about" className={`mobile-link${isAboutPage ? ' is-active' : ''}`} aria-current={isAboutPage ? 'page' : undefined} onClick={handleContentRouteClick('/about')}>About Us</Link>
           <a href="#why-salonox" className={`mobile-link${activeSection === 'why-salonox' ? ' is-active' : ''}`} aria-current={activeSection === 'why-salonox' ? 'location' : undefined} onClick={scrollToSection('why-salonox')}>Why SalonoX</a>
           <a href="#features" className={`mobile-link${activeSection === 'features' ? ' is-active' : ''}`} aria-current={activeSection === 'features' ? 'location' : undefined} onClick={scrollToSection('features')}>Features</a>
           <a href="#multi-branch" className={`mobile-link${activeSection === 'multi-branch' ? ' is-active' : ''}`} aria-current={activeSection === 'multi-branch' ? 'location' : undefined} onClick={scrollToSection('multi-branch')}>Multi-Branch</a>
@@ -1268,8 +1262,6 @@ const LandingPage: React.FC = () => {
         <>
       <Hero
         heroRef={heroRef}
-        onPointerMove={handleHeroPointerMove}
-        onPointerLeave={resetHeroParallax}
         scrollToSection={scrollToSection}
         openVideoModal={openVideoModal}
       />

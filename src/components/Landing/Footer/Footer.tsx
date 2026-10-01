@@ -49,7 +49,7 @@ const Footer: React.FC<FooterProps> = ({
         <div className="footer-col">
           <h5>Company</h5>
           <ul>
-            <li><Link to="/about" onClick={handleContentRouteClick('/about')}>About</Link></li>
+            <li><Link to="/about" onClick={handleContentRouteClick('/about')}>About Us</Link></li>
             <li><a href="#book-demo" onClick={handleContactUsClick}>Contact Us</a></li>
           </ul>
         </div>

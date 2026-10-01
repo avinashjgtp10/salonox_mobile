@@ -8,20 +8,16 @@ import {
 
 type HeroProps = {
   heroRef: React.RefObject<HTMLElement>;
-  onPointerMove: (event: React.PointerEvent<HTMLElement>) => void;
-  onPointerLeave: () => void;
   scrollToSection: (id: string) => (event: React.MouseEvent<HTMLElement>) => void;
   openVideoModal: (event: React.MouseEvent<HTMLElement>) => void;
 };
 
-const Hero: React.FC<HeroProps> = ({ heroRef, onPointerMove, onPointerLeave, scrollToSection, openVideoModal }) => (
+const Hero: React.FC<HeroProps> = ({ heroRef, scrollToSection, openVideoModal }) => (
   <>
     <header
       id="top"
       ref={heroRef}
       className="hero hero-premium hero-with-photo"
-      onPointerMove={onPointerMove}
-      onPointerLeave={onPointerLeave}
     >
     <div className="hero-photo" aria-hidden="true">
       <img

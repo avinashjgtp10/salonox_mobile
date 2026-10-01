@@ -1,0 +1,101 @@
+.salonox-landing {
+  @media (min-width: 1024px) and (max-width: 1399px) {
+    .nav .nav-inner {
+      grid-template-columns: minmax(136px, auto) minmax(0, 1fr) auto;
+      gap: 8px;
+      padding-inline: 14px;
+    }
+    .nav .nav-logo .logo-full { width: 140px; }
+    .nav .nav-links { gap: 0; }
+    .nav .nav-links .nav-link {
+      padding-inline: 6px;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+    .nav .nav-links .nav-link-btn { margin-inline: 0; }
+    .nav .nav-actions { gap: 6px; }
+    .nav .nav-desktop-cta { padding-inline: 10px; font-size: 12px; }
+  }
+
+  @media (max-width: 1023px) {
+    .nav,
+    .nav.nav-scrolled { padding: 8px 0; }
+    .nav .nav-inner {
+      display: grid;
+      grid-template-columns: 44px minmax(0, 1fr) 44px;
+      align-items: center;
+      gap: 8px;
+      min-height: 48px;
+    }
+    .nav .nav-logo {
+      position: static;
+      grid-column: 2;
+      grid-row: 1;
+      justify-self: center;
+      justify-content: center;
+      min-width: 0;
+      max-width: 100%;
+      margin: 0;
+      transform: none;
+    }
+    .nav .nav-logo .logo-full {
+      width: 156px;
+      max-width: 100%;
+      height: auto;
+      max-height: 48px;
+      flex-shrink: 1;
+    }
+    .nav .nav-actions {
+      grid-column: 3;
+      grid-row: 1;
+      justify-self: end;
+      margin-left: 0;
+    }
+    .mobile-drawer .mobile-drawer-panel {
+      width: min(90vw, 360px);
+      max-width: 100%;
+      height: 100%;
+      height: 100dvh;
+      padding: max(16px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
+      overflow-x: hidden;
+      overscroll-behavior: contain;
+    }
+    .mobile-drawer .mobile-drawer-header {
+      min-height: 48px;
+      padding-bottom: 12px;
+      margin-bottom: 8px;
+    }
+    .mobile-drawer .nav-logo {
+      position: static;
+      width: auto;
+      padding: 0;
+      justify-content: center;
+    }
+    .mobile-drawer .nav-logo .logo-full {
+      width: 156px;
+      max-width: 100%;
+      max-height: 48px;
+      flex-shrink: 1;
+    }
+    .mobile-drawer .mobile-link {
+      min-height: 48px;
+      padding: 12px 16px;
+      font-size: 15px;
+      line-height: 1.4;
+      border-radius: 8px;
+      overflow-wrap: anywhere;
+      flex-shrink: 0;
+    }
+    .mobile-drawer .mobile-cta {
+      margin-top: 16px;
+      gap: 10px;
+      padding-bottom: 8px;
+    }
+    .office-location-copy address,
+    .office-location-copy .office-gst { overflow-wrap: anywhere; }
+  }
+
+  @media (max-width: 480px) {
+    .why-section .why-grid { grid-template-columns: minmax(0, 1fr); }
+  }
+}

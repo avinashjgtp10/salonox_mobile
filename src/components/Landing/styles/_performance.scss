@@ -1,0 +1,44 @@
+.salonox-landing {
+  .nav,
+  .nav.nav-scrolled {
+    background: #fff;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    transition: box-shadow 0.2s ease, border-color 0.2s ease;
+    padding: 12px 0;
+  }
+
+  .hero-premium-atmosphere,
+  .hero-premium-atmosphere > span,
+  .hero-svg-ribbon,
+  .section-artwork svg {
+    animation: none;
+    will-change: auto;
+    translate: none;
+    transition: none;
+  }
+
+  .hero-atmosphere-ambient,
+  .hero-atmosphere-glow,
+  .hero-atmosphere-beam { filter: none; }
+
+  .landing-section-idle,
+  .landing-section-idle *,
+  .landing-section-idle::before,
+  .landing-section-idle::after,
+  .landing-section-idle *::before,
+  .landing-section-idle *::after {
+    animation-play-state: paused !important;
+  }
+
+  @media (hover: none), (prefers-reduced-motion: reduce) {
+    .hero-dashboard-frame,
+    .hero-feature-card-surface,
+    .showcase-story-reveal.is-visible .showcase-story-visual .browser-mock,
+    .showcase-float,
+    .feature-preview * {
+      animation: none !important;
+      will-change: auto;
+    }
+  }
+}

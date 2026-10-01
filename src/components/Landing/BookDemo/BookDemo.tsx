@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import PhoneInput from 'react-phone-number-input';
 import flags from 'react-phone-number-input/flags';
+import { COMPANY } from '../../../marketing/company.config';
 import {
   CountrySelectSearch,
   DEMO_EMAIL,
@@ -185,9 +186,10 @@ const BookDemo: React.FC<BookDemoProps> = ({
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                <h3>SalonoX Tech</h3>
-                <address>123 MG Road, Koregaon Park, Pune, Maharashtra 411001, India</address>
+                <h3>{COMPANY.name}</h3>
+                <address>{COMPANY.address}</address>
               </a>
+              <p className="office-gst">GST: {COMPANY.gst}</p>
               <a
                 href={OFFICE_MAP_URL}
                 className="btn btn-primary office-location-button"
