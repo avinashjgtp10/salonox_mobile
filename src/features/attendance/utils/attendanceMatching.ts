@@ -1,5 +1,5 @@
 import type { StaffMember } from "@/data/teamData";
-import type { AttendanceRecord } from "@/types/attendance";
+import type { AttendanceRecord, AttendanceToday } from "@/types/attendance";
 
 type IdentifierCandidate = {
   field: string;
@@ -46,4 +46,27 @@ export const findAttendanceRecordForStaff = (
       staffCandidates.some((staffCandidate) => staffCandidate.value === recordCandidate.value),
     );
   });
+};
+
+export const scopeAttendanceToStaff = (
+  today: AttendanceToday,
+  staffMember: Pick<StaffMember, "id" | "employeeCode" | "name"> | null,
+): AttendanceToday => {
+  const ownRecord = staffMember ? findAttendanceRecordForStaff(today.records, staffMember) : undefined;
+  const records = ownRecord ? [ownRecord] : [];
+  const status = ownRecord?.statusKey;
+
+  return {
+    ...today,
+    records,
+    summary: {
+      date: today.date,
+      total: records.length,
+      present: status === "present" ? 1 : 0,
+      absent: status === "absent" ? 1 : 0,
+      late: status === "late" ? 1 : 0,
+      halfDay: status === "halfDay" ? 1 : 0,
+      onLeave: status === "onLeave" ? 1 : 0,
+    },
+  };
 };

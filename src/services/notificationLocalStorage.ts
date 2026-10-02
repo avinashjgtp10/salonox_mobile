@@ -3,6 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { appEnv } from "@/config/environment";
 
 const keyFor = (scope: string) => `salonox.notifications.${appEnv}.removed.${scope}`;
+const readKeyFor = (scope: string) => `salonox.notifications.${appEnv}.read.${scope}`;
 let pendingWrite: Promise<void> = Promise.resolve();
 
 const parseIds = (value: string | null): string[] => {
@@ -17,6 +18,18 @@ const parseIds = (value: string | null): string[] => {
 };
 
 export const notificationLocalStorage = {
+  async getReadIds(scope: string): Promise<string[]> {
+    await pendingWrite;
+    return parseIds(await AsyncStorage.getItem(readKeyFor(scope)));
+  },
+  markRead(scope: string, ids: string[]): Promise<void> {
+    const write = pendingWrite.then(async () => {
+      const existing = parseIds(await AsyncStorage.getItem(readKeyFor(scope)));
+      await AsyncStorage.setItem(readKeyFor(scope), JSON.stringify([...new Set([...existing, ...ids])]));
+    });
+    pendingWrite = write.catch(() => undefined);
+    return write;
+  },
   async getRemovedIds(scope: string): Promise<string[]> {
     await pendingWrite;
     const value = await AsyncStorage.getItem(keyFor(scope));

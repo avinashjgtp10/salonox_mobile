@@ -15,6 +15,9 @@ export const STAFF_CALENDAR_ROUTE = "/(staff)/calendar" as Href;
 export const SUBSCRIPTION_ROUTE = "/subscription" as Href;
 export const OWNER_ROUTE_GROUP = "(tabs)";
 export const STAFF_ROUTE_GROUP = "(staff)";
+const STAFF_SHARED_ROUTES = new Set(["change-password", "privacy-policy", "notification-settings"]);
+export const isStaffAllowedRoute = (segment?: string | null) =>
+  segment === STAFF_ROUTE_GROUP || STAFF_SHARED_ROUTES.has(segment ?? "");
 const OWNER_ONLY_TOP_LEVEL_ROUTES = new Set([
   "appointments",
   "bookings",

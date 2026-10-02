@@ -64,6 +64,7 @@ function StaffCalendarScreenContent() {
           .filter((appointment) => isAssignedToStaff(appointment, currentStaff))
           .filter((appointment) => getDateKey(appointment.scheduledAt) === date)
           .filter((appointment) => matchesAppointment(appointment, search, status))
+          .map((appointment) => ({ ...appointment, staffName: currentStaff.name }))
         : [],
     [appointments, currentStaff, date, search, status],
   );
@@ -133,6 +134,10 @@ function StaffCalendarScreenContent() {
           <CalendarPreview
             appointments={staffAppointments}
             date={date}
+            readOnly
+            viewMode="day"
+            staffColumns={currentStaff ? [{ id: currentStaff.id, name: currentStaff.name, label: currentStaff.name }] : []}
+            resolveStaffId={() => currentStaffId}
           />
         </>
       ) : null}

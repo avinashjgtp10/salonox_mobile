@@ -22,6 +22,9 @@ import { inboxConversationsReceived, inboxMessageReceived, inboxConnectionChange
 import { fetchInboxConversationsThunk } from "@/middleware/inbox/inbox.thunk";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { asRecord, toSafeString } from "@/utils/apiNormalize";
+import { selectCurrentUser } from "@/store/user/user.slice";
+import { selectCurrentStaff } from "@/store/staff/staff.slice";
+import { isStaffExperienceUser } from "@/utils/routeResolver";
 
 const REALTIME_ACTIONS = ["created", "updated", "deleted", "changed"] as const;
 
@@ -99,6 +102,9 @@ const REFRESH_DEBOUNCE_MS = 450;
 
 export const useRealtimeSync = (isAuthenticated: boolean) => {
   const dispatch = useAppDispatch();
+  const user = useAppSelector(selectCurrentUser);
+  const currentStaff = useAppSelector(selectCurrentStaff);
+  const staffOnly = isStaffExperienceUser(user);
   const activeBranchId = useAppSelector(selectActiveBranchId);
   const appointmentQuery = useAppSelector((state) => state.appointment.query);
   const clientActiveFilter = useAppSelector((state) => state.client.activeFilter);
@@ -205,6 +211,19 @@ export const useRealtimeSync = (isAuthenticated: boolean) => {
     const cleanupHandlers: (() => void)[] = [];
 
     const scheduleRefresh = (entity: RealtimeEntity, payload?: unknown) => {
+      if (staffOnly) {
+        if (entity === "notifications") {
+          void dispatch(fetchNotificationsThunk({ refresh: true }));
+          void dispatch(fetchUnreadCountThunk());
+        }
+        if (entity === "appointments" && currentStaff?.id) {
+          void dispatch(fetchAppointmentsThunk({ ...appointmentQuery, staff_id: currentStaff.id, refresh: true }));
+        }
+        if (entity === "attendance" && currentStaff?.id) {
+          void dispatch(fetchAttendanceOverviewThunk());
+        }
+        return;
+      }
       emitRealtimeEntityChanged({ entity, payload });
 
       const currentTimer = refreshTimersRef.current[entity];
@@ -247,6 +266,7 @@ export const useRealtimeSync = (isAuthenticated: boolean) => {
       // and consumed by the Web Calendar.
       bindHandler(socket, "notification", (payload) => {
         const notification = payload as { type?: string } | undefined;
+        if (staffOnly && notification?.type !== "appointment") return;
         scheduleRefresh("notifications", payload);
         if (notification?.type === "appointment") {
           scheduleRefresh("appointments", payload);
@@ -258,6 +278,7 @@ export const useRealtimeSync = (isAuthenticated: boolean) => {
       // payload, so unlike the entity events above they update the store
       // directly instead of triggering a debounced refetch.
       bindHandler(socket, "inbox:message", (payload) => {
+        if (staffOnly) return;
         const record = asRecord(payload);
         const contactPhone = toSafeString(record.contactPhone ?? record.contact_phone);
         const messageRecord = asRecord(record.message);
@@ -280,6 +301,7 @@ export const useRealtimeSync = (isAuthenticated: boolean) => {
       });
 
       bindHandler(socket, "inbox:conversations", (payload) => {
+        if (staffOnly) return;
         if (!Array.isArray(payload)) {
           return;
         }
@@ -303,7 +325,7 @@ export const useRealtimeSync = (isAuthenticated: boolean) => {
       bindHandler(socket, "disconnect", () => dispatch(inboxConnectionChanged(false)));
       bindHandler(socket, "connect", () => {
         dispatch(inboxConnectionChanged(true));
-        void dispatch(fetchInboxConversationsThunk({ refresh: true }));
+        if (!staffOnly) void dispatch(fetchInboxConversationsThunk({ refresh: true }));
         if (hasConnectedRef.current) {
           scheduleRefresh("appointments", { reason: "socket_reconnected" });
         }
@@ -321,7 +343,7 @@ export const useRealtimeSync = (isAuthenticated: boolean) => {
       });
       refreshTimersRef.current = {};
     };
-  }, [activeBranchId, dispatch, isAuthenticated, refreshEntity]);
+  }, [activeBranchId, appointmentQuery, currentStaff?.id, dispatch, isAuthenticated, refreshEntity, staffOnly]);
 
   useEffect(() => {
     if (!isAuthenticated) {

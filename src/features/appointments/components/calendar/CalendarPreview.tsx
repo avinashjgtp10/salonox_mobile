@@ -64,6 +64,7 @@ export function CalendarPreview({
   resolveStaffId,
   staffColumns = [],
   viewMode = "week",
+  readOnly = false,
 }: {
   appointments: AppointmentListItem[];
   date: string;
@@ -75,6 +76,7 @@ export function CalendarPreview({
   staffColumns?: CalendarStaffOption[];
   title?: string;
   viewMode?: "week" | "day" | "list";
+  readOnly?: boolean;
 }) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
@@ -112,6 +114,7 @@ export function CalendarPreview({
   const previewId = previewAppointment?.id ?? null;
 
   const openQuickSaleAt = useCallback((column: CalendarColumn, locationY: number) => {
+    if (readOnly) return;
     const slotIndex = Math.min(TIME_SLOTS.length - 1, Math.max(0, Math.floor(locationY / SLOT_HEIGHT)));
     const { hour, minute } = TIME_SLOTS[slotIndex];
     setQuickSaleSlot({
@@ -119,7 +122,7 @@ export function CalendarPreview({
       staffName: column.staffName || undefined,
       time: `${pad2(hour)}:${pad2(minute)}`,
     });
-  }, []);
+  }, [readOnly]);
 
   useEffect(() => {
     if (viewMode === "list") return;
@@ -151,7 +154,7 @@ export function CalendarPreview({
             </View>
           )) : <Text style={styles.calendarEmpty}>No appointments found.</Text>}
         </View>
-        <AppointmentPreviewSheet appointment={previewAppointment} onClose={() => setPreviewAppointment(null)} />
+        <AppointmentPreviewSheet appointment={previewAppointment} onClose={() => setPreviewAppointment(null)} readOnly={readOnly} />
       </>
     );
   }
@@ -201,6 +204,7 @@ export function CalendarPreview({
                     key={`${column.key}-${column.staffId || columnIndex}`}
                     onAppointmentPress={setPreviewAppointment}
                     onSlotPress={openQuickSaleAt}
+                    readOnly={readOnly}
                     styles={styles}
                     width={columnWidth}
                   />
@@ -217,12 +221,13 @@ export function CalendarPreview({
           <Text style={styles.calendarEmptyTitle}>
             {viewMode === "week" ? "No appointments this week" : date === todayIsoDate() ? "No appointments today" : "No appointments on this day"}
           </Text>
-          <Text style={styles.calendarEmptyHint}>Tap a time slot to add one</Text>
+          {!readOnly && <Text style={styles.calendarEmptyHint}>Tap a time slot to add one</Text>}
         </View>
       ) : null}
       <AppointmentPreviewSheet
         appointment={previewAppointment}
         onClose={() => setPreviewAppointment(null)}
+        readOnly={readOnly}
       />
       <Modal
         animationType="fade"
@@ -295,6 +300,7 @@ const CalendarDayColumn = memo(function CalendarDayColumn({
   highlightedId,
   onAppointmentPress,
   onSlotPress,
+  readOnly,
   styles,
   width,
 }: {
@@ -303,6 +309,7 @@ const CalendarDayColumn = memo(function CalendarDayColumn({
   highlightedId: string | null;
   onAppointmentPress: (appointment: AppointmentListItem) => void;
   onSlotPress: (column: CalendarColumn, locationY: number) => void;
+  readOnly: boolean;
   styles: CalendarStyles;
   width: number;
 }) {
@@ -313,13 +320,13 @@ const CalendarDayColumn = memo(function CalendarDayColumn({
 
   return (
     <View style={[styles.dinggDayColumn, { width }]}>
-      <Pressable
+      {!readOnly && <Pressable
         accessibilityHint="Opens Quick Sale at the tapped time"
         accessibilityLabel={`Quick Sale, ${column.label}`}
         accessibilityRole="button"
         onPress={handleSlotPress}
         style={styles.dinggQuickSaleLayer}
-      />
+      />}
       {appointments.map((appointment) => {
         const scheduled = parseAppointmentDateTime(appointment.scheduledAt);
         if (!scheduled) return null;

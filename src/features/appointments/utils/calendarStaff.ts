@@ -10,6 +10,13 @@ export type CalendarStaffOption = {
 };
 
 export const SYNTHETIC_STAFF_ID_PREFIX = "name:";
+const UNASSIGNED_STAFF_ID = `${SYNTHETIC_STAFF_ID_PREFIX}unassigned`;
+const UNAVAILABLE_STAFF_ID = `${SYNTHETIC_STAFF_ID_PREFIX}unavailable`;
+
+const hasStaffName = (name?: string | null) => {
+  const normalized = normalizeCalendarStaffName(name);
+  return Boolean(normalized && normalized !== "-" && normalized !== "staff not assigned");
+};
 
 export const isMeaningfulStaffDetail = (value?: string | null) => {
   const trimmed = (value ?? "").trim();
@@ -63,6 +70,11 @@ export const buildCanonicalStaffIdByAlias = (
   appointments.forEach((appointment) => {
     if (!appointment.staffId || canonicalIdByAlias.has(appointment.staffId)) return;
 
+    if (!hasStaffName(appointment.staffName)) {
+      canonicalIdByAlias.set(appointment.staffId, UNAVAILABLE_STAFF_ID);
+      return;
+    }
+
     const matchingIds = staffIdsByName.get(normalizeCalendarStaffName(appointment.staffName)) ?? [];
     const uniqueMatchingIds = [...new Set(matchingIds)];
     if (uniqueMatchingIds.length === 1) {
@@ -91,12 +103,15 @@ export const buildCalendarStaffOptions = (
     if (appointment.staffId) {
       const canonicalId = canonicalIdByAlias.get(appointment.staffId) ?? appointment.staffId;
       if (!byId.has(canonicalId)) {
-        byId.set(canonicalId, { id: canonicalId, name });
+        byId.set(canonicalId, { id: canonicalId, name: canonicalId === UNAVAILABLE_STAFF_ID ? "Staff unavailable" : name });
       }
       return;
     }
 
-    if (!name) return;
+    if (!hasStaffName(name)) {
+      byId.set(UNASSIGNED_STAFF_ID, { id: UNASSIGNED_STAFF_ID, name: "Unassigned" });
+      return;
+    }
 
     const hasExistingName = [...byId.values()].some(
       (option) => normalizeCalendarStaffName(option.name) === normalizeCalendarStaffName(name),
@@ -177,5 +192,6 @@ export const resolveAppointmentStaffId = (
 ) =>
   canonicalIdByAlias.get(appointment.staffId) ||
   appointment.staffId ||
+  (!hasStaffName(appointment.staffName) ? UNASSIGNED_STAFF_ID : "") ||
   fallbackStaffIdByName.get(normalizeCalendarStaffName(appointment.staffName)) ||
   "";

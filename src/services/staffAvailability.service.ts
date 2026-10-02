@@ -207,7 +207,10 @@ export const staffAvailabilityService = {
 
         return emptySchedule;
       }),
-      staffBlockedTimesService.getBlockedTimes(staffId),
+      staffBlockedTimesService.getBlockedTimes(staffId).catch((error: unknown) => {
+        if (!isPermissionError(error)) throw error;
+        return [];
+      }),
     ]);
 
     return normalizeAvailability(schedule, blockedTimes, staffId, date);

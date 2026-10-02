@@ -1,4 +1,7 @@
 import { Text } from "@/components/ui/AppTypography";
+import { Redirect } from "expo-router";
+import { useAuth } from "@/context/AuthContext";
+import { isStaffExperienceUser, STAFF_HOME_ROUTE } from "@/utils/routeResolver";
 import { appAlert as Alert } from "@/services/appAlert";
 import { ToastOverlay } from "@/components/ui/ToastOverlay";
 import {
@@ -125,7 +128,15 @@ import type { Membership } from "@/types/membership";
 
 export type { QuickSaleSlot } from "@/features/quickSale/types";
 
-export default function QuickSaleScreen({
+export default function QuickSaleScreen(props: QuickSaleScreenProps = {}) {
+  const { user, isLoading } = useAuth();
+  if (isLoading) return null;
+  if (!user) return <Redirect href="/login" />;
+  if (isStaffExperienceUser(user)) return <Redirect href={STAFF_HOME_ROUTE} />;
+  return <OwnerQuickSaleScreen {...props} />;
+}
+
+function OwnerQuickSaleScreen({
   embedded = false,
   initialSlot = null,
   onRequestClose,

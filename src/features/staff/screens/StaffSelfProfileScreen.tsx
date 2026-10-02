@@ -182,13 +182,6 @@ export function StaffSelfProfileScreen() {
             <StaffAddressSection readOnly staffId={staffId} />
             <EmergencyContactsSection readOnly staffId={staffId} />
 
-            <StaffSectionCard title="Documents">
-              <StaffStateView
-                description="No integrated staff document API or upload flow exists in the current mobile layer."
-                title="Documents unavailable"
-              />
-            </StaffSectionCard>
-
             <StaffSectionCard title="Account">
               <TouchableOpacity
                 activeOpacity={0.86}

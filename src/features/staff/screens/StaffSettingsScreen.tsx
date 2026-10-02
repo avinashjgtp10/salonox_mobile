@@ -124,10 +124,6 @@ export function StaffSettingsScreen() {
     Constants.expoConfig?.android?.versionCode?.toString() ??
     "Unavailable";
 
-  const showUnavailable = (title: string, message: string) => {
-    Alert.alert(title, message);
-  };
-
   const openWebAppPage = async (path: string) => {
     await WebBrowser.openBrowserAsync(`${WEB_APP_URL}${path}`);
   };
@@ -218,22 +214,11 @@ export function StaffSettingsScreen() {
   ];
   const preferenceItems: SettingsItem[] = [
     {
-      description: "Language, date format, and time format preferences are not integrated in this mobile layer.",
-      icon: "language-outline",
-      key: "locale",
-      onPress: () =>
-        showUnavailable(
-          "Preferences unavailable",
-          "Language, date format, and time format settings are not currently exposed by the mobile app.",
-        ),
-      title: "Language & Formats",
-    },
-    {
-      description: "Choose which push notifications this device receives.",
+      description: "View activity for your own appointments.",
       icon: "notifications-outline",
       key: "notification-settings",
-      onPress: () => router.push("/notification-settings" as Href),
-      title: "Notifications",
+      onPress: () => router.push("/(staff)/notifications" as Href),
+      title: "Appointment Activity",
     },
   ];
   const securityItems: SettingsItem[] = [

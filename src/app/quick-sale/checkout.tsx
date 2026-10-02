@@ -1,4 +1,7 @@
 import { Text } from "@/components/ui/AppTypography";
+import { Redirect } from "expo-router";
+import { useAuth } from "@/context/AuthContext";
+import { isStaffExperienceUser, STAFF_HOME_ROUTE } from "@/utils/routeResolver";
 import { appAlert as Alert } from "@/services/appAlert";
 import { Ionicons } from "@expo/vector-icons";
 import { router, Stack, useFocusEffect, useLocalSearchParams, type Href } from "expo-router";
@@ -46,6 +49,14 @@ function formatPaymentMethod(method: string) {
 }
 
 export default function QuickSaleCheckoutScreen() {
+  const { user, isLoading } = useAuth();
+  if (isLoading) return null;
+  if (!user) return <Redirect href="/login" />;
+  if (isStaffExperienceUser(user)) return <Redirect href={STAFF_HOME_ROUTE} />;
+  return <OwnerQuickSaleCheckoutScreen />;
+}
+
+function OwnerQuickSaleCheckoutScreen() {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const params = useLocalSearchParams<{

@@ -8,6 +8,7 @@ import {
 import type { RootState } from "@/store";
 import type { InboxConversation, InboxMessage, InboxMessageEvent } from "@/types/inbox";
 import { mergeInboxMessages, sortInboxConversations } from "@/utils/inboxPresentation";
+import { parseAppDateTime } from "@/utils/dateTime";
 
 type ResourceStatus = "idle" | "loading" | "succeeded" | "failed";
 
@@ -187,10 +188,23 @@ const inboxSlice = createSlice({
         // accepted it, and a failed send must not leave a phantom bubble in
         // a thread the client never received.
         if (action.payload.message?.id) {
+          const message = action.payload.message;
           state.messagesByPhone[phone] = appendMessage(
             state.messagesByPhone[phone] ?? [],
-            action.payload.message,
+            message,
           );
+          const conversation = state.conversations.find((entry) => entry.contactPhone === phone);
+          if (conversation) {
+            // A socket update may already contain a newer message than this reply.
+            const replyTime = parseAppDateTime(message.sentAt)?.getTime();
+            const lastMessageTime = parseAppDateTime(conversation.lastMessageAt)?.getTime() ?? 0;
+            if (replyTime !== undefined && replyTime >= lastMessageTime) {
+              conversation.lastMessage = message.body;
+              conversation.lastMessageAt = message.sentAt;
+              conversation.lastMessageLabel = "Just now";
+            }
+          }
+          state.conversations = sortInboxConversations(state.conversations);
         }
         if (state.draftsByPhone[phone]?.trim() === action.meta.arg.message) state.draftsByPhone[phone] = "";
       })

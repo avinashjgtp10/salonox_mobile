@@ -397,7 +397,7 @@ export const resolveCurrentStaffThunk = createAsyncThunk<
       const response = await staffService.getStaff({ limit, page }, salonId);
 
       matches.push(
-        ...response.staffMembers.filter((staffMember) => staffMember.userId === normalizedUserId),
+        ...response.staffMembers.filter((staffMember) => staffMember.userId === normalizedUserId && staffMember.status !== "Inactive"),
       );
 
       hasMore = response.pagination.hasMore;

@@ -64,7 +64,7 @@ function StaffMyAppointmentsScreenContent() {
   }, [currentStaffId, fetchAppointments]);
 
   const staffAppointments = useMemo(
-    () => (currentStaff ? appointments.filter((appointment) => isAssignedToStaff(appointment, currentStaff)) : []),
+    () => (currentStaff ? appointments.filter((appointment) => isAssignedToStaff(appointment, currentStaff)).map(appointment => ({ ...appointment, staffName: currentStaff.name })) : []),
     [appointments, currentStaff],
   );
   const rows = useMemo(() => buildStaffAppointmentRows(staffAppointments, today), [staffAppointments, today]);

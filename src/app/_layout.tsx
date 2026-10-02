@@ -36,8 +36,7 @@ import { appFontAssets } from '@/theme/fontAssets';
 import { AppFonts } from '@/theme/typography';
 import { ThemeProvider as AppThemeProvider, useAppTheme } from '@/theme/ThemeProvider';
 import {
-  isOwnerRouteGroup,
-  isOwnerOnlyRoute,
+  isStaffAllowedRoute,
   isStaffExperienceUser,
   isStaffRouteGroup,
   resolveAuthenticatedRoute,
@@ -192,8 +191,7 @@ function AuthNavigationHandler({ onReady }: { onReady: () => void }) {
 
       const shouldUseStaffApp = isStaffExperienceUser(user);
       const isWrongAuthenticatedApp =
-        (shouldUseStaffApp && isOwnerRouteGroup(topLevelSegment)) ||
-        (shouldUseStaffApp && isOwnerOnlyRoute(topLevelSegment)) ||
+        (shouldUseStaffApp && !isStaffAllowedRoute(topLevelSegment)) ||
         (!shouldUseStaffApp && isStaffRouteGroup(topLevelSegment));
 
       if (isPublicRoute || isSubscriptionRoute || isWrongAuthenticatedApp) {
