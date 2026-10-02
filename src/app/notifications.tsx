@@ -257,7 +257,7 @@ export default function NotificationsScreen({
         <TouchableOpacity activeOpacity={0.84} hitSlop={12} onPress={handleBack} style={styles.iconButton}>
           <Ionicons name="arrow-back" size={18} color={Colors.primary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Notifications</Text>
+        <Text style={styles.headerTitle}>{routeScope === "staff" ? "My Appointment Activity" : "Notifications"}</Text>
         <TouchableOpacity
           activeOpacity={0.84}
           disabled={unreadCount === 0 || markingAllRead}

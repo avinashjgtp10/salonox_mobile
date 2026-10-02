@@ -4,6 +4,7 @@ import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 import { tokenStorage } from "@/services/tokenStorage";
 import { isNotificationRegistrationPaused } from "@/services/notificationRegistrationLifecycle";
+import { canReceivePush } from "@/utils/staffAccess";
 
 import {
   isNotificationTypeEnabled,
@@ -35,7 +36,7 @@ Notifications.setNotificationHandler({
     const data = notification.request.content.data;
     const recipientSalon = data?.salon_id ?? data?.salonId;
     const userSalon = session.user?.salonId;
-    const sessionAllowsNotification = Boolean(session.accessToken && session.user &&
+    const sessionAllowsNotification = Boolean(session.accessToken && session.user && canReceivePush(session.user, data) &&
       !isNotificationRegistrationPaused() && (!recipientSalon || recipientSalon === userSalon));
     const type = String(notification.request.content.data?.event_key ?? notification.request.content.data?.type ?? "general");
     const preferences = await notificationPreferencesStorage.getPreferences();

@@ -13,9 +13,11 @@ import { Modal, Pressable, ScrollView, TouchableOpacity, View } from "react-nati
 export function AppointmentPreviewSheet({
   appointment,
   onClose,
+  readOnly = false,
 }: {
   appointment: AppointmentListItem | null;
   onClose: () => void;
+  readOnly?: boolean;
 }) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
@@ -122,16 +124,16 @@ export function AppointmentPreviewSheet({
                 <Text style={[styles.appointmentNotesText, !appointment.notes.trim() && styles.appointmentNotesEmpty]}>
                   {appointment.notes.trim() || "No client notes added."}
                 </Text>
-                <TouchableOpacity activeOpacity={0.84} onPress={openNoteEditor} style={styles.appointmentNotesButton}>
+                {!readOnly && <TouchableOpacity activeOpacity={0.84} onPress={openNoteEditor} style={styles.appointmentNotesButton}>
                   <Ionicons name="create-outline" size={18} color="#FFFFFF" />
                   <Text style={styles.appointmentNotesButtonText}>{appointment.notes.trim() ? "Edit Client Note" : "Add Client Note"}</Text>
-                </TouchableOpacity>
+                </TouchableOpacity>}
               </ScrollView>
             )}
-            <TouchableOpacity activeOpacity={0.88} disabled={!isPaid} onPress={handleViewInvoice} style={[styles.appointmentInvoiceButton, !isPaid && styles.appointmentInvoiceDisabled]}>
+            {!readOnly && <TouchableOpacity activeOpacity={0.88} disabled={!isPaid} onPress={handleViewInvoice} style={[styles.appointmentInvoiceButton, !isPaid && styles.appointmentInvoiceDisabled]}>
               <Ionicons name="receipt-outline" size={20} color="#FFFFFF" />
               <Text style={styles.appointmentInvoiceText}>{isPaid ? "View Invoice" : "Invoice available after payment"}</Text>
-            </TouchableOpacity>
+            </TouchableOpacity>}
           </Pressable>
         )}
       </Pressable>

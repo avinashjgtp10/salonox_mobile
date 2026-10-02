@@ -29,7 +29,7 @@ export function mergeInboxMessages(existing: InboxMessage[], incoming: InboxMess
 
 export function sortInboxConversations(items: InboxConversation[], unreadFirst = false) {
   return [...items].sort((a, b) =>
-    (unreadFirst ? b.unreadCount - a.unreadCount : 0) || timestamp(b.lastMessageAt) - timestamp(a.lastMessageAt));
+    (unreadFirst ? Number(b.unreadCount > 0) - Number(a.unreadCount > 0) : 0) || timestamp(b.lastMessageAt) - timestamp(a.lastMessageAt));
 }
 
 export function messageDay(value: string | null) {

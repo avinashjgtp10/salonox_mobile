@@ -2,11 +2,13 @@ import { api, ApiError } from "@/services/api";
 import { tokenStorage } from "@/services/tokenStorage";
 import { addSessionInvalidationListener } from "@/services/sessionInvalidation";
 import { beginUserLogout, finishUserLogin } from "@/services/authLifecycle";
+import type { InternalAxiosRequestConfig } from "axios";
 
 jest.mock("@/config/environment", () => ({ environmentConfig: { apiBaseUrl: "http://localhost/api/v1" } }));
 jest.mock("@/services/tokenStorage", () => ({ tokenStorage: {
   getAccessToken: jest.fn().mockResolvedValue(null),
   getRefreshToken: jest.fn().mockResolvedValue(null),
+  getStoredUser: jest.fn().mockResolvedValue(null),
   clearSession: jest.fn().mockResolvedValue(undefined),
 } }));
 jest.mock("@/services/networkStatus", () => ({
@@ -56,3 +58,28 @@ test.each(["/auth/register", "/auth/send-email-otp", "/auth/verify-email-otp"])(
     } finally { finishUserLogin(); }
   },
 );
+
+test.each([
+  ["post", "/sales"], ["post", "/appointments/id/checkout"],
+  ["patch", "/appointments/id"], ["post", "/attendance/check-in"],
+])("mobile staff cannot send %s %s to the shared backend", async (method, url) => {
+  jest.mocked(tokenStorage.getStoredUser).mockResolvedValue({ id: "self", role: "staff" } as Awaited<ReturnType<typeof tokenStorage.getStoredUser>>);
+  const adapter = jest.fn();
+  try {
+    await expect(api.request({ method, url, data: {}, adapter })).rejects.toMatchObject({ status: 403 });
+    expect(adapter).not.toHaveBeenCalled();
+  } finally {
+    jest.mocked(tokenStorage.getStoredUser).mockResolvedValue(null);
+  }
+});
+
+test("mobile owner checkout reaches the existing backend", async () => {
+  jest.mocked(tokenStorage.getStoredUser).mockResolvedValue({ id: "owner", role: "salon_owner" } as Awaited<ReturnType<typeof tokenStorage.getStoredUser>>);
+  const adapter = jest.fn(async (config: InternalAxiosRequestConfig) => ({ config, status: 200, statusText: "OK", headers: {}, data: {} }));
+  try {
+    await expect(api.post("/appointments/id/checkout", {}, { adapter })).resolves.toMatchObject({ status: 200 });
+    expect(adapter).toHaveBeenCalledTimes(1);
+  } finally {
+    jest.mocked(tokenStorage.getStoredUser).mockResolvedValue(null);
+  }
+});

@@ -29,3 +29,14 @@ test("damaged local data does not break loading or subsequent removals", async (
   await notificationLocalStorage.remove("owner", "notification-1");
   expect(await notificationLocalStorage.getRemovedIds("owner")).toEqual(["notification-1"]);
 });
+
+test("staff read state stays local and is isolated by staff account and branch", async () => {
+  await Promise.all([
+    notificationLocalStorage.markRead("staff-one-branch-a", ["activity-1"]),
+    notificationLocalStorage.markRead("staff-one-branch-a", ["activity-2", "activity-1"]),
+  ]);
+  expect(await notificationLocalStorage.getReadIds("staff-one-branch-a")).toEqual(["activity-1", "activity-2"]);
+  expect(await notificationLocalStorage.getReadIds("staff-two-branch-a")).toEqual([]);
+  expect(await notificationLocalStorage.getReadIds("staff-one-branch-b")).toEqual([]);
+  expect(await notificationLocalStorage.getRemovedIds("staff-one-branch-a")).toEqual([]);
+});

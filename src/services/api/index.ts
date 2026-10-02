@@ -23,6 +23,7 @@ import {
 import { isNetworkOnline, waitForNetworkOnline } from "@/services/networkStatus";
 import { notifySessionInvalidated } from "@/services/sessionInvalidation";
 import { tokenStorage } from "@/services/tokenStorage";
+import { isStaffBusinessWrite } from "@/utils/staffAccess";
 import type { ApiResponse, RefreshTokenResponseData } from "@/types/auth";
 
 export const API_BASE_URL = environmentConfig.apiBaseUrl;
@@ -402,6 +403,13 @@ api.interceptors.request.use(async (config) => {
 
   if (isUserLogoutInProgress()) {
     throw createLogoutCancellation();
+  }
+
+  if (!["get", "head", "options"].includes(config.method ?? "get")) {
+    const storedUser = await tokenStorage.getStoredUser();
+    if (isStaffBusinessWrite(storedUser, config.method ?? "get", requestUrl)) {
+      throw new ApiError("Staff accounts have read-only access.", 403);
+    }
   }
 
   const logoutAbortController = new AbortController();

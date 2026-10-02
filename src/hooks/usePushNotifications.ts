@@ -34,6 +34,7 @@ import { appEnv } from "@/config/environment";
 import { isNotificationRegistrationPaused } from "@/services/notificationRegistrationLifecycle";
 import { resolveRouteFromPushData } from "@/utils/notificationRouting";
 import { isStaffExperienceUser } from "@/utils/routeResolver";
+import { canReceivePush } from "@/utils/staffAccess";
 
 const PLATFORM: "android" | "ios" = Platform.OS === "ios" ? "ios" : "android";
 
@@ -72,6 +73,11 @@ export const usePushNotifications = (isAuthenticated: boolean) => {
       startedUser?.id === currentUserRef.current?.id && startedUser?.salonId === currentUserRef.current?.salonId;
     if (!isCurrentSession()) return;
     try {
+      if (isStaffExperienceUser(startedUser)) {
+        confirmedRegistrationSignatureRef.current = null;
+        await dispatch(unregisterDeviceThunk()).unwrap();
+        return;
+      }
       const preferences = await salonNotificationPreferences.get();
       await notificationPreferencesStorage.setPreferences(preferences, false);
       if (!isCurrentSession()) return;
@@ -236,6 +242,7 @@ export const usePushNotifications = (isAuthenticated: boolean) => {
     }
 
     handledResponseIdsRef.current.add(responseId);
+    if (!canReceivePush(currentUserRef.current, response.notification.request.content.data)) return;
     const href = resolveRouteFromPushData(
       response.notification.request.content.data,
       isStaffExperienceUser(currentUserRef.current) ? "staff" : "owner",

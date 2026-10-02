@@ -13,19 +13,16 @@ import { Badge } from "@/components/ui/Badge";
 import { AppLayout } from "@/constants/layout";
 import { DashboardRadius as Radius, type ThemeColors } from "@/constants/theme";
 import { findAttendanceRecordForStaff } from "@/features/attendance/utils/attendanceMatching";
-import { getCurrentAttendancePlaceName } from "@/utils/attendanceLocation";
 import { formatAttendancePlaceLabel } from "@/utils/attendancePlaceLabel";
 import {
   formatAttendanceTime,
-  getAttendanceAction,
   getAttendanceBadgeConfig,
   getTodayAttendanceDateKey,
   parseAttendanceDateTime,
 } from "@/features/attendance/utils/attendanceStatus";
 import { fetchAppointmentsThunk } from "@/middleware/appointment/appointment.thunk";
+import { isAssignedToStaff } from "@/features/appointments/utils/staffAssignment";
 import {
-  checkInThunk,
-  checkOutThunk,
   fetchAttendanceOverviewThunk,
 } from "@/middleware/attendance/attendance.thunk";
 import { fetchNotificationsThunk, fetchUnreadCountThunk } from "@/middleware/notification/notification.thunk";
@@ -206,18 +203,6 @@ const getStaffAttendanceStateLabel = (
   return fallbackLabel.toLowerCase().includes("late") ? "Late" : "Present";
 };
 
-const getStaffAttendanceActionLabel = (kind: ReturnType<typeof getAttendanceAction>["kind"]) => {
-  if (kind === "checkIn") {
-    return "Check In";
-  }
-
-  if (kind === "checkOut") {
-    return "Check Out";
-  }
-
-  return "Completed";
-};
-
 const formatTimeLabel = (value: string | null | undefined) => {
   const parsed = parseAttendanceDateTime(value);
 
@@ -301,8 +286,6 @@ function StaffHomeRouteContent() {
   const attendanceOffline = useAppSelector(selectAttendanceIsOffline);
   const notificationsRefreshing = useAppSelector(selectNotificationsListRefreshing);
   const unreadCount = useAppSelector(selectUnreadCount);
-  const [attendanceActionError, setAttendanceActionError] = useState<string | null>(null);
-  const [capturingAttendanceLocation, setCapturingAttendanceLocation] = useState(false);
   const [now, setNow] = useState(Date.now());
   const todayKey = getTodayAttendanceDateKey();
   const currentStaffId = currentStaff?.id ?? "";
@@ -312,10 +295,6 @@ function StaffHomeRouteContent() {
     () => (currentStaff ? findAttendanceRecordForStaff(attendanceRecords, currentStaff) : undefined),
     [attendanceRecords, currentStaff],
   );
-  const attendanceAction = getAttendanceAction(selfAttendance);
-  const checkingIn = useAppSelector((state) => selectAttendanceIsCheckingIn(state, currentStaffId));
-  const checkingOut = useAppSelector((state) => selectAttendanceIsCheckingOut(state, currentStaffId));
-  const attendanceBusy = checkingIn || checkingOut || capturingAttendanceLocation;
   const attendanceBadge = getAttendanceBadgeConfig(selfAttendance, Colors);
   const attendanceStateLabel = getStaffAttendanceStateLabel(selfAttendance, attendanceBadge.label);
   const attendanceTone = getAttendanceTone(attendanceStateLabel, Colors);
@@ -324,9 +303,11 @@ function StaffHomeRouteContent() {
   const todayAppointments = useMemo(
     () =>
       appointments
+        .filter((appointment) => Boolean(currentStaff && isAssignedToStaff(appointment, currentStaff)))
         .filter((appointment) => isTodayAppointment(appointment, todayKey))
+        .map((appointment) => ({ ...appointment, staffName: currentStaff!.name }))
         .sort((left, right) => getAppointmentTime(left) - getAppointmentTime(right)),
-    [appointments, todayKey],
+    [appointments, currentStaff, todayKey],
   );
   const completedCount = todayAppointments.filter((appointment) => appointment.status === "Completed").length;
   const remainingCount = todayAppointments.filter((appointment) => ACTIVE_STATUSES.includes(appointment.status)).length;
@@ -373,31 +354,6 @@ function StaffHomeRouteContent() {
     }
 
     loadStaffHome(false);
-  };
-
-  const handleAttendanceAction = async () => {
-    if (!currentStaffId || attendanceBusy || attendanceAction.kind === "edit") {
-      return;
-    }
-
-    setAttendanceActionError(null);
-    setCapturingAttendanceLocation(true);
-
-    try {
-      const location = await getCurrentAttendancePlaceName();
-      if (attendanceAction.kind === "checkIn") {
-        await dispatch(checkInThunk({ date: todayKey, staffId: currentStaffId, location })).unwrap();
-      } else {
-        await dispatch(checkOutThunk({ date: todayKey, staffId: currentStaffId, location })).unwrap();
-      }
-
-      await dispatch(fetchAttendanceOverviewThunk(todayKey)).unwrap();
-      loadStaffHome(true);
-    } catch (error) {
-      setAttendanceActionError(error instanceof Error ? error.message : "Unable to update attendance.");
-    } finally {
-      setCapturingAttendanceLocation(false);
-    }
   };
 
   return (
@@ -456,17 +412,12 @@ function StaffHomeRouteContent() {
         {attendanceOffline ? <ErrorBanner message="You appear offline. Pull to refresh when connected." /> : null}
 
         <AttendanceCard
-          actionLabel={getStaffAttendanceActionLabel(attendanceAction.kind)}
           badgeLabel={attendanceStateLabel}
           checkInLabel={formatAttendanceTime(selfAttendance?.checkInTime)}
           checkOutLabel={formatAttendanceTime(selfAttendance?.checkOutTime)}
           checkInLocation={selfAttendance?.checkInTime ? formatAttendancePlaceLabel(selfAttendance.checkInLocation) || "Location not recorded" : null}
           checkOutLocation={selfAttendance?.checkOutTime ? formatAttendancePlaceLabel(selfAttendance.checkOutLocation) || "Location not recorded" : null}
-          disabled={attendanceBusy || !currentStaffId || attendanceAction.kind === "edit"}
-          error={attendanceActionError}
           icon={attendanceBadge.icon}
-          loading={attendanceBusy || attendanceLoading || currentStaffLoading}
-          onPress={() => void handleAttendanceAction()}
           statusLabel={attendanceStateLabel}
           tone={attendanceTone}
           workingLabel={formatWorkingTime(selfAttendance?.checkInTime, selfAttendance?.checkOutTime, now)}
@@ -499,32 +450,22 @@ function ErrorBanner({ message, onRetry }: { message: string; onRetry?: () => vo
 }
 
 function AttendanceCard({
-  actionLabel,
   badgeLabel,
   checkInLabel,
   checkOutLabel,
   checkInLocation,
   checkOutLocation,
-  disabled,
-  error,
   icon,
-  loading,
-  onPress,
   statusLabel,
   tone,
   workingLabel,
 }: {
-  actionLabel: string;
   badgeLabel: string;
   checkInLabel: string;
   checkOutLabel: string;
   checkInLocation: string | null;
   checkOutLocation: string | null;
-  disabled: boolean;
-  error: string | null;
   icon: keyof typeof Ionicons.glyphMap;
-  loading: boolean;
-  onPress: () => void;
   statusLabel: string;
   tone: { bg: string; color: string };
   workingLabel: string;
@@ -544,15 +485,6 @@ function AttendanceCard({
           <Text style={stylesStatic.cardEyebrow}>{"Today's Attendance"}</Text>
           <Text style={[stylesStatic.attendanceStatus, { color: tone.color }]}>{badgeLabel}</Text>
         </View>
-        <TouchableOpacity
-          activeOpacity={0.82}
-          disabled={disabled}
-          onPress={onPress}
-          style={[stylesStatic.checkoutButton, disabled && { backgroundColor: tone.bg }, disabled && stylesStatic.buttonDisabled]}
-        >
-          {loading ? <ActivityIndicator color={DASHBOARD.text} size="small" /> : null}
-          <Text style={[stylesStatic.checkoutText, disabled && { color: tone.color }]}>{actionLabel}</Text>
-        </TouchableOpacity>
       </View>
 
       <View style={stylesStatic.attendanceMetrics}>
@@ -576,7 +508,6 @@ function AttendanceCard({
       </View>
       {checkInLocation ? <Text style={{ color: Colors.text2, marginTop: 10 }}>Check-in location: {checkInLocation}</Text> : null}
       {checkOutLocation ? <Text style={{ color: Colors.text2, marginTop: 8 }}>Checkout location: {checkOutLocation}</Text> : null}
-      {error ? <Text style={stylesStatic.inlineError}>{error}</Text> : null}
     </TourView>
   );
 }
@@ -614,82 +545,6 @@ function Metric({
     </View>
   );
 }
-
-function NextAppointmentCard({
-  appointment,
-  countdown,
-  error,
-  loading,
-  onPressDetails,
-  onPressStart,
-}: {
-  appointment: AppointmentListItem | null;
-  countdown: string;
-  error: string | null;
-  loading: boolean;
-  onPressDetails: () => void;
-  onPressStart: () => void;
-}) {
-  const Colors = useThemeColors();
-  const DASHBOARD = getDashboardTones(Colors);
-  const stylesStatic = useMemo(() => getStylesStatic(Colors), [Colors]);
-
-  if (loading) {
-    return (
-      <View style={stylesStatic.nextCard}>
-        <ActivityIndicator color={DASHBOARD.beige} />
-      </View>
-    );
-  }
-
-  if (!appointment) {
-    return (
-      <View style={stylesStatic.nextCardEmpty}>
-        <View style={stylesStatic.nextEmptyIcon}>
-          <Ionicons name="calendar-clear-outline" size={22} color={DASHBOARD.text} />
-        </View>
-        <View style={stylesStatic.nextCopy}>
-          <Text style={stylesStatic.cardTitle}>No upcoming appointment</Text>
-          <Text style={stylesStatic.nextClient}>You are clear for the next slot.</Text>
-        </View>
-      </View>
-    );
-  }
-
-  const chairLabel = getRawString(appointment, ["chair", "chair_name", "chairName", "resource_name"]) || "Chair —";
-
-  return (
-    <View style={stylesStatic.nextCard}>
-      <View style={stylesStatic.nextLeftIcon}>
-        <Ionicons name="calendar-outline" size={26} color="#FFFFFF" />
-      </View>
-      <Pressable onPress={onPressDetails} style={stylesStatic.nextCopy}>
-        <Text style={stylesStatic.cardEyebrow}>Next Appointment</Text>
-        <View style={stylesStatic.nextTimeRow}>
-          <Text style={stylesStatic.nextTime}>{formatTimeLabel(appointment.startTime ?? appointment.scheduledAt)}</Text>
-          {countdown ? <Text style={stylesStatic.countdownPill}>{countdown}</Text> : null}
-        </View>
-        <Text numberOfLines={1} style={stylesStatic.nextService}>{appointment.serviceName}</Text>
-        <Text numberOfLines={1} style={stylesStatic.nextClient}>{appointment.clientName}</Text>
-        <View style={stylesStatic.chairRow}>
-          <Ionicons name="location-outline" size={18} color={DASHBOARD.muted} />
-          <Text numberOfLines={1} style={stylesStatic.chairText}>{chairLabel}</Text>
-        </View>
-      </Pressable>
-      <View style={stylesStatic.nextActions}>
-        <TouchableOpacity activeOpacity={0.82} onPress={onPressDetails} style={stylesStatic.chevronButton}>
-          <Ionicons name="chevron-forward" size={28} color={DASHBOARD.text} />
-        </TouchableOpacity>
-        <TouchableOpacity activeOpacity={0.82} onPress={onPressStart} style={stylesStatic.startButton}>
-          <Text style={stylesStatic.startButtonText}>Start Appointment</Text>
-        </TouchableOpacity>
-      </View>
-      {error ? <Text style={stylesStatic.inlineError}>{error}</Text> : null}
-    </View>
-  );
-}
-
-void NextAppointmentCard;
 
 function TodayAppointmentsCard({ appointments, loading }: { appointments: AppointmentListItem[]; loading: boolean }) {
   const Colors = useThemeColors();

@@ -12,6 +12,7 @@ export type NotificationItem = {
   referenceId: string | null;
   title: string;
   type: string;
+  recipientUserIds?: string[];
 };
 
 export type NotificationsListResponse = {

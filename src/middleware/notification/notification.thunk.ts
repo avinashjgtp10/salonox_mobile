@@ -3,6 +3,7 @@ import { createAsyncThunk } from "@reduxjs/toolkit";
 import { ApiError, getApiErrorMessage } from "@/services/api";
 import { appEnv } from "@/config/environment";
 import { notificationService } from "@/services/notification.service";
+import { appointmentService } from "@/services/appointment.service";
 import { notificationLocalStorage } from "@/services/notificationLocalStorage";
 import { notificationDeviceStorage } from "@/services/notificationDeviceStorage";
 import { trackNotificationRegistration, waitForNotificationRegistrations } from "@/services/notificationRegistrationLifecycle";
@@ -10,6 +11,9 @@ import type { RootState } from "@/store";
 import { selectActiveBranchId } from "@/store/branch/branch.slice";
 import { selectCurrentStaff } from "@/store/staff/staff.slice";
 import { selectCurrentUser } from "@/store/user/user.slice";
+import { canReceiveStaffNotification } from "@/utils/staffAccess";
+import { isStaffExperienceUser } from "@/utils/routeResolver";
+import { buildStaffAppointmentActivity } from "@/utils/staffAppointmentActivity";
 import type {
   MarkAllNotificationsReadResponse,
   MarkNotificationReadResponse,
@@ -46,12 +50,25 @@ export const fetchNotificationsThunk = createAsyncThunk<
 >("notification/fetchNotifications", async (_args, { getState, rejectWithValue }) => {
   try {
     const state = getState();
+    const user = selectCurrentUser(state);
+    if (isStaffExperienceUser(user)) {
+      const staff = selectCurrentStaff(state);
+      if (!user || !staff) return { notifications: [] };
+      const scope = getLocalNotificationScope(state);
+      const [response, readIds, removedIds] = await Promise.all([
+        appointmentService.getStaffAppointments({ limit: Number.MAX_SAFE_INTEGER, page: 1, search: "", sort_by: "created_at", sort_order: "DESC" }, staff, selectActiveBranchId(state)),
+        notificationLocalStorage.getReadIds(scope), notificationLocalStorage.getRemovedIds(scope),
+      ]);
+      if (getLocalNotificationScope(getState()) !== scope) throw new ApiError("Your staff session has changed. Please refresh.", 403);
+      const removed = new Set(removedIds);
+      return { notifications: buildStaffAppointmentActivity(response.appointments, staff, user.id, readIds).filter(item => !removed.has(item.id)) };
+    }
     const [response, removedIds] = await Promise.all([
       notificationService.getNotifications(selectActiveBranchId(state)),
       notificationLocalStorage.getRemovedIds(getLocalNotificationScope(state)),
     ]);
     const removed = new Set(removedIds);
-    return { notifications: response.notifications.filter((notification) => !removed.has(notification.id)) };
+    return { notifications: response.notifications.filter((notification) => !removed.has(notification.id) && canReceiveStaffNotification(selectCurrentUser(state), notification)) };
   } catch (error) {
     return rejectWithValue(reject(error));
   }
@@ -61,8 +78,12 @@ export const fetchUnreadCountThunk = createAsyncThunk<
   UnreadCountResponse,
   void,
   { rejectValue: RejectValue; state: RootState }
->("notification/fetchUnreadCount", async (_args, { getState, rejectWithValue }) => {
+>("notification/fetchUnreadCount", async (_args, { dispatch, getState, rejectWithValue }) => {
   try {
+    if (isStaffExperienceUser(selectCurrentUser(getState()))) {
+      const response = await dispatch(fetchNotificationsThunk()).unwrap();
+      return { count: response.notifications.filter(item => !item.isRead).length };
+    }
     return await notificationService.getUnreadCount(selectActiveBranchId(getState()));
   } catch (error) {
     return rejectWithValue(reject(error));
@@ -73,8 +94,16 @@ export const markNotificationReadThunk = createAsyncThunk<
   MarkNotificationReadResponse,
   string,
   { rejectValue: RejectValue; state: RootState }
->("notification/markRead", async (notificationId, { dispatch, rejectWithValue }) => {
+>("notification/markRead", async (notificationId, { dispatch, getState, rejectWithValue }) => {
   try {
+    const state = getState();
+    if (isStaffExperienceUser(selectCurrentUser(state))) {
+      const notification = state.notification.notifications.find(item => item.id === notificationId);
+      if (!notification || !canReceiveStaffNotification(selectCurrentUser(state), notification)) throw new ApiError("Appointment activity unavailable.", 403);
+      await notificationLocalStorage.markRead(getLocalNotificationScope(state), [notificationId]);
+      void dispatch(fetchUnreadCountThunk());
+      return { notification: { ...notification, isRead: true } };
+    }
     const response = await notificationService.markAsRead(notificationId);
 
     void dispatch(fetchUnreadCountThunk());
@@ -116,8 +145,15 @@ export const markAllNotificationsReadThunk = createAsyncThunk<
   MarkAllNotificationsReadResponse,
   void,
   { rejectValue: RejectValue; state: RootState }
->("notification/markAllRead", async (_args, { dispatch, rejectWithValue }) => {
+>("notification/markAllRead", async (_args, { dispatch, getState, rejectWithValue }) => {
   try {
+    const state = getState();
+    if (isStaffExperienceUser(selectCurrentUser(state))) {
+      await notificationLocalStorage.markRead(getLocalNotificationScope(state), state.notification.notifications
+        .filter(item => canReceiveStaffNotification(selectCurrentUser(state), item)).map(item => item.id));
+      void dispatch(fetchUnreadCountThunk());
+      return {};
+    }
     const response = await notificationService.markAllAsRead();
 
     void dispatch(fetchUnreadCountThunk());
@@ -147,8 +183,11 @@ export const registerDeviceThunk = createAsyncThunk<
   RegisterDeviceResponse,
   RegisterDeviceRequest,
   { rejectValue: RejectValue; state: RootState }
->("notification/registerDevice", async (payload, { rejectWithValue }) => {
+>("notification/registerDevice", async (payload, { getState, rejectWithValue }) => {
   try {
+    if (isStaffExperienceUser(selectCurrentUser(getState()))) {
+      return rejectWithValue({ message: "Staff appointment activity is available inside the app." });
+    }
     console.log("[PushNotifications] notification.thunk entered");
     const token = payload.token.trim();
 
