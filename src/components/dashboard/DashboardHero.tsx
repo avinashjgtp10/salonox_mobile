@@ -18,7 +18,6 @@ import { selectUnreadCount } from "@/store/notification/notification.slice";
 import { selectCurrentUser } from "@/store/user/user.slice";
 import { useAppTheme } from "@/theme/ThemeProvider";
 import {
-  DEFAULT_BUSINESS_NAME,
   getUserFullName,
   getUserInitials,
 } from "@/utils/userProfile";
@@ -59,8 +58,7 @@ export default function DashboardHero({ onOpenNotifications, onOpenQuickActions 
   const fullName = getUserFullName(currentUser);
   const firstName = getFirstName(fullName);
   const initials = getUserInitials(currentUser);
-  const brandName = DEFAULT_BUSINESS_NAME;
-  const branchName = activeBranch?.name ?? "Current Branch";
+  const salonName = activeBranch?.name?.trim() || currentUser?.businessName?.trim() || "Salon";
   const greeting = useMemo(getTimeGreeting, []);
   const [isBranchSheetOpen, setIsBranchSheetOpen] = useState(false);
 
@@ -89,15 +87,14 @@ export default function DashboardHero({ onOpenNotifications, onOpenQuickActions 
         </View>
 
         <TouchableOpacity
-          accessibilityLabel={shouldShowBranchSelector ? "Switch branch" : "Current branch"}
+          accessibilityLabel={shouldShowBranchSelector ? `${salonName}, switch branch` : salonName}
           activeOpacity={shouldShowBranchSelector ? 0.8 : 1}
           onPress={() => shouldShowBranchSelector && setIsBranchSheetOpen(true)}
           style={styles.locationPill}
         >
           <Ionicons color={Colors.onPrimary} name="location-sharp" size={16} />
           <View style={styles.locationCopy}>
-            <Text numberOfLines={1} style={styles.locationLabel}>{brandName}</Text>
-            <Text numberOfLines={1} style={styles.locationName}>{branchName}</Text>
+            <Text numberOfLines={1} style={styles.locationName}>{salonName}</Text>
           </View>
           {shouldShowBranchSelector ? (
             <Ionicons color={Colors.dashboardTopBarMuted} name="chevron-down" size={16} />
@@ -228,13 +225,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   locationCopy: {
     flex: 1,
     minWidth: 0,
-  },
-  locationLabel: {
-    color: Colors.dashboardTopBarMuted,
-    fontSize: 10,
-    fontWeight: "700",
-    lineHeight: 12,
-    textTransform: "uppercase",
   },
   locationName: {
     color: Colors.onPrimary,
