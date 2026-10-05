@@ -1,9 +1,9 @@
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Animated, Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StatusBar, StyleSheet, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ActivityIndicator, Animated, Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StatusBar, StyleSheet, View } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAuth } from "@/context/AuthContext";
 import { ApiError, getApiErrorMessage } from "@/services/api";
@@ -34,6 +34,7 @@ const getFriendlyLoginErrorMessage = (loginError: unknown) => {
 };
 
 export default function LoginScreen() {
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ successMessage?: string }>();
   const routeSuccessMessage = getRouteParam(params.successMessage);
   const { clearError, error, isLoading, signIn } = useAuth();
@@ -42,10 +43,15 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [failedLoginAttempts, setFailedLoginAttempts] = useState(0);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const scrollViewRef = useRef<ScrollView>(null);
+  const scrollContentRef = useRef<View>(null);
   const passwordInputRef = useRef<TextInput>(null);
-  const fieldOffsets = useRef({ email: 0, password: 0 });
-  const scrollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const emailFieldRef = useRef<View>(null);
+  const passwordFieldRef = useRef<View>(null);
+  const focusedField = useRef<"email" | "password" | null>(null);
+  const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const keyboardOpen = useRef(false);
   const loginInFlight = useRef(false);
   const [cardOpacity] = useState(() => new Animated.Value(0));
   const [cardTranslate] = useState(() => new Animated.Value(16));
@@ -58,23 +64,52 @@ export default function LoginScreen() {
     ]).start();
   }, [cardOpacity, cardTranslate]);
 
-  useEffect(() => () => {
-    if (scrollTimer.current) clearTimeout(scrollTimer.current);
-  }, []);
+  // Scrolls the focused field's label to just below the status bar. The
+  // position is measured relative to the scroll content (not the window), so
+  // it stays correct while the keyboard is still resizing the viewport.
+  const revealFocusedField = useCallback(() => {
+    const field = focusedField.current;
+    const fieldView = field === "email" ? emailFieldRef.current : field === "password" ? passwordFieldRef.current : null;
+    const content = scrollContentRef.current;
+    if (!keyboardOpen.current || !fieldView || !content) return;
+    fieldView.measureLayout(content, (_x, fieldY) => {
+      if (!keyboardOpen.current || focusedField.current !== field) return;
+      scrollViewRef.current?.scrollTo({ y: Math.max(0, fieldY - insets.top - 16), animated: true });
+    }, () => undefined);
+  }, [insets.top]);
+
+  useEffect(() => {
+    const shown = Keyboard.addListener("keyboardDidShow", (event) => {
+      keyboardOpen.current = true;
+      // Android: reserve the keyboard's height below the form ourselves so the
+      // ScrollView always has room to scroll, whether or not the window resized.
+      if (Platform.OS === "android") setKeyboardHeight(event.endCoordinates.height);
+      revealFocusedField();
+      // Retry once the keyboard/layout has settled — a scroll issued while the
+      // content still fits the old viewport is clamped to 0 and lost.
+      if (settleTimer.current) clearTimeout(settleTimer.current);
+      settleTimer.current = setTimeout(revealFocusedField, 250);
+    });
+    const hidden = Keyboard.addListener("keyboardDidHide", () => {
+      keyboardOpen.current = false;
+      if (settleTimer.current) clearTimeout(settleTimer.current);
+      setKeyboardHeight(0);
+      scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+    });
+    return () => {
+      shown.remove();
+      hidden.remove();
+      if (settleTimer.current) clearTimeout(settleTimer.current);
+    };
+  }, [revealFocusedField]);
   const clearFeedback = () => {
     setFormError(null);
     clearError();
   };
 
   const scrollToField = (field: "email" | "password") => {
-    if (scrollTimer.current) clearTimeout(scrollTimer.current);
-    scrollTimer.current = setTimeout(() => {
-      scrollViewRef.current?.scrollTo({
-        y: Math.max(0, fieldOffsets.current[field] - 16),
-        animated: true,
-      });
-      scrollTimer.current = null;
-    }, 120);
+    focusedField.current = field;
+    revealFocusedField();
   };
 
   const focusPasswordField = () => passwordInputRef.current?.focus();
@@ -128,6 +163,21 @@ export default function LoginScreen() {
   return (
     <View style={styles.screen}>
       <StatusBar backgroundColor="#131210" barStyle="light-content" />
+      <KeyboardAvoidingView
+        style={styles.formKeyboardArea}
+        behavior="padding"
+        enabled={Platform.OS === "ios"}
+      >
+      <ScrollView
+        ref={scrollViewRef}
+        contentContainerStyle={[styles.pageContent, { paddingBottom: keyboardHeight }]}
+        onContentSizeChange={revealFocusedField}
+        onLayout={revealFocusedField}
+        keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "none"}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+      <View ref={scrollContentRef} collapsable={false} style={styles.pageContent}>
       <View style={styles.hero}>
         <Image resizeMode="cover" source={require("../../assets/images/auth/floral-line-art.png")} style={styles.heroPattern} />
         <SafeAreaView edges={["top"]} style={styles.heroSafeArea}>
@@ -147,21 +197,11 @@ export default function LoginScreen() {
       </View>
 
       <SafeAreaView edges={["bottom"]} style={styles.contentSafeArea}>
-        <KeyboardAvoidingView
-          style={styles.formKeyboardArea}
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-        >
-        <ScrollView
-          ref={scrollViewRef}
-          contentContainerStyle={styles.scrollContent}
-          keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
+        <View style={styles.scrollContent}>
           <Animated.View style={[styles.card, { opacity: cardOpacity, transform: [{ translateY: cardTranslate }] }]}>
             <Text style={styles.title}>Sign-In</Text>
 
-            <View style={styles.fieldGroup} onLayout={(event) => { fieldOffsets.current.email = event.nativeEvent.layout.y; }}>
+            <View ref={emailFieldRef} collapsable={false} style={styles.fieldGroup}>
               <Text style={styles.label}>Email</Text>
               <View style={styles.inputShell}>
                 <TextInput
@@ -185,7 +225,7 @@ export default function LoginScreen() {
               </View>
             </View>
 
-            <View style={styles.fieldGroup} onLayout={(event) => { fieldOffsets.current.password = event.nativeEvent.layout.y; }}>
+            <View ref={passwordFieldRef} collapsable={false} style={styles.fieldGroup}>
               <Text style={styles.label}>Password</Text>
               <View style={styles.inputShell}>
                 <TextInput
@@ -220,16 +260,18 @@ export default function LoginScreen() {
               {isLoading ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.submitText}>Sign In</Text>}
             </Pressable>
           </Animated.View>
-        </ScrollView>
-        </KeyboardAvoidingView>
+        </View>
       </SafeAreaView>
+      </View>
+      </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { backgroundColor: "#F8F2F6", flex: 1 },
-  hero: { backgroundColor: "#131210", height: 300, overflow: "hidden" },
+  hero: { backgroundColor: "#131210", height: 300, flexShrink: 0, overflow: "hidden" },
   heroPattern: { height: "130%", opacity: 0.1, position: "absolute", tintColor: "#FFFFFF", width: "115%" },
   heroSafeArea: { flex: 1 },
   headerRow: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 18, paddingTop: 13 },
@@ -240,8 +282,9 @@ const styles = StyleSheet.create({
   wordmarkText: { color: "#FFFFFF", fontSize: 24, fontWeight: "800" },
   wordmarkAccent: { color: "#00D7A1", fontSize: 24, fontWeight: "800" },
   wordmarkTagline: { color: "#BFBFBF", fontSize: 8, marginTop: 1 },
-  contentSafeArea: { flex: 1, marginTop: -146 },
+  contentSafeArea: { flexGrow: 1, marginTop: -146 },
   formKeyboardArea: { flex: 1 },
+  pageContent: { flexGrow: 1 },
   scrollContent: { flexGrow: 1, paddingBottom: 24, paddingHorizontal: 15 },
   card: { backgroundColor: "#FFFFFF", borderRadius: 12, minHeight: 570, paddingBottom: 30, paddingHorizontal: 18, paddingTop: 18 },
   title: { color: "#111111", fontFamily: "serif", fontSize: 32, fontWeight: "800", marginBottom: 18, marginTop: 12, textAlign: "center" },
