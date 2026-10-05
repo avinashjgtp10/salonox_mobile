@@ -332,10 +332,6 @@ function TeamScreenContent() {
       setStaffActiveStatusThunk({ nextStatus, staffId: staffMember.id }),
     );
 
-    // setStaffActiveStatusThunk only fulfills after the activate/deactivate
-    // call succeeds AND a refetch confirms the staff record's status
-    // actually changed, so this success message can't fire on a false
-    // positive the way the old generic-update call could.
     if (setStaffActiveStatusThunk.rejected.match(resultAction)) {
       Alert.alert(
         nextStatus === "inactive" ? "Unable to deactivate staff" : "Unable to reactivate staff",

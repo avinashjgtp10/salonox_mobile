@@ -148,7 +148,6 @@ export function createToastContainer({ selector, clearAction }: ToastContainerPr
   return ToastContainer;
 }
 
-// Helper hook for showing toasts
 export function useToast(dispatch: any, setToastAction: (toast: Omit<ToastMessage, "id">) => any) {
   const showToast = (message: string, tone: ToastTone, duration?: number) =>
     dispatch(setToastAction({ message, tone, duration }));
@@ -156,7 +155,6 @@ export function useToast(dispatch: any, setToastAction: (toast: Omit<ToastMessag
   return { showToast };
 }
 
-// Pre-configured toast types
 export const showSuccessToast = (dispatch: any, setToastAction: (toast: Omit<ToastMessage, "id">) => any, message: string, duration?: number) =>
   dispatch(setToastAction({ message, tone: "success", duration }));
 

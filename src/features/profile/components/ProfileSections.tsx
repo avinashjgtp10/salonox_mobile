@@ -13,7 +13,6 @@ import { useThemeColors } from "@/theme/ThemeProvider";
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
-/** A titled card with an icon badge, used for each profile section. */
 export function ProfileCard({
   children,
   icon,
@@ -71,7 +70,6 @@ export function FieldGrid({ children }: { children: ReactNode }) {
   return <View style={styles.fieldGrid}>{children}</View>;
 }
 
-/** A read-only labelled value. `empty` renders the value as a muted placeholder. */
 export function FieldBox({
   badge,
   empty,

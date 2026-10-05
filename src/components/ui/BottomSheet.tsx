@@ -31,8 +31,6 @@ type BottomSheetProps = {
 
 const OPEN_DURATION = 280;
 const CLOSE_DURATION = 220;
-// Matches native bottom-sheet feel: quick ease-out on the way in, quick
-// ease-in on the way out — no bounce/overshoot to keep it feeling "solid."
 const OPEN_EASING = Easing.bezier(0.16, 1, 0.3, 1);
 const CLOSE_EASING = Easing.bezier(0.4, 0, 1, 1);
 
@@ -54,14 +52,7 @@ export function BottomSheet({
   const { height: screenHeight } = useWindowDimensions();
   const sheetMaxHeight = Math.round(screenHeight * 0.9);
   const scrollMaxHeight = Math.round(screenHeight * 0.72);
-  // 0 = fully closed/off-screen, 1 = fully open. This single value is the
-  // only animation controller for the sheet — both the backdrop opacity and
-  // the sheet's translateY are pure derivations of it via useAnimatedStyle,
-  // so there is never more than one thing driving the transition.
   const progress = useSharedValue(0);
-  // Kept mounted for the duration of the close animation so it can play out;
-  // unmounts only once fully closed, instead of vanishing the instant
-  // `visible` flips false.
   const [isPresented, setIsPresented] = useState(visible);
 
   useEffect(() => {
@@ -78,14 +69,9 @@ export function BottomSheet({
         }
       });
     }
-    // isPresented intentionally excluded — it's only read to gate the close
-    // animation, and including it would re-trigger this on the state change
-    // this very effect causes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
 
-  // Modal's onRequestClose used to give us Android back-button handling for
-  // free; a plain overlay needs it wired up explicitly.
   useEffect(() => {
     if (!visible) {
       return undefined;
@@ -128,9 +114,6 @@ export function BottomSheet({
             style={[styles.keyboardAvoiding, centered && styles.keyboardAvoidingCentered]}
           >
             <Animated.View
-              // No onPress of its own — Pressable still claims the touch
-              // responder for taps that land on it, which is what stops them
-              // bubbling up to the backdrop's onPress={onClose} above.
               style={[styles.sheet, centered && styles.sheetCentered, { maxHeight: sheetMaxHeight }, sheetStyle]}
             >
               <View style={styles.handle} />

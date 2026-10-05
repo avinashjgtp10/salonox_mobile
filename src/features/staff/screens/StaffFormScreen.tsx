@@ -135,7 +135,6 @@ function ChipRow<T extends string>({
             key={option}
             activeOpacity={0.82}
             disabled={disabled}
-            // Tapping the already-selected chip clears it instead of being a no-op.
             onPress={() => onSelect(isSelected ? "" : option)}
             style={[styles.chip, isSelected && styles.chipSelected]}
           >

@@ -24,9 +24,6 @@ type NotificationState = {
   notifications: NotificationItem[];
   locallyRemovedIds: string[];
   removingIds: string[];
-  // The device token most recently confirmed registered with the backend —
-  // lets the push-setup hook skip a redundant network call when the token
-  // hasn't actually changed since last app launch.
   registeredDeviceToken: string | null;
   registerDeviceError: string | null;
   registerDeviceStatus: ResourceStatus;
@@ -105,8 +102,6 @@ const notificationSlice = createSlice({
         const notificationId = action.meta.arg;
         const target = state.notifications.find((notification) => notification.id === notificationId);
 
-        // Optimistic: reflect the read state immediately rather than waiting
-        // on the round-trip, per the "immediately reflect" requirement.
         if (target && !target.isRead) {
           target.isRead = true;
           state.unreadCount = Math.max(0, state.unreadCount - 1);
@@ -121,8 +116,6 @@ const notificationSlice = createSlice({
         const notificationId = action.meta.arg;
         const target = state.notifications.find((notification) => notification.id === notificationId);
 
-        // Roll back the optimistic update — the request never actually
-        // succeeded, so the badge/list should not claim it's read.
         if (target) {
           target.isRead = false;
           state.unreadCount += 1;
@@ -142,8 +135,6 @@ const notificationSlice = createSlice({
       })
       .addCase(markAllNotificationsReadThunk.rejected, (state) => {
         state.markingAllRead = false;
-        // Can't safely un-mark individual items post-hoc (we didn't snapshot
-        // prior state) — resync from the server instead of guessing.
       })
       .addCase(registerDeviceThunk.pending, (state) => {
         state.registerDeviceError = null;

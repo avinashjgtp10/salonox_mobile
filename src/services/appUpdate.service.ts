@@ -46,18 +46,8 @@ export type AppUpdateInfo = NormalizedAppUpdatePayload & {
 
 const APP_VERSION_ENDPOINT = "/app/version";
 
-// Deliberately shorter than the client's 15s default: this runs on cold start,
-// and a slow version check must never be what holds the app up.
 const APP_VERSION_TIMEOUT_MS = 8000;
 
-/**
- * The installed app's semantic version, or null when it cannot be determined.
- *
- * Returning null rather than a "0.0.0" placeholder is load-bearing: 0.0.0 sorts
- * below every possible minimumSupportedVersion, so a failed version lookup
- * would force-update the entire install base with no way out. A version we
- * cannot read means "skip the check", never "ancient client".
- */
 export const getInstalledAppVersion = (): string | null => {
   const version =
     Constants.expoConfig?.version ??
@@ -71,9 +61,6 @@ export const getInstalledAppVersion = (): string | null => {
 export const getUpdatePlatform = (): AppUpdatePlatform =>
   Platform.OS === "ios" ? "ios" : "android";
 
-// appEnv comes from app.config.ts (extra.appEnv) and is already constrained to
-// development | qa | production — the same vocabulary the backend validates
-// against, so a build can only ever ask for its own environment's row.
 export const getUpdateEnvironment = (): AppUpdateEnvironment =>
   appEnv === "development" || appEnv === "qa" ? appEnv : "production";
 
@@ -85,12 +72,6 @@ const normalizeVersion = (value?: string | null) =>
     .map((part) => Number.parseInt(part, 10))
     .map((part) => (Number.isFinite(part) ? part : 0));
 
-/**
- * Numeric, segment-wise comparison — string comparison gets 1.0.9 vs 1.0.10
- * wrong. Mirrors compareVersions() in the backend service so both agree.
- *
- * @returns 1 when left > right, -1 when left < right, 0 when equal.
- */
 export const compareVersions = (left?: string | null, right?: string | null) => {
   const leftParts = normalizeVersion(left);
   const rightParts = normalizeVersion(right);
@@ -112,7 +93,6 @@ export const compareVersions = (left?: string | null, right?: string | null) => 
   return 0;
 };
 
-// A version string we can actually compare: at least one numeric segment.
 const isUsableVersion = (value?: string | null) =>
   typeof value === "string" && /^\d+(\.\d+)*([-+].*)?$/.test(value.trim());
 
@@ -138,7 +118,6 @@ export const appUpdateService = {
   async checkForUpdate(): Promise<AppUpdateInfo | null> {
     const currentVersion = getInstalledAppVersion();
 
-    // Unknown installed version — skip entirely rather than guess (see above).
     if (!currentVersion) {
       return null;
     }
@@ -153,8 +132,6 @@ export const appUpdateService = {
     });
     const data = response.data?.data;
 
-    // No configuration row yet (latestVersion null) or a malformed response:
-    // both mean "nothing to do", never "block the app".
     if (!isUsableVersion(data?.latestVersion)) {
       return null;
     }

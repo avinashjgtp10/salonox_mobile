@@ -35,12 +35,9 @@ import {
   selectAppointmentsRefreshing,
 } from "@/store/appointment/appointment.slice";
 import {
-  selectAttendanceIsCheckingIn,
-  selectAttendanceIsCheckingOut,
   selectAttendanceIsOffline,
   selectAttendanceRecords,
   selectAttendanceRecordsError,
-  selectAttendanceRecordsLoading,
   selectAttendanceRecordsRefreshing,
 } from "@/store/attendance/attendance.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
@@ -51,7 +48,6 @@ import {
 import {
   selectCurrentStaff,
   selectCurrentStaffError,
-  selectCurrentStaffLoading,
 } from "@/store/staff/staff.slice";
 import { selectCurrentUser } from "@/store/user/user.slice";
 import { useThemeColors } from "@/theme/ThemeProvider";
@@ -71,9 +67,6 @@ const STAFF_ROUTES = {
   settings: "./more",
 } as const satisfies Record<string, Href>;
 
-// Derived from the live theme tokens so every DASHBOARD.* call site reacts
-// to the active light/dark mode — call this inside a component (or a style
-// factory that receives Colors from useThemeColors()), never at module scope.
 const getDashboardTones = (Colors: ThemeColors) => ({
   amber: Colors.warning,
   amberSoft: Colors.warningBg,
@@ -274,14 +267,12 @@ function StaffHomeRouteContent() {
   const currentUser = useAppSelector(selectCurrentUser);
   const currentStaff = useAppSelector(selectCurrentStaff);
   const currentStaffError = useAppSelector(selectCurrentStaffError);
-  const currentStaffLoading = useAppSelector(selectCurrentStaffLoading);
   const appointments = useAppSelector(selectAppointments);
   const appointmentsError = useAppSelector(selectAppointmentsError);
   const appointmentsLoading = useAppSelector(selectAppointmentsIsLoading);
   const appointmentsRefreshing = useAppSelector(selectAppointmentsRefreshing);
   const attendanceRecords = useAppSelector(selectAttendanceRecords);
   const attendanceError = useAppSelector(selectAttendanceRecordsError);
-  const attendanceLoading = useAppSelector(selectAttendanceRecordsLoading);
   const attendanceRefreshing = useAppSelector(selectAttendanceRecordsRefreshing);
   const attendanceOffline = useAppSelector(selectAttendanceIsOffline);
   const notificationsRefreshing = useAppSelector(selectNotificationsListRefreshing);
@@ -772,9 +763,6 @@ const cardShadow = {
   shadowRadius: 26,
 };
 
-// Was a module-level static object built once from Colors.light directly —
-// converted to a factory so every consumer recomputes it from the live
-// theme via useThemeColors(), reacting to the light/dark toggle.
 const getStylesStatic = (Colors: ThemeColors) => {
   const DASHBOARD = getDashboardTones(Colors);
   const baseCard = {
@@ -815,9 +803,6 @@ const getStylesStatic = (Colors: ThemeColors) => {
   attendanceTop: {
     alignItems: "center",
     flexDirection: "row",
-  },
-  buttonDisabled: {
-    opacity: 0.58,
   },
   cardEyebrow: {
     color: DASHBOARD.muted,

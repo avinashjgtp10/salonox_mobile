@@ -23,9 +23,6 @@ type AdjustStockSheetProps = {
   visible: boolean;
 };
 
-// Verified live against the real backend validator (2026-08-17): reason is
-// a fixed enum — "reason must be one of: purchase, damage, expired,
-// manual_correction" — not free text as an earlier phase assumed.
 const REASON_OPTIONS: { label: string; value: ConsumableAdjustReason }[] = [
   { label: "Purchase", value: "purchase" },
   { label: "Damage", value: "damage" },

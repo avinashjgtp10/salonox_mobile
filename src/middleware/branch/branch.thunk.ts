@@ -31,10 +31,6 @@ export const fetchBranchesThunk = createAsyncThunk<
   }
 });
 
-// Thin orchestration thunk (same pattern as fetchAttendanceOverviewThunk) —
-// no reducer cases of its own; each dispatched thunk updates its own slice.
-// Promise.allSettled so one module failing to refresh doesn't block the rest
-// from picking up the new branch's data.
 export const refreshAppDataForBranchThunk = createAsyncThunk<
   void,
   void,
@@ -66,8 +62,6 @@ export const selectBranchThunk = createAsyncThunk<
 >("branch/selectBranch", async (branchId, { dispatch, getState }) => {
   const state = getState();
 
-  // Selecting the already-active branch, or switching while a switch is
-  // already in flight, is a no-op — avoids redundant/duplicate refetches.
   if (branchId === selectActiveBranchId(state) || state.branch.isSwitching) {
     return;
   }

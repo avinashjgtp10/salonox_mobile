@@ -77,9 +77,6 @@ export function ClientPickerSheet({
   const trimmedQuery = debouncedQuery.trim();
   const visibleClients = useMemo(() => uniqueById(clients), [clients]);
 
-  // Re-sync every time the sheet opens, not just on mount — the caller may
-  // toggle between "browse/pick a client" and "jump straight to create" on
-  // successive opens of the same already-mounted sheet instance.
   useEffect(() => {
     if (visible) {
       setIsCreating(Boolean(startInCreateMode));

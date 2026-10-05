@@ -1,6 +1,5 @@
 import type { ServiceListItem, ServiceListQuery, ServiceListResponse } from "@/types/service";
 
-/** Read every page before filtering so results are not limited to the first batch. */
 export async function loadCatalogServices(fetchPage: (query: ServiceListQuery) => Promise<ServiceListResponse>) {
   const items = new Map<string, ServiceListItem>();
   let offset = 0;

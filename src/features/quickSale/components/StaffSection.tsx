@@ -9,7 +9,6 @@ import { useThemeColors } from "@/theme/ThemeProvider";
 import type { PosStaffMember } from "@/types/sales";
 
 type StaffSectionProps = {
-  /** Embedded (calendar modal) mode shows a compact dropdown that opens `onOpenPicker`. */
   embedded: boolean;
   isLoading: boolean;
   onOpenPicker: () => void;

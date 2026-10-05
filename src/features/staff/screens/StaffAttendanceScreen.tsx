@@ -189,7 +189,6 @@ function Detail({ label, value }: { label: string; value: string }) {
 }
 
 const styles = StyleSheet.create({
-  buttonDisabled: { opacity: 0.5 },
   card: { borderRadius: 28, borderWidth: 1, padding: 20 },
   centerState: { alignItems: "center", gap: 10, paddingVertical: 32 },
   content: { gap: 18, paddingBottom: 120 },
@@ -197,21 +196,10 @@ const styles = StyleSheet.create({
   detailLabel: { fontSize: 12, fontWeight: "700", letterSpacing: 0.4, textTransform: "uppercase" },
   detailValue: { fontSize: 18, fontWeight: "800" },
   detailsGrid: { borderTopWidth: 1, flexDirection: "row", flexWrap: "wrap", gap: 18, marginTop: 20, paddingTop: 20 },
-  errorText: { fontSize: 13, fontWeight: "700", marginTop: 16 },
   eyebrow: { fontSize: 12, fontWeight: "800", letterSpacing: 1.8 },
   header: { gap: 6 },
   notice: { alignItems: "center", borderRadius: 16, borderWidth: 1, flexDirection: "row", gap: 8, padding: 12 },
   noticeText: { flex: 1, fontSize: 13, fontWeight: "600" },
-  primaryButton: {
-    alignItems: "center",
-    borderRadius: 18,
-    flexDirection: "row",
-    gap: 8,
-    justifyContent: "center",
-    marginTop: 20,
-    minHeight: 54,
-    paddingHorizontal: 18,
-  },
   primaryButtonText: { color: "#FFFFFF", fontSize: 15, fontWeight: "800" },
   retryButton: { borderRadius: 16, marginTop: 8, paddingHorizontal: 18, paddingVertical: 12 },
   safeArea: { flex: 1 },

@@ -9,10 +9,6 @@ export const splitFullName = (fullName: string) => {
   };
 };
 
-// Compact display form for space-constrained UI (cards, list rows): first
-// name plus the initial of the last word in the name. Used instead of
-// truncating with an ellipsis, which cuts names off unpredictably.
-// "Aditya Kumar Saste" -> "Aditya S" (last word's initial, not the second word's).
 export const formatStaffDisplayName = (name?: string | null): string => {
   if (typeof name !== "string") {
     return "";

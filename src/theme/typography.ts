@@ -20,8 +20,6 @@ export function fontForWeight(weight: TextStyle["fontWeight"] = "400") {
   return AppFonts.regular;
 }
 
-// Explicit icon and monospace families keep their intended glyphs. App text
-// uses the actual weight file instead of platform-dependent synthetic bold.
 export function resolveFontStyle(style: TextStyle): TextStyle {
   const family = style.fontFamily;
   const usesAppFont = !family || family.startsWith("Manrope_") ||

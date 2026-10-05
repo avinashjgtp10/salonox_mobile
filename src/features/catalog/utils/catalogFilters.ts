@@ -1,6 +1,5 @@
 export type CatalogTab = "services" | "products" | "packages" | "memberships" | "consumables";
 
-/** The subset of a catalog row the filters read; every tab's mapper produces it. */
 export type FilterableCatalogItem = {
   category: string;
   durationMinutes?: number | null;
@@ -33,7 +32,6 @@ type RangeField = {
   unit: string;
 };
 
-/** Every numeric range the catalog can filter on, keyed by the attribute it reads. */
 export const CATALOG_RANGES = {
   price: { label: "Price Range", max: "maxPrice", min: "minPrice", read: (item) => item.price, unit: "Rs." },
   duration: { label: "Duration", max: "maxDuration", min: "minDuration", read: (item) => item.durationMinutes, unit: "minutes" },
@@ -43,7 +41,6 @@ export const CATALOG_RANGES = {
 
 export type CatalogRangeKey = keyof typeof CATALOG_RANGES;
 
-/** Which ranges each tab exposes — a tab only ever filters on attributes its rows carry. */
 export const CATALOG_TAB_RANGES: Record<CatalogTab, CatalogRangeKey[]> = {
   consumables: ["price", "stock"],
   memberships: ["price"],
@@ -75,7 +72,6 @@ export const emptyCatalogFiltersByTab = (): Record<CatalogTab, CatalogFilters> =
 
 export const catalogCategoryLabel = (category: string | null | undefined) => category?.trim() || "Uncategorized";
 
-/** Memberships derive "active" from their online-sales flags, so the chips are labelled per tab. */
 export const catalogStatusLabel = (tab: CatalogTab, status: "active" | "inactive") => {
   if (tab === "memberships") return status === "active" ? "Sold online" : "Not sold online";
   return status === "active" ? "Active" : "Inactive";
@@ -99,7 +95,6 @@ export function validateCatalogFilters(filters: CatalogFilters, tab: CatalogTab)
   return null;
 }
 
-/** Counts filter groups, not individual selections, so the badge stays readable. */
 export function countCatalogFilters(filters: CatalogFilters, tab: CatalogTab): number {
   const activeRanges = CATALOG_TAB_RANGES[tab].filter((key) =>
     Boolean(filters[CATALOG_RANGES[key].min].trim() || filters[CATALOG_RANGES[key].max].trim()),
@@ -119,7 +114,6 @@ export function matchesCatalogFilters(item: FilterableCatalogItem, filters: Cata
     const max = filters[range.max].trim();
     if (!min && !max) continue;
 
-    // A row that simply has no value for this attribute cannot satisfy a bound on it.
     const value = range.read(item);
     if (value == null) return false;
     if (min && value < Number(min)) return false;

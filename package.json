@@ -69,7 +69,6 @@
     "start:localhost": "set EXPO_NO_TYPESCRIPT_SETUP=1&& set EXPO_NO_DEPENDENCY_VALIDATION=1&& expo start --localhost --clear --port 8083",
     "adb:reverse": "node ./scripts/adb-reverse.js",
     "adb:reverse:list": "node ./scripts/adb-reverse.js --list",
-    "reset-project": "node ./scripts/reset-project.js",
     "android": "set EXPO_NO_TYPESCRIPT_SETUP=1&& set EXPO_NO_DEPENDENCY_VALIDATION=1&& expo start --android --tunnel --clear --port 8083",
     "ios": "expo start --ios",
     "web": "expo start --web",

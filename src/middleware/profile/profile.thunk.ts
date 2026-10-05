@@ -54,7 +54,6 @@ export const updateProfileThunk = createAsyncThunk<
   try {
     const response = await profileService.updateProfile(userId, updates);
 
-    // Refresh shared profile surfaces from the API after the mutation succeeds.
     await dispatch(fetchCurrentUserThunk());
 
     return response;
@@ -80,7 +79,6 @@ export const uploadAvatarThunk = createAsyncThunk<
       dispatch(setCurrentUser({ ...currentUser, avatarUrl: response.avatarUrl }));
     }
 
-    // Keep the shared auth user (Dashboard/More hero) in sync with the new avatar.
     void dispatch(fetchCurrentUserThunk());
 
     return response;

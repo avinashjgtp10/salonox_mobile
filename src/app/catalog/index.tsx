@@ -175,8 +175,6 @@ export default function CatalogScreen() {
   const dispatch = useAppDispatch();
   const toast = useAppToast();
   const { services, loading: servicesLoading, error: servicesError, load: loadServices } = useCatalogServices();
-  // Filters are held per tab so switching tabs never applies one tab's
-  // criteria to another's rows, and coming back restores what was applied.
   const [filtersByTab, setFiltersByTab] = useState(emptyCatalogFiltersByTab);
   const [filterVisible, setFilterVisible] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
@@ -278,8 +276,6 @@ export default function CatalogScreen() {
       } else if (activeTab === "products") {
         const action = await dispatch(deleteProductThunk(item.id));
         if (deleteProductThunk.rejected.match(action)) throw new Error(action.payload?.message ?? "Unable to delete product.");
-        // Redux already removes the deleted product and updates its count.
-        // An immediate list reload can restore stale server total metadata.
         shouldReloadCatalog = false;
         toast.showSuccess("Product deleted successfully.");
       } else if (activeTab === "consumables") {
@@ -390,7 +386,6 @@ export default function CatalogScreen() {
     <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
       <AppStatusBar />
       <FlatList
-        // FlatList cannot change numColumns in place; remount when the layout switches.
         key={viewMode}
         columnWrapperStyle={isGrid ? styles.catalogGridRow : undefined}
         contentContainerStyle={styles.content}

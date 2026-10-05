@@ -148,7 +148,6 @@ export function StaffSettingsScreen() {
         return;
       }
     } catch {
-      // Fall through to WhatsApp Web when the native handler is unavailable.
     }
 
     await Linking.openURL(webUrl);

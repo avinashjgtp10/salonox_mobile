@@ -180,7 +180,6 @@ if (!branchId) {
       }
     }
   } catch {
-    // Product Inventory will be reported as skipped with an actionable reason.
   }
 }
 

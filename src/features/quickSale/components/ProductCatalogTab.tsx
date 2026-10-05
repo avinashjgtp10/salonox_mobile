@@ -206,9 +206,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     flex: 1,
     gap: Spacing.sm,
   },
-  // MiniBillBar floats absolutely over this screen (bottom: 18, ~84 tall) —
-  // without this, the last row of cards scrolls up underneath it and
-  // becomes unreachable.
   listContent: {
     paddingBottom: 132,
   },

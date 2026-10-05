@@ -258,8 +258,6 @@ function CheckoutSheetComponent({
     if (isMounted) {
       runClose();
     }
-    // Intentionally depends on `visible` only; height changes are handled by
-    // the transform's next open cycle and should not restart the animation.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, initialStep]);
 
@@ -596,11 +594,6 @@ function CheckoutSheetComponent({
     onCompleteSale({ method: paymentMethod, paidAmount: amountToCollect });
   };
 
-  // Selecting a method only selects it — the sale is submitted from the
-  // footer's "Record Payment"/"Complete Sale" button via handleComplete. This
-  // deliberately does not check out on tap: the cash/card/UPI detail panels
-  // below are meant to be reviewed after choosing a method, and a mis-tap on a
-  // payment chip must never be able to take a customer's money.
   const handleSelectSinglePaymentMethod = (method: Exclude<SalePaymentMethod, "split">) => {
     setPaymentMethod(method);
     setLastSingleMethod(method);
@@ -679,10 +672,6 @@ function CheckoutSheetComponent({
           pointerEvents="none"
           style={[
             styles.backdrop,
-            // Inline means this sheet is inside the calendar's Quick Sale
-            // modal, which already paints its own scrim. Stacking the full
-            // strength dim on top of that reads as an extra dark screen
-            // behind the sheet rather than one backdrop.
             renderInline && styles.backdropInline,
             { opacity: backdropOpacity },
           ]}
@@ -1719,8 +1708,6 @@ function ConsumableActualQtyRow({
 
   useEffect(() => {
     setDraft(String(consumable.actualQty ?? consumable.qty));
-    // Only resync from the cart when the value changes from outside this
-    // input (e.g. quantity-stepper auto-scaling) — not on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [consumable.actualQty]);
 

@@ -38,8 +38,6 @@ export function messageDay(value: string | null) {
   return date.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 }
 
-// Backend normalizes bare Indian numbers to +91. Other country codes must
-// match in full so two different international contacts cannot be confused.
 export function inboxPhoneKey(phone: string, countryCode?: string | null) {
   const digits = phone.replace(/\D/g, "");
   const code = countryCode?.replace(/\D/g, "");

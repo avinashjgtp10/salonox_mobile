@@ -112,9 +112,6 @@ export default function SalonCommissionsScreen() {
     }, [dispatch, hasSettlePermission]),
   );
 
-  // The commission-earned endpoint returns the full salon list in one shot
-  // (it does not support server-side search/status/pagination), so filtering
-  // for the Owner/Manager list view happens client-side over that result.
   const filteredRecords = useMemo(() => {
     const staffScoped =
       isStaffUser && currentStaff
@@ -204,8 +201,6 @@ export default function SalonCommissionsScreen() {
     const styles = useMemo(() => createStyles(Colors), []);
     const settling = useAppSelector((state) => selectCommissionSettling(state, record.staffId));
     const palette = getStatusPalette(record.status, Colors);
-    // unpaidAmount comes straight from the backend's pending payout for this
-    // staff member — never assume the full commission amount is unpaid.
     const unpaidAmount = record.unpaidAmount ?? 0;
 
     const isSettlable = canSettle && unpaidAmount > 0;

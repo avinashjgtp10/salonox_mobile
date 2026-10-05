@@ -1,12 +1,3 @@
-/**
- * Bridges the app's own design tokens (`getDashboardColors`) onto a Material
- * Design 3 theme, so react-native-paper components render in the SalonOX
- * palette instead of Paper's default purple.
- *
- * `ThemeColors` stays the source of truth — nothing here invents a new colour.
- * Anything MD3 needs that we have no token for (containers, inverse surfaces)
- * is left on Paper's own defaults.
- */
 
 import { MD3DarkTheme, MD3LightTheme, type MD3Theme } from 'react-native-paper';
 
@@ -24,8 +15,6 @@ export function buildPaperTheme(scheme: AppColorScheme, colors: ThemeColors): MD
       variant,
       { ...font, fontFamily: fontForWeight(font.fontWeight), fontWeight: 'normal' },
     ])) as MD3Theme['fonts'],
-    // Paper derives Button/Card/TextInput corner radii from this; the app's
-    // scale is much tighter than MD3's default 4pt grid multiplier.
     roundness: DashboardRadius.lg / 2,
     colors: {
       ...base.colors,

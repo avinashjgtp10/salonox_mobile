@@ -21,9 +21,6 @@ import { selectClientsTotalCount } from "@/store/client/client.slice";
 import { useAppTheme, useThemeColors } from "@/theme/ThemeProvider";
 import { formatDashboardRevenue } from "@/utils/dashboard";
 
-// Card fills lifted from the dashboard redesign. Light mode only — the dark
-// palette keeps its existing solid tokens, since these pastels would leave the
-// tile values unreadable against light-on-dark text.
 const STAT_TILE_GRADIENTS = {
   bookings: ["#FEF3C7", "#FDE68A"],
   clients: ["#EDE9FE", "#DDD6FE"],
@@ -113,9 +110,6 @@ function RevenueComparisonBars({
   );
 }
 
-// Split out of DashboardHero ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â same selectors/derived values, moved
-// verbatim, now rendered as separate premium tiles below the hero instead of
-// an inline strip inside it.
 export default function DashboardStatTiles() {
   const Colors = useThemeColors();
   const { scheme } = useAppTheme();
@@ -339,8 +333,6 @@ const createStyles = (Colors: ThemeColors, isCompact: boolean) => StyleSheet.cre
     gap: 10,
     paddingHorizontal: 14,
   },
-  // Redesign card shape: 24px corners, 20px padding, no outline, and a soft
-  // shadow-sm lift instead of the old bordered tile.
   tile: {
     alignItems: "flex-start",
     backgroundColor: Colors.dashboardCard,
@@ -399,8 +391,6 @@ const createStyles = (Colors: ThemeColors, isCompact: boolean) => StyleSheet.cre
     marginTop: isCompact ? 8 : 10,
     textAlign: "left",
   },
-  // Give iOS auto-fit the full content width, using the existing Android
-  // font size, padding and card dimensions as the shared baseline.
   iosValue: {
     width: "100%",
     flexShrink: 0,

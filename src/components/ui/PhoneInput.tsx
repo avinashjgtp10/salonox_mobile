@@ -1,67 +1,4 @@
 import { Text, TextInput } from "@/components/ui/AppTypography";
-/**
- * PhoneInput — Production-ready international phone number input for SalonOX.
- *
- * ── Core Architecture ──────────────────────────────────────────────────────────
- *
- *  Three-layer state model:
- *
- *  1. rawDigits (state)
- *     Pure digit string — the source of truth for computation.
- *     Updated on every keystroke. Never written back into the TextInput directly.
- *
- *  2. displayValue (state)
- *     What the TextInput renders. Managed separately from rawDigits.
- *     • During typing  → exact text from onChangeText (no transformation)
- *     • After blur     → formatted national number  (e.g. "98765 43210")
- *     • On re-focus    → rawDigits (stripped, cursor goes to end — acceptable)
- *
- *  3. selectedCountry (state)
- *     ISO code + flag + dialCode. Defaults to India (IN).
- *
- *  Ref guards:
- *
- *  lastEmittedE164 (ref)
- *     Tracks the last E.164 string we passed to props.onChange.
- *     The useEffect that syncs from props.value compares against this ref.
- *     If  props.value === lastEmittedE164.current  → our own change, skip.
- *     If  props.value !== lastEmittedE164.current  → external change, sync.
- *     This breaks the feedback loop:
- *       type digit → onChange(e164) → parent re-renders → useEffect → SKIPPED
- *
- * ── Key invariants ─────────────────────────────────────────────────────────────
- *
- *  • TextInput value is NEVER reformatted DURING typing.
- *    onChangeText only does: strip non-digits → store rawDigits → emit E.164.
- *    The displayValue is set to exactly what onChangeText received.
- *    This eliminates ALL cursor-jump and first-digit-disappears bugs.
- *
- *  • libphonenumber-js is called ONLY when needed:
- *    - E.164 emission  (every change, cheap parsePhoneNumber)
- *    - Format on blur  (one call per blur)
- *    - External sync   (useEffect, rare)
- *    - Placeholder     (useMemo, per country)
- *    NOT called on every render, NOT called for validation during typing.
- *
- *  • Validation is purely driven by the `error` prop from the parent.
- *    The component itself does NOT run validation. The parent runs it
- *    onBlur or onSubmit and passes the error string.
- *
- * ── Props API ──────────────────────────────────────────────────────────────────
- *
- *  value           E.164 string (e.g. "+919876543210"). Pass "" for empty.
- *  onChange        Called on every change with current E.164.
- *  country         Controlled ISO country code (optional).
- *  onCountryChange Called when user selects a new country.
- *  error           Field-level error message (shown as-is).
- *  disabled        Disables both TextInput and country button.
- *  required        Marks field as required for accessibility.
- *  placeholder     Custom placeholder (falls back to country example).
- *  autoFocus       Auto-focuses TextInput on mount.
- *  editable        Alias for !disabled (TextInput compat).
- *  onFocus         Called when TextInput gains focus.
- *  onBlur          Called when TextInput loses focus.
- */
 
 import { Ionicons } from "@expo/vector-icons";
 import {
@@ -89,8 +26,6 @@ import { PHONE_DIGIT_COUNT } from "@/utils/validation";
 
 const phoneExamples = require("libphonenumber-js/examples.mobile.json");
 
-// ─── Design Tokens ────────────────────────────────────────────────────────────
-// Mirrors login.tsx Colors — update both if branding changes.
 const createPhoneColors = (theme: ThemeColors, scheme: "light" | "dark") => ({
   primary: theme.primary,
   secondary: theme.secondary,
@@ -116,47 +51,29 @@ const usePhoneColors = () => {
   return useMemo(() => createPhoneColors(colors, scheme), [colors, scheme]);
 };
 
-// ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface Country {
-  /** ISO 3166-1 alpha-2 code, e.g. "IN" */
   code: CountryCode;
-  /** Full English name, e.g. "India" */
   name: string;
-  /** Dial code with +, e.g. "+91" */
   dialCode: string;
-  /** Flag emoji, e.g. "🇮🇳" */
   flag: string;
 }
 
 export interface PhoneInputProps {
-  /** Current value in E.164 format, e.g. "+919876543210". Empty string for blank. */
   value: string;
-  /** Fired on every change with the current E.164 string (may be partial/invalid). */
   onChange: (e164: string) => void;
-  /** Controlled ISO country code. If provided, country selector reflects this. */
   country?: CountryCode;
-  /** Fired when user selects a different country. */
   onCountryChange?: (countryCode: CountryCode) => void;
-  /** Validation error message. Shown when non-empty. Parent controls timing. */
   error?: string;
-  /** Disables the entire component (both country button and text input). */
   disabled?: boolean;
-  /** Marks field required in accessibility tree. */
   required?: boolean;
-  /** Custom placeholder. Falls back to country-specific example number. */
   placeholder?: string;
-  /** Auto-focuses the TextInput on mount. */
   autoFocus?: boolean;
-  /** Whether the text input accepts user input (alias for !disabled). */
   editable?: boolean;
-  /** Called when TextInput gains focus. */
   onFocus?: () => void;
-  /** Called when TextInput loses focus. */
   onBlur?: () => void;
 }
 
-// ─── Country Data ─────────────────────────────────────────────────────────────
 
 export const COUNTRIES: Country[] = [
   { code: "AF", name: "Afghanistan", dialCode: "+93", flag: "🇦🇫" },
@@ -403,42 +320,23 @@ export const COUNTRIES: Country[] = [
   { code: "ZW", name: "Zimbabwe", dialCode: "+263", flag: "🇿🇼" },
 ];
 
-// Module-level constant — looked up once, not recreated on render.
 const DEFAULT_COUNTRY: Country = COUNTRIES.find((c) => c.code === "IN")!;
 
-// ─── Utility Functions ────────────────────────────────────────────────────────
-// All pure functions — safe to call outside React lifecycle.
 
-/**
- * Strip everything except digits from a string.
- * Used to normalise paste input and derive rawDigits from displayValue.
- */
 function digitsOnly(str: string): string {
   return str.replace(/\D/g, "");
 }
 
-/**
- * Compute E.164 from raw digits + country.
- * Returns a partial representation (dialCode + digits) when parsing fails
- * so the parent always receives SOMETHING to store, even for incomplete input.
- * Returns "" when digits is empty.
- */
 function toE164(digits: string, country: Country): string {
   if (!digits) return "";
   try {
     const parsed = parsePhoneNumber(digits, country.code);
     return parsed.format("E.164");
   } catch {
-    // Partial / invalid — return a best-effort string so parent can store progress.
     return `${country.dialCode}${digits}`;
   }
 }
 
-/**
- * Format national digits for display (used ONLY on blur).
- * Strips dial code prefix if AsYouType includes it.
- * Falls back to raw digits if formatting fails.
- */
 function formatNationalForDisplay(digits: string, countryCode: CountryCode): string {
   if (!digits) return "";
   try {
@@ -454,10 +352,6 @@ function formatNationalForDisplay(digits: string, countryCode: CountryCode): str
   }
 }
 
-/**
- * Parse an E.164 value from outside and return { country, nationalDigits }.
- * Returns null if parsing fails (graceful degradation).
- */
 function parseE164(e164: string): { country: Country; nationalDigits: string } | null {
   if (!e164) return null;
   try {
@@ -471,10 +365,6 @@ function parseE164(e164: string): { country: Country; nationalDigits: string } |
   }
 }
 
-/**
- * Get a locale-specific example number placeholder.
- * Called once per country change via useMemo — not on every render.
- */
 function getCountryPlaceholder(countryCode: CountryCode): string {
   try {
     const example = getExampleNumber(countryCode, phoneExamples);
@@ -484,8 +374,6 @@ function getCountryPlaceholder(countryCode: CountryCode): string {
   }
 }
 
-// ─── CountryPicker ────────────────────────────────────────────────────────────
-// Memoized separately so it never re-renders when PhoneInput types.
 
 interface CountryCodePickerModalProps {
   visible: boolean;
@@ -512,10 +400,8 @@ export const CountryCodePickerModal = memo(function CountryCodePickerModal({
   const slideAnim = useRef(new Animated.Value(600)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
   const searchRef = useRef<TextInput>(null);
-  // Track whether we have mounted/opened to avoid running animations before open.
   const hasOpened = useRef(false);
 
-  // Stable filtered list — recalculated only when query changes.
   const filtered = useMemo<Country[]>(() => {
     const q = query.trim().toLowerCase();
     if (!q) return COUNTRIES;
@@ -528,7 +414,6 @@ export const CountryCodePickerModal = memo(function CountryCodePickerModal({
     );
   }, [query]);
 
-  // Animate open/close whenever `visible` changes.
   useEffect(() => {
     if (visible) {
       hasOpened.current = true;
@@ -598,12 +483,10 @@ export const CountryCodePickerModal = memo(function CountryCodePickerModal({
         `${country.name} selected, dial code ${country.dialCode}`,
       );
       onSelect(country);
-      // onClose is called by onSelect handler in parent (setPickerOpen(false))
     },
     [onSelect],
   );
 
-  // Stable renderItem — only recreated when selected.code changes.
   const renderItem = useCallback(
     ({ item }: { item: Country }) => {
       const isSelected = item.code === selected.code;
@@ -659,10 +542,8 @@ export const CountryCodePickerModal = memo(function CountryCodePickerModal({
     [],
   );
 
-  // Clear search query when picker closes so it resets for next open.
   useEffect(() => {
     if (!visible) {
-      // Small delay so the close animation has time to finish.
       const t = setTimeout(() => setQuery(""), 250);
       return () => clearTimeout(t);
     }
@@ -689,7 +570,7 @@ export const CountryCodePickerModal = memo(function CountryCodePickerModal({
       onRequestClose={handleClose}
       statusBarTranslucent
     >
-      {/* Dimmed overlay */}
+
       <Animated.View style={[pickerStyles.overlay, { opacity: opacityAnim }]}>
         <Pressable
           style={StyleSheet.absoluteFill}
@@ -704,7 +585,7 @@ export const CountryCodePickerModal = memo(function CountryCodePickerModal({
         pointerEvents="box-none"
         style={pickerStyles.keyboardLayer}
       >
-      {/* Bottom sheet */}
+
       <Animated.View
         style={[
           pickerStyles.sheet,
@@ -718,10 +599,10 @@ export const CountryCodePickerModal = memo(function CountryCodePickerModal({
         accessibilityViewIsModal
         accessibilityLabel="Country selector"
       >
-        {/* Drag handle */}
+
         <View style={pickerStyles.handleBar} />
 
-        {/* Header */}
+
         <View style={pickerStyles.sheetHeader}>
           <Text style={pickerStyles.sheetTitle}>Select Country</Text>
           <Pressable
@@ -734,7 +615,7 @@ export const CountryCodePickerModal = memo(function CountryCodePickerModal({
           </Pressable>
         </View>
 
-        {/* Search bar */}
+
         <View style={pickerStyles.searchContainer}>
           <Ionicons
             name="search-outline"
@@ -757,7 +638,7 @@ export const CountryCodePickerModal = memo(function CountryCodePickerModal({
           />
         </View>
 
-        {/* Country list */}
+
         <FlatList
           data={filtered}
           keyExtractor={keyExtractor}
@@ -781,7 +662,6 @@ export const CountryCodePickerModal = memo(function CountryCodePickerModal({
   );
 });
 
-// Stable components — not recreated on every render.
 const Separator = () => {
   const C = usePhoneColors();
   const pickerStyles = useMemo(() => createPickerStyles(C), [C]);
@@ -801,7 +681,6 @@ const EmptyList = () => {
 };
 
 
-// ─── PhoneInput ───────────────────────────────────────────────────────────────
 
 export const PhoneInput = memo(forwardRef<TextInput, PhoneInputProps>(function PhoneInput({
   value,
@@ -820,55 +699,31 @@ export const PhoneInput = memo(forwardRef<TextInput, PhoneInputProps>(function P
   const C = usePhoneColors();
   const inputStyles = useMemo(() => createInputStyles(C), [C]);
 
-  // ── State ──────────────────────────────────────────────────────────────────
 
   const [selectedCountry, setSelectedCountry] = useState<Country>(() => {
-    // Initialise from controlled prop or default.
     if (controlledCountryCode) {
       return COUNTRIES.find((c) => c.code === controlledCountryCode) ?? DEFAULT_COUNTRY;
     }
     return DEFAULT_COUNTRY;
   });
 
-  /**
-   * rawDigits — pure digit string, the source of truth for E.164 computation.
-   * NEVER fed back into the TextInput directly during typing.
-   */
   const [rawDigits, setRawDigits] = useState("");
 
-  /**
-   * displayValue — what TextInput renders.
-   *
-   * Invariant: during typing this is set to EXACTLY what onChangeText received
-   * (no reformatting). Reformatting happens only on blur or on external sync.
-   */
   const [displayValue, setDisplayValue] = useState("");
 
   const [isFocused, setIsFocused] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
 
-  // ── Refs ───────────────────────────────────────────────────────────────────
 
   const inputRef = useRef<TextInput>(null);
   useImperativeHandle(forwardedRef, () => inputRef.current as TextInput);
 
-  /**
-   * lastEmittedE164 — loop guard for the external-value useEffect.
-   *
-   * Every time we call props.onChange(e164), we store e164 here.
-   * The useEffect below compares props.value against this ref.
-   * If they match → we caused the change → skip sync.
-   * If they differ → parent changed value externally → sync display.
-   */
   const lastEmittedE164 = useRef("");
 
-  // ── External value sync ────────────────────────────────────────────────────
 
   useEffect(() => {
-    // Skip: this is a value we just emitted ourselves.
     if (value === lastEmittedE164.current) return;
 
-    // The parent changed value externally (e.g. profile load, form reset).
     lastEmittedE164.current = value;
 
     if (!value) {
@@ -882,19 +737,16 @@ export const PhoneInput = memo(forwardRef<TextInput, PhoneInputProps>(function P
       setSelectedCountry(parsed.country);
       const nationalDigits = parsed.nationalDigits.slice(0, PHONE_DIGIT_COUNT);
       setRawDigits(nationalDigits);
-      // Format for display (we're not focused, safe to format).
       setDisplayValue(
         formatNationalForDisplay(nationalDigits, parsed.country.code),
       );
     } else {
-      // Malformed E.164 — store digits anyway so data is not lost.
       const fallbackDigits = digitsOnly(value).slice(0, PHONE_DIGIT_COUNT);
       setRawDigits(fallbackDigits);
       setDisplayValue(fallbackDigits);
     }
   }, [value]);
 
-  // ── Controlled country prop sync ───────────────────────────────────────────
 
   useEffect(() => {
     if (!controlledCountryCode) return;
@@ -904,31 +756,15 @@ export const PhoneInput = memo(forwardRef<TextInput, PhoneInputProps>(function P
     }
   }, [controlledCountryCode, selectedCountry.code]);
 
-  // ── Memoised placeholder ───────────────────────────────────────────────────
 
   const placeholder = useMemo(
     () => customPlaceholder ?? getCountryPlaceholder(selectedCountry.code),
     [customPlaceholder, selectedCountry.code],
   );
 
-  // ── Handlers ───────────────────────────────────────────────────────────────
 
-  /**
-   * onChangeText — the most performance-critical path.
-   *
-   * Rules:
-   *  1. Set displayValue to EXACTLY what was received. Do NOT reformat.
-   *     This is the key fix for cursor-jump and first-digit-disappear bugs.
-   *  2. Strip non-digits to derive rawDigits for E.164 computation.
-   *  3. Compute E.164 and emit to parent.
-   *  4. Record the emitted value in lastEmittedE164 before calling onChange
-   *     so the useEffect guard is updated synchronously.
-   */
   const handleTextChange = useCallback(
     (text: string) => {
-      // Accept text verbatim for display — no reformatting, no cursor interference.
-      // Derive pure digits for storage and E.164 computation.
-      // Handles paste with spaces/dashes/brackets/country prefix.
       let digits = digitsOnly(text);
 
       digits = digits.slice(0, PHONE_DIGIT_COUNT);
@@ -936,31 +772,20 @@ export const PhoneInput = memo(forwardRef<TextInput, PhoneInputProps>(function P
       setRawDigits(digits);
 
       const e164 = toE164(digits, selectedCountry);
-      // CRITICAL: update ref BEFORE calling onChange so useEffect sees the new value
-      // and skips the sync on the next render triggered by parent state update.
       lastEmittedE164.current = e164;
       onChange(e164);
     },
     [selectedCountry, onChange],
   );
 
-  /**
-   * onFocus — switch TextInput to show raw digits (no formatting while editing).
-   */
   const handleFocus = useCallback(() => {
     setIsFocused(true);
-    // When re-focusing after blur, show the raw digits again so the user
-    // can edit without fighting formatted spaces.
     if (displayValue !== rawDigits && !isFocused) {
       setDisplayValue(rawDigits);
     }
     onFocusProp?.();
   }, [displayValue, rawDigits, isFocused, onFocusProp]);
 
-  /**
-   * onBlur — format the number for prettier display, notify parent.
-   * Formatting happens ONLY here, never during typing.
-   */
   const handleBlur = useCallback(() => {
     setIsFocused(false);
     if (rawDigits) {
@@ -970,9 +795,6 @@ export const PhoneInput = memo(forwardRef<TextInput, PhoneInputProps>(function P
     onBlurProp?.();
   }, [rawDigits, selectedCountry.code, onBlurProp]);
 
-  /**
-   * Country selection — update country, recompute E.164, keep digits intact.
-   */
   const handleCountrySelect = useCallback(
     (country: Country) => {
       setSelectedCountry(country);
@@ -980,12 +802,10 @@ export const PhoneInput = memo(forwardRef<TextInput, PhoneInputProps>(function P
 
       onCountryChange?.(country.code);
 
-      // Keep existing rawDigits but recompute E.164 with new country.
       if (rawDigits) {
         const e164 = toE164(rawDigits, country);
         lastEmittedE164.current = e164;
         onChange(e164);
-        // Update display: if blurred, reformat for new country.
         if (!isFocused) {
           setDisplayValue(formatNationalForDisplay(rawDigits, country.code));
         }
@@ -995,7 +815,6 @@ export const PhoneInput = memo(forwardRef<TextInput, PhoneInputProps>(function P
         onChange(e164);
       }
 
-      // Return focus to the text input after country selection.
       setTimeout(() => inputRef.current?.focus(), 80);
     },
     [rawDigits, isFocused, onChange, onCountryChange],
@@ -1019,16 +838,14 @@ export const PhoneInput = memo(forwardRef<TextInput, PhoneInputProps>(function P
     setPickerOpen(false);
   }, []);
 
-  // ── Derived values ─────────────────────────────────────────────────────────
 
   const isEditable = editable && !disabled;
   const hasError = Boolean(error);
 
-  // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <View style={inputStyles.root}>
-      {/* ── Input row ── */}
+
       <View
         style={[
           inputStyles.row,
@@ -1039,7 +856,7 @@ export const PhoneInput = memo(forwardRef<TextInput, PhoneInputProps>(function P
         accessibilityLabel="Phone number"
         accessibilityRole="none"
       >
-        {/* Country selector button */}
+
         <Pressable
           onPress={handleOpenPicker}
           disabled={disabled || editable === false}
@@ -1067,7 +884,7 @@ export const PhoneInput = memo(forwardRef<TextInput, PhoneInputProps>(function P
 
 
 
-        {/* Phone number TextInput */}
+
         <TextInput
           ref={inputRef}
           style={[inputStyles.textInput, disabled && inputStyles.textInputDisabled]}
@@ -1095,7 +912,7 @@ export const PhoneInput = memo(forwardRef<TextInput, PhoneInputProps>(function P
           underlineColorAndroid="transparent"
         />
 
-        {/* Clear button — only shown when there is text and input is editable */}
+
         {displayValue.length > 0 && isEditable && (
           <Pressable
             onPress={handleClear}
@@ -1109,8 +926,8 @@ export const PhoneInput = memo(forwardRef<TextInput, PhoneInputProps>(function P
         )}
       </View>
 
-      {/* ── Error slot ── */}
-      {/* Fixed-height container prevents layout shift when error appears/disappears. */}
+
+
       <View style={inputStyles.errorSlot}>
         {hasError && (
           <View style={inputStyles.errorRow}>
@@ -1131,7 +948,7 @@ export const PhoneInput = memo(forwardRef<TextInput, PhoneInputProps>(function P
         )}
       </View>
 
-      {/* ── Country picker modal ── */}
+
       <CountryCodePickerModal
         visible={pickerOpen}
         selected={selectedCountry}
@@ -1142,7 +959,6 @@ export const PhoneInput = memo(forwardRef<TextInput, PhoneInputProps>(function P
   );
 }));
 
-// ─── Picker Styles ────────────────────────────────────────────────────────────
 
 const createPickerStyles = (C: PhoneColors) => StyleSheet.create({
   overlay: {
@@ -1259,7 +1075,6 @@ const createPickerStyles = (C: PhoneColors) => StyleSheet.create({
   },
 });
 
-// ─── Input Styles ─────────────────────────────────────────────────────────────
 
 const createInputStyles = (C: PhoneColors) => StyleSheet.create({
   root: {
@@ -1332,7 +1147,6 @@ const createInputStyles = (C: PhoneColors) => StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  // Fixed-height slot so error appearing/disappearing doesn't shift layout.
   errorSlot: {
     minHeight: 22,
     paddingTop: 5,

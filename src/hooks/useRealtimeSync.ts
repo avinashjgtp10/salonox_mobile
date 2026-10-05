@@ -262,8 +262,6 @@ export const useRealtimeSync = (isAuthenticated: boolean) => {
         }
       });
 
-      // These are the actual appointment events emitted by the shared backend
-      // and consumed by the Web Calendar.
       bindHandler(socket, "notification", (payload) => {
         const notification = payload as { type?: string } | undefined;
         if (staffOnly && notification?.type !== "appointment") return;
@@ -273,10 +271,6 @@ export const useRealtimeSync = (isAuthenticated: boolean) => {
         }
       });
 
-      // WhatsApp inbox — inboxService.handleInboundMessage emits both of these
-      // to room salon:{salonId} on every inbound message. They carry the full
-      // payload, so unlike the entity events above they update the store
-      // directly instead of triggering a debounced refetch.
       bindHandler(socket, "inbox:message", (payload) => {
         if (staffOnly) return;
         const record = asRecord(payload);
@@ -295,8 +289,6 @@ export const useRealtimeSync = (isAuthenticated: boolean) => {
           }),
         );
 
-        // The inbound message also creates a `whatsapp` notification
-        // (webhooks.service.ts), so keep the feed and badge in step.
         scheduleRefresh("notifications", payload);
       });
 
@@ -318,8 +310,6 @@ export const useRealtimeSync = (isAuthenticated: boolean) => {
         scheduleRefresh("sales", payload);
       });
 
-      // A reconnect means events may have been missed while offline. Replace
-      // the active appointment query from the API instead of trusting cache.
       hasConnectedRef.current = socket.connected;
       dispatch(inboxConnectionChanged(socket.connected));
       bindHandler(socket, "disconnect", () => dispatch(inboxConnectionChanged(false)));

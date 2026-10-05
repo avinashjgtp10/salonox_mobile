@@ -38,8 +38,6 @@ type ImportOutcome = {
   status: OutcomeStatus;
 };
 
-// A handful of requests in flight at once — enough to feel fast without
-// hammering the API with hundreds of simultaneous POST /clients calls.
 const IMPORT_CONCURRENCY = 4;
 
 const openDeviceSettings = () => {
@@ -143,16 +141,9 @@ export default function ImportContactsScreen() {
 
   useEffect(() => {
     void checkPermission();
-    // Runs once on mount only — checkPermission's identity is stable enough
-    // for a screen entry check, and re-running it on every re-render would
-    // fight the user's own permission-flow navigation.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Prevent the hardware back button (and, via the header, the on-screen
-  // back button) from leaving the screen mid-import — the batch keeps
-  // running in the background either way, so leaving would just strand the
-  // user without a progress/result view for a request that's already in flight.
   useEffect(() => {
     if (stage !== "importing") {
       return;

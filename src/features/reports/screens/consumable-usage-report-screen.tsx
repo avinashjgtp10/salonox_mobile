@@ -21,12 +21,6 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { selectReportEntry } from "@/store/report/report.slice";
 import { useThemeColors } from "@/theme/ThemeProvider";
 
-// Web-parity legacy report (see report-config.ts / types/report.ts): the
-// backend returns the entire dataset in one call — no date range, no
-// server-side search/category filter, no server pagination — so this
-// screen owns local search/category filtering and reveals more of the
-// already-loaded array as the user scrolls, instead of using the generic
-// ReportScreen (which re-fetches from the network on every filter change).
 const PAGE_SIZE = 10;
 const ALL_CATEGORY = "__all__";
 

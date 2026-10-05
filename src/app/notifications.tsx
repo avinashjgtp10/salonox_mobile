@@ -36,9 +36,6 @@ import { useThemeColors } from "@/theme/ThemeProvider";
 import type { NotificationItem } from "@/types/notification";
 import { resolveNotificationRoute } from "@/utils/notificationRouting";
 
-// Presentation-only lookup keyed by the backend's free-form `type` string —
-// unrecognized types still render fully via the fallback entry, never hidden
-// or filtered, since the backend can add new notification types at any time.
 const getNotificationIconMap = (
   Colors: ThemeColors,
 ): Record<string, { bg: string; color: string; icon: keyof typeof Ionicons.glyphMap }> => ({
@@ -177,9 +174,6 @@ export default function NotificationsScreen({
       ? currentStaffError ?? "Staff profile is not available for this session."
       : error;
 
-  // Pure client-side derivation over the already-fetched list — no new
-  // selector/thunk/API call. fetchNotificationsThunk, the 30s auto-refresh,
-  // and useAppForeground all keep working on the same underlying data.
   const visibleNotifications = useMemo(
     () => (filter === "unread" ? notifications.filter((notification) => !notification.isRead) : notifications),
     [filter, notifications],
@@ -199,7 +193,6 @@ export default function NotificationsScreen({
 
   useEffect(() => {
     refresh();
-    // Only on mount — focus/foreground/interval triggers below cover the rest.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -230,8 +223,6 @@ export default function NotificationsScreen({
   };
 
   const handlePressNotification = (notification: NotificationItem) => {
-    // Optimistic: the Redux slice immediately decrements unreadCount and marks
-    // the item as read locally — the badge updates without waiting for the API.
     if (!notification.isRead) {
       void dispatch(markNotificationReadThunk(notification.id));
     }

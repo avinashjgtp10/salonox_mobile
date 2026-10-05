@@ -1,8 +1,5 @@
 export type InvoiceSequence = string | number | null | undefined;
 
-/**
- * Kept in lockstep with the Web Frontend's printReceipt().
- */
 export function formatInvoiceNumber(invoiceSeq: InvoiceSequence): string | null {
   if (invoiceSeq === null || invoiceSeq === undefined || invoiceSeq === "") {
     return null;

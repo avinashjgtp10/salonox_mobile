@@ -17,7 +17,6 @@ export function CalendarStaffGate({ children }: { children: ReactNode }) {
   const [check, setCheck] = useState<Check>({ branchId, attempt: -1, status: "loading" });
   const [attempt, setAttempt] = useState(0);
 
-  // Refresh on return from staff creation, even when the calendar tab stayed mounted.
   useFocusEffect(useCallback(() => {
     let cancelled = false;
     setCheck({ branchId, attempt, status: "loading" });

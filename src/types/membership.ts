@@ -1,6 +1,3 @@
-// Verified against salon_mgm_backend/src/modules/memberships. Keep these
-// aligned with memberships.types.ts, memberships.routes.ts, and the export
-// controller methods.
 
 export type MembershipSortOrder = "asc" | "desc";
 

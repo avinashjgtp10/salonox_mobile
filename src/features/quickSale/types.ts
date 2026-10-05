@@ -30,9 +30,6 @@ export type QuickSaleScreenProps = {
   onRequestClose?: () => void;
 };
 
-// A cart line is always one of these three sources. "quick" is a free-typed
-// custom charge with no catalog id behind it (matches the backend's own
-// "quick" item_type — a real, first-class value, not an invented one).
 export type CartItemSource = Extract<SaleItemType, "service" | "product" | "membership" | "quick"> | "package";
 
 export type PackageCoverageAllocation = {
@@ -42,9 +39,6 @@ export type PackageCoverageAllocation = {
 };
 
 export type CartConsumableItem = ConsumableUsageItem & {
-  // True once staff has overridden the recipe-scaled Actual Qty for this
-  // line — quantity changes stop auto-scaling it until the line is removed
-  // and the service is re-added.
   isActualQtyManual?: boolean;
 };
 
@@ -52,9 +46,6 @@ export type CartItem = {
   availableStock?: number;
   category: string | null;
   categoryId?: string | null;
-  // Copied from the service's recipe (Service.consumablesUsed) when the
-  // service is added to the cart. Usage metadata only — never billed, never
-  // sent anywhere except the appointment payload's services[].consumables[].
   consumables?: CartConsumableItem[];
   discountAmount: number;
   duration?: string;
@@ -71,9 +62,6 @@ export type CartItem = {
   quantity: number;
   staffId: string | null;
   staffName: string | null;
-  // Sourced straight from the catalog item (Service/Membership `tax_rate` /
-  // `tax_amount`) at add-to-cart time — never user-entered. See
-  // calculations.ts `calculateCartTaxAmount`.
   taxAmount?: number;
   taxRate?: number;
   unitPrice: number;

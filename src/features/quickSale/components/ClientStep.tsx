@@ -18,11 +18,9 @@ type ClientStepProps = {
   onChangeSearchQuery: (query: string) => void;
   onContinue: () => void;
   onRetry: () => void;
-  /** `null` selects the walk-in client. */
   onSelectClient: (client: ClientListItem | null) => void;
   onViewAllClients: () => void;
   searchQuery: string;
-  /** `null` = nothing chosen yet, `""` = walk-in, otherwise the chosen client's id. */
   selectedClientId: string | null;
 };
 

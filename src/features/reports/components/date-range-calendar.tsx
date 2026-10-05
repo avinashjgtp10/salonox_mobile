@@ -13,8 +13,6 @@ const MONTHS = [
   "July", "August", "September", "October", "November", "December",
 ];
 
-// Local-time ISO day. `toISOString()` would convert to UTC first, which rolls
-// the date back a day for any timezone ahead of UTC (IST included).
 export const toISODate = (value: Date) =>
   `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
 
@@ -74,8 +72,6 @@ export function DateRangeCalendar({
       return;
     }
 
-    // A completed range (or no range at all) starts a fresh one; picking a day
-    // before the open start moves the start rather than making an inverted range.
     if (!startDate || endDate) {
       onChange(selected, null);
       return;

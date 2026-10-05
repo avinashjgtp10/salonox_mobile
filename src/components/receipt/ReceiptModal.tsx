@@ -58,7 +58,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
       onRequestClose={onClose}
     >
       <SafeAreaView style={[styles.container, { backgroundColor: Colors.bg }]}>
-        {/* Header */}
+
         <View style={[styles.header, { borderBottomColor: Colors.border }]}>
           <TouchableOpacity activeOpacity={0.7} onPress={onClose} style={styles.closeBtn}>
             <Ionicons name="close" size={24} color={Colors.text} />
@@ -100,7 +100,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
           </View>
         </View>
 
-        {/* Thermal Receipt Visual Preview Card */}
+
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <View
             style={[
@@ -201,7 +201,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
               </View>
             ) : null}
 
-            {/* Tax Breakdown or GST Amount */}
+
             {activeData.pricing.taxBreakdown && activeData.pricing.taxBreakdown.length > 0
               ? activeData.pricing.taxBreakdown.map((t, i) => (
                 <View key={i} style={styles.summaryRow}>
@@ -285,7 +285,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
           </View>
         </ScrollView>
 
-        {/* Footer Actions */}
+
         <View style={[styles.footer, { borderTopColor: Colors.border }]}>
           <TouchableOpacity
             activeOpacity={0.8}
@@ -381,15 +381,15 @@ const styles = StyleSheet.create({
     color: "#000",
   },
   salonLogo: {
-    height: 48, // Example height, adjust as needed
-    width: "100%", // Example width, adjust as needed
+    height: 48,
+    width: "100%",
     resizeMode: "contain",
     marginBottom: 4,
   },
   upiQrCode: {
-    height: 80, // Example size
-    width: 80, // Example size
-    alignSelf: "center", // Center the QR code
+    height: 80,
+    width: 80,
+    alignSelf: "center",
     marginVertical: 6,
   },
   centerText: {

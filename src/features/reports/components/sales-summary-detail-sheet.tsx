@@ -113,7 +113,6 @@ export const SalesSummaryDetailSheet = memo(function SalesSummaryDetailSheet({
     }
 
     void load();
-    // load intentionally excluded so opening a sheet always makes one request.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [saleId]);
 

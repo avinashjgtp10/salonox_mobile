@@ -12,9 +12,6 @@ export type AddItemInput = {
   availableStock?: number;
   category?: string | null;
   categoryId?: string | null;
-  // The service's standard recipe (Service.consumablesUsed) — only ever set
-  // when itemType is "service". Scaled/copied onto the cart line by the
-  // reducer, never used as-is.
   consumables?: ConsumableRecipeItem[];
   defaultStaffId?: string | null;
   defaultStaffName?: string | null;
@@ -53,9 +50,6 @@ const nextLineId = () => {
   return `cart-line-${lineIdCounter}`;
 };
 
-// Applies a new quantity and rescales the line's consumables in lockstep —
-// every place quantity can change (add-merge, duplicate, restore-merge,
-// setQuantity) must keep the two in sync the same way.
 const withQuantity = (item: CartItem, quantity: number): CartItem => ({
   ...item,
   consumables: scaleConsumables(item.consumables, quantity),

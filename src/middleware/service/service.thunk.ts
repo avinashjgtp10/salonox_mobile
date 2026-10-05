@@ -77,12 +77,6 @@ export const fetchServicesThunk = createAsyncThunk<
     categoryId: args?.categoryId ?? serviceState.query.categoryId,
     isActive: args && "isActive" in args ? args.isActive : serviceState.query.isActive,
     limit: args?.limit ?? serviceState.query.limit,
-    // `reset` means "start over" — a fresh search or category switch must
-    // never inherit whatever offset a previous "load more" scroll left
-    // behind, or it silently requests a later (often empty) page instead of
-    // page 1. Callers that pass `reset: true` (ServiceCatalogTab's search
-    // and category-change fetches) never think to also pass `offset: 0`
-    // themselves, so it's enforced here instead.
     offset: args?.reset ? 0 : (args?.offset ?? serviceState.query.offset),
     search: args?.search ?? serviceState.query.search,
     sort_by: args?.sort_by ?? serviceState.query.sort_by,

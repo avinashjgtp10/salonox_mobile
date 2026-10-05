@@ -27,10 +27,6 @@ import type {
 type AppointmentListApiResponse = ApiResponse<AppointmentListApiData>;
 type AppointmentDetailApiResponse = ApiResponse<AppointmentDetailApiData>;
 
-// The backend has no dedicated GET /appointments/history route (it 404s into
-// the /appointments/:id handler, which throws on a non-UUID "history" id).
-// The client-scoped history endpoint already returns each appointment's raw
-// API shape nested under `appointments`, so that's reused here instead.
 type ClientHistoryApiResponse = ApiResponse<{
   appointments?: AppointmentApiItem[] | null;
   client?: AppointmentApiClient | null;
@@ -136,9 +132,6 @@ const ACTIVE_APPOINTMENT_STATUSES: ReadonlySet<AppointmentStatus> = new Set([
   "In Progress",
 ]);
 
-// Values the backend actually accepts. Frontend-only statuses ("Confirmed",
-// "In Progress", "Checked In", "In Service") have no direct backend equivalent
-// so they are mapped to their closest accepted peer.
 const APPOINTMENT_STATUS_API_VALUE: Record<AppointmentStatus, string> = {
   "Checked In": "booked",
   "Cancelled": "cancelled",
@@ -154,7 +147,6 @@ const APPOINTMENT_STATUS_API_VALUE: Record<AppointmentStatus, string> = {
   "Waiting": "booked",
 };
 
-// Statuses accepted by the backend POST /appointments and PATCH /appointments/:id.
 const BACKEND_VALID_STATUSES = new Set(["booked", "paid", "partial", "cancelled", "no-show", "deleted"]);
 
 export const isActiveAppointmentStatus = (status: AppointmentStatus) =>
@@ -481,9 +473,6 @@ const fetchStaffAppointmentList = async (
   const scanLimit = 200;
   let page = 1;
 
-  // The existing API filters only the primary staff assignment. Read its
-  // pages without that filter so service-level assignments are included too.
-  // Only this person's records are returned to the mobile store.
   while (true) {
     const result = await fetchAppointmentList({ ...query, staff_id: undefined, status: undefined, search: "", page, limit: scanLimit }, salonId);
     const fresh = result.appointments.filter(item => !seen.has(item.id));
@@ -585,9 +574,6 @@ export const appointmentService = {
       throw new Error("duration_minutes is required and must be a positive integer.");
     }
 
-    // Only forward status to the backend if it is an accepted value.
-    // Frontend-only statuses (empty string, "in_progress", etc.) are stripped
-    // so the backend defaults to "booked" for new appointments.
     if (rawStatus && BACKEND_VALID_STATUSES.has(rawStatus)) {
       (requestPayload as typeof requestPayload & { status?: string }).status = rawStatus;
     }

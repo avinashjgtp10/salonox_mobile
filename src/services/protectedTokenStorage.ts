@@ -8,7 +8,6 @@ export const protectedTokenStorage = {
     return SecureStore.getItemAsync(key, options);
   },
   async setItem(key: string, value: string): Promise<void> {
-    // Let failures propagate: never fall back to plaintext token storage.
     await SecureStore.setItemAsync(key, value, options);
   },
 };

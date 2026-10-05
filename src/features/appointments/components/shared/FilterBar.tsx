@@ -36,9 +36,6 @@ export function FilterBar({
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [isDatePickerVisible, setIsDatePickerVisible] = useState(false);
-  // Additive UI-only toggle for the status chip row below — default visible
-  // so nothing changes for anyone who doesn't touch this control. The chip
-  // row itself, onStatusChange, and `status` are untouched.
   const [isStatusRowVisible, setIsStatusRowVisible] = useState(true);
   const showDropdown =
     isSearchFocused && search.trim().length > 0 && searchResults !== undefined;

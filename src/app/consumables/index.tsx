@@ -254,9 +254,6 @@ function KpiCard({ label, value, warning }: { label: string; value: string; warn
 function ConsumableCard({ item }: { item: ConsumableListItem }) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
-  // Prefer the backend-computed status ("healthy" / "low_stock" /
-  // "out_of_stock") over re-deriving it from amount vs qtyAlert — only
-  // falls back to a client guess when status is missing.
   const outOfStock = item.status ? item.status === "out_of_stock" : item.amount <= 0;
   const lowStock = item.status ? item.status === "low_stock" : !outOfStock && item.amount <= item.qtyAlert;
 

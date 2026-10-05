@@ -16,8 +16,6 @@ export interface ReceiptData {
     time: string;
     paymentMethod: string;
   };
-  /** Per-method amounts when paymentMethod === "split" — parsed straight from
-   *  the backend's stored { [method]: amount } JSON, never computed locally. */
   paymentBreakdown?: { method: string; amount: number }[];
   client: {
     name: string;

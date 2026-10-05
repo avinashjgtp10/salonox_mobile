@@ -83,10 +83,6 @@ const scopeAttendanceForCurrentUser = (today: AttendanceToday, state: RootState)
     ? scopeAttendanceToStaff(today, selectCurrentStaff(state))
     : today;
 
-// Seeds the slice from the last successfully cached response so the UI has
-// something to show the instant the screen mounts, before the network call
-// (dispatched separately) resolves. The reducer only applies this while the
-// live resource is still idle, so it never clobbers fresher network data.
 export const hydrateAttendanceFromCacheThunk = createAsyncThunk<
   { summary: AttendanceSummary | null; today: AttendanceToday | null },
   void,
@@ -140,10 +136,6 @@ export const fetchAttendanceSummaryThunk = createAsyncThunk<
   }
 });
 
-// Thin orchestration thunk used by screens that show both the live staff list
-// and the summary cards together. It intentionally has no reducer cases of
-// its own — each child thunk updates its own slice of state, so dispatching
-// this never double-tracks loading/error flags.
 export const fetchAttendanceOverviewThunk = createAsyncThunk<
   void,
   string | undefined,

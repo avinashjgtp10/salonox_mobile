@@ -43,10 +43,6 @@ const EMPTY_STAFF_FORM: StaffProfileFormValues = {
 const toPermissionRoleLevel = (permissionLevel?: string): StaffRoleLevel =>
   permissionLevel?.trim().toLowerCase() === "manager" ? "Manager" : "Staff";
 
-// The backend only ever returns birthday_day/birthday_month (no year), so an
-// edit-mode prefill can't reconstruct the real date of birth. A fixed
-// placeholder year keeps the date picker showing the right day/month without
-// implying a fabricated birth year — the user can correct the year if needed.
 const DOB_PLACEHOLDER_YEAR = 2000;
 
 const toPlaceholderDob = (day?: number | null, month?: number | null) => {
@@ -67,10 +63,6 @@ export const useStaffForm = (staffId?: string | null) => {
   const updating = useAppSelector(selectStaffUpdating);
   const updateError = useAppSelector(selectStaffUpdateError);
   const [values, setValues] = useState<StaffProfileFormValues>(EMPTY_STAFF_FORM);
-  // A field's error is only surfaced once the user has actually interacted
-  // with it (or after a Save attempt touches everything at once) — showing
-  // "required" on every empty field the instant the screen opens is not
-  // useful feedback, it's just noise.
   const [touched, setTouched] = useState<Partial<Record<keyof StaffProfileFormValues, boolean>>>({});
   const [duplicateEmailError, setDuplicateEmailError] = useState<string | null>(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
@@ -164,8 +156,6 @@ export const useStaffForm = (staffId?: string | null) => {
 
   const submit = async () => {
     if (!validation.isValid) {
-      // Reveal every error at once, exactly like clicking Save on Web with
-      // an incomplete form — not just the fields the user happened to touch.
       setTouched((currentTouched) => ({
         ...currentTouched,
         ...(Object.fromEntries(Object.keys(validation.errors).map((field) => [field, true])) as Partial<

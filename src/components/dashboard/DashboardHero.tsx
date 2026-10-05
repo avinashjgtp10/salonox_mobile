@@ -262,7 +262,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     letterSpacing: 0,
     lineHeight: 34,
   },
-  // Avoid iOS shrinking the greeting during intrinsic text measurement.
   iosName: {
     width: "100%",
     flexShrink: 0,

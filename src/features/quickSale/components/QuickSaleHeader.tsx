@@ -8,13 +8,7 @@ import { DashboardRadius as Radius, DashboardSpacing as Spacing, type ThemeColor
 import { useThemeColors } from "@/theme/ThemeProvider";
 
 type QuickSaleHeaderProps = {
-  /** Shows a close icon instead of a back arrow (Quick Sale inside the calendar modal). */
   embedded?: boolean;
-  /**
-   * "centered" keeps the title centred between the back button and the right
-   * slot; "leading" left-aligns it next to the back button with room for a
-   * subtitle.
-   */
   layout?: "centered" | "leading";
   onBack: () => void;
   right?: ReactNode;
@@ -83,7 +77,6 @@ function QuickSaleHeaderActionComponent({
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const iconColor = color ?? Colors.primary;
-  // A spinner means "busy", not "unavailable", so it keeps full opacity.
   const isDimmed = disabled && !isLoading;
 
   return (
@@ -158,9 +151,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontSize: 9,
     fontWeight: "900",
   },
-  // Balances the back button so the title stays centered, but must stay
-  // invisible — reusing iconButton's card background/border/shadow would
-  // paint a blank white box on the header's right side.
   spacer: {
     height: AppLayout.headerActionSize,
     width: AppLayout.headerActionSize,

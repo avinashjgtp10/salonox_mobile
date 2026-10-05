@@ -72,8 +72,6 @@ function formatCreatedDate(createdAt: string | null) {
   return formatAppDate(createdAt, "-");
 }
 
-// A value the backend genuinely has no figure for (no sale_items row behind an
-// appointment-derived line) renders as "–", never as a misleading 0.
 function formatOptionalCurrency(amount: number | null) {
   return amount === null ? "–" : formatCurrency(amount);
 }
@@ -128,9 +126,6 @@ function EmptySummarySection({
   );
 }
 
-// The Summary tab is a plain ScrollView, and /history returns up to 200
-// appointments/sales — cap each section and show a "+N more" hint rather than
-// mounting every row up front.
 const SECTION_ROW_LIMIT = 5;
 
 function SummarySection({
@@ -340,8 +335,6 @@ export default function ClientDetailsScreen() {
   const historyLoading = useAppSelector(selectClientHistoryLoading);
   const historyError = useAppSelector(selectClientHistoryError);
 
-  // Everything below comes from the one GET /clients/:id/history request fired
-  // when the profile opens — no per-section fetching.
   const historyClient = useAppSelector(selectClientHistoryClient);
   const profileStats = useAppSelector(selectClientProfileStats);
   const historyAppointments = useAppSelector(selectClientHistoryAppointments);
@@ -361,8 +354,6 @@ export default function ClientDetailsScreen() {
   const membershipError = useAppSelector(selectClientMembershipsError(id));
   const membershipMutating = useAppSelector(selectClientMembershipMutating);
 
-  // Web-parity derived figures (Total Visits / Spend / Due / Average / Last
-  // Visit / upcoming / services / products) — see clientProfile.ts.
   const metrics = useMemo(
     () =>
       buildClientProfileMetrics({
@@ -384,8 +375,6 @@ export default function ClientDetailsScreen() {
     setBlockedOverride(null);
   }, [id]);
 
-  // Lazy, once per client — notes are not part of the /history payload, and
-  // most profile visits never open this tab (same rationale as Web).
   useEffect(() => {
     if (id && activeTab === "notes" && notes === null && !notesLoading) {
       void dispatch(fetchClientNotesThunk(id));
@@ -407,8 +396,6 @@ export default function ClientDetailsScreen() {
         if (id && (entity === "clientMemberships" || entity === "memberships" || entity === "clients")) {
           void dispatch(fetchClientByIdThunk(id));
           void dispatch(fetchClientMembershipsThunk(id));
-          // Keep the profile's summary/history in step with the change that
-          // just landed — still one history request, only on a real event.
           void dispatch(fetchClientHistoryThunk(id));
         }
       }),
@@ -447,8 +434,6 @@ export default function ClientDetailsScreen() {
           setBlockedOverride(result.clients.some((blockedClient) => blockedClient.id === id));
         }
       } catch (error) {
-        // Some deployments expose the state on the client-detail response but do
-        // not allow filtering. Keep that normalized detail state as the fallback.
         console.warn("Unable to verify client blocked status", error);
       }
     };
@@ -460,12 +445,6 @@ export default function ClientDetailsScreen() {
     };
   }, [activeBranchId, id, liveClientFullName, liveClientPhone]);
 
-  // The profile's summary figures used to come from
-  // fetchClientsWithHistoryStatsThunk — a name search against the
-  // /clients/with-history-stats LIST endpoint, which returns no per-client
-  // stats object at all (so every figure resolved to 0) and could not
-  // reliably identify one client by name. /clients/:id/history, fetched by
-  // UUID above, is now the single source for all of it.
 
   const client = useMemo(() => {
     if (!liveClient) {
@@ -482,8 +461,6 @@ export default function ClientDetailsScreen() {
     return {
       avatarBg: avatarTone.background,
       avatarColor: avatarTone.color,
-      // "Joined on" — prefer the history payload's own created_at, falling
-      // back to the list/detail record's preformatted label.
       createdLabel: historyClient?.createdAt
         ? formatCreatedDate(historyClient.createdAt)
         : liveClient.createdDateLabel,
@@ -789,11 +766,7 @@ export default function ClientDetailsScreen() {
               <EmptySummarySection icon="cube-outline" label="No packages" title="Packages" />
             )}
 
-            {/* Vouchers and Gift Cards have no backend data model or API — see
-                the investigation. `gift_card` exists only as a payment method
-                and a sale-item type; there is no per-client voucher or
-                gift-card entity to read, on mobile or web. These stay as
-                explicit placeholders until that scope is decided. */}
+
             <EmptySummarySection label="No vouchers" title="Vouchers" />
             <EmptySummarySection label="No Gift Card" title="Gift Cards" />
 
@@ -831,8 +804,6 @@ export default function ClientDetailsScreen() {
             {historyError ? <Text style={styles.errorText}>{historyError}</Text> : null}
             {!historyLoading && !historyError && history.length === 0 ? <EmptySummarySection icon="time-outline" label="No activity" title="" /> : null}
             {history.map((item) => {
-              // Detail already present on the backend rows — surfaced here
-              // rather than dropped during timeline flattening.
               const meta = [
                 item.dateLabel,
                 item.staffName || null,

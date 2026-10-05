@@ -39,14 +39,6 @@ function AppointmentDashboardScreenContent() {
   const { width } = useWindowDimensions();
   const tileWidth = width >= 720 ? "31%" : "48%";
 
-  // Fetch the whole day once, unfiltered by status or search. Search and
-  // status only ever narrow the already-loaded data client-side below (see
-  // `filtered`) — the backend doesn't support text search at all (the
-  // `search` query param is accepted but never read server-side), and
-  // filtering by status server-side would mean re-fetching on every chip tap
-  // (a visible reload) and would make it impossible to compute the summary
-  // stats for every status at once. `limit: 200` matches the backend's own
-  // max page size, so a single day's appointments are captured in one call.
   useEffect(() => {
     void fetchAppointments({ date, limit: 200, reset: true });
   }, [date, fetchAppointments]);
@@ -76,9 +68,6 @@ function AppointmentDashboardScreenContent() {
     [filtered],
   );
 
-  // Top matches for the search dropdown — reuses the same client+status
-  // -filtered `filtered` list (no separate request), capped for a compact
-  // suggestion panel.
   const searchDropdownResults = useMemo(() => filtered.slice(0, 8), [filtered]);
 
   const handleSelectSearchResult = useCallback(

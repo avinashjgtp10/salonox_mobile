@@ -95,10 +95,6 @@ export default function StaffProfileScreen() {
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const { id } = useLocalSearchParams<{ id?: string }>();
   const { detailsError, detailsLoading, staffMember: storedStaffMember } = useStaffDetails(id);
-  // The staff API doesn't return today's appointment/revenue counters, so the
-  // Team list derives them client-side from today's appointments. Run the same
-  // hook here for this one member, otherwise the profile renders the unset
-  // zeroes from the store while the list beside it shows real numbers.
   const staffMembersForMetrics = useMemo(
     () => (storedStaffMember ? [storedStaffMember] : []),
     [storedStaffMember],
@@ -131,10 +127,6 @@ export default function StaffProfileScreen() {
 
     const resultAction = await dispatch(setStaffActiveStatusThunk({ nextStatus, staffId: id }));
 
-    // Only ever reaches here once the backend mutation succeeded AND a
-    // follow-up fetch confirmed the staff record's status actually changed
-    // — setStaffActiveStatusThunk rejects otherwise, so there is no path
-    // that shows this success message without a confirmed backend change.
     if (setStaffActiveStatusThunk.rejected.match(resultAction)) {
       Alert.alert(
         nextStatus === "inactive" ? "Unable to deactivate staff" : "Unable to reactivate staff",
@@ -296,8 +288,7 @@ export default function StaffProfileScreen() {
             <Ionicons name="arrow-back" size={18} color={Colors.primaryDark} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Staff Profile</Text>
-          {/* Spacer keeps "Staff Profile" centred in the space-between header.
-              Editing is reached from the hero card's Edit quick action. */}
+
           <View style={styles.headerActionPlaceholder} />
         </View>
 

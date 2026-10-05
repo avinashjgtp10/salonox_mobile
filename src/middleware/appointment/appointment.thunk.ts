@@ -119,8 +119,6 @@ export const createAppointmentThunk = createAsyncThunk<
 
     const response = await appointmentService.createAppointment(payload);
 
-    // The backend fires a "New Appointment Booked" notification on create —
-    // refresh the badge so it doesn't wait for the next foreground/focus tick.
     void dispatch(fetchUnreadCountThunk());
     void dispatch(fetchDashboardThunk());
     void dispatch(fetchAppointmentsThunk({ ...getState().appointment.query, refresh: true }));
@@ -175,7 +173,6 @@ export const cancelAppointmentThunk = createAsyncThunk<
         refresh: true,
       }),
     );
-    // The backend fires an "Appointment Cancelled" notification here too.
     void dispatch(fetchUnreadCountThunk());
     void dispatch(fetchDashboardThunk());
 

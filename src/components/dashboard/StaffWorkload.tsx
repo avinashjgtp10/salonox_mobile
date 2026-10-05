@@ -328,7 +328,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   memberList: {
     gap: 12,
   },
-  // Redesign card shape: 24px corners, 20px padding, no outline, soft lift.
   memberCard: {
     alignItems: "center",
     backgroundColor: Colors.dashboardCard,

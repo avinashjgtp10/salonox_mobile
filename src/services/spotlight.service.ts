@@ -20,8 +20,6 @@ const normalizeFeature = (entry: UnknownRecord): SpotlightFeature | null => {
   const id = toSafeString(firstValue(entry, ["id", "_id"]));
   const featureName = toSafeString(firstValue(entry, ["featureName", "feature_name"]));
 
-  // A feature with no id can't be marked explored, and one with no name has
-  // nothing to announce — skip rather than render a blank card.
   if (!id || !featureName) {
     return null;
   }

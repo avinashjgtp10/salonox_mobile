@@ -12,7 +12,6 @@ const parseIds = (value: string | null): string[] => {
     const parsed: unknown = JSON.parse(value);
     return Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === "string") : [];
   } catch {
-    // A damaged local preference must not prevent the notification feed loading.
     return [];
   }
 };

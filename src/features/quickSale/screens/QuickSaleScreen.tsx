@@ -208,9 +208,6 @@ function OwnerQuickSaleScreen({
   const [appliedCoupon, setAppliedCoupon] = useState<ValidateCouponResult | null>(null);
   const [couponError, setCouponError] = useState<string | null>(null);
   const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
-  // GST is never typed in — it's computed from each cart item's own catalog
-  // tax rate (see calculateCartTaxAmount), matching the web Quick Sale's
-  // "Include GST" toggle rather than a free-entry amount.
   const [includeGst, setIncludeGst] = useState(true);
   const [serviceChargeInput, setServiceChargeInput] = useState("");
   const [convenienceFeeInput, setConvenienceFeeInput] = useState("");
@@ -502,8 +499,6 @@ function OwnerQuickSaleScreen({
     resetPricing,
   ]);
 
-  // Matches the existing "New Sale" flow from the receipt screen, which
-  // navigates back here with a fresh resetSale value to force a clean slate.
   useEffect(() => {
     if (params.resetSale) {
       allowExpectedExitRef.current = false;
@@ -538,10 +533,6 @@ function OwnerQuickSaleScreen({
     [cart.items],
   );
 
-  // Cart items can be removed (trash icon, undo-timeout expiry) while the
-  // checkout sheet is open; a sheet showing "Charge Rs. 0" for an empty cart
-  // would violate "cannot checkout without at least one item," so close it
-  // the moment the cart empties out from under it.
   useEffect(() => {
     if (isCheckoutVisible && cart.items.length === 0) {
       setIsCheckoutVisible(false);
@@ -1176,8 +1167,6 @@ function OwnerQuickSaleScreen({
     }
   };
 
-  // After a finished (or payment-recorded) sale, start the next one from the
-  // client step with an empty cart.
   const clearFinishedSale = () => {
     cart.clearCart();
     setSelectedClient(WALK_IN_CLIENT);
@@ -1193,10 +1182,6 @@ function OwnerQuickSaleScreen({
       return;
     }
 
-    // Every other outcome means the backend already saved the sale or took
-    // the payment. Always report it, even if the submission was reset while
-    // the request was in flight: staying silent would leave the cart on
-    // screen and invite charging the client a second time.
     checkoutSubmission.commitSuccess();
     setIsSaleFinalized(true);
 
@@ -1216,7 +1201,6 @@ function OwnerQuickSaleScreen({
 
       case "completed":
 
-        // checkoutSaleThunk already refreshes the dashboard for drafts.
         if (outcome.source === "appointment") {
           void dispatch(fetchDashboardThunk());
         }
@@ -1238,10 +1222,6 @@ function OwnerQuickSaleScreen({
         setIsCheckoutVisible(false);
         clearFinishedSale();
         router.replace({ params: outcome.receipt, pathname: "/quick-sale/checkout" });
-        // Embedded means this screen lives inside the calendar's <Modal>, a
-        // separate native window on Android. The receipt route above replaces
-        // the screen UNDERNEATH it, so without closing the modal the operator
-        // just sees Quick Sale again and assumes the sale failed.
         onRequestClose?.();
         return;
     }
@@ -1331,8 +1311,6 @@ function OwnerQuickSaleScreen({
     const payment = pendingCheckoutPayment;
     setPendingCheckoutPayment(null);
     requestAnimationFrame(() => void handleCompleteSale(payment));
-    // `handleCompleteSale` is deliberately omitted: this effect is driven by
-    // the client/picker transition and uses the handler from that render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isClientPickerVisible, pendingCheckoutPayment, selectedClient.id]);
 
@@ -1591,8 +1569,6 @@ function OwnerQuickSaleScreen({
   }
 
   const isGlobalSearchActive = globalSearchQuery.trim().length > 0;
-  // Checkout/Choose Client/Change Service render above the working screen, so
-  // the floating checkout card gets out of the way while any overlay is open.
   const isOverlayActive =
     isCheckoutVisible || isClientPickerVisible || isEmbeddedStaffPickerVisible || Boolean(changeServiceLineId);
 

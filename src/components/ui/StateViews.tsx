@@ -15,10 +15,6 @@ const ACCENT_KEYS = {
   green: ["accentGreen", "accentGreenSoft"],
 } as const;
 
-// Layered "illustration" badge (soft outer ring + solid inner circle + two
-// floating accent dots) instead of a single flat icon circle — reused by
-// EmptyState/ErrorState so every empty/error surface in the app gets the
-// same premium treatment for free.
 export function StateIllustration({
   icon,
   accent,

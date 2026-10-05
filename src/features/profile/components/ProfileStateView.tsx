@@ -19,7 +19,6 @@ type ProfileStateViewProps =
   | { kind: "error"; message: string; onRetry: () => void }
   | { kind: "empty"; onRetry: () => void };
 
-/** Full-screen loading, error, and "no profile" states. */
 export function ProfileStateView(props: ProfileStateViewProps) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);

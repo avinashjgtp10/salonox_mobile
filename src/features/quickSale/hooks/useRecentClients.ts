@@ -10,10 +10,6 @@ type UseRecentClientsArgs = {
   searchQuery: string;
 };
 
-/**
- * Loads the short client list shown on Quick Sale's "choose client" step:
- * the 3 most recent clients, or up to 8 matches while a search is typed.
- */
 export function useRecentClients({ enabled, salonId, searchQuery }: UseRecentClientsArgs) {
   const [options, setOptions] = useState<ClientListItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);

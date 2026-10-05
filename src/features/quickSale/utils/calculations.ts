@@ -51,10 +51,6 @@ export const getExpectedSaleRevenue = (totals: Pick<
   + totals.appliedEWallet + totals.appliedReferralCredit + totals.appliedRewardPointsValue,
 );
 
-/**
- * Converts a response from POST /api/v1/pricing/calculate-totals into
- * the UI's BillTotals structure.
- */
 export const adaptPricingResponseToBillTotals = (
   response: CalculateTotalsResponse,
   inputs: {

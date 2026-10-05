@@ -30,7 +30,6 @@ export const attendanceCache = {
     try {
       await AsyncStorage.setItem(SUMMARY_KEY, JSON.stringify(value));
     } catch {
-      // Best-effort cache only; ignore storage failures (quota, disabled storage, etc).
     }
   },
 
@@ -38,7 +37,6 @@ export const attendanceCache = {
     try {
       await AsyncStorage.setItem(TODAY_KEY, JSON.stringify(value));
     } catch {
-      // Best-effort cache only; ignore storage failures (quota, disabled storage, etc).
     }
   },
 };

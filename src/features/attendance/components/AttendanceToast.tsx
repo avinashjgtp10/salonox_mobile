@@ -12,9 +12,6 @@ import { useThemeColors } from "@/theme/ThemeProvider";
 
 const TOAST_DURATION_MS = 3200;
 
-// Mirrors the appointment module's snackbar pattern so success/error feedback
-// for check-in, check-out, manual mark, and attendance edits all render the
-// same way regardless of which screen triggered the action.
 export function AttendanceToast() {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);

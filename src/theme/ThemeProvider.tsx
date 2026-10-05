@@ -33,8 +33,6 @@ export function ThemeProvider({ children }: PropsWithChildren) {
   );
   const [isHydrated, setIsHydrated] = useState(false);
 
-  // Loads the persisted choice once on mount — isHydrated gates the splash
-  // screen in _layout.tsx so the app never flashes the wrong theme first.
   useEffect(() => {
     let cancelled = false;
 
@@ -56,8 +54,6 @@ export function ThemeProvider({ children }: PropsWithChildren) {
     };
   }, []);
 
-  // Keeps systemScheme current even when mode isn't "system" yet, so
-  // switching to "system" later doesn't need a stale initial read.
   useEffect(() => {
     const subscription = Appearance.addChangeListener(({ colorScheme }) => {
       setSystemScheme(colorScheme ?? "light");

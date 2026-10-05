@@ -73,7 +73,6 @@ function buildNavigationTheme(scheme: 'light' | 'dark', colors: ThemeColors): Th
   };
 }
 
-// Hoisted so PaperProvider never sees a new `settings` object on re-render.
 const PAPER_SETTINGS = { icon: PaperIcon };
 
 const PUBLIC_ROUTES = new Set([
@@ -108,10 +107,6 @@ function AuthNavigationHandler({ onReady }: { onReady: () => void }) {
     const salonId = user?.salonId?.trim() ?? "";
 
     if (!salonId) {
-      // SCRUM-1838: no salon yet (onboarding no longer runs before this
-      // check can fire) — there's nothing to check a subscription against,
-      // so fail open rather than blocking the user behind the subscription
-      // paywall route.
       setSubscriptionCheck({ isActive: true, salonId: null, status: "ready" });
       return;
     }
@@ -137,7 +132,6 @@ function AuthNavigationHandler({ onReady }: { onReady: () => void }) {
       })
       .catch(() => {
         if (isMounted) {
-          // A failed request is not evidence that the subscription ended.
           setSubscriptionCheck((current) =>
             current.salonId === salonId && current.status === "ready" && current.isActive
               ? current
@@ -169,9 +163,6 @@ function AuthNavigationHandler({ onReady }: { onReady: () => void }) {
         return;
       }
 
-      // SCRUM-1838: onboarding no longer gates authenticated routing — every
-      // authenticated user goes straight through the subscription check into
-      // their dashboard/home, regardless of isOnboardingComplete.
       if (subscriptionCheck.status === "error") {
         onReady();
         return;
@@ -197,7 +188,6 @@ function AuthNavigationHandler({ onReady }: { onReady: () => void }) {
       if (isPublicRoute || isSubscriptionRoute || isWrongAuthenticatedApp) {
         router.replace(resolveAuthenticatedRoute(user));
       } else {
-        // The target authenticated route (dashboard/home) is now active in the navigator.
         onReady();
       }
     } else {
@@ -207,7 +197,6 @@ function AuthNavigationHandler({ onReady }: { onReady: () => void }) {
         }
         router.replace("/login" as Href);
       } else {
-        // The public login or recovery route is active in the navigator.
         onReady();
       }
     }
@@ -240,10 +229,6 @@ function AuthNavigationHandler({ onReady }: { onReady: () => void }) {
   return null;
 }
 
-// Owns the single, app-wide push-notification listener/registration
-// lifecycle — deliberately its own component (rather than folded into
-// AuthNavigationHandler) so its one job stays obvious, and so it only ever
-// mounts once regardless of how navigation logic evolves.
 function PushNotificationsSetup() {
   const { isAuthenticated } = useAuth();
 
@@ -293,10 +278,6 @@ function AppUpdateSetup({ ready }: { ready: boolean }) {
   );
 }
 
-// Owns loading the current user's branch list and restoring/clearing the
-// persisted active branch across login/logout — deliberately its own
-// component (mirrors PushNotificationsSetup) so AuthContext itself stays
-// untouched.
 function BranchBootstrap() {
   const { isAuthenticated } = useAuth();
   const dispatch = useAppDispatch();

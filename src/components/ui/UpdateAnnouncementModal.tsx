@@ -54,8 +54,6 @@ const NOTE_ICONS: IoniconName[] = [
   "trending-up-outline",
 ];
 
-// Store links are backend-controlled, so treat them as untrusted input: only
-// http(s) and the platform store schemes are ever handed to Linking.openURL.
 const isOpenableStoreUrl = (value?: string | null): value is string => {
   const url = value?.trim();
 
@@ -170,8 +168,6 @@ export function UpdateAnnouncementModal({
     }
   };
 
-  // A blocking update screen whose only button silently does nothing is a dead
-  // end, so an unusable store URL is surfaced rather than swallowed.
   const handleUpdate = () => {
     if (!isStoreUrlUsable) {
       Alert.alert(

@@ -8,10 +8,6 @@ export interface ContactsPermissionResult {
   canAskAgain: boolean;
 }
 
-/**
- * Checks existing permission and requests Contacts permission if needed.
- * Displays user-friendly configuration alert messages if permissions are permanently denied.
- */
 export async function requestContactsPermission(): Promise<ContactsPermissionResult> {
   try {
     const { status: existingStatus, canAskAgain: existingCanAskAgain } =

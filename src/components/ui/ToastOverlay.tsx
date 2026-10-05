@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 import { StyleSheet, View } from "react-native";
 import { Portal } from "@/components/ui/Portal";
 
-/** Center transient feedback in the screen, independent of footers/scroll views. */
 export function ToastOverlay({ children }: { children: ReactNode }) {
   return (
     <Portal>

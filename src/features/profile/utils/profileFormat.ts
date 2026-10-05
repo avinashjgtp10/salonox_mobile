@@ -28,7 +28,6 @@ export const formatValue = (value: string | null | undefined) => {
   return trimmed ? trimmed : "-";
 };
 
-/** For optional fields that show a muted placeholder (e.g. "No website set") when empty. */
 export const formatEmpty = (value: string | null | undefined, emptyText: string) => {
   const trimmed = value?.trim();
   return trimmed ? { isEmpty: false, text: trimmed } : { isEmpty: true, text: emptyText };

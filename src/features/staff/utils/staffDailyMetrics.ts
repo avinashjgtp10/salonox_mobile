@@ -13,7 +13,6 @@ export function getStaffDailyMetrics(member: StaffMember, appointments: Appointm
     if (["Cancelled", "Missed", "Deleted", "Unknown", "Expired"].includes(appointment.status)) continue;
     todayAppointments += 1;
     if (appointment.status === "Completed") servicesCompleted += 1;
-    // Actual recorded payments, never the unpaid booking/service price.
     revenueCents += Math.round(Math.max(0, appointment.paidAmount) * 100);
   }
   return { todayAppointments, servicesCompleted, todayRevenue: revenueCents / 100 };
