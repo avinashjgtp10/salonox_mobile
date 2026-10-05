@@ -15,7 +15,6 @@ export function WeekDayStrip({ date, onSelect }: { date: string; onSelect: (valu
       anchor.setTime(Date.now());
     }
 
-    // Monday-start week containing `anchor`.
     const dayOfWeek = anchor.getDay();
     const diffToMonday = (dayOfWeek + 6) % 7;
     const monday = new Date(anchor);

@@ -12,7 +12,6 @@ type PackageEligibilityBannerProps = {
   onRetry: () => void;
 };
 
-/** Shown when the selected client's packages failed to load, so package pricing is unverified. */
 function PackageEligibilityBannerComponent({ error, onRetry }: PackageEligibilityBannerProps) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);

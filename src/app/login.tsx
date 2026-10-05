@@ -64,9 +64,6 @@ export default function LoginScreen() {
     ]).start();
   }, [cardOpacity, cardTranslate]);
 
-  // Scrolls the focused field's label to just below the status bar. The
-  // position is measured relative to the scroll content (not the window), so
-  // it stays correct while the keyboard is still resizing the viewport.
   const revealFocusedField = useCallback(() => {
     const field = focusedField.current;
     const fieldView = field === "email" ? emailFieldRef.current : field === "password" ? passwordFieldRef.current : null;
@@ -81,12 +78,8 @@ export default function LoginScreen() {
   useEffect(() => {
     const shown = Keyboard.addListener("keyboardDidShow", (event) => {
       keyboardOpen.current = true;
-      // Android: reserve the keyboard's height below the form ourselves so the
-      // ScrollView always has room to scroll, whether or not the window resized.
       if (Platform.OS === "android") setKeyboardHeight(event.endCoordinates.height);
       revealFocusedField();
-      // Retry once the keyboard/layout has settled — a scroll issued while the
-      // content still fits the old viewport is clamped to 0 and lost.
       if (settleTimer.current) clearTimeout(settleTimer.current);
       settleTimer.current = setTimeout(revealFocusedField, 250);
     });

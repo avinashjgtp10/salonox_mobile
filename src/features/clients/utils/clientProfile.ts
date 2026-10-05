@@ -6,30 +6,13 @@ import type {
   ClientSaleRecord,
 } from "@/types/client";
 
-// Derived Client Profile figures.
-//
-// Every formula here is a deliberate port of the Web Client History screen
-// (salon_mgm_frontend ClientHistoryDetail.tsx) so the two platforms can never
-// disagree about the same client again. Where Web and the backend `stats`
-// object differ, Web wins — the backend's own `lifetime_spend` and
-// `last_visit_at` are intentionally NOT used, for the reasons documented on
-// each formula below.
-//
-// All inputs come from a single GET /clients/:id/history response. Web makes
-// two extra calls (/client-packages, /client-memberships) purely to work out
-// standalone purchase revenue, because of a stale comment claiming /history
-// "doesn't select appointment_id" — it does (see clients.controller.ts
-// getHistory, packages and memberships legs), so that revenue is computed
-// here from the history payload alone and no extra request is needed.
 
 export type ClientProfileLineEntry = {
-  /** Stable list key — records are merged from several sources, ids can repeat. */
   key: string;
   name: string;
   quantity: number;
   unitPrice: number;
   totalPrice: number;
-  /** `null` when no sale_items row backs the entry — render "–", never 0. */
   discountAmount: number | null;
   taxAmount: number | null;
   invoiceNumber: string | null;
@@ -75,13 +58,6 @@ const toTime = (value: string | null) => {
 
 const byDateDesc = (left: string | null, right: string | null) => toTime(right) - toTime(left);
 
-/**
- * A package purchase produces both a `sales` row and a `client_packages` row
- * for the same event. Match them so the sale mirror can be excluded from the
- * walk-in visit count — otherwise buying a package inflates Total Visits.
- * Prefers the real `sale_id` link, falling back to a name/amount/time match
- * for packages predating that column being populated.
- */
 const buildPackageSaleIds = (
   packages: ClientPackageRecord[],
   sales: ClientSaleRecord[],
@@ -116,10 +92,6 @@ const buildPackageSaleIds = (
   return usedSaleIds;
 };
 
-/**
- * An appointment counts as paid if its linked sale is completed, or — with no
- * linked sale — its own payment fields say so.
- */
 const buildIsAppointmentPaid = (saleByAppointmentId: Map<string, ClientSaleRecord>) =>
   (appointment: ClientAppointmentRecord) => {
     const linkedSale = saleByAppointmentId.get(appointment.id);
@@ -142,10 +114,6 @@ export const buildClientProfileMetrics = ({
   );
   const isAppointmentPaid = buildIsAppointmentPaid(saleByAppointmentId);
 
-  // ── Total Visits ─────────────────────────────────────────────────────────
-  // Backend paid/partial appointment count, plus genuine walk-in quick sales.
-  // Package-purchase sale mirrors and non-completed sales are excluded — they
-  // are not visits (Web: SCRUM-1109).
   const packageSaleIds = buildPackageSaleIds(packages, sales);
   const quickSales = sales.filter((sale) => !sale.appointmentId);
   const walkInVisitCount = quickSales.filter(
@@ -153,17 +121,10 @@ export const buildClientProfileMetrics = ({
   ).length;
   const totalVisits = (stats?.completedAppointments ?? 0) + walkInVisitCount;
 
-  // ── Total Spend ──────────────────────────────────────────────────────────
-  // Deliberately not stats.lifetimeSpend. eWallet and membership-wallet money
-  // is not new revenue (it was recognised when the wallet was funded), and a
-  // standalone package/membership purchase whose sales-row mirror failed to be
-  // created would otherwise be missed entirely.
   const paidRevenue = appointments
     .filter((appointment) => appointment.status === "paid")
     .reduce(
       (sum, appointment) =>
-        // netAmount is null until a completed payment populates it; fall back
-        // to what was actually collected, never the full catalog total.
         sum + (appointment.netAmount !== null ? appointment.netAmount : appointment.amountPaid),
       0,
     );
@@ -186,18 +147,10 @@ export const buildClientProfileMetrics = ({
   const totalSpend =
     paidRevenue + partialRevenue + standalonePackageRevenue + standaloneMembershipRevenue;
 
-  // ── Amount Due ───────────────────────────────────────────────────────────
-  // due_amount is already net of discount/eWallet/membership-wallet, so these
-  // sum directly. No Web equivalent — this card is mobile-only.
   const amountDue = appointments.reduce((sum, appointment) => sum + appointment.dueAmount, 0);
 
-  // Kept consistent with the numerator above rather than dividing by a
-  // completed-sales count that no longer matches it.
   const averageSpend = totalVisits > 0 ? totalSpend / totalVisits : 0;
 
-  // ── Last visit ───────────────────────────────────────────────────────────
-  // Most recent paid appointment OR most recent completed sale, whichever is
-  // later — a walk-in with no appointment is still a visit.
   const lastPaidAppointment = appointments
     .filter((appointment) => appointment.status === "paid")
     .map((appointment) => appointment.scheduledAt)
@@ -215,7 +168,6 @@ export const buildClientProfileMetrics = ({
           ? lastPaidAppointment
           : lastCompletedSale;
 
-  // ── Upcoming appointments ────────────────────────────────────────────────
   const upcomingAppointments = appointments
     .filter(
       (appointment) =>
@@ -224,10 +176,6 @@ export const buildClientProfileMetrics = ({
     )
     .sort((left, right) => toTime(left.scheduledAt) - toTime(right.scheduledAt));
 
-  // ── Services ─────────────────────────────────────────────────────────────
-  // Sale line items first; appointment services are then merged in only when
-  // they are not already represented by a sale item and are not actually a
-  // package sold on that appointment.
   const servicesFromSales: ClientProfileLineEntry[] = sales
     .filter((sale) => sale.status === "completed")
     .flatMap((sale) =>
@@ -275,8 +223,6 @@ export const buildClientProfileMetrics = ({
           quantity: 1,
           unitPrice: service.price,
           totalPrice: service.price,
-          // No sale_items row backs this entry, so no real discount/tax figure
-          // exists — null renders as "–" rather than a misleading 0.
           discountAmount: null,
           taxAmount: null,
           invoiceNumber: null,
@@ -290,7 +236,6 @@ export const buildClientProfileMetrics = ({
     byDateDesc(left.date, right.date),
   );
 
-  // ── Products ─────────────────────────────────────────────────────────────
   const products: ClientProfileLineEntry[] = sales
     .flatMap((sale) =>
       sale.items
@@ -329,9 +274,6 @@ export const buildClientProfileMetrics = ({
     activeMemberships,
     pastMemberships,
     packages: [...packages].sort((left, right) => byDateDesc(left.createdDate, right.createdDate)),
-    // Most recent service actually taken — `services` is already date-sorted,
-    // so this is a real chronological answer rather than whichever entry
-    // happened to land first in a flattened timeline.
     lastServiceTaken: services[0]?.name ?? null,
   };
 };

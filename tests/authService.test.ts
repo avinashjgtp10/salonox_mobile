@@ -14,7 +14,6 @@ test.each(["logout", "logoutAll"] as const)(
     let finish!: (value: unknown) => void;
     jest.mocked(api.post).mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
     const pending = authService[method]({ accessToken: "old-access", refreshToken: "old-refresh" });
-    // The caller has cleared the old session and may now persist a new login.
     await Promise.resolve();
     finish({ data: {} });
     await pending;

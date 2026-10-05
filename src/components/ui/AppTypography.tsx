@@ -12,7 +12,6 @@ import { resolveFontStyle } from "@/theme/typography";
 
 const InheritedTypography = createContext<TextStyle>({ fontWeight: "400" });
 
-// Keep the native instance type so existing focus/blur refs keep working.
 export type Text = NativeText;
 export type TextInput = NativeTextInput;
 

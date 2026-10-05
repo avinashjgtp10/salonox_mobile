@@ -83,9 +83,6 @@ export const useRedemptions = (clientId: string, salonId?: string | null) => {
       setIsLoadingBalances(true);
       setBalancesError(null);
 
-      // Each source is independent (e-wallet has its own endpoint; reward
-      // points and referral balance both come from the client history
-      // response) — allSettled so one failing doesn't wipe out the others.
       const [eWalletResult, historyResult, loyaltyResult, assignmentsResult] = await Promise.allSettled([
         ewalletService.getBalance(targetClientId, salonId),
         clientService.getClientHistoryWithSummary(targetClientId),

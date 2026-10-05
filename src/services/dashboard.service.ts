@@ -34,9 +34,6 @@ type DashboardAppointmentResponse = {
   services?: { name?: string | null; staff_name?: string | null; staff_id?: string | null }[] | null;
   staff_name?: string | null;
   staff_id?: string | null;
-  // Candidate fields for the appointment's actual scheduled start datetime.
-  // Deliberately does NOT include created_at/updated_at/booking_time — those
-  // are record bookkeeping timestamps, not the scheduled start time.
   appointmentDate?: string | null;
   appointmentDateTime?: string | null;
   appointmentTime?: string | null;
@@ -107,9 +104,6 @@ type DashboardApiResponse = {
 };
 
 export type DashboardMetrics = {
-  // True all-time revenue, not scoped to any month. Imported/backfilled sales
-  // keep their original bill date, so historical revenue only ever shows up
-  // here — never in monthlyRevenue below.
   allTimeRevenue: number;
   bookings: number;
   lastMonthRevenue: number;
@@ -136,9 +130,6 @@ export type DashboardAppointment = {
   amount: number;
   clientName: string;
   id: string;
-  // Epoch ms for the appointment's scheduled start, when a parseable
-  // scheduled-datetime field was present on the raw record. Null when the
-  // backend only provided a pre-formatted time string.
   scheduledAtMs: number | null;
   service: string;
   staffName: string;
@@ -258,11 +249,6 @@ const getInitialsFromName = (name: string) =>
 const firstDefined = (...values: unknown[]) =>
   values.find((value) => value !== undefined && value !== null);
 
-// Parses the appointment's real scheduled-start value (never
-// created_at/updated_at/booking_time) into an absolute instant. JS Date
-// always stores an absolute instant regardless of the source string's
-// timezone/offset, so downstream local-time getters (see formatLocalTime)
-// automatically render it in the device's local timezone.
 const parseScheduledAtMs = (appointment: DashboardAppointmentResponse): number | null => {
   const rawValue = firstDefined(
     appointment.scheduledAt,
@@ -291,9 +277,6 @@ const parseScheduledAtMs = (appointment: DashboardAppointmentResponse): number |
   return Number.isFinite(parsedMs) ? parsedMs : null;
 };
 
-// Formats an absolute instant using the device's local timezone (never the
-// backend server's timezone), matching the "H:MM AM/PM" shape the dashboard
-// UI already parses.
 const formatLocalTime = (scheduledAtMs: number) => formatAppTime(scheduledAtMs, "--:--");
 
 const normalizeAppointment = (
@@ -312,9 +295,6 @@ const normalizeAppointment = (
     staffName: toSafeString(appointment.staff_name ?? appointment.staffName ?? appointment.services?.[0]?.staff_name, "Staff not assigned"),
     staffId: toSafeString(appointment.staff_id ?? appointment.staffId ?? appointment.services?.[0]?.staff_id) || null,
     status: toSafeAppointmentStatus(appointment.status),
-    // Prefer deriving the display time from the real scheduled datetime; only
-    // fall back to the backend's own pre-formatted string when no parseable
-    // scheduled datetime field was found at all.
     time: scheduledAtMs !== null ? formatLocalTime(scheduledAtMs) : toSafeString(appointment.time, "--:--"),
   };
 };
@@ -382,11 +362,6 @@ export const dashboardService = {
     };
   },
 
-  // `period` maps onto the backend's own date windows (salon-dashboard
-  // .repository.getStaffRevenue): "today" is CURRENT_DATE, anything else falls
-  // through to the current calendar month. Note the endpoint ignores `date`
-  // entirely and is always relative to NOW(), so this cannot look at past
-  // months — the param is kept only for the shared query-params helper.
   async getStaffRevenue(
     date = new Date(),
     salonId?: string | null,
@@ -435,8 +410,6 @@ export const dashboardService = {
       todaysRevenue: toSafeNumber(summary?.todayRevenue),
     };
 
-    // Ascending by scheduled start time; appointments with no parseable
-    // scheduled datetime sort last rather than being dropped.
     const todayAppointments = (data?.todayAppointments ?? [])
       .map(normalizeAppointment)
       .sort((a, b) => (a.scheduledAtMs ?? Infinity) - (b.scheduledAtMs ?? Infinity));

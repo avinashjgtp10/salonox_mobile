@@ -4,8 +4,6 @@ import type { AppointmentListItem } from "@/types/appointment";
 import type { NotificationItem } from "@/types/notification";
 import { formatAppDate, formatAppTime } from "@/utils/dateTime";
 
-// Personal activity is built from appointments the existing API lets this
-// user read. It does not depend on salon notification recipient metadata.
 export const buildStaffAppointmentActivity = (
   appointments: AppointmentListItem[],
   staff: StaffMember,

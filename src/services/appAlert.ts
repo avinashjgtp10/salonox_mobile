@@ -8,8 +8,6 @@ export type AppAlertRequest = {
   options?: AlertOptions;
 };
 
-// A queue prevents an error raised inside a confirmation callback from being
-// lost, and allows utilities outside React to use the same themed dialog.
 export function createAppAlertQueue() {
   let nextId = 0;
   let queue: AppAlertRequest[] = [];

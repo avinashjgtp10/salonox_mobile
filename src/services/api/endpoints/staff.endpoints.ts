@@ -12,41 +12,30 @@ export const STAFF = {
   LIST: "/staff",
   UPDATE: "/staff",
 
-  // Wages
   WAGES: (staffId: string) => `/staff/${staffId}/wages`,
 
-  // Pay runs
   PAY_RUNS: (staffId: string) => `/staff/${staffId}/pay-runs`,
 
-  // Schedule
   SCHEDULED: (staffId: string) => `/staff/${staffId}/scheduled`,
 
-  // Leaves
   LEAVE: (staffId: string, recordId: string) => `/staff/${staffId}/leaves/${recordId}`,
   LEAVES: (staffId: string) => `/staff/${staffId}/leaves`,
 
-  // Blocked times
   BLOCKED_TIME: (staffId: string, recordId: string) =>
     `/staff/${staffId}/blocked-times/${recordId}`,
   BLOCKED_TIMES: (staffId: string) => `/staff/${staffId}/blocked-times`,
 
-  // Commissions (per staff) — rule creation/configuration is Web-only; Mobile
-  // only reads past commission transactions for display.
   COMMISSIONS_HISTORY: (staffId: string) => `/staff/${staffId}/commissions/history`,
 
-  // Commissions (salon-wide) — list + settle only, per staff earnings computed
-  // from the Web-configured commission rules.
   COMMISSIONS_EARNED: "/staff/commissions/earned",
   COMMISSIONS_MARK_PAID: (staffId: string) => `/staff/commissions/${staffId}/mark-paid`,
   COMMISSIONS_SUMMARY: "/staff/commissions/summary",
 
-  // Tips (salon-wide)
   TIPS_EARNED: "/staff/tips/earned",
   TIPS_SETTLE: (staffId: string) => `/staff/tips/${staffId}/settle`,
   TIPS_SETTLEMENTS: (staffId: string) => `/staff/tips/${staffId}/settlements`,
   TIPS_SUMMARY: "/staff/tips/summary",
 
-  // Invitations
   CANCEL_INVITE: (staffId: string) => `/staff/${staffId}/cancel-invite`,
   INVITATION_STATUS: (staffId: string) => `/staff/${staffId}/invitation-status`,
   INVITE_ACCEPT: "/staff/invite/accept",

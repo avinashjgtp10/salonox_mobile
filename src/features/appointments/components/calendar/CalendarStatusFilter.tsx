@@ -16,7 +16,6 @@ export function CalendarStatusFilter({ statuses, onChange }: {
 }) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
-  // Keep expansion local so opening the options does not re-render the calendar grid.
   const [expanded, setExpanded] = useState(false);
   const anchorRef = useRef<View>(null);
   const overlayRef = useRef<View>(null);
@@ -27,8 +26,6 @@ export function CalendarStatusFilter({ statuses, onChange }: {
     setExpanded(true);
   };
   const positionMenu = () => {
-    // Both measurements belong to the same native window. Subtract the overlay
-    // origin rather than mixing screen coordinates with a native Modal window.
     overlayRef.current?.measureInWindow((overlayX, overlayY, width, height) => {
       anchorRef.current?.measureInWindow((x, y, buttonWidth, buttonHeight) => {
         if (width <= 0 || height <= 0 || buttonHeight <= 0) return;
@@ -38,7 +35,6 @@ export function CalendarStatusFilter({ statuses, onChange }: {
           left: Math.max(12, Math.min(x - overlayX + buttonWidth - menuWidth, width - menuWidth - 12)),
           top,
           width: menuWidth,
-          // Keep the menu below the button; scroll the options if space is limited.
           maxHeight: Math.max(0, Math.min(336, height - top - insets.bottom - 12)),
         });
       });

@@ -164,10 +164,6 @@ export const markAllNotificationsReadThunk = createAsyncThunk<
   }
 });
 
-// Fire-and-forget from the caller's perspective (push registration should
-// never block login or surface an error banner) — still a real thunk so its
-// pending/failed state is visible in Redux devtools and other slices can
-// react to it if needed later.
 const EXPECTED_REGISTER_DEVICE_ERROR_CODES = new Set(["NO_SALON_CONTEXT"]);
 
 const isExpectedRegisterDeviceError = (error: unknown) => {
@@ -197,8 +193,6 @@ export const registerDeviceThunk = createAsyncThunk<
     }
 
     return await trackNotificationRegistration(async () => {
-      // Retain the attempted token even if the response is lost: the server
-      // may already have registered it, so logout must still remove it.
       await notificationDeviceStorage.setRegisteredToken(token);
       const response = await notificationService.registerDevice({
         ...payload,

@@ -43,8 +43,6 @@ function Thread({ phone }: { phone: string }) {
   const [now, setNow] = useState(Date.now());
   const [infoOpen, setInfoOpen] = useState(false);
   const [tray, setTray] = useState<"quick" | "emoji" | null>(null);
-  // View-only deletion, matching Web's local action. Keep the actual history
-  // intact for reply-window calculation and retain hidden IDs across polling.
   const [hiddenIds, setHiddenIds] = useState<string[]>([]);
   const [deleteMessageId, setDeleteMessageId] = useState<string | null>(null);
   const visibleMessages = messages.filter(message => !hiddenIds.includes(message.id));
@@ -154,6 +152,6 @@ function Thread({ phone }: { phone: string }) {
 export default function InboxThreadScreen() {
   const params = useLocalSearchParams<{ phone?: string }>();
   let phone = typeof params.phone === "string" ? params.phone : "";
-  try { phone = decodeURIComponent(phone); } catch { /* Preserve malformed deep links. */ }
+  try { phone = decodeURIComponent(phone); } catch {   }
   return <Thread key={phone} phone={phone} />;
 }

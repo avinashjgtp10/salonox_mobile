@@ -24,8 +24,6 @@ export const splitStaffFullName = (fullName: string) => {
   };
 };
 
-// Matches the Web Create Staff dropdown: only "Staff" and "Manager" are
-// offered, mapped onto the same permission_level values the API expects.
 const ROLE_TO_PERMISSION_LEVEL: Record<string, string> = {
   Staff: "low",
   Manager: "manager",
@@ -43,9 +41,6 @@ const splitIsoDate = (isoDate: string) => {
   return { day: Number(match[3]), month: Number(match[2]) };
 };
 
-// The Contact field is collected as a full E.164 string via the shared
-// PhoneInput/country-code component; the backend wants it split into a plain
-// national number plus a separate dial code (mirrors what Web sends).
 const mapPhoneToRequest = (e164Phone: string) => {
   const trimmedPhone = e164Phone.trim();
 
@@ -94,11 +89,6 @@ export const mapStaffFormToRequest = (
     working_hours_per_day: values.workingHoursPerDay.trim() ? Number(values.workingHoursPerDay) : undefined,
   };
 
-  // Mirrors Web exactly: a password is only attached when Staff Login is
-  // enabled AND a password was actually typed. Leaving it blank (with login
-  // enabled) intentionally sends no password field at all, which is what
-  // triggers the backend's e-mail invitation flow instead of an immediate
-  // credential — see staffService/staff.thunk for the create/invite branch.
   if (values.isLoginEnabled && values.password.trim()) {
     payload.password = values.password.trim();
   }
@@ -114,8 +104,6 @@ export const mapStaffWagesToRequest = (values: StaffProfileFormValues): SetStaff
     return null;
   }
 
-  // Compensation is mutually exclusive (enforced by validateStaffForm), but
-  // hourly wins if both were somehow set — matches Web's own tie-break.
   return {
     compensationType: hourlyRate ? "hourly" : "salary",
     fixedSalary: !hourlyRate && fixedSalary ? Number(fixedSalary) : null,

@@ -16,10 +16,6 @@ type ChangeServiceModalProps = {
   visible: boolean;
 };
 
-// A dedicated full Modal (not the ScrollView-based StaffBottomSheet) because
-// this hosts ServiceCatalogTab's own FlatList — nesting a FlatList inside a
-// ScrollView breaks scrolling and triggers RN's "VirtualizedLists should
-// never be nested" warning.
 export function ChangeServiceModal({ onClose, onSelect, visible }: ChangeServiceModalProps) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);

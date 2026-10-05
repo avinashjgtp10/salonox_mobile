@@ -11,10 +11,6 @@ type ValidationErrors<Field extends string> = Partial<Record<Field, unknown>>;
 
 const SCROLL_RETRY_DELAYS_MS = [0, 120, 260] as const;
 
-/**
- * Registers form controls and scrolls/focuses the first invalid one after submit.
- * The retry passes cover the keyboard opening and inline error text changing layout.
- */
 export function useValidationScroll<Field extends string>(fieldOrder: readonly Field[]) {
   const scrollViewRef = useRef<KeyboardAwareScrollViewHandle | null>(null);
   const targetsRef = useRef<Partial<Record<Field, unknown>>>({});

@@ -59,8 +59,6 @@ export default function ConsumableDetailScreen() {
   }, [canView, dispatch, id]);
 
   const consumable = state.currentConsumable;
-  // Prefer the backend-computed status over re-deriving it client-side —
-  // see index.tsx's ConsumableCard for the same convention.
   const outOfStock = Boolean(
     consumable && (consumable.status ? consumable.status === "out_of_stock" : consumable.amount <= 0),
   );

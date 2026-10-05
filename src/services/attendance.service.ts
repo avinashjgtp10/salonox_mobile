@@ -31,10 +31,6 @@ import {
   type UnknownRecord,
 } from "@/utils/apiNormalize";
 
-// Fallback used only when the backend attendance record does not (yet) carry
-// a per-staff daily job capacity. Mirrors the daily-slot assumption already
-// shipped in the dashboard's staff workload view. Replace once the attendance
-// API exposes a real capacity field.
 const DEFAULT_DAILY_JOB_CAPACITY = 8;
 
 const AVATAR_PALETTE = [
@@ -88,8 +84,6 @@ const toAttendanceStatusKey = (rawStatus: string): AttendanceStatusKey => {
   }
 };
 
-// Inverse of the mapping above, for the manual-marking contract: converts the
-// finite UI status set to the wire value the backend expects.
 const MANUAL_STATUS_TO_WIRE_VALUE: Record<ManualAttendanceStatus, string> = {
   absent: "absent",
   halfDay: "half_day",
@@ -112,9 +106,6 @@ type AttendanceTodayApiData =
       items?: AttendanceRecordApiItem[] | null;
       records?: AttendanceRecordApiItem[] | null;
       rows?: AttendanceRecordApiItem[] | null;
-      // The actual backend contract: GET /attendance/today returns
-      // { summary: {...}, staff: [...] }. Listed first in getTodayArray's
-      // key search since this is the confirmed real shape.
       staff?: AttendanceRecordApiItem[] | null;
     };
 
@@ -164,8 +155,6 @@ const getTodayArray = (payload: AttendanceTodayApiData) => {
     return payload.map(asRecord);
   }
 
-  // "staff" is the confirmed real key ({ summary, staff } contract) and is
-  // checked first; the rest remain as defensive fallbacks only.
   return firstArray(asRecord(payload), ["staff", "records", "attendance", "items", "rows", "data"]);
 };
 
@@ -210,15 +199,8 @@ const getRecordFromEnvelope = (payload: AttendanceRecordEnvelope): UnknownRecord
 };
 
 const normalizeAttendanceRecord = (entry: UnknownRecord): AttendanceRecord | null => {
-  // The record's own primary key, required for PATCH /attendance/:id. GET
-  // /attendance/today returns one row per staff member even when they have
-  // never been marked (status: "not_marked", attendance_id: null) — those
-  // rows have no real id and must not be treated as an editable record (see
-  // the recordId check below).
   const recordId = toSafeString(firstValue(entry, ["id", "_id", "attendanceId", "attendance_id"]));
 
-  // The staff reference may be nested (e.g. { staff: { id, _id } } or
-  // { employee: { id, _id } }) instead of a flat field on the record.
   const nestedStaff = asRecord(firstValue(entry, ["staff", "employee", "staffMember", "staff_member"]));
   const staffRefId = toSafeString(firstValue(nestedStaff, ["id", "_id", "staffId", "staff_id", "uuid"])) || null;
   const userId = toSafeString(firstValue(entry, ["userId", "user_id"])) || null;
@@ -231,12 +213,6 @@ const normalizeAttendanceRecord = (entry: UnknownRecord): AttendanceRecord | nul
     return null;
   }
 
-  // No real attendance id means this staff member hasn't been marked yet
-  // today (the "not_marked" row GET /attendance/today always returns).
-  // Falling back to the staff id here would let a later Edit action PATCH
-  // /attendance/{staffId} — a staff row id, not an attendance row id —
-  // which the backend cannot resolve. Treat it as "no record" instead, so
-  // the UI correctly offers Check In rather than Edit.
   if (!recordId) {
     return null;
   }
@@ -258,8 +234,6 @@ const normalizeAttendanceRecord = (entry: UnknownRecord): AttendanceRecord | nul
     ) || null;
   const hoursWorkedRaw = firstValue(entry, ["hoursWorked", "hours_worked"]);
   const start = parseAttendanceDateTime(checkInTime), end = parseAttendanceDateTime(checkOutTime);
-  // Timestamp edits currently leave the server's stored hours unchanged.
-  // Keep mobile's display accurate without writing unsupported API fields.
   const hoursWorked = start && end && end.getTime() >= start.getTime()
     ? Number(((end.getTime() - start.getTime()) / 3600000).toFixed(2))
     : hoursWorkedRaw != null ? toSafeNumber(hoursWorkedRaw) : null;
@@ -348,11 +322,6 @@ const normalizeAttendanceSettings = (entry: UnknownRecord): AttendanceSettings =
   workStartTime: toSafeString(firstValue(entry, ["shift_start", "workStartTime", "work_start_time"])) || null,
 });
 
-// Attaches the punch coordinates to a check-in / check-out body. Sent under
-// both snake_case and camelCase keys, matching the staff_id/staffId pattern
-// the same endpoints already use, so whichever casing the backend reads is
-// populated. Omitted entirely when no fix was captured, so a body without
-// coordinates stays byte-identical to what shipped before.
 const appendCoordinates = (
   requestBody: Record<string, number | string>,
   payload: unknown,
@@ -552,11 +521,6 @@ export const attendanceService = {
   },
 
   async markAttendance(payload: MarkAttendanceRequest): Promise<MarkAttendanceResponse> {
-    // Backend contract (POST /attendance/mark, ManualMarkBody): staff_id,
-    // date, and status are all required, or the API rejects with 400
-    // VALIDATION_ERROR; check_in/check_out/note are optional. Field names
-    // are snake_case singular ("note", not "notes") — sending the wrong key
-    // silently drops the value instead of erroring.
     if (__DEV__ && !payload.date) {
       console.warn("[Attendance] markAttendance called without a date — backend requires it", payload);
     }
@@ -587,12 +551,6 @@ export const attendanceService = {
     attendanceId: string,
     updates: UpdateAttendanceRequest,
   ): Promise<UpdateAttendanceResponse> {
-    // Backend contract (PATCH /attendance/:id, UpdateAttendanceBody): only
-    // status/check_in/check_out/note are recognized. The repository builds
-    // the SQL SET clause directly from the request body's keys, so any other
-    // key (e.g. the camelCase checkInTime/notes this used to send) becomes
-    // an invalid column name and the query fails with a 500 — the fix is
-    // sending exactly the backend's snake_case field names, nothing extra.
     const requestBody: Record<string, string> = {};
 
     if (updates.status !== undefined) {

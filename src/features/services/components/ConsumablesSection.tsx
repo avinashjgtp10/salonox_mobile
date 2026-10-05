@@ -12,9 +12,6 @@ import { useThemeColors } from "@/theme/ThemeProvider";
 import type { ConsumableRecipeItem } from "@/types/consumable";
 import type { Product } from "@/types/product";
 
-// Mirrors Web's ConsumablesTab.tsx exactly: a product is eligible to be
-// picked as a consumable purely by product_type — there is no separate
-// "inventory tracked" flag anywhere in the backend.
 const isConsumableType = (type: string | null | undefined) => type === "consumable" || type === "both";
 
 const MIN_SEARCH_LENGTH = 2;

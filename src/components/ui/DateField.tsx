@@ -51,9 +51,6 @@ const formatDisplayDate = (isoDate: string, displayFormat: DateFieldProps["displ
   return date.toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" });
 };
 
-// General-purpose date picker field — wraps @react-native-community/datetimepicker
-// with the platform-appropriate presentation (inline on Android, a modal
-// spinner on iOS) so screens don't have to hand-roll this each time.
 export const DateField = forwardRef<View, DateFieldProps>(function DateField({ displayFormat = "localized", error, label, maximumDate, minimumDate, onChange, placeholder, value }, ref) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);

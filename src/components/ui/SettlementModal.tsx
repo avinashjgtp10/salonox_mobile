@@ -15,9 +15,6 @@ function formatCurrency(amount: number) {
   return `Rs. ${amount.toLocaleString("en-IN")}`;
 }
 
-// Plain float subtraction on currency values can produce artifacts like
-// 324.99999999999994 — round through integer paise/cents to keep comparisons
-// (settlementAmount <= unpaidAmount) and the displayed remaining balance exact.
 function roundToCents(value: number) {
   return Math.round(value * 100) / 100;
 }

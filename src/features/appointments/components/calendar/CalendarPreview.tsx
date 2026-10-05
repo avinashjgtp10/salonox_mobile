@@ -38,8 +38,6 @@ const TIME_COLUMN_WIDTH = 54;
 const HOURS = Array.from({ length: 24 }, (_, index) => START_HOUR + index);
 const GRID_HEIGHT = HOURS.length * HOUR_HEIGHT;
 
-// Intl formatters are expensive to construct on Hermes, so build them (and
-// the static time-rail labels) once instead of on every render.
 const HOUR_LABEL_FORMAT = new Intl.DateTimeFormat("en-IN", { hour: "numeric", hour12: true });
 const DAY_LABEL_FORMAT = new Intl.DateTimeFormat("en-IN", { weekday: "short", day: "2-digit", month: "short" });
 const TIME_SLOTS = Array.from({ length: HOURS.length * (60 / SLOT_MINUTES) }, (_, index) => {
@@ -71,7 +69,6 @@ export function CalendarPreview({
   onRefresh?: () => void;
   refreshing?: boolean;
   showEmptyState?: boolean;
-  /** Maps an appointment to the staff option id owning it. */
   resolveStaffId?: (appointment: AppointmentListItem) => string;
   staffColumns?: CalendarStaffOption[];
   title?: string;
@@ -90,8 +87,6 @@ export function CalendarPreview({
       label: DAY_LABEL_FORMAT.format(value),
     };
   }), [date]);
-  // One column per staff *id* — same-named staff each get their own column
-  // instead of being merged into one.
   const columns = useMemo<CalendarColumn[]>(() => viewMode === "day"
     ? (staffColumns.length
       ? staffColumns.map((option) => ({ key: date, label: option.label, staffId: option.id, staffName: option.name }))
@@ -99,8 +94,6 @@ export function CalendarPreview({
     : days.map((day) => ({ ...day, staffId: "", staffName: "" })), [date, days, staffColumns, viewMode]);
   const columnWidth = viewMode === "day" ? 156 : 118;
   const calendarContentWidth = TIME_COLUMN_WIDTH + columns.length * columnWidth;
-  // Keep the full grid mounted: native scrolling can outrun JS-driven render windows,
-  // exposing blank rows/columns during flings or programmatic scrolls.
   const appointmentsByColumn = useMemo(() => {
     const keyed = appointments.map((appointment) => ({ appointment, dateKey: getDateKey(appointment.scheduledAt) }));
     return columns.map((column) => keyed
@@ -132,8 +125,6 @@ export function CalendarPreview({
       verticalScrollRef.current?.scrollTo({ y: targetY, animated: false });
     });
     return () => cancelAnimationFrame(frame);
-    // currentMinuteOffset intentionally excluded: it changes every render via `new Date()`,
-    // and this should only re-scroll when the viewed day/mode changes, not every tick.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date, viewMode]);
 
@@ -199,7 +190,6 @@ export function CalendarPreview({
                   <CalendarDayColumn
                     appointments={columnAppointments}
                     column={column}
-                    // Only the column showing the previewed appointment re-renders on tap.
                     highlightedId={previewId && columnAppointments.some((item) => item.id === previewId) ? previewId : null}
                     key={`${column.key}-${column.staffId || columnIndex}`}
                     onAppointmentPress={setPreviewAppointment}
@@ -252,7 +242,6 @@ export function CalendarPreview({
   );
 }
 
-/** The static time rail on the left; never changes after the first render. */
 const CalendarTimeColumn = memo(function CalendarTimeColumn({ styles }: { styles: CalendarStyles }) {
   return (
     <View style={styles.dinggTimeColumn}>
@@ -265,10 +254,6 @@ const CalendarTimeColumn = memo(function CalendarTimeColumn({ styles }: { styles
   );
 });
 
-/**
- * Hour and quarter-hour lines, drawn once across every column rather than
- * once per column. `filled` paints the day-view column background behind them.
- */
 const CalendarGridLines = memo(function CalendarGridLines({
   filled,
   styles,

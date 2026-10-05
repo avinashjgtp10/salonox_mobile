@@ -5,11 +5,6 @@ import { canManageStaffLifecycle } from "@/utils/userProfile";
 
 export const OWNER_HOME_ROUTE = "/dashboard" as Href;
 export const STAFF_HOME_ROUTE = "/(staff)/home" as Href;
-// Both (tabs)/calendar.tsx and (staff)/calendar.tsx render at the bare URL
-// "/calendar" — route groups don't appear in the path — so an unqualified
-// "/calendar" href is ambiguous and can land in the wrong group, which the
-// root layout then bounces to that role's home. Always route to the
-// group-qualified constant for the experience you mean.
 export const OWNER_CALENDAR_ROUTE = "/(tabs)/calendar" as Href;
 export const STAFF_CALENDAR_ROUTE = "/(staff)/calendar" as Href;
 export const SUBSCRIPTION_ROUTE = "/subscription" as Href;
@@ -34,9 +29,6 @@ const OWNER_ONLY_TOP_LEVEL_ROUTES = new Set([
   "users",
 ]);
 
-// SCRUM-1838: no longer gated on isOnboardingComplete — the salon setup
-// wizard was removed from the app, so role is the only thing that decides
-// staff vs owner experience.
 export const isStaffExperienceUser = (user?: AuthUser | null) =>
   !canManageStaffLifecycle(user?.role);
 

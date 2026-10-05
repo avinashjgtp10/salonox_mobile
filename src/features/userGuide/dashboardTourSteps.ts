@@ -14,7 +14,6 @@ export const dashboardTourSteps = [
 
 export type TourRect = { x: number; y: number; width: number; height: number };
 
-// Keep the cutout inside the overlay, including partially clipped native views.
 export function clipTourRect(rect: TourRect, width: number, height: number): TourRect | null {
   const x = Math.max(0, rect.x - 5);
   const y = Math.max(0, rect.y - 5);

@@ -24,8 +24,6 @@ const existingValues = new Map(existing.split(/\r?\n/).map((line) => {
   const separator = line.indexOf("=");
   return [line.slice(0, separator).trim(), line.slice(separator + 1).trim()];
 }));
-// Repeated development starts retain local overrides. Switching from QA or
-// production still loads the development defaults, avoiding cross-env URLs.
 const preserveDevUrls = environmentName === "development" &&
   existingValues.get("APP_ENV")?.replace(/^["']|["']$/g, "") === "development";
 const localUrlKeys = new Set(["EXPO_PUBLIC_API_BASE_URL", "EXPO_PUBLIC_SOCKET_URL"]);

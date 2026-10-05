@@ -74,7 +74,6 @@ const profileSlice = createSlice({
         state.avatarError = null;
         state.uploadingAvatar = false;
 
-        // Update the avatar immediately after a successful upload.
         if (action.payload.profile) {
           state.profile = action.payload.profile;
         } else if (state.profile && action.payload.avatarUrl) {

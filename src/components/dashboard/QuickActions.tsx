@@ -60,8 +60,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
-  // In the redesign the tinted icon tile is the card — there is no white
-  // wrapper behind it, so the button itself carries no surface.
   btn: {
     alignItems: "center",
     backgroundColor: "transparent",

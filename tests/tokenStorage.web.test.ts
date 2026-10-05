@@ -24,7 +24,6 @@ test("web login persists tokens and a fresh module instance can restore them", a
   expect(await AsyncStorage.getItem("salonox.refreshToken")).toBe("refresh");
   let restored: typeof tokenStorage;
   jest.isolateModules(() => {
-    // Share the persistent backing store while recreating the service module.
     jest.doMock("@react-native-async-storage/async-storage", () => AsyncStorage);
     restored = jest.requireActual<typeof import("../src/services/tokenStorage.web")>("../src/services/tokenStorage.web").tokenStorage;
   });

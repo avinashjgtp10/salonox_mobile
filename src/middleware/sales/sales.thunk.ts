@@ -94,7 +94,6 @@ export const fetchSalesThunk = createAsyncThunk<
     search: args?.search ?? salesState.query.search,
     sort_by: args?.sort_by ?? salesState.query.sort_by,
     sort_order: args?.sort_order ?? salesState.query.sort_order,
-    // Explicit undefined means the user selected All; omitted means retain the filter.
     status: args && "status" in args ? args.status : salesState.query.status,
   };
 
@@ -134,7 +133,6 @@ export const createSaleThunk = createAsyncThunk<
       ...(salonId ? { salonId } : {}),
     });
 
-    // The backend fires a "New Sale Created" notification on create.
     void dispatch(fetchUnreadCountThunk());
     void dispatch(fetchSalesThunk({ ...getState().sales.query, offset: 0, refresh: true, reset: true }));
     void dispatch(fetchSalesSummaryThunk());
@@ -184,8 +182,6 @@ export const checkoutSaleThunk = createAsyncThunk<
     const response = await salesService.checkoutSale(saleId, payload);
     const currentQuery = getState().sales.query;
 
-    // A checkout is a definitive completion event — keep the Sales Summary list
-    // and summary in sync even if that screen isn't currently mounted.
     void dispatch(
       fetchSalesThunk({
         limit: currentQuery.limit,

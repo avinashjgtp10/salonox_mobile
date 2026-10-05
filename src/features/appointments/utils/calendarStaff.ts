@@ -3,9 +3,7 @@ import type { AppointmentListItem } from "@/types/appointment";
 
 export type CalendarStaffOption = {
   id: string;
-  /** Raw staff name — display label and legacy name-matching key. */
   name: string;
-  /** `name`, suffixed only when another staff member shares that same name. */
   label: string;
 };
 
@@ -64,9 +62,6 @@ export const buildCanonicalStaffIdByAlias = (
     }
   });
 
-  // Some appointment responses use a different staff identifier than the
-  // staff-list endpoint. A unique name match safely links that identifier to
-  // the existing record instead of creating a duplicate Calendar column.
   appointments.forEach((appointment) => {
     if (!appointment.staffId || canonicalIdByAlias.has(appointment.staffId)) return;
 

@@ -38,11 +38,6 @@ const shiftDate = (dateKey: string, days: number) => {
   ].join("-");
 };
 
-// Orchestrates the Manual Attendance screen's data: joins the live staff
-// roster against today's attendance records (same multi-identifier matching
-// used by the dashboard's Staff Workload widget), and exposes a single
-// refresh entry point that re-fetches both so the list, summary cards, and
-// the dashboard widget (which reads the same slice) all stay in sync.
 export const useAttendanceScreen = () => {
   const dispatch = useAppDispatch();
 
@@ -67,9 +62,6 @@ export const useAttendanceScreen = () => {
     ]);
   }, [dispatch, selectedDate]);
 
-  // Fires on initial mount and every time the screen regains focus (e.g.
-  // navigating back from a staff detail screen), so data never goes stale
-  // just because the user stepped away and came back.
   useFocusEffect(
     useCallback(() => {
       void refresh();

@@ -22,7 +22,6 @@ type ProfileHeroProps = {
   profile: UserProfile;
 };
 
-/** Avatar (tap to change), name, email and role/verified badges. */
 export function ProfileHero({ avatarUri, initials, isUploadingAvatar, onChangePhoto, profile }: ProfileHeroProps) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);

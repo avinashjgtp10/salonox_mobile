@@ -12,9 +12,6 @@ type InitialsAvatarProps = {
   size?: number;
 };
 
-// Shared circular avatar — falls back to initials-on-tint when no image is
-// available, matching the pattern already hand-rolled separately in
-// DashboardHero, AppointmentCard, ClientCard, and the More screen's hero.
 export function InitialsAvatar({
   bg,
   color,

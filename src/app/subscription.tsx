@@ -45,7 +45,6 @@ export default function SubscriptionScreen() {
     try {
       await signOut();
     } catch {
-      // signOut handles its own errors; navigation guard will redirect to login
     } finally {
       setIsSigningOut(false);
     }

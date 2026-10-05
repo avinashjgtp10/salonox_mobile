@@ -78,14 +78,6 @@ const ACTIVE_APPOINTMENT_STATUSES = new Set<CalendarAppointmentStatus>([
   "Upcoming",
 ]);
 
-// The backend sends appointment timestamps in several shapes (Postgres-style
-// "YYYY-MM-DD HH:MM:SS+00" with a space instead of "T", a bare 2-digit UTC
-// offset instead of "+00:00", or no offset at all). These aren't all spec
-// -compliant ISO 8601, and React Native's JS engine (Hermes) can fail to
-// parse them where a browser engine might succeed leniently — which is how a
-// raw string like "2026-07-09 14:30:00+00" could leak straight to the UI.
-// Normalizing to strict ISO 8601 first makes every timestamp parse reliably
-// on-device.
 const toStrictIsoDateTime = (value: string) => {
   let normalized = value.trim();
 
@@ -118,11 +110,6 @@ const getAppointmentStartMs = (appointment: AppointmentListItem) => {
   return parseApiDateTime(rawStart)?.getTime() ?? null;
 };
 
-// For the Completed section: prefer the actual completion timestamp: falls
-// back to end time, then scheduled start time, when completedAt isn't
-// available. `raw` is the unnormalized API payload already carried on every
-// AppointmentListItem, so this reads completed_at without needing any change
-// to the appointment service/types.
 const getAppointmentCompletionMs = (appointment: AppointmentListItem) => {
   const completedAtMs = parseApiDateTime(appointment.raw.completed_at)?.getTime();
 
@@ -165,11 +152,6 @@ const formatAppointmentTime = (appointment: AppointmentListItem) => {
   return parsedDate ? formatAppTime(parsedDate, "--:--") : "--:--";
 };
 
-// "completed" is included (not excluded) so Completed appointments still
-// render — the ordering below is what pushes them below Upcoming/Active ones.
-// Cancelled/Missed remain excluded from this widget, matching its existing
-// scope (no badge style exists for them here, and the card was never meant
-// to be a full appointment log).
 const toDashboardAppointmentStatus = (
   appointment: AppointmentListItem,
 ): AppointmentStatus | null => {
@@ -262,24 +244,6 @@ export default function AppointmentsList() {
   const [completedRawAppointments, setCompletedRawAppointments] = useState<AppointmentListItem[]>([]);
   const didHandleInitialFocusRef = useRef(false);
 
-  // Completed Appointments must come from a separate request: fetched here
-  // with status=paid and no date param (the backend's `date` filter
-  // would exclude anything not scheduled today, and completed appointments
-  // are usually from earlier days) — confirmed against both the backend
-  // (appointments.repository.ts: date applies DATE(a.scheduled_at)=$date)
-  // and the web frontend source directly, not guessed.
-  // /appointments/history does not exist on this backend. The "today only"
-  // restriction is then applied client-side below, via the same date-key
-  // logic Upcoming uses, so the request stays broad while the displayed
-  // result is scoped identically to Upcoming.
-  //
-  // This can't be dispatched through fetchAppointmentsThunk: that thunk
-  // replaces the shared `appointment.appointments` Redux array wholesale on
-  // every call and single-flights by requestId, so a second, differently
-  // -filtered fetch through it would intermittently wipe out Upcoming's data.
-  // Calling the same appointmentService.getAppointments used by that thunk
-  // directly reuses the identical request/normalization logic without that
-  // collision.
   const fetchCompletedAppointments = useCallback(() => {
     let isCancelled = false;
 
@@ -323,8 +287,6 @@ export default function AppointmentsList() {
     }, [fetchCompletedAppointments]),
   );
 
-  // Upcoming Appointments: unchanged from before — active/upcoming statuses
-  // only, still ahead of now, today, soonest first.
   const upcomingAppointments = useMemo(() => {
     const nowMs = Date.now();
     const todayKey = formatLocalDateKey();
@@ -349,11 +311,6 @@ export default function AppointmentsList() {
       .map(({ appointment, status }) => toCardModel(appointment, status ?? "upcoming"));
   }, [appointments]);
 
-  // Completed Appointments: fed by the dedicated status=paid fetch above
-  // (not the shared today-scoped `appointments`), then restricted to today
-  // using the exact same local-date-key logic as Upcoming
-  // (getAppointmentDateKey / formatLocalDateKey), so both sections apply
-  // identical timezone handling for "today". Latest completed first.
   const completedAppointments = useMemo(() => {
     const todayKey = formatLocalDateKey();
     const completed = completedRawAppointments
@@ -368,10 +325,6 @@ export default function AppointmentsList() {
     return completed.slice(0, 3).map(({ appointment }) => toCardModel(appointment, "completed"));
   }, [completedRawAppointments]);
 
-  // Pure display merge — upcoming shown before completed, capped at 5. Both
-  // source arrays/fetches above are untouched; this only changes how they're
-  // grouped on screen (one "Recent appointments" list instead of two titled
-  // sections).
   const recentAppointments = useMemo(
     () => [...upcomingAppointments, ...completedAppointments].slice(0, 5),
     [completedAppointments, upcomingAppointments],

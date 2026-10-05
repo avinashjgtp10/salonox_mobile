@@ -274,10 +274,6 @@ export const clientMembershipService = {
     return { ...assignment, status: "cancelled" as const };
   },
 
-  // The server has no "change plan" route, so a change is composed from the
-  // two it does have. Assign first, cancel second: if the cancel fails the
-  // client is left with both plans (recoverable by cancelling one), whereas
-  // the reverse order could leave them with none.
   async change(assignmentId: string, payload: ChangeClientMembershipRequest, salonId?: string | null): Promise<ClientMembershipAssignment> {
     const response = await api.get<ApiResponse<AssignmentEnvelope>>(CLIENT_MEMBERSHIP.DETAIL(assignmentId));
     const current = normalizeAssignmentResponse(response.data.data);

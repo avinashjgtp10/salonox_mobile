@@ -35,9 +35,6 @@ export function useFetchAppointments() {
   const dispatch = useAppDispatch();
   const pagination = useAppSelector(selectAppointmentsPagination);
   const query = useAppSelector(selectAppointmentsQuery);
-  // Each fetch stores its query in Redux. Reading it through a ref keeps
-  // `fetchAppointments` stable, so screens that list it as an effect
-  // dependency don't immediately fetch the same page a second time.
   const queryRef = useRef(query);
   queryRef.current = query;
 

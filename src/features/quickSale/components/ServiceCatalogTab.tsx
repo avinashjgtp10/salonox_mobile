@@ -354,9 +354,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     flex: 1,
     gap: Spacing.sm,
   },
-  // MiniBillBar floats absolutely over this screen (bottom: 18, ~84 tall) —
-  // without this, the last row and the "View More" footer button scroll up
-  // underneath it and become unreachable.
   listContent: {
     paddingBottom: 132,
   },

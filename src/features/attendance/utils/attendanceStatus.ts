@@ -23,10 +23,6 @@ export type AttendanceStatusConfig = {
   label: string;
 };
 
-// Single source of truth for how the backend status renders everywhere in
-// the UI (list badges, chips, progress bar tint). Takes the active theme's
-// Colors so callers stay in sync with light/dark mode instead of baking in a
-// static palette.
 const buildAttendanceStatusConfig = (
   Colors: ThemeColors,
 ): Record<AttendanceStatusKey, AttendanceStatusConfig> => ({
@@ -74,9 +70,6 @@ const buildAttendanceStatusConfig = (
   },
 });
 
-// Renders when a staff member has no
-// attendance record for today at all (attendance not yet marked), which is
-// distinct from any status value the backend can actually return.
 const buildNotMarkedStatusConfig = (Colors: ThemeColors): Omit<AttendanceStatusConfig, "key"> => ({
   bg: Colors.bg2,
   color: Colors.text2,
@@ -89,8 +82,6 @@ export const getAttendanceStatusConfig = (
   Colors: ThemeColors,
 ): AttendanceStatusConfig => buildAttendanceStatusConfig(Colors)[statusKey];
 
-// Looks up the badge config for a staff member's attendance record, falling
-// back to the "not marked" config when no record exists for today yet.
 export const getAttendanceBadgeConfig = (
   record: AttendanceRecord | null | undefined,
   Colors: ThemeColors,
@@ -102,9 +93,6 @@ export type AttendanceAction = {
   label: string;
 };
 
-// Derives the single primary action every staff row must always offer,
-// matching the Web App's contract exactly: timestamps decide actions,
-// independently from the backend status label.
 export const getAttendanceAction = (record: AttendanceRecord | null | undefined): AttendanceAction => {
   if (!record || (!record.checkInTime && !record.checkOutTime)) {
     return { kind: "checkIn", label: "Check In" };
@@ -125,8 +113,6 @@ export const getAttendanceProgress = (record: AttendanceRecord) => {
   return Math.min(100, Math.round((record.jobsToday / record.totalSlots) * 100));
 };
 
-// The finite set of statuses a manager can set by hand, in the exact order
-// the Web App's Edit Attendance modal presents them.
 export const MANUAL_STATUS_LABELS: Record<ManualAttendanceStatus, string> = {
   present: "Present",
   late: "Late",
@@ -139,8 +125,6 @@ export const MANUAL_STATUS_OPTIONS: { label: string; value: ManualAttendanceStat
   ["present", "late", "halfDay", "absent", "onLeave"] as ManualAttendanceStatus[]
 ).map((value) => ({ label: MANUAL_STATUS_LABELS[value], value }));
 
-// Reverse of the backend status mapping, used to pre-populate the Edit
-// modal's status dropdown from an existing record.
 export const statusKeyToManualStatus = (statusKey: AttendanceStatusKey): ManualAttendanceStatus => {
   switch (statusKey) {
     case "present":
@@ -158,9 +142,6 @@ export const statusKeyToManualStatus = (statusKey: AttendanceStatusKey): ManualA
   }
 };
 
-// Backend timestamps arrive as Postgres-style "YYYY-MM-DD HH:MM:SS+00" (or
-// plain "HH:MM") strings that Hermes cannot reliably hand to `new Date()`.
-// Mirrors the same normalization already used for appointment times.
 const toStrictIsoDateTime = (value: string) => {
   let normalized = value.trim();
 
@@ -184,9 +165,6 @@ export const parseAttendanceDateTime = (value: string | null | undefined): Date 
 
   const trimmed = value.trim();
 
-  // Some backends send only a bare time ("09:15:00" / "09:15") for
-  // check-in/check-out rather than a full timestamp. Anchor it to today so
-  // it can still be formatted and diffed like a real Date.
   if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(trimmed)) {
     const [hours, minutes, seconds = "0"] = trimmed.split(":");
     if (Number(hours) > 23 || Number(minutes) > 59 || Number(seconds) > 59) return null;
@@ -199,9 +177,6 @@ export const parseAttendanceDateTime = (value: string | null | undefined): Date 
   return Number.isNaN(parsedDate.getTime()) ? null : parsedDate;
 };
 
-// Deterministic 12-hour "H:MM AM/PM" formatting, built manually rather than
-// via Intl.DateTimeFormat whose AM/PM casing isn't guaranteed consistent
-// across the ICU data bundled with different JS engines.
 export const formatHourMinuteAmPm = (date: Date) => {
   const local = new Date(date.getTime() + 330 * 60000);
   const hour = local.getUTCHours();
@@ -234,13 +209,6 @@ export const getWorkingHoursLabel = (record: AttendanceRecord | null | undefined
   return "—";
 };
 
-// The backend always computes "today" in Asia/Kolkata (see attendance
-// controller/service), so manual-mark's required `date` must be derived the
-// same way — using the device's local date would mark the wrong day for
-// anyone outside IST, or near midnight. Computed manually (fixed +5:30
-// offset, no DST in India) rather than via toLocaleDateString's `timeZone`
-// option, whose ICU/timezone-data support is inconsistent across Hermes
-// builds — same reasoning as formatHourMinuteAmPm above.
 export const getTodayAttendanceDateKey = (): string => {
   const IST_OFFSET_MINUTES = 5 * 60 + 30;
   const istDate = new Date(Date.now() + IST_OFFSET_MINUTES * 60000);

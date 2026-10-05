@@ -302,9 +302,6 @@ export default function UsersScreen() {
       setStaffActiveStatusThunk({ nextStatus, staffId: staffMember.id }),
     );
 
-    // setStaffActiveStatusThunk only fulfills once the activate/deactivate
-    // call succeeds AND a refetch confirms the status actually changed —
-    // no path here reports success without a confirmed backend change.
     if (setStaffActiveStatusThunk.rejected.match(resultAction)) {
       Alert.alert(
         "Unable to update user",

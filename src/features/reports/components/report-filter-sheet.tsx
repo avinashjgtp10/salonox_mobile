@@ -68,8 +68,6 @@ export const ReportFilterSheet = memo(function ReportFilterSheet({
   const update = useCallback((key: ReportFilterKey, value: string) => {
     setDraft((current) => ({ ...current, [key]: value, page: 1 }));
   }, []);
-  // Dates are owned by the REPORT RANGE calendar on the report screen, so they
-  // are deliberately absent here rather than offered through a second control.
   const visibleFilters = supportedFilters.filter((key) =>
     key !== "search" && key !== "branch_id" && !DATE_KEYS.includes(key));
 

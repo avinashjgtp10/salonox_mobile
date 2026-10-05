@@ -39,9 +39,6 @@ type ConsumableUnitConversionsApiData =
   | { data?: ConsumableUnitConversionApiItem[] | null; unit_conversions?: ConsumableUnitConversionApiItem[] | null; unitConversions?: ConsumableUnitConversionApiItem[] | null };
 type ConsumableUsageHistoryApiResponse = ApiResponse<ConsumableUsageHistoryApiData>;
 
-// Shared shape of the flat pagination fields both the dashboard's `list`
-// block and the usage-history payload carry directly (no `pagination`
-// wrapper object exists on either — verified live 2026-08-17).
 type PaginationFields = {
   hasMore?: boolean | null;
   has_more?: boolean | null;
@@ -70,10 +67,6 @@ const toSafeNumber = (value: unknown) => {
   return 0;
 };
 
-// Distinct from toSafeNumber's 0-fallback: these fields are legitimately
-// nullable (a consumable may have no bottle size, no markup set, etc.), and
-// 0 is a valid value for several of them, so `value ?? other ? toSafeNumber(...) : null`
-// would wrongly collapse an explicit 0 to null. Null/undefined only.
 const toOptionalNumber = (value: unknown): number | null =>
   value === null || value === undefined ? null : toSafeNumber(value);
 
@@ -112,15 +105,6 @@ const getRefId = (value: unknown) => {
   return record ? toSafeString(record.id) || toSafeString(record._id) || null : null;
 };
 
-// Verified live (2026-08-17): id is `product_id`, current stock is
-// `remaining_stock` (not `amount`), unit/bottle size come back under a
-// short key on the list endpoint (`unit`, `unit_size`) and a long key on
-// the detail endpoint (`measure_unit`, `bottle_size` — both present there
-// alongside the short ones), and category/brand/supplier are flat name
-// strings (`category_name`/`brand_name`/`supplier_name`), never nested
-// objects or accompanied by an id. `status` ("healthy" / "low_stock" /
-// "out_of_stock") is backend-computed and preferred over re-deriving
-// low/out-of-stock state client-side.
 const normalizeConsumable = (raw: ConsumableApiItem): ConsumableListItem => ({
   amount: toSafeNumber(raw.remaining_stock ?? raw.amount),
   bottleSize: toOptionalNumber(raw.bottle_size ?? raw.unit_size ?? raw.bottleSize),
@@ -144,9 +128,6 @@ const normalizeConsumable = (raw: ConsumableApiItem): ConsumableListItem => ({
   updatedAt: toSafeString(raw.updated_at ?? raw.updatedAt) || null,
 });
 
-// Verified live: the array + its pagination sit under `data.list`, not
-// flat under `data` — `{ kpis, list: { data: [...], page, pageSize,
-// totalRecords, totalPages } }`.
 const getConsumableArray = (list: ConsumableDashboardListApiData): ConsumableApiItem[] => list?.data ?? [];
 
 const getKpis = (kpis: ConsumableKpisApiData): ConsumableKpis => ({
@@ -178,15 +159,6 @@ const getPagination = (
   return { hasMore, limit, page, totalPages, totalRecords };
 };
 
-// Verified live: multi-select filters (`status`, `product_type`) are
-// accepted as a single flat, comma-joined param — `status=out_of_stock`
-// and `product_type=consumable` both correctly filtered the list.
-// `status[]=...` (bracket notation) was tried first and silently ignored
-// (no filtering applied), so this is NOT the earlier phase's assumption.
-// category_id/brand_id/supplier_id/unit/service_id follow the same
-// flat-param convention by analogy — the list/detail responses don't
-// surface real category/brand/supplier ids to test against directly, so
-// those three remain best-effort.
 const buildDashboardParams = (query: ConsumableListQuery, salonId?: string | null) => ({
   limit: query.limit,
   page: query.page,
@@ -220,9 +192,6 @@ const normalizeUnitConversion = (raw: ConsumableUnitConversionApiItem): Consumab
   unitName: toSafeString(raw.unit_name ?? raw.unitName),
 });
 
-// Verified live: the service's display name comes back under `name`
-// (assigned-services endpoint and the detail payload's embedded
-// assigned_services both use it), not `service_name`.
 const normalizeAssignedService = (raw: ConsumableAssignedServiceApiItem): ConsumableAssignedService => ({
   qty: toSafeNumber(raw.qty),
   serviceId: toSafeString(raw.service_id ?? raw.serviceId),
@@ -256,8 +225,6 @@ const getUsageHistoryArray = (payload: ConsumableUsageHistoryApiData): Consumabl
 
 export const consumableService = {
   async getDashboard(query: ConsumableListQuery, salonId?: string | null): Promise<ConsumableDashboardResponse> {
-    // The API only supports named sort presets, not arbitrary fields/directions.
-    // Updated timestamps are absent from its list response.
     if (query.sortBy === "updated_at") {
       throw new Error("Sorting by recently updated is not available.");
     }
@@ -284,7 +251,6 @@ export const consumableService = {
       }
       const direction = query.sortOrder === "asc" ? 1 : -1;
       if (query.sortBy === "created_at") {
-        // The complete API result is newest-first even though dates are omitted.
         all.reverse();
       } else {
         all.sort((left, right) => {
@@ -320,10 +286,6 @@ export const consumableService = {
     const response = await api.get<ConsumableDetailApiResponse>(CONSUMABLE.DETAIL(id));
     const raw = getConsumableFromDetailPayload(response.data.data);
     const listItem = normalizeConsumable(raw);
-    // ConsumableApiItem's index signature covers these — the detail payload
-    // may embed the recipe/config arrays inline alongside the catalog
-    // fields, on top of the dedicated assigned-services/unit-conversions
-    // endpoints also being fetched separately by the caller.
     const assignedServicesRaw = raw.assignedServices ?? raw.assigned_services;
     const unitConversionsRaw = raw.unitConversions ?? raw.unit_conversions;
 
@@ -344,10 +306,6 @@ export const consumableService = {
     return { message: response.data.message, productId: id };
   },
 
-  // Verified live: a successful adjustment returns `{ data: null, message:
-  // "Stock adjusted" }` — the endpoint does not echo the updated
-  // consumable, so callers must re-fetch detail/list themselves (already
-  // done by adjustConsumableStockThunk).
   async adjustStock(id: string, payload: ConsumableAdjustRequest): Promise<ConsumableAdjustResponse> {
     const response = await api.post<ApiResponse<unknown>>(CONSUMABLE.ADJUST(id), payload);
 
@@ -399,8 +357,6 @@ export const consumableService = {
 
     return {
       items,
-      // Verified live: page/pageSize/totalRecords/totalPages sit flat on
-      // this same object, not under a nested `pagination` key.
       pagination: getPagination(payload, query, items.length),
       query,
     };

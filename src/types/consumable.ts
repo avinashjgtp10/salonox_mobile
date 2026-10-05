@@ -1,8 +1,3 @@
-// Shared Consumable recipe types. A Service's recipe (`consumables_used`) is
-// embedded directly in Service API responses/requests — there is no
-// dedicated Consumables endpoint yet, so these types are consumed by
-// service.ts, appointment.ts, and quickSale/types.ts rather than owning a
-// service layer of their own.
 
 export type ConsumableRecipeApiItem = {
   product_id?: string | number | null;
@@ -13,12 +8,6 @@ export type ConsumableRecipeApiItem = {
 
 export type ConsumableRecipeItem = {
   productId: string;
-  // Only ever populated at the two points a name is actually known: the
-  // backend's consumables_used subquery (services.repository.ts JOINs
-  // products for this) on read, or the product just picked in the Add
-  // Service/Edit Service consumables picker. Never re-derived from the
-  // product list cache, which may not contain a product outside the
-  // current search/page.
   productName?: string;
   qty: number;
   unit: string;
@@ -30,42 +19,18 @@ export type ConsumableRecipeRequestItem = {
   unit: string;
 };
 
-// Extends the standard recipe quantity with an optional staff-editable
-// override, used once appointments/cart lines start carrying consumables.
 export type ConsumableUsageItem = ConsumableRecipeItem & {
   actualQty?: number;
 };
 
-// Wire shape for services[].consumables[] on Create/UpdateAppointmentRequest
-// — the backend's flattenServiceConsumables() (appointments.service.ts)
-// reads exactly these snake_case keys (c.product_id, c.qty, c.unit,
-// c.actual_qty) and silently `continue`s past any row missing product_id,
-// so this must never be confused with the camelCase ConsumableUsageItem
-// used for in-app cart/form state.
 export type ConsumableUsageRequestItem = ConsumableRecipeRequestItem & {
   actual_qty?: number;
 };
 
-// Raw read-side shape of one services[].consumables[] entry as returned by
-// GET /appointments/:id — backend's attachConsumables() (appointments.service.ts)
-// joins appointment_service_consumables back onto each service row with
-// exactly these keys (standard_qty aliased to qty).
 export type ConsumableUsageApiItem = ConsumableRecipeApiItem & {
   actual_qty?: number | string | null;
 };
 
-// ============================================================================
-// Consumable Inventory (dashboard/list/detail/adjust/usage-history).
-//
-// This is a distinct concern from the recipe types above: those describe how
-// much of a product a *service* consumes; everything below describes the
-// product's own stock record — its current quantity, low-stock threshold,
-// unit conversions, and adjustment/usage audit trail. Backed by
-// GET/POST /inventory/consumables/* rather than the plain /products CRUD
-// endpoints, because it returns richer inventory-specific data (KPIs,
-// assigned services, usage history) that the retail Product screens don't
-// need — see consumable.service.ts.
-// ============================================================================
 
 export type ConsumableSortBy = "name" | "amount" | "qty_alert" | "created_at" | "updated_at";
 
@@ -93,14 +58,6 @@ export type ConsumableRefApiItem = {
   [key: string]: unknown;
 };
 
-// Verified against the live dev backend (2026-08-17): the dashboard/detail
-// endpoints are consistently snake_case and use several field names that
-// differ from what earlier phases assumed (id is `product_id`, current stock
-// is `remaining_stock` not `amount`, unit/bottle size appear under both a
-// short (`unit`, `unit_size` — list) and long (`measure_unit`, `bottle_size`
-// — detail) key depending on which endpoint responded). camelCase fallbacks
-// are kept only as defensive padding in case a future backend revision adds
-// them; they were not observed live.
 export type ConsumableApiItem = {
   amount?: number | string | null;
   bottle_size?: number | string | null;
@@ -161,11 +118,6 @@ export type ConsumableListItem = {
   productType: string | null;
   qtyAlert: number;
   retailPrice: number | null;
-  // Backend-computed ("healthy" / "low_stock" / "out_of_stock" observed
-  // live) — preferred over re-deriving low/out-of-stock state from
-  // amount vs qtyAlert on the client, per the project's "don't duplicate
-  // backend stock logic" convention. Falls back to client derivation only
-  // when absent.
   status: string | null;
   supplierId: string | null;
   supplierName: string | null;
@@ -173,11 +125,6 @@ export type ConsumableListItem = {
   updatedAt: string | null;
 };
 
-// Verified live: dashboard KPIs are `{ total_consumables,
-// total_available_stock, low_stock_items, out_of_stock_items,
-// assigned_services }`. Earlier phases guessed `total_stock_value` (a
-// currency figure) — that field does not exist; `total_available_stock` is
-// a plain summed quantity across mixed units, not money.
 export type ConsumableKpisApiData = {
   assigned_services?: number | string | null;
   assignedServices?: number | string | null;
@@ -220,11 +167,6 @@ export type ConsumableListPagination = {
   totalRecords: number;
 };
 
-// Verified live shape: `{ kpis: {...}, list: { data: [...], page,
-// pageSize, totalRecords, totalPages } }` — the list array and its
-// pagination fields are nested one level under `list`, not flat under
-// `data` as earlier phases assumed, and there is no `pagination` wrapper
-// object (page/pageSize/totalRecords/totalPages sit directly on `list`).
 export type ConsumableDashboardListApiData = {
   data?: ConsumableApiItem[] | null;
   hasMore?: boolean | null;
@@ -254,8 +196,6 @@ export type ConsumableDashboardResponse = {
 export type ConsumableUnitConversionApiItem = {
   conversion_to_base?: number | string | null;
   conversionToBase?: number | string | null;
-  // The PUT response echoes back a generated row id — not currently used
-  // by Mobile (rows are keyed by unitName), kept here for completeness.
   id?: string | number | null;
   unit_name?: string | null;
   unitName?: string | null;
@@ -266,8 +206,6 @@ export type ConsumableUnitConversion = {
   unitName: string;
 };
 
-// Verified live: the service's display name comes back under `name`, not
-// `service_name` — earlier phases guessed wrong here.
 export type ConsumableAssignedServiceApiItem = {
   name?: string | null;
   qty?: number | string | null;
@@ -298,21 +236,6 @@ export type ConsumableDetail = ConsumableListItem & {
   unitConversions?: ConsumableUnitConversion[];
 };
 
-// Manual stock correction (Adjust Stock action) — distinct from the
-// deduct/return vocabulary used by usage history below, which records
-// automatic point-of-sale consumption rather than a staff-entered
-// correction.
-//
-// Verified live against the real validator (2026-08-17):
-//   - direction: confirmed "increase" | "decrease" (backend error message:
-//     "direction must be 'increase' or 'decrease'").
-//   - reason: NOT free text — a fixed enum, confirmed by the backend's own
-//     validation error: "reason must be one of: purchase, damage, expired,
-//     manual_correction". Earlier phases wrongly assumed free text.
-//   - qty: confirmed "qty must be a positive number" (matches existing
-//     Mobile validation).
-//   - note/branch_id: confirmed optional — a request without either field
-//     succeeded.
 export type ConsumableAdjustDirection = "increase" | "decrease";
 
 export type ConsumableAdjustReason = "purchase" | "damage" | "expired" | "manual_correction";
@@ -325,10 +248,6 @@ export type ConsumableAdjustRequest = {
   reason: ConsumableAdjustReason;
 };
 
-// Verified live: the success response is `{ success: true, data: null,
-// message: "Stock adjusted" }` — the endpoint does NOT return the updated
-// consumable. Callers must re-fetch detail/list separately (already done by
-// adjustConsumableStockThunk).
 export type ConsumableAdjustResponse = {
   message?: string;
 };
@@ -346,10 +265,6 @@ export type ConsumableUnitConversionsRequest = {
   unit_conversions: ConsumableUnitConversionRequestItem[];
 };
 
-// Automatic usage recorded when an appointment's first payment deducts (or a
-// refund/cancellation returns) recipe consumables — see Phase 2's
-// services[].consumables[] payload. Mobile never writes to this; it's a
-// read-only audit trail.
 export type ConsumableUsageDirection = "deduct" | "return";
 
 export type ConsumableUsageHistoryQuery = {
@@ -400,9 +315,6 @@ export type ConsumableUsageHistoryItem = {
   unit: string;
 };
 
-// Verified live: `{ data: [...], page, pageSize, totalRecords, totalPages }`
-// — pagination fields are flat siblings of `data`, no `pagination` wrapper
-// (same shape as the dashboard's `list` block).
 export type ConsumableUsageHistoryApiData = {
   data?: ConsumableUsageHistoryApiItem[] | null;
   hasMore?: boolean | null;

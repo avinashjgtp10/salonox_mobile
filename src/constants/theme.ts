@@ -1,9 +1,3 @@
-/**
- * Design tokens for SalonOX. `Colors.light` / `Colors.dark` are the source of
- * truth; `getDashboardColors(scheme)` derives the flat token set every screen
- * consumes (via `useThemeColors()` from `@/theme/ThemeProvider`, not by
- * importing a static export — colors must react to the active theme mode).
- */
 
 import '@/global.css';
 
@@ -69,9 +63,6 @@ export const Colors = {
   },
 } as const;
 
-// Legacy alias — a handful of template/leftover components (e.g. themed-text.tsx's
-// `linkPrimary` style) reference the light palette directly and aren't part of the
-// themed app surface. Real screens must use `useThemeColors()`, not this.
 export const SageGold = Colors.light;
 
 export function getDashboardColors(scheme: AppColorScheme) {
@@ -109,10 +100,6 @@ export function getDashboardColors(scheme: AppColorScheme) {
     infoBg: scheme === 'dark' ? 'rgba(56, 189, 248, 0.16)' : 'rgba(14, 165, 233, 0.10)',
     purple: scheme === 'dark' ? '#818cf8' : '#6366f1',
     purpleBg: scheme === 'dark' ? 'rgba(129, 140, 248, 0.16)' : 'rgba(99, 102, 241, 0.10)',
-    // Fixed 4-accent vocabulary shared by icon badges, chart bars, and
-    // category chips (Dashboard stat tiles, Quick Sale catalog) — same
-    // hues regardless of scheme so category meaning stays recognizable, but
-    // the soft tint needs more alpha on a dark card to stay visible.
     accentBlue: scheme === 'dark' ? '#4f8ff7' : '#2f80ed',
     accentBlueSoft: scheme === 'dark' ? 'rgba(79, 143, 247, 0.18)' : 'rgba(47, 128, 237, 0.10)',
     accentSky: scheme === 'dark' ? '#38bdf8' : '#0ea5e9',
@@ -150,7 +137,6 @@ export function getDashboardColors(scheme: AppColorScheme) {
     appointmentBorder: scheme === 'dark' ? '#3b3940' : '#ded9dd',
     appointmentDivider: scheme === 'dark' ? '#2d2b31' : '#eee9ec',
     appointmentDisabled: scheme === 'dark' ? '#46464c' : '#dedede',
-    // Borders for inline error/success message containers.
     errorBorder: scheme === 'dark' ? 'rgba(248, 113, 113, 0.35)' : 'rgba(239, 68, 68, 0.28)',
     successBorder: scheme === 'dark' ? 'rgba(52, 211, 153, 0.35)' : 'rgba(16, 185, 129, 0.28)',
   } as const;
@@ -158,8 +144,6 @@ export function getDashboardColors(scheme: AppColorScheme) {
 
 export type ThemeColors = ReturnType<typeof getDashboardColors>;
 
-// Deprecated: static light-only snapshot, kept only until every consumer has
-// migrated to `useThemeColors()`. Do not import this in new code.
 export const DashboardColors = getDashboardColors('light');
 
 export const DashboardTypography = {
@@ -201,8 +185,6 @@ export const DashboardSpacing = {
   lg: 16,
   xl: 20,
   xxl: 24,
-  // Premium-density additions (hero/section padding, day-strip gaps) — the
-  // 4/8/12/16/20/24 progression above is unchanged, these just extend it.
   xxxl: 32,
   xxxxl: 40,
 } as const;
@@ -212,7 +194,6 @@ export const DashboardRadius = {
   md: 6,
   lg: 8,
   xl: 8,
-  // Large rounded corners for hero/stat-tile cards, above the existing xl.
   xxl: 8,
   full: 999,
 } as const;
@@ -221,13 +202,9 @@ export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
 
 export const Fonts = Platform.select({
   ios: {
-    /** iOS `UIFontDescriptorSystemDesignDefault` */
     sans: AppFonts.regular,
-    /** iOS `UIFontDescriptorSystemDesignSerif` */
     serif: AppFonts.regular,
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
     rounded: AppFonts.regular,
-    /** iOS `UIFontDescriptorSystemDesignMonospaced` */
     mono: 'ui-monospace',
   },
   default: {

@@ -106,10 +106,6 @@ const toSafeNumber = (value: unknown) => {
   return 0;
 };
 
-// The create/update validators require unit_price/discount_amount/tax_amount/
-// tip_amount to be decimal STRINGS, not numbers (sales.validator.ts,
-// sales.types.ts) — matching the Postgres numeric-as-string convention this
-// backend uses everywhere else. Never send a plain number for these fields.
 const toMoneyString = (value: number) => value.toFixed(2);
 
 const firstValue = (record: UnknownRecord, keys: string[]): unknown => {
@@ -289,10 +285,6 @@ const getSalesTotalCount = (payload: SalesListApiData, fallbackCount: number): n
   );
 };
 
-// The real GET /sales endpoint has no pagination at all (sales.repository.ts
-// `list()` — no LIMIT/OFFSET, returns every matching row). This always
-// reports hasMore: false after the one unbounded fetch, which is the honest
-// reflection of that — not a simulation of real server-side pagination.
 const getSalesPagination = (query: SalesListQuery, pageCount: number): SalesListPagination => ({
   hasMore: false,
   limit: query.limit,
@@ -499,10 +491,6 @@ const buildSaleRequestBody = (payload: CreateSaleRequest | UpdateSaleRequest) =>
 };
 
 const buildCheckoutRequestBody = (payload: CheckoutSaleRequest) => {
-  // The checkout endpoint has no structured split-payment field — a split
-  // breakdown must be JSON-serialized into payment_reference instead
-  // (sales.service.ts reads `JSON.parse(body.payment_reference)` when
-  // payment_method === "split").
   const paymentReference =
     payload.paymentMethod === "split" && payload.splitEntries?.length
       ? JSON.stringify(
@@ -577,8 +565,6 @@ export const salesService = {
     });
 
     const apiSales = getSaleArray(response.data.data);
-    // /sales returns the complete matching list and ignores search/sort params.
-    // Apply these to the full result, not just the currently visible page.
     const search = query.search.trim().toLocaleLowerCase();
     const sales = apiSales.map(normalizeSaleListItem).filter((sale) =>
       !search || [sale.clientName, sale.receiptNumber].some((value) => value.toLocaleLowerCase().includes(search)),

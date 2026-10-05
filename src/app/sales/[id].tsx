@@ -102,7 +102,6 @@ export default function SaleDetailsScreen() {
     }
   }, [id, dispatch]);
 
-  // Only trust the loaded detail when it matches the requested id.
   const sale = detail && detail.id === id ? detail : null;
   const isDeleting = Boolean(id && deletingSaleIds.includes(id));
 

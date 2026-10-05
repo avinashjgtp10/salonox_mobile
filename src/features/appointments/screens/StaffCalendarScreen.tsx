@@ -30,7 +30,6 @@ function StaffCalendarScreenContent() {
   const currentStaffLoading = useAppSelector(selectCurrentStaffLoading);
   const { date, search, setDate, setSearch, setStatus, status } = useAppointmentListFilters();
   const { fetchAppointments } = useFetchAppointments();
-  // The visible list filters instantly; the server request waits for a pause in typing.
   const debouncedSearch = useDebouncedValue(search, 350);
   const dispatch = useAppDispatch();
   const currentStaffId = currentStaff?.id ?? "";

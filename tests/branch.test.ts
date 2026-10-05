@@ -3,7 +3,6 @@ import { fetchBranchesThunk } from "@/middleware/branch/branch.thunk";
 import type { RootState } from "@/store";
 import type { Branch } from "@/types/branch";
 
-// Exercise the real reducer/selectors without starting unrelated API services.
 jest.mock("@/middleware/branch/branch.thunk", () => {
   const { createAsyncThunk } = jest.requireActual<typeof import("@reduxjs/toolkit")>("@reduxjs/toolkit");
   return { fetchBranchesThunk: createAsyncThunk("branch/fetchBranches", async () => []) };

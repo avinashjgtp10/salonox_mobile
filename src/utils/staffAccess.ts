@@ -6,8 +6,6 @@ export const canReceiveStaffNotification = (user: AuthUser | null | undefined, n
   Boolean(user && (!isStaffExperienceUser(user) || (notification.type.toLowerCase() === "appointment" && notification.recipientUserIds?.includes(user.id))));
 
 export const canReceivePush = (user: AuthUser | null | undefined, _data: unknown) => {
-  // The unchanged server sends salon-wide pushes. Staff activity is shown
-  // inside the app instead; do not display or open remote staff pushes.
   return Boolean(user && !isStaffExperienceUser(user));
 };
 

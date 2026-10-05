@@ -9,7 +9,6 @@ export function attendanceDateKey(value: string | null | undefined): string | nu
   return Number.isNaN(date.getTime()) ? null : new Date(date.getTime() + 330 * 60000).toISOString().slice(0, 10);
 }
 
-// Attendance dates and shift times use the salon's business timezone, as on web.
 export function attendanceTimeToIso(date: string, hour: number, minute: number): string | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isInteger(hour) || hour < 0 || hour > 23 ||
       !Number.isInteger(minute) || minute < 0 || minute > 59) return null;

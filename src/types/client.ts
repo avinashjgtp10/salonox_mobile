@@ -209,9 +209,6 @@ export type ClientHistoryItem = {
   items: { name: string; type: "membership" | "package" | "product" | "service"; price: number }[];
   staffName: string;
   dateLabel: string;
-  // Detail already present on the backend rows that flattening used to drop —
-  // surfaced on the Activity feed. Optional because the generic timeline
-  // fallback (a flat `history` array) carries none of it.
   dueAmount?: number;
   netAmount?: number | null;
   paymentStatus?: string;
@@ -219,11 +216,6 @@ export type ClientHistoryItem = {
   invoiceNumber?: string;
 };
 
-// Field names mirror GET /api/v1/clients/:clientId/history's own `stats`
-// object exactly (see clients.controller.ts getHistory) — the legacy
-// camelCase/`total_visits`/`last_visit` aliases are kept only so the older
-// /clients/with-history-stats shape still parses, but the canonical names
-// are the snake_case ones the history endpoint actually returns.
 export type ClientHistoryStatsApi = {
   lifetime_spend?: number | string | null;
   lifetimeSpend?: number | string | null;
@@ -235,7 +227,6 @@ export type ClientHistoryStatsApi = {
   totalAppointments?: number | string | null;
   average_spend?: number | string | null;
   averageSpend?: number | string | null;
-  // Real field names returned by /clients/:clientId/history.
   completed_appointments?: number | string | null;
   no_shows?: number | string | null;
   cancellations?: number | string | null;
@@ -298,13 +289,6 @@ export type ClientHistorySummary = {
   totalSuccessfulReferrals: number;
 };
 
-// ─── Structured records from GET /api/v1/clients/:clientId/history ──────────
-// The endpoint returns `client`, `stats`, `appointments`, `sales`, `packages`
-// and `memberships` side by side. The flattened `history` timeline below is
-// derived from those same four arrays for the Activity feed; these record
-// types preserve the per-row detail that flattening throws away (due/net
-// amounts, invoice numbers, item types, session counts, expiry dates), which
-// the Summary/Services/Products/Memberships/Packages sections need.
 
 export type ClientHistoryReferrerApi = {
   id?: string | null;
@@ -358,7 +342,6 @@ export type ClientHistoryClient = {
   totalSuccessfulReferrals: number;
 };
 
-/** A `services` / `product_items` / `package_items` / `membership_items` entry on an appointment row. */
 export type ClientAppointmentLineItem = {
   name: string;
   price: number;
@@ -377,9 +360,7 @@ export type ClientAppointmentRecord = {
   staffId: string | null;
   staffName: string;
   amountPaid: number;
-  /** Authoritative remaining balance, already net of discount/eWallet/membership-wallet. */
   dueAmount: number;
-  /** Net bill for a completed appointment. `null` (not 0) means "not billed yet". */
   netAmount: number | null;
   paymentStatus: string;
   paymentMethod: string;
@@ -399,7 +380,6 @@ export type ClientSaleItem = {
   quantity: number;
   unitPrice: number;
   totalPrice: number;
-  /** `null` when no sale_items row backs the entry, so the UI can show "–" rather than a misleading 0. */
   discountAmount: number | null;
   taxAmount: number | null;
   staffId: string | null;
@@ -468,7 +448,6 @@ export type ClientMembershipRecord = {
   appointmentId: string | null;
 };
 
-/** A row from GET /api/v1/clients/:clientId/notes (`client_notes`). */
 export type ClientNoteApi = {
   id?: string | null;
   note?: string | null;
@@ -486,7 +465,6 @@ export type ClientNote = {
 };
 
 export type ClientHistoryResult = {
-  /** Flattened, date-sorted timeline used by the Activity feed. */
   history: ClientHistoryItem[];
   summary: ClientHistorySummary;
   client: ClientHistoryClient | null;

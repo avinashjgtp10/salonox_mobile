@@ -194,13 +194,8 @@ function DashboardContent() {
       }
 
       fetchUpcomingAppointments();
-      // Picks up any check-in/out, manual mark, or edit made on the
-      // Attendance screen (or the Web App) while this tab was unfocused, so
-      // Staff Workload never shows a stale badge after returning here.
       fetchAttendance();
       fetchInventoryStock();
-      // Same idea for the bell badge — picks up anything marked read/created
-      // on the Notifications screen (or the Web App) since we last focused.
       fetchUnreadNotificationCount();
 
       void fetchDashboard();
@@ -214,9 +209,6 @@ function DashboardContent() {
     ]),
   );
 
-  // Attendance and the notification badge must reflect the web app's state
-  // without requiring an app restart, so refresh both whenever the app comes
-  // back to the foreground.
   useAppForeground(() => {
     if (!isAuthenticated) {
       return;
@@ -228,7 +220,6 @@ function DashboardContent() {
     fetchUnreadNotificationCount();
   });
 
-  // Real-time client updates: listen for new client creation from other devices/web app
   useEffect(() => {
     if (!isAuthenticated) {
       return;
@@ -241,12 +232,9 @@ function DashboardContent() {
     }
 
     const handleClientCreated = () => {
-      // Refetch clients to get updated total count
       dispatch(fetchClientsThunk({ offset: 0, reset: true, refresh: true }));
     };
 
-    // Listen for client creation events from the backend
-    // Common event names: "client:created", "client_created", "new_client"
     socket.on("client:created", handleClientCreated);
     socket.on("client_created", handleClientCreated);
     socket.on("new_client", handleClientCreated);

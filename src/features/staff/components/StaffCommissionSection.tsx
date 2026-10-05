@@ -24,9 +24,6 @@ function formatCurrency(amount: number) {
   return `Rs. ${amount.toLocaleString("en-IN")}`;
 }
 
-// Commission rule creation/configuration (rate, type, slabs) is Web-only.
-// This section only displays the staff member's past earned-commission
-// transactions, read from the existing commission history API.
 export function StaffCommissionSection({ staffId }: StaffCommissionSectionProps) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);

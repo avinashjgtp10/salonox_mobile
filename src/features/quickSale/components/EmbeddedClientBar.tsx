@@ -16,10 +16,6 @@ type EmbeddedClientBarProps = {
   selectedClient: QuickSaleClient;
 };
 
-/**
- * Compact client picker row used when Quick Sale is embedded in the calendar
- * modal, which skips the full-screen "choose client" step.
- */
 function EmbeddedClientBarComponent({
   hasSelection,
   onAddClient,

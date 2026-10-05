@@ -60,8 +60,6 @@ export const ReportRangeSheet = memo(function ReportRangeSheet({
   }, [endDate, startDate, visible]);
 
   const isRange = mode === "range";
-  // An open range (start picked, end still pending) is not applicable yet —
-  // otherwise the report would silently query a single day.
   const canApply = Boolean(draftStart) && (!isRange || Boolean(draftEnd));
 
   const footer = (

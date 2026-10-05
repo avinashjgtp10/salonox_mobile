@@ -85,7 +85,6 @@ export default function NotificationSettingsScreen() {
           await salonNotificationPreferences.save(snapshot);
           confirmedRef.current = snapshot;
         } catch (error) {
-          // A newer tap will be saved next; never overwrite it with an old result.
           if (!pendingRef.current) {
             preferencesRef.current = confirmedRef.current;
             setPreferences(confirmedRef.current);
@@ -96,7 +95,6 @@ export default function NotificationSettingsScreen() {
         try {
           await notificationPreferencesStorage.setPreferences(snapshot);
         } catch {
-          // The server has saved the change; foreground sync refreshes the cache.
         }
       }
     } finally { savingRef.current = false; setSaving(false); }
