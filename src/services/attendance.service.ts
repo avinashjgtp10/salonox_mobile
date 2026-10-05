@@ -1,5 +1,7 @@
 import { api } from "@/services/api";
-import { ATTENDANCE } from "@/services/api/endpoints";
+import { attendanceDateKey, evaluateAttendanceCheckIn } from "@/features/attendance/utils/attendanceRules";
+import { parseAttendanceDateTime } from "@/features/attendance/utils/attendanceStatus";
+import { ATTENDANCE, STAFF } from "@/services/api/endpoints";
 import type {
   AttendanceRecord,
   AttendanceRecordList,
@@ -255,7 +257,12 @@ const normalizeAttendanceRecord = (entry: UnknownRecord): AttendanceRecord | nul
       firstValue(entry, ["checkOutTime", "check_out_time", "check_out", "checkedOutAt", "checked_out_at"]),
     ) || null;
   const hoursWorkedRaw = firstValue(entry, ["hoursWorked", "hours_worked"]);
-  const hoursWorked = hoursWorkedRaw !== undefined ? toSafeNumber(hoursWorkedRaw) : null;
+  const start = parseAttendanceDateTime(checkInTime), end = parseAttendanceDateTime(checkOutTime);
+  // Timestamp edits currently leave the server's stored hours unchanged.
+  // Keep mobile's display accurate without writing unsupported API fields.
+  const hoursWorked = start && end && end.getTime() >= start.getTime()
+    ? Number(((end.getTime() - start.getTime()) / 3600000).toFixed(2))
+    : hoursWorkedRaw != null ? toSafeNumber(hoursWorkedRaw) : null;
   const scheduledHoursRaw = firstValue(entry, ["scheduledHours", "scheduled_hours"]);
   const scheduledHours = scheduledHoursRaw !== undefined ? toSafeNumber(scheduledHoursRaw) : null;
   const jobsToday = toSafeNumber(
@@ -277,10 +284,10 @@ const normalizeAttendanceRecord = (entry: UnknownRecord): AttendanceRecord | nul
     checkOutTime,
     checkInLocation: toSafeString(firstValue(entry, ["checkInLocation", "check_in_location"])) || null,
     checkOutLocation: toSafeString(firstValue(entry, ["checkOutLocation", "check_out_location"])) || null,
-    date:
+    date: attendanceDateKey(
       toSafeString(
         firstValue(entry, ["date", "attendanceDate", "attendance_date", "markedDate", "marked_date"]),
-      ) || null,
+      )),
     employeeId,
     hoursWorked,
     id,
@@ -317,8 +324,16 @@ const getSettingsFromEnvelope = (payload: AttendanceSettingsEnvelope): UnknownRe
 };
 
 const normalizeAttendanceSettings = (entry: UnknownRecord): AttendanceSettings => ({
-  gracePeriodMinutes: toSafeNumber(firstValue(entry, ["gracePeriodMinutes", "grace_period_minutes", "grace_period"])),
-  halfDayThresholdMinutes: toSafeNumber(
+  active: entry.active === true,
+  thresholdHours: toSafeNumber(entry.threshold_hours ?? 2),
+  minFullDayHours: toSafeNumber(entry.min_full_day_hours ?? 7),
+  halfDayDeductionAmount: toSafeNumber(entry.half_day_deduction_amount),
+  attendanceBonus: toSafeNumber(entry.attendance_bonus),
+  commissionThresholdDays: toSafeNumber(entry.commission_threshold_days),
+  staffScope: entry.staff_scope === "selected" ? "selected" : "all",
+  selectedStaffIds: Array.isArray(entry.selected_staff_ids) ? entry.selected_staff_ids.map(String) : [],
+  gracePeriodMinutes: toSafeNumber(firstValue(entry, ["grace_minutes", "gracePeriodMinutes", "grace_period_minutes", "grace_period"])),
+  halfDayThresholdMinutes: entry.min_half_day_hours !== undefined ? toSafeNumber(entry.min_half_day_hours) * 60 : toSafeNumber(
     firstValue(entry, [
       "halfDayThresholdMinutes",
       "half_day_threshold_minutes",
@@ -326,11 +341,11 @@ const normalizeAttendanceSettings = (entry: UnknownRecord): AttendanceSettings =
     ]),
   ),
   lateThresholdMinutes: toSafeNumber(
-    firstValue(entry, ["lateThresholdMinutes", "late_threshold_minutes", "late_threshold"]),
+    firstValue(entry, ["grace_minutes", "lateThresholdMinutes", "late_threshold_minutes", "late_threshold"]),
   ),
   updatedAt: toSafeString(firstValue(entry, ["updatedAt", "updated_at"])) || null,
-  workEndTime: toSafeString(firstValue(entry, ["workEndTime", "work_end_time"])) || null,
-  workStartTime: toSafeString(firstValue(entry, ["workStartTime", "work_start_time"])) || null,
+  workEndTime: toSafeString(firstValue(entry, ["shift_end", "workEndTime", "work_end_time"])) || null,
+  workStartTime: toSafeString(firstValue(entry, ["shift_start", "workStartTime", "work_start_time"])) || null,
 });
 
 // Attaches the punch coordinates to a check-in / check-out body. Sent under
@@ -357,10 +372,27 @@ const appendCoordinates = (
 };
 
 export const attendanceService = {
+  async getSettings(): Promise<AttendanceSettings> {
+    const response = await api.get<AttendanceSettingsApiResponse>(ATTENDANCE.SETTINGS);
+    return normalizeAttendanceSettings(getSettingsFromEnvelope(response.data.data));
+  },
+  async exportCSV(year: number, month: number): Promise<string> {
+    const response = await api.get<string>(ATTENDANCE.EXPORT, { params: { year, month }, responseType: "text" });
+    return response.data;
+  },
   async checkIn(payload: CheckInRequest): Promise<CheckInResponse> {
+    const timestamp = payload.checkInTime ?? new Date().toISOString();
+    const [settings, schedule] = await Promise.all([
+      attendanceService.getSettings(), api.get<ApiResponse<UnknownRecord[]>>(STAFF.SCHEDULED(payload.staffId)),
+    ]);
+    const shifts = schedule.data.data.map(item => ({
+      date: toSafeString(item.date) || null, dayOfWeek: toSafeNumber(item.day_of_week),
+      isAvailable: item.is_available === true, startTime: toSafeString(item.start_time) || null,
+    }));
     const requestBody: Record<string, number | string> = {
       staff_id: payload.staffId,
-      staffId: payload.staffId,
+      check_in: timestamp,
+      status: toManualStatusWireValue(evaluateAttendanceCheckIn(settings, shifts, payload.staffId, timestamp)),
     };
 
     if (payload.checkInTime !== undefined) {
@@ -597,33 +629,32 @@ export const attendanceService = {
   async updateSettings(
     updates: UpdateAttendanceSettingsRequest,
   ): Promise<UpdateAttendanceSettingsResponse> {
-    const requestBody: Record<string, number | string> = {};
+    const requestBody: Record<string, number | string | boolean | string[]> = {};
 
     if (updates.workStartTime !== undefined) {
-      requestBody.workStartTime = updates.workStartTime;
-      requestBody.work_start_time = updates.workStartTime;
+      requestBody.shift_start = updates.workStartTime;
     }
 
     if (updates.workEndTime !== undefined) {
-      requestBody.workEndTime = updates.workEndTime;
-      requestBody.work_end_time = updates.workEndTime;
+      requestBody.shift_end = updates.workEndTime;
     }
 
     if (updates.gracePeriodMinutes !== undefined) {
-      requestBody.gracePeriodMinutes = updates.gracePeriodMinutes;
-      requestBody.grace_period_minutes = updates.gracePeriodMinutes;
+      requestBody.grace_minutes = updates.gracePeriodMinutes;
     }
 
     if (updates.halfDayThresholdMinutes !== undefined) {
-      requestBody.halfDayThresholdMinutes = updates.halfDayThresholdMinutes;
-      requestBody.half_day_threshold_minutes = updates.halfDayThresholdMinutes;
+      requestBody.min_half_day_hours = updates.halfDayThresholdMinutes / 60;
     }
 
     if (updates.lateThresholdMinutes !== undefined) {
-      requestBody.lateThresholdMinutes = updates.lateThresholdMinutes;
-      requestBody.late_threshold_minutes = updates.lateThresholdMinutes;
+      if (updates.gracePeriodMinutes === undefined) requestBody.grace_minutes = updates.lateThresholdMinutes;
     }
 
+    const fields = { active: "active", thresholdHours: "threshold_hours", minFullDayHours: "min_full_day_hours", halfDayDeductionAmount: "half_day_deduction_amount", attendanceBonus: "attendance_bonus", commissionThresholdDays: "commission_threshold_days", staffScope: "staff_scope", selectedStaffIds: "selected_staff_ids" } as const;
+    for (const key of Object.keys(fields) as (keyof typeof fields)[]) {
+      if (updates[key] !== undefined) requestBody[fields[key]] = updates[key]!;
+    }
     const response = await api.put<AttendanceSettingsApiResponse>(ATTENDANCE.SETTINGS, requestBody);
 
     return {

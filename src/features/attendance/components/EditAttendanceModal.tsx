@@ -16,6 +16,7 @@ import {
 } from "@/features/attendance/utils/attendanceStatus";
 import type { AttendanceRejectValue } from "@/middleware/attendance/attendance.thunk";
 import { useThemeColors } from "@/theme/ThemeProvider";
+import { attendanceTimeToIso } from "@/features/attendance/utils/attendanceRules";
 import type { AttendanceRecord, ManualAttendanceStatus } from "@/types/attendance";
 
 type EditAttendanceModalProps = {
@@ -102,10 +103,9 @@ const timeValueToDate = (value: TimeValue, referenceDate: Date): Date | null => 
   }
 
   const hour24 = value.period === "PM" ? (hourNum % 12) + 12 : hourNum % 12;
-  const result = new Date(referenceDate);
-  result.setHours(hour24, minuteNum, 0, 0);
-
-  return result;
+  const dateKey = `${referenceDate.getFullYear()}-${String(referenceDate.getMonth() + 1).padStart(2, "0")}-${String(referenceDate.getDate()).padStart(2, "0")}`;
+  const iso = attendanceTimeToIso(dateKey, hour24, minuteNum);
+  return iso ? new Date(iso) : null;
 };
 
 function TimeField({
@@ -235,7 +235,7 @@ export function EditAttendanceModal({
         return;
       }
 
-      const referenceDate = parseAttendanceDateTime(record?.checkInTime) ?? new Date();
+      const referenceDate = new Date(`${record?.date?.slice(0, 10) || attendanceDate}T00:00:00`);
       const checkInDate = timeValueToDate(checkInTime, referenceDate);
       const rawCheckOutDate = timeValueToDate(checkOutTime, referenceDate);
 

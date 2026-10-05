@@ -43,7 +43,7 @@ function AttendanceStaffRowComponent({
     typeof record?.scheduledHours === "number" && record.scheduledHours > 0
       ? `${record.scheduledHours.toFixed(record.scheduledHours % 1 === 0 ? 0 : 1)}h scheduled`
       : "Schedule --";
-  const showPrimaryAction = canManageAttendance || action.kind !== "edit";
+  const showPrimaryAction = canManageAttendance;
 
   const primaryButtonStyle = [
     styles.primaryButton,

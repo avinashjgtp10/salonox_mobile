@@ -13,4 +13,4 @@ export const canReceivePush = (user: AuthUser | null | undefined, _data: unknown
 
 export const isStaffBusinessWrite = (user: AuthUser | null | undefined, method: string, url: string) =>
   Boolean(user && isStaffExperienceUser(user) && !["get", "head", "options"].includes(method.toLowerCase()) &&
-    /^\/(appointments|bookings|sales|payments|staff|attendance|clients|services|products|inventory|stock|consumables|memberships|client-memberships|packages|coupons|wallet|inbox|team|settings|salons|branches)(\/|\?|$)/.test(url));
+    /^\/(appointments|bookings|sales|payments|staff|attendance|devices|clients|services|products|inventory|stock|consumables|memberships|client-memberships|packages|coupons|wallet|inbox|team|settings|salons|branches)(\/|\?|$)/.test(url));

@@ -6,7 +6,6 @@ import type {
   ManualAttendanceStatus,
 } from "@/types/attendance";
 import type { AttendanceErrorKind } from "@/middleware/attendance/attendance.thunk";
-import { formatAppTime } from "@/utils/dateTime";
 
 export type AttendanceStatusIconName =
   | "checkmark-circle"
@@ -190,11 +189,9 @@ export const parseAttendanceDateTime = (value: string | null | undefined): Date 
   // it can still be formatted and diffed like a real Date.
   if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(trimmed)) {
     const [hours, minutes, seconds = "0"] = trimmed.split(":");
-    const anchored = new Date();
-
-    anchored.setHours(Number(hours), Number(minutes), Number(seconds), 0);
-
-    return anchored;
+    if (Number(hours) > 23 || Number(minutes) > 59 || Number(seconds) > 59) return null;
+    const anchored = new Date(`${getTodayAttendanceDateKey()}T${hours.padStart(2, "0")}:${minutes}:${seconds.padStart(2, "0")}+05:30`);
+    return Number.isNaN(anchored.getTime()) ? null : anchored;
   }
 
   const parsedDate = new Date(toStrictIsoDateTime(trimmed));
@@ -206,7 +203,9 @@ export const parseAttendanceDateTime = (value: string | null | undefined): Date 
 // via Intl.DateTimeFormat whose AM/PM casing isn't guaranteed consistent
 // across the ICU data bundled with different JS engines.
 export const formatHourMinuteAmPm = (date: Date) => {
-  return formatAppTime(date, "--:--");
+  const local = new Date(date.getTime() + 330 * 60000);
+  const hour = local.getUTCHours();
+  return `${String(hour % 12 || 12).padStart(2, "0")}:${String(local.getUTCMinutes()).padStart(2, "0")} ${hour >= 12 ? "PM" : "AM"}`;
 };
 
 export const formatAttendanceTime = (value: string | null | undefined): string => {
@@ -221,8 +220,9 @@ export const getWorkingHoursLabel = (record: AttendanceRecord | null | undefined
   }
 
   if (typeof record.hoursWorked === "number") {
-    const hours = Math.floor(record.hoursWorked);
-    const minutes = Math.round((record.hoursWorked - hours) * 60);
+    const totalMinutes = Math.round(record.hoursWorked * 60);
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
 
     return `${hours > 0 ? `${hours}h ` : ""}${minutes}m`.trim() || "0m";
   }
