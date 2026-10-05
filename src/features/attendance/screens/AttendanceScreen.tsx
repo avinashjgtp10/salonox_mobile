@@ -18,11 +18,12 @@ import { AttendanceToast } from "@/features/attendance/components/AttendanceToas
 import { EditAttendanceModal } from "@/features/attendance/components/EditAttendanceModal";
 import { useAttendanceActions } from "@/features/attendance/hooks/useAttendanceActions";
 import { type AttendanceStaffRowData, useAttendanceScreen } from "@/features/attendance/hooks/useAttendanceScreen";
-import { formatAttendanceDate, getAttendanceAction } from "@/features/attendance/utils/attendanceStatus";
+import { formatAttendanceDate, getAttendanceAction, parseAttendanceDateTime } from "@/features/attendance/utils/attendanceStatus";
 import { selectCurrentUser } from "@/store/user/user.slice";
 import { useAppSelector } from "@/store/hooks";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { canManageStaffLifecycle } from "@/utils/userProfile";
+import { router } from "expo-router";
 
 type CheckModalState = {
   mode: "checkIn" | "checkOut";
@@ -57,7 +58,7 @@ function AttendanceScreenContent() {
   } = useAttendanceScreen();
   const { checkIn, checkOut } = useAttendanceActions();
   const currentUser = useAppSelector(selectCurrentUser);
-  const canManageAttendance = canManageStaffLifecycle(currentUser?.role);
+  const canManageAttendance = Boolean(currentUser?.role) && canManageStaffLifecycle(currentUser?.role);
   const [editStaffId, setEditStaffId] = useState<string | null>(null);
   const [checkModal, setCheckModal] = useState<CheckModalState>(null);
   const [isDatePickerVisible, setIsDatePickerVisible] = useState(false);
@@ -67,6 +68,7 @@ function AttendanceScreenContent() {
   const checkModalRow = rows.find((row) => row.staffMember.id === checkModal?.staffId) ?? null;
 
   const handlePrimaryAction = async (row: AttendanceStaffRowData) => {
+    if (!canManageAttendance) return;
     const action = getAttendanceAction(row.record);
 
     if (action.kind === "edit") {
@@ -80,7 +82,7 @@ function AttendanceScreenContent() {
   };
 
   const handleCheckSubmit = async ({ isoTime, note }: { isoTime?: string; note?: string }) => {
-    if (!checkModalRow || !checkModal) {
+    if (!canManageAttendance || !checkModalRow || !checkModal) {
       return;
     }
 
@@ -92,6 +94,10 @@ function AttendanceScreenContent() {
         staffId: checkModalRow.staffMember.id,
       });
     } else {
+      const start = parseAttendanceDateTime(checkModalRow.record?.checkInTime);
+      if (start && isoTime && new Date(isoTime).getTime() < start.getTime()) {
+        throw new Error("Check-out cannot be before check-in. Use Edit Attendance for an overnight shift.");
+      }
       await checkOut({
         checkOutTime: isoTime,
         date: selectedDate,
@@ -138,6 +144,11 @@ function AttendanceScreenContent() {
       </View>
 
       <AttendanceSummaryCards summary={summary} />
+      {canManageAttendance && ["salon_owner", "admin"].includes(currentUser?.role ?? "") ? (
+        <TouchableOpacity onPress={() => router.push("/team/attendance-tools" as never)} style={styles.todayButton}>
+          <Text style={styles.todayButtonText}>Attendance rules, devices & export</Text>
+        </TouchableOpacity>
+      ) : null}
 
       <TourView tourId="date" style={styles.dateNavCard}>
         <TouchableOpacity activeOpacity={0.84} onPress={onPreviousDay} style={styles.dateNavButton}>

@@ -130,6 +130,14 @@ export type UpdateAttendanceResponse = {
 };
 
 export type AttendanceSettings = {
+  active: boolean;
+  thresholdHours: number;
+  minFullDayHours: number;
+  halfDayDeductionAmount: number;
+  attendanceBonus: number;
+  commissionThresholdDays: number;
+  staffScope: "all" | "selected";
+  selectedStaffIds: string[];
   gracePeriodMinutes: number;
   halfDayThresholdMinutes: number;
   lateThresholdMinutes: number;
@@ -139,6 +147,14 @@ export type AttendanceSettings = {
 };
 
 export type UpdateAttendanceSettingsRequest = {
+  active?: boolean;
+  thresholdHours?: number;
+  minFullDayHours?: number;
+  halfDayDeductionAmount?: number;
+  attendanceBonus?: number;
+  commissionThresholdDays?: number;
+  staffScope?: "all" | "selected";
+  selectedStaffIds?: string[];
   gracePeriodMinutes?: number;
   halfDayThresholdMinutes?: number;
   lateThresholdMinutes?: number;
