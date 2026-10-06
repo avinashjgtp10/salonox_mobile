@@ -13,6 +13,7 @@ import SimpleSplash from '../components/simple-splash';
 import { AppToast } from '@/components/ui/AppToast';
 import { NetworkErrorModal } from '@/components/ui/NetworkErrorModal';
 import { AppAlertHost } from '@/components/ui/AppAlertHost';
+import { StaffAttendanceGate } from '@/features/attendance/components/StaffAttendanceGate';
 import { PortalProvider } from '@/components/ui/PortalProvider';
 import { UpdateAnnouncementModal } from '@/components/ui/UpdateAnnouncementModal';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
@@ -362,6 +363,7 @@ function AppShell() {
               <RealtimeSyncSetup />
               <BranchBootstrap />
               <StaffIdentityBootstrap />
+              <StaffAttendanceGate>
               <Stack
                 initialRouteName="login"
                 screenOptions={{
@@ -391,6 +393,7 @@ function AppShell() {
                 <Stack.Screen name="index" />
                 <Stack.Screen name="explore" />
               </Stack>
+              </StaffAttendanceGate>
               <SimpleSplash backgroundColor={colors.bg} isReady={isThemeHydrated && isNavigationReady} />
               <NetworkErrorModal />
               <AppToast />

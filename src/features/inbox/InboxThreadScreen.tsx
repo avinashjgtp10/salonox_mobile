@@ -1,3 +1,4 @@
+import { maskPhone } from "@/utils/maskPhone";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect, useLocalSearchParams, type Href } from "expo-router";
@@ -96,7 +97,7 @@ function Thread({ phone }: { phone: string }) {
     <View style={s.header}>
       <InboxIcon name="arrow-back" label="Back to inbox" onPress={() => router.canGoBack() ? router.back() : router.replace("/inbox" as Href)} />
       <InboxAvatar name={conversation?.contactName} phone={phone} />
-      <TouchableOpacity accessibilityRole="button" accessibilityLabel="Show customer info" onPress={() => setInfoOpen(true)} style={[s.fill, { gap: 5 }]}><Text numberOfLines={1} style={s.heading}>{conversation?.contactName || phone}</Text><Text numberOfLines={1} style={s.muted}>{conversation?.contactName ? phone : "WhatsApp"}</Text></TouchableOpacity>
+      <TouchableOpacity accessibilityRole="button" accessibilityLabel="Show customer info" onPress={() => setInfoOpen(true)} style={[s.fill, { gap: 5 }]}><Text numberOfLines={1} style={s.heading}>{conversation?.contactName || maskPhone(phone)}</Text><Text numberOfLines={1} style={s.muted}>{conversation?.contactName ? maskPhone(phone) : "WhatsApp"}</Text></TouchableOpacity>
       <InboxIcon name="refresh-outline" label="Refresh messages" onPress={refresh} disabled={loading} />
       <InboxIcon name="information-circle-outline" label="Show customer info" onPress={() => setInfoOpen(true)} />
     </View>

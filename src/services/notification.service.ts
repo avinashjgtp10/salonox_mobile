@@ -69,6 +69,10 @@ const normalizeNotification = (entry: UnknownRecord): NotificationItem => {
     referenceId: toSafeString(firstValue(entry, ["reference_id", "referenceId"])) || null,
     title: toSafeString(firstValue(entry, ["title"]), "Notification"),
     type: toSafeString(firstValue(entry, ["type"]), "general"),
+    recipientUserIds: Array.isArray(entry.recipient_user_ids)
+      ? entry.recipient_user_ids.filter((id): id is string => typeof id === "string")
+      : Array.isArray(entry.recipientUserIds)
+        ? entry.recipientUserIds.filter((id): id is string => typeof id === "string") : [],
   };
 };
 

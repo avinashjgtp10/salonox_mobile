@@ -64,10 +64,9 @@ export function TimeSlotSelector({
         {loading ? <ActivityIndicator color={Colors.primary} size="small" /> : null}
       </View>
       {disabledReason ? <Text style={styles.fieldHint}>{disabledReason}</Text> : null}
-      {!disabledReason && slots.length === 0 ? (
+      {!loading && !disabledReason && slots.length === 0 ? (
         <Text style={styles.fieldHint}>No available slots for this staff member and date.</Text>
       ) : null}
-      {slots.length > 0 ? (
         <View ref={anchorRef} collapsable={false} style={styles.timeDropdownWrap}>
           <TouchableOpacity
             activeOpacity={0.84}
@@ -83,7 +82,7 @@ export function TimeSlotSelector({
               numberOfLines={1}
               style={[styles.timeDropdownValue, !selectedSlot && styles.timeDropdownPlaceholder]}
             >
-              {selectedSlot?.display ?? "Select time"}
+              {loading ? "Loading times..." : selectedSlot?.display ?? "Select time"}
             </Text>
             <Ionicons
               name={dropdownOpen ? "chevron-up" : "chevron-down"}
@@ -125,7 +124,6 @@ export function TimeSlotSelector({
             </Modal>
           ) : null}
         </View>
-      ) : null}
       {error ? <Text style={styles.fieldError}>{error}</Text> : null}
     </View>
   );

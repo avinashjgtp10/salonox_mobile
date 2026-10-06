@@ -55,13 +55,16 @@ export const fetchNotificationsThunk = createAsyncThunk<
       const staff = selectCurrentStaff(state);
       if (!user || !staff) return { notifications: [] };
       const scope = getLocalNotificationScope(state);
-      const [response, readIds, removedIds] = await Promise.all([
+      const [response, readIds, removedIds, serverNotifications] = await Promise.all([
         appointmentService.getStaffAppointments({ limit: Number.MAX_SAFE_INTEGER, page: 1, search: "", sort_by: "created_at", sort_order: "DESC" }, staff, selectActiveBranchId(state)),
         notificationLocalStorage.getReadIds(scope), notificationLocalStorage.getRemovedIds(scope),
+        notificationService.getNotifications(selectActiveBranchId(state)),
       ]);
       if (getLocalNotificationScope(getState()) !== scope) throw new ApiError("Your staff session has changed. Please refresh.", 403);
       const removed = new Set(removedIds);
-      return { notifications: buildStaffAppointmentActivity(response.appointments, staff, user.id, readIds).filter(item => !removed.has(item.id)) };
+      const reminders = serverNotifications.notifications.filter(item => item.type === "attendance" && canReceiveStaffNotification(user, item))
+        .map(item => ({ ...item, isRead: item.isRead || readIds.includes(item.id) }));
+      return { notifications: [...reminders, ...buildStaffAppointmentActivity(response.appointments, staff, user.id, readIds)].filter(item => !removed.has(item.id)) };
     }
     const [response, removedIds] = await Promise.all([
       notificationService.getNotifications(selectActiveBranchId(state)),
@@ -179,11 +182,8 @@ export const registerDeviceThunk = createAsyncThunk<
   RegisterDeviceResponse,
   RegisterDeviceRequest,
   { rejectValue: RejectValue; state: RootState }
->("notification/registerDevice", async (payload, { getState, rejectWithValue }) => {
+>("notification/registerDevice", async (payload, { rejectWithValue }) => {
   try {
-    if (isStaffExperienceUser(selectCurrentUser(getState()))) {
-      return rejectWithValue({ message: "Staff appointment activity is available inside the app." });
-    }
     console.log("[PushNotifications] notification.thunk entered");
     const token = payload.token.trim();
 

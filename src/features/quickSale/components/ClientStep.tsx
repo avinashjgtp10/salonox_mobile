@@ -1,3 +1,4 @@
+import { maskPhone } from "@/utils/maskPhone";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { memo, useMemo } from "react";
@@ -103,7 +104,7 @@ function ClientStepComponent({
                 initials={client.initials}
                 isSelected={selectedClientId === client.id}
                 onPress={() => onSelectClient(client)}
-                phone={client.phone}
+                phone={maskPhone(client.phone, client.phoneCountryCode)}
                 title={client.fullName}
                 withBorder={index < clients.length - 1}
               />

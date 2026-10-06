@@ -67,15 +67,7 @@ export const getRejectedMessage = (payload: unknown, fallback: string) => {
   return fallback;
 };
 
-export const maskPhone = (value: string) => {
-  const digits = value.replace(/\D/g, "");
-
-  if (digits.length < 4) {
-    return value || "-";
-  }
-
-  return `${digits.slice(0, 2)}******${digits.slice(-2)}`;
-};
+export { maskPhone } from "@/utils/maskPhone";
 
 export const formatBusinessDate = (value: string | null) => {
   return formatAppDate(parseAppointmentDateTime(value), value ?? "-");

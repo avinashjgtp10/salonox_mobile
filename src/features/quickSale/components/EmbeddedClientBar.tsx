@@ -1,3 +1,4 @@
+import { maskPhone } from "@/utils/maskPhone";
 import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { memo, useMemo } from "react";
@@ -27,7 +28,7 @@ function EmbeddedClientBarComponent({
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const label = hasSelection
     ? selectedClient.id
-      ? `${selectedClient.name} · ${selectedClient.phone}`
+      ? `${selectedClient.name} · ${maskPhone(selectedClient.phone)}`
       : "Walk-In"
     : "Search client by name or mobile number...";
 

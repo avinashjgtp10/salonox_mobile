@@ -1,4 +1,5 @@
 import { Text } from "@/components/ui/AppTypography";
+import { useStaffSelfAttendance } from "@/features/attendance/components/StaffAttendanceGate";
 import { TourScrollView, TourView, withScreenTour } from "@/features/userGuide/DashboardTour";
 import { screenTours } from "@/features/userGuide/screenTours";
 import { Ionicons } from "@expo/vector-icons";
@@ -282,10 +283,12 @@ function StaffHomeRouteContent() {
   const currentStaffId = currentStaff?.id ?? "";
   const staffName = currentStaff?.name ?? getUserFullName(currentUser);
   const initials = currentStaff?.initials ?? getUserInitials(currentUser);
-  const selfAttendance = useMemo(
+  const confirmedAttendance = useStaffSelfAttendance();
+  const overviewAttendance = useMemo(
     () => (currentStaff ? findAttendanceRecordForStaff(attendanceRecords, currentStaff) : undefined),
     [attendanceRecords, currentStaff],
   );
+  const selfAttendance = confirmedAttendance?.record ?? overviewAttendance;
   const attendanceBadge = getAttendanceBadgeConfig(selfAttendance, Colors);
   const attendanceStateLabel = getStaffAttendanceStateLabel(selfAttendance, attendanceBadge.label);
   const attendanceTone = getAttendanceTone(attendanceStateLabel, Colors);
