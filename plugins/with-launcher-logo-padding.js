@@ -2,8 +2,6 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const { withDangerousMod } = require('@expo/config-plugins');
 
-// Add 8% on each side of the adaptive foreground, leaving the background
-// full size. Keep the original artwork intact for other uses.
 module.exports = function withLauncherLogoPadding(config) {
   return withDangerousMod(config, ['android', async (config) => {
     const resources = path.join(config.modRequest.platformProjectRoot, 'app/src/main/res');

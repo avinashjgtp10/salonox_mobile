@@ -1,5 +1,3 @@
-// Keep the existing web persistence behavior. Metro selects this file on web;
-// Android and iOS use tokenStorage.ts and Expo SecureStore instead.
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import type { AuthTokens, AuthUser } from "@/types/auth";

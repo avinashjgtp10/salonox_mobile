@@ -111,7 +111,6 @@ export const createClientThunk = createAsyncThunk<
 
     const response = await clientService.createClient(payload);
 
-    // The backend fires a "New Client Added" notification on create.
     void dispatch(fetchUnreadCountThunk());
     void dispatch(fetchClientsThunk({ ...getState().client.query, offset: 0, refresh: true, reset: true }));
     void dispatch(fetchDashboardThunk());
@@ -370,9 +369,6 @@ export const unblockClientThunk = createAsyncThunk<
   }
 });
 
-// Single source of truth for the Client Profile — one request per profile
-// open, carrying the client summary, stats and every history record the
-// screen needs. The arg is always the route's client UUID.
 export const fetchClientHistoryThunk = createAsyncThunk<
   ClientHistoryResult,
   string,
@@ -386,8 +382,6 @@ export const fetchClientHistoryThunk = createAsyncThunk<
   }
 });
 
-// Lazy — dispatched the first time the Notes tab is opened, not on profile
-// load, since notes live outside the /history payload.
 export const fetchClientNotesThunk = createAsyncThunk<
   { clientId: string; notes: ClientNote[] },
   string,

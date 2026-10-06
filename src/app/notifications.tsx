@@ -1,7 +1,8 @@
+import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect, type Href } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from "react-native";
+import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
@@ -35,9 +36,6 @@ import { useThemeColors } from "@/theme/ThemeProvider";
 import type { NotificationItem } from "@/types/notification";
 import { resolveNotificationRoute } from "@/utils/notificationRouting";
 
-// Presentation-only lookup keyed by the backend's free-form `type` string —
-// unrecognized types still render fully via the fallback entry, never hidden
-// or filtered, since the backend can add new notification types at any time.
 const getNotificationIconMap = (
   Colors: ThemeColors,
 ): Record<string, { bg: string; color: string; icon: keyof typeof Ionicons.glyphMap }> => ({
@@ -176,9 +174,6 @@ export default function NotificationsScreen({
       ? currentStaffError ?? "Staff profile is not available for this session."
       : error;
 
-  // Pure client-side derivation over the already-fetched list — no new
-  // selector/thunk/API call. fetchNotificationsThunk, the 30s auto-refresh,
-  // and useAppForeground all keep working on the same underlying data.
   const visibleNotifications = useMemo(
     () => (filter === "unread" ? notifications.filter((notification) => !notification.isRead) : notifications),
     [filter, notifications],
@@ -198,7 +193,6 @@ export default function NotificationsScreen({
 
   useEffect(() => {
     refresh();
-    // Only on mount — focus/foreground/interval triggers below cover the rest.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -229,8 +223,6 @@ export default function NotificationsScreen({
   };
 
   const handlePressNotification = (notification: NotificationItem) => {
-    // Optimistic: the Redux slice immediately decrements unreadCount and marks
-    // the item as read locally — the badge updates without waiting for the API.
     if (!notification.isRead) {
       void dispatch(markNotificationReadThunk(notification.id));
     }
@@ -256,7 +248,7 @@ export default function NotificationsScreen({
         <TouchableOpacity activeOpacity={0.84} hitSlop={12} onPress={handleBack} style={styles.iconButton}>
           <Ionicons name="arrow-back" size={18} color={Colors.primary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Notifications</Text>
+        <Text style={styles.headerTitle}>{routeScope === "staff" ? "My Appointment Activity" : "Notifications"}</Text>
         <TouchableOpacity
           activeOpacity={0.84}
           disabled={unreadCount === 0 || markingAllRead}

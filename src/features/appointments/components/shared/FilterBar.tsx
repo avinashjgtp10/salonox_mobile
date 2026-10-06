@@ -1,3 +1,5 @@
+import { Text, TextInput } from "@/components/ui/AppTypography";
+import { TourView, TourButton } from "@/features/userGuide/DashboardTour";
 import { WeekDayStrip } from "@/features/appointments/components/shared/WeekDayStrip";
 import { STATUS_FILTERS } from "@/features/appointments/constants/appointmentConstants";
 import { createStyles } from "@/features/appointments/styles/appointmentStyles";
@@ -9,7 +11,7 @@ import { Ionicons } from "@expo/vector-icons";
 import type { DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useMemo, useState } from "react";
-import { Modal, Platform, Pressable, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Modal, Platform, Pressable, ScrollView, TouchableOpacity, View } from "react-native";
 
 export function FilterBar({
   date,
@@ -34,9 +36,6 @@ export function FilterBar({
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [isDatePickerVisible, setIsDatePickerVisible] = useState(false);
-  // Additive UI-only toggle for the status chip row below — default visible
-  // so nothing changes for anyone who doesn't touch this control. The chip
-  // row itself, onStatusChange, and `status` are untouched.
   const [isStatusRowVisible, setIsStatusRowVisible] = useState(true);
   const showDropdown =
     isSearchFocused && search.trim().length > 0 && searchResults !== undefined;
@@ -69,7 +68,7 @@ export function FilterBar({
 
       <View style={styles.appointmentSearchRow}>
         <View style={[styles.appointmentSearchGroup, styles.appointmentSearchGroupFlex]}>
-          <View style={styles.searchWrap}>
+          <TourView tourId="search" style={styles.searchWrap}>
             <Ionicons name="search-outline" size={18} color={Colors.text2} />
             <TextInput
               onBlur={() => setIsSearchFocused(false)}
@@ -85,7 +84,7 @@ export function FilterBar({
                 <Ionicons name="close-circle" size={18} color={Colors.text2} />
               </TouchableOpacity>
             ) : null}
-          </View>
+          </TourView>
 
           {showDropdown ? (
             <View style={styles.appointmentSearchDropdown}>
@@ -130,7 +129,7 @@ export function FilterBar({
           ) : null}
         </View>
 
-        <TouchableOpacity
+        <TourButton tourId="filters"
           accessibilityLabel={isStatusRowVisible ? "Hide status filters" : "Show status filters"}
           activeOpacity={0.82}
           onPress={() => setIsStatusRowVisible((current) => !current)}
@@ -141,17 +140,17 @@ export function FilterBar({
             size={18}
             color={isStatusRowVisible ? "#FFFFFF" : Colors.text2}
           />
-        </TouchableOpacity>
+        </TourButton>
       </View>
 
-      <TouchableOpacity
+      <TourButton tourId="date"
         activeOpacity={0.82}
         onPress={() => setIsDatePickerVisible(true)}
         style={styles.dateInputRow}
       >
         <Ionicons name="calendar-outline" size={18} color={Colors.text2} />
         <Text style={styles.dateInput}>{date ? formatAppDate(`${date}T00:00:00`) : "DD-MM-YYYY"}</Text>
-      </TouchableOpacity>
+      </TourButton>
 
       {isDatePickerVisible && Platform.OS === "android" ? (
         <DateTimePicker mode="date" onChange={handleDateChange} value={dateValue} />

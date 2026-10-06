@@ -1,0 +1,73 @@
+import { StyleSheet } from "react-native";
+import { useMemo } from "react";
+import { useAppTheme } from "@/theme/ThemeProvider";
+
+export function useInboxTheme() {
+  const theme = useAppTheme();
+  const { colors } = theme;
+  const palette = useMemo(() => ({
+    surface: colors.bg2,
+    field: colors.card,
+    text: colors.text,
+    muted: colors.text2,
+    line: colors.border,
+    accent: colors.primary,
+    onAccent: colors.onPrimary,
+    active: colors.backgroundSelected,
+    canvas: colors.bg,
+    outgoing: colors.backgroundSelected,
+    error: colors.error,
+    info: colors.info,
+  }), [colors]);
+  const styles = useMemo(() => StyleSheet.create({
+    fill: { flex: 1, minWidth: 0 },
+    root: { flex: 1, backgroundColor: palette.surface },
+    header: { minHeight: 72, paddingHorizontal: 16, paddingVertical: 10, flexDirection: "row", alignItems: "center", gap: 10, borderBottomWidth: 1, borderColor: palette.line, backgroundColor: palette.surface },
+    row: { flexDirection: "row", alignItems: "center", gap: 10 },
+    title: { fontSize: 25, fontWeight: "700", color: palette.text },
+    heading: { color: palette.text, fontSize: 16, fontWeight: "600" },
+    text: { color: palette.text, fontSize: 14 },
+    muted: { color: palette.muted, fontSize: 12 },
+    icon: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
+    search: { margin: 14, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderColor: palette.line, backgroundColor: palette.field, paddingLeft: 12, flexDirection: "row", alignItems: "center", gap: 8, minHeight: 46 },
+    searchInput: { flex: 1, color: palette.text, fontSize: 14, paddingVertical: 12, minWidth: 0 },
+    filters: { flexDirection: "row", gap: 8, alignItems: "center", paddingHorizontal: 14, paddingBottom: 10 },
+    chip: { minHeight: 40, paddingHorizontal: 13, borderRadius: 20, alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 6 },
+    selected: { backgroundColor: palette.active },
+    accentText: { color: palette.accent },
+    badge: { backgroundColor: palette.accent, borderRadius: 14, paddingHorizontal: 7, paddingVertical: 3, minWidth: 23, alignItems: "center" },
+    badgeText: { color: palette.onAccent, fontSize: 11, fontWeight: "700" },
+    conversation: { flexDirection: "row", alignItems: "center", gap: 13, padding: 16, borderBottomWidth: 1, borderBottomColor: palette.line, borderLeftWidth: 3, borderLeftColor: "transparent" },
+    avatar: { width: 48, height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center" },
+    avatarText: { color: palette.onAccent, fontSize: 17, fontWeight: "700" },
+    chat: { flex: 1, minWidth: 0, backgroundColor: palette.canvas },
+    messageList: { padding: 18, paddingBottom: 24, flexGrow: 1 },
+    day: { alignSelf: "center", backgroundColor: palette.surface, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10, marginVertical: 18, borderWidth: 1, borderColor: palette.line },
+    bubbleRow: { flexDirection: "row", marginBottom: 9 },
+    bubble: { maxWidth: "86%", padding: 11, borderRadius: 13, backgroundColor: palette.field, gap: 6 },
+    outgoing: { backgroundColor: palette.outgoing, borderTopRightRadius: 3 },
+    incoming: { borderTopLeftRadius: 3 },
+    messageText: { color: palette.text, fontSize: 15, lineHeight: 22 },
+    metadata: { flexDirection: "row", alignSelf: "flex-end", alignItems: "center", gap: 5 },
+    attachment: { width: 220, maxWidth: "100%", minHeight: 125, backgroundColor: palette.field, borderRadius: 9, borderWidth: 1, borderColor: palette.line, alignItems: "center", justifyContent: "center", gap: 8, padding: 12 },
+    image: { width: 220, height: 180, borderRadius: 8 },
+    composer: { flexDirection: "row", alignItems: "flex-end", gap: 4, padding: 10, borderTopWidth: 1, borderColor: palette.line, backgroundColor: palette.surface },
+    input: { flex: 1, minWidth: 0, minHeight: 46, maxHeight: 130, backgroundColor: palette.field, borderWidth: 1, borderColor: palette.line, borderRadius: 13, paddingHorizontal: 13, paddingVertical: 12, fontSize: 15, color: palette.text },
+    send: { backgroundColor: palette.accent, marginLeft: 4 },
+    banner: { paddingHorizontal: 16, paddingVertical: 10, backgroundColor: palette.surface, borderBottomWidth: 1, borderColor: palette.line },
+    error: { color: palette.error, fontSize: 13, lineHeight: 19 },
+    empty: { flex: 1, minHeight: 180, alignItems: "center", justifyContent: "center", padding: 28, gap: 10 },
+    emptyText: { color: palette.muted, fontSize: 14, textAlign: "center", lineHeight: 21 },
+    tray: { backgroundColor: palette.surface, paddingHorizontal: 12, paddingVertical: 10, borderTopWidth: 1, borderColor: palette.line, flexShrink: 0 },
+    quickReply: { padding: 12, borderBottomWidth: 1, borderColor: palette.line, gap: 5 },
+    customer: { backgroundColor: palette.surface, borderLeftWidth: 1, borderColor: palette.line },
+    profile: { alignItems: "center", padding: 24, gap: 12 },
+    largeAvatar: { width: 76, height: 76, borderRadius: 38 },
+    stats: { flexDirection: "row", flexWrap: "wrap", gap: 10, paddingHorizontal: 18 },
+    stat: { width: "47%", minHeight: 82, borderRadius: 12, padding: 12, backgroundColor: palette.field, borderWidth: 1, borderColor: palette.line, gap: 8 },
+    section: { padding: 18, gap: 14 },
+    package: { flexDirection: "row", gap: 12, paddingVertical: 13, borderBottomWidth: 1, borderColor: palette.line },
+    button: { minHeight: 44, alignItems: "center", justifyContent: "center", paddingHorizontal: 16, borderRadius: 10, backgroundColor: palette.active },
+  }), [palette]);
+  return { ...theme, palette, styles };
+}

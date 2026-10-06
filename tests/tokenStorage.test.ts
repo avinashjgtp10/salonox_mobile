@@ -2,7 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { tokenStorage } from "../src/services/tokenStorage";
 
 jest.mock("@react-native-async-storage/async-storage", () =>
-  require("@react-native-async-storage/async-storage/jest/async-storage-mock"));
+  jest.requireActual("@react-native-async-storage/async-storage/jest/async-storage-mock"));
 jest.mock("@/services/protectedTokenStorage", () => {
   let value: string | null = null;
   return { protectedTokenStorage: {

@@ -1,5 +1,5 @@
 import type { StaffMember } from "@/data/teamData";
-import type { AttendanceRecord } from "@/types/attendance";
+import type { AttendanceRecord, AttendanceToday } from "@/types/attendance";
 
 type IdentifierCandidate = {
   field: string;
@@ -11,9 +11,6 @@ const toCandidates = (pairs: [string, string | null | undefined][]): IdentifierC
     .filter((pair): pair is [string, string] => Boolean(pair[1] && pair[1].trim()))
     .map(([field, value]) => ({ field, value }));
 
-// Every plausible identifier the attendance API might use to reference a
-// staff member. Do NOT assume it's staffId — backends vary, so all of these
-// are tried.
 const getRecordCandidates = (record: AttendanceRecord): IdentifierCandidate[] =>
   toCandidates([
     ["attendance.staffId", record.staffId],
@@ -23,16 +20,12 @@ const getRecordCandidates = (record: AttendanceRecord): IdentifierCandidate[] =>
     ["attendance.id", record.id],
   ]);
 
-// Every plausible identifier the Staff module exposes for the same person.
 const getStaffCandidates = (staffMember: Pick<StaffMember, "id" | "employeeCode">): IdentifierCandidate[] =>
   toCandidates([
     ["staff.id", staffMember.id],
     ["staff.employeeCode", staffMember.employeeCode ?? null],
   ]);
 
-// Finds the attendance record for a staff member by trying every identifier
-// the backend could plausibly use to link the two records, instead of
-// assuming attendance.staffId === staff.id.
 export const findAttendanceRecordForStaff = (
   records: AttendanceRecord[],
   staffMember: Pick<StaffMember, "id" | "employeeCode" | "name">,
@@ -46,4 +39,27 @@ export const findAttendanceRecordForStaff = (
       staffCandidates.some((staffCandidate) => staffCandidate.value === recordCandidate.value),
     );
   });
+};
+
+export const scopeAttendanceToStaff = (
+  today: AttendanceToday,
+  staffMember: Pick<StaffMember, "id" | "employeeCode" | "name"> | null,
+): AttendanceToday => {
+  const ownRecord = staffMember ? findAttendanceRecordForStaff(today.records, staffMember) : undefined;
+  const records = ownRecord ? [ownRecord] : [];
+  const status = ownRecord?.statusKey;
+
+  return {
+    ...today,
+    records,
+    summary: {
+      date: today.date,
+      total: records.length,
+      present: status === "present" ? 1 : 0,
+      absent: status === "absent" ? 1 : 0,
+      late: status === "late" ? 1 : 0,
+      halfDay: status === "halfDay" ? 1 : 0,
+      onLeave: status === "onLeave" ? 1 : 0,
+    },
+  };
 };

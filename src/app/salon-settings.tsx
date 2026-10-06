@@ -1,15 +1,8 @@
+import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
 import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  ActivityIndicator,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { ActivityIndicator, RefreshControl, StyleSheet, TouchableOpacity, View } from "react-native";
 import { KeyboardAwareScrollView } from "@/components/ui/KeyboardAwareScrollView";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -411,9 +404,6 @@ export default function SalonSettingsScreen() {
 }
 
 const createStyles = (Colors: ThemeColors) => StyleSheet.create({
-  flex: {
-    flex: 1,
-  },
   safeArea: {
     backgroundColor: Colors.bg,
     flex: 1,

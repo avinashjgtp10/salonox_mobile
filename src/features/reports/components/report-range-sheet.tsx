@@ -1,5 +1,6 @@
+import { Text } from "@/components/ui/AppTypography";
 import { memo, useEffect, useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
 
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { AppRadius } from "@/constants/layout";
@@ -59,8 +60,6 @@ export const ReportRangeSheet = memo(function ReportRangeSheet({
   }, [endDate, startDate, visible]);
 
   const isRange = mode === "range";
-  // An open range (start picked, end still pending) is not applicable yet —
-  // otherwise the report would silently query a single day.
   const canApply = Boolean(draftStart) && (!isRange || Boolean(draftEnd));
 
   const footer = (

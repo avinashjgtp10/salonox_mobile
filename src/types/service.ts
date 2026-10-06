@@ -71,10 +71,6 @@ export type ServiceApiPagination = {
   limit?: number | null;
   next_offset?: number | null;
   offset?: number | null;
-  // Real backend contract (`servicesRepository.list`) is page-based, not
-  // offset-based — it returns exactly these two fields, never `has_more`/
-  // `next_offset`/`offset`. The fields above are kept only in case a future
-  // backend revision adds them.
   page?: number | null;
   total?: number | null;
   totalCount?: number | null;

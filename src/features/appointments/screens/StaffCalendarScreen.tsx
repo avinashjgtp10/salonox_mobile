@@ -1,3 +1,5 @@
+import { withScreenTour } from "@/features/userGuide/DashboardTour";
+import { screenTours } from "@/features/userGuide/screenTours";
 import { CalendarPreview } from "@/features/appointments/components/calendar/CalendarPreview";
 import { ReadOnlyBlockedTimesSummary } from "@/features/appointments/components/calendar/ReadOnlyBlockedTimesSummary";
 import { StaffAvailabilitySummary } from "@/features/appointments/components/form/StaffAvailabilitySummary";
@@ -9,6 +11,7 @@ import { useAppointmentListFilters, useFetchAppointments } from "@/features/appo
 import { getDateKey } from "@/features/appointments/utils/appointmentDateTime";
 import { matchesAppointment } from "@/features/appointments/utils/appointmentList";
 import { isAssignedToStaff } from "@/features/appointments/utils/staffAssignment";
+import { useDebouncedValue } from "@/features/quickSale/hooks/useDebouncedValue";
 import { fetchStaffAvailabilityThunk } from "@/middleware/staff/staffAvailability.thunk";
 import { selectAppointments, selectAppointmentsError, selectAppointmentsIsLoading, selectAppointmentsRefreshing } from "@/store/appointment/appointment.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
@@ -17,7 +20,7 @@ import { selectStaffAvailability, selectStaffAvailabilityError, selectStaffAvail
 import type { Href } from "expo-router";
 import { useCallback, useEffect, useMemo } from "react";
 
-export function StaffCalendarScreen() {
+function StaffCalendarScreenContent() {
   const appointments = useAppSelector(selectAppointments);
   const appointmentsError = useAppSelector(selectAppointmentsError);
   const appointmentsLoading = useAppSelector(selectAppointmentsIsLoading);
@@ -27,6 +30,7 @@ export function StaffCalendarScreen() {
   const currentStaffLoading = useAppSelector(selectCurrentStaffLoading);
   const { date, search, setDate, setSearch, setStatus, status } = useAppointmentListFilters();
   const { fetchAppointments } = useFetchAppointments();
+  const debouncedSearch = useDebouncedValue(search, 350);
   const dispatch = useAppDispatch();
   const currentStaffId = currentStaff?.id ?? "";
   const availability = useAppSelector((state) => selectStaffAvailability(state, currentStaffId, date));
@@ -42,10 +46,10 @@ export function StaffCalendarScreen() {
         return;
       }
 
-      void fetchAppointments({ date, refresh, reset: !refresh, search, staffId: currentStaffId, status });
+      void fetchAppointments({ date, refresh, reset: !refresh, search: debouncedSearch, staffId: currentStaffId, status });
       void dispatch(fetchStaffAvailabilityThunk({ date, staffId: currentStaffId }));
     },
-    [currentStaffId, date, dispatch, fetchAppointments, search, status],
+    [currentStaffId, date, debouncedSearch, dispatch, fetchAppointments, status],
   );
 
   useEffect(() => {
@@ -59,6 +63,7 @@ export function StaffCalendarScreen() {
           .filter((appointment) => isAssignedToStaff(appointment, currentStaff))
           .filter((appointment) => getDateKey(appointment.scheduledAt) === date)
           .filter((appointment) => matchesAppointment(appointment, search, status))
+          .map((appointment) => ({ ...appointment, staffName: currentStaff.name }))
         : [],
     [appointments, currentStaff, date, search, status],
   );
@@ -128,9 +133,15 @@ export function StaffCalendarScreen() {
           <CalendarPreview
             appointments={staffAppointments}
             date={date}
+            readOnly
+            viewMode="day"
+            staffColumns={currentStaff ? [{ id: currentStaff.id, name: currentStaff.name, label: currentStaff.name }] : []}
+            resolveStaffId={() => currentStaffId}
           />
         </>
       ) : null}
     </ScreenShell>
   );
 }
+
+export const StaffCalendarScreen = withScreenTour(StaffCalendarScreenContent, screenTours.staffCalendar);

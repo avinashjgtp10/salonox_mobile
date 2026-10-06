@@ -1,3 +1,5 @@
+import { Text } from "@/components/ui/AppTypography";
+import { ConfirmationModal } from "@/components/ui/ConfirmationModal";
 import { TextField } from "@/features/appointments/components/form/TextField";
 import { ScreenShell } from "@/features/appointments/components/shared/ScreenShell";
 import { useAppointmentStyles } from "@/features/appointments/styles/useAppointmentStyles";
@@ -10,7 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import type { Href } from "expo-router";
 import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
-import { ActivityIndicator, Modal, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, TouchableOpacity, View } from "react-native";
 
 export function CancelAppointmentScreen() {
   const { styles } = useAppointmentStyles();
@@ -68,33 +70,16 @@ export function CancelAppointmentScreen() {
         </TouchableOpacity>
       </View>
 
-      <Modal animationType="fade" transparent visible={confirmVisible}>
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Confirm cancellation</Text>
-            <Text style={styles.modalText}>
-              This will update the appointment through the cancel API and mark it cancelled.
-            </Text>
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                onPress={() => setConfirmVisible(false)}
-                style={styles.secondaryButton}
-              >
-                <Text style={styles.secondaryButtonText}>Keep Appointment</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => {
-                  setConfirmVisible(false);
-                  void submitCancel();
-                }}
-                style={styles.dangerButtonCompact}
-              >
-                <Text style={styles.primaryButtonText}>Confirm</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      <ConfirmationModal
+        visible={confirmVisible}
+        title="Confirm cancellation"
+        description="This will mark the appointment as cancelled."
+        cancelLabel="Keep Appointment"
+        confirmLabel="Confirm"
+        busy={mutating}
+        onCancel={() => setConfirmVisible(false)}
+        onConfirm={async () => { setConfirmVisible(false); await submitCancel(); }}
+      />
     </ScreenShell>
   );
 }

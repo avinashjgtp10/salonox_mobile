@@ -1,7 +1,9 @@
+import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
 import { useMemo } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, View } from "react-native";
+import { TourButton } from "@/features/userGuide/DashboardTour";
 
 import type { ThemeColors } from "@/constants/theme";
 import { useThemeColors } from "@/theme/ThemeProvider";
@@ -28,7 +30,7 @@ export default function QuickActions() {
   return (
     <View style={styles.row}>
       {actions.map((action) => (
-        <TouchableOpacity
+        <TourButton tourId={action.label}
           key={action.label}
           activeOpacity={0.7}
           onPress={() => router.push(action.route)}
@@ -45,7 +47,7 @@ export default function QuickActions() {
           >
             {action.label}
           </Text>
-        </TouchableOpacity>
+        </TourButton>
       ))}
     </View>
   );
@@ -58,8 +60,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
-  // In the redesign the tinted icon tile is the card — there is no white
-  // wrapper behind it, so the button itself carries no surface.
   btn: {
     alignItems: "center",
     backgroundColor: "transparent",

@@ -1,4 +1,5 @@
 import { filterInboxConversations } from "@/utils/inboxFilters";
+import { sortInboxConversations } from "@/utils/inboxPresentation";
 import type { InboxConversation } from "@/types/inbox";
 
 const chats: InboxConversation[] = [
@@ -27,4 +28,15 @@ test("unread filter combines with search", () => {
 test("no matches and empty conversations are safe", () => {
   expect(filterInboxConversations(chats, "missing", false)).toEqual([]);
   expect(filterInboxConversations([], "", false)).toEqual([]);
+});
+
+test("sort modes use recency within unread and read groups rather than unread counts", () => {
+  const oldUnread = { ...chats[0], lastMessageAt: "2026-09-30 10:00:00+00", unreadCount: 12 };
+  const newUnread = { ...chats[0], id: "3", contactPhone: "+919999999999", lastMessageAt: "2026-10-01T10:00:00Z", unreadCount: 1 };
+  const newestRead = { ...chats[1], lastMessageAt: "2026-10-02T10:00:00Z" };
+  const items = [oldUnread, newestRead, newUnread];
+  expect(sortInboxConversations(items)).toEqual([newestRead, newUnread, oldUnread]);
+  expect(sortInboxConversations(items, true)).toEqual([newUnread, oldUnread, newestRead]);
+  expect(sortInboxConversations(filterInboxConversations(items, "", true), true)).toEqual([newUnread, oldUnread]);
+  expect(items).toEqual([oldUnread, newestRead, newUnread]);
 });

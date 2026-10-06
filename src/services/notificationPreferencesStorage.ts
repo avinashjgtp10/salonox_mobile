@@ -69,9 +69,6 @@ export const hasEnabledNotificationPreference = (
 ): boolean =>
   preferences.allNotifications && (preferences.appointments || preferences.otherUpdates || preferences.paymentComplete || preferences.productAudit);
 
-// Backend `type` values (see src/types/notification.ts) that count as an
-// "appointment" notification for the Appointments toggle — everything else
-// (client, payment, whatsapp, and any future type) falls under "Other Updates".
 const APPOINTMENT_NOTIFICATION_TYPES = new Set(["appointment", "newappointment", "appointmentreminder", "appointmentcancelled", "appointmentcompleted"]);
 
 export const isNotificationTypeEnabled = (

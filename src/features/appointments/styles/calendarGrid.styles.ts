@@ -217,11 +217,18 @@ export const createCalendarGridStyles = (Colors: ThemeColors) => StyleSheet.crea
     borderRightWidth: StyleSheet.hairlineWidth,
     position: "relative",
   },
-  dinggQuickSaleSlot: {
+  dinggQuickSaleLayer: {
+    bottom: 0,
     left: 0,
     position: "absolute",
     right: 0,
+    top: 0,
     zIndex: 1,
+  },
+  dinggGridLines: {
+    bottom: 0,
+    position: "absolute",
+    top: 0,
   },
   dinggColumnAvailable: {
     backgroundColor: Colors.appointmentSurface,

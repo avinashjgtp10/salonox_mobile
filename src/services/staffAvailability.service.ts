@@ -145,8 +145,6 @@ const buildSlots = (
   return slots;
 };
 
-// A 403 from a staff-scoped read means the caller lacks the manager-level
-// permission, not that anything is broken — treat it as "unknown" data.
 const isPermissionError = (error: unknown) => error instanceof ApiError && error.status === 403;
 
 const normalizeAvailability = (
@@ -193,11 +191,6 @@ const normalizeAvailability = (
 export const staffAvailabilityService = {
   async getAvailability(staffId: string, date: string): Promise<StaffAvailability> {
     const [schedule, blockedTimes] = await Promise.all([
-      // GET /staff/:id/scheduled is gated behind manage_staff_personal_data,
-      // which a staff member does not hold even for their own row. Degrade to
-      // an empty schedule on a permission error instead of rejecting, so the
-      // staff calendar still renders its blocked times and appointments
-      // rather than showing a raw FORBIDDEN across the whole screen.
       staffScheduleService.getSchedule(staffId).catch((error: unknown) => {
         if (!isPermissionError(error)) {
           throw error;
@@ -207,7 +200,10 @@ export const staffAvailabilityService = {
 
         return emptySchedule;
       }),
-      staffBlockedTimesService.getBlockedTimes(staffId),
+      staffBlockedTimesService.getBlockedTimes(staffId).catch((error: unknown) => {
+        if (!isPermissionError(error)) throw error;
+        return [];
+      }),
     ]);
 
     return normalizeAvailability(schedule, blockedTimes, staffId, date);

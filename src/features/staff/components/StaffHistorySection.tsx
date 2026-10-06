@@ -1,5 +1,6 @@
+import { Text } from "@/components/ui/AppTypography";
 import { useEffect, useMemo, useState } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, TouchableOpacity, View } from "react-native";
 
 import {
   DashboardRadius as Radius,
@@ -43,8 +44,6 @@ function formatCurrency(amount: number) {
   return `Rs. ${amount.toLocaleString("en-IN")}`;
 }
 
-// Both tabs read the current calendar month, matching the range the
-// commission and tip screens report on.
 export function StaffHistorySection({ staffId }: StaffHistorySectionProps) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);

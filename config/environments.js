@@ -1,9 +1,3 @@
-// Build-time environment registry consumed by app.config.ts (Node/CommonJS —
-// Expo's dynamic-config loader only transpiles app.config.ts itself, so
-// anything it requires must already be plain JS). Runtime values (API/socket
-// URLs) stay solely in .env.* / eas.json via EXPO_PUBLIC_* vars — see
-// src/config/environment.ts — so they are not duplicated here.
-// Types for this module live in ./environments.d.ts.
 
 const ENVIRONMENTS = {
   development: {

@@ -1,14 +1,8 @@
+import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppLayout } from "@/constants/layout";
@@ -49,6 +43,7 @@ import {
   selectDashboardStatus,
 } from "@/store/dashboard/dashboard.slice";
 import { useThemeColors } from "@/theme/ThemeProvider";
+import { DashboardTourProvider, useDashboardTour } from "@/features/userGuide/DashboardTour";
 
 const getTodayDateKey = () => {
   const date = new Date();
@@ -60,6 +55,11 @@ const getTodayDateKey = () => {
 };
 
 export default function DashboardScreen() {
+  return <DashboardTourProvider><DashboardContent /></DashboardTourProvider>;
+}
+
+function DashboardContent() {
+  const tour = useDashboardTour();
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
@@ -194,13 +194,8 @@ export default function DashboardScreen() {
       }
 
       fetchUpcomingAppointments();
-      // Picks up any check-in/out, manual mark, or edit made on the
-      // Attendance screen (or the Web App) while this tab was unfocused, so
-      // Staff Workload never shows a stale badge after returning here.
       fetchAttendance();
       fetchInventoryStock();
-      // Same idea for the bell badge — picks up anything marked read/created
-      // on the Notifications screen (or the Web App) since we last focused.
       fetchUnreadNotificationCount();
 
       void fetchDashboard();
@@ -214,9 +209,6 @@ export default function DashboardScreen() {
     ]),
   );
 
-  // Attendance and the notification badge must reflect the web app's state
-  // without requiring an app restart, so refresh both whenever the app comes
-  // back to the foreground.
   useAppForeground(() => {
     if (!isAuthenticated) {
       return;
@@ -228,7 +220,6 @@ export default function DashboardScreen() {
     fetchUnreadNotificationCount();
   });
 
-  // Real-time client updates: listen for new client creation from other devices/web app
   useEffect(() => {
     if (!isAuthenticated) {
       return;
@@ -241,12 +232,9 @@ export default function DashboardScreen() {
     }
 
     const handleClientCreated = () => {
-      // Refetch clients to get updated total count
       dispatch(fetchClientsThunk({ offset: 0, reset: true, refresh: true }));
     };
 
-    // Listen for client creation events from the backend
-    // Common event names: "client:created", "client_created", "new_client"
     socket.on("client:created", handleClientCreated);
     socket.on("client_created", handleClientCreated);
     socket.on("new_client", handleClientCreated);
@@ -259,9 +247,16 @@ export default function DashboardScreen() {
   }, [dispatch, isAuthenticated]);
 
   return (
-    <SafeAreaView edges={["top"]} style={styles.safeArea}>
+    <SafeAreaView edges={["top"]} style={styles.safeArea}
+      accessibilityElementsHidden={tour?.active}
+      importantForAccessibility={tour?.active ? "no-hide-descendants" : "auto"}>
       <AppStatusBar />
       <ScrollView
+        ref={tour?.scrollRef}
+        onScroll={(event) => { if (tour) tour.scrollOffset.current = event.nativeEvent.contentOffset.y; }}
+        scrollEventThrottle={16}
+        scrollEnabled={!tour?.active}
+        removeClippedSubviews={false}
         contentContainerStyle={styles.content}
         refreshControl={
           <RefreshControl
@@ -282,7 +277,7 @@ export default function DashboardScreen() {
           />
         }
         showsVerticalScrollIndicator={false}
-        stickyHeaderIndices={showErrorState ? [] : [2]}
+        stickyHeaderIndices={showErrorState || tour?.active ? [] : [2]}
       >
         {showErrorState ? (
           <View style={styles.errorWrap}>

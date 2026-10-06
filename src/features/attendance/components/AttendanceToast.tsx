@@ -1,6 +1,7 @@
+import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useMemo } from "react";
-import { StyleSheet, Text, TouchableOpacity } from "react-native";
+import { StyleSheet, TouchableOpacity } from "react-native";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { ToastOverlay } from "@/components/ui/ToastOverlay";
 
@@ -11,9 +12,6 @@ import { useThemeColors } from "@/theme/ThemeProvider";
 
 const TOAST_DURATION_MS = 3200;
 
-// Mirrors the appointment module's snackbar pattern so success/error feedback
-// for check-in, check-out, manual mark, and attendance edits all render the
-// same way regardless of which screen triggered the action.
 export function AttendanceToast() {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);

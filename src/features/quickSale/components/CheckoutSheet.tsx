@@ -1,24 +1,7 @@
+import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  ActivityIndicator,
-  Animated,
-  BackHandler,
-  Easing,
-  KeyboardAvoidingView,
-  LayoutAnimation,
-  PanResponder,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  UIManager,
-  useWindowDimensions,
-  View,
-} from "react-native";
+import { ActivityIndicator, Animated, BackHandler, Easing, KeyboardAvoidingView, LayoutAnimation, PanResponder, Platform, Pressable, ScrollView, StyleSheet, TouchableOpacity, UIManager, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Portal } from "@/components/ui/Portal";
@@ -275,8 +258,6 @@ function CheckoutSheetComponent({
     if (isMounted) {
       runClose();
     }
-    // Intentionally depends on `visible` only; height changes are handled by
-    // the transform's next open cycle and should not restart the animation.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, initialStep]);
 
@@ -613,11 +594,6 @@ function CheckoutSheetComponent({
     onCompleteSale({ method: paymentMethod, paidAmount: amountToCollect });
   };
 
-  // Selecting a method only selects it — the sale is submitted from the
-  // footer's "Record Payment"/"Complete Sale" button via handleComplete. This
-  // deliberately does not check out on tap: the cash/card/UPI detail panels
-  // below are meant to be reviewed after choosing a method, and a mis-tap on a
-  // payment chip must never be able to take a customer's money.
   const handleSelectSinglePaymentMethod = (method: Exclude<SalePaymentMethod, "split">) => {
     setPaymentMethod(method);
     setLastSingleMethod(method);
@@ -696,10 +672,6 @@ function CheckoutSheetComponent({
           pointerEvents="none"
           style={[
             styles.backdrop,
-            // Inline means this sheet is inside the calendar's Quick Sale
-            // modal, which already paints its own scrim. Stacking the full
-            // strength dim on top of that reads as an extra dark screen
-            // behind the sheet rather than one backdrop.
             renderInline && styles.backdropInline,
             { opacity: backdropOpacity },
           ]}
@@ -1736,8 +1708,6 @@ function ConsumableActualQtyRow({
 
   useEffect(() => {
     setDraft(String(consumable.actualQty ?? consumable.qty));
-    // Only resync from the cart when the value changes from outside this
-    // input (e.g. quantity-stepper auto-scaling) — not on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [consumable.actualQty]);
 
@@ -2526,11 +2496,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "700",
     marginTop: Spacing.sm,
   },
-  quickChipRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: Spacing.sm,
-  },
   quickChip: {
     alignItems: "center",
     backgroundColor: Colors.card,
@@ -2681,27 +2646,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontSize: 24,
     fontWeight: "900",
     marginTop: 2,
-  },
-  changeCard: {
-    alignItems: "center",
-    backgroundColor: Colors.successBg,
-    borderColor: Colors.border,
-    borderRadius: Radius.lg,
-    borderWidth: 1,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: Spacing.md,
-    padding: Spacing.md,
-  },
-  changeLabel: {
-    color: Colors.text2,
-    fontSize: 12,
-    fontWeight: "900",
-  },
-  changeValue: {
-    color: Colors.primaryDark,
-    fontSize: 18,
-    fontWeight: "900",
   },
   selectedPaymentCard: {
     alignItems: "center",

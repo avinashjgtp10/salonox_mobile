@@ -1,11 +1,13 @@
+import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router, type Href } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Platform, StyleSheet, TouchableOpacity, View } from "react-native";
 
 import { BranchSelectorSheet } from "@/components/dashboard/BranchSelectorSheet";
 import { NotificationBadge } from "@/components/notifications/NotificationBadge";
+import { TourButton, useDashboardTour } from "@/features/userGuide/DashboardTour";
 import {
   DashboardTypography as Typography,
   type ThemeColors,
@@ -16,7 +18,6 @@ import { selectUnreadCount } from "@/store/notification/notification.slice";
 import { selectCurrentUser } from "@/store/user/user.slice";
 import { useAppTheme } from "@/theme/ThemeProvider";
 import {
-  DEFAULT_BUSINESS_NAME,
   getUserFullName,
   getUserInitials,
 } from "@/utils/userProfile";
@@ -45,6 +46,7 @@ type DashboardHeroProps = {
 };
 
 export default function DashboardHero({ onOpenNotifications, onOpenQuickActions }: DashboardHeroProps) {
+  const tour = useDashboardTour();
   const { colors: Colors, scheme, setMode } = useAppTheme();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const isDark = scheme === "dark";
@@ -56,8 +58,7 @@ export default function DashboardHero({ onOpenNotifications, onOpenQuickActions 
   const fullName = getUserFullName(currentUser);
   const firstName = getFirstName(fullName);
   const initials = getUserInitials(currentUser);
-  const brandName = DEFAULT_BUSINESS_NAME;
-  const branchName = activeBranch?.name ?? "Current Branch";
+  const salonName = activeBranch?.name?.trim() || currentUser?.businessName?.trim() || "Salon";
   const greeting = useMemo(getTimeGreeting, []);
   const [isBranchSheetOpen, setIsBranchSheetOpen] = useState(false);
 
@@ -71,7 +72,7 @@ export default function DashboardHero({ onOpenNotifications, onOpenQuickActions 
     <View style={styles.wrapper}>
       <View style={styles.topBar}>
         <View style={styles.leadingBrand}>
-          <TouchableOpacity
+          <TourButton tourId="menu"
             accessibilityLabel="Open quick actions"
             accessibilityRole="button"
             activeOpacity={0.7}
@@ -79,29 +80,28 @@ export default function DashboardHero({ onOpenNotifications, onOpenQuickActions 
             style={styles.headerIconButton}
           >
             <Ionicons name="menu-outline" size={24} color={Colors.onPrimary} />
-          </TouchableOpacity>
+          </TourButton>
           <View style={styles.brandLogoFrame}>
             <Image contentFit="contain" source={LOGO_SOURCE} style={styles.brandLogo} />
           </View>
         </View>
 
         <TouchableOpacity
-          accessibilityLabel={shouldShowBranchSelector ? "Switch branch" : "Current branch"}
+          accessibilityLabel={shouldShowBranchSelector ? `${salonName}, switch branch` : salonName}
           activeOpacity={shouldShowBranchSelector ? 0.8 : 1}
           onPress={() => shouldShowBranchSelector && setIsBranchSheetOpen(true)}
           style={styles.locationPill}
         >
           <Ionicons color={Colors.onPrimary} name="location-sharp" size={16} />
           <View style={styles.locationCopy}>
-            <Text numberOfLines={1} style={styles.locationLabel}>{brandName}</Text>
-            <Text numberOfLines={1} style={styles.locationName}>{branchName}</Text>
+            <Text numberOfLines={1} style={styles.locationName}>{salonName}</Text>
           </View>
           {shouldShowBranchSelector ? (
             <Ionicons color={Colors.dashboardTopBarMuted} name="chevron-down" size={16} />
           ) : null}
         </TouchableOpacity>
 
-        <TouchableOpacity
+        <TourButton tourId="notifications"
           accessibilityLabel="Open notifications"
           activeOpacity={0.7}
           onPress={onOpenNotifications ?? (() => router.push("/notifications" as Href))}
@@ -112,7 +112,7 @@ export default function DashboardHero({ onOpenNotifications, onOpenQuickActions 
             count={unreadNotificationCount}
             style={{ right: -4, top: -4, borderColor: Colors.dashboardTopBar }}
           />
-        </TouchableOpacity>
+        </TourButton>
       </View>
 
       <View style={styles.row}>
@@ -130,6 +130,11 @@ export default function DashboardHero({ onOpenNotifications, onOpenQuickActions 
           <Text numberOfLines={1} style={styles.ownerName}>
             Salon status for today
           </Text>
+          {tour?.offerTour ? (
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Start dashboard tour" onPress={tour.start} style={{ alignSelf: "flex-start", paddingVertical: 10 }}>
+              <Text style={{ color: Colors.primary, fontWeight: "700", fontSize: 13 }}>Take a dashboard tour →</Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
 
         <View style={styles.avatarColumn}>
@@ -221,13 +226,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     flex: 1,
     minWidth: 0,
   },
-  locationLabel: {
-    color: Colors.dashboardTopBarMuted,
-    fontSize: 10,
-    fontWeight: "700",
-    lineHeight: 12,
-    textTransform: "uppercase",
-  },
   locationName: {
     color: Colors.onPrimary,
     fontSize: 13,
@@ -264,7 +262,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     letterSpacing: 0,
     lineHeight: 34,
   },
-  // Avoid iOS shrinking the greeting during intrinsic text measurement.
   iosName: {
     width: "100%",
     flexShrink: 0,

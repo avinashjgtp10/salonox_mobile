@@ -2,12 +2,13 @@ import { useEffect, useState } from "react";
 import { Modal, ScrollView, StyleSheet, View } from "react-native";
 import { Button, Icon, ProgressBar, Text, useTheme } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useSegments } from "expo-router";
+import { router, useSegments } from "expo-router";
 
 import { useAuth } from "@/context/AuthContext";
 import { isStaffExperienceUser } from "@/utils/routeResolver";
 import { getGuideSteps, getGuideTabs } from "./guideSteps";
 import { guideStorage } from "./guideStorage";
+import { FeatureTourMenu } from "./FeatureTourMenu";
 
 function GuideModal({ staff, onClose }: { staff: boolean; onClose: () => void }) {
   const [index, setIndex] = useState(0);
@@ -45,6 +46,10 @@ function GuideModal({ staff, onClose }: { staff: boolean; onClose: () => void })
               ))}
             </View>
           </ScrollView>
+          {!staff && <Button icon="cursor-default-click-outline" onPress={() => {
+            onClose();
+            router.navigate({ pathname: "/(tabs)/dashboard", params: { tour: "1" } });
+          }}>Show me on the dashboard</Button>}
           <View style={styles.actions}>
             <Button disabled={index === 0} onPress={() => setIndex((current) => current - 1)}>Back</Button>
             <Button mode="contained" onPress={() => last ? onClose() : setIndex((current) => current + 1)}>{last ? "Get started" : "Next"}</Button>
@@ -57,8 +62,6 @@ function GuideModal({ staff, onClose }: { staff: boolean; onClose: () => void })
 
 export function FirstLoginGuide({ enabled }: { enabled: boolean }) {
   const { user, isAuthenticated, isLoading } = useAuth();
-  // Widened on purpose: without the generated .expo typed routes (e.g. in CI)
-  // useSegments() is typed as the tuple [string], which rejects segments[1].
   const segments: readonly string[] = useSegments();
   const userId = user?.id ?? "";
   const staff = isStaffExperienceUser(user);
@@ -91,6 +94,7 @@ export function UserGuideButton() {
   return (
     <>
       <Button icon="compass-outline" mode="outlined" onPress={() => setVisible(true)}>User guide</Button>
+      <FeatureTourMenu staff={isStaffExperienceUser(user)} />
       {visible && <GuideModal staff={isStaffExperienceUser(user)} onClose={() => {
         setVisible(false);
         if (user?.id) void guideStorage.dismiss(user.id);

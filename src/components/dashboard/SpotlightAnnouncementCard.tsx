@@ -1,14 +1,7 @@
+import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  FlatList,
-  StyleSheet,
-  Text,
-  View,
-  useWindowDimensions,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
-} from "react-native";
+import { FlatList, StyleSheet, View, useWindowDimensions, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
 
 import {
   DashboardRadius as Radius,
@@ -29,8 +22,6 @@ import {
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { SpotlightFeature } from "@/types/spotlight";
 
-// Matches the dashboard's own horizontal gutter so a card's edges line up
-// with the stat tiles below it.
 const HORIZONTAL_PADDING = 14;
 const CARD_GAP = 10;
 
@@ -47,8 +38,6 @@ export default function SpotlightAnnouncementCard() {
   const listRef = useRef<FlatList<SpotlightFeature>>(null);
 
   const cardWidth = width - HORIZONTAL_PADDING * 2;
-  // Each page is one card plus the gap that follows it, so paging lands the
-  // next card flush against the left gutter.
   const pageWidth = cardWidth + CARD_GAP;
 
   useEffect(() => {
@@ -71,10 +60,6 @@ export default function SpotlightAnnouncementCard() {
     };
   }, []);
 
-  // Stamps the moment each announcement was first shown on this device. The
-  // one-hour lifetime runs from here rather than from the release date, so an
-  // owner who opens the app days after a release still gets a full hour to
-  // notice it.
   useEffect(() => {
     if (!seenMap || publishedFeatures.length === 0) {
       return;
@@ -105,14 +90,10 @@ export default function SpotlightAnnouncementCard() {
     return publishedFeatures.filter((feature) => {
       const firstSeen = seenMap[feature.id];
 
-      // Not stamped yet (the effect above runs right after) — treat as fresh
-      // rather than hiding it for a frame.
       return firstSeen === undefined || now - firstSeen < SPOTLIGHT_VISIBLE_MS;
     });
   }, [now, publishedFeatures, seenMap]);
 
-  // Expire the card while the dashboard is still open, instead of only on the
-  // next mount. One timer, set for whichever visible card lapses first.
   useEffect(() => {
     if (!seenMap || features.length === 0) {
       return;
@@ -137,8 +118,6 @@ export default function SpotlightAnnouncementCard() {
     return () => clearTimeout(timer);
   }, [features, seenMap]);
 
-  // Features drop out as they expire; without this the dots could point past
-  // the end after the last card goes.
   useEffect(() => {
     setActiveIndex((current) => Math.min(current, Math.max(0, features.length - 1)));
   }, [features.length]);
@@ -173,15 +152,11 @@ export default function SpotlightAnnouncementCard() {
         horizontal
         keyExtractor={(feature) => feature.id}
         onMomentumScrollEnd={handleScroll}
-        // A single card has nothing to page through, so let it sit static
-        // rather than rubber-banding under the finger.
         scrollEnabled={!isSingle}
         showsHorizontalScrollIndicator={false}
         snapToAlignment="start"
         snapToInterval={pageWidth}
         renderItem={({ item }) => (
-          // Read-only announcement: no press handling at all, so a stray tap
-          // on the dashboard can never navigate or dismiss anything.
           <View style={[styles.card, { width: cardWidth }]}>
             <View style={styles.topRow}>
               <View style={styles.badge}>

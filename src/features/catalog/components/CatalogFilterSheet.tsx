@@ -1,6 +1,7 @@
+import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useMemo, useState } from "react";
-import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { AppRadius } from "@/constants/layout";
@@ -29,7 +30,6 @@ type Props = {
 
 const toggle = <T,>(items: T[], item: T) => (items.includes(item) ? items.filter((value) => value !== item) : [...items, item]);
 
-/** Controlled catalog filter panel; data fetching and list/grid rendering belong to its caller. */
 export function CatalogFilterSheet({ categories, label, onApply, onClose, onReset, tab, value, visible }: Props) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
@@ -45,8 +45,6 @@ export function CatalogFilterSheet({ categories, label, onApply, onClose, onRese
     }
   }, [value, visible]);
 
-  // Selected categories stay listed even if the current rows no longer offer
-  // them, so an applied filter is never silently unrepresented in the panel.
   const categoryOptions = useMemo(
     () => [...new Set([...categories, ...draft.categories])].sort((a, b) => a.localeCompare(b)),
     [categories, draft.categories],
@@ -116,7 +114,7 @@ export function CatalogFilterSheet({ categories, label, onApply, onClose, onRese
       </TouchableOpacity>
       {categoryOpen ? (
         <View style={styles.dropdownList}>
-          {/* The sheet body scrolls too, so the option list needs nested scrolling of its own. */}
+
           <ScrollView keyboardShouldPersistTaps="handled" nestedScrollEnabled style={styles.dropdownScroll}>
             <TouchableOpacity
               accessibilityRole="button"
@@ -212,7 +210,6 @@ export function CatalogFilterSheet({ categories, label, onApply, onClose, onRese
   );
 }
 
-// Mirrors ConsumableFilterSheet so both filter panels read as one design.
 const createStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     title: { color: colors.heading, fontSize: 12, fontWeight: "800", marginTop: Spacing.md, marginBottom: Spacing.sm },

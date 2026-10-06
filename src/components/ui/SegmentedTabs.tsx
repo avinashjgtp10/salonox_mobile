@@ -1,5 +1,6 @@
+import { Text } from "@/components/ui/AppTypography";
 import { useMemo } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, TouchableOpacity, View } from "react-native";
 
 import { DashboardRadius as Radius, type ThemeColors } from "@/constants/theme";
 import { useThemeColors } from "@/theme/ThemeProvider";
@@ -14,14 +15,9 @@ type SegmentedTabsProps<TKey extends string> = {
   activeKey: TKey;
   onChange: (key: TKey) => void;
   segments: SegmentedTabOption<TKey>[];
-  // Rendered inline after a disabled segment's label (e.g. a small "Soon"
-  // badge) — kept generic rather than baking in one specific badge shape.
   renderDisabledAdornment?: (segment: SegmentedTabOption<TKey>) => React.ReactNode;
 };
 
-// Generalized version of Quick Sale's existing Services/Products/Bill tab
-// row — same pill-track visual, now reusable by any screen (Notifications'
-// All/Unread control, Quick Sale's own tab row).
 export function SegmentedTabs<TKey extends string>({
   activeKey,
   onChange,

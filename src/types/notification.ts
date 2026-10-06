@@ -1,8 +1,3 @@
-// Verified against salon_mgm_backend/src/modules/notifications — the real
-// row shape is { id, salon_id, type, title, body, is_read, created_at }.
-// `type` is a free-form string set by whichever backend module created the
-// notification (e.g. "appointment", "client", "payment", "whatsapp") — new
-// values can appear at any time, so nothing here should assume a fixed set.
 export type NotificationItem = {
   body: string | null;
   createdAt: string | null;
@@ -12,6 +7,7 @@ export type NotificationItem = {
   referenceId: string | null;
   title: string;
   type: string;
+  recipientUserIds?: string[];
 };
 
 export type NotificationsListResponse = {

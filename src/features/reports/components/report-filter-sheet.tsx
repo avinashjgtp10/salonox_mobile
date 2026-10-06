@@ -1,5 +1,6 @@
+import { Text, TextInput } from "@/components/ui/AppTypography";
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Pressable, StyleSheet, TouchableOpacity, View } from "react-native";
 
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { AppRadius } from "@/constants/layout";
@@ -67,8 +68,6 @@ export const ReportFilterSheet = memo(function ReportFilterSheet({
   const update = useCallback((key: ReportFilterKey, value: string) => {
     setDraft((current) => ({ ...current, [key]: value, page: 1 }));
   }, []);
-  // Dates are owned by the REPORT RANGE calendar on the report screen, so they
-  // are deliberately absent here rather than offered through a second control.
   const visibleFilters = supportedFilters.filter((key) =>
     key !== "search" && key !== "branch_id" && !DATE_KEYS.includes(key));
 

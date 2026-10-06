@@ -87,12 +87,8 @@ export const authService = {
       ? { headers: { Authorization: `Bearer ${tokens.accessToken}` } }
       : undefined;
 
-    try {
-      await api.post<ApiResponse<{ message?: string }>>("/auth/logout", payload, config);
-    } finally {
-      await tokenStorage.clearSession();
-      logAuthEvent("logout_completed");
-    }
+    await api.post<ApiResponse<{ message?: string }>>("/auth/logout", payload, config);
+    logAuthEvent("logout_completed");
   },
 
   async getCurrentUser() {
@@ -167,23 +163,15 @@ export const authService = {
       ? { headers: { Authorization: `Bearer ${tokens.accessToken}` } }
       : undefined;
 
-    try {
-      await api.post<ApiResponse<{ message?: string }>>("/auth/logout-all", undefined, config);
-    } finally {
-      await tokenStorage.clearSession();
-      logAuthEvent("logout_all_completed");
-    }
+    await api.post<ApiResponse<{ message?: string }>>("/auth/logout-all", undefined, config);
+    logAuthEvent("logout_all_completed");
   },
 
   async deleteAccount(payload?: DeleteAccountRequest) {
-    try {
-      await api.delete<ApiResponse<{ message?: string }>>("/auth/account", {
-        ...(payload ? { data: payload } : {}),
-      });
-    } finally {
-      await tokenStorage.clearSession();
-      logAuthEvent("delete_account_completed");
-    }
+    await api.delete<ApiResponse<{ message?: string }>>("/auth/account", {
+      ...(payload ? { data: payload } : {}),
+    });
+    logAuthEvent("delete_account_completed");
   },
 
   async sendEmailOtp(payload: EmailOtpSendRequest) {
@@ -247,7 +235,6 @@ export const authService = {
   },
 
   async changePassword(payload: ChangePasswordRequest) {
-    // Undocumented contract: send both camelCase and snake_case variants.
     const requestBody = {
       confirmPassword: payload.confirmPassword,
       confirm_password: payload.confirmPassword,

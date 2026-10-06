@@ -364,6 +364,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       cancelProtectedApiRequests();
       await clearLocalSession("delete_account");
     } catch (deleteAccountError) {
+      resumeNotificationRegistration();
       const message = getApiErrorMessage(deleteAccountError);
 
       setError(message);

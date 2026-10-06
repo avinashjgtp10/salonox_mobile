@@ -1,16 +1,12 @@
+import { Text } from "@/components/ui/AppTypography";
+import { Redirect } from "expo-router";
+import { useAuth } from "@/context/AuthContext";
+import { isStaffExperienceUser, OWNER_CALENDAR_ROUTE, STAFF_HOME_ROUTE } from "@/utils/routeResolver";
+import { appAlert as Alert } from "@/services/appAlert";
 import { Ionicons } from "@expo/vector-icons";
 import { router, Stack, useFocusEffect, useLocalSearchParams, type Href } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  ActivityIndicator,
-  Alert,
-  BackHandler,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { ActivityIndicator, BackHandler, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ReceiptModal } from "@/components/receipt/ReceiptModal";
@@ -30,7 +26,6 @@ import type { SaleDetail } from "@/types/sales";
 import { normalizeSaleId } from "@/utils/apiNormalize";
 import { formatAppDate, formatAppTime } from "@/utils/dateTime";
 import { formatInvoiceNumber } from "@/utils/receipt";
-import { OWNER_CALENDAR_ROUTE } from "@/utils/routeResolver";
 import type { ReceiptData } from "@/utils/receiptGenerator";
 
 type ReceiptLoadStatus = "initial" | "loading" | "loaded" | "failed" | "retrying";
@@ -53,6 +48,14 @@ function formatPaymentMethod(method: string) {
 }
 
 export default function QuickSaleCheckoutScreen() {
+  const { user, isLoading } = useAuth();
+  if (isLoading) return null;
+  if (!user) return <Redirect href="/login" />;
+  if (isStaffExperienceUser(user)) return <Redirect href={STAFF_HOME_ROUTE} />;
+  return <OwnerQuickSaleCheckoutScreen />;
+}
+
+function OwnerQuickSaleCheckoutScreen() {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const params = useLocalSearchParams<{
@@ -70,7 +73,6 @@ export default function QuickSaleCheckoutScreen() {
   const receiptRequestIdRef = useRef(0);
   const receiptRequestInFlightRef = useRef(false);
   const [receiptLoadState, setReceiptLoadState] = useState<ReceiptLoadState>({
-    // ... existing state ...
     error: null,
     sale: null,
     status: "initial",
@@ -88,8 +90,6 @@ export default function QuickSaleCheckoutScreen() {
         }
       })
       .catch(() => {
-        // Receipt still renders without salon branding — printReceipt/shareReceipt
-        // just fall back to empty salon fields below.
       });
 
     return () => {
@@ -197,8 +197,6 @@ export default function QuickSaleCheckoutScreen() {
 
     const itemDiscountTotal = items.reduce((sum, item) => sum + (item.discount ?? 0), 0);
 
-    // Split payments store their per-method breakdown as backend-computed
-    // { [method]: amount } JSON — parsed here, never recalculated locally.
     let paymentBreakdown: { method: string; amount: number }[] | undefined;
     if (authoritativeSale.paymentMethod === "split" && authoritativeSale.paymentReference) {
       try {
@@ -232,7 +230,7 @@ export default function QuickSaleCheckoutScreen() {
       client: {
         name: authoritativeSale.clientName ?? "Walk-in Client",
         phone: authoritativeSale.clientPhone,
-        email: undefined, // Not available in SaleDetail directly
+        email: undefined,
       },
       staffName: authoritativeSale.lineItems.find((item) => item.staffName)?.staffName,
       items,
@@ -245,7 +243,7 @@ export default function QuickSaleCheckoutScreen() {
         couponDiscount:
           authoritativeSale.couponDiscountAmount > 0 ? authoritativeSale.couponDiscountAmount : undefined,
         gstAmount: authoritativeSale.taxAmount,
-        taxBreakdown: undefined, // Backend stores one blended tax_amount per sale, no CGST/SGST split
+        taxBreakdown: undefined,
         exCharges: authoritativeSale.exCharges,
         tipAmount: authoritativeSale.tipAmount,
         grandTotal: authoritativeSale.total,
@@ -254,7 +252,7 @@ export default function QuickSaleCheckoutScreen() {
       },
       paperSize: "80mm",
       footerMessage: "Thank you for your business! Visit us again soon.",
-      upiQrUrl: undefined, // No UPI QR source stored on the salon profile yet
+      upiQrUrl: undefined,
     };
   }, [authoritativeSale, salon]);
 

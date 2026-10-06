@@ -1,20 +1,10 @@
+import { Text, TextInput } from "@/components/ui/AppTypography";
+import { TourView, TourFlatList, withScreenTour } from "@/features/userGuide/DashboardTour";
+import { screenTours } from "@/features/userGuide/screenTours";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker, { type DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { useMemo, useState } from "react";
-import {
-  ActivityIndicator,
-  FlatList,
-  Modal,
-  Platform,
-  Pressable,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-  type ListRenderItem,
-} from "react-native";
+import { ActivityIndicator, Modal, Platform, Pressable, RefreshControl, StyleSheet, TouchableOpacity, View, type ListRenderItem } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppBackButton } from "@/components/ui/AppBackButton";
@@ -28,11 +18,12 @@ import { AttendanceToast } from "@/features/attendance/components/AttendanceToas
 import { EditAttendanceModal } from "@/features/attendance/components/EditAttendanceModal";
 import { useAttendanceActions } from "@/features/attendance/hooks/useAttendanceActions";
 import { type AttendanceStaffRowData, useAttendanceScreen } from "@/features/attendance/hooks/useAttendanceScreen";
-import { formatAttendanceDate, getAttendanceAction } from "@/features/attendance/utils/attendanceStatus";
+import { formatAttendanceDate, getAttendanceAction, parseAttendanceDateTime } from "@/features/attendance/utils/attendanceStatus";
 import { selectCurrentUser } from "@/store/user/user.slice";
 import { useAppSelector } from "@/store/hooks";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { canManageStaffLifecycle } from "@/utils/userProfile";
+import { router } from "expo-router";
 
 type CheckModalState = {
   mode: "checkIn" | "checkOut";
@@ -45,7 +36,7 @@ const toDateValue = (dateKey: string) => {
   return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
 };
 
-export default function AttendanceScreen() {
+function AttendanceScreenContent() {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const {
@@ -67,7 +58,7 @@ export default function AttendanceScreen() {
   } = useAttendanceScreen();
   const { checkIn, checkOut } = useAttendanceActions();
   const currentUser = useAppSelector(selectCurrentUser);
-  const canManageAttendance = canManageStaffLifecycle(currentUser?.role);
+  const canManageAttendance = Boolean(currentUser?.role) && canManageStaffLifecycle(currentUser?.role);
   const [editStaffId, setEditStaffId] = useState<string | null>(null);
   const [checkModal, setCheckModal] = useState<CheckModalState>(null);
   const [isDatePickerVisible, setIsDatePickerVisible] = useState(false);
@@ -77,6 +68,7 @@ export default function AttendanceScreen() {
   const checkModalRow = rows.find((row) => row.staffMember.id === checkModal?.staffId) ?? null;
 
   const handlePrimaryAction = async (row: AttendanceStaffRowData) => {
+    if (!canManageAttendance) return;
     const action = getAttendanceAction(row.record);
 
     if (action.kind === "edit") {
@@ -90,7 +82,7 @@ export default function AttendanceScreen() {
   };
 
   const handleCheckSubmit = async ({ isoTime, note }: { isoTime?: string; note?: string }) => {
-    if (!checkModalRow || !checkModal) {
+    if (!canManageAttendance || !checkModalRow || !checkModal) {
       return;
     }
 
@@ -102,6 +94,10 @@ export default function AttendanceScreen() {
         staffId: checkModalRow.staffMember.id,
       });
     } else {
+      const start = parseAttendanceDateTime(checkModalRow.record?.checkInTime);
+      if (start && isoTime && new Date(isoTime).getTime() < start.getTime()) {
+        throw new Error("Check-out cannot be before check-in. Use Edit Attendance for an overnight shift.");
+      }
       await checkOut({
         checkOutTime: isoTime,
         date: selectedDate,
@@ -148,8 +144,13 @@ export default function AttendanceScreen() {
       </View>
 
       <AttendanceSummaryCards summary={summary} />
+      {canManageAttendance && ["salon_owner", "admin"].includes(currentUser?.role ?? "") ? (
+        <TouchableOpacity onPress={() => router.push("/team/attendance-tools" as never)} style={styles.todayButton}>
+          <Text style={styles.todayButtonText}>Attendance rules, devices & export</Text>
+        </TouchableOpacity>
+      ) : null}
 
-      <View style={styles.dateNavCard}>
+      <TourView tourId="date" style={styles.dateNavCard}>
         <TouchableOpacity activeOpacity={0.84} onPress={onPreviousDay} style={styles.dateNavButton}>
           <Ionicons name="chevron-back" size={16} color={Colors.primaryDark} />
         </TouchableOpacity>
@@ -174,9 +175,9 @@ export default function AttendanceScreen() {
             <Text style={styles.todayButtonText}>Today</Text>
           </TouchableOpacity>
         ) : null}
-      </View>
+      </TourView>
 
-      <View style={styles.searchWrap}>
+      <TourView tourId="search" style={styles.searchWrap}>
         <Ionicons name="search-outline" size={16} color={Colors.text2} />
         <TextInput
           onChangeText={onSearchChange}
@@ -190,7 +191,7 @@ export default function AttendanceScreen() {
             <Ionicons name="close-circle" size={17} color={Colors.text2} />
           </TouchableOpacity>
         ) : null}
-      </View>
+      </TourView>
 
       {recordsError ? <Text style={styles.errorText}>{recordsError}</Text> : null}
 
@@ -207,7 +208,7 @@ export default function AttendanceScreen() {
   return (
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
       <AppStatusBar />
-      <FlatList
+      <TourFlatList
         contentContainerStyle={styles.content}
         data={isInitialLoading ? [] : rows}
         keyExtractor={(item) => item.staffMember.id}
@@ -426,3 +427,5 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "800",
   },
 });
+
+export default withScreenTour(AttendanceScreenContent, screenTours.attendance);

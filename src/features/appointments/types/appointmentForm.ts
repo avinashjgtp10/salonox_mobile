@@ -24,8 +24,6 @@ export type FormErrors = Partial<Record<keyof AppointmentFormState, string>>;
 
 export type AppointmentSelectedService = ServiceListItem & {
   catalogServiceId?: string;
-  // The exact consumables to resend for this line: either copied from the
-  // catalog recipe when selected or restored from the persisted appointment.
   consumables?: ConsumableUsageItem[];
   discount?: number;
   isPackageService?: boolean;

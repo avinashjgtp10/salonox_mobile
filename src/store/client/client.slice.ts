@@ -68,20 +68,15 @@ type ClientState = {
   historyLoading: boolean;
   historyError: string | null;
   historyClientId: string | null;
-  // Everything below is the /clients/:id/history payload for the client named
-  // by historyClientId — the single source of truth for the Client Profile.
   historyClient: ClientHistoryClient | null;
   historyProfileStats: ClientHistoryStats | null;
   historyAppointments: ClientAppointmentRecord[];
   historySales: ClientSaleRecord[];
   historyPackages: ClientPackageRecord[];
   historyMemberships: ClientMembershipRecord[];
-  // Populated only by the /clients/with-history-stats list endpoint, which
-  // returns no per-client stats object — list screens only.
   historyStats: Record<string, ClientHistoryStats>;
   historyStatsLoading: boolean;
   historyStatsError: string | null;
-  // Notes have their own endpoint and are loaded lazily, keyed by client id.
   notes: Record<string, ClientNote[]>;
   notesLoading: boolean;
   notesError: string | null;
@@ -463,8 +458,6 @@ const clientSlice = createSlice({
         state.historyLoading = true;
         state.historyError = null;
 
-        // Opening a different client must not leave the previous client's
-        // numbers on screen while the new request is in flight.
         if (state.historyClientId !== action.meta.arg) {
           state.historyClientId = action.meta.arg;
           state.history = null;
@@ -519,7 +512,7 @@ const clientSlice = createSlice({
         state.clients = appendRequest
           ? mergeClients(state.clients, action.payload.clients)
           : action.payload.clients;
-        
+
         action.payload.clientsWithStats.forEach((item) => {
           state.historyStats[item.client.id] = item.stats;
         });

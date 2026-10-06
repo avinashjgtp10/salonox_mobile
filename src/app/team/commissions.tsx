@@ -1,19 +1,9 @@
+import { Text, TextInput } from "@/components/ui/AppTypography";
+import { appAlert as Alert } from "@/services/appAlert";
 import { Ionicons } from "@expo/vector-icons";
 import { Redirect, useFocusEffect } from "expo-router";
 import { useCallback, useDeferredValue, useMemo, useState } from "react";
-import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-  type ListRenderItem,
-} from "react-native";
+import { ActivityIndicator, FlatList, RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View, type ListRenderItem } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppBackButton, AppBackButtonPlaceholder } from "@/components/ui/AppBackButton";
@@ -122,9 +112,6 @@ export default function SalonCommissionsScreen() {
     }, [dispatch, hasSettlePermission]),
   );
 
-  // The commission-earned endpoint returns the full salon list in one shot
-  // (it does not support server-side search/status/pagination), so filtering
-  // for the Owner/Manager list view happens client-side over that result.
   const filteredRecords = useMemo(() => {
     const staffScoped =
       isStaffUser && currentStaff
@@ -214,8 +201,6 @@ export default function SalonCommissionsScreen() {
     const styles = useMemo(() => createStyles(Colors), []);
     const settling = useAppSelector((state) => selectCommissionSettling(state, record.staffId));
     const palette = getStatusPalette(record.status, Colors);
-    // unpaidAmount comes straight from the backend's pending payout for this
-    // staff member — never assume the full commission amount is unpaid.
     const unpaidAmount = record.unpaidAmount ?? 0;
 
     const isSettlable = canSettle && unpaidAmount > 0;
@@ -445,11 +430,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "800",
     marginTop: 6,
   },
-  emptyText: {
-    color: Colors.text2,
-    fontSize: 12,
-    lineHeight: 18,
-  },
   searchWrap: {
     alignItems: "center",
     backgroundColor: Colors.bg2,
@@ -491,9 +471,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   filterChipTextActive: {
     color: "#FFFFFF",
-  },
-  listLoading: {
-    marginVertical: Spacing.xl,
   },
   row: {
     backgroundColor: Colors.card,

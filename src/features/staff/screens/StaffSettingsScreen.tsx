@@ -1,9 +1,11 @@
+import { Text, TextInput } from "@/components/ui/AppTypography";
+import { appAlert as Alert } from "@/services/appAlert";
 import Constants from "expo-constants";
 import { Ionicons } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
 import { router, type Href } from "expo-router";
 import { useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Linking, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from "react-native";
+import { ActivityIndicator, Linking, Modal, StyleSheet, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
@@ -122,10 +124,6 @@ export function StaffSettingsScreen() {
     Constants.expoConfig?.android?.versionCode?.toString() ??
     "Unavailable";
 
-  const showUnavailable = (title: string, message: string) => {
-    Alert.alert(title, message);
-  };
-
   const openWebAppPage = async (path: string) => {
     await WebBrowser.openBrowserAsync(`${WEB_APP_URL}${path}`);
   };
@@ -150,7 +148,6 @@ export function StaffSettingsScreen() {
         return;
       }
     } catch {
-      // Fall through to WhatsApp Web when the native handler is unavailable.
     }
 
     await Linking.openURL(webUrl);
@@ -216,22 +213,11 @@ export function StaffSettingsScreen() {
   ];
   const preferenceItems: SettingsItem[] = [
     {
-      description: "Language, date format, and time format preferences are not integrated in this mobile layer.",
-      icon: "language-outline",
-      key: "locale",
-      onPress: () =>
-        showUnavailable(
-          "Preferences unavailable",
-          "Language, date format, and time format settings are not currently exposed by the mobile app.",
-        ),
-      title: "Language & Formats",
-    },
-    {
-      description: "Choose which push notifications this device receives.",
+      description: "View activity for your own appointments.",
       icon: "notifications-outline",
       key: "notification-settings",
-      onPress: () => router.push("/notification-settings" as Href),
-      title: "Notifications",
+      onPress: () => router.push("/(staff)/notifications" as Href),
+      title: "Appointment Activity",
     },
   ];
   const securityItems: SettingsItem[] = [

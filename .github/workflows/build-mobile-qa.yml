@@ -1,6 +1,4 @@
 ---
-# Intended branch: qa
-# Manual-only for now - no automatic trigger on push.
 name: Build Mobile - QA
 
 on:

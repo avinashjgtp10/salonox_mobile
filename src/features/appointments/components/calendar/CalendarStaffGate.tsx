@@ -1,6 +1,7 @@
+import { Text } from "@/components/ui/AppTypography";
 import { useCallback, useState, type ReactNode } from "react";
 import { router, useFocusEffect } from "expo-router";
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, StyleSheet, TouchableOpacity, View } from "react-native";
 import { fetchStaffThunk } from "@/middleware/staff/staff.thunk";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { selectActiveBranchId } from "@/store/branch/branch.slice";
@@ -16,7 +17,6 @@ export function CalendarStaffGate({ children }: { children: ReactNode }) {
   const [check, setCheck] = useState<Check>({ branchId, attempt: -1, status: "loading" });
   const [attempt, setAttempt] = useState(0);
 
-  // Refresh on return from staff creation, even when the calendar tab stayed mounted.
   useFocusEffect(useCallback(() => {
     let cancelled = false;
     setCheck({ branchId, attempt, status: "loading" });

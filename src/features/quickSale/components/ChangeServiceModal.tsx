@@ -1,6 +1,7 @@
+import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { useMemo, useState } from "react";
-import { Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Modal, StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppLayout } from "@/constants/layout";
@@ -15,10 +16,6 @@ type ChangeServiceModalProps = {
   visible: boolean;
 };
 
-// A dedicated full Modal (not the ScrollView-based StaffBottomSheet) because
-// this hosts ServiceCatalogTab's own FlatList — nesting a FlatList inside a
-// ScrollView breaks scrolling and triggers RN's "VirtualizedLists should
-// never be nested" warning.
 export function ChangeServiceModal({ onClose, onSelect, visible }: ChangeServiceModalProps) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);

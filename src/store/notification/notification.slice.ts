@@ -7,6 +7,7 @@ import {
   markAllNotificationsReadThunk,
   markNotificationReadThunk,
   registerDeviceThunk,
+  removeLocalNotificationThunk,
   unregisterDeviceThunk,
 } from "@/middleware/notification/notification.thunk";
 import type { RootState } from "@/store";
@@ -21,9 +22,8 @@ type NotificationState = {
   markingAllRead: boolean;
   markingReadIds: string[];
   notifications: NotificationItem[];
-  // The device token most recently confirmed registered with the backend —
-  // lets the push-setup hook skip a redundant network call when the token
-  // hasn't actually changed since last app launch.
+  locallyRemovedIds: string[];
+  removingIds: string[];
   registeredDeviceToken: string | null;
   registerDeviceError: string | null;
   registerDeviceStatus: ResourceStatus;
@@ -38,6 +38,8 @@ const initialState: NotificationState = {
   markingAllRead: false,
   markingReadIds: [],
   notifications: [],
+  locallyRemovedIds: [],
+  removingIds: [],
   registeredDeviceToken: null,
   registerDeviceError: null,
   registerDeviceStatus: "idle",
@@ -63,10 +65,21 @@ const notificationSlice = createSlice({
         state.listStatus = hasExistingData || isRefresh ? "succeeded" : "loading";
       })
       .addCase(fetchNotificationsThunk.fulfilled, (state, action) => {
-        state.notifications = action.payload.notifications;
+        state.notifications = action.payload.notifications.filter((notification) => !state.locallyRemovedIds.includes(notification.id));
         state.listError = null;
         state.listRefreshing = false;
         state.listStatus = "succeeded";
+      })
+      .addCase(removeLocalNotificationThunk.pending, (state, action) => {
+        state.removingIds.push(action.meta.arg);
+      })
+      .addCase(removeLocalNotificationThunk.fulfilled, (state, action) => {
+        state.removingIds = state.removingIds.filter((id) => id !== action.meta.arg);
+        if (!state.locallyRemovedIds.includes(action.payload)) state.locallyRemovedIds.push(action.payload);
+        state.notifications = state.notifications.filter((notification) => notification.id !== action.payload);
+      })
+      .addCase(removeLocalNotificationThunk.rejected, (state, action) => {
+        state.removingIds = state.removingIds.filter((id) => id !== action.meta.arg);
       })
       .addCase(fetchNotificationsThunk.rejected, (state, action) => {
         const hasExistingData = state.notifications.length > 0;
@@ -89,8 +102,6 @@ const notificationSlice = createSlice({
         const notificationId = action.meta.arg;
         const target = state.notifications.find((notification) => notification.id === notificationId);
 
-        // Optimistic: reflect the read state immediately rather than waiting
-        // on the round-trip, per the "immediately reflect" requirement.
         if (target && !target.isRead) {
           target.isRead = true;
           state.unreadCount = Math.max(0, state.unreadCount - 1);
@@ -105,8 +116,6 @@ const notificationSlice = createSlice({
         const notificationId = action.meta.arg;
         const target = state.notifications.find((notification) => notification.id === notificationId);
 
-        // Roll back the optimistic update — the request never actually
-        // succeeded, so the badge/list should not claim it's read.
         if (target) {
           target.isRead = false;
           state.unreadCount += 1;
@@ -126,8 +135,6 @@ const notificationSlice = createSlice({
       })
       .addCase(markAllNotificationsReadThunk.rejected, (state) => {
         state.markingAllRead = false;
-        // Can't safely un-mark individual items post-hoc (we didn't snapshot
-        // prior state) — resync from the server instead of guessing.
       })
       .addCase(registerDeviceThunk.pending, (state) => {
         state.registerDeviceError = null;
@@ -168,6 +175,7 @@ export const selectUnreadCount = (state: RootState) => state.notification.unread
 export const selectUnreadCountStatus = (state: RootState) => state.notification.unreadCountStatus;
 
 export const selectMarkingReadIds = (state: RootState) => state.notification.markingReadIds;
+export const selectRemovingNotificationIds = (state: RootState) => state.notification.removingIds;
 export const selectMarkingAllRead = (state: RootState) => state.notification.markingAllRead;
 
 export const selectRegisteredDeviceToken = (state: RootState) => state.notification.registeredDeviceToken;

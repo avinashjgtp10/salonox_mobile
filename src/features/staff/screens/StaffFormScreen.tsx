@@ -1,17 +1,11 @@
+import { Text } from "@/components/ui/AppTypography";
+import { appAlert as Alert } from "@/services/appAlert";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { router, useLocalSearchParams, type Href } from "expo-router";
 import { useMemo, useState } from "react";
-import {
-  ActivityIndicator,
-  Alert,
-  StyleSheet,
-  Switch,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { ActivityIndicator, StyleSheet, Switch, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import type { CountryCode } from "libphonenumber-js";
 
@@ -141,7 +135,6 @@ function ChipRow<T extends string>({
             key={option}
             activeOpacity={0.82}
             disabled={disabled}
-            // Tapping the already-selected chip clears it instead of being a no-op.
             onPress={() => onSelect(isSelected ? "" : option)}
             style={[styles.chip, isSelected && styles.chipSelected]}
           >
@@ -619,9 +612,6 @@ saveButtonDisabled: {
     color: "#FFFFFF",
     fontSize: 13,
     fontWeight: "800",
-  },
-  disabledInput: {
-    opacity: 0.65,
   },
   errorText: {
     color: Colors.error,

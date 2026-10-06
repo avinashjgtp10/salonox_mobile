@@ -2,7 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { tokenStorage } from "../src/services/tokenStorage.web";
 
 jest.mock("@react-native-async-storage/async-storage", () =>
-  require("@react-native-async-storage/async-storage/jest/async-storage-mock"));
+  jest.requireActual("@react-native-async-storage/async-storage/jest/async-storage-mock"));
 jest.mock("expo-secure-store", () => {
   throw new Error("Web storage must not import the native SecureStore module");
 });
@@ -24,9 +24,8 @@ test("web login persists tokens and a fresh module instance can restore them", a
   expect(await AsyncStorage.getItem("salonox.refreshToken")).toBe("refresh");
   let restored: typeof tokenStorage;
   jest.isolateModules(() => {
-    // Share the persistent backing store while recreating the service module.
     jest.doMock("@react-native-async-storage/async-storage", () => AsyncStorage);
-    restored = require("../src/services/tokenStorage.web").tokenStorage;
+    restored = jest.requireActual<typeof import("../src/services/tokenStorage.web")>("../src/services/tokenStorage.web").tokenStorage;
   });
   expect(await restored!.getSession()).toMatchObject({ accessToken: "access", refreshToken: "refresh" });
 });

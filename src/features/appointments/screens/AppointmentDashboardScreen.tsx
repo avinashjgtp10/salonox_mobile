@@ -1,3 +1,6 @@
+import { Text } from "@/components/ui/AppTypography";
+import { TourView, TourFlatList, withScreenTour } from "@/features/userGuide/DashboardTour";
+import { screenTours } from "@/features/userGuide/screenTours";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { PaginationControls } from "@/components/ui/PaginationControls";
 import { AppointmentCard } from "@/features/appointments/components/shared/AppointmentCard";
@@ -19,10 +22,10 @@ import { Ionicons } from "@expo/vector-icons";
 import type { Href } from "expo-router";
 import { router } from "expo-router";
 import { useCallback, useEffect, useMemo } from "react";
-import { FlatList, RefreshControl, Text, TouchableOpacity, useWindowDimensions, View } from "react-native";
+import { RefreshControl, TouchableOpacity, useWindowDimensions, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-export function AppointmentDashboardScreen() {
+function AppointmentDashboardScreenContent() {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const appointments = useAppSelector(selectAppointments);
@@ -36,14 +39,6 @@ export function AppointmentDashboardScreen() {
   const { width } = useWindowDimensions();
   const tileWidth = width >= 720 ? "31%" : "48%";
 
-  // Fetch the whole day once, unfiltered by status or search. Search and
-  // status only ever narrow the already-loaded data client-side below (see
-  // `filtered`) — the backend doesn't support text search at all (the
-  // `search` query param is accepted but never read server-side), and
-  // filtering by status server-side would mean re-fetching on every chip tap
-  // (a visible reload) and would make it impossible to compute the summary
-  // stats for every status at once. `limit: 200` matches the backend's own
-  // max page size, so a single day's appointments are captured in one call.
   useEffect(() => {
     void fetchAppointments({ date, limit: 200, reset: true });
   }, [date, fetchAppointments]);
@@ -73,9 +68,6 @@ export function AppointmentDashboardScreen() {
     [filtered],
   );
 
-  // Top matches for the search dropdown — reuses the same client+status
-  // -filtered `filtered` list (no separate request), capped for a compact
-  // suggestion panel.
   const searchDropdownResults = useMemo(() => filtered.slice(0, 8), [filtered]);
 
   const handleSelectSearchResult = useCallback(
@@ -116,7 +108,7 @@ export function AppointmentDashboardScreen() {
         status={status}
       />
 
-      <View style={styles.summaryGrid}>
+      <TourView tourId="summary" style={styles.summaryGrid}>
         <View style={[styles.summaryTileWrap, { width: tileWidth }]}>
           <SummaryTile icon="today-outline" label="Today" value={String(counts.today)} />
         </View>
@@ -135,7 +127,7 @@ export function AppointmentDashboardScreen() {
         <View style={[styles.summaryTileWrap, { width: tileWidth }]}>
           <SummaryTile icon="cash-outline" label="Revenue" value={formatCurrency(counts.revenue)} />
         </View>
-      </View>
+      </TourView>
 
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Today&apos;s appointments</Text>
@@ -168,7 +160,7 @@ export function AppointmentDashboardScreen() {
   return (
     <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
       <AppStatusBar />
-      <FlatList
+      <TourFlatList
         contentContainerStyle={styles.flatListContent}
         data={loading || error ? [] : filtered}
         keyExtractor={(item) => item.id}
@@ -206,3 +198,5 @@ export function AppointmentDashboardScreen() {
     </SafeAreaView>
   );
 }
+
+export const AppointmentDashboardScreen = withScreenTour(AppointmentDashboardScreenContent, screenTours.bookings);

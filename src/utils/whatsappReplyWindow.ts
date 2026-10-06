@@ -1,14 +1,6 @@
-// WhatsApp's Business Platform only permits free-form replies within 24 hours
-// of the contact's most recent INBOUND message. Outside that window Meta
-// rejects anything that isn't a pre-approved template.
-//
-// The backend does NOT enforce this — inboxService.sendReply calls
-// whatsappMetaApi.sendTextMessage directly — so a send outside the window
-// fails at Meta after the fact. The app therefore computes the window itself
-// from the message list (getMessages returns `direction` and `sent_at`) and
-// disables the composer rather than letting a message fail silently.
 
 import type { InboxMessage } from "@/types/inbox";
+import { parseAppDateTime } from "@/utils/dateTime";
 
 export const REPLY_WINDOW_MS = 24 * 60 * 60 * 1000;
 
@@ -16,7 +8,6 @@ export type ReplyWindow = {
   expiresAt: Date | null;
   isOpen: boolean;
   lastInboundAt: Date | null;
-  // Whole hours left, for the "closes in Nh" hint. 0 once it has closed.
   hoursRemaining: number;
 };
 
@@ -35,15 +26,13 @@ export const getReplyWindow = (messages: InboxMessage[], now = Date.now()): Repl
       continue;
     }
 
-    const sentMs = new Date(message.sentAt).getTime();
+    const sentMs = parseAppDateTime(message.sentAt)?.getTime() ?? NaN;
 
     if (Number.isFinite(sentMs) && (lastInboundMs === null || sentMs > lastInboundMs)) {
       lastInboundMs = sentMs;
     }
   }
 
-  // No inbound message ever means the window was never opened — the salon
-  // cannot start a free-form conversation, only respond to one.
   if (lastInboundMs === null) {
     return CLOSED;
   }
@@ -57,4 +46,9 @@ export const getReplyWindow = (messages: InboxMessage[], now = Date.now()): Repl
     isOpen: remainingMs > 0,
     lastInboundAt: new Date(lastInboundMs),
   };
+};
+
+export const canAttemptInboxReply = (messages: InboxMessage[], now = Date.now()) => {
+  const window = getReplyWindow(messages, now);
+  return window.lastInboundAt === null || window.isOpen;
 };

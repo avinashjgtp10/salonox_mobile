@@ -1,4 +1,7 @@
-import { api, CHECKOUT_REQUEST_TIMEOUT_MS } from "@/services/api";
+import { api, ApiError, CHECKOUT_REQUEST_TIMEOUT_MS } from "@/services/api";
+import type { StaffMember } from "@/data/teamData";
+import { isAssignedToStaff } from "@/features/appointments/utils/staffAssignment";
+import { getDateKey } from "@/features/appointments/utils/appointmentDateTime";
 import { APPOINTMENT, CLIENT } from "@/services/api/endpoints";
 import type { ApiResponse } from "@/types/auth";
 import { normalizeSaleId } from "@/utils/apiNormalize";
@@ -24,10 +27,6 @@ import type {
 type AppointmentListApiResponse = ApiResponse<AppointmentListApiData>;
 type AppointmentDetailApiResponse = ApiResponse<AppointmentDetailApiData>;
 
-// The backend has no dedicated GET /appointments/history route (it 404s into
-// the /appointments/:id handler, which throws on a non-UUID "history" id).
-// The client-scoped history endpoint already returns each appointment's raw
-// API shape nested under `appointments`, so that's reused here instead.
 type ClientHistoryApiResponse = ApiResponse<{
   appointments?: AppointmentApiItem[] | null;
   client?: AppointmentApiClient | null;
@@ -133,9 +132,6 @@ const ACTIVE_APPOINTMENT_STATUSES: ReadonlySet<AppointmentStatus> = new Set([
   "In Progress",
 ]);
 
-// Values the backend actually accepts. Frontend-only statuses ("Confirmed",
-// "In Progress", "Checked In", "In Service") have no direct backend equivalent
-// so they are mapped to their closest accepted peer.
 const APPOINTMENT_STATUS_API_VALUE: Record<AppointmentStatus, string> = {
   "Checked In": "booked",
   "Cancelled": "cancelled",
@@ -151,7 +147,6 @@ const APPOINTMENT_STATUS_API_VALUE: Record<AppointmentStatus, string> = {
   "Waiting": "booked",
 };
 
-// Statuses accepted by the backend POST /appointments and PATCH /appointments/:id.
 const BACKEND_VALID_STATUSES = new Set(["booked", "paid", "partial", "cancelled", "no-show", "deleted"]);
 
 export const isActiveAppointmentStatus = (status: AppointmentStatus) =>
@@ -255,6 +250,8 @@ const getStaffName = (appointment: AppointmentApiItem) =>
     .map((value) => toSafeString(value))
     .filter(Boolean)
     .join(" ") ||
+  toSafeString(appointment.services?.[0]?.staff_name) ||
+  toSafeString(typeof appointment.service === "object" ? appointment.service?.staff_name : null) ||
   "Staff not assigned";
 
 const getService = (appointment: AppointmentApiItem) => {
@@ -411,7 +408,9 @@ export const normalizeAppointment = (
     scheduledAt: toSafeString(appointment.scheduled_at) || toSafeString(appointment.start_time) || null,
     serviceId: service.id,
     serviceName: service.name,
-    staffId: toSafeString(appointment.staff_id) || toSafeString(appointment.staff?.id),
+    staffId: toSafeString(appointment.staff_id) || toSafeString(appointment.staff?.id) ||
+      toSafeString(appointment.services?.[0]?.staff_id) ||
+      toSafeString(typeof appointment.service === "object" ? appointment.service?.staff_id : null),
     staffName: getStaffName(appointment),
     startTime: toSafeString(appointment.start_time) || toSafeString(appointment.scheduled_at) || null,
     status,
@@ -462,7 +461,68 @@ const fetchAppointmentList = async (
   return { appointments, response, totalCount };
 };
 
+const staffListRequests = new Map<string, Promise<AppointmentListResponse>>();
+
+const fetchStaffAppointmentList = async (
+  query: AppointmentListQuery,
+  staff: StaffMember,
+  salonId?: string | null,
+): Promise<AppointmentListResponse> => {
+  const own: AppointmentListItem[] = [];
+  const seen = new Set<string>();
+  const scanLimit = 200;
+  let page = 1;
+
+  while (true) {
+    const result = await fetchAppointmentList({ ...query, staff_id: undefined, status: undefined, search: "", page, limit: scanLimit }, salonId);
+    const fresh = result.appointments.filter(item => !seen.has(item.id));
+    if (result.appointments.length > 0 && fresh.length === 0) {
+      throw new ApiError("Unable to load all of your appointments. Please try again.", 502);
+    }
+    for (const appointment of fresh) {
+      seen.add(appointment.id);
+      if (!isAssignedToStaff(appointment, staff)) continue;
+      const date = getDateKey(appointment.scheduledAt);
+      if (query.date && date !== query.date) continue;
+      if (query.from_date && date < query.from_date) continue;
+      if (query.to_date && date > query.to_date) continue;
+      if (query.status && !appointmentStatusMatchesFilter(appointment.status, toAppointmentStatus(query.status))) continue;
+      const ownAppointment = { ...appointment, staffName: staff.name };
+      const search = query.search.trim().toLowerCase();
+      if (search && ![ownAppointment.clientName, ownAppointment.serviceName, ownAppointment.phone, ownAppointment.staffName, ownAppointment.title]
+        .some(value => value.toLowerCase().includes(search))) continue;
+      own.push(ownAppointment);
+    }
+    const payload = result.response.data.data;
+    const metadata = Array.isArray(payload) ? {} : payload as { totalRecords?: number; totalPages?: number };
+    const total = metadata.totalRecords ?? result.totalCount;
+    if (result.appointments.length < scanLimit || (metadata.totalPages && page >= metadata.totalPages) || (total > result.appointments.length && page * scanLimit >= total)) break;
+    page++;
+  }
+
+  const direction = query.sort_order === "DESC" ? -1 : 1;
+  own.sort((left, right) => direction * (Date.parse(query.sort_by === "created_at" ? left.createdAt ?? "" : left.scheduledAt ?? "") -
+    Date.parse(query.sort_by === "created_at" ? right.createdAt ?? "" : right.scheduledAt ?? "")));
+  const limit = Math.max(1, query.limit);
+  const requestedPage = Math.max(1, query.page);
+  return {
+    appointments: own.slice((requestedPage - 1) * limit, requestedPage * limit),
+    query: { ...query, staff_id: staff.id },
+    totalCount: own.length,
+    pagination: { page: requestedPage, limit, nextPage: requestedPage + 1, totalCount: own.length,
+      totalPages: Math.ceil(own.length / limit), hasMore: requestedPage * limit < own.length },
+  };
+};
+
 export const appointmentService = {
+  getStaffAppointments(query: AppointmentListQuery, staff: StaffMember, salonId?: string | null): Promise<AppointmentListResponse> {
+    const key = JSON.stringify([staff.id, staff.userId, staff.staffIdAliases, salonId, query]);
+    const existing = staffListRequests.get(key);
+    if (existing) return existing;
+    const request = fetchStaffAppointmentList(query, staff, salonId).finally(() => staffListRequests.delete(key));
+    staffListRequests.set(key, request);
+    return request;
+  },
   async getAppointments(query: AppointmentListQuery, salonId?: string | null): Promise<AppointmentListResponse> {
     const [primaryStatus, ...legacyStatuses] = getCompatibleStatusQueries(query.status);
     const primaryResult = await fetchAppointmentList({ ...query, status: primaryStatus }, salonId);
@@ -514,9 +574,6 @@ export const appointmentService = {
       throw new Error("duration_minutes is required and must be a positive integer.");
     }
 
-    // Only forward status to the backend if it is an accepted value.
-    // Frontend-only statuses (empty string, "in_progress", etc.) are stripped
-    // so the backend defaults to "booked" for new appointments.
     if (rawStatus && BACKEND_VALID_STATUSES.has(rawStatus)) {
       (requestPayload as typeof requestPayload & { status?: string }).status = rawStatus;
     }

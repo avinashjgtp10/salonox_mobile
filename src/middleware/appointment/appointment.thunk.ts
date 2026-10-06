@@ -6,6 +6,10 @@ import { ApiError, getApiErrorMessage } from "@/services/api";
 import { appointmentService } from "@/services/appointment.service";
 import type { RootState } from "@/store";
 import { selectActiveBranchId } from "@/store/branch/branch.slice";
+import { selectCurrentStaff } from "@/store/staff/staff.slice";
+import { selectCurrentUser } from "@/store/user/user.slice";
+import { isStaffExperienceUser } from "@/utils/routeResolver";
+import { isAssignedToStaff } from "@/features/appointments/utils/staffAssignment";
 import type {
   AppointmentDetailResponse,
   AppointmentHistoryResponse,
@@ -59,6 +63,15 @@ export const fetchAppointmentsThunk = createAsyncThunk<
   };
 
   try {
+    if (isStaffExperienceUser(selectCurrentUser(state))) {
+      const staff = selectCurrentStaff(state);
+      if (!staff) throw new ApiError("Your staff profile is not available yet.", 403);
+      const response = await appointmentService.getStaffAppointments(query, staff, getSalonId(state));
+      if (selectCurrentUser(getState())?.id !== selectCurrentUser(state)?.id || selectCurrentStaff(getState())?.id !== staff.id) {
+        throw new ApiError("Your staff session has changed. Please refresh.", 403);
+      }
+      return response;
+    }
     return await appointmentService.getAppointments(query, getSalonId(state));
   } catch (error) {
     return rejectWithValue(toRejectValue(error));
@@ -69,9 +82,24 @@ export const fetchAppointmentByIdThunk = createAsyncThunk<
   AppointmentDetailResponse,
   string,
   { rejectValue: AppointmentRejectValue; state: RootState }
->("appointment/fetchAppointmentById", async (appointmentId, { rejectWithValue }) => {
+>("appointment/fetchAppointmentById", async (appointmentId, { getState, rejectWithValue }) => {
   try {
-    return await appointmentService.getAppointment(appointmentId);
+    const state = getState();
+    const isStaff = isStaffExperienceUser(selectCurrentUser(state));
+    const staff = selectCurrentStaff(state);
+    if (isStaff && !staff) throw new ApiError("Your staff profile is not available yet.", 403);
+    let response: AppointmentDetailResponse;
+    try {
+      response = await appointmentService.getAppointment(appointmentId);
+    } catch (error) {
+      const listed = state.appointment.appointments.find(item => item.id === appointmentId);
+      if (!isStaff || !(error instanceof ApiError) || error.status !== 403 || !staff || !listed || !isAssignedToStaff(listed, staff)) throw error;
+      response = { appointment: listed };
+    }
+    if (isStaff && (!staff || !isAssignedToStaff(response.appointment, staff) || selectCurrentUser(getState())?.id !== selectCurrentUser(state)?.id)) {
+      throw new ApiError("This appointment is not assigned to you.", 403);
+    }
+    return isStaff ? { ...response, appointment: { ...response.appointment, staffName: staff!.name } } : response;
   } catch (error) {
     return rejectWithValue(toRejectValue(error));
   }
@@ -91,8 +119,6 @@ export const createAppointmentThunk = createAsyncThunk<
 
     const response = await appointmentService.createAppointment(payload);
 
-    // The backend fires a "New Appointment Booked" notification on create —
-    // refresh the badge so it doesn't wait for the next foreground/focus tick.
     void dispatch(fetchUnreadCountThunk());
     void dispatch(fetchDashboardThunk());
     void dispatch(fetchAppointmentsThunk({ ...getState().appointment.query, refresh: true }));
@@ -147,7 +173,6 @@ export const cancelAppointmentThunk = createAsyncThunk<
         refresh: true,
       }),
     );
-    // The backend fires an "Appointment Cancelled" notification here too.
     void dispatch(fetchUnreadCountThunk());
     void dispatch(fetchDashboardThunk());
 

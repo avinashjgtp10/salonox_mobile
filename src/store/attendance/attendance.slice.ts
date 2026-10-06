@@ -92,8 +92,6 @@ const initialState: AttendanceState = {
   updatingAttendanceIds: [],
 };
 
-// Updates the matching row in place, or appends it when this is the first
-// time a record exists for that staff member (e.g. their first manual mark).
 const upsertRecord = (records: AttendanceRecord[], incoming: AttendanceRecord) => {
   const index = records.findIndex(
     (record) => record.id === incoming.id || record.staffId === incoming.staffId,
@@ -379,8 +377,6 @@ export const selectAttendanceSettingsError = (state: RootState) => state.attenda
 
 export const selectAttendanceToast = (state: RootState) => state.attendance.toast;
 
-// Memoized: only recomputes when either resource's loading/data actually changes,
-// so consumers don't re-render on unrelated state churn.
 export const selectAttendanceIsInitialLoading = createSelector(
   [selectAttendanceRecordsStatus, selectAttendanceRecords],
   (status, records) => status === "loading" && records.length === 0,

@@ -1,15 +1,8 @@
+import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  FlatList,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { FlatList, RefreshControl, StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
@@ -94,8 +87,6 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
   const hasMore = Boolean(config.paginated && pagination && pagination.page < pagination.totalPages);
   const supportsSearch = config.filters.includes("search");
   const isUnavailable = config.status !== "available";
-  // Reports name their date window differently (start_date/end_date, from/to,
-  // or a single date), so the range control resolves the pair this report uses.
   const dateKeys = useMemo(() => {
     if (config.filters.includes("start_date")) {
       return { end: "end_date", mode: "range", start: "start_date" } as const;
@@ -148,7 +139,6 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
     const nextFilters = { ...filters, search: debouncedSearch, page: 1 };
     dispatch(rememberReportFilters({ filters: nextFilters, slug: config.slug }));
     load(nextFilters);
-    // Filter changes are intentionally excluded: this effect owns search changes only.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [config.slug, debouncedSearch, dispatch, isUnavailable, load, supportsSearch]);
 

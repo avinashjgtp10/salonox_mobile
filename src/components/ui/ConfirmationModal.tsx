@@ -1,13 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
-import {
-  Modal,
-  Pressable,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-  useWindowDimensions,
-} from "react-native";
+import { Text } from "@/components/ui/AppTypography";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Modal, ActivityIndicator, Pressable, StyleSheet, TouchableOpacity, View, useWindowDimensions } from "react-native";
 
 import {
   DashboardRadius as Radius,
@@ -17,14 +10,23 @@ import {
 } from "@/constants/theme";
 import { useThemeColors } from "@/theme/ThemeProvider";
 
+export type ConfirmationAction = {
+  label: string;
+  variant?: "default" | "cancel" | "destructive";
+  onPress: () => void | Promise<void>;
+};
+
 type ConfirmationModalProps = {
   cancelLabel: string;
   cancelable?: boolean;
   confirmLabel: string;
-  confirmVariant?: "destructive";
+  confirmVariant?: "default" | "destructive";
+  actions?: ConfirmationAction[];
+  busy?: boolean;
+  error?: string | null;
   description: string;
   onCancel: () => void;
-  onConfirm: () => void;
+  onConfirm: () => void | Promise<void>;
   title: string;
   visible: boolean;
 };
@@ -34,6 +36,9 @@ export function ConfirmationModal({
   cancelable = true,
   confirmLabel,
   confirmVariant = "destructive",
+  actions,
+  busy = false,
+  error,
   description,
   onCancel,
   onConfirm,
@@ -44,24 +49,33 @@ export function ConfirmationModal({
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { width } = useWindowDimensions();
   const [isConfirming, setIsConfirming] = useState(false);
+  const actionLock = useRef(false);
+  const disabled = busy || isConfirming;
 
   useEffect(() => {
     if (visible) {
       setIsConfirming(false);
+      actionLock.current = false;
     }
   }, [visible]);
 
-  const handleConfirm = () => {
-    if (isConfirming) {
+  const handleAction = async (action: () => void | Promise<void>) => {
+    if (busy || actionLock.current) {
       return;
     }
 
+    actionLock.current = true;
     setIsConfirming(true);
-    onConfirm();
+    try {
+      await action();
+    } finally {
+      actionLock.current = false;
+      setIsConfirming(false);
+    }
   };
 
   const handleCancel = () => {
-    if (isConfirming) {
+    if (disabled || actionLock.current) {
       return;
     }
 
@@ -97,13 +111,30 @@ export function ConfirmationModal({
                 {title}
               </Text>
               <Text style={styles.description}>{description}</Text>
+              {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
             </View>
 
             <View style={styles.actions}>
+              {actions ? actions.map((action, index) => (
+                <TouchableOpacity
+                  key={`${index}-${action.label}`}
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled }}
+                  disabled={disabled}
+                  onPress={() => { void handleAction(action.onPress); }}
+                  style={[
+                    action.variant === "destructive" ? styles.secondaryButton : styles.primaryButton,
+                    action.variant === "destructive" && styles.destructiveButton,
+                    disabled && styles.disabledButton,
+                  ]}
+                >
+                  <Text style={action.variant === "destructive" ? [styles.secondaryButtonText, styles.destructiveButtonText] : styles.primaryButtonText}>{action.label}</Text>
+                </TouchableOpacity>
+              )) : <>
               <TouchableOpacity
                 accessibilityRole="button"
                 activeOpacity={0.86}
-                disabled={isConfirming}
+                disabled={disabled}
                 onPress={handleCancel}
                 style={styles.primaryButton}
               >
@@ -113,22 +144,23 @@ export function ConfirmationModal({
               <TouchableOpacity
                 accessibilityRole="button"
                 activeOpacity={0.86}
-                disabled={isConfirming}
-                onPress={handleConfirm}
+                disabled={disabled}
+                onPress={() => { void handleAction(onConfirm); }}
                 style={[
                   styles.secondaryButton,
                   confirmVariant === "destructive" ? styles.destructiveButton : null,
                 ]}
               >
-                <Text
+                {disabled ? <ActivityIndicator color={confirmVariant === "destructive" ? colors.error : colors.primary} /> : <Text
                   style={[
                     styles.secondaryButtonText,
                     confirmVariant === "destructive" ? styles.destructiveButtonText : null,
                   ]}
                 >
                   {confirmLabel}
-                </Text>
+                </Text>}
               </TouchableOpacity>
+              </>}
             </View>
           </Pressable>
         </Pressable>
@@ -180,6 +212,8 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     letterSpacing: 0,
     lineHeight: 22,
   },
+  error: { color: Colors.error, fontSize: 14, lineHeight: 20 },
+  disabledButton: { opacity: 0.5 },
   actions: {
     gap: Spacing.md,
   },
@@ -211,6 +245,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: Spacing.lg,
   },
   secondaryButtonText: {
+    color: Colors.primary,
     fontSize: 15,
     fontWeight: "700",
     letterSpacing: 0,

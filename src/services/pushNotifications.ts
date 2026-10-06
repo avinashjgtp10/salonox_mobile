@@ -4,6 +4,7 @@ import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 import { tokenStorage } from "@/services/tokenStorage";
 import { isNotificationRegistrationPaused } from "@/services/notificationRegistrationLifecycle";
+import { canReceivePush } from "@/utils/staffAccess";
 
 import {
   isNotificationTypeEnabled,
@@ -26,16 +27,13 @@ export class PushTokenGenerationError extends Error {
   }
 }
 
-// Foreground behavior — the OS banner/sound/badge would otherwise stay
-// silent while the app is open, which is exactly the case task #5 requires
-// ("show native notification banner" even in foreground).
 Notifications.setNotificationHandler({
   handleNotification: async (notification) => {
     const session = await tokenStorage.getSession();
     const data = notification.request.content.data;
     const recipientSalon = data?.salon_id ?? data?.salonId;
     const userSalon = session.user?.salonId;
-    const sessionAllowsNotification = Boolean(session.accessToken && session.user &&
+    const sessionAllowsNotification = Boolean(session.accessToken && session.user && canReceivePush(session.user, data) &&
       !isNotificationRegistrationPaused() && (!recipientSalon || recipientSalon === userSalon));
     const type = String(notification.request.content.data?.event_key ?? notification.request.content.data?.type ?? "general");
     const preferences = await notificationPreferencesStorage.getPreferences();
@@ -70,15 +68,10 @@ export const ensureAndroidNotificationChannel = async () => {
   }
 };
 
-// #12 — native push-token-rotation event, fired by the OS/native module
-// independently of any JS call. If this ever fires without a matching
-// register-device call, the backend's stored token silently goes stale.
 Notifications.addPushTokenListener((tokenData) => {
   void tokenData;
 });
 
-// Only ever returns "granted" or throws — callers branch on the error type
-// (denied vs. everything else) rather than juggling a status string.
 export const requestNotificationPermission = async (): Promise<void> => {
   const current = await Notifications.getPermissionsAsync();
 
@@ -97,9 +90,6 @@ export const requestNotificationPermission = async (): Promise<void> => {
   }
 };
 
-// Physical-device check matches Expo's own guidance — push tokens can't be
-// generated on a simulator/emulator, and failing there isn't a real error
-// the user needs to see.
 export const getExpoPushToken = async (): Promise<string> => {
   if (!Device.isDevice) {
     throw new PushTokenGenerationError(new Error("Push notifications require a physical device."));

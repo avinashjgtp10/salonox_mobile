@@ -1,5 +1,7 @@
 import { api } from "@/services/api";
-import { ATTENDANCE } from "@/services/api/endpoints";
+import { attendanceDateKey, evaluateAttendanceCheckIn } from "@/features/attendance/utils/attendanceRules";
+import { parseAttendanceDateTime } from "@/features/attendance/utils/attendanceStatus";
+import { ATTENDANCE, STAFF } from "@/services/api/endpoints";
 import type {
   AttendanceRecord,
   AttendanceRecordList,
@@ -29,10 +31,6 @@ import {
   type UnknownRecord,
 } from "@/utils/apiNormalize";
 
-// Fallback used only when the backend attendance record does not (yet) carry
-// a per-staff daily job capacity. Mirrors the daily-slot assumption already
-// shipped in the dashboard's staff workload view. Replace once the attendance
-// API exposes a real capacity field.
 const DEFAULT_DAILY_JOB_CAPACITY = 8;
 
 const AVATAR_PALETTE = [
@@ -86,8 +84,6 @@ const toAttendanceStatusKey = (rawStatus: string): AttendanceStatusKey => {
   }
 };
 
-// Inverse of the mapping above, for the manual-marking contract: converts the
-// finite UI status set to the wire value the backend expects.
 const MANUAL_STATUS_TO_WIRE_VALUE: Record<ManualAttendanceStatus, string> = {
   absent: "absent",
   halfDay: "half_day",
@@ -110,9 +106,6 @@ type AttendanceTodayApiData =
       items?: AttendanceRecordApiItem[] | null;
       records?: AttendanceRecordApiItem[] | null;
       rows?: AttendanceRecordApiItem[] | null;
-      // The actual backend contract: GET /attendance/today returns
-      // { summary: {...}, staff: [...] }. Listed first in getTodayArray's
-      // key search since this is the confirmed real shape.
       staff?: AttendanceRecordApiItem[] | null;
     };
 
@@ -162,8 +155,6 @@ const getTodayArray = (payload: AttendanceTodayApiData) => {
     return payload.map(asRecord);
   }
 
-  // "staff" is the confirmed real key ({ summary, staff } contract) and is
-  // checked first; the rest remain as defensive fallbacks only.
   return firstArray(asRecord(payload), ["staff", "records", "attendance", "items", "rows", "data"]);
 };
 
@@ -208,15 +199,8 @@ const getRecordFromEnvelope = (payload: AttendanceRecordEnvelope): UnknownRecord
 };
 
 const normalizeAttendanceRecord = (entry: UnknownRecord): AttendanceRecord | null => {
-  // The record's own primary key, required for PATCH /attendance/:id. GET
-  // /attendance/today returns one row per staff member even when they have
-  // never been marked (status: "not_marked", attendance_id: null) — those
-  // rows have no real id and must not be treated as an editable record (see
-  // the recordId check below).
   const recordId = toSafeString(firstValue(entry, ["id", "_id", "attendanceId", "attendance_id"]));
 
-  // The staff reference may be nested (e.g. { staff: { id, _id } } or
-  // { employee: { id, _id } }) instead of a flat field on the record.
   const nestedStaff = asRecord(firstValue(entry, ["staff", "employee", "staffMember", "staff_member"]));
   const staffRefId = toSafeString(firstValue(nestedStaff, ["id", "_id", "staffId", "staff_id", "uuid"])) || null;
   const userId = toSafeString(firstValue(entry, ["userId", "user_id"])) || null;
@@ -229,12 +213,6 @@ const normalizeAttendanceRecord = (entry: UnknownRecord): AttendanceRecord | nul
     return null;
   }
 
-  // No real attendance id means this staff member hasn't been marked yet
-  // today (the "not_marked" row GET /attendance/today always returns).
-  // Falling back to the staff id here would let a later Edit action PATCH
-  // /attendance/{staffId} — a staff row id, not an attendance row id —
-  // which the backend cannot resolve. Treat it as "no record" instead, so
-  // the UI correctly offers Check In rather than Edit.
   if (!recordId) {
     return null;
   }
@@ -255,7 +233,10 @@ const normalizeAttendanceRecord = (entry: UnknownRecord): AttendanceRecord | nul
       firstValue(entry, ["checkOutTime", "check_out_time", "check_out", "checkedOutAt", "checked_out_at"]),
     ) || null;
   const hoursWorkedRaw = firstValue(entry, ["hoursWorked", "hours_worked"]);
-  const hoursWorked = hoursWorkedRaw !== undefined ? toSafeNumber(hoursWorkedRaw) : null;
+  const start = parseAttendanceDateTime(checkInTime), end = parseAttendanceDateTime(checkOutTime);
+  const hoursWorked = start && end && end.getTime() >= start.getTime()
+    ? Number(((end.getTime() - start.getTime()) / 3600000).toFixed(2))
+    : hoursWorkedRaw != null ? toSafeNumber(hoursWorkedRaw) : null;
   const scheduledHoursRaw = firstValue(entry, ["scheduledHours", "scheduled_hours"]);
   const scheduledHours = scheduledHoursRaw !== undefined ? toSafeNumber(scheduledHoursRaw) : null;
   const jobsToday = toSafeNumber(
@@ -277,10 +258,10 @@ const normalizeAttendanceRecord = (entry: UnknownRecord): AttendanceRecord | nul
     checkOutTime,
     checkInLocation: toSafeString(firstValue(entry, ["checkInLocation", "check_in_location"])) || null,
     checkOutLocation: toSafeString(firstValue(entry, ["checkOutLocation", "check_out_location"])) || null,
-    date:
+    date: attendanceDateKey(
       toSafeString(
         firstValue(entry, ["date", "attendanceDate", "attendance_date", "markedDate", "marked_date"]),
-      ) || null,
+      )),
     employeeId,
     hoursWorked,
     id,
@@ -317,8 +298,16 @@ const getSettingsFromEnvelope = (payload: AttendanceSettingsEnvelope): UnknownRe
 };
 
 const normalizeAttendanceSettings = (entry: UnknownRecord): AttendanceSettings => ({
-  gracePeriodMinutes: toSafeNumber(firstValue(entry, ["gracePeriodMinutes", "grace_period_minutes", "grace_period"])),
-  halfDayThresholdMinutes: toSafeNumber(
+  active: entry.active === true,
+  thresholdHours: toSafeNumber(entry.threshold_hours ?? 2),
+  minFullDayHours: toSafeNumber(entry.min_full_day_hours ?? 7),
+  halfDayDeductionAmount: toSafeNumber(entry.half_day_deduction_amount),
+  attendanceBonus: toSafeNumber(entry.attendance_bonus),
+  commissionThresholdDays: toSafeNumber(entry.commission_threshold_days),
+  staffScope: entry.staff_scope === "selected" ? "selected" : "all",
+  selectedStaffIds: Array.isArray(entry.selected_staff_ids) ? entry.selected_staff_ids.map(String) : [],
+  gracePeriodMinutes: toSafeNumber(firstValue(entry, ["grace_minutes", "gracePeriodMinutes", "grace_period_minutes", "grace_period"])),
+  halfDayThresholdMinutes: entry.min_half_day_hours !== undefined ? toSafeNumber(entry.min_half_day_hours) * 60 : toSafeNumber(
     firstValue(entry, [
       "halfDayThresholdMinutes",
       "half_day_threshold_minutes",
@@ -326,18 +315,13 @@ const normalizeAttendanceSettings = (entry: UnknownRecord): AttendanceSettings =
     ]),
   ),
   lateThresholdMinutes: toSafeNumber(
-    firstValue(entry, ["lateThresholdMinutes", "late_threshold_minutes", "late_threshold"]),
+    firstValue(entry, ["grace_minutes", "lateThresholdMinutes", "late_threshold_minutes", "late_threshold"]),
   ),
   updatedAt: toSafeString(firstValue(entry, ["updatedAt", "updated_at"])) || null,
-  workEndTime: toSafeString(firstValue(entry, ["workEndTime", "work_end_time"])) || null,
-  workStartTime: toSafeString(firstValue(entry, ["workStartTime", "work_start_time"])) || null,
+  workEndTime: toSafeString(firstValue(entry, ["shift_end", "workEndTime", "work_end_time"])) || null,
+  workStartTime: toSafeString(firstValue(entry, ["shift_start", "workStartTime", "work_start_time"])) || null,
 });
 
-// Attaches the punch coordinates to a check-in / check-out body. Sent under
-// both snake_case and camelCase keys, matching the staff_id/staffId pattern
-// the same endpoints already use, so whichever casing the backend reads is
-// populated. Omitted entirely when no fix was captured, so a body without
-// coordinates stays byte-identical to what shipped before.
 const appendCoordinates = (
   requestBody: Record<string, number | string>,
   payload: unknown,
@@ -357,10 +341,27 @@ const appendCoordinates = (
 };
 
 export const attendanceService = {
+  async getSettings(): Promise<AttendanceSettings> {
+    const response = await api.get<AttendanceSettingsApiResponse>(ATTENDANCE.SETTINGS);
+    return normalizeAttendanceSettings(getSettingsFromEnvelope(response.data.data));
+  },
+  async exportCSV(year: number, month: number): Promise<string> {
+    const response = await api.get<string>(ATTENDANCE.EXPORT, { params: { year, month }, responseType: "text" });
+    return response.data;
+  },
   async checkIn(payload: CheckInRequest): Promise<CheckInResponse> {
+    const timestamp = payload.checkInTime ?? new Date().toISOString();
+    const [settings, schedule] = await Promise.all([
+      attendanceService.getSettings(), api.get<ApiResponse<UnknownRecord[]>>(STAFF.SCHEDULED(payload.staffId)),
+    ]);
+    const shifts = schedule.data.data.map(item => ({
+      date: toSafeString(item.date) || null, dayOfWeek: toSafeNumber(item.day_of_week),
+      isAvailable: item.is_available === true, startTime: toSafeString(item.start_time) || null,
+    }));
     const requestBody: Record<string, number | string> = {
       staff_id: payload.staffId,
-      staffId: payload.staffId,
+      check_in: timestamp,
+      status: toManualStatusWireValue(evaluateAttendanceCheckIn(settings, shifts, payload.staffId, timestamp)),
     };
 
     if (payload.checkInTime !== undefined) {
@@ -520,11 +521,6 @@ export const attendanceService = {
   },
 
   async markAttendance(payload: MarkAttendanceRequest): Promise<MarkAttendanceResponse> {
-    // Backend contract (POST /attendance/mark, ManualMarkBody): staff_id,
-    // date, and status are all required, or the API rejects with 400
-    // VALIDATION_ERROR; check_in/check_out/note are optional. Field names
-    // are snake_case singular ("note", not "notes") — sending the wrong key
-    // silently drops the value instead of erroring.
     if (__DEV__ && !payload.date) {
       console.warn("[Attendance] markAttendance called without a date — backend requires it", payload);
     }
@@ -555,12 +551,6 @@ export const attendanceService = {
     attendanceId: string,
     updates: UpdateAttendanceRequest,
   ): Promise<UpdateAttendanceResponse> {
-    // Backend contract (PATCH /attendance/:id, UpdateAttendanceBody): only
-    // status/check_in/check_out/note are recognized. The repository builds
-    // the SQL SET clause directly from the request body's keys, so any other
-    // key (e.g. the camelCase checkInTime/notes this used to send) becomes
-    // an invalid column name and the query fails with a 500 — the fix is
-    // sending exactly the backend's snake_case field names, nothing extra.
     const requestBody: Record<string, string> = {};
 
     if (updates.status !== undefined) {
@@ -597,33 +587,32 @@ export const attendanceService = {
   async updateSettings(
     updates: UpdateAttendanceSettingsRequest,
   ): Promise<UpdateAttendanceSettingsResponse> {
-    const requestBody: Record<string, number | string> = {};
+    const requestBody: Record<string, number | string | boolean | string[]> = {};
 
     if (updates.workStartTime !== undefined) {
-      requestBody.workStartTime = updates.workStartTime;
-      requestBody.work_start_time = updates.workStartTime;
+      requestBody.shift_start = updates.workStartTime;
     }
 
     if (updates.workEndTime !== undefined) {
-      requestBody.workEndTime = updates.workEndTime;
-      requestBody.work_end_time = updates.workEndTime;
+      requestBody.shift_end = updates.workEndTime;
     }
 
     if (updates.gracePeriodMinutes !== undefined) {
-      requestBody.gracePeriodMinutes = updates.gracePeriodMinutes;
-      requestBody.grace_period_minutes = updates.gracePeriodMinutes;
+      requestBody.grace_minutes = updates.gracePeriodMinutes;
     }
 
     if (updates.halfDayThresholdMinutes !== undefined) {
-      requestBody.halfDayThresholdMinutes = updates.halfDayThresholdMinutes;
-      requestBody.half_day_threshold_minutes = updates.halfDayThresholdMinutes;
+      requestBody.min_half_day_hours = updates.halfDayThresholdMinutes / 60;
     }
 
     if (updates.lateThresholdMinutes !== undefined) {
-      requestBody.lateThresholdMinutes = updates.lateThresholdMinutes;
-      requestBody.late_threshold_minutes = updates.lateThresholdMinutes;
+      if (updates.gracePeriodMinutes === undefined) requestBody.grace_minutes = updates.lateThresholdMinutes;
     }
 
+    const fields = { active: "active", thresholdHours: "threshold_hours", minFullDayHours: "min_full_day_hours", halfDayDeductionAmount: "half_day_deduction_amount", attendanceBonus: "attendance_bonus", commissionThresholdDays: "commission_threshold_days", staffScope: "staff_scope", selectedStaffIds: "selected_staff_ids" } as const;
+    for (const key of Object.keys(fields) as (keyof typeof fields)[]) {
+      if (updates[key] !== undefined) requestBody[fields[key]] = updates[key]!;
+    }
     const response = await api.put<AttendanceSettingsApiResponse>(ATTENDANCE.SETTINGS, requestBody);
 
     return {

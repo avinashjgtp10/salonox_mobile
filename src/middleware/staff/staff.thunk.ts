@@ -135,9 +135,6 @@ export const createStaffThunk = createAsyncThunk<
       try {
         await staffService.setStaffWages(response.staffMember.id, wages);
       } catch (wageError) {
-        // Matches Web: a wage-save failure never blocks staff creation from
-        // reporting success — it's a secondary call against the just-created
-        // record, not part of the create transaction itself.
         console.error("[Staff] Set wages after create failed", wageError);
       }
     }
@@ -397,7 +394,7 @@ export const resolveCurrentStaffThunk = createAsyncThunk<
       const response = await staffService.getStaff({ limit, page }, salonId);
 
       matches.push(
-        ...response.staffMembers.filter((staffMember) => staffMember.userId === normalizedUserId),
+        ...response.staffMembers.filter((staffMember) => staffMember.userId === normalizedUserId && staffMember.status !== "Inactive"),
       );
 
       hasMore = response.pagination.hasMore;
@@ -579,17 +576,6 @@ type SetStaffActiveStatusRejectValue = {
   status?: number;
 };
 
-// Activate/deactivate go through their own dedicated endpoints (see
-// staffService.activateStaff/deactivateStaff) rather than the generic
-// update endpoint — the staff table has no writable "status" field, so a
-// PATCH /staff/:id with { status: "inactive" } is silently dropped by the
-// backend and returns 200 without changing anything. That was the root
-// cause of the false "Staff deactivated" success message.
-//
-// Both endpoints return an empty body on success, so there is nothing in
-// the mutation response to verify against. To avoid reporting success on
-// trust alone, this thunk re-fetches the staff record afterward and only
-// resolves once the refetched status actually matches what was requested.
 export const setStaffActiveStatusThunk = createAsyncThunk<
   StaffMember,
   { nextStatus: "active" | "inactive"; staffId: string },

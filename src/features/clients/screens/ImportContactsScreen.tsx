@@ -1,19 +1,9 @@
+import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import * as Contacts from "expo-contacts";
 import { router, type Href } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  ActivityIndicator,
-  BackHandler,
-  FlatList,
-  Linking,
-  Platform,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { ActivityIndicator, BackHandler, FlatList, Linking, Platform, StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppBackButton, AppBackButtonPlaceholder } from "@/components/ui/AppBackButton";
@@ -48,8 +38,6 @@ type ImportOutcome = {
   status: OutcomeStatus;
 };
 
-// A handful of requests in flight at once — enough to feel fast without
-// hammering the API with hundreds of simultaneous POST /clients calls.
 const IMPORT_CONCURRENCY = 4;
 
 const openDeviceSettings = () => {
@@ -153,16 +141,9 @@ export default function ImportContactsScreen() {
 
   useEffect(() => {
     void checkPermission();
-    // Runs once on mount only — checkPermission's identity is stable enough
-    // for a screen entry check, and re-running it on every re-render would
-    // fight the user's own permission-flow navigation.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Prevent the hardware back button (and, via the header, the on-screen
-  // back button) from leaving the screen mid-import — the batch keeps
-  // running in the background either way, so leaving would just strand the
-  // user without a progress/result view for a request that's already in flight.
   useEffect(() => {
     if (stage !== "importing") {
       return;

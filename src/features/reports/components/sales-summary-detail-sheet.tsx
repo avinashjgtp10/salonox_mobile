@@ -1,7 +1,8 @@
+import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, StyleSheet, TouchableOpacity, View } from "react-native";
 
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { AppRadius } from "@/constants/layout";
@@ -112,7 +113,6 @@ export const SalesSummaryDetailSheet = memo(function SalesSummaryDetailSheet({
     }
 
     void load();
-    // load intentionally excluded so opening a sheet always makes one request.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [saleId]);
 

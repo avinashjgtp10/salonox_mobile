@@ -1,3 +1,5 @@
+import { Text } from "@/components/ui/AppTypography";
+import { ConfirmationModal } from "@/components/ui/ConfirmationModal";
 import { useAppointmentStyles } from "@/features/appointments/styles/useAppointmentStyles";
 import { getRejectedMessage } from "@/features/appointments/utils/appointmentScreenHelpers";
 import { completeAppointmentThunk } from "@/middleware/appointment/appointment.thunk";
@@ -5,7 +7,7 @@ import { useAppDispatch } from "@/store/hooks";
 import type { AppointmentListItem } from "@/types/appointment";
 import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
-import { ActivityIndicator, Modal, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, TouchableOpacity } from "react-native";
 
 export function CompleteAppointmentAction({ appointment }: { appointment: AppointmentListItem }) {
   const { Colors, styles } = useAppointmentStyles();
@@ -52,55 +54,18 @@ export function CompleteAppointmentAction({ appointment }: { appointment: Appoin
         <Text style={styles.actionButtonText}>Complete</Text>
       </TouchableOpacity>
 
-      <Modal
-        animationType="fade"
-        onRequestClose={() => {
-          if (!completing) {
-            setConfirmVisible(false);
-          }
-        }}
-        transparent
+      <ConfirmationModal
         visible={confirmVisible}
-      >
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Complete appointment?</Text>
-            <Text style={styles.modalText}>
-              {"This will mark "}
-              {appointment.clientName}
-              {"'s appointment as Completed."}
-            </Text>
-            {error ? (
-              <View style={[styles.inlineAlert, styles.modalInlineAlert]}>
-                <Ionicons name="alert-circle-outline" size={18} color={Colors.error} />
-                <Text style={styles.inlineAlertText}>{error}</Text>
-              </View>
-            ) : null}
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                disabled={completing}
-                onPress={() => setConfirmVisible(false)}
-                style={[styles.secondaryButton, completing && styles.disabledButton]}
-              >
-                <Text style={styles.secondaryButtonText}>Not Yet</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                activeOpacity={0.88}
-                disabled={completing}
-                onPress={() => void submitComplete()}
-                style={[styles.primaryButtonCompact, completing && styles.disabledButton]}
-              >
-                {completing ? (
-                  <ActivityIndicator color="#FFFFFF" size="small" />
-                ) : (
-                  <Ionicons name="checkmark-done" size={16} color="#FFFFFF" />
-                )}
-                <Text style={styles.primaryButtonText}>Complete</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+        title="Complete appointment?"
+        description={`This will mark ${appointment.clientName}'s appointment as Completed.`}
+        cancelLabel="Not Yet"
+        confirmLabel="Complete"
+        confirmVariant="default"
+        busy={completing}
+        error={error}
+        onCancel={() => setConfirmVisible(false)}
+        onConfirm={submitComplete}
+      />
     </>
   );
 }

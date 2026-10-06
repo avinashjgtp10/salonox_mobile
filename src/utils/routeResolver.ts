@@ -5,17 +5,14 @@ import { canManageStaffLifecycle } from "@/utils/userProfile";
 
 export const OWNER_HOME_ROUTE = "/dashboard" as Href;
 export const STAFF_HOME_ROUTE = "/(staff)/home" as Href;
-// Both (tabs)/calendar.tsx and (staff)/calendar.tsx render at the bare URL
-// "/calendar" — route groups don't appear in the path — so an unqualified
-// "/calendar" href is ambiguous and can land in the wrong group, which the
-// root layout then bounces to that role's home. Always route to the
-// group-qualified constant for the experience you mean.
 export const OWNER_CALENDAR_ROUTE = "/(tabs)/calendar" as Href;
 export const STAFF_CALENDAR_ROUTE = "/(staff)/calendar" as Href;
-export const ONBOARDING_ROUTE = "/onboarding" as Href;
 export const SUBSCRIPTION_ROUTE = "/subscription" as Href;
 export const OWNER_ROUTE_GROUP = "(tabs)";
 export const STAFF_ROUTE_GROUP = "(staff)";
+const STAFF_SHARED_ROUTES = new Set(["change-password", "privacy-policy", "notification-settings"]);
+export const isStaffAllowedRoute = (segment?: string | null) =>
+  segment === STAFF_ROUTE_GROUP || STAFF_SHARED_ROUTES.has(segment ?? "");
 const OWNER_ONLY_TOP_LEVEL_ROUTES = new Set([
   "appointments",
   "bookings",
@@ -32,9 +29,6 @@ const OWNER_ONLY_TOP_LEVEL_ROUTES = new Set([
   "users",
 ]);
 
-// SCRUM-1838: no longer gated on isOnboardingComplete — the onboarding step
-// (salon setup wizard, src/app/onboarding.tsx) was removed from the launch
-// flow, so role is the only thing that decides staff vs owner experience.
 export const isStaffExperienceUser = (user?: AuthUser | null) =>
   !canManageStaffLifecycle(user?.role);
 

@@ -1,8 +1,12 @@
+import { Text, TextInput } from "@/components/ui/AppTypography";
+import { TourButton, TourView, withScreenTour } from "@/features/userGuide/DashboardTour";
+import { screenTours } from "@/features/userGuide/screenTours";
 import { CalendarPreview } from "@/features/appointments/components/calendar/CalendarPreview";
 import { CalendarStaffGate } from "@/features/appointments/components/calendar/CalendarStaffGate";
 import { CalendarStatusFilter } from "@/features/appointments/components/calendar/CalendarStatusFilter";
 import { ScreenShell } from "@/features/appointments/components/shared/ScreenShell";
 import { useAllStaffMembers } from "@/features/appointments/hooks/useAllStaffMembers";
+import { useDebouncedValue } from "@/features/quickSale/hooks/useDebouncedValue";
 import { useAppointmentListFilters, useFetchAppointments } from "@/features/appointments/hooks/useAppointmentList";
 import { createStyles } from "@/features/appointments/styles/appointmentStyles";
 import { todayIsoDate } from "@/features/appointments/utils/appointmentDateTime";
@@ -17,9 +21,9 @@ import { formatAppDate } from "@/utils/dateTime";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Modal, Pressable, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Modal, Pressable, ScrollView, TouchableOpacity, View } from "react-native";
 
-export function AppointmentCalendarScreen() {
+function AppointmentCalendarScreenContent() {
   return <CalendarStaffGate><AppointmentCalendarContent /></CalendarStaffGate>;
 }
 
@@ -32,14 +36,11 @@ function AppointmentCalendarContent() {
   const loading = useAppSelector(selectAppointmentsIsLoading);
   const error = useAppSelector(selectAppointmentsError);
   const { date, search, setDate, setSearch } = useAppointmentListFilters();
+  const debouncedSearch = useDebouncedValue(search, 350);
   const [selectedStatuses, setSelectedStatuses] = useState<AppointmentStatus[]>([]);
-  // The list API supports a single status. Fetch the unfiltered calendar data
-  // so local multi-select never loses appointments belonging to another status.
   const status = "All" as const;
   const { fetchAppointments } = useFetchAppointments();
   useAllStaffMembers();
-  // Selection is by staff id, so two staff sharing a name stay independently
-  // selectable.
   const [selectedStaffIds, setSelectedStaffIds] = useState<string[]>([]);
   const [datePickerVisible, setDatePickerVisible] = useState(false);
   const [calendarSearchOpen, setCalendarSearchOpen] = useState(true);
@@ -82,8 +83,6 @@ function AppointmentCalendarContent() {
       : `${selectedStaffIds.length} Staff`;
   const rangeEnd = useMemo(() => { const value = new Date(`${date}T00:00:00`); value.setDate(value.getDate() + (viewMode === "week" ? 6 : 0)); return value; }, [date, viewMode]);
   const rangeEndKey = `${rangeEnd.getFullYear()}-${String(rangeEnd.getMonth() + 1).padStart(2, "0")}-${String(rangeEnd.getDate()).padStart(2, "0")}`;
-  // Server-side staff filter — only a real staff id can be sent, never a
-  // synthetic name-derived one.
   const selectedStaffId = selectedStaffIds.length === 1 && !selectedStaffIds[0].startsWith(SYNTHETIC_STAFF_ID_PREFIX)
     ? selectedStaffIds[0]
     : undefined;
@@ -101,13 +100,23 @@ function AppointmentCalendarContent() {
 
   useEffect(() => {
     void fetchAppointments(viewMode === "week"
-      ? { fromDate: date, limit: 200, reset: true, search, staffId: selectedStaffId, status, toDate: rangeEndKey }
-      : { date, limit: 200, reset: true, search, staffId: selectedStaffId, status });
-  }, [date, fetchAppointments, rangeEndKey, search, selectedStaffId, status, viewMode]);
+      ? { fromDate: date, limit: 200, reset: true, search: debouncedSearch, staffId: selectedStaffId, status, toDate: rangeEndKey }
+      : { date, limit: 200, reset: true, search: debouncedSearch, staffId: selectedStaffId, status });
+  }, [date, debouncedSearch, fetchAppointments, rangeEndKey, selectedStaffId, status, viewMode]);
+
+  const refreshAppointments = useCallback(() => {
+    void fetchAppointments(viewMode === "week"
+      ? { fromDate: date, limit: 200, refresh: true, search: debouncedSearch, staffId: selectedStaffId, status, toDate: rangeEndKey }
+      : { date, limit: 200, refresh: true, search: debouncedSearch, staffId: selectedStaffId, status });
+  }, [date, debouncedSearch, fetchAppointments, rangeEndKey, selectedStaffId, status, viewMode]);
+  const staffColumns = useMemo(
+    () => (selectedStaffIds.length ? staffOptions.filter((option) => selectedStaffIds.includes(option.id)) : staffOptions),
+    [selectedStaffIds, staffOptions],
+  );
 
   return (
     <ScreenShell
-      onRefresh={() => void fetchAppointments(viewMode === "week" ? { fromDate: date, limit: 200, refresh: true, search, staffId: selectedStaffId, status, toDate: rangeEndKey } : { date, limit: 200, refresh: true, search, staffId: selectedStaffId, status })}
+      onRefresh={refreshAppointments}
       refreshing={refreshing}
       hideHeader
       contentBottomPadding={0}
@@ -118,20 +127,20 @@ function AppointmentCalendarContent() {
       <View style={styles.dinggToolbar}>
         <View style={styles.calendarHeadingRow}>
           <Text accessibilityRole="header" style={styles.calendarHeading}>Calendar</Text>
-          <TouchableOpacity accessibilityLabel="Change calendar view" onPress={() => setViewMenuVisible(true)} style={styles.calendarViewButton}>
+          <TourButton tourId="view" accessibilityLabel="Change calendar view" onPress={() => setViewMenuVisible(true)} style={styles.calendarViewButton}>
             <Text style={styles.dinggTodayText}>{viewMode === "day" ? "Day" : viewMode === "week" ? "Week" : "List"}</Text>
             <Ionicons name="chevron-down" size={14} color={Colors.appointmentTextSecondary} />
-          </TouchableOpacity>
+          </TourButton>
         </View>
         <View style={styles.dinggToolbarActions}>
           <TouchableOpacity onPress={() => setDate(todayIsoDate())} style={styles.dinggTodayButton}><Text style={styles.dinggTodayText}>Today</Text></TouchableOpacity>
-          <View style={styles.dinggRangeControls}>
+          <TourView tourId="date" style={styles.dinggRangeControls}>
             <TouchableOpacity hitSlop={8} onPress={() => changeDate(viewMode === "week" ? -7 : -1)}><Ionicons name="chevron-back" size={17} color={Colors.appointmentAccent} /></TouchableOpacity>
             <TouchableOpacity accessibilityLabel="Select date" onPress={() => setDatePickerVisible(true)} style={styles.dinggRangeButton}><Text style={styles.dinggRangeText}>{formatAppDate(`${date}T00:00:00`)}{viewMode === "week" ? ` -\n${formatAppDate(rangeEnd)}` : ""}</Text><Ionicons name="chevron-down" size={16} color={Colors.appointmentText} /></TouchableOpacity>
             <TouchableOpacity hitSlop={8} onPress={() => changeDate(viewMode === "week" ? 7 : 1)}><Ionicons name="chevron-forward" size={17} color={Colors.appointmentAccent} /></TouchableOpacity>
-          </View>
+          </TourView>
           <View style={styles.dinggToolbarIcons}>
-            <TouchableOpacity accessibilityLabel="Search appointments" onPress={() => setCalendarSearchOpen((open) => !open)} style={styles.dinggToolbarIcon}><Ionicons name="search-outline" size={19} color={Colors.appointmentText} /></TouchableOpacity>
+            <TourButton tourId="search" accessibilityLabel="Search appointments" onPress={() => setCalendarSearchOpen((open) => !open)} style={styles.dinggToolbarIcon}><Ionicons name="search-outline" size={19} color={Colors.appointmentText} /></TourButton>
             <TouchableOpacity accessibilityLabel="Select date" onPress={() => setDatePickerVisible(true)} style={styles.dinggToolbarIcon}><Ionicons name="calendar-outline" size={21} color={Colors.appointmentText} /></TouchableOpacity>
           </View>
         </View>
@@ -143,21 +152,19 @@ function AppointmentCalendarContent() {
           </View>
         ) : null}
         {datePickerVisible ? <DateTimePicker mode="date" onChange={(event, selected) => { setDatePickerVisible(false); if (event.type !== "dismissed" && selected) setDate(`${selected.getFullYear()}-${String(selected.getMonth() + 1).padStart(2, "0")}-${String(selected.getDate()).padStart(2, "0")}`); }} value={new Date(`${date}T00:00:00`)} /> : null}
-        <View style={styles.calendarFilterRow}>
+        <TourView tourId="filters" style={styles.calendarFilterRow}>
           <TouchableOpacity onPress={() => setStaffFilterVisible(true)} style={[styles.dinggStylistSummary, styles.calendarStaffFilter]}><Text style={styles.dinggStylistLabel}>Staff:</Text><Text numberOfLines={1} style={styles.dinggStylistValue}>{selectedStaffLabel}</Text><Ionicons name="chevron-down" size={15} color={Colors.appointmentTextSecondary} /></TouchableOpacity>
           <CalendarStatusFilter statuses={selectedStatuses} onChange={setSelectedStatuses} />
-        </View>
+        </TourView>
       </View>
       <CalendarPreview
         showEmptyState={!loading && !error}
         appointments={visibleAppointments}
         date={date}
-        onRefresh={() => void fetchAppointments(viewMode === "week" ? { fromDate: date, limit: 200, refresh: true, search, staffId: selectedStaffId, status, toDate: rangeEndKey } : { date, limit: 200, refresh: true, search, staffId: selectedStaffId, status })}
+        onRefresh={refreshAppointments}
         refreshing={refreshing}
         resolveStaffId={resolveStaffId}
-        staffColumns={selectedStaffIds.length
-          ? staffOptions.filter((option) => selectedStaffIds.includes(option.id))
-          : staffOptions}
+        staffColumns={staffColumns}
         viewMode={viewMode}
       />
       <Modal animationType="fade" onRequestClose={() => setViewMenuVisible(false)} transparent visible={viewMenuVisible}><Pressable onPress={() => setViewMenuVisible(false)} style={styles.calendarMenuBackdrop}><Pressable style={styles.calendarMenuCard}>{([['week', 'calendar-outline', 'Week view'], ['day', 'today-outline', 'Day view'], ['list', 'list-outline', 'List view']] as const).map(([value, icon, label]) => <TouchableOpacity key={value} onPress={() => { setViewMode(value); setViewMenuVisible(false); }} style={[styles.calendarMenuOption, viewMode === value && styles.calendarMenuOptionActive]}><Ionicons name={icon} size={18} color={Colors.appointmentText} /><Text style={styles.calendarMenuText}>{label}</Text>{viewMode === value ? <Ionicons name="radio-button-on" size={16} color={Colors.appointmentAccent} /> : null}</TouchableOpacity>)}</Pressable></Pressable></Modal>
@@ -165,3 +172,5 @@ function AppointmentCalendarContent() {
     </ScreenShell>
   );
 }
+
+export const AppointmentCalendarScreen = withScreenTour(AppointmentCalendarScreenContent, screenTours.calendar);

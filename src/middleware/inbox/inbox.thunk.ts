@@ -41,9 +41,6 @@ export const fetchInboxMessagesThunk = createAsyncThunk<
   try {
     const response = await inboxService.getMessages(phone);
 
-    // Opening a thread clears unread_count server-side (inboxService.getMessages
-    // fires markConversationRead), so the cached list is now stale. Refresh it
-    // so the badge on the inbox list matches what the server believes.
     void dispatch(fetchInboxConversationsThunk({ refresh: true }));
 
     return response;
@@ -59,6 +56,8 @@ export const sendInboxReplyThunk = createAsyncThunk<
 >("inbox/sendReply", async ({ message, phone }, { dispatch, rejectWithValue }) => {
   try {
     const response = await inboxService.sendReply({ message, phone });
+
+    if (!response.message?.id) void dispatch(fetchInboxMessagesThunk({ phone, refresh: true }));
 
     void dispatch(fetchInboxConversationsThunk({ refresh: true }));
 

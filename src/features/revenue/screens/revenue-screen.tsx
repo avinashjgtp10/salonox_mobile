@@ -1,7 +1,8 @@
+import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect, type Href } from "expo-router";
 import { useCallback, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
@@ -25,9 +26,6 @@ const currency = (value: number) => `Rs. ${value.toLocaleString("en-IN")}`;
 
 const toIsoDate = (value: Date) => value.toISOString().slice(0, 10);
 
-// The staff-performance report window must match the revenue figure the staff
-// row was tapped from, otherwise the drill-down shows a different total than
-// the list that led to it.
 const getReportRange = (period: RevenuePeriod) => {
   const today = new Date();
 
@@ -96,9 +94,6 @@ export default function RevenueScreen({ period }: { period: RevenuePeriod }) {
     return () => { activeRef.current = false; };
   }, [load]));
 
-  // Drills into the existing Staff Performance report rather than a bespoke
-  // screen: it already returns invoice count, items sold, revenue, commission,
-  // collected and due for a given staff member and window.
   const handleStaffPress = (staffId: string) => {
     const filters = {
       ...getReportRange(period),
@@ -108,8 +103,6 @@ export default function RevenueScreen({ period }: { period: RevenuePeriod }) {
     };
 
     dispatch(rememberReportFilters({ filters, slug: "staff-performance" }));
-    // ReportScreen only auto-loads when its entry has no data yet, so a second
-    // visit would otherwise show the previous staff member's rows.
     void dispatch(fetchReportThunk({ filters, refresh: true, slug: "staff-performance" }));
     router.push("/reports/staff-performance" as Href);
   };

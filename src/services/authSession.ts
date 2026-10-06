@@ -125,7 +125,6 @@ export const shouldInvalidateSession = (error: unknown) => {
     return true;
   }
 
-  // A forbidden resource is not necessarily an invalid login session.
   if (status === 403) return false;
   if (!status || status >= 500) return false;
 

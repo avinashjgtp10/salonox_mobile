@@ -25,14 +25,12 @@ import type {
 export type ExportFormat = "csv" | "excel" | "pdf";
 
 type SalesState = {
-  // GET /sales/init
   data: SalesInitData | null;
   error: string | null;
   loading: boolean;
   refreshing: boolean;
   status: "idle" | "loading" | "succeeded" | "failed";
 
-  // GET /sales (list)
   currentRequestId: string | null;
   listError: string | null;
   listLoading: boolean;
@@ -43,27 +41,22 @@ type SalesState = {
   sales: SaleListItem[];
   totalCount: number;
 
-  // GET /sales/:id
   detail: SaleDetail | null;
   detailError: string | null;
   detailLoading: boolean;
 
-  // POST /sales, PATCH /sales/:id, POST /sales/:id/checkout
   checkingOut: boolean;
   checkoutError: string | null;
   saveError: string | null;
   saving: boolean;
 
-  // DELETE /sales/:id
   deleteError: string | null;
   deletingSaleIds: string[];
 
-  // GET /sales/summary
   summary: SalesSummary | null;
   summaryError: string | null;
   summaryLoading: boolean;
 
-  // GET /sales/export
   exportError: string | null;
   exporting: boolean;
   exportFormat: ExportFormat;

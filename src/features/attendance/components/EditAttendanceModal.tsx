@@ -1,5 +1,6 @@
+import { Text, TextInput } from "@/components/ui/AppTypography";
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, StyleSheet, TouchableOpacity, View } from "react-native";
 
 import { DashboardRadius as Radius, DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
 import type { StaffMember } from "@/data/teamData";
@@ -15,12 +16,10 @@ import {
 } from "@/features/attendance/utils/attendanceStatus";
 import type { AttendanceRejectValue } from "@/middleware/attendance/attendance.thunk";
 import { useThemeColors } from "@/theme/ThemeProvider";
+import { attendanceTimeToIso } from "@/features/attendance/utils/attendanceRules";
 import type { AttendanceRecord, ManualAttendanceStatus } from "@/types/attendance";
 
 type EditAttendanceModalProps = {
-  // Required by POST /attendance/mark (YYYY-MM-DD) whenever this opens in
-  // mark mode; unused in edit mode, where the existing record already has a
-  // date on the backend.
   attendanceDate: string;
   onClose: () => void;
   record: AttendanceRecord | null;
@@ -50,19 +49,9 @@ const toTimeValue = (value: string | null | undefined): TimeValue | null => {
 
 const isTimeValueComplete = (value: TimeValue) => value.hour.trim() !== "" && value.minute.trim() !== "";
 
-// Exactly one of hour/minute filled in — neither "untouched" nor "ready to
-// parse," so it must be called out rather than silently discarded (the
-// previous behavior: isTimeValueComplete would be false, so the whole entry
-// was dropped with no feedback).
 const isTimeValuePartial = (value: TimeValue) =>
   (value.hour.trim() !== "") !== (value.minute.trim() !== "");
 
-// A shift that legitimately crosses midnight (e.g. check-in 10 PM, check-out
-// 2 AM) will always compare as "check-out before check-in" when both are
-// anchored to the same calendar day. Rolling the check-out forward a day
-// before comparing recovers that case, bounded by a sanity cap so a genuine
-// data-entry mistake (e.g. swapped AM/PM) still gets rejected rather than
-// silently accepted as an implausibly long shift.
 const MAX_SHIFT_DURATION_MS = 16 * 60 * 60 * 1000;
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -101,10 +90,9 @@ const timeValueToDate = (value: TimeValue, referenceDate: Date): Date | null => 
   }
 
   const hour24 = value.period === "PM" ? (hourNum % 12) + 12 : hourNum % 12;
-  const result = new Date(referenceDate);
-  result.setHours(hour24, minuteNum, 0, 0);
-
-  return result;
+  const dateKey = `${referenceDate.getFullYear()}-${String(referenceDate.getMonth() + 1).padStart(2, "0")}-${String(referenceDate.getDate()).padStart(2, "0")}`;
+  const iso = attendanceTimeToIso(dateKey, hour24, minuteNum);
+  return iso ? new Date(iso) : null;
 };
 
 function TimeField({
@@ -205,8 +193,6 @@ export function EditAttendanceModal({
     setCheckOutTime(toTimeValue(record?.checkOutTime) ?? EMPTY_TIME);
     setNote("");
     setError(null);
-    // Reset the form fresh every time the sheet opens for a (possibly
-    // different) staff member/record rather than carrying over stale edits.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, record?.id, staffMember?.id]);
 
@@ -234,7 +220,7 @@ export function EditAttendanceModal({
         return;
       }
 
-      const referenceDate = parseAttendanceDateTime(record?.checkInTime) ?? new Date();
+      const referenceDate = new Date(`${record?.date?.slice(0, 10) || attendanceDate}T00:00:00`);
       const checkInDate = timeValueToDate(checkInTime, referenceDate);
       const rawCheckOutDate = timeValueToDate(checkOutTime, referenceDate);
 

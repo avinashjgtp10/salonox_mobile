@@ -16,22 +16,20 @@ export interface ReceiptData {
     time: string;
     paymentMethod: string;
   };
-  /** Per-method amounts when paymentMethod === "split" — parsed straight from
-   *  the backend's stored { [method]: amount } JSON, never computed locally. */
-  paymentBreakdown?: Array<{ method: string; amount: number }>;
+  paymentBreakdown?: { method: string; amount: number }[];
   client: {
     name: string;
     phone?: string;
     email?: string;
   };
   staffName?: string;
-  items: Array<{
+  items: {
     name: string;
     qty: number;
     price: number;
     total: number;
     discount?: number;
-  }>;
+  }[];
   pricing: {
     subtotal: number;
     itemDiscountTotal?: number;
@@ -39,12 +37,12 @@ export interface ReceiptData {
     couponDiscount?: number;
     taxableAmount?: number;
     gstAmount: number;
-    taxBreakdown?: Array<{
+    taxBreakdown?: {
       name: string;
       rate: number;
       amount: number;
       inclusive: boolean;
-    }>;
+    }[];
     exCharges?: number;
     tipAmount?: number;
     roundOff?: number;

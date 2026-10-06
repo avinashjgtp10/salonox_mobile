@@ -1,23 +1,11 @@
+import { Text, TextInput } from "@/components/ui/AppTypography";
+import { appAlert as Alert } from "@/services/appAlert";
+import { TourView, TourButton, TourScrollView, TourFlatList, withScreenTour } from "@/features/userGuide/DashboardTour";
+import { screenTours } from "@/features/userGuide/screenTours";
 import { Ionicons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
 import { startTransition, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
-import {
-  Alert,
-  FlatList,
-  KeyboardAvoidingView,
-  Linking,
-  Modal,
-  Platform,
-  Pressable,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-  type ListRenderItem,
-} from "react-native";
+import { KeyboardAvoidingView, Linking, Modal, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View, type ListRenderItem } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -203,7 +191,7 @@ function EmptyState({
   );
 }
 
-export default function TeamScreen() {
+function TeamScreenContent() {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
@@ -344,10 +332,6 @@ export default function TeamScreen() {
       setStaffActiveStatusThunk({ nextStatus, staffId: staffMember.id }),
     );
 
-    // setStaffActiveStatusThunk only fulfills after the activate/deactivate
-    // call succeeds AND a refetch confirms the staff record's status
-    // actually changed, so this success message can't fire on a false
-    // positive the way the old generic-update call could.
     if (setStaffActiveStatusThunk.rejected.match(resultAction)) {
       Alert.alert(
         nextStatus === "inactive" ? "Unable to deactivate staff" : "Unable to reactivate staff",
@@ -501,7 +485,7 @@ export default function TeamScreen() {
         </ScrollView>
       )}
 
-      <View style={styles.searchWrap}>
+      <TourView tourId="search" style={styles.searchWrap}>
         <Ionicons name="search-outline" size={18} color={Colors.text2} />
         <TextInput
           ref={searchInputRef}
@@ -511,7 +495,7 @@ export default function TeamScreen() {
           style={styles.searchInput}
           value={query}
         />
-      </View>
+      </TourView>
 
       <ScrollView
         contentContainerStyle={styles.chipRow}
@@ -544,14 +528,14 @@ export default function TeamScreen() {
         <Text style={styles.resultsText}>
           {filteredStaffMembers.length} {filteredStaffMembers.length === 1 ? "member" : "members"}
         </Text>
-        <TouchableOpacity
+        <TourButton tourId="sort"
           activeOpacity={0.84}
           onPress={() => setIsFilterVisible(true)}
           style={styles.sortButton}
         >
           <Ionicons name="funnel-outline" size={15} color={Colors.primaryDark} />
           <Text style={styles.sortButtonText}>{sortOption}</Text>
-        </TouchableOpacity>
+        </TourButton>
       </View>
     </View>
   );
@@ -569,14 +553,14 @@ export default function TeamScreen() {
             <ErrorState onRetry={handleRetry} />
           </View>
         ) : staffLoading ? (
-          <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          <TourScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
             {headerContent}
             {Array.from({ length: 3 }).map((_, index) => (
               <StaffSkeletonCard key={`staff-skeleton-${index}`} index={index} />
             ))}
-          </ScrollView>
+          </TourScrollView>
         ) : (
-          <FlatList
+          <TourFlatList
             initialNumToRender={4}
             maxToRenderPerBatch={4}
             windowSize={7}
@@ -630,10 +614,10 @@ export default function TeamScreen() {
           />
         )}
 
-        <TouchableOpacity activeOpacity={0.88} onPress={handleAddStaff} style={styles.floatingButton}>
+        <TourButton tourId="add" activeOpacity={0.88} onPress={handleAddStaff} style={styles.floatingButton}>
           <Ionicons name="add" size={20} color={Colors.onPrimary} />
           <Text style={styles.floatingButtonText}>Add Staff</Text>
-        </TouchableOpacity>
+        </TourButton>
       </KeyboardAvoidingView>
 
       <Modal
@@ -1070,9 +1054,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     color: Colors.primaryDark,
     fontWeight: "800",
   },
-  sheetActionDanger: {
-    color: Colors.error,
-  },
   actionMenuOverlay: {
     alignItems: "center",
     backgroundColor: "rgba(15, 23, 32, 0.28)",
@@ -1162,3 +1143,5 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     color: Colors.error,
   },
 });
+
+export default withScreenTour(TeamScreenContent, screenTours.team);
