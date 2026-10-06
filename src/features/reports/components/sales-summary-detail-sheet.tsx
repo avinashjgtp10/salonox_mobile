@@ -1,3 +1,4 @@
+import { maskPhone } from "@/utils/maskPhone";
 import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -150,7 +151,7 @@ export const SalesSummaryDetailSheet = memo(function SalesSummaryDetailSheet({
         <View style={styles.content}>
           <Section title="Customer">
             <InfoRow label="Name" value={sale.clientName ?? "Walk-in"} />
-            <InfoRow label="Phone" value={sale.clientPhone ?? "-"} />
+            <InfoRow label="Phone" value={maskPhone(sale.clientPhone)} />
           </Section>
 
           <Section title="Invoice">

@@ -1,3 +1,4 @@
+import { maskPhone } from "@/utils/maskPhone";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect, type Href } from "expo-router";
@@ -37,8 +38,8 @@ export default function InboxListScreen() {
     {inbox.conversationsError && <TouchableOpacity accessibilityRole="button" onPress={refresh} style={s.banner}><Text style={s.error}>{inbox.conversationsError} · Tap to retry</Text></TouchableOpacity>}
     <FlatList data={items} keyExtractor={item => item.contactPhone} onRefresh={refresh} refreshing={inbox.conversationsRefreshing} keyboardShouldPersistTaps="handled" contentContainerStyle={{ flexGrow: 1 }}
       ListEmptyComponent={inbox.conversationsStatus === "loading" || (inbox.conversationsRefreshing && !inbox.conversations.length) ? <View style={s.empty}><ActivityIndicator color={p.accent} /></View> : <View style={s.empty}><Ionicons name="chatbubbles-outline" size={36} color={p.accent} /><Text style={s.heading}>{search ? "No chats found" : unreadOnly ? "You’re all caught up" : "Your chats start here"}</Text><Text style={s.emptyText}>{search || unreadOnly ? "Try another search or switch to All." : "Client replies to your WhatsApp messages will appear here."}</Text></View>}
-      renderItem={({ item }) => <TouchableOpacity accessibilityRole="button" accessibilityLabel={`${item.contactName || item.contactPhone}, ${item.unreadCount} unread messages`} onPress={() => router.push(`/inbox/${encodeURIComponent(item.contactPhone)}` as Href)} style={s.conversation}>
-        <InboxAvatar name={item.contactName} phone={item.contactPhone} /><View style={[s.fill, { gap: 7 }]}><View style={s.row}><Text numberOfLines={1} style={[s.heading, s.fill]}>{item.contactName || item.contactPhone}</Text><Text style={s.muted}>{item.lastMessageLabel}</Text></View><View style={s.row}><Text numberOfLines={1} style={[s.muted, s.fill, { fontSize: 13 }]}>{item.lastMessage || "Attachment"}</Text>{item.unreadCount > 0 && <View style={s.badge}><Text style={s.badgeText}>{item.unreadCount > 99 ? "99+" : item.unreadCount}</Text></View>}</View></View>
+      renderItem={({ item }) => <TouchableOpacity accessibilityRole="button" accessibilityLabel={`${item.contactName || maskPhone(item.contactPhone)}, ${item.unreadCount} unread messages`} onPress={() => router.push(`/inbox/${encodeURIComponent(item.contactPhone)}` as Href)} style={s.conversation}>
+        <InboxAvatar name={item.contactName} phone={item.contactPhone} /><View style={[s.fill, { gap: 7 }]}><View style={s.row}><Text numberOfLines={1} style={[s.heading, s.fill]}>{item.contactName || maskPhone(item.contactPhone)}</Text><Text style={s.muted}>{item.lastMessageLabel}</Text></View><View style={s.row}><Text numberOfLines={1} style={[s.muted, s.fill, { fontSize: 13 }]}>{item.lastMessage || "Attachment"}</Text>{item.unreadCount > 0 && <View style={s.badge}><Text style={s.badgeText}>{item.unreadCount > 99 ? "99+" : item.unreadCount}</Text></View>}</View></View>
       </TouchableOpacity>} />
   </SafeAreaView>;
 }
