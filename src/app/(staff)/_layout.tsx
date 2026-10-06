@@ -1,6 +1,9 @@
 import { Tabs } from "expo-router";
 
 import { AppTabLayout, type AppTabItem } from "@/components/navigation/AppTabLayout";
+import { useStaffSelfAttendance } from "@/features/attendance/components/StaffAttendanceGate";
+import { canUnlockStaffApp } from "@/features/attendance/utils/staffAttendanceGate";
+import { View } from "react-native";
 
 export const unstable_settings = {
   initialRouteName: "home",
@@ -14,6 +17,10 @@ const STAFF_TABS: AppTabItem[] = [
 ];
 
 export default function StaffTabsLayout() {
+  const attendance = useStaffSelfAttendance();
+  // Keep business screens unmounted until the server confirms check-in.
+  // The root gate displays the non-dismissible check-in prompt above this.
+  if (!canUnlockStaffApp(attendance?.state ?? null)) return <View style={{ flex: 1 }} />;
   return (
     <AppTabLayout tabs={STAFF_TABS}>
       <Tabs.Screen name="appointment-details/[id]" options={{ href: null }} />

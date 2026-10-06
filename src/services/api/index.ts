@@ -78,6 +78,7 @@ export const api = create({
   timeout: 15000,
   headers: {
     "Content-Type": "application/json",
+    "X-Salonox-Client": "mobile",
   },
 });
 

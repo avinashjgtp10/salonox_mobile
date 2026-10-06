@@ -17,7 +17,7 @@ const OWNER_ROUTE_BUILDERS: Record<string, (referenceId: string | null) => Href>
 const STAFF_ROUTE_BUILDERS: Record<string, (referenceId: string | null) => Href> = {
   appointment: (id) =>
     id ? (`/(staff)/appointment-details/${id}` as Href) : ("/(staff)/appointments" as Href),
-  attendance: () => "/(staff)/calendar" as Href,
+  attendance: () => "/(staff)/home" as Href,
   general: () => "/(staff)/notifications" as Href,
   payment: () => "/(staff)/appointments" as Href,
   reminder: () => "/(staff)/calendar" as Href,
