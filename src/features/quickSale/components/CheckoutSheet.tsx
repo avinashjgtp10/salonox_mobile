@@ -1,3 +1,4 @@
+import { maskPhone } from "@/utils/maskPhone";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -742,7 +743,7 @@ function CheckoutSheetComponent({
                         {selectedClient.name}
                       </Text>
                       <Text numberOfLines={1} style={styles.customerPhone}>
-                        {selectedClient.phone}
+                        {maskPhone(selectedClient.phone)}
                       </Text>
                     </View>
                     <TouchableOpacity activeOpacity={0.84} onPress={onChangeCustomer} style={styles.customerChangeButton}>

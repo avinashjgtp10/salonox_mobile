@@ -1,3 +1,4 @@
+import { maskPhone } from "@/utils/maskPhone";
 import { Text } from "@/components/ui/AppTypography";
 import { ConfirmationModal } from "@/components/ui/ConfirmationModal";
 import { Ionicons } from "@expo/vector-icons";
@@ -536,7 +537,7 @@ function ClientPickerModal({
                 </View>
                 <View style={styles.clientOptionCopy}>
                   <Text numberOfLines={1} style={styles.clientOptionName}>{client.fullName}</Text>
-                  <Text numberOfLines={1} style={styles.clientOptionMeta}>{client.phone}</Text>
+                  <Text numberOfLines={1} style={styles.clientOptionMeta}>{maskPhone(client.phone, client.phoneCountryCode)}</Text>
                 </View>
                 {saving ? <ActivityIndicator color={Colors.primary} size="small" /> : null}
               </TouchableOpacity>

@@ -136,7 +136,6 @@ const normalizeDayEntry = (entry: UnknownRecord, day: string): ScheduleDayEntry 
         "work_start_time",
         "working_start_time",
         "shiftStart",
-        "shift_end",
         "shift_start",
         "fromTime",
         "from_time",

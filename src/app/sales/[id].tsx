@@ -1,3 +1,4 @@
+import { maskPhone } from "@/utils/maskPhone";
 import { Text } from "@/components/ui/AppTypography";
 import { appAlert as Alert } from "@/services/appAlert";
 import { Ionicons } from "@expo/vector-icons";
@@ -298,7 +299,7 @@ export default function SaleDetailsScreen() {
 
         <Section title="Payment & Client">
           <DetailRow label="Client" value={sale.clientName} />
-          <DetailRow label="Phone" value={sale.clientPhone} />
+          <DetailRow label="Phone" value={maskPhone(sale.clientPhone)} />
           <DetailRow label="Payment Method" value={sale.paymentMethod} />
           <DetailRow label="Created" value={sale.createdDateLabel} />
         </Section>
