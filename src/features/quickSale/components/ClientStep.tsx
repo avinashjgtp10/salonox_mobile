@@ -1,14 +1,7 @@
+import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { memo, useMemo } from "react";
-import {
-  ActivityIndicator,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { ActivityIndicator, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 
 import { AppLayout, AppRadius } from "@/constants/layout";
 import { DashboardRadius as Radius, DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
@@ -25,11 +18,9 @@ type ClientStepProps = {
   onChangeSearchQuery: (query: string) => void;
   onContinue: () => void;
   onRetry: () => void;
-  /** `null` selects the walk-in client. */
   onSelectClient: (client: ClientListItem | null) => void;
   onViewAllClients: () => void;
   searchQuery: string;
-  /** `null` = nothing chosen yet, `""` = walk-in, otherwise the chosen client's id. */
   selectedClientId: string | null;
 };
 

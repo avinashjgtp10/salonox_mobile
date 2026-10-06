@@ -1,7 +1,8 @@
+import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams, type Href } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
@@ -58,8 +59,6 @@ export default function ConsumableDetailScreen() {
   }, [canView, dispatch, id]);
 
   const consumable = state.currentConsumable;
-  // Prefer the backend-computed status over re-deriving it client-side —
-  // see index.tsx's ConsumableCard for the same convention.
   const outOfStock = Boolean(
     consumable && (consumable.status ? consumable.status === "out_of_stock" : consumable.amount <= 0),
   );

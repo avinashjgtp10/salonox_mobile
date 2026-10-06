@@ -1,6 +1,7 @@
+import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { memo, useMemo } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, TouchableOpacity, View } from "react-native";
 
 import { AppRadius } from "@/constants/layout";
 import type { ThemeColors } from "@/constants/theme";
@@ -15,10 +16,6 @@ type EmbeddedClientBarProps = {
   selectedClient: QuickSaleClient;
 };
 
-/**
- * Compact client picker row used when Quick Sale is embedded in the calendar
- * modal, which skips the full-screen "choose client" step.
- */
 function EmbeddedClientBarComponent({
   hasSelection,
   onAddClient,

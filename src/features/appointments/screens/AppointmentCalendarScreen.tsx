@@ -1,3 +1,4 @@
+import { Text, TextInput } from "@/components/ui/AppTypography";
 import { TourButton, TourView, withScreenTour } from "@/features/userGuide/DashboardTour";
 import { screenTours } from "@/features/userGuide/screenTours";
 import { CalendarPreview } from "@/features/appointments/components/calendar/CalendarPreview";
@@ -20,7 +21,7 @@ import { formatAppDate } from "@/utils/dateTime";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Modal, Pressable, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Modal, Pressable, ScrollView, TouchableOpacity, View } from "react-native";
 
 function AppointmentCalendarScreenContent() {
   return <CalendarStaffGate><AppointmentCalendarContent /></CalendarStaffGate>;
@@ -35,16 +36,11 @@ function AppointmentCalendarContent() {
   const loading = useAppSelector(selectAppointmentsIsLoading);
   const error = useAppSelector(selectAppointmentsError);
   const { date, search, setDate, setSearch } = useAppointmentListFilters();
-  // Typing updates the field immediately; the request waits for a pause.
   const debouncedSearch = useDebouncedValue(search, 350);
   const [selectedStatuses, setSelectedStatuses] = useState<AppointmentStatus[]>([]);
-  // The list API supports a single status. Fetch the unfiltered calendar data
-  // so local multi-select never loses appointments belonging to another status.
   const status = "All" as const;
   const { fetchAppointments } = useFetchAppointments();
   useAllStaffMembers();
-  // Selection is by staff id, so two staff sharing a name stay independently
-  // selectable.
   const [selectedStaffIds, setSelectedStaffIds] = useState<string[]>([]);
   const [datePickerVisible, setDatePickerVisible] = useState(false);
   const [calendarSearchOpen, setCalendarSearchOpen] = useState(true);
@@ -87,8 +83,6 @@ function AppointmentCalendarContent() {
       : `${selectedStaffIds.length} Staff`;
   const rangeEnd = useMemo(() => { const value = new Date(`${date}T00:00:00`); value.setDate(value.getDate() + (viewMode === "week" ? 6 : 0)); return value; }, [date, viewMode]);
   const rangeEndKey = `${rangeEnd.getFullYear()}-${String(rangeEnd.getMonth() + 1).padStart(2, "0")}-${String(rangeEnd.getDate()).padStart(2, "0")}`;
-  // Server-side staff filter — only a real staff id can be sent, never a
-  // synthetic name-derived one.
   const selectedStaffId = selectedStaffIds.length === 1 && !selectedStaffIds[0].startsWith(SYNTHETIC_STAFF_ID_PREFIX)
     ? selectedStaffIds[0]
     : undefined;

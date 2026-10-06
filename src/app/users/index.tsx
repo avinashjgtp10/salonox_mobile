@@ -1,17 +1,9 @@
+import { Text, TextInput } from "@/components/ui/AppTypography";
+import { appAlert as Alert } from "@/services/appAlert";
 import { Ionicons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
-import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
@@ -310,9 +302,6 @@ export default function UsersScreen() {
       setStaffActiveStatusThunk({ nextStatus, staffId: staffMember.id }),
     );
 
-    // setStaffActiveStatusThunk only fulfills once the activate/deactivate
-    // call succeeds AND a refetch confirms the status actually changed —
-    // no path here reports success without a confirmed backend change.
     if (setStaffActiveStatusThunk.rejected.match(resultAction)) {
       Alert.alert(
         "Unable to update user",
@@ -766,17 +755,5 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   footerWrap: {
     paddingBottom: 0,
-  },
-  loadingMoreWrap: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 8,
-    justifyContent: "center",
-    paddingVertical: Spacing.md,
-  },
-  loadingMoreText: {
-    color: Colors.text2,
-    fontSize: 12,
-    fontWeight: "600",
   },
 });

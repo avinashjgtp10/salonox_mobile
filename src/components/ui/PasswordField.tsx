@@ -1,6 +1,7 @@
+import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { forwardRef, useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View, type TextInputProps } from "react-native";
+import { Pressable, StyleSheet, View, type TextInputProps } from "react-native";
 
 import { DashboardRadius as Radius, DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
 import { useThemeColors } from "@/theme/ThemeProvider";
@@ -10,10 +11,6 @@ type PasswordFieldProps = Omit<TextInputProps, "secureTextEntry" | "style"> & {
   label: string;
 };
 
-// Generic secure-text input with a show/hide toggle. Visibility state lives
-// entirely inside this component, so two instances on the same screen (e.g.
-// Password + Confirm Password) are independent by construction — no shared
-// state to accidentally wire together.
 export const PasswordField = forwardRef<TextInput, PasswordFieldProps>(function PasswordField({ error, label, ...inputProps }, ref) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);

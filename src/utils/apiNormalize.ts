@@ -1,7 +1,3 @@
-// Shared defensive-normalization helpers for reading loosely-typed API payloads.
-// Several backend contracts in this app are undocumented, so service layers read
-// responses defensively across common camelCase/snake_case key variants instead
-// of trusting a single shape.
 
 export type UnknownRecord = Record<string, unknown>;
 
@@ -111,11 +107,6 @@ const getSaleIdFromRecord = (record: UnknownRecord, depth: number): string | nul
     : null;
 };
 
-/**
- * Normalizes sale identifiers without treating an arbitrary record `id` as a
- * sale ID. This is important for appointment checkout responses, whose root
- * `id` belongs to the appointment rather than the generated sale.
- */
 export const normalizeSaleId = (payload: unknown): string | null => {
   const record = asRecord(payload);
   return Object.keys(record).length > 0 ? getSaleIdFromRecord(record, 2) : null;

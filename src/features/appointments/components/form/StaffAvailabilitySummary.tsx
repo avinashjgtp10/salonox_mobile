@@ -1,7 +1,8 @@
+import { Text } from "@/components/ui/AppTypography";
 import { createStyles } from "@/features/appointments/styles/appointmentStyles";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { useMemo } from "react";
-import { ActivityIndicator, Text, View } from "react-native";
+import { ActivityIndicator, View } from "react-native";
 
 export function StaffAvailabilitySummary({
   availabilityLabel,

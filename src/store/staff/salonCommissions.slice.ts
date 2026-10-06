@@ -40,10 +40,6 @@ const initialState: SalonCommissionsState = {
   summaryRequestId: null,
 };
 
-// Backend statuses observed from the settlement endpoint ("pending",
-// "partial", "paid"). The earned-by-staff endpoint doesn't return a status
-// field directly, so it's derived from the same pending/paid amounts using
-// that same backend-defined vocabulary rather than inventing a new one.
 const deriveStatus = (pendingAmount: number, paidAmount: number): string => {
   if (pendingAmount <= 0) {
     return "paid";
@@ -136,10 +132,6 @@ export const selectSalonCommissionEarnedLoading = (state: RootState) =>
 export const selectSalonCommissionEarnedError = (state: RootState) =>
   state.salonCommissions.earnedError;
 
-// The commission list is derived directly from the earned-by-staff data
-// rather than tracked as separate state, so there is exactly one place that
-// turns backend numbers into list rows (Mobile never computes commission
-// amounts itself — it only reshapes what the backend already returned).
 export const selectSalonCommissionRecords = (state: RootState): SalonCommissionRecord[] =>
   state.salonCommissions.earned.map((entry) => ({
     amount: entry.earnedAmount,

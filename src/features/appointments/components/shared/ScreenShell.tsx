@@ -1,3 +1,4 @@
+import { Text } from "@/components/ui/AppTypography";
 import { TourScrollView } from "@/features/userGuide/DashboardTour";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { AppLayout } from "@/constants/layout";
@@ -9,7 +10,7 @@ import { Ionicons } from "@expo/vector-icons";
 import type { Href } from "expo-router";
 import { router } from "expo-router";
 import { useMemo } from "react";
-import { RefreshControl, Text, TouchableOpacity, useWindowDimensions, View } from "react-native";
+import { RefreshControl, TouchableOpacity, useWindowDimensions, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export function ScreenShell({

@@ -1,13 +1,7 @@
+import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  FlatList,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { FlatList, RefreshControl, StyleSheet, TouchableOpacity, View } from "react-native";
 import Reanimated, { FadeInUp, LinearTransition } from "react-native-reanimated";
 
 import { AppRadius } from "@/constants/layout";
@@ -360,9 +354,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     flex: 1,
     gap: Spacing.sm,
   },
-  // MiniBillBar floats absolutely over this screen (bottom: 18, ~84 tall) —
-  // without this, the last row and the "View More" footer button scroll up
-  // underneath it and become unreachable.
   listContent: {
     paddingBottom: 132,
   },

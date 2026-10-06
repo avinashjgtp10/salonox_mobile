@@ -1,7 +1,8 @@
+import { Text } from "@/components/ui/AppTypography";
 import { createStyles } from "@/features/appointments/styles/appointmentStyles";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { useMemo } from "react";
-import { ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { ScrollView, TouchableOpacity, View } from "react-native";
 
 export function SelectField({
   error,

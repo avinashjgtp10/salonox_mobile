@@ -24,8 +24,6 @@ const MINUTE_MS = 60_000;
 const HOUR_MS = 60 * MINUTE_MS;
 const DAY_MS = 24 * HOUR_MS;
 
-// Mirrors the relative-time style of notification.service so the inbox list
-// reads the same as the notification feed it is reached from.
 const formatRelativeTime = (isoValue: string | null): string => {
   if (!isoValue) {
     return "";
@@ -58,7 +56,6 @@ const formatRelativeTime = (isoValue: string | null): string => {
   return formatAppDate(parsed, "");
 };
 
-// Clock time is what matters inside a chat thread ("2:14 PM"), not "3h ago".
 const formatClockTime = (isoValue: string | null): string => {
   if (!isoValue) {
     return "";
@@ -106,9 +103,6 @@ export const normalizeMessage = (entry: UnknownRecord): InboxMessage => {
   };
 };
 
-// sendSuccess() wraps the payload as { data }, and the axios layer already
-// unwraps to response.data.data — but the repository returns a bare array, so
-// this tolerates both an array and a { conversations: [...] } envelope.
 const getRecordArray = (payload: ConversationsApiData | MessagesApiData, keys: string[]): UnknownRecord[] => {
   if (!payload) {
     return [];
@@ -137,8 +131,6 @@ export const inboxService = {
         membershipName: toSafeString(firstValue(record, ["membership_name", "membershipName"])) || null,
       };
     } catch (error) {
-      // Older deployments do not mount /customer. Do not hide auth or network
-      // failures behind a fallback or incorrectly label them "not a client".
       if (!(error instanceof ApiError) || error.status !== 404) throw error;
     }
     const key = inboxPhoneKey(phone);
@@ -160,8 +152,6 @@ export const inboxService = {
     }
   },
   async getConversations(): Promise<InboxConversationsResponse> {
-    // salonId comes from the JWT server-side (inbox.controller reads
-    // req.user.salonId), so no branch/salon param is sent.
     const response = await api.get<ApiResponse<ConversationsApiData>>(INBOX.CONVERSATIONS);
     const conversations = getRecordArray(response.data.data, ["conversations", "data"])
       .map(normalizeConversation)
@@ -175,8 +165,6 @@ export const inboxService = {
     const messages = getRecordArray(response.data.data, ["messages", "data"])
       .map(normalizeMessage)
       .filter((message) => message.id)
-      // Backend orders by sent_at ASC already; defensive re-sort so the
-      // thread stays chronological even if that changes.
       .sort((a, b) => {
         const aTime = parseAppDateTime(a.sentAt)?.getTime() ?? 0;
         const bTime = parseAppDateTime(b.sentAt)?.getTime() ?? 0;

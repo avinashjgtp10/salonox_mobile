@@ -1,11 +1,6 @@
+import { Text, TextInput } from "@/components/ui/AppTypography";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  RefreshControl,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-} from "react-native";
+import { RefreshControl, StyleSheet, TouchableOpacity } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";

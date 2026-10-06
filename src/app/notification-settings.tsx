@@ -1,9 +1,13 @@
+import { Text } from "@/components/ui/AppTypography";
+import { useAuth } from "@/context/AuthContext";
+import { isStaffExperienceUser } from "@/utils/routeResolver";
+import { appAlert as Alert } from "@/services/appAlert";
 import { salonNotificationPreferences } from "@/services/salonNotificationPreferences";
 import { getApiErrorMessage } from "@/services/api";
 import { Ionicons } from "@expo/vector-icons";
-import { router, type Href } from "expo-router";
+import { Redirect, router, type Href } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Alert, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
+import { ScrollView, StyleSheet, Switch, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
@@ -21,6 +25,8 @@ import {
 import { useThemeColors } from "@/theme/ThemeProvider";
 
 export default function NotificationSettingsScreen() {
+  const { user } = useAuth();
+  const readOnly = isStaffExperienceUser(user);
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const [preferences, setPreferences] = useState<NotificationPreferences>(
@@ -34,6 +40,7 @@ export default function NotificationSettingsScreen() {
   const savingRef = useRef(false);
 
   useEffect(() => {
+    if (readOnly) return;
     let cancelled = false;
 
     salonNotificationPreferences.get().then((stored) => {
@@ -50,7 +57,7 @@ export default function NotificationSettingsScreen() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [readOnly]);
 
   const handleBack = () => {
     if (router.canGoBack()) {
@@ -62,6 +69,7 @@ export default function NotificationSettingsScreen() {
   };
 
   const updatePreferences = async (patch: Partial<NotificationPreferences>) => {
+    if (readOnly) return;
     const next = { ...preferencesRef.current, ...patch };
     preferencesRef.current = next;
     setPreferences(next);
@@ -77,7 +85,6 @@ export default function NotificationSettingsScreen() {
           await salonNotificationPreferences.save(snapshot);
           confirmedRef.current = snapshot;
         } catch (error) {
-          // A newer tap will be saved next; never overwrite it with an old result.
           if (!pendingRef.current) {
             preferencesRef.current = confirmedRef.current;
             setPreferences(confirmedRef.current);
@@ -88,7 +95,6 @@ export default function NotificationSettingsScreen() {
         try {
           await notificationPreferencesStorage.setPreferences(snapshot);
         } catch {
-          // The server has saved the change; foreground sync refreshes the cache.
         }
       }
     } finally { savingRef.current = false; setSaving(false); }
@@ -116,6 +122,7 @@ export default function NotificationSettingsScreen() {
     });
   };
 
+  if (readOnly) return <Redirect href="/(staff)/notifications" />;
   if (!isHydrated) {
     return (
       <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
@@ -158,6 +165,7 @@ export default function NotificationSettingsScreen() {
             </Text>
           </View>
           <Switch
+            disabled={readOnly}
             onValueChange={handleToggleAll}
             thumbColor="#FFFFFF"
             trackColor={{ false: Colors.border, true: Colors.primary }}
@@ -177,7 +185,7 @@ export default function NotificationSettingsScreen() {
           </View>
           <Switch
             onValueChange={handleToggleAppointments}
-            disabled={!preferences.allNotifications}
+            disabled={readOnly || !preferences.allNotifications}
             thumbColor="#FFFFFF"
             trackColor={{ false: Colors.border, true: Colors.primary }}
             value={preferences.appointments}
@@ -196,7 +204,7 @@ export default function NotificationSettingsScreen() {
           </View>
           <Switch
             onValueChange={handleToggleOtherUpdates}
-            disabled={!preferences.allNotifications}
+            disabled={readOnly || !preferences.allNotifications}
             thumbColor="#FFFFFF"
             trackColor={{ false: Colors.border, true: Colors.primary }}
             value={preferences.otherUpdates}
@@ -212,7 +220,7 @@ export default function NotificationSettingsScreen() {
               <Text style={styles.rowTitle}>{item.title}</Text>
               <Text style={styles.rowDescription}>{item.description}</Text>
             </View>
-            <Switch accessibilityLabel={item.title} disabled={!preferences.allNotifications} value={preferences[item.key]} onValueChange={(value) => updatePreferences({ [item.key]: value })} thumbColor="#FFFFFF" trackColor={{ false: Colors.border, true: Colors.primary }} />
+            <Switch accessibilityLabel={item.title} disabled={readOnly || !preferences.allNotifications} value={preferences[item.key]} onValueChange={(value) => updatePreferences({ [item.key]: value })} thumbColor="#FFFFFF" trackColor={{ false: Colors.border, true: Colors.primary }} />
           </View>
         ))}
       </ScrollView>

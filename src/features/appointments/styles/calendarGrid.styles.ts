@@ -217,8 +217,6 @@ export const createCalendarGridStyles = (Colors: ThemeColors) => StyleSheet.crea
     borderRightWidth: StyleSheet.hairlineWidth,
     position: "relative",
   },
-  // One tap target per column; the tapped 15-minute slot is derived from
-  // the touch position. Appointment cards (zIndex 3) sit above it.
   dinggQuickSaleLayer: {
     bottom: 0,
     left: 0,
@@ -227,7 +225,6 @@ export const createCalendarGridStyles = (Colors: ThemeColors) => StyleSheet.crea
     top: 0,
     zIndex: 1,
   },
-  // Hour/quarter lines are drawn once across all columns, behind them.
   dinggGridLines: {
     bottom: 0,
     position: "absolute",

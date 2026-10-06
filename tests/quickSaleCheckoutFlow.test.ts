@@ -158,7 +158,6 @@ describe("runAppointmentCheckout", () => {
   });
 
   test("compares the saved sale against recognized revenue, not net paid", async () => {
-    // 100 paid from eWallet: the client hands over 400, but the sale books 500.
     const walletTotals = { ...totals, appliedEWallet: 100, grandTotal: 400 };
 
     await expect(run(deps(), paymentBody(), walletTotals)).resolves.toMatchObject({ kind: "completed" });

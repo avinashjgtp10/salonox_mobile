@@ -1,5 +1,6 @@
+import { Text } from "@/components/ui/AppTypography";
 import { useEffect, useMemo } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 
 import { DashboardRadius as Radius, type ThemeColors } from "@/constants/theme";
 import { StaffSectionCard } from "@/features/staff/components/StaffSectionCard";
@@ -23,9 +24,6 @@ function formatCurrency(amount: number) {
   return `Rs. ${amount.toLocaleString("en-IN")}`;
 }
 
-// Commission rule creation/configuration (rate, type, slabs) is Web-only.
-// This section only displays the staff member's past earned-commission
-// transactions, read from the existing commission history API.
 export function StaffCommissionSection({ staffId }: StaffCommissionSectionProps) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);

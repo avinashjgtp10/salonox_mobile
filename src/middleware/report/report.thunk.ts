@@ -96,12 +96,6 @@ export const fetchReportThunk = createAsyncThunk<
         throw new Error(config.statusReason ?? "This report is not available in mobile yet.");
       }
 
-      // Web-parity legacy report (see report-config.ts / types/report.ts):
-      // a GET against the versioned /api/v1 inventory namespace with only
-      // branch_id, not a POST /api/report/* route — search/category/date
-      // filters are never sent to the backend, the caller (a dedicated
-      // screen, not the generic ReportScreen) applies them client-side
-      // against this one full-dataset fetch.
       if (config.endpoint === REPORT.STOCK_RECONCILIATION) {
         const branchId = selectActiveBranchId(getState());
 

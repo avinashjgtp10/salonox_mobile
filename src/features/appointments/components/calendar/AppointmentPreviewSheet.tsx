@@ -1,3 +1,5 @@
+import { Text } from "@/components/ui/AppTypography";
+import { appAlert as Alert } from "@/services/appAlert";
 import { createStyles } from "@/features/appointments/styles/appointmentStyles";
 import { formatBusinessDate, formatBusinessTime, maskPhone } from "@/features/appointments/utils/appointmentScreenHelpers";
 import { useThemeColors } from "@/theme/ThemeProvider";
@@ -6,14 +8,16 @@ import { Ionicons } from "@expo/vector-icons";
 import type { Href } from "expo-router";
 import { router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { Alert, Modal, Pressable, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { Modal, Pressable, ScrollView, TouchableOpacity, View } from "react-native";
 
 export function AppointmentPreviewSheet({
   appointment,
   onClose,
+  readOnly = false,
 }: {
   appointment: AppointmentListItem | null;
   onClose: () => void;
+  readOnly?: boolean;
 }) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
@@ -120,16 +124,16 @@ export function AppointmentPreviewSheet({
                 <Text style={[styles.appointmentNotesText, !appointment.notes.trim() && styles.appointmentNotesEmpty]}>
                   {appointment.notes.trim() || "No client notes added."}
                 </Text>
-                <TouchableOpacity activeOpacity={0.84} onPress={openNoteEditor} style={styles.appointmentNotesButton}>
+                {!readOnly && <TouchableOpacity activeOpacity={0.84} onPress={openNoteEditor} style={styles.appointmentNotesButton}>
                   <Ionicons name="create-outline" size={18} color="#FFFFFF" />
                   <Text style={styles.appointmentNotesButtonText}>{appointment.notes.trim() ? "Edit Client Note" : "Add Client Note"}</Text>
-                </TouchableOpacity>
+                </TouchableOpacity>}
               </ScrollView>
             )}
-            <TouchableOpacity activeOpacity={0.88} disabled={!isPaid} onPress={handleViewInvoice} style={[styles.appointmentInvoiceButton, !isPaid && styles.appointmentInvoiceDisabled]}>
+            {!readOnly && <TouchableOpacity activeOpacity={0.88} disabled={!isPaid} onPress={handleViewInvoice} style={[styles.appointmentInvoiceButton, !isPaid && styles.appointmentInvoiceDisabled]}>
               <Ionicons name="receipt-outline" size={20} color="#FFFFFF" />
               <Text style={styles.appointmentInvoiceText}>{isPaid ? "View Invoice" : "Invoice available after payment"}</Text>
-            </TouchableOpacity>
+            </TouchableOpacity>}
           </Pressable>
         )}
       </Pressable>

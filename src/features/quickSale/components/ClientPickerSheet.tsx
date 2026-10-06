@@ -1,7 +1,8 @@
+import { Text, TextInput } from "@/components/ui/AppTypography";
 import { InfiniteScrollLoader } from "@/components/ui/InfiniteScrollLoader";
 import { Ionicons } from "@expo/vector-icons";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, FlatList, StyleSheet, TouchableOpacity, View } from "react-native";
 
 import { AppRadius } from "@/constants/layout";
 import { DashboardRadius as Radius, DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
@@ -76,9 +77,6 @@ export function ClientPickerSheet({
   const trimmedQuery = debouncedQuery.trim();
   const visibleClients = useMemo(() => uniqueById(clients), [clients]);
 
-  // Re-sync every time the sheet opens, not just on mount — the caller may
-  // toggle between "browse/pick a client" and "jump straight to create" on
-  // successive opens of the same already-mounted sheet instance.
   useEffect(() => {
     if (visible) {
       setIsCreating(Boolean(startInCreateMode));

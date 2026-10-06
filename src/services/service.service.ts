@@ -326,11 +326,6 @@ const normalizeService = (service: ServiceApiItem, index: number): ServiceListIt
   };
 };
 
-// Real response shape is `{ data: Service[], pagination: { total, page, limit,
-// total_pages } }` (see services.repository.ts `list` on the backend) — 1-
-// indexed page number, never `offset`/`has_more`/`next_offset`. Everything
-// else in this app thinks in offset/limit terms, so this is the one place
-// that translates page-based pagination back into that shape.
 const getPagination = (
   payload: ServiceListApiData,
   query: ServiceListQuery,
@@ -377,11 +372,6 @@ const getServiceFromDetailPayload = (payload: ServiceDetailApiData): ServiceApiI
 export const serviceService = {
   async getServices(query: ServiceListQuery, salonId?: string | null): Promise<ServiceListResponse> {
     const { category, categoryId, isActive, limit, offset, ...restQuery } = query;
-    // The real validator/controller (services.controller.ts) only ever reads
-    // `page`/`limit`/`status` — it has no idea what `offset`/`is_active` mean,
-    // so sending those silently no-ops (every request quietly re-fetches
-    // page 1, and inactive services never get filtered out). Translate to
-    // what the backend actually understands.
     const page = Math.floor(offset / Math.max(1, limit)) + 1;
     const requestParams = {
       ...restQuery,
@@ -393,9 +383,6 @@ export const serviceService = {
       ...(salonId ? { salon_id: salonId } : {}),
     };
 
-    // This endpoint only orders by created_at DESC. For the other UI sorts,
-    // collect the matching catalogue before sorting so later pages can contain
-    // the cheapest/name-first items. Sorting one server page would be misleading.
     if (query.sort_by === "name" || query.sort_by === "price" || query.sort_order === "asc") {
       const allServices: ServiceListItem[] = [];
       const seenIds = new Set<string>();

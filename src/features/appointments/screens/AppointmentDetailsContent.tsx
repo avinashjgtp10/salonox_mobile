@@ -1,3 +1,4 @@
+import { Text } from "@/components/ui/AppTypography";
 import { ActionButton } from "@/features/appointments/components/shared/ActionButton";
 import { CompleteAppointmentAction } from "@/features/appointments/components/shared/CompleteAppointmentAction";
 import { DetailRow } from "@/features/appointments/components/shared/DetailRow";
@@ -18,7 +19,7 @@ import { selectCurrentStaff, selectCurrentStaffError, selectCurrentStaffLoading 
 import { formatInvoiceNumber } from "@/utils/receipt";
 import { useLocalSearchParams } from "expo-router";
 import { useEffect } from "react";
-import { Text, View } from "react-native";
+import { View } from "react-native";
 
 export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | "staff" } = {}) {
   const { styles } = useAppointmentStyles();
@@ -36,10 +37,10 @@ export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | 
     !isStaffMode || !appointment || (currentStaff ? isAssignedToStaff(appointment, currentStaff) : false);
 
   useEffect(() => {
-    if (appointmentId) {
+    if (appointmentId && (!isStaffMode || currentStaff?.id)) {
       void dispatch(fetchAppointmentByIdThunk(appointmentId));
     }
-  }, [appointmentId, dispatch]);
+  }, [appointmentId, currentStaff?.id, dispatch, isStaffMode]);
 
   const appointmentInvoiceNumber = formatInvoiceNumber(
     toInvoiceSequence(
@@ -51,10 +52,10 @@ export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | 
   );
 
   useEffect(() => {
-    if (appointment?.saleId && !appointmentInvoiceNumber) {
+    if (!isStaffMode && appointment?.saleId && !appointmentInvoiceNumber) {
       void dispatch(fetchSaleByIdThunk(appointment.saleId));
     }
-  }, [appointment?.saleId, appointmentInvoiceNumber, dispatch]);
+  }, [appointment?.saleId, appointmentInvoiceNumber, dispatch, isStaffMode]);
 
   const invoiceNumber =
     appointmentInvoiceNumber ??
@@ -134,7 +135,7 @@ export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | 
             <DetailRow label="Date" value={formatBusinessDate(appointment.scheduledAt)} />
             <DetailRow label="Time" value={[formatBusinessTime(appointment.startTime || appointment.scheduledAt), formatBusinessTime(appointment.endTime)].filter((value) => value && value !== "-").join(" - ")} />
             <DetailRow label="Duration" value={appointment.durationLabel || (appointment.durationMinutes ? `${appointment.durationMinutes} mins` : null)} />
-            <DetailRow label="Staff" value={appointment.staffName} />
+            <DetailRow label="Staff" value={isStaffMode ? currentStaff?.name : appointment.staffName} />
             <DetailRow label="Status" value={appointment.status} />
           </View>
 
@@ -163,8 +164,8 @@ export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | 
           ) : null}
 
           <View style={styles.actionGrid}>
-            {appointment.status === "Confirmed" ? <StartAppointmentAction appointment={appointment} /> : null}
-            {appointment.status === "In Progress" ? <CompleteAppointmentAction appointment={appointment} /> : null}
+            {!isStaffMode && appointment.status === "Confirmed" ? <StartAppointmentAction appointment={appointment} /> : null}
+            {!isStaffMode && appointment.status === "In Progress" ? <CompleteAppointmentAction appointment={appointment} /> : null}
             {!isStaffMode ? (
               <>
                 <ActionButton icon="calendar-outline" label="Reschedule" route={`/appointments/${appointment.id}/reschedule`} />

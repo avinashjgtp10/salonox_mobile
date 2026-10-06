@@ -1,7 +1,8 @@
+import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useMemo } from "react";
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, StyleSheet, TouchableOpacity, View } from "react-native";
 
 import { AppLayout, AppRadius } from "@/constants/layout";
 import {
@@ -21,7 +22,6 @@ type ProfileHeroProps = {
   profile: UserProfile;
 };
 
-/** Avatar (tap to change), name, email and role/verified badges. */
 export function ProfileHero({ avatarUri, initials, isUploadingAvatar, onChangePhoto, profile }: ProfileHeroProps) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);

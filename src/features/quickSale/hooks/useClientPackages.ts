@@ -21,11 +21,6 @@ type UseClientPackagesArgs = {
   salonId: string | null;
 };
 
-/**
- * Loads the selected client's active packages so package-covered services
- * can be priced at zero. Only a *successful* load reports packages back via
- * `onPackagesLoaded`; a failed load keeps the last priced cart intact.
- */
 export function useClientPackages({ clientId, onPackagesLoaded, salonId }: UseClientPackagesArgs) {
   const [packages, setPackages] = useState<ClientPackage[]>([]);
   const [packagesClientId, setPackagesClientId] = useState("");
@@ -49,8 +44,6 @@ export function useClientPackages({ clientId, onPackagesLoaded, salonId }: UseCl
         return;
       }
 
-      // A retry button can be tapped rapidly. Reuse the active request for
-      // this client instead of starting parallel eligibility checks.
       if (requestClientIdRef.current === targetClientId) {
         return;
       }
@@ -84,9 +77,6 @@ export function useClientPackages({ clientId, onPackagesLoaded, salonId }: UseCl
           return;
         }
 
-        // Keep the last successfully priced cart intact. An error is not
-        // equivalent to a verified empty package list, so never recalculate
-        // coverage here.
         setLoadState({
           clientId: targetClientId,
           error: getApiErrorMessage(error),
@@ -126,8 +116,6 @@ export function useClientPackages({ clientId, onPackagesLoaded, salonId }: UseCl
 
   return {
     error: isCurrentClient ? loadState.error : null,
-    // Package coverage may only be recalculated from data verified for the
-    // currently selected client; walk-ins have no packages to verify.
     isReliable:
       !clientId ||
       (isCurrentClient && loadState.status === "loaded" && packagesClientId === clientId),

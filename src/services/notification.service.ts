@@ -25,9 +25,6 @@ const MINUTE_MS = 60_000;
 const HOUR_MS = 60 * MINUTE_MS;
 const DAY_MS = 24 * HOUR_MS;
 
-// Relative time reads better for a notification feed than an absolute
-// timestamp ("5m ago" vs "Jul 10, 2:14 PM"), falling back to a short date
-// once it's more than a week old.
 const formatRelativeTime = (isoValue: string | null): string => {
   if (!isoValue) {
     return "";
@@ -95,8 +92,6 @@ export const notificationService = {
     const notifications = getNotificationArray(response.data.data)
       .map(normalizeNotification)
       .filter((notification) => notification.id)
-      // The backend already returns newest-first; this is a defensive
-      // re-sort so the UI is correct even if that ever changes.
       .sort((a, b) => {
         const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
         const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;

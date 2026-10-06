@@ -1,4 +1,5 @@
-import { StyleSheet, Text, View } from "react-native";
+import { Text } from "@/components/ui/AppTypography";
+import { StyleSheet, View } from "react-native";
 
 import { DashboardRadius as Radius } from "@/constants/theme";
 
@@ -9,10 +10,6 @@ type BadgeProps = {
   size?: "sm" | "md";
 };
 
-// Pure pill renderer — deliberately has no concept of "status" or a fixed
-// vocabulary of types. Callers own their own status→{bg,color,label} map and
-// just hand this component the resolved values, so existing per-module
-// status logic (appointments, clients, notifications) never has to change.
 export function Badge({ bg, color, label, size = "md" }: BadgeProps) {
   return (
     <View style={[styles.badge, size === "sm" ? styles.badgeSm : styles.badgeMd, { backgroundColor: bg }]}>

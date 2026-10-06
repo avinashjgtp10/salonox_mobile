@@ -1,6 +1,7 @@
+import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import type { ComponentProps } from "react";
-import { Text, TouchableOpacity, View } from "react-native";
+import { TouchableOpacity, View } from "react-native";
 import { inboxAvatar } from "@/utils/inboxPresentation";
 import { useInboxTheme } from "./inboxTheme";
 
@@ -12,7 +13,7 @@ export function InboxIcon({ name, label, onPress, disabled = false }: {
 }
 
 export function InboxAvatar({ name, phone }: { name?: string | null; phone: string }) {
-  const { styles: s } = useInboxTheme();
+  const { styles: s, palette: p } = useInboxTheme();
   const avatar = inboxAvatar(name, phone);
-  return <View style={[s.avatar, { backgroundColor: avatar.color }]}><Text style={s.avatarText}>{avatar.initials}</Text></View>;
+  return <View style={[s.avatar, { backgroundColor: p.accent }]}><Text style={s.avatarText}>{avatar.initials}</Text></View>;
 }

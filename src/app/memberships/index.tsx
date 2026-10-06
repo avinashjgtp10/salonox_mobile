@@ -1,9 +1,11 @@
+import { Text, TextInput } from "@/components/ui/AppTypography";
+import { ConfirmationModal } from "@/components/ui/ConfirmationModal";
 import { TourFlatList, TourView, TourButton, withScreenTour } from "@/features/userGuide/DashboardTour";
 import { screenTours } from "@/features/userGuide/screenTours";
 import { Ionicons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppLayout, AppRadius } from "@/constants/layout";
@@ -346,7 +348,15 @@ function MembershipsScreenContent() {
         <Ionicons name="add" size={28} color="#FFFFFF" />
       </TourButton>
 
-      <DeleteDialog membership={deleteTarget} onCancel={() => setDeleteTarget(null)} onConfirm={() => void confirmDelete()} />
+      <ConfirmationModal
+        visible={Boolean(deleteTarget)}
+        title="Delete membership?"
+        description={`This will remove "${deleteTarget?.name ?? ''}" from your catalog. This action cannot be undone.`}
+        cancelLabel="Cancel"
+        confirmLabel="Delete"
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={confirmDelete}
+      />
       {toast ? <View style={[styles.toast, { bottom: insets.bottom + 86 }]}><Text style={styles.toastText}>{toast}</Text></View> : null}
     </SafeAreaView>
   );
@@ -361,28 +371,6 @@ function SummaryCard({ icon, label, value }: { icon: keyof typeof Ionicons.glyph
       <Text numberOfLines={1} style={styles.summaryValue}>{value}</Text>
       <Text numberOfLines={1} style={styles.summaryLabel}>{label}</Text>
     </View>
-  );
-}
-
-function DeleteDialog({ membership, onCancel, onConfirm }: { membership: Membership | null; onCancel: () => void; onConfirm: () => void }) {
-  const Colors = useThemeColors();
-  const styles = useMemo(() => createStyles(Colors), [Colors]);
-  return (
-    <Modal transparent animationType="fade" visible={Boolean(membership)} onRequestClose={onCancel}>
-      <View style={styles.dialogOverlay}>
-        <View style={styles.dialog}>
-          <View style={styles.dialogIcon}><Ionicons name="trash-outline" size={24} color={Colors.error} /></View>
-          <Text style={styles.dialogTitle}>Delete membership?</Text>
-          <Text style={styles.dialogText}>
-            This will remove &quot;{membership?.name}&quot; from your catalog. This action cannot be undone.
-          </Text>
-          <View style={styles.dialogActions}>
-            <TouchableOpacity activeOpacity={0.84} onPress={onCancel} style={styles.cancelButton}><Text style={styles.cancelText}>Cancel</Text></TouchableOpacity>
-            <TouchableOpacity activeOpacity={0.84} onPress={onConfirm} style={styles.deleteButton}><Text style={styles.deleteText}>Delete</Text></TouchableOpacity>
-          </View>
-        </View>
-      </View>
-    </Modal>
   );
 }
 
@@ -441,24 +429,12 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   emptyText: { color: Colors.text2, fontSize: 13, lineHeight: 20, marginTop: Spacing.sm, textAlign: "center" },
   emptyButton: { backgroundColor: Colors.primary, borderRadius: Radius.full, marginTop: Spacing.lg, paddingHorizontal: Spacing.xl, paddingVertical: 13 },
   emptyButtonText: { color: "#FFFFFF", fontSize: 13, fontWeight: "900" },
-  loadingMore: { alignItems: "center", flexDirection: "row", gap: 8, justifyContent: "center", paddingVertical: Spacing.lg },
-  loadingMoreText: { color: Colors.text2, fontSize: 12, fontWeight: "700" },
   fab: { alignItems: "center", backgroundColor: Colors.primary, borderRadius: Radius.full, height: 58, justifyContent: "center", position: "absolute", right: Spacing.lg, shadowColor: Colors.shadow, shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.24, shadowRadius: 18, width: 58 },
   menuOverlay: { backgroundColor: "rgba(0,0,0,0.28)", flex: 1, justifyContent: "flex-end", padding: Spacing.lg },
   menuSheet: { backgroundColor: Colors.card, borderRadius: Radius.xl, padding: Spacing.lg },
   menuTitle: { color: Colors.heading, fontSize: 16, fontWeight: "900", marginBottom: Spacing.sm },
   menuAction: { alignItems: "center", flexDirection: "row", gap: 10, paddingVertical: 13 },
   menuActionText: { color: Colors.heading, fontSize: 14, fontWeight: "800" },
-  dialogOverlay: { alignItems: "center", backgroundColor: "rgba(0,0,0,0.34)", flex: 1, justifyContent: "center", padding: Spacing.lg },
-  dialog: { backgroundColor: Colors.card, borderRadius: Radius.xl, padding: Spacing.xl, width: "100%" },
-  dialogIcon: { alignItems: "center", backgroundColor: Colors.errorBg, borderRadius: Radius.lg, height: 52, justifyContent: "center", width: 52 },
-  dialogTitle: { color: Colors.heading, fontSize: 20, fontWeight: "900", marginTop: Spacing.md },
-  dialogText: { color: Colors.text2, fontSize: 13, lineHeight: 20, marginTop: Spacing.sm },
-  dialogActions: { flexDirection: "row", gap: Spacing.sm, marginTop: Spacing.xl },
-  cancelButton: { alignItems: "center", backgroundColor: Colors.bg2, borderRadius: Radius.full, flex: 1, paddingVertical: 13 },
-  deleteButton: { alignItems: "center", backgroundColor: Colors.error, borderRadius: Radius.full, flex: 1, paddingVertical: 13 },
-  cancelText: { color: Colors.heading, fontSize: 13, fontWeight: "900" },
-  deleteText: { color: "#FFFFFF", fontSize: 13, fontWeight: "900" },
   toast: { alignSelf: "center", backgroundColor: Colors.heading, borderRadius: Radius.full, paddingHorizontal: Spacing.lg, paddingVertical: 12, position: "absolute" },
   toastText: { color: Colors.bg, fontSize: 12, fontWeight: "900" },
 });

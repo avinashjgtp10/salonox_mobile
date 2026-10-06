@@ -1,6 +1,4 @@
 ---
-# Intended branch: dev
-# Manual-only for now - no automatic trigger on push.
 name: Build Mobile - DEV
 
 on:

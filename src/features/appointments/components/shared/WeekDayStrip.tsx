@@ -1,8 +1,9 @@
+import { Text } from "@/components/ui/AppTypography";
 import { createStyles } from "@/features/appointments/styles/appointmentStyles";
 import { todayIsoDate } from "@/features/appointments/utils/appointmentDateTime";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { useMemo } from "react";
-import { ScrollView, Text, TouchableOpacity } from "react-native";
+import { ScrollView, TouchableOpacity } from "react-native";
 
 export function WeekDayStrip({ date, onSelect }: { date: string; onSelect: (value: string) => void }) {
   const Colors = useThemeColors();
@@ -14,7 +15,6 @@ export function WeekDayStrip({ date, onSelect }: { date: string; onSelect: (valu
       anchor.setTime(Date.now());
     }
 
-    // Monday-start week containing `anchor`.
     const dayOfWeek = anchor.getDay();
     const diffToMonday = (dayOfWeek + 6) % 7;
     const monday = new Date(anchor);

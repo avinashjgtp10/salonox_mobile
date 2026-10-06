@@ -2,14 +2,6 @@ import type { Href } from "expo-router";
 
 import type { NotificationItem } from "@/types/notification";
 
-// Keyed by the real `type` strings the backend's single notification choke
-// point (notificationsService.create) currently sends — "appointment",
-// "client", "payment", "whatsapp" — plus a few reasonable ones ahead of
-// backend coverage (attendance, staff, sale as a payment alias). This is
-// intentionally NOT an exhaustive/closed enum: any `type` not listed here
-// falls through to the generic Notifications screen instead of being
-// dropped, so a brand-new backend notification type renders/navigates
-// correctly with zero frontend changes.
 type NotificationRouteScope = "owner" | "staff";
 
 const OWNER_ROUTE_BUILDERS: Record<string, (referenceId: string | null) => Href> = {
@@ -19,12 +11,6 @@ const OWNER_ROUTE_BUILDERS: Record<string, (referenceId: string | null) => Href>
   payment: (id) => (id ? (`/sales/${id}` as Href) : ("/sales" as Href)),
   sale: (id) => (id ? (`/sales/${id}` as Href) : ("/sales" as Href)),
   staff: (id) => (id ? (`/team/${id}` as Href) : ("/team" as Href)),
-  // WhatsApp inbound messages create a `whatsapp` notification with NO
-  // reference_id (see salon_mgm_backend webhooks.service.ts — it has msg.from
-  // in scope but doesn't pass it), so there is nothing here identifying which
-  // conversation fired. Until the backend sends the contact phone as
-  // reference_id, this deliberately opens the inbox list rather than guessing
-  // a thread. The `id ?` branch is already in place for when it does.
   whatsapp: (id) => (id ? (`/inbox/${encodeURIComponent(id)}` as Href) : ("/inbox" as Href)),
 };
 
@@ -53,9 +39,6 @@ export const resolveNotificationRoute = (
   return builder ? builder(notification.referenceId) : scope === "staff" ? STAFF_FALLBACK_ROUTE : FALLBACK_ROUTE;
 };
 
-// Push payload data survives as loosely-typed JSON (Expo/FCM don't preserve
-// our TS types), so this normalizes whatever shape actually arrives before
-// handing it to resolveNotificationRoute.
 export const resolveRouteFromPushData = (
   data: unknown,
   scope: NotificationRouteScope = "owner",

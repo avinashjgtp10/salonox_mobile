@@ -1,6 +1,7 @@
+import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { useMemo } from "react";
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
@@ -18,7 +19,6 @@ type ProfileStateViewProps =
   | { kind: "error"; message: string; onRetry: () => void }
   | { kind: "empty"; onRetry: () => void };
 
-/** Full-screen loading, error, and "no profile" states. */
 export function ProfileStateView(props: ProfileStateViewProps) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);

@@ -1,19 +1,9 @@
+import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams, type Href } from "expo-router";
 import { isValidPhoneNumber, parsePhoneNumber, type CountryCode } from "libphonenumber-js";
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  ActivityIndicator,
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Switch, TouchableOpacity, View } from "react-native";
 import { KeyboardAwareScrollView } from "@/components/ui/KeyboardAwareScrollView";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -23,7 +13,6 @@ import { DateField } from "@/components/ui/DateField";
 import { PhoneInput } from "@/components/ui/PhoneInput";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import {
-  DashboardRadius as Radius,
   DashboardSpacing as Spacing,
   type ThemeColors,
 } from "@/constants/theme";
@@ -554,9 +543,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     marginBottom: 22,
     minHeight: 58,
   },
-  backButtonPlaceholder: {
-    width: AppLayout.headerActionSize,
-  },
   headerTitle: {
     color: Colors.appointmentText,
     fontFamily: "serif",
@@ -570,16 +556,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     borderWidth: 1,
     marginBottom: 18,
     padding: 12,
-  },
-  iconWrap: {
-    alignItems: "center",
-    alignSelf: "center",
-    backgroundColor: Colors.bg2,
-    borderRadius: Radius.lg,
-    height: 56,
-    justifyContent: "center",
-    marginBottom: Spacing.xl,
-    width: 56,
   },
   inputGroup: {
     marginBottom: 16,
@@ -716,33 +692,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: 16,
   },
-  genderRow: {
-    flexDirection: "row",
-    gap: Spacing.sm,
-  },
-  genderChip: {
-    alignItems: "center",
-    backgroundColor: Colors.appointmentSurface,
-    borderColor: Colors.appointmentBorder,
-    borderRadius: 8,
-    borderWidth: 1,
-    flex: 1,
-    minHeight: 42,
-    justifyContent: "center",
-    paddingHorizontal: Spacing.md,
-  },
-  genderChipSelected: {
-    backgroundColor: Colors.appointmentAccent,
-    borderColor: Colors.appointmentAccent,
-  },
-  genderChipText: {
-    color: Colors.text2,
-    fontSize: 13,
-    fontWeight: "800",
-  },
-  genderChipTextSelected: {
-    color: "#FFFFFF",
-  },
   errorContainer: {
     alignItems: "center",
     backgroundColor: Colors.errorBg,
@@ -822,12 +771,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   requiredMark: {
     color: Colors.appointmentAccent,
-  },
-  countryCode: {
-    color: Colors.appointmentText,
-    fontSize: 14,
-    fontWeight: "800",
-    marginRight: 10,
   },
   bottomActions: {
     alignItems: "center",

@@ -1,3 +1,4 @@
+import { Text, TextInput } from "@/components/ui/AppTypography";
 import { TourView, TourButton } from "@/features/userGuide/DashboardTour";
 import { WeekDayStrip } from "@/features/appointments/components/shared/WeekDayStrip";
 import { STATUS_FILTERS } from "@/features/appointments/constants/appointmentConstants";
@@ -10,7 +11,7 @@ import { Ionicons } from "@expo/vector-icons";
 import type { DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useMemo, useState } from "react";
-import { Modal, Platform, Pressable, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Modal, Platform, Pressable, ScrollView, TouchableOpacity, View } from "react-native";
 
 export function FilterBar({
   date,
@@ -35,9 +36,6 @@ export function FilterBar({
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [isDatePickerVisible, setIsDatePickerVisible] = useState(false);
-  // Additive UI-only toggle for the status chip row below — default visible
-  // so nothing changes for anyone who doesn't touch this control. The chip
-  // row itself, onStatusChange, and `status` are untouched.
   const [isStatusRowVisible, setIsStatusRowVisible] = useState(true);
   const showDropdown =
     isSearchFocused && search.trim().length > 0 && searchResults !== undefined;

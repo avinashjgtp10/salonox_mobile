@@ -62,8 +62,6 @@ function GuideModal({ staff, onClose }: { staff: boolean; onClose: () => void })
 
 export function FirstLoginGuide({ enabled }: { enabled: boolean }) {
   const { user, isAuthenticated, isLoading } = useAuth();
-  // Widened on purpose: without the generated .expo typed routes (e.g. in CI)
-  // useSegments() is typed as the tuple [string], which rejects segments[1].
   const segments: readonly string[] = useSegments();
   const userId = user?.id ?? "";
   const staff = isStaffExperienceUser(user);

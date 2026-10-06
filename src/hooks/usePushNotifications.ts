@@ -1,6 +1,7 @@
+import { appAlert as Alert } from "@/services/appAlert";
 import { router } from "expo-router";
 import { useCallback, useEffect, useRef } from "react";
-import { Alert, Platform } from "react-native";
+import { Platform } from "react-native";
 import * as Notifications from "expo-notifications";
 
 import { useAppForeground } from "@/hooks/useAppForeground";
@@ -33,13 +34,10 @@ import { appEnv } from "@/config/environment";
 import { isNotificationRegistrationPaused } from "@/services/notificationRegistrationLifecycle";
 import { resolveRouteFromPushData } from "@/utils/notificationRouting";
 import { isStaffExperienceUser } from "@/utils/routeResolver";
+import { canReceivePush } from "@/utils/staffAccess";
 
 const PLATFORM: "android" | "ios" = Platform.OS === "ios" ? "ios" : "android";
 
-// Mounted exactly once (see root layout) — every listener here is a
-// singleton for the app's lifetime. Re-mounting this hook anywhere else
-// would double-fire notification handling, which is explicitly what task
-// #12 ("avoid duplicate listeners") rules out.
 export const usePushNotifications = (isAuthenticated: boolean) => {
   const dispatch = useAppDispatch();
   const registeredToken = useAppSelector(selectRegisteredDeviceToken);
@@ -71,6 +69,11 @@ export const usePushNotifications = (isAuthenticated: boolean) => {
       startedUser?.id === currentUserRef.current?.id && startedUser?.salonId === currentUserRef.current?.salonId;
     if (!isCurrentSession()) return;
     try {
+      if (isStaffExperienceUser(startedUser)) {
+        confirmedRegistrationSignatureRef.current = null;
+        await dispatch(unregisterDeviceThunk()).unwrap();
+        return;
+      }
       const preferences = await salonNotificationPreferences.get();
       await notificationPreferencesStorage.setPreferences(preferences, false);
       if (!isCurrentSession()) return;
@@ -167,9 +170,6 @@ export const usePushNotifications = (isAuthenticated: boolean) => {
 
       console.warn("[PushNotifications] Registration flow failed before dispatch completed:", error);
 
-      // Token generation / network failure — silent by design. This runs on
-      // every login and every foreground, so a transient failure will
-      // simply retry next time rather than nagging the user repeatedly.
     }
   }, [dispatch]);
 
@@ -192,9 +192,6 @@ export const usePushNotifications = (isAuthenticated: boolean) => {
     void syncDeviceToken();
   }), [dispatch, syncDeviceToken]);
 
-  // Register (or re-register, if the token rotated) whenever the user is
-  // authenticated — covers both the immediately-after-login case and a
-  // returning user whose session was restored from storage.
   useEffect(() => {
     if (!isAuthenticated) {
       hydratedStoredTokenRef.current = false;
@@ -213,9 +210,6 @@ export const usePushNotifications = (isAuthenticated: boolean) => {
     });
   }, [currentStaff?.id, currentStaffLoading, currentUser?.id, currentUser?.salonId, currentUser?.role, isAuthenticated, dispatch, syncDeviceToken]);
 
-  // Token rotation can happen at any time (app reinstall keeps the same
-  // device but Expo may issue a new token) — re-check on every return to
-  // foreground rather than only once at login.
   useAppForeground(() => {
     if (isAuthenticated) {
       void syncDeviceToken();
@@ -235,6 +229,7 @@ export const usePushNotifications = (isAuthenticated: boolean) => {
     }
 
     handledResponseIdsRef.current.add(responseId);
+    if (!canReceivePush(currentUserRef.current, response.notification.request.content.data)) return;
     const href = resolveRouteFromPushData(
       response.notification.request.content.data,
       isStaffExperienceUser(currentUserRef.current) ? "staff" : "owner",
@@ -255,10 +250,6 @@ export const usePushNotifications = (isAuthenticated: boolean) => {
 
   useEffect(() => {
     const receivedSubscription = Notifications.addNotificationReceivedListener(() => {
-      // Foreground receipt: the OS banner is already handled by the
-      // notification handler configured in pushNotifications.ts — this just
-      // keeps in-app state (list + badge) in sync without the user having
-      // to pull-to-refresh.
       void dispatch(fetchNotificationsThunk());
       void dispatch(fetchUnreadCountThunk());
     });
@@ -267,9 +258,6 @@ export const usePushNotifications = (isAuthenticated: boolean) => {
       handleNotificationResponse(response);
     });
 
-    // App was fully closed and got launched by tapping a notification —
-    // addNotificationResponseReceivedListener alone misses this case since
-    // it wasn't there yet to hear the tap.
     Notifications.getLastNotificationResponseAsync().then((response) => {
       if (response) {
         handleNotificationResponse(response);

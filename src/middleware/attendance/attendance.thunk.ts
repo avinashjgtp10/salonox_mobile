@@ -1,4 +1,5 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
+import { scopeAttendanceToStaff } from "@/features/attendance/utils/attendanceMatching";
 
 import { fetchDashboardThunk } from "@/middleware/dashboard/dashboard.thunk";
 import { fetchUnreadCountThunk } from "@/middleware/notification/notification.thunk";
@@ -10,6 +11,7 @@ import { emitRealtimeEntityChanged } from "@/services/realtimeEvents";
 import type { RootState } from "@/store";
 import { selectActiveBranchId } from "@/store/branch/branch.slice";
 import { selectCurrentUser } from "@/store/user/user.slice";
+import { selectCurrentStaff } from "@/store/staff/staff.slice";
 import { isStaffExperienceUser } from "@/utils/routeResolver";
 import type {
   AttendanceSummary,
@@ -76,17 +78,21 @@ const toRejectValue = (error: unknown): AttendanceRejectValue => {
   };
 };
 
-// Seeds the slice from the last successfully cached response so the UI has
-// something to show the instant the screen mounts, before the network call
-// (dispatched separately) resolves. The reducer only applies this while the
-// live resource is still idle, so it never clobbers fresher network data.
+const scopeAttendanceForCurrentUser = (today: AttendanceToday, state: RootState) =>
+  isStaffExperienceUser(selectCurrentUser(state))
+    ? scopeAttendanceToStaff(today, selectCurrentStaff(state))
+    : today;
+
 export const hydrateAttendanceFromCacheThunk = createAsyncThunk<
   { summary: AttendanceSummary | null; today: AttendanceToday | null },
   void,
   { state: RootState }
->("attendance/hydrateFromCache", async () => {
+>("attendance/hydrateFromCache", async (_args, { getState }) => {
   const [today, summary] = await Promise.all([attendanceCache.getToday(), attendanceCache.getSummary()]);
-
+  if (isStaffExperienceUser(selectCurrentUser(getState()))) {
+    const ownToday = today ? scopeAttendanceForCurrentUser(today, getState()) : null;
+    return { today: ownToday, summary: ownToday?.summary ?? null };
+  }
   return { summary, today };
 });
 
@@ -96,7 +102,8 @@ export const fetchTodayAttendanceThunk = createAsyncThunk<
   { rejectValue: AttendanceRejectValue; state: RootState }
 >("attendance/fetchToday", async (date, { getState, rejectWithValue }) => {
   try {
-    const today = await attendanceService.getToday(selectActiveBranchId(getState()), date);
+    const response = await attendanceService.getToday(selectActiveBranchId(getState()), date);
+    const today = scopeAttendanceForCurrentUser(response, getState());
 
     void attendanceCache.setToday(today);
 
@@ -114,7 +121,10 @@ export const fetchAttendanceSummaryThunk = createAsyncThunk<
   { rejectValue: AttendanceRejectValue; state: RootState }
 >("attendance/fetchSummary", async (date, { getState, rejectWithValue }) => {
   try {
-    const summary = await attendanceService.getSummary(selectActiveBranchId(getState()), date);
+    const state = getState();
+    const summary = isStaffExperienceUser(selectCurrentUser(state))
+      ? scopeAttendanceForCurrentUser(await attendanceService.getToday(selectActiveBranchId(state), date), getState()).summary!
+      : await attendanceService.getSummary(selectActiveBranchId(state), date);
 
     void attendanceCache.setSummary(summary);
 
@@ -126,15 +136,15 @@ export const fetchAttendanceSummaryThunk = createAsyncThunk<
   }
 });
 
-// Thin orchestration thunk used by screens that show both the live staff list
-// and the summary cards together. It intentionally has no reducer cases of
-// its own — each child thunk updates its own slice of state, so dispatching
-// this never double-tracks loading/error flags.
 export const fetchAttendanceOverviewThunk = createAsyncThunk<
   void,
   string | undefined,
   { state: RootState }
->("attendance/fetchOverview", async (date, { dispatch }) => {
+>("attendance/fetchOverview", async (date, { dispatch, getState }) => {
+  if (isStaffExperienceUser(selectCurrentUser(getState()))) {
+    await dispatch(fetchTodayAttendanceThunk(date));
+    return;
+  }
   await Promise.all([dispatch(fetchTodayAttendanceThunk(date)), dispatch(fetchAttendanceSummaryThunk(date))]);
 });
 

@@ -1,14 +1,7 @@
+import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { memo, useMemo, useState } from "react";
-import {
-  ActivityIndicator,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { ActivityIndicator, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 
 import { AppLayout, AppRadius } from "@/constants/layout";
 import { DashboardRadius as Radius, DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
@@ -16,7 +9,6 @@ import { useThemeColors } from "@/theme/ThemeProvider";
 import type { PosStaffMember } from "@/types/sales";
 
 type StaffSectionProps = {
-  /** Embedded (calendar modal) mode shows a compact dropdown that opens `onOpenPicker`. */
   embedded: boolean;
   isLoading: boolean;
   onOpenPicker: () => void;

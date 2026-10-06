@@ -1,3 +1,4 @@
+import { Text } from "@/components/ui/AppTypography";
 import { AppointmentPreviewSheet } from "@/features/appointments/components/calendar/AppointmentPreviewSheet";
 import { createStyles } from "@/features/appointments/styles/appointmentStyles";
 import { appointmentsOverlap, getAppointmentRange, getCalendarAppointmentTitle, getCalendarTokenLabel, getWebCalendarGradient, hasCalendarInteractionFlag, isReadonlyCalendarAppointment } from "@/features/appointments/utils/appointmentCalendar";
@@ -13,7 +14,7 @@ import { formatAppTime } from "@/utils/dateTime";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Modal, Pressable, RefreshControl, ScrollView, Text, View, type GestureResponderEvent } from "react-native";
+import { Modal, Pressable, RefreshControl, ScrollView, View, type GestureResponderEvent } from "react-native";
 
 type CalendarStyles = ReturnType<typeof createStyles>;
 
@@ -37,8 +38,6 @@ const TIME_COLUMN_WIDTH = 54;
 const HOURS = Array.from({ length: 24 }, (_, index) => START_HOUR + index);
 const GRID_HEIGHT = HOURS.length * HOUR_HEIGHT;
 
-// Intl formatters are expensive to construct on Hermes, so build them (and
-// the static time-rail labels) once instead of on every render.
 const HOUR_LABEL_FORMAT = new Intl.DateTimeFormat("en-IN", { hour: "numeric", hour12: true });
 const DAY_LABEL_FORMAT = new Intl.DateTimeFormat("en-IN", { weekday: "short", day: "2-digit", month: "short" });
 const TIME_SLOTS = Array.from({ length: HOURS.length * (60 / SLOT_MINUTES) }, (_, index) => {
@@ -63,17 +62,18 @@ export function CalendarPreview({
   resolveStaffId,
   staffColumns = [],
   viewMode = "week",
+  readOnly = false,
 }: {
   appointments: AppointmentListItem[];
   date: string;
   onRefresh?: () => void;
   refreshing?: boolean;
   showEmptyState?: boolean;
-  /** Maps an appointment to the staff option id owning it. */
   resolveStaffId?: (appointment: AppointmentListItem) => string;
   staffColumns?: CalendarStaffOption[];
   title?: string;
   viewMode?: "week" | "day" | "list";
+  readOnly?: boolean;
 }) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
@@ -87,8 +87,6 @@ export function CalendarPreview({
       label: DAY_LABEL_FORMAT.format(value),
     };
   }), [date]);
-  // One column per staff *id* — same-named staff each get their own column
-  // instead of being merged into one.
   const columns = useMemo<CalendarColumn[]>(() => viewMode === "day"
     ? (staffColumns.length
       ? staffColumns.map((option) => ({ key: date, label: option.label, staffId: option.id, staffName: option.name }))
@@ -96,8 +94,6 @@ export function CalendarPreview({
     : days.map((day) => ({ ...day, staffId: "", staffName: "" })), [date, days, staffColumns, viewMode]);
   const columnWidth = viewMode === "day" ? 156 : 118;
   const calendarContentWidth = TIME_COLUMN_WIDTH + columns.length * columnWidth;
-  // Keep the full grid mounted: native scrolling can outrun JS-driven render windows,
-  // exposing blank rows/columns during flings or programmatic scrolls.
   const appointmentsByColumn = useMemo(() => {
     const keyed = appointments.map((appointment) => ({ appointment, dateKey: getDateKey(appointment.scheduledAt) }));
     return columns.map((column) => keyed
@@ -111,6 +107,7 @@ export function CalendarPreview({
   const previewId = previewAppointment?.id ?? null;
 
   const openQuickSaleAt = useCallback((column: CalendarColumn, locationY: number) => {
+    if (readOnly) return;
     const slotIndex = Math.min(TIME_SLOTS.length - 1, Math.max(0, Math.floor(locationY / SLOT_HEIGHT)));
     const { hour, minute } = TIME_SLOTS[slotIndex];
     setQuickSaleSlot({
@@ -118,7 +115,7 @@ export function CalendarPreview({
       staffName: column.staffName || undefined,
       time: `${pad2(hour)}:${pad2(minute)}`,
     });
-  }, []);
+  }, [readOnly]);
 
   useEffect(() => {
     if (viewMode === "list") return;
@@ -128,8 +125,6 @@ export function CalendarPreview({
       verticalScrollRef.current?.scrollTo({ y: targetY, animated: false });
     });
     return () => cancelAnimationFrame(frame);
-    // currentMinuteOffset intentionally excluded: it changes every render via `new Date()`,
-    // and this should only re-scroll when the viewed day/mode changes, not every tick.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date, viewMode]);
 
@@ -150,7 +145,7 @@ export function CalendarPreview({
             </View>
           )) : <Text style={styles.calendarEmpty}>No appointments found.</Text>}
         </View>
-        <AppointmentPreviewSheet appointment={previewAppointment} onClose={() => setPreviewAppointment(null)} />
+        <AppointmentPreviewSheet appointment={previewAppointment} onClose={() => setPreviewAppointment(null)} readOnly={readOnly} />
       </>
     );
   }
@@ -195,11 +190,11 @@ export function CalendarPreview({
                   <CalendarDayColumn
                     appointments={columnAppointments}
                     column={column}
-                    // Only the column showing the previewed appointment re-renders on tap.
                     highlightedId={previewId && columnAppointments.some((item) => item.id === previewId) ? previewId : null}
                     key={`${column.key}-${column.staffId || columnIndex}`}
                     onAppointmentPress={setPreviewAppointment}
                     onSlotPress={openQuickSaleAt}
+                    readOnly={readOnly}
                     styles={styles}
                     width={columnWidth}
                   />
@@ -216,12 +211,13 @@ export function CalendarPreview({
           <Text style={styles.calendarEmptyTitle}>
             {viewMode === "week" ? "No appointments this week" : date === todayIsoDate() ? "No appointments today" : "No appointments on this day"}
           </Text>
-          <Text style={styles.calendarEmptyHint}>Tap a time slot to add one</Text>
+          {!readOnly && <Text style={styles.calendarEmptyHint}>Tap a time slot to add one</Text>}
         </View>
       ) : null}
       <AppointmentPreviewSheet
         appointment={previewAppointment}
         onClose={() => setPreviewAppointment(null)}
+        readOnly={readOnly}
       />
       <Modal
         animationType="fade"
@@ -246,7 +242,6 @@ export function CalendarPreview({
   );
 }
 
-/** The static time rail on the left; never changes after the first render. */
 const CalendarTimeColumn = memo(function CalendarTimeColumn({ styles }: { styles: CalendarStyles }) {
   return (
     <View style={styles.dinggTimeColumn}>
@@ -259,10 +254,6 @@ const CalendarTimeColumn = memo(function CalendarTimeColumn({ styles }: { styles
   );
 });
 
-/**
- * Hour and quarter-hour lines, drawn once across every column rather than
- * once per column. `filled` paints the day-view column background behind them.
- */
 const CalendarGridLines = memo(function CalendarGridLines({
   filled,
   styles,
@@ -294,6 +285,7 @@ const CalendarDayColumn = memo(function CalendarDayColumn({
   highlightedId,
   onAppointmentPress,
   onSlotPress,
+  readOnly,
   styles,
   width,
 }: {
@@ -302,6 +294,7 @@ const CalendarDayColumn = memo(function CalendarDayColumn({
   highlightedId: string | null;
   onAppointmentPress: (appointment: AppointmentListItem) => void;
   onSlotPress: (column: CalendarColumn, locationY: number) => void;
+  readOnly: boolean;
   styles: CalendarStyles;
   width: number;
 }) {
@@ -312,13 +305,13 @@ const CalendarDayColumn = memo(function CalendarDayColumn({
 
   return (
     <View style={[styles.dinggDayColumn, { width }]}>
-      <Pressable
+      {!readOnly && <Pressable
         accessibilityHint="Opens Quick Sale at the tapped time"
         accessibilityLabel={`Quick Sale, ${column.label}`}
         accessibilityRole="button"
         onPress={handleSlotPress}
         style={styles.dinggQuickSaleLayer}
-      />
+      />}
       {appointments.map((appointment) => {
         const scheduled = parseAppointmentDateTime(appointment.scheduledAt);
         if (!scheduled) return null;

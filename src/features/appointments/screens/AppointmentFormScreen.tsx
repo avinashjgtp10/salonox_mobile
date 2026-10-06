@@ -1,3 +1,4 @@
+import { Text } from "@/components/ui/AppTypography";
 import { AppBackButton } from "@/components/ui/AppBackButton";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { KeyboardAwareScrollView } from "@/components/ui/KeyboardAwareScrollView";
@@ -15,7 +16,7 @@ import { AppointmentSnackbar } from "@/features/appointments/components/shared/A
 import { PAYMENT_METHODS } from "@/features/appointments/constants/appointmentConstants";
 import { getSelectedServiceCatalogId } from "@/features/appointments/utils/appointmentForm";
 import { Ionicons } from "@expo/vector-icons";
-import { Pressable, Text, TouchableOpacity, View } from "react-native";
+import { Pressable, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { BookingBottomBar } from '../components/form/BookingBottomBar';
 import { useAppointmentForm } from '../hooks/useAppointmentForm';

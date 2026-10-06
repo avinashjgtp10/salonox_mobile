@@ -1,6 +1,7 @@
+import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { memo, useMemo } from "react";
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, StyleSheet, TouchableOpacity, View } from "react-native";
 
 import { AppRadius } from "@/constants/layout";
 import { DashboardRadius as Radius, DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
@@ -42,7 +43,7 @@ function AttendanceStaffRowComponent({
     typeof record?.scheduledHours === "number" && record.scheduledHours > 0
       ? `${record.scheduledHours.toFixed(record.scheduledHours % 1 === 0 ? 0 : 1)}h scheduled`
       : "Schedule --";
-  const showPrimaryAction = canManageAttendance || action.kind !== "edit";
+  const showPrimaryAction = canManageAttendance;
 
   const primaryButtonStyle = [
     styles.primaryButton,

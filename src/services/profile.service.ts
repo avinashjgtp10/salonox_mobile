@@ -171,7 +171,6 @@ export const profileService = {
     const mimeType = asset.mimeType?.trim() || guessMimeType(fileName);
 
     const formData = new FormData();
-    // React Native FormData file part shape (uri/name/type).
     formData.append("avatar", {
       name: fileName,
       type: mimeType,
@@ -184,7 +183,6 @@ export const profileService = {
 
     const apiProfile = getProfileFromEnvelope(response.data.data);
     const normalizedProfile = normalizeProfile(apiProfile);
-    // Prefer an avatar url found directly on the payload; fall back to the normalized profile.
     const avatarUrl = extractAvatarUrl(apiProfile) ?? normalizedProfile.avatarUrl;
 
     if (!avatarUrl) {

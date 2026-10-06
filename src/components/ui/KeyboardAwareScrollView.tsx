@@ -1,11 +1,4 @@
-/**
- * KeyboardAwareScrollView
- *
- * A drop-in replacement for ScrollView, FlatList, and SectionList that
- * automatically scrolls the focused TextInput above the keyboard on iOS and
- * Android. It measures exact screen positions using measureInWindow and dynamically
- * adjusts content bottom padding so lower fields are never obscured.
- */
+import { TextInput } from "react-native";
 
 import { Ionicons } from "@expo/vector-icons";
 import React, {
@@ -19,23 +12,7 @@ import React, {
   type PropsWithChildren,
   type RefObject,
 } from "react";
-import {
-  Dimensions,
-  FlatList,
-  Keyboard,
-  Platform,
-  Pressable,
-  ScrollView,
-  SectionList,
-  StyleSheet,
-  TextInput,
-  UIManager,
-  View,
-  findNodeHandle,
-  type FlatListProps,
-  type ScrollViewProps,
-  type SectionListProps,
-} from "react-native";
+import { Dimensions, FlatList, Keyboard, Platform, Pressable, ScrollView, SectionList, StyleSheet, UIManager, View, findNodeHandle, type FlatListProps, type ScrollViewProps, type SectionListProps } from "react-native";
 
 import { AppRadius } from "@/constants/layout";
 import { useThemeColors } from "@/theme/ThemeProvider";
@@ -207,7 +184,6 @@ export function useKeyboardAwareScrollView<
 
       const windowHeight = Dimensions.get("window").height;
 
-      // Promise for ScrollView position in window
       const measureScrollView = new Promise<{
         sy: number;
         sh: number;
@@ -228,7 +204,6 @@ export function useKeyboardAwareScrollView<
         }
       });
 
-      // Promise for focused TextInput position in window
       const measureInput = new Promise<{
         ix: number;
         iy: number;
@@ -342,7 +317,6 @@ export function useKeyboardAwareScrollView<
     [extraScrollPadding, keyboardNavigation],
   );
 
-  // Keyboard Event Listeners
   useEffect(() => {
     const showEvent =
       Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
@@ -388,8 +362,6 @@ export function useKeyboardAwareScrollView<
     };
   }, [scrollToFocusedInput]);
 
-  // Active focus polling. This deliberately keeps running even when the
-  // keyboard state is temporarily stale after screen remount/back navigation.
   useEffect(() => {
     const interval = setInterval(() => {
       const metricsHeight = getKeyboardMetricsHeight();
@@ -453,7 +425,6 @@ export function useKeyboardAwareScrollView<
     });
   }, [keyboardNavigation, keyboardNavigation?.keyboardVisible, scrollToFocusedInput, visibleNavigationFields]);
 
-  // Dynamic ContentContainerStyle Padding
   const combinedContentContainerStyle = useMemo(() => {
     const baseStyle = StyleSheet.flatten(contentContainerStyle) || {};
     if (keyboardHeightState > 0) {

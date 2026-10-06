@@ -1,5 +1,6 @@
+import { Text } from "@/components/ui/AppTypography";
 import { useMemo } from "react";
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, StyleSheet, TouchableOpacity, View } from "react-native";
 
 import { AppRadius } from "@/constants/layout";
 import { DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
@@ -21,7 +22,6 @@ type SalonInfoCardProps = {
   salon: SalonListItem | null;
 };
 
-/** Read-only salon details, falling back to the owner's profile where the salon has no value. */
 export function SalonInfoCard({ isLoading, onEdit, profile, salon }: SalonInfoCardProps) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
@@ -32,7 +32,6 @@ export function SalonInfoCard({ isLoading, onEdit, profile, salon }: SalonInfoCa
   const salonAddress = salon?.address || profile.address;
   const website = formatEmpty(salon?.websiteUrl, "No website set");
   const gstin = formatEmpty(salon?.gstin, "No gst number set");
-  // Not loaded from the salon API: these are fixed values.
   const businessRegNo = formatEmpty(null, "No business reg. no. (pan) set");
   const businessType = formatEmpty("Hair salon", "No business type set");
   const businessCategory = formatEmpty(null, "No business category set");

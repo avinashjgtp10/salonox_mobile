@@ -1,5 +1,6 @@
+import { Text } from "@/components/ui/AppTypography";
 import { Image } from "expo-image";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 
 import { useThemeColors } from "@/theme/ThemeProvider";
 
@@ -11,9 +12,6 @@ type InitialsAvatarProps = {
   size?: number;
 };
 
-// Shared circular avatar — falls back to initials-on-tint when no image is
-// available, matching the pattern already hand-rolled separately in
-// DashboardHero, AppointmentCard, ClientCard, and the More screen's hero.
 export function InitialsAvatar({
   bg,
   color,

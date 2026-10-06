@@ -1,6 +1,6 @@
+import { appAlert as Alert } from "@/services/appAlert";
 import * as ImagePicker from "expo-image-picker";
 import { useCallback, useState } from "react";
-import { Alert } from "react-native";
 
 import {
   getAvatarFileName,
@@ -26,15 +26,10 @@ const PICKER_OPTIONS: ImagePicker.ImagePickerOptions = {
 type UseAvatarUploadArgs = {
   avatarUrl: string | null | undefined;
   onError: (message: string) => void;
-  /** Called when a picked photo starts uploading, so stale messages can be cleared. */
   onStart: () => void;
   onSuccess: (message: string) => void;
 };
 
-/**
- * Lets the user replace their profile photo from the camera or library.
- * While uploading, the picked image is shown immediately as a preview.
- */
 export function useAvatarUpload({ avatarUrl, onError, onStart, onSuccess }: UseAvatarUploadArgs) {
   const dispatch = useAppDispatch();
   const toast = useAppToast();

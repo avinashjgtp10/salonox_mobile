@@ -1,25 +1,15 @@
+import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { router, type Href } from "expo-router";
 import { forwardRef, useEffect, useMemo, useState } from "react";
-import {
-  ActivityIndicator,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppBackButton, AppBackButtonPlaceholder } from "@/components/ui/AppBackButton";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { KeyboardAwareScrollView } from "@/components/ui/KeyboardAwareScrollView";
-import { AppLayout, AppRadius } from "@/constants/layout";
+import { AppLayout } from "@/constants/layout";
 import { DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
 import { CategorySelectModal } from "@/features/services/components/CategorySelectModal";
 import { createProductThunk, fetchBrandsThunk } from "@/middleware/product/product.thunk";
@@ -539,7 +529,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   safeArea: { backgroundColor: Colors.bg, flex: 1 },
   content: { padding: Spacing.lg, paddingBottom: AppLayout.contentBottomPadding },
   header: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", marginBottom: Spacing.lg },
-  iconButton: { alignItems: "center", backgroundColor: Colors.card, borderColor: Colors.border, borderRadius: AppRadius.control, borderWidth: 1, height: AppLayout.headerActionSize, justifyContent: "center", width: AppLayout.headerActionSize },
   headerTitle: { color: Colors.heading, fontSize: 24, fontWeight: "800" },
   section: { backgroundColor: Colors.card, borderColor: Colors.border, borderRadius: 8, borderWidth: 1, marginBottom: Spacing.lg, padding: Spacing.lg },
   sectionEmphasized: { borderColor: Colors.heading },

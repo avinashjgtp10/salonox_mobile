@@ -66,23 +66,15 @@ type ClientHistoryApiData =
       sales?: unknown[] | null;
       stats?: ClientHistoryStatsApi | null;
       timeline?: ClientHistoryItemApi[] | null;
-      // Some responses nest the client summary fields under `client` instead
-      // of putting them flat alongside `history` — check both locations.
       client?: ClientHistoryClientApi | null;
     })
   | null
   | undefined;
 
-// GET /clients/search's real validator rejects anything shorter than this
-// (400 "q must be at least 2 characters") — checked client-side too so we
-// never fire a request that's guaranteed to fail.
 const MIN_SEARCH_TERM_LENGTH = 2;
 const CLIENT_UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-// Trims and collapses incidental extra whitespace (e.g. "John   Doe") without
-// stripping spaces entirely — a real space-containing name like "John Doe"
-// must still match `LOWER(full_name) LIKE '%john doe%'` on the backend.
 const normalizeSearchTerm = (value: string) => value.trim().replace(/\s+/g, " ");
 
 const AVATAR_PALETTE = [
@@ -356,11 +348,6 @@ const normalizeClient = (client: ClientApiItem): ClientListItem => {
   };
 };
 
-// Used as a local fallback when the real search API call fails (network
-// error, backend unavailable) — filters whatever client list is already
-// available in memory instead of just showing an error with no results.
-// Space- and case-insensitive on both sides, and (unlike the backend query)
-// safe to strip all whitespace here since this never touches a SQL pattern.
 export const matchesClientSearch = (client: ClientListItem, rawQuery: string) => {
   const normalizedQuery = rawQuery.trim().toLowerCase().replace(/\s+/g, "");
 
@@ -601,8 +588,6 @@ const normalizeHistorySummary = (
   payload: ClientHistoryApiData,
 ): ClientHistorySummary => {
   const record = Array.isArray(payload) || !payload ? null : payload;
-  // Some backends nest these fields under `client`, others put them flat
-  // alongside `history` — prefer the flat value, fall back to `client.*`.
   const client: ClientHistorySummaryApi = record?.client ?? {};
 
   const pick = (flatKey: keyof ClientHistorySummaryApi, nestedKey: keyof ClientHistorySummaryApi) =>
@@ -618,13 +603,6 @@ const normalizeHistorySummary = (
   };
 };
 
-// `/clients/:id/history` names the paid/partial visit count
-// `completed_appointments` and the last-visit timestamp `last_visit_at`; the
-// older `/clients/with-history-stats` rows use `last_visit_at` too but carry
-// no counts at all. Both spellings are accepted so either response parses.
-//
-// `average_spend` is returned by no endpoint — Web derives it as
-// spend / visits, so it is derived here too rather than read off the wire.
 const normalizeHistoryStats = (stats: ClientHistoryStatsApi | null | undefined): ClientHistoryStats => {
   const lifetimeSpend = toSafeNumber(stats?.lifetime_spend ?? stats?.lifetimeSpend);
   const completedAppointments = toSafeNumber(stats?.completed_appointments);
@@ -646,9 +624,6 @@ const normalizeHistoryStats = (stats: ClientHistoryStatsApi | null | undefined):
   };
 };
 
-// ─── Structured record normalizers ─────────────────────────────────────────
-// These keep the per-row detail the flattened timeline drops. Field names read
-// here are exactly those returned by clients.controller.ts getHistory.
 
 const toNullableString = (value: unknown): string | null => toSafeString(value) || null;
 
@@ -679,8 +654,6 @@ const normalizeAppointmentRecord = (value: unknown): ClientAppointmentRecord => 
     staffName: getStaffNameFromRecord(record),
     amountPaid: toSafeNumber(record.amount_paid),
     dueAmount: toSafeNumber(record.due_amount),
-    // Preserve the null the backend deliberately sends for "not billed yet" —
-    // collapsing it to 0 would make an unbilled visit look genuinely free.
     netAmount: rawNet === null || rawNet === undefined ? null : toSafeNumber(rawNet),
     paymentStatus: toSafeString(record.payment_status),
     paymentMethod: toSafeString(record.payment_method),
@@ -760,8 +733,6 @@ const normalizePackageServiceRecord = (value: unknown): ClientPackageServiceReco
 const normalizePackageRecord = (value: unknown): ClientPackageRecord => {
   const record = asRecord(value);
   const services = firstArray(record, ["services"]).map(normalizePackageServiceRecord);
-  // client_packages has no overall session pool of its own — it is the sum of
-  // its per-service rows (unlike client_memberships, which does).
   const totalSessions = services.reduce((sum, service) => sum + service.totalSessions, 0);
   const completedSessions = services.reduce((sum, service) => sum + service.completedSessions, 0);
 
@@ -850,8 +821,6 @@ const normalizeHistoryClient = (
     birthdayDayMonth: toNullableString(client.birthday_day_month),
     birthdayYear: birthdayYear || null,
     referredBy: normalizeReferrer(client.referred_by),
-    // Balances are already extracted by normalizeHistorySummary (which also
-    // handles the flat-vs-nested shapes) — reuse it rather than re-reading.
     walletBalance: summary.walletBalance,
     rewardPointsBalance: summary.rewardPointsBalance,
     referralBalance: summary.referralBalance,
@@ -921,10 +890,6 @@ const getClientList = async (
   };
 };
 
-// Enriches the flattened timeline with the per-row detail the generic
-// normalizers drop, by joining each entry back to the structured record it
-// came from. Only entries that actually have a matching record gain the extra
-// fields — a plain `history` array response leaves them undefined.
 const enrichHistoryItems = (
   items: ClientHistoryItem[],
   appointments: ClientAppointmentRecord[],
@@ -977,9 +942,6 @@ const enrichHistoryItems = (
 const fetchClientHistory = async (clientId: string): Promise<ClientHistoryResult> => {
   const id = toSafeString(clientId);
 
-  // The profile is always opened with a real client UUID (route param). Guard
-  // here so a name/slug/index can never reach the endpoint — the backend
-  // rejects those with a 400 anyway, this just fails faster and louder.
   if (!CLIENT_UUID_PATTERN.test(id)) {
     throw new Error(`Invalid client id for history request: "${clientId}"`);
   }
@@ -1032,9 +994,6 @@ export const clientService = {
     return getClientList(CLIENT.LIST, query, salonId);
   },
 
-  // The list endpoint supports search, ordering and pagination together.
-  // /clients/search only returns a limited relevance-ordered result, ignoring
-  // the selected sort and omitting matches beyond its first result batch.
   async searchClients(
     query: ClientListQuery,
     salonId?: string | null,
@@ -1059,9 +1018,6 @@ export const clientService = {
     salonId?: string | null,
     options?: { membership?: "all" | "has" | "none"; status?: "active" | "all" | "blocked" | "inactive" },
   ): Promise<ClientListResponse> {
-    // The campaign-filter endpoint returns only id/name/phone, alphabetically,
-    // and ignores pagination/sort parameters. Use it for membership of the
-    // result set, then obtain full records in the list endpoint's global order.
     const response = await api.get<ClientListApiResponse>(CLIENT.FILTER, {
       params: {
         filter,
@@ -1201,22 +1157,14 @@ export const clientService = {
     };
   },
 
-  // Returns the complete /clients/:id/history payload — client, stats and the
-  // four record arrays alongside the flattened timeline. Previously this kept
-  // only `history` and discarded everything else, which is why the profile's
-  // spend/points/referral figures all rendered as zero.
   async getClientHistory(clientId: string): Promise<ClientHistoryResult> {
     return fetchClientHistory(clientId);
   },
 
-  // Kept as a named alias for Quick Sale's redemption hook, which only needs
-  // the wallet/reward-points/referral `summary` half of the same response.
   async getClientHistoryWithSummary(clientId: string): Promise<ClientHistoryResult> {
     return fetchClientHistory(clientId);
   },
 
-  // Its own endpoint (not part of /history) — fetched lazily when the Notes
-  // tab is first opened, same as Web.
   async getClientNotes(clientId: string): Promise<ClientNote[]> {
     const id = toSafeString(clientId);
 

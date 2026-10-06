@@ -1,4 +1,5 @@
 export const ATTENDANCE = {
+  EXPORT: "/attendance/export",
   CHECK_IN: "/attendance/check-in",
   CHECK_OUT: "/attendance/check-out",
   MARK: "/attendance/mark",

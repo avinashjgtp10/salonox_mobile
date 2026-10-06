@@ -1,5 +1,6 @@
+import { Text } from "@/components/ui/AppTypography";
 import { useMemo } from "react";
-import { StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
+import { StyleSheet, View, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
 
 type NotificationBadgeProps = {
   count: number;
@@ -67,9 +68,6 @@ const styles = StyleSheet.create({
     height: 20,
     justifyContent: "center",
     position: "absolute",
-    // Sits just outside the icon's top-right corner. Positive insets would
-    // pull the badge inward over the bell glyph itself, which is what the
-    // previous right/top: 12 did inside a 48px icon button.
     right: -4,
     top: -4,
     zIndex: 10,

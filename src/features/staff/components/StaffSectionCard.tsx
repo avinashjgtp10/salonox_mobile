@@ -1,5 +1,6 @@
+import { Text } from "@/components/ui/AppTypography";
 import { useMemo, type ReactNode } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 
 import { AppLayout, AppRadius } from "@/constants/layout";
 import { DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";

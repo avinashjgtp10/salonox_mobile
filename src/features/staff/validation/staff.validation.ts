@@ -32,7 +32,6 @@ const result = (errors: Record<string, string>): ValidationResult => ({
   isValid: Object.keys(errors).length === 0,
 });
 
-// Same casing/values used by the Profile and Client forms elsewhere in the app.
 export const STAFF_GENDER_OPTIONS = ["Female", "Male", "Other"] as const;
 export const STAFF_ROLE_OPTIONS = ["Staff", "Manager"] as const;
 

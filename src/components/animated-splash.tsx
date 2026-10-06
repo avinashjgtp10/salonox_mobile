@@ -1,6 +1,7 @@
+import { Text } from "@/components/ui/AppTypography";
 import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useMemo, useState } from 'react';
-import { Image, StyleSheet, Text, View, useWindowDimensions, type ViewStyle } from 'react-native';
+import { Image, StyleSheet, View, useWindowDimensions, type ViewStyle } from "react-native";
 import Animated, {
   cancelAnimation,
   Easing,
@@ -38,21 +39,14 @@ const ACCENT = '#00c49e';
 const BACKDROP = '#f8f5fb';
 const GRADIENT = [BRAND, ACCENT] as const;
 
-// Milliseconds from the first painted frame. The intro is one declarative
-// timeline rather than a chain of state timers, so nothing has to be polled
-// and every step is cancellable from a single place.
 export const SPLASH_TIMELINE = {
-  /** Arcs, dashed orbit, blobs, pulse rings and the orbiting dot fade in. */
   backdrop: 200,
-  /** Logo springs up into position. */
   logo: 700,
-  /** Tagline, status line and progress bar rise into place. */
   wording: 1400,
-  /** Earliest point the closing transition is allowed to run. */
   handoff: 2300,
 } as const;
 
-const EXIT_MS = 700; // 2300 ms intro + 700 ms exit = 3 seconds when the app is ready.
+const EXIT_MS = 700;
 const ENTER = Easing.bezier(0.22, 1, 0.36, 1);
 const BOUNCE = Easing.bezier(0.34, 1.56, 0.64, 1);
 const ACCELERATE = Easing.bezier(0.4, 0, 1, 1);
@@ -62,11 +56,8 @@ const RING_SIZES = [220, 174, 136] as const;
 const BAR_WIDTH = 120;
 
 type Props = {
-  /** True once auth, theme and the initial route have all resolved. */
   isReady: boolean;
-  /** Hides the native splash — called once the first frame can be shown. */
   onPrepared: () => Promise<void>;
-  /** Tears the overlay down after the closing transition has played. */
   onComplete: () => void;
 };
 
@@ -87,8 +78,6 @@ export default function AnimatedSplash({ isReady, onPrepared, onComplete }: Prop
   const blink = useSharedValue(0);
   const exit = useSharedValue(0);
 
-  // Everything is sized off the viewport so the composition holds together
-  // from a small Android phone up to a tablet.
   const metrics = useMemo(() => {
     const logoWidth = Math.min(200, width * 0.54);
     const scale = logoWidth / 200;
@@ -107,8 +96,6 @@ export default function AnimatedSplash({ isReady, onPrepared, onComplete }: Prop
     };
   }, [height, width]);
 
-  // The native splash stays up until our first frame is painted, so the
-  // handover never flashes a blank screen.
   useEffect(() => {
     if (!laidOut || !logoLoaded || started) {
       return;
@@ -146,8 +133,6 @@ export default function AnimatedSplash({ isReady, onPrepared, onComplete }: Prop
       withRepeat(withTiming(1, { duration: 600, easing: Easing.inOut(Easing.ease) }), -1, true),
     );
 
-    // The only timer in the screen: it marks the point the intro has fully
-    // played, after which the exit waits on app readiness alone.
     const timer = setTimeout(() => setHandoffReached(true), SPLASH_TIMELINE.handoff);
 
     return () => {
@@ -163,8 +148,6 @@ export default function AnimatedSplash({ isReady, onPrepared, onComplete }: Prop
     };
   }, [backdrop, bar, blink, logo, orbit, rings, spin, started, wording]);
 
-  // Both conditions matter: the intro must have played out, and the app must
-  // actually have somewhere to go. Neither alone drives the handover.
   useEffect(() => {
     if (!started || !handoffReached || !isReady) {
       return;
@@ -217,8 +200,6 @@ export default function AnimatedSplash({ isReady, onPrepared, onComplete }: Prop
 
   const barTrackStyle = useAnimatedStyle(() => ({ opacity: wording.value }));
 
-  // scaleX alone would grow from the centre, so the fill is nudged back by
-  // half of what it is missing to keep it pinned to the left edge.
   const barFillStyle = useAnimatedStyle(() => ({
     transform: [
       { translateX: -(BAR_WIDTH * (1 - bar.value)) / 2 },
@@ -441,7 +422,6 @@ const styles = StyleSheet.create({
   tagline: { flexShrink: 1, fontSize: 11, fontWeight: '600', lineHeight: 16, letterSpacing: 2.64, textAlign: 'center', textTransform: 'uppercase', color: BRAND },
   statusRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
   statusDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: ACCENT },
-  // Sized by its own text, never clipped, so the full sentence always shows.
   status: { fontSize: 11, fontWeight: '500', lineHeight: 20, letterSpacing: 0.44, textAlign: 'center', color: '#b0a0bc' },
   barTrack: { width: BAR_WIDTH, height: 3, borderRadius: 8, overflow: 'hidden', backgroundColor: 'rgba(139,58,130,0.1)', zIndex: 2 },
   barFill: { width: BAR_WIDTH, height: 3, borderRadius: 8 },

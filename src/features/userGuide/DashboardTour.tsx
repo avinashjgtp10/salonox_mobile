@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { BackHandler, FlatList, Keyboard, ScrollView, StyleSheet, TouchableOpacity, View, type FlatListProps, type ScrollViewProps, type TouchableOpacityProps, type ViewProps } from "react-native";
 import { Button, Text, useTheme } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { BottomTabBarHeightContext } from "@react-navigation/bottom-tabs";
 import { useIsFocused } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 
@@ -15,7 +16,6 @@ type TourList = Pick<FlatList<unknown>, "getNativeScrollRef" | "scrollToOffset">
 
 type TourContextValue = {
   active: boolean;
-  /** False once this user has finished or skipped this tour; hide tour prompts then. */
   offerTour: boolean;
   start: () => void;
   register: (id: string, node: View | null) => void;
@@ -32,7 +32,6 @@ function useTargetRef(id: string) {
   return useCallback((node: View | null) => { register?.(id, node); }, [id, register]);
 }
 
-// Attach to the native control itself so its layout and press behavior stay intact.
 export function TourButton({ tourId, ...props }: TouchableOpacityProps & { tourId: string }) {
   const ref = useTargetRef(tourId);
   return <TouchableOpacity {...props} ref={ref} />;
@@ -74,6 +73,8 @@ export function DashboardTourProvider({ children, config }: { children: ReactNod
   const title = config?.title ?? "Dashboard";
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const isInsideTabs = useContext(BottomTabBarHeightContext) != null;
+  const bottomInset = isInsideTabs ? 0 : insets.bottom;
   const [index, setIndex] = useState<number | null>(null);
   const focused = useIsFocused();
   const { tour } = useLocalSearchParams<{ tour?: string }>();
@@ -91,10 +92,6 @@ export function DashboardTourProvider({ children, config }: { children: ReactNod
   }, []);
   const close = useCallback(() => setIndex(null), []);
 
-  // A screen offers its tour ("Show me around" bar, or the dashboard's
-  // "Take a dashboard tour" link) until the user has finished or skipped it
-  // once. `null` = still reading storage, so prompts stay hidden rather than
-  // flashing in and out.
   const userId = useAuth().user?.id ?? "";
   const [offerTour, setOfferTour] = useState<boolean | null>(() =>
     userId && screenTourStorage.hasSeenThisSession(userId, title) ? false : null);
@@ -107,8 +104,6 @@ export function DashboardTourProvider({ children, config }: { children: ReactNod
     return () => { active = false; };
   }, [title, userId]);
 
-  // Skip, Done and the hardware back button end the tour for good; leaving
-  // the screen mid-tour (the blur below) does not.
   const finish = useCallback(() => {
     setIndex(null);
     setOfferTour(false);
@@ -131,10 +126,12 @@ export function DashboardTourProvider({ children, config }: { children: ReactNod
     <TourContext.Provider value={value}>
       {config ? <View style={{ flex: 1 }}>
         <View style={{ flex: 1 }} accessibilityElementsHidden={index !== null} importantForAccessibility={index !== null ? "no-hide-descendants" : "auto"}>{children}</View>
-        {/* This strip also supplies the bottom safe-area inset, so keep it when the button is hidden. */}
-        <View style={{ backgroundColor: colors.surface, paddingBottom: insets.bottom }}>
-          {offerTour ? <Button icon="compass-outline" onPress={start}>Show me around · {title}</Button> : null}
-        </View>
+
+        {offerTour || bottomInset > 0 ? (
+          <View style={{ backgroundColor: colors.surface, paddingBottom: bottomInset }}>
+            {offerTour ? <Button icon="compass-outline" onPress={start}>Show me around · {title}</Button> : null}
+          </View>
+        ) : null}
       </View> : children}
       {focused && index !== null && (
         <Portal>
@@ -193,8 +190,6 @@ function TourOverlay({ index, steps, title, targets, listRef, scrollRef, scrollO
           target.measureInWindow((x, y, width, height) => {
             measuring = false;
             if (cancelled || width <= 0 || height <= 0) return;
-            // Native measurements also work for deeply nested cards. Scroll before
-            // drawing the spotlight, then measure again after the scroll settles.
             if (nativeScroll && scrollAttempts < 3 && (y < sy + 12 || y + height > sy + sh - 12)) {
               scrollAttempts += 1;
               const offset = Math.max(0, scrollOffset.current + y - sy - 24);

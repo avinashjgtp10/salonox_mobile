@@ -59,9 +59,6 @@ const branchSlice = createSlice({
         state.error = null;
       })
       .addCase(fetchBranchesThunk.rejected, (state, action) => {
-        // Deliberately does NOT clear `branches`/`activeBranchId` — a failed
-        // refresh must keep the previously selected branch and its last-known
-        // data intact, only surfacing an error for a Retry affordance.
         state.status = "failed";
         state.error = action.payload?.message ?? action.error.message ?? "Unable to load branches.";
       });
@@ -90,8 +87,6 @@ export const selectActiveBranch = (state: RootState): Branch | null => {
     return null;
   }
 
-  // Branch list hasn't loaded yet (or the fetch failed) — synthesize a
-  // display fallback so the header never shows blank while it's in flight.
   return {
     city: "",
     id: activeBranchId,
@@ -108,9 +103,6 @@ export const selectVisibleBranches = (state: RootState): Branch[] => {
     return branches;
   }
 
-  // Non-owner/admin staff only ever see their own assigned salon. This is a
-  // no-op today (the list only ever has one entry), but becomes a real
-  // restriction once the backend returns multiple branches per owner.
   return branches.filter((branch) => branch.id === currentUser?.salonId);
 };
 

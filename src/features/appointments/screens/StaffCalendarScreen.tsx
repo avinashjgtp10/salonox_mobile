@@ -30,7 +30,6 @@ function StaffCalendarScreenContent() {
   const currentStaffLoading = useAppSelector(selectCurrentStaffLoading);
   const { date, search, setDate, setSearch, setStatus, status } = useAppointmentListFilters();
   const { fetchAppointments } = useFetchAppointments();
-  // The visible list filters instantly; the server request waits for a pause in typing.
   const debouncedSearch = useDebouncedValue(search, 350);
   const dispatch = useAppDispatch();
   const currentStaffId = currentStaff?.id ?? "";
@@ -64,6 +63,7 @@ function StaffCalendarScreenContent() {
           .filter((appointment) => isAssignedToStaff(appointment, currentStaff))
           .filter((appointment) => getDateKey(appointment.scheduledAt) === date)
           .filter((appointment) => matchesAppointment(appointment, search, status))
+          .map((appointment) => ({ ...appointment, staffName: currentStaff.name }))
         : [],
     [appointments, currentStaff, date, search, status],
   );
@@ -133,6 +133,10 @@ function StaffCalendarScreenContent() {
           <CalendarPreview
             appointments={staffAppointments}
             date={date}
+            readOnly
+            viewMode="day"
+            staffColumns={currentStaff ? [{ id: currentStaff.id, name: currentStaff.name, label: currentStaff.name }] : []}
+            resolveStaffId={() => currentStaffId}
           />
         </>
       ) : null}

@@ -29,12 +29,6 @@ const splitContactName = (contact: Contacts.ExistingContact, fallback: string) =
   };
 };
 
-// Contacts saved on a phone rarely include a "+countryCode" prefix — "IN" is
-// used as the default country hint (matching the rest of the app's
-// India-first phone handling, e.g. clients/new.tsx's fixed "+91"), same
-// approach staffFormMappers.ts uses via parsePhoneNumber for staff phones.
-// Returns null when the contact has no phone number libphonenumber-js can
-// validate — those contacts are skipped from the import, per spec.
 export const normalizeContactForImport = (
   contact: Contacts.ExistingContact,
 ): NormalizedImportContact | null => {

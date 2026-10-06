@@ -1,3 +1,4 @@
+import { Text } from "@/components/ui/AppTypography";
 import { Portal } from "@/components/ui/Portal";
 import { CALENDAR_STATUS_FILTERS } from "@/features/appointments/constants/appointmentConstants";
 import { createStyles } from "@/features/appointments/styles/appointmentStyles";
@@ -6,7 +7,7 @@ import { useThemeColors } from "@/theme/ThemeProvider";
 import type { AppointmentStatus } from "@/types/appointment";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { BackHandler, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { BackHandler, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export function CalendarStatusFilter({ statuses, onChange }: {
@@ -15,7 +16,6 @@ export function CalendarStatusFilter({ statuses, onChange }: {
 }) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
-  // Keep expansion local so opening the options does not re-render the calendar grid.
   const [expanded, setExpanded] = useState(false);
   const anchorRef = useRef<View>(null);
   const overlayRef = useRef<View>(null);
@@ -26,8 +26,6 @@ export function CalendarStatusFilter({ statuses, onChange }: {
     setExpanded(true);
   };
   const positionMenu = () => {
-    // Both measurements belong to the same native window. Subtract the overlay
-    // origin rather than mixing screen coordinates with a native Modal window.
     overlayRef.current?.measureInWindow((overlayX, overlayY, width, height) => {
       anchorRef.current?.measureInWindow((x, y, buttonWidth, buttonHeight) => {
         if (width <= 0 || height <= 0 || buttonHeight <= 0) return;
@@ -37,7 +35,6 @@ export function CalendarStatusFilter({ statuses, onChange }: {
           left: Math.max(12, Math.min(x - overlayX + buttonWidth - menuWidth, width - menuWidth - 12)),
           top,
           width: menuWidth,
-          // Keep the menu below the button; scroll the options if space is limited.
           maxHeight: Math.max(0, Math.min(336, height - top - insets.bottom - 12)),
         });
       });

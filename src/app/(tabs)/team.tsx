@@ -1,9 +1,11 @@
+import { Text, TextInput } from "@/components/ui/AppTypography";
+import { appAlert as Alert } from "@/services/appAlert";
 import { TourView, TourButton, TourScrollView, TourFlatList, withScreenTour } from "@/features/userGuide/DashboardTour";
 import { screenTours } from "@/features/userGuide/screenTours";
 import { Ionicons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
 import { startTransition, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, type ListRenderItem } from "react-native";
+import { KeyboardAvoidingView, Linking, Modal, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View, type ListRenderItem } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -330,10 +332,6 @@ function TeamScreenContent() {
       setStaffActiveStatusThunk({ nextStatus, staffId: staffMember.id }),
     );
 
-    // setStaffActiveStatusThunk only fulfills after the activate/deactivate
-    // call succeeds AND a refetch confirms the staff record's status
-    // actually changed, so this success message can't fire on a false
-    // positive the way the old generic-update call could.
     if (setStaffActiveStatusThunk.rejected.match(resultAction)) {
       Alert.alert(
         nextStatus === "inactive" ? "Unable to deactivate staff" : "Unable to reactivate staff",
@@ -1055,9 +1053,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   sheetActionTextActive: {
     color: Colors.primaryDark,
     fontWeight: "800",
-  },
-  sheetActionDanger: {
-    color: Colors.error,
   },
   actionMenuOverlay: {
     alignItems: "center",

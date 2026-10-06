@@ -1,11 +1,13 @@
+import { Text, TextInput } from "@/components/ui/AppTypography";
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, StyleSheet, TouchableOpacity, View } from "react-native";
 
 import { DashboardRadius as Radius, DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
 import type { StaffMember } from "@/data/teamData";
 import { StaffBottomSheet } from "@/features/staff/components/StaffBottomSheet";
 import { StaffTextField } from "@/features/staff/components/StaffTextField";
 import { useThemeColors } from "@/theme/ThemeProvider";
+import { attendanceTimeToIso } from "@/features/attendance/utils/attendanceRules";
 
 type AttendanceCheckMode = "checkIn" | "checkOut";
 type TimeValue = { hour: string; minute: string; period: "AM" | "PM" };
@@ -42,11 +44,8 @@ const timeToIso = (dateKey: string, value: TimeValue) => {
     return null;
   }
 
-  const [year, month, day] = dateKey.split("-").map(Number);
   const hour24 = value.period === "PM" ? (hourNum % 12) + 12 : hourNum % 12;
-  const date = new Date(year, (month || 1) - 1, day || 1, hour24, minuteNum, 0, 0);
-
-  return date.toISOString();
+  return attendanceTimeToIso(dateKey, hour24, minuteNum);
 };
 
 export function AttendanceCheckModal({
@@ -94,10 +93,15 @@ export function AttendanceCheckModal({
       return;
     }
 
-    await onSubmit({
-      isoTime: isoTime ?? undefined,
-      note: note.trim() || undefined,
-    });
+    if (!isoTime) {
+      setError("Enter a time for the selected attendance date.");
+      return;
+    }
+    try {
+      await onSubmit({ isoTime, note: note.trim() || undefined });
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : (failure as { message?: string })?.message ?? "Unable to save attendance. Please try again.");
+    }
   };
 
   return (

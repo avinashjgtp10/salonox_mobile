@@ -1,14 +1,9 @@
 import type { InboxConversation, InboxMessage } from "@/types/inbox";
 import { parseAppDateTime } from "@/utils/dateTime";
 
-const AVATAR_COLORS = ["#00A884", "#21C963", "#0284C7", "#B45309", "#E11D48", "#7C3AED"];
 export function inboxAvatar(name: string | null | undefined, phone: string) {
-  const seed = name?.trim() || phone;
-  let hash = 0;
-  for (const char of seed) hash = (hash * 31 + char.charCodeAt(0)) | 0;
   const parts = name?.trim().split(/\s+/) ?? [];
   return {
-    color: AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length],
     initials: (parts.length > 1 ? parts[0][0] + parts[1][0] : parts[0]?.slice(0, 2) || phone.slice(-2)).toUpperCase(),
   };
 }
@@ -34,7 +29,7 @@ export function mergeInboxMessages(existing: InboxMessage[], incoming: InboxMess
 
 export function sortInboxConversations(items: InboxConversation[], unreadFirst = false) {
   return [...items].sort((a, b) =>
-    (unreadFirst ? b.unreadCount - a.unreadCount : 0) || timestamp(b.lastMessageAt) - timestamp(a.lastMessageAt));
+    (unreadFirst ? Number(b.unreadCount > 0) - Number(a.unreadCount > 0) : 0) || timestamp(b.lastMessageAt) - timestamp(a.lastMessageAt));
 }
 
 export function messageDay(value: string | null) {
@@ -43,8 +38,6 @@ export function messageDay(value: string | null) {
   return date.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 }
 
-// Backend normalizes bare Indian numbers to +91. Other country codes must
-// match in full so two different international contacts cannot be confused.
 export function inboxPhoneKey(phone: string, countryCode?: string | null) {
   const digits = phone.replace(/\D/g, "");
   const code = countryCode?.replace(/\D/g, "");

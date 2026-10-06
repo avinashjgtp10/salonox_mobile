@@ -28,13 +28,7 @@ export const guideStorage = {
   },
 };
 
-/**
- * Remembers which per-screen "Show me around" tours a user has finished or
- * skipped, so that screen stops offering its tour. Tours stay replayable from
- * Settings → Feature tours.
- */
 export const screenTourStorage = {
-  /** Unknown or unreadable state keeps the tour on offer — it's harmless to show. */
   async hasSeen(userId: string, tourTitle: string): Promise<boolean> {
     if (!userId.trim()) return false;
     const key = screenTourKeyFor(userId, tourTitle);
@@ -46,7 +40,6 @@ export const screenTourStorage = {
       return screenToursSeenThisSession.has(key);
     }
   },
-  /** Synchronous check so a remounted screen doesn't flash the bar after a tour this session. */
   hasSeenThisSession(userId: string, tourTitle: string): boolean {
     return screenToursSeenThisSession.has(screenTourKeyFor(userId, tourTitle));
   },

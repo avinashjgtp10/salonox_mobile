@@ -278,11 +278,6 @@ export type CreateAppointmentRequest = {
   service_name?: string;
   services?: {
     category_id?: string;
-    // Wire shape only — the backend's flattenServiceConsumables() reads
-    // c.product_id/c.qty/c.unit/c.actual_qty and silently skips any row
-    // missing product_id, so this must stay ConsumableUsageRequestItem
-    // (snake_case), never the camelCase ConsumableUsageItem used for
-    // in-app cart/form state.
     consumables?: ConsumableUsageRequestItem[];
     discount?: number;
     duration?: number;

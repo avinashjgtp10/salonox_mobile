@@ -17,8 +17,7 @@ export default function StaffTabsLayout() {
   return (
     <AppTabLayout tabs={STAFF_TABS}>
       <Tabs.Screen name="appointment-details/[id]" options={{ href: null }} />
-      {/* Attendance lives on the Home dashboard card; the route stays
-          reachable by link but is no longer a tab. */}
+
       <Tabs.Screen name="attendance" options={{ href: null }} />
       <Tabs.Screen name="notifications" options={{ href: null }} />
       <Tabs.Screen name="profile" options={{ href: null }} />

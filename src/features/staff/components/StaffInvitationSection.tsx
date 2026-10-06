@@ -1,5 +1,7 @@
+import { Text } from "@/components/ui/AppTypography";
+import { appAlert as Alert } from "@/services/appAlert";
 import { useEffect, useMemo } from "react";
-import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, StyleSheet, TouchableOpacity, View } from "react-native";
 
 import {
   DashboardRadius as Radius,

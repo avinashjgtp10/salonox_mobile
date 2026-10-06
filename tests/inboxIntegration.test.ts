@@ -1,7 +1,7 @@
 import { api, ApiError } from "@/services/api";
 import { clientService } from "@/services/client.service";
 import { inboxService, normalizeMessage } from "@/services/inbox.service";
-import reducer, { inboxActivePhoneChanged, inboxDraftChanged, inboxMessageReceived } from "@/store/inbox/inbox.slice";
+import reducer, { inboxActivePhoneChanged, inboxConversationsReceived, inboxDraftChanged, inboxMessageReceived } from "@/store/inbox/inbox.slice";
 import { fetchInboxMessagesThunk, sendInboxReplyThunk } from "@/middleware/inbox/inbox.thunk";
 import { inboxPhoneKey, mediaLink, mergeInboxMessages, messageDay } from "@/utils/inboxPresentation";
 import type { InboxMessage } from "@/types/inbox";
@@ -19,6 +19,20 @@ const phone = "+919876543210";
 const message: InboxMessage = { id: "m1", body: "Hello", conversationId: "c1", direction: "INBOUND", status: "DELIVERED", sentAt: "2026-09-30T10:00:00Z", sentAtLabel: "10:00", wamid: null };
 
 beforeEach(() => { jest.resetAllMocks(); });
+
+test("a successful reply moves its conversation to latest without needing a socket echo", () => {
+  const conversations = [
+    { id: "c1", contactPhone: phone, contactName: "Asha", unreadCount: 0, lastMessage: "Old", lastMessageAt: "2026-09-30T08:00:00Z", lastMessageLabel: "2h ago" },
+    { id: "c2", contactPhone: "+919111222333", contactName: null, unreadCount: 1, lastMessage: "Hello", lastMessageAt: "2026-09-30T09:00:00Z", lastMessageLabel: "1h ago" },
+  ];
+  let state = reducer(undefined, inboxConversationsReceived(conversations));
+  const reply = { ...message, direction: "OUTBOUND" as const, body: "Reply" };
+  state = reducer(state, sendInboxReplyThunk.fulfilled({ message: reply }, "req", { phone, message: "Reply" }));
+  expect(state.conversations[0]).toMatchObject({ contactPhone: phone, lastMessage: "Reply", lastMessageAt: reply.sentAt, unreadCount: 0 });
+  state = reducer(state, inboxMessageReceived({ contactPhone: phone, contactName: "Asha", message: { ...message, id: "new", body: "Newer", sentAt: "2026-09-30T11:00:00Z" } }));
+  state = reducer(state, sendInboxReplyThunk.fulfilled({ message: reply }, "req", { phone, message: "Reply" }));
+  expect(state.conversations[0]).toMatchObject({ lastMessage: "Newer", lastMessageAt: "2026-09-30T11:00:00Z" });
+});
 
 test("message day accepts database timestamps unsupported by Hermes Date parsing", () => {
   expect(messageDay("2026-09-30 04:47:00+00")).not.toBe("Unknown date");

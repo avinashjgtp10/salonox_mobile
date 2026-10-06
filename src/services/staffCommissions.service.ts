@@ -43,8 +43,6 @@ const normalizeHistoryEntry = (entry: UnknownRecord, index: number): CommissionH
   };
 };
 
-// Commission rule creation/configuration (rate, type, slabs) is Web-only —
-// Mobile only reads this per-staff transaction history for display.
 export const staffCommissionsService = {
   async getCommissionHistory(staffId: string): Promise<CommissionHistoryEntry[]> {
     const response = await api.get<CommissionHistoryApiResponse>(STAFF.COMMISSIONS_HISTORY(staffId));

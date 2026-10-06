@@ -1,10 +1,3 @@
-/**
- * Paper pilot screen. The layout scaffold (gradient, logo, card) is still the
- * shared `PasswordRecoveryScaffold`, but every control inside it is now a
- * react-native-paper component driven by the MD3 theme built in
- * `@/theme/paperTheme`. The `Recovery*` primitives are deliberately left in
- * place for forgot-password / reset-password so this migration stays isolated.
- */
 
 import { router } from "expo-router";
 import { useState } from "react";
@@ -118,8 +111,6 @@ export default function ChangePasswordScreen() {
     }
   };
 
-  // One shared toggle descriptor — each TextInput still needs its own
-  // TextInput.Icon element, but they all flip the same piece of state.
   const passwordVisibilityIcon = showPassword ? "eye-off-outline" : "eye-outline";
   const togglePasswordVisibility = () => setShowPassword((currentValue) => !currentValue);
 

@@ -8,6 +8,7 @@ import {
 import type { RootState } from "@/store";
 import type { InboxConversation, InboxMessage, InboxMessageEvent } from "@/types/inbox";
 import { mergeInboxMessages, sortInboxConversations } from "@/utils/inboxPresentation";
+import { parseAppDateTime } from "@/utils/dateTime";
 
 type ResourceStatus = "idle" | "loading" | "succeeded" | "failed";
 
@@ -21,7 +22,6 @@ type InboxState = {
   conversationsError: string | null;
   conversationsRefreshing: boolean;
   conversationsStatus: ResourceStatus;
-  // Keyed by contact phone, matching how the backend routes every inbox call.
   messagesByPhone: Record<string, InboxMessage[]>;
   messagesErrorByPhone: Record<string, string | null>;
   messagesStatusByPhone: Record<string, ResourceStatus>;
@@ -46,8 +46,6 @@ const initialState: InboxState = {
   sendingByPhone: {},
 };
 
-// A message can arrive twice — once as the socket echo and once from a list
-// refetch that raced it — so every append is keyed on id.
 const appendMessage = (messages: InboxMessage[], incoming: InboxMessage): InboxMessage[] =>
   mergeInboxMessages(messages, [incoming]);
 
@@ -64,8 +62,6 @@ const inboxSlice = createSlice({
     inboxDraftChanged: (state, action: PayloadAction<{ phone: string; text: string }>) => {
       state.draftsByPhone[action.payload.phone] = action.payload.text;
     },
-    // Socket `inbox:message` — emitted to room salon:{salonId} whenever a
-    // client's WhatsApp reply lands on the webhook.
     inboxMessageReceived: (state, action: PayloadAction<InboxMessageEvent>) => {
       const { contactName, contactPhone, message } = action.payload;
 
@@ -74,8 +70,6 @@ const inboxSlice = createSlice({
       }
       const duplicate = state.messagesByPhone[contactPhone]?.some(item => item.id === message.id);
 
-      // Cache IDs even before opening a thread so repeated socket delivery
-      // cannot increment unread twice. Opening still fetches full history.
       state.messagesByPhone[contactPhone] = appendMessage(
         state.messagesByPhone[contactPhone] ?? [], message,
       );
@@ -100,11 +94,8 @@ const inboxSlice = createSlice({
       }
       state.conversations = sortInboxConversations(state.conversations);
     },
-    // Socket `inbox:conversations` — the backend re-queries and broadcasts the
-    // whole list after each inbound message, so this replaces wholesale.
     inboxConversationsReceived: (state, action: PayloadAction<InboxConversation[]>) => {
       state.conversations = sortInboxConversations(action.payload.map(item => ({ ...item, unreadCount: item.contactPhone === state.activePhone ? 0 : item.unreadCount })));
-      // A full socket snapshot supersedes an older in-flight list response.
       state.conversationsRequestId = null;
       state.conversationsRefreshing = false;
       state.conversationsError = null;
@@ -155,7 +146,6 @@ const inboxSlice = createSlice({
         state.messagesErrorByPhone[phone] = null;
         state.messagesStatusByPhone[phone] = "succeeded";
 
-        // The server cleared unread_count when it served these messages.
         const conversation = state.conversations.find((entry) => entry.contactPhone === phone);
 
         if (conversation) {
@@ -183,14 +173,23 @@ const inboxSlice = createSlice({
 
         state.sendingByPhone[phone] = false;
 
-        // Deliberately not optimistic: the reply only exists once Meta has
-        // accepted it, and a failed send must not leave a phantom bubble in
-        // a thread the client never received.
         if (action.payload.message?.id) {
+          const message = action.payload.message;
           state.messagesByPhone[phone] = appendMessage(
             state.messagesByPhone[phone] ?? [],
-            action.payload.message,
+            message,
           );
+          const conversation = state.conversations.find((entry) => entry.contactPhone === phone);
+          if (conversation) {
+            const replyTime = parseAppDateTime(message.sentAt)?.getTime();
+            const lastMessageTime = parseAppDateTime(conversation.lastMessageAt)?.getTime() ?? 0;
+            if (replyTime !== undefined && replyTime >= lastMessageTime) {
+              conversation.lastMessage = message.body;
+              conversation.lastMessageAt = message.sentAt;
+              conversation.lastMessageLabel = "Just now";
+            }
+          }
+          state.conversations = sortInboxConversations(state.conversations);
         }
         if (state.draftsByPhone[phone]?.trim() === action.meta.arg.message) state.draftsByPhone[phone] = "";
       })

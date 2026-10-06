@@ -8,10 +8,6 @@ type PortalContextValue = {
 
 const PortalContext = createContext<PortalContextValue | null>(null);
 
-// Mounted once at the app root (sibling of the root <Stack>, same level as
-// SimpleSplash) so anything registered here paints above every screen,
-// including the bottom tab bar — a screen-local overlay can't reach that far
-// since the tab bar is a sibling outside any individual screen's subtree.
 export function PortalProvider({ children }: { children: ReactNode }) {
   const [nodes, setNodes] = useState<Record<string, ReactNode>>({});
 

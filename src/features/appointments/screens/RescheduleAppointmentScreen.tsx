@@ -1,3 +1,4 @@
+import { Text } from "@/components/ui/AppTypography";
 import { TextField } from "@/features/appointments/components/form/TextField";
 import { ScreenShell } from "@/features/appointments/components/shared/ScreenShell";
 import { useAppointmentStyles } from "@/features/appointments/styles/useAppointmentStyles";
@@ -12,7 +13,7 @@ import { Ionicons } from "@expo/vector-icons";
 import type { Href } from "expo-router";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, TouchableOpacity, View } from "react-native";
 
 export function RescheduleAppointmentScreen() {
   const { styles } = useAppointmentStyles();

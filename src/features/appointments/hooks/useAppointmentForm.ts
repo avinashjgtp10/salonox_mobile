@@ -1,3 +1,4 @@
+import { TextInput } from "@/components/ui/AppTypography";
 import { CLIENT_SEARCH_DEBOUNCE_MS, CLIENT_SEARCH_MIN_LETTERS, CLIENT_SEARCH_RESULT_LIMIT, STAFF_AVAILABILITY_REALTIME_ENTITIES } from "@/features/appointments/constants/appointmentConstants";
 import { useAllStaffMembers } from "@/features/appointments/hooks/useAllStaffMembers";
 import { createStyles } from "@/features/appointments/styles/appointmentStyles";
@@ -32,7 +33,7 @@ import type { StaffAvailabilitySlot } from "@/types/staffAvailability";
 import type { Href } from "expo-router";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Keyboard, TextInput } from "react-native";
+import { Keyboard } from "react-native";
 
 export function useAppointmentForm(mode: 'create' | 'edit') {
   const Colors = useThemeColors();
@@ -52,10 +53,6 @@ export function useAppointmentForm(mode: 'create' | 'edit') {
   const activeBranchId = useAppSelector(selectActiveBranchId);
   const { scrollToField, scrollToFirstError, scrollViewRef, setFieldRef } = useValidationScroll(APPOINTMENT_VALIDATION_FIELD_ORDER);
   const [errors, setErrors] = useState<FormErrors>({});
-  // Form-level submission errors (e.g. missing auth context) that aren't tied
-  // to any single field — kept separate from `errors` (per-field) and the
-  // Redux-driven `mutationError` (thunk-rejection message) so neither one
-  // gets overloaded to show a message that isn't really its own.
   const [formSubmitError, setFormSubmitError] = useState<string | null>(null);
   const [form, setForm] = useState<AppointmentFormState>(() => appointmentToForm(existingAppointment));
   const [clientBookingMode, setClientBookingMode] = useState<ClientBookingMode>("existing");
@@ -78,12 +75,6 @@ export function useAppointmentForm(mode: 'create' | 'edit') {
   const [sendAppointmentEmail, setSendAppointmentEmail] = useState(true);
   const [availabilityRefreshKey, setAvailabilityRefreshKey] = useState(0);
   const submittingRef = useRef(false);
-  // The client picked from the live search dropdown may not be one of the
-  // first 50 clients loaded into Redux on mount, so it can't always be
-  // resolved by id from `clients` — `handleSelectClient` stashes the full
-  // record here instead. Falls back to the Redux lookup (unchanged
-  // behavior) for the "new client" and "edit appointment" flows, which only
-  // ever have a client id to work with.
   const [selectedClientRecord, setSelectedClientRecord] = useState<ClientListItem | undefined>(
     undefined,
   );
@@ -248,9 +239,6 @@ export function useAppointmentForm(mode: 'create' | 'edit') {
     setAvailabilityRefreshKey((current) => current + 1);
   }, []);
 
-  // Staff comes from useAllStaffMembers() below — a `limit: 50, page: 1`
-  // reset here would replace the fully paginated shared list with just the
-  // first page, re-truncating the Calendar (same `state.staff.staffMembers`).
   useEffect(() => {
     void dispatch(fetchClientsThunk({ limit: 50, offset: 0, reset: true }));
   }, [dispatch]);
@@ -324,9 +312,6 @@ export function useAppointmentForm(mode: 'create' | 'edit') {
     }
   }, [availableSlots, form.staffId, form.startTime, schedulerLoading, staffAvailability]);
 
-  // Client search must hit the backend rather than filtering only the first
-  // page of clients loaded into Redux (`fetchClientsThunk({ limit: 50 })` on
-  // mount) — otherwise any client beyond that first batch is unfindable here.
   useEffect(() => {
     const trimmedSearch = clientSearch.trim();
 
@@ -593,12 +578,6 @@ export function useAppointmentForm(mode: 'create' | 'edit') {
         return current.filter((selectedService) => getSelectedServiceCatalogId(selectedService) !== service.id);
       }
 
-      // Copy the catalog service's configured recipe onto this appointment
-      // line the instant it's picked — mirrors Web's ServiceRow.tsx
-      // selectService(), which does this unconditionally (no staff action
-      // needed). actualQty defaults to qty until a future "adjust actual
-      // usage" UI (not built here — no equivalent exists in this screen
-      // today) would let staff override it.
       const consumables: AppointmentSelectedService["consumables"] = service.consumablesUsed?.length
         ? service.consumablesUsed.map((item) => ({ ...item, actualQty: item.qty }))
         : undefined;
@@ -732,11 +711,6 @@ export function useAppointmentForm(mode: 'create' | 'edit') {
         const quantity = Math.max(1, Math.trunc(service.quantity ?? 1));
 
         return {
-          // Resend this line's exact consumables snapshot unchanged — the
-          // backend does a full replace of appointment_service_consumables
-          // whenever `services` is present in the patch (flattenServiceConsumables),
-          // so omitting this on an edit that didn't touch this service would
-          // silently wipe its already-persisted consumables.
           ...(service.consumables?.length
             ? {
               consumables: service.consumables.map((c) => ({
@@ -807,8 +781,6 @@ export function useAppointmentForm(mode: 'create' | 'edit') {
     }
 
     if (createAppointmentThunk.rejected.match(result) || updateAppointmentThunk.rejected.match(result)) {
-      // The Redux slice already stores this same message as `mutationError`
-      // (rendered below), so nothing further to set here.
       return;
     }
 

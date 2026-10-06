@@ -9,19 +9,10 @@ import { ENVIRONMENTS, resolveAppEnv } from "./config/environments";
 const appEnv = resolveAppEnv(process.env.APP_ENV);
 const env = ENVIRONMENTS[appEnv];
 
-// Single source of truth for the app's semantic version. Both the Expo
-// `version` and `runtimeVersion` below are derived from this, so bumping it
-// here moves them together — a runtimeVersion that silently kept reporting an
-// old version would let new JS be served to binaries that can't run it.
-// ConfigContext's `config.version` is NOT usable for this: the project has no
-// app.json, so it is always undefined.
 const APP_VERSION = "1.0.1";
 
 const existsInProject = (relativePath: string) => fs.existsSync(path.resolve(__dirname, relativePath));
 
-// Dev/QA badged icons and per-environment Firebase apps are provisioned
-// gradually — fall back to the production asset/omit the field instead of
-// failing the build when an environment-specific file hasn't been added yet.
 const resolveWithFallback = (candidatePath: string, fallbackPath: string) =>
   existsInProject(candidatePath) ? candidatePath : fallbackPath;
 
@@ -96,9 +87,6 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     updates: {
       url: "https://u.expo.dev/f049c562-d124-4c6d-a1be-a4405a64d9ec",
     },
-    // Namespaced by environment so an update published to one channel can
-    // never be served to a build from another: dev/QA/production each have
-    // their own runtime version even when the app version matches.
     runtimeVersion: `${appEnv}-${APP_VERSION}`,
     ios: {
       ...config.ios,
@@ -130,7 +118,6 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       "expo-router",
       ["expo-secure-store", { configureAndroidBackup: true, faceIDPermission: false }],
       "./plugins/with-launcher-logo-padding",
-      // Style mods unwind in reverse order; this override must run last.
       "./plugins/with-plain-launch-screen",
       [
         "expo-location",

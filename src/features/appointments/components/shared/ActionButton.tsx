@@ -1,8 +1,9 @@
+import { Text } from "@/components/ui/AppTypography";
 import { useAppointmentStyles } from "@/features/appointments/styles/useAppointmentStyles";
 import { Ionicons } from "@expo/vector-icons";
 import type { Href } from "expo-router";
 import { router } from "expo-router";
-import { Text, TouchableOpacity } from "react-native";
+import { TouchableOpacity } from "react-native";
 
 export function ActionButton({
   danger,

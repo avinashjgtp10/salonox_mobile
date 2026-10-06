@@ -1,16 +1,7 @@
-// Wire-level enums, verified directly against the backend source
-// (salon_mgm_backend/src/modules/sales/sales.types.ts). Do not widen these
-// without re-checking the backend — sending an unlisted value is rejected by
-// the API's own validators (see sales.validator.ts / payments.validator.ts).
 export type SaleStatus = "draft" | "completed" | "cancelled" | "refunded";
 export type SalePaymentMethod = "cash" | "card" | "gift_card" | "split" | "upi";
 export type SaleItemType = "service" | "product" | "membership" | "gift_card" | "quick" | "package";
 
-// ---- GET /sales/init ---------------------------------------------------
-// The backend genuinely only returns `{ staff, services }` (sales.service.ts
-// `init()`). Clients, products, coupons, payment methods, and tax rate are
-// NOT part of this response and are fetched from their own real endpoints
-// instead (client/service/product Redux slices, the coupon service).
 export type PosStaffMember = {
   avatarBg: string;
   avatarColor: string;
@@ -39,10 +30,6 @@ export type SalesInitApiData = {
   staff?: unknown[] | null;
 } | null;
 
-// ---- Create / update sale (POST /sales, PATCH /sales/:id) -------------
-// UI-facing (camelCase, plain numbers) — the service layer converts these to
-// the backend's real snake_case body with money fields as decimal strings
-// (the create/update validators require `typeof unit_price === "string"`).
 export type SaleLineItemRequest = {
   discountAmount?: number;
   itemId?: string;
@@ -73,11 +60,6 @@ export type CreateSaleRequest = {
 
 export type UpdateSaleRequest = Partial<CreateSaleRequest>;
 
-// ---- Checkout (POST /sales/:id/checkout) -------------------------------
-// Real body only accepts payment_method / amount_paid / payment_reference.
-// A split payment has no dedicated array field on this endpoint — the
-// backend expects the { [method]: amount } breakdown JSON-serialized into
-// payment_reference when paymentMethod === "split" (sales.service.ts).
 export type CheckoutSaleSplitEntry = {
   amount: number;
   method: Exclude<SalePaymentMethod, "split">;
@@ -90,7 +72,6 @@ export type CheckoutSaleRequest = {
   splitEntries?: CheckoutSaleSplitEntry[];
 };
 
-// ---- Normalized display types ------------------------------------------
 export type SaleLineItem = {
   discountAmount: number;
   id: string;
@@ -130,9 +111,6 @@ export type SaleDetail = {
   clientName: string;
   clientPhone: string;
   couponCode: string | null;
-  // Real backend-computed split of discountAmount — manual_discount_amount /
-  // coupon_discount_amount are stored as distinct columns (sales.types.ts on
-  // the backend), not derived client-side.
   couponDiscountAmount: number;
   manualDiscountAmount: number;
   createdDateLabel: string;
@@ -145,8 +123,6 @@ export type SaleDetail = {
   notes: string | null;
   outstandingAmount: number;
   paymentMethod: string;
-  // Raw JSON string of { [method]: amount } when paymentMethod === "split"
-  // (see sales.service.ts's buildSaleRequestBody) — null otherwise.
   paymentReference: string | null;
   receiptNumber: string;
   status: SaleStatus;

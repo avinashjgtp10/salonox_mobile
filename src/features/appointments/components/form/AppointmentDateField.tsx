@@ -1,3 +1,4 @@
+import { Text } from "@/components/ui/AppTypography";
 import { createStyles } from "@/features/appointments/styles/appointmentStyles";
 import { todayIsoDate, validateDate } from "@/features/appointments/utils/appointmentDateTime";
 import { useThemeColors } from "@/theme/ThemeProvider";
@@ -6,7 +7,7 @@ import { Ionicons } from "@expo/vector-icons";
 import type { DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useMemo, useState } from "react";
-import { Modal, Platform, Pressable, Text, TouchableOpacity, View } from "react-native";
+import { Modal, Platform, Pressable, TouchableOpacity, View } from "react-native";
 
 export function AppointmentDateField({
   error,

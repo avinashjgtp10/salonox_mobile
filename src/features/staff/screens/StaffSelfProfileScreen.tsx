@@ -1,16 +1,8 @@
+import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
 import { useMemo } from "react";
-import {
-  ActivityIndicator,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-  useWindowDimensions,
-} from "react-native";
+import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
@@ -78,11 +70,6 @@ export function StaffSelfProfileScreen() {
   const { detailsError, detailsLoading, refresh, staffMember } = useStaffDetails(staffId);
   const profile = staffMember ?? currentStaff;
   const loading = currentStaffLoading || detailsLoading;
-  // GET /staff/:id (and the address / emergency-contact reads behind it) are
-  // gated on view_team / manage_staff_personal_data, which a staff member does
-  // not hold even for their own record. Those calls are enrichment only —
-  // selectCurrentStaff already carries this user's profile — so their failure
-  // must not surface as an error once there is something to render.
   const error =
     currentStaffError ??
     (!staffId && !currentStaffLoading ? "Staff profile is not available for this session." : null) ??
@@ -189,13 +176,6 @@ export function StaffSelfProfileScreen() {
 
             <StaffAddressSection readOnly staffId={staffId} />
             <EmergencyContactsSection readOnly staffId={staffId} />
-
-            <StaffSectionCard title="Documents">
-              <StaffStateView
-                description="No integrated staff document API or upload flow exists in the current mobile layer."
-                title="Documents unavailable"
-              />
-            </StaffSectionCard>
 
             <StaffSectionCard title="Account">
               <TouchableOpacity

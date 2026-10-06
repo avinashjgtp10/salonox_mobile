@@ -62,9 +62,6 @@ export const settleCommissionThunk = createAsyncThunk<
   try {
     const response = await salonCommissionsService.settleCommission(staffId, amount);
 
-    // Keep the settlement loading state active until both authoritative
-    // backend views have finished refreshing. Their reducers preserve the
-    // previous data if either refresh fails.
     await Promise.all([
       dispatch(fetchSalonCommissionSummaryThunk()),
       dispatch(fetchSalonCommissionEarnedThunk()),

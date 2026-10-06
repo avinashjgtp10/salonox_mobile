@@ -1,7 +1,9 @@
+import { Text } from "@/components/ui/AppTypography";
+import { appAlert as Alert } from "@/services/appAlert";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams, type Href } from "expo-router";
 import { useEffect, useMemo } from "react";
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
@@ -100,7 +102,6 @@ export default function SaleDetailsScreen() {
     }
   }, [id, dispatch]);
 
-  // Only trust the loaded detail when it matches the requested id.
   const sale = detail && detail.id === id ? detail : null;
   const isDeleting = Boolean(id && deletingSaleIds.includes(id));
 

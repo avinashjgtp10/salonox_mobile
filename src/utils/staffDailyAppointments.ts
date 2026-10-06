@@ -11,7 +11,6 @@ export function countStaffDailyAppointments(
   requestedDate: string | null,
   today: string,
 ): number {
-  // Never show yesterday's cached count while the new day's request is loading.
   if (requestedDate !== today) return 0;
   const ids = new Set([member.id, member.userId, ...(member.staffIdAliases ?? [])].filter(Boolean));
   const name = normalizeName(member.name);
@@ -19,7 +18,6 @@ export function countStaffDailyAppointments(
   const matchingIds = new Set<string>();
   for (const appointment of appointments) {
     if (!INCLUDED_STATUSES.has(appointment.status)) continue;
-    // Old server versions may omit IDs. Only use an exact, unambiguous name then.
     const matches = appointment.staffId
       ? ids.has(appointment.staffId)
       : uniqueName && normalizeName(appointment.staffName) === name;

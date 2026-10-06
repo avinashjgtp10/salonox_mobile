@@ -87,8 +87,6 @@ export const authService = {
       ? { headers: { Authorization: `Bearer ${tokens.accessToken}` } }
       : undefined;
 
-    // AuthProvider clears locally before this background request. A later
-    // response must not clear tokens belonging to a subsequent login.
     await api.post<ApiResponse<{ message?: string }>>("/auth/logout", payload, config);
     logAuthEvent("logout_completed");
   },
@@ -173,7 +171,6 @@ export const authService = {
     await api.delete<ApiResponse<{ message?: string }>>("/auth/account", {
       ...(payload ? { data: payload } : {}),
     });
-    // AuthProvider clears the session only after deletion succeeds.
     logAuthEvent("delete_account_completed");
   },
 
@@ -238,7 +235,6 @@ export const authService = {
   },
 
   async changePassword(payload: ChangePasswordRequest) {
-    // Undocumented contract: send both camelCase and snake_case variants.
     const requestBody = {
       confirmPassword: payload.confirmPassword,
       confirm_password: payload.confirmPassword,

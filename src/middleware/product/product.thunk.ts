@@ -143,9 +143,6 @@ export const deleteProductThunk = createAsyncThunk<
   try {
     const response = await productService.deleteProduct(id);
 
-    // The fulfilled reducer removes the product and updates product totals
-    // immediately. Reloading here races that reducer and can overwrite the
-    // corrected count with stale pagination/summary metadata.
     void dispatch(fetchDashboardThunk());
 
     return response;

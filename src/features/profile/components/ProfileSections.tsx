@@ -1,6 +1,7 @@
+import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { useMemo, type ReactNode } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 
 import { AppRadius } from "@/constants/layout";
 import {
@@ -12,7 +13,6 @@ import { useThemeColors } from "@/theme/ThemeProvider";
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
-/** A titled card with an icon badge, used for each profile section. */
 export function ProfileCard({
   children,
   icon,
@@ -70,7 +70,6 @@ export function FieldGrid({ children }: { children: ReactNode }) {
   return <View style={styles.fieldGrid}>{children}</View>;
 }
 
-/** A read-only labelled value. `empty` renders the value as a muted placeholder. */
 export function FieldBox({
   badge,
   empty,

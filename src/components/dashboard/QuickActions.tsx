@@ -1,7 +1,8 @@
+import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
 import { useMemo } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { TourButton } from "@/features/userGuide/DashboardTour";
 
 import type { ThemeColors } from "@/constants/theme";
@@ -59,8 +60,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
-  // In the redesign the tinted icon tile is the card — there is no white
-  // wrapper behind it, so the button itself carries no surface.
   btn: {
     alignItems: "center",
     backgroundColor: "transparent",

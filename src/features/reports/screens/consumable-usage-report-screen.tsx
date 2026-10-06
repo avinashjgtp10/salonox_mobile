@@ -1,7 +1,8 @@
+import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { FlatList, RefreshControl, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { FlatList, RefreshControl, StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
@@ -20,12 +21,6 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { selectReportEntry } from "@/store/report/report.slice";
 import { useThemeColors } from "@/theme/ThemeProvider";
 
-// Web-parity legacy report (see report-config.ts / types/report.ts): the
-// backend returns the entire dataset in one call — no date range, no
-// server-side search/category filter, no server pagination — so this
-// screen owns local search/category filtering and reveals more of the
-// already-loaded array as the user scrolls, instead of using the generic
-// ReportScreen (which re-fetches from the network on every filter change).
 const PAGE_SIZE = 10;
 const ALL_CATEGORY = "__all__";
 
