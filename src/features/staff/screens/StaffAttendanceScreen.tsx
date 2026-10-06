@@ -1,7 +1,10 @@
+import { useStaffSelfAttendance } from "@/features/attendance/components/StaffAttendanceGate";
+import { useAppToast } from "@/hooks/useAppToast";
+import { getApiErrorMessage } from "@/services/api";
 import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { useCallback, useEffect, useMemo } from "react";
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppLayout } from "@/constants/layout";
@@ -52,6 +55,8 @@ const getResponsiveHorizontalPadding = (width: number) => {
 };
 
 export function StaffAttendanceScreen() {
+  const selfAttendance = useStaffSelfAttendance();
+  const toast = useAppToast();
   const Colors = useThemeColors();
   const { width } = useWindowDimensions();
   const horizontalPadding = getResponsiveHorizontalPadding(width);
@@ -68,10 +73,11 @@ export function StaffAttendanceScreen() {
 
   const todayKey = useMemo(() => getTodayAttendanceDateKey(), []);
   const currentStaffId = currentStaff?.id ?? null;
-  const selfRecord = useMemo(
+  const overviewRecord = useMemo(
     () => (currentStaff ? findAttendanceRecordForStaff(records, currentStaff) : undefined),
     [currentStaff, records],
   );
+  const selfRecord = selfAttendance?.record ?? overviewRecord;
   const badge = getAttendanceBadgeConfig(selfRecord, Colors);
   const loading = currentStaffLoading || recordsLoading;
   const error = currentStaffError ?? recordsError;
@@ -119,6 +125,15 @@ export function StaffAttendanceScreen() {
           </Text>
         </View>
 
+        {selfAttendance?.state?.checked_in && !selfAttendance.state.record?.check_out ? (
+          <TouchableOpacity disabled={selfAttendance.busy} accessibilityRole="button"
+            onPress={() => void selfAttendance.checkOut().then(() => {
+              toast.showSuccess("Checked out successfully."); loadAttendance();
+            }).catch(error => toast.showError(getApiErrorMessage(error)))}
+            style={{ backgroundColor: Colors.primary, borderRadius: 14, padding: 16, alignItems: "center", marginBottom: 16 }}>
+            {selfAttendance.busy ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "700" }}>Check Out</Text>}
+          </TouchableOpacity>
+        ) : null}
         {isOffline ? (
           <View style={[styles.notice, { backgroundColor: Colors.warningBg, borderColor: Colors.border }]}>
             <Ionicons name="cloud-offline-outline" size={16} color={Colors.warning} />
@@ -129,12 +144,12 @@ export function StaffAttendanceScreen() {
         ) : null}
 
         <View style={[styles.card, { backgroundColor: Colors.card, borderColor: Colors.border }]}>
-          {loading ? (
+          {loading && !selfRecord ? (
             <View style={styles.centerState}>
               <ActivityIndicator color={Colors.primary} />
               <Text style={[styles.stateText, { color: Colors.text2 }]}>Loading attendance…</Text>
             </View>
-          ) : error ? (
+          ) : error && !selfRecord ? (
             <View style={styles.centerState}>
               <Ionicons name="alert-circle-outline" size={28} color={Colors.error} />
               <Text style={[styles.stateTitle, { color: Colors.heading }]}>Unable to load attendance</Text>

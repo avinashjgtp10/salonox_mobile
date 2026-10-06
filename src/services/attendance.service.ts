@@ -198,7 +198,7 @@ const getRecordFromEnvelope = (payload: AttendanceRecordEnvelope): UnknownRecord
   return nested !== undefined ? asRecord(nested) : record;
 };
 
-const normalizeAttendanceRecord = (entry: UnknownRecord): AttendanceRecord | null => {
+export const normalizeAttendanceRecord = (entry: UnknownRecord): AttendanceRecord | null => {
   const recordId = toSafeString(firstValue(entry, ["id", "_id", "attendanceId", "attendance_id"]));
 
   const nestedStaff = asRecord(firstValue(entry, ["staff", "employee", "staffMember", "staff_member"]));

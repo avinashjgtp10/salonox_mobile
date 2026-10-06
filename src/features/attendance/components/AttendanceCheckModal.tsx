@@ -8,6 +8,7 @@ import { StaffBottomSheet } from "@/features/staff/components/StaffBottomSheet";
 import { StaffTextField } from "@/features/staff/components/StaffTextField";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { attendanceTimeToIso } from "@/features/attendance/utils/attendanceRules";
+import { staffShiftService } from "@/services/staffShift.service";
 
 type AttendanceCheckMode = "checkIn" | "checkOut";
 type TimeValue = { hour: string; minute: string; period: "AM" | "PM" };
@@ -22,10 +23,11 @@ type AttendanceCheckModalProps = {
   visible: boolean;
 };
 
-const defaultTimeForMode = (mode: AttendanceCheckMode): TimeValue =>
-  mode === "checkIn"
-    ? { hour: "09", minute: "00", period: "AM" }
-    : { hour: "06", minute: "00", period: "PM" };
+const emptyTime = (): TimeValue => ({ hour: "", minute: "", period: "AM" });
+const timeFromShift = (value: string): TimeValue => {
+  const [hour, minute] = value.slice(0, 5).split(":").map(Number);
+  return { hour: String(hour % 12 || 12).padStart(2, "0"), minute: String(minute).padStart(2, "0"), period: hour >= 12 ? "PM" : "AM" };
+};
 
 const isTimeComplete = (value: TimeValue) => value.hour.trim() !== "" && value.minute.trim() !== "";
 
@@ -59,7 +61,8 @@ export function AttendanceCheckModal({
 }: AttendanceCheckModalProps) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
-  const [time, setTime] = useState<TimeValue>(defaultTimeForMode(mode));
+  const [time, setTime] = useState<TimeValue>(emptyTime);
+  const [shiftLoading, setShiftLoading] = useState(false);
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
   const isCheckIn = mode === "checkIn";
@@ -69,10 +72,19 @@ export function AttendanceCheckModal({
       return;
     }
 
-    setTime(defaultTimeForMode(mode));
+    let cancelled = false;
+    setTime(emptyTime()); setShiftLoading(true);
     setNote("");
     setError(null);
-  }, [mode, staffMember?.id, visible]);
+    if (!staffMember?.id) { setShiftLoading(false); return; }
+    void staffShiftService.get(staffMember.id, date).then(shift => {
+      if (cancelled) return;
+      if (!shift) { setError("No working shift is saved for this staff member and date."); return; }
+      setTime(timeFromShift((mode === "checkIn" ? shift.start_time : shift.end_time)!));
+    }).catch(failure => { if (!cancelled) setError(failure instanceof Error ? failure.message : "Unable to load staff shift."); })
+      .finally(() => { if (!cancelled) setShiftLoading(false); });
+    return () => { cancelled = true; };
+  }, [date, mode, staffMember?.id, visible]);
 
   if (!staffMember) {
     return null;
@@ -110,7 +122,7 @@ export function AttendanceCheckModal({
         <>
           <TouchableOpacity
             activeOpacity={0.84}
-            disabled={isSaving}
+            disabled={isSaving || shiftLoading}
             onPress={onClose}
             style={[styles.cancelButton, isSaving && styles.buttonDisabled]}
           >
@@ -118,11 +130,11 @@ export function AttendanceCheckModal({
           </TouchableOpacity>
           <TouchableOpacity
             activeOpacity={0.84}
-            disabled={isSaving}
+            disabled={isSaving || shiftLoading}
             onPress={() => void handleSubmit()}
             style={[styles.saveButton, isSaving && styles.buttonDisabled]}
           >
-            {isSaving ? (
+            {isSaving || shiftLoading ? (
               <ActivityIndicator color="#FFFFFF" size="small" />
             ) : (
               <Text style={styles.saveButtonText}>{isCheckIn ? "Check In" : "Check Out"}</Text>
@@ -172,7 +184,10 @@ export function AttendanceCheckModal({
         </View>
       </View>
 
-      <TouchableOpacity activeOpacity={0.84} onPress={() => setTime({ hour: "", minute: "", period: "AM" })}>
+      <TouchableOpacity activeOpacity={0.84} disabled={shiftLoading || isSaving} onPress={() => {
+        const current = new Date(Date.now() + 330 * 60000);
+        setTime(timeFromShift(`${String(current.getUTCHours()).padStart(2, "0")}:${String(current.getUTCMinutes()).padStart(2, "0")}`));
+      }}>
         <Text style={styles.clearText}>Use current time</Text>
       </TouchableOpacity>
 
