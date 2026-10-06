@@ -1,3 +1,4 @@
+import { maskPhone } from "@/utils/maskPhone";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { CLIENT_SEARCH_MIN_LETTERS } from "@/features/appointments/constants/appointmentConstants";
 import { createStyles } from "@/features/appointments/styles/appointmentStyles";
@@ -172,7 +173,7 @@ export function SearchableClientField({
                               {client.fullName}
                             </Text>
                             <Text style={[styles.serviceOptionMeta, selected && styles.serviceOptionMetaActive]}>
-                              {[client.phone, client.email].filter(Boolean).join(" | ")}
+                              {[maskPhone(client.phone, client.phoneCountryCode), client.email].filter(Boolean).join(" | ")}
                             </Text>
                           </View>
                           {selected ? <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" /> : null}

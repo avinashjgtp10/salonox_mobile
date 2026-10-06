@@ -1,3 +1,4 @@
+import { maskPhone } from "@/utils/maskPhone";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { InfiniteScrollLoader } from "@/components/ui/InfiniteScrollLoader";
 import { Ionicons } from "@expo/vector-icons";
@@ -371,7 +372,7 @@ export function ClientPickerSheet({
                     onSelect(item);
                     handleClose();
                   }}
-                  phone={`${item.phone}${item.membership ? ` - ${item.membership}` : ""}`}
+                  phone={`${maskPhone(item.phone)}${item.membership ? ` - ${item.membership}` : ""}`}
                   title={item.fullName}
                 />
               )}

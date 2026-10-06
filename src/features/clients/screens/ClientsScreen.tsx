@@ -1,3 +1,4 @@
+import { maskPhone } from "@/utils/maskPhone";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { appAlert as Alert } from "@/services/appAlert";
 import { TourFlatList, TourView, TourButton, withScreenTour } from "@/features/userGuide/DashboardTour";
@@ -195,7 +196,7 @@ function ClientCard({
 
             <View style={styles.infoRow}>
               <Ionicons name="call-outline" size={12} color={Colors.text2} />
-              <Text style={styles.infoText}>{client.phone}</Text>
+              <Text style={styles.infoText}>{maskPhone(client.phone, client.phoneCountryCode)}</Text>
             </View>
 
             <View style={styles.infoRow}>
@@ -904,7 +905,7 @@ function ClientsScreenContent() {
                         <View key={dupClient.id} style={[styles.duplicateClientRow, idx > 0 && styles.borderTop]}>
                           <View style={styles.dupClientInfo}>
                             <Text style={styles.dupClientName}>{dupClient.fullName}</Text>
-                            <Text style={styles.dupClientMeta}>Phone: {dupClient.phone}</Text>
+                            <Text style={styles.dupClientMeta}>Phone: {maskPhone(dupClient.phone)}</Text>
                             <Text style={styles.dupClientMeta}>Email: {dupClient.email}</Text>
                           </View>
                         </View>

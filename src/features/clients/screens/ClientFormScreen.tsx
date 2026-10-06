@@ -1,3 +1,4 @@
+import { maskPhone } from "@/utils/maskPhone";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams, type Href } from "expo-router";
@@ -153,6 +154,7 @@ export default function NewClientScreen() {
   const [gender, setGender] = useState<(typeof GENDER_OPTIONS)[number] | "">("");
   const [isFinishing, setIsFinishing] = useState(false);
   const [phone, setPhone] = useState("");
+  const [replacingPhone, setReplacingPhone] = useState(false);
   const [phoneCountry, setPhoneCountry] = useState<CountryCode>("IN");
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [whatsappMatchesPhone, setWhatsappMatchesPhone] = useState(true);
@@ -387,7 +389,14 @@ export default function NewClientScreen() {
 
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Mobile No.<Text style={styles.requiredMark}>*</Text></Text>
-              <PhoneInput
+              {id && !replacingPhone ? (
+                <View style={styles.inputContainer}>
+                  <Text style={styles.inputLabel}>{maskPhone(phone)}</Text>
+                  <TouchableOpacity disabled={isSubmitting} onPress={() => { setPhone(""); setReplacingPhone(true); }} accessibilityRole="button" accessibilityLabel="Replace client phone number">
+                    <Text style={styles.whatsappAccent}>Change number</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : <PhoneInput
                 ref={(input) => setFieldRef("phone", input)}
                 country={phoneCountry}
                 disabled={isSubmitting}
@@ -400,7 +409,7 @@ export default function NewClientScreen() {
                 placeholder="Enter phone number"
                 required
                 value={phone}
-              />
+              />}
               <View style={styles.whatsappRow}>
                 <Text style={styles.whatsappText}>This is Client&apos;s <Text style={styles.whatsappAccent}>WhatsApp</Text> Number</Text>
                 <Switch onValueChange={setWhatsappMatchesPhone} thumbColor="#FFFFFF" trackColor={{ false: Colors.appointmentBorder, true: Colors.appointmentAccent }} value={whatsappMatchesPhone} />

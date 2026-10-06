@@ -24,13 +24,18 @@ const toTimeValue = (value: unknown): string | null => {
     return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
   }
 
-  const match = raw.match(/(\d{1,2}):(\d{2})/);
+  const match = raw.match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)?$/i);
 
   if (!match) {
-    return raw;
+    return null;
   }
 
-  return `${String(Number(match[1])).padStart(2, "0")}:${match[2]}`;
+  let hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  const period = match[3]?.toUpperCase();
+  if (minutes > 59 || (period ? hours < 1 || hours > 12 : hours > 23)) return null;
+  if (period) hours = hours % 12 + (period === "PM" ? 12 : 0);
+  return `${String(hours).padStart(2, "0")}:${match[2]}`;
 };
 
 const toDisplayTime = (value: string | null) => {

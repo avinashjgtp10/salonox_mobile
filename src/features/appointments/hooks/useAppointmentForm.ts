@@ -11,9 +11,8 @@ import { realtimePayloadMatchesStaff, staffIdMatches } from "@/features/appointm
 import { useAppForeground } from "@/hooks/useAppForeground";
 import { useAppToast } from "@/hooks/useAppToast";
 import { useValidationScroll } from "@/hooks/useValidationScroll";
-import { createAppointmentThunk, fetchAppointmentByIdThunk, fetchAppointmentsThunk, updateAppointmentThunk } from "@/middleware/appointment/appointment.thunk";
+import { createAppointmentThunk, fetchAppointmentByIdThunk, updateAppointmentThunk } from "@/middleware/appointment/appointment.thunk";
 import { fetchClientByIdThunk, fetchClientsThunk } from "@/middleware/client/client.thunk";
-import { fetchDashboardThunk } from "@/middleware/dashboard/dashboard.thunk";
 import { fetchStaffAvailabilityThunk } from "@/middleware/staff/staffAvailability.thunk";
 import { getApiErrorMessage } from "@/services/api";
 import { appointmentStatusToApiValue } from "@/services/appointment.service";
@@ -184,6 +183,8 @@ export function useAppointmentForm(mode: 'create' | 'edit') {
             : "Select staff";
   const slotDisabledReason = !validateDate(form.date)
     ? "Select a date to view times."
+    : schedulerError
+      ? schedulerError
     : form.staffId && availabilityBlockReason
       ? availabilityBlockReason
       : form.staffId && !staffAvailability && !schedulerLoading
@@ -642,6 +643,11 @@ export function useAppointmentForm(mode: 'create' | 'edit') {
       allowedPastDate: allowedPastEditDate,
       requireClient: !isWalkInClient,
     });
+    if (form.staffId && (schedulerLoading || slotDisabledReason || availableSlots.length === 0)) {
+      nextErrors.startTime = schedulerLoading
+        ? "Availability is still loading. Please wait a moment."
+        : slotDisabledReason ?? "No available times. Choose another date or staff member.";
+    }
 
     setErrors(nextErrors);
     setFormSubmitError(null);
@@ -774,23 +780,20 @@ export function useAppointmentForm(mode: 'create' | 'edit') {
           )
           : null;
 
-    submittingRef.current = false;
-
     if (!result) {
+      submittingRef.current = false;
       return;
     }
 
     if (createAppointmentThunk.rejected.match(result) || updateAppointmentThunk.rejected.match(result)) {
+      submittingRef.current = false;
       return;
     }
 
     const savedId = result.payload.appointment.id;
     toast.showSuccess(mode === "create" ? "Appointment created successfully." : "Appointment updated successfully.");
-    if (mode === "create") {
-      void dispatch(fetchAppointmentsThunk({ refresh: true }));
-      void dispatch(fetchDashboardThunk());
-    }
-    refreshStaffAvailability();
+    // Mutation thunks already refresh the list and dashboard. Navigate using
+    // their cached appointment without repeating requests on the outgoing form.
     router.replace(`/appointments/${savedId}` as Href);
   };
 

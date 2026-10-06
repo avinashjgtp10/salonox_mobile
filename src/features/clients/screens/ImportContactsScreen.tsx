@@ -1,3 +1,4 @@
+import { maskPhone } from "@/utils/maskPhone";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import * as Contacts from "expo-contacts";
@@ -528,7 +529,7 @@ function ContactRow({
       <View style={styles.contactCopy}>
         <Text numberOfLines={1} style={styles.contactName}>{contact.displayName}</Text>
         <Text numberOfLines={1} style={styles.contactMeta}>
-          {contact.phoneDisplay}
+          {maskPhone(contact.phoneDisplay)}
           {contact.email ? ` · ${contact.email}` : ""}
         </Text>
       </View>

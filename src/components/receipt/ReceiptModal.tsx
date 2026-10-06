@@ -1,3 +1,4 @@
+import { maskPhone } from "@/utils/maskPhone";
 import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useState } from "react";
@@ -146,7 +147,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
             <Text>Client: {activeData.client.name}</Text>
             {activeData.client.phone ? (
               <Text>
-                Client Phone: <Text style={styles.bold}>{activeData.client.phone}</Text>
+                Client Phone: <Text style={styles.bold}>{maskPhone(activeData.client.phone)}</Text>
               </Text>
             ) : null}
             {activeData.staffName ? <Text>Staff: {activeData.staffName}</Text> : null}

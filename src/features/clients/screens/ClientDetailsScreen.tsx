@@ -1,3 +1,4 @@
+import { maskPhone } from "@/utils/maskPhone";
 import { Text } from "@/components/ui/AppTypography";
 import { appAlert as Alert } from "@/services/appAlert";
 import { Ionicons } from "@expo/vector-icons";
@@ -641,7 +642,7 @@ export default function ClientDetailsScreen() {
             <View style={styles.profileAvatar}><Ionicons color="#FFFFFF" name="person" size={37} /></View>
             <Text numberOfLines={2} style={styles.clientName}>{client.fullName}</Text>
           </View>
-          <View style={styles.contactRow}><Ionicons color={Colors.primary} name="call-outline" size={19} /><Text selectable style={styles.contactText}>{client.phone}</Text></View>
+          <View style={styles.contactRow}><Ionicons color={Colors.primary} name="call-outline" size={19} /><Text selectable style={styles.contactText}>{maskPhone(client.phone)}</Text></View>
           <View style={styles.contactRow}><Ionicons color={Colors.primary} name="mail-outline" size={20} /><Text numberOfLines={1} selectable style={styles.contactText}>{client.email || "-"}</Text></View>
           <View style={styles.walletRow}>
             <TouchableOpacity activeOpacity={0.82} onPress={() => router.push("/quick-sale")} style={styles.walletPill}><Ionicons color="#FFFFFF" name="wallet-outline" size={23} /><Text style={styles.walletValue}>{formatCurrency(client.walletBalance)}</Text></TouchableOpacity>

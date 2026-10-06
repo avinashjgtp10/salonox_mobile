@@ -1,3 +1,4 @@
+import { maskPhone } from "@/utils/maskPhone";
 export interface ReceiptData {
   salon: {
     name: string;
@@ -157,7 +158,7 @@ export function generateReceiptHtml(data: ReceiptData): string {
         <div>
           <div><span class="bold">Invoice #:</span> ${data.invoice.invoiceNumber}</div>
           <div><span class="bold">Date:</span> ${data.invoice.date} ${data.invoice.time}</div>
-          <div><span class="bold">Customer:</span> ${data.client.name} ${data.client.phone ? `(${data.client.phone})` : ""}</div>
+          <div><span class="bold">Customer:</span> ${data.client.name} ${data.client.phone ? `(${maskPhone(data.client.phone)})` : ""}</div>
           ${data.staffName ? `<div><span class="bold">Staff:</span> ${data.staffName}</div>` : ""}
           <div><span class="bold">Payment:</span> ${data.invoice.paymentMethod.toUpperCase()}</div>
         </div>

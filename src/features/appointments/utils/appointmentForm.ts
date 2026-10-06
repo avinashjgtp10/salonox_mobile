@@ -211,7 +211,7 @@ export const validateForm = (
   }
 
   if (!validateTime(form.startTime)) {
-    errors.startTime = "Use HH:mm.";
+    errors.startTime = "Select an available start time.";
   }
 
   if (trimmedDiscount && (!Number.isFinite(discount) || discount < 0)) {

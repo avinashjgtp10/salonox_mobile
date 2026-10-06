@@ -1,3 +1,4 @@
+import { maskPhone } from "@/utils/maskPhone";
 import { Text } from "@/components/ui/AppTypography";
 import { ActionButton } from "@/features/appointments/components/shared/ActionButton";
 import { CompleteAppointmentAction } from "@/features/appointments/components/shared/CompleteAppointmentAction";
@@ -127,7 +128,7 @@ export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | 
           <View style={styles.formCard}>
             <Text style={styles.sectionTitle}>Client Details</Text>
             <DetailRow label="Client Name" value={displayName} />
-            <DetailRow label="Phone" value={appointment.phone} />
+            <DetailRow label="Phone" value={maskPhone(appointment.phone)} />
           </View>
 
           <View style={styles.formCard}>
