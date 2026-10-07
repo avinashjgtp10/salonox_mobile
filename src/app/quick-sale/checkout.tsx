@@ -56,6 +56,7 @@ export default function QuickSaleCheckoutScreen() {
 }
 
 function OwnerQuickSaleCheckoutScreen() {
+  const { user } = useAuth();
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const params = useLocalSearchParams<{
@@ -78,6 +79,7 @@ function OwnerQuickSaleCheckoutScreen() {
     status: "initial",
   });
   const [salon, setSalon] = useState<SalonListItem | null>(null);
+  const [salonLoaded, setSalonLoaded] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -90,6 +92,9 @@ function OwnerQuickSaleCheckoutScreen() {
         }
       })
       .catch(() => {
+      })
+      .finally(() => {
+        if (!cancelled) setSalonLoaded(true);
       });
 
     return () => {
@@ -181,7 +186,7 @@ function OwnerQuickSaleCheckoutScreen() {
   const hasAutoOpenedReceiptRef = useRef(false);
 
   const receiptData = useMemo<ReceiptData | null>(() => {
-    if (!authoritativeSale) return null;
+    if (!authoritativeSale || !salonLoaded) return null;
 
     const [datePart, timePart] = authoritativeSale.createdDateLabel.includes(" • ")
       ? authoritativeSale.createdDateLabel.split(" • ")
@@ -211,10 +216,12 @@ function OwnerQuickSaleCheckoutScreen() {
 
     return {
       salon: {
-        name: salon?.businessName || salon?.name || "Salon",
-        address: salon?.address || undefined,
+        name: salon?.businessName || salon?.name || user?.businessName || "Salon",
+        address: salon?.address || user?.address || undefined,
         city: salon?.city || undefined,
         state: salon?.state || undefined,
+        postalCode: salon?.postalCode || undefined,
+        country: salon?.country || user?.country || undefined,
         phone: salon?.phone || undefined,
         email: salon?.email || undefined,
         website: salon?.websiteUrl || undefined,
@@ -254,7 +261,7 @@ function OwnerQuickSaleCheckoutScreen() {
       footerMessage: "Thank you for your business! Visit us again soon.",
       upiQrUrl: undefined,
     };
-  }, [authoritativeSale, salon]);
+  }, [authoritativeSale, salon, salonLoaded, user]);
 
   useEffect(() => {
     if (params.openReceipt === "1" && receiptData && !hasAutoOpenedReceiptRef.current) {

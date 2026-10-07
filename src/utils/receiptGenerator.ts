@@ -5,6 +5,8 @@ export interface ReceiptData {
     address?: string;
     city?: string;
     state?: string;
+    postalCode?: string;
+    country?: string;
     phone?: string;
     email?: string;
     website?: string;
@@ -146,7 +148,7 @@ export function generateReceiptHtml(data: ReceiptData): string {
         <div class="text-center">
           ${data.salon.logoUrl ? `<img src="${data.salon.logoUrl}" style="max-height: 48px; margin-bottom: 4px;" />` : ""}
           <div class="salon-name">${data.salon.name}</div>
-          ${data.salon.address ? `<div>${data.salon.address}${data.salon.city ? `, ${data.salon.city}` : ""}</div>` : ""}
+          ${[data.salon.address, data.salon.city, data.salon.state, data.salon.postalCode, data.salon.country].filter(Boolean).length > 0 ? `<div>${[data.salon.address, data.salon.city, data.salon.state, data.salon.postalCode, data.salon.country].filter(Boolean).join(", ")}</div>` : ""}
           ${data.salon.phone ? `<div>Phone: ${data.salon.phone}</div>` : ""}
           ${data.salon.email ? `<div>${data.salon.email}</div>` : ""}
           ${data.salon.website ? `<div>${data.salon.website}</div>` : ""}
