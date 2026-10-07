@@ -41,6 +41,7 @@ import {
   QuickSaleHeaderAction,
 } from "@/features/quickSale/components/QuickSaleHeader";
 import { ServiceCatalogTab } from "@/features/quickSale/components/ServiceCatalogTab";
+import { ServiceSearchDropdown } from "@/features/quickSale/components/ServiceSearchDropdown";
 import { StaffPickerSheet } from "@/features/quickSale/components/StaffPickerSheet";
 import { StaffSection } from "@/features/quickSale/components/StaffSection";
 import { useCart } from "@/features/quickSale/hooks/useCart";
@@ -161,6 +162,7 @@ function OwnerQuickSaleScreen({
   const setProductStock = cart.setProductStock;
   const [activeTab, setActiveTab] = useState<CatalogTab>("services");
   const [globalSearchQuery, setGlobalSearchQuery] = useState("");
+  const [isServiceSearchOpen, setIsServiceSearchOpen] = useState(false);
   const [isGlobalSearchLoading, setIsGlobalSearchLoading] = useState(false);
   const [selectedClient, setSelectedClient] = useState<QuickSaleClient>(WALK_IN_CLIENT);
   const redemptions = useRedemptions(selectedClient.id, salonId);
@@ -1649,12 +1651,28 @@ function OwnerQuickSaleScreen({
             <GlobalSearchBar
               isActive={isGlobalSearchActive}
               isLoading={isGlobalSearchLoading}
-              onChangeQuery={setGlobalSearchQuery}
+              onChangeQuery={(value) => {
+                setGlobalSearchQuery(value);
+                setIsServiceSearchOpen(true);
+              }}
               onClear={handleClearGlobalSearch}
-              onFocus={() => undefined}
+              onFocus={() => setIsServiceSearchOpen(true)}
               placeholder="Search service or item"
               query={globalSearchQuery}
             />
+            {activeTab === "services" && isGlobalSearchActive && isServiceSearchOpen ? (
+              <ServiceSearchDropdown
+                query={globalSearchQuery}
+                salonId={salonId}
+                selectedServiceIds={selectedServiceIds}
+                onDismiss={() => setIsServiceSearchOpen(false)}
+                onSelect={(service) => {
+                  handleToggleServiceSelection(service);
+                  setIsServiceSearchOpen(false);
+                  handleClearGlobalSearch();
+                }}
+              />
+            ) : null}
           </View>
 
           <CategoryChips
@@ -1687,7 +1705,7 @@ function OwnerQuickSaleScreen({
             ) : activeTab === "services" ? (
               <ServiceCatalogTab
                 onToggle={handleToggleServiceSelection}
-                search={globalSearchQuery}
+                search=""
                 selectedServiceIds={selectedServiceIds}
               />
             ) : activeTab === "products" ? (
