@@ -171,6 +171,7 @@ export function AppointmentCalendarContent({ staffMode = false }: { staffMode?: 
       {staffMode && (currentStaffError || error) ? <StateCard icon="cloud-offline-outline" title="Unable to load calendar" message={currentStaffError ?? error ?? "Please try again."} tone="error" actionLabel="Retry" onAction={refreshAppointments} /> : null}
       <CalendarPreview
         readOnly={staffMode}
+        expandSingleColumn={staffMode}
         showEmptyState={!loading && !error}
         appointments={visibleAppointments}
         date={date}
