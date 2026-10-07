@@ -59,7 +59,7 @@ export const fetchNotificationsThunk = createAsyncThunk<
       const [response, readIds, removedIds, serverNotifications] = await Promise.all([
         appointmentService.getStaffAppointments({ limit: Number.MAX_SAFE_INTEGER, page: 1, search: "", sort_by: "created_at", sort_order: "DESC" }, staff, selectActiveBranchId(state)),
         notificationLocalStorage.getReadIds(scope), notificationLocalStorage.getRemovedIds(scope),
-        notificationService.getNotifications(selectActiveBranchId(state)),
+        notificationService.getNotifications(selectActiveBranchId(state), { self: true }),
       ]);
       if (getLocalNotificationScope(getState()) !== scope) throw new ApiError("Your staff session has changed. Please refresh.", 403);
       const removed = new Set(removedIds);

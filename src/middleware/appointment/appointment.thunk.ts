@@ -90,7 +90,9 @@ export const fetchAppointmentByIdThunk = createAsyncThunk<
     if (isStaff && !staff) throw new ApiError("Your staff profile is not available yet.", 403);
     let response: AppointmentDetailResponse;
     try {
-      response = await appointmentService.getAppointment(appointmentId);
+      response = isStaff
+        ? await appointmentService.getStaffAppointment(appointmentId)
+        : await appointmentService.getAppointment(appointmentId);
     } catch (error) {
       const listed = state.appointment.appointments.find(item => item.id === appointmentId);
       if (!isStaff || !(error instanceof ApiError) || error.status !== 403 || !staff || !listed || !isAssignedToStaff(listed, staff)) throw error;
