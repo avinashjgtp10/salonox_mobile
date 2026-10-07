@@ -113,11 +113,9 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
               <Image source={{ uri: activeData.salon.logoUrl }} style={styles.salonLogo} />
             ) : null}
             <Text style={styles.salonName}>{activeData.salon.name}</Text>
-            {activeData.salon.address ? (
+            {[activeData.salon.address, activeData.salon.city, activeData.salon.state, activeData.salon.postalCode, activeData.salon.country].some(Boolean) ? (
               <Text style={styles.centerText}>
-                {activeData.salon.address}
-                {activeData.salon.city ? `, ${activeData.salon.city}` : ""}
-                {activeData.salon.state ? `, ${activeData.salon.state}` : ""}
+                {[activeData.salon.address, activeData.salon.city, activeData.salon.state, activeData.salon.postalCode, activeData.salon.country].filter(Boolean).join(", ")}
               </Text>
             ) : null}
             {activeData.salon.phone ? (
