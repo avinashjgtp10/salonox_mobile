@@ -71,7 +71,6 @@ type ClientHistoryApiData =
   | null
   | undefined;
 
-const MIN_SEARCH_TERM_LENGTH = 2;
 const CLIENT_UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -295,10 +294,18 @@ const formatCreatedDate = (createdAt: string | null) => {
   return formatAppDate(createdAt, "-");
 };
 
-const isClientBlocked = (client: ClientApiItem) =>
-  toOptionalBoolean(client.blocked) ||
-  toOptionalBoolean(client.isBlocked) ||
-  toOptionalBoolean(client.is_blocked);
+const isClientBlocked = (client: ClientApiItem) => {
+  const flag = client.is_blocked ?? client.isBlocked ?? client.blocked;
+  return flag != null
+    ? toOptionalBoolean(flag)
+    : toSafeString(client.status).toLowerCase() === "blocked";
+};
+
+const isClientInactive = (client: ClientApiItem) =>
+  client.is_active != null
+    ? !toOptionalBoolean(client.is_active)
+    : toOptionalBoolean(client.inactive) || toOptionalBoolean(client.is_inactive) ||
+      toSafeString(client.status).toLowerCase() === "inactive";
 
 const getStatusLabel = (client: ClientApiItem) => {
   if (isClientBlocked(client)) {
@@ -307,17 +314,13 @@ const getStatusLabel = (client: ClientApiItem) => {
 
   const rawStatus = toSafeString(client.status);
 
-  if (rawStatus) {
+  if (rawStatus && !["active", "inactive", "blocked"].includes(rawStatus.toLowerCase())) {
     return rawStatus
       .replace(/[_-]+/g, " ")
       .replace(/\b\w/g, (character) => character.toUpperCase());
   }
 
-  return (
-    toOptionalBoolean(client.inactive) || toOptionalBoolean(client.is_inactive)
-  )
-    ? "Inactive"
-    : "Active";
+  return isClientInactive(client) ? "Inactive" : "Active";
 };
 
 const normalizeClient = (client: ClientApiItem): ClientListItem => {
@@ -333,10 +336,8 @@ const normalizeClient = (client: ClientApiItem): ClientListItem => {
     gender: toSafeString(client.gender, "-"),
     hasValidId: Boolean(id),
     id,
-    inactive:
-      isClientBlocked(client) ||
-      toOptionalBoolean(client.inactive) ||
-      toOptionalBoolean(client.is_inactive),
+    inactive: isClientInactive(client),
+    isBlocked: isClientBlocked(client),
     initials: getInitials(fullName),
     isVip: toOptionalBoolean(client.is_vip),
     joinedDaysAgo: getJoinedDaysAgo(createdAt),
@@ -1000,7 +1001,7 @@ export const clientService = {
   ): Promise<ClientListResponse> {
     const term = normalizeSearchTerm(query.search);
 
-    if (term.length < MIN_SEARCH_TERM_LENGTH) {
+    if (!term) {
       return {
         clients: [],
         pagination: { hasMore: false, limit: query.limit, nextOffset: 0, offset: 0 },

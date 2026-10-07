@@ -405,7 +405,7 @@ const clientSlice = createSlice({
         if (index !== -1) {
           state.clients[index] = {
             ...state.clients[index],
-            inactive: true,
+            isBlocked: true,
             status: "Blocked",
           };
         }
@@ -425,7 +425,7 @@ const clientSlice = createSlice({
         if (index !== -1) {
           state.clients[index] = {
             ...state.clients[index],
-            inactive: true,
+            isBlocked: true,
             status: "Blocked",
           };
         }
@@ -445,8 +445,8 @@ const clientSlice = createSlice({
         if (index !== -1) {
           state.clients[index] = {
             ...state.clients[index],
-            inactive: false,
-            status: "Active",
+            isBlocked: false,
+            status: state.clients[index].inactive ? "Inactive" : "Active",
           };
         }
       })
