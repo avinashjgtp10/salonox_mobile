@@ -6,7 +6,10 @@ const DEFAULT_TIME_SLOT_START_MINUTES = 0;
 const DEFAULT_TIME_SLOT_END_MINUTES = 24 * 60;
 const DEFAULT_TIME_SLOT_INTERVAL_MINUTES = 30;
 
-export const todayIsoDate = () => new Date().toISOString().slice(0, 10);
+export const todayIsoDate = () => {
+  const today = new Date();
+  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+};
 
 export const toStrictIsoDateTime = (value: string) => {
   let normalized = value.trim();

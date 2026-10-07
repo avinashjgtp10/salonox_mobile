@@ -29,6 +29,13 @@ export const createCalendarControlsStyles = (Colors: ThemeColors) => StyleSheet.
     justifyContent: "center",
     paddingHorizontal: 10,
   },
+  dinggTodayButtonActive: {
+    backgroundColor: Colors.appointmentAccentSoft,
+    borderColor: Colors.appointmentAccent,
+  },
+  dinggTodayTextActive: {
+    color: Colors.appointmentAccentDark,
+  },
   dinggTodayText: {
     color: Colors.appointmentText,
     fontSize: 13,

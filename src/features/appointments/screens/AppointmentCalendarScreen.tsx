@@ -45,6 +45,7 @@ export function AppointmentCalendarContent({ staffMode = false }: { staffMode?: 
   const loading = useAppSelector(selectAppointmentsIsLoading);
   const error = useAppSelector(selectAppointmentsError);
   const { date, search, setDate, setSearch } = useAppointmentListFilters();
+  const isTodaySelected = date === todayIsoDate();
   const debouncedSearch = useDebouncedValue(search, 350);
   const [selectedStatuses, setSelectedStatuses] = useState<AppointmentStatus[]>([]);
   const status = "All" as const;
@@ -144,7 +145,15 @@ export function AppointmentCalendarContent({ staffMode = false }: { staffMode?: 
           </TourButton>
         </View>
         <View style={styles.dinggToolbarActions}>
-          <TouchableOpacity onPress={() => setDate(todayIsoDate())} style={styles.dinggTodayButton}><Text style={styles.dinggTodayText}>Today</Text></TouchableOpacity>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Go to today"
+            accessibilityState={{ selected: isTodaySelected }}
+            onPress={() => setDate(todayIsoDate())}
+            style={[styles.dinggTodayButton, isTodaySelected && styles.dinggTodayButtonActive]}
+          >
+            <Text style={[styles.dinggTodayText, isTodaySelected && styles.dinggTodayTextActive]}>Today</Text>
+          </Pressable>
           <TourView tourId="date" style={styles.dinggRangeControls}>
             <TouchableOpacity hitSlop={8} onPress={() => changeDate(viewMode === "week" ? -7 : -1)}><Ionicons name="chevron-back" size={17} color={Colors.appointmentAccent} /></TouchableOpacity>
             <TouchableOpacity accessibilityLabel="Select date" onPress={() => setDatePickerVisible(true)} style={styles.dinggRangeButton}><Text style={styles.dinggRangeText}>{formatAppDate(`${date}T00:00:00`)}{viewMode === "week" ? ` -\n${formatAppDate(rangeEnd)}` : ""}</Text><Ionicons name="chevron-down" size={16} color={Colors.appointmentText} /></TouchableOpacity>
