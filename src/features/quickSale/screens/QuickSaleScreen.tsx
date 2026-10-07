@@ -1617,28 +1617,34 @@ function OwnerQuickSaleScreen({
         />
 
         <View style={styles.topSection}>
-          {embedded ? (
-            <EmbeddedClientBar
-              hasSelection={hasClientStepSelection}
-              onAddClient={() => {
-                setPendingCheckoutPayment(null);
-                setShouldResumeCheckoutAtCharges(false);
-                setClientPickerStartsInCreateMode(true);
-                setIsClientPickerVisible(true);
-              }}
-              onSearchClient={() => {
-                setPendingCheckoutPayment(null);
-                setShouldResumeCheckoutAtCharges(false);
-                setClientPickerStartsInCreateMode(false);
-                setIsClientPickerVisible(true);
-              }}
-              onSelectWalkIn={() => {
-                setSelectedClient(WALK_IN_CLIENT);
-                setHasClientStepSelection(true);
-              }}
-              selectedClient={selectedClient}
-            />
-          ) : null}
+          <EmbeddedClientBar
+            hasSelection={hasClientStepSelection}
+            onAddClient={() => {
+              setPendingCheckoutPayment(null);
+              setShouldResumeCheckoutAtCharges(false);
+              setClientPickerStartsInCreateMode(true);
+              setIsClientPickerVisible(true);
+            }}
+            onSearchClient={() => {
+              setPendingCheckoutPayment(null);
+              setShouldResumeCheckoutAtCharges(false);
+              setClientPickerStartsInCreateMode(false);
+              setIsClientPickerVisible(true);
+            }}
+            onSelectWalkIn={() => {
+              setSelectedClient(WALK_IN_CLIENT);
+              setHasClientStepSelection(true);
+            }}
+            selectedClient={selectedClient}
+          />
+          <View style={styles.catalogHeading}>
+            <Text style={styles.catalogTitle}>Services &amp; items</Text>
+            {cart.itemCount > 0 ? (
+              <Text style={styles.catalogCount}>
+                {cart.itemCount} {cart.itemCount === 1 ? "item" : "items"}
+              </Text>
+            ) : null}
+          </View>
           <View style={styles.searchSpacing}>
             <GlobalSearchBar
               isActive={isGlobalSearchActive}
@@ -1867,6 +1873,23 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: AppLayout.contentHorizontalPadding,
     paddingTop: Spacing.md,
     zIndex: 20,
+  },
+  catalogHeading: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 2,
+    paddingTop: Spacing.xs,
+  },
+  catalogTitle: {
+    color: Colors.heading,
+    fontSize: 16,
+    fontWeight: "900",
+  },
+  catalogCount: {
+    color: Colors.primaryDark,
+    fontSize: 12,
+    fontWeight: "800",
   },
   searchSpacing: {
     zIndex: 25,
