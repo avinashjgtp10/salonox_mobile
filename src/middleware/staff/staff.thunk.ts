@@ -422,7 +422,7 @@ export const resolveCurrentStaffThunk = createAsyncThunk<
   } catch (error) {
     const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
 
-    console.error("[Staff] Resolve current staff failed", {
+    console.warn("[Staff] Resolve current staff failed", {
       authenticatedUserId: normalizedUserId,
       message,
       responseBody: error instanceof ApiError ? error.responseData : undefined,
