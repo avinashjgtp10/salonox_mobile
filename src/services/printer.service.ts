@@ -5,8 +5,9 @@ import { generateReceiptHtml, type ReceiptData } from "@/utils/receiptGenerator"
 export const printerService = {
   async printReceipt(data: ReceiptData): Promise<void> {
     const html = generateReceiptHtml(data);
+    const { uri } = await Print.printToFileAsync({ html });
     await Print.printAsync({
-      html,
+      uri,
     });
   },
 
