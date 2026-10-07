@@ -38,9 +38,8 @@ export const fetchServiceCatalog = async (salonId?: string | null) => {
   const catalogRequest = (async () => {
     const services: ServiceListItem[] = [];
     const seenServiceIds = new Set<string>();
-
-    for (let page = 1; page <= SERVICE_CATALOG_MAX_PAGES; page += 1) {
-      const response = await serviceService.getServices(
+    const fetchPage = (page: number) =>
+      serviceService.getServices(
         {
           limit: SERVICE_CATALOG_PAGE_SIZE,
           offset: (page - 1) * SERVICE_CATALOG_PAGE_SIZE,
@@ -50,6 +49,31 @@ export const fetchServiceCatalog = async (salonId?: string | null) => {
         },
         salonId,
       );
+
+    const firstPage = await fetchPage(1);
+    addUniqueServices(services, firstPage.services, seenServiceIds);
+
+    if (firstPage.services.length < SERVICE_CATALOG_PAGE_SIZE) {
+      return services;
+    }
+
+    // The first page tells us the total, so fetch the remaining pages in parallel instead of one by one.
+    const totalPages = Math.min(
+      Math.ceil(firstPage.totalCount / SERVICE_CATALOG_PAGE_SIZE),
+      SERVICE_CATALOG_MAX_PAGES,
+    );
+
+    if (totalPages > 1) {
+      const remainingPages = await Promise.all(
+        Array.from({ length: totalPages - 1 }, (_, index) => fetchPage(index + 2)),
+      );
+      remainingPages.forEach((response) => addUniqueServices(services, response.services, seenServiceIds));
+      return services;
+    }
+
+    // Total unknown (the API reported only this page): fall back to paging until a short page.
+    for (let page = 2; page <= SERVICE_CATALOG_MAX_PAGES; page += 1) {
+      const response = await fetchPage(page);
       const addedCount = addUniqueServices(services, response.services, seenServiceIds);
 
       if (response.services.length < SERVICE_CATALOG_PAGE_SIZE || addedCount === 0) {

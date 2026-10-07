@@ -6,6 +6,7 @@ import { notificationService } from "@/services/notification.service";
 import { appointmentService } from "@/services/appointment.service";
 import { notificationLocalStorage } from "@/services/notificationLocalStorage";
 import { notificationDeviceStorage } from "@/services/notificationDeviceStorage";
+import * as Notifications from "expo-notifications";
 import { trackNotificationRegistration, waitForNotificationRegistrations } from "@/services/notificationRegistrationLifecycle";
 import type { RootState } from "@/store";
 import { selectActiveBranchId } from "@/store/branch/branch.slice";
@@ -55,13 +56,16 @@ export const fetchNotificationsThunk = createAsyncThunk<
       const staff = selectCurrentStaff(state);
       if (!user || !staff) return { notifications: [] };
       const scope = getLocalNotificationScope(state);
-      const [response, readIds, removedIds] = await Promise.all([
+      const [response, readIds, removedIds, serverNotifications] = await Promise.all([
         appointmentService.getStaffAppointments({ limit: Number.MAX_SAFE_INTEGER, page: 1, search: "", sort_by: "created_at", sort_order: "DESC" }, staff, selectActiveBranchId(state)),
         notificationLocalStorage.getReadIds(scope), notificationLocalStorage.getRemovedIds(scope),
+        notificationService.getNotifications(selectActiveBranchId(state), { self: true }),
       ]);
       if (getLocalNotificationScope(getState()) !== scope) throw new ApiError("Your staff session has changed. Please refresh.", 403);
       const removed = new Set(removedIds);
-      return { notifications: buildStaffAppointmentActivity(response.appointments, staff, user.id, readIds).filter(item => !removed.has(item.id)) };
+      const reminders = serverNotifications.notifications.filter(item => item.type === "attendance" && canReceiveStaffNotification(user, item))
+        .map(item => ({ ...item, isRead: item.isRead || readIds.includes(item.id) }));
+      return { notifications: [...reminders, ...buildStaffAppointmentActivity(response.appointments, staff, user.id, readIds)].filter(item => !removed.has(item.id)) };
     }
     const [response, removedIds] = await Promise.all([
       notificationService.getNotifications(selectActiveBranchId(state)),
@@ -179,11 +183,8 @@ export const registerDeviceThunk = createAsyncThunk<
   RegisterDeviceResponse,
   RegisterDeviceRequest,
   { rejectValue: RejectValue; state: RootState }
->("notification/registerDevice", async (payload, { getState, rejectWithValue }) => {
+>("notification/registerDevice", async (payload, { rejectWithValue }) => {
   try {
-    if (isStaffExperienceUser(selectCurrentUser(getState()))) {
-      return rejectWithValue({ message: "Staff appointment activity is available inside the app." });
-    }
     console.log("[PushNotifications] notification.thunk entered");
     const token = payload.token.trim();
 
@@ -229,21 +230,29 @@ export const unregisterDeviceThunk = createAsyncThunk<
 >("notification/unregisterDevice", async (_arg, { getState, rejectWithValue }) => {
   await waitForNotificationRegistrations();
   const state = getState();
-  const storedToken =
-    state.notification.registeredDeviceToken ??
-    (await notificationDeviceStorage.getRegisteredToken());
   const deviceContext = getNotificationDeviceContext(state);
 
   try {
-    if (!storedToken) {
+    const tokens = new Set([
+      state.notification.registeredDeviceToken,
+      await notificationDeviceStorage.getRegisteredToken(),
+    ].filter((token): token is string => Boolean(token)));
+    // Older sessions may have lost their local registration record while the
+    // backend still holds this installation's token. Recover it without asking
+    // for notification permission during logout.
+    if (!tokens.size && (await Notifications.getPermissionsAsync()).granted) {
+      const { getExpoPushToken } = await import("@/services/pushNotifications");
+      tokens.add(await getExpoPushToken());
+    }
+    if (!tokens.size) {
       await notificationDeviceStorage.clearRegisteredToken();
       return {};
     }
 
-    const response = await notificationService.unregisterDevice({
-      ...deviceContext,
-      token: storedToken,
-    });
+    let response: UnregisterDeviceResponse = {};
+    for (const token of tokens) {
+      response = await notificationService.unregisterDevice({ ...deviceContext, token });
+    }
 
     await notificationDeviceStorage.clearRegisteredToken();
 

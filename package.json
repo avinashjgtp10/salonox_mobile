@@ -74,7 +74,7 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "test": "jest",
-    "test:ci": "tsc --project tsconfig.test.json && jest --ci --runInBand"
+    "test:ci": "node scripts/run-ci-tests.js"
   },
   "private": true
 }

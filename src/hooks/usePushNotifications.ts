@@ -69,13 +69,11 @@ export const usePushNotifications = (isAuthenticated: boolean) => {
       startedUser?.id === currentUserRef.current?.id && startedUser?.salonId === currentUserRef.current?.salonId;
     if (!isCurrentSession()) return;
     try {
-      if (isStaffExperienceUser(startedUser)) {
-        confirmedRegistrationSignatureRef.current = null;
-        await dispatch(unregisterDeviceThunk()).unwrap();
-        return;
-      }
-      const preferences = await salonNotificationPreferences.get();
-      await notificationPreferencesStorage.setPreferences(preferences, false);
+      const staffSession = isStaffExperienceUser(startedUser);
+      const preferences = staffSession
+        ? await notificationPreferencesStorage.getPreferences()
+        : await salonNotificationPreferences.get();
+      if (!staffSession) await notificationPreferencesStorage.setPreferences(preferences, false);
       if (!isCurrentSession()) return;
 
       if (!hasEnabledNotificationPreference(preferences)) {
@@ -196,6 +194,7 @@ export const usePushNotifications = (isAuthenticated: boolean) => {
     if (!isAuthenticated) {
       hydratedStoredTokenRef.current = false;
       confirmedRegistrationSignatureRef.current = null;
+      pendingNotificationResponseRef.current = null;
       return;
     }
 
@@ -218,7 +217,6 @@ export const usePushNotifications = (isAuthenticated: boolean) => {
 
   const handleNotificationResponse = useCallback((response: Notifications.NotificationResponse) => {
     if (!isAuthenticatedRef.current || !currentUserRef.current) {
-      pendingNotificationResponseRef.current = response;
       return;
     }
 
@@ -249,7 +247,8 @@ export const usePushNotifications = (isAuthenticated: boolean) => {
   }, [currentUser, handleNotificationResponse, isAuthenticated]);
 
   useEffect(() => {
-    const receivedSubscription = Notifications.addNotificationReceivedListener(() => {
+    const receivedSubscription = Notifications.addNotificationReceivedListener((notification) => {
+      if (!isAuthenticatedRef.current || !canReceivePush(currentUserRef.current, notification.request.content.data)) return;
       void dispatch(fetchNotificationsThunk());
       void dispatch(fetchUnreadCountThunk());
     });

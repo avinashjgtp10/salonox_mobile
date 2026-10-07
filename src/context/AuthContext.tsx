@@ -8,6 +8,7 @@ import {
 } from "react";
 
 import { unregisterDeviceThunk } from "@/middleware/notification/notification.thunk";
+import * as Notifications from "expo-notifications";
 import { pauseNotificationRegistration, resumeNotificationRegistration } from "@/services/notificationRegistrationLifecycle";
 import { fetchCurrentUserThunk } from "@/middleware/user/user.thunk";
 import { ApiError, cancelProtectedApiRequests, getApiErrorMessage } from "@/services/api";
@@ -19,7 +20,6 @@ import {
   shouldInvalidateSession,
 } from "@/services/authSession";
 import { branchStorage } from "@/services/branchStorage";
-import { notificationDeviceStorage } from "@/services/notificationDeviceStorage";
 import { salonService } from "@/services/salon.service";
 import { realtimeSocket } from "@/services/realtimeSocket";
 import { addSessionInvalidationListener } from "@/services/sessionInvalidation";
@@ -95,8 +95,15 @@ export function AuthProvider({ children }: PropsWithChildren) {
     await Promise.all([
       tokenStorage.clearSession(),
       branchStorage.clearActiveBranchId(),
-      notificationDeviceStorage.clearRegisteredToken(),
     ]);
+      // Token storage is cleared only after successful server unregistration.
+      // Preserve it on session expiry so the next session can clean it up.
+      await Promise.allSettled([
+        Notifications.dismissAllNotificationsAsync(),
+        Notifications.cancelAllScheduledNotificationsAsync(),
+        Notifications.setBadgeCountAsync(0),
+        Notifications.clearLastNotificationResponseAsync(),
+      ]);
     salonService.clearSalonMeCache();
     realtimeSocket.disconnect();
 

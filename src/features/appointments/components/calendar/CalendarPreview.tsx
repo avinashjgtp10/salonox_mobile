@@ -63,6 +63,7 @@ export function CalendarPreview({
   staffColumns = [],
   viewMode = "week",
   readOnly = false,
+  expandSingleColumn = false,
 }: {
   appointments: AppointmentListItem[];
   date: string;
@@ -74,11 +75,13 @@ export function CalendarPreview({
   title?: string;
   viewMode?: "week" | "day" | "list";
   readOnly?: boolean;
+  expandSingleColumn?: boolean;
 }) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const [previewAppointment, setPreviewAppointment] = useState<AppointmentListItem | null>(null);
   const [quickSaleSlot, setQuickSaleSlot] = useState<QuickSaleSlot | null>(null);
+  const [viewportWidth, setViewportWidth] = useState(0);
   const days = useMemo(() => Array.from({ length: 7 }, (_, index) => {
     const value = new Date(`${date}T00:00:00`);
     value.setDate(value.getDate() + index);
@@ -92,7 +95,11 @@ export function CalendarPreview({
       ? staffColumns.map((option) => ({ key: date, label: option.label, staffId: option.id, staffName: option.name }))
       : [{ key: date, label: "All Staff", staffId: "", staffName: "" }])
     : days.map((day) => ({ ...day, staffId: "", staffName: "" })), [date, days, staffColumns, viewMode]);
-  const columnWidth = viewMode === "day" ? 156 : 118;
+  const columnWidth = viewMode === "day"
+    ? expandSingleColumn && columns.length === 1 && viewportWidth > 0
+      ? Math.max(0, viewportWidth - TIME_COLUMN_WIDTH)
+      : 156
+    : 118;
   const calendarContentWidth = TIME_COLUMN_WIDTH + columns.length * columnWidth;
   const appointmentsByColumn = useMemo(() => {
     const keyed = appointments.map((appointment) => ({ appointment, dateKey: getDateKey(appointment.scheduledAt) }));
@@ -151,7 +158,7 @@ export function CalendarPreview({
   }
 
   return (
-    <View style={styles.dinggCalendar}>
+    <View style={styles.dinggCalendar} onLayout={event => setViewportWidth(event.nativeEvent.layout.width)}>
       <ScrollView horizontal nestedScrollEnabled showsHorizontalScrollIndicator style={styles.dinggHorizontalScroller}
         removeClippedSubviews={false}
       >

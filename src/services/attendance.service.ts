@@ -1,7 +1,7 @@
 import { api } from "@/services/api";
 import { attendanceDateKey, evaluateAttendanceCheckIn } from "@/features/attendance/utils/attendanceRules";
 import { parseAttendanceDateTime } from "@/features/attendance/utils/attendanceStatus";
-import { ATTENDANCE, STAFF } from "@/services/api/endpoints";
+import { ATTENDANCE, MOBILE_STAFF, STAFF } from "@/services/api/endpoints";
 import type {
   AttendanceRecord,
   AttendanceRecordList,
@@ -198,7 +198,7 @@ const getRecordFromEnvelope = (payload: AttendanceRecordEnvelope): UnknownRecord
   return nested !== undefined ? asRecord(nested) : record;
 };
 
-const normalizeAttendanceRecord = (entry: UnknownRecord): AttendanceRecord | null => {
+export const normalizeAttendanceRecord = (entry: UnknownRecord): AttendanceRecord | null => {
   const recordId = toSafeString(firstValue(entry, ["id", "_id", "attendanceId", "attendance_id"]));
 
   const nestedStaff = asRecord(firstValue(entry, ["staff", "employee", "staffMember", "staff_member"]));
@@ -427,24 +427,35 @@ export const attendanceService = {
     return normalizeAttendanceSummary(getSummaryRecord(response.data.data));
   },
 
-  async getToday(salonId?: string | null, date?: string): Promise<AttendanceToday> {
-    const response = await api.get<AttendanceTodayApiResponse>(ATTENDANCE.TODAY, {
-      params: {
-        ...(salonId ? { salon_id: salonId } : {}),
-        ...(date ? { date } : {}),
-      },
-    });
-    const apiRecords = getTodayArray(response.data.data);
+  // `self: true` (staff app) reads the staff member's own attendance from the
+  // mobile staff API and reshapes it like /attendance/today's staff response.
+  async getToday(salonId?: string | null, date?: string, options: { self?: boolean } = {}): Promise<AttendanceToday> {
+    let payload: AttendanceTodayApiData;
+    if (options.self) {
+      const response = await api.get<ApiResponse<UnknownRecord>>(MOBILE_STAFF.ATTENDANCE);
+      const selfAttendance = asRecord(asRecord(response.data.data).self_attendance);
+      const record = asRecord(selfAttendance.record);
+      payload = { staff: selfAttendance.record ? [{ ...record, staff_id: record.staff_id ?? selfAttendance.staff_id }] : [] };
+    } else {
+      const response = await api.get<AttendanceTodayApiResponse>(ATTENDANCE.TODAY, {
+        params: {
+          ...(salonId ? { salon_id: salonId } : {}),
+          ...(date ? { date } : {}),
+        },
+      });
+      payload = response.data.data;
+    }
+    const apiRecords = getTodayArray(payload);
     const records = apiRecords
       .map(normalizeAttendanceRecord)
       .filter((record): record is AttendanceRecord => record !== null);
 
     return {
-      date: getTodayDate(response.data.data),
+      date: getTodayDate(payload),
       records,
-      summary: Array.isArray(response.data.data)
+      summary: Array.isArray(payload)
         ? null
-        : normalizeAttendanceSummary(getSummaryRecord(asRecord(response.data.data))),
+        : normalizeAttendanceSummary(getSummaryRecord(asRecord(payload))),
     };
   },
 

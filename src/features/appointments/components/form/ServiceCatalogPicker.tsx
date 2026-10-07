@@ -9,9 +9,45 @@ import { staffIdMatches } from "@/features/appointments/utils/staffAssignment";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { ServiceListItem } from "@/types/service";
 import { Ionicons } from "@expo/vector-icons";
-import { useMemo, useState } from "react";
-import { ActivityIndicator, Modal, Pressable, ScrollView, TouchableOpacity, View } from "react-native";
+import { memo, useMemo, useState } from "react";
+import { ActivityIndicator, FlatList, Modal, Pressable, ScrollView, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+const CatalogServiceRow = memo(function CatalogServiceRow({
+  onSelect,
+  selected,
+  service,
+  styles,
+}: {
+  onSelect: (service: ServiceListItem) => void;
+  selected: boolean;
+  service: ServiceListItem;
+  styles: ReturnType<typeof createStyles>;
+}) {
+  const Colors = useThemeColors();
+
+  return (
+    <View style={styles.catalogServiceRow}>
+      <View style={styles.catalogServiceCopy}>
+        <Text style={styles.catalogServiceName}>{service.name}</Text>
+        <Text style={styles.catalogServiceMeta}>
+          {formatCurrency(service.price)} <Text style={styles.catalogServiceDivider}>|</Text> {formatDurationLabel(service.durationMinutes)}
+        </Text>
+      </View>
+      <TouchableOpacity
+        activeOpacity={0.82}
+        onPress={() => onSelect(service)}
+        style={[styles.catalogAddButton, selected && styles.catalogQuantityButton]}
+      >
+        {selected ? (
+          <><Ionicons name="remove" size={18} color={Colors.appointmentText} /><Text style={styles.catalogQuantityText}>1</Text><Ionicons name="add" size={18} color={Colors.appointmentMuted} /></>
+        ) : (
+          <><Text style={styles.catalogAddText}>Add</Text><Ionicons name="add" size={18} color={Colors.appointmentText} /></>
+        )}
+      </TouchableOpacity>
+    </View>
+  );
+});
 
 export function ServiceCatalogPicker({
   error,
@@ -120,33 +156,27 @@ export function ServiceCatalogPicker({
           ) : error ? (
             <View style={styles.servicePickerState}><Text style={styles.fieldHintError}>{error}</Text></View>
           ) : (
-            <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-              {filteredServices.map((service) => {
-                const selected = selectedServiceIds.includes(service.id);
-                return (
-                  <View key={service.id} style={styles.catalogServiceRow}>
-                    <View style={styles.catalogServiceCopy}>
-                      <Text style={styles.catalogServiceName}>{service.name}</Text>
-                      <Text style={styles.catalogServiceMeta}>
-                        {formatCurrency(service.price)} <Text style={styles.catalogServiceDivider}>|</Text> {formatDurationLabel(service.durationMinutes)}
-                      </Text>
-                    </View>
-                    <TouchableOpacity
-                      activeOpacity={0.82}
-                      onPress={() => onSelect(service)}
-                      style={[styles.catalogAddButton, selected && styles.catalogQuantityButton]}
-                    >
-                      {selected ? (
-                        <><Ionicons name="remove" size={18} color={Colors.appointmentText} /><Text style={styles.catalogQuantityText}>1</Text><Ionicons name="add" size={18} color={Colors.appointmentMuted} /></>
-                      ) : (
-                        <><Text style={styles.catalogAddText}>Add</Text><Ionicons name="add" size={18} color={Colors.appointmentText} /></>
-                      )}
-                    </TouchableOpacity>
-                  </View>
-                );
-              })}
-              {filteredServices.length === 0 ? <Text style={styles.servicePickerEmpty}>No services found.</Text> : null}
-            </ScrollView>
+            // Virtualized: rendering the whole catalog at once made the picker take seconds to open.
+            <FlatList
+              data={filteredServices}
+              extraData={selectedServiceIds}
+              initialNumToRender={12}
+              keyExtractor={(service) => service.id}
+              keyboardShouldPersistTaps="handled"
+              ListEmptyComponent={<Text style={styles.servicePickerEmpty}>No services found.</Text>}
+              maxToRenderPerBatch={12}
+              removeClippedSubviews
+              renderItem={({ item: service }) => (
+                <CatalogServiceRow
+                  onSelect={onSelect}
+                  selected={selectedServiceIds.includes(service.id)}
+                  service={service}
+                  styles={styles}
+                />
+              )}
+              showsVerticalScrollIndicator={false}
+              windowSize={7}
+            />
           )}
         </View>
 
