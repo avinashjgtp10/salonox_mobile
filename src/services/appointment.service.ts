@@ -2,7 +2,7 @@ import { api, ApiError, CHECKOUT_REQUEST_TIMEOUT_MS } from "@/services/api";
 import type { StaffMember } from "@/data/teamData";
 import { isAssignedToStaff } from "@/features/appointments/utils/staffAssignment";
 import { getDateKey } from "@/features/appointments/utils/appointmentDateTime";
-import { APPOINTMENT, CLIENT } from "@/services/api/endpoints";
+import { APPOINTMENT, CLIENT, MOBILE_STAFF } from "@/services/api/endpoints";
 import type { ApiResponse } from "@/types/auth";
 import { normalizeSaleId } from "@/utils/apiNormalize";
 import type {
@@ -461,12 +461,25 @@ const fetchAppointmentList = async (
   return { appointments, response, totalCount };
 };
 
+const fetchMobileStaffAppointmentList = async (params: {
+  date?: string;
+  end_date?: string;
+  limit: number;
+  page: number;
+  start_date?: string;
+}) => {
+  const response = await api.get<AppointmentListApiResponse>(MOBILE_STAFF.APPOINTMENTS, { params });
+  const appointments = getAppointmentArray(response.data.data).map(normalizeAppointment);
+  const totalCount = getTotalCount(response.data.data, appointments.length);
+
+  return { appointments, response, totalCount };
+};
+
 const staffListRequests = new Map<string, Promise<AppointmentListResponse>>();
 
 const fetchStaffAppointmentList = async (
   query: AppointmentListQuery,
   staff: StaffMember,
-  salonId?: string | null,
 ): Promise<AppointmentListResponse> => {
   const own: AppointmentListItem[] = [];
   const seen = new Set<string>();
@@ -474,7 +487,9 @@ const fetchStaffAppointmentList = async (
   let page = 1;
 
   while (true) {
-    const result = await fetchAppointmentList({ ...query, staff_id: undefined, status: undefined, search: "", page, limit: scanLimit }, salonId);
+    // The mobile staff API already scopes the list to this staff member on the
+    // server; the assignment check below is kept as defense in depth.
+    const result = await fetchMobileStaffAppointmentList({ date: query.date, end_date: query.to_date, limit: scanLimit, page, start_date: query.from_date });
     const fresh = result.appointments.filter(item => !seen.has(item.id));
     if (result.appointments.length > 0 && fresh.length === 0) {
       throw new ApiError("Unable to load all of your appointments. Please try again.", 502);
@@ -519,7 +534,7 @@ export const appointmentService = {
     const key = JSON.stringify([staff.id, staff.userId, staff.staffIdAliases, salonId, query]);
     const existing = staffListRequests.get(key);
     if (existing) return existing;
-    const request = fetchStaffAppointmentList(query, staff, salonId).finally(() => staffListRequests.delete(key));
+    const request = fetchStaffAppointmentList(query, staff).finally(() => staffListRequests.delete(key));
     staffListRequests.set(key, request);
     return request;
   },
@@ -551,6 +566,14 @@ export const appointmentService = {
 
   async getAppointment(appointmentId: string): Promise<AppointmentDetailResponse> {
     const response = await api.get<AppointmentDetailApiResponse>(APPOINTMENT.DETAIL(appointmentId));
+    return {
+      appointment: normalizeAppointment(getAppointmentFromPayload(response.data.data)),
+      message: response.data.message,
+    };
+  },
+
+  async getStaffAppointment(appointmentId: string): Promise<AppointmentDetailResponse> {
+    const response = await api.get<AppointmentDetailApiResponse>(MOBILE_STAFF.APPOINTMENT_DETAIL(appointmentId));
     return {
       appointment: normalizeAppointment(getAppointmentFromPayload(response.data.data)),
       message: response.data.message,

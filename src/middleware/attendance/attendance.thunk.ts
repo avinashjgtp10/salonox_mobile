@@ -102,7 +102,7 @@ export const fetchTodayAttendanceThunk = createAsyncThunk<
   { rejectValue: AttendanceRejectValue; state: RootState }
 >("attendance/fetchToday", async (date, { getState, rejectWithValue }) => {
   try {
-    const response = await attendanceService.getToday(selectActiveBranchId(getState()), date);
+    const response = await attendanceService.getToday(selectActiveBranchId(getState()), date, { self: isStaffExperienceUser(selectCurrentUser(getState())) });
     const today = scopeAttendanceForCurrentUser(response, getState());
 
     void attendanceCache.setToday(today);
@@ -123,7 +123,7 @@ export const fetchAttendanceSummaryThunk = createAsyncThunk<
   try {
     const state = getState();
     const summary = isStaffExperienceUser(selectCurrentUser(state))
-      ? scopeAttendanceForCurrentUser(await attendanceService.getToday(selectActiveBranchId(state), date), getState()).summary!
+      ? scopeAttendanceForCurrentUser(await attendanceService.getToday(selectActiveBranchId(state), date, { self: true }), getState()).summary!
       : await attendanceService.getSummary(selectActiveBranchId(state), date);
 
     void attendanceCache.setSummary(summary);

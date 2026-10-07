@@ -1,6 +1,6 @@
 import { api } from "@/services/api";
 import { notificationDeviceStorage } from "@/services/notificationDeviceStorage";
-import { NOTIFICATION } from "@/services/api/endpoints";
+import { MOBILE_STAFF, NOTIFICATION } from "@/services/api/endpoints";
 import type { ApiResponse } from "@/types/auth";
 import type {
   MarkAllNotificationsReadResponse,
@@ -89,10 +89,13 @@ const getNotificationArray = (payload: NotificationListApiData): UnknownRecord[]
 };
 
 export const notificationService = {
-  async getNotifications(salonId?: string | null): Promise<NotificationsListResponse> {
-    const response = await api.get<ApiResponse<NotificationListApiData>>(NOTIFICATION.LIST, {
-      params: salonId ? { salon_id: salonId } : undefined,
-    });
+  // `self: true` reads the logged-in staff member's own notifications from the mobile staff API.
+  async getNotifications(salonId?: string | null, options: { self?: boolean } = {}): Promise<NotificationsListResponse> {
+    const response = options.self
+      ? await api.get<ApiResponse<NotificationListApiData>>(MOBILE_STAFF.NOTIFICATIONS)
+      : await api.get<ApiResponse<NotificationListApiData>>(NOTIFICATION.LIST, {
+        params: salonId ? { salon_id: salonId } : undefined,
+      });
     const notifications = getNotificationArray(response.data.data)
       .map(normalizeNotification)
       .filter((notification) => notification.id)

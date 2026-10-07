@@ -1,4 +1,5 @@
 import { api } from "@/services/api";
+import { MOBILE_STAFF } from "@/services/api/endpoints";
 import { getAttendanceLocation, toAttendanceLocationBody } from "@/services/attendanceLocation";
 import type { ApiResponse } from "@/types/auth";
 
@@ -11,22 +12,28 @@ export type StaffSelfAttendance = {
     check_in_location?: string | null; check_out_location?: string | null;
   } | null;
 };
-async function getState(): Promise<StaffSelfAttendance> {
-  const response = await api.get<ApiResponse<{ self_attendance: StaffSelfAttendance }>>("/attendance/today");
-  const state = response.data?.data?.self_attendance;
+type SelfAttendanceResponse = ApiResponse<{ self_attendance?: StaffSelfAttendance }>;
+
+function readState(payload: SelfAttendanceResponse | undefined): StaffSelfAttendance {
+  const state = payload?.data?.self_attendance;
   if (!state || typeof state.checked_in !== "boolean" || typeof state.can_check_in !== "boolean" || !state.staff_id) {
     throw new Error("The server did not return your check-in status. Please refresh attendance or contact your manager.");
   }
   return state;
 }
+async function getState(): Promise<StaffSelfAttendance> {
+  const response = await api.get<SelfAttendanceResponse>(MOBILE_STAFF.ATTENDANCE);
+  return readState(response.data);
+}
+// Check-in/out return the updated attendance state, so no follow-up fetch is needed.
 export const staffSelfAttendanceService = {
   get: getState,
   async checkIn() {
-    await api.post("/attendance/check-in", toAttendanceLocationBody(await getAttendanceLocation()));
-    return getState();
+    const response = await api.post<SelfAttendanceResponse>(MOBILE_STAFF.CHECK_IN, toAttendanceLocationBody(await getAttendanceLocation()));
+    return readState(response.data);
   },
   async checkOut() {
-    await api.post("/attendance/check-out", toAttendanceLocationBody(await getAttendanceLocation()));
-    return getState();
+    const response = await api.post<SelfAttendanceResponse>(MOBILE_STAFF.CHECK_OUT, toAttendanceLocationBody(await getAttendanceLocation()));
+    return readState(response.data);
   },
 };
