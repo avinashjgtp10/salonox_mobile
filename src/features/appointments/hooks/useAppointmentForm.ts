@@ -69,6 +69,7 @@ export function useAppointmentForm(mode: 'create' | 'edit') {
   const [serviceCatalogError, setServiceCatalogError] = useState<string | null>(null);
   const [serviceCatalogLoading, setServiceCatalogLoading] = useState(false);
   const [servicePickerVisible, setServicePickerVisible] = useState(false);
+  const [serviceCatalogRetryKey, setServiceCatalogRetryKey] = useState(0);
   const [selectedServices, setSelectedServices] = useState<AppointmentSelectedService[]>([]);
   const [sendAppointmentSms, setSendAppointmentSms] = useState(true);
   const [sendAppointmentEmail, setSendAppointmentEmail] = useState(true);
@@ -128,15 +129,38 @@ export function useAppointmentForm(mode: 'create' | 'edit') {
         return [];
       }
 
-      const slots = form.staffId
-        ? staffAvailability?.availableSlots ?? []
-        : defaultTimeSlots;
+      // Any time of day can be booked, whichever staff member is selected.
+      const slots = defaultTimeSlots;
 
       if (!originalEditSlot || slots.some((slot) => slot.value === originalEditSlot.value)) return slots;
 
       return [...slots, originalEditSlot].sort((left, right) => left.value.localeCompare(right.value));
     },
-    [defaultTimeSlots, form.date, form.staffId, originalEditSlot, staffAvailability?.availableSlots],
+    [defaultTimeSlots, form.date, originalEditSlot],
+  );
+  // Resolves a picked time to its slot, also when the time falls inside a slot rather than on its start.
+  const findSlotForTime = useCallback(
+    (time: string): StaffAvailabilitySlot | undefined => {
+      const exactSlot = availableSlots.find((slot) => slot.value === time);
+
+      if (exactSlot) return exactSlot;
+
+      const minutes = parseClockToMinutes(time);
+
+      if (minutes === null) return undefined;
+
+      const containingSlot = availableSlots.find((slot) => {
+        const slotStart = parseClockToMinutes(slot.value);
+        const slotEnd = parseClockToMinutes(slot.endTime);
+
+        return slotStart !== null && slotEnd !== null && minutes > slotStart && minutes < slotEnd;
+      });
+
+      return containingSlot
+        ? { ...containingSlot, display: minutesToDisplayTime(minutes), value: time }
+        : undefined;
+    },
+    [availableSlots],
   );
   const staffInactiveReason = !selectedStaff
     ? null
@@ -183,13 +207,9 @@ export function useAppointmentForm(mode: 'create' | 'edit') {
             : "Select staff";
   const slotDisabledReason = !validateDate(form.date)
     ? "Select a date to view times."
-    : schedulerError
-      ? schedulerError
     : form.staffId && availabilityBlockReason
       ? availabilityBlockReason
-      : form.staffId && !staffAvailability && !schedulerLoading
-        ? "Availability is not loaded for this staff member."
-        : null;
+      : null;
   useEffect(() => {
     if (!__DEV__ || !form.staffId) {
       return;
@@ -244,24 +264,37 @@ export function useAppointmentForm(mode: 'create' | 'edit') {
     void dispatch(fetchClientsThunk({ limit: 50, offset: 0, reset: true }));
   }, [dispatch]);
 
+  // Prefetch the catalog as soon as the form opens so the service picker doesn't wait on the network.
   useEffect(() => {
-    if (!servicePickerVisible || serviceCatalog.length > 0 || serviceCatalogLoading) {
-      return;
-    }
+    let cancelled = false;
 
     setServiceCatalogLoading(true);
     setServiceCatalogError(null);
     fetchServiceCatalog(activeBranchId).then(
       (catalog) => {
+        if (cancelled) return;
         setServiceCatalog(catalog);
         setServiceCatalogLoading(false);
       },
       (error) => {
+        if (cancelled) return;
         setServiceCatalogError(getApiErrorMessage(error));
         setServiceCatalogLoading(false);
       },
     );
-  }, [activeBranchId, serviceCatalog.length, serviceCatalogLoading, servicePickerVisible]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeBranchId, serviceCatalogRetryKey]);
+
+  // Retry when the picker is opened after a failed load.
+  useEffect(() => {
+    if (servicePickerVisible && serviceCatalogError && !serviceCatalogLoading) {
+      setServiceCatalogRetryKey((current) => current + 1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [servicePickerVisible]);
 
   useFocusEffect(
     useCallback(() => {
@@ -298,20 +331,12 @@ export function useAppointmentForm(mode: 'create' | 'edit') {
       return;
     }
 
-    if (form.staffId && (schedulerLoading || !staffAvailability)) {
-      return;
-    }
-
-    const selectedSlot = availableSlots.some((slot) => slot.value === form.startTime);
-
-    if (!selectedSlot) {
-      setForm((current) => ({
-        ...current,
-        endTime: "",
-        startTime: "",
-      }));
-    }
-  }, [availableSlots, form.staffId, form.startTime, schedulerLoading, staffAvailability]);
+    const selectedSlot = findSlotForTime(form.startTime);
+    setForm((current) => current.endTime === (selectedSlot?.endTime ?? "") ? current : {
+      ...current,
+      endTime: selectedSlot?.endTime ?? "",
+    });
+  }, [findSlotForTime, form.startTime]);
 
   useEffect(() => {
     const trimmedSearch = clientSearch.trim();
@@ -480,7 +505,6 @@ export function useAppointmentForm(mode: 'create' | 'edit') {
 
       if (selectedServices.length === 0) {
         next.endTime = "";
-        next.startTime = "";
       }
 
       return next;
@@ -603,7 +627,6 @@ export function useAppointmentForm(mode: 'create' | 'edit') {
       ...current,
       endTime: "",
       staffId: current.staffId === staffId ? "" : staffId,
-      startTime: "",
     }));
     setErrors((current) => ({ ...current, staffId: undefined, startTime: undefined }));
   };
@@ -618,7 +641,7 @@ export function useAppointmentForm(mode: 'create' | 'edit') {
   };
 
   const handleSelectSlot = (startTime: string) => {
-    const selectedSlot = availableSlots.find((slot) => slot.value === startTime);
+    const selectedSlot = findSlotForTime(startTime);
 
     setForm((current) => ({
       ...current,
@@ -662,7 +685,7 @@ export function useAppointmentForm(mode: 'create' | 'edit') {
       return;
     }
 
-    const selectedSlot = availableSlots.find((slot) => slot.value === form.startTime);
+    const selectedSlot = findSlotForTime(form.startTime);
 
     if (!selectedSlot) {
       setErrors((current) => ({
