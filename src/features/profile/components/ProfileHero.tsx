@@ -36,7 +36,7 @@ export function ProfileHero({ avatarUri, initials, isUploadingAvatar, onChangePh
         style={styles.avatarWrap}
       >
         {avatarUri ? (
-          <Image contentFit="cover" source={{ uri: avatarUri }} style={styles.avatarImage} />
+          <Image cachePolicy="none" contentFit="cover" source={{ uri: avatarUri }} style={styles.avatarImage} />
         ) : (
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>{initials}</Text>

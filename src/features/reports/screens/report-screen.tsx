@@ -1,3 +1,4 @@
+import { countReportFilters } from "@/features/reports/report-filters";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
@@ -73,8 +74,8 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
   const summary = useMemo(() => getReportSummary(config.slug, entry?.data ?? null), [config.slug, entry?.data]);
   const pagination = useMemo(() => getReportPagination(entry?.data ?? null), [entry?.data]);
   const dateRangeLabel = useMemo(() => {
-    const rangeStart = filters.date ?? filters.from ?? filters.start_date;
-    const rangeEnd = filters.to ?? filters.end_date;
+    const rangeStart = filters.date ?? filters.from ?? filters.date_from ?? filters.start_date;
+    const rangeEnd = filters.to ?? filters.date_to ?? filters.end_date;
 
     if (!rangeStart) {
       return "All time";
@@ -83,11 +84,12 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
     const formattedStart = formatAppDate(rangeStart, rangeStart);
 
     return rangeEnd ? `${formattedStart}  –  ${formatAppDate(rangeEnd, rangeEnd)}` : formattedStart;
-  }, [filters.date, filters.from, filters.start_date, filters.to, filters.end_date]);
+  }, [filters.date, filters.from, filters.date_from, filters.start_date, filters.to, filters.date_to, filters.end_date]);
   const hasMore = Boolean(config.paginated && pagination && pagination.page < pagination.totalPages);
   const supportsSearch = config.filters.includes("search");
   const isUnavailable = config.status !== "available";
   const dateKeys = useMemo(() => {
+    if (config.filters.includes("date_from")) return { end: "date_to", mode: "range", start: "date_from" } as const;
     if (config.filters.includes("start_date")) {
       return { end: "end_date", mode: "range", start: "start_date" } as const;
     }
@@ -102,17 +104,6 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
 
     return null;
   }, [config.filters]);
-  const campaignOptions = useMemo(() => {
-    const campaigns = entry?.data?.campaigns;
-    if (!Array.isArray(campaigns)) return [];
-    return campaigns.flatMap((campaign) => {
-      if (!campaign || typeof campaign !== "object") return [];
-      const record = campaign as Record<string, unknown>;
-      return typeof record.id === "string"
-        ? [{ label: typeof record.name === "string" ? record.name : "Campaign", value: record.id }]
-        : [];
-    });
-  }, [entry?.data?.campaigns]);
 
   const load = useCallback((nextFilters: ReportFilters, options?: { append?: boolean; refresh?: boolean }) => {
     void dispatch(fetchReportThunk({
@@ -161,13 +152,6 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
     setRangeSheetVisible(false);
     load(applied);
   }, [config.slug, dateKeys, dispatch, filters, load]);
-  const resetFilters = useCallback(() => {
-    const defaults = createDefaultReportFilters(config.slug);
-    setSearch("");
-    dispatch(rememberReportFilters({ filters: defaults, slug: config.slug }));
-    setFilterSheetVisible(false);
-    load(defaults);
-  }, [config.slug, dispatch, load]);
 
   const handleRowPress = useCallback((row: ReportRow) => {
     const saleId = getInvoiceDetailSaleId(row, config.slug);
@@ -184,8 +168,7 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
     />
   ), [config.primaryFields, config.slug, handleRowPress]);
 
-  const activeFilterCount = config.filters.filter((key) =>
-    key !== "search" && key !== "branch_id" && Boolean(filters[key])).length;
+  const activeFilterCount = countReportFilters(config.slug, filters);
 
   const listHeader = (
     <View style={styles.listHeader}>
@@ -302,12 +285,11 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
         {listHeader}
         <ReportSkeleton />
         <ReportFilterSheet
-          campaignOptions={campaignOptions}
+          slug={config.slug}
+          data={entry?.data}
           filters={filters}
           onApply={applyFilters}
           onClose={() => setFilterSheetVisible(false)}
-          onReset={resetFilters}
-          supportedFilters={config.filters}
           visible={filterSheetVisible}
         />
         {rangeSheet}
@@ -370,12 +352,11 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
         windowSize={7}
       />
       <ReportFilterSheet
-        campaignOptions={campaignOptions}
+        slug={config.slug}
+        data={entry?.data}
         filters={filters}
         onApply={applyFilters}
         onClose={() => setFilterSheetVisible(false)}
-        onReset={resetFilters}
-        supportedFilters={config.filters}
         visible={filterSheetVisible}
       />
       {rangeSheet}

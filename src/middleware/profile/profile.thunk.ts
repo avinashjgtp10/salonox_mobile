@@ -1,5 +1,6 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
 
+import { withAvatarCacheKey } from "@/features/profile/utils/avatar";
 import { fetchCurrentUserThunk } from "@/middleware/user/user.thunk";
 import { ApiError, getApiErrorMessage } from "@/services/api";
 import { profileService } from "@/services/profile.service";
@@ -72,14 +73,19 @@ export const uploadAvatarThunk = createAsyncThunk<
   { rejectValue: ProfileRejectValue; state: RootState }
 >("profile/uploadAvatar", async ({ asset }, { dispatch, getState, rejectWithValue }) => {
   try {
-    const response = await profileService.uploadAvatar(asset);
+    const uploaded = await profileService.uploadAvatar(asset);
+    // Share a fresh image URL with every avatar view, including the dashboard.
+    const avatarUrl = uploaded.avatarUrl ? withAvatarCacheKey(uploaded.avatarUrl, Date.now()) : null;
+    const response = {
+      ...uploaded,
+      avatarUrl,
+      profile: uploaded.profile ? { ...uploaded.profile, avatarUrl } : null,
+    };
     const currentUser = getState().user.user;
 
     if (currentUser && response.avatarUrl) {
       dispatch(setCurrentUser({ ...currentUser, avatarUrl: response.avatarUrl }));
     }
-
-    void dispatch(fetchCurrentUserThunk());
 
     return response;
   } catch (error) {
