@@ -59,7 +59,7 @@ export const PAYMENT_METHODS: AppointmentPaymentMethod[] = [
   "Other",
 ];
 
-export const CLIENT_SEARCH_MIN_LETTERS = 3;
+export const CLIENT_SEARCH_MIN_LETTERS = 1;
 export const CLIENT_SEARCH_RESULT_LIMIT = 8;
 export const AUTOCOMPLETE_DROPDOWN_GAP = 14;
 export const CLIENT_SEARCH_DEBOUNCE_MS = 240;

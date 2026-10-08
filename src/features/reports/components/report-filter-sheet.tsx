@@ -1,173 +1,59 @@
+import { useMemo } from "react";
+import { StyleSheet, Switch, View } from "react-native";
 import { Text, TextInput } from "@/components/ui/AppTypography";
-import { memo, useCallback, useEffect, useMemo, useState } from "react";
-import { Pressable, StyleSheet, TouchableOpacity, View } from "react-native";
-
-import { BottomSheet } from "@/components/ui/BottomSheet";
-import { AppRadius } from "@/constants/layout";
-import { DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
-import type { ReportFilterKey, ReportFilters } from "@/features/reports/report-config";
+import { FilterSheet, type FilterField, type FilterSelection } from "@/components/ui/FilterSheet";
 import { useThemeColors } from "@/theme/ThemeProvider";
+import type { ReportFilters, ReportSlug } from "../report-config";
+import { decodeReportSelection, REPORT_FILTER_FIELDS } from "../report-filters";
+import { useReportFilterOptions, type ReportOption } from "../useReportFilterOptions";
 
-type Option = { label: string; value: string };
-
-const DATE_KEYS: ReportFilterKey[] = ["start_date", "end_date", "date", "from", "to"];
-const OPTIONS: Partial<Record<ReportFilterKey, Option[]>> = {
-  status: ["completed", "cancelled", "refunded", "draft"].map((value) => ({ label: value, value })),
-  statuses: ["scheduled", "confirmed", "completed", "cancelled", "no_show"].map((value) => ({ label: value, value })),
-  appointment_types: ["Regular", "Package Service"].map((value) => ({ label: value, value })),
-  benefit_types: ["wallet", "discount", "loyalty"].map((value) => ({ label: value, value })),
-  period: ["daily", "weekly", "monthly", "yearly"].map((value) => ({ label: value, value })),
-  item_type: ["service", "product", "membership", "package"].map((value) => ({ label: value, value })),
-  payment_statuses: ["partial", "paid"].map((value) => ({ label: value, value })),
-  payment_methods: ["Cash", "UPI", "Card", "Wallet"].map((value) => ({ label: value, value })),
-  pricing_types: ["value", "percentage"].map((value) => ({ label: value, value })),
-  report_type: ["successful", "failed", "blocked"].map((value) => ({ label: value, value })),
-  segments: ["vip", "regular", "low"].map((value) => ({ label: value, value })),
-};
-const LABELS: Partial<Record<ReportFilterKey, string>> = {
-  start_date: "Start date", end_date: "End date", date: "Date", from: "From", to: "To",
-  appointment_types: "Appointment type", benefit_types: "Benefit type",
-  client_ids: "Client IDs", low_max_spend: "Low max spend", membership_names: "Membership names",
-  package_ids: "Package IDs", payment_methods: "Payment method", payment_statuses: "Payment status",
-  pricing_types: "Pricing type", segments: "Customer segment",
-  staff_id: "Staff ID", staff_ids: "Staff IDs", status: "Status", statuses: "Status",
-  category_id: "Category ID", category_ids: "Category IDs", service_id: "Service ID",
-  service_ids: "Service IDs", product_id: "Product ID", vip_min_spend: "VIP min spend",
-  period: "Period", item_type: "Item type", campaign_id: "Campaign",
-  report_type: "Report type",
-};
-
-const titleCase = (value: string) =>
-  value.replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
-
-export const ReportFilterSheet = memo(function ReportFilterSheet({
-  campaignOptions = [],
-  filters,
-  onApply,
-  onClose,
-  onReset,
-  supportedFilters,
-  visible,
-}: {
-  campaignOptions?: Option[];
+export function ReportFilterSheet({ slug, data, filters, onApply, onClose, visible }: {
+  slug: ReportSlug;
+  data?: Record<string, unknown> | null;
   filters: ReportFilters;
   onApply: (filters: ReportFilters) => void;
   onClose: () => void;
-  onReset: () => void;
-  supportedFilters: ReportFilterKey[];
   visible: boolean;
 }) {
-  const Colors = useThemeColors();
-  const styles = useMemo(() => createStyles(Colors), [Colors]);
-  const [draft, setDraft] = useState(filters);
+  const colors = useThemeColors();
+  const definitions = useMemo(() => REPORT_FILTER_FIELDS[slug] ?? [], [slug]);
+  const lookup = useReportFilterOptions(slug, data, visible);
+  const selected = useMemo(() => Object.fromEntries(definitions.map((field) => [field.key,
+    field.kind === "boolean" ? (filters[field.key] === "false" ? ["false"] : []) : field.single || field.kind ? (filters[field.key] ? [filters[field.key]!] : []) : decodeReportSelection(filters[field.key]),
+  ])), [definitions, filters]);
+  const fields: FilterField[] = definitions.map((definition) => {
+    const fieldOptions: ReportOption[] = definition.options ?? lookup.options[definition.source ?? ""] ?? [];
+    const options = definition.key.endsWith("_names") ? fieldOptions.map((option) => ({ ...option, id: option.label })) : fieldOptions;
+    const field: FilterField = { key: definition.key, label: definition.label, single: definition.single, options, searchable: Boolean(definition.source) };
+    if (definition.key === "service_ids" && definitions.some((item) => item.key === "category_ids")) {
+      field.dependsOn = "category_ids";
+      field.optionsFor = (parents, own) => fieldOptions.filter((option) => own.includes(option.id) || (option.categoryId && parents.includes(option.categoryId)));
+    }
+    if (definition.kind === "boolean") field.render = (values, update) => <View style={styles.toggle}><Text style={{ color: colors.text }}>Include GST</Text><Switch accessibilityLabel="Include GST" value={values[0] !== "false"} onValueChange={(value) => update(value ? [] : ["false"])} /></View>;
+    if (definition.kind === "number" || definition.kind === "date") field.render = (values, update) => <TextInput accessibilityLabel={definition.label} keyboardType={definition.kind === "number" ? "number-pad" : "default"} placeholder={definition.kind === "date" ? "YYYY-MM-DD" : "0"} placeholderTextColor={colors.placeholder} value={values[0] ?? ""} onChangeText={(value) => update(value ? [value] : [])} style={[styles.input, { color: colors.text, borderColor: colors.border }]} />;
+    return field;
+  });
+  const validate = (draft: FilterSelection) => {
+    for (const field of definitions) {
+      const value = draft[field.key]?.[0];
+      if (!value) continue;
+      if (field.kind === "number" && (!/^\d+$/.test(value) || !Number.isSafeInteger(Number(value)))) return `${field.label} must be a non-negative whole number.`;
+      if (field.kind === "date" && (!/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(Date.parse(value)) || new Date(value).toISOString().slice(0, 10) !== value)) return `${field.label} must be a valid date (YYYY-MM-DD).`;
+    }
+    if (draft.expiry_from?.[0] && draft.expiry_to?.[0] && draft.expiry_from[0] > draft.expiry_to[0]) return "Expiry start date must not be after the end date.";
+    return null;
+  };
+  return <FilterSheet fields={fields} selected={selected} visible={visible} onClose={onClose} loading={lookup.loading} error={lookup.error} onRetry={lookup.retry} validate={validate} onApply={(draft) => {
+    const next = { ...filters, page: 1 };
+    definitions.forEach((field) => {
+      const values = draft[field.key] ?? [];
+      next[field.key] = field.kind === "boolean" ? values[0] ?? "true" : field.single || field.kind ? values[0] ?? "" : values.length ? JSON.stringify(values) : "";
+    });
+    onApply(next);
+  }} />;
+}
 
-  useEffect(() => {
-    if (visible) setDraft(filters);
-  }, [filters, visible]);
-
-  const update = useCallback((key: ReportFilterKey, value: string) => {
-    setDraft((current) => ({ ...current, [key]: value, page: 1 }));
-  }, []);
-  const visibleFilters = supportedFilters.filter((key) =>
-    key !== "search" && key !== "branch_id" && !DATE_KEYS.includes(key));
-
-  const footer = (
-    <>
-      <TouchableOpacity accessibilityRole="button" onPress={onReset} style={styles.secondaryButton}>
-        <Text style={styles.secondaryButtonText}>Reset</Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        accessibilityRole="button"
-        onPress={() => onApply(draft)}
-        style={styles.primaryButton}
-      >
-        <Text style={styles.primaryButtonText}>Apply filters</Text>
-      </TouchableOpacity>
-    </>
-  );
-
-  return (
-    <BottomSheet
-      footer={footer}
-      onClose={onClose}
-      subtitle="Only filters supported by this report are shown."
-      title="Filters"
-      visible={visible}
-    >
-      <View style={styles.fields}>
-        {visibleFilters.map((key) => {
-          const options = key === "campaign_id" ? campaignOptions : OPTIONS[key];
-          if (options?.length) {
-            return (
-              <View key={key} style={styles.field}>
-                <Text style={styles.label}>{LABELS[key]}</Text>
-                <View style={styles.chips}>
-                  {options.map((option) => {
-                    const selected = draft[key] === option.value;
-                    return (
-                      <Pressable
-                        accessibilityRole="button"
-                        key={option.value}
-                        onPress={() => update(key, selected ? "" : option.value)}
-                        style={[styles.chip, selected && styles.chipSelected]}
-                      >
-                        <Text style={[styles.chipText, selected && styles.chipTextSelected]}>
-                          {titleCase(option.label)}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </View>
-            );
-          }
-
-          return (
-            <View key={key} style={styles.field}>
-              <Text style={styles.label}>{LABELS[key] ?? titleCase(key)}</Text>
-              <TextInput
-                accessibilityLabel={LABELS[key] ?? titleCase(key)}
-                autoCapitalize="none"
-                onChangeText={(value) => update(key, value.trim())}
-                placeholder={`Enter ${(LABELS[key] ?? titleCase(key)).toLowerCase()}`}
-                placeholderTextColor={Colors.placeholder}
-                style={styles.input}
-                value={draft[key] ?? ""}
-              />
-            </View>
-          );
-        })}
-      </View>
-    </BottomSheet>
-  );
-});
-
-const createStyles = (Colors: ThemeColors) => StyleSheet.create({
-  fields: { gap: Spacing.lg },
-  field: { gap: Spacing.sm },
-  label: { color: Colors.heading, fontSize: 12, fontWeight: "800" },
-  input: {
-    backgroundColor: Colors.backgroundElement, borderColor: Colors.border,
-    borderRadius: AppRadius.control, borderWidth: 1, color: Colors.heading,
-    fontSize: 13, minHeight: 50, paddingHorizontal: Spacing.md,
-  },
-  chips: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.sm },
-  chip: {
-    backgroundColor: Colors.backgroundElement, borderColor: Colors.border,
-    borderRadius: AppRadius.pill, borderWidth: 1, justifyContent: "center",
-    minHeight: 44, paddingHorizontal: Spacing.lg,
-  },
-  chipSelected: { backgroundColor: Colors.primaryDark, borderColor: Colors.primaryDark },
-  chipText: { color: Colors.text, fontSize: 12, fontWeight: "700" },
-  chipTextSelected: { color: "#FFFFFF" },
-  secondaryButton: {
-    alignItems: "center", borderColor: Colors.border, borderRadius: AppRadius.pill,
-    borderWidth: 1, flex: 1, justifyContent: "center", minHeight: 50,
-  },
-  secondaryButtonText: { color: Colors.heading, fontSize: 13, fontWeight: "800" },
-  primaryButton: {
-    alignItems: "center", backgroundColor: Colors.primaryDark,
-    borderRadius: AppRadius.pill, flex: 1.4, justifyContent: "center", minHeight: 50,
-  },
-  primaryButtonText: { color: "#FFFFFF", fontSize: 13, fontWeight: "800" },
+const styles = StyleSheet.create({
+  input: { minHeight: 48, borderWidth: 1, borderRadius: 8, paddingHorizontal: 10 },
+  toggle: { gap: 12, alignItems: "flex-start" },
 });

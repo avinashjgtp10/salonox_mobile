@@ -1,4 +1,5 @@
 import { Text } from "@/components/ui/AppTypography";
+import { getApiErrorMessage } from "@/services/api";
 import { useStaffSelfAttendance } from "@/features/attendance/components/StaffAttendanceGate";
 import { TourScrollView, TourView, withScreenTour } from "@/features/userGuide/DashboardTour";
 import { screenTours } from "@/features/userGuide/screenTours";
@@ -259,7 +260,7 @@ const getAverageRating = (appointments: AppointmentListItem[]) => {
 
 const toDisplayName = (name: string) => name.trim().split(/\s+/)[0]?.toUpperCase() || "STAFF";
 
-function StaffHomeRouteContent() {
+export function StaffHomeRouteContent({ locked = false }: { locked?: boolean } = {}) {
   const Colors = useThemeColors();
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -279,6 +280,7 @@ function StaffHomeRouteContent() {
   const notificationsRefreshing = useAppSelector(selectNotificationsListRefreshing);
   const unreadCount = useAppSelector(selectUnreadCount);
   const [now, setNow] = useState(Date.now());
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const todayKey = getTodayAttendanceDateKey();
   const currentStaffId = currentStaff?.id ?? "";
   const staffName = currentStaff?.name ?? getUserFullName(currentUser);
@@ -288,7 +290,7 @@ function StaffHomeRouteContent() {
     () => (currentStaff ? findAttendanceRecordForStaff(attendanceRecords, currentStaff) : undefined),
     [attendanceRecords, currentStaff],
   );
-  const selfAttendance = confirmedAttendance?.record ?? overviewAttendance;
+  const selfAttendance = locked ? undefined : confirmedAttendance?.record ?? overviewAttendance;
   const attendanceBadge = getAttendanceBadgeConfig(selfAttendance, Colors);
   const attendanceStateLabel = getStaffAttendanceStateLabel(selfAttendance, attendanceBadge.label);
   const attendanceTone = getAttendanceTone(attendanceStateLabel, Colors);
@@ -296,12 +298,12 @@ function StaffHomeRouteContent() {
 
   const todayAppointments = useMemo(
     () =>
-      appointments
+      (locked ? [] : appointments)
         .filter((appointment) => Boolean(currentStaff && isAssignedToStaff(appointment, currentStaff)))
         .filter((appointment) => isTodayAppointment(appointment, todayKey))
         .map((appointment) => ({ ...appointment, staffName: currentStaff!.name }))
         .sort((left, right) => getAppointmentTime(left) - getAppointmentTime(right)),
-    [appointments, currentStaff, todayKey],
+    [appointments, currentStaff, todayKey, locked],
   );
   const completedCount = todayAppointments.filter((appointment) => appointment.status === "Completed").length;
   const remainingCount = todayAppointments.filter((appointment) => ACTIVE_STATUSES.includes(appointment.status)).length;
@@ -310,7 +312,7 @@ function StaffHomeRouteContent() {
 
   const loadStaffHome = useCallback(
     (refresh = false) => {
-      if (!currentStaffId) {
+      if (locked || !currentStaffId) {
         return;
       }
 
@@ -328,7 +330,7 @@ function StaffHomeRouteContent() {
       void dispatch(fetchUnreadCountThunk());
       void dispatch(fetchNotificationsThunk(refresh ? { refresh: true } : undefined));
     },
-    [currentStaffId, dispatch, todayKey],
+    [currentStaffId, dispatch, todayKey, locked],
   );
 
   useEffect(() => {
@@ -348,6 +350,17 @@ function StaffHomeRouteContent() {
     }
 
     loadStaffHome(false);
+  };
+
+  const handleCheckOut = async () => {
+    if (!confirmedAttendance || confirmedAttendance.busy) return;
+    setCheckoutError(null);
+    try {
+      await confirmedAttendance.checkOut();
+      void dispatch(fetchAttendanceOverviewThunk(todayKey));
+    } catch (error) {
+      setCheckoutError(getApiErrorMessage(error));
+    }
   };
 
   return (
@@ -382,7 +395,7 @@ function StaffHomeRouteContent() {
               style={styles.headerIconButton}
             >
               <Ionicons name="notifications-outline" size={26} color={DASHBOARD.text} />
-              <NotificationBadge count={unreadCount} style={{ borderColor: DASHBOARD.black }} />
+              <NotificationBadge count={locked ? 0 : unreadCount} style={{ borderColor: DASHBOARD.black }} />
             </TouchableOpacity>
             <TouchableOpacity
               accessibilityLabel="Open profile"
@@ -402,10 +415,13 @@ function StaffHomeRouteContent() {
           </View>
         </View>
 
-        {blockingError ? <ErrorBanner message={blockingError} onRetry={handleRetry} /> : null}
-        {attendanceOffline ? <ErrorBanner message="You appear offline. Pull to refresh when connected." /> : null}
+        {!locked && blockingError ? <ErrorBanner message={blockingError} onRetry={handleRetry} /> : null}
+        {!locked && attendanceOffline ? <ErrorBanner message="You appear offline. Pull to refresh when connected." /> : null}
 
         <AttendanceCard
+          onCheckOut={!locked && confirmedAttendance?.state?.checked_in && confirmedAttendance.state.record?.check_in && !confirmedAttendance.state.record.check_out ? () => void handleCheckOut() : undefined}
+          checkoutBusy={confirmedAttendance?.busy ?? false}
+          checkoutError={checkoutError}
           badgeLabel={attendanceStateLabel}
           checkInLabel={formatAttendanceTime(selfAttendance?.checkInTime)}
           checkOutLabel={formatAttendanceTime(selfAttendance?.checkOutTime)}
@@ -417,13 +433,18 @@ function StaffHomeRouteContent() {
           workingLabel={formatWorkingTime(selfAttendance?.checkInTime, selfAttendance?.checkOutTime, now)}
         />
 
-        <TodayAppointmentsCard appointments={todayAppointments} loading={appointmentsLoading} />
-
-        <ProgressCard
-          averageRating={getAverageRating(todayAppointments)}
-          completed={completedCount}
-          remaining={remainingCount}
-        />
+        {locked ? (
+          <Text style={{ color: Colors.text2 }}>Check in to view your appointments and progress.</Text>
+        ) : (
+          <>
+            <TodayAppointmentsCard appointments={todayAppointments} loading={appointmentsLoading} />
+            <ProgressCard
+              averageRating={getAverageRating(todayAppointments)}
+              completed={completedCount}
+              remaining={remainingCount}
+            />
+          </>
+        )}
 
       </TourScrollView>
     </SafeAreaView>
@@ -444,6 +465,9 @@ function ErrorBanner({ message, onRetry }: { message: string; onRetry?: () => vo
 }
 
 function AttendanceCard({
+  onCheckOut,
+  checkoutBusy,
+  checkoutError,
   badgeLabel,
   checkInLabel,
   checkOutLabel,
@@ -454,6 +478,9 @@ function AttendanceCard({
   tone,
   workingLabel,
 }: {
+  onCheckOut?: () => void;
+  checkoutBusy: boolean;
+  checkoutError: string | null;
   badgeLabel: string;
   checkInLabel: string;
   checkOutLabel: string;
@@ -502,6 +529,14 @@ function AttendanceCard({
       </View>
       {checkInLocation ? <Text style={{ color: Colors.text2, marginTop: 10 }}>Check-in location: {checkInLocation}</Text> : null}
       {checkOutLocation ? <Text style={{ color: Colors.text2, marginTop: 8 }}>Checkout location: {checkOutLocation}</Text> : null}
+      {onCheckOut ? (
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Check Out" accessibilityState={{ disabled: checkoutBusy, busy: checkoutBusy }}
+          disabled={checkoutBusy} onPress={onCheckOut}
+          style={{ marginTop: 16, minHeight: 48, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: Colors.primary, opacity: checkoutBusy ? 0.6 : 1 }}>
+          {checkoutBusy ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontSize: 16, fontWeight: "700" }}>Check Out</Text>}
+        </TouchableOpacity>
+      ) : null}
+      {checkoutError ? <Text accessibilityRole="alert" style={{ color: Colors.error, marginTop: 8 }}>{checkoutError}</Text> : null}
     </TourView>
   );
 }

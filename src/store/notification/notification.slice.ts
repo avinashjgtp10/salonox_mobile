@@ -1,4 +1,4 @@
-import { createSlice } from "@reduxjs/toolkit";
+import { createSelector, createSlice } from "@reduxjs/toolkit";
 
 import {
   fetchNotificationsThunk,
@@ -12,6 +12,8 @@ import {
 } from "@/middleware/notification/notification.thunk";
 import type { RootState } from "@/store";
 import type { NotificationItem } from "@/types/notification";
+import { isStaffExperienceUser } from "@/utils/routeResolver";
+import { canReceiveStaffNotification } from "@/utils/staffAccess";
 
 type ResourceStatus = "idle" | "loading" | "succeeded" | "failed";
 
@@ -171,7 +173,18 @@ export const selectNotificationsListLoading = (state: RootState) => state.notifi
 export const selectNotificationsListRefreshing = (state: RootState) => state.notification.listRefreshing;
 export const selectNotificationsListError = (state: RootState) => state.notification.listError;
 
-export const selectUnreadCount = (state: RootState) => state.notification.unreadCount;
+export const selectUnreadCount = createSelector(
+  [(state: RootState) => state.user.user, (state: RootState) => state.notification],
+  (user, notification) => {
+    if (!user) return 0;
+    if (!isStaffExperienceUser(user)) return notification.unreadCount;
+    // Never display a salon-wide or previous account's count in the staff app.
+    return notification.notifications.filter(item =>
+      !item.isRead && !notification.locallyRemovedIds.includes(item.id) &&
+      canReceiveStaffNotification(user, item),
+    ).length;
+  },
+);
 export const selectUnreadCountStatus = (state: RootState) => state.notification.unreadCountStatus;
 
 export const selectMarkingReadIds = (state: RootState) => state.notification.markingReadIds;

@@ -1,5 +1,5 @@
 import { API_BASE_URL, ApiError, api } from "@/services/api";
-import { STAFF } from "@/services/api/endpoints";
+import { MOBILE_STAFF, STAFF } from "@/services/api/endpoints";
 import type { ApiResponse } from "@/types/auth";
 import type { StaffAvailability, StaffMember, StaffStatus } from "@/data/teamData";
 import type {
@@ -831,6 +831,9 @@ const guessAvatarMimeType = (fileName: string) => {
   return "image/jpeg";
 };
 
+// `self: true` reads the logged-in staff member's own record from the mobile staff API.
+type StaffSelfReadOptions = { self?: boolean };
+
 export const staffService = {
   async uploadAvatar(asset: {
     fileName?: string | null;
@@ -976,6 +979,7 @@ export const staffService = {
   async getEmergencyContacts(
     staffId: string,
     query: Pick<EmergencyContactListQuery, "limit" | "page">,
+    options: StaffSelfReadOptions = {},
   ): Promise<EmergencyContactListResponse> {
     const requestQuery: EmergencyContactListQuery = {
       limit: query.limit,
@@ -985,7 +989,7 @@ export const staffService = {
     };
 
     const response = await api.get<EmergencyContactListApiResponse>(
-      STAFF.EMERGENCY_CONTACTS(staffId),
+      options.self ? MOBILE_STAFF.EMERGENCY_CONTACTS : STAFF.EMERGENCY_CONTACTS(staffId),
       { params: requestQuery },
     );
     const apiContacts = getEmergencyContactArray(response.data.data);
@@ -1089,8 +1093,8 @@ export const staffService = {
     };
   },
 
-  async getStaffMember(staffId: string): Promise<StaffMember> {
-    const response = await api.get<GetStaffApiResponse>(`/staff/${staffId}`);
+  async getStaffMember(staffId: string, options: StaffSelfReadOptions = {}): Promise<StaffMember> {
+    const response = await api.get<GetStaffApiResponse>(options.self ? MOBILE_STAFF.ME : `/staff/${staffId}`);
     return normalizeStaffMember(getCreatedStaff(response.data.data), 0);
   },
 
@@ -1147,6 +1151,7 @@ export const staffService = {
   async getStaffAddresses(
     staffId: string,
     query: Pick<StaffAddressListQuery, "limit" | "page">,
+    options: StaffSelfReadOptions = {},
   ): Promise<StaffAddressListResponse> {
     assertValidAddressStaffId(staffId);
 
@@ -1156,7 +1161,7 @@ export const staffService = {
       sort_by: "created_at",
       sort_order: "DESC",
     };
-    const endpoint = STAFF.ADDRESSES(staffId);
+    const endpoint = options.self ? MOBILE_STAFF.ADDRESSES : STAFF.ADDRESSES(staffId);
     logStaffAddressRequest({
       endpoint,
       method: "GET",

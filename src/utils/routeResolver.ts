@@ -11,8 +11,13 @@ export const SUBSCRIPTION_ROUTE = "/subscription" as Href;
 export const OWNER_ROUTE_GROUP = "(tabs)";
 export const STAFF_ROUTE_GROUP = "(staff)";
 const STAFF_SHARED_ROUTES = new Set(["change-password", "privacy-policy", "notification-settings"]);
-export const isStaffAllowedRoute = (segment?: string | null) =>
-  segment === STAFF_ROUTE_GROUP || STAFF_SHARED_ROUTES.has(segment ?? "");
+// Opened from the staff Calendar only when the owner turned on the staff
+// member's Calendar & Quick Sale access.
+const STAFF_QUICK_SALE_ROUTE = "quick-sale";
+export const isStaffAllowedRoute = (segment?: string | null, user?: AuthUser | null) =>
+  segment === STAFF_ROUTE_GROUP ||
+  STAFF_SHARED_ROUTES.has(segment ?? "") ||
+  (segment === STAFF_QUICK_SALE_ROUTE && user?.mobileCalendarAccess === true);
 const OWNER_ONLY_TOP_LEVEL_ROUTES = new Set([
   "appointments",
   "bookings",

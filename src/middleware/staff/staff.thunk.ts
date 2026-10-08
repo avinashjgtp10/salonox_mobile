@@ -34,6 +34,11 @@ import type {
   UpdateStaffResponse,
 } from "@/types/staff";
 import { isValidStaffId } from "@/utils/staffIds";
+import { isStaffExperienceUser } from "@/utils/routeResolver";
+
+// Staff accounts have no role permissions on the regular staff routes; the staff
+// app only ever shows their own profile, which comes from the mobile staff API.
+const isOwnStaffRead = (state: RootState) => isStaffExperienceUser(selectCurrentUser(state));
 
 export type FetchStaffArgs = {
   limit?: number;
@@ -384,6 +389,16 @@ export const resolveCurrentStaffThunk = createAsyncThunk<
   }
 
   try {
+    // Staff accounts: the backend resolves the profile from the JWT (inactive
+    // profiles are rejected there), so a single call replaces the list scan.
+    if (isOwnStaffRead(getState())) {
+      const ownProfile = await staffService.getStaffMember(normalizedUserId, { self: true });
+      if (ownProfile.userId && ownProfile.userId !== normalizedUserId) {
+        return rejectWithValue({ message: "Your staff session has changed. Please sign in again." });
+      }
+      return ownProfile;
+    }
+
     const salonId = selectActiveBranchId(getState());
     const matches: StaffMember[] = [];
     const limit = 100;
@@ -422,7 +437,7 @@ export const resolveCurrentStaffThunk = createAsyncThunk<
   } catch (error) {
     const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
 
-    console.error("[Staff] Resolve current staff failed", {
+    console.warn("[Staff] Resolve current staff failed", {
       authenticatedUserId: normalizedUserId,
       message,
       responseBody: error instanceof ApiError ? error.responseData : undefined,
@@ -460,7 +475,7 @@ export const fetchStaffAddressesThunk = createAsyncThunk<
       });
     }
 
-    return await staffService.getStaffAddresses(args.staffId, nextQuery);
+    return await staffService.getStaffAddresses(args.staffId, nextQuery, { self: isOwnStaffRead(getState()) });
   } catch (error) {
     const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
 
@@ -502,7 +517,7 @@ export const fetchEmergencyContactsThunk = createAsyncThunk<
       });
     }
 
-    return await staffService.getEmergencyContacts(args.staffId, nextQuery);
+    return await staffService.getEmergencyContacts(args.staffId, nextQuery, { self: isOwnStaffRead(getState()) });
   } catch (error) {
     const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
 
@@ -765,9 +780,9 @@ export const fetchStaffByIdThunk = createAsyncThunk<
   StaffMember,
   string,
   { rejectValue: { message: string }; state: RootState }
->("staff/fetchStaffById", async (staffId, { rejectWithValue }) => {
+>("staff/fetchStaffById", async (staffId, { getState, rejectWithValue }) => {
   try {
-    return await staffService.getStaffMember(staffId);
+    return await staffService.getStaffMember(staffId, { self: isOwnStaffRead(getState()) });
   } catch (error) {
     const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
 

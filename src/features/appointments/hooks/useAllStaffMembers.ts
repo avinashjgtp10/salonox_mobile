@@ -2,10 +2,11 @@ import { fetchStaffThunk } from "@/middleware/staff/staff.thunk";
 import { useAppDispatch } from "@/store/hooks";
 import { useEffect } from "react";
 
-export function useAllStaffMembers() {
+export function useAllStaffMembers(enabled = true) {
   const dispatch = useAppDispatch();
 
   useEffect(() => {
+    if (!enabled) return;
     let cancelled = false;
 
     const loadAllPages = async () => {
@@ -33,5 +34,5 @@ export function useAllStaffMembers() {
     return () => {
       cancelled = true;
     };
-  }, [dispatch]);
+  }, [dispatch, enabled]);
 }

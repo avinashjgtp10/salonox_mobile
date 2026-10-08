@@ -51,8 +51,6 @@ export function SearchableClientField({
   const query = search.trim().toLowerCase();
   const showDropdown =
     dropdownOpen && bookingMode === "existing" && query.length >= CLIENT_SEARCH_MIN_LETTERS;
-  const showMinimumHint =
-    dropdownOpen && bookingMode === "existing" && query.length > 0 && query.length < CLIENT_SEARCH_MIN_LETTERS;
 
   return (
     <View style={[styles.inputGroup, styles.clientSearchGroup]}>
@@ -111,7 +109,7 @@ export function SearchableClientField({
                 ref={searchInputRef}
                 onChangeText={onSearchChange}
                 onFocus={onSelectExisting}
-                placeholder="Type at least 3 letters to search clients"
+                placeholder="Search by name or mobile number"
                 placeholderTextColor={Colors.placeholder}
                 style={styles.searchInput}
                 value={search}
@@ -188,9 +186,6 @@ export function SearchableClientField({
 
           {!search.trim() ? (
             <Text style={styles.fieldHint}>Start typing to find an existing client.</Text>
-          ) : null}
-          {showMinimumHint ? (
-            <Text style={styles.fieldHint}>Type at least 3 letters to search clients.</Text>
           ) : null}
         </>
       ) : null}

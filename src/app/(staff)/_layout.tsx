@@ -4,6 +4,7 @@ import { AppTabLayout, type AppTabItem } from "@/components/navigation/AppTabLay
 import { useStaffSelfAttendance } from "@/features/attendance/components/StaffAttendanceGate";
 import { canUnlockStaffApp } from "@/features/attendance/utils/staffAttendanceGate";
 import { View } from "react-native";
+import { StaffHomeRouteContent } from "./home";
 
 export const unstable_settings = {
   initialRouteName: "home",
@@ -18,9 +19,12 @@ const STAFF_TABS: AppTabItem[] = [
 
 export default function StaffTabsLayout() {
   const attendance = useStaffSelfAttendance();
-  // Keep business screens unmounted until the server confirms check-in.
-  // The root gate displays the non-dismissible check-in prompt above this.
-  if (!canUnlockStaffApp(attendance?.state ?? null)) return <View style={{ flex: 1 }} />;
+  // Show the dashboard beneath the modal without loading business data or routes.
+  if (!canUnlockStaffApp(attendance?.state ?? null)) return (
+    <View style={{ flex: 1 }} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+      <StaffHomeRouteContent locked />
+    </View>
+  );
   return (
     <AppTabLayout tabs={STAFF_TABS}>
       <Tabs.Screen name="appointment-details/[id]" options={{ href: null }} />

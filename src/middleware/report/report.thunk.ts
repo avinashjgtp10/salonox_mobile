@@ -10,6 +10,7 @@ import { REPORT } from "@/services/api/endpoints/report.endpoints";
 import { reportService, type GenericReportRequest } from "@/services/report.service";
 import type { RootState } from "@/store";
 import { selectActiveBranchId } from "@/store/branch/branch.slice";
+import { decodeReportSelection } from "@/features/reports/report-filters";
 
 export type FetchReportArgs = {
   append?: boolean;
@@ -26,6 +27,9 @@ const cleanFilters = (filters: ReportFilters) =>
   ) as ReportFilters;
 
 const ARRAY_FILTER_KEYS = new Set([
+  "brand_ids", "payment_modes", "item_types", "membership_ids", "package_names",
+  "service_names", "package_statuses", "template_ids", "campaign_ids", "channels",
+  "message_statuses", "campaign_statuses",
   "appointment_types",
   "benefit_types",
   "category_ids",
@@ -44,10 +48,7 @@ const ARRAY_FILTER_KEYS = new Set([
 const splitArrayFilter = (value: unknown) => {
   if (Array.isArray(value)) return value;
   if (typeof value !== "string") return value;
-  return value
-    .split(",")
-    .map((entry) => entry.trim())
-    .filter(Boolean);
+  return decodeReportSelection(value);
 };
 
 const toNumberFilter = (value: unknown) => {
@@ -68,6 +69,10 @@ const normalizeRequest = (slug: ReportSlug, filters: ReportFilters): GenericRepo
 
   if (slug === "open-rate" && request.include_trend === "true") {
     request.include_trend = true;
+  }
+  if (request.include_gst !== undefined) request.include_gst = request.include_gst !== "false";
+  for (const key of ["min_visits", "lost_days", "min_rating"]) {
+    if (request[key] !== undefined) request[key] = toNumberFilter(request[key]);
   }
 
   if (slug === "vip-customers") {
@@ -122,6 +127,8 @@ export const fetchReportThunk = createAsyncThunk<
   },
   {
     condition: (args, { getState }) => {
+      // New filter selections supersede in-flight results (the slice guards request IDs).
+      if (!args.append) return true;
       const entry = getState().report.bySlug[args.slug];
       return !entry?.loading && !entry?.loadingMore && !entry?.refreshing;
     },

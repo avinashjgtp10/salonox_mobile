@@ -36,7 +36,7 @@ type UpdateSalonApiResponse = ApiResponse<GetSalonApiData>;
 
 const SALON_CREATE_ENDPOINT = "/salons";
 const SALON_LIST_ENDPOINT = "/salons";
-const SALON_ME_ENDPOINT = "/salons/me";
+const SALON_ME_ENDPOINT = "/salons/current";
 const SALON_UPDATE_ENDPOINT = "/salons";
 
 let cachedSalonMe: SalonListItem | null = null;
@@ -256,7 +256,7 @@ export const salonService = {
     }
 
     if (!salonMePromise) {
-      salonMePromise = timeStartup("/salons/me", () =>
+      salonMePromise = timeStartup(SALON_ME_ENDPOINT, () =>
         api.get<GetSalonApiResponse>(SALON_ME_ENDPOINT),
       )
         .then((response) => {

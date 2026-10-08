@@ -14,7 +14,6 @@ import type { Product } from "@/types/product";
 
 const isConsumableType = (type: string | null | undefined) => type === "consumable" || type === "both";
 
-const MIN_SEARCH_LENGTH = 2;
 const DEBOUNCE_MS = 300;
 const SEED_PAGE_SIZE = 50;
 const MAX_RESULTS = 20;
@@ -84,7 +83,7 @@ export function ConsumablesSection({ disabled = false, onChange, value }: Consum
     }
 
     const trimmed = text.trim();
-    if (trimmed.length < MIN_SEARCH_LENGTH) {
+    if (!trimmed) {
       return;
     }
 
