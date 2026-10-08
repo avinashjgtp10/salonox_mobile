@@ -151,6 +151,7 @@ export default function LoginScreen() {
                   keyboardType="email-address"
                   onChangeText={handleIdentifierChange}
                   onFocus={() => formRef.current?.revealField(emailFieldRef.current)}
+                  onTouchEnd={() => formRef.current?.revealField(emailFieldRef.current)}
                   onSubmitEditing={focusPasswordField}
                   placeholder="Enter the registered email address"
                   placeholderTextColor="#A2A2A2"
@@ -171,6 +172,7 @@ export default function LoginScreen() {
                   autoComplete="password"
                   onChangeText={(value) => { setPassword(value); clearFeedback(); }}
                   onFocus={() => formRef.current?.revealField(passwordFieldRef.current)}
+                  onTouchEnd={() => formRef.current?.revealField(passwordFieldRef.current)}
                   onSubmitEditing={handleLogin}
                   placeholder="Enter Password"
                   placeholderTextColor="#858585"

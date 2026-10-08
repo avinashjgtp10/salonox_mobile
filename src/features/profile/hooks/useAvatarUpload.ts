@@ -6,7 +6,6 @@ import {
   getAvatarFileName,
   getAvatarMimeType,
   validateAvatar,
-  withAvatarCacheKey,
 } from "@/features/profile/utils/avatar";
 import { useAppToast } from "@/hooks/useAppToast";
 import { uploadAvatarThunk } from "@/middleware/profile/profile.thunk";
@@ -35,7 +34,6 @@ export function useAvatarUpload({ avatarUrl, onError, onStart, onSuccess }: UseA
   const toast = useAppToast();
   const isUploading = useAppSelector(selectProfileUploadingAvatar);
   const [previewUri, setPreviewUri] = useState<string | null>(null);
-  const [cacheKey, setCacheKey] = useState(0);
 
   const uploadPickedAsset = useCallback(
     async (result: ImagePicker.ImagePickerResult) => {
@@ -83,7 +81,6 @@ export function useAvatarUpload({ avatarUrl, onError, onStart, onSuccess }: UseA
           return;
         }
 
-        setCacheKey(Date.now());
         onSuccess(PROFILE_PHOTO_SUCCESS);
         toast.showSuccess(PROFILE_PHOTO_SUCCESS);
       } finally {
@@ -136,7 +133,7 @@ export function useAvatarUpload({ avatarUrl, onError, onStart, onSuccess }: UseA
   }, [isUploading, pickFromSource]);
 
   return {
-    avatarUri: previewUri ?? (avatarUrl ? withAvatarCacheKey(avatarUrl, cacheKey) : null),
+    avatarUri: previewUri ?? avatarUrl ?? null,
     changePhoto,
     isUploading,
   };
