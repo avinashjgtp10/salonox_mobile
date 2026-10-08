@@ -113,16 +113,19 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, []);
 
   const updateUser = useCallback(async (updatedFields: Partial<AuthUser>) => {
-    setUser((currentUser) => {
-      if (!currentUser) {
-        return null;
-      }
-      const updatedUser = { ...currentUser, ...updatedFields };
-      tokenStorage.setStoredUser(updatedUser).catch((err) => {
-        console.error("Failed to persist updated user", err);
-      });
-      store.dispatch(setCurrentUser(updatedUser));
-      return updatedUser;
+    // The store mirrors the signed-in user (applyAuthenticatedUserState keeps
+    // them in sync). Side effects stay out of the setUser updater: React may
+    // run it during render, and dispatching there updates other components
+    // mid-render ("Cannot update a component while rendering ...").
+    const currentUser = store.getState().user.user;
+    if (!currentUser) {
+      return;
+    }
+    const updatedUser = { ...currentUser, ...updatedFields };
+    store.dispatch(setCurrentUser(updatedUser));
+    setUser((stateUser) => (stateUser ? { ...stateUser, ...updatedFields } : null));
+    await tokenStorage.setStoredUser(updatedUser).catch((err) => {
+      console.error("Failed to persist updated user", err);
     });
   }, []);
 

@@ -33,6 +33,7 @@ const ACTIONS: DashboardDrawerAction[] = [
   { icon: "logo-whatsapp", label: "WhatsApp Inbox", route: "/inbox" as Href, tone: "green" },
   { icon: "person-add-outline", label: "Add Client", route: "/clients/new" as Href, tone: "green" },
   { icon: "people-outline", label: "Add Staff", route: "/team/new" as Href, tone: "indigo" },
+  { icon: "shield-checkmark-outline", label: "Staff Permissions", route: "/team/permissions" as Href, tone: "purple" },
   { icon: "pricetag-outline", label: "Add Service", route: "/services/new" as Href, tone: "warning" },
   { icon: "cube-outline", label: "Add Product", route: "/stock/new" as Href, tone: "blue" },
   { icon: "clipboard-outline", label: "Attendance", route: "/team/attendance" as Href, tone: "info" },

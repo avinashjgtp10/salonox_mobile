@@ -1,7 +1,8 @@
 import { Text } from "@/components/ui/AppTypography";
 import { Redirect } from "expo-router";
 import { useAuth } from "@/context/AuthContext";
-import { isStaffExperienceUser, STAFF_HOME_ROUTE } from "@/utils/routeResolver";
+import { isStaffExperienceUser, STAFF_CALENDAR_ROUTE, STAFF_HOME_ROUTE } from "@/utils/routeResolver";
+import { canUseStaffQuickSale } from "@/utils/staffAccess";
 import { appAlert as Alert } from "@/services/appAlert";
 import { ToastOverlay } from "@/components/ui/ToastOverlay";
 import {
@@ -133,7 +134,7 @@ export default function QuickSaleScreen(props: QuickSaleScreenProps = {}) {
   const { user, isLoading } = useAuth();
   if (isLoading) return null;
   if (!user) return <Redirect href="/login" />;
-  if (isStaffExperienceUser(user)) return <Redirect href={STAFF_HOME_ROUTE} />;
+  if (isStaffExperienceUser(user) && !canUseStaffQuickSale(user)) return <Redirect href={STAFF_HOME_ROUTE} />;
   return <OwnerQuickSaleScreen {...props} />;
 }
 
@@ -147,6 +148,10 @@ function OwnerQuickSaleScreen({
   const dispatch = useAppDispatch();
   const navigation = useNavigation();
   const params = useLocalSearchParams<{ draftId?: string; resetSale?: string }>();
+  const { user } = useAuth();
+  // Staff (Calendar & Quick Sale access) can't open the owner's Sales or
+  // Dashboard screens, so their exits go back to their Calendar instead.
+  const staffExitRoute = isStaffExperienceUser(user) ? STAFF_CALENDAR_ROUTE : null;
 
   const initData = useAppSelector(selectSalesInitData);
   const initLoading = useAppSelector(selectSalesInitLoading);
@@ -1352,7 +1357,7 @@ function OwnerQuickSaleScreen({
               cart.clearCart();
               setIsSaleFinalized(true);
               allowExpectedExitRef.current = true;
-              router.replace("/sales" as Href);
+              router.replace(staffExitRoute ?? ("/sales" as Href));
             })();
           },
           style: "destructive",
@@ -1360,7 +1365,7 @@ function OwnerQuickSaleScreen({
         },
       ],
     );
-  }, [cart, dispatch, isDeletingDraft, params.draftId]);
+  }, [cart, dispatch, isDeletingDraft, params.draftId, staffExitRoute]);
 
   const confirmDiscardQuickSale = useCallback(
     (onDiscard: () => void) => {
@@ -1401,8 +1406,8 @@ function OwnerQuickSaleScreen({
       return;
     }
 
-    router.replace("/dashboard" as Href);
-  }, []);
+    router.replace(staffExitRoute ?? ("/dashboard" as Href));
+  }, [staffExitRoute]);
 
   const handleBack = useCallback(() => {
     if (globalSearchQuery.trim()) {
@@ -1529,12 +1534,12 @@ function OwnerQuickSaleScreen({
           <AppStatusBar />
           <QuickSaleHeader
             onBack={handleBack}
-            right={
+            right={staffExitRoute ? null : (
               <QuickSaleHeaderAction
                 icon="receipt-outline"
                 onPress={() => router.push("/sales" as Href)}
               />
-            }
+            )}
             title="Quick Sale"
           />
           <ClientStep
