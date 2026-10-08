@@ -29,18 +29,25 @@ function AppointmentCalendarScreenContent() {
   return <CalendarStaffGate><AppointmentCalendarContent /></CalendarStaffGate>;
 }
 
-export function AppointmentCalendarContent({ staffMode = false }: { staffMode?: boolean }) {
+export function AppointmentCalendarContent({ staffMode = false, staffQuickSale = false }: {
+  staffMode?: boolean;
+  // Staff only: owner's Calendar & Quick Sale switch — lets an empty slot open Quick Sale.
+  staffQuickSale?: boolean;
+}) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const allAppointments = useAppSelector(selectAppointments);
   const allStaffMembers = useAppSelector(selectStaffMembers);
   const currentStaff = useAppSelector(selectCurrentStaff);
   const currentStaffError = useAppSelector(selectCurrentStaffError);
-  const appointments = useMemo(() => staffMode
+  // Staff without the owner's Calendar & Quick Sale switch see only their own
+  // column; with it they see the whole salon, like the owner.
+  const ownOnly = staffMode && !staffQuickSale;
+  const appointments = useMemo(() => ownOnly
     ? allAppointments.filter(item => Boolean(currentStaff && isAssignedToStaff(item, currentStaff)))
-    : allAppointments, [allAppointments, currentStaff, staffMode]);
-  const staffMembers = useMemo(() => staffMode ? (currentStaff ? [currentStaff] : []) : allStaffMembers,
-    [allStaffMembers, currentStaff, staffMode]);
+    : allAppointments, [allAppointments, currentStaff, ownOnly]);
+  const staffMembers = useMemo(() => ownOnly ? (currentStaff ? [currentStaff] : []) : allStaffMembers,
+    [allStaffMembers, currentStaff, ownOnly]);
   const refreshing = useAppSelector(selectAppointmentsRefreshing);
   const loading = useAppSelector(selectAppointmentsIsLoading);
   const error = useAppSelector(selectAppointmentsError);
@@ -49,7 +56,7 @@ export function AppointmentCalendarContent({ staffMode = false }: { staffMode?: 
   const [selectedStatuses, setSelectedStatuses] = useState<AppointmentStatus[]>([]);
   const status = "All" as const;
   const { fetchAppointments } = useFetchAppointments();
-  useAllStaffMembers(!staffMode);
+  useAllStaffMembers(!ownOnly);
   const [selectedStaffIds, setSelectedStaffIds] = useState<string[]>([]);
   const [datePickerVisible, setDatePickerVisible] = useState(false);
   const [calendarSearchOpen, setCalendarSearchOpen] = useState(true);
@@ -92,7 +99,7 @@ export function AppointmentCalendarContent({ staffMode = false }: { staffMode?: 
       : `${selectedStaffIds.length} Staff`;
   const rangeEnd = useMemo(() => { const value = new Date(`${date}T00:00:00`); value.setDate(value.getDate() + (viewMode === "week" ? 6 : 0)); return value; }, [date, viewMode]);
   const rangeEndKey = `${rangeEnd.getFullYear()}-${String(rangeEnd.getMonth() + 1).padStart(2, "0")}-${String(rangeEnd.getDate()).padStart(2, "0")}`;
-  const selectedStaffId = staffMode ? currentStaff?.id : selectedStaffIds.length === 1 && !selectedStaffIds[0].startsWith(SYNTHETIC_STAFF_ID_PREFIX)
+  const selectedStaffId = ownOnly ? currentStaff?.id : selectedStaffIds.length === 1 && !selectedStaffIds[0].startsWith(SYNTHETIC_STAFF_ID_PREFIX)
     ? selectedStaffIds[0]
     : undefined;
   const changeDate = (amount: number) => { const value = new Date(`${date}T00:00:00`); value.setDate(value.getDate() + amount); setDate(`${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`); };
@@ -107,19 +114,21 @@ export function AppointmentCalendarContent({ staffMode = false }: { staffMode?: 
     );
   };
 
+  const salonWide = staffMode && staffQuickSale;
+
   useEffect(() => {
-    if (staffMode && !currentStaff?.id) return;
+    if (ownOnly && !currentStaff?.id) return;
     void fetchAppointments(viewMode === "week"
-      ? { fromDate: date, limit: 200, reset: true, search: debouncedSearch, staffId: selectedStaffId, status, toDate: rangeEndKey }
-      : { date, limit: 200, reset: true, search: debouncedSearch, staffId: selectedStaffId, status });
-  }, [date, debouncedSearch, fetchAppointments, rangeEndKey, selectedStaffId, status, viewMode, staffMode, currentStaff?.id]);
+      ? { fromDate: date, limit: 200, reset: true, salonWide, search: debouncedSearch, staffId: selectedStaffId, status, toDate: rangeEndKey }
+      : { date, limit: 200, reset: true, salonWide, search: debouncedSearch, staffId: selectedStaffId, status });
+  }, [date, debouncedSearch, fetchAppointments, rangeEndKey, selectedStaffId, status, viewMode, ownOnly, salonWide, currentStaff?.id]);
 
   const refreshAppointments = useCallback(() => {
-    if (staffMode && !currentStaff?.id) return;
+    if (ownOnly && !currentStaff?.id) return;
     void fetchAppointments(viewMode === "week"
-      ? { fromDate: date, limit: 200, refresh: true, search: debouncedSearch, staffId: selectedStaffId, status, toDate: rangeEndKey }
-      : { date, limit: 200, refresh: true, search: debouncedSearch, staffId: selectedStaffId, status });
-  }, [date, debouncedSearch, fetchAppointments, rangeEndKey, selectedStaffId, status, viewMode, staffMode, currentStaff?.id]);
+      ? { fromDate: date, limit: 200, refresh: true, salonWide, search: debouncedSearch, staffId: selectedStaffId, status, toDate: rangeEndKey }
+      : { date, limit: 200, refresh: true, salonWide, search: debouncedSearch, staffId: selectedStaffId, status });
+  }, [date, debouncedSearch, fetchAppointments, rangeEndKey, selectedStaffId, status, viewMode, ownOnly, salonWide, currentStaff?.id]);
   const staffColumns = useMemo(
     () => (selectedStaffIds.length ? staffOptions.filter((option) => selectedStaffIds.includes(option.id)) : staffOptions),
     [selectedStaffIds, staffOptions],
@@ -164,14 +173,15 @@ export function AppointmentCalendarContent({ staffMode = false }: { staffMode?: 
         ) : null}
         {datePickerVisible ? <DateTimePicker mode="date" onChange={(event, selected) => { setDatePickerVisible(false); if (event.type !== "dismissed" && selected) setDate(`${selected.getFullYear()}-${String(selected.getMonth() + 1).padStart(2, "0")}-${String(selected.getDate()).padStart(2, "0")}`); }} value={new Date(`${date}T00:00:00`)} /> : null}
         <TourView tourId="filters" style={styles.calendarFilterRow}>
-          <TouchableOpacity disabled={staffMode} onPress={() => setStaffFilterVisible(true)} style={[styles.dinggStylistSummary, styles.calendarStaffFilter]}><Text style={styles.dinggStylistLabel}>Staff:</Text><Text numberOfLines={1} style={styles.dinggStylistValue}>{staffMode ? currentStaff?.name ?? "My calendar" : selectedStaffLabel}</Text>{!staffMode ? <Ionicons name="chevron-down" size={15} color={Colors.appointmentTextSecondary} /> : null}</TouchableOpacity>
+          <TouchableOpacity disabled={ownOnly} onPress={() => setStaffFilterVisible(true)} style={[styles.dinggStylistSummary, styles.calendarStaffFilter]}><Text style={styles.dinggStylistLabel}>Staff:</Text><Text numberOfLines={1} style={styles.dinggStylistValue}>{ownOnly ? currentStaff?.name ?? "My calendar" : selectedStaffLabel}</Text>{!ownOnly ? <Ionicons name="chevron-down" size={15} color={Colors.appointmentTextSecondary} /> : null}</TouchableOpacity>
           <CalendarStatusFilter statuses={selectedStatuses} onChange={setSelectedStatuses} />
         </TourView>
       </View>
       {staffMode && (currentStaffError || error) ? <StateCard icon="cloud-offline-outline" title="Unable to load calendar" message={currentStaffError ?? error ?? "Please try again."} tone="error" actionLabel="Retry" onAction={refreshAppointments} /> : null}
       <CalendarPreview
         readOnly={staffMode}
-        expandSingleColumn={staffMode}
+        quickSaleEnabled={!staffMode || staffQuickSale}
+        expandSingleColumn={ownOnly}
         showEmptyState={!loading && !error}
         appointments={visibleAppointments}
         date={date}

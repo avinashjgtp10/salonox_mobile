@@ -27,7 +27,6 @@ import {
   deleteClientThunk,
   filterClientsThunk,
   fetchClientsThunk,
-  searchClientsThunk,
   fetchDuplicatesThunk,
   mergeClientsThunk,
   mergeAllDuplicatesThunk,
@@ -389,8 +388,6 @@ function ClientsScreenContent() {
             status: statusQueryValue,
           }),
         );
-      } else if (debouncedQuery) {
-        void dispatch(searchClientsThunk(args));
       } else {
         void dispatch(fetchClientsThunk(args));
       }

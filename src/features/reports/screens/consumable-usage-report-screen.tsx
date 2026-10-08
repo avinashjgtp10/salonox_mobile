@@ -1,3 +1,4 @@
+import { FilterSheet } from "@/components/ui/FilterSheet";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
@@ -22,7 +23,7 @@ import { selectReportEntry } from "@/store/report/report.slice";
 import { useThemeColors } from "@/theme/ThemeProvider";
 
 const PAGE_SIZE = 10;
-const ALL_CATEGORY = "__all__";
+
 
 export default function ConsumableUsageReportScreen({ config }: { config: ReportConfig }) {
   const Colors = useThemeColors();
@@ -30,7 +31,8 @@ export default function ConsumableUsageReportScreen({ config }: { config: Report
   const dispatch = useAppDispatch();
   const entry = useAppSelector((state) => selectReportEntry(state, config.slug));
   const [search, setSearch] = useState("");
-  const [category, setCategory] = useState(ALL_CATEGORY);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [filterVisible, setFilterVisible] = useState(false);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   const load = useCallback(
@@ -62,7 +64,7 @@ export default function ConsumableUsageReportScreen({ config }: { config: Report
     const trimmedSearch = search.trim().toLowerCase();
 
     return allRows.filter((row) => {
-      if (category !== ALL_CATEGORY && row.categoryName !== category) {
+      if (categories.length > 0 && !categories.includes(String(row.categoryName))) {
         return false;
       }
 
@@ -73,11 +75,11 @@ export default function ConsumableUsageReportScreen({ config }: { config: Report
       const itemName = typeof row.itemName === "string" ? row.itemName.toLowerCase() : "";
       return itemName.includes(trimmedSearch);
     });
-  }, [allRows, category, search]);
+  }, [allRows, categories, search]);
 
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [search, category]);
+  }, [search, categories]);
 
   const visibleRows = useMemo(() => filteredRows.slice(0, visibleCount), [filteredRows, visibleCount]);
   const hasMore = visibleCount < filteredRows.length;
@@ -134,29 +136,10 @@ export default function ConsumableUsageReportScreen({ config }: { config: Report
         ) : null}
       </View>
 
-      {categoryOptions.length > 0 ? (
-        <FlatList
-          contentContainerStyle={styles.categoryRow}
-          data={[ALL_CATEGORY, ...categoryOptions]}
-          horizontal
-          keyExtractor={(item) => item}
-          renderItem={({ item }) => {
-            const active = category === item;
-            return (
-              <TouchableOpacity
-                activeOpacity={0.84}
-                onPress={() => setCategory(item)}
-                style={[styles.categoryChip, active && styles.categoryChipActive]}
-              >
-                <Text style={[styles.categoryChipText, active && styles.categoryChipTextActive]}>
-                  {item === ALL_CATEGORY ? "All Categories" : item}
-                </Text>
-              </TouchableOpacity>
-            );
-          }}
-          showsHorizontalScrollIndicator={false}
-        />
-      ) : null}
+      <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Filters, ${categories.length} selected`} onPress={() => setFilterVisible(true)} style={styles.categoryChip}>
+        <Text style={styles.categoryChipText}>Filters{categories.length ? ` (${categories.length})` : ""}</Text>
+      </TouchableOpacity>
+      <FilterSheet visible={filterVisible} onClose={() => setFilterVisible(false)} fields={[{ key: "categories", label: "Category", searchable: true, options: categoryOptions.map((name) => ({ id: name, label: name })) }]} selected={{ categories }} onApply={(next) => setCategories(next.categories ?? [])} />
 
       {allRows.length ? (
         <View style={styles.resultsHeading}>

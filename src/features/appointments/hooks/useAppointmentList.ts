@@ -16,6 +16,7 @@ type FetchAppointmentsParams = {
   page?: number;
   refresh?: boolean;
   reset?: boolean;
+  salonWide?: boolean;
   search?: string;
   staffId?: string;
   status?: AppointmentListStatus;
@@ -46,6 +47,7 @@ export function useFetchAppointments() {
       page = 1,
       refresh = false,
       reset = false,
+      salonWide,
       search = "",
       staffId,
       status = "All",
@@ -59,6 +61,7 @@ export function useFetchAppointments() {
           page,
           refresh,
           reset,
+          salonWide,
           search,
           sort_by: queryRef.current.sort_by,
           sort_order: queryRef.current.sort_order,

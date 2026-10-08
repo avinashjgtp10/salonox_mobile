@@ -6,7 +6,7 @@ import { salonService } from "@/services/salon.service";
 import { timeStartup } from "@/services/startupPerformance";
 import type { RootState } from "@/store";
 import type { ApiResponse, AuthUser } from "@/types/auth";
-import { normalizeAuthUser, preserveSalonId } from "@/utils/authUser";
+import { normalizeAuthUser, preserveMobileCalendarAccess, preserveSalonId } from "@/utils/authUser";
 
 type FetchCurrentUserRejectValue = {
   message: string;
@@ -22,7 +22,7 @@ export const fetchCurrentUserThunk = createAsyncThunk<
     const currentUser = getState().user.user;
     const response = await timeStartup("/users/profile", () => api.get<ApiResponse<AuthUser>>(USER.PROFILE));
     const normalizedUser = normalizeAuthUser(response.data.data);
-    const mergedUser = preserveSalonId(normalizedUser, currentUser);
+    const mergedUser = preserveMobileCalendarAccess(preserveSalonId(normalizedUser, currentUser), currentUser);
 
     if (mergedUser.salonId) {
       return mergedUser;

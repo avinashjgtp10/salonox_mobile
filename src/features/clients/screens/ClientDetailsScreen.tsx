@@ -2,8 +2,8 @@ import { maskPhone } from "@/utils/maskPhone";
 import { Text } from "@/components/ui/AppTypography";
 import { appAlert as Alert } from "@/services/appAlert";
 import { Ionicons } from "@expo/vector-icons";
-import { router, useLocalSearchParams, type Href } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { router, useFocusEffect, useLocalSearchParams, type Href } from "expo-router";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -42,7 +42,6 @@ import {
   selectClientProfileStats,
   selectClientBlockingIds,
 } from "@/store/client/client.slice";
-import { selectActiveBranchId } from "@/store/branch/branch.slice";
 import { useAppToast } from "@/hooks/useAppToast";
 import { fetchMembershipsThunk } from "@/middleware/membership/membership.thunk";
 import {
@@ -348,7 +347,6 @@ export default function ClientDetailsScreen() {
   const notesError = useAppSelector(selectClientNotesError);
 
   const blockingIds = useAppSelector(selectClientBlockingIds);
-  const activeBranchId = useAppSelector(selectActiveBranchId);
   const memberships = useAppSelector(selectMemberships);
   const activeMembership = useAppSelector(selectActiveClientMembership(id));
   const membershipLoading = useAppSelector(selectClientMembershipsLoading(id));
@@ -370,11 +368,6 @@ export default function ClientDetailsScreen() {
   const isBlocking = id ? blockingIds.includes(id) : false;
   const [pickerVisible, setPickerVisible] = useState(false);
   const [activeTab, setActiveTab] = useState<ClientTab>("summary");
-  const [blockedOverride, setBlockedOverride] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    setBlockedOverride(null);
-  }, [id]);
 
   useEffect(() => {
     if (id && activeTab === "notes" && notes === null && !notesLoading) {
@@ -384,12 +377,15 @@ export default function ClientDetailsScreen() {
 
   useEffect(() => {
     if (id) {
-      void dispatch(fetchClientByIdThunk(id));
       void dispatch(fetchClientHistoryThunk(id));
       void dispatch(fetchClientMembershipsThunk(id));
       void dispatch(fetchMembershipsThunk({ limit: 50, refresh: true }));
     }
   }, [id, dispatch]);
+
+  useFocusEffect(useCallback(() => {
+    if (id) void dispatch(fetchClientByIdThunk(id));
+  }, [dispatch, id]));
 
   useEffect(
     () =>
@@ -403,61 +399,12 @@ export default function ClientDetailsScreen() {
     [dispatch, id],
   );
 
-  const liveClientFullName = liveClient?.fullName;
-  const liveClientPhone = liveClient?.phone;
-
-  useEffect(() => {
-    if (!id || !liveClientFullName) {
-      return;
-    }
-
-    let cancelled = false;
-
-    const checkBlockedStatus = async () => {
-      try {
-        const search = liveClientPhone && liveClientPhone !== "-"
-          ? liveClientPhone
-          : liveClientFullName;
-        const result = await clientService.filterClients(
-          {
-            limit: 50,
-            offset: 0,
-            search,
-            sort_by: "created_at",
-            sort_order: "desc",
-          },
-          "blocked",
-          activeBranchId,
-          { status: "blocked" },
-        );
-
-        if (!cancelled) {
-          setBlockedOverride(result.clients.some((blockedClient) => blockedClient.id === id));
-        }
-      } catch (error) {
-        console.warn("Unable to verify client blocked status", error);
-      }
-    };
-
-    void checkBlockedStatus();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [activeBranchId, id, liveClientFullName, liveClientPhone]);
-
-
   const client = useMemo(() => {
     if (!liveClient) {
       return null;
     }
 
     const avatarTone = clientService.getAvatarTone(liveClient.id);
-    const backendBlocked =
-      liveClient.inactive ||
-      liveClient.status.toLowerCase() === "blocked" ||
-      liveClient.status.toLowerCase() === "inactive";
-    const isClientInactive = blockedOverride ?? backendBlocked;
 
     return {
       avatarBg: avatarTone.background,
@@ -479,10 +426,10 @@ export default function ClientDetailsScreen() {
       rewardPointsBalance: historyClient?.rewardPointsBalance ?? 0,
       referralBalance: historyClient?.referralBalance ?? 0,
       status: liveClient.status,
-      isBlocked: isClientInactive,
+      isBlocked: liveClient.isBlocked,
       totalVisits: liveClient.totalVisits,
     };
-  }, [blockedOverride, historyClient, liveClient]);
+  }, [historyClient, liveClient]);
 
   const handleBack = () => {
     if (router.canGoBack()) {
@@ -494,7 +441,7 @@ export default function ClientDetailsScreen() {
   };
 
   const handleBlockToggle = () => {
-    if (!client) return;
+    if (!client || isBlocking) return;
 
     if (client.isBlocked) {
       Alert.alert(
@@ -506,7 +453,6 @@ export default function ClientDetailsScreen() {
             onPress: async () => {
               const res = await dispatch(unblockClientThunk(client.id));
               if (unblockClientThunk.fulfilled.match(res)) {
-                setBlockedOverride(false);
                 toast.showSuccess("Client unblocked successfully.");
               } else {
                 Alert.alert("Error", res.payload?.message ?? "Unable to unblock client.");
@@ -528,7 +474,6 @@ export default function ClientDetailsScreen() {
                 blockClientThunk({ clientId: client.id, reason: "Blocked by staff action" })
               );
               if (blockClientThunk.fulfilled.match(res)) {
-                setBlockedOverride(true);
                 toast.showSuccess("Client blocked successfully.");
               } else {
                 Alert.alert("Error", res.payload?.message ?? "Unable to block client.");

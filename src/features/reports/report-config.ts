@@ -1,5 +1,6 @@
 import type { ComponentProps } from "react";
 import type { Ionicons } from "@expo/vector-icons";
+import { REPORT_FILTER_FIELDS } from "./report-filters";
 
 export type ReportSlug =
   | "sales-summary"
@@ -51,6 +52,12 @@ export type ReportGroup =
   | "Marketing";
 
 export type ReportFilterKey =
+  | "brand_ids" | "payment_modes" | "item_types" | "include_gst"
+  | "gender" | "membership_status" | "reward_status" | "min_visits"
+  | "membership_ids" | "package_names" | "service_names" | "package_statuses"
+  | "template_ids" | "delivery_bucket" | "read_bucket" | "campaign_ids"
+  | "channels" | "message_statuses" | "campaign_statuses"
+  | "date_from" | "date_to" | "expiry_from" | "expiry_to"
   | "start_date"
   | "end_date"
   | "date"
@@ -132,7 +139,7 @@ const unavailable = (
   status: "unavailable",
 });
 
-export const REPORT_CONFIGS: ReportConfig[] = [
+const baseReportConfigs: ReportConfig[] = [
   available({ slug: "sales-summary", title: "Sales Summary", subtitle: "View every bill raised for a period - totals, payments, balances and status.", group: "Sales", icon: "analytics-outline", endpoint: "/api/report/sales-summary", filters: ["start_date", "end_date", "staff_id", "status", "category_id", "search"], paginated: true, primaryFields: ["invoiceNumber", "clientName", "price", "status"], emptyMessage: "No sales found" }),
   available({ slug: "daily-sheet", title: "Daily Sheet", subtitle: "A single day's transactions - tickets, services, staff and collections.", group: "Sales", icon: "calendar-outline", endpoint: "/api/report/daily-sheet", filters: ["date", "staff_id", "service_id", "search"], paginated: true, primaryFields: ["ticketNo", "clientName", "service", "amount"], emptyMessage: "No daily transactions found" }),
   available({ slug: "product-retail", title: "Product Retail", subtitle: "Products sold directly to clients.", group: "Sales", icon: "bag-handle-outline", endpoint: "/api/report/product-retail", filters: ["start_date", "end_date", "product_id", "search"], paginated: true, primaryFields: ["productName", "clientName", "quantity", "total"], emptyMessage: "No product sales found" }),
@@ -179,6 +186,14 @@ export const REPORT_CONFIGS: ReportConfig[] = [
   available({ slug: "reply-rate", title: "Reply Rate Report", subtitle: "Replies within 24 hours of campaign delivery.", group: "Marketing", icon: "chatbubbles-outline", endpoint: "/api/report/reply-rate", filters: ["start_date", "end_date", "campaign_id", "search"], paginated: true, primaryFields: ["name", "sent", "replied", "replyRate"], emptyMessage: "No reply-rate campaigns found" }),
 ];
 
+export const REPORT_CONFIGS: ReportConfig[] = baseReportConfigs.map((config) => {
+  const fields = REPORT_FILTER_FIELDS[config.slug];
+  if (!fields) return config;
+  const dateKeys = config.filters.filter((key) => ["start_date", "end_date", "from", "to", "date"].includes(key));
+  const usesDateFrom = ["product-inventory", "wa-marketing-campaign", "open-rate", "reply-rate"].includes(config.slug);
+  return { ...config, filters: [...(usesDateFrom ? ["date_from", "date_to"] as ReportFilterKey[] : dateKeys), "search", ...fields.map((field) => field.key)] };
+});
+
 export const REPORT_GROUPS: ReportGroup[] = [
   "Sales",
   "Payments",
@@ -221,6 +236,9 @@ export const createDefaultReportFilters = (slug: ReportSlug): ReportFilters => {
   start.setDate(start.getDate() - 30);
   const date = (value: Date) => value.toISOString().slice(0, 10);
   const base = { start_date: date(start), end_date: date(today), page: 1, limit: 10 };
+  if (["product-inventory", "wa-marketing-campaign", "open-rate", "reply-rate"].includes(slug)) {
+    return { date_from: date(start), date_to: date(today), page: 1, limit: 10 };
+  }
 
   if (slug === "daily-sheet") return { date: date(today), page: 1, limit: 10 };
   if (slug === "appointment-detail" || slug === "upcoming-appointments") {

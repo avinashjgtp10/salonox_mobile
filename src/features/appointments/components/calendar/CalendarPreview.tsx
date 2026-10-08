@@ -63,6 +63,7 @@ export function CalendarPreview({
   staffColumns = [],
   viewMode = "week",
   readOnly = false,
+  quickSaleEnabled = !readOnly,
   expandSingleColumn = false,
 }: {
   appointments: AppointmentListItem[];
@@ -75,6 +76,9 @@ export function CalendarPreview({
   title?: string;
   viewMode?: "week" | "day" | "list";
   readOnly?: boolean;
+  // Tapping an empty slot opens Quick Sale. Defaults to !readOnly; staff get it
+  // from the owner's Calendar & Quick Sale switch while the rest stays read-only.
+  quickSaleEnabled?: boolean;
   expandSingleColumn?: boolean;
 }) {
   const Colors = useThemeColors();
@@ -114,7 +118,7 @@ export function CalendarPreview({
   const previewId = previewAppointment?.id ?? null;
 
   const openQuickSaleAt = useCallback((column: CalendarColumn, locationY: number) => {
-    if (readOnly) return;
+    if (!quickSaleEnabled) return;
     const slotIndex = Math.min(TIME_SLOTS.length - 1, Math.max(0, Math.floor(locationY / SLOT_HEIGHT)));
     const { hour, minute } = TIME_SLOTS[slotIndex];
     setQuickSaleSlot({
@@ -122,7 +126,7 @@ export function CalendarPreview({
       staffName: column.staffName || undefined,
       time: `${pad2(hour)}:${pad2(minute)}`,
     });
-  }, [readOnly]);
+  }, [quickSaleEnabled]);
 
   useEffect(() => {
     if (viewMode === "list") return;
@@ -201,7 +205,7 @@ export function CalendarPreview({
                     key={`${column.key}-${column.staffId || columnIndex}`}
                     onAppointmentPress={setPreviewAppointment}
                     onSlotPress={openQuickSaleAt}
-                    readOnly={readOnly}
+                    readOnly={!quickSaleEnabled}
                     styles={styles}
                     width={columnWidth}
                   />
@@ -218,7 +222,7 @@ export function CalendarPreview({
           <Text style={styles.calendarEmptyTitle}>
             {viewMode === "week" ? "No appointments this week" : date === todayIsoDate() ? "No appointments today" : "No appointments on this day"}
           </Text>
-          {!readOnly && <Text style={styles.calendarEmptyHint}>Tap a time slot to add one</Text>}
+          {quickSaleEnabled && <Text style={styles.calendarEmptyHint}>Tap a time slot to add one</Text>}
         </View>
       ) : null}
       <AppointmentPreviewSheet

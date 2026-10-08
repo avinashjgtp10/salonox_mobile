@@ -1,7 +1,8 @@
 import { Text } from "@/components/ui/AppTypography";
 import { Redirect } from "expo-router";
 import { useAuth } from "@/context/AuthContext";
-import { isStaffExperienceUser, OWNER_CALENDAR_ROUTE, STAFF_HOME_ROUTE } from "@/utils/routeResolver";
+import { isStaffExperienceUser, OWNER_CALENDAR_ROUTE, STAFF_CALENDAR_ROUTE, STAFF_HOME_ROUTE } from "@/utils/routeResolver";
+import { canUseStaffQuickSale } from "@/utils/staffAccess";
 import { appAlert as Alert } from "@/services/appAlert";
 import { Ionicons } from "@expo/vector-icons";
 import { router, Stack, useFocusEffect, useLocalSearchParams, type Href } from "expo-router";
@@ -51,12 +52,15 @@ export default function QuickSaleCheckoutScreen() {
   const { user, isLoading } = useAuth();
   if (isLoading) return null;
   if (!user) return <Redirect href="/login" />;
-  if (isStaffExperienceUser(user)) return <Redirect href={STAFF_HOME_ROUTE} />;
+  if (isStaffExperienceUser(user) && !canUseStaffQuickSale(user)) return <Redirect href={STAFF_HOME_ROUTE} />;
   return <OwnerQuickSaleCheckoutScreen />;
 }
 
 function OwnerQuickSaleCheckoutScreen() {
   const { user } = useAuth();
+  // Staff reach this from their Calendar (Calendar & Quick Sale access) and
+  // can't open the owner's Dashboard, Calendar or Sales screens.
+  const isStaff = isStaffExperienceUser(user);
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const params = useLocalSearchParams<{
@@ -312,11 +316,17 @@ function OwnerQuickSaleCheckoutScreen() {
   }, []);
 
   const handleStartNewSale = useCallback(() => {
+    // Staff start every sale from a Calendar slot.
+    if (isStaff) {
+      replaceOnce(STAFF_CALENDAR_ROUTE);
+      return;
+    }
+
     replaceOnce({
       pathname: "/quick-sale",
       params: { resetSale: String(Date.now()) },
     });
-  }, [replaceOnce]);
+  }, [isStaff, replaceOnce]);
 
   const handleBackToDraft = useCallback(() => {
     replaceOnce({
@@ -326,12 +336,12 @@ function OwnerQuickSaleCheckoutScreen() {
   }, [params.draftId, replaceOnce]);
 
   const handleExitToCalendar = useCallback(() => {
-    replaceOnce(OWNER_CALENDAR_ROUTE);
-  }, [replaceOnce]);
+    replaceOnce(isStaff ? STAFF_CALENDAR_ROUTE : OWNER_CALENDAR_ROUTE);
+  }, [isStaff, replaceOnce]);
 
   const handleExitToDashboard = useCallback(() => {
-    replaceOnce("/dashboard" as Href);
-  }, [replaceOnce]);
+    replaceOnce(isStaff ? STAFF_HOME_ROUTE : ("/dashboard" as Href));
+  }, [isStaff, replaceOnce]);
 
   useFocusEffect(
     useCallback(() => {
@@ -485,14 +495,16 @@ function OwnerQuickSaleCheckoutScreen() {
                 <ReceiptActionButton icon="mail-outline" label="Email Receipt" disabled />
               </View>
 
-              <TouchableOpacity
-                activeOpacity={0.86}
-                onPress={() => router.push(`/sales/${authoritativeSale.id}` as Href)}
-                style={styles.optionalButton}
-              >
-                <Ionicons name="document-text-outline" size={17} color={Colors.primaryDark} />
-                <Text style={styles.optionalButtonText}>View Invoice</Text>
-              </TouchableOpacity>
+              {!isStaff ? (
+                <TouchableOpacity
+                  activeOpacity={0.86}
+                  onPress={() => router.push(`/sales/${authoritativeSale.id}` as Href)}
+                  style={styles.optionalButton}
+                >
+                  <Ionicons name="document-text-outline" size={17} color={Colors.primaryDark} />
+                  <Text style={styles.optionalButtonText}>View Invoice</Text>
+                </TouchableOpacity>
+              ) : null}
             </>
           ) : null}
         </ScrollView>

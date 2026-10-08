@@ -29,6 +29,7 @@ export type ClientApiItem = {
   inactive?: boolean | null;
   isBlocked?: boolean | null;
   is_blocked?: boolean | null;
+  is_active?: boolean | null;
   is_inactive?: boolean | null;
   is_vip?: boolean | null;
   last_name?: string | null;
@@ -76,6 +77,7 @@ export type ClientListItem = {
   hasValidId: boolean;
   id: string;
   inactive: boolean;
+  isBlocked: boolean;
   initials: string;
   isVip: boolean;
   joinedDaysAgo: number | null;
