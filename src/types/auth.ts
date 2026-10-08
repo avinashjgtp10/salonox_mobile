@@ -15,6 +15,9 @@ export type AuthUser = {
   isActive?: boolean;
   isOnboardingComplete?: boolean;
   custom_permissions?: Record<string, unknown> | string[] | null;
+  // Staff only: owner's mobile-only "Calendar & Quick Sale access" switch,
+  // read from /mobile/staff/me/calendar-access (not part of /users/me).
+  mobileCalendarAccess?: boolean;
   clientId?: string | null;
   salonId?: string | null;
 };

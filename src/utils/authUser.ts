@@ -151,6 +151,26 @@ export const preserveSalonId = (
   };
 };
 
+// /users/me doesn't carry the staff Calendar & Quick Sale switch (it comes
+// from its own mobile endpoint), so keep the last known value for the same user.
+export const preserveMobileCalendarAccess = (
+  incomingUser: AuthUser,
+  fallbackUser: AuthUser | null | undefined,
+): AuthUser => {
+  if (
+    incomingUser.mobileCalendarAccess !== undefined ||
+    fallbackUser?.mobileCalendarAccess === undefined ||
+    fallbackUser.id !== incomingUser.id
+  ) {
+    return incomingUser;
+  }
+
+  return {
+    ...incomingUser,
+    mobileCalendarAccess: fallbackUser.mobileCalendarAccess,
+  };
+};
+
 export const summarizeAuthUser = (user: AuthUser | null | undefined) => {
   if (!user) {
     return null;

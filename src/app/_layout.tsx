@@ -23,6 +23,7 @@ import { useAppUpdateAnnouncement } from '@/hooks/useAppUpdateAnnouncement';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useNetworkMonitor } from '@/hooks/useNetworkMonitor';
 import { useRealtimeSync } from '@/hooks/useRealtimeSync';
+import { useStaffCalendarAccessSync } from '@/hooks/useStaffCalendarAccess';
 import { fetchBranchesThunk } from '@/middleware/branch/branch.thunk';
 import { resolveCurrentStaffThunk } from '@/middleware/staff/staff.thunk';
 import { branchStorage } from '@/services/branchStorage';
@@ -183,7 +184,7 @@ function AuthNavigationHandler({ onReady }: { onReady: () => void }) {
 
       const shouldUseStaffApp = isStaffExperienceUser(user);
       const isWrongAuthenticatedApp =
-        (shouldUseStaffApp && !isStaffAllowedRoute(topLevelSegment)) ||
+        (shouldUseStaffApp && !isStaffAllowedRoute(topLevelSegment, user)) ||
         (!shouldUseStaffApp && isStaffRouteGroup(topLevelSegment));
 
       if (isPublicRoute || isSubscriptionRoute || isWrongAuthenticatedApp) {
@@ -343,6 +344,12 @@ function StaffIdentityBootstrap() {
   return null;
 }
 
+function StaffCalendarAccessBootstrap() {
+  useStaffCalendarAccessSync();
+
+  return null;
+}
+
 function AppShell() {
   const { colors, isHydrated: isThemeHydrated, scheme } = useAppTheme();
   const [isNavigationReady, setIsNavigationReady] = useState(false);
@@ -363,6 +370,7 @@ function AppShell() {
               <RealtimeSyncSetup />
               <BranchBootstrap />
               <StaffIdentityBootstrap />
+              <StaffCalendarAccessBootstrap />
               <StaffAttendanceGate>
               <Stack
                 initialRouteName="login"

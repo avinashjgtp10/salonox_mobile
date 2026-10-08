@@ -20,6 +20,7 @@ import {
   type ThemeColors,
 } from "@/constants/theme";
 import { StaffTextField } from "@/features/staff/components/StaffTextField";
+import { useStaffCalendarAccessSetting } from "@/features/staff/hooks/useStaffCalendarAccessSetting";
 import { useStaffDetails } from "@/features/staff/hooks/useStaffDetails";
 import { useStaffForm } from "@/features/staff/hooks/useStaffForm";
 import { STAFF_GENDER_OPTIONS, STAFF_ROLE_OPTIONS } from "@/features/staff/validation/staff.validation";
@@ -35,6 +36,9 @@ const ACCEPTED_AVATAR_MIME_TYPES = new Set(["image/png", "image/jpeg", "image/gi
 
 const STAFF_LOGIN_HELPER_TEXT =
   "Set a password so this staff member can log in with their email above right away. Leave blank to send an email invite instead — they'll set their own password and get the same permissions once they accept it.";
+
+const CALENDAR_ACCESS_HELPER_TEXT =
+  "Lets this staff member book and bill Quick Sales from their Calendar in the SalonOX app. Saved right away. Doesn't change their access on the web.";
 
 type StaffFormScreenProps = {
   mode: "create" | "edit";
@@ -152,6 +156,7 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const staffId = mode === "edit" ? id : null;
   const form = useStaffForm(staffId);
+  const calendarAccess = useStaffCalendarAccessSetting(staffId);
   const { scrollToFirstError, scrollViewRef, setFieldRef } = useValidationScroll(VALIDATION_FIELD_ORDER);
 
   const [avatarValidationError, setAvatarValidationError] = useState<string | null>(null);
@@ -511,6 +516,26 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
                 value={form.values.confirmPassword}
               />
               <Text style={styles.loginHint}>{STAFF_LOGIN_HELPER_TEXT}</Text>
+              {mode === "edit" ? (
+                <View style={styles.calendarAccessSection}>
+                  <View style={styles.calendarAccessRow}>
+                    <Text style={styles.calendarAccessTitle}>Calendar &amp; Quick Sale access</Text>
+                    {calendarAccess.loading || calendarAccess.saving ? (
+                      <ActivityIndicator color={Colors.primary} size="small" style={styles.calendarAccessSpinner} />
+                    ) : null}
+                    <Switch
+                      accessibilityLabel="Calendar and Quick Sale access"
+                      disabled={calendarAccess.loading || calendarAccess.saving}
+                      onValueChange={(value) => void calendarAccess.setCalendarAccess(value)}
+                      thumbColor="#FFFFFF"
+                      trackColor={{ false: Colors.border, true: Colors.primary }}
+                      value={calendarAccess.enabled}
+                    />
+                  </View>
+                  <Text style={styles.loginHint}>{CALENDAR_ACCESS_HELPER_TEXT}</Text>
+                  {calendarAccess.error ? <Text style={styles.errorText}>{calendarAccess.error}</Text> : null}
+                </View>
+              ) : null}
             </>
           ) : null}
         </View>
@@ -743,5 +768,25 @@ saveButtonDisabled: {
     fontSize: 12,
     lineHeight: 18,
     marginTop: Spacing.xs,
+  },
+  calendarAccessSection: {
+    borderTopColor: Colors.border,
+    borderTopWidth: 1,
+    marginTop: Spacing.md,
+    paddingTop: Spacing.md,
+  },
+  calendarAccessRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: Spacing.sm,
+  },
+  calendarAccessTitle: {
+    color: Colors.heading,
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  calendarAccessSpinner: {
+    marginRight: Spacing.xs,
   },
 });

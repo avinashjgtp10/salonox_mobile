@@ -9,6 +9,7 @@ import { selectActiveBranchId } from "@/store/branch/branch.slice";
 import { selectCurrentStaff } from "@/store/staff/staff.slice";
 import { selectCurrentUser } from "@/store/user/user.slice";
 import { isStaffExperienceUser } from "@/utils/routeResolver";
+import { canUseStaffQuickSale } from "@/utils/staffAccess";
 import { isAssignedToStaff } from "@/features/appointments/utils/staffAssignment";
 import type {
   AppointmentDetailResponse,
@@ -25,6 +26,9 @@ import type {
 export type FetchAppointmentsArgs = Partial<AppointmentListQuery> & {
   refresh?: boolean;
   reset?: boolean;
+  // Staff Calendar only: load every staff member's appointments instead of the
+  // caller's own. Honoured only with the owner's Calendar & Quick Sale switch.
+  salonWide?: boolean;
 };
 
 type AppointmentRejectValue = {
@@ -63,7 +67,8 @@ export const fetchAppointmentsThunk = createAsyncThunk<
   };
 
   try {
-    if (isStaffExperienceUser(selectCurrentUser(state))) {
+    const user = selectCurrentUser(state);
+    if (isStaffExperienceUser(user) && !(args?.salonWide && canUseStaffQuickSale(user))) {
       const staff = selectCurrentStaff(state);
       if (!staff) throw new ApiError("Your staff profile is not available yet.", 403);
       const response = await appointmentService.getStaffAppointments(query, staff, getSalonId(state));
