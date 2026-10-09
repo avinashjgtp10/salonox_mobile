@@ -1,3 +1,4 @@
+import { AttendanceActivityDetails } from "./AttendanceActivityDetails";
 import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { memo, useMemo } from "react";
@@ -43,7 +44,7 @@ function AttendanceStaffRowComponent({
     typeof record?.scheduledHours === "number" && record.scheduledHours > 0
       ? `${record.scheduledHours.toFixed(record.scheduledHours % 1 === 0 ? 0 : 1)}h scheduled`
       : "Schedule --";
-  const showPrimaryAction = canManageAttendance;
+  const showPrimaryAction = canManageAttendance && record?.activity?.current_status !== "ON_BREAK";
 
   const primaryButtonStyle = [
     styles.primaryButton,
@@ -90,6 +91,7 @@ function AttendanceStaffRowComponent({
             <Text style={styles.metaText}>{scheduledHoursLabel}</Text>
           </View>
         </View>
+        <AttendanceActivityDetails activity={record?.activity} finalCheckout={record?.checkOutTime} />
       </View>
 
       <View style={styles.actions}>

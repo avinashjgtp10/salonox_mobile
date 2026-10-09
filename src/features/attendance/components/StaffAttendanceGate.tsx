@@ -1,10 +1,11 @@
+import NetInfo from "@react-native-community/netinfo";
 import { Text } from "@/components/ui/AppTypography";
 import { useAuth } from "@/context/AuthContext";
 import { useAppForeground } from "@/hooks/useAppForeground";
 import { getApiErrorMessage } from "@/services/api";
 import { staffSelfAttendanceService, type StaffSelfAttendance } from "@/services/staffSelfAttendance.service";
 import { normalizeAttendanceRecord } from "@/services/attendance.service";
-import type { AttendanceRecord } from "@/types/attendance";
+import type { AttendanceRecord, StartBreakRequest } from "@/types/attendance";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { isStaffExperienceUser } from "@/utils/routeResolver";
 import { canUnlockStaffApp } from "@/features/attendance/utils/staffAttendanceGate";
@@ -12,7 +13,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { ActivityIndicator, AppState, Modal, StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-type AttendanceContext = { state: StaffSelfAttendance | null; record: AttendanceRecord | null; refresh: () => Promise<void>; checkOut: () => Promise<void>; busy: boolean };
+type AttendanceContext = { state: StaffSelfAttendance | null; record: AttendanceRecord | null; refresh: () => Promise<void>; checkIn: () => Promise<void>; startBreak: (body: StartBreakRequest) => Promise<void>; checkOut: () => Promise<void>; busy: boolean };
 const StaffAttendanceContext = createContext<AttendanceContext | null>(null);
 export const useStaffSelfAttendance = () => useContext(StaffAttendanceContext);
 const displayTime = (value: string | null | undefined) => value ? new Date(value).toLocaleTimeString("en-IN", {
@@ -59,13 +60,14 @@ export function StaffAttendanceGate({ children }: { children: ReactNode }) {
     }, 60000);
     return () => clearInterval(timer);
   }, [identity, refresh]);
+  useEffect(() => NetInfo.addEventListener(info => { if (info.isConnected) void refresh(); }), [refresh]);
   useAppForeground(() => { setNow(new Date()); void refresh(); });
 
-  const punch = useCallback(async (kind: "checkIn" | "checkOut") => {
-    if (!identity || punchLock.current) return;
+  const punch = useCallback(async (kind: "checkIn" | "checkOut" | "startBreak", body?: StartBreakRequest) => {
+    if (!identity || punchLock.current) throw new Error("An attendance action is already in progress.");
     punchLock.current = true; ++requestVersion.current; setRefreshing(false); setBusy(true); setError(null);
     try {
-      const next = await staffSelfAttendanceService[kind]();
+      const next = kind === "startBreak" ? await staffSelfAttendanceService.startBreak(body!) : await staffSelfAttendanceService[kind]();
       if (liveIdentity.current === identity) { setSnapshot({ identity, state: next }); setNow(new Date()); }
     } catch (failure) {
       if (liveIdentity.current === identity) setError(getApiErrorMessage(failure));
@@ -77,7 +79,7 @@ export function StaffAttendanceGate({ children }: { children: ReactNode }) {
   const checkingAttendance = locked && !state && !error;
   const showCheckIn = locked && Boolean(state);
   return (
-    <StaffAttendanceContext.Provider value={{ state, record, refresh, checkOut: () => punch("checkOut"), busy }}>
+    <StaffAttendanceContext.Provider value={{ state, record, refresh, checkIn: () => punch("checkIn"), startBreak: body => punch("startBreak", body), checkOut: () => punch("checkOut"), busy }}>
       {children}
       {checkingAttendance ? (
         <View style={styles.loadingOverlay} accessibilityRole="progressbar" accessibilityLabel="Checking today's attendance">

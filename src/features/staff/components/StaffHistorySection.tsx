@@ -1,3 +1,4 @@
+import { AttendanceActivityDetails } from "@/features/attendance/components/AttendanceActivityDetails";
 import { Text } from "@/components/ui/AppTypography";
 import { useEffect, useMemo, useState } from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
@@ -186,6 +187,7 @@ export function StaffHistorySection({ staffId }: StaffHistorySectionProps) {
                   <Text style={styles.rowMeta}>
                     In {formatAppTime(record.checkInTime)} · Out {formatAppTime(record.checkOutTime)}
                   </Text>
+                  <AttendanceActivityDetails activity={record.activity} finalCheckout={record.checkOutTime} />
                   {record.hoursWorked === null ? null : (
                     <Text style={styles.rowMeta}>{record.hoursWorked} hrs worked</Text>
                   )}

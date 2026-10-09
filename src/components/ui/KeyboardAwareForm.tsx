@@ -1,11 +1,18 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState, type ReactNode } from "react";
-import { Dimensions, Keyboard, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from "react-native";
+import { Dimensions, Keyboard, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export type KeyboardAwareFormHandle = { revealField: (field: View | null) => void };
 
 /** Keeps form fields visible while allowing taps to switch inputs without dismissing the keyboard. */
-export const KeyboardAwareForm = forwardRef<KeyboardAwareFormHandle, { children: ReactNode }>(function KeyboardAwareForm({ children }, ref) {
+type KeyboardAwareFormProps = {
+  children: ReactNode;
+  /** A sheet already handles iOS keyboard avoidance and supplies a bounded height. */
+  embedded?: boolean;
+  style?: StyleProp<ViewStyle>;
+  contentContainerStyle?: StyleProp<ViewStyle>;
+};
+export const KeyboardAwareForm = forwardRef<KeyboardAwareFormHandle, KeyboardAwareFormProps>(function KeyboardAwareForm({ children, embedded = false, style, contentContainerStyle }, ref) {
   const insets = useSafeAreaInsets();
   const scroll = useRef<ScrollView>(null);
   const viewportRef = useRef<View>(null);
@@ -70,9 +77,10 @@ export const KeyboardAwareForm = forwardRef<KeyboardAwareFormHandle, { children:
   }, [scheduleReveal]);
 
   return (
-    <View ref={viewportRef} collapsable={false} style={styles.container}>
-    <KeyboardAvoidingView style={styles.container} behavior="padding" enabled={Platform.OS === "ios"}>
-      <ScrollView ref={scroll} contentContainerStyle={[styles.content, { paddingBottom: keyboardHeight }]}
+    <View ref={viewportRef} collapsable={false} style={[embedded ? styles.embedded : styles.container, style]}>
+    <KeyboardAvoidingView style={embedded ? styles.embedded : styles.container} behavior="padding" enabled={!embedded && Platform.OS === "ios"}>
+      <ScrollView ref={scroll} style={embedded ? styles.embedded : undefined} contentContainerStyle={[styles.content, contentContainerStyle, { paddingBottom: keyboardHeight }]}
+        nestedScrollEnabled={embedded}
         onScroll={(event) => { offset.current = event.nativeEvent.contentOffset.y; }} scrollEventThrottle={16}
         keyboardShouldPersistTaps="always" keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "none"}
         onContentSizeChange={scheduleReveal} onLayout={scheduleReveal} showsVerticalScrollIndicator={false}>
@@ -83,4 +91,4 @@ export const KeyboardAwareForm = forwardRef<KeyboardAwareFormHandle, { children:
   );
 });
 
-const styles = StyleSheet.create({ container: { flex: 1 }, content: { flexGrow: 1 } });
+const styles = StyleSheet.create({ container: { flex: 1 }, embedded: { flexGrow: 0, flexShrink: 1 }, content: { flexGrow: 1 } });

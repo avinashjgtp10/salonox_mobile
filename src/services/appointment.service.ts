@@ -405,6 +405,7 @@ export const normalizeAppointment = (
       toSafeString(appointment.mobile),
     raw: appointment,
     saleId: toSafeString(appointment.sale_id ?? appointment.saleId ?? appointment.saleID),
+    pendingSaleId: toSafeString(appointment.pending_sale_id),
     scheduledAt: toSafeString(appointment.scheduled_at) || toSafeString(appointment.start_time) || null,
     serviceId: service.id,
     serviceName: service.name,

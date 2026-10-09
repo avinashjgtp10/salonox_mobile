@@ -22,7 +22,8 @@ import type { AppointmentListItem, AppointmentStatus } from "@/types/appointment
 import { formatAppDate } from "@/utils/dateTime";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useFocusEffect } from "expo-router";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Modal, Pressable, ScrollView, TouchableOpacity, View } from "react-native";
 
 function AppointmentCalendarScreenContent() {
@@ -129,6 +130,16 @@ export function AppointmentCalendarContent({ staffMode = false, staffQuickSale =
       ? { fromDate: date, limit: 200, refresh: true, salonWide, search: debouncedSearch, staffId: selectedStaffId, status, toDate: rangeEndKey }
       : { date, limit: 200, refresh: true, salonWide, search: debouncedSearch, staffId: selectedStaffId, status });
   }, [date, debouncedSearch, fetchAppointments, rangeEndKey, selectedStaffId, status, viewMode, ownOnly, salonWide, currentStaff?.id]);
+  // The staff Calendar tab stays mounted while Quick Sale and its receipt
+  // screens are open, so reload when staff come back to it: a bill saved as
+  // pending (or just paid) then shows its current state.
+  const refreshAppointmentsRef = useRef(refreshAppointments);
+  refreshAppointmentsRef.current = refreshAppointments;
+  const hasFocusedRef = useRef(false);
+  useFocusEffect(useCallback(() => {
+    if (staffMode && hasFocusedRef.current) refreshAppointmentsRef.current();
+    hasFocusedRef.current = true;
+  }, [staffMode]));
   const staffColumns = useMemo(
     () => (selectedStaffIds.length ? staffOptions.filter((option) => selectedStaffIds.includes(option.id)) : staffOptions),
     [selectedStaffIds, staffOptions],
