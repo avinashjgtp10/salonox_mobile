@@ -8,6 +8,7 @@ import type {
 import type { AttendanceErrorKind } from "@/middleware/attendance/attendance.thunk";
 
 export type AttendanceStatusIconName =
+  | "cafe"
   | "checkmark-circle"
   | "close-circle"
   | "contrast"
@@ -86,7 +87,11 @@ export const getAttendanceBadgeConfig = (
   record: AttendanceRecord | null | undefined,
   Colors: ThemeColors,
 ): AttendanceStatusConfig | Omit<AttendanceStatusConfig, "key"> =>
-  record ? getAttendanceStatusConfig(record.statusKey, Colors) : buildNotMarkedStatusConfig(Colors);
+  // Only a live break overrides the day's status; everyone else keeps
+  // Present/Late/Absent/Half Day/On Leave for the owner's views.
+  record?.activity?.current_status === "ON_BREAK"
+    ? { bg: Colors.warningBg, color: Colors.warning, icon: "cafe", label: "On Break" }
+    : record ? getAttendanceStatusConfig(record.statusKey, Colors) : buildNotMarkedStatusConfig(Colors);
 
 export type AttendanceAction = {
   kind: AttendanceActionKind;

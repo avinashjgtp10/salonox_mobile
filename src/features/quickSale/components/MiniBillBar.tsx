@@ -47,17 +47,17 @@ function MiniBillBarComponent({ disabled, grandTotal, itemCount, onCheckout }: M
     <Animated.View pointerEvents="box-none" style={[styles.wrap, animatedStyle]}>
       <View style={[styles.card, disabled && styles.cardDisabled]}>
         <View style={styles.copy}>
-          <Text style={styles.itemCount}>
-            {itemCount} Item{itemCount === 1 ? "" : "s"}
-          </Text>
           <Text style={styles.total}>{formatCurrency(grandTotal)}</Text>
+          <Text style={styles.itemCount}>
+            {itemCount} item{itemCount === 1 ? "" : "s"}
+          </Text>
         </View>
 
         <Pressable
           android_ripple={disabled ? undefined : { color: "rgba(255, 255, 255, 0.12)", borderless: false }}
           disabled={disabled}
           onPress={onCheckout}
-          style={({ pressed }) => [styles.cta, pressed && !disabled && styles.cardPressed]}
+          style={({ pressed }) => [styles.cta, disabled && { opacity: 0.45 }, pressed && !disabled && styles.cardPressed]}
         >
           <Text style={styles.ctaText}>Checkout</Text>
           <Ionicons name="arrow-forward" size={18} color={Colors.onPrimary} />
@@ -81,7 +81,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     alignItems: "center",
     backgroundColor: Colors.card,
     borderColor: Colors.border,
-    borderRadius: 30,
+    borderRadius: 24,
     borderWidth: 1,
     flexDirection: "row",
     justifyContent: "space-between",
@@ -117,7 +117,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   cta: {
     alignItems: "center",
-    backgroundColor: Colors.primaryDark,
+    backgroundColor: "#A3467F",
     borderRadius: Radius.full,
     flexDirection: "row",
     gap: 8,

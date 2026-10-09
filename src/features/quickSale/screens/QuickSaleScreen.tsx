@@ -1,3 +1,5 @@
+import { BottomSheet } from "@/components/ui/BottomSheet";
+import { QuickSaleForm } from "../components/QuickSaleForm";
 import { Text } from "@/components/ui/AppTypography";
 import { Redirect } from "expo-router";
 import { useAuth } from "@/context/AuthContext";
@@ -13,7 +15,7 @@ import {
   type Href,
 } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, BackHandler, Keyboard, StyleSheet, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, BackHandler, Keyboard, StyleSheet, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -27,9 +29,7 @@ import {
   type DiscountApplyTarget,
 } from "@/features/quickSale/components/CheckoutSheet";
 import { ClientPickerSheet } from "@/features/quickSale/components/ClientPickerSheet";
-import { ClientStep } from "@/features/quickSale/components/ClientStep";
 import { CategoryChips } from "@/features/quickSale/components/CategoryChips";
-import { EmbeddedClientBar } from "@/features/quickSale/components/EmbeddedClientBar";
 import { ErrorState } from "@/features/quickSale/components/StateViews";
 import { GlobalSearchBar } from "@/features/quickSale/components/GlobalSearchBar";
 import { MembershipCatalogTab } from "@/features/quickSale/components/MembershipCatalogTab";
@@ -44,13 +44,11 @@ import {
 import { ServiceCatalogTab } from "@/features/quickSale/components/ServiceCatalogTab";
 import { ServiceSearchDropdown } from "@/features/quickSale/components/ServiceSearchDropdown";
 import { StaffPickerSheet } from "@/features/quickSale/components/StaffPickerSheet";
-import { StaffSection } from "@/features/quickSale/components/StaffSection";
 import { useCart } from "@/features/quickSale/hooks/useCart";
 import { useCheckoutSubmissionController } from "@/features/quickSale/hooks/useCheckoutSubmissionController";
 import { useClientPackages } from "@/features/quickSale/hooks/useClientPackages";
 import { useConsumableProductNames } from "@/features/quickSale/hooks/useConsumableProductNames";
 import { useQuickSalePricing } from "@/features/quickSale/hooks/useQuickSalePricing";
-import { useRecentClients } from "@/features/quickSale/hooks/useRecentClients";
 import { useRedemptions } from "@/features/quickSale/hooks/useRedemptions";
 import {
   WALK_IN_CLIENT,
@@ -144,6 +142,7 @@ function OwnerQuickSaleScreen({
   onRequestClose,
 }: QuickSaleScreenProps = {}) {
   const Colors = useThemeColors();
+  const { height: screenHeight } = useWindowDimensions();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
   const navigation = useNavigation();
@@ -171,10 +170,9 @@ function OwnerQuickSaleScreen({
   const [isGlobalSearchLoading, setIsGlobalSearchLoading] = useState(false);
   const [selectedClient, setSelectedClient] = useState<QuickSaleClient>(WALK_IN_CLIENT);
   const redemptions = useRedemptions(selectedClient.id, salonId);
-  const [isClientStepComplete, setIsClientStepComplete] = useState(Boolean(params.draftId) || embedded);
+  const [isCatalogVisible, setIsCatalogVisible] = useState(false);
   const [hasClientStepSelection, setHasClientStepSelection] = useState(Boolean(params.draftId));
   const [selectedQuickSaleStaff, setSelectedQuickSaleStaff] = useState<PosStaffMember | null>(null);
-  const [clientSearchQuery, setClientSearchQuery] = useState("");
   const [isClientPickerVisible, setIsClientPickerVisible] = useState(false);
   const [isEmbeddedStaffPickerVisible, setIsEmbeddedStaffPickerVisible] = useState(false);
   const [clientPickerStartsInCreateMode, setClientPickerStartsInCreateMode] = useState(false);
@@ -223,11 +221,6 @@ function OwnerQuickSaleScreen({
   const [productStockErrors, setProductStockErrors] = useState<ProductStockErrors>({});
   const [isSaleFinalized, setIsSaleFinalized] = useState(false);
   const { consumableProductNames, resetConsumableProductNames } = useConsumableProductNames(cart.items);
-  const recentClients = useRecentClients({
-    enabled: !isClientStepComplete && !isClientPickerVisible,
-    salonId,
-    searchQuery: clientSearchQuery,
-  });
   const clientPackages = useClientPackages({
     clientId: selectedClient.id,
     onPackagesLoaded: recalculatePackageCoverage,
@@ -340,7 +333,6 @@ function OwnerQuickSaleScreen({
     hydrateCart(restoredItems);
     setSelectedQuickSaleStaff(mapDraftSaleToStaff(sale));
     setSelectedClient(mapDraftSaleToClient(sale) ?? WALK_IN_CLIENT);
-    setIsClientStepComplete(true);
     setHasClientStepSelection(true);
     setTipInput(String(sale.tipAmount || ""));
     setSaleNotes(sale.notes ?? "");
@@ -466,12 +458,11 @@ function OwnerQuickSaleScreen({
     resetConsumableProductNames();
     resetPricing();
     setActiveTab("services");
+    setIsCatalogVisible(false);
     setGlobalSearchQuery("");
     setIsGlobalSearchLoading(false);
     setSelectedClient(WALK_IN_CLIENT);
-    setIsClientStepComplete(false);
     setHasClientStepSelection(false);
-    setClientSearchQuery("");
     setIsClientPickerVisible(false);
     setClientPickerStartsInCreateMode(false);
     setChangeServiceLineId(null);
@@ -599,41 +590,15 @@ function OwnerQuickSaleScreen({
     [cart, defaultLineStaff],
   );
 
-  const handleSelectClientForStep = useCallback((client: ClientListItem | null) => {
-    resetCheckoutSubmission();
-    setIsCheckoutVisible(false);
-    setShouldShowCheckoutStaffValidation(false);
-    setSubmitError(null);
-
-    if (hasClientStepSelection && selectedClient.id === (client?.id ?? "")) {
-      setSelectedClient(WALK_IN_CLIENT);
-      setHasClientStepSelection(false);
-      setClientSearchQuery("");
-      return;
-    }
-
-    setSelectedClient(client ? clientFromListItem(client) : WALK_IN_CLIENT);
-    setHasClientStepSelection(true);
-    setClientSearchQuery("");
-  }, [hasClientStepSelection, resetCheckoutSubmission, selectedClient.id]);
-
   const handleClientPickerSelect = useCallback((client: ClientListItem | null) => {
     resetCheckoutSubmission();
     setIsCheckoutVisible(false);
     setShouldShowCheckoutStaffValidation(false);
     setSubmitError(null);
 
-    if (hasClientStepSelection && selectedClient.id === (client?.id ?? "")) {
-      setSelectedClient(WALK_IN_CLIENT);
-      setClientSearchQuery("");
-      setHasClientStepSelection(false);
-      return;
-    }
-
     setSelectedClient(client ? clientFromListItem(client) : WALK_IN_CLIENT);
-    setClientSearchQuery("");
     setHasClientStepSelection(true);
-  }, [hasClientStepSelection, resetCheckoutSubmission, selectedClient.id]);
+  }, [resetCheckoutSubmission]);
 
   const handleSelectQuickSaleStaff = useCallback(
     (staffMember: PosStaffMember) => {
@@ -895,7 +860,7 @@ function OwnerQuickSaleScreen({
       cart.items.forEach((item) => {
         if (
           item.itemType !== "quick" &&
-          (item.staffId !== selectedQuickSaleStaff.id || item.staffName !== selectedQuickSaleStaff.name)
+          !item.staffId
         ) {
           cart.setStaff(item.lineId, selectedQuickSaleStaff.id, selectedQuickSaleStaff.name);
         }
@@ -1138,6 +1103,19 @@ function OwnerQuickSaleScreen({
 
       const payload = buildSaleDraftPayload();
 
+      // Staff Calendar Quick Sale: book the slot as an appointment and link the
+      // pending sale to it, so the bill shows on the Calendar and staff can tap
+      // it later to take payment (they have no Sales screen to find drafts in).
+      let appointmentId: string | undefined;
+      if (!params.draftId && isStaffExperienceUser(user)) {
+        try {
+          appointmentId = (await appointmentService.createAppointment(buildAppointmentPayload())).appointment.id;
+        } catch (error) {
+          setSubmitError(getApiErrorMessage(error));
+          return;
+        }
+      }
+
       let savedSale: SaleDetail;
       if (params.draftId) {
         const action = await dispatch(updateSaleThunk({ saleId: params.draftId, updates: payload }));
@@ -1147,9 +1125,11 @@ function OwnerQuickSaleScreen({
         }
         savedSale = action.payload.sale;
       } else {
-        const action = await dispatch(createSaleThunk(payload));
+        const action = await dispatch(createSaleThunk(appointmentId ? { ...payload, appointmentId } : payload));
         if (!createSaleThunk.fulfilled.match(action)) {
-          setSubmitError(getActionError(action.payload, "Unable to save this draft."));
+          setSubmitError(appointmentId
+            ? `The appointment is booked on the Calendar, but its pending bill could not be saved: ${getActionError(action.payload, "please try again.")}`
+            : getActionError(action.payload, "Unable to save this draft."));
           return;
         }
         savedSale = action.payload.sale;
@@ -1177,9 +1157,7 @@ function OwnerQuickSaleScreen({
   const clearFinishedSale = () => {
     cart.clearCart();
     setSelectedClient(WALK_IN_CLIENT);
-    setIsClientStepComplete(false);
     setHasClientStepSelection(false);
-    setClientSearchQuery("");
     setSaleNotes("");
   };
 
@@ -1420,20 +1398,13 @@ function OwnerQuickSaleScreen({
       return;
     }
 
-    if (isClientStepComplete && !params.draftId) {
-      setIsClientStepComplete(false);
-      return;
-    }
-
     confirmDiscardQuickSale(leaveQuickSaleRoute);
   }, [
     confirmDiscardQuickSale,
     embedded,
     globalSearchQuery,
     handleClearGlobalSearch,
-    isClientStepComplete,
     leaveQuickSaleRoute,
-    params.draftId,
     onRequestClose,
   ]);
 
@@ -1466,6 +1437,7 @@ function OwnerQuickSaleScreen({
     useCallback(() => {
       const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
         if (
+          isCatalogVisible ||
           isCheckoutVisible ||
           isClientPickerVisible ||
           Boolean(changeServiceLineId)
@@ -1481,6 +1453,7 @@ function OwnerQuickSaleScreen({
     }, [
       changeServiceLineId,
       handleBack,
+      isCatalogVisible,
       isCheckoutVisible,
       isClientPickerVisible,
     ]),
@@ -1527,57 +1500,9 @@ function OwnerQuickSaleScreen({
     );
   }
 
-  if (!isClientStepComplete) {
-    return (
-      <>
-        <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
-          <AppStatusBar />
-          <QuickSaleHeader
-            onBack={handleBack}
-            right={staffExitRoute ? null : (
-              <QuickSaleHeaderAction
-                icon="receipt-outline"
-                onPress={() => router.push("/sales" as Href)}
-              />
-            )}
-            title="Quick Sale"
-          />
-          <ClientStep
-            clients={recentClients.clients}
-            error={recentClients.error}
-            isLoading={recentClients.isLoading}
-            isSearching={recentClients.isSearching}
-            onAddNewClient={() => {
-              setClientPickerStartsInCreateMode(true);
-              setIsClientPickerVisible(true);
-            }}
-            onChangeSearchQuery={setClientSearchQuery}
-            onContinue={() => setIsClientStepComplete(true)}
-            onRetry={recentClients.reload}
-            onSelectClient={handleSelectClientForStep}
-            onViewAllClients={() => {
-              setClientPickerStartsInCreateMode(false);
-              setIsClientPickerVisible(true);
-            }}
-            searchQuery={clientSearchQuery}
-            selectedClientId={hasClientStepSelection ? selectedClient.id : null}
-          />
-          <ClientPickerSheet
-            onClose={() => setIsClientPickerVisible(false)}
-            onSelect={handleClientPickerSelect}
-            selectedClientId={hasClientStepSelection ? selectedClient.id : null}
-            startInCreateMode={clientPickerStartsInCreateMode}
-            visible={isClientPickerVisible}
-          />
-        </SafeAreaView>
-        {discardConfirmationModal}
-      </>
-    );
-  }
-
   const isGlobalSearchActive = globalSearchQuery.trim().length > 0;
   const isOverlayActive =
-    isCheckoutVisible || isClientPickerVisible || isEmbeddedStaffPickerVisible || Boolean(changeServiceLineId);
+    isCatalogVisible || isCheckoutVisible || isClientPickerVisible || isEmbeddedStaffPickerVisible || Boolean(changeServiceLineId);
 
   if (initError && !initData) {
     return (
@@ -1619,31 +1544,30 @@ function OwnerQuickSaleScreen({
               />
             )
           }
-          subtitle={embedded && initialSlot ? `${initialSlot.date} at ${initialSlot.time}` : null}
+          subtitle={initialSlot ? `${initialSlot.date} at ${initialSlot.time}` : new Date().toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
           title={params.draftId ? "Edit Draft" : "Quick Sale"}
         />
 
+        <QuickSaleForm
+          cart={cart} selectedClient={selectedClient} redemptions={redemptions} totals={totals}
+          staffOptions={initData?.staff ?? []} renderInline={embedded}
+          notes={saleNotes} onChangeNotes={setSaleNotes}
+          pricingError={pricingError} isPricingLoading={isPricingLoading}
+          onChangeCustomer={() => { setClientPickerStartsInCreateMode(false); setIsClientPickerVisible(true); }}
+          onAdd={(tab) => { setActiveTab(tab); handleClearGlobalSearch(); setIsCatalogVisible(true); }}
+          onMoreCharges={() => openCheckout("charges")}
+          onSetQuantity={handleSetQuantity} onRemoveItem={handleRemoveItem} productStockErrors={productStockErrors}
+          tipInput={tipInput} onChangeTip={setTipInput}
+          extraCharges={{ otherCharges: otherChargesInput, serviceCharge: serviceChargeInput, convenienceFee: convenienceFeeInput }}
+          onChangeExtraCharge={(key, value) => { if(key === "otherCharges") setOtherChargesInput(value); else if(key === "serviceCharge") setServiceChargeInput(value); else setConvenienceFeeInput(value); }}
+          overallDiscountInput={overallDiscountInput} overallDiscountType={draftDiscountType} overallDiscountPercent={draftDiscountPercent}
+          onChangeOverallDiscount={(value, type, percentage) => { setOverallDiscountInput(value); setDraftDiscountType(type); setDraftDiscountPercent(percentage); }}
+          packageBanner={selectedClient.id && clientPackages.status === "error" ? <PackageEligibilityBanner error={clientPackages.error} onRetry={clientPackages.retry} /> : null}
+        />
+        <BottomSheet title="Add services & items" visible={isCatalogVisible} onClose={() => { setIsCatalogVisible(false); handleClearGlobalSearch(); }} renderInline={embedded} scrollable={false}
+          footer={<TouchableOpacity onPress={() => { setIsCatalogVisible(false); handleClearGlobalSearch(); }} style={styles.catalogDone}><Text style={styles.catalogDoneText}>Done · {cart.itemCount} items</Text></TouchableOpacity>}>
+          <View style={{ height: Math.min(520, screenHeight * 0.55) }}>
         <View style={styles.topSection}>
-          <EmbeddedClientBar
-            hasSelection={hasClientStepSelection}
-            onAddClient={() => {
-              setPendingCheckoutPayment(null);
-              setShouldResumeCheckoutAtCharges(false);
-              setClientPickerStartsInCreateMode(true);
-              setIsClientPickerVisible(true);
-            }}
-            onSearchClient={() => {
-              setPendingCheckoutPayment(null);
-              setShouldResumeCheckoutAtCharges(false);
-              setClientPickerStartsInCreateMode(false);
-              setIsClientPickerVisible(true);
-            }}
-            onSelectWalkIn={() => {
-              setSelectedClient(WALK_IN_CLIENT);
-              setHasClientStepSelection(true);
-            }}
-            selectedClient={selectedClient}
-          />
           <View style={styles.catalogHeading}>
             <Text style={styles.catalogTitle}>Services &amp; items</Text>
             {cart.itemCount > 0 ? (
@@ -1687,19 +1611,6 @@ function OwnerQuickSaleScreen({
           />
         </View>
 
-        {selectedClient.id && clientPackages.status === "error" ? (
-          <PackageEligibilityBanner error={clientPackages.error} onRetry={clientPackages.retry} />
-        ) : null}
-
-        <StaffSection
-          embedded={embedded}
-          isLoading={initLoading}
-          onOpenPicker={() => setIsEmbeddedStaffPickerVisible(true)}
-          onSelect={handleSelectQuickSaleStaff}
-          selectedStaff={selectedQuickSaleStaff}
-          staff={staffOptions}
-        />
-
         <View style={styles.content}>
           <View style={styles.contentPane}>
             {initLoading && !initData ? (
@@ -1733,6 +1644,10 @@ function OwnerQuickSaleScreen({
           </View>
         </View>
 
+
+          </View>
+        </BottomSheet>
+
         {undoNotice && !isGlobalSearchActive ? (
           <ToastOverlay>
             <Animated.View entering={FadeIn.duration(140)} exiting={FadeOut.duration(120)} style={styles.undoToast}>
@@ -1746,10 +1661,10 @@ function OwnerQuickSaleScreen({
 
         {!isOverlayActive ? (
           <MiniBillBar
-            disabled={cart.items.length === 0}
+            disabled={cart.items.length === 0 || isPricingLoading || Boolean(pricingError) || cart.items.some(item => item.itemType === "service" && !item.staffId)}
             grandTotal={totals.grandTotal}
             itemCount={cart.itemCount}
-            onCheckout={() => openCheckout("review")}
+            onCheckout={() => openCheckout("payment")}
           />
         ) : null}
 
@@ -1887,8 +1802,10 @@ function OwnerQuickSaleScreen({
 }
 
 const createStyles = (Colors: ThemeColors) => StyleSheet.create({
+  catalogDone: { backgroundColor: "#A3467F", padding: 15, borderRadius: 14, alignItems: "center" },
+  catalogDoneText: { color: "white", fontWeight: "700" },
   safeArea: {
-    backgroundColor: Colors.bg,
+    backgroundColor: "#FAF6F8",
     flex: 1,
   },
   topSection: {

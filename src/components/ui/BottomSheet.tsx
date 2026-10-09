@@ -1,12 +1,13 @@
 import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
-import type { ReactNode } from "react";
+import type { ReactNode, Ref } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { BackHandler, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Portal } from "@/components/ui/Portal";
+import { KeyboardAwareForm, type KeyboardAwareFormHandle } from "@/components/ui/KeyboardAwareForm";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import {
   DashboardRadius as Radius,
@@ -20,6 +21,7 @@ type BottomSheetProps = {
   centered?: boolean;
   children: ReactNode;
   footer?: ReactNode;
+  keyboardAwareFormRef?: Ref<KeyboardAwareFormHandle>;
   onClose: () => void;
   renderInline?: boolean;
   scrollable?: boolean;
@@ -38,6 +40,7 @@ export function BottomSheet({
   centered = false,
   children,
   footer,
+  keyboardAwareFormRef,
   onClose,
   renderInline = false,
   scrollable = true,
@@ -127,7 +130,16 @@ export function BottomSheet({
                 </TouchableOpacity>
               </View>
 
-              {scrollable ? (
+              {scrollable && keyboardAwareFormRef ? (
+                <KeyboardAwareForm
+                  ref={keyboardAwareFormRef}
+                  embedded
+                  style={{ maxHeight: scrollMaxHeight }}
+                  contentContainerStyle={styles.content}
+                >
+                  {children}
+                </KeyboardAwareForm>
+              ) : scrollable ? (
                 <ScrollView
                   contentContainerStyle={styles.content}
                   keyboardShouldPersistTaps="handled"

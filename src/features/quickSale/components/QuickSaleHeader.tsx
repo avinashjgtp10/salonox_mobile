@@ -37,7 +37,7 @@ function QuickSaleHeaderComponent({
         style={[styles.iconButton, embedded && styles.embeddedCloseButton]}
       >
         <Ionicons
-          name={embedded ? "close" : "arrow-back"}
+          name={embedded || isLeading ? "close" : "arrow-back"}
           size={isLeading ? 20 : 18}
           color={Colors.primary}
         />

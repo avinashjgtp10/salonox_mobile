@@ -41,6 +41,8 @@ export type SaleLineItemRequest = {
 };
 
 export type CreateSaleRequest = {
+  // Links a pending sale to the appointment it bills (staff Calendar "Save pending").
+  appointmentId?: string;
   clientId?: string | null;
   couponCode?: string | null;
   discountAmount?: number;

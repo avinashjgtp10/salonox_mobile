@@ -104,6 +104,7 @@ export type AppointmentApiItem = {
   saleId?: string | number | null;
   sale_id?: string | number | null;
   saleID?: string | number | null;
+  pending_sale_id?: string | null;
   service?: AppointmentApiService | string | null;
   service_id?: string | number | null;
   service_name?: string | null;
@@ -200,6 +201,8 @@ export type AppointmentListItem = {
   phone: string;
   raw: AppointmentApiItem;
   saleId: string;
+  // Draft sale saved with this appointment from the staff Calendar Quick Sale ("Save pending").
+  pendingSaleId: string;
   scheduledAt: string | null;
   serviceId: string;
   serviceName: string;
