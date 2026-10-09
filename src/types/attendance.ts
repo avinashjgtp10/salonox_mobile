@@ -1,10 +1,26 @@
 export type AttendanceStatusKey = "absent" | "halfDay" | "late" | "notMarked" | "onLeave" | "present";
 
+export type AttendanceActivity = {
+  current_status: "NOT_CHECKED_IN" | "WORKING" | "ON_BREAK" | "CHECKED_OUT";
+  scheduled_start: string | null; scheduled_end: string | null; scheduled_seconds: number | null;
+  total_worked_seconds: number; total_break_seconds: number; break_count: number;
+  active_break: AttendanceBreak | null;
+  breaks: AttendanceBreak[];
+  sessions: { type: "WORK" | "BREAK"; start_time: string; end_time: string | null; duration_seconds: number }[];
+};
+export type AttendanceBreak = {
+  note?: string | null;
+  id: string; planned_start: string; planned_end: string;
+  actual_start: string; actual_end: string | null;
+};
+export type StartBreakRequest = { from: string; to: string; request_id: string; note?: string };
+
 export type AttendanceActionKind = "checkIn" | "checkOut" | "edit";
 
 export type ManualAttendanceStatus = "absent" | "halfDay" | "late" | "onLeave" | "present";
 
 export type AttendanceRecord = {
+  activity?: AttendanceActivity;
   avatarBg: string;
   avatarColor: string;
   checkInTime: string | null;

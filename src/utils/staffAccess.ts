@@ -10,7 +10,12 @@ export const canReceivePush = (user: AuthUser | null | undefined, data: unknown)
   if (!isStaffExperienceUser(user)) return true;
   if (!data || typeof data !== "object") return false;
   const payload = data as { type?: string; recipient_user_ids?: unknown };
-  return payload.type === "attendance" && Array.isArray(payload.recipient_user_ids) && payload.recipient_user_ids.includes(user.id);
+  // Staff see only their own appointment/attendance pushes: the backend lists
+  // the assigned staff's user ids in recipient_user_ids. Appointment pushes
+  // were previously dropped here, so staff missed their own bookings while
+  // the app was open.
+  return (payload.type === "appointment" || payload.type === "attendance") &&
+    Array.isArray(payload.recipient_user_ids) && payload.recipient_user_ids.includes(user.id);
 };
 
 // Owner-controlled, mobile-only switch (Edit Staff → Calendar & Quick Sale

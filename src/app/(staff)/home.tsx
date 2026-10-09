@@ -1,3 +1,7 @@
+import { AttendanceBreakModal } from "@/features/attendance/components/AttendanceBreakModal";
+import { AttendanceActivityDetails, formatAttendanceDuration } from "@/features/attendance/components/AttendanceActivityDetails";
+import type { AttendanceActivity } from "@/types/attendance";
+import { appAlert } from "@/services/appAlert";
 import { Text } from "@/components/ui/AppTypography";
 import { getApiErrorMessage } from "@/services/api";
 import { useStaffSelfAttendance } from "@/features/attendance/components/StaffAttendanceGate";
@@ -168,7 +172,7 @@ const getAttendanceTone = (label: string, Colors: ThemeColors) => {
     return { bg: Colors.errorBg, color: DASHBOARD.danger };
   }
 
-  if (normalized.includes("late")) {
+  if (normalized.includes("late") || normalized.includes("break")) {
     return { bg: DASHBOARD.amberSoft, color: DASHBOARD.amber };
   }
 
@@ -176,7 +180,7 @@ const getAttendanceTone = (label: string, Colors: ThemeColors) => {
     return { bg: Colors.infoBg, color: Colors.info };
   }
 
-  if (normalized.includes("present") || normalized.includes("checked")) {
+  if (normalized.includes("present") || normalized.includes("checked") || normalized.includes("working")) {
     return { bg: DASHBOARD.greenSoft, color: DASHBOARD.green };
   }
 
@@ -187,6 +191,7 @@ const getStaffAttendanceStateLabel = (
   record: ReturnType<typeof findAttendanceRecordForStaff> | undefined,
   fallbackLabel: string,
 ) => {
+  if (record?.activity) return fallbackLabel;
   if (!record?.checkInTime) {
     return "Not Checked In";
   }
@@ -280,6 +285,7 @@ export function StaffHomeRouteContent({ locked = false }: { locked?: boolean } =
   const notificationsRefreshing = useAppSelector(selectNotificationsListRefreshing);
   const unreadCount = useAppSelector(selectUnreadCount);
   const [now, setNow] = useState(Date.now());
+  const [breakVisible, setBreakVisible] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const todayKey = getTodayAttendanceDateKey();
   const currentStaffId = currentStaff?.id ?? "";
@@ -371,7 +377,7 @@ export function StaffHomeRouteContent({ locked = false }: { locked?: boolean } =
         refreshControl={
           <RefreshControl
             colors={[DASHBOARD.beige]}
-            onRefresh={() => loadStaffHome(true)}
+            onRefresh={() => { loadStaffHome(true); void confirmedAttendance?.refresh(); }}
             refreshing={refreshing}
             tintColor={DASHBOARD.beige}
           />
@@ -419,7 +425,14 @@ export function StaffHomeRouteContent({ locked = false }: { locked?: boolean } =
         {!locked && attendanceOffline ? <ErrorBanner message="You appear offline. Pull to refresh when connected." /> : null}
 
         <AttendanceCard
-          onCheckOut={!locked && confirmedAttendance?.state?.checked_in && confirmedAttendance.state.record?.check_in && !confirmedAttendance.state.record.check_out ? () => void handleCheckOut() : undefined}
+          onCheckOut={!locked && confirmedAttendance?.state?.checked_in && confirmedAttendance.state.record?.check_in && !confirmedAttendance.state.record.check_out && confirmedAttendance.state.current_status !== "ON_BREAK" ? () => appAlert.alert("Check Out", "Do you need a break, or are you done for today?", [
+            { text: "Cancel", style: "cancel" },
+            { text: "Take a Break", onPress: () => setBreakVisible(true) },
+            { text: "Final Checkout", style: "destructive", onPress: () => void handleCheckOut() },
+          ]) : undefined}
+          onReturn={confirmedAttendance?.state?.current_status === "ON_BREAK" ? () => { setCheckoutError(null); void confirmedAttendance.checkIn().then(() => loadStaffHome(true)).catch(error => setCheckoutError(getApiErrorMessage(error))); } : undefined}
+          activity={selfAttendance?.activity}
+          finalCheckout={selfAttendance?.checkOutTime}
           checkoutBusy={confirmedAttendance?.busy ?? false}
           checkoutError={checkoutError}
           badgeLabel={attendanceStateLabel}
@@ -430,7 +443,7 @@ export function StaffHomeRouteContent({ locked = false }: { locked?: boolean } =
           icon={attendanceBadge.icon}
           statusLabel={attendanceStateLabel}
           tone={attendanceTone}
-          workingLabel={formatWorkingTime(selfAttendance?.checkInTime, selfAttendance?.checkOutTime, now)}
+          workingLabel={selfAttendance?.activity ? formatAttendanceDuration(selfAttendance.activity.total_worked_seconds) : formatWorkingTime(selfAttendance?.checkInTime, selfAttendance?.checkOutTime, now)}
         />
 
         {locked ? (
@@ -447,6 +460,10 @@ export function StaffHomeRouteContent({ locked = false }: { locked?: boolean } =
         )}
 
       </TourScrollView>
+      <AttendanceBreakModal visible={breakVisible} state={confirmedAttendance?.state ?? null} busy={confirmedAttendance?.busy ?? false} onClose={() => setBreakVisible(false)} onSubmit={async body => {
+        if (!confirmedAttendance) throw new Error("Attendance is unavailable. Please refresh.");
+        await confirmedAttendance.startBreak(body); loadStaffHome(true);
+      }} />
     </SafeAreaView>
   );
 }
@@ -465,6 +482,7 @@ function ErrorBanner({ message, onRetry }: { message: string; onRetry?: () => vo
 }
 
 function AttendanceCard({
+  onReturn, activity, finalCheckout,
   onCheckOut,
   checkoutBusy,
   checkoutError,
@@ -478,6 +496,7 @@ function AttendanceCard({
   tone,
   workingLabel,
 }: {
+  onReturn?: () => void; activity?: AttendanceActivity; finalCheckout?: string | null;
   onCheckOut?: () => void;
   checkoutBusy: boolean;
   checkoutError: string | null;
@@ -529,11 +548,12 @@ function AttendanceCard({
       </View>
       {checkInLocation ? <Text style={{ color: Colors.text2, marginTop: 10 }}>Check-in location: {checkInLocation}</Text> : null}
       {checkOutLocation ? <Text style={{ color: Colors.text2, marginTop: 8 }}>Checkout location: {checkOutLocation}</Text> : null}
-      {onCheckOut ? (
-        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Check Out" accessibilityState={{ disabled: checkoutBusy, busy: checkoutBusy }}
-          disabled={checkoutBusy} onPress={onCheckOut}
+      <AttendanceActivityDetails activity={activity} finalCheckout={finalCheckout} />
+      {onCheckOut || onReturn ? (
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel={onReturn ? "Check In" : "Check Out"} accessibilityState={{ disabled: checkoutBusy, busy: checkoutBusy }}
+          disabled={checkoutBusy} onPress={onReturn ?? onCheckOut}
           style={{ marginTop: 16, minHeight: 48, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: Colors.primary, opacity: checkoutBusy ? 0.6 : 1 }}>
-          {checkoutBusy ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontSize: 16, fontWeight: "700" }}>Check Out</Text>}
+          {checkoutBusy ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontSize: 16, fontWeight: "700" }}>{onReturn ? "Check In" : "Check Out"}</Text>}
         </TouchableOpacity>
       ) : null}
       {checkoutError ? <Text accessibilityRole="alert" style={{ color: Colors.error, marginTop: 8 }}>{checkoutError}</Text> : null}

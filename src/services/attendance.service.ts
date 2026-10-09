@@ -234,9 +234,11 @@ export const normalizeAttendanceRecord = (entry: UnknownRecord): AttendanceRecor
     ) || null;
   const hoursWorkedRaw = firstValue(entry, ["hoursWorked", "hours_worked"]);
   const start = parseAttendanceDateTime(checkInTime), end = parseAttendanceDateTime(checkOutTime);
-  const hoursWorked = start && end && end.getTime() >= start.getTime()
-    ? Number(((end.getTime() - start.getTime()) / 3600000).toFixed(2))
-    : hoursWorkedRaw != null ? toSafeNumber(hoursWorkedRaw) : null;
+  const activity = typeof entry.current_status === "string" && Array.isArray(entry.sessions)
+    ? entry as unknown as import("@/types/attendance").AttendanceActivity : undefined;
+  const hoursWorked = activity ? activity.total_worked_seconds / 3600
+    : hoursWorkedRaw != null ? toSafeNumber(hoursWorkedRaw)
+    : start && end && end.getTime() >= start.getTime() ? Number(((end.getTime() - start.getTime()) / 3600000).toFixed(2)) : null;
   const scheduledHoursRaw = firstValue(entry, ["scheduledHours", "scheduled_hours"]);
   const scheduledHours = scheduledHoursRaw !== undefined ? toSafeNumber(scheduledHoursRaw) : null;
   const jobsToday = toSafeNumber(
@@ -252,6 +254,7 @@ export const normalizeAttendanceRecord = (entry: UnknownRecord): AttendanceRecor
   const avatarTone = getAvatarTone(staffId);
 
   return {
+    activity,
     avatarBg: avatarTone.background,
     avatarColor: avatarTone.color,
     checkInTime,
