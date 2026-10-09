@@ -98,6 +98,10 @@ export const normalizeAuthUser = (value: unknown): AuthUser => {
       record.verified,
     ),
     isActive: toOptionalBoolean(record.isActive, record.is_active),
+    // Must survive a save/load round trip: the staff write guard in
+    // services/api reads the stored user, and dropping this flag made every
+    // Calendar Quick Sale payment fail as "read-only".
+    mobileCalendarAccess: toOptionalBoolean(record.mobileCalendarAccess, record.mobile_calendar_access),
     isOnboardingComplete: toOptionalBoolean(
       record.isOnboardingComplete,
       record.is_onboarding_complete,

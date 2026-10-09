@@ -160,13 +160,8 @@ export function StaffPermissionsScreen() {
         ) : (
           visibleStaff.map((member) => {
             const saving = savingIds.has(member.id);
-            const noLogin = member.loginAccess === false;
             const inactive = member.status === "Inactive";
-            const note = noLogin
-              ? "Staff Login is off — they can't sign in to use this yet."
-              : inactive
-                ? "Inactive — the switch applies once they're reactivated."
-                : null;
+            const note = inactive ? "Inactive — the switch applies once they're reactivated." : null;
 
             return (
               <View key={member.id} style={styles.staffCard}>
