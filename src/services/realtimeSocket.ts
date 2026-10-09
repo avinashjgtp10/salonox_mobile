@@ -38,7 +38,14 @@ class RealtimeSocket {
 
     if (!this.socket) {
       this.socket = io(SOCKET_URL, {
-        auth: { token: accessToken },
+        // Read on every (re)connect so a refreshed access token is used. The
+        // server checks it and keeps staff phones out of the owner's room.
+        auth: (callback) => {
+          void tokenStorage.getAccessToken().then(
+            (token) => callback({ token, client: "mobile" }),
+            () => callback({ client: "mobile" }),
+          );
+        },
         autoConnect: false,
         reconnection: true,
         reconnectionAttempts: Infinity,
@@ -57,8 +64,18 @@ class RealtimeSocket {
           this.joinSalon(this.joinedSalonId);
         }
       });
-    } else {
-      this.socket.auth = { token: accessToken };
+
+      // A server-side rejection (e.g. an access token that expired while the
+      // app was idle) stops Socket.IO's own reconnects; retry so the next
+      // attempt picks up the refreshed token.
+      this.socket.on("connect_error", (error) => {
+        const socket = this.socket;
+        if (!socket || socket.active) return;
+        console.warn("[Socket.IO] Connection refused, retrying", { message: error.message });
+        setTimeout(() => {
+          if (this.socket === socket && !socket.connected) socket.connect();
+        }, 5000);
+      });
     }
 
     this.joinedSalonId = salonId;

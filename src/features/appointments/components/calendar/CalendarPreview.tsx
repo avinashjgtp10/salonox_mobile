@@ -13,6 +13,7 @@ import type { AppointmentListItem } from "@/types/appointment";
 import { formatAppTime } from "@/utils/dateTime";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { router, type Href } from "expo-router";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Modal, Pressable, RefreshControl, ScrollView, View, type GestureResponderEvent } from "react-native";
 
@@ -117,6 +118,16 @@ export function CalendarPreview({
   const verticalScrollRef = useRef<ScrollView>(null);
   const previewId = previewAppointment?.id ?? null;
 
+  // Staff with Calendar & Quick Sale access (read-only calendar that can still
+  // bill) reopen a bill they saved as pending here to take payment.
+  const openAppointment = useCallback((appointment: AppointmentListItem) => {
+    if (readOnly && quickSaleEnabled && appointment.pendingSaleId) {
+      router.push(`/quick-sale?draftId=${appointment.pendingSaleId}` as Href);
+      return;
+    }
+    setPreviewAppointment(appointment);
+  }, [quickSaleEnabled, readOnly]);
+
   const openQuickSaleAt = useCallback((column: CalendarColumn, locationY: number) => {
     if (!quickSaleEnabled) return;
     const slotIndex = Math.min(TIME_SLOTS.length - 1, Math.max(0, Math.floor(locationY / SLOT_HEIGHT)));
@@ -146,7 +157,7 @@ export function CalendarPreview({
           {appointments.length ? [...appointments].sort(sortBySchedule).map((appointment) => (
             <View key={appointment.id} style={styles.dinggListTimelineRow}>
               <View style={styles.dinggListTimeRail}><Text style={styles.dinggListHour}>{formatTimeLabel(appointment.scheduledAt)}</Text><View style={styles.dinggListRailLine} /></View>
-              <Pressable onPress={() => setPreviewAppointment(appointment)} style={[styles.dinggListAppointment, appointment.status === "Completed" && styles.dinggListCompleted, appointment.status === "Confirmed" && styles.dinggListConfirmed]}>
+              <Pressable onPress={() => openAppointment(appointment)} style={[styles.dinggListAppointment, appointment.status === "Completed" && styles.dinggListCompleted, appointment.status === "Confirmed" && styles.dinggListConfirmed]}>
                 <View style={styles.dinggListClientRow}><View style={styles.dinggListAvatar}><Ionicons name="person-outline" size={24} color={Colors.appointmentTextSecondary} /></View><View style={styles.dinggListClientCopy}><Text numberOfLines={1} style={styles.dinggListClientName}>{appointment.clientName}</Text><Text style={styles.dinggListPhone}>{maskPhone(appointment.phone)}</Text></View><Ionicons name="male-outline" size={22} color={Colors.appointmentText} /><Ionicons name="gift-outline" size={22} color={Colors.appointmentText} /></View>
                 <View style={styles.dinggListCopy}><Text numberOfLines={1} style={styles.dinggAppointmentName}>{appointment.serviceName}</Text><Text numberOfLines={1} style={styles.dinggAppointmentClient}>{appointment.clientName} · {appointment.staffName}</Text></View>
                 <View style={styles.dinggListDetailRow}><Ionicons name="cut-outline" size={19} color={Colors.appointmentAccent} /><Text numberOfLines={2} style={styles.dinggListService}>{appointment.serviceName}</Text></View>
@@ -203,7 +214,7 @@ export function CalendarPreview({
                     column={column}
                     highlightedId={previewId && columnAppointments.some((item) => item.id === previewId) ? previewId : null}
                     key={`${column.key}-${column.staffId || columnIndex}`}
-                    onAppointmentPress={setPreviewAppointment}
+                    onAppointmentPress={openAppointment}
                     onSlotPress={openQuickSaleAt}
                     readOnly={!quickSaleEnabled}
                     styles={styles}

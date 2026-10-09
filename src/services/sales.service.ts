@@ -431,6 +431,10 @@ const buildSaleRequestBody = (payload: CreateSaleRequest | UpdateSaleRequest) =>
     requestBody.client_id = payload.clientId;
   }
 
+  if (payload.appointmentId !== undefined) {
+    requestBody.appointment_id = payload.appointmentId;
+  }
+
   if (payload.staffId !== undefined) {
     requestBody.staff_id = payload.staffId || undefined;
   }
