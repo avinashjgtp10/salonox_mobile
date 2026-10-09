@@ -24,7 +24,10 @@ type Revenue = {
 
 const currency = (value: number) => `Rs. ${value.toLocaleString("en-IN")}`;
 
-const toIsoDate = (value: Date) => value.toISOString().slice(0, 10);
+// Local calendar date — toISOString() is UTC, which in IST rolls back to
+// yesterday before 5:30am and opened the wrong day's report.
+const toIsoDate = (value: Date) =>
+  `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
 
 const getReportRange = (period: RevenuePeriod) => {
   const today = new Date();

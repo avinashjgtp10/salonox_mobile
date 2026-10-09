@@ -1,9 +1,12 @@
+import { AttendanceBreakModal } from "@/features/attendance/components/AttendanceBreakModal";
+import { AttendanceActivityDetails } from "@/features/attendance/components/AttendanceActivityDetails";
+import { appAlert } from "@/services/appAlert";
 import { useStaffSelfAttendance } from "@/features/attendance/components/StaffAttendanceGate";
 import { useAppToast } from "@/hooks/useAppToast";
 import { getApiErrorMessage } from "@/services/api";
 import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -56,6 +59,7 @@ const getResponsiveHorizontalPadding = (width: number) => {
 
 export function StaffAttendanceScreen() {
   const selfAttendance = useStaffSelfAttendance();
+  const [breakVisible, setBreakVisible] = useState(false);
   const toast = useAppToast();
   const Colors = useThemeColors();
   const { width } = useWindowDimensions();
@@ -71,7 +75,7 @@ export function StaffAttendanceScreen() {
   const recordsRefreshing = useAppSelector(selectAttendanceRecordsRefreshing);
   const isOffline = useAppSelector(selectAttendanceIsOffline);
 
-  const todayKey = useMemo(() => getTodayAttendanceDateKey(), []);
+  const todayKey = selfAttendance?.state?.date ?? getTodayAttendanceDateKey();
   const currentStaffId = currentStaff?.id ?? null;
   const overviewRecord = useMemo(
     () => (currentStaff ? findAttendanceRecordForStaff(records, currentStaff) : undefined),
@@ -94,9 +98,10 @@ export function StaffAttendanceScreen() {
     loadAttendance();
   }, [loadAttendance]);
 
+  const refreshSelf = selfAttendance?.refresh;
   const handleRefresh = useCallback(() => {
-    loadAttendance();
-  }, [loadAttendance]);
+    loadAttendance(); void refreshSelf?.();
+  }, [loadAttendance, refreshSelf]);
 
   return (
     <SafeAreaView edges={["top"]} style={[styles.safeArea, { backgroundColor: Colors.bg }]}>
@@ -125,12 +130,16 @@ export function StaffAttendanceScreen() {
           </Text>
         </View>
 
-        {selfAttendance?.state?.checked_in && !selfAttendance.state.record?.check_out ? (
-          <TouchableOpacity disabled={selfAttendance.busy} accessibilityRole="button"
-            onPress={() => void selfAttendance.checkOut().then(() => {
-              toast.showSuccess("Checked out successfully."); loadAttendance();
-            }).catch(error => toast.showError(getApiErrorMessage(error)))}
-            style={{ backgroundColor: Colors.primary, borderRadius: 14, padding: 16, alignItems: "center", marginBottom: 16 }}>
+        {selfAttendance?.state?.current_status === "ON_BREAK" ? (
+          <TouchableOpacity disabled={selfAttendance.busy} accessibilityRole="button" onPress={() => void selfAttendance.checkIn().then(() => { toast.showSuccess("Welcome back. You are working."); loadAttendance(); }).catch(error => toast.showError(getApiErrorMessage(error)))} style={{ backgroundColor: Colors.primary, borderRadius: 14, padding: 16, alignItems: "center" }}>
+            {selfAttendance.busy ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "700" }}>Check In</Text>}
+          </TouchableOpacity>
+        ) : selfAttendance?.state?.checked_in && !selfAttendance.state.record?.check_out ? (
+          <TouchableOpacity disabled={selfAttendance.busy} accessibilityRole="button" onPress={() => appAlert.alert("Check Out", "Do you need a break, or are you done for today?", [
+            { text: "Cancel", style: "cancel" },
+            { text: "Take a Break", onPress: () => setBreakVisible(true) },
+            { text: "Final Checkout", style: "destructive", onPress: () => void selfAttendance.checkOut().then(() => { toast.showSuccess("Shift completed."); loadAttendance(); }).catch(error => toast.showError(getApiErrorMessage(error))) },
+          ])} style={{ backgroundColor: Colors.primary, borderRadius: 14, padding: 16, alignItems: "center" }}>
             {selfAttendance.busy ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "700" }}>Check Out</Text>}
           </TouchableOpacity>
         ) : null}
@@ -176,6 +185,7 @@ export function StaffAttendanceScreen() {
                 </View>
               </View>
 
+              <AttendanceActivityDetails activity={selfRecord?.activity} finalCheckout={selfRecord?.checkOutTime} />
               <View style={[styles.detailsGrid, { borderColor: Colors.border }]}>
                 <Detail label="Check In" value={formatAttendanceTime(selfRecord?.checkInTime)} />
                 <Detail label="Check Out" value={formatAttendanceTime(selfRecord?.checkOutTime)} />
@@ -188,6 +198,10 @@ export function StaffAttendanceScreen() {
           )}
         </View>
       </ScrollView>
+      <AttendanceBreakModal visible={breakVisible} state={selfAttendance?.state ?? null} busy={selfAttendance?.busy ?? false} onClose={() => setBreakVisible(false)} onSubmit={async body => {
+        if (!selfAttendance) throw new Error("Attendance is unavailable. Please refresh.");
+        await selfAttendance.startBreak(body); toast.showSuccess("Break started. Check in when you return."); loadAttendance();
+      }} />
     </SafeAreaView>
   );
 }

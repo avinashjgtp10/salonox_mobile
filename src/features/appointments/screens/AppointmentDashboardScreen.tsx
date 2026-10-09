@@ -57,7 +57,11 @@ function AppointmentDashboardScreenContent() {
       cancelled: filtered.filter((appointment) => appointment.status === "Cancelled").length,
       completed: filtered.filter((appointment) => appointment.status === "Completed").length,
       missed: filtered.filter((appointment) => appointment.status === "Missed").length,
-      revenue: filtered.reduce((total, appointment) => total + (appointment.total || appointment.amount), 0),
+      // Money actually received, like the dashboard's revenue cards — not the
+      // bill total, which also counted cancelled, missed and unpaid bookings.
+      revenue: filtered
+        .filter((appointment) => !["Cancelled", "Missed", "Deleted"].includes(appointment.status))
+        .reduce((total, appointment) => total + Math.max(0, appointment.paidAmount), 0),
       today: filtered.length,
       upcoming: filtered.filter((appointment) =>
         ["Upcoming", "Confirmed", "Waiting", "Checked In", "In Service", "In Progress"].includes(
