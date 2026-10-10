@@ -161,6 +161,8 @@ export type AppointmentDetailApiData =
 
 export type AppointmentListQuery = {
   date?: string;
+  /** Owner list endpoint range filter (inclusive YYYY-MM-DD). */
+  end_date?: string;
   from_date?: string;
   limit: number;
   page: number;
@@ -168,6 +170,7 @@ export type AppointmentListQuery = {
   sort_by: string;
   sort_order: "ASC" | "DESC";
   staff_id?: string;
+  start_date?: string;
   status?: string;
   to_date?: string;
 };
