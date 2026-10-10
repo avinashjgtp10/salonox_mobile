@@ -114,11 +114,18 @@ export type ReportConfig = {
   paginated: boolean;
   permission: "view_reports";
   primaryFields: string[];
+  /** Search box hint; defaults to "Search <report title>". */
+  searchPlaceholder?: string;
   slug: ReportSlug;
   status: ReportAvailability;
   statusReason?: string;
   subtitle: string;
   title: string;
+  /**
+   * Website report layout: date range + "Filters" button in one row, then the
+   * summary cards, then the search box directly above the list.
+   */
+  websiteLayout?: boolean;
 };
 
 const available = (
@@ -142,7 +149,7 @@ const unavailable = (
 const baseReportConfigs: ReportConfig[] = [
   available({ slug: "sales-summary", title: "Sales Summary", subtitle: "View every bill raised for a period - totals, payments, balances and status.", group: "Sales", icon: "analytics-outline", endpoint: "/api/report/sales-summary", filters: ["start_date", "end_date", "staff_id", "status", "category_id", "search"], paginated: true, primaryFields: ["invoiceNumber", "clientName", "price", "status"], emptyMessage: "No sales found" }),
   available({ slug: "daily-sheet", title: "Daily Sheet", subtitle: "A single day's transactions - tickets, services, staff and collections.", group: "Sales", icon: "calendar-outline", endpoint: "/api/report/daily-sheet", filters: ["date", "staff_id", "service_id", "search"], paginated: true, primaryFields: ["ticketNo", "clientName", "service", "amount"], emptyMessage: "No daily transactions found" }),
-  available({ slug: "product-retail", title: "Product Retail", subtitle: "Products sold directly to clients.", group: "Sales", icon: "bag-handle-outline", endpoint: "/api/report/product-retail", filters: ["start_date", "end_date", "product_id", "search"], paginated: true, primaryFields: ["productName", "clientName", "quantity", "total"], emptyMessage: "No product sales found" }),
+  available({ slug: "product-retail", title: "Product Retail", subtitle: "Products sold directly to clients.", group: "Sales", icon: "bag-handle-outline", endpoint: "/api/report/product-retail", filters: ["start_date", "end_date", "product_id", "search"], paginated: true, primaryFields: ["productName", "clientName", "quantity", "total"], emptyMessage: "No product sales found", searchPlaceholder: "Product, client or invoice", websiteLayout: true }),
   available({ slug: "service-sale", title: "Service Sale", subtitle: "Every service sold, with revenue and staff/client detail.", group: "Sales", icon: "cut-outline", endpoint: "/api/report/service-sale", filters: ["start_date", "end_date", "staff_id", "search"], paginated: true, primaryFields: ["serviceName", "staffName", "clientName", "price"], emptyMessage: "No service sales found" }),
   available({ slug: "gst-report", title: "GST Report", subtitle: "Tax collected per invoice.", group: "Sales", icon: "document-text-outline", endpoint: "/api/report/gst", filters: ["start_date", "end_date", "staff_id", "search"], paginated: true, primaryFields: ["invoiceNo", "clientName", "taxableAmount", "taxAmount"], emptyMessage: "No GST records found" }),
   available({ slug: "product-margin", title: "Product Margin", subtitle: "Profit margin per product.", group: "Sales", icon: "trending-up-outline", endpoint: "/api/report/product-margin", filters: ["start_date", "end_date"], paginated: true, primaryFields: ["productName", "quantity", "profit", "marginPct"], emptyMessage: "No product margins found" }),

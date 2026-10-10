@@ -170,6 +170,83 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
 
   const activeFilterCount = countReportFilters(config.slug, filters);
 
+  const websiteLayout = Boolean(config.websiteLayout);
+
+  const searchBar = supportsSearch && !isUnavailable ? (
+    <View style={styles.searchBar}>
+      <Ionicons name="search-outline" size={18} color={Colors.text2} />
+      <TextInput
+        accessibilityLabel={`Search ${config.title}`}
+        onChangeText={setSearch}
+        placeholder={config.searchPlaceholder ?? `Search ${config.title.toLowerCase()}`}
+        placeholderTextColor={Colors.placeholder}
+        returnKeyType="search"
+        style={styles.searchInput}
+        value={search}
+      />
+      {search ? (
+        <TouchableOpacity accessibilityLabel="Clear search" onPress={() => setSearch("")} style={styles.clearButton}>
+          <Ionicons name="close-circle" size={18} color={Colors.hint} />
+        </TouchableOpacity>
+      ) : null}
+    </View>
+  ) : null;
+
+  const dateSelector = (
+    <TouchableOpacity
+      accessibilityHint="Opens a calendar to pick the report date range"
+      accessibilityRole="button"
+      disabled={isUnavailable || !dateKeys}
+      onPress={() => setRangeSheetVisible(true)}
+      style={[styles.dateSelector, websiteLayout && styles.dateSelectorInRow, (isUnavailable || !dateKeys) && styles.disabledButton]}
+    >
+      <View style={styles.dateIcon}>
+        <Ionicons name="calendar-outline" size={17} color={Colors.primaryDark} />
+      </View>
+      <View style={styles.dateCopy}>
+        <Text style={styles.dateLabel}>REPORT RANGE</Text>
+        <Text style={styles.dateValue}>{dateRangeLabel}</Text>
+      </View>
+      <Ionicons name="chevron-down" size={16} color={Colors.hint} />
+    </TouchableOpacity>
+  );
+
+  // Website layout: a labeled "Filters" button next to the date range, like the web report.
+  const filtersButton = (
+    <TouchableOpacity
+      accessibilityLabel={`Filters, ${activeFilterCount} active`}
+      accessibilityRole="button"
+      disabled={isUnavailable}
+      onPress={() => setFilterSheetVisible(true)}
+      style={[styles.filtersPill, activeFilterCount ? styles.filtersPillActive : null, isUnavailable && styles.disabledButton]}
+    >
+      <Ionicons name="funnel-outline" size={16} color={activeFilterCount ? Colors.primaryDark : Colors.heading} />
+      <Text style={[styles.filtersPillText, activeFilterCount ? styles.filtersPillTextActive : null]}>Filters</Text>
+      {activeFilterCount ? <Text style={styles.filtersPillCount}>{activeFilterCount}</Text> : null}
+    </TouchableOpacity>
+  );
+
+  const summarySection = isUnavailable ? (
+    <View style={styles.unavailableCard}>
+      <Ionicons name="construct-outline" size={24} color={Colors.hint} />
+      <Text style={styles.unavailableTitle}>Backend unavailable</Text>
+      <Text style={styles.unavailableText}>
+        {config.statusReason ?? "This report does not have a verified current Reports API endpoint."}
+      </Text>
+    </View>
+  ) : (
+    <ReportSummaryCards summary={summary} />
+  );
+
+  const resultsHeading = rows.length ? (
+    <View style={styles.resultsHeading}>
+      <Text style={styles.resultsTitle}>RESULTS</Text>
+      <Text style={styles.resultsCount}>
+        {pagination?.total ?? rows.length} {pagination?.total === 1 ? "record" : "records"}
+      </Text>
+    </View>
+  ) : null;
+
   const listHeader = (
     <View style={styles.listHeader}>
       <View style={styles.header}>
@@ -187,74 +264,39 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
           <Text allowFontScaling style={styles.title}>{config.title}</Text>
           <Text allowFontScaling style={styles.subtitle}>{config.subtitle}</Text>
         </View>
-        <TouchableOpacity
-          accessibilityLabel={`Filters, ${activeFilterCount} active`}
-          accessibilityRole="button"
-          disabled={isUnavailable}
-          onPress={() => setFilterSheetVisible(true)}
-          style={[styles.filterButton, isUnavailable && styles.disabledButton]}
-        >
-          <Ionicons name="options-outline" size={19} color={Colors.heading} />
-          {activeFilterCount ? <Text style={styles.filterCount}>{activeFilterCount}</Text> : null}
-        </TouchableOpacity>
+        {websiteLayout ? null : (
+          <TouchableOpacity
+            accessibilityLabel={`Filters, ${activeFilterCount} active`}
+            accessibilityRole="button"
+            disabled={isUnavailable}
+            onPress={() => setFilterSheetVisible(true)}
+            style={[styles.filterButton, isUnavailable && styles.disabledButton]}
+          >
+            <Ionicons name="options-outline" size={19} color={Colors.heading} />
+            {activeFilterCount ? <Text style={styles.filterCount}>{activeFilterCount}</Text> : null}
+          </TouchableOpacity>
+        )}
       </View>
 
-      {supportsSearch && !isUnavailable ? (
-        <View style={styles.searchBar}>
-          <Ionicons name="search-outline" size={18} color={Colors.text2} />
-          <TextInput
-            accessibilityLabel={`Search ${config.title}`}
-            onChangeText={setSearch}
-            placeholder={`Search ${config.title.toLowerCase()}`}
-            placeholderTextColor={Colors.placeholder}
-            returnKeyType="search"
-            style={styles.searchInput}
-            value={search}
-          />
-          {search ? (
-            <TouchableOpacity accessibilityLabel="Clear search" onPress={() => setSearch("")} style={styles.clearButton}>
-              <Ionicons name="close-circle" size={18} color={Colors.hint} />
-            </TouchableOpacity>
-          ) : null}
-        </View>
-      ) : null}
-
-      <TouchableOpacity
-        accessibilityHint="Opens a calendar to pick the report date range"
-        accessibilityRole="button"
-        disabled={isUnavailable || !dateKeys}
-        onPress={() => setRangeSheetVisible(true)}
-        style={[styles.dateSelector, (isUnavailable || !dateKeys) && styles.disabledButton]}
-      >
-        <View style={styles.dateIcon}>
-          <Ionicons name="calendar-outline" size={17} color={Colors.primaryDark} />
-        </View>
-        <View style={styles.dateCopy}>
-          <Text style={styles.dateLabel}>REPORT RANGE</Text>
-          <Text style={styles.dateValue}>{dateRangeLabel}</Text>
-        </View>
-        <Ionicons name="chevron-down" size={16} color={Colors.hint} />
-      </TouchableOpacity>
-
-      {isUnavailable ? (
-        <View style={styles.unavailableCard}>
-          <Ionicons name="construct-outline" size={24} color={Colors.hint} />
-          <Text style={styles.unavailableTitle}>Backend unavailable</Text>
-          <Text style={styles.unavailableText}>
-            {config.statusReason ?? "This report does not have a verified current Reports API endpoint."}
-          </Text>
-        </View>
+      {websiteLayout ? (
+        <>
+          {/* Same order as the website report: filters, summary, then search right above the list. */}
+          <View style={styles.filterRow}>
+            {dateSelector}
+            {filtersButton}
+          </View>
+          {summarySection}
+          {searchBar}
+          {resultsHeading}
+        </>
       ) : (
-        <ReportSummaryCards summary={summary} />
+        <>
+          {searchBar}
+          {dateSelector}
+          {summarySection}
+          {resultsHeading}
+        </>
       )}
-      {rows.length ? (
-        <View style={styles.resultsHeading}>
-          <Text style={styles.resultsTitle}>RESULTS</Text>
-          <Text style={styles.resultsCount}>
-            {pagination?.total ?? rows.length} {pagination?.total === 1 ? "record" : "records"}
-          </Text>
-        </View>
-      ) : null}
     </View>
   );
 
@@ -405,6 +447,20 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     alignItems: "center", backgroundColor: Colors.card, borderColor: Colors.border,
     borderRadius: AppRadius.card, borderWidth: 1, flexDirection: "row",
     gap: Spacing.md, minHeight: 66, padding: Spacing.md,
+  },
+  filterRow: { alignItems: "stretch", flexDirection: "row", flexWrap: "wrap", gap: Spacing.sm },
+  dateSelectorInRow: { flexBasis: 200, flexGrow: 1, flexShrink: 1 },
+  filtersPill: {
+    alignItems: "center", backgroundColor: Colors.card, borderColor: Colors.border,
+    borderRadius: AppRadius.card, borderWidth: 1, flexDirection: "row", flexGrow: 0,
+    gap: 6, justifyContent: "center", minHeight: 66, paddingHorizontal: Spacing.md,
+  },
+  filtersPillActive: { backgroundColor: Colors.backgroundSelected, borderColor: Colors.primary },
+  filtersPillText: { color: Colors.heading, fontSize: 13, fontWeight: "800" },
+  filtersPillTextActive: { color: Colors.primaryDark },
+  filtersPillCount: {
+    backgroundColor: Colors.primaryDark, borderRadius: 999, color: "#FFFFFF", fontSize: 10,
+    fontWeight: "800", minWidth: 18, overflow: "hidden", paddingHorizontal: 5, paddingVertical: 1, textAlign: "center",
   },
   dateIcon: {
     alignItems: "center", backgroundColor: Colors.backgroundElement,
