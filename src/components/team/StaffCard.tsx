@@ -16,6 +16,7 @@ import { formatStaffDisplayName } from "@/utils/name";
 
 type StaffCardProps = {
   metricsReady?: boolean;
+  revenueReady?: boolean;
   metricsError?: boolean;
   index: number;
   onCall: (staffMember: StaffMember) => void;
@@ -75,7 +76,7 @@ function ActionIcon({
   );
 }
 
-function StaffCardComponent({ onCall, onMessage, onMore, staffMember, metricsReady = true, metricsError = false }: StaffCardProps) {
+function StaffCardComponent({ onCall, onMessage, onMore, staffMember, metricsReady = true, revenueReady = true, metricsError = false }: StaffCardProps) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const statusPalette = getStatusPalette(staffMember.status, Colors);
@@ -144,7 +145,7 @@ function StaffCardComponent({ onCall, onMessage, onMore, staffMember, metricsRea
               <Text style={styles.performanceCaption}>Appointments</Text>
             </View>
             <View style={styles.performanceCard}>
-              <Text style={styles.performanceValue}>{metricsReady ? formatCurrency(staffMember.todayRevenue) : "—"}</Text>
+              <Text style={styles.performanceValue}>{revenueReady ? formatCurrency(staffMember.todayRevenue) : "—"}</Text>
               <Text style={styles.performanceCaption}>Revenue</Text>
             </View>
             <View style={styles.performanceCard}>

@@ -4,6 +4,7 @@ import { ApiError, getApiErrorMessage } from "@/services/api";
 import { spotlightService } from "@/services/spotlight.service";
 import type { RootState } from "@/store";
 import type { SpotlightList } from "@/types/spotlight";
+import { logApiError } from "@/utils/logApiError";
 
 type SpotlightRejectValue = {
   message: string;
@@ -23,7 +24,7 @@ export const fetchSpotlightFeaturesThunk = createAsyncThunk<
   try {
     return await spotlightService.getFeatures();
   } catch (error) {
-    console.error("[Spotlight] Fetch features failed", toRejectValue(error));
+    logApiError("[Spotlight] Fetch features failed", toRejectValue(error));
 
     return rejectWithValue(toRejectValue(error));
   }

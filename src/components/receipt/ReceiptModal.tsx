@@ -1,4 +1,5 @@
 import { maskPhone } from "@/utils/maskPhone";
+import { useClientPrivacy } from "@/hooks/useClientPrivacy";
 import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useState } from "react";
@@ -19,12 +20,14 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
   onClose,
   receiptData,
 }) => {
+  const { clientName } = useClientPrivacy();
   const Colors = useThemeColors();
   const [paperSize, setPaperSize] = useState<"80mm" | "58mm">("80mm");
   const [isActionLoading, setIsActionLoading] = useState(false);
 
   const activeData: ReceiptData = {
     ...receiptData,
+    client: { ...receiptData.client, name: clientName(receiptData.client.name) },
     paperSize,
   };
 

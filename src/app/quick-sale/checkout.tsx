@@ -1,3 +1,4 @@
+import { maskClientName } from "@/utils/clientPrivacy";
 import { Text } from "@/components/ui/AppTypography";
 import { Redirect } from "expo-router";
 import { useAuth } from "@/context/AuthContext";
@@ -181,7 +182,7 @@ function OwnerQuickSaleCheckoutScreen() {
   const total = authoritativeSale?.total ?? 0;
   const paymentMethod = authoritativeSale?.paymentMethod ?? "-";
   const lineItems = authoritativeSale?.lineItems ?? [];
-  const clientName = authoritativeSale?.clientName ?? "-";
+  const clientName = isStaff ? maskClientName(authoritativeSale?.clientName) : authoritativeSale?.clientName ?? "-";
   const createdDateLabel = authoritativeSale?.createdDateLabel ?? "-";
   const itemCount = lineItems.reduce((count, item) => count + item.quantity, 0);
   const outstandingAmount = authoritativeSale?.outstandingAmount ?? 0;
@@ -239,7 +240,7 @@ function OwnerQuickSaleCheckoutScreen() {
         paymentMethod: formatPaymentMethod(authoritativeSale.paymentMethod),
       },
       client: {
-        name: authoritativeSale.clientName ?? "Walk-in Client",
+        name: isStaff ? maskClientName(authoritativeSale.clientName) : authoritativeSale.clientName ?? "Walk-in Client",
         phone: authoritativeSale.clientPhone,
         email: undefined,
       },
@@ -265,7 +266,7 @@ function OwnerQuickSaleCheckoutScreen() {
       footerMessage: "Thank you for your business! Visit us again soon.",
       upiQrUrl: undefined,
     };
-  }, [authoritativeSale, salon, salonLoaded, user]);
+  }, [authoritativeSale, isStaff, salon, salonLoaded, user]);
 
   useEffect(() => {
     if (params.openReceipt === "1" && receiptData && !hasAutoOpenedReceiptRef.current) {

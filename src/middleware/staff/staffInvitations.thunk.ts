@@ -11,6 +11,7 @@ import type {
   ResendInviteResponse,
   VerifyInviteResult,
 } from "@/types/staffInvitations";
+import { logApiError } from "@/utils/logApiError";
 
 type RejectValue = {
   message: string;
@@ -34,7 +35,7 @@ export const fetchInvitationStatusThunk = createAsyncThunk<
 
     return { staffId, status };
   } catch (error) {
-    console.error("[StaffInvitations] Fetch status failed", { staffId, ...toRejectValue(error) });
+    logApiError("[StaffInvitations] Fetch status failed", { staffId, ...toRejectValue(error) });
 
     return rejectWithValue(toRejectValue(error));
   }
@@ -48,7 +49,7 @@ export const resendInviteThunk = createAsyncThunk<
   try {
     return await staffInvitationsService.resendInvite(staffId);
   } catch (error) {
-    console.error("[StaffInvitations] Resend failed", { staffId, ...toRejectValue(error) });
+    logApiError("[StaffInvitations] Resend failed", { staffId, ...toRejectValue(error) });
 
     return rejectWithValue(toRejectValue(error));
   }
@@ -62,7 +63,7 @@ export const cancelInviteThunk = createAsyncThunk<
   try {
     return await staffInvitationsService.cancelInvite(staffId);
   } catch (error) {
-    console.error("[StaffInvitations] Cancel failed", { staffId, ...toRejectValue(error) });
+    logApiError("[StaffInvitations] Cancel failed", { staffId, ...toRejectValue(error) });
 
     return rejectWithValue(toRejectValue(error));
   }
@@ -76,7 +77,7 @@ export const verifyInviteTokenThunk = createAsyncThunk<
   try {
     return await staffInvitationsService.verifyInviteToken(token);
   } catch (error) {
-    console.error("[StaffInvitations] Verify token failed", { ...toRejectValue(error) });
+    logApiError("[StaffInvitations] Verify token failed", { ...toRejectValue(error) });
 
     return rejectWithValue(toRejectValue(error));
   }
@@ -90,7 +91,7 @@ export const acceptInviteThunk = createAsyncThunk<
   try {
     return await staffInvitationsService.acceptInvite(payload);
   } catch (error) {
-    console.error("[StaffInvitations] Accept failed", { ...toRejectValue(error) });
+    logApiError("[StaffInvitations] Accept failed", { ...toRejectValue(error) });
 
     return rejectWithValue(toRejectValue(error));
   }

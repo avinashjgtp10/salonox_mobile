@@ -4,6 +4,7 @@ import { ApiError, getApiErrorMessage } from "@/services/api";
 import { staffCommissionsService } from "@/services/staffCommissions.service";
 import type { RootState } from "@/store";
 import type { CommissionHistoryEntry } from "@/types/staffCommissions";
+import { logApiError } from "@/utils/logApiError";
 
 type RejectValue = {
   message: string;
@@ -17,17 +18,21 @@ const toRejectValue = (error: unknown): RejectValue => ({
   status: error instanceof ApiError ? error.status : undefined,
 });
 
-export const fetchCommissionHistoryThunk = createAsyncThunk<
-  { history: CommissionHistoryEntry[]; staffId: string },
-  string,
-  { rejectValue: RejectValue; state: RootState }
->("staffCommissions/fetchHistory", async (staffId, { rejectWithValue }) => {
-  try {
-    const history = await staffCommissionsService.getCommissionHistory(staffId);
+export type CommissionHistoryArgs = { month: string; staffId: string };
 
-    return { history, staffId };
+export const commissionHistoryKey = ({ month, staffId }: CommissionHistoryArgs) => `${staffId}:${month}`;
+
+export const fetchCommissionHistoryThunk = createAsyncThunk<
+  { history: CommissionHistoryEntry[]; key: string },
+  CommissionHistoryArgs,
+  { rejectValue: RejectValue; state: RootState }
+>("staffCommissions/fetchHistory", async (args, { rejectWithValue }) => {
+  try {
+    const history = await staffCommissionsService.getCommissionHistory(args.staffId, args.month);
+
+    return { history, key: commissionHistoryKey(args) };
   } catch (error) {
-    console.error("[StaffCommissions] Fetch history failed", { staffId, ...toRejectValue(error) });
+    logApiError("[StaffCommissions] Fetch history failed", { ...args, ...toRejectValue(error) });
 
     return rejectWithValue(toRejectValue(error));
   }

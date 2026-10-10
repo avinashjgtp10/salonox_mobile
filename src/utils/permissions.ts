@@ -1,5 +1,16 @@
 import type { AuthUser } from "@/types/auth";
-import { canManageStaffLifecycle } from "@/utils/userProfile";
+import { canManageStaffLifecycle, canSettleCommission } from "@/utils/userProfile";
+
+export const COMMISSION_RULE_PERMISSIONS = {
+  ADD: "add_commission_rule",
+  DELETE: "delete_commission_rule",
+  EDIT: "edit_commission_rule",
+  VIEW: "view_commissions",
+} as const;
+
+/** Owners/admins can do everything; others need the same permission key the web checks. */
+export const canUseCommissionRules = (user: AuthUser | null | undefined, permissionKey: string): boolean =>
+  canSettleCommission(user?.role) || hasCustomPermission(user, permissionKey);
 
 export const CONSUMABLE_PERMISSIONS = {
   ADJUST_STOCK: "stock_adjustment",

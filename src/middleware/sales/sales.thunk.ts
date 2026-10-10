@@ -22,6 +22,7 @@ import type {
   UpdateSaleRequest,
   UpdateSaleResponse,
 } from "@/types/sales";
+import { logApiError } from "@/utils/logApiError";
 
 export type FetchSalesInitArgs = {
   refresh?: boolean;
@@ -44,7 +45,7 @@ export const fetchSalesInitThunk = createAsyncThunk<
   } catch (error) {
     const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
 
-    console.error("[Sales] Init fetch failed", {
+    logApiError("[Sales] Init fetch failed", {
       message,
       responseBody: error instanceof ApiError ? error.responseData : undefined,
       status: error instanceof ApiError ? error.status : undefined,
@@ -101,7 +102,7 @@ export const fetchSalesThunk = createAsyncThunk<
     const salonId = selectActiveBranchId(getState());
     return await salesService.getSales(nextQuery, salonId);
   } catch (error) {
-    console.error("[Sales] List fetch failed", toRejectValue(error));
+    logApiError("[Sales] List fetch failed", toRejectValue(error));
 
     return rejectWithValue(toRejectValue(error));
   }
@@ -115,7 +116,7 @@ export const fetchSaleByIdThunk = createAsyncThunk<
   try {
     return await salesService.getSale(saleId);
   } catch (error) {
-    console.error("[Sales] Fetch by ID failed", { ...toRejectValue(error), saleId });
+    logApiError("[Sales] Fetch by ID failed", { ...toRejectValue(error), saleId });
 
     return rejectWithValue(toRejectValue(error));
   }
@@ -141,7 +142,7 @@ export const createSaleThunk = createAsyncThunk<
 
     return response;
   } catch (error) {
-    console.error("[Sales] Create failed", toRejectValue(error));
+    logApiError("[Sales] Create failed", toRejectValue(error));
 
     return rejectWithValue(toRejectValue(error));
   }
@@ -167,7 +168,7 @@ export const updateSaleThunk = createAsyncThunk<
 
     return response;
   } catch (error) {
-    console.error("[Sales] Update failed", { ...toRejectValue(error), saleId });
+    logApiError("[Sales] Update failed", { ...toRejectValue(error), saleId });
 
     return rejectWithValue(toRejectValue(error));
   }
@@ -198,7 +199,7 @@ export const checkoutSaleThunk = createAsyncThunk<
 
     return response;
   } catch (error) {
-    console.error("[Sales] Checkout failed", { ...toRejectValue(error), saleId });
+    logApiError("[Sales] Checkout failed", { ...toRejectValue(error), saleId });
 
     return rejectWithValue(toRejectValue(error));
   }
@@ -218,7 +219,7 @@ export const deleteSaleThunk = createAsyncThunk<
 
     return response;
   } catch (error) {
-    console.error("[Sales] Delete failed", { ...toRejectValue(error), saleId });
+    logApiError("[Sales] Delete failed", { ...toRejectValue(error), saleId });
 
     return rejectWithValue(toRejectValue(error));
   }
@@ -233,7 +234,7 @@ export const fetchSalesSummaryThunk = createAsyncThunk<
     const salonId = selectActiveBranchId(getState());
     return await salesService.getSalesSummary(salonId);
   } catch (error) {
-    console.error("[Sales] Summary fetch failed", toRejectValue(error));
+    logApiError("[Sales] Summary fetch failed", toRejectValue(error));
 
     return rejectWithValue(toRejectValue(error));
   }
@@ -250,7 +251,7 @@ export const exportSalesThunk = createAsyncThunk<
     const { format = "csv", ...query } = args || {};
     return await salesService.exportSales(query, format);
   } catch (error) {
-    console.error("[Sales] Export failed", toRejectValue(error));
+    logApiError("[Sales] Export failed", toRejectValue(error));
 
     return rejectWithValue(toRejectValue(error));
   }

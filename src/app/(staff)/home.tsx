@@ -1,4 +1,5 @@
 import { AttendanceBreakModal } from "@/features/attendance/components/AttendanceBreakModal";
+import { getAppointmentBillLabel, maskClientName } from "@/utils/clientPrivacy";
 import { AttendanceActivityDetails, formatAttendanceDuration } from "@/features/attendance/components/AttendanceActivityDetails";
 import type { AttendanceActivity } from "@/types/attendance";
 import { appAlert } from "@/services/appAlert";
@@ -191,6 +192,8 @@ const getStaffAttendanceStateLabel = (
   record: ReturnType<typeof findAttendanceRecordForStaff> | undefined,
   fallbackLabel: string,
 ) => {
+  // The day's status stays "Present" after final checkout; staff see their live state.
+  if (record?.activity?.current_status === "CHECKED_OUT") return "Completed";
   if (record?.activity) return fallbackLabel;
   if (!record?.checkInTime) {
     return "Not Checked In";
@@ -645,8 +648,8 @@ function TimelineRow({ appointment, isLast }: { appointment: AppointmentListItem
       <Text numberOfLines={1} style={stylesStatic.timelineTime}>{formatTimeLabel(appointment.startTime ?? appointment.scheduledAt)}</Text>
       <View style={[stylesStatic.timelineInfo, !isLast && stylesStatic.timelineInfoBorder]}>
         <View style={stylesStatic.timelineCopy}>
-          <Text numberOfLines={1} style={stylesStatic.timelineClient}>{appointment.clientName}</Text>
-          <Text numberOfLines={1} style={stylesStatic.timelineService}>{appointment.serviceName}</Text>
+          <Text numberOfLines={1} style={stylesStatic.timelineClient}>{getAppointmentBillLabel(appointment)}</Text>
+          <Text numberOfLines={1} style={stylesStatic.timelineService}>{maskClientName(appointment.clientName)} · {appointment.serviceName}</Text>
           <Text numberOfLines={1} style={stylesStatic.timelineMeta}>{bookingType}</Text>
         </View>
         <Badge bg={badge.bg} color={badge.color} label={badge.label} size="sm" />

@@ -1,4 +1,6 @@
 import { Text } from "@/components/ui/AppTypography";
+import { useClientPrivacy } from "@/hooks/useClientPrivacy";
+import { getAppointmentBillLabel } from "@/utils/clientPrivacy";
 import { AppointmentPreviewSheet } from "@/features/appointments/components/calendar/AppointmentPreviewSheet";
 import { createStyles } from "@/features/appointments/styles/appointmentStyles";
 import { appointmentsOverlap, getAppointmentRange, getCalendarAppointmentTitle, getCalendarTokenLabel, getWebCalendarGradient, hasCalendarInteractionFlag, isReadonlyCalendarAppointment } from "@/features/appointments/utils/appointmentCalendar";
@@ -82,6 +84,7 @@ export function CalendarPreview({
   quickSaleEnabled?: boolean;
   expandSingleColumn?: boolean;
 }) {
+  const { staffMode, clientName } = useClientPrivacy();
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const [previewAppointment, setPreviewAppointment] = useState<AppointmentListItem | null>(null);
@@ -158,8 +161,8 @@ export function CalendarPreview({
             <View key={appointment.id} style={styles.dinggListTimelineRow}>
               <View style={styles.dinggListTimeRail}><Text style={styles.dinggListHour}>{formatTimeLabel(appointment.scheduledAt)}</Text><View style={styles.dinggListRailLine} /></View>
               <Pressable onPress={() => openAppointment(appointment)} style={[styles.dinggListAppointment, appointment.status === "Completed" && styles.dinggListCompleted, appointment.status === "Confirmed" && styles.dinggListConfirmed]}>
-                <View style={styles.dinggListClientRow}><View style={styles.dinggListAvatar}><Ionicons name="person-outline" size={24} color={Colors.appointmentTextSecondary} /></View><View style={styles.dinggListClientCopy}><Text numberOfLines={1} style={styles.dinggListClientName}>{appointment.clientName}</Text><Text style={styles.dinggListPhone}>{maskPhone(appointment.phone)}</Text></View><Ionicons name="male-outline" size={22} color={Colors.appointmentText} /><Ionicons name="gift-outline" size={22} color={Colors.appointmentText} /></View>
-                <View style={styles.dinggListCopy}><Text numberOfLines={1} style={styles.dinggAppointmentName}>{appointment.serviceName}</Text><Text numberOfLines={1} style={styles.dinggAppointmentClient}>{appointment.clientName} · {appointment.staffName}</Text></View>
+                <View style={styles.dinggListClientRow}><View style={styles.dinggListAvatar}><Ionicons name="person-outline" size={24} color={Colors.appointmentTextSecondary} /></View><View style={styles.dinggListClientCopy}><Text numberOfLines={1} style={styles.dinggListClientName}>{staffMode ? getAppointmentBillLabel(appointment) : appointment.clientName}</Text><Text style={styles.dinggListPhone}>{maskPhone(appointment.phone)}</Text></View><Ionicons name="male-outline" size={22} color={Colors.appointmentText} /><Ionicons name="gift-outline" size={22} color={Colors.appointmentText} /></View>
+                <View style={styles.dinggListCopy}><Text numberOfLines={1} style={styles.dinggAppointmentName}>{appointment.serviceName}</Text><Text numberOfLines={1} style={styles.dinggAppointmentClient}>{clientName(appointment.clientName)} · {appointment.staffName}</Text></View>
                 <View style={styles.dinggListDetailRow}><Ionicons name="cut-outline" size={19} color={Colors.appointmentAccent} /><Text numberOfLines={2} style={styles.dinggListService}>{appointment.serviceName}</Text></View>
                 <View style={styles.dinggListDetailRow}><Ionicons name="time-outline" size={19} color={Colors.appointmentAccent} /><Text style={styles.dinggListTimeRange}>{formatTimeLabel(appointment.scheduledAt)} - {formatTimeLabel(appointment.endTime)}</Text><View style={styles.dinggListStaffWrap}><Text style={styles.dinggListWith}>with</Text><Text numberOfLines={1} style={styles.dinggListStaff}>{appointment.staffName || "-"}</Text></View></View>
                 <View style={styles.dinggListStatusRow}><View style={[styles.dinggListStatusDot, appointment.status === "Completed" && styles.dinggStatusCompleted, appointment.status === "Confirmed" && styles.dinggStatusConfirmed]} /><Text style={styles.dinggListStatus}>{appointment.status}</Text></View>
@@ -320,6 +323,7 @@ const CalendarDayColumn = memo(function CalendarDayColumn({
   styles: CalendarStyles;
   width: number;
 }) {
+  const { staffMode, clientName } = useClientPrivacy();
   const handleSlotPress = useCallback(
     (event: GestureResponderEvent) => onSlotPress(column, event.nativeEvent.locationY),
     [column, onSlotPress],
@@ -345,7 +349,7 @@ const CalendarDayColumn = memo(function CalendarDayColumn({
           : appointment.durationMinutes ?? 30;
         const height = Math.max((calendarDurationMinutes / 60) * HOUR_HEIGHT, 36);
         const top = (offsetMinutes / 60) * HOUR_HEIGHT;
-        const appointmentTitle = getCalendarAppointmentTitle(appointment);
+        const appointmentTitle = staffMode ? appointment.serviceName : getCalendarAppointmentTitle(appointment);
         const tokenLabel = getCalendarTokenLabel(appointment);
         const endTimeLabel = appointment.endTime
           ? formatTimeLabel(appointment.endTime)
@@ -353,7 +357,8 @@ const CalendarDayColumn = memo(function CalendarDayColumn({
             ? formatAppTime(new Date(appointmentRange.end), "--:--")
             : "--:--";
         const appointmentSummary = [
-          appointment.clientName || "Walk-In",
+          staffMode ? getAppointmentBillLabel(appointment) : appointment.clientName || "Walk-In",
+          staffMode ? clientName(appointment.clientName) : "",
           tokenLabel,
           `${formatTimeLabel(appointment.scheduledAt)}-${endTimeLabel}`,
           appointmentTitle,

@@ -5,7 +5,7 @@ import { forwardRef, useMemo, useState } from "react";
 import { Modal, Platform, Pressable, StyleSheet, TouchableOpacity, View } from "react-native";
 
 import { DashboardRadius as Radius, DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { useAppTheme, useThemeColors } from "@/theme/ThemeProvider";
 
 export type DateFieldProps = {
   displayFormat?: "localized" | "DD-MM-YYYY";
@@ -53,6 +53,7 @@ const formatDisplayDate = (isoDate: string, displayFormat: DateFieldProps["displ
 
 export const DateField = forwardRef<View, DateFieldProps>(function DateField({ displayFormat = "localized", error, label, maximumDate, minimumDate, onChange, placeholder, value }, ref) {
   const Colors = useThemeColors();
+  const { scheme } = useAppTheme();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const [isPickerVisible, setIsPickerVisible] = useState(false);
 
@@ -108,12 +109,17 @@ export const DateField = forwardRef<View, DateFieldProps>(function DateField({ d
           <Pressable onPress={() => setIsPickerVisible(false)} style={styles.modalBackdrop}>
             <Pressable style={styles.modalCard}>
               <Text style={styles.modalTitle}>{label}</Text>
+              {/* The spinner follows the iPhone's system theme by default, which draws
+                  invisible wheel text when it differs from the app theme. */}
               <DateTimePicker
                 display="spinner"
                 maximumDate={maximumDate}
                 minimumDate={minimumDate}
                 mode="date"
                 onChange={handleChange}
+                style={styles.iosPicker}
+                textColor={Colors.heading}
+                themeVariant={scheme}
                 value={toDateValue(value)}
               />
               <TouchableOpacity
@@ -186,6 +192,9 @@ const createStyles = (Colors: ThemeColors) =>
       paddingHorizontal: Spacing.md,
       paddingTop: Spacing.lg,
       width: "88%",
+    },
+    iosPicker: {
+      alignSelf: "center",
     },
     modalTitle: {
       color: Colors.heading,

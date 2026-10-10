@@ -11,6 +11,7 @@ import type {
   UpdateLeaveRequest,
   UpdateLeaveResponse,
 } from "@/types/staffLeaves";
+import { logApiError } from "@/utils/logApiError";
 
 type RejectValue = {
   message: string;
@@ -34,7 +35,7 @@ export const fetchLeavesThunk = createAsyncThunk<
 
     return { leaves, staffId };
   } catch (error) {
-    console.error("[StaffLeaves] Fetch failed", { staffId, ...toRejectValue(error) });
+    logApiError("[StaffLeaves] Fetch failed", { staffId, ...toRejectValue(error) });
 
     return rejectWithValue(toRejectValue(error));
   }
@@ -48,7 +49,7 @@ export const createLeaveThunk = createAsyncThunk<
   try {
     return await staffLeavesService.createLeave(staffId, payload);
   } catch (error) {
-    console.error("[StaffLeaves] Create failed", { staffId, ...toRejectValue(error) });
+    logApiError("[StaffLeaves] Create failed", { staffId, ...toRejectValue(error) });
 
     return rejectWithValue(toRejectValue(error));
   }
@@ -62,7 +63,7 @@ export const updateLeaveThunk = createAsyncThunk<
   try {
     return await staffLeavesService.updateLeave(staffId, recordId, updates);
   } catch (error) {
-    console.error("[StaffLeaves] Update failed", { recordId, staffId, ...toRejectValue(error) });
+    logApiError("[StaffLeaves] Update failed", { recordId, staffId, ...toRejectValue(error) });
 
     return rejectWithValue(toRejectValue(error));
   }
@@ -76,7 +77,7 @@ export const deleteLeaveThunk = createAsyncThunk<
   try {
     return await staffLeavesService.deleteLeave(staffId, recordId);
   } catch (error) {
-    console.error("[StaffLeaves] Delete failed", { recordId, staffId, ...toRejectValue(error) });
+    logApiError("[StaffLeaves] Delete failed", { recordId, staffId, ...toRejectValue(error) });
 
     return rejectWithValue(toRejectValue(error));
   }

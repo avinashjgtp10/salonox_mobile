@@ -102,6 +102,35 @@ export type SalesSummaryDetailResponse = {
 };
 
 export const reportService = {
+  /** Same item-level revenue (including GST) as the Staff Performance drill-down.
+   * The report endpoint resolves the salon from the authenticated session.
+   */
+  async getStaffPerformanceRevenue(range: { start_date: string; end_date: string }, allStaff = false) {
+    const records: { id: string; name: string; revenue: number }[] = [];
+    let page = 1;
+    do {
+      const response = await this.getReport(REPORT.STAFF_PERFORMANCE, {
+        ...range,
+        include_gst: true,
+        page,
+        limit: allStaff ? 200 : 8,
+      });
+      const rows = response.rows as {
+        staffId: string; staffName: string; totalRevenue: number | string;
+      }[] | undefined;
+      const mapped = (Array.isArray(rows) ? rows : []).map((row) => ({
+        id: row.staffId,
+        name: row.staffName,
+        revenue: toReportNumber(row.totalRevenue),
+      }));
+      records.push(...mapped);
+      const pagination = response.pagination as { totalPages?: number } | undefined;
+      if (!allStaff || page >= (pagination?.totalPages ?? 1)) return records;
+      if (mapped.length === 0) throw new Error("Incomplete staff revenue pagination");
+      page += 1;
+    } while (true);
+  },
+
   async getReport(
     endpoint: `/api/report/${string}`,
     request: GenericReportRequest,

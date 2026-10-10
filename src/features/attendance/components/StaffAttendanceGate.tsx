@@ -15,6 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 type AttendanceContext = { state: StaffSelfAttendance | null; record: AttendanceRecord | null; refresh: () => Promise<void>; checkIn: () => Promise<void>; startBreak: (body: StartBreakRequest) => Promise<void>; checkOut: () => Promise<void>; busy: boolean };
 const StaffAttendanceContext = createContext<AttendanceContext | null>(null);
+const PUNCH_RESULT = { checkIn: "WORKING", startBreak: "ON_BREAK", checkOut: "CHECKED_OUT" } as const;
 export const useStaffSelfAttendance = () => useContext(StaffAttendanceContext);
 const displayTime = (value: string | null | undefined) => value ? new Date(value).toLocaleTimeString("en-IN", {
   timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hour12: true,
@@ -67,7 +68,17 @@ export function StaffAttendanceGate({ children }: { children: ReactNode }) {
     if (!identity || punchLock.current) throw new Error("An attendance action is already in progress.");
     punchLock.current = true; ++requestVersion.current; setRefreshing(false); setBusy(true); setError(null);
     try {
-      const next = kind === "startBreak" ? await staffSelfAttendanceService.startBreak(body!) : await staffSelfAttendanceService[kind]();
+      let next: StaffSelfAttendance;
+      try {
+        next = kind === "startBreak" ? await staffSelfAttendanceService.startBreak(body!) : await staffSelfAttendanceService[kind]();
+      } catch (failure) {
+        // The server can save a punch after the app stops waiting (timeout, dropped
+        // response). A retry then fails with "You are already working", so ask the
+        // server whether the punch landed before reporting failure.
+        const current = await staffSelfAttendanceService.get().catch(() => null);
+        if (current?.current_status !== PUNCH_RESULT[kind]) throw failure;
+        next = current;
+      }
       if (liveIdentity.current === identity) { setSnapshot({ identity, state: next }); setNow(new Date()); }
     } catch (failure) {
       if (liveIdentity.current === identity) setError(getApiErrorMessage(failure));

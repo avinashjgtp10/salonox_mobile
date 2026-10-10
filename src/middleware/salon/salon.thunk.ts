@@ -12,6 +12,7 @@ import type {
   UpdateSalonFormFields,
   UpdateSalonResponse,
 } from "@/types/salon";
+import { logApiError } from "@/utils/logApiError";
 
 type FetchSalonMeRejectValue = {
   message: string;
@@ -53,7 +54,7 @@ export const fetchSalonMeThunk = createAsyncThunk<
 
     const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
 
-    console.error("[Salons] Fetch me failed", {
+    logApiError("[Salons] Fetch me failed", {
       message,
       responseBody: error instanceof ApiError ? error.responseData : undefined,
       status: error instanceof ApiError ? error.status : undefined,
@@ -89,7 +90,7 @@ export const fetchSalonsThunk = createAsyncThunk<
   } catch (error) {
     const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
 
-    console.error("[Salons] Fetch list failed", {
+    logApiError("[Salons] Fetch list failed", {
       message,
       responseBody: error instanceof ApiError ? error.responseData : undefined,
       status: error instanceof ApiError ? error.status : undefined,
@@ -145,7 +146,7 @@ export const updateSalonThunk = createAsyncThunk<
   } catch (error) {
     const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
 
-    console.error("[Salons] Update failed", {
+    logApiError("[Salons] Update failed", {
       salonId: activeSalonId,
       message,
       responseBody: error instanceof ApiError ? error.responseData : undefined,

@@ -44,8 +44,11 @@ const normalizeHistoryEntry = (entry: UnknownRecord, index: number): CommissionH
 };
 
 export const staffCommissionsService = {
-  async getCommissionHistory(staffId: string): Promise<CommissionHistoryEntry[]> {
-    const response = await api.get<CommissionHistoryApiResponse>(STAFF.COMMISSIONS_HISTORY(staffId));
+  /** `month` is YYYY-MM; the web app also loads history one month at a time. */
+  async getCommissionHistory(staffId: string, month: string): Promise<CommissionHistoryEntry[]> {
+    const response = await api.get<CommissionHistoryApiResponse>(STAFF.COMMISSIONS_HISTORY(staffId), {
+      params: { month },
+    });
 
     return getHistoryArray(response.data.data).map(normalizeHistoryEntry);
   },
