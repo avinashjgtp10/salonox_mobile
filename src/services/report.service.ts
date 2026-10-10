@@ -131,6 +131,13 @@ export const reportService = {
     } while (true);
   },
 
+  /** Average customer rating for staff in a date range (client-rating report stats). */
+  async getStaffRating(staffIds: string[], range: { start_date: string; end_date: string }) {
+    const response = await this.getReport(REPORT.CLIENT_RATING, { ...range, staff_ids: staffIds, page: 1, limit: 1 });
+    const stats = (response.stats ?? {}) as { averageRating?: unknown; totalReviews?: unknown };
+    return { averageRating: toReportNumber(stats.averageRating), totalReviews: toReportNumber(stats.totalReviews) };
+  },
+
   async getReport(
     endpoint: `/api/report/${string}`,
     request: GenericReportRequest,
