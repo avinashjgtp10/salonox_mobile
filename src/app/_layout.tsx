@@ -20,6 +20,7 @@ import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { FirstLoginGuide } from '@/features/userGuide/UserGuide';
 import type { ThemeColors } from '@/constants/theme';
 import { useAppUpdateAnnouncement } from '@/hooks/useAppUpdateAnnouncement';
+import { useOtaUpdate } from '@/hooks/useOtaUpdate';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useNetworkMonitor } from '@/hooks/useNetworkMonitor';
 import { useRealtimeSync } from '@/hooks/useRealtimeSync';
@@ -255,6 +256,27 @@ function NetworkSetup() {
 
 function AppUpdateSetup({ ready }: { ready: boolean }) {
   const { close, reopen, isVisible, updateInfo } = useAppUpdateAnnouncement();
+  const ota = useOtaUpdate();
+
+  // A store (binary) update takes priority; otherwise announce a new EAS Update.
+  if (!updateInfo?.isUpdateAvailable && !updateInfo?.isMandatory && ota.hasUpdate) {
+    return (
+      <>
+      <FirstLoginGuide enabled={ready && !ota.visible} />
+      <UpdateAnnouncementModal
+        description="A new version of SalonOX is ready. Update now to get the latest improvements and fixes."
+        isMandatory={false}
+        isUpdating={ota.isApplying}
+        onClose={ota.dismiss}
+        onReopen={ota.reopen}
+        onUpdate={ota.apply}
+        reminderMessage="Tap Show Update whenever you're ready to update."
+        title="SalonOX Update"
+        visible={ota.visible}
+      />
+      </>
+    );
+  }
 
   if (!updateInfo) {
     return <FirstLoginGuide enabled={ready} />;
