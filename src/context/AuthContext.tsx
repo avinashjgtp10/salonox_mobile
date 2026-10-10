@@ -15,6 +15,7 @@ import { ApiError, cancelProtectedApiRequests, getApiErrorMessage } from "@/serv
 import { beginUserLogout, finishUserLogin } from "@/services/authLifecycle";
 import { appAlert } from "@/services/appAlert";
 import { authService } from "@/services/authService";
+import { guideStorage } from "@/features/userGuide/guideStorage";
 import {
   getAuthErrorStatus,
   logAuthEvent,
@@ -267,6 +268,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
       finishUserLogin();
       applyAuthenticatedUserAndPersistLater(withOnboardingStatus(authData.user, authData));
       markStartup("post_login_navigation");
+
+      if (authData.user?.id) {
+        void guideStorage.markJustRegistered(authData.user.id);
+      }
 
       void syncCurrentUserProfile().catch((profileError) => {
         logAuthEvent("register_profile_fetch_failed", {

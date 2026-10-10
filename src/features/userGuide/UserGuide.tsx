@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Modal, ScrollView, StyleSheet, View } from "react-native";
-import { Button, Icon, ProgressBar, Text, useTheme } from "react-native-paper";
+import { Button, Icon, IconButton, ProgressBar, Text, useTheme } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router, useSegments } from "expo-router";
 
@@ -88,12 +88,24 @@ export function FirstLoginGuide({ enabled }: { enabled: boolean }) {
   }} />;
 }
 
-export function UserGuideButton() {
+export function UserGuideButton({ variant = "button" }: { variant?: "button" | "icon" }) {
   const { user } = useAuth();
+  const { colors } = useTheme();
   const [visible, setVisible] = useState(false);
   return (
     <>
-      <Button icon="compass-outline" mode="outlined" onPress={() => setVisible(true)}>User guide</Button>
+      {variant === "icon" ? (
+        <IconButton
+          accessibilityLabel="User guide"
+          icon="help-circle-outline"
+          iconColor={colors.primary}
+          onPress={() => setVisible(true)}
+          size={24}
+          style={styles.helpIcon}
+        />
+      ) : (
+        <Button icon="compass-outline" mode="outlined" onPress={() => setVisible(true)}>User guide</Button>
+      )}
       <FeatureTourMenu staff={isStaffExperienceUser(user)} />
       {visible && <GuideModal staff={isStaffExperienceUser(user)} onClose={() => {
         setVisible(false);
@@ -104,6 +116,7 @@ export function UserGuideButton() {
 }
 
 const styles = StyleSheet.create({
+  helpIcon: { margin: 0 },
   backdrop: { flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 20, backgroundColor: "rgba(0,0,0,0.55)" },
   card: { width: "100%", maxWidth: 480, maxHeight: "100%", borderRadius: 24, overflow: "hidden" },
   content: { padding: 24 },
