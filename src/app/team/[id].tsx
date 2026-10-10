@@ -99,7 +99,7 @@ export default function StaffProfileScreen() {
     () => (storedStaffMember ? [storedStaffMember] : []),
     [storedStaffMember],
   );
-  const dailyMetrics = useStaffDailyMetrics(staffMembersForMetrics);
+  const dailyMetrics = useStaffDailyMetrics(staffMembersForMetrics, true);
   const staffMember = dailyMetrics.members[0] ?? storedStaffMember;
   const metricsReady = dailyMetrics.ready;
   const dispatch = useAppDispatch();
@@ -366,17 +366,18 @@ export default function StaffProfileScreen() {
 
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>Performance Metrics</Text>
+          {dailyMetrics.revenueError ? <Text style={styles.metricLabel}>Unable to load revenue. Reopen this page to retry.</Text> : null}
           <View style={styles.metricsGrid}>
             <View style={styles.metricCard}>
               <Text style={styles.metricValue}>{metricsReady ? staffMember.todayAppointments : "—"}</Text>
               <Text style={styles.metricLabel}>Today&apos;s Appointments</Text>
             </View>
             <View style={styles.metricCard}>
-              <Text style={styles.metricValue}>{formatCurrency(staffMember.weeklyRevenue)}</Text>
-              <Text style={styles.metricLabel}>Weekly Revenue</Text>
+              <Text style={styles.metricValue}>{dailyMetrics.revenueReady ? formatCurrency(staffMember.weeklyRevenue) : "—"}</Text>
+              <Text style={styles.metricLabel}>Revenue This Week (Mon–Today)</Text>
             </View>
             <View style={styles.metricCard}>
-              <Text style={styles.metricValue}>{formatCurrency(staffMember.monthlyRevenue)}</Text>
+              <Text style={styles.metricValue}>{dailyMetrics.revenueReady ? formatCurrency(staffMember.monthlyRevenue) : "—"}</Text>
               <Text style={styles.metricLabel}>Monthly Revenue</Text>
             </View>
             <View style={styles.metricCard}>
@@ -393,7 +394,7 @@ export default function StaffProfileScreen() {
             </View>
             <View style={styles.metricCard}>
               <Text style={styles.metricValue}>
-                {metricsReady ? formatCurrency(staffMember.todayRevenue) : "—"}
+                {dailyMetrics.revenueReady ? formatCurrency(staffMember.todayRevenue) : "—"}
               </Text>
               <Text style={styles.metricLabel}>Revenue Today</Text>
             </View>
