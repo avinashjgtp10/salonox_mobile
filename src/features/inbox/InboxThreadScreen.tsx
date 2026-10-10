@@ -3,7 +3,7 @@ import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect, useLocalSearchParams, type Href } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, AppState, FlatList, Keyboard, KeyboardAvoidingView, Modal, Platform, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, AppState, Dimensions, FlatList, Keyboard, KeyboardAvoidingView, Modal, Platform, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { ConfirmationModal } from "@/components/ui/ConfirmationModal";
@@ -27,6 +27,8 @@ const QUICK_REPLIES = [
   { label: "How can we help?", text: "Hello! How can we help you today?" },
 ];
 const EMOJIS = ["😊", "👍", "❤️", "🙏", "✨", "🎉", "💇", "✅", "😍", "👋", "💚", "📅"];
+// Remembered across chats so the first focus in a thread lifts by the real keyboard height.
+let lastKeyboardHeight = 0;
 
 function Thread({ phone }: { phone: string }) {
   const { styles: s, palette: p } = useInboxTheme();
@@ -70,6 +72,25 @@ function Thread({ phone }: { phone: string }) {
     });
     return () => { focused.current = false; clearInterval(timer); clearInterval(clock); subscription.remove(); dispatch(inboxActivePhoneChanged(null)); };
   }, [dispatch, phone, refresh]));
+  // Android draws edge-to-edge, so the window no longer shrinks for the keyboard and
+  // KeyboardAvoidingView cannot lift the composer; pad the chat by the keyboard height.
+  const [keyboardInset, setKeyboardInset] = useState(0);
+  const liftComposer = (height: number) => {
+    lastKeyboardHeight = height;
+    setKeyboardInset(height);
+    if (nearBottom.current) requestAnimationFrame(() => list.current?.scrollToEnd({ animated: true }));
+  };
+  // Android often skips keyboardDidShow on the first focus, so lift on focus with
+  // the best known height; the real event corrects it when it arrives.
+  const onComposerFocus = () => {
+    if (Platform.OS === "android") liftComposer(Keyboard.metrics()?.height || lastKeyboardHeight || Dimensions.get("window").height * 0.36);
+  };
+  useEffect(() => {
+    if (Platform.OS !== "android") return;
+    const shown = Keyboard.addListener("keyboardDidShow", event => liftComposer(event.endCoordinates.height));
+    const hidden = Keyboard.addListener("keyboardDidHide", () => setKeyboardInset(0));
+    return () => { shown.remove(); hidden.remove(); };
+  }, []);
   const replyWindow = getReplyWindow(messages, now);
   const previousConnection = useRef(connected);
   useEffect(() => {
@@ -101,7 +122,7 @@ function Thread({ phone }: { phone: string }) {
       <InboxIcon name="refresh-outline" label="Refresh messages" onPress={refresh} disabled={loading} />
       <InboxIcon name="information-circle-outline" label="Show customer info" onPress={() => setInfoOpen(true)} />
     </View>
-    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={s.chat}>
+    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={[s.chat, keyboardInset > 0 && { paddingBottom: keyboardInset }]}>
       {!!error && <TouchableOpacity accessibilityRole="button" onPress={refresh} style={s.banner}><Text style={s.error}>{error} · Tap to retry</Text></TouchableOpacity>}
       <View pointerEvents="none" style={{ position: "absolute", top: 0, bottom: 0, left: 0, right: 0, overflow: "hidden", justifyContent: "space-around" }}>{Array.from({ length: 6 }, (_, i) => <View key={i} style={{ flexDirection: "row", justifyContent: "space-around" }}>{[0, 1].map(j => <Text key={j} style={{ color: p.muted, opacity: 0.08, letterSpacing: 5, fontSize: 17, transform: [{ rotate: "-20deg" }] }}>SalonOX</Text>)}</View>)}</View>
       <FlatList ref={list} data={visibleMessages} keyExtractor={item => item.id} style={s.fill} contentContainerStyle={s.messageList} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag"
@@ -118,7 +139,7 @@ function Thread({ phone }: { phone: string }) {
           <View style={s.composer}>
             <InboxIcon name="flash-outline" label="Quick replies" disabled={sending || loading} onPress={() => { Keyboard.dismiss(); setTray(tray === "quick" ? null : "quick"); }} />
             <InboxIcon name="happy-outline" label="Insert emoji" disabled={sending || loading} onPress={() => setTray(tray === "emoji" ? null : "emoji")} />
-            <TextInput accessibilityLabel="Type a WhatsApp message" multiline maxLength={4096} editable={!sending && !loading && allowed && replyAllowed} value={draft} onChangeText={text => { if (text === "/" && !draft) { Keyboard.dismiss(); setTray("quick"); return; } setDraft(text); }} placeholder="Type a message…" placeholderTextColor={p.muted} style={s.input} />
+            <TextInput accessibilityLabel="Type a WhatsApp message" multiline maxLength={4096} editable={!sending && !loading && allowed && replyAllowed} value={draft} onFocus={onComposerFocus} onBlur={() => setKeyboardInset(0)} onChangeText={text => { if (text === "/" && !draft) { Keyboard.dismiss(); setTray("quick"); return; } setDraft(text); }} placeholder="Type a message…" placeholderTextColor={p.muted} style={s.input} />
             <TouchableOpacity accessibilityRole="button" accessibilityLabel="Send message" accessibilityState={{ disabled: !canSend }} disabled={!canSend} onPress={send} style={[s.icon, s.send, !canSend && { opacity: 0.4 }]}>{sending ? <ActivityIndicator color={p.onAccent} /> : <Ionicons name="send" size={20} color={p.onAccent} />}</TouchableOpacity>
           </View>
         </>}

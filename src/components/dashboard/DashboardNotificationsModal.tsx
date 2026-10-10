@@ -20,6 +20,8 @@ import {
 } from "@/store/notification/notification.slice";
 import type { NotificationItem } from "@/types/notification";
 import { resolveNotificationRoute } from "@/utils/notificationRouting";
+import { useThemeColors } from "@/theme/ThemeProvider";
+import type { ThemeColors } from "@/constants/theme";
 
 type DashboardNotificationsModalProps = {
   onClose: () => void;
@@ -27,6 +29,8 @@ type DashboardNotificationsModalProps = {
 };
 
 export function DashboardNotificationsModal({ onClose, visible }: DashboardNotificationsModalProps) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const dispatch = useAppDispatch();
   const insets = useSafeAreaInsets();
   const notifications = useAppSelector(selectNotifications);
@@ -70,7 +74,7 @@ export function DashboardNotificationsModal({ onClose, visible }: DashboardNotif
           <View style={styles.header}>
             <Text style={styles.heading}>Notifications</Text>
             <TouchableOpacity accessibilityLabel="Close notifications" hitSlop={12} onPress={onClose} style={styles.closeButton}>
-              <Ionicons color="#686868" name="close" size={27} />
+              <Ionicons color={colors.text2} name="close" size={27} />
             </TouchableOpacity>
           </View>
 
@@ -86,7 +90,7 @@ export function DashboardNotificationsModal({ onClose, visible }: DashboardNotif
           </View>
 
           {loading && notifications.length === 0 ? (
-            <View style={styles.centerState}><ActivityIndicator color="#BE5793" size="large" /></View>
+            <View style={styles.centerState}><ActivityIndicator color={colors.primary} size="large" /></View>
           ) : (
             <FlatList
               contentContainerStyle={visibleNotifications.length === 0 ? styles.emptyList : styles.list}
@@ -112,7 +116,7 @@ export function DashboardNotificationsModal({ onClose, visible }: DashboardNotif
                   onPress={() => handleNotificationPress(item)}
                   style={styles.row}
                 >
-                  <Avatar.Icon color="#BE6A9F" icon="bell-outline" size={50} style={styles.alertIcon} />
+                  <Avatar.Icon color={colors.primary} icon="bell-outline" size={50} style={styles.alertIcon} />
                   <View style={styles.notificationCopy}>
                     <View style={styles.titleRow}>
                       <Text numberOfLines={1} style={styles.title}>{item.title || "SalonOX Alert"}</Text>
@@ -126,7 +130,7 @@ export function DashboardNotificationsModal({ onClose, visible }: DashboardNotif
               ListEmptyComponent={
                 <View style={styles.centerState}>
                   <Ionicons
-                    color="#BE5793"
+                    color={colors.primary}
                     name={filter === "unread" ? "checkmark-done-outline" : "notifications-off-outline"}
                     size={32}
                   />
@@ -144,7 +148,7 @@ export function DashboardNotificationsModal({ onClose, visible }: DashboardNotif
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   backdrop: {
     alignItems: "center",
     backgroundColor: "rgba(0,0,0,0.58)",
@@ -154,12 +158,12 @@ const styles = StyleSheet.create({
     paddingVertical: 58,
   },
   panel: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: colors.card,
     borderRadius: 7,
     elevation: 24,
     maxHeight: "100%",
     overflow: "hidden",
-    shadowColor: "#000000",
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3,
     shadowRadius: 18,
@@ -174,7 +178,7 @@ const styles = StyleSheet.create({
     paddingTop: 20,
   },
   heading: {
-    color: "#17131B",
+    color: colors.heading,
     fontFamily: "serif",
     fontSize: 25,
     fontWeight: "800",
@@ -194,14 +198,15 @@ const styles = StyleSheet.create({
   },
   row: {
     alignItems: "flex-start",
-    borderBottomColor: "#D8D8D8",
+    backgroundColor: colors.card,
+    borderBottomColor: colors.border,
     borderBottomWidth: StyleSheet.hairlineWidth,
     flexDirection: "row",
     gap: 12,
     paddingVertical: 17,
   },
   alertIcon: {
-    backgroundColor: "#E2E2E2",
+    backgroundColor: colors.backgroundSelected,
   },
   notificationCopy: {
     flex: 1,
@@ -215,17 +220,17 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   title: {
-    color: "#111111",
+    color: colors.heading,
     flex: 1,
     fontSize: 15,
     fontWeight: "800",
   },
   date: {
-    color: "#707070",
+    color: colors.text2,
     fontSize: 12,
   },
   body: {
-    color: "#171717",
+    color: colors.text,
     fontSize: 14,
     lineHeight: 19,
     marginTop: 10,
@@ -242,7 +247,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   emptyText: {
-    color: "#707070",
+    color: colors.text2,
     fontSize: 14,
     fontWeight: "700",
   },

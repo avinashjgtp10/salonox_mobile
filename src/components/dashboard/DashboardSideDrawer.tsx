@@ -30,7 +30,6 @@ type DashboardSideDrawerProps = {
 const ACTIONS: DashboardDrawerAction[] = [
   { icon: "grid-outline", label: "Catalog", route: "/catalog" as Href, tone: "primary" },
   { icon: "stats-chart-outline", label: "Reports", route: "/reports" as Href, tone: "gold" },
-  { icon: "logo-whatsapp", label: "WhatsApp Inbox", route: "/inbox" as Href, tone: "green" },
   { icon: "person-add-outline", label: "Add Client", route: "/clients/new" as Href, tone: "green" },
   { icon: "people-outline", label: "Add Staff", route: "/team/new" as Href, tone: "indigo" },
   { icon: "shield-checkmark-outline", label: "Staff Permissions", route: "/team/permissions" as Href, tone: "purple" },

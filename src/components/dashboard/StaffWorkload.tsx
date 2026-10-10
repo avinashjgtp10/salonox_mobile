@@ -9,6 +9,7 @@ import {
   DashboardSpacing as Spacing,
   type ThemeColors,
 } from "@/constants/theme";
+import { AttendanceActivityDetails } from "@/features/attendance/components/AttendanceActivityDetails";
 import { findAttendanceRecordForStaff } from "@/features/attendance/utils/attendanceMatching";
 import {
   formatAttendanceTime,
@@ -84,12 +85,6 @@ const getAvailabilityPresentation = (member: StaffMember, jobs: number, Colors: 
   };
 };
 
-const getProgressColor = (pct: number, Colors: ThemeColors) => {
-  if (pct >= 65) return Colors.success;
-  if (pct >= 35) return Colors.warning;
-  return Colors.error;
-};
-
 export default function StaffWorkload() {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
@@ -133,10 +128,7 @@ export default function StaffWorkload() {
           {staffMembers.map((member) => {
             const attendanceRecord = recordsDate === attendanceDate
               ? findAttendanceRecordForStaff(attendanceRecords, member) ?? null : null;
-            const isOnLeave = attendanceRecord?.statusKey === "onLeave";
-            const totalSlots = 8;
             const jobs = countStaffDailyAppointments(member, rawStaffMembers, appointments, requestedDate, attendanceDate);
-            const pct = isOnLeave ? 0 : Math.min(100, Math.round((jobs / totalSlots) * 100));
             const attendance = getAttendancePresentation(attendanceRecord, Colors);
             const availability = getAvailabilityPresentation(member, jobs, Colors);
             const initials =
@@ -200,21 +192,7 @@ export default function StaffWorkload() {
                     ))}
                   </View>
 
-                  <Text style={styles.memberMeta}>
-                    Today&apos;s Appointments: {jobs}
-                  </Text>
-
-                  <View style={styles.progressTrack}>
-                    <View
-                      style={[
-                        styles.progressFill,
-                        {
-                          backgroundColor: getProgressColor(pct, Colors),
-                          width: `${pct}%`,
-                        },
-                      ]}
-                    />
-                  </View>
+                  <AttendanceActivityDetails activity={attendanceRecord?.activity} finalCheckout={attendanceRecord?.checkOutTime} showShift={false} />
                 </View>
 
                 <Ionicons name="chevron-forward" size={19} color={Colors.text2} />
@@ -431,22 +409,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     flex: 1,
     fontSize: 12,
     lineHeight: 17,
-  },
-  memberMeta: {
-    color: Colors.text2,
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  progressTrack: {
-    backgroundColor: Colors.backgroundElement,
-    borderRadius: Radius.full,
-    height: 6,
-    overflow: "hidden",
-  },
-  progressFill: {
-    borderRadius: Radius.full,
-    height: "100%",
-    minWidth: 8,
   },
   legendCard: {
     backgroundColor: Colors.dashboardCard,

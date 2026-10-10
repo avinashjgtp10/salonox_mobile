@@ -1,22 +1,25 @@
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState, type ReactNode } from "react";
+import { createContext, forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState, type ReactNode } from "react";
 import { Dimensions, Keyboard, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-export type KeyboardAwareFormHandle = { revealField: (field: View | null) => void };
+type MeasurableField = Pick<View, "measureInWindow">;
+export type KeyboardAwareFormHandle = { revealField: (field: MeasurableField | null) => void };
+export const FormFieldFocusContext = createContext<((field: MeasurableField | null) => void) | null>(null);
 
 /** Keeps form fields visible while allowing taps to switch inputs without dismissing the keyboard. */
 type KeyboardAwareFormProps = {
   children: ReactNode;
   /** A sheet already handles iOS keyboard avoidance and supplies a bounded height. */
   embedded?: boolean;
+  autoReveal?: boolean;
   style?: StyleProp<ViewStyle>;
   contentContainerStyle?: StyleProp<ViewStyle>;
 };
-export const KeyboardAwareForm = forwardRef<KeyboardAwareFormHandle, KeyboardAwareFormProps>(function KeyboardAwareForm({ children, embedded = false, style, contentContainerStyle }, ref) {
+export const KeyboardAwareForm = forwardRef<KeyboardAwareFormHandle, KeyboardAwareFormProps>(function KeyboardAwareForm({ children, embedded = false, autoReveal = false, style, contentContainerStyle }, ref) {
   const insets = useSafeAreaInsets();
   const scroll = useRef<ScrollView>(null);
   const viewportRef = useRef<View>(null);
-  const focused = useRef<View | null>(null);
+  const focused = useRef<MeasurableField | null>(null);
   const open = useRef(false);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const offset = useRef(0);
@@ -44,16 +47,15 @@ export const KeyboardAwareForm = forwardRef<KeyboardAwareFormHandle, KeyboardAwa
     timers.current = [60, 220, 420].map((delay) => setTimeout(reveal, delay));
   }, [reveal]);
 
-  useImperativeHandle(ref, () => ({
-    revealField(field) {
-      if (!field) return;
-      focused.current = field;
-      open.current = true;
-      // Focus must work even when Android does not deliver a keyboard-show event.
-      if (Platform.OS === "android") setKeyboardHeight(Keyboard.metrics()?.height || Dimensions.get("window").height * 0.5);
-      scheduleReveal();
-    },
-  }), [scheduleReveal]);
+  const revealField = useCallback((field: MeasurableField | null) => {
+    if (!field) return;
+    focused.current = field;
+    open.current = true;
+    // Focus must work even when Android does not deliver a keyboard-show event.
+    if (Platform.OS === "android") setKeyboardHeight(Keyboard.metrics()?.height || Dimensions.get("window").height * 0.5);
+    scheduleReveal();
+  }, [scheduleReveal]);
+  useImperativeHandle(ref, () => ({ revealField }), [revealField]);
 
   useEffect(() => {
     const shown = Keyboard.addListener("keyboardDidShow", (event) => {
@@ -84,7 +86,9 @@ export const KeyboardAwareForm = forwardRef<KeyboardAwareFormHandle, KeyboardAwa
         onScroll={(event) => { offset.current = event.nativeEvent.contentOffset.y; }} scrollEventThrottle={16}
         keyboardShouldPersistTaps="always" keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "none"}
         onContentSizeChange={scheduleReveal} onLayout={scheduleReveal} showsVerticalScrollIndicator={false}>
-        <View style={styles.content}>{children}</View>
+        <FormFieldFocusContext.Provider value={autoReveal ? revealField : null}>
+          <View style={styles.content}>{children}</View>
+        </FormFieldFocusContext.Provider>
       </ScrollView>
     </KeyboardAvoidingView>
     </View>

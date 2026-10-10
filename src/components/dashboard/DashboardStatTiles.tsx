@@ -206,6 +206,9 @@ export default function DashboardStatTiles() {
         const tileStyle = [
           styles.tile,
           { backgroundColor: stat.bg },
+          // Dark tile colors are translucent; Android draws the elevation shadow
+          // through them as a lighter box inside the tile.
+          scheme === "dark" && styles.flatTile,
           "kind" in stat && stat.kind === "revenueComparison" && styles.comparisonTile,
         ];
 
@@ -353,6 +356,10 @@ const createStyles = (Colors: ThemeColors, isCompact: boolean) => StyleSheet.cre
     shadowOpacity: 0.05,
     shadowRadius: 3,
     elevation: 1,
+  },
+  flatTile: {
+    elevation: 0,
+    shadowOpacity: 0,
   },
   tileGradient: {
     ...StyleSheet.absoluteFillObject,

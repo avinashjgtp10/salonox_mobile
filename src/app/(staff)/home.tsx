@@ -191,6 +191,8 @@ const getStaffAttendanceStateLabel = (
   record: ReturnType<typeof findAttendanceRecordForStaff> | undefined,
   fallbackLabel: string,
 ) => {
+  // The day's status stays "Present" after final checkout; staff see their live state.
+  if (record?.activity?.current_status === "CHECKED_OUT") return "Completed";
   if (record?.activity) return fallbackLabel;
   if (!record?.checkInTime) {
     return "Not Checked In";
