@@ -6,13 +6,13 @@ import {
 } from "@/services/appUpdate.service";
 import { appUpdateStorage } from "@/services/appUpdateStorage";
 
-export function useAppUpdateAnnouncement() {
+export function useAppUpdateAnnouncement(enabled = true) {
   const [updateInfo, setUpdateInfo] = useState<AppUpdateInfo | null>(null);
   const [isVisible, setIsVisible] = useState(false);
   const hasCheckedRef = useRef(false);
 
   useEffect(() => {
-    if (hasCheckedRef.current) {
+    if (!enabled || hasCheckedRef.current) {
       return;
     }
 
@@ -57,7 +57,7 @@ export function useAppUpdateAnnouncement() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [enabled]);
 
   const close = useCallback(() => {
     if (updateInfo?.isMandatory) {

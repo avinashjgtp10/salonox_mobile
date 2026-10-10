@@ -1,4 +1,5 @@
 import type { UserProfile } from "@/types/profile";
+import { formatAppDate } from "@/utils/dateTime";
 import { sanitizePhoneDigits } from "@/utils/validation";
 
 export type ProfileEditState = {
@@ -33,16 +34,4 @@ export const formatEmpty = (value: string | null | undefined, emptyText: string)
   return trimmed ? { isEmpty: false, text: trimmed } : { isEmpty: true, text: emptyText };
 };
 
-export const formatMonthYear = (value: string | null | undefined) => {
-  if (!value) {
-    return "-";
-  }
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return "-";
-  }
-
-  return date.toLocaleDateString("en-IN", { month: "long", year: "numeric" });
-};
+export const formatMonthYear = (value: string | null | undefined) => formatAppDate(value, "-");

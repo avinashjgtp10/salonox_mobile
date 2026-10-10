@@ -15,6 +15,7 @@ import {
   selectCommissionHistoryLoading,
 } from "@/store/staff/staffCommissions.slice";
 import { useThemeColors } from "@/theme/ThemeProvider";
+import { formatAppDate } from "@/utils/dateTime";
 import { isValidStaffId } from "@/utils/staffIds";
 
 type StaffCommissionSectionProps = {
@@ -34,7 +35,7 @@ const shiftMonth = (month: string, delta: number) => {
 
 const formatMonthLabel = (month: string) => {
   const [year, monthIndex] = month.split("-").map(Number);
-  return new Date(year, monthIndex - 1, 1).toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+  return formatAppDate(new Date(year, monthIndex - 1, 1));
 };
 
 export function StaffCommissionSection({ staffId }: StaffCommissionSectionProps) {

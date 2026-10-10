@@ -5,6 +5,7 @@ import { Redirect } from "expo-router";
 import { useAuth } from "@/context/AuthContext";
 import { isStaffExperienceUser, STAFF_CALENDAR_ROUTE, STAFF_HOME_ROUTE } from "@/utils/routeResolver";
 import { canUseStaffQuickSale } from "@/utils/staffAccess";
+import { formatAppDate } from "@/utils/dateTime";
 import { appAlert as Alert } from "@/services/appAlert";
 import { ToastOverlay } from "@/components/ui/ToastOverlay";
 import {
@@ -1546,7 +1547,7 @@ function OwnerQuickSaleScreen({
               />
             )
           }
-          subtitle={initialSlot ? `${initialSlot.date} at ${initialSlot.time}` : new Date().toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+          subtitle={initialSlot ? `${formatAppDate(`${initialSlot.date}T00:00:00`)} at ${initialSlot.time}` : formatAppDate(new Date())}
           title={params.draftId ? "Edit Draft" : "Quick Sale"}
         />
 

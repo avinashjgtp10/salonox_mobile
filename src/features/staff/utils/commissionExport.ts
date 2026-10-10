@@ -3,6 +3,7 @@ import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 
 import { salonCommissionsService, type CommissionExportRow } from "@/services/salonCommissions.service";
+import { formatAppDate } from "@/utils/dateTime";
 
 export type CommissionExportFormat = "csv" | "excel" | "pdf";
 
@@ -13,7 +14,7 @@ const money = (value: number) => value.toLocaleString("en-IN", { maximumFraction
 
 export const formatExportMonth = (month: string) => {
   const [year, monthIndex] = month.split("-").map(Number);
-  return new Date(year, monthIndex - 1, 1).toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+  return formatAppDate(new Date(year, monthIndex - 1, 1));
 };
 
 // The web builds its PDF client-side from the same JSON rows; this does the same with expo-print.

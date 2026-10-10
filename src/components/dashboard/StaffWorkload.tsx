@@ -21,6 +21,7 @@ import { useLocalDay } from "@/hooks/useLocalDay";
 import { countStaffDailyAppointments } from "@/utils/staffDailyAppointments";
 import { useAppSelector } from "@/store/hooks";
 import { selectStaffLoading, selectStaffMembers } from "@/store/staff/staff.slice";
+import { formatAppDate } from "@/utils/dateTime";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { StaffMember } from "@/data/teamData";
 import type { AttendanceRecord } from "@/types/attendance";
@@ -32,13 +33,7 @@ type AttendancePresentation = {
   label: string;
 };
 
-const formatDisplayDate = (dateKey: string) => {
-  const [year, month, day] = dateKey.split("-").map(Number);
-  const date = new Date(year, (month || 1) - 1, day || 1);
-  const monthLabel = date.toLocaleString("en-US", { month: "short" });
-
-  return `${date.getDate()} ${monthLabel} ${date.getFullYear()}`;
-};
+const formatDisplayDate = (dateKey: string) => formatAppDate(`${dateKey}T00:00:00`);
 
 const getAttendancePresentation = (
   record: AttendanceRecord | null,
