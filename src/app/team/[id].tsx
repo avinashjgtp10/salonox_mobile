@@ -21,6 +21,7 @@ import {
   useStaffDetails,
 } from "@/features/staff";
 import { useStaffPerformance, type PerformancePeriod } from "@/features/staff/hooks/useStaffPerformance";
+import { useStaffDailyMetrics } from "@/features/staff/hooks/useStaffDailyMetrics";
 import type { AttendanceStatusKey } from "@/types/attendance";
 import { useAppToast } from "@/hooks/useAppToast";
 import { deleteStaffThunk, setStaffActiveStatusThunk } from "@/middleware/staff/staff.thunk";
@@ -135,9 +136,8 @@ export default function StaffProfileScreen() {
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const { id } = useLocalSearchParams<{ id?: string }>();
   const { detailsError, detailsLoading, staffMember: storedStaffMember } = useStaffDetails(id);
-  const staffMember = storedStaffMember;
   const [period, setPeriod] = useState<PerformancePeriod>("today");
-  const performance = useStaffPerformance(staffMember, period);
+  const performance = useStaffPerformance(storedStaffMember, period);
   const perf = performance.data;
   const performanceHasError = Boolean(performance.errors && Object.values(performance.errors).some(Boolean));
   // Empty only when every source loaded and none has activity for the period.
@@ -417,6 +417,41 @@ export default function StaffProfileScreen() {
         </View>
 
         <View style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>Daily Overview</Text>
+          {dailyMetrics.revenueError ? <Text style={styles.metricLabel}>Unable to load revenue. Reopen this page to retry.</Text> : null}
+          <View style={styles.metricsGrid}>
+            <View style={styles.metricCard}>
+              <Text style={styles.metricValue}>{metricsReady ? staffMember.todayAppointments : "—"}</Text>
+              <Text style={styles.metricLabel}>Today&apos;s Appointments</Text>
+            </View>
+            <View style={styles.metricCard}>
+              <Text style={styles.metricValue}>{dailyMetrics.revenueReady ? formatCurrency(staffMember.weeklyRevenue) : "—"}</Text>
+              <Text style={styles.metricLabel}>Revenue This Week (Mon–Today)</Text>
+            </View>
+            <View style={styles.metricCard}>
+              <Text style={styles.metricValue}>{dailyMetrics.revenueReady ? formatCurrency(staffMember.monthlyRevenue) : "—"}</Text>
+              <Text style={styles.metricLabel}>Monthly Revenue</Text>
+            </View>
+            <View style={styles.metricCard}>
+              <Text style={styles.metricValue}>{staffMember.attendance}</Text>
+              <Text style={styles.metricLabel}>Attendance</Text>
+            </View>
+            <View style={styles.metricCard}>
+              <Text style={styles.metricValue}>{staffMember.leaveBalance}</Text>
+              <Text style={styles.metricLabel}>Leave Balance</Text>
+            </View>
+            <View style={styles.metricCard}>
+              <Text style={styles.metricValue}>{staffMember.averageRating.toFixed(1)}</Text>
+              <Text style={styles.metricLabel}>Customer Rating</Text>
+            </View>
+            <View style={styles.metricCard}>
+              <Text style={styles.metricValue}>{dailyMetrics.revenueReady ? formatCurrency(staffMember.todayRevenue) : "—"}</Text>
+              <Text style={styles.metricLabel}>Revenue Today</Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>Performance Metrics</Text>
           <View style={styles.periodRow}>
             {PERFORMANCE_PERIODS.map((option) => {
@@ -448,35 +483,6 @@ export default function StaffProfileScreen() {
               <Text style={styles.metricsEmptyTitle}>No performance data</Text>
               <Text style={styles.metricLabel}>
                 {staffMember.name} has no appointments, sales, attendance or reviews {PERIOD_EMPTY_TEXT[period]}.
-          {dailyMetrics.revenueError ? <Text style={styles.metricLabel}>Unable to load revenue. Reopen this page to retry.</Text> : null}
-          <View style={styles.metricsGrid}>
-            <View style={styles.metricCard}>
-              <Text style={styles.metricValue}>{metricsReady ? staffMember.todayAppointments : "—"}</Text>
-              <Text style={styles.metricLabel}>Today&apos;s Appointments</Text>
-            </View>
-            <View style={styles.metricCard}>
-              <Text style={styles.metricValue}>{dailyMetrics.revenueReady ? formatCurrency(staffMember.weeklyRevenue) : "—"}</Text>
-              <Text style={styles.metricLabel}>Revenue This Week (Mon–Today)</Text>
-            </View>
-            <View style={styles.metricCard}>
-              <Text style={styles.metricValue}>{dailyMetrics.revenueReady ? formatCurrency(staffMember.monthlyRevenue) : "—"}</Text>
-              <Text style={styles.metricLabel}>Monthly Revenue</Text>
-            </View>
-            <View style={styles.metricCard}>
-              <Text style={styles.metricValue}>{staffMember.attendance}</Text>
-              <Text style={styles.metricLabel}>Attendance</Text>
-            </View>
-            <View style={styles.metricCard}>
-              <Text style={styles.metricValue}>{staffMember.leaveBalance}</Text>
-              <Text style={styles.metricLabel}>Leave Balance</Text>
-            </View>
-            <View style={styles.metricCard}>
-              <Text style={styles.metricValue}>{staffMember.averageRating.toFixed(1)}</Text>
-              <Text style={styles.metricLabel}>Customer Rating</Text>
-            </View>
-            <View style={styles.metricCard}>
-              <Text style={styles.metricValue}>
-                {dailyMetrics.revenueReady ? formatCurrency(staffMember.todayRevenue) : "—"}
               </Text>
             </View>
           ) : (
