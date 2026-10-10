@@ -428,14 +428,15 @@ function TeamScreenContent() {
   const renderItem: ListRenderItem<StaffMember> = useCallback(({ index, item }) => (
     <StaffCard
       metricsReady={dailyMetrics.ready}
-      metricsError={dailyMetrics.error}
+      revenueReady={dailyMetrics.revenueReady}
+      metricsError={dailyMetrics.error || dailyMetrics.revenueError}
       index={index}
       onCall={handleCall}
       onMessage={handleMessage}
       onMore={setSelectedMenuStaffMember}
       staffMember={item}
     />
-  ), [dailyMetrics.ready, dailyMetrics.error, handleCall, handleMessage]);
+  ), [dailyMetrics.ready, dailyMetrics.revenueReady, dailyMetrics.error, dailyMetrics.revenueError, handleCall, handleMessage]);
 
   const headerContent = (
     <View>

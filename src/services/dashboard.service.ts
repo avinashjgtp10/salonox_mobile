@@ -112,19 +112,6 @@ export type DashboardMetrics = {
   todaysRevenue: number;
 };
 
-export type StaffRevenueRecord = {
-  id: string;
-  name: string;
-  role: string;
-  revenue: number;
-};
-
-export type StaffRevenueResponse = {
-  data?: StaffRevenueRecord[] | null;
-  message?: string;
-  success: boolean;
-};
-
 export type DashboardAppointment = {
   staffId?: string | null;
   amount: number;
@@ -359,34 +346,6 @@ export const dashboardService = {
     return {
       period: "monthly" as const,
       date: formatDateForDashboard(date),
-    };
-  },
-
-  async getStaffRevenue(
-    date = new Date(),
-    salonId?: string | null,
-    period: "monthly" | "today" = "monthly",
-  ) {
-    const params = this.getDashboardQueryParams(date);
-    const requestParams = {
-      ...params,
-      period,
-      ...(salonId ? { salon_id: salonId } : {}),
-    };
-
-    const response = await api.get<StaffRevenueResponse>(DASHBOARD.STAFF_REVENUE, {
-      params: requestParams,
-    });
-
-    const staffRecords = response.data.data ?? [];
-    const totalRevenue = staffRecords.reduce(
-      (sum, record) => sum + (typeof record.revenue === "number" ? record.revenue : 0),
-      0,
-    );
-
-    return {
-      totalRevenue,
-      staffRecords,
     };
   },
 

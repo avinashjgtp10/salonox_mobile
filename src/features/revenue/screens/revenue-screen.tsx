@@ -8,6 +8,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { getApiErrorMessage } from "@/services/api";
 import { dashboardService } from "@/services/dashboard.service";
+import { reportService } from "@/services/report.service";
 import { fetchReportThunk } from "@/middleware/report/report.thunk";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { selectActiveBranchId } from "@/store/branch/branch.slice";
@@ -18,7 +19,8 @@ type RevenuePeriod = "monthly" | "today";
 
 type Revenue = {
   revenue: number;
-  staffRecords: Awaited<ReturnType<typeof dashboardService.getStaffRevenue>>["staffRecords"];
+  staffRecords: Awaited<ReturnType<typeof reportService.getStaffPerformanceRevenue>>;
+  range: { start_date: string; end_date: string };
   staffError: string | null;
 };
 
@@ -29,8 +31,7 @@ const currency = (value: number) => `Rs. ${value.toLocaleString("en-IN")}`;
 const toIsoDate = (value: Date) =>
   `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
 
-const getReportRange = (period: RevenuePeriod) => {
-  const today = new Date();
+const getReportRange = (period: RevenuePeriod, today = new Date()) => {
 
   if (period === "today") {
     return { end_date: toIsoDate(today), start_date: toIsoDate(today) };
@@ -51,9 +52,13 @@ export default function RevenueScreen({ period }: { period: RevenuePeriod }) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const activeRef = useRef(true);
+  const requestRef = useRef(0);
 
   const load = useCallback(() => {
     const date = new Date();
+    const range = getReportRange(period, date);
+    const requestId = ++requestRef.current;
+    const isCurrent = () => activeRef.current && requestRef.current === requestId;
 
     setPeriodLabel(
       period === "today"
@@ -70,14 +75,14 @@ export default function RevenueScreen({ period }: { period: RevenuePeriod }) {
         let staffError: string | null = null;
 
         try {
-          const staff = await dashboardService.getStaffRevenue(date, salonId, period);
-          staffRecords = staff.staffRecords;
+          staffRecords = await reportService.getStaffPerformanceRevenue(range);
         } catch (cause: unknown) {
           staffError = getApiErrorMessage(cause);
         }
 
-        if (activeRef.current) {
+        if (isCurrent()) {
           setRevenue({
+            range,
             revenue:
               period === "today"
                 ? dashboard.metrics.todaysRevenue
@@ -87,19 +92,20 @@ export default function RevenueScreen({ period }: { period: RevenuePeriod }) {
           });
         }
       })
-      .catch((cause: unknown) => { if (activeRef.current) setError(getApiErrorMessage(cause)); })
-      .finally(() => { if (activeRef.current) setLoading(false); });
+      .catch((cause: unknown) => { if (isCurrent()) setError(getApiErrorMessage(cause)); })
+      .finally(() => { if (isCurrent()) setLoading(false); });
   }, [period, salonId]);
 
   useFocusEffect(useCallback(() => {
     activeRef.current = true;
     load();
-    return () => { activeRef.current = false; };
+    return () => { activeRef.current = false; requestRef.current += 1; };
   }, [load]));
 
   const handleStaffPress = (staffId: string) => {
     const filters = {
-      ...getReportRange(period),
+      ...(revenue?.range ?? getReportRange(period)),
+      include_gst: "true",
       limit: 10,
       page: 1,
       staff_ids: staffId,
@@ -140,6 +146,9 @@ export default function RevenueScreen({ period }: { period: RevenuePeriod }) {
               <Text style={[styles.total, { color: colors.heading }]}>{currency(revenue.revenue)}</Text>
             </View>
             <Text style={[styles.title, { color: colors.heading }]}>Top Staff Revenue</Text>
+            <Text style={{ color: colors.text2 }}>
+              Item revenue including GST, as in Staff Performance. The salon total above shows collections.
+            </Text>
             {revenue.staffError ? (
               <View style={[styles.card, { backgroundColor: colors.card }]}>
                 <Text style={{ color: colors.error }}>{revenue.staffError}</Text>
@@ -164,7 +173,7 @@ export default function RevenueScreen({ period }: { period: RevenuePeriod }) {
               >
                 <View style={styles.staff}>
                   <Text style={{ color: colors.heading, fontWeight: "700" }}>{staff.name}</Text>
-                  <Text style={{ color: colors.text2 }}>{staff.role}</Text>
+                  <Text style={{ color: colors.text2 }}>Staff</Text>
                 </View>
                 <Text style={{ color: colors.primary, fontWeight: "700" }}>{currency(staff.revenue)}</Text>
                 <Ionicons color={colors.hint} name="chevron-forward" size={18} />
