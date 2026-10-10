@@ -1,3 +1,4 @@
+import { useClientPrivacy } from "@/hooks/useClientPrivacy";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
@@ -37,6 +38,7 @@ function Section({ title, children, aside }: { title: string; children: ReactNod
 }
 
 export function QuickSaleForm(p: Props) {
+  const { clientName } = useClientPrivacy();
   const form = useRef<KeyboardAwareFormHandle>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [staffLine, setStaffLine] = useState<string | null>(null);
@@ -56,7 +58,7 @@ export function QuickSaleForm(p: Props) {
         <Section title="Client">
           <View style={s.row}>
             <View style={s.avatar}><Text style={s.avatarText}>{p.selectedClient.initials}</Text></View>
-            <View style={s.flex}><Text style={s.name}>{p.selectedClient.name}</Text><Text style={s.muted}>{maskPhone(p.selectedClient.phone)}</Text></View>
+            <View style={s.flex}><Text style={s.name}>{clientName(p.selectedClient.name)}</Text><Text style={s.muted}>{maskPhone(p.selectedClient.phone)}</Text></View>
             <Pressable accessibilityRole="button" onPress={p.onChangeCustomer}><Text style={s.link}>Change</Text></Pressable>
           </View>
           {p.selectedClient.id ? <View style={s.row}>
