@@ -1,3 +1,4 @@
+import { useClientPrivacy } from "@/hooks/useClientPrivacy";
 import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { memo, useMemo } from "react";
@@ -23,6 +24,7 @@ function ClientOptionRowComponent({
   title,
   withBorder = false,
 }: ClientOptionRowProps) {
+  const { staffMode, clientName } = useClientPrivacy();
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
@@ -37,11 +39,11 @@ function ClientOptionRowComponent({
       ]}
     >
       <View style={styles.avatar}>
-        <Text style={styles.avatarText}>{initials}</Text>
+        <Text style={styles.avatarText}>{staffMode ? title.slice(0, 2) : initials}</Text>
       </View>
       <View style={styles.copy}>
         <Text numberOfLines={1} style={styles.name}>
-          {title}
+          {clientName(title)}
         </Text>
         <Text numberOfLines={1} style={styles.phone}>
           {phone}

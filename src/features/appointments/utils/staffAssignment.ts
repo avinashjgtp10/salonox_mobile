@@ -59,6 +59,7 @@ export const isAssignedToStaff = (appointment: AppointmentListItem, staff: Staff
     appointment.staffId,
     appointment.raw.staff_id,
     appointment.raw.staff?.id,
+    typeof appointment.raw.service === "object" ? appointment.raw.service?.staff_id : null,
     ...((appointment.raw.services ?? []).map((service) => service.staff_id)),
   ]
     .map(toComparableId)

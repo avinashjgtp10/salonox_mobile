@@ -1,3 +1,4 @@
+import { useClientPrivacy } from "@/hooks/useClientPrivacy";
 import { maskPhone } from "@/utils/maskPhone";
 import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
@@ -23,6 +24,7 @@ function EmbeddedClientBarComponent({
   onSelectWalkIn,
   selectedClient,
 }: EmbeddedClientBarProps) {
+  const { staffMode, clientName } = useClientPrivacy();
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   return (
@@ -44,12 +46,12 @@ function EmbeddedClientBarComponent({
         <TouchableOpacity activeOpacity={0.84} onPress={onSearchClient} style={styles.clientRow}>
           <View style={[styles.avatar, { backgroundColor: selectedClient.avatarBg }]}>
             <Text style={[styles.avatarText, { color: selectedClient.avatarColor }]}>
-              {hasSelection && selectedClient.id ? selectedClient.initials : "WI"}
+              {hasSelection && selectedClient.id ? (staffMode ? selectedClient.name.slice(0, 2) : selectedClient.initials) : "WI"}
             </Text>
           </View>
           <View style={styles.clientCopy}>
             <Text numberOfLines={1} style={styles.clientName}>
-              {hasSelection ? (selectedClient.id ? selectedClient.name : "Walk-in customer") : "Choose a client"}
+              {hasSelection ? (selectedClient.id ? clientName(selectedClient.name) : "Walk-in customer") : "Choose a client"}
             </Text>
             <Text numberOfLines={1} style={styles.clientDetail}>
               {hasSelection
