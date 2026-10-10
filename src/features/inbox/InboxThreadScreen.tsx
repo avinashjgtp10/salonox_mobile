@@ -55,12 +55,15 @@ function Thread({ phone }: { phone: string }) {
   };
   const list = useRef<FlatList<InboxMessage>>(null);
   const nearBottom = useRef(true);
+  const initialPositionPending = useRef(true);
   const focused = useRef(false);
   const sendLock = useRef(false);
   const setDraft = (text: string) => dispatch(inboxDraftChanged({ phone, text }));
   const refresh = useCallback(() => { if (phone) void dispatch(fetchInboxMessagesThunk({ phone, refresh: true })); }, [dispatch, phone]);
   useFocusEffect(useCallback(() => {
     focused.current = true;
+    nearBottom.current = true;
+    initialPositionPending.current = true;
     dispatch(inboxActivePhoneChanged(phone));
     refresh();
     void dispatch(fetchInboxConversationsThunk({ refresh: true }));
@@ -72,6 +75,15 @@ function Thread({ phone }: { phone: string }) {
     });
     return () => { focused.current = false; clearInterval(timer); clearInterval(clock); subscription.remove(); dispatch(inboxActivePhoneChanged(null)); };
   }, [dispatch, phone, refresh]));
+  useEffect(() => {
+    if (!focused.current || !visibleMessages.length || !initialPositionPending.current) return;
+    const frame = requestAnimationFrame(() => {
+      list.current?.scrollToEnd({ animated: false });
+      initialPositionPending.current = false;
+      nearBottom.current = true;
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [phone, visibleMessages.length]);
   // Android draws edge-to-edge, so the window no longer shrinks for the keyboard and
   // KeyboardAvoidingView cannot lift the composer; pad the chat by the keyboard height.
   const [keyboardInset, setKeyboardInset] = useState(0);
@@ -127,7 +139,15 @@ function Thread({ phone }: { phone: string }) {
       <View pointerEvents="none" style={{ position: "absolute", top: 0, bottom: 0, left: 0, right: 0, overflow: "hidden", justifyContent: "space-around" }}>{Array.from({ length: 6 }, (_, i) => <View key={i} style={{ flexDirection: "row", justifyContent: "space-around" }}>{[0, 1].map(j => <Text key={j} style={{ color: p.muted, opacity: 0.08, letterSpacing: 5, fontSize: 17, transform: [{ rotate: "-20deg" }] }}>SalonOX</Text>)}</View>)}</View>
       <FlatList ref={list} data={visibleMessages} keyExtractor={item => item.id} style={s.fill} contentContainerStyle={s.messageList} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag"
         onScroll={event => { const { contentSize, contentOffset, layoutMeasurement } = event.nativeEvent; nearBottom.current = contentSize.height - contentOffset.y - layoutMeasurement.height < 100; }} scrollEventThrottle={100}
-        onContentSizeChange={() => { if (nearBottom.current) list.current?.scrollToEnd({ animated: false }); }}
+        onContentSizeChange={() => {
+          if (initialPositionPending.current && visibleMessages.length) {
+            list.current?.scrollToEnd({ animated: false });
+            initialPositionPending.current = false;
+            nearBottom.current = true;
+          } else if (nearBottom.current) {
+            list.current?.scrollToEnd({ animated: false });
+          }
+        }}
         ListEmptyComponent={<View style={s.empty}>{loading ? <ActivityIndicator color={p.accent} /> : <><Ionicons name="chatbubble-ellipses-outline" size={36} color={p.muted} /><Text style={s.emptyText}>{error ? "Messages couldn’t be loaded." : hiddenIds.length ? "Messages are hidden from this view." : "No messages in this conversation yet."}</Text></>}</View>}
         renderItem={({ item, index }) => <View>{(index === 0 || messageDay(visibleMessages[index - 1].sentAt) !== messageDay(item.sentAt)) && <View style={s.day}><Text style={s.muted}>{messageDay(item.sentAt)}</Text></View>}<MessageBubble message={item} onDelete={deleteFromView} /></View>} />
       {hiddenIds.length > 0 && <View style={[s.banner, s.row]}><Text style={[s.muted, s.fill]}>Message hidden from this view</Text><TouchableOpacity accessibilityRole="button" accessibilityLabel="Undo last message deletion" onPress={() => setHiddenIds(ids => ids.slice(0, -1))} style={s.button}><Text style={s.accentText}>Undo</Text></TouchableOpacity></View>}
