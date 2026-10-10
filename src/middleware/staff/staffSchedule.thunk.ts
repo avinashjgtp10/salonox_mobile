@@ -9,6 +9,7 @@ import type {
   UpdateScheduleRequest,
   UpdateScheduleResponse,
 } from "@/types/staffSchedule";
+import { logApiError } from "@/utils/logApiError";
 
 type RejectValue = {
   message: string;
@@ -32,7 +33,7 @@ export const fetchStaffScheduleThunk = createAsyncThunk<
 
     return { schedule, staffId };
   } catch (error) {
-    console.error("[StaffSchedule] Fetch failed", { staffId, ...toRejectValue(error) });
+    logApiError("[StaffSchedule] Fetch failed", { staffId, ...toRejectValue(error) });
 
     return rejectWithValue(toRejectValue(error));
   }
@@ -48,7 +49,7 @@ export const updateStaffScheduleThunk = createAsyncThunk<
 
     return { ...response, staffId };
   } catch (error) {
-    console.error("[StaffSchedule] Update failed", { staffId, ...toRejectValue(error) });
+    logApiError("[StaffSchedule] Update failed", { staffId, ...toRejectValue(error) });
 
     return rejectWithValue(toRejectValue(error));
   }
@@ -62,7 +63,7 @@ export const deleteStaffScheduleThunk = createAsyncThunk<
   try {
     return await staffScheduleService.deleteSchedule(staffId);
   } catch (error) {
-    console.error("[StaffSchedule] Delete failed", { staffId, ...toRejectValue(error) });
+    logApiError("[StaffSchedule] Delete failed", { staffId, ...toRejectValue(error) });
 
     return rejectWithValue(toRejectValue(error));
   }

@@ -25,6 +25,7 @@ import type {
   ClientNote,
   ClientWithHistoryStats,
 } from "@/types/client";
+import { logApiError } from "@/utils/logApiError";
 
 export type FetchClientsArgs = {
   inactive?: boolean;
@@ -119,7 +120,7 @@ export const createClientThunk = createAsyncThunk<
   } catch (error) {
     const message = getCreateClientErrorMessage(error);
 
-    console.error("[Clients] Create failed", {
+    logApiError("[Clients] Create failed", {
       message,
       responseBody: error instanceof ApiError ? error.responseData : undefined,
       status: error instanceof ApiError ? error.status : undefined,
@@ -150,7 +151,7 @@ export const fetchClientsThunk = createAsyncThunk<
   } catch (error) {
     const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
 
-    console.error("[Clients] Fetch failed", {
+    logApiError("[Clients] Fetch failed", {
       message,
       responseBody: error instanceof ApiError ? error.responseData : undefined,
       status: error instanceof ApiError ? error.status : undefined,
@@ -219,7 +220,7 @@ export const fetchClientByIdThunk = createAsyncThunk<
   } catch (error) {
     const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
 
-    console.error("[Clients] Fetch by ID failed", {
+    logApiError("[Clients] Fetch by ID failed", {
       clientId,
       message,
       responseBody: error instanceof ApiError ? error.responseData : undefined,

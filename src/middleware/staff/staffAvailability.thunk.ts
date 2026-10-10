@@ -4,6 +4,7 @@ import { ApiError, getApiErrorMessage } from "@/services/api";
 import { staffAvailabilityService } from "@/services/staffAvailability.service";
 import type { RootState } from "@/store";
 import type { StaffAvailability, StaffAvailabilityRequest } from "@/types/staffAvailability";
+import { logApiError } from "@/utils/logApiError";
 
 type RejectValue = {
   message: string;
@@ -27,7 +28,7 @@ export const fetchStaffAvailabilityThunk = createAsyncThunk<
 
     return { ...availability, date, staffId };
   } catch (error) {
-    console.error("[StaffAvailability] Fetch failed", { date, staffId, ...toRejectValue(error) });
+    logApiError("[StaffAvailability] Fetch failed", { date, staffId, ...toRejectValue(error) });
 
     return rejectWithValue(toRejectValue(error));
   }

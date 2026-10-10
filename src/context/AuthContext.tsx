@@ -13,6 +13,7 @@ import { pauseNotificationRegistration, resumeNotificationRegistration } from "@
 import { fetchCurrentUserThunk } from "@/middleware/user/user.thunk";
 import { ApiError, cancelProtectedApiRequests, getApiErrorMessage } from "@/services/api";
 import { beginUserLogout, finishUserLogin } from "@/services/authLifecycle";
+import { appAlert } from "@/services/appAlert";
 import { authService } from "@/services/authService";
 import {
   getAuthErrorStatus,
@@ -223,9 +224,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
     };
   }, [applyAuthenticatedUserState, clearLocalSession, syncCurrentUserProfile]);
 
-  useEffect(() => addSessionInvalidationListener((reason) => clearLocalSession(reason)), [
-    clearLocalSession,
-  ]);
+  useEffect(() => addSessionInvalidationListener(async (reason) => {
+    await clearLocalSession(reason);
+    if (reason === "session_replaced") {
+      appAlert.alert("Signed out", "You were signed out because this account was logged in on another device.");
+    }
+  }), [clearLocalSession]);
 
   const signIn = async (credentials: LoginCredentials) => {
     setIsLoading(true);

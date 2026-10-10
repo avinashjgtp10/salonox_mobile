@@ -27,6 +27,7 @@ import type {
   UpdateAttendanceSettingsRequest,
   UpdateAttendanceSettingsResponse,
 } from "@/types/attendance";
+import { logApiError } from "@/utils/logApiError";
 
 export type AttendanceErrorKind =
   | "forbidden"
@@ -109,7 +110,7 @@ export const fetchTodayAttendanceThunk = createAsyncThunk<
 
     return today;
   } catch (error) {
-    console.error("[Attendance] Fetch today failed", toRejectValue(error));
+    logApiError("[Attendance] Fetch today failed", toRejectValue(error));
 
     return rejectWithValue(toRejectValue(error));
   }
@@ -130,7 +131,7 @@ export const fetchAttendanceSummaryThunk = createAsyncThunk<
 
     return summary;
   } catch (error) {
-    console.error("[Attendance] Fetch summary failed", toRejectValue(error));
+    logApiError("[Attendance] Fetch summary failed", toRejectValue(error));
 
     return rejectWithValue(toRejectValue(error));
   }
@@ -172,7 +173,7 @@ export const checkInThunk = createAsyncThunk<
 
     return response;
   } catch (error) {
-    console.error("[Attendance] Check-in failed", { staffId: payload.staffId, ...toRejectValue(error) });
+    logApiError("[Attendance] Check-in failed", { staffId: payload.staffId, ...toRejectValue(error) });
 
     return rejectWithValue(toRejectValue(error));
   }
@@ -202,7 +203,7 @@ export const checkOutThunk = createAsyncThunk<
 
     return response;
   } catch (error) {
-    console.error("[Attendance] Check-out failed", { staffId: payload.staffId, ...toRejectValue(error) });
+    logApiError("[Attendance] Check-out failed", { staffId: payload.staffId, ...toRejectValue(error) });
 
     return rejectWithValue(toRejectValue(error));
   }
@@ -223,7 +224,7 @@ export const markAttendanceThunk = createAsyncThunk<
 
     return response;
   } catch (error) {
-    console.error("[Attendance] Manual mark failed", { ...payload, ...toRejectValue(error) });
+    logApiError("[Attendance] Manual mark failed", { ...payload, ...toRejectValue(error) });
 
     return rejectWithValue(toRejectValue(error));
   }
@@ -244,7 +245,7 @@ export const updateAttendanceThunk = createAsyncThunk<
 
     return response;
   } catch (error) {
-    console.error("[Attendance] Update failed", { attendanceId, ...toRejectValue(error) });
+    logApiError("[Attendance] Update failed", { attendanceId, ...toRejectValue(error) });
 
     return rejectWithValue(toRejectValue(error));
   }
@@ -265,7 +266,7 @@ export const updateAttendanceSettingsThunk = createAsyncThunk<
 
     return response;
   } catch (error) {
-    console.error("[Attendance] Settings update failed", toRejectValue(error));
+    logApiError("[Attendance] Settings update failed", toRejectValue(error));
 
     return rejectWithValue(toRejectValue(error));
   }

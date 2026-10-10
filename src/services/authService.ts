@@ -35,7 +35,7 @@ const getFirstParam = (value: string | string[] | undefined) =>
 export const authService = {
   async login(credentials: LoginCredentials) {
     const response = await timeStartup("Login API", () =>
-      api.post<ApiResponse<LoginResponseData>>("/auth/login", credentials),
+      api.post<ApiResponse<LoginResponseData>>("/auth/login", { ...credentials, clientType: "mobile" }),
     );
     const authData: LoginResponseData = {
       ...response.data.data,

@@ -449,13 +449,6 @@ function TeamScreenContent() {
         <View style={styles.headerActions}>
           <TouchableOpacity
             activeOpacity={0.84}
-            onPress={() => router.push("/team/tips" as Href)}
-            style={styles.headerIconButton}
-          >
-            <Ionicons name="wallet-outline" size={18} color={Colors.primaryDark} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            activeOpacity={0.84}
             onPress={() => router.push("/team/commissions" as Href)}
             style={styles.headerIconButton}
           >

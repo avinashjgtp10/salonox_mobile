@@ -13,6 +13,7 @@ import type {
   UploadAvatarResponse,
   UserProfile,
 } from "@/types/profile";
+import { logApiError } from "@/utils/logApiError";
 
 export type FetchProfileArgs = {
   refresh?: boolean;
@@ -41,7 +42,7 @@ export const fetchProfileThunk = createAsyncThunk<
   } catch (error) {
     const rejectValue = toRejectValue(error);
 
-    console.error("[Profile] Fetch failed", { ...rejectValue, userId });
+    logApiError("[Profile] Fetch failed", { ...rejectValue, userId });
 
     return rejectWithValue(rejectValue);
   }
@@ -61,7 +62,7 @@ export const updateProfileThunk = createAsyncThunk<
   } catch (error) {
     const rejectValue = toRejectValue(error);
 
-    console.error("[Profile] Update failed", rejectValue);
+    logApiError("[Profile] Update failed", rejectValue);
 
     return rejectWithValue(rejectValue);
   }
@@ -91,7 +92,7 @@ export const uploadAvatarThunk = createAsyncThunk<
   } catch (error) {
     const rejectValue = toRejectValue(error);
 
-    console.error("[Profile] Avatar upload failed", rejectValue);
+    logApiError("[Profile] Avatar upload failed", rejectValue);
 
     return rejectWithValue(rejectValue);
   }
