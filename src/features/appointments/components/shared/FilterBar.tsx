@@ -149,7 +149,7 @@ export function FilterBar({
         style={styles.dateInputRow}
       >
         <Ionicons name="calendar-outline" size={18} color={Colors.text2} />
-        <Text style={styles.dateInput}>{date ? formatAppDate(`${date}T00:00:00`) : "DD-MM-YYYY"}</Text>
+        <Text style={styles.dateInput}>{date ? formatAppDate(`${date}T00:00:00`) : "DD-MM-YY"}</Text>
       </TourButton>
 
       {isDatePickerVisible && Platform.OS === "android" ? (

@@ -6,9 +6,9 @@ import { Modal, Platform, Pressable, StyleSheet, TouchableOpacity, View } from "
 
 import { DashboardRadius as Radius, DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
 import { useAppTheme, useThemeColors } from "@/theme/ThemeProvider";
+import { formatAppDate } from "@/utils/dateTime";
 
 export type DateFieldProps = {
-  displayFormat?: "localized" | "DD-MM-YYYY";
   error?: string;
   label: string;
   maximumDate?: Date;
@@ -37,21 +37,16 @@ const toDateValue = (isoDate: string) => {
   return new Date(year, month - 1, day);
 };
 
-const formatDisplayDate = (isoDate: string, displayFormat: DateFieldProps["displayFormat"]) => {
+// App-wide date display is DD-MM-YY regardless of device locale.
+const formatDisplayDate = (isoDate: string) => {
   if (!isoDate) {
     return "";
   }
 
-  const date = toDateValue(isoDate);
-
-  if (displayFormat === "DD-MM-YYYY") {
-    return [String(date.getDate()).padStart(2, "0"), String(date.getMonth() + 1).padStart(2, "0"), date.getFullYear()].join("-");
-  }
-
-  return date.toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" });
+  return formatAppDate(toDateValue(isoDate));
 };
 
-export const DateField = forwardRef<View, DateFieldProps>(function DateField({ displayFormat = "localized", error, label, maximumDate, minimumDate, onChange, placeholder, value }, ref) {
+export const DateField = forwardRef<View, DateFieldProps>(function DateField({ error, label, maximumDate, minimumDate, onChange, placeholder, value }, ref) {
   const Colors = useThemeColors();
   const { scheme } = useAppTheme();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
@@ -84,7 +79,7 @@ export const DateField = forwardRef<View, DateFieldProps>(function DateField({ d
       >
         <Ionicons name="calendar-outline" size={16} color={Colors.text2} style={styles.icon} />
         <Text style={[styles.value, !value ? styles.placeholder : null]}>
-          {value ? formatDisplayDate(value, displayFormat) : (placeholder ?? "Select date")}
+          {value ? formatDisplayDate(value) : (placeholder ?? "Select date")}
         </Text>
         {value ? (
           <Pressable accessibilityLabel={`Clear ${label}`} hitSlop={10} onPress={handleClear}>
