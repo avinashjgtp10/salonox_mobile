@@ -328,7 +328,12 @@ const normalizeClient = (client: ClientApiItem): ClientListItem => {
   const fullName = getFullName(client);
   const id = getValidClientId(client, fullName);
 
+  const birthdayYear = toSafeNumber(client.birthday_year);
+
   return {
+    anniversary: toSafeString(client.anniversary).slice(0, 10) || null,
+    birthdayDayMonth: toSafeString(client.birthday_day_month) || null,
+    birthdayYear: birthdayYear > 0 ? birthdayYear : null,
     createdAt,
     createdDateLabel: formatCreatedDate(createdAt),
     email: toSafeString(client.email, "-"),

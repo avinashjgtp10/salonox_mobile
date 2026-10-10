@@ -5,7 +5,7 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Linking from "expo-linking";
 import type { ComponentProps } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BackHandler, Platform, Pressable, ScrollView, StyleSheet, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import Animated, {
   Easing,
@@ -108,6 +108,16 @@ export function UpdateAnnouncementModal({
   const logoScale = useSharedValue(0.9);
   const buttonScale = useSharedValue(1);
   const [isPresented, setIsPresented] = useState(visible);
+  // The close animation finishes on the UI thread and reports back later. If the
+  // modal was asked to open in the meantime (e.g. it mounted hidden and became
+  // visible right after), that late report must not hide it again.
+  const visibleRef = useRef(visible);
+  visibleRef.current = visible;
+  const hideIfStillClosed = useCallback(() => {
+    if (!visibleRef.current) {
+      setIsPresented(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (visible) {
@@ -119,11 +129,11 @@ export function UpdateAnnouncementModal({
 
     progress.value = withTiming(0, { duration: 220, easing: CLOSE_EASING }, (finished) => {
       if (finished) {
-        runOnJS(setIsPresented)(false);
+        runOnJS(hideIfStillClosed)();
       }
     });
     logoScale.value = withTiming(0.9, { duration: 180 });
-  }, [logoScale, progress, visible]);
+  }, [hideIfStillClosed, logoScale, progress, visible]);
 
   useEffect(() => {
     if (!visible) {
