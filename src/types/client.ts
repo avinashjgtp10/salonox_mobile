@@ -19,6 +19,9 @@ export type ClientApiMembership =
   | null;
 
 export type ClientApiItem = {
+  anniversary?: string | null;
+  birthday_day_month?: string | null;
+  birthday_year?: number | string | null;
   blocked?: boolean | null;
   created_at?: string | null;
   email?: string | null;
@@ -69,6 +72,11 @@ export type ClientListApiData =
     };
 
 export type ClientListItem = {
+  /** YYYY-MM-DD */
+  anniversary?: string | null;
+  /** MM-DD, stored separately from the year like the web app. */
+  birthdayDayMonth?: string | null;
+  birthdayYear?: number | null;
   createdAt: string | null;
   createdDateLabel: string;
   email: string;
@@ -89,6 +97,11 @@ export type ClientListItem = {
 };
 
 export type CreateClientRequest = {
+  /** YYYY-MM-DD, or null to clear. */
+  anniversary?: string | null;
+  /** MM-DD, or null to clear. */
+  birthday_day_month?: string | null;
+  birthday_year?: number | null;
   email?: string;
   first_name: string;
   gender?: string;

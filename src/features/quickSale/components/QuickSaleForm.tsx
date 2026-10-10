@@ -28,6 +28,8 @@ type Props = Pick<CheckoutSheetProps, "selectedClient" | "redemptions" | "totals
   onChangeNotes: (value: string) => void;
   onAdd: (tab: CatalogTab) => void;
   onMoreCharges: () => void;
+  /** Opens the selected client's Date of Birth / Anniversary editor. */
+  onEditClientDates?: () => void;
   packageBanner?: ReactNode;
   pricingError?: string | null;
   isPricingLoading?: boolean;
@@ -61,6 +63,12 @@ export function QuickSaleForm(p: Props) {
             <View style={s.flex}><Text style={s.name}>{clientName(p.selectedClient.name)}</Text><Text style={s.muted}>{maskPhone(p.selectedClient.phone)}</Text></View>
             <Pressable accessibilityRole="button" onPress={p.onChangeCustomer}><Text style={s.link}>Change</Text></Pressable>
           </View>
+          {p.selectedClient.id && p.onEditClientDates ? (
+            <Pressable accessibilityRole="button" onPress={p.onEditClientDates} style={s.row}>
+              <Ionicons name="calendar-outline" size={16} color={c.plum} />
+              <Text style={s.link}>Edit DOB & Anniversary</Text>
+            </Pressable>
+          ) : null}
           {p.selectedClient.id ? <View style={s.row}>
             {[['Wallet', formatCurrency(p.redemptions.eWalletBalance)], ['Points', String(p.redemptions.rewardPointsBalance)], ['Membership', p.selectedClient.membership || 'None']].map(([label, value]) => <View style={s.stat} key={label}><Text style={s.muted}>{label}</Text><Text style={s.statValue}>{value}</Text></View>)}
           </View> : null}
