@@ -1,4 +1,5 @@
-import { createContext, forwardRef, useContext } from "react";
+import { createContext, forwardRef, useContext, useRef, useImperativeHandle } from "react";
+import { FormFieldFocusContext } from "@/components/ui/KeyboardAwareForm";
 import {
   StyleSheet,
   Text as NativeText,
@@ -34,6 +35,12 @@ export const Text = forwardRef<NativeText, TextProps>(function AppText({ style, 
 });
 
 // eslint-disable-next-line @typescript-eslint/no-redeclare -- Preserve React Native's shared component and instance type name.
-export const TextInput = forwardRef<NativeTextInput, TextInputProps>(function AppTextInput({ style, ...props }, ref) {
-  return <NativeTextInput {...props} ref={ref} style={[style, resolveFontStyle(StyleSheet.flatten(style) ?? {})]} />;
+export const TextInput = forwardRef<NativeTextInput, TextInputProps>(function AppTextInput({ style, onFocus, ...props }, ref) {
+  const inputRef = useRef<NativeTextInput>(null);
+  const revealField = useContext(FormFieldFocusContext);
+  useImperativeHandle(ref, () => inputRef.current as NativeTextInput);
+  return <NativeTextInput {...props} ref={inputRef} onFocus={(event) => {
+    revealField?.(inputRef.current);
+    onFocus?.(event);
+  }} style={[style, resolveFontStyle(StyleSheet.flatten(style) ?? {})]} />;
 });

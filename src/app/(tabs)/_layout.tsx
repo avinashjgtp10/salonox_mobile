@@ -12,6 +12,7 @@ const OWNER_TABS: AppTabItem[] = [
   { icon: "home-outline", name: "dashboard", title: "Home" },
   { icon: "calendar-outline", name: "calendar", title: "Calendar" },
   { icon: "people-outline", name: "team", title: "Staff" },
+  { icon: "logo-whatsapp", name: "whatsapp", title: "WhatsApp" },
   { icon: "settings-outline", name: "more", title: "Settings" },
 ];
 

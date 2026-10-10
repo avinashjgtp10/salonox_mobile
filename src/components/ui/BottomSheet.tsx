@@ -2,7 +2,7 @@ import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import type { ReactNode, Ref } from "react";
 import { useEffect, useMemo, useState } from "react";
-import { BackHandler, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TouchableOpacity, View, useWindowDimensions } from "react-native";
+import { BackHandler, KeyboardAvoidingView, Platform, Pressable, StyleSheet, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -37,7 +37,7 @@ const OPEN_EASING = Easing.bezier(0.16, 1, 0.3, 1);
 const CLOSE_EASING = Easing.bezier(0.4, 0, 1, 1);
 
 export function BottomSheet({
-  centered = false,
+  centered = true,
   children,
   footer,
   keyboardAwareFormRef,
@@ -114,12 +114,12 @@ export function BottomSheet({
           <KeyboardAvoidingView
             behavior={Platform.OS === "ios" ? "padding" : undefined}
             pointerEvents="box-none"
-            style={[styles.keyboardAvoiding, centered && styles.keyboardAvoidingCentered]}
+            style={[styles.keyboardAvoiding, centered && styles.keyboardAvoidingCentered, centered && { paddingTop: Math.max(insets.top, 16), paddingBottom: Math.max(insets.bottom, 16) }]}
           >
             <Animated.View
               style={[styles.sheet, centered && styles.sheetCentered, { maxHeight: sheetMaxHeight }, sheetStyle]}
             >
-              <View style={styles.handle} />
+              {!centered ? <View style={styles.handle} /> : null}
               <View style={styles.header}>
                 <View style={styles.headerCopy}>
                   <Text style={styles.title}>{title}</Text>
@@ -130,25 +130,16 @@ export function BottomSheet({
                 </TouchableOpacity>
               </View>
 
-              {scrollable && keyboardAwareFormRef ? (
+              {scrollable ? (
                 <KeyboardAwareForm
                   ref={keyboardAwareFormRef}
                   embedded
+                  autoReveal
                   style={{ maxHeight: scrollMaxHeight }}
                   contentContainerStyle={styles.content}
                 >
                   {children}
                 </KeyboardAwareForm>
-              ) : scrollable ? (
-                <ScrollView
-                  contentContainerStyle={styles.content}
-                  keyboardShouldPersistTaps="handled"
-                  nestedScrollEnabled
-                  style={[styles.scroll, { maxHeight: scrollMaxHeight }]}
-                  showsVerticalScrollIndicator
-                >
-                  {children}
-                </ScrollView>
               ) : (
                 <View style={styles.content}>{children}</View>
               )}
@@ -186,6 +177,7 @@ const createStyles = (Colors: ThemeColors, bottomInset: number) => StyleSheet.cr
     paddingVertical: 24,
   },
   sheet: {
+    flexShrink: 1,
     backgroundColor: Colors.card,
     borderTopLeftRadius: Radius.xl,
     borderTopRightRadius: Radius.xl,
@@ -199,6 +191,8 @@ const createStyles = (Colors: ThemeColors, bottomInset: number) => StyleSheet.cr
     elevation: 16,
   },
   sheetCentered: {
+    paddingTop: Spacing.lg,
+    paddingBottom: Spacing.lg,
     borderRadius: 12,
     maxWidth: 520,
     width: "100%",

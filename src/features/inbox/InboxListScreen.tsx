@@ -13,7 +13,9 @@ import { sortInboxConversations } from "@/utils/inboxPresentation";
 import { InboxAvatar, InboxIcon } from "./InboxControls";
 import { useInboxTheme } from "./inboxTheme";
 
-export default function InboxListScreen() {
+// `embedded` renders the list as the owner's WhatsApp tab: no back button, and
+// the tab bar owns the bottom inset.
+export default function InboxListScreen({ embedded = false }: { embedded?: boolean }) {
   const { styles: s, palette: p } = useInboxTheme();
   const dispatch = useAppDispatch();
   const inbox = useAppSelector(state => state.inbox);
@@ -24,10 +26,10 @@ export default function InboxListScreen() {
   const items = useMemo(() => sortInboxConversations(filterInboxConversations(inbox.conversations, search, unreadOnly), unreadFirst), [inbox.conversations, search, unreadOnly, unreadFirst]);
   const refresh = useCallback(() => { void dispatch(fetchInboxConversationsThunk({ refresh: true })); }, [dispatch]);
   useFocusEffect(useCallback(() => { refresh(); }, [refresh]));
-  return <SafeAreaView edges={["top", "bottom"]} style={s.root}>
+  return <SafeAreaView edges={embedded ? ["top"] : ["top", "bottom"]} style={s.root}>
     <AppStatusBar />
     <View style={s.header}>
-      <InboxIcon name="arrow-back" label="Back" onPress={() => router.canGoBack() ? router.back() : router.replace("/dashboard" as Href)} />
+      {embedded ? null : <InboxIcon name="arrow-back" label="Back" onPress={() => router.canGoBack() ? router.back() : router.replace("/dashboard" as Href)} />}
       <Text style={s.title}>Inbox</Text>{unread > 0 && <View style={s.badge}><Text style={s.badgeText}>{unread > 999 ? "999+" : unread}</Text></View>}
     </View>
     <View style={s.search}><Ionicons name="search-outline" size={18} color={p.muted} /><TextInput accessibilityLabel="Search conversations" value={search} onChangeText={setSearch} placeholder="Search conversations…" placeholderTextColor={p.muted} autoCorrect={false} autoCapitalize="none" style={s.searchInput} />{search ? <InboxIcon name="close" label="Clear search" onPress={() => setSearch("")} /> : <View style={{ width: 12 }} />}</View>
