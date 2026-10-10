@@ -12,9 +12,9 @@ import { useAppForeground } from "@/hooks/useAppForeground";
 // waits for the next scheduled one instead of sending a duplicate request.
 const CHECK_INTERVAL_MS = 60_000;
 
-export function useOtaUpdate() {
+export function useOtaUpdate(startupReady = true) {
   // Disabled in dev clients and Expo Go; only release builds receive EAS Updates.
-  const enabled = Updates.isEnabled && !__DEV__;
+  const enabled = startupReady && Updates.isEnabled && !__DEV__;
   const { availableUpdate, downloadedUpdate, isUpdateAvailable, isUpdatePending } = Updates.useUpdates();
   const checking = useRef(false);
   const applying = useRef(false);

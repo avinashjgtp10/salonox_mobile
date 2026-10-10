@@ -40,13 +40,13 @@ const BACKDROP = '#f8f5fb';
 const GRADIENT = [BRAND, ACCENT] as const;
 
 export const SPLASH_TIMELINE = {
-  backdrop: 200,
-  logo: 700,
-  wording: 1400,
-  handoff: 2300,
+  backdrop: 0,
+  logo: 200,
+  wording: 500,
+  handoff: 1200,
 } as const;
 
-const EXIT_MS = 700;
+const EXIT_MS = 300;
 const ENTER = Easing.bezier(0.22, 1, 0.36, 1);
 const BOUNCE = Easing.bezier(0.34, 1.56, 0.64, 1);
 const ACCELERATE = Easing.bezier(0.4, 0, 1, 1);
@@ -120,12 +120,12 @@ export default function AnimatedSplash({ isReady, onPrepared, onComplete }: Prop
 
     backdrop.value = withDelay(
       SPLASH_TIMELINE.backdrop,
-      withTiming(1, { duration: 800, easing: Easing.out(Easing.ease) }),
+      withTiming(1, { duration: 500, easing: Easing.out(Easing.ease) }),
     );
-    rings.value = withDelay(SPLASH_TIMELINE.backdrop, withTiming(1, { duration: 700, easing: ENTER }));
-    logo.value = withDelay(SPLASH_TIMELINE.logo, withTiming(1, { duration: 650, easing: BOUNCE }));
-    wording.value = withDelay(SPLASH_TIMELINE.wording, withTiming(1, { duration: 700, easing: ENTER }));
-    bar.value = withDelay(SPLASH_TIMELINE.wording + 100, withTiming(1, { duration: 800, easing: BAR }));
+    rings.value = withDelay(SPLASH_TIMELINE.backdrop, withTiming(1, { duration: 450, easing: ENTER }));
+    logo.value = withDelay(SPLASH_TIMELINE.logo, withTiming(1, { duration: 500, easing: BOUNCE }));
+    wording.value = withDelay(SPLASH_TIMELINE.wording, withTiming(1, { duration: 400, easing: ENTER }));
+    bar.value = withDelay(SPLASH_TIMELINE.wording + 50, withTiming(1, { duration: 600, easing: BAR }));
     spin.value = withRepeat(withTiming(1, { duration: 18000, easing: Easing.linear }), -1, false);
     orbit.value = withRepeat(withTiming(1, { duration: 5000, easing: Easing.linear }), -1, false);
     blink.value = withDelay(

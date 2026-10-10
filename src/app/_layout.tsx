@@ -256,8 +256,8 @@ function NetworkSetup() {
 }
 
 function AppUpdateSetup({ ready }: { ready: boolean }) {
-  const { close, reopen, isVisible, updateInfo } = useAppUpdateAnnouncement();
-  const ota = useOtaUpdate();
+  const { close, reopen, isVisible, updateInfo } = useAppUpdateAnnouncement(ready);
+  const ota = useOtaUpdate(ready);
 
   // A store (binary) update takes priority; otherwise announce a new EAS Update.
   if (!updateInfo?.isUpdateAvailable && !updateInfo?.isMandatory && ota.hasUpdate) {
