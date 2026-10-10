@@ -8,6 +8,7 @@ import type { RootState } from "@/store";
 import { selectActiveBranchId } from "@/store/branch/branch.slice";
 import { selectCurrentUser } from "@/store/user/user.slice";
 import { isStaffExperienceUser } from "@/utils/routeResolver";
+import { logApiError } from "@/utils/logApiError";
 
 type FetchDashboardRejectValue = {
   message: string;
@@ -49,7 +50,7 @@ export const fetchDashboardThunk = createAsyncThunk<
       });
     }
 
-    console.error("[Dashboard] Dashboard fetch failed", {
+    logApiError("[Dashboard] Dashboard fetch failed", {
       message,
       responseBody: error instanceof ApiError ? error.responseData : undefined,
       status: error instanceof ApiError ? error.status : undefined,

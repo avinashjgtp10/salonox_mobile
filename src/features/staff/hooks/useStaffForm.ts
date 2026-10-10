@@ -53,6 +53,14 @@ const toPlaceholderDob = (day?: number | null, month?: number | null) => {
   return `${DOB_PLACEHOLDER_YEAR}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 };
 
+// The staff list stores the joining date as DD-MM-YYYY for display; the form,
+// date picker, validation and API all use YYYY-MM-DD.
+const toIsoJoiningDate = (value: string) => {
+  const match = /^(\d{2})-(\d{2})-(\d{4})$/.exec(value.trim());
+  if (match) return `${match[3]}-${match[2]}-${match[1]}`;
+  return /^\d{4}-\d{2}-\d{2}$/.test(value.trim()) ? value.trim() : "";
+};
+
 export const useStaffForm = (staffId?: string | null) => {
   const { fromCalendar } = useLocalSearchParams<{ fromCalendar?: string }>();
   const dispatch = useAppDispatch();
@@ -105,7 +113,7 @@ export const useStaffForm = (staffId?: string | null) => {
       holidays: staffMember.holidays != null ? String(staffMember.holidays) : "",
       hourlyRate: "",
       isLoginEnabled: Boolean(staffMember.loginAccess),
-      joiningDate: staffMember.joiningDate === "-" ? "" : staffMember.joiningDate,
+      joiningDate: toIsoJoiningDate(staffMember.joiningDate),
       notes: staffMember.notes,
       password: "",
       phone: staffMember.phone === "-" ? "" : staffMember.phone,

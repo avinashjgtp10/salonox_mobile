@@ -2,6 +2,7 @@ import { api } from "@/services/api";
 import { STAFF } from "@/services/api/endpoints";
 import type { ApiResponse } from "@/types/auth";
 import type {
+  CommissionDateRange,
   SalonCommissionSummary,
   SalonEarnedEntry,
   SettleCommissionResponse,
@@ -73,32 +74,75 @@ const normalizeEarnedEntry = (entry: UnknownRecord, index: number): SalonEarnedE
   ),
 });
 
-export function getCurrentCalendarMonthRange(now = new Date()): { start_date: string; end_date: string } {
-  const y = now.getFullYear();
-  const m = now.getMonth();
-  const toISO = (d: Date) =>
-    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const toISODate = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
-  return { start_date: toISO(new Date(y, m, 1)), end_date: toISO(new Date(y, m + 1, 0)) };
+/** `monthOffset` 0 = this month, -1 = last month. */
+export function getCalendarMonthRange(monthOffset = 0, now = new Date()): CommissionDateRange {
+  const y = now.getFullYear();
+  const m = now.getMonth() + monthOffset;
+
+  return { start_date: toISODate(new Date(y, m, 1)), end_date: toISODate(new Date(y, m + 1, 0)) };
 }
 
+export const getCurrentCalendarMonthRange = (now = new Date()) => getCalendarMonthRange(0, now);
+
+export type CommissionExportRow = {
+  category: string;
+  commissionAmount: number;
+  commissionKind: string;
+  commissionRate: number;
+  earnedDate: string;
+  revenueAmount: number;
+  staffName: string;
+  status: string;
+};
+
 export const salonCommissionsService = {
-  async getSummary(): Promise<SalonCommissionSummary> {
-    const response = await api.get<SummaryApiResponse>(STAFF.COMMISSIONS_SUMMARY, {
-      params: getCurrentCalendarMonthRange(),
-    });
+  async getSummary(range: CommissionDateRange = getCurrentCalendarMonthRange()): Promise<SalonCommissionSummary> {
+    const response = await api.get<SummaryApiResponse>(STAFF.COMMISSIONS_SUMMARY, { params: range });
     const record = asRecord(response.data.data);
     const nested = firstValue(record, ["data"]);
 
     return normalizeSummary(nested !== undefined ? asRecord(nested) : record);
   },
 
-  async getEarned(): Promise<SalonEarnedEntry[]> {
-    const response = await api.get<EarnedApiResponse>(STAFF.COMMISSIONS_EARNED, {
-      params: getCurrentCalendarMonthRange(),
-    });
+  async getEarned(range: CommissionDateRange = getCurrentCalendarMonthRange()): Promise<SalonEarnedEntry[]> {
+    const response = await api.get<EarnedApiResponse>(STAFF.COMMISSIONS_EARNED, { params: range });
 
     return getEarnedArray(response.data.data).map(normalizeEarnedEntry);
+  },
+
+  // Export is month-only on the backend (`month` = YYYY-MM), same as the web app.
+  async exportCsv(month: string): Promise<string> {
+    const response = await api.get<string>(STAFF.COMMISSIONS_EXPORT, { params: { month }, responseType: "text" });
+    return response.data;
+  },
+
+  async exportExcel(month: string): Promise<ArrayBuffer> {
+    const response = await api.get<ArrayBuffer>(STAFF.COMMISSIONS_EXPORT, {
+      params: { format: "excel", month },
+      responseType: "arraybuffer",
+    });
+    return response.data;
+  },
+
+  async exportRows(month: string): Promise<CommissionExportRow[]> {
+    const response = await api.get<ApiResponse<UnknownRecord[]>>(STAFF.COMMISSIONS_EXPORT, {
+      params: { format: "json", month },
+    });
+    const rows = Array.isArray(response.data.data) ? response.data.data.map(asRecord) : [];
+
+    return rows.map((row) => ({
+      category: toSafeString(row.category),
+      commissionAmount: toSafeNumber(row.commission_amount),
+      commissionKind: toSafeString(row.commission_kind),
+      commissionRate: toSafeNumber(row.commission_rate),
+      earnedDate: toSafeString(row.earned_date).slice(0, 10),
+      revenueAmount: toSafeNumber(row.revenue_amount),
+      staffName: toSafeString(row.staff_name).trim(),
+      status: toSafeString(row.status),
+    }));
   },
 
   async settleCommission(staffId: string, amount: number): Promise<SettleCommissionResponse> {

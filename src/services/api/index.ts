@@ -65,11 +65,14 @@ export class ApiError extends Error {
   }
 }
 
+// X-Client-Type marks these as mobile sessions, so the backend's
+// one-session-per-type rule doesn't sign the same account out on web.
 const refreshClient = create({
   baseURL: API_BASE_URL,
   timeout: 15000,
   headers: {
     "Content-Type": "application/json",
+    "X-Client-Type": "mobile",
   },
 });
 
@@ -78,11 +81,15 @@ export const api = create({
   timeout: 15000,
   headers: {
     "Content-Type": "application/json",
+    "X-Client-Type": "mobile",
     "X-Salonox-Client": "mobile",
   },
 });
 
 let refreshAccessTokenPromise: Promise<string> | null = null;
+// Set when a 401 says another phone logged in; the refresh that follows fails
+// (the session row is gone) and then reports this reason instead of a plain expiry.
+let sessionReplaced = false;
 let refreshAbortController: AbortController | null = null;
 const defaultApiAdapter = getAdapter(api.defaults.adapter) as AxiosAdapter;
 const inFlightSafeRequests = new Map<string, Promise<AxiosResponse>>();
@@ -332,6 +339,7 @@ const refreshAccessToken = async (reason: string) => {
           accessToken: nextTokens.accessToken,
           refreshToken: nextRefreshToken,
         });
+        sessionReplaced = false;
 
         logAuthEvent("refresh_succeeded", {
           reason,
@@ -356,8 +364,9 @@ const refreshAccessToken = async (reason: string) => {
 
         if (shouldClearSession) {
           await tokenStorage.clearSession();
-          notifySessionInvalidated("refresh_failed");
+          notifySessionInvalidated(sessionReplaced ? "session_replaced" : "refresh_failed");
         }
+        sessionReplaced = false;
 
         throw toApiError(refreshError);
       }
@@ -460,6 +469,9 @@ api.interceptors.response.use(
 
     if (status === 401 && originalRequest && !originalRequest._retry && !shouldSkipRefresh) {
       originalRequest._retry = true;
+      const payload = error.response?.data;
+      const errorCode = payload?.code ?? (payload?.error && typeof payload.error === "object" ? (payload.error as { code?: unknown }).code : undefined);
+      if (errorCode === "SESSION_REPLACED") sessionReplaced = true;
 
       try {
         const nextAccessToken = await refreshAccessToken(`response_401:${requestUrl}`);

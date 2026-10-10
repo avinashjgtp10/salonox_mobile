@@ -1,3 +1,4 @@
+import { useClientPrivacy } from "@/hooks/useClientPrivacy";
 import { useBenefitCards } from "../hooks/useBenefitCards";
 import { maskPhone } from "@/utils/maskPhone";
 import { Text, TextInput } from "@/components/ui/AppTypography";
@@ -99,6 +100,7 @@ function CheckoutSheetComponent({
   totals,
   visible,
 }: CheckoutSheetProps) {
+  const { clientName } = useClientPrivacy();
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const { height } = useWindowDimensions();
@@ -585,7 +587,7 @@ function CheckoutSheetComponent({
                   {checkoutStep === "review"
                     ? `${items.length} line item${items.length === 1 ? "" : "s"} ready`
                     : checkoutStep === "charges"
-                      ? `Adjustments for ${selectedClient.name}`
+                      ? `Adjustments for ${clientName(selectedClient.name)}`
                     : `Payment due ${formatCurrency(amountToCollect)}`}
                 </Text>
               </View>
@@ -614,7 +616,7 @@ function CheckoutSheetComponent({
                     </View>
                     <View style={styles.customerCopy}>
                       <Text numberOfLines={1} style={styles.customerName}>
-                        {selectedClient.name}
+                        {clientName(selectedClient.name)}
                       </Text>
                       <Text numberOfLines={1} style={styles.customerPhone}>
                         {maskPhone(selectedClient.phone)}
@@ -682,7 +684,7 @@ function CheckoutSheetComponent({
               ) : checkoutStep === "charges" ? (
                 <>
                   <View style={styles.orderSummaryCard}>
-                    <SummaryTile label="Client" value={selectedClient.name} />
+                    <SummaryTile label="Client" value={clientName(selectedClient.name)} />
                     <SummaryTile label="Items" value={String(items.length)} />
                     <SummaryTile label="Subtotal" value={formatCurrency(totals.subtotal)} />
                   </View>
@@ -881,7 +883,7 @@ function CheckoutSheetComponent({
                 </>
               ) : (
                 <View style={styles.paymentSummaryCard}>
-                  <SummaryTile label="Client" value={selectedClient.name} />
+                  <SummaryTile label="Client" value={clientName(selectedClient.name)} />
                   <SummaryTile label="Items" value={String(items.length)} />
                   <SummaryTile label="Grand Total" value={formatCurrency(totals.grandTotal)} />
                   <SummaryTile label="Outstanding" value={formatCurrency(dueAmount)} />

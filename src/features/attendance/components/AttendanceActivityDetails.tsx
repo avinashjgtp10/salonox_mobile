@@ -10,12 +10,12 @@ export const formatAttendanceDuration = (seconds: number) => {
   return `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, "0")}m`;
 };
 
-export function AttendanceActivityDetails({ activity, finalCheckout }: { activity?: AttendanceActivity; finalCheckout?: string | null }) {
+export function AttendanceActivityDetails({ activity, finalCheckout, showShift = true }: { activity?: AttendanceActivity; finalCheckout?: string | null; showShift?: boolean }) {
   const Colors = useThemeColors();
   const [expanded, setExpanded] = useState(false);
   if (!activity) return null;
   return <View style={{ gap: 6, marginTop: 12 }}>
-    {activity.scheduled_start && activity.scheduled_end ? <Text style={{ color: Colors.text2, fontSize: 12 }}>
+    {showShift && activity.scheduled_start && activity.scheduled_end ? <Text style={{ color: Colors.text2, fontSize: 12 }}>
       Shift: {formatAttendanceTime(activity.scheduled_start)} – {formatAttendanceTime(activity.scheduled_end)} · {formatAttendanceDuration(activity.scheduled_seconds ?? 0)} scheduled
     </Text> : null}
     <Text style={{ color: Colors.text, fontSize: 12 }}>Worked: {formatAttendanceDuration(activity.total_worked_seconds)} · Break: {formatAttendanceDuration(activity.total_break_seconds)} · {activity.break_count} breaks</Text>

@@ -7,6 +7,7 @@ import {
 } from "@/middleware/staff/salonCommissions.thunk";
 import type { RootState } from "@/store";
 import type {
+  CommissionDateRange,
   SalonCommissionRecord,
   SalonEarnedEntry,
   SalonCommissionSummary,
@@ -18,6 +19,8 @@ type SalonCommissionsState = {
   earnedLoaded: boolean;
   earnedLoading: boolean;
   earnedRequestId: string | null;
+  /** Range of the latest summary request, reused when Settle refreshes. */
+  range: CommissionDateRange | null;
   settlingStaffIds: string[];
   settleErrorByStaffId: Record<string, string | null>;
   summary: SalonCommissionSummary | null;
@@ -32,6 +35,7 @@ const initialState: SalonCommissionsState = {
   earnedLoaded: false,
   earnedLoading: false,
   earnedRequestId: null,
+  range: null,
   settlingStaffIds: [],
   settleErrorByStaffId: {},
   summary: null,
@@ -62,6 +66,7 @@ const salonCommissionsSlice = createSlice({
         state.summaryError = null;
         state.summaryLoading = true;
         state.summaryRequestId = action.meta.requestId;
+        state.range = action.meta.arg ?? null;
       })
       .addCase(fetchSalonCommissionSummaryThunk.fulfilled, (state, action) => {
         if (state.summaryRequestId !== action.meta.requestId) return;

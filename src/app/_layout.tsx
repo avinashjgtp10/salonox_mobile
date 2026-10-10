@@ -1,6 +1,6 @@
 import { Text } from "@/components/ui/AppTypography";
 import { DarkTheme, DefaultTheme, ThemeProvider as NavigationThemeProvider, type Theme } from '@react-navigation/native';
-import { Stack, usePathname, useRootNavigationState, useRouter, useSegments, type Href } from 'expo-router';
+import { Stack, useNavigationContainerRef, usePathname, useRootNavigationState, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -98,6 +98,7 @@ function AuthNavigationHandler({ onReady }: { onReady: () => void }) {
   }>({ isActive: false, salonId: null, status: "idle" });
   const pathname = usePathname();
   const rootNavigationState = useRootNavigationState();
+  const navigationRef = useNavigationContainerRef();
   const router = useRouter();
   const segments = useSegments();
 
@@ -195,10 +196,9 @@ function AuthNavigationHandler({ onReady }: { onReady: () => void }) {
       }
     } else {
       if (!isPublicRoute) {
-        if (router.canDismiss()) {
-          router.dismissAll();
-        }
-        router.replace("/login" as Href);
+        // One reset clears every stacked screen. dismissAll() + replace() raced
+        // after a sign-out and logged an unhandled POP_TO_TOP.
+        navigationRef.reset({ index: 0, routes: [{ name: "login" }] });
       } else {
         onReady();
       }
@@ -206,6 +206,7 @@ function AuthNavigationHandler({ onReady }: { onReady: () => void }) {
   }, [
     isAuthenticated,
     isLoading,
+    navigationRef,
     onReady,
     pathname,
     rootNavigationState?.key,

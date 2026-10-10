@@ -1,4 +1,6 @@
 import { Text } from "@/components/ui/AppTypography";
+import { useClientPrivacy } from "@/hooks/useClientPrivacy";
+import { getAppointmentBillLabel } from "@/utils/clientPrivacy";
 import { ClientAvatar } from "@/features/appointments/components/shared/ClientAvatar";
 import { MetaPill } from "@/features/appointments/components/shared/MetaPill";
 import { StatusBadge } from "@/features/appointments/components/shared/StatusBadge";
@@ -22,6 +24,7 @@ export function AppointmentCard({
   detailRoute?: (appointmentId: string) => Href;
   showPaymentStatus?: boolean;
 }) {
+  const { staffMode, clientName } = useClientPrivacy();
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const route = detailRoute?.(appointment.id) ?? (`/appointments/${appointment.id}` as Href);
@@ -35,13 +38,13 @@ export function AppointmentCard({
       >
         <View style={styles.cardTopRow}>
           <View style={styles.clientBlock}>
-            <ClientAvatar name={appointment.clientName} />
+            <ClientAvatar name={clientName(appointment.clientName)} />
             <View style={styles.clientCopy}>
               <Text numberOfLines={1} style={styles.cardTitle}>
-                {appointment.clientName}
+                {staffMode ? getAppointmentBillLabel(appointment) : appointment.clientName}
               </Text>
               <Text numberOfLines={1} style={styles.cardSubtitle}>
-                {appointment.serviceName}
+                {staffMode ? `${clientName(appointment.clientName)} · ${appointment.serviceName}` : appointment.serviceName}
               </Text>
             </View>
           </View>

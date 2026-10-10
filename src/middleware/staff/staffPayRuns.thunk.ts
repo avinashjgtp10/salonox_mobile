@@ -4,6 +4,7 @@ import { ApiError, getApiErrorMessage } from "@/services/api";
 import { staffPayRunsService } from "@/services/staffPayRuns.service";
 import type { RootState } from "@/store";
 import type { PayRunEntry, UpsertPayRunRequest, UpsertPayRunResponse } from "@/types/staffPayRuns";
+import { logApiError } from "@/utils/logApiError";
 
 type RejectValue = {
   message: string;
@@ -27,7 +28,7 @@ export const fetchPayRunsThunk = createAsyncThunk<
 
     return { payRuns, staffId };
   } catch (error) {
-    console.error("[StaffPayRuns] Fetch failed", { staffId, ...toRejectValue(error) });
+    logApiError("[StaffPayRuns] Fetch failed", { staffId, ...toRejectValue(error) });
 
     return rejectWithValue(toRejectValue(error));
   }
@@ -43,7 +44,7 @@ export const upsertPayRunThunk = createAsyncThunk<
 
     return { ...response, staffId };
   } catch (error) {
-    console.error("[StaffPayRuns] Upsert failed", { staffId, ...toRejectValue(error) });
+    logApiError("[StaffPayRuns] Upsert failed", { staffId, ...toRejectValue(error) });
 
     return rejectWithValue(toRejectValue(error));
   }
