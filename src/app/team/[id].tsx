@@ -2,7 +2,7 @@ import { Text } from "@/components/ui/AppTypography";
 import { appAlert as Alert } from "@/services/appAlert";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams, type Href } from "expo-router";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -20,7 +20,8 @@ import {
   StaffFutureSections,
   useStaffDetails,
 } from "@/features/staff";
-import { useStaffDailyMetrics } from "@/features/staff/hooks/useStaffDailyMetrics";
+import { useStaffPerformance, type PerformancePeriod } from "@/features/staff/hooks/useStaffPerformance";
+import type { AttendanceStatusKey } from "@/types/attendance";
 import { useAppToast } from "@/hooks/useAppToast";
 import { deleteStaffThunk, setStaffActiveStatusThunk } from "@/middleware/staff/staff.thunk";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
@@ -33,6 +34,45 @@ import { useThemeColors } from "@/theme/ThemeProvider";
 import { canManageStaffLifecycle } from "@/utils/userProfile";
 
 const formatCurrency = (amount: number) => `Rs. ${amount.toLocaleString("en-IN")}`;
+
+const PERFORMANCE_PERIODS: { key: PerformancePeriod; label: string }[] = [
+  { key: "today", label: "Today" },
+  { key: "week", label: "This Week" },
+  { key: "month", label: "This Month" },
+];
+
+const PERIOD_EMPTY_TEXT: Record<PerformancePeriod, string> = {
+  month: "this month",
+  today: "today",
+  week: "this week",
+};
+
+const ATTENDANCE_LABELS: Record<AttendanceStatusKey, string> = {
+  absent: "Absent",
+  halfDay: "Half Day",
+  late: "Late",
+  notMarked: "Not Marked",
+  onLeave: "On Leave",
+  present: "Present",
+};
+
+const formatRangeDate = (iso: string) => {
+  const [year, month, day] = iso.split("-").map(Number);
+  return new Date(year, month - 1, day).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+};
+
+/** "Unavailable" when that metric's source failed to load. */
+const metric = <T,>(value: T | null | undefined, format: (value: T) => string) =>
+  value === null || value === undefined ? "Unavailable" : format(value);
+
+function MetricCard({ label, styles, value }: { label: string; styles: ReturnType<typeof createStyles>; value: string }) {
+  return (
+    <View style={styles.metricCard}>
+      <Text style={styles.metricValue}>{value}</Text>
+      <Text style={styles.metricLabel}>{label}</Text>
+    </View>
+  );
+}
 
 function getRejectedMessage(payload: unknown, fallback: string) {
   if (payload && typeof payload === "object" && "message" in payload) {
@@ -95,6 +135,18 @@ export default function StaffProfileScreen() {
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const { id } = useLocalSearchParams<{ id?: string }>();
   const { detailsError, detailsLoading, staffMember: storedStaffMember } = useStaffDetails(id);
+  const staffMember = storedStaffMember;
+  const [period, setPeriod] = useState<PerformancePeriod>("today");
+  const performance = useStaffPerformance(staffMember, period);
+  const perf = performance.data;
+  const performanceHasError = Boolean(performance.errors && Object.values(performance.errors).some(Boolean));
+  // Empty only when every source loaded and none has activity for the period.
+  const performanceIsEmpty = Boolean(perf && !performanceHasError && perf.appointments === 0 && perf.completed === 0 &&
+    perf.revenue === 0 && (period === "today" ? perf.todayStatus === "notMarked" : perf.daysPresent === 0) &&
+    perf.rating?.totalReviews === 0);
+  const performanceRangeLabel = period === "today"
+    ? formatRangeDate(performance.range.start_date)
+    : `${formatRangeDate(performance.range.start_date)} – ${formatRangeDate(performance.range.end_date)}`;
   const staffMembersForMetrics = useMemo(
     () => (storedStaffMember ? [storedStaffMember] : []),
     [storedStaffMember],
@@ -366,6 +418,36 @@ export default function StaffProfileScreen() {
 
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>Performance Metrics</Text>
+          <View style={styles.periodRow}>
+            {PERFORMANCE_PERIODS.map((option) => {
+              const active = option.key === period;
+              return (
+                <TouchableOpacity
+                  key={option.key}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
+                  activeOpacity={0.84}
+                  onPress={() => setPeriod(option.key)}
+                  style={[styles.periodChip, active && styles.periodChipActive]}
+                >
+                  <Text style={[styles.periodChipText, active && styles.periodChipTextActive]}>{option.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          <Text style={styles.metricLabel}>{performanceRangeLabel}</Text>
+
+          {performance.loading ? (
+            <View style={styles.metricsLoading}>
+              <ActivityIndicator color={Colors.primary} />
+              <Text style={styles.metricLabel}>Loading performance...</Text>
+            </View>
+          ) : performanceIsEmpty ? (
+            <View style={styles.metricsEmpty}>
+              <Ionicons color={Colors.text2} name="stats-chart-outline" size={28} />
+              <Text style={styles.metricsEmptyTitle}>No performance data</Text>
+              <Text style={styles.metricLabel}>
+                {staffMember.name} has no appointments, sales, attendance or reviews {PERIOD_EMPTY_TEXT[period]}.
           {dailyMetrics.revenueError ? <Text style={styles.metricLabel}>Unable to load revenue. Reopen this page to retry.</Text> : null}
           <View style={styles.metricsGrid}>
             <View style={styles.metricCard}>
@@ -396,13 +478,36 @@ export default function StaffProfileScreen() {
               <Text style={styles.metricValue}>
                 {dailyMetrics.revenueReady ? formatCurrency(staffMember.todayRevenue) : "—"}
               </Text>
-              <Text style={styles.metricLabel}>Revenue Today</Text>
             </View>
-            <View style={styles.metricCard}>
-              <Text style={styles.metricValue}>{metricsReady ? staffMember.servicesCompleted : "—"}</Text>
-              <Text style={styles.metricLabel}>Completed Services</Text>
+          ) : (
+            <View style={styles.metricsGrid}>
+              <MetricCard label="Appointments" styles={styles} value={metric(perf?.appointments, (value) => String(value))} />
+              <MetricCard label="Completed Services" styles={styles} value={metric(perf?.completed, (value) => String(value))} />
+              <MetricCard label="Revenue" styles={styles} value={metric(perf?.revenue, formatCurrency)} />
+              <MetricCard
+                label="Attendance"
+                styles={styles}
+                value={period === "today"
+                  ? perf?.todayStatus ? ATTENDANCE_LABELS[perf.todayStatus] : "Unavailable"
+                  : metric(perf?.daysPresent, (value) => `${value} day${value === 1 ? "" : "s"} present`)}
+              />
+              <MetricCard
+                label="Customer Rating"
+                styles={styles}
+                value={perf?.rating
+                  ? perf.rating.totalReviews > 0
+                    ? `${perf.rating.averageRating.toFixed(1)} (${perf.rating.totalReviews} review${perf.rating.totalReviews === 1 ? "" : "s"})`
+                    : "No reviews"
+                  : "Unavailable"}
+              />
             </View>
-          </View>
+          )}
+          {!performance.loading && performanceHasError ? (
+            <TouchableOpacity accessibilityRole="button" onPress={() => void performance.refresh()} style={styles.metricsRetry}>
+              <Text style={styles.metricLabel}>Some metrics couldn&apos;t be loaded. </Text>
+              <Text style={styles.metricsRetryText}>Retry</Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
 
         <View style={styles.sectionCard}>
@@ -579,6 +684,63 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,
+    marginTop: Spacing.sm,
+  },
+  periodRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: Spacing.sm,
+  },
+  periodChip: {
+    backgroundColor: Colors.bg2,
+    borderColor: Colors.border,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  periodChipActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  periodChipText: {
+    color: Colors.text2,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  periodChipTextActive: {
+    color: "#FFFFFF",
+  },
+  metricsLoading: {
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: Spacing.lg,
+  },
+  metricsEmpty: {
+    alignItems: "center",
+    backgroundColor: Colors.bg2,
+    borderRadius: Radius.md,
+    gap: 6,
+    marginTop: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.lg,
+  },
+  metricsEmptyTitle: {
+    color: Colors.heading,
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  metricsRetry: {
+    alignItems: "center",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginTop: Spacing.sm,
+  },
+  metricsRetryText: {
+    color: Colors.primary,
+    fontSize: 12,
+    fontWeight: "800",
+    marginTop: 4,
   },
   metricCard: {
     backgroundColor: Colors.bg2,

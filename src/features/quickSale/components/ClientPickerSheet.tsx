@@ -12,6 +12,8 @@ import { EmptyState, ErrorState } from "@/features/quickSale/components/StateVie
 import { useDebouncedValue } from "@/features/quickSale/hooks/useDebouncedValue";
 import { uniqueById } from "@/features/quickSale/utils/unique";
 import { StaffBottomSheet } from "@/features/staff/components/StaffBottomSheet";
+import { DateField } from "@/components/ui/DateField";
+import { toClientDatePayload, validateClientDates } from "@/utils/clientDates";
 import { createClientThunk } from "@/middleware/client/client.thunk";
 import { clientService } from "@/services/client.service";
 import { selectActiveBranchId } from "@/store/branch/branch.slice";
@@ -34,7 +36,7 @@ import {
 const normalizePhoneForCompare = (value: string) => value.replace(/\D/g, "");
 const GENDER_OPTIONS = ["Female", "Male", "Other"] as const;
 type GenderOption = (typeof GENDER_OPTIONS)[number];
-type ClientFormErrors = Partial<Record<"firstName" | "gender" | "lastName" | "phone" | "form", string>>;
+type ClientFormErrors = Partial<Record<"anniversary" | "dob" | "firstName" | "gender" | "lastName" | "phone" | "form", string>>;
 
 type ClientPickerSheetProps = {
   onClose: () => void;
@@ -73,6 +75,8 @@ export function ClientPickerSheet({
   const [newLastName, setNewLastName] = useState("");
   const [newPhone, setNewPhone] = useState("");
   const [newGender, setNewGender] = useState<GenderOption | "">("");
+  const [newDob, setNewDob] = useState("");
+  const [newAnniversary, setNewAnniversary] = useState("");
   const [formErrors, setFormErrors] = useState<ClientFormErrors>({});
 
   const trimmedQuery = debouncedQuery.trim();
@@ -152,6 +156,7 @@ export function ClientPickerSheet({
     if (!trimmedPhone) nextErrors.phone = "Phone number is required.";
     else if (!isValidPhoneDigits(trimmedPhone)) nextErrors.phone = PHONE_INVALID_MESSAGE;
     if (!newGender) nextErrors.gender = "Select a gender.";
+    Object.assign(nextErrors, validateClientDates(newDob, newAnniversary));
 
     if (Object.keys(nextErrors).length > 0) {
       setFormErrors(nextErrors);
@@ -177,6 +182,7 @@ export function ClientPickerSheet({
         last_name: trimmedLastName,
         phone_country_code: "+91",
         phone_number: trimmedPhone,
+        ...(newDob || newAnniversary ? toClientDatePayload(newDob, newAnniversary) : {}),
       }),
     );
 
@@ -190,6 +196,8 @@ export function ClientPickerSheet({
     setNewLastName("");
     setNewPhone("");
     setNewGender("");
+    setNewDob("");
+    setNewAnniversary("");
     setFormErrors({});
     setQuery("");
     onClose();
@@ -206,7 +214,9 @@ export function ClientPickerSheet({
       centered={renderInline}
       onClose={handleClose}
       renderInline={renderInline}
-      scrollable={false}
+      // The new-client form scrolls (and keeps the focused field above the
+      // keyboard); the client list keeps its own FlatList scrolling.
+      scrollable={isCreating}
       subtitle="Select who this sale is for"
       title="Choose Client"
       visible={visible}
@@ -282,6 +292,34 @@ export function ClientPickerSheet({
               })}
             </View>
             {formErrors.gender ? <Text style={styles.fieldError}>{formErrors.gender}</Text> : null}
+          </View>
+          <View style={styles.nameRow}>
+            <View style={styles.nameField}>
+              <DateField
+                error={formErrors.dob}
+                label="Date of Birth"
+                maximumDate={new Date()}
+                onChange={(value) => {
+                  setNewDob(value);
+                  setFormErrors((current) => ({ ...current, anniversary: undefined, dob: undefined, form: undefined }));
+                }}
+                placeholder="Select date"
+                value={newDob}
+              />
+            </View>
+            <View style={styles.nameField}>
+              <DateField
+                error={formErrors.anniversary}
+                label="Anniversary Date"
+                maximumDate={new Date()}
+                onChange={(value) => {
+                  setNewAnniversary(value);
+                  setFormErrors((current) => ({ ...current, anniversary: undefined, form: undefined }));
+                }}
+                placeholder="Select date"
+                value={newAnniversary}
+              />
+            </View>
           </View>
           {formErrors.form || createError ? <Text style={styles.errorText}>{formErrors.form ?? createError}</Text> : null}
           <View style={styles.formActions}>

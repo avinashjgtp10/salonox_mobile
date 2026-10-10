@@ -28,6 +28,7 @@ import {
   CheckoutSheet,
   type DiscountApplyTarget,
 } from "@/features/quickSale/components/CheckoutSheet";
+import { ClientDatesSheet } from "@/features/quickSale/components/ClientDatesSheet";
 import { ClientPickerSheet } from "@/features/quickSale/components/ClientPickerSheet";
 import { CategoryChips } from "@/features/quickSale/components/CategoryChips";
 import { ErrorState } from "@/features/quickSale/components/StateViews";
@@ -174,6 +175,7 @@ function OwnerQuickSaleScreen({
   const [hasClientStepSelection, setHasClientStepSelection] = useState(Boolean(params.draftId));
   const [selectedQuickSaleStaff, setSelectedQuickSaleStaff] = useState<PosStaffMember | null>(null);
   const [isClientPickerVisible, setIsClientPickerVisible] = useState(false);
+  const [isClientDatesVisible, setIsClientDatesVisible] = useState(false);
   const [isEmbeddedStaffPickerVisible, setIsEmbeddedStaffPickerVisible] = useState(false);
   const [clientPickerStartsInCreateMode, setClientPickerStartsInCreateMode] = useState(false);
   const [changeServiceLineId, setChangeServiceLineId] = useState<string | null>(null);
@@ -1554,6 +1556,7 @@ function OwnerQuickSaleScreen({
           notes={saleNotes} onChangeNotes={setSaleNotes}
           pricingError={pricingError} isPricingLoading={isPricingLoading}
           onChangeCustomer={() => { setClientPickerStartsInCreateMode(false); setIsClientPickerVisible(true); }}
+          onEditClientDates={() => setIsClientDatesVisible(true)}
           onAdd={(tab) => { setActiveTab(tab); handleClearGlobalSearch(); setIsCatalogVisible(true); }}
           onMoreCharges={() => openCheckout("charges")}
           onSetQuantity={handleSetQuantity} onRemoveItem={handleRemoveItem} productStockErrors={productStockErrors}
@@ -1676,6 +1679,16 @@ function OwnerQuickSaleScreen({
           startInCreateMode={clientPickerStartsInCreateMode}
           visible={isClientPickerVisible}
         />
+
+        {selectedClient.id ? (
+          <ClientDatesSheet
+            clientId={selectedClient.id}
+            clientName={selectedClient.name}
+            onClose={() => setIsClientDatesVisible(false)}
+            renderInline={embedded}
+            visible={isClientDatesVisible}
+          />
+        ) : null}
 
         <StaffPickerSheet
           onClose={() => setIsEmbeddedStaffPickerVisible(false)}
