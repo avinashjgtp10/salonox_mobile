@@ -5,7 +5,7 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Linking from "expo-linking";
 import type { ComponentProps } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BackHandler, Platform, Pressable, ScrollView, StyleSheet, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import Animated, {
   Easing,
@@ -37,6 +37,10 @@ type UpdateAnnouncementModalProps = {
   latestVersion?: string | null;
   onClose: () => void;
   onReopen: () => void;
+  /** OTA updates: download and reload instead of opening the store. */
+  onUpdate?: () => Promise<void>;
+  isUpdating?: boolean;
+  reminderMessage?: string;
   releaseNotes?: AppReleaseNote[];
   title?: string | null;
   visible: boolean;
@@ -87,6 +91,9 @@ export function UpdateAnnouncementModal({
   latestVersion,
   onClose,
   onReopen,
+  onUpdate,
+  isUpdating = false,
+  reminderMessage = "We'll remind you on a future launch after 24 hours.",
   releaseNotes = [],
   title,
   visible,
@@ -108,6 +115,16 @@ export function UpdateAnnouncementModal({
   const logoScale = useSharedValue(0.9);
   const buttonScale = useSharedValue(1);
   const [isPresented, setIsPresented] = useState(visible);
+  // The close animation finishes on the UI thread and reports back later. If the
+  // modal was asked to open in the meantime (e.g. it mounted hidden and became
+  // visible right after), that late report must not hide it again.
+  const visibleRef = useRef(visible);
+  visibleRef.current = visible;
+  const hideIfStillClosed = useCallback(() => {
+    if (!visibleRef.current) {
+      setIsPresented(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (visible) {
@@ -119,11 +136,11 @@ export function UpdateAnnouncementModal({
 
     progress.value = withTiming(0, { duration: 220, easing: CLOSE_EASING }, (finished) => {
       if (finished) {
-        runOnJS(setIsPresented)(false);
+        runOnJS(hideIfStillClosed)();
       }
     });
     logoScale.value = withTiming(0.9, { duration: 180 });
-  }, [logoScale, progress, visible]);
+  }, [hideIfStillClosed, logoScale, progress, visible]);
 
   useEffect(() => {
     if (!visible) {
@@ -169,6 +186,14 @@ export function UpdateAnnouncementModal({
   };
 
   const handleUpdate = () => {
+    if (onUpdate) {
+      if (isUpdating) return;
+      void onUpdate().catch(() => {
+        Alert.alert("Couldn't download the update", "Please check your internet connection and try again.");
+      });
+      return;
+    }
+
     if (!isStoreUrlUsable) {
       Alert.alert(
         "Update link unavailable",
@@ -226,7 +251,7 @@ export function UpdateAnnouncementModal({
                 </View>
                 <View style={styles.noteCopy}>
                   <Text style={styles.noteTitle}>Reminder set!</Text>
-                  <Text style={styles.reminderText}>We&apos;ll remind you on a future launch after 24 hours.</Text>
+                  <Text style={styles.reminderText}>{reminderMessage}</Text>
                 </View>
               </View>
             </View>
@@ -310,17 +335,19 @@ export function UpdateAnnouncementModal({
               <View style={styles.actions}>
                 <AnimatedPressable
                   accessibilityRole="button"
+                  accessibilityState={{ busy: isUpdating, disabled: isUpdating }}
+                  disabled={isUpdating}
                   onPress={handleUpdate}
                   onPressIn={pressIn}
                   onPressOut={pressOut}
                   style={[styles.updateButton, buttonStyle]}
                 >
                   <LinearGradient colors={gradientColors.button} style={styles.updateButtonGradient}>
-                    <Text style={styles.updateButtonText}>Update Now</Text>
+                    <Text style={styles.updateButtonText}>{isUpdating ? "Updating…" : "Update Now"}</Text>
                   </LinearGradient>
                 </AnimatedPressable>
 
-                {!isMandatory ? (
+                {!isMandatory && !isUpdating ? (
                   <TouchableOpacity
                     activeOpacity={0.78}
                     onPress={() => {
