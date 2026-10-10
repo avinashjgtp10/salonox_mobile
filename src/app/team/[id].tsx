@@ -8,6 +8,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { AppLayout, AppRadius } from "@/constants/layout";
+import { formatAppDate } from "@/utils/dateTime";
 import {
   DashboardRadius as Radius,
   DashboardSpacing as Spacing,
@@ -56,10 +57,7 @@ const ATTENDANCE_LABELS: Record<AttendanceStatusKey, string> = {
   present: "Present",
 };
 
-const formatRangeDate = (iso: string) => {
-  const [year, month, day] = iso.split("-").map(Number);
-  return new Date(year, month - 1, day).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
-};
+const formatRangeDate = (iso: string) => formatAppDate(iso);
 
 /** "Unavailable" when that metric's source failed to load. */
 const metric = <T,>(value: T | null | undefined, format: (value: T) => string) =>

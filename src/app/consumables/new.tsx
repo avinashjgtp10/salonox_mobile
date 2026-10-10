@@ -19,6 +19,7 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { clearProductMutationError } from "@/store/product/product.slice";
 import { selectServices } from "@/store/service/service.slice";
 import { useThemeColors } from "@/theme/ThemeProvider";
+import { formatAppDate } from "@/utils/dateTime";
 import type { ServiceCategoryItem } from "@/types/service";
 import { useValidationScroll } from "@/hooks/useValidationScroll";
 
@@ -49,12 +50,7 @@ const PRODUCT_TYPES: { label: string; value: ProductType }[] = [
 
 const TAX_TYPES = ["No tax", "GST 5%", "GST 12%", "GST 18%"];
 
-const formatDate = (value: Date | null) => {
-  if (!value) return "";
-  const day = String(value.getDate()).padStart(2, "0");
-  const month = String(value.getMonth() + 1).padStart(2, "0");
-  return `${day}-${month}-${value.getFullYear()}`;
-};
+const formatDate = (value: Date | null) => (value ? formatAppDate(value) : "");
 
 const toIsoDate = (value: Date | null) => {
   if (!value) return undefined;
@@ -355,7 +351,7 @@ export default function NewConsumableScreen() {
           <Text style={styles.label}>Expiry Date</Text>
           <TouchableOpacity activeOpacity={0.84} onPress={() => setShowDatePicker(true)} style={styles.dateButton}>
             <Ionicons color={Colors.heading} name="calendar-outline" size={17} />
-            <Text style={[styles.dateText, !expiryDate && styles.placeholder]}>{formatDate(expiryDate) || "dd-mm-yyyy"}</Text>
+            <Text style={[styles.dateText, !expiryDate && styles.placeholder]}>{formatDate(expiryDate) || "dd-mm-yy"}</Text>
             <Ionicons color={Colors.text2} name="chevron-down" size={16} />
           </TouchableOpacity>
         </Section>

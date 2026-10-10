@@ -10,11 +10,10 @@ import { getApiErrorMessage } from "@/services/api";
 import type { InboxCustomer } from "@/types/inbox";
 import type { ClientPackage } from "@/types/package";
 import { inboxAvatar } from "@/utils/inboxPresentation";
-import { parseAppDateTime } from "@/utils/dateTime";
+import { formatAppDate } from "@/utils/dateTime";
 import { useInboxTheme } from "./inboxTheme";
 
-const dateLabel = (value: string | null) => parseAppDateTime(value)
-  ?.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) ?? "—";
+const dateLabel = (value: string | null) => formatAppDate(value, "—");
 
 export function CustomerPanel({ phone, onClose }: { phone: string; onClose: () => void }) {
   const { styles: s, palette: p } = useInboxTheme();

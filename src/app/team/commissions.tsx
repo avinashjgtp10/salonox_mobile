@@ -13,6 +13,7 @@ import { SettlementModal } from "@/components/ui/SettlementModal";
 import { formatExportMonth, shareCommissionExport, type CommissionExportFormat } from "@/features/staff/utils/commissionExport";
 import { getApiErrorMessage } from "@/services/api";
 import { getCalendarMonthRange } from "@/services/salonCommissions.service";
+import { formatAppDate } from "@/utils/dateTime";
 import { EmptyState, ErrorState, InlineLoader } from "@/components/ui/StateViews";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import { useAppToast } from "@/hooks/useAppToast";
@@ -58,10 +59,7 @@ const todayIso = () => {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 };
 
-const formatRangeDate = (iso: string) => {
-  const [year, month, day] = iso.split("-").map(Number);
-  return new Date(year, month - 1, day).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
-};
+const formatRangeDate = (iso: string) => formatAppDate(iso);
 
 function formatCurrency(amount: number) {
   return `Rs. ${amount.toLocaleString("en-IN")}`;

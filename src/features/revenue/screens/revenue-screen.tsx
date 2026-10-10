@@ -76,7 +76,7 @@ export default function RevenueScreen({ period }: { period: RevenuePeriod }) {
 
     setPeriodLabel(
       period === "today"
-        ? date.toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })
+        ? formatAppDate(date)
         : `${formatAppDate(range.start_date, range.start_date)} – ${formatAppDate(range.end_date, range.end_date)}`,
     );
     setLoading(true);
@@ -158,7 +158,7 @@ export default function RevenueScreen({ period }: { period: RevenuePeriod }) {
           <Ionicons name="arrow-back" size={24} color={colors.heading} />
         </Pressable>
         <Text style={[styles.title, { color: colors.heading }]}>
-          {period === "today" ? "Today's Revenue" : `${new Date(`${monthlyRange.start_date}T12:00:00`).toLocaleDateString("en-IN", { month: "long", year: "numeric" })} Revenue`}
+          {period === "today" ? "Today's Revenue" : `${formatAppDate(`${monthlyRange.start_date}T12:00:00`)} Revenue`}
         </Text>
       </View>
       <ScrollView contentContainerStyle={styles.content}>
@@ -181,7 +181,7 @@ export default function RevenueScreen({ period }: { period: RevenuePeriod }) {
           <>
             <View style={[styles.card, { backgroundColor: colors.card }]}>
               <Text style={{ color: colors.text2 }}>
-                {period === "today" ? "Today's Revenue" : `${new Date(`${monthlyRange.start_date}T12:00:00`).toLocaleDateString("en-IN", { month: "long", year: "numeric" })} Revenue`}
+                {period === "today" ? "Today's Revenue" : `${formatAppDate(`${monthlyRange.start_date}T12:00:00`)} Revenue`}
               </Text>
               <Text style={[styles.total, { color: colors.heading }]}>{currency(revenue.revenue)}</Text>
             </View>
