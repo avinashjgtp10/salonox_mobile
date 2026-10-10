@@ -1,5 +1,5 @@
 import type { InboxConversation, InboxMessage } from "@/types/inbox";
-import { parseAppDateTime } from "@/utils/dateTime";
+import { formatAppDate, parseAppDateTime } from "@/utils/dateTime";
 
 export function inboxAvatar(name: string | null | undefined, phone: string) {
   const parts = name?.trim().split(/\s+/) ?? [];
@@ -33,9 +33,7 @@ export function sortInboxConversations(items: InboxConversation[], unreadFirst =
 }
 
 export function messageDay(value: string | null) {
-  const date = parseAppDateTime(value);
-  if (!date) return "Unknown date";
-  return date.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  return formatAppDate(value, "Unknown date");
 }
 
 export function inboxPhoneKey(phone: string, countryCode?: string | null) {

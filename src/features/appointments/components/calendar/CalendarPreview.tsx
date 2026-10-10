@@ -12,7 +12,7 @@ import type { QuickSaleSlot } from "@/features/quickSale/screens/QuickSaleScreen
 import QuickSaleScreen from "@/features/quickSale/screens/QuickSaleScreen";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { AppointmentListItem } from "@/types/appointment";
-import { formatAppTime } from "@/utils/dateTime";
+import { formatAppDate, formatAppTime } from "@/utils/dateTime";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, type Href } from "expo-router";
@@ -42,7 +42,6 @@ const HOURS = Array.from({ length: 24 }, (_, index) => START_HOUR + index);
 const GRID_HEIGHT = HOURS.length * HOUR_HEIGHT;
 
 const HOUR_LABEL_FORMAT = new Intl.DateTimeFormat("en-IN", { hour: "numeric", hour12: true });
-const DAY_LABEL_FORMAT = new Intl.DateTimeFormat("en-IN", { weekday: "short", day: "2-digit", month: "short" });
 const TIME_SLOTS = Array.from({ length: HOURS.length * (60 / SLOT_MINUTES) }, (_, index) => {
   const totalMinutes = START_HOUR * 60 + index * SLOT_MINUTES;
   const hour = Math.floor(totalMinutes / 60);
@@ -95,7 +94,7 @@ export function CalendarPreview({
     value.setDate(value.getDate() + index);
     return {
       key: `${value.getFullYear()}-${pad2(value.getMonth() + 1)}-${pad2(value.getDate())}`,
-      label: DAY_LABEL_FORMAT.format(value),
+      label: formatAppDate(value),
     };
   }), [date]);
   const columns = useMemo<CalendarColumn[]>(() => viewMode === "day"
