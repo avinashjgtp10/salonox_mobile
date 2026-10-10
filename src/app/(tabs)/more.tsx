@@ -334,11 +334,15 @@ function MoreScreenContent() {
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
       <AppStatusBar />
       <TourScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <UserGuideButton />
-        <Text style={styles.title}>Settings</Text>
-        <Text style={styles.subtitle}>
-          SalonOX · Manage your workspace
-        </Text>
+        <View style={styles.headerRow}>
+          <View style={styles.headerTextBlock}>
+            <Text style={styles.title}>Settings</Text>
+            <Text style={styles.subtitle}>
+              SalonOX · Manage your workspace
+            </Text>
+          </View>
+          <UserGuideButton variant="icon" />
+        </View>
 
         <View style={styles.heroCard}>
           <View style={styles.profileRow}>
@@ -592,6 +596,14 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   content: {
     paddingBottom: AppLayout.contentBottomPadding,
     paddingHorizontal: 16,
+  },
+  headerRow: {
+    alignItems: "flex-start",
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  headerTextBlock: {
+    flex: 1,
   },
   title: {
     color: Colors.heading,
