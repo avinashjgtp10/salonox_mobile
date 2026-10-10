@@ -25,6 +25,12 @@ export type SalonCommissionRecord = {
   unpaidAmount?: number;
 };
 
+/** Inclusive YYYY-MM-DD range accepted by /staff/commissions/summary and /earned. */
+export type CommissionDateRange = {
+  end_date: string;
+  start_date: string;
+};
+
 export type SettleCommissionRequest = {
   staffId: string;
   amount: number;

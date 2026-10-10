@@ -35,6 +35,7 @@ import type {
   ClientPackageRecord,
   ClientSaleRecord,
 } from "@/types/client";
+import { logApiError } from "@/utils/logApiError";
 
 type ClientState = {
   activeFilter: ClientFilterValue | null;
@@ -212,10 +213,11 @@ const clientSlice = createSlice({
         state.loadingMore = false;
         state.refreshing = false;
 
-        console.error("[Clients Slice] Rejected", {
+        logApiError("[Clients Slice] Rejected", {
           error: state.error,
           requestId: action.meta.requestId,
           requestQuery: action.meta.arg,
+          status: action.payload?.status,
         });
       })
       .addCase(searchClientsThunk.pending, (state, action) => {

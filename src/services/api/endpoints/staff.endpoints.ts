@@ -28,6 +28,7 @@ export const STAFF = {
   COMMISSIONS_HISTORY: (staffId: string) => `/staff/${staffId}/commissions/history`,
 
   COMMISSIONS_EARNED: "/staff/commissions/earned",
+  COMMISSIONS_EXPORT: "/staff/commissions/export",
   COMMISSIONS_MARK_PAID: (staffId: string) => `/staff/commissions/${staffId}/mark-paid`,
   COMMISSIONS_SUMMARY: "/staff/commissions/summary",
 

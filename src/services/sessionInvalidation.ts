@@ -4,6 +4,8 @@ type SessionInvalidationReason =
   | "logout_all"
   | "delete_account"
   | "refresh_failed"
+  /** The same account logged in on another phone; the backend ended this session. */
+  | "session_replaced"
   | "missing_refresh_token"
   | "unauthorized_response";
 

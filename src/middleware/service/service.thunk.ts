@@ -17,6 +17,7 @@ import type {
   UpdateServiceRequest,
   UpdateServiceResponse,
 } from "@/types/service";
+import { logApiError } from "@/utils/logApiError";
 
 export const fetchCategoriesThunk = createAsyncThunk<
   ServiceCategoryItem[],
@@ -89,7 +90,7 @@ export const fetchServicesThunk = createAsyncThunk<
   } catch (error) {
     const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
 
-    console.error("[Services] Fetch failed", {
+    logApiError("[Services] Fetch failed", {
       message,
       responseBody: error instanceof ApiError ? error.responseData : undefined,
       status: error instanceof ApiError ? error.status : undefined,
@@ -113,7 +114,7 @@ export const fetchServiceByIdThunk = createAsyncThunk<
   } catch (error) {
     const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
 
-    console.error("[Services] Fetch by ID failed", {
+    logApiError("[Services] Fetch by ID failed", {
       message,
       responseBody: error instanceof ApiError ? error.responseData : undefined,
       serviceId,
@@ -151,7 +152,7 @@ export const createServiceThunk = createAsyncThunk<
   } catch (error) {
     const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
 
-    console.error("[Services] Create failed", {
+    logApiError("[Services] Create failed", {
       message,
       responseBody: error instanceof ApiError ? error.responseData : undefined,
       status: error instanceof ApiError ? error.status : undefined,
@@ -186,7 +187,7 @@ export const deleteServiceThunk = createAsyncThunk<
   } catch (error) {
     const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
 
-    console.error("[Services] Delete failed", {
+    logApiError("[Services] Delete failed", {
       message,
       responseBody: error instanceof ApiError ? error.responseData : undefined,
       serviceId,
@@ -229,7 +230,7 @@ export const updateServiceThunk = createAsyncThunk<
   } catch (error) {
     const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
 
-    console.error("[Services] Update failed", {
+    logApiError("[Services] Update failed", {
       message,
       responseBody: error instanceof ApiError ? error.responseData : undefined,
       serviceId,

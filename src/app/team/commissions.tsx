@@ -1,14 +1,18 @@
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { appAlert as Alert } from "@/services/appAlert";
 import { Ionicons } from "@expo/vector-icons";
-import { Redirect, useFocusEffect } from "expo-router";
+import { Redirect, router, useFocusEffect, type Href } from "expo-router";
 import { useCallback, useDeferredValue, useMemo, useState } from "react";
 import { ActivityIndicator, FlatList, RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View, type ListRenderItem } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppBackButton, AppBackButtonPlaceholder } from "@/components/ui/AppBackButton";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
+import { DateField } from "@/components/ui/DateField";
 import { SettlementModal } from "@/components/ui/SettlementModal";
+import { formatExportMonth, shareCommissionExport, type CommissionExportFormat } from "@/features/staff/utils/commissionExport";
+import { getApiErrorMessage } from "@/services/api";
+import { getCalendarMonthRange } from "@/services/salonCommissions.service";
 import { EmptyState, ErrorState, InlineLoader } from "@/components/ui/StateViews";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import { useAppToast } from "@/hooks/useAppToast";
@@ -37,10 +41,27 @@ import {
 import { selectCurrentUser } from "@/store/user/user.slice";
 import { selectCurrentStaff } from "@/store/staff/staff.slice";
 import { canSettleCommission } from "@/utils/userProfile";
-import type { SalonCommissionRecord } from "@/types/salonCommissions";
+import type { CommissionDateRange, SalonCommissionRecord } from "@/types/salonCommissions";
 
 const STATUS_FILTERS = ["All", "Pending", "Partial", "Paid"] as const;
 type StatusFilter = (typeof STATUS_FILTERS)[number];
+
+const RANGE_PRESETS = [
+  { key: "this_month", label: "This Month" },
+  { key: "last_month", label: "Last Month" },
+  { key: "custom", label: "Custom" },
+] as const;
+type RangePreset = (typeof RANGE_PRESETS)[number]["key"];
+
+const todayIso = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+};
+
+const formatRangeDate = (iso: string) => {
+  const [year, month, day] = iso.split("-").map(Number);
+  return new Date(year, month - 1, day).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+};
 
 function formatCurrency(amount: number) {
   return `Rs. ${amount.toLocaleString("en-IN")}`;
@@ -100,17 +121,66 @@ export default function SalonCommissionsScreen() {
     settlementRecord ? selectCommissionSettling(state, settlementRecord.staffId) : false,
   );
   const deferredSearch = useDeferredValue(search);
+  const [rangePreset, setRangePreset] = useState<RangePreset>("this_month");
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
+  const [exporting, setExporting] = useState<CommissionExportFormat | null>(null);
+  const customRangeInvalid = Boolean(customStart && customEnd && customStart > customEnd);
+  // Custom waits for both dates (and a valid order) before replacing the shown data.
+  const range = useMemo<CommissionDateRange | null>(() => {
+    if (rangePreset === "this_month") return getCalendarMonthRange(0);
+    if (rangePreset === "last_month") return getCalendarMonthRange(-1);
+    return customStart && customEnd && customStart <= customEnd ? { end_date: customEnd, start_date: customStart } : null;
+  }, [rangePreset, customStart, customEnd]);
+  const rangeLabel = range ? `${formatRangeDate(range.start_date)} – ${formatRangeDate(range.end_date)}` : "";
+  // Export is monthly on the backend (same as the web): it uses the month the range starts in.
+  const exportMonth = (range?.start_date ?? getCalendarMonthRange(0).start_date).slice(0, 7);
+
+  const loadCommissions = useCallback(() => {
+    if (!hasSettlePermission || !range) {
+      return Promise.resolve();
+    }
+
+    return Promise.all([
+      dispatch(fetchSalonCommissionSummaryThunk(range)),
+      dispatch(fetchSalonCommissionEarnedThunk(range)),
+    ]);
+  }, [dispatch, hasSettlePermission, range]);
 
   useFocusEffect(
     useCallback(() => {
-      if (!hasSettlePermission) {
-        return;
-      }
-
-      void dispatch(fetchSalonCommissionSummaryThunk());
-      void dispatch(fetchSalonCommissionEarnedThunk());
-    }, [dispatch, hasSettlePermission]),
+      void loadCommissions();
+    }, [loadCommissions]),
   );
+
+  const selectPreset = (preset: RangePreset) => {
+    setRangePreset(preset);
+    if (preset === "custom" && !customStart && !customEnd) {
+      const current = getCalendarMonthRange(0);
+      setCustomStart(current.start_date);
+      setCustomEnd(todayIso());
+    }
+  };
+
+  const runExport = async (format: CommissionExportFormat) => {
+    setExporting(format);
+    try {
+      await shareCommissionExport(exportMonth, format);
+    } catch (error) {
+      Alert.alert("Unable to export commissions", getApiErrorMessage(error));
+    } finally {
+      setExporting(null);
+    }
+  };
+
+  const handleExport = () => {
+    Alert.alert("Export commissions", `Exports are monthly. This exports ${formatExportMonth(exportMonth)}.`, [
+      { style: "cancel", text: "Cancel" },
+      { onPress: () => void runExport("csv"), text: "CSV" },
+      { onPress: () => void runExport("excel"), text: "Excel" },
+      { onPress: () => void runExport("pdf"), text: "PDF" },
+    ]);
+  };
 
   const filteredRecords = useMemo(() => {
     const staffScoped =
@@ -141,22 +211,14 @@ export default function SalonCommissionsScreen() {
 
     setRefreshing(true);
     try {
-      await Promise.all([
-        dispatch(fetchSalonCommissionSummaryThunk()),
-        dispatch(fetchSalonCommissionEarnedThunk()),
-      ]);
+      await loadCommissions();
     } finally {
       setRefreshing(false);
     }
   };
 
   const handleRetry = () => {
-    if (!hasSettlePermission) {
-      return;
-    }
-
-    void dispatch(fetchSalonCommissionSummaryThunk());
-    void dispatch(fetchSalonCommissionEarnedThunk());
+    void loadCommissions();
   };
 
   const handleSettle = (record: SalonCommissionRecord) => {
@@ -254,6 +316,59 @@ export default function SalonCommissionsScreen() {
         <AppBackButtonPlaceholder />
       </View>
 
+      <View style={styles.actionRow}>
+        <TouchableOpacity
+          activeOpacity={0.84}
+          onPress={() => router.push("/team/commission-rules" as Href)}
+          style={styles.actionButton}
+        >
+          <Ionicons color={Colors.primary} name="options-outline" size={16} />
+          <Text style={styles.actionButtonText}>Commission Rules</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          activeOpacity={0.84}
+          disabled={exporting !== null}
+          onPress={handleExport}
+          style={[styles.actionButton, exporting !== null && styles.buttonDisabled]}
+        >
+          {exporting ? <ActivityIndicator color={Colors.primary} size="small" /> : <Ionicons color={Colors.primary} name="download-outline" size={16} />}
+          <Text style={styles.actionButtonText}>Export</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.rangeRow}>
+        {RANGE_PRESETS.map((preset) => {
+          const isActive = preset.key === rangePreset;
+
+          return (
+            <TouchableOpacity
+              key={preset.key}
+              accessibilityRole="button"
+              accessibilityState={{ selected: isActive }}
+              activeOpacity={0.84}
+              onPress={() => selectPreset(preset.key)}
+              style={[styles.filterChip, isActive && styles.filterChipActive]}
+            >
+              <Text style={[styles.filterChipText, isActive && styles.filterChipTextActive]}>{preset.label}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+      {rangePreset === "custom" ? (
+        <View style={styles.customRange}>
+          <View style={styles.customField}>
+            <DateField label="From" maximumDate={new Date()} onChange={setCustomStart} placeholder="Start date" value={customStart} />
+          </View>
+          <View style={styles.customField}>
+            <DateField label="To" maximumDate={new Date()} onChange={setCustomEnd} placeholder="End date" value={customEnd} />
+          </View>
+        </View>
+      ) : null}
+      {customRangeInvalid && rangePreset === "custom" ? (
+        <Text style={styles.errorText}>The start date must be on or before the end date.</Text>
+      ) : null}
+      {rangeLabel ? <Text style={styles.rangeLabel}>{rangeLabel}</Text> : null}
+
       {summaryError ? (
         <Text style={styles.errorText}>{summaryError}</Text>
       ) : (
@@ -320,7 +435,7 @@ export default function SalonCommissionsScreen() {
       </ScrollView>
 
       {listLoading && !listLoaded ? (
-        <InlineLoader label="Loading current-month commissions..." />
+        <InlineLoader label="Loading commissions..." />
       ) : null}
       {!listLoading && listError ? (
         <ErrorState message={listError} onRetry={handleRetry} />
@@ -331,10 +446,10 @@ export default function SalonCommissionsScreen() {
           description={
             records.length > 0
               ? "No commission records match the selected search or status."
-              : "Commission records will appear here after eligible current-month checkouts."
+              : "Commission records will appear here after eligible checkouts in the selected dates."
           }
           icon="cash-outline"
-          title={records.length > 0 ? "No matching commissions" : "No commissions this month"}
+          title={records.length > 0 ? "No matching commissions" : "No commissions in this period"}
         />
       ) : null}
     </View>
@@ -396,6 +511,46 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     color: Colors.heading,
     fontSize: AppLayout.headerTitleFontSize,
     fontWeight: AppLayout.screenTitleFontWeight,
+  },
+  actionRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: Spacing.md,
+  },
+  actionButton: {
+    alignItems: "center",
+    backgroundColor: Colors.card,
+    borderColor: Colors.border,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    flex: 1,
+    flexDirection: "row",
+    gap: 6,
+    justifyContent: "center",
+    minHeight: 42,
+  },
+  actionButtonText: {
+    color: Colors.primary,
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  rangeRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: Spacing.sm,
+  },
+  customRange: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  customField: {
+    flex: 1,
+  },
+  rangeLabel: {
+    color: Colors.text2,
+    fontSize: 12,
+    fontWeight: "700",
+    marginBottom: Spacing.sm,
   },
   errorText: {
     color: Colors.error,

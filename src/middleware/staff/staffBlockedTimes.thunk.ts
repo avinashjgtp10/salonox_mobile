@@ -11,6 +11,7 @@ import type {
   UpdateBlockedTimeRequest,
   UpdateBlockedTimeResponse,
 } from "@/types/staffBlockedTimes";
+import { logApiError } from "@/utils/logApiError";
 
 type RejectValue = {
   message: string;
@@ -34,7 +35,7 @@ export const fetchBlockedTimesThunk = createAsyncThunk<
 
     return { blockedTimes, staffId };
   } catch (error) {
-    console.error("[StaffBlockedTimes] Fetch failed", { staffId, ...toRejectValue(error) });
+    logApiError("[StaffBlockedTimes] Fetch failed", { staffId, ...toRejectValue(error) });
 
     return rejectWithValue(toRejectValue(error));
   }
@@ -48,7 +49,7 @@ export const createBlockedTimeThunk = createAsyncThunk<
   try {
     return await staffBlockedTimesService.createBlockedTime(staffId, payload);
   } catch (error) {
-    console.error("[StaffBlockedTimes] Create failed", { staffId, ...toRejectValue(error) });
+    logApiError("[StaffBlockedTimes] Create failed", { staffId, ...toRejectValue(error) });
 
     return rejectWithValue(toRejectValue(error));
   }
@@ -62,7 +63,7 @@ export const updateBlockedTimeThunk = createAsyncThunk<
   try {
     return await staffBlockedTimesService.updateBlockedTime(staffId, recordId, updates);
   } catch (error) {
-    console.error("[StaffBlockedTimes] Update failed", {
+    logApiError("[StaffBlockedTimes] Update failed", {
       recordId,
       staffId,
       ...toRejectValue(error),
@@ -80,7 +81,7 @@ export const deleteBlockedTimeThunk = createAsyncThunk<
   try {
     return await staffBlockedTimesService.deleteBlockedTime(staffId, recordId);
   } catch (error) {
-    console.error("[StaffBlockedTimes] Delete failed", {
+    logApiError("[StaffBlockedTimes] Delete failed", {
       recordId,
       staffId,
       ...toRejectValue(error),
