@@ -76,6 +76,7 @@ export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | 
         }
       }}
       refreshing={detailsState?.loading}
+      showCreateAction={!isStaffMode}
       title={isStaffMode ? "My Appointment" : "Appointment Details"}
     >
       {(detailsState?.loading || (isStaffMode && currentStaffLoading)) && !appointment ? <SkeletonList /> : null}

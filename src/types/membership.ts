@@ -38,6 +38,10 @@ export type Membership = CreateMembershipRequest & {
   id: string;
   createdAt: string;
   updatedAt: string;
+  // "value" | "percentage" | "loyalty" — the catalog filter's "Membership Type".
+  pricingType?: string | null;
+  // "services" | "products" | "both" — the catalog filter's "Applies To".
+  appliesTo?: string | null;
 };
 
 export type MembershipRow = {
@@ -54,6 +58,10 @@ export type MembershipRow = {
   price: string;
   tax_rate: string | null;
   colour: string;
+  pricing_type?: string | null;
+  pricingType?: string | null;
+  applies_to?: string | null;
+  appliesTo?: string | null;
   enable_online_sales: boolean;
   enable_online_redemption: boolean;
   terms_and_conditions: string | null;

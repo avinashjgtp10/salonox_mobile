@@ -11,6 +11,7 @@ import {
 } from "axios";
 
 import { environmentConfig } from "@/config/environment";
+import { NOTIFICATION } from "@/services/api/endpoints";
 import { isUserLogoutInProgress } from "@/services/authLifecycle";
 import {
   getAuthErrorMessage,
@@ -21,6 +22,7 @@ import {
   shouldRefreshToken,
 } from "@/services/authSession";
 import { isNetworkOnline, waitForNetworkOnline } from "@/services/networkStatus";
+import { notificationDeviceStorage } from "@/services/notificationDeviceStorage";
 import { notifySessionInvalidated } from "@/services/sessionInvalidation";
 import { tokenStorage } from "@/services/tokenStorage";
 import { isStaffBusinessWrite } from "@/utils/staffAccess";
@@ -302,6 +304,33 @@ export const cancelProtectedApiRequests = () => {
   protectedRequestControllers.clear();
 };
 
+// A session ending outside the explicit sign-out flow (expired/rotated
+// refresh token, "logged in on another device") never runs AuthContext's
+// signOut, so nothing tells the backend to stop pushing to this device.
+// Best-effort unregister here, while the soon-to-be-cleared access token
+// can still authenticate the call, so prod notifications stop once a
+// session is silently invalidated instead of continuing after logout.
+const bestEffortUnregisterPushToken = async (accessToken: string | null) => {
+  try {
+    const token = await notificationDeviceStorage.getRegisteredToken();
+
+    if (!token) {
+      return;
+    }
+
+    await refreshClient.delete(NOTIFICATION.REGISTER_DEVICE, {
+      data: { token },
+      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+    });
+
+    await notificationDeviceStorage.clearRegisteredToken();
+  } catch (unregisterError) {
+    logAuthEvent("notification_device_unregister_on_invalidation_failed", {
+      message: getAuthErrorMessage(unregisterError),
+    });
+  }
+};
+
 const refreshAccessToken = async (reason: string) => {
   if (!refreshAccessTokenPromise) {
     refreshAccessTokenPromise = (async () => {
@@ -315,6 +344,7 @@ const refreshAccessToken = async (reason: string) => {
 
       if (!refreshToken) {
         logAuthEvent("refresh_missing_refresh_token", { reason });
+        await bestEffortUnregisterPushToken(await tokenStorage.getAccessToken());
         await tokenStorage.clearSession();
         notifySessionInvalidated("missing_refresh_token");
         throw new ApiError("Your session has expired.", 401);
@@ -363,6 +393,7 @@ const refreshAccessToken = async (reason: string) => {
         });
 
         if (shouldClearSession) {
+          await bestEffortUnregisterPushToken(await tokenStorage.getAccessToken());
           await tokenStorage.clearSession();
           notifySessionInvalidated(sessionReplaced ? "session_replaced" : "refresh_failed");
         }
