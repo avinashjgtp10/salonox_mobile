@@ -3,7 +3,7 @@ import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect, useLocalSearchParams, type Href } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, AppState, Dimensions, FlatList, Keyboard, KeyboardAvoidingView, Modal, Platform, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, AppState, Dimensions, FlatList, Keyboard, KeyboardAvoidingView, Linking, Modal, Platform, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { ConfirmationModal } from "@/components/ui/ConfirmationModal";
@@ -66,6 +66,13 @@ function Thread({ phone }: { phone: string }) {
   // exactly when stale cached messages from the last visit would otherwise
   // sit on screen looking current for however long the fetch takes.
   const refresh = useCallback((silent = true) => { if (phone) void dispatch(fetchInboxMessagesThunk({ phone, refresh: true, silent })); }, [dispatch, phone]);
+  const callCustomer = useCallback(() => {
+    const dialNumber = phone.trim().replace(/[^\d+]/g, "").replace(/(?!^)\+/g, "");
+    if (!/\d/.test(dialNumber)) return;
+    void Linking.openURL(`tel:${dialNumber}`).catch(() => {
+      Alert.alert("Unable to make a call", "This device could not open the phone dialer.");
+    });
+  }, [phone]);
   useFocusEffect(useCallback(() => {
     focused.current = true;
     nearBottom.current = true;
@@ -147,7 +154,7 @@ function Thread({ phone }: { phone: string }) {
       <InboxIcon name="arrow-back" label="Back to inbox" onPress={() => router.canGoBack() ? router.back() : router.replace("/inbox" as Href)} />
       <InboxAvatar name={conversation?.contactName} phone={phone} />
       <TouchableOpacity accessibilityRole="button" accessibilityLabel="Show customer info" onPress={() => setInfoOpen(true)} style={[s.fill, { gap: 5 }]}><Text numberOfLines={1} style={s.heading}>{conversation?.contactName || maskPhone(phone)}</Text><Text numberOfLines={1} style={s.muted}>{conversation?.contactName ? maskPhone(phone) : "WhatsApp"}</Text></TouchableOpacity>
-      <InboxIcon name="refresh-outline" label="Refresh messages" onPress={() => refresh(false)} disabled={loading} />
+      <InboxIcon name="call-outline" label={`Call ${conversation?.contactName || phone}`} onPress={callCustomer} disabled={!/\d/.test(phone)} />
       <InboxIcon name="information-circle-outline" label="Show customer info" onPress={() => setInfoOpen(true)} />
     </View>
     <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={[s.chat, keyboardInset > 0 && { paddingBottom: keyboardInset }]}>
