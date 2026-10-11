@@ -44,7 +44,8 @@ export const FREQUENCY_LABELS: Record<CommissionFrequency, string> = {
   weekly: "Weekly",
 };
 
-export const formatRupees = (amount: number) => `Rs. ${amount.toLocaleString("en-IN")}`;
+export const formatRupees = (amount: number) =>
+  `Rs. ${amount.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 
 /** Collapses the per-staff rows created by one save back into one rule (same as the web). */
 export function groupCommissionRules(rules: CommissionRule[]): CommissionRuleGroup[] {
