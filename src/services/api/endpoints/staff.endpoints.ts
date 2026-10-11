@@ -2,16 +2,14 @@ export const STAFF = {
   ADDRESS: (staffId: string, recordId: string) => `/staff/${staffId}/addresses/${recordId}`,
   ADDRESSES: (staffId: string) => `/staff/${staffId}/addresses`,
   ACTIVATE: (staffId: string) => `/staff/${staffId}/activate`,
+  BY_ID: (staffId: string) => `/staff/${staffId}`,
   CREATE: "/staff",
   DEACTIVATE: (staffId: string) => `/staff/${staffId}/deactivate`,
-  DELETE: "/staff",
   UPLOAD_AVATAR: "/staff/upload-avatar",
   EMERGENCY_CONTACT: (staffId: string, recordId: string) =>
     `/staff/${staffId}/emergency-contacts/${recordId}`,
   EMERGENCY_CONTACTS: (staffId: string) => `/staff/${staffId}/emergency-contacts`,
   LIST: "/staff",
-  UPDATE: "/staff",
-
   WAGES: (staffId: string) => `/staff/${staffId}/wages`,
 
   PAY_RUNS: (staffId: string) => `/staff/${staffId}/pay-runs`,

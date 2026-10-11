@@ -943,8 +943,14 @@ export const staffService = {
   },
 
   async updateStaff(staffId: string, payload: UpdateStaffRequest): Promise<UpdateStaffResponse> {
-    const response = await api.patch<UpdateStaffApiResponse>(`${STAFF.UPDATE}/${staffId}`, payload);
-    const staffMember = normalizeStaffMember(getCreatedStaff(response.data.data), 0);
+    const response = await api.patch<UpdateStaffApiResponse>(STAFF.BY_ID(staffId), payload);
+    const updatedRecord = getCreatedStaff(response.data.data);
+    const updatedId = toSafeString(
+      updatedRecord.id ?? updatedRecord._id ?? updatedRecord.staff_id ?? updatedRecord.staffId ??
+        updatedRecord.staff_uuid ?? updatedRecord.uuid,
+      staffId,
+    );
+    const staffMember = normalizeStaffMember({ ...payload, ...updatedRecord, id: updatedId }, 0);
 
     return {
       message: response.data.message,
@@ -1085,7 +1091,7 @@ export const staffService = {
   },
 
   async deleteStaff(staffId: string): Promise<DeleteStaffResponse> {
-    const response = await api.delete<DeleteStaffApiResponse>(`${STAFF.DELETE}/${staffId}`);
+    const response = await api.delete<DeleteStaffApiResponse>(STAFF.BY_ID(staffId));
 
     return {
       message: response.data.message,
@@ -1094,7 +1100,7 @@ export const staffService = {
   },
 
   async getStaffMember(staffId: string, options: StaffSelfReadOptions = {}): Promise<StaffMember> {
-    const response = await api.get<GetStaffApiResponse>(options.self ? MOBILE_STAFF.ME : `/staff/${staffId}`);
+    const response = await api.get<GetStaffApiResponse>(options.self ? MOBILE_STAFF.ME : STAFF.BY_ID(staffId));
     return normalizeStaffMember(getCreatedStaff(response.data.data), 0);
   },
 

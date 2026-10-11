@@ -331,8 +331,18 @@ export default function StaffProfileScreen() {
             <Ionicons name="arrow-back" size={18} color={Colors.primaryDark} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Staff Profile</Text>
-
-          <View style={styles.headerActionPlaceholder} />
+          {currentUser && canManageLifecycle ? (
+            <TouchableOpacity
+              accessibilityLabel="Edit staff profile"
+              accessibilityRole="button"
+              activeOpacity={0.84}
+              onPress={() => router.push(`/team/${id}/edit` as Href)}
+              style={styles.headerEditButton}
+            >
+              <Ionicons name="create-outline" size={16} color={Colors.primaryDark} />
+              <Text style={styles.headerEditButtonText}>Edit</Text>
+            </TouchableOpacity>
+          ) : <View style={styles.headerActionPlaceholder} />}
         </View>
 
         <View style={styles.heroCard}>
@@ -354,10 +364,6 @@ export default function StaffProfileScreen() {
           </View>
 
           <View style={styles.quickActionRow}>
-            <TouchableOpacity activeOpacity={0.85} onPress={() => router.push(`/team/${id}/edit` as Href)} style={styles.quickAction}>
-              <Ionicons name="create-outline" size={16} color={Colors.primaryDark} />
-              <Text style={styles.quickActionText}>Edit</Text>
-            </TouchableOpacity>
             <TouchableOpacity
               activeOpacity={0.85}
               disabled={isTogglingActive || isDeleting}
@@ -516,6 +522,23 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   headerActionPlaceholder: {
     width: AppLayout.headerActionSize,
+  },
+  headerEditButton: {
+    alignItems: "center",
+    backgroundColor: Colors.bg2,
+    borderColor: Colors.border,
+    borderRadius: AppRadius.pill,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 6,
+    justifyContent: "center",
+    minHeight: AppLayout.headerActionSize,
+    paddingHorizontal: 12,
+  },
+  headerEditButtonText: {
+    color: Colors.primaryDark,
+    fontSize: 12,
+    fontWeight: "800",
   },
   heroCard: {
     alignItems: "center",

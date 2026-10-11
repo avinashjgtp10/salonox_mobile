@@ -3,7 +3,7 @@ import { appAlert as Alert } from "@/services/appAlert";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
-import { router, useLocalSearchParams, type Href } from "expo-router";
+import { Redirect, router, useLocalSearchParams, type Href } from "expo-router";
 import { useMemo, useState } from "react";
 import { ActivityIndicator, StyleSheet, Switch, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -27,6 +27,9 @@ import { STAFF_GENDER_OPTIONS, STAFF_ROLE_OPTIONS } from "@/features/staff/valid
 import { getApiErrorMessage } from "@/services/api";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { useValidationScroll } from "@/hooks/useValidationScroll";
+import { selectCurrentUser } from "@/store/user/user.slice";
+import { useAppSelector } from "@/store/hooks";
+import { canManageStaffLifecycle } from "@/utils/userProfile";
 import type { StaffProfileFormValues } from "@/features/staff/types/staffFeature.types";
 
 const MAX_AVATAR_SIZE_BYTES = 2 * 1024 * 1024;
@@ -158,10 +161,15 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
   const form = useStaffForm(staffId);
   const calendarAccess = useStaffCalendarAccessSetting(staffId);
   const { scrollToFirstError, scrollViewRef, setFieldRef } = useValidationScroll(VALIDATION_FIELD_ORDER);
+  const currentUser = useAppSelector(selectCurrentUser);
 
   const [avatarValidationError, setAvatarValidationError] = useState<string | null>(null);
 
   useStaffDetails(staffId);
+
+  if (mode === "edit" && (!currentUser || !canManageStaffLifecycle(currentUser.role))) {
+    return <Redirect href="/team" />;
+  }
 
   const handleBack = () => {
     if (router.canGoBack()) {
