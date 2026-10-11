@@ -316,6 +316,7 @@ const normalizeService = (service: ServiceApiItem, index: number): ServiceListIt
     durationMinutes: toDurationMinutes(service.duration_minutes) ?? toDurationMinutes(service.duration),
     id: toSafeString(service.id, name.toLowerCase().replace(/\s+/g, "-")),
     isActive: getIsActive(service),
+    ...(typeof service.is_online_booking === "boolean" ? { isOnlineBooking: service.is_online_booking } : {}),
     ...(toSafeString(service.item_type) ? { itemType: toSafeString(service.item_type) } : {}),
     name,
     price: toSafeNumber(service.price) || toSafeNumber(service.amount),
