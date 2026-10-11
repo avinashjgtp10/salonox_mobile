@@ -8,7 +8,6 @@ import { useAuth } from "@/context/AuthContext";
 import { isStaffExperienceUser } from "@/utils/routeResolver";
 import { getGuideSteps, getGuideTabs } from "./guideSteps";
 import { guideStorage } from "./guideStorage";
-import { FeatureTourMenu } from "./FeatureTourMenu";
 
 function GuideModal({ staff, onClose }: { staff: boolean; onClose: () => void }) {
   const [index, setIndex] = useState(0);
@@ -106,7 +105,6 @@ export function UserGuideButton({ variant = "button" }: { variant?: "button" | "
       ) : (
         <Button icon="compass-outline" mode="outlined" onPress={() => setVisible(true)}>User guide</Button>
       )}
-      <FeatureTourMenu staff={isStaffExperienceUser(user)} />
       {visible && <GuideModal staff={isStaffExperienceUser(user)} onClose={() => {
         setVisible(false);
         if (user?.id) void guideStorage.dismiss(user.id);

@@ -218,6 +218,9 @@ export const useRealtimeSync = (isAuthenticated: boolean) => {
         }
         if (entity === "appointments" && currentStaff?.id) {
           void dispatch(fetchAppointmentsThunk({ ...appointmentQuery, staff_id: currentStaff.id, refresh: true }));
+          // Staff appointment notifications are built from their assigned
+          // appointments, so appointment changes must refresh that feed too.
+          void dispatch(fetchUnreadCountThunk());
         }
         if (entity === "attendance" && currentStaff?.id) {
           void dispatch(fetchAttendanceOverviewThunk());

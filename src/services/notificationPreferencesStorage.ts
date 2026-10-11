@@ -1,20 +1,33 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+// One toggle per individual notification event — mirrors the web app's own
+// Notifications settings page (NotificationsPage.tsx's `notifRows`) exactly,
+// key for key, so "on" here means the same thing it means there.
+export const NOTIFICATION_KEYS = [
+  "newAppointment",
+  "appointmentReminder",
+  "appointmentCancelled",
+  "appointmentCompleted",
+  "newPayment",
+  "paymentFailed",
+  "newClient",
+  "clientReview",
+  "newMessage",
+  "lowInventory",
+  "staffLogin",
+  "marketingCampaign",
+] as const;
+
+export type NotificationKey = (typeof NOTIFICATION_KEYS)[number];
+
 export type NotificationPreferences = {
   allNotifications: boolean;
-  appointments: boolean;
-  otherUpdates: boolean;
-  paymentComplete: boolean;
-  productAudit: boolean;
-};
+} & Record<NotificationKey, boolean>;
 
 export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   allNotifications: true,
-  appointments: true,
-  otherUpdates: true,
-  paymentComplete: true,
-  productAudit: true,
-};
+  ...Object.fromEntries(NOTIFICATION_KEYS.map((key) => [key, true])),
+} as NotificationPreferences;
 
 const NOTIFICATION_PREFERENCES_KEY = "salonox.notificationPreferences";
 
@@ -22,12 +35,10 @@ type NotificationPreferencesListener = (preferences: NotificationPreferences) =>
 
 const listeners = new Set<NotificationPreferencesListener>();
 
-const isValidPreferences = (value: unknown): value is NotificationPreferences =>
+const isValidPreferences = (value: unknown): value is Partial<NotificationPreferences> =>
   typeof value === "object" &&
   value !== null &&
-  typeof (value as NotificationPreferences).allNotifications === "boolean" &&
-  typeof (value as NotificationPreferences).appointments === "boolean" &&
-  typeof (value as NotificationPreferences).otherUpdates === "boolean";
+  typeof (value as NotificationPreferences).allNotifications === "boolean";
 
 export const notificationPreferencesStorage = {
   async getPreferences(): Promise<NotificationPreferences> {
@@ -40,11 +51,20 @@ export const notificationPreferencesStorage = {
     try {
       const parsed = JSON.parse(stored);
 
-      return isValidPreferences(parsed) ? {
-        ...parsed,
-        paymentComplete: typeof parsed.paymentComplete === "boolean" ? parsed.paymentComplete : parsed.otherUpdates,
-        productAudit: typeof parsed.productAudit === "boolean" ? parsed.productAudit : parsed.otherUpdates,
-      } : DEFAULT_NOTIFICATION_PREFERENCES;
+      if (!isValidPreferences(parsed)) {
+        return DEFAULT_NOTIFICATION_PREFERENCES;
+      }
+
+      // A value saved before a given key existed (app update, or a stored
+      // document from before this key was added) falls back to true rather
+      // than silently muting a notification the person never actually
+      // turned off.
+      return {
+        allNotifications: parsed.allNotifications ?? true,
+        ...Object.fromEntries(
+          NOTIFICATION_KEYS.map((key) => [key, typeof parsed[key] === "boolean" ? parsed[key] : true]),
+        ),
+      } as NotificationPreferences;
     } catch {
       return DEFAULT_NOTIFICATION_PREFERENCES;
     }
@@ -67,9 +87,23 @@ export const notificationPreferencesStorage = {
 export const hasEnabledNotificationPreference = (
   preferences: NotificationPreferences,
 ): boolean =>
-  preferences.allNotifications && (preferences.appointments || preferences.otherUpdates || preferences.paymentComplete || preferences.productAudit);
+  preferences.allNotifications && NOTIFICATION_KEYS.some((key) => preferences[key]);
 
-const APPOINTMENT_NOTIFICATION_TYPES = new Set(["appointment", "newappointment", "appointmentreminder", "appointmentcancelled", "appointmentcompleted"]);
+// The backend sends `event_key` on every push payload (see
+// notifications.service.ts), which already matches these keys 1:1 for every
+// event that has its own toggle — "inventoryAlert" is the one real exception
+// (the backend's actual inventory-alerts event key), aliased to the
+// equivalent "lowInventory" toggle below.
+const KEY_ALIASES: Partial<Record<string, NotificationKey>> = {
+  inventoryalert: "lowInventory",
+  payment: "newPayment",
+  payment_complete: "newPayment",
+  payment_completed: "newPayment",
+};
+
+const normalizedKeyMap: Record<string, NotificationKey> = Object.fromEntries(
+  NOTIFICATION_KEYS.map((key) => [key.toLowerCase(), key]),
+);
 
 export const isNotificationTypeEnabled = (
   type: string,
@@ -78,10 +112,11 @@ export const isNotificationTypeEnabled = (
   if (!preferences.allNotifications) return false;
 
   const normalizedType = type.trim().toLowerCase().replace(/[\s.-]+/g, "_");
-  if (["payment", "payment_complete", "payment_completed", "newpayment"].includes(normalizedType)) return preferences.paymentComplete;
-  if (["product_audit", "product_audit_completed", "product_audit_complete", "inventory_audit", "productaudit", "inventoryalert", "lowinventory"].includes(normalizedType)) return preferences.productAudit;
+  const matchedKey = normalizedKeyMap[normalizedType] ?? KEY_ALIASES[normalizedType];
 
-  return APPOINTMENT_NOTIFICATION_TYPES.has(normalizedType)
-    ? preferences.appointments
-    : preferences.otherUpdates;
+  // Anything without its own toggle (attendance reminders, spotlight
+  // features, AI handoff, the generic "otherUpdates" bucket) only follows
+  // the master switch — same as the web app's own Notifications page, which
+  // has no row for these either.
+  return matchedKey ? preferences[matchedKey] : true;
 };

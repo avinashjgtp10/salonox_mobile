@@ -3,7 +3,7 @@ import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect, useLocalSearchParams, type Href } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, AppState, Dimensions, FlatList, Keyboard, KeyboardAvoidingView, Modal, Platform, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, AppState, Dimensions, FlatList, Keyboard, KeyboardAvoidingView, Linking, Modal, Platform, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { ConfirmationModal } from "@/components/ui/ConfirmationModal";
@@ -59,13 +59,26 @@ function Thread({ phone }: { phone: string }) {
   const focused = useRef(false);
   const sendLock = useRef(false);
   const setDraft = (text: string) => dispatch(inboxDraftChanged({ phone, text }));
-  const refresh = useCallback(() => { if (phone) void dispatch(fetchInboxMessagesThunk({ phone, refresh: true })); }, [dispatch, phone]);
+  // `silent` keeps whatever's already on screen while this resolves, instead
+  // of blanking it to a spinner — right for a background poll/reconnect on a
+  // thread that's already showing good data. The one call that must NOT be
+  // silent is the first one below, right as the thread gains focus: that's
+  // exactly when stale cached messages from the last visit would otherwise
+  // sit on screen looking current for however long the fetch takes.
+  const refresh = useCallback((silent = true) => { if (phone) void dispatch(fetchInboxMessagesThunk({ phone, refresh: true, silent })); }, [dispatch, phone]);
+  const callCustomer = useCallback(() => {
+    const dialNumber = phone.trim().replace(/[^\d+]/g, "").replace(/(?!^)\+/g, "");
+    if (!/\d/.test(dialNumber)) return;
+    void Linking.openURL(`tel:${dialNumber}`).catch(() => {
+      Alert.alert("Unable to make a call", "This device could not open the phone dialer.");
+    });
+  }, [phone]);
   useFocusEffect(useCallback(() => {
     focused.current = true;
     nearBottom.current = true;
     initialPositionPending.current = true;
     dispatch(inboxActivePhoneChanged(phone));
-    refresh();
+    refresh(false);
     void dispatch(fetchInboxConversationsThunk({ refresh: true }));
     const timer = setInterval(() => { if (AppState.currentState === "active") refresh(); }, 30_000);
     const clock = setInterval(() => setNow(Date.now()), 1000);
@@ -75,15 +88,25 @@ function Thread({ phone }: { phone: string }) {
     });
     return () => { focused.current = false; clearInterval(timer); clearInterval(clock); subscription.remove(); dispatch(inboxActivePhoneChanged(null)); };
   }, [dispatch, phone, refresh]));
+  // Keyed on the `messages` array reference (not its length) so this also
+  // fires when a fresh fetch REPLACES the stale cache left over from the
+  // last time this thread was open with a same-size page of newer messages
+  // — length alone wouldn't change, so the chat looked stuck on old
+  // messages until something else nudged the FlatList.
   useEffect(() => {
-    if (!focused.current || !visibleMessages.length || !initialPositionPending.current) return;
-    const frame = requestAnimationFrame(() => {
-      list.current?.scrollToEnd({ animated: false });
-      initialPositionPending.current = false;
-      nearBottom.current = true;
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [phone, visibleMessages.length]);
+    if (!focused.current || !messages.length) return;
+    if (initialPositionPending.current) {
+      const frame = requestAnimationFrame(() => {
+        list.current?.scrollToEnd({ animated: false });
+        initialPositionPending.current = false;
+        nearBottom.current = true;
+      });
+      return () => cancelAnimationFrame(frame);
+    }
+    if (nearBottom.current) {
+      requestAnimationFrame(() => list.current?.scrollToEnd({ animated: true }));
+    }
+  }, [messages, phone]);
   // Android draws edge-to-edge, so the window no longer shrinks for the keyboard and
   // KeyboardAvoidingView cannot lift the composer; pad the chat by the keyboard height.
   const [keyboardInset, setKeyboardInset] = useState(0);
@@ -131,13 +154,21 @@ function Thread({ phone }: { phone: string }) {
       <InboxIcon name="arrow-back" label="Back to inbox" onPress={() => router.canGoBack() ? router.back() : router.replace("/inbox" as Href)} />
       <InboxAvatar name={conversation?.contactName} phone={phone} />
       <TouchableOpacity accessibilityRole="button" accessibilityLabel="Show customer info" onPress={() => setInfoOpen(true)} style={[s.fill, { gap: 5 }]}><Text numberOfLines={1} style={s.heading}>{conversation?.contactName || maskPhone(phone)}</Text><Text numberOfLines={1} style={s.muted}>{conversation?.contactName ? maskPhone(phone) : "WhatsApp"}</Text></TouchableOpacity>
-      <InboxIcon name="refresh-outline" label="Refresh messages" onPress={refresh} disabled={loading} />
+      <InboxIcon name="call-outline" label={`Call ${conversation?.contactName || phone}`} onPress={callCustomer} disabled={!/\d/.test(phone)} />
       <InboxIcon name="information-circle-outline" label="Show customer info" onPress={() => setInfoOpen(true)} />
     </View>
     <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={[s.chat, keyboardInset > 0 && { paddingBottom: keyboardInset }]}>
-      {!!error && <TouchableOpacity accessibilityRole="button" onPress={refresh} style={s.banner}><Text style={s.error}>{error} · Tap to retry</Text></TouchableOpacity>}
+      {!!error && <TouchableOpacity accessibilityRole="button" onPress={() => refresh(false)} style={s.banner}><Text style={s.error}>{error} · Tap to retry</Text></TouchableOpacity>}
       <View pointerEvents="none" style={{ position: "absolute", top: 0, bottom: 0, left: 0, right: 0, overflow: "hidden", justifyContent: "space-around" }}>{Array.from({ length: 6 }, (_, i) => <View key={i} style={{ flexDirection: "row", justifyContent: "space-around" }}>{[0, 1].map(j => <Text key={j} style={{ color: p.muted, opacity: 0.08, letterSpacing: 5, fontSize: 17, transform: [{ rotate: "-20deg" }] }}>SalonOX</Text>)}</View>)}</View>
-      <FlatList ref={list} data={visibleMessages} keyExtractor={item => item.id} style={s.fill} contentContainerStyle={s.messageList} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag"
+      <FlatList ref={list} data={loading ? [] : visibleMessages} keyExtractor={item => item.id} style={s.fill} contentContainerStyle={s.messageList} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag"
+        // Not inverted, so FlatList's default windowing renders from the OLDEST
+        // end of `data` first — for any conversation longer than ~10 messages,
+        // the initial batch never reached the newest ones, so scrollToEnd()
+        // below landed on the end of that stale first page, not the real
+        // bottom. Forcing the whole list into the first render pass is what
+        // actually fixes "opens on old messages" (a long history costs more
+        // on mount this way, but correctness here matters more than that).
+        initialNumToRender={Math.max(visibleMessages.length, 1)}
         onScroll={event => { const { contentSize, contentOffset, layoutMeasurement } = event.nativeEvent; nearBottom.current = contentSize.height - contentOffset.y - layoutMeasurement.height < 100; }} scrollEventThrottle={100}
         onContentSizeChange={() => {
           if (initialPositionPending.current && visibleMessages.length) {

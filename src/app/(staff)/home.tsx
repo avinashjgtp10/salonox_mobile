@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/Badge";
 import { AppLayout } from "@/constants/layout";
 import { DashboardRadius as Radius, type ThemeColors } from "@/constants/theme";
 import { findAttendanceRecordForStaff } from "@/features/attendance/utils/attendanceMatching";
+import { MyCommissionCard } from "@/features/staff/components/MyCommissionCard";
 import { formatAttendancePlaceLabel } from "@/utils/attendancePlaceLabel";
 import {
   formatAttendanceTime,
@@ -288,6 +289,7 @@ export function StaffHomeRouteContent({ locked = false }: { locked?: boolean } =
   const notificationsRefreshing = useAppSelector(selectNotificationsListRefreshing);
   const unreadCount = useAppSelector(selectUnreadCount);
   const [now, setNow] = useState(Date.now());
+  const [commissionRefreshKey, setCommissionRefreshKey] = useState(0);
   const [breakVisible, setBreakVisible] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const todayKey = getTodayAttendanceDateKey();
@@ -380,7 +382,7 @@ export function StaffHomeRouteContent({ locked = false }: { locked?: boolean } =
         refreshControl={
           <RefreshControl
             colors={[DASHBOARD.beige]}
-            onRefresh={() => { loadStaffHome(true); void confirmedAttendance?.refresh(); }}
+            onRefresh={() => { loadStaffHome(true); void confirmedAttendance?.refresh(); setCommissionRefreshKey((key) => key + 1); }}
             refreshing={refreshing}
             tintColor={DASHBOARD.beige}
           />
@@ -459,6 +461,7 @@ export function StaffHomeRouteContent({ locked = false }: { locked?: boolean } =
               completed={completedCount}
               remaining={remainingCount}
             />
+            {currentStaffId ? <MyCommissionCard refreshKey={commissionRefreshKey} staffId={currentStaffId} staffName={staffName} /> : null}
           </>
         )}
 

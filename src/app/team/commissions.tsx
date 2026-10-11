@@ -62,7 +62,7 @@ const todayIso = () => {
 const formatRangeDate = (iso: string) => formatAppDate(iso);
 
 function formatCurrency(amount: number) {
-  return `Rs. ${amount.toLocaleString("en-IN")}`;
+  return `Rs. ${amount.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 }
 
 function getRejectedMessage(payload: unknown, fallback: string) {

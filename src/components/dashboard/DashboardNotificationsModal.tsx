@@ -6,7 +6,7 @@ import { ActivityIndicator, FlatList, Modal, Pressable, StyleSheet, TouchableOpa
 import { Avatar } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { fetchNotificationsThunk, markNotificationReadThunk, removeLocalNotificationThunk } from "@/middleware/notification/notification.thunk";
+import { clearAllNotificationsThunk, fetchNotificationsThunk, markNotificationReadThunk, removeLocalNotificationThunk } from "@/middleware/notification/notification.thunk";
 import { NotificationSwipeRow } from "@/components/ui/NotificationSwipeRow";
 import { appAlert } from "@/services/appAlert";
 import { SegmentedTabs } from "@/components/ui/SegmentedTabs";
@@ -17,6 +17,7 @@ import {
   selectNotificationsListRefreshing,
   selectMarkingReadIds,
   selectRemovingNotificationIds,
+  selectClearingAllNotifications,
 } from "@/store/notification/notification.slice";
 import type { NotificationItem } from "@/types/notification";
 import { resolveNotificationRoute } from "@/utils/notificationRouting";
@@ -38,6 +39,7 @@ export function DashboardNotificationsModal({ onClose, visible }: DashboardNotif
   const refreshing = useAppSelector(selectNotificationsListRefreshing);
   const markingReadIds = useAppSelector(selectMarkingReadIds);
   const removingIds = useAppSelector(selectRemovingNotificationIds);
+  const clearingAll = useAppSelector(selectClearingAllNotifications);
   const [filter, setFilter] = useState<"unread" | "all">("unread");
   const modalInsets = useMemo(() => ({ paddingBottom: Math.max(insets.bottom, 12) }), [insets.bottom]);
   const unreadCount = useMemo(
@@ -67,15 +69,33 @@ export function DashboardNotificationsModal({ onClose, visible }: DashboardNotif
     router.push(resolveNotificationRoute(notification));
   };
 
+  const handleClearAll = () => {
+    if (visibleNotifications.length === 0 || clearingAll) return;
+    void dispatch(clearAllNotificationsThunk(visibleNotifications.map(item => item.id))).unwrap().catch(() => {
+      appAlert.alert("Unable to clear notifications", "Please try again.");
+    });
+  };
+
   return (
     <Modal animationType="fade" onRequestClose={onClose} transparent visible={visible}>
       <Pressable onPress={onClose} style={styles.backdrop}>
         <Pressable style={[styles.panel, modalInsets]}>
           <View style={styles.header}>
             <Text style={styles.heading}>Notifications</Text>
-            <TouchableOpacity accessibilityLabel="Close notifications" hitSlop={12} onPress={onClose} style={styles.closeButton}>
-              <Ionicons color={colors.text2} name="close" size={27} />
-            </TouchableOpacity>
+            <View style={styles.headerActions}>
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel="Clear all notifications"
+                disabled={visibleNotifications.length === 0 || clearingAll}
+                onPress={handleClearAll}
+                style={[styles.clearAllButton, (visibleNotifications.length === 0 || clearingAll) && styles.disabledButton]}
+              >
+                {clearingAll ? <ActivityIndicator color={colors.error} size="small" /> : <Text style={styles.clearAllText}>Clear all</Text>}
+              </TouchableOpacity>
+              <TouchableOpacity accessibilityLabel="Close notifications" hitSlop={12} onPress={onClose} style={styles.closeButton}>
+                <Ionicons color={colors.text2} name="close" size={27} />
+              </TouchableOpacity>
+            </View>
           </View>
 
           <View style={styles.tabs}>
@@ -182,6 +202,25 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontFamily: "serif",
     fontSize: 25,
     fontWeight: "800",
+  },
+  headerActions: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 8,
+  },
+  clearAllButton: {
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 40,
+    paddingHorizontal: 4,
+  },
+  clearAllText: {
+    color: colors.error,
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  disabledButton: {
+    opacity: 0.4,
   },
   closeButton: {
     alignItems: "center",

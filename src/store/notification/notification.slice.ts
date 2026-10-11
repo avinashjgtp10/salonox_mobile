@@ -3,6 +3,7 @@ import { createSelector, createSlice } from "@reduxjs/toolkit";
 import {
   fetchNotificationsThunk,
   fetchUnreadCountThunk,
+  clearAllNotificationsThunk,
   hydrateRegisteredDeviceTokenThunk,
   markAllNotificationsReadThunk,
   markNotificationReadThunk,
@@ -22,6 +23,7 @@ type NotificationState = {
   listRefreshing: boolean;
   listStatus: ResourceStatus;
   markingAllRead: boolean;
+  clearingAll: boolean;
   markingReadIds: string[];
   notifications: NotificationItem[];
   locallyRemovedIds: string[];
@@ -38,6 +40,7 @@ const initialState: NotificationState = {
   listRefreshing: false,
   listStatus: "idle",
   markingAllRead: false,
+  clearingAll: false,
   markingReadIds: [],
   notifications: [],
   locallyRemovedIds: [],
@@ -82,6 +85,17 @@ const notificationSlice = createSlice({
       })
       .addCase(removeLocalNotificationThunk.rejected, (state, action) => {
         state.removingIds = state.removingIds.filter((id) => id !== action.meta.arg);
+      })
+      .addCase(clearAllNotificationsThunk.pending, (state) => {
+        state.clearingAll = true;
+      })
+      .addCase(clearAllNotificationsThunk.fulfilled, (state, action) => {
+        state.clearingAll = false;
+        state.locallyRemovedIds = [...new Set([...state.locallyRemovedIds, ...action.payload])];
+        state.notifications = state.notifications.filter(item => !action.payload.includes(item.id));
+      })
+      .addCase(clearAllNotificationsThunk.rejected, (state) => {
+        state.clearingAll = false;
       })
       .addCase(fetchNotificationsThunk.rejected, (state, action) => {
         const hasExistingData = state.notifications.length > 0;
@@ -190,6 +204,7 @@ export const selectUnreadCountStatus = (state: RootState) => state.notification.
 export const selectMarkingReadIds = (state: RootState) => state.notification.markingReadIds;
 export const selectRemovingNotificationIds = (state: RootState) => state.notification.removingIds;
 export const selectMarkingAllRead = (state: RootState) => state.notification.markingAllRead;
+export const selectClearingAllNotifications = (state: RootState) => state.notification.clearingAll;
 
 export const selectRegisteredDeviceToken = (state: RootState) => state.notification.registeredDeviceToken;
 export const selectRegisterDeviceStatus = (state: RootState) => state.notification.registerDeviceStatus;

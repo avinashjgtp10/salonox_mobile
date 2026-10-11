@@ -11,14 +11,17 @@ import { AppLayout, AppRadius } from "@/constants/layout";
 import { DashboardRadius as Radius, DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
 import { SegmentedTabs } from "@/components/ui/SegmentedTabs";
 import { useAppForeground } from "@/hooks/useAppForeground";
+import { appAlert } from "@/services/appAlert";
 import {
   fetchNotificationsThunk,
   fetchUnreadCountThunk,
+  clearAllNotificationsThunk,
   markAllNotificationsReadThunk,
   markNotificationReadThunk,
 } from "@/middleware/notification/notification.thunk";
 import {
   selectMarkingAllRead,
+  selectClearingAllNotifications,
   selectMarkingReadIds,
   selectNotifications,
   selectNotificationsListError,
@@ -40,6 +43,7 @@ const getNotificationIconMap = (
   Colors: ThemeColors,
 ): Record<string, { bg: string; color: string; icon: keyof typeof Ionicons.glyphMap }> => ({
   appointment: { bg: Colors.successBg, color: Colors.success, icon: "calendar-outline" },
+  campaign: { bg: Colors.purpleBg, color: Colors.purple, icon: "megaphone-outline" },
   client: { bg: Colors.purpleBg, color: Colors.purple, icon: "person-add-outline" },
   payment: { bg: Colors.warningBg, color: Colors.warning, icon: "cash-outline" },
   whatsapp: { bg: Colors.successBg, color: Colors.success, icon: "logo-whatsapp" },
@@ -163,6 +167,7 @@ export default function NotificationsScreen({
   const unreadCount = useAppSelector(selectUnreadCount);
   const markingReadIds = useAppSelector(selectMarkingReadIds);
   const markingAllRead = useAppSelector(selectMarkingAllRead);
+  const clearingAll = useAppSelector(selectClearingAllNotifications);
   const currentStaff = useAppSelector(selectCurrentStaff);
   const currentStaffError = useAppSelector(selectCurrentStaffError);
   const currentStaffLoading = useAppSelector(selectCurrentStaffLoading);
@@ -240,6 +245,13 @@ export default function NotificationsScreen({
     void dispatch(markAllNotificationsReadThunk());
   };
 
+  const handleClearAll = () => {
+    if (visibleNotifications.length === 0 || clearingAll) return;
+    void dispatch(clearAllNotificationsThunk(visibleNotifications.map(item => item.id))).unwrap().catch(() => {
+      appAlert.alert("Unable to clear notifications", "Please try again.");
+    });
+  };
+
   return (
     <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
       <AppStatusBar />
@@ -249,18 +261,32 @@ export default function NotificationsScreen({
           <Ionicons name="arrow-back" size={18} color={Colors.primary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{routeScope === "staff" ? "My Appointment Activity" : "Notifications"}</Text>
-        <TouchableOpacity
-          activeOpacity={0.84}
-          disabled={unreadCount === 0 || markingAllRead}
-          onPress={handleMarkAllRead}
-          style={[styles.markAllButton, (unreadCount === 0 || markingAllRead) && styles.markAllButtonDisabled]}
-        >
-          {markingAllRead ? (
-            <ActivityIndicator color={Colors.primary} size="small" />
-          ) : (
-            <Text style={styles.markAllButtonText}>Mark all read</Text>
-          )}
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            activeOpacity={0.84}
+            disabled={unreadCount === 0 || markingAllRead}
+            onPress={handleMarkAllRead}
+            style={[styles.markAllButton, (unreadCount === 0 || markingAllRead) && styles.markAllButtonDisabled]}
+          >
+            {markingAllRead ? (
+              <ActivityIndicator color={Colors.primary} size="small" />
+            ) : (
+              <Text style={styles.markAllButtonText}>Mark all read</Text>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="Clear all notifications"
+            activeOpacity={0.84}
+            disabled={visibleNotifications.length === 0 || clearingAll}
+            onPress={handleClearAll}
+            style={[styles.markAllButton, (visibleNotifications.length === 0 || clearingAll) && styles.markAllButtonDisabled]}
+          >
+            {clearingAll ? <ActivityIndicator color={Colors.error} size="small" /> : (
+              <Text style={styles.clearAllButtonText}>Clear all</Text>
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={styles.segmentedWrap}>
@@ -352,6 +378,11 @@ const createStyles = (Colors: ThemeColors, width = 393) => StyleSheet.create({
     fontWeight: AppLayout.screenTitleFontWeight,
     textAlign: "center",
   },
+  headerActions: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: Spacing.xs,
+  },
   markAllButton: {
     alignItems: "center",
     justifyContent: "center",
@@ -363,6 +394,11 @@ const createStyles = (Colors: ThemeColors, width = 393) => StyleSheet.create({
   },
   markAllButtonText: {
     color: Colors.primary,
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  clearAllButtonText: {
+    color: Colors.error,
     fontSize: 12,
     fontWeight: "800",
   },

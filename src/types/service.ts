@@ -33,6 +33,7 @@ export type ServiceApiItem = {
   discount_percent?: number | string | null;
   id?: string | number | null;
   is_active?: boolean | null;
+  is_online_booking?: boolean | null;
   item_type?: string | null;
   name?: string | null;
   price?: number | string | null;
@@ -102,6 +103,7 @@ export type ServiceListItem = {
   discountPercent?: number;
   id: string;
   isActive: boolean;
+  isOnlineBooking?: boolean | null;
   itemType?: string | null;
   name: string;
   price: number;

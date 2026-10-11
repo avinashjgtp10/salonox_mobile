@@ -50,7 +50,7 @@ const STATUS_FILTERS = ["All", "Pending", "Partial", "Paid"] as const;
 type StatusFilter = (typeof STATUS_FILTERS)[number];
 
 function formatCurrency(amount: number) {
-  return `Rs. ${amount.toLocaleString("en-IN")}`;
+  return `Rs. ${amount.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 }
 
 function getRejectedMessage(payload: unknown, fallback: string) {

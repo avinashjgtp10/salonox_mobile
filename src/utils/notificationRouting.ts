@@ -11,6 +11,7 @@ const OWNER_ROUTE_BUILDERS: Record<string, (referenceId: string | null) => Href>
   payment: (id) => (id ? (`/sales/${id}` as Href) : ("/sales" as Href)),
   sale: (id) => (id ? (`/sales/${id}` as Href) : ("/sales" as Href)),
   staff: (id) => (id ? (`/team/${id}` as Href) : ("/team" as Href)),
+  campaign: () => "/reports/wa-marketing-campaign" as Href,
   whatsapp: (id) => (id ? (`/inbox/${encodeURIComponent(id)}` as Href) : ("/inbox" as Href)),
 };
 
