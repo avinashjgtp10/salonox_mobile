@@ -19,6 +19,12 @@ export type FetchInboxConversationsArgs = { refresh?: boolean } | undefined;
 export type FetchInboxMessagesArgs = {
   phone: string;
   refresh?: boolean;
+  // Routine background refresh (30s poll, reconnect, AppState foreground) —
+  // the thread is already open and showing good data, so don't blank it back
+  // to a loading spinner while this resolves; just swap the data in once it
+  // does. Omit (or false) for the fetch that fires when the thread is first
+  // opened/focused, where there's nothing good on screen yet to protect.
+  silent?: boolean;
 };
 
 export const fetchInboxConversationsThunk = createAsyncThunk<

@@ -8,7 +8,6 @@ import {
 import type { RootState } from "@/store";
 import type { InboxConversation, InboxMessage, InboxMessageEvent } from "@/types/inbox";
 import { mergeInboxMessages, sortInboxConversations } from "@/utils/inboxPresentation";
-import { parseAppDateTime } from "@/utils/dateTime";
 
 type ResourceStatus = "idle" | "loading" | "succeeded" | "failed";
 
@@ -95,7 +94,10 @@ const inboxSlice = createSlice({
       state.conversations = sortInboxConversations(state.conversations);
     },
     inboxConversationsReceived: (state, action: PayloadAction<InboxConversation[]>) => {
-      state.conversations = sortInboxConversations(action.payload.map(item => ({ ...item, unreadCount: item.contactPhone === state.activePhone ? 0 : item.unreadCount })));
+      state.conversations = sortInboxConversations(action.payload.map(item => ({
+        ...item,
+        unreadCount: item.contactPhone === state.activePhone ? 0 : item.unreadCount,
+      })));
       state.conversationsRequestId = null;
       state.conversationsRefreshing = false;
       state.conversationsError = null;
@@ -115,7 +117,10 @@ const inboxSlice = createSlice({
       })
       .addCase(fetchInboxConversationsThunk.fulfilled, (state, action) => {
         if (state.conversationsRequestId !== action.meta.requestId) return;
-        state.conversations = sortInboxConversations(action.payload.conversations.map(item => ({ ...item, unreadCount: item.contactPhone === state.activePhone ? 0 : item.unreadCount })));
+        state.conversations = sortInboxConversations(action.payload.conversations.map(item => ({
+          ...item,
+          unreadCount: item.contactPhone === state.activePhone ? 0 : item.unreadCount,
+        })));
         state.conversationsError = null;
         state.conversationsRefreshing = false;
         state.conversationsStatus = "succeeded";
@@ -130,11 +135,15 @@ const inboxSlice = createSlice({
         state.conversationsStatus = hasExistingData ? "succeeded" : "failed";
       })
       .addCase(fetchInboxMessagesThunk.pending, (state, action) => {
-        const { phone } = action.meta.arg;
+        const { phone, silent } = action.meta.arg;
         state.messagesRequestIds[phone] = action.meta.requestId;
 
         state.messagesErrorByPhone[phone] = null;
-        state.messagesStatusByPhone[phone] = state.messagesByPhone[phone]?.length
+        // A silent (background poll / reconnect) refresh keeps showing
+        // whatever's already on screen instead of blanking it to a spinner —
+        // a non-silent one (the thread just gained focus) always does, so a
+        // reopened thread never sits on a stale render while this resolves.
+        state.messagesStatusByPhone[phone] = silent && state.messagesByPhone[phone]?.length
           ? "succeeded"
           : "loading";
       })
@@ -142,15 +151,15 @@ const inboxSlice = createSlice({
         const { phone } = action.meta.arg;
         if (state.messagesRequestIds[phone] !== action.meta.requestId) return;
 
-        state.messagesByPhone[phone] = mergeInboxMessages(state.messagesByPhone[phone] ?? [], action.payload.messages);
+        // Match the web inbox: the fetched API history is authoritative, so old
+        // cached messages must not survive a refresh and become the apparent latest message.
+        state.messagesByPhone[phone] = action.payload.messages;
         state.messagesErrorByPhone[phone] = null;
         state.messagesStatusByPhone[phone] = "succeeded";
 
         const conversation = state.conversations.find((entry) => entry.contactPhone === phone);
 
-        if (conversation) {
-          conversation.unreadCount = 0;
-        }
+        if (conversation) conversation.unreadCount = 0;
       })
       .addCase(fetchInboxMessagesThunk.rejected, (state, action) => {
         const { phone } = action.meta.arg;
@@ -181,13 +190,9 @@ const inboxSlice = createSlice({
           );
           const conversation = state.conversations.find((entry) => entry.contactPhone === phone);
           if (conversation) {
-            const replyTime = parseAppDateTime(message.sentAt)?.getTime();
-            const lastMessageTime = parseAppDateTime(conversation.lastMessageAt)?.getTime() ?? 0;
-            if (replyTime !== undefined && replyTime >= lastMessageTime) {
-              conversation.lastMessage = message.body;
-              conversation.lastMessageAt = message.sentAt;
-              conversation.lastMessageLabel = "Just now";
-            }
+            conversation.lastMessage = message.body;
+            conversation.lastMessageAt = message.sentAt;
+            conversation.lastMessageLabel = "Just now";
           }
           state.conversations = sortInboxConversations(state.conversations);
         }

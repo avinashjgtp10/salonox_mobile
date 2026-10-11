@@ -245,8 +245,8 @@ export default function NotificationsScreen({
   };
 
   const handleClearAll = () => {
-    if (notifications.length === 0 || clearingAll) return;
-    void dispatch(clearAllNotificationsThunk()).unwrap().catch(() => {
+    if (visibleNotifications.length === 0 || clearingAll) return;
+    void dispatch(clearAllNotificationsThunk(visibleNotifications.map(item => item.id))).unwrap().catch(() => {
       appAlert.alert("Unable to clear notifications", "Please try again.");
     });
   };
@@ -277,9 +277,9 @@ export default function NotificationsScreen({
             accessibilityRole="button"
             accessibilityLabel="Clear all notifications"
             activeOpacity={0.84}
-            disabled={notifications.length === 0 || clearingAll}
+            disabled={visibleNotifications.length === 0 || clearingAll}
             onPress={handleClearAll}
-            style={[styles.markAllButton, (notifications.length === 0 || clearingAll) && styles.markAllButtonDisabled]}
+            style={[styles.markAllButton, (visibleNotifications.length === 0 || clearingAll) && styles.markAllButtonDisabled]}
           >
             {clearingAll ? <ActivityIndicator color={Colors.error} size="small" /> : (
               <Text style={styles.clearAllButtonText}>Clear all</Text>

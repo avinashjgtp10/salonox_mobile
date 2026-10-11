@@ -147,15 +147,17 @@ export const removeLocalNotificationThunk = createAsyncThunk<
 
 export const clearAllNotificationsThunk = createAsyncThunk<
   string[],
-  void,
+  string[] | undefined,
   { rejectValue: RejectValue; state: RootState }
->("notification/clearAll", async (_args, { dispatch, getState, rejectWithValue }) => {
+>("notification/clearAll", async (requestedIds, { dispatch, getState, rejectWithValue }) => {
   const state = getState();
   const scope = getLocalNotificationScope(state);
-  const ids = state.notification.notifications.map(item => item.id);
+  const currentIds = new Set(state.notification.notifications.map(item => item.id));
+  const ids = [...new Set(requestedIds ?? [...currentIds])].filter(id => currentIds.has(id));
   try {
     if (!ids.length) return [];
-    await dispatch(markAllNotificationsReadThunk()).unwrap();
+    const unreadIds = ids.filter(id => !state.notification.notifications.find(item => item.id === id)?.isRead);
+    await Promise.all(unreadIds.map(id => dispatch(markNotificationReadThunk(id)).unwrap()));
     await notificationLocalStorage.removeMany(scope, ids);
     void dispatch(fetchUnreadCountThunk());
     return ids;
