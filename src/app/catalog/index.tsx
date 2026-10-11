@@ -20,10 +20,10 @@ import {
   catalogCategoryLabel,
   catalogStatusLabel,
   countCatalogFilters,
-  emptyCatalogFilters,
+  emptyCatalogFilterForTab,
   emptyCatalogFiltersByTab,
   matchesCatalogFilters,
-  type CatalogFilters,
+  type CatalogFilterValue,
   type CatalogTab,
   type FilterableCatalogItem,
 } from "@/features/catalog/utils/catalogFilters";
@@ -71,6 +71,7 @@ const serviceToItem = (item: ServiceListItem): CatalogItem => ({
   durationMinutes: item.durationMinutes,
   id: item.id,
   isActive: item.isActive,
+  isOnlineBooking: item.isOnlineBooking,
   meta: item.durationMinutes ? `${item.durationMinutes} min` : "Duration not set",
   name: item.name,
   price: item.price,
@@ -78,25 +79,35 @@ const serviceToItem = (item: ServiceListItem): CatalogItem => ({
 });
 
 const productToItem = (item: Product): CatalogItem => ({
+  brand: item.brandName,
   category: item.category ?? item.brandName ?? "Uncategorized",
   id: item.id,
   isActive: item.isActive,
+  lowStockThreshold: item.lowStockThreshold,
   meta: `${item.stockQuantity} in stock${item.sku ? ` · ${item.sku}` : ""}`,
   name: item.name,
   price: item.retailPrice ?? item.price,
+  productType: item.productType,
   route: `/stock/${item.id}` as Href,
   stockQuantity: item.stockQuantity,
 });
 
-const consumableToItem = (item: ConsumableListItem): CatalogItem => ({
+const consumableToItem = (item: ConsumableListItem, assignedServicesByConsumable: Map<string, string[]>): CatalogItem => ({
+  assignedServices: assignedServicesByConsumable.get(item.id) ?? [],
+  brand: item.brandName,
   category: item.categoryName ?? item.brandName ?? "Consumable Inventory",
   id: item.id,
   isActive: item.isActive,
+  lowStockThreshold: item.qtyAlert,
   meta: `${item.amount} ${item.measureUnit ?? ""}${item.status ? ` · ${item.status.replace(/_/g, " ")}` : ""}`.trim(),
   name: item.name,
   price: item.supplyPrice ?? item.retailPrice ?? 0,
+  productType: item.productType,
+  rawStatus: item.status,
   route: `/consumables/${item.id}` as Href,
   stockQuantity: item.amount,
+  supplier: item.supplierName,
+  unit: item.measureUnit,
 });
 
 const packageToItem = (item: PackageListItem): CatalogItem => ({
@@ -107,16 +118,20 @@ const packageToItem = (item: PackageListItem): CatalogItem => ({
   name: item.name,
   price: Math.max(0, item.basePrice - item.discountValue),
   serviceCount: item.serviceIds.length,
+  status: item.status,
 });
 
 const membershipToItem = (item: Membership): CatalogItem => ({
+  appliesTo: item.appliesTo,
   category: `${item.sessionType} membership`,
   id: item.id,
   isActive: item.enableOnlineSales || item.enableOnlineRedemption,
   meta: item.validFor,
   name: item.name,
   price: item.price,
+  pricingType: item.pricingType,
   route: `/memberships/${item.id}` as Href,
+  validFor: item.validFor,
 });
 
 type CatalogStyles = ReturnType<typeof createStyles>;
@@ -216,32 +231,60 @@ export default function CatalogScreen() {
 
   useEffect(() => { void loadCatalog(); }, [loadCatalog]);
 
+  // Services' consumablesUsed recipe, inverted into consumableId -> service
+  // names, so the consumables tab can offer an "Assigned Service" filter
+  // without a dedicated endpoint — the data's already loaded for the catalog.
+  const consumableAssignedServices = useMemo(() => {
+    const map = new Map<string, string[]>();
+    services.forEach((service) => {
+      (service.consumablesUsed ?? []).forEach((recipe) => {
+        const list = map.get(recipe.productId) ?? [];
+        list.push(service.name);
+        map.set(recipe.productId, list);
+      });
+    });
+    return map;
+  }, [services]);
+
   const itemsByTab = useMemo<Record<CatalogTab, CatalogItem[]>>(() => ({
-    consumables: consumableState.consumables.map(consumableToItem),
+    consumables: consumableState.consumables.map((item) => consumableToItem(item, consumableAssignedServices)),
     memberships: memberships.map(membershipToItem),
     packages: packages.map(packageToItem),
     products: productState.products.map(productToItem),
     services: services.map(serviceToItem),
-  }), [consumableState.consumables, memberships, packages, productState.products, services]);
+  }), [consumableAssignedServices, consumableState.consumables, memberships, packages, productState.products, services]);
 
   const activeFilters = filtersByTab[activeTab];
-  const filterCount = countCatalogFilters(activeFilters, activeTab);
+  const filterCount = countCatalogFilters(activeTab, activeFilters);
   const activeTabLabel = TABS.find((tab) => tab.key === activeTab)?.label ?? "Items";
   const categories = useMemo(
     () => [...new Set(itemsByTab[activeTab].map((item) => catalogCategoryLabel(item.category)))],
     [activeTab, itemsByTab],
   );
+  const brands = useMemo(
+    () => [...new Set(itemsByTab[activeTab].map((item) => item.brand).filter((name): name is string => Boolean(name)))],
+    [activeTab, itemsByTab],
+  );
+  const suppliers = useMemo(
+    () => [...new Set(consumableState.consumables.map((item) => item.supplierName).filter((name): name is string => Boolean(name)))],
+    [consumableState.consumables],
+  );
+  const serviceOptions = useMemo(() => [...new Set(services.map((item) => item.name))], [services]);
+  const validForOptions = useMemo(
+    () => [...new Set(memberships.map((item) => item.validFor).filter(Boolean))],
+    [memberships],
+  );
 
-  const applyFilters = useCallback((value: CatalogFilters) => {
+  const applyFilters = useCallback((value: CatalogFilterValue) => {
     setFiltersByTab((current) => ({ ...current, [activeTab]: value }));
   }, [activeTab]);
 
-  const clearFilters = useCallback(() => applyFilters(emptyCatalogFilters()), [applyFilters]);
+  const clearFilters = useCallback(() => applyFilters(emptyCatalogFilterForTab(activeTab)), [activeTab, applyFilters]);
 
   const visibleItems = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     return itemsByTab[activeTab].filter((item) =>
-      matchesCatalogFilters(item, activeFilters, activeTab) &&
+      matchesCatalogFilters(activeTab, item, activeFilters) &&
       (!normalized || [item.name, item.category, item.meta].some((value) => value.toLowerCase().includes(normalized))),
     );
   }, [activeFilters, activeTab, itemsByTab, query]);
@@ -404,7 +447,7 @@ export default function CatalogScreen() {
         showsVerticalScrollIndicator={false}
         windowSize={7}
       />
-      <CatalogFilterSheet categories={categories} label={activeTabLabel} onApply={applyFilters} onClose={() => setFilterVisible(false)} onReset={clearFilters} tab={activeTab} value={activeFilters} visible={filterVisible} />
+      <CatalogFilterSheet brands={brands} categories={categories} label={activeTabLabel} onApply={applyFilters} onClose={() => setFilterVisible(false)} onReset={clearFilters} serviceOptions={serviceOptions} suppliers={suppliers} tab={activeTab} validForOptions={validForOptions} value={activeFilters} visible={filterVisible} />
     </SafeAreaView>
   );
 }

@@ -138,6 +138,12 @@ const normalizeMembership = (raw: Membership | MembershipRow): Membership => {
       ? { taxRate: toOptionalNumber(record.taxRate ?? record.tax_rate) }
       : {}),
     colour: toSafeString(record.colour),
+    ...(toOptionalString(record.pricingType ?? record.pricing_type)
+      ? { pricingType: toOptionalString(record.pricingType ?? record.pricing_type) }
+      : {}),
+    ...(toOptionalString(record.appliesTo ?? record.applies_to)
+      ? { appliesTo: toOptionalString(record.appliesTo ?? record.applies_to) }
+      : {}),
     enableOnlineSales: toSafeBoolean(record.enableOnlineSales ?? record.enable_online_sales),
     enableOnlineRedemption: toSafeBoolean(record.enableOnlineRedemption ?? record.enable_online_redemption),
     ...(toOptionalString(record.termsAndConditions ?? record.terms_and_conditions)
