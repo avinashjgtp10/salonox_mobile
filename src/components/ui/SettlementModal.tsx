@@ -12,7 +12,7 @@ import {
 import { useThemeColors } from "@/theme/ThemeProvider";
 
 function formatCurrency(amount: number) {
-  return `Rs. ${amount.toLocaleString("en-IN")}`;
+  return `Rs. ${amount.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 }
 
 function roundToCents(value: number) {
