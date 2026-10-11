@@ -1,8 +1,8 @@
+import type { ConfigPlugin } from "@expo/config-plugins";
+import { AndroidConfig, withAndroidManifest, withDangerousMod } from "@expo/config-plugins";
+import type { ConfigContext, ExpoConfig } from "expo/config";
 import fs from "node:fs";
 import path from "node:path";
-import { AndroidConfig, withAndroidManifest, withDangerousMod } from "@expo/config-plugins";
-import type { ConfigPlugin } from "@expo/config-plugins";
-import type { ConfigContext, ExpoConfig } from "expo/config";
 
 import { ENVIRONMENTS, resolveAppEnv } from "./config/environments";
 
@@ -76,7 +76,7 @@ const withSalonOxLargeNotificationIcon: ConfigPlugin = (config) => {
 export default ({ config }: ConfigContext): ExpoConfig => {
   const expoConfig: ExpoConfig = {
     ...config,
-    owner: "adi1604",
+    owner: "salonox-tech",
     name: env.appName,
     slug: "SalonOX",
     version: APP_VERSION,
