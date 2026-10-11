@@ -35,10 +35,13 @@ export const notificationLocalStorage = {
     return parseIds(value);
   },
   remove(scope: string, id: string): Promise<void> {
+    return notificationLocalStorage.removeMany(scope, [id]);
+  },
+  removeMany(scope: string, idsToRemove: string[]): Promise<void> {
     const write = pendingWrite.then(async () => {
       const value = await AsyncStorage.getItem(keyFor(scope));
       const ids = parseIds(value);
-      await AsyncStorage.setItem(keyFor(scope), JSON.stringify([...new Set([...ids, id])]));
+      await AsyncStorage.setItem(keyFor(scope), JSON.stringify([...new Set([...ids, ...idsToRemove])]));
     });
     pendingWrite = write.catch(() => undefined);
     return write;

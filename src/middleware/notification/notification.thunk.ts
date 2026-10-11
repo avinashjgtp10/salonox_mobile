@@ -145,6 +145,27 @@ export const removeLocalNotificationThunk = createAsyncThunk<
   },
 });
 
+export const clearAllNotificationsThunk = createAsyncThunk<
+  string[],
+  void,
+  { rejectValue: RejectValue; state: RootState }
+>("notification/clearAll", async (_args, { dispatch, getState, rejectWithValue }) => {
+  const state = getState();
+  const scope = getLocalNotificationScope(state);
+  const ids = state.notification.notifications.map(item => item.id);
+  try {
+    if (!ids.length) return [];
+    await dispatch(markAllNotificationsReadThunk()).unwrap();
+    await notificationLocalStorage.removeMany(scope, ids);
+    void dispatch(fetchUnreadCountThunk());
+    return ids;
+  } catch (error) {
+    return rejectWithValue(reject(error));
+  }
+}, {
+  condition: (_args, { getState }) => !getState().notification.clearingAll,
+});
+
 export const markAllNotificationsReadThunk = createAsyncThunk<
   MarkAllNotificationsReadResponse,
   void,

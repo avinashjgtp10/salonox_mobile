@@ -271,6 +271,9 @@ export const completeAppointmentThunk = createAsyncThunk<
         refresh: true,
       }),
     );
+    // Staff appointment notifications are derived from their appointment list,
+    // so refresh the notification feed after completion as well.
+    void dispatch(fetchUnreadCountThunk());
     void dispatch(fetchDashboardThunk());
 
     return response;
