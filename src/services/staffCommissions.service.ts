@@ -36,6 +36,9 @@ const normalizeHistoryEntry = (entry: UnknownRecord, index: number): CommissionH
 
   return {
     amount: toSafeNumber(firstValue(entry, ["amount", "commission_amount", "commissionAmount"])),
+    category: toSafeString(firstValue(entry, ["category", "source", "commission_source"])) || null,
+    commissionKind: toSafeString(firstValue(entry, ["commission_kind", "commissionKind"])) || null,
+    commissionRate: toSafeNumber(firstValue(entry, ["commission_rate", "commissionRate"])),
     createdAt: toSafeString(firstValue(entry, ["createdAt", "created_at", "earned_at", "earnedAt"])) || null,
     id: toSafeString(firstValue(entry, ["id", "_id"]), `commission-history-${index}`),
     notes: toSafeString(firstValue(entry, ["notes"])) || null,
@@ -43,6 +46,12 @@ const normalizeHistoryEntry = (entry: UnknownRecord, index: number): CommissionH
     status: toSafeString(firstValue(entry, ["status"]), "pending"),
   };
 };
+
+const sortHistory = (payload: CommissionHistoryApiData) => getHistoryArray(payload)
+  .map(normalizeHistoryEntry)
+  .map((entry, index) => ({ entry, index, ...getHistorySortKey(entry) }))
+  .sort((left, right) => right.dateTime - left.dateTime || right.createdTime - left.createdTime || left.index - right.index)
+  .map(({ entry }) => entry);
 
 const parseHistoryTimestamp = (value: string | null) => {
   if (!value) return Number.NaN;
@@ -71,10 +80,14 @@ export const staffCommissionsService = {
       params: { month },
     });
 
-    return getHistoryArray(response.data.data)
-      .map(normalizeHistoryEntry)
-      .map((entry, index) => ({ entry, index, ...getHistorySortKey(entry) }))
-      .sort((left, right) => right.dateTime - left.dateTime || right.createdTime - left.createdTime || left.index - right.index)
-      .map(({ entry }) => entry);
+    return sortHistory(response.data.data);
+  },
+
+  async getCommissionHistoryForRange(staffId: string, startDate: string, endDate: string): Promise<CommissionHistoryEntry[]> {
+    const response = await api.get<CommissionHistoryApiResponse>(STAFF.COMMISSIONS_HISTORY(staffId), {
+      params: { start_date: startDate, end_date: endDate },
+    });
+
+    return sortHistory(response.data.data);
   },
 };
