@@ -4,7 +4,7 @@ import { appAlert as Alert } from "@/services/appAlert";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect, useLocalSearchParams, type Href } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppBackButton } from "@/components/ui/AppBackButton";
@@ -12,11 +12,7 @@ import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import { addRealtimeEntityChangedListener } from "@/services/realtimeEvents";
 import { clientService } from "@/services/client.service";
-import {
-  assignClientMembershipThunk,
-  changeClientMembershipThunk,
-  fetchClientMembershipsThunk,
-} from "@/middleware/clientMembership/clientMembership.thunk";
+import { fetchClientMembershipsThunk } from "@/middleware/clientMembership/clientMembership.thunk";
 import {
   fetchClientByIdThunk,
   fetchClientHistoryThunk,
@@ -43,22 +39,18 @@ import {
   selectClientBlockingIds,
 } from "@/store/client/client.slice";
 import { useAppToast } from "@/hooks/useAppToast";
-import { fetchMembershipsThunk } from "@/middleware/membership/membership.thunk";
 import {
   selectActiveClientMembership,
-  selectClientMembershipMutating,
   selectClientMembershipsError,
   selectClientMembershipsLoading,
 } from "@/store/clientMembership/clientMembership.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { selectMemberships } from "@/store/membership/membership.slice";
 import {
   DashboardRadius as Radius,
   DashboardSpacing as Spacing,
   type ThemeColors,
 } from "@/constants/theme";
 import { useThemeColors } from "@/theme/ThemeProvider";
-import type { Membership } from "@/types/membership";
 import { formatAppDate } from "@/utils/dateTime";
 import { buildClientProfileMetrics } from "@/features/clients/utils/clientProfile";
 import type { ClientProfileLineEntry } from "@/features/clients/utils/clientProfile";
@@ -260,65 +252,6 @@ function PackageRow({ pkg }: { pkg: ClientPackageRecord }) {
   );
 }
 
-function MembershipPickerModal({
-  memberships,
-  onClose,
-  onSelect,
-  saving,
-  visible,
-}: {
-  memberships: Membership[];
-  onClose: () => void;
-  onSelect: (membership: Membership) => void;
-  saving: boolean;
-  visible: boolean;
-}) {
-  const Colors = useThemeColors();
-  const styles = useMemo(() => createStyles(Colors), [Colors]);
-
-  return (
-    <Modal animationType="slide" onRequestClose={onClose} transparent visible={visible}>
-      <Pressable onPress={onClose} style={styles.modalOverlay}>
-        <Pressable style={styles.pickerSheet}>
-          <View style={styles.pickerHeader}>
-            <Text style={styles.pickerTitle}>Select Membership</Text>
-            <TouchableOpacity onPress={onClose} style={styles.pickerClose}>
-              <Ionicons name="close" size={18} color={Colors.text2} />
-            </TouchableOpacity>
-          </View>
-          <ScrollView style={styles.pickerList}>
-            {memberships.map((membership) => (
-              <TouchableOpacity
-                activeOpacity={0.84}
-                disabled={saving}
-                key={membership.id}
-                onPress={() => onSelect(membership)}
-                style={styles.membershipOption}
-              >
-                <View style={styles.membershipOptionIcon}>
-                  <Ionicons name="diamond-outline" size={18} color={Colors.primary} />
-                </View>
-                <View style={styles.membershipOptionCopy}>
-                  <Text numberOfLines={1} style={styles.membershipOptionTitle}>
-                    {membership.name}
-                  </Text>
-                  <Text numberOfLines={1} style={styles.membershipOptionMeta}>
-                    {membership.validFor} - {membership.sessionType}
-                  </Text>
-                </View>
-                {saving ? <ActivityIndicator color={Colors.primary} size="small" /> : null}
-              </TouchableOpacity>
-            ))}
-            {memberships.length === 0 ? (
-              <Text style={styles.notesText}>No membership plans available.</Text>
-            ) : null}
-          </ScrollView>
-        </Pressable>
-      </Pressable>
-    </Modal>
-  );
-}
-
 export default function ClientDetailsScreen() {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
@@ -347,11 +280,9 @@ export default function ClientDetailsScreen() {
   const notesError = useAppSelector(selectClientNotesError);
 
   const blockingIds = useAppSelector(selectClientBlockingIds);
-  const memberships = useAppSelector(selectMemberships);
   const activeMembership = useAppSelector(selectActiveClientMembership(id));
   const membershipLoading = useAppSelector(selectClientMembershipsLoading(id));
   const membershipError = useAppSelector(selectClientMembershipsError(id));
-  const membershipMutating = useAppSelector(selectClientMembershipMutating);
 
   const metrics = useMemo(
     () =>
@@ -366,7 +297,6 @@ export default function ClientDetailsScreen() {
   );
 
   const isBlocking = id ? blockingIds.includes(id) : false;
-  const [pickerVisible, setPickerVisible] = useState(false);
   const [activeTab, setActiveTab] = useState<ClientTab>("summary");
 
   useEffect(() => {
@@ -379,7 +309,6 @@ export default function ClientDetailsScreen() {
     if (id) {
       void dispatch(fetchClientHistoryThunk(id));
       void dispatch(fetchClientMembershipsThunk(id));
-      void dispatch(fetchMembershipsThunk({ limit: 50, refresh: true }));
     }
   }, [id, dispatch]);
 
@@ -483,24 +412,6 @@ export default function ClientDetailsScreen() {
           },
         ]
       );
-    }
-  };
-
-  const handleSelectMembership = async (membership: Membership) => {
-    if (!client) return;
-    const result = activeMembership
-      ? await dispatch(
-          changeClientMembershipThunk({
-            assignmentId: activeMembership.id,
-            data: { membershipId: membership.id },
-          }),
-        )
-      : await dispatch(assignClientMembershipThunk({ clientId: client.id, membershipId: membership.id }));
-
-    if (assignClientMembershipThunk.fulfilled.match(result) || changeClientMembershipThunk.fulfilled.match(result)) {
-      setPickerVisible(false);
-    } else {
-      Alert.alert("Error", result.payload?.message ?? "Unable to update membership.");
     }
   };
 
@@ -806,11 +717,6 @@ export default function ClientDetailsScreen() {
               {membershipError ? <Text style={styles.errorText}>{membershipError}</Text> : null}
               {!membershipLoading ? <Text style={styles.membershipProfileTitle}>{activeMembership?.membershipName ?? "No active membership"}</Text> : null}
               {activeMembership ? <Text style={styles.membershipProfileMeta}>Expires {formatCreatedDate(activeMembership.expiresAt)}</Text> : null}
-              <TouchableOpacity disabled={membershipMutating} onPress={() => setPickerVisible(true)} style={styles.primaryOutlineButton}><Text style={styles.primaryOutlineButtonText}>{activeMembership ? "Change Membership" : "Assign Membership"}</Text></TouchableOpacity>
-            </View>
-            <View style={styles.profileActions}>
-              <TouchableOpacity onPress={() => router.push("/bookings/new")} style={styles.primaryActionButton}><Ionicons color="#FFFFFF" name="calendar-outline" size={18} /><Text style={styles.primaryActionText}>Book Appointment</Text></TouchableOpacity>
-              <TouchableOpacity onPress={() => router.push("/quick-sale")} style={styles.primaryOutlineButton}><Text style={styles.primaryOutlineButtonText}>Quick Sale</Text></TouchableOpacity>
             </View>
           </View>
         ) : null}
@@ -845,7 +751,6 @@ export default function ClientDetailsScreen() {
           </View>
         ) : null}
       </ScrollView>
-      <MembershipPickerModal memberships={memberships} onClose={() => setPickerVisible(false)} onSelect={(membership) => void handleSelectMembership(membership)} saving={membershipMutating} visible={pickerVisible} />
     </SafeAreaView>
   );
 }
@@ -911,11 +816,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   profileDetails: { borderColor: Colors.border, borderRadius: 8, borderWidth: 1, marginBottom: 24, padding: 16 },
   membershipProfileTitle: { color: Colors.heading, fontSize: 16, fontWeight: "700" },
   membershipProfileMeta: { color: Colors.text2, fontSize: 13, marginTop: 5 },
-  profileActions: { gap: 12 },
-  primaryActionButton: { alignItems: "center", backgroundColor: Colors.primary, borderRadius: 8, flexDirection: "row", gap: 8, justifyContent: "center", minHeight: 50, paddingHorizontal: 18 },
-  primaryActionText: { color: "#FFFFFF", fontSize: 15, fontWeight: "700" },
-  primaryOutlineButton: { alignItems: "center", borderColor: Colors.primary, borderRadius: 8, borderWidth: 1, justifyContent: "center", marginTop: 14, minHeight: 48, paddingHorizontal: 16 },
-  primaryOutlineButtonText: { color: Colors.primary, fontSize: 14, fontWeight: "700" },
   notesPanel: { alignItems: "flex-start", backgroundColor: Colors.backgroundElement, borderRadius: 8, flexDirection: "row", gap: 12, minHeight: 120, padding: 18 },
   safeArea: {
     backgroundColor: Colors.bg,
@@ -1014,67 +914,5 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontSize: 13,
     textAlign: "center",
     marginVertical: 12,
-  },
-  membershipOption: {
-    alignItems: "center",
-    borderBottomColor: Colors.border,
-    borderBottomWidth: 1,
-    flexDirection: "row",
-    gap: Spacing.md,
-    minHeight: 64,
-    paddingVertical: Spacing.sm,
-  },
-  membershipOptionCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-  membershipOptionIcon: {
-    alignItems: "center",
-    backgroundColor: Colors.bg2,
-    borderRadius: Radius.lg,
-    height: 42,
-    justifyContent: "center",
-    width: 42,
-  },
-  membershipOptionMeta: {
-    color: Colors.text2,
-    fontSize: 12,
-    marginTop: 3,
-  },
-  membershipOptionTitle: {
-    color: Colors.heading,
-    fontSize: 14,
-    fontWeight: "900",
-  },
-  modalOverlay: {
-    backgroundColor: "rgba(0,0,0,0.36)",
-    flex: 1,
-    justifyContent: "flex-end",
-  },
-  pickerClose: {
-    alignItems: "center",
-    height: 34,
-    justifyContent: "center",
-    width: 34,
-  },
-  pickerHeader: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: Spacing.sm,
-  },
-  pickerList: {
-    maxHeight: 420,
-  },
-  pickerSheet: {
-    backgroundColor: Colors.card,
-    borderTopLeftRadius: Radius.xl,
-    borderTopRightRadius: Radius.xl,
-    padding: Spacing.lg,
-  },
-  pickerTitle: {
-    color: Colors.heading,
-    fontSize: 18,
-    fontWeight: "900",
   },
 });
