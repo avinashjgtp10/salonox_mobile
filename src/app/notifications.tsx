@@ -43,6 +43,7 @@ const getNotificationIconMap = (
   Colors: ThemeColors,
 ): Record<string, { bg: string; color: string; icon: keyof typeof Ionicons.glyphMap }> => ({
   appointment: { bg: Colors.successBg, color: Colors.success, icon: "calendar-outline" },
+  campaign: { bg: Colors.purpleBg, color: Colors.purple, icon: "megaphone-outline" },
   client: { bg: Colors.purpleBg, color: Colors.purple, icon: "person-add-outline" },
   payment: { bg: Colors.warningBg, color: Colors.warning, icon: "cash-outline" },
   whatsapp: { bg: Colors.successBg, color: Colors.success, icon: "logo-whatsapp" },

@@ -20,9 +20,28 @@ import {
 import {
   DEFAULT_NOTIFICATION_PREFERENCES,
   notificationPreferencesStorage,
+  type NotificationKey,
   type NotificationPreferences,
 } from "@/services/notificationPreferencesStorage";
 import { useThemeColors } from "@/theme/ThemeProvider";
+
+// Mirrors the web app's `notifRows` (NotificationsPage.tsx) key, label, and
+// description for key, so toggling "New Appointment" here means the same
+// thing it means there.
+const NOTIF_ROWS: { description: string; icon: keyof typeof Ionicons.glyphMap; key: NotificationKey; title: string }[] = [
+  { description: "When a new booking is confirmed", icon: "calendar-outline", key: "newAppointment", title: "New Appointment" },
+  { description: "24h and 1h before appointment", icon: "alarm-outline", key: "appointmentReminder", title: "Appointment Reminder" },
+  { description: "When a client cancels a booking", icon: "close-circle-outline", key: "appointmentCancelled", title: "Appointment Cancelled" },
+  { description: "After a service is marked done", icon: "checkmark-circle-outline", key: "appointmentCompleted", title: "Appointment Completed" },
+  { description: "When a payment is received", icon: "card-outline", key: "newPayment", title: "New Payment" },
+  { description: "When a payment attempt fails", icon: "alert-circle-outline", key: "paymentFailed", title: "Payment Failed" },
+  { description: "When a new client registers", icon: "person-add-outline", key: "newClient", title: "New Client" },
+  { description: "When a client leaves a review", icon: "star-outline", key: "clientReview", title: "Client Review" },
+  { description: "When you receive a client message", icon: "chatbubble-ellipses-outline", key: "newMessage", title: "New Message" },
+  { description: "When a product stock runs low", icon: "cube-outline", key: "lowInventory", title: "Low Inventory" },
+  { description: "When a staff member signs in", icon: "log-in-outline", key: "staffLogin", title: "Staff Login" },
+  { description: "When a campaign starts or finishes", icon: "megaphone-outline", key: "marketingCampaign", title: "Campaign Updates" },
+];
 
 export default function NotificationSettingsScreen() {
   const { user } = useAuth();
@@ -103,22 +122,7 @@ export default function NotificationSettingsScreen() {
   const handleToggleAll = (value: boolean) => {
     updatePreferences({
       allNotifications: value,
-      appointments: value,
-      otherUpdates: value,
-      paymentComplete: value,
-      productAudit: value,
-    });
-  };
-
-  const handleToggleAppointments = (value: boolean) => {
-    updatePreferences({
-      appointments: value,
-    });
-  };
-
-  const handleToggleOtherUpdates = (value: boolean) => {
-    updatePreferences({
-      otherUpdates: value,
+      ...Object.fromEntries(NOTIF_ROWS.map((row) => [row.key, value])),
     });
   };
 
@@ -173,47 +177,7 @@ export default function NotificationSettingsScreen() {
           />
         </View>
 
-        <View style={styles.row}>
-          <View style={styles.iconWrap}>
-            <Ionicons name="calendar-outline" size={20} color={Colors.text2} />
-          </View>
-          <View style={styles.rowCopy}>
-            <Text style={styles.rowTitle}>Appointments</Text>
-            <Text style={styles.rowDescription}>
-              Bookings, reschedules, and cancellations.
-            </Text>
-          </View>
-          <Switch
-            onValueChange={handleToggleAppointments}
-            disabled={readOnly || !preferences.allNotifications}
-            thumbColor="#FFFFFF"
-            trackColor={{ false: Colors.border, true: Colors.primary }}
-            value={preferences.appointments}
-          />
-        </View>
-
-        <View style={styles.row}>
-          <View style={styles.iconWrap}>
-            <Ionicons name="sparkles-outline" size={20} color={Colors.text2} />
-          </View>
-          <View style={styles.rowCopy}>
-            <Text style={styles.rowTitle}>Other Updates</Text>
-            <Text style={styles.rowDescription}>
-              Clients and other SalonOX updates.
-            </Text>
-          </View>
-          <Switch
-            onValueChange={handleToggleOtherUpdates}
-            disabled={readOnly || !preferences.allNotifications}
-            thumbColor="#FFFFFF"
-            trackColor={{ false: Colors.border, true: Colors.primary }}
-            value={preferences.otherUpdates}
-          />
-        </View>
-        {([
-          { key: "paymentComplete", title: "Payment Complete", description: "Notifications when payments are completed.", icon: "card-outline" },
-          { key: "productAudit", title: "Product Audit", description: "Product inventory audit notifications.", icon: "clipboard-outline" },
-        ] as const).map((item) => (
+        {NOTIF_ROWS.map((item) => (
           <View key={item.key} style={styles.row}>
             <View style={styles.iconWrap}><Ionicons name={item.icon} size={20} color={Colors.text2} /></View>
             <View style={styles.rowCopy}>
