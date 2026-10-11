@@ -23,7 +23,7 @@ type StaffCommissionSectionProps = {
 };
 
 function formatCurrency(amount: number) {
-  return `Rs. ${amount.toLocaleString("en-IN")}`;
+  return `Rs. ${amount.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 }
 
 const toMonthKey = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
