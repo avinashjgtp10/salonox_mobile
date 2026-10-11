@@ -2,6 +2,7 @@ import { api } from "@/services/api";
 import { STAFF } from "@/services/api/endpoints";
 import type { ApiResponse } from "@/types/auth";
 import type { CommissionHistoryEntry } from "@/types/staffCommissions";
+import { parseAppDateTime } from "@/utils/dateTime";
 import {
   asRecord,
   firstArray,
@@ -43,14 +44,24 @@ const normalizeHistoryEntry = (entry: UnknownRecord, index: number): CommissionH
   };
 };
 
-const getHistoryTimestamp = (entry: CommissionHistoryEntry) => {
+const parseHistoryTimestamp = (value: string | null) => {
+  if (!value) return Number.NaN;
+  return parseAppDateTime(value)?.getTime() ?? Number.NaN;
+};
+
+const getHistorySortKey = (entry: CommissionHistoryEntry) => {
   const period = entry.period?.trim() ?? "";
-  const hasExactDate = /^\d{4}-\d{2}-\d{2}/.test(period);
-  const periodTime = period ? Date.parse(period) : Number.NaN;
-  const createdTime = entry.createdAt ? Date.parse(entry.createdAt) : Number.NaN;
-  let timestamp = Number.isFinite(periodTime) ? periodTime : createdTime;
-  if (!hasExactDate && Number.isFinite(createdTime)) timestamp = createdTime;
-  return Number.isFinite(timestamp) ? timestamp : 0;
+  const hasExactDate = /^\d{4}-\d{2}-\d{2}(?:$|T)|^\d{1,2}-\d{1,2}-\d{2,4}(?:$|[ T])/.test(period);
+  const periodTime = parseHistoryTimestamp(period);
+  const createdTime = parseHistoryTimestamp(entry.createdAt);
+  const dateTime = hasExactDate && Number.isFinite(periodTime)
+    ? periodTime
+    : Number.isFinite(createdTime) ? createdTime : periodTime;
+
+  return {
+    dateTime: Number.isFinite(dateTime) ? dateTime : 0,
+    createdTime: Number.isFinite(createdTime) ? createdTime : 0,
+  };
 };
 
 export const staffCommissionsService = {
@@ -62,8 +73,8 @@ export const staffCommissionsService = {
 
     return getHistoryArray(response.data.data)
       .map(normalizeHistoryEntry)
-      .map((entry, index) => ({ entry, index, timestamp: getHistoryTimestamp(entry) }))
-      .sort((left, right) => right.timestamp - left.timestamp || left.index - right.index)
+      .map((entry, index) => ({ entry, index, ...getHistorySortKey(entry) }))
+      .sort((left, right) => right.dateTime - left.dateTime || right.createdTime - left.createdTime || left.index - right.index)
       .map(({ entry }) => entry);
   },
 };
