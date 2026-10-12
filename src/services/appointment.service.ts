@@ -289,15 +289,21 @@ const getService = (appointment: AppointmentApiItem) => {
   };
 };
 
+const BILLED_ITEM_STATUSES = new Set(["pending", "in_progress", "completed"]);
+
 const toBilledItems = (
   items: AppointmentApiService[] | null | undefined,
   type: AppointmentBilledItem["type"],
 ): AppointmentBilledItem[] =>
   (items ?? [])
     .map((item) => ({
+      id: toSafeString(item?.id) || null,
       name: toSafeString(item?.name) || toSafeString(item?.title),
       price: toSafeNumber(item?.total) || toSafeNumber(item?.price),
       quantity: toSafeNumber(item?.quantity) || toSafeNumber(item?.qty) || 1,
+      staffId: toSafeString(item?.staff_id) || null,
+      staffName: toSafeString(item?.staff_name) || null,
+      status: BILLED_ITEM_STATUSES.has(item?.status ?? "") ? (item!.status as AppointmentBilledItem["status"]) : null,
       type,
     }))
     .filter((item) => item.name);
@@ -323,7 +329,16 @@ const getBilledItems = (
   }
 
   if (fallbackService.name && fallbackService.name !== "Service not selected") {
-    return [{ name: fallbackService.name, price: fallbackService.price, quantity: 1, type: "service" }];
+    return [{
+      id: fallbackService.id || null,
+      name: fallbackService.name,
+      price: fallbackService.price,
+      quantity: 1,
+      staffId: null,
+      staffName: null,
+      status: null,
+      type: "service",
+    }];
   }
 
   return [];
@@ -718,6 +733,40 @@ export const appointmentService = {
     const response = await api.patch<AppointmentDetailApiResponse>(
       APPOINTMENT.UPDATE(appointmentId),
       { status: "paid" },
+    );
+    return {
+      appointment: normalizeAppointment(getAppointmentFromPayload(response.data.data)),
+      message: response.data.message,
+    };
+  },
+
+  // Staff handoff workflow — a per-row (service/package/membership)
+  // progress tracker, deliberately separate from startAppointment/
+  // completeAppointment above (those write the appointment's own payment
+  // `status`; these two never touch it).
+  async updateItemStatus(
+    appointmentId: string,
+    itemId: string,
+    status: "in_progress" | "completed",
+  ): Promise<AppointmentMutationResponse> {
+    const response = await api.patch<AppointmentDetailApiResponse>(
+      APPOINTMENT.ITEM_STATUS(appointmentId, itemId),
+      { status },
+    );
+    return {
+      appointment: normalizeAppointment(getAppointmentFromPayload(response.data.data)),
+      message: response.data.message,
+    };
+  },
+
+  async handoffItem(
+    appointmentId: string,
+    itemId: string,
+    toStaffId: string,
+  ): Promise<AppointmentMutationResponse> {
+    const response = await api.post<AppointmentDetailApiResponse>(
+      APPOINTMENT.HANDOFF_ITEM(appointmentId, itemId),
+      { to_staff_id: toStaffId },
     );
     return {
       appointment: normalizeAppointment(getAppointmentFromPayload(response.data.data)),
