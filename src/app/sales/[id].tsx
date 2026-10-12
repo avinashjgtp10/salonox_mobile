@@ -255,16 +255,6 @@ export default function SaleDetailsScreen() {
             </Text>
           </View>
 
-          <View style={styles.statsRow}>
-            <View style={styles.statCard}>
-              <Text style={styles.statValue}>{formatCurrency(sale.total)}</Text>
-              <Text style={styles.statLabel}>Total</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statValue}>{formatCurrency(sale.amountPaid)}</Text>
-              <Text style={styles.statLabel}>Paid</Text>
-            </View>
-          </View>
         </View>
 
         {isDraft ? (
@@ -399,29 +389,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     color: Colors.heading,
     fontSize: 11,
     fontWeight: "800",
-  },
-  statsRow: {
-    flexDirection: "row",
-    gap: Spacing.sm,
-    marginTop: Spacing.lg,
-  },
-  statCard: {
-    alignItems: "center",
-    backgroundColor: Colors.bg2,
-    borderRadius: Radius.lg,
-    flex: 1,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.md,
-  },
-  statValue: {
-    color: Colors.heading,
-    fontSize: 16,
-    fontWeight: "800",
-  },
-  statLabel: {
-    color: Colors.text2,
-    fontSize: 11,
-    marginTop: 4,
   },
   continueButton: {
     alignItems: "center",
