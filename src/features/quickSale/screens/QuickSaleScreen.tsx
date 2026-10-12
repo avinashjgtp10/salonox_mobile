@@ -31,7 +31,6 @@ import {
 } from "@/features/quickSale/components/CheckoutSheet";
 import { ClientDatesSheet } from "@/features/quickSale/components/ClientDatesSheet";
 import { ClientPickerSheet } from "@/features/quickSale/components/ClientPickerSheet";
-import { CategoryChips } from "@/features/quickSale/components/CategoryChips";
 import { ErrorState } from "@/features/quickSale/components/StateViews";
 import { GlobalSearchBar } from "@/features/quickSale/components/GlobalSearchBar";
 import { MembershipCatalogTab } from "@/features/quickSale/components/MembershipCatalogTab";
@@ -1568,12 +1567,12 @@ function OwnerQuickSaleScreen({
           onChangeOverallDiscount={(value, type, percentage) => { setOverallDiscountInput(value); setDraftDiscountType(type); setDraftDiscountPercent(percentage); }}
           packageBanner={selectedClient.id && clientPackages.status === "error" ? <PackageEligibilityBanner error={clientPackages.error} onRetry={clientPackages.retry} /> : null}
         />
-        <BottomSheet title="Add services & items" visible={isCatalogVisible} onClose={() => { setIsCatalogVisible(false); handleClearGlobalSearch(); }} renderInline={embedded} scrollable={false}
+        <BottomSheet title={`Add ${ITEM_TYPE_CHIPS.find((item) => item.id === activeTab)?.label.toLowerCase() ?? "items"}`} visible={isCatalogVisible} onClose={() => { setIsCatalogVisible(false); handleClearGlobalSearch(); }} renderInline={embedded} scrollable={false}
           footer={<TouchableOpacity onPress={() => { setIsCatalogVisible(false); handleClearGlobalSearch(); }} style={styles.catalogDone}><Text style={styles.catalogDoneText}>Done · {cart.itemCount} items</Text></TouchableOpacity>}>
           <View style={{ height: Math.min(520, screenHeight * 0.55) }}>
         <View style={styles.topSection}>
           <View style={styles.catalogHeading}>
-            <Text style={styles.catalogTitle}>Services &amp; items</Text>
+            <Text style={styles.catalogTitle}>{ITEM_TYPE_CHIPS.find((item) => item.id === activeTab)?.label ?? "Items"}</Text>
             {cart.itemCount > 0 ? (
               <Text style={styles.catalogCount}>
                 {cart.itemCount} {cart.itemCount === 1 ? "item" : "items"}
@@ -1590,7 +1589,7 @@ function OwnerQuickSaleScreen({
               }}
               onClear={handleClearGlobalSearch}
               onFocus={() => setIsServiceSearchOpen(true)}
-              placeholder="Search service or item"
+              placeholder={`Search ${ITEM_TYPE_CHIPS.find((item) => item.id === activeTab)?.label.toLowerCase() ?? "items"}`}
               query={globalSearchQuery}
             />
             {activeTab === "services" && isGlobalSearchActive && isServiceSearchOpen ? (
@@ -1608,11 +1607,6 @@ function OwnerQuickSaleScreen({
             ) : null}
           </View>
 
-          <CategoryChips
-            onSelect={(nextTab) => setActiveTab((nextTab ?? "services") as CatalogTab)}
-            options={ITEM_TYPE_CHIPS}
-            selectedId={activeTab}
-          />
         </View>
 
         <View style={styles.content}>
