@@ -39,6 +39,9 @@ export default function StaffInviteAcceptScreen() {
   const accepting = useAppSelector(selectInviteAccepting);
   const acceptError = useAppSelector(selectInviteAcceptError);
 
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [nameError, setNameError] = useState<string | null>(null);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordError, setPasswordError] = useState<string | null>(null);
@@ -63,6 +66,10 @@ export default function StaffInviteAcceptScreen() {
 
   const validateForm = () => {
     let isValid = true;
+    if (!firstName.trim()) {
+      setNameError("First name is required.");
+      isValid = false;
+    }
 
     if (!password) {
       setPasswordError("Password is required.");
@@ -88,7 +95,9 @@ export default function StaffInviteAcceptScreen() {
       return;
     }
 
-    const resultAction = await dispatch(acceptInviteThunk({ password, token }));
+    const resultAction = await dispatch(
+      acceptInviteThunk({ first_name: firstName.trim(), last_name: lastName.trim(), password, token }),
+    );
 
     if (acceptInviteThunk.rejected.match(resultAction)) {
       return;
@@ -160,6 +169,19 @@ export default function StaffInviteAcceptScreen() {
       }
       title="Welcome to SalonOX"
     >
+      <RecoveryTextInput
+        label="First Name"
+        iconName="person-outline"
+        value={firstName}
+        onChangeText={(value) => { setFirstName(value); setNameError(null); }}
+        error={nameError ?? undefined}
+      />
+      <RecoveryTextInput
+        label="Last Name"
+        iconName="person-outline"
+        value={lastName}
+        onChangeText={setLastName}
+      />
       <RecoveryTextInput
         autoCapitalize="none"
         autoComplete="password-new"

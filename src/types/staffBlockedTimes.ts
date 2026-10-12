@@ -9,10 +9,10 @@ export type BlockedTimeEntry = {
 };
 
 export type CreateBlockedTimeRequest = {
-  end_at: string;
-  notes?: string;
+  date: string;
+  end_time: string;
   reason?: string;
-  start_at: string;
+  start_time: string;
 };
 
 export type UpdateBlockedTimeRequest = Partial<CreateBlockedTimeRequest>;

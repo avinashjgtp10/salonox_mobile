@@ -1,4 +1,5 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
+import { mapEmergencyContactFormToRequest } from "@/features/staff/utils/staffFormMappers";
 
 import { fetchDashboardThunk } from "@/middleware/dashboard/dashboard.thunk";
 import { ApiError, getApiErrorMessage } from "@/services/api";
@@ -170,13 +171,9 @@ export const createStaffAddressThunk = createAsyncThunk<
   CreateStaffAddressResponse,
   { address: Omit<CreateStaffAddressRequest, "salon_id">; staffId: string },
   { rejectValue: CreateStaffAddressRejectValue; state: RootState }
->("staff/createStaffAddress", async ({ address, staffId }, { getState, rejectWithValue }) => {
+>("staff/createStaffAddress", async ({ address, staffId }, { rejectWithValue }) => {
   try {
-    const salonId = selectActiveBranchId(getState());
-    const payload: CreateStaffAddressRequest = {
-      ...address,
-      ...(salonId ? { salon_id: salonId } : {}),
-    };
+    const payload: CreateStaffAddressRequest = { ...address };
 
     return await staffService.createStaffAddress(staffId, payload);
   } catch (error) {
@@ -197,31 +194,6 @@ export const createStaffAddressThunk = createAsyncThunk<
   }
 });
 
-const trimOptional = (value?: string) => {
-  const trimmedValue = value?.trim();
-
-  return trimmedValue || undefined;
-};
-
-const mapEmergencyContactFormToRequest = (
-  contact: CreateEmergencyContactFormFields,
-): Omit<CreateEmergencyContactRequest, "salon_id"> => {
-  const fullName = trimOptional(contact.fullName) ?? trimOptional(contact.name);
-  const phone = trimOptional(contact.phone) ?? trimOptional(contact.phoneNumber);
-
-  return {
-    ...(trimOptional(contact.address) ? { address: trimOptional(contact.address) } : {}),
-    ...(trimOptional(contact.email) ? { email: trimOptional(contact.email) } : {}),
-    ...(fullName ? { full_name: fullName, name: fullName } : {}),
-    ...(typeof contact.isPrimary === "boolean" ? { is_primary: contact.isPrimary } : {}),
-    ...(trimOptional(contact.notes) ? { notes: trimOptional(contact.notes) } : {}),
-    ...(phone ? { phone, phone_number: phone } : {}),
-    ...(trimOptional(contact.relationship)
-      ? { relationship: trimOptional(contact.relationship) }
-      : {}),
-  };
-};
-
 const hasEmergencyContactUpdateFields = (payload: Omit<UpdateEmergencyContactRequest, "salon_id">) =>
   Object.keys(payload).length > 0;
 
@@ -229,7 +201,7 @@ export const createEmergencyContactThunk = createAsyncThunk<
   CreateEmergencyContactResponse,
   { contact: CreateEmergencyContactFormFields; staffId: string },
   { rejectValue: CreateEmergencyContactRejectValue; state: RootState }
->("staff/createEmergencyContact", async ({ contact, staffId }, { getState, rejectWithValue }) => {
+>("staff/createEmergencyContact", async ({ contact, staffId }, { rejectWithValue }) => {
   try {
     const payloadWithoutSalon = mapEmergencyContactFormToRequest(contact);
 
@@ -239,7 +211,7 @@ export const createEmergencyContactThunk = createAsyncThunk<
       });
     }
 
-    if (!payloadWithoutSalon.full_name && !payloadWithoutSalon.name) {
+    if (!payloadWithoutSalon.full_name) {
       return rejectWithValue({ message: "Emergency contact name is required." });
     }
 
@@ -247,15 +219,11 @@ export const createEmergencyContactThunk = createAsyncThunk<
       return rejectWithValue({ message: "Emergency contact relationship is required." });
     }
 
-    if (!payloadWithoutSalon.phone && !payloadWithoutSalon.phone_number) {
+    if (!payloadWithoutSalon.phone_number) {
       return rejectWithValue({ message: "Emergency contact phone number is required." });
     }
 
-    const salonId = selectActiveBranchId(getState());
-    const payload: CreateEmergencyContactRequest = {
-      ...payloadWithoutSalon,
-      ...(salonId ? { salon_id: salonId } : {}),
-    };
+    const payload: CreateEmergencyContactRequest = payloadWithoutSalon;
 
     return await staffService.createEmergencyContact(staffId, payload);
   } catch (error) {
@@ -286,7 +254,7 @@ export const updateEmergencyContactThunk = createAsyncThunk<
   { rejectValue: UpdateEmergencyContactRejectValue; state: RootState }
 >(
   "staff/updateEmergencyContact",
-  async ({ recordId, staffId, updates }, { getState, rejectWithValue }) => {
+  async ({ recordId, staffId, updates }, { rejectWithValue }) => {
     try {
       const payloadWithoutSalon = mapEmergencyContactFormToRequest(updates);
 
@@ -306,11 +274,7 @@ export const updateEmergencyContactThunk = createAsyncThunk<
         return rejectWithValue({ message: "No emergency contact changes to update." });
       }
 
-      const salonId = selectActiveBranchId(getState());
-      const payload: UpdateEmergencyContactRequest = {
-        ...payloadWithoutSalon,
-        ...(salonId ? { salon_id: salonId } : {}),
-      };
+      const payload: UpdateEmergencyContactRequest = payloadWithoutSalon;
 
       return await staffService.updateEmergencyContact(staffId, recordId, payload);
     } catch (error) {
@@ -667,13 +631,9 @@ export const updateStaffAddressThunk = createAsyncThunk<
     updates: Omit<UpdateStaffAddressRequest, "salon_id">;
   },
   { rejectValue: UpdateStaffAddressRejectValue; state: RootState }
->("staff/updateStaffAddress", async ({ recordId, staffId, updates }, { getState, rejectWithValue }) => {
+>("staff/updateStaffAddress", async ({ recordId, staffId, updates }, { rejectWithValue }) => {
   try {
-    const salonId = selectActiveBranchId(getState());
-    const payload: UpdateStaffAddressRequest = {
-      ...updates,
-      ...(salonId ? { salon_id: salonId } : {}),
-    };
+    const payload: UpdateStaffAddressRequest = { ...updates };
 
     return await staffService.updateStaffAddress(staffId, recordId, payload);
   } catch (error) {

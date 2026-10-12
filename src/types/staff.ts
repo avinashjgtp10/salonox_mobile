@@ -57,19 +57,8 @@ export type UploadStaffAvatarResponse = {
 };
 
 export type CreateStaffAddressRequest = {
-  address?: string;
-  address_line?: string;
-  address_line_1?: string;
-  address_line1?: string;
-  city?: string;
-  country?: string;
-  is_primary?: boolean;
-  postal_code?: string;
-  salon_id?: string;
-  state?: string;
-  type?: string;
-  zip?: string;
-  zip_code?: string;
+  address_name: string;
+  address: string;
 };
 
 export type CreateEmergencyContactFormFields = {

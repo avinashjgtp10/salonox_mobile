@@ -1,5 +1,6 @@
 export type StaffWage = {
   baseAmount: number;
+  wagesEnabled: boolean;
   currency: string;
   effectiveFrom: string | null;
   notes: string | null;
@@ -9,11 +10,10 @@ export type StaffWage = {
 };
 
 export type UpdateWageRequest = {
-  base_amount?: number;
-  currency?: string;
-  effective_from?: string;
-  notes?: string;
-  type?: string;
+  wages_enabled?: boolean;
+  compensation_type?: "none" | "hourly" | "salary" | "commission";
+  hourly_rate?: number | null;
+  salary_amount?: number | null;
 };
 
 export type UpdateWageResponse = {
