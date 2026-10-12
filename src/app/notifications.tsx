@@ -134,8 +134,12 @@ function NotificationRow({
         <Text style={styles.time}>{notification.createdDateLabel}</Text>
         {showDetailMeta ? (
           <View style={styles.metaRow}>
-            <Text style={styles.metaPill}>{notification.type || "general"}</Text>
-            <Text style={styles.metaPill}>{notification.isRead ? "Read" : "Unread"}</Text>
+            <View style={styles.metaPill}>
+              <Text style={styles.metaPillText}>{notification.type || "general"}</Text>
+            </View>
+            <View style={styles.metaPill}>
+              <Text style={styles.metaPillText}>{notification.isRead ? "Read" : "Unread"}</Text>
+            </View>
           </View>
         ) : null}
       </View>
@@ -469,21 +473,29 @@ const createStyles = (Colors: ThemeColors, width = 393) => StyleSheet.create({
     marginTop: 4,
   },
   metaRow: {
+    alignItems: "flex-start",
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 6,
     marginTop: 6,
   },
   metaPill: {
+    alignItems: "center",
+    justifyContent: "center",
+    maxWidth: "100%",
     backgroundColor: Colors.bg,
     borderColor: Colors.border,
     borderRadius: Radius.full,
     borderWidth: 1,
-    color: Colors.text2,
-    fontSize: 10,
-    fontWeight: "800",
     paddingHorizontal: 8,
     paddingVertical: 4,
+  },
+  metaPillText: {
+    color: Colors.text2,
+    fontSize: 10,
+    lineHeight: 14,
+    includeFontPadding: false,
+    fontWeight: "800",
     textTransform: "capitalize",
   },
   skeletonLine: {
