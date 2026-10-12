@@ -105,6 +105,9 @@ export type AppointmentApiItem = {
   sale_id?: string | number | null;
   saleID?: string | number | null;
   pending_sale_id?: string | null;
+  membership_items?: AppointmentApiService[] | null;
+  package_items?: AppointmentApiService[] | null;
+  product_items?: AppointmentApiService[] | null;
   service?: AppointmentApiService | string | null;
   service_id?: string | number | null;
   service_name?: string | null;
@@ -184,8 +187,20 @@ export type AppointmentListPagination = {
   totalPages: number | null;
 };
 
+// A single billed row on the appointment — service, product, package or
+// membership — read straight off the appointment's own services/
+// product_items/package_items/membership_items columns (populated at
+// checkout), so it shows up without a separate Sale fetch.
+export type AppointmentBilledItem = {
+  name: string;
+  price: number;
+  quantity: number;
+  type: "service" | "product" | "package" | "membership";
+};
+
 export type AppointmentListItem = {
   amount: number;
+  billedItems: AppointmentBilledItem[];
   cancelledAt: string | null;
   cancellationReason: string;
   clientEmail: string;

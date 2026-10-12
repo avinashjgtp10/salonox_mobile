@@ -8,6 +8,8 @@ import { normalizeSaleId } from "@/utils/apiNormalize";
 import type {
   AppointmentApiClient,
   AppointmentApiItem,
+  AppointmentApiService,
+  AppointmentBilledItem,
   AppointmentDetailApiData,
   AppointmentDetailResponse,
   AppointmentHistoryResponse,
@@ -287,6 +289,46 @@ const getService = (appointment: AppointmentApiItem) => {
   };
 };
 
+const toBilledItems = (
+  items: AppointmentApiService[] | null | undefined,
+  type: AppointmentBilledItem["type"],
+): AppointmentBilledItem[] =>
+  (items ?? [])
+    .map((item) => ({
+      name: toSafeString(item?.name) || toSafeString(item?.title),
+      price: toSafeNumber(item?.total) || toSafeNumber(item?.price),
+      quantity: toSafeNumber(item?.quantity) || toSafeNumber(item?.qty) || 1,
+      type,
+    }))
+    .filter((item) => item.name);
+
+// Products/packages/memberships bought alongside (or instead of) a service
+// live on these same JSONB columns as `services` — populated at checkout —
+// so this reads straight off the appointment response with no extra Sale
+// fetch. Falls back to the single getService() summary only when none of
+// these arrays carried anything (e.g. a legacy/unpaid appointment).
+const getBilledItems = (
+  appointment: AppointmentApiItem,
+  fallbackService: ReturnType<typeof getService>,
+): AppointmentBilledItem[] => {
+  const items = [
+    ...toBilledItems(appointment.services, "service"),
+    ...toBilledItems(appointment.product_items, "product"),
+    ...toBilledItems(appointment.package_items, "package"),
+    ...toBilledItems(appointment.membership_items, "membership"),
+  ];
+
+  if (items.length) {
+    return items;
+  }
+
+  if (fallbackService.name && fallbackService.name !== "Service not selected") {
+    return [{ name: fallbackService.name, price: fallbackService.price, quantity: 1, type: "service" }];
+  }
+
+  return [];
+};
+
 const getAppointmentArray = (payload: AppointmentListApiData) => {
   if (Array.isArray(payload)) {
     return payload;
@@ -378,6 +420,7 @@ export const normalizeAppointment = (
 
   return {
     amount,
+    billedItems: getBilledItems(appointment, service),
     cancelledAt,
     cancellationReason: toSafeString(appointment.cancellation_reason) || toSafeString(appointment.cancel_reason),
     clientEmail: toSafeString(appointment.client?.email),

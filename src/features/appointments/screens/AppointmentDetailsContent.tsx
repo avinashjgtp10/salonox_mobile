@@ -161,7 +161,15 @@ export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | 
 
           <View style={styles.formCard}>
             <Text style={styles.sectionTitle}>Services &amp; Products</Text>
-            {saleForAppointment && saleForAppointment.lineItems.length > 0 ? (
+            {appointment.billedItems.length > 0 ? (
+              appointment.billedItems.map((item, index) => (
+                <DetailRow
+                  key={`${item.type}-${item.name}-${index}`}
+                  label={`${item.name}${item.quantity > 1 ? ` × ${item.quantity}` : ""}`}
+                  value={formatCurrency(item.price)}
+                />
+              ))
+            ) : saleForAppointment && saleForAppointment.lineItems.length > 0 ? (
               saleForAppointment.lineItems.map((item) => (
                 <DetailRow
                   key={item.id}
