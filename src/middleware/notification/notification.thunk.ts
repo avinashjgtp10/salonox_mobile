@@ -157,7 +157,15 @@ export const clearAllNotificationsThunk = createAsyncThunk<
   try {
     if (!ids.length) return [];
     const unreadIds = ids.filter(id => !state.notification.notifications.find(item => item.id === id)?.isRead);
-    await Promise.all(unreadIds.map(id => dispatch(markNotificationReadThunk(id)).unwrap()));
+    if (isStaffExperienceUser(selectCurrentUser(state))) {
+      await Promise.all(unreadIds.map(id => dispatch(markNotificationReadThunk(id)).unwrap()));
+    } else if (unreadIds.length) {
+      // The list endpoint only returns the latest 30 rows, so marking just
+      // the ones loaded here can leave older unread rows on the server and
+      // the bell badge stuck above zero. Mark everything read server-side
+      // instead of looping over this (possibly partial) local list.
+      await notificationService.markAllAsRead();
+    }
     await notificationLocalStorage.removeMany(scope, ids);
     void dispatch(fetchUnreadCountThunk());
     return ids;
