@@ -54,19 +54,25 @@ export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | 
   );
 
   useEffect(() => {
-    if (!isStaffMode && appointment?.saleId && !appointmentInvoiceNumber) {
+    // Product/membership/package line items bought alongside (or instead of)
+    // a service live on the linked Sale, not on the appointment record — the
+    // appointment's own total/service fields stay at 0 for a product-only
+    // quick sale, so the sale has to be fetched whenever one is linked, not
+    // only when the invoice number happens to be missing.
+    if (!isStaffMode && appointment?.saleId) {
       void dispatch(fetchSaleByIdThunk(appointment.saleId));
     }
-  }, [appointment?.saleId, appointmentInvoiceNumber, dispatch, isStaffMode]);
+  }, [appointment?.saleId, dispatch, isStaffMode]);
+
+  const saleForAppointment = saleDetail && saleDetail.id === appointment?.saleId ? saleDetail : null;
 
   const invoiceNumber =
     appointmentInvoiceNumber ??
-    (saleDetail && saleDetail.id === appointment?.saleId
-      ? formatInvoiceNumber(saleDetail.receiptNumber)
-      : null);
+    (saleForAppointment ? formatInvoiceNumber(saleForAppointment.receiptNumber) : null);
 
   const displayName = appointment?.clientName?.trim() ? appointment.clientName.trim() : "Walk-in Client";
-  const appointmentIsPaid = Boolean(appointment && (appointment.paymentStatus.toLowerCase() === "paid" || (appointment.total > 0 && appointment.paidAmount >= appointment.total)));
+  const billedTotal = appointment && appointment.total > 0 ? appointment.total : saleForAppointment?.total ?? appointment?.total ?? 0;
+  const appointmentIsPaid = Boolean(appointment && (appointment.paymentStatus.toLowerCase() === "paid" || (billedTotal > 0 && appointment.paidAmount >= billedTotal)));
 
   return (
     <ScreenShell
@@ -146,16 +152,26 @@ export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | 
             <Text style={styles.sectionTitle}>Payment & Billing</Text>
             <DetailRow
               label="Payment Status"
-              value={appointment.paymentStatus.toLowerCase() === "paid" || (appointment.total > 0 && appointment.paidAmount >= appointment.total) ? "Paid successfully" : appointment.paymentStatus}
+              value={appointment.paymentStatus.toLowerCase() === "paid" || (billedTotal > 0 && appointment.paidAmount >= billedTotal) ? "Paid successfully" : appointment.paymentStatus}
             />
             <DetailRow label="Payment Method" value={appointment.paymentMethod} />
-            <DetailRow label="Total Amount" value={formatCurrency(appointment.total || appointment.amount)} />
+            <DetailRow label="Total Amount" value={formatCurrency(billedTotal || appointment.amount)} />
             <DetailRow label="Amount Paid" value={appointment.paidAmount > 0 ? formatCurrency(appointment.paidAmount) : null} />
           </View>
 
           <View style={styles.formCard}>
-            <Text style={styles.sectionTitle}>Services</Text>
-            <DetailRow label={appointment.serviceName || "Service"} value={formatCurrency(appointment.total || appointment.amount)} />
+            <Text style={styles.sectionTitle}>Services &amp; Products</Text>
+            {saleForAppointment && saleForAppointment.lineItems.length > 0 ? (
+              saleForAppointment.lineItems.map((item) => (
+                <DetailRow
+                  key={item.id}
+                  label={`${item.name}${item.quantity > 1 ? ` × ${item.quantity}` : ""}`}
+                  value={formatCurrency(item.totalPrice)}
+                />
+              ))
+            ) : (
+              <DetailRow label={appointment.serviceName || "Service"} value={formatCurrency(billedTotal || appointment.amount)} />
+            )}
             <DetailRow label="Duration" value={appointment.durationLabel || (appointment.durationMinutes ? `${appointment.durationMinutes} mins` : null)} />
           </View>
 

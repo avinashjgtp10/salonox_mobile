@@ -93,6 +93,7 @@ const notificationSlice = createSlice({
         state.clearingAll = false;
         state.locallyRemovedIds = [...new Set([...state.locallyRemovedIds, ...action.payload])];
         state.notifications = state.notifications.filter(item => !action.payload.includes(item.id));
+        state.unreadCount = 0;
       })
       .addCase(clearAllNotificationsThunk.rejected, (state) => {
         state.clearingAll = false;
