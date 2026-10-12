@@ -485,18 +485,12 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
             </View>
           </View>
 
-          <StaffTextField
-            label="Notes"
-            multiline
-            onChangeText={(value) => form.updateField("notes", value)}
-            placeholder="Internal notes"
-            value={form.values.notes}
-          />
+
         </View>
 
         <View style={styles.card}>
           <View style={styles.loginHeaderRow}>
-            <Text style={styles.sectionHeading}>Staff Login</Text>
+            <Text style={styles.sectionHeading}>Set Login Password</Text>
             <Switch
               onValueChange={(value) => form.updateField("isLoginEnabled", value)}
               thumbColor="#FFFFFF"

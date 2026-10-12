@@ -1,7 +1,7 @@
 import { Text } from "@/components/ui/AppTypography";
 import { appAlert as Alert } from "@/services/appAlert";
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, StyleSheet, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, StyleSheet, TouchableOpacity, Switch, View } from "react-native";
 
 import {
   DashboardRadius as Radius,
@@ -29,7 +29,7 @@ type StaffWageSectionProps = {
   staffId?: string | null;
 };
 
-const WAGE_TYPES = ["monthly", "hourly", "commission_only", "hybrid"] as const;
+const WAGE_TYPES = ["none", "hourly", "salary", "commission"] as const;
 
 export function StaffWageSection({ staffId }: StaffWageSectionProps) {
   const Colors = useThemeColors();
@@ -44,8 +44,8 @@ export function StaffWageSection({ staffId }: StaffWageSectionProps) {
   const saveError = useAppSelector((state) => selectStaffWageSaveError(state, staffId));
 
   const [baseAmount, setBaseAmount] = useState("");
-  const [type, setType] = useState<string>("monthly");
-  const [notes, setNotes] = useState("");
+  const [type, setType] = useState<(typeof WAGE_TYPES)[number]>("salary");
+  const [enabled, setEnabled] = useState(false);
 
   useEffect(() => {
     if (staffId && isValidStaffId(staffId) && !loaded && !loading) {
@@ -55,9 +55,9 @@ export function StaffWageSection({ staffId }: StaffWageSectionProps) {
 
   useEffect(() => {
     if (wage) {
-      setBaseAmount(wage.baseAmount ? String(wage.baseAmount) : "");
-      setType(wage.type || "monthly");
-      setNotes(wage.notes ?? "");
+      setBaseAmount(String(wage.baseAmount));
+      setType(WAGE_TYPES.includes(wage.type as (typeof WAGE_TYPES)[number]) ? wage.type as (typeof WAGE_TYPES)[number] : "none");
+      setEnabled(wage.wagesEnabled);
     }
   }, [wage]);
 
@@ -67,7 +67,8 @@ export function StaffWageSection({ staffId }: StaffWageSectionProps) {
     }
   };
 
-  const isValid = Number(baseAmount) > 0;
+  const needsAmount = type === "hourly" || type === "salary";
+  const isValid = !needsAmount || (baseAmount.trim().length > 0 && Number.isFinite(Number(baseAmount)) && Number(baseAmount) >= 0);
 
   const handleSave = async () => {
     if (!staffId || !isValid) {
@@ -78,9 +79,10 @@ export function StaffWageSection({ staffId }: StaffWageSectionProps) {
       updateStaffWageThunk({
         staffId,
         updates: {
-          base_amount: Number(baseAmount),
-          notes: notes.trim() || undefined,
-          type,
+          wages_enabled: enabled,
+          compensation_type: type,
+          hourly_rate: type === "hourly" ? Number(baseAmount) : null,
+          salary_amount: type === "salary" ? Number(baseAmount) : null,
         },
       }),
     );
@@ -121,6 +123,10 @@ export function StaffWageSection({ staffId }: StaffWageSectionProps) {
   return (
     <StaffSectionCard title="Wages">
       <View style={styles.typeGrid}>
+        <Text>Wages enabled</Text>
+        <Switch value={enabled} onValueChange={setEnabled} />
+      </View>
+      <View style={styles.typeGrid}>
         {WAGE_TYPES.map((wageType) => {
           const isActive = wageType === type;
 
@@ -138,24 +144,17 @@ export function StaffWageSection({ staffId }: StaffWageSectionProps) {
           );
         })}
       </View>
-      <StaffTextField
+      {needsAmount ? <StaffTextField
         keyboardType="numeric"
-        label="Base Amount"
+        label={type === "hourly" ? "Hourly Rate" : "Salary Amount"}
         onChangeText={setBaseAmount}
         placeholder="e.g. 25000"
         value={baseAmount}
-      />
-      <StaffTextField
-        label="Notes"
-        multiline
-        onChangeText={setNotes}
-        placeholder="Optional notes"
-        value={notes}
-      />
+      /> : null}
 
       {saveError ? <Text style={styles.errorText}>{saveError}</Text> : null}
       {!isValid ? (
-        <Text style={styles.hintText}>Enter a base amount greater than 0 to save.</Text>
+        <Text style={styles.hintText}>Enter a valid amount of 0 or more to save.</Text>
       ) : null}
 
       <TouchableOpacity

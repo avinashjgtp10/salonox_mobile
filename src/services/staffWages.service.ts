@@ -37,13 +37,14 @@ const normalizeWage = (entry: UnknownRecord, staffId: string): StaffWage | null 
   }
 
   return {
-    baseAmount: toSafeNumber(firstValue(entry, ["baseAmount", "base_amount", "amount"])),
+    baseAmount: toSafeNumber(entry.compensation_type === "hourly" ? entry.hourly_rate : entry.salary_amount),
+    wagesEnabled: entry.wages_enabled === true,
     currency: toSafeString(firstValue(entry, ["currency"]), "INR"),
     effectiveFrom:
       toSafeString(firstValue(entry, ["effectiveFrom", "effective_from"])) || null,
     notes: toSafeString(firstValue(entry, ["notes"])) || null,
     staffId: toSafeString(firstValue(entry, ["staffId", "staff_id"]), staffId),
-    type: toSafeString(firstValue(entry, ["type", "wage_type", "wageType"]), "monthly"),
+    type: toSafeString(entry.compensation_type, "none"),
     updatedAt: toSafeString(firstValue(entry, ["updatedAt", "updated_at"])) || null,
   };
 };
@@ -62,12 +63,13 @@ export const staffWagesService = {
     return {
       message: response.data.message,
       wage: wage ?? {
-        baseAmount: toSafeNumber(payload.base_amount),
-        currency: toSafeString(payload.currency, "INR"),
-        effectiveFrom: payload.effective_from ?? null,
-        notes: payload.notes ?? null,
+        baseAmount: toSafeNumber(payload.compensation_type === "hourly" ? payload.hourly_rate : payload.salary_amount),
+        wagesEnabled: payload.wages_enabled ?? false,
+        currency: "INR",
+        effectiveFrom: null,
+        notes: null,
         staffId,
-        type: toSafeString(payload.type, "monthly"),
+        type: payload.compensation_type ?? "none",
         updatedAt: null,
       },
     };

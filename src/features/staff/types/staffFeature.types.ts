@@ -71,11 +71,7 @@ export type ValidationResult = {
 
 export type StaffAddressFormFields = {
   addressLine: string;
-  city: string;
-  country: string;
-  postalCode: string;
-  state: string;
-  type: string;
+  addressName: string;
 };
 
 export type StaffAddressController = {

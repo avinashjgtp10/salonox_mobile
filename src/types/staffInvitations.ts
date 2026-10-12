@@ -24,6 +24,8 @@ export type VerifyInviteResult = {
 };
 
 export type AcceptInviteRequest = {
+  first_name: string;
+  last_name?: string;
   password: string;
   token: string;
 };

@@ -146,7 +146,7 @@ export function StaffLeaveSection({ staffId }: StaffLeaveSectionProps) {
   );
   const saving = creating || updating;
   const error = editingLeave ? updateError : createError;
-  const isValid = form.startDate.trim().length > 0 && form.endDate.trim().length > 0;
+  const isValid = /^\d{4}-\d{2}-\d{2}$/.test(form.startDate.trim()) && /^\d{4}-\d{2}-\d{2}$/.test(form.endDate.trim()) && form.endDate >= form.startDate && form.type.trim().length > 0 && form.reason.length <= 255;
 
   useEffect(() => {
     if (staffId && isValidStaffId(staffId) && !loaded && !loading) {
@@ -202,11 +202,10 @@ export function StaffLeaveSection({ staffId }: StaffLeaveSectionProps) {
             staffId,
             updates: {
               end_date: form.endDate.trim(),
-              notes: form.notes.trim() || undefined,
               reason: form.reason.trim() || undefined,
               start_date: form.startDate.trim(),
               status,
-              type: form.type.trim() || undefined,
+              leave_type: form.type.trim(),
             },
           }),
         )
@@ -214,10 +213,9 @@ export function StaffLeaveSection({ staffId }: StaffLeaveSectionProps) {
           createLeaveThunk({
             payload: {
               end_date: form.endDate.trim(),
-              notes: form.notes.trim() || undefined,
               reason: form.reason.trim() || undefined,
               start_date: form.startDate.trim(),
-              type: form.type.trim() || undefined,
+              leave_type: form.type.trim(),
             },
             staffId,
           }),
@@ -335,6 +333,7 @@ export function StaffLeaveSection({ staffId }: StaffLeaveSectionProps) {
           value={form.endDate}
         />
         <StaffTextField
+          maxLength={255}
           label="Reason"
           multiline
           onChangeText={(value) => setForm((current) => ({ ...current, reason: value }))}
@@ -365,7 +364,7 @@ export function StaffLeaveSection({ staffId }: StaffLeaveSectionProps) {
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
         {!isValid ? (
-          <Text style={styles.hintText}>Enter a start date and end date to continue.</Text>
+          <Text style={styles.hintText}>Enter a leave type and valid dates, with end on or after start.</Text>
         ) : null}
 
         <View style={styles.footer}>

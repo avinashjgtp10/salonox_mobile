@@ -112,7 +112,7 @@ export const useStaffForm = (staffId?: string | null) => {
       gender: staffMember.gender === "-" ? "" : staffMember.gender,
       holidays: staffMember.holidays != null ? String(staffMember.holidays) : "",
       hourlyRate: "",
-      isLoginEnabled: Boolean(staffMember.loginAccess),
+      isLoginEnabled: false,
       joiningDate: toIsoJoiningDate(staffMember.joiningDate),
       notes: staffMember.notes,
       password: "",

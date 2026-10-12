@@ -1,23 +1,13 @@
 export type PayRunEntry = {
-  amount: number;
   id: string;
-  netAmount: number | null;
-  notes: string | null;
-  periodEnd: string | null;
-  periodStart: string | null;
   staffId: string;
-  status: string;
+  pay_runs_enabled: boolean;
+  payment_method: "pay_manually" | "bank_transfer";
+  calculation_type: "automatic" | "manual";
+  deduct_payment_processing_fees: boolean;
+  deduct_new_client_fees: boolean;
+  record_cash_advances: boolean;
 };
 
-export type UpsertPayRunRequest = {
-  amount?: number;
-  notes?: string;
-  period_end?: string;
-  period_start?: string;
-  status?: string;
-};
-
-export type UpsertPayRunResponse = {
-  message?: string;
-  payRun: PayRunEntry;
-};
+export type UpsertPayRunRequest = Partial<Omit<PayRunEntry, "id" | "staffId">>;
+export type UpsertPayRunResponse = { message?: string; payRun: PayRunEntry };

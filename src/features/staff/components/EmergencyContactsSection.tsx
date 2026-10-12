@@ -214,25 +214,12 @@ export function EmergencyContactsSection({ readOnly = false, staffId }: Emergenc
         />
         <StaffTextField
           autoCapitalize="none"
+          error={controller.formErrors.email}
           keyboardType="email-address"
           label="Email"
           onChangeText={(value) => controller.updateField("email", value)}
           placeholder="Optional email"
           value={controller.form.email}
-        />
-        <StaffTextField
-          label="Address"
-          multiline
-          onChangeText={(value) => controller.updateField("address", value)}
-          placeholder="Optional address"
-          value={controller.form.address}
-        />
-        <StaffTextField
-          label="Notes"
-          multiline
-          onChangeText={(value) => controller.updateField("notes", value)}
-          placeholder="Optional notes"
-          value={controller.form.notes}
         />
 
         {controller.error ? <Text style={styles.errorText}>{controller.error}</Text> : null}
