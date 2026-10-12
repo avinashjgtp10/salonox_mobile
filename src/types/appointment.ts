@@ -65,6 +65,12 @@ export type AppointmentApiService = {
   time?: string | null;
   title?: string | null;
   total?: number | string | null;
+  // Staff handoff workflow — a per-row progress tracker, independent of the
+  // appointment's own payment status. Missing/undefined on rows written
+  // before this existed or on product rows (handoff doesn't cover those).
+  status?: "pending" | "in_progress" | "completed" | null;
+  started_at?: string | null;
+  completed_at?: string | null;
 };
 
 export type AppointmentApiStaff = {
@@ -192,9 +198,19 @@ export type AppointmentListPagination = {
 // product_items/package_items/membership_items columns (populated at
 // checkout), so it shows up without a separate Sale fetch.
 export type AppointmentBilledItem = {
+  // Server-assigned row id — the join key for the staff handoff endpoints
+  // (PATCH/POST .../items/:itemId/*). Absent on plain product rows (no
+  // handoff workflow for those) and on rows from older appointments saved
+  // before row ids existed.
+  id: string | null;
   name: string;
   price: number;
   quantity: number;
+  staffId: string | null;
+  staffName: string | null;
+  // Staff handoff workflow progress — null for product rows and for any
+  // appointment where handoff was never used (treat as "pending").
+  status: "pending" | "in_progress" | "completed" | null;
   type: "service" | "product" | "package" | "membership";
 };
 
