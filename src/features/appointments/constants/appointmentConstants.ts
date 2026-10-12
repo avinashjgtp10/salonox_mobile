@@ -6,15 +6,8 @@ import type {
 export const STATUS_FILTERS: ("All" | AppointmentStatus)[] = [
   "All",
   "Upcoming",
-  "Confirmed",
-  "Waiting",
-  "Checked In",
-  "In Service",
-  "In Progress",
-  "Partial",
   "Completed",
   "Cancelled",
-  "Missed",
 ];
 
 export const CALENDAR_STATUS_FILTERS: {
