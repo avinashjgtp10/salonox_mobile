@@ -17,28 +17,17 @@ import { useAppSelector } from "@/store/hooks";
 import { selectUnreadCount } from "@/store/notification/notification.slice";
 import { selectCurrentUser } from "@/store/user/user.slice";
 import { useAppTheme } from "@/theme/ThemeProvider";
-import {
-  getUserFullName,
-  getUserInitials,
-} from "@/utils/userProfile";
+import { getUserInitials } from "@/utils/userProfile";
 
 const LOGO_SOURCE = require("../../../assets/images/logo.png");
 
-const getTimeGreeting = () => {
-  const hour = new Date().getHours();
-
-  if (hour < 12) {
-    return "Good morning";
-  }
-
-  if (hour < 17) {
-    return "Good afternoon";
-  }
-
-  return "Good evening";
+const getFormattedDate = () => {
+  const now = new Date();
+  const day = String(now.getDate()).padStart(2, "0");
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const year = now.getFullYear();
+  return `${day}-${month}-${year}`;
 };
-
-const getFirstName = (fullName: string) => fullName.trim().split(/\s+/)[0] || "Owner";
 
 type DashboardHeroProps = {
   onOpenNotifications?: () => void;
@@ -55,11 +44,9 @@ export default function DashboardHero({ onOpenNotifications, onOpenQuickActions 
   const unreadNotificationCount = useAppSelector(selectUnreadCount);
   const activeBranch = useAppSelector(selectActiveBranch);
   const shouldShowBranchSelector = useAppSelector(selectShouldShowBranchSelector);
-  const fullName = getUserFullName(currentUser);
-  const firstName = getFirstName(fullName);
   const initials = getUserInitials(currentUser);
   const salonName = activeBranch?.name?.trim() || currentUser?.businessName?.trim() || "Salon";
-  const greeting = useMemo(getTimeGreeting, []);
+  const today = useMemo(getFormattedDate, []);
   const [isBranchSheetOpen, setIsBranchSheetOpen] = useState(false);
 
   useEffect(() => {
@@ -117,7 +104,6 @@ export default function DashboardHero({ onOpenNotifications, onOpenQuickActions 
 
       <View style={styles.row}>
         <View style={styles.copy}>
-          <Text numberOfLines={1} style={styles.eyebrow}>{greeting}</Text>
           <Text
             numberOfLines={1}
             adjustsFontSizeToFit={Platform.OS !== "ios"}
@@ -125,10 +111,10 @@ export default function DashboardHero({ onOpenNotifications, onOpenQuickActions 
             ellipsizeMode="tail"
             style={[styles.name, Platform.OS === "ios" && styles.iosName]}
           >
-            Hi, {firstName}
+            {salonName}
           </Text>
-          <Text numberOfLines={1} style={styles.ownerName}>
-            Salon status for today
+          <Text numberOfLines={2} style={styles.ownerName}>
+            {today} · Here&apos;s what&apos;s happening today
           </Text>
           {tour?.offerTour ? (
             <TouchableOpacity accessibilityRole="button" accessibilityLabel="Start dashboard tour" onPress={tour.start} style={{ alignSelf: "flex-start", paddingVertical: 10 }}>
@@ -138,6 +124,14 @@ export default function DashboardHero({ onOpenNotifications, onOpenQuickActions 
         </View>
 
         <View style={styles.avatarColumn}>
+          <TouchableOpacity
+            accessibilityLabel={isDark ? "Switch to light theme" : "Switch to dark theme"}
+            activeOpacity={0.7}
+            onPress={toggleTheme}
+            style={styles.themeToggle}
+          >
+            <Ionicons name={isDark ? "sunny-outline" : "moon-outline"} size={18} color={Colors.heading} />
+          </TouchableOpacity>
           <TouchableOpacity
             accessibilityLabel="Open profile"
             activeOpacity={0.8}
@@ -150,14 +144,6 @@ export default function DashboardHero({ onOpenNotifications, onOpenQuickActions 
                 <Text style={styles.avatarText}>{initials}</Text>
               </View>
             )}
-          </TouchableOpacity>
-          <TouchableOpacity
-            accessibilityLabel={isDark ? "Switch to light theme" : "Switch to dark theme"}
-            activeOpacity={0.7}
-            onPress={toggleTheme}
-            style={styles.themeToggle}
-          >
-            <Ionicons name={isDark ? "sunny-outline" : "moon-outline"} size={18} color={Colors.heading} />
           </TouchableOpacity>
         </View>
       </View>
@@ -233,7 +219,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     lineHeight: 16,
   },
   row: {
-    alignItems: "center",
+    alignItems: "flex-start",
     backgroundColor: Colors.dashboardSurface,
     flexDirection: "row",
     justifyContent: "space-between",
@@ -275,6 +261,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   avatarColumn: {
     alignItems: "center",
+    flexDirection: "row",
     gap: 8,
   },
   avatar: {

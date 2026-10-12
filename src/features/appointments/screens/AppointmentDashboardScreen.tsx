@@ -102,6 +102,7 @@ function AppointmentDashboardScreenContent() {
       </View>
 
       <FilterBar
+        compact
         date={date}
         onDateChange={setDate}
         onSearchChange={setSearch}
