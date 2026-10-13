@@ -27,9 +27,7 @@ import { AppLayout, AppRadius } from "@/constants/layout";
 import { useAppSelector } from "@/store/hooks";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { selectCurrentUser } from "@/store/user/user.slice";
-import { canViewConsumableInventory } from "@/utils/permissions";
 import {
-  canSettleCommission,
   getUserAddressLine,
   getUserBusinessName,
   getUserFullName,
@@ -43,46 +41,16 @@ const SUPPORT_EMAIL = "support@salonox.com";
 
 const MENU_ITEMS = [
   {
-    description: "Search, segment, and manage salon clients with visit history and memberships.",
-    icon: "people-outline" as const,
-    route: "/clients" as Href,
-    title: "Clients",
-  },
-  {
     description: "Sync your phone contacts and import them as clients.",
     icon: "person-add-outline" as const,
     route: "/clients/import-contacts" as Href,
     title: "Import Contacts",
   },
   {
-    description: "Browse, search, and filter your salon's service menu.",
-    icon: "pricetags-outline" as const,
-    route: "/services" as Href,
-    title: "Services",
-  },
-  {
-    description: "Create premium plans, benefits, validity, and online redemption rules.",
-    icon: "diamond-outline" as const,
-    route: "/memberships" as Href,
-    title: "Memberships",
-  },
-  {
-    description: "Search, filter, and export completed and draft sales.",
-    icon: "receipt-outline" as const,
-    route: "/sales" as Href,
-    title: "Sales Summary",
-  },
-  {
     description: "Check staff in and out, and review today's attendance across your salon.",
     icon: "time-outline" as const,
     route: "/team/attendance" as Href,
     title: "Attendance",
-  },
-  {
-    description: "Track staff commissions and settle payments across your salon.",
-    icon: "cash-outline" as const,
-    route: "/team/commissions" as Href,
-    title: "Commissions",
   },
   {
     description: "Update your salon's business details, contact info, and address.",
@@ -102,18 +70,6 @@ const MENU_ITEMS = [
     route: "/notification-settings" as Href,
     title: "Notifications",
   },
-  {
-    description: "Manage products, brands, pricing, and stock levels.",
-    icon: "layers-outline" as const,
-    route: "/stock" as Href,
-    title: "Products",
-  },
-  {
-    description: "Track consumable stock, usage history, and service assignments.",
-    icon: "flask-outline" as const,
-    route: "/consumables" as Href,
-    title: "Consumables",
-  },
 ];
 
 function MoreScreenContent() {
@@ -127,17 +83,6 @@ function MoreScreenContent() {
   const initials = getUserInitials(currentUser);
   const addressLine = getUserAddressLine(currentUser);
   const isEmailVerified = currentUser?.isVerified !== false;
-  const visibleMenuItems = useMemo(
-    () =>
-      MENU_ITEMS.filter((item) => {
-        if (item.title === "Commissions") {
-          return canSettleCommission(currentUser?.role);
-        }
-
-        return item.title !== "Consumables" || canViewConsumableInventory(currentUser);
-      }),
-    [currentUser],
-  );
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isLoggingOutAll, setIsLoggingOutAll] = useState(false);
   const [isSendingOtp, setIsSendingOtp] = useState(false);
@@ -380,7 +325,7 @@ function MoreScreenContent() {
 
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>Tools</Text>
-          {visibleMenuItems.map((item, index) => (
+          {MENU_ITEMS.map((item, index) => (
             <TourButton tourId={item.title}
               key={item.title}
               activeOpacity={0.84}
@@ -388,7 +333,7 @@ function MoreScreenContent() {
               style={[
                 styles.menuCard,
                 index === 0 && styles.menuCardFirst,
-                index === visibleMenuItems.length - 1 && styles.menuCardLast,
+                index === MENU_ITEMS.length - 1 && styles.menuCardLast,
                 index > 0 && styles.menuCardSpaced,
               ]}
             >
