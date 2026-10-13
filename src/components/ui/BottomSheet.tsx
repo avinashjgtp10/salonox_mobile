@@ -18,6 +18,7 @@ import {
 import { useThemeColors } from "@/theme/ThemeProvider";
 
 type BottomSheetProps = {
+  avoidKeyboard?: boolean;
   centered?: boolean;
   children: ReactNode;
   footer?: ReactNode;
@@ -37,6 +38,7 @@ const OPEN_EASING = Easing.bezier(0.16, 1, 0.3, 1);
 const CLOSE_EASING = Easing.bezier(0.4, 0, 1, 1);
 
 export function BottomSheet({
+  avoidKeyboard = false,
   centered = true,
   children,
   footer,
@@ -112,7 +114,8 @@ export function BottomSheet({
       >
         <Pressable onPress={onClose} style={StyleSheet.absoluteFill} />
           <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : undefined}
+            behavior={Platform.OS === "ios" ? "padding" : avoidKeyboard ? "height" : undefined}
+            keyboardVerticalOffset={avoidKeyboard ? insets.top : 0}
             pointerEvents="box-none"
             style={[styles.keyboardAvoiding, centered && styles.keyboardAvoidingCentered, centered && { paddingTop: Math.max(insets.top, 16), paddingBottom: Math.max(insets.bottom, 16) }]}
           >
@@ -141,7 +144,7 @@ export function BottomSheet({
                   {children}
                 </KeyboardAwareForm>
               ) : (
-                <View style={styles.content}>{children}</View>
+                <View style={[styles.content, avoidKeyboard && styles.constrainedContent]}>{children}</View>
               )}
 
               {footer ? <View style={styles.footer}>{footer}</View> : null}
@@ -237,6 +240,11 @@ const createStyles = (Colors: ThemeColors, bottomInset: number) => StyleSheet.cr
   },
   content: {
     paddingTop: Spacing.lg,
+  },
+  constrainedContent: {
+    flexShrink: 1,
+    minHeight: 0,
+    overflow: "hidden",
   },
   scroll: {
     flexShrink: 1,

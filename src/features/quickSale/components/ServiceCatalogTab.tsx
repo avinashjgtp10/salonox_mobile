@@ -309,6 +309,10 @@ export function ServiceCatalogTab({
         <EmptyState description="Try another search or category." icon="cut-outline" title="No services found" />
       ) : (
         <FlatList
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          nestedScrollEnabled
+          showsVerticalScrollIndicator
           columnWrapperStyle={styles.columnWrapper}
           contentContainerStyle={styles.listContent}
           data={renderedServices}

@@ -87,9 +87,9 @@ export const getAttendanceBadgeConfig = (
   record: AttendanceRecord | null | undefined,
   Colors: ThemeColors,
 ): AttendanceStatusConfig | Omit<AttendanceStatusConfig, "key"> =>
-  // Only a live break overrides the day's status; everyone else keeps
-  // Present/Late/Absent/Half Day/On Leave for the owner's views.
-  record?.activity?.current_status === "ON_BREAK"
+  // Approved time off takes precedence; otherwise a live break overrides
+  // the attendance badge for the owner's views.
+  record?.onApprovedLeave ? getAttendanceStatusConfig("onLeave", Colors) : record?.activity?.current_status === "ON_BREAK"
     ? { bg: Colors.warningBg, color: Colors.warning, icon: "cafe", label: "On Break" }
     : record ? getAttendanceStatusConfig(record.statusKey, Colors) : buildNotMarkedStatusConfig(Colors);
 
@@ -195,6 +195,7 @@ export const formatAttendanceTime = (value: string | null | undefined): string =
 };
 
 export const getWorkingHoursLabel = (record: AttendanceRecord | null | undefined): string => {
+  if (record?.onApprovedLeave) return "On Leave";
   if (!record) {
     return "—";
   }

@@ -20,6 +20,7 @@ export type AttendanceActionKind = "checkIn" | "checkOut" | "edit";
 export type ManualAttendanceStatus = "absent" | "halfDay" | "late" | "onLeave" | "present";
 
 export type AttendanceRecord = {
+  onApprovedLeave?: boolean;
   activity?: AttendanceActivity;
   avatarBg: string;
   avatarColor: string;

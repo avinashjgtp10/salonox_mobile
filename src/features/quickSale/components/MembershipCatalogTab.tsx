@@ -127,6 +127,10 @@ export function MembershipCatalogTab({ clientId, onSelect, salonId, search }: Me
         <EmptyState description="Try another search." icon="card-outline" title="No memberships found" />
       ) : (
         <FlatList
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          nestedScrollEnabled
+          showsVerticalScrollIndicator
           contentContainerStyle={styles.listContent}
           data={items}
           keyExtractor={(item) => `membership-card-${item.id}`}

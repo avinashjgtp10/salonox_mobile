@@ -37,6 +37,7 @@ export type SettleCommissionRequest = {
 };
 
 export type SettleCommissionResponse = {
+  refreshFailed?: boolean;
   message?: string;
   staffId: string;
   remainingBalance?: number;
