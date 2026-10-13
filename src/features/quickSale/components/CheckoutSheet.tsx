@@ -1,10 +1,11 @@
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { useClientPrivacy } from "@/hooks/useClientPrivacy";
 import { useBenefitCards } from "../hooks/useBenefitCards";
 import { maskPhone } from "@/utils/maskPhone";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Animated, BackHandler, Easing, KeyboardAvoidingView, LayoutAnimation, PanResponder, Platform, Pressable, ScrollView, StyleSheet, TouchableOpacity, UIManager, useWindowDimensions, View } from "react-native";
+import { Animated, BackHandler, Easing, KeyboardAvoidingView, LayoutAnimation, PanResponder, Platform, Pressable, ScrollView, StyleSheet, TouchableOpacity, UIManager, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Portal } from "@/components/ui/Portal";

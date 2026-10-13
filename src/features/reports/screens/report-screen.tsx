@@ -1,3 +1,4 @@
+import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { countReportFilters } from "@/features/reports/report-filters";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
@@ -342,7 +343,7 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
   return (
     <SafeAreaView edges={["top"]} style={styles.safe}>
       <AppStatusBar />
-      <FlatList
+      <RefreshViewport><FlatList
         contentContainerStyle={styles.listContent}
         contentInsetAdjustmentBehavior="automatic"
         data={rows}
@@ -392,7 +393,7 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
         showsVerticalScrollIndicator={false}
         updateCellsBatchingPeriod={50}
         windowSize={7}
-      />
+      /></RefreshViewport>
       <ReportFilterSheet
         slug={config.slug}
         data={entry?.data}

@@ -1,7 +1,8 @@
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
 import { appAlert as Alert } from "@/services/appAlert";
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, StyleSheet, TouchableOpacity, Switch, View } from "react-native";
+import { StyleSheet, TouchableOpacity, Switch, View } from "react-native";
 
 import {
   DashboardRadius as Radius,

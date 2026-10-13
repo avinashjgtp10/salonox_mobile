@@ -1,3 +1,4 @@
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
 import { DashboardSpacing as Spacing } from "@/constants/theme";
 import { createStyles } from "@/features/appointments/styles/appointmentStyles";
@@ -5,7 +6,7 @@ import { formatCurrency } from "@/features/appointments/utils/appointmentForm";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { Ionicons } from "@expo/vector-icons";
 import { useMemo } from "react";
-import { ActivityIndicator, TouchableOpacity, View } from "react-native";
+import { TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type BookingBottomBarProps = { serviceCount: number; totalServiceDuration: number; totalServicePrice: number; mutating: boolean; mode: 'create' | 'edit'; onSubmit: () => void; };

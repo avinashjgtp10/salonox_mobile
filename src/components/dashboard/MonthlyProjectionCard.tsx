@@ -1,5 +1,6 @@
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { useAppSelector } from "@/store/hooks";

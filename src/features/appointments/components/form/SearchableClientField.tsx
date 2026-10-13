@@ -1,3 +1,4 @@
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { maskPhone } from "@/utils/maskPhone";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { CLIENT_SEARCH_MIN_LETTERS } from "@/features/appointments/constants/appointmentConstants";
@@ -8,7 +9,7 @@ import type { ClientListItem } from "@/types/client";
 import { Ionicons } from "@expo/vector-icons";
 import type { RefObject } from "react";
 import { useMemo } from "react";
-import { ActivityIndicator, ScrollView, TouchableOpacity, View } from "react-native";
+import { ScrollView, TouchableOpacity, View } from "react-native";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 
 export function SearchableClientField({

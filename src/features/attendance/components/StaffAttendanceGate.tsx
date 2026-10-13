@@ -1,3 +1,4 @@
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import NetInfo from "@react-native-community/netinfo";
 import { Text } from "@/components/ui/AppTypography";
 import { useAuth } from "@/context/AuthContext";
@@ -10,7 +11,7 @@ import { useThemeColors } from "@/theme/ThemeProvider";
 import { isStaffExperienceUser } from "@/utils/routeResolver";
 import { canUnlockStaffApp } from "@/features/attendance/utils/staffAttendanceGate";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ActivityIndicator, AppState, Modal, StyleSheet, TouchableOpacity, View } from "react-native";
+import { AppState, Modal, StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 type AttendanceContext = { state: StaffSelfAttendance | null; record: AttendanceRecord | null; refresh: () => Promise<void>; checkIn: () => Promise<void>; startBreak: (body: StartBreakRequest) => Promise<void>; checkOut: () => Promise<void>; busy: boolean };

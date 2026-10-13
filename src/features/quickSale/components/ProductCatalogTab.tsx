@@ -1,3 +1,4 @@
+import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { Text } from "@/components/ui/AppTypography";
 import { InfiniteScrollLoader } from "@/components/ui/InfiniteScrollLoader";
 import { Ionicons } from "@expo/vector-icons";
@@ -174,7 +175,7 @@ export function ProductCatalogTab({ onSelect, search }: ProductCatalogTabProps) 
       ) : visibleProducts.length === 0 ? (
         <EmptyState description="Try another search or category." icon="cube-outline" title="No products found" />
       ) : (
-        <FlatList
+        <RefreshViewport><FlatList
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
           nestedScrollEnabled
@@ -199,7 +200,7 @@ export function ProductCatalogTab({ onSelect, search }: ProductCatalogTabProps) 
           removeClippedSubviews
           renderItem={({ item }) => <ProductCard onPress={() => handleSelect(item)} product={item} />}
           windowSize={7}
-        />
+        /></RefreshViewport>
       )}
     </View>
   );

@@ -1,10 +1,12 @@
+import { RefreshViewport } from "@/components/ui/RefreshViewport";
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { TourView, TourFlatList, withScreenTour } from "@/features/userGuide/DashboardTour";
 import { screenTours } from "@/features/userGuide/screenTours";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker, { type DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { useMemo, useState } from "react";
-import { ActivityIndicator, Modal, Platform, Pressable, RefreshControl, StyleSheet, TouchableOpacity, View, type ListRenderItem } from "react-native";
+import { Modal, Platform, Pressable, RefreshControl, StyleSheet, TouchableOpacity, View, type ListRenderItem } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppBackButton } from "@/components/ui/AppBackButton";
@@ -208,7 +210,7 @@ function AttendanceScreenContent() {
   return (
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
       <AppStatusBar />
-      <TourFlatList
+      <RefreshViewport><TourFlatList
         contentContainerStyle={styles.content}
         data={isInitialLoading ? [] : rows}
         keyExtractor={(item) => item.staffMember.id}
@@ -223,7 +225,7 @@ function AttendanceScreenContent() {
         }
         renderItem={renderItem}
         showsVerticalScrollIndicator={false}
-      />
+      /></RefreshViewport>
 
       <EditAttendanceModal
         attendanceDate={selectedDate}

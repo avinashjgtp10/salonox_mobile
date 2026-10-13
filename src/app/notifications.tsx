@@ -1,8 +1,10 @@
+import { RefreshViewport } from "@/components/ui/RefreshViewport";
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect, type Href } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, TouchableOpacity, View, useWindowDimensions } from "react-native";
+import { FlatList, RefreshControl, StyleSheet, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
@@ -313,7 +315,7 @@ export default function NotificationsScreen({
       ) : blockingError && notifications.length === 0 ? (
         <ErrorState message={blockingError} onRetry={() => refresh()} />
       ) : (
-        <FlatList
+        <RefreshViewport><FlatList
           contentContainerStyle={styles.listContent}
           data={visibleNotifications}
           keyExtractor={(item) => item.id}
@@ -346,7 +348,7 @@ export default function NotificationsScreen({
             />
           )}
           showsVerticalScrollIndicator={false}
-        />
+        /></RefreshViewport>
       )}
     </SafeAreaView>
   );

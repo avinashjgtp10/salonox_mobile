@@ -1,3 +1,4 @@
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { QuickSaleForm } from "../components/QuickSaleForm";
 import { Text } from "@/components/ui/AppTypography";
@@ -16,7 +17,7 @@ import {
   type Href,
 } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, BackHandler, Keyboard, StyleSheet, TouchableOpacity, View, useWindowDimensions } from "react-native";
+import { BackHandler, Keyboard, StyleSheet, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 

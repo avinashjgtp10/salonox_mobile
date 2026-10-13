@@ -1,5 +1,6 @@
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { useMemo, useState } from "react";
-import { ActivityIndicator, StyleSheet, TouchableOpacity, View } from "react-native";
+import { StyleSheet, TouchableOpacity, View } from "react-native";
 
 import { Text } from "@/components/ui/AppTypography";
 import { StaffPickerSheet } from "@/features/quickSale/components/StaffPickerSheet";

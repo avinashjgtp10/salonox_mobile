@@ -1,3 +1,4 @@
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { appAlert as Alert } from "@/services/appAlert";
 import Constants from "expo-constants";
@@ -5,7 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
 import { router, type Href } from "expo-router";
 import { useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Linking, Modal, StyleSheet, TouchableOpacity, View, useWindowDimensions } from "react-native";
+import { Linking, Modal, StyleSheet, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";

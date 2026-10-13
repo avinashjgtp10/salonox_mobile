@@ -1,3 +1,4 @@
+import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
@@ -184,7 +185,7 @@ export default function ConsumablesScreen() {
   return (
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
       <AppStatusBar />
-      <FlatList
+      <RefreshViewport><FlatList
         contentContainerStyle={styles.content}
         data={state.consumables}
         keyExtractor={(item) => item.id}
@@ -223,7 +224,7 @@ export default function ConsumablesScreen() {
         }
         renderItem={({ item }) => <ConsumableCard item={item} />}
         showsVerticalScrollIndicator={false}
-      />
+      /></RefreshViewport>
 
       <ConsumableFilterSheet
         availableProductTypes={availableProductTypes}

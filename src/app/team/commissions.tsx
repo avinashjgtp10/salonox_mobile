@@ -1,9 +1,11 @@
+import { RefreshViewport } from "@/components/ui/RefreshViewport";
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { appAlert as Alert } from "@/services/appAlert";
 import { Ionicons } from "@expo/vector-icons";
 import { Redirect, router, useFocusEffect, type Href } from "expo-router";
 import { useCallback, useDeferredValue, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View, type ListRenderItem } from "react-native";
+import { FlatList, RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View, type ListRenderItem } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppBackButton, AppBackButtonPlaceholder } from "@/components/ui/AppBackButton";
@@ -504,7 +506,7 @@ export default function SalonCommissionsScreen() {
   return (
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
       <AppStatusBar />
-      <FlatList
+      <RefreshViewport><FlatList
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom }]}
         data={filteredRecords}
         keyExtractor={(item) => item.id}
@@ -519,7 +521,7 @@ export default function SalonCommissionsScreen() {
         }
         renderItem={renderItem}
         showsVerticalScrollIndicator={false}
-      />
+      /></RefreshViewport>
 
       <SettlementModal
         visible={isSettlementModalOpen}

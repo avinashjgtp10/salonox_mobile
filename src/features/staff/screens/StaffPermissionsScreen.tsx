@@ -1,7 +1,9 @@
+import { RefreshViewport } from "@/components/ui/RefreshViewport";
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Switch, TextInput, TouchableOpacity, View } from "react-native";
+import { RefreshControl, ScrollView, StyleSheet, Switch, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppBackButton } from "@/components/ui/AppBackButton";
@@ -107,7 +109,7 @@ export function StaffPermissionsScreen() {
         </View>
       </View>
 
-      <ScrollView
+      <RefreshViewport><ScrollView
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl colors={[Colors.primary]} onRefresh={() => void load("refresh")} refreshing={refreshing} tintColor={Colors.primary} />}
@@ -190,7 +192,7 @@ export function StaffPermissionsScreen() {
             );
           })
         )}
-      </ScrollView>
+      </ScrollView></RefreshViewport>
     </SafeAreaView>
   );
 }

@@ -1,8 +1,10 @@
+import { RefreshViewport } from "@/components/ui/RefreshViewport";
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, FlatList, Modal, Pressable, StyleSheet, TouchableOpacity, View } from "react-native";
+import { FlatList, Modal, Pressable, StyleSheet, TouchableOpacity, View } from "react-native";
 import { Avatar } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -112,7 +114,7 @@ export function DashboardNotificationsModal({ onClose, visible }: DashboardNotif
           {loading && notifications.length === 0 ? (
             <View style={styles.centerState}><ActivityIndicator color={colors.primary} size="large" /></View>
           ) : (
-            <FlatList
+            <RefreshViewport><FlatList
               contentContainerStyle={visibleNotifications.length === 0 ? styles.emptyList : styles.list}
               data={visibleNotifications}
               keyExtractor={(item) => item.id}
@@ -160,7 +162,7 @@ export function DashboardNotificationsModal({ onClose, visible }: DashboardNotif
                 </View>
               }
               showsVerticalScrollIndicator={false}
-            />
+            /></RefreshViewport>
           )}
         </Pressable>
       </Pressable>

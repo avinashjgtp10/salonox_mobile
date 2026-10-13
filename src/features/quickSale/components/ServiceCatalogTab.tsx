@@ -1,3 +1,4 @@
+import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -308,7 +309,7 @@ export function ServiceCatalogTab({
       ) : visibleServices.length === 0 ? (
         <EmptyState description="Try another search or category." icon="cut-outline" title="No services found" />
       ) : (
-        <FlatList
+        <RefreshViewport><FlatList
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
           nestedScrollEnabled
@@ -347,7 +348,7 @@ export function ServiceCatalogTab({
           removeClippedSubviews
           renderItem={renderItem}
           windowSize={7}
-        />
+        /></RefreshViewport>
       )}
     </View>
   );

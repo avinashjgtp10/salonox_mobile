@@ -1,8 +1,10 @@
+import { RefreshViewport } from "@/components/ui/RefreshViewport";
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams, type Href } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, TouchableOpacity, View } from "react-native";
+import { FlatList, RefreshControl, StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { DateField } from "@/components/ui/DateField";
@@ -118,7 +120,7 @@ export default function ConsumableUsageHistoryScreen() {
   return (
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
       <AppStatusBar />
-      <FlatList
+      <RefreshViewport><FlatList
         contentContainerStyle={styles.content}
         data={state.usageHistory}
         keyExtractor={(item) => item.id}
@@ -165,7 +167,7 @@ export default function ConsumableUsageHistoryScreen() {
         }
         renderItem={({ item }) => <UsageHistoryRow item={item} />}
         showsVerticalScrollIndicator={false}
-      />
+      /></RefreshViewport>
     </SafeAreaView>
   );
 }

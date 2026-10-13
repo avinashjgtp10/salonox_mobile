@@ -1,3 +1,4 @@
+import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { Text } from "@/components/ui/AppTypography";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { PaginationControls } from "@/components/ui/PaginationControls";
@@ -46,7 +47,7 @@ export function AppointmentListScreen() {
   return (
     <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
       <AppStatusBar />
-      <FlatList
+      <RefreshViewport><FlatList
         ListHeaderComponent={
           <View style={styles.listHeader}>
             <View style={styles.headerRow}>
@@ -126,7 +127,7 @@ export function AppointmentListScreen() {
         }
         renderItem={({ item }) => <AppointmentCard appointment={item} />}
         showsVerticalScrollIndicator={false}
-      />
+      /></RefreshViewport>
       <AppointmentSnackbar />
     </SafeAreaView>
   );
