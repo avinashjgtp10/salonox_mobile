@@ -19,6 +19,8 @@ import {
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { selectStaffLoading, selectStaffMembers } from "@/store/staff/staff.slice";
 import type { AttendanceRecord } from "@/types/attendance";
+import { useStaffLeaveStatus } from "@/features/staff/hooks/useStaffLeaveStatus";
+import { applyApprovedLeaveToAttendance, applyApprovedLeaveToSummary } from "../utils/approvedLeaveAttendance";
 
 export type AttendanceStaffRowData = {
   record: AttendanceRecord | null;
@@ -54,22 +56,25 @@ export const useAttendanceScreen = () => {
   const [selectedDate, setSelectedDate] = useState(getTodayAttendanceDateKey);
   const [isManualRefreshing, setIsManualRefreshing] = useState(false);
   const [search, setSearch] = useState("");
+  const leaveStatus = useStaffLeaveStatus(rawStaffMembers, selectedDate);
+  const refreshLeaves = leaveStatus.refresh;
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (includeLeaves = true) => {
     await Promise.all([
       dispatch(fetchAttendanceOverviewThunk(selectedDate)),
       dispatch(fetchStaffThunk({ reset: true })),
+      includeLeaves ? refreshLeaves() : Promise.resolve(),
     ]);
-  }, [dispatch, selectedDate]);
+  }, [dispatch, selectedDate, refreshLeaves]);
 
   useFocusEffect(
     useCallback(() => {
-      void refresh();
+      void refresh(false);
     }, [refresh]),
   );
 
   useAppForeground(() => {
-    void refresh();
+    void refresh(false);
   });
 
   const handlePullToRefresh = useCallback(async () => {
@@ -106,8 +111,8 @@ export const useAttendanceScreen = () => {
       filteredStaffMembers.map((staffMember) => ({
         record: findAttendanceRecordForStaff(attendanceRecords, staffMember) ?? null,
         staffMember,
-      })),
-    [attendanceRecords, filteredStaffMembers],
+      })).map(row => ({ ...row, record: applyApprovedLeaveToAttendance(row.record, row.staffMember, selectedDate, leaveStatus.approvedLeaves[row.staffMember.id]) })),
+    [attendanceRecords, filteredStaffMembers, selectedDate, leaveStatus.approvedLeaves],
   );
 
   const isStaffBusy = useCallback(
@@ -118,7 +123,7 @@ export const useAttendanceScreen = () => {
   return {
     handlePullToRefresh,
     isInitialLoading: isInitialLoading || (staffLoading && activeStaffMembers.length === 0),
-    isRefreshing: isManualRefreshing || recordsRefreshing,
+    isRefreshing: isManualRefreshing || recordsRefreshing || leaveStatus.loading,
     isStaffBusy,
     isTodaySelected: selectedDate >= getTodayAttendanceDateKey(),
     onNextDay: () => setSelectedDate((date) => shiftDate(date, 1)),
@@ -126,11 +131,11 @@ export const useAttendanceScreen = () => {
     onSearchChange: setSearch,
     onSelectDate: setSelectedDate,
     onToday: () => setSelectedDate(getTodayAttendanceDateKey()),
-    recordsError,
+    recordsError: recordsError || (leaveStatus.error ? "Could not refresh staff leave status. Pull down to retry." : null),
     refresh,
     rows,
     search,
     selectedDate,
-    summary,
+    summary: applyApprovedLeaveToSummary(summary, attendanceRecords, activeStaffMembers, leaveStatus.approvedLeaves),
   };
 };

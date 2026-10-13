@@ -1,6 +1,9 @@
 import { ApiError } from "@/services/api";
 import { staffBlockedTimesService } from "@/services/staffBlockedTimes.service";
 import { staffScheduleService } from "@/services/staffSchedule.service";
+import { staffLeavesService } from "@/services/staffLeaves.service";
+import { getApprovedLeaveForDate } from "@/features/staff/utils/staffLeaveStatus";
+import type { LeaveEntry } from "@/types/staffLeaves";
 import type { BlockedTimeEntry } from "@/types/staffBlockedTimes";
 import type { StaffAvailability, StaffAvailabilitySlot } from "@/types/staffAvailability";
 import type { ScheduleDayEntry, StaffSchedule } from "@/types/staffSchedule";
@@ -157,7 +160,9 @@ const normalizeAvailability = (
   blockedTimes: BlockedTimeEntry[],
   staffId: string,
   date: string,
+  leaves: LeaveEntry[],
 ): StaffAvailability => {
+  const leave = getApprovedLeaveForDate(leaves, date);
   const scheduleDay = getScheduleDay(schedule, date);
   const shiftStartTime = toTimeValue(scheduleDay?.startTime);
   const shiftEndTime = toTimeValue(scheduleDay?.endTime);
@@ -165,25 +170,25 @@ const normalizeAvailability = (
   const shiftEndLabel = toDisplayTime(shiftEndTime);
   const workingHoursLabel =
     shiftStartLabel && shiftEndLabel ? `${shiftStartLabel} - ${shiftEndLabel}` : null;
-  const availableSlots = buildSlots(scheduleDay, blockedTimes, date);
+  const availableSlots = leave ? [] : buildSlots(scheduleDay, blockedTimes, date);
   const isOff = !scheduleDay || scheduleDay.isOff;
   const isAvailable = !isOff && availableSlots.length > 0;
 
   return {
     availableSlots,
-    availabilityLabel: isOff ? "Not scheduled" : isAvailable ? "Available" : "Busy",
+    availabilityLabel: leave ? "On Leave" : isOff ? "Not scheduled" : isAvailable ? "Available" : "Busy",
     blockedTimes,
     checkedInLabel: null,
     checkedOutLabel: null,
-    currentStatusLabel: isOff ? "Not scheduled" : isAvailable ? "Available" : "Busy",
+    currentStatusLabel: leave ? "On Leave" : isOff ? "Not scheduled" : isAvailable ? "Available" : "Busy",
     existingAppointments: [],
     holidayLabel: isOff ? "Not scheduled" : null,
     isAvailable,
     isHoliday: isOff,
-    isOnLeave: false,
-    leaveStatus: null,
-    onLeaveLabel: null,
-    raw: { blockedTimes, date, schedule } satisfies UnknownRecord,
+    isOnLeave: Boolean(leave),
+    leaveStatus: leave?.status ?? null,
+    onLeaveLabel: leave ? "On approved leave" : null,
+    raw: { blockedTimes, date, schedule, leaves } satisfies UnknownRecord,
     shiftEndLabel,
     shiftEndTime,
     shiftStartLabel,
@@ -195,7 +200,7 @@ const normalizeAvailability = (
 
 export const staffAvailabilityService = {
   async getAvailability(staffId: string, date: string): Promise<StaffAvailability> {
-    const [schedule, blockedTimes] = await Promise.all([
+    const [schedule, blockedTimes, leaves] = await Promise.all([
       staffScheduleService.getSchedule(staffId).catch((error: unknown) => {
         if (!isPermissionError(error)) {
           throw error;
@@ -209,8 +214,9 @@ export const staffAvailabilityService = {
         if (!isPermissionError(error)) throw error;
         return [];
       }),
+      staffLeavesService.getLeaves(staffId),
     ]);
 
-    return normalizeAvailability(schedule, blockedTimes, staffId, date);
+    return normalizeAvailability(schedule, blockedTimes, staffId, date, leaves);
   },
 };

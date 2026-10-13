@@ -1567,9 +1567,9 @@ function OwnerQuickSaleScreen({
           onChangeOverallDiscount={(value, type, percentage) => { setOverallDiscountInput(value); setDraftDiscountType(type); setDraftDiscountPercent(percentage); }}
           packageBanner={selectedClient.id && clientPackages.status === "error" ? <PackageEligibilityBanner error={clientPackages.error} onRetry={clientPackages.retry} /> : null}
         />
-        <BottomSheet title={`Add ${ITEM_TYPE_CHIPS.find((item) => item.id === activeTab)?.label.toLowerCase() ?? "items"}`} visible={isCatalogVisible} onClose={() => { setIsCatalogVisible(false); handleClearGlobalSearch(); }} renderInline={embedded} scrollable={false}
+        <BottomSheet avoidKeyboard title={`Add ${ITEM_TYPE_CHIPS.find((item) => item.id === activeTab)?.label.toLowerCase() ?? "items"}`} visible={isCatalogVisible} onClose={() => { setIsCatalogVisible(false); handleClearGlobalSearch(); }} renderInline={embedded} scrollable={false}
           footer={<TouchableOpacity onPress={() => { setIsCatalogVisible(false); handleClearGlobalSearch(); }} style={styles.catalogDone}><Text style={styles.catalogDoneText}>Done · {cart.itemCount} items</Text></TouchableOpacity>}>
-          <View style={{ height: Math.min(520, screenHeight * 0.55) }}>
+          <View style={{ height: Math.min(520, screenHeight * 0.55), flexShrink: 1, minHeight: 0 }}>
         <View style={styles.topSection}>
           <View style={styles.catalogHeading}>
             <Text style={styles.catalogTitle}>{ITEM_TYPE_CHIPS.find((item) => item.id === activeTab)?.label ?? "Items"}</Text>
@@ -1592,19 +1592,6 @@ function OwnerQuickSaleScreen({
               placeholder={`Search ${ITEM_TYPE_CHIPS.find((item) => item.id === activeTab)?.label.toLowerCase() ?? "items"}`}
               query={globalSearchQuery}
             />
-            {activeTab === "services" && isGlobalSearchActive && isServiceSearchOpen ? (
-              <ServiceSearchDropdown
-                query={globalSearchQuery}
-                salonId={salonId}
-                selectedServiceIds={selectedServiceIds}
-                onDismiss={() => setIsServiceSearchOpen(false)}
-                onSelect={(service) => {
-                  handleToggleServiceSelection(service);
-                  setIsServiceSearchOpen(false);
-                  handleClearGlobalSearch();
-                }}
-              />
-            ) : null}
           </View>
 
         </View>
@@ -1616,6 +1603,18 @@ function OwnerQuickSaleScreen({
                 <ActivityIndicator color={Colors.primary} size="large" />
                 <Text style={styles.initLoaderText}>Preparing checkout...</Text>
               </View>
+            ) : activeTab === "services" && isGlobalSearchActive && isServiceSearchOpen ? (
+              <ServiceSearchDropdown
+                query={globalSearchQuery}
+                salonId={salonId}
+                selectedServiceIds={selectedServiceIds}
+                onDismiss={() => setIsServiceSearchOpen(false)}
+                onSelect={(service) => {
+                  handleToggleServiceSelection(service);
+                  setIsServiceSearchOpen(false);
+                  handleClearGlobalSearch();
+                }}
+              />
             ) : activeTab === "services" ? (
               <ServiceCatalogTab
                 onToggle={handleToggleServiceSelection}

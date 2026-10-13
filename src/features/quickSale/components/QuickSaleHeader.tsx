@@ -27,21 +27,27 @@ function QuickSaleHeaderComponent({
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const isLeading = layout === "leading";
-
-  return (
-    <View style={styles.header}>
-      <TouchableOpacity
+  const closeOnRight = embedded || isLeading;
+  const navigationButton = (
+    <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityLabel={closeOnRight ? "Close Quick Sale" : "Go back"}
         activeOpacity={0.84}
         hitSlop={12}
         onPress={onBack}
-        style={[styles.iconButton, embedded && styles.embeddedCloseButton]}
+        style={styles.iconButton}
       >
         <Ionicons
           name={embedded || isLeading ? "close" : "arrow-back"}
           size={isLeading ? 20 : 18}
           color={Colors.primary}
         />
-      </TouchableOpacity>
+    </TouchableOpacity>
+  );
+
+  return (
+    <View style={styles.header}>
+      {!closeOnRight ? navigationButton : !isLeading ? <View style={styles.spacer} /> : null}
       {isLeading ? (
         <View style={styles.leadingTitle}>
           <Text style={styles.title}>{title}</Text>
@@ -50,7 +56,9 @@ function QuickSaleHeaderComponent({
       ) : (
         <Text style={styles.title}>{title}</Text>
       )}
-      {right ?? <View style={styles.spacer} />}
+      {closeOnRight ? (
+        <View style={styles.actions}>{right}{navigationButton}</View>
+      ) : right ?? <View style={styles.spacer} />}
     </View>
   );
 }
@@ -129,8 +137,11 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   iconButtonDisabled: {
     opacity: 0.5,
   },
-  embeddedCloseButton: {
-    marginLeft: -8,
+  actions: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 8,
+    marginLeft: 8,
   },
   badge: {
     alignItems: "center",
@@ -157,7 +168,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   leadingTitle: {
     flex: 1,
-    marginLeft: 8,
     minWidth: 0,
   },
   title: {

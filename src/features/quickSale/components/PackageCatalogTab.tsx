@@ -128,6 +128,10 @@ export function PackageCatalogTab({ activeClientPackages, onSelect, salonId, sea
         <EmptyState description="Try another search." icon="albums-outline" title="No packages found" />
       ) : (
         <FlatList
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          nestedScrollEnabled
+          showsVerticalScrollIndicator
           contentContainerStyle={styles.listContent}
           data={items}
           keyExtractor={(item) => `package-card-${item.id}`}

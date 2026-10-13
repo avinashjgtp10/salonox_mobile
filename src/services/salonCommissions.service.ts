@@ -145,6 +145,15 @@ export const salonCommissionsService = {
     }));
   },
 
+  /** The settlement endpoint pays oldest-first across all dates. */
+  async getStaffUnpaidCommission(staffId: string): Promise<number> {
+    const response = await api.get<EarnedApiResponse>(STAFF.COMMISSIONS_EARNED, {
+      params: { staff_ids: staffId },
+    });
+    const staff = getEarnedArray(response.data.data).map(normalizeEarnedEntry).find(entry => entry.staffId === staffId);
+    return staff?.pendingAmount ?? 0;
+  },
+
   async settleCommission(staffId: string, amount: number): Promise<SettleCommissionResponse> {
     const response = await api.post<SettleCommissionApiResponse>(STAFF.COMMISSIONS_MARK_PAID(staffId), {
       amount,

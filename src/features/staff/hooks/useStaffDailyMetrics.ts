@@ -11,9 +11,12 @@ import type { AppointmentListItem } from "@/types/appointment";
 import { getStaffDailyMetrics } from "@/features/staff/utils/staffDailyMetrics";
 import { reportService } from "@/services/report.service";
 import { getStaffRevenueRanges, findStaffRevenue } from "@/features/staff/utils/staffRevenue";
+import { useStaffLeaveStatus } from "./useStaffLeaveStatus";
 
 export function useStaffDailyMetrics(staff: StaffMember[], includeHistory = false) {
   const day = useLocalDay();
+  const leaveStatus = useStaffLeaveStatus(staff, day);
+  const refreshLeaves = leaveStatus.refresh;
   const branch = useAppSelector(selectActiveBranchId);
   const focused = useIsFocused();
   const generation = useRef(0);
@@ -79,12 +82,13 @@ export function useStaffDailyMetrics(staff: StaffMember[], includeHistory = fals
   useAppForeground(() => { if (focused) void refresh(); });
   const ready = result?.scope === scope;
   const revenueReady = revenueResult?.scope === scope;
-  const members = useMemo(() => staff.map((member) => ({
+  const members = useMemo(() => leaveStatus.members.map((member) => ({
     ...member,
     ...getStaffDailyMetrics(member, ready ? result.appointments : []),
     todayRevenue: findStaffRevenue(member, revenueReady ? revenueResult.today : []),
     weeklyRevenue: findStaffRevenue(member, revenueReady ? revenueResult.weekly : []),
     monthlyRevenue: findStaffRevenue(member, revenueReady ? revenueResult.monthly : []),
-  })), [staff, ready, result, revenueReady, revenueResult]);
-  return { members, ready, revenueReady, loading, error, revenueError, refresh };
+  })), [leaveStatus.members, ready, result, revenueReady, revenueResult]);
+  const refreshAll = useCallback(() => Promise.all([refresh(), refreshLeaves()]), [refresh, refreshLeaves]);
+  return { members, ready, revenueReady, loading: loading || leaveStatus.loading, error, revenueError, leaveError: leaveStatus.error, refresh: refreshAll };
 }

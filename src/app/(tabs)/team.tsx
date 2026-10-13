@@ -531,6 +531,7 @@ function TeamScreenContent() {
           <Text style={styles.sortButtonText}>{sortOption}</Text>
         </TourButton>
       </View>
+      {dailyMetrics.leaveError ? <Text style={{ color: Colors.error }}>Could not refresh staff leave status. Pull down to retry.</Text> : null}
     </View>
   );
 

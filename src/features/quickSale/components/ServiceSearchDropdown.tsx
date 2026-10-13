@@ -92,7 +92,11 @@ export function ServiceSearchDropdown({ query, salonId, selectedServiceIds, onSe
         style={styles.list}
         data={items}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
         nestedScrollEnabled
+        onEndReached={() => { if (!error) void loadMore(); }}
+        onEndReachedThreshold={0.3}
+        showsVerticalScrollIndicator
         keyExtractor={(item) => item.id}
         ListEmptyComponent={!loading && !error ? <Text style={styles.message}>No services found.</Text> : null}
         renderItem={({ item }) => {
@@ -123,10 +127,12 @@ export function ServiceSearchDropdown({ query, salonId, selectedServiceIds, onSe
 }
 
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
-  dropdown: { position: "absolute", top: "100%", left: 0, right: 0, marginTop: 6, backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, borderRadius: 14, zIndex: 30, elevation: 12, shadowColor: colors.shadow, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.15, shadowRadius: 12, overflow: "hidden" },
+  // Keep results inside their parent's bounds: Android cannot route swipes to
+  // a dropdown painted below a search field's touch area.
+  dropdown: { flex: 1, minHeight: 0, backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, borderRadius: 14, overflow: "hidden" },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 12, borderBottomWidth: 1, borderBottomColor: colors.border },
   heading: { color: colors.primary, fontSize: 13, fontWeight: "700" },
-  list: { maxHeight: 280 },
+  list: { flex: 1, minHeight: 0 },
   row: { flexDirection: "row", alignItems: "center", padding: 14, gap: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
   copy: { flex: 1 },
   name: { color: colors.heading, fontSize: 14, fontWeight: "600" },

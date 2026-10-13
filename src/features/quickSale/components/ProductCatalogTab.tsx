@@ -175,6 +175,10 @@ export function ProductCatalogTab({ onSelect, search }: ProductCatalogTabProps) 
         <EmptyState description="Try another search or category." icon="cube-outline" title="No products found" />
       ) : (
         <FlatList
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          nestedScrollEnabled
+          showsVerticalScrollIndicator
           contentContainerStyle={styles.listContent}
           data={visibleProducts}
           initialNumToRender={8}

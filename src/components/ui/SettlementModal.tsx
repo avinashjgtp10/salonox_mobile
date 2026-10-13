@@ -20,6 +20,7 @@ function roundToCents(value: number) {
 }
 
 type SettlementModalProps = {
+  description?: string;
   onClose: () => void;
   onSettle: (amount: number, paymentMethod?: string) => void;
   staffName: string;
@@ -37,6 +38,7 @@ const PAYMENT_METHODS: PaymentMethod[] = ["Cash", "Card", "UPI"];
 const UPI_PROVIDERS: UpiProvider[] = ["PhonePe", "Google Pay"];
 
 export function SettlementModal({
+  description,
   isLoading = false,
   onClose,
   onSettle,
@@ -152,6 +154,7 @@ export function SettlementModal({
               />
               {error && <Text style={styles.errorText}>{error}</Text>}
             </View>
+            {description ? <Text style={styles.hintText}>{description}</Text> : null}
 
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Payment Method *</Text>

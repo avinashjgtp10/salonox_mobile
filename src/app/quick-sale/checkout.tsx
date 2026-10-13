@@ -203,6 +203,9 @@ function OwnerQuickSaleCheckoutScreen() {
       price: item.unitPrice,
       total: item.totalPrice,
       discount: item.discountAmount,
+      type: item.itemType,
+      staffName: item.staffName,
+      tax: item.taxAmount,
     }));
 
     const itemDiscountTotal = items.reduce((sum, item) => sum + (item.discount ?? 0), 0);
@@ -238,13 +241,17 @@ function OwnerQuickSaleCheckoutScreen() {
         date: datePart,
         time: timePart,
         paymentMethod: formatPaymentMethod(authoritativeSale.paymentMethod),
+        paymentStatus: isPreview ? "Draft" : authoritativeSale.outstandingAmount > 0
+          ? (authoritativeSale.amountPaid > 0 ? "Partial" : "Unpaid") : "Paid",
       },
       client: {
         name: isStaff ? maskClientName(authoritativeSale.clientName) : authoritativeSale.clientName ?? "Walk-in Client",
         phone: authoritativeSale.clientPhone,
         email: undefined,
       },
-      staffName: authoritativeSale.lineItems.find((item) => item.staffName)?.staffName,
+      staffName: [...new Set(authoritativeSale.lineItems.map((item) => item.staffName).filter(Boolean))].join(", "),
+      notes: authoritativeSale.notes || undefined,
+      couponCode: authoritativeSale.couponCode || undefined,
       items,
       paymentBreakdown,
       pricing: {
@@ -262,11 +269,10 @@ function OwnerQuickSaleCheckoutScreen() {
         amountPaid: authoritativeSale.amountPaid,
         dueAmount: authoritativeSale.outstandingAmount,
       },
-      paperSize: "80mm",
-      footerMessage: "Thank you for your business! Visit us again soon.",
+      paperSize: "A4",
       upiQrUrl: undefined,
     };
-  }, [authoritativeSale, isStaff, salon, salonLoaded, user]);
+  }, [authoritativeSale, isPreview, isStaff, salon, salonLoaded, user]);
 
   useEffect(() => {
     if (params.openReceipt === "1" && receiptData && !hasAutoOpenedReceiptRef.current) {
