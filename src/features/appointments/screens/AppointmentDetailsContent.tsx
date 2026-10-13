@@ -13,6 +13,7 @@ import { useAppointmentStyles } from "@/features/appointments/styles/useAppointm
 import { formatCurrency } from "@/features/appointments/utils/appointmentForm";
 import { formatBusinessDate, formatBusinessTime, toInvoiceSequence } from "@/features/appointments/utils/appointmentScreenHelpers";
 import { isAssignedToStaff } from "@/features/appointments/utils/staffAssignment";
+import { getStaffAppointmentBilling } from "@/utils/staffBilling";
 import { fetchAppointmentByIdThunk } from "@/middleware/appointment/appointment.thunk";
 import { fetchSaleByIdThunk, fetchSalesInitThunk } from "@/middleware/sales/sales.thunk";
 import { selectAppointmentById, selectAppointmentDetailsState } from "@/store/appointment/appointment.slice";
@@ -81,15 +82,18 @@ export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | 
     }
   }, [appointment?.saleId, dispatch, isStaffMode]);
 
-  const saleForAppointment = saleDetail && saleDetail.id === appointment?.saleId ? saleDetail : null;
+  const saleForAppointment = !isStaffMode && saleDetail && saleDetail.id === appointment?.saleId ? saleDetail : null;
 
   const invoiceNumber =
     appointmentInvoiceNumber ??
     (saleForAppointment ? formatInvoiceNumber(saleForAppointment.receiptNumber) : null);
 
   const displayName = appointment?.clientName?.trim() ? appointment.clientName.trim() : "Walk-in Client";
-  const billedTotal = appointment && appointment.total > 0 ? appointment.total : saleForAppointment?.total ?? appointment?.total ?? 0;
-  const appointmentIsPaid = Boolean(appointment && (appointment.paymentStatus.toLowerCase() === "paid" || (billedTotal > 0 && appointment.paidAmount >= billedTotal)));
+  const staffBilling = isStaffMode && appointment ? getStaffAppointmentBilling(appointment, currentStaff) : null;
+  const billedTotal = staffBilling ? staffBilling.total : appointment && appointment.total > 0 ? appointment.total : saleForAppointment?.total ?? appointment?.total ?? 0;
+  const appointmentIsPaid = staffBilling ? staffBilling.paid : Boolean(appointment && (appointment.paymentStatus.toLowerCase() === "paid" || (billedTotal > 0 && appointment.paidAmount >= billedTotal)));
+  const displayedPaidAmount = staffBilling ? staffBilling.amountPaid : appointment?.paidAmount ?? 0;
+  const visibleBilledItems = staffBilling ? staffBilling.items : appointment?.billedItems ?? [];
 
   return (
     <ScreenShell
@@ -169,17 +173,17 @@ export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | 
             <Text style={styles.sectionTitle}>Payment & Billing</Text>
             <DetailRow
               label="Payment Status"
-              value={appointment.paymentStatus.toLowerCase() === "paid" || (billedTotal > 0 && appointment.paidAmount >= billedTotal) ? "Paid successfully" : appointment.paymentStatus}
+              value={appointmentIsPaid ? "Paid successfully" : appointment.paymentStatus}
             />
             <DetailRow label="Payment Method" value={appointment.paymentMethod} />
-            <DetailRow label="Total Amount" value={formatCurrency(billedTotal || appointment.amount)} />
-            <DetailRow label="Amount Paid" value={appointment.paidAmount > 0 ? formatCurrency(appointment.paidAmount) : null} />
+            <DetailRow label={isStaffMode ? "Your Items Total" : "Total Amount"} value={formatCurrency(isStaffMode ? billedTotal : billedTotal || appointment.amount)} />
+            <DetailRow label="Amount Paid" value={displayedPaidAmount === null ? "Not allocated by staff" : isStaffMode || displayedPaidAmount > 0 ? formatCurrency(displayedPaidAmount) : null} />
           </View>
 
           <View style={styles.formCard}>
-            <Text style={styles.sectionTitle}>Services &amp; Products</Text>
-            {appointment.billedItems.length > 0 ? (
-              appointment.billedItems.map((item, index) => (
+            <Text style={styles.sectionTitle}>{isStaffMode ? "Your Services & Products" : "Services & Products"}</Text>
+            {visibleBilledItems.length > 0 ? (
+              visibleBilledItems.map((item, index) => (
                 <BilledItemRow
                   appointmentId={appointment.id}
                   canHandoff={canHandoff}
@@ -198,13 +202,15 @@ export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | 
                   value={formatCurrency(item.totalPrice)}
                 />
               ))
+            ) : isStaffMode ? (
+              <Text style={styles.notesText}>No items assigned to you.</Text>
             ) : (
               <DetailRow label={appointment.serviceName || "Service"} value={formatCurrency(billedTotal || appointment.amount)} />
             )}
             <DetailRow label="Duration" value={appointment.durationLabel || (appointment.durationMinutes ? `${appointment.durationMinutes} mins` : null)} />
           </View>
 
-          {appointment.notes && appointment.notes.trim() ? (
+          {!isStaffMode && appointment.notes && appointment.notes.trim() ? (
             <View style={styles.formCard}>
               <Text style={styles.sectionTitle}>Notes</Text>
               <Text style={styles.notesText}>{appointment.notes}</Text>

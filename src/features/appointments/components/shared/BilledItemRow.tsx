@@ -81,7 +81,7 @@ export function BilledItemRow({
     <View>
       <View style={styles.detailRow}>
         <Text style={styles.detailLabel}>{`${item.name}${item.quantity > 1 ? ` × ${item.quantity}` : ""}`}</Text>
-        <Text style={styles.detailValue}>{formatCurrency(item.price)}</Text>
+        <Text style={styles.detailValue}>{formatCurrency(isStaffMode ? item.totalAmount ?? item.price : item.price)}</Text>
       </View>
       {eligible ? (
         <View style={localStyles.controlsRow}>
