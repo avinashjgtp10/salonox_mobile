@@ -300,6 +300,9 @@ const toBilledItems = (
       id: toSafeString(item?.id) || null,
       name: toSafeString(item?.name) || toSafeString(item?.title),
       price: toSafeNumber(item?.total) || toSafeNumber(item?.price),
+      totalAmount: item?.total != null
+        ? toSafeNumber(item.total)
+        : toSafeNumber(item?.price) * (toSafeNumber(item?.quantity) || toSafeNumber(item?.qty) || 1),
       quantity: toSafeNumber(item?.quantity) || toSafeNumber(item?.qty) || 1,
       staffId: toSafeString(item?.staff_id) || null,
       staffName: toSafeString(item?.staff_name) || null,

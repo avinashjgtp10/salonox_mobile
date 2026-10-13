@@ -205,6 +205,8 @@ export type AppointmentBilledItem = {
   id: string | null;
   name: string;
   price: number;
+  /** Explicit row total, or unit price multiplied by quantity. */
+  totalAmount?: number;
   quantity: number;
   staffId: string | null;
   staffName: string | null;
