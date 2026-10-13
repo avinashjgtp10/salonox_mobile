@@ -1,10 +1,12 @@
+import { RefreshViewport } from "@/components/ui/RefreshViewport";
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { appAlert as Alert } from "@/services/appAlert";
 import { Ionicons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { InfiniteScrollLoader } from "@/components/ui/InfiniteScrollLoader";
-import { ActivityIndicator, FlatList, RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View, type ListRenderItemInfo } from "react-native";
+import { FlatList, RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View, type ListRenderItemInfo } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppBackButton } from "@/components/ui/AppBackButton";
@@ -428,7 +430,7 @@ export default function CatalogScreen() {
   return (
     <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
       <AppStatusBar />
-      <FlatList
+      <RefreshViewport><FlatList
         key={viewMode}
         columnWrapperStyle={isGrid ? styles.catalogGridRow : undefined}
         contentContainerStyle={styles.content}
@@ -446,7 +448,7 @@ export default function CatalogScreen() {
         renderItem={renderItem}
         showsVerticalScrollIndicator={false}
         windowSize={7}
-      />
+      /></RefreshViewport>
       <CatalogFilterSheet brands={brands} categories={categories} label={activeTabLabel} onApply={applyFilters} onClose={() => setFilterVisible(false)} onReset={clearFilters} serviceOptions={serviceOptions} suppliers={suppliers} tab={activeTab} validForOptions={validForOptions} value={activeFilters} visible={filterVisible} />
     </SafeAreaView>
   );

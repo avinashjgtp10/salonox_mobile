@@ -1,6 +1,7 @@
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from "react-native";
+import { FlatList, Pressable, StyleSheet, View } from "react-native";
 
 import { Text } from "@/components/ui/AppTypography";
 import { type ThemeColors } from "@/constants/theme";

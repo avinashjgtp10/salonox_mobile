@@ -1,3 +1,4 @@
+import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { Text } from "@/components/ui/AppTypography";
 import { useClientPrivacy } from "@/hooks/useClientPrivacy";
 import { getAppointmentBillLabel } from "@/utils/clientPrivacy";
@@ -193,7 +194,7 @@ export function CalendarPreview({
               </View>
             ))}
           </View>
-          <ScrollView
+          <RefreshViewport><ScrollView
             nestedScrollEnabled
             ref={verticalScrollRef}
             removeClippedSubviews={false}
@@ -226,7 +227,7 @@ export function CalendarPreview({
               })}
               {showCurrentTime ? <View pointerEvents="none" style={[styles.dinggCurrentTime, { top: (currentMinuteOffset / 60) * HOUR_HEIGHT }]}><Text style={styles.dinggCurrentTimeLabel}>{formatAppTime(now)}</Text><View style={styles.dinggCurrentTimeDot} /><View style={styles.dinggCurrentTimeLine} /></View> : null}
             </View>
-          </ScrollView>
+          </ScrollView></RefreshViewport>
         </View>
       </ScrollView>
       {showEmptyState && !refreshing && appointmentsByColumn.every((items) => items.length === 0) ? (

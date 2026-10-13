@@ -1,3 +1,5 @@
+import { RefreshViewport } from "@/components/ui/RefreshViewport";
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { AttendanceBreakModal } from "@/features/attendance/components/AttendanceBreakModal";
 import { AttendanceActivityDetails } from "@/features/attendance/components/AttendanceActivityDetails";
 import { appAlert } from "@/services/appAlert";
@@ -7,7 +9,7 @@ import { getApiErrorMessage } from "@/services/api";
 import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View, useWindowDimensions } from "react-native";
+import { Pressable, RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppLayout } from "@/constants/layout";
@@ -105,7 +107,7 @@ export function StaffAttendanceScreen() {
 
   return (
     <SafeAreaView edges={["top"]} style={[styles.safeArea, { backgroundColor: Colors.bg }]}>
-      <ScrollView
+      <RefreshViewport><ScrollView
         contentContainerStyle={[
           styles.content,
           {
@@ -197,7 +199,7 @@ export function StaffAttendanceScreen() {
             </>
           )}
         </View>
-      </ScrollView>
+      </ScrollView></RefreshViewport>
       <AttendanceBreakModal visible={breakVisible} state={selfAttendance?.state ?? null} busy={selfAttendance?.busy ?? false} onClose={() => setBreakVisible(false)} onSubmit={async body => {
         if (!selfAttendance) throw new Error("Attendance is unavailable. Please refresh.");
         await selfAttendance.startBreak(body); toast.showSuccess("Break started. Check in when you return."); loadAttendance();

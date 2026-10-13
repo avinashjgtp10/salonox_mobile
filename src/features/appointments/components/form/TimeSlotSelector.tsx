@@ -1,10 +1,11 @@
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
 import { createStyles } from "@/features/appointments/styles/appointmentStyles";
 import { getDefaultTimeSlots, minutesToDisplayTime, parseClockToMinutes } from "@/features/appointments/utils/appointmentDateTime";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { Ionicons } from "@expo/vector-icons";
 import { useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Keyboard, Modal, Pressable, ScrollView, StyleSheet, TouchableOpacity, useWindowDimensions, View } from "react-native";
+import { Keyboard, Modal, Pressable, ScrollView, StyleSheet, TouchableOpacity, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export function TimeSlotSelector({

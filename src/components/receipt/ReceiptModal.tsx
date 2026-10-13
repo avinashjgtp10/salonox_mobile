@@ -1,9 +1,10 @@
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { ThermalPreview } from "./ThermalPreview";
 import { useClientPrivacy } from "@/hooks/useClientPrivacy";
 import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useState } from "react";
-import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { Alert, Modal, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { InvoicePreview } from "./InvoicePreview";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { printerService } from "@/services/printer.service";

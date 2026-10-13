@@ -1,5 +1,6 @@
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Switch, TouchableOpacity, View } from "react-native";
+import { Alert, ScrollView, StyleSheet, Switch, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Redirect } from "expo-router";
 import { File, Paths } from "expo-file-system";

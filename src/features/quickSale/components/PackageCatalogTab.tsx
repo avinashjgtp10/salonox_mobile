@@ -1,7 +1,9 @@
+import { RefreshViewport } from "@/components/ui/RefreshViewport";
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, TouchableOpacity, View } from "react-native";
+import { FlatList, RefreshControl, StyleSheet, TouchableOpacity, View } from "react-native";
 import Animated, { FadeInUp, LinearTransition } from "react-native-reanimated";
 
 import { Badge } from "@/components/ui/Badge";
@@ -127,7 +129,7 @@ export function PackageCatalogTab({ activeClientPackages, onSelect, salonId, sea
       ) : items.length === 0 ? (
         <EmptyState description="Try another search." icon="albums-outline" title="No packages found" />
       ) : (
-        <FlatList
+        <RefreshViewport><FlatList
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
           nestedScrollEnabled
@@ -147,7 +149,7 @@ export function PackageCatalogTab({ activeClientPackages, onSelect, salonId, sea
           ListFooterComponent={loading ? <ActivityIndicator color={Colors.primary} /> : null}
           removeClippedSubviews
           windowSize={7}
-        />
+        /></RefreshViewport>
       )}
     </View>
   );

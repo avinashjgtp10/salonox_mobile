@@ -1,6 +1,7 @@
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Modal, ActivityIndicator, Pressable, StyleSheet, TouchableOpacity, View, useWindowDimensions } from "react-native";
+import { Modal, Pressable, StyleSheet, TouchableOpacity, View, useWindowDimensions } from "react-native";
 
 import {
   DashboardRadius as Radius,

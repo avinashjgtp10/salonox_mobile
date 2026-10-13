@@ -1,9 +1,10 @@
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { maskPhone } from "@/utils/maskPhone";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect, useLocalSearchParams, type Href } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Alert, AppState, Dimensions, FlatList, Keyboard, KeyboardAvoidingView, Linking, Modal, Platform, TouchableOpacity, View } from "react-native";
+import { Alert, AppState, Dimensions, FlatList, Keyboard, KeyboardAvoidingView, Linking, Modal, Platform, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { ConfirmationModal } from "@/components/ui/ConfirmationModal";

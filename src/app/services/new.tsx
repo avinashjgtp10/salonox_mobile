@@ -1,8 +1,9 @@
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
 import { forwardRef, useMemo, useState } from "react";
-import { ActivityIndicator, KeyboardAvoidingView, Platform, StyleSheet, TouchableOpacity, View, type StyleProp, type ViewStyle } from "react-native";
+import { KeyboardAvoidingView, Platform, StyleSheet, TouchableOpacity, View, type StyleProp, type ViewStyle } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";

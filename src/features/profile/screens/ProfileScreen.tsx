@@ -1,3 +1,4 @@
+import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RefreshControl, StyleSheet, TouchableOpacity } from "react-native";
@@ -210,7 +211,7 @@ export function ProfileScreen() {
   return (
     <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
       <AppStatusBar />
-      <KeyboardAwareScrollView
+      <RefreshViewport><KeyboardAwareScrollView
         ref={scrollViewRef}
         contentContainerStyle={styles.content}
         keyboardNavigation={isEditing ? { fields: keyboardNavigationFields, hideOnLast: true, onDone: handleSave, showAccessory: false } : undefined}
@@ -265,7 +266,7 @@ export function ProfileScreen() {
             />
           </>
         )}
-      </KeyboardAwareScrollView>
+      </KeyboardAwareScrollView></RefreshViewport>
     </SafeAreaView>
   );
 }

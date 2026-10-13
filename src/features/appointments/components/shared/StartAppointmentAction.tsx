@@ -1,3 +1,4 @@
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
 import { ConfirmationModal } from "@/components/ui/ConfirmationModal";
 import { useAppointmentStyles } from "@/features/appointments/styles/useAppointmentStyles";
@@ -7,7 +8,7 @@ import { useAppDispatch } from "@/store/hooks";
 import type { AppointmentListItem } from "@/types/appointment";
 import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
-import { ActivityIndicator, TouchableOpacity } from "react-native";
+import { TouchableOpacity } from "react-native";
 
 export function StartAppointmentAction({ appointment }: { appointment: AppointmentListItem }) {
   const { Colors, styles } = useAppointmentStyles();

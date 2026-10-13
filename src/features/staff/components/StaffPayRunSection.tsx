@@ -1,5 +1,6 @@
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, StyleSheet, Switch, TouchableOpacity, View } from "react-native";
+import { StyleSheet, Switch, TouchableOpacity, View } from "react-native";
 import { Text } from "@/components/ui/AppTypography";
 import { StaffSectionCard } from "@/features/staff/components/StaffSectionCard";
 import { StaffStateView } from "@/features/staff/components/StaffStateView";

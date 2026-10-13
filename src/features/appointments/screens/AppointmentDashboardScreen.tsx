@@ -1,3 +1,4 @@
+import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { Text } from "@/components/ui/AppTypography";
 import { TourView, TourFlatList, withScreenTour } from "@/features/userGuide/DashboardTour";
 import { screenTours } from "@/features/userGuide/screenTours";
@@ -165,7 +166,7 @@ function AppointmentDashboardScreenContent() {
   return (
     <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
       <AppStatusBar />
-      <TourFlatList
+      <RefreshViewport><TourFlatList
         contentContainerStyle={styles.flatListContent}
         data={loading || error ? [] : filtered}
         keyExtractor={(item) => item.id}
@@ -198,7 +199,7 @@ function AppointmentDashboardScreenContent() {
         }
         renderItem={({ item }) => <AppointmentCard appointment={item} />}
         showsVerticalScrollIndicator={false}
-      />
+      /></RefreshViewport>
       <AppointmentSnackbar />
     </SafeAreaView>
   );

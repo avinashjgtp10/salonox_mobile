@@ -1,8 +1,10 @@
+import { RefreshViewport } from "@/components/ui/RefreshViewport";
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
 import { useMemo } from "react";
-import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View, useWindowDimensions } from "react-native";
+import { RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
@@ -78,7 +80,7 @@ export function StaffSelfProfileScreen() {
   return (
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
       <AppStatusBar />
-      <ScrollView
+      <RefreshViewport><ScrollView
         contentContainerStyle={styles.content}
         refreshControl={
           <RefreshControl
@@ -189,7 +191,7 @@ export function StaffSelfProfileScreen() {
             </StaffSectionCard>
           </>
         ) : null}
-      </ScrollView>
+      </ScrollView></RefreshViewport>
     </SafeAreaView>
   );
 }

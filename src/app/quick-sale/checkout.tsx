@@ -1,3 +1,4 @@
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { maskClientName } from "@/utils/clientPrivacy";
 import { Text } from "@/components/ui/AppTypography";
 import { Redirect } from "expo-router";
@@ -8,7 +9,7 @@ import { appAlert as Alert } from "@/services/appAlert";
 import { Ionicons } from "@expo/vector-icons";
 import { router, Stack, useFocusEffect, useLocalSearchParams, type Href } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, BackHandler, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { BackHandler, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ReceiptModal } from "@/components/receipt/ReceiptModal";

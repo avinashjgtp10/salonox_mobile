@@ -1,3 +1,5 @@
+import { RefreshViewport } from "@/components/ui/RefreshViewport";
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { appAlert as Alert } from "@/services/appAlert";
 import { TourFlatList, TourView, TourButton, withScreenTour } from "@/features/userGuide/DashboardTour";
@@ -5,7 +7,7 @@ import { screenTours } from "@/features/userGuide/screenTours";
 import { Ionicons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Modal, Pressable, RefreshControl, StyleSheet, TouchableOpacity, View } from "react-native";
+import { Modal, Pressable, RefreshControl, StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
@@ -326,7 +328,7 @@ function ServicesScreenContent() {
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
       <AppStatusBar />
 
-      <TourFlatList
+      <RefreshViewport><TourFlatList
         ListEmptyComponent={
           showInitialLoading ? (
             <View>
@@ -435,7 +437,7 @@ function ServicesScreenContent() {
         removeClippedSubviews
         showsVerticalScrollIndicator={false}
         windowSize={8}
-      />
+      /></RefreshViewport>
 
       <View style={[styles.stickyButtonWrap, { bottom: insets.bottom + 12 }]}>
         <TourButton tourId="add"

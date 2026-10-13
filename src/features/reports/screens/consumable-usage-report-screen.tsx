@@ -1,3 +1,4 @@
+import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { FilterSheet } from "@/components/ui/FilterSheet";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
@@ -165,7 +166,7 @@ export default function ConsumableUsageReportScreen({ config }: { config: Report
   return (
     <SafeAreaView edges={["top"]} style={styles.safe}>
       <AppStatusBar />
-      <FlatList
+      <RefreshViewport><FlatList
         contentContainerStyle={styles.listContent}
         contentInsetAdjustmentBehavior="automatic"
         data={visibleRows}
@@ -217,7 +218,7 @@ export default function ConsumableUsageReportScreen({ config }: { config: Report
         showsVerticalScrollIndicator={false}
         updateCellsBatchingPeriod={50}
         windowSize={7}
-      />
+      /></RefreshViewport>
     </SafeAreaView>
   );
 }
