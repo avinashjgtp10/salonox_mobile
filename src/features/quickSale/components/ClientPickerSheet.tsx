@@ -368,19 +368,7 @@ export function ClientPickerSheet({
             <Text style={styles.newClientButtonText}>New Client</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            activeOpacity={0.84}
-            onPress={() => {
-              onSelect(null);
-              handleClose();
-            }}
-            style={styles.walkInRow}
-          >
-            <View style={styles.walkInAvatar}>
-              <Ionicons name="walk-outline" size={16} color={Colors.primaryDark} />
-            </View>
-            <Text style={styles.walkInText}>Walk-in Customer</Text>
-          </TouchableOpacity>
+
 
           {error && visibleClients.length === 0 ? (
             <ErrorState message={error} onRetry={handleRetry} />
@@ -463,27 +451,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     color: Colors.primaryDark,
     fontSize: 12,
     fontWeight: "800",
-  },
-  walkInRow: {
-    alignItems: "center",
-    borderBottomColor: Colors.border,
-    borderBottomWidth: 1,
-    flexDirection: "row",
-    gap: Spacing.sm,
-    paddingVertical: 10,
-  },
-  walkInAvatar: {
-    alignItems: "center",
-    backgroundColor: Colors.bg2,
-    borderRadius: Radius.md,
-    height: 36,
-    justifyContent: "center",
-    width: 36,
-  },
-  walkInText: {
-    color: Colors.heading,
-    fontSize: 13,
-    fontWeight: "700",
   },
   clientList: {
     marginTop: 4,
