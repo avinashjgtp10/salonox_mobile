@@ -236,7 +236,7 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
       </Text>
     </View>
   ) : (
-    <ReportSummaryCards summary={summary} />
+    <ReportSummaryCards summary={summary} maxCards={config.slug === "staff-performance" ? 9 : 8} />
   );
 
   const resultsHeading = rows.length ? (
