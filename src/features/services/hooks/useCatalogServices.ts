@@ -13,11 +13,11 @@ export function useCatalogServices() {
   const [error, setError] = useState<string | null>(null);
   const requestId = useRef(0);
   useEffect(() => () => { requestId.current += 1; }, [branchId]);
-  const load = useCallback(async () => {
+  const load = useCallback(async (preserveItems = false) => {
     const current = ++requestId.current;
     setLoading(true);
     setError(null);
-    setServices([]);
+    if (!preserveItems) setServices([]);
     try {
       const result = await loadCatalogServices(async (query) => {
         if (current !== requestId.current) throw new Error("Service request superseded");

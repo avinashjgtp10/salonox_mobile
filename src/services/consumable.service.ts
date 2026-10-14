@@ -224,6 +224,15 @@ const getUsageHistoryArray = (payload: ConsumableUsageHistoryApiData): Consumabl
   payload.data ?? payload.items ?? payload.rows ?? [];
 
 export const consumableService = {
+  async getCatalogPage(page: number, sort: "newest" | "lowest_stock" | "most_used" | "a_z", salonId?: string | null): Promise<ConsumableDashboardResponse> {
+    const query: ConsumableListQuery = { page, limit: 100, search: "", sortBy: "created_at", sortOrder: "desc" };
+    const response = await api.get<ConsumableDashboardApiResponse>(CONSUMABLE.DASHBOARD, {
+      params: { ...buildDashboardParams(query, salonId), sort_by: sort },
+    });
+    const payload = response.data.data ?? {};
+    const consumables = getConsumableArray(payload.list ?? null).map(normalizeConsumable);
+    return { consumables, kpis: getKpis(payload.kpis ?? payload.summary ?? null), pagination: getPagination(payload.list, query, consumables.length), query };
+  },
   async getDashboard(query: ConsumableListQuery, salonId?: string | null): Promise<ConsumableDashboardResponse> {
     if (query.sortBy === "updated_at") {
       throw new Error("Sorting by recently updated is not available.");
