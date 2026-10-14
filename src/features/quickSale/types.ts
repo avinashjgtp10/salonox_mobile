@@ -56,6 +56,7 @@ export type CartItem = {
   note: string;
   originalUnitPrice: number;
   packageCoverageAllocations?: PackageCoverageAllocation[];
+  packageCoverageAppliedQuantity?: number;
   packageCoverageClientPackageId?: string;
   packageCoverageRemaining?: number;
   packageCoverageServiceId?: string;

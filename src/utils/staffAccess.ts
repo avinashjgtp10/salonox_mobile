@@ -1,6 +1,7 @@
 import type { AuthUser } from "@/types/auth";
 import { isStaffExperienceUser } from "@/utils/routeResolver";
 import type { NotificationItem } from "@/types/notification";
+import { hasCustomPermission } from "@/utils/permissions";
 
 export const canReceiveStaffNotification = (user: AuthUser | null | undefined, notification: Pick<NotificationItem, "type" | "recipientUserIds">) =>
   Boolean(user && (!isStaffExperienceUser(user) || (["appointment", "attendance"].includes(notification.type.toLowerCase()) && notification.recipientUserIds?.includes(user.id))));
@@ -39,8 +40,25 @@ const isStaffQuickSaleWrite = (user: AuthUser | null | undefined, method: string
   return STAFF_QUICK_SALE_WRITES.some(([allowedMethod, pattern]) => allowedMethod === method && pattern.test(path));
 };
 
+// Audit is an explicitly delegated workflow. Keep the general staff write
+// guard intact and allow only its permission-matched API operations.
+export const isStaffAuditWrite = (user: AuthUser | null | undefined, method: string, url: string) => {
+  if (!user || !hasCustomPermission(user, "view_product_audit")) return false;
+  const path = url.split("?")[0];
+  const verb = method.toLowerCase();
+  const perform = hasCustomPermission(user, "create_product_audit");
+  if (verb === "post" && /^\/inventory\/product-audits\/[^/]+\/(approve|reject)$/.test(path)) return hasCustomPermission(user, "approve_product_audit");
+  if (!perform) return false;
+  if (verb === "post" && (path === "/inventory/product-audits" || /^\/inventory\/product-audits\/[^/]+\/(items|submit|reopen|recognize)$/.test(path))) return true;
+  if (["patch", "delete"].includes(verb) && /^\/inventory\/product-audits\/[^/]+\/items\/[^/]+$/.test(path)) return true;
+  if (verb === "post" && path === "/products") return (hasCustomPermission(user, "view_products") && hasCustomPermission(user, "create_products")) || hasCustomPermission(user, "add_consumable");
+  if (verb === "post" && path === "/products/brands") return hasCustomPermission(user, "create_products") || hasCustomPermission(user, "manage_my_brands");
+  return false;
+};
+
 export const isStaffBusinessWrite = (user: AuthUser | null | undefined, method: string, url: string) =>
   Boolean(user && isStaffExperienceUser(user) && !["get", "head", "options"].includes(method.toLowerCase()) &&
     !(method.toLowerCase() === "post" && /^\/attendance\/check-(in|out)$/.test(url)) &&
     !isStaffQuickSaleWrite(user, method.toLowerCase(), url) &&
+    !isStaffAuditWrite(user, method.toLowerCase(), url) &&
     /^\/(appointments|bookings|sales|payments|staff|attendance|devices|clients|services|products|inventory|stock|consumables|memberships|client-memberships|packages|coupons|wallet|inbox|team|settings|salons|branches)(\/|\?|$)/.test(url));

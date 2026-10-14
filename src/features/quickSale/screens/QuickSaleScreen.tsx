@@ -420,10 +420,12 @@ function OwnerQuickSaleScreen({
     isPricingLoading,
     pricingError,
     resetPricing,
+    resolvedPricingFlags,
     totals,
   } = useQuickSalePricing({
     appliedCoupon,
     buildPricingFlags: redemptions.buildPricingFlags,
+    redemptionContext: redemptions.pricingContext,
     cartItems: cart.items,
     convenienceFeeInput,
     discountPercent: draftDiscountPercent,
@@ -1030,7 +1032,7 @@ function OwnerQuickSaleScreen({
         notes: saleNotes,
         packageCatalogTotal,
         payment,
-        pricingFlags: redemptions.buildPricingFlags(),
+        pricingFlags: resolvedPricingFlags,
         salonId,
         selectedClientId: selectedClient.id,
         totals,
@@ -1040,7 +1042,7 @@ function OwnerQuickSaleScreen({
       includeGst,
       isFullyPackageCoveredSale,
       packageCatalogTotal,
-      redemptions,
+      resolvedPricingFlags,
       saleNotes,
       salonId,
       selectedClient.id,
@@ -1216,6 +1218,16 @@ function OwnerQuickSaleScreen({
   };
 
   const handleCompleteSale = async (payment: PendingCheckoutPayment) => {
+    if (isPricingLoading || pricingError) {
+      setSubmitError(pricingError ?? "Wait for the updated total before completing the sale.");
+      return;
+    }
+    // Saved drafts use /sales/:id/checkout, which currently has no redemption
+    // contract. Do not pretend a preview deduction has been debited there.
+    if (params.draftId && (resolvedPricingFlags.applyMembershipWallet || resolvedPricingFlags.applyMembershipDiscount || resolvedPricingFlags.applyLoyaltyDiscount || resolvedPricingFlags.applyEwallet || resolvedPricingFlags.applyRewardPoints || resolvedPricingFlags.applyReferralCredit)) {
+      setSubmitError("Saved-draft checkout does not support client benefit redemption yet. Use a new Quick Sale to redeem benefits, or turn these benefits off for this draft.");
+      return;
+    }
     if (embedded && !selectedClient.id) {
       setPendingCheckoutPayment(payment);
       setIsCheckoutVisible(false);

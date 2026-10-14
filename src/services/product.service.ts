@@ -73,6 +73,14 @@ const normalizeProduct = (raw: ProductApiItem): Product => {
   const categoryRecord = getCategoryRecord(raw.category);
 
   return {
+    supplierId: toStringValue(raw.supplier_id) || null,
+    supplierName: toStringValue(raw.supplier_name) || null,
+    taxType: toStringValue(raw.tax_type) || null,
+    taxGroup: toStringValue(raw.tax_group) || null,
+    hsnSac: toStringValue(raw.hsn_sac) || null,
+    lotNumber: toStringValue(raw.lot_number) || null,
+    remark: toStringValue(raw.remark) || null,
+    expiryDate: toStringValue(raw.expiry_date) || null,
     bottleSize: bottleSize != null ? toNumberValue(bottleSize) : null,
     brandId: toStringValue(raw.brand_id ?? raw.brandId ?? brand?.id) || null,
     brandName: toStringValue(brand?.name) || null,

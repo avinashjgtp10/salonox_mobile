@@ -13,6 +13,7 @@ import { AppLayout, AppRadius } from "@/constants/layout";
 import { DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
 import { CategorySelectModal } from "@/features/services/components/CategorySelectModal";
 import {
+  createBrandThunk,
   createProductThunk,
   fetchBrandsThunk,
   fetchProductByIdThunk,
@@ -26,11 +27,18 @@ import { selectServices } from "@/store/service/service.slice";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { formatAppDate } from "@/utils/dateTime";
 import type { ServiceCategoryItem } from "@/types/service";
+import type { RecognizedProduct } from "@/types/productAudit";
 import { useValidationScroll } from "@/hooks/useValidationScroll";
+import { SupplierSelectModal } from "./SupplierSelectModal";
+import { selectCurrentUser } from "@/store/user/user.slice";
+import { hasInventoryPermission } from "@/utils/permissions";
+import { getApiErrorMessage } from "@/services/api";
+import { consumableService } from "@/services/consumable.service";
+import { serviceService } from "@/services/service.service";
+import { productFormInventory } from "../utils/productFormInventory";
 
-type Props = { id?: string; mode: "create" | "edit" };
+type Props = { id?: string; mode: "create" | "edit"; scannerDraft?: Partial<RecognizedProduct>; onCreated?: (productId: string, physicalQuantity: number) => void };
 type ProductType = "retail" | "consumable" | "both";
-type UnitConversionDraft = { conversion: string; name: string };
 type ProductField = "category" | "lowStockAlert" | "name" | "productQuantity" | "retailPrice" | "stockQuantity" | "supplyPrice" | "unit" | "unitSize";
 type ProductFieldErrors = Partial<Record<ProductField, string>>;
 const VALIDATION_FIELD_ORDER: ProductField[] = [
@@ -48,10 +56,11 @@ const VALIDATION_FIELD_ORDER: ProductField[] = [
 const PRODUCT_TYPES: { label: string; value: ProductType }[] = [
   { label: "Retail", value: "retail" },
   { label: "Consumable", value: "consumable" },
-  { label: "Both (also sold retail)", value: "both" },
+  { label: "Both", value: "both" },
 ];
 
-const TAX_TYPES = ["No tax", "GST 5%", "GST 12%", "GST 18%"];
+const TAX_TYPES = [{label: "No tax", value: "no_tax"}, {label: "GST 5%", value: "gst_5"}, {label: "GST 12%", value: "gst_12"}, {label: "GST 18%", value: "gst_18"}, {label: "GST 28%", value: "gst_28"}];
+const MEASURE_UNITS = ["ml", "l", "g", "kg", "pcs", "oz", "lb", "bottle", "tube", "pack", "box", "roll"];
 
 const formatDate = (value: Date | null) => (value ? formatAppDate(value) : "");
 
@@ -69,27 +78,28 @@ const parseNumber = (value: string) => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 
-const messageFrom = (payload: unknown, fallback: string) => {
-  if (payload && typeof payload === "object" && "message" in payload) {
-    const message = (payload as { message?: unknown }).message;
-    if (typeof message === "string" && message.trim()) return message;
-  }
-  return fallback;
-};
-
-const getTaxRate = (taxType: string) => {
-  const match = taxType.match(/\d+/);
-  return match ? Number(match[0]) : 0;
-};
-
-export default function ProductFormScreen({ id, mode }: Props) {
+export default function ProductFormScreen({ id, mode, scannerDraft, onCreated }: Props) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
+  const user = useAppSelector(selectCurrentUser);
+  const canCreateSupplier = hasInventoryPermission(user, "create_suppliers");
+  const saveLock = useRef(false);
+  const createdProductId = useRef<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const originalAssignedIds = useRef<string[]>([]);
+  const [serviceQuantities, setServiceQuantities] = useState<Record<string, string>>({});
+  const [assignmentsLoading, setAssignmentsLoading] = useState(false);
+  const [assignmentError, setAssignmentError] = useState<string | null>(null);
+  const [assignmentRetry, setAssignmentRetry] = useState(0);
+  const [newBrandName, setNewBrandName] = useState("");
+  const [brandError, setBrandError] = useState("");
+  const [brandSaving, setBrandSaving] = useState(false);
   const product = useAppSelector(selectProductById(id ?? ""));
   const productState = useAppSelector((root) => root.product);
   const services = useAppSelector(selectServices);
   const prefilled = useRef(false);
+  const scannerBrandPrefilled = useRef(false);
   const { scrollToFirstError, scrollViewRef, setFieldRef } = useValidationScroll(VALIDATION_FIELD_ORDER);
 
   const [barcode, setBarcode] = useState("");
@@ -115,17 +125,42 @@ export default function ProductFormScreen({ id, mode }: Props) {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [stockQuantity, setStockQuantity] = useState("");
   const [supplierName, setSupplierName] = useState("");
+  const [supplierId, setSupplierId] = useState<string | null>(null);
+  const [supplierModalOpen, setSupplierModalOpen] = useState(false);
+  const [supplierCreateMode, setSupplierCreateMode] = useState(false);
   const [supplyPrice, setSupplyPrice] = useState("");
   const [taxGroup, setTaxGroup] = useState("");
-  const [taxType, setTaxType] = useState("No tax");
+  const [taxType, setTaxType] = useState("no_tax");
   const [taxTypeOpen, setTaxTypeOpen] = useState(false);
   const [unit, setUnit] = useState("ml");
-  const [unitConversions, setUnitConversions] = useState<UnitConversionDraft[]>([]);
   const [unitSize, setUnitSize] = useState("");
+
+  useEffect(() => {
+    if (mode !== "create" || !scannerDraft || prefilled.current) return;
+    prefilled.current = true;
+    const productName = scannerDraft.name ?? "";
+    const variant = scannerDraft.variant?.trim();
+    setName([productName, variant && !productName.toLowerCase().includes(variant.toLowerCase()) ? variant : null].filter(Boolean).join(" ").slice(0, 100));
+    setBarcode(scannerDraft.barcode ?? "");
+    setDescription([scannerDraft.description, scannerDraft.brand ? `Brand: ${scannerDraft.brand}` : null, scannerDraft.size ? `Pack size: ${scannerDraft.size}` : null].filter(Boolean).join("\n"));
+    if (scannerDraft.measure_unit && scannerDraft.bottle_size) {
+      setUnit(scannerDraft.measure_unit); setUnitSize(String(scannerDraft.bottle_size));
+    }
+    // New catalog records start with zero stock; physical stock comes through
+    // the audit's existing approval/reconciliation workflow.
+    setStockQuantity("0"); setProductQuantity("0"); setLowStockAlert("0");
+  }, [mode, scannerDraft]);
+
+  useEffect(() => {
+    if (mode === "create" && scannerDraft?.brand && !brandId && !scannerBrandPrefilled.current) {
+      const matching = productState.brands.find(b => b.name.trim().toLowerCase() === scannerDraft.brand?.trim().toLowerCase());
+      if (matching) { scannerBrandPrefilled.current = true; setBrandId(matching.id); }
+    }
+  }, [mode, scannerDraft, productState.brands, brandId]);
 
   const liveProduct = product ?? (productState.currentProduct?.id === id ? productState.currentProduct : null);
   const chosenBrand = productState.brands.find((brand) => brand.id === brandId);
-  const isSubmitting = productState.mutationLoading;
+  const isSubmitting = saving || productState.mutationLoading;
   const title = mode === "create" ? "Add Product" : "Edit Product";
   const isRetail = productType === "retail";
   const hasRetailSale = productType === "retail" || productType === "both";
@@ -165,31 +200,55 @@ export default function ProductFormScreen({ id, mode }: Props) {
     setDescription(liveProduct.description ?? "");
     setLowStockAlert(String(liveProduct.lowStockThreshold));
     setName(liveProduct.name);
-    setProductQuantity(String(liveProduct.stockQuantity));
+    setProductQuantity(String(liveProduct.bottleSize ? liveProduct.stockQuantity / liveProduct.bottleSize : liveProduct.stockQuantity));
     setProductType((liveProduct.productType as ProductType) || "retail");
     setRetailPrice(String(liveProduct.retailPrice ?? liveProduct.price));
     setStockQuantity(String(liveProduct.stockQuantity));
     setSupplyPrice(String(liveProduct.supplyPrice ?? ""));
+    setSupplierId(liveProduct.supplierId ?? null);
+    setSupplierName(liveProduct.supplierName ?? "");
+    setTaxType(liveProduct.taxType ?? "no_tax");
+    setTaxGroup(liveProduct.taxGroup ?? "");
+    setHsnSac(liveProduct.hsnSac ?? "");
+    setLotNumber(liveProduct.lotNumber ?? "");
+    setRemark(liveProduct.remark ?? "");
+    setExpiryDate(liveProduct.expiryDate ? new Date(`${liveProduct.expiryDate.slice(0, 10)}T12:00:00`) : null);
     setUnit(liveProduct.measureUnit ?? "ml");
     setUnitSize(liveProduct.bottleSize ? String(liveProduct.bottleSize) : "");
     prefilled.current = true;
   }, [liveProduct, mode]);
 
+  const editingConsumable = mode === "edit" && !!liveProduct && liveProduct.productType !== "retail";
+  useEffect(() => {
+    if (!editingConsumable || !id) return;
+    let active = true;
+    setAssignmentsLoading(true);
+    consumableService.getAssignedServices(id).then((rows) => {
+      if (!active) return;
+      originalAssignedIds.current = rows.map((row) => row.serviceId);
+      setSelectedServiceIds(originalAssignedIds.current);
+      setServiceQuantities(Object.fromEntries(rows.map((row) => [row.serviceId, String(row.qty)])));
+      setAssignmentError(null);
+    }).catch((error) => { if (active) setAssignmentError(getApiErrorMessage(error)); })
+      .finally(() => { if (active) setAssignmentsLoading(false); });
+    return () => { active = false; };
+  }, [id, editingConsumable, assignmentRetry]);
+
+  const syncServiceAssignments = async (productId: string) => {
+    const desired = hasConsumableInventory ? selectedServiceIds : [];
+    for (const serviceId of new Set([...originalAssignedIds.current, ...desired])) {
+      const service = await serviceService.getService(serviceId);
+      const recipe = (service.consumablesUsed ?? [])
+        .filter((item) => item.productId !== productId)
+        .map((item) => ({ product_id: item.productId, qty: item.qty, unit: item.unit }));
+      if (desired.includes(serviceId)) recipe.push({ product_id: productId, qty: Number(serviceQuantities[serviceId]), unit: unit.trim().toLowerCase() });
+      await serviceService.updateService(serviceId, { consumables_used: recipe });
+    }
+  };
+
   const goBack = () => {
     if (router.canGoBack()) router.back();
     else router.replace("/stock" as Href);
-  };
-
-  const addUnitConversion = () => {
-    setUnitConversions((current) => [...current, { conversion: "", name: "" }]);
-  };
-
-  const updateUnitConversion = (index: number, patch: Partial<UnitConversionDraft>) => {
-    setUnitConversions((current) => current.map((item, itemIndex) => (itemIndex === index ? { ...item, ...patch } : item)));
-  };
-
-  const removeUnitConversion = (index: number) => {
-    setUnitConversions((current) => current.filter((_, itemIndex) => itemIndex !== index));
   };
 
   const updateField = (field: ProductField, value: string, setter: (nextValue: string) => void) => {
@@ -198,13 +257,13 @@ export default function ProductFormScreen({ id, mode }: Props) {
   };
 
   const submit = async () => {
+    if (isSubmitting || assignmentsLoading) return;
     const numericRetailPrice = parseNumber(retailPrice);
     const numericStockQuantity = parseNumber(stockQuantity);
     const numericProductQuantity = parseNumber(productQuantity);
     const numericUnitSize = parseNumber(unitSize);
     const numericLowStock = lowStockAlert.trim() ? parseNumber(lowStockAlert) : 0;
     const numericSupplyPrice = supplyPrice.trim() ? parseNumber(supplyPrice) : 0;
-    const categoryName = selectedCategory?.name ?? legacyCategoryName.trim();
     const categoryId = selectedCategory?.id ?? liveProduct?.categoryId ?? "";
 
     setFormError(null);
@@ -212,7 +271,7 @@ export default function ProductFormScreen({ id, mode }: Props) {
     const nextErrors: ProductFieldErrors = {};
     if (!name.trim()) nextErrors.name = "Product Name is required.";
     else if (name.trim().length > 100) nextErrors.name = "Product Name must be 100 characters or less.";
-    if (!categoryName) nextErrors.category = "Category is required.";
+    if (!categoryId) nextErrors.category = "Category is required.";
     if (isRetail && (numericStockQuantity === null || numericStockQuantity < 0)) {
       nextErrors.stockQuantity = "Stock Quantity is required.";
     }
@@ -222,7 +281,7 @@ export default function ProductFormScreen({ id, mode }: Props) {
     if (hasConsumableInventory && (numericUnitSize === null || numericUnitSize <= 0)) {
       nextErrors.unitSize = "Unit Size is required.";
     }
-    if (hasConsumableInventory && !unit.trim()) nextErrors.unit = "Unit is required.";
+    if (hasConsumableInventory && !MEASURE_UNITS.includes(unit.trim().toLowerCase())) nextErrors.unit = "Use ml, l, g, kg, pcs, oz, lb, bottle, tube, pack, box or roll.";
     if (numericLowStock === null || numericLowStock < 0) nextErrors.lowStockAlert = "Low Stock Alert must be zero or more.";
     if (numericSupplyPrice === null || numericSupplyPrice < 0) nextErrors.supplyPrice = "Supply Price must be zero or more.";
     if (hasRetailSale && (numericRetailPrice === null || numericRetailPrice < 0)) {
@@ -231,55 +290,74 @@ export default function ProductFormScreen({ id, mode }: Props) {
 
     setFieldErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) {
+      setFormError("Please complete the highlighted fields before saving.");
       scrollToFirstError(nextErrors);
       return;
     }
 
-    const conversions = unitConversions
-      .map((item) => ({ conversion_to_base: parseNumber(item.conversion) ?? 0, unit_name: item.name.trim() }))
-      .filter((item) => item.unit_name && item.conversion_to_base > 0);
-    const stockForPayload = hasConsumableInventory ? numericProductQuantity ?? 0 : numericStockQuantity ?? 0;
-    const priceForPayload = hasRetailSale ? numericRetailPrice ?? 0 : numericSupplyPrice ?? 0;
-    const expiry = toIsoDate(expiryDate);
-    const data = {
-      ...(barcode.trim() ? { barcode: barcode.trim(), sku: barcode.trim() } : {}),
-      ...(brandId ? { brand_id: brandId } : {}),
-      category: categoryName,
-      ...(categoryId ? { category_id: categoryId } : {}),
-      ...(description.trim() ? { description: description.trim() } : {}),
-      ...(expiry ? { expiry_date: expiry } : {}),
-      ...(hsnSac.trim() ? { hsn_sac: hsnSac.trim() } : {}),
-      is_active: true,
-      ...(lotNumber.trim() ? { lot_number: lotNumber.trim() } : {}),
-      low_stock_threshold: numericLowStock ?? 0,
-      ...(hasConsumableInventory ? { measure_unit: unit.trim() } : {}),
-      name: name.trim(),
-      price: priceForPayload,
-      product_type: productType,
-      qty_alert: numericLowStock ?? 0,
-      ...(remark.trim() ? { remark: remark.trim() } : {}),
-      ...(hasRetailSale ? { retail_price: numericRetailPrice ?? 0 } : {}),
-      stock_quantity: stockForPayload,
-      ...(numericSupplyPrice !== null ? { supply_price: numericSupplyPrice } : {}),
-      ...(supplierName.trim() ? { supplier_name: supplierName.trim() } : {}),
-      ...(taxGroup.trim() ? { tax_group: taxGroup.trim() } : {}),
-      tax_rate: getTaxRate(taxType),
-      tax_type: taxType,
-      ...(conversions.length ? { unit_conversions: conversions } : {}),
-      ...(hasConsumableInventory ? { bottle_size: numericUnitSize ?? 0 } : {}),
-    };
-    const action = mode === "create"
-      ? await dispatch(createProductThunk(data))
-      : await dispatch(updateProductThunk({ data, id: id ?? "" }));
-
-    if (createProductThunk.rejected.match(action) || updateProductThunk.rejected.match(action)) {
-      setFormError(messageFrom(action.payload, `Unable to ${mode === "create" ? "create" : "update"} product.`));
-      return;
+    if (assignmentError) { setFormError(assignmentError); return; }
+    if (hasConsumableInventory && selectedServiceIds.some((serviceId) => !Number.isFinite(Number(serviceQuantities[serviceId])) || !(Number(serviceQuantities[serviceId]) > 0))) {
+      setFormError("Enter a positive usage quantity for each assigned service."); return;
     }
-
-    await dispatch(fetchProductsThunk({ offset: 0, reset: true }));
-    const productId = "product" in action.payload ? action.payload.product.id : id;
-    router.replace((productId ? `/stock/${productId}` : "/stock") as Href);
+    const inventory = productFormInventory({
+      consumable: hasConsumableInventory,
+      quantity: numericProductQuantity ?? 0,
+      unitSize: numericUnitSize ?? 0,
+      stockQuantity: numericStockQuantity ?? 0,
+      lowStockAlert: numericLowStock ?? 0,
+      audit: !!scannerDraft,
+    });
+    const physicalQuantity = inventory.baseStock;
+    if (!scannerDraft && (numericLowStock ?? 0) > 0 && (numericLowStock ?? 0) * (hasConsumableInventory ? numericUnitSize ?? 1 : 1) >= physicalQuantity) {
+      setFieldErrors({ lowStockAlert: "Low stock alert must be less than available stock." });
+      scrollToFirstError({ lowStockAlert: "Invalid alert" }); return;
+    }
+    if (saveLock.current) return;
+    saveLock.current = true; setSaving(true);
+    try {
+      const data = {
+        name: name.trim(),
+        barcode: barcode.trim() || null,
+        brand_id: brandId,
+        category_id: categoryId,
+        supplier_id: supplierId,
+        description: description.trim() || null,
+        remark: remark.trim() || null,
+        expiry_date: toIsoDate(expiryDate) ?? null,
+        hsn_sac: hsnSac.trim() || null,
+        lot_number: lotNumber.trim() || null,
+        measure_unit: hasConsumableInventory ? unit.trim().toLowerCase() : "pcs",
+        product_type: productType,
+        amount: inventory.amount,
+        bottle_size: inventory.bottle_size,
+        qty_alert: inventory.qty_alert,
+        retail_sales_enabled: hasRetailSale,
+        retail_price: hasRetailSale ? numericRetailPrice : null,
+        supply_price: numericSupplyPrice ?? 0,
+        tax_group: taxGroup.trim() || null,
+        tax_type: taxType,
+        ...(scannerDraft?.size ? { size: scannerDraft.size.slice(0, 30) } : {}),
+      };
+      const targetId = id ?? createdProductId.current;
+      const response = targetId
+        ? await dispatch(updateProductThunk({ data, id: targetId })).unwrap()
+        : await dispatch(createProductThunk(data)).unwrap();
+      const productId = response.product.id;
+      if (mode === "create") createdProductId.current = productId;
+      if (scannerDraft && (numericLowStock ?? 0) > 0) {
+        await dispatch(updateProductThunk({ id: productId, data: { qty_alert: numericLowStock } })).unwrap();
+      }
+      await syncServiceAssignments(productId);
+      void dispatch(fetchProductsThunk({ offset: 0, reset: true }));
+      if (mode === "create" && onCreated) {
+        onCreated(productId, inventory.physicalPacks);
+        return;
+      }
+      router.replace(`/stock/${productId}` as Href);
+    } catch (error) {
+      const message = getApiErrorMessage(error);
+      setFormError(createdProductId.current ? `Product saved, but setup could not finish. Retry Save to finish without creating another product. ${message}` : message);
+    } finally { saveLock.current = false; setSaving(false); }
   };
 
   if (mode === "edit" && productState.detailsLoading && !liveProduct) {
@@ -308,6 +386,7 @@ export default function ProductFormScreen({ id, mode }: Props) {
             <ErrorNotice message={productState.detailsError} />
           ) : (
             <>
+            {scannerDraft && <Text style={styles.counter}>Verify the scanned label, brand, variant and pack size. The quantity entered below becomes the audit physical count. Stock updates after audit approval.</Text>}
             <Section title="Basic Information">
               <Field ref={(input) => setFieldRef("name", input)} error={fieldErrors.name} maxLength={100} label="Product Name *" onChangeText={(value) => updateField("name", value, setName)} value={name} />
               <Text style={styles.counter}>{name.length}/100</Text>
@@ -334,14 +413,8 @@ export default function ProductFormScreen({ id, mode }: Props) {
                 </TouchableOpacity>
               </View>
 
-              <SelectField label="Supplier" onPress={() => undefined} placeholder="None" value={supplierName || undefined} />
-              <TextInput
-                onChangeText={setSupplierName}
-                placeholder="+ Add a supplier"
-                placeholderTextColor={Colors.primary}
-                style={styles.linkInput}
-                value={supplierName}
-              />
+              <SelectField label="Supplier" onPress={() => { setSupplierCreateMode(false); setSupplierModalOpen(true); }} placeholder="Select supplier" value={supplierName || undefined} />
+              {canCreateSupplier && <TouchableOpacity onPress={() => { setSupplierCreateMode(true); setSupplierModalOpen(true); }}><Text style={styles.inlineLink}>+ Add supplier</Text></TouchableOpacity>}
               <Field inputStyle={styles.textArea} label="Description" multiline onChangeText={setDescription} value={description} />
               <Field inputStyle={styles.remarkArea} label="Remark" multiline onChangeText={setRemark} value={remark} />
 
@@ -358,15 +431,18 @@ export default function ProductFormScreen({ id, mode }: Props) {
                   </TouchableOpacity>
                 ))}
               </View>
+              {productType === "both" && <Text style={styles.helperText}>Used in services and also sold to clients.</Text>}
             </Section>
 
             <Section emphasized title="Inventory Setup">
               {hasConsumableInventory ? (
                 <>
-                  <View style={styles.threeColumn}>
+                  <View style={styles.twoColumn}>
                     <Field ref={(input) => setFieldRef("productQuantity", input)} error={fieldErrors.productQuantity} keyboardType="decimal-pad" label="Product Quantity *" onChangeText={(value) => updateField("productQuantity", value, setProductQuantity)} value={productQuantity} />
                     <Field ref={(input) => setFieldRef("unitSize", input)} error={fieldErrors.unitSize} keyboardType="decimal-pad" label="Unit Size *" onChangeText={(value) => updateField("unitSize", value, setUnitSize)} placeholder="e.g. 1000" value={unitSize} />
-                    <Field ref={(input) => setFieldRef("unit", input)} error={fieldErrors.unit} label="Unit" onChangeText={(value) => updateField("unit", value, setUnit)} value={unit} />
+                  </View>
+                  <View>
+                    <Field ref={(input) => setFieldRef("unit", input)} error={fieldErrors.unit} label="Unit * (ml, g, pcs, etc.)" autoCapitalize="none" onChangeText={(value) => updateField("unit", value, setUnit)} value={unit} />
                   </View>
                   <View style={styles.stockPreview}>
                     <Text style={styles.stockPreviewText}>
@@ -387,32 +463,17 @@ export default function ProductFormScreen({ id, mode }: Props) {
 
             {hasConsumableInventory ? (
               <>
-                <Section title="Unit Conversion">
-                  <Text style={styles.helperText}>
-                    Display units staff can log usage in (e.g. Bottle, Sachet) - inventory itself always stays in the base unit ({unit}) above. Only units in the same measurement family as the base unit are allowed (Volume: ml {"<->"} L).
-                  </Text>
-                  {unitConversions.map((item, index) => (
-                    <View key={`unit-${index}`} style={styles.conversionRow}>
-                      <Field label="Unit name" onChangeText={(value) => updateUnitConversion(index, { name: value })} value={item.name} />
-                      <Field keyboardType="decimal-pad" label={`In ${unit}`} onChangeText={(value) => updateUnitConversion(index, { conversion: value })} value={item.conversion} />
-                      <TouchableOpacity onPress={() => removeUnitConversion(index)} style={styles.removeButton}>
-                        <Ionicons color={Colors.error} name="trash-outline" size={18} />
-                      </TouchableOpacity>
-                    </View>
-                  ))}
-                  <TouchableOpacity activeOpacity={0.8} onPress={addUnitConversion}>
-                    <Text style={styles.inlineLink}>+ Add a unit</Text>
-                  </TouchableOpacity>
-                </Section>
-
                 <Section title="Service Assignment">
                   <Text style={styles.helperText}>Assign this product to the services that consume it, with how much each one uses.</Text>
+                  {assignmentsLoading && <ActivityIndicator />}
+                  {!!assignmentError && <TouchableOpacity onPress={() => setAssignmentRetry((value) => value + 1)}><Text style={styles.fieldError}>{assignmentError} Tap to retry.</Text></TouchableOpacity>}
                   <Field label="" onChangeText={setServiceSearch} placeholder="Search a service to assign..." value={serviceSearch} />
                   {filteredServices.map((service) => (
                     <TouchableOpacity
                       key={service.id}
                       onPress={() => {
                         setSelectedServiceIds((current) => [...current, service.id]);
+                        setServiceQuantities((current) => ({ ...current, [service.id]: "" }));
                         setServiceSearch("");
                       }}
                       style={styles.optionRow}
@@ -423,7 +484,10 @@ export default function ProductFormScreen({ id, mode }: Props) {
                   ))}
                   {selectedServices.map((service) => (
                     <View key={service.id} style={styles.selectedServiceRow}>
-                      <Text style={styles.selectedServiceText}>{service.name}</Text>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.selectedServiceText}>{service.name}</Text>
+                        <Field label={`Usage per service (${unit})`} keyboardType="decimal-pad" value={serviceQuantities[service.id] ?? ""} onChangeText={(value) => setServiceQuantities((current) => ({ ...current, [service.id]: value }))} />
+                      </View>
                       <TouchableOpacity onPress={() => setSelectedServiceIds((current) => current.filter((serviceId) => serviceId !== service.id))}>
                         <Ionicons color={Colors.error} name="close-circle-outline" size={18} />
                       </TouchableOpacity>
@@ -436,7 +500,7 @@ export default function ProductFormScreen({ id, mode }: Props) {
             <Section title="Supply Information">
               <View style={styles.twoColumn}>
                 <Field ref={(input) => setFieldRef("supplyPrice", input)} error={fieldErrors.supplyPrice} keyboardType="decimal-pad" label="Supply Price" onChangeText={(value) => updateField("supplyPrice", value, setSupplyPrice)} value={supplyPrice} />
-                <SelectField label="Tax Type" onPress={() => setTaxTypeOpen(true)} value={taxType} />
+                <SelectField label="Tax Type" onPress={() => setTaxTypeOpen(true)} value={TAX_TYPES.find((item) => item.value === taxType)?.label ?? taxType} />
               </View>
               <Field label="Tax Group" onChangeText={setTaxGroup} value={taxGroup} />
               <Field label="HSN/SAC" onChangeText={setHsnSac} value={hsnSac} />
@@ -453,7 +517,7 @@ export default function ProductFormScreen({ id, mode }: Props) {
               <Section title="Inventory Preview">
                 <PreviewRow label="Stock" value={String(availableStock)} />
                 <PreviewRow label="Average Service Usage" value="No usage data yet" />
-                <PreviewRow label="Estimated Services" value={selectedServices.length ? String(selectedServices.length) : "-"} />
+                <PreviewRow label="Assigned Services" value={String(selectedServices.length)} />
                 <PreviewRow label="Status" value={availableStock <= 0 ? "Out of Stock" : "In Stock"} warning={availableStock <= 0} />
               </Section>
             ) : null}
@@ -474,10 +538,27 @@ export default function ProductFormScreen({ id, mode }: Props) {
         </KeyboardAwareScrollView>
       </KeyboardAvoidingView>
 
+      <SupplierSelectModal visible={supplierModalOpen} initialCreate={supplierCreateMode} canCreate={canCreateSupplier} onClose={() => setSupplierModalOpen(false)} onSelect={(supplier) => { setSupplierId(supplier?.id ?? null); setSupplierName(supplier?.name ?? ""); }} />
       <Modal animationType="fade" transparent visible={brandModalOpen} onRequestClose={() => setBrandModalOpen(false)}>
         <Pressable onPress={() => setBrandModalOpen(false)} style={styles.overlay}>
           <Pressable onPress={(event) => event.stopPropagation()} style={styles.sheet}>
             <Text style={styles.sheetTitle}>Select Brand</Text>
+            <Field label="New brand name" maxLength={100} value={newBrandName} onChangeText={setNewBrandName} editable={!brandSaving} />
+            {!!brandError && <Text style={styles.fieldError}>{brandError}</Text>}
+            <TouchableOpacity disabled={brandSaving || !newBrandName.trim()} onPress={async () => {
+              if (brandSaving || !newBrandName.trim()) return;
+              setBrandSaving(true); setBrandError("");
+              try {
+                const result = await dispatch(createBrandThunk({ name: newBrandName.trim() })).unwrap();
+                setBrandId(result.brand.id); setNewBrandName(""); setBrandModalOpen(false);
+              } catch (error) { setBrandError(getApiErrorMessage(error)); }
+              finally { setBrandSaving(false); }
+            }}><Text style={styles.inlineLink}>{brandSaving ? "Adding…" : "+ Add brand"}</Text></TouchableOpacity>
+            {scannerDraft?.brand && !productState.brands.some(b => b.name.trim().toLowerCase() === scannerDraft.brand?.trim().toLowerCase()) && <TouchableOpacity disabled={isSubmitting} style={styles.sheetRow} onPress={async () => {
+              const result = await dispatch(createBrandThunk({ name: scannerDraft.brand! }));
+              if (createBrandThunk.fulfilled.match(result)) { scannerBrandPrefilled.current = true; setBrandId(result.payload.brand.id); setBrandModalOpen(false); }
+              else setFormError(result.payload?.message ?? "Unable to create the scanned brand.");
+            }}><Text style={styles.inlineLink}>Create verified brand: {scannerDraft.brand}</Text></TouchableOpacity>}
             <ScrollView style={styles.sheetList}>
               {[{ id: "", name: "None" }, ...productState.brands].map((brand) => (
                 <TouchableOpacity
@@ -502,9 +583,9 @@ export default function ProductFormScreen({ id, mode }: Props) {
           <Pressable onPress={(event) => event.stopPropagation()} style={styles.sheet}>
             <Text style={styles.sheetTitle}>Tax Type</Text>
             {TAX_TYPES.map((item) => (
-              <TouchableOpacity key={item} onPress={() => { setTaxType(item); setTaxTypeOpen(false); }} style={styles.sheetRow}>
-                <Text style={styles.sheetRowText}>{item}</Text>
-                {taxType === item ? <Ionicons color={Colors.primary} name="checkmark-circle" size={20} /> : null}
+              <TouchableOpacity key={item.value} onPress={() => { setTaxType(item.value); setTaxTypeOpen(false); }} style={styles.sheetRow}>
+                <Text style={styles.sheetRowText}>{item.label}</Text>
+                {taxType === item.value ? <Ionicons color={Colors.primary} name="checkmark-circle" size={20} /> : null}
               </TouchableOpacity>
             ))}
           </Pressable>
