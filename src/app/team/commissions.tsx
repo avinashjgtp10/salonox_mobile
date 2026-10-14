@@ -10,7 +10,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 
 import { AppBackButton, AppBackButtonPlaceholder } from "@/components/ui/AppBackButton";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
-import { DateField } from "@/components/ui/DateField";
+import { DateRangeField } from "@/components/ui/DateRangeField";
 import { SettlementModal } from "@/components/ui/SettlementModal";
 import { formatExportMonth, shareCommissionExport, type CommissionExportFormat } from "@/features/staff/utils/commissionExport";
 import { getApiErrorMessage } from "@/services/api";
@@ -399,14 +399,8 @@ export default function SalonCommissionsScreen() {
         })}
       </View>
       {rangePreset === "custom" ? (
-        <View style={styles.customRange}>
-          <View style={styles.customField}>
-            <DateField label="From" maximumDate={new Date()} onChange={setCustomStart} placeholder="Start date" value={customStart} />
-          </View>
-          <View style={styles.customField}>
-            <DateField label="To" maximumDate={new Date()} onChange={setCustomEnd} placeholder="End date" value={customEnd} />
-          </View>
-        </View>
+        <DateRangeField startDate={customStart || null} endDate={customEnd || null} maximumDate={new Date()}
+          onChange={(start, end) => { setCustomStart(start); setCustomEnd(end); }} />
       ) : null}
       {customRangeInvalid && rangePreset === "custom" ? (
         <Text style={styles.errorText}>The start date must be on or before the end date.</Text>

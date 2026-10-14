@@ -7,6 +7,7 @@ import { useIsFocused } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 
 import { Portal } from "@/components/ui/Portal";
+import { KeyboardAwareFlatList } from "@/components/ui/KeyboardAwareScrollView";
 import { useAuth } from "@/context/AuthContext";
 import { clipTourRect, dashboardTourSteps, type TourRect } from "./dashboardTourSteps";
 import { screenTourStorage } from "./guideStorage";
@@ -49,10 +50,13 @@ export function TourScrollView(props: ScrollViewProps) {
     onScroll={(event) => { if (tour) tour.scrollOffset.current = event.nativeEvent.contentOffset.y; props.onScroll?.(event); }} />;
 }
 
-export function TourFlatList<T>(props: FlatListProps<T>) {
+export function TourFlatList<T>({ keyboardAware = false, ...props }: FlatListProps<T> & { keyboardAware?: boolean }) {
   const tour = useDashboardTour();
   const listRef = tour?.listRef;
   const ref = useCallback((node: FlatList<T> | null) => { if (listRef) listRef.current = node; }, [listRef]);
+  if (keyboardAware) return <KeyboardAwareFlatList {...props} autoReveal ref={ref} removeClippedSubviews={false}
+    scrollEnabled={tour?.active ? false : props.scrollEnabled} scrollEventThrottle={16}
+    onScroll={(event) => { if (tour) tour.scrollOffset.current = event.nativeEvent.contentOffset.y; props.onScroll?.(event); }} />;
   return <FlatList {...props} ref={ref} removeClippedSubviews={false}
     scrollEnabled={tour?.active ? false : props.scrollEnabled} scrollEventThrottle={16}
     onScroll={(event) => { if (tour) tour.scrollOffset.current = event.nativeEvent.contentOffset.y; props.onScroll?.(event); }} />;

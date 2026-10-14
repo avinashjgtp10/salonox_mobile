@@ -1,6 +1,6 @@
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
-import { useCallback, useEffect, useState } from "react";
-import { Alert, ScrollView, StyleSheet, Switch, TouchableOpacity, View } from "react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Alert, StyleSheet, Switch, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Redirect } from "expo-router";
 import { File, Paths } from "expo-file-system";
@@ -8,6 +8,7 @@ import * as Sharing from "expo-sharing";
 import { Text } from "@/components/ui/AppTypography";
 import { AppBackButton } from "@/components/ui/AppBackButton";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
+import { KeyboardAwareForm } from "@/components/ui/KeyboardAwareForm";
 import { StaffTextField } from "@/features/staff/components/StaffTextField";
 import { attendanceService } from "@/services/attendance.service";
 import { attendanceDeviceService as devicesApi, type AttendanceDevice, type PendingAttendanceDevice, type AttendanceDeviceMapping } from "@/services/attendanceDevice.service";
@@ -43,6 +44,7 @@ export default function AttendanceToolsScreen() {
   const [tab, setTab] = useState<"Rules" | "Devices" | "Export">("Rules");
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
+  const actionLock = useRef(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [settings, setSettings] = useState<AttendanceSettings | null>(null);
@@ -90,10 +92,27 @@ export default function AttendanceToolsScreen() {
   }, [allowed, tab, loadDevices, loadStaff]);
 
   const run = async (action: () => Promise<void>) => {
-    if (!allowed || busy) return;
+    if (!allowed || actionLock.current) return;
+    actionLock.current = true;
     setBusy(true); setError(""); setMessage("");
     try { await action(); } catch (failure) { setError(getApiErrorMessage(failure)); }
-    finally { setBusy(false); }
+    finally { actionLock.current = false; setBusy(false); }
+  };
+  const toggleHalfDayRule = () => {
+    if (!settings || loading || actionLock.current) return;
+    const previous = settings.active;
+    const active = !previous;
+    void run(async () => {
+      setSettings(current => current ? { ...current, active } : current);
+      try {
+        const result = await attendanceService.updateSettings({ active });
+        setSettings(current => current ? { ...current, active: result.settings.active } : current);
+        setMessage(result.settings.active ? "Half-day rule enabled." : "Half-day rule disabled.");
+      } catch (failure) {
+        setSettings(current => current ? { ...current, active: previous } : current);
+        throw failure;
+      }
+    });
   };
   const saveRules = async () => {
     if (!settings || !form) return;
@@ -107,7 +126,7 @@ export default function AttendanceToolsScreen() {
     }
     if (numbers.halfDayThresholdMinutes > numbers.minFullDayHours * 60) throw new Error("Minimum half-day hours cannot exceed full-day hours.");
     if (!Number.isInteger(numbers.gracePeriodMinutes) || !Number.isInteger(numbers.commissionThresholdDays)) throw new Error("Grace minutes and commission days must be whole numbers.");
-    if (settings.staffScope === "selected" && !settings.selectedStaffIds.length) throw new Error("Select at least one staff member for this rule.");
+    if (settings.active && settings.staffScope === "selected" && !settings.selectedStaffIds.length) throw new Error("Select at least one staff member for this rule.");
     const payload: UpdateAttendanceSettingsRequest = {
       ...numbers, workStartTime: form.workStartTime, workEndTime: form.workEndTime,
       active: settings.active, staffScope: settings.staffScope, selectedStaffIds: settings.selectedStaffIds,
@@ -158,7 +177,8 @@ export default function AttendanceToolsScreen() {
     <AppStatusBar />
     <View style={styles.header}><AppBackButton /><Text style={[styles.title, { color: colors.heading }]}>Attendance tools</Text></View>
     <View style={styles.row}>{(["Rules", "Devices", "Export"] as const).map(item => <TouchableOpacity key={item} disabled={busy} style={[styles.tab, { backgroundColor: tab === item ? colors.primary : colors.bg2 }]} onPress={() => { setTab(item); setError(""); setMessage(""); setDeviceForm(null); setSelectedDevice(null); }}><Text style={{ color: tab === item ? "#fff" : colors.text2 }}>{item}</Text></TouchableOpacity>)}</View>
-    <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+    <KeyboardAwareForm autoReveal>
+    <View style={styles.content}>
       {loading || busy ? <ActivityIndicator color={colors.primary} /> : null}
       {error ? <Text accessibilityRole="alert" style={{ color: colors.error }}>{error}</Text> : null}
       {error && !busy && !loading ? button("Retry loading", () => void run(async () => {
@@ -170,7 +190,20 @@ export default function AttendanceToolsScreen() {
         <Text style={{ color: colors.text2 }}>These settings are shared with the web app. Shift times use India time (IST).</Text>
         <StaffTextField label="Shift start (HH:MM)" value={form.workStartTime} editable={!busy && !loading} onChangeText={value => setForm({ ...form, workStartTime: value })} />
         <StaffTextField label="Shift end (HH:MM)" value={form.workEndTime} editable={!busy && !loading} onChangeText={value => setForm({ ...form, workEndTime: value })} />
-        <View style={styles.row}><Text style={{ color: colors.heading, flex: 1 }}>Apply half-day rule for late arrivals</Text><Switch disabled={busy || loading} value={settings.active} onValueChange={active => setSettings({ ...settings, active })} /></View>
+        <TouchableOpacity
+          accessibilityRole="switch"
+          accessibilityLabel="Apply half-day rule for late arrivals"
+          accessibilityState={{ checked: settings.active, disabled: busy || loading }}
+          disabled={busy || loading}
+          onPress={toggleHalfDayRule}
+          style={[styles.row, { minHeight: 52 }]}
+        >
+          <Text style={{ color: colors.heading, flex: 1 }}>Apply half-day rule for late arrivals</Text>
+          <View pointerEvents="none">
+            <Switch accessible={false} disabled={busy || loading} value={settings.active}
+              trackColor={{ false: colors.border, true: colors.primary }} thumbColor="#FFFFFF" />
+          </View>
+        </TouchableOpacity>
         {numberFields.map(([key, label]) => <StaffTextField key={key} label={label} keyboardType="decimal-pad" value={form[key]} editable={!busy && !loading} onChangeText={value => setForm({ ...form, [key]: value })} />)}
         <Text style={{ color: colors.heading }}>Apply late arrival rule to</Text>
         <View style={styles.row}>{button(settings.staffScope === "all" ? "✓ All staff" : "All staff", () => setSettings({ ...settings, staffScope: "all" }))}{button(settings.staffScope === "selected" ? "✓ Selected staff" : "Selected staff", () => setSettings({ ...settings, staffScope: "selected" }))}</View>
@@ -214,7 +247,8 @@ export default function AttendanceToolsScreen() {
         <StaffTextField label="Month (1–12)" keyboardType="number-pad" editable={!busy} value={month} onChangeText={setMonth} maxLength={2} />
         {button("Export CSV", () => void run(exportCsv))}
       </> : null}
-    </ScrollView>
+    </View>
+    </KeyboardAwareForm>
   </SafeAreaView>;
 }
 

@@ -5,47 +5,33 @@ import { Pressable, StyleSheet, View } from "react-native";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { AppRadius } from "@/constants/layout";
 import { DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
-import { DateRangeCalendar, toISODate } from "@/features/reports/components/date-range-calendar";
+import { DateRangeCalendar, toISODate } from "@/components/ui/DateRangeCalendar";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { formatAppDate } from "@/utils/dateTime";
+import { DATE_RANGE_PRESETS, getDateRangePreset } from "@/utils/dateRangePresets";
 
-const shiftDays = (days: number) => {
-  const value = new Date();
-
-  value.setDate(value.getDate() + days);
-
-  return toISODate(value);
-};
-
-const PRESETS: { end: () => string; label: string; start: () => string }[] = [
-  { end: () => toISODate(new Date()), label: "Today", start: () => toISODate(new Date()) },
-  { end: () => toISODate(new Date()), label: "Last 7 days", start: () => shiftDays(-6) },
-  { end: () => toISODate(new Date()), label: "Last 30 days", start: () => shiftDays(-29) },
-  {
-    end: () => toISODate(new Date()),
-    label: "This month",
-    start: () => {
-      const now = new Date();
-
-      return toISODate(new Date(now.getFullYear(), now.getMonth(), 1));
-    },
-  },
-];
-
-export const ReportRangeSheet = memo(function ReportRangeSheet({
+export const DateRangePickerSheet = memo(function DateRangePickerSheet({
   endDate,
-  mode,
+  mode = "range",
   onApply,
   onClose,
   startDate,
   visible,
+  minimumDate,
+  maximumDate,
+  title,
+  allowAllTime = false,
 }: {
   endDate: string | null;
-  mode: "range" | "single";
+  mode?: "range" | "single";
   onApply: (startDate: string | null, endDate: string | null) => void;
   onClose: () => void;
   startDate: string | null;
   visible: boolean;
+  minimumDate?: Date;
+  maximumDate?: Date;
+  title?: string;
+  allowAllTime?: boolean;
 }) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
@@ -60,7 +46,8 @@ export const ReportRangeSheet = memo(function ReportRangeSheet({
   }, [endDate, startDate, visible]);
 
   const isRange = mode === "range";
-  const canApply = Boolean(draftStart) && (!isRange || Boolean(draftEnd));
+  const inBounds = (date: string | null) => !!date && (!minimumDate || date >= toISODate(minimumDate)) && (!maximumDate || date <= toISODate(maximumDate));
+  const canApply = (allowAllTime && isRange && !draftStart && !draftEnd) || (inBounds(draftStart) && (!isRange || (inBounds(draftEnd) && !!draftEnd && !!draftStart && draftEnd >= draftStart)));
 
   const footer = (
     <>
@@ -80,7 +67,7 @@ export const ReportRangeSheet = memo(function ReportRangeSheet({
         onPress={() => onApply(draftStart, draftEnd)}
         style={[styles.primaryButton, !canApply && styles.buttonDisabled]}
       >
-        <Text style={styles.primaryButtonText}>Apply range</Text>
+        <Text style={styles.primaryButtonText}>{isRange ? "Apply range" : "Apply date"}</Text>
       </Pressable>
     </>
   );
@@ -95,7 +82,7 @@ export const ReportRangeSheet = memo(function ReportRangeSheet({
           ? "Tap a start date, then an end date. Use the arrows to cross months."
           : "Tap the day to report on."
       }
-      title={isRange ? "Report range" : "Report date"}
+      title={title ?? (isRange ? "Select date range" : "Select date")}
       visible={visible}
     >
       <View style={styles.body}>
@@ -118,19 +105,18 @@ export const ReportRangeSheet = memo(function ReportRangeSheet({
 
         {isRange ? (
           <View style={styles.presets}>
-            {PRESETS.map((preset) => (
-              <Pressable
-                accessibilityRole="button"
-                key={preset.label}
-                onPress={() => {
-                  setDraftStart(preset.start());
-                  setDraftEnd(preset.end());
-                }}
-                style={styles.preset}
-              >
+            {DATE_RANGE_PRESETS.map((preset) => {
+              const range = getDateRangePreset(preset.key);
+              const start = minimumDate && range.startDate < toISODate(minimumDate) ? toISODate(minimumDate) : range.startDate;
+              const end = maximumDate && range.endDate > toISODate(maximumDate) ? toISODate(maximumDate) : range.endDate;
+              const selected = draftStart === start && draftEnd === end;
+              return <Pressable key={preset.key} accessibilityRole="button" accessibilityState={{selected, disabled: start > end}}
+                disabled={start > end} onPress={() => { setDraftStart(start); setDraftEnd(end); }}
+                style={[styles.preset, selected && { borderColor: Colors.primaryDark }, start > end && { opacity: 0.3 }]}>
                 <Text style={styles.presetText}>{preset.label}</Text>
-              </Pressable>
-            ))}
+              </Pressable>;
+            })}
+            {allowAllTime && <Pressable accessibilityRole="button" onPress={() => { setDraftStart(null); setDraftEnd(null); }} style={styles.preset}><Text style={styles.presetText}>All time</Text></Pressable>}
           </View>
         ) : null}
 
@@ -142,6 +128,8 @@ export const ReportRangeSheet = memo(function ReportRangeSheet({
             setDraftEnd(nextEnd);
           }}
           startDate={draftStart}
+          minimumDate={minimumDate}
+          maximumDate={maximumDate}
         />
       </View>
     </BottomSheet>

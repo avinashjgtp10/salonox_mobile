@@ -147,7 +147,7 @@ function AttendanceScreenContent() {
 
       <AttendanceSummaryCards summary={summary} />
       {canManageAttendance && ["salon_owner", "admin"].includes(currentUser?.role ?? "") ? (
-        <TouchableOpacity onPress={() => router.push("/team/attendance-tools" as never)} style={styles.todayButton}>
+        <TouchableOpacity onPress={() => router.push("/team/attendance-tools" as never)} style={[styles.todayButton, { marginTop: Spacing.md }]}>
           <Text style={styles.todayButtonText}>Attendance rules, devices & export</Text>
         </TouchableOpacity>
       ) : null}
@@ -211,6 +211,7 @@ function AttendanceScreenContent() {
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
       <AppStatusBar />
       <RefreshViewport><TourFlatList
+        keyboardAware
         contentContainerStyle={styles.content}
         data={isInitialLoading ? [] : rows}
         keyExtractor={(item) => item.staffMember.id}

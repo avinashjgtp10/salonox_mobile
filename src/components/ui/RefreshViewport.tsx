@@ -1,4 +1,4 @@
-import { cloneElement, isValidElement, useRef, useState, type ReactElement } from "react";
+import { cloneElement, isValidElement, useEffect, useRef, useState, type ReactElement } from "react";
 import { Platform, RefreshControl, StyleSheet, View, type RefreshControlProps, type ScrollViewProps, type ViewStyle } from "react-native";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { useThemeColors } from "@/theme/ThemeProvider";
@@ -31,13 +31,19 @@ export function RefreshViewport({ children }: { children: ReactElement<Refreshab
   const [pulling, setPulling] = useState(false);
   const offset = useRef(0);
   const touchStart = useRef<number | null>(null);
+  const userRefreshRequested = useRef(false);
   const { props } = children;
   const control = props.refreshControl ?? (props.onRefresh ? <RefreshControl refreshing={Boolean(props.refreshing)} onRefresh={props.onRefresh} progressViewOffset={props.progressViewOffset} /> : undefined);
   const validControl = isValidElement<RefreshControlProps>(control);
   const refreshing = validControl && control.props.refreshing;
   const enabled = validControl && control.props.enabled !== false && props.scrollEnabled !== false;
   const { outer, inner } = splitStyle(props.style);
-  const showLoader = refreshing || (enabled && pulling);
+  // Focus, socket and polling refreshes retain visible content without a
+  // spinner. Only an intentional pull displays the refresh indicator.
+  const showLoader = (refreshing && userRefreshRequested.current) || (enabled && pulling);
+  useEffect(() => {
+    if (!refreshing) userRefreshRequested.current = false;
+  }, [refreshing]);
 
   if (!validControl) return children;
 
@@ -54,7 +60,10 @@ export function RefreshViewport({ children }: { children: ReactElement<Refreshab
           title: "",
           onRefresh: () => {
             setPulling(false);
-            if (enabled && !refreshing) void control.props.onRefresh?.();
+            if (enabled && !refreshing) {
+              userRefreshRequested.current = true;
+              void control.props.onRefresh?.();
+            }
           },
         }),
         scrollEventThrottle: props.scrollEventThrottle ?? 16,
@@ -67,7 +76,7 @@ export function RefreshViewport({ children }: { children: ReactElement<Refreshab
           props.onTouchStart?.(event);
         },
         onTouchMove: (event) => {
-          setPulling(enabled && touchStart.current !== null && offset.current <= 0 && event.nativeEvent.pageY - touchStart.current > 12);
+          setPulling(enabled && touchStart.current !== null && offset.current <= 0 && event.nativeEvent.pageY - touchStart.current > 40);
           props.onTouchMove?.(event);
         },
         onTouchEnd: (event) => {
