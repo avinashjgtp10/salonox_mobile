@@ -7,7 +7,7 @@ import Constants from "expo-constants";
 import { Ionicons } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
 import { router, type Href } from "expo-router";
-import { Linking, Modal, StyleSheet, TouchableOpacity, View } from "react-native";
+import { KeyboardAvoidingView, Linking, Modal, Platform, StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
@@ -481,7 +481,10 @@ function MoreScreenContent() {
         transparent
         visible={isReportModalVisible}
       >
-        <View style={styles.modalBackdrop}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          style={styles.modalBackdrop}
+        >
           <View style={styles.reportModal}>
             <View style={styles.reportModalHeader}>
               <Text style={styles.reportModalTitle}>Report a Problem</Text>
@@ -528,7 +531,7 @@ function MoreScreenContent() {
               )}
             </TouchableOpacity>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );
