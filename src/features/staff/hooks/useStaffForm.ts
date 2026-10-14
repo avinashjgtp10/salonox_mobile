@@ -194,7 +194,11 @@ export const useStaffForm = (staffId?: string | null) => {
     }
 
     if (succeeded) {
-      toast.showSuccess(isEditMode ? "Staff updated successfully." : "Staff created successfully.");
+      if (createStaffThunk.fulfilled.match(action) && action.payload.activationWarning) {
+        toast.showWarning(action.payload.activationWarning);
+      } else {
+        toast.showSuccess(isEditMode ? "Staff updated successfully." : "Staff created successfully.");
+      }
 
       void dispatch(
         fetchStaffThunk({

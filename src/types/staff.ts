@@ -23,6 +23,7 @@ export type CreateStaffRequest = {
   gender?: string;
   holidays?: number;
   job_title?: string;
+  is_active?: boolean;
   joined_date?: string;
   last_name?: string;
   login_access?: boolean;
@@ -40,6 +41,7 @@ export type CreateStaffRequest = {
 };
 
 export type CreateStaffResponse = {
+  activationWarning?: string;
   message?: string;
   staffMember: StaffMember;
 };
