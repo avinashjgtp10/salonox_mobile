@@ -9,6 +9,7 @@ import { InvoicePreview } from "./InvoicePreview";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { printerService } from "@/services/printer.service";
 import type { ReceiptData } from "@/utils/receiptGenerator";
+import { receiptAssetUrl } from "@/utils/receiptAssets";
 import { useThemeColors } from "@/theme/ThemeProvider";
 
 interface ReceiptModalProps {
@@ -24,11 +25,12 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
 }) => {
   const { clientName } = useClientPrivacy();
   const Colors = useThemeColors();
-  const [paperSize, setPaperSize] = useState<"A4" | "80mm" | "58mm">(receiptData.paperSize ?? "A4");
+  const [paperSize, setPaperSize] = useState<"A4" | "80mm" | "58mm">(receiptData.paperSize ?? "80mm");
   const [isActionLoading, setIsActionLoading] = useState(false);
 
   const activeData: ReceiptData = {
     ...receiptData,
+    salon: { ...receiptData.salon, logoUrl: receiptAssetUrl(receiptData.salon.logoUrl) },
     client: { ...receiptData.client, name: clientName(receiptData.client.name) },
     paperSize,
   };
