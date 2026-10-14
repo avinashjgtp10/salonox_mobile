@@ -26,6 +26,7 @@ import { notificationDeviceStorage } from "@/services/notificationDeviceStorage"
 import { notifySessionInvalidated } from "@/services/sessionInvalidation";
 import { tokenStorage } from "@/services/tokenStorage";
 import { isStaffBusinessWrite } from "@/utils/staffAccess";
+import { forwardRequestCancellation } from "./requestCancellation";
 import type { ApiResponse, RefreshTokenResponseData } from "@/types/auth";
 
 export const API_BASE_URL = environmentConfig.apiBaseUrl;
@@ -34,6 +35,8 @@ export const CHECKOUT_REQUEST_TIMEOUT_MS = 45000;
 
 type RetryableRequestConfig = InternalAxiosRequestConfig & {
   _logoutAbortController?: AbortController;
+  _releaseCallerCancellation?: () => void;
+  _callerSignal?: InternalAxiosRequestConfig["signal"];
   _networkRetry?: boolean;
   _retry?: boolean;
 };
@@ -289,6 +292,12 @@ requestUrl.includes("/auth/register") ||
   requestUrl.includes("/app/version");
 
 const releaseProtectedRequest = (config?: RetryableRequestConfig) => {
+  if (config?._releaseCallerCancellation) {
+    config._releaseCallerCancellation();
+    config.signal = config._callerSignal;
+    delete config._releaseCallerCancellation;
+    delete config._callerSignal;
+  }
   const controller = config?._logoutAbortController;
 
   if (controller) {
@@ -431,6 +440,9 @@ api.interceptors.request.use(async (config) => {
   }
 
   const logoutAbortController = new AbortController();
+  const retryConfig = config as RetryableRequestConfig;
+  retryConfig._callerSignal = config.signal;
+  retryConfig._releaseCallerCancellation = forwardRequestCancellation(config.signal, logoutAbortController);
   config.signal = logoutAbortController.signal;
   (config as RetryableRequestConfig)._logoutAbortController = logoutAbortController;
   protectedRequestControllers.add(logoutAbortController);

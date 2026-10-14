@@ -54,15 +54,7 @@ export default function NewAuditProduct() {
       setBusy(true);
       setError("");
       try {
-        const audit = await productAuditService.addItems(auditId, [id]);
-        if (physicalQuantity.current !== null) {
-          const item = audit.items.find((row) => row.product_id === id);
-          if (!item) throw new Error("Product was not returned in the audit. Retry adding it.");
-          await productAuditService.updateItem(auditId, item.id, {
-            physical_qty: physicalQuantity.current,
-            reason: "Physical quantity entered when adding the product",
-          });
-        }
+        await productAuditService.attachProduct(auditId, id, physicalQuantity.current);
         router.replace(`/product-audits/${auditId}` as Href);
       } catch (e) {
         setError(getApiErrorMessage(e));
