@@ -16,6 +16,7 @@ import { Dimensions, FlatList, Keyboard, Platform, Pressable, ScrollView, Sectio
 
 import { AppRadius } from "@/constants/layout";
 import { useThemeColors } from "@/theme/ThemeProvider";
+import { FormFieldFocusContext } from "@/components/ui/KeyboardAwareForm";
 
 export type KeyboardNavigationField = {
   disabled?: boolean;
@@ -620,18 +621,21 @@ export const KeyboardAwareScrollView = forwardRef<
 
 export type KeyboardAwareFlatListProps<ItemT> = FlatListProps<ItemT> & {
   extraScrollPadding?: number;
+  autoReveal?: boolean;
 };
 
 export const KeyboardAwareFlatList = forwardRef(function KeyboardAwareFlatList<
   ItemT,
 >(
-  { extraScrollPadding = 40, contentContainerStyle, ...flatListProps }: KeyboardAwareFlatListProps<ItemT>,
+  { extraScrollPadding = 40, contentContainerStyle, autoReveal = false, ...flatListProps }: KeyboardAwareFlatListProps<ItemT>,
   forwardedRef: React.ForwardedRef<FlatList<ItemT>>,
 ) {
   const {
     scrollRef,
     combinedContentContainerStyle,
     onScroll,
+    scrollToFocusedInput,
+    keyboardHeightState,
   } = useKeyboardAwareScrollView<FlatList<ItemT>>({
     extraScrollPadding,
     contentContainerStyle,
@@ -640,10 +644,42 @@ export const KeyboardAwareFlatList = forwardRef(function KeyboardAwareFlatList<
 
   useImperativeHandle(forwardedRef, () => scrollRef.current as FlatList<ItemT>);
 
+  const focusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [focusKeyboardHeight, setFocusKeyboardHeight] = useState(0);
+  const revealField = useCallback((field: unknown) => {
+    if (!field) return;
+    if (focusTimer.current) clearTimeout(focusTimer.current);
+    const reportedHeight = getKeyboardMetricsHeight();
+    const height = reportedHeight || Dimensions.get("window").height * 0.4;
+    setFocusKeyboardHeight(height);
+    focusTimer.current = setTimeout(() => {
+      scrollToFocusedInput(height, field);
+    }, reportedHeight ? 60 : 450);
+  }, [scrollToFocusedInput]);
+  useEffect(() => {
+    if (!autoReveal) return;
+    const hidden = Keyboard.addListener("keyboardDidHide", () => {
+      if (focusTimer.current) clearTimeout(focusTimer.current);
+      setFocusKeyboardHeight(0);
+    });
+    return () => hidden.remove();
+  }, [autoReveal]);
+  useEffect(() => () => {
+    if (focusTimer.current) clearTimeout(focusTimer.current);
+  }, []);
+  const baseBottomPadding = StyleSheet.flatten(contentContainerStyle)?.paddingBottom;
+
   return (
+    <FormFieldFocusContext.Provider value={autoReveal ? revealField : null}>
     <FlatList
+      {...flatListProps}
       ref={scrollRef}
-      contentContainerStyle={combinedContentContainerStyle}
+      contentContainerStyle={[
+        combinedContentContainerStyle,
+        autoReveal && keyboardHeightState <= 0 && focusKeyboardHeight > 0
+          ? { paddingBottom: (typeof baseBottomPadding === "number" ? baseBottomPadding : 0) + focusKeyboardHeight + extraScrollPadding }
+          : null,
+      ]}
       keyboardShouldPersistTaps={
         flatListProps.keyboardShouldPersistTaps ?? "handled"
       }
@@ -652,8 +688,8 @@ export const KeyboardAwareFlatList = forwardRef(function KeyboardAwareFlatList<
       }
       onScroll={onScroll}
       scrollEventThrottle={flatListProps.scrollEventThrottle ?? 16}
-      {...flatListProps}
     />
+    </FormFieldFocusContext.Provider>
   );
 }) as <ItemT>(
   props: KeyboardAwareFlatListProps<ItemT> & { ref?: React.Ref<FlatList<ItemT>> },

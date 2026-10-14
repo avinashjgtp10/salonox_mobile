@@ -36,6 +36,7 @@ import { isValidStaffId, normalizeStaffId } from "@/utils/staffIds";
 type StaffApiService = string | { name?: string | null; title?: string | null };
 
 type StaffAddressApiItem = {
+  address_name?: string | null;
   address?: string | null;
   address_line?: string | null;
   address_line1?: string | null;
@@ -494,7 +495,7 @@ const isCreatedStaffAddressEnvelope = (
   address?: StaffAddressApiItem | null;
   data?: StaffAddressApiItem | null;
   staff_address?: StaffAddressApiItem | null;
-} => "address" in payload || "data" in payload || "staff_address" in payload;
+} => (typeof payload.address === "object" && payload.address !== null) || "data" in payload || "staff_address" in payload;
 
 const getCreatedStaffAddress = (
   payload: CreateStaffAddressApiData,
@@ -590,6 +591,10 @@ const getAddressPagination = (
   pageCount: number,
   totalCount: number,
 ): StaffListPagination => {
+  // These endpoints return all records as a flat array, without server pagination.
+  if (Array.isArray(payload)) {
+    return { hasMore: false, limit: Math.max(query.limit, payload.length), nextPage: 2, page: 1, totalCount: payload.length, totalPages: 1 };
+  }
   const payloadPagination = Array.isArray(payload) ? null : payload.pagination;
   const page = toSafeNumber(payloadPagination?.page) || query.page;
   const limit = toSafeNumber(payloadPagination?.limit) || query.limit;
@@ -623,6 +628,10 @@ const getEmergencyContactPagination = (
   pageCount: number,
   totalCount: number,
 ): StaffListPagination => {
+  // These endpoints return all records as a flat array, without server pagination.
+  if (Array.isArray(payload)) {
+    return { hasMore: false, limit: Math.max(query.limit, payload.length), nextPage: 2, page: 1, totalCount: payload.length, totalPages: 1 };
+  }
   const payloadPagination = Array.isArray(payload) ? null : payload.pagination;
   const page = toSafeNumber(payloadPagination?.page) || query.page;
   const limit = toSafeNumber(payloadPagination?.limit) || query.limit;
@@ -758,7 +767,7 @@ const normalizeStaffAddress = (
     toSafeString(address.zip, "-"),
   staffId: toSafeString(address.staff_id, staffId),
   state: toSafeString(address.state, "-"),
-  type: titleCase(toSafeString(address.type, "Address")),
+  type: toSafeString(address.address_name) || toSafeString(address.type, "Address"),
 });
 
 const getEmergencyContactName = (contact: StaffEmergencyContactApiItem) =>

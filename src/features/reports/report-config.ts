@@ -1,6 +1,7 @@
 import type { ComponentProps } from "react";
 import type { Ionicons } from "@expo/vector-icons";
 import { REPORT_FILTER_FIELDS } from "./report-filters";
+import { getDateRangePreset } from "@/utils/dateRangePresets";
 
 export type ReportSlug =
   | "sales-summary"
@@ -154,7 +155,7 @@ const baseReportConfigs: ReportConfig[] = [
   available({ slug: "gst-report", title: "GST Report", subtitle: "Tax collected per invoice.", group: "Sales", icon: "document-text-outline", endpoint: "/api/report/gst", filters: ["start_date", "end_date", "staff_id", "search"], paginated: true, primaryFields: ["invoiceNo", "clientName", "taxableAmount", "taxAmount"], emptyMessage: "No GST records found" }),
   available({ slug: "product-margin", title: "Product Margin", subtitle: "Profit margin per product.", group: "Sales", icon: "trending-up-outline", endpoint: "/api/report/product-margin", filters: ["start_date", "end_date"], paginated: true, primaryFields: ["productName", "quantity", "profit", "marginPct"], emptyMessage: "No product margins found" }),
   available({ slug: "reward", title: "Reward", subtitle: "Reward points available and redeemed to date, per client.", group: "Sales", icon: "gift-outline", endpoint: "/api/report/reward-points", filters: ["search"], paginated: true, primaryFields: ["clientName", "pointsAvailable", "pointsEarned", "pointsRedeemed"], emptyMessage: "No reward points found" }),
-  available({ slug: "ewallet", title: "E-Wallet", subtitle: "Client e-wallet balances.", group: "Sales", icon: "wallet-outline", endpoint: "/api/report/ewallet", filters: ["search"], paginated: true, primaryFields: ["clientName", "phone", "balance", "email"], emptyMessage: "No wallet balances found" }),
+  available({ slug: "ewallet", title: "E-Wallet", subtitle: "Client e-wallet balances.", group: "Sales", icon: "wallet-outline", endpoint: "/api/report/ewallet", filters: ["start_date", "end_date", "search"], paginated: true, primaryFields: ["clientName", "phone", "balance", "email"], emptyMessage: "No wallet balances found" }),
 
   available({ slug: "payment-collection", title: "Payment Collection Report", subtitle: "Outstanding balances per bill.", group: "Payments", icon: "cash-outline", endpoint: "/api/report/payment-collection", filters: ["start_date", "end_date", "staff_ids", "payment_statuses", "payment_methods", "search"], paginated: true, primaryFields: ["invoiceNumber", "customerName", "contact", "totalAmount", "paidAmount", "dueAmount", "paymentMethod", "paymentStatus", "staffName", "paymentDate"], emptyMessage: "No payment collection records" }),
   unavailable({ slug: "cash-management", title: "Cash Management Report", subtitle: "Live POS cash management is a separate module.", group: "Payments", icon: "receipt-outline", filters: ["date"], paginated: false, primaryFields: ["label", "amount"], emptyMessage: "No cash management data", statusReason: "Separate live POS/Cash Management feature, not a Reports API route." }),
@@ -244,6 +245,10 @@ export const createDefaultReportFilters = (slug: ReportSlug): ReportFilters => {
   const date = (value: Date) =>
     `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
   const base = { start_date: date(start), end_date: date(today), page: 1, limit: 10 };
+  if (slug === "staff-performance") {
+    const range = getDateRangePreset("this_month", today);
+    return { start_date: range.startDate, end_date: range.endDate, page: 1, limit: 10 };
+  }
   if (["product-inventory", "wa-marketing-campaign", "open-rate", "reply-rate"].includes(slug)) {
     return { date_from: date(start), date_to: date(today), page: 1, limit: 10 };
   }
@@ -252,7 +257,10 @@ export const createDefaultReportFilters = (slug: ReportSlug): ReportFilters => {
   if (slug === "appointment-detail" || slug === "upcoming-appointments") {
     return { from: date(start), to: date(today), page: 1, limit: 10 };
   }
-  if (slug === "reward" || slug === "ewallet" || slug === "supplier-report") {
+  if (slug === "ewallet") {
+    return { start_date: date(today), end_date: date(today), page: 1, limit: 10 };
+  }
+  if (slug === "reward" || slug === "supplier-report") {
     return { page: 1, limit: 10 };
   }
   if (slug === "staff-sales") return { ...base, period: "daily" };

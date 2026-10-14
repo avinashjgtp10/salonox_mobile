@@ -1,5 +1,6 @@
 import { api } from "@/services/api";
 import { PRODUCT } from "@/services/api/endpoints";
+import { productTaxCode } from "@/utils/productTax";
 import type { ApiResponse } from "@/types/auth";
 import type {
   Brand,
@@ -73,11 +74,19 @@ const normalizeProduct = (raw: ProductApiItem): Product => {
   const categoryRecord = getCategoryRecord(raw.category);
 
   return {
+    supplierId: toStringValue(raw.supplier_id) || null,
+    supplierName: toStringValue(raw.supplier_name) || null,
+    taxType: toStringValue(raw.tax_type) || null,
+    taxGroup: toStringValue(raw.tax_group) || null,
+    hsnSac: toStringValue(raw.hsn_sac) || null,
+    lotNumber: toStringValue(raw.lot_number) || null,
+    remark: toStringValue(raw.remark) || null,
+    expiryDate: toStringValue(raw.expiry_date) || null,
     bottleSize: bottleSize != null ? toNumberValue(bottleSize) : null,
     brandId: toStringValue(raw.brand_id ?? raw.brandId ?? brand?.id) || null,
-    brandName: toStringValue(brand?.name) || null,
+    brandName: toStringValue(brand?.name ?? raw.brand_name) || null,
     category:
-      toStringValue(categoryRecord?.name ?? categoryRecord?.category_name) ||
+      toStringValue(categoryRecord?.name ?? categoryRecord?.category_name ?? raw.category_name) ||
       toStringValue(raw.category) ||
       null,
     categoryId:
@@ -91,6 +100,9 @@ const normalizeProduct = (raw: ProductApiItem): Product => {
       raw.low_stock_threshold ?? raw.lowStockThreshold ?? raw.qty_alert ?? raw.qtyAlert,
       5,
     ),
+    lowStockThresholdBaseUnits: raw.qty_alert != null
+      ? toNumberValue(raw.qty_alert) * (toNumberValue(raw.qty_alert_unit_size) || toNumberValue(bottleSize) || 1)
+      : toNumberValue(raw.low_stock_threshold ?? raw.lowStockThreshold, 0),
     markupPercentage: markupPercentage != null ? toNumberValue(markupPercentage) : null,
     measureUnit: toStringValue(measureUnit) || null,
     name: toStringValue(raw.name, "Unnamed product"),
@@ -222,7 +234,8 @@ export const productService = {
   },
 
   async createProduct(payload: CreateProductRequest): Promise<CreateProductResponse> {
-    const { data } = await api.post<ApiResponse<ProductDetailData>>(PRODUCT.CREATE, payload);
+    const body = payload.tax_type === undefined ? payload : { ...payload, tax_type: productTaxCode(payload.tax_type) };
+    const { data } = await api.post<ApiResponse<ProductDetailData>>(PRODUCT.CREATE, body);
     const item = getDetailItem<ProductApiItem>(data.data ?? null);
     if (!item) throw new Error("Product was created, but no product was returned.");
     return { message: data.message, product: requireId(normalizeProduct(item), "Product") };
@@ -232,9 +245,10 @@ export const productService = {
     id: string,
     payload: UpdateProductRequest,
   ): Promise<UpdateProductResponse> {
+    const body = payload.tax_type === undefined ? payload : { ...payload, tax_type: productTaxCode(payload.tax_type) };
     const { data } = await api.patch<ApiResponse<ProductDetailData>>(
       PRODUCT.UPDATE(id),
-      payload,
+      body,
     );
     const item = getDetailItem<ProductApiItem>(data.data ?? null);
     if (!item) return { message: data.message, product: await this.fetchProductById(id) };

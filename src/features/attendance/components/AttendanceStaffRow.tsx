@@ -1,8 +1,9 @@
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { AttendanceActivityDetails } from "./AttendanceActivityDetails";
 import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { memo, useMemo } from "react";
-import { ActivityIndicator, StyleSheet, TouchableOpacity, View } from "react-native";
+import { StyleSheet, TouchableOpacity, View } from "react-native";
 
 import { AppRadius } from "@/constants/layout";
 import { DashboardRadius as Radius, DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
@@ -44,7 +45,9 @@ function AttendanceStaffRowComponent({
     typeof record?.scheduledHours === "number" && record.scheduledHours > 0
       ? `${record.scheduledHours.toFixed(record.scheduledHours % 1 === 0 ? 0 : 1)}h scheduled`
       : "Schedule --";
-  const showPrimaryAction = canManageAttendance && record?.activity?.current_status !== "ON_BREAK";
+  const hasPunches = Boolean(record?.checkInTime || record?.checkOutTime);
+  const canUseAttendanceActions = canManageAttendance && (!record?.onApprovedLeave || hasPunches);
+  const showPrimaryAction = canUseAttendanceActions && record?.activity?.current_status !== "ON_BREAK";
 
   const primaryButtonStyle = [
     styles.primaryButton,
@@ -110,7 +113,7 @@ function AttendanceStaffRowComponent({
           </TouchableOpacity>
         ) : null}
 
-        {canManageAttendance && action.kind !== "edit" ? (
+        {canUseAttendanceActions && action.kind !== "edit" ? (
           <TouchableOpacity activeOpacity={0.85} onPress={onOpenModal} style={styles.secondaryButton}>
             <Ionicons name="create-outline" size={15} color={Colors.primaryDark} />
           </TouchableOpacity>

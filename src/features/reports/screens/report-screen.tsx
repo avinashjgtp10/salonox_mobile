@@ -1,3 +1,4 @@
+import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { countReportFilters } from "@/features/reports/report-filters";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
@@ -11,7 +12,8 @@ import { AppLayout, AppRadius } from "@/constants/layout";
 import { DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
 import { useDebouncedValue } from "@/features/quickSale/hooks/useDebouncedValue";
 import { ReportFilterSheet } from "@/features/reports/components/report-filter-sheet";
-import { ReportRangeSheet } from "@/features/reports/components/report-range-sheet";
+import { DateRangePickerSheet } from "@/components/ui/DateRangePickerSheet";
+import { dateRangeLabel as describeDateRange } from "@/utils/dateRangePresets";
 import {
   ReportPaginationFooter,
   ReportRowCard,
@@ -36,7 +38,6 @@ import { fetchReportThunk } from "@/middleware/report/report.thunk";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { rememberReportFilters, selectReportEntry } from "@/store/report/report.slice";
 import { useThemeColors } from "@/theme/ThemeProvider";
-import { formatAppDate } from "@/utils/dateTime";
 
 const getInvoiceDetailSaleId = (row: ReportRow, slug: ReportConfig["slug"]) => {
   const saleId = row.saleId ?? row.id;
@@ -81,9 +82,7 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
       return "All time";
     }
 
-    const formattedStart = formatAppDate(rangeStart, rangeStart);
-
-    return rangeEnd ? `${formattedStart}  –  ${formatAppDate(rangeEnd, rangeEnd)}` : formattedStart;
+    return describeDateRange(rangeStart, rangeEnd);
   }, [filters.date, filters.from, filters.date_from, filters.start_date, filters.to, filters.date_to, filters.end_date]);
   const hasMore = Boolean(config.paginated && pagination && pagination.page < pagination.totalPages);
   const supportsSearch = config.filters.includes("search");
@@ -192,9 +191,11 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
     </View>
   ) : null;
 
-  const dateSelector = (
+  const dateSelector = dateKeys ? (
     <TouchableOpacity
-      accessibilityHint="Opens a calendar to pick the report date range"
+      accessibilityHint={config.slug === "ewallet"
+        ? "Select a range. Its end date filters clients registered by that day; balances are current."
+        : "Opens a calendar to pick the report date range"}
       accessibilityRole="button"
       disabled={isUnavailable || !dateKeys}
       onPress={() => setRangeSheetVisible(true)}
@@ -209,7 +210,7 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
       </View>
       <Ionicons name="chevron-down" size={16} color={Colors.hint} />
     </TouchableOpacity>
-  );
+  ) : null;
 
   // Website layout: a labeled "Filters" button next to the date range, like the web report.
   const filtersButton = (
@@ -301,7 +302,8 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
   );
 
   const rangeSheet = dateKeys ? (
-    <ReportRangeSheet
+    <DateRangePickerSheet
+      allowAllTime={dateKeys.mode === "range"}
       endDate={dateKeys.end ? filters[dateKeys.end] ?? null : null}
       mode={dateKeys.mode}
       onApply={applyRange}
@@ -342,7 +344,7 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
   return (
     <SafeAreaView edges={["top"]} style={styles.safe}>
       <AppStatusBar />
-      <FlatList
+      <RefreshViewport><FlatList
         contentContainerStyle={styles.listContent}
         contentInsetAdjustmentBehavior="automatic"
         data={rows}
@@ -392,7 +394,7 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
         showsVerticalScrollIndicator={false}
         updateCellsBatchingPeriod={50}
         windowSize={7}
-      />
+      /></RefreshViewport>
       <ReportFilterSheet
         slug={config.slug}
         data={entry?.data}

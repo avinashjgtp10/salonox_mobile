@@ -26,11 +26,7 @@ import { isValidStaffId } from "@/utils/staffIds";
 
 const EMPTY_FORM: StaffAddressFormFields = {
   addressLine: "",
-  city: "",
-  country: "",
-  postalCode: "",
-  state: "",
-  type: "",
+  addressName: "",
 };
 
 const clearPlaceholder = (value: string) => (value === "-" ? "" : value);
@@ -39,11 +35,7 @@ const getFormFromAddress = (address?: StaffAddressListItem | null): StaffAddress
   address
     ? {
         addressLine: clearPlaceholder(address.addressLine),
-        city: clearPlaceholder(address.city),
-        country: clearPlaceholder(address.country),
-        postalCode: clearPlaceholder(address.postalCode),
-        state: clearPlaceholder(address.state),
-        type: address.type,
+        addressName: address.type,
       }
     : EMPTY_FORM;
 
@@ -67,8 +59,8 @@ export const useStaffAddresses = (staffId?: string | null): StaffAddressControll
   );
   const saving = creating || updating;
   const validation = useMemo(
-    () => validateStaffAddressForm({ address: form.addressLine, address_line: form.addressLine }),
-    [form.addressLine],
+    () => validateStaffAddressForm({ address: form.addressLine, address_name: form.addressName }),
+    [form.addressLine, form.addressName],
   );
   const error = editingAddress ? updateError : createError;
 
@@ -166,12 +158,7 @@ export const useStaffAddresses = (staffId?: string | null): StaffAddressControll
 
     const payload = mapStaffAddressFormToRequest({
       address: form.addressLine,
-      address_line: form.addressLine,
-      city: form.city,
-      country: form.country,
-      postal_code: form.postalCode,
-      state: form.state,
-      type: form.type,
+      address_name: form.addressName,
     });
 
     const action = editingAddress

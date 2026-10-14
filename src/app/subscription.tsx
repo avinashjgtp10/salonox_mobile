@@ -1,3 +1,5 @@
+import { RefreshViewport } from "@/components/ui/RefreshViewport";
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -5,7 +7,7 @@ import * as Linking from "expo-linking";
 import { router } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, View } from "react-native";
+import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAuth } from "@/context/AuthContext";
@@ -167,7 +169,7 @@ export default function SubscriptionScreen() {
 
   return (
     <LinearGradient colors={[colors.bg, colors.bg2]} style={styles.screen}>
-      <ScrollView
+      <RefreshViewport><ScrollView
         contentContainerStyle={[
           styles.content,
           { paddingBottom: Math.max(insets.bottom + 32, 48), paddingTop: Math.max(insets.top + 28, 44) },
@@ -319,7 +321,7 @@ export default function SubscriptionScreen() {
             {isSigningOut ? "Signing out..." : "Cancel / Log In"}
           </Text>
         </Pressable>
-      </ScrollView>
+      </ScrollView></RefreshViewport>
     </LinearGradient>
   );
 }

@@ -147,7 +147,11 @@ export const validateStaffAddressForm = (
 ): ValidationResult => {
   const errors: Record<string, string> = {};
 
-  if (!isPresent(values.address) && !isPresent(values.address_line)) {
+  if (!isPresent(values.address_name)) {
+    errors.address_name = "Address name is required.";
+  }
+
+  if (!isPresent(values.address)) {
     errors.address = "Address is required.";
   }
 
@@ -167,6 +171,8 @@ export const validateEmergencyContactForm = (
 
   if (!isPresent(values.relationship)) {
     errors.relationship = "Relationship is required.";
+  } else if (!["spouse", "parent", "sibling", "child", "friend", "colleague", "other"].includes(values.relationship!.trim().toLowerCase())) {
+    errors.relationship = "Choose spouse, parent, sibling, child, friend, colleague or other.";
   }
 
   if (!isPresent(phone)) {

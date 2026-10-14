@@ -1,3 +1,4 @@
+import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { appAlert as Alert } from "@/services/appAlert";
 import { TourView, TourButton, TourScrollView, TourFlatList, withScreenTour } from "@/features/userGuide/DashboardTour";
@@ -531,6 +532,7 @@ function TeamScreenContent() {
           <Text style={styles.sortButtonText}>{sortOption}</Text>
         </TourButton>
       </View>
+      {dailyMetrics.leaveError ? <Text style={{ color: Colors.error }}>Could not refresh staff leave status. Pull down to retry.</Text> : null}
     </View>
   );
 
@@ -554,7 +556,7 @@ function TeamScreenContent() {
             ))}
           </TourScrollView>
         ) : (
-          <TourFlatList
+          <RefreshViewport><TourFlatList
             initialNumToRender={4}
             maxToRenderPerBatch={4}
             windowSize={7}
@@ -605,7 +607,7 @@ function TeamScreenContent() {
             }
             renderItem={renderItem}
             showsVerticalScrollIndicator={false}
-          />
+          /></RefreshViewport>
         )}
 
         <TourButton tourId="add" activeOpacity={0.88} onPress={handleAddStaff} style={styles.floatingButton}>

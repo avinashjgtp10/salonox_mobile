@@ -1,9 +1,11 @@
+import { RefreshViewport } from "@/components/ui/RefreshViewport";
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { appAlert as Alert } from "@/services/appAlert";
 import { Ionicons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, TouchableOpacity, View } from "react-native";
+import { FlatList, RefreshControl, StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
@@ -354,7 +356,7 @@ export default function UsersScreen() {
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
       <AppStatusBar />
 
-      <FlatList
+      <RefreshViewport><FlatList
         ListEmptyComponent={
           showInitialLoading ? (
             <View>
@@ -460,7 +462,7 @@ export default function UsersScreen() {
         removeClippedSubviews
         showsVerticalScrollIndicator={false}
         windowSize={8}
-      />
+      /></RefreshViewport>
     </SafeAreaView>
   );
 }

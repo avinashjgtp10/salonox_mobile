@@ -1,3 +1,4 @@
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
 import { appAlert as Alert } from "@/services/appAlert";
 import { Ionicons } from "@expo/vector-icons";
@@ -5,7 +6,7 @@ import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { Redirect, router, useLocalSearchParams, type Href } from "expo-router";
 import { useMemo, useState } from "react";
-import { ActivityIndicator, StyleSheet, Switch, TouchableOpacity, View } from "react-native";
+import { StyleSheet, Switch, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import type { CountryCode } from "libphonenumber-js";
 
@@ -485,18 +486,12 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
             </View>
           </View>
 
-          <StaffTextField
-            label="Notes"
-            multiline
-            onChangeText={(value) => form.updateField("notes", value)}
-            placeholder="Internal notes"
-            value={form.values.notes}
-          />
+
         </View>
 
         <View style={styles.card}>
           <View style={styles.loginHeaderRow}>
-            <Text style={styles.sectionHeading}>Staff Login</Text>
+            <Text style={styles.sectionHeading}>Set Login Password</Text>
             <Switch
               onValueChange={(value) => form.updateField("isLoginEnabled", value)}
               thumbColor="#FFFFFF"

@@ -1,3 +1,4 @@
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { appAlert as Alert } from "@/services/appAlert";
 import { TourScrollView, TourButton, withScreenTour } from "@/features/userGuide/DashboardTour";
@@ -6,7 +7,7 @@ import Constants from "expo-constants";
 import { Ionicons } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
 import { router, type Href } from "expo-router";
-import { ActivityIndicator, Linking, Modal, StyleSheet, TouchableOpacity, View } from "react-native";
+import { KeyboardAvoidingView, Linking, Modal, Platform, StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
@@ -26,9 +27,8 @@ import { AppLayout, AppRadius } from "@/constants/layout";
 import { useAppSelector } from "@/store/hooks";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { selectCurrentUser } from "@/store/user/user.slice";
-import { canViewConsumableInventory } from "@/utils/permissions";
+import { hasInventoryPermission } from "@/utils/permissions";
 import {
-  canSettleCommission,
   getUserAddressLine,
   getUserBusinessName,
   getUserFullName,
@@ -42,10 +42,10 @@ const SUPPORT_EMAIL = "support@salonox.com";
 
 const MENU_ITEMS = [
   {
-    description: "Search, segment, and manage salon clients with visit history and memberships.",
-    icon: "people-outline" as const,
-    route: "/clients" as Href,
-    title: "Clients",
+    description: "Count products, scan packaging, and review inventory differences.",
+    icon: "clipboard-outline" as const,
+    route: "/product-audits" as Href,
+    title: "Product Audit",
   },
   {
     description: "Sync your phone contacts and import them as clients.",
@@ -54,34 +54,10 @@ const MENU_ITEMS = [
     title: "Import Contacts",
   },
   {
-    description: "Browse, search, and filter your salon's service menu.",
-    icon: "pricetags-outline" as const,
-    route: "/services" as Href,
-    title: "Services",
-  },
-  {
-    description: "Create premium plans, benefits, validity, and online redemption rules.",
-    icon: "diamond-outline" as const,
-    route: "/memberships" as Href,
-    title: "Memberships",
-  },
-  {
-    description: "Search, filter, and export completed and draft sales.",
-    icon: "receipt-outline" as const,
-    route: "/sales" as Href,
-    title: "Sales Summary",
-  },
-  {
     description: "Check staff in and out, and review today's attendance across your salon.",
     icon: "time-outline" as const,
     route: "/team/attendance" as Href,
     title: "Attendance",
-  },
-  {
-    description: "Track staff commissions and settle payments across your salon.",
-    icon: "cash-outline" as const,
-    route: "/team/commissions" as Href,
-    title: "Commissions",
   },
   {
     description: "Update your salon's business details, contact info, and address.",
@@ -101,18 +77,6 @@ const MENU_ITEMS = [
     route: "/notification-settings" as Href,
     title: "Notifications",
   },
-  {
-    description: "Manage products, brands, pricing, and stock levels.",
-    icon: "layers-outline" as const,
-    route: "/stock" as Href,
-    title: "Products",
-  },
-  {
-    description: "Track consumable stock, usage history, and service assignments.",
-    icon: "flask-outline" as const,
-    route: "/consumables" as Href,
-    title: "Consumables",
-  },
 ];
 
 function MoreScreenContent() {
@@ -120,23 +84,13 @@ function MoreScreenContent() {
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const { signOut, signOutAll } = useAuth();
   const currentUser = useAppSelector(selectCurrentUser);
+  const visibleMenuItems = MENU_ITEMS.filter(item => item.title !== "Product Audit" || hasInventoryPermission(currentUser, "view_product_audit"));
   const fullName = getUserFullName(currentUser);
   const businessName = getUserBusinessName(currentUser);
   const roleLabel = getUserRoleLabel(currentUser);
   const initials = getUserInitials(currentUser);
   const addressLine = getUserAddressLine(currentUser);
   const isEmailVerified = currentUser?.isVerified !== false;
-  const visibleMenuItems = useMemo(
-    () =>
-      MENU_ITEMS.filter((item) => {
-        if (item.title === "Commissions") {
-          return canSettleCommission(currentUser?.role);
-        }
-
-        return item.title !== "Consumables" || canViewConsumableInventory(currentUser);
-      }),
-    [currentUser],
-  );
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isLoggingOutAll, setIsLoggingOutAll] = useState(false);
   const [isSendingOtp, setIsSendingOtp] = useState(false);
@@ -535,7 +489,10 @@ function MoreScreenContent() {
         transparent
         visible={isReportModalVisible}
       >
-        <View style={styles.modalBackdrop}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          style={styles.modalBackdrop}
+        >
           <View style={styles.reportModal}>
             <View style={styles.reportModalHeader}>
               <Text style={styles.reportModalTitle}>Report a Problem</Text>
@@ -582,7 +539,7 @@ function MoreScreenContent() {
               )}
             </TouchableOpacity>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );

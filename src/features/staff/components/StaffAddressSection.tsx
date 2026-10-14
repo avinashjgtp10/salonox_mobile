@@ -1,8 +1,9 @@
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
 import { appAlert as Alert } from "@/services/appAlert";
 import { Ionicons } from "@expo/vector-icons";
 import { useMemo } from "react";
-import { ActivityIndicator, StyleSheet, TouchableOpacity, View } from "react-native";
+import { StyleSheet, TouchableOpacity, View } from "react-native";
 
 import {
   DashboardRadius as Radius,
@@ -52,10 +53,7 @@ function AddressRow({ address, canDelete, onDelete, onEdit, staffId }: AddressRo
           ) : null}
         </View>
         <Text style={styles.addressLine}>{address.addressLine}</Text>
-        <Text style={styles.addressMeta}>
-          {[address.city, address.state, address.postalCode].filter(Boolean).join(", ")}
-        </Text>
-        <Text style={styles.addressMeta}>{address.country}</Text>
+
       </View>
       {canDelete ? (
       <View style={styles.rowActions}>
@@ -174,57 +172,30 @@ export function StaffAddressSection({ readOnly = false, staffId }: StaffAddressS
 
       <StaffBottomSheet
         onClose={controller.closeForm}
-        subtitle="Address line is required."
+        subtitle="Address name and full address are required."
         title={controller.editingAddress ? "Edit Address" : "Add Address"}
         visible={controller.isFormOpen}
       >
         <StaffTextField
           autoCapitalize="words"
-          label="Address Type"
-          onChangeText={(value) => controller.updateField("type", value)}
+          error={controller.formErrors.address_name}
+          label="Address Name"
+          onChangeText={(value) => controller.updateField("addressName", value)}
           placeholder="Home, Work, Billing"
-          value={controller.form.type}
+          value={controller.form.addressName}
         />
         <StaffTextField
           error={controller.formErrors.address}
-          label="Address Line"
+          label="Full Address"
           multiline
           onChangeText={(value) => controller.updateField("addressLine", value)}
-          placeholder="House / street / area"
+          placeholder="House / street / area, city, state, postal code, country"
           value={controller.form.addressLine}
-        />
-        <StaffTextField
-          autoCapitalize="words"
-          label="City"
-          onChangeText={(value) => controller.updateField("city", value)}
-          placeholder="City"
-          value={controller.form.city}
-        />
-        <StaffTextField
-          autoCapitalize="words"
-          label="State"
-          onChangeText={(value) => controller.updateField("state", value)}
-          placeholder="State"
-          value={controller.form.state}
-        />
-        <StaffTextField
-          keyboardType="number-pad"
-          label="Postal Code"
-          onChangeText={(value) => controller.updateField("postalCode", value)}
-          placeholder="Postal code"
-          value={controller.form.postalCode}
-        />
-        <StaffTextField
-          autoCapitalize="words"
-          label="Country"
-          onChangeText={(value) => controller.updateField("country", value)}
-          placeholder="Country"
-          value={controller.form.country}
         />
 
         {controller.error ? <Text style={styles.errorText}>{controller.error}</Text> : null}
         {!controller.isFormValid ? (
-          <Text style={styles.hintText}>Enter an address line to continue.</Text>
+          <Text style={styles.hintText}>Enter an address name and full address to continue.</Text>
         ) : null}
 
         <View style={styles.footer}>

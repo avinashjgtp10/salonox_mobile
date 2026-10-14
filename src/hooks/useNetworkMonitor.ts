@@ -1,12 +1,14 @@
 import NetInfo from "@react-native-community/netinfo";
 import { useEffect } from "react";
 
-import { setNetworkSnapshot } from "@/services/networkStatus";
+import { getNetworkSnapshot, setNetworkSnapshot } from "@/services/networkStatus";
 import { useAppDispatch } from "@/store/hooks";
 import { networkStatusChanged } from "@/store/network/network.slice";
 
 const toOnlineState = (isConnected: boolean | null, isInternetReachable: boolean | null) =>
-  Boolean(isConnected) && isInternetReachable !== false;
+  isConnected === false || isInternetReachable === false
+    ? false
+    : isConnected === true ? true : getNetworkSnapshot().isOnline;
 
 export const useNetworkMonitor = () => {
   const dispatch = useAppDispatch();
@@ -19,16 +21,27 @@ export const useNetworkMonitor = () => {
         isOnline: toOnlineState(isConnected, isInternetReachable),
       };
 
+      const current = getNetworkSnapshot();
+      if (current.isConnected === isConnected && current.isInternetReachable === isInternetReachable && current.isOnline === snapshot.isOnline) {
+        // Keep Redux aligned after a session reset without changing timestamps
+        // or notifying pending requests for duplicate reachability events.
+        dispatch(networkStatusChanged(current));
+        return;
+      }
+
       setNetworkSnapshot(snapshot);
       dispatch(networkStatusChanged({ ...snapshot, lastChangedAt: Date.now() }));
     };
 
+    let active = true;
     void NetInfo.fetch().then((state) => {
+      if (!active) return;
       updateNetworkState(state.isConnected, state.isInternetReachable);
-    });
+    }).catch(() => { /* An unsuccessful reachability check does not prove offline. */ });
 
-    return NetInfo.addEventListener((state) => {
+    const unsubscribe = NetInfo.addEventListener((state) => {
       updateNetworkState(state.isConnected, state.isInternetReachable);
     });
+    return () => { active = false; unsubscribe(); };
   }, [dispatch]);
 };

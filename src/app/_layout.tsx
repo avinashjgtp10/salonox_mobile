@@ -11,7 +11,7 @@ import { Portal } from '@/components/ui/Portal';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import SimpleSplash from '../components/simple-splash';
 import { AppToast } from '@/components/ui/AppToast';
-import { NetworkErrorModal } from '@/components/ui/NetworkErrorModal';
+import { NetworkStatusStrip } from '@/components/ui/NetworkStatusStrip';
 import { AppAlertHost } from '@/components/ui/AppAlertHost';
 import { StaffAttendanceGate } from '@/features/attendance/components/StaffAttendanceGate';
 import { PortalProvider } from '@/components/ui/PortalProvider';
@@ -394,6 +394,9 @@ function AppShell() {
               <BranchBootstrap />
               <StaffIdentityBootstrap />
               <StaffCalendarAccessBootstrap />
+              <View style={{ flex: 1 }}>
+              <NetworkStatusStrip />
+              <View style={{ flex: 1 }}>
               <StaffAttendanceGate>
               <Stack
                 initialRouteName="login"
@@ -425,8 +428,9 @@ function AppShell() {
                 <Stack.Screen name="explore" />
               </Stack>
               </StaffAttendanceGate>
+              </View>
+              </View>
               <SimpleSplash backgroundColor={colors.bg} isReady={isThemeHydrated && isNavigationReady} />
-              <NetworkErrorModal />
               <AppToast />
               <AppAlertHost />
             </PortalProvider>

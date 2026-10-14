@@ -2,6 +2,7 @@ import type { Href } from "expo-router";
 
 import type { AuthUser, LoginResponseData } from "@/types/auth";
 import { canManageStaffLifecycle } from "@/utils/userProfile";
+import { hasCustomPermission } from "@/utils/permissions";
 
 export const OWNER_HOME_ROUTE = "/dashboard" as Href;
 export const STAFF_HOME_ROUTE = "/(staff)/home" as Href;
@@ -17,6 +18,7 @@ const STAFF_QUICK_SALE_ROUTE = "quick-sale";
 export const isStaffAllowedRoute = (segment?: string | null, user?: AuthUser | null) =>
   segment === STAFF_ROUTE_GROUP ||
   STAFF_SHARED_ROUTES.has(segment ?? "") ||
+  (segment === "product-audits" && hasCustomPermission(user, "view_product_audit")) ||
   (segment === STAFF_QUICK_SALE_ROUTE && user?.mobileCalendarAccess === true);
 const OWNER_ONLY_TOP_LEVEL_ROUTES = new Set([
   "appointments",

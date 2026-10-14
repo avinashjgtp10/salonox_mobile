@@ -15,6 +15,8 @@ type StaffPickerSheetProps = {
   selectedStaffId: string | null;
   stacked?: boolean;
   staff: PosStaffMember[];
+  subtitle?: string;
+  title?: string;
   visible: boolean;
 };
 
@@ -25,6 +27,8 @@ export function StaffPickerSheet({
   selectedStaffId,
   stacked = false,
   staff,
+  subtitle = "Who performed this item?",
+  title = "Assign Staff",
   visible,
 }: StaffPickerSheetProps) {
   const Colors = useThemeColors();
@@ -38,8 +42,8 @@ export function StaffPickerSheet({
       renderInline={renderInline}
       scrollable={false}
       stacked={stacked}
-      subtitle="Who performed this item?"
-      title="Assign Staff"
+      subtitle={subtitle}
+      title={title}
       visible={visible}
     >
       <View style={[styles.listWrap, { height: listHeight }]}>

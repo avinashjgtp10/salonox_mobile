@@ -1,6 +1,6 @@
 import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 
 import { AppRadius } from "@/constants/layout";
@@ -21,13 +21,15 @@ const fromISODate = (value?: string | null) => {
     return null;
   }
 
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
   const [year, month, day] = value.split("-").map(Number);
 
   if (!year || !month || !day) {
     return null;
   }
 
-  return new Date(year, month - 1, day);
+  const date = new Date(year, month - 1, day);
+  return toISODate(date) === value ? date : null;
 };
 
 type DateRangeCalendarProps = {
@@ -35,6 +37,8 @@ type DateRangeCalendarProps = {
   mode?: "range" | "single";
   onChange: (startDate: string | null, endDate: string | null) => void;
   startDate?: string | null;
+  minimumDate?: Date;
+  maximumDate?: Date;
 };
 
 export function DateRangeCalendar({
@@ -42,12 +46,18 @@ export function DateRangeCalendar({
   mode = "range",
   onChange,
   startDate,
+  minimumDate,
+  maximumDate,
 }: DateRangeCalendarProps) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const [visibleMonth, setVisibleMonth] = useState(
     () => fromISODate(startDate) ?? new Date(),
   );
+  useEffect(() => {
+    const start = fromISODate(startDate);
+    if (start) setVisibleMonth(new Date(start.getFullYear(), start.getMonth(), 1));
+  }, [startDate]);
 
   const year = visibleMonth.getFullYear();
   const month = visibleMonth.getMonth();
@@ -78,7 +88,7 @@ export function DateRangeCalendar({
     }
 
     if (selected < startDate) {
-      onChange(selected, null);
+      onChange(selected, startDate);
       return;
     }
 
@@ -130,6 +140,7 @@ export function DateRangeCalendar({
             startDate && endDate && key > startDate && key < endDate,
           );
           const isEdge = isStart || isEnd;
+          const disabled = (minimumDate && key < toISODate(minimumDate)) || (maximumDate && key > toISODate(maximumDate));
 
           return (
             <View
@@ -139,9 +150,10 @@ export function DateRangeCalendar({
               <Pressable
                 accessibilityLabel={key}
                 accessibilityRole="button"
-                accessibilityState={{ selected: isEdge }}
+                accessibilityState={{ selected: isEdge, disabled: !!disabled }}
+                disabled={!!disabled}
                 onPress={() => handleSelect(day)}
-                style={[styles.day, isEdge && styles.dayEdge]}
+                style={[styles.day, isEdge && styles.dayEdge, disabled && { opacity: 0.3 }]}
               >
                 <Text
                   style={[

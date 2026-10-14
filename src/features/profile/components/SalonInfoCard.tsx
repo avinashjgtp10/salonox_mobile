@@ -1,6 +1,7 @@
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
 import { useMemo } from "react";
-import { ActivityIndicator, StyleSheet, TouchableOpacity, View } from "react-native";
+import { StyleSheet, TouchableOpacity, View } from "react-native";
 
 import { AppRadius } from "@/constants/layout";
 import { DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";

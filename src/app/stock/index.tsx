@@ -1,9 +1,11 @@
+import { RefreshViewport } from "@/components/ui/RefreshViewport";
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { appAlert as Alert } from "@/services/appAlert";
 import { Ionicons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, TouchableOpacity, View } from "react-native";
+import { FlatList, RefreshControl, StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppBackButton } from "@/components/ui/AppBackButton";
@@ -113,7 +115,7 @@ export default function ProductsScreen() {
   return (
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
       <AppStatusBar />
-      <FlatList
+      <RefreshViewport><FlatList
         contentContainerStyle={styles.content}
         data={products}
         keyExtractor={(item) => item.id}
@@ -140,7 +142,7 @@ export default function ProductsScreen() {
         refreshControl={<RefreshControl refreshing={state.refreshing} onRefresh={refresh} colors={[Colors.primary]} tintColor={Colors.primary} />}
         renderItem={({ item }) => <ProductCard deleting={state.deletingProductIds.includes(item.id)} item={item} onDelete={() => remove(item)} />}
         showsVerticalScrollIndicator={false}
-      />
+      /></RefreshViewport>
       <View style={[styles.floatingWrap, { bottom: insets.bottom + 12 }]}><TouchableOpacity onPress={() => router.push("/stock/new" as Href)} style={styles.addButton}><Ionicons name="add-circle-outline" size={19} color="#FFFFFF" /><Text style={styles.addText}>Add Product</Text></TouchableOpacity></View>
     </SafeAreaView>
   );

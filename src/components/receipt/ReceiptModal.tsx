@@ -1,12 +1,15 @@
-import { maskPhone } from "@/utils/maskPhone";
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
+import { ThermalPreview } from "./ThermalPreview";
 import { useClientPrivacy } from "@/hooks/useClientPrivacy";
 import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useState } from "react";
-import { ActivityIndicator, Modal, ScrollView, Image, StyleSheet, TouchableOpacity, View } from "react-native";
+import { Alert, Modal, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { InvoicePreview } from "./InvoicePreview";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { printerService } from "@/services/printer.service";
 import type { ReceiptData } from "@/utils/receiptGenerator";
+import { receiptAssetUrl } from "@/utils/receiptAssets";
 import { useThemeColors } from "@/theme/ThemeProvider";
 
 interface ReceiptModalProps {
@@ -22,21 +25,23 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
 }) => {
   const { clientName } = useClientPrivacy();
   const Colors = useThemeColors();
-  const [paperSize, setPaperSize] = useState<"80mm" | "58mm">("80mm");
+  const [paperSize, setPaperSize] = useState<"A4" | "80mm" | "58mm">(receiptData.paperSize ?? "80mm");
   const [isActionLoading, setIsActionLoading] = useState(false);
 
   const activeData: ReceiptData = {
     ...receiptData,
+    salon: { ...receiptData.salon, logoUrl: receiptAssetUrl(receiptData.salon.logoUrl) },
     client: { ...receiptData.client, name: clientName(receiptData.client.name) },
     paperSize,
   };
 
-  const handleDownload = async () => {
+  const handlePrint = async () => {
     try {
       setIsActionLoading(true);
       await printerService.printReceipt(activeData);
     } catch (error) {
       console.error("[Printer] Print error:", error);
+      Alert.alert("Print failed", "Could not print the invoice. Please try again.");
     } finally {
       setIsActionLoading(false);
     }
@@ -48,6 +53,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
       await printerService.shareReceipt(activeData);
     } catch (error) {
       console.error("[Printer] Share error:", error);
+      Alert.alert("Share failed", "Could not share the invoice PDF. Please try again.");
     } finally {
       setIsActionLoading(false);
     }
@@ -69,6 +75,9 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
           </TouchableOpacity>
           <Text style={[styles.title, { color: Colors.text }]}>Receipt Preview</Text>
           <View style={styles.paperToggle}>
+            <TouchableOpacity onPress={() => setPaperSize("A4")} style={[styles.paperBadge, paperSize === "A4" && { backgroundColor: Colors.primary }]}>
+              <Text style={[styles.paperBadgeText, { color: paperSize === "A4" ? Colors.onPrimary : Colors.hint }]}>A4</Text>
+            </TouchableOpacity>
             <TouchableOpacity
               onPress={() => setPaperSize("80mm")}
               style={[
@@ -106,185 +115,11 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
 
 
         <ScrollView contentContainerStyle={styles.scrollContent}>
-          <View
-            style={[
-              styles.receiptPaper,
-              { width: paperSize === "58mm" ? 260 : 320 },
-            ]}
-          >
-            {activeData.salon.logoUrl ? (
-              <Image source={{ uri: activeData.salon.logoUrl }} style={styles.salonLogo} />
-            ) : null}
-            <Text style={styles.salonName}>{activeData.salon.name}</Text>
-            {[activeData.salon.address, activeData.salon.city, activeData.salon.state, activeData.salon.postalCode, activeData.salon.country].some(Boolean) ? (
-              <Text style={styles.centerText}>
-                {[activeData.salon.address, activeData.salon.city, activeData.salon.state, activeData.salon.postalCode, activeData.salon.country].filter(Boolean).join(", ")}
-              </Text>
-            ) : null}
-            {activeData.salon.phone ? (
-              <Text style={styles.centerText}>Phone: {activeData.salon.phone}</Text>
-            ) : null}
-            {activeData.salon.email ? (
-              <Text style={styles.centerText}>Email: {activeData.salon.email}</Text>
-            ) : null}
-            {activeData.salon.website ? (
-              <Text style={styles.centerText}>{activeData.salon.website}</Text>
-            ) : null}
-            {activeData.salon.gstin ? (
-              <Text style={[styles.centerText, styles.bold]}>
-                GSTIN: {activeData.salon.gstin}
-              </Text>
-            ) : null}
-
-            <View style={styles.dashedLine} />
-
-            <Text>
-              Inv #: <Text style={styles.bold}>{activeData.invoice.invoiceNumber}</Text>
-            </Text>
-            <Text>
-              Date: <Text style={styles.bold}>{activeData.invoice.date}</Text>{" "}
-              <Text style={styles.bold}>{activeData.invoice.time}</Text>
-            </Text>
-            <Text>Client: {activeData.client.name}</Text>
-            {activeData.client.phone ? (
-              <Text>
-                Client Phone: <Text style={styles.bold}>{maskPhone(activeData.client.phone)}</Text>
-              </Text>
-            ) : null}
-            {activeData.staffName ? <Text>Staff: {activeData.staffName}</Text> : null}
-            <Text>Payment: {activeData.invoice.paymentMethod.toUpperCase()}</Text>
-
-            <View style={styles.dashedLine} />
-
-            {activeData.items.map((item, idx) => (
-              <View key={idx} style={styles.itemRow}>
-                <View style={styles.itemLeft}>
-                  <Text style={styles.bold}>{item.name}</Text>
-                  <Text style={styles.subText}>
-                    {item.qty} x ₹{item.price.toFixed(2)}
-                  </Text>
-                </View>
-                <Text style={styles.bold}>₹{item.total.toFixed(2)}</Text>
-              </View>
-            ))}
-
-            <View style={styles.dashedLine} />
-
-            <View style={styles.summaryRow}>
-              <Text>Subtotal</Text>
-              <Text>₹{activeData.pricing.subtotal.toFixed(2)}</Text>
-            </View>
-
-            {activeData.pricing.itemDiscountTotal && activeData.pricing.itemDiscountTotal > 0 ? (
-              <View style={styles.summaryRow}>
-                <Text>Item Discount</Text>
-                <Text>- ₹{activeData.pricing.itemDiscountTotal.toFixed(2)}</Text>
-              </View>
-            ) : null}
-
-            {activeData.pricing.manualDiscount && activeData.pricing.manualDiscount > 0 ? (
-              <View style={styles.summaryRow}>
-                <Text>Discount</Text>
-                <Text>- ₹{activeData.pricing.manualDiscount.toFixed(2)}</Text>
-              </View>
-            ) : null}
-
-            {activeData.pricing.couponDiscount && activeData.pricing.couponDiscount > 0 ? (
-              <View style={styles.summaryRow}>
-                <Text>Coupon Discount</Text>
-                <Text>- ₹{activeData.pricing.couponDiscount.toFixed(2)}</Text>
-              </View>
-            ) : null}
-
-            {activeData.pricing.taxableAmount && activeData.pricing.taxableAmount > 0 ? (
-              <View style={styles.summaryRow}>
-                <Text>Taxable Amount</Text>
-                <Text>₹{activeData.pricing.taxableAmount.toFixed(2)}</Text>
-              </View>
-            ) : null}
-
-
-            {activeData.pricing.taxBreakdown && activeData.pricing.taxBreakdown.length > 0
-              ? activeData.pricing.taxBreakdown.map((t, i) => (
-                <View key={i} style={styles.summaryRow}>
-                  <Text>{t.name} ({t.rate}%)</Text>
-                  <Text>₹{t.amount.toFixed(2)}</Text>
-                </View>
-              ))
-              : activeData.pricing.gstAmount > 0 ? (
-                <View style={styles.summaryRow}>
-                  <Text>Tax (GST)</Text>
-                  <Text>₹{activeData.pricing.gstAmount.toFixed(2)}</Text>
-                </View>
-              ) : null}
-
-            {activeData.pricing.exCharges && activeData.pricing.exCharges > 0 ? (
-              <View style={styles.summaryRow}>
-                <Text>Extra Charges</Text>
-                <Text>₹{activeData.pricing.exCharges.toFixed(2)}</Text>
-              </View>
-            ) : null}
-
-            {activeData.pricing.tipAmount && activeData.pricing.tipAmount > 0 ? (
-              <View style={styles.summaryRow}>
-                <Text>Tip</Text>
-                <Text>₹{activeData.pricing.tipAmount.toFixed(2)}</Text>
-              </View>
-            ) : null}
-
-            {activeData.pricing.roundOff && Math.abs(activeData.pricing.roundOff) > 0.001 ? (
-              <View style={styles.summaryRow}>
-                <Text>Round Off</Text>
-                <Text>
-                  {activeData.pricing.roundOff > 0 ? "+" : "-"} ₹
-                  {Math.abs(activeData.pricing.roundOff).toFixed(2)}
-                </Text>
-              </View>
-            ) : null}
-
-            <View style={styles.solidLine} />
-
-            <View style={styles.summaryRow}>
-              <Text style={styles.grandTotalText}>GRAND TOTAL</Text>
-              <Text style={styles.grandTotalText}>
-                ₹{activeData.pricing.grandTotal.toFixed(2)}
-              </Text>
-            </View>
-
-            <View style={styles.solidLine} />
-
-            {activeData.paymentBreakdown?.map((entry, idx) => (
-              <View key={idx} style={styles.summaryRow}>
-                <Text>Paid via {entry.method}</Text>
-                <Text>₹{entry.amount.toFixed(2)}</Text>
-              </View>
-            ))}
-
-            {activeData.pricing.amountPaid && activeData.pricing.amountPaid > 0 ? (
-              <View style={styles.summaryRow}>
-                <Text>Amount Paid</Text>
-                <Text>₹{activeData.pricing.amountPaid.toFixed(2)}</Text>
-              </View>
-            ) : null}
-
-            {activeData.pricing.dueAmount && activeData.pricing.dueAmount > 0 ? (
-              <View style={styles.summaryRow}>
-                <Text style={styles.bold}>Balance Due</Text>
-                <Text style={styles.bold}>₹{activeData.pricing.dueAmount.toFixed(2)}</Text>
-              </View>
-            ) : null}
-
-            {activeData.paymentBreakdown?.length || activeData.pricing.dueAmount ? (
-              <View style={styles.dashedLine} />
-            ) : null}
-
-            {activeData.upiQrUrl ? (
-              <Image source={{ uri: activeData.upiQrUrl }} style={styles.upiQrCode} />
-            ) : null}
-            <Text style={[styles.centerText, styles.footerText]}>
-              {activeData.footerMessage || "Thank you for visiting!"}
-            </Text>
-          </View>
+          {paperSize === "A4" ? (
+            <ScrollView horizontal style={{ width: "100%" }}><InvoicePreview data={activeData} /></ScrollView>
+          ) : (
+          <ThermalPreview data={activeData} />
+          )}
         </ScrollView>
 
 
@@ -308,16 +143,16 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
           <TouchableOpacity
             activeOpacity={0.8}
             disabled={isActionLoading}
-            onPress={handleDownload}
+            onPress={handlePrint}
             style={[styles.actionBtn, { backgroundColor: Colors.primary }]}
           >
             {isActionLoading ? (
               <ActivityIndicator color={Colors.onPrimary} size="small" />
             ) : (
               <>
-                <Ionicons name="download-outline" size={18} color={Colors.onPrimary} />
+                <Ionicons name="print-outline" size={18} color={Colors.onPrimary} />
                 <Text style={[styles.actionBtnText, { color: Colors.onPrimary }]}>
-                  Download PDF
+                  Print Invoice
                 </Text>
               </>
             )}
@@ -363,80 +198,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     alignItems: "center",
     paddingVertical: 20,
-  },
-  receiptPaper: {
-    backgroundColor: "#FFF",
-    padding: 16,
-    borderRadius: 4,
-    elevation: 3,
-    shadowColor: "#000",
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-  },
-  salonName: {
-    fontSize: 16,
-    fontWeight: "bold",
-    textAlign: "center",
-    textTransform: "uppercase",
-    marginBottom: 4,
-    color: "#000",
-  },
-  salonLogo: {
-    height: 48,
-    width: "100%",
-    resizeMode: "contain",
-    marginBottom: 4,
-  },
-  upiQrCode: {
-    height: 80,
-    width: 80,
-    alignSelf: "center",
-    marginVertical: 6,
-  },
-  centerText: {
-    textAlign: "center",
-    fontSize: 11,
-    color: "#333",
-  },
-  bold: {
-    fontWeight: "bold",
-  },
-  subText: {
-    fontSize: 10,
-    color: "#666",
-  },
-  dashedLine: {
-    borderBottomWidth: 1,
-    borderColor: "#000",
-    borderStyle: "dashed",
-    marginVertical: 8,
-  },
-  solidLine: {
-    borderBottomWidth: 2,
-    borderColor: "#000",
-    marginVertical: 8,
-  },
-  itemRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 6,
-  },
-  itemLeft: {
-    flex: 1,
-  },
-  summaryRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginVertical: 2,
-  },
-  grandTotalText: {
-    fontSize: 14,
-    fontWeight: "bold",
-    color: "#000",
-  },
-  footerText: {
-    marginTop: 8,
   },
   footer: {
     padding: 16,

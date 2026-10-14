@@ -1,8 +1,10 @@
+import { RefreshViewport } from "@/components/ui/RefreshViewport";
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { Redirect, router, useFocusEffect, type Href } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, FlatList, RefreshControl, ScrollView, StyleSheet, Switch, TouchableOpacity, View } from "react-native";
+import { FlatList, RefreshControl, ScrollView, StyleSheet, Switch, TouchableOpacity, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppBackButton } from "@/components/ui/AppBackButton";
@@ -268,7 +270,7 @@ export function CommissionRulesScreen() {
   return (
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
       <AppStatusBar />
-      <FlatList
+      <RefreshViewport><FlatList
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + Spacing.lg }]}
         data={loading || error ? [] : visibleGroups}
         keyExtractor={(group) => group.key}
@@ -276,7 +278,7 @@ export function CommissionRulesScreen() {
         refreshControl={<RefreshControl colors={[Colors.primary]} onRefresh={() => void refresh()} refreshing={refreshing} tintColor={Colors.primary} />}
         renderItem={renderGroup}
         showsVerticalScrollIndicator={false}
-      />
+      /></RefreshViewport>
 
       <BottomSheet onClose={() => setDetailKey(null)} scrollable title={detailGroup?.primary.name ?? "Commission rule"} visible={Boolean(detailGroup)}>
         {detailGroup ? (

@@ -1,9 +1,10 @@
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { router, type Href } from "expo-router";
 import { forwardRef, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { Modal, Platform, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppBackButton, AppBackButtonPlaceholder } from "@/components/ui/AppBackButton";

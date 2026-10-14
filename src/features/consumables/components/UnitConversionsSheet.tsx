@@ -1,7 +1,8 @@
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, StyleSheet, TouchableOpacity, View } from "react-native";
+import { StyleSheet, TouchableOpacity, View } from "react-native";
 
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { AppRadius } from "@/constants/layout";

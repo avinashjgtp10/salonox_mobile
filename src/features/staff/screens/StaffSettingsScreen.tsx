@@ -1,3 +1,4 @@
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { appAlert as Alert } from "@/services/appAlert";
 import Constants from "expo-constants";
@@ -5,7 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
 import { router, type Href } from "expo-router";
 import { useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Linking, Modal, StyleSheet, TouchableOpacity, View, useWindowDimensions } from "react-native";
+import { Linking, Modal, StyleSheet, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
@@ -27,6 +28,7 @@ import { useAppSelector } from "@/store/hooks";
 import { selectCurrentStaff } from "@/store/staff/staff.slice";
 import { selectCurrentUser } from "@/store/user/user.slice";
 import { useThemeColors } from "@/theme/ThemeProvider";
+import { hasCustomPermission } from "@/utils/permissions";
 import {
   getUserFullName,
   getUserInitials,
@@ -220,6 +222,11 @@ export function StaffSettingsScreen() {
       title: "Appointment Activity",
     },
   ];
+  const auditItems: SettingsItem[] = hasCustomPermission(currentUser, "view_product_audit") ? [{
+    description: "Count products, scan packaging, and review inventory differences.",
+    icon: "clipboard-outline", key: "product-audit", title: "Product Audit",
+    onPress: () => router.push("/product-audits" as Href),
+  }] : [];
   const securityItems: SettingsItem[] = [
     {
       description: "Update your account password using the existing security flow.",
@@ -317,6 +324,7 @@ export function StaffSettingsScreen() {
 
         <SettingsSection items={accountItems} title="Account" />
         <SettingsSection items={preferenceItems} title="Preferences" />
+        {auditItems.length > 0 && <SettingsSection items={auditItems} title="Inventory" />}
         <SettingsSection items={securityItems} title="Security" />
 
         <View style={styles.section}>

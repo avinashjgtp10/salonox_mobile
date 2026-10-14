@@ -2,6 +2,7 @@ import { createAsyncThunk } from "@reduxjs/toolkit";
 
 import { ApiError, getApiErrorMessage } from "@/services/api";
 import { staffLeavesService } from "@/services/staffLeaves.service";
+import { emitRealtimeEntityChanged } from "@/services/realtimeEvents";
 import type { RootState } from "@/store";
 import type {
   CreateLeaveRequest,
@@ -47,7 +48,9 @@ export const createLeaveThunk = createAsyncThunk<
   { rejectValue: RejectValue; state: RootState }
 >("staffLeaves/create", async ({ payload, staffId }, { rejectWithValue }) => {
   try {
-    return await staffLeavesService.createLeave(staffId, payload);
+    const result = await staffLeavesService.createLeave(staffId, payload);
+    emitRealtimeEntityChanged({ entity: "staff", payload: { staff_id: staffId } });
+    return result;
   } catch (error) {
     logApiError("[StaffLeaves] Create failed", { staffId, ...toRejectValue(error) });
 
@@ -61,7 +64,9 @@ export const updateLeaveThunk = createAsyncThunk<
   { rejectValue: RejectValue; state: RootState }
 >("staffLeaves/update", async ({ recordId, staffId, updates }, { rejectWithValue }) => {
   try {
-    return await staffLeavesService.updateLeave(staffId, recordId, updates);
+    const result = await staffLeavesService.updateLeave(staffId, recordId, updates);
+    emitRealtimeEntityChanged({ entity: "staff", payload: { staff_id: staffId } });
+    return result;
   } catch (error) {
     logApiError("[StaffLeaves] Update failed", { recordId, staffId, ...toRejectValue(error) });
 
@@ -75,7 +80,9 @@ export const deleteLeaveThunk = createAsyncThunk<
   { rejectValue: RejectValue; state: RootState }
 >("staffLeaves/delete", async ({ recordId, staffId }, { rejectWithValue }) => {
   try {
-    return await staffLeavesService.deleteLeave(staffId, recordId);
+    const result = await staffLeavesService.deleteLeave(staffId, recordId);
+    emitRealtimeEntityChanged({ entity: "staff", payload: { staff_id: staffId } });
+    return result;
   } catch (error) {
     logApiError("[StaffLeaves] Delete failed", { recordId, staffId, ...toRejectValue(error) });
 

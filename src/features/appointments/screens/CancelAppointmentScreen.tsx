@@ -1,3 +1,4 @@
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
 import { ConfirmationModal } from "@/components/ui/ConfirmationModal";
 import { TextField } from "@/features/appointments/components/form/TextField";
@@ -12,7 +13,7 @@ import { Ionicons } from "@expo/vector-icons";
 import type { Href } from "expo-router";
 import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
-import { ActivityIndicator, TouchableOpacity, View } from "react-native";
+import { TouchableOpacity, View } from "react-native";
 
 export function CancelAppointmentScreen() {
   const { styles } = useAppointmentStyles();

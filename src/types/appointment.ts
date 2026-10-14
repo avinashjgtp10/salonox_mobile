@@ -65,6 +65,12 @@ export type AppointmentApiService = {
   time?: string | null;
   title?: string | null;
   total?: number | string | null;
+  // Staff handoff workflow — a per-row progress tracker, independent of the
+  // appointment's own payment status. Missing/undefined on rows written
+  // before this existed or on product rows (handoff doesn't cover those).
+  status?: "pending" | "in_progress" | "completed" | null;
+  started_at?: string | null;
+  completed_at?: string | null;
 };
 
 export type AppointmentApiStaff = {
@@ -105,6 +111,9 @@ export type AppointmentApiItem = {
   sale_id?: string | number | null;
   saleID?: string | number | null;
   pending_sale_id?: string | null;
+  membership_items?: AppointmentApiService[] | null;
+  package_items?: AppointmentApiService[] | null;
+  product_items?: AppointmentApiService[] | null;
   service?: AppointmentApiService | string | null;
   service_id?: string | number | null;
   service_name?: string | null;
@@ -184,8 +193,32 @@ export type AppointmentListPagination = {
   totalPages: number | null;
 };
 
+// A single billed row on the appointment — service, product, package or
+// membership — read straight off the appointment's own services/
+// product_items/package_items/membership_items columns (populated at
+// checkout), so it shows up without a separate Sale fetch.
+export type AppointmentBilledItem = {
+  // Server-assigned row id — the join key for the staff handoff endpoints
+  // (PATCH/POST .../items/:itemId/*). Absent on plain product rows (no
+  // handoff workflow for those) and on rows from older appointments saved
+  // before row ids existed.
+  id: string | null;
+  name: string;
+  price: number;
+  /** Explicit row total, or unit price multiplied by quantity. */
+  totalAmount?: number;
+  quantity: number;
+  staffId: string | null;
+  staffName: string | null;
+  // Staff handoff workflow progress — null for product rows and for any
+  // appointment where handoff was never used (treat as "pending").
+  status: "pending" | "in_progress" | "completed" | null;
+  type: "service" | "product" | "package" | "membership";
+};
+
 export type AppointmentListItem = {
   amount: number;
+  billedItems: AppointmentBilledItem[];
   cancelledAt: string | null;
   cancellationReason: string;
   clientEmail: string;

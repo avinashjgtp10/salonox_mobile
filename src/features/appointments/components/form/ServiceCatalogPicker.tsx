@@ -1,3 +1,4 @@
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { AppBackButton } from "@/components/ui/AppBackButton";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
@@ -10,7 +11,7 @@ import { useThemeColors } from "@/theme/ThemeProvider";
 import type { ServiceListItem } from "@/types/service";
 import { Ionicons } from "@expo/vector-icons";
 import { memo, useMemo, useState } from "react";
-import { ActivityIndicator, FlatList, Modal, Pressable, ScrollView, TouchableOpacity, View } from "react-native";
+import { FlatList, Modal, Pressable, ScrollView, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const CatalogServiceRow = memo(function CatalogServiceRow({

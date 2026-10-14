@@ -102,6 +102,14 @@ export type SalesSummaryDetailResponse = {
 };
 
 export const reportService = {
+  /** Collected revenue for exact dates, using the shared Sales Summary logic. */
+  async getCollectedRevenue(range: { start_date: string; end_date: string }) {
+    const response = await this.getReport(REPORT.SALES_SUMMARY, { ...range, page: 1, limit: 1 });
+    const stats = response.stats as { receivedAmount?: unknown } | undefined;
+    const amount = typeof stats?.receivedAmount === "string" ? Number(stats.receivedAmount) : stats?.receivedAmount;
+    if (typeof amount !== "number" || !Number.isFinite(amount)) throw new Error("Revenue total is unavailable for the selected date range.");
+    return amount;
+  },
   /** Same item-level revenue (including GST) as the Staff Performance drill-down.
    * The report endpoint resolves the salon from the authenticated session.
    */

@@ -112,7 +112,7 @@ export const useStaffForm = (staffId?: string | null) => {
       gender: staffMember.gender === "-" ? "" : staffMember.gender,
       holidays: staffMember.holidays != null ? String(staffMember.holidays) : "",
       hourlyRate: "",
-      isLoginEnabled: Boolean(staffMember.loginAccess),
+      isLoginEnabled: false,
       joiningDate: toIsoJoiningDate(staffMember.joiningDate),
       notes: staffMember.notes,
       password: "",
@@ -194,7 +194,11 @@ export const useStaffForm = (staffId?: string | null) => {
     }
 
     if (succeeded) {
-      toast.showSuccess(isEditMode ? "Staff updated successfully." : "Staff created successfully.");
+      if (createStaffThunk.fulfilled.match(action) && action.payload.activationWarning) {
+        toast.showWarning(action.payload.activationWarning);
+      } else {
+        toast.showSuccess(isEditMode ? "Staff updated successfully." : "Staff created successfully.");
+      }
 
       void dispatch(
         fetchStaffThunk({

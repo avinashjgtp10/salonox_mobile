@@ -11,12 +11,14 @@ import {
 } from "@/features/quickSale/utils/calculations";
 import { parseAmount } from "@/features/quickSale/utils/money";
 import { pricingService } from "@/services/pricing.service";
+import { calculateAutomaticRedemptions, type RedemptionContext } from "@/features/quickSale/utils/automaticRedemptions";
 import type { ValidateCouponResult } from "@/types/coupon";
 import type { CalculateTotalsResponse, LineItem as ApiLineItem } from "@/types/pricing";
 
 type UseQuickSalePricingInput = {
   appliedCoupon: ValidateCouponResult | null;
   buildPricingFlags: () => RedemptionPricingFlags;
+  redemptionContext: RedemptionContext;
   cartItems: CartItem[];
   convenienceFeeInput: string;
   discountPercent: number;
@@ -58,6 +60,7 @@ const createEmptyTotals = (
 export const useQuickSalePricing = ({
   appliedCoupon,
   buildPricingFlags,
+  redemptionContext,
   cartItems,
   convenienceFeeInput,
   discountPercent,
@@ -73,6 +76,7 @@ export const useQuickSalePricing = ({
   const [backendTotalsResponse, setBackendTotalsResponse] = useState<CalculateTotalsResponse | null>(null);
   const [isPricingLoading, setIsPricingLoading] = useState(false);
   const [pricingError, setPricingError] = useState<string | null>(null);
+  const [resolvedPricingFlags, setResolvedPricingFlags] = useState<RedemptionPricingFlags>({});
   const extraChargesTotal = useMemo(
     () => parseAmount(serviceChargeInput) + parseAmount(convenienceFeeInput) + parseAmount(otherChargesInput),
     [convenienceFeeInput, otherChargesInput, serviceChargeInput],
@@ -85,6 +89,7 @@ export const useQuickSalePricing = ({
       setBackendTotalsResponse(null);
       setIsPricingLoading(false);
       setPricingError(null);
+      setResolvedPricingFlags({});
       return;
     }
 
@@ -106,7 +111,7 @@ export const useQuickSalePricing = ({
           else if (item.itemType === "membership") membershipRows.push(line);
         });
 
-        const response = await pricingService.calculateTotals({
+        const response = await calculateAutomaticRedemptions({
           client_id: selectedClientId || undefined,
           serviceRows,
           packageRows,
@@ -123,10 +128,11 @@ export const useQuickSalePricing = ({
           tip: parseAmount(tipInput),
           includeGst,
           ...buildPricingFlags(),
-        });
+        }, redemptionContext, body => pricingService.calculateTotals(body));
 
         if (isSubscribed) {
-          setBackendTotalsResponse(response);
+          setBackendTotalsResponse(response.totals);
+          setResolvedPricingFlags(response.flags);
           setIsPricingLoading(false);
         }
       } catch (error) {
@@ -144,6 +150,7 @@ export const useQuickSalePricing = ({
   }, [
     appliedCoupon,
     buildPricingFlags,
+    redemptionContext,
     cartItems,
     discountPercent,
     discountApplyTo,
@@ -172,6 +179,7 @@ export const useQuickSalePricing = ({
     setBackendTotalsResponse(null);
     setIsPricingLoading(false);
     setPricingError(null);
+    setResolvedPricingFlags({});
   }, []);
 
   return {
@@ -179,6 +187,7 @@ export const useQuickSalePricing = ({
     isPricingLoading,
     pricingError,
     resetPricing,
+    resolvedPricingFlags,
     totals,
   };
 };

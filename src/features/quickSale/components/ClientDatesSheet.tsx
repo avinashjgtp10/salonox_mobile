@@ -1,6 +1,7 @@
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, StyleSheet, TouchableOpacity, View } from "react-native";
+import { StyleSheet, TouchableOpacity, View } from "react-native";
 
 import { DateField } from "@/components/ui/DateField";
 import { AppRadius } from "@/constants/layout";

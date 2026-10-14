@@ -1,3 +1,4 @@
+import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "expo-router";
@@ -251,7 +252,7 @@ function DashboardContent() {
       accessibilityElementsHidden={tour?.active}
       importantForAccessibility={tour?.active ? "no-hide-descendants" : "auto"}>
       <AppStatusBar />
-      <ScrollView
+      <RefreshViewport><ScrollView
         ref={tour?.scrollRef}
         onScroll={(event) => { if (tour) tour.scrollOffset.current = event.nativeEvent.contentOffset.y; }}
         scrollEventThrottle={16}
@@ -314,7 +315,7 @@ function DashboardContent() {
             </View>
           </>
         )}
-      </ScrollView>
+      </ScrollView></RefreshViewport>
       <DashboardSideDrawer
         onClose={() => setIsQuickActionsDrawerOpen(false)}
         visible={isQuickActionsDrawerOpen}

@@ -1,3 +1,4 @@
+import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { Text } from "@/components/ui/AppTypography";
 import { TourFlatList, TourView, withScreenTour } from "@/features/userGuide/DashboardTour";
 import { screenTours } from "@/features/userGuide/screenTours";
@@ -86,7 +87,7 @@ function StaffMyAppointmentsScreenContent() {
   return (
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
       <AppStatusBar />
-      <TourFlatList
+      <RefreshViewport><TourFlatList
         ListHeaderComponent={
           <View style={styles.listHeader}>
             <View style={styles.headerRow}>
@@ -171,7 +172,7 @@ function StaffMyAppointmentsScreenContent() {
           )
         }
         showsVerticalScrollIndicator={false}
-      />
+      /></RefreshViewport>
       <AppointmentSnackbar />
     </SafeAreaView>
   );
