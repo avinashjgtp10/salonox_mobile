@@ -276,7 +276,7 @@ function OwnerQuickSaleCheckoutScreen() {
         amountPaid: authoritativeSale.amountPaid,
         dueAmount: authoritativeSale.outstandingAmount,
       },
-      paperSize: "A4",
+      paperSize: "80mm",
       upiQrUrl: undefined,
     };
   }, [authoritativeSale, isPreview, isStaff, salon, salonLoaded, user]);

@@ -147,6 +147,9 @@ export function buildThermalCss(profile: PaperProfile): string {
   .t-rule{border:0;border-top:1px dashed #000;margin:6px 0}
   .t-kv{display:flex;justify-content:space-between;gap:6px;font-size:${f(10.5)};line-height:1.5}
   .t-kv span:first-child{color:#000}
+  .t-kv span{min-width:0;overflow-wrap:anywhere}
+  .t-kv span:first-child{flex:1}
+  .t-kv span:last-child{max-width:65%;text-align:right}
   .t-items{width:100%;border-collapse:collapse;font-size:${f(11)}}
   .t-items th{
     text-align:left;font-size:${f(9.5)};text-transform:uppercase;letter-spacing:.3px;
@@ -154,14 +157,14 @@ export function buildThermalCss(profile: PaperProfile): string {
   }
   .t-items td{padding:3px 0;vertical-align:top;line-height:1.35}
   .t-items .t-qty{width:12%;text-align:center}
-  .t-items .t-amt{width:32%;text-align:right;white-space:nowrap}
+  .t-items .t-amt{width:34%;text-align:right;overflow-wrap:anywhere}
   /* The name column wraps rather than truncating — a receipt has the vertical
      room, and a clipped service name is worse than a two-line one. */
   .t-items .t-name{word-break:break-word}
   .t-item-meta{font-size:${f(9)};color:#000;opacity:.75}
   .t-sum{width:100%;border-collapse:collapse;font-size:${f(11)}}
   .t-sum td{padding:2px 0}
-  .t-sum td:last-child{text-align:right;white-space:nowrap}
+  .t-sum td:last-child{text-align:right;overflow-wrap:anywhere}
   .t-sum .t-bold td{font-weight:700}
   .t-sum .t-muted td{opacity:.75}
   .t-total{
@@ -170,6 +173,8 @@ export function buildThermalCss(profile: PaperProfile): string {
     border-top:1px dashed #000;border-bottom:1px dashed #000;
     padding:5px 0;margin:5px 0;
   }
+  .t-total span{min-width:0;overflow-wrap:anywhere}
+  .t-total span:last-child{max-width:65%;text-align:right}
   .t-foot{font-size:${f(10)};line-height:1.5;margin-top:6px}
   .t-qr{width:${Math.round(profile.logoPx * 0.8)}px;max-width:100%;margin:6px auto 0;display:block}
   @media print{ body{background:#fff} }`;

@@ -46,13 +46,13 @@ export function generateInvoiceDocument(data: ReceiptData): string {
     return buildThermalDocument(profile, {
       salonName: data.salon.name, salonAddress: address, salonPhone: data.salon.phone,
       gstNumber: data.salon.gstin, logoUrl: data.salon.logoUrl,
-      invoiceNo: data.invoice.invoiceNumber, dateTime: `${data.invoice.date} ${data.invoice.time}`,
-      clientName: data.client.name, clientPhone: data.client.phone, staffName: data.staffName,
+      invoiceNo: data.invoice.invoiceNumber, dateTime: data.invoice.date,
+      clientName: data.client.name, clientPhone: data.client.phone || "—", staffName: data.staffName || "—",
       paymentMethod: data.invoice.paymentMethod,
-      items: data.items.map(item => ({ name: item.name, qty: item.qty, amount: invoiceMoney(item.total), meta: [item.type, item.staffName].filter(Boolean).join(" · ") })),
+      items: data.items.map(item => ({ name: item.name, qty: item.qty, amount: invoiceMoney(item.total), meta: item.staffName || data.staffName })),
       summary: summary.slice(0, totalIndex),
       grandTotal: { label: "TOTAL", value: invoiceMoney(data.pricing.grandTotal) },
-      payments: summary.slice(totalIndex + 2), footerNote: data.footerMessage || "Thank You!",
+      payments: summary.slice(totalIndex + 2).map(row => ({ ...row, label: row.label === "Amount Paid" ? "Paid" : row.label })), footerNote: data.footerMessage || "Thank You!",
       qrDataUrl: data.upiQrUrl,
     }, { title: `Invoice ${data.invoice.invoiceNumber}`, withToolbar: false });
   }
