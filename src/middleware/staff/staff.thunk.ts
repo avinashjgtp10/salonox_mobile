@@ -133,10 +133,23 @@ export const createStaffThunk = createAsyncThunk<
     const salonId = selectActiveBranchId(getState());
     const payload: CreateStaffRequest = {
       ...staffPayload,
+      is_active: true,
       ...(salonId ? { salon_id: salonId } : {}),
     };
 
     const response = await staffService.createStaff(payload);
+
+    // Match web: create may ignore is_active, so activate the saved staff explicitly.
+    // Creation has already succeeded; an activation failure must not invite a duplicate create.
+    try {
+      if (!response.staffMember.id) throw new Error("The created staff ID was not returned.");
+      await staffService.activateStaff(response.staffMember.id);
+      response.staffMember = await staffService.getStaffMember(response.staffMember.id);
+      if (response.staffMember.status === "Inactive") throw new Error("Staff is still inactive.");
+    } catch (activationError) {
+      logApiError("[Staff] Activate after create failed", activationError);
+      response.activationWarning = "Staff was created, but active status could not be confirmed. Check the staff profile before retrying activation.";
+    }
 
     if (wages && response.staffMember.id) {
       try {
