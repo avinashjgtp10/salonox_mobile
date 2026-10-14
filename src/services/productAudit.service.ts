@@ -41,6 +41,27 @@ export const productAuditService = {
       })
     ).data.data;
   },
+  async attachProduct(id: string, productId: string, physicalQty: number | null) {
+    // A previous attempt may have attached the product before saving its count
+    // failed. Check first so retry does not depend on duplicate-add behavior.
+    let audit = await productAuditService.get(id);
+    if (audit.status !== "in_progress")
+      throw new Error("This audit is no longer editable. Reopen it before adding products.");
+    let item = audit.items.find((row) => row.product_id === productId);
+    if (!item) {
+      audit = await productAuditService.addItems(id, [productId]);
+      item = audit.items.find((row) => row.product_id === productId);
+    }
+    if (!item)
+      throw new Error("Product was not returned in the audit. Retry adding it.");
+    if (physicalQty !== null) {
+      return productAuditService.updateItem(id, item.id, {
+        physical_qty: physicalQty,
+        reason: "Physical quantity entered when adding the product",
+      });
+    }
+    return audit;
+  },
   async removeItem(id: string, itemId: string) {
     return (await api.delete<ApiResponse<ProductAudit>>(E.ITEM(id, itemId)))
       .data.data;
