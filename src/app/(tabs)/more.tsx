@@ -27,6 +27,7 @@ import { AppLayout, AppRadius } from "@/constants/layout";
 import { useAppSelector } from "@/store/hooks";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { selectCurrentUser } from "@/store/user/user.slice";
+import { hasInventoryPermission } from "@/utils/permissions";
 import {
   getUserAddressLine,
   getUserBusinessName,
@@ -40,6 +41,12 @@ const WEB_APP_URL = "https://www.salonox.com";
 const SUPPORT_EMAIL = "support@salonox.com";
 
 const MENU_ITEMS = [
+  {
+    description: "Count products, scan packaging, and review inventory differences.",
+    icon: "clipboard-outline" as const,
+    route: "/product-audits" as Href,
+    title: "Product Audit",
+  },
   {
     description: "Sync your phone contacts and import them as clients.",
     icon: "person-add-outline" as const,
@@ -77,6 +84,7 @@ function MoreScreenContent() {
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const { signOut, signOutAll } = useAuth();
   const currentUser = useAppSelector(selectCurrentUser);
+  const visibleMenuItems = MENU_ITEMS.filter(item => item.title !== "Product Audit" || hasInventoryPermission(currentUser, "view_product_audit"));
   const fullName = getUserFullName(currentUser);
   const businessName = getUserBusinessName(currentUser);
   const roleLabel = getUserRoleLabel(currentUser);
@@ -325,7 +333,7 @@ function MoreScreenContent() {
 
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>Tools</Text>
-          {MENU_ITEMS.map((item, index) => (
+          {visibleMenuItems.map((item, index) => (
             <TourButton tourId={item.title}
               key={item.title}
               activeOpacity={0.84}
@@ -333,7 +341,7 @@ function MoreScreenContent() {
               style={[
                 styles.menuCard,
                 index === 0 && styles.menuCardFirst,
-                index === MENU_ITEMS.length - 1 && styles.menuCardLast,
+                index === visibleMenuItems.length - 1 && styles.menuCardLast,
                 index > 0 && styles.menuCardSpaced,
               ]}
             >
