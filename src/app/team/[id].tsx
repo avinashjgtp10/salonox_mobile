@@ -23,8 +23,6 @@ import {
   useStaffDetails,
 } from "@/features/staff";
 import { useStaffPerformance, type PerformancePeriod } from "@/features/staff/hooks/useStaffPerformance";
-import { useStaffLeaveStatus } from "@/features/staff/hooks/useStaffLeaveStatus";
-import { useLocalDay } from "@/hooks/useLocalDay";
 import { useStaffDailyMetrics } from "@/features/staff/hooks/useStaffDailyMetrics";
 import type { AttendanceStatusKey } from "@/types/attendance";
 import { useAppToast } from "@/hooks/useAppToast";
@@ -137,9 +135,6 @@ export default function StaffProfileScreen() {
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const { id } = useLocalSearchParams<{ id?: string }>();
   const { detailsError, detailsLoading, staffMember: storedStaffMember } = useStaffDetails(id);
-  const day = useLocalDay();
-  const leaveStatus = useStaffLeaveStatus(storedStaffMember ? [storedStaffMember] : [], day);
-  const staffMember = leaveStatus.members[0] ?? storedStaffMember;
   const [period, setPeriod] = useState<PerformancePeriod>("today");
   const performance = useStaffPerformance(storedStaffMember, period);
   const perf = performance.data;
