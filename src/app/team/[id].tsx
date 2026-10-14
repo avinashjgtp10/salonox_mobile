@@ -25,6 +25,7 @@ import {
 import { useStaffPerformance, type PerformancePeriod } from "@/features/staff/hooks/useStaffPerformance";
 import { useStaffLeaveStatus } from "@/features/staff/hooks/useStaffLeaveStatus";
 import { useLocalDay } from "@/hooks/useLocalDay";
+import { useStaffDailyMetrics } from "@/features/staff/hooks/useStaffDailyMetrics";
 import type { AttendanceStatusKey } from "@/types/attendance";
 import { useAppToast } from "@/hooks/useAppToast";
 import { deleteStaffThunk, setStaffActiveStatusThunk } from "@/middleware/staff/staff.thunk";
@@ -140,7 +141,7 @@ export default function StaffProfileScreen() {
   const leaveStatus = useStaffLeaveStatus(storedStaffMember ? [storedStaffMember] : [], day);
   const staffMember = leaveStatus.members[0] ?? storedStaffMember;
   const [period, setPeriod] = useState<PerformancePeriod>("today");
-  const performance = useStaffPerformance(staffMember, period);
+  const performance = useStaffPerformance(storedStaffMember, period);
   const perf = performance.data;
   const performanceHasError = Boolean(performance.errors && Object.values(performance.errors).some(Boolean));
   // Empty only when every source loaded and none has activity for the period.
@@ -150,6 +151,13 @@ export default function StaffProfileScreen() {
   const performanceRangeLabel = period === "today"
     ? formatRangeDate(performance.range.start_date)
     : `${formatRangeDate(performance.range.start_date)} – ${formatRangeDate(performance.range.end_date)}`;
+  const staffMembersForMetrics = useMemo(
+    () => (storedStaffMember ? [storedStaffMember] : []),
+    [storedStaffMember],
+  );
+  const dailyMetrics = useStaffDailyMetrics(staffMembersForMetrics, true);
+  const staffMember = dailyMetrics.members[0] ?? storedStaffMember;
+  const metricsReady = dailyMetrics.ready;
   const dispatch = useAppDispatch();
   const toast = useAppToast();
   const currentUser = useAppSelector(selectCurrentUser);
@@ -415,6 +423,41 @@ export default function StaffProfileScreen() {
                 <Text style={styles.serviceChipText}>{service}</Text>
               </View>
             ))}
+          </View>
+        </View>
+
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>Daily Overview</Text>
+          {dailyMetrics.revenueError ? <Text style={styles.metricLabel}>Unable to load revenue. Reopen this page to retry.</Text> : null}
+          <View style={styles.metricsGrid}>
+            <View style={styles.metricCard}>
+              <Text style={styles.metricValue}>{metricsReady ? staffMember.todayAppointments : "—"}</Text>
+              <Text style={styles.metricLabel}>Today&apos;s Appointments</Text>
+            </View>
+            <View style={styles.metricCard}>
+              <Text style={styles.metricValue}>{dailyMetrics.revenueReady ? formatCurrency(staffMember.weeklyRevenue) : "—"}</Text>
+              <Text style={styles.metricLabel}>Revenue This Week (Mon–Today)</Text>
+            </View>
+            <View style={styles.metricCard}>
+              <Text style={styles.metricValue}>{dailyMetrics.revenueReady ? formatCurrency(staffMember.monthlyRevenue) : "—"}</Text>
+              <Text style={styles.metricLabel}>Monthly Revenue</Text>
+            </View>
+            <View style={styles.metricCard}>
+              <Text style={styles.metricValue}>{staffMember.attendance}</Text>
+              <Text style={styles.metricLabel}>Attendance</Text>
+            </View>
+            <View style={styles.metricCard}>
+              <Text style={styles.metricValue}>{staffMember.leaveBalance}</Text>
+              <Text style={styles.metricLabel}>Leave Balance</Text>
+            </View>
+            <View style={styles.metricCard}>
+              <Text style={styles.metricValue}>{staffMember.averageRating.toFixed(1)}</Text>
+              <Text style={styles.metricLabel}>Customer Rating</Text>
+            </View>
+            <View style={styles.metricCard}>
+              <Text style={styles.metricValue}>{dailyMetrics.revenueReady ? formatCurrency(staffMember.todayRevenue) : "—"}</Text>
+              <Text style={styles.metricLabel}>Revenue Today</Text>
+            </View>
           </View>
         </View>
 
