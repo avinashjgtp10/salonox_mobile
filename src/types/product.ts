@@ -127,6 +127,7 @@ export type Product = {
   id: string;
   isActive: boolean;
   lowStockThreshold: number;
+  lowStockThresholdBaseUnits?: number;
   markupPercentage?: number | null;
   measureUnit?: string | null;
   name: string;

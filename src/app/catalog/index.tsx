@@ -1,10 +1,17 @@
+import { BottomSheet } from "@/components/ui/BottomSheet";
+import { SearchableFilterDropdown } from "@/components/ui/SearchableFilterDropdown";
+import { useCatalogCollection } from "@/features/catalog/hooks/useCatalogCollection";
+import { loadAllPages } from "@/utils/loadAllPages";
+import { productService } from "@/services/product.service";
+import { membershipService } from "@/services/membership.service";
+import { selectActiveBranchId } from "@/store/branch/branch.slice";
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { appAlert as Alert } from "@/services/appAlert";
 import { Ionicons } from "@expo/vector-icons";
-import { router, type Href } from "expo-router";
-import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import { router, useFocusEffect, type Href } from "expo-router";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { InfiniteScrollLoader } from "@/components/ui/InfiniteScrollLoader";
 import { FlatList, RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View, type ListRenderItemInfo } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -13,9 +20,9 @@ import { AppBackButton } from "@/components/ui/AppBackButton";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { AppLayout } from "@/constants/layout";
 import { type ThemeColors } from "@/constants/theme";
-import { fetchConsumablesThunk } from "@/middleware/consumable/consumable.thunk";
-import { fetchMembershipsThunk } from "@/middleware/membership/membership.thunk";
-import { deleteProductThunk, fetchProductsThunk } from "@/middleware/product/product.thunk";
+
+
+import { deleteProductThunk } from "@/middleware/product/product.thunk";
 import { deleteServiceThunk } from "@/middleware/service/service.thunk";
 import { CatalogFilterSheet } from "@/features/catalog/components/CatalogFilterSheet";
 import {
@@ -34,13 +41,9 @@ import { getApiErrorMessage } from "@/services/api";
 import { consumableService } from "@/services/consumable.service";
 import { packageService } from "@/services/package.service";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { selectConsumableState } from "@/store/consumable/consumable.slice";
-import {
-  selectMemberships,
-  selectMembershipsError,
-  selectMembershipsLoading,
-} from "@/store/membership/membership.slice";
-import { selectProductState } from "@/store/product/product.slice";
+
+
+
 import { useAppToast } from "@/hooks/useAppToast";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { Membership } from "@/types/membership";
@@ -85,7 +88,7 @@ const productToItem = (item: Product): CatalogItem => ({
   category: item.category ?? item.brandName ?? "Uncategorized",
   id: item.id,
   isActive: item.isActive,
-  lowStockThreshold: item.lowStockThreshold,
+  lowStockThreshold: item.lowStockThresholdBaseUnits ?? item.lowStockThreshold,
   meta: `${item.stockQuantity} in stock${item.sku ? ` · ${item.sku}` : ""}`,
   name: item.name,
   price: item.retailPrice ?? item.price,
@@ -118,7 +121,7 @@ const packageToItem = (item: PackageListItem): CatalogItem => ({
   isActive: item.status.toLowerCase() === "active",
   meta: `${item.serviceIds.length} service${item.serviceIds.length === 1 ? "" : "s"}`,
   name: item.name,
-  price: Math.max(0, item.basePrice - item.discountValue),
+  price: Math.max(0, item.basePrice - (item.discountType === "percentage" ? item.basePrice * item.discountValue / 100 : item.discountValue)),
   serviceCount: item.serviceIds.length,
   status: item.status,
 });
@@ -127,7 +130,7 @@ const membershipToItem = (item: Membership): CatalogItem => ({
   appliesTo: item.appliesTo,
   category: `${item.sessionType} membership`,
   id: item.id,
-  isActive: item.enableOnlineSales || item.enableOnlineRedemption,
+  isActive: item.enableOnlineSales,
   meta: item.validFor,
   name: item.name,
   price: item.price,
@@ -143,16 +146,14 @@ type CatalogRowProps = {
   isDeleting: boolean;
   item: CatalogItem;
   onDelete?: (item: CatalogItem) => void;
+  onOpen: (item: CatalogItem) => void;
   styles: CatalogStyles;
 };
 
-const openItem = (item: CatalogItem) => {
-  if (item.route) router.push(item.route);
-};
 
-const CatalogTableRow = memo(function CatalogTableRow({ colors, isDeleting, item, onDelete, styles }: CatalogRowProps) {
+const CatalogTableRow = memo(function CatalogTableRow({ colors, isDeleting, item, onDelete, onOpen, styles }: CatalogRowProps) {
   return (
-    <TouchableOpacity activeOpacity={item.route ? 0.8 : 1} disabled={!item.route} onPress={() => openItem(item)} style={styles.tableRow}>
+    <TouchableOpacity activeOpacity={0.8} disabled={!item.route && item.serviceCount === undefined} onPress={() => onOpen(item)} style={styles.tableRow}>
       <View style={styles.nameColumn}><Text numberOfLines={2} style={styles.tableName}>{item.name}</Text></View>
       <Text numberOfLines={2} style={[styles.tableCell, styles.categoryColumn]}>{item.category}</Text>
       <Text numberOfLines={1} style={[styles.tablePrice, styles.priceColumn]}>{formatMoney(item.price)}</Text>
@@ -165,10 +166,10 @@ const CatalogTableRow = memo(function CatalogTableRow({ colors, isDeleting, item
   );
 });
 
-const CatalogGridCard = memo(function CatalogGridCard({ colors, isDeleting, item, onDelete, statusLabel, styles }: CatalogRowProps & { statusLabel: string }) {
+const CatalogGridCard = memo(function CatalogGridCard({ colors, isDeleting, item, onDelete, onOpen, statusLabel, styles }: CatalogRowProps & { statusLabel: string }) {
   return (
     <View style={styles.catalogGridCard}>
-      <TouchableOpacity accessibilityRole="button" disabled={!item.route} onPress={() => openItem(item)} style={styles.catalogGridCopy}>
+      <TouchableOpacity accessibilityRole="button" disabled={!item.route && item.serviceCount === undefined} onPress={() => onOpen(item)} style={styles.catalogGridCopy}>
         <Text numberOfLines={2} style={styles.tableName}>{item.name}</Text>
         <Text style={styles.tableCell}>{item.category}</Text>
         <Text style={styles.tableCell}>{item.meta}</Text>
@@ -195,43 +196,55 @@ export default function CatalogScreen() {
   const [filtersByTab, setFiltersByTab] = useState(emptyCatalogFiltersByTab);
   const [filterVisible, setFilterVisible] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
-  const productState = useAppSelector(selectProductState);
-  const consumableState = useAppSelector(selectConsumableState);
-  const memberships = useAppSelector(selectMemberships);
-  const membershipsLoading = useAppSelector(selectMembershipsLoading);
-  const membershipsError = useAppSelector(selectMembershipsError);
+  const branchId = useAppSelector(selectActiveBranchId);
   const [activeTab, setActiveTab] = useState<CatalogTab>("services");
   const [query, setQuery] = useState("");
-  const [packages, setPackages] = useState<PackageListItem[]>([]);
-  const [packagesLoading, setPackagesLoading] = useState(false);
-  const [packagesError, setPackagesError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-
-  const loadPackages = useCallback(async () => {
-    setPackagesLoading(true);
-    setPackagesError(null);
-    try {
-      const response = await packageService.getPackages({ limit: 100 });
-      setPackages(response.items);
-    } catch (error) {
-      setPackagesError(error instanceof Error ? error.message : "Unable to load packages.");
-    } finally {
-      setPackagesLoading(false);
-    }
-  }, []);
-
-  const loadCatalog = useCallback(async (refresh = false) => {
-    await Promise.allSettled([
-      loadServices(),
-      dispatch(fetchProductsThunk({ limit: 100, offset: 0, refresh, reset: true, search: "" })),
-      dispatch(fetchConsumablesThunk({ limit: 100, page: 1, refresh, reset: true, search: "" })),
-      dispatch(fetchMembershipsThunk({ limit: 100, page: 1, refresh, reset: true })),
-      loadPackages(),
-    ]);
-  }, [dispatch, loadPackages, loadServices]);
-
-  useEffect(() => { void loadCatalog(); }, [loadCatalog]);
+  const [selectedPackage, setSelectedPackage] = useState<PackageListItem | null>(null);
+  const [consumableSort, setConsumableSort] = useState("Newest");
+  const fetchCatalogProducts = useCallback(() => loadAllPages(async (page) => {
+    const result = await productService.fetchProducts({ limit: 100, offset: (page - 1) * 100, search: "", sort_by: "name", sort_order: "asc" }, branchId);
+    return { items: result.products, hasMore: result.pagination.hasMore };
+  }), [branchId]);
+  const fetchCatalogConsumables = useCallback(() => loadAllPages(async (page) => {
+    const sort = ({ Newest: "newest", "Lowest Stock": "lowest_stock", "Most Used": "most_used", "A-Z": "a_z" } as const)[consumableSort as "Newest" | "Lowest Stock" | "Most Used" | "A-Z"];
+    const result = await consumableService.getCatalogPage(page, sort, branchId);
+    return { items: result.consumables, hasMore: result.pagination.hasMore };
+  }), [branchId, consumableSort]);
+  const fetchCatalogMemberships = useCallback(() => loadAllPages(async (page) => {
+    const result = await membershipService.getMemberships({ limit: 100, page, search: "" }, branchId);
+    return { items: result.items, hasMore: page * 100 < result.total };
+  }), [branchId]);
+  const fetchCatalogPackages = useCallback(() => packageService.getManagementPackages(branchId), [branchId]);
+  const productCatalog = useCatalogCollection(fetchCatalogProducts, branchId);
+  const consumableCatalog = useCatalogCollection(fetchCatalogConsumables, branchId);
+  const membershipCatalog = useCatalogCollection(fetchCatalogMemberships, branchId);
+  const packageCatalog = useCatalogCollection(fetchCatalogPackages, branchId);
+  const productState = { products: productCatalog.items, loading: productCatalog.loading, error: productCatalog.error };
+  const consumableState = { consumables: consumableCatalog.items, loading: consumableCatalog.loading, error: consumableCatalog.error };
+  const memberships = membershipCatalog.items;
+  const membershipsLoading = membershipCatalog.loading;
+  const membershipsError = membershipCatalog.error;
+  const packages = packageCatalog.items;
+  const packagesLoading = packageCatalog.loading;
+  const packagesError = packageCatalog.error;
+  const { load: loadProducts } = productCatalog;
+  const { load: loadConsumables } = consumableCatalog;
+  const { load: loadMemberships } = membershipCatalog;
+  const { load: loadPackages } = packageCatalog;
+  const loadCatalog = useCallback(async (_refresh = false) => {
+    await Promise.allSettled([loadServices(_refresh), loadProducts(), loadConsumables(), loadMemberships(), loadPackages()]);
+  }, [loadServices, loadProducts, loadConsumables, loadMemberships, loadPackages]);
+  useEffect(() => { void loadServices(); }, [loadServices]);
+  const latestLoadCatalog = useRef(loadCatalog);
+  latestLoadCatalog.current = loadCatalog;
+  const hasFocused = useRef(false);
+  useFocusEffect(useCallback(() => {
+    if (hasFocused.current) void latestLoadCatalog.current(true);
+    else hasFocused.current = true;
+  }, []));
+  useEffect(() => { setSelectedPackage(null); }, [branchId]);
 
   // Services' consumablesUsed recipe, inverted into consumableId -> service
   // names, so the consumables tab can offer an "Assigned Service" filter
@@ -311,7 +324,6 @@ export default function CatalogScreen() {
 
   const deleteItem = useCallback(async (item: CatalogItem) => {
     setDeletingId(item.id);
-    let shouldReloadCatalog = true;
 
     try {
       if (activeTab === "services") {
@@ -321,7 +333,7 @@ export default function CatalogScreen() {
       } else if (activeTab === "products") {
         const action = await dispatch(deleteProductThunk(item.id));
         if (deleteProductThunk.rejected.match(action)) throw new Error(action.payload?.message ?? "Unable to delete product.");
-        shouldReloadCatalog = false;
+
         toast.showSuccess("Product deleted successfully.");
       } else if (activeTab === "consumables") {
         await consumableService.deleteConsumable(item.id);
@@ -331,7 +343,7 @@ export default function CatalogScreen() {
         toast.showSuccess("Package deleted successfully.");
       }
 
-      if (shouldReloadCatalog) await loadCatalog(true);
+      await loadCatalog(true);
     } catch (error) {
       Alert.alert("Unable to delete", getApiErrorMessage(error));
     } finally {
@@ -353,6 +365,10 @@ export default function CatalogScreen() {
   }, [activeTab, deleteItem]);
 
   const onDelete = canDeleteActiveTab ? confirmDelete : undefined;
+  const onOpen = useCallback((item: CatalogItem) => {
+    if (activeTab === "packages") setSelectedPackage(packages.find((pkg) => pkg.id === item.id) ?? null);
+    else if (item.route) router.push(item.route);
+  }, [activeTab, packages]);
   const isGrid = viewMode === "grid";
 
   const renderItem = useCallback(({ item }: ListRenderItemInfo<CatalogItem>) => (
@@ -362,13 +378,14 @@ export default function CatalogScreen() {
         isDeleting={deletingId === item.id}
         item={item}
         onDelete={onDelete}
+        onOpen={onOpen}
         statusLabel={item.isActive ? activeStatusLabel : inactiveStatusLabel}
         styles={styles}
       />
     ) : (
-      <CatalogTableRow colors={Colors} isDeleting={deletingId === item.id} item={item} onDelete={onDelete} styles={styles} />
+      <CatalogTableRow colors={Colors} isDeleting={deletingId === item.id} item={item} onDelete={onDelete} onOpen={onOpen} styles={styles} />
     )
-  ), [Colors, activeStatusLabel, deletingId, inactiveStatusLabel, isGrid, onDelete, styles]);
+  ), [Colors, activeStatusLabel, deletingId, inactiveStatusLabel, isGrid, onDelete, onOpen, styles]);
 
   const listHeader = (
     <>
@@ -396,6 +413,7 @@ export default function CatalogScreen() {
         <View style={styles.activeCount}><View style={styles.activeDot} /><Text style={styles.activeCountText}>{activeCount} active</Text></View>
       </View>
 
+      {activeTab === "consumables" ? <View style={{ paddingHorizontal: 16, paddingBottom: 12 }}><SearchableFilterDropdown multi={false} options={["Newest", "Lowest Stock", "Most Used", "A-Z"]} placeholder="Sort consumables" selected={[consumableSort]} onToggle={setConsumableSort} /></View> : null}
       <View style={styles.filterToolbar}>
         <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Filter ${activeTabLabel}, ${filterCount} filter groups applied`} accessibilityState={{ expanded: filterVisible }} onPress={() => setFilterVisible(true)} style={[styles.filterButton, filterCount > 0 && { borderColor: Colors.primary }]}>
           <Ionicons name="options-outline" size={18} color={Colors.primary} />
@@ -449,6 +467,17 @@ export default function CatalogScreen() {
         showsVerticalScrollIndicator={false}
         windowSize={7}
       /></RefreshViewport>
+      <BottomSheet title={selectedPackage?.name ?? "Package details"} visible={!!selectedPackage} onClose={() => setSelectedPackage(null)}>
+        {selectedPackage ? <View style={{ gap: 12 }}>
+          <Text style={styles.tableCell}>{selectedPackage.description || "No description"}</Text>
+          <Text style={styles.tablePrice}>{formatMoney(packageToItem(selectedPackage).price)}</Text>
+          <Text style={styles.tableCell}>{selectedPackage.category || "Uncategorized"} ? {selectedPackage.status}</Text>
+          <Text style={styles.tableCell}>Duration: {selectedPackage.durationMinutes} min</Text>
+          <Text style={styles.tableName}>Included services</Text>
+          {selectedPackage.serviceIds.map((id) => <Text key={id} style={styles.tableCell}>{services.find((service) => service.id === id)?.name ?? "Service unavailable"}</Text>)}
+          {!selectedPackage.serviceIds.length ? <Text style={styles.tableCell}>No services assigned</Text> : null}
+        </View> : null}
+      </BottomSheet>
       <CatalogFilterSheet brands={brands} categories={categories} label={activeTabLabel} onApply={applyFilters} onClose={() => setFilterVisible(false)} onReset={clearFilters} serviceOptions={serviceOptions} suppliers={suppliers} tab={activeTab} validForOptions={validForOptions} value={activeFilters} visible={filterVisible} />
     </SafeAreaView>
   );

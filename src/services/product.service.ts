@@ -84,9 +84,9 @@ const normalizeProduct = (raw: ProductApiItem): Product => {
     expiryDate: toStringValue(raw.expiry_date) || null,
     bottleSize: bottleSize != null ? toNumberValue(bottleSize) : null,
     brandId: toStringValue(raw.brand_id ?? raw.brandId ?? brand?.id) || null,
-    brandName: toStringValue(brand?.name) || null,
+    brandName: toStringValue(brand?.name ?? raw.brand_name) || null,
     category:
-      toStringValue(categoryRecord?.name ?? categoryRecord?.category_name) ||
+      toStringValue(categoryRecord?.name ?? categoryRecord?.category_name ?? raw.category_name) ||
       toStringValue(raw.category) ||
       null,
     categoryId:
@@ -100,6 +100,9 @@ const normalizeProduct = (raw: ProductApiItem): Product => {
       raw.low_stock_threshold ?? raw.lowStockThreshold ?? raw.qty_alert ?? raw.qtyAlert,
       5,
     ),
+    lowStockThresholdBaseUnits: raw.qty_alert != null
+      ? toNumberValue(raw.qty_alert) * (toNumberValue(raw.qty_alert_unit_size) || toNumberValue(bottleSize) || 1)
+      : toNumberValue(raw.low_stock_threshold ?? raw.lowStockThreshold, 0),
     markupPercentage: markupPercentage != null ? toNumberValue(markupPercentage) : null,
     measureUnit: toStringValue(measureUnit) || null,
     name: toStringValue(raw.name, "Unnamed product"),

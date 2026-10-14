@@ -1,5 +1,6 @@
 import { ApiError, api } from "@/services/api";
 import { PACKAGE } from "@/services/api/endpoints";
+import { loadAllPages } from "@/utils/loadAllPages";
 import type { ApiResponse } from "@/types/auth";
 import type {
   ClientPackage,
@@ -254,6 +255,13 @@ const normalizeClientPackage = (raw: AnyRecord): ClientPackage => {
 };
 
 export const packageService = {
+  /** Catalog management includes all statuses; sale pickers keep using getPackages. */
+  async getManagementPackages(salonId?: string | null): Promise<PackageListItem[]> {
+    return loadAllPages(async (page) => {
+      const result = await this.getCatalogPackages({ page, limit: CATALOG_PACKAGE_PAGE_LIMIT }, salonId);
+      return { items: result.items, hasMore: page * CATALOG_PACKAGE_PAGE_LIMIT < result.total };
+    });
+  },
   async completeClientPackageSession(
     clientPackageId: string,
     payload: { appointmentId?: string; serviceId: string; staffName: string },
