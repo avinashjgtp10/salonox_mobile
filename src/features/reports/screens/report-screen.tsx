@@ -191,9 +191,11 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
     </View>
   ) : null;
 
-  const dateSelector = (
+  const dateSelector = dateKeys ? (
     <TouchableOpacity
-      accessibilityHint="Opens a calendar to pick the report date range"
+      accessibilityHint={config.slug === "ewallet"
+        ? "Select a range. Its end date filters clients registered by that day; balances are current."
+        : "Opens a calendar to pick the report date range"}
       accessibilityRole="button"
       disabled={isUnavailable || !dateKeys}
       onPress={() => setRangeSheetVisible(true)}
@@ -208,7 +210,7 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
       </View>
       <Ionicons name="chevron-down" size={16} color={Colors.hint} />
     </TouchableOpacity>
-  );
+  ) : null;
 
   // Website layout: a labeled "Filters" button next to the date range, like the web report.
   const filtersButton = (

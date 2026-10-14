@@ -11,6 +11,7 @@ import { reportService, type GenericReportRequest } from "@/services/report.serv
 import type { RootState } from "@/store";
 import { selectActiveBranchId } from "@/store/branch/branch.slice";
 import { decodeReportSelection } from "@/features/reports/report-filters";
+import { getDateRangePreset } from "@/utils/dateRangePresets";
 
 export type FetchReportArgs = {
   append?: boolean;
@@ -60,6 +61,15 @@ const toNumberFilter = (value: unknown) => {
 
 const normalizeRequest = (slug: ReportSlug, filters: ReportFilters): GenericReportRequest => {
   const request: GenericReportRequest = { ...cleanFilters(filters) };
+
+  if (slug === "ewallet") {
+    // Match web: this balance report accepts an as-of date, not a transaction range.
+    const today = getDateRangePreset("today").endDate;
+    const endDate = filters.end_date;
+    request.as_of_date = endDate && endDate <= today ? endDate : today;
+    delete request.start_date;
+    delete request.end_date;
+  }
 
   for (const key of ARRAY_FILTER_KEYS) {
     if (request[key] !== undefined) {
