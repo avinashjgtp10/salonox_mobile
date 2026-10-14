@@ -1630,6 +1630,7 @@ function OwnerQuickSaleScreen({
               />
             ) : activeTab === "services" ? (
               <ServiceCatalogTab
+                visible={isCatalogVisible}
                 onToggle={handleToggleServiceSelection}
                 search=""
                 selectedServiceIds={selectedServiceIds}

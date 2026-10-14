@@ -1,6 +1,7 @@
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect } from "expo-router";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FlatList, RefreshControl, StyleSheet, TouchableOpacity, View } from "react-native";
 import Reanimated, { FadeInUp, LinearTransition } from "react-native-reanimated";
@@ -35,8 +36,6 @@ const SERVICE_SKELETON_KEYS = [
   "service-skeleton-five",
   "service-skeleton-six",
 ];
-
-let rememberedServiceCategoryKey: string | null = null;
 
 const normalizeCategoryKey = (value: string) => value.trim().toLowerCase().replace(/\s+/g, "-");
 
@@ -93,7 +92,7 @@ const buildCategoryOptions = (sourceServices: ServiceListItem[]): CategoryChipOp
   });
 
   return [
-    { id: null, label: "All" },
+    { id: null, label: "All Categories" },
     ...Array.from(categoryMap.entries())
       .sort(([, first], [, second]) => first.label.localeCompare(second.label))
       .map(([id, entry]) => ({
@@ -105,6 +104,7 @@ const buildCategoryOptions = (sourceServices: ServiceListItem[]): CategoryChipOp
 };
 
 type ServiceCatalogTabProps = {
+  visible?: boolean;
   selectedServiceIds?: ReadonlySet<string>;
   search: string;
   onSelect?: (service: ServiceListItem) => void;
@@ -157,6 +157,7 @@ export function ServiceCatalogTab({
   onToggle,
   selectedServiceIds,
   search,
+  visible = true,
 }: ServiceCatalogTabProps) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
@@ -168,11 +169,19 @@ export function ServiceCatalogTab({
   const error = useAppSelector(selectServicesError);
   const salonId = currentUser?.salonId;
 
-  const [categoryKey, setCategoryKey] = useState<string | null>(rememberedServiceCategoryKey);
+  const [categoryKey, setCategoryKey] = useState<string | null>(null);
   const [catalogServices, setCatalogServices] = useState<ServiceListItem[]>([]);
   const [visibleServiceCount, setVisibleServiceCount] = useState(SERVICE_BATCH_SIZE);
   const debouncedSearch = useDebouncedValue(search, 300);
   const catalogRequestRef = useRef(0);
+  const resetCategory = useCallback(() => {
+    setCategoryKey(null);
+    setVisibleServiceCount(SERVICE_BATCH_SIZE);
+  }, []);
+  useFocusEffect(resetCategory);
+  useEffect(() => {
+    if (visible) resetCategory();
+  }, [resetCategory, visible]);
   const categoryOptions = useMemo(
     () => buildCategoryOptions(mergeUniqueServices([catalogServices, services])),
     [catalogServices, services],
@@ -201,8 +210,10 @@ export function ServiceCatalogTab({
     (args?: { refresh?: boolean }) => {
       void dispatch(
         fetchServicesThunk({
-          category: !selectedCategoryId && selectedCategoryLabel ? selectedCategoryLabel : undefined,
-          categoryId: selectedCategoryId ?? undefined,
+          // Empty strings explicitly clear the shared service query's previous category.
+          category: !selectedCategoryId && selectedCategoryLabel ? selectedCategoryLabel : "",
+          categoryId: selectedCategoryId ?? "",
+          offset: 0,
           isActive: true,
           limit: 24,
           refresh: args?.refresh,
@@ -263,7 +274,6 @@ export function ServiceCatalogTab({
   }, [salonId]);
 
   const handleSelectCategory = useCallback((nextCategoryKey: string | null) => {
-    rememberedServiceCategoryKey = nextCategoryKey;
     setCategoryKey(nextCategoryKey);
     setVisibleServiceCount(SERVICE_BATCH_SIZE);
   }, []);
