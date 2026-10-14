@@ -672,6 +672,7 @@ export const KeyboardAwareFlatList = forwardRef(function KeyboardAwareFlatList<
   return (
     <FormFieldFocusContext.Provider value={autoReveal ? revealField : null}>
     <FlatList
+      {...flatListProps}
       ref={scrollRef}
       contentContainerStyle={[
         combinedContentContainerStyle,
@@ -687,7 +688,6 @@ export const KeyboardAwareFlatList = forwardRef(function KeyboardAwareFlatList<
       }
       onScroll={onScroll}
       scrollEventThrottle={flatListProps.scrollEventThrottle ?? 16}
-      {...flatListProps}
     />
     </FormFieldFocusContext.Provider>
   );

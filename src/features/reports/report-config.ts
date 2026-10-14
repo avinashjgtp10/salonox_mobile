@@ -1,6 +1,7 @@
 import type { ComponentProps } from "react";
 import type { Ionicons } from "@expo/vector-icons";
 import { REPORT_FILTER_FIELDS } from "./report-filters";
+import { getDateRangePreset } from "@/utils/dateRangePresets";
 
 export type ReportSlug =
   | "sales-summary"
@@ -244,6 +245,10 @@ export const createDefaultReportFilters = (slug: ReportSlug): ReportFilters => {
   const date = (value: Date) =>
     `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
   const base = { start_date: date(start), end_date: date(today), page: 1, limit: 10 };
+  if (slug === "staff-performance") {
+    const range = getDateRangePreset("this_month", today);
+    return { start_date: range.startDate, end_date: range.endDate, page: 1, limit: 10 };
+  }
   if (["product-inventory", "wa-marketing-campaign", "open-rate", "reply-rate"].includes(slug)) {
     return { date_from: date(start), date_to: date(today), page: 1, limit: 10 };
   }

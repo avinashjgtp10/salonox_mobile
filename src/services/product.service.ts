@@ -1,5 +1,6 @@
 import { api } from "@/services/api";
 import { PRODUCT } from "@/services/api/endpoints";
+import { productTaxCode } from "@/utils/productTax";
 import type { ApiResponse } from "@/types/auth";
 import type {
   Brand,
@@ -230,7 +231,8 @@ export const productService = {
   },
 
   async createProduct(payload: CreateProductRequest): Promise<CreateProductResponse> {
-    const { data } = await api.post<ApiResponse<ProductDetailData>>(PRODUCT.CREATE, payload);
+    const body = payload.tax_type === undefined ? payload : { ...payload, tax_type: productTaxCode(payload.tax_type) };
+    const { data } = await api.post<ApiResponse<ProductDetailData>>(PRODUCT.CREATE, body);
     const item = getDetailItem<ProductApiItem>(data.data ?? null);
     if (!item) throw new Error("Product was created, but no product was returned.");
     return { message: data.message, product: requireId(normalizeProduct(item), "Product") };
@@ -240,9 +242,10 @@ export const productService = {
     id: string,
     payload: UpdateProductRequest,
   ): Promise<UpdateProductResponse> {
+    const body = payload.tax_type === undefined ? payload : { ...payload, tax_type: productTaxCode(payload.tax_type) };
     const { data } = await api.patch<ApiResponse<ProductDetailData>>(
       PRODUCT.UPDATE(id),
-      payload,
+      body,
     );
     const item = getDetailItem<ProductApiItem>(data.data ?? null);
     if (!item) return { message: data.message, product: await this.fetchProductById(id) };

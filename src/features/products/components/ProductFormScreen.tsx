@@ -36,6 +36,7 @@ import { getApiErrorMessage } from "@/services/api";
 import { consumableService } from "@/services/consumable.service";
 import { serviceService } from "@/services/service.service";
 import { productFormInventory } from "../utils/productFormInventory";
+import { productTaxCode } from "@/utils/productTax";
 
 type Props = { id?: string; mode: "create" | "edit"; scannerDraft?: Partial<RecognizedProduct>; onCreated?: (productId: string, physicalQuantity: number) => void };
 type ProductType = "retail" | "consumable" | "both";
@@ -335,7 +336,7 @@ export default function ProductFormScreen({ id, mode, scannerDraft, onCreated }:
         retail_price: hasRetailSale ? numericRetailPrice : null,
         supply_price: numericSupplyPrice ?? 0,
         tax_group: taxGroup.trim() || null,
-        tax_type: taxType,
+        tax_type: productTaxCode(taxType),
         ...(scannerDraft?.size ? { size: scannerDraft.size.slice(0, 30) } : {}),
       };
       const targetId = id ?? createdProductId.current;
