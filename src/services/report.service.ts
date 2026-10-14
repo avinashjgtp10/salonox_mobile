@@ -102,6 +102,25 @@ export type SalesSummaryDetailResponse = {
 };
 
 export const reportService = {
+  async getStaffPerformanceReport(request: GenericReportRequest): Promise<GenericReportResponse> {
+    // Export returns all filtered staff. Sum the backend's bill-level allocation,
+    // rather than deriving due from item revenue or only the visible page.
+    const response = await this.getReport(REPORT.STAFF_PERFORMANCE, { ...request, is_export: true });
+    const rows = (Array.isArray(response.rows) ? response.rows : []) as Record<string, unknown>[];
+    const totals = rows.reduce<{ totalBill: number; pendingAmount: number; paidAmount: number }>((sum, row) => ({
+      totalBill: sum.totalBill + toReportNumber(row.invoiceCount),
+      pendingAmount: sum.pendingAmount + toReportNumber(row.due),
+      paidAmount: sum.paidAmount + toReportNumber(row.collected),
+    }), { totalBill: 0, pendingAmount: 0, paidAmount: 0 });
+    const page = Math.max(1, Number(request.page) || 1);
+    const limit = Math.min(200, Math.max(1, Number(request.limit) || 10));
+    return {
+      ...response,
+      rows: rows.slice((page - 1) * limit, page * limit),
+      stats: { ...(response.stats as Record<string, unknown> ?? {}), ...totals },
+      pagination: { page, limit, total: rows.length, totalPages: Math.ceil(rows.length / limit) },
+    };
+  },
   /** Collected revenue for exact dates, using the shared Sales Summary logic. */
   async getCollectedRevenue(range: { start_date: string; end_date: string }) {
     const response = await this.getReport(REPORT.SALES_SUMMARY, { ...range, page: 1, limit: 1 });

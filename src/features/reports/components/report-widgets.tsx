@@ -21,12 +21,14 @@ import { useThemeColors } from "@/theme/ThemeProvider";
 
 export const ReportSummaryCards = memo(function ReportSummaryCards({
   summary,
+  maxCards = 8,
 }: {
   summary: ReportRow | null;
+  maxCards?: number;
 }) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
-  const entries = useMemo(() => Object.entries(summary ?? {}).slice(0, 8), [summary]);
+  const entries = useMemo(() => Object.entries(summary ?? {}).slice(0, maxCards), [summary, maxCards]);
   if (!entries.length) return null;
 
   return (
