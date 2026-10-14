@@ -13,7 +13,6 @@ type EmbeddedClientBarProps = {
   hasSelection: boolean;
   onAddClient: () => void;
   onSearchClient: () => void;
-  onSelectWalkIn: () => void;
   selectedClient: QuickSaleClient;
 };
 
@@ -21,7 +20,6 @@ function EmbeddedClientBarComponent({
   hasSelection,
   onAddClient,
   onSearchClient,
-  onSelectWalkIn,
   selectedClient,
 }: EmbeddedClientBarProps) {
   const { staffMode, clientName } = useClientPrivacy();
@@ -67,10 +65,7 @@ function EmbeddedClientBarComponent({
           <Ionicons color={Colors.primary} name="chevron-forward" size={17} />
         </TouchableOpacity>
         <View style={styles.actions}>
-          <TouchableOpacity activeOpacity={0.84} onPress={onSelectWalkIn} style={styles.secondaryAction}>
-            <Ionicons color={Colors.text2} name="walk-outline" size={15} />
-            <Text style={styles.secondaryText}>Walk-In</Text>
-          </TouchableOpacity>
+
           <TouchableOpacity activeOpacity={0.84} onPress={onAddClient} style={styles.primaryAction}>
             <Ionicons color={Colors.onPrimary} name="person-add-outline" size={15} />
             <Text style={styles.primaryText}>Add Client</Text>

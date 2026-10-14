@@ -96,7 +96,7 @@ function ClientStepComponent({
               <Text style={styles.stateTitle}>
                 {isSearching ? "No matching client" : "No recent clients"}
               </Text>
-              <Text style={styles.stateText}>Use Walk-In or add a new client to continue.</Text>
+              <Text style={styles.stateText}>Add a new client to continue.</Text>
             </View>
           ) : (
             clients.map((client, index) => (
@@ -114,17 +114,7 @@ function ClientStepComponent({
         </View>
 
         <View style={styles.quickActions}>
-          <TouchableOpacity
-            activeOpacity={0.84}
-            onPress={() => onSelectClient(null)}
-            style={[styles.actionCard, selectedClientId === "" && styles.actionCardSelected]}
-          >
-            <View style={styles.actionIcon}>
-              <Ionicons name="walk-outline" size={20} color={Colors.primaryDark} />
-            </View>
-            <Text style={styles.actionTitle}>Walk-In</Text>
-            <Text style={styles.actionText}>Create bill for walk-in client</Text>
-          </TouchableOpacity>
+
 
           <TouchableOpacity activeOpacity={0.84} onPress={onAddNewClient} style={styles.actionCard}>
             <View style={styles.actionIcon}>
