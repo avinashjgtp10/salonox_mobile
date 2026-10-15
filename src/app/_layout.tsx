@@ -396,7 +396,9 @@ function AppShell() {
               <StaffCalendarAccessBootstrap />
               <View style={{ flex: 1 }}>
               <NetworkStatusStrip />
-              <View style={{ flex: 1 }}>
+              {/* Recalculate insets below the strip so screens do not add the
+                  status-bar spacing a second time while it is visible. */}
+              <SafeAreaProvider style={{ flex: 1 }}>
               <StaffAttendanceGate>
               <Stack
                 initialRouteName="login"
@@ -428,7 +430,7 @@ function AppShell() {
                 <Stack.Screen name="explore" />
               </Stack>
               </StaffAttendanceGate>
-              </View>
+              </SafeAreaProvider>
               </View>
               <SimpleSplash backgroundColor={colors.bg} isReady={isThemeHydrated && isNavigationReady} />
               <AppToast />

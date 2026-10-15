@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import { Modal, View } from "react-native";
+import { AppState, Modal, View } from "react-native";
 import {
   router,
   useFocusEffect,
@@ -17,8 +17,9 @@ import { selectActiveBranchId } from "@/store/branch/branch.slice";
 import { hasInventoryPermission } from "@/utils/permissions";
 import { productAuditService as service } from "@/services/productAudit.service";
 import { getApiErrorMessage } from "@/services/api";
-import type { ProductAudit } from "@/types/productAudit";
-import { auditUpdates, parseAuditCount } from "./auditHelpers";
+import type { AuditPerson, ProductAudit } from "@/types/productAudit";
+import { auditSummary, auditUpdates, formatAuditQuantity, parseAuditCount } from "./auditHelpers";
+import { AuditPersonField } from "./AuditPersonField";
 import {
   AuditButton,
   AuditCard,
@@ -55,12 +56,17 @@ function Details({ id }: { id: string }) {
   const [error, setError] = useState("");
   const [scanner, setScanner] = useState(false);
   const [confirm, setConfirm] = useState<
-    "submit" | "approve" | "delete" | null
+    "submit" | "delete" | null
   >(null);
-  const [rejectOpen, setRejectOpen] = useState(false);
+  const [reviewMode, setReviewMode] = useState<"approve" | "reject" | null>(null);
+  const [reviewer, setReviewer] = useState<AuditPerson | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const lock = useRef(false);
   const sequence = useRef(0);
+  const remoteRefreshAllowed = useRef(false);
+  remoteRefreshAllowed.current = audit?.status !== "in_progress" && !busy && !reviewMode && !confirm;
+  const currentPerson: AuditPerson = { id: user?.id ?? "", name: user?.fullName || user?.firstName || user?.email || "You" };
+  const summary = auditSummary(audit?.items ?? [], drafts);
   const apply = (next: ProductAudit) => {
     setAudit(next);
     setDrafts((prev) =>
@@ -74,6 +80,7 @@ function Details({ id }: { id: string }) {
     );
   };
   const load = useCallback(async () => {
+    if (lock.current) return;
     if (!canView || !id) {
       setLoading(false);
       return;
@@ -93,7 +100,11 @@ function Details({ id }: { id: string }) {
   useFocusEffect(
     useCallback(() => {
       void load();
+      const timer = setInterval(() => {
+        if (AppState.currentState === "active" && remoteRefreshAllowed.current) void load();
+      }, 30_000);
       return () => {
+        clearInterval(timer);
         sequence.current++;
       };
     }, [load]),
@@ -101,6 +112,7 @@ function Details({ id }: { id: string }) {
   const mutate = async (action: () => Promise<ProductAudit>) => {
     if (lock.current) return;
     lock.current = true;
+    sequence.current++;
     setBusy(true);
     setError("");
     try {
@@ -115,8 +127,13 @@ function Details({ id }: { id: string }) {
   const editable = audit?.status === "in_progress" && canPerform;
   const reviewable =
     audit?.status === "pending_review" &&
-    canApprove &&
-    audit.auditor_id !== user?.id;
+    canApprove;
+  const openReview = (mode: "approve" | "reject") => {
+    setReviewer(audit?.auditor_id === user?.id ? null : currentPerson);
+    setRejectReason("");
+    setError("");
+    setReviewMode(mode);
+  };
   const updateDraft = (
     itemId: string,
     field: "count" | "reason",
@@ -142,7 +159,6 @@ function Details({ id }: { id: string }) {
     if (!audit) return;
     if (action === "submit")
       await mutate(() => service.submit(id, auditUpdates(audit.items, drafts)));
-    if (action === "approve") await mutate(() => service.approve(id));
     if (action === "delete" && !lock.current) {
       lock.current = true;
       setBusy(true);
@@ -170,7 +186,7 @@ function Details({ id }: { id: string }) {
         <View style={{ paddingHorizontal: 16, paddingBottom: 12 }}>
           <AuditButton
             label="Submit for review"
-            disabled={busy || loading || !audit?.items.length}
+            disabled={busy || loading || !audit?.items.length || summary.invalid > 0 || summary.missingReason > 0}
             onPress={() => setConfirm("submit")}
           />
         </View>
@@ -215,6 +231,14 @@ function Details({ id }: { id: string }) {
                     approval.
                   </Text>
                 </AuditCard>
+                <AuditCard>
+                  <Text style={{ color: c.heading, fontSize: 17, fontWeight: "800" }}>Count summary</Text>
+                  <View style={auditStyles.row}>
+                    {[`Products: ${summary.total}`, `Counted: ${summary.counted}`, `Matched: ${summary.matched}`, `Over: ${summary.over}`, `Short: ${summary.short}`, `Uncounted: ${summary.total - summary.counted - summary.invalid}`].map(label => <Text key={label} style={{ color: c.text2 }}>{label}</Text>)}
+                  </View>
+                  {summary.invalid > 0 && <Text accessibilityRole="alert" style={{ color: c.error }}>Correct {summary.invalid} invalid physical count(s).</Text>}
+                  {summary.missingReason > 0 && <Text accessibilityRole="alert" style={{ color: c.error }}>Enter a reason for {summary.missingReason} product difference(s) before submitting.</Text>}
+                </AuditCard>
                 {editable && (
                   <AuditButton
                     label="Scan or find a product"
@@ -248,10 +272,11 @@ function Details({ id }: { id: string }) {
               >
                 {item.product_name}
               </Text>
+              <Text style={{ color: c.text2 }}>{[item.sku, item.category, item.measure_unit].filter(Boolean).join(" · ")}</Text>
               <Text style={{ color: c.text2 }}>
-                System: {Number(item.system_qty)} packs
+                System: {formatAuditQuantity(Number(item.system_qty))} packs
                 {difference !== null
-                  ? ` · Difference: ${difference > 0 ? "+" : ""}${difference}`
+                  ? ` · Difference: ${difference > 0 ? "+" : ""}${formatAuditQuantity(difference)}`
                   : ""}
               </Text>
               <AuditField
@@ -317,21 +342,20 @@ function Details({ id }: { id: string }) {
                     <AuditButton
                       label="Approve and reconcile stock"
                       disabled={busy || loading}
-                      onPress={() => setConfirm("approve")}
+                      onPress={() => openReview("approve")}
                     />
                     <AuditButton
                       label="Reject"
                       danger
                       disabled={busy || loading}
-                      onPress={() => setRejectOpen(true)}
+                      onPress={() => openReview("reject")}
                     />
                   </View>
                 )}
                 {audit.status === "pending_review" &&
                   audit.auditor_id === user?.id && (
                     <Text style={{ color: c.text2 }}>
-                      Another authorized reviewer must approve or reject your
-                      audit.
+                      The recorded reviewer must be different from the auditor.
                     </Text>
                   )}
                 {audit.status === "rejected" && canPerform && (
@@ -399,25 +423,19 @@ function Details({ id }: { id: string }) {
       <ConfirmationModal
         visible={!!confirm}
         title={
-          confirm === "approve"
-            ? "Reconcile inventory?"
-            : confirm === "delete"
+          confirm === "delete"
               ? "Delete this audit?"
               : "Submit for review?"
         }
         description={
-          confirm === "approve"
-            ? "This sets official stock to the physical counts and writes stock ledger adjustments."
-            : confirm === "delete"
+          confirm === "delete"
               ? "The audit record will be deleted permanently."
               : "Your counts will be saved and the audit will become read-only until reviewed."
         }
         cancelLabel="Cancel"
         confirmVariant={confirm === "delete" ? "destructive" : "default"}
         confirmLabel={
-          confirm === "approve"
-            ? "Approve"
-            : confirm === "delete"
+          confirm === "delete"
               ? "Delete"
               : "Submit"
         }
@@ -425,32 +443,35 @@ function Details({ id }: { id: string }) {
         onConfirm={performConfirmed}
       />
       <Modal
-        visible={rejectOpen}
+        visible={reviewMode !== null}
         animationType="slide"
         onRequestClose={() => {
-          if (!busy) setRejectOpen(false);
+          if (!busy) setReviewMode(null);
         }}
       >
         <AuditPage
-          title="Reject audit"
+          title={reviewMode === "approve" ? "Approve audit" : "Reject audit"}
           onBack={() => {
-            if (!busy) setRejectOpen(false);
+            if (!busy) setReviewMode(null);
           }}
         >
-          <AuditField
+          <AuditPersonField label="Reviewed by" value={reviewer} onChange={setReviewer} currentUser={currentPerson} excludeId={audit?.auditor_id} disabled={busy} />
+          {reviewMode === "approve" && <Text style={{ color: c.text2 }}>Approving sets official stock to the counted quantities and records adjustments in Stock Ledger. This cannot be undone from this screen.</Text>}
+          {reviewMode === "reject" && <AuditField
             label="Rejection reason"
             value={rejectReason}
             onChange={setRejectReason}
-          />
+          />}
           {!!error && <Text style={{ color: c.error }}>{error}</Text>}
           <AuditButton
-            label="Reject audit"
-            danger
-            disabled={busy || !rejectReason.trim()}
+            label={reviewMode === "approve" ? "Approve and reconcile stock" : "Reject audit"}
+            danger={reviewMode === "reject"}
+            disabled={busy || !reviewer || reviewer.id === audit?.auditor_id || (reviewMode === "reject" && !rejectReason.trim())}
             onPress={() =>
               void mutate(async () => {
-                const next = await service.reject(id, rejectReason.trim());
-                setRejectOpen(false);
+                if (!reviewer || reviewer.id === audit?.auditor_id) throw new Error("Select a reviewer different from the auditor.");
+                const next = reviewMode === "approve" ? await service.approve(id, reviewer.id) : await service.reject(id, rejectReason.trim(), reviewer.id);
+                setReviewMode(null);
                 setRejectReason("");
                 return next;
               })
@@ -459,7 +480,7 @@ function Details({ id }: { id: string }) {
           <AuditButton
             label="Cancel"
             disabled={busy}
-            onPress={() => setRejectOpen(false)}
+            onPress={() => setReviewMode(null)}
           />
         </AuditPage>
       </Modal>
