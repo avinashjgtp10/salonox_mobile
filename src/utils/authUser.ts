@@ -176,33 +176,3 @@ export const preserveMobileCalendarAccess = (
     mobileCalendarAccess: fallbackUser.mobileCalendarAccess,
   };
 };
-
-export const summarizeAuthUser = (user: AuthUser | null | undefined) => {
-  if (!user) {
-    return null;
-  }
-
-  return {
-    id: user.id,
-    email: user.email,
-    fullName: user.fullName,
-    firstName: user.firstName,
-    lastName: user.lastName,
-    businessName: user.businessName,
-    phone: user.phone,
-    role: user.role,
-    clientId: user.clientId,
-    salonId: user.salonId,
-    avatarUrl: user.avatarUrl,
-    address: user.address,
-    country: user.country,
-    countryCode: user.countryCode,
-    isVerified: user.isVerified,
-    isActive: user.isActive,
-    isOnboardingComplete: user.isOnboardingComplete,
-    hasCustomPermissions:
-      Array.isArray(user.custom_permissions)
-        ? user.custom_permissions.length > 0
-        : Boolean(user.custom_permissions),
-  };
-};

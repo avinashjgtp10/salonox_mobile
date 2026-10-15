@@ -286,7 +286,6 @@ export const selectServiceCreateError = (state: RootState) => state.service.crea
 export const selectServiceUpdating = (state: RootState) => state.service.updating;
 export const selectServiceUpdateError = (state: RootState) => state.service.updateError;
 export const selectServiceDeletingIds = (state: RootState) => state.service.deletingServiceIds;
-export const selectServiceDeleteError = (state: RootState) => state.service.deleteError;
 export const selectCategoriesByType = (state: RootState, type: CategoryType) => state.service.categories[type];
 export const selectCategoriesLoadedAtByType = (state: RootState, type: CategoryType) =>
   state.service.categoriesLoadedAt[type];
@@ -298,16 +297,5 @@ export const selectCreatingCategoryByType = (state: RootState, type: CategoryTyp
   state.service.creatingCategory[type];
 export const selectCreateCategoryErrorByType = (state: RootState, type: CategoryType) =>
   state.service.createCategoryError[type];
-export const selectServiceCategories = (state: RootState) => selectCategoriesByType(state, "service");
-export const selectServiceCategoriesLoadedAt = (state: RootState) =>
-  selectCategoriesLoadedAtByType(state, "service");
-export const selectServiceCategoriesLoading = (state: RootState) =>
-  selectCategoriesLoadingByType(state, "service");
-export const selectServiceCategoriesError = (state: RootState) =>
-  selectCategoriesErrorByType(state, "service");
-export const selectServiceCreatingCategory = (state: RootState) =>
-  selectCreatingCategoryByType(state, "service");
-export const selectServiceCreateCategoryError = (state: RootState) =>
-  selectCreateCategoryErrorByType(state, "service");
 
 export default serviceSlice.reducer;

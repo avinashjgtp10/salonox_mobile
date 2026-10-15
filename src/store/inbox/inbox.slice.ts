@@ -210,16 +210,6 @@ const inboxSlice = createSlice({
 
 export const { inboxConversationsReceived, inboxMessageReceived, inboxActivePhoneChanged, inboxConnectionChanged, inboxDraftChanged } = inboxSlice.actions;
 
-export const selectInboxConversations = (state: RootState) => state.inbox.conversations;
-export const selectInboxConversationsError = (state: RootState) => state.inbox.conversationsError;
-export const selectInboxConversationsLoading = (state: RootState) =>
-  state.inbox.conversationsStatus === "loading";
-export const selectInboxConversationsRefreshing = (state: RootState) =>
-  state.inbox.conversationsRefreshing;
-
-export const selectInboxUnreadTotal = (state: RootState) =>
-  state.inbox.conversations.reduce((total, conversation) => total + conversation.unreadCount, 0);
-
 const EMPTY_MESSAGES: InboxMessage[] = [];
 
 export const selectInboxMessages = (state: RootState, phone: string) =>

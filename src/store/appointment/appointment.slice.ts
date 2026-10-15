@@ -371,9 +371,6 @@ export const selectAppointmentsLoadingMore = (state: RootState) => state.appoint
 export const selectAppointmentsPagination = (state: RootState) => state.appointment.pagination;
 export const selectAppointmentsQuery = (state: RootState) => state.appointment.query;
 export const selectAppointmentsRefreshing = (state: RootState) => state.appointment.refreshing;
-export const selectAppointmentsStatus = (state: RootState) =>
-  state.appointment.loading ? "loading" : state.appointment.error ? "failed" : "succeeded";
-export const selectAppointmentsTotalCount = (state: RootState) => state.appointment.totalCount;
 export const selectAppointmentMutating = (state: RootState) => state.appointment.mutating;
 export const selectAppointmentMutationError = (state: RootState) => state.appointment.mutationError;
 export const selectAppointmentToast = (state: RootState) => state.appointment.toast;

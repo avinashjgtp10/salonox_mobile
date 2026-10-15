@@ -21,11 +21,6 @@ export type UpdateLeaveRequest = Partial<CreateLeaveRequest> & {
   status?: string;
 };
 
-export type LeaveListResponse = {
-  leaves: LeaveEntry[];
-  staffId: string;
-};
-
 export type CreateLeaveResponse = {
   leave: LeaveEntry;
   message?: string;

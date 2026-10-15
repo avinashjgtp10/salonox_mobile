@@ -154,18 +154,12 @@ const staffBlockedTimesSlice = createSlice({
 
 export const selectBlockedTimes = (state: RootState, staffId?: string | null) =>
   staffId ? state.staffBlockedTimes.blockedTimesByStaffId[staffId] ?? [] : [];
-export const selectBlockedTimesForIds = (state: RootState, staffIds: string[]) =>
-  staffIds.flatMap((staffId) => state.staffBlockedTimes.blockedTimesByStaffId[staffId] ?? []);
 export const selectBlockedTimesLoaded = (state: RootState, staffId?: string | null) =>
   staffId ? state.staffBlockedTimes.loadedStaffIds.includes(staffId) : false;
 export const selectBlockedTimesLoading = (state: RootState, staffId?: string | null) =>
   staffId ? state.staffBlockedTimes.loadingStaffIds.includes(staffId) : false;
-export const selectBlockedTimesLoadingForIds = (state: RootState, staffIds: string[]) =>
-  staffIds.some((staffId) => state.staffBlockedTimes.loadingStaffIds.includes(staffId));
 export const selectBlockedTimesError = (state: RootState, staffId?: string | null) =>
   staffId ? state.staffBlockedTimes.errorByStaffId[staffId] ?? null : null;
-export const selectBlockedTimesErrorForIds = (state: RootState, staffIds: string[]) =>
-  staffIds.map((staffId) => state.staffBlockedTimes.errorByStaffId[staffId]).find(Boolean) ?? null;
 export const selectBlockedTimeCreating = (state: RootState, staffId?: string | null) =>
   staffId ? state.staffBlockedTimes.creatingStaffIds.includes(staffId) : false;
 export const selectBlockedTimeCreateError = (state: RootState, staffId?: string | null) =>
@@ -194,13 +188,5 @@ export const selectBlockedTimeDeleting = (
   staffId && recordId
     ? state.staffBlockedTimes.deletingRecordKeys.includes(getRecordKey(staffId, recordId))
     : false;
-export const selectBlockedTimeDeleteError = (
-  state: RootState,
-  staffId?: string | null,
-  recordId?: string | null,
-) =>
-  staffId && recordId
-    ? state.staffBlockedTimes.deleteErrorByRecordKey[getRecordKey(staffId, recordId)] ?? null
-    : null;
 
 export default staffBlockedTimesSlice.reducer;

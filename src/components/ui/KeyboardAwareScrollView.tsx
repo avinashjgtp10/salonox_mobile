@@ -12,7 +12,7 @@ import React, {
   type PropsWithChildren,
   type RefObject,
 } from "react";
-import { Dimensions, FlatList, Keyboard, Platform, Pressable, ScrollView, SectionList, StyleSheet, UIManager, View, findNodeHandle, type FlatListProps, type ScrollViewProps, type SectionListProps } from "react-native";
+import { Dimensions, FlatList, Keyboard, Platform, Pressable, ScrollView, SectionList, StyleSheet, UIManager, View, findNodeHandle, type FlatListProps, type ScrollViewProps } from "react-native";
 
 import { AppRadius } from "@/constants/layout";
 import { useThemeColors } from "@/theme/ThemeProvider";
@@ -695,56 +695,6 @@ export const KeyboardAwareFlatList = forwardRef(function KeyboardAwareFlatList<
   props: KeyboardAwareFlatListProps<ItemT> & { ref?: React.Ref<FlatList<ItemT>> },
 ) => React.ReactElement;
 
-export type KeyboardAwareSectionListProps<ItemT, SectionT = any> =
-  SectionListProps<ItemT, SectionT> & {
-    extraScrollPadding?: number;
-  };
-
-export const KeyboardAwareSectionList = forwardRef(
-  function KeyboardAwareSectionList<ItemT, SectionT = any>(
-    {
-      extraScrollPadding = 40,
-      contentContainerStyle,
-      ...sectionListProps
-    }: KeyboardAwareSectionListProps<ItemT, SectionT>,
-    forwardedRef: React.ForwardedRef<SectionList<ItemT, SectionT>>,
-  ) {
-    const {
-      scrollRef,
-      combinedContentContainerStyle,
-      onScroll,
-    } = useKeyboardAwareScrollView<SectionList<any, any>>({
-      extraScrollPadding,
-      contentContainerStyle,
-      onScroll: sectionListProps.onScroll,
-    });
-
-    useImperativeHandle(
-      forwardedRef,
-      () => scrollRef.current as SectionList<ItemT, SectionT>,
-    );
-
-    return (
-      <SectionList
-        ref={scrollRef}
-        contentContainerStyle={combinedContentContainerStyle}
-        keyboardShouldPersistTaps={
-          sectionListProps.keyboardShouldPersistTaps ?? "handled"
-        }
-        showsVerticalScrollIndicator={
-          sectionListProps.showsVerticalScrollIndicator ?? false
-        }
-        onScroll={onScroll}
-        scrollEventThrottle={sectionListProps.scrollEventThrottle ?? 16}
-        {...sectionListProps}
-      />
-    );
-  },
-) as <ItemT, SectionT = any>(
-  props: KeyboardAwareSectionListProps<ItemT, SectionT> & {
-    ref?: React.Ref<SectionList<ItemT, SectionT>>;
-  },
-) => React.ReactElement;
 
 const styles = StyleSheet.create({
   container: {

@@ -66,8 +66,6 @@ const branchSlice = createSlice({
 });
 
 export const { resetBranchState, setActiveBranchId, setSwitchingBranch } = branchSlice.actions;
-
-export const selectBranches = (state: RootState) => state.branch.branches;
 export const selectBranchStatus = (state: RootState) => state.branch.status;
 export const selectBranchError = (state: RootState) => state.branch.error;
 export const selectIsSwitchingBranch = (state: RootState) => state.branch.isSwitching;

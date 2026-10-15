@@ -427,7 +427,6 @@ function AppShell() {
                 <Stack.Screen name="(tabs)" />
                 <Stack.Screen name="(staff)" />
                 <Stack.Screen name="index" />
-                <Stack.Screen name="explore" />
               </Stack>
               </StaffAttendanceGate>
               </SafeAreaProvider>

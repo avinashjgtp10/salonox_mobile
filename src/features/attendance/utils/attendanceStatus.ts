@@ -110,14 +110,6 @@ export const getAttendanceAction = (record: AttendanceRecord | null | undefined)
   return { kind: "edit", label: "Edit" };
 };
 
-export const getAttendanceProgress = (record: AttendanceRecord) => {
-  if (record.totalSlots <= 0) {
-    return 0;
-  }
-
-  return Math.min(100, Math.round((record.jobsToday / record.totalSlots) * 100));
-};
-
 export const MANUAL_STATUS_LABELS: Record<ManualAttendanceStatus, string> = {
   present: "Present",
   late: "Late",

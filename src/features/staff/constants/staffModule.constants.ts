@@ -1,14 +1,4 @@
 import type { StaffModuleSection } from "@/features/staff/types/staffFeature.types";
-import type { StaffListQuery } from "@/types/staff";
-
-export const STAFF_LIST_PAGE_SIZE = 10;
-
-export const DEFAULT_STAFF_LIST_QUERY: StaffListQuery = {
-  limit: STAFF_LIST_PAGE_SIZE,
-  page: 1,
-  sort_by: "created_at",
-  sort_order: "DESC",
-};
 
 export const STAFF_MODULE_SECTIONS: StaffModuleSection[] = [
   {

@@ -23,7 +23,6 @@ import type {
   DashboardTopClient,
 } from "@/services/dashboard.service";
 
-const DASHBOARD_STALE_MS = 5 * 60 * 1000;
 
 const EMPTY_DASHBOARD_METRICS: DashboardMetrics = {
   allTimeRevenue: 0,
@@ -129,7 +128,4 @@ export const selectDashboardRefreshing = (state: RootState) => state.dashboard.i
 export const selectDashboardIsLoading = (state: RootState) =>
   state.dashboard.status === "loading";
 export const selectDashboardLastFetchedAt = (state: RootState) => state.dashboard.lastFetchedAt;
-export const selectDashboardIsStale = (state: RootState) =>
-  state.dashboard.lastFetchedAt === null ||
-  Date.now() - state.dashboard.lastFetchedAt > DASHBOARD_STALE_MS;
 export default dashboardSlice.reducer;

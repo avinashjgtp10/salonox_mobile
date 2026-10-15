@@ -10,7 +10,6 @@ export * from "@/features/staff/hooks/useStaffAddresses";
 export * from "@/features/staff/hooks/useStaffDetails";
 export * from "@/features/staff/hooks/useStaffEmergencyContacts";
 export * from "@/features/staff/hooks/useStaffForm";
-export * from "@/features/staff/hooks/useStaffListController";
 export * from "@/features/staff/screens/StaffFormScreen";
 export * from "@/features/staff/screens/StaffSectionScreen";
 export * from "@/features/staff/screens/StaffAttendanceScreen";

@@ -63,8 +63,6 @@ export const Colors = {
   },
 } as const;
 
-export const SageGold = Colors.light;
-
 export function getDashboardColors(scheme: AppColorScheme) {
   const palette = Colors[scheme];
 
@@ -144,8 +142,6 @@ export function getDashboardColors(scheme: AppColorScheme) {
 
 export type ThemeColors = ReturnType<typeof getDashboardColors>;
 
-export const DashboardColors = getDashboardColors('light');
-
 export const DashboardTypography = {
   fontFamilies: {
     display: AppFonts.regular,
@@ -198,38 +194,4 @@ export const DashboardRadius = {
   full: 999,
 } as const;
 
-export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
-
-export const Fonts = Platform.select({
-  ios: {
-    sans: AppFonts.regular,
-    serif: AppFonts.regular,
-    rounded: AppFonts.regular,
-    mono: 'ui-monospace',
-  },
-  default: {
-    sans: AppFonts.regular,
-    serif: AppFonts.regular,
-    rounded: AppFonts.regular,
-    mono: 'monospace',
-  },
-  web: {
-    sans: AppFonts.regular,
-    serif: AppFonts.regular,
-    rounded: AppFonts.regular,
-    mono: 'var(--font-mono)',
-  },
-});
-
-export const Spacing = {
-  half: 2,
-  one: 4,
-  two: 8,
-  three: 16,
-  four: 24,
-  five: 32,
-  six: 64,
-} as const;
-
 export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
-export const MaxContentWidth = 800;

@@ -147,18 +147,6 @@ export type ConsumableKpis = {
   totalConsumables: number;
 };
 
-export type ConsumablePaginationApiData = {
-  hasMore?: boolean | null;
-  has_more?: boolean | null;
-  limit?: number | string | null;
-  page?: number | string | null;
-  pageSize?: number | string | null;
-  totalPages?: number | string | null;
-  total_pages?: number | string | null;
-  totalRecords?: number | string | null;
-  total_records?: number | string | null;
-} | null;
-
 export type ConsumableListPagination = {
   hasMore: boolean;
   limit: number;

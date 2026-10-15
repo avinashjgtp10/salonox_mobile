@@ -183,7 +183,6 @@ const notificationSlice = createSlice({
 });
 
 export const selectNotifications = (state: RootState) => state.notification.notifications;
-export const selectNotificationsListStatus = (state: RootState) => state.notification.listStatus;
 export const selectNotificationsListLoading = (state: RootState) => state.notification.listStatus === "loading";
 export const selectNotificationsListRefreshing = (state: RootState) => state.notification.listRefreshing;
 export const selectNotificationsListError = (state: RootState) => state.notification.listError;
@@ -200,7 +199,6 @@ export const selectUnreadCount = createSelector(
     ).length;
   },
 );
-export const selectUnreadCountStatus = (state: RootState) => state.notification.unreadCountStatus;
 
 export const selectMarkingReadIds = (state: RootState) => state.notification.markingReadIds;
 export const selectRemovingNotificationIds = (state: RootState) => state.notification.removingIds;
@@ -209,6 +207,5 @@ export const selectClearingAllNotifications = (state: RootState) => state.notifi
 
 export const selectRegisteredDeviceToken = (state: RootState) => state.notification.registeredDeviceToken;
 export const selectRegisterDeviceStatus = (state: RootState) => state.notification.registerDeviceStatus;
-export const selectRegisterDeviceError = (state: RootState) => state.notification.registerDeviceError;
 
 export default notificationSlice.reducer;
