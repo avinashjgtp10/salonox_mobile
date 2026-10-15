@@ -1,4 +1,6 @@
 import type { AuthUser } from "@/types/auth";
+import { environmentConfig } from "@/config/environment";
+import { resolveMediaUrl } from "@/utils/mediaUrl";
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -72,7 +74,7 @@ export const normalizeAuthUser = (value: unknown): AuthUser => {
     firstName: toTrimmedString(record.firstName, record.first_name),
     lastName: toTrimmedString(record.lastName, record.last_name),
     fullName: toTrimmedString(record.fullName, record.full_name, record.name),
-    avatarUrl: toTrimmedString(record.avatarUrl, record.avatar_url, record.avatar),
+    avatarUrl: resolveMediaUrl(toTrimmedString(record.avatarUrl, record.avatar_url, record.avatar), environmentConfig.apiBaseUrl),
     businessName: toTrimmedString(
       record.businessName,
       record.business_name,
