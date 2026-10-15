@@ -116,6 +116,14 @@ const getRecordArray = (payload: ConversationsApiData | MessagesApiData, keys: s
 };
 
 export const inboxService = {
+  async deleteConversations(phones: string[]): Promise<{ deleted: number }> {
+    const uniquePhones = [...new Set(phones.map(phone => phone.trim()).filter(Boolean))];
+    if (!uniquePhones.length || uniquePhones.length > 500) {
+      throw new Error("Select between 1 and 500 chats to delete.");
+    }
+    const response = await api.post<ApiResponse<{ deleted: number }>>(INBOX.DELETE_CONVERSATIONS, { phones: uniquePhones });
+    return response.data.data;
+  },
   async getCustomer(phone: string): Promise<InboxCustomer | null> {
     try {
       const response = await api.get<ApiResponse<UnknownRecord | null>>(INBOX.CUSTOMER(phone));
