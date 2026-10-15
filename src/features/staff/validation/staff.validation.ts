@@ -69,9 +69,7 @@ export const validateStaffForm = (
     errors.phone = PHONE_INVALID_MESSAGE;
   }
 
-  if (!isPresent(values.gender)) {
-    errors.gender = "Gender is required.";
-  } else if (!(STAFF_GENDER_OPTIONS as readonly string[]).includes(values.gender!)) {
+  if (isPresent(values.gender) && !(STAFF_GENDER_OPTIONS as readonly string[]).includes(values.gender!)) {
     errors.gender = "Select a valid gender.";
   }
 
