@@ -1,7 +1,7 @@
 import React from "react";
 import { Image, StyleSheet, Text, View } from "react-native";
 import type { ReceiptData } from "@/utils/receiptGenerator";
-import { invoiceMoney, invoiceStatus, invoiceSummary } from "@/utils/invoiceDocument";
+import { invoiceMoney, invoiceRowStaff, invoiceStatus, invoiceSummary } from "@/utils/invoiceDocument";
 
 /** Scrollable A4 companion to the web invoice used by print and share. */
 export function InvoicePreview({ data }: { data: ReceiptData }) {
@@ -24,7 +24,7 @@ export function InvoicePreview({ data }: { data: ReceiptData }) {
       <View style={[styles.infoCol, styles.infoRight]}><Text style={styles.section}>APPOINTMENT DETAILS</Text>{field("Date", data.invoice.date)}{field("Time", data.invoice.time)}{field("Staff", data.staffName)}{field("Payment Method", data.invoice.paymentMethod)}{field("Payment Status", invoiceStatus(data))}</View>
     </View>
     <View style={styles.items}><Text style={styles.section}>SERVICES &amp; ITEMS</Text><View style={styles.row}>{["#", "Item Name", "Type", "Staff", "Time", "Qty", "Rate", "Disc.", "Tax", "Amount"].map((value, i) => cell(value, i, true))}</View>
-      {data.items.map((item, i) => <View key={i} style={[styles.row, i % 2 === 1 && styles.alternate]}>{[i + 1, item.name, item.type || "—", item.staffName || data.staffName || "—", data.invoice.time, item.qty, invoiceMoney(item.price), invoiceMoney(item.discount ?? 0), item.tax === undefined ? "—" : invoiceMoney(item.tax), invoiceMoney(item.total)].map((value, index) => cell(value, index))}</View>)}
+      {data.items.map((item, i) => <View key={i} style={[styles.row, i % 2 === 1 && styles.alternate]}>{[i + 1, item.name, item.type || "—", invoiceRowStaff(data, item), data.invoice.time, item.qty, invoiceMoney(item.price), invoiceMoney(item.discount ?? 0), item.tax === undefined ? "—" : invoiceMoney(item.tax), invoiceMoney(item.total)].map((value, index) => cell(value, index))}</View>)}
       <Text style={styles.itemsTotal}>Items Total    {invoiceMoney(data.items.reduce((sum, item) => sum + item.total, 0))}</Text>
     </View>
     <View style={styles.bottom}><View style={styles.notes}>{data.notes ? <><Text style={styles.section}>NOTES</Text><Text style={styles.value}>{data.notes}</Text></> : null}</View><View style={styles.summary}><Text style={styles.section}>PAYMENT SUMMARY</Text>{invoiceSummary(data).map((row, i) => <View key={i} style={styles.summaryRow}><Text style={[styles.summaryLabel, row.bold && styles.bold]}>{row.label}</Text><Text style={[styles.value, row.bold && styles.bold]}>{row.value}</Text></View>)}</View></View>

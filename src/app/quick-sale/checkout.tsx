@@ -23,7 +23,8 @@ import { fetchSaleByIdThunk } from "@/middleware/sales/sales.thunk";
 import { printerService } from "@/services/printer.service";
 import { salonService } from "@/services/salon.service";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { selectCurrentStaff } from "@/store/staff/staff.slice";
+import { staffService } from "@/services/staff.service";
+import { selectCurrentStaff, selectStaffMembers } from "@/store/staff/staff.slice";
 import { getStaffSaleBilling } from "@/utils/staffBilling";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { SalonListItem } from "@/types/salon";
@@ -33,6 +34,13 @@ import { formatAppDate, formatAppTime } from "@/utils/dateTime";
 import { formatInvoiceNumber } from "@/utils/receipt";
 import type { ReceiptData } from "@/utils/receiptGenerator";
 import { formatCurrency } from "@/utils/currency";
+import {
+  invoiceStaffDisplay,
+  resolveStaffNames,
+  saleStaffIds,
+  staffNamesFromRoster,
+  withStaffNames,
+} from "@/utils/invoiceStaff";
 
 type ReceiptLoadStatus = "initial" | "loading" | "loaded" | "failed" | "retrying";
 
@@ -191,17 +199,37 @@ function OwnerQuickSaleCheckoutScreen() {
 
   const [isReceiptModalVisible, setIsReceiptModalVisible] = useState(false);
   const hasAutoOpenedReceiptRef = useRef(false);
+  const staffRoster = useAppSelector(selectStaffMembers);
+  const [invoiceStaffNames, setInvoiceStaffNames] = useState<{ saleId: string; names: Record<string, string> } | null>(null);
+
+  useEffect(() => {
+    if (isStaff || !authoritativeSale) return;
+    let cancelled = false;
+    const staffIds = saleStaffIds(authoritativeSale.lineItems.filter((item) => !item.staffName));
+
+    void resolveStaffNames(staffIds, staffNamesFromRoster(staffRoster), async (staffId) =>
+      (await staffService.getStaffMember(staffId)).name,
+    ).then((names) => {
+      if (!cancelled) setInvoiceStaffNames({ saleId: authoritativeSale.id, names });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authoritativeSale, isStaff, staffRoster]);
 
   const receiptData = useMemo<ReceiptData | null>(() => {
     // A partial staff summary is not a customer invoice. Full invoice previews,
     // exports and printing remain in the owner/manager view.
     if (isStaff || !authoritativeSale || !salonLoaded) return null;
+    if (invoiceStaffNames?.saleId !== authoritativeSale.id) return null;
+    const namedLineItems = withStaffNames(authoritativeSale.lineItems, invoiceStaffNames.names);
 
     const [datePart, timePart] = authoritativeSale.createdDateLabel.includes(" • ")
       ? authoritativeSale.createdDateLabel.split(" • ")
       : [formatAppDate(authoritativeSale.createdDateLabel), formatAppTime(authoritativeSale.createdDateLabel)];
 
-    const items = authoritativeSale.lineItems.map((item) => ({
+    const items = namedLineItems.map((item) => ({
       name: item.name,
       qty: item.quantity,
       price: item.unitPrice,
@@ -225,6 +253,11 @@ function OwnerQuickSaleCheckoutScreen() {
         paymentBreakdown = undefined;
       }
     }
+    // Same as the web: a single plain Cash/Card/UPI leg is already shown as the payment method.
+    const isMixedPayment = paymentBreakdown
+      && (paymentBreakdown.length > 1
+        || paymentBreakdown.some((entry) => !["cash", "card", "upi"].includes(entry.method.toLowerCase())));
+    if (!isMixedPayment) paymentBreakdown = undefined;
 
     return {
       salon: {
@@ -253,7 +286,7 @@ function OwnerQuickSaleCheckoutScreen() {
         phone: authoritativeSale.clientPhone,
         email: undefined,
       },
-      staffName: [...new Set(authoritativeSale.lineItems.map((item) => item.staffName).filter(Boolean))].join(", "),
+      staffName: invoiceStaffDisplay(namedLineItems),
       notes: authoritativeSale.notes || undefined,
       couponCode: authoritativeSale.couponCode || undefined,
       items,
@@ -276,7 +309,7 @@ function OwnerQuickSaleCheckoutScreen() {
       paperSize: "80mm",
       upiQrUrl: undefined,
     };
-  }, [authoritativeSale, isPreview, isStaff, salon, salonLoaded, user]);
+  }, [authoritativeSale, invoiceStaffNames, isPreview, isStaff, salon, salonLoaded, user]);
 
   useEffect(() => {
     if (params.openReceipt === "1" && receiptData && !hasAutoOpenedReceiptRef.current) {
