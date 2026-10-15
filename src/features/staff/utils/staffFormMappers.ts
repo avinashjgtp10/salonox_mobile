@@ -41,6 +41,23 @@ const splitIsoDate = (isoDate: string) => {
   return { day: Number(match[3]), month: Number(match[2]) };
 };
 
+// The API stores the national number and country code separately, but the form
+// (PhoneInput and validation) works in E.164, e.g. +919876543210.
+export const toFormPhone = (phone: string, countryCode?: string) => {
+  const trimmed = phone === "-" ? "" : phone.trim();
+  if (!trimmed || trimmed.startsWith("+")) return trimmed;
+  const dialCode = countryCode?.replace(/\D/g, "") || "91";
+  return `+${dialCode}${trimmed.replace(/\D/g, "")}`;
+};
+
+export const toPhoneCountry = (e164Phone: string) => {
+  try {
+    return (e164Phone && parsePhoneNumber(e164Phone).country) || "IN";
+  } catch {
+    return "IN";
+  }
+};
+
 const mapPhoneToRequest = (e164Phone: string) => {
   const trimmedPhone = e164Phone.trim();
 

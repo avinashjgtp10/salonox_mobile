@@ -356,7 +356,7 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
             autoCapitalize="none"
             error={form.validationErrors.email}
             keyboardType="email-address"
-            label="Email *"
+            label={form.values.isLoginEnabled ? "Email *" : "Email"}
             onChangeText={(value) => form.updateField("email", value)}
             placeholder="Email address"
             value={form.values.email}
@@ -406,7 +406,7 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
           />
 
           <View ref={(view) => setFieldRef("gender", view)} style={[styles.fieldGroup, form.validationErrors.gender && styles.fieldGroupError]}>
-            <Text style={styles.fieldLabel}>Gender *</Text>
+            <Text style={styles.fieldLabel}>Gender</Text>
             <ChipRow
               onSelect={(option) => form.updateField("gender", option)}
               options={STAFF_GENDER_OPTIONS}
