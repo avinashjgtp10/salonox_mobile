@@ -14,10 +14,12 @@ type KeyboardAwareFormProps = {
   /** A sheet already handles iOS keyboard avoidance and supplies a bounded height. */
   embedded?: boolean;
   autoReveal?: boolean;
+  /** Disable drag scrolling while retaining automatic field reveal. */
+  scrollEnabled?: boolean;
   style?: StyleProp<ViewStyle>;
   contentContainerStyle?: StyleProp<ViewStyle>;
 };
-export const KeyboardAwareForm = forwardRef<KeyboardAwareFormHandle, KeyboardAwareFormProps>(function KeyboardAwareForm({ children, embedded = false, autoReveal = false, style, contentContainerStyle }, ref) {
+export const KeyboardAwareForm = forwardRef<KeyboardAwareFormHandle, KeyboardAwareFormProps>(function KeyboardAwareForm({ children, embedded = false, autoReveal = false, scrollEnabled = true, style, contentContainerStyle }, ref) {
   const insets = useSafeAreaInsets();
   const scroll = useRef<ScrollView>(null);
   const viewportRef = useRef<View>(null);
@@ -152,6 +154,7 @@ export const KeyboardAwareForm = forwardRef<KeyboardAwareFormHandle, KeyboardAwa
     <KeyboardAvoidingView style={embedded ? styles.embedded : styles.container} behavior="padding" enabled={!embedded && Platform.OS === "ios"}>
       <ScrollView ref={scroll} style={embedded ? styles.embedded : undefined} contentContainerStyle={[styles.content, contentContainerStyle, { paddingBottom: keyboardHeight }]}
         nestedScrollEnabled={embedded}
+        scrollEnabled={scrollEnabled}
         onScroll={(event) => { offset.current = event.nativeEvent.contentOffset.y; }} scrollEventThrottle={16}
         keyboardShouldPersistTaps="always" keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "none"}
         onContentSizeChange={onLayoutChange} onLayout={onLayoutChange} showsVerticalScrollIndicator={false}>

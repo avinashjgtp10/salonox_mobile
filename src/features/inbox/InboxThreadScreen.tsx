@@ -56,6 +56,7 @@ function Thread({ phone }: { phone: string }) {
   };
   const list = useRef<FlatList<InboxMessage>>(null);
   const nearBottom = useRef(true);
+  const followComposer = useRef(false);
   const initialPositionPending = useRef(true);
   const focused = useRef(false);
   const sendLock = useRef(false);
@@ -119,6 +120,8 @@ function Thread({ phone }: { phone: string }) {
   // Android often skips keyboardDidShow on the first focus, so lift on focus with
   // the best known height; the real event corrects it when it arrives.
   const onComposerFocus = () => {
+    followComposer.current = true;
+    nearBottom.current = true;
     if (Platform.OS === "android") liftComposer(Keyboard.metrics()?.height || lastKeyboardHeight || Dimensions.get("window").height * 0.36);
   };
   useEffect(() => {
@@ -162,6 +165,14 @@ function Thread({ phone }: { phone: string }) {
       {!!error && <TouchableOpacity accessibilityRole="button" onPress={() => refresh(false)} style={s.banner}><Text style={s.error}>{error} · Tap to retry</Text></TouchableOpacity>}
       <View pointerEvents="none" style={{ position: "absolute", top: 0, bottom: 0, left: 0, right: 0, overflow: "hidden", justifyContent: "space-around" }}>{Array.from({ length: 6 }, (_, i) => <View key={i} style={{ flexDirection: "row", justifyContent: "space-around" }}>{[0, 1].map(j => <Text key={j} style={{ color: p.muted, opacity: 0.08, letterSpacing: 5, fontSize: 17, transform: [{ rotate: "-20deg" }] }}>SalonOX</Text>)}</View>)}</View>
       <FlatList ref={list} data={loading ? [] : visibleMessages} keyExtractor={item => item.id} style={s.fill} contentContainerStyle={s.messageList} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag"
+        // Keyboard/composer changes resize the viewport without changing content size.
+        // Scroll after that layout commits so the latest bubble stays above the composer.
+        onLayout={() => {
+          if (followComposer.current || nearBottom.current) {
+            list.current?.scrollToEnd({ animated: false });
+          }
+        }}
+        onScrollBeginDrag={() => { followComposer.current = false; }}
         // Not inverted, so FlatList's default windowing renders from the OLDEST
         // end of `data` first — for any conversation longer than ~10 messages,
         // the initial batch never reached the newest ones, so scrollToEnd()
@@ -191,7 +202,7 @@ function Thread({ phone }: { phone: string }) {
           <View style={s.composer}>
             <InboxIcon name="flash-outline" label="Quick replies" disabled={sending || loading} onPress={() => { Keyboard.dismiss(); setTray(tray === "quick" ? null : "quick"); }} />
             <InboxIcon name="happy-outline" label="Insert emoji" disabled={sending || loading} onPress={() => setTray(tray === "emoji" ? null : "emoji")} />
-            <TextInput accessibilityLabel="Type a WhatsApp message" multiline maxLength={4096} editable={!sending && !loading && allowed && replyAllowed} value={draft} onFocus={onComposerFocus} onBlur={() => setKeyboardInset(0)} onChangeText={text => { if (text === "/" && !draft) { Keyboard.dismiss(); setTray("quick"); return; } setDraft(text); }} placeholder="Type a message…" placeholderTextColor={p.muted} style={s.input} />
+            <TextInput accessibilityLabel="Type a WhatsApp message" multiline maxLength={4096} editable={!sending && !loading && allowed && replyAllowed} value={draft} onFocus={onComposerFocus} onChangeText={text => { if (text === "/" && !draft) { Keyboard.dismiss(); setTray("quick"); return; } setDraft(text); }} placeholder="Type a message…" placeholderTextColor={p.muted} style={s.input} />
             <TouchableOpacity accessibilityRole="button" accessibilityLabel="Send message" accessibilityState={{ disabled: !canSend }} disabled={!canSend} onPress={send} style={[s.icon, s.send, !canSend && { opacity: 0.4 }]}>{sending ? <ActivityIndicator color={p.onAccent} /> : <Ionicons name="send" size={20} color={p.onAccent} />}</TouchableOpacity>
           </View>
         </>}
