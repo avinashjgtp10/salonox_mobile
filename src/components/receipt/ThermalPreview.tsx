@@ -1,7 +1,7 @@
 import React from "react";
 import { Image, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import type { ReceiptData } from "@/utils/receiptGenerator";
-import { invoiceMoney, invoiceSummary } from "@/utils/invoiceDocument";
+import { invoiceMoney, invoiceSummary, thermalRowMeta } from "@/utils/invoiceDocument";
 
 export function ThermalPreview({ data }: { data: ReceiptData }) {
   const { width } = useWindowDimensions();
@@ -13,10 +13,10 @@ export function ThermalPreview({ data }: { data: ReceiptData }) {
     <Text style={styles.name}>{data.salon.name}</Text>
     {[ [data.salon.address, data.salon.city, data.salon.state, data.salon.postalCode, data.salon.country].filter(Boolean).join(", "), data.salon.phone && `Ph: ${data.salon.phone}`, data.salon.gstin && `GSTIN: ${data.salon.gstin}`].filter(Boolean).map((line, i) => <Text key={i} style={styles.center}>{line}</Text>)}
     <View style={styles.rule} />
-    {pair("Invoice", data.invoice.invoiceNumber)}{pair("Date", data.invoice.date)}{pair("Client", data.client.name)}{pair("Phone", data.client.phone ?? "—")}{pair("Staff", data.staffName ?? "—")}{pair("Payment Method", data.invoice.paymentMethod)}
+    {pair("Invoice", data.invoice.invoiceNumber)}{pair("Date", data.invoice.date)}{pair("Client", data.client.name)}{pair("Phone", data.client.phone ?? "—")}{pair("Staff", data.staffName || "—")}{pair("Payment Method", data.invoice.paymentMethod)}
     <View style={styles.rule} />
     <View style={styles.row}><Text style={[styles.text, styles.label, styles.bold]}>ITEM</Text><Text style={[styles.text, styles.qty, styles.bold]}>QTY</Text><Text style={[styles.text, styles.amount, styles.bold]}>AMOUNT</Text></View>
-    {data.items.map((item, i) => <View key={i} style={styles.row}><View style={styles.label}><Text style={styles.text}>{item.name}</Text><Text style={styles.small}>{item.staffName || data.staffName || ""}</Text></View><Text style={[styles.text, styles.qty]}>{item.qty}</Text><Text style={[styles.text, styles.amount]}>{invoiceMoney(item.total)}</Text></View>)}
+    {data.items.map((item, i) => <View key={i} style={styles.row}><View style={styles.label}><Text style={styles.text}>{item.name}</Text><Text style={styles.small}>{thermalRowMeta(item) ?? ""}</Text></View><Text style={[styles.text, styles.qty]}>{item.qty}</Text><Text style={[styles.text, styles.amount]}>{invoiceMoney(item.total)}</Text></View>)}
     <View style={styles.rule} />
     {rows.slice(0, totalIndex).map((row, i) => pair(row.label, row.value, row.bold, `sum-${i}`))}
     <View style={styles.rule} />{pair("TOTAL", invoiceMoney(data.pricing.grandTotal), true)}<View style={styles.rule} />
