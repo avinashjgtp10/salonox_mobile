@@ -17,6 +17,7 @@ import { messageDay } from "@/utils/inboxPresentation";
 import { canAttemptInboxReply, getReplyWindow } from "@/utils/whatsappReplyWindow";
 import { hasCustomPermission } from "@/utils/permissions";
 import { CustomerPanel } from "./CustomerPanel";
+import { DeleteChatsModal } from "./DeleteChatsModal";
 import { InboxAvatar, InboxIcon } from "./InboxControls";
 import { MessageBubble } from "./MessageBubble";
 import { useInboxTheme } from "./inboxTheme";
@@ -46,6 +47,7 @@ function Thread({ phone }: { phone: string }) {
   const connected = useAppSelector(state => state.inbox.connected);
   const [now, setNow] = useState(Date.now());
   const [infoOpen, setInfoOpen] = useState(false);
+  const [deleteChatOpen, setDeleteChatOpen] = useState(false);
   const [tray, setTray] = useState<"quick" | "emoji" | null>(null);
   const [hiddenIds, setHiddenIds] = useState<string[]>([]);
   const [deleteMessageId, setDeleteMessageId] = useState<string | null>(null);
@@ -160,6 +162,7 @@ function Thread({ phone }: { phone: string }) {
       <TouchableOpacity accessibilityRole="button" accessibilityLabel="Show customer info" onPress={() => setInfoOpen(true)} style={[s.fill, { gap: 5 }]}><Text numberOfLines={1} style={s.heading}>{conversation?.contactName || maskPhone(phone)}</Text><Text numberOfLines={1} style={s.muted}>{conversation?.contactName ? maskPhone(phone) : "WhatsApp"}</Text></TouchableOpacity>
       <InboxIcon name="call-outline" label={`Call ${conversation?.contactName || phone}`} onPress={callCustomer} disabled={!/\d/.test(phone)} />
       <InboxIcon name="information-circle-outline" label="Show customer info" onPress={() => setInfoOpen(true)} />
+      {allowed && <InboxIcon name="trash-outline" label="Delete chat" disabled={sending} onPress={() => { Keyboard.dismiss(); setDeleteChatOpen(true); }} />}
     </View>
     <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={[s.chat, keyboardInset > 0 && { paddingBottom: keyboardInset }]}>
       {!!error && <TouchableOpacity accessibilityRole="button" onPress={() => refresh(false)} style={s.banner}><Text style={s.error}>{error} · Tap to retry</Text></TouchableOpacity>}
@@ -222,6 +225,10 @@ function Thread({ phone }: { phone: string }) {
         setDeleteMessageId(null);
       }}
     />
+    {deleteChatOpen && <DeleteChatsModal phones={[phone]} onClose={() => setDeleteChatOpen(false)} onDeleted={() => {
+      setDeleteChatOpen(false);
+      if (router.canGoBack()) router.back(); else router.replace("/inbox" as Href);
+    }} />}
     <Modal visible={infoOpen} transparent animationType="slide" onRequestClose={() => setInfoOpen(false)}>
       <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.35)", justifyContent: "flex-end" }}>
         <TouchableOpacity accessibilityRole="button" accessibilityLabel="Close customer info" onPress={() => setInfoOpen(false)} style={{ flex: 1 }} />

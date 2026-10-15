@@ -14,6 +14,16 @@ type RejectValue = { message: string };
 
 const reject = (error: unknown): RejectValue => ({ message: getApiErrorMessage(error) });
 
+export const deleteInboxConversationsThunk = createAsyncThunk<
+  { deleted: number }, string[], { rejectValue: RejectValue; state: RootState }
+>("inbox/deleteConversations", async (phones, { rejectWithValue }) => {
+  try {
+    return await inboxService.deleteConversations(phones);
+  } catch (error) {
+    return rejectWithValue(reject(error));
+  }
+});
+
 export type FetchInboxConversationsArgs = { refresh?: boolean } | undefined;
 
 export type FetchInboxMessagesArgs = {
