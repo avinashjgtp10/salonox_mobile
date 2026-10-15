@@ -21,6 +21,7 @@ import { getApiErrorMessage } from "@/services/api";
 import { salonService } from "@/services/salon.service";
 import type {
   AuditBranch,
+  AuditPerson,
   AuditListRow,
   AuditStatus,
 } from "@/types/productAudit";
@@ -33,6 +34,7 @@ import {
   auditStyles,
   auditStatusLabel,
 } from "./AuditUI";
+import { AuditPersonField } from "./AuditPersonField";
 
 export default function ProductAuditListScreen() {
   const user = useAppSelector(selectCurrentUser);
@@ -59,6 +61,8 @@ function List() {
   const [notes, setNotes] = useState("");
   const [branches, setBranches] = useState<AuditBranch[]>([]);
   const [branchId, setBranchId] = useState("");
+  const currentPerson: AuditPerson = { id: user?.id ?? "", name: user?.fullName || user?.firstName || user?.email || "You" };
+  const [auditor, setAuditor] = useState<AuditPerson | null>(null);
   const sequence = useRef(0);
   const mutationLock = useRef(false);
   const requestLock = useRef(false);
@@ -147,6 +151,7 @@ function List() {
     setBranches([]);
     setBranchId("");
     setCreating(true);
+    setAuditor(currentPerson);
     setSaving(true);
     try {
       const id =
@@ -166,10 +171,12 @@ function List() {
     setSaving(true);
     setError("");
     try {
+      if (name.trim().length > 200) throw new Error("Audit names must be 200 characters or fewer.");
       const audit = await service.create({
         branch_id: branchId,
         name: name.trim(),
         notes: notes.trim() || undefined,
+        auditor_id: auditor?.id || undefined,
       });
       setCreating(false);
       setName("");
@@ -287,6 +294,7 @@ function List() {
                   {row.item_count} products · {row.diff_count} differences ·{" "}
                   {row.auditor_name ?? "Auditor"}
                 </Text>
+                <Text style={{ color: c.text2 }}>Updated: {new Date(row.updated_at).toLocaleString()}</Text>
               </AuditCard>
             </TouchableOpacity>
           )}
@@ -337,11 +345,13 @@ function List() {
             value={notes}
             onChange={setNotes}
           />
+          <AuditPersonField label="Auditor" value={auditor} onChange={setAuditor} currentUser={currentPerson} disabled={saving} />
           <Text style={{ color: c.text }}>Inventory branch</Text>
           <ScrollView>
             {branches.map((b) => (
               <TouchableOpacity
                 key={b.id}
+                disabled={saving}
                 onPress={() => setBranchId(b.id)}
                 style={{
                   padding: 14,

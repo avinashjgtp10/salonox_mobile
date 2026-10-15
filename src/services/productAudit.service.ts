@@ -1,16 +1,36 @@
 import { api } from "@/services/api";
-import { PRODUCT_AUDIT as E } from "@/services/api/endpoints";
+import { PRODUCT_AUDIT as E, STAFF } from "@/services/api/endpoints";
+import { asRecord, toSafeNumber, toSafeString } from "@/utils/apiNormalize";
 import type { ApiResponse } from "@/types/auth";
 import type {
   AuditBranch,
   AuditCount,
   AuditFilters,
   AuditListRow,
+  AuditPerson,
   ProductAudit,
   RecognitionResult,
 } from "@/types/productAudit";
 
 export const productAuditService = {
+  // Same slim, paginated roster used by the web auditor/reviewer pickers.
+  async people(signal?: AbortSignal): Promise<AuditPerson[]> {
+    const people = new Map<string, AuditPerson>();
+    for (let page = 1; ; page++) {
+      const response = await api.get(STAFF.LIST, { params: { fields: "list", page, limit: 200 }, signal });
+      const data = response.data.data;
+      const record = asRecord(data);
+      const rows = Array.isArray(record.items) ? record.items : Array.isArray(data) ? data : [];
+      for (const value of rows) {
+        const row = asRecord(value);
+        const id = toSafeString(row.user_id);
+        if (id) people.set(id, { id, name: [toSafeString(row.first_name), toSafeString(row.last_name)].filter(Boolean).join(" ") || "Unnamed staff" });
+      }
+      const total = toSafeNumber(asRecord(record.pagination).total);
+      if (!rows.length || page * 200 >= total) break;
+    }
+    return [...people.values()];
+  },
   async list(filters: AuditFilters) {
     return (
       await api.get<ApiResponse<{ data: AuditListRow[]; total: number }>>(

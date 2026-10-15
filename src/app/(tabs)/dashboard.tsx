@@ -25,6 +25,7 @@ import {
 import { AttendanceToast } from "@/features/attendance/components/AttendanceToast";
 import { useAppForeground } from "@/hooks/useAppForeground";
 import { useLocalDay } from "@/hooks/useLocalDay";
+import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import {
   fetchAttendanceOverviewThunk,
   hydrateAttendanceFromCacheThunk,
@@ -73,9 +74,11 @@ function DashboardContent() {
   const dashboardError = useAppSelector(selectDashboardError);
   const isDashboardRefreshing = useAppSelector(selectDashboardRefreshing);
   const dashboardStatus = useAppSelector(selectDashboardStatus);
+  const { isOnline } = useNetworkStatus();
+  const wasOnline = useRef(isOnline);
   const today = useLocalDay();
   const previousDay = useRef(today);
-  const showErrorState = dashboardStatus === "failed";
+  const showErrorState = isOnline && dashboardStatus === "failed";
 
   const fetchDashboard = useCallback(async () => {
     if (!isAuthenticated) {
@@ -84,6 +87,12 @@ function DashboardContent() {
 
     await dispatch(fetchDashboardThunk());
   }, [dispatch, isAuthenticated]);
+
+  useEffect(() => {
+    const reconnected = !wasOnline.current && isOnline;
+    wasOnline.current = isOnline;
+    if (reconnected) void fetchDashboard();
+  }, [isOnline, fetchDashboard]);
 
   const fetchAttendance = useCallback(() => {
     if (!isAuthenticated) {
