@@ -36,10 +36,8 @@ type DashboardHeroProps = {
 
 export default function DashboardHero({ onOpenNotifications, onOpenQuickActions }: DashboardHeroProps) {
   const tour = useDashboardTour();
-  const { colors: Colors, scheme, setMode } = useAppTheme();
+  const { colors: Colors } = useAppTheme();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
-  const isDark = scheme === "dark";
-  const toggleTheme = () => setMode(isDark ? "light" : "dark");
   const currentUser = useAppSelector(selectCurrentUser);
   const unreadNotificationCount = useAppSelector(selectUnreadCount);
   const activeBranch = useAppSelector(selectActiveBranch);
@@ -124,14 +122,6 @@ export default function DashboardHero({ onOpenNotifications, onOpenQuickActions 
         </View>
 
         <View style={styles.avatarColumn}>
-          <TouchableOpacity
-            accessibilityLabel={isDark ? "Switch to light theme" : "Switch to dark theme"}
-            activeOpacity={0.7}
-            onPress={toggleTheme}
-            style={styles.themeToggle}
-          >
-            <Ionicons name={isDark ? "sunny-outline" : "moon-outline"} size={18} color={Colors.heading} />
-          </TouchableOpacity>
           <TouchableOpacity
             accessibilityLabel="Open profile"
             activeOpacity={0.8}
@@ -284,13 +274,5 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     color: Colors.onPrimary,
     fontSize: 14,
     fontWeight: Typography.fontWeights.bold,
-  },
-  themeToggle: {
-    alignItems: "center",
-    backgroundColor: Colors.dashboardCardMuted,
-    borderRadius: 18,
-    height: 36,
-    justifyContent: "center",
-    width: 36,
   },
 });
