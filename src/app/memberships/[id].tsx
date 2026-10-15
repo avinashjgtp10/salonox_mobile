@@ -33,8 +33,8 @@ import { useThemeColors } from "@/theme/ThemeProvider";
 import type { ClientListItem } from "@/types/client";
 import type { Membership } from "@/types/membership";
 import { formatAppDate } from "@/utils/dateTime";
+import { formatCurrency as formatMoney } from "@/utils/currency";
 
-const formatMoney = (value: number) => `Rs. ${value.toLocaleString("en-IN")}`;
 const formatDate = (value: string) => {
   return formatAppDate(value, "-");
 };

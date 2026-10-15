@@ -27,10 +27,7 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { SaleLineItem } from "@/types/sales";
 import { formatInvoiceNumber } from "@/utils/receipt";
-
-function formatCurrency(amount: number) {
-  return `Rs. ${amount.toLocaleString("en-IN")}`;
-}
+import { formatCurrency } from "@/utils/currency";
 
 function getRejectedMessage(payload: unknown, fallback: string) {
   if (payload && typeof payload === "object" && "message" in payload) {

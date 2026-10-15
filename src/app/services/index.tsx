@@ -38,6 +38,7 @@ import {
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { ServiceListItem } from "@/types/service";
+import { formatCurrency as formatPrice } from "@/utils/currency";
 
 function getSortQuery(sortOption: ServiceSortOption) {
   switch (sortOption) {
@@ -51,10 +52,6 @@ function getSortQuery(sortOption: ServiceSortOption) {
     default:
       return { sort_by: "created_at", sort_order: "desc" as const };
   }
-}
-
-function formatPrice(price: number) {
-  return `₹${price.toLocaleString("en-IN")}`;
 }
 
 function formatDuration(durationMinutes: number | null) {

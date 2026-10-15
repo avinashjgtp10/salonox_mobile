@@ -17,14 +17,11 @@ import {
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { formatAppDate } from "@/utils/dateTime";
 import { isValidStaffId } from "@/utils/staffIds";
+import { formatCurrency } from "@/utils/currency";
 
 type StaffCommissionSectionProps = {
   staffId?: string | null;
 };
-
-function formatCurrency(amount: number) {
-  return `Rs. ${amount.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
-}
 
 const toMonthKey = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 

@@ -32,6 +32,7 @@ import { normalizeSaleId } from "@/utils/apiNormalize";
 import { formatAppDate, formatAppTime } from "@/utils/dateTime";
 import { formatInvoiceNumber } from "@/utils/receipt";
 import type { ReceiptData } from "@/utils/receiptGenerator";
+import { formatCurrency } from "@/utils/currency";
 
 type ReceiptLoadStatus = "initial" | "loading" | "loaded" | "failed" | "retrying";
 
@@ -40,10 +41,6 @@ type ReceiptLoadState = {
   sale: SaleDetail | null;
   status: ReceiptLoadStatus;
 };
-
-function formatCurrency(amount: number) {
-  return `₹${amount.toLocaleString("en-IN")}`;
-}
 
 function formatPaymentMethod(method: string) {
   return method

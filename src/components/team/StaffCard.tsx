@@ -13,6 +13,7 @@ import { AppLayout, AppRadius } from "@/constants/layout";
 import type { StaffAvailability, StaffMember, StaffStatus } from "@/data/teamData";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { formatStaffDisplayName } from "@/utils/name";
+import { formatCurrency } from "@/utils/currency";
 
 type StaffCardProps = {
   metricsReady?: boolean;
@@ -24,8 +25,6 @@ type StaffCardProps = {
   onMore: (staffMember: StaffMember) => void;
   staffMember: StaffMember;
 };
-
-const formatCurrency = (amount: number) => `Rs. ${amount.toLocaleString("en-IN")}`;
 
 const getStatusPalette = (status: StaffStatus, Colors: ThemeColors) => {
   switch (status) {

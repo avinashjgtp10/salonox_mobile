@@ -56,10 +56,7 @@ import { formatAppDate } from "@/utils/dateTime";
 import { buildClientProfileMetrics } from "@/features/clients/utils/clientProfile";
 import type { ClientProfileLineEntry } from "@/features/clients/utils/clientProfile";
 import type { ClientMembershipRecord, ClientPackageRecord } from "@/types/client";
-
-function formatCurrency(amount: number) {
-  return `Rs. ${Math.round(amount).toLocaleString("en-IN")}`;
-}
+import { formatCurrency } from "@/utils/currency";
 
 function formatCreatedDate(createdAt: string | null) {
   return formatAppDate(createdAt, "-");

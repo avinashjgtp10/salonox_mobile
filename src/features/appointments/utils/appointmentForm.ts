@@ -17,9 +17,9 @@ import {
   validateDate,
   validateTime,
 } from "./appointmentDateTime";
+import { formatCurrency as formatInr } from "@/utils/currency";
 
-export const formatCurrency = (amount: number) =>
-  `Rs. ${Math.max(0, amount).toLocaleString("en-IN")}`;
+export const formatCurrency = (amount: number) => formatInr(Math.max(0, amount));
 
 const getServiceDiscount = (service: ServiceListItem) => {
   const baseDiscount = Math.max(service.discountAmount ?? 0, 0);

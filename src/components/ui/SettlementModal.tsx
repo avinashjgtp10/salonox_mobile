@@ -11,10 +11,7 @@ import {
   type ThemeColors,
 } from "@/constants/theme";
 import { useThemeColors } from "@/theme/ThemeProvider";
-
-function formatCurrency(amount: number) {
-  return `Rs. ${amount.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
-}
+import { formatCurrency } from "@/utils/currency";
 
 function roundToCents(value: number) {
   return Math.round(value * 100) / 100;

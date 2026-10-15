@@ -3,14 +3,13 @@ import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 
 import { salonCommissionsService, type CommissionExportRow } from "@/services/salonCommissions.service";
+import { formatCurrency as money } from "@/utils/currency";
 import { formatAppDate } from "@/utils/dateTime";
 
 export type CommissionExportFormat = "csv" | "excel" | "pdf";
 
 const escapeHtml = (value: string) =>
   value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-
-const money = (value: number) => value.toLocaleString("en-IN", { maximumFractionDigits: 2, minimumFractionDigits: 2 });
 
 export const formatExportMonth = (month: string) => {
   const [year, monthIndex] = month.split("-").map(Number);
@@ -39,7 +38,7 @@ const buildPdfHtml = (month: string, rows: CommissionExportRow[]) => {
       th { background: #f5eff3; } .num { text-align: right; } .empty { text-align: center; color: #6b6470; }
     </style></head><body>
     <h1>Commissions — ${escapeHtml(formatExportMonth(month))}</h1>
-    <p>${rows.length} record${rows.length === 1 ? "" : "s"} · Total commission Rs. ${money(total)}</p>
+    <p>${rows.length} record${rows.length === 1 ? "" : "s"} · Total commission ${money(total)}</p>
     <table><thead><tr><th>Staff</th><th>Category</th><th class="num">Revenue</th><th>Rate</th>
       <th class="num">Commission</th><th>Status</th><th>Earned</th></tr></thead><tbody>${body}</tbody></table>
   </body></html>`;

@@ -16,8 +16,7 @@ import { deleteProductThunk, fetchProductByIdThunk } from "@/middleware/product/
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { selectProductById } from "@/store/product/product.slice";
 import { useThemeColors } from "@/theme/ThemeProvider";
-
-const money = (value: number) => `INR ${value.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+import { formatCurrency as money } from "@/utils/currency";
 
 export default function ProductDetailsScreen() {
   const Colors = useThemeColors();

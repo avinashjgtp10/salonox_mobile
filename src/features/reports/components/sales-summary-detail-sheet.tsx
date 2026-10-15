@@ -13,6 +13,7 @@ import { formatReportValue } from "@/features/reports/report-data";
 import { getApiErrorMessage } from "@/services/api";
 import { reportService, type SalesSummaryDetailResponse } from "@/services/report.service";
 import { useThemeColors } from "@/theme/ThemeProvider";
+import { formatCurrency } from "@/utils/currency";
 import { formatInvoiceNumber } from "@/utils/receipt";
 
 type SalesSummaryDetailSheetProps = {
@@ -20,10 +21,7 @@ type SalesSummaryDetailSheetProps = {
   saleId: string | null;
 };
 
-const money = (value: unknown) =>
-  typeof value === "number"
-    ? `Rs. ${value.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`
-    : "Rs. 0";
+const money = (value: unknown) => formatCurrency(typeof value === "number" ? value : 0);
 
 const labelize = (value: string | null | undefined) => {
   if (!value) return "-";

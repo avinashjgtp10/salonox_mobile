@@ -19,6 +19,7 @@ import { deleteProductThunk, fetchProductsThunk } from "@/middleware/product/pro
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { Product } from "@/types/product";
+import { formatCurrency as money } from "@/utils/currency";
 
 type Filter = "All" | "Active" | "Inactive" | "Low stock";
 const FILTERS: Filter[] = ["All", "Active", "Inactive", "Low stock"];
@@ -27,8 +28,6 @@ const rejectedMessage = (payload: unknown) =>
   payload && typeof payload === "object" && "message" in payload
     ? String((payload as { message: unknown }).message)
     : "Something went wrong. Please try again.";
-
-const money = (value: number) => `INR ${value.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 
 export default function ProductsScreen() {
   const Colors = useThemeColors();

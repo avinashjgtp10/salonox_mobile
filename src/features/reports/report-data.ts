@@ -1,5 +1,6 @@
 import type { ReportData } from "@/store/report/report.slice";
 import type { ReportSlug } from "@/features/reports/report-config";
+import { formatCurrency } from "@/utils/currency";
 import { formatAppDateTime } from "@/utils/dateTime";
 import { formatInvoiceNumber } from "@/utils/receipt";
 
@@ -51,7 +52,7 @@ export const getReportPagination = (data: ReportData | null) => {
 export const humanizeReportKey = (key: string) =>
   key.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/^./, (letter) => letter.toUpperCase());
 
-const currencyKey = /(amount|revenue|price|sale|spend|cost|profit|balance|payout|earned|value|tax|total)$/i;
+const currencyKey = /(amount|revenue|price|sale|spend|cost|profit|balance|payout|earned|value|tax|total|paid|due|commission|pay|avgticket)$/i;
 const percentKey = /(pct|percent)$/i;
 
 export const formatReportValue = (key: string, value: unknown): string => {
@@ -65,9 +66,7 @@ export const formatReportValue = (key: string, value: unknown): string => {
   if (Array.isArray(value)) return value.join(", ");
   if (typeof value === "number") {
     if (percentKey.test(key)) return `${value.toLocaleString("en-IN")}%`;
-    if (currencyKey.test(key)) {
-      return `₹${value.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
-    }
+    if (currencyKey.test(key)) return formatCurrency(value);
     return value.toLocaleString("en-IN", { maximumFractionDigits: 2 });
   }
   if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}(?:T| )/.test(value)) {

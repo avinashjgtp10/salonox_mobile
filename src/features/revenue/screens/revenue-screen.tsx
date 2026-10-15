@@ -17,6 +17,7 @@ import { rememberReportFilters } from "@/store/report/report.slice";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { DateRangePickerSheet } from "@/components/ui/DateRangePickerSheet";
 import { dateRangeLabel } from "@/utils/dateRangePresets";
+import { formatCurrency as currency } from "@/utils/currency";
 
 type RevenuePeriod = "monthly" | "today";
 
@@ -27,8 +28,6 @@ type Revenue = {
   range: { start_date: string; end_date: string };
   staffError: string | null;
 };
-
-const currency = (value: number) => `Rs. ${value.toLocaleString("en-IN")}`;
 
 // Local calendar date — toISOString() is UTC, which in IST rolls back to
 // yesterday before 5:30am and opened the wrong day's report.
