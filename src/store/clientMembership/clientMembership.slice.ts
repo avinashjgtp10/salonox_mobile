@@ -157,7 +157,6 @@ export const { clearClientMembershipMutationError } = clientMembershipSlice.acti
 
 export const selectClientMembershipState = (state: RootState) => state.clientMembership;
 export const selectClientMembershipMutating = (state: RootState) => state.clientMembership.mutating;
-export const selectClientMembershipMutationError = (state: RootState) => state.clientMembership.mutationError;
 export const selectClientMembershipsByClient = (clientId?: string) =>
   createSelector(selectClientMembershipState, (state) => (clientId ? state.byClientId[clientId] ?? [] : []));
 export const selectClientMembershipsLoading = (clientId?: string) =>

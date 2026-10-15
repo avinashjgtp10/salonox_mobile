@@ -1,12 +1,8 @@
 import type {
   CreateEmergencyContactFormFields,
   CreateStaffAddressRequest,
-  CreateStaffRequest,
   StaffAddressListItem,
   StaffEmergencyContactListItem,
-  UpdateEmergencyContactFormFields,
-  UpdateStaffAddressRequest,
-  UpdateStaffRequest,
 } from "@/types/staff";
 
 export type StaffModuleSectionKey =
@@ -33,9 +29,6 @@ export type StaffModuleSection = {
   status: "connected" | "future-ready";
 };
 
-export type StaffFormValues = Omit<CreateStaffRequest, "salon_id">;
-export type StaffUpdateFormValues = Omit<UpdateStaffRequest, "salon_id">;
-
 export type StaffRoleLevel = "Staff" | "Manager";
 
 export type StaffProfileFormValues = {
@@ -60,9 +53,7 @@ export type StaffProfileFormValues = {
   workingHoursPerDay: string;
 };
 export type StaffAddressFormValues = Omit<CreateStaffAddressRequest, "salon_id">;
-export type StaffAddressUpdateFormValues = Omit<UpdateStaffAddressRequest, "salon_id">;
 export type EmergencyContactFormValues = CreateEmergencyContactFormFields;
-export type EmergencyContactUpdateFormValues = UpdateEmergencyContactFormFields;
 
 export type ValidationResult = {
   errors: Record<string, string>;

@@ -167,13 +167,6 @@ export type ClientDuplicateGroup = {
   clients: ClientListItem[];
 };
 
-export type MergeClientsRequest = {
-  primary_client_id?: string;
-  secondary_client_id?: string;
-  primaryClientId?: string;
-  secondaryClientId?: string;
-};
-
 export type MergeClientsResponse = {
   primaryClient: ClientListItem;
   message?: string;
@@ -183,10 +176,6 @@ export type MergeAllDuplicatesResponse = {
   mergedGroupsCount?: number;
   merged_groups_count?: number;
   message?: string;
-};
-
-export type BlockClientRequest = {
-  reason?: string;
 };
 
 export type BlockClientResponse = {
@@ -263,16 +252,6 @@ export type ClientHistoryStats = {
   totalSales: number;
   activePackages: number;
   activeMemberships: number;
-};
-
-export type ClientWithHistoryStatsApi = ClientApiItem & {
-  stats?: ClientHistoryStatsApi | null;
-  history_stats?: ClientHistoryStatsApi | null;
-  lifetime_spend?: number | string | null;
-  total_visits?: number | string | null;
-  last_visit?: string | null;
-  total_appointments?: number | string | null;
-  average_spend?: number | string | null;
 };
 
 export type ClientWithHistoryStats = {

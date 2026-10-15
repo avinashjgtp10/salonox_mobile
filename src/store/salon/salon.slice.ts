@@ -166,14 +166,6 @@ const salonSlice = createSlice({
 
 export const selectSalonDetailsError = (state: RootState) => state.salon.detailsError;
 export const selectSalonDetailsLoading = (state: RootState) => state.salon.detailsLoading;
-export const selectSalonsError = (state: RootState) => state.salon.error;
-export const selectSalonsLoading = (state: RootState) => state.salon.loading;
-export const selectSalonsLoadingMore = (state: RootState) => state.salon.loadingMore;
-export const selectSalonsPagination = (state: RootState) => state.salon.pagination;
-export const selectSalonsQuery = (state: RootState) => state.salon.query;
-export const selectSalonsRefreshing = (state: RootState) => state.salon.refreshing;
-export const selectSalonsTotalCount = (state: RootState) => state.salon.totalCount;
-export const selectSalonUpdateError = (state: RootState) => state.salon.updateError;
 export const selectSalonUpdating = (state: RootState) => state.salon.updating;
 export const selectSalons = (state: RootState) => state.salon.salons;
 export const selectSalonById = (state: RootState, salonId?: string | null) =>

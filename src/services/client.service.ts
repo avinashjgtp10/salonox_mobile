@@ -354,19 +354,6 @@ const normalizeClient = (client: ClientApiItem): ClientListItem => {
   };
 };
 
-export const matchesClientSearch = (client: ClientListItem, rawQuery: string) => {
-  const normalizedQuery = rawQuery.trim().toLowerCase().replace(/\s+/g, "");
-
-  if (!normalizedQuery) {
-    return true;
-  }
-
-  const normalizedName = client.fullName.toLowerCase().replace(/\s+/g, "");
-  const normalizedPhone = client.phone.toLowerCase().replace(/\s+/g, "");
-
-  return normalizedName.includes(normalizedQuery) || normalizedPhone.includes(normalizedQuery);
-};
-
 const normalizeDuplicateGroup = (group: ClientDuplicateGroupApi): ClientDuplicateGroup => {
   return {
     id: group.id,

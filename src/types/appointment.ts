@@ -34,8 +34,6 @@ export type AppointmentPaymentMethod =
   | "Bank Transfer"
   | "Other";
 
-export type AppointmentCalendarView = "day" | "week" | "month";
-
 export type AppointmentApiClient = {
   email?: string | null;
   first_name?: string | null;

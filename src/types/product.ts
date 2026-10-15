@@ -139,8 +139,6 @@ export type Product = {
   supplyPrice?: number | null;
 };
 
-export type ProductListItem = Product;
-
 export type ProductListPagination = {
   hasMore: boolean;
   limit: number;

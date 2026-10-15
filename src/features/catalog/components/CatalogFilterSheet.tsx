@@ -184,13 +184,11 @@ export function CatalogFilterSheet({ brands, categories, label, onApply, onClose
 type FieldStyles = ReturnType<typeof createStyles>;
 
 function ChipGroup({
-  Colors,
   onToggle,
   options,
   selected,
   styles,
 }: {
-  Colors: ThemeColors;
   onToggle: (id: string) => void;
   options: CatalogFilterOption[];
   selected: string[];
@@ -245,7 +243,6 @@ function ServiceFilterFields({
       <OptionDropdown Colors={Colors} multi onToggle={(id) => setDraft((current) => ({ ...current, category: toggleInList(current.category, id) }))} options={categories} placeholder="All categories" selected={draft.category} styles={styles} />
       <FieldLabel styles={styles}>Duration</FieldLabel>
       <ChipGroup
-        Colors={Colors}
         onToggle={(id) => setDraft((current) => ({ ...current, durationRange: toggleInList(current.durationRange, id) }))}
         options={DURATION_RANGE_OPTIONS}
         selected={draft.durationRange}
@@ -255,7 +252,6 @@ function ServiceFilterFields({
 
       <FieldLabel styles={styles}>Online booking</FieldLabel>
       <ChipGroup
-        Colors={Colors}
         onToggle={(id) => setDraft((current) => ({ ...current, onlineBooking: toggleInList(current.onlineBooking, id) }))}
         options={ONLINE_BOOKING_OPTIONS}
         selected={draft.onlineBooking}
@@ -307,7 +303,6 @@ function ProductFilterFields({
 
       <FieldLabel styles={styles}>Stock</FieldLabel>
       <ChipGroup
-        Colors={Colors}
         onToggle={(id) => setDraft((current) => ({ ...current, stock: toggleSingle(current.stock, id) }))}
         options={PRODUCT_STOCK_OPTIONS}
         selected={draft.stock ? [draft.stock] : []}
@@ -316,7 +311,6 @@ function ProductFilterFields({
 
       <FieldLabel styles={styles}>Product type</FieldLabel>
       <ChipGroup
-        Colors={Colors}
         onToggle={(id) => setDraft((current) => ({ ...current, productType: toggleSingle(current.productType, id) }))}
         options={PRODUCT_TYPE_OPTIONS}
         selected={draft.productType ? [draft.productType] : []}
@@ -354,7 +348,6 @@ function PackageFilterFields({
 
       <FieldLabel styles={styles}>Status</FieldLabel>
       <ChipGroup
-        Colors={Colors}
         onToggle={(id) => setDraft((current) => ({ ...current, status: toggleSingle(current.status, id) }))}
         options={PACKAGE_STATUS_OPTIONS}
         selected={draft.status ? [draft.status] : []}
@@ -381,7 +374,6 @@ function MembershipFilterFields({
     <>
       <FieldLabel styles={styles}>Membership Type</FieldLabel>
       <ChipGroup
-        Colors={Colors}
         onToggle={(id) => setDraft((current) => ({ ...current, pricingType: toggleInList(current.pricingType, id) }))}
         options={MEMBERSHIP_PRICING_TYPE_OPTIONS}
         selected={draft.pricingType}
@@ -390,7 +382,6 @@ function MembershipFilterFields({
 
       <FieldLabel styles={styles}>Applies To</FieldLabel>
       <ChipGroup
-        Colors={Colors}
         onToggle={(id) => setDraft((current) => ({ ...current, appliesTo: toggleInList(current.appliesTo, id) }))}
         options={MEMBERSHIP_APPLIES_TO_OPTIONS}
         selected={draft.appliesTo}
@@ -478,7 +469,6 @@ function ConsumableFilterFields({
 
       <FieldLabel styles={styles}>Stock Status</FieldLabel>
       <ChipGroup
-        Colors={Colors}
         onToggle={(id) => setDraft((current) => ({ ...current, status: toggleInList(current.status, id) }))}
         options={CONSUMABLE_STATUS_OPTIONS}
         selected={draft.status}
@@ -487,7 +477,6 @@ function ConsumableFilterFields({
 
       <FieldLabel styles={styles}>Base Unit</FieldLabel>
       <ChipGroup
-        Colors={Colors}
         onToggle={(id) => setDraft((current) => ({ ...current, unit: toggleInList(current.unit, id) }))}
         options={CONSUMABLE_UNIT_OPTIONS}
         selected={draft.unit}
@@ -496,7 +485,6 @@ function ConsumableFilterFields({
 
       <FieldLabel styles={styles}>Product Type</FieldLabel>
       <ChipGroup
-        Colors={Colors}
         onToggle={(id) => setDraft((current) => ({ ...current, productType: toggleInList(current.productType, id) }))}
         options={CONSUMABLE_PRODUCT_TYPE_OPTIONS}
         selected={draft.productType}

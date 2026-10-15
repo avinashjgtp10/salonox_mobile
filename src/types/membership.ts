@@ -1,12 +1,6 @@
 
-export type MembershipSortOrder = "asc" | "desc";
 
 export type MembershipExportFormat = "csv" | "excel" | "pdf";
-
-export type MembershipExportContentType =
-  | "application/pdf"
-  | "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-  | "text/csv";
 
 export type IncludedService = {
   serviceId: string;
@@ -84,8 +78,6 @@ export type MembershipListResponse = {
   total: number;
 };
 
-export type MembershipDetailResponse = Membership;
-
 export type CreateMembershipResponse = Membership;
 
 export type UpdateMembershipResponse = Membership;
@@ -93,10 +85,6 @@ export type UpdateMembershipResponse = Membership;
 export type DeleteMembershipResponse = Record<string, never>;
 
 export type MembershipExportQuery = Omit<MembershipListQuery, "page" | "limit">;
-
-export type MembershipExportRequest = MembershipExportQuery & {
-  format: MembershipExportFormat;
-};
 
 export type MembershipExportResponse =
   | {
