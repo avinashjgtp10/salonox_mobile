@@ -17,6 +17,7 @@ on:
         options:
           - development
           - qa
+          - production
 
 permissions:
   contents: read
@@ -49,6 +50,9 @@ jobs:
 
       - name: Regression tests
         run: npm run test:ci
+
+      - name: Release configuration tests
+        run: node --test scripts/prepare-production-release.test.js
 
       - name: Validate Expo config (development, qa, production)
         run: |
@@ -109,14 +113,18 @@ jobs:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: npx eas-cli build --platform android --profile qa --non-interactive
 
-  production-build:
-    name: Production Build
+  production-release:
+    name: Build and submit Android and iOS
     needs: ci
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.build_profile == 'production'))
     runs-on: ubuntu-latest
     concurrency:
-      group: mobile-build-production
+      group: mobile-production-release
       cancel-in-progress: false
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      APP_STORE_CONNECT_APP_ID: ${{ vars.APP_STORE_CONNECT_APP_ID }}
+      APP_ENV: production
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -130,38 +138,22 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: EAS build (production profile)
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: npx eas-cli build --platform android --profile production --non-interactive
-
-  production-update:
-    name: Production Update
-    needs: production-build
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    concurrency:
-      group: mobile-update-production
-      cancel-in-progress: false
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup EAS
+        uses: expo/expo-github-action@v8
         with:
-          node-version: 20
-          cache: npm
+          eas-version: 20.5.1
+          token: ${{ secrets.EXPO_TOKEN }}
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Prepare app version and submission configuration
+        run: node scripts/prepare-production-release.js
 
       - name: Validate production update environment
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: npx eas-cli env:exec production "node scripts/validate-production-update-env.js" --non-interactive
+        run: eas env:exec production "node scripts/validate-production-update-env.js" --non-interactive
 
-      - name: EAS update (production channel)
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: npx eas-cli update --channel production --environment production --message "Production OTA update"
+      - name: Build AAB and IPA and queue store submissions
+        run: eas build --platform all --profile production --auto-submit --non-interactive --wait
+
+      # Keep this in the same checkout: EAS Build and Update must resolve the
+      # same generated APP_VERSION and runtimeVersion. Never check out again here.
+      - name: Publish matching production OTA
+        run: eas update --platform all --channel production --environment production --message "Production release ${GITHUB_SHA}" --non-interactive
