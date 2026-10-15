@@ -1,5 +1,6 @@
-export const formatCurrency = (amount: number) =>
-  `Rs. ${Math.max(0, amount).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+import { formatCurrency as formatInr } from "@/utils/currency";
+
+export const formatCurrency = (amount: number) => formatInr(Math.max(0, amount));
 
 export const parseAmount = (value: string) => {
   const numeric = Number(value.replace(/[^\d.]/g, ""));

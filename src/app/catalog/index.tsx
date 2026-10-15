@@ -51,6 +51,7 @@ import type { ConsumableListItem } from "@/types/consumable";
 import type { PackageListItem } from "@/types/package";
 import type { Product } from "@/types/product";
 import type { ServiceListItem } from "@/types/service";
+import { formatCurrency as formatMoney } from "@/utils/currency";
 
 type CatalogItem = FilterableCatalogItem & {
   id: string;
@@ -68,8 +69,6 @@ const TABS: { icon: keyof typeof Ionicons.glyphMap; key: CatalogTab; label: stri
 ];
 
 const CATALOG_PAGE_SIZE = 10;
-
-const formatMoney = (value: number) => `₹${value.toLocaleString("en-IN", { maximumFractionDigits: 2, minimumFractionDigits: 2 })}`;
 
 const serviceToItem = (item: ServiceListItem): CatalogItem => ({
   category: catalogCategoryLabel(item.category),

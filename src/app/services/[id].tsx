@@ -22,10 +22,7 @@ import {
 } from "@/store/service/service.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { useThemeColors } from "@/theme/ThemeProvider";
-
-function formatPrice(price: number) {
-  return `₹${price.toLocaleString("en-IN")}`;
-}
+import { formatCurrency as formatPrice } from "@/utils/currency";
 
 function formatDuration(durationMinutes: number | null) {
   return durationMinutes && durationMinutes > 0 ? `${durationMinutes} min` : "Duration pending";

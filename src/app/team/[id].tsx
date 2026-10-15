@@ -35,8 +35,7 @@ import {
 import { selectCurrentUser } from "@/store/user/user.slice";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { canManageStaffLifecycle } from "@/utils/userProfile";
-
-const formatCurrency = (amount: number) => `Rs. ${amount.toLocaleString("en-IN")}`;
+import { formatCurrency } from "@/utils/currency";
 
 const PERFORMANCE_PERIODS: { key: PerformancePeriod; label: string }[] = [
   { key: "today", label: "Today" },

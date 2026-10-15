@@ -45,6 +45,7 @@ import { selectCurrentUser } from "@/store/user/user.slice";
 import { selectCurrentStaff } from "@/store/staff/staff.slice";
 import { canSettleCommission } from "@/utils/userProfile";
 import type { CommissionDateRange, SalonCommissionRecord } from "@/types/salonCommissions";
+import { formatCurrency } from "@/utils/currency";
 
 const STATUS_FILTERS = ["All", "Pending", "Paid"] as const;
 type StatusFilter = (typeof STATUS_FILTERS)[number];
@@ -62,10 +63,6 @@ const todayIso = () => {
 };
 
 const formatRangeDate = (iso: string) => formatAppDate(iso);
-
-function formatCurrency(amount: number) {
-  return `Rs. ${amount.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
-}
 
 function getRejectedMessage(payload: unknown, fallback: string) {
   if (payload && typeof payload === "object" && "message" in payload) {

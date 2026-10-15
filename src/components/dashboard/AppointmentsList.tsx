@@ -15,7 +15,7 @@ import { selectCurrentUser } from "@/store/user/user.slice";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { AppointmentListItem, AppointmentStatus as CalendarAppointmentStatus } from "@/types/appointment";
 import { formatAppTime } from "@/utils/dateTime";
-import { formatDashboardRevenue } from "@/utils/dashboard";
+import { formatCurrency } from "@/utils/currency";
 
 type AppointmentStatus = "completed" | "in-progress" | "upcoming" | "cancelled";
 
@@ -228,7 +228,7 @@ function AppointmentCard({ appt, isLast }: { appt: DashboardAppointmentCard; isL
           <StaffChip initials={appt.staffInitials} />
         </View>
         <Text style={styles.meta}>
-          {appt.staffName} - {formatDashboardRevenue(appt.amount)}
+          {appt.staffName} - {formatCurrency(appt.amount)}
         </Text>
       </View>
       <Badge status={appt.status} />

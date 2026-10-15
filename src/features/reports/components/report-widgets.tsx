@@ -38,7 +38,7 @@ export const ReportSummaryCards = memo(function ReportSummaryCards({
           <Text allowFontScaling numberOfLines={1} style={styles.summaryLabel}>
             {humanizeReportKey(key)}
           </Text>
-          <Text allowFontScaling selectable numberOfLines={1} style={styles.summaryValue}>
+          <Text adjustsFontSizeToFit allowFontScaling minimumFontScale={0.7} selectable numberOfLines={1} style={styles.summaryValue}>
             {formatReportValue(key, value)}
           </Text>
         </View>

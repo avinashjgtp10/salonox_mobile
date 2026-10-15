@@ -10,9 +10,9 @@ import { staffCommissionsService } from "@/services/staffCommissions.service";
 import type { CommissionHistoryEntry } from "@/types/staffCommissions";
 import { formatAppDate } from "@/utils/dateTime";
 import { useThemeColors } from "@/theme/ThemeProvider";
+import { formatCurrency as money } from "@/utils/currency";
 
 const dateKey = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-const money = (amount: number) => `Rs. ${amount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const prettyCategory = (category?: string | null) => category
   ? category.replace(/[_-]+/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase())
   : "Commission";

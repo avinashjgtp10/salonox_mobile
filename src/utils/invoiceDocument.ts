@@ -2,8 +2,9 @@ import type { ReceiptData } from "./receiptGenerator";
 import { invoiceStyles } from "./invoiceStyles";
 import { receiptPaper } from "./receiptPaper";
 import { buildThermalDocument } from "./receiptThermal";
+import { formatCurrency } from "./currency";
 
-export const invoiceMoney = (amount: number) => `₹${amount.toFixed(2)}`;
+export const invoiceMoney = formatCurrency;
 const esc = (value: unknown) => String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 export const invoiceStatus = (data: ReceiptData) => data.invoice.paymentStatus || ((data.pricing.dueAmount ?? 0) > 0 ? ((data.pricing.amountPaid ?? 0) > 0 ? "Partial" : "Unpaid") : "Paid");
 

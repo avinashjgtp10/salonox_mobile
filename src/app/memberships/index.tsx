@@ -32,12 +32,11 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { Membership } from "@/types/membership";
 import { formatAppDate } from "@/utils/dateTime";
+import { formatCurrency as formatMoney } from "@/utils/currency";
 
 type FilterKey = "All" | "Active" | "Expired" | "Expiring Soon";
 
 const FILTERS: FilterKey[] = ["All", "Active", "Expired", "Expiring Soon"];
-
-const formatMoney = (value: number) => `Rs. ${value.toLocaleString("en-IN")}`;
 
 const formatDate = (value: string) => {
   return formatAppDate(value, "-");

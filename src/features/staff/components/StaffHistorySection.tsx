@@ -29,6 +29,7 @@ import {
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { formatAppDate, formatAppTime } from "@/utils/dateTime";
 import { isValidStaffId } from "@/utils/staffIds";
+import { formatCurrency } from "@/utils/currency";
 
 type StaffHistorySectionProps = {
   staffId?: string | null;
@@ -40,10 +41,6 @@ const TABS = [
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
-
-function formatCurrency(amount: number) {
-  return `Rs. ${amount.toLocaleString("en-IN")}`;
-}
 
 export function StaffHistorySection({ staffId }: StaffHistorySectionProps) {
   const Colors = useThemeColors();

@@ -36,6 +36,7 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { SaleListItem } from "@/types/sales";
 import { formatInvoiceNumber } from "@/utils/receipt";
+import { formatCurrency } from "@/utils/currency";
 
 const SALE_FILTERS = ["All", "Draft", "Pending", "Completed", "Cancelled"] as const;
 type SaleFilter = (typeof SALE_FILTERS)[number];
@@ -51,10 +52,6 @@ function getSortQuery(sortOption: SaleSortOption) {
     default:
       return { sort_by: "total", sort_order: "desc" as const };
   }
-}
-
-function formatCurrency(amount: number) {
-  return `Rs. ${amount.toLocaleString("en-IN")}`;
 }
 
 function getRejectedMessage(payload: unknown, fallback: string) {
