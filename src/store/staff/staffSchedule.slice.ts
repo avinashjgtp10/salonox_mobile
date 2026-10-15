@@ -113,27 +113,15 @@ const staffScheduleSlice = createSlice({
 
 export const selectStaffSchedule = (state: RootState, staffId?: string | null) =>
   staffId ? state.staffSchedule.scheduleByStaffId[staffId] ?? null : null;
-export const selectStaffScheduleForIds = (state: RootState, staffIds: string[]) =>
-  staffIds.map((staffId) => state.staffSchedule.scheduleByStaffId[staffId]).find(Boolean) ?? null;
 export const selectStaffScheduleLoaded = (state: RootState, staffId?: string | null) =>
   staffId ? state.staffSchedule.loadedStaffIds.includes(staffId) : false;
-export const selectStaffScheduleLoadedForIds = (state: RootState, staffIds: string[]) =>
-  staffIds.some((staffId) => state.staffSchedule.loadedStaffIds.includes(staffId));
 export const selectStaffScheduleLoading = (state: RootState, staffId?: string | null) =>
   staffId ? state.staffSchedule.loadingStaffIds.includes(staffId) : false;
-export const selectStaffScheduleLoadingForIds = (state: RootState, staffIds: string[]) =>
-  staffIds.some((staffId) => state.staffSchedule.loadingStaffIds.includes(staffId));
 export const selectStaffScheduleError = (state: RootState, staffId?: string | null) =>
   staffId ? state.staffSchedule.errorByStaffId[staffId] ?? null : null;
-export const selectStaffScheduleErrorForIds = (state: RootState, staffIds: string[]) =>
-  staffIds.map((staffId) => state.staffSchedule.errorByStaffId[staffId]).find(Boolean) ?? null;
 export const selectStaffScheduleSaving = (state: RootState, staffId?: string | null) =>
   staffId ? state.staffSchedule.savingStaffIds.includes(staffId) : false;
 export const selectStaffScheduleSaveError = (state: RootState, staffId?: string | null) =>
   staffId ? state.staffSchedule.saveErrorByStaffId[staffId] ?? null : null;
-export const selectStaffScheduleDeleting = (state: RootState, staffId?: string | null) =>
-  staffId ? state.staffSchedule.deletingStaffIds.includes(staffId) : false;
-export const selectStaffScheduleDeleteError = (state: RootState, staffId?: string | null) =>
-  staffId ? state.staffSchedule.deleteErrorByStaffId[staffId] ?? null : null;
 
 export default staffScheduleSlice.reducer;

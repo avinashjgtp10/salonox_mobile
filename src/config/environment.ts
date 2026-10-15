@@ -27,8 +27,6 @@ export const environmentConfig = {
   webRegistrationUrl: readPublicEnv("EXPO_PUBLIC_WEB_REGISTRATION_URL"),
 } as const;
 
-export const webRegistrationUrl = environmentConfig.webRegistrationUrl;
-
 export const getMissingEnvironmentVariables = () =>
   (Object.keys(PUBLIC_ENV) as PublicEnvKey[]).filter((key) => !PUBLIC_ENV[key]?.trim());
 

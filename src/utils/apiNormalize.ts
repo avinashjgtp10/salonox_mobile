@@ -72,9 +72,6 @@ export const firstArray = (record: UnknownRecord, keys: string[]): UnknownRecord
   return Array.isArray(value) ? value.map(asRecord) : [];
 };
 
-export const getEntryId = (entry: UnknownRecord, fallback: string) =>
-  toSafeString(firstValue(entry, ["id", "_id"]), fallback);
-
 const EXPLICIT_SALE_ID_KEYS = ["saleId", "sale_id", "saleID"] as const;
 
 const getSaleIdFromRecord = (record: UnknownRecord, depth: number): string | null => {
@@ -111,8 +108,3 @@ export const normalizeSaleId = (payload: unknown): string | null => {
   const record = asRecord(payload);
   return Object.keys(record).length > 0 ? getSaleIdFromRecord(record, 2) : null;
 };
-
-export const getTotalCount = (record: UnknownRecord, fallbackCount: number) =>
-  toSafeNumber(firstValue(record, ["totalCount", "total_count", "total", "count"])) ||
-  toSafeNumber(firstValue(asRecord(record.pagination), ["totalCount", "total_count", "total"])) ||
-  fallbackCount;

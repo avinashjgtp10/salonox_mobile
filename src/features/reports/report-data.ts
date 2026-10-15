@@ -18,7 +18,20 @@ export const getReportRows = (slug: ReportSlug, data: ReportData | null) => {
 
 export const getReportSummary = (slug: ReportSlug, data: ReportData | null) => {
   if (!data) return null;
-  void slug;
+  if (slug === "staff-performance") {
+    const stats = (data.stats ?? {}) as ReportRow;
+    return {
+      totalBill: stats.totalBill,
+      pendingAmount: stats.pendingAmount,
+      paidAmount: stats.paidAmount,
+      totalStaff: stats.totalStaff,
+      totalRevenue: stats.totalRevenue,
+      productRevenue: stats.productRevenue,
+      packageRevenue: stats.packageRevenue,
+      membershipRevenue: stats.membershipRevenue,
+      totalCommission: stats.totalCommission,
+    };
+  }
   if (data.stats && typeof data.stats === "object") return data.stats as ReportRow;
   if (typeof data.totalAmount === "number") return { totalAmount: data.totalAmount };
   return null;

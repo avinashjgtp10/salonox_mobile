@@ -123,9 +123,12 @@ export const fetchReportThunk = createAsyncThunk<
         return { data, filters: args.filters, slug: args.slug };
       }
 
-      const data = await reportService.getReport(
+      const request = normalizeRequest(args.slug, args.filters);
+      const data = args.slug === "staff-performance"
+        ? await reportService.getStaffPerformanceReport(request)
+        : await reportService.getReport(
         config.endpoint,
-        normalizeRequest(args.slug, args.filters),
+        request,
       );
 
       return { data, filters: args.filters, slug: args.slug };

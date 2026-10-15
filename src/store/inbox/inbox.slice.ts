@@ -1,6 +1,7 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
 import {
+  deleteInboxConversationsThunk,
   fetchInboxConversationsThunk,
   fetchInboxMessagesThunk,
   sendInboxReplyThunk,
@@ -106,6 +107,25 @@ const inboxSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
+      .addCase(deleteInboxConversationsThunk.fulfilled, (state, action) => {
+        const phones = new Set(action.meta.arg);
+        state.conversations = state.conversations.filter(item => !phones.has(item.contactPhone));
+        // Invalidate reads started before deletion so they cannot restore old history.
+        state.conversationsRequestId = null;
+        state.conversationsRefreshing = false;
+        state.conversationsStatus = "succeeded";
+        state.conversationsError = null;
+        for (const phone of phones) {
+          delete state.messagesByPhone[phone];
+          delete state.messagesRequestIds[phone];
+          delete state.messagesErrorByPhone[phone];
+          delete state.messagesStatusByPhone[phone];
+          delete state.draftsByPhone[phone];
+          delete state.sendErrorByPhone[phone];
+          delete state.sendingByPhone[phone];
+        }
+        if (state.activePhone && phones.has(state.activePhone)) state.activePhone = null;
+      })
       .addCase(fetchInboxConversationsThunk.pending, (state, action) => {
         state.conversationsRequestId = action.meta.requestId;
         const hasExistingData = state.conversations.length > 0;
@@ -209,16 +229,6 @@ const inboxSlice = createSlice({
 });
 
 export const { inboxConversationsReceived, inboxMessageReceived, inboxActivePhoneChanged, inboxConnectionChanged, inboxDraftChanged } = inboxSlice.actions;
-
-export const selectInboxConversations = (state: RootState) => state.inbox.conversations;
-export const selectInboxConversationsError = (state: RootState) => state.inbox.conversationsError;
-export const selectInboxConversationsLoading = (state: RootState) =>
-  state.inbox.conversationsStatus === "loading";
-export const selectInboxConversationsRefreshing = (state: RootState) =>
-  state.inbox.conversationsRefreshing;
-
-export const selectInboxUnreadTotal = (state: RootState) =>
-  state.inbox.conversations.reduce((total, conversation) => total + conversation.unreadCount, 0);
 
 const EMPTY_MESSAGES: InboxMessage[] = [];
 

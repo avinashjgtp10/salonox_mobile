@@ -3,6 +3,7 @@ import { createAsyncThunk } from "@reduxjs/toolkit";
 import { ApiError, getApiErrorMessage } from "@/services/api";
 import { isUserLogoutInProgress } from "@/services/authLifecycle";
 import { dashboardService } from "@/services/dashboard.service";
+import { isNetworkOnline } from "@/services/networkStatus";
 import { timeStartup } from "@/services/startupPerformance";
 import type { RootState } from "@/store";
 import { selectActiveBranchId } from "@/store/branch/branch.slice";
@@ -41,7 +42,7 @@ export const fetchDashboardThunk = createAsyncThunk<
     const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
     const state = getState();
 
-    if (isUserLogoutInProgress() || !selectCurrentUser(state)) {
+    if (!isNetworkOnline() || isUserLogoutInProgress() || !selectCurrentUser(state)) {
       return rejectWithValue({
         message,
         responseBody: error instanceof ApiError ? error.responseData : undefined,
@@ -72,6 +73,7 @@ export const fetchDashboardThunk = createAsyncThunk<
     // reach these refreshes after a Calendar Quick Sale or appointment change;
     // skipping them avoids a 403 for a screen the staff app doesn't show.
     return (
+      isNetworkOnline() &&
       !isUserLogoutInProgress() &&
       Boolean(user) &&
       !isStaffExperienceUser(user) &&

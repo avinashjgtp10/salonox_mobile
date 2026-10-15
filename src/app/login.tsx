@@ -116,7 +116,7 @@ export default function LoginScreen() {
   return (
     <View style={styles.screen}>
       <StatusBar backgroundColor="#131210" barStyle="light-content" />
-      <KeyboardAwareForm ref={formRef}>
+      <KeyboardAwareForm ref={formRef} scrollEnabled={false}>
       <View pointerEvents="none" style={styles.hero}>
         <Image resizeMode="cover" source={require("../../assets/images/auth/floral-line-art.png")} style={styles.heroPattern} />
         <SafeAreaView edges={["top"]} style={styles.heroSafeArea}>

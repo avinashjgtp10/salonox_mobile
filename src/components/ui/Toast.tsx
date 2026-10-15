@@ -147,22 +147,3 @@ export function createToastContainer({ selector, clearAction }: ToastContainerPr
 
   return ToastContainer;
 }
-
-export function useToast(dispatch: any, setToastAction: (toast: Omit<ToastMessage, "id">) => any) {
-  const showToast = (message: string, tone: ToastTone, duration?: number) =>
-    dispatch(setToastAction({ message, tone, duration }));
-
-  return { showToast };
-}
-
-export const showSuccessToast = (dispatch: any, setToastAction: (toast: Omit<ToastMessage, "id">) => any, message: string, duration?: number) =>
-  dispatch(setToastAction({ message, tone: "success", duration }));
-
-export const showErrorToast = (dispatch: any, setToastAction: (toast: Omit<ToastMessage, "id">) => any, message: string, duration?: number) =>
-  dispatch(setToastAction({ message, tone: "error", duration }));
-
-export const showInfoToast = (dispatch: any, setToastAction: (toast: Omit<ToastMessage, "id">) => any, message: string, duration?: number) =>
-  dispatch(setToastAction({ message, tone: "info", duration }));
-
-export const showWarningToast = (dispatch: any, setToastAction: (toast: Omit<ToastMessage, "id">) => any, message: string, duration?: number) =>
-  dispatch(setToastAction({ message, tone: "warning", duration }));

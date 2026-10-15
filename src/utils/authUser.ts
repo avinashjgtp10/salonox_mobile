@@ -1,4 +1,6 @@
 import type { AuthUser } from "@/types/auth";
+import { environmentConfig } from "@/config/environment";
+import { resolveMediaUrl } from "@/utils/mediaUrl";
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -72,7 +74,7 @@ export const normalizeAuthUser = (value: unknown): AuthUser => {
     firstName: toTrimmedString(record.firstName, record.first_name),
     lastName: toTrimmedString(record.lastName, record.last_name),
     fullName: toTrimmedString(record.fullName, record.full_name, record.name),
-    avatarUrl: toTrimmedString(record.avatarUrl, record.avatar_url, record.avatar),
+    avatarUrl: resolveMediaUrl(toTrimmedString(record.avatarUrl, record.avatar_url, record.avatar), environmentConfig.apiBaseUrl),
     businessName: toTrimmedString(
       record.businessName,
       record.business_name,
@@ -172,35 +174,5 @@ export const preserveMobileCalendarAccess = (
   return {
     ...incomingUser,
     mobileCalendarAccess: fallbackUser.mobileCalendarAccess,
-  };
-};
-
-export const summarizeAuthUser = (user: AuthUser | null | undefined) => {
-  if (!user) {
-    return null;
-  }
-
-  return {
-    id: user.id,
-    email: user.email,
-    fullName: user.fullName,
-    firstName: user.firstName,
-    lastName: user.lastName,
-    businessName: user.businessName,
-    phone: user.phone,
-    role: user.role,
-    clientId: user.clientId,
-    salonId: user.salonId,
-    avatarUrl: user.avatarUrl,
-    address: user.address,
-    country: user.country,
-    countryCode: user.countryCode,
-    isVerified: user.isVerified,
-    isActive: user.isActive,
-    isOnboardingComplete: user.isOnboardingComplete,
-    hasCustomPermissions:
-      Array.isArray(user.custom_permissions)
-        ? user.custom_permissions.length > 0
-        : Boolean(user.custom_permissions),
   };
 };

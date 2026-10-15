@@ -58,6 +58,7 @@ export type AuditBranch = {
   is_active: boolean;
   is_main: boolean;
 };
+export type AuditPerson = { id: string; name: string };
 export type RecognizedProduct = {
   product_id: string | null;
   name: string;

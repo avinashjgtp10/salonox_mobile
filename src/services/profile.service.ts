@@ -1,4 +1,6 @@
 import { ApiError, api } from "@/services/api";
+import { environmentConfig } from "@/config/environment";
+import { resolveMediaUrl } from "@/utils/mediaUrl";
 import { PROFILE, USER } from "@/services/api/endpoints";
 import type { ApiResponse } from "@/types/auth";
 import type {
@@ -97,7 +99,7 @@ const normalizeProfile = (profile: UserProfileApiItem): UserProfile => {
 
   return {
     address: toOptionalString(profile.address ?? profile.address_line),
-    avatarUrl: toOptionalString(profile.avatarUrl ?? profile.avatar_url ?? profile.avatar),
+    avatarUrl: resolveMediaUrl(toOptionalString(profile.avatarUrl ?? profile.avatar_url ?? profile.avatar), environmentConfig.apiBaseUrl),
     businessName: toOptionalString(profile.businessName ?? profile.business_name ?? profile.salon_name),
     country: toOptionalString(profile.country),
     countryCode: toOptionalString(profile.countryCode ?? profile.country_code),
@@ -148,7 +150,7 @@ const buildUpdatePayload = (payload: UpdateProfileRequest) => {
 };
 
 const extractAvatarUrl = (profile: UserProfileApiItem): string | null =>
-  toOptionalString(profile.avatarUrl ?? profile.avatar_url ?? profile.avatar);
+  resolveMediaUrl(toOptionalString(profile.avatarUrl ?? profile.avatar_url ?? profile.avatar), environmentConfig.apiBaseUrl);
 
 export const profileService = {
   async getProfile(userId: string): Promise<UserProfile> {

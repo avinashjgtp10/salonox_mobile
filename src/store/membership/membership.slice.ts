@@ -372,8 +372,6 @@ export const {
   clearMembershipError,
   clearMembershipMutationError,
 } = membershipSlice.actions;
-
-export const selectMembershipState = (state: RootState) => state.membership;
 export const selectMemberships = (state: RootState) => state.membership.items;
 export const selectMembershipsTotal = (state: RootState) => state.membership.total;
 export const selectMembershipsQuery = (state: RootState) => state.membership.query;
@@ -382,7 +380,6 @@ export const selectMembershipsLoading = (state: RootState) => state.membership.l
 export const selectMembershipsLoadingMore = (state: RootState) => state.membership.loadingMore;
 export const selectMembershipsRefreshing = (state: RootState) => state.membership.refreshing;
 export const selectMembershipsError = (state: RootState) => state.membership.error;
-export const selectMembershipsHasLoaded = (state: RootState) => state.membership.hasLoaded;
 export const selectMembershipsEmpty = (state: RootState) =>
   state.membership.hasLoaded &&
   !state.membership.loading &&
@@ -390,16 +387,11 @@ export const selectMembershipsEmpty = (state: RootState) =>
   !state.membership.error &&
   state.membership.items.length === 0;
 export const selectMembershipsHasMore = (state: RootState) => state.membership.pagination.hasMore;
-export const selectCurrentMembership = (state: RootState) => state.membership.currentMembership;
 export const selectMembershipDetailsLoading = (state: RootState) => state.membership.detailsLoading;
 export const selectMembershipDetailsError = (state: RootState) => state.membership.detailsError;
 export const selectMembershipMutationLoading = (state: RootState) => state.membership.mutationLoading;
 export const selectMembershipMutationError = (state: RootState) => state.membership.mutationError;
 export const selectDeletingMembershipIds = (state: RootState) => state.membership.deletingMembershipIds;
-export const selectMembershipExporting = (state: RootState) => state.membership.exporting;
-export const selectMembershipExportError = (state: RootState) => state.membership.exportError;
-export const selectLastMembershipExport = (state: RootState) => state.membership.lastExport;
-export const selectCurrentMembershipExportFormat = (state: RootState) => state.membership.currentExportFormat;
 export const selectMembershipById = (id: string) =>
   createSelector(selectMemberships, (memberships) => memberships.find((membership) => membership.id === id) ?? null);
 

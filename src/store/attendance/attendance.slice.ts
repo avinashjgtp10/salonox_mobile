@@ -328,52 +328,20 @@ export const selectAttendanceRecordsRefreshing = (state: RootState) =>
 export const selectAttendanceRecordsError = (state: RootState) => state.attendance.recordsError;
 export const selectAttendanceRecordsErrorKind = (state: RootState) =>
   state.attendance.recordsErrorKind;
-export const selectAttendanceRecordsIsFromCache = (state: RootState) =>
-  state.attendance.recordsIsFromCache;
-export const selectAttendanceRecordsLastFetchedAt = (state: RootState) =>
-  state.attendance.recordsLastFetchedAt;
 
 export const selectAttendanceSummary = (state: RootState) => state.attendance.summary;
-export const selectAttendanceSummaryStatus = (state: RootState) => state.attendance.summaryStatus;
-export const selectAttendanceSummaryLoading = (state: RootState) =>
-  state.attendance.summaryStatus === "loading";
-export const selectAttendanceSummaryRefreshing = (state: RootState) =>
-  state.attendance.summaryRefreshing;
-export const selectAttendanceSummaryError = (state: RootState) => state.attendance.summaryError;
 export const selectAttendanceSummaryErrorKind = (state: RootState) =>
   state.attendance.summaryErrorKind;
-export const selectAttendanceSummaryIsFromCache = (state: RootState) =>
-  state.attendance.summaryIsFromCache;
 
 export const selectAttendanceCheckingInStaffIds = (state: RootState) =>
   state.attendance.checkingInStaffIds;
-export const selectAttendanceIsCheckingIn = (state: RootState, staffId?: string | null) =>
-  staffId ? state.attendance.checkingInStaffIds.includes(staffId) : false;
-export const selectAttendanceCheckInError = (state: RootState, staffId?: string | null) =>
-  staffId ? state.attendance.checkInErrorByStaffId[staffId] ?? null : null;
 
 export const selectAttendanceCheckingOutStaffIds = (state: RootState) =>
   state.attendance.checkingOutStaffIds;
-export const selectAttendanceIsCheckingOut = (state: RootState, staffId?: string | null) =>
-  staffId ? state.attendance.checkingOutStaffIds.includes(staffId) : false;
-export const selectAttendanceCheckOutError = (state: RootState, staffId?: string | null) =>
-  staffId ? state.attendance.checkOutErrorByStaffId[staffId] ?? null : null;
 
 export const selectAttendanceMarkingStaffIds = (state: RootState) => state.attendance.markingStaffIds;
-export const selectAttendanceIsMarking = (state: RootState, staffId?: string | null) =>
-  staffId ? state.attendance.markingStaffIds.includes(staffId) : false;
-export const selectAttendanceMarkError = (state: RootState, staffId?: string | null) =>
-  staffId ? state.attendance.markErrorByStaffId[staffId] ?? null : null;
 
 export const selectAttendanceUpdatingIds = (state: RootState) => state.attendance.updatingAttendanceIds;
-export const selectAttendanceIsUpdating = (state: RootState, attendanceId?: string | null) =>
-  attendanceId ? state.attendance.updatingAttendanceIds.includes(attendanceId) : false;
-export const selectAttendanceUpdateError = (state: RootState, attendanceId?: string | null) =>
-  attendanceId ? state.attendance.updateErrorByAttendanceId[attendanceId] ?? null : null;
-
-export const selectAttendanceSettings = (state: RootState) => state.attendance.settings;
-export const selectAttendanceSettingsUpdating = (state: RootState) => state.attendance.settingsUpdating;
-export const selectAttendanceSettingsError = (state: RootState) => state.attendance.settingsError;
 
 export const selectAttendanceToast = (state: RootState) => state.attendance.toast;
 
@@ -389,11 +357,6 @@ export const selectAttendanceIsOffline = createSelector(
     recordsErrorKind === "timeout" ||
     summaryErrorKind === "network" ||
     summaryErrorKind === "timeout",
-);
-
-export const selectAttendanceIsShowingCachedData = createSelector(
-  [selectAttendanceRecordsIsFromCache, selectAttendanceSummaryIsFromCache],
-  (recordsIsFromCache, summaryIsFromCache) => recordsIsFromCache || summaryIsFromCache,
 );
 
 export default attendanceSlice.reducer;

@@ -37,7 +37,5 @@ const networkSlice = createSlice({
 export const { networkStatusChanged } = networkSlice.actions;
 
 export const selectNetworkState = (state: RootState) => state.network;
-export const selectIsOnline = (state: RootState) => state.network.isOnline;
-export const selectNetworkRetryCount = (state: RootState) => state.network.retryCount;
 
 export default networkSlice.reducer;

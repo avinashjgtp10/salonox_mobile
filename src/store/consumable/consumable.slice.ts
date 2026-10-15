@@ -276,7 +276,6 @@ export const { clearAdjustError, clearCurrentConsumable, clearUnitConversionsSav
 
 export const selectConsumableState = (state: RootState) => state.consumable;
 export const selectConsumables = (state: RootState) => state.consumable.consumables;
-export const selectConsumableKpis = (state: RootState) => state.consumable.kpis;
 export const selectConsumableById = (id: string) =>
   createSelector(selectConsumables, (consumables) => consumables.find((item) => item.id === id) ?? null);
 
