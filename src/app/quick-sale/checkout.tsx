@@ -318,37 +318,43 @@ function OwnerQuickSaleCheckoutScreen() {
     }
   }, [params.openReceipt, receiptData]);
 
-  const [isQuickActionLoading, setIsQuickActionLoading] = useState(false);
+  const [receiptAction, setReceiptAction] = useState<"print" | "share" | null>(null);
+  const receiptActionBusy = useRef(false);
 
   const handleViewReceipt = useCallback(() => {
+    if (receiptActionBusy.current) return;
     setIsReceiptModalVisible(true);
   }, []);
 
   const handlePrintReceipt = useCallback(async () => {
-    if (!receiptData || isQuickActionLoading) return;
+    if (!receiptData || receiptActionBusy.current) return;
 
-    setIsQuickActionLoading(true);
+    receiptActionBusy.current = true;
+    setReceiptAction("print");
     try {
       await printerService.printReceipt(receiptData);
     } catch {
       Alert.alert("Print failed", "Could not open the print dialog. Please try again.");
     } finally {
-      setIsQuickActionLoading(false);
+      receiptActionBusy.current = false;
+      setReceiptAction(null);
     }
-  }, [isQuickActionLoading, receiptData]);
+  }, [receiptData]);
 
   const handleShareReceipt = useCallback(async () => {
-    if (!receiptData || isQuickActionLoading) return;
+    if (!receiptData || receiptActionBusy.current) return;
 
-    setIsQuickActionLoading(true);
+    receiptActionBusy.current = true;
+    setReceiptAction("share");
     try {
       await printerService.shareReceipt(receiptData);
     } catch {
       Alert.alert("Share failed", "Could not generate the receipt PDF. Please try again.");
     } finally {
-      setIsQuickActionLoading(false);
+      receiptActionBusy.current = false;
+      setReceiptAction(null);
     }
-  }, [isQuickActionLoading, receiptData]);
+  }, [receiptData]);
 
   const replaceOnce = useCallback((href: Href) => {
     if (hasTerminalNavigationStartedRef.current) {
@@ -528,13 +534,15 @@ function OwnerQuickSaleCheckoutScreen() {
                   icon="print-outline"
                   label="Print Receipt"
                   onPress={handlePrintReceipt}
-                  loading={isQuickActionLoading}
+                  loading={receiptAction === "print"}
+                  busy={receiptAction !== null}
                 />
                 <ReceiptActionButton
                   icon="share-social-outline"
                   label="Share Receipt"
                   onPress={handleShareReceipt}
-                  loading={isQuickActionLoading}
+                  loading={receiptAction === "share"}
+                  busy={receiptAction !== null}
                 />
                 <ReceiptActionButton icon="mail-outline" label="Email Receipt" disabled />
               </View> : null}
@@ -602,12 +610,14 @@ function ReceiptActionButton({
   onPress,
   disabled = false,
   loading = false,
+  busy = false,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   onPress?: () => void;
   disabled?: boolean;
   loading?: boolean;
+  busy?: boolean;
 }) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
@@ -616,8 +626,8 @@ function ReceiptActionButton({
     <TouchableOpacity
       activeOpacity={0.86}
       onPress={onPress}
-      disabled={disabled || loading}
-      style={[styles.receiptAction, (disabled || loading) && styles.buttonDisabled]}
+      disabled={disabled || loading || busy}
+      style={[styles.receiptAction, (disabled || loading || busy) && styles.buttonDisabled]}
     >
       <View style={styles.receiptActionIcon}>
         {loading ? (
