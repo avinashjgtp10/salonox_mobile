@@ -501,6 +501,9 @@ function OwnerQuickSaleCheckoutScreen() {
                 <InfoRow label="Date & Time" value={createdDateLabel} />
                 <InfoRow label="Payment" value={formatPaymentMethod(paymentMethod)} />
                 <InfoRow label={isStaff ? "Your Items" : "Items"} value={isStaff || itemCount > 0 ? String(itemCount) : "—"} />
+                {!isPreview && !isStaff ? (
+                  <InfoRow label="GST" value={formatCurrency(authoritativeSale.taxAmount)} />
+                ) : null}
                 <InfoRow label={isStaff ? "Your Items Total" : "Total"} value={isStaff && !currentStaff ? "Staff profile unavailable" : formatCurrency(total)} />
                 {outstandingAmount !== null && outstandingAmount > 0 ? (
                   <InfoRow label="Outstanding" value={formatCurrency(outstandingAmount)} />
