@@ -8,7 +8,6 @@ import type { RootState } from "@/store";
 import { selectActiveBranchId } from "@/store/branch/branch.slice";
 import type { AttendanceRecord } from "@/types/attendance";
 import type { StaffSaleItem } from "@/types/sales";
-import { logApiError } from "@/utils/logApiError";
 
 type RejectValue = {
   message: string;
@@ -36,7 +35,6 @@ export const fetchStaffSaleHistoryThunk = createAsyncThunk<
 
     return { items, staffId };
   } catch (error) {
-    logApiError("[StaffHistory] Fetch sale history failed", { staffId, ...toRejectValue(error) });
 
     return rejectWithValue(toRejectValue(error));
   }
@@ -57,10 +55,6 @@ export const fetchStaffAttendanceHistoryThunk = createAsyncThunk<
 
     return { records, staffId };
   } catch (error) {
-    logApiError("[StaffHistory] Fetch attendance history failed", {
-      staffId,
-      ...toRejectValue(error),
-    });
 
     return rejectWithValue(toRejectValue(error));
   }

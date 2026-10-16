@@ -27,7 +27,6 @@ import type {
   UpdateAttendanceSettingsRequest,
   UpdateAttendanceSettingsResponse,
 } from "@/types/attendance";
-import { logApiError } from "@/utils/logApiError";
 
 export type AttendanceErrorKind =
   | "forbidden"
@@ -110,7 +109,6 @@ export const fetchTodayAttendanceThunk = createAsyncThunk<
 
     return today;
   } catch (error) {
-    logApiError("[Attendance] Fetch today failed", toRejectValue(error));
 
     return rejectWithValue(toRejectValue(error));
   }
@@ -131,7 +129,6 @@ export const fetchAttendanceSummaryThunk = createAsyncThunk<
 
     return summary;
   } catch (error) {
-    logApiError("[Attendance] Fetch summary failed", toRejectValue(error));
 
     return rejectWithValue(toRejectValue(error));
   }
@@ -173,7 +170,6 @@ export const checkInThunk = createAsyncThunk<
 
     return response;
   } catch (error) {
-    logApiError("[Attendance] Check-in failed", { staffId: payload.staffId, ...toRejectValue(error) });
 
     return rejectWithValue(toRejectValue(error));
   }
@@ -203,7 +199,6 @@ export const checkOutThunk = createAsyncThunk<
 
     return response;
   } catch (error) {
-    logApiError("[Attendance] Check-out failed", { staffId: payload.staffId, ...toRejectValue(error) });
 
     return rejectWithValue(toRejectValue(error));
   }
@@ -224,7 +219,6 @@ export const markAttendanceThunk = createAsyncThunk<
 
     return response;
   } catch (error) {
-    logApiError("[Attendance] Manual mark failed", { ...payload, ...toRejectValue(error) });
 
     return rejectWithValue(toRejectValue(error));
   }
@@ -245,7 +239,6 @@ export const updateAttendanceThunk = createAsyncThunk<
 
     return response;
   } catch (error) {
-    logApiError("[Attendance] Update failed", { attendanceId, ...toRejectValue(error) });
 
     return rejectWithValue(toRejectValue(error));
   }
@@ -266,7 +259,6 @@ export const updateAttendanceSettingsThunk = createAsyncThunk<
 
     return response;
   } catch (error) {
-    logApiError("[Attendance] Settings update failed", toRejectValue(error));
 
     return rejectWithValue(toRejectValue(error));
   }

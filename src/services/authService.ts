@@ -4,7 +4,6 @@ import * as WebBrowser from "expo-web-browser";
 import { ApiError, API_BASE_URL, api } from "@/services/api";
 import { USER } from "@/services/api/endpoints";
 import { logAuthEvent } from "@/services/authSession";
-import { timeStartup } from "@/services/startupPerformance";
 import { tokenStorage } from "@/services/tokenStorage";
 import type {
   ApiResponse,
@@ -34,21 +33,17 @@ const getFirstParam = (value: string | string[] | undefined) =>
 
 export const authService = {
   async login(credentials: LoginCredentials) {
-    const response = await timeStartup("Login API", () =>
-      api.post<ApiResponse<LoginResponseData>>("/auth/login", { ...credentials, clientType: "mobile" }),
-    );
+    const response = await api.post<ApiResponse<LoginResponseData>>("/auth/login", { ...credentials, clientType: "mobile" });
     const authData: LoginResponseData = {
       ...response.data.data,
       user: normalizeAuthUser(response.data.data.user),
     };
 
-    await timeStartup("Token storage", async () => {
-      await tokenStorage.setTokens({
-        accessToken: authData.accessToken,
-        refreshToken: authData.refreshToken,
-      });
-      await tokenStorage.clearStoredUser();
+    await tokenStorage.setTokens({
+      accessToken: authData.accessToken,
+      refreshToken: authData.refreshToken,
     });
+    await tokenStorage.clearStoredUser();
 
     logAuthEvent("login_success", {
       userId: authData.user.id,

@@ -65,11 +65,7 @@ const parseJsonLike = (value: unknown) => {
 
   try {
     return JSON.parse(text) as unknown;
-  } catch (error) {
-    if (__DEV__) {
-      console.warn("[MembershipDetails] Unable to parse membership metadata.", error);
-    }
-
+  } catch {
     return undefined;
   }
 };
@@ -297,12 +293,6 @@ export default function MembershipDetailsScreen() {
       }),
     [dispatch, id],
   );
-
-  useEffect(() => {
-    if (__DEV__ && assignedClientsError) {
-      console.warn("[MembershipDetails] Assigned clients request failed.", assignedClientsError);
-    }
-  }, [assignedClientsError]);
 
   const goBack = () => {
     if (router.canGoBack()) router.back();

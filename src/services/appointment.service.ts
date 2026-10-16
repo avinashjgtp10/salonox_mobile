@@ -228,7 +228,6 @@ export const toAppointmentStatus = (value: unknown): AppointmentStatus => {
     default:
       if (rawStatus && !warnedUnknownStatuses.has(rawStatus)) {
         warnedUnknownStatuses.add(rawStatus);
-        console.warn("[Appointments] Unknown appointment status received", { status: rawStatus });
       }
 
       return "Unknown";
@@ -661,10 +660,6 @@ export const appointmentService = {
 
     if (rawStatus && BACKEND_VALID_STATUSES.has(rawStatus)) {
       (requestPayload as typeof requestPayload & { status?: string }).status = rawStatus;
-    }
-
-    if (__DEV__) {
-      console.log("[Appointments] Final create payload", JSON.stringify(requestPayload, null, 2));
     }
 
     const response = await api.post<AppointmentDetailApiResponse>(APPOINTMENT.CREATE, requestPayload, {

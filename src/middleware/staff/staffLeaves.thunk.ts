@@ -12,7 +12,6 @@ import type {
   UpdateLeaveRequest,
   UpdateLeaveResponse,
 } from "@/types/staffLeaves";
-import { logApiError } from "@/utils/logApiError";
 
 type RejectValue = {
   message: string;
@@ -36,7 +35,6 @@ export const fetchLeavesThunk = createAsyncThunk<
 
     return { leaves, staffId };
   } catch (error) {
-    logApiError("[StaffLeaves] Fetch failed", { staffId, ...toRejectValue(error) });
 
     return rejectWithValue(toRejectValue(error));
   }
@@ -52,7 +50,6 @@ export const createLeaveThunk = createAsyncThunk<
     emitRealtimeEntityChanged({ entity: "staff", payload: { staff_id: staffId } });
     return result;
   } catch (error) {
-    logApiError("[StaffLeaves] Create failed", { staffId, ...toRejectValue(error) });
 
     return rejectWithValue(toRejectValue(error));
   }
@@ -68,7 +65,6 @@ export const updateLeaveThunk = createAsyncThunk<
     emitRealtimeEntityChanged({ entity: "staff", payload: { staff_id: staffId } });
     return result;
   } catch (error) {
-    logApiError("[StaffLeaves] Update failed", { recordId, staffId, ...toRejectValue(error) });
 
     return rejectWithValue(toRejectValue(error));
   }
@@ -84,7 +80,6 @@ export const deleteLeaveThunk = createAsyncThunk<
     emitRealtimeEntityChanged({ entity: "staff", payload: { staff_id: staffId } });
     return result;
   } catch (error) {
-    logApiError("[StaffLeaves] Delete failed", { recordId, staffId, ...toRejectValue(error) });
 
     return rejectWithValue(toRejectValue(error));
   }

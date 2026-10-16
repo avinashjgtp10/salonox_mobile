@@ -39,8 +39,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
     try {
       setIsActionLoading(true);
       await printerService.printReceipt(activeData);
-    } catch (error) {
-      console.error("[Printer] Print error:", error);
+    } catch {
       Alert.alert("Print failed", "Could not print the invoice. Please try again.");
     } finally {
       setIsActionLoading(false);
@@ -51,8 +50,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
     try {
       setIsActionLoading(true);
       await printerService.shareReceipt(activeData);
-    } catch (error) {
-      console.error("[Printer] Share error:", error);
+    } catch {
       Alert.alert("Share failed", "Could not share the invoice PDF. Please try again.");
     } finally {
       setIsActionLoading(false);

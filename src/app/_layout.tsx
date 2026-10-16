@@ -5,13 +5,13 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Provider } from 'react-redux';
-import { Pressable, View } from "react-native";
+import { LogBox, Pressable, View } from "react-native";
 import { PaperProvider } from 'react-native-paper';
 import { Portal } from '@/components/ui/Portal';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import SimpleSplash from '../components/simple-splash';
 import { AppToast } from '@/components/ui/AppToast';
-import { NetworkStatusStrip } from '@/components/ui/NetworkStatusStrip';
+import { OfflineTouchNotice } from '@/components/ui/OfflineTouchNotice';
 import { AppAlertHost } from '@/components/ui/AppAlertHost';
 import { StaffAttendanceGate } from '@/features/attendance/components/StaffAttendanceGate';
 import { PortalProvider } from '@/components/ui/PortalProvider';
@@ -23,6 +23,7 @@ import { useAppUpdateAnnouncement } from '@/hooks/useAppUpdateAnnouncement';
 import { useOtaUpdate } from '@/hooks/useOtaUpdate';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useNetworkMonitor } from '@/hooks/useNetworkMonitor';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useRealtimeSync } from '@/hooks/useRealtimeSync';
 import { useStaffCalendarAccessSync } from '@/hooks/useStaffCalendarAccess';
 import { fetchBranchesThunk } from '@/middleware/branch/branch.thunk';
@@ -47,6 +48,7 @@ import {
 } from '@/utils/routeResolver';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
+LogBox.ignoreAllLogs();
 
 export const unstable_settings = {
   initialRouteName: 'login',
@@ -91,6 +93,7 @@ const PUBLIC_ROUTES = new Set([
 function AuthNavigationHandler({ onReady }: { onReady: () => void }) {
   const [subscriptionRetry, setSubscriptionRetry] = useState(0);
   const { isAuthenticated, isLoading, user } = useAuth();
+  const { isOnline } = useNetworkStatus();
   const [subscriptionCheck, setSubscriptionCheck] = useState<{
     isActive: boolean;
     salonId: string | null;
@@ -112,6 +115,15 @@ function AuthNavigationHandler({ onReady }: { onReady: () => void }) {
 
     if (!salonId) {
       setSubscriptionCheck({ isActive: true, salonId: null, status: "ready" });
+      return;
+    }
+
+    // Offline: open the app with what is already on the device instead of a
+    // blocking error, and verify the subscription once the connection is back.
+    if (!isOnline) {
+      setSubscriptionCheck((current) =>
+        current.salonId === salonId && current.status === "ready" ? current : { isActive: true, salonId, status: "ready" },
+      );
       return;
     }
 
@@ -149,7 +161,7 @@ function AuthNavigationHandler({ onReady }: { onReady: () => void }) {
       isMounted = false;
       clearTimeout(retryTimer);
     };
-  }, [isAuthenticated, pathname, subscriptionRetry, user?.salonId]);
+  }, [isAuthenticated, isOnline, pathname, subscriptionRetry, user?.salonId]);
 
   useEffect(() => {
     if (!rootNavigationState?.key || isLoading) {
@@ -394,10 +406,7 @@ function AppShell() {
               <BranchBootstrap />
               <StaffIdentityBootstrap />
               <StaffCalendarAccessBootstrap />
-              <View style={{ flex: 1 }}>
-              <NetworkStatusStrip />
-              {/* Recalculate insets below the strip so screens do not add the
-                  status-bar spacing a second time while it is visible. */}
+              <OfflineTouchNotice>
               <SafeAreaProvider style={{ flex: 1 }}>
               <StaffAttendanceGate>
               <Stack
@@ -430,7 +439,7 @@ function AppShell() {
               </Stack>
               </StaffAttendanceGate>
               </SafeAreaProvider>
-              </View>
+              </OfflineTouchNotice>
               <SimpleSplash backgroundColor={colors.bg} isReady={isThemeHydrated && isNavigationReady} />
               <AppToast />
               <AppAlertHost />
@@ -444,9 +453,6 @@ function AppShell() {
 
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts(appFontAssets);
-  useEffect(() => {
-    if (fontError) console.warn('[Typography] Unable to load bundled fonts', fontError);
-  }, [fontError]);
   if (!fontsLoaded && !fontError) return null;
 
   return (

@@ -25,7 +25,6 @@ import { branchStorage } from "@/services/branchStorage";
 import { salonService } from "@/services/salon.service";
 import { realtimeSocket } from "@/services/realtimeSocket";
 import { addSessionInvalidationListener } from "@/services/sessionInvalidation";
-import { markStartup } from "@/services/startupPerformance";
 import { tokenStorage } from "@/services/tokenStorage";
 import { resetAppState, store } from "@/store";
 import { setCurrentUser } from "@/store/user/user.slice";
@@ -88,9 +87,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     const userWithKnownSalon = preserveSalonId(nextUser, store.getState().user.user);
 
     applyAuthenticatedUserState(userWithKnownSalon);
-    tokenStorage.setStoredUser(userWithKnownSalon).catch((err) => {
-      console.error("Failed to persist authenticated user", err);
-    });
+    tokenStorage.setStoredUser(userWithKnownSalon).catch(() => {});
   }, [applyAuthenticatedUserState]);
 
   const clearLocalSession = useCallback(async (source: string) => {
@@ -126,9 +123,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     const updatedUser = { ...currentUser, ...updatedFields };
     store.dispatch(setCurrentUser(updatedUser));
     setUser((stateUser) => (stateUser ? { ...stateUser, ...updatedFields } : null));
-    await tokenStorage.setStoredUser(updatedUser).catch((err) => {
-      console.error("Failed to persist updated user", err);
-    });
+    await tokenStorage.setStoredUser(updatedUser).catch(() => {});
   }, []);
 
   const unregisterNotificationDevice = useCallback(async () => {
@@ -186,6 +181,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
           logAuthEvent("bootstrap_restored_cached_user", {
             userId: session.user.id,
           });
+          // Open with the saved user; the profile sync below finishes in the
+          // background (and waits for the connection when offline).
+          setIsLoading(false);
         }
 
         const currentUser = await syncCurrentUserProfile();
@@ -240,7 +238,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
       const authData = await authService.login(credentials);
       finishUserLogin();
       applyAuthenticatedUserAndPersistLater(withOnboardingStatus(authData.user, authData));
-      markStartup("post_login_navigation");
 
       void syncCurrentUserProfile().catch((profileError) => {
         logAuthEvent("login_profile_fetch_failed", {
@@ -267,7 +264,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
       const authData = await authService.register(credentials);
       finishUserLogin();
       applyAuthenticatedUserAndPersistLater(withOnboardingStatus(authData.user, authData));
-      markStartup("post_login_navigation");
 
       if (authData.user?.id) {
         void guideStorage.markJustRegistered(authData.user.id);
@@ -300,7 +296,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
       if (authData.user) {
         applyAuthenticatedUserAndPersistLater(authData.user);
-        markStartup("post_login_navigation");
         void syncCurrentUserProfile().catch((profileError) => {
           logAuthEvent("google_login_profile_fetch_failed", {
             status: getAuthErrorStatus(profileError),
@@ -309,7 +304,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
         });
       } else {
         await syncCurrentUserProfile();
-        markStartup("post_login_navigation");
       }
 
       return authData;

@@ -96,18 +96,11 @@ const toSafeString = (value: unknown, fallback = "") => {
   return fallback;
 };
 
-const getValidClientId = (client: ClientApiItem, fullName: string) => {
+const getValidClientId = (client: ClientApiItem) => {
   const id = toSafeString(client.id);
 
   if (CLIENT_UUID_PATTERN.test(id)) {
     return id;
-  }
-
-  if (__DEV__) {
-    console.warn("[Clients] Ignoring invalid client id from API response", {
-      fullName,
-      id,
-    });
   }
 
   return "";
@@ -326,7 +319,7 @@ const getStatusLabel = (client: ClientApiItem) => {
 const normalizeClient = (client: ClientApiItem): ClientListItem => {
   const createdAt = toSafeString(client.created_at) || null;
   const fullName = getFullName(client);
-  const id = getValidClientId(client, fullName);
+  const id = getValidClientId(client);
 
   const birthdayYear = toSafeNumber(client.birthday_year);
 
@@ -973,7 +966,6 @@ export const clientService = {
   },
 
   async createClient(payload: CreateClientRequest): Promise<CreateClientResponse> {
-    console.log("Create Client Payload", payload);
     const response = await api.post<CreateClientApiResponse>(CLIENT.CREATE, payload);
     const client = normalizeClient(getCreatedClient(response.data.data));
 

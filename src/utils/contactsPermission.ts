@@ -38,8 +38,7 @@ export async function requestContactsPermission(): Promise<ContactsPermissionRes
     }
 
     return { granted, status, canAskAgain };
-  } catch (error) {
-    console.warn("[ContactsPermission] Failed to check/request permission:", error);
+  } catch {
     return {
       granted: false,
       status: Contacts.PermissionStatus.UNDETERMINED,
