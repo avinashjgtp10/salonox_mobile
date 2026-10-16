@@ -218,7 +218,7 @@ export function CommissionRuleFormScreen() {
     return <Redirect href="/team/commission-rules" />;
   }
 
-  const amountLabel = type === "fixed" ? "Amount (Rs.)" : type === "tiered_target" ? "Commission below target (%)" : "Commission (%)";
+  const amountLabel = type === "fixed" ? "Amount (₹)" : type === "tiered_target" ? "Commission below target (%)" : "Commission (%)";
 
   return (
     <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
@@ -278,7 +278,7 @@ export function CommissionRuleFormScreen() {
 
           <Text style={styles.sectionTitle}>Commission configuration</Text>
           {type === "tiered_target" ? (
-            <Field error={show("conditionTarget") ? "Enter the monthly sales target." : null} label="Monthly sales target (Rs.)">
+            <Field error={show("conditionTarget") ? "Enter the monthly sales target." : null} label="Monthly sales target (₹)">
               <TextInput keyboardType="decimal-pad" onChangeText={(value) => setConditionTarget(sanitizeDecimalInput(value))} placeholder="e.g. 50000" placeholderTextColor={Colors.placeholder} style={[styles.input, show("conditionTarget") && styles.inputError]} value={conditionTarget} />
             </Field>
           ) : null}
@@ -298,11 +298,11 @@ export function CommissionRuleFormScreen() {
               {tiers.map((tier, index) => (
                 <View key={index} style={styles.tierRow}>
                   <View style={styles.tierField}>
-                    <Text style={styles.hint}>Target (Rs.)</Text>
+                    <Text style={styles.hint}>Target (₹)</Text>
                     <TextInput keyboardType="decimal-pad" onChangeText={(value) => setTiers((current) => current.map((item, i) => (i === index ? { ...item, target: sanitizeDecimalInput(value) } : item)))} placeholder="50000" placeholderTextColor={Colors.placeholder} style={styles.input} value={tier.target} />
                   </View>
                   <View style={styles.tierField}>
-                    <Text style={styles.hint}>Reward (Rs.)</Text>
+                    <Text style={styles.hint}>Reward (₹)</Text>
                     <TextInput keyboardType="decimal-pad" onChangeText={(value) => setTiers((current) => current.map((item, i) => (i === index ? { ...item, reward: sanitizeDecimalInput(value) } : item)))} placeholder="1000" placeholderTextColor={Colors.placeholder} style={styles.input} value={tier.reward} />
                   </View>
                   <TouchableOpacity accessibilityLabel="Remove milestone" disabled={tiers.length === 1} hitSlop={8} onPress={() => setTiers((current) => current.filter((_, i) => i !== index))} style={[styles.removeTier, tiers.length === 1 && { opacity: 0.3 }]}>

@@ -36,7 +36,6 @@ import type {
 } from "@/types/staff";
 import { isValidStaffId } from "@/utils/staffIds";
 import { isStaffExperienceUser } from "@/utils/routeResolver";
-import { logApiError } from "@/utils/logApiError";
 
 // Staff accounts have no role permissions on the regular staff routes; the staff
 // app only ever shows their own profile, which comes from the mobile staff API.
@@ -146,16 +145,15 @@ export const createStaffThunk = createAsyncThunk<
       await staffService.activateStaff(response.staffMember.id);
       response.staffMember = await staffService.getStaffMember(response.staffMember.id);
       if (response.staffMember.status === "Inactive") throw new Error("Staff is still inactive.");
-    } catch (activationError) {
-      logApiError("[Staff] Activate after create failed", activationError);
+    } catch {
       response.activationWarning = "Staff was created, but active status could not be confirmed. Check the staff profile before retrying activation.";
     }
 
     if (wages && response.staffMember.id) {
       try {
         await staffService.setStaffWages(response.staffMember.id, wages);
-      } catch (wageError) {
-        logApiError("[Staff] Set wages after create failed", wageError);
+      } catch {
+        // Wages are optional here; the staff record itself is already saved.
       }
     }
 
@@ -166,11 +164,6 @@ export const createStaffThunk = createAsyncThunk<
   } catch (error) {
     const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
 
-    logApiError("[Staff] Create failed", {
-      message,
-      responseBody: error instanceof ApiError ? error.responseData : undefined,
-      status: error instanceof ApiError ? error.status : undefined,
-    });
 
     return rejectWithValue({
       message,
@@ -192,12 +185,6 @@ export const createStaffAddressThunk = createAsyncThunk<
   } catch (error) {
     const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
 
-    logApiError("[Staff] Create address failed", {
-      staffId,
-      message,
-      responseBody: error instanceof ApiError ? error.responseData : undefined,
-      status: error instanceof ApiError ? error.status : undefined,
-    });
 
     return rejectWithValue({
       message,
@@ -242,12 +229,6 @@ export const createEmergencyContactThunk = createAsyncThunk<
   } catch (error) {
     const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
 
-    logApiError("[Staff] Create emergency contact failed", {
-      staffId,
-      message,
-      responseBody: error instanceof ApiError ? error.responseData : undefined,
-      status: error instanceof ApiError ? error.status : undefined,
-    });
 
     return rejectWithValue({
       message,
@@ -293,13 +274,6 @@ export const updateEmergencyContactThunk = createAsyncThunk<
     } catch (error) {
       const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
 
-      logApiError("[Staff] Update emergency contact failed", {
-        recordId,
-        staffId,
-        message,
-        responseBody: error instanceof ApiError ? error.responseData : undefined,
-        status: error instanceof ApiError ? error.status : undefined,
-      });
 
       return rejectWithValue({
         message,
@@ -336,11 +310,6 @@ export const fetchStaffThunk = createAsyncThunk<
       });
     }
 
-    logApiError("[Staff] Fetch failed", {
-      message,
-      responseBody: error instanceof ApiError ? error.responseData : undefined,
-      status: error instanceof ApiError ? error.status : undefined,
-    });
 
     return rejectWithValue({
       message,
@@ -415,12 +384,6 @@ export const resolveCurrentStaffThunk = createAsyncThunk<
   } catch (error) {
     const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
 
-    console.warn("[Staff] Resolve current staff failed", {
-      authenticatedUserId: normalizedUserId,
-      message,
-      responseBody: error instanceof ApiError ? error.responseData : undefined,
-      status: error instanceof ApiError ? error.status : undefined,
-    });
 
     return rejectWithValue({
       message,
@@ -443,9 +406,6 @@ export const fetchStaffAddressesThunk = createAsyncThunk<
 
   try {
     if (!isValidStaffId(args.staffId)) {
-      console.warn("[Staff] Skipping address fetch because staffId is not a valid UUID", {
-        staffId: args.staffId,
-      });
 
       return rejectWithValue({
         message: "A valid staff UUID is required to load staff addresses.",
@@ -457,12 +417,6 @@ export const fetchStaffAddressesThunk = createAsyncThunk<
   } catch (error) {
     const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
 
-    logApiError("[Staff] Fetch addresses failed", {
-      staffId: args.staffId,
-      message,
-      responseBody: error instanceof ApiError ? error.responseData : undefined,
-      status: error instanceof ApiError ? error.status : undefined,
-    });
 
     return rejectWithValue({
       message,
@@ -485,9 +439,6 @@ export const fetchEmergencyContactsThunk = createAsyncThunk<
 
   try {
     if (!isValidStaffId(args.staffId)) {
-      console.warn("[Staff] Skipping emergency contacts fetch because staffId is not a valid UUID", {
-        staffId: args.staffId,
-      });
 
       return rejectWithValue({
         message: "A valid staff UUID is required to load emergency contacts.",
@@ -499,12 +450,6 @@ export const fetchEmergencyContactsThunk = createAsyncThunk<
   } catch (error) {
     const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
 
-    logApiError("[Staff] Fetch emergency contacts failed", {
-      staffId: args.staffId,
-      message,
-      responseBody: error instanceof ApiError ? error.responseData : undefined,
-      status: error instanceof ApiError ? error.status : undefined,
-    });
 
     return rejectWithValue({
       message,
@@ -535,8 +480,8 @@ export const updateStaffThunk = createAsyncThunk<
     if (wages) {
       try {
         await staffService.setStaffWages(staffId, wages);
-      } catch (wageError) {
-        logApiError("[Staff] Set wages after update failed", wageError);
+      } catch {
+        // Wages are optional here; the staff record itself is already saved.
       }
     }
 
@@ -548,12 +493,6 @@ export const updateStaffThunk = createAsyncThunk<
   } catch (error) {
     const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
 
-    logApiError("[Staff] Update failed", {
-      staffId,
-      message,
-      responseBody: error instanceof ApiError ? error.responseData : undefined,
-      status: error instanceof ApiError ? error.status : undefined,
-    });
 
     return rejectWithValue({
       message,
@@ -583,13 +522,6 @@ export const setStaffActiveStatusThunk = createAsyncThunk<
   } catch (error) {
     const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
 
-    logApiError("[Staff] Set active status failed", {
-      message,
-      nextStatus,
-      responseBody: error instanceof ApiError ? error.responseData : undefined,
-      staffId,
-      status: error instanceof ApiError ? error.status : undefined,
-    });
 
     return rejectWithValue({
       message,
@@ -605,7 +537,6 @@ export const setStaffActiveStatusThunk = createAsyncThunk<
   } catch (error) {
     const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
 
-    logApiError("[Staff] Refetch after active-status change failed", { message, nextStatus, staffId });
 
     return rejectWithValue({
       message: `The request to the server may have gone through, but we couldn't confirm it: ${message}`,
@@ -617,11 +548,6 @@ export const setStaffActiveStatusThunk = createAsyncThunk<
   const actuallyInactive = refreshed.status === "Inactive";
 
   if (expectedInactive !== actuallyInactive) {
-    logApiError("[Staff] Active-status change did not take effect", {
-      actualStatus: refreshed.status,
-      nextStatus,
-      staffId,
-    });
 
     return rejectWithValue({
       message:
@@ -652,13 +578,6 @@ export const updateStaffAddressThunk = createAsyncThunk<
   } catch (error) {
     const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
 
-    logApiError("[Staff] Update address failed", {
-      recordId,
-      staffId,
-      message,
-      responseBody: error instanceof ApiError ? error.responseData : undefined,
-      status: error instanceof ApiError ? error.status : undefined,
-    });
 
     return rejectWithValue({
       message,
@@ -683,12 +602,6 @@ export const deleteStaffThunk = createAsyncThunk<
   } catch (error) {
     const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
 
-    logApiError("[Staff] Delete failed", {
-      staffId,
-      message,
-      responseBody: error instanceof ApiError ? error.responseData : undefined,
-      status: error instanceof ApiError ? error.status : undefined,
-    });
 
     return rejectWithValue({
       message,
@@ -708,13 +621,6 @@ export const deleteStaffAddressThunk = createAsyncThunk<
   } catch (error) {
     const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
 
-    logApiError("[Staff] Delete address failed", {
-      recordId,
-      staffId,
-      message,
-      responseBody: error instanceof ApiError ? error.responseData : undefined,
-      status: error instanceof ApiError ? error.status : undefined,
-    });
 
     return rejectWithValue({
       message,
@@ -734,13 +640,6 @@ export const deleteEmergencyContactThunk = createAsyncThunk<
   } catch (error) {
     const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
 
-    logApiError("[Staff] Delete emergency contact failed", {
-      recordId,
-      staffId,
-      message,
-      responseBody: error instanceof ApiError ? error.responseData : undefined,
-      status: error instanceof ApiError ? error.status : undefined,
-    });
 
     return rejectWithValue({
       message,
@@ -760,12 +659,6 @@ export const fetchStaffByIdThunk = createAsyncThunk<
   } catch (error) {
     const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
 
-    logApiError("[Staff] Fetch by ID failed", {
-      staffId,
-      message,
-      responseBody: error instanceof ApiError ? error.responseData : undefined,
-      status: error instanceof ApiError ? error.status : undefined,
-    });
 
     return rejectWithValue({ message });
   }

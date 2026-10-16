@@ -10,6 +10,14 @@ export const isValidPassword = (value: string) => /^(?=.*[A-Za-z])(?=.*\d).{8,}$
 export const PASSWORD_REQUIREMENT_MESSAGE =
   "Password must be at least 8 characters and contain letters and numbers.";
 
+// Change Password on the API (users.validator changePasswordSchema) also
+// requires an uppercase letter; checking it here gives a clear message instead
+// of the server's generic "Validation failed".
+export const isValidChangedPassword = (value: string) => /^(?=.*[A-Z])(?=.*d).{8,}$/.test(value);
+
+export const CHANGED_PASSWORD_REQUIREMENT_MESSAGE =
+  "Password must be at least 8 characters and contain an uppercase letter and a number.";
+
 export const CONFIRM_PASSWORD_MISMATCH_MESSAGE = "Confirm Password must match New Password.";
 export const CONFIRM_PASSWORD_MISMATCH_MESSAGE_GENERIC = "Confirm Password must match Password.";
 

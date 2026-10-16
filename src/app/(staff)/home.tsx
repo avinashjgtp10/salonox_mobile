@@ -45,7 +45,6 @@ import {
   selectAppointmentsRefreshing,
 } from "@/store/appointment/appointment.slice";
 import {
-  selectAttendanceIsOffline,
   selectAttendanceRecords,
   selectAttendanceRecordsError,
   selectAttendanceRecordsRefreshing,
@@ -287,7 +286,6 @@ export function StaffHomeRouteContent({ locked = false }: { locked?: boolean } =
   const attendanceRecords = useAppSelector(selectAttendanceRecords);
   const attendanceError = useAppSelector(selectAttendanceRecordsError);
   const attendanceRefreshing = useAppSelector(selectAttendanceRecordsRefreshing);
-  const attendanceOffline = useAppSelector(selectAttendanceIsOffline);
   const notificationsRefreshing = useAppSelector(selectNotificationsListRefreshing);
   const unreadCount = useAppSelector(selectUnreadCount);
   const [now, setNow] = useState(Date.now());
@@ -429,7 +427,6 @@ export function StaffHomeRouteContent({ locked = false }: { locked?: boolean } =
         </View>
 
         {!locked && blockingError ? <ErrorBanner message={blockingError} onRetry={handleRetry} /> : null}
-        {!locked && attendanceOffline ? <ErrorBanner message="You appear offline. Pull to refresh when connected." /> : null}
 
         <AttendanceCard
           onCheckOut={!locked && confirmedAttendance?.state?.checked_in && confirmedAttendance.state.record?.check_in && !confirmedAttendance.state.record.check_out && confirmedAttendance.state.current_status !== "ON_BREAK" ? () => appAlert.alert("Check Out", "Do you need a break, or are you done for today?", [

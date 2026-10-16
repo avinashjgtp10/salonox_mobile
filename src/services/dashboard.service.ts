@@ -215,7 +215,6 @@ const toSafeAppointmentStatus = (value: unknown): DashboardAppointmentStatus => 
     default:
       if (rawStatus && !warnedUnknownAppointmentStatuses.has(rawStatus)) {
         warnedUnknownAppointmentStatuses.add(rawStatus);
-        console.warn("[Dashboard] Unknown appointment status received", { status: rawStatus });
       }
 
       return "unknown";

@@ -17,6 +17,7 @@ import { rememberReportFilters } from "@/store/report/report.slice";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { DateRangePickerSheet } from "@/components/ui/DateRangePickerSheet";
 import { dateRangeLabel } from "@/utils/dateRangePresets";
+import { formatCurrency as currency } from "@/utils/currency";
 
 type RevenuePeriod = "monthly" | "today";
 
@@ -27,8 +28,6 @@ type Revenue = {
   range: { start_date: string; end_date: string };
   staffError: string | null;
 };
-
-const currency = (value: number) => `Rs. ${value.toLocaleString("en-IN")}`;
 
 // Local calendar date — toISOString() is UTC, which in IST rolls back to
 // yesterday before 5:30am and opened the wrong day's report.
@@ -86,16 +85,14 @@ export default function RevenueScreen({ period }: { period: RevenuePeriod }) {
     }
     setError(null);
 
-    const totalRequest = reportService.getCollectedRevenue(range);
+    const totalRequest = reportService.getRevenueSummary(range);
     void totalRequest
-      .then(async (total) => {
+      .then(async (summary) => {
         let staffRecords: Revenue["staffRecords"] = [];
         let staffError: string | null = null;
-        let billedRevenue: number | null = null;
 
         try {
           const revenueRecords = await reportService.getStaffPerformanceRevenue(range, true);
-          billedRevenue = revenueRecords.reduce((sum, staff) => sum + staff.revenue, 0);
           const allStaff = [];
           let page = 1;
           while (true) {
@@ -122,8 +119,8 @@ export default function RevenueScreen({ period }: { period: RevenuePeriod }) {
           loadedContextRef.current = context;
           setRevenue({
             range,
-            revenue: total,
-            billedRevenue,
+            revenue: summary.collected,
+            billedRevenue: summary.billed,
             staffError,
             staffRecords,
           });

@@ -36,7 +36,6 @@ import { fetchNotificationsThunk, fetchUnreadCountThunk } from "@/middleware/not
 import { fetchInventorySummaryThunk, fetchProductsThunk } from "@/middleware/product/product.thunk";
 import { fetchStaffThunk } from "@/middleware/staff/staff.thunk";
 import { fetchClientsThunk } from "@/middleware/client/client.thunk";
-import { logStartupSince } from "@/services/startupPerformance";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { realtimeSocket } from "@/services/realtimeSocket";
 import {
@@ -66,7 +65,6 @@ function DashboardContent() {
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
   const { isAuthenticated } = useAuth();
-  const didLogNavigationRef = useRef(false);
   const didRunStartupFetchRef = useRef(false);
   const didHandleInitialFocusRef = useRef(false);
   const [isQuickActionsDrawerOpen, setIsQuickActionsDrawerOpen] = useState(false);
@@ -172,15 +170,6 @@ function DashboardContent() {
       dispatch(fetchClientsThunk({ offset: 0, reset: true, refresh: true })),
     ]);
   }, [dispatch, isAuthenticated]);
-
-  useEffect(() => {
-    if (!isAuthenticated || didLogNavigationRef.current) {
-      return;
-    }
-
-    didLogNavigationRef.current = true;
-    logStartupSince("Navigation", "post_login_navigation");
-  }, [isAuthenticated]);
 
   useEffect(() => {
     if (!isAuthenticated || didRunStartupFetchRef.current) {

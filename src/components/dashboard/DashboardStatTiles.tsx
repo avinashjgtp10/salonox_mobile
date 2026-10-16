@@ -22,7 +22,7 @@ import {
 } from "@/store/dashboard/dashboard.slice";
 import { selectClientsTotalCount } from "@/store/client/client.slice";
 import { useAppTheme, useThemeColors } from "@/theme/ThemeProvider";
-import { formatDashboardRevenue } from "@/utils/dashboard";
+import { formatCurrency, formatCurrencyRounded } from "@/utils/currency";
 
 const STAT_TILE_GRADIENTS = {
   bookings: ["#FEF3C7", "#FDE68A"],
@@ -93,7 +93,7 @@ function RevenueComparisonBars({
           <View key={row.label} style={styles.horizontalBarRow}>
             <View style={styles.horizontalBarTop}>
               <Text style={styles.horizontalBarLabel}>{row.label}</Text>
-              <Text style={styles.horizontalBarValue}>{formatDashboardRevenue(row.value)}</Text>
+              <Text style={styles.horizontalBarValue}>{formatCurrencyRounded(row.value)}</Text>
             </View>
             <View style={styles.horizontalBarTrack}>
               <View
@@ -149,7 +149,7 @@ export default function DashboardStatTiles() {
         label: "This Month Revenue",
         route: "/monthly-revenue" as Href,
         subtitle: "Current Calendar Month",
-        value: formatDashboardRevenue(dashboardMetrics.monthlyRevenue),
+        value: formatCurrencyRounded(dashboardMetrics.monthlyRevenue),
       },
       {
         accent: "sky" as const,
@@ -159,7 +159,7 @@ export default function DashboardStatTiles() {
         icon: "trending-up-outline" as const,
         label: "Today's Revenue",
         route: "/today-revenue" as Href,
-        value: formatDashboardRevenue(dashboardMetrics.todaysRevenue),
+        value: formatCurrency(dashboardMetrics.todaysRevenue),
       },
       {
         accent: "indigo" as const,
@@ -289,13 +289,13 @@ export default function DashboardStatTiles() {
                       <View style={styles.comparisonMetric}>
                         <Text style={styles.comparisonLabel}>Last Month</Text>
                         <Text style={styles.comparisonValue}>
-                          {formatDashboardRevenue(stat.lastMonthRevenue)}
+                          {formatCurrencyRounded(stat.lastMonthRevenue)}
                         </Text>
                       </View>
                       <View style={[styles.comparisonMetric, styles.comparisonMetricDivider]}>
                         <Text style={styles.comparisonLabel}>Current Month</Text>
                         <Text style={styles.comparisonValue}>
-                          {formatDashboardRevenue(stat.currentMonthRevenue)}
+                          {formatCurrencyRounded(stat.currentMonthRevenue)}
                         </Text>
                       </View>
                       <View style={[styles.comparisonMetric, styles.comparisonMetricDivider]}>

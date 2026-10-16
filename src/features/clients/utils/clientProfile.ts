@@ -149,7 +149,8 @@ export const buildClientProfileMetrics = ({
 
   const amountDue = appointments.reduce((sum, appointment) => sum + appointment.dueAmount, 0);
 
-  const averageSpend = totalVisits > 0 ? totalSpend / totalVisits : 0;
+  // Rounded to the rupee, like the web client page's Avg. Ticket Size.
+  const averageSpend = totalVisits > 0 ? Math.round(totalSpend / totalVisits) : 0;
 
   const lastPaidAppointment = appointments
     .filter((appointment) => appointment.status === "paid")

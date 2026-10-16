@@ -33,8 +33,8 @@ import { useThemeColors } from "@/theme/ThemeProvider";
 import type { ClientListItem } from "@/types/client";
 import type { Membership } from "@/types/membership";
 import { formatAppDate } from "@/utils/dateTime";
+import { formatCurrency as formatMoney } from "@/utils/currency";
 
-const formatMoney = (value: number) => `Rs. ${value.toLocaleString("en-IN")}`;
 const formatDate = (value: string) => {
   return formatAppDate(value, "-");
 };
@@ -65,11 +65,7 @@ const parseJsonLike = (value: unknown) => {
 
   try {
     return JSON.parse(text) as unknown;
-  } catch (error) {
-    if (__DEV__) {
-      console.warn("[MembershipDetails] Unable to parse membership metadata.", error);
-    }
-
+  } catch {
     return undefined;
   }
 };
@@ -297,12 +293,6 @@ export default function MembershipDetailsScreen() {
       }),
     [dispatch, id],
   );
-
-  useEffect(() => {
-    if (__DEV__ && assignedClientsError) {
-      console.warn("[MembershipDetails] Assigned clients request failed.", assignedClientsError);
-    }
-  }, [assignedClientsError]);
 
   const goBack = () => {
     if (router.canGoBack()) router.back();

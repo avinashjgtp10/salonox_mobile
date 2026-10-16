@@ -10,7 +10,6 @@ import type {
   SettleTipRequest,
   SettleTipResponse,
 } from "@/types/salonTips";
-import { logApiError } from "@/utils/logApiError";
 
 type RejectValue = {
   message: string;
@@ -32,9 +31,6 @@ export const fetchSalonTipSummaryThunk = createAsyncThunk<
   try {
     return await salonTipsService.getSummary();
   } catch (error) {
-    if (__DEV__) {
-      logApiError("[SalonTips] Fetch summary failed", toRejectValue(error));
-    }
 
     return rejectWithValue(toRejectValue(error));
   }
@@ -48,9 +44,6 @@ export const fetchSalonTipEarnedThunk = createAsyncThunk<
   try {
     return await salonTipsService.getEarned();
   } catch (error) {
-    if (__DEV__) {
-      logApiError("[SalonTips] Fetch earned failed", toRejectValue(error));
-    }
 
     return rejectWithValue(toRejectValue(error));
   }
@@ -66,9 +59,6 @@ export const fetchTipSettlementsThunk = createAsyncThunk<
 
     return { settlements, staffId };
   } catch (error) {
-    if (__DEV__) {
-      logApiError("[SalonTips] Fetch settlements failed", { staffId, ...toRejectValue(error) });
-    }
 
     return rejectWithValue(toRejectValue(error));
   }
@@ -89,9 +79,6 @@ export const settleTipThunk = createAsyncThunk<
 
     return response;
   } catch (error) {
-    if (__DEV__) {
-      logApiError("[SalonTips] Settle tip failed", { staffId, amount, ...toRejectValue(error) });
-    }
 
     return rejectWithValue(toRejectValue(error));
   }

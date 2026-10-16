@@ -5,7 +5,7 @@ import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useState } from "react";
 import { Alert, Modal, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
-import { InvoicePreview } from "./InvoicePreview";
+import { ZoomableInvoicePreview } from "./ZoomableInvoicePreview";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { printerService } from "@/services/printer.service";
 import type { ReceiptData } from "@/utils/receiptGenerator";
@@ -39,8 +39,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
     try {
       setIsActionLoading(true);
       await printerService.printReceipt(activeData);
-    } catch (error) {
-      console.error("[Printer] Print error:", error);
+    } catch {
       Alert.alert("Print failed", "Could not print the invoice. Please try again.");
     } finally {
       setIsActionLoading(false);
@@ -51,8 +50,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
     try {
       setIsActionLoading(true);
       await printerService.shareReceipt(activeData);
-    } catch (error) {
-      console.error("[Printer] Share error:", error);
+    } catch {
       Alert.alert("Share failed", "Could not share the invoice PDF. Please try again.");
     } finally {
       setIsActionLoading(false);
@@ -114,13 +112,13 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
         </View>
 
 
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          {paperSize === "A4" ? (
-            <ScrollView horizontal style={{ width: "100%" }}><InvoicePreview data={activeData} /></ScrollView>
-          ) : (
-          <ThermalPreview data={activeData} />
-          )}
-        </ScrollView>
+        {paperSize === "A4" ? (
+          visible && <ZoomableInvoicePreview key={receiptData.invoice.invoiceNumber} data={activeData} />
+        ) : (
+          <ScrollView contentContainerStyle={styles.scrollContent}>
+            <ThermalPreview data={activeData} />
+          </ScrollView>
+        )}
 
 
         <View style={[styles.footer, { borderTopColor: Colors.border }]}>

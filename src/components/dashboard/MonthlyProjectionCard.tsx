@@ -10,7 +10,7 @@ import { selectDashboardLastFetchedAt } from "@/store/dashboard/dashboard.slice"
 import { getApiErrorMessage } from "@/services/api";
 import { monthlyProjectionService, type MonthlyProjection, type ProjectionGender } from "@/services/monthlyProjection.service";
 import { buildProjectionTrend } from "@/utils/monthlyProjection";
-import { formatDashboardRevenue } from "@/utils/dashboard";
+import { formatCurrency } from "@/utils/currency";
 
 export default function MonthlyProjectionCard() {
   const branch = useAppSelector(selectActiveBranchId);
@@ -62,7 +62,7 @@ function ProjectionBody({ canEdit }: { canEdit: boolean }) {
 
   const trend = useMemo(() => data ? buildProjectionTrend(data.daily, data.daysInMonth) : [], [data]);
   const maximum = data ? Math.max(1, ...data.daily.map((row) => row.sales), ...trend) : 1;
-  const money = (value: number | null) => value === null ? "—" : formatDashboardRevenue(value);
+  const money = (value: number | null) => value === null ? "—" : formatCurrency(value).replace(/\.00$/, "");
 
   async function saveTarget() {
     const target = draft.trim() === "" ? null : Number(draft);

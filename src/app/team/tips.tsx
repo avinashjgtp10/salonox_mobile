@@ -47,13 +47,10 @@ import { useThemeColors } from "@/theme/ThemeProvider";
 import type { SalonTipRecord } from "@/types/salonTips";
 import { formatAppDateTime } from "@/utils/dateTime";
 import { canSettleTip } from "@/utils/userProfile";
+import { formatCurrency } from "@/utils/currency";
 
 const STATUS_FILTERS = ["All", "Pending", "Partial", "Paid"] as const;
 type StatusFilter = (typeof STATUS_FILTERS)[number];
-
-function formatCurrency(amount: number) {
-  return `Rs. ${amount.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
-}
 
 function getRejectedMessage(payload: unknown, fallback: string) {
   if (payload && typeof payload === "object" && "message" in payload) {

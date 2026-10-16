@@ -2,8 +2,25 @@ import type { ReceiptData } from "./receiptGenerator";
 import { invoiceStyles } from "./invoiceStyles";
 import { receiptPaper } from "./receiptPaper";
 import { buildThermalDocument } from "./receiptThermal";
+import { formatCurrency } from "./currency";
 
-export const invoiceMoney = (amount: number) => `₹${amount.toFixed(2)}`;
+export const invoiceMoney = formatCurrency;
+
+type InvoiceItem = ReceiptData["items"][number];
+const NON_SERVICE_LABELS: Record<string, string> = {
+  gift_card: "Gift Card",
+  membership: "Membership",
+  package: "Package",
+  product: "Product",
+};
+
+// Same rules as the web receipt: a service row without its own staff shows the
+// bill's staff; product, package and membership rows never borrow it.
+export const invoiceRowStaff = (data: ReceiptData, item: InvoiceItem) =>
+  item.staffName || (item.type && NON_SERVICE_LABELS[item.type] ? "" : data.staffName) || "—";
+
+export const thermalRowMeta = (item: InvoiceItem) =>
+  (item.type && NON_SERVICE_LABELS[item.type]) || item.staffName || undefined;
 const esc = (value: unknown) => String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 export const invoiceStatus = (data: ReceiptData) => data.invoice.paymentStatus || ((data.pricing.dueAmount ?? 0) > 0 ? ((data.pricing.amountPaid ?? 0) > 0 ? "Partial" : "Unpaid") : "Paid");
 
@@ -31,8 +48,7 @@ export function invoiceSummary(data: ReceiptData) {
   rows.push({ label: "Amount to Pay", value: invoiceMoney(p.grandTotal), bold: true });
   add("Staff Tip", p.tipAmount);
   data.paymentBreakdown?.forEach(entry => add(`Paid via ${entry.method}`, entry.amount));
-  // Zero is meaningful on an unpaid invoice.
-  if (p.amountPaid !== undefined) rows.push({ label: "Amount Paid", value: invoiceMoney(p.amountPaid) });
+  add("Amount Paid", p.amountPaid);
   if (p.dueAmount) rows.push({ label: "Balance Due", value: invoiceMoney(p.dueAmount), bold: true });
   return rows;
 }
@@ -49,17 +65,17 @@ export function generateInvoiceDocument(data: ReceiptData): string {
       invoiceNo: data.invoice.invoiceNumber, dateTime: data.invoice.date,
       clientName: data.client.name, clientPhone: data.client.phone || "—", staffName: data.staffName || "—",
       paymentMethod: data.invoice.paymentMethod,
-      items: data.items.map(item => ({ name: item.name, qty: item.qty, amount: invoiceMoney(item.total), meta: item.staffName || data.staffName })),
+      items: data.items.map(item => ({ name: item.name, qty: item.qty, amount: invoiceMoney(item.total), meta: thermalRowMeta(item) })),
       summary: summary.slice(0, totalIndex),
       grandTotal: { label: "TOTAL", value: invoiceMoney(data.pricing.grandTotal) },
-      payments: summary.slice(totalIndex + 2).map(row => ({ ...row, label: row.label === "Amount Paid" ? "Paid" : row.label })), footerNote: data.footerMessage || "Thank You!",
+      payments: summary.slice(totalIndex + 2).map(row => ({ ...row, label: row.label === "Amount Paid" ? (data.paymentBreakdown?.length ? "Total Paid" : "Paid") : row.label })), footerNote: data.footerMessage || "Thank You!",
       qrDataUrl: data.upiQrUrl,
     }, { title: `Invoice ${data.invoice.invoiceNumber}`, withToolbar: false });
   }
   const info = (label: string, value?: string) => `<div class="info-cell"><div class="info-label">${esc(label)}</div><div class="info-value">${esc(value || "—")}</div></div>`;
   const rows = data.items.map((item, index) => `<tr style="background:${index % 2 ? "#f9fafb" : "#fff"}">
     <td>${index + 1}</td><td style="font-weight:600;text-align:left">${esc(item.name)}</td>
-    <td><span class="item-type">${esc(item.type || "—")}</span></td><td>${esc(item.staffName || data.staffName || "—")}</td>
+    <td><span class="item-type">${esc(item.type || "—")}</span></td><td>${esc(invoiceRowStaff(data, item))}</td>
     <td>${esc(data.invoice.time)}</td><td>${item.qty}</td><td class="money">${invoiceMoney(item.price)}</td>
     <td class="money">${invoiceMoney(item.discount ?? 0)}</td><td class="money">${item.tax === undefined ? "—" : invoiceMoney(item.tax)}</td><td class="money">${invoiceMoney(item.total)}</td>
   </tr>`).join("");

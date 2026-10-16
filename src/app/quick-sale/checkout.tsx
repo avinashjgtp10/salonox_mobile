@@ -23,7 +23,8 @@ import { fetchSaleByIdThunk } from "@/middleware/sales/sales.thunk";
 import { printerService } from "@/services/printer.service";
 import { salonService } from "@/services/salon.service";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { selectCurrentStaff } from "@/store/staff/staff.slice";
+import { staffService } from "@/services/staff.service";
+import { selectCurrentStaff, selectStaffMembers } from "@/store/staff/staff.slice";
 import { getStaffSaleBilling } from "@/utils/staffBilling";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { SalonListItem } from "@/types/salon";
@@ -32,6 +33,14 @@ import { normalizeSaleId } from "@/utils/apiNormalize";
 import { formatAppDate, formatAppTime } from "@/utils/dateTime";
 import { formatInvoiceNumber } from "@/utils/receipt";
 import type { ReceiptData } from "@/utils/receiptGenerator";
+import { formatCurrency } from "@/utils/currency";
+import {
+  invoiceStaffDisplay,
+  resolveStaffNames,
+  saleStaffIds,
+  staffNamesFromRoster,
+  withStaffNames,
+} from "@/utils/invoiceStaff";
 
 type ReceiptLoadStatus = "initial" | "loading" | "loaded" | "failed" | "retrying";
 
@@ -40,10 +49,6 @@ type ReceiptLoadState = {
   sale: SaleDetail | null;
   status: ReceiptLoadStatus;
 };
-
-function formatCurrency(amount: number) {
-  return `₹${amount.toLocaleString("en-IN")}`;
-}
 
 function formatPaymentMethod(method: string) {
   return method
@@ -194,17 +199,37 @@ function OwnerQuickSaleCheckoutScreen() {
 
   const [isReceiptModalVisible, setIsReceiptModalVisible] = useState(false);
   const hasAutoOpenedReceiptRef = useRef(false);
+  const staffRoster = useAppSelector(selectStaffMembers);
+  const [invoiceStaffNames, setInvoiceStaffNames] = useState<{ saleId: string; names: Record<string, string> } | null>(null);
+
+  useEffect(() => {
+    if (isStaff || !authoritativeSale) return;
+    let cancelled = false;
+    const staffIds = saleStaffIds(authoritativeSale.lineItems.filter((item) => !item.staffName));
+
+    void resolveStaffNames(staffIds, staffNamesFromRoster(staffRoster), async (staffId) =>
+      (await staffService.getStaffMember(staffId)).name,
+    ).then((names) => {
+      if (!cancelled) setInvoiceStaffNames({ saleId: authoritativeSale.id, names });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authoritativeSale, isStaff, staffRoster]);
 
   const receiptData = useMemo<ReceiptData | null>(() => {
     // A partial staff summary is not a customer invoice. Full invoice previews,
     // exports and printing remain in the owner/manager view.
     if (isStaff || !authoritativeSale || !salonLoaded) return null;
+    if (invoiceStaffNames?.saleId !== authoritativeSale.id) return null;
+    const namedLineItems = withStaffNames(authoritativeSale.lineItems, invoiceStaffNames.names);
 
     const [datePart, timePart] = authoritativeSale.createdDateLabel.includes(" • ")
       ? authoritativeSale.createdDateLabel.split(" • ")
       : [formatAppDate(authoritativeSale.createdDateLabel), formatAppTime(authoritativeSale.createdDateLabel)];
 
-    const items = authoritativeSale.lineItems.map((item) => ({
+    const items = namedLineItems.map((item) => ({
       name: item.name,
       qty: item.quantity,
       price: item.unitPrice,
@@ -228,6 +253,11 @@ function OwnerQuickSaleCheckoutScreen() {
         paymentBreakdown = undefined;
       }
     }
+    // Same as the web: a single plain Cash/Card/UPI leg is already shown as the payment method.
+    const isMixedPayment = paymentBreakdown
+      && (paymentBreakdown.length > 1
+        || paymentBreakdown.some((entry) => !["cash", "card", "upi"].includes(entry.method.toLowerCase())));
+    if (!isMixedPayment) paymentBreakdown = undefined;
 
     return {
       salon: {
@@ -256,7 +286,7 @@ function OwnerQuickSaleCheckoutScreen() {
         phone: authoritativeSale.clientPhone,
         email: undefined,
       },
-      staffName: [...new Set(authoritativeSale.lineItems.map((item) => item.staffName).filter(Boolean))].join(", "),
+      staffName: invoiceStaffDisplay(namedLineItems),
       notes: authoritativeSale.notes || undefined,
       couponCode: authoritativeSale.couponCode || undefined,
       items,
@@ -279,7 +309,7 @@ function OwnerQuickSaleCheckoutScreen() {
       paperSize: "80mm",
       upiQrUrl: undefined,
     };
-  }, [authoritativeSale, isPreview, isStaff, salon, salonLoaded, user]);
+  }, [authoritativeSale, invoiceStaffNames, isPreview, isStaff, salon, salonLoaded, user]);
 
   useEffect(() => {
     if (params.openReceipt === "1" && receiptData && !hasAutoOpenedReceiptRef.current) {
@@ -288,37 +318,43 @@ function OwnerQuickSaleCheckoutScreen() {
     }
   }, [params.openReceipt, receiptData]);
 
-  const [isQuickActionLoading, setIsQuickActionLoading] = useState(false);
+  const [receiptAction, setReceiptAction] = useState<"print" | "share" | null>(null);
+  const receiptActionBusy = useRef(false);
 
   const handleViewReceipt = useCallback(() => {
+    if (receiptActionBusy.current) return;
     setIsReceiptModalVisible(true);
   }, []);
 
   const handlePrintReceipt = useCallback(async () => {
-    if (!receiptData || isQuickActionLoading) return;
+    if (!receiptData || receiptActionBusy.current) return;
 
-    setIsQuickActionLoading(true);
+    receiptActionBusy.current = true;
+    setReceiptAction("print");
     try {
       await printerService.printReceipt(receiptData);
     } catch {
       Alert.alert("Print failed", "Could not open the print dialog. Please try again.");
     } finally {
-      setIsQuickActionLoading(false);
+      receiptActionBusy.current = false;
+      setReceiptAction(null);
     }
-  }, [isQuickActionLoading, receiptData]);
+  }, [receiptData]);
 
   const handleShareReceipt = useCallback(async () => {
-    if (!receiptData || isQuickActionLoading) return;
+    if (!receiptData || receiptActionBusy.current) return;
 
-    setIsQuickActionLoading(true);
+    receiptActionBusy.current = true;
+    setReceiptAction("share");
     try {
       await printerService.shareReceipt(receiptData);
     } catch {
       Alert.alert("Share failed", "Could not generate the receipt PDF. Please try again.");
     } finally {
-      setIsQuickActionLoading(false);
+      receiptActionBusy.current = false;
+      setReceiptAction(null);
     }
-  }, [isQuickActionLoading, receiptData]);
+  }, [receiptData]);
 
   const replaceOnce = useCallback((href: Href) => {
     if (hasTerminalNavigationStartedRef.current) {
@@ -465,6 +501,9 @@ function OwnerQuickSaleCheckoutScreen() {
                 <InfoRow label="Date & Time" value={createdDateLabel} />
                 <InfoRow label="Payment" value={formatPaymentMethod(paymentMethod)} />
                 <InfoRow label={isStaff ? "Your Items" : "Items"} value={isStaff || itemCount > 0 ? String(itemCount) : "—"} />
+                {!isPreview && !isStaff ? (
+                  <InfoRow label="GST" value={formatCurrency(authoritativeSale.taxAmount)} />
+                ) : null}
                 <InfoRow label={isStaff ? "Your Items Total" : "Total"} value={isStaff && !currentStaff ? "Staff profile unavailable" : formatCurrency(total)} />
                 {outstandingAmount !== null && outstandingAmount > 0 ? (
                   <InfoRow label="Outstanding" value={formatCurrency(outstandingAmount)} />
@@ -498,13 +537,15 @@ function OwnerQuickSaleCheckoutScreen() {
                   icon="print-outline"
                   label="Print Receipt"
                   onPress={handlePrintReceipt}
-                  loading={isQuickActionLoading}
+                  loading={receiptAction === "print"}
+                  busy={receiptAction !== null}
                 />
                 <ReceiptActionButton
                   icon="share-social-outline"
                   label="Share Receipt"
                   onPress={handleShareReceipt}
-                  loading={isQuickActionLoading}
+                  loading={receiptAction === "share"}
+                  busy={receiptAction !== null}
                 />
                 <ReceiptActionButton icon="mail-outline" label="Email Receipt" disabled />
               </View> : null}
@@ -572,12 +613,14 @@ function ReceiptActionButton({
   onPress,
   disabled = false,
   loading = false,
+  busy = false,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   onPress?: () => void;
   disabled?: boolean;
   loading?: boolean;
+  busy?: boolean;
 }) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
@@ -586,8 +629,8 @@ function ReceiptActionButton({
     <TouchableOpacity
       activeOpacity={0.86}
       onPress={onPress}
-      disabled={disabled || loading}
-      style={[styles.receiptAction, (disabled || loading) && styles.buttonDisabled]}
+      disabled={disabled || loading || busy}
+      style={[styles.receiptAction, (disabled || loading || busy) && styles.buttonDisabled]}
     >
       <View style={styles.receiptActionIcon}>
         {loading ? (

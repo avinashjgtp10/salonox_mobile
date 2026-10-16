@@ -1,7 +1,7 @@
 import NetInfo from "@react-native-community/netinfo";
 import { useEffect } from "react";
 
-import { getNetworkSnapshot, setNetworkSnapshot } from "@/services/networkStatus";
+import { getNetworkSnapshot, setNetworkSnapshot, subscribeNetworkSnapshot } from "@/services/networkStatus";
 import { useAppDispatch } from "@/store/hooks";
 import { networkStatusChanged } from "@/store/network/network.slice";
 
@@ -30,9 +30,10 @@ export const useNetworkMonitor = () => {
       }
 
       setNetworkSnapshot(snapshot);
-      dispatch(networkStatusChanged({ ...snapshot, lastChangedAt: Date.now() }));
     };
 
+    // Every snapshot change, including ones the API layer detects, reaches Redux.
+    const unsubscribeSnapshot = subscribeNetworkSnapshot((snapshot) => dispatch(networkStatusChanged(snapshot)));
     let active = true;
     void NetInfo.fetch().then((state) => {
       if (!active) return;
@@ -42,6 +43,6 @@ export const useNetworkMonitor = () => {
     const unsubscribe = NetInfo.addEventListener((state) => {
       updateNetworkState(state.isConnected, state.isInternetReachable);
     });
-    return () => { active = false; unsubscribe(); };
+    return () => { active = false; unsubscribe(); unsubscribeSnapshot(); };
   }, [dispatch]);
 };

@@ -62,6 +62,7 @@ export type SalesSummaryDetailItem = {
 };
 
 export type SalesSummaryDetailPayment = {
+  membershipDiscountUsed?: number;
   dueAmount: number;
   ewalletUsed: number;
   membershipWalletUsed: number;
@@ -121,13 +122,28 @@ export const reportService = {
       pagination: { page, limit, total: rows.length, totalPages: Math.ceil(rows.length / limit) },
     };
   },
-  /** Collected revenue for exact dates, using the shared Sales Summary logic. */
-  async getCollectedRevenue(range: { start_date: string; end_date: string }) {
-    const response = await this.getReport(REPORT.SALES_SUMMARY, { ...range, page: 1, limit: 1 });
-    const stats = response.stats as { receivedAmount?: unknown } | undefined;
-    const amount = typeof stats?.receivedAmount === "string" ? Number(stats.receivedAmount) : stats?.receivedAmount;
-    if (typeof amount !== "number" || !Number.isFinite(amount)) throw new Error("Revenue total is unavailable for the selected date range.");
-    return amount;
+  /**
+   * Collected and billed revenue for exact dates — the same request and stats
+   * as the web Sales Summary report: only paid/partial sales, GST included.
+   * `billed` is the backend's total_sale (sum of each invoice's rounded total),
+   * so it matches the web instead of re-adding unrounded item amounts.
+   */
+  async getRevenueSummary(range: { start_date: string; end_date: string }) {
+    const response = await this.getReport(REPORT.SALES_SUMMARY, {
+      ...range,
+      payment_statuses: ["paid", "partial"],
+      include_gst: true,
+      page: 1,
+      limit: 1,
+    });
+    const stats = response.stats as { receivedAmount?: unknown; totalSale?: unknown } | undefined;
+    const toAmount = (value: unknown) => {
+      const amount = typeof value === "string" ? Number(value) : value;
+      return typeof amount === "number" && Number.isFinite(amount) ? amount : null;
+    };
+    const collected = toAmount(stats?.receivedAmount);
+    if (collected === null) throw new Error("Revenue total is unavailable for the selected date range.");
+    return { collected, billed: toAmount(stats?.totalSale) };
   },
   /** Same item-level revenue (including GST) as the Staff Performance drill-down.
    * The report endpoint resolves the salon from the authenticated session.

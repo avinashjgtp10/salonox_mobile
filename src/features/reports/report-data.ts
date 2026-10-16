@@ -1,5 +1,6 @@
 import type { ReportData } from "@/store/report/report.slice";
 import type { ReportSlug } from "@/features/reports/report-config";
+import { formatCurrency } from "@/utils/currency";
 import { formatAppDateTime } from "@/utils/dateTime";
 import { formatInvoiceNumber } from "@/utils/receipt";
 
@@ -51,8 +52,28 @@ export const getReportPagination = (data: ReportData | null) => {
 export const humanizeReportKey = (key: string) =>
   key.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/^./, (letter) => letter.toUpperCase());
 
-const currencyKey = /(amount|revenue|price|sale|spend|cost|profit|balance|payout|earned|value|tax|total)$/i;
+const currencyKey = /(amount|revenue|price|sale|spend|cost|profit|balance|payout|earned|value|tax|total|paid|due|commission|pay|avgticket)$/i;
 const percentKey = /(pct|percent)$/i;
+// Money fields whose names don't end in one of the words above. Each is shown
+// with formatAmount (₹, 2 decimals) in the matching web report.
+const MONEY_KEYS = new Set([
+  "amountDeducted", "avgBill", "avgSpendPerClient", "baseSalary", "billAverage", "bonus",
+  "cashExpense", "collected", "deductions", "ewalletUsed", "inStoreCash", "membershipWalletUsed",
+  "packageUsed", "paidOut", "referralCreditUsed", "revenueGenerated", "salaryAdvance", "tips",
+  "totalAmountCollected", "totalBilled", "totalCashExpense", "totalCollected", "totalDiscount",
+  "totalDiscountGiven", "totalEwallet", "totalGst", "totalLoyaltyGiven", "totalMembership",
+  "totalNetPayroll", "totalPackage", "totalPending", "totalReceived", "totalReferral",
+  "totalRevenueGenerated", "totalRewards", "totalSpendWhenActive", "totalTaxCollected", "totalTip",
+  "totalTips", "totalWalletUsed",
+]);
+// Counts and points whose names happen to end in a money word; the web shows
+// these as plain numbers.
+const NOT_MONEY_KEYS = new Set([
+  "daysSinceLastSale", "invoicesWithTax", "pointsEarned", "totalCustomersWithDue",
+  "totalPointsEarned", "withBalance",
+]);
+const isMoneyKey = (key: string) => !NOT_MONEY_KEYS.has(key) && (MONEY_KEYS.has(key) || currencyKey.test(key));
+const NUMERIC_STRING = /^-?\d+(\.\d+)?$/;
 
 export const formatReportValue = (key: string, value: unknown): string => {
   if (value === null || value === undefined || value === "") return "—";
@@ -63,11 +84,14 @@ export const formatReportValue = (key: string, value: unknown): string => {
   }
   if (typeof value === "boolean") return value ? "Yes" : "No";
   if (Array.isArray(value)) return value.join(", ");
+  // Postgres numeric columns can arrive as strings ("1856.40"); money must still
+  // be shown as money.
+  if (typeof value === "string" && isMoneyKey(key) && NUMERIC_STRING.test(value.trim())) {
+    return formatCurrency(Number(value));
+  }
   if (typeof value === "number") {
     if (percentKey.test(key)) return `${value.toLocaleString("en-IN")}%`;
-    if (currencyKey.test(key)) {
-      return `₹${value.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
-    }
+    if (isMoneyKey(key)) return formatCurrency(value);
     return value.toLocaleString("en-IN", { maximumFractionDigits: 2 });
   }
   if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}(?:T| )/.test(value)) {
@@ -82,7 +106,7 @@ export const formatReportValue = (key: string, value: unknown): string => {
     }
     if (typeof record.label === "string") return record.label;
     if (typeof record.title === "string") return record.title;
-    return "â€”";
+    return "—";
   }
   return String(value);
 };

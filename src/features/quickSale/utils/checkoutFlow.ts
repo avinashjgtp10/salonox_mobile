@@ -54,11 +54,6 @@ export async function runDraftCheckout(
   const completedSale = checkoutResult.value;
 
   if (!amountsReconcile(completedSale.total, grandTotal)) {
-    console.error("[Quick Sale] Backend/local total mismatch after draft checkout", {
-      backendTotal: completedSale.total,
-      localTotal: grandTotal,
-      saleId: completedSale.id,
-    });
     return {
       kind: "savedNeedsReview",
       message: `Checkout was saved, but the total differs from the amount shown. Check Sales Summary for sale ${completedSale.id}. Do not collect payment again.`,
@@ -137,11 +132,7 @@ export async function runAppointmentCheckout(
   let saleId: string | undefined;
   try {
     ({ saleId } = await deps.checkoutAppointment(appointmentId));
-  } catch (checkoutError) {
-    console.error("[Quick Sale] Checkout failed after a successful payment", {
-      appointmentId,
-      message: checkoutError instanceof Error ? checkoutError.message : "Unknown checkout error",
-    });
+  } catch {
     return {
       kind: "paymentRecordedNeedsFollowUp",
       message: "The payment was saved, but the sale could not be finalized automatically. Check Sales Summary for this client to finish it.",
@@ -151,21 +142,11 @@ export async function runAppointmentCheckout(
   let finalizedSaleTotal: number | null = null;
   if (saleId) {
     finalizedSaleTotal = await deps.fetchSaleTotal(saleId);
-    if (finalizedSaleTotal === null) {
-      console.warn("[Quick Sale] Unable to verify finalized sale total", { appointmentId, saleId });
-    }
   }
 
   const expectedSaleTotal = getExpectedSaleRevenue(totals);
 
   if (finalizedSaleTotal !== null && !amountsReconcile(finalizedSaleTotal, expectedSaleTotal)) {
-    console.error("[Quick Sale] Backend/local total mismatch after checkout", {
-      appointmentId,
-      backendTotal: finalizedSaleTotal,
-      expectedSaleTotal,
-      localNetAmount: paymentBody.net_amount,
-      saleId,
-    });
     return {
       kind: "paymentRecordedNeedsFollowUp",
       message: `Payment and checkout were saved, but the sale total needs review. Expected ${formatCurrency(expectedSaleTotal)}, saved ${formatCurrency(finalizedSaleTotal)}. Check Sales Summary for sale ${saleId}. Do not collect payment again.`,

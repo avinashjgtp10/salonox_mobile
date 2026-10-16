@@ -356,7 +356,7 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
             autoCapitalize="none"
             error={form.validationErrors.email}
             keyboardType="email-address"
-            label="Email *"
+            label={form.values.isLoginEnabled ? "Email *" : "Email"}
             onChangeText={(value) => form.updateField("email", value)}
             placeholder="Email address"
             value={form.values.email}
@@ -406,7 +406,7 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
           />
 
           <View ref={(view) => setFieldRef("gender", view)} style={[styles.fieldGroup, form.validationErrors.gender && styles.fieldGroupError]}>
-            <Text style={styles.fieldLabel}>Gender *</Text>
+            <Text style={styles.fieldLabel}>Gender</Text>
             <ChipRow
               onSelect={(option) => form.updateField("gender", option)}
               options={STAFF_GENDER_OPTIONS}
@@ -506,6 +506,11 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
                 ref={(input) => setFieldRef("password", input)}
                 error={form.validationErrors.password}
                 label="Password"
+                // This sets ANOTHER person's password: never let the device fill in
+                // the signed-in user's saved password here.
+                autoComplete="off"
+                importantForAutofill="no"
+                textContentType="oneTimeCode"
                 onChangeText={(value) => form.updateField("password", value)}
                 placeholder="Password"
                 value={form.values.password}
@@ -514,6 +519,9 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
                 ref={(input) => setFieldRef("confirmPassword", input)}
                 error={form.validationErrors.confirmPassword}
                 label="Confirm Password"
+                autoComplete="off"
+                importantForAutofill="no"
+                textContentType="oneTimeCode"
                 onChangeText={(value) => form.updateField("confirmPassword", value)}
                 placeholder="Confirm Password"
                 value={form.values.confirmPassword}

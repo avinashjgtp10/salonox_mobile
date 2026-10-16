@@ -1,4 +1,4 @@
-import { createAsyncThunk } from "@reduxjs/toolkit";
+import { createAction, createAsyncThunk, type ThunkDispatch, type UnknownAction } from "@reduxjs/toolkit";
 
 import { fetchDashboardThunk } from "@/middleware/dashboard/dashboard.thunk";
 import { fetchUnreadCountThunk } from "@/middleware/notification/notification.thunk";
@@ -7,6 +7,7 @@ import { ApiError, getApiErrorMessage } from "@/services/api";
 import { salesService } from "@/services/sales.service";
 import type { RootState } from "@/store";
 import { selectActiveBranchId } from "@/store/branch/branch.slice";
+import { isScreenActive, SALES_LIST_SCREEN } from "@/utils/activeScreens";
 import type {
   CheckoutSaleRequest,
   CheckoutSaleResponse,
@@ -22,7 +23,6 @@ import type {
   UpdateSaleRequest,
   UpdateSaleResponse,
 } from "@/types/sales";
-import { logApiError } from "@/utils/logApiError";
 
 export type FetchSalesInitArgs = {
   refresh?: boolean;
@@ -45,11 +45,6 @@ export const fetchSalesInitThunk = createAsyncThunk<
   } catch (error) {
     const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
 
-    logApiError("[Sales] Init fetch failed", {
-      message,
-      responseBody: error instanceof ApiError ? error.responseData : undefined,
-      status: error instanceof ApiError ? error.status : undefined,
-    });
 
     return rejectWithValue({
       message,
@@ -75,6 +70,8 @@ export type FetchSalesArgs = {
   limit?: number;
   offset?: number;
   refresh?: boolean;
+  // Re-run search/sort on the last downloaded list instead of fetching it again.
+  reuseList?: boolean;
   reset?: boolean;
   search?: string;
   sort_by?: string;
@@ -100,13 +97,31 @@ export const fetchSalesThunk = createAsyncThunk<
 
   try {
     const salonId = selectActiveBranchId(getState());
-    return await salesService.getSales(nextQuery, salonId);
+    return await salesService.getSales(nextQuery, salonId, { reuseList: Boolean(args?.reuseList && !args.refresh) });
   } catch (error) {
-    logApiError("[Sales] List fetch failed", toRejectValue(error));
 
     return rejectWithValue(toRejectValue(error));
   }
 });
+
+/** Drops the cached sales list so the Sales screen reloads it when next opened. */
+export const salesListInvalidated = createAction("sales/listInvalidated");
+
+/**
+ * Background refresh of the sales list. /sales returns the full history, so
+ * while the Sales screen is closed the list is only marked stale instead of
+ * being downloaded again (the screen always fetches when it opens).
+ */
+export const refreshSalesListInBackground = (
+  dispatch: ThunkDispatch<RootState, unknown, UnknownAction>,
+  args: FetchSalesArgs,
+) => {
+  if (isScreenActive(SALES_LIST_SCREEN)) {
+    return dispatch(fetchSalesThunk(args));
+  }
+  dispatch(salesListInvalidated());
+  return undefined;
+};
 
 export const fetchSaleByIdThunk = createAsyncThunk<
   SaleDetail,
@@ -116,7 +131,6 @@ export const fetchSaleByIdThunk = createAsyncThunk<
   try {
     return await salesService.getSale(saleId);
   } catch (error) {
-    logApiError("[Sales] Fetch by ID failed", { ...toRejectValue(error), saleId });
 
     return rejectWithValue(toRejectValue(error));
   }
@@ -135,14 +149,13 @@ export const createSaleThunk = createAsyncThunk<
     });
 
     void dispatch(fetchUnreadCountThunk());
-    void dispatch(fetchSalesThunk({ ...getState().sales.query, offset: 0, refresh: true, reset: true }));
+    void refreshSalesListInBackground(dispatch, { ...getState().sales.query, offset: 0, refresh: true, reset: true });
     void dispatch(fetchSalesSummaryThunk());
     void dispatch(fetchDashboardThunk());
     void dispatch(fetchProductsThunk({ offset: 0, refresh: true, reset: true }));
 
     return response;
   } catch (error) {
-    logApiError("[Sales] Create failed", toRejectValue(error));
 
     return rejectWithValue(toRejectValue(error));
   }
@@ -162,13 +175,12 @@ export const updateSaleThunk = createAsyncThunk<
     });
 
     void dispatch(fetchSaleByIdThunk(saleId));
-    void dispatch(fetchSalesThunk({ ...getState().sales.query, offset: 0, refresh: true, reset: true }));
+    void refreshSalesListInBackground(dispatch, { ...getState().sales.query, offset: 0, refresh: true, reset: true });
     void dispatch(fetchSalesSummaryThunk());
     void dispatch(fetchDashboardThunk());
 
     return response;
   } catch (error) {
-    logApiError("[Sales] Update failed", { ...toRejectValue(error), saleId });
 
     return rejectWithValue(toRejectValue(error));
   }
@@ -183,15 +195,13 @@ export const checkoutSaleThunk = createAsyncThunk<
     const response = await salesService.checkoutSale(saleId, payload);
     const currentQuery = getState().sales.query;
 
-    void dispatch(
-      fetchSalesThunk({
-        limit: currentQuery.limit,
-        offset: 0,
-        reset: true,
-        search: currentQuery.search,
-        status: currentQuery.status,
-      }),
-    );
+    void refreshSalesListInBackground(dispatch, {
+      limit: currentQuery.limit,
+      offset: 0,
+      reset: true,
+      search: currentQuery.search,
+      status: currentQuery.status,
+    });
     void dispatch(fetchSalesSummaryThunk());
     void dispatch(fetchSalesInitThunk({ refresh: true }));
     void dispatch(fetchDashboardThunk());
@@ -199,7 +209,6 @@ export const checkoutSaleThunk = createAsyncThunk<
 
     return response;
   } catch (error) {
-    logApiError("[Sales] Checkout failed", { ...toRejectValue(error), saleId });
 
     return rejectWithValue(toRejectValue(error));
   }
@@ -213,13 +222,12 @@ export const deleteSaleThunk = createAsyncThunk<
   try {
     const response = await salesService.deleteSale(saleId);
 
-    void dispatch(fetchSalesThunk({ ...getState().sales.query, offset: 0, refresh: true, reset: true }));
+    void refreshSalesListInBackground(dispatch, { ...getState().sales.query, offset: 0, refresh: true, reset: true });
     void dispatch(fetchSalesSummaryThunk());
     void dispatch(fetchDashboardThunk());
 
     return response;
   } catch (error) {
-    logApiError("[Sales] Delete failed", { ...toRejectValue(error), saleId });
 
     return rejectWithValue(toRejectValue(error));
   }
@@ -234,7 +242,6 @@ export const fetchSalesSummaryThunk = createAsyncThunk<
     const salonId = selectActiveBranchId(getState());
     return await salesService.getSalesSummary(salonId);
   } catch (error) {
-    logApiError("[Sales] Summary fetch failed", toRejectValue(error));
 
     return rejectWithValue(toRejectValue(error));
   }
@@ -251,7 +258,6 @@ export const exportSalesThunk = createAsyncThunk<
     const { format = "csv", ...query } = args || {};
     return await salesService.exportSales(query, format);
   } catch (error) {
-    logApiError("[Sales] Export failed", toRejectValue(error));
 
     return rejectWithValue(toRejectValue(error));
   }

@@ -18,6 +18,9 @@ import type {
   UpdateServiceResponse,
   CategoryType,
 } from "@/types/service";
+import { createListSnapshotCache, snapshotKey } from "@/utils/listSnapshotCache";
+
+const sortedServiceSnapshots = createListSnapshotCache<ServiceListItem[]>();
 
 type ServiceListApiResponse = ApiResponse<ServiceListApiData>;
 type ServiceDetailApiData =
@@ -385,30 +388,33 @@ export const serviceService = {
     };
 
     if (query.sort_by === "name" || query.sort_by === "price" || query.sort_order === "asc") {
-      const allServices: ServiceListItem[] = [];
-      const seenIds = new Set<string>();
-      let nextPage = 1;
-      while (true) {
-        const response = await api.get<ServiceListApiResponse>(SERVICE.LIST, {
-          params: { ...requestParams, page: nextPage, limit: 200 },
+      const { limit: _limit, page: _page, ...snapshotParams } = requestParams;
+      const allServices = await sortedServiceSnapshots.load(snapshotKey(snapshotParams), offset > 0, async () => {
+        const collected: ServiceListItem[] = [];
+        const seenIds = new Set<string>();
+        let nextPage = 1;
+        while (true) {
+          const response = await api.get<ServiceListApiResponse>(SERVICE.LIST, {
+            params: { ...requestParams, page: nextPage, limit: 200 },
+          });
+          const payload = response.data.data;
+          const items = getServiceArray(payload).map(normalizeService);
+          const newItems = items.filter((item) => !seenIds.has(item.id));
+          newItems.forEach((item) => { seenIds.add(item.id); collected.push(item); });
+          const pageLimit = Array.isArray(payload) ? 200 : toSafeNumber(payload.pagination?.limit) || 200;
+          const pageQuery = { ...query, limit: pageLimit, offset: (nextPage - 1) * pageLimit };
+          const pagination = getPagination(payload, pageQuery, items.length, getTotalCount(payload, collected.length));
+          if (!pagination.hasMore) break;
+          if (newItems.length === 0) throw new Error("Unable to load the full service list. Please try again.");
+          nextPage += 1;
+        }
+        const direction = query.sort_order === "asc" ? 1 : -1;
+        return collected.sort((left, right) => {
+          const compared = query.sort_by === "price" ? left.price - right.price
+            : query.sort_by === "name" ? left.name.localeCompare(right.name, undefined, { sensitivity: "base", numeric: true })
+              : (Date.parse(left.createdAt ?? "") || 0) - (Date.parse(right.createdAt ?? "") || 0);
+          return direction * compared || left.id.localeCompare(right.id);
         });
-        const payload = response.data.data;
-        const items = getServiceArray(payload).map(normalizeService);
-        const newItems = items.filter((item) => !seenIds.has(item.id));
-        newItems.forEach((item) => { seenIds.add(item.id); allServices.push(item); });
-        const pageLimit = Array.isArray(payload) ? 200 : toSafeNumber(payload.pagination?.limit) || 200;
-        const pageQuery = { ...query, limit: pageLimit, offset: (nextPage - 1) * pageLimit };
-        const pagination = getPagination(payload, pageQuery, items.length, getTotalCount(payload, allServices.length));
-        if (!pagination.hasMore) break;
-        if (newItems.length === 0) throw new Error("Unable to load the full service list. Please try again.");
-        nextPage += 1;
-      }
-      const direction = query.sort_order === "asc" ? 1 : -1;
-      allServices.sort((left, right) => {
-        const compared = query.sort_by === "price" ? left.price - right.price
-          : query.sort_by === "name" ? left.name.localeCompare(right.name, undefined, { sensitivity: "base", numeric: true })
-            : (Date.parse(left.createdAt ?? "") || 0) - (Date.parse(right.createdAt ?? "") || 0);
-        return direction * compared || left.id.localeCompare(right.id);
       });
       const services = allServices.slice(offset, offset + limit);
       return {
@@ -442,6 +448,7 @@ export const serviceService = {
   },
 
   async createService(payload: CreateServiceRequest): Promise<CreateServiceResponse> {
+    sortedServiceSnapshots.clear();
     const response = await api.post<CreateServiceApiResponse>(SERVICE.CREATE, payload);
     const apiService = getServiceFromDetailPayload(response.data.data);
 
@@ -452,6 +459,7 @@ export const serviceService = {
   },
 
   async updateService(serviceId: string, payload: UpdateServiceRequest): Promise<UpdateServiceResponse> {
+    sortedServiceSnapshots.clear();
     const response = await api.patch<CreateServiceApiResponse>(`${SERVICE.UPDATE}/${serviceId}`, payload);
     const apiService = getServiceFromDetailPayload(response.data.data);
 
@@ -462,6 +470,7 @@ export const serviceService = {
   },
 
   async deleteService(serviceId: string): Promise<DeleteServiceResponse> {
+    sortedServiceSnapshots.clear();
     const response = await api.delete<DeleteServiceApiResponse>(`${SERVICE.DELETE}/${serviceId}`);
 
     return {

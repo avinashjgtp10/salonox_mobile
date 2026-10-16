@@ -6,7 +6,7 @@ import type { InboxMessage } from "@/types/inbox";
 import { mediaLink } from "@/utils/inboxPresentation";
 import { useInboxTheme } from "./inboxTheme";
 
-export function MessageBubble({ message, onDelete }: { message: InboxMessage; onDelete: (id: string) => void }) {
+export function MessageBubble({ message }: { message: InboxMessage }) {
   const { styles: s, palette: p } = useInboxTheme();
   const [failedImage, setFailedImage] = useState(false);
   const [openError, setOpenError] = useState(false);
@@ -22,7 +22,7 @@ export function MessageBubble({ message, onDelete }: { message: InboxMessage; on
     </TouchableOpacity>}
     {openError && <Text style={s.error}>Couldn’t open attachment. Try again.</Text>}
     {!!message.body && <Text selectable style={s.messageText}>{message.body}</Text>}
-    <View style={s.metadata}><Text style={[s.muted, { fontSize: 10 }]}>{message.sentAtLabel}</Text>{outgoing && <Ionicons accessibilityLabel={status} name={statusIcon} size={14} color={status === "FAILED" ? p.error : status === "READ" ? p.info : p.muted} />}<TouchableOpacity accessibilityRole="button" accessibilityLabel="Delete message from view" onPress={() => onDelete(message.id)} style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}><Ionicons name="trash-outline" size={17} color={p.muted} /></TouchableOpacity></View>
+    <View style={s.metadata}><Text style={[s.muted, { fontSize: 10 }]}>{message.sentAtLabel}</Text>{outgoing && <Ionicons accessibilityLabel={status} name={statusIcon} size={14} color={status === "FAILED" ? p.error : status === "READ" ? p.info : p.muted} />}</View>
     {status === "FAILED" && <Text style={s.error}>Message failed to deliver</Text>}
   </View></View>;
 }

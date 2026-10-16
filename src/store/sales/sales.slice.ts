@@ -9,6 +9,7 @@ import {
   fetchSalesInitThunk,
   fetchSalesSummaryThunk,
   fetchSalesThunk,
+  salesListInvalidated,
   updateSaleThunk,
   type FetchSalesArgs,
 } from "@/middleware/sales/sales.thunk";
@@ -132,6 +133,14 @@ const salesSlice = createSlice({
   reducers: {},
   extraReducers: (builder) => {
     builder
+      .addCase(salesListInvalidated, (state) => {
+        state.sales = [];
+        state.totalCount = 0;
+        state.currentRequestId = null;
+        state.listLoading = false;
+        state.listLoadingMore = false;
+        state.listRefreshing = false;
+      })
       .addCase(fetchSalesInitThunk.pending, (state, action) => {
         const isRefresh = Boolean(action.meta.arg?.refresh) && state.data !== null;
 

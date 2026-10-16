@@ -23,8 +23,7 @@ import { selectCurrentUser } from "@/store/user/user.slice";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { ConsumableListItem } from "@/types/consumable";
 import { canViewConsumableInventory } from "@/utils/permissions";
-
-const money = (value: number) => `Rs. ${value.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+import { formatCurrency as money } from "@/utils/currency";
 
 const DEFAULT_FILTERS: ConsumableFilterValue = {
   productType: [],

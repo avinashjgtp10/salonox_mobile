@@ -6,7 +6,7 @@ import { TourFlatList, TourView, TourButton, withScreenTour } from "@/features/u
 import { screenTours } from "@/features/userGuide/screenTours";
 import { Ionicons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Modal, Pressable, RefreshControl, StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -36,6 +36,8 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { SaleListItem } from "@/types/sales";
 import { formatInvoiceNumber } from "@/utils/receipt";
+import { formatCurrency } from "@/utils/currency";
+import { SALES_LIST_SCREEN, useActiveScreen } from "@/utils/activeScreens";
 
 const SALE_FILTERS = ["All", "Draft", "Pending", "Completed", "Cancelled"] as const;
 type SaleFilter = (typeof SALE_FILTERS)[number];
@@ -51,10 +53,6 @@ function getSortQuery(sortOption: SaleSortOption) {
     default:
       return { sort_by: "total", sort_order: "desc" as const };
   }
-}
-
-function formatCurrency(amount: number) {
-  return `Rs. ${amount.toLocaleString("en-IN")}`;
 }
 
 function getRejectedMessage(payload: unknown, fallback: string) {
@@ -212,6 +210,7 @@ function EmptyState({ queryActive }: { queryActive: boolean }) {
 }
 
 function SalesHistoryScreenContent() {
+  useActiveScreen(SALES_LIST_SCREEN);
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
@@ -244,12 +243,20 @@ function SalesHistoryScreenContent() {
     return () => clearTimeout(timeoutId);
   }, [query]);
 
+  // Search/sort only re-filter the list already downloaded for this status;
+  // the first load and status changes always fetch.
+  const loadedStatusRef = useRef<string | null>(null);
+
   useEffect(() => {
+    const statusKey = statusQuery ?? "";
+    const reuseList = loadedStatusRef.current === statusKey;
+    loadedStatusRef.current = statusKey;
     void dispatch(
       fetchSalesThunk({
         limit: 10,
         offset: 0,
         reset: true,
+        reuseList,
         search: debouncedQuery,
         sort_by: sortQuery.sort_by,
         sort_order: sortQuery.sort_order,

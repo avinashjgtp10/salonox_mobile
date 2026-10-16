@@ -502,15 +502,7 @@ function ClientsScreenContent() {
     fetchClientList({ refresh: true });
   };
 
-  const warnInvalidClientId = (client: ClientListItem, action: string) => {
-    if (__DEV__) {
-      console.warn("[Clients] Prevented client action because API row has no valid UUID", {
-        action,
-        clientId: client.id,
-        fullName: client.fullName,
-      });
-    }
-
+  const warnInvalidClientId = () => {
     Alert.alert(
       "Unable to open client",
       "This client record is missing a valid backend ID. Refresh the list and try again.",
@@ -519,7 +511,7 @@ function ClientsScreenContent() {
 
   const handleOpenClient = (client: ClientListItem) => {
     if (!client.hasValidId) {
-      warnInvalidClientId(client, "open");
+      warnInvalidClientId();
       return;
     }
 
@@ -528,7 +520,7 @@ function ClientsScreenContent() {
 
   const handleEditClient = (client: ClientListItem) => {
     if (!client.hasValidId) {
-      warnInvalidClientId(client, "edit");
+      warnInvalidClientId();
       return;
     }
 
@@ -550,7 +542,7 @@ function ClientsScreenContent() {
 
   const handleDeleteClient = (client: ClientListItem) => {
     if (!client.hasValidId) {
-      warnInvalidClientId(client, "delete");
+      warnInvalidClientId();
       return;
     }
 

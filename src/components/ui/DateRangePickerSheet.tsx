@@ -112,11 +112,11 @@ export const DateRangePickerSheet = memo(function DateRangePickerSheet({
               const selected = draftStart === start && draftEnd === end;
               return <Pressable key={preset.key} accessibilityRole="button" accessibilityState={{selected, disabled: start > end}}
                 disabled={start > end} onPress={() => { setDraftStart(start); setDraftEnd(end); }}
-                style={[styles.preset, preset.key === "today" && styles.todayPreset, selected && { borderColor: Colors.primaryDark }, start > end && { opacity: 0.3 }]}>
-                <Text style={[styles.presetText, preset.key === "today" && styles.todayPresetText]}>{preset.label}</Text>
+                style={[styles.preset, selected && styles.selectedPreset, start > end && { opacity: 0.3 }]}>
+                <Text style={[styles.presetText, selected && styles.selectedPresetText]}>{preset.label}</Text>
               </Pressable>;
             })}
-            {allowAllTime && <Pressable accessibilityRole="button" onPress={() => { setDraftStart(null); setDraftEnd(null); }} style={styles.preset}><Text style={styles.presetText}>All time</Text></Pressable>}
+            {allowAllTime && <Pressable accessibilityRole="button" accessibilityState={{ selected: !draftStart && !draftEnd }} onPress={() => { setDraftStart(null); setDraftEnd(null); }} style={[styles.preset, !draftStart && !draftEnd && styles.selectedPreset]}><Text style={[styles.presetText, !draftStart && !draftEnd && styles.selectedPresetText]}>All time</Text></Pressable>}
           </View>
         ) : null}
 
@@ -161,8 +161,8 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     paddingVertical: Spacing.sm,
   },
   presetText: { color: Colors.text, fontSize: 12, fontWeight: "700" },
-  todayPreset: { backgroundColor: Colors.primaryDark, borderColor: Colors.primaryDark },
-  todayPresetText: { color: "#FFFFFF" },
+  selectedPreset: { backgroundColor: Colors.primaryDark, borderColor: Colors.primaryDark },
+  selectedPresetText: { color: "#FFFFFF" },
   secondaryButton: {
     alignItems: "center",
     borderColor: Colors.border,

@@ -1,6 +1,7 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
 import { fetchBranchesThunk } from "@/middleware/branch/branch.thunk";
+import { updateSalonThunk } from "@/middleware/salon/salon.thunk";
 import type { RootState } from "@/store";
 import { selectCurrentUser } from "@/store/user/user.slice";
 import type { Branch } from "@/types/branch";
@@ -61,6 +62,13 @@ const branchSlice = createSlice({
       .addCase(fetchBranchesThunk.rejected, (state, action) => {
         state.status = "failed";
         state.error = action.payload?.message ?? action.error.message ?? "Unable to load branches.";
+      })
+      // A renamed salon is the same record as its branch: keep the dashboard
+      // header (which shows the branch name) in step without a refetch.
+      .addCase(updateSalonThunk.fulfilled, (state, action) => {
+        const { id, name } = action.payload.salon;
+        const branch = state.branches.find((entry) => entry.id === id);
+        if (branch && name) branch.name = name;
       });
   },
 });

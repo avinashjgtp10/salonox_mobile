@@ -50,15 +50,6 @@ const staffScheduleSlice = createSlice({
           ? state.loadedStaffIds
           : [...state.loadedStaffIds, staffId];
         state.loadingStaffIds = state.loadingStaffIds.filter((id) => id !== staffId);
-
-        if (__DEV__) {
-          console.log("[StaffSchedule Redux] Stored schedule", {
-            loadedStaffIds: state.loadedStaffIds,
-            schedule,
-            staffId,
-            storedSchedule: state.scheduleByStaffId[staffId],
-          });
-        }
       })
       .addCase(fetchStaffScheduleThunk.rejected, (state, action) => {
         const staffId = action.meta.arg;

@@ -116,11 +116,6 @@ export const getExpoPushToken = async (): Promise<string> => {
 
     return token;
   } catch (error) {
-    console.warn("[PushNotifications] getExpoPushTokenAsync failed:", {
-      error,
-      projectId,
-      platform: Platform.OS,
-    });
     throw new PushTokenGenerationError(error);
   }
 };
