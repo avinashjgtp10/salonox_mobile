@@ -7,7 +7,7 @@ import { productAuditService } from "@/services/productAudit.service";
 import { getApiErrorMessage } from "@/services/api";
 import { useAppSelector } from "@/store/hooks";
 import { selectCurrentUser } from "@/store/user/user.slice";
-import { hasInventoryPermission } from "@/utils/permissions";
+import { canCreateAuditProduct, canPerformProductAudit } from "@/utils/permissions";
 import type { RecognizedProduct } from "@/types/productAudit";
 
 export default function NewAuditProduct() {
@@ -68,11 +68,7 @@ export default function NewAuditProduct() {
   useEffect(() => {
     if (productId) void attach(productId);
   }, [productId, attach]);
-  const allowed =
-    hasInventoryPermission(user, "create_product_audit") &&
-    ((hasInventoryPermission(user, "view_products") &&
-      hasInventoryPermission(user, "create_products")) ||
-      hasInventoryPermission(user, "add_consumable"));
+  const allowed = canPerformProductAudit(user) && canCreateAuditProduct(user);
   if (!allowed || !auditId)
     return (
       <AuditPage title="New audit product">

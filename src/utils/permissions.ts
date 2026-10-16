@@ -39,6 +39,23 @@ export const hasInventoryPermission = (user: AuthUser | null | undefined, permis
   return hasCustomPermission(user, permissionKey);
 };
 
+// Product Audit: Roles & Permissions, or (staff, mobile app only) the owner's
+// "Product Audit access" switch, which unlocks viewing and performing audits.
+// Approving/rejecting always needs approve_product_audit.
+export const canViewProductAudit = (user: AuthUser | null | undefined) =>
+  hasInventoryPermission(user, "view_product_audit") || user?.mobileProductAuditAccess === true;
+
+export const canPerformProductAudit = (user: AuthUser | null | undefined) =>
+  hasInventoryPermission(user, "create_product_audit") || user?.mobileProductAuditAccess === true;
+
+// Adding a product the audit scanner doesn't recognise. The Product Audit
+// switch covers this too (the backend grants view_products + create_products
+// with it); otherwise Roles & Permissions decide.
+export const canCreateAuditProduct = (user: AuthUser | null | undefined) =>
+  user?.mobileProductAuditAccess === true ||
+  (hasInventoryPermission(user, "view_products") && hasInventoryPermission(user, "create_products")) ||
+  hasInventoryPermission(user, "add_consumable");
+
 export const canViewConsumableInventory = (user: AuthUser | null | undefined) =>
   hasInventoryPermission(user, CONSUMABLE_PERMISSIONS.VIEW_INVENTORY);
 

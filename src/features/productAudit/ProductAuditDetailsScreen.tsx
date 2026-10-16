@@ -14,7 +14,7 @@ import { useThemeColors } from "@/theme/ThemeProvider";
 import { useAppSelector } from "@/store/hooks";
 import { selectCurrentUser } from "@/store/user/user.slice";
 import { selectActiveBranchId } from "@/store/branch/branch.slice";
-import { hasInventoryPermission } from "@/utils/permissions";
+import { canCreateAuditProduct, canPerformProductAudit, canViewProductAudit, hasInventoryPermission } from "@/utils/permissions";
 import { productAuditService as service } from "@/services/productAudit.service";
 import { getApiErrorMessage } from "@/services/api";
 import type { AuditPerson, ProductAudit } from "@/types/productAudit";
@@ -40,13 +40,10 @@ export default function ProductAuditDetailsScreen() {
 function Details({ id }: { id: string }) {
   const user = useAppSelector(selectCurrentUser);
   const c = useThemeColors();
-  const canView = hasInventoryPermission(user, "view_product_audit");
-  const canPerform = hasInventoryPermission(user, "create_product_audit");
+  const canView = canViewProductAudit(user);
+  const canPerform = canPerformProductAudit(user);
   const canApprove = hasInventoryPermission(user, "approve_product_audit");
-  const canCreateProduct =
-    (hasInventoryPermission(user, "view_products") &&
-      hasInventoryPermission(user, "create_products")) ||
-    hasInventoryPermission(user, "add_consumable");
+  const canCreateProduct = canCreateAuditProduct(user);
   const [audit, setAudit] = useState<ProductAudit | null>(null);
   const [drafts, setDrafts] = useState<
     Record<string, { count: string; reason: string }>

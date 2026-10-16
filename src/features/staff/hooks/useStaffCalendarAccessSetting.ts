@@ -2,11 +2,16 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { getApiErrorMessage } from "@/services/api";
 import { staffCalendarAccessService } from "@/services/staffCalendarAccess.service";
+import { staffProductAuditAccessService } from "@/services/staffProductAuditAccess.service";
 import { isValidStaffId } from "@/utils/staffIds";
 
-// Owner side of the mobile-only Calendar & Quick Sale switch for one staff
-// member. Saves as soon as it is toggled, independent of the Edit Staff form.
-export const useStaffCalendarAccessSetting = (staffId?: string | null) => {
+// Owner side of one mobile-only per-staff switch. Saves as soon as it is
+// toggled, independent of the Edit Staff form.
+const useStaffAccessSetting = (
+  staffId: string | null | undefined,
+  load: (staffId: string) => Promise<boolean>,
+  save: (staffId: string, enabled: boolean) => Promise<boolean>,
+) => {
   const [enabled, setEnabled] = useState(false);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -24,8 +29,7 @@ export const useStaffCalendarAccessSetting = (staffId?: string | null) => {
     setLoading(true);
     setError(null);
 
-    staffCalendarAccessService
-      .getStaffCalendarAccess(staffId)
+    load(staffId)
       .then((value) => {
         if (!cancelled) setEnabled(value);
       })
@@ -39,9 +43,9 @@ export const useStaffCalendarAccessSetting = (staffId?: string | null) => {
     return () => {
       cancelled = true;
     };
-  }, [staffId]);
+  }, [load, staffId]);
 
-  const setCalendarAccess = useCallback(async (nextEnabled: boolean) => {
+  const setAccess = useCallback(async (nextEnabled: boolean) => {
     const targetStaffId = staffIdRef.current;
     if (!targetStaffId || !isValidStaffId(targetStaffId)) {
       return;
@@ -52,7 +56,7 @@ export const useStaffCalendarAccessSetting = (staffId?: string | null) => {
     setError(null);
 
     try {
-      const saved = await staffCalendarAccessService.setStaffCalendarAccess(targetStaffId, nextEnabled);
+      const saved = await save(targetStaffId, nextEnabled);
       if (staffIdRef.current === targetStaffId) setEnabled(saved);
     } catch (saveError) {
       if (staffIdRef.current === targetStaffId) {
@@ -62,7 +66,27 @@ export const useStaffCalendarAccessSetting = (staffId?: string | null) => {
     } finally {
       if (staffIdRef.current === targetStaffId) setSaving(false);
     }
-  }, []);
+  }, [save]);
 
-  return { enabled, error, loading, saving, setCalendarAccess };
+  return { enabled, error, loading, saving, setAccess };
+};
+
+// Calendar & Quick Sale access.
+export const useStaffCalendarAccessSetting = (staffId?: string | null) => {
+  const { setAccess, ...state } = useStaffAccessSetting(
+    staffId,
+    staffCalendarAccessService.getStaffCalendarAccess,
+    staffCalendarAccessService.setStaffCalendarAccess,
+  );
+  return { ...state, setCalendarAccess: setAccess };
+};
+
+// Product Audit access.
+export const useStaffProductAuditAccessSetting = (staffId?: string | null) => {
+  const { setAccess, ...state } = useStaffAccessSetting(
+    staffId,
+    staffProductAuditAccessService.getStaffProductAuditAccess,
+    staffProductAuditAccessService.setStaffProductAuditAccess,
+  );
+  return { ...state, setProductAuditAccess: setAccess };
 };

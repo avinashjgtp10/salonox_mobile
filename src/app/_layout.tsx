@@ -26,6 +26,7 @@ import { useNetworkMonitor } from '@/hooks/useNetworkMonitor';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useRealtimeSync } from '@/hooks/useRealtimeSync';
 import { useStaffCalendarAccessSync } from '@/hooks/useStaffCalendarAccess';
+import { useStaffProductAuditAccessSync } from '@/hooks/useStaffProductAuditAccess';
 import { fetchBranchesThunk } from '@/middleware/branch/branch.thunk';
 import { resolveCurrentStaffThunk } from '@/middleware/staff/staff.thunk';
 import { branchStorage } from '@/services/branchStorage';
@@ -382,6 +383,7 @@ function StaffIdentityBootstrap() {
 
 function StaffCalendarAccessBootstrap() {
   useStaffCalendarAccessSync();
+  useStaffProductAuditAccessSync();
 
   return null;
 }
