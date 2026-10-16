@@ -277,14 +277,15 @@ function AppUpdateSetup({ ready }: { ready: boolean }) {
       <>
       <FirstLoginGuide enabled={ready && !ota.visible} />
       <UpdateAnnouncementModal
-        description="A new version of SalonOX is ready. Update now to get the latest improvements and fixes."
+        description={ota.releaseNotes.message ?? "A new version of SalonOX is ready. Update now to get the latest improvements and fixes."}
         isMandatory={false}
         isUpdating={ota.isApplying}
         onClose={ota.dismiss}
         onReopen={ota.reopen}
         onUpdate={ota.apply}
+        releaseNotes={ota.releaseNotes.notes}
         reminderMessage="Tap Show Update whenever you're ready to update."
-        title="SalonOX Update"
+        title={ota.releaseNotes.title ?? "SalonOX Update"}
         visible={ota.visible}
       />
       </>

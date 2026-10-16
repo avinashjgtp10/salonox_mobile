@@ -1,8 +1,9 @@
 import * as Updates from "expo-updates";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppState } from "react-native";
 
 import { useAppForeground } from "@/hooks/useAppForeground";
+import { getOtaReleaseNotes } from "@/services/appUpdate.service";
 
 // expo-updates on its own only checks at a cold start and applies the download on
 // the *next* cold start, so an app left open never noticed a new OTA. This checks
@@ -88,6 +89,9 @@ export function useOtaUpdate(startupReady = true) {
     (isUpdateAvailable ? availableUpdate?.updateId : undefined) ??
     null;
   const hasUpdate = enabled && Boolean(newUpdateId) && newUpdateId !== Updates.updateId;
+  const newManifest = (isUpdatePending ? downloadedUpdate?.manifest : undefined) ??
+    (isUpdateAvailable ? availableUpdate?.manifest : undefined);
+  const releaseNotes = useMemo(() => getOtaReleaseNotes(newManifest), [newManifest]);
 
   // Show once per update; "Maybe Later" hides it until a newer update is published.
   useEffect(() => {
@@ -127,6 +131,7 @@ export function useOtaUpdate(startupReady = true) {
     dismiss,
     hasUpdate,
     isApplying,
+    releaseNotes,
     reopen: () => { if (hasUpdate) setVisible(true); },
     visible: hasUpdate && visible,
   };
