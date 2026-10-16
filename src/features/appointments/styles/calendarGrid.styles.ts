@@ -148,6 +148,10 @@ export const createCalendarGridStyles = (Colors: ThemeColors) => StyleSheet.crea
     flexDirection: "row",
     minHeight: 64,
   },
+  // Opaque so staff headers scroll underneath the pinned time-column header.
+  dinggCalendarHeaderPinned: {
+    backgroundColor: Colors.appointmentSurfaceMuted,
+  },
   dinggHorizontalScroller: {
     flex: 1,
   },
