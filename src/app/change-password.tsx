@@ -9,8 +9,8 @@ import { getApiErrorMessage } from "@/services/api";
 import { authService } from "@/services/authService";
 import {
   CONFIRM_PASSWORD_MISMATCH_MESSAGE,
-  isValidPassword,
-  PASSWORD_REQUIREMENT_MESSAGE,
+  CHANGED_PASSWORD_REQUIREMENT_MESSAGE,
+  isValidChangedPassword,
 } from "@/utils/validation";
 
 export default function ChangePasswordScreen() {
@@ -59,8 +59,8 @@ export default function ChangePasswordScreen() {
     if (!newPassword) {
       setNewPasswordError("New Password is required.");
       isValid = false;
-    } else if (!isValidPassword(newPassword)) {
-      setNewPasswordError(PASSWORD_REQUIREMENT_MESSAGE);
+    } else if (!isValidChangedPassword(newPassword)) {
+      setNewPasswordError(CHANGED_PASSWORD_REQUIREMENT_MESSAGE);
       isValid = false;
     } else if (newPassword === currentPassword) {
       setNewPasswordError("New Password must be different from your current password.");

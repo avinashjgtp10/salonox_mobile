@@ -91,7 +91,8 @@ export const mapStaffFormToRequest = (
     avatar_url: trimValue(values.avatarUrl),
     birthday_day: dob?.day,
     birthday_month: dob?.month,
-    email: trimValue(values.email),
+    // Login matches lowercase emails; keep staff emails lowercase too.
+    email: trimValue(values.email)?.toLowerCase(),
     first_name: name.first_name,
     gender: trimValue(values.gender),
     holidays: values.holidays.trim() ? Number(values.holidays) : undefined,

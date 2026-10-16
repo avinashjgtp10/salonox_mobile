@@ -4,7 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useMemo, type PropsWithChildren, type ReactNode } from "react";
 import { Image, Platform, Pressable, StatusBar, StyleSheet, type TextInputProps, View } from "react-native";
-import { KeyboardAwareScrollView } from "@/components/ui/KeyboardAwareScrollView";
+import { KeyboardAwareForm } from "@/components/ui/KeyboardAwareForm";
 
 import type { ThemeColors } from "@/constants/theme";
 import { useAppTheme } from "@/theme/ThemeProvider";
@@ -126,16 +126,10 @@ export function PasswordRecoveryScaffold({
         />
       </View>
 
-      <KeyboardAwareScrollView
-        bounces={false}
-        alwaysBounceVertical={false}
-        overScrollMode="never"
-        contentContainerStyle={styles.scrollContainer}
-        keyboardDismissMode="none"
-        keyboardShouldPersistTaps="always"
-        showsVerticalScrollIndicator={false}
-        style={styles.keyboardView}
-      >
+      {/* Same keyboard handling as the login screen: a tapped field is scrolled
+          just above the keyboard. */}
+      <KeyboardAwareForm autoReveal contentContainerStyle={styles.scrollContainer} style={styles.keyboardView}>
+        <View style={styles.cardCenter}>
           <View style={styles.card}>
             <View style={styles.brandContainer}>
               <Image
@@ -151,7 +145,8 @@ export function PasswordRecoveryScaffold({
 
             {footer}
           </View>
-      </KeyboardAwareScrollView>
+        </View>
+      </KeyboardAwareForm>
     </LinearGradient>
   );
 }
@@ -293,6 +288,10 @@ const createStyles = (Colors: RecoveryThemeColors) => StyleSheet.create({
     paddingBottom: 40,
     paddingHorizontal: 24,
     paddingTop: Platform.OS === "ios" ? 70 : 44,
+  },
+  cardCenter: {
+    flexGrow: 1,
+    justifyContent: "center",
   },
   card: {
     paddingBottom: 32,

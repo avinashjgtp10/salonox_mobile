@@ -180,12 +180,29 @@ const formatValue = (value: unknown): string | null => {
   return String(value);
 };
 
+// Backend validation failures look like { error: { code: "VALIDATION_ERROR",
+// message: "Validation failed", details: [{ field, message }] } }. The field
+// messages are the useful part; flattening the whole object showed the raw
+// code and field names to users.
+const getValidationDetailsMessage = (payload: ApiErrorPayload) => {
+  const errorValue = (payload as { error?: unknown }).error;
+  const details = errorValue && typeof errorValue === "object"
+    ? (errorValue as { details?: unknown }).details
+    : undefined;
+  if (!Array.isArray(details)) return null;
+  const messages = details
+    .map((detail) => (detail && typeof detail === "object" ? (detail as { message?: unknown }).message : null))
+    .filter((message): message is string => typeof message === "string" && message.trim().length > 0);
+  return messages.length ? [...new Set(messages)].join("\n") : null;
+};
+
 const getPayloadMessage = (payload?: ApiErrorPayload) => {
   if (!payload) {
     return null;
   }
 
   return (
+    getValidationDetailsMessage(payload) ??
     formatValue(payload.message) ??
     formatValue(payload.error) ??
     formatValue(payload.errors)
