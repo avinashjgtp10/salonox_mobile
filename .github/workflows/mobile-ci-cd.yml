@@ -129,10 +129,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # Node 22: eas-cli's dependency @oclif/plugin-autocomplete now requires
+      # node >=22, and the Setup EAS step installs it with yarn, which refuses
+      # engine mismatches ("Setup EAS" failed on Node 20).
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Install dependencies
