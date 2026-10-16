@@ -53,17 +53,16 @@ export const printerService = {
   },
 
   async shareReceipt(data: ReceiptData): Promise<void> {
-    const { uri } = await Print.printToFileAsync(fileOptions(await exportData(data)));
-
-    if (await Sharing.isAvailableAsync()) {
-      await Sharing.shareAsync(uri, {
-        UTI: ".pdf",
-        mimeType: "application/pdf",
-        dialogTitle: `Receipt - ${data.invoice.invoiceNumber}`,
-      });
-    } else {
+    if (!(await Sharing.isAvailableAsync())) {
       throw new Error("Sharing is not available on this device.");
     }
+    // Generate the PDF in the background; only printReceipt opens a print dialog.
+    const { uri } = await Print.printToFileAsync(fileOptions(await exportData(data)));
+    await Sharing.shareAsync(uri, {
+      UTI: "com.adobe.pdf",
+      mimeType: "application/pdf",
+      dialogTitle: `Share Receipt - ${data.invoice.invoiceNumber}`,
+    });
   },
 
   getReceiptHtml(data: ReceiptData): string {
