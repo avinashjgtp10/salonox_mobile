@@ -23,6 +23,17 @@ const adaptiveIconForeground = resolveWithFallback(
   ENVIRONMENTS.production.adaptiveIconForegroundPath,
 );
 
+// Shown in the in-app update popup. Every EAS Update carries this config, so
+// the installed app reads the notes of a new OTA before downloading it.
+// Edit release-notes.json before each release (merge to main).
+const readReleaseNotes = () => {
+  try {
+    return JSON.parse(fs.readFileSync(path.resolve(__dirname, "release-notes.json"), "utf8")) as unknown;
+  } catch {
+    return undefined;
+  }
+};
+
 const googleServicesFile = existsInProject(env.googleServicesFile) ? env.googleServicesFile : undefined;
 
 if (!googleServicesFile) {
@@ -168,6 +179,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       ...config.extra,
       router: {},
       appEnv,
+      releaseNotes: readReleaseNotes(),
       eas: {
         projectId: "f049c562-d124-4c6d-a1be-a4405a64d9ec",
       },
