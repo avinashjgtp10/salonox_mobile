@@ -77,32 +77,25 @@ export async function getAttendanceLocation(): Promise<AttendanceLocation | null
     const permission = await Location.requestForegroundPermissionsAsync();
 
     if (permission.status !== Location.PermissionStatus.GRANTED) {
-      if (__DEV__) console.warn("[Attendance] Location permission not granted:", permission.status);
       return null;
     }
 
     // Android 12+ lets the user grant only "approximate" location (~1–3 km).
-    if (__DEV__ && permission.android?.accuracy === "coarse") {
-      console.warn("[Attendance] Only approximate location was granted; the punch location will not be precise");
-    }
 
     const position =
       (await readFreshPosition()) ??
       (await Location.getLastKnownPositionAsync({ maxAge: FALLBACK_MAX_AGE_MS }));
 
     if (!position) {
-      if (__DEV__) console.warn("[Attendance] No GPS position available for this punch");
       return null;
     }
 
-    const { latitude, longitude, accuracy } = position.coords;
+    const { latitude, longitude } = position.coords;
     const addresses = await withTimeout(Location.reverseGeocodeAsync({ latitude, longitude }), GEOCODE_TIMEOUT_MS).catch(() => null);
     const result = { latitude, longitude, location: formatAddress(addresses?.[0]) };
-    if (__DEV__) console.log("[Attendance] Punch location", { ...result, accuracyMetres: accuracy });
 
     return result;
-  } catch (error) {
-    if (__DEV__) console.warn("[Attendance] Unable to read device location", error);
+  } catch {
     return null;
   }
 }

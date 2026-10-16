@@ -216,11 +216,9 @@ export const registerDeviceThunk = createAsyncThunk<
   { rejectValue: RejectValue; state: RootState }
 >("notification/registerDevice", async (payload, { rejectWithValue }) => {
   try {
-    console.log("[PushNotifications] notification.thunk entered");
     const token = payload.token.trim();
 
     if (!token) {
-      console.warn("[PushNotifications] notification.thunk blocked empty token");
       return rejectWithValue({ message: "Expo push token is empty; device registration was skipped." });
     }
 
@@ -230,12 +228,10 @@ export const registerDeviceThunk = createAsyncThunk<
         ...payload,
         token,
       });
-      console.log("[PushNotifications] notification.thunk response received");
       return response;
     });
   } catch (error) {
     if (isExpectedRegisterDeviceError(error)) {
-      console.log("[PushNotifications] Device registration deferred — no salon context (NO_SALON_CONTEXT).");
       return rejectWithValue({ message: "Salon context required; device registration deferred." });
     }
     return rejectWithValue(reject(error));

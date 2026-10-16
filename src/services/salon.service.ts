@@ -1,5 +1,4 @@
 import { api } from "@/services/api";
-import { timeStartup } from "@/services/startupPerformance";
 import type { ApiResponse } from "@/types/auth";
 import type {
   CreateSalonRequest,
@@ -256,9 +255,7 @@ export const salonService = {
     }
 
     if (!salonMePromise) {
-      salonMePromise = timeStartup(SALON_ME_ENDPOINT, () =>
-        api.get<GetSalonApiResponse>(SALON_ME_ENDPOINT),
-      )
+      salonMePromise = api.get<GetSalonApiResponse>(SALON_ME_ENDPOINT)
         .then((response) => {
           const salon = normalizeSalon(getCreatedSalon(response.data.data));
           cachedSalonMe = salon;

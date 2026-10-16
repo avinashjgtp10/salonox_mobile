@@ -535,9 +535,6 @@ export const attendanceService = {
   },
 
   async markAttendance(payload: MarkAttendanceRequest): Promise<MarkAttendanceResponse> {
-    if (__DEV__ && !payload.date) {
-      console.warn("[Attendance] markAttendance called without a date — backend requires it", payload);
-    }
 
     const requestBody: Record<string, string> = {
       staff_id: payload.staffId,
@@ -584,10 +581,6 @@ export const attendanceService = {
     }
 
     const url = ATTENDANCE.RECORD(attendanceId);
-
-    if (__DEV__) {
-      console.log("[Attendance] PATCH request", { attendanceId, body: requestBody, url });
-    }
 
     const response = await api.patch<AttendanceRecordApiResponse>(url, requestBody);
     const record = normalizeAttendanceRecord(getRecordFromEnvelope(response.data.data));

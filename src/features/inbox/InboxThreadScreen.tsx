@@ -4,7 +4,7 @@ import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect, useLocalSearchParams, type Href } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Alert, AppState, Dimensions, FlatList, Keyboard, KeyboardAvoidingView, Linking, Modal, Platform, TouchableOpacity, View } from "react-native";
+import { Alert, AppState, FlatList, Keyboard, Linking, Modal, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { ConfirmationModal } from "@/components/ui/ConfirmationModal";
@@ -21,6 +21,7 @@ import { DeleteChatsModal } from "./DeleteChatsModal";
 import { InboxAvatar, InboxIcon } from "./InboxControls";
 import { MessageBubble } from "./MessageBubble";
 import { useInboxTheme } from "./inboxTheme";
+import { useChatKeyboard } from "./useChatKeyboard";
 
 const QUICK_REPLIES = [
   { label: "Confirmed", text: "Your appointment is confirmed! We look forward to seeing you." },
@@ -29,10 +30,9 @@ const QUICK_REPLIES = [
   { label: "How can we help?", text: "Hello! How can we help you today?" },
 ];
 const EMOJIS = ["😊", "👍", "❤️", "🙏", "✨", "🎉", "💇", "✅", "😍", "👋", "💚", "📅"];
-// Remembered across chats so the first focus in a thread lifts by the real keyboard height.
-let lastKeyboardHeight = 0;
 
 function Thread({ phone }: { phone: string }) {
+  const chatKeyboard = useChatKeyboard();
   const { styles: s, palette: p } = useInboxTheme();
   const dispatch = useAppDispatch();
   const user = useAppSelector(selectCurrentUser);
@@ -111,27 +111,13 @@ function Thread({ phone }: { phone: string }) {
       requestAnimationFrame(() => list.current?.scrollToEnd({ animated: true }));
     }
   }, [messages, phone]);
-  // Android draws edge-to-edge, so the window no longer shrinks for the keyboard and
-  // KeyboardAvoidingView cannot lift the composer; pad the chat by the keyboard height.
-  const [keyboardInset, setKeyboardInset] = useState(0);
-  const liftComposer = (height: number) => {
-    lastKeyboardHeight = height;
-    setKeyboardInset(height);
-    if (nearBottom.current) requestAnimationFrame(() => list.current?.scrollToEnd({ animated: true }));
-  };
-  // Android often skips keyboardDidShow on the first focus, so lift on focus with
-  // the best known height; the real event corrects it when it arrives.
   const onComposerFocus = () => {
     followComposer.current = true;
     nearBottom.current = true;
-    if (Platform.OS === "android") liftComposer(Keyboard.metrics()?.height || lastKeyboardHeight || Dimensions.get("window").height * 0.36);
+    setTray(null);
+    chatKeyboard.onFocus();
+    requestAnimationFrame(() => list.current?.scrollToEnd({ animated: false }));
   };
-  useEffect(() => {
-    if (Platform.OS !== "android") return;
-    const shown = Keyboard.addListener("keyboardDidShow", event => liftComposer(event.endCoordinates.height));
-    const hidden = Keyboard.addListener("keyboardDidHide", () => setKeyboardInset(0));
-    return () => { shown.remove(); hidden.remove(); };
-  }, []);
   const replyWindow = getReplyWindow(messages, now);
   const previousConnection = useRef(connected);
   useEffect(() => {
@@ -154,7 +140,8 @@ function Thread({ phone }: { phone: string }) {
     sendLock.current = true; nearBottom.current = true; setTray(null);
     void dispatch(sendInboxReplyThunk({ phone, message: draft.trim() })).finally(() => { sendLock.current = false; });
   };
-  return <SafeAreaView edges={["top", "bottom"]} style={s.root}>
+  return <View ref={chatKeyboard.viewport} collapsable={false} onLayout={chatKeyboard.onLayout} style={s.root}>
+    <SafeAreaView edges={["top"]} style={[s.root, { paddingBottom: chatKeyboard.inset }]}>
     <AppStatusBar />
     <View style={s.header}>
       <InboxIcon name="arrow-back" label="Back to inbox" onPress={() => router.canGoBack() ? router.back() : router.replace("/inbox" as Href)} />
@@ -164,7 +151,7 @@ function Thread({ phone }: { phone: string }) {
       <InboxIcon name="information-circle-outline" label="Show customer info" onPress={() => setInfoOpen(true)} />
       {allowed && <InboxIcon name="trash-outline" label="Delete chat" disabled={sending} onPress={() => { Keyboard.dismiss(); setDeleteChatOpen(true); }} />}
     </View>
-    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={[s.chat, keyboardInset > 0 && { paddingBottom: keyboardInset }]}>
+    <View style={s.chat}>
       {!!error && <TouchableOpacity accessibilityRole="button" onPress={() => refresh(false)} style={s.banner}><Text style={s.error}>{error} · Tap to retry</Text></TouchableOpacity>}
       <View pointerEvents="none" style={{ position: "absolute", top: 0, bottom: 0, left: 0, right: 0, overflow: "hidden", justifyContent: "space-around" }}>{Array.from({ length: 6 }, (_, i) => <View key={i} style={{ flexDirection: "row", justifyContent: "space-around" }}>{[0, 1].map(j => <Text key={j} style={{ color: p.muted, opacity: 0.08, letterSpacing: 5, fontSize: 17, transform: [{ rotate: "-20deg" }] }}>SalonOX</Text>)}</View>)}</View>
       <FlatList ref={list} data={loading ? [] : visibleMessages} keyExtractor={item => item.id} style={s.fill} contentContainerStyle={s.messageList} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag"
@@ -190,7 +177,7 @@ function Thread({ phone }: { phone: string }) {
             list.current?.scrollToEnd({ animated: false });
             initialPositionPending.current = false;
             nearBottom.current = true;
-          } else if (nearBottom.current) {
+          } else if (followComposer.current || nearBottom.current) {
             list.current?.scrollToEnd({ animated: false });
           }
         }}
@@ -209,7 +196,7 @@ function Thread({ phone }: { phone: string }) {
             <TouchableOpacity accessibilityRole="button" accessibilityLabel="Send message" accessibilityState={{ disabled: !canSend }} disabled={!canSend} onPress={send} style={[s.icon, s.send, !canSend && { opacity: 0.4 }]}>{sending ? <ActivityIndicator color={p.onAccent} /> : <Ionicons name="send" size={20} color={p.onAccent} />}</TouchableOpacity>
           </View>
         </>}
-    </KeyboardAvoidingView>
+    </View>
     <ConfirmationModal
       visible={deleteMessageId !== null}
       title="Delete message from this view?"
@@ -238,7 +225,7 @@ function Thread({ phone }: { phone: string }) {
         </SafeAreaView>
       </View>
     </Modal>
-  </SafeAreaView>;
+  </SafeAreaView></View>;
 }
 
 export default function InboxThreadScreen() {

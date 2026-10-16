@@ -22,7 +22,6 @@ import type {
   UpdateSaleRequest,
   UpdateSaleResponse,
 } from "@/types/sales";
-import { logApiError } from "@/utils/logApiError";
 
 export type FetchSalesInitArgs = {
   refresh?: boolean;
@@ -45,11 +44,6 @@ export const fetchSalesInitThunk = createAsyncThunk<
   } catch (error) {
     const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
 
-    logApiError("[Sales] Init fetch failed", {
-      message,
-      responseBody: error instanceof ApiError ? error.responseData : undefined,
-      status: error instanceof ApiError ? error.status : undefined,
-    });
 
     return rejectWithValue({
       message,
@@ -102,7 +96,6 @@ export const fetchSalesThunk = createAsyncThunk<
     const salonId = selectActiveBranchId(getState());
     return await salesService.getSales(nextQuery, salonId);
   } catch (error) {
-    logApiError("[Sales] List fetch failed", toRejectValue(error));
 
     return rejectWithValue(toRejectValue(error));
   }
@@ -116,7 +109,6 @@ export const fetchSaleByIdThunk = createAsyncThunk<
   try {
     return await salesService.getSale(saleId);
   } catch (error) {
-    logApiError("[Sales] Fetch by ID failed", { ...toRejectValue(error), saleId });
 
     return rejectWithValue(toRejectValue(error));
   }
@@ -142,7 +134,6 @@ export const createSaleThunk = createAsyncThunk<
 
     return response;
   } catch (error) {
-    logApiError("[Sales] Create failed", toRejectValue(error));
 
     return rejectWithValue(toRejectValue(error));
   }
@@ -168,7 +159,6 @@ export const updateSaleThunk = createAsyncThunk<
 
     return response;
   } catch (error) {
-    logApiError("[Sales] Update failed", { ...toRejectValue(error), saleId });
 
     return rejectWithValue(toRejectValue(error));
   }
@@ -199,7 +189,6 @@ export const checkoutSaleThunk = createAsyncThunk<
 
     return response;
   } catch (error) {
-    logApiError("[Sales] Checkout failed", { ...toRejectValue(error), saleId });
 
     return rejectWithValue(toRejectValue(error));
   }
@@ -219,7 +208,6 @@ export const deleteSaleThunk = createAsyncThunk<
 
     return response;
   } catch (error) {
-    logApiError("[Sales] Delete failed", { ...toRejectValue(error), saleId });
 
     return rejectWithValue(toRejectValue(error));
   }
@@ -234,7 +222,6 @@ export const fetchSalesSummaryThunk = createAsyncThunk<
     const salonId = selectActiveBranchId(getState());
     return await salesService.getSalesSummary(salonId);
   } catch (error) {
-    logApiError("[Sales] Summary fetch failed", toRejectValue(error));
 
     return rejectWithValue(toRejectValue(error));
   }
@@ -251,7 +238,6 @@ export const exportSalesThunk = createAsyncThunk<
     const { format = "csv", ...query } = args || {};
     return await salesService.exportSales(query, format);
   } catch (error) {
-    logApiError("[Sales] Export failed", toRejectValue(error));
 
     return rejectWithValue(toRejectValue(error));
   }

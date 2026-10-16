@@ -14,6 +14,14 @@ const DEFAULT_SNAPSHOT: NetworkSnapshot = {
 
 let currentSnapshot = DEFAULT_SNAPSHOT;
 const onlineWaiters = new Set<() => void>();
+const snapshotListeners = new Set<(snapshot: NetworkSnapshot) => void>();
+
+export const subscribeNetworkSnapshot = (listener: (snapshot: NetworkSnapshot) => void) => {
+  snapshotListeners.add(listener);
+  return () => {
+    snapshotListeners.delete(listener);
+  };
+};
 
 export const getNetworkSnapshot = () => currentSnapshot;
 
@@ -26,6 +34,8 @@ export const setNetworkSnapshot = (snapshot: Omit<NetworkSnapshot, "lastChangedA
     ...snapshot,
     lastChangedAt: Date.now(),
   };
+
+  snapshotListeners.forEach((listener) => listener(currentSnapshot));
 
   if (!wasOnline && currentSnapshot.isOnline) {
     const waiters = Array.from(onlineWaiters);

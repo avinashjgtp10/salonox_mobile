@@ -18,7 +18,6 @@ import type {
   ServiceListPagination,
   ServiceListQuery,
 } from "@/types/service";
-import { logApiError } from "@/utils/logApiError";
 
 type ServiceState = {
   categories: Record<CategoryType, ServiceCategoryItem[]>;
@@ -156,12 +155,6 @@ const serviceSlice = createSlice({
         state.loadingMore = false;
         state.refreshing = false;
 
-        logApiError("[Services Slice] Rejected", {
-          error: state.error,
-          requestId: action.meta.requestId,
-          requestQuery: action.meta.arg,
-          status: action.payload?.status,
-        });
       })
       .addCase(fetchServiceByIdThunk.pending, (state) => {
         state.detailsLoading = true;

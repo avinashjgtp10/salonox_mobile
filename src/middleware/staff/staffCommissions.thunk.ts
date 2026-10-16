@@ -4,7 +4,6 @@ import { ApiError, getApiErrorMessage } from "@/services/api";
 import { staffCommissionsService } from "@/services/staffCommissions.service";
 import type { RootState } from "@/store";
 import type { CommissionHistoryEntry } from "@/types/staffCommissions";
-import { logApiError } from "@/utils/logApiError";
 
 type RejectValue = {
   message: string;
@@ -32,7 +31,6 @@ export const fetchCommissionHistoryThunk = createAsyncThunk<
 
     return { history, key: commissionHistoryKey(args) };
   } catch (error) {
-    logApiError("[StaffCommissions] Fetch history failed", { ...args, ...toRejectValue(error) });
 
     return rejectWithValue(toRejectValue(error));
   }

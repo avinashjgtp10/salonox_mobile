@@ -80,9 +80,7 @@ export const usePushNotifications = (isAuthenticated: boolean) => {
         confirmedRegistrationSignatureRef.current = null;
 
         if (registeredTokenRef.current && registerDeviceStatusRef.current !== "loading") {
-          void dispatch(unregisterDeviceThunk()).unwrap().catch((error) => {
-            console.warn("[PushNotifications] Device unregistration failed:", error);
-          });
+          void dispatch(unregisterDeviceThunk()).unwrap().catch(() => {});
         }
         return;
       }
@@ -93,16 +91,10 @@ export const usePushNotifications = (isAuthenticated: boolean) => {
       const activeSalonId = activeUser?.salonId?.trim() ?? "";
 
       if (isStaffUser && !activeStaff?.id) {
-        if (currentStaffLoadingRef.current) {
-          console.log("[PushNotifications] Staff device registration waiting for currentStaff.");
-        } else {
-          console.warn("[PushNotifications] Staff device registration skipped because currentStaff is unavailable.");
-        }
         return;
       }
 
       if (!isStaffUser && !activeSalonId) {
-        console.log("[PushNotifications] Device registration deferred — no salon context yet (onboarding/registration phase).");
         return;
       }
 
@@ -113,15 +105,12 @@ export const usePushNotifications = (isAuthenticated: boolean) => {
       const expoPushToken = token.trim();
       if (!isCurrentSession()) return;
 
-      console.log("[PushNotifications] Token obtained");
 
       if (!expoPushToken) {
-        console.warn("[PushNotifications] Skipping device registration because Expo push token is empty.");
         return;
       }
 
       if (registerDeviceStatusRef.current === "loading") {
-        console.log("[PushNotifications] Registration skipped because registerDevice is already loading.");
         return;
       }
 
@@ -140,20 +129,16 @@ export const usePushNotifications = (isAuthenticated: boolean) => {
         expoPushToken === registeredTokenRef.current &&
         registrationSignature === confirmedRegistrationSignatureRef.current
       ) {
-        console.log("[PushNotifications] Registration skipped because this device context is already confirmed.");
         return;
       }
 
-      console.log("[PushNotifications] Dispatch registerDevice");
 
       void dispatch(registerDeviceThunk(registrationPayload))
         .unwrap()
         .then(() => {
           confirmedRegistrationSignatureRef.current = registrationSignature;
         })
-        .catch((error) => {
-          console.warn("[PushNotifications] Device registration failed:", error);
-        });
+        .catch(() => {});
     } catch (error) {
       if (error instanceof PushPermissionDeniedError) {
         if (!hasWarnedPermissionRef.current) {
@@ -166,7 +151,6 @@ export const usePushNotifications = (isAuthenticated: boolean) => {
         return;
       }
 
-      console.warn("[PushNotifications] Registration flow failed before dispatch completed:", error);
 
     }
   }, [dispatch]);
@@ -180,9 +164,7 @@ export const usePushNotifications = (isAuthenticated: boolean) => {
       confirmedRegistrationSignatureRef.current = null;
 
       if (registeredTokenRef.current && registerDeviceStatusRef.current !== "loading") {
-        void dispatch(unregisterDeviceThunk()).unwrap().catch((error) => {
-          console.warn("[PushNotifications] Device unregistration failed:", error);
-        });
+        void dispatch(unregisterDeviceThunk()).unwrap().catch(() => {});
       }
       return;
     }
