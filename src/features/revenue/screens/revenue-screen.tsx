@@ -85,16 +85,14 @@ export default function RevenueScreen({ period }: { period: RevenuePeriod }) {
     }
     setError(null);
 
-    const totalRequest = reportService.getCollectedRevenue(range);
+    const totalRequest = reportService.getRevenueSummary(range);
     void totalRequest
-      .then(async (total) => {
+      .then(async (summary) => {
         let staffRecords: Revenue["staffRecords"] = [];
         let staffError: string | null = null;
-        let billedRevenue: number | null = null;
 
         try {
           const revenueRecords = await reportService.getStaffPerformanceRevenue(range, true);
-          billedRevenue = revenueRecords.reduce((sum, staff) => sum + staff.revenue, 0);
           const allStaff = [];
           let page = 1;
           while (true) {
@@ -121,8 +119,8 @@ export default function RevenueScreen({ period }: { period: RevenuePeriod }) {
           loadedContextRef.current = context;
           setRevenue({
             range,
-            revenue: total,
-            billedRevenue,
+            revenue: summary.collected,
+            billedRevenue: summary.billed,
             staffError,
             staffRecords,
           });

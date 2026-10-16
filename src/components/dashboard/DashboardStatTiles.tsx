@@ -22,7 +22,7 @@ import {
 } from "@/store/dashboard/dashboard.slice";
 import { selectClientsTotalCount } from "@/store/client/client.slice";
 import { useAppTheme, useThemeColors } from "@/theme/ThemeProvider";
-import { formatCurrencyRounded } from "@/utils/currency";
+import { formatCurrency, formatCurrencyRounded } from "@/utils/currency";
 
 const STAT_TILE_GRADIENTS = {
   bookings: ["#FEF3C7", "#FDE68A"],
@@ -159,7 +159,7 @@ export default function DashboardStatTiles() {
         icon: "trending-up-outline" as const,
         label: "Today's Revenue",
         route: "/today-revenue" as Href,
-        value: formatCurrencyRounded(dashboardMetrics.todaysRevenue),
+        value: formatCurrency(dashboardMetrics.todaysRevenue),
       },
       {
         accent: "indigo" as const,

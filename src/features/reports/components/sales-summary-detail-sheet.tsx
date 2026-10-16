@@ -15,6 +15,7 @@ import { reportService, type SalesSummaryDetailResponse } from "@/services/repor
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { formatCurrency } from "@/utils/currency";
 import { formatInvoiceNumber } from "@/utils/receipt";
+import { computeBillRoundOff } from "@/utils/billRoundOff";
 
 type SalesSummaryDetailSheetProps = {
   onClose: () => void;
@@ -122,6 +123,28 @@ export const SalesSummaryDetailSheet = memo(function SalesSummaryDetailSheet({
   const invoice = formatInvoiceNumber(sale?.invoiceNumber) ?? sale?.invoiceNumber ?? "Bill Details";
   const sheetTitle = sale ? invoice : "Bill Details";
   const sheetSubtitle = sale?.clientName ?? (loading ? "Loading bill details..." : "Please try again.");
+  // Same inputs as the web Sale Detail modal. sale.totalAmount is revenue (no
+  // redemptions taken off), so redemptions are netted off the grand total.
+  const roundOff = sale ? computeBillRoundOff({
+    subtotal: sale.subtotal,
+    couponDiscount: sale.couponDiscountAmount,
+    membershipDiscount: payment?.membershipDiscountUsed,
+    taxBreakdown: payment?.taxBreakdown,
+    legacyTaxAmount: sale.taxAmount,
+    exCharges: sale.exCharges,
+    discountAmount: sale.manualDiscountAmount > 0 || sale.couponDiscountAmount > 0 || sale.referralDiscountAmount > 0
+      ? sale.manualDiscountAmount
+      : sale.discountAmount,
+    referralDiscount: sale.referralDiscountAmount,
+    membershipWalletUsed: payment?.membershipWalletUsed,
+    ewalletUsed: payment?.ewalletUsed,
+    rewardPointsValue: payment?.rewardPointsValue,
+    grandTotal: Math.max(0, Math.round((sale.totalAmount
+      - (payment?.membershipWalletUsed ?? 0)
+      - (payment?.ewalletUsed ?? 0)
+      - (payment?.rewardPointsValue ?? 0)
+      - (payment?.referralCreditUsed ?? 0)) * 100) / 100),
+  }) : 0;
 
   return (
     <BottomSheet
@@ -196,6 +219,9 @@ export const SalesSummaryDetailSheet = memo(function SalesSummaryDetailSheet({
             ) : null}
             <InfoRow label="Tax" value={money(sale.taxAmount)} />
             <InfoRow label="Additional charges" value={money(sale.exCharges)} />
+            {roundOff !== 0 ? (
+              <InfoRow label="Round off" value={`${roundOff > 0 ? "+" : "-"} ${money(Math.abs(roundOff))}`} />
+            ) : null}
             <InfoRow label="Grand total" value={money(sale.totalAmount)} />
           </Section>
 
