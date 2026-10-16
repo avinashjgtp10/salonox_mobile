@@ -87,7 +87,7 @@ const withSalonOxLargeNotificationIcon: ConfigPlugin = (config) => {
 export default ({ config }: ConfigContext): ExpoConfig => {
   const expoConfig: ExpoConfig = {
     ...config,
-    owner: "adi1604s-team",
+    owner: "adityaaas-team",
     name: env.appName,
     slug: "SalonOX",
     version: APP_VERSION,
