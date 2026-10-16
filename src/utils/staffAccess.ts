@@ -1,7 +1,7 @@
 import type { AuthUser } from "@/types/auth";
 import { isStaffExperienceUser } from "@/utils/routeResolver";
 import type { NotificationItem } from "@/types/notification";
-import { hasCustomPermission } from "@/utils/permissions";
+import { canCreateAuditProduct, canPerformProductAudit, canViewProductAudit, hasCustomPermission } from "@/utils/permissions";
 
 export const canReceiveStaffNotification = (user: AuthUser | null | undefined, notification: Pick<NotificationItem, "type" | "recipientUserIds">) =>
   Boolean(user && (!isStaffExperienceUser(user) || (["appointment", "attendance"].includes(notification.type.toLowerCase()) && notification.recipientUserIds?.includes(user.id))));
@@ -43,16 +43,16 @@ const isStaffQuickSaleWrite = (user: AuthUser | null | undefined, method: string
 // Audit is an explicitly delegated workflow. Keep the general staff write
 // guard intact and allow only its permission-matched API operations.
 export const isStaffAuditWrite = (user: AuthUser | null | undefined, method: string, url: string) => {
-  if (!user || !hasCustomPermission(user, "view_product_audit")) return false;
+  if (!user || !canViewProductAudit(user)) return false;
   const path = url.split("?")[0];
   const verb = method.toLowerCase();
-  const perform = hasCustomPermission(user, "create_product_audit");
+  const perform = canPerformProductAudit(user);
   if (verb === "post" && /^\/inventory\/product-audits\/[^/]+\/(approve|reject)$/.test(path)) return hasCustomPermission(user, "approve_product_audit");
   if (!perform) return false;
   if (verb === "post" && (path === "/inventory/product-audits" || /^\/inventory\/product-audits\/[^/]+\/(items|submit|reopen|recognize)$/.test(path))) return true;
   if (["patch", "delete"].includes(verb) && /^\/inventory\/product-audits\/[^/]+\/items\/[^/]+$/.test(path)) return true;
-  if (verb === "post" && path === "/products") return (hasCustomPermission(user, "view_products") && hasCustomPermission(user, "create_products")) || hasCustomPermission(user, "add_consumable");
-  if (verb === "post" && path === "/products/brands") return hasCustomPermission(user, "create_products") || hasCustomPermission(user, "manage_my_brands");
+  if (verb === "post" && path === "/products") return canCreateAuditProduct(user);
+  if (verb === "post" && path === "/products/brands") return user.mobileProductAuditAccess === true || hasCustomPermission(user, "create_products") || hasCustomPermission(user, "manage_my_brands");
   return false;
 };
 

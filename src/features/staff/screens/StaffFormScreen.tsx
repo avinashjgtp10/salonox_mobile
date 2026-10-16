@@ -21,7 +21,7 @@ import {
   type ThemeColors,
 } from "@/constants/theme";
 import { StaffTextField } from "@/features/staff/components/StaffTextField";
-import { useStaffCalendarAccessSetting } from "@/features/staff/hooks/useStaffCalendarAccessSetting";
+import { useStaffCalendarAccessSetting, useStaffProductAuditAccessSetting } from "@/features/staff/hooks/useStaffCalendarAccessSetting";
 import { useStaffDetails } from "@/features/staff/hooks/useStaffDetails";
 import { useStaffForm } from "@/features/staff/hooks/useStaffForm";
 import { STAFF_GENDER_OPTIONS, STAFF_ROLE_OPTIONS } from "@/features/staff/validation/staff.validation";
@@ -43,6 +43,8 @@ const STAFF_LOGIN_HELPER_TEXT =
 
 const CALENDAR_ACCESS_HELPER_TEXT =
   "Lets this staff member book and bill Quick Sales from their Calendar in the SalonOX app. Saved right away. Doesn't change their access on the web.";
+const PRODUCT_AUDIT_ACCESS_HELPER_TEXT =
+  "Lets this staff member create and perform Product Audits (count, scan, add new products the scanner finds, and submit for review) in the SalonOX app. Approving stays with you. Saved right away. Doesn't change their access on the web.";
 
 type StaffFormScreenProps = {
   mode: "create" | "edit";
@@ -161,6 +163,7 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
   const staffId = mode === "edit" ? id : null;
   const form = useStaffForm(staffId);
   const calendarAccess = useStaffCalendarAccessSetting(staffId);
+  const productAuditAccess = useStaffProductAuditAccessSetting(staffId);
   const { scrollToFirstError, scrollViewRef, setFieldRef } = useValidationScroll(VALIDATION_FIELD_ORDER);
   const currentUser = useAppSelector(selectCurrentUser);
 
@@ -545,6 +548,26 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
                   </View>
                   <Text style={styles.loginHint}>{CALENDAR_ACCESS_HELPER_TEXT}</Text>
                   {calendarAccess.error ? <Text style={styles.errorText}>{calendarAccess.error}</Text> : null}
+                </View>
+              ) : null}
+              {mode === "edit" ? (
+                <View style={styles.calendarAccessSection}>
+                  <View style={styles.calendarAccessRow}>
+                    <Text style={styles.calendarAccessTitle}>Product Audit access</Text>
+                    {productAuditAccess.loading || productAuditAccess.saving ? (
+                      <ActivityIndicator color={Colors.primary} size="small" style={styles.calendarAccessSpinner} />
+                    ) : null}
+                    <Switch
+                      accessibilityLabel="Product Audit access"
+                      disabled={productAuditAccess.loading || productAuditAccess.saving}
+                      onValueChange={(value) => void productAuditAccess.setProductAuditAccess(value)}
+                      thumbColor="#FFFFFF"
+                      trackColor={{ false: Colors.border, true: Colors.primary }}
+                      value={productAuditAccess.enabled}
+                    />
+                  </View>
+                  <Text style={styles.loginHint}>{PRODUCT_AUDIT_ACCESS_HELPER_TEXT}</Text>
+                  {productAuditAccess.error ? <Text style={styles.errorText}>{productAuditAccess.error}</Text> : null}
                 </View>
               ) : null}
             </>
