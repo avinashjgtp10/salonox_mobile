@@ -1,4 +1,4 @@
-import { API_BASE_URL, ApiError, api } from "@/services/api";
+import { ApiError, api } from "@/services/api";
 import { MOBILE_STAFF, STAFF } from "@/services/api/endpoints";
 import type { ApiResponse } from "@/types/auth";
 import type { StaffAvailability, StaffMember, StaffStatus } from "@/data/teamData";
@@ -36,6 +36,7 @@ import { isValidStaffId, normalizeStaffId } from "@/utils/staffIds";
 type StaffApiService = string | { name?: string | null; title?: string | null };
 
 type StaffAddressApiItem = {
+  address_name?: string | null;
   address?: string | null;
   address_line?: string | null;
   address_line1?: string | null;
@@ -494,7 +495,7 @@ const isCreatedStaffAddressEnvelope = (
   address?: StaffAddressApiItem | null;
   data?: StaffAddressApiItem | null;
   staff_address?: StaffAddressApiItem | null;
-} => "address" in payload || "data" in payload || "staff_address" in payload;
+} => (typeof payload.address === "object" && payload.address !== null) || "data" in payload || "staff_address" in payload;
 
 const getCreatedStaffAddress = (
   payload: CreateStaffAddressApiData,
@@ -590,6 +591,10 @@ const getAddressPagination = (
   pageCount: number,
   totalCount: number,
 ): StaffListPagination => {
+  // These endpoints return all records as a flat array, without server pagination.
+  if (Array.isArray(payload)) {
+    return { hasMore: false, limit: Math.max(query.limit, payload.length), nextPage: 2, page: 1, totalCount: payload.length, totalPages: 1 };
+  }
   const payloadPagination = Array.isArray(payload) ? null : payload.pagination;
   const page = toSafeNumber(payloadPagination?.page) || query.page;
   const limit = toSafeNumber(payloadPagination?.limit) || query.limit;
@@ -623,6 +628,10 @@ const getEmergencyContactPagination = (
   pageCount: number,
   totalCount: number,
 ): StaffListPagination => {
+  // These endpoints return all records as a flat array, without server pagination.
+  if (Array.isArray(payload)) {
+    return { hasMore: false, limit: Math.max(query.limit, payload.length), nextPage: 2, page: 1, totalCount: payload.length, totalPages: 1 };
+  }
   const payloadPagination = Array.isArray(payload) ? null : payload.pagination;
   const page = toSafeNumber(payloadPagination?.page) || query.page;
   const limit = toSafeNumber(payloadPagination?.limit) || query.limit;
@@ -758,7 +767,7 @@ const normalizeStaffAddress = (
     toSafeString(address.zip, "-"),
   staffId: toSafeString(address.staff_id, staffId),
   state: toSafeString(address.state, "-"),
-  type: titleCase(toSafeString(address.type, "Address")),
+  type: toSafeString(address.address_name) || toSafeString(address.type, "Address"),
 });
 
 const getEmergencyContactName = (contact: StaffEmergencyContactApiItem) =>
@@ -786,34 +795,6 @@ const assertValidAddressStaffId = (staffId: string) => {
   if (!isValidStaffId(staffId)) {
     throw new ApiError("A valid staff UUID is required for staff address requests.", 400);
   }
-};
-
-const getRequestUrl = (endpoint: string, query?: Record<string, string | number>) => {
-  const queryString = query
-    ? Object.entries(query)
-        .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`)
-        .join("&")
-    : "";
-
-  return `${API_BASE_URL}${endpoint}${queryString ? `?${queryString}` : ""}`;
-};
-
-const logStaffAddressRequest = ({
-  endpoint,
-  method,
-  query,
-  staffId,
-}: {
-  endpoint: string;
-  method: "DELETE" | "GET" | "PATCH" | "POST";
-  query?: Record<string, string | number>;
-  staffId: string;
-}) => {
-  console.info("[Staff] Staff address request", {
-    method,
-    staffId,
-    url: getRequestUrl(endpoint, query),
-  });
 };
 
 type StaffAvatarUploadApiResponse = ApiResponse<{ url?: string | null }>;
@@ -902,11 +883,6 @@ export const staffService = {
 
     const endpoint = STAFF.ADDRESSES(staffId);
 
-    logStaffAddressRequest({
-      endpoint,
-      method: "POST",
-      staffId,
-    });
 
     const response = await api.post<CreateStaffAddressApiResponse>(
       endpoint,
@@ -1042,11 +1018,6 @@ export const staffService = {
 
     const endpoint = STAFF.ADDRESS(staffId, recordId);
 
-    logStaffAddressRequest({
-      endpoint,
-      method: "PATCH",
-      staffId,
-    });
 
     const response = await api.patch<UpdateStaffAddressApiResponse>(
       endpoint,
@@ -1075,11 +1046,6 @@ export const staffService = {
 
     const endpoint = STAFF.ADDRESS(staffId, recordId);
 
-    logStaffAddressRequest({
-      endpoint,
-      method: "DELETE",
-      staffId,
-    });
 
     const response = await api.delete<DeleteStaffApiResponse>(endpoint);
 
@@ -1123,24 +1089,10 @@ export const staffService = {
     const apiStaffMembers = getStaffArray(response.data.data).filter((staffMember) => {
       const isClientRecord = isClientRecordInStaffList(staffMember);
 
-      if (isClientRecord) {
-        console.warn("[Staff] Ignoring client-like record returned by staff list", {
-          id: staffMember.id ?? staffMember._id,
-          name: getFullName(staffMember),
-        });
-      }
-
       return !isClientRecord;
     });
     const staffMembers = apiStaffMembers.map(normalizeStaffMember).filter((staffMember) => {
       const hasValidId = isValidStaffId(staffMember.id);
-
-      if (!hasValidId) {
-        console.warn("[Staff] Ignoring staff list item without a valid staff UUID", {
-          staffId: staffMember.id,
-          staffName: staffMember.name,
-        });
-      }
 
       return hasValidId;
     });
@@ -1168,12 +1120,6 @@ export const staffService = {
       sort_order: "DESC",
     };
     const endpoint = options.self ? MOBILE_STAFF.ADDRESSES : STAFF.ADDRESSES(staffId);
-    logStaffAddressRequest({
-      endpoint,
-      method: "GET",
-      query: requestQuery,
-      staffId,
-    });
 
     const response = await api.get<StaffAddressListApiResponse>(endpoint, {
       params: requestQuery,

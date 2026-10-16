@@ -35,7 +35,6 @@ import type {
   ClientPackageRecord,
   ClientSaleRecord,
 } from "@/types/client";
-import { logApiError } from "@/utils/logApiError";
 
 type ClientState = {
   activeFilter: ClientFilterValue | null;
@@ -213,12 +212,6 @@ const clientSlice = createSlice({
         state.loadingMore = false;
         state.refreshing = false;
 
-        logApiError("[Clients Slice] Rejected", {
-          error: state.error,
-          requestId: action.meta.requestId,
-          requestQuery: action.meta.arg,
-          status: action.payload?.status,
-        });
       })
       .addCase(searchClientsThunk.pending, (state, action) => {
         const appendRequest = isAppendRequest(action.meta.arg);
@@ -554,7 +547,6 @@ export const selectClientDetailsError = (state: RootState) => state.client.detai
 export const selectClientUpdating = (state: RootState) => state.client.updating;
 export const selectClientUpdateError = (state: RootState) => state.client.updateError;
 export const selectClientDeletingIds = (state: RootState) => state.client.deletingClientIds;
-export const selectClientDeleteError = (state: RootState) => state.client.deleteError;
 export const selectClientById = (state: RootState, clientId?: string) =>
   state.client.clients.find((client) => client.id === clientId);
 
@@ -562,15 +554,11 @@ export const selectClientDuplicates = (state: RootState) => state.client.duplica
 export const selectClientDuplicatesLoading = (state: RootState) => state.client.duplicatesLoading;
 export const selectClientDuplicatesError = (state: RootState) => state.client.duplicatesError;
 export const selectClientMerging = (state: RootState) => state.client.merging;
-export const selectClientMergeError = (state: RootState) => state.client.mergeError;
 export const selectClientMergingAll = (state: RootState) => state.client.mergingAll;
-export const selectClientMergeAllError = (state: RootState) => state.client.mergeAllError;
 export const selectClientBlockingIds = (state: RootState) => state.client.blockingClientIds;
-export const selectClientBlockError = (state: RootState) => state.client.blockError;
 export const selectClientHistory = (state: RootState) => state.client.history;
 export const selectClientHistoryLoading = (state: RootState) => state.client.historyLoading;
 export const selectClientHistoryError = (state: RootState) => state.client.historyError;
-export const selectClientHistoryClientId = (state: RootState) => state.client.historyClientId;
 export const selectClientHistoryClient = (state: RootState) => state.client.historyClient;
 export const selectClientProfileStats = (state: RootState) => state.client.historyProfileStats;
 export const selectClientHistoryAppointments = (state: RootState) => state.client.historyAppointments;
@@ -581,8 +569,5 @@ export const selectClientNotes = (clientId?: string) => (state: RootState) =>
   (clientId ? state.client.notes[clientId] : undefined) ?? null;
 export const selectClientNotesLoading = (state: RootState) => state.client.notesLoading;
 export const selectClientNotesError = (state: RootState) => state.client.notesError;
-export const selectClientHistoryStats = (state: RootState) => state.client.historyStats;
-export const selectClientHistoryStatsLoading = (state: RootState) => state.client.historyStatsLoading;
-export const selectClientHistoryStatsError = (state: RootState) => state.client.historyStatsError;
 
 export default clientSlice.reducer;

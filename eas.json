@@ -31,6 +31,8 @@
       }
     },
     "production": {
+      "environment": "production",
+      "distribution": "store",
       "autoIncrement": true,
       "channel": "production",
       "android": {
@@ -39,11 +41,19 @@
       "env": {
         "APP_ENV": "production",
         "EXPO_PUBLIC_API_BASE_URL": "https://www.salonox.com/api/v1",
-        "EXPO_PUBLIC_SOCKET_URL": "https://www.salonox.com"
+        "EXPO_PUBLIC_SOCKET_URL": "https://www.salonox.com",
+        "EXPO_PUBLIC_WEB_REGISTRATION_URL": "https://www.salonox.com/register"
       }
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "android": {
+        "track": "production",
+        "releaseStatus": "completed",
+        "changesNotSentForReview": false
+      },
+      "ios": {}
+    }
   }
 }

@@ -1,7 +1,8 @@
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { memo, useMemo, useRef } from "react";
-import { ActivityIndicator, Pressable, StyleSheet } from "react-native";
+import { Pressable, StyleSheet } from "react-native";
 import type { TextInput as TextInputType } from "react-native";
 
 import { AppLayout, AppRadius } from "@/constants/layout";

@@ -1,5 +1,6 @@
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { memo } from "react";
-import { ActivityIndicator, StyleSheet, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { useThemeColors } from "@/theme/ThemeProvider";
 
 export const InfiniteScrollLoader = memo(function InfiniteScrollLoader({

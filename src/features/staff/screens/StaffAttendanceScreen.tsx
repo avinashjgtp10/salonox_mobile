@@ -1,3 +1,5 @@
+import { RefreshViewport } from "@/components/ui/RefreshViewport";
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { AttendanceBreakModal } from "@/features/attendance/components/AttendanceBreakModal";
 import { AttendanceActivityDetails } from "@/features/attendance/components/AttendanceActivityDetails";
 import { appAlert } from "@/services/appAlert";
@@ -7,7 +9,7 @@ import { getApiErrorMessage } from "@/services/api";
 import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View, useWindowDimensions } from "react-native";
+import { Pressable, RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppLayout } from "@/constants/layout";
@@ -24,7 +26,6 @@ import {
   fetchAttendanceOverviewThunk,
 } from "@/middleware/attendance/attendance.thunk";
 import {
-  selectAttendanceIsOffline,
   selectAttendanceRecords,
   selectAttendanceRecordsError,
   selectAttendanceRecordsLoading,
@@ -73,7 +74,6 @@ export function StaffAttendanceScreen() {
   const recordsError = useAppSelector(selectAttendanceRecordsError);
   const recordsLoading = useAppSelector(selectAttendanceRecordsLoading);
   const recordsRefreshing = useAppSelector(selectAttendanceRecordsRefreshing);
-  const isOffline = useAppSelector(selectAttendanceIsOffline);
 
   const todayKey = selfAttendance?.state?.date ?? getTodayAttendanceDateKey();
   const currentStaffId = currentStaff?.id ?? null;
@@ -105,7 +105,7 @@ export function StaffAttendanceScreen() {
 
   return (
     <SafeAreaView edges={["top"]} style={[styles.safeArea, { backgroundColor: Colors.bg }]}>
-      <ScrollView
+      <RefreshViewport><ScrollView
         contentContainerStyle={[
           styles.content,
           {
@@ -143,15 +143,6 @@ export function StaffAttendanceScreen() {
             {selfAttendance.busy ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "700" }}>Check Out</Text>}
           </TouchableOpacity>
         ) : null}
-        {isOffline ? (
-          <View style={[styles.notice, { backgroundColor: Colors.warningBg, borderColor: Colors.border }]}>
-            <Ionicons name="cloud-offline-outline" size={16} color={Colors.warning} />
-            <Text style={[styles.noticeText, { color: Colors.text }]}>
-              Showing the latest cached attendance while you are offline.
-            </Text>
-          </View>
-        ) : null}
-
         <View style={[styles.card, { backgroundColor: Colors.card, borderColor: Colors.border }]}>
           {loading && !selfRecord ? (
             <View style={styles.centerState}>
@@ -197,7 +188,7 @@ export function StaffAttendanceScreen() {
             </>
           )}
         </View>
-      </ScrollView>
+      </ScrollView></RefreshViewport>
       <AttendanceBreakModal visible={breakVisible} state={selfAttendance?.state ?? null} busy={selfAttendance?.busy ?? false} onClose={() => setBreakVisible(false)} onSubmit={async body => {
         if (!selfAttendance) throw new Error("Attendance is unavailable. Please refresh.");
         await selfAttendance.startBreak(body); toast.showSuccess("Break started. Check in when you return."); loadAttendance();
@@ -227,8 +218,6 @@ const styles = StyleSheet.create({
   detailsGrid: { borderTopWidth: 1, flexDirection: "row", flexWrap: "wrap", gap: 18, marginTop: 20, paddingTop: 20 },
   eyebrow: { fontSize: 12, fontWeight: "800", letterSpacing: 1.8 },
   header: { gap: 6 },
-  notice: { alignItems: "center", borderRadius: 16, borderWidth: 1, flexDirection: "row", gap: 8, padding: 12 },
-  noticeText: { flex: 1, fontSize: 13, fontWeight: "600" },
   primaryButtonText: { color: "#FFFFFF", fontSize: 15, fontWeight: "800" },
   retryButton: { borderRadius: 16, marginTop: 8, paddingHorizontal: 18, paddingVertical: 12 },
   safeArea: { flex: 1 },

@@ -109,6 +109,14 @@ export type BrandListApiData =
     };
 
 export type Product = {
+  supplierId?: string | null;
+  supplierName?: string | null;
+  taxType?: string | null;
+  taxGroup?: string | null;
+  hsnSac?: string | null;
+  lotNumber?: string | null;
+  remark?: string | null;
+  expiryDate?: string | null;
   bottleSize?: number | null;
   brandId: string | null;
   brandName: string | null;
@@ -119,6 +127,7 @@ export type Product = {
   id: string;
   isActive: boolean;
   lowStockThreshold: number;
+  lowStockThresholdBaseUnits?: number;
   markupPercentage?: number | null;
   measureUnit?: string | null;
   name: string;
@@ -129,8 +138,6 @@ export type Product = {
   stockQuantity: number;
   supplyPrice?: number | null;
 };
-
-export type ProductListItem = Product;
 
 export type ProductListPagination = {
   hasMore: boolean;
@@ -162,31 +169,34 @@ export type Brand = {
 };
 
 export type CreateProductRequest = {
-  barcode?: string;
-  bottle_size?: number;
+  amount?: number;
+  size?: string;
+  barcode?: string | null;
+  bottle_size?: number | null;
   brand_id?: string | null;
   category?: string;
   category_id?: string;
-  description?: string;
-  expiry_date?: string;
-  hsn_sac?: string;
+  description?: string | null;
+  expiry_date?: string | null;
+  hsn_sac?: string | null;
   is_active?: boolean;
-  lot_number?: string;
+  lot_number?: string | null;
   low_stock_threshold?: number;
   measure_unit?: string;
   name: string;
-  price: number;
+  price?: number;
   product_type?: "retail" | "consumable" | "both" | string;
-  qty_alert?: number;
-  remark?: string;
-  retail_price?: number;
+  qty_alert?: number | null;
+  remark?: string | null;
+  retail_price?: number | null;
+  retail_sales_enabled?: boolean;
   salon_id?: string;
   sku?: string;
   stock_quantity?: number;
   supply_price?: number;
   supplier_id?: string | null;
   supplier_name?: string;
-  tax_group?: string;
+  tax_group?: string | null;
   tax_rate?: number;
   tax_type?: string;
   unit_conversions?: { conversion_to_base: number; unit_name: string }[];

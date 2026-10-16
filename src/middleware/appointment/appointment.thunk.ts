@@ -282,6 +282,34 @@ export const completeAppointmentThunk = createAsyncThunk<
   }
 });
 
+export const updateItemStatusThunk = createAsyncThunk<
+  AppointmentMutationResponse,
+  { appointmentId: string; itemId: string; status: "in_progress" | "completed" },
+  { rejectValue: AppointmentRejectValue; state: RootState }
+>("appointment/updateItemStatus", async ({ appointmentId, itemId, status }, { dispatch, rejectWithValue }) => {
+  try {
+    const response = await appointmentService.updateItemStatus(appointmentId, itemId, status);
+    void dispatch(fetchAppointmentByIdThunk(appointmentId));
+    return response;
+  } catch (error) {
+    return rejectWithValue(toRejectValue(error));
+  }
+});
+
+export const handoffItemThunk = createAsyncThunk<
+  AppointmentMutationResponse,
+  { appointmentId: string; itemId: string; toStaffId: string },
+  { rejectValue: AppointmentRejectValue; state: RootState }
+>("appointment/handoffItem", async ({ appointmentId, itemId, toStaffId }, { dispatch, rejectWithValue }) => {
+  try {
+    const response = await appointmentService.handoffItem(appointmentId, itemId, toStaffId);
+    void dispatch(fetchAppointmentByIdThunk(appointmentId));
+    return response;
+  } catch (error) {
+    return rejectWithValue(toRejectValue(error));
+  }
+});
+
 export const fetchAppointmentHistoryThunk = createAsyncThunk<
   AppointmentHistoryResponse,
   string | undefined,

@@ -5,8 +5,6 @@ export type NetworkSnapshot = {
   lastChangedAt: number;
 };
 
-type NetworkListener = (snapshot: NetworkSnapshot) => void;
-
 const DEFAULT_SNAPSHOT: NetworkSnapshot = {
   isConnected: true,
   isInternetReachable: true,
@@ -15,21 +13,19 @@ const DEFAULT_SNAPSHOT: NetworkSnapshot = {
 };
 
 let currentSnapshot = DEFAULT_SNAPSHOT;
-const listeners = new Set<NetworkListener>();
 const onlineWaiters = new Set<() => void>();
+const snapshotListeners = new Set<(snapshot: NetworkSnapshot) => void>();
+
+export const subscribeNetworkSnapshot = (listener: (snapshot: NetworkSnapshot) => void) => {
+  snapshotListeners.add(listener);
+  return () => {
+    snapshotListeners.delete(listener);
+  };
+};
 
 export const getNetworkSnapshot = () => currentSnapshot;
 
 export const isNetworkOnline = () => currentSnapshot.isOnline;
-
-export const addNetworkStatusListener = (listener: NetworkListener) => {
-  listeners.add(listener);
-  listener(currentSnapshot);
-
-  return () => {
-    listeners.delete(listener);
-  };
-};
 
 export const setNetworkSnapshot = (snapshot: Omit<NetworkSnapshot, "lastChangedAt">) => {
   const wasOnline = currentSnapshot.isOnline;
@@ -39,7 +35,7 @@ export const setNetworkSnapshot = (snapshot: Omit<NetworkSnapshot, "lastChangedA
     lastChangedAt: Date.now(),
   };
 
-  listeners.forEach((listener) => listener(currentSnapshot));
+  snapshotListeners.forEach((listener) => listener(currentSnapshot));
 
   if (!wasOnline && currentSnapshot.isOnline) {
     const waiters = Array.from(onlineWaiters);

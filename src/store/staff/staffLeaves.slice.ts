@@ -148,18 +148,12 @@ const staffLeavesSlice = createSlice({
 
 export const selectLeaves = (state: RootState, staffId?: string | null) =>
   staffId ? state.staffLeaves.leavesByStaffId[staffId] ?? [] : [];
-export const selectLeavesForIds = (state: RootState, staffIds: string[]) =>
-  staffIds.flatMap((staffId) => state.staffLeaves.leavesByStaffId[staffId] ?? []);
 export const selectLeavesLoaded = (state: RootState, staffId?: string | null) =>
   staffId ? state.staffLeaves.loadedStaffIds.includes(staffId) : false;
 export const selectLeavesLoading = (state: RootState, staffId?: string | null) =>
   staffId ? state.staffLeaves.loadingStaffIds.includes(staffId) : false;
-export const selectLeavesLoadingForIds = (state: RootState, staffIds: string[]) =>
-  staffIds.some((staffId) => state.staffLeaves.loadingStaffIds.includes(staffId));
 export const selectLeavesError = (state: RootState, staffId?: string | null) =>
   staffId ? state.staffLeaves.errorByStaffId[staffId] ?? null : null;
-export const selectLeavesErrorForIds = (state: RootState, staffIds: string[]) =>
-  staffIds.map((staffId) => state.staffLeaves.errorByStaffId[staffId]).find(Boolean) ?? null;
 export const selectLeaveCreating = (state: RootState, staffId?: string | null) =>
   staffId ? state.staffLeaves.creatingStaffIds.includes(staffId) : false;
 export const selectLeaveCreateError = (state: RootState, staffId?: string | null) =>
@@ -188,13 +182,5 @@ export const selectLeaveDeleting = (
   staffId && recordId
     ? state.staffLeaves.deletingRecordKeys.includes(getRecordKey(staffId, recordId))
     : false;
-export const selectLeaveDeleteError = (
-  state: RootState,
-  staffId?: string | null,
-  recordId?: string | null,
-) =>
-  staffId && recordId
-    ? state.staffLeaves.deleteErrorByRecordKey[getRecordKey(staffId, recordId)] ?? null
-    : null;
 
 export default staffLeavesSlice.reducer;

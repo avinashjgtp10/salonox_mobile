@@ -12,19 +12,13 @@ export type LeaveEntry = {
 
 export type CreateLeaveRequest = {
   end_date: string;
-  notes?: string;
   reason?: string;
   start_date: string;
-  type?: string;
+  leave_type: string;
 };
 
 export type UpdateLeaveRequest = Partial<CreateLeaveRequest> & {
   status?: string;
-};
-
-export type LeaveListResponse = {
-  leaves: LeaveEntry[];
-  staffId: string;
 };
 
 export type CreateLeaveResponse = {

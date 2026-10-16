@@ -3,12 +3,11 @@ import { createAsyncThunk } from "@reduxjs/toolkit";
 import { ApiError, getApiErrorMessage } from "@/services/api";
 import { isUserLogoutInProgress } from "@/services/authLifecycle";
 import { dashboardService } from "@/services/dashboard.service";
-import { timeStartup } from "@/services/startupPerformance";
+import { isNetworkOnline } from "@/services/networkStatus";
 import type { RootState } from "@/store";
 import { selectActiveBranchId } from "@/store/branch/branch.slice";
 import { selectCurrentUser } from "@/store/user/user.slice";
 import { isStaffExperienceUser } from "@/utils/routeResolver";
-import { logApiError } from "@/utils/logApiError";
 
 type FetchDashboardRejectValue = {
   message: string;
@@ -36,12 +35,12 @@ export const fetchDashboardThunk = createAsyncThunk<
     const state = getState();
     const salonId = selectActiveBranchId(state);
 
-    return await timeStartup("Dashboard loading", () => dashboardService.getOwnerDashboard(new Date(), salonId));
+    return await dashboardService.getOwnerDashboard(new Date(), salonId);
   } catch (error) {
     const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
     const state = getState();
 
-    if (isUserLogoutInProgress() || !selectCurrentUser(state)) {
+    if (!isNetworkOnline() || isUserLogoutInProgress() || !selectCurrentUser(state)) {
       return rejectWithValue({
         message,
         responseBody: error instanceof ApiError ? error.responseData : undefined,
@@ -50,11 +49,6 @@ export const fetchDashboardThunk = createAsyncThunk<
       });
     }
 
-    logApiError("[Dashboard] Dashboard fetch failed", {
-      message,
-      responseBody: error instanceof ApiError ? error.responseData : undefined,
-      status: error instanceof ApiError ? error.status : undefined,
-    });
 
     return rejectWithValue({
       message,
@@ -72,6 +66,7 @@ export const fetchDashboardThunk = createAsyncThunk<
     // reach these refreshes after a Calendar Quick Sale or appointment change;
     // skipping them avoids a 403 for a screen the staff app doesn't show.
     return (
+      isNetworkOnline() &&
       !isUserLogoutInProgress() &&
       Boolean(user) &&
       !isStaffExperienceUser(user) &&

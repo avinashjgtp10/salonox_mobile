@@ -1,8 +1,9 @@
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
 import { appAlert as Alert } from "@/services/appAlert";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, StyleSheet, TouchableOpacity, View } from "react-native";
+import { StyleSheet, TouchableOpacity, View } from "react-native";
 
 import {
   DashboardRadius as Radius,
@@ -126,7 +127,10 @@ export function StaffBlockedTimeSection({ staffId }: StaffBlockedTimeSectionProp
   );
   const saving = creating || updating;
   const error = editingEntry ? updateError : createError;
-  const isValid = form.startAt.trim().length > 0 && form.endAt.trim().length > 0;
+  const dateTimePattern = /^\d{4}-\d{2}-\d{2}[T ]([01]\d|2[0-3]):[0-5]\d(?::00)?$/;
+  const isValid = dateTimePattern.test(form.startAt.trim()) && dateTimePattern.test(form.endAt.trim())
+    && form.startAt.slice(0, 10) === form.endAt.slice(0, 10)
+    && form.startAt.slice(11, 16) < form.endAt.slice(11, 16);
 
   useEffect(() => {
     if (staffId && isValidStaffId(staffId) && !loaded && !loading) {
@@ -178,20 +182,20 @@ export function StaffBlockedTimeSection({ staffId }: StaffBlockedTimeSectionProp
             recordId: editingEntry.id,
             staffId,
             updates: {
-              end_at: form.endAt.trim(),
-              notes: form.notes.trim() || undefined,
+              date: form.startAt.trim().slice(0, 10),
+              end_time: form.endAt.trim().slice(11, 16),
               reason: form.reason.trim() || undefined,
-              start_at: form.startAt.trim(),
+              start_time: form.startAt.trim().slice(11, 16),
             },
           }),
         )
       : await dispatch(
           createBlockedTimeThunk({
             payload: {
-              end_at: form.endAt.trim(),
-              notes: form.notes.trim() || undefined,
+              date: form.startAt.trim().slice(0, 10),
+              end_time: form.endAt.trim().slice(11, 16),
               reason: form.reason.trim() || undefined,
-              start_at: form.startAt.trim(),
+              start_time: form.startAt.trim().slice(11, 16),
             },
             staffId,
           }),
@@ -312,16 +316,10 @@ export function StaffBlockedTimeSection({ staffId }: StaffBlockedTimeSectionProp
           placeholder="YYYY-MM-DD HH:MM"
           value={form.endAt}
         />
-        <StaffTextField
-          label="Notes"
-          multiline
-          onChangeText={(value) => setForm((current) => ({ ...current, notes: value }))}
-          placeholder="Optional notes"
-          value={form.notes}
-        />
+
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
-        {!isValid ? <Text style={styles.hintText}>Enter a start and end to continue.</Text> : null}
+        {!isValid ? <Text style={styles.hintText}>Enter valid times on the same date, with end after start.</Text> : null}
 
         <View style={styles.footer}>
           <TouchableOpacity

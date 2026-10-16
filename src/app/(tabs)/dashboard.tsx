@@ -1,3 +1,4 @@
+import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "expo-router";
@@ -24,6 +25,7 @@ import {
 import { AttendanceToast } from "@/features/attendance/components/AttendanceToast";
 import { useAppForeground } from "@/hooks/useAppForeground";
 import { useLocalDay } from "@/hooks/useLocalDay";
+import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import {
   fetchAttendanceOverviewThunk,
   hydrateAttendanceFromCacheThunk,
@@ -34,7 +36,6 @@ import { fetchNotificationsThunk, fetchUnreadCountThunk } from "@/middleware/not
 import { fetchInventorySummaryThunk, fetchProductsThunk } from "@/middleware/product/product.thunk";
 import { fetchStaffThunk } from "@/middleware/staff/staff.thunk";
 import { fetchClientsThunk } from "@/middleware/client/client.thunk";
-import { logStartupSince } from "@/services/startupPerformance";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { realtimeSocket } from "@/services/realtimeSocket";
 import {
@@ -64,7 +65,6 @@ function DashboardContent() {
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
   const { isAuthenticated } = useAuth();
-  const didLogNavigationRef = useRef(false);
   const didRunStartupFetchRef = useRef(false);
   const didHandleInitialFocusRef = useRef(false);
   const [isQuickActionsDrawerOpen, setIsQuickActionsDrawerOpen] = useState(false);
@@ -72,9 +72,11 @@ function DashboardContent() {
   const dashboardError = useAppSelector(selectDashboardError);
   const isDashboardRefreshing = useAppSelector(selectDashboardRefreshing);
   const dashboardStatus = useAppSelector(selectDashboardStatus);
+  const { isOnline } = useNetworkStatus();
+  const wasOnline = useRef(isOnline);
   const today = useLocalDay();
   const previousDay = useRef(today);
-  const showErrorState = dashboardStatus === "failed";
+  const showErrorState = isOnline && dashboardStatus === "failed";
 
   const fetchDashboard = useCallback(async () => {
     if (!isAuthenticated) {
@@ -83,6 +85,12 @@ function DashboardContent() {
 
     await dispatch(fetchDashboardThunk());
   }, [dispatch, isAuthenticated]);
+
+  useEffect(() => {
+    const reconnected = !wasOnline.current && isOnline;
+    wasOnline.current = isOnline;
+    if (reconnected) void fetchDashboard();
+  }, [isOnline, fetchDashboard]);
 
   const fetchAttendance = useCallback(() => {
     if (!isAuthenticated) {
@@ -164,15 +172,6 @@ function DashboardContent() {
   }, [dispatch, isAuthenticated]);
 
   useEffect(() => {
-    if (!isAuthenticated || didLogNavigationRef.current) {
-      return;
-    }
-
-    didLogNavigationRef.current = true;
-    logStartupSince("Navigation", "post_login_navigation");
-  }, [isAuthenticated]);
-
-  useEffect(() => {
     if (!isAuthenticated || didRunStartupFetchRef.current) {
       return;
     }
@@ -251,7 +250,7 @@ function DashboardContent() {
       accessibilityElementsHidden={tour?.active}
       importantForAccessibility={tour?.active ? "no-hide-descendants" : "auto"}>
       <AppStatusBar />
-      <ScrollView
+      <RefreshViewport><ScrollView
         ref={tour?.scrollRef}
         onScroll={(event) => { if (tour) tour.scrollOffset.current = event.nativeEvent.contentOffset.y; }}
         scrollEventThrottle={16}
@@ -314,7 +313,7 @@ function DashboardContent() {
             </View>
           </>
         )}
-      </ScrollView>
+      </ScrollView></RefreshViewport>
       <DashboardSideDrawer
         onClose={() => setIsQuickActionsDrawerOpen(false)}
         visible={isQuickActionsDrawerOpen}

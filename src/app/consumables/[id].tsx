@@ -1,8 +1,9 @@
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams, type Href } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
@@ -28,8 +29,7 @@ import { selectCurrentUser } from "@/store/user/user.slice";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { ConsumableUnitConversionRequestItem } from "@/types/consumable";
 import { canAdjustConsumableStock, canViewConsumableInventory } from "@/utils/permissions";
-
-const money = (value: number) => `Rs. ${value.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+import { formatCurrency as money } from "@/utils/currency";
 
 export default function ConsumableDetailScreen() {
   const Colors = useThemeColors();

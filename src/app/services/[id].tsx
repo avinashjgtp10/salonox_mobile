@@ -1,8 +1,9 @@
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams, type Href } from "expo-router";
 import { useEffect, useMemo } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppLayout, AppRadius } from "@/constants/layout";
@@ -21,10 +22,7 @@ import {
 } from "@/store/service/service.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { useThemeColors } from "@/theme/ThemeProvider";
-
-function formatPrice(price: number) {
-  return `₹${price.toLocaleString("en-IN")}`;
-}
+import { formatCurrency as formatPrice } from "@/utils/currency";
 
 function formatDuration(durationMinutes: number | null) {
   return durationMinutes && durationMinutes > 0 ? `${durationMinutes} min` : "Duration pending";

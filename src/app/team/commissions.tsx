@@ -1,18 +1,20 @@
+import { RefreshViewport } from "@/components/ui/RefreshViewport";
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { appAlert as Alert } from "@/services/appAlert";
 import { Ionicons } from "@expo/vector-icons";
 import { Redirect, router, useFocusEffect, type Href } from "expo-router";
-import { useCallback, useDeferredValue, useMemo, useState } from "react";
-import { ActivityIndicator, FlatList, RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View, type ListRenderItem } from "react-native";
+import { useCallback, useDeferredValue, useMemo, useRef, useState } from "react";
+import { FlatList, RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View, type ListRenderItem } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppBackButton, AppBackButtonPlaceholder } from "@/components/ui/AppBackButton";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
-import { DateField } from "@/components/ui/DateField";
+import { DateRangeField } from "@/components/ui/DateRangeField";
 import { SettlementModal } from "@/components/ui/SettlementModal";
 import { formatExportMonth, shareCommissionExport, type CommissionExportFormat } from "@/features/staff/utils/commissionExport";
 import { getApiErrorMessage } from "@/services/api";
-import { getCalendarMonthRange } from "@/services/salonCommissions.service";
+import { getCalendarMonthRange, salonCommissionsService } from "@/services/salonCommissions.service";
 import { formatAppDate } from "@/utils/dateTime";
 import { EmptyState, ErrorState, InlineLoader } from "@/components/ui/StateViews";
 import { AppLayout, AppRadius } from "@/constants/layout";
@@ -43,8 +45,9 @@ import { selectCurrentUser } from "@/store/user/user.slice";
 import { selectCurrentStaff } from "@/store/staff/staff.slice";
 import { canSettleCommission } from "@/utils/userProfile";
 import type { CommissionDateRange, SalonCommissionRecord } from "@/types/salonCommissions";
+import { formatCurrency } from "@/utils/currency";
 
-const STATUS_FILTERS = ["All", "Pending", "Partial", "Paid"] as const;
+const STATUS_FILTERS = ["All", "Pending", "Paid"] as const;
 type StatusFilter = (typeof STATUS_FILTERS)[number];
 
 const RANGE_PRESETS = [
@@ -60,10 +63,6 @@ const todayIso = () => {
 };
 
 const formatRangeDate = (iso: string) => formatAppDate(iso);
-
-function formatCurrency(amount: number) {
-  return `Rs. ${amount.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
-}
 
 function getRejectedMessage(payload: unknown, fallback: string) {
   if (payload && typeof payload === "object" && "message" in payload) {
@@ -115,6 +114,9 @@ export default function SalonCommissionsScreen() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("All");
   const [settlementRecord, setSettlementRecord] = useState<SalonCommissionRecord | null>(null);
   const [isSettlementModalOpen, setIsSettlementModalOpen] = useState(false);
+  const [settlementBalance, setSettlementBalance] = useState<number | null>(null);
+  const [settlementBalanceLoading, setSettlementBalanceLoading] = useState(false);
+  const settlementBalanceRequest = useRef(0);
   const settlementLoading = useAppSelector((state) =>
     settlementRecord ? selectCommissionSettling(state, settlementRecord.staffId) : false,
   );
@@ -148,6 +150,12 @@ export default function SalonCommissionsScreen() {
   useFocusEffect(
     useCallback(() => {
       void loadCommissions();
+      return () => {
+        settlementBalanceRequest.current += 1;
+        setSettlementBalanceLoading(false);
+        setIsSettlementModalOpen(false);
+        setSettlementRecord(null);
+      };
     }, [loadCommissions]),
   );
 
@@ -189,7 +197,9 @@ export default function SalonCommissionsScreen() {
     const statusMatched =
       statusFilter === "All"
         ? staffScoped
-        : staffScoped.filter((record) => record.status.toLowerCase() === statusFilter.toLowerCase());
+        : staffScoped.filter((record) => statusFilter === "Pending"
+          ? (record.unpaidAmount ?? 0) > 0
+          : record.status.toLowerCase() === statusFilter.toLowerCase());
 
     const query = deferredSearch.trim().toLowerCase();
 
@@ -219,9 +229,31 @@ export default function SalonCommissionsScreen() {
     void loadCommissions();
   };
 
-  const handleSettle = (record: SalonCommissionRecord) => {
+  const handleSettle = async (record: SalonCommissionRecord) => {
+    if (settlementBalanceLoading) return;
+    const request = ++settlementBalanceRequest.current;
     setSettlementRecord(record);
-    setIsSettlementModalOpen(true);
+    setSettlementBalance(null);
+    setSettlementBalanceLoading(true);
+    try {
+      const balance = await salonCommissionsService.getStaffUnpaidCommission(record.staffId);
+      if (request !== settlementBalanceRequest.current) return;
+      if (balance <= 0) {
+        setSettlementRecord(null);
+        Alert.alert("No unpaid commission", "This staff member has no commission left to settle.");
+        void loadCommissions();
+        return;
+      }
+      setSettlementBalance(balance);
+      setIsSettlementModalOpen(true);
+    } catch (error) {
+      if (request === settlementBalanceRequest.current) {
+        setSettlementRecord(null);
+        Alert.alert("Unable to load unpaid commission", getApiErrorMessage(error));
+      }
+    } finally {
+      if (request === settlementBalanceRequest.current) setSettlementBalanceLoading(false);
+    }
   };
 
   const handleConfirmSettle = async (amount: number) => {
@@ -229,6 +261,7 @@ export default function SalonCommissionsScreen() {
       return;
     }
 
+    if (settlementLoading || settlementBalance === null || amount > settlementBalance) return;
     const resultAction = await dispatch(settleCommissionThunk({ staffId: settlementRecord.staffId, amount }));
 
     if (settleCommissionThunk.rejected.match(resultAction)) {
@@ -240,12 +273,21 @@ export default function SalonCommissionsScreen() {
     }
 
     setSettlementRecord(null);
+    setSettlementBalance(null);
     setIsSettlementModalOpen(false);
-    toast.showSuccess("Commission settled successfully.");
+    if (settleCommissionThunk.fulfilled.match(resultAction) && resultAction.payload.refreshFailed) {
+      Alert.alert("Settlement saved", "The settlement was saved, but balances could not refresh. Pull down to update them; do not submit the same settlement again.");
+    } else {
+      const remaining = settleCommissionThunk.fulfilled.match(resultAction) ? resultAction.payload.remainingBalance : undefined;
+      toast.showSuccess(`${formatCurrency(amount)} settled.${remaining === undefined ? "" : remaining > 0 ? ` ${formatCurrency(remaining)} remains unpaid across all dates.` : " No unpaid commission remains."}`);
+    }
   };
 
   const handleSettlementModalClose = () => {
+    settlementBalanceRequest.current += 1;
     setSettlementRecord(null);
+    setSettlementBalance(null);
+    setSettlementBalanceLoading(false);
     setIsSettlementModalOpen(false);
   };
 
@@ -260,6 +302,7 @@ export default function SalonCommissionsScreen() {
   }) {
     const styles = useMemo(() => createStyles(Colors), []);
     const settling = useAppSelector((state) => selectCommissionSettling(state, record.staffId));
+    const openingSettlement = settlementBalanceLoading && settlementRecord?.staffId === record.staffId;
     const palette = getStatusPalette(record.status, Colors);
     const unpaidAmount = record.unpaidAmount ?? 0;
 
@@ -281,17 +324,17 @@ export default function SalonCommissionsScreen() {
             <Text style={styles.unpaidAmount}>{formatCurrency(unpaidAmount)}</Text>
           </View>
           <View style={[styles.statusPill, { backgroundColor: palette.backgroundColor }]}>
-            <Text style={[styles.statusPillText, { color: palette.color }]}>{record.status}</Text>
+            <Text style={[styles.statusPillText, { color: palette.color }]}>{record.status.toLowerCase() === "partial" ? "pending" : record.status}</Text>
           </View>
         </View>
         {isSettlable ? (
           <TouchableOpacity
             activeOpacity={0.84}
-            disabled={settling}
+            disabled={settling || openingSettlement}
             onPress={() => onSettle(record)}
-            style={[styles.settleButton, settling && styles.buttonDisabled]}
+            style={[styles.settleButton, (settling || openingSettlement) && styles.buttonDisabled]}
           >
-            {settling ? (
+            {settling || openingSettlement ? (
               <ActivityIndicator color="#FFFFFF" size="small" />
             ) : (
               <Text style={styles.settleButtonText}>Settle</Text>
@@ -353,14 +396,8 @@ export default function SalonCommissionsScreen() {
         })}
       </View>
       {rangePreset === "custom" ? (
-        <View style={styles.customRange}>
-          <View style={styles.customField}>
-            <DateField label="From" maximumDate={new Date()} onChange={setCustomStart} placeholder="Start date" value={customStart} />
-          </View>
-          <View style={styles.customField}>
-            <DateField label="To" maximumDate={new Date()} onChange={setCustomEnd} placeholder="End date" value={customEnd} />
-          </View>
-        </View>
+        <DateRangeField startDate={customStart || null} endDate={customEnd || null} maximumDate={new Date()}
+          onChange={(start, end) => { setCustomStart(start); setCustomEnd(end); }} />
       ) : null}
       {customRangeInvalid && rangePreset === "custom" ? (
         <Text style={styles.errorText}>The start date must be on or before the end date.</Text>
@@ -460,7 +497,7 @@ export default function SalonCommissionsScreen() {
   return (
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
       <AppStatusBar />
-      <FlatList
+      <RefreshViewport><FlatList
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom }]}
         data={filteredRecords}
         keyExtractor={(item) => item.id}
@@ -475,14 +512,16 @@ export default function SalonCommissionsScreen() {
         }
         renderItem={renderItem}
         showsVerticalScrollIndicator={false}
-      />
+      /></RefreshViewport>
 
       <SettlementModal
         visible={isSettlementModalOpen}
         onClose={handleSettlementModalClose}
         onSettle={handleConfirmSettle}
         staffName={settlementRecord?.staffName ?? ""}
-        totalUnpaidCommission={settlementRecord?.unpaidAmount ?? 0}
+        totalLabel="Unpaid commission (all dates)"
+        description="Payments settle the oldest unpaid commissions first, including earlier months."
+        totalUnpaidCommission={settlementBalance ?? 0}
         isLoading={settlementLoading}
       />
     </SafeAreaView>

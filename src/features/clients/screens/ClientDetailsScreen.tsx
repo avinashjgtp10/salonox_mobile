@@ -1,10 +1,11 @@
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { maskPhone } from "@/utils/maskPhone";
 import { Text } from "@/components/ui/AppTypography";
 import { appAlert as Alert } from "@/services/appAlert";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect, useLocalSearchParams, type Href } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppBackButton } from "@/components/ui/AppBackButton";
@@ -55,10 +56,7 @@ import { formatAppDate } from "@/utils/dateTime";
 import { buildClientProfileMetrics } from "@/features/clients/utils/clientProfile";
 import type { ClientProfileLineEntry } from "@/features/clients/utils/clientProfile";
 import type { ClientMembershipRecord, ClientPackageRecord } from "@/types/client";
-
-function formatCurrency(amount: number) {
-  return `Rs. ${Math.round(amount).toLocaleString("en-IN")}`;
-}
+import { formatCurrency } from "@/utils/currency";
 
 function formatCreatedDate(createdAt: string | null) {
   return formatAppDate(createdAt, "-");

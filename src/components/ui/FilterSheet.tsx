@@ -1,6 +1,7 @@
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, TouchableOpacity, View, useWindowDimensions } from "react-native";
+import { ScrollView, StyleSheet, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { useThemeColors } from "@/theme/ThemeProvider";

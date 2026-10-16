@@ -84,14 +84,23 @@ export function AppointmentCalendarContent({ staffMode = false, staffQuickSale =
     ),
     [canonicalStaffIdByAlias, fallbackStaffIdByName],
   );
+  // The appointments API ignores `search`, so the calendar filters the day or
+  // week it already loaded: client, phone (digits match any formatting),
+  // service, staff and title. Staff columns stay, so empty ones show no match.
+  const searchTerm = debouncedSearch.trim().toLowerCase();
+  const searchDigits = searchTerm.replace(/D/g, "");
   const visibleAppointments = useMemo(
     () => appointments.filter((item) => {
       const matchesStaff = selectedStaffIds.length === 0 || selectedStaffIds.includes(resolveStaffId(item));
       const matchesStatus = matchesCalendarStatuses(item.status, selectedStatuses);
+      const matchesSearch = !searchTerm
+        || [item.clientName, item.serviceName, item.staffName, item.title, item.phone]
+          .some((value) => (value ?? "").toLowerCase().includes(searchTerm))
+        || (searchDigits.length >= 3 && (item.phone ?? "").replace(/D/g, "").includes(searchDigits));
 
-      return matchesStaff && matchesStatus;
+      return matchesStaff && matchesStatus && matchesSearch;
     }),
-    [appointments, resolveStaffId, selectedStaffIds, selectedStatuses],
+    [appointments, resolveStaffId, searchDigits, searchTerm, selectedStaffIds, selectedStatuses],
   );
   const selectedStaffLabel = selectedStaffIds.length === 0
     ? "All Staff"
@@ -120,16 +129,16 @@ export function AppointmentCalendarContent({ staffMode = false, staffQuickSale =
   useEffect(() => {
     if (ownOnly && !currentStaff?.id) return;
     void fetchAppointments(viewMode === "week"
-      ? { fromDate: date, limit: 200, reset: true, salonWide, search: debouncedSearch, staffId: selectedStaffId, status, toDate: rangeEndKey }
-      : { date, limit: 200, reset: true, salonWide, search: debouncedSearch, staffId: selectedStaffId, status });
-  }, [date, debouncedSearch, fetchAppointments, rangeEndKey, selectedStaffId, status, viewMode, ownOnly, salonWide, currentStaff?.id]);
+      ? { fromDate: date, limit: 200, reset: true, salonWide, search: "", staffId: selectedStaffId, status, toDate: rangeEndKey }
+      : { date, limit: 200, reset: true, salonWide, search: "", staffId: selectedStaffId, status });
+  }, [date, fetchAppointments, rangeEndKey, selectedStaffId, status, viewMode, ownOnly, salonWide, currentStaff?.id]);
 
   const refreshAppointments = useCallback(() => {
     if (ownOnly && !currentStaff?.id) return;
     void fetchAppointments(viewMode === "week"
-      ? { fromDate: date, limit: 200, refresh: true, salonWide, search: debouncedSearch, staffId: selectedStaffId, status, toDate: rangeEndKey }
-      : { date, limit: 200, refresh: true, salonWide, search: debouncedSearch, staffId: selectedStaffId, status });
-  }, [date, debouncedSearch, fetchAppointments, rangeEndKey, selectedStaffId, status, viewMode, ownOnly, salonWide, currentStaff?.id]);
+      ? { fromDate: date, limit: 200, refresh: true, salonWide, search: "", staffId: selectedStaffId, status, toDate: rangeEndKey }
+      : { date, limit: 200, refresh: true, salonWide, search: "", staffId: selectedStaffId, status });
+  }, [date, fetchAppointments, rangeEndKey, selectedStaffId, status, viewMode, ownOnly, salonWide, currentStaff?.id]);
   // The staff Calendar tab stays mounted while Quick Sale and its receipt
   // screens are open, so reload when staff come back to it: a bill saved as
   // pending (or just paid) then shows its current state.

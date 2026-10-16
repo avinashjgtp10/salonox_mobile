@@ -215,27 +215,6 @@ export function useAppointmentForm(mode: 'create' | 'edit') {
       return;
     }
 
-    console.log("[StaffAvailability UI] Render props", {
-      availabilityBlockReason,
-      availableSlotsCount: availableSlots.length,
-      formDate: form.date,
-      selectedStaff,
-      staffAvailability,
-      uiProps: {
-        availabilityLabel,
-        checkedInLabel,
-        checkedOutLabel,
-        currentStatusLabel: staffAvailabilityStatus,
-        error: schedulerError,
-        holidayLabel,
-        loading: schedulerLoading,
-        onLeaveLabel,
-        shiftEndLabel,
-        shiftStartLabel,
-        slotDisabledReason,
-        workingHoursLabel,
-      },
-    });
   }, [
     availabilityBlockReason,
     availabilityLabel,

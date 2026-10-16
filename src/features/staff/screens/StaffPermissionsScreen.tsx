@@ -1,7 +1,9 @@
+import { RefreshViewport } from "@/components/ui/RefreshViewport";
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Switch, TextInput, TouchableOpacity, View } from "react-native";
+import { RefreshControl, ScrollView, StyleSheet, Switch, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppBackButton } from "@/components/ui/AppBackButton";
@@ -11,11 +13,21 @@ import { DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme
 import { matchesTeamSearch, type StaffMember } from "@/data/teamData";
 import { getApiErrorMessage } from "@/services/api";
 import { staffCalendarAccessService } from "@/services/staffCalendarAccess.service";
+import { staffProductAuditAccessService } from "@/services/staffProductAuditAccess.service";
 import { staffService } from "@/services/staff.service";
 import { useThemeColors } from "@/theme/ThemeProvider";
 
 const CALENDAR_ACCESS_HELPER_TEXT =
   "Lets staff book and bill Quick Sales from their Calendar in the SalonOX app. Changes save right away and don't affect the web app.";
+const PRODUCT_AUDIT_ACCESS_HELPER_TEXT =
+  "Lets staff create and perform Product Audits, including adding new products from the scanner, in the SalonOX app. Approving stays with you. Changes save right away and don't affect the web app.";
+
+type AccessKind = "calendar" | "productAudit";
+const SAVE_ACCESS: Record<AccessKind, (staffId: string, enabled: boolean) => Promise<boolean>> = {
+  calendar: staffCalendarAccessService.setStaffCalendarAccess,
+  productAudit: staffProductAuditAccessService.setStaffProductAuditAccess,
+};
+const rowKey = (kind: AccessKind, staffId: string) => `${kind}:${staffId}`;
 
 const loadAllStaff = async () => {
   const members: StaffMember[] = [];
@@ -28,12 +40,14 @@ const loadAllStaff = async () => {
 };
 
 // Owner screen (Quick Actions → Staff Permissions): every staff member's
-// mobile-only permissions in one place. Currently: Calendar & Quick Sale access.
+// mobile-only permissions in one place: Calendar & Quick Sale access and
+// Product Audit access.
 export function StaffPermissionsScreen() {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [access, setAccess] = useState<Record<string, boolean>>({});
+  const [auditAccess, setAuditAccess] = useState<Record<string, boolean>>({});
   const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
   const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -47,12 +61,14 @@ export function StaffPermissionsScreen() {
     setError(null);
 
     try {
-      const [members, accessByStaffId] = await Promise.all([
+      const [members, accessByStaffId, auditAccessByStaffId] = await Promise.all([
         loadAllStaff(),
         staffCalendarAccessService.listStaffCalendarAccess(),
+        staffProductAuditAccessService.listStaffProductAuditAccess(),
       ]);
       setStaff(members);
       setAccess(accessByStaffId);
+      setAuditAccess(auditAccessByStaffId);
       setRowErrors({});
     } catch (loadError) {
       setError(getApiErrorMessage(loadError));
@@ -66,25 +82,27 @@ export function StaffPermissionsScreen() {
     void load("initial");
   }, [load]);
 
-  const toggleAccess = useCallback(async (staffId: string, enabled: boolean) => {
-    setAccess((current) => ({ ...current, [staffId]: enabled }));
-    setSavingIds((current) => new Set(current).add(staffId));
+  const toggleAccess = useCallback(async (kind: AccessKind, staffId: string, enabled: boolean) => {
+    const setValues = kind === "calendar" ? setAccess : setAuditAccess;
+    const key = rowKey(kind, staffId);
+    setValues((current) => ({ ...current, [staffId]: enabled }));
+    setSavingIds((current) => new Set(current).add(key));
     setRowErrors((current) => {
       const next = { ...current };
-      delete next[staffId];
+      delete next[key];
       return next;
     });
 
     try {
-      const saved = await staffCalendarAccessService.setStaffCalendarAccess(staffId, enabled);
-      setAccess((current) => ({ ...current, [staffId]: saved }));
+      const saved = await SAVE_ACCESS[kind](staffId, enabled);
+      setValues((current) => ({ ...current, [staffId]: saved }));
     } catch (saveError) {
-      setAccess((current) => ({ ...current, [staffId]: !enabled }));
-      setRowErrors((current) => ({ ...current, [staffId]: getApiErrorMessage(saveError) }));
+      setValues((current) => ({ ...current, [staffId]: !enabled }));
+      setRowErrors((current) => ({ ...current, [key]: getApiErrorMessage(saveError) }));
     } finally {
       setSavingIds((current) => {
         const next = new Set(current);
-        next.delete(staffId);
+        next.delete(key);
         return next;
       });
     }
@@ -95,6 +113,7 @@ export function StaffPermissionsScreen() {
     [search, staff],
   );
   const enabledCount = staff.filter((member) => access[member.id]).length;
+  const auditEnabledCount = staff.filter((member) => auditAccess[member.id]).length;
 
   return (
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
@@ -107,7 +126,7 @@ export function StaffPermissionsScreen() {
         </View>
       </View>
 
-      <ScrollView
+      <RefreshViewport><ScrollView
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl colors={[Colors.primary]} onRefresh={() => void load("refresh")} refreshing={refreshing} tintColor={Colors.primary} />}
@@ -121,6 +140,19 @@ export function StaffPermissionsScreen() {
             <Text style={styles.infoText}>{CALENDAR_ACCESS_HELPER_TEXT}</Text>
             {!loading && !error ? (
               <Text style={styles.infoCount}>{enabledCount} of {staff.length} staff enabled</Text>
+            ) : null}
+          </View>
+        </View>
+
+        <View style={styles.infoCard}>
+          <View style={styles.infoIcon}>
+            <Ionicons color={Colors.primary} name="clipboard-outline" size={20} />
+          </View>
+          <View style={styles.infoCopy}>
+            <Text style={styles.infoTitle}>Product Audit access</Text>
+            <Text style={styles.infoText}>{PRODUCT_AUDIT_ACCESS_HELPER_TEXT}</Text>
+            {!loading && !error ? (
+              <Text style={styles.infoCount}>{auditEnabledCount} of {staff.length} staff enabled</Text>
             ) : null}
           </View>
         </View>
@@ -159,7 +191,9 @@ export function StaffPermissionsScreen() {
           </View>
         ) : (
           visibleStaff.map((member) => {
-            const saving = savingIds.has(member.id);
+            const saving = savingIds.has(rowKey("calendar", member.id));
+            const auditSaving = savingIds.has(rowKey("productAudit", member.id));
+            const rowError = rowErrors[rowKey("calendar", member.id)] ?? rowErrors[rowKey("productAudit", member.id)];
             const inactive = member.status === "Inactive";
             const note = inactive ? "Inactive — the switch applies once they're reactivated." : null;
 
@@ -173,24 +207,38 @@ export function StaffPermissionsScreen() {
                     <Text numberOfLines={1} style={styles.staffName}>{member.name}</Text>
                     <Text numberOfLines={1} style={styles.staffRole}>{member.designation || member.role || "Staff"}</Text>
                   </View>
+                </View>
+                <View style={styles.permissionRow}>
+                  <Text style={[styles.permissionLabel, styles.permissionRowLabel]}>Calendar &amp; Quick Sale</Text>
                   {saving ? <ActivityIndicator color={Colors.primary} size="small" /> : null}
                   <Switch
                     accessibilityLabel={`Calendar and Quick Sale access for ${member.name}`}
                     disabled={saving}
-                    onValueChange={(value) => void toggleAccess(member.id, value)}
+                    onValueChange={(value) => void toggleAccess("calendar", member.id, value)}
                     thumbColor="#FFFFFF"
                     trackColor={{ false: Colors.border, true: Colors.primary }}
                     value={access[member.id] === true}
                   />
                 </View>
-                <Text style={styles.permissionLabel}>Calendar &amp; Quick Sale</Text>
+                <View style={styles.permissionRow}>
+                  <Text style={[styles.permissionLabel, styles.permissionRowLabel]}>Product Audit</Text>
+                  {auditSaving ? <ActivityIndicator color={Colors.primary} size="small" /> : null}
+                  <Switch
+                    accessibilityLabel={`Product Audit access for ${member.name}`}
+                    disabled={auditSaving}
+                    onValueChange={(value) => void toggleAccess("productAudit", member.id, value)}
+                    thumbColor="#FFFFFF"
+                    trackColor={{ false: Colors.border, true: Colors.primary }}
+                    value={auditAccess[member.id] === true}
+                  />
+                </View>
                 {note ? <Text style={styles.note}>{note}</Text> : null}
-                {rowErrors[member.id] ? <Text style={styles.rowError}>{rowErrors[member.id]}</Text> : null}
+                {rowError ? <Text style={styles.rowError}>{rowError}</Text> : null}
               </View>
             );
           })
         )}
-      </ScrollView>
+      </ScrollView></RefreshViewport>
     </SafeAreaView>
   );
 }
@@ -352,6 +400,16 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     color: Colors.text2,
     fontSize: 12,
     marginTop: 2,
+  },
+  permissionRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: Spacing.sm,
+    marginTop: Spacing.sm,
+  },
+  permissionRowLabel: {
+    flex: 1,
+    marginTop: 0,
   },
   permissionLabel: {
     color: Colors.text2,

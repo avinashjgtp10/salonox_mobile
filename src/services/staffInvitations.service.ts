@@ -38,10 +38,10 @@ const getInvitationFromEnvelope = (payload: InvitationStatusApiData): UnknownRec
 
 const normalizeInvitationStatus = (entry: UnknownRecord, staffId: string): InvitationStatus => ({
   email: toSafeString(firstValue(entry, ["email"])) || null,
-  expiresAt: toSafeString(firstValue(entry, ["expiresAt", "expires_at"])) || null,
+  expiresAt: toSafeString(firstValue(entry, ["invitation_expires_at", "expiresAt", "expires_at"])) || null,
   invitedAt: toSafeString(firstValue(entry, ["invitedAt", "invited_at", "created_at"])) || null,
   staffId: toSafeString(firstValue(entry, ["staffId", "staff_id"]), staffId),
-  status: toSafeString(firstValue(entry, ["status"]), "none"),
+  status: toSafeString(firstValue(entry, ["invitation_status", "status"]), "none"),
 });
 
 export const staffInvitationsService = {
@@ -78,7 +78,7 @@ export const staffInvitationsService = {
       fullName:
         toSafeString(firstValue(entry, ["fullName", "full_name", "name"])) || null,
       staffId: toSafeString(firstValue(entry, ["staffId", "staff_id"])) || null,
-      valid: true,
+      valid: entry.valid === true,
     };
   },
 

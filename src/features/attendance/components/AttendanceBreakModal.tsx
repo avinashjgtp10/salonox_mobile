@@ -1,6 +1,7 @@
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Keyboard, ScrollView, TouchableOpacity, View } from "react-native";
+import { Keyboard, ScrollView, TouchableOpacity, View } from "react-native";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import type { KeyboardAwareFormHandle } from "@/components/ui/KeyboardAwareForm";

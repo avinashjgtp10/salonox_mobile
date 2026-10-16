@@ -17,7 +17,6 @@ import type {
   UpdateServiceRequest,
   UpdateServiceResponse,
 } from "@/types/service";
-import { logApiError } from "@/utils/logApiError";
 
 export const fetchCategoriesThunk = createAsyncThunk<
   ServiceCategoryItem[],
@@ -90,11 +89,6 @@ export const fetchServicesThunk = createAsyncThunk<
   } catch (error) {
     const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
 
-    logApiError("[Services] Fetch failed", {
-      message,
-      responseBody: error instanceof ApiError ? error.responseData : undefined,
-      status: error instanceof ApiError ? error.status : undefined,
-    });
 
     return rejectWithValue({
       message,
@@ -114,12 +108,6 @@ export const fetchServiceByIdThunk = createAsyncThunk<
   } catch (error) {
     const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
 
-    logApiError("[Services] Fetch by ID failed", {
-      message,
-      responseBody: error instanceof ApiError ? error.responseData : undefined,
-      serviceId,
-      status: error instanceof ApiError ? error.status : undefined,
-    });
 
     return rejectWithValue({ message });
   }
@@ -152,11 +140,6 @@ export const createServiceThunk = createAsyncThunk<
   } catch (error) {
     const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
 
-    logApiError("[Services] Create failed", {
-      message,
-      responseBody: error instanceof ApiError ? error.responseData : undefined,
-      status: error instanceof ApiError ? error.status : undefined,
-    });
 
     return rejectWithValue({
       message,
@@ -187,12 +170,6 @@ export const deleteServiceThunk = createAsyncThunk<
   } catch (error) {
     const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
 
-    logApiError("[Services] Delete failed", {
-      message,
-      responseBody: error instanceof ApiError ? error.responseData : undefined,
-      serviceId,
-      status: error instanceof ApiError ? error.status : undefined,
-    });
 
     return rejectWithValue({
       message,
@@ -230,12 +207,6 @@ export const updateServiceThunk = createAsyncThunk<
   } catch (error) {
     const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
 
-    logApiError("[Services] Update failed", {
-      message,
-      responseBody: error instanceof ApiError ? error.responseData : undefined,
-      serviceId,
-      status: error instanceof ApiError ? error.status : undefined,
-    });
 
     return rejectWithValue({
       message,

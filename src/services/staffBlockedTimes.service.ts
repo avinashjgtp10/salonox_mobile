@@ -58,12 +58,12 @@ const normalizeBlockedTime = (
   index: number,
 ): BlockedTimeEntry => ({
   createdAt: toSafeString(firstValue(entry, ["createdAt", "created_at"])) || null,
-  endAt: toSafeString(firstValue(entry, ["endAt", "end_at", "end_time", "endTime"])) || null,
+  endAt: entry.date && entry.end_time ? `${String(entry.date).slice(0, 10)}T${String(entry.end_time).slice(0, 5)}` : toSafeString(firstValue(entry, ["endAt", "end_at"])) || null,
   id: toSafeString(firstValue(entry, ["id", "_id"]), `blocked-time-${index}`),
   notes: toSafeString(firstValue(entry, ["notes"])) || null,
   reason: toSafeString(firstValue(entry, ["reason", "title"])) || null,
   staffId: toSafeString(firstValue(entry, ["staffId", "staff_id"]), staffId),
-  startAt: toSafeString(firstValue(entry, ["startAt", "start_at", "start_time", "startTime"])) || null,
+  startAt: entry.date && entry.start_time ? `${String(entry.date).slice(0, 10)}T${String(entry.start_time).slice(0, 5)}` : toSafeString(firstValue(entry, ["startAt", "start_at"])) || null,
 });
 
 export const staffBlockedTimesService = {

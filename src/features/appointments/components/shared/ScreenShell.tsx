@@ -1,3 +1,4 @@
+import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { Text } from "@/components/ui/AppTypography";
 import { TourScrollView } from "@/features/userGuide/DashboardTour";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
@@ -88,7 +89,7 @@ export function ScreenShell({
     <SafeAreaView edges={safeAreaEdges} style={styles.safeArea}>
       <AppStatusBar />
       {scrollable ? (
-        <TourScrollView
+        <RefreshViewport><TourScrollView
           contentContainerStyle={[styles.content, contentStyle]}
           keyboardShouldPersistTaps="handled"
           refreshControl={
@@ -104,7 +105,7 @@ export function ScreenShell({
           showsVerticalScrollIndicator={false}
         >
           {content}
-        </TourScrollView>
+        </TourScrollView></RefreshViewport>
       ) : (
         <View style={[styles.content, styles.fixedContent, contentStyle, { paddingBottom: contentBottomPadding }]}>{content}</View>
       )}

@@ -77,6 +77,9 @@ export const getPackageCoveredQuantity = (item: CartItem) => {
   if (item.itemType !== "service") {
     return 0;
   }
+  if (item.packageCoverageAppliedQuantity !== undefined) {
+    return Math.max(0, Math.min(item.quantity, item.packageCoverageAppliedQuantity));
+  }
 
   const availableSessions = item.packageCoverageAllocations?.reduce(
     (total, allocation) => total + Math.max(0, allocation.remainingSessions),
@@ -136,4 +139,25 @@ export const getPackageSessionConsumptions = (
   }
 
   return consumptions;
+};
+
+/** Reserve shared session balances in cart order, so duplicating a service
+ * cannot apply the same remaining session to two different bill lines. */
+export const reservePackageCoverage = (items: CartItem[]): CartItem[] => {
+  const remaining = new Map<string, number>();
+  return items.map(item => {
+    if (item.itemType !== "service") return item;
+    let needed = item.quantity;
+    let covered = 0;
+    const allocations = item.packageCoverageAllocations?.length ? item.packageCoverageAllocations :
+      item.packageCoverageClientPackageId && item.packageCoverageServiceId ? [{ clientPackageId: item.packageCoverageClientPackageId, serviceId: item.packageCoverageServiceId, remainingSessions: item.packageCoverageRemaining ?? 0 }] : [];
+    for (const allocation of allocations) {
+      const key = `${allocation.clientPackageId}:${allocation.serviceId}`;
+      const available = remaining.get(key) ?? Math.max(0, Math.floor(allocation.remainingSessions));
+      const used = Math.min(needed, available);
+      remaining.set(key, available - used);
+      needed -= used; covered += used;
+    }
+    return { ...item, packageCoverageAppliedQuantity: covered };
+  });
 };

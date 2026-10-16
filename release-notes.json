@@ -1,0 +1,22 @@
+{
+  "title": "What's new in SalonOX",
+  "message": "This update makes SalonOX faster and smoother, especially for salons with lots of data.",
+  "notes": [
+    {
+      "title": "Faster lists",
+      "description": "Services, clients, consumables and sales now load much faster, even with large amounts of data."
+    },
+    {
+      "title": "Better WhatsApp inbox",
+      "description": "Chats open on the latest message, the keyboard no longer hides your messages, and names and numbers show in full."
+    },
+    {
+      "title": "Clearer date filters",
+      "description": "The date range you pick, like This month or Last month, is now clearly highlighted."
+    },
+    {
+      "title": "Password reset fixed",
+      "description": "Resetting your password after verifying the OTP now works correctly."
+    }
+  ]
+}

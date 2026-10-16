@@ -284,21 +284,8 @@ const normalizeSchedule = (entry: UnknownRecord, staffId: string): StaffSchedule
 export const staffScheduleService = {
   async getSchedule(staffId: string): Promise<StaffSchedule> {
     const response = await api.get<ScheduleApiResponse>(STAFF.SCHEDULED(staffId));
-    const rawEnvelope = response.data;
     const scheduleEnvelope = getScheduleFromEnvelope(response.data.data);
     const schedule = normalizeSchedule(scheduleEnvelope, staffId);
-
-    if (__DEV__) {
-      console.log("[StaffSchedule] Raw API response", {
-        response: rawEnvelope,
-        staffId,
-        url: STAFF.SCHEDULED(staffId),
-      });
-      console.log("[StaffSchedule] Parsed schedule", {
-        parsed: schedule,
-        staffId,
-      });
-    }
 
     return schedule;
   },
@@ -310,18 +297,6 @@ export const staffScheduleService = {
     const response = await api.put<ScheduleApiResponse>(STAFF.SCHEDULED(staffId), payload);
     const scheduleEnvelope = getScheduleFromEnvelope(response.data.data);
     const schedule = normalizeSchedule(scheduleEnvelope, staffId);
-
-    if (__DEV__) {
-      console.log("[StaffSchedule] Raw update response", {
-        response: response.data,
-        staffId,
-        url: STAFF.SCHEDULED(staffId),
-      });
-      console.log("[StaffSchedule] Parsed update schedule", {
-        parsed: schedule,
-        staffId,
-      });
-    }
 
     return {
       message: response.data.message,

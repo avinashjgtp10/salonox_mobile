@@ -15,7 +15,12 @@ import {
   selectStaffUpdating,
 } from "@/store/staff/staff.slice";
 import type { StaffProfileFormValues, StaffRoleLevel } from "@/features/staff/types/staffFeature.types";
-import { mapStaffFormToRequest, mapStaffWagesToRequest } from "@/features/staff/utils/staffFormMappers";
+import {
+  mapStaffFormToRequest,
+  mapStaffWagesToRequest,
+  toFormPhone,
+  toPhoneCountry,
+} from "@/features/staff/utils/staffFormMappers";
 import { validateStaffForm } from "@/features/staff/validation/staff.validation";
 
 const EMPTY_STAFF_FORM: StaffProfileFormValues = {
@@ -100,6 +105,8 @@ export const useStaffForm = (staffId?: string | null) => {
       return;
     }
 
+    const phone = toFormPhone(staffMember.phone, staffMember.phoneCountryCode);
+
     setValues({
       address: staffMember.address ?? "",
       avatarUrl: staffMember.avatarUrl ?? "",
@@ -112,12 +119,12 @@ export const useStaffForm = (staffId?: string | null) => {
       gender: staffMember.gender === "-" ? "" : staffMember.gender,
       holidays: staffMember.holidays != null ? String(staffMember.holidays) : "",
       hourlyRate: "",
-      isLoginEnabled: Boolean(staffMember.loginAccess),
+      isLoginEnabled: false,
       joiningDate: toIsoJoiningDate(staffMember.joiningDate),
       notes: staffMember.notes,
       password: "",
-      phone: staffMember.phone === "-" ? "" : staffMember.phone,
-      phoneCountry: "IN",
+      phone,
+      phoneCountry: toPhoneCountry(phone),
       roleLevel: toPermissionRoleLevel(staffMember.permissionLevel),
       workingHoursPerDay:
         staffMember.workingHoursPerDay != null ? String(staffMember.workingHoursPerDay) : "",
@@ -194,7 +201,11 @@ export const useStaffForm = (staffId?: string | null) => {
     }
 
     if (succeeded) {
-      toast.showSuccess(isEditMode ? "Staff updated successfully." : "Staff created successfully.");
+      if (createStaffThunk.fulfilled.match(action) && action.payload.activationWarning) {
+        toast.showWarning(action.payload.activationWarning);
+      } else {
+        toast.showSuccess(isEditMode ? "Staff updated successfully." : "Staff created successfully.");
+      }
 
       void dispatch(
         fetchStaffThunk({

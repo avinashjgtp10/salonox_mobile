@@ -23,6 +23,17 @@ const adaptiveIconForeground = resolveWithFallback(
   ENVIRONMENTS.production.adaptiveIconForegroundPath,
 );
 
+// Shown in the in-app update popup. Every EAS Update carries this config, so
+// the installed app reads the notes of a new OTA before downloading it.
+// Edit release-notes.json before each release (merge to main).
+const readReleaseNotes = () => {
+  try {
+    return JSON.parse(fs.readFileSync(path.resolve(__dirname, "release-notes.json"), "utf8")) as unknown;
+  } catch {
+    return undefined;
+  }
+};
+
 const googleServicesFile = existsInProject(env.googleServicesFile) ? env.googleServicesFile : undefined;
 
 if (!googleServicesFile) {
@@ -87,7 +98,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     updates: {
       url: "https://u.expo.dev/f049c562-d124-4c6d-a1be-a4405a64d9ec",
     },
-    runtimeVersion: `${appEnv}-${APP_VERSION}`,
+    runtimeVersion: `${appEnv}-${APP_VERSION}-product-scanner-v1`,
     ios: {
       ...config.ios,
       icon,
@@ -116,6 +127,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     },
     plugins: [
       "expo-router",
+      ["expo-camera", { cameraPermission: "Allow SalonOX to scan product barcodes and recognize product packaging for inventory audits.", recordAudioAndroid: false }],
       ["expo-secure-store", { configureAndroidBackup: true, faceIDPermission: false }],
       "./plugins/with-launcher-logo-padding",
       "./plugins/with-plain-launch-screen",
@@ -167,6 +179,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       ...config.extra,
       router: {},
       appEnv,
+      releaseNotes: readReleaseNotes(),
       eas: {
         projectId: "f049c562-d124-4c6d-a1be-a4405a64d9ec",
       },

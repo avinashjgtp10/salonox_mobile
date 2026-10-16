@@ -1,7 +1,9 @@
 import { Text } from "@/components/ui/AppTypography";
+import { SearchableFilterDropdown } from "@/components/ui/SearchableFilterDropdown";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useMemo, useState } from "react";
-import { Modal, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 
 import { AppRadius } from "@/constants/layout";
@@ -51,6 +53,7 @@ const toggleInList = (items: string[], item: string) =>
 const toggleSingle = (current: string, item: string) => (current === item ? "" : item);
 
 export function CatalogFilterSheet({ brands, categories, label, onApply, onClose, onReset, serviceOptions, suppliers, tab, validForOptions, value, visible }: Props) {
+  const insets = useSafeAreaInsets();
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const [draft, setDraft] = useState(value);
@@ -99,7 +102,7 @@ export function CatalogFilterSheet({ brands, categories, label, onApply, onClose
         <Animated.View style={[styles.backdrop, backdropStyle]}>
           <Pressable onPress={onClose} style={StyleSheet.absoluteFill} />
         </Animated.View>
-        <View pointerEvents="box-none" style={styles.centerWrap}>
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} pointerEvents="box-none" style={[styles.centerWrap, { paddingTop: Math.max(24, insets.top), paddingBottom: Math.max(24, insets.bottom) }]}>
           <Animated.View style={[styles.popup, popupStyle]}>
             <View style={styles.header}>
               <View style={styles.headerCopy}>
@@ -114,6 +117,7 @@ export function CatalogFilterSheet({ brands, categories, label, onApply, onClose
             <ScrollView keyboardShouldPersistTaps="handled" style={styles.body} contentContainerStyle={styles.bodyContent}>
               {tab === "services" ? (
                 <ServiceFilterFields
+                  categories={categories}
                   Colors={Colors}
                   draft={draft as ServiceCatalogFilters}
                   setDraft={setDraft as (updater: (current: ServiceCatalogFilters) => ServiceCatalogFilters) => void}
@@ -171,7 +175,7 @@ export function CatalogFilterSheet({ brands, categories, label, onApply, onClose
               </TouchableOpacity>
             </View>
           </Animated.View>
-        </View>
+        </KeyboardAvoidingView>
       </View>
     </Modal>
   );
@@ -180,13 +184,11 @@ export function CatalogFilterSheet({ brands, categories, label, onApply, onClose
 type FieldStyles = ReturnType<typeof createStyles>;
 
 function ChipGroup({
-  Colors,
   onToggle,
   options,
   selected,
   styles,
 }: {
-  Colors: ThemeColors;
   onToggle: (id: string) => void;
   options: CatalogFilterOption[];
   selected: string[];
@@ -213,77 +215,9 @@ function ChipGroup({
   );
 }
 
-function OptionDropdown({
-  Colors,
-  multi,
-  onToggle,
-  options,
-  placeholder,
-  selected,
-  styles,
-}: {
-  Colors: ThemeColors;
-  multi: boolean;
-  onToggle: (id: string) => void;
-  options: string[];
-  placeholder: string;
-  selected: string[];
-  styles: FieldStyles;
-}) {
-  const [open, setOpen] = useState(false);
-  const summary = selected.length === 0
-    ? placeholder
-    : selected.length === 1
-      ? selected[0]
-      : `${selected.length} selected`;
 
-  return (
-    <View>
-      <TouchableOpacity
-        accessibilityRole="button"
-        accessibilityState={{ disabled: options.length === 0, expanded: open }}
-        activeOpacity={0.84}
-        disabled={options.length === 0}
-        onPress={() => setOpen((current) => !current)}
-        style={styles.dropdownTrigger}
-      >
-        <Text numberOfLines={1} style={[styles.dropdownValue, selected.length === 0 && styles.dropdownPlaceholder]}>
-          {summary}
-        </Text>
-        <Ionicons name={open ? "chevron-up" : "chevron-down"} size={15} color={Colors.text2} />
-      </TouchableOpacity>
-      {open ? (
-        <View style={styles.dropdownList}>
-          <ScrollView keyboardShouldPersistTaps="handled" nestedScrollEnabled style={styles.dropdownScroll}>
-            {multi ? (
-              <TouchableOpacity accessibilityRole="button" activeOpacity={0.82} onPress={() => selected.forEach((id) => onToggle(id))} style={styles.dropdownOption}>
-                <Text style={[styles.dropdownOptionText, selected.length === 0 && styles.dropdownOptionTextActive]}>{placeholder}</Text>
-                {selected.length === 0 ? <Ionicons name="checkmark" size={18} color={Colors.primaryDark} /> : null}
-              </TouchableOpacity>
-            ) : null}
-            {options.map((option) => {
-              const isSelected = selected.includes(option);
-              return (
-                <TouchableOpacity
-                  key={option}
-                  accessibilityRole={multi ? "checkbox" : "radio"}
-                  accessibilityState={{ checked: isSelected }}
-                  activeOpacity={0.82}
-                  onPress={() => onToggle(option)}
-                  style={styles.dropdownOption}
-                >
-                  <Text numberOfLines={1} style={[styles.dropdownOptionText, isSelected && styles.dropdownOptionTextActive]}>
-                    {option}
-                  </Text>
-                  {isSelected ? <Ionicons name="checkmark" size={18} color={Colors.primaryDark} /> : null}
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-        </View>
-      ) : null}
-    </View>
-  );
+function OptionDropdown({ Colors: _colors, styles: _styles, ...props }: Parameters<typeof SearchableFilterDropdown>[0] & { Colors: ThemeColors; styles: FieldStyles }) {
+  return <SearchableFilterDropdown {...props} />;
 }
 
 function FieldLabel({ children, styles }: { children: string; styles: FieldStyles }) {
@@ -291,11 +225,13 @@ function FieldLabel({ children, styles }: { children: string; styles: FieldStyle
 }
 
 function ServiceFilterFields({
+  categories,
   Colors,
   draft,
   setDraft,
   styles,
 }: {
+  categories: string[];
   Colors: ThemeColors;
   draft: ServiceCatalogFilters;
   setDraft: (updater: (current: ServiceCatalogFilters) => ServiceCatalogFilters) => void;
@@ -303,9 +239,10 @@ function ServiceFilterFields({
 }) {
   return (
     <>
+      <FieldLabel styles={styles}>Category</FieldLabel>
+      <OptionDropdown Colors={Colors} multi onToggle={(id) => setDraft((current) => ({ ...current, category: toggleInList(current.category, id) }))} options={categories} placeholder="All categories" selected={draft.category} styles={styles} />
       <FieldLabel styles={styles}>Duration</FieldLabel>
       <ChipGroup
-        Colors={Colors}
         onToggle={(id) => setDraft((current) => ({ ...current, durationRange: toggleInList(current.durationRange, id) }))}
         options={DURATION_RANGE_OPTIONS}
         selected={draft.durationRange}
@@ -315,7 +252,6 @@ function ServiceFilterFields({
 
       <FieldLabel styles={styles}>Online booking</FieldLabel>
       <ChipGroup
-        Colors={Colors}
         onToggle={(id) => setDraft((current) => ({ ...current, onlineBooking: toggleInList(current.onlineBooking, id) }))}
         options={ONLINE_BOOKING_OPTIONS}
         selected={draft.onlineBooking}
@@ -367,7 +303,6 @@ function ProductFilterFields({
 
       <FieldLabel styles={styles}>Stock</FieldLabel>
       <ChipGroup
-        Colors={Colors}
         onToggle={(id) => setDraft((current) => ({ ...current, stock: toggleSingle(current.stock, id) }))}
         options={PRODUCT_STOCK_OPTIONS}
         selected={draft.stock ? [draft.stock] : []}
@@ -376,7 +311,6 @@ function ProductFilterFields({
 
       <FieldLabel styles={styles}>Product type</FieldLabel>
       <ChipGroup
-        Colors={Colors}
         onToggle={(id) => setDraft((current) => ({ ...current, productType: toggleSingle(current.productType, id) }))}
         options={PRODUCT_TYPE_OPTIONS}
         selected={draft.productType ? [draft.productType] : []}
@@ -414,7 +348,6 @@ function PackageFilterFields({
 
       <FieldLabel styles={styles}>Status</FieldLabel>
       <ChipGroup
-        Colors={Colors}
         onToggle={(id) => setDraft((current) => ({ ...current, status: toggleSingle(current.status, id) }))}
         options={PACKAGE_STATUS_OPTIONS}
         selected={draft.status ? [draft.status] : []}
@@ -441,7 +374,6 @@ function MembershipFilterFields({
     <>
       <FieldLabel styles={styles}>Membership Type</FieldLabel>
       <ChipGroup
-        Colors={Colors}
         onToggle={(id) => setDraft((current) => ({ ...current, pricingType: toggleInList(current.pricingType, id) }))}
         options={MEMBERSHIP_PRICING_TYPE_OPTIONS}
         selected={draft.pricingType}
@@ -450,7 +382,6 @@ function MembershipFilterFields({
 
       <FieldLabel styles={styles}>Applies To</FieldLabel>
       <ChipGroup
-        Colors={Colors}
         onToggle={(id) => setDraft((current) => ({ ...current, appliesTo: toggleInList(current.appliesTo, id) }))}
         options={MEMBERSHIP_APPLIES_TO_OPTIONS}
         selected={draft.appliesTo}
@@ -538,7 +469,6 @@ function ConsumableFilterFields({
 
       <FieldLabel styles={styles}>Stock Status</FieldLabel>
       <ChipGroup
-        Colors={Colors}
         onToggle={(id) => setDraft((current) => ({ ...current, status: toggleInList(current.status, id) }))}
         options={CONSUMABLE_STATUS_OPTIONS}
         selected={draft.status}
@@ -547,7 +477,6 @@ function ConsumableFilterFields({
 
       <FieldLabel styles={styles}>Base Unit</FieldLabel>
       <ChipGroup
-        Colors={Colors}
         onToggle={(id) => setDraft((current) => ({ ...current, unit: toggleInList(current.unit, id) }))}
         options={CONSUMABLE_UNIT_OPTIONS}
         selected={draft.unit}
@@ -556,7 +485,6 @@ function ConsumableFilterFields({
 
       <FieldLabel styles={styles}>Product Type</FieldLabel>
       <ChipGroup
-        Colors={Colors}
         onToggle={(id) => setDraft((current) => ({ ...current, productType: toggleInList(current.productType, id) }))}
         options={CONSUMABLE_PRODUCT_TYPE_OPTIONS}
         selected={draft.productType}
@@ -586,7 +514,7 @@ const createStyles = (colors: ThemeColors) =>
     header: { alignItems: "flex-start", flexDirection: "row", gap: 12, justifyContent: "space-between", padding: Spacing.lg, paddingBottom: Spacing.sm },
     headerCopy: { flex: 1 },
     closeButton: { alignItems: "center", backgroundColor: colors.backgroundElement, borderRadius: AppRadius.control, height: 36, justifyContent: "center", width: 36 },
-    body: { paddingHorizontal: Spacing.lg },
+    body: { paddingHorizontal: Spacing.lg, flexShrink: 1 },
     bodyContent: { paddingBottom: Spacing.md },
     title: { color: colors.heading, fontSize: 12, fontWeight: "800", marginTop: Spacing.md, marginBottom: Spacing.sm },
     subtitle: { color: colors.text2, fontSize: 12, lineHeight: 18, marginTop: 4 },
@@ -596,14 +524,6 @@ const createStyles = (colors: ThemeColors) =>
     chipSelected: { backgroundColor: colors.primaryDark, borderColor: colors.primaryDark },
     chipText: { color: colors.text2, fontSize: 12, fontWeight: "700" },
     chipTextSelected: { color: "#FFFFFF" },
-    dropdownTrigger: { alignItems: "center", backgroundColor: colors.bg2, borderColor: colors.border, borderWidth: 1, borderRadius: Radius.md, flexDirection: "row", gap: Spacing.sm, justifyContent: "space-between", minHeight: 44, paddingHorizontal: 12 },
-    dropdownValue: { color: colors.heading, flex: 1, fontSize: 13, fontWeight: "700" },
-    dropdownPlaceholder: { color: colors.text2, fontWeight: "400" },
-    dropdownList: { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, borderRadius: Radius.md, marginTop: Spacing.sm, overflow: "hidden" },
-    dropdownScroll: { maxHeight: 220 },
-    dropdownOption: { alignItems: "center", borderBottomColor: colors.border, borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: "row", gap: Spacing.sm, justifyContent: "space-between", minHeight: 44, paddingHorizontal: 12, paddingVertical: 10 },
-    dropdownOptionText: { color: colors.text2, flex: 1, fontSize: 13 },
-    dropdownOptionTextActive: { color: colors.heading, fontWeight: "700" },
     footer: { flexDirection: "row", gap: 10, padding: Spacing.lg, paddingTop: Spacing.md },
     resetButton: { flex: 1, alignItems: "center", justifyContent: "center", borderColor: colors.border, borderWidth: 1, borderRadius: Radius.md, backgroundColor: colors.bg2, paddingVertical: 13 },
     applyButton: { flex: 1, alignItems: "center", justifyContent: "center", borderRadius: Radius.md, backgroundColor: colors.primaryDark, paddingVertical: 13 },

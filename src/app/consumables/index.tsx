@@ -1,3 +1,4 @@
+import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
@@ -22,8 +23,7 @@ import { selectCurrentUser } from "@/store/user/user.slice";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { ConsumableListItem } from "@/types/consumable";
 import { canViewConsumableInventory } from "@/utils/permissions";
-
-const money = (value: number) => `Rs. ${value.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+import { formatCurrency as money } from "@/utils/currency";
 
 const DEFAULT_FILTERS: ConsumableFilterValue = {
   productType: [],
@@ -184,7 +184,7 @@ export default function ConsumablesScreen() {
   return (
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
       <AppStatusBar />
-      <FlatList
+      <RefreshViewport><FlatList
         contentContainerStyle={styles.content}
         data={state.consumables}
         keyExtractor={(item) => item.id}
@@ -223,7 +223,7 @@ export default function ConsumablesScreen() {
         }
         renderItem={({ item }) => <ConsumableCard item={item} />}
         showsVerticalScrollIndicator={false}
-      />
+      /></RefreshViewport>
 
       <ConsumableFilterSheet
         availableProductTypes={availableProductTypes}

@@ -1,7 +1,9 @@
+import { RefreshViewport } from "@/components/ui/RefreshViewport";
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, TouchableOpacity, View } from "react-native";
+import { FlatList, RefreshControl, StyleSheet, TouchableOpacity, View } from "react-native";
 import Animated, { FadeInUp, LinearTransition } from "react-native-reanimated";
 
 import { Badge } from "@/components/ui/Badge";
@@ -126,7 +128,11 @@ export function MembershipCatalogTab({ clientId, onSelect, salonId, search }: Me
       ) : items.length === 0 ? (
         <EmptyState description="Try another search." icon="card-outline" title="No memberships found" />
       ) : (
-        <FlatList
+        <RefreshViewport><FlatList
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          nestedScrollEnabled
+          showsVerticalScrollIndicator
           contentContainerStyle={styles.listContent}
           data={items}
           keyExtractor={(item) => `membership-card-${item.id}`}
@@ -142,7 +148,7 @@ export function MembershipCatalogTab({ clientId, onSelect, salonId, search }: Me
           ListFooterComponent={loading ? <ActivityIndicator color={Colors.primary} /> : null}
           removeClippedSubviews
           windowSize={7}
-        />
+        /></RefreshViewport>
       )}
     </View>
   );

@@ -10,7 +10,6 @@ import type {
   SettleCommissionRequest,
   SettleCommissionResponse,
 } from "@/types/salonCommissions";
-import { logApiError } from "@/utils/logApiError";
 
 type RejectValue = {
   message: string;
@@ -32,9 +31,6 @@ export const fetchSalonCommissionSummaryThunk = createAsyncThunk<
   try {
     return await salonCommissionsService.getSummary(range);
   } catch (error) {
-    if (__DEV__) {
-      logApiError("[SalonCommissions] Fetch summary failed", toRejectValue(error));
-    }
 
     return rejectWithValue(toRejectValue(error));
   }
@@ -48,9 +44,6 @@ export const fetchSalonCommissionEarnedThunk = createAsyncThunk<
   try {
     return await salonCommissionsService.getEarned(range);
   } catch (error) {
-    if (__DEV__) {
-      logApiError("[SalonCommissions] Fetch earned failed", toRejectValue(error));
-    }
 
     return rejectWithValue(toRejectValue(error));
   }
@@ -61,22 +54,19 @@ export const settleCommissionThunk = createAsyncThunk<
   SettleCommissionRequest,
   { rejectValue: RejectValue; state: RootState }
 >("salonCommissions/settle", async ({ staffId, amount }, { dispatch, getState, rejectWithValue }) => {
+  let response: SettleCommissionResponse;
   try {
-    const response = await salonCommissionsService.settleCommission(staffId, amount);
-    // Refresh the range currently on screen, not always this month.
-    const range = getState().salonCommissions.range ?? undefined;
-
-    await Promise.all([
-      dispatch(fetchSalonCommissionSummaryThunk(range)),
-      dispatch(fetchSalonCommissionEarnedThunk(range)),
-    ]);
-
-    return response;
+    response = await salonCommissionsService.settleCommission(staffId, amount);
   } catch (error) {
-    if (__DEV__) {
-      logApiError("[SalonCommissions] Settle commission failed", { staffId, amount, ...toRejectValue(error) });
-    }
 
     return rejectWithValue(toRejectValue(error));
   }
+  // A refresh failure happens after the settlement is committed. Keep that
+  // distinction so the UI does not invite the user to pay the same amount twice.
+  const range = getState().salonCommissions.range ?? undefined;
+  const refreshes = await Promise.all([
+    dispatch(fetchSalonCommissionSummaryThunk(range)),
+    dispatch(fetchSalonCommissionEarnedThunk(range)),
+  ]);
+  return { ...response, refreshFailed: fetchSalonCommissionSummaryThunk.rejected.match(refreshes[0]) || fetchSalonCommissionEarnedThunk.rejected.match(refreshes[1]) };
 });

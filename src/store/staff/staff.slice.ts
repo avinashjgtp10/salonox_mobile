@@ -772,8 +772,6 @@ export const selectStaffActiveStatusToggling = (state: RootState, staffId?: stri
   staffId ? state.staff.activeStatusTogglingStaffIds.includes(staffId) : false;
 export const selectStaffActiveStatusTogglingIds = (state: RootState) =>
   state.staff.activeStatusTogglingStaffIds;
-export const selectStaffActiveStatusError = (state: RootState, staffId?: string | null) =>
-  staffId ? state.staff.activeStatusErrorsByStaffId[staffId] ?? null : null;
 export const selectStaffAddressCreateError = (state: RootState, staffId?: string | null) =>
   staffId ? state.staff.addressCreateErrorsByStaffId[staffId] ?? null : null;
 export const selectStaffAddressCreating = (state: RootState, staffId?: string | null) =>
@@ -806,16 +804,6 @@ export const selectEmergencyContactUpdating = (
         getEmergencyContactRecordKey(staffId, recordId),
       )
     : false;
-export const selectEmergencyContactDeleteError = (
-  state: RootState,
-  staffId?: string | null,
-  recordId?: string | null,
-) =>
-  staffId && recordId
-    ? state.staff.emergencyContactDeleteErrorsByRecordKey[
-        getEmergencyContactRecordKey(staffId, recordId)
-      ] ?? null
-    : null;
 export const selectEmergencyContactDeleting = (
   state: RootState,
   staffId?: string | null,
@@ -826,14 +814,6 @@ export const selectEmergencyContactDeleting = (
         getEmergencyContactRecordKey(staffId, recordId),
       )
     : false;
-export const selectStaffAddressDeleteError = (
-  state: RootState,
-  staffId?: string | null,
-  recordId?: string | null,
-) =>
-  staffId && recordId
-    ? state.staff.addressDeleteErrorsByRecordKey[getAddressRecordKey(staffId, recordId)] ?? null
-    : null;
 export const selectStaffAddressDeleting = (
   state: RootState,
   staffId?: string | null,
@@ -858,7 +838,6 @@ export const selectStaffAddressUpdating = (
   staffId && recordId
     ? state.staff.addressUpdatingRecordKeys.includes(getAddressRecordKey(staffId, recordId))
     : false;
-export const selectStaffDeleteError = (state: RootState) => state.staff.deleteError;
 export const selectStaffDeletingIds = (state: RootState) => state.staff.deletingStaffIds;
 export const selectStaffAddressListState = (state: RootState, staffId?: string | null) =>
   staffId ? state.staff.addressListsByStaffId[staffId] : undefined;

@@ -3,7 +3,6 @@ import { createAsyncThunk } from "@reduxjs/toolkit";
 import { ApiError, api, getApiErrorMessage } from "@/services/api";
 import { USER } from "@/services/api/endpoints";
 import { salonService } from "@/services/salon.service";
-import { timeStartup } from "@/services/startupPerformance";
 import type { RootState } from "@/store";
 import type { ApiResponse, AuthUser } from "@/types/auth";
 import { normalizeAuthUser, preserveMobileCalendarAccess, preserveSalonId } from "@/utils/authUser";
@@ -20,7 +19,7 @@ export const fetchCurrentUserThunk = createAsyncThunk<
 >("user/fetchCurrentUser", async (_, { getState, rejectWithValue }) => {
   try {
     const currentUser = getState().user.user;
-    const response = await timeStartup("/users/profile", () => api.get<ApiResponse<AuthUser>>(USER.PROFILE));
+    const response = await api.get<ApiResponse<AuthUser>>(USER.PROFILE);
     const normalizedUser = normalizeAuthUser(response.data.data);
     const mergedUser = preserveMobileCalendarAccess(preserveSalonId(normalizedUser, currentUser), currentUser);
 

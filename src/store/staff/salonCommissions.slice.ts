@@ -128,8 +128,6 @@ export const selectSalonCommissionSummaryLoading = (state: RootState) =>
   state.salonCommissions.summaryLoading;
 export const selectSalonCommissionSummaryError = (state: RootState) =>
   state.salonCommissions.summaryError;
-
-export const selectSalonCommissionEarned = (state: RootState) => state.salonCommissions.earned;
 export const selectSalonCommissionEarnedLoaded = (state: RootState) =>
   state.salonCommissions.earnedLoaded;
 export const selectSalonCommissionEarnedLoading = (state: RootState) =>
@@ -150,7 +148,5 @@ export const selectSalonCommissionRecords = (state: RootState): SalonCommissionR
 
 export const selectCommissionSettling = (state: RootState, staffId?: string | null) =>
   staffId ? state.salonCommissions.settlingStaffIds.includes(staffId) : false;
-export const selectCommissionSettleError = (state: RootState, staffId?: string | null) =>
-  staffId ? state.salonCommissions.settleErrorByStaffId[staffId] ?? null : null;
 
 export default salonCommissionsSlice.reducer;

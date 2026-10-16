@@ -1,3 +1,5 @@
+import { RefreshViewport } from "@/components/ui/RefreshViewport";
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { ConfirmationModal } from "@/components/ui/ConfirmationModal";
 import { TourFlatList, TourView, TourButton, withScreenTour } from "@/features/userGuide/DashboardTour";
@@ -5,7 +7,7 @@ import { screenTours } from "@/features/userGuide/screenTours";
 import { Ionicons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { Modal, Pressable, RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppLayout, AppRadius } from "@/constants/layout";
@@ -30,12 +32,11 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { Membership } from "@/types/membership";
 import { formatAppDate } from "@/utils/dateTime";
+import { formatCurrency as formatMoney } from "@/utils/currency";
 
 type FilterKey = "All" | "Active" | "Expired" | "Expiring Soon";
 
 const FILTERS: FilterKey[] = ["All", "Active", "Expired", "Expiring Soon"];
-
-const formatMoney = (value: number) => `Rs. ${value.toLocaleString("en-IN")}`;
 
 const formatDate = (value: string) => {
   return formatAppDate(value, "-");
@@ -256,7 +257,7 @@ function MembershipsScreenContent() {
   return (
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
       <AppStatusBar />
-      <TourFlatList
+      <RefreshViewport><TourFlatList
         contentContainerStyle={styles.content}
         data={loading && items.length === 0 ? [] : visibleItems}
         keyExtractor={(item) => item.id}
@@ -342,7 +343,7 @@ function MembershipsScreenContent() {
           />
         )}
         showsVerticalScrollIndicator={false}
-      />
+      /></RefreshViewport>
 
       <TourButton tourId="add" activeOpacity={0.9} onPress={() => router.push("/memberships/new" as Href)} style={[styles.fab, { bottom: insets.bottom + 18 }]}>
         <Ionicons name="add" size={28} color="#FFFFFF" />

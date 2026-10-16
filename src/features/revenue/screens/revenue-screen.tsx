@@ -1,13 +1,13 @@
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect, type Href } from "expo-router";
 import { useCallback, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { getApiErrorMessage } from "@/services/api";
-import { dashboardService } from "@/services/dashboard.service";
 import { reportService } from "@/services/report.service";
 import { staffService } from "@/services/staff.service";
 import { fetchReportThunk } from "@/middleware/report/report.thunk";
@@ -15,19 +15,19 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { selectActiveBranchId } from "@/store/branch/branch.slice";
 import { rememberReportFilters } from "@/store/report/report.slice";
 import { useThemeColors } from "@/theme/ThemeProvider";
-import { ReportRangeSheet } from "@/features/reports/components/report-range-sheet";
-import { formatAppDate } from "@/utils/dateTime";
+import { DateRangePickerSheet } from "@/components/ui/DateRangePickerSheet";
+import { dateRangeLabel } from "@/utils/dateRangePresets";
+import { formatCurrency as currency } from "@/utils/currency";
 
 type RevenuePeriod = "monthly" | "today";
 
 type Revenue = {
   revenue: number;
+  billedRevenue: number | null;
   staffRecords: Awaited<ReturnType<typeof reportService.getStaffPerformanceRevenue>>;
   range: { start_date: string; end_date: string };
   staffError: string | null;
 };
-
-const currency = (value: number) => `Rs. ${value.toLocaleString("en-IN")}`;
 
 // Local calendar date — toISOString() is UTC, which in IST rolls back to
 // yesterday before 5:30am and opened the wrong day's report.
@@ -47,10 +47,8 @@ const getReportRange = (period: RevenuePeriod, today = new Date()) => {
 };
 
 const getMonthRange = (value: Date) => {
-  const now = new Date();
-  const isCurrentMonth = value.getFullYear() === now.getFullYear() && value.getMonth() === now.getMonth();
   return {
-    end_date: toIsoDate(isCurrentMonth ? now : new Date(value.getFullYear(), value.getMonth() + 1, 0)),
+    end_date: toIsoDate(new Date(value.getFullYear(), value.getMonth() + 1, 0)),
     start_date: toIsoDate(new Date(value.getFullYear(), value.getMonth(), 1)),
   };
 };
@@ -67,29 +65,34 @@ export default function RevenueScreen({ period }: { period: RevenuePeriod }) {
   const [loading, setLoading] = useState(true);
   const activeRef = useRef(true);
   const requestRef = useRef(0);
+  const loadedContextRef = useRef<string | null>(null);
 
   const load = useCallback(() => {
     const date = new Date();
     const range = period === "today" ? getReportRange(period, date) : monthlyRange;
     const requestId = ++requestRef.current;
+    const context = `${salonId}:${period}:${range.start_date}:${range.end_date}`;
     const isCurrent = () => activeRef.current && requestRef.current === requestId;
 
     setPeriodLabel(
       period === "today"
-        ? formatAppDate(date)
-        : `${formatAppDate(range.start_date, range.start_date)} – ${formatAppDate(range.end_date, range.end_date)}`,
+        ? "Today"
+        : dateRangeLabel(range.start_date, range.end_date),
     );
-    setLoading(true);
+    if (loadedContextRef.current !== context) {
+      setLoading(true);
+      setRevenue(null);
+    }
     setError(null);
-    setRevenue(null);
 
-    const dashboardDate = period === "today" ? date : new Date(`${range.start_date}T12:00:00`);
-    void dashboardService.getOwnerDashboard(dashboardDate, salonId)
-      .then(async (dashboard) => {
+    const totalRequest = reportService.getRevenueSummary(range);
+    void totalRequest
+      .then(async (summary) => {
         let staffRecords: Revenue["staffRecords"] = [];
         let staffError: string | null = null;
 
         try {
+          const revenueRecords = await reportService.getStaffPerformanceRevenue(range, true);
           const allStaff = [];
           let page = 1;
           while (true) {
@@ -102,7 +105,6 @@ export default function RevenueScreen({ period }: { period: RevenuePeriod }) {
             page = result.pagination.nextPage;
           }
 
-          const revenueRecords = await reportService.getStaffPerformanceRevenue(range, true);
           const revenueByStaffId = new Map(revenueRecords.map((staff) => [staff.id, staff.revenue]));
           staffRecords = allStaff.map((staff) => ({
             id: staff.id,
@@ -114,12 +116,11 @@ export default function RevenueScreen({ period }: { period: RevenuePeriod }) {
         }
 
         if (isCurrent()) {
+          loadedContextRef.current = context;
           setRevenue({
             range,
-            revenue:
-              period === "today"
-                ? dashboard.metrics.todaysRevenue
-                : dashboard.metrics.monthlyRevenue,
+            revenue: summary.collected,
+            billedRevenue: summary.billed,
             staffError,
             staffRecords,
           });
@@ -158,7 +159,7 @@ export default function RevenueScreen({ period }: { period: RevenuePeriod }) {
           <Ionicons name="arrow-back" size={24} color={colors.heading} />
         </Pressable>
         <Text style={[styles.title, { color: colors.heading }]}>
-          {period === "today" ? "Today's Revenue" : `${formatAppDate(`${monthlyRange.start_date}T12:00:00`)} Revenue`}
+          {period === "today" ? "Today's Revenue" : "Revenue"}
         </Text>
       </View>
       <ScrollView contentContainerStyle={styles.content}>
@@ -170,7 +171,8 @@ export default function RevenueScreen({ period }: { period: RevenuePeriod }) {
             <Ionicons name="chevron-down" size={16} color={colors.hint} />
           </Pressable>
         ) : <Text style={{ color: colors.text2 }}>{periodLabel}</Text>}
-        {loading ? <ActivityIndicator accessibilityLabel="Loading revenue" color={colors.primary} /> : error ? (
+        {error && revenue && <Text style={{ color: colors.error }}>{error}</Text>}
+        {loading ? <ActivityIndicator accessibilityLabel="Loading revenue" color={colors.primary} /> : error && !revenue ? (
           <View style={styles.card}>
             <Text style={{ color: colors.error }}>{error}</Text>
             <Pressable accessibilityRole="button" onPress={load}>
@@ -181,13 +183,14 @@ export default function RevenueScreen({ period }: { period: RevenuePeriod }) {
           <>
             <View style={[styles.card, { backgroundColor: colors.card }]}>
               <Text style={{ color: colors.text2 }}>
-                {period === "today" ? "Today's Revenue" : `${formatAppDate(`${monthlyRange.start_date}T12:00:00`)} Revenue`}
+                Collected revenue
               </Text>
               <Text style={[styles.total, { color: colors.heading }]}>{currency(revenue.revenue)}</Text>
+              <Text style={{ color: colors.text2 }}>Billed revenue including GST: {revenue.billedRevenue === null ? "Unavailable" : currency(revenue.billedRevenue)}</Text>
             </View>
             <Text style={[styles.title, { color: colors.heading }]}>Staff Performance</Text>
             <Text style={{ color: colors.text2 }}>
-              Item revenue including GST, as in Staff Performance. The salon total above shows collections.
+              Billed item revenue including GST, using the same report as the web app. Collections are shown separately above.
             </Text>
             {revenue.staffError ? (
               <View style={[styles.card, { backgroundColor: colors.card }]}>
@@ -223,11 +226,12 @@ export default function RevenueScreen({ period }: { period: RevenuePeriod }) {
         ) : null}
       </ScrollView>
       {period === "monthly" ? (
-        <ReportRangeSheet
-          endDate={null}
-          mode="single"
-          onApply={(selectedDate) => {
-            if (selectedDate) setMonthlyRange(getMonthRange(new Date(`${selectedDate}T12:00:00`)));
+        <DateRangePickerSheet
+          endDate={monthlyRange.end_date}
+          mode="range"
+          title="Revenue date range"
+          onApply={(start, end) => {
+            if (start && end) setMonthlyRange({ start_date: start, end_date: end });
             setRangeSheetVisible(false);
           }}
           onClose={() => setRangeSheetVisible(false)}

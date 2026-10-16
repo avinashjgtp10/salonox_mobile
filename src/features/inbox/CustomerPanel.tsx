@@ -1,7 +1,8 @@
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { maskPhone } from "@/utils/maskPhone";
 import { Text } from "@/components/ui/AppTypography";
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, TouchableOpacity, View } from "react-native";
+import { ScrollView, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
 import { inboxService } from "@/services/inbox.service";
@@ -11,6 +12,7 @@ import type { InboxCustomer } from "@/types/inbox";
 import type { ClientPackage } from "@/types/package";
 import { inboxAvatar } from "@/utils/inboxPresentation";
 import { formatAppDate } from "@/utils/dateTime";
+import { formatCurrency } from "@/utils/currency";
 import { useInboxTheme } from "./inboxTheme";
 
 const dateLabel = (value: string | null) => formatAppDate(value, "—");
@@ -60,7 +62,7 @@ export function CustomerPanel({ phone, onClose }: { phone: string; onClose: () =
         </View>
         <View style={s.stats}>
           {[
-            ["Total Visits", String(customer.totalVisits)], ["Total Spend", `₹${customer.lifetimeSpend.toLocaleString("en-IN")}`],
+            ["Total Visits", String(customer.totalVisits)], ["Total Spend", formatCurrency(customer.lifetimeSpend)],
             ["Last Visit", dateLabel(customer.lastVisitDate)], ["Member", customer.membershipName || "No"],
           ].map(([label, value]) => <View key={label} style={s.stat}><Text style={s.muted}>{label}</Text><Text style={[s.heading, label === "Total Spend" && s.accentText]}>{value}</Text></View>)}
         </View>

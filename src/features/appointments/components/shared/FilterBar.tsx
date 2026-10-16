@@ -14,6 +14,7 @@ import { useMemo, useState } from "react";
 import { Modal, Platform, Pressable, ScrollView, TouchableOpacity, View } from "react-native";
 
 export function FilterBar({
+  compact,
   date,
   onDateChange,
   onSearchChange,
@@ -23,6 +24,10 @@ export function FilterBar({
   searchResults,
   status,
 }: {
+  // Hides the search bar, the filter toggle button, and the "All" chip —
+  // used on the dashboard's Appointments page, which only needs the quick
+  // Today/Upcoming/Completed/Cancelled chips.
+  compact?: boolean;
   date: string;
   onDateChange: (value: string) => void;
   onSearchChange: (value: string) => void;
@@ -64,84 +69,86 @@ export function FilterBar({
 
   return (
     <View style={styles.filterPanel}>
-      <WeekDayStrip date={date} onSelect={onDateChange} />
+      {compact ? null : <WeekDayStrip date={date} onSelect={onDateChange} />}
 
-      <View style={styles.appointmentSearchRow}>
-        <View style={[styles.appointmentSearchGroup, styles.appointmentSearchGroupFlex]}>
-          <TourView tourId="search" style={styles.searchWrap}>
-            <Ionicons name="search-outline" size={18} color={Colors.text2} />
-            <TextInput
-              onBlur={() => setIsSearchFocused(false)}
-              onChangeText={onSearchChange}
-              onFocus={() => setIsSearchFocused(true)}
-              placeholder="Search client, service, staff or phone"
-              placeholderTextColor={Colors.placeholder}
-              style={styles.searchInput}
-              value={search}
-            />
-            {search ? (
-              <TouchableOpacity onPress={() => onSearchChange("")}>
-                <Ionicons name="close-circle" size={18} color={Colors.text2} />
-              </TouchableOpacity>
+      {compact ? null : (
+        <View style={styles.appointmentSearchRow}>
+          <View style={[styles.appointmentSearchGroup, styles.appointmentSearchGroupFlex]}>
+            <TourView tourId="search" style={styles.searchWrap}>
+              <Ionicons name="search-outline" size={18} color={Colors.text2} />
+              <TextInput
+                onBlur={() => setIsSearchFocused(false)}
+                onChangeText={onSearchChange}
+                onFocus={() => setIsSearchFocused(true)}
+                placeholder="Search client, service, staff or phone"
+                placeholderTextColor={Colors.placeholder}
+                style={styles.searchInput}
+                value={search}
+              />
+              {search ? (
+                <TouchableOpacity onPress={() => onSearchChange("")}>
+                  <Ionicons name="close-circle" size={18} color={Colors.text2} />
+                </TouchableOpacity>
+              ) : null}
+            </TourView>
+
+            {showDropdown ? (
+              <View style={styles.appointmentSearchDropdown}>
+                {searchResults.length === 0 ? (
+                  <View style={styles.appointmentSearchEmpty}>
+                    <Text style={styles.appointmentSearchEmptyText}>
+                      No matching appointments.
+                    </Text>
+                  </View>
+                ) : (
+                  <ScrollView
+                    keyboardShouldPersistTaps="handled"
+                    style={styles.appointmentSearchDropdownScroll}
+                  >
+                    {searchResults.map((appointment) => (
+                      <TouchableOpacity
+                        key={appointment.id}
+                        activeOpacity={0.75}
+                        onPress={() => {
+                          setIsSearchFocused(false);
+                          onSelectSearchResult?.(appointment);
+                        }}
+                        style={styles.appointmentSearchItem}
+                      >
+                        <Text numberOfLines={1} style={styles.appointmentSearchItemTitle}>
+                          {appointment.clientName}
+                        </Text>
+                        <Text numberOfLines={1} style={styles.appointmentSearchItemMeta}>
+                          {[
+                            formatTimeLabel(appointment.scheduledAt),
+                            appointment.serviceName,
+                            appointment.staffName,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                )}
+              </View>
             ) : null}
-          </TourView>
+          </View>
 
-          {showDropdown ? (
-            <View style={styles.appointmentSearchDropdown}>
-              {searchResults.length === 0 ? (
-                <View style={styles.appointmentSearchEmpty}>
-                  <Text style={styles.appointmentSearchEmptyText}>
-                    No matching appointments.
-                  </Text>
-                </View>
-              ) : (
-                <ScrollView
-                  keyboardShouldPersistTaps="handled"
-                  style={styles.appointmentSearchDropdownScroll}
-                >
-                  {searchResults.map((appointment) => (
-                    <TouchableOpacity
-                      key={appointment.id}
-                      activeOpacity={0.75}
-                      onPress={() => {
-                        setIsSearchFocused(false);
-                        onSelectSearchResult?.(appointment);
-                      }}
-                      style={styles.appointmentSearchItem}
-                    >
-                      <Text numberOfLines={1} style={styles.appointmentSearchItemTitle}>
-                        {appointment.clientName}
-                      </Text>
-                      <Text numberOfLines={1} style={styles.appointmentSearchItemMeta}>
-                        {[
-                          formatTimeLabel(appointment.scheduledAt),
-                          appointment.serviceName,
-                          appointment.staffName,
-                        ]
-                          .filter(Boolean)
-                          .join(" · ")}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              )}
-            </View>
-          ) : null}
+          <TourButton tourId="filters"
+            accessibilityLabel={isStatusRowVisible ? "Hide status filters" : "Show status filters"}
+            activeOpacity={0.82}
+            onPress={() => setIsStatusRowVisible((current) => !current)}
+            style={[styles.filterToggleButton, isStatusRowVisible && styles.filterToggleButtonActive]}
+          >
+            <Ionicons
+              name="options-outline"
+              size={18}
+              color={isStatusRowVisible ? "#FFFFFF" : Colors.text2}
+            />
+          </TourButton>
         </View>
-
-        <TourButton tourId="filters"
-          accessibilityLabel={isStatusRowVisible ? "Hide status filters" : "Show status filters"}
-          activeOpacity={0.82}
-          onPress={() => setIsStatusRowVisible((current) => !current)}
-          style={[styles.filterToggleButton, isStatusRowVisible && styles.filterToggleButtonActive]}
-        >
-          <Ionicons
-            name="options-outline"
-            size={18}
-            color={isStatusRowVisible ? "#FFFFFF" : Colors.text2}
-          />
-        </TourButton>
-      </View>
+      )}
 
       <TourButton tourId="date"
         activeOpacity={0.82}
@@ -186,10 +193,30 @@ export function FilterBar({
         </Modal>
       ) : null}
 
-      {isStatusRowVisible ? (
+      {isStatusRowVisible || compact ? (
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <View style={styles.chipRow}>
-            {STATUS_FILTERS.map((filter) => {
+            {compact ? null : (
+              <TouchableOpacity
+                activeOpacity={0.82}
+                onPress={() => onStatusChange("All")}
+                style={[styles.chip, status === "All" && styles.chipActive]}
+              >
+                <Text style={[styles.chipText, status === "All" && styles.chipTextActive]}>
+                  All
+                </Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              activeOpacity={0.82}
+              onPress={() => onDateChange(todayIsoDate())}
+              style={[styles.chip, date === todayIsoDate() && styles.chipActive]}
+            >
+              <Text style={[styles.chipText, date === todayIsoDate() && styles.chipTextActive]}>
+                Today
+              </Text>
+            </TouchableOpacity>
+            {STATUS_FILTERS.filter((filter) => filter !== "All").map((filter) => {
               const isActive = filter === status;
 
               return (

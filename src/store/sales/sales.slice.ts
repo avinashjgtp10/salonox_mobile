@@ -9,6 +9,7 @@ import {
   fetchSalesInitThunk,
   fetchSalesSummaryThunk,
   fetchSalesThunk,
+  salesListInvalidated,
   updateSaleThunk,
   type FetchSalesArgs,
 } from "@/middleware/sales/sales.thunk";
@@ -132,6 +133,14 @@ const salesSlice = createSlice({
   reducers: {},
   extraReducers: (builder) => {
     builder
+      .addCase(salesListInvalidated, (state) => {
+        state.sales = [];
+        state.totalCount = 0;
+        state.currentRequestId = null;
+        state.listLoading = false;
+        state.listLoadingMore = false;
+        state.listRefreshing = false;
+      })
       .addCase(fetchSalesInitThunk.pending, (state, action) => {
         const isRefresh = Boolean(action.meta.arg?.refresh) && state.data !== null;
 
@@ -304,8 +313,6 @@ const salesSlice = createSlice({
 export const selectSalesInitData = (state: RootState) => state.sales.data;
 export const selectSalesInitError = (state: RootState) => state.sales.error;
 export const selectSalesInitLoading = (state: RootState) => state.sales.loading;
-export const selectSalesInitRefreshing = (state: RootState) => state.sales.refreshing;
-export const selectSalesInitStatus = (state: RootState) => state.sales.status;
 
 export const selectSales = (state: RootState) => state.sales.sales;
 export const selectSalesListError = (state: RootState) => state.sales.listError;
@@ -320,20 +327,8 @@ export const selectSaleDetail = (state: RootState) => state.sales.detail;
 export const selectSaleDetailLoading = (state: RootState) => state.sales.detailLoading;
 export const selectSaleDetailError = (state: RootState) => state.sales.detailError;
 
-export const selectSaleSaving = (state: RootState) => state.sales.saving;
-export const selectSaleSaveError = (state: RootState) => state.sales.saveError;
-export const selectSaleCheckingOut = (state: RootState) => state.sales.checkingOut;
-export const selectSaleCheckoutError = (state: RootState) => state.sales.checkoutError;
-
 export const selectSaleDeletingIds = (state: RootState) => state.sales.deletingSaleIds;
-export const selectSaleDeleteError = (state: RootState) => state.sales.deleteError;
 
 export const selectSalesSummary = (state: RootState) => state.sales.summary;
-export const selectSalesSummaryLoading = (state: RootState) => state.sales.summaryLoading;
-export const selectSalesSummaryError = (state: RootState) => state.sales.summaryError;
-
-export const selectSalesExporting = (state: RootState) => state.sales.exporting;
-export const selectSalesExportError = (state: RootState) => state.sales.exportError;
-export const selectSalesExportFormat = (state: RootState) => state.sales.exportFormat;
 
 export default salesSlice.reducer;

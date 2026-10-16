@@ -24,6 +24,7 @@ export type FilterableCatalogItem = {
 // ---- Per-tab filter shapes, matching the web app's catalog filter panels field-for-field. ----
 
 export type ServiceCatalogFilters = {
+  category: string[];
   durationRange: string[]; // "0-30" | "30-60" | "60-120" | "120+"
   onlineBooking: string[]; // "Enabled" | "Disabled"
 };
@@ -122,6 +123,7 @@ export const CONSUMABLE_PRODUCT_TYPE_OPTIONS: CatalogFilterOption[] = [
 ];
 
 export const emptyServiceCatalogFilters = (): ServiceCatalogFilters => ({
+  category: [],
   durationRange: [],
   onlineBooking: [],
 });
@@ -214,12 +216,13 @@ const matchesStockBucket = (
 
   if (bucket === "out") return qty <= 0;
   if (bucket === "low") return qty > 0 && qty <= threshold;
-  if (bucket === "in") return qty > threshold;
+  if (bucket === "in") return qty > 0;
 
   return true;
 };
 
 export function matchesServiceFilters(item: FilterableCatalogItem, filters: ServiceCatalogFilters): boolean {
+  if (filters.category.length && !filters.category.includes(catalogCategoryLabel(item.category))) return false;
   if (filters.durationRange.length && !filters.durationRange.some((range) => matchesDurationBucket(item.durationMinutes, range))) {
     return false;
   }
@@ -266,6 +269,7 @@ export const consumableStatusBucket = (item: FilterableCatalogItem): string => {
   if (!item.isActive) return "deactivated";
   if (item.rawStatus === "out_of_stock") return "out_of_stock";
   if (item.rawStatus === "low_stock") return "low";
+  if (item.rawStatus === "healthy") return "healthy";
 
   const qty = item.stockQuantity ?? 0;
   if (qty <= 0) return "out_of_stock";
@@ -305,7 +309,7 @@ export function countCatalogFilters(tab: CatalogTab, filters: CatalogFilterValue
   switch (tab) {
     case "services": {
       const f = filters as ServiceCatalogFilters;
-      return Number(f.durationRange.length > 0) + Number(f.onlineBooking.length > 0);
+      return Number(f.category.length > 0) + Number(f.durationRange.length > 0) + Number(f.onlineBooking.length > 0);
     }
     case "products": {
       const f = filters as ProductCatalogFilters;

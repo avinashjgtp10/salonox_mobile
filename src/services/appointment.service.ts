@@ -8,6 +8,8 @@ import { normalizeSaleId } from "@/utils/apiNormalize";
 import type {
   AppointmentApiClient,
   AppointmentApiItem,
+  AppointmentApiService,
+  AppointmentBilledItem,
   AppointmentDetailApiData,
   AppointmentDetailResponse,
   AppointmentHistoryResponse,
@@ -226,7 +228,6 @@ export const toAppointmentStatus = (value: unknown): AppointmentStatus => {
     default:
       if (rawStatus && !warnedUnknownStatuses.has(rawStatus)) {
         warnedUnknownStatuses.add(rawStatus);
-        console.warn("[Appointments] Unknown appointment status received", { status: rawStatus });
       }
 
       return "Unknown";
@@ -285,6 +286,64 @@ const getService = (appointment: AppointmentApiItem) => {
     name: serviceName,
     price: servicePrice,
   };
+};
+
+const BILLED_ITEM_STATUSES = new Set(["pending", "in_progress", "completed"]);
+
+const toBilledItems = (
+  items: AppointmentApiService[] | null | undefined,
+  type: AppointmentBilledItem["type"],
+): AppointmentBilledItem[] =>
+  (items ?? [])
+    .map((item) => ({
+      id: toSafeString(item?.id) || null,
+      name: toSafeString(item?.name) || toSafeString(item?.title),
+      price: toSafeNumber(item?.total) || toSafeNumber(item?.price),
+      totalAmount: item?.total != null
+        ? toSafeNumber(item.total)
+        : toSafeNumber(item?.price) * (toSafeNumber(item?.quantity) || toSafeNumber(item?.qty) || 1),
+      quantity: toSafeNumber(item?.quantity) || toSafeNumber(item?.qty) || 1,
+      staffId: toSafeString(item?.staff_id) || null,
+      staffName: toSafeString(item?.staff_name) || null,
+      status: BILLED_ITEM_STATUSES.has(item?.status ?? "") ? (item!.status as AppointmentBilledItem["status"]) : null,
+      type,
+    }))
+    .filter((item) => item.name);
+
+// Products/packages/memberships bought alongside (or instead of) a service
+// live on these same JSONB columns as `services` — populated at checkout —
+// so this reads straight off the appointment response with no extra Sale
+// fetch. Falls back to the single getService() summary only when none of
+// these arrays carried anything (e.g. a legacy/unpaid appointment).
+const getBilledItems = (
+  appointment: AppointmentApiItem,
+  fallbackService: ReturnType<typeof getService>,
+): AppointmentBilledItem[] => {
+  const items = [
+    ...toBilledItems(appointment.services, "service"),
+    ...toBilledItems(appointment.product_items, "product"),
+    ...toBilledItems(appointment.package_items, "package"),
+    ...toBilledItems(appointment.membership_items, "membership"),
+  ];
+
+  if (items.length) {
+    return items;
+  }
+
+  if (fallbackService.name && fallbackService.name !== "Service not selected") {
+    return [{
+      id: fallbackService.id || null,
+      name: fallbackService.name,
+      price: fallbackService.price,
+      quantity: 1,
+      staffId: null,
+      staffName: null,
+      status: null,
+      type: "service",
+    }];
+  }
+
+  return [];
 };
 
 const getAppointmentArray = (payload: AppointmentListApiData) => {
@@ -378,6 +437,7 @@ export const normalizeAppointment = (
 
   return {
     amount,
+    billedItems: getBilledItems(appointment, service),
     cancelledAt,
     cancellationReason: toSafeString(appointment.cancellation_reason) || toSafeString(appointment.cancel_reason),
     clientEmail: toSafeString(appointment.client?.email),
@@ -453,6 +513,10 @@ const fetchAppointmentList = async (
   const response = await api.get<AppointmentListApiResponse>(APPOINTMENT.LIST, {
     params: {
       ...query,
+      // The list endpoint filters ranges by start_date/end_date only; the
+      // calendar's week view sends from_date/to_date, which it ignored.
+      ...(query.start_date ?? query.from_date ? { start_date: query.start_date ?? query.from_date } : {}),
+      ...(query.end_date ?? query.to_date ? { end_date: query.end_date ?? query.to_date } : {}),
       ...(salonId ? { salon_id: salonId } : {}),
     },
   });
@@ -602,10 +666,6 @@ export const appointmentService = {
       (requestPayload as typeof requestPayload & { status?: string }).status = rawStatus;
     }
 
-    if (__DEV__) {
-      console.log("[Appointments] Final create payload", JSON.stringify(requestPayload, null, 2));
-    }
-
     const response = await api.post<AppointmentDetailApiResponse>(APPOINTMENT.CREATE, requestPayload, {
       timeout: CHECKOUT_REQUEST_TIMEOUT_MS,
     });
@@ -675,6 +735,40 @@ export const appointmentService = {
     const response = await api.patch<AppointmentDetailApiResponse>(
       APPOINTMENT.UPDATE(appointmentId),
       { status: "paid" },
+    );
+    return {
+      appointment: normalizeAppointment(getAppointmentFromPayload(response.data.data)),
+      message: response.data.message,
+    };
+  },
+
+  // Staff handoff workflow — a per-row (service/package/membership)
+  // progress tracker, deliberately separate from startAppointment/
+  // completeAppointment above (those write the appointment's own payment
+  // `status`; these two never touch it).
+  async updateItemStatus(
+    appointmentId: string,
+    itemId: string,
+    status: "in_progress" | "completed",
+  ): Promise<AppointmentMutationResponse> {
+    const response = await api.patch<AppointmentDetailApiResponse>(
+      APPOINTMENT.ITEM_STATUS(appointmentId, itemId),
+      { status },
+    );
+    return {
+      appointment: normalizeAppointment(getAppointmentFromPayload(response.data.data)),
+      message: response.data.message,
+    };
+  },
+
+  async handoffItem(
+    appointmentId: string,
+    itemId: string,
+    toStaffId: string,
+  ): Promise<AppointmentMutationResponse> {
+    const response = await api.post<AppointmentDetailApiResponse>(
+      APPOINTMENT.HANDOFF_ITEM(appointmentId, itemId),
+      { to_staff_id: toStaffId },
     );
     return {
       appointment: normalizeAppointment(getAppointmentFromPayload(response.data.data)),

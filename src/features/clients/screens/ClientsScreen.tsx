@@ -1,3 +1,5 @@
+import { RefreshViewport } from "@/components/ui/RefreshViewport";
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { maskPhone } from "@/utils/maskPhone";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { appAlert as Alert } from "@/services/appAlert";
@@ -6,7 +8,7 @@ import { screenTours } from "@/features/userGuide/screenTours";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect, type Href } from "expo-router";
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, Modal, Pressable, RefreshControl, StyleSheet, TouchableOpacity, View } from "react-native";
+import { FlatList, Modal, Pressable, RefreshControl, StyleSheet, TouchableOpacity, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 import Animated, { FadeInDown, LinearTransition } from "react-native-reanimated";
@@ -500,15 +502,7 @@ function ClientsScreenContent() {
     fetchClientList({ refresh: true });
   };
 
-  const warnInvalidClientId = (client: ClientListItem, action: string) => {
-    if (__DEV__) {
-      console.warn("[Clients] Prevented client action because API row has no valid UUID", {
-        action,
-        clientId: client.id,
-        fullName: client.fullName,
-      });
-    }
-
+  const warnInvalidClientId = () => {
     Alert.alert(
       "Unable to open client",
       "This client record is missing a valid backend ID. Refresh the list and try again.",
@@ -517,7 +511,7 @@ function ClientsScreenContent() {
 
   const handleOpenClient = (client: ClientListItem) => {
     if (!client.hasValidId) {
-      warnInvalidClientId(client, "open");
+      warnInvalidClientId();
       return;
     }
 
@@ -526,7 +520,7 @@ function ClientsScreenContent() {
 
   const handleEditClient = (client: ClientListItem) => {
     if (!client.hasValidId) {
-      warnInvalidClientId(client, "edit");
+      warnInvalidClientId();
       return;
     }
 
@@ -548,7 +542,7 @@ function ClientsScreenContent() {
 
   const handleDeleteClient = (client: ClientListItem) => {
     if (!client.hasValidId) {
-      warnInvalidClientId(client, "delete");
+      warnInvalidClientId();
       return;
     }
 
@@ -587,7 +581,7 @@ function ClientsScreenContent() {
       <SafeAreaView edges={["top"]} style={styles.safeArea}>
         <AppStatusBar />
 
-        <TourFlatList
+        <RefreshViewport><TourFlatList
           ListEmptyComponent={
             showInitialLoading ? (
               <View>
@@ -735,7 +729,7 @@ function ClientsScreenContent() {
           removeClippedSubviews
           showsVerticalScrollIndicator={false}
           windowSize={8}
-        />
+        /></RefreshViewport>
 
         <View style={[styles.stickyButtonWrap, { bottom: insets.bottom + 12 }]}>
           <TourButton tourId="add"

@@ -41,6 +41,23 @@ const splitIsoDate = (isoDate: string) => {
   return { day: Number(match[3]), month: Number(match[2]) };
 };
 
+// The API stores the national number and country code separately, but the form
+// (PhoneInput and validation) works in E.164, e.g. +919876543210.
+export const toFormPhone = (phone: string, countryCode?: string) => {
+  const trimmed = phone === "-" ? "" : phone.trim();
+  if (!trimmed || trimmed.startsWith("+")) return trimmed;
+  const dialCode = countryCode?.replace(/\D/g, "") || "91";
+  return `+${dialCode}${trimmed.replace(/\D/g, "")}`;
+};
+
+export const toPhoneCountry = (e164Phone: string) => {
+  try {
+    return (e164Phone && parsePhoneNumber(e164Phone).country) || "IN";
+  } catch {
+    return "IN";
+  }
+};
+
 const mapPhoneToRequest = (e164Phone: string) => {
   const trimmedPhone = e164Phone.trim();
 
@@ -74,15 +91,14 @@ export const mapStaffFormToRequest = (
     avatar_url: trimValue(values.avatarUrl),
     birthday_day: dob?.day,
     birthday_month: dob?.month,
-    email: trimValue(values.email),
+    // Login matches lowercase emails; keep staff emails lowercase too.
+    email: trimValue(values.email)?.toLowerCase(),
     first_name: name.first_name,
     gender: trimValue(values.gender),
     holidays: values.holidays.trim() ? Number(values.holidays) : undefined,
     job_title: trimValue(values.designation),
     joined_date: trimValue(values.joiningDate),
     last_name: name.last_name,
-    login_access: values.isLoginEnabled,
-    notes: trimValue(values.notes),
     permission_level: ROLE_TO_PERMISSION_LEVEL[values.roleLevel] ?? "low",
     phone,
     phone_country_code: phoneCountryCode,
@@ -115,14 +131,8 @@ export const mapStaffWagesToRequest = (values: StaffProfileFormValues): SetStaff
 export const mapStaffAddressFormToRequest = (
   values: StaffAddressFormValues,
 ): Omit<CreateStaffAddressRequest, "salon_id"> => ({
-  ...values,
-  address: trimValue(values.address),
-  address_line: trimValue(values.address_line),
-  city: trimValue(values.city),
-  country: trimValue(values.country),
-  postal_code: trimValue(values.postal_code),
-  state: trimValue(values.state),
-  type: trimValue(values.type),
+  address_name: values.address_name.trim(),
+  address: values.address.trim(),
 });
 
 export const mapEmergencyContactFormToRequest = (values: EmergencyContactFormValues) => {
@@ -130,12 +140,9 @@ export const mapEmergencyContactFormToRequest = (values: EmergencyContactFormVal
   const phone = trimValue(values.phone) ?? trimValue(values.phoneNumber);
 
   return {
-    ...(trimValue(values.address) ? { address: trimValue(values.address) } : {}),
     ...(trimValue(values.email) ? { email: trimValue(values.email) } : {}),
-    ...(fullName ? { fullName, name: fullName } : {}),
-    ...(typeof values.isPrimary === "boolean" ? { isPrimary: values.isPrimary } : {}),
-    ...(trimValue(values.notes) ? { notes: trimValue(values.notes) } : {}),
-    ...(phone ? { phone, phoneNumber: phone } : {}),
-    ...(trimValue(values.relationship) ? { relationship: trimValue(values.relationship) } : {}),
+    ...(fullName ? { full_name: fullName } : {}),
+    ...(phone ? { phone_number: phone } : {}),
+    ...(trimValue(values.relationship) ? { relationship: trimValue(values.relationship)?.toLowerCase() } : {}),
   };
 };

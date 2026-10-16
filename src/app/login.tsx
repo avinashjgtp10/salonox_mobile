@@ -1,9 +1,10 @@
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { KeyboardAwareForm, type KeyboardAwareFormHandle } from "@/components/ui/KeyboardAwareForm";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Animated, Image, Pressable, StatusBar, StyleSheet, View } from "react-native";
+import { Animated, Image, Pressable, StatusBar, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "@/context/AuthContext";
@@ -86,7 +87,16 @@ export default function LoginScreen() {
     clearFeedback();
     try {
       loginInFlight.current = true;
-      const authData = await signIn({ email: trimmedIdentifier.toLowerCase(), password });
+      const email = trimmedIdentifier.toLowerCase();
+      let authData;
+      try {
+        authData = await signIn({ email, password });
+      } catch (firstError) {
+        // Staff passwords are saved trimmed, and keyboards often add a trailing
+        // space. Retry once without outer spaces before calling it wrong.
+        if (!isInvalidCredentialsError(firstError) || password.trim() === password || !password.trim()) throw firstError;
+        authData = await signIn({ email, password: password.trim() });
+      }
       setFailedLoginAttempts(0);
       router.replace(resolveLoginRoute(authData));
     } catch (loginError) {
@@ -115,7 +125,7 @@ export default function LoginScreen() {
   return (
     <View style={styles.screen}>
       <StatusBar backgroundColor="#131210" barStyle="light-content" />
-      <KeyboardAwareForm ref={formRef}>
+      <KeyboardAwareForm ref={formRef} scrollEnabled={false}>
       <View pointerEvents="none" style={styles.hero}>
         <Image resizeMode="cover" source={require("../../assets/images/auth/floral-line-art.png")} style={styles.heroPattern} />
         <SafeAreaView edges={["top"]} style={styles.heroSafeArea}>
@@ -170,6 +180,11 @@ export default function LoginScreen() {
                 <TextInput
                   autoCapitalize="none"
                   autoComplete="password"
+                  // With the eye toggle on, the field is plain text: without these the
+                  // keyboard autocorrects the password or appends a space after a
+                  // suggestion, and the server rightly rejects it as wrong.
+                  autoCorrect={false}
+                  spellCheck={false}
                   onChangeText={(value) => { setPassword(value); clearFeedback(); }}
                   onFocus={() => formRef.current?.revealField(passwordFieldRef.current)}
                   onTouchEnd={() => formRef.current?.revealField(passwordFieldRef.current)}

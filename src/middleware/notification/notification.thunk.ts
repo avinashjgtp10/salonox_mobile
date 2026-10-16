@@ -157,7 +157,15 @@ export const clearAllNotificationsThunk = createAsyncThunk<
   try {
     if (!ids.length) return [];
     const unreadIds = ids.filter(id => !state.notification.notifications.find(item => item.id === id)?.isRead);
-    await Promise.all(unreadIds.map(id => dispatch(markNotificationReadThunk(id)).unwrap()));
+    if (isStaffExperienceUser(selectCurrentUser(state))) {
+      await Promise.all(unreadIds.map(id => dispatch(markNotificationReadThunk(id)).unwrap()));
+    } else if (unreadIds.length) {
+      // The list endpoint only returns the latest 30 rows, so marking just
+      // the ones loaded here can leave older unread rows on the server and
+      // the bell badge stuck above zero. Mark everything read server-side
+      // instead of looping over this (possibly partial) local list.
+      await notificationService.markAllAsRead();
+    }
     await notificationLocalStorage.removeMany(scope, ids);
     void dispatch(fetchUnreadCountThunk());
     return ids;
@@ -208,11 +216,9 @@ export const registerDeviceThunk = createAsyncThunk<
   { rejectValue: RejectValue; state: RootState }
 >("notification/registerDevice", async (payload, { rejectWithValue }) => {
   try {
-    console.log("[PushNotifications] notification.thunk entered");
     const token = payload.token.trim();
 
     if (!token) {
-      console.warn("[PushNotifications] notification.thunk blocked empty token");
       return rejectWithValue({ message: "Expo push token is empty; device registration was skipped." });
     }
 
@@ -222,12 +228,10 @@ export const registerDeviceThunk = createAsyncThunk<
         ...payload,
         token,
       });
-      console.log("[PushNotifications] notification.thunk response received");
       return response;
     });
   } catch (error) {
     if (isExpectedRegisterDeviceError(error)) {
-      console.log("[PushNotifications] Device registration deferred — no salon context (NO_SALON_CONTEXT).");
       return rejectWithValue({ message: "Salon context required; device registration deferred." });
     }
     return rejectWithValue(reject(error));

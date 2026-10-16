@@ -28,6 +28,7 @@ import type {
   ConsumableUsageHistoryQuery,
   ConsumableUsageHistoryResponse,
 } from "@/types/consumable";
+import { createListSnapshotCache, snapshotKey } from "@/utils/listSnapshotCache";
 
 type ConsumableDashboardApiResponse = ApiResponse<ConsumableDashboardApiData>;
 type ConsumableDetailApiResponse = ApiResponse<ConsumableDetailApiData>;
@@ -38,6 +39,8 @@ type ConsumableUnitConversionsApiData =
   | ConsumableUnitConversionApiItem[]
   | { data?: ConsumableUnitConversionApiItem[] | null; unit_conversions?: ConsumableUnitConversionApiItem[] | null; unitConversions?: ConsumableUnitConversionApiItem[] | null };
 type ConsumableUsageHistoryApiResponse = ApiResponse<ConsumableUsageHistoryApiData>;
+
+const sortedConsumableSnapshots = createListSnapshotCache<{ all: ConsumableListItem[]; kpis: ConsumableKpis }>();
 
 type PaginationFields = {
   hasMore?: boolean | null;
@@ -224,6 +227,15 @@ const getUsageHistoryArray = (payload: ConsumableUsageHistoryApiData): Consumabl
   payload.data ?? payload.items ?? payload.rows ?? [];
 
 export const consumableService = {
+  async getCatalogPage(page: number, sort: "newest" | "lowest_stock" | "most_used" | "a_z", salonId?: string | null): Promise<ConsumableDashboardResponse> {
+    const query: ConsumableListQuery = { page, limit: 100, search: "", sortBy: "created_at", sortOrder: "desc" };
+    const response = await api.get<ConsumableDashboardApiResponse>(CONSUMABLE.DASHBOARD, {
+      params: { ...buildDashboardParams(query, salonId), sort_by: sort },
+    });
+    const payload = response.data.data ?? {};
+    const consumables = getConsumableArray(payload.list ?? null).map(normalizeConsumable);
+    return { consumables, kpis: getKpis(payload.kpis ?? payload.summary ?? null), pagination: getPagination(payload.list, query, consumables.length), query };
+  },
   async getDashboard(query: ConsumableListQuery, salonId?: string | null): Promise<ConsumableDashboardResponse> {
     if (query.sortBy === "updated_at") {
       throw new Error("Sorting by recently updated is not available.");
@@ -231,35 +243,43 @@ export const consumableService = {
     const serverSorted = (query.sortBy === "name" && query.sortOrder === "asc") ||
       (query.sortBy === "created_at" && query.sortOrder === "desc");
     if (!serverSorted) {
-      const all: ConsumableListItem[] = [];
-      const seen = new Set<string>();
-      let kpis = getKpis(null);
-      for (let page = 1; ; page += 1) {
-        const pageQuery = { ...query, page, limit: 200 };
-        const response = await api.get<ConsumableDashboardApiResponse>(CONSUMABLE.DASHBOARD, {
-          params: buildDashboardParams(pageQuery, salonId),
-        });
-        const payload = response.data.data ?? {};
-        if (page === 1) kpis = getKpis(payload.kpis ?? payload.summary ?? null);
-        const rows = getConsumableArray(payload.list ?? null).map(normalizeConsumable);
-        const previousCount = all.length;
-        for (const row of rows) {
-          if (!seen.has(row.id)) { seen.add(row.id); all.push(row); }
-        }
-        if (!getPagination(payload.list, pageQuery, rows.length).hasMore) break;
-        if (all.length === previousCount) throw new Error("Unable to load all consumables for sorting.");
-      }
-      const direction = query.sortOrder === "asc" ? 1 : -1;
-      if (query.sortBy === "created_at") {
-        all.reverse();
-      } else {
-        all.sort((left, right) => {
-          const comparison = query.sortBy === "name"
-            ? left.name.localeCompare(right.name, undefined, { sensitivity: "base", numeric: true })
-            : query.sortBy === "amount" ? left.amount - right.amount : left.qtyAlert - right.qtyAlert;
-          return direction * comparison || left.id.localeCompare(right.id);
-        });
-      }
+      const { limit: _limit, page: _page, ...snapshotParams } = query;
+      const { all, kpis } = await sortedConsumableSnapshots.load(
+        snapshotKey({ ...snapshotParams, salonId: salonId ?? null }),
+        query.page > 1,
+        async () => {
+          const collected: ConsumableListItem[] = [];
+          const seen = new Set<string>();
+          let summary = getKpis(null);
+          for (let page = 1; ; page += 1) {
+            const pageQuery = { ...query, page, limit: 200 };
+            const response = await api.get<ConsumableDashboardApiResponse>(CONSUMABLE.DASHBOARD, {
+              params: buildDashboardParams(pageQuery, salonId),
+            });
+            const payload = response.data.data ?? {};
+            if (page === 1) summary = getKpis(payload.kpis ?? payload.summary ?? null);
+            const rows = getConsumableArray(payload.list ?? null).map(normalizeConsumable);
+            const previousCount = collected.length;
+            for (const row of rows) {
+              if (!seen.has(row.id)) { seen.add(row.id); collected.push(row); }
+            }
+            if (!getPagination(payload.list, pageQuery, rows.length).hasMore) break;
+            if (collected.length === previousCount) throw new Error("Unable to load all consumables for sorting.");
+          }
+          const direction = query.sortOrder === "asc" ? 1 : -1;
+          if (query.sortBy === "created_at") {
+            collected.reverse();
+          } else {
+            collected.sort((left, right) => {
+              const comparison = query.sortBy === "name"
+                ? left.name.localeCompare(right.name, undefined, { sensitivity: "base", numeric: true })
+                : query.sortBy === "amount" ? left.amount - right.amount : left.qtyAlert - right.qtyAlert;
+              return direction * comparison || left.id.localeCompare(right.id);
+            });
+          }
+          return { all: collected, kpis: summary };
+        },
+      );
       const offset = (query.page - 1) * query.limit;
       return {
         consumables: all.slice(offset, offset + query.limit), kpis, query,
@@ -301,12 +321,14 @@ export const consumableService = {
   },
 
   async deleteConsumable(id: string): Promise<{ message?: string; productId: string }> {
+    sortedConsumableSnapshots.clear();
     const response = await api.delete<ApiResponse<unknown>>(CONSUMABLE.DELETE(id));
 
     return { message: response.data.message, productId: id };
   },
 
   async adjustStock(id: string, payload: ConsumableAdjustRequest): Promise<ConsumableAdjustResponse> {
+    sortedConsumableSnapshots.clear();
     const response = await api.post<ApiResponse<unknown>>(CONSUMABLE.ADJUST(id), payload);
 
     return { message: response.data.message };

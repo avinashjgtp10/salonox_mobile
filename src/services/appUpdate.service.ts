@@ -114,6 +114,29 @@ const normalizeReleaseNotes = (value: unknown): AppReleaseNote[] => {
   });
 };
 
+export type OtaReleaseNotes = {
+  message: string | null;
+  notes: AppReleaseNote[];
+  title: string | null;
+};
+
+/**
+ * Release notes bundled into an EAS Update (app.config extra.releaseNotes, from
+ * release-notes.json). Read from the new update's manifest, so they are known
+ * before the update is downloaded.
+ */
+export const getOtaReleaseNotes = (manifest: unknown): OtaReleaseNotes => {
+  const extra = (manifest as { extra?: { expoClient?: { extra?: { releaseNotes?: unknown } } } } | null | undefined)
+    ?.extra?.expoClient?.extra?.releaseNotes as { message?: unknown; notes?: unknown; title?: unknown } | undefined;
+  const text = (value: unknown) => (typeof value === "string" && value.trim() ? value.trim() : null);
+
+  return {
+    message: text(extra?.message),
+    notes: normalizeReleaseNotes(extra?.notes),
+    title: text(extra?.title),
+  };
+};
+
 export const appUpdateService = {
   async checkForUpdate(): Promise<AppUpdateInfo | null> {
     const currentVersion = getInstalledAppVersion();

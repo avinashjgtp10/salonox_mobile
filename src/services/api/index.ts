@@ -21,11 +21,13 @@ import {
   shouldInvalidateSession,
   shouldRefreshToken,
 } from "@/services/authSession";
-import { isNetworkOnline, waitForNetworkOnline } from "@/services/networkStatus";
+import NetInfo from "@react-native-community/netinfo";
+import { isNetworkOnline, setNetworkSnapshot, waitForNetworkOnline } from "@/services/networkStatus";
 import { notificationDeviceStorage } from "@/services/notificationDeviceStorage";
 import { notifySessionInvalidated } from "@/services/sessionInvalidation";
 import { tokenStorage } from "@/services/tokenStorage";
 import { isStaffBusinessWrite } from "@/utils/staffAccess";
+import { forwardRequestCancellation } from "./requestCancellation";
 import type { ApiResponse, RefreshTokenResponseData } from "@/types/auth";
 
 export const API_BASE_URL = environmentConfig.apiBaseUrl;
@@ -34,6 +36,8 @@ export const CHECKOUT_REQUEST_TIMEOUT_MS = 45000;
 
 type RetryableRequestConfig = InternalAxiosRequestConfig & {
   _logoutAbortController?: AbortController;
+  _releaseCallerCancellation?: () => void;
+  _callerSignal?: InternalAxiosRequestConfig["signal"];
   _networkRetry?: boolean;
   _retry?: boolean;
 };
@@ -176,12 +180,29 @@ const formatValue = (value: unknown): string | null => {
   return String(value);
 };
 
+// Backend validation failures look like { error: { code: "VALIDATION_ERROR",
+// message: "Validation failed", details: [{ field, message }] } }. The field
+// messages are the useful part; flattening the whole object showed the raw
+// code and field names to users.
+const getValidationDetailsMessage = (payload: ApiErrorPayload) => {
+  const errorValue = (payload as { error?: unknown }).error;
+  const details = errorValue && typeof errorValue === "object"
+    ? (errorValue as { details?: unknown }).details
+    : undefined;
+  if (!Array.isArray(details)) return null;
+  const messages = details
+    .map((detail) => (detail && typeof detail === "object" ? (detail as { message?: unknown }).message : null))
+    .filter((message): message is string => typeof message === "string" && message.trim().length > 0);
+  return messages.length ? [...new Set(messages)].join("\n") : null;
+};
+
 const getPayloadMessage = (payload?: ApiErrorPayload) => {
   if (!payload) {
     return null;
   }
 
   return (
+    getValidationDetailsMessage(payload) ??
     formatValue(payload.message) ??
     formatValue(payload.error) ??
     formatValue(payload.errors)
@@ -212,7 +233,7 @@ const formatErrorMessage = (message: string): string => {
   return message;
 };
 
-const OFFLINE_MESSAGE = "Unable to connect. Please check your internet connection and try again.";
+const OFFLINE_MESSAGE = "No internet connection. Please try again when you're back online.";
 const TIMEOUT_MESSAGE =
   "The server took too long to respond. The request may still have gone through — check before trying again.";
 
@@ -220,7 +241,23 @@ const isTimeoutError = (error: { code?: string; message?: string }) =>
   error.code === "ECONNABORTED" ||
   error.code === "ETIMEDOUT" ||
   /timeout/i.test(error.message ?? "");
-const OFFLINE_MUTATION_MESSAGE = "You are offline. Your changes are still on this screen; reconnect and try again.";
+const OFFLINE_MUTATION_MESSAGE = "No internet connection. Your changes are still on this screen; try again when you're back online.";
+
+// A request can fail before NetInfo has reported the drop. Ask NetInfo directly so
+// reads wait for the connection instead of surfacing an error on screen.
+const confirmOffline = async () => {
+  if (!isNetworkOnline()) return true;
+  try {
+    const state = await NetInfo.refresh();
+    const offline = state.isConnected === false || state.isInternetReachable === false;
+    if (offline) {
+      setNetworkSnapshot({ isConnected: state.isConnected, isInternetReachable: state.isInternetReachable, isOnline: false });
+    }
+    return offline;
+  } catch {
+    return false;
+  }
+};
 const LOGOUT_CANCELLATION_MESSAGE = "Protected request cancelled during logout.";
 
 const createLogoutCancellation = () => new CanceledError(LOGOUT_CANCELLATION_MESSAGE);
@@ -289,6 +326,12 @@ requestUrl.includes("/auth/register") ||
   requestUrl.includes("/app/version");
 
 const releaseProtectedRequest = (config?: RetryableRequestConfig) => {
+  if (config?._releaseCallerCancellation) {
+    config._releaseCallerCancellation();
+    config.signal = config._callerSignal;
+    delete config._releaseCallerCancellation;
+    delete config._callerSignal;
+  }
   const controller = config?._logoutAbortController;
 
   if (controller) {
@@ -431,6 +474,9 @@ api.interceptors.request.use(async (config) => {
   }
 
   const logoutAbortController = new AbortController();
+  const retryConfig = config as RetryableRequestConfig;
+  retryConfig._callerSignal = config.signal;
+  retryConfig._releaseCallerCancellation = forwardRequestCancellation(config.signal, logoutAbortController);
   config.signal = logoutAbortController.signal;
   (config as RetryableRequestConfig)._logoutAbortController = logoutAbortController;
   protectedRequestControllers.add(logoutAbortController);
@@ -525,11 +571,18 @@ api.interceptors.response.use(
       }
     }
 
-    if (!error.response && originalRequest && isSafeRetryRequest(originalRequest) && !originalRequest._networkRetry) {
-      originalRequest._networkRetry = true;
-      await waitForNetworkOnline();
+    if (!error.response && originalRequest && isSafeRetryRequest(originalRequest) && !isCancel(error)) {
+      // Offline reads stay pending and resume once the connection is back, so
+      // screens keep what they show instead of flashing a connection error.
+      if (await confirmOffline()) {
+        await waitForNetworkOnline();
+        return api(originalRequest);
+      }
 
-      return api(originalRequest);
+      if (!originalRequest._networkRetry) {
+        originalRequest._networkRetry = true;
+        return api(originalRequest);
+      }
     }
 
     return Promise.reject(toApiError(error));

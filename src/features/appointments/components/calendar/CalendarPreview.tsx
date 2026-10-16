@@ -1,3 +1,4 @@
+import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { Text } from "@/components/ui/AppTypography";
 import { useClientPrivacy } from "@/hooks/useClientPrivacy";
 import { getAppointmentBillLabel } from "@/utils/clientPrivacy";
@@ -16,8 +17,8 @@ import { formatAppDate, formatAppTime } from "@/utils/dateTime";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, type Href } from "expo-router";
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Modal, Pressable, RefreshControl, ScrollView, View, type GestureResponderEvent } from "react-native";
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
+import { Animated, Modal, Pressable, RefreshControl, ScrollView, View, type GestureResponderEvent } from "react-native";
 
 type CalendarStyles = ReturnType<typeof createStyles>;
 
@@ -118,6 +119,15 @@ export function CalendarPreview({
   const currentMinuteOffset = now.getHours() * 60 + now.getMinutes() - START_HOUR * 60;
   const showCurrentTime = viewMode === "day" && date === todayIsoDate() && currentMinuteOffset >= 0 && currentMinuteOffset < HOURS.length * 60;
   const verticalScrollRef = useRef<ScrollView>(null);
+  // Horizontal scroll offset. The time column, its header cell and the
+  // current-time marker are shifted back by it so they stay pinned on the left
+  // while the staff/day columns scroll underneath (native driver, no re-render).
+  const scrollX = useRef(new Animated.Value(0)).current;
+  const pinnedLeft = useMemo(() => ({ transform: [{ translateX: scrollX }], zIndex: 10, elevation: 2 }), [scrollX]);
+  const onHorizontalScroll = useMemo(
+    () => Animated.event([{ nativeEvent: { contentOffset: { x: scrollX } } }], { useNativeDriver: true }),
+    [scrollX],
+  );
   const previewId = previewAppointment?.id ?? null;
 
   // Staff with Calendar & Quick Sale access (read-only calendar that can still
@@ -176,12 +186,14 @@ export function CalendarPreview({
 
   return (
     <View style={styles.dinggCalendar} onLayout={event => setViewportWidth(event.nativeEvent.layout.width)}>
-      <ScrollView horizontal nestedScrollEnabled showsHorizontalScrollIndicator style={styles.dinggHorizontalScroller}
+      <Animated.ScrollView horizontal nestedScrollEnabled showsHorizontalScrollIndicator style={styles.dinggHorizontalScroller}
         removeClippedSubviews={false}
+        onScroll={onHorizontalScroll}
+        scrollEventThrottle={16}
       >
         <View style={{ height: "100%", width: calendarContentWidth }}>
           <View style={styles.dinggCalendarHeader}>
-            <View style={styles.dinggTimeHeader}>{viewMode === "day" ? <Text style={styles.dinggStaffHeader}>Staff</Text> : null}</View>
+            <Animated.View style={[styles.dinggTimeHeader, styles.dinggCalendarHeaderPinned, pinnedLeft]}>{viewMode === "day" ? <Text style={styles.dinggStaffHeader}>Staff</Text> : null}</Animated.View>
             {columns.map((column, index) => (
               <View key={`${column.key}-${column.label}-${index}`} style={[styles.dinggDayHeader, { width: columnWidth }]}>
                 {viewMode === "day" ? (
@@ -193,7 +205,7 @@ export function CalendarPreview({
               </View>
             ))}
           </View>
-          <ScrollView
+          <RefreshViewport><ScrollView
             nestedScrollEnabled
             ref={verticalScrollRef}
             removeClippedSubviews={false}
@@ -202,7 +214,7 @@ export function CalendarPreview({
             style={styles.dinggVerticalScroller}
           >
             <View style={[styles.dinggGridBody, { height: GRID_HEIGHT }]}>
-              <CalendarTimeColumn styles={styles} />
+              <CalendarTimeColumn pinnedStyle={pinnedLeft} styles={styles} />
               <CalendarGridLines
                 filled={viewMode === "day"}
                 styles={styles}
@@ -224,11 +236,11 @@ export function CalendarPreview({
                   />
                 );
               })}
-              {showCurrentTime ? <View pointerEvents="none" style={[styles.dinggCurrentTime, { top: (currentMinuteOffset / 60) * HOUR_HEIGHT }]}><Text style={styles.dinggCurrentTimeLabel}>{formatAppTime(now)}</Text><View style={styles.dinggCurrentTimeDot} /><View style={styles.dinggCurrentTimeLine} /></View> : null}
+              {showCurrentTime ? <Animated.View pointerEvents="none" style={[styles.dinggCurrentTime, { top: (currentMinuteOffset / 60) * HOUR_HEIGHT, transform: [{ translateX: scrollX }] }]}><Text style={styles.dinggCurrentTimeLabel}>{formatAppTime(now)}</Text><View style={styles.dinggCurrentTimeDot} /><View style={styles.dinggCurrentTimeLine} /></Animated.View> : null}
             </View>
-          </ScrollView>
+          </ScrollView></RefreshViewport>
         </View>
-      </ScrollView>
+      </Animated.ScrollView>
       {showEmptyState && !refreshing && appointmentsByColumn.every((items) => items.length === 0) ? (
         <View pointerEvents="none" style={styles.calendarEmptyOverlay}>
           <View style={styles.calendarEmptyIcon}><Ionicons name="calendar-outline" size={30} color={Colors.appointmentAccent} /></View>
@@ -266,15 +278,21 @@ export function CalendarPreview({
   );
 }
 
-const CalendarTimeColumn = memo(function CalendarTimeColumn({ styles }: { styles: CalendarStyles }) {
+const CalendarTimeColumn = memo(function CalendarTimeColumn({
+  pinnedStyle,
+  styles,
+}: {
+  pinnedStyle: ComponentProps<typeof Animated.View>["style"];
+  styles: CalendarStyles;
+}) {
   return (
-    <View style={styles.dinggTimeColumn}>
+    <Animated.View style={[styles.dinggTimeColumn, pinnedStyle]}>
       {TIME_SLOTS.map(({ hour, label, minute }) => (
         <View key={`${hour}-${minute}`} style={[styles.dinggTimeCell, { position: "absolute", left: 0, right: 0, top: (hour + minute / 60) * HOUR_HEIGHT, height: SLOT_HEIGHT }]}>
           <Text style={[styles.dinggTimeText, minute === 0 && styles.dinggHourText]}>{label}</Text>
         </View>
       ))}
-    </View>
+    </Animated.View>
   );
 });
 

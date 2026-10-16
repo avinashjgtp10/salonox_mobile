@@ -28,8 +28,13 @@ import type {
   UpdateSaleRequest,
   UpdateSaleResponse,
 } from "@/types/sales";
+import { createListSnapshotCache, snapshotKey } from "@/utils/listSnapshotCache";
 
 export type ExportFormat = "csv" | "excel" | "pdf";
+
+// /sales returns the full matching history, so keep the last download per
+// status to re-run search/sort locally instead of downloading it again.
+const salesListSnapshots = createListSnapshotCache<SaleListItem[]>({ maxEntries: 4 });
 
 type SalesInitApiResponse = ApiResponse<SalesInitApiData>;
 
@@ -527,6 +532,7 @@ export const salesService = {
   },
 
   async createSale(payload: CreateSaleRequest): Promise<CreateSaleResponse> {
+    salesListSnapshots.clear();
     const response = await api.post<SaleApiResponse>(SALES.CREATE, buildSaleRequestBody(payload));
 
     return {
@@ -536,6 +542,7 @@ export const salesService = {
   },
 
   async updateSale(saleId: string, payload: UpdateSaleRequest): Promise<UpdateSaleResponse> {
+    salesListSnapshots.clear();
     const response = await api.patch<SaleApiResponse>(
       SALES.UPDATE(saleId),
       buildSaleRequestBody(payload),
@@ -548,6 +555,7 @@ export const salesService = {
   },
 
   async checkoutSale(saleId: string, payload: CheckoutSaleRequest): Promise<CheckoutSaleResponse> {
+    salesListSnapshots.clear();
     const response = await api.post<SaleApiResponse>(
       SALES.CHECKOUT(saleId),
       buildCheckoutRequestBody(payload),
@@ -560,17 +568,24 @@ export const salesService = {
     };
   },
 
-  async getSales(query: SalesListQuery, salonId?: string | null): Promise<SalesListResponse> {
-    const response = await api.get<SalesListApiResponse>(SALES.LIST, {
-      params: {
-        status: query.status,
-        ...(salonId ? { salon_id: salonId } : {}),
-      },
+  async getSales(
+    query: SalesListQuery,
+    salonId?: string | null,
+    options: { reuseList?: boolean } = {},
+  ): Promise<SalesListResponse> {
+    const key = snapshotKey({ salonId: salonId ?? null, status: query.status ?? null });
+    const allSales = await salesListSnapshots.load(key, Boolean(options.reuseList), async () => {
+      const response = await api.get<SalesListApiResponse>(SALES.LIST, {
+        params: {
+          status: query.status,
+          ...(salonId ? { salon_id: salonId } : {}),
+        },
+      });
+      return getSaleArray(response.data.data).map(normalizeSaleListItem);
     });
 
-    const apiSales = getSaleArray(response.data.data);
     const search = query.search.trim().toLocaleLowerCase();
-    const sales = apiSales.map(normalizeSaleListItem).filter((sale) =>
+    const sales = allSales.filter((sale) =>
       !search || [sale.clientName, sale.receiptNumber].some((value) => value.toLocaleLowerCase().includes(search)),
     );
     if (query.sort_by === "total" || query.sort_by === "total_amount") {
@@ -616,6 +631,7 @@ export const salesService = {
   },
 
   async deleteSale(saleId: string): Promise<DeleteSaleResponse> {
+    salesListSnapshots.clear();
     const response = await api.delete<ApiResponse<unknown>>(SALES.DELETE(saleId));
 
     return {

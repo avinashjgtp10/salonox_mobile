@@ -320,8 +320,6 @@ export const {
 
 export const selectProductState = (state: RootState) => state.product;
 export const selectProducts = (state: RootState) => state.product.products;
-export const selectInventorySummary = (state: RootState) => state.product.inventorySummary;
-export const selectInventorySummaryLoading = (state: RootState) => state.product.inventorySummaryLoading;
 export const selectBrands = (state: RootState) => state.product.brands;
 export const selectProductById = (id: string) =>
   createSelector(selectProducts, (products) => products.find((product) => product.id === id) ?? null);

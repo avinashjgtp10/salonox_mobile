@@ -1,9 +1,10 @@
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
 import { appAlert as Alert } from "@/services/appAlert";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams, type Href } from "expo-router";
 import { useMemo, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
@@ -34,8 +35,7 @@ import {
 import { selectCurrentUser } from "@/store/user/user.slice";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { canManageStaffLifecycle } from "@/utils/userProfile";
-
-const formatCurrency = (amount: number) => `Rs. ${amount.toLocaleString("en-IN")}`;
+import { formatCurrency } from "@/utils/currency";
 
 const PERFORMANCE_PERIODS: { key: PerformancePeriod; label: string }[] = [
   { key: "today", label: "Today" },

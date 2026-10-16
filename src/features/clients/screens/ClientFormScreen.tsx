@@ -1,10 +1,11 @@
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { maskPhone } from "@/utils/maskPhone";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams, type Href } from "expo-router";
 import { isValidPhoneNumber, parsePhoneNumber, type CountryCode } from "libphonenumber-js";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Switch, TouchableOpacity, View } from "react-native";
+import { Modal, Pressable, ScrollView, StyleSheet, Switch, TouchableOpacity, View } from "react-native";
 import { KeyboardAwareScrollView } from "@/components/ui/KeyboardAwareScrollView";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -390,12 +391,19 @@ export default function NewClientScreen() {
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Mobile No.<Text style={styles.requiredMark}>*</Text></Text>
               {id && !replacingPhone ? (
-                <View style={styles.inputContainer}>
+                // No "Change number" label: tapping the masked number itself
+                // opens the field for a new number.
+                <TouchableOpacity
+                  accessibilityHint="Opens the field to enter a new number"
+                  accessibilityLabel="Replace client phone number"
+                  accessibilityRole="button"
+                  activeOpacity={0.7}
+                  disabled={isSubmitting}
+                  onPress={() => { setPhone(""); setReplacingPhone(true); }}
+                  style={styles.inputContainer}
+                >
                   <Text style={styles.inputLabel}>{maskPhone(phone)}</Text>
-                  <TouchableOpacity disabled={isSubmitting} onPress={() => { setPhone(""); setReplacingPhone(true); }} accessibilityRole="button" accessibilityLabel="Replace client phone number">
-                    <Text style={styles.whatsappAccent}>Change number</Text>
-                  </TouchableOpacity>
-                </View>
+                </TouchableOpacity>
               ) : <PhoneInput
                 ref={(input) => setFieldRef("phone", input)}
                 country={phoneCountry}

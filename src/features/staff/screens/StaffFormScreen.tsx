@@ -1,3 +1,4 @@
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
 import { appAlert as Alert } from "@/services/appAlert";
 import { Ionicons } from "@expo/vector-icons";
@@ -5,7 +6,7 @@ import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { Redirect, router, useLocalSearchParams, type Href } from "expo-router";
 import { useMemo, useState } from "react";
-import { ActivityIndicator, StyleSheet, Switch, TouchableOpacity, View } from "react-native";
+import { StyleSheet, Switch, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import type { CountryCode } from "libphonenumber-js";
 
@@ -20,7 +21,7 @@ import {
   type ThemeColors,
 } from "@/constants/theme";
 import { StaffTextField } from "@/features/staff/components/StaffTextField";
-import { useStaffCalendarAccessSetting } from "@/features/staff/hooks/useStaffCalendarAccessSetting";
+import { useStaffCalendarAccessSetting, useStaffProductAuditAccessSetting } from "@/features/staff/hooks/useStaffCalendarAccessSetting";
 import { useStaffDetails } from "@/features/staff/hooks/useStaffDetails";
 import { useStaffForm } from "@/features/staff/hooks/useStaffForm";
 import { STAFF_GENDER_OPTIONS, STAFF_ROLE_OPTIONS } from "@/features/staff/validation/staff.validation";
@@ -42,6 +43,8 @@ const STAFF_LOGIN_HELPER_TEXT =
 
 const CALENDAR_ACCESS_HELPER_TEXT =
   "Lets this staff member book and bill Quick Sales from their Calendar in the SalonOX app. Saved right away. Doesn't change their access on the web.";
+const PRODUCT_AUDIT_ACCESS_HELPER_TEXT =
+  "Lets this staff member create and perform Product Audits (count, scan, add new products the scanner finds, and submit for review) in the SalonOX app. Approving stays with you. Saved right away. Doesn't change their access on the web.";
 
 type StaffFormScreenProps = {
   mode: "create" | "edit";
@@ -160,6 +163,7 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
   const staffId = mode === "edit" ? id : null;
   const form = useStaffForm(staffId);
   const calendarAccess = useStaffCalendarAccessSetting(staffId);
+  const productAuditAccess = useStaffProductAuditAccessSetting(staffId);
   const { scrollToFirstError, scrollViewRef, setFieldRef } = useValidationScroll(VALIDATION_FIELD_ORDER);
   const currentUser = useAppSelector(selectCurrentUser);
 
@@ -355,7 +359,7 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
             autoCapitalize="none"
             error={form.validationErrors.email}
             keyboardType="email-address"
-            label="Email *"
+            label={form.values.isLoginEnabled ? "Email *" : "Email"}
             onChangeText={(value) => form.updateField("email", value)}
             placeholder="Email address"
             value={form.values.email}
@@ -405,7 +409,7 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
           />
 
           <View ref={(view) => setFieldRef("gender", view)} style={[styles.fieldGroup, form.validationErrors.gender && styles.fieldGroupError]}>
-            <Text style={styles.fieldLabel}>Gender *</Text>
+            <Text style={styles.fieldLabel}>Gender</Text>
             <ChipRow
               onSelect={(option) => form.updateField("gender", option)}
               options={STAFF_GENDER_OPTIONS}
@@ -485,18 +489,12 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
             </View>
           </View>
 
-          <StaffTextField
-            label="Notes"
-            multiline
-            onChangeText={(value) => form.updateField("notes", value)}
-            placeholder="Internal notes"
-            value={form.values.notes}
-          />
+
         </View>
 
         <View style={styles.card}>
           <View style={styles.loginHeaderRow}>
-            <Text style={styles.sectionHeading}>Staff Login</Text>
+            <Text style={styles.sectionHeading}>Set Login Password</Text>
             <Switch
               onValueChange={(value) => form.updateField("isLoginEnabled", value)}
               thumbColor="#FFFFFF"
@@ -511,6 +509,11 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
                 ref={(input) => setFieldRef("password", input)}
                 error={form.validationErrors.password}
                 label="Password"
+                // This sets ANOTHER person's password: never let the device fill in
+                // the signed-in user's saved password here.
+                autoComplete="off"
+                importantForAutofill="no"
+                textContentType="oneTimeCode"
                 onChangeText={(value) => form.updateField("password", value)}
                 placeholder="Password"
                 value={form.values.password}
@@ -519,6 +522,9 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
                 ref={(input) => setFieldRef("confirmPassword", input)}
                 error={form.validationErrors.confirmPassword}
                 label="Confirm Password"
+                autoComplete="off"
+                importantForAutofill="no"
+                textContentType="oneTimeCode"
                 onChangeText={(value) => form.updateField("confirmPassword", value)}
                 placeholder="Confirm Password"
                 value={form.values.confirmPassword}
@@ -542,6 +548,26 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
                   </View>
                   <Text style={styles.loginHint}>{CALENDAR_ACCESS_HELPER_TEXT}</Text>
                   {calendarAccess.error ? <Text style={styles.errorText}>{calendarAccess.error}</Text> : null}
+                </View>
+              ) : null}
+              {mode === "edit" ? (
+                <View style={styles.calendarAccessSection}>
+                  <View style={styles.calendarAccessRow}>
+                    <Text style={styles.calendarAccessTitle}>Product Audit access</Text>
+                    {productAuditAccess.loading || productAuditAccess.saving ? (
+                      <ActivityIndicator color={Colors.primary} size="small" style={styles.calendarAccessSpinner} />
+                    ) : null}
+                    <Switch
+                      accessibilityLabel="Product Audit access"
+                      disabled={productAuditAccess.loading || productAuditAccess.saving}
+                      onValueChange={(value) => void productAuditAccess.setProductAuditAccess(value)}
+                      thumbColor="#FFFFFF"
+                      trackColor={{ false: Colors.border, true: Colors.primary }}
+                      value={productAuditAccess.enabled}
+                    />
+                  </View>
+                  <Text style={styles.loginHint}>{PRODUCT_AUDIT_ACCESS_HELPER_TEXT}</Text>
+                  {productAuditAccess.error ? <Text style={styles.errorText}>{productAuditAccess.error}</Text> : null}
                 </View>
               ) : null}
             </>

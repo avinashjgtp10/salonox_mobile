@@ -1,8 +1,11 @@
 import { Text } from "@/components/ui/AppTypography";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, type Href } from "expo-router";
-import { useMemo } from "react";
-import { Platform, StyleSheet, View, useWindowDimensions, type DimensionValue } from "react-native";
+import { useMemo, useState } from "react";
+import { Ionicons } from "@expo/vector-icons";
+import MonthlyProjectionCard from "./MonthlyProjectionCard";
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View, useWindowDimensions, type DimensionValue } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { TourButton, TourView } from "@/features/userGuide/DashboardTour";
 
 import { IconBadge } from "@/components/ui/IconBadge";
@@ -19,7 +22,7 @@ import {
 } from "@/store/dashboard/dashboard.slice";
 import { selectClientsTotalCount } from "@/store/client/client.slice";
 import { useAppTheme, useThemeColors } from "@/theme/ThemeProvider";
-import { formatDashboardRevenue } from "@/utils/dashboard";
+import { formatCurrency, formatCurrencyRounded } from "@/utils/currency";
 
 const STAT_TILE_GRADIENTS = {
   bookings: ["#FEF3C7", "#FDE68A"],
@@ -90,7 +93,7 @@ function RevenueComparisonBars({
           <View key={row.label} style={styles.horizontalBarRow}>
             <View style={styles.horizontalBarTop}>
               <Text style={styles.horizontalBarLabel}>{row.label}</Text>
-              <Text style={styles.horizontalBarValue}>{formatDashboardRevenue(row.value)}</Text>
+              <Text style={styles.horizontalBarValue}>{formatCurrencyRounded(row.value)}</Text>
             </View>
             <View style={styles.horizontalBarTrack}>
               <View
@@ -111,6 +114,8 @@ function RevenueComparisonBars({
 }
 
 export default function DashboardStatTiles() {
+  const [revenueView, setRevenueView] = useState<"comparison" | "projection" | null>(null);
+  const insets = useSafeAreaInsets();
   const Colors = useThemeColors();
   const { scheme } = useAppTheme();
   const { width } = useWindowDimensions();
@@ -144,7 +149,7 @@ export default function DashboardStatTiles() {
         label: "This Month Revenue",
         route: "/monthly-revenue" as Href,
         subtitle: "Current Calendar Month",
-        value: formatDashboardRevenue(dashboardMetrics.monthlyRevenue),
+        value: formatCurrencyRounded(dashboardMetrics.monthlyRevenue),
       },
       {
         accent: "sky" as const,
@@ -154,7 +159,7 @@ export default function DashboardStatTiles() {
         icon: "trending-up-outline" as const,
         label: "Today's Revenue",
         route: "/today-revenue" as Href,
-        value: formatDashboardRevenue(dashboardMetrics.todaysRevenue),
+        value: formatCurrency(dashboardMetrics.todaysRevenue),
       },
       {
         accent: "indigo" as const,
@@ -234,12 +239,42 @@ export default function DashboardStatTiles() {
           ) : (
             <>
               <View style={styles.tileTopRow}>
-                <IconBadge accent={stat.accent} icon={stat.icon} size={isCompact ? "sm" : "md"} />
-                <View style={[styles.accentBar, { backgroundColor: stat.color }]} />
+                {"kind" in stat && stat.kind === "revenueComparison" ? null : (
+                  <>
+                    <IconBadge accent={stat.accent} icon={stat.icon} size={isCompact ? "sm" : "md"} />
+                    <View style={[styles.accentBar, { backgroundColor: stat.color }]} />
+                  </>
+                )}
               </View>
               <View style={styles.copy}>
                 {"kind" in stat && stat.kind === "revenueComparison" ? (
                   <>
+                    <View style={styles.revenueSelector}>
+                      {(["comparison", "projection"] as const).map((option) => (
+                        <Pressable
+                          key={option}
+                          accessibilityRole="button"
+                          accessibilityHint={`Opens the ${option} popup`}
+                          onPress={() => setRevenueView(option)}
+                          style={[styles.revenueOption, revenueView === option && styles.revenueOptionActive]}
+                        >
+                          <Text style={styles.revenueOptionLabel}>{option === "comparison" ? "Comparison" : "Projection"}</Text>
+                          <Ionicons name="open-outline" size={16} color={Colors.heading} />
+                        </Pressable>
+                      ))}
+                    </View>
+                    <Modal transparent animationType="fade" visible={revenueView !== null} onRequestClose={() => setRevenueView(null)}>
+                      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={[styles.modalOverlay, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 }]}>
+                        <Pressable accessibilityRole="button" accessibilityLabel="Close revenue popup" onPress={() => setRevenueView(null)} style={styles.modalBackdrop} />
+                        <View accessibilityViewIsModal style={styles.modalPanel}>
+                          <View style={styles.modalHeader}>
+                            <Text accessibilityRole="header" style={styles.modalTitle}>{revenueView === "projection" ? "Projection" : "Comparison"}</Text>
+                            <Pressable accessibilityRole="button" accessibilityLabel="Close revenue popup" onPress={() => setRevenueView(null)} style={styles.modalClose}>
+                              <Ionicons name="close" size={24} color={Colors.heading} />
+                            </Pressable>
+                          </View>
+                          <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={styles.modalContent}>
+                    {revenueView === "projection" ? <MonthlyProjectionCard /> : revenueView === "comparison" ? <>
                     <Text numberOfLines={1} style={styles.stockTitle}>
                       {stat.label}
                     </Text>
@@ -254,13 +289,13 @@ export default function DashboardStatTiles() {
                       <View style={styles.comparisonMetric}>
                         <Text style={styles.comparisonLabel}>Last Month</Text>
                         <Text style={styles.comparisonValue}>
-                          {formatDashboardRevenue(stat.lastMonthRevenue)}
+                          {formatCurrencyRounded(stat.lastMonthRevenue)}
                         </Text>
                       </View>
                       <View style={[styles.comparisonMetric, styles.comparisonMetricDivider]}>
                         <Text style={styles.comparisonLabel}>Current Month</Text>
                         <Text style={styles.comparisonValue}>
-                          {formatDashboardRevenue(stat.currentMonthRevenue)}
+                          {formatCurrencyRounded(stat.currentMonthRevenue)}
                         </Text>
                       </View>
                       <View style={[styles.comparisonMetric, styles.comparisonMetricDivider]}>
@@ -285,6 +320,11 @@ export default function DashboardStatTiles() {
                         </Text>
                       </View>
                     </View>
+                    </> : null}
+                          </ScrollView>
+                        </View>
+                      </KeyboardAvoidingView>
+                    </Modal>
                   </>
                 ) : (
                   <>
@@ -330,6 +370,17 @@ export default function DashboardStatTiles() {
 }
 
 const createStyles = (Colors: ThemeColors, isCompact: boolean) => StyleSheet.create({
+  modalOverlay: { flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 16 },
+  modalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.5)" },
+  modalPanel: { width: "100%", maxWidth: 560, maxHeight: "100%", flexShrink: 1, borderRadius: 24, backgroundColor: Colors.dashboardCard, overflow: "hidden" },
+  modalHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingLeft: 20, paddingRight: 8, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  modalTitle: { color: Colors.heading, fontSize: 18, fontWeight: "700" },
+  modalClose: { width: 48, height: 48, alignItems: "center", justifyContent: "center" },
+  modalContent: { padding: isCompact ? 16 : 20 },
+  revenueSelector: { flexDirection: "row", gap: 8, width: "100%" },
+  revenueOption: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 4, paddingVertical: 12, paddingHorizontal: 10, borderRadius: 10, borderWidth: 1, borderColor: Colors.border },
+  revenueOptionActive: { borderColor: Colors.primary, backgroundColor: Colors.bg2 },
+  revenueOptionLabel: { color: Colors.heading, fontSize: 13, fontWeight: "600" },
   row: {
     flexWrap: "wrap",
     flexDirection: "row",

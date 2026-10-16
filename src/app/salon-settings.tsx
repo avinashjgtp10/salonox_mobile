@@ -1,8 +1,10 @@
+import { RefreshViewport } from "@/components/ui/RefreshViewport";
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
 import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, RefreshControl, StyleSheet, TouchableOpacity, View } from "react-native";
+import { RefreshControl, StyleSheet, TouchableOpacity, View } from "react-native";
 import { KeyboardAwareScrollView } from "@/components/ui/KeyboardAwareScrollView";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -285,7 +287,7 @@ export default function SalonSettingsScreen() {
   return (
     <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
       <AppStatusBar />
-      <KeyboardAwareScrollView
+      <RefreshViewport><KeyboardAwareScrollView
         ref={scrollViewRef}
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
@@ -398,7 +400,7 @@ export default function SalonSettingsScreen() {
             <DetailRow label="State" value={salon.state} />
             <DetailRow label="Timezone" value={salon.timezone} />
           </View>
-      </KeyboardAwareScrollView>
+      </KeyboardAwareScrollView></RefreshViewport>
     </SafeAreaView>
   );
 }

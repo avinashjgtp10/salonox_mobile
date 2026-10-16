@@ -1,11 +1,13 @@
+import { RefreshViewport } from "@/components/ui/RefreshViewport";
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams, type Href } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, TouchableOpacity, View } from "react-native";
+import { FlatList, RefreshControl, StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { DateField } from "@/components/ui/DateField";
+import { DateRangeField } from "@/components/ui/DateRangeField";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { EmptyState, ErrorState } from "@/components/ui/StateViews";
 import { PaginationControls } from "@/components/ui/PaginationControls";
@@ -104,21 +106,16 @@ export default function ConsumableUsageHistoryScreen() {
         })}
       </View>
 
-      <View style={styles.dateRow}>
-        <View style={styles.dateField}>
-          <DateField label="From" onChange={setFrom} value={from} />
-        </View>
-        <View style={styles.dateField}>
-          <DateField label="To" onChange={setTo} value={to} />
-        </View>
-      </View>
+      <DateRangeField startDate={from || null} endDate={to || null} maximumDate={new Date()}
+        onChange={(start, end) => { setFrom(start); setTo(end); }}
+        onClear={() => { setFrom(""); setTo(""); }} />
     </View>
   );
 
   return (
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
       <AppStatusBar />
-      <FlatList
+      <RefreshViewport><FlatList
         contentContainerStyle={styles.content}
         data={state.usageHistory}
         keyExtractor={(item) => item.id}
@@ -165,7 +162,7 @@ export default function ConsumableUsageHistoryScreen() {
         }
         renderItem={({ item }) => <UsageHistoryRow item={item} />}
         showsVerticalScrollIndicator={false}
-      />
+      /></RefreshViewport>
     </SafeAreaView>
   );
 }

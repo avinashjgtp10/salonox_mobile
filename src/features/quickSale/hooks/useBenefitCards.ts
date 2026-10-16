@@ -38,7 +38,8 @@ export function useBenefitCards({ redemptions, selectedClient, totals }: Pick<Ch
         input: {
           keyboardType: "decimal-pad",
           onChangeText: redemptions.setMembershipWalletRequestedInput,
-          value: redemptions.membershipWalletRequestedInput,
+          value: redemptions.membershipWalletRequestedInput || String(totals.appliedMembershipWallet),
+          placeholder: "Auto",
         },
         key: "membership-wallet",
         onToggle: redemptions.setApplyMembershipWallet,
@@ -84,7 +85,8 @@ export function useBenefitCards({ redemptions, selectedClient, totals }: Pick<Ch
         input: {
           keyboardType: "decimal-pad",
           onChangeText: redemptions.setEWalletRequestedInput,
-          value: redemptions.eWalletRequestedInput,
+          value: redemptions.eWalletRequestedInput || String(totals.appliedEWallet),
+          placeholder: "Auto",
         },
         key: "ewallet",
         onToggle: redemptions.setApplyEwallet,
@@ -104,7 +106,7 @@ export function useBenefitCards({ redemptions, selectedClient, totals }: Pick<Ch
           onChangeText: redemptions.setRewardPointsToRedeemInput,
           placeholder: "0 pts",
           suffix: "pts",
-          value: redemptions.rewardPointsToRedeemInput,
+          value: redemptions.rewardPointsToRedeemInput || String(redemptions.pricingContext.rules && redemptions.pricingContext.rules.valuePerRedemption > 0 ? Math.round(totals.appliedRewardPointsValue * redemptions.pricingContext.rules.pointsPerRedemption / redemptions.pricingContext.rules.valuePerRedemption) : 0),
         },
         key: "reward-points",
         onToggle: redemptions.setApplyRewardPoints,
@@ -122,7 +124,8 @@ export function useBenefitCards({ redemptions, selectedClient, totals }: Pick<Ch
         input: {
           keyboardType: "decimal-pad",
           onChangeText: redemptions.setReferralCreditRequestedInput,
-          value: redemptions.referralCreditRequestedInput,
+          value: redemptions.referralCreditRequestedInput || String(totals.appliedReferralCredit),
+          placeholder: "Auto",
         },
         key: "referral-credit",
         note: redemptions.applyReferralCredit ? totals.referralCreditRejectedReason : undefined,
@@ -134,6 +137,6 @@ export function useBenefitCards({ redemptions, selectedClient, totals }: Pick<Ch
     }
 
     return cards;
-  }, [Colors, redemptions, selectedClient.id, selectedClient.membership, totals.referralCreditRejectedReason]);
+  }, [Colors, redemptions, selectedClient.id, selectedClient.membership, totals]);
 
 }

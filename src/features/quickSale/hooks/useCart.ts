@@ -2,7 +2,7 @@ import { useCallback, useMemo, useReducer } from "react";
 
 import type { CartItem, CartItemSource } from "@/features/quickSale/types";
 import { buildInitialConsumables, scaleConsumables } from "@/features/quickSale/utils/consumables";
-import { getPackageCoverageAllocations } from "@/features/quickSale/utils/packageCoverage";
+import { getPackageCoverageAllocations, reservePackageCoverage } from "@/features/quickSale/utils/packageCoverage";
 import { clampCartItemQuantity, normalizeAvailableStock } from "@/features/quickSale/utils/stock";
 import type { ConsumableRecipeItem } from "@/types/consumable";
 import type { ClientPackage } from "@/types/package";
@@ -312,7 +312,8 @@ const cartReducer = (state: CartItem[], action: CartAction): CartItem[] => {
 };
 
 export const useCart = () => {
-  const [items, dispatch] = useReducer(cartReducer, []);
+  const [rawItems, dispatch] = useReducer(cartReducer, []);
+  const items = useMemo(() => reservePackageCoverage(rawItems), [rawItems]);
 
   const addItem = useCallback((input: AddItemInput) => dispatch({ input, type: "add" }), []);
 

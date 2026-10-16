@@ -1,10 +1,11 @@
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { useClientPrivacy } from "@/hooks/useClientPrivacy";
 import { useBenefitCards } from "../hooks/useBenefitCards";
 import { maskPhone } from "@/utils/maskPhone";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Animated, BackHandler, Easing, KeyboardAvoidingView, LayoutAnimation, PanResponder, Platform, Pressable, ScrollView, StyleSheet, TouchableOpacity, UIManager, useWindowDimensions, View } from "react-native";
+import { Animated, BackHandler, Easing, KeyboardAvoidingView, LayoutAnimation, PanResponder, Platform, Pressable, ScrollView, StyleSheet, TouchableOpacity, UIManager, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Portal } from "@/components/ui/Portal";
@@ -363,14 +364,15 @@ function CheckoutSheetComponent({
     () => (staffPickerLineId ? items.find((item) => item.lineId === staffPickerLineId) ?? null : null),
     [items, staffPickerLineId],
   );
+  const noPaymentRequired = hasItems && totals.grandTotal <= 0;
   const canCompleteSale =
     hasItems &&
     !chargesInvalid &&
-    !partialAmountExceedsTotal &&
+    (noPaymentRequired || !partialAmountExceedsTotal) &&
     !isPricingLoading &&
     !pricingError &&
-    paymentMethod !== null &&
-    (paymentMethod === "split" ? splitEntries.length > 0 && !splitMismatch : true);
+    (noPaymentRequired || paymentMethod !== null) &&
+    (noPaymentRequired || (paymentMethod === "split" ? splitEntries.length > 0 && !splitMismatch : true));
 
   const groupedItems = useMemo(
     () => [
@@ -453,7 +455,7 @@ function CheckoutSheetComponent({
   };
 
   const handleComplete = () => {
-    if (isBusy || !canCompleteSale || !paymentMethod) {
+    if (isBusy || !canCompleteSale || (!noPaymentRequired && !paymentMethod)) {
       return;
     }
 
@@ -463,12 +465,17 @@ function CheckoutSheetComponent({
       return;
     }
 
+    if (noPaymentRequired) {
+      onCompleteSale({ method: paymentMethod && paymentMethod !== "split" ? paymentMethod : "cash", paidAmount: 0 });
+      return;
+    }
+
     if (paymentMethod === "split") {
       onCompleteSale({ method: paymentMethod, paidAmount: amountToCollect, splitEntries });
       return;
     }
 
-    onCompleteSale({ method: paymentMethod, paidAmount: amountToCollect });
+    onCompleteSale({ method: paymentMethod!, paidAmount: amountToCollect });
   };
 
   const handleSelectSinglePaymentMethod = (method: Exclude<SalePaymentMethod, "split">) => {
@@ -924,7 +931,8 @@ function CheckoutSheetComponent({
                 </View>
               ) : null}
 
-              {checkoutStep === "payment" ? (
+              {checkoutStep === "payment" && noPaymentRequired && !isPricingLoading && !pricingError ? <View style={styles.formCard}><Text style={styles.sectionTitle}>No payment to collect</Text><Text style={styles.gstPreviewText}>The bill is fully covered. Applied client benefits are deducted when you complete the sale.</Text></View> : null}
+              {checkoutStep === "payment" && !noPaymentRequired ? (
                 <View style={styles.formCard}>
                   <Text style={styles.sectionTitle}>Payment Method</Text>
                   <View style={styles.methodGrid}>

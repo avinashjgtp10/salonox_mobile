@@ -85,6 +85,11 @@ const rootReducer = (state: ReturnType<typeof appReducer> | undefined, action: A
 
 export const store = configureStore({
   reducer: rootReducer,
+  // Dev-only checks that deep-walk the whole state on every action; with large
+  // lists (sales, clients, services) they make debug builds lag. Production
+  // builds never include them.
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware({ immutableCheck: false, serializableCheck: false }),
 });
 
 export type RootState = ReturnType<typeof store.getState>;

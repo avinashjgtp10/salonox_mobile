@@ -186,7 +186,5 @@ export const selectTipSettlementsError = (state: RootState, staffId?: string | n
 
 export const selectTipSettling = (state: RootState, staffId?: string | null) =>
   staffId ? state.salonTips.settlingStaffIds.includes(staffId) : false;
-export const selectTipSettleError = (state: RootState, staffId?: string | null) =>
-  staffId ? state.salonTips.settleErrorByStaffId[staffId] ?? null : null;
 
 export default salonTipsSlice.reducer;

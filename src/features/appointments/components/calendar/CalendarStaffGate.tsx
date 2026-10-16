@@ -1,7 +1,8 @@
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
 import { useCallback, useState, type ReactNode } from "react";
 import { router, useFocusEffect } from "expo-router";
-import { ActivityIndicator, StyleSheet, TouchableOpacity, View } from "react-native";
+import { StyleSheet, TouchableOpacity, View } from "react-native";
 import { fetchStaffThunk } from "@/middleware/staff/staff.thunk";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { selectActiveBranchId } from "@/store/branch/branch.slice";

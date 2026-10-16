@@ -1,8 +1,8 @@
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
-import { DateField } from "@/components/ui/DateField";
-import { Ionicons } from "@expo/vector-icons";
+import { DateRangeField } from "@/components/ui/DateRangeField";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, StyleSheet, TouchableOpacity, View } from "react-native";
+import { StyleSheet, TouchableOpacity, View } from "react-native";
 
 import { DashboardRadius as Radius, type ThemeColors } from "@/constants/theme";
 import { StaffSectionCard } from "@/features/staff/components/StaffSectionCard";
@@ -10,9 +10,9 @@ import { staffCommissionsService } from "@/services/staffCommissions.service";
 import type { CommissionHistoryEntry } from "@/types/staffCommissions";
 import { formatAppDate } from "@/utils/dateTime";
 import { useThemeColors } from "@/theme/ThemeProvider";
+import { formatCurrency as money } from "@/utils/currency";
 
 const dateKey = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-const money = (amount: number) => `Rs. ${amount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const prettyCategory = (category?: string | null) => category
   ? category.replace(/[_-]+/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase())
   : "Commission";
@@ -23,9 +23,7 @@ export function MyCommissionCard({ refreshKey = 0, staffId, staffName }: Props) 
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const today = useMemo(() => dateKey(new Date()), []);
-  const [startDate, setStartDate] = useState(() => dateKey(new Date(new Date().getFullYear(), new Date().getMonth(), 1)));
-  const [endDate, setEndDate] = useState(today);
-  const [appliedRange, setAppliedRange] = useState({ startDate, endDate });
+  const [appliedRange, setAppliedRange] = useState(() => ({ startDate: dateKey(new Date(new Date().getFullYear(), new Date().getMonth(), 1)), endDate: today }));
   const [entries, setEntries] = useState<CommissionHistoryEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -47,23 +45,12 @@ export function MyCommissionCard({ refreshKey = 0, staffId, staffName }: Props) 
   useEffect(() => { void load(appliedRange); }, [appliedRange, load, refreshKey]);
 
   const total = entries.reduce((sum, entry) => sum + entry.amount, 0);
-  const invalidRange = Boolean(startDate && endDate && startDate > endDate);
-  const applyRange = () => {
-    if (!invalidRange && startDate && endDate) setAppliedRange({ startDate, endDate });
-  };
 
   return (
     <StaffSectionCard title="My Commission">
       <Text style={styles.name}>{staffName}</Text>
-      <View style={styles.dateRow}>
-        <View style={styles.dateField}><DateField label="From" maximumDate={new Date()} onChange={setStartDate} value={startDate} /></View>
-        <View style={styles.dateField}><DateField label="To" maximumDate={new Date()} minimumDate={startDate ? new Date(`${startDate}T00:00:00`) : undefined} onChange={setEndDate} value={endDate} /></View>
-      </View>
-      {invalidRange ? <Text style={styles.error}>Start date must be on or before end date.</Text> : null}
-      <TouchableOpacity accessibilityRole="button" disabled={invalidRange || !startDate || !endDate || loading} onPress={applyRange} style={styles.applyButton}>
-        <Ionicons color={Colors.card} name="calendar-outline" size={16} />
-        <Text style={styles.applyText}>Apply date range</Text>
-      </TouchableOpacity>
+      <DateRangeField startDate={appliedRange.startDate} endDate={appliedRange.endDate} maximumDate={new Date()} disabled={loading}
+        onChange={(start, end) => setAppliedRange({ startDate: start, endDate: end })} />
 
       <View style={styles.totalCard}>
         <View>
