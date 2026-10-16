@@ -506,6 +506,11 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
                 ref={(input) => setFieldRef("password", input)}
                 error={form.validationErrors.password}
                 label="Password"
+                // This sets ANOTHER person's password: never let the device fill in
+                // the signed-in user's saved password here.
+                autoComplete="off"
+                importantForAutofill="no"
+                textContentType="oneTimeCode"
                 onChangeText={(value) => form.updateField("password", value)}
                 placeholder="Password"
                 value={form.values.password}
@@ -514,6 +519,9 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
                 ref={(input) => setFieldRef("confirmPassword", input)}
                 error={form.validationErrors.confirmPassword}
                 label="Confirm Password"
+                autoComplete="off"
+                importantForAutofill="no"
+                textContentType="oneTimeCode"
                 onChangeText={(value) => form.updateField("confirmPassword", value)}
                 placeholder="Confirm Password"
                 value={form.values.confirmPassword}

@@ -87,7 +87,16 @@ export default function LoginScreen() {
     clearFeedback();
     try {
       loginInFlight.current = true;
-      const authData = await signIn({ email: trimmedIdentifier.toLowerCase(), password });
+      const email = trimmedIdentifier.toLowerCase();
+      let authData;
+      try {
+        authData = await signIn({ email, password });
+      } catch (firstError) {
+        // Staff passwords are saved trimmed, and keyboards often add a trailing
+        // space. Retry once without outer spaces before calling it wrong.
+        if (!isInvalidCredentialsError(firstError) || password.trim() === password || !password.trim()) throw firstError;
+        authData = await signIn({ email, password: password.trim() });
+      }
       setFailedLoginAttempts(0);
       router.replace(resolveLoginRoute(authData));
     } catch (loginError) {
@@ -171,6 +180,11 @@ export default function LoginScreen() {
                 <TextInput
                   autoCapitalize="none"
                   autoComplete="password"
+                  // With the eye toggle on, the field is plain text: without these the
+                  // keyboard autocorrects the password or appends a space after a
+                  // suggestion, and the server rightly rejects it as wrong.
+                  autoCorrect={false}
+                  spellCheck={false}
                   onChangeText={(value) => { setPassword(value); clearFeedback(); }}
                   onFocus={() => formRef.current?.revealField(passwordFieldRef.current)}
                   onTouchEnd={() => formRef.current?.revealField(passwordFieldRef.current)}

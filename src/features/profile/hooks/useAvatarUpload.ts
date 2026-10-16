@@ -56,7 +56,6 @@ export function useAvatarUpload({ avatarUrl, onError, onStart, onSuccess }: UseA
 
       if (validationError) {
         onError(validationError);
-        toast.showError(validationError);
         return;
       }
 
@@ -77,17 +76,16 @@ export function useAvatarUpload({ avatarUrl, onError, onStart, onSuccess }: UseA
         if (uploadAvatarThunk.rejected.match(resultAction)) {
           const message = resultAction.payload?.message ?? "Unable to upload photo.";
           onError(message);
-          toast.showError(message);
           return;
         }
 
+        // The Profile screen shows this in its banner; no extra toast.
         onSuccess(PROFILE_PHOTO_SUCCESS);
-        toast.showSuccess(PROFILE_PHOTO_SUCCESS);
       } finally {
         setPreviewUri(null);
       }
     },
-    [dispatch, onError, onStart, onSuccess, toast],
+    [dispatch, onError, onStart, onSuccess],
   );
 
   const pickFromSource = useCallback(

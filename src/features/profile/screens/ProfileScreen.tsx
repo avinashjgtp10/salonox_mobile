@@ -27,7 +27,7 @@ import {
 } from "@/features/profile/utils/profileFormat";
 import { useValidationScroll } from "@/hooks/useValidationScroll";
 import { fetchProfileThunk, updateProfileThunk } from "@/middleware/profile/profile.thunk";
-import { fetchSalonMeThunk } from "@/middleware/salon/salon.thunk";
+import { fetchSalonMeThunk, updateSalonThunk } from "@/middleware/salon/salon.thunk";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
   selectProfile,
@@ -181,6 +181,24 @@ export function ProfileScreen() {
     if (updateProfileThunk.rejected.match(resultAction)) {
       setFormError(resultAction.payload?.message ?? "Unable to update profile.");
       return;
+    }
+
+    // The dashboard (and the web) show the salon's business name, which is a
+    // separate record from the profile's. Keep them in step for owners/admins,
+    // the same update Salon Settings makes.
+    const businessNameChanged = updates.businessName !== (profile?.businessName ?? "").trim();
+    const canEditSalon = ["salon_owner", "admin"].includes((currentUser?.role ?? "").toLowerCase());
+    if (businessNameChanged && updates.businessName && canEditSalon && activeSalon) {
+      const salonResult = await dispatch(updateSalonThunk({
+        formFields: { businessName: updates.businessName, name: updates.businessName },
+        salonId: activeSalon.id,
+      }));
+      if (updateSalonThunk.rejected.match(salonResult)) {
+        setFormError(`Profile saved, but the salon name couldn't be updated: ${salonResult.payload?.message ?? "please try again."}`);
+        setIsEditing(false);
+        setEditState(null);
+        return;
+      }
     }
 
     setSuccessMessage(resultAction.payload.message ?? "Profile updated successfully.");
