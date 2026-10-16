@@ -28,7 +28,7 @@ import { useAppSelector } from "@/store/hooks";
 import { selectCurrentStaff } from "@/store/staff/staff.slice";
 import { selectCurrentUser } from "@/store/user/user.slice";
 import { useThemeColors } from "@/theme/ThemeProvider";
-import { hasCustomPermission } from "@/utils/permissions";
+import { canViewProductAudit } from "@/utils/permissions";
 import {
   getUserFullName,
   getUserInitials,
@@ -222,7 +222,7 @@ export function StaffSettingsScreen() {
       title: "Appointment Activity",
     },
   ];
-  const auditItems: SettingsItem[] = hasCustomPermission(currentUser, "view_product_audit") ? [{
+  const auditItems: SettingsItem[] = canViewProductAudit(currentUser) ? [{
     description: "Count products, scan packaging, and review inventory differences.",
     icon: "clipboard-outline", key: "product-audit", title: "Product Audit",
     onPress: () => router.push("/product-audits" as Href),

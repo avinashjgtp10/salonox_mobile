@@ -104,6 +104,7 @@ export const normalizeAuthUser = (value: unknown): AuthUser => {
     // services/api reads the stored user, and dropping this flag made every
     // Calendar Quick Sale payment fail as "read-only".
     mobileCalendarAccess: toOptionalBoolean(record.mobileCalendarAccess, record.mobile_calendar_access),
+    mobileProductAuditAccess: toOptionalBoolean(record.mobileProductAuditAccess, record.mobile_product_audit_access),
     isOnboardingComplete: toOptionalBoolean(
       record.isOnboardingComplete,
       record.is_onboarding_complete,
@@ -157,22 +158,20 @@ export const preserveSalonId = (
   };
 };
 
-// /users/me doesn't carry the staff Calendar & Quick Sale switch (it comes
-// from its own mobile endpoint), so keep the last known value for the same user.
+// /users/me doesn't carry the staff mobile-only switches (Calendar & Quick
+// Sale, Product Audit — each comes from its own mobile endpoint), so keep the
+// last known values for the same user.
 export const preserveMobileCalendarAccess = (
   incomingUser: AuthUser,
   fallbackUser: AuthUser | null | undefined,
 ): AuthUser => {
-  if (
-    incomingUser.mobileCalendarAccess !== undefined ||
-    fallbackUser?.mobileCalendarAccess === undefined ||
-    fallbackUser.id !== incomingUser.id
-  ) {
+  if (!fallbackUser || fallbackUser.id !== incomingUser.id) {
     return incomingUser;
   }
 
   return {
     ...incomingUser,
-    mobileCalendarAccess: fallbackUser.mobileCalendarAccess,
+    mobileCalendarAccess: incomingUser.mobileCalendarAccess ?? fallbackUser.mobileCalendarAccess,
+    mobileProductAuditAccess: incomingUser.mobileProductAuditAccess ?? fallbackUser.mobileProductAuditAccess,
   };
 };

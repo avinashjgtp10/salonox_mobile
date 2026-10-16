@@ -18,6 +18,9 @@ export type AuthUser = {
   // Staff only: owner's mobile-only "Calendar & Quick Sale access" switch,
   // read from /mobile/staff/me/calendar-access (not part of /users/me).
   mobileCalendarAccess?: boolean;
+  // Staff only: owner's mobile-only "Product Audit access" switch, read from
+  // /mobile/staff/me/product-audit-access (not part of /users/me).
+  mobileProductAuditAccess?: boolean;
   clientId?: string | null;
   salonId?: string | null;
 };
