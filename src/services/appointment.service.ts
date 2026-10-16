@@ -513,6 +513,10 @@ const fetchAppointmentList = async (
   const response = await api.get<AppointmentListApiResponse>(APPOINTMENT.LIST, {
     params: {
       ...query,
+      // The list endpoint filters ranges by start_date/end_date only; the
+      // calendar's week view sends from_date/to_date, which it ignored.
+      ...(query.start_date ?? query.from_date ? { start_date: query.start_date ?? query.from_date } : {}),
+      ...(query.end_date ?? query.to_date ? { end_date: query.end_date ?? query.to_date } : {}),
       ...(salonId ? { salon_id: salonId } : {}),
     },
   });
