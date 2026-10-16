@@ -142,9 +142,11 @@ export const authService = {
   },
 
   async resetForgotPassword(payload: ForgotPasswordResetRequest) {
+    // The API reads the new password from `newPassword`; without it every
+    // reset is rejected with "Email, OTP, and new password are required".
     const response = await api.post<ApiResponse<unknown>>(
       "/auth/forgot-password/reset",
-      payload,
+      { ...payload, newPassword: payload.password },
     );
 
     return {
