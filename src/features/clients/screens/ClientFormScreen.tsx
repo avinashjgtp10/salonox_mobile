@@ -391,12 +391,19 @@ export default function NewClientScreen() {
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Mobile No.<Text style={styles.requiredMark}>*</Text></Text>
               {id && !replacingPhone ? (
-                <View style={styles.inputContainer}>
+                // No "Change number" label: tapping the masked number itself
+                // opens the field for a new number.
+                <TouchableOpacity
+                  accessibilityHint="Opens the field to enter a new number"
+                  accessibilityLabel="Replace client phone number"
+                  accessibilityRole="button"
+                  activeOpacity={0.7}
+                  disabled={isSubmitting}
+                  onPress={() => { setPhone(""); setReplacingPhone(true); }}
+                  style={styles.inputContainer}
+                >
                   <Text style={styles.inputLabel}>{maskPhone(phone)}</Text>
-                  <TouchableOpacity disabled={isSubmitting} onPress={() => { setPhone(""); setReplacingPhone(true); }} accessibilityRole="button" accessibilityLabel="Replace client phone number">
-                    <Text style={styles.whatsappAccent}>Change number</Text>
-                  </TouchableOpacity>
-                </View>
+                </TouchableOpacity>
               ) : <PhoneInput
                 ref={(input) => setFieldRef("phone", input)}
                 country={phoneCountry}
