@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef } from "react";
+import { useStore } from "react-redux";
 import type { Socket } from "socket.io-client";
 
 import { fetchAppointmentsThunk } from "@/middleware/appointment/appointment.thunk";
@@ -8,7 +9,7 @@ import { fetchDashboardThunk } from "@/middleware/dashboard/dashboard.thunk";
 import { fetchMembershipsThunk } from "@/middleware/membership/membership.thunk";
 import { fetchNotificationsThunk, fetchUnreadCountThunk } from "@/middleware/notification/notification.thunk";
 import { fetchBrandsThunk, fetchInventorySummaryThunk, fetchProductsThunk } from "@/middleware/product/product.thunk";
-import { fetchSalesInitThunk, fetchSalesSummaryThunk, fetchSalesThunk } from "@/middleware/sales/sales.thunk";
+import { fetchSalesInitThunk, fetchSalesSummaryThunk, refreshSalesListInBackground } from "@/middleware/sales/sales.thunk";
 import { fetchServicesThunk } from "@/middleware/service/service.thunk";
 import { fetchStaffThunk } from "@/middleware/staff/staff.thunk";
 import {
@@ -20,6 +21,7 @@ import { normalizeConversation, normalizeMessage } from "@/services/inbox.servic
 import { selectActiveBranchId } from "@/store/branch/branch.slice";
 import { inboxConversationsReceived, inboxMessageReceived, inboxConnectionChanged } from "@/store/inbox/inbox.slice";
 import { fetchInboxConversationsThunk } from "@/middleware/inbox/inbox.thunk";
+import type { RootState } from "@/store";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { asRecord, toSafeString } from "@/utils/apiNormalize";
 import { selectCurrentUser } from "@/store/user/user.slice";
@@ -106,21 +108,16 @@ export const useRealtimeSync = (isAuthenticated: boolean) => {
   const currentStaff = useAppSelector(selectCurrentStaff);
   const staffOnly = isStaffExperienceUser(user);
   const activeBranchId = useAppSelector(selectActiveBranchId);
-  const appointmentQuery = useAppSelector((state) => state.appointment.query);
-  const clientActiveFilter = useAppSelector((state) => state.client.activeFilter);
-  const clientQuery = useAppSelector((state) => state.client.query);
-  const membershipQuery = useAppSelector((state) => state.membership.query);
-  const productQuery = useAppSelector((state) => state.product.query);
-  const salesQuery = useAppSelector((state) => state.sales.query);
-  const serviceQuery = useAppSelector((state) => state.service.query);
-  const staffQuery = useAppSelector((state) => state.staff.query);
+  // List queries are read when a refresh fires, not subscribed to, so paging
+  // or searching a list neither re-renders this hook's host nor rebinds the socket.
+  const store = useStore<RootState>();
   const refreshTimersRef = useRef<Partial<Record<RealtimeEntity, ReturnType<typeof setTimeout>>>>({});
   const hasConnectedRef = useRef(false);
 
   const refreshEntity = useMemo(
     () => ({
       appointments: () => {
-        void dispatch(fetchAppointmentsThunk({ ...appointmentQuery, refresh: true }));
+        void dispatch(fetchAppointmentsThunk({ ...store.getState().appointment.query, refresh: true }));
         void dispatch(fetchDashboardThunk());
       },
       attendance: () => {
@@ -128,6 +125,7 @@ export const useRealtimeSync = (isAuthenticated: boolean) => {
         void dispatch(fetchDashboardThunk());
       },
       clients: () => {
+        const { activeFilter: clientActiveFilter, query: clientQuery } = store.getState().client;
         const args = { ...clientQuery, offset: 0, refresh: true, reset: true };
 
         if (clientActiveFilter) {
@@ -141,6 +139,7 @@ export const useRealtimeSync = (isAuthenticated: boolean) => {
         void dispatch(fetchDashboardThunk());
       },
       clientMemberships: () => {
+        const { activeFilter: clientActiveFilter, query: clientQuery } = store.getState().client;
         const args = { ...clientQuery, offset: 0, refresh: true, reset: true };
 
         if (clientActiveFilter) {
@@ -151,7 +150,7 @@ export const useRealtimeSync = (isAuthenticated: boolean) => {
           void dispatch(fetchClientsThunk(args));
         }
 
-        void dispatch(fetchMembershipsThunk({ ...membershipQuery, refresh: true, reset: true }));
+        void dispatch(fetchMembershipsThunk({ ...store.getState().membership.query, refresh: true, reset: true }));
         void dispatch(fetchDashboardThunk());
       },
       dashboard: () => {
@@ -160,7 +159,7 @@ export const useRealtimeSync = (isAuthenticated: boolean) => {
         void dispatch(fetchSalesSummaryThunk());
       },
       memberships: () => {
-        void dispatch(fetchMembershipsThunk({ ...membershipQuery, refresh: true, reset: true }));
+        void dispatch(fetchMembershipsThunk({ ...store.getState().membership.query, refresh: true, reset: true }));
         void dispatch(fetchDashboardThunk());
       },
       notifications: () => {
@@ -168,37 +167,27 @@ export const useRealtimeSync = (isAuthenticated: boolean) => {
         void dispatch(fetchUnreadCountThunk());
       },
       products: () => {
-        void dispatch(fetchProductsThunk({ ...productQuery, offset: 0, refresh: true, reset: true }));
+        void dispatch(fetchProductsThunk({ ...store.getState().product.query, offset: 0, refresh: true, reset: true }));
         void dispatch(fetchInventorySummaryThunk());
         void dispatch(fetchBrandsThunk({ refresh: true }));
         void dispatch(fetchDashboardThunk());
       },
       sales: () => {
         void dispatch(fetchSalesInitThunk({ refresh: true }));
-        void dispatch(fetchSalesThunk({ ...salesQuery, offset: 0, refresh: true, reset: true }));
+        void refreshSalesListInBackground(dispatch, { ...store.getState().sales.query, offset: 0, refresh: true, reset: true });
         void dispatch(fetchSalesSummaryThunk());
         void dispatch(fetchDashboardThunk());
       },
       services: () => {
-        void dispatch(fetchServicesThunk({ ...serviceQuery, offset: 0, refresh: true, reset: true }));
+        void dispatch(fetchServicesThunk({ ...store.getState().service.query, offset: 0, refresh: true, reset: true }));
         void dispatch(fetchDashboardThunk());
       },
       staff: () => {
-        void dispatch(fetchStaffThunk({ ...staffQuery, page: 1, refresh: true, reset: true }));
+        void dispatch(fetchStaffThunk({ ...store.getState().staff.query, page: 1, refresh: true, reset: true }));
         void dispatch(fetchDashboardThunk());
       },
     }),
-    [
-      appointmentQuery,
-      clientActiveFilter,
-      clientQuery,
-      dispatch,
-      membershipQuery,
-      productQuery,
-      salesQuery,
-      serviceQuery,
-      staffQuery,
-    ],
+    [dispatch, store],
   );
 
   useEffect(() => {
@@ -217,7 +206,7 @@ export const useRealtimeSync = (isAuthenticated: boolean) => {
           void dispatch(fetchUnreadCountThunk());
         }
         if (entity === "appointments" && currentStaff?.id) {
-          void dispatch(fetchAppointmentsThunk({ ...appointmentQuery, staff_id: currentStaff.id, refresh: true }));
+          void dispatch(fetchAppointmentsThunk({ ...store.getState().appointment.query, staff_id: currentStaff.id, refresh: true }));
           // Staff appointment notifications are built from their assigned
           // appointments, so appointment changes must refresh that feed too.
           void dispatch(fetchUnreadCountThunk());
@@ -336,7 +325,7 @@ export const useRealtimeSync = (isAuthenticated: boolean) => {
       });
       refreshTimersRef.current = {};
     };
-  }, [activeBranchId, appointmentQuery, currentStaff?.id, dispatch, isAuthenticated, refreshEntity, staffOnly]);
+  }, [activeBranchId, currentStaff?.id, dispatch, isAuthenticated, refreshEntity, staffOnly, store]);
 
   useEffect(() => {
     if (!isAuthenticated) {

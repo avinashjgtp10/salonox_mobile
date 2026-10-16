@@ -7,7 +7,7 @@ import { fetchDashboardThunk } from "@/middleware/dashboard/dashboard.thunk";
 import { fetchMembershipsThunk } from "@/middleware/membership/membership.thunk";
 import { fetchNotificationsThunk, fetchUnreadCountThunk } from "@/middleware/notification/notification.thunk";
 import { fetchBrandsThunk, fetchInventorySummaryThunk, fetchProductsThunk } from "@/middleware/product/product.thunk";
-import { fetchSalesInitThunk, fetchSalesSummaryThunk, fetchSalesThunk } from "@/middleware/sales/sales.thunk";
+import { fetchSalesInitThunk, fetchSalesSummaryThunk, refreshSalesListInBackground } from "@/middleware/sales/sales.thunk";
 import { fetchServicesThunk } from "@/middleware/service/service.thunk";
 import { fetchStaffThunk } from "@/middleware/staff/staff.thunk";
 import { branchService } from "@/services/branch.service";
@@ -48,7 +48,7 @@ export const refreshAppDataForBranchThunk = createAsyncThunk<
     dispatch(fetchServicesThunk({ reset: true })),
     dispatch(fetchMembershipsThunk({ refresh: true })),
     dispatch(fetchSalesInitThunk()),
-    dispatch(fetchSalesThunk()),
+    refreshSalesListInBackground(dispatch, {}),
     dispatch(fetchSalesSummaryThunk()),
     dispatch(fetchNotificationsThunk()),
     dispatch(fetchUnreadCountThunk()),

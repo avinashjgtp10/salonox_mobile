@@ -59,7 +59,6 @@ export default function InboxListScreen({ embedded = false }: { embedded?: boole
       </> : <>
       {embedded ? null : <InboxIcon name="arrow-back" label="Back" onPress={() => router.canGoBack() ? router.back() : router.replace("/dashboard" as Href)} />}
       <Text style={s.title}>Inbox</Text>{unread > 0 && <View style={s.badge}><Text style={s.badgeText}>{unread > 999 ? "999+" : unread}</Text></View>}
-      <InboxIcon name="megaphone-outline" label="Marketing dashboard" onPress={() => router.push("/marketing" as Href)} />
       </>}
     </View>
     <View style={s.search}><Ionicons name="search-outline" size={18} color={p.muted} /><TextInput accessibilityLabel="Search conversations" value={search} onChangeText={setSearch} placeholder="Search conversations…" placeholderTextColor={p.muted} autoCorrect={false} autoCapitalize="none" style={s.searchInput} />{search ? <InboxIcon name="close" label="Clear search" onPress={() => setSearch("")} /> : <View style={{ width: 12 }} />}</View>
