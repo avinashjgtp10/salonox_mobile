@@ -1,4 +1,4 @@
-import { createAsyncThunk } from "@reduxjs/toolkit";
+import { createAction, createAsyncThunk, type ThunkDispatch, type UnknownAction } from "@reduxjs/toolkit";
 
 import { fetchDashboardThunk } from "@/middleware/dashboard/dashboard.thunk";
 import { fetchUnreadCountThunk } from "@/middleware/notification/notification.thunk";
@@ -7,6 +7,7 @@ import { ApiError, getApiErrorMessage } from "@/services/api";
 import { salesService } from "@/services/sales.service";
 import type { RootState } from "@/store";
 import { selectActiveBranchId } from "@/store/branch/branch.slice";
+import { isScreenActive, SALES_LIST_SCREEN } from "@/utils/activeScreens";
 import type {
   CheckoutSaleRequest,
   CheckoutSaleResponse,
@@ -69,6 +70,8 @@ export type FetchSalesArgs = {
   limit?: number;
   offset?: number;
   refresh?: boolean;
+  // Re-run search/sort on the last downloaded list instead of fetching it again.
+  reuseList?: boolean;
   reset?: boolean;
   search?: string;
   sort_by?: string;
@@ -94,12 +97,31 @@ export const fetchSalesThunk = createAsyncThunk<
 
   try {
     const salonId = selectActiveBranchId(getState());
-    return await salesService.getSales(nextQuery, salonId);
+    return await salesService.getSales(nextQuery, salonId, { reuseList: Boolean(args?.reuseList && !args.refresh) });
   } catch (error) {
 
     return rejectWithValue(toRejectValue(error));
   }
 });
+
+/** Drops the cached sales list so the Sales screen reloads it when next opened. */
+export const salesListInvalidated = createAction("sales/listInvalidated");
+
+/**
+ * Background refresh of the sales list. /sales returns the full history, so
+ * while the Sales screen is closed the list is only marked stale instead of
+ * being downloaded again (the screen always fetches when it opens).
+ */
+export const refreshSalesListInBackground = (
+  dispatch: ThunkDispatch<RootState, unknown, UnknownAction>,
+  args: FetchSalesArgs,
+) => {
+  if (isScreenActive(SALES_LIST_SCREEN)) {
+    return dispatch(fetchSalesThunk(args));
+  }
+  dispatch(salesListInvalidated());
+  return undefined;
+};
 
 export const fetchSaleByIdThunk = createAsyncThunk<
   SaleDetail,
@@ -127,7 +149,7 @@ export const createSaleThunk = createAsyncThunk<
     });
 
     void dispatch(fetchUnreadCountThunk());
-    void dispatch(fetchSalesThunk({ ...getState().sales.query, offset: 0, refresh: true, reset: true }));
+    void refreshSalesListInBackground(dispatch, { ...getState().sales.query, offset: 0, refresh: true, reset: true });
     void dispatch(fetchSalesSummaryThunk());
     void dispatch(fetchDashboardThunk());
     void dispatch(fetchProductsThunk({ offset: 0, refresh: true, reset: true }));
@@ -153,7 +175,7 @@ export const updateSaleThunk = createAsyncThunk<
     });
 
     void dispatch(fetchSaleByIdThunk(saleId));
-    void dispatch(fetchSalesThunk({ ...getState().sales.query, offset: 0, refresh: true, reset: true }));
+    void refreshSalesListInBackground(dispatch, { ...getState().sales.query, offset: 0, refresh: true, reset: true });
     void dispatch(fetchSalesSummaryThunk());
     void dispatch(fetchDashboardThunk());
 
@@ -173,15 +195,13 @@ export const checkoutSaleThunk = createAsyncThunk<
     const response = await salesService.checkoutSale(saleId, payload);
     const currentQuery = getState().sales.query;
 
-    void dispatch(
-      fetchSalesThunk({
-        limit: currentQuery.limit,
-        offset: 0,
-        reset: true,
-        search: currentQuery.search,
-        status: currentQuery.status,
-      }),
-    );
+    void refreshSalesListInBackground(dispatch, {
+      limit: currentQuery.limit,
+      offset: 0,
+      reset: true,
+      search: currentQuery.search,
+      status: currentQuery.status,
+    });
     void dispatch(fetchSalesSummaryThunk());
     void dispatch(fetchSalesInitThunk({ refresh: true }));
     void dispatch(fetchDashboardThunk());
@@ -202,7 +222,7 @@ export const deleteSaleThunk = createAsyncThunk<
   try {
     const response = await salesService.deleteSale(saleId);
 
-    void dispatch(fetchSalesThunk({ ...getState().sales.query, offset: 0, refresh: true, reset: true }));
+    void refreshSalesListInBackground(dispatch, { ...getState().sales.query, offset: 0, refresh: true, reset: true });
     void dispatch(fetchSalesSummaryThunk());
     void dispatch(fetchDashboardThunk());
 

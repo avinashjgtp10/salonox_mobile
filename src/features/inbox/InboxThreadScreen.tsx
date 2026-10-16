@@ -3,11 +3,10 @@ import { maskPhone } from "@/utils/maskPhone";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect, useLocalSearchParams, type Href } from "expo-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, AppState, FlatList, Keyboard, Linking, Modal, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
-import { ConfirmationModal } from "@/components/ui/ConfirmationModal";
 import { fetchInboxConversationsThunk, fetchInboxMessagesThunk, sendInboxReplyThunk } from "@/middleware/inbox/inbox.thunk";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { inboxActivePhoneChanged, inboxDraftChanged, selectInboxConversationByPhone, selectInboxMessages, selectInboxMessagesError, selectInboxMessagesLoading, selectInboxSendError, selectInboxSending } from "@/store/inbox/inbox.slice";
@@ -17,7 +16,6 @@ import { messageDay } from "@/utils/inboxPresentation";
 import { canAttemptInboxReply, getReplyWindow } from "@/utils/whatsappReplyWindow";
 import { hasCustomPermission } from "@/utils/permissions";
 import { CustomerPanel } from "./CustomerPanel";
-import { DeleteChatsModal } from "./DeleteChatsModal";
 import { InboxAvatar, InboxIcon } from "./InboxControls";
 import { MessageBubble } from "./MessageBubble";
 import { useInboxTheme } from "./inboxTheme";
@@ -47,28 +45,18 @@ function Thread({ phone }: { phone: string }) {
   const connected = useAppSelector(state => state.inbox.connected);
   const [now, setNow] = useState(Date.now());
   const [infoOpen, setInfoOpen] = useState(false);
-  const [deleteChatOpen, setDeleteChatOpen] = useState(false);
   const [tray, setTray] = useState<"quick" | "emoji" | null>(null);
-  const [hiddenIds, setHiddenIds] = useState<string[]>([]);
-  const [deleteMessageId, setDeleteMessageId] = useState<string | null>(null);
-  const visibleMessages = messages.filter(message => !hiddenIds.includes(message.id));
-  const deleteFromView = (id: string) => {
-    Keyboard.dismiss();
-    setDeleteMessageId(id);
-  };
+  // Newest first for the inverted list below: the chat opens on the latest
+  // message and new messages appear at the bottom on their own. The only
+  // programmatic scroll is jumping to the bottom when the user sends.
+  const newestFirst = useMemo(() => [...messages].reverse(), [messages]);
   const list = useRef<FlatList<InboxMessage>>(null);
-  const nearBottom = useRef(true);
-  const followComposer = useRef(false);
-  const initialPositionPending = useRef(true);
   const focused = useRef(false);
   const sendLock = useRef(false);
   const setDraft = (text: string) => dispatch(inboxDraftChanged({ phone, text }));
-  // `silent` keeps whatever's already on screen while this resolves, instead
-  // of blanking it to a spinner — right for a background poll/reconnect on a
-  // thread that's already showing good data. The one call that must NOT be
-  // silent is the first one below, right as the thread gains focus: that's
-  // exactly when stale cached messages from the last visit would otherwise
-  // sit on screen looking current for however long the fetch takes.
+  // The first (non-silent) fetch on focus marks the thread as loading, which
+  // holds the composer until the fresh history arrives. Cached messages stay
+  // visible meanwhile and are replaced in place, so the chat never blanks.
   const refresh = useCallback((silent = true) => { if (phone) void dispatch(fetchInboxMessagesThunk({ phone, refresh: true, silent })); }, [dispatch, phone]);
   const callCustomer = useCallback(() => {
     const dialNumber = phone.trim().replace(/[^\d+]/g, "").replace(/(?!^)\+/g, "");
@@ -79,8 +67,6 @@ function Thread({ phone }: { phone: string }) {
   }, [phone]);
   useFocusEffect(useCallback(() => {
     focused.current = true;
-    nearBottom.current = true;
-    initialPositionPending.current = true;
     dispatch(inboxActivePhoneChanged(phone));
     refresh(false);
     void dispatch(fetchInboxConversationsThunk({ refresh: true }));
@@ -92,31 +78,9 @@ function Thread({ phone }: { phone: string }) {
     });
     return () => { focused.current = false; clearInterval(timer); clearInterval(clock); subscription.remove(); dispatch(inboxActivePhoneChanged(null)); };
   }, [dispatch, phone, refresh]));
-  // Keyed on the `messages` array reference (not its length) so this also
-  // fires when a fresh fetch REPLACES the stale cache left over from the
-  // last time this thread was open with a same-size page of newer messages
-  // — length alone wouldn't change, so the chat looked stuck on old
-  // messages until something else nudged the FlatList.
-  useEffect(() => {
-    if (!focused.current || !messages.length) return;
-    if (initialPositionPending.current) {
-      const frame = requestAnimationFrame(() => {
-        list.current?.scrollToEnd({ animated: false });
-        initialPositionPending.current = false;
-        nearBottom.current = true;
-      });
-      return () => cancelAnimationFrame(frame);
-    }
-    if (nearBottom.current) {
-      requestAnimationFrame(() => list.current?.scrollToEnd({ animated: true }));
-    }
-  }, [messages, phone]);
   const onComposerFocus = () => {
-    followComposer.current = true;
-    nearBottom.current = true;
     setTray(null);
     chatKeyboard.onFocus();
-    requestAnimationFrame(() => list.current?.scrollToEnd({ animated: false }));
   };
   const replyWindow = getReplyWindow(messages, now);
   const previousConnection = useRef(connected);
@@ -137,53 +101,27 @@ function Thread({ phone }: { phone: string }) {
   const canSend = allowed && replyAllowed && !!draft.trim() && !sending && !loading && !error;
   const send = () => {
     if (!canSend || sendLock.current || !canAttemptInboxReply(messages)) return;
-    sendLock.current = true; nearBottom.current = true; setTray(null);
+    sendLock.current = true; setTray(null);
+    // Like WhatsApp: sending while scrolled up brings the chat to the latest message.
+    list.current?.scrollToOffset({ offset: 0, animated: true });
     void dispatch(sendInboxReplyThunk({ phone, message: draft.trim() })).finally(() => { sendLock.current = false; });
   };
   return <View ref={chatKeyboard.viewport} collapsable={false} onLayout={chatKeyboard.onLayout} style={s.root}>
     <SafeAreaView edges={["top"]} style={[s.root, { paddingBottom: chatKeyboard.inset }]}>
     <AppStatusBar />
-    <View style={s.header}>
+    <View style={[s.header, { gap: 6, paddingHorizontal: 8 }]}>
       <InboxIcon name="arrow-back" label="Back to inbox" onPress={() => router.canGoBack() ? router.back() : router.replace("/inbox" as Href)} />
       <InboxAvatar name={conversation?.contactName} phone={phone} />
       <TouchableOpacity accessibilityRole="button" accessibilityLabel="Show customer info" onPress={() => setInfoOpen(true)} style={[s.fill, { gap: 5 }]}><Text numberOfLines={1} style={s.heading}>{conversation?.contactName || maskPhone(phone)}</Text><Text numberOfLines={1} style={s.muted}>{conversation?.contactName ? maskPhone(phone) : "WhatsApp"}</Text></TouchableOpacity>
       <InboxIcon name="call-outline" label={`Call ${conversation?.contactName || phone}`} onPress={callCustomer} disabled={!/\d/.test(phone)} />
       <InboxIcon name="information-circle-outline" label="Show customer info" onPress={() => setInfoOpen(true)} />
-      {allowed && <InboxIcon name="trash-outline" label="Delete chat" disabled={sending} onPress={() => { Keyboard.dismiss(); setDeleteChatOpen(true); }} />}
     </View>
     <View style={s.chat}>
       {!!error && <TouchableOpacity accessibilityRole="button" onPress={() => refresh(false)} style={s.banner}><Text style={s.error}>{error} · Tap to retry</Text></TouchableOpacity>}
       <View pointerEvents="none" style={{ position: "absolute", top: 0, bottom: 0, left: 0, right: 0, overflow: "hidden", justifyContent: "space-around" }}>{Array.from({ length: 6 }, (_, i) => <View key={i} style={{ flexDirection: "row", justifyContent: "space-around" }}>{[0, 1].map(j => <Text key={j} style={{ color: p.muted, opacity: 0.08, letterSpacing: 5, fontSize: 17, transform: [{ rotate: "-20deg" }] }}>SalonOX</Text>)}</View>)}</View>
-      <FlatList ref={list} data={loading ? [] : visibleMessages} keyExtractor={item => item.id} style={s.fill} contentContainerStyle={s.messageList} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag"
-        // Keyboard/composer changes resize the viewport without changing content size.
-        // Scroll after that layout commits so the latest bubble stays above the composer.
-        onLayout={() => {
-          if (followComposer.current || nearBottom.current) {
-            list.current?.scrollToEnd({ animated: false });
-          }
-        }}
-        onScrollBeginDrag={() => { followComposer.current = false; }}
-        // Not inverted, so FlatList's default windowing renders from the OLDEST
-        // end of `data` first — for any conversation longer than ~10 messages,
-        // the initial batch never reached the newest ones, so scrollToEnd()
-        // below landed on the end of that stale first page, not the real
-        // bottom. Forcing the whole list into the first render pass is what
-        // actually fixes "opens on old messages" (a long history costs more
-        // on mount this way, but correctness here matters more than that).
-        initialNumToRender={Math.max(visibleMessages.length, 1)}
-        onScroll={event => { const { contentSize, contentOffset, layoutMeasurement } = event.nativeEvent; nearBottom.current = contentSize.height - contentOffset.y - layoutMeasurement.height < 100; }} scrollEventThrottle={100}
-        onContentSizeChange={() => {
-          if (initialPositionPending.current && visibleMessages.length) {
-            list.current?.scrollToEnd({ animated: false });
-            initialPositionPending.current = false;
-            nearBottom.current = true;
-          } else if (followComposer.current || nearBottom.current) {
-            list.current?.scrollToEnd({ animated: false });
-          }
-        }}
-        ListEmptyComponent={<View style={s.empty}>{loading ? <ActivityIndicator color={p.accent} /> : <><Ionicons name="chatbubble-ellipses-outline" size={36} color={p.muted} /><Text style={s.emptyText}>{error ? "Messages couldn’t be loaded." : hiddenIds.length ? "Messages are hidden from this view." : "No messages in this conversation yet."}</Text></>}</View>}
-        renderItem={({ item, index }) => <View>{(index === 0 || messageDay(visibleMessages[index - 1].sentAt) !== messageDay(item.sentAt)) && <View style={s.day}><Text style={s.muted}>{messageDay(item.sentAt)}</Text></View>}<MessageBubble message={item} onDelete={deleteFromView} /></View>} />
-      {hiddenIds.length > 0 && <View style={[s.banner, s.row]}><Text style={[s.muted, s.fill]}>Message hidden from this view</Text><TouchableOpacity accessibilityRole="button" accessibilityLabel="Undo last message deletion" onPress={() => setHiddenIds(ids => ids.slice(0, -1))} style={s.button}><Text style={s.accentText}>Undo</Text></TouchableOpacity></View>}
+      <FlatList ref={list} inverted data={newestFirst} keyExtractor={item => item.id} style={s.fill} contentContainerStyle={[s.messageList, { paddingTop: 24, paddingBottom: 18 }]} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag"
+        ListEmptyComponent={<View style={[s.empty, { transform: [{ scaleY: -1 }] }]}>{loading ? <ActivityIndicator color={p.accent} /> : <><Ionicons name="chatbubble-ellipses-outline" size={36} color={p.muted} /><Text style={s.emptyText}>{error ? "Messages couldn’t be loaded." : "No messages in this conversation yet."}</Text></>}</View>}
+        renderItem={({ item, index }) => <View>{(index === newestFirst.length - 1 || messageDay(newestFirst[index + 1].sentAt) !== messageDay(item.sentAt)) && <View style={s.day}><Text style={s.muted}>{messageDay(item.sentAt)}</Text></View>}<MessageBubble message={item} /></View>} />
       {!!sendError && <View accessibilityRole="alert" style={s.banner}><Text style={s.error}>{sendError} Your draft has been kept.</Text></View>}
       {!loading && (!allowed || !replyAllowed) ? <View style={s.banner}><Text style={[s.muted, { lineHeight: 19 }]}>{!allowed ? "Your account doesn’t have permission to reply to conversations." : "The 24-hour reply window has closed. Send an approved campaign template to re-engage this client."}</Text>{!!draft && <Text numberOfLines={2} style={[s.muted, { marginTop: 8 }]}>Saved draft: {draft}</Text>}</View>
         : <>
@@ -197,25 +135,6 @@ function Thread({ phone }: { phone: string }) {
           </View>
         </>}
     </View>
-    <ConfirmationModal
-      visible={deleteMessageId !== null}
-      title="Delete message from this view?"
-      description="This hides the message while this chat is open. It stays in the chat history and on the client’s WhatsApp. Reopening the chat restores it."
-      cancelLabel="Keep message"
-      confirmLabel="Delete from view"
-      onCancel={() => setDeleteMessageId(null)}
-      onConfirm={() => {
-        if (deleteMessageId !== null) {
-          const id = deleteMessageId;
-          setHiddenIds(ids => ids.includes(id) ? ids : [...ids, id]);
-        }
-        setDeleteMessageId(null);
-      }}
-    />
-    {deleteChatOpen && <DeleteChatsModal phones={[phone]} onClose={() => setDeleteChatOpen(false)} onDeleted={() => {
-      setDeleteChatOpen(false);
-      if (router.canGoBack()) router.back(); else router.replace("/inbox" as Href);
-    }} />}
     <Modal visible={infoOpen} transparent animationType="slide" onRequestClose={() => setInfoOpen(false)}>
       <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.35)", justifyContent: "flex-end" }}>
         <TouchableOpacity accessibilityRole="button" accessibilityLabel="Close customer info" onPress={() => setInfoOpen(false)} style={{ flex: 1 }} />

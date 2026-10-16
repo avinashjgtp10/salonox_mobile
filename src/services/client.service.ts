@@ -42,8 +42,11 @@ import type {
   ClientWithHistoryStats,
 } from "@/types/client";
 import { formatAppDate } from "@/utils/dateTime";
+import { createListSnapshotCache, snapshotKey } from "@/utils/listSnapshotCache";
 
 type ClientListApiResponse = ApiResponse<ClientListApiData>;
+
+const filteredClientSnapshots = createListSnapshotCache<ClientListItem[]>();
 type CreateClientApiData =
   | ClientApiItem
   | {
@@ -966,6 +969,7 @@ export const clientService = {
   },
 
   async createClient(payload: CreateClientRequest): Promise<CreateClientResponse> {
+    filteredClientSnapshots.clear();
     const response = await api.post<CreateClientApiResponse>(CLIENT.CREATE, payload);
     const client = normalizeClient(getCreatedClient(response.data.data));
 
@@ -1003,33 +1007,40 @@ export const clientService = {
     salonId?: string | null,
     options?: { membership?: "all" | "has" | "none"; status?: "active" | "all" | "blocked" | "inactive" },
   ): Promise<ClientListResponse> {
-    const response = await api.get<ClientListApiResponse>(CLIENT.FILTER, {
-      params: {
-        filter,
-        ...(salonId ? { salon_id: salonId } : {}),
-        ...(options?.status && options.status !== "all" ? { status: options.status, status_filter: options.status } : {}),
-        ...(options?.membership && options.membership !== "all"
-          ? { membership: options.membership, membership_filter: options.membership }
-          : {}),
-      },
+    const { limit: _limit, offset: _offset, ...listParams } = query;
+    const key = snapshotKey({
+      ...listParams, filter, membership: options?.membership ?? null, salonId: salonId ?? null, status: options?.status ?? null,
     });
-    const matchingIds = new Set(getClientArray(response.data.data).map((client) => toSafeString(client.id)));
-    const matchingClients: ClientListItem[] = [];
-    const seenIds = new Set<string>();
-    let offset = 0;
-    while (matchingIds.size > 0) {
-      const page = await getClientList(CLIENT.LIST, { ...query, offset, limit: 200 }, salonId);
-      const fresh = page.clients.filter((client) => !seenIds.has(client.id));
-      for (const client of fresh) {
-        seenIds.add(client.id);
-        if (matchingIds.delete(client.id)) matchingClients.push(client);
+    const matchingClients = await filteredClientSnapshots.load(key, query.offset > 0, async () => {
+      const response = await api.get<ClientListApiResponse>(CLIENT.FILTER, {
+        params: {
+          filter,
+          ...(salonId ? { salon_id: salonId } : {}),
+          ...(options?.status && options.status !== "all" ? { status: options.status, status_filter: options.status } : {}),
+          ...(options?.membership && options.membership !== "all"
+            ? { membership: options.membership, membership_filter: options.membership }
+            : {}),
+        },
+      });
+      const matchingIds = new Set(getClientArray(response.data.data).map((client) => toSafeString(client.id)));
+      const matches: ClientListItem[] = [];
+      const seenIds = new Set<string>();
+      let offset = 0;
+      while (matchingIds.size > 0) {
+        const page = await getClientList(CLIENT.LIST, { ...query, offset, limit: 200 }, salonId);
+        const fresh = page.clients.filter((client) => !seenIds.has(client.id));
+        for (const client of fresh) {
+          seenIds.add(client.id);
+          if (matchingIds.delete(client.id)) matches.push(client);
+        }
+        if (!page.pagination.hasMore) break;
+        if (fresh.length === 0 || page.pagination.nextOffset <= offset) {
+          throw new Error("Unable to load the full client list. Please try again.");
+        }
+        offset = page.pagination.nextOffset;
       }
-      if (!page.pagination.hasMore) break;
-      if (fresh.length === 0 || page.pagination.nextOffset <= offset) {
-        throw new Error("Unable to load the full client list. Please try again.");
-      }
-      offset = page.pagination.nextOffset;
-    }
+      return matches;
+    });
     const clients = matchingClients.slice(query.offset, query.offset + query.limit);
     return {
       clients, query, totalCount: matchingClients.length,
@@ -1049,6 +1060,7 @@ export const clientService = {
     clientId: string,
     payload: UpdateClientRequest,
   ): Promise<UpdateClientResponse> {
+    filteredClientSnapshots.clear();
     const response = await api.patch<CreateClientApiResponse>(
       `${CLIENT.UPDATE}/${clientId}`,
       payload,
@@ -1061,6 +1073,7 @@ export const clientService = {
   },
 
   async deleteClient(clientId: string): Promise<DeleteClientResponse> {
+    filteredClientSnapshots.clear();
     const response = await api.delete<DeleteClientApiResponse>(`${CLIENT.DELETE}/${clientId}`);
 
     return {
@@ -1086,6 +1099,7 @@ export const clientService = {
   },
 
   async mergeClients(primaryId: string, secondaryId: string): Promise<MergeClientsResponse> {
+    filteredClientSnapshots.clear();
     const response = await api.post<ApiResponse<any>>(CLIENT.MERGE, {
       primary_client_id: primaryId,
       secondary_client_id: secondaryId,
@@ -1100,11 +1114,13 @@ export const clientService = {
   },
 
   async mergeDuplicates(): Promise<MergeAllDuplicatesResponse> {
+    filteredClientSnapshots.clear();
     const response = await api.post<ApiResponse<MergeAllDuplicatesResponse>>(CLIENT.MERGE_DUPLICATES);
     return response.data.data || response.data || {};
   },
 
   async blockClient(clientId: string, reason?: string): Promise<BlockClientResponse> {
+    filteredClientSnapshots.clear();
     const response = await api.post<ApiResponse<any>>(CLIENT.BLOCK, {
       client_ids: [clientId],
       reason,
@@ -1118,6 +1134,7 @@ export const clientService = {
   },
 
   async updateBlockStatus(clientId: string, reason: string): Promise<BlockClientResponse> {
+    filteredClientSnapshots.clear();
     const response = await api.patch<ApiResponse<any>>(CLIENT.BLOCK, {
       client_ids: [clientId],
       reason,
@@ -1131,6 +1148,7 @@ export const clientService = {
   },
 
   async unblockClient(clientId: string): Promise<UnblockClientResponse> {
+    filteredClientSnapshots.clear();
     const response = await api.post<ApiResponse<any>>(CLIENT.UNBLOCK, {
       client_ids: [clientId],
     });
