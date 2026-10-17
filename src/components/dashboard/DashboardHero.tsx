@@ -3,7 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router, type Href } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { Platform, StyleSheet, TouchableOpacity, View } from "react-native";
+import { StyleSheet, TouchableOpacity, View } from "react-native";
 
 import { BranchSelectorSheet } from "@/components/dashboard/BranchSelectorSheet";
 import { NotificationBadge } from "@/components/notifications/NotificationBadge";
@@ -102,15 +102,6 @@ export default function DashboardHero({ onOpenNotifications, onOpenQuickActions 
 
       <View style={styles.row}>
         <View style={styles.copy}>
-          <Text
-            numberOfLines={1}
-            adjustsFontSizeToFit={Platform.OS !== "ios"}
-            minimumFontScale={0.82}
-            ellipsizeMode="tail"
-            style={[styles.name, Platform.OS === "ios" && styles.iosName]}
-          >
-            {salonName}
-          </Text>
           <Text numberOfLines={2} style={styles.ownerName}>
             {today} · Here&apos;s what&apos;s happening today
           </Text>
@@ -231,23 +222,11 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     marginBottom: 4,
     textTransform: "uppercase",
   },
-  name: {
-    color: Colors.heading,
-    fontSize: 28,
-    fontWeight: "900",
-    letterSpacing: 0,
-    lineHeight: 34,
-  },
-  iosName: {
-    width: "100%",
-    flexShrink: 0,
-  },
   ownerName: {
     color: Colors.text2,
     fontSize: 13,
     fontWeight: Typography.fontWeights.semibold,
     lineHeight: 19,
-    marginTop: 4,
   },
   avatarColumn: {
     alignItems: "center",
