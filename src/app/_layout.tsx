@@ -17,6 +17,7 @@ import { StaffAttendanceGate } from '@/features/attendance/components/StaffAtten
 import { PortalProvider } from '@/components/ui/PortalProvider';
 import { UpdateAnnouncementModal } from '@/components/ui/UpdateAnnouncementModal';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
+import { AppRatingPrompt } from '@/features/appRating/AppRatingPrompt';
 import { FirstLoginGuide } from '@/features/userGuide/UserGuide';
 import type { ThemeColors } from '@/constants/theme';
 import { useAppUpdateAnnouncement } from '@/hooks/useAppUpdateAnnouncement';
@@ -269,11 +270,31 @@ function NetworkSetup() {
 }
 
 function AppUpdateSetup({ ready }: { ready: boolean }) {
-  const { close, reopen, isVisible, updateInfo } = useAppUpdateAnnouncement(ready);
+  const announcement = useAppUpdateAnnouncement(ready);
   const ota = useOtaUpdate(ready);
+  const { isVisible, updateInfo } = announcement;
+  const showsOtaUpdate = !updateInfo?.isUpdateAvailable && !updateInfo?.isMandatory && ota.hasUpdate;
+  const updateVisible = showsOtaUpdate ? ota.visible : Boolean(updateInfo) && isVisible;
+
+  // Kept outside UpdateAnnouncements' branches so an open rating sheet survives update info arriving.
+  return (
+    <>
+    <AppRatingPrompt enabled={ready && !updateVisible} />
+    <UpdateAnnouncements announcement={announcement} ota={ota} ready={ready} showsOtaUpdate={showsOtaUpdate} />
+    </>
+  );
+}
+
+function UpdateAnnouncements({ announcement, ota, ready, showsOtaUpdate }: {
+  announcement: ReturnType<typeof useAppUpdateAnnouncement>;
+  ota: ReturnType<typeof useOtaUpdate>;
+  ready: boolean;
+  showsOtaUpdate: boolean;
+}) {
+  const { close, reopen, isVisible, updateInfo } = announcement;
 
   // A store (binary) update takes priority; otherwise announce a new EAS Update.
-  if (!updateInfo?.isUpdateAvailable && !updateInfo?.isMandatory && ota.hasUpdate) {
+  if (showsOtaUpdate) {
     return (
       <>
       <FirstLoginGuide enabled={ready && !ota.visible} />
