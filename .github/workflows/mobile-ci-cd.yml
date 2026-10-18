@@ -156,7 +156,6 @@ jobs:
       - name: Build AAB and IPA and queue store submissions
         run: eas build --platform all --profile production --auto-submit --non-interactive --wait
 
-      # Keep this in the same checkout: EAS Build and Update must resolve the
-      # same generated APP_VERSION and runtimeVersion. Never check out again here.
-      - name: Publish matching production OTA
-        run: eas update --platform all --channel production --environment production --message "Production release ${GITHUB_SHA}" --non-interactive
+      # No OTA here: the store build already contains this exact code. Publishing
+      # it as an OTA too made every fresh store install show a pointless
+      # "restart to update" popup right after updating from the store.

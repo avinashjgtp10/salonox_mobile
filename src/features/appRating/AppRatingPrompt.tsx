@@ -1,6 +1,5 @@
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
-import { useSegments } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { Linking, Platform, StyleSheet, TouchableOpacity, View } from "react-native";
 
@@ -9,8 +8,8 @@ import { DashboardRadius as Radius, DashboardSpacing as Spacing, type ThemeColor
 import { useAuth } from "@/context/AuthContext";
 import { guideStorage } from "@/features/userGuide/guideStorage";
 import { useAppToast } from "@/hooks/useAppToast";
+import { useIsOnHomeScreen } from "@/hooks/useIsOnHomeScreen";
 import { useThemeColors } from "@/theme/ThemeProvider";
-import { isStaffExperienceUser } from "@/utils/routeResolver";
 import { appRatingStorage } from "./appRatingStorage";
 
 // Reviews always go to the production listing; dev/QA builds aren't on the stores.
@@ -122,11 +121,8 @@ function AppRatingSheet({ onDismiss, onSubmit, visible }: { onDismiss: () => voi
 export function AppRatingPrompt({ enabled }: { enabled: boolean }) {
   const { user, isAuthenticated, isLoading } = useAuth();
   const toast = useAppToast();
-  const segments: readonly string[] = useSegments();
+  const onHome = useIsOnHomeScreen();
   const userId = user?.id ?? "";
-  const staff = isStaffExperienceUser(user);
-  const onHome = String(segments[0]) === (staff ? "(staff)" : "(tabs)")
-    && String(segments[1]) === (staff ? "home" : "dashboard");
   const [dueFor, setDueFor] = useState<string | null>(null);
   const [visibleFor, setVisibleFor] = useState<string | null>(null);
 
