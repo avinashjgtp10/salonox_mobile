@@ -21,6 +21,7 @@ import { AppRatingPrompt } from '@/features/appRating/AppRatingPrompt';
 import { FirstLoginGuide } from '@/features/userGuide/UserGuide';
 import type { ThemeColors } from '@/constants/theme';
 import { useAppUpdateAnnouncement } from '@/hooks/useAppUpdateAnnouncement';
+import { useIsOnHomeScreen } from '@/hooks/useIsOnHomeScreen';
 import { useOtaUpdate } from '@/hooks/useOtaUpdate';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useNetworkMonitor } from '@/hooks/useNetworkMonitor';
@@ -275,30 +276,34 @@ function AppUpdateSetup({ ready }: { ready: boolean }) {
   const { isVisible, updateInfo } = announcement;
   const showsOtaUpdate = !updateInfo?.isUpdateAvailable && !updateInfo?.isMandatory && ota.hasUpdate;
   const updateVisible = showsOtaUpdate ? ota.visible : Boolean(updateInfo) && isVisible;
+  const onHome = useIsOnHomeScreen();
 
   // Kept outside UpdateAnnouncements' branches so an open rating sheet survives update info arriving.
   return (
     <>
     <AppRatingPrompt enabled={ready && !updateVisible} />
-    <UpdateAnnouncements announcement={announcement} ota={ota} ready={ready} showsOtaUpdate={showsOtaUpdate} />
+    <UpdateAnnouncements announcement={announcement} onHome={onHome} ota={ota} ready={ready} showsOtaUpdate={showsOtaUpdate} />
     </>
   );
 }
 
-function UpdateAnnouncements({ announcement, ota, ready, showsOtaUpdate }: {
+function UpdateAnnouncements({ announcement, onHome, ota, ready, showsOtaUpdate }: {
   announcement: ReturnType<typeof useAppUpdateAnnouncement>;
+  onHome: boolean;
   ota: ReturnType<typeof useOtaUpdate>;
   ready: boolean;
   showsOtaUpdate: boolean;
 }) {
   const { close, reopen, isVisible, updateInfo } = announcement;
 
-  // A store (binary) update takes priority; otherwise announce a new EAS Update.
+  // Only one update popup, and only on the signed-in home screen (never on login).
+  // Native release: a newer store version exists, so Update opens the Play Store / App Store.
+  // JS-only release: an OTA is available, so Update downloads it and restarts the app.
   if (showsOtaUpdate) {
     return (
       <>
       <FirstLoginGuide enabled={ready && !ota.visible} />
-      <UpdateAnnouncementModal
+      {onHome ? <UpdateAnnouncementModal
         description={ota.releaseNotes.message ?? "A new version of SalonOX is ready. Update now to get the latest improvements and fixes."}
         isMandatory={false}
         isUpdating={ota.isApplying}
@@ -309,7 +314,7 @@ function UpdateAnnouncements({ announcement, ota, ready, showsOtaUpdate }: {
         reminderMessage="Tap Show Update whenever you're ready to update."
         title={ota.releaseNotes.title ?? "SalonOX Update"}
         visible={ota.visible}
-      />
+      /> : null}
       </>
     );
   }
@@ -321,7 +326,7 @@ function UpdateAnnouncements({ announcement, ota, ready, showsOtaUpdate }: {
   return (
     <>
     <FirstLoginGuide enabled={ready && !isVisible} />
-    <UpdateAnnouncementModal
+    {onHome ? <UpdateAnnouncementModal
       androidStoreUrl={updateInfo.androidStoreUrl}
       currentVersion={updateInfo.currentVersion}
       description={updateInfo.message}
@@ -333,7 +338,7 @@ function UpdateAnnouncements({ announcement, ota, ready, showsOtaUpdate }: {
       releaseNotes={updateInfo.releaseNotes}
       title={updateInfo.title}
       visible={isVisible}
-    />
+    /> : null}
     </>
   );
 }
