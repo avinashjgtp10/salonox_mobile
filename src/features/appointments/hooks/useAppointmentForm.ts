@@ -5,7 +5,7 @@ import { createStyles } from "@/features/appointments/styles/appointmentStyles";
 import type { AppointmentFormState, AppointmentSelectedService, ClientBookingMode, FormErrors } from "@/features/appointments/types/appointmentForm";
 import { addMinutesToTime, combineDateTime, getDefaultTimeSlots, minutesToDisplayTime, parseClockToMinutes, toInputDate, toInputTime, validateDate, validateTime } from "@/features/appointments/utils/appointmentDateTime";
 import { appointmentServicesToSelectedServices, appointmentToForm, getSelectedServiceCatalogId, getServicePricingTotals, validateForm } from "@/features/appointments/utils/appointmentForm";
-import { APPOINTMENT_VALIDATION_FIELD_ORDER } from "@/features/appointments/utils/appointmentScreenHelpers";
+import { APPOINTMENT_VALIDATION_FIELD_ORDER, getAppointmentPaymentStatus } from "@/features/appointments/utils/appointmentScreenHelpers";
 import { fetchServiceCatalog } from "@/features/appointments/utils/serviceCatalog";
 import { realtimePayloadMatchesStaff, staffIdMatches } from "@/features/appointments/utils/staffAssignment";
 import { useAppForeground } from "@/hooks/useAppForeground";
@@ -770,6 +770,11 @@ export function useAppointmentForm(mode: 'create' | 'edit') {
 
     submittingRef.current = true;
 
+    // A paid/partial bill's status is owned by its payments: the backend
+    // re-derives Paid/Partial from the edited total, so never send ours.
+    const { status: _status, ...updatesWithoutStatus } = payload;
+    const keepsBillStatus = Boolean(existingAppointment && getAppointmentPaymentStatus(existingAppointment) !== "Unpaid");
+
     const result =
       mode === "create"
         ? await dispatch(createAppointmentThunk(payload))
@@ -777,7 +782,7 @@ export function useAppointmentForm(mode: 'create' | 'edit') {
           ? await dispatch(
             updateAppointmentThunk({
               appointmentId,
-              updates: payload as Omit<UpdateAppointmentRequest, "salon_id">,
+              updates: (keepsBillStatus ? updatesWithoutStatus : payload) as Omit<UpdateAppointmentRequest, "salon_id">,
             }),
           )
           : null;

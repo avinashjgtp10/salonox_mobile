@@ -11,7 +11,7 @@ import { StartAppointmentAction } from "@/features/appointments/components/share
 import { StateCard } from "@/features/appointments/components/shared/StateCard";
 import { useAppointmentStyles } from "@/features/appointments/styles/useAppointmentStyles";
 import { formatCurrency } from "@/features/appointments/utils/appointmentForm";
-import { formatBusinessDate, formatBusinessTime, toInvoiceSequence } from "@/features/appointments/utils/appointmentScreenHelpers";
+import { formatBusinessDate, formatBusinessTime, getAppointmentPaymentStatus, toInvoiceSequence } from "@/features/appointments/utils/appointmentScreenHelpers";
 import { isAssignedToStaff } from "@/features/appointments/utils/staffAssignment";
 import { getStaffAppointmentBilling } from "@/utils/staffBilling";
 import { fetchAppointmentByIdThunk } from "@/middleware/appointment/appointment.thunk";
@@ -91,8 +91,13 @@ export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | 
   const displayName = appointment?.clientName?.trim() ? appointment.clientName.trim() : "Walk-in Client";
   const staffBilling = isStaffMode && appointment ? getStaffAppointmentBilling(appointment, currentStaff) : null;
   const billedTotal = staffBilling ? staffBilling.total : appointment && appointment.total > 0 ? appointment.total : saleForAppointment?.total ?? appointment?.total ?? 0;
-  const appointmentIsPaid = staffBilling ? staffBilling.paid : Boolean(appointment && (appointment.paymentStatus.toLowerCase() === "paid" || (billedTotal > 0 && appointment.paidAmount >= billedTotal)));
+  const paymentStatus = staffBilling
+    ? (staffBilling.paid ? "Paid" : "Unpaid")
+    : appointment ? getAppointmentPaymentStatus(appointment) : "Unpaid";
   const displayedPaidAmount = staffBilling ? staffBilling.amountPaid : appointment?.paidAmount ?? 0;
+  const dueAmount = Math.max(0, billedTotal - (displayedPaidAmount ?? 0));
+  // Paid and partially-paid bills can be edited and printed, as on the web.
+  const hasBill = !isStaffMode && paymentStatus !== "Unpaid" && appointment?.status !== "Cancelled";
   const visibleBilledItems = staffBilling ? staffBilling.items : appointment?.billedItems ?? [];
 
   return (
@@ -149,8 +154,8 @@ export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | 
               <Text style={styles.detailInvoiceLabel}>Invoice Number</Text>
               <Text style={styles.detailInvoiceNumber}>{invoiceNumber ?? "Not generated"}</Text>
             </View>
-            <View style={[styles.previewStatusBadge, appointmentIsPaid ? styles.previewPaidBadge : styles.previewUnpaidBadge]}>
-              <Text style={[styles.previewStatusText, !appointmentIsPaid && styles.previewUnpaidText]}>{appointmentIsPaid ? "PAID" : appointment.paymentStatus}</Text>
+            <View style={[styles.previewStatusBadge, paymentStatus === "Paid" ? styles.previewPaidBadge : paymentStatus === "Partial" ? styles.previewPartialBadge : styles.previewUnpaidBadge]}>
+              <Text style={[styles.previewStatusText, paymentStatus === "Partial" ? styles.previewPartialText : paymentStatus === "Unpaid" && styles.previewUnpaidText]}>{isStaffMode && paymentStatus === "Unpaid" ? appointment.paymentStatus : paymentStatus}</Text>
             </View>
           </View>
 
@@ -173,11 +178,12 @@ export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | 
             <Text style={styles.sectionTitle}>Payment & Billing</Text>
             <DetailRow
               label="Payment Status"
-              value={appointmentIsPaid ? "Paid successfully" : appointment.paymentStatus}
+              value={paymentStatus === "Paid" ? "Paid successfully" : isStaffMode ? appointment.paymentStatus : paymentStatus === "Partial" ? "Partially paid" : "Unpaid"}
             />
             <DetailRow label="Payment Method" value={appointment.paymentMethod} />
             <DetailRow label={isStaffMode ? "Your Items Total" : "Total Amount"} value={formatCurrency(isStaffMode ? billedTotal : billedTotal || appointment.amount)} />
             <DetailRow label="Amount Paid" value={displayedPaidAmount === null ? "Not allocated by staff" : isStaffMode || displayedPaidAmount > 0 ? formatCurrency(displayedPaidAmount) : null} />
+            {!isStaffMode && paymentStatus === "Partial" ? <DetailRow label="Due Amount" value={formatCurrency(dueAmount)} /> : null}
           </View>
 
           <View style={styles.formCard}>
@@ -220,6 +226,14 @@ export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | 
           <View style={styles.actionGrid}>
             {!isStaffMode && appointment.status === "Confirmed" ? <StartAppointmentAction appointment={appointment} /> : null}
             {!isStaffMode && appointment.status === "In Progress" ? <CompleteAppointmentAction appointment={appointment} /> : null}
+            {hasBill ? (
+              <>
+                <ActionButton icon="create-outline" label="Edit" route={`/appointments/${appointment.id}/edit`} />
+                {appointment.saleId ? (
+                  <ActionButton icon="print-outline" label="Print Bill" route={`/quick-sale/checkout?saleId=${encodeURIComponent(appointment.saleId)}&openReceipt=1`} />
+                ) : null}
+              </>
+            ) : null}
             {!isStaffMode ? (
               <>
                 <ActionButton icon="calendar-outline" label="Reschedule" route={`/appointments/${appointment.id}/reschedule`} />

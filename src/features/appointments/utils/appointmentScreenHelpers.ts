@@ -3,7 +3,7 @@ import type { ThemeColors } from "@/constants/theme";
 import { DashboardSpacing as Spacing } from "@/constants/theme";
 import type { AppointmentFormState } from "@/features/appointments/types/appointmentForm";
 import { parseAppointmentDateTime } from "@/features/appointments/utils/appointmentDateTime";
-import type { AppointmentStatus } from "@/types/appointment";
+import type { AppointmentListItem, AppointmentStatus } from "@/types/appointment";
 import { formatAppDate, formatAppTime } from "@/utils/dateTime";
 import type { InvoiceSequence } from "@/utils/receipt";
 
@@ -55,7 +55,26 @@ export const getStatusStyles = (Colors: ThemeColors): Record<AppointmentStatus, 
   Waiting: { bg: Colors.warningBg, color: Colors.goldDark },
 });
 
-export const getRejectedMessage = (payload: unknown, fallback: string) => {
+export type AppointmentPaymentStatus = "Paid" | "Partial" | "Unpaid";
+
+/** Same rule as the web's normalizePaymentStatus: read from the booking's own backend status. */
+export const getAppointmentPaymentStatus = (appointment: AppointmentListItem): AppointmentPaymentStatus => {
+  const { payment_status: paymentStatus, status } = appointment.raw;
+  const raw = typeof status === "string" && status.trim() ? status : paymentStatus;
+  const normalized = typeof raw === "string" ? raw.trim().toLowerCase() : "";
+
+  if (normalized === "paid" || normalized === "completed") return "Paid";
+  if (normalized === "partial") return "Partial";
+  return "Unpaid";
+};
+
+export const getPaymentStatusStyles = (Colors: ThemeColors): Record<AppointmentPaymentStatus, { bg: string; color: string }> => ({
+  Paid: { bg: Colors.successBg, color: Colors.success },
+  Partial: { bg: Colors.accentIndigoSoft, color: Colors.accentIndigo },
+  Unpaid: { bg: Colors.warningBg, color: Colors.goldDark },
+});
+
+export const getRejectedMessage =(payload: unknown, fallback: string) => {
   if (payload && typeof payload === "object" && "message" in payload) {
     const message = (payload as { message?: unknown }).message;
 

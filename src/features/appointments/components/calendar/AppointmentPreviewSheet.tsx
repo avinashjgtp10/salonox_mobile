@@ -3,7 +3,7 @@ import { useClientPrivacy } from "@/hooks/useClientPrivacy";
 import { getAppointmentBillLabel } from "@/utils/clientPrivacy";
 import { appAlert as Alert } from "@/services/appAlert";
 import { createStyles } from "@/features/appointments/styles/appointmentStyles";
-import { formatBusinessDate, formatBusinessTime, maskPhone } from "@/features/appointments/utils/appointmentScreenHelpers";
+import { formatBusinessDate, formatBusinessTime, getAppointmentPaymentStatus, getPaymentStatusStyles, maskPhone } from "@/features/appointments/utils/appointmentScreenHelpers";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { AppointmentListItem } from "@/types/appointment";
 import { Ionicons } from "@expo/vector-icons";
@@ -33,11 +33,14 @@ export function AppointmentPreviewSheet({
   }, [appointment?.id]);
 
   if (!appointment) return null;
-  const isPaid = appointment.paymentStatus.toLowerCase() === "paid" || (appointment.total > 0 && appointment.paidAmount >= appointment.total);
+  const paymentStatus = getAppointmentPaymentStatus(appointment);
+  const paymentColors = getPaymentStatusStyles(Colors)[paymentStatus];
+  // Paid and partially-paid bills can be edited and printed, as on the web.
+  const hasBill = paymentStatus !== "Unpaid" && appointment.status !== "Cancelled";
   const start = formatBusinessTime(appointment.startTime || appointment.scheduledAt);
   const end = formatBusinessTime(appointment.endTime);
 
-  const openNoteEditor = () => {
+  const openEditor = () => {
     onClose();
     requestAnimationFrame(() => router.push(`/appointments/${appointment.id}/edit` as Href));
   };
@@ -86,8 +89,13 @@ export function AppointmentPreviewSheet({
                 <Text style={styles.appointmentClientName}>{staffMode ? getAppointmentBillLabel(appointment) : appointment.clientName}</Text>
                 {staffMode ? <Text style={styles.appointmentClientPhone}>{clientName(appointment.clientName)}</Text> : null}
                 <Text style={styles.appointmentClientPhone}>{maskPhone(appointment.phone)}</Text>
+                {!readOnly ? (
+                  <View style={[styles.appointmentPaymentBadge, { backgroundColor: paymentColors.bg }]}>
+                    <Text style={[styles.appointmentPaymentBadgeText, { color: paymentColors.color }]}>{paymentStatus}</Text>
+                  </View>
+                ) : null}
               </View>
-              {appointment.status !== "Completed" ? <View style={styles.appointmentStatusControl}><View style={[styles.appointmentStatusDot, { backgroundColor: isPaid ? "#22C55E" : "#F59E0B" }]} /><Text numberOfLines={1} style={styles.appointmentStatusLabel}>{appointment.status}</Text></View> : null}
+              {appointment.status !== "Completed" ? <View style={styles.appointmentStatusControl}><View style={[styles.appointmentStatusDot, { backgroundColor: paymentColors.color }]} /><Text numberOfLines={1} style={styles.appointmentStatusLabel}>{appointment.status}</Text></View> : null}
             </View>
             <View style={styles.appointmentTabs}>
               <TouchableOpacity
@@ -119,7 +127,7 @@ export function AppointmentPreviewSheet({
                 <View style={styles.appointmentServiceCard}>
                   <View style={styles.appointmentServiceTop}><Text numberOfLines={2} style={styles.appointmentServiceName}>{appointment.serviceName}</Text><Text style={styles.appointmentServiceTime}>at {start}-{end}</Text></View>
                   <View style={styles.appointmentServiceMeta}><Text style={styles.appointmentBookedBy}>Booked by - {appointment.staffName || "-"}</Text><Text style={styles.appointmentWith}>With {appointment.staffName || "-"}</Text></View>
-                  <View style={styles.appointmentServiceStatus}><View style={[styles.appointmentStatusDot, { backgroundColor: isPaid ? "#22C55E" : "#F59E0B" }]} /><Text style={styles.appointmentServiceStatusText}>{appointment.status}</Text></View>
+                  <View style={styles.appointmentServiceStatus}><View style={[styles.appointmentStatusDot, { backgroundColor: paymentColors.color }]} /><Text style={styles.appointmentServiceStatusText}>{appointment.status}</Text></View>
                 </View>
               </ScrollView>
             ) : (
@@ -128,16 +136,29 @@ export function AppointmentPreviewSheet({
                 <Text style={[styles.appointmentNotesText, !appointment.notes.trim() && styles.appointmentNotesEmpty]}>
                   {appointment.notes.trim() || "No client notes added."}
                 </Text>
-                {!readOnly && <TouchableOpacity activeOpacity={0.84} onPress={openNoteEditor} style={styles.appointmentNotesButton}>
-                  <Ionicons name="create-outline" size={18} color="#FFFFFF" />
+                {!readOnly && <TouchableOpacity activeOpacity={0.84} onPress={openEditor} style={styles.appointmentNotesButton}>
+                  <Ionicons name="create-outline" size={18} color={Colors.onPrimary} />
                   <Text style={styles.appointmentNotesButtonText}>{appointment.notes.trim() ? "Edit Client Note" : "Add Client Note"}</Text>
                 </TouchableOpacity>}
               </ScrollView>
             )}
-            {!readOnly && <TouchableOpacity activeOpacity={0.88} disabled={!isPaid} onPress={handleViewInvoice} style={[styles.appointmentInvoiceButton, !isPaid && styles.appointmentInvoiceDisabled]}>
-              <Ionicons name="receipt-outline" size={20} color="#FFFFFF" />
-              <Text style={styles.appointmentInvoiceText}>{isPaid ? "View Invoice" : "Invoice available after payment"}</Text>
-            </TouchableOpacity>}
+            {!readOnly && (hasBill ? (
+              <View style={styles.appointmentBillActions}>
+                <TouchableOpacity accessibilityRole="button" activeOpacity={0.88} onPress={openEditor} style={[styles.appointmentInvoiceButton, styles.appointmentBillButton, styles.appointmentEditButton]}>
+                  <Ionicons name="create-outline" size={20} color={Colors.appointmentText} />
+                  <Text style={[styles.appointmentInvoiceText, styles.appointmentEditText]}>Edit</Text>
+                </TouchableOpacity>
+                <TouchableOpacity accessibilityRole="button" activeOpacity={0.88} onPress={handleViewInvoice} style={[styles.appointmentInvoiceButton, styles.appointmentBillButton]}>
+                  <Ionicons name="print-outline" size={20} color={Colors.onPrimary} />
+                  <Text style={styles.appointmentInvoiceText}>Print Bill</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity activeOpacity={0.88} disabled style={[styles.appointmentInvoiceButton, styles.appointmentInvoiceDisabled]}>
+                <Ionicons name="receipt-outline" size={20} color={Colors.onPrimary} />
+                <Text style={styles.appointmentInvoiceText}>Invoice available after payment</Text>
+              </TouchableOpacity>
+            ))}
           </Pressable>
         )}
       </Pressable>
