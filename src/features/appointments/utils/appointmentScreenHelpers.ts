@@ -2,7 +2,7 @@ import { AppLayout } from "@/constants/layout";
 import type { ThemeColors } from "@/constants/theme";
 import { DashboardSpacing as Spacing } from "@/constants/theme";
 import type { AppointmentFormState } from "@/features/appointments/types/appointmentForm";
-import { parseAppointmentDateTime } from "@/features/appointments/utils/appointmentDateTime";
+import { minutesToDisplayTime, parseAppointmentDateTime, parseClockToMinutes } from "@/features/appointments/utils/appointmentDateTime";
 import type { AppointmentListItem, AppointmentStatus } from "@/types/appointment";
 import { formatAppDate, formatAppTime } from "@/utils/dateTime";
 import type { InvoiceSequence } from "@/utils/receipt";
@@ -68,7 +68,41 @@ export const getAppointmentPaymentStatus = (appointment: AppointmentListItem): A
   return "Unpaid";
 };
 
-export const getPaymentStatusStyles = (Colors: ThemeColors): Record<AppointmentPaymentStatus, { bg: string; color: string }> => ({
+// The web's View Appointment status pill (ViewBillModal STATUS_PILL_STYLES).
+const WEB_APPOINTMENT_STATUS: Record<string, { bg: string; label: string }> = {
+  booked: { bg: "#1D4ED8", label: "Booked" },
+  cancelled: { bg: "#991B1B", label: "Cancelled" },
+  deleted: { bg: "#9CA3AF", label: "Deleted" },
+  "no-show": { bg: "#6B7280", label: "No-show" },
+  paid: { bg: "#22C55E", label: "Paid" },
+  partial: { bg: "#F59E0B", label: "Partial" },
+};
+
+/** Booked / No-show / Paid / Partial / Cancelled, labelled exactly as on the web. */
+export const getAppointmentWebStatus = (appointment: AppointmentListItem) => {
+  if (appointment.status === "Cancelled") return WEB_APPOINTMENT_STATUS.cancelled;
+  const raw = typeof appointment.raw.status === "string"
+    ? appointment.raw.status.trim().toLowerCase().replace(/[_\s]+/g, "-")
+    : "";
+  const key = raw === "completed" ? "paid" : raw === "noshow" ? "no-show" : raw;
+
+  return WEB_APPOINTMENT_STATUS[key] ?? { bg: "#6B7280", label: appointment.status };
+};
+
+/** Every staff member on the appointment (lead + each row), as the web's Staff row lists them. */
+export const getAppointmentStaffNames = (appointment: AppointmentListItem) =>
+  [...new Set([appointment.staffName, ...appointment.billedItems.map((item) => item.staffName)]
+    .map((name) => name?.trim())
+    .filter((name): name is string => Boolean(name) && name !== "-"))];
+
+/** A row's booked slot: "HH:MM" clock values or full timestamps. */
+export const formatItemTime = (value: string | null) => {
+  if (!value) return null;
+  const minutes = /^\d{1,2}:\d{2}$/.test(value.trim()) ? parseClockToMinutes(value) : null;
+  return minutes !== null ? minutesToDisplayTime(minutes) : formatBusinessTime(value);
+};
+
+export const getPaymentStatusStyles =(Colors: ThemeColors): Record<AppointmentPaymentStatus, { bg: string; color: string }> => ({
   Paid: { bg: Colors.successBg, color: Colors.success },
   Partial: { bg: Colors.accentIndigoSoft, color: Colors.accentIndigo },
   Unpaid: { bg: Colors.warningBg, color: Colors.goldDark },

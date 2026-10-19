@@ -3,14 +3,27 @@ import { useClientPrivacy } from "@/hooks/useClientPrivacy";
 import { getAppointmentBillLabel } from "@/utils/clientPrivacy";
 import { appAlert as Alert } from "@/services/appAlert";
 import { createStyles } from "@/features/appointments/styles/appointmentStyles";
-import { formatBusinessDate, formatBusinessTime, getAppointmentPaymentStatus, getPaymentStatusStyles, maskPhone } from "@/features/appointments/utils/appointmentScreenHelpers";
+import { formatCurrency } from "@/features/appointments/utils/appointmentForm";
+import { formatBusinessDate, formatBusinessTime, formatItemTime, getAppointmentPaymentStatus, getAppointmentStaffNames, getAppointmentWebStatus, getPaymentStatusStyles, maskPhone, toInvoiceSequence } from "@/features/appointments/utils/appointmentScreenHelpers";
+import { useAppSelector } from "@/store/hooks";
+import { selectCurrentStaff } from "@/store/staff/staff.slice";
 import { useThemeColors } from "@/theme/ThemeProvider";
-import type { AppointmentListItem } from "@/types/appointment";
+import type { AppointmentBilledItem, AppointmentListItem } from "@/types/appointment";
+import { formatInvoiceNumber } from "@/utils/receipt";
+import { isOwnBillingItem } from "@/utils/staffBilling";
 import { Ionicons } from "@expo/vector-icons";
 import type { Href } from "expo-router";
 import { router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { Modal, Pressable, ScrollView, TouchableOpacity, View } from "react-native";
+
+// Same item-type tags as the web's View Appointment cards.
+const ITEM_TAGS: Record<AppointmentBilledItem["type"], { bg: string; color: string; label: string }> = {
+  membership: { bg: "#F0FDF4", color: "#15803D", label: "MEMBERSHIP" },
+  package: { bg: "#FEF3C7", color: "#92400E", label: "PACKAGE" },
+  product: { bg: "#DBEAFE", color: "#1D4ED8", label: "PRODUCT" },
+  service: { bg: "#EDE9FE", color: "#5B21B6", label: "SERVICE" },
+};
 
 export function AppointmentPreviewSheet({
   appointment,
@@ -26,6 +39,7 @@ export function AppointmentPreviewSheet({
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const [stage, setStage] = useState<"actions" | "details">("actions");
   const [detailsTab, setDetailsTab] = useState<"appointment" | "notes">("appointment");
+  const currentStaff = useAppSelector(selectCurrentStaff);
 
   useEffect(() => {
     setStage("actions");
@@ -39,6 +53,22 @@ export function AppointmentPreviewSheet({
   const hasBill = paymentStatus !== "Unpaid" && appointment.status !== "Cancelled";
   const start = formatBusinessTime(appointment.startTime || appointment.scheduledAt);
   const end = formatBusinessTime(appointment.endTime);
+  const webStatus = getAppointmentWebStatus(appointment);
+  const staffNames = getAppointmentStaffNames(appointment).join(", ") || "-";
+  const staffAlert = typeof appointment.raw.staff_alert === "string" ? appointment.raw.staff_alert.trim() : "";
+  const clientEmail = appointment.clientEmail || (typeof appointment.raw.client_email === "string" ? appointment.raw.client_email : "");
+  const invoiceNumber = formatInvoiceNumber(toInvoiceSequence(appointment.raw.invoice_number));
+  const grandTotal = Number(appointment.raw.computed_grand_total) || appointment.total || appointment.amount;
+  const dueAmount = paymentStatus === "Partial" ? Math.max(0, grandTotal - appointment.paidAmount) : 0;
+  // Staff only ever see prices on their own rows; the bill summary stays owner-side.
+  const showItemPrice = (item: AppointmentBilledItem) =>
+    !staffMode || isOwnBillingItem(currentStaff, item.staffId ?? (item.type === "service" ? appointment.staffId : null));
+  const infoRows: [string, string][] = [
+    ["Date", formatBusinessDate(appointment.scheduledAt)],
+    ["Time", [start, end].filter((value) => value && value !== "-").join(" – ") || "-"],
+    ["Staff", staffNames],
+    ...(!staffMode ? [["Invoice", invoiceNumber ?? "Not billed yet"] as [string, string]] : []),
+  ];
 
   const openEditor = () => {
     onClose();
@@ -89,13 +119,16 @@ export function AppointmentPreviewSheet({
                 <Text style={styles.appointmentClientName}>{staffMode ? getAppointmentBillLabel(appointment) : appointment.clientName}</Text>
                 {staffMode ? <Text style={styles.appointmentClientPhone}>{clientName(appointment.clientName)}</Text> : null}
                 <Text style={styles.appointmentClientPhone}>{maskPhone(appointment.phone)}</Text>
+                {!staffMode && clientEmail ? <Text numberOfLines={1} style={styles.appointmentClientPhone}>{clientEmail}</Text> : null}
                 {!readOnly ? (
                   <View style={[styles.appointmentPaymentBadge, { backgroundColor: paymentColors.bg }]}>
                     <Text style={[styles.appointmentPaymentBadgeText, { color: paymentColors.color }]}>{paymentStatus}</Text>
                   </View>
                 ) : null}
               </View>
-              {appointment.status !== "Completed" ? <View style={styles.appointmentStatusControl}><View style={[styles.appointmentStatusDot, { backgroundColor: paymentColors.color }]} /><Text numberOfLines={1} style={styles.appointmentStatusLabel}>{appointment.status}</Text></View> : null}
+              <View style={[styles.appointmentStatusPill, { backgroundColor: webStatus.bg }]}>
+                <Text numberOfLines={1} style={styles.appointmentStatusPillText}>{webStatus.label}</Text>
+              </View>
             </View>
             <View style={styles.appointmentTabs}>
               <TouchableOpacity
@@ -123,12 +156,64 @@ export function AppointmentPreviewSheet({
             </View>
             {detailsTab === "appointment" ? (
               <ScrollView contentContainerStyle={styles.appointmentModalContent}>
-                <Text style={styles.appointmentServiceHeading}>Service (1)</Text>
-                <View style={styles.appointmentServiceCard}>
-                  <View style={styles.appointmentServiceTop}><Text numberOfLines={2} style={styles.appointmentServiceName}>{appointment.serviceName}</Text><Text style={styles.appointmentServiceTime}>at {start}-{end}</Text></View>
-                  <View style={styles.appointmentServiceMeta}><Text style={styles.appointmentBookedBy}>Booked by - {appointment.staffName || "-"}</Text><Text style={styles.appointmentWith}>With {appointment.staffName || "-"}</Text></View>
-                  <View style={styles.appointmentServiceStatus}><View style={[styles.appointmentStatusDot, { backgroundColor: paymentColors.color }]} /><Text style={styles.appointmentServiceStatusText}>{appointment.status}</Text></View>
+                <View style={styles.appointmentInfoCard}>
+                  {infoRows.map(([label, value]) => (
+                    <View key={label} style={styles.appointmentInfoRow}>
+                      <Text style={styles.appointmentInfoLabel}>{label}</Text>
+                      <Text style={styles.appointmentInfoValue}>{value}</Text>
+                    </View>
+                  ))}
                 </View>
+                {staffAlert ? (
+                  <View style={styles.appointmentAlertCard}>
+                    <Text style={styles.appointmentAlertLabel}>Staff Alert</Text>
+                    <Text style={styles.appointmentNotesText}>{staffAlert}</Text>
+                  </View>
+                ) : null}
+                <Text style={styles.appointmentServiceHeading}>Booking Details ({appointment.billedItems.length})</Text>
+                {appointment.billedItems.map((item, index) => {
+                  const tag = ITEM_TAGS[item.type];
+                  const priced = showItemPrice(item);
+                  return (
+                    <View key={item.id ?? `${item.type}-${item.name}-${index}`} style={[styles.appointmentServiceCard, styles.appointmentItemCard]}>
+                      <View style={styles.appointmentServiceTop}>
+                        <Text numberOfLines={2} style={styles.appointmentServiceName}>{item.name}</Text>
+                        {priced ? <Text style={styles.appointmentServiceTime}>{formatCurrency(item.totalAmount ?? item.price)}</Text> : null}
+                      </View>
+                      <View style={styles.appointmentItemSub}>
+                        <View style={[styles.appointmentItemTag, { backgroundColor: tag.bg }]}>
+                          <Text style={[styles.appointmentItemTagText, { color: tag.color }]}>{tag.label}</Text>
+                        </View>
+                        <Text style={styles.appointmentWith}>
+                          {[item.staffName ?? (item.type === "service" ? appointment.staffName : null), formatItemTime(item.time)].filter(Boolean).join(" · ")}
+                        </Text>
+                      </View>
+                      {priced ? (
+                        <Text style={styles.appointmentItemPills}>
+                          {`Qty: ${item.quantity} · Price: ${formatCurrency(item.price)} · Disc: ${formatCurrency(item.discount)}`}
+                        </Text>
+                      ) : null}
+                    </View>
+                  );
+                })}
+                {!staffMode ? (
+                  <View style={[styles.appointmentInfoCard, { marginTop: 6 }]}>
+                    <View style={styles.appointmentSummaryRow}>
+                      <Text style={styles.appointmentSummaryTotal}>Total</Text>
+                      <Text style={styles.appointmentSummaryTotal}>{formatCurrency(grandTotal)}</Text>
+                    </View>
+                    <View style={styles.appointmentSummaryRow}>
+                      <Text style={styles.appointmentSummaryText}>Paid</Text>
+                      <Text style={styles.appointmentSummaryText}>{formatCurrency(appointment.paidAmount)}</Text>
+                    </View>
+                    {dueAmount > 0 ? (
+                      <View style={styles.appointmentSummaryRow}>
+                        <Text style={styles.appointmentSummaryDue}>Due</Text>
+                        <Text style={styles.appointmentSummaryDue}>{formatCurrency(dueAmount)}</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                ) : null}
               </ScrollView>
             ) : (
               <ScrollView contentContainerStyle={styles.appointmentModalContent}>

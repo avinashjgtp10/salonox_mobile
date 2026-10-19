@@ -11,7 +11,7 @@ import { StartAppointmentAction } from "@/features/appointments/components/share
 import { StateCard } from "@/features/appointments/components/shared/StateCard";
 import { useAppointmentStyles } from "@/features/appointments/styles/useAppointmentStyles";
 import { formatCurrency } from "@/features/appointments/utils/appointmentForm";
-import { formatBusinessDate, formatBusinessTime, getAppointmentPaymentStatus, toInvoiceSequence } from "@/features/appointments/utils/appointmentScreenHelpers";
+import { formatBusinessDate, formatBusinessTime, getAppointmentPaymentStatus, getAppointmentStaffNames, getAppointmentWebStatus, toInvoiceSequence } from "@/features/appointments/utils/appointmentScreenHelpers";
 import { getJobCardBlocker, getJobCardItems, getJobCardStatus } from "@/features/appointments/utils/jobCard";
 import { isAssignedToStaff } from "@/features/appointments/utils/staffAssignment";
 import { addRealtimeEntityChangedListener } from "@/services/realtimeEvents";
@@ -112,9 +112,11 @@ export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | 
   const visibleBilledItems = staffBilling ? staffBilling.items : appointment?.billedItems ?? [];
   const jobCardItems = isStaffMode && appointment ? getJobCardItems(appointment) : [];
   const jobCardStatus = appointment ? getJobCardStatus(appointment) : "Pending";
-  const staffStatusLabel = jobCardStatus === "Completed"
-    ? "Completed"
-    : appointment?.status === "Missed" ? "No-Show" : appointment?.status;
+  // Booked / No-show / Paid / Partial, labelled as on the web; staff also see a finished job card as Completed.
+  const webStatusLabel = appointment ? getAppointmentWebStatus(appointment).label : null;
+  const statusLabel = isStaffMode && jobCardStatus === "Completed" ? "Completed" : webStatusLabel;
+  const staffNames = appointment ? getAppointmentStaffNames(appointment).join(", ") : "";
+  const staffAlert = typeof appointment?.raw.staff_alert === "string" ? appointment.raw.staff_alert.trim() : "";
 
   return (
     <ScreenShell
@@ -168,7 +170,7 @@ export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | 
           <View style={styles.detailInvoiceRow}>
             <View>
               <Text style={styles.detailInvoiceLabel}>Invoice Number</Text>
-              <Text style={styles.detailInvoiceNumber}>{invoiceNumber ?? "Not generated"}</Text>
+              <Text style={styles.detailInvoiceNumber}>{invoiceNumber ?? "Not billed yet"}</Text>
             </View>
             <View style={[styles.previewStatusBadge, paymentStatus === "Paid" ? styles.previewPaidBadge : paymentStatus === "Partial" ? styles.previewPartialBadge : styles.previewUnpaidBadge]}>
               <Text style={[styles.previewStatusText, paymentStatus === "Partial" ? styles.previewPartialText : paymentStatus === "Unpaid" && styles.previewUnpaidText]}>{isStaffMode && paymentStatus === "Unpaid" ? appointment.paymentStatus : paymentStatus}</Text>
@@ -186,9 +188,16 @@ export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | 
             <DetailRow label="Date" value={formatBusinessDate(appointment.scheduledAt)} />
             <DetailRow label="Time" value={[formatBusinessTime(appointment.startTime || appointment.scheduledAt), formatBusinessTime(appointment.endTime)].filter((value) => value && value !== "-").join(" - ")} />
             <DetailRow label="Duration" value={appointment.durationLabel || (appointment.durationMinutes ? `${appointment.durationMinutes} mins` : null)} />
-            <DetailRow label="Staff" value={isStaffMode ? currentStaff?.name : appointment.staffName} />
-            <DetailRow label="Status" value={isStaffMode ? staffStatusLabel : appointment.status} />
+            <DetailRow label="Staff" value={staffNames || (isStaffMode ? currentStaff?.name : appointment.staffName)} />
+            <DetailRow label="Status" value={statusLabel} />
           </View>
+
+          {staffAlert ? (
+            <View style={styles.formCard}>
+              <Text style={styles.sectionTitle}>Staff Alert</Text>
+              <Text style={styles.notesText}>{staffAlert}</Text>
+            </View>
+          ) : null}
 
           {isStaffMode && jobCardItems.length > 0 ? (
             <View style={styles.formCard}>

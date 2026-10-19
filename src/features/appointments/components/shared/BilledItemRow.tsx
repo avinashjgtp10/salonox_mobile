@@ -6,7 +6,7 @@ import { Text } from "@/components/ui/AppTypography";
 import { StaffPickerSheet } from "@/features/quickSale/components/StaffPickerSheet";
 import { useAppointmentStyles } from "@/features/appointments/styles/useAppointmentStyles";
 import { formatCurrency } from "@/features/appointments/utils/appointmentForm";
-import { formatBusinessTime } from "@/features/appointments/utils/appointmentScreenHelpers";
+import { formatBusinessTime, formatItemTime } from "@/features/appointments/utils/appointmentScreenHelpers";
 import { appAlert } from "@/services/appAlert";
 import { getApiErrorMessage } from "@/services/api";
 import { handoffItemThunk, updateItemStatusThunk } from "@/middleware/appointment/appointment.thunk";
@@ -63,6 +63,8 @@ export function BilledItemRow({
     item.startedAt ? `Started ${formatBusinessTime(item.startedAt)}` : null,
     item.completedAt ? `Finished ${formatBusinessTime(item.completedAt)}` : null,
   ].filter(Boolean).join(" · ");
+  // Owner bill view: who performs the row and when, as on the web's booking cards.
+  const assignment = !isStaffMode ? [item.staffName, formatItemTime(item.time)].filter(Boolean).join(" · ") : "";
 
   const runStatusChange = async (nextStatus: "in_progress" | "completed") => {
     if (!item.id || busy) return;
@@ -95,6 +97,7 @@ export function BilledItemRow({
         <Text style={styles.detailLabel}>{`${item.name}${item.quantity > 1 ? ` × ${item.quantity}` : ""}`}</Text>
         {!hidePrice ? <Text style={styles.detailValue}>{formatCurrency(isStaffMode ? item.totalAmount ?? item.price : item.price)}</Text> : null}
       </View>
+      {assignment ? <Text style={localStyles.timing}>{assignment}</Text> : null}
       {eligible ? (
         <View style={localStyles.controlsRow}>
           <View style={[localStyles.statusBadge, { backgroundColor: `${STATUS_META[status].color}20` }]}>

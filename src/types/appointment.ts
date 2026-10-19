@@ -213,6 +213,9 @@ export type AppointmentBilledItem = {
   status: "pending" | "in_progress" | "completed" | null;
   startedAt: string | null;
   completedAt: string | null;
+  /** Booked slot for this row ("HH:MM" or an ISO timestamp). */
+  time: string | null;
+  discount: number;
   type: "service" | "product" | "package" | "membership";
 };
 
