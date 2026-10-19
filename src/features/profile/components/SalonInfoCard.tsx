@@ -56,7 +56,7 @@ export function SalonInfoCard({ isLoading, onEdit, profile, salon }: SalonInfoCa
     >
       {isLoading && !salon ? (
         <View style={styles.loadingRow}>
-          <ActivityIndicator color={Colors.primary} size="small" />
+          <ActivityIndicator color={Colors.primaryText} size="small" />
           <Text style={styles.loadingText}>Loading salon information...</Text>
         </View>
       ) : null}

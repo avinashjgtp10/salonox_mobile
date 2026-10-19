@@ -133,7 +133,7 @@ export default function StaffInviteAcceptScreen() {
         title="Verifying Invite"
       >
         <View style={styles.loadingWrap}>
-          <ActivityIndicator color={Colors.primary} size="large" />
+          <ActivityIndicator color={Colors.primaryText} size="large" />
         </View>
       </PasswordRecoveryScaffold>
     );

@@ -75,7 +75,7 @@ export function SearchableClientField({
           <Ionicons
             name="person-outline"
             size={16}
-            color={bookingMode === "existing" ? Colors.appointmentAccentDark : Colors.appointmentTextSecondary}
+            color={bookingMode === "existing" ? Colors.primaryText : Colors.appointmentTextSecondary}
           />
           <Text style={[styles.clientActionText, bookingMode === "existing" && styles.clientActionTextActive]}>
             Existing Client
@@ -89,7 +89,7 @@ export function SearchableClientField({
           <Ionicons
             name="walk-outline"
             size={16}
-            color={bookingMode === "walkIn" ? Colors.appointmentAccentDark : Colors.appointmentTextSecondary}
+            color={bookingMode === "walkIn" ? Colors.primaryText : Colors.appointmentTextSecondary}
           />
           <Text style={[styles.clientActionText, bookingMode === "walkIn" && styles.clientActionTextActive]}>
             Walk-in Client
@@ -142,7 +142,7 @@ export function SearchableClientField({
                   </View>
                 ) : resultsLoading ? (
                   <View style={styles.serviceDropdownState}>
-                    <ActivityIndicator color={Colors.primary} size="small" />
+                    <ActivityIndicator color={Colors.primaryText} size="small" />
                     <Text style={styles.fieldHint}>Searching clients...</Text>
                   </View>
                 ) : results.length === 0 ? (
@@ -175,7 +175,7 @@ export function SearchableClientField({
                               {[maskPhone(client.phone, client.phoneCountryCode), client.email].filter(Boolean).join(" | ")}
                             </Text>
                           </View>
-                          {selected ? <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" /> : null}
+                          {selected ? <Ionicons name="checkmark-circle" size={18} color={Colors.onPrimary} /> : null}
                         </TouchableOpacity>
                       );
                     })}

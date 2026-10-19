@@ -287,7 +287,7 @@ function List() {
                 >
                   {row.name}
                 </Text>
-                <Text style={{ color: c.primary }}>
+                <Text style={{ color: c.primaryText }}>
                   {auditStatusLabel(row.status)}
                 </Text>
                 <Text style={{ color: c.text2 }}>

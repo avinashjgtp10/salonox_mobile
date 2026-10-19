@@ -128,7 +128,7 @@ function InlineLoaderComponent({ label }: { label?: string }) {
 
   return (
     <View style={styles.inlineLoader}>
-      <ActivityIndicator color={Colors.primary} size="small" />
+      <ActivityIndicator color={Colors.primaryText} size="small" />
       {label ? <Text style={styles.inlineLoaderText}>{label}</Text> : null}
     </View>
   );
@@ -190,7 +190,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     elevation: 3,
   },
   retryButtonText: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
     fontSize: 12,
     fontWeight: "800",
   },

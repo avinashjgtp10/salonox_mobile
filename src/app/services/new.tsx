@@ -458,7 +458,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     minHeight: 46,
     paddingHorizontal: 28,
   },
-  saveText: { color: "#FFFFFF", fontSize: 14, fontWeight: "800" },
+  saveText: { color: Colors.onPrimary, fontSize: 14, fontWeight: "800" },
   card: {
     backgroundColor: Colors.card,
     borderColor: Colors.border,
@@ -486,7 +486,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   selectInput: { alignItems: "center", flexDirection: "row", justifyContent: "space-between" },
   selectText: { color: Colors.heading, flex: 1, fontSize: 15 },
   placeholder: { color: Colors.placeholder },
-  inlineLink: { color: Colors.primary, fontSize: 14, fontWeight: "800", marginBottom: 24 },
+  inlineLink: { color: Colors.primaryText, fontSize: 14, fontWeight: "800", marginBottom: 24 },
   priceDurationRow: { flexDirection: "row", flexWrap: "wrap", gap: 14 },
   priceWrap: { flexBasis: 160, flexGrow: 1, minWidth: 0 },
   durationWrap: { flexBasis: 160, flexGrow: 1, marginBottom: 18, minWidth: 0 },

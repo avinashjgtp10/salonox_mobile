@@ -132,7 +132,7 @@ function ServiceCardComponent({
       >
         {selected ? (
           <View style={styles.tileCheck}>
-            <Ionicons name="checkmark" size={13} color="#FFFFFF" />
+            <Ionicons name="checkmark" size={13} color={Colors.onPrimary} />
           </View>
         ) : null}
         <Text numberOfLines={2} style={[styles.tileTitle, selected && styles.tileTitleSelected]}>
@@ -339,7 +339,7 @@ export function ServiceCatalogTab({
                   style={styles.loadMoreButton}
                 >
                   <Text style={styles.loadMoreText}>View More</Text>
-                  <Ionicons name="arrow-down" size={14} color={Colors.primaryDark} />
+                  <Ionicons name="arrow-down" size={14} color={Colors.primaryText} />
                 </TouchableOpacity>
                 <Text style={styles.loadMoreMeta}>
                   {Math.min(visibleServiceCount, visibleServices.length)} of {visibleServices.length}
@@ -417,7 +417,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "700",
   },
   tileTitleSelected: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
   },
   tileMeta: {
     color: Colors.text2,
@@ -426,16 +426,16 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     marginTop: 4,
   },
   tileMetaSelected: {
-    color: "rgba(255,255,255,0.78)",
+    color: Colors.onPrimary,
   },
   tileHint: {
-    color: Colors.primary,
+    color: Colors.primaryText,
     fontSize: 11,
     fontWeight: "700",
     marginTop: 8,
   },
   tileHintSelected: {
-    color: "rgba(255,255,255,0.9)",
+    color: Colors.onPrimary,
   },
   skeletonGrid: {
     flexDirection: "row",
@@ -475,7 +475,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     elevation: 1,
   },
   loadMoreText: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 12,
     fontWeight: "900",
   },

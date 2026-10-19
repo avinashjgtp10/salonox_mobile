@@ -40,7 +40,7 @@ const getStatusPalette = (status: StaffStatus, Colors: ThemeColors) => {
       return { backgroundColor: Colors.bg2, color: Colors.text2 };
     case "Working":
     default:
-      return { backgroundColor: Colors.bg2, color: Colors.primaryDark };
+      return { backgroundColor: Colors.bg2, color: Colors.primaryText };
   }
 };
 
@@ -70,7 +70,7 @@ function ActionIcon({
 
   return (
     <TouchableOpacity activeOpacity={0.84} onPress={onPress} style={styles.actionIcon}>
-      <Ionicons name={icon} size={16} color={Colors.primaryDark} />
+      <Ionicons name={icon} size={16} color={Colors.primaryText} />
     </TouchableOpacity>
   );
 }

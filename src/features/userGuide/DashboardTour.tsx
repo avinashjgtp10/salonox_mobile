@@ -1,6 +1,9 @@
+import { Button } from "@/components/ui/AppButton";
+import { useFooterClearance } from "@/hooks/useFooterClearance";
+import { useScrollFooter } from "@/hooks/useScrollFooter";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { BackHandler, FlatList, Keyboard, ScrollView, StyleSheet, TouchableOpacity, View, type FlatListProps, type ScrollViewProps, type TouchableOpacityProps, type ViewProps } from "react-native";
-import { Button, Text, useTheme } from "react-native-paper";
+import { Text, useTheme } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BottomTabBarHeightContext } from "@react-navigation/bottom-tabs";
 import { useIsFocused } from "@react-navigation/native";
@@ -44,22 +47,30 @@ export function TourView({ tourId, ...props }: ViewProps & { tourId: string }) {
 }
 
 export function TourScrollView(props: ScrollViewProps) {
+  const onFooterScroll = useScrollFooter();
   const tour = useDashboardTour();
   return <ScrollView {...props} ref={tour?.scrollRef} removeClippedSubviews={false}
     scrollEnabled={tour?.active ? false : props.scrollEnabled} scrollEventThrottle={16}
-    onScroll={(event) => { if (tour) tour.scrollOffset.current = event.nativeEvent.contentOffset.y; props.onScroll?.(event); }} />;
+    onScrollBeginDrag={event => { if (!props.horizontal) onFooterScroll.onScrollBeginDrag(event); props.onScrollBeginDrag?.(event); }}
+    onScrollEndDrag={event => { onFooterScroll.onScrollEndDrag(); props.onScrollEndDrag?.(event); }}
+    onScroll={(event) => { if (!props.horizontal) onFooterScroll.onScroll(event); if (tour) tour.scrollOffset.current = event.nativeEvent.contentOffset.y; props.onScroll?.(event); }} />;
 }
 
 export function TourFlatList<T>({ keyboardAware = false, ...props }: FlatListProps<T> & { keyboardAware?: boolean }) {
+  const onFooterScroll = useScrollFooter();
   const tour = useDashboardTour();
   const listRef = tour?.listRef;
   const ref = useCallback((node: FlatList<T> | null) => { if (listRef) listRef.current = node; }, [listRef]);
   if (keyboardAware) return <KeyboardAwareFlatList {...props} autoReveal ref={ref} removeClippedSubviews={false}
     scrollEnabled={tour?.active ? false : props.scrollEnabled} scrollEventThrottle={16}
-    onScroll={(event) => { if (tour) tour.scrollOffset.current = event.nativeEvent.contentOffset.y; props.onScroll?.(event); }} />;
+    onScrollBeginDrag={event => { if (!props.horizontal) onFooterScroll.onScrollBeginDrag(event); props.onScrollBeginDrag?.(event); }}
+    onScrollEndDrag={event => { onFooterScroll.onScrollEndDrag(); props.onScrollEndDrag?.(event); }}
+    onScroll={(event) => { if (!props.horizontal) onFooterScroll.onScroll(event); if (tour) tour.scrollOffset.current = event.nativeEvent.contentOffset.y; props.onScroll?.(event); }} />;
   return <FlatList {...props} ref={ref} removeClippedSubviews={false}
     scrollEnabled={tour?.active ? false : props.scrollEnabled} scrollEventThrottle={16}
-    onScroll={(event) => { if (tour) tour.scrollOffset.current = event.nativeEvent.contentOffset.y; props.onScroll?.(event); }} />;
+    onScrollBeginDrag={event => { if (!props.horizontal) onFooterScroll.onScrollBeginDrag(event); props.onScrollBeginDrag?.(event); }}
+    onScrollEndDrag={event => { onFooterScroll.onScrollEndDrag(); props.onScrollEndDrag?.(event); }}
+    onScroll={(event) => { if (!props.horizontal) onFooterScroll.onScroll(event); if (tour) tour.scrollOffset.current = event.nativeEvent.contentOffset.y; props.onScroll?.(event); }} />;
 }
 
 export function withScreenTour(Screen: () => ReactNode, config: ScreenTour) {
@@ -79,6 +90,7 @@ export function DashboardTourProvider({ children, config }: { children: ReactNod
   const insets = useSafeAreaInsets();
   const isInsideTabs = useContext(BottomTabBarHeightContext) != null;
   const bottomInset = isInsideTabs ? 0 : insets.bottom;
+  const footerClearance = useFooterClearance();
   const [index, setIndex] = useState<number | null>(null);
   const focused = useIsFocused();
   const { tour } = useLocalSearchParams<{ tour?: string }>();
@@ -132,7 +144,7 @@ export function DashboardTourProvider({ children, config }: { children: ReactNod
         <View style={{ flex: 1 }} accessibilityElementsHidden={index !== null} importantForAccessibility={index !== null ? "no-hide-descendants" : "auto"}>{children}</View>
 
         {offerTour || bottomInset > 0 ? (
-          <View style={{ backgroundColor: colors.surface, paddingBottom: bottomInset }}>
+          <View style={isInsideTabs ? { position: "absolute", left: 16, right: 16, bottom: footerClearance, borderRadius: 24, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.outlineVariant } : { backgroundColor: colors.surface, paddingBottom: bottomInset }}>
             {offerTour ? <Button icon="compass-outline" onPress={start}>Show me around · {title}</Button> : null}
           </View>
         ) : null}
@@ -245,7 +257,7 @@ function TourOverlay({ index, steps, title, targets, listRef, scrollRef, scrollO
         onLayout={(event) => setCardHeight(event.nativeEvent.layout.height)}>
         {rect && <View style={[styles.arrow, { left: arrowLeft, backgroundColor: colors.surface }, placeBelow ? { top: -8 } : { bottom: -8 }]} />}
         <ScrollView bounces={false} contentContainerStyle={styles.copy}>
-          <Text variant="labelSmall" style={{ color: colors.primary }}>{title.toUpperCase()} TOUR · {index + 1} / {steps.length}</Text>
+          <Text variant="labelSmall" style={{ color: colors.onSurface }}>{title.toUpperCase()} TOUR · {index + 1} / {steps.length}</Text>
           <Text accessibilityRole="header" accessibilityLiveRegion="polite" variant="titleMedium" style={styles.title}>{rect ? step.title : unavailable ? "This feature isn't available right now" : "Finding your next feature…"}</Text>
           <Text variant="bodyMedium">{rect ? step.description : unavailable ? "You can skip this step or replay the tour when this feature is available." : "Moving to the feature on this screen."}</Text>
         </ScrollView>

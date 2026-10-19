@@ -202,7 +202,7 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
       style={[styles.dateSelector, websiteLayout && styles.dateSelectorInRow, (isUnavailable || !dateKeys) && styles.disabledButton]}
     >
       <View style={styles.dateIcon}>
-        <Ionicons name="calendar-outline" size={17} color={Colors.primaryDark} />
+        <Ionicons name="calendar-outline" size={17} color={Colors.primaryText} />
       </View>
       <View style={styles.dateCopy}>
         <Text style={styles.dateLabel}>REPORT RANGE</Text>
@@ -221,7 +221,7 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
       onPress={() => setFilterSheetVisible(true)}
       style={[styles.filtersPill, activeFilterCount ? styles.filtersPillActive : null, isUnavailable && styles.disabledButton]}
     >
-      <Ionicons name="funnel-outline" size={16} color={activeFilterCount ? Colors.primaryDark : Colors.heading} />
+      <Ionicons name="funnel-outline" size={16} color={activeFilterCount ? Colors.primaryText : Colors.heading} />
       <Text style={[styles.filtersPillText, activeFilterCount ? styles.filtersPillTextActive : null]}>Filters</Text>
       {activeFilterCount ? <Text style={styles.filtersPillCount}>{activeFilterCount}</Text> : null}
     </TouchableOpacity>
@@ -259,7 +259,7 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
           onPress={() => router.back()}
           style={styles.headerButton}
         >
-          <Ionicons name="arrow-back" size={18} color={Colors.primary} />
+          <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
         </TouchableOpacity>
         <View style={styles.headerCopy}>
           <Text allowFontScaling style={styles.title}>{config.title}</Text>
@@ -434,7 +434,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   disabledButton: { opacity: 0.62 },
   filterCount: {
-    backgroundColor: Colors.primaryDark, borderRadius: 999, color: "#FFFFFF", fontSize: 8,
+    backgroundColor: Colors.primaryDark, borderRadius: 999, color: Colors.onPrimary, fontSize: 8,
     fontWeight: "800", minWidth: 16, overflow: "hidden", paddingHorizontal: 4,
     paddingVertical: 2, position: "absolute", right: 3, textAlign: "center", top: 3,
   },
@@ -459,9 +459,9 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   filtersPillActive: { backgroundColor: Colors.backgroundSelected, borderColor: Colors.primary },
   filtersPillText: { color: Colors.heading, fontSize: 13, fontWeight: "800" },
-  filtersPillTextActive: { color: Colors.primaryDark },
+  filtersPillTextActive: { color: Colors.primaryText },
   filtersPillCount: {
-    backgroundColor: Colors.primaryDark, borderRadius: 999, color: "#FFFFFF", fontSize: 10,
+    backgroundColor: Colors.primaryDark, borderRadius: 999, color: Colors.onPrimary, fontSize: 10,
     fontWeight: "800", minWidth: 18, overflow: "hidden", paddingHorizontal: 5, paddingVertical: 1, textAlign: "center",
   },
   dateIcon: {

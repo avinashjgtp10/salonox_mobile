@@ -309,7 +309,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     minHeight: 48,
   },
   resendButtonText: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
     fontSize: 13,
     fontWeight: "800",
   },

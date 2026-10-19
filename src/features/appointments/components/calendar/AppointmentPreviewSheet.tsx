@@ -81,7 +81,7 @@ export function AppointmentPreviewSheet({
               </TouchableOpacity>
             </View>
             <View style={styles.appointmentClientBand}>
-              <View style={styles.appointmentClientAvatar}><Ionicons name="person-outline" size={26} color={Colors.appointmentAccent} /></View>
+              <View style={styles.appointmentClientAvatar}><Ionicons name="person-outline" size={26} color={Colors.primaryText} /></View>
               <View style={styles.appointmentClientCopy}>
                 <Text style={styles.appointmentClientName}>{staffMode ? getAppointmentBillLabel(appointment) : appointment.clientName}</Text>
                 {staffMode ? <Text style={styles.appointmentClientPhone}>{clientName(appointment.clientName)}</Text> : null}

@@ -48,9 +48,9 @@ export function CompleteAppointmentAction({ appointment }: { appointment: Appoin
         style={[styles.actionButton, completing && styles.disabledButton]}
       >
         {completing ? (
-          <ActivityIndicator color={Colors.primary} size="small" />
+          <ActivityIndicator color={Colors.primaryText} size="small" />
         ) : (
-          <Ionicons name="checkmark-done-circle-outline" size={18} color={Colors.primary} />
+          <Ionicons name="checkmark-done-circle-outline" size={18} color={Colors.primaryText} />
         )}
         <Text style={styles.actionButtonText}>Complete</Text>
       </TouchableOpacity>

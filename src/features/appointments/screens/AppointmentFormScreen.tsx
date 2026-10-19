@@ -176,7 +176,7 @@ export function AppointmentFormScreen({ mode }: { mode: 'create' | 'edit' }) {
                   onPress={() => setServicePickerVisible(true)}
                   style={styles.bookingSectionActionButton}
                 >
-                  <Ionicons name="add" size={16} color={Colors.appointmentAccent} />
+                  <Ionicons name="add" size={16} color={Colors.primaryText} />
                   <Text style={styles.bookingSectionAction}>Add more services</Text>
                 </TouchableOpacity>
               ) : undefined}
@@ -257,7 +257,7 @@ export function AppointmentFormScreen({ mode }: { mode: 'create' | 'edit' }) {
                 <Ionicons
                   name={sendAppointmentSms ? "checkbox" : "square-outline"}
                   size={20}
-                  color={sendAppointmentSms ? Colors.appointmentAccent : Colors.appointmentMuted}
+                  color={sendAppointmentSms ? Colors.primaryText : Colors.appointmentMuted}
                 />
                 <Text style={styles.appointmentDeliveryOptionText}>SMS</Text>
               </TouchableOpacity>
@@ -269,7 +269,7 @@ export function AppointmentFormScreen({ mode }: { mode: 'create' | 'edit' }) {
                 <Ionicons
                   name={sendAppointmentEmail ? "checkbox" : "square-outline"}
                   size={20}
-                  color={sendAppointmentEmail ? Colors.appointmentAccent : Colors.appointmentMuted}
+                  color={sendAppointmentEmail ? Colors.primaryText : Colors.appointmentMuted}
                 />
                 <Text style={styles.appointmentDeliveryOptionText}>Email</Text>
               </TouchableOpacity>

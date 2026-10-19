@@ -43,7 +43,7 @@ export function SelectedServicesPanel({
             style={[styles.selectedServiceCard, styles.selectedServiceCardActive]}
           >
             <View style={styles.selectedServiceIcon}>
-              <Ionicons name="cut-outline" size={18} color={Colors.primaryDark} />
+              <Ionicons name="cut-outline" size={18} color={Colors.primaryText} />
             </View>
             <View style={styles.selectedServiceCopy}>
               <Text numberOfLines={1} style={styles.selectedServiceName}>{service.name}</Text>

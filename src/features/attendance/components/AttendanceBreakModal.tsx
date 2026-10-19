@@ -121,7 +121,7 @@ export function AttendanceBreakModal({ visible, state, busy, onClose, onSubmit }
   };
   return <BottomSheet centered visible={visible} keyboardAwareFormRef={formRef} title="Take a Break" subtitle="Temporarily leave your shift. Check in when you return." onClose={close}>
     <View style={{ gap: 18 }}>
-      {refreshing ? <ActivityIndicator accessibilityLabel="Refreshing shift times" color={Colors.primary} /> : hasShift ? <Text style={{ color: Colors.text2 }}>Shift: {formatAttendanceTime(state?.shift_start)} – {formatAttendanceTime(state?.shift_end)}</Text> : null}
+      {refreshing ? <ActivityIndicator accessibilityLabel="Refreshing shift times" color={Colors.primaryText} /> : hasShift ? <Text style={{ color: Colors.text2 }}>Shift: {formatAttendanceTime(state?.shift_start)} – {formatAttendanceTime(state?.shift_end)}</Text> : null}
       <TimeSelect label="From" value={from} options={optionsFor("from")} open={active === "from"} disabled={disabled || Boolean(availabilityError)}
         onToggle={() => setActive(current => current === "from" ? null : "from")}
         onSelect={value => { setFrom(value); if (to <= value) setTo(Math.min(value + 30 * 60000, shiftEnd)); setActive(null); }} />

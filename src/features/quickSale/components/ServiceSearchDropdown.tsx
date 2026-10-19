@@ -108,14 +108,14 @@ export function ServiceSearchDropdown({ query, salonId, selectedServiceIds, onSe
                 <Text style={styles.name}>{item.name}</Text>
                 <Text style={styles.meta}>{item.durationMinutes ? `${item.durationMinutes} min · ` : ""}{formatCurrency(item.price)}</Text>
               </View>
-              <Ionicons name={selected ? "checkmark-circle" : "add-circle-outline"} size={24} color={colors.primary} />
+              <Ionicons name={selected ? "checkmark-circle" : "add-circle-outline"} size={24} color={colors.primaryText} />
             </Pressable>
           );
         }}
         ListFooterComponent={
           <View>
             {error ? <Text style={styles.message}>{error}</Text> : null}
-            {loading ? <ActivityIndicator style={styles.message} color={colors.primary} /> : error || nextOffset !== null ? (
+            {loading ? <ActivityIndicator style={styles.message} color={colors.primaryText} /> : error || nextOffset !== null ? (
               <Pressable accessibilityRole="button" onPress={() => { if (items.length) void loadMore(); else setRetry((value) => value + 1); }} style={styles.footer}>
                 <Text style={styles.heading}>{error ? "Try again" : "Show more services"}</Text>
               </Pressable>
@@ -132,7 +132,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   // a dropdown painted below a search field's touch area.
   dropdown: { flex: 1, minHeight: 0, backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, borderRadius: 14, overflow: "hidden" },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 12, borderBottomWidth: 1, borderBottomColor: colors.border },
-  heading: { color: colors.primary, fontSize: 13, fontWeight: "700" },
+  heading: { color: colors.primaryText, fontSize: 13, fontWeight: "700" },
   list: { flex: 1, minHeight: 0 },
   row: { flexDirection: "row", alignItems: "center", padding: 14, gap: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
   copy: { flex: 1 },

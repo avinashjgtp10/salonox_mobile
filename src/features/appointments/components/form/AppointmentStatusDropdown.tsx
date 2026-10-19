@@ -47,7 +47,7 @@ export function AppointmentStatusDropdown({
                 style={styles.statusOptionRow}
               >
                 <Text style={[styles.statusOptionText, option === value && styles.statusOptionTextActive]}>{option}</Text>
-                {option === value ? <Ionicons name="checkmark" size={18} color={Colors.appointmentAccent} /> : null}
+                {option === value ? <Ionicons name="checkmark" size={18} color={Colors.primaryText} /> : null}
               </TouchableOpacity>
             ))}
           </Pressable>

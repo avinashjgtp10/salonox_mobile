@@ -240,7 +240,7 @@ export function MembershipFormScreen({ membershipId, mode }: MembershipFormScree
     return (
       <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
         <AppStatusBar />
-        <View style={styles.centered}><ActivityIndicator color={Colors.primary} size="large" /></View>
+        <View style={styles.centered}><ActivityIndicator color={Colors.primaryText} size="large" /></View>
       </SafeAreaView>
     );
   }
@@ -251,7 +251,7 @@ export function MembershipFormScreen({ membershipId, mode }: MembershipFormScree
       <KeyboardAwareScrollView ref={scrollViewRef} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} style={styles.flex}>
           <View style={styles.headerRow}>
             <TouchableOpacity activeOpacity={0.84} disabled={isSubmitting} hitSlop={12} onPress={goBack} style={styles.iconButton}>
-              <Ionicons name="arrow-back" size={18} color={Colors.primary} />
+              <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>{mode === "create" ? "New Membership" : "Edit Membership"}</Text>
             <View style={styles.iconButtonGhost} />
@@ -305,7 +305,7 @@ export function MembershipFormScreen({ membershipId, mode }: MembershipFormScree
               <View style={styles.servicePicker}>
                 {servicesLoading && services.length === 0 ? (
                   <View style={styles.serviceLoadingRow}>
-                    <ActivityIndicator color={Colors.primary} size="small" />
+                    <ActivityIndicator color={Colors.primaryText} size="small" />
                     <Text style={styles.serviceLoadingText}>Loading services...</Text>
                   </View>
                 ) : services.length > 0 ? (
@@ -321,7 +321,7 @@ export function MembershipFormScreen({ membershipId, mode }: MembershipFormScree
                         <Ionicons
                           name={selected ? "checkmark-circle" : "add-circle-outline"}
                           size={15}
-                          color={selected ? "#FFFFFF" : Colors.primary}
+                          color={selected ? "#FFFFFF" : Colors.primaryText}
                         />
                         <Text style={[styles.serviceChipText, selected && styles.serviceChipTextSelected]}>
                           {service.name}
@@ -453,7 +453,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   segment: { alignItems: "center", borderRadius: Radius.md, flex: 1, justifyContent: "center", minHeight: 40, paddingHorizontal: 8 },
   segmentActive: { backgroundColor: Colors.primary },
   segmentText: { color: Colors.text2, fontSize: 12, fontWeight: "800", textTransform: "capitalize" },
-  segmentTextActive: { color: "#FFFFFF" },
+  segmentTextActive: { color: Colors.onPrimary },
   toggleRow: { alignItems: "center", backgroundColor: Colors.bg, borderColor: Colors.border, borderRadius: AppRadius.control, borderWidth: 1, flexDirection: "row", justifyContent: "space-between", marginBottom: Spacing.md, minHeight: 52, paddingHorizontal: Spacing.md },
   toggleLabel: { color: Colors.heading, fontSize: 14, fontWeight: "800" },
   toggle: { backgroundColor: Colors.border, borderRadius: Radius.full, height: 28, justifyContent: "center", padding: 3, width: 52 },
@@ -466,12 +466,12 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   serviceChip: { alignItems: "center", backgroundColor: Colors.card, borderColor: Colors.border, borderRadius: Radius.full, borderWidth: 1, flexDirection: "row", gap: 6, paddingHorizontal: 10, paddingVertical: 8 },
   serviceChipSelected: { backgroundColor: Colors.primary, borderColor: Colors.primary },
   serviceChipText: { color: Colors.heading, fontSize: 12, fontWeight: "800" },
-  serviceChipTextSelected: { color: "#FFFFFF" },
+  serviceChipTextSelected: { color: Colors.onPrimary },
   messageError: { alignItems: "center", backgroundColor: Colors.errorBg, borderRadius: AppRadius.control, flexDirection: "row", marginBottom: Spacing.md, padding: Spacing.md },
   messageErrorText: { color: Colors.error, flex: 1, fontSize: 13, fontWeight: "700", marginLeft: Spacing.sm },
   messageSuccess: { alignItems: "center", backgroundColor: Colors.successBg, borderRadius: AppRadius.control, flexDirection: "row", marginBottom: Spacing.md, padding: Spacing.md },
   messageSuccessText: { color: Colors.success, flex: 1, fontSize: 13, fontWeight: "700", marginLeft: Spacing.sm },
   submitButton: { alignItems: "center", backgroundColor: Colors.primary, borderRadius: AppRadius.pill, flexDirection: "row", gap: 8, justifyContent: "center", minHeight: 54 },
   disabled: { opacity: 0.68 },
-  submitText: { color: "#FFFFFF", fontSize: 14, fontWeight: "800" },
+  submitText: { color: Colors.onPrimary, fontSize: 14, fontWeight: "800" },
 });

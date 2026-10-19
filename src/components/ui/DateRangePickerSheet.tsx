@@ -162,7 +162,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   presetText: { color: Colors.text, fontSize: 12, fontWeight: "700" },
   selectedPreset: { backgroundColor: Colors.primaryDark, borderColor: Colors.primaryDark },
-  selectedPresetText: { color: "#FFFFFF" },
+  selectedPresetText: { color: Colors.onPrimary },
   secondaryButton: {
     alignItems: "center",
     borderColor: Colors.border,
@@ -182,5 +182,5 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     minHeight: 50,
   },
   buttonDisabled: { opacity: 0.5 },
-  primaryButtonText: { color: "#FFFFFF", fontSize: 13, fontWeight: "800" },
+  primaryButtonText: { color: Colors.onPrimary, fontSize: 13, fontWeight: "800" },
 });

@@ -188,7 +188,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     opacity: 0.72,
   },
   submitButtonText: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
     fontSize: 14,
     fontWeight: "800",
     marginLeft: Spacing.sm,

@@ -70,7 +70,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     backgroundColor: Colors.error,
   },
   snackbarText: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
     flex: 1,
     fontSize: 13,
     fontWeight: "800",

@@ -70,7 +70,7 @@ export function TimeSlotSelector({
     <View style={styles.inputGroup}>
       <View style={styles.inputLabelRow}>
         <Text style={styles.inputLabel}>Start Time</Text>
-        {loading ? <ActivityIndicator color={Colors.primary} size="small" /> : null}
+        {loading ? <ActivityIndicator color={Colors.primaryText} size="small" /> : null}
       </View>
       {disabledReason ? <Text style={styles.fieldHint}>{disabledReason}</Text> : null}
       {!loading && !disabledReason && slots.length === 0 ? (
@@ -123,7 +123,7 @@ export function TimeSlotSelector({
                           <Text style={[styles.timeDropdownOptionText, selected && styles.timeDropdownOptionTextActive]}>
                             {slot.display}
                           </Text>
-                          {selected ? <Ionicons name="checkmark-circle" size={18} color={Colors.primary} /> : null}
+                          {selected ? <Ionicons name="checkmark-circle" size={18} color={Colors.primaryText} /> : null}
                         </TouchableOpacity>
                       );
                     })}

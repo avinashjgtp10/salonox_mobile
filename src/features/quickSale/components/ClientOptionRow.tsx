@@ -52,7 +52,7 @@ function ClientOptionRowComponent({
       <Ionicons
         name={isSelected ? "checkmark-circle" : "chevron-forward"}
         size={18}
-        color={isSelected ? Colors.primary : Colors.text2}
+        color={isSelected ? Colors.primaryText : Colors.text2}
       />
     </TouchableOpacity>
   );
@@ -70,7 +70,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     width: 38,
   },
   avatarText: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 12,
     fontWeight: "900",
   },

@@ -96,7 +96,7 @@ function AppointmentDashboardScreenContent() {
     <View style={styles.listHeader}>
       <View style={styles.headerRow}>
         <TouchableOpacity activeOpacity={0.8} hitSlop={12} onPress={handleBack} style={styles.iconButton}>
-          <Ionicons name="arrow-back" size={18} color={Colors.primary} />
+          <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Appointments</Text>
         <View style={styles.iconButtonGhost} />

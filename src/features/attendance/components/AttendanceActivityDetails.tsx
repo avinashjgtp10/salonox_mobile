@@ -23,7 +23,7 @@ export function AttendanceActivityDetails({ activity, finalCheckout, showShift =
       On Break since {formatAttendanceTime(activity.active_break.actual_start)} · Expected return {formatAttendanceTime(activity.active_break.planned_end)}
     </Text> : null}
     <TouchableOpacity accessibilityRole="button" accessibilityState={{ expanded }} onPress={() => setExpanded(value => !value)} style={{ paddingVertical: 8 }}>
-      <Text style={{ color: Colors.primary, fontWeight: "700" }}>{expanded ? "Hide activity" : "View attendance activity"}</Text>
+      <Text style={{ color: Colors.primaryText, fontWeight: "700" }}>{expanded ? "Hide activity" : "View attendance activity"}</Text>
     </TouchableOpacity>
     {expanded ? <View style={{ borderLeftWidth: 2, borderColor: Colors.border, paddingLeft: 12, gap: 10 }}>
       {activity.sessions.map((session, index) => <View key={`${session.type}:${session.start_time}`}>

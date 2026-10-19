@@ -296,7 +296,7 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
       >
         <View style={styles.header}>
           <TouchableOpacity activeOpacity={0.84} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={18} color={Colors.primaryDark} />
+            <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
           </TouchableOpacity>
           <View style={styles.headerCopy}>
             <Text style={styles.title}>{mode === "edit" ? "Edit Staff" : "Add Staff"}</Text>
@@ -535,7 +535,7 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
                   <View style={styles.calendarAccessRow}>
                     <Text style={styles.calendarAccessTitle}>Calendar &amp; Quick Sale access</Text>
                     {calendarAccess.loading || calendarAccess.saving ? (
-                      <ActivityIndicator color={Colors.primary} size="small" style={styles.calendarAccessSpinner} />
+                      <ActivityIndicator color={Colors.primaryText} size="small" style={styles.calendarAccessSpinner} />
                     ) : null}
                     <Switch
                       accessibilityLabel="Calendar and Quick Sale access"
@@ -555,7 +555,7 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
                   <View style={styles.calendarAccessRow}>
                     <Text style={styles.calendarAccessTitle}>Product Audit access</Text>
                     {productAuditAccess.loading || productAuditAccess.saving ? (
-                      <ActivityIndicator color={Colors.primary} size="small" style={styles.calendarAccessSpinner} />
+                      <ActivityIndicator color={Colors.primaryText} size="small" style={styles.calendarAccessSpinner} />
                     ) : null}
                     <Switch
                       accessibilityLabel="Product Audit access"
@@ -668,7 +668,7 @@ saveButtonDisabled: {
     opacity: 0.55,
   },
   saveButtonText: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
     fontSize: 13,
     fontWeight: "800",
   },
@@ -723,7 +723,7 @@ saveButtonDisabled: {
     fontWeight: "800",
   },
   chipTextSelected: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
   },
   avatarRow: {
     alignItems: "center",
@@ -749,7 +749,7 @@ saveButtonDisabled: {
     width: 72,
   },
   avatarPlaceholderText: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 20,
     fontWeight: "800",
   },

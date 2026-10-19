@@ -48,9 +48,9 @@ export function StartAppointmentAction({ appointment }: { appointment: Appointme
         style={[styles.actionButton, starting && styles.disabledButton]}
       >
         {starting ? (
-          <ActivityIndicator color={Colors.primary} size="small" />
+          <ActivityIndicator color={Colors.primaryText} size="small" />
         ) : (
-          <Ionicons name="play-circle-outline" size={18} color={Colors.primary} />
+          <Ionicons name="play-circle-outline" size={18} color={Colors.primaryText} />
         )}
         <Text style={styles.actionButtonText}>Start</Text>
       </TouchableOpacity>

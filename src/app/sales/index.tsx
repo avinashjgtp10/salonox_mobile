@@ -101,7 +101,7 @@ function SaleCard({
       style={styles.saleCard}
     >
       <View style={styles.saleIcon}>
-        <Ionicons name="receipt-outline" size={20} color={Colors.primaryDark} />
+        <Ionicons name="receipt-outline" size={20} color={Colors.primaryText} />
       </View>
 
       <View style={styles.saleCopy}>
@@ -196,7 +196,7 @@ function EmptyState({ queryActive }: { queryActive: boolean }) {
       <View style={styles.emptyIllustration}>
         <View style={styles.emptyIllustrationHalo} />
         <View style={styles.emptyIllustrationCard}>
-          <Ionicons name="receipt-outline" size={26} color={Colors.primary} />
+          <Ionicons name="receipt-outline" size={26} color={Colors.primaryText} />
         </View>
       </View>
       <Text style={styles.emptyTitle}>No Sales Found</Text>
@@ -394,7 +394,7 @@ function SalesHistoryScreenContent() {
             <View style={styles.header}>
               <View style={styles.headerRow}>
                 <TouchableOpacity activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
-                  <Ionicons name="arrow-back" size={18} color={Colors.primary} />
+                  <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Sales Summary</Text>
                 <View style={styles.backButtonPlaceholder} />
@@ -458,7 +458,7 @@ function SalesHistoryScreenContent() {
                 onPress={() => setIsSortVisible(true)}
                 style={styles.sortButton}
               >
-                <Ionicons name="swap-vertical-outline" size={16} color={Colors.primary} />
+                <Ionicons name="swap-vertical-outline" size={16} color={Colors.primaryText} />
                 <Text style={styles.sortButtonText}>{sortOption}</Text>
               </TourButton>
             </View>
@@ -517,7 +517,7 @@ function SalesHistoryScreenContent() {
                     {option}
                   </Text>
                   {isActive ? (
-                    <Ionicons name="checkmark-circle" size={18} color={Colors.primary} />
+                    <Ionicons name="checkmark-circle" size={18} color={Colors.primaryText} />
                   ) : null}
                 </TouchableOpacity>
               );
@@ -651,7 +651,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "700",
   },
   filterChipTextActive: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
   },
   sortRow: {
     alignItems: "center",
@@ -677,7 +677,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     paddingVertical: 10,
   },
   sortButtonText: {
-    color: Colors.primary,
+    color: Colors.primaryText,
     fontSize: 12,
     fontWeight: "700",
   },
@@ -751,7 +751,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "800",
   },
   statusBadgeTextActive: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
   },
   statusBadgeTextInactive: {
     color: Colors.error,
@@ -856,7 +856,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: Spacing.xl,
   },
   emptyButtonText: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
     fontSize: 13,
     fontWeight: "800",
   },
@@ -897,7 +897,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "600",
   },
   sortOptionTextActive: {
-    color: Colors.primary,
+    color: Colors.primaryText,
   },
 });
 

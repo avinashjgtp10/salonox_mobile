@@ -558,7 +558,7 @@ function AttendanceCard({
         <TouchableOpacity accessibilityRole="button" accessibilityLabel={onReturn ? "Check In" : "Check Out"} accessibilityState={{ disabled: checkoutBusy, busy: checkoutBusy }}
           disabled={checkoutBusy} onPress={onReturn ?? onCheckOut}
           style={{ marginTop: 16, minHeight: 48, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: Colors.primary, opacity: checkoutBusy ? 0.6 : 1 }}>
-          {checkoutBusy ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontSize: 16, fontWeight: "700" }}>{onReturn ? "Check In" : "Check Out"}</Text>}
+          {checkoutBusy ? <ActivityIndicator color={Colors.onPrimary} /> : <Text style={{ color: Colors.onPrimary, fontSize: 16, fontWeight: "700" }}>{onReturn ? "Check In" : "Check Out"}</Text>}
         </TouchableOpacity>
       ) : null}
       {checkoutError ? <Text accessibilityRole="alert" style={{ color: Colors.error, marginTop: 8 }}>{checkoutError}</Text> : null}

@@ -116,7 +116,7 @@ function UserCard({
         </View>
 
         <View style={styles.roleBadge}>
-          <Ionicons name="shield-checkmark-outline" size={12} color={Colors.primaryDark} />
+          <Ionicons name="shield-checkmark-outline" size={12} color={Colors.primaryText} />
           <Text style={styles.roleBadgeText}>{staffMember.role}</Text>
         </View>
       </View>
@@ -208,7 +208,7 @@ function EmptyState({ queryActive }: { queryActive: boolean }) {
       <View style={styles.emptyIllustration}>
         <View style={styles.emptyIllustrationHalo} />
         <View style={styles.emptyIllustrationCard}>
-          <Ionicons name="people-outline" size={26} color={Colors.primary} />
+          <Ionicons name="people-outline" size={26} color={Colors.primaryText} />
         </View>
       </View>
       <Text style={styles.emptyTitle}>No Users Found</Text>
@@ -392,7 +392,7 @@ export default function UsersScreen() {
             <View style={styles.header}>
               <View style={styles.headerRow}>
                 <TouchableOpacity activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
-                  <Ionicons name="arrow-back" size={18} color={Colors.primary} />
+                  <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>User Management</Text>
                 <View style={styles.backButtonPlaceholder} />
@@ -638,7 +638,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "800",
   },
   statusBadgeTextActive: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
   },
   statusBadgeTextInactive: {
     color: Colors.error,
@@ -666,7 +666,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     paddingVertical: 5,
   },
   roleBadgeText: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 11,
     fontWeight: "700",
   },
@@ -751,7 +751,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: Spacing.xl,
   },
   emptyButtonText: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
     fontSize: 13,
     fontWeight: "800",
   },

@@ -110,7 +110,7 @@ export function CatalogFilterSheet({ brands, categories, label, onApply, onClose
                 <Text style={styles.subtitle}>{`Combine filters to narrow your ${label.toLowerCase()}.`}</Text>
               </View>
               <TouchableOpacity accessibilityRole="button" onPress={onClose} style={styles.closeButton}>
-                <Ionicons name="close" size={18} color={Colors.primaryDark} />
+                <Ionicons name="close" size={18} color={Colors.primaryText} />
               </TouchableOpacity>
             </View>
 
@@ -523,10 +523,10 @@ const createStyles = (colors: ThemeColors) =>
     chip: { backgroundColor: colors.bg2, borderColor: colors.border, borderWidth: 1, borderRadius: AppRadius.pill, paddingHorizontal: 13, paddingVertical: 8 },
     chipSelected: { backgroundColor: colors.primaryDark, borderColor: colors.primaryDark },
     chipText: { color: colors.text2, fontSize: 12, fontWeight: "700" },
-    chipTextSelected: { color: "#FFFFFF" },
+    chipTextSelected: { color: colors.onPrimary },
     footer: { flexDirection: "row", gap: 10, padding: Spacing.lg, paddingTop: Spacing.md },
     resetButton: { flex: 1, alignItems: "center", justifyContent: "center", borderColor: colors.border, borderWidth: 1, borderRadius: Radius.md, backgroundColor: colors.bg2, paddingVertical: 13 },
     applyButton: { flex: 1, alignItems: "center", justifyContent: "center", borderRadius: Radius.md, backgroundColor: colors.primaryDark, paddingVertical: 13 },
     resetText: { color: colors.heading, fontSize: 13, fontWeight: "800" },
-    applyText: { color: "#FFFFFF", fontSize: 13, fontWeight: "800" },
+    applyText: { color: colors.onPrimary, fontSize: 13, fontWeight: "800" },
   });

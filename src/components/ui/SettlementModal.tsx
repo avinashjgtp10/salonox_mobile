@@ -125,7 +125,7 @@ export function SettlementModal({
               <Text style={styles.subtitle}>{staffName}</Text>
             </View>
             <TouchableOpacity activeOpacity={0.84} onPress={handleCancel} style={styles.closeButton}>
-              <Ionicons name="close" size={18} color={Colors.primaryDark} />
+              <Ionicons name="close" size={18} color={Colors.primaryText} />
             </TouchableOpacity>
           </View>
 
@@ -166,7 +166,7 @@ export function SettlementModal({
                   <Ionicons
                     name={paymentMethod === "Cash" ? "cash-outline" : paymentMethod === "Card" ? "card-outline" : "phone-portrait-outline"}
                     size={18}
-                    color={Colors.primaryDark}
+                    color={Colors.primaryText}
                   />
                   <Text style={styles.selectText}>{paymentMethod}</Text>
                 </View>
@@ -186,7 +186,7 @@ export function SettlementModal({
                       style={styles.selectOption}
                     >
                       <Text style={[styles.selectOptionText, paymentMethod === method && styles.selectOptionTextActive]}>{method}</Text>
-                      {paymentMethod === method ? <Ionicons name="checkmark" size={18} color={Colors.primary} /> : null}
+                      {paymentMethod === method ? <Ionicons name="checkmark" size={18} color={Colors.primaryText} /> : null}
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -218,7 +218,7 @@ export function SettlementModal({
                         style={styles.selectOption}
                       >
                         <Text style={[styles.selectOptionText, upiProvider === provider && styles.selectOptionTextActive]}>{provider}</Text>
-                        {upiProvider === provider ? <Ionicons name="checkmark" size={18} color={Colors.primary} /> : null}
+                        {upiProvider === provider ? <Ionicons name="checkmark" size={18} color={Colors.primaryText} /> : null}
                       </TouchableOpacity>
                     ))}
                   </View>
@@ -415,7 +415,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "600",
   },
   selectOptionTextActive: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontWeight: "800",
   },
   errorText: {
@@ -448,7 +448,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     minHeight: 48,
   },
   cancelButtonText: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 13,
     fontWeight: "800",
   },
@@ -464,7 +464,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     opacity: 0.55,
   },
   confirmButtonText: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
     fontSize: 13,
     fontWeight: "800",
   },

@@ -67,7 +67,7 @@ export function StaffPayRunSection({ staffId }: { staffId?: string | null }) {
           onAction={() => { if (staffId) void dispatch(fetchPayRunsThunk(staffId)); }}
         />
       ) : loading && !loaded ? (
-        <ActivityIndicator color={colors.primary} />
+        <ActivityIndicator color={colors.primaryText} />
       ) : (
         <>
           {TOGGLES.map(([key, label]) => (

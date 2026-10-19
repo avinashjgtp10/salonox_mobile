@@ -1,6 +1,7 @@
+import { Button } from "@/components/ui/AppButton";
 import { useEffect, useState } from "react";
 import { Modal, ScrollView, StyleSheet, View } from "react-native";
-import { Button, Icon, IconButton, ProgressBar, Text, useTheme } from "react-native-paper";
+import { Icon, IconButton, ProgressBar, Text, useTheme } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router, useSegments } from "expo-router";
 

@@ -51,7 +51,7 @@ export function SearchableFilterDropdown({
             {multi ? (
               <TouchableOpacity accessibilityRole="button" activeOpacity={0.82} onPress={() => selected.forEach((id) => onToggle(id))} style={styles.dropdownOption}>
                 <Text style={[styles.dropdownOptionText, selected.length === 0 && styles.dropdownOptionTextActive]}>{placeholder}</Text>
-                {selected.length === 0 ? <Ionicons name="checkmark" size={18} color={Colors.primaryDark} /> : null}
+                {selected.length === 0 ? <Ionicons name="checkmark" size={18} color={Colors.primaryText} /> : null}
               </TouchableOpacity>
             ) : null}
             {matchingOptions.length === 0 ? <Text style={styles.hint}>No matching options</Text> : null}
@@ -69,7 +69,7 @@ export function SearchableFilterDropdown({
                   <Text numberOfLines={1} style={[styles.dropdownOptionText, isSelected && styles.dropdownOptionTextActive]}>
                     {option}
                   </Text>
-                  {isSelected ? <Ionicons name="checkmark" size={18} color={Colors.primaryDark} /> : null}
+                  {isSelected ? <Ionicons name="checkmark" size={18} color={Colors.primaryText} /> : null}
                 </TouchableOpacity>
               );
             })}

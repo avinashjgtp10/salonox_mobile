@@ -108,7 +108,7 @@ export default function ConsumableDetailScreen() {
         onPress={() => (router.canGoBack() ? router.back() : router.replace("/consumables" as Href))}
         style={styles.iconButton}
       >
-        <Ionicons name="arrow-back" size={19} color={Colors.primary} />
+        <Ionicons name="arrow-back" size={19} color={Colors.primaryText} />
       </TouchableOpacity>
       <Text numberOfLines={1} style={styles.title}>
         {consumable?.name ?? "Consumable"}
@@ -120,7 +120,7 @@ export default function ConsumableDetailScreen() {
         }
         style={styles.iconButton}
       >
-        <Ionicons name="time-outline" size={19} color={Colors.primary} />
+        <Ionicons name="time-outline" size={19} color={Colors.primaryText} />
       </TouchableOpacity>
     </View>
   );
@@ -141,7 +141,7 @@ export default function ConsumableDetailScreen() {
         <AppStatusBar />
         {header}
         <View style={styles.loadingWrap}>
-          <ActivityIndicator color={Colors.primary} size="large" />
+          <ActivityIndicator color={Colors.primaryText} size="large" />
         </View>
       </SafeAreaView>
     );
@@ -172,7 +172,7 @@ export default function ConsumableDetailScreen() {
       >
         <View style={styles.heroCard}>
           <View style={styles.heroIcon}>
-            <Ionicons name="flask-outline" size={26} color={Colors.primaryDark} />
+            <Ionicons name="flask-outline" size={26} color={Colors.primaryText} />
           </View>
           <Text style={styles.heroName}>{consumable.name}</Text>
           <Text style={styles.heroMeta}>
@@ -227,7 +227,7 @@ export default function ConsumableDetailScreen() {
             <Text style={styles.sectionTitle}>Assigned Services</Text>
           </View>
           {state.assignedServicesLoading ? (
-            <ActivityIndicator color={Colors.primary} />
+            <ActivityIndicator color={Colors.primaryText} />
           ) : state.assignedServicesError ? (
             <Text style={styles.errorInlineText}>{state.assignedServicesError}</Text>
           ) : state.assignedServices.length === 0 ? (
@@ -256,7 +256,7 @@ export default function ConsumableDetailScreen() {
             ) : null}
           </View>
           {state.unitConversionsLoading ? (
-            <ActivityIndicator color={Colors.primary} />
+            <ActivityIndicator color={Colors.primaryText} />
           ) : state.unitConversionsError ? (
             <Text style={styles.errorInlineText}>{state.unitConversionsError}</Text>
           ) : state.unitConversions.length === 0 ? (
@@ -382,7 +382,7 @@ const createStyles = (Colors: ThemeColors) =>
       paddingHorizontal: 22,
       paddingVertical: 12,
     },
-    adjustButtonText: { color: "#FFFFFF", fontSize: 13, fontWeight: "800" },
+    adjustButtonText: { color: Colors.onPrimary, fontSize: 13, fontWeight: "800" },
     card: {
       backgroundColor: Colors.card,
       borderColor: Colors.border,
@@ -393,7 +393,7 @@ const createStyles = (Colors: ThemeColors) =>
     },
     sectionHeaderRow: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", marginBottom: Spacing.sm },
     sectionTitle: { color: Colors.heading, fontSize: 14, fontWeight: "800", marginBottom: Spacing.sm },
-    editLink: { color: Colors.primaryDark, fontSize: 12, fontWeight: "800" },
+    editLink: { color: Colors.primaryText, fontSize: 12, fontWeight: "800" },
     infoRow: {
       alignItems: "center",
       borderTopColor: Colors.border,

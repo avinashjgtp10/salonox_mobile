@@ -104,6 +104,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     textAlignVertical: "center",
   },
   chipTextActive: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
   },
 });

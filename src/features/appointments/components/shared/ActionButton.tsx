@@ -24,7 +24,7 @@ export function ActionButton({
       onPress={() => router.push(route as Href)}
       style={[styles.actionButton, danger && styles.actionButtonDanger]}
     >
-      <Ionicons name={icon} size={18} color={danger ? Colors.error : Colors.primary} />
+      <Ionicons name={icon} size={18} color={danger ? Colors.error : Colors.primaryText} />
       <Text
         adjustsFontSizeToFit
         minimumFontScale={0.85}

@@ -2,6 +2,7 @@ import { cloneElement, isValidElement, useEffect, useRef, useState, type ReactEl
 import { Platform, RefreshControl, StyleSheet, View, type RefreshControlProps, type ScrollViewProps, type ViewStyle } from "react-native";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { useThemeColors } from "@/theme/ThemeProvider";
+import { useScrollFooter } from "@/hooks/useScrollFooter";
 
 // Keep the scrolling child's content styles inside; move its parent-facing
 // layout onto the viewport so margins and fixed heights are applied only once.
@@ -27,6 +28,7 @@ type RefreshableProps = ScrollViewProps & { refreshing?: boolean; onRefresh?: ()
  * It never inserts a row into the list (preserving sticky indices and offsets).
  */
 export function RefreshViewport({ children }: { children: ReactElement<RefreshableProps> }) {
+  const onFooterScroll = useScrollFooter();
   const colors = useThemeColors();
   const [pulling, setPulling] = useState(false);
   const offset = useRef(0);
@@ -45,7 +47,12 @@ export function RefreshViewport({ children }: { children: ReactElement<Refreshab
     if (!refreshing) userRefreshRequested.current = false;
   }, [refreshing]);
 
-  if (!validControl) return children;
+  if (!validControl) return cloneElement(children, {
+    scrollEventThrottle: props.scrollEventThrottle ?? 16,
+    onScrollBeginDrag: event => { if (!props.horizontal) onFooterScroll.onScrollBeginDrag(event); props.onScrollBeginDrag?.(event); },
+    onScrollEndDrag: event => { onFooterScroll.onScrollEndDrag(); props.onScrollEndDrag?.(event); },
+    onScroll: event => { if (!props.horizontal) onFooterScroll.onScroll(event); props.onScroll?.(event); },
+  });
 
   return (
     <View style={[styles.viewport, outer]}>
@@ -67,7 +74,10 @@ export function RefreshViewport({ children }: { children: ReactElement<Refreshab
           },
         }),
         scrollEventThrottle: props.scrollEventThrottle ?? 16,
+    onScrollBeginDrag: event => { if (!props.horizontal) onFooterScroll.onScrollBeginDrag(event); props.onScrollBeginDrag?.(event); },
+    onScrollEndDrag: event => { onFooterScroll.onScrollEndDrag(); props.onScrollEndDrag?.(event); },
         onScroll: (event) => {
+          if (!props.horizontal) onFooterScroll.onScroll(event);
           offset.current = event.nativeEvent.contentOffset.y + (event.nativeEvent.contentInset?.top ?? 0);
           props.onScroll?.(event);
         },
@@ -93,7 +103,7 @@ export function RefreshViewport({ children }: { children: ReactElement<Refreshab
       {showLoader ? (
         <View pointerEvents="none" style={[styles.indicator, { top: Math.max(0, control.props.progressViewOffset ?? 0) + 12 }]}>
           <View style={[styles.badge, { backgroundColor: colors.card }]}>
-            <ActivityIndicator size={28} color={colors.primary} accessibilityLabel={refreshing ? "Refreshing" : "Pull to refresh"} />
+            <ActivityIndicator size={28} color={colors.primaryText} accessibilityLabel={refreshing ? "Refreshing" : "Pull to refresh"} />
           </View>
         </View>
       ) : null}

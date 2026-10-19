@@ -209,7 +209,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   dayEdge: { backgroundColor: Colors.primaryDark },
   dayText: { color: Colors.text, fontSize: 13, fontWeight: "600" },
-  dayTextInRange: { color: Colors.primaryDark, fontWeight: "700" },
-  dayTextEdge: { color: "#FFFFFF", fontWeight: "800" },
-  dayTextToday: { color: Colors.primaryDark, fontWeight: "800" },
+  dayTextInRange: { color: Colors.primaryText, fontWeight: "700" },
+  dayTextEdge: { color: Colors.onPrimary, fontWeight: "800" },
+  dayTextToday: { color: Colors.primaryText, fontWeight: "800" },
 });

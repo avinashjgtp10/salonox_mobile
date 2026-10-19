@@ -64,7 +64,7 @@ export default function DashboardHero({ onOpenNotifications, onOpenQuickActions 
             onPress={onOpenQuickActions}
             style={styles.headerIconButton}
           >
-            <Ionicons name="menu-outline" size={24} color={Colors.onPrimary} />
+            <Ionicons name="menu-outline" size={24} color={Colors.dashboardTopBarText} />
           </TourButton>
           <View style={styles.brandLogoFrame}>
             <Image contentFit="contain" source={LOGO_SOURCE} style={styles.brandLogo} />
@@ -77,7 +77,7 @@ export default function DashboardHero({ onOpenNotifications, onOpenQuickActions 
           onPress={() => shouldShowBranchSelector && setIsBranchSheetOpen(true)}
           style={styles.locationPill}
         >
-          <Ionicons color={Colors.onPrimary} name="location-sharp" size={16} />
+          <Ionicons color={Colors.dashboardTopBarText} name="location-sharp" size={16} />
           <View style={styles.locationCopy}>
             <Text numberOfLines={1} style={styles.locationName}>{salonName}</Text>
           </View>
@@ -92,7 +92,7 @@ export default function DashboardHero({ onOpenNotifications, onOpenQuickActions 
           onPress={onOpenNotifications ?? (() => router.push("/notifications" as Href))}
           style={styles.headerIconButton}
         >
-          <Ionicons name="notifications-outline" size={20} color={Colors.onPrimary} />
+          <Ionicons name="notifications-outline" size={20} color={Colors.dashboardTopBarText} />
           <NotificationBadge
             count={unreadNotificationCount}
             style={{ right: -4, top: -4, borderColor: Colors.dashboardTopBar }}
@@ -107,7 +107,7 @@ export default function DashboardHero({ onOpenNotifications, onOpenQuickActions 
           </Text>
           {tour?.offerTour ? (
             <TouchableOpacity accessibilityRole="button" accessibilityLabel="Start dashboard tour" onPress={tour.start} style={{ alignSelf: "flex-start", paddingVertical: 10 }}>
-              <Text style={{ color: Colors.primary, fontWeight: "700", fontSize: 13 }}>Take a dashboard tour →</Text>
+              <Text style={{ color: Colors.primaryText, fontWeight: "700", fontSize: 13 }}>Take a dashboard tour →</Text>
             </TouchableOpacity>
           ) : null}
         </View>
@@ -142,6 +142,8 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   topBar: {
     alignItems: "center",
     backgroundColor: Colors.dashboardTopBar,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dashboardTopBarSubtle,
     flexDirection: "row",
     gap: 10,
     justifyContent: "space-between",
@@ -194,7 +196,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     minWidth: 0,
   },
   locationName: {
-    color: Colors.onPrimary,
+    color: Colors.dashboardTopBarText,
     fontSize: 13,
     fontWeight: "900",
     lineHeight: 16,
@@ -235,7 +237,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   avatar: {
     alignItems: "center",
-    backgroundColor: Colors.dashboardAppointmentAccent,
+    backgroundColor: Colors.backgroundSelected,
     borderColor: Colors.dashboardTopBarSubtle,
     borderRadius: 24,
     borderWidth: 2,
@@ -250,7 +252,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     width: 48,
   },
   avatarText: {
-    color: Colors.onPrimary,
+    color: Colors.heading,
     fontSize: 14,
     fontWeight: Typography.fontWeights.bold,
   },

@@ -144,7 +144,7 @@ export function FilterBar({
             <Ionicons
               name="options-outline"
               size={18}
-              color={isStatusRowVisible ? "#FFFFFF" : Colors.text2}
+              color={isStatusRowVisible ? Colors.onPrimary : Colors.text2}
             />
           </TourButton>
         </View>
