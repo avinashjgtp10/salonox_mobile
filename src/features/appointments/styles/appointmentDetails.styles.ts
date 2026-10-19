@@ -139,6 +139,12 @@ export const createAppointmentDetailsStyles = (Colors: ThemeColors) => StyleShee
   },
   appointmentInvoiceDisabled: { opacity: 0.45 },
   appointmentInvoiceText: { color: Colors.onPrimary, fontSize: 17, fontWeight: "900" },
+  appointmentBillActions: { flexDirection: "row", gap: 12, margin: 18 },
+  appointmentBillButton: { flex: 1, margin: 0 },
+  appointmentEditButton: { backgroundColor: Colors.appointmentSurface, borderColor: Colors.appointmentAccent, borderWidth: 1.5 },
+  appointmentEditText: { color: Colors.appointmentText },
+  appointmentPaymentBadge: { alignSelf: "flex-start", borderRadius: 999, marginTop: 6, paddingHorizontal: 10, paddingVertical: 3 },
+  appointmentPaymentBadgeText: { fontSize: 11, fontWeight: "900", textTransform: "uppercase" },
   previewSheet: {
     backgroundColor: Colors.appointmentSurface,
     borderTopLeftRadius: 18,
@@ -190,6 +196,12 @@ export const createAppointmentDetailsStyles = (Colors: ThemeColors) => StyleShee
   },
   previewUnpaidBadge: {
     backgroundColor: Colors.appointmentAccentSoft,
+  },
+  previewPartialBadge: {
+    backgroundColor: Colors.accentIndigoSoft,
+  },
+  previewPartialText: {
+    color: Colors.accentIndigo,
   },
   previewStatusText: {
     color: Colors.success,
