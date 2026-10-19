@@ -6,6 +6,7 @@ import { Text } from "@/components/ui/AppTypography";
 import { StaffPickerSheet } from "@/features/quickSale/components/StaffPickerSheet";
 import { useAppointmentStyles } from "@/features/appointments/styles/useAppointmentStyles";
 import { formatCurrency } from "@/features/appointments/utils/appointmentForm";
+import { formatBusinessTime } from "@/features/appointments/utils/appointmentScreenHelpers";
 import { appAlert } from "@/services/appAlert";
 import { getApiErrorMessage } from "@/services/api";
 import { handoffItemThunk, updateItemStatusThunk } from "@/middleware/appointment/appointment.thunk";
@@ -25,13 +26,19 @@ const HANDOFF_ELIGIBLE_TYPES = new Set<AppointmentBilledItem["type"]>(["service"
 
 export function BilledItemRow({
   appointmentId,
+  blocker = null,
   canHandoff,
   currentStaffId,
+  hidePrice = false,
   isStaffMode,
   item,
   staffRoster,
 }: {
   appointmentId: string;
+  // Job card: the earlier, unfinished row (someone else's) this row waits on.
+  blocker?: AppointmentBilledItem | null;
+  // Job card rows show other staff members' services, so no prices there.
+  hidePrice?: boolean;
   // True once the current staff member has at least one COMPLETED row of
   // their own in this appointment — the backend enforces the same rule, so
   // this is purely to avoid showing a button that would just 403.
@@ -51,6 +58,11 @@ export function BilledItemRow({
   const status = item.status ?? "pending";
   const isOwnRow = eligible && !!currentStaffId && item.staffId === currentStaffId;
   const canOffer = eligible && !isOwnRow && status === "pending" && canHandoff;
+  const isWaiting = isOwnRow && status === "pending" && !!blocker;
+  const timing = [
+    item.startedAt ? `Started ${formatBusinessTime(item.startedAt)}` : null,
+    item.completedAt ? `Finished ${formatBusinessTime(item.completedAt)}` : null,
+  ].filter(Boolean).join(" · ");
 
   const runStatusChange = async (nextStatus: "in_progress" | "completed") => {
     if (!item.id || busy) return;
@@ -81,7 +93,7 @@ export function BilledItemRow({
     <View>
       <View style={styles.detailRow}>
         <Text style={styles.detailLabel}>{`${item.name}${item.quantity > 1 ? ` × ${item.quantity}` : ""}`}</Text>
-        <Text style={styles.detailValue}>{formatCurrency(isStaffMode ? item.totalAmount ?? item.price : item.price)}</Text>
+        {!hidePrice ? <Text style={styles.detailValue}>{formatCurrency(isStaffMode ? item.totalAmount ?? item.price : item.price)}</Text> : null}
       </View>
       {eligible ? (
         <View style={localStyles.controlsRow}>
@@ -91,13 +103,13 @@ export function BilledItemRow({
           {item.staffName ? <Text style={localStyles.staffName} numberOfLines={1}>{item.staffName}</Text> : null}
           <View style={localStyles.buttonRow}>
             {isOwnRow && status === "pending" ? (
-              <TouchableOpacity disabled={busy} onPress={() => void runStatusChange("in_progress")} style={localStyles.smallButton}>
-                {busy ? <ActivityIndicator color={Colors.primaryText} size="small" /> : <Text style={[localStyles.smallButtonText, { color: Colors.primaryText }]}>Start</Text>}
+              <TouchableOpacity accessibilityState={{ disabled: busy || isWaiting }} disabled={busy || isWaiting} onPress={() => void runStatusChange("in_progress")} style={[localStyles.smallButton, isWaiting && localStyles.disabledButton]}>
+                {busy ? <ActivityIndicator color={Colors.primaryText} size="small" /> : <Text style={[localStyles.smallButtonText, { color: Colors.primaryText }]}>Start Service</Text>}
               </TouchableOpacity>
             ) : null}
             {isOwnRow && status === "in_progress" ? (
               <TouchableOpacity disabled={busy} onPress={() => void runStatusChange("completed")} style={localStyles.smallButton}>
-                {busy ? <ActivityIndicator color={Colors.primaryText} size="small" /> : <Text style={[localStyles.smallButtonText, { color: Colors.primaryText }]}>Mark Complete</Text>}
+                {busy ? <ActivityIndicator color={Colors.primaryText} size="small" /> : <Text style={[localStyles.smallButtonText, { color: Colors.primaryText }]}>Finish</Text>}
               </TouchableOpacity>
             ) : null}
             {canOffer ? (
@@ -107,6 +119,11 @@ export function BilledItemRow({
             ) : null}
           </View>
         </View>
+      ) : null}
+      {eligible && (timing || isWaiting) ? (
+        <Text style={localStyles.timing}>
+          {isWaiting && blocker ? `Waiting for ${blocker.staffName || "another staff member"} to finish ${blocker.name}` : timing}
+        </Text>
       ) : null}
       {canOffer ? (
         <StaffPickerSheet
@@ -165,5 +182,15 @@ const createLocalStyles = () =>
     smallButtonText: {
       fontSize: 12,
       fontWeight: "800",
+    },
+    disabledButton: {
+      opacity: 0.45,
+    },
+    timing: {
+      color: "#8A8F98",
+      fontSize: 11,
+      fontWeight: "600",
+      marginTop: -4,
+      paddingBottom: 10,
     },
   });
