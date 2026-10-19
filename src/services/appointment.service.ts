@@ -308,6 +308,8 @@ const toBilledItems = (
       status: BILLED_ITEM_STATUSES.has(item?.status ?? "") ? (item!.status as AppointmentBilledItem["status"]) : null,
       startedAt: toSafeString(item?.started_at) || null,
       completedAt: toSafeString(item?.completed_at) || null,
+      time: toSafeString(item?.time) || toSafeString(item?.start_time) || null,
+      discount: toSafeNumber(item?.discount),
       type,
     }))
     .filter((item) => item.name);
@@ -343,6 +345,8 @@ const getBilledItems = (
       status: null,
       startedAt: null,
       completedAt: null,
+      time: null,
+      discount: 0,
       type: "service",
     }];
   }
