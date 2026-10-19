@@ -42,12 +42,12 @@ export const getResponsiveHeaderTitleSize = (width = 393) =>
 
 export const getStatusStyles = (Colors: ThemeColors): Record<AppointmentStatus, { bg: string; color: string }> => ({
   Cancelled: { bg: Colors.errorBg, color: Colors.error },
-  "Checked In": { bg: Colors.successBg, color: Colors.primaryDark },
+  "Checked In": { bg: Colors.successBg, color: Colors.primaryText },
   Completed: { bg: Colors.successBg, color: Colors.success },
-  Confirmed: { bg: Colors.successBg, color: Colors.primaryDark },
+  Confirmed: { bg: Colors.successBg, color: Colors.primaryText },
   Deleted: { bg: Colors.bg2, color: Colors.text2 },
   "In Progress": { bg: Colors.infoBg, color: Colors.info },
-  "In Service": { bg: Colors.bg2, color: Colors.primaryDark },
+  "In Service": { bg: Colors.bg2, color: Colors.primaryText },
   Missed: { bg: Colors.errorBg, color: Colors.error },
   Partial: { bg: Colors.warningBg, color: Colors.warning },
   Unknown: { bg: Colors.bg2, color: Colors.text2 },

@@ -377,7 +377,7 @@ export default function ProductFormScreen({ id, mode, scannerDraft, onCreated }:
                 <Text style={styles.headerCloseText}>Close</Text>
               </TouchableOpacity>
               <TouchableOpacity activeOpacity={0.88} disabled={isSubmitting} onPress={() => void submit()} style={[styles.headerSaveButton, isSubmitting && styles.disabled]}>
-                {isSubmitting ? <ActivityIndicator color="#FFFFFF" size="small" /> : null}
+                {isSubmitting ? <ActivityIndicator color={Colors.onPrimary} size="small" /> : null}
                 <Text style={styles.headerSaveText}>Save</Text>
               </TouchableOpacity>
             </View>
@@ -480,7 +480,7 @@ export default function ProductFormScreen({ id, mode, scannerDraft, onCreated }:
                       style={styles.optionRow}
                     >
                       <Text style={styles.optionText}>{service.name}</Text>
-                      <Ionicons color={Colors.primary} name="add-circle-outline" size={18} />
+                      <Ionicons color={Colors.primaryText} name="add-circle-outline" size={18} />
                     </TouchableOpacity>
                   ))}
                   {selectedServices.map((service) => (
@@ -530,7 +530,7 @@ export default function ProductFormScreen({ id, mode, scannerDraft, onCreated }:
                 <Text style={styles.cancelText}>Close</Text>
               </TouchableOpacity>
               <TouchableOpacity activeOpacity={0.88} disabled={isSubmitting} onPress={() => void submit()} style={[styles.saveButton, isSubmitting && styles.disabled]}>
-                {isSubmitting ? <ActivityIndicator color="#FFFFFF" /> : null}
+                {isSubmitting ? <ActivityIndicator color={Colors.onPrimary} /> : null}
                 <Text style={styles.saveText}>{isSubmitting ? "Saving..." : "Save"}</Text>
               </TouchableOpacity>
             </View>
@@ -571,7 +571,7 @@ export default function ProductFormScreen({ id, mode, scannerDraft, onCreated }:
                   style={styles.sheetRow}
                 >
                   <Text style={styles.sheetRowText}>{brand.name}</Text>
-                  {(brand.id || null) === brandId ? <Ionicons color={Colors.primary} name="checkmark-circle" size={20} /> : null}
+                  {(brand.id || null) === brandId ? <Ionicons color={Colors.primaryText} name="checkmark-circle" size={20} /> : null}
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -586,7 +586,7 @@ export default function ProductFormScreen({ id, mode, scannerDraft, onCreated }:
             {TAX_TYPES.map((item) => (
               <TouchableOpacity key={item.value} onPress={() => { setTaxType(item.value); setTaxTypeOpen(false); }} style={styles.sheetRow}>
                 <Text style={styles.sheetRowText}>{item.label}</Text>
-                {taxType === item.value ? <Ionicons color={Colors.primary} name="checkmark-circle" size={20} /> : null}
+                {taxType === item.value ? <Ionicons color={Colors.primaryText} name="checkmark-circle" size={20} /> : null}
               </TouchableOpacity>
             ))}
           </Pressable>
@@ -632,7 +632,7 @@ function LoadingScreen({ onBack, title }: { onBack: () => void; title: string })
             <Text style={styles.headerCloseText}>Close</Text>
           </TouchableOpacity>
         </View>
-        <View style={styles.loading}><ActivityIndicator size="large" color={Colors.primary} /></View>
+        <View style={styles.loading}><ActivityIndicator size="large" color={Colors.primaryText} /></View>
       </View>
     </SafeAreaView>
   );
@@ -743,7 +743,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     minHeight: 46,
     paddingHorizontal: 24,
   },
-  headerSaveText: { color: "#FFFFFF", fontSize: 14, fontWeight: "800" },
+  headerSaveText: { color: Colors.onPrimary, fontSize: 14, fontWeight: "800" },
   section: {
     backgroundColor: Colors.card,
     borderColor: Colors.border,
@@ -778,7 +778,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   threeColumn: { flexDirection: "row", gap: Spacing.sm },
   inlineLinkRow: { flexDirection: "row", gap: Spacing.md },
   inlineLinkCell: { flex: 1 },
-  inlineLink: { color: Colors.primary, fontSize: 14, fontWeight: "800", marginBottom: Spacing.md },
+  inlineLink: { color: Colors.primaryText, fontSize: 14, fontWeight: "800", marginBottom: Spacing.md },
   linkInput: { color: Colors.heading, fontSize: 15, fontWeight: "700", marginBottom: Spacing.lg, minHeight: 42 },
   selectInput: {
     alignItems: "center",
@@ -805,7 +805,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   segmentActive: { backgroundColor: Colors.primaryDark, borderColor: Colors.primaryDark },
   segmentText: { color: Colors.heading, fontSize: 13, fontWeight: "800", textAlign: "center" },
-  segmentTextActive: { color: "#FFFFFF" },
+  segmentTextActive: { color: Colors.onPrimary },
   stockPreview: { backgroundColor: Colors.bg2, borderRadius: 8, marginBottom: Spacing.md, padding: Spacing.md },
   stockPreviewText: { color: Colors.heading, fontSize: 14 },
   bold: { fontWeight: "800" },
@@ -875,7 +875,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     justifyContent: "center",
     minHeight: 50,
   },
-  cancelText: { color: Colors.primary, fontSize: 14, fontWeight: "800" },
+  cancelText: { color: Colors.primaryText, fontSize: 14, fontWeight: "800" },
   saveButton: {
     alignItems: "center",
     backgroundColor: Colors.primaryDark,
@@ -886,7 +886,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     justifyContent: "center",
     minHeight: 50,
   },
-  saveText: { color: "#FFFFFF", fontSize: 14, fontWeight: "800" },
+  saveText: { color: Colors.onPrimary, fontSize: 14, fontWeight: "800" },
   disabled: { opacity: 0.7 },
   loading: { alignItems: "center", flex: 1, justifyContent: "center", minHeight: 300 },
   overlay: { alignItems: "center", backgroundColor: "rgba(15,23,32,0.35)", flex: 1, justifyContent: "center", padding: Spacing.lg },

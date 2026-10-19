@@ -96,12 +96,12 @@ export function CalendarStatusFilter({ statuses, onChange }: {
             >
               {filter.status !== "All" ? <View style={[styles.dinggLegendDot, { backgroundColor: filter.color }]} /> : null}
               <Text style={[styles.dinggLegendText, localStyles.optionLabel]}>{filter.label}</Text>
-              <Ionicons name={selected ? "checkbox" : "square-outline"} size={18} color={selected ? Colors.appointmentAccent : Colors.appointmentTextSecondary} />
+              <Ionicons name={selected ? "checkbox" : "square-outline"} size={18} color={selected ? Colors.primaryText : Colors.appointmentTextSecondary} />
             </TouchableOpacity>
           ); })}
               </ScrollView>
               <TouchableOpacity accessibilityRole="button" onPress={() => setExpanded(false)} style={[localStyles.done, { borderTopColor: Colors.appointmentDivider }]}>
-                <Text style={[styles.dinggLegendText, { color: Colors.appointmentAccent }]}>Done</Text>
+                <Text style={[styles.dinggLegendText, { color: Colors.primaryText }]}>Done</Text>
               </TouchableOpacity>
             </View> : null}
           </View>

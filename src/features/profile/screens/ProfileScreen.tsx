@@ -305,7 +305,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: Spacing.sm,
   },
   cancelButtonLabel: {
-    color: Colors.primary,
+    color: Colors.primaryText,
     fontSize: 14,
     fontWeight: "700",
   },

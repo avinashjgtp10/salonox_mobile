@@ -104,13 +104,13 @@ export default function ServiceDetailsScreen() {
         <View style={styles.notFoundWrap}>
           <View style={styles.headerRow}>
             <TouchableOpacity activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
-              <Ionicons name="arrow-back" size={18} color={Colors.primary} />
+              <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Service Details</Text>
             <View style={styles.backButtonPlaceholder} />
           </View>
           <View style={styles.centeredContent}>
-            <ActivityIndicator size="large" color={Colors.primary} />
+            <ActivityIndicator size="large" color={Colors.primaryText} />
           </View>
         </View>
       </SafeAreaView>
@@ -124,7 +124,7 @@ export default function ServiceDetailsScreen() {
         <View style={styles.notFoundWrap}>
           <View style={styles.headerRow}>
             <TouchableOpacity activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
-              <Ionicons name="arrow-back" size={18} color={Colors.primary} />
+              <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Service Details</Text>
             <View style={styles.backButtonPlaceholder} />
@@ -144,7 +144,7 @@ export default function ServiceDetailsScreen() {
         <AppStatusBar />
         <View style={styles.notFoundWrap}>
           <TouchableOpacity activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={18} color={Colors.primary} />
+            <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
           </TouchableOpacity>
           <View style={styles.notFoundCard}>
             <Text style={styles.notFoundTitle}>Service not found</Text>
@@ -163,7 +163,7 @@ export default function ServiceDetailsScreen() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.headerRow}>
           <TouchableOpacity activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={18} color={Colors.primary} />
+            <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Service Details</Text>
           <View style={styles.backButtonPlaceholder} />
@@ -171,7 +171,7 @@ export default function ServiceDetailsScreen() {
 
         <View style={styles.heroCard}>
           <View style={styles.avatar}>
-            <Ionicons name="cut-outline" size={28} color={Colors.primaryDark} />
+            <Ionicons name="cut-outline" size={28} color={Colors.primaryText} />
           </View>
           <Text style={styles.serviceName}>{service.name}</Text>
           <View
@@ -292,7 +292,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "800",
   },
   statusBadgeTextActive: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
   },
   statusBadgeTextInactive: {
     color: Colors.error,

@@ -59,7 +59,7 @@ export default function AppearanceScreen() {
 
       <View style={styles.headerRow}>
         <TouchableOpacity activeOpacity={0.84} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={18} color={Colors.primary} />
+          <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Appearance</Text>
         <View style={styles.backButtonPlaceholder} />

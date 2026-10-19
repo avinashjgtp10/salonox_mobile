@@ -92,17 +92,17 @@ export function BilledItemRow({
           <View style={localStyles.buttonRow}>
             {isOwnRow && status === "pending" ? (
               <TouchableOpacity disabled={busy} onPress={() => void runStatusChange("in_progress")} style={localStyles.smallButton}>
-                {busy ? <ActivityIndicator color={Colors.primary} size="small" /> : <Text style={[localStyles.smallButtonText, { color: Colors.primary }]}>Start</Text>}
+                {busy ? <ActivityIndicator color={Colors.primaryText} size="small" /> : <Text style={[localStyles.smallButtonText, { color: Colors.primaryText }]}>Start</Text>}
               </TouchableOpacity>
             ) : null}
             {isOwnRow && status === "in_progress" ? (
               <TouchableOpacity disabled={busy} onPress={() => void runStatusChange("completed")} style={localStyles.smallButton}>
-                {busy ? <ActivityIndicator color={Colors.primary} size="small" /> : <Text style={[localStyles.smallButtonText, { color: Colors.primary }]}>Mark Complete</Text>}
+                {busy ? <ActivityIndicator color={Colors.primaryText} size="small" /> : <Text style={[localStyles.smallButtonText, { color: Colors.primaryText }]}>Mark Complete</Text>}
               </TouchableOpacity>
             ) : null}
             {canOffer ? (
               <TouchableOpacity disabled={busy} onPress={() => setPickerOpen(true)} style={localStyles.smallButton}>
-                {busy ? <ActivityIndicator color={Colors.primary} size="small" /> : <Text style={[localStyles.smallButtonText, { color: Colors.primary }]}>Hand Off</Text>}
+                {busy ? <ActivityIndicator color={Colors.primaryText} size="small" /> : <Text style={[localStyles.smallButtonText, { color: Colors.primaryText }]}>Hand Off</Text>}
               </TouchableOpacity>
             ) : null}
           </View>

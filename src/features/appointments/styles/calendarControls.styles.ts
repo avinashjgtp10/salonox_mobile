@@ -142,7 +142,7 @@ export const createCalendarControlsStyles = (Colors: ThemeColors) => StyleSheet.
     fontWeight: "600",
   },
   dinggStaffTextActive: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
   },
   dinggLegend: {
     backgroundColor: "transparent",
@@ -185,7 +185,7 @@ export const createCalendarControlsStyles = (Colors: ThemeColors) => StyleSheet.
     fontWeight: "600",
   },
   dinggLegendTextActive: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
     fontWeight: "800",
   },
   dinggStaffHeader: {

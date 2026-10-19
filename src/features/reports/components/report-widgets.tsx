@@ -232,7 +232,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     alignItems: "center", backgroundColor: Colors.primaryDark, borderRadius: AppRadius.pill,
     flexDirection: "row", gap: Spacing.sm, minHeight: 48, paddingHorizontal: Spacing.xl,
   },
-  retryText: { color: "#FFFFFF", fontSize: 13, fontWeight: "800" },
+  retryText: { color: Colors.onPrimary, fontSize: 13, fontWeight: "800" },
   footer: { alignItems: "center", flexDirection: "row", gap: Spacing.sm, justifyContent: "center", minHeight: 64 },
   footerText: { color: Colors.text2, fontSize: 12, fontWeight: "600" },
 });

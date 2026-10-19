@@ -206,7 +206,7 @@ const createStyles = (Colors: ThemeColors) =>
       paddingVertical: 12,
     },
     modalDoneText: {
-      color: "#FFFFFF",
+      color: Colors.onPrimary,
       fontSize: 13,
       fontWeight: "800",
     },

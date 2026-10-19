@@ -66,7 +66,7 @@ function ProductCardComponent({ onPress, product }: { onPress: () => void; produ
           </View>
         </View>
         <View style={[styles.addButton, outOfStock && styles.addButtonDisabled]}>
-          <Ionicons name="add" size={16} color={outOfStock ? Colors.text2 : Colors.primary} />
+          <Ionicons name="add" size={16} color={outOfStock ? Colors.text2 : Colors.primaryText} />
         </View>
       </TouchableOpacity>
     </Animated.View>
@@ -258,7 +258,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     marginTop: 3,
   },
   rowPrice: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 13,
     fontWeight: "800",
   },

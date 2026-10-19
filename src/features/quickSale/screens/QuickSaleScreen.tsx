@@ -1493,7 +1493,7 @@ function OwnerQuickSaleScreen({
           <AppStatusBar />
           <QuickSaleHeader onBack={handleBack} title="Edit Draft" />
           <View style={styles.initLoader}>
-            <ActivityIndicator color={Colors.primary} size="large" />
+            <ActivityIndicator color={Colors.primaryText} size="large" />
             <Text style={styles.initLoaderText}>Loading saved sale...</Text>
           </View>
         </SafeAreaView>
@@ -1613,7 +1613,7 @@ function OwnerQuickSaleScreen({
           <View style={styles.contentPane}>
             {initLoading && !initData ? (
               <View style={styles.initLoader}>
-                <ActivityIndicator color={Colors.primary} size="large" />
+                <ActivityIndicator color={Colors.primaryText} size="large" />
                 <Text style={styles.initLoaderText}>Preparing checkout...</Text>
               </View>
             ) : activeTab === "services" && isGlobalSearchActive && isServiceSearchOpen ? (
@@ -1823,8 +1823,8 @@ function OwnerQuickSaleScreen({
 }
 
 const createStyles = (Colors: ThemeColors) => StyleSheet.create({
-  catalogDone: { backgroundColor: "#A3467F", padding: 15, borderRadius: 14, alignItems: "center" },
-  catalogDoneText: { color: "white", fontWeight: "700" },
+  catalogDone: { backgroundColor: Colors.primary, padding: 15, borderRadius: 14, alignItems: "center" },
+  catalogDoneText: { color: Colors.onPrimary, fontWeight: "700" },
   safeArea: {
     backgroundColor: "#FAF6F8",
     flex: 1,
@@ -1848,7 +1848,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "900",
   },
   catalogCount: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 12,
     fontWeight: "800",
   },
@@ -1890,7 +1890,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     zIndex: 40,
   },
   undoToastText: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
     fontSize: 12,
     fontWeight: "700",
   },

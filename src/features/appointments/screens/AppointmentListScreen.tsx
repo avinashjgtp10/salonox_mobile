@@ -57,7 +57,7 @@ export function AppointmentListScreen() {
                 onPress={() => router.replace("/bookings" as Href)}
                 style={styles.iconButton}
               >
-                <Ionicons name="arrow-back" size={18} color={Colors.primary} />
+                <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
               </TouchableOpacity>
               <Text style={styles.headerTitle}>Appointment List</Text>
               <TouchableOpacity
@@ -65,7 +65,7 @@ export function AppointmentListScreen() {
                 onPress={() => router.push("/bookings/new" as Href)}
                 style={styles.iconButton}
               >
-                <Ionicons name="add" size={20} color={Colors.primary} />
+                <Ionicons name="add" size={20} color={Colors.primaryText} />
               </TouchableOpacity>
             </View>
             <FilterBar

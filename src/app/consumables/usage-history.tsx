@@ -82,7 +82,7 @@ export default function ConsumableUsageHistoryScreen() {
           onPress={() => (router.canGoBack() ? router.back() : router.replace("/consumables" as Href))}
           style={styles.iconButton}
         >
-          <Ionicons name="arrow-back" size={19} color={Colors.primary} />
+          <Ionicons name="arrow-back" size={19} color={Colors.primaryText} />
         </TouchableOpacity>
         <Text numberOfLines={1} style={styles.title}>
           {scopedConsumable ? `${scopedConsumable.name} — Usage` : "Usage History"}
@@ -121,7 +121,7 @@ export default function ConsumableUsageHistoryScreen() {
         keyExtractor={(item) => item.id}
         ListEmptyComponent={
           state.usageHistoryLoading ? (
-            <ActivityIndicator color={Colors.primary} style={styles.loadingIndicator} />
+            <ActivityIndicator color={Colors.primaryText} style={styles.loadingIndicator} />
           ) : state.usageHistoryError ? (
             <ErrorState message={state.usageHistoryError} onRetry={refresh} />
           ) : (
@@ -230,7 +230,7 @@ const createStyles = (Colors: ThemeColors) =>
     },
     chipActive: { backgroundColor: Colors.primaryDark, borderColor: Colors.primaryDark },
     chipText: { color: Colors.text2, fontSize: 12, fontWeight: "700" },
-    chipTextActive: { color: "#FFFFFF" },
+    chipTextActive: { color: Colors.onPrimary },
     dateRow: { flexDirection: "row", gap: Spacing.sm },
     dateField: { flex: 1 },
     loadingIndicator: { marginTop: Spacing.xl },

@@ -31,7 +31,7 @@ export function ProfileStateView(props: ProfileStateViewProps) {
         <ProfileHeader />
         {props.kind === "loading" ? (
           <View style={styles.centeredContent}>
-            <ActivityIndicator size="large" color={Colors.primary} />
+            <ActivityIndicator size="large" color={Colors.primaryText} />
           </View>
         ) : (
           <View style={styles.card}>
@@ -41,7 +41,7 @@ export function ProfileStateView(props: ProfileStateViewProps) {
               </View>
             ) : (
               <View style={styles.iconNeutral}>
-                <Ionicons name="person-outline" size={26} color={Colors.primary} />
+                <Ionicons name="person-outline" size={26} color={Colors.primaryText} />
               </View>
             )}
             <Text style={styles.title}>
@@ -126,7 +126,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: Spacing.xl,
   },
   buttonText: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
     fontSize: 13,
     fontWeight: "800",
   },

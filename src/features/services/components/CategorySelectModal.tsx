@@ -156,7 +156,7 @@ export function CategorySelectModal({
 
           {categoriesLoading && categories.length === 0 ? (
             <View style={styles.centerContainer}>
-              <ActivityIndicator color={Colors.primary} size="small" />
+              <ActivityIndicator color={Colors.primaryText} size="small" />
               <Text style={styles.loadingText}>Loading categories...</Text>
             </View>
           ) : categoriesError && categories.length === 0 ? (
@@ -188,7 +188,7 @@ export function CategorySelectModal({
                         {category.name}
                       </Text>
                       {isSelected ? (
-                        <Ionicons name="checkmark-circle" size={20} color={Colors.primary} />
+                        <Ionicons name="checkmark-circle" size={20} color={Colors.primaryText} />
                       ) : null}
                     </TouchableOpacity>
                   );
@@ -334,7 +334,7 @@ const createStyles = (Colors: ThemeColors) =>
       width: 24,
     },
     createOptionText: {
-      color: Colors.primary,
+      color: Colors.primaryText,
       fontSize: 14,
       fontWeight: "700",
     },
@@ -360,7 +360,7 @@ const createStyles = (Colors: ThemeColors) =>
       fontWeight: "500",
     },
     categoryNameSelected: {
-      color: Colors.primary,
+      color: Colors.primaryText,
       fontWeight: "700",
     },
     centerContainer: {
@@ -388,7 +388,7 @@ const createStyles = (Colors: ThemeColors) =>
       paddingVertical: Spacing.sm,
     },
     retryButtonText: {
-      color: "#FFFFFF",
+      color: Colors.onPrimary,
       fontSize: 13,
       fontWeight: "700",
     },
@@ -468,7 +468,7 @@ const createStyles = (Colors: ThemeColors) =>
       paddingHorizontal: Spacing.lg,
     },
     saveCategoryButtonText: {
-      color: "#FFFFFF",
+      color: Colors.onPrimary,
       fontSize: 14,
       fontWeight: "800",
     },

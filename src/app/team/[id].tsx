@@ -113,7 +113,7 @@ const getStatusPalette = (status: StaffStatus, Colors: ThemeColors) => {
       return { backgroundColor: Colors.bg2, color: Colors.text2 };
     case "Working":
     default:
-      return { backgroundColor: Colors.bg2, color: Colors.primaryDark };
+      return { backgroundColor: Colors.bg2, color: Colors.primaryText };
   }
 };
 
@@ -264,13 +264,13 @@ export default function StaffProfileScreen() {
         <View style={styles.missingWrap}>
           <View style={styles.header}>
             <TouchableOpacity activeOpacity={0.84} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
-              <Ionicons name="arrow-back" size={18} color={Colors.primaryDark} />
+              <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Staff Profile</Text>
             <View style={styles.headerActionPlaceholder} />
           </View>
           <View style={styles.centeredContent}>
-            <ActivityIndicator size="large" color={Colors.primary} />
+            <ActivityIndicator size="large" color={Colors.primaryText} />
           </View>
         </View>
       </SafeAreaView>
@@ -284,7 +284,7 @@ export default function StaffProfileScreen() {
         <View style={styles.missingWrap}>
           <View style={styles.header}>
             <TouchableOpacity activeOpacity={0.84} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
-              <Ionicons name="arrow-back" size={18} color={Colors.primaryDark} />
+              <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Staff Profile</Text>
             <View style={styles.headerActionPlaceholder} />
@@ -305,7 +305,7 @@ export default function StaffProfileScreen() {
         <View style={styles.missingWrap}>
           <View style={styles.header}>
             <TouchableOpacity activeOpacity={0.84} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
-              <Ionicons name="arrow-back" size={18} color={Colors.primaryDark} />
+              <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Staff Profile</Text>
             <View style={styles.headerActionPlaceholder} />
@@ -313,7 +313,7 @@ export default function StaffProfileScreen() {
 
           <View style={styles.missingCard}>
             <View style={styles.missingIllustration}>
-              <Ionicons name="person-outline" size={28} color={Colors.primary} />
+              <Ionicons name="person-outline" size={28} color={Colors.primaryText} />
             </View>
             <Text style={styles.missingTitle}>Staff member not found</Text>
             <Text style={styles.missingText}>
@@ -335,7 +335,7 @@ export default function StaffProfileScreen() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <TouchableOpacity activeOpacity={0.84} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={18} color={Colors.primaryDark} />
+            <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Staff Profile</Text>
           {currentUser && canManageLifecycle ? (
@@ -346,7 +346,7 @@ export default function StaffProfileScreen() {
               onPress={() => router.push(`/team/${id}/edit` as Href)}
               style={styles.headerEditButton}
             >
-              <Ionicons name="create-outline" size={16} color={Colors.primaryDark} />
+              <Ionicons name="create-outline" size={16} color={Colors.primaryText} />
               <Text style={styles.headerEditButtonText}>Edit</Text>
             </TouchableOpacity>
           ) : <View style={styles.headerActionPlaceholder} />}
@@ -478,7 +478,7 @@ export default function StaffProfileScreen() {
 
           {performance.loading ? (
             <View style={styles.metricsLoading}>
-              <ActivityIndicator color={Colors.primary} />
+              <ActivityIndicator color={Colors.primaryText} />
               <Text style={styles.metricLabel}>Loading performance...</Text>
             </View>
           ) : performanceIsEmpty ? (
@@ -578,7 +578,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: 12,
   },
   headerEditButtonText: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 12,
     fontWeight: "800",
   },
@@ -646,7 +646,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     paddingVertical: 12,
   },
   quickActionText: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 11,
     fontWeight: "700",
     marginTop: 6,
@@ -703,7 +703,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     paddingVertical: 10,
   },
   serviceChipText: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 12,
     fontWeight: "700",
   },
@@ -736,7 +736,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "700",
   },
   periodChipTextActive: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
   },
   metricsLoading: {
     alignItems: "center",
@@ -764,7 +764,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     marginTop: Spacing.sm,
   },
   metricsRetryText: {
-    color: Colors.primary,
+    color: Colors.primaryText,
     fontSize: 12,
     fontWeight: "800",
     marginTop: 4,

@@ -102,13 +102,13 @@ export function StaffSelfProfileScreen() {
             onPress={() => router.push("/change-password" as Href)}
             style={styles.headerAction}
           >
-            <Ionicons name="key-outline" size={18} color={Colors.primaryDark} />
+            <Ionicons name="key-outline" size={18} color={Colors.primaryText} />
           </TouchableOpacity>
         </View>
 
         {loading && !profile ? (
           <View style={styles.loadingCard}>
-            <ActivityIndicator color={Colors.primary} />
+            <ActivityIndicator color={Colors.primaryText} />
             <Text style={styles.loadingText}>Loading your profile...</Text>
           </View>
         ) : null}
@@ -185,7 +185,7 @@ export function StaffSelfProfileScreen() {
                 onPress={() => router.push("/change-password" as Href)}
                 style={styles.accountButton}
               >
-                <Ionicons name="key-outline" size={17} color={Colors.primaryDark} />
+                <Ionicons name="key-outline" size={17} color={Colors.primaryText} />
                 <Text style={styles.accountButtonText}>Change Password</Text>
               </TouchableOpacity>
             </StaffSectionCard>
@@ -293,7 +293,7 @@ const createStyles = (Colors: ThemeColors, width = 393) => StyleSheet.create({
     paddingVertical: 7,
   },
   badgeText: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 12,
     fontWeight: "900",
   },
@@ -332,7 +332,7 @@ const createStyles = (Colors: ThemeColors, width = 393) => StyleSheet.create({
     paddingVertical: 8,
   },
   serviceChipText: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 12,
     fontWeight: "800",
   },
@@ -353,7 +353,7 @@ const createStyles = (Colors: ThemeColors, width = 393) => StyleSheet.create({
     paddingHorizontal: 14,
   },
   accountButtonText: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 14,
     fontWeight: "900",
   },

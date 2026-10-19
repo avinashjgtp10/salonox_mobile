@@ -48,7 +48,7 @@ function PackageCardComponent({ onPress, item }: { item: PackageListItem; onPres
           </View>
         </View>
         <View style={styles.addButton}>
-          <Ionicons name="add" size={16} color={Colors.primary} />
+          <Ionicons name="add" size={16} color={Colors.primaryText} />
         </View>
       </TouchableOpacity>
     </Animated.View>
@@ -146,7 +146,7 @@ export function PackageCatalogTab({ activeClientPackages, onSelect, salonId, sea
             />
           }
           renderItem={({ item }) => <PackageCard item={item} onPress={() => onSelect(item)} />}
-          ListFooterComponent={loading ? <ActivityIndicator color={Colors.primary} /> : null}
+          ListFooterComponent={loading ? <ActivityIndicator color={Colors.primaryText} /> : null}
           removeClippedSubviews
           windowSize={7}
         /></RefreshViewport>
@@ -165,7 +165,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     padding: Spacing.md,
   },
   activeMeta: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 12,
     fontWeight: "800",
   },
@@ -224,7 +224,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     marginTop: 3,
   },
   rowPrice: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 13,
     fontWeight: "800",
   },

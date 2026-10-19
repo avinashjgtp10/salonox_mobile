@@ -437,7 +437,7 @@ function OwnerQuickSaleCheckoutScreen() {
             receiptLoadState.status === "loading" ||
             receiptLoadState.status === "retrying" ? (
             <View style={styles.receiptStateCard}>
-              <ActivityIndicator color={Colors.primary} size="large" />
+              <ActivityIndicator color={Colors.primaryText} size="large" />
               <Text style={styles.receiptStateTitle}>
                 {receiptLoadState.status === "retrying"
                   ? "Retrying receipt details"
@@ -484,7 +484,7 @@ function OwnerQuickSaleCheckoutScreen() {
                   <Ionicons
                     name={isPreview ? "receipt-outline" : "checkmark"}
                     size={34}
-                    color={Colors.primary}
+                    color={Colors.primaryText}
                   />
                 </View>
                 <Text style={styles.title}>{isPreview ? "Receipt Ready" : "Payment Successful"}</Text>
@@ -556,7 +556,7 @@ function OwnerQuickSaleCheckoutScreen() {
                   onPress={() => router.push(`/sales/${authoritativeSale.id}` as Href)}
                   style={styles.optionalButton}
                 >
-                  <Ionicons name="document-text-outline" size={17} color={Colors.primaryDark} />
+                  <Ionicons name="document-text-outline" size={17} color={Colors.primaryText} />
                   <Text style={styles.optionalButtonText}>View Invoice</Text>
                 </TouchableOpacity>
               ) : null}
@@ -634,9 +634,9 @@ function ReceiptActionButton({
     >
       <View style={styles.receiptActionIcon}>
         {loading ? (
-          <ActivityIndicator color={Colors.primaryDark} size="small" />
+          <ActivityIndicator color={Colors.primaryText} size="small" />
         ) : (
-          <Ionicons name={icon} size={17} color={disabled ? Colors.text2 : Colors.primaryDark} />
+          <Ionicons name={icon} size={17} color={disabled ? Colors.text2 : Colors.primaryText} />
         )}
       </View>
       <Text style={[styles.receiptActionText, disabled && { color: Colors.text2 }]}>{label}</Text>
@@ -831,7 +831,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     marginTop: 2,
   },
   itemPrice: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 13,
     fontWeight: "900",
   },
@@ -886,7 +886,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     minHeight: 46,
   },
   optionalButtonText: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 13,
     fontWeight: "900",
   },
@@ -906,7 +906,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     width: "100%",
   },
   primaryButtonText: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
     fontSize: 14,
     fontWeight: "900",
   },

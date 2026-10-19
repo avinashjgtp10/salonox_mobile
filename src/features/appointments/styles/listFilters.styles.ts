@@ -99,7 +99,7 @@ export const createListFiltersStyles = (Colors: ThemeColors) => StyleSheet.creat
     fontWeight: "800",
   },
   chipTextActive: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
   },
   filterPanel: {
     gap: Spacing.md,
@@ -130,7 +130,7 @@ export const createListFiltersStyles = (Colors: ThemeColors) => StyleSheet.creat
     textTransform: "uppercase",
   },
   weekDayLabelActive: {
-    color: "rgba(255,255,255,0.78)",
+    color: Colors.onPrimary,
   },
   weekDayNumber: {
     color: Colors.heading,
@@ -139,7 +139,7 @@ export const createListFiltersStyles = (Colors: ThemeColors) => StyleSheet.creat
     marginTop: 3,
   },
   weekDayNumberActive: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
   },
   statusModalCard: {
     backgroundColor: Colors.appointmentSurface,
@@ -163,6 +163,6 @@ export const createListFiltersStyles = (Colors: ThemeColors) => StyleSheet.creat
     fontWeight: "600",
   },
   statusOptionTextActive: {
-    color: Colors.appointmentAccent,
+    color: Colors.primaryText,
   }
 });

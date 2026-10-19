@@ -356,7 +356,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "700",
   },
   statusChipTextActive: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
   },
   timeFieldGroup: {
     marginBottom: Spacing.md,
@@ -405,7 +405,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "800",
   },
   periodChipTextActive: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
   },
   clearButton: {
     marginLeft: 4,
@@ -433,7 +433,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     minHeight: 48,
   },
   cancelButtonText: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 13,
     fontWeight: "800",
   },
@@ -446,7 +446,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     minHeight: 48,
   },
   saveButtonText: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
     fontSize: 13,
     fontWeight: "800",
   },

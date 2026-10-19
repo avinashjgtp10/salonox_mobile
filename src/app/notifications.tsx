@@ -145,7 +145,7 @@ function NotificationRow({
           </View>
         ) : null}
       </View>
-      {isMarking ? <ActivityIndicator color={Colors.primary} size="small" /> : null}
+      {isMarking ? <ActivityIndicator color={Colors.primaryText} size="small" /> : null}
     </TouchableOpacity>
   );
 }
@@ -252,8 +252,8 @@ export default function NotificationsScreen({
   };
 
   const handleClearAll = () => {
-    if (visibleNotifications.length === 0 || clearingAll) return;
-    void dispatch(clearAllNotificationsThunk(visibleNotifications.map(item => item.id))).unwrap().catch(() => {
+    if (notifications.length === 0 || clearingAll) return;
+    void dispatch(clearAllNotificationsThunk(notifications.map(item => item.id))).unwrap().catch(() => {
       appAlert.alert("Unable to clear notifications", "Please try again.");
     });
   };
@@ -264,7 +264,7 @@ export default function NotificationsScreen({
 
       <View style={styles.header}>
         <TouchableOpacity activeOpacity={0.84} hitSlop={12} onPress={handleBack} style={styles.iconButton}>
-          <Ionicons name="arrow-back" size={18} color={Colors.primary} />
+          <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{routeScope === "staff" ? "My Appointment Activity" : "Notifications"}</Text>
         <View style={styles.headerActions}>
@@ -275,7 +275,7 @@ export default function NotificationsScreen({
             style={[styles.markAllButton, (unreadCount === 0 || markingAllRead) && styles.markAllButtonDisabled]}
           >
             {markingAllRead ? (
-              <ActivityIndicator color={Colors.primary} size="small" />
+              <ActivityIndicator color={Colors.primaryText} size="small" />
             ) : (
               <Text style={styles.markAllButtonText}>Mark all read</Text>
             )}
@@ -284,9 +284,9 @@ export default function NotificationsScreen({
             accessibilityRole="button"
             accessibilityLabel="Clear all notifications"
             activeOpacity={0.84}
-            disabled={visibleNotifications.length === 0 || clearingAll}
+            disabled={notifications.length === 0 || clearingAll}
             onPress={handleClearAll}
-            style={[styles.markAllButton, (visibleNotifications.length === 0 || clearingAll) && styles.markAllButtonDisabled]}
+            style={[styles.markAllButton, (notifications.length === 0 || clearingAll) && styles.markAllButtonDisabled]}
           >
             {clearingAll ? <ActivityIndicator color={Colors.error} size="small" /> : (
               <Text style={styles.clearAllButtonText}>Clear all</Text>
@@ -399,7 +399,7 @@ const createStyles = (Colors: ThemeColors, width = 393) => StyleSheet.create({
     opacity: 0.4,
   },
   markAllButtonText: {
-    color: Colors.primary,
+    color: Colors.primaryText,
     fontSize: 12,
     fontWeight: "800",
   },

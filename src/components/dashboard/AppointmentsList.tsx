@@ -382,7 +382,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     marginTop: 2,
   },
   link: {
-    color: Colors.primary,
+    color: Colors.primaryText,
     fontSize: 12,
     fontWeight: "500",
   },
@@ -489,7 +489,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     width: 20,
   },
   chipText: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 8,
     fontWeight: "700",
   },

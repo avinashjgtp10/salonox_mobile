@@ -146,7 +146,7 @@ export default function NotificationSettingsScreen() {
           onPress={handleBack}
           style={styles.backButton}
         >
-          <Ionicons name="arrow-back" size={18} color={Colors.primary} />
+          <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Notifications</Text>
         <View style={styles.backButtonPlaceholder} />

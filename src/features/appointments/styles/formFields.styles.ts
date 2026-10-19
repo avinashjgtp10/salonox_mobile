@@ -48,7 +48,7 @@ export const createFormFieldsStyles = (Colors: ThemeColors) => StyleSheet.create
     fontWeight: "800",
   },
   timeDropdownOptionTextActive: {
-    color: Colors.appointmentAccentDark,
+    color: Colors.primaryText,
     fontWeight: "700",
   },
   timeDropdownPlaceholder: {
@@ -143,7 +143,7 @@ export const createFormFieldsStyles = (Colors: ThemeColors) => StyleSheet.create
     marginBottom: 12,
   },
   inputActionText: {
-    color: Colors.primary,
+    color: Colors.primaryText,
     fontSize: 12,
     fontWeight: "900",
   },

@@ -206,7 +206,7 @@ function Details({ id }: { id: string }) {
             {audit && (
               <>
                 <AuditCard>
-                  <Text style={{ color: c.primary, fontWeight: "800" }}>
+                  <Text style={{ color: c.primaryText, fontWeight: "800" }}>
                     {auditStatusLabel(audit.status)}
                   </Text>
                   <Text style={{ color: c.text2 }}>

@@ -37,7 +37,7 @@ export default function QuickActions() {
           style={styles.btn}
         >
           <View style={[styles.icon, { backgroundColor: action.iconBg }]}>
-            <Ionicons name={action.icon} size={20} color={Colors.primary} />
+            <Ionicons name={action.icon} size={20} color={Colors.primaryText} />
           </View>
           <Text
             adjustsFontSizeToFit

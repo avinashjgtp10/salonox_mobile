@@ -24,9 +24,12 @@ import { selectClientsTotalCount } from "@/store/client/client.slice";
 import { useAppTheme, useThemeColors } from "@/theme/ThemeProvider";
 import { formatCurrency, formatCurrencyRounded } from "@/utils/currency";
 
+
+
 const STAT_TILE_GRADIENTS = {
   bookings: ["#FEF3C7", "#FDE68A"],
   clients: ["#EDE9FE", "#DDD6FE"],
+  comparison: ["#FCE7F3", "#FBCFE8"],
   monthRevenue: ["#D1FAE5", "#A7F3D0"],
   todayRevenue: ["#DBEAFE", "#BFDBFE"],
 } as const;
@@ -54,10 +57,7 @@ const getRevenueComparison = (currentMonth: number, lastMonth: number, revenueCh
   return { detail: "No Change", indicator: "\u2014", status: "", tone: "neutral" as const };
 };
 
-const REVENUE_BAR_COLORS = {
-  current: "#2563EB",
-  last: "#16A34A",
-} as const;
+
 
 function RevenueComparisonBars({
   currentMonthRevenue,
@@ -73,12 +73,12 @@ function RevenueComparisonBars({
   const maxRevenue = Math.max(currentMonthRevenue, lastMonthRevenue, 1);
   const rows = [
     {
-      barColor: REVENUE_BAR_COLORS.current,
+      barColor: Colors.primary,
       label: "This Month",
       value: currentMonthRevenue,
     },
     {
-      barColor: REVENUE_BAR_COLORS.last,
+      barColor: Colors.gold,
       label: "Last Month",
       value: lastMonthRevenue,
     },
@@ -186,6 +186,7 @@ export default function DashboardStatTiles() {
         bg: Colors.dashboardCard,
         color: Colors.dashboardRevenueAccent,
         currentMonthRevenue: dashboardMetrics.monthlyRevenue,
+        gradient: STAT_TILE_GRADIENTS.comparison,
         icon: "analytics-outline" as const,
         kind: "revenueComparison" as const,
         label: "This Month vs Last Month",
@@ -258,8 +259,11 @@ export default function DashboardStatTiles() {
                           onPress={() => setRevenueView(option)}
                           style={[styles.revenueOption, revenueView === option && styles.revenueOptionActive]}
                         >
-                          <Text style={styles.revenueOptionLabel}>{option === "comparison" ? "Comparison" : "Projection"}</Text>
-                          <Ionicons name="open-outline" size={16} color={Colors.heading} />
+                          <IconBadge accent={option === "comparison" ? "indigo" : "green"} icon={option === "comparison" ? "bar-chart-outline" : "trending-up-outline"} size="sm" />
+                          <View style={styles.revenueOptionFooter}>
+                            <Text numberOfLines={1} style={styles.revenueOptionLabel}>{option === "comparison" ? "Comparison" : "Projection"}</Text>
+                            <Ionicons name="open-outline" size={16} color={Colors.heading} />
+                          </View>
                         </Pressable>
                       ))}
                     </View>
@@ -378,9 +382,10 @@ const createStyles = (Colors: ThemeColors, isCompact: boolean) => StyleSheet.cre
   modalClose: { width: 48, height: 48, alignItems: "center", justifyContent: "center" },
   modalContent: { padding: isCompact ? 16 : 20 },
   revenueSelector: { flexDirection: "row", gap: 8, width: "100%" },
-  revenueOption: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 4, paddingVertical: 12, paddingHorizontal: 10, borderRadius: 10, borderWidth: 1, borderColor: Colors.border },
-  revenueOptionActive: { borderColor: Colors.primary, backgroundColor: Colors.bg2 },
-  revenueOptionLabel: { color: Colors.heading, fontSize: 13, fontWeight: "600" },
+  revenueOption: { flex: 1, minWidth: 0, gap: 10, padding: 12, borderRadius: 16, borderWidth: 1, borderColor: Colors.glassEdge, backgroundColor: Colors.dashboardCard },
+  revenueOptionActive: { borderColor: Colors.primary },
+  revenueOptionFooter: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 4, width: "100%" },
+  revenueOptionLabel: { flexShrink: 1, color: Colors.heading, fontSize: 14, fontWeight: "700" },
   row: {
     flexWrap: "wrap",
     flexDirection: "row",
@@ -391,7 +396,8 @@ const createStyles = (Colors: ThemeColors, isCompact: boolean) => StyleSheet.cre
     alignItems: "flex-start",
     backgroundColor: Colors.dashboardCard,
     borderRadius: 24,
-    borderWidth: 0,
+    borderWidth: 1,
+    borderColor: Colors.glassEdge,
     flexBasis: "47%",
     flexGrow: 1,
     flexDirection: "column",

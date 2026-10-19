@@ -175,7 +175,7 @@ export function ConsumablesSection({ disabled = false, onChange, value }: Consum
             </TouchableOpacity>
           </View>
 
-          {loading ? <ActivityIndicator color={Colors.primary} style={styles.loadingIndicator} /> : null}
+          {loading ? <ActivityIndicator color={Colors.primaryText} style={styles.loadingIndicator} /> : null}
 
           {!loading && results.length === 0 ? (
             <Text style={styles.noResultsText}>
@@ -205,7 +205,7 @@ export function ConsumablesSection({ disabled = false, onChange, value }: Consum
         </View>
       ) : (
         <TouchableOpacity activeOpacity={0.84} disabled={disabled} onPress={startAdd} style={styles.addButton}>
-          <Ionicons color={Colors.primaryDark} name="add" size={16} />
+          <Ionicons color={Colors.primaryText} name="add" size={16} />
           <Text style={styles.addButtonText}>Add consumable</Text>
         </TouchableOpacity>
       )}
@@ -338,7 +338,7 @@ const createStyles = (Colors: ThemeColors) =>
       gap: 6,
     },
     addButtonText: {
-      color: Colors.primaryDark,
+      color: Colors.primaryText,
       fontSize: 13,
       fontWeight: "800",
     },

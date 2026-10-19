@@ -37,7 +37,7 @@ const ReportCard = memo(function ReportCard({ config }: { config: ReportConfig }
       style={[styles.reportCard, isUnavailable && styles.disabledCard]}
     >
       <View style={styles.iconWrap}>
-        <Ionicons name={config.icon} size={21} color={isUnavailable ? Colors.hint : Colors.primaryDark} />
+        <Ionicons name={config.icon} size={21} color={isUnavailable ? Colors.hint : Colors.primaryText} />
       </View>
       <View style={styles.cardCopy}>
         <Text allowFontScaling style={styles.cardTitle}>{config.title}</Text>
@@ -84,7 +84,7 @@ function ReportsHomeScreenContent() {
             onPress={() => router.back()}
             style={styles.backButton}
           >
-            <Ionicons name="arrow-back" size={18} color={Colors.primary} />
+            <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
           </TouchableOpacity>
           <View style={styles.headerCopy}>
             <Text allowFontScaling style={styles.eyebrow}>INSIGHTS</Text>
@@ -108,7 +108,7 @@ function ReportsHomeScreenContent() {
               style={styles.categoryHeader}
             >
               <View style={styles.categoryIcon}>
-                <Ionicons name={reports[0]?.icon ?? "analytics-outline"} size={18} color={Colors.primaryDark} />
+                <Ionicons name={reports[0]?.icon ?? "analytics-outline"} size={18} color={Colors.primaryText} />
               </View>
               <View style={styles.categoryCopy}>
                 <Text allowFontScaling style={styles.categoryTitle}>{group}</Text>

@@ -1,8 +1,9 @@
+import { Button } from "@/components/ui/AppButton";
 
 import { router } from "expo-router";
 import { useState } from "react";
 import { StyleSheet, View } from "react-native";
-import { Banner, Button, HelperText, TextInput, useTheme } from "react-native-paper";
+import { Banner, HelperText, TextInput, useTheme } from "react-native-paper";
 
 import { PasswordRecoveryScaffold } from "@/components/auth/passwordRecoveryUi";
 import { getApiErrorMessage } from "@/services/api";

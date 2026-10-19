@@ -95,7 +95,7 @@ export function StaffAttendanceGate({ children }: { children: ReactNode }) {
       {children}
       {checkingAttendance ? (
         <View style={styles.loadingOverlay} accessibilityRole="progressbar" accessibilityLabel="Checking today's attendance">
-          <ActivityIndicator color={Colors.primary} size="large" />
+          <ActivityIndicator color={Colors.primaryText} size="large" />
         </View>
       ) : null}
       <Modal visible={locked && !checkingAttendance} transparent animationType="fade" presentationStyle="overFullScreen" onRequestClose={() => {}}>
@@ -113,7 +113,7 @@ export function StaffAttendanceGate({ children }: { children: ReactNode }) {
               {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Check In</Text>}
             </TouchableOpacity> : null}
             <TouchableOpacity accessibilityRole="button" disabled={busy || refreshing} onPress={() => void refresh()} style={styles.link}>
-              {refreshing ? <ActivityIndicator color={Colors.primary} /> : <Text style={{ color: Colors.primary }}>{error ? "Retry connection" : "Refresh shift and attendance"}</Text>}
+              {refreshing ? <ActivityIndicator color={Colors.primaryText} /> : <Text style={{ color: Colors.primaryText }}>{error ? "Retry connection" : "Refresh shift and attendance"}</Text>}
             </TouchableOpacity>
             <TouchableOpacity accessibilityRole="button" disabled={busy} onPress={() => void signOut().catch((failure) => setError(getApiErrorMessage(failure)))} style={styles.link}><Text style={{ color: Colors.text2 }}>Sign out</Text></TouchableOpacity>
           </View>
@@ -128,5 +128,5 @@ const styles = StyleSheet.create({
   card: { borderWidth: 1, borderRadius: 20, padding: 24, gap: 16 },
   title: { fontSize: 24, fontWeight: "700" }, copy: { fontSize: 15, lineHeight: 22 },
   shift: { fontSize: 17, fontWeight: "700" }, button: { padding: 16, borderRadius: 14, alignItems: "center" },
-  buttonText: { color: "#fff", fontWeight: "700", fontSize: 17 }, link: { paddingVertical: 10, alignItems: "center" },
+  buttonText: { color: "#FFFFFF", fontWeight: "700", fontSize: 17 }, link: { paddingVertical: 10, alignItems: "center" },
 });

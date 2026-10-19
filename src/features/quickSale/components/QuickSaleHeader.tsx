@@ -41,7 +41,7 @@ function QuickSaleHeaderComponent({
         <Ionicons
           name={embedded || isLeading ? "close" : "arrow-back"}
           size={isLeading ? 20 : 18}
-          color={Colors.primary}
+          color={Colors.primaryText}
         />
     </TouchableOpacity>
   );

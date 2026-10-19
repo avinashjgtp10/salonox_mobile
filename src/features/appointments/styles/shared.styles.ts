@@ -20,7 +20,7 @@ export const createSharedStyles = (Colors: ThemeColors) => StyleSheet.create({
     borderColor: Colors.errorBorder,
   },
   actionButtonText: {
-    color: Colors.primary,
+    color: Colors.primaryText,
     fontSize: 12,
     fontWeight: "800",
   },
@@ -101,7 +101,7 @@ export const createSharedStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "600",
   },
   optionChipTextActive: {
-    color: Colors.appointmentAccentDark,
+    color: Colors.primaryText,
   },
   primaryButton: {
     alignItems: "center",
@@ -133,12 +133,12 @@ export const createSharedStyles = (Colors: ThemeColors) => StyleSheet.create({
     paddingVertical: 12,
   },
   primaryButtonSmallText: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
     fontSize: 13,
     fontWeight: "900",
   },
   primaryButtonText: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
     fontSize: 14,
     fontWeight: "900",
   },
@@ -245,7 +245,7 @@ export const createSharedStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "900",
   },
   segmentTextActive: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
   },
   skeletonLine: {
     backgroundColor: Colors.bg2,
@@ -276,7 +276,7 @@ export const createSharedStyles = (Colors: ThemeColors) => StyleSheet.create({
     backgroundColor: Colors.error,
   },
   snackbarText: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
     flex: 1,
     fontSize: 13,
     fontWeight: "800",
@@ -316,7 +316,7 @@ export const createSharedStyles = (Colors: ThemeColors) => StyleSheet.create({
     width: 34,
   },
   emptyAddServicesText: {
-    color: Colors.appointmentAccent,
+    color: Colors.primaryText,
     fontSize: 16,
     fontWeight: "700",
   },
@@ -358,7 +358,7 @@ export const createSharedStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "600",
   },
   stylistAvailability: {
-    color: Colors.appointmentAccent,
+    color: Colors.primaryText,
     fontSize: 12,
     fontWeight: "700",
   },
@@ -582,7 +582,7 @@ export const createSharedStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "900",
   },
   existingClientToggleTextActive: {
-    color: Colors.primary,
+    color: Colors.primaryText,
   },
   headerRow: {
     alignItems: "center",
@@ -626,7 +626,7 @@ export const createSharedStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "700",
   },
   linkText: {
-    color: Colors.primary,
+    color: Colors.primaryText,
     fontSize: 13,
     fontWeight: "900",
   },

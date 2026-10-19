@@ -326,7 +326,7 @@ export default function MembershipDetailsScreen() {
     return (
       <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
         <AppStatusBar />
-        <View style={styles.centered}><ActivityIndicator color={Colors.primary} size="large" /></View>
+        <View style={styles.centered}><ActivityIndicator color={Colors.primaryText} size="large" /></View>
       </SafeAreaView>
     );
   }
@@ -338,7 +338,7 @@ export default function MembershipDetailsScreen() {
         <View style={styles.content}>
           <Header title="Membership Details" onBack={goBack} />
           <View style={styles.stateCard}>
-            <Ionicons name={error ? "cloud-offline-outline" : "diamond-outline"} size={32} color={error ? Colors.error : Colors.primary} />
+            <Ionicons name={error ? "cloud-offline-outline" : "diamond-outline"} size={32} color={error ? Colors.error : Colors.primaryText} />
             <Text style={styles.stateTitle}>{error ? "Unable to load membership" : "Membership not found"}</Text>
             <Text style={styles.stateText}>{error ?? "This membership could not be found."}</Text>
           </View>
@@ -357,7 +357,7 @@ export default function MembershipDetailsScreen() {
         <Header title="Membership Details" onBack={goBack} />
 
         <View style={styles.hero}>
-          <View style={styles.heroIcon}><Ionicons name="diamond-outline" size={30} color={Colors.primary} /></View>
+          <View style={styles.heroIcon}><Ionicons name="diamond-outline" size={30} color={Colors.primaryText} /></View>
           <Text style={styles.name}>{membership.name}</Text>
           <Text style={styles.type}>{membership.sessionType} membership</Text>
           <View style={[styles.statusBadge, status === "Active" ? styles.statusActive : styles.statusInactive]}>
@@ -380,7 +380,7 @@ export default function MembershipDetailsScreen() {
         <Section title="Included Benefits">
           {membershipDisplay.bonusCredit ? (
             <View style={styles.bonusCreditRow}>
-              <Ionicons name="wallet-outline" size={17} color={Colors.primary} />
+              <Ionicons name="wallet-outline" size={17} color={Colors.primaryText} />
               <View style={styles.benefitCopy}>
                 <Text numberOfLines={1} style={styles.benefitTitle}>Bonus Credit</Text>
                 <Text numberOfLines={1} style={styles.benefitMeta}>{membershipDisplay.bonusCredit}</Text>
@@ -389,7 +389,7 @@ export default function MembershipDetailsScreen() {
           ) : null}
           {benefits.length > 0 ? benefits.map((benefit) => (
             <View key={benefit.id} style={styles.benefitRow}>
-              <Ionicons name="checkmark-circle-outline" size={17} color={Colors.primary} />
+              <Ionicons name="checkmark-circle-outline" size={17} color={Colors.primaryText} />
               <View style={styles.benefitCopy}>
                 <Text numberOfLines={1} ellipsizeMode="tail" style={styles.benefitTitle}>{benefit.label}</Text>
                 {benefit.meta ? <Text numberOfLines={1} ellipsizeMode="tail" style={styles.benefitMeta}>{benefit.meta}</Text> : null}
@@ -400,7 +400,7 @@ export default function MembershipDetailsScreen() {
 
         <Section title="Assigned Clients">
           {assignedClientsLoading ? (
-            <ActivityIndicator color={Colors.primary} />
+            <ActivityIndicator color={Colors.primaryText} />
           ) : assignedClientsErrorMessage ? (
             <Text style={styles.mutedText}>{assignedClientsErrorMessage}</Text>
           ) : assignedClients.length === 0 ? (
@@ -409,7 +409,7 @@ export default function MembershipDetailsScreen() {
             assignedClients.map((assignment) => (
               <View key={assignment.id} style={styles.clientAssignmentRow}>
                 <View style={styles.clientAssignmentIcon}>
-                  <Ionicons name="person-outline" size={16} color={Colors.primary} />
+                  <Ionicons name="person-outline" size={16} color={Colors.primaryText} />
                 </View>
                 <View style={styles.clientAssignmentCopy}>
                   <Text numberOfLines={1} style={styles.clientAssignmentName}>{assignment.clientName}</Text>
@@ -431,7 +431,7 @@ export default function MembershipDetailsScreen() {
           {deletingIds.includes(membership.id) ? <ActivityIndicator color={Colors.error} /> : <Ionicons name="trash-outline" size={17} color={Colors.error} />}
         </TouchableOpacity>
         <TouchableOpacity activeOpacity={0.88} disabled={assignmentMutating} onPress={() => setClientPickerVisible(true)} style={styles.secondaryAction}>
-          {assignmentMutating ? <ActivityIndicator color={Colors.primary} size="small" /> : <Ionicons name="person-add-outline" size={17} color={Colors.primary} />}
+          {assignmentMutating ? <ActivityIndicator color={Colors.primaryText} size="small" /> : <Ionicons name="person-add-outline" size={17} color={Colors.primaryText} />}
         </TouchableOpacity>
       </View>
 
@@ -463,7 +463,7 @@ function Header({ onBack, title }: { onBack: () => void; title: string }) {
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   return (
     <View style={styles.headerRow}>
-      <TouchableOpacity activeOpacity={0.84} hitSlop={12} onPress={onBack} style={styles.headerButton}><Ionicons name="arrow-back" size={18} color={Colors.primary} /></TouchableOpacity>
+      <TouchableOpacity activeOpacity={0.84} hitSlop={12} onPress={onBack} style={styles.headerButton}><Ionicons name="arrow-back" size={18} color={Colors.primaryText} /></TouchableOpacity>
       <Text style={styles.headerTitle}>{title}</Text>
       <View style={styles.headerButtonGhost} />
     </View>
@@ -530,7 +530,7 @@ function ClientPickerModal({
                   <Text numberOfLines={1} style={styles.clientOptionName}>{client.fullName}</Text>
                   <Text numberOfLines={1} style={styles.clientOptionMeta}>{maskPhone(client.phone, client.phoneCountryCode)}</Text>
                 </View>
-                {saving ? <ActivityIndicator color={Colors.primary} size="small" /> : null}
+                {saving ? <ActivityIndicator color={Colors.primaryText} size="small" /> : null}
               </TouchableOpacity>
             ))}
             {clients.length === 0 ? <Text style={styles.mutedText}>No clients available.</Text> : null}
@@ -574,7 +574,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   benefitTitle: { color: Colors.heading, fontSize: 14, fontWeight: "800" },
   benefitMeta: { color: Colors.text2, fontSize: 12, marginTop: 2 },
   mutedText: { color: Colors.text2, fontSize: 13, fontWeight: "700" },
-  clientAssignmentBenefits: { color: Colors.primary, fontSize: 12, fontWeight: "900" },
+  clientAssignmentBenefits: { color: Colors.primaryText, fontSize: 12, fontWeight: "900" },
   clientAssignmentCopy: { flex: 1, minWidth: 0 },
   clientAssignmentIcon: { alignItems: "center", backgroundColor: Colors.bg2, borderRadius: Radius.md, height: 36, justifyContent: "center", width: 36 },
   clientAssignmentMeta: { color: Colors.text2, fontSize: 12, marginTop: 2 },
@@ -583,7 +583,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   clientOption: { alignItems: "center", borderBottomColor: Colors.border, borderBottomWidth: 1, flexDirection: "row", gap: Spacing.md, minHeight: 62, paddingVertical: Spacing.sm },
   clientOptionAvatar: { alignItems: "center", backgroundColor: Colors.bg2, borderRadius: Radius.lg, height: 42, justifyContent: "center", width: 42 },
   clientOptionCopy: { flex: 1, minWidth: 0 },
-  clientOptionInitials: { color: Colors.primaryDark, fontSize: 13, fontWeight: "900" },
+  clientOptionInitials: { color: Colors.primaryText, fontSize: 13, fontWeight: "900" },
   clientOptionMeta: { color: Colors.text2, fontSize: 12, marginTop: 3 },
   clientOptionName: { color: Colors.heading, fontSize: 14, fontWeight: "900" },
   modalOverlay: { backgroundColor: "rgba(0,0,0,0.36)", flex: 1, justifyContent: "flex-end" },

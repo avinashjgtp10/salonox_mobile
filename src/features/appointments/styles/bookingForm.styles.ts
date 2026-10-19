@@ -91,7 +91,7 @@ export const createBookingFormStyles = (Colors: ThemeColors) => StyleSheet.creat
     paddingHorizontal: AppLayout.cardPadding,
   },
   bookingPrimaryButtonText: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
     fontSize: 16,
     fontWeight: "700",
   },
@@ -114,7 +114,7 @@ export const createBookingFormStyles = (Colors: ThemeColors) => StyleSheet.creat
     paddingHorizontal: 4,
   },
   bookingSectionAction: {
-    color: Colors.appointmentAccent,
+    color: Colors.primaryText,
     fontSize: 13,
     fontWeight: "900",
   },

@@ -363,7 +363,7 @@ export default function SalonCommissionsScreen() {
           onPress={() => router.push("/team/commission-rules" as Href)}
           style={styles.actionButton}
         >
-          <Ionicons color={Colors.primary} name="options-outline" size={16} />
+          <Ionicons color={Colors.primaryText} name="options-outline" size={16} />
           <Text style={styles.actionButtonText}>Commission Rules</Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -372,7 +372,7 @@ export default function SalonCommissionsScreen() {
           onPress={handleExport}
           style={[styles.actionButton, exporting !== null && styles.buttonDisabled]}
         >
-          {exporting ? <ActivityIndicator color={Colors.primary} size="small" /> : <Ionicons color={Colors.primary} name="download-outline" size={16} />}
+          {exporting ? <ActivityIndicator color={Colors.primaryText} size="small" /> : <Ionicons color={Colors.primaryText} name="download-outline" size={16} />}
           <Text style={styles.actionButtonText}>Export</Text>
         </TouchableOpacity>
       </View>
@@ -567,7 +567,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     minHeight: 42,
   },
   actionButtonText: {
-    color: Colors.primary,
+    color: Colors.primaryText,
     fontSize: 13,
     fontWeight: "800",
   },
@@ -662,7 +662,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "700",
   },
   filterChipTextActive: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
   },
   row: {
     backgroundColor: Colors.card,
@@ -732,7 +732,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     opacity: 0.55,
   },
   settleButtonText: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
     fontSize: 12,
     fontWeight: "800",
   },

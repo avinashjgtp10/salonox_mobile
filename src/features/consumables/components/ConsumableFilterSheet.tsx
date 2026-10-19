@@ -201,7 +201,7 @@ const createStyles = (Colors: ThemeColors) =>
       fontWeight: "700",
     },
     chipTextActive: {
-      color: "#FFFFFF",
+      color: Colors.onPrimary,
     },
     secondaryButton: {
       alignItems: "center",
@@ -227,7 +227,7 @@ const createStyles = (Colors: ThemeColors) =>
       paddingVertical: 13,
     },
     primaryButtonText: {
-      color: "#FFFFFF",
+      color: Colors.onPrimary,
       fontSize: 13,
       fontWeight: "800",
     },

@@ -217,7 +217,7 @@ export default function SalonSettingsScreen() {
         onPress={handleBack}
         style={styles.backButton}
       >
-        <Ionicons name="arrow-back" size={18} color={Colors.primary} />
+        <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
       </TouchableOpacity>
       <Text style={styles.headerTitle}>Salon Settings</Text>
       <View style={styles.backButtonPlaceholder} />
@@ -231,7 +231,7 @@ export default function SalonSettingsScreen() {
         <View style={styles.stateWrap}>
           {renderHeader()}
           <View style={styles.centeredContent}>
-            <ActivityIndicator size="large" color={Colors.primary} />
+            <ActivityIndicator size="large" color={Colors.primaryText} />
           </View>
         </View>
       </SafeAreaView>
@@ -305,7 +305,7 @@ export default function SalonSettingsScreen() {
 
           <View style={styles.formCard}>
             <View style={styles.iconWrap}>
-              <Ionicons name="storefront-outline" size={24} color={Colors.primary} />
+              <Ionicons name="storefront-outline" size={24} color={Colors.primaryText} />
             </View>
 
             <FormField
@@ -550,7 +550,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     opacity: 0.72,
   },
   submitButtonText: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
     fontSize: 14,
     fontWeight: "800",
     marginLeft: Spacing.sm,
@@ -619,7 +619,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: Spacing.xl,
   },
   stateButtonText: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
     fontSize: 13,
     fontWeight: "800",
   },

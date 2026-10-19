@@ -238,7 +238,7 @@ const createStyles = (Colors: ThemeColors) =>
       opacity: 0.5,
     },
     primaryButtonText: {
-      color: "#FFFFFF",
+      color: Colors.onPrimary,
       fontSize: 14,
       fontWeight: "800",
     },

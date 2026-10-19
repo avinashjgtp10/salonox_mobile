@@ -107,7 +107,7 @@ function DinggSelect({ label, onSelect, options, placeholder = "Select", value }
               {options.map((option) => (
                 <TouchableOpacity key={option} onPress={() => { onSelect(option); setVisible(false); }} style={styles.selectOption}>
                   <Text style={styles.selectOptionText}>{option}</Text>
-                  {option === value ? <Ionicons name="checkmark" size={18} color={Colors.appointmentAccent} /> : null}
+                  {option === value ? <Ionicons name="checkmark" size={18} color={Colors.primaryText} /> : null}
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -332,7 +332,7 @@ export default function NewClientScreen() {
       <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
         <AppStatusBar />
         <View style={styles.loadingState}>
-          <ActivityIndicator color={Colors.primary} size="large" />
+          <ActivityIndicator color={Colors.primaryText} size="large" />
         </View>
       </SafeAreaView>
     );
@@ -455,7 +455,7 @@ export default function NewClientScreen() {
                     <View style={styles.preferenceRow}>
                       {["SMS", "Email", "Whatsapp"].map((channel) => (
                         <TouchableOpacity key={`${group}-${channel}`} onPress={() => toggleChannel(channel, group === "Transaction")} style={styles.preferenceOption}>
-                          <Ionicons name={selected.includes(channel) ? "checkbox" : "square-outline"} size={20} color={selected.includes(channel) ? Colors.appointmentAccent : Colors.appointmentMuted} />
+                          <Ionicons name={selected.includes(channel) ? "checkbox" : "square-outline"} size={20} color={selected.includes(channel) ? Colors.primaryText : Colors.appointmentMuted} />
                           <Text style={styles.preferenceText}>{channel}</Text>
                         </TouchableOpacity>
                       ))}
@@ -761,7 +761,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     opacity: 0.72,
   },
   submitButtonText: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
     fontSize: 14,
     fontWeight: "800",
     marginLeft: 0,
@@ -787,7 +787,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     minWidth: 0,
   },
   requiredMark: {
-    color: Colors.appointmentAccent,
+    color: Colors.primaryText,
   },
   bottomActions: {
     alignItems: "center",
