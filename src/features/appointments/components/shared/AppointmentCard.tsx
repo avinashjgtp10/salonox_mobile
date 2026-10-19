@@ -7,6 +7,7 @@ import { StatusBadge } from "@/features/appointments/components/shared/StatusBad
 import { createStyles } from "@/features/appointments/styles/appointmentStyles";
 import { formatTimeLabel } from "@/features/appointments/utils/appointmentDateTime";
 import { formatCurrency } from "@/features/appointments/utils/appointmentForm";
+import { getJobCardItems, getJobCardStatus } from "@/features/appointments/utils/jobCard";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { AppointmentListItem } from "@/types/appointment";
 import type { Href } from "expo-router";
@@ -15,19 +16,28 @@ import { useMemo } from "react";
 import { TouchableOpacity, View } from "react-native";
 import Animated, { Layout } from "react-native-reanimated";
 
+const JOB_STATUS_LABEL = { completed: "Completed", in_progress: "In Progress", pending: "Pending" } as const;
+
 export function AppointmentCard({
   appointment,
   detailRoute,
+  showJobCard = false,
   showPaymentStatus = false,
 }: {
   appointment: AppointmentListItem;
   detailRoute?: (appointmentId: string) => Href;
+  // Staff list: each service with its assigned staff and job card progress.
+  showJobCard?: boolean;
   showPaymentStatus?: boolean;
 }) {
   const { staffMode, clientName } = useClientPrivacy();
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const route = detailRoute?.(appointment.id) ?? (`/appointments/${appointment.id}` as Href);
+  const jobCardItems = showJobCard ? getJobCardItems(appointment) : [];
+  const status = showJobCard && appointment.status !== "Cancelled" && getJobCardStatus(appointment) === "Completed"
+    ? "Completed"
+    : appointment.status;
 
   return (
     <Animated.View layout={Layout.springify().damping(18).stiffness(160)}>
@@ -48,8 +58,18 @@ export function AppointmentCard({
               </Text>
             </View>
           </View>
-          <StatusBadge status={appointment.status} />
+          <StatusBadge status={status} />
         </View>
+
+        {jobCardItems.length > 1 ? (
+          <View>
+            {jobCardItems.map((item, index) => (
+              <Text key={item.id ?? `${item.name}-${index}`} numberOfLines={1} style={styles.cardSubtitle}>
+                {`${item.name} · ${item.staffName || "Unassigned"} · ${JOB_STATUS_LABEL[item.status ?? "pending"]}`}
+              </Text>
+            ))}
+          </View>
+        ) : null}
 
         <View style={styles.metaGrid}>
           <MetaPill icon="person-outline" label={appointment.staffName} />

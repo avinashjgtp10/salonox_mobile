@@ -211,6 +211,8 @@ export type AppointmentBilledItem = {
   // Staff handoff workflow progress — null for product rows and for any
   // appointment where handoff was never used (treat as "pending").
   status: "pending" | "in_progress" | "completed" | null;
+  startedAt: string | null;
+  completedAt: string | null;
   type: "service" | "product" | "package" | "membership";
 };
 

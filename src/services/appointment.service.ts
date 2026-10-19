@@ -306,6 +306,8 @@ const toBilledItems = (
       staffId: toSafeString(item?.staff_id) || null,
       staffName: toSafeString(item?.staff_name) || null,
       status: BILLED_ITEM_STATUSES.has(item?.status ?? "") ? (item!.status as AppointmentBilledItem["status"]) : null,
+      startedAt: toSafeString(item?.started_at) || null,
+      completedAt: toSafeString(item?.completed_at) || null,
       type,
     }))
     .filter((item) => item.name);
@@ -339,6 +341,8 @@ const getBilledItems = (
       staffId: null,
       staffName: null,
       status: null,
+      startedAt: null,
+      completedAt: null,
       type: "service",
     }];
   }
