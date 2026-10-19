@@ -186,13 +186,13 @@ export default function EditServiceScreen() {
         <View style={styles.centeredWrap}>
           <View style={styles.headerRow}>
             <TouchableOpacity activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
-              <Ionicons name="arrow-back" size={18} color={Colors.primary} />
+              <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Edit Service</Text>
             <View style={styles.backButtonPlaceholder} />
           </View>
           <View style={styles.centeredContent}>
-            <ActivityIndicator size="large" color={Colors.primary} />
+            <ActivityIndicator size="large" color={Colors.primaryText} />
           </View>
         </View>
       </SafeAreaView>
@@ -206,7 +206,7 @@ export default function EditServiceScreen() {
         <View style={styles.centeredWrap}>
           <View style={styles.headerRow}>
             <TouchableOpacity activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
-              <Ionicons name="arrow-back" size={18} color={Colors.primary} />
+              <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Edit Service</Text>
             <View style={styles.backButtonPlaceholder} />
@@ -238,7 +238,7 @@ export default function EditServiceScreen() {
               onPress={handleBack}
               style={styles.backButton}
             >
-              <Ionicons name="arrow-back" size={18} color={Colors.primary} />
+              <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Edit Service</Text>
             <View style={styles.backButtonPlaceholder} />
@@ -246,7 +246,7 @@ export default function EditServiceScreen() {
 
           <View style={styles.formCard}>
             <View style={styles.iconWrap}>
-              <Ionicons name="create-outline" size={24} color={Colors.primary} />
+              <Ionicons name="create-outline" size={24} color={Colors.primaryText} />
             </View>
 
             <View style={styles.inputGroup}>
@@ -522,7 +522,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     opacity: 0.72,
   },
   submitButtonText: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
     fontSize: 14,
     fontWeight: "800",
     marginLeft: Spacing.sm,

@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { clearAllNotificationsThunk, fetchNotificationsThunk, markNotificationReadThunk, removeLocalNotificationThunk } from "@/middleware/notification/notification.thunk";
 import { NotificationSwipeRow } from "@/components/ui/NotificationSwipeRow";
+import { ScrollFooterContext } from "@/hooks/useScrollFooter";
 import { appAlert } from "@/services/appAlert";
 import { SegmentedTabs } from "@/components/ui/SegmentedTabs";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
@@ -72,14 +73,17 @@ export function DashboardNotificationsModal({ onClose, visible }: DashboardNotif
   };
 
   const handleClearAll = () => {
-    if (visibleNotifications.length === 0 || clearingAll) return;
-    void dispatch(clearAllNotificationsThunk(visibleNotifications.map(item => item.id))).unwrap().catch(() => {
+    if (notifications.length === 0 || clearingAll) return;
+    // Clear every notification, not just the ones shown in the current tab.
+    void dispatch(clearAllNotificationsThunk(notifications.map(item => item.id))).unwrap().catch(() => {
       appAlert.alert("Unable to clear notifications", "Please try again.");
     });
   };
 
   return (
     <Modal animationType="fade" onRequestClose={onClose} transparent visible={visible}>
+      {/* Scrolling inside the modal must not hide the tab bar behind it. */}
+      <ScrollFooterContext.Provider value={null}>
       <Pressable onPress={onClose} style={styles.backdrop}>
         <Pressable style={[styles.panel, modalInsets]}>
           <View style={styles.header}>
@@ -88,9 +92,9 @@ export function DashboardNotificationsModal({ onClose, visible }: DashboardNotif
               <TouchableOpacity
                 accessibilityRole="button"
                 accessibilityLabel="Clear all notifications"
-                disabled={visibleNotifications.length === 0 || clearingAll}
+                disabled={notifications.length === 0 || clearingAll}
                 onPress={handleClearAll}
-                style={[styles.clearAllButton, (visibleNotifications.length === 0 || clearingAll) && styles.disabledButton]}
+                style={[styles.clearAllButton, (notifications.length === 0 || clearingAll) && styles.disabledButton]}
               >
                 {clearingAll ? <ActivityIndicator color={colors.error} size="small" /> : <Text style={styles.clearAllText}>Clear all</Text>}
               </TouchableOpacity>
@@ -112,7 +116,7 @@ export function DashboardNotificationsModal({ onClose, visible }: DashboardNotif
           </View>
 
           {loading && notifications.length === 0 ? (
-            <View style={styles.centerState}><ActivityIndicator color={colors.primary} size="large" /></View>
+            <View style={styles.centerState}><ActivityIndicator color={colors.primaryText} size="large" /></View>
           ) : (
             <RefreshViewport><FlatList
               contentContainerStyle={visibleNotifications.length === 0 ? styles.emptyList : styles.list}
@@ -138,7 +142,7 @@ export function DashboardNotificationsModal({ onClose, visible }: DashboardNotif
                   onPress={() => handleNotificationPress(item)}
                   style={styles.row}
                 >
-                  <Avatar.Icon color={colors.primary} icon="bell-outline" size={50} style={styles.alertIcon} />
+                  <Avatar.Icon color={colors.primaryText} icon="bell-outline" size={50} style={styles.alertIcon} />
                   <View style={styles.notificationCopy}>
                     <View style={styles.titleRow}>
                       <Text numberOfLines={1} style={styles.title}>{item.title || "SalonOX Alert"}</Text>
@@ -152,7 +156,7 @@ export function DashboardNotificationsModal({ onClose, visible }: DashboardNotif
               ListEmptyComponent={
                 <View style={styles.centerState}>
                   <Ionicons
-                    color={colors.primary}
+                    color={colors.primaryText}
                     name={filter === "unread" ? "checkmark-done-outline" : "notifications-off-outline"}
                     size={32}
                   />
@@ -166,6 +170,7 @@ export function DashboardNotificationsModal({ onClose, visible }: DashboardNotif
           )}
         </Pressable>
       </Pressable>
+      </ScrollFooterContext.Provider>
     </Modal>
   );
 }

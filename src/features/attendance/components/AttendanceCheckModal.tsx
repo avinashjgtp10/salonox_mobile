@@ -257,10 +257,10 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "800",
   },
   periodChipTextActive: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
   },
   clearText: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 12,
     fontWeight: "800",
     marginBottom: Spacing.md,
@@ -296,7 +296,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     paddingVertical: 13,
   },
   saveButtonText: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
     fontSize: 13,
     fontWeight: "800",
   },

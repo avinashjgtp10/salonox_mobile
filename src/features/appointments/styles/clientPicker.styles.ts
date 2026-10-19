@@ -53,7 +53,7 @@ export const createClientPickerStyles = (Colors: ThemeColors) => StyleSheet.crea
     fontWeight: "600",
   },
   clientActionTextActive: {
-    color: Colors.appointmentAccentDark,
+    color: Colors.primaryText,
   },
   clientDropdown: {
     backgroundColor: Colors.card,
@@ -74,7 +74,7 @@ export const createClientPickerStyles = (Colors: ThemeColors) => StyleSheet.crea
     zIndex: 6,
   },
   clientModeHint: {
-    color: Colors.primary,
+    color: Colors.primaryText,
     flexShrink: 1,
     fontSize: 12,
     fontWeight: "900",

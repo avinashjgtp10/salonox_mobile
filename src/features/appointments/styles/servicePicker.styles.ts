@@ -133,7 +133,7 @@ export const createServicePickerStyles = (Colors: ThemeColors) => StyleSheet.cre
     paddingRight: 18,
   },
   selectedServicePrice: {
-    color: Colors.appointmentAccent,
+    color: Colors.primaryText,
     fontSize: 13,
     fontWeight: "900",
     marginTop: 6,
@@ -190,7 +190,7 @@ export const createServicePickerStyles = (Colors: ThemeColors) => StyleSheet.cre
     marginTop: 3,
   },
   serviceOptionMetaActive: {
-    color: "rgba(255,255,255,0.82)",
+    color: Colors.onPrimary,
   },
   serviceOptionCopy: {
     flex: 1,
@@ -202,19 +202,19 @@ export const createServicePickerStyles = (Colors: ThemeColors) => StyleSheet.cre
     fontWeight: "900",
   },
   serviceOptionNameActive: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
   },
   serviceOptionNameMatch: {
     backgroundColor: Colors.successBg,
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
   },
   serviceOptionPrice: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 13,
     fontWeight: "900",
   },
   serviceOptionPriceActive: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
   },
   serviceOptionPriceMatch: {
     backgroundColor: Colors.successBg,
@@ -323,7 +323,7 @@ export const createServicePickerStyles = (Colors: ThemeColors) => StyleSheet.cre
     fontWeight: "600",
   },
   serviceCategoryTextActive: {
-    color: Colors.appointmentAccent,
+    color: Colors.primaryText,
     fontWeight: "900",
   },
   serviceCategoryIndicator: {
@@ -362,7 +362,7 @@ export const createServicePickerStyles = (Colors: ThemeColors) => StyleSheet.cre
     lineHeight: 21,
   },
   catalogServiceMeta: {
-    color: Colors.appointmentAccent,
+    color: Colors.primaryText,
     fontSize: 14,
     fontWeight: "800",
     marginTop: 8,

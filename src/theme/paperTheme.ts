@@ -18,10 +18,10 @@ export function buildPaperTheme(scheme: AppColorScheme, colors: ThemeColors): MD
     roundness: DashboardRadius.lg / 2,
     colors: {
       ...base.colors,
-      primary: colors.primary,
-      onPrimary: colors.onPrimary,
+      primary: colors.primaryText,
+      onPrimary: scheme === 'dark' ? colors.onPrimary : '#FFFFFF',
       primaryContainer: colors.backgroundSelected,
-      onPrimaryContainer: colors.primaryDark,
+      onPrimaryContainer: colors.primaryText,
       secondary: colors.gold,
       onSecondary: colors.onPrimary,
       secondaryContainer: colors.backgroundElement,

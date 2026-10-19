@@ -516,7 +516,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "700",
   },
   filterChipTextActive: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
   },
   row: {
     backgroundColor: Colors.card,
@@ -606,7 +606,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     opacity: 0.55,
   },
   settleButtonText: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
     fontSize: 12,
     fontWeight: "800",
   },

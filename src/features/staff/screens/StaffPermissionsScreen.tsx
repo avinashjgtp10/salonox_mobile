@@ -133,7 +133,7 @@ export function StaffPermissionsScreen() {
       >
         <View style={styles.infoCard}>
           <View style={styles.infoIcon}>
-            <Ionicons color={Colors.primary} name="calendar-outline" size={20} />
+            <Ionicons color={Colors.primaryText} name="calendar-outline" size={20} />
           </View>
           <View style={styles.infoCopy}>
             <Text style={styles.infoTitle}>Calendar &amp; Quick Sale access</Text>
@@ -146,7 +146,7 @@ export function StaffPermissionsScreen() {
 
         <View style={styles.infoCard}>
           <View style={styles.infoIcon}>
-            <Ionicons color={Colors.primary} name="clipboard-outline" size={20} />
+            <Ionicons color={Colors.primaryText} name="clipboard-outline" size={20} />
           </View>
           <View style={styles.infoCopy}>
             <Text style={styles.infoTitle}>Product Audit access</Text>
@@ -174,7 +174,7 @@ export function StaffPermissionsScreen() {
         </View>
 
         {loading ? (
-          <ActivityIndicator color={Colors.primary} size="large" style={styles.loader} />
+          <ActivityIndicator color={Colors.primaryText} size="large" style={styles.loader} />
         ) : error ? (
           <View style={styles.stateCard}>
             <Ionicons color={Colors.error} name="cloud-offline-outline" size={28} />
@@ -201,7 +201,7 @@ export function StaffPermissionsScreen() {
               <View key={member.id} style={styles.staffCard}>
                 <View style={styles.staffRow}>
                   <View style={[styles.avatar, { backgroundColor: member.avatarBg || Colors.bg2 }]}>
-                    <Text style={[styles.avatarText, { color: member.avatarColor || Colors.primaryDark }]}>{member.initials}</Text>
+                    <Text style={[styles.avatarText, { color: member.avatarColor || Colors.primaryText }]}>{member.initials}</Text>
                   </View>
                   <View style={styles.staffCopy}>
                     <Text numberOfLines={1} style={styles.staffName}>{member.name}</Text>
@@ -210,7 +210,7 @@ export function StaffPermissionsScreen() {
                 </View>
                 <View style={styles.permissionRow}>
                   <Text style={[styles.permissionLabel, styles.permissionRowLabel]}>Calendar &amp; Quick Sale</Text>
-                  {saving ? <ActivityIndicator color={Colors.primary} size="small" /> : null}
+                  {saving ? <ActivityIndicator color={Colors.primaryText} size="small" /> : null}
                   <Switch
                     accessibilityLabel={`Calendar and Quick Sale access for ${member.name}`}
                     disabled={saving}
@@ -222,7 +222,7 @@ export function StaffPermissionsScreen() {
                 </View>
                 <View style={styles.permissionRow}>
                   <Text style={[styles.permissionLabel, styles.permissionRowLabel]}>Product Audit</Text>
-                  {auditSaving ? <ActivityIndicator color={Colors.primary} size="small" /> : null}
+                  {auditSaving ? <ActivityIndicator color={Colors.primaryText} size="small" /> : null}
                   <Switch
                     accessibilityLabel={`Product Audit access for ${member.name}`}
                     disabled={auditSaving}
@@ -306,7 +306,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     marginTop: 4,
   },
   infoCount: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 12,
     fontWeight: "800",
     marginTop: Spacing.sm,
@@ -360,7 +360,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     paddingVertical: 10,
   },
   retryText: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
     fontSize: 13,
     fontWeight: "800",
   },

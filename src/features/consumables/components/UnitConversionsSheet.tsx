@@ -115,7 +115,7 @@ export function UnitConversionsSheet({
       visible={visible}
     >
       {loading ? (
-        <ActivityIndicator color={Colors.primary} />
+        <ActivityIndicator color={Colors.primaryText} />
       ) : (
         <>
           {rows.map((row) => (
@@ -146,7 +146,7 @@ export function UnitConversionsSheet({
           ))}
 
           <TouchableOpacity activeOpacity={0.84} onPress={addRow} style={styles.addButton}>
-            <Ionicons color={Colors.primaryDark} name="add" size={16} />
+            <Ionicons color={Colors.primaryText} name="add" size={16} />
             <Text style={styles.addButtonText}>Add conversion</Text>
           </TouchableOpacity>
 
@@ -201,7 +201,7 @@ const createStyles = (Colors: ThemeColors) =>
       marginTop: Spacing.sm,
     },
     addButtonText: {
-      color: Colors.primaryDark,
+      color: Colors.primaryText,
       fontSize: 13,
       fontWeight: "800",
     },
@@ -228,7 +228,7 @@ const createStyles = (Colors: ThemeColors) =>
       opacity: 0.6,
     },
     saveButtonText: {
-      color: "#FFFFFF",
+      color: Colors.onPrimary,
       fontSize: 14,
       fontWeight: "800",
     },

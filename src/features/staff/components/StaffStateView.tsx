@@ -35,12 +35,12 @@ export function StaffStateView({
     <View style={styles.card}>
       <View style={styles.iconWrap}>
         {loading ? (
-          <ActivityIndicator size="small" color={Colors.primary} />
+          <ActivityIndicator size="small" color={Colors.primaryText} />
         ) : (
           <Ionicons
             name={variant === "error" ? "alert-circle-outline" : "file-tray-outline"}
             size={24}
-            color={variant === "error" ? Colors.error : Colors.primary}
+            color={variant === "error" ? Colors.error : Colors.primaryText}
           />
         )}
       </View>

@@ -74,7 +74,7 @@ function EmptyState({ filter, onCreate }: { filter: FilterKey; onCreate: () => v
   return (
     <View style={styles.emptyCard}>
       <View style={styles.emptyIcon}>
-        <Ionicons name="diamond-outline" size={30} color={Colors.primary} />
+        <Ionicons name="diamond-outline" size={30} color={Colors.primaryText} />
       </View>
       <Text style={styles.emptyTitle}>No memberships found</Text>
       <Text style={styles.emptyText}>
@@ -117,7 +117,7 @@ function MembershipCard({
     <TouchableOpacity activeOpacity={0.86} onPress={onView} style={styles.card}>
       <View style={styles.cardTop}>
         <View style={[styles.planMark, { backgroundColor: Colors.bg2 }]}>
-          <Ionicons name="diamond-outline" size={22} color={Colors.primary} />
+          <Ionicons name="diamond-outline" size={22} color={Colors.primaryText} />
         </View>
         <View style={styles.cardTitleWrap}>
           <Text numberOfLines={1} style={styles.cardTitle}>{membership.name}</Text>
@@ -140,7 +140,7 @@ function MembershipCard({
         {visibleBenefits.length > 0 ? (
           visibleBenefits.map((benefit) => (
             <View key={benefit} style={styles.benefitRow}>
-              <Ionicons name="checkmark-circle-outline" size={14} color={Colors.primary} />
+              <Ionicons name="checkmark-circle-outline" size={14} color={Colors.primaryText} />
               <Text numberOfLines={1} style={styles.benefitText}>{benefit}</Text>
             </View>
           ))
@@ -190,7 +190,7 @@ function MenuAction({ danger, icon, label, onPress }: { danger?: boolean; icon: 
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   return (
     <TouchableOpacity activeOpacity={0.84} onPress={onPress} style={styles.menuAction}>
-      <Ionicons name={icon} size={18} color={danger ? Colors.error : Colors.primary} />
+      <Ionicons name={icon} size={18} color={danger ? Colors.error : Colors.primaryText} />
       <Text style={[styles.menuActionText, danger && { color: Colors.error }]}>{label}</Text>
     </TouchableOpacity>
   );
@@ -268,7 +268,7 @@ function MembershipsScreenContent() {
           <View>
             <View style={styles.headerRow}>
               <TouchableOpacity activeOpacity={0.84} hitSlop={12} onPress={() => (router.canGoBack() ? router.back() : router.replace("/more" as Href))} style={styles.headerButton}>
-                <Ionicons name="arrow-back" size={18} color={Colors.primary} />
+                <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
               </TouchableOpacity>
               <Text style={styles.title}>Memberships</Text>
               <View style={styles.headerButtonGhost} />
@@ -368,7 +368,7 @@ function SummaryCard({ icon, label, value }: { icon: keyof typeof Ionicons.glyph
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   return (
     <View style={styles.summaryCard}>
-      <View style={styles.summaryIcon}><Ionicons name={icon} size={16} color={Colors.primary} /></View>
+      <View style={styles.summaryIcon}><Ionicons name={icon} size={16} color={Colors.primaryText} /></View>
       <Text numberOfLines={1} style={styles.summaryValue}>{value}</Text>
       <Text numberOfLines={1} style={styles.summaryLabel}>{label}</Text>
     </View>
@@ -388,7 +388,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   chip: { backgroundColor: Colors.card, borderColor: Colors.border, borderRadius: Radius.full, borderWidth: 1, paddingHorizontal: Spacing.md, paddingVertical: 10 },
   chipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
   chipText: { color: Colors.text2, fontSize: 12, fontWeight: "800" },
-  chipTextActive: { color: "#FFFFFF" },
+  chipTextActive: { color: Colors.onPrimary },
   summaryGrid: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.sm, marginBottom: Spacing.md },
   summaryCard: { backgroundColor: Colors.card, borderColor: Colors.border, borderRadius: Radius.lg, borderWidth: 1, flexBasis: "48%", flexGrow: 1, padding: Spacing.md },
   summaryIcon: { alignItems: "center", backgroundColor: Colors.bg2, borderRadius: Radius.md, height: 30, justifyContent: "center", width: 30 },
@@ -411,7 +411,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   benefitText: { color: Colors.heading, flex: 1, fontSize: 12, fontWeight: "700" },
   mutedText: { color: Colors.text2, fontSize: 12, fontWeight: "600" },
   viewMoreButton: { alignSelf: "flex-start", marginTop: Spacing.sm },
-  viewMoreText: { color: Colors.primary, fontSize: 12, fontWeight: "900" },
+  viewMoreText: { color: Colors.primaryText, fontSize: 12, fontWeight: "900" },
   cardFooter: { alignItems: "center", borderTopColor: Colors.border, borderTopWidth: 1, flexDirection: "row", justifyContent: "space-between", marginTop: Spacing.md, paddingTop: Spacing.md },
   statusBadge: { borderRadius: Radius.full, paddingHorizontal: 10, paddingVertical: 5 },
   statusActive: { backgroundColor: Colors.successBg },
@@ -429,7 +429,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   emptyTitle: { color: Colors.heading, fontSize: 19, fontWeight: "900", marginTop: Spacing.md, textAlign: "center" },
   emptyText: { color: Colors.text2, fontSize: 13, lineHeight: 20, marginTop: Spacing.sm, textAlign: "center" },
   emptyButton: { backgroundColor: Colors.primary, borderRadius: Radius.full, marginTop: Spacing.lg, paddingHorizontal: Spacing.xl, paddingVertical: 13 },
-  emptyButtonText: { color: "#FFFFFF", fontSize: 13, fontWeight: "900" },
+  emptyButtonText: { color: Colors.onPrimary, fontSize: 13, fontWeight: "900" },
   fab: { alignItems: "center", backgroundColor: Colors.primary, borderRadius: Radius.full, height: 58, justifyContent: "center", position: "absolute", right: Spacing.lg, shadowColor: Colors.shadow, shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.24, shadowRadius: 18, width: 58 },
   menuOverlay: { backgroundColor: "rgba(0,0,0,0.28)", flex: 1, justifyContent: "flex-end", padding: Spacing.lg },
   menuSheet: { backgroundColor: Colors.card, borderRadius: Radius.xl, padding: Spacing.lg },

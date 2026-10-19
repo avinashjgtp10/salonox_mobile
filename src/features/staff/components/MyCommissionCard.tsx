@@ -60,7 +60,7 @@ export function MyCommissionCard({ refreshKey = 0, staffId, staffName }: Props) 
         <Text style={styles.totalAmount}>{money(total)}</Text>
       </View>
 
-      {loading ? <View style={styles.state}><ActivityIndicator color={Colors.primary} /><Text style={styles.stateText}>Loading your commission...</Text></View> : null}
+      {loading ? <View style={styles.state}><ActivityIndicator color={Colors.primaryText} /><Text style={styles.stateText}>Loading your commission...</Text></View> : null}
       {!loading && error ? (
         <TouchableOpacity accessibilityRole="button" onPress={() => void load(appliedRange)} style={styles.state}>
           <Text style={styles.error}>{error}</Text><Text style={styles.retry}>Tap to retry</Text>
@@ -97,7 +97,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   totalAmount: { color: Colors.heading, fontSize: 17, fontWeight: "900" },
   state: { alignItems: "center", gap: 8, paddingVertical: 18 },
   stateText: { color: Colors.text2, fontSize: 12 },
-  retry: { color: Colors.primary, fontSize: 12, fontWeight: "800" },
+  retry: { color: Colors.primaryText, fontSize: 12, fontWeight: "800" },
   empty: { color: Colors.text2, fontSize: 12, paddingVertical: 12, textAlign: "center" },
   list: { gap: 8 },
   entry: { alignItems: "center", backgroundColor: Colors.bg2, borderColor: Colors.border, borderRadius: Radius.md, borderWidth: 1, flexDirection: "row", justifyContent: "space-between", padding: 12 },

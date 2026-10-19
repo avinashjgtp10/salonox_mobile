@@ -89,7 +89,7 @@ function ProjectionBody({ canEdit }: { canEdit: boolean }) {
         <Text style={styles.label}>{option === "all" ? "All Genders" : option === "male" ? "Male" : "Female"}</Text>
       </Pressable>)}
     </View>
-    {loading ? <ActivityIndicator accessibilityLabel="Loading monthly projection" color={colors.primary} /> : error ? <View style={{ gap: 8 }}>
+    {loading ? <ActivityIndicator accessibilityLabel="Loading monthly projection" color={colors.primaryText} /> : error ? <View style={{ gap: 8 }}>
       <Text style={styles.error}>{error}</Text><Pressable accessibilityRole="button" onPress={() => setReload((value) => value + 1)} style={styles.button}><Text style={styles.label}>Retry</Text></Pressable>
     </View> : data ? <>
       <Text style={styles.label}>{data.monthLabel} · Through {data.asOf} · {data.daysPassed} days</Text>

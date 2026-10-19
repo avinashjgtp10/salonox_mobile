@@ -271,7 +271,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: 12,
   },
   addButtonText: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
     fontSize: 12,
     fontWeight: "800",
   },
@@ -318,7 +318,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "800",
   },
   meta: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 12,
     fontWeight: "700",
     marginTop: 5,
@@ -346,7 +346,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: 12,
   },
   editButtonText: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 12,
     fontWeight: "800",
   },
@@ -396,7 +396,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     minHeight: 48,
   },
   cancelButtonText: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 13,
     fontWeight: "800",
   },
@@ -412,7 +412,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     opacity: 0.55,
   },
   saveButtonText: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
     fontSize: 13,
     fontWeight: "800",
   },

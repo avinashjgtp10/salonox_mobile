@@ -15,7 +15,7 @@ import type { CatalogTab } from "../constants";
 import { maskPhone } from "@/utils/maskPhone";
 
 // Visual tokens from the supplied Quick Sale reference.
-const c = { bg: "#FAF6F8", card: "#FFFFFF", line: "#E9DFE5", fg: "#1D1520", muted: "#6F6574", plum: "#A3467F", soft: "#F3E6EE" };
+const c = { bg: "#FAF6F8", card: "#FFFFFF", line: "#E9DFE5", fg: "#000000", muted: "#000000", plum: "#A3467F", soft: "#F3E6EE" };
 const types: Record<string, { label: string; color: string; bg: string }> = {
   service: { label: "Service", color: "#6D4DE0", bg: "#ECE9FB" },
   product: { label: "Product", color: "#2F64E6", bg: "#E3ECFF" },
@@ -154,8 +154,8 @@ const s = StyleSheet.create({
   warning:{backgroundColor:'#FFF4D6',color:'#8A5A00',padding:12,borderRadius:12,fontSize:13},error:{color:'#E5484D',fontSize:12},
   lineCard:{borderWidth:1.5,borderColor:c.line,borderRadius:16,overflow:'hidden'},lineTop:{height:40,paddingHorizontal:12,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},tag:{fontSize:11,fontWeight:'700',letterSpacing:0.7,textTransform:'uppercase'},
   lineBody:{padding:12,gap:8},stepper:{flexDirection:'row',alignItems:'center',borderWidth:1,borderColor:c.line,borderRadius:10,gap:8},step:{padding:8},total:{fontSize:17,fontWeight:'700',color:c.fg},editor:{gap:10,borderTopWidth:1,borderColor:c.line,paddingTop:12},
-  addRow:{gap:8,paddingVertical:2},add:{backgroundColor:c.fg,borderRadius:999,paddingHorizontal:14,paddingVertical:11},addText:{fontSize:12,fontWeight:'700',color:'white'},
+  addRow:{gap:8,paddingVertical:2},add:{backgroundColor:"#EAC8E3",borderRadius:999,paddingHorizontal:14,paddingVertical:11},addText:{fontSize:12,fontWeight:'700',color:'#000000'},
   hint:{backgroundColor:c.bg,borderRadius:12,padding:12,color:c.muted,fontSize:13},benefit:{width:178,borderWidth:1.5,borderColor:c.line,borderRadius:16,padding:12,gap:8},benefitOn:{borderColor:c.plum,backgroundColor:'#FCF3F8'},benefitCopy:{gap:7},benefitIcon:{width:34,height:34,borderRadius:10,backgroundColor:c.soft,justifyContent:'center',alignItems:'center'},
   field:{flex:1,gap:6},label:{fontSize:12,fontWeight:'600',color:c.muted},input:{borderWidth:1,borderColor:c.line,borderRadius:12,paddingHorizontal:12,paddingVertical:11,color:c.fg,fontSize:14,backgroundColor:c.bg,minHeight:44},multiline:{minHeight:76},
-  mode:{flexDirection:'row',borderWidth:1,borderColor:c.line,borderRadius:12,padding:4,marginTop:20},modeButton:{paddingHorizontal:18,paddingVertical:10,borderRadius:9},modeActive:{backgroundColor:c.plum},white:{color:'white'},
+  mode:{flexDirection:'row',borderWidth:1,borderColor:c.line,borderRadius:12,padding:4,marginTop:20},modeButton:{paddingHorizontal:18,paddingVertical:10,borderRadius:9},modeActive:{backgroundColor:"#EAC8E3"},white:{color:'#000000'},
 });

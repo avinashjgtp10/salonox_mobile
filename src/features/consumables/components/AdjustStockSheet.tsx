@@ -182,7 +182,7 @@ const createStyles = (Colors: ThemeColors) =>
       fontWeight: "800",
     },
     directionButtonTextActive: {
-      color: "#FFFFFF",
+      color: Colors.onPrimary,
     },
     reasonRow: {
       flexDirection: "row",
@@ -207,7 +207,7 @@ const createStyles = (Colors: ThemeColors) =>
       fontWeight: "700",
     },
     reasonChipTextActive: {
-      color: "#FFFFFF",
+      color: Colors.onPrimary,
     },
     input: {
       backgroundColor: Colors.bg2,
@@ -242,7 +242,7 @@ const createStyles = (Colors: ThemeColors) =>
       opacity: 0.6,
     },
     submitButtonText: {
-      color: "#FFFFFF",
+      color: Colors.onPrimary,
       fontSize: 14,
       fontWeight: "800",
     },

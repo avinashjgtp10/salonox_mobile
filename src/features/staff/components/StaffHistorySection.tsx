@@ -225,7 +225,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "700",
   },
   tabTextActive: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
   },
   list: {
     gap: 10,

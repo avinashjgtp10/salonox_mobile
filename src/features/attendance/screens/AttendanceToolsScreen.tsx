@@ -162,7 +162,7 @@ export default function AttendanceToolsScreen() {
   if (!allowed) return <Redirect href="/team/attendance" />;
   const button = (label: string, onPress: () => void, danger = false) => (
     <TouchableOpacity disabled={busy || loading} onPress={onPress} style={[styles.button, { backgroundColor: danger ? colors.errorBg : colors.bg2, opacity: busy || loading ? 0.5 : 1 }]}>
-      <Text style={{ color: danger ? colors.error : colors.primaryDark, fontWeight: "700" }}>{label}</Text>
+      <Text style={{ color: danger ? colors.error : colors.primaryText, fontWeight: "700" }}>{label}</Text>
     </TouchableOpacity>
   );
   const staffChoices = (multiple: boolean) => staff.map(member => {
@@ -179,7 +179,7 @@ export default function AttendanceToolsScreen() {
     <View style={styles.row}>{(["Rules", "Devices", "Export"] as const).map(item => <TouchableOpacity key={item} disabled={busy} style={[styles.tab, { backgroundColor: tab === item ? colors.primary : colors.bg2 }]} onPress={() => { setTab(item); setError(""); setMessage(""); setDeviceForm(null); setSelectedDevice(null); }}><Text style={{ color: tab === item ? "#fff" : colors.text2 }}>{item}</Text></TouchableOpacity>)}</View>
     <KeyboardAwareForm autoReveal>
     <View style={styles.content}>
-      {loading || busy ? <ActivityIndicator color={colors.primary} /> : null}
+      {loading || busy ? <ActivityIndicator color={colors.primaryText} /> : null}
       {error ? <Text accessibilityRole="alert" style={{ color: colors.error }}>{error}</Text> : null}
       {error && !busy && !loading ? button("Retry loading", () => void run(async () => {
         if (tab === "Rules") { const result = await attendanceService.getSettings(); setSettings(result); setForm(toForm(result)); await loadStaff(); }

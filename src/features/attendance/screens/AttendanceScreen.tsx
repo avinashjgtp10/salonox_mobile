@@ -154,7 +154,7 @@ function AttendanceScreenContent() {
 
       <TourView tourId="date" style={styles.dateNavCard}>
         <TouchableOpacity activeOpacity={0.84} onPress={onPreviousDay} style={styles.dateNavButton}>
-          <Ionicons name="chevron-back" size={16} color={Colors.primaryDark} />
+          <Ionicons name="chevron-back" size={16} color={Colors.primaryText} />
         </TouchableOpacity>
         <TouchableOpacity
           activeOpacity={0.84}
@@ -170,7 +170,7 @@ function AttendanceScreenContent() {
           onPress={onNextDay}
           style={[styles.dateNavButton, isTodaySelected && styles.dateNavButtonDisabled]}
         >
-          <Ionicons name="chevron-forward" size={16} color={Colors.primaryDark} />
+          <Ionicons name="chevron-forward" size={16} color={Colors.primaryText} />
         </TouchableOpacity>
         {!isTodaySelected ? (
           <TouchableOpacity activeOpacity={0.84} onPress={onToday} style={styles.todayButton}>
@@ -198,7 +198,7 @@ function AttendanceScreenContent() {
       {recordsError ? <Text style={styles.errorText}>{recordsError}</Text> : null}
 
       {isInitialLoading ? (
-        <ActivityIndicator color={Colors.primary} size="large" style={styles.listLoading} />
+        <ActivityIndicator color={Colors.primaryText} size="large" style={styles.listLoading} />
       ) : null}
 
       {!isInitialLoading && rows.length === 0 ? (
@@ -356,7 +356,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: 14,
   },
   todayButtonText: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
     fontSize: 12,
     fontWeight: "800",
   },

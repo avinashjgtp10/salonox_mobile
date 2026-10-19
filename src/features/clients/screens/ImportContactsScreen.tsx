@@ -309,7 +309,7 @@ export default function ImportContactsScreen() {
 
       {stage === "checking" ? (
         <View style={styles.centerFill}>
-          <ActivityIndicator color={Colors.primary} size="large" />
+          <ActivityIndicator color={Colors.primaryText} size="large" />
         </View>
       ) : null}
 
@@ -350,7 +350,7 @@ export default function ImportContactsScreen() {
 
       {stage === "loading" ? (
         <View style={styles.centerFill}>
-          <ActivityIndicator color={Colors.primary} size="large" />
+          <ActivityIndicator color={Colors.primaryText} size="large" />
           <Text style={styles.loadingText}>Reading your contacts…</Text>
         </View>
       ) : null}
@@ -394,7 +394,7 @@ export default function ImportContactsScreen() {
                 onPress={selectAllContacts}
                 style={[styles.selectionAction, allContactsSelected && styles.selectionActionDisabled]}
               >
-                <Ionicons color={Colors.primary} name="checkbox-outline" size={18} />
+                <Ionicons color={Colors.primaryText} name="checkbox-outline" size={18} />
                 <Text style={styles.selectAllText}>Select All</Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -441,7 +441,7 @@ export default function ImportContactsScreen() {
 
       {stage === "importing" ? (
         <View style={styles.centerFill}>
-          <ActivityIndicator color={Colors.primary} size="large" />
+          <ActivityIndicator color={Colors.primaryText} size="large" />
           <Text style={styles.progressCount}>
             {importProgress} / {importTotal}
           </Text>
@@ -474,7 +474,7 @@ export default function ImportContactsScreen() {
                 {showFailedDetails ? "Hide failed contacts" : "View failed contacts"}
               </Text>
               <Ionicons
-                color={Colors.primary}
+                color={Colors.primaryText}
                 name={showFailedDetails ? "chevron-up" : "chevron-down"}
                 size={16}
               />
@@ -523,7 +523,7 @@ function ContactRow({
   return (
     <TouchableOpacity activeOpacity={0.84} onPress={onToggle} style={styles.contactRow}>
       <Ionicons
-        color={isSelected ? Colors.primary : Colors.text2}
+        color={isSelected ? Colors.primaryText : Colors.text2}
         name={isSelected ? "checkbox" : "square-outline"}
         size={20}
       />
@@ -632,7 +632,7 @@ const createStyles = (Colors: ThemeColors) =>
       opacity: 0.5,
     },
     primaryButtonText: {
-      color: "#FFFFFF",
+      color: Colors.onPrimary,
       fontSize: 14,
       fontWeight: "800",
     },
@@ -787,7 +787,7 @@ const createStyles = (Colors: ThemeColors) =>
       marginTop: Spacing.md,
     },
     failedToggleText: {
-      color: Colors.primary,
+      color: Colors.primaryText,
       fontSize: 12,
       fontWeight: "800",
     },

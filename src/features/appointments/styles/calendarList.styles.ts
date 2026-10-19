@@ -67,7 +67,7 @@ export const createCalendarListStyles = (Colors: ThemeColors) => StyleSheet.crea
     minWidth: 0,
   },
   dinggListClientName: {
-    color: Colors.appointmentAccent,
+    color: Colors.primaryText,
     fontSize: 20,
     fontWeight: "900",
   },
@@ -83,13 +83,13 @@ export const createCalendarListStyles = (Colors: ThemeColors) => StyleSheet.crea
     marginTop: 18,
   },
   dinggListService: {
-    color: Colors.appointmentAccent,
+    color: Colors.primaryText,
     flex: 1,
     fontSize: 17,
     lineHeight: 22,
   },
   dinggListTimeRange: {
-    color: Colors.appointmentAccent,
+    color: Colors.primaryText,
     flexShrink: 1,
     fontSize: 15,
     fontWeight: "700",

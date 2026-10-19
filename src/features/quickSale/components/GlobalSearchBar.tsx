@@ -52,7 +52,7 @@ function GlobalSearchBarComponent({
         value={query}
       />
       {isLoading ? (
-        <ActivityIndicator color={Colors.primary} size="small" />
+        <ActivityIndicator color={Colors.primaryText} size="small" />
       ) : query ? (
         <Pressable accessibilityLabel="Clear search" hitSlop={10} onPress={onClear} style={styles.clearButton}>
           <Ionicons name="close-circle" size={20} color={Colors.text2} />

@@ -39,6 +39,7 @@ import {
 import { useCatalogServices } from "@/features/services/hooks/useCatalogServices";
 import { getApiErrorMessage } from "@/services/api";
 import { consumableService } from "@/services/consumable.service";
+import { serviceService } from "@/services/service.service";
 import { packageService } from "@/services/package.service";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 
@@ -202,10 +203,24 @@ export default function CatalogScreen() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [selectedPackage, setSelectedPackage] = useState<PackageListItem | null>(null);
   const [consumableSort, setConsumableSort] = useState("Newest");
-  const fetchCatalogProducts = useCallback(() => loadAllPages(async (page) => {
-    const result = await productService.fetchProducts({ limit: 100, offset: (page - 1) * 100, search: "", sort_by: "name", sort_order: "asc" }, branchId);
-    return { items: result.products, hasMore: result.pagination.hasMore };
-  }), [branchId]);
+  const fetchCatalogProducts = useCallback(async () => {
+    // The product list API only returns category_id/brand_id, so resolve the names here.
+    const [products, categories, brands] = await Promise.all([
+      loadAllPages(async (page) => {
+        const result = await productService.fetchProducts({ limit: 100, offset: (page - 1) * 100, search: "", sort_by: "name", sort_order: "asc" }, branchId);
+        return { items: result.products, hasMore: result.pagination.hasMore };
+      }),
+      serviceService.getCategories("product").catch(() => []),
+      productService.fetchBrands(branchId).catch(() => []),
+    ]);
+    const categoryNames = new Map(categories.map((category) => [category.id, category.name]));
+    const brandNames = new Map(brands.map((brand) => [brand.id, brand.name]));
+    return products.map((product) => ({
+      ...product,
+      brandName: product.brandName ?? (product.brandId ? brandNames.get(product.brandId) ?? null : null),
+      category: product.category ?? (product.categoryId ? categoryNames.get(product.categoryId) ?? null : null),
+    }));
+  }, [branchId]);
   const fetchCatalogConsumables = useCallback(() => loadAllPages(async (page) => {
     const sort = ({ Newest: "newest", "Lowest Stock": "lowest_stock", "Most Used": "most_used", "A-Z": "a_z" } as const)[consumableSort as "Newest" | "Lowest Stock" | "Most Used" | "A-Z"];
     const result = await consumableService.getCatalogPage(page, sort, branchId);
@@ -396,7 +411,7 @@ export default function CatalogScreen() {
       <ScrollView contentContainerStyle={styles.tabsContent} horizontal showsHorizontalScrollIndicator={false} style={styles.tabsScroller}>
         {TABS.map((tab) => (
           <TouchableOpacity key={tab.key} onPress={() => { setActiveTab(tab.key); setQuery(""); }} style={[styles.tab, activeTab === tab.key && styles.tabActive]}>
-            <Ionicons color={activeTab === tab.key ? Colors.primary : Colors.text2} name={tab.icon} size={17} />
+            <Ionicons color={activeTab === tab.key ? Colors.primaryText : Colors.text2} name={tab.icon} size={17} />
             <Text style={[styles.tabText, activeTab === tab.key && styles.tabTextActive]}>{tab.label}</Text>
           </TouchableOpacity>
         ))}
@@ -415,29 +430,29 @@ export default function CatalogScreen() {
       {activeTab === "consumables" ? <View style={{ paddingHorizontal: 16, paddingBottom: 12 }}><SearchableFilterDropdown multi={false} options={["Newest", "Lowest Stock", "Most Used", "A-Z"]} placeholder="Sort consumables" selected={[consumableSort]} onToggle={setConsumableSort} /></View> : null}
       <View style={styles.filterToolbar}>
         <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Filter ${activeTabLabel}, ${filterCount} filter groups applied`} accessibilityState={{ expanded: filterVisible }} onPress={() => setFilterVisible(true)} style={[styles.filterButton, filterCount > 0 && { borderColor: Colors.primary }]}>
-          <Ionicons name="options-outline" size={18} color={Colors.primary} />
+          <Ionicons name="options-outline" size={18} color={Colors.primaryText} />
           <Text style={styles.filterButtonText}>Filter{filterCount ? ` (${filterCount})` : ""}</Text>
         </TouchableOpacity>
         <Text accessibilityLiveRegion="polite" style={styles.resultCount}>{visibleItems.length} results</Text>
         {filterCount > 0 ? <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Clear ${activeTabLabel} filters`} onPress={clearFilters} style={styles.viewButton}><Text style={styles.clearFilterText}>Clear</Text></TouchableOpacity> : null}
-        {(["list", "grid"] as const).map((mode) => <TouchableOpacity key={mode} accessibilityLabel={`${mode} view`} accessibilityRole="button" accessibilityState={{ selected: viewMode === mode }} onPress={() => setViewMode(mode)} style={[styles.viewButton, viewMode === mode && { backgroundColor: Colors.backgroundElement }]}><Ionicons name={mode === "list" ? "list-outline" : "grid-outline"} size={20} color={viewMode === mode ? Colors.primary : Colors.text2} /></TouchableOpacity>)}
+        {(["list", "grid"] as const).map((mode) => <TouchableOpacity key={mode} accessibilityLabel={`${mode} view`} accessibilityRole="button" accessibilityState={{ selected: viewMode === mode }} onPress={() => setViewMode(mode)} style={[styles.viewButton, viewMode === mode && { backgroundColor: Colors.backgroundElement }]}><Ionicons name={mode === "list" ? "list-outline" : "grid-outline"} size={20} color={viewMode === mode ? Colors.primaryText : Colors.text2} /></TouchableOpacity>)}
       </View>
 
       {addRoute ? (
         <TouchableOpacity activeOpacity={0.86} onPress={() => router.push(addRoute as Href)} style={styles.addButton}>
-          <Ionicons color="#FFFFFF" name="add" size={19} />
+          <Ionicons color={Colors.onPrimary} name="add" size={19} />
           <Text style={styles.addButtonText}>Add Consumable</Text>
         </TouchableOpacity>
       ) : null}
 
       {showCatalog && !isGrid ? (
-        <View style={styles.tableHeader}><Text style={[styles.tableHeaderText, styles.nameColumn]}>Name</Text><Text style={[styles.tableHeaderText, styles.categoryColumn]}>Category</Text><Text style={[styles.tableHeaderText, styles.priceColumn]}>Price</Text>{onDelete ? <Text style={[styles.tableHeaderText, styles.actionColumn]}>Action</Text> : null}</View>
+        <View style={styles.tableHeader}><Text style={[styles.tableHeaderText, styles.nameColumn]}>Name</Text><Text style={[styles.tableHeaderText, styles.categoryColumn]}>Category</Text><Text style={[styles.tableHeaderText, styles.priceColumn]}>Price</Text>{onDelete ? <View style={{ width: "12%" }} /> : null}</View>
       ) : null}
     </>
   );
 
   const listEmpty = loading && itemsByTab[activeTab].length === 0
-    ? <View style={styles.state}><ActivityIndicator color={Colors.primary} size="large" /><Text style={styles.stateText}>Loading catalog...</Text></View>
+    ? <View style={styles.state}><ActivityIndicator color={Colors.primaryText} size="large" /><Text style={styles.stateText}>Loading catalog...</Text></View>
     : error && !loading
       ? <View style={styles.state}><Ionicons color={Colors.error} name="alert-circle-outline" size={32} /><Text style={styles.stateTitle}>Unable to load {activeTab}</Text><Text style={styles.stateText}>{error}</Text><TouchableOpacity onPress={() => void loadCatalog(true)} style={styles.retryButton}><Text style={styles.retryText}>Retry</Text></TouchableOpacity></View>
       : !loading && !error
@@ -486,7 +501,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   filterToolbar: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8, paddingHorizontal: 16, paddingBottom: 16 },
   filterButton: { flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1, borderColor: Colors.border, borderRadius: 8, minHeight: 44, paddingHorizontal: 12 },
   filterButtonText: { color: Colors.heading, fontSize: 13, fontWeight: "700" },
-  clearFilterText: { color: Colors.primary, fontSize: 12, fontWeight: "700" },
+  clearFilterText: { color: Colors.primaryText, fontSize: 12, fontWeight: "700" },
   resultCount: { flex: 1, color: Colors.text2, fontSize: 12 },
   viewButton: { minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center", borderRadius: 8 },
   catalogGridRow: { gap: 12, marginBottom: 12, paddingHorizontal: 16 },
@@ -501,7 +516,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   tab: { alignItems: "center", borderBottomColor: "transparent", borderBottomWidth: 3, flexDirection: "row", gap: 6, minHeight: 58, paddingHorizontal: 15 },
   tabActive: { borderBottomColor: Colors.primary },
   tabText: { color: Colors.text2, fontSize: 15, fontWeight: "600" },
-  tabTextActive: { color: Colors.primary, fontWeight: "800" },
+  tabTextActive: { color: Colors.primaryText, fontWeight: "800" },
   summaryRow: { flexDirection: "row", gap: 12, paddingHorizontal: 16, paddingTop: 18 },
   summaryTile: { backgroundColor: Colors.card, borderColor: Colors.border, borderRadius: 8, borderWidth: 1, flex: 1, minHeight: 94, padding: 15 },
   summaryLabel: { color: Colors.text2, fontSize: 13 },
@@ -513,14 +528,13 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   activeDot: { backgroundColor: Colors.success, borderRadius: 4, height: 8, width: 8 },
   activeCountText: { color: Colors.text2, fontSize: 12, fontWeight: "700" },
   addButton: { alignItems: "center", alignSelf: "flex-start", backgroundColor: Colors.primaryDark, borderRadius: 8, flexDirection: "row", gap: 8, justifyContent: "center", marginBottom: 16, marginHorizontal: 16, minHeight: 48, paddingHorizontal: 18 },
-  addButtonText: { color: "#FFFFFF", fontSize: 14, fontWeight: "800" },
+  addButtonText: { color: Colors.onPrimary, fontSize: 14, fontWeight: "800" },
   tableHeader: { backgroundColor: Colors.primary, flexDirection: "row", paddingHorizontal: 16, paddingVertical: 15 },
-  tableHeaderText: { color: "#FFFFFF", fontSize: 13, fontWeight: "800" },
+  tableHeaderText: { color: Colors.onPrimary, fontSize: 13, fontWeight: "800" },
   tableRow: { alignItems: "center", backgroundColor: Colors.card, borderBottomColor: Colors.border, borderBottomWidth: 1, flexDirection: "row", minHeight: 84, paddingHorizontal: 16, paddingVertical: 12 },
   nameColumn: { paddingRight: 8, width: "34%" },
   categoryColumn: { paddingRight: 8, width: "30%" },
   priceColumn: { textAlign: "right", width: "24%" },
-  actionColumn: { textAlign: "right", width: "12%" },
   tableName: { color: Colors.heading, fontSize: 14, fontWeight: "700" },
   tableCell: { color: Colors.text2, fontSize: 13 },
   tablePrice: { color: Colors.heading, fontSize: 13, fontWeight: "800" },
@@ -529,5 +543,5 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   stateTitle: { color: Colors.heading, fontSize: 18, fontWeight: "800", marginTop: 14, textAlign: "center" },
   stateText: { color: Colors.text2, fontSize: 13, lineHeight: 20, marginTop: 8, textAlign: "center" },
   retryButton: { borderColor: Colors.primary, borderRadius: 8, borderWidth: 1, marginTop: 18, paddingHorizontal: 24, paddingVertical: 11 },
-  retryText: { color: Colors.primary, fontSize: 14, fontWeight: "700" },
+  retryText: { color: Colors.primaryText, fontSize: 14, fontWeight: "700" },
 });

@@ -26,7 +26,7 @@ export function ChangeServiceModal({ onClose, onSelect, visible }: ChangeService
       <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
         <View style={styles.header}>
           <TouchableOpacity activeOpacity={0.84} onPress={onClose} style={styles.closeButton}>
-            <Ionicons name="close" size={18} color={Colors.primaryDark} />
+            <Ionicons name="close" size={18} color={Colors.primaryText} />
           </TouchableOpacity>
           <Text style={styles.title}>Change Service</Text>
           <View style={styles.closeButtonPlaceholder} />

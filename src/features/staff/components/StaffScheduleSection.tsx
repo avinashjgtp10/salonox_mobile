@@ -603,7 +603,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     borderColor: Colors.error,
   },
   offToggleText: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 11,
     fontWeight: "800",
   },
@@ -673,12 +673,12 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     backgroundColor: Colors.primary,
   },
   inlineTimeOptionText: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 12,
     fontWeight: "800",
   },
   inlineTimeOptionTextSelected: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
   },
   inlineTimeScroll: {
     flex: 1,
@@ -701,7 +701,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: 12,
   },
   timePickerSecondaryText: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 12,
     fontWeight: "800",
     textAlign: "center",
@@ -743,7 +743,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     opacity: 0.55,
   },
   saveButtonText: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
     fontSize: 13,
     fontWeight: "800",
   },

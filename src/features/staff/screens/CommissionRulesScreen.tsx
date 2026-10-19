@@ -223,7 +223,7 @@ export function CommissionRulesScreen() {
       <TouchableOpacity activeOpacity={0.86} onPress={() => setDetailKey(group.key)} style={styles.card}>
         <View style={styles.rowBetween}>
           <View style={styles.cardTitleRow}>
-            <View style={styles.sourceIcon}><Ionicons color={Colors.primary} name={SOURCE_META[rule.source].icon} size={16} /></View>
+            <View style={styles.sourceIcon}><Ionicons color={Colors.primaryText} name={SOURCE_META[rule.source].icon} size={16} /></View>
             <Text numberOfLines={1} style={styles.cardTitle}>{rule.name}</Text>
           </View>
           <StatusPill status={rule.status} />
@@ -237,7 +237,7 @@ export function CommissionRulesScreen() {
           <View style={styles.cardActions}>
             {canEdit && rule.status !== "expired" ? (
               <View style={styles.toggle}>
-                {busy ? <ActivityIndicator color={Colors.primary} size="small" /> : (
+                {busy ? <ActivityIndicator color={Colors.primaryText} size="small" /> : (
                   <Switch
                     accessibilityLabel={rule.status === "active" ? "Deactivate rule" : "Activate rule"}
                     onValueChange={() => void toggleStatus(group)}
@@ -370,7 +370,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   chip: { backgroundColor: Colors.card, borderColor: Colors.border, borderRadius: Radius.full, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 8 },
   chipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
   chipText: { color: Colors.text2, fontSize: 12, fontWeight: "700" },
-  chipTextActive: { color: "#FFFFFF" },
+  chipTextActive: { color: Colors.onPrimary },
   card: { backgroundColor: Colors.card, borderColor: Colors.border, borderRadius: AppRadius.card, borderWidth: 1, gap: 6, marginBottom: Spacing.sm, padding: 14 },
   rowBetween: { alignItems: "center", flexDirection: "row", gap: 8, justifyContent: "space-between" },
   cardTitleRow: { alignItems: "center", flex: 1, flexDirection: "row", gap: 8 },
@@ -390,9 +390,9 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   detailValue: { color: Colors.heading, fontSize: 13, fontWeight: "700" },
   progressRow: { gap: 4 },
   progressName: { color: Colors.heading, fontSize: 13, fontWeight: "700" },
-  progressPct: { color: Colors.primary, fontSize: 13, fontWeight: "800" },
+  progressPct: { color: Colors.primaryText, fontSize: 13, fontWeight: "800" },
   progressTrack: { backgroundColor: Colors.bg2, borderRadius: Radius.full, height: 6, overflow: "hidden" },
   progressFill: { backgroundColor: Colors.primary, borderRadius: Radius.full, height: "100%" },
   primaryButton: { alignItems: "center", backgroundColor: Colors.primary, borderRadius: Radius.md, marginTop: 4, paddingVertical: 14 },
-  primaryButtonText: { color: "#FFFFFF", fontSize: 14, fontWeight: "800" },
+  primaryButtonText: { color: Colors.onPrimary, fontSize: 14, fontWeight: "800" },
 });

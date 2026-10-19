@@ -643,12 +643,12 @@ function CheckoutSheetComponent({
                           onPress={() => setStaffTipsVisible(true)}
                           style={styles.splitTipAction}
                         >
-                          <Ionicons name="cash-outline" size={14} color={Colors.primaryDark} />
+                          <Ionicons name="cash-outline" size={14} color={Colors.primaryText} />
                           <Text style={styles.splitTipActionText}>Split Tip by Staff</Text>
                         </TouchableOpacity>
                       ) : null}
                       <TouchableOpacity activeOpacity={0.84} onPress={onAddMore} style={styles.addMoreButton}>
-                        <Ionicons name="add" size={15} color={Colors.primaryDark} />
+                        <Ionicons name="add" size={15} color={Colors.primaryText} />
                         <Text style={styles.addMoreText}>Add More</Text>
                       </TouchableOpacity>
                     </View>
@@ -656,7 +656,7 @@ function CheckoutSheetComponent({
 
                   {groupedItems.length === 0 ? (
                     <View style={styles.emptyBill}>
-                      <Ionicons name="cart-outline" size={22} color={Colors.primary} />
+                      <Ionicons name="cart-outline" size={22} color={Colors.primaryText} />
                       <Text style={styles.emptyBillTitle}>No items in this sale</Text>
                       <Text style={styles.emptyBillText}>Add a service or product to continue checkout.</Text>
                     </View>
@@ -757,7 +757,7 @@ function CheckoutSheetComponent({
                               style={styles.discountApplyOption}
                             >
                               <Ionicons
-                                color={isSelected ? Colors.primary : Colors.text2}
+                                color={isSelected ? Colors.primaryText : Colors.text2}
                                 name={isSelected ? "checkbox" : "square-outline"}
                                 size={19}
                               />
@@ -828,7 +828,7 @@ function CheckoutSheetComponent({
                             ]}
                           >
                             {isApplyingCoupon ? (
-                              <ActivityIndicator color={Colors.primaryDark} size="small" />
+                              <ActivityIndicator color={Colors.primaryText} size="small" />
                             ) : (
                               <Text style={styles.secondaryPillText}>Apply</Text>
                             )}
@@ -967,7 +967,7 @@ function CheckoutSheetComponent({
                             }
                             style={[styles.methodCard, isActive && styles.methodCardActive]}
                           >
-                            <Ionicons name={method.icon} size={16} color={isActive ? Colors.onPrimary : Colors.primaryDark} />
+                            <Ionicons name={method.icon} size={16} color={isActive ? Colors.onPrimary : Colors.primaryText} />
                             <Text style={[styles.methodText, isActive && styles.methodTextActive]}>{method.label}</Text>
                           </TouchableOpacity>
                         );
@@ -993,7 +993,7 @@ function CheckoutSheetComponent({
                 <View style={styles.formCard}>
                   <Text style={styles.sectionTitle}>UPI Details</Text>
                   <View style={styles.selectedPaymentCard}>
-                    <Ionicons name="phone-portrait-outline" size={18} color={Colors.primaryDark} />
+                    <Ionicons name="phone-portrait-outline" size={18} color={Colors.primaryText} />
                     <Text style={styles.selectedPaymentText}>UPI Selected</Text>
                   </View>
                   <Text style={styles.inputLabel}>Reference Number (Optional)</Text>
@@ -1011,7 +1011,7 @@ function CheckoutSheetComponent({
                 <View style={styles.formCard}>
                   <Text style={styles.sectionTitle}>Card Details</Text>
                   <View style={styles.selectedPaymentCard}>
-                    <Ionicons name="card-outline" size={18} color={Colors.primaryDark} />
+                    <Ionicons name="card-outline" size={18} color={Colors.primaryText} />
                     <Text style={styles.selectedPaymentText}>Card Payment Selected</Text>
                   </View>
                   <Text style={styles.inputLabel}>Transaction Reference (Optional)</Text>
@@ -1183,7 +1183,7 @@ function CheckoutSheetComponent({
                     ]}
                   >
                     {isSaving ? (
-                      <ActivityIndicator color={Colors.primaryDark} size="small" />
+                      <ActivityIndicator color={Colors.primaryText} size="small" />
                     ) : (
                       <Text style={styles.pendingButtonText}>Save Pending</Text>
                     )}
@@ -1410,7 +1410,7 @@ function StaffAssignmentChip({
           onPress={onPress}
           style={styles.staffChipBody}
         >
-          <Ionicons name="person-outline" size={13} color={Colors.primaryDark} />
+          <Ionicons name="person-outline" size={13} color={Colors.primaryText} />
           <Text numberOfLines={1} style={styles.staffChipText}>{staffName}</Text>
           <Ionicons name="chevron-down" size={12} color={Colors.text2} />
         </TouchableOpacity>
@@ -1421,7 +1421,7 @@ function StaffAssignmentChip({
   return (
     <View style={[styles.staffChip, hasError && styles.staffChipError]}>
       <TouchableOpacity activeOpacity={0.82} onPress={onPress} style={styles.staffChipBody}>
-        <Ionicons name="person-outline" size={13} color={hasError ? Colors.error : Colors.primaryDark} />
+        <Ionicons name="person-outline" size={13} color={hasError ? Colors.error : Colors.primaryText} />
         <Text numberOfLines={1} style={[styles.staffChipText, hasError && styles.staffChipTextError]}>
           Assign staff
         </Text>
@@ -1495,7 +1495,7 @@ const CheckoutItemCard = memo(function CheckoutItemCard({
         <Ionicons
           name={item.itemType === "service" ? "cut-outline" : item.itemType === "membership" ? "card-outline" : "cube-outline"}
           size={18}
-          color={Colors.primaryDark}
+          color={Colors.primaryText}
         />
       </View>
 
@@ -1534,7 +1534,7 @@ const CheckoutItemCard = memo(function CheckoutItemCard({
               onPress={onDecrease}
               style={styles.stepperButton}
             >
-              <Ionicons name="remove" size={14} color={Colors.primaryDark} />
+              <Ionicons name="remove" size={14} color={Colors.primaryText} />
             </TouchableOpacity>
             <Text style={styles.quantityValue}>{item.quantity}</Text>
             <TouchableOpacity
@@ -1547,7 +1547,7 @@ const CheckoutItemCard = memo(function CheckoutItemCard({
               <Ionicons
                 name="add"
                 size={14}
-                color={increaseDisabled ? Colors.text2 : Colors.primaryDark}
+                color={increaseDisabled ? Colors.text2 : Colors.primaryText}
               />
             </TouchableOpacity>
           </View>
@@ -1884,7 +1884,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     width: 48,
   },
   customerAvatarText: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 14,
     fontWeight: "900",
   },
@@ -1910,7 +1910,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     paddingVertical: 9,
   },
   customerChangeText: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 12,
     fontWeight: "900",
   },
@@ -1943,7 +1943,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: 10,
   },
   splitTipActionText: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 11,
     fontWeight: "900",
   },
@@ -1957,7 +1957,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: 12,
   },
   addMoreText: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 12,
     fontWeight: "900",
   },
@@ -2071,7 +2071,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     paddingRight: 5,
   },
   staffChipText: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     flexShrink: 1,
     fontSize: 11,
     fontWeight: "800",
@@ -2095,7 +2095,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     marginTop: 10,
   },
   itemTotal: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 14,
     fontWeight: "900",
   },
@@ -2309,7 +2309,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     textTransform: "uppercase",
   },
   discountApplyOptionTextSelected: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
   },
   inputGroup: {
     flex: 1,
@@ -2341,7 +2341,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     minWidth: 82,
   },
   secondaryPillText: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 12,
     fontWeight: "900",
   },
@@ -2356,7 +2356,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     padding: Spacing.md,
   },
   membershipStatus: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 12,
     fontWeight: "900",
   },
@@ -2367,7 +2367,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     marginTop: 3,
   },
   membershipSavings: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 14,
     fontWeight: "900",
   },
@@ -2396,7 +2396,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     borderColor: Colors.primaryDark,
   },
   quickChipText: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 12,
     fontWeight: "900",
   },
@@ -2497,7 +2497,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     borderColor: Colors.primaryDark,
   },
   methodText: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 12,
     fontWeight: "900",
   },
@@ -2591,7 +2591,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "800",
   },
   splitRemainingValue: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 17,
     fontWeight: "900",
   },
@@ -2610,7 +2610,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "900",
   },
   grandTotalValue: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 24,
     fontWeight: "900",
   },
@@ -2661,7 +2661,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     minHeight: 54,
   },
   pendingButtonText: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 13,
     fontWeight: "900",
   },

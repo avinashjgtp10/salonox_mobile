@@ -65,14 +65,14 @@ function SettingsSection({ flushTop = false, items, title }: { flushTop?: boolea
         >
           <View style={styles.menuCardLeft}>
             <View style={styles.menuIcon}>
-              <Ionicons name={item.icon} size={20} color={Colors.primary} />
+              <Ionicons name={item.icon} size={20} color={Colors.primaryText} />
             </View>
             <View style={styles.menuCopy}>
               <Text style={styles.menuTitle}>{item.title}</Text>
               <Text style={styles.menuDescription}>{item.description}</Text>
             </View>
           </View>
-          {item.loading ? <ActivityIndicator color={Colors.primary} size="small" /> : <Ionicons name="chevron-forward" size={18} color={Colors.text2} />}
+          {item.loading ? <ActivityIndicator color={Colors.primaryText} size="small" /> : <Ionicons name="chevron-forward" size={18} color={Colors.text2} />}
         </TouchableOpacity>
       ))}
     </View>
@@ -302,19 +302,19 @@ export function StaffSettingsScreen() {
               <Text style={styles.heroTitle}>{fullName}</Text>
               <Text style={styles.heroText}>{activeBranch?.name ?? "SalonOX"}</Text>
               <View style={styles.roleBadgeWrap}>
-                <Badge bg={Colors.bg2} color={Colors.primaryDark} label={roleLabel} size="sm" />
+                <Badge bg={Colors.bg2} color={Colors.primaryText} label={roleLabel} size="sm" />
               </View>
             </View>
           </View>
           <View style={styles.contactBlock}>
             <View style={styles.contactRow}>
-              <Ionicons name="mail-outline" size={14} color={Colors.primary} />
+              <Ionicons name="mail-outline" size={14} color={Colors.primaryText} />
               <Text numberOfLines={1} style={styles.contactText}>
                 {currentStaff?.email ?? currentUser?.email ?? "Email not available"}
               </Text>
             </View>
             <View style={styles.contactRow}>
-              <Ionicons name="call-outline" size={14} color={Colors.primary} />
+              <Ionicons name="call-outline" size={14} color={Colors.primaryText} />
               <Text numberOfLines={1} style={styles.contactText}>
                 {currentStaff?.phone ?? currentUser?.phone ?? "Phone not available"}
               </Text>
@@ -645,7 +645,7 @@ const createStyles = (Colors: ThemeColors, width = 393) => StyleSheet.create({
     opacity: 0.72,
   },
   logoutButtonText: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
     fontSize: 14,
     fontWeight: "800",
     marginLeft: 10,

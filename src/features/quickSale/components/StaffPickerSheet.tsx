@@ -79,7 +79,7 @@ export function StaffPickerSheet({
                       {item.role ?? item.status}
                     </Text>
                   </View>
-                  {isSelected ? <Ionicons name="checkmark-circle" size={20} color={Colors.primary} /> : null}
+                  {isSelected ? <Ionicons name="checkmark-circle" size={20} color={Colors.primaryText} /> : null}
                 </TouchableOpacity>
               );
             }}

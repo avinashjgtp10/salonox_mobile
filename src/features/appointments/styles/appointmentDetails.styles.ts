@@ -75,7 +75,7 @@ export const createAppointmentDetailsStyles = (Colors: ThemeColors) => StyleShee
   appointmentTabActive: {
     borderBottomColor: Colors.appointmentAccent,
     borderBottomWidth: 3,
-    color: Colors.appointmentAccent,
+    color: Colors.primaryText,
     fontSize: 18,
     fontWeight: "900",
     paddingBottom: 12,
@@ -123,7 +123,7 @@ export const createAppointmentDetailsStyles = (Colors: ThemeColors) => StyleShee
     paddingHorizontal: 16,
   },
   appointmentNotesButtonText: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
     fontSize: 14,
     fontWeight: "800",
   },
@@ -138,7 +138,7 @@ export const createAppointmentDetailsStyles = (Colors: ThemeColors) => StyleShee
     minHeight: 54,
   },
   appointmentInvoiceDisabled: { opacity: 0.45 },
-  appointmentInvoiceText: { color: "#FFFFFF", fontSize: 17, fontWeight: "900" },
+  appointmentInvoiceText: { color: Colors.onPrimary, fontSize: 17, fontWeight: "900" },
   previewSheet: {
     backgroundColor: Colors.appointmentSurface,
     borderTopLeftRadius: 18,
@@ -186,19 +186,19 @@ export const createAppointmentDetailsStyles = (Colors: ThemeColors) => StyleShee
     paddingVertical: 4,
   },
   previewPaidBadge: {
-    backgroundColor: "#DDF4D9",
+    backgroundColor: Colors.successBg,
   },
   previewUnpaidBadge: {
     backgroundColor: Colors.appointmentAccentSoft,
   },
   previewStatusText: {
-    color: "#238A32",
+    color: Colors.success,
     fontSize: 9,
     fontWeight: "900",
     textTransform: "uppercase",
   },
   previewUnpaidText: {
-    color: Colors.appointmentAccentDark,
+    color: Colors.primaryText,
   },
   previewDetailRow: {
     alignItems: "center",
@@ -238,7 +238,7 @@ export const createAppointmentDetailsStyles = (Colors: ThemeColors) => StyleShee
     minHeight: 44,
   },
   previewDetailsButtonText: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
     fontSize: 13,
     fontWeight: "800",
   },

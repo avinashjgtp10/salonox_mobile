@@ -153,7 +153,7 @@ export function ServiceCatalogPicker({
           </ScrollView>
 
           {loading ? (
-            <View style={styles.servicePickerState}><ActivityIndicator color={Colors.appointmentAccent} /></View>
+            <View style={styles.servicePickerState}><ActivityIndicator color={Colors.primaryText} /></View>
           ) : error ? (
             <View style={styles.servicePickerState}><Text style={styles.fieldHintError}>{error}</Text></View>
           ) : (
@@ -212,7 +212,7 @@ export function ServiceCatalogPicker({
             style={[styles.servicePickerContinue, selectedServiceIds.length === 0 && styles.disabledButton]}
           >
             <Text style={styles.servicePickerContinueText}>Continue</Text>
-            <Ionicons name="arrow-forward" size={22} color="#FFFFFF" />
+            <Ionicons name="arrow-forward" size={22} color={Colors.onPrimary} />
           </TouchableOpacity>
         </View>
       </SafeAreaView>

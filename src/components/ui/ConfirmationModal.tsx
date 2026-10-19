@@ -152,7 +152,7 @@ export function ConfirmationModal({
                   confirmVariant === "destructive" ? styles.destructiveButton : null,
                 ]}
               >
-                {disabled ? <ActivityIndicator color={confirmVariant === "destructive" ? colors.error : colors.primary} /> : <Text
+                {disabled ? <ActivityIndicator color={confirmVariant === "destructive" ? colors.error : colors.primaryText} /> : <Text
                   style={[
                     styles.secondaryButtonText,
                     confirmVariant === "destructive" ? styles.destructiveButtonText : null,
@@ -246,7 +246,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: Spacing.lg,
   },
   secondaryButtonText: {
-    color: Colors.primary,
+    color: Colors.primaryText,
     fontSize: 15,
     fontWeight: "700",
     letterSpacing: 0,

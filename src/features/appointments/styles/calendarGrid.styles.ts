@@ -41,7 +41,7 @@ export const createCalendarGridStyles = (Colors: ThemeColors) => StyleSheet.crea
     fontWeight: "700",
   },
   dinggWeekNumberTextActive: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
   },
   dinggSelectedDateRow: {
     alignItems: "center",
@@ -51,7 +51,7 @@ export const createCalendarGridStyles = (Colors: ThemeColors) => StyleSheet.crea
     minHeight: 34,
   },
   dinggSelectedDate: {
-    color: Colors.appointmentAccent,
+    color: Colors.primaryText,
     fontSize: 11,
     fontWeight: "700",
   },

@@ -150,7 +150,7 @@ export default function SaleDetailsScreen() {
   const renderHeader = (showActions = false) => (
     <View style={styles.headerRow}>
       <TouchableOpacity activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
-        <Ionicons name="arrow-back" size={18} color={Colors.primary} />
+        <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
       </TouchableOpacity>
       <Text style={styles.headerTitle}>Sale Invoice</Text>
       {showActions ? (
@@ -179,7 +179,7 @@ export default function SaleDetailsScreen() {
         <View style={styles.notFoundWrap}>
           {renderHeader()}
           <View style={styles.centeredContent}>
-            <ActivityIndicator size="large" color={Colors.primary} />
+            <ActivityIndicator size="large" color={Colors.primaryText} />
           </View>
         </View>
       </SafeAreaView>
@@ -234,7 +234,7 @@ export default function SaleDetailsScreen() {
 
         <View style={styles.heroCard}>
           <View style={styles.avatar}>
-            <Ionicons name="receipt-outline" size={28} color={Colors.primaryDark} />
+            <Ionicons name="receipt-outline" size={28} color={Colors.primaryText} />
           </View>
           <Text style={styles.receiptNumber}>{invoiceNumber}</Text>
           <Text style={styles.clientName}>{sale.clientName}</Text>
@@ -399,7 +399,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     minHeight: 50,
   },
   continueButtonText: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
     fontSize: 14,
     fontWeight: "800",
   },
@@ -510,7 +510,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: Spacing.xl,
   },
   retryButtonText: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
     fontSize: 13,
     fontWeight: "800",
   },

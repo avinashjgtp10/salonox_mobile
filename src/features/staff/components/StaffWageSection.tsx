@@ -200,7 +200,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     textTransform: "capitalize",
   },
   typeChipTextActive: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
   },
   errorText: {
     color: Colors.error,
@@ -226,7 +226,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     opacity: 0.55,
   },
   saveButtonText: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
     fontSize: 13,
     fontWeight: "800",
   },

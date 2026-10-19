@@ -225,7 +225,7 @@ export default function SubscriptionScreen() {
 
         {isLoading ? (
           <View style={styles.loadingCard}>
-            <ActivityIndicator color={colors.primary} />
+            <ActivityIndicator color={colors.primaryText} />
             <Text style={styles.loadingText}>Loading subscription plans...</Text>
           </View>
         ) : (
@@ -349,7 +349,7 @@ const createStyles = (colors: ReturnType<typeof useAppTheme>["colors"], scheme: 
       width: 56,
     },
     eyebrow: {
-      color: colors.primary,
+      color: colors.primaryText,
       fontSize: 13,
       fontWeight: "800",
       letterSpacing: 0.4,

@@ -20,7 +20,7 @@ export function DateRangeField({ startDate, endDate, onChange, onClear, label = 
         onPress={() => setOpen(true)} style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 14, minHeight: 48, backgroundColor: colors.card, opacity: disabled ? 0.5 : 1 }}>
         <Text style={{ color: colors.heading }}>{startDate && endDate ? dateRangeLabel(startDate, endDate) : onClear ? "All time" : "Choose start and end dates"}</Text>
       </Pressable>
-      {onClear && (startDate || endDate) && <Pressable disabled={disabled} accessibilityRole="button" onPress={onClear}><Text style={{ color: colors.primary, fontSize: 12 }}>Clear dates</Text></Pressable>}
+      {onClear && (startDate || endDate) && <Pressable disabled={disabled} accessibilityRole="button" onPress={onClear}><Text style={{ color: colors.primaryText, fontSize: 12 }}>Clear dates</Text></Pressable>}
       <DateRangePickerSheet visible={open} title={label} startDate={startDate} endDate={endDate} maximumDate={maximumDate} minimumDate={minimumDate}
         onClose={() => setOpen(false)} onApply={(start, end) => { if (start && end) { onChange(start, end); setOpen(false); } }} />
     </View>

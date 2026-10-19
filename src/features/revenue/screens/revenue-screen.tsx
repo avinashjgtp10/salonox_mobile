@@ -166,17 +166,17 @@ export default function RevenueScreen({ period }: { period: RevenuePeriod }) {
         {period === "monthly" ? (
           <Pressable accessibilityRole="button" accessibilityLabel="Choose revenue date range"
             onPress={() => setRangeSheetVisible(true)} style={[styles.rangeButton, { borderColor: colors.border, backgroundColor: colors.card }]}>
-            <Ionicons name="calendar-outline" size={18} color={colors.primary} />
+            <Ionicons name="calendar-outline" size={18} color={colors.primaryText} />
             <Text style={{ color: colors.heading, flex: 1 }}>{periodLabel}</Text>
             <Ionicons name="chevron-down" size={16} color={colors.hint} />
           </Pressable>
         ) : <Text style={{ color: colors.text2 }}>{periodLabel}</Text>}
         {error && revenue && <Text style={{ color: colors.error }}>{error}</Text>}
-        {loading ? <ActivityIndicator accessibilityLabel="Loading revenue" color={colors.primary} /> : error && !revenue ? (
+        {loading ? <ActivityIndicator accessibilityLabel="Loading revenue" color={colors.primaryText} /> : error && !revenue ? (
           <View style={styles.card}>
             <Text style={{ color: colors.error }}>{error}</Text>
             <Pressable accessibilityRole="button" onPress={load}>
-              <Text style={{ color: colors.primary }}>Retry</Text>
+              <Text style={{ color: colors.primaryText }}>Retry</Text>
             </Pressable>
           </View>
         ) : revenue ? (
@@ -218,7 +218,7 @@ export default function RevenueScreen({ period }: { period: RevenuePeriod }) {
                   <Text style={{ color: colors.heading, fontWeight: "700" }}>{staff.name}</Text>
                   <Text style={{ color: colors.text2 }}>Staff</Text>
                 </View>
-                <Text style={{ color: colors.primary, fontWeight: "700" }}>{currency(staff.revenue)}</Text>
+                <Text style={{ color: colors.primaryText, fontWeight: "700" }}>{currency(staff.revenue)}</Text>
                 <Ionicons color={colors.hint} name="chevron-forward" size={18} />
               </Pressable>
             ))}

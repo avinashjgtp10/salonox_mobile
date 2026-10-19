@@ -318,7 +318,7 @@ export function UpdateAnnouncementModal({
                           style={styles.note}
                         >
                           <View style={styles.noteIcon}>
-                            <Ionicons color={colors.primary} name={iconName} size={19} />
+                            <Ionicons color={colors.primaryText} name={iconName} size={19} />
                           </View>
                           <View style={styles.noteCopy}>
                             {note.title ? <Text style={styles.noteTitle}>{note.title}</Text> : null}

@@ -1,3 +1,4 @@
+import { useFooterClearance } from "@/hooks/useFooterClearance";
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { Text } from "@/components/ui/AppTypography";
 import { useClientPrivacy } from "@/hooks/useClientPrivacy";
@@ -119,6 +120,7 @@ export function CalendarPreview({
   const currentMinuteOffset = now.getHours() * 60 + now.getMinutes() - START_HOUR * 60;
   const showCurrentTime = viewMode === "day" && date === todayIsoDate() && currentMinuteOffset >= 0 && currentMinuteOffset < HOURS.length * 60;
   const verticalScrollRef = useRef<ScrollView>(null);
+  const footerClearance = useFooterClearance();
   // Horizontal scroll offset. The time column, its header cell and the
   // current-time marker are shifted back by it so they stay pinned on the left
   // while the staff/day columns scroll underneath (native driver, no re-render).
@@ -172,8 +174,8 @@ export function CalendarPreview({
               <Pressable onPress={() => openAppointment(appointment)} style={[styles.dinggListAppointment, appointment.status === "Completed" && styles.dinggListCompleted, appointment.status === "Confirmed" && styles.dinggListConfirmed]}>
                 <View style={styles.dinggListClientRow}><View style={styles.dinggListAvatar}><Ionicons name="person-outline" size={24} color={Colors.appointmentTextSecondary} /></View><View style={styles.dinggListClientCopy}><Text numberOfLines={1} style={styles.dinggListClientName}>{staffMode ? getAppointmentBillLabel(appointment) : appointment.clientName}</Text><Text style={styles.dinggListPhone}>{maskPhone(appointment.phone)}</Text></View><Ionicons name="male-outline" size={22} color={Colors.appointmentText} /><Ionicons name="gift-outline" size={22} color={Colors.appointmentText} /></View>
                 <View style={styles.dinggListCopy}><Text numberOfLines={1} style={styles.dinggAppointmentName}>{appointment.serviceName}</Text><Text numberOfLines={1} style={styles.dinggAppointmentClient}>{clientName(appointment.clientName)} · {appointment.staffName}</Text></View>
-                <View style={styles.dinggListDetailRow}><Ionicons name="cut-outline" size={19} color={Colors.appointmentAccent} /><Text numberOfLines={2} style={styles.dinggListService}>{appointment.serviceName}</Text></View>
-                <View style={styles.dinggListDetailRow}><Ionicons name="time-outline" size={19} color={Colors.appointmentAccent} /><Text style={styles.dinggListTimeRange}>{formatTimeLabel(appointment.scheduledAt)} - {formatTimeLabel(appointment.endTime)}</Text><View style={styles.dinggListStaffWrap}><Text style={styles.dinggListWith}>with</Text><Text numberOfLines={1} style={styles.dinggListStaff}>{appointment.staffName || "-"}</Text></View></View>
+                <View style={styles.dinggListDetailRow}><Ionicons name="cut-outline" size={19} color={Colors.primaryText} /><Text numberOfLines={2} style={styles.dinggListService}>{appointment.serviceName}</Text></View>
+                <View style={styles.dinggListDetailRow}><Ionicons name="time-outline" size={19} color={Colors.primaryText} /><Text style={styles.dinggListTimeRange}>{formatTimeLabel(appointment.scheduledAt)} - {formatTimeLabel(appointment.endTime)}</Text><View style={styles.dinggListStaffWrap}><Text style={styles.dinggListWith}>with</Text><Text numberOfLines={1} style={styles.dinggListStaff}>{appointment.staffName || "-"}</Text></View></View>
                 <View style={styles.dinggListStatusRow}><View style={[styles.dinggListStatusDot, appointment.status === "Completed" && styles.dinggStatusCompleted, appointment.status === "Confirmed" && styles.dinggStatusConfirmed]} /><Text style={styles.dinggListStatus}>{appointment.status}</Text></View>
               </Pressable>
             </View>
@@ -208,6 +210,7 @@ export function CalendarPreview({
           <RefreshViewport><ScrollView
             nestedScrollEnabled
             ref={verticalScrollRef}
+            contentContainerStyle={{ paddingBottom: footerClearance }}
             removeClippedSubviews={false}
             refreshControl={onRefresh ? <RefreshControl colors={[Colors.primary]} onRefresh={onRefresh} refreshing={refreshing} tintColor={Colors.primary} /> : undefined}
             showsVerticalScrollIndicator
@@ -243,7 +246,7 @@ export function CalendarPreview({
       </Animated.ScrollView>
       {showEmptyState && !refreshing && appointmentsByColumn.every((items) => items.length === 0) ? (
         <View pointerEvents="none" style={styles.calendarEmptyOverlay}>
-          <View style={styles.calendarEmptyIcon}><Ionicons name="calendar-outline" size={30} color={Colors.appointmentAccent} /></View>
+          <View style={styles.calendarEmptyIcon}><Ionicons name="calendar-outline" size={30} color={Colors.primaryText} /></View>
           <Text style={styles.calendarEmptyTitle}>
             {viewMode === "week" ? "No appointments this week" : date === todayIsoDate() ? "No appointments today" : "No appointments on this day"}
           </Text>
