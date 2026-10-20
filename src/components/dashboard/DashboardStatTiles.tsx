@@ -73,12 +73,12 @@ function RevenueComparisonBars({
   const maxRevenue = Math.max(currentMonthRevenue, lastMonthRevenue, 1);
   const rows = [
     {
-      barColor: Colors.primary,
+      barColor: "#2563EB",
       label: "This Month",
       value: currentMonthRevenue,
     },
     {
-      barColor: Colors.gold,
+      barColor: "#16A34A",
       label: "Last Month",
       value: lastMonthRevenue,
     },
