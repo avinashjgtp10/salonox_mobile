@@ -1,9 +1,12 @@
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { KeyboardAwareForm, type KeyboardAwareFormHandle } from "@/components/ui/KeyboardAwareForm";
 import { Text, TextInput } from "@/components/ui/AppTypography";
+import { OpalGlassBackground } from "@/components/ui/OpalGlassBackground";
+import { type ThemeColors } from "@/constants/theme";
+import { useThemeColors } from "@/theme/ThemeProvider";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Image, Pressable, StatusBar, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -36,6 +39,8 @@ const getFriendlyLoginErrorMessage = (loginError: unknown) => {
 };
 
 export default function LoginScreen() {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const params = useLocalSearchParams<{ successMessage?: string }>();
   const routeSuccessMessage = getRouteParam(params.successMessage);
   const { clearError, error, isLoading, signIn } = useAuth();
@@ -124,10 +129,9 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.screen}>
-      <StatusBar backgroundColor="#131210" barStyle="light-content" />
+      <StatusBar backgroundColor={colors.dashboardTopBar} barStyle="light-content" />
       <KeyboardAwareForm ref={formRef} scrollEnabled={false}>
       <View pointerEvents="none" style={styles.hero}>
-        <Image resizeMode="cover" source={require("../../assets/images/auth/floral-line-art.png")} style={styles.heroPattern} />
         <SafeAreaView edges={["top"]} style={styles.heroSafeArea}>
           <View style={styles.headerRow}>
             <View style={styles.wordmark}>
@@ -147,7 +151,9 @@ export default function LoginScreen() {
       <SafeAreaView edges={["bottom"]} style={styles.contentSafeArea}>
         <View style={styles.scrollContent}>
           <Animated.View style={[styles.card, { opacity: cardOpacity, transform: [{ translateY: cardTranslate }] }]}>
-            <Text style={styles.title}>Sign-In</Text>
+            <OpalGlassBackground />
+            <Text style={styles.title}>Welcome back</Text>
+            <Text style={styles.subtitle}>Sign in to your salon workspace</Text>
 
             <View ref={emailFieldRef} collapsable={false} style={styles.fieldGroup}>
               <Text style={styles.label}>Email</Text>
@@ -164,7 +170,7 @@ export default function LoginScreen() {
                   onTouchEnd={() => formRef.current?.revealField(emailFieldRef.current)}
                   onSubmitEditing={focusPasswordField}
                   placeholder="Enter the registered email address"
-                  placeholderTextColor="#A2A2A2"
+                  placeholderTextColor={colors.placeholder}
                   returnKeyType="next"
                   style={styles.input}
                   submitBehavior="submit"
@@ -178,8 +184,11 @@ export default function LoginScreen() {
               <Text style={styles.label}>Password</Text>
               <View style={styles.inputShell}>
                 <TextInput
+                  // Keep the same native input mounted when toggling visibility:
+                  // remounting dismisses the keyboard and resets the form scroll.
                   autoCapitalize="none"
                   autoComplete="password"
+                  keyboardType="default"
                   // With the eye toggle on, the field is plain text: without these the
                   // keyboard autocorrects the password or appends a space after a
                   // suggestion, and the server rightly rejects it as wrong.
@@ -190,7 +199,7 @@ export default function LoginScreen() {
                   onTouchEnd={() => formRef.current?.revealField(passwordFieldRef.current)}
                   onSubmitEditing={handleLogin}
                   placeholder="Enter Password"
-                  placeholderTextColor="#858585"
+                  placeholderTextColor={colors.placeholder}
                   ref={passwordInputRef}
                   returnKeyType="done"
                   secureTextEntry={!showPassword}
@@ -199,20 +208,20 @@ export default function LoginScreen() {
                   value={password}
                 />
                 <Pressable accessibilityLabel={showPassword ? "Hide password" : "Show password"} hitSlop={12} onPress={() => setShowPassword((visible) => !visible)} style={styles.eyeButton}>
-                  <Ionicons color="#111111" name={showPassword ? "eye-outline" : "eye-off-outline"} size={22} />
+                  <Ionicons color={colors.text2} name={showPassword ? "eye-outline" : "eye-off-outline"} size={22} />
                 </Pressable>
               </View>
             </View>
 
             {routeSuccessMessage ? <View style={styles.successBox}><Text style={styles.successText}>{routeSuccessMessage}</Text></View> : null}
-            {formError || error ? <View accessibilityRole="alert" style={styles.errorBox}><Ionicons color="#C73D4A" name="alert-circle-outline" size={17} /><Text style={styles.errorText}>{formError ?? error}</Text></View> : null}
+            {formError || error ? <View accessibilityRole="alert" style={styles.errorBox}><Ionicons color={colors.error} name="alert-circle-outline" size={17} /><Text style={styles.errorText}>{formError ?? error}</Text></View> : null}
 
             <Pressable onPress={() => router.push("/forgot-password")} style={styles.forgotButton}>
               <Text style={styles.forgotText}>Forgot Password?</Text>
             </Pressable>
 
             <Pressable disabled={!canSubmit || isLoading} onPress={handleLogin} style={[styles.submitButton, (!canSubmit || isLoading) && styles.submitButtonDisabled]}>
-              {isLoading ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.submitText}>Sign In</Text>}
+              {isLoading ? <ActivityIndicator color={colors.onPrimary} /> : <Text style={[styles.submitText, !canSubmit && styles.submitTextDisabled]}>Sign In</Text>}
             </Pressable>
           </Animated.View>
         </View>
@@ -222,35 +231,36 @@ export default function LoginScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { backgroundColor: "#F8F2F6", flex: 1 },
-  hero: { backgroundColor: "#131210", height: 300, flexShrink: 0, overflow: "hidden" },
-  heroPattern: { height: "130%", opacity: 0.1, position: "absolute", tintColor: "#FFFFFF", width: "115%" },
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
+  screen: { backgroundColor: colors.bg, flex: 1 },
+  hero: { backgroundColor: colors.dashboardTopBar, height: 260, flexShrink: 0, overflow: "hidden" },
   heroSafeArea: { flex: 1 },
-  headerRow: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 18, paddingTop: 13 },
+  headerRow: { alignItems: "center", flexDirection: "row", paddingHorizontal: 24, paddingTop: 24 },
   wordmark: { alignItems: "center", flex: 1, flexDirection: "row", minWidth: 0 },
   logo: { height: 54, width: 54 },
-  wordmarkCopy: { marginLeft: 9, minWidth: 0 },
+  wordmarkCopy: { marginLeft: 10, minWidth: 0 },
   wordmarkName: { alignItems: "baseline", flexDirection: "row" },
-  wordmarkText: { color: "#FFFFFF", fontSize: 24, fontWeight: "800" },
-  wordmarkAccent: { color: "#00D7A1", fontSize: 24, fontWeight: "800" },
-  wordmarkTagline: { color: "#BFBFBF", fontSize: 8, marginTop: 1 },
-  contentSafeArea: { flexGrow: 1, marginTop: -146, zIndex: 1 },
-  scrollContent: { flexGrow: 1, paddingBottom: 24, paddingHorizontal: 15 },
-  card: { backgroundColor: "#FFFFFF", borderRadius: 12, minHeight: 570, paddingBottom: 30, paddingHorizontal: 18, paddingTop: 18 },
-  title: { color: "#111111", fontFamily: "serif", fontSize: 32, fontWeight: "800", marginBottom: 18, marginTop: 12, textAlign: "center" },
-  fieldGroup: { marginBottom: 17 },
-  label: { color: "#707070", fontSize: 13, marginBottom: 7 },
-  inputShell: { alignItems: "center", borderColor: "#D3D3D3", borderRadius: 7, borderWidth: 1, flexDirection: "row", minHeight: 54, overflow: "hidden" },
-  input: { color: "#161616", flex: 1, fontSize: 14, minHeight: 52, paddingHorizontal: 12 },
+  wordmarkText: { color: colors.dashboardTopBarText, fontSize: 26, fontWeight: "800" },
+  wordmarkAccent: { color: "#00D7A1", fontSize: 26, fontWeight: "800" },
+  wordmarkTagline: { color: colors.dashboardTopBarMuted, fontSize: 10, marginTop: 3 },
+  contentSafeArea: { flexGrow: 1, marginTop: -96, zIndex: 1 },
+  scrollContent: { flexGrow: 1, paddingBottom: 24, paddingHorizontal: 20 },
+  card: { alignSelf: "center", width: "100%", maxWidth: 480, backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, borderRadius: 28, overflow: "hidden", paddingBottom: 28, paddingHorizontal: 24, paddingTop: 28 },
+  title: { color: colors.heading, fontSize: 28, fontWeight: "800", textAlign: "center" },
+  subtitle: { color: colors.text2, fontSize: 13, lineHeight: 20, marginTop: 6, marginBottom: 28, textAlign: "center" },
+  fieldGroup: { marginBottom: 18 },
+  label: { color: colors.text, fontSize: 13, fontWeight: "600", marginBottom: 8 },
+  inputShell: { backgroundColor: colors.card, alignItems: "center", borderColor: colors.border, borderRadius: 14, borderWidth: 1, flexDirection: "row", minHeight: 54, overflow: "hidden" },
+  input: { color: colors.text, flex: 1, fontSize: 14, minHeight: 52, paddingHorizontal: 14 },
   eyeButton: { alignItems: "center", height: 52, justifyContent: "center", width: 48 },
-  forgotButton: { alignSelf: "flex-end", marginBottom: 28, marginTop: -4, paddingVertical: 6 },
-  forgotText: { color: "#0B4F9C", fontSize: 14, fontWeight: "700", textDecorationLine: "underline" },
-  submitButton: { alignItems: "center", backgroundColor: "#0B4F9C", borderRadius: 28, justifyContent: "center", minHeight: 52, marginHorizontal: 18 },
-  submitButtonDisabled: { backgroundColor: "#D5D5D5" },
-  submitText: { color: "#FFFFFF", fontSize: 16, fontWeight: "800" },
-  errorBox: { alignItems: "flex-start", backgroundColor: "#FFF0F1", borderColor: "#F2C5C9", borderRadius: 6, borderWidth: 1, flexDirection: "row", gap: 7, marginBottom: 12, padding: 10 },
-  errorText: { color: "#A92F3A", flex: 1, fontSize: 12, lineHeight: 17 },
-  successBox: { backgroundColor: "#EAF8F3", borderRadius: 6, marginBottom: 12, padding: 10 },
-  successText: { color: "#087A5B", fontSize: 12, lineHeight: 17 },
+  forgotButton: { alignSelf: "flex-end", marginBottom: 22, marginTop: -4, paddingVertical: 6 },
+  forgotText: { color: colors.primaryText, fontSize: 13, fontWeight: "700" },
+  submitButton: { alignItems: "center", backgroundColor: colors.primary, borderRadius: 16, justifyContent: "center", minHeight: 54 },
+  submitButtonDisabled: { backgroundColor: colors.backgroundElement },
+  submitText: { color: colors.onPrimary, fontSize: 16, fontWeight: "800" },
+  submitTextDisabled: { color: colors.text2 },
+  errorBox: { alignItems: "flex-start", backgroundColor: colors.errorBg, borderColor: colors.errorBorder, borderRadius: 12, borderWidth: 1, flexDirection: "row", gap: 7, marginBottom: 12, padding: 12 },
+  errorText: { color: colors.error, flex: 1, fontSize: 12, lineHeight: 17 },
+  successBox: { backgroundColor: colors.successBg, borderColor: colors.successBorder, borderWidth: 1, borderRadius: 12, marginBottom: 12, padding: 12 },
+  successText: { color: colors.text, fontSize: 12, lineHeight: 17 },
 });
