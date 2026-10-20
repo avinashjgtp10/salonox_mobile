@@ -1,6 +1,6 @@
 import { ApiError, api } from "@/services/api";
 import { environmentConfig } from "@/config/environment";
-import { resolveMediaUrl } from "@/utils/mediaUrl";
+import { resolveMediaUrl, withMediaVersion } from "@/utils/mediaUrl";
 import { PROFILE, USER } from "@/services/api/endpoints";
 import type { ApiResponse } from "@/types/auth";
 import type {
@@ -99,7 +99,10 @@ const normalizeProfile = (profile: UserProfileApiItem): UserProfile => {
 
   return {
     address: toOptionalString(profile.address ?? profile.address_line),
-    avatarUrl: resolveMediaUrl(toOptionalString(profile.avatarUrl ?? profile.avatar_url ?? profile.avatar), environmentConfig.apiBaseUrl),
+    avatarUrl: withMediaVersion(
+      resolveMediaUrl(toOptionalString(profile.avatarUrl ?? profile.avatar_url ?? profile.avatar), environmentConfig.apiBaseUrl),
+      profile.updatedAt ?? profile.updated_at,
+    ),
     businessName: toOptionalString(profile.businessName ?? profile.business_name ?? profile.salon_name),
     country: toOptionalString(profile.country),
     countryCode: toOptionalString(profile.countryCode ?? profile.country_code),
