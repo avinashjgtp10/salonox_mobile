@@ -22,7 +22,7 @@ import { selectCurrentUser } from "@/store/user/user.slice";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { StaffEmergencyContactListItem } from "@/types/staff";
 import { canManageStaffLifecycle } from "@/utils/userProfile";
-import { PHONE_DIGIT_COUNT, sanitizePhoneDigits } from "@/utils/validation";
+import { PHONE_INPUT_MAX_LENGTH, sanitizePhoneDigits } from "@/utils/validation";
 
 type EmergencyContactsSectionProps = {
   readOnly?: boolean;
@@ -208,7 +208,7 @@ export function EmergencyContactsSection({ readOnly = false, staffId }: Emergenc
           error={controller.formErrors.phone}
           keyboardType="phone-pad"
           label="Phone"
-          maxLength={PHONE_DIGIT_COUNT}
+          maxLength={PHONE_INPUT_MAX_LENGTH}
           onChangeText={(value) => controller.updateField("phone", sanitizePhoneDigits(value))}
           placeholder="Emergency phone number"
           value={controller.form.phone}
