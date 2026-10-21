@@ -4,7 +4,7 @@ import { getAppointmentBillLabel } from "@/utils/clientPrivacy";
 import { appAlert as Alert } from "@/services/appAlert";
 import { createStyles } from "@/features/appointments/styles/appointmentStyles";
 import { formatCurrency } from "@/features/appointments/utils/appointmentForm";
-import { formatBusinessDate, formatBusinessTime, formatItemTime, getAppointmentPaymentStatus, getAppointmentStaffNames, getAppointmentWebStatus, getPaymentStatusStyles, maskPhone, toInvoiceSequence } from "@/features/appointments/utils/appointmentScreenHelpers";
+import { formatBusinessDate, formatBusinessTime, formatItemTime, getAppointmentEndValue, getAppointmentPaymentStatus, getAppointmentSalesSummary, getAppointmentStaffNames, getPartialBillAmounts, getAppointmentWebStatus, getPaymentStatusStyles, maskPhone, toInvoiceSequence } from "@/features/appointments/utils/appointmentScreenHelpers";
 import { useAppSelector } from "@/store/hooks";
 import { selectCurrentStaff } from "@/store/staff/staff.slice";
 import { useThemeColors } from "@/theme/ThemeProvider";
@@ -15,7 +15,7 @@ import { Ionicons } from "@expo/vector-icons";
 import type { Href } from "expo-router";
 import { router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { Modal, Pressable, ScrollView, TouchableOpacity, View } from "react-native";
+import { Modal, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 
 // Same item-type tags as the web's View Appointment cards.
 const ITEM_TAGS: Record<AppointmentBilledItem["type"], { bg: string; color: string; label: string }> = {
@@ -52,14 +52,17 @@ export function AppointmentPreviewSheet({
   // Paid and partially-paid bills can be edited and printed, as on the web.
   const hasBill = paymentStatus !== "Unpaid" && appointment.status !== "Cancelled";
   const start = formatBusinessTime(appointment.startTime || appointment.scheduledAt);
-  const end = formatBusinessTime(appointment.endTime);
+  const end = formatBusinessTime(getAppointmentEndValue(appointment));
+  const salesSummary = getAppointmentSalesSummary(appointment);
+  const paymentMode = appointment.paymentMethod && appointment.paymentMethod !== "-" ? appointment.paymentMethod : "";
   const webStatus = getAppointmentWebStatus(appointment);
   const staffNames = getAppointmentStaffNames(appointment).join(", ") || "-";
   const staffAlert = typeof appointment.raw.staff_alert === "string" ? appointment.raw.staff_alert.trim() : "";
   const clientEmail = appointment.clientEmail || (typeof appointment.raw.client_email === "string" ? appointment.raw.client_email : "");
   const invoiceNumber = formatInvoiceNumber(toInvoiceSequence(appointment.raw.invoice_number));
-  const grandTotal = Number(appointment.raw.computed_grand_total) || appointment.total || appointment.amount;
-  const dueAmount = paymentStatus === "Partial" ? Math.max(0, grandTotal - appointment.paidAmount) : 0;
+  const billedTotal = Number(appointment.raw.computed_grand_total) || appointment.total || appointment.amount;
+  const partialBill = paymentStatus === "Partial" ? getPartialBillAmounts(appointment, billedTotal) : null;
+  const grandTotal = partialBill?.total ?? billedTotal;
   // Staff only ever see prices on their own rows; the bill summary stays owner-side.
   const showItemPrice = (item: AppointmentBilledItem) =>
     !staffMode || isOwnBillingItem(currentStaff, item.staffId ?? (item.type === "service" ? appointment.staffId : null));
@@ -67,6 +70,7 @@ export function AppointmentPreviewSheet({
     ["Date", formatBusinessDate(appointment.scheduledAt)],
     ["Time", [start, end].filter((value) => value && value !== "-").join(" – ") || "-"],
     ["Staff", staffNames],
+    ...(!staffMode && paymentMode ? [["Payment Mode", paymentMode] as [string, string]] : []),
     ...(!staffMode ? [["Invoice", invoiceNumber ?? "Not billed yet"] as [string, string]] : []),
   ];
 
@@ -90,9 +94,14 @@ export function AppointmentPreviewSheet({
 
   return (
     <Modal animationType="fade" onRequestClose={onClose} transparent visible>
-      <Pressable onPress={onClose} style={styles.previewBackdrop}>
+      <View style={styles.previewBackdrop}>
+        {/* Tap-outside-to-close sits BEHIND the cards as a sibling. Wrapping the
+            cards in a Pressable (to stop taps propagating) made it keep the touch
+            once a press passed the long-press delay, so a press-and-drag never
+            reached the ScrollView and the details wouldn't scroll. */}
+        <Pressable accessibilityLabel="Close appointment" onPress={onClose} style={StyleSheet.absoluteFill} />
         {stage === "actions" ? (
-          <Pressable style={styles.calendarActionsModal}>
+          <View style={styles.calendarActionsModal}>
             <View style={styles.calendarActionsHeader}>
               <Text style={styles.calendarActionsTitle}>Actions</Text>
               <TouchableOpacity accessibilityLabel="Close actions" onPress={onClose} style={styles.calendarActionsClose}>
@@ -102,9 +111,9 @@ export function AppointmentPreviewSheet({
             <TouchableOpacity activeOpacity={0.82} onPress={() => setStage("details")} style={styles.calendarActionPrimary}>
               <Text style={styles.calendarActionText}>View Appointment Details</Text>
             </TouchableOpacity>
-          </Pressable>
+          </View>
         ) : (
-          <Pressable style={styles.appointmentDetailsModal}>
+          <View style={styles.appointmentDetailsModal}>
             <View style={styles.appointmentModalHeader}>
               <View style={styles.appointmentModalHeading}>
                 <Text numberOfLines={1} style={styles.appointmentModalTitle}>Appointment - {formatBusinessDate(appointment.scheduledAt)}</Text>
@@ -113,6 +122,16 @@ export function AppointmentPreviewSheet({
                 <Ionicons name="close" size={28} color={Colors.appointmentTextSecondary} />
               </TouchableOpacity>
             </View>
+            {/* One scroll area for everything under the title: with only the tab
+                body scrolling, the client band + tabs ate half the card and a
+                swipe anywhere there did nothing. Tabs (child 1) stay pinned; the
+                sticky wrapper takes over its child's style, so the row style sits
+                on an inner View to keep the tabs side by side. */}
+            <ScrollView
+              contentContainerStyle={styles.appointmentModalScrollContent}
+              stickyHeaderIndices={[1]}
+              style={styles.appointmentModalScroll}
+            >
             <View style={styles.appointmentClientBand}>
               <View style={styles.appointmentClientAvatar}><Ionicons name="person-outline" size={26} color={Colors.primaryText} /></View>
               <View style={styles.appointmentClientCopy}>
@@ -130,6 +149,7 @@ export function AppointmentPreviewSheet({
                 <Text numberOfLines={1} style={styles.appointmentStatusPillText}>{webStatus.label}</Text>
               </View>
             </View>
+            <View>
             <View style={styles.appointmentTabs}>
               <TouchableOpacity
                 accessibilityLabel="Open appointment information"
@@ -154,8 +174,9 @@ export function AppointmentPreviewSheet({
                 <Text style={detailsTab === "notes" ? styles.appointmentTabActive : styles.appointmentTab}>Notes</Text>
               </TouchableOpacity>
             </View>
+            </View>
             {detailsTab === "appointment" ? (
-              <ScrollView contentContainerStyle={styles.appointmentModalContent}>
+              <View style={styles.appointmentModalContent}>
                 <View style={styles.appointmentInfoCard}>
                   {infoRows.map(([label, value]) => (
                     <View key={label} style={styles.appointmentInfoRow}>
@@ -178,7 +199,7 @@ export function AppointmentPreviewSheet({
                     <View key={item.id ?? `${item.type}-${item.name}-${index}`} style={[styles.appointmentServiceCard, styles.appointmentItemCard]}>
                       <View style={styles.appointmentServiceTop}>
                         <Text numberOfLines={2} style={styles.appointmentServiceName}>{item.name}</Text>
-                        {priced ? <Text style={styles.appointmentServiceTime}>{formatCurrency(item.totalAmount ?? item.price)}</Text> : null}
+                        {priced ? <Text style={styles.appointmentServiceTime}>{formatCurrency((item.totalAmount ?? item.price) + item.tax)}</Text> : null}
                       </View>
                       <View style={styles.appointmentItemSub}>
                         <View style={[styles.appointmentItemTag, { backgroundColor: tag.bg }]}>
@@ -190,33 +211,65 @@ export function AppointmentPreviewSheet({
                       </View>
                       {priced ? (
                         <Text style={styles.appointmentItemPills}>
-                          {`Qty: ${item.quantity} · Price: ${formatCurrency(item.price)} · Disc: ${formatCurrency(item.discount)}`}
+                          {`Qty: ${item.quantity} · Price: ${formatCurrency(item.price)} · Disc: ${formatCurrency(item.discount)} · Tax: ${formatCurrency(item.tax)}`}
                         </Text>
                       ) : null}
                     </View>
                   );
                 })}
                 {!staffMode ? (
-                  <View style={[styles.appointmentInfoCard, { marginTop: 6 }]}>
+                  <View style={[styles.appointmentInfoCard, styles.appointmentSalesCard]}>
+                    <Text style={styles.appointmentSalesTitle}>Sales Summary</Text>
+                    <SummaryRow label="Subtotal" styles={styles} value={formatCurrency(salesSummary.subtotal)} />
+                    {salesSummary.discount > 0 ? <SummaryRow label="Discount" styles={styles} value={`-${formatCurrency(salesSummary.discount)}`} /> : null}
+                    {salesSummary.couponDiscount > 0 ? (
+                      <SummaryRow
+                        label={salesSummary.couponCode ? `Coupon (${salesSummary.couponCode})` : "Coupon"}
+                        styles={styles}
+                        value={`-${formatCurrency(salesSummary.couponDiscount)}`}
+                      />
+                    ) : null}
+                    {salesSummary.totalTax > 0 ? (
+                      <>
+                        <SummaryRow label={salesSummary.taxLabel} styles={styles} value={`+${formatCurrency(salesSummary.totalTax)}`} />
+                        <SummaryRow label="Total Tax" styles={styles} value={formatCurrency(salesSummary.totalTax)} />
+                      </>
+                    ) : null}
+                    <SummaryRow label="Extra Charges" styles={styles} value={`+${formatCurrency(salesSummary.exCharges)}`} />
+                    <View style={styles.appointmentSalesDivider} />
                     <View style={styles.appointmentSummaryRow}>
-                      <Text style={styles.appointmentSummaryTotal}>Total</Text>
+                      <Text style={styles.appointmentSummaryTotal}>Grand Total</Text>
                       <Text style={styles.appointmentSummaryTotal}>{formatCurrency(grandTotal)}</Text>
                     </View>
                     <View style={styles.appointmentSummaryRow}>
-                      <Text style={styles.appointmentSummaryText}>Paid</Text>
-                      <Text style={styles.appointmentSummaryText}>{formatCurrency(appointment.paidAmount)}</Text>
+                      <Text style={styles.appointmentSummaryPaid}>Paid</Text>
+                      <Text style={styles.appointmentSummaryPaid}>{formatCurrency(appointment.paidAmount)}</Text>
                     </View>
-                    {dueAmount > 0 ? (
+                    {salesSummary.paymentMethods.length ? (
+                      <>
+                        <Text style={styles.appointmentSalesSection}>Payment Method</Text>
+                        {salesSummary.paymentMethods.map((entry) => (
+                          <View key={entry.method} style={[styles.appointmentSummaryRow, styles.appointmentSalesSubRow]}>
+                            <Text style={styles.appointmentSalesMuted}>{entry.method}</Text>
+                            <Text style={styles.appointmentSalesMuted}>{formatCurrency(entry.amount)}</Text>
+                          </View>
+                        ))}
+                      </>
+                    ) : null}
+                    {partialBill ? (
                       <View style={styles.appointmentSummaryRow}>
-                        <Text style={styles.appointmentSummaryDue}>Due</Text>
-                        <Text style={styles.appointmentSummaryDue}>{formatCurrency(dueAmount)}</Text>
+                        <Text style={styles.appointmentSummaryDue}>Balance Due</Text>
+                        <Text style={styles.appointmentSummaryDue}>{formatCurrency(partialBill.due)}</Text>
                       </View>
+                    ) : null}
+                    {salesSummary.tipAmount > 0 ? (
+                      <SummaryRow label="Staff Tip (included above)" styles={styles} value={formatCurrency(salesSummary.tipAmount)} />
                     ) : null}
                   </View>
                 ) : null}
-              </ScrollView>
+              </View>
             ) : (
-              <ScrollView contentContainerStyle={styles.appointmentModalContent}>
+              <View style={styles.appointmentModalContent}>
                 <Text style={styles.appointmentNotesHeading}>Client Notes</Text>
                 <Text style={[styles.appointmentNotesText, !appointment.notes.trim() && styles.appointmentNotesEmpty]}>
                   {appointment.notes.trim() || "No client notes added."}
@@ -225,8 +278,9 @@ export function AppointmentPreviewSheet({
                   <Ionicons name="create-outline" size={18} color={Colors.onPrimary} />
                   <Text style={styles.appointmentNotesButtonText}>{appointment.notes.trim() ? "Edit Client Note" : "Add Client Note"}</Text>
                 </TouchableOpacity>}
-              </ScrollView>
+              </View>
             )}
+            </ScrollView>
             {!readOnly && (hasBill ? (
               <View style={styles.appointmentBillActions}>
                 <TouchableOpacity accessibilityRole="button" activeOpacity={0.88} onPress={openEditor} style={[styles.appointmentInvoiceButton, styles.appointmentBillButton, styles.appointmentEditButton]}>
@@ -244,9 +298,18 @@ export function AppointmentPreviewSheet({
                 <Text style={styles.appointmentInvoiceText}>Invoice available after payment</Text>
               </TouchableOpacity>
             ))}
-          </Pressable>
+          </View>
         )}
-      </Pressable>
+      </View>
     </Modal>
+  );
+}
+
+function SummaryRow({ label, styles, value }: { label: string; styles: ReturnType<typeof createStyles>; value: string }) {
+  return (
+    <View style={styles.appointmentSummaryRow}>
+      <Text style={styles.appointmentSalesMuted}>{label}</Text>
+      <Text style={styles.appointmentSalesMuted}>{value}</Text>
+    </View>
   );
 }

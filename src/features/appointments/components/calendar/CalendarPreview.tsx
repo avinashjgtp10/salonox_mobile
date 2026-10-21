@@ -63,6 +63,7 @@ export function CalendarPreview({
   onRefresh,
   refreshing = false,
   showEmptyState = true,
+  emptyTitle,
   resolveStaffId,
   staffColumns = [],
   viewMode = "week",
@@ -75,6 +76,8 @@ export function CalendarPreview({
   onRefresh?: () => void;
   refreshing?: boolean;
   showEmptyState?: boolean;
+  // Replaces the "No appointments today" copy, e.g. for a search with no match.
+  emptyTitle?: string;
   resolveStaffId?: (appointment: AppointmentListItem) => string;
   staffColumns?: CalendarStaffOption[];
   title?: string;
@@ -248,9 +251,9 @@ export function CalendarPreview({
         <View pointerEvents="none" style={styles.calendarEmptyOverlay}>
           <View style={styles.calendarEmptyIcon}><Ionicons name="calendar-outline" size={30} color={Colors.primaryText} /></View>
           <Text style={styles.calendarEmptyTitle}>
-            {viewMode === "week" ? "No appointments this week" : date === todayIsoDate() ? "No appointments today" : "No appointments on this day"}
+            {emptyTitle ?? (viewMode === "week" ? "No appointments this week" : date === todayIsoDate() ? "No appointments today" : "No appointments on this day")}
           </Text>
-          {quickSaleEnabled && <Text style={styles.calendarEmptyHint}>Tap a time slot to add one</Text>}
+          {quickSaleEnabled && !emptyTitle && <Text style={styles.calendarEmptyHint}>Tap a time slot to add one</Text>}
         </View>
       ) : null}
       <AppointmentPreviewSheet

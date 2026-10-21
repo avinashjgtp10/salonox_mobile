@@ -4,7 +4,7 @@ import { isAssignedToStaff } from "@/features/appointments/utils/staffAssignment
 import { getDateKey } from "@/features/appointments/utils/appointmentDateTime";
 import { APPOINTMENT, CLIENT, MOBILE_STAFF } from "@/services/api/endpoints";
 import type { ApiResponse } from "@/types/auth";
-import { normalizeSaleId } from "@/utils/apiNormalize";
+import { normalizeSaleId, toOptionalNumber } from "@/utils/apiNormalize";
 import type {
   AppointmentApiClient,
   AppointmentApiItem,
@@ -310,6 +310,7 @@ const toBilledItems = (
       completedAt: toSafeString(item?.completed_at) || null,
       time: toSafeString(item?.time) || toSafeString(item?.start_time) || null,
       discount: toSafeNumber(item?.discount),
+      tax: toSafeNumber(item?.tax_amount),
       type,
     }))
     .filter((item) => item.name);
@@ -347,6 +348,7 @@ const getBilledItems = (
       completedAt: null,
       time: null,
       discount: 0,
+      tax: 0,
       type: "service",
     }];
   }
@@ -453,6 +455,7 @@ export const normalizeAppointment = (
     clientName,
     createdAt: toSafeString(appointment.created_at) || null,
     discount: toSafeNumber(appointment.discount),
+    dueAmount: toOptionalNumber(appointment.due_amount),
     durationLabel: formatDuration(durationMinutes),
     durationMinutes,
     endTime: toSafeString(appointment.end_time) || null,

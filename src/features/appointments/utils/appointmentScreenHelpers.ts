@@ -68,6 +68,100 @@ export const getAppointmentPaymentStatus = (appointment: AppointmentListItem): A
   return "Unpaid";
 };
 
+const roundMoney = (value: number) => Math.round(value * 100) / 100;
+
+const toTitle = (value: string) => value.replace(/\b\w/g, (letter) => letter.toUpperCase());
+
+/**
+ * Figures for the bill's Sales Summary card (same rows as the web's View
+ * Appointment): subtotal, bill-level discounts, GST, extra charges, tip and
+ * how the paid amount was collected. Everything is read off the appointment
+ * response (tax_breakdown, ex_charges, split_details, …).
+ */
+export const getAppointmentSalesSummary = (appointment: AppointmentListItem) => {
+  const { raw } = appointment;
+  const subtotal = roundMoney(appointment.billedItems.reduce((sum, item) => sum + (item.totalAmount ?? item.price), 0));
+
+  const discountValue = Number(raw.discount_value) || 0;
+  const discount = discountValue > 0
+    ? roundMoney(String(raw.discount_type).toLowerCase() === "percentage" ? subtotal * discountValue / 100 : discountValue)
+    : 0;
+  const couponDiscount = Number(raw.coupon_discount_amount) || 0;
+  const couponCode = typeof raw.coupon_code === "string" ? raw.coupon_code.trim() : "";
+
+  // One combined GST line (e.g. "CGST + GST (20%)"), as the web shows it.
+  const taxEntries = (Array.isArray(raw.tax_breakdown) ? raw.tax_breakdown : [])
+    .map((entry) => (entry && typeof entry === "object" ? entry as Record<string, unknown> : {}))
+    .filter((entry) => (Number(entry.amount) || 0) > 0);
+  const totalTax = roundMoney(taxEntries.reduce((sum, entry) => sum + (Number(entry.amount) || 0), 0));
+  const taxRate = roundMoney(taxEntries.reduce((sum, entry) => sum + (Number(entry.rate) || 0), 0));
+  const taxLabel = taxEntries.length
+    ? `${taxEntries.map((entry) => String(entry.name ?? "Tax")).join(" + ")}${taxRate > 0 ? ` (${taxRate}%)` : ""}`
+    : "";
+
+  // Split legs (eWallet excluded) when the bill was split; otherwise the one
+  // recorded method for the whole paid amount.
+  const splitDetails = raw.split_details && typeof raw.split_details === "object"
+    ? Object.entries(raw.split_details as Record<string, unknown>)
+      .map(([method, amount]) => ({ amount: Number(amount) || 0, method: toTitle(method) }))
+      .filter((entry) => entry.amount > 0 && entry.method.toLowerCase() !== "ewallet")
+    : [];
+  const mode = typeof raw.payment_method === "string" ? raw.payment_method.trim() : "";
+  const paymentMethods = splitDetails.length
+    ? splitDetails
+    : mode && !["package", "split", "ewallet"].includes(mode.toLowerCase()) && appointment.paidAmount > 0
+      ? [{ amount: appointment.paidAmount, method: toTitle(mode) }]
+      : [];
+
+  return {
+    couponCode,
+    couponDiscount,
+    discount,
+    exCharges: Number(raw.ex_charges) || 0,
+    paymentMethods,
+    subtotal,
+    taxLabel,
+    tipAmount: Number(raw.tip_amount) || 0,
+    totalTax,
+  };
+};
+
+/** End of the booking: end_time, else start + duration (the web shows a range). */
+export const getAppointmentEndValue = (appointment: AppointmentListItem) => {
+  if (appointment.endTime) return appointment.endTime;
+  const start = parseAppointmentDateTime(appointment.startTime || appointment.scheduledAt);
+
+  return start && appointment.durationMinutes
+    ? new Date(start.getTime() + appointment.durationMinutes * 60_000).toISOString()
+    : null;
+};
+
+/**
+ * Total and remaining balance for a partially paid appointment, mirroring the
+ * web's bookingMapper (grandTotalVal / dueAmount):
+ * - Total: computed_grand_total minus wallet/eWallet/points/referral
+ *   redemptions when the API sends it (only after a post-payment edit),
+ *   otherwise paid + due — both are recorded server-side against the
+ *   post-redemption bill (₹3,000.00 paid + ₹394.00 due = ₹3,394.00).
+ * - Due: the API's due_amount when positive, else total - paid.
+ * Falls back to billedTotal when the API returned no due_amount at all.
+ */
+export const getPartialBillAmounts = (appointment: AppointmentListItem, billedTotal: number) => {
+  const { raw, paidAmount, dueAmount } = appointment;
+  const computedGrandTotal = Number(raw.computed_grand_total);
+  const redemptionsUsed = ["membership_wallet_used", "ewallet_used", "reward_points_value", "referral_credit_used"]
+    .reduce((sum, key) => sum + (Number(raw[key]) || 0), 0);
+
+  const total = Number.isFinite(computedGrandTotal) && raw.computed_grand_total != null
+    ? Math.max(0, roundMoney(computedGrandTotal - redemptionsUsed))
+    : dueAmount !== null
+      ? roundMoney(paidAmount + Math.max(0, dueAmount))
+      : billedTotal;
+  const due = dueAmount !== null && dueAmount > 0 ? dueAmount : Math.max(0, roundMoney(total - paidAmount));
+
+  return { due, total };
+};
+
 // The web's View Appointment status pill (ViewBillModal STATUS_PILL_STYLES).
 const WEB_APPOINTMENT_STATUS: Record<string, { bg: string; label: string }> = {
   booked: { bg: "#1D4ED8", label: "Booked" },

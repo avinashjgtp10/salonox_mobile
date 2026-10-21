@@ -82,6 +82,7 @@ import {
   type ProductStockErrors,
   validateProductStock,
 } from "@/features/quickSale/utils/stock";
+import { fetchAppointmentByIdThunk } from "@/middleware/appointment/appointment.thunk";
 import { fetchClientHistoryThunk } from "@/middleware/client/client.thunk";
 import { fetchDashboardThunk } from "@/middleware/dashboard/dashboard.thunk";
 import { fetchUnreadCountThunk } from "@/middleware/notification/notification.thunk";
@@ -1291,7 +1292,11 @@ function OwnerQuickSaleScreen({
                 return fetchSaleByIdThunk.fulfilled.match(action) ? action.payload.total : null;
               },
               markPackageSessions: markPackageSessionsAfterCheckout,
-              onPaymentRecorded: () => void redemptions.refreshBalances(),
+              onPaymentRecorded: (appointmentId) => {
+                void redemptions.refreshBalances();
+                // Pull the server's paid/due figures into the calendar store.
+                void dispatch(fetchAppointmentByIdThunk(appointmentId));
+              },
             },
           );
 

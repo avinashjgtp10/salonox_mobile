@@ -38,6 +38,22 @@ export const toSafeNumber = (value: unknown) => {
   return 0;
 };
 
+// Like toSafeNumber, but keeps "field absent" (null) distinct from "0.00", so a
+// server amount can be used as the source of truth only when it was returned.
+export const toOptionalNumber = (value: unknown): number | null => {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : null;
+  }
+
+  if (typeof value === "string" && value.trim()) {
+    const parsedValue = Number(value);
+
+    return Number.isFinite(parsedValue) ? parsedValue : null;
+  }
+
+  return null;
+};
+
 export const toOptionalBoolean = (value: unknown) => {
   if (typeof value === "boolean") {
     return value;
