@@ -20,10 +20,18 @@ export function useChatKeyboard() {
     const current = ++generation.current;
     if (frame.current !== null) cancelAnimationFrame(frame.current);
     frame.current = requestAnimationFrame(() => {
-      viewport.current?.measureInWindow((_x, y, _width, height) => {
+      const updateInset = (y: number, height: number) => {
         if (current !== generation.current || height <= 0) return;
         setInset(chatKeyboardInset(y + height, keyboardTop.current, bottom));
-      });
+      };
+      if (Platform.OS === "android") {
+        // With our edge-to-edge root, measureInWindow subtracts the status bar
+        // (even returning a negative y), but keyboard.screenY does not. Native
+        // page coordinates share the keyboard's origin and avoid that clipping.
+        viewport.current?.measure((_x, _y, _width, height, _pageX, pageY) => updateInset(pageY, height));
+      } else {
+        viewport.current?.measureInWindow((_x, y, _width, height) => updateInset(y, height));
+      }
     });
   }, [bottom]);
 
