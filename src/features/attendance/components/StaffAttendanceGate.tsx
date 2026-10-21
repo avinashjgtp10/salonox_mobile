@@ -10,6 +10,7 @@ import type { AttendanceRecord, StartBreakRequest } from "@/types/attendance";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { isStaffExperienceUser } from "@/utils/routeResolver";
 import { canUnlockStaffApp } from "@/features/attendance/utils/staffAttendanceGate";
+import { StaffCheckoutReminder } from "./StaffCheckoutReminder";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AppState, Modal, StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -93,6 +94,7 @@ export function StaffAttendanceGate({ children }: { children: ReactNode }) {
   return (
     <StaffAttendanceContext.Provider value={{ state, record, refresh, checkIn: () => punch("checkIn"), startBreak: body => punch("startBreak", body), checkOut: () => punch("checkOut"), busy }}>
       {children}
+      {enabled && <StaffCheckoutReminder key={identity} state={state} refresh={refresh} busy={busy} unavailable={!!error || locked} />}
       {checkingAttendance ? (
         <View style={styles.loadingOverlay} accessibilityRole="progressbar" accessibilityLabel="Checking today's attendance">
           <ActivityIndicator color={Colors.primaryText} size="large" />

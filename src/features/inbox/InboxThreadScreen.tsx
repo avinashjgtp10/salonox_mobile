@@ -19,6 +19,7 @@ import { CustomerPanel } from "./CustomerPanel";
 import { InboxAvatar, InboxIcon } from "./InboxControls";
 import { MessageBubble } from "./MessageBubble";
 import { useInboxTheme } from "./inboxTheme";
+import { EmojiPicker } from "./EmojiPicker";
 import { useChatKeyboard } from "./useChatKeyboard";
 
 const QUICK_REPLIES = [
@@ -27,7 +28,6 @@ const QUICK_REPLIES = [
   { label: "Reschedule", text: "We need to reschedule your appointment. Please let us know a convenient time." },
   { label: "How can we help?", text: "Hello! How can we help you today?" },
 ];
-const EMOJIS = ["😊", "👍", "❤️", "🙏", "✨", "🎉", "💇", "✅", "😍", "👋", "💚", "📅"];
 
 function Thread({ phone }: { phone: string }) {
   const chatKeyboard = useChatKeyboard();
@@ -126,10 +126,11 @@ function Thread({ phone }: { phone: string }) {
       {!loading && (!allowed || !replyAllowed) ? <View style={s.banner}><Text style={[s.muted, { lineHeight: 19 }]}>{!allowed ? "Your account doesn’t have permission to reply to conversations." : "The 24-hour reply window has closed. Send an approved campaign template to re-engage this client."}</Text>{!!draft && <Text numberOfLines={2} style={[s.muted, { marginTop: 8 }]}>Saved draft: {draft}</Text>}</View>
         : <>
           {replyWindow.isOpen && replyWindow.hoursRemaining < 8 && <View style={s.banner}><Text style={s.muted}>Reply window closes in {Math.max(1, Math.ceil(((replyWindow.expiresAt?.getTime() ?? now) - now) / 60_000))} min</Text></View>}
-          {tray && <View style={s.tray}><View style={s.row}><Text style={[s.heading, s.fill]}>{tray === "quick" ? "Quick replies" : "Emoji"}</Text><InboxIcon name="close" label="Close picker" onPress={() => setTray(null)} /></View>{tray === "quick" ? QUICK_REPLIES.map(reply => <TouchableOpacity accessibilityRole="button" key={reply.label} onPress={() => { setDraft(reply.text); setTray(null); }} style={s.quickReply}><Text style={s.heading}>{reply.label}</Text><Text numberOfLines={1} style={s.muted}>{reply.text}</Text></TouchableOpacity>) : <View style={{ flexDirection: "row", flexWrap: "wrap" }}>{EMOJIS.map(emoji => <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Insert ${emoji}`} key={emoji} onPress={() => setDraft(draft + emoji)} style={s.icon}><Text style={{ fontSize: 24 }}>{emoji}</Text></TouchableOpacity>)}</View>}</View>}
+          {tray === "quick" && <View style={s.tray}><View style={s.row}><Text style={[s.heading, s.fill]}>Quick replies</Text><InboxIcon name="close" label="Close picker" onPress={() => setTray(null)} /></View>{QUICK_REPLIES.map(reply => <TouchableOpacity accessibilityRole="button" key={reply.label} onPress={() => { setDraft(reply.text); setTray(null); }} style={s.quickReply}><Text style={s.heading}>{reply.label}</Text><Text numberOfLines={1} style={s.muted}>{reply.text}</Text></TouchableOpacity>)}</View>}
+          {tray === "emoji" && <EmojiPicker disabled={sending || loading || draft.length >= 4096} onClose={() => setTray(null)} onSelect={emoji => { if (draft.length + emoji.length <= 4096) setDraft(draft + emoji); }} />}
           <View style={s.composer}>
             <InboxIcon name="flash-outline" label="Quick replies" disabled={sending || loading} onPress={() => { Keyboard.dismiss(); setTray(tray === "quick" ? null : "quick"); }} />
-            <InboxIcon name="happy-outline" label="Insert emoji" disabled={sending || loading} onPress={() => setTray(tray === "emoji" ? null : "emoji")} />
+            <InboxIcon name="happy-outline" label="Insert emoji" disabled={sending || loading} onPress={() => { Keyboard.dismiss(); setTray(tray === "emoji" ? null : "emoji"); }} />
             <TextInput accessibilityLabel="Type a WhatsApp message" multiline maxLength={4096} editable={!sending && !loading && allowed && replyAllowed} value={draft} onFocus={onComposerFocus} onChangeText={text => { if (text === "/" && !draft) { Keyboard.dismiss(); setTray("quick"); return; } setDraft(text); }} placeholder="Type a message…" placeholderTextColor={p.muted} style={s.input} />
             <TouchableOpacity accessibilityRole="button" accessibilityLabel="Send message" accessibilityState={{ disabled: !canSend }} disabled={!canSend} onPress={send} style={[s.icon, s.send, !canSend && { opacity: 0.4 }]}>{sending ? <ActivityIndicator color={p.onAccent} /> : <Ionicons name="send" size={20} color={p.onAccent} />}</TouchableOpacity>
           </View>
