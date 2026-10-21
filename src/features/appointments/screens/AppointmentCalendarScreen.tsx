@@ -10,7 +10,7 @@ import { useAllStaffMembers } from "@/features/appointments/hooks/useAllStaffMem
 import { useDebouncedValue } from "@/features/quickSale/hooks/useDebouncedValue";
 import { useAppointmentListFilters, useFetchAppointments } from "@/features/appointments/hooks/useAppointmentList";
 import { createStyles } from "@/features/appointments/styles/appointmentStyles";
-import { todayIsoDate } from "@/features/appointments/utils/appointmentDateTime";
+import { getDateKey, todayIsoDate } from "@/features/appointments/utils/appointmentDateTime";
 import { buildCalendarStaffOptions, buildCanonicalStaffIdByAlias, buildFallbackStaffIdByName, resolveAppointmentStaffId, SYNTHETIC_STAFF_ID_PREFIX } from "@/features/appointments/utils/calendarStaff";
 import { matchesCalendarStatuses } from "@/features/appointments/utils/calendarStatusFilters";
 import { selectAppointments, selectAppointmentsRefreshing, selectAppointmentsIsLoading, selectAppointmentsError } from "@/store/appointment/appointment.slice";
@@ -88,9 +88,10 @@ export function AppointmentCalendarContent({ staffMode = false, staffQuickSale =
   );
   // The appointments API ignores `search`, so the calendar filters the day or
   // week it already loaded: client, phone (digits match any formatting),
-  // service, staff and title. Staff columns stay, so empty ones show no match.
+  // service, staff and title. While searching, Day view shows only the staff
+  // columns that have a match (see staffColumns below).
   const searchTerm = debouncedSearch.trim().toLowerCase();
-  const searchDigits = searchTerm.replace(/D/g, "");
+  const searchDigits = searchTerm.replace(/\D/g, "");
   const visibleAppointments = useMemo(
     () => appointments.filter((item) => {
       const matchesStaff = selectedStaffIds.length === 0 || selectedStaffIds.includes(resolveStaffId(item));
@@ -98,7 +99,7 @@ export function AppointmentCalendarContent({ staffMode = false, staffQuickSale =
       const matchesSearch = !searchTerm
         || [item.clientName, item.serviceName, item.staffName, item.title, item.phone]
           .some((value) => (value ?? "").toLowerCase().includes(searchTerm))
-        || (searchDigits.length >= 3 && (item.phone ?? "").replace(/D/g, "").includes(searchDigits));
+        || (searchDigits.length >= 3 && (item.phone ?? "").replace(/\D/g, "").includes(searchDigits));
 
       return matchesStaff && matchesStatus && matchesSearch;
     }),
@@ -151,10 +152,22 @@ export function AppointmentCalendarContent({ staffMode = false, staffQuickSale =
     if (staffMode && hasFocusedRef.current) refreshAppointmentsRef.current();
     hasFocusedRef.current = true;
   }, [staffMode]));
-  const staffColumns = useMemo(
-    () => (selectedStaffIds.length ? staffOptions.filter((option) => selectedStaffIds.includes(option.id)) : staffOptions),
-    [selectedStaffIds, staffOptions],
+  const dayMatches = useMemo(
+    () => visibleAppointments.filter((item) => getDateKey(item.scheduledAt) === date),
+    [date, visibleAppointments],
   );
+  const staffColumns = useMemo(() => {
+    const columns = selectedStaffIds.length ? staffOptions.filter((option) => selectedStaffIds.includes(option.id)) : staffOptions;
+    if (!searchTerm || viewMode !== "day") return columns;
+    // A match in a far-right column was off screen, so the search looked like
+    // it did nothing; keep just the columns with a match on the day shown (the
+    // store can also hold other days' appointments, e.g. ones refetched by id).
+    const matchedStaffIds = new Set(dayMatches.map(resolveStaffId));
+    return columns.filter((option) => matchedStaffIds.has(option.id));
+  }, [dayMatches, resolveStaffId, searchTerm, selectedStaffIds, staffOptions, viewMode]);
+  const emptyTitle = searchTerm && (viewMode === "day" ? dayMatches : visibleAppointments).length === 0
+    ? `No appointments match "${debouncedSearch.trim()}"`
+    : undefined;
 
   return (
     <ScreenShell
@@ -206,6 +219,7 @@ export function AppointmentCalendarContent({ staffMode = false, staffQuickSale =
         quickSaleEnabled={!staffMode || staffQuickSale}
         expandSingleColumn={ownOnly}
         showEmptyState={!loading && !error}
+        emptyTitle={emptyTitle}
         appointments={visibleAppointments}
         date={date}
         onRefresh={refreshAppointments}

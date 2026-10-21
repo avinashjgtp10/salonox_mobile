@@ -59,6 +59,8 @@ export const createAppointmentDetailsStyles = (Colors: ThemeColors) => StyleShee
   appointmentStatusDot: { borderRadius: 5, height: 10, width: 10 },
   appointmentStatusLabel: { color: Colors.appointmentTextSecondary, flexShrink: 1, fontSize: 13, fontWeight: "700" },
   appointmentTabs: {
+    // Opaque so content doesn't show through while the tabs are pinned.
+    backgroundColor: Colors.appointmentSurface,
     borderBottomColor: Colors.appointmentDivider,
     borderBottomWidth: 1,
     flexDirection: "row",
@@ -81,6 +83,11 @@ export const createAppointmentDetailsStyles = (Colors: ThemeColors) => StyleShee
     paddingBottom: 12,
   },
   appointmentTab: { color: Colors.appointmentText, fontSize: 18, fontWeight: "600", paddingBottom: 12 },
+  // Lets the details ScrollView shrink to the space left between the title and
+  // the bill actions inside appointmentDetailsModal's maxHeight; without it the
+  // ScrollView takes its full content height, overflows the card and never scrolls.
+  appointmentModalScroll: { flexGrow: 0, flexShrink: 1 },
+  appointmentModalScrollContent: { flexGrow: 1 },
   appointmentModalContent: { flexGrow: 1, padding: 18 },
   appointmentStatusPill: { alignSelf: "flex-start", borderRadius: 20, paddingHorizontal: 14, paddingVertical: 5 },
   appointmentStatusPillText: { color: "#FFFFFF", fontSize: 13, fontWeight: "800" },
@@ -99,6 +106,13 @@ export const createAppointmentDetailsStyles = (Colors: ThemeColors) => StyleShee
   appointmentSummaryText: { color: Colors.appointmentText, fontSize: 14 },
   appointmentSummaryTotal: { color: Colors.appointmentText, fontSize: 16, fontWeight: "900" },
   appointmentSummaryDue: { color: Colors.error, fontSize: 14, fontWeight: "700" },
+  appointmentSummaryPaid: { color: Colors.success, fontSize: 14, fontWeight: "700" },
+  appointmentSalesCard: { marginTop: 6, paddingVertical: 12 },
+  appointmentSalesTitle: { color: Colors.appointmentTextSecondary, fontSize: 13, fontWeight: "800", letterSpacing: 0.6, marginBottom: 6, textTransform: "uppercase" },
+  appointmentSalesDivider: { backgroundColor: Colors.appointmentDivider, height: 1, marginVertical: 8 },
+  appointmentSalesSection: { color: Colors.appointmentTextSecondary, fontSize: 12, fontWeight: "800", letterSpacing: 0.5, marginTop: 6, textTransform: "uppercase" },
+  appointmentSalesSubRow: { paddingLeft: 12 },
+  appointmentSalesMuted: { color: Colors.appointmentTextSecondary, fontSize: 13 },
   appointmentServiceHeading: { color: Colors.appointmentText, fontSize: 18, fontWeight: "900", marginBottom: 16 },
   appointmentServiceCard: {
     borderColor: Colors.appointmentBorder,
