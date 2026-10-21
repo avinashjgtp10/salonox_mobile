@@ -21,6 +21,8 @@ import {
   type ThemeColors,
 } from "@/constants/theme";
 import { useAuth } from "@/context/AuthContext";
+import { useFooterClearance } from "@/hooks/useFooterClearance";
+import { useScrollFooter } from "@/hooks/useScrollFooter";
 import { getApiErrorMessage } from "@/services/api";
 import { supportService } from "@/services/support.service";
 import { selectActiveBranch } from "@/store/branch/branch.slice";
@@ -100,6 +102,8 @@ const getResponsiveTitleSize = (width = 393) =>
 
 export function StaffSettingsScreen() {
   const Colors = useThemeColors();
+  const footerClearance = useFooterClearance();
+  const footerScroll = useScrollFooter();
   const { width } = useWindowDimensions();
   const styles = useMemo(() => createStyles(Colors, width), [Colors, width]);
   const { signOut } = useAuth();
@@ -286,7 +290,12 @@ export function StaffSettingsScreen() {
   return (
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
       <AppStatusBar />
-      <KeyboardAwareScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <KeyboardAwareScrollView
+        {...footerScroll}
+        contentContainerStyle={[styles.content, { paddingBottom: footerClearance }]}
+        scrollEventThrottle={16}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.headerRow}>
           <View style={styles.headerTextBlock}>
             <Text style={styles.title}>Settings</Text>

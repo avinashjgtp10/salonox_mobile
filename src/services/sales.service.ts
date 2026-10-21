@@ -1,7 +1,7 @@
 import { api, CHECKOUT_REQUEST_TIMEOUT_MS } from "@/services/api";
 import { SALES } from "@/services/api/endpoints";
 import type { ApiResponse } from "@/types/auth";
-import { normalizeSaleId } from "@/utils/apiNormalize";
+import { normalizeSaleId, toOptionalNumber } from "@/utils/apiNormalize";
 import { formatAppDateTime } from "@/utils/dateTime";
 import type {
   CheckoutSaleRequest,
@@ -404,9 +404,11 @@ const normalizeSaleDetail = (entry: UnknownRecord): SaleDetail => {
     id: normalizeSaleId({ sale: entry }) ?? "",
     lineItems,
     notes: toSafeString(firstValue(entry, ["notes", "note"])) || null,
-    outstandingAmount: toSafeNumber(
-      firstValue(entry, ["outstanding_amount", "outstandingAmount"]),
-    ) || Math.max(0, total - amountPaid),
+    // Server balance first ("394.00" or "0.00" once fully paid); only derive it
+    // when the API returned no balance field at all.
+    outstandingAmount: toOptionalNumber(
+      firstValue(entry, ["outstanding_amount", "outstandingAmount", "due_amount", "dueAmount"]),
+    ) ?? Math.max(0, total - amountPaid),
     paymentMethod: toSafeString(firstValue(entry, ["payment_method", "paymentMethod"]), "-"),
     paymentReference:
       toSafeString(firstValue(entry, ["payment_reference", "paymentReference"])) || null,

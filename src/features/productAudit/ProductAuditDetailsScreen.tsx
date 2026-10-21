@@ -401,15 +401,16 @@ function Details({ id }: { id: string }) {
       {scanner && audit && (
         <SmartProductScanner
           auditId={id}
+          existingProductIds={audit.items.map(item => item.product_id)}
           canCreateProduct={canCreateProduct}
           onClose={() => setScanner(false)}
-          onSelect={async (productId) => {
+          onSelect={async (productIds) => {
             if (lock.current)
               throw new Error("Please wait for the current change to finish.");
             lock.current = true;
             setBusy(true);
             try {
-              apply(await service.addItems(id, [productId]));
+              apply(await service.addItems(id, productIds));
             } finally {
               lock.current = false;
               setBusy(false);

@@ -22,7 +22,7 @@ import {
 
 import type { ThemeColors } from "@/constants/theme";
 import { useAppTheme } from "@/theme/ThemeProvider";
-import { PHONE_DIGIT_COUNT } from "@/utils/validation";
+import { PHONE_DIGIT_COUNT, PHONE_INPUT_MAX_LENGTH, sanitizePhoneDigits } from "@/utils/validation";
 
 const phoneExamples = require("libphonenumber-js/examples.mobile.json");
 
@@ -765,17 +765,34 @@ export const PhoneInput = memo(forwardRef<TextInput, PhoneInputProps>(function P
 
   const handleTextChange = useCallback(
     (text: string) => {
-      let digits = digitsOnly(text);
+      let country = selectedCountry;
+      let digits: string;
 
-      digits = digits.slice(0, PHONE_DIGIT_COUNT);
+      // A pasted international number ("+44 7911 123456") carries its own
+      // country; switch to it instead of reading the dial code as local digits.
+      const international = text.trim().startsWith("+")
+        ? parseE164(`+${digitsOnly(text)}`)
+        : null;
+
+      if (international) {
+        country = international.country;
+        digits = international.nationalDigits.slice(0, PHONE_DIGIT_COUNT);
+        if (country.code !== selectedCountry.code) {
+          setSelectedCountry(country);
+          onCountryChange?.(country.code);
+        }
+      } else {
+        digits = sanitizePhoneDigits(text, selectedCountry.dialCode);
+      }
+
       setDisplayValue(digits);
       setRawDigits(digits);
 
-      const e164 = toE164(digits, selectedCountry);
+      const e164 = toE164(digits, country);
       lastEmittedE164.current = e164;
       onChange(e164);
     },
-    [selectedCountry, onChange],
+    [selectedCountry, onChange, onCountryChange],
   );
 
   const handleFocus = useCallback(() => {
@@ -893,7 +910,7 @@ export const PhoneInput = memo(forwardRef<TextInput, PhoneInputProps>(function P
           onFocus={handleFocus}
           onBlur={handleBlur}
           keyboardType="phone-pad"
-          maxLength={PHONE_DIGIT_COUNT}
+          maxLength={PHONE_INPUT_MAX_LENGTH}
           textContentType="telephoneNumber"
           autoComplete="tel"
           placeholder={placeholder}

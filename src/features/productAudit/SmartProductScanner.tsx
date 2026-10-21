@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { AppState, Image, Linking, Modal, View } from "react-native";
+import { AppState, Image, Linking, Modal, TouchableOpacity, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { router, type Href } from "expo-router";
 import { Text } from "@/components/ui/AppTypography";
@@ -24,11 +25,13 @@ export function SmartProductScanner({
   onClose,
   onSelect,
   canCreateProduct,
+  existingProductIds = [],
 }: {
   auditId: string;
   onClose: () => void;
-  onSelect: (id: string) => Promise<void>;
+  onSelect: (ids: string[]) => Promise<void>;
   canCreateProduct: boolean;
+  existingProductIds?: string[];
 }) {
   const c = useThemeColors();
   const [permission, requestPermission] = useCameraPermissions();
@@ -45,6 +48,10 @@ export function SmartProductScanner({
   const [result, setResult] = useState<RecognitionResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [selected, setSelected] = useState<Record<string, RecognizedProduct>>({});
+  const [adding, setAdding] = useState(false);
+  const selectedProducts = Object.values(selected);
+  const existingIds = new Set(existingProductIds);
   useEffect(() => {
     alive.current = true;
     const sub = AppState.addEventListener("change", (s) => {
@@ -120,25 +127,31 @@ export function SmartProductScanner({
       `/product-audits/new-product?auditId=${encodeURIComponent(auditId)}&draft=${encodeURIComponent(JSON.stringify(draft ?? { barcode }))}` as Href,
     );
   };
-  const confirm = async (candidate: RecognizedProduct) => {
-    if (locked.current) return;
-    if (!candidate.product_id) {
-      if (!canCreateProduct) return;
-      locked.current = true;
-      manual(candidate);
-      return;
-    }
+  const toggleProduct = (candidate: RecognizedProduct) => {
+    const id = candidate.product_id;
+    if (!id || locked.current || existingIds.has(id)) return;
+    setSelected(previous => {
+      const next = { ...previous };
+      if (next[id]) delete next[id];
+      else next[id] = candidate;
+      return next;
+    });
+  };
+  const confirm = async () => {
+    const ids = Object.keys(selected).filter(id => !existingIds.has(id));
+    if (locked.current || !ids.length) return;
     locked.current = true;
     setBusy(true);
+    setAdding(true);
     setError("");
     try {
-      await onSelect(candidate.product_id);
+      await onSelect(ids);
       if (alive.current) onClose();
     } catch (e) {
       if (alive.current) setError(getApiErrorMessage(e));
     } finally {
       locked.current = false;
-      if (alive.current) setBusy(false);
+      if (alive.current) { setBusy(false); setAdding(false); }
     }
   };
   const reset = () => {
@@ -151,6 +164,7 @@ export function SmartProductScanner({
       visible
       animationType="slide"
       onRequestClose={() => {
+        if (adding) return;
         request.current?.abort();
         onClose();
       }}
@@ -158,6 +172,7 @@ export function SmartProductScanner({
       <AuditPage
         title="Smart Product Scanner"
         onBack={() => {
+          if (adding) return;
           request.current?.abort();
           onClose();
         }}
@@ -302,10 +317,30 @@ export function SmartProductScanner({
             />
           </>
         )}
+        <AuditCard>
+          <Text accessibilityLiveRegion="polite" style={{ color: c.heading, fontWeight: "700" }}>
+            {selectedProducts.length} products selected
+          </Text>
+          <Text style={{ color: c.text2 }}>Select products below. Your selections stay when you search again.</Text>
+          <View style={auditStyles.row}>
+            {selectedProducts.map(product => (
+              <TouchableOpacity key={product.product_id} accessibilityRole="button"
+                accessibilityLabel={`Remove ${product.name} from selection`}
+                disabled={busy} onPress={() => toggleProduct(product)}
+                style={{ flexDirection: "row", alignItems: "center", gap: 8, borderRadius: 12, padding: 12, backgroundColor: c.backgroundSelected, maxWidth: "100%" }}>
+                <Text style={{ color: c.text, flexShrink: 1 }}>{product.name}</Text>
+                <Ionicons name="close" size={18} color={c.text} />
+              </TouchableOpacity>
+            ))}
+          </View>
+          <AuditButton label={adding ? "Adding products..." : `Add selected products (${selectedProducts.length})`}
+            disabled={busy || !selectedProducts.length} onPress={() => void confirm()} />
+          {selectedProducts.length > 0 && <AuditButton label="Clear selection" disabled={busy} onPress={() => setSelected({})} />}
+        </AuditCard>
         {busy && (
           <>
             <ActivityIndicator />
-            <Text style={{ color: c.text2 }}>Checking product details…</Text>
+            <Text style={{ color: c.text2 }}>{adding ? "Adding selected products..." : "Checking product details…"}</Text>
           </>
         )}
         {!!error && <Text style={{ color: c.error }}>{error}</Text>}
@@ -357,11 +392,26 @@ export function SmartProductScanner({
                     Barcode: {candidate.barcode}
                   </Text>
                 )}
-                <AuditButton
-                  disabled={busy || (!candidate.product_id && !canCreateProduct)}
-                  label="Add product"
-                  onPress={() => void confirm(candidate)}
-                />
+                {candidate.product_id ? (
+                  <TouchableOpacity
+                    accessibilityRole="checkbox"
+                    accessibilityLabel={candidate.name}
+                    accessibilityState={{ checked: !!selected[candidate.product_id] || existingIds.has(candidate.product_id), disabled: busy || existingIds.has(candidate.product_id) }}
+                    disabled={busy || existingIds.has(candidate.product_id)}
+                    onPress={() => toggleProduct(candidate)}
+                    style={{ flexDirection: "row", alignItems: "center", gap: 10, padding: 14, borderRadius: 12, borderWidth: 1,
+                      borderColor: selected[candidate.product_id] ? c.focusBorder : c.border,
+                      backgroundColor: selected[candidate.product_id] ? c.backgroundSelected : c.bg }}>
+                    <Ionicons name={selected[candidate.product_id] || existingIds.has(candidate.product_id) ? "checkbox" : "square-outline"} size={24} color={c.primaryText} />
+                    <Text style={{ color: c.text, fontWeight: "700", flexShrink: 1 }}>
+                      {existingIds.has(candidate.product_id) ? "Already in audit" : selected[candidate.product_id] ? "Selected — tap to deselect" : "Select product"}
+                    </Text>
+                  </TouchableOpacity>
+                ) : (
+                  <AuditButton disabled={busy || !canCreateProduct || selectedProducts.length > 0}
+                    label="Create product" onPress={() => manual(candidate)} />
+                )}
+                {!candidate.product_id && selectedProducts.length > 0 && <Text style={{ color: c.text2 }}>Add or clear your selected products before creating a new product.</Text>}
                 {!candidate.product_id && !canCreateProduct && (
                   <Text style={{ color: c.text2 }}>
                     Ask a manager with product creation permission to add this
@@ -385,12 +435,13 @@ export function SmartProductScanner({
         {canCreateProduct && (
           <AuditButton
             label="Enter a new product manually"
-            disabled={busy}
+            disabled={busy || selectedProducts.length > 0}
             onPress={() => manual()}
           />
         )}
         <AuditButton
           label="Close scanner"
+          disabled={adding}
           onPress={() => {
             request.current?.abort();
             onClose();

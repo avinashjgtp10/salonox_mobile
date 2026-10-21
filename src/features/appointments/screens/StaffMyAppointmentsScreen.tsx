@@ -14,7 +14,7 @@ import { createStyles } from "@/features/appointments/styles/appointmentStyles";
 import { todayIsoDate } from "@/features/appointments/utils/appointmentDateTime";
 import { ACTIVE_APPOINTMENT_STATUSES } from "@/features/appointments/utils/appointmentList";
 import { getResponsiveHeaderTitleSize, getResponsiveHorizontalPadding, getResponsiveTopPadding } from "@/features/appointments/utils/appointmentScreenHelpers";
-import { buildStaffAppointmentRows, isSameDay } from "@/features/appointments/utils/staffAppointmentRows";
+import { buildStaffAppointmentRows, isSameDay, isStaffAppointmentCompleted } from "@/features/appointments/utils/staffAppointmentRows";
 import { isAssignedToStaff } from "@/features/appointments/utils/staffAssignment";
 import { selectAppointments, selectAppointmentsError, selectAppointmentsIsLoading, selectAppointmentsLoadingMore, selectAppointmentsPagination, selectAppointmentsRefreshing } from "@/store/appointment/appointment.slice";
 import { useAppSelector } from "@/store/hooks";
@@ -72,7 +72,7 @@ function StaffMyAppointmentsScreenContent() {
   const counts = useMemo(
     () => ({
       cancelled: staffAppointments.filter((appointment) => appointment.status === "Cancelled").length,
-      completed: staffAppointments.filter((appointment) => appointment.status === "Completed").length,
+      completed: staffAppointments.filter((appointment) => appointment.status !== "Cancelled" && isStaffAppointmentCompleted(appointment)).length,
       today: staffAppointments.filter((appointment) => isSameDay(appointment, today)).length,
       upcoming: staffAppointments.filter((appointment) => ACTIVE_APPOINTMENT_STATUSES.has(appointment.status)).length,
     }),
@@ -167,6 +167,7 @@ function StaffMyAppointmentsScreenContent() {
             <AppointmentCard
               appointment={item.appointment}
               detailRoute={(appointmentId) => `/(staff)/appointment-details/${appointmentId}` as Href}
+              showJobCard
               showPaymentStatus
             />
           )

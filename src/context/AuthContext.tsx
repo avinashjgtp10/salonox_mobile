@@ -11,6 +11,7 @@ import { unregisterDeviceThunk } from "@/middleware/notification/notification.th
 import * as Notifications from "expo-notifications";
 import { pauseNotificationRegistration, resumeNotificationRegistration } from "@/services/notificationRegistrationLifecycle";
 import { fetchCurrentUserThunk } from "@/middleware/user/user.thunk";
+import { useAppForeground } from "@/hooks/useAppForeground";
 import { ApiError, cancelProtectedApiRequests, getApiErrorMessage } from "@/services/api";
 import { beginUserLogout, finishUserLogin } from "@/services/authLifecycle";
 import { appAlert } from "@/services/appAlert";
@@ -222,6 +223,17 @@ export function AuthProvider({ children }: PropsWithChildren) {
       isMounted = false;
     };
   }, [applyAuthenticatedUserState, clearLocalSession, syncCurrentUserProfile]);
+
+  // A profile photo or name changed on the web must show up here without a cold start.
+  useAppForeground(() => {
+    if (!user) return;
+    void syncCurrentUserProfile().catch((profileError) => {
+      logAuthEvent("foreground_profile_fetch_failed", {
+        status: getAuthErrorStatus(profileError),
+        message: getApiErrorMessage(profileError),
+      });
+    });
+  });
 
   useEffect(() => addSessionInvalidationListener(async (reason) => {
     await clearLocalSession(reason);

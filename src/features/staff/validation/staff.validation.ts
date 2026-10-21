@@ -12,19 +12,27 @@ import {
   isValidEmail,
   isValidIsoDate,
   isValidPhoneDigits,
+  MOBILE_INVALID_MESSAGE,
   PASSWORD_MIN_LENGTH,
+  PHONE_DIGIT_COUNT,
   PHONE_INVALID_MESSAGE,
 } from "@/utils/validation";
 
 const isPresent = (value: unknown) =>
   typeof value === "string" ? value.trim().length > 0 : value !== undefined && value !== null;
 
-const isValidTenDigitPhone = (value: string) => {
-  if (!isValidPhoneNumber(value)) {
-    return false;
+// Length is checked first so a short/long number gets the digit-count message;
+// a 10-digit number the country's numbering plan rejects gets the generic one.
+const getStaffPhoneError = (value: string) => {
+  try {
+    if (parsePhoneNumber(value).nationalNumber.length !== PHONE_DIGIT_COUNT) {
+      return PHONE_INVALID_MESSAGE;
+    }
+  } catch {
+    return PHONE_INVALID_MESSAGE;
   }
 
-  return parsePhoneNumber(value).nationalNumber.length === 10;
+  return isValidPhoneNumber(value) ? undefined : MOBILE_INVALID_MESSAGE;
 };
 
 const result = (errors: Record<string, string>): ValidationResult => ({
@@ -65,8 +73,11 @@ export const validateStaffForm = (
 
   if (!isPresent(values.phone)) {
     errors.phone = "Contact number is required.";
-  } else if (!isValidTenDigitPhone(values.phone!)) {
-    errors.phone = PHONE_INVALID_MESSAGE;
+  } else {
+    const phoneError = getStaffPhoneError(values.phone!);
+    if (phoneError) {
+      errors.phone = phoneError;
+    }
   }
 
   if (isPresent(values.gender) && !(STAFF_GENDER_OPTIONS as readonly string[]).includes(values.gender!)) {
