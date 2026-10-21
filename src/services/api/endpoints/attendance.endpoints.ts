@@ -8,6 +8,7 @@ export const ATTENDANCE = {
   RECORD: (attendanceId: string) => `/attendance/${attendanceId}`,
   SETTINGS: "/attendance/settings",
   STAFF: (staffId: string) => `/attendance/staff/${staffId}`,
+  STAFF_PRESENCE: "/attendance/staff-presence",
   SUMMARY: "/attendance/summary",
   TODAY: "/attendance/today",
 } as const;
