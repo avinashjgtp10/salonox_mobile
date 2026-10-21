@@ -13,6 +13,8 @@ import { createStyles } from "@/features/appointments/styles/appointmentStyles";
 import { getDateKey, todayIsoDate } from "@/features/appointments/utils/appointmentDateTime";
 import { buildCalendarStaffOptions, buildCanonicalStaffIdByAlias, buildFallbackStaffIdByName, resolveAppointmentStaffId, SYNTHETIC_STAFF_ID_PREFIX } from "@/features/appointments/utils/calendarStaff";
 import { matchesCalendarStatuses } from "@/features/appointments/utils/calendarStatusFilters";
+import { useStaffPresence } from "@/features/attendance/hooks/useStaffPresence";
+import { calendarColumnStaff, staffIdsWithBookingsOn } from "@/features/attendance/utils/staffPresence";
 import { selectAppointments, selectAppointmentsRefreshing, selectAppointmentsIsLoading, selectAppointmentsError } from "@/store/appointment/appointment.slice";
 import { useAppSelector } from "@/store/hooks";
 import { selectCurrentStaff, selectCurrentStaffError, selectStaffMembers } from "@/store/staff/staff.slice";
@@ -86,6 +88,19 @@ export function AppointmentCalendarContent({ staffMode = false, staffQuickSale =
     ),
     [canonicalStaffIdByAlias, fallbackStaffIdByName],
   );
+  // Attendance "show only checked-in staff" (as on the web): today, staff who
+  // haven't checked in drop out of the columns and the Staff filter, unless
+  // they have a booking that day. A staff member's own calendar is never filtered.
+  const { presence: staffPresence, refresh: refreshStaffPresence } = useStaffPresence(!ownOnly);
+  const presentStaffOptions = useMemo(
+    () => calendarColumnStaff(
+      staffOptions,
+      staffPresence,
+      date,
+      staffIdsWithBookingsOn(appointments, date, resolveStaffId, canonicalStaffIdByAlias),
+    ),
+    [appointments, canonicalStaffIdByAlias, date, resolveStaffId, staffOptions, staffPresence],
+  );
   // The appointments API ignores `search`, so the calendar filters the day or
   // week it already loaded: client, phone (digits match any formatting),
   // service, staff and title. While searching, Day view shows only the staff
@@ -137,11 +152,12 @@ export function AppointmentCalendarContent({ staffMode = false, staffQuickSale =
   }, [date, fetchAppointments, rangeEndKey, selectedStaffId, status, viewMode, ownOnly, salonWide, currentStaff?.id]);
 
   const refreshAppointments = useCallback(() => {
+    void refreshStaffPresence(true);
     if (ownOnly && !currentStaff?.id) return;
     void fetchAppointments(viewMode === "week"
       ? { fromDate: date, limit: 200, refresh: true, salonWide, search: "", staffId: selectedStaffId, status, toDate: rangeEndKey }
       : { date, limit: 200, refresh: true, salonWide, search: "", staffId: selectedStaffId, status });
-  }, [date, fetchAppointments, rangeEndKey, selectedStaffId, status, viewMode, ownOnly, salonWide, currentStaff?.id]);
+  }, [date, fetchAppointments, rangeEndKey, selectedStaffId, status, viewMode, ownOnly, salonWide, currentStaff?.id, refreshStaffPresence]);
   // The staff Calendar tab stays mounted while Quick Sale and its receipt
   // screens are open, so reload when staff come back to it: a bill saved as
   // pending (or just paid) then shows its current state.
@@ -157,14 +173,14 @@ export function AppointmentCalendarContent({ staffMode = false, staffQuickSale =
     [date, visibleAppointments],
   );
   const staffColumns = useMemo(() => {
-    const columns = selectedStaffIds.length ? staffOptions.filter((option) => selectedStaffIds.includes(option.id)) : staffOptions;
+    const columns = selectedStaffIds.length ? presentStaffOptions.filter((option) => selectedStaffIds.includes(option.id)) : presentStaffOptions;
     if (!searchTerm || viewMode !== "day") return columns;
     // A match in a far-right column was off screen, so the search looked like
     // it did nothing; keep just the columns with a match on the day shown (the
     // store can also hold other days' appointments, e.g. ones refetched by id).
     const matchedStaffIds = new Set(dayMatches.map(resolveStaffId));
     return columns.filter((option) => matchedStaffIds.has(option.id));
-  }, [dayMatches, resolveStaffId, searchTerm, selectedStaffIds, staffOptions, viewMode]);
+  }, [dayMatches, presentStaffOptions, resolveStaffId, searchTerm, selectedStaffIds, viewMode]);
   const emptyTitle = searchTerm && (viewMode === "day" ? dayMatches : visibleAppointments).length === 0
     ? `No appointments match "${debouncedSearch.trim()}"`
     : undefined;
@@ -229,7 +245,7 @@ export function AppointmentCalendarContent({ staffMode = false, staffQuickSale =
         viewMode={viewMode}
       />
       <Modal animationType="fade" onRequestClose={() => setViewMenuVisible(false)} transparent visible={viewMenuVisible}><Pressable onPress={() => setViewMenuVisible(false)} style={styles.calendarMenuBackdrop}><Pressable style={styles.calendarMenuCard}>{([['week', 'calendar-outline', 'Week view'], ['day', 'today-outline', 'Day view'], ['list', 'list-outline', 'List view']] as const).map(([value, icon, label]) => <TouchableOpacity key={value} onPress={() => { setViewMode(value); setViewMenuVisible(false); }} style={[styles.calendarMenuOption, viewMode === value && styles.calendarMenuOptionActive]}><Ionicons name={icon} size={18} color={Colors.appointmentText} /><Text style={styles.calendarMenuText}>{label}</Text>{viewMode === value ? <Ionicons name="radio-button-on" size={16} color={Colors.primaryText} /> : null}</TouchableOpacity>)}</Pressable></Pressable></Modal>
-      <Modal animationType="fade" onRequestClose={() => setStaffFilterVisible(false)} transparent visible={staffFilterVisible}><Pressable onPress={() => setStaffFilterVisible(false)} style={styles.calendarMenuBackdrop}><Pressable style={styles.staffFilterCard}><Text style={styles.staffFilterTitle}>By Staff</Text><ScrollView>{[{ id: "", name: "All Staff", label: "All Staff" }, ...staffOptions].map((option) => { const selected = option.id === "" ? selectedStaffIds.length === 0 : selectedStaffIds.includes(option.id); return <TouchableOpacity key={option.id || "all-staff"} onPress={() => toggleStaffFilter(option.id)} style={styles.staffFilterOption}><Ionicons name={selected ? "checkbox" : "square-outline"} size={20} color={selected ? Colors.primaryText : Colors.appointmentMuted} /><Text style={styles.staffFilterText}>{option.label}</Text></TouchableOpacity>; })}</ScrollView><View style={styles.staffFilterActions}><TouchableOpacity onPress={() => setSelectedStaffIds([])}><Text style={styles.staffFilterClear}>Clear</Text></TouchableOpacity><TouchableOpacity onPress={() => setStaffFilterVisible(false)} style={styles.staffFilterApply}><Text style={styles.staffFilterApplyText}>Apply</Text></TouchableOpacity></View></Pressable></Pressable></Modal>
+      <Modal animationType="fade" onRequestClose={() => setStaffFilterVisible(false)} transparent visible={staffFilterVisible}><Pressable onPress={() => setStaffFilterVisible(false)} style={styles.calendarMenuBackdrop}><Pressable style={styles.staffFilterCard}><Text style={styles.staffFilterTitle}>By Staff</Text><ScrollView>{[{ id: "", name: "All Staff", label: "All Staff" }, ...presentStaffOptions].map((option) => { const selected = option.id === "" ? selectedStaffIds.length === 0 : selectedStaffIds.includes(option.id); return <TouchableOpacity key={option.id || "all-staff"} onPress={() => toggleStaffFilter(option.id)} style={styles.staffFilterOption}><Ionicons name={selected ? "checkbox" : "square-outline"} size={20} color={selected ? Colors.primaryText : Colors.appointmentMuted} /><Text style={styles.staffFilterText}>{option.label}</Text></TouchableOpacity>; })}</ScrollView><View style={styles.staffFilterActions}><TouchableOpacity onPress={() => setSelectedStaffIds([])}><Text style={styles.staffFilterClear}>Clear</Text></TouchableOpacity><TouchableOpacity onPress={() => setStaffFilterVisible(false)} style={styles.staffFilterApply}><Text style={styles.staffFilterApplyText}>Apply</Text></TouchableOpacity></View></Pressable></Pressable></Modal>
     </ScreenShell>
   );
 }
