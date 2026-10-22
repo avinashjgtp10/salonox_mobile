@@ -3,9 +3,11 @@ import { Dimensions, Keyboard, Platform, View, type KeyboardEvent } from "react-
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { chatKeyboardInset } from "./chatKeyboard";
 
-export function useChatKeyboard() {
+// `restingInset` is the inset while the keyboard is hidden (defaults to the safe-area bottom).
+export function useChatKeyboard(restingInset?: number) {
   const viewport = useRef<View>(null);
-  const { bottom } = useSafeAreaInsets();
+  const safeBottom = useSafeAreaInsets().bottom;
+  const bottom = restingInset ?? safeBottom;
   const keyboardTop = useRef<number | null>(Keyboard.metrics()?.screenY ?? null);
   const [inset, setInset] = useState(bottom);
   const frame = useRef<number | null>(null);
