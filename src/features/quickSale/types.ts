@@ -1,7 +1,7 @@
 import type { ConsumableUsageItem } from "@/types/consumable";
 import type { CheckoutSaleSplitEntry, SaleItemType, SalePaymentMethod } from "@/types/sales";
 
-export type CheckoutInitialStep = "review" | "charges" | "payment";
+export type CheckoutInitialStep = "review" | "payment";
 
 export type PendingCheckoutPayment = {
   method: SalePaymentMethod;
@@ -25,9 +25,13 @@ export type QuickSaleSlot = {
 };
 
 export type QuickSaleScreenProps = {
+  /** Pending (draft) sale to reopen; overrides the route's draftId param. */
+  draftId?: string;
   embedded?: boolean;
   initialSlot?: QuickSaleSlot | null;
   onRequestClose?: () => void;
+  /** Open the checkout straight at its Payment screen once the draft loads. */
+  openPayment?: boolean;
 };
 
 export type CartItemSource = Extract<SaleItemType, "service" | "product" | "membership" | "quick"> | "package";

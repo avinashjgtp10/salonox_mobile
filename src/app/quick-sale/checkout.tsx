@@ -378,35 +378,19 @@ function OwnerQuickSaleCheckoutScreen() {
     });
   }, [isStaff, replaceOnce]);
 
-  const handleBackToDraft = useCallback(() => {
-    replaceOnce({
-      params: { draftId: params.draftId },
-      pathname: "/quick-sale",
-    });
-  }, [params.draftId, replaceOnce]);
-
   const handleExitToCalendar = useCallback(() => {
     replaceOnce(isStaff ? STAFF_CALENDAR_ROUTE : OWNER_CALENDAR_ROUTE);
-  }, [isStaff, replaceOnce]);
-
-  const handleExitToDashboard = useCallback(() => {
-    replaceOnce(isStaff ? STAFF_HOME_ROUTE : ("/dashboard" as Href));
   }, [isStaff, replaceOnce]);
 
   useFocusEffect(
     useCallback(() => {
       const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
-        if (isPreview) {
-          handleBackToDraft();
-        } else {
-          handleExitToCalendar();
-        }
-
+        handleExitToCalendar();
         return true;
       });
 
       return () => subscription.remove();
-    }, [handleBackToDraft, handleExitToCalendar, isPreview]),
+    }, [handleExitToCalendar]),
   );
 
   return (
@@ -418,8 +402,8 @@ function OwnerQuickSaleCheckoutScreen() {
         <View style={styles.header}>
           <TouchableOpacity
             activeOpacity={0.86}
-            accessibilityLabel={isPreview ? "Back to dashboard" : "Back to calendar"}
-            onPress={isPreview ? handleExitToDashboard : handleExitToCalendar}
+            accessibilityLabel="Back to calendar"
+            onPress={handleExitToCalendar}
             style={styles.headerIconButton}
           >
             <Ionicons name="close" size={20} color={Colors.heading} />
@@ -565,22 +549,21 @@ function OwnerQuickSaleCheckoutScreen() {
         </ScrollView>
 
         <View style={styles.footer}>
-          <TouchableOpacity
-            activeOpacity={0.86}
-            onPress={isPreview ? handleBackToDraft : handleStartNewSale}
-            style={styles.primaryButton}
-          >
-            <Text style={styles.primaryButtonText}>{isPreview ? "Back to Sale" : "Start New Sale"}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            activeOpacity={0.86}
-            onPress={isPreview ? handleExitToDashboard : handleExitToCalendar}
-            style={styles.secondaryButton}
-          >
-            <Text style={styles.secondaryButtonText}>
-              {isPreview ? "Back to Dashboard" : "Back to Calendar"}
-            </Text>
-          </TouchableOpacity>
+          {isPreview ? (
+            // A saved pending bill lives on the Calendar, so that's the only exit.
+            <TouchableOpacity activeOpacity={0.86} onPress={handleExitToCalendar} style={styles.primaryButton}>
+              <Text style={styles.primaryButtonText}>Back to Calendar</Text>
+            </TouchableOpacity>
+          ) : (
+            <>
+              <TouchableOpacity activeOpacity={0.86} onPress={handleStartNewSale} style={styles.primaryButton}>
+                <Text style={styles.primaryButtonText}>Start New Sale</Text>
+              </TouchableOpacity>
+              <TouchableOpacity activeOpacity={0.86} onPress={handleExitToCalendar} style={styles.secondaryButton}>
+                <Text style={styles.secondaryButtonText}>Back to Calendar</Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       </View>
 

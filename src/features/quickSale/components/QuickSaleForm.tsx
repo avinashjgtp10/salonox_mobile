@@ -4,10 +4,11 @@ import { Ionicons } from "@expo/vector-icons";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { KeyboardAwareForm, type KeyboardAwareFormHandle } from "@/components/ui/KeyboardAwareForm";
+import { ClientSearchField } from "./ClientSearchField";
 import { StaffPickerSheet } from "./StaffPickerSheet";
+import type { ClientListItem } from "@/types/client";
 import type { CheckoutSheetProps } from "./checkout/types";
 import type { useCart } from "../hooks/useCart";
-import { useBenefitCards } from "../hooks/useBenefitCards";
 import { getPackageCoveredQuantity } from "../utils/packageCoverage";
 import { buildPricingLine } from "../utils/calculations";
 import { formatCurrency, parseAmount } from "../utils/money";
@@ -22,12 +23,16 @@ const types: Record<string, { label: string; color: string; bg: string }> = {
   package: { label: "Package", color: "#B87A00", bg: "#FDF0C8" },
   membership: { label: "Membership", color: "#178A5C", bg: "#DFF4EA" },
 };
-type Props = Pick<CheckoutSheetProps, "selectedClient" | "redemptions" | "totals" | "staffOptions" | "tipInput" | "onChangeTip" | "extraCharges" | "onChangeExtraCharge" | "overallDiscountInput" | "overallDiscountType" | "overallDiscountPercent" | "onChangeOverallDiscount" | "onChangeCustomer" | "onSetQuantity" | "onRemoveItem" | "productStockErrors" | "renderInline"> & {
+type Props = Pick<CheckoutSheetProps, "selectedClient" | "redemptions" | "staffOptions" | "onSetQuantity" | "onRemoveItem" | "productStockErrors" | "renderInline"> & {
   cart: ReturnType<typeof useCart>;
+  /** Opens the new-client form. */
+  onAddClient: () => void;
+  /** Drops the chosen client so another can be searched. */
+  onClearClient: () => void;
+  onSelectClient: (client: ClientListItem) => void;
   notes: string;
   onChangeNotes: (value: string) => void;
   onAdd: (tab: CatalogTab) => void;
-  onMoreCharges: () => void;
   /** Opens the selected client's Date of Birth / Anniversary editor. */
   onEditClientDates?: () => void;
   packageBanner?: ReactNode;
@@ -44,7 +49,6 @@ export function QuickSaleForm(p: Props) {
   const form = useRef<KeyboardAwareFormHandle>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [staffLine, setStaffLine] = useState<string | null>(null);
-  const benefits = useBenefitCards(p);
   // Both fields are persisted in the existing sale notes field, including drafts.
   const parts = /^Staff alert:\n([\s\S]*?)\n\nNotes:(?:\n([\s\S]*))?$/.exec(p.notes);
   const alert = parts?.[1] ?? "";
@@ -58,11 +62,15 @@ export function QuickSaleForm(p: Props) {
     <KeyboardAwareForm ref={form}>
       <View style={s.page}>
         <Section title="Client">
-          <View style={s.row}>
-            <View style={s.avatar}><Text style={s.avatarText}>{p.selectedClient.initials}</Text></View>
-            <View style={s.flex}><Text style={s.name}>{clientName(p.selectedClient.name)}</Text><Text style={s.muted}>{maskPhone(p.selectedClient.phone)}</Text></View>
-            <Pressable accessibilityRole="button" onPress={p.onChangeCustomer}><Text style={s.link}>Change</Text></Pressable>
-          </View>
+          {p.selectedClient.id ? (
+            <View style={s.row}>
+              <View style={s.avatar}><Text style={s.avatarText}>{p.selectedClient.initials}</Text></View>
+              <View style={s.flex}><Text style={s.name}>{clientName(p.selectedClient.name)}</Text><Text style={s.muted}>{maskPhone(p.selectedClient.phone)}</Text></View>
+              <Pressable accessibilityRole="button" onPress={p.onClearClient}><Text style={s.link}>Change</Text></Pressable>
+            </View>
+          ) : (
+            <ClientSearchField onAddClient={p.onAddClient} onSelect={p.onSelectClient} />
+          )}
           {p.selectedClient.id && p.onEditClientDates ? (
             <Pressable accessibilityRole="button" onPress={p.onEditClientDates} style={s.row}>
               <Ionicons name="calendar-outline" size={16} color={c.plum} />
@@ -70,10 +78,10 @@ export function QuickSaleForm(p: Props) {
             </Pressable>
           ) : null}
           {p.selectedClient.id ? <View style={s.row}>
-            {[['Wallet', formatCurrency(p.redemptions.eWalletBalance)], ['Points', String(p.redemptions.rewardPointsBalance)], ['Membership', p.selectedClient.membership || 'None']].map(([label, value]) => <View style={s.stat} key={label}><Text style={s.muted}>{label}</Text><Text style={s.statValue}>{value}</Text></View>)}
+            {[['Wallet', formatCurrency(p.redemptions.eWalletBalance)], ['Points', String(p.redemptions.rewardPointsBalance)], ['Membership', p.selectedClient.membership || 'None']].map(([label, value]) => <View style={s.stat} key={label}><Text adjustsFontSizeToFit minimumFontScale={0.75} numberOfLines={1} style={s.muted}>{label}</Text><Text style={s.statValue}>{value}</Text></View>)}
           </View> : null}
         </Section>
-        <Section title="Services & items" aside={<Text style={s.muted}>{p.cart.itemCount} items</Text>}>
+        <Section title="Services & items" aside={<Text style={s.muted}>{p.cart.itemCount} {p.cart.itemCount === 1 ? 'item' : 'items'}</Text>}>
           {missingStaff ? <Text style={s.warning}>Choose a staff member for each service to continue.</Text> : null}
           {!p.cart.items.length ? <View style={s.empty}><Ionicons name="bag-outline" size={26} color={c.plum}/><Text style={s.name}>No items added yet</Text><Text style={s.muted}>Add a service, product, package or membership.</Text></View> : null}
           {p.cart.items.map(item => {
@@ -99,27 +107,7 @@ export function QuickSaleForm(p: Props) {
             {([['services', 'Service'], ['products', 'Product'], ['packages', 'Package'], ['membership', 'Membership']] as const).map(([tab, label]) => <Pressable key={tab} accessibilityRole="button" onPress={() => p.onAdd(tab)} style={s.add}><Text style={s.addText}>+ {label}</Text></Pressable>)}
           </ScrollView>
           {p.packageBanner}
-        </Section>
-        <Section title="Available benefits">
-          {!p.selectedClient.id ? <Text style={s.hint}>Choose a client to see their benefits.</Text> : p.redemptions.isLoadingBalances ? <Text style={s.hint}>Loading benefits…</Text> : p.redemptions.balancesError ? <Pressable onPress={() => void p.redemptions.refreshBalances()}><Text style={s.error}>{p.redemptions.balancesError} Tap to retry.</Text></Pressable> : !benefits.length ? <Text style={s.hint}>No available benefits for this client.</Text> : <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.addRow}>
-            {benefits.map(b => <View key={b.key} style={[s.benefit, b.checked && s.benefitOn]}>
-              <Pressable accessibilityRole="checkbox" accessibilityState={{checked:b.checked}} onPress={() => b.onToggle(!b.checked)} style={s.benefitCopy}><View style={s.row}><View style={s.benefitIcon}><Ionicons name={b.icon} size={20} color={c.plum}/></View><Ionicons name={b.checked ? 'checkmark-circle' : 'ellipse-outline'} size={22} color={c.plum}/></View><Text style={s.name}>{b.title}</Text><Text style={s.link}>{b.value}</Text><Text style={s.muted}>{b.subtitle}</Text></Pressable>
-              {b.checked && b.input ? field(b.input.suffix === 'pts' ? 'Points to use' : 'Amount to use', b.input.value, b.input.onChangeText, true) : null}
-              {b.note ? <Text style={s.error}>{b.note}</Text> : null}
-            </View>)}
-          </ScrollView>}
-        </Section>
-        <Section title="Charges & discounts">
           {p.pricingError ? <Text style={s.error}>{p.pricingError}</Text> : p.isPricingLoading ? <Text style={s.muted}>Updating total…</Text> : null}
-          <View style={s.row}>{field('Tip (₹)', p.tipInput, p.onChangeTip, true)}{field('Extra charges (₹)', p.extraCharges.otherCharges, value => p.onChangeExtraCharge('otherCharges', value), true)}</View>
-          <View style={s.row}>{field(p.overallDiscountType === 'percentage' ? 'Discount (%)' : 'Discount (₹)', p.overallDiscountType === 'percentage' ? String(p.overallDiscountPercent || '') : p.overallDiscountInput, value => {
-            const percent = parseAmount(value);
-            const amount = p.overallDiscountType === 'percentage' ? String(Math.round((p.totals.discountBase ?? p.totals.subtotal) * percent) / 100) : value;
-            p.onChangeOverallDiscount(amount, p.overallDiscountType, p.overallDiscountType === 'percentage' ? percent : 0);
-          }, true)}<View style={s.mode}>{(['percentage', 'flat'] as const).map(mode => <Pressable key={mode} style={[s.modeButton, mode === p.overallDiscountType && s.modeActive]} onPress={() => p.onChangeOverallDiscount('', mode, 0)}><Text style={[s.link, mode === p.overallDiscountType && s.white]}>{mode === 'percentage' ? '%' : '₹'}</Text></Pressable>)}</View></View>
-          {p.overallDiscountType === 'percentage' && p.overallDiscountPercent > 100 ? <Text style={s.error}>Discount cannot exceed 100%.</Text> : null}
-          <Pressable onPress={p.onMoreCharges}><Text style={s.link}>Coupon, GST & advanced charges →</Text></Pressable>
-          {parseAmount(p.extraCharges.serviceCharge) + parseAmount(p.extraCharges.convenienceFee) > 0 ? <Text style={s.muted}>Additional charges: {formatCurrency(parseAmount(p.extraCharges.serviceCharge) + parseAmount(p.extraCharges.convenienceFee))}</Text> : null}
         </Section>
         <Section title="Staff alert & notes">
           {field('Staff alert', alert, value => changeNotes(value, notes), false, true)}
@@ -155,7 +143,5 @@ const s = StyleSheet.create({
   lineCard:{borderWidth:1.5,borderColor:c.line,borderRadius:16,overflow:'hidden'},lineTop:{height:40,paddingHorizontal:12,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},tag:{fontSize:11,fontWeight:'700',letterSpacing:0.7,textTransform:'uppercase'},
   lineBody:{padding:12,gap:8},stepper:{flexDirection:'row',alignItems:'center',borderWidth:1,borderColor:c.line,borderRadius:10,gap:8},step:{padding:8},total:{fontSize:17,fontWeight:'700',color:c.fg},editor:{gap:10,borderTopWidth:1,borderColor:c.line,paddingTop:12},
   addRow:{gap:8,paddingVertical:2},add:{backgroundColor:"#EAC8E3",borderRadius:999,paddingHorizontal:14,paddingVertical:11},addText:{fontSize:12,fontWeight:'700',color:'#000000'},
-  hint:{backgroundColor:c.bg,borderRadius:12,padding:12,color:c.muted,fontSize:13},benefit:{width:178,borderWidth:1.5,borderColor:c.line,borderRadius:16,padding:12,gap:8},benefitOn:{borderColor:c.plum,backgroundColor:'#FCF3F8'},benefitCopy:{gap:7},benefitIcon:{width:34,height:34,borderRadius:10,backgroundColor:c.soft,justifyContent:'center',alignItems:'center'},
   field:{flex:1,gap:6},label:{fontSize:12,fontWeight:'600',color:c.muted},input:{borderWidth:1,borderColor:c.line,borderRadius:12,paddingHorizontal:12,paddingVertical:11,color:c.fg,fontSize:14,backgroundColor:c.bg,minHeight:44},multiline:{minHeight:76},
-  mode:{flexDirection:'row',borderWidth:1,borderColor:c.line,borderRadius:12,padding:4,marginTop:20},modeButton:{paddingHorizontal:18,paddingVertical:10,borderRadius:9},modeActive:{backgroundColor:"#EAC8E3"},white:{color:'#000000'},
 });

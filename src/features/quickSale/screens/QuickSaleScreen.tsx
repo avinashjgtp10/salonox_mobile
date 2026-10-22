@@ -4,9 +4,10 @@ import { QuickSaleForm } from "../components/QuickSaleForm";
 import { Text } from "@/components/ui/AppTypography";
 import { Redirect } from "expo-router";
 import { useAuth } from "@/context/AuthContext";
+import { ScrollFooterContext } from "@/hooks/useScrollFooter";
 import { isStaffExperienceUser, STAFF_CALENDAR_ROUTE, STAFF_HOME_ROUTE } from "@/utils/routeResolver";
 import { canUseStaffQuickSale } from "@/utils/staffAccess";
-import { formatAppDate } from "@/utils/dateTime";
+import { formatAppDate, formatAppTime } from "@/utils/dateTime";
 import { appAlert as Alert } from "@/services/appAlert";
 import { ToastOverlay } from "@/components/ui/ToastOverlay";
 import {
@@ -16,12 +17,11 @@ import {
   useNavigation,
   type Href,
 } from "expo-router";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { BackHandler, Keyboard, StyleSheet, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { AppLayout } from "@/constants/layout";
 import { DashboardRadius as Radius, DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { ConfirmationModal } from "@/components/ui/ConfirmationModal";
@@ -136,20 +136,46 @@ export default function QuickSaleScreen(props: QuickSaleScreenProps = {}) {
   if (isLoading) return null;
   if (!user) return <Redirect href="/login" />;
   if (isStaffExperienceUser(user) && !canUseStaffQuickSale(user)) return <Redirect href={STAFF_HOME_ROUTE} />;
+  if (props.embedded) return <EmbeddedQuickSaleScreen {...props} />;
   return <OwnerQuickSaleScreen {...props} />;
 }
 
+// Opened from the Calendar, Quick Sale renders inside the tab screen, so its
+// lists would hide the tab bar behind the modal while scrolling. Show the tab
+// bar once and stop the modal's scrolling from toggling it.
+function EmbeddedQuickSaleScreen(props: QuickSaleScreenProps) {
+  const setTabBarHidden = useContext(ScrollFooterContext);
+
+  useEffect(() => {
+    setTabBarHidden?.(false);
+  }, [setTabBarHidden]);
+
+  return (
+    <ScrollFooterContext.Provider value={null}>
+      <OwnerQuickSaleScreen {...props} />
+    </ScrollFooterContext.Provider>
+  );
+}
+
 function OwnerQuickSaleScreen({
+  draftId: draftIdProp,
   embedded = false,
   initialSlot = null,
   onRequestClose,
+  openPayment: openPaymentProp = false,
 }: QuickSaleScreenProps = {}) {
   const Colors = useThemeColors();
   const { height: screenHeight } = useWindowDimensions();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
   const navigation = useNavigation();
-  const params = useLocalSearchParams<{ draftId?: string; resetSale?: string }>();
+  const routeParams = useLocalSearchParams<{ draftId?: string; openPayment?: string; resetSale?: string }>();
+  // The Calendar opens a pending bill in its embedded Quick Sale via props.
+  const params = {
+    ...routeParams,
+    draftId: draftIdProp ?? routeParams.draftId,
+    openPayment: openPaymentProp ? "1" : routeParams.openPayment,
+  };
   const { user } = useAuth();
   // Staff (Calendar & Quick Sale access) can't open the owner's Sales or
   // Dashboard screens, so their exits go back to their Calendar instead.
@@ -606,6 +632,13 @@ function OwnerQuickSaleScreen({
     setHasClientStepSelection(true);
   }, [resetCheckoutSubmission]);
 
+  // There is no walk-in sale (same as the web): a bill needs a real client.
+  const ensureClientSelected = useCallback(() => {
+    if (selectedClient.id) return true;
+    Alert.alert("Client required", "Search for a client or add a new one before continuing.");
+    return false;
+  }, [selectedClient.id]);
+
   const handleSelectQuickSaleStaff = useCallback(
     (staffMember: PosStaffMember) => {
       resetCheckoutSubmission();
@@ -886,6 +919,26 @@ function OwnerQuickSaleScreen({
     setProductStockErrors({});
   }, []);
 
+  // "Continue to Payment" on a Calendar booking opens its pending bill
+  // straight at the Payment screen, once the draft has loaded.
+  const hasAutoOpenedPaymentRef = useRef(false);
+  useEffect(() => {
+    if (
+      params.openPayment !== "1" ||
+      hasAutoOpenedPaymentRef.current ||
+      !params.draftId ||
+      isLoadingDraft ||
+      draftLoadError ||
+      !initData ||
+      cart.items.length === 0
+    ) {
+      return;
+    }
+
+    hasAutoOpenedPaymentRef.current = true;
+    openCheckout("payment");
+  }, [cart.items.length, draftLoadError, initData, isLoadingDraft, openCheckout, params.draftId, params.openPayment]);
+
   const handleToggleServiceSelection = useCallback(
     (service: ServiceListItem) => {
       const existing = cart.items.find((item) => item.itemType === "service" && item.itemId === service.id);
@@ -1100,6 +1153,9 @@ function OwnerQuickSaleScreen({
 
     try {
       if (!(await verifyAppliedCoupon())) {
+        if (!isCheckoutVisible) {
+          setSubmitError("The applied coupon changed. Open Checkout to review it before saving.");
+        }
         return;
       }
 
@@ -1109,11 +1165,12 @@ function OwnerQuickSaleScreen({
 
       const payload = buildSaleDraftPayload();
 
-      // Staff Calendar Quick Sale: book the slot as an appointment and link the
-      // pending sale to it, so the bill shows on the Calendar and staff can tap
-      // it later to take payment (they have no Sales screen to find drafts in).
+      // Calendar Quick Sale (owner or staff): book the slot as an appointment and
+      // link the pending sale to it, so the bill shows on the Calendar and can
+      // be tapped later to take payment. Staff always book, since they have no
+      // Sales screen to find drafts in.
       let appointmentId: string | undefined;
-      if (!params.draftId && isStaffExperienceUser(user)) {
+      if (!params.draftId && (embedded || isStaffExperienceUser(user))) {
         try {
           appointmentId = (await appointmentService.createAppointment(buildAppointmentPayload())).appointment.id;
         } catch (error) {
@@ -1146,6 +1203,11 @@ function OwnerQuickSaleScreen({
       }
       setIsSaleFinalized(true);
       allowExpectedExitRef.current = true;
+      if (appointmentId) {
+        // Pull the new booking into the calendar store so the slot isn't empty.
+        void dispatch(fetchAppointmentByIdThunk(appointmentId));
+        void dispatch(fetchDashboardThunk());
+      }
       router.replace({
         params: {
           draftId: savedSale.id,
@@ -1155,10 +1217,20 @@ function OwnerQuickSaleScreen({
         },
         pathname: "/quick-sale/checkout",
       });
+      onRequestClose?.();
     } finally {
       checkoutSubmission.finish();
     }
   };
+
+  // Save Pending can run from the bottom bar with the checkout sheet closed;
+  // surface its errors here since the sheet's footer isn't on screen.
+  useEffect(() => {
+    if (submitError && !isCheckoutVisible) {
+      Alert.alert("Unable to save sale", submitError);
+      setSubmitError(null);
+    }
+  }, [isCheckoutVisible, submitError]);
 
   const clearFinishedSale = () => {
     cart.clearCart();
@@ -1234,6 +1306,11 @@ function OwnerQuickSaleScreen({
       setIsCheckoutVisible(false);
       setClientPickerStartsInCreateMode(true);
       setIsClientPickerVisible(true);
+      return;
+    }
+
+    if (!selectedClient.id) {
+      setSubmitError("Select or add a client before taking payment.");
       return;
     }
 
@@ -1325,7 +1402,7 @@ function OwnerQuickSaleScreen({
     }
 
     setShouldResumeCheckoutAtCharges(false);
-    setCheckoutInitialStep("charges");
+    setCheckoutInitialStep("payment");
     setIsCheckoutVisible(true);
   }, [isClientPickerVisible, selectedClient.id, shouldResumeCheckoutAtCharges]);
 
@@ -1564,29 +1641,25 @@ function OwnerQuickSaleScreen({
               />
             )
           }
-          subtitle={initialSlot ? `${formatAppDate(`${initialSlot.date}T00:00:00`)} at ${initialSlot.time}` : formatAppDate(new Date())}
+          subtitle={initialSlot ? `${formatAppDate(`${initialSlot.date}T00:00:00`)} at ${formatAppTime(`${initialSlot.date}T${initialSlot.time}`, initialSlot.time)}` : formatAppDate(new Date())}
           title={params.draftId ? "Edit Draft" : "Quick Sale"}
         />
 
         <QuickSaleForm
-          cart={cart} selectedClient={selectedClient} redemptions={redemptions} totals={totals}
+          cart={cart} selectedClient={selectedClient} redemptions={redemptions}
           staffOptions={initData?.staff ?? []} renderInline={embedded}
           notes={saleNotes} onChangeNotes={setSaleNotes}
           pricingError={pricingError} isPricingLoading={isPricingLoading}
-          onChangeCustomer={() => { setClientPickerStartsInCreateMode(false); setIsClientPickerVisible(true); }}
+          onAddClient={() => { setClientPickerStartsInCreateMode(true); setIsClientPickerVisible(true); }}
+          onClearClient={() => { setSelectedClient(WALK_IN_CLIENT); setHasClientStepSelection(false); }}
+          onSelectClient={handleClientPickerSelect}
           onEditClientDates={() => setIsClientDatesVisible(true)}
           onAdd={(tab) => { setActiveTab(tab); handleClearGlobalSearch(); setIsCatalogVisible(true); }}
-          onMoreCharges={() => openCheckout("charges")}
           onSetQuantity={handleSetQuantity} onRemoveItem={handleRemoveItem} productStockErrors={productStockErrors}
-          tipInput={tipInput} onChangeTip={setTipInput}
-          extraCharges={{ otherCharges: otherChargesInput, serviceCharge: serviceChargeInput, convenienceFee: convenienceFeeInput }}
-          onChangeExtraCharge={(key, value) => { if(key === "otherCharges") setOtherChargesInput(value); else if(key === "serviceCharge") setServiceChargeInput(value); else setConvenienceFeeInput(value); }}
-          overallDiscountInput={overallDiscountInput} overallDiscountType={draftDiscountType} overallDiscountPercent={draftDiscountPercent}
-          onChangeOverallDiscount={(value, type, percentage) => { setOverallDiscountInput(value); setDraftDiscountType(type); setDraftDiscountPercent(percentage); }}
           packageBanner={selectedClient.id && clientPackages.status === "error" ? <PackageEligibilityBanner error={clientPackages.error} onRetry={clientPackages.retry} /> : null}
         />
         <BottomSheet avoidKeyboard title={`Add ${ITEM_TYPE_CHIPS.find((item) => item.id === activeTab)?.label.toLowerCase() ?? "items"}`} visible={isCatalogVisible} onClose={() => { setIsCatalogVisible(false); handleClearGlobalSearch(); }} renderInline={embedded} scrollable={false}
-          footer={<TouchableOpacity onPress={() => { setIsCatalogVisible(false); handleClearGlobalSearch(); }} style={styles.catalogDone}><Text style={styles.catalogDoneText}>Done · {cart.itemCount} items</Text></TouchableOpacity>}>
+          footer={<TouchableOpacity onPress={() => { setIsCatalogVisible(false); handleClearGlobalSearch(); }} style={styles.catalogDone}><Text style={styles.catalogDoneText}>Done · {cart.itemCount} {cart.itemCount === 1 ? "item" : "items"}</Text></TouchableOpacity>}>
           <View style={{ height: Math.min(520, screenHeight * 0.55), flexShrink: 1, minHeight: 0 }}>
         <View style={styles.topSection}>
           <View style={styles.catalogHeading}>
@@ -1678,9 +1751,11 @@ function OwnerQuickSaleScreen({
         {!isOverlayActive ? (
           <MiniBillBar
             disabled={cart.items.length === 0 || isPricingLoading || Boolean(pricingError) || cart.items.some(item => item.itemType === "service" && !item.staffId)}
-            grandTotal={totals.grandTotal}
+            isSaving={checkoutSubmission.isSaving}
             itemCount={cart.itemCount}
-            onCheckout={() => openCheckout("payment")}
+            onCheckout={() => { if (ensureClientSelected()) openCheckout("payment"); }}
+            onSavePending={() => { if (ensureClientSelected()) void handleSavePending(); }}
+            savePendingDisabled={cart.items.length === 0 || checkoutSubmission.isSaving || checkoutSubmission.isCheckingOut}
           />
         ) : null}
 
@@ -1804,7 +1879,7 @@ function OwnerQuickSaleScreen({
                 setIsClientPickerVisible(true);
               }
             : undefined}
-          onSavePending={() => void handleSavePending()}
+          onSavePending={() => { if (ensureClientSelected()) void handleSavePending(); }}
           onSetConsumableActualQty={handleSetConsumableActualQty}
           onSetQuantity={handleSetQuantity}
           onToggleIncludeGst={() => setIncludeGst((current) => !current)}
@@ -1828,7 +1903,7 @@ function OwnerQuickSaleScreen({
 }
 
 const createStyles = (Colors: ThemeColors) => StyleSheet.create({
-  catalogDone: { backgroundColor: Colors.primary, padding: 15, borderRadius: 14, alignItems: "center" },
+  catalogDone: { alignItems: "center", backgroundColor: Colors.primary, borderRadius: 14, flex: 1, padding: 15 },
   catalogDoneText: { color: Colors.onPrimary, fontWeight: "700" },
   safeArea: {
     backgroundColor: "#FAF6F8",
@@ -1836,7 +1911,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   topSection: {
     gap: Spacing.sm,
-    paddingHorizontal: AppLayout.contentHorizontalPadding,
     paddingTop: Spacing.md,
     zIndex: 20,
   },
@@ -1862,7 +1936,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingHorizontal: AppLayout.contentHorizontalPadding,
     paddingTop: Spacing.sm,
   },
   contentPane: {
