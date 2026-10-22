@@ -1,4 +1,4 @@
-import { Redirect, Tabs } from "expo-router";
+import { Redirect } from "expo-router";
 import { useAuth } from "@/context/AuthContext";
 import { isStaffExperienceUser, STAFF_HOME_ROUTE } from "@/utils/routeResolver";
 
@@ -21,9 +21,5 @@ export default function DashboardTabsLayout() {
   if (isLoading) return null;
   if (!user) return <Redirect href="/login" />;
   if (isStaffExperienceUser(user)) return <Redirect href={STAFF_HOME_ROUTE} />;
-  return (
-    <AppTabLayout tabs={OWNER_TABS}>
-      <Tabs.Screen name="quick-sale" options={{ href: null }} />
-    </AppTabLayout>
-  );
+  return <AppTabLayout tabs={OWNER_TABS} />;
 }

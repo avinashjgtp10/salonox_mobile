@@ -4,7 +4,7 @@ import type { BillTotals } from "@/features/quickSale/utils/calculations";
 import type { ValidateCouponResult } from "@/types/coupon";
 import type { CheckoutSaleSplitEntry, PosStaffMember, SalePaymentMethod } from "@/types/sales";
 
-export type CheckoutStep = "review" | "charges" | "payment";
+export type CheckoutStep = "review" | "payment";
 export type DiscountApplyTarget = "service" | "product" | "package" | "membership" | "entireBill";
 export type ExtraChargeKey = "convenienceFee" | "otherCharges" | "serviceCharge";
 

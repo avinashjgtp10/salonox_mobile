@@ -484,20 +484,6 @@ function CheckoutSheetComponent({
   };
 
   const handleContinueToPayment = () => {
-    if (!hasItems || chargesInvalid) {
-      return;
-    }
-
-    if (hasMissingStaff) {
-      setStaffValidationAttempted(true);
-      setCheckoutStep("review");
-      return;
-    }
-
-    setCheckoutStep("payment");
-  };
-
-  const handleContinueToCharges = () => {
     if (!hasItems) {
       return;
     }
@@ -512,7 +498,18 @@ function CheckoutSheetComponent({
       return;
     }
 
-    setCheckoutStep("charges");
+    setCheckoutStep("payment");
+  };
+
+  // Opened straight at payment (from the Checkout bar): Back returns to the
+  // Quick Sale screen. Opened from the cart review: Back returns to the review.
+  const handlePaymentBack = () => {
+    if (initialStep === "review") {
+      setCheckoutStep("review");
+      return;
+    }
+
+    requestClose();
   };
 
   useEffect(() => {
@@ -584,17 +581,11 @@ function CheckoutSheetComponent({
             <View style={styles.header}>
               <View>
                 <Text style={styles.title}>
-                  {checkoutStep === "review"
-                    ? "Review Cart"
-                    : checkoutStep === "charges"
-                      ? "Charges & Discounts"
-                      : "Payment"}
+                  {checkoutStep === "review" ? "Review Cart" : "Payment"}
                 </Text>
                 <Text style={styles.subtitle}>
                   {checkoutStep === "review"
                     ? `${items.length} line item${items.length === 1 ? "" : "s"} ready`
-                    : checkoutStep === "charges"
-                      ? `Adjustments for ${clientName(selectedClient.name)}`
                     : `Payment due ${formatCurrency(amountToCollect)}`}
                 </Text>
               </View>
@@ -688,12 +679,13 @@ function CheckoutSheetComponent({
                     ))
                   )}
                 </>
-              ) : checkoutStep === "charges" ? (
+              ) : (
                 <>
-                  <View style={styles.orderSummaryCard}>
+                  <View style={styles.paymentSummaryCard}>
                     <SummaryTile label="Client" value={clientName(selectedClient.name)} />
                     <SummaryTile label="Items" value={String(items.length)} />
-                    <SummaryTile label="Subtotal" value={formatCurrency(totals.subtotal)} />
+                    <SummaryTile label="Grand Total" value={formatCurrency(totals.grandTotal)} />
+                    <SummaryTile label="Outstanding" value={formatCurrency(dueAmount)} />
                   </View>
 
                   {benefitCards.length > 0 ? (
@@ -867,6 +859,17 @@ function CheckoutSheetComponent({
 
                   <View style={styles.formCard}>
                     <Text style={styles.sectionTitle}>Extra Charges</Text>
+                    <View style={styles.inputGroup}>
+                      <Text style={styles.inputLabel}>Tip</Text>
+                      <TextInput
+                        keyboardType="decimal-pad"
+                        onChangeText={onChangeTip}
+                        placeholder="0"
+                        placeholderTextColor={Colors.placeholder}
+                        style={styles.input}
+                        value={tipInput}
+                      />
+                    </View>
                     {(
                       [
                         { key: "serviceCharge", label: "Service Charge" },
@@ -888,13 +891,6 @@ function CheckoutSheetComponent({
                     ))}
                   </View>
                 </>
-              ) : (
-                <View style={styles.paymentSummaryCard}>
-                  <SummaryTile label="Client" value={clientName(selectedClient.name)} />
-                  <SummaryTile label="Items" value={String(items.length)} />
-                  <SummaryTile label="Grand Total" value={formatCurrency(totals.grandTotal)} />
-                  <SummaryTile label="Outstanding" value={formatCurrency(dueAmount)} />
-                </View>
               )}
 
               {checkoutStep === "payment" && totals.grandTotal > 0 ? (
@@ -1167,7 +1163,7 @@ function CheckoutSheetComponent({
                   <TouchableOpacity
                     activeOpacity={0.84}
                     disabled={isBusy}
-                    onPress={() => setCheckoutStep("charges")}
+                    onPress={handlePaymentBack}
                     style={[styles.pendingButton, isBusy && styles.buttonDisabled]}
                   >
                     <Text style={styles.pendingButtonText}>Back</Text>
@@ -1194,21 +1190,15 @@ function CheckoutSheetComponent({
                   disabled={
                     checkoutStep === "payment"
                       ? isBusy || !canCompleteSale
-                      : isBusy || !hasItems || chargesInvalid || showStaffValidation
+                      : isBusy || !hasItems || showStaffValidation
                   }
-                  onPress={
-                    checkoutStep === "payment"
-                      ? handleComplete
-                      : checkoutStep === "charges"
-                        ? handleContinueToPayment
-                        : handleContinueToCharges
-                  }
+                  onPress={checkoutStep === "payment" ? handleComplete : handleContinueToPayment}
                   style={[
                     styles.completeButton,
                     !isSuccess &&
                       (checkoutStep === "payment"
                         ? isBusy || !canCompleteSale
-                        : isBusy || !hasItems || chargesInvalid || showStaffValidation) &&
+                        : isBusy || !hasItems || showStaffValidation) &&
                       styles.buttonDisabled,
                     isSuccess && styles.completeButtonSuccess,
                   ]}
@@ -1235,9 +1225,7 @@ function CheckoutSheetComponent({
                           ? dueAmount > 0
                             ? "Record Payment"
                             : "Complete Sale"
-                          : checkoutStep === "charges"
-                            ? "Continue to Payment"
-                            : "Continue"}
+                          : "Continue to Payment"}
                       </Text>
                       <Ionicons
                         name={checkoutStep === "payment" ? "checkmark-circle" : "arrow-forward"}

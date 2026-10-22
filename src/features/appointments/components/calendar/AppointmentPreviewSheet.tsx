@@ -28,10 +28,13 @@ const ITEM_TAGS: Record<AppointmentBilledItem["type"], { bg: string; color: stri
 export function AppointmentPreviewSheet({
   appointment,
   onClose,
+  onContinueToPayment,
   readOnly = false,
 }: {
   appointment: AppointmentListItem | null;
   onClose: () => void;
+  /** Opens the appointment's pending bill at the Payment screen. */
+  onContinueToPayment?: (appointment: AppointmentListItem) => void;
   readOnly?: boolean;
 }) {
   const { staffMode, clientName } = useClientPrivacy();
@@ -77,6 +80,14 @@ export function AppointmentPreviewSheet({
   const openEditor = () => {
     onClose();
     requestAnimationFrame(() => router.push(`/appointments/${appointment.id}/edit` as Href));
+  };
+
+  // A bill saved as pending from the Calendar's Quick Sale: reopen that draft
+  // straight at its Payment screen.
+  const canContinueToPayment = Boolean(onContinueToPayment && appointment.pendingSaleId) && appointment.status !== "Cancelled";
+  const handleContinueToPayment = () => {
+    onClose();
+    onContinueToPayment?.(appointment);
   };
 
   const handleViewInvoice = () => {
@@ -292,6 +303,11 @@ export function AppointmentPreviewSheet({
                   <Text style={styles.appointmentInvoiceText}>Print Bill</Text>
                 </TouchableOpacity>
               </View>
+            ) : canContinueToPayment ? (
+              <TouchableOpacity accessibilityRole="button" activeOpacity={0.88} onPress={handleContinueToPayment} style={styles.appointmentInvoiceButton}>
+                <Ionicons name="card-outline" size={20} color={Colors.onPrimary} />
+                <Text style={styles.appointmentInvoiceText}>Continue to Payment</Text>
+              </TouchableOpacity>
             ) : (
               <TouchableOpacity activeOpacity={0.88} disabled style={[styles.appointmentInvoiceButton, styles.appointmentInvoiceDisabled]}>
                 <Ionicons name="receipt-outline" size={20} color={Colors.onPrimary} />

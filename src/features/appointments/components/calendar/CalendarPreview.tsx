@@ -17,7 +17,6 @@ import type { AppointmentListItem } from "@/types/appointment";
 import { formatAppDate, formatAppTime } from "@/utils/dateTime";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { router, type Href } from "expo-router";
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
 import { Animated, Modal, Pressable, RefreshControl, ScrollView, View, type GestureResponderEvent } from "react-native";
 
@@ -93,6 +92,18 @@ export function CalendarPreview({
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const [previewAppointment, setPreviewAppointment] = useState<AppointmentListItem | null>(null);
   const [quickSaleSlot, setQuickSaleSlot] = useState<QuickSaleSlot | null>(null);
+  // A pending bill reopened in the same embedded Quick Sale (no full-screen
+  // Quick Sale route exists any more).
+  const [quickSaleDraft, setQuickSaleDraft] = useState<{ draftId: string; openPayment: boolean } | null>(null);
+  const closeQuickSale = useCallback(() => {
+    setQuickSaleSlot(null);
+    setQuickSaleDraft(null);
+  }, []);
+  const continueToPayment = useCallback((appointment: AppointmentListItem) => {
+    if (appointment.pendingSaleId) {
+      setQuickSaleDraft({ draftId: appointment.pendingSaleId, openPayment: true });
+    }
+  }, []);
   const [viewportWidth, setViewportWidth] = useState(0);
   const days = useMemo(() => Array.from({ length: 7 }, (_, index) => {
     const value = new Date(`${date}T00:00:00`);
@@ -139,7 +150,7 @@ export function CalendarPreview({
   // bill) reopen a bill they saved as pending here to take payment.
   const openAppointment = useCallback((appointment: AppointmentListItem) => {
     if (readOnly && quickSaleEnabled && appointment.pendingSaleId) {
-      router.push(`/quick-sale?draftId=${appointment.pendingSaleId}` as Href);
+      setQuickSaleDraft({ draftId: appointment.pendingSaleId, openPayment: false });
       return;
     }
     setPreviewAppointment(appointment);
@@ -259,22 +270,31 @@ export function CalendarPreview({
       <AppointmentPreviewSheet
         appointment={previewAppointment}
         onClose={() => setPreviewAppointment(null)}
+        onContinueToPayment={quickSaleEnabled ? continueToPayment : undefined}
         readOnly={readOnly}
       />
       <Modal
         animationType="fade"
-        onRequestClose={() => setQuickSaleSlot(null)}
+        onRequestClose={closeQuickSale}
         statusBarTranslucent
         transparent
-        visible={Boolean(quickSaleSlot)}
+        visible={Boolean(quickSaleSlot || quickSaleDraft)}
       >
         <View style={styles.quickSaleModalBackdrop}>
           <View style={styles.quickSaleModalSurface}>
-            {quickSaleSlot ? (
+            {quickSaleDraft ? (
+              <QuickSaleScreen
+                draftId={quickSaleDraft.draftId}
+                embedded
+                key={quickSaleDraft.draftId}
+                onRequestClose={closeQuickSale}
+                openPayment={quickSaleDraft.openPayment}
+              />
+            ) : quickSaleSlot ? (
               <QuickSaleScreen
                 embedded
                 initialSlot={quickSaleSlot}
-                onRequestClose={() => setQuickSaleSlot(null)}
+                onRequestClose={closeQuickSale}
               />
             ) : null}
           </View>
