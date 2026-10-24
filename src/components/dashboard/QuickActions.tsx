@@ -7,6 +7,8 @@ import { TourButton } from "@/features/userGuide/DashboardTour";
 
 import type { ThemeColors } from "@/constants/theme";
 import { useThemeColors } from "@/theme/ThemeProvider";
+import { OWNER_CALENDAR_ROUTE } from "@/utils/routeResolver";
+import { requestQuickSaleLaunch } from "@/features/quickSale/utils/quickSaleLaunch";
 
 const getActions = (
   Colors: ThemeColors,
@@ -14,10 +16,22 @@ const getActions = (
   icon: keyof typeof Ionicons.glyphMap;
   iconBg: string;
   label: string;
+  onPress?: () => void;
   route: Href;
 }[] => [
   { label: "Appointment", icon: "calendar-number-outline", iconBg: Colors.dashboardAppointmentBg, route: "/bookings/new" as Href },
-  { label: "Client", icon: "person-add-outline", iconBg: Colors.dashboardClientBg, route: "/clients/new" as Href },
+  // Opens the Calendar tab with Quick Sale already open at today's current
+  // slot (staff chosen inside Quick Sale).
+  {
+    label: "Quick Sale",
+    icon: "flash-outline",
+    iconBg: Colors.dashboardClientBg,
+    onPress: () => {
+      requestQuickSaleLaunch();
+      router.navigate(OWNER_CALENDAR_ROUTE);
+    },
+    route: OWNER_CALENDAR_ROUTE,
+  },
   { label: "Reports", icon: "stats-chart-outline", iconBg: Colors.dashboardWarningBg, route: "/reports" as Href },
   { label: "Attendance", icon: "checkmark-circle-outline", iconBg: Colors.dashboardAppointmentBg, route: "/team/attendance" as Href },
 ];
@@ -33,7 +47,7 @@ export default function QuickActions() {
         <TourButton tourId={action.label}
           key={action.label}
           activeOpacity={0.7}
-          onPress={() => router.push(action.route)}
+          onPress={action.onPress ?? (() => router.push(action.route))}
           style={styles.btn}
         >
           <View style={[styles.icon, { backgroundColor: action.iconBg }]}>

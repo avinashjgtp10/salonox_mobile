@@ -17,7 +17,8 @@ import type { AppointmentListItem } from "@/types/appointment";
 import { formatAppDate, formatAppTime } from "@/utils/dateTime";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ComponentProps } from "react";
+import { consumeQuickSaleLaunch, getQuickSaleLaunch, subscribeQuickSaleLaunch } from "@/features/quickSale/utils/quickSaleLaunch";
 import { Animated, Modal, Pressable, RefreshControl, ScrollView, View, type GestureResponderEvent } from "react-native";
 
 type CalendarStyles = ReturnType<typeof createStyles>;
@@ -168,6 +169,22 @@ export function CalendarPreview({
       time: `${pad2(hour)}:${pad2(minute)}`,
     });
   }, [quickSaleEnabled]);
+
+  // Dashboard "Quick Sale": open it now, as if today's current slot were
+  // tapped, with a Staff dropdown since no column chose the staff.
+  const quickSaleLaunch = useSyncExternalStore(subscribeQuickSaleLaunch, getQuickSaleLaunch);
+  useEffect(() => {
+    if (!quickSaleLaunch || !quickSaleEnabled) return;
+    consumeQuickSaleLaunch();
+    const now = new Date();
+    const minutes = Math.floor(now.getMinutes() / SLOT_MINUTES) * SLOT_MINUTES;
+    setQuickSaleDraft(null);
+    setQuickSaleSlot({
+      date: `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`,
+      pickStaff: true,
+      time: `${pad2(now.getHours())}:${pad2(minutes)}`,
+    });
+  }, [quickSaleEnabled, quickSaleLaunch]);
 
   useEffect(() => {
     if (viewMode === "list") return;

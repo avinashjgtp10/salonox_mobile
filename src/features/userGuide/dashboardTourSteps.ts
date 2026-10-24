@@ -7,7 +7,7 @@ export const dashboardTourSteps = [
   { target: "Bookings", title: "Your bookings", description: "Tap this card to browse bookings and review appointment details." },
   { target: "This Month vs Last Month", title: "Compare your revenue", description: "Compare this month's revenue with last month and see the change." },
   { target: "Appointment", title: "Book an appointment", description: "Use this shortcut to start a new appointment for a client." },
-  { target: "Client", title: "Add a client", description: "Use this button to create a client profile." },
+  { target: "Quick Sale", title: "Quick Sale", description: "Use this button to open the Calendar and start a Quick Sale right away." },
   { target: "Reports", title: "Check your reports", description: "Open reports to review your salon's business performance." },
   { target: "Attendance", title: "Manage attendance", description: "Check staff in or out and review today's attendance. You can replay this tour anytime." },
 ] as const;
