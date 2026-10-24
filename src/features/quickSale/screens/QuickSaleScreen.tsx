@@ -54,11 +54,21 @@ import { useQuickSalePricing } from "@/features/quickSale/hooks/useQuickSalePric
 import { useRedemptions } from "@/features/quickSale/hooks/useRedemptions";
 import {
   WALK_IN_CLIENT,
+  type CartItem,
   type CheckoutInitialStep,
   type PendingCheckoutPayment,
   type QuickSaleClient,
   type QuickSaleScreenProps,
+  type QuickSaleSlot,
 } from "@/features/quickSale/types";
+import {
+  mapAppointmentToCartItems,
+  mapAppointmentToClient,
+  mapAppointmentToSlot,
+  mapAppointmentToStaff,
+  mergeWithAppointmentRows,
+} from "@/features/quickSale/utils/appointmentHydration";
+import type { AppointmentListItem } from "@/types/appointment";
 import { ITEM_TYPE_CHIPS, type CatalogTab } from "@/features/quickSale/constants";
 import { clientFromListItem } from "@/features/quickSale/utils/client";
 import {
@@ -158,6 +168,7 @@ function EmbeddedQuickSaleScreen(props: QuickSaleScreenProps) {
 }
 
 function OwnerQuickSaleScreen({
+  appointmentId: appointmentIdProp,
   draftId: draftIdProp,
   embedded = false,
   initialSlot = null,
@@ -169,13 +180,16 @@ function OwnerQuickSaleScreen({
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
   const navigation = useNavigation();
-  const routeParams = useLocalSearchParams<{ draftId?: string; openPayment?: string; resetSale?: string }>();
+  const routeParams = useLocalSearchParams<{ appointmentId?: string; draftId?: string; openPayment?: string; resetSale?: string }>();
   // The Calendar opens a pending bill in its embedded Quick Sale via props.
   const params = {
     ...routeParams,
+    appointmentId: appointmentIdProp ?? routeParams.appointmentId,
     draftId: draftIdProp ?? routeParams.draftId,
     openPayment: openPaymentProp ? "1" : routeParams.openPayment,
   };
+  // Billing an already-booked appointment (no draft sale involved).
+  const isExistingBill = Boolean(params.draftId || params.appointmentId);
   const { user } = useAuth();
   // Staff (Calendar & Quick Sale access) can't open the owner's Sales or
   // Dashboard screens, so their exits go back to their Calendar instead.
@@ -200,7 +214,7 @@ function OwnerQuickSaleScreen({
   const [selectedClient, setSelectedClient] = useState<QuickSaleClient>(WALK_IN_CLIENT);
   const redemptions = useRedemptions(selectedClient.id, salonId);
   const [isCatalogVisible, setIsCatalogVisible] = useState(false);
-  const [hasClientStepSelection, setHasClientStepSelection] = useState(Boolean(params.draftId));
+  const [hasClientStepSelection, setHasClientStepSelection] = useState(isExistingBill);
   const [selectedQuickSaleStaff, setSelectedQuickSaleStaff] = useState<PosStaffMember | null>(null);
   const [isClientPickerVisible, setIsClientPickerVisible] = useState(false);
   const [isClientDatesVisible, setIsClientDatesVisible] = useState(false);
@@ -213,7 +227,10 @@ function OwnerQuickSaleScreen({
   const [checkoutInitialStep, setCheckoutInitialStep] = useState<CheckoutInitialStep>("payment");
   const [shouldShowCheckoutStaffValidation, setShouldShowCheckoutStaffValidation] = useState(false);
   const [isDeletingDraft, setIsDeletingDraft] = useState(false);
-  const [isLoadingDraft, setIsLoadingDraft] = useState(Boolean(params.draftId));
+  const [isLoadingDraft, setIsLoadingDraft] = useState(isExistingBill);
+  // An existing appointment keeps its own booked slot when it is paid.
+  const [appointmentSlot, setAppointmentSlot] = useState<QuickSaleSlot | null>(null);
+  const loadedAppointmentRef = useRef<AppointmentListItem | null>(null);
   const [draftLoadError, setDraftLoadError] = useState<string | null>(null);
   const [draftDiscountType, setDraftDiscountType] = useState<"flat" | "percentage">("percentage");
   const [draftDiscountPercent, setDraftDiscountPercent] = useState(0);
@@ -228,7 +245,7 @@ function OwnerQuickSaleScreen({
   const undoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clientPickerOpenTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dirtyBaselineRef = useRef<string | null>(
-    params.draftId ? null : EMPTY_QUICK_SALE_DIRTY_SIGNATURE,
+    isExistingBill ? null : EMPTY_QUICK_SALE_DIRTY_SIGNATURE,
   );
   const discardDialogVisibleRef = useRef(false);
   const pendingDiscardRef = useRef<(() => void) | null>(null);
@@ -333,9 +350,79 @@ function OwnerQuickSaleScreen({
     [],
   );
 
+  const restoreProductStock = useCallback(async (items: CartItem[]) => {
+    const productIds = items
+      .filter((item) => item.itemType === "product" && item.itemId)
+      .map((item) => item.itemId);
+    if (productIds.length === 0) return;
+
+    const products = await Promise.allSettled(
+      Array.from(new Set(productIds)).map((productId) => productService.fetchProductById(productId)),
+    );
+    setProductStock(
+      Object.fromEntries(
+        products.flatMap((product) =>
+          product.status === "fulfilled"
+            ? [[product.value.id, product.value.stockQuantity] as const]
+            : [],
+        ),
+      ),
+    );
+  }, [setProductStock]);
+
+  // Web "Continue to Payment": bill an existing booking. Its rows become the
+  // cart (package / product / membership lines included) and checkout later
+  // updates, pays and checks out this same appointment — never a draft sale.
+  const loadAppointmentBill = useCallback(async (appointmentId: string) => {
+    setIsLoadingDraft(true);
+    setDraftLoadError(null);
+
+    let appointment: AppointmentListItem;
+    try {
+      ({ appointment } = await appointmentService.getAppointment(appointmentId));
+    } catch (error) {
+      setDraftLoadError(getApiErrorMessage(error));
+      setIsLoadingDraft(false);
+      return;
+    }
+
+    const restoredItems = mapAppointmentToCartItems(appointment);
+    loadedAppointmentRef.current = appointment;
+    const { raw } = appointment;
+    const discountValue = Math.max(0, Number(raw.discount_value) || 0);
+    const discountType = String(raw.discount_type).toLowerCase() === "percentage" ? "percentage" : "flat";
+
+    hydrateCart(restoredItems);
+    setAppointmentSlot(mapAppointmentToSlot(appointment));
+    setSelectedQuickSaleStaff(mapAppointmentToStaff(appointment));
+    setSelectedClient(mapAppointmentToClient(appointment) ?? WALK_IN_CLIENT);
+    setHasClientStepSelection(true);
+    setSaleNotes(appointment.notes ?? "");
+    setTipInput(String(Number(raw.tip_amount) || ""));
+    setOtherChargesInput(String(Number(raw.ex_charges) || ""));
+    setServiceChargeInput("");
+    setConvenienceFeeInput("");
+    // The bill's own "Include GST" choice — GST is added unless it was turned off.
+    setIncludeGst(raw.include_gst !== false);
+    setDraftDiscountType(discountType);
+    setDraftDiscountPercent(discountType === "percentage" ? discountValue : 0);
+    setOverallDiscountInput(discountType === "flat" && discountValue > 0 ? String(discountValue) : "");
+    if (discountType === "percentage" && discountValue > 0) setDiscountApplyTo(["entireBill"]);
+    setCouponError(null);
+    setAppliedCoupon(null);
+    setCouponCode("");
+
+    await restoreProductStock(restoredItems);
+    setIsLoadingDraft(false);
+  }, [hydrateCart, restoreProductStock]);
+
   const loadDraft = useCallback(async () => {
     const draftId = params.draftId;
     if (!draftId) {
+      if (params.appointmentId) {
+        await loadAppointmentBill(params.appointmentId);
+        return;
+      }
       setIsLoadingDraft(false);
       setDraftLoadError(null);
       return;
@@ -403,26 +490,9 @@ function OwnerQuickSaleScreen({
         ? `${sale.couponCode.toUpperCase()}|${Math.max(0, sale.subtotal)}`
         : null;
 
-    const productIds = restoredItems
-      .filter((item) => item.itemType === "product" && item.itemId)
-      .map((item) => item.itemId);
-    if (productIds.length > 0) {
-      const products = await Promise.allSettled(
-        Array.from(new Set(productIds)).map((productId) => productService.fetchProductById(productId)),
-      );
-      setProductStock(
-        Object.fromEntries(
-          products.flatMap((product) =>
-            product.status === "fulfilled"
-              ? [[product.value.id, product.value.stockQuantity] as const]
-              : [],
-          ),
-        ),
-      );
-    }
-
+    await restoreProductStock(restoredItems);
     setIsLoadingDraft(false);
-  }, [dispatch, hydrateCart, params.draftId, setProductStock]);
+  }, [dispatch, hydrateCart, loadAppointmentBill, params.appointmentId, params.draftId, restoreProductStock]);
 
   useEffect(() => {
     void loadDraft();
@@ -430,14 +500,14 @@ function OwnerQuickSaleScreen({
 
   useEffect(() => {
     if (
-      params.draftId &&
+      isExistingBill &&
       !isLoadingDraft &&
       !draftLoadError &&
       dirtyBaselineRef.current === null
     ) {
       dirtyBaselineRef.current = dirtySignature;
     }
-  }, [dirtySignature, draftLoadError, isLoadingDraft, params.draftId]);
+  }, [dirtySignature, draftLoadError, isExistingBill, isLoadingDraft]);
 
   const usesEntireBillDiscount = discountApplyTo.includes("entireBill");
   const effectiveDiscountType = draftDiscountType === "percentage" && usesEntireBillDiscount
@@ -926,7 +996,7 @@ function OwnerQuickSaleScreen({
     if (
       params.openPayment !== "1" ||
       hasAutoOpenedPaymentRef.current ||
-      !params.draftId ||
+      !isExistingBill ||
       isLoadingDraft ||
       draftLoadError ||
       !initData ||
@@ -937,7 +1007,7 @@ function OwnerQuickSaleScreen({
 
     hasAutoOpenedPaymentRef.current = true;
     openCheckout("payment");
-  }, [cart.items.length, draftLoadError, initData, isLoadingDraft, openCheckout, params.draftId, params.openPayment]);
+  }, [cart.items.length, draftLoadError, initData, isExistingBill, isLoadingDraft, openCheckout, params.openPayment]);
 
   const handleToggleServiceSelection = useCallback(
     (service: ServiceListItem) => {
@@ -1019,17 +1089,26 @@ function OwnerQuickSaleScreen({
   ]);
 
   const buildAppointmentPayload = useCallback(() => {
-    return mapAppointmentPayload({
+    const payload = mapAppointmentPayload({
       cartItems: cart.items,
       clientId: selectedClient.id,
       discountApplyTo,
-      initialSlot,
+      initialSlot: appointmentSlot ?? initialSlot,
       notes: saleNotes,
       salonId,
       staffId: getQuickSaleStaff(),
       totals,
     });
+    const existing = loadedAppointmentRef.current;
+    if (!params.appointmentId || !existing) return payload;
+    // Saving an existing booking: keep its status (never reset to "booked")
+    // and lay each row over the stored one so unmodelled fields survive.
+    // Only ever sent through updateAppointment (status is optional there).
+    const { status: _status, ...withoutStatus } = mergeWithAppointmentRows(payload, existing);
+    return withoutStatus as typeof payload;
   }, [
+    params.appointmentId,
+    appointmentSlot,
     cart.items,
     getQuickSaleStaff,
     discountApplyTo,
@@ -1160,6 +1239,27 @@ function OwnerQuickSaleScreen({
       }
 
       if (!(await verifyProductStock())) {
+        return;
+      }
+
+      // Existing booking: "save" means saving the appointment itself (web
+      // parity) — a draft sale is never created for it.
+      if (params.appointmentId) {
+        try {
+          await appointmentService.updateAppointment(params.appointmentId, buildAppointmentPayload());
+        } catch (error) {
+          setSubmitError(getApiErrorMessage(error));
+          return;
+        }
+        setIsCheckoutVisible(false);
+        if (!checkoutSubmission.commitSuccess()) {
+          return;
+        }
+        setIsSaleFinalized(true);
+        allowExpectedExitRef.current = true;
+        void dispatch(fetchAppointmentByIdThunk(params.appointmentId));
+        if (onRequestClose) onRequestClose();
+        else if (router.canGoBack()) router.back();
         return;
       }
 
@@ -1362,7 +1462,11 @@ function OwnerQuickSaleScreen({
             },
             {
               checkoutAppointment: appointmentService.checkoutAppointment,
-              createAppointment: appointmentService.createAppointment,
+              // An existing booking is saved (its current cart) rather than
+              // created again — same order as the web: save, pay, checkout.
+              createAppointment: params.appointmentId
+                ? (payload) => appointmentService.updateAppointment(params.appointmentId!, payload)
+                : appointmentService.createAppointment,
               createPayment: paymentService.createPayment,
               fetchSaleTotal: async (saleId) => {
                 const action = await dispatch(fetchSaleByIdThunk(saleId));

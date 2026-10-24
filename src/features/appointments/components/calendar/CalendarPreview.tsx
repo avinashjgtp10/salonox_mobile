@@ -18,8 +18,7 @@ import { formatAppDate, formatAppTime } from "@/utils/dateTime";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
-import { Alert, Animated, Modal, Pressable, RefreshControl, ScrollView, View, type GestureResponderEvent } from "react-native";
-import { useAppointmentPendingSale } from "@/features/appointments/hooks/useAppointmentPendingSale";
+import { Animated, Modal, Pressable, RefreshControl, ScrollView, View, type GestureResponderEvent } from "react-native";
 
 type CalendarStyles = ReturnType<typeof createStyles>;
 
@@ -95,22 +94,18 @@ export function CalendarPreview({
   const [quickSaleSlot, setQuickSaleSlot] = useState<QuickSaleSlot | null>(null);
   // A pending bill reopened in the same embedded Quick Sale (no full-screen
   // Quick Sale route exists any more).
-  const [quickSaleDraft, setQuickSaleDraft] = useState<{ draftId: string; openPayment: boolean } | null>(null);
+  const [quickSaleDraft, setQuickSaleDraft] = useState<{ appointmentId?: string; draftId?: string; openPayment: boolean } | null>(null);
   const closeQuickSale = useCallback(() => {
     setQuickSaleSlot(null);
     setQuickSaleDraft(null);
   }, []);
-  const { ensurePendingSale } = useAppointmentPendingSale();
-  const continueToPayment = useCallback(async (appointment: AppointmentListItem) => {
-    // Bookings made from the appointment form have no pending bill yet —
-    // create it from the appointment's items, then open it like Quick Sale.
-    const { draftId, error } = await ensurePendingSale(appointment);
-    if (draftId) {
-      setQuickSaleDraft({ draftId, openPayment: true });
-    } else {
-      Alert.alert("Unable to continue", error);
-    }
-  }, [ensurePendingSale]);
+  const continueToPayment = useCallback((appointment: AppointmentListItem) => {
+    // A Quick Sale booking reopens its pending bill; any other booking is
+    // billed directly (web parity: save → pay → checkout the appointment).
+    setQuickSaleDraft(appointment.pendingSaleId
+      ? { draftId: appointment.pendingSaleId, openPayment: true }
+      : { appointmentId: appointment.id, openPayment: true });
+  }, []);
   const [viewportWidth, setViewportWidth] = useState(0);
   const days = useMemo(() => Array.from({ length: 7 }, (_, index) => {
     const value = new Date(`${date}T00:00:00`);
@@ -291,9 +286,10 @@ export function CalendarPreview({
           <View style={styles.quickSaleModalSurface}>
             {quickSaleDraft ? (
               <QuickSaleScreen
+                appointmentId={quickSaleDraft.appointmentId}
                 draftId={quickSaleDraft.draftId}
                 embedded
-                key={quickSaleDraft.draftId}
+                key={quickSaleDraft.draftId ?? quickSaleDraft.appointmentId}
                 onRequestClose={closeQuickSale}
                 openPayment={quickSaleDraft.openPayment}
               />
