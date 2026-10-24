@@ -59,9 +59,11 @@ export const toInputTime = (value: string | null) => {
     return "";
   }
 
-  const parsedDate = new Date(value);
+  // Same parser as toInputDate: API datetimes are UTC, often without a "Z" or
+  // with a space separator that Hermes can't parse (which used to yield "2026-").
+  const parsedDate = /^\d{4}-\d{2}-\d{2}/.test(value.trim()) ? parseAppointmentDateTime(value) : null;
 
-  if (Number.isNaN(parsedDate.getTime())) {
+  if (!parsedDate) {
     return value.slice(0, 5);
   }
 

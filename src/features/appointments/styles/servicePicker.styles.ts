@@ -60,7 +60,7 @@ export const createServicePickerStyles = (Colors: ThemeColors) => StyleSheet.cre
     minHeight: 54,
   },
   servicePickerContinueText: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
     fontSize: 16,
     fontWeight: "900",
   },
@@ -269,6 +269,9 @@ export const createServicePickerStyles = (Colors: ThemeColors) => StyleSheet.cre
     fontWeight: "600",
     marginBottom: 10,
   },
+  servicePickerSectionLabel: {
+    marginTop: 20,
+  },
   servicePickerSelect: {
     alignItems: "center",
     backgroundColor: Colors.appointmentSurface,
@@ -287,6 +290,16 @@ export const createServicePickerStyles = (Colors: ThemeColors) => StyleSheet.cre
   },
   servicePickerSelectPlaceholder: {
     color: Colors.appointmentPlaceholder,
+    fontWeight: "600",
+  },
+  servicePickerSelectCopy: {
+    flex: 1,
+  },
+  servicePickerSelectCaption: {
+    color: Colors.appointmentTextSecondary,
+    fontSize: 12,
+    fontWeight: "600",
+    marginBottom: 2,
   },
   servicePickerSearch: {
     alignItems: "center",
@@ -303,6 +316,61 @@ export const createServicePickerStyles = (Colors: ThemeColors) => StyleSheet.cre
     flex: 1,
     fontSize: 16,
     minHeight: 56,
+  },
+  itemKindTabRow: {
+    backgroundColor: Colors.appointmentSurface,
+    borderColor: Colors.appointmentBorder,
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: "row",
+    marginBottom: 16,
+    padding: 4,
+  },
+  itemKindTab: {
+    alignItems: "center",
+    borderRadius: 999,
+    flexGrow: 1,
+    justifyContent: "center",
+    minHeight: 38,
+    paddingHorizontal: 8,
+  },
+  itemKindTabActive: {
+    backgroundColor: Colors.appointmentAccent,
+  },
+  itemKindTabText: {
+    color: Colors.appointmentTextSecondary,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  itemKindTabTextActive: {
+    color: Colors.onPrimary,
+  },
+  addedItemsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 12,
+  },
+  addedItemChip: {
+    alignItems: "center",
+    backgroundColor: Colors.appointmentSurface,
+    borderColor: Colors.appointmentAccent,
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  addedItemChipText: {
+    color: Colors.appointmentText,
+    fontSize: 13,
+    fontWeight: "600",
+    maxWidth: 180,
+  },
+  catalogTabBody: {
+    flex: 1,
+    marginTop: 12,
   },
   serviceCategoryScroll: {
     flexGrow: 0,

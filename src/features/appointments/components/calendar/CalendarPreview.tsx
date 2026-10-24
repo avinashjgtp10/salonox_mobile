@@ -18,7 +18,8 @@ import { formatAppDate, formatAppTime } from "@/utils/dateTime";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
-import { Animated, Modal, Pressable, RefreshControl, ScrollView, View, type GestureResponderEvent } from "react-native";
+import { Alert, Animated, Modal, Pressable, RefreshControl, ScrollView, View, type GestureResponderEvent } from "react-native";
+import { useAppointmentPendingSale } from "@/features/appointments/hooks/useAppointmentPendingSale";
 
 type CalendarStyles = ReturnType<typeof createStyles>;
 
@@ -99,11 +100,17 @@ export function CalendarPreview({
     setQuickSaleSlot(null);
     setQuickSaleDraft(null);
   }, []);
-  const continueToPayment = useCallback((appointment: AppointmentListItem) => {
-    if (appointment.pendingSaleId) {
-      setQuickSaleDraft({ draftId: appointment.pendingSaleId, openPayment: true });
+  const { ensurePendingSale } = useAppointmentPendingSale();
+  const continueToPayment = useCallback(async (appointment: AppointmentListItem) => {
+    // Bookings made from the appointment form have no pending bill yet —
+    // create it from the appointment's items, then open it like Quick Sale.
+    const { draftId, error } = await ensurePendingSale(appointment);
+    if (draftId) {
+      setQuickSaleDraft({ draftId, openPayment: true });
+    } else {
+      Alert.alert("Unable to continue", error);
     }
-  }, []);
+  }, [ensurePendingSale]);
   const [viewportWidth, setViewportWidth] = useState(0);
   const days = useMemo(() => Array.from({ length: 7 }, (_, index) => {
     const value = new Date(`${date}T00:00:00`);
