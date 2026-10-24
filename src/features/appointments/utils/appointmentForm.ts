@@ -7,6 +7,7 @@ import type { ServiceListItem } from "@/types/service";
 
 import type {
   AppointmentFormState,
+  AppointmentItemKind,
   AppointmentSelectedService,
   FormErrors,
 } from "../types/appointmentForm";
@@ -107,7 +108,50 @@ const parseConsumablesFromApi = (
   return parsed.length > 0 ? parsed : undefined;
 };
 
+const EXTRA_ITEM_SOURCES: { idKey: string; key: "product_items" | "membership_items" | "package_items"; kind: AppointmentItemKind }[] = [
+  { idKey: "product_id", key: "product_items", kind: "product" },
+  { idKey: "membership_id", key: "membership_items", kind: "membership" },
+  { idKey: "package_id", key: "package_items", kind: "package" },
+];
+
+const appointmentExtraItemsToSelected = (appointment?: AppointmentListItem): AppointmentSelectedService[] =>
+  EXTRA_ITEM_SOURCES.flatMap(({ idKey, key, kind }) => {
+    const rows = appointment?.raw[key];
+    if (!Array.isArray(rows)) {
+      return [];
+    }
+
+    return rows.map((row, index): AppointmentSelectedService => {
+      const record = row as Record<string, unknown>;
+      const catalogServiceId = toOptionalStringValue(record[idKey]) ?? `existing-${kind}-${index + 1}`;
+
+      return {
+        catalogServiceId,
+        category: null,
+        categoryId: toOptionalStringValue(record.category_id) ?? null,
+        createdAt: null,
+        discount: toOptionalNumber(record.discount),
+        durationMinutes: null,
+        id: `${kind}:${catalogServiceId}:${index}`,
+        isActive: true,
+        itemKind: kind,
+        name: toOptionalStringValue(record.name) ?? kind,
+        price: toOptionalNumber(record.price) ?? 0,
+        quantity: toOptionalNumber(record.quantity) ?? 1,
+        rawItem: record,
+        total: toOptionalNumber(record.total),
+      };
+    });
+  });
+
 export const appointmentServicesToSelectedServices = (
+  appointment?: AppointmentListItem,
+): AppointmentSelectedService[] => [
+  ...appointmentServiceRowsToSelected(appointment),
+  ...appointmentExtraItemsToSelected(appointment),
+];
+
+const appointmentServiceRowsToSelected = (
   appointment?: AppointmentListItem,
 ): AppointmentSelectedService[] => {
   const rawServices = Array.isArray(appointment?.raw.services)
@@ -157,7 +201,8 @@ export const appointmentServicesToSelectedServices = (
     });
   }
 
-  if (!appointment?.serviceName) {
+  const hasExtraItems = EXTRA_ITEM_SOURCES.some(({ key }) => (appointment?.raw[key]?.length ?? 0) > 0);
+  if (!appointment?.serviceName || hasExtraItems) {
     return [];
   }
 

@@ -1149,7 +1149,7 @@ function CheckoutSheetComponent({
               </View>
             </ScrollView>
 
-            <View style={styles.footer}>
+            <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 10) + Spacing.sm }]}>
               {pricingError ? <Text style={styles.footerError}>Pricing error: {pricingError}</Text> : null}
               {submitError ? <Text style={styles.footerError}>{submitError}</Text> : null}
               {isSuccess ? (
@@ -1164,7 +1164,7 @@ function CheckoutSheetComponent({
                     activeOpacity={0.84}
                     disabled={isBusy}
                     onPress={handlePaymentBack}
-                    style={[styles.pendingButton, isBusy && styles.buttonDisabled]}
+                    style={[styles.pendingButton, isBusy && styles.footerButtonDisabled]}
                   >
                     <Text style={styles.pendingButtonText}>Back</Text>
                   </TouchableOpacity>
@@ -1175,7 +1175,7 @@ function CheckoutSheetComponent({
                     onPress={onSavePending}
                     style={[
                       styles.pendingButton,
-                      (isBusy || !hasItems || chargesInvalid) && styles.buttonDisabled,
+                      (isBusy || !hasItems || chargesInvalid) && styles.footerButtonDisabled,
                     ]}
                   >
                     {isSaving ? (
@@ -1199,7 +1199,7 @@ function CheckoutSheetComponent({
                       (checkoutStep === "payment"
                         ? isBusy || !canCompleteSale
                         : isBusy || !hasItems || showStaffValidation) &&
-                      styles.buttonDisabled,
+                      styles.footerButtonDisabled,
                     isSuccess && styles.completeButtonSuccess,
                   ]}
                 >
@@ -2608,18 +2608,27 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "800",
     marginTop: Spacing.sm,
   },
+  // Buttons float over the scroll content (scrollContent reserves the room) —
+  // no white strip behind them.
   footer: {
-    backgroundColor: Colors.card,
-    borderTopColor: Colors.border,
-    borderTopWidth: 1,
+    bottom: 0,
+    left: 0,
     paddingHorizontal: Spacing.xl,
     paddingTop: Spacing.md,
+    position: "absolute",
+    right: 0,
   },
   footerError: {
+    alignSelf: "flex-start",
+    backgroundColor: Colors.errorBg,
+    borderRadius: Radius.full,
     color: Colors.error,
     fontSize: 12,
     fontWeight: "800",
     marginBottom: Spacing.sm,
+    overflow: "hidden",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
   },
   successBanner: {
     alignItems: "center",
@@ -2673,5 +2682,12 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.48,
+  },
+  // Solid, not translucent: the footer floats over the scroll content, so an
+  // opacity-dimmed button would let the fields behind it show through.
+  footerButtonDisabled: {
+    backgroundColor: Colors.bg2,
+    borderColor: Colors.border,
+    borderWidth: 1,
   },
 });

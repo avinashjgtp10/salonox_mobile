@@ -130,7 +130,7 @@ export const createFormFieldsStyles = (Colors: ThemeColors) => StyleSheet.create
   dateButtonText: {
     color: Colors.appointmentText,
     flex: 1,
-    fontSize: 10,
+    fontSize: 14,
     fontWeight: "600",
   },
   inputError: {

@@ -1,11 +1,17 @@
 import { Text } from "@/components/ui/AppTypography";
 import { createStyles } from "@/features/appointments/styles/appointmentStyles";
 import { formatCurrency, formatDurationLabel, getServicePricingTotals } from "@/features/appointments/utils/appointmentForm";
+import type { AppointmentItemKind, AppointmentSelectedService } from "@/features/appointments/types/appointmentForm";
 import { useThemeColors } from "@/theme/ThemeProvider";
-import type { ServiceListItem } from "@/types/service";
 import { Ionicons } from "@expo/vector-icons";
 import { useMemo } from "react";
 import { TouchableOpacity, View } from "react-native";
+
+const ITEM_KIND_META: Record<AppointmentItemKind, { icon: keyof typeof Ionicons.glyphMap; label: string }> = {
+  membership: { icon: "card-outline", label: "Membership" },
+  package: { icon: "albums-outline", label: "Package" },
+  product: { icon: "cube-outline", label: "Product" },
+};
 
 export function SelectedServicesPanel({
   onRemove,
@@ -16,7 +22,7 @@ export function SelectedServicesPanel({
 }: {
   onRemove: (serviceId: string) => void;
   pricingTotals: ReturnType<typeof getServicePricingTotals>;
-  services: ServiceListItem[];
+  services: AppointmentSelectedService[];
   totalDuration: number;
   totalPrice: number;
 }) {
@@ -43,12 +49,14 @@ export function SelectedServicesPanel({
             style={[styles.selectedServiceCard, styles.selectedServiceCardActive]}
           >
             <View style={styles.selectedServiceIcon}>
-              <Ionicons name="cut-outline" size={18} color={Colors.primaryText} />
+              <Ionicons name={service.itemKind ? ITEM_KIND_META[service.itemKind].icon : "cut-outline"} size={18} color={Colors.primaryText} />
             </View>
             <View style={styles.selectedServiceCopy}>
               <Text numberOfLines={1} style={styles.selectedServiceName}>{service.name}</Text>
               <Text style={styles.selectedServiceMeta}>
-                {[service.itemType, formatDurationLabel(service.durationMinutes)].filter(Boolean).join(" | ")}
+                {service.itemKind
+                  ? ITEM_KIND_META[service.itemKind].label
+                  : [service.itemType, formatDurationLabel(service.durationMinutes)].filter(Boolean).join(" | ")}
               </Text>
               <Text style={styles.selectedServicePrice}>{formatCurrency(service.price)}</Text>
             </View>

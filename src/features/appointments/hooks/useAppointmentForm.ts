@@ -2,7 +2,7 @@ import { TextInput } from "@/components/ui/AppTypography";
 import { CLIENT_SEARCH_DEBOUNCE_MS, CLIENT_SEARCH_MIN_LETTERS, CLIENT_SEARCH_RESULT_LIMIT, STAFF_AVAILABILITY_REALTIME_ENTITIES } from "@/features/appointments/constants/appointmentConstants";
 import { useAllStaffMembers } from "@/features/appointments/hooks/useAllStaffMembers";
 import { createStyles } from "@/features/appointments/styles/appointmentStyles";
-import type { AppointmentFormState, AppointmentSelectedService, ClientBookingMode, FormErrors } from "@/features/appointments/types/appointmentForm";
+import type { AppointmentFormState, AppointmentItemKind, AppointmentSelectedService, ClientBookingMode, FormErrors } from "@/features/appointments/types/appointmentForm";
 import { addMinutesToTime, combineDateTime, getDefaultTimeSlots, minutesToDisplayTime, parseClockToMinutes, toInputDate, toInputTime, validateDate, validateTime } from "@/features/appointments/utils/appointmentDateTime";
 import { appointmentServicesToSelectedServices, appointmentToForm, getSelectedServiceCatalogId, getServicePricingTotals, validateForm } from "@/features/appointments/utils/appointmentForm";
 import { APPOINTMENT_VALIDATION_FIELD_ORDER, getAppointmentPaymentStatus } from "@/features/appointments/utils/appointmentScreenHelpers";
@@ -465,7 +465,7 @@ export function useAppointmentForm(mode: 'create' | 'edit') {
   }, [clients, dispatch, mode, returnedClientId]);
 
   useEffect(() => {
-    const firstService = selectedServices[0];
+    const firstService = selectedServices.find((service) => !service.itemKind);
     const firstServiceId = firstService ? getSelectedServiceCatalogId(firstService) : "";
     const nextDuration = selectedServices.reduce(
       (total, service) => total + Math.max(service.durationMinutes ?? 0, 0),
@@ -479,7 +479,9 @@ export function useAppointmentForm(mode: 'create' | 'edit') {
         duration: nextDuration > 0 ? String(nextDuration) : "",
         price: String(nextPrice),
         serviceId: firstServiceId,
-        serviceName: selectedServices.map((service) => service.name).join(", "),
+        serviceName: (firstService ? selectedServices.filter((service) => !service.itemKind) : selectedServices)
+          .map((service) => service.name)
+          .join(", "),
       };
 
       if (selectedServices.length === 0) {
@@ -578,8 +580,10 @@ export function useAppointmentForm(mode: 'create' | 'edit') {
     clientSearchInputRef.current?.blur();
     Keyboard.dismiss();
     setSelectedServices((current) => {
-      if (current.some((selectedService) => getSelectedServiceCatalogId(selectedService) === service.id)) {
-        return current.filter((selectedService) => getSelectedServiceCatalogId(selectedService) !== service.id);
+      const isSameService = (selectedService: AppointmentSelectedService) =>
+        !selectedService.itemKind && getSelectedServiceCatalogId(selectedService) === service.id;
+      if (current.some(isSameService)) {
+        return current.filter((selectedService) => !isSameService(selectedService));
       }
 
       const consumables: AppointmentSelectedService["consumables"] = service.consumablesUsed?.length
@@ -595,6 +599,39 @@ export function useAppointmentForm(mode: 'create' | 'edit') {
       price: undefined,
       serviceName: undefined,
     }));
+  };
+
+  // Products / memberships / packages: tap to add, tap again to remove.
+  const handleToggleCatalogItem = (
+    kind: AppointmentItemKind,
+    item: { categoryId?: string | null; id: string; name: string; price: number },
+  ) => {
+    setSelectedServices((current) => {
+      const existing = current.find(
+        (selected) => selected.itemKind === kind && getSelectedServiceCatalogId(selected) === item.id,
+      );
+      if (existing) {
+        return current.filter((selected) => selected !== existing);
+      }
+
+      return [
+        ...current,
+        {
+          catalogServiceId: item.id,
+          category: null,
+          categoryId: item.categoryId ?? null,
+          createdAt: null,
+          durationMinutes: null,
+          id: `${kind}:${item.id}`,
+          isActive: true,
+          itemKind: kind,
+          name: item.name,
+          price: Math.max(0, Number(item.price) || 0),
+          quantity: 1,
+        },
+      ];
+    });
+    setErrors((current) => ({ ...current, serviceName: undefined, duration: undefined }));
   };
 
   const handleRemoveSelectedService = (serviceId: string) => {
@@ -645,6 +682,11 @@ export function useAppointmentForm(mode: 'create' | 'edit') {
       allowedPastDate: allowedPastEditDate,
       requireClient: !isWalkInClient,
     });
+    // Web parity: a product / membership / package-only booking is valid.
+    const hasCatalogItems = selectedServices.some((service) => service.itemKind);
+    if (hasCatalogItems) {
+      delete nextErrors.serviceName;
+    }
     if (form.staffId && (schedulerLoading || slotDisabledReason || availableSlots.length === 0)) {
       nextErrors.startTime = schedulerLoading
         ? "Availability is still loading. Please wait a moment."
@@ -690,7 +732,9 @@ export function useAppointmentForm(mode: 'create' | 'edit') {
         ? selectedServicesDuration
         : Number.isInteger(formDurationNumber) && formDurationNumber > 0
           ? formDurationNumber
-          : 0;
+          : hasCatalogItems
+            ? 30
+            : 0;
 
     if (durationMinutes <= 0) {
       setErrors((current) => ({
@@ -709,6 +753,7 @@ export function useAppointmentForm(mode: 'create' | 'edit') {
     );
     const calculatedEndTime = selectedSlot.endTime ?? form.endTime;
     const serviceItems = selectedServices
+      .filter((service) => !service.itemKind)
       .map((service) => {
         const serviceId = getSelectedServiceCatalogId(service).trim();
 
@@ -744,6 +789,36 @@ export function useAppointmentForm(mode: 'create' | 'edit') {
       })
       .filter((service): service is NonNullable<typeof service> => Boolean(service));
 
+    const itemStartTime = combineDateTime(form.date, selectedSlot.value);
+    const toCatalogLine = (item: AppointmentSelectedService) => {
+      const quantity = Math.max(1, Math.trunc(item.quantity ?? 1));
+      return {
+        ...(item.discount !== undefined ? { discount: item.discount } : {}),
+        name: item.name,
+        price: item.price,
+        quantity,
+        staff_id: form.staffId || undefined,
+        staff_name: selectedStaff?.name,
+        start_time: itemStartTime,
+        total: item.total ?? item.price * quantity,
+      };
+    };
+    const catalogLines = (kind: AppointmentItemKind) =>
+      selectedServices.filter((item) => item.itemKind === kind);
+    const productItems = catalogLines("product").map((item) => (item.rawItem ?? {
+      ...toCatalogLine(item),
+      ...(item.categoryId ? { category_id: item.categoryId } : {}),
+      product_id: getSelectedServiceCatalogId(item),
+    }) as NonNullable<CreateAppointmentRequest["product_items"]>[number]);
+    const membershipItems = catalogLines("membership").map((item) => (item.rawItem ?? {
+      ...toCatalogLine(item),
+      membership_id: getSelectedServiceCatalogId(item),
+    }) as NonNullable<CreateAppointmentRequest["membership_items"]>[number]);
+    const packageItems = catalogLines("package").map((item) => (item.rawItem ?? {
+      ...toCatalogLine(item),
+      package_id: getSelectedServiceCatalogId(item),
+    }) as NonNullable<CreateAppointmentRequest["package_items"]>[number]);
+
     const payload: Omit<CreateAppointmentRequest, "salon_id"> = {
       duration_minutes: durationMinutes,
       end_time: combineDateTime(form.date, calculatedEndTime || selectedSlot.value),
@@ -754,6 +829,9 @@ export function useAppointmentForm(mode: 'create' | 'edit') {
       service_id: form.serviceId.trim() || undefined,
       service_name: form.serviceName.trim() || undefined,
       services: serviceItems,
+      membership_items: membershipItems,
+      package_items: packageItems,
+      product_items: productItems,
       staff_id: form.staffId,
       start_time: combineDateTime(form.date, selectedSlot.value),
       status: appointmentStatusToApiValue(form.status),
@@ -805,5 +883,5 @@ export function useAppointmentForm(mode: 'create' | 'edit') {
   };
 
 
-  return { styles, serviceCatalogError, serviceCatalogLoading, setServicePickerVisible, handleServicePickerContinue, handleSelectService, handleSelectStaff, form, selectedServices, errors, staffMembers, serviceCatalog, servicePickerVisible, scrollViewRef, clientDropdownOpen, serviceDropdownOpen, dismissClientDropdown, dismissServiceDropdown, setFieldRef, clientBookingMode, handleNewClient, handleClientSearchChange, handleSelectClient, handleSelectExistingClientMode, handleSelectWalkInClient, clientResults, clientResultsError, clientResultsLoading, clientSearch, clientSearchInputRef, selectedClient, updateForm, slotDisabledReason, schedulerLoading, handleSelectSlot, availableSlots, Colors, handleRemoveSelectedService, servicePricingTotals, totalServiceDuration, totalServicePrice, selectedStaff, setSendAppointmentSms, sendAppointmentSms, setSendAppointmentEmail, sendAppointmentEmail, formSubmitError, mutationError, mutating, handleSubmit };
+  return { styles, activeBranchId, handleToggleCatalogItem, serviceCatalogError, serviceCatalogLoading, setServicePickerVisible, handleServicePickerContinue, handleSelectService, handleSelectStaff, form, selectedServices, errors, staffMembers, serviceCatalog, servicePickerVisible, scrollViewRef, clientDropdownOpen, serviceDropdownOpen, dismissClientDropdown, dismissServiceDropdown, setFieldRef, clientBookingMode, handleNewClient, handleClientSearchChange, handleSelectClient, handleSelectExistingClientMode, handleSelectWalkInClient, clientResults, clientResultsError, clientResultsLoading, clientSearch, clientSearchInputRef, selectedClient, updateForm, slotDisabledReason, schedulerLoading, handleSelectSlot, availableSlots, Colors, handleRemoveSelectedService, servicePricingTotals, totalServiceDuration, totalServicePrice, selectedStaff, setSendAppointmentSms, sendAppointmentSms, setSendAppointmentEmail, sendAppointmentEmail, formSubmitError, mutationError, mutating, handleSubmit };
 }
