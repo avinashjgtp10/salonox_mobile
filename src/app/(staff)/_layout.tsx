@@ -14,6 +14,7 @@ const STAFF_TABS: AppTabItem[] = [
   { icon: "home-outline", name: "home", title: "Home" },
   { icon: "calendar-number-outline", name: "appointments", title: "Appointments" },
   { icon: "calendar-outline", name: "calendar", title: "Calendar" },
+  { icon: "wallet-outline", name: "revenue", title: "Revenue" },
   { icon: "settings-outline", name: "more", title: "Settings" },
 ];
 

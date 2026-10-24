@@ -20,6 +20,8 @@ export type ClientPackageLoadState = {
 
 export type QuickSaleSlot = {
   date: string;
+  /** No calendar column chose the staff (dashboard Quick Sale): show a Staff dropdown. */
+  pickStaff?: boolean;
   staffName?: string;
   time: string;
 };

@@ -18,6 +18,7 @@ import {
   type Href,
 } from "expo-router";
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { Ionicons } from "@expo/vector-icons";
 import { BackHandler, Keyboard, StyleSheet, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -1749,6 +1750,27 @@ function OwnerQuickSaleScreen({
           title={params.draftId ? "Edit Draft" : "Quick Sale"}
         />
 
+        {/* Opened from the dashboard: no calendar column picked the staff, so
+            ask here. A slot tap keeps using its column's staff. */}
+        {embedded && initialSlot?.pickStaff ? (
+          <TouchableOpacity
+            accessibilityLabel="Select staff"
+            accessibilityRole="button"
+            activeOpacity={0.84}
+            onPress={() => { Keyboard.dismiss(); setIsEmbeddedStaffPickerVisible(true); }}
+            style={[styles.staffSelect, shouldShowCheckoutStaffValidation && !selectedQuickSaleStaff && styles.staffSelectError]}
+          >
+            <Ionicons name="person-outline" size={18} color={Colors.primaryText} />
+            <View style={styles.staffSelectCopy}>
+              <Text style={styles.staffSelectCaption}>Staff</Text>
+              <Text numberOfLines={1} style={[styles.staffSelectValue, !selectedQuickSaleStaff && styles.staffSelectPlaceholder]}>
+                {selectedQuickSaleStaff?.name ?? "Select staff *"}
+              </Text>
+            </View>
+            <Ionicons name="chevron-down" size={18} color={Colors.text2} />
+          </TouchableOpacity>
+        ) : null}
+
         <QuickSaleForm
           cart={cart} selectedClient={selectedClient} redemptions={redemptions}
           staffOptions={initData?.staff ?? []} renderInline={embedded}
@@ -2009,6 +2031,24 @@ function OwnerQuickSaleScreen({
 const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   catalogDone: { alignItems: "center", backgroundColor: Colors.primary, borderRadius: 14, flex: 1, padding: 15 },
   catalogDoneText: { color: Colors.onPrimary, fontWeight: "700" },
+  staffSelect: {
+    alignItems: "center",
+    backgroundColor: Colors.card,
+    borderColor: Colors.border,
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 10,
+    marginHorizontal: Spacing.md,
+    marginTop: Spacing.sm,
+    minHeight: 54,
+    paddingHorizontal: 14,
+  },
+  staffSelectError: { borderColor: Colors.error },
+  staffSelectCopy: { flex: 1 },
+  staffSelectCaption: { color: Colors.text2, fontSize: 11, fontWeight: "700" },
+  staffSelectValue: { color: Colors.heading, fontSize: 15, fontWeight: "800" },
+  staffSelectPlaceholder: { color: Colors.text2, fontWeight: "600" },
   safeArea: {
     backgroundColor: "#FAF6F8",
     flex: 1,
