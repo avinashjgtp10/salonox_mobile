@@ -25,6 +25,12 @@ export type QuickSaleSlot = {
 };
 
 export type QuickSaleScreenProps = {
+  /**
+   * Existing booked appointment to bill (web "Continue to Payment"): its items
+   * load into the cart and checkout updates + pays + checks out that same
+   * appointment instead of creating a new one or a draft sale.
+   */
+  appointmentId?: string;
   /** Pending (draft) sale to reopen; overrides the route's draftId param. */
   draftId?: string;
   embedded?: boolean;

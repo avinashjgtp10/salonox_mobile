@@ -85,7 +85,7 @@ export function AppointmentPreviewSheet({
   // A bill saved as pending from the Calendar's Quick Sale: reopen that draft
   // straight at its Payment screen.
   // Any unpaid booking can be billed: one without a pending sale yet gets it
-  // created from its items when this is tapped (see useAppointmentPendingSale).
+  // billed directly in Quick Sale when this is tapped (see CalendarPreview).
   const canContinueToPayment = Boolean(onContinueToPayment) && appointment.status !== "Cancelled";
   const handleContinueToPayment = () => {
     onClose();
