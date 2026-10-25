@@ -132,5 +132,5 @@ const styles = StyleSheet.create({
   card: { borderWidth: 1, borderRadius: 20, padding: 24, gap: 16 },
   title: { fontSize: 24, fontWeight: "700" }, copy: { fontSize: 15, lineHeight: 22 },
   shift: { fontSize: 17, fontWeight: "700" }, button: { padding: 16, borderRadius: 14, alignItems: "center" },
-  buttonText: { color: "#FFFFFF", fontWeight: "700", fontSize: 17 }, link: { paddingVertical: 10, alignItems: "center" },
+  buttonText: { color: "#000000", fontWeight: "700", fontSize: 17 }, link: { paddingVertical: 10, alignItems: "center" },
 });

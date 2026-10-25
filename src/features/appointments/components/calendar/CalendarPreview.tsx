@@ -242,18 +242,10 @@ export function CalendarPreview({
     if (!quickSaleEnabled) return;
     const slotIndex = Math.min(TIME_SLOTS.length - 1, Math.max(0, Math.floor(locationY / SLOT_HEIGHT)));
     const { hour, minute } = TIME_SLOTS[slotIndex];
-    // Owners book an appointment for the tapped slot; staff (who can't open
-    // the booking form) keep billing it in Quick Sale.
-    if (!readOnly) {
-      setAppointmentSlot({ date: column.key, staffId: column.staffId || undefined, time: `${pad2(hour)}:${pad2(minute)}` });
-      return;
-    }
-    setQuickSaleSlot({
-      date: column.key,
-      staffName: column.staffName || undefined,
-      time: `${pad2(hour)}:${pad2(minute)}`,
-    });
-  }, [quickSaleEnabled, readOnly]);
+    // Owners and staff with Calendar & Quick Sale access book an appointment
+    // for the tapped slot; Quick Sale has its own tab-bar button.
+    setAppointmentSlot({ date: column.key, staffId: column.staffId || undefined, time: `${pad2(hour)}:${pad2(minute)}` });
+  }, [quickSaleEnabled]);
 
   // Dashboard "Quick Sale": open it now, as if today's current slot were
   // tapped, with a Staff dropdown since no column chose the staff.
