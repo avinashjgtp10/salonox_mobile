@@ -1,4 +1,8 @@
 import { Text } from "@/components/ui/AppTypography";
+import { BottomSheet } from "@/components/ui/BottomSheet";
+import { StaffPickerSheet } from "@/features/quickSale/components/StaffPickerSheet";
+import { itemTimeLabel, localItemTime } from "@/features/quickSale/utils/itemTime";
+import { useState } from "react";
 import { AppBackButton } from "@/components/ui/AppBackButton";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { KeyboardAwareScrollView } from "@/components/ui/KeyboardAwareScrollView";
@@ -16,12 +20,23 @@ import { AppointmentSnackbar } from "@/features/appointments/components/shared/A
 import { PAYMENT_METHODS } from "@/features/appointments/constants/appointmentConstants";
 import { getSelectedServiceCatalogId } from "@/features/appointments/utils/appointmentForm";
 import { Ionicons } from "@expo/vector-icons";
-import { Pressable, TouchableOpacity, View } from "react-native";
+import { FlatList, Pressable, StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { BookingBottomBar } from '../components/form/BookingBottomBar';
-import { useAppointmentForm } from '../hooks/useAppointmentForm';
+import { useAppointmentForm, type AppointmentFormSlot } from '../hooks/useAppointmentForm';
 
-export function AppointmentFormScreen({ mode }: { mode: 'create' | 'edit' }) {
+const TIME_OPTIONS = Array.from({ length: 96 }, (_, index) =>
+  `${String(Math.floor(index / 4)).padStart(2, "0")}:${String((index % 4) * 15).padStart(2, "0")}`);
+
+type Props = {
+  mode: 'create' | 'edit';
+  // Set when opened inside the Calendar's slot-tap modal.
+  initialSlot?: AppointmentFormSlot;
+  onRequestClose?: () => void;
+};
+
+export function AppointmentFormScreen({ mode, initialSlot, onRequestClose }: Props) {
+  const embedded = initialSlot && onRequestClose ? { initialSlot, onRequestClose } : undefined;
   const {
     styles,
     activeBranchId,
@@ -32,6 +47,8 @@ export function AppointmentFormScreen({ mode }: { mode: 'create' | 'edit' }) {
     handleServicePickerContinue,
     handleSelectService,
     handleSelectStaff,
+    handleSetItemStaff,
+    handleSetItemTime,
     form,
     selectedServices,
     errors,
@@ -75,10 +92,18 @@ export function AppointmentFormScreen({ mode }: { mode: 'create' | 'edit' }) {
     mutationError,
     mutating,
     handleSubmit,
-  } = useAppointmentForm(mode);
+  } = useAppointmentForm(mode, embedded);
+  const [staffItemId, setStaffItemId] = useState<string | null>(null);
+  const [timeItemId, setTimeItemId] = useState<string | null>(null);
+  const staffItem = selectedServices.find((item) => item.id === staffItemId);
+  const timeItem = selectedServices.find((item) => item.id === timeItemId);
+  const selectedItemTime = localItemTime(timeItem?.startTime) ?? localItemTime(form.startTime);
+  const timeOptions = selectedItemTime && !TIME_OPTIONS.includes(selectedItemTime)
+    ? [...TIME_OPTIONS, selectedItemTime].sort()
+    : TIME_OPTIONS;
   return (
-    <SafeAreaView edges={["top"]} style={[styles.safeArea, styles.bookingScreen]}>
-      <AppStatusBar backgroundColor={Colors.appointmentBackground} />
+    <SafeAreaView edges={embedded ? [] : ["top"]} style={[styles.safeArea, styles.bookingScreen]}>
+      {embedded ? null : <AppStatusBar backgroundColor={Colors.appointmentBackground} />}
       <ServiceCatalogPicker
         error={serviceCatalogError}
         loading={serviceCatalogLoading}
@@ -105,7 +130,7 @@ export function AppointmentFormScreen({ mode }: { mode: 'create' | 'edit' }) {
         style={[styles.flex, styles.bookingScreen]}
       >
         <View style={styles.headerRow}>
-          <AppBackButton fallbackHref="/bookings" />
+          <AppBackButton fallbackHref="/bookings" onPress={embedded?.onRequestClose} />
           <View style={styles.appointmentHeaderCopy}>
             <Text style={styles.headerTitle}>{mode === "create" ? "New Appointment" : "Edit Appointment"}</Text>
             <Text style={styles.appointmentHeaderSubtitle}>
@@ -186,6 +211,10 @@ export function AppointmentFormScreen({ mode }: { mode: 'create' | 'edit' }) {
                 </TouchableOpacity>
               ) : (
                 <SelectedServicesPanel
+                  defaultStaffName={selectedStaff?.name}
+                  defaultTime={form.startTime}
+                  onPickStaff={setStaffItemId}
+                  onPickTime={setTimeItemId}
                   onRemove={handleRemoveSelectedService}
                   pricingTotals={servicePricingTotals}
                   services={selectedServices}
@@ -313,6 +342,47 @@ export function AppointmentFormScreen({ mode }: { mode: 'create' | 'edit' }) {
       </KeyboardAwareScrollView>
       <BookingBottomBar serviceCount={selectedServices.length} totalServiceDuration={totalServiceDuration} totalServicePrice={totalServicePrice} mutating={mutating} mode={mode} onSubmit={handleSubmit} />
       <AppointmentSnackbar />
+      <StaffPickerSheet
+        onClose={() => setStaffItemId(null)}
+        onSelect={(staffId, staffName) => {
+          if (staffItemId) handleSetItemStaff(staffItemId, staffId, staffName);
+          setStaffItemId(null);
+        }}
+        renderInline={Boolean(embedded)}
+        selectedStaffId={staffItem ? staffItem.staffId || form.staffId || null : null}
+        staff={staffMembers}
+        subtitle={staffItem?.name}
+        title="Select staff for this item"
+        visible={Boolean(staffItem)}
+      />
+      <BottomSheet onClose={() => setTimeItemId(null)} renderInline={Boolean(embedded)} scrollable={false} subtitle={timeItem?.name} title="Select time" visible={Boolean(timeItem)}>
+        <FlatList
+          data={timeOptions}
+          getItemLayout={(_, index) => ({ index, length: 48, offset: 48 * index })}
+          initialScrollIndex={Math.max(0, timeOptions.indexOf(selectedItemTime ?? "") - 2)}
+          keyExtractor={(time) => time}
+          renderItem={({ item: time }) => (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ selected: time === selectedItemTime }}
+              onPress={() => {
+                if (timeItemId) handleSetItemTime(timeItemId, time);
+                setTimeItemId(null);
+              }}
+              style={[timeStyles.row, time === selectedItemTime && { backgroundColor: Colors.bg2 }]}
+            >
+              <Text style={[timeStyles.text, { color: Colors.heading }]}>{itemTimeLabel(time)}</Text>
+              {time === selectedItemTime ? <Ionicons name="checkmark" size={20} color={Colors.primaryText} /> : null}
+            </Pressable>
+          )}
+          style={{ height: 320 }}
+        />
+      </BottomSheet>
     </SafeAreaView>
   );
 }
+
+const timeStyles = StyleSheet.create({
+  row: { alignItems: "center", borderRadius: 10, flexDirection: "row", height: 48, justifyContent: "space-between", paddingHorizontal: 16 },
+  text: { fontSize: 15, fontWeight: "600" },
+});

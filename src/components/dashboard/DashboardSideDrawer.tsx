@@ -33,6 +33,7 @@ const ACTIONS: DashboardDrawerAction[] = [
   { icon: "megaphone-outline", label: "Marketing", route: "/marketing" as Href, tone: "green" },
   { icon: "people-outline", label: "Clients", route: "/clients" as Href, tone: "green" },
   { icon: "person-add-outline", label: "Add Client", route: "/clients/new" as Href, tone: "green" },
+  { icon: "people-outline", label: "Staff", route: "/team" as Href, tone: "indigo" },
   { icon: "people-outline", label: "Add Staff", route: "/team/new" as Href, tone: "indigo" },
   { icon: "shield-checkmark-outline", label: "Staff Permissions", route: "/team/permissions" as Href, tone: "purple" },
   { icon: "pricetag-outline", label: "Add Service", route: "/services/new" as Href, tone: "warning" },

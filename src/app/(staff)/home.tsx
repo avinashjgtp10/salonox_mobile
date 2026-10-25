@@ -151,9 +151,9 @@ const getOwnerDashboardAppointmentBadge = (Colors: ThemeColors, status: Appointm
     case "Cancelled":
     case "Deleted":
       return { bg: Colors.errorBg, color: Colors.error, label: "Cancelled" };
-    case "Missed":
+    case "No Show":
     case "Partial":
-      return { bg: Colors.warningBg, color: Colors.warning, label: "Missed" };
+      return { bg: Colors.warningBg, color: Colors.warning, label: "No Show" };
     case "Checked In":
     case "In Progress":
     case "In Service":

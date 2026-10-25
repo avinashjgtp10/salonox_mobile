@@ -16,6 +16,7 @@ const DISABLED_TEXT = "#9A8E95";
 
 type MiniBillBarProps = {
   disabled: boolean;
+  isPricingLoading?: boolean;
   isSaving: boolean;
   itemCount: number;
   onCheckout: () => void;
@@ -25,6 +26,7 @@ type MiniBillBarProps = {
 
 function MiniBillBarComponent({
   disabled,
+  isPricingLoading = false,
   isSaving,
   itemCount,
   onCheckout,
@@ -86,11 +88,11 @@ function MiniBillBarComponent({
 
         <Pressable
           accessibilityRole="button"
-          accessibilityState={{ disabled }}
+          accessibilityState={{ disabled, busy: isPricingLoading }}
           android_ripple={disabled ? undefined : { color: "rgba(255, 255, 255, 0.12)", borderless: false }}
           disabled={disabled}
           onPress={onCheckout}
-          style={({ pressed }) => [styles.cta, disabled && styles.ctaDisabled, pressed && !disabled && styles.buttonPressed]}
+          style={({ pressed }) => [styles.cta, { backgroundColor: disabled ? DISABLED_BG : BRAND }, pressed && !disabled && styles.buttonPressed]}
         >
           <Text
             adjustsFontSizeToFit
@@ -98,9 +100,9 @@ function MiniBillBarComponent({
             numberOfLines={1}
             style={[styles.ctaText, disabled && styles.disabledText]}
           >
-            Checkout
+            {isPricingLoading ? "Updating total…" : "Checkout"}
           </Text>
-          <Ionicons name="arrow-forward" size={18} color={disabled ? DISABLED_TEXT : "#FFFFFF"} />
+          {isPricingLoading ? <ActivityIndicator size="small" color={DISABLED_TEXT} /> : <Ionicons name="arrow-forward" size={18} color={disabled ? DISABLED_TEXT : "#FFFFFF"} />}
         </Pressable>
       </View>
     </Animated.View>
@@ -171,9 +173,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     minHeight: 52,
     overflow: "hidden",
     paddingHorizontal: 10,
-  },
-  ctaDisabled: {
-    backgroundColor: DISABLED_BG,
   },
   ctaText: {
     color: "#FFFFFF",

@@ -61,6 +61,8 @@ export type CartItem = {
   consumables?: CartConsumableItem[];
   discountAmount: number;
   duration?: string;
+  /** Local HH:mm start time for this individual row. */
+  startTime?: string;
   itemId: string;
   itemType: CartItemSource;
   lineId: string;
