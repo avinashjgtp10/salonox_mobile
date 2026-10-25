@@ -5,7 +5,7 @@ import { useClientPrivacy } from "@/hooks/useClientPrivacy";
 import { getAppointmentBillLabel } from "@/utils/clientPrivacy";
 import { AppointmentPreviewSheet } from "@/features/appointments/components/calendar/AppointmentPreviewSheet";
 import { createStyles } from "@/features/appointments/styles/appointmentStyles";
-import { getAppointmentItemSegments, getAppointmentRange, getCalendarAppointmentTitle, getWebCalendarChipStyle, hasCalendarInteractionFlag, isReadonlyCalendarAppointment } from "@/features/appointments/utils/appointmentCalendar";
+import { ANY_STAFF_COLUMN_ID, getAppointmentItemSegments, getAppointmentRange, getCalendarAppointmentTitle, getWebCalendarChipStyle, hasCalendarInteractionFlag, isAnyStaffAppointment, isReadonlyCalendarAppointment } from "@/features/appointments/utils/appointmentCalendar";
 import { formatTimeLabel, getDateKey, minutesToDisplayTime, parseAppointmentDateTime, todayIsoDate } from "@/features/appointments/utils/appointmentDateTime";
 import { sortBySchedule } from "@/features/appointments/utils/appointmentList";
 import { maskPhone } from "@/features/appointments/utils/appointmentScreenHelpers";
@@ -199,6 +199,10 @@ export function CalendarPreview({
       if (dateKey !== column.key) return [];
       const whole = { appointment, endMin, key: appointment.id, startMin, title: getCalendarAppointmentTitle(appointment) };
       if (!column.staffId) return [whole];
+      // Shown once, in the "Any Available" column only (web DayView).
+      if (column.staffId === ANY_STAFF_COLUMN_ID || isAnyStaffAppointment(appointment)) {
+        return column.staffId === ANY_STAFF_COLUMN_ID && isAnyStaffAppointment(appointment) ? [whole] : [];
+      }
       const own = segments.filter((segment) => segment.staffId === column.staffId);
       if (own.length) {
         return [{
@@ -309,8 +313,8 @@ export function CalendarPreview({
             {columns.map((column, index) => (
               <View key={`${column.key}-${column.label}-${index}`} style={[styles.dinggDayHeader, { width: columnWidth }]}>
                 {viewMode === "day" ? (
-                  <View style={[styles.calendarStaffAvatar, { backgroundColor: staffColor(column.staffId || column.label) }]}>
-                    <Text style={styles.calendarStaffInitials}>{initials(column.staffName || column.label)}</Text>
+                  <View style={[styles.calendarStaffAvatar, { backgroundColor: column.staffId === ANY_STAFF_COLUMN_ID ? "#6b7280" : staffColor(column.staffId || column.label) }]}>
+                    <Text style={styles.calendarStaffInitials}>{column.staffId === ANY_STAFF_COLUMN_ID ? "A" : initials(column.staffName || column.label)}</Text>
                   </View>
                 ) : null}
                 <Text numberOfLines={2} style={styles.dinggDayHeaderText}>{column.label}</Text>
@@ -343,7 +347,8 @@ export function CalendarPreview({
                     key={`${column.key}-${column.staffId || columnIndex}`}
                     onAppointmentPress={openAppointment}
                     onSlotPress={openQuickSaleAt}
-                    readOnly={!quickSaleEnabled}
+                    // No staff schedule sits behind "Any Available", so slots there can't be booked (web parity).
+                    readOnly={!quickSaleEnabled || column.staffId === ANY_STAFF_COLUMN_ID}
                     styles={styles}
                     width={columnWidth}
                   />

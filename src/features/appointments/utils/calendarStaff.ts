@@ -80,44 +80,15 @@ export const buildCanonicalStaffIdByAlias = (
   return canonicalIdByAlias;
 };
 
-export const buildCalendarStaffOptions = (
-  staffMembers: StaffMember[],
-  appointments: AppointmentListItem[],
-  canonicalIdByAlias: Map<string, string>,
-): CalendarStaffOption[] => {
+// Columns and the Staff filter list the salon's staff only, as the web
+// calendar does: a booking whose staff isn't on the roster gets no
+// "Unassigned" / "Staff unavailable" column of its own.
+export const buildCalendarStaffOptions = (staffMembers: StaffMember[]): CalendarStaffOption[] => {
   const byId = new Map<string, { id: string; name: string; staffMember?: StaffMember }>();
 
   staffMembers.forEach((staffMember) => {
     if (!staffMember.id || byId.has(staffMember.id)) return;
     byId.set(staffMember.id, { id: staffMember.id, name: staffMember.name, staffMember });
-  });
-
-  appointments.forEach((appointment) => {
-    const name = appointment.staffName?.trim() ?? "";
-
-    if (appointment.staffId) {
-      const canonicalId = canonicalIdByAlias.get(appointment.staffId) ?? appointment.staffId;
-      if (!byId.has(canonicalId)) {
-        byId.set(canonicalId, { id: canonicalId, name: canonicalId === UNAVAILABLE_STAFF_ID ? "Staff unavailable" : name });
-      }
-      return;
-    }
-
-    if (!hasStaffName(name)) {
-      byId.set(UNASSIGNED_STAFF_ID, { id: UNASSIGNED_STAFF_ID, name: "Unassigned" });
-      return;
-    }
-
-    const hasExistingName = [...byId.values()].some(
-      (option) => normalizeCalendarStaffName(option.name) === normalizeCalendarStaffName(name),
-    );
-    if (hasExistingName) return;
-
-    const syntheticId = `${SYNTHETIC_STAFF_ID_PREFIX}${normalizeCalendarStaffName(name)}`;
-
-    if (!byId.has(syntheticId)) {
-      byId.set(syntheticId, { id: syntheticId, name });
-    }
   });
 
   const nameCounts = new Map<string, number>();
