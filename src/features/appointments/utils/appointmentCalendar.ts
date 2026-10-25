@@ -114,6 +114,13 @@ export const getCalendarTokenLabel = (appointment: AppointmentListItem) => {
   return /^\d+$/.test(token) ? `TK${token}` : token;
 };
 
+// An online booking where the client chose "Any available" staff. As on the
+// web, it shows only in the "Any Available" column (added to Day view on days
+// that have one), never under the stylist auto-assigned behind it.
+export const ANY_STAFF_COLUMN_ID = "any-staff";
+export const isAnyStaffAppointment = (appointment: AppointmentListItem) =>
+  appointment.raw.is_any_staff === true || appointment.raw.isAnyStaff === true;
+
 export const isReadonlyCalendarAppointment = (appointment: AppointmentListItem) =>
   appointment.status === "Cancelled" || appointment.status === "Deleted";
 

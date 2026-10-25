@@ -3,9 +3,14 @@ import { StyleSheet } from 'react-native';
 
 export const createCalendarAppointmentsStyles = (Colors: ThemeColors) => StyleSheet.create({
   // Web calendar chip (.dv-chip): pastel gradient, 4px status accent on the left.
+  // The border width never changes (only its colour does when highlighted):
+  // removing a border from a rounded, overflow-hidden view on Android leaves a
+  // stale clip that hides the card's gradient and text.
   webChip: {
+    borderColor: "transparent",
     borderLeftWidth: 4,
     borderRadius: 8,
+    borderWidth: 2,
     elevation: 1,
     overflow: "hidden",
     position: "absolute",
@@ -17,8 +22,6 @@ export const createCalendarAppointmentsStyles = (Colors: ThemeColors) => StyleSh
   },
   webChipHighlighted: {
     borderColor: "#7c3aed",
-    borderWidth: 2,
-    borderLeftWidth: 4,
   },
   webChipBody: {
     flex: 1,
