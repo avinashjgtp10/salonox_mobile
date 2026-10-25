@@ -205,7 +205,7 @@ export function CategorySelectModal({
           pointerEvents="box-none"
           style={styles.keyboardLayer}
         >
-          <Pressable onPress={handleCloseCreateModal} style={styles.overlay}>
+          <Pressable onPress={handleCloseCreateModal} style={styles.createOverlay}>
             <Pressable
               onPress={(e) => e.stopPropagation()}
               style={[
@@ -283,21 +283,23 @@ export function CategorySelectModal({
 
 const createStyles = (Colors: ThemeColors) =>
   StyleSheet.create({
+    // Centred pop-up, matching the product form's Select Brand.
     overlay: {
+      alignItems: "center",
       backgroundColor: "rgba(15, 23, 32, 0.45)",
       flex: 1,
-      justifyContent: "flex-end",
+      justifyContent: "center",
+      padding: Spacing.lg,
     },
     keyboardLayer: {
       flex: 1,
     },
     sheet: {
       backgroundColor: Colors.card,
-      borderTopLeftRadius: AppRadius.card,
-      borderTopRightRadius: AppRadius.card,
-      maxHeight: "75%",
-      minHeight: 320,
+      borderRadius: 8,
+      maxHeight: "70%",
       padding: Spacing.lg,
+      width: "100%",
     },
     header: {
       alignItems: "center",
@@ -405,6 +407,12 @@ const createStyles = (Colors: ThemeColors) =>
       color: Colors.text2,
       fontSize: 12,
       marginTop: 4,
+    },
+    // Bottom-anchored so the New Category sheet sits just above the keyboard.
+    createOverlay: {
+      backgroundColor: "rgba(15, 23, 32, 0.45)",
+      flex: 1,
+      justifyContent: "flex-end",
     },
     createSheet: {
       backgroundColor: Colors.card,
