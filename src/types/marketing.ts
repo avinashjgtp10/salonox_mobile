@@ -24,3 +24,12 @@ export type MarketingPage<T> = { rows: T[]; total: number };
 export type MarketingDashboard = {
   stats: MarketingStats; campaigns: MarketingCampaign[]; config: MarketingConfig | null;
 };
+export type MarketingInsights = {
+  days: number;
+  currency: string;
+  totals: { cost: number; billableVolume: number; freeVolume: number; volume: number };
+  byCategory: { category: string; volume: number; cost: number; freeVolume: number }[];
+  daily: { date: string; cost: number; volume: number }[];
+  templates: { template_id: string; name: string; sent: number; delivered: number; read: number; clicked: number; clicks: Record<string, number> }[];
+  errors: string[];
+};

@@ -14,7 +14,6 @@ import { DashboardNotificationsModal } from "@/components/dashboard/DashboardNot
 import { DashboardSideDrawer } from "@/components/dashboard/DashboardSideDrawer";
 import DashboardStatTiles from "@/components/dashboard/DashboardStatTiles";
 import SpotlightAnnouncementCard from "@/components/dashboard/SpotlightAnnouncementCard";
-import QuickActions from "@/components/dashboard/QuickActions";
 import StaffWorkload from "@/components/dashboard/StaffWorkload";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { useAuth } from "@/context/AuthContext";
@@ -304,9 +303,6 @@ function DashboardContent() {
             <View style={styles.summaryBlock}>
               <DashboardStatTiles />
             </View>
-            <View style={[styles.sectionBlock, styles.stickyActions]}>
-              <QuickActions />
-            </View>
             <View style={styles.sectionBlock}>
               <AppointmentsList />
             </View>
@@ -340,10 +336,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   summaryBlock: {
     marginTop: 0,
-  },
-  stickyActions: {
-    backgroundColor: Colors.dashboardSurface,
-    zIndex: 10,
   },
   errorWrap: {
     alignItems: "center",

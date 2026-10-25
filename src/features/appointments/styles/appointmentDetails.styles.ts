@@ -88,6 +88,9 @@ export const createAppointmentDetailsStyles = (Colors: ThemeColors) => StyleShee
   // ScrollView takes its full content height, overflows the card and never scrolls.
   appointmentModalScroll: { flexGrow: 0, flexShrink: 1 },
   appointmentModalScrollContent: { flexGrow: 1 },
+  // Room for the floating footer button (54 tall + 18 margins) so the last row scrolls clear of it.
+  appointmentScrollFooterSpace: { paddingBottom: 90 },
+  appointmentFloatingFooter: { bottom: 0, left: 0, position: "absolute", right: 0 },
   appointmentModalContent: { flexGrow: 1, padding: 18 },
   appointmentStatusPill: { alignSelf: "flex-start", borderRadius: 20, paddingHorizontal: 14, paddingVertical: 5 },
   appointmentStatusPillText: { color: "#FFFFFF", fontSize: 13, fontWeight: "800" },

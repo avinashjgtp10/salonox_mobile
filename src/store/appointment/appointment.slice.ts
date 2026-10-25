@@ -1,4 +1,4 @@
-import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
+import { createSlice } from "@reduxjs/toolkit";
 
 import {
   cancelAppointmentThunk,
@@ -154,12 +154,6 @@ const appointmentSlice = createSlice({
   reducers: {
     clearAppointmentToast(state) {
       state.toast = null;
-    },
-    setAppointmentQuery(state, action: PayloadAction<Partial<AppointmentListQuery>>) {
-      state.query = {
-        ...state.query,
-        ...action.payload,
-      };
     },
   },
   extraReducers: (builder) => {
@@ -358,7 +352,7 @@ const appointmentSlice = createSlice({
   },
 });
 
-export const { clearAppointmentToast, setAppointmentQuery } = appointmentSlice.actions;
+export const { clearAppointmentToast } = appointmentSlice.actions;
 
 export const selectAppointments = (state: RootState) => state.appointment.appointments;
 export const selectAppointmentById = (state: RootState, appointmentId?: string | null) =>

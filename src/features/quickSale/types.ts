@@ -1,7 +1,7 @@
 import type { ConsumableUsageItem } from "@/types/consumable";
 import type { CheckoutSaleSplitEntry, SaleItemType, SalePaymentMethod } from "@/types/sales";
 
-export type CheckoutInitialStep = "review" | "charges" | "payment";
+export type CheckoutInitialStep = "review" | "payment";
 
 export type PendingCheckoutPayment = {
   method: SalePaymentMethod;
@@ -20,14 +20,26 @@ export type ClientPackageLoadState = {
 
 export type QuickSaleSlot = {
   date: string;
+  /** No calendar column chose the staff (dashboard Quick Sale): show a Staff dropdown. */
+  pickStaff?: boolean;
   staffName?: string;
   time: string;
 };
 
 export type QuickSaleScreenProps = {
+  /**
+   * Existing booked appointment to bill (web "Continue to Payment"): its items
+   * load into the cart and checkout updates + pays + checks out that same
+   * appointment instead of creating a new one or a draft sale.
+   */
+  appointmentId?: string;
+  /** Pending (draft) sale to reopen; overrides the route's draftId param. */
+  draftId?: string;
   embedded?: boolean;
   initialSlot?: QuickSaleSlot | null;
   onRequestClose?: () => void;
+  /** Open the checkout straight at its Payment screen once the draft loads. */
+  openPayment?: boolean;
 };
 
 export type CartItemSource = Extract<SaleItemType, "service" | "product" | "membership" | "quick"> | "package";
@@ -49,6 +61,8 @@ export type CartItem = {
   consumables?: CartConsumableItem[];
   discountAmount: number;
   duration?: string;
+  /** Local HH:mm start time for this individual row. */
+  startTime?: string;
   itemId: string;
   itemType: CartItemSource;
   lineId: string;

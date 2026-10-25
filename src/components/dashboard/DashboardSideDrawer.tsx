@@ -33,6 +33,7 @@ const ACTIONS: DashboardDrawerAction[] = [
   { icon: "megaphone-outline", label: "Marketing", route: "/marketing" as Href, tone: "green" },
   { icon: "people-outline", label: "Clients", route: "/clients" as Href, tone: "green" },
   { icon: "person-add-outline", label: "Add Client", route: "/clients/new" as Href, tone: "green" },
+  { icon: "people-outline", label: "Staff", route: "/team" as Href, tone: "indigo" },
   { icon: "people-outline", label: "Add Staff", route: "/team/new" as Href, tone: "indigo" },
   { icon: "shield-checkmark-outline", label: "Staff Permissions", route: "/team/permissions" as Href, tone: "purple" },
   { icon: "pricetag-outline", label: "Add Service", route: "/services/new" as Href, tone: "warning" },
@@ -85,6 +86,7 @@ export function DashboardSideDrawer({ visible, onClose }: DashboardSideDrawerPro
   );
   const actionTone = useMemo(() => getActionTone(Colors), [Colors]);
   const [mounted, setMounted] = useState(visible);
+  const [marketingExpanded, setMarketingExpanded] = useState(false);
   const progress = useRef(new Animated.Value(0)).current;
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -235,7 +237,8 @@ export function DashboardSideDrawer({ visible, onClose }: DashboardSideDrawerPro
                   <TouchableOpacity
                     accessibilityRole="menuitem"
                     activeOpacity={0.82}
-                    onPress={() => handleActionPress(action.route)}
+                    accessibilityState={action.label === "Marketing" ? { expanded: marketingExpanded } : undefined}
+                    onPress={() => action.label === "Marketing" ? setMarketingExpanded(value => !value) : handleActionPress(action.route)}
                     style={styles.action}
                   >
                     <View style={[styles.actionIcon, { backgroundColor: tone.surface }]}>
@@ -244,8 +247,13 @@ export function DashboardSideDrawer({ visible, onClose }: DashboardSideDrawerPro
                     <Text numberOfLines={1} style={styles.actionLabel}>
                       {action.label}
                     </Text>
-                    <Ionicons color={Colors.hint} name="chevron-forward" size={18} />
+                    <Ionicons color={Colors.hint} name={action.label === "Marketing" && marketingExpanded ? "chevron-down" : "chevron-forward"} size={18} />
                   </TouchableOpacity>
+                  {action.label === "Marketing" && marketingExpanded && <View style={styles.submenu}>
+                    {([{ label: "Dashboard", route: "/marketing", icon: "grid-outline" }, { label: "Insights", route: "/marketing/insights", icon: "analytics-outline" }] as const).map(child => <TouchableOpacity key={child.route} accessibilityRole="menuitem" onPress={() => handleActionPress(child.route as Href)} style={styles.submenuItem}>
+                      <Ionicons name={child.icon} size={18} color={Colors.primaryText} /><Text style={styles.actionLabel}>{child.label}</Text><Ionicons name="chevron-forward" size={16} color={Colors.hint} />
+                    </TouchableOpacity>)}
+                  </View>}
                 </Animated.View>
               );
             })}
@@ -262,6 +270,8 @@ const createStyles = (
   topInset: number,
   bottomInset: number,
 ) => StyleSheet.create({
+  submenu: { marginLeft: 24, marginTop: 8, borderLeftWidth: 1, borderLeftColor: Colors.border, paddingLeft: 12, gap: 4 },
+  submenuItem: { flexDirection: "row", alignItems: "center", gap: 12, minHeight: 48, paddingHorizontal: 12, borderRadius: 14, backgroundColor: Colors.card },
   action: {
     alignItems: "center",
     backgroundColor: Colors.backgroundElement,

@@ -1,6 +1,7 @@
 import type { RedemptionPricingFlags } from "@/features/quickSale/hooks/useRedemptions";
 import type { DiscountApplyTarget } from "@/features/quickSale/components/checkout/types";
 import { toDiscountScope } from "@/features/quickSale/utils/discountScope";
+import { itemTimeDate } from "./itemTime";
 import type {
   CartItem,
   PendingCheckoutPayment,
@@ -123,7 +124,7 @@ export const buildAppointmentPayload = ({
       quantity: item.quantity,
       staff_id: item.staffId ?? undefined,
       staff_name: item.staffName,
-      start_time: startDate.toISOString(),
+      start_time: itemTimeDate(item.startTime, startDate).toISOString(),
       total: Math.max(0, item.unitPrice * getCartItemBillableQuantity(item) - item.discountAmount),
     })),
     product_items: productItems.map((item) => ({
@@ -134,7 +135,7 @@ export const buildAppointmentPayload = ({
       quantity: item.quantity,
       staff_id: item.staffId ?? undefined,
       staff_name: item.staffName,
-      start_time: startDate.toISOString(),
+      start_time: itemTimeDate(item.startTime, startDate).toISOString(),
       total: Math.max(0, item.unitPrice * getCartItemBillableQuantity(item) - item.discountAmount),
     })),
     salon_id: salonId ?? undefined,
@@ -151,7 +152,7 @@ export const buildAppointmentPayload = ({
       service_id: item.itemId,
       staff_id: item.staffId ?? undefined,
       staff_name: item.staffName,
-      time: startDate.toISOString(),
+      time: itemTimeDate(item.startTime, startDate).toISOString(),
       total: Math.max(0, item.unitPrice * getCartItemBillableQuantity(item) - item.discountAmount),
     })),
     membership_items: membershipItems.map((item) => ({
@@ -161,7 +162,7 @@ export const buildAppointmentPayload = ({
       quantity: item.quantity,
       staff_id: item.staffId ?? undefined,
       staff_name: item.staffName,
-      start_time: startDate.toISOString(),
+      start_time: itemTimeDate(item.startTime, startDate).toISOString(),
       total: Math.max(0, item.unitPrice * getCartItemBillableQuantity(item) - item.discountAmount),
     })),
     ...(staffId ? { staff_id: staffId } : {}),

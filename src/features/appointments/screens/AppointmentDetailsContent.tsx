@@ -11,7 +11,7 @@ import { StartAppointmentAction } from "@/features/appointments/components/share
 import { StateCard } from "@/features/appointments/components/shared/StateCard";
 import { useAppointmentStyles } from "@/features/appointments/styles/useAppointmentStyles";
 import { formatCurrency } from "@/features/appointments/utils/appointmentForm";
-import { formatBusinessDate, formatBusinessTime, getAppointmentPaymentStatus, getAppointmentStaffNames, getAppointmentWebStatus, getPartialBillAmounts, toInvoiceSequence } from "@/features/appointments/utils/appointmentScreenHelpers";
+import { formatBusinessDate, formatBusinessTime, getAppointmentPaymentStatus, getAppointmentSalesSummary, getAppointmentStaffNames, getAppointmentWebStatus, getPartialBillAmounts, toInvoiceSequence } from "@/features/appointments/utils/appointmentScreenHelpers";
 import { getJobCardBlocker, getJobCardItems, getJobCardStatus } from "@/features/appointments/utils/jobCard";
 import { isAssignedToStaff } from "@/features/appointments/utils/staffAssignment";
 import { addRealtimeEntityChangedListener } from "@/services/realtimeEvents";
@@ -24,7 +24,8 @@ import { selectSaleDetail, selectSalesInitData } from "@/store/sales/sales.slice
 import { selectCurrentStaff, selectCurrentStaffError, selectCurrentStaffLoading } from "@/store/staff/staff.slice";
 import { formatInvoiceNumber } from "@/utils/receipt";
 import { useLocalSearchParams } from "expo-router";
-import { useEffect, useMemo } from "react";
+import { RescheduleAppointmentModal } from "@/features/appointments/components/shared/RescheduleAppointmentForm";
+import { useEffect, useMemo, useState } from "react";
 import { View } from "react-native";
 
 export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | "staff" } = {}) {
@@ -65,6 +66,7 @@ export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | 
     if (isStaffMode) void dispatch(fetchSalesInitThunk());
   }, [dispatch, isStaffMode]);
 
+  const [rescheduleOpen, setRescheduleOpen] = useState(false);
   const staffRoster = useMemo(() => salesInitData?.staff ?? [], [salesInitData?.staff]);
   const canHandoff = useMemo(
     () => !!currentStaff && (appointment?.billedItems ?? []).some(
@@ -101,7 +103,17 @@ export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | 
 
   const displayName = appointment?.clientName?.trim() ? appointment.clientName.trim() : "Walk-in Client";
   const staffBilling = isStaffMode && appointment ? getStaffAppointmentBilling(appointment, currentStaff) : null;
-  const billedTotal = staffBilling ? staffBilling.total : appointment && appointment.total > 0 ? appointment.total : saleForAppointment?.total ?? appointment?.total ?? 0;
+  // computed_grand_total covers product/package/membership rows too; the
+  // plain total column is services-only (same source as the calendar preview).
+  const computedGrandTotal = Number(appointment?.raw.computed_grand_total) || 0;
+  const billedTotal = staffBilling
+    ? staffBilling.total
+    : computedGrandTotal > 0
+      ? computedGrandTotal
+      : appointment && appointment.total > 0 ? appointment.total : saleForAppointment?.total ?? appointment?.total ?? 0;
+  // Bill breakdown (subtotal / discount / GST / charges) — same figures as the
+  // calendar preview's Sales Summary. Staff mode shows only its own items total.
+  const salesSummary = appointment && !isStaffMode ? getAppointmentSalesSummary(appointment) : null;
   const paymentStatus = staffBilling
     ? (staffBilling.paid ? "Paid" : "Unpaid")
     : appointment ? getAppointmentPaymentStatus(appointment) : "Unpaid";
@@ -170,7 +182,7 @@ export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | 
       {appointment && isStaffAppointment ? (
         <>
           <View style={styles.detailInvoiceRow}>
-            <View>
+            <View style={styles.detailHeroCopy}>
               <Text style={styles.detailInvoiceLabel}>Invoice Number</Text>
               <Text style={styles.detailInvoiceNumber}>{invoiceNumber ?? "Not billed yet"}</Text>
             </View>
@@ -228,6 +240,21 @@ export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | 
               value={paymentStatus === "Paid" ? "Paid successfully" : isStaffMode ? appointment.paymentStatus : paymentStatus === "Partial" ? "Partially paid" : "Unpaid"}
             />
             <DetailRow label="Payment Method" value={appointment.paymentMethod} />
+            {salesSummary ? (
+              <>
+                <DetailRow label="Subtotal" value={formatCurrency(salesSummary.subtotal)} />
+                {salesSummary.discount > 0 ? <DetailRow label="Discount" value={`-${formatCurrency(salesSummary.discount)}`} /> : null}
+                {salesSummary.couponDiscount > 0 ? (
+                  <DetailRow
+                    label={salesSummary.couponCode ? `Coupon (${salesSummary.couponCode})` : "Coupon"}
+                    value={`-${formatCurrency(salesSummary.couponDiscount)}`}
+                  />
+                ) : null}
+                {salesSummary.totalTax > 0 ? <DetailRow label={salesSummary.taxLabel || "GST"} value={`+${formatCurrency(salesSummary.totalTax)}`} /> : null}
+                {salesSummary.exCharges > 0 ? <DetailRow label="Extra Charges" value={`+${formatCurrency(salesSummary.exCharges)}`} /> : null}
+                {salesSummary.tipAmount > 0 ? <DetailRow label="Staff Tip" value={formatCurrency(salesSummary.tipAmount)} /> : null}
+              </>
+            ) : null}
             <DetailRow label={isStaffMode ? "Your Items Total" : "Total Amount"} value={formatCurrency(isStaffMode ? billedTotal : partialBill?.total ?? (billedTotal || appointment.amount))} />
             <DetailRow label="Amount Paid" value={displayedPaidAmount === null ? "Not allocated by staff" : isStaffMode || displayedPaidAmount > 0 ? formatCurrency(displayedPaidAmount) : null} />
             {partialBill ? <DetailRow label="Due Amount" value={formatCurrency(partialBill.due)} /> : null}
@@ -292,11 +319,14 @@ export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | 
             ) : null}
             {!isStaffMode ? (
               <>
-                <ActionButton icon="calendar-outline" label="Reschedule" route={`/appointments/${appointment.id}/reschedule`} />
+                <ActionButton icon="calendar-outline" label="Reschedule" onPress={() => setRescheduleOpen(true)} />
                 <ActionButton icon="close-circle-outline" label="Cancel" route={`/appointments/${appointment.id}/cancel`} danger />
               </>
             ) : null}
           </View>
+          {!isStaffMode ? (
+            <RescheduleAppointmentModal appointment={appointment} onClose={() => setRescheduleOpen(false)} visible={rescheduleOpen} />
+          ) : null}
         </>
       ) : null}
     </ScreenShell>

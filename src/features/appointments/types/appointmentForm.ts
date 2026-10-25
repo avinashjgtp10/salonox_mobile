@@ -22,8 +22,16 @@ export type ClientBookingMode = "existing" | "walkIn";
 
 export type FormErrors = Partial<Record<keyof AppointmentFormState, string>>;
 
+// Non-service lines billed on the appointment (web parity): sent as
+// product_items / membership_items / package_items instead of services.
+export type AppointmentItemKind = "product" | "membership" | "package";
+
 export type AppointmentSelectedService = ServiceListItem & {
   catalogServiceId?: string;
+  itemKind?: AppointmentItemKind;
+  // Original API row for an item loaded in edit mode — sent back unchanged so
+  // server-only fields (package service breakdowns etc.) survive the update.
+  rawItem?: Record<string, unknown>;
   consumables?: ConsumableUsageItem[];
   discount?: number;
   isPackageService?: boolean;

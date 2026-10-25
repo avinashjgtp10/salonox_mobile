@@ -11,6 +11,7 @@ import { useDebouncedValue } from "@/features/quickSale/hooks/useDebouncedValue"
 import { useAppointmentListFilters, useFetchAppointments } from "@/features/appointments/hooks/useAppointmentList";
 import { createStyles } from "@/features/appointments/styles/appointmentStyles";
 import { getDateKey, todayIsoDate } from "@/features/appointments/utils/appointmentDateTime";
+import { getAppointmentItemSegments } from "@/features/appointments/utils/appointmentCalendar";
 import { buildCalendarStaffOptions, buildCanonicalStaffIdByAlias, buildFallbackStaffIdByName, resolveAppointmentStaffId, SYNTHETIC_STAFF_ID_PREFIX } from "@/features/appointments/utils/calendarStaff";
 import { matchesCalendarStatuses } from "@/features/appointments/utils/calendarStatusFilters";
 import { useStaffPresence } from "@/features/attendance/hooks/useStaffPresence";
@@ -88,6 +89,10 @@ export function AppointmentCalendarContent({ staffMode = false, staffQuickSale =
     ),
     [canonicalStaffIdByAlias, fallbackStaffIdByName],
   );
+  const canonicalStaffId = useCallback(
+    (staffId: string) => canonicalStaffIdByAlias.get(staffId) || staffId,
+    [canonicalStaffIdByAlias],
+  );
   // Attendance "show only checked-in staff" (as on the web): today, staff who
   // haven't checked in drop out of the columns and the Staff filter, unless
   // they have a booking that day. A staff member's own calendar is never filtered.
@@ -109,7 +114,9 @@ export function AppointmentCalendarContent({ staffMode = false, staffQuickSale =
   const searchDigits = searchTerm.replace(/\D/g, "");
   const visibleAppointments = useMemo(
     () => appointments.filter((item) => {
-      const matchesStaff = selectedStaffIds.length === 0 || selectedStaffIds.includes(resolveStaffId(item));
+      // A booking shows for every staff member with an item on it, as on the web.
+      const matchesStaff = selectedStaffIds.length === 0 || selectedStaffIds.includes(resolveStaffId(item))
+        || getAppointmentItemSegments(item).some((segment) => selectedStaffIds.includes(canonicalStaffId(segment.staffId)));
       const matchesStatus = matchesCalendarStatuses(item.status, selectedStatuses);
       const matchesSearch = !searchTerm
         || [item.clientName, item.serviceName, item.staffName, item.title, item.phone]
@@ -118,7 +125,7 @@ export function AppointmentCalendarContent({ staffMode = false, staffQuickSale =
 
       return matchesStaff && matchesStatus && matchesSearch;
     }),
-    [appointments, resolveStaffId, searchDigits, searchTerm, selectedStaffIds, selectedStatuses],
+    [appointments, canonicalStaffId, resolveStaffId, searchDigits, searchTerm, selectedStaffIds, selectedStatuses],
   );
   const selectedStaffLabel = selectedStaffIds.length === 0
     ? "All Staff"
@@ -241,6 +248,7 @@ export function AppointmentCalendarContent({ staffMode = false, staffQuickSale =
         onRefresh={refreshAppointments}
         refreshing={refreshing}
         resolveStaffId={resolveStaffId}
+        canonicalStaffId={canonicalStaffId}
         staffColumns={staffColumns}
         viewMode={viewMode}
       />

@@ -28,10 +28,13 @@ const ITEM_TAGS: Record<AppointmentBilledItem["type"], { bg: string; color: stri
 export function AppointmentPreviewSheet({
   appointment,
   onClose,
+  onContinueToPayment,
   readOnly = false,
 }: {
   appointment: AppointmentListItem | null;
   onClose: () => void;
+  /** Opens the appointment's pending bill at the Payment screen. */
+  onContinueToPayment?: (appointment: AppointmentListItem) => void;
   readOnly?: boolean;
 }) {
   const { staffMode, clientName } = useClientPrivacy();
@@ -77,6 +80,16 @@ export function AppointmentPreviewSheet({
   const openEditor = () => {
     onClose();
     requestAnimationFrame(() => router.push(`/appointments/${appointment.id}/edit` as Href));
+  };
+
+  // A bill saved as pending from the Calendar's Quick Sale: reopen that draft
+  // straight at its Payment screen.
+  // Any unpaid booking can be billed: one without a pending sale yet gets it
+  // billed directly in Quick Sale when this is tapped (see CalendarPreview).
+  const canContinueToPayment = Boolean(onContinueToPayment) && appointment.status !== "Cancelled";
+  const handleContinueToPayment = () => {
+    onClose();
+    onContinueToPayment?.(appointment);
   };
 
   const handleViewInvoice = () => {
@@ -128,7 +141,7 @@ export function AppointmentPreviewSheet({
                 sticky wrapper takes over its child's style, so the row style sits
                 on an inner View to keep the tabs side by side. */}
             <ScrollView
-              contentContainerStyle={styles.appointmentModalScrollContent}
+              contentContainerStyle={[styles.appointmentModalScrollContent, !readOnly && styles.appointmentScrollFooterSpace]}
               stickyHeaderIndices={[1]}
               style={styles.appointmentModalScroll}
             >
@@ -281,7 +294,8 @@ export function AppointmentPreviewSheet({
               </View>
             )}
             </ScrollView>
-            {!readOnly && (hasBill ? (
+            {/* Buttons float over the scroll content — no strip behind them. */}
+            {!readOnly && <View pointerEvents="box-none" style={styles.appointmentFloatingFooter}>{hasBill ? (
               <View style={styles.appointmentBillActions}>
                 <TouchableOpacity accessibilityRole="button" activeOpacity={0.88} onPress={openEditor} style={[styles.appointmentInvoiceButton, styles.appointmentBillButton, styles.appointmentEditButton]}>
                   <Ionicons name="create-outline" size={20} color={Colors.appointmentText} />
@@ -292,12 +306,17 @@ export function AppointmentPreviewSheet({
                   <Text style={styles.appointmentInvoiceText}>Print Bill</Text>
                 </TouchableOpacity>
               </View>
+            ) : canContinueToPayment ? (
+              <TouchableOpacity accessibilityRole="button" activeOpacity={0.88} onPress={handleContinueToPayment} style={styles.appointmentInvoiceButton}>
+                <Ionicons name="card-outline" size={20} color={Colors.onPrimary} />
+                <Text style={styles.appointmentInvoiceText}>Continue to Payment</Text>
+              </TouchableOpacity>
             ) : (
               <TouchableOpacity activeOpacity={0.88} disabled style={[styles.appointmentInvoiceButton, styles.appointmentInvoiceDisabled]}>
                 <Ionicons name="receipt-outline" size={20} color={Colors.onPrimary} />
                 <Text style={styles.appointmentInvoiceText}>Invoice available after payment</Text>
               </TouchableOpacity>
-            ))}
+            )}</View>}
           </View>
         )}
       </View>

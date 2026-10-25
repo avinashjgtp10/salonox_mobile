@@ -327,7 +327,9 @@ export function ClientPickerSheet({
             <TouchableOpacity
               activeOpacity={0.84}
               disabled={creating}
-              onPress={() => setIsCreating(false)}
+              // Opened straight into the form (Quick Sale's "Add Client"), so
+              // Cancel goes back to the sale rather than to a client list.
+              onPress={startInCreateMode ? handleClose : () => setIsCreating(false)}
               style={styles.cancelButton}
             >
               <Text style={styles.cancelButtonText}>Cancel</Text>

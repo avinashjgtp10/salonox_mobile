@@ -1,3 +1,4 @@
+import { INBOX } from "@/services/api/endpoints";
 import type { InboxConversation, InboxMessage } from "@/types/inbox";
 import { formatAppDate, parseAppDateTime } from "@/utils/dateTime";
 
@@ -8,12 +9,13 @@ export function inboxAvatar(name: string | null | undefined, phone: string) {
   };
 }
 
-export function mediaLink(value?: string | null): string | null {
-  if (!value) return null;
-  try {
-    const url = new URL(value);
-    return url.protocol === "https:" || url.protocol === "http:" ? url.href : null;
-  } catch { return null; }
+/** The backend stores a WhatsApp media id in media_url; its bytes come from our authed
+ * `/inbox/media/:id` proxy. A plain http(s) link (older rows) is used as-is, without our token. */
+export function mediaSource(value: string | null | undefined, apiBaseUrl: string): { uri: string; authenticated: boolean } | null {
+  const media = value?.trim();
+  if (!media) return null;
+  if (/^https?:\/\//i.test(media)) return { uri: media, authenticated: false };
+  return { uri: `${apiBaseUrl.replace(/\/+$/, "")}${INBOX.MEDIA(media)}`, authenticated: true };
 }
 
 const timestamp = (value: string | null) => {

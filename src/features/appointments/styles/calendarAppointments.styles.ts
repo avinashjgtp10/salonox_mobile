@@ -2,6 +2,55 @@ import type { ThemeColors } from '@/constants/theme';
 import { StyleSheet } from 'react-native';
 
 export const createCalendarAppointmentsStyles = (Colors: ThemeColors) => StyleSheet.create({
+  // Web calendar chip (.dv-chip): pastel gradient, 4px status accent on the left.
+  webChip: {
+    borderLeftWidth: 4,
+    borderRadius: 8,
+    elevation: 1,
+    overflow: "hidden",
+    position: "absolute",
+    shadowColor: "#000000",
+    shadowOffset: { height: 1, width: 0 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+    zIndex: 3,
+  },
+  webChipHighlighted: {
+    borderColor: "#7c3aed",
+    borderWidth: 2,
+    borderLeftWidth: 4,
+  },
+  webChipBody: {
+    flex: 1,
+    paddingHorizontal: 7,
+    paddingVertical: 4,
+  },
+  webChipTime: {
+    color: "#1f2937",
+    fontSize: 10,
+    fontWeight: "600",
+    opacity: 0.9,
+  },
+  webChipService: {
+    color: "#1f2937",
+    fontSize: 11,
+    fontWeight: "700",
+    lineHeight: 14,
+    marginTop: 1,
+  },
+  webChipClientRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 3,
+    marginTop: 2,
+  },
+  webChipClient: {
+    color: "#1f2937",
+    flexShrink: 1,
+    fontSize: 10,
+    fontWeight: "600",
+    opacity: 0.85,
+  },
   dinggAppointmentCard: {
     borderColor: "transparent",
     borderWidth: 2,

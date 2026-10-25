@@ -326,12 +326,8 @@ export const selectAttendanceRecordsLoading = (state: RootState) =>
 export const selectAttendanceRecordsRefreshing = (state: RootState) =>
   state.attendance.recordsRefreshing;
 export const selectAttendanceRecordsError = (state: RootState) => state.attendance.recordsError;
-export const selectAttendanceRecordsErrorKind = (state: RootState) =>
-  state.attendance.recordsErrorKind;
 
 export const selectAttendanceSummary = (state: RootState) => state.attendance.summary;
-export const selectAttendanceSummaryErrorKind = (state: RootState) =>
-  state.attendance.summaryErrorKind;
 
 export const selectAttendanceCheckingInStaffIds = (state: RootState) =>
   state.attendance.checkingInStaffIds;
@@ -348,15 +344,6 @@ export const selectAttendanceToast = (state: RootState) => state.attendance.toas
 export const selectAttendanceIsInitialLoading = createSelector(
   [selectAttendanceRecordsStatus, selectAttendanceRecords],
   (status, records) => status === "loading" && records.length === 0,
-);
-
-export const selectAttendanceIsOffline = createSelector(
-  [selectAttendanceRecordsErrorKind, selectAttendanceSummaryErrorKind],
-  (recordsErrorKind, summaryErrorKind) =>
-    recordsErrorKind === "network" ||
-    recordsErrorKind === "timeout" ||
-    summaryErrorKind === "network" ||
-    summaryErrorKind === "timeout",
 );
 
 export default attendanceSlice.reducer;

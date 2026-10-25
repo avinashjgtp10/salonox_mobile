@@ -114,9 +114,11 @@ export function StaffAttendanceGate({ children }: { children: ReactNode }) {
               style={[styles.button, { backgroundColor: Colors.primary, opacity: busy || !state?.can_check_in ? 0.5 : 1 }]}>
               {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Check In</Text>}
             </TouchableOpacity> : null}
-            <TouchableOpacity accessibilityRole="button" disabled={busy || refreshing} onPress={() => void refresh()} style={styles.link}>
-              {refreshing ? <ActivityIndicator color={Colors.primaryText} /> : <Text style={{ color: Colors.primaryText }}>{error ? "Retry connection" : "Refresh shift and attendance"}</Text>}
-            </TouchableOpacity>
+            {/* Only offered when loading failed — the popup already refreshes on
+                its own (every minute, on reconnect and when the app returns). */}
+            {error ? <TouchableOpacity accessibilityRole="button" disabled={busy || refreshing} onPress={() => void refresh()} style={styles.link}>
+              {refreshing ? <ActivityIndicator color={Colors.primaryText} /> : <Text style={{ color: Colors.primaryText }}>Retry connection</Text>}
+            </TouchableOpacity> : null}
             <TouchableOpacity accessibilityRole="button" disabled={busy} onPress={() => void signOut().catch((failure) => setError(getApiErrorMessage(failure)))} style={styles.link}><Text style={{ color: Colors.text2 }}>Sign out</Text></TouchableOpacity>
           </View>
         </SafeAreaView>
@@ -130,5 +132,5 @@ const styles = StyleSheet.create({
   card: { borderWidth: 1, borderRadius: 20, padding: 24, gap: 16 },
   title: { fontSize: 24, fontWeight: "700" }, copy: { fontSize: 15, lineHeight: 22 },
   shift: { fontSize: 17, fontWeight: "700" }, button: { padding: 16, borderRadius: 14, alignItems: "center" },
-  buttonText: { color: "#FFFFFF", fontWeight: "700", fontSize: 17 }, link: { paddingVertical: 10, alignItems: "center" },
+  buttonText: { color: "#000000", fontWeight: "700", fontSize: 17 }, link: { paddingVertical: 10, alignItems: "center" },
 });

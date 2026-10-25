@@ -11,7 +11,7 @@ export const unstable_settings = {
 const OWNER_TABS: AppTabItem[] = [
   { icon: "home-outline", name: "dashboard", title: "Home" },
   { icon: "calendar-outline", name: "calendar", title: "Calendar" },
-  { icon: "people-outline", name: "team", title: "Staff" },
+  { icon: "flash", name: "quick-sale-action", title: "Quick Sale", actionHref: "/quick-sale" },
   { icon: "logo-whatsapp", name: "whatsapp", title: "WhatsApp" },
   { icon: "settings-outline", name: "more", title: "Settings" },
 ];
@@ -21,9 +21,5 @@ export default function DashboardTabsLayout() {
   if (isLoading) return null;
   if (!user) return <Redirect href="/login" />;
   if (isStaffExperienceUser(user)) return <Redirect href={STAFF_HOME_ROUTE} />;
-  return (
-    <AppTabLayout tabs={OWNER_TABS}>
-      <Tabs.Screen name="quick-sale" options={{ href: null }} />
-    </AppTabLayout>
-  );
+  return <AppTabLayout tabs={OWNER_TABS}><Tabs.Screen name="team" options={{ href: null }} /></AppTabLayout>;
 }
