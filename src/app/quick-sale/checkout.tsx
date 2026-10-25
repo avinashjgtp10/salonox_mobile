@@ -3,7 +3,7 @@ import { maskClientName } from "@/utils/clientPrivacy";
 import { Text } from "@/components/ui/AppTypography";
 import { Redirect } from "expo-router";
 import { useAuth } from "@/context/AuthContext";
-import { isStaffExperienceUser, STAFF_CALENDAR_ROUTE, STAFF_HOME_ROUTE } from "@/utils/routeResolver";
+import { isStaffExperienceUser, STAFF_HOME_ROUTE } from "@/utils/routeResolver";
 import { canUseStaffQuickSale } from "@/utils/staffAccess";
 import { appAlert as Alert } from "@/services/appAlert";
 import { Ionicons } from "@expo/vector-icons";
@@ -365,18 +365,13 @@ function OwnerQuickSaleCheckoutScreen() {
     router.replace(href);
   }, []);
 
+  // Owners and staff alike go back to a fresh Quick Sale.
   const handleStartNewSale = useCallback(() => {
-    // Staff start every sale from a Calendar slot.
-    if (isStaff) {
-      replaceOnce(STAFF_CALENDAR_ROUTE);
-      return;
-    }
-
     replaceOnce({
       pathname: "/quick-sale",
       params: { resetSale: String(Date.now()) },
     });
-  }, [isStaff, replaceOnce]);
+  }, [replaceOnce]);
 
   useFocusEffect(
     useCallback(() => {
@@ -398,7 +393,7 @@ function OwnerQuickSaleCheckoutScreen() {
         <View style={styles.header}>
           <TouchableOpacity
             activeOpacity={0.86}
-            accessibilityLabel={isStaff ? "Back to calendar" : "Back to quick sale"}
+            accessibilityLabel="Back to quick sale"
             onPress={handleStartNewSale}
             style={styles.headerIconButton}
           >
@@ -546,7 +541,7 @@ function OwnerQuickSaleCheckoutScreen() {
 
         <View style={styles.footer}>
           <TouchableOpacity activeOpacity={0.86} onPress={handleStartNewSale} style={styles.primaryButton}>
-            <Text style={styles.primaryButtonText}>{isStaff ? "Back to Calendar" : isPreview ? "Back to Quick Sale" : "Start New Sale"}</Text>
+            <Text style={styles.primaryButtonText}>{isPreview ? "Back to Quick Sale" : "Start New Sale"}</Text>
           </TouchableOpacity>
         </View>
       </View>

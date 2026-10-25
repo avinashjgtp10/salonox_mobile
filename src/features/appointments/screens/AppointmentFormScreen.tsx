@@ -3,6 +3,7 @@ import { BottomSheet } from "@/components/ui/BottomSheet";
 import { StaffPickerSheet } from "@/features/quickSale/components/StaffPickerSheet";
 import { itemTimeLabel, localItemTime } from "@/features/quickSale/utils/itemTime";
 import { useState } from "react";
+import { useClientPrivacy } from "@/hooks/useClientPrivacy";
 import { AppBackButton } from "@/components/ui/AppBackButton";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { KeyboardAwareScrollView } from "@/components/ui/KeyboardAwareScrollView";
@@ -37,6 +38,7 @@ type Props = {
 
 export function AppointmentFormScreen({ mode, initialSlot, onRequestClose }: Props) {
   const embedded = initialSlot && onRequestClose ? { initialSlot, onRequestClose } : undefined;
+  const { staffMode, clientName } = useClientPrivacy();
   const {
     styles,
     activeBranchId,
@@ -160,7 +162,7 @@ export function AppointmentFormScreen({ mode, initialSlot, onRequestClose }: Pro
                 dropdownOpen={clientDropdownOpen}
                 error={errors.clientId}
                 onDismiss={dismissClientDropdown}
-                onNewClient={handleNewClient}
+                onNewClient={staffMode ? undefined : handleNewClient}
                 onSearchChange={handleClientSearchChange}
                 onSelectClient={handleSelectClient}
                 onSelectExisting={handleSelectExistingClientMode}
@@ -271,7 +273,7 @@ export function AppointmentFormScreen({ mode, initialSlot, onRequestClose }: Pro
               clientLabel={
                 clientBookingMode === "walkIn"
                   ? "Walk-in Client"
-                  : selectedClient?.fullName ?? "No client selected"
+                  : selectedClient ? clientName(selectedClient.fullName) : "No client selected"
               }
               date={form.date}
               pricingTotals={servicePricingTotals}
