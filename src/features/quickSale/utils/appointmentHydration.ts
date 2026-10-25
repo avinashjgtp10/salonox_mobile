@@ -1,4 +1,5 @@
 import { getClientInitials } from "@/features/quickSale/utils/client";
+import { localItemTime } from "./itemTime";
 import type { CartItem, CartItemSource, QuickSaleClient, QuickSaleSlot } from "@/features/quickSale/types";
 import { parseAppointmentDateTime } from "@/features/appointments/utils/appointmentDateTime";
 import type { AppointmentApiService, AppointmentListItem } from "@/types/appointment";
@@ -57,6 +58,7 @@ export const mapAppointmentToCartItems = (appointment: AppointmentListItem): Car
         quantity,
         staffId: toId(row.staff_id) || appointment.staffId || null,
         staffName: row.staff_name?.trim() || appointment.staffName || null,
+        startTime: localItemTime(record.time ?? record.start_time),
         unitPrice,
       };
     });
@@ -91,7 +93,7 @@ export const mapAppointmentToStaff = (appointment: AppointmentListItem): PosStaf
 type PayloadRows = Partial<Record<(typeof APPOINTMENT_ITEM_SOURCES)[number]["key"], Record<string, unknown>[]>>;
 
 // Row fields the cart doesn't model; the original row's value always wins.
-const ORIGINAL_ROW_FIELDS = ["time", "start_time", "end_time", "duration", "duration_minutes", "services", "never_expires", "expiry_date"];
+const ORIGINAL_ROW_FIELDS = ["end_time", "duration", "duration_minutes", "services", "never_expires", "expiry_date"];
 
 /**
  * Saving the cart back onto an existing appointment: each payload row is laid

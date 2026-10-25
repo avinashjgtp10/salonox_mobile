@@ -142,7 +142,7 @@ const APPOINTMENT_STATUS_API_VALUE: Record<AppointmentStatus, string> = {
   "Deleted": "deleted",
   "In Progress": "booked",
   "In Service": "booked",
-  "Missed": "no-show",
+  "No Show": "no-show",
   "Partial": "partial",
   "Unknown": "",
   "Upcoming": "booked",
@@ -222,7 +222,7 @@ export const toAppointmentStatus = (value: unknown): AppointmentStatus => {
     case "missed":
     case "no show":
     case "noshow":
-      return "Missed";
+      return "No Show";
     case "deleted":
       return "Deleted";
     default:

@@ -1,6 +1,6 @@
 import { OpalGlassBackground } from "@/components/ui/OpalGlassBackground";
 import { Ionicons } from "@expo/vector-icons";
-import { Tabs } from "expo-router";
+import { router, Tabs, type Href } from "expo-router";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef } from "react";
 import { AccessibilityInfo, Animated, StyleSheet, View, useWindowDimensions } from "react-native";
 import { ScrollFooterContext } from "@/hooks/useScrollFooter";
@@ -17,6 +17,7 @@ export type AppTabItem = {
   icon: keyof typeof Ionicons.glyphMap;
   name: string;
   title: string;
+  actionHref?: Href;
 };
 
 type AppTabLayoutProps = {
@@ -107,9 +108,10 @@ export function AppTabLayout({ children, tabs }: AppTabLayoutProps) {
         <Tabs.Screen
           key={tab.name}
           name={tab.name}
+          listeners={tab.actionHref ? { tabPress: event => { event.preventDefault(); router.push(tab.actionHref!); } } : undefined}
           options={{
             title: tab.title,
-            tabBarIcon: ({ focused }) => <TabIcon compact={compactTabs} focused={focused} name={tab.icon} />,
+            tabBarIcon: ({ focused }) => tab.actionHref ? <View style={styles.quickSaleIcon}><Ionicons name={tab.icon} size={27} color={Colors.onPrimary} /></View> : <TabIcon compact={compactTabs} focused={focused} name={tab.icon} />,
           }}
         />
       ))}
@@ -120,6 +122,12 @@ export function AppTabLayout({ children, tabs }: AppTabLayoutProps) {
 }
 
 const createStyles = (Colors: ThemeColors, bottomInset = 0, compactTabs = false) => StyleSheet.create({
+  quickSaleIcon: {
+    width: 54, height: 54, borderRadius: 27, marginTop: -18,
+    alignItems: "center", justifyContent: "center", backgroundColor: Colors.primary,
+    borderWidth: 4, borderColor: Colors.card, shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.16, shadowRadius: 8, elevation: 5,
+  },
   tabBar: {
     position: "absolute",
     left: compactTabs ? 10 : 16,

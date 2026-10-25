@@ -5,8 +5,8 @@ import { useClientPrivacy } from "@/hooks/useClientPrivacy";
 import { getAppointmentBillLabel } from "@/utils/clientPrivacy";
 import { AppointmentPreviewSheet } from "@/features/appointments/components/calendar/AppointmentPreviewSheet";
 import { createStyles } from "@/features/appointments/styles/appointmentStyles";
-import { appointmentsOverlap, getAppointmentRange, getCalendarAppointmentTitle, getCalendarTokenLabel, getWebCalendarGradient, hasCalendarInteractionFlag, isReadonlyCalendarAppointment } from "@/features/appointments/utils/appointmentCalendar";
-import { formatTimeLabel, getDateKey, parseAppointmentDateTime, todayIsoDate } from "@/features/appointments/utils/appointmentDateTime";
+import { getAppointmentItemSegments, getAppointmentRange, getCalendarAppointmentTitle, getWebCalendarChipStyle, hasCalendarInteractionFlag, isReadonlyCalendarAppointment } from "@/features/appointments/utils/appointmentCalendar";
+import { formatTimeLabel, getDateKey, minutesToDisplayTime, parseAppointmentDateTime, todayIsoDate } from "@/features/appointments/utils/appointmentDateTime";
 import { sortBySchedule } from "@/features/appointments/utils/appointmentList";
 import { maskPhone } from "@/features/appointments/utils/appointmentScreenHelpers";
 import type { CalendarStaffOption } from "@/features/appointments/utils/calendarStaff";
@@ -16,6 +16,8 @@ import { useThemeColors } from "@/theme/ThemeProvider";
 import type { AppointmentListItem } from "@/types/appointment";
 import { formatAppDate, formatAppTime } from "@/utils/dateTime";
 import { Ionicons } from "@expo/vector-icons";
+import { AppointmentFormScreen } from "@/features/appointments/screens/AppointmentFormScreen";
+import type { AppointmentFormSlot } from "@/features/appointments/hooks/useAppointmentForm";
 import { LinearGradient } from "expo-linear-gradient";
 import { memo, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ComponentProps } from "react";
 import { consumeQuickSaleLaunch, getQuickSaleLaunch, subscribeQuickSaleLaunch } from "@/features/quickSale/utils/quickSaleLaunch";
@@ -34,6 +36,46 @@ const STAFF_COLORS = ["#6366F1", "#8B5CF6", "#EC4899", "#D97706", "#059669", "#2
 const staffColor = (id: string) => STAFF_COLORS[Array.from(id).reduce((sum, letter) => sum + letter.charCodeAt(0), 0) % STAFF_COLORS.length];
 const initials = (name: string) => name.trim().split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
 const pad2 = (value: number) => String(value).padStart(2, "0");
+
+// One card per staff column, spanning only that staff member's items (web DayView).
+type CalendarChip = {
+  appointment: AppointmentListItem;
+  col: number;
+  endMin: number;
+  key: string;
+  startMin: number;
+  title: string;
+  totalCols: number;
+};
+
+// Overlapping cards in a column sit side by side (web computeOverlapLayout).
+const layoutChips = (chips: Omit<CalendarChip, "col" | "totalCols">[]): CalendarChip[] => {
+  const sorted = [...chips].sort((left, right) => left.startMin - right.startMin || right.endMin - left.endMin);
+  const result: CalendarChip[] = [];
+  let cluster: Omit<CalendarChip, "totalCols">[] = [];
+  let lanes: number[] = [];
+  let clusterEnd = -1;
+  const flush = () => {
+    cluster.forEach((chip) => result.push({ ...chip, totalCols: lanes.length }));
+    cluster = [];
+    lanes = [];
+    clusterEnd = -1;
+  };
+  sorted.forEach((chip) => {
+    if (cluster.length && chip.startMin >= clusterEnd) flush();
+    let col = lanes.findIndex((laneEnd) => laneEnd <= chip.startMin);
+    if (col === -1) {
+      col = lanes.length;
+      lanes.push(chip.endMin);
+    } else {
+      lanes[col] = chip.endMin;
+    }
+    cluster.push({ ...chip, col });
+    clusterEnd = Math.max(clusterEnd, chip.endMin);
+  });
+  flush();
+  return result;
+};
 
 const START_HOUR = 0;
 const HOUR_HEIGHT = 160;
@@ -65,6 +107,7 @@ export function CalendarPreview({
   showEmptyState = true,
   emptyTitle,
   resolveStaffId,
+  canonicalStaffId,
   staffColumns = [],
   viewMode = "week",
   readOnly = false,
@@ -79,11 +122,14 @@ export function CalendarPreview({
   // Replaces the "No appointments today" copy, e.g. for a search with no match.
   emptyTitle?: string;
   resolveStaffId?: (appointment: AppointmentListItem) => string;
+  // Maps an item's staff id (which may be an alias) to its column id.
+  canonicalStaffId?: (staffId: string) => string;
   staffColumns?: CalendarStaffOption[];
   title?: string;
   viewMode?: "week" | "day" | "list";
   readOnly?: boolean;
-  // Tapping an empty slot opens Quick Sale. Defaults to !readOnly; staff get it
+  // Tapping an empty slot books an appointment (owners) or opens Quick Sale
+  // (read-only staff). Defaults to !readOnly; staff get it
   // from the owner's Calendar & Quick Sale switch while the rest stays read-only.
   quickSaleEnabled?: boolean;
   expandSingleColumn?: boolean;
@@ -93,6 +139,8 @@ export function CalendarPreview({
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const [previewAppointment, setPreviewAppointment] = useState<AppointmentListItem | null>(null);
   const [quickSaleSlot, setQuickSaleSlot] = useState<QuickSaleSlot | null>(null);
+  const [appointmentSlot, setAppointmentSlot] = useState<AppointmentFormSlot | null>(null);
+  const closeAppointmentForm = useCallback(() => setAppointmentSlot(null), []);
   // A pending bill reopened in the same embedded Quick Sale (no full-screen
   // Quick Sale route exists any more).
   const [quickSaleDraft, setQuickSaleDraft] = useState<{ appointmentId?: string; draftId?: string; openPayment: boolean } | null>(null);
@@ -127,12 +175,43 @@ export function CalendarPreview({
       : 156
     : 118;
   const calendarContentWidth = TIME_COLUMN_WIDTH + columns.length * columnWidth;
-  const appointmentsByColumn = useMemo(() => {
-    const keyed = appointments.map((appointment) => ({ appointment, dateKey: getDateKey(appointment.scheduledAt) }));
-    return columns.map((column) => keyed
-      .filter(({ appointment, dateKey }) => dateKey === column.key && (!column.staffId || (resolveStaffId ? resolveStaffId(appointment) : appointment.staffId) === column.staffId))
-      .map(({ appointment }) => appointment));
-  }, [appointments, columns, resolveStaffId]);
+  const chipsByColumn = useMemo(() => {
+    const columnStaffIds = new Set(columns.map((column) => column.staffId).filter(Boolean));
+    const entries = appointments.flatMap((appointment) => {
+      const scheduled = parseAppointmentDateTime(appointment.scheduledAt);
+      const range = getAppointmentRange(appointment);
+      if (!scheduled || !range) return [];
+      const startMin = scheduled.getHours() * 60 + scheduled.getMinutes();
+      let segments = getAppointmentItemSegments(appointment)
+        .map((segment) => ({ ...segment, staffId: canonicalStaffId?.(segment.staffId) ?? segment.staffId }));
+      // Item staff we can't place in any column: fall back to the lead staff's column.
+      if (segments.length && !segments.some((segment) => columnStaffIds.has(segment.staffId))) segments = [];
+      return [{
+        appointment,
+        dateKey: getDateKey(appointment.scheduledAt),
+        endMin: Math.min(startMin + Math.max((range.end - range.start) / 60_000, 1), 24 * 60 - 1),
+        leadStaffId: resolveStaffId ? resolveStaffId(appointment) : appointment.staffId,
+        segments,
+        startMin,
+      }];
+    });
+    return columns.map((column) => layoutChips(entries.flatMap(({ appointment, dateKey, endMin, leadStaffId, segments, startMin }) => {
+      if (dateKey !== column.key) return [];
+      const whole = { appointment, endMin, key: appointment.id, startMin, title: getCalendarAppointmentTitle(appointment) };
+      if (!column.staffId) return [whole];
+      const own = segments.filter((segment) => segment.staffId === column.staffId);
+      if (own.length) {
+        return [{
+          appointment,
+          endMin: Math.max(...own.map((segment) => segment.endMin)),
+          key: `${appointment.id}-${column.staffId}`,
+          startMin: Math.min(...own.map((segment) => segment.startMin)),
+          title: own.map((segment) => segment.name).filter(Boolean).join(", ") || whole.title,
+        }];
+      }
+      return !segments.length && leadStaffId === column.staffId ? [whole] : [];
+    })));
+  }, [appointments, canonicalStaffId, columns, resolveStaffId]);
   const now = new Date();
   const currentMinuteOffset = now.getHours() * 60 + now.getMinutes() - START_HOUR * 60;
   const showCurrentTime = viewMode === "day" && date === todayIsoDate() && currentMinuteOffset >= 0 && currentMinuteOffset < HOURS.length * 60;
@@ -163,12 +242,18 @@ export function CalendarPreview({
     if (!quickSaleEnabled) return;
     const slotIndex = Math.min(TIME_SLOTS.length - 1, Math.max(0, Math.floor(locationY / SLOT_HEIGHT)));
     const { hour, minute } = TIME_SLOTS[slotIndex];
+    // Owners book an appointment for the tapped slot; staff (who can't open
+    // the booking form) keep billing it in Quick Sale.
+    if (!readOnly) {
+      setAppointmentSlot({ date: column.key, staffId: column.staffId || undefined, time: `${pad2(hour)}:${pad2(minute)}` });
+      return;
+    }
     setQuickSaleSlot({
       date: column.key,
       staffName: column.staffName || undefined,
       time: `${pad2(hour)}:${pad2(minute)}`,
     });
-  }, [quickSaleEnabled]);
+  }, [quickSaleEnabled, readOnly]);
 
   // Dashboard "Quick Sale": open it now, as if today's current slot were
   // tapped, with a Staff dropdown since no column chose the staff.
@@ -257,12 +342,12 @@ export function CalendarPreview({
                 width={columns.length * columnWidth}
               />
               {columns.map((column, columnIndex) => {
-                const columnAppointments = appointmentsByColumn[columnIndex];
+                const columnChips = chipsByColumn[columnIndex];
                 return (
                   <CalendarDayColumn
-                    appointments={columnAppointments}
+                    chips={columnChips}
                     column={column}
-                    highlightedId={previewId && columnAppointments.some((item) => item.id === previewId) ? previewId : null}
+                    highlightedId={previewId && columnChips.some((chip) => chip.appointment.id === previewId) ? previewId : null}
                     key={`${column.key}-${column.staffId || columnIndex}`}
                     onAppointmentPress={openAppointment}
                     onSlotPress={openQuickSaleAt}
@@ -277,7 +362,7 @@ export function CalendarPreview({
           </ScrollView></RefreshViewport>
         </View>
       </Animated.ScrollView>
-      {showEmptyState && !refreshing && appointmentsByColumn.every((items) => items.length === 0) ? (
+      {showEmptyState && !refreshing && chipsByColumn.every((chips) => chips.length === 0) ? (
         <View pointerEvents="none" style={styles.calendarEmptyOverlay}>
           <View style={styles.calendarEmptyIcon}><Ionicons name="calendar-outline" size={30} color={Colors.primaryText} /></View>
           <Text style={styles.calendarEmptyTitle}>
@@ -316,6 +401,21 @@ export function CalendarPreview({
                 initialSlot={quickSaleSlot}
                 onRequestClose={closeQuickSale}
               />
+            ) : null}
+          </View>
+        </View>
+      </Modal>
+      <Modal
+        animationType="fade"
+        onRequestClose={closeAppointmentForm}
+        statusBarTranslucent
+        transparent
+        visible={Boolean(appointmentSlot)}
+      >
+        <View style={styles.quickSaleModalBackdrop}>
+          <View style={styles.quickSaleModalSurface}>
+            {appointmentSlot ? (
+              <AppointmentFormScreen initialSlot={appointmentSlot} mode="create" onRequestClose={closeAppointmentForm} />
             ) : null}
           </View>
         </View>
@@ -368,7 +468,7 @@ const CalendarGridLines = memo(function CalendarGridLines({
 });
 
 const CalendarDayColumn = memo(function CalendarDayColumn({
-  appointments,
+  chips,
   column,
   highlightedId,
   onAppointmentPress,
@@ -377,7 +477,7 @@ const CalendarDayColumn = memo(function CalendarDayColumn({
   styles,
   width,
 }: {
-  appointments: AppointmentListItem[];
+  chips: CalendarChip[];
   column: CalendarColumn;
   highlightedId: string | null;
   onAppointmentPress: (appointment: AppointmentListItem) => void;
@@ -386,62 +486,59 @@ const CalendarDayColumn = memo(function CalendarDayColumn({
   styles: CalendarStyles;
   width: number;
 }) {
-  const { staffMode, clientName } = useClientPrivacy();
+  const { staffMode } = useClientPrivacy();
   const handleSlotPress = useCallback(
     (event: GestureResponderEvent) => onSlotPress(column, event.nativeEvent.locationY),
     [column, onSlotPress],
   );
+  const now = Date.now();
+  const innerWidth = Math.max(width - 6, 0);
 
   return (
     <View style={[styles.dinggDayColumn, { width }]}>
       {!readOnly && <Pressable
-        accessibilityHint="Opens Quick Sale at the tapped time"
-        accessibilityLabel={`Quick Sale, ${column.label}`}
+        accessibilityHint="Books an appointment at the tapped time"
+        accessibilityLabel={`New appointment, ${column.label}`}
         accessibilityRole="button"
         onPress={handleSlotPress}
         style={styles.dinggQuickSaleLayer}
       />}
-      {appointments.map((appointment) => {
-        const scheduled = parseAppointmentDateTime(appointment.scheduledAt);
-        if (!scheduled) return null;
-        const offsetMinutes = scheduled.getHours() * 60 + scheduled.getMinutes() - START_HOUR * 60;
+      {chips.map((chip) => {
+        const { appointment } = chip;
+        const offsetMinutes = chip.startMin - START_HOUR * 60;
         if (offsetMinutes < 0 || offsetMinutes >= HOURS.length * 60) return null;
-        const appointmentRange = getAppointmentRange(appointment);
-        const calendarDurationMinutes = appointmentRange
-          ? Math.max((appointmentRange.end - appointmentRange.start) / 60_000, 1)
-          : appointment.durationMinutes ?? 30;
-        const height = Math.max((calendarDurationMinutes / 60) * HOUR_HEIGHT, 36);
+        const height = Math.max(((chip.endMin - chip.startMin) / 60) * HOUR_HEIGHT, 30);
         const top = (offsetMinutes / 60) * HOUR_HEIGHT;
-        const appointmentTitle = staffMode ? appointment.serviceName : getCalendarAppointmentTitle(appointment);
-        const tokenLabel = getCalendarTokenLabel(appointment);
-        const endTimeLabel = appointment.endTime
-          ? formatTimeLabel(appointment.endTime)
-          : appointmentRange
-            ? formatAppTime(new Date(appointmentRange.end), "--:--")
-            : "--:--";
-        const appointmentSummary = [
-          staffMode ? getAppointmentBillLabel(appointment) : appointment.clientName || "Walk-In",
-          staffMode ? clientName(appointment.clientName) : "",
-          tokenLabel,
-          `${formatTimeLabel(appointment.scheduledAt)}-${endTimeLabel}`,
-          appointmentTitle,
-        ].filter(Boolean).join(", ");
-        const summaryLineCount = Math.max(1, Math.floor((height - (height >= 54 ? 28 : 10)) / 14));
+        const laneWidth = innerWidth / chip.totalCols;
+        const chipStyle = getWebCalendarChipStyle(appointment, now);
+        const compact = height < SLOT_HEIGHT * 1.5;
+        const client = staffMode ? getAppointmentBillLabel(appointment) : appointment.clientName || "Walk-In";
         const isReadonly = isReadonlyCalendarAppointment(appointment);
-        const isOverlapping = appointments.some((candidate) => candidate.id !== appointment.id && appointmentsOverlap(appointment, candidate));
         const isHighlighted = highlightedId === appointment.id || hasCalendarInteractionFlag(appointment, "isHighlighted", "is_highlighted");
-        const isDragging = hasCalendarInteractionFlag(appointment, "isDragging", "is_dragging");
-        const isResizing = hasCalendarInteractionFlag(appointment, "isResizing", "is_resizing");
         return (
           <Pressable
+            accessibilityLabel={`${chip.title}, ${client}`}
             disabled={isReadonly}
-            key={appointment.id}
+            key={chip.key}
             onPress={() => !isReadonly && onAppointmentPress(appointment)}
-            style={[styles.dinggAppointmentCard, isOverlapping && styles.dinggAppointmentOverlapping, isHighlighted && styles.dinggAppointmentHighlighted, isDragging && styles.dinggAppointmentDragging, isResizing && styles.dinggAppointmentResizing, appointment.status === "Deleted" && styles.dinggAppointmentDeleted, { height, top }]}
+            style={[
+              styles.webChip,
+              { borderLeftColor: chipStyle.accent, height, left: 3 + chip.col * laneWidth, top, width: Math.max(laneWidth - (chip.totalCols > 1 ? 2 : 0), 0) },
+              isHighlighted && styles.webChipHighlighted,
+              appointment.status === "Deleted" && styles.dinggAppointmentDeleted,
+            ]}
           >
-            <LinearGradient colors={getWebCalendarGradient(appointment)} end={{ x: 0, y: 1 }} start={{ x: 1, y: 0 }} style={styles.dinggAppointmentGradient}>
-              {height >= 54 ? <View style={styles.dinggAppointmentIcons}><Ionicons name="male-outline" size={13} color="#ffffff" /><Ionicons name="gift-outline" size={13} color="#ffffff" /></View> : null}
-              <Text numberOfLines={summaryLineCount} style={styles.dinggAppointmentSummary}>{appointmentSummary}</Text>
+            <LinearGradient colors={chipStyle.colors} end={{ x: 1, y: 1 }} start={{ x: 0, y: 0 }} style={styles.webChipBody}>
+              <Text numberOfLines={1} style={styles.webChipTime}>
+                {minutesToDisplayTime(chip.startMin)} – {minutesToDisplayTime(chip.endMin)}{compact ? `  ${client}` : ""}
+              </Text>
+              <Text numberOfLines={compact ? 1 : Math.max(1, Math.floor((height - 34) / 14))} style={styles.webChipService}>{chip.title}</Text>
+              {!compact ? (
+                <View style={styles.webChipClientRow}>
+                  <Ionicons name="person" size={10} color="#1f2937" />
+                  <Text numberOfLines={1} style={styles.webChipClient}>{client}</Text>
+                </View>
+              ) : null}
             </LinearGradient>
           </Pressable>
         );

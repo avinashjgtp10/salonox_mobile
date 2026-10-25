@@ -10,7 +10,7 @@ export type AppointmentStatus =
   | "Partial"
   | "Completed"
   | "Cancelled"
-  | "Missed"
+  | "No Show"
   | "Deleted"
   | "Unknown";
 

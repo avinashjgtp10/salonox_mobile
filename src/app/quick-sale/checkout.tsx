@@ -3,7 +3,7 @@ import { maskClientName } from "@/utils/clientPrivacy";
 import { Text } from "@/components/ui/AppTypography";
 import { Redirect } from "expo-router";
 import { useAuth } from "@/context/AuthContext";
-import { isStaffExperienceUser, OWNER_CALENDAR_ROUTE, STAFF_CALENDAR_ROUTE, STAFF_HOME_ROUTE } from "@/utils/routeResolver";
+import { isStaffExperienceUser, STAFF_CALENDAR_ROUTE, STAFF_HOME_ROUTE } from "@/utils/routeResolver";
 import { canUseStaffQuickSale } from "@/utils/staffAccess";
 import { appAlert as Alert } from "@/services/appAlert";
 import { Ionicons } from "@expo/vector-icons";
@@ -378,19 +378,15 @@ function OwnerQuickSaleCheckoutScreen() {
     });
   }, [isStaff, replaceOnce]);
 
-  const handleExitToCalendar = useCallback(() => {
-    replaceOnce(isStaff ? STAFF_CALENDAR_ROUTE : OWNER_CALENDAR_ROUTE);
-  }, [isStaff, replaceOnce]);
-
   useFocusEffect(
     useCallback(() => {
       const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
-        handleExitToCalendar();
+        handleStartNewSale();
         return true;
       });
 
       return () => subscription.remove();
-    }, [handleExitToCalendar]),
+    }, [handleStartNewSale]),
   );
 
   return (
@@ -402,8 +398,8 @@ function OwnerQuickSaleCheckoutScreen() {
         <View style={styles.header}>
           <TouchableOpacity
             activeOpacity={0.86}
-            accessibilityLabel="Back to calendar"
-            onPress={handleExitToCalendar}
+            accessibilityLabel={isStaff ? "Back to calendar" : "Back to quick sale"}
+            onPress={handleStartNewSale}
             style={styles.headerIconButton}
           >
             <Ionicons name="close" size={20} color={Colors.heading} />
@@ -549,21 +545,9 @@ function OwnerQuickSaleCheckoutScreen() {
         </ScrollView>
 
         <View style={styles.footer}>
-          {isPreview ? (
-            // A saved pending bill lives on the Calendar, so that's the only exit.
-            <TouchableOpacity activeOpacity={0.86} onPress={handleExitToCalendar} style={styles.primaryButton}>
-              <Text style={styles.primaryButtonText}>Back to Calendar</Text>
-            </TouchableOpacity>
-          ) : (
-            <>
-              <TouchableOpacity activeOpacity={0.86} onPress={handleStartNewSale} style={styles.primaryButton}>
-                <Text style={styles.primaryButtonText}>Start New Sale</Text>
-              </TouchableOpacity>
-              <TouchableOpacity activeOpacity={0.86} onPress={handleExitToCalendar} style={styles.secondaryButton}>
-                <Text style={styles.secondaryButtonText}>Back to Calendar</Text>
-              </TouchableOpacity>
-            </>
-          )}
+          <TouchableOpacity activeOpacity={0.86} onPress={handleStartNewSale} style={styles.primaryButton}>
+            <Text style={styles.primaryButtonText}>{isStaff ? "Back to Calendar" : isPreview ? "Back to Quick Sale" : "Start New Sale"}</Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -891,21 +875,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   primaryButtonText: {
     color: Colors.onPrimary,
     fontSize: 14,
-    fontWeight: "900",
-  },
-  secondaryButton: {
-    alignItems: "center",
-    borderColor: Colors.border,
-    borderRadius: Radius.full,
-    borderWidth: 1,
-    justifyContent: "center",
-    marginTop: Spacing.sm,
-    minHeight: 48,
-    width: "100%",
-  },
-  secondaryButtonText: {
-    color: Colors.heading,
-    fontSize: 13,
     fontWeight: "900",
   },
   buttonDisabled: {

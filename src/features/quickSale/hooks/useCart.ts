@@ -16,6 +16,7 @@ export type AddItemInput = {
   defaultStaffId?: string | null;
   defaultStaffName?: string | null;
   duration?: string;
+  startTime?: string;
   itemId: string;
   itemType: CartItemSource;
   name: string;
@@ -28,6 +29,7 @@ export type AddItemInput = {
 };
 
 type CartAction =
+  | { type: "setTime"; lineId: string; startTime: string }
   | { input: AddItemInput; type: "add" }
   | { lineId: string; type: "remove" }
   | { index: number; item: CartItem; type: "restore" }
@@ -103,6 +105,7 @@ const cartReducer = (state: CartItem[], action: CartAction): CartItem[] => {
         consumables: buildInitialConsumables(action.input.consumables, 1),
         discountAmount: 0,
         duration: action.input.duration,
+        startTime: action.input.startTime,
         itemId: action.input.itemId,
         itemType: action.input.itemType,
         lineId: nextLineId(),
@@ -167,6 +170,8 @@ const cartReducer = (state: CartItem[], action: CartAction): CartItem[] => {
         : state.map((item) => (item.lineId === action.lineId ? withQuantity(item, quantity) : item));
     }
 
+    case "setTime":
+      return state.map(item => item.lineId === action.lineId ? { ...item, startTime: action.startTime } : item);
     case "setStaff":
       return state.map((item) =>
         item.lineId === action.lineId
@@ -311,11 +316,15 @@ const cartReducer = (state: CartItem[], action: CartAction): CartItem[] => {
   }
 };
 
-export const useCart = () => {
+export const useCart = (defaultTime?: string) => {
   const [rawItems, dispatch] = useReducer(cartReducer, []);
   const items = useMemo(() => reservePackageCoverage(rawItems), [rawItems]);
 
-  const addItem = useCallback((input: AddItemInput) => dispatch({ input, type: "add" }), []);
+  const addItem = useCallback((input: AddItemInput) => {
+    const now = new Date();
+    const time = defaultTime ?? `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+    dispatch({ input: { ...input, startTime: input.startTime ?? time }, type: "add" });
+  }, [defaultTime]);
 
   const removeItem = useCallback(
     (lineId: string) => {
@@ -385,6 +394,7 @@ export const useCart = () => {
   );
 
   const clearCart = useCallback(() => dispatch({ type: "clear" }), []);
+  const setTime = useCallback((lineId: string, startTime: string) => dispatch({ type: "setTime", lineId, startTime }), []);
   const hydrateCart = useCallback((draftItems: CartItem[]) => {
     dispatch({ items: draftItems, type: "hydrate" });
   }, []);
@@ -404,6 +414,7 @@ export const useCart = () => {
   const itemCount = useMemo(() => items.reduce((total, item) => total + item.quantity, 0), [items]);
 
   return {
+    setTime,
     addItem,
     clearCart,
     duplicateItem,

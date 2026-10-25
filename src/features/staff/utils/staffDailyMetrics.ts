@@ -25,7 +25,7 @@ export function getStaffDailyMetrics(member: StaffMember, appointments: Appointm
     const memberIds = [...getStaffIds(appointment)].filter((staffId) => ids.has(staffId));
     if (memberIds.length === 0) continue;
     seen.add(appointment.id);
-    if (["Cancelled", "Missed", "Deleted", "Unknown", "Expired"].includes(appointment.status)) continue;
+    if (["Cancelled", "No Show", "Deleted", "Unknown", "Expired"].includes(appointment.status)) continue;
     todayAppointments += 1;
     if (appointment.status === "Completed") servicesCompleted += 1;
   }

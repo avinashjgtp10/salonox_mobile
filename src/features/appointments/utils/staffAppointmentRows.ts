@@ -28,8 +28,8 @@ export const buildStaffAppointmentRows = (
   const openAppointments = otherDays.filter(
     (appointment) => appointment.status !== "Cancelled" && !isStaffAppointmentCompleted(appointment),
   );
-  const noShowAppointments = openAppointments.filter((appointment) => appointment.status === "Missed");
-  const pendingAppointments = openAppointments.filter((appointment) => appointment.status !== "Missed");
+  const noShowAppointments = openAppointments.filter((appointment) => appointment.status === "No Show");
+  const pendingAppointments = openAppointments.filter((appointment) => appointment.status !== "No Show");
   const rows: StaffAppointmentRow[] = [];
   const addSection = (title: string, sectionAppointments: AppointmentListItem[]) => {
     if (sectionAppointments.length === 0) {

@@ -5,11 +5,7 @@ export const dashboardTourSteps = [
   { target: "Today's Revenue", title: "Today's revenue", description: "Check today's earnings and tap to see the details." },
   { target: "Total Clients", title: "Your clients", description: "See your client count. Tap this card to find clients and open their profiles." },
   { target: "Bookings", title: "Your bookings", description: "Tap this card to browse bookings and review appointment details." },
-  { target: "This Month vs Last Month", title: "Compare your revenue", description: "Compare this month's revenue with last month and see the change." },
-  { target: "Appointment", title: "Book an appointment", description: "Use this shortcut to start a new appointment for a client." },
-  { target: "Quick Sale", title: "Quick Sale", description: "Use this button to open the Calendar and start a Quick Sale right away." },
-  { target: "Reports", title: "Check your reports", description: "Open reports to review your salon's business performance." },
-  { target: "Attendance", title: "Manage attendance", description: "Check staff in or out and review today's attendance. You can replay this tour anytime." },
+  { target: "This Month vs Last Month", title: "Compare your revenue", description: "Compare this month's revenue with last month and see the change. You can replay this tour anytime." },
 ] as const;
 
 export type TourRect = { x: number; y: number; width: number; height: number };

@@ -9,7 +9,6 @@ import { isStaffExperienceUser, STAFF_CALENDAR_ROUTE, STAFF_HOME_ROUTE } from "@
 import { canUseStaffQuickSale } from "@/utils/staffAccess";
 import { formatAppDate, formatAppTime } from "@/utils/dateTime";
 import { appAlert as Alert } from "@/services/appAlert";
-import { ToastOverlay } from "@/components/ui/ToastOverlay";
 import {
   router,
   useFocusEffect,
@@ -20,10 +19,9 @@ import {
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { BackHandler, Keyboard, StyleSheet, TouchableOpacity, View, useWindowDimensions } from "react-native";
-import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { DashboardRadius as Radius, DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
+import { DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { ConfirmationModal } from "@/components/ui/ConfirmationModal";
 import { ChangeServiceModal } from "@/features/quickSale/components/ChangeServiceModal";
@@ -201,7 +199,7 @@ function OwnerQuickSaleScreen({
   const initError = useAppSelector(selectSalesInitError);
   const salonId = useAppSelector(selectActiveBranchId);
 
-  const cart = useCart();
+  const cart = useCart(initialSlot?.time);
   const checkoutSubmission = useCheckoutSubmissionController();
   const clearCart = cart.clearCart;
   const hydrateCart = cart.hydrateCart;
@@ -242,8 +240,6 @@ function OwnerQuickSaleScreen({
     "membership",
   ]);
   const [isDiscardDialogVisible, setIsDiscardDialogVisible] = useState(false);
-  const [undoNotice, setUndoNotice] = useState<{ item: import("@/features/quickSale/types").CartItem; index: number } | null>(null);
-  const undoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clientPickerOpenTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dirtyBaselineRef = useRef<string | null>(
     isExistingBill ? null : EMPTY_QUICK_SALE_DIRTY_SIGNATURE,
@@ -336,10 +332,6 @@ function OwnerQuickSaleScreen({
 
   useEffect(
     () => () => {
-      if (undoTimeoutRef.current) {
-        clearTimeout(undoTimeoutRef.current);
-        undoTimeoutRef.current = null;
-      }
 
       if (clientPickerOpenTimeoutRef.current) {
         clearTimeout(clientPickerOpenTimeoutRef.current);
@@ -538,10 +530,6 @@ function OwnerQuickSaleScreen({
   });
 
   const resetQuickSaleSession = useCallback(() => {
-    if (undoTimeoutRef.current) {
-      clearTimeout(undoTimeoutRef.current);
-      undoTimeoutRef.current = null;
-    }
 
     if (clientPickerOpenTimeoutRef.current) {
       clearTimeout(clientPickerOpenTimeoutRef.current);
@@ -577,7 +565,6 @@ function OwnerQuickSaleScreen({
     setDraftDiscountPercent(0);
     setDiscountApplyTo(["service", "product", "package", "membership"]);
     setIsDiscardDialogVisible(false);
-    setUndoNotice(null);
     setOverallDiscountInput("");
     setTipInput("");
     setSaleNotes("");
@@ -924,12 +911,6 @@ function OwnerQuickSaleScreen({
     if (!removed) {
       return;
     }
-
-    if (undoTimeoutRef.current) {
-      clearTimeout(undoTimeoutRef.current);
-    }
-
-    setUndoNotice(removed);
     setProductStockErrors((current) => {
       if (!(lineId in current)) {
         return current;
@@ -939,7 +920,6 @@ function OwnerQuickSaleScreen({
       delete next[lineId];
       return next;
     });
-    undoTimeoutRef.current = setTimeout(() => setUndoNotice(null), 4000);
   }, [cart]);
 
   const handleSetQuantity = useCallback((lineId: string, quantity: number) => {
@@ -1048,17 +1028,6 @@ function OwnerQuickSaleScreen({
   );
 
 
-  const handleUndoRemove = () => {
-    if (undoNotice) {
-      cart.restoreItem(undoNotice.item, undoNotice.index);
-    }
-
-    setUndoNotice(null);
-
-    if (undoTimeoutRef.current) {
-      clearTimeout(undoTimeoutRef.current);
-    }
-  };
 
   const getQuickSaleStaff = useCallback(
     () => getQuickSaleStaffId(cart.items, selectedQuickSaleStaff?.id),
@@ -1772,6 +1741,7 @@ function OwnerQuickSaleScreen({
         ) : null}
 
         <QuickSaleForm
+          defaultTime={(appointmentSlot ?? initialSlot)?.time}
           cart={cart} selectedClient={selectedClient} redemptions={redemptions}
           staffOptions={initData?.staff ?? []} renderInline={embedded}
           notes={saleNotes} onChangeNotes={setSaleNotes}
@@ -1863,19 +1833,10 @@ function OwnerQuickSaleScreen({
           </View>
         </BottomSheet>
 
-        {undoNotice && !isGlobalSearchActive ? (
-          <ToastOverlay>
-            <Animated.View entering={FadeIn.duration(140)} exiting={FadeOut.duration(120)} style={styles.undoToast}>
-              <Text style={styles.undoToastText}>Item removed</Text>
-              <TouchableOpacity onPress={handleUndoRemove}>
-                <Text style={styles.undoToastAction}>Undo</Text>
-              </TouchableOpacity>
-            </Animated.View>
-          </ToastOverlay>
-        ) : null}
 
         {!isOverlayActive ? (
           <MiniBillBar
+            isPricingLoading={isPricingLoading}
             disabled={cart.items.length === 0 || isPricingLoading || Boolean(pricingError) || cart.items.some(item => item.itemType === "service" && !item.staffId)}
             isSaving={checkoutSubmission.isSaving}
             itemCount={cart.itemCount}
@@ -2095,30 +2056,5 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     color: Colors.text2,
     fontSize: 12,
     fontWeight: "700",
-  },
-  undoToast: {
-    alignItems: "center",
-    backgroundColor: Colors.primaryDark,
-    borderRadius: Radius.full,
-    flexDirection: "row",
-    gap: Spacing.md,
-    justifyContent: "space-between",
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: 12,
-    shadowColor: Colors.shadow,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.22,
-    shadowRadius: 16,
-    zIndex: 40,
-  },
-  undoToastText: {
-    color: Colors.onPrimary,
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  undoToastAction: {
-    color: Colors.gold,
-    fontSize: 12,
-    fontWeight: "900",
   },
 });

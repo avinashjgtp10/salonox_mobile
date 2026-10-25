@@ -58,6 +58,7 @@ export const getQuickSaleDirtySignature = ({
       originalUnitPrice: item.originalUnitPrice,
       quantity: item.quantity,
       staffId: item.staffId,
+      startTime: item.startTime,
       unitPrice: item.unitPrice,
     })),
     convenienceFeeInput: normalizeAmountInput(convenienceFeeInput),
