@@ -1,7 +1,7 @@
 import { api } from "@/services/api";
 import { MARKETING } from "@/services/api/endpoints/marketing.endpoints";
 import { asRecord, toSafeNumber as num, toSafeString as str } from "@/utils/apiNormalize";
-import type { MarketingCampaign, MarketingConfig, MarketingContact, MarketingDashboard, MarketingPage, MarketingTemplate } from "@/types/marketing";
+import type { MarketingCampaign, MarketingConfig, MarketingContact, MarketingDashboard, MarketingInsights, MarketingPage, MarketingTemplate } from "@/types/marketing";
 
 // Stats/pagers return raw JSON; campaigns/config use the success/data envelope.
 const unwrap = (value: unknown): unknown => {
@@ -21,6 +21,21 @@ export const normalizeMarketingCampaign = (value: unknown): MarketingCampaign =>
   };
 };
 export const marketingService = {
+  async getInsights(days: 7 | 30 | 90, signal?: AbortSignal): Promise<MarketingInsights> {
+    const response = await api.get(MARKETING.INSIGHTS, { params: { days }, signal, timeout: 120000 });
+    const payload = unwrap(response.data);
+    const d = asRecord(payload);
+    if (!payload || !d.totals) throw new Error("Meta insights returned an invalid response. Please try again.");
+    const t = asRecord(d.totals);
+    return {
+      days: num(d.days) || days, currency: str(d.currency) || "INR",
+      totals: { cost: num(t.cost), billableVolume: num(t.billableVolume), freeVolume: num(t.freeVolume), volume: num(t.volume) },
+      byCategory: rows(d.byCategory).map(c => ({ category: str(c.category), cost: num(c.cost), volume: num(c.volume), freeVolume: num(c.freeVolume) })),
+      daily: rows(d.daily).map(v => ({ date: str(v.date), cost: num(v.cost), volume: num(v.volume) })).sort((a, b) => a.date.localeCompare(b.date)),
+      templates: rows(d.templates).map(t => ({ template_id: str(t.template_id), name: str(t.name), sent: num(t.sent), delivered: num(t.delivered), read: num(t.read), clicked: num(t.clicked), clicks: Object.fromEntries(Object.entries(asRecord(t.clicks)).map(([k, v]) => [k, num(v)])) })),
+      errors: Array.isArray(d.errors) ? d.errors.map(e => str(e)).filter(Boolean) : [],
+    };
+  },
   async getDashboard(signal?: AbortSignal): Promise<MarketingDashboard> {
     const [statsResponse, campaignsResponse, configResponse] = await Promise.all([
       api.get(MARKETING.STATS, { signal }), api.get(MARKETING.CAMPAIGNS, { signal }), api.get(MARKETING.WA_CONFIG, { signal }),
