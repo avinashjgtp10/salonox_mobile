@@ -6,6 +6,7 @@ import { forwardRef, useMemo, useState } from "react";
 import { KeyboardAvoidingView, Platform, StyleSheet, TouchableOpacity, View, type StyleProp, type ViewStyle } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { AppBackButton } from "@/components/ui/AppBackButton";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { KeyboardAwareScrollView } from "@/components/ui/KeyboardAwareScrollView";
 import { AppLayout, AppRadius } from "@/constants/layout";
@@ -192,11 +193,9 @@ export default function NewServiceScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.header}>
+            <AppBackButton onPress={isSubmitting ? () => undefined : handleBack} />
             <Text style={styles.headerTitle}>Add Service</Text>
             <View style={styles.headerActions}>
-              <TouchableOpacity activeOpacity={0.84} disabled={isSubmitting} onPress={handleBack} style={styles.closeButton}>
-                <Text style={styles.closeText}>Close</Text>
-              </TouchableOpacity>
               <TouchableOpacity activeOpacity={0.88} disabled={isSubmitting} onPress={() => void handleSubmit()} style={[styles.saveButton, isSubmitting && styles.disabled]}>
                 {isSubmitting ? <ActivityIndicator color="#FFFFFF" size="small" /> : null}
                 <Text style={styles.saveText}>Save</Text>
@@ -412,7 +411,7 @@ function CheckboxRow({
   return (
     <TouchableOpacity activeOpacity={0.84} disabled={disabled} onPress={onPress} style={styles.checkboxRow}>
       <View style={[styles.checkbox, checked && styles.checkboxChecked]}>
-        {checked ? <Ionicons color="#FFFFFF" name="checkmark" size={15} /> : null}
+        {checked ? <Ionicons color="#000000" name="checkmark" size={15} /> : null}
       </View>
       <Text style={styles.checkboxLabel}>{label}</Text>
     </TouchableOpacity>
@@ -429,6 +428,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     borderBottomColor: Colors.border,
     borderBottomWidth: 1,
     flexDirection: "row",
+    gap: 12,
     justifyContent: "space-between",
     marginHorizontal: -16,
     marginBottom: 30,
@@ -437,17 +437,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   headerTitle: { color: Colors.heading, flex: 1, fontSize: 21, fontWeight: "800" },
   headerActions: { alignItems: "center", flexDirection: "row", gap: 12 },
-  closeButton: {
-    alignItems: "center",
-    backgroundColor: Colors.card,
-    borderColor: Colors.border,
-    borderRadius: AppRadius.pill,
-    borderWidth: 1,
-    justifyContent: "center",
-    minHeight: 46,
-    paddingHorizontal: 24,
-  },
-  closeText: { color: Colors.heading, fontSize: 14, fontWeight: "800" },
   saveButton: {
     alignItems: "center",
     backgroundColor: Colors.primaryDark,
