@@ -6,6 +6,7 @@ import { Image, TouchableOpacity, View } from "react-native";
 import { API_BASE_URL } from "@/services/api";
 import type { InboxMessage } from "@/types/inbox";
 import { mediaSource } from "@/utils/inboxPresentation";
+import { canPlayInboxVideoInApp, InboxMediaViewer } from "./InboxMediaViewer";
 import { inboxMediaHeaders, openInboxMedia } from "./inboxMedia";
 import { useInboxTheme } from "./inboxTheme";
 
@@ -14,10 +15,13 @@ export function MessageBubble({ message }: { message: InboxMessage }) {
   const [failedImage, setFailedImage] = useState(false);
   const [openError, setOpenError] = useState(false);
   const [opening, setOpening] = useState(false);
+  const [viewerOpen, setViewerOpen] = useState(false);
   const outgoing = message.direction === "OUTBOUND";
   const source = mediaSource(message.mediaUrl, API_BASE_URL);
   const type = message.mediaType || "attachment";
   const isImage = !!source && type === "image" && !failedImage;
+  // Images and videos open in the in-app viewer; audio and documents use the system share sheet.
+  const viewable = !!source && (type === "image" || (type === "video" && canPlayInboxVideoInApp));
   // undefined = still fetching the token for an authed image; null = no header needed.
   const [imageHeaders, setImageHeaders] = useState<Record<string, string> | null | undefined>(isImage && source.authenticated ? undefined : null);
   const status = message.status.toUpperCase();
@@ -32,6 +36,10 @@ export function MessageBubble({ message }: { message: InboxMessage }) {
 
   const open = async () => {
     if (!source || opening) return;
+    if (viewable) {
+      setViewerOpen(true);
+      return;
+    }
     setOpenError(false);
     setOpening(true);
     try { await openInboxMedia(source, message.mediaUrl!.trim(), type); }
@@ -54,5 +62,6 @@ export function MessageBubble({ message }: { message: InboxMessage }) {
     {!!message.body && <Text selectable style={s.messageText}>{message.body}</Text>}
     <View style={s.metadata}><Text style={[s.muted, { fontSize: 10 }]}>{message.sentAtLabel}</Text>{outgoing && <Ionicons accessibilityLabel={status} name={statusIcon} size={14} color={status === "FAILED" ? p.error : status === "READ" ? p.info : p.muted} />}</View>
     {status === "FAILED" && <Text style={s.error}>Message failed to deliver</Text>}
+    {viewable && viewerOpen ? <InboxMediaViewer mediaId={message.mediaUrl!.trim()} onClose={() => setViewerOpen(false)} source={source} type={type as "image" | "video"} visible /> : null}
   </View></View>;
 }

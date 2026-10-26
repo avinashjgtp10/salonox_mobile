@@ -129,6 +129,8 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       "expo-router",
       ["expo-camera", { cameraPermission: "Allow SalonOX to scan product barcodes and recognize product packaging for inventory audits.", recordAudioAndroid: false }],
       ["expo-secure-store", { configureAndroidBackup: true, faceIDPermission: false }],
+      // WhatsApp inbox: play received videos in the app.
+      ["expo-video", { supportsBackgroundPlayback: false, supportsPictureInPicture: false }],
       "./plugins/with-launcher-logo-padding",
       "./plugins/with-plain-launch-screen",
       [
