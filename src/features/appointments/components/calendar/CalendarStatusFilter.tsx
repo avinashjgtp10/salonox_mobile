@@ -66,7 +66,7 @@ export function CalendarStatusFilter({ statuses, onChange }: {
         <Text numberOfLines={1} style={[styles.dinggLegendText, styles.dinggLegendTextActive, localStyles.label]}>
           {label}
         </Text>
-        <Ionicons name={expanded ? "chevron-up" : "chevron-down"} size={16} color="#FFFFFF" />
+        <Ionicons name={expanded ? "chevron-up" : "chevron-down"} size={16} color="#000000" />
       </TouchableOpacity>
       {expanded ? (
         <Portal>
