@@ -359,8 +359,15 @@ export const attendanceService = {
         const staffId = toSafeString(row.staff_id);
         if (staffId) byStaffId[staffId] = toSafeString(row.state, "not_checked_in") as StaffPresenceState;
       });
+      const breaks: StaffPresence["breaks"] = {};
+      firstArray(body, ["breaks"]).forEach((row) => {
+        const staffId = toSafeString(row.staff_id);
+        const since = toSafeString(row.since);
+        const until = toSafeString(row.until);
+        if (staffId && since && until) breaks[staffId] = { since, until };
+      });
 
-      return { byStaffId, enabled: body.enabled === true };
+      return { breaks, byStaffId, enabled: body.enabled === true };
     } catch {
       return NO_STAFF_PRESENCE;
     }

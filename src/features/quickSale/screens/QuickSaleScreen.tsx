@@ -45,6 +45,16 @@ import {
 import { ServiceCatalogTab } from "@/features/quickSale/components/ServiceCatalogTab";
 import { ServiceSearchDropdown } from "@/features/quickSale/components/ServiceSearchDropdown";
 import { StaffPickerSheet } from "@/features/quickSale/components/StaffPickerSheet";
+import { useStaffPresence } from "@/features/attendance/hooks/useStaffPresence";
+import {
+  breakAt,
+  formatBreakTime,
+  isCheckedOut,
+  localTodayKey,
+  NO_STAFF_PRESENCE,
+  type StaffPresence,
+} from "@/features/attendance/utils/staffPresence";
+import { quickSaleStaffOptions } from "@/features/quickSale/utils/quickSaleStaff";
 import { useCart } from "@/features/quickSale/hooks/useCart";
 import { useCheckoutSubmissionController } from "@/features/quickSale/hooks/useCheckoutSubmissionController";
 import { useClientPackages } from "@/features/quickSale/hooks/useClientPackages";
@@ -215,6 +225,8 @@ function OwnerQuickSaleScreen({
   const [isCatalogVisible, setIsCatalogVisible] = useState(false);
   const [hasClientStepSelection, setHasClientStepSelection] = useState(isExistingBill);
   const [selectedQuickSaleStaff, setSelectedQuickSaleStaff] = useState<PosStaffMember | null>(null);
+  // "Yes, continue" on the checked-out prompt holds for the rest of this sale (as on the web).
+  const [checkedOutAcked, setCheckedOutAcked] = useState(false);
   const [isClientPickerVisible, setIsClientPickerVisible] = useState(false);
   const [isClientDatesVisible, setIsClientDatesVisible] = useState(false);
   const [isEmbeddedStaffPickerVisible, setIsEmbeddedStaffPickerVisible] = useState(false);
@@ -579,6 +591,7 @@ function OwnerQuickSaleScreen({
     setSubmitError(null);
     setProductStockErrors({});
     setIsSaleFinalized(false);
+    setCheckedOutAcked(false);
   }, [
     clearCart,
     resetCheckoutSubmission,
@@ -595,7 +608,112 @@ function OwnerQuickSaleScreen({
   }, [params.resetSale, resetQuickSaleSession]);
   const couponOrderAmount = Math.max(0, totals.subtotal);
 
-  const staffOptions = useMemo(() => initData?.staff ?? [], [initData?.staff]);
+  // Staff rules from the web's Quick Sale (AppointmentModal + useStaffSchedule):
+  // only staff who allow calendar bookings, in Reorder Staff order and — with
+  // "show only checked-in staff" on — only those checked in today. Staff on
+  // this bill's items always stay. Check-in only exists for today, so an
+  // appointment on another date is not filtered.
+  const { presence: staffPresence } = useStaffPresence();
+  const saleDateKey = (appointmentSlot ?? initialSlot)?.date || localTodayKey();
+  const isSaleToday = saleDateKey === localTodayKey();
+  // "On the bill" = staff on the bill's items, as on the web (involvedStaff).
+  const involvedStaff = useMemo(() => {
+    const byId = new Map<string, string>();
+    cart.items.forEach((item) => {
+      if (item.staffId && !byId.has(item.staffId)) byId.set(item.staffId, item.staffName ?? "");
+    });
+    return [...byId].map(([id, name]) => ({ id, name }));
+  }, [cart.items]);
+  const staffOptions = useMemo(
+    () => quickSaleStaffOptions(initData?.staff ?? [], staffPresence, involvedStaff.map((staff) => staff.id), saleDateKey),
+    [initData?.staff, involvedStaff, saleDateKey, staffPresence],
+  );
+  const checkedOutStaff = useMemo(
+    () => (isSaleToday ? involvedStaff.filter((staff) => isCheckedOut(staffPresence, staff.id)) : []),
+    [involvedStaff, isSaleToday, staffPresence],
+  );
+  const checkedOutStaffNames = useMemo(() => checkedOutStaff.map((staff) => staff.name), [checkedOutStaff]);
+  const onBreakStaff = useMemo(
+    () => (isSaleToday ? involvedStaff.flatMap((staff) => {
+      const onBreak = breakAt(staffPresence, staff.id, saleDateKey);
+      return onBreak ? [{ ...staff, ...onBreak }] : [];
+    }) : []),
+    [involvedStaff, isSaleToday, saleDateKey, staffPresence],
+  );
+
+  // The dialogs' Cancel runs after later renders, so it reads the bill as it is then.
+  const latestBillRef = useRef({ cart, checkedOutStaff });
+  useEffect(() => { latestBillRef.current = { cart, checkedOutStaff }; });
+  const unpickStaff = useCallback((staffIds: Set<string>) => {
+    const { cart: currentCart } = latestBillRef.current;
+    currentCart.items.forEach((item) => {
+      if (item.staffId && staffIds.has(item.staffId)) currentCart.setStaff(item.lineId, null, null);
+    });
+    // The top staff pick would put them straight back on the items.
+    setSelectedQuickSaleStaff((current) => (current && staffIds.has(current.id) ? null : current));
+  }, []);
+
+  // A staff member who is on a break, or (with check-in visibility on) has
+  // checked out today, asks once they are NEWLY on the bill — whichever way
+  // they got there — each in its own dialog, as on the web. The bill as it was
+  // loaded (draft/appointment hydration, first attendance fetch) never asks.
+  // Cancel on a break takes those staff off the bill; Cancel on a check-out
+  // takes every checked-out staff member off it (web cancelCheckedOutPick).
+  const promptBaselineRef = useRef<{ checkedOut: string[]; loading: boolean; onBreak: string[]; presence: StaffPresence } | null>(null);
+  useEffect(() => {
+    const previous = promptBaselineRef.current;
+    promptBaselineRef.current = {
+      checkedOut: checkedOutStaff.map((staff) => staff.id),
+      loading: isLoadingDraft,
+      onBreak: onBreakStaff.map((staff) => staff.id),
+      presence: staffPresence,
+    };
+    if (!previous || isLoadingDraft || previous.loading || previous.presence === NO_STAFF_PRESENCE) return;
+
+    const addedBreaks = onBreakStaff.filter((staff) => !previous.onBreak.includes(staff.id));
+    if (addedBreaks.length > 0) {
+      Alert.alert(
+        "Staff is on break",
+        `${addedBreaks.map((staff) => `${staff.name} (on break since ${formatBreakTime(staff.since)}, back by ${formatBreakTime(staff.until)})`).join(", ")}. Do you still want to book an appointment with ${addedBreaks.length > 1 ? "them" : "this staff member"} at this time?`,
+        [
+          { onPress: () => unpickStaff(new Set(addedBreaks.map((staff) => staff.id))), style: "cancel", text: "Cancel" },
+          { text: "Yes, continue" },
+        ],
+      );
+    }
+
+    const addedCheckedOut = checkedOutStaff.filter((staff) => !previous.checkedOut.includes(staff.id));
+    if (addedCheckedOut.length > 0) {
+      setCheckedOutAcked(false);
+      Alert.alert(
+        "Staff has checked out",
+        `${addedCheckedOut.map((staff) => staff.name).join(", ")} ${addedCheckedOut.length > 1 ? "have" : "has"} checked out for today. Do you still want to book or take payment on ${addedCheckedOut.length > 1 ? "them" : "this staff member"}?`,
+        [
+          { onPress: () => unpickStaff(new Set(latestBillRef.current.checkedOutStaff.map((staff) => staff.id))), style: "cancel", text: "Cancel" },
+          { onPress: () => setCheckedOutAcked(true), text: "Yes, continue" },
+        ],
+      );
+    }
+  }, [checkedOutStaff, isLoadingDraft, onBreakStaff, staffPresence, unpickStaff]);
+
+  // Pay, or saving a NEW bill, with a checked-out staff member on it asks once
+  // per sale. Updating an existing bill doesn't ask (web handleUpdate isn't guarded).
+  const guardCheckedOut = useCallback((action: () => void) => {
+    if (checkedOutStaffNames.length === 0 || checkedOutAcked) { action(); return; }
+    const many = checkedOutStaffNames.length > 1;
+    Alert.alert(
+      "Staff has checked out",
+      `${checkedOutStaffNames.join(", ")} ${many ? "have" : "has"} checked out for today. Do you still want to book or take payment on ${many ? "them" : "this staff member"}?`,
+      [
+        { style: "cancel", text: "Cancel" },
+        { onPress: () => { setCheckedOutAcked(true); action(); }, text: "Yes, continue" },
+      ],
+    );
+  }, [checkedOutAcked, checkedOutStaffNames]);
+  const guardSave = useCallback((save: () => void) => {
+    if (isExistingBill) save(); else guardCheckedOut(save);
+  }, [guardCheckedOut, isExistingBill]);
+
   const singleEligibleStaff = staffOptions.length === 1 ? staffOptions[0] : null;
   const defaultLineStaff = selectedQuickSaleStaff ?? singleEligibleStaff;
 
@@ -1743,7 +1861,7 @@ function OwnerQuickSaleScreen({
         <QuickSaleForm
           defaultTime={(appointmentSlot ?? initialSlot)?.time}
           cart={cart} selectedClient={selectedClient} redemptions={redemptions}
-          staffOptions={initData?.staff ?? []} renderInline={embedded}
+          staffOptions={staffOptions} renderInline={embedded}
           notes={saleNotes} onChangeNotes={setSaleNotes}
           pricingError={pricingError} isPricingLoading={isPricingLoading}
           onAddClient={() => { setClientPickerStartsInCreateMode(true); setIsClientPickerVisible(true); }}
@@ -1842,7 +1960,7 @@ function OwnerQuickSaleScreen({
             isSaving={checkoutSubmission.isSaving}
             itemCount={cart.itemCount}
             onCheckout={() => { if (ensureClientSelected()) openCheckout("payment"); }}
-            onSavePending={() => { if (ensureClientSelected()) void handleSavePending(); }}
+            onSavePending={() => { if (ensureClientSelected()) guardSave(() => void handleSavePending()); }}
             savePendingDisabled={cart.items.length === 0 || checkoutSubmission.isSaving || checkoutSubmission.isCheckingOut}
           />
         ) : null}
@@ -1869,13 +1987,13 @@ function OwnerQuickSaleScreen({
         <StaffPickerSheet
           onClose={() => setIsEmbeddedStaffPickerVisible(false)}
           onSelect={(staffId) => {
-            const staffMember = initData?.staff.find((item) => item.id === staffId);
+            const staffMember = staffOptions.find((item) => item.id === staffId);
             if (staffMember) handleSelectQuickSaleStaff(staffMember);
             setIsEmbeddedStaffPickerVisible(false);
           }}
           renderInline={embedded}
           selectedStaffId={selectedQuickSaleStaff?.id ?? null}
-          staff={initData?.staff ?? []}
+          staff={staffOptions}
           visible={embedded && isEmbeddedStaffPickerVisible}
         />
 
@@ -1956,7 +2074,7 @@ function OwnerQuickSaleScreen({
           }}
           onChangeTip={setTipInput}
           onClose={closeCheckout}
-          onCompleteSale={(payment) => void handleCompleteSale(payment)}
+          onCompleteSale={(payment) => guardCheckedOut(() => void handleCompleteSale(payment))}
           onRemoveCoupon={handleRemoveCoupon}
           onRemoveItem={handleRemoveItem}
           onRequireClientDetails={embedded
@@ -1967,7 +2085,7 @@ function OwnerQuickSaleScreen({
                 setIsClientPickerVisible(true);
               }
             : undefined}
-          onSavePending={() => { if (ensureClientSelected()) void handleSavePending(); }}
+          onSavePending={() => { if (ensureClientSelected()) guardSave(() => void handleSavePending()); }}
           onSetConsumableActualQty={handleSetConsumableActualQty}
           onSetQuantity={handleSetQuantity}
           onToggleIncludeGst={() => setIncludeGst((current) => !current)}
@@ -1977,7 +2095,7 @@ function OwnerQuickSaleScreen({
           redemptions={redemptions}
           renderInline={embedded}
           selectedClient={selectedClient}
-          staffOptions={initData?.staff ?? []}
+          staffOptions={staffOptions}
           productStockErrors={productStockErrors}
           submitError={submitError}
           tipInput={tipInput}
