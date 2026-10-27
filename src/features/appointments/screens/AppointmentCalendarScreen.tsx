@@ -64,6 +64,7 @@ export function AppointmentCalendarContent({ staffMode = false, staffQuickSale =
   // Reopen on the day last viewed: leaving for a bill or receipt can remount
   // this screen, and the shared list query may since point at today.
   const [date, setDateState] = useState(() => lastViewedCalendarDate ?? initialDate);
+  const isAwayFromToday = date !== todayIsoDate();
   const setDate = useCallback((value: string) => {
     lastViewedCalendarDate = value;
     setDateState(value);
@@ -227,7 +228,12 @@ export function AppointmentCalendarContent({ staffMode = false, staffQuickSale =
           </TourButton>
         </View>
         <View style={styles.dinggToolbarActions}>
-          <TouchableOpacity onPress={() => setDate(todayIsoDate())} style={styles.dinggTodayButton}><Text style={styles.dinggTodayText}>Today</Text></TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setDate(todayIsoDate())}
+            style={[styles.dinggTodayButton, isAwayFromToday && styles.dinggTodayButtonHighlighted]}
+          >
+            <Text style={[styles.dinggTodayText, isAwayFromToday && styles.dinggTodayTextHighlighted]}>Today</Text>
+          </TouchableOpacity>
           <TourView tourId="date" style={styles.dinggRangeControls}>
             <TouchableOpacity hitSlop={8} onPress={() => changeDate(viewMode === "week" ? -7 : -1)}><Ionicons name="chevron-back" size={17} color={Colors.primaryText} /></TouchableOpacity>
             <TouchableOpacity accessibilityLabel="Select date" onPress={() => setDatePickerVisible(true)} style={styles.dinggRangeButton}><Text style={styles.dinggRangeText}>{formatAppDate(`${date}T00:00:00`)}{viewMode === "week" ? ` -\n${formatAppDate(rangeEnd)}` : ""}</Text><Ionicons name="chevron-down" size={16} color={Colors.appointmentText} /></TouchableOpacity>
