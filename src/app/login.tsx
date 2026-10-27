@@ -93,15 +93,8 @@ export default function LoginScreen() {
     try {
       loginInFlight.current = true;
       const email = trimmedIdentifier.toLowerCase();
-      let authData;
-      try {
-        authData = await signIn({ email, password });
-      } catch (firstError) {
-        // Staff passwords are saved trimmed, and keyboards often add a trailing
-        // space. Retry once without outer spaces before calling it wrong.
-        if (!isInvalidCredentialsError(firstError) || password.trim() === password || !password.trim()) throw firstError;
-        authData = await signIn({ email, password: password.trim() });
-      }
+      // Spaces are never part of a password (typed or pasted ones are stripped as they're entered).
+      const authData = await signIn({ email, password: password.replace(/\s/g, "") });
       setFailedLoginAttempts(0);
       router.replace(resolveLoginRoute(authData));
     } catch (loginError) {
@@ -194,7 +187,9 @@ export default function LoginScreen() {
                   // suggestion, and the server rightly rejects it as wrong.
                   autoCorrect={false}
                   spellCheck={false}
-                  onChangeText={(value) => { setPassword(value); clearFeedback(); }}
+                  // No spaces anywhere in the password: leading, trailing or internal,
+                  // typed or pasted.
+                  onChangeText={(value) => { setPassword(value.replace(/\s/g, "")); clearFeedback(); }}
                   onFocus={() => formRef.current?.revealField(passwordFieldRef.current)}
                   onTouchEnd={() => formRef.current?.revealField(passwordFieldRef.current)}
                   onSubmitEditing={handleLogin}
