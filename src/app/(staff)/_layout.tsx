@@ -47,6 +47,7 @@ export default function StaffTabsLayout() {
       <Tabs.Screen name="attendance" options={{ href: null }} />
       <Tabs.Screen name="notifications" options={{ href: null }} />
       <Tabs.Screen name="profile" options={{ href: null }} />
+      <Tabs.Screen name="revenue-items" options={{ href: null }} />
     </AppTabLayout>
   );
 }

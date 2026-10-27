@@ -455,12 +455,16 @@ export function StaffHomeRouteContent({ locked = false }: { locked?: boolean } =
         ) : (
           <>
             <TodayAppointmentsCard appointments={todayAppointments} loading={appointmentsLoading} />
+            {currentStaffId ? (
+              <View style={styles.commissionSection}>
+                <MyCommissionCard refreshKey={commissionRefreshKey} staffId={currentStaffId} staffName={staffName} />
+              </View>
+            ) : null}
             <ProgressCard
               averageRating={getAverageRating(todayAppointments)}
               completed={completedCount}
               remaining={remainingCount}
             />
-            {currentStaffId ? <MyCommissionCard refreshKey={commissionRefreshKey} staffId={currentStaffId} staffName={staffName} /> : null}
           </>
         )}
 
@@ -795,6 +799,9 @@ const createStyles = (Colors: ThemeColors, width = 393, bottomInset = 0) => {
       position: "absolute",
       right: 0,
       width: 14,
+    },
+    commissionSection: {
+      marginTop: 16,
     },
     safeArea: {
       backgroundColor: DASHBOARD.black,
