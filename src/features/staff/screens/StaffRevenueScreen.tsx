@@ -12,21 +12,24 @@ import { useThemeColors } from "@/theme/ThemeProvider";
 import { formatCurrency } from "@/utils/currency";
 import { getDateRangePreset } from "@/utils/dateRangePresets";
 import { formatAppDate } from "@/utils/dateTime";
+import type { StaffRevenueItemType } from "@/features/staff/screens/StaffRevenueItemsScreen";
 import { Ionicons } from "@expo/vector-icons";
+import { router, type Href } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 type Range = { endDate: string; startDate: string };
 
-const BREAKDOWN: { count: keyof StaffRevenue; label: string; revenue: keyof StaffRevenue }[] = [
-  { count: "serviceCount", label: "Services", revenue: "serviceRevenue" },
-  { count: "productCount", label: "Products", revenue: "productRevenue" },
-  { count: "packageCount", label: "Packages", revenue: "packageRevenue" },
-  { count: "membershipCount", label: "Memberships", revenue: "membershipRevenue" },
+const BREAKDOWN: { count: keyof StaffRevenue; label: string; revenue: keyof StaffRevenue; type: StaffRevenueItemType }[] = [
+  { count: "serviceCount", label: "Services", revenue: "serviceRevenue", type: "service" },
+  { count: "productCount", label: "Products", revenue: "productRevenue", type: "product" },
+  { count: "packageCount", label: "Packages", revenue: "packageRevenue", type: "package" },
+  { count: "membershipCount", label: "Memberships", revenue: "membershipRevenue", type: "membership" },
 ];
 
 const QUICK_RANGES = [
+  { key: "today", label: "Today" },
   { key: "this_month", label: "This month" },
   { key: "last_month", label: "Last month" },
 ] as const;
@@ -49,7 +52,7 @@ export function StaffRevenueScreen() {
   const horizontalPadding = width < 360 ? 16 : width >= 768 ? 32 : 20;
   const staff = useAppSelector(selectCurrentStaff);
 
-  const [range, setRange] = useState<Range>(thisMonthToDate);
+  const [range, setRange] = useState<Range>(() => getDateRangePreset("today"));
   const [revenue, setRevenue] = useState<StaffRevenue | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -154,14 +157,22 @@ export function StaffRevenueScreen() {
 
             <View style={styles.card}>
               <Text style={styles.sectionTitle}>Breakdown</Text>
-              {BREAKDOWN.map(({ count, label, revenue: revenueKey }) => (
-                <View key={label} style={styles.row}>
+              {BREAKDOWN.map(({ count, label, revenue: revenueKey, type }) => (
+                <TouchableOpacity
+                  accessibilityHint={`Shows your ${label.toLowerCase()} appointments`}
+                  accessibilityRole="button"
+                  activeOpacity={0.84}
+                  key={label}
+                  onPress={() => router.push(`/(staff)/revenue-items?type=${type}&startDate=${range.startDate}&endDate=${range.endDate}` as Href)}
+                  style={styles.row}
+                >
                   <View style={styles.rowCopy}>
                     <Text style={styles.rowLabel}>{label}</Text>
                     <Text style={styles.rowMeta}>{revenue[count]} sold</Text>
                   </View>
                   <Text style={styles.rowValue}>{formatCurrency(revenue[revenueKey])}</Text>
-                </View>
+                  <Ionicons name="chevron-forward" size={16} color={Colors.text2} />
+                </TouchableOpacity>
               ))}
             </View>
           </>
