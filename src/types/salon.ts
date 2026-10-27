@@ -134,7 +134,8 @@ export type CreateSalonResponse = {
   salon: SalonListItem;
 };
 
-export type UpdateSalonRequest = Partial<CreateSalonRequest>;
+// logo_url: "" removes the logo (owner profile picture), as the web does.
+export type UpdateSalonRequest = Partial<CreateSalonRequest> & { logo_url?: string };
 
 export type UpdateSalonFormFields = {
   address?: string;

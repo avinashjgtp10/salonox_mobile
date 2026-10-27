@@ -171,6 +171,35 @@ export const profileService = {
     };
   },
 
+  /** Owners: the salon logo, which the web shows as their profile picture (Business Settings → Logo). */
+  async uploadSalonLogo(asset: AvatarUploadAsset): Promise<UploadAvatarResponse> {
+    const fileName = asset.fileName?.trim() || guessFileName(asset.uri, "logo.jpg");
+    const mimeType = asset.mimeType?.trim() || guessMimeType(fileName);
+
+    const formData = new FormData();
+    formData.append("image", {
+      name: fileName,
+      type: mimeType,
+      uri: asset.uri,
+    } as unknown as Blob);
+
+    const response = await api.post<ApiResponse<{ logo_url?: string | null }>>("/marketplace/logo", formData, {
+      transformRequest: (data) => data,
+    });
+    const logoUrl = resolveMediaUrl(toOptionalString(response.data.data?.logo_url), environmentConfig.apiBaseUrl);
+
+    if (!logoUrl) {
+      throw new ApiError("The server did not return an uploaded image URL.", response.status);
+    }
+
+    return { avatarUrl: logoUrl, message: response.data.message, profile: null };
+  },
+
+  /** Staff: clears their own photo (users.avatar_url). */
+  async removeAvatar(): Promise<void> {
+    await api.patch(USER.ME, { avatarUrl: null });
+  },
+
   async uploadAvatar(asset: AvatarUploadAsset): Promise<UploadAvatarResponse> {
     const fileName = asset.fileName?.trim() || guessFileName(asset.uri, "avatar.jpg");
     const mimeType = asset.mimeType?.trim() || guessMimeType(fileName);
