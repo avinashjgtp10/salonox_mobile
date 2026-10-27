@@ -37,6 +37,7 @@ import {
   getUserRoleLabel,
 } from "@/utils/userProfile";
 import { useMemo, useRef, useState } from "react";
+import { useProfilePhotoUrl } from "@/features/profile/utils/ownerProfilePhoto";
 
 const WEB_APP_URL = "https://www.salonox.com";
 const SUPPORT_EMAIL = "support@salonox.com";
@@ -86,6 +87,7 @@ function MoreScreenContent() {
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const { signOut, signOutAll } = useAuth();
   const currentUser = useAppSelector(selectCurrentUser);
+  const photoUrl = useProfilePhotoUrl(currentUser);
   const visibleMenuItems = MENU_ITEMS.filter(item => item.title !== "Product Audit" || hasInventoryPermission(currentUser, "view_product_audit"));
   const fullName = getUserFullName(currentUser);
   const businessName = getUserBusinessName(currentUser);
@@ -302,7 +304,7 @@ function MoreScreenContent() {
 
         <View style={styles.heroCard}>
           <View style={styles.profileRow}>
-            <InitialsAvatar imageUri={currentUser?.avatarUrl} initials={initials} size={56} />
+            <InitialsAvatar imageUri={photoUrl} initials={initials} size={56} />
             <View style={styles.profileCopy}>
               <Text style={styles.heroTitle}>{fullName}</Text>
               <Text style={styles.heroText}>{businessName}</Text>

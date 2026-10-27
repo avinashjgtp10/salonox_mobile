@@ -5,7 +5,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Provider } from 'react-redux';
-import { LogBox, Pressable, View } from "react-native";
+import { AppState, LogBox, Pressable, View } from "react-native";
 import { PaperProvider } from 'react-native-paper';
 import { Portal } from '@/components/ui/Portal';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -31,6 +31,7 @@ import { useStaffCalendarAccessSync } from '@/hooks/useStaffCalendarAccess';
 import { useStaffProductAuditAccessSync } from '@/hooks/useStaffProductAuditAccess';
 import { fetchBranchesThunk } from '@/middleware/branch/branch.thunk';
 import { resolveCurrentStaffThunk } from '@/middleware/staff/staff.thunk';
+import { refreshOwnerProfilePhoto, resetOwnerProfilePhoto, usesSalonLogoAsProfilePhoto } from '@/features/profile/utils/ownerProfilePhoto';
 import { branchStorage } from '@/services/branchStorage';
 import { isSubscriptionActive, subscriptionService } from '@/services/subscription.service';
 import { store } from '@/store';
@@ -407,6 +408,29 @@ function StaffIdentityBootstrap() {
   return null;
 }
 
+// Owners' profile picture is the salon logo (as on the web): load it on sign-in
+// and re-read it when the app returns to the foreground, so a change made on the
+// web shows up here.
+function OwnerProfilePhotoBootstrap() {
+  const { isAuthenticated, user } = useAuth();
+  const activeBranchId = useAppSelector(selectActiveBranchId);
+  const enabled = isAuthenticated && usesSalonLogoAsProfilePhoto(user);
+
+  useEffect(() => {
+    if (!enabled) {
+      resetOwnerProfilePhoto();
+      return;
+    }
+    void refreshOwnerProfilePhoto();
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") void refreshOwnerProfilePhoto();
+    });
+    return () => subscription.remove();
+  }, [activeBranchId, enabled, user?.id]);
+
+  return null;
+}
+
 function StaffCalendarAccessBootstrap() {
   useStaffCalendarAccessSync();
   useStaffProductAuditAccessSync();
@@ -434,6 +458,7 @@ function AppShell() {
               <RealtimeSyncSetup />
               <BranchBootstrap />
               <StaffIdentityBootstrap />
+              <OwnerProfilePhotoBootstrap />
               <StaffCalendarAccessBootstrap />
               <OfflineTouchNotice>
               <SafeAreaProvider style={{ flex: 1 }}>
