@@ -127,6 +127,10 @@ function CheckoutSheetComponent({
   const [staffValidationAttempted, setStaffValidationAttempted] = useState(false);
   const [staffTipsVisible, setStaffTipsVisible] = useState(false);
   const [staffTipInputs, setStaffTipInputs] = useState<Record<string, string>>({});
+  // Once the GST card has been shown, keep it visible so the toggle stays reachable after
+  // switching GST off (tax becomes 0) and while totals recalculate after switching it back on.
+  const [isGstSectionPinned, setIsGstSectionPinned] = useState(false);
+  const showGstSection = gstPreviewAmount > 0 || !includeGst || isGstSectionPinned;
   const hasSelectedStaff = items.some((item) => Boolean(item.staffId));
   const staffTipRows = useMemo(() => {
     const grouped = new Map<string, { id: string; itemNames: string[]; name: string; salesTotal: number }>();
@@ -170,6 +174,7 @@ function CheckoutSheetComponent({
     setStaffTipsVisible(false);
     setStaffTipInputs({});
     setStaffValidationAttempted(initialStaffValidationAttempted);
+    setIsGstSectionPinned(false);
   }, [
     initialStep,
     initialStaffValidationAttempted,
@@ -245,6 +250,13 @@ function CheckoutSheetComponent({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, initialStep]);
+
+  // Runs after the reset above so a sheet opened with GST already OFF stays pinned.
+  useEffect(() => {
+    if (visible && (gstPreviewAmount > 0 || !includeGst)) {
+      setIsGstSectionPinned(true);
+    }
+  }, [gstPreviewAmount, includeGst, visible, initialStep]);
 
   useEffect(() => {
     if (!isMounted) {
@@ -831,7 +843,7 @@ function CheckoutSheetComponent({
                     )}
                   </View>
 
-                  {gstPreviewAmount > 0 ? (
+                  {showGstSection ? (
                     <View style={styles.formCard}>
                       <Text style={styles.sectionTitle}>GST</Text>
                       <View style={styles.membershipRow}>
@@ -852,7 +864,11 @@ function CheckoutSheetComponent({
                         </TouchableOpacity>
                       </View>
                       <Text style={styles.gstPreviewText}>
-                        GST {includeGst ? "applied" : "would be"}: {formatCurrency(gstPreviewAmount)}
+                        {!includeGst
+                          ? "GST not applied"
+                          : isPricingLoading
+                            ? "Calculating GST…"
+                            : `GST applied: ${formatCurrency(gstPreviewAmount)}`}
                       </Text>
                     </View>
                   ) : null}

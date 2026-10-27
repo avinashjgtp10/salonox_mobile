@@ -1,4 +1,4 @@
-import { getDateKey, todayIsoDate } from "@/features/appointments/utils/appointmentDateTime";
+import { getDateKey } from "@/features/appointments/utils/appointmentDateTime";
 import type { AppointmentListItem } from "@/types/appointment";
 
 // Attendance "show only checked-in staff", same rules as the web's
@@ -99,7 +99,7 @@ export const calendarColumnStaff = <T extends { id: string }>(
   dateKey: string,
   staffIdsWithBookings: Set<string>,
 ): T[] => {
-  if (!presence.enabled || dateKey !== todayIsoDate()) return staffList;
+  if (!presence.enabled || dateKey !== localTodayKey()) return staffList;
 
   return staffList.filter((staff) => staffIdsWithBookings.has(staff.id) || !isHiddenByCheckIn(presence, staff.id));
 };

@@ -10,12 +10,12 @@ import { useAllStaffMembers } from "@/features/appointments/hooks/useAllStaffMem
 import { useDebouncedValue } from "@/features/quickSale/hooks/useDebouncedValue";
 import { useAppointmentListFilters, useFetchAppointments } from "@/features/appointments/hooks/useAppointmentList";
 import { createStyles } from "@/features/appointments/styles/appointmentStyles";
-import { getDateKey, todayIsoDate } from "@/features/appointments/utils/appointmentDateTime";
+import { getDateKey } from "@/features/appointments/utils/appointmentDateTime";
 import { ANY_STAFF_COLUMN_ID, getAppointmentItemSegments, isAnyStaffAppointment } from "@/features/appointments/utils/appointmentCalendar";
 import { buildCalendarStaffOptions, buildCanonicalStaffIdByAlias, buildFallbackStaffIdByName, resolveAppointmentStaffId, SYNTHETIC_STAFF_ID_PREFIX } from "@/features/appointments/utils/calendarStaff";
 import { matchesCalendarStatuses } from "@/features/appointments/utils/calendarStatusFilters";
 import { useStaffPresence } from "@/features/attendance/hooks/useStaffPresence";
-import { calendarColumnStaff, staffIdsWithBookingsOn } from "@/features/attendance/utils/staffPresence";
+import { calendarColumnStaff, localTodayKey, staffIdsWithBookingsOn } from "@/features/attendance/utils/staffPresence";
 import { selectAppointments, selectAppointmentsRefreshing, selectAppointmentsIsLoading, selectAppointmentsError } from "@/store/appointment/appointment.slice";
 import { useAppSelector } from "@/store/hooks";
 import { selectCurrentStaff, selectCurrentStaffError, selectStaffMembers } from "@/store/staff/staff.slice";
@@ -64,7 +64,7 @@ export function AppointmentCalendarContent({ staffMode = false, staffQuickSale =
   // Reopen on the day last viewed: leaving for a bill or receipt can remount
   // this screen, and the shared list query may since point at today.
   const [date, setDateState] = useState(() => lastViewedCalendarDate ?? initialDate);
-  const isAwayFromToday = date !== todayIsoDate();
+  const isAwayFromToday = date !== localTodayKey();
   const setDate = useCallback((value: string) => {
     lastViewedCalendarDate = value;
     setDateState(value);
@@ -229,7 +229,7 @@ export function AppointmentCalendarContent({ staffMode = false, staffQuickSale =
         </View>
         <View style={styles.dinggToolbarActions}>
           <TouchableOpacity
-            onPress={() => setDate(todayIsoDate())}
+            onPress={() => setDate(localTodayKey())}
             style={[styles.dinggTodayButton, isAwayFromToday && styles.dinggTodayButtonHighlighted]}
           >
             <Text style={[styles.dinggTodayText, isAwayFromToday && styles.dinggTodayTextHighlighted]}>Today</Text>
