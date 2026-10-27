@@ -11,7 +11,7 @@ import { StartAppointmentAction } from "@/features/appointments/components/share
 import { StateCard } from "@/features/appointments/components/shared/StateCard";
 import { useAppointmentStyles } from "@/features/appointments/styles/useAppointmentStyles";
 import { formatCurrency } from "@/features/appointments/utils/appointmentForm";
-import { formatBusinessDate, formatBusinessTime, getAppointmentPaymentStatus, getAppointmentSalesSummary, getAppointmentStaffNames, getAppointmentWebStatus, getPartialBillAmounts, toInvoiceSequence } from "@/features/appointments/utils/appointmentScreenHelpers";
+import { formatBusinessDate, formatBusinessTime, getAppointmentGrandTotal, getAppointmentPaymentStatus, getAppointmentSalesSummary, getAppointmentStaffNames, getAppointmentWebStatus, getPartialBillAmounts, toInvoiceSequence } from "@/features/appointments/utils/appointmentScreenHelpers";
 import { getJobCardBlocker, getJobCardItems, getJobCardStatus } from "@/features/appointments/utils/jobCard";
 import { isAssignedToStaff } from "@/features/appointments/utils/staffAssignment";
 import { addRealtimeEntityChangedListener } from "@/services/realtimeEvents";
@@ -103,14 +103,10 @@ export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | 
 
   const displayName = appointment?.clientName?.trim() ? appointment.clientName.trim() : "Walk-in Client";
   const staffBilling = isStaffMode && appointment ? getStaffAppointmentBilling(appointment, currentStaff) : null;
-  // computed_grand_total covers product/package/membership rows too; the
-  // plain total column is services-only (same source as the calendar preview).
-  const computedGrandTotal = Number(appointment?.raw.computed_grand_total) || 0;
+  // GST-inclusive bill total, worked out as on the web (same source as the calendar preview).
   const billedTotal = staffBilling
     ? staffBilling.total
-    : computedGrandTotal > 0
-      ? computedGrandTotal
-      : appointment && appointment.total > 0 ? appointment.total : saleForAppointment?.total ?? appointment?.total ?? 0;
+    : appointment ? getAppointmentGrandTotal(appointment) : saleForAppointment?.total ?? 0;
   // Bill breakdown (subtotal / discount / GST / charges) — same figures as the
   // calendar preview's Sales Summary. Staff mode shows only its own items total.
   const salesSummary = appointment && !isStaffMode ? getAppointmentSalesSummary(appointment) : null;
