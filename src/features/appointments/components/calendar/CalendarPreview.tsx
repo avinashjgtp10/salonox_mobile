@@ -169,8 +169,11 @@ export function CalendarPreview({
       ? staffColumns.map((option) => ({ key: date, label: option.label, staffId: option.id, staffName: option.name }))
       : [{ key: date, label: "All Staff", staffId: "", staffName: "" }])
     : days.map((day) => ({ ...day, staffId: "", staffName: "" })), [date, days, staffColumns, viewMode]);
+  // No staff to show (e.g. nobody has checked in yet): like the web, one
+  // full-width grid with no staff header instead of an "All Staff" column.
+  const staffless = viewMode === "day" && staffColumns.length === 0;
   const columnWidth = viewMode === "day"
-    ? expandSingleColumn && columns.length === 1 && viewportWidth > 0
+    ? (expandSingleColumn || staffless) && columns.length === 1 && viewportWidth > 0
       ? Math.max(0, viewportWidth - TIME_COLUMN_WIDTH)
       : 156
     : 118;
@@ -309,15 +312,15 @@ export function CalendarPreview({
       >
         <View style={{ height: "100%", width: calendarContentWidth }}>
           <View style={styles.dinggCalendarHeader}>
-            <Animated.View style={[styles.dinggTimeHeader, styles.dinggCalendarHeaderPinned, pinnedLeft]}>{viewMode === "day" ? <Text style={styles.dinggStaffHeader}>Staff</Text> : null}</Animated.View>
+            <Animated.View style={[styles.dinggTimeHeader, styles.dinggCalendarHeaderPinned, pinnedLeft]}>{viewMode === "day" && !staffless ? <Text style={styles.dinggStaffHeader}>Staff</Text> : null}</Animated.View>
             {columns.map((column, index) => (
               <View key={`${column.key}-${column.label}-${index}`} style={[styles.dinggDayHeader, { width: columnWidth }]}>
-                {viewMode === "day" ? (
+                {staffless ? null : viewMode === "day" ? (
                   <View style={[styles.calendarStaffAvatar, { backgroundColor: column.staffId === ANY_STAFF_COLUMN_ID ? "#6b7280" : staffColor(column.staffId || column.label) }]}>
                     <Text style={styles.calendarStaffInitials}>{column.staffId === ANY_STAFF_COLUMN_ID ? "A" : initials(column.staffName || column.label)}</Text>
                   </View>
                 ) : null}
-                <Text numberOfLines={2} style={styles.dinggDayHeaderText}>{column.label}</Text>
+                {staffless ? null : <Text numberOfLines={2} style={styles.dinggDayHeaderText}>{column.label}</Text>}
               </View>
             ))}
           </View>
