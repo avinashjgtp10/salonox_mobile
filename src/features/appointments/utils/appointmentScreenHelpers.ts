@@ -126,6 +126,8 @@ export const getAppointmentSalesSummary = (appointment: AppointmentListItem) => 
   };
 };
 
+export { getAppointmentGrandTotal } from "@/features/appointments/utils/appointmentGrandTotal";
+
 /** End of the booking: end_time, else start + duration (the web shows a range). */
 export const getAppointmentEndValue = (appointment: AppointmentListItem) => {
   if (appointment.endTime) return appointment.endTime;

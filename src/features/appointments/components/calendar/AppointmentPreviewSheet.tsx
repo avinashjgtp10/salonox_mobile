@@ -4,7 +4,7 @@ import { getAppointmentBillLabel } from "@/utils/clientPrivacy";
 import { appAlert as Alert } from "@/services/appAlert";
 import { createStyles } from "@/features/appointments/styles/appointmentStyles";
 import { formatCurrency } from "@/features/appointments/utils/appointmentForm";
-import { formatBusinessDate, formatBusinessTime, formatItemTime, getAppointmentEndValue, getAppointmentPaymentStatus, getAppointmentSalesSummary, getAppointmentStaffNames, getPartialBillAmounts, getAppointmentWebStatus, getPaymentStatusStyles, maskPhone, toInvoiceSequence } from "@/features/appointments/utils/appointmentScreenHelpers";
+import { formatBusinessDate, formatBusinessTime, formatItemTime, getAppointmentEndValue, getAppointmentGrandTotal, getAppointmentPaymentStatus, getAppointmentSalesSummary, getAppointmentStaffNames, getPartialBillAmounts, getAppointmentWebStatus, getPaymentStatusStyles, maskPhone, toInvoiceSequence } from "@/features/appointments/utils/appointmentScreenHelpers";
 import { useAppSelector } from "@/store/hooks";
 import { selectCurrentStaff } from "@/store/staff/staff.slice";
 import { useThemeColors } from "@/theme/ThemeProvider";
@@ -63,7 +63,7 @@ export function AppointmentPreviewSheet({
   const staffAlert = typeof appointment.raw.staff_alert === "string" ? appointment.raw.staff_alert.trim() : "";
   const clientEmail = appointment.clientEmail || (typeof appointment.raw.client_email === "string" ? appointment.raw.client_email : "");
   const invoiceNumber = formatInvoiceNumber(toInvoiceSequence(appointment.raw.invoice_number));
-  const billedTotal = Number(appointment.raw.computed_grand_total) || appointment.total || appointment.amount;
+  const billedTotal = getAppointmentGrandTotal(appointment);
   const partialBill = paymentStatus === "Partial" ? getPartialBillAmounts(appointment, billedTotal) : null;
   const grandTotal = partialBill?.total ?? billedTotal;
   // Staff only ever see prices on their own rows; the bill summary stays owner-side.
