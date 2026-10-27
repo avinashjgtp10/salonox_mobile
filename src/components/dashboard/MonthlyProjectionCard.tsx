@@ -12,7 +12,7 @@ import { selectDashboardLastFetchedAt } from "@/store/dashboard/dashboard.slice"
 import { getApiErrorMessage } from "@/services/api";
 import { monthlyProjectionService, type MonthlyProjection, type ProjectionGender } from "@/services/monthlyProjection.service";
 import { buildProjectionTrend } from "@/utils/monthlyProjection";
-import { formatCurrency } from "@/utils/currency";
+import { formatCurrencyRounded } from "@/utils/currency";
 
 function axisAmount(value: number) {
   const divisor = value >= 10000000 ? 10000000 : value >= 100000 ? 100000 : value >= 1000 ? 1000 : 1;
@@ -72,7 +72,8 @@ function ProjectionBody({ canEdit }: { canEdit: boolean }) {
 
   const trend = useMemo(() => data ? buildProjectionTrend(data.daily, data.daysInMonth) : [], [data]);
   const maximum = data ? Math.max(1, ...data.daily.map((row) => row.sales), ...trend) : 1;
-  const money = (value: number | null) => value === null ? "—" : formatCurrency(value).replace(/\.00$/, "");
+  // Whole rupees everywhere on this card, as on the web: rounded, never paise.
+  const money = (value: number | null) => value === null ? "—" : formatCurrencyRounded(value);
 
   async function saveTarget() {
     const target = draft.trim() === "" ? null : Number(draft);
