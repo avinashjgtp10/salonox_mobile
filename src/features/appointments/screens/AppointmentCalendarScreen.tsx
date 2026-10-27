@@ -30,6 +30,9 @@ import { useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Modal, Pressable, ScrollView, TouchableOpacity, View } from "react-native";
 
+// The day shown on the Calendar, kept for the app session.
+let lastViewedCalendarDate: string | null = null;
+
 function AppointmentCalendarScreenContent() {
   return <CalendarStaffGate><AppointmentCalendarContent /></CalendarStaffGate>;
 }
@@ -57,7 +60,14 @@ export function AppointmentCalendarContent({ staffMode = false, staffQuickSale =
   const refreshing = useAppSelector(selectAppointmentsRefreshing);
   const loading = useAppSelector(selectAppointmentsIsLoading);
   const error = useAppSelector(selectAppointmentsError);
-  const { date, search, setDate, setSearch } = useAppointmentListFilters();
+  const { date: initialDate, search, setSearch } = useAppointmentListFilters();
+  // Reopen on the day last viewed: leaving for a bill or receipt can remount
+  // this screen, and the shared list query may since point at today.
+  const [date, setDateState] = useState(() => lastViewedCalendarDate ?? initialDate);
+  const setDate = useCallback((value: string) => {
+    lastViewedCalendarDate = value;
+    setDateState(value);
+  }, []);
   const debouncedSearch = useDebouncedValue(search, 350);
   const [selectedStatuses, setSelectedStatuses] = useState<AppointmentStatus[]>([]);
   const status = "All" as const;

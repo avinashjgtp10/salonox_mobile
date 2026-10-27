@@ -373,15 +373,29 @@ function OwnerQuickSaleCheckoutScreen() {
     });
   }, [replaceOnce]);
 
+  // An existing bill opened from the Calendar / appointment details
+  // (openReceipt=1) closes back to where it was opened; a sale just completed
+  // in Quick Sale closes to a fresh Quick Sale.
+  const openedExistingBill = params.openReceipt === "1";
+  const handleClose = useCallback(() => {
+    if (openedExistingBill && router.canGoBack()) {
+      if (hasTerminalNavigationStartedRef.current) return;
+      hasTerminalNavigationStartedRef.current = true;
+      router.back();
+      return;
+    }
+    handleStartNewSale();
+  }, [handleStartNewSale, openedExistingBill]);
+
   useFocusEffect(
     useCallback(() => {
       const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
-        handleStartNewSale();
+        handleClose();
         return true;
       });
 
       return () => subscription.remove();
-    }, [handleStartNewSale]),
+    }, [handleClose]),
   );
 
   return (
@@ -393,8 +407,8 @@ function OwnerQuickSaleCheckoutScreen() {
         <View style={styles.header}>
           <TouchableOpacity
             activeOpacity={0.86}
-            accessibilityLabel="Back to quick sale"
-            onPress={handleStartNewSale}
+            accessibilityLabel={openedExistingBill ? "Close" : "Back to quick sale"}
+            onPress={handleClose}
             style={styles.headerIconButton}
           >
             <Ionicons name="close" size={20} color={Colors.heading} />
@@ -522,7 +536,6 @@ function OwnerQuickSaleCheckoutScreen() {
                   loading={receiptAction === "share"}
                   busy={receiptAction !== null}
                 />
-                <ReceiptActionButton icon="mail-outline" label="Email Receipt" disabled />
               </View> : null}
 
               {!isStaff ? (
