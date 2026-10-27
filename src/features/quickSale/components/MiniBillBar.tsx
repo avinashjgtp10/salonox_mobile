@@ -3,6 +3,7 @@ import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { memo, useEffect, useMemo, useRef } from "react";
 import { Animated, Easing, Pressable, StyleSheet, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { DashboardRadius as Radius, type ThemeColors } from "@/constants/theme";
 import { useThemeColors } from "@/theme/ThemeProvider";
@@ -16,6 +17,8 @@ const DISABLED_TEXT = "#9A8E95";
 
 type MiniBillBarProps = {
   disabled: boolean;
+  /** Inside the Calendar's pop-up, which already sits clear of the system bars. */
+  embedded?: boolean;
   isPricingLoading?: boolean;
   isSaving: boolean;
   itemCount: number;
@@ -26,6 +29,7 @@ type MiniBillBarProps = {
 
 function MiniBillBarComponent({
   disabled,
+  embedded = false,
   isPricingLoading = false,
   isSaving,
   itemCount,
@@ -35,6 +39,13 @@ function MiniBillBarComponent({
 }: MiniBillBarProps) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
+  // An absolutely positioned bar ignores the screen's safe-area padding, so lift
+  // it above the system navigation bar itself (3-button bars are much taller
+  // than gesture handles and were covering Save Pending / Checkout).
+  const safeBottom = useSafeAreaInsets().bottom;
+  // Keeps the original 18px spot wherever that already clears the system bar
+  // (gesture handles, iPhone home indicator); only taller bars push it up.
+  const bottomOffset = embedded ? 18 : Math.max(18, safeBottom + 8);
   const progress = useRef(new Animated.Value(itemCount > 0 ? 1 : 0)).current;
 
   useEffect(() => {
@@ -58,7 +69,7 @@ function MiniBillBarComponent({
   };
 
   return (
-    <Animated.View pointerEvents="box-none" style={[styles.wrap, animatedStyle]}>
+    <Animated.View pointerEvents="box-none" style={[styles.wrap, { bottom: bottomOffset }, animatedStyle]}>
       <View style={styles.card}>
         <Pressable
           accessibilityRole="button"

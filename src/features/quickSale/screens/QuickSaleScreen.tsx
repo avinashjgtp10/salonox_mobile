@@ -1836,6 +1836,7 @@ function OwnerQuickSaleScreen({
 
         {!isOverlayActive ? (
           <MiniBillBar
+            embedded={embedded}
             isPricingLoading={isPricingLoading}
             disabled={cart.items.length === 0 || isPricingLoading || Boolean(pricingError) || cart.items.some(item => item.itemType === "service" && !item.staffId)}
             isSaving={checkoutSubmission.isSaving}
