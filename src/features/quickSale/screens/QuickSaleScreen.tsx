@@ -738,6 +738,16 @@ function OwnerQuickSaleScreen({
       }, new Set<string>()),
     [cart.items],
   );
+  // Ticks products, packages and memberships in their catalogs, like services.
+  const selectedCatalogIds = useMemo(() => {
+    const ids = { membership: new Set<string>(), package: new Set<string>(), product: new Set<string>() };
+    cart.items.forEach((item) => {
+      if (item.itemType === "product" || item.itemType === "package" || item.itemType === "membership") {
+        ids[item.itemType].add(item.itemId);
+      }
+    });
+    return ids;
+  }, [cart.items]);
 
   useEffect(() => {
     if (isCheckoutVisible && cart.items.length === 0) {
@@ -1039,6 +1049,19 @@ function OwnerQuickSaleScreen({
       return next;
     });
   }, [cart]);
+
+  // Catalog tap: adds the item, or removes it when it is already on the bill.
+  const toggleCatalogLine = useCallback(
+    (itemType: "product" | "package" | "membership", itemId: string, add: () => void) => {
+      const existing = cart.items.find((item) => item.itemType === itemType && item.itemId === itemId);
+      if (existing) {
+        handleRemoveItem(existing.lineId);
+        return;
+      }
+      add();
+    },
+    [cart.items, handleRemoveItem],
+  );
 
   const handleSetQuantity = useCallback((lineId: string, quantity: number) => {
     cart.setQuantity(lineId, quantity);
@@ -1868,6 +1891,7 @@ function OwnerQuickSaleScreen({
           onClearClient={() => { setSelectedClient(WALK_IN_CLIENT); setHasClientStepSelection(false); }}
           onSelectClient={handleClientPickerSelect}
           onEditClientDates={() => setIsClientDatesVisible(true)}
+          onViewClientHistory={embedded ? undefined : () => router.push(`/clients/${selectedClient.id}` as Href)}
           onAdd={(tab) => { setActiveTab(tab); handleClearGlobalSearch(); setIsCatalogVisible(true); }}
           onSetQuantity={handleSetQuantity} onRemoveItem={handleRemoveItem} productStockErrors={productStockErrors}
           packageBanner={selectedClient.id && clientPackages.status === "error" ? <PackageEligibilityBanner error={clientPackages.error} onRetry={clientPackages.retry} /> : null}
@@ -1928,20 +1952,26 @@ function OwnerQuickSaleScreen({
                 selectedServiceIds={selectedServiceIds}
               />
             ) : activeTab === "products" ? (
-              <ProductCatalogTab onSelect={handleSelectProductResult} search={globalSearchQuery} />
+              <ProductCatalogTab
+                onSelect={(product) => toggleCatalogLine("product", product.id, () => handleSelectProductResult(product))}
+                search={globalSearchQuery}
+                selectedIds={selectedCatalogIds.product}
+              />
             ) : activeTab === "packages" ? (
               <PackageCatalogTab
                 activeClientPackages={clientPackages.packages}
-                onSelect={handleSelectPackageResult}
+                onSelect={(item) => toggleCatalogLine("package", item.id, () => handleSelectPackageResult(item))}
                 salonId={salonId}
                 search={globalSearchQuery}
+                selectedIds={selectedCatalogIds.package}
               />
             ) : (
               <MembershipCatalogTab
                 clientId={selectedClient.id}
-                onSelect={handleSelectMembershipResult}
+                onSelect={(item) => toggleCatalogLine("membership", item.id, () => handleSelectMembershipResult(item))}
                 salonId={salonId}
                 search={globalSearchQuery}
+                selectedIds={selectedCatalogIds.membership}
               />
             )}
           </View>

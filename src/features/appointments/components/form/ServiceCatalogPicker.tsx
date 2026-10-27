@@ -15,7 +15,7 @@ import { useThemeColors } from "@/theme/ThemeProvider";
 import type { ClientPackage } from "@/types/package";
 import type { ServiceListItem } from "@/types/service";
 import { Ionicons } from "@expo/vector-icons";
-import { memo, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import { FlatList, Modal, Pressable, ScrollView, TouchableOpacity, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -57,7 +57,7 @@ const CatalogServiceRow = memo(function CatalogServiceRow({
   );
 });
 
-type PickerTab = "service" | AppointmentItemKind;
+export type PickerTab = "service" | AppointmentItemKind;
 
 const PICKER_TABS: { key: PickerTab; label: string; noun: string }[] = [
   { key: "service", label: "Services", noun: "services" },
@@ -69,6 +69,7 @@ const PICKER_TABS: { key: PickerTab; label: string; noun: string }[] = [
 export function ServiceCatalogPicker({
   clientId,
   error,
+  initialTab = "service",
   loading,
   onClose,
   onContinue,
@@ -86,6 +87,8 @@ export function ServiceCatalogPicker({
 }: {
   clientId?: string | null;
   error: string | null;
+  // Tab shown each time the picker opens (the Quick Sale style "+ Product" chips).
+  initialTab?: PickerTab;
   loading: boolean;
   onClose: () => void;
   onContinue: () => void;
@@ -104,11 +107,18 @@ export function ServiceCatalogPicker({
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const insets = useSafeAreaInsets();
-  const [tab, setTab] = useState<PickerTab>("service");
+  const [tab, setTab] = useState<PickerTab>(initialTab);
+  useEffect(() => {
+    if (visible) setTab(initialTab);
+  }, [initialTab, visible]);
   const [category, setCategory] = useState("All");
   const [query, setQuery] = useState("");
   const activeTab = PICKER_TABS.find((item) => item.key === tab) ?? PICKER_TABS[0];
   const addedForTab = tab === "service" ? [] : selectedItems.filter((item) => item.itemKind === tab);
+  const addedIdsForTab = useMemo(
+    () => new Set(selectedItems.filter((item) => item.itemKind === tab).map((item) => item.catalogServiceId ?? item.id)),
+    [selectedItems, tab],
+  );
   const totalSelected = selectedServiceIds.length + selectedItems.length;
   const [staffPickerOpen, setStaffPickerOpen] = useState(false);
   const selectedStaff = staffMembers.find((staff) => staffIdMatches(staff, selectedStaffId));
@@ -213,6 +223,7 @@ export function ServiceCatalogPicker({
                   <ProductCatalogTab
                     onSelect={(product) => onToggleItem("product", { categoryId: product.categoryId, id: product.id, name: product.name, price: product.price })}
                     search={query}
+                    selectedIds={addedIdsForTab}
                   />
                 ) : tab === "membership" ? (
                   <MembershipCatalogTab
@@ -220,6 +231,7 @@ export function ServiceCatalogPicker({
                     onSelect={(membership) => onToggleItem("membership", { id: membership.id, name: membership.name, price: membership.price })}
                     salonId={salonId}
                     search={query}
+                    selectedIds={addedIdsForTab}
                   />
                 ) : (
                   <PackageCatalogTab
@@ -227,6 +239,7 @@ export function ServiceCatalogPicker({
                     onSelect={(pkg) => onToggleItem("package", { id: pkg.id, name: pkg.name, price: pkg.basePrice })}
                     salonId={salonId}
                     search={query}
+                    selectedIds={addedIdsForTab}
                   />
                 )}
               </View>
