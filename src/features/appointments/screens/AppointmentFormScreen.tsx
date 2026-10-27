@@ -10,11 +10,11 @@ import { KeyboardAwareScrollView } from "@/components/ui/KeyboardAwareScrollView
 import { AppointmentDateField } from "@/features/appointments/components/form/AppointmentDateField";
 import { AppointmentReviewSummary } from "@/features/appointments/components/form/AppointmentReviewSummary";
 import { AppointmentStatusDropdown } from "@/features/appointments/components/form/AppointmentStatusDropdown";
+import { AppointmentClientSection } from "@/features/appointments/components/form/AppointmentClientSection";
+import { AppointmentItemsSection } from "@/features/appointments/components/form/AppointmentItemsSection";
 import { BookingSection } from "@/features/appointments/components/form/BookingSection";
-import { SearchableClientField } from "@/features/appointments/components/form/SearchableClientField";
-import { SelectedServicesPanel } from "@/features/appointments/components/form/SelectedServicesPanel";
 import { SelectField } from "@/features/appointments/components/form/SelectField";
-import { ServiceCatalogPicker } from "@/features/appointments/components/form/ServiceCatalogPicker";
+import { ServiceCatalogPicker, type PickerTab } from "@/features/appointments/components/form/ServiceCatalogPicker";
 import { TextField } from "@/features/appointments/components/form/TextField";
 import { TimeSlotSelector } from "@/features/appointments/components/form/TimeSlotSelector";
 import { AppointmentSnackbar } from "@/features/appointments/components/shared/AppointmentSnackbar";
@@ -38,7 +38,7 @@ type Props = {
 
 export function AppointmentFormScreen({ mode, initialSlot, onRequestClose }: Props) {
   const embedded = initialSlot && onRequestClose ? { initialSlot, onRequestClose } : undefined;
-  const { staffMode, clientName } = useClientPrivacy();
+  const { clientName } = useClientPrivacy();
   const {
     styles,
     activeBranchId,
@@ -64,16 +64,9 @@ export function AppointmentFormScreen({ mode, initialSlot, onRequestClose }: Pro
     dismissServiceDropdown,
     setFieldRef,
     clientBookingMode,
-    handleNewClient,
     handleClientSearchChange,
     handleSelectClient,
-    handleSelectExistingClientMode,
-    handleSelectWalkInClient,
-    clientResults,
-    clientResultsError,
-    clientResultsLoading,
     clientSearch,
-    clientSearchInputRef,
     selectedClient,
     updateForm,
     slotDisabledReason,
@@ -97,6 +90,7 @@ export function AppointmentFormScreen({ mode, initialSlot, onRequestClose }: Pro
   } = useAppointmentForm(mode, embedded);
   const [staffItemId, setStaffItemId] = useState<string | null>(null);
   const [timeItemId, setTimeItemId] = useState<string | null>(null);
+  const [pickerTab, setPickerTab] = useState<PickerTab>("service");
   const staffItem = selectedServices.find((item) => item.id === staffItemId);
   const timeItem = selectedServices.find((item) => item.id === timeItemId);
   const selectedItemTime = localItemTime(timeItem?.startTime) ?? localItemTime(form.startTime);
@@ -108,6 +102,7 @@ export function AppointmentFormScreen({ mode, initialSlot, onRequestClose }: Pro
       {embedded ? null : <AppStatusBar backgroundColor={Colors.appointmentBackground} />}
       <ServiceCatalogPicker
         error={serviceCatalogError}
+        initialTab={pickerTab}
         loading={serviceCatalogLoading}
         onClose={() => setServicePickerVisible(false)}
         onContinue={handleServicePickerContinue}
@@ -155,27 +150,17 @@ export function AppointmentFormScreen({ mode, initialSlot, onRequestClose }: Pro
             />
           ) : null}
 
+          {/* Client and items sections are Quick Sale's own cards. */}
           <View ref={(view) => setFieldRef("clientId", view)}>
-            <BookingSection icon="person-outline" subtitle="Who is this appointment for?" stackIndex={clientDropdownOpen ? 40 : 5} title="Client details">
-              <SearchableClientField
-                bookingMode={clientBookingMode}
-                dropdownOpen={clientDropdownOpen}
-                error={errors.clientId}
-                onDismiss={dismissClientDropdown}
-                onNewClient={staffMode ? undefined : handleNewClient}
-                onSearchChange={handleClientSearchChange}
-                onSelectClient={handleSelectClient}
-                onSelectExisting={handleSelectExistingClientMode}
-                onSelectWalkIn={handleSelectWalkInClient}
-                results={clientResults}
-                resultsError={clientResultsError}
-                resultsLoading={clientResultsLoading}
-                search={clientSearch}
-                searchInputRef={clientSearchInputRef}
-                selectedClient={selectedClient}
-                selectedClientId={form.clientId}
-              />
-            </BookingSection>
+            <AppointmentClientSection
+              clientId={form.clientId}
+              error={errors.clientId}
+              fallbackName={mode === "edit" ? clientSearch : undefined}
+              onClear={() => handleClientSearchChange("")}
+              onSelect={handleSelectClient}
+              renderInline={Boolean(embedded)}
+              selectedClient={selectedClient}
+            />
           </View>
 
           <View
@@ -184,50 +169,20 @@ export function AppointmentFormScreen({ mode, initialSlot, onRequestClose }: Pro
               setFieldRef("staffId", view);
               setFieldRef("duration", view);
             }}
-            style={(errors.serviceName || errors.staffId || errors.duration) && styles.validationSectionError}
           >
-            <BookingSection
-              action={selectedServices.length > 0 ? (
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  onPress={() => setServicePickerVisible(true)}
-                  style={styles.bookingSectionActionButton}
-                >
-                  <Ionicons name="add" size={16} color={Colors.primaryText} />
-                  <Text style={styles.bookingSectionAction}>Add more services</Text>
-                </TouchableOpacity>
-              ) : undefined}
-              stackIndex={serviceDropdownOpen ? 40 : 4}
-              icon="cut-outline"
-              title="Services & team"
-              subtitle="Choose treatments and the right specialist."
-            >
-              {selectedServices.length === 0 ? (
-                <TouchableOpacity accessibilityRole="button" activeOpacity={0.86} onPress={() => setServicePickerVisible(true)} style={styles.bookingAddService}>
-                  <View style={styles.emptyAddServicesIcon}><Ionicons name="add" size={20} color={Colors.onPrimary} /></View>
-                  <View style={styles.bookingAddServiceCopy}>
-                    <Text style={styles.emptyAddServicesText}>Add services</Text>
-                    <Text style={styles.bookingSectionSubtitle}>Browse your service menu</Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={18} color={Colors.primaryText} />
-                </TouchableOpacity>
-              ) : (
-                <SelectedServicesPanel
-                  defaultStaffName={selectedStaff?.name}
-                  defaultTime={form.startTime}
-                  onPickStaff={setStaffItemId}
-                  onPickTime={setTimeItemId}
-                  onRemove={handleRemoveSelectedService}
-                  pricingTotals={servicePricingTotals}
-                  services={selectedServices}
-                  totalDuration={totalServiceDuration}
-                  totalPrice={totalServicePrice}
-                />
-              )}
-            </BookingSection>
-            {errors.serviceName ? <Text style={styles.fieldError}>{errors.serviceName}</Text> : null}
-            {errors.staffId ? <Text style={styles.fieldError}>{errors.staffId}</Text> : null}
-            {errors.duration ? <Text style={styles.fieldError}>{errors.duration}</Text> : null}
+            <AppointmentItemsSection
+              defaultStaffName={selectedStaff?.name}
+              defaultTime={form.startTime}
+              error={errors.serviceName ?? errors.staffId ?? errors.duration}
+              onAdd={(tab) => {
+                setPickerTab(tab);
+                setServicePickerVisible(true);
+              }}
+              onPickStaff={setStaffItemId}
+              onPickTime={setTimeItemId}
+              onRemove={handleRemoveSelectedService}
+              services={selectedServices}
+            />
           </View>
 
           <BookingSection icon="calendar-outline" title="Date & time" subtitle="Choose when your client will visit.">
