@@ -7,22 +7,65 @@ import type { AppointmentListItem } from "@/types/appointment";
 
 export type StaffPresenceState = "checked_in" | "checked_out" | "not_checked_in" | "on_break";
 
+/** A break in progress: when it started and when the staff member said they'd be back. */
+export type StaffBreak = { since: string; until: string };
+
 export type StaffPresence = {
   // false = the salon hasn't turned the setting on (or the fetch failed):
   // nobody is hidden.
   enabled: boolean;
   byStaffId: Record<string, StaffPresenceState>;
+  // Staff on a break right now (today). Independent of `enabled`: the break
+  // warning applies even when the salon doesn't use check-in visibility.
+  breaks: Record<string, StaffBreak>;
 };
 
-export const NO_STAFF_PRESENCE: StaffPresence = { byStaffId: {}, enabled: false };
+export const NO_STAFF_PRESENCE: StaffPresence = { breaks: {}, byStaffId: {}, enabled: false };
+
+/** Device-local YYYY-MM-DD, as the web's localTodayYMD (todayIsoDate is the UTC date). */
+export const localTodayKey = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+};
 
 /** No attendance row today = hasn't checked in. */
 export const staffPresenceState = (presence: StaffPresence, staffId: string): StaffPresenceState =>
   presence.byStaffId[staffId] ?? "not_checked_in";
 
-/** True when this staff member should be left out of today's calendar. */
+/** True when this staff member should be left out of today's lists. */
 export const isHiddenByCheckIn = (presence: StaffPresence, staffId: string) =>
   presence.enabled && staffPresenceState(presence, staffId) === "not_checked_in";
+
+/** True when they checked out today and the salon uses check-in visibility. */
+export const isCheckedOut = (presence: StaffPresence, staffId: string) =>
+  presence.enabled && staffPresenceState(presence, staffId) === "checked_out";
+
+/** The break this staff member is on right now. Breaks only exist for today, so any other date is never flagged. */
+export const breakAt = (presence: StaffPresence, staffId: string, dateKey?: string | null): StaffBreak | null => {
+  if (dateKey && dateKey !== localTodayKey()) return null;
+  return presence.breaks[staffId] ?? null;
+};
+
+/** Local "1:30 PM" label for an ISO timestamp. */
+export const formatBreakTime = (iso: string) =>
+  new Date(iso).toLocaleTimeString("en-IN", { hour: "numeric", hour12: true, minute: "2-digit" });
+
+/**
+ * Staff to offer in a picker. Hidden staff are dropped, but anyone in
+ * `keepIds` (the staff already on the bill) stays so an existing assignment
+ * never turns blank. Check-in only exists for today, so any other `dateKey`
+ * is left unfiltered; null/undefined = unknown, treated as today.
+ */
+export const pickableStaff = <T extends { id: string }>(
+  staffList: T[],
+  presence: StaffPresence,
+  keepIds: (string | null | undefined)[] = [],
+  dateKey?: string | null,
+): T[] => {
+  if (!presence.enabled || (dateKey && dateKey !== localTodayKey())) return staffList;
+  const keep = new Set(keepIds.filter((id): id is string => Boolean(id)));
+  return staffList.filter((staff) => keep.has(staff.id) || !isHiddenByCheckIn(presence, staff.id));
+};
 
 /** Every staff id on a booking that day: the primary staff plus each billed row's staff. */
 export const staffIdsWithBookingsOn = (
