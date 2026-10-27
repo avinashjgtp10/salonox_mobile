@@ -2,6 +2,7 @@ import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
 import { router, type Href } from "expo-router";
 import { useMemo } from "react";
 import { RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View, useWindowDimensions } from "react-native";
@@ -19,6 +20,10 @@ import { StaffAddressSection } from "@/features/staff/components/StaffAddressSec
 import { StaffSectionCard } from "@/features/staff/components/StaffSectionCard";
 import { StaffStateView } from "@/features/staff/components/StaffStateView";
 import { useStaffDetails } from "@/features/staff/hooks/useStaffDetails";
+import { useAvatarUpload } from "@/features/profile/hooks/useAvatarUpload";
+import { useProfilePhotoUrl } from "@/features/profile/utils/ownerProfilePhoto";
+import { useAppToast } from "@/hooks/useAppToast";
+import { selectCurrentUser } from "@/store/user/user.slice";
 import { selectActiveBranch } from "@/store/branch/branch.slice";
 import { useAppSelector } from "@/store/hooks";
 import {
@@ -68,6 +73,15 @@ export function StaffSelfProfileScreen() {
   const currentStaffError = useAppSelector(selectCurrentStaffError);
   const currentStaffLoading = useAppSelector(selectCurrentStaffLoading);
   const activeBranch = useAppSelector(selectActiveBranch);
+  // Staff change their own photo here, the same way owners do on My Profile.
+  const currentUser = useAppSelector(selectCurrentUser);
+  const toast = useAppToast();
+  const photo = useAvatarUpload({
+    avatarUrl: useProfilePhotoUrl(currentUser),
+    onError: toast.showError,
+    onStart: () => undefined,
+    onSuccess: toast.showSuccess,
+  });
   const staffId = currentStaff?.id ?? null;
   const { detailsError, detailsLoading, refresh, staffMember } = useStaffDetails(staffId);
   const profile = staffMember ?? currentStaff;
@@ -126,9 +140,25 @@ export function StaffSelfProfileScreen() {
         {profile ? (
           <>
             <View style={styles.heroCard}>
-              <View style={[styles.avatar, { backgroundColor: profile.avatarBg }]}>
-                <Text style={[styles.avatarText, { color: profile.avatarColor }]}>{profile.initials}</Text>
-              </View>
+              <TouchableOpacity
+                accessibilityHint="Take, choose or remove your profile photo"
+                accessibilityLabel="Change profile photo"
+                accessibilityRole="button"
+                activeOpacity={0.84}
+                disabled={photo.isUploading}
+                onPress={photo.changePhoto}
+                style={styles.avatarWrap}
+              >
+                <View style={[styles.avatar, { backgroundColor: profile.avatarBg }]}>
+                  {photo.avatarUri
+                    ? <Image contentFit="cover" source={{ uri: photo.avatarUri }} style={styles.avatarImage} />
+                    : <Text style={[styles.avatarText, { color: profile.avatarColor }]}>{profile.initials}</Text>}
+                  {photo.isUploading ? <View style={styles.avatarBusy}><ActivityIndicator color="#FFFFFF" /></View> : null}
+                </View>
+                <View style={styles.avatarBadge}>
+                  <Ionicons name="camera" size={14} color={Colors.onPrimary} />
+                </View>
+              </TouchableOpacity>
               <Text style={styles.name}>{profile.name}</Text>
               <Text style={styles.role}>{profile.role}</Text>
               <View style={styles.badgeRow}>
@@ -257,13 +287,39 @@ const createStyles = (Colors: ThemeColors, width = 393) => StyleSheet.create({
     marginBottom: AppLayout.sectionGap,
     padding: AppLayout.cardPadding,
   },
+  avatarWrap: {
+    marginBottom: Spacing.md,
+  },
   avatar: {
     alignItems: "center",
     borderRadius: 36,
     height: 72,
     justifyContent: "center",
-    marginBottom: Spacing.md,
+    overflow: "hidden",
     width: 72,
+  },
+  avatarImage: {
+    height: 72,
+    width: 72,
+  },
+  avatarBusy: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.35)",
+    justifyContent: "center",
+  },
+  avatarBadge: {
+    alignItems: "center",
+    backgroundColor: Colors.primaryDark,
+    borderColor: Colors.card,
+    borderRadius: 13,
+    borderWidth: 2,
+    bottom: -2,
+    height: 26,
+    justifyContent: "center",
+    position: "absolute",
+    right: -2,
+    width: 26,
   },
   avatarText: {
     fontSize: 24,

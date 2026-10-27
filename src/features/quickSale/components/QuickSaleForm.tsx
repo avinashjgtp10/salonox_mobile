@@ -1,4 +1,3 @@
-import { useClientPrivacy } from "@/hooks/useClientPrivacy";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { FlatList, Keyboard, Pressable, ScrollView, StyleSheet, View } from "react-native";
@@ -7,6 +6,7 @@ import { itemTimeLabel, localItemTime } from "../utils/itemTime";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { KeyboardAwareForm, type KeyboardAwareFormHandle } from "@/components/ui/KeyboardAwareForm";
 import { ClientSearchField } from "./ClientSearchField";
+import { ClientSummaryCard } from "./ClientSummaryCard";
 import { StaffPickerSheet } from "./StaffPickerSheet";
 import type { ClientListItem } from "@/types/client";
 import type { CheckoutSheetProps } from "./checkout/types";
@@ -15,11 +15,11 @@ import { getPackageCoveredQuantity } from "../utils/packageCoverage";
 import { buildPricingLine } from "../utils/calculations";
 import { formatCurrency, parseAmount } from "../utils/money";
 import type { CatalogTab } from "../constants";
-import { maskPhone } from "@/utils/maskPhone";
 
-// Visual tokens from the supplied Quick Sale reference.
-const c = { bg: "#FAF6F8", card: "#FFFFFF", line: "#E9DFE5", fg: "#000000", muted: "#000000", plum: "#A3467F", soft: "#F3E6EE" };
-const types: Record<string, { label: string; color: string; bg: string }> = {
+// Visual tokens from the supplied Quick Sale reference. Shared with the
+// appointment booking form so its client and item sections match.
+export const c = { bg: "#FAF6F8", card: "#FFFFFF", line: "#E9DFE5", fg: "#000000", muted: "#000000", plum: "#A3467F", soft: "#F3E6EE" };
+export const types: Record<string, { label: string; color: string; bg: string }> = {
   service: { label: "Service", color: "#6D4DE0", bg: "#ECE9FB" },
   product: { label: "Product", color: "#2F64E6", bg: "#E3ECFF" },
   package: { label: "Package", color: "#B87A00", bg: "#FDF0C8" },
@@ -37,18 +37,19 @@ type Props = Pick<CheckoutSheetProps, "selectedClient" | "redemptions" | "staffO
   onAdd: (tab: CatalogTab) => void;
   /** Opens the selected client's Date of Birth / Anniversary editor. */
   onEditClientDates?: () => void;
+  /** Opens the selected client's profile; omitted where it can't open (Calendar pop-up). */
+  onViewClientHistory?: () => void;
   packageBanner?: ReactNode;
   pricingError?: string | null;
   isPricingLoading?: boolean;
   defaultTime?: string;
 };
 
-function Section({ title, children, aside }: { title: string; children: ReactNode; aside?: ReactNode }) {
+export function Section({ title, children, aside }: { title: string; children: ReactNode; aside?: ReactNode }) {
   return <View style={s.section}><View style={s.row}><Text style={s.title}>{title}</Text>{aside}</View>{children}</View>;
 }
 
 export function QuickSaleForm(p: Props) {
-  const { clientName } = useClientPrivacy();
   const form = useRef<KeyboardAwareFormHandle>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [staffLine, setStaffLine] = useState<string | null>(null);
@@ -69,23 +70,19 @@ export function QuickSaleForm(p: Props) {
       <View style={s.page}>
         <Section title="Client">
           {p.selectedClient.id ? (
-            <View style={s.row}>
-              <View style={s.avatar}><Text style={s.avatarText}>{p.selectedClient.initials}</Text></View>
-              <View style={s.flex}><Text style={s.name}>{clientName(p.selectedClient.name)}</Text><Text style={s.muted}>{maskPhone(p.selectedClient.phone)}</Text></View>
-              <Pressable accessibilityRole="button" onPress={p.onClearClient}><Text style={s.link}>Change</Text></Pressable>
-            </View>
+            <ClientSummaryCard
+              clientId={p.selectedClient.id}
+              initials={p.selectedClient.initials}
+              membership={p.selectedClient.membership}
+              name={p.selectedClient.name}
+              onChange={p.onClearClient}
+              onEditDates={p.onEditClientDates}
+              onViewHistory={p.onViewClientHistory}
+              phone={p.selectedClient.phone}
+            />
           ) : (
             <ClientSearchField onAddClient={p.onAddClient} onSelect={p.onSelectClient} />
           )}
-          {p.selectedClient.id && p.onEditClientDates ? (
-            <Pressable accessibilityRole="button" onPress={p.onEditClientDates} style={s.row}>
-              <Ionicons name="calendar-outline" size={16} color={c.plum} />
-              <Text style={s.link}>Edit DOB & Anniversary</Text>
-            </Pressable>
-          ) : null}
-          {p.selectedClient.id ? <View style={s.row}>
-            {[['Wallet', formatCurrency(p.redemptions.eWalletBalance)], ['Points', String(p.redemptions.rewardPointsBalance)], ['Membership', p.selectedClient.membership || 'None']].map(([label, value]) => <View style={s.stat} key={label}><Text adjustsFontSizeToFit minimumFontScale={0.75} numberOfLines={1} style={s.muted}>{label}</Text><Text style={s.statValue}>{value}</Text></View>)}
-          </View> : null}
         </Section>
         <Section title="Services & items" aside={<Text style={s.muted}>{p.cart.itemCount} {p.cart.itemCount === 1 ? 'item' : 'items'}</Text>}>
           <Text style={s.muted}>Assign staff separately for each service, product, package or membership.</Text>
@@ -150,7 +147,7 @@ function FormField({ label, value, onChange, numeric, multiline, reveal }: { lab
   }} onFocus={() => { setDraft(value); setFocused(true); reveal(ref.current); }} onBlur={() => setFocused(false)} placeholder={numeric ? '0' : `Add ${label.toLowerCase()}…`} placeholderTextColor={c.muted} keyboardType={numeric ? 'decimal-pad' : 'default'} multiline={multiline} textAlignVertical={multiline ? 'top' : 'center'} style={[s.input, multiline && s.multiline]}/></View>;
 }
 
-const s = StyleSheet.create({
+export const s = StyleSheet.create({
   staffField: { flex: 1, gap: 6 },
   timeField: { width: 112, gap: 6 },
   timeSelect: { minHeight: 48, paddingHorizontal: 8, flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderColor: c.line, borderRadius: 12, backgroundColor: c.bg },

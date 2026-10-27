@@ -3,12 +3,16 @@ export type SalePaymentMethod = "cash" | "card" | "gift_card" | "split" | "upi";
 export type SaleItemType = "service" | "product" | "membership" | "gift_card" | "quick" | "package";
 
 export type PosStaffMember = {
+  /** Staff → "Allow calendar bookings"; false keeps them out of Quick Sale (as on the web). */
+  allowCalendarBookings?: boolean;
   avatarBg: string;
   avatarColor: string;
   id: string;
   initials: string;
   name: string;
   role: string | null;
+  /** Reorder Staff position; null = never sequenced (listed after everyone who is). */
+  schedulerOrder?: number | null;
   status: string;
 };
 

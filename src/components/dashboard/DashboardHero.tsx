@@ -17,6 +17,7 @@ import { useAppSelector } from "@/store/hooks";
 import { selectUnreadCount } from "@/store/notification/notification.slice";
 import { selectCurrentUser } from "@/store/user/user.slice";
 import { useAppTheme } from "@/theme/ThemeProvider";
+import { useProfilePhotoUrl } from "@/features/profile/utils/ownerProfilePhoto";
 import { getUserInitials } from "@/utils/userProfile";
 
 const LOGO_SOURCE = require("../../../assets/images/logo.png");
@@ -39,6 +40,7 @@ export default function DashboardHero({ onOpenNotifications, onOpenQuickActions 
   const { colors: Colors } = useAppTheme();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const currentUser = useAppSelector(selectCurrentUser);
+  const photoUrl = useProfilePhotoUrl(currentUser);
   const unreadNotificationCount = useAppSelector(selectUnreadCount);
   const activeBranch = useAppSelector(selectActiveBranch);
   const shouldShowBranchSelector = useAppSelector(selectShouldShowBranchSelector);
@@ -118,8 +120,8 @@ export default function DashboardHero({ onOpenNotifications, onOpenQuickActions 
             activeOpacity={0.8}
             onPress={() => router.push("/profile" as Href)}
           >
-            {currentUser?.avatarUrl ? (
-              <Image contentFit="cover" source={{ uri: currentUser.avatarUrl }} style={styles.avatarImage} />
+            {photoUrl ? (
+              <Image contentFit="cover" source={{ uri: photoUrl }} style={styles.avatarImage} />
             ) : (
               <View style={styles.avatar}>
                 <Text style={styles.avatarText}>{initials}</Text>

@@ -34,24 +34,29 @@ const PRODUCT_SKELETON_KEYS = [
 type ProductCatalogTabProps = {
   onSelect: (product: Product) => void;
   search: string;
+  // Products already on the bill, shown ticked like selected services.
+  selectedIds?: ReadonlySet<string>;
 };
 
-function ProductCardComponent({ onPress, product }: { onPress: () => void; product: Product }) {
+function ProductCardComponent({ onPress, product, selected }: { onPress: () => void; product: Product; selected: boolean }) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
-  const outOfStock = product.stockQuantity <= 0;
+  // A ticked product stays tappable so it can be removed even once out of stock.
+  const outOfStock = product.stockQuantity <= 0 && !selected;
   const lowStock = !outOfStock && product.stockQuantity <= product.lowStockThreshold;
   const stockBg = outOfStock ? Colors.errorBg : lowStock ? Colors.warningBg : Colors.successBg;
   const stockColor = outOfStock ? Colors.error : lowStock ? Colors.warning : Colors.success;
-  const stockLabel = outOfStock ? "Out of stock" : `${product.stockQuantity} in stock`;
+  const stockLabel = product.stockQuantity <= 0 ? "Out of stock" : `${product.stockQuantity} in stock`;
 
   return (
     <Animated.View entering={FadeInUp.duration(200)} layout={LinearTransition.duration(200)} style={styles.rowWrap}>
       <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityState={{ disabled: outOfStock, selected }}
         activeOpacity={outOfStock ? 1 : 0.88}
         disabled={outOfStock}
         onPress={onPress}
-        style={[styles.row, outOfStock && styles.rowDisabled]}
+        style={[styles.row, selected && styles.rowSelected, outOfStock && styles.rowDisabled]}
       >
         <View style={styles.rowIcon}>
           <Ionicons name="cube-outline" size={18} color={Colors.goldDark} />
@@ -65,8 +70,12 @@ function ProductCardComponent({ onPress, product }: { onPress: () => void; produ
             <Badge bg={stockBg} color={stockColor} label={stockLabel} size="sm" />
           </View>
         </View>
-        <View style={[styles.addButton, outOfStock && styles.addButtonDisabled]}>
-          <Ionicons name="add" size={16} color={outOfStock ? Colors.text2 : Colors.primaryText} />
+        <View style={[styles.addButton, selected && styles.addButtonSelected, outOfStock && styles.addButtonDisabled]}>
+          <Ionicons
+            name={selected ? "checkmark" : "add"}
+            size={16}
+            color={selected ? Colors.onPrimary : outOfStock ? Colors.text2 : Colors.primaryText}
+          />
         </View>
       </TouchableOpacity>
     </Animated.View>
@@ -75,7 +84,7 @@ function ProductCardComponent({ onPress, product }: { onPress: () => void; produ
 
 const ProductCard = memo(ProductCardComponent);
 
-export function ProductCatalogTab({ onSelect, search }: ProductCatalogTabProps) {
+export function ProductCatalogTab({ onSelect, search, selectedIds }: ProductCatalogTabProps) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
@@ -147,7 +156,7 @@ export function ProductCatalogTab({ onSelect, search }: ProductCatalogTabProps) 
   };
 
   const handleSelect = (product: Product) => {
-    if (product.stockQuantity <= 0) {
+    if (product.stockQuantity <= 0 && !selectedIds?.has(product.id)) {
       return;
     }
 
@@ -182,6 +191,7 @@ export function ProductCatalogTab({ onSelect, search }: ProductCatalogTabProps) 
           showsVerticalScrollIndicator
           contentContainerStyle={styles.listContent}
           data={visibleProducts}
+          extraData={selectedIds}
           initialNumToRender={8}
           keyExtractor={(item) => `product-card-${item.id}`}
           ListFooterComponent={
@@ -198,7 +208,7 @@ export function ProductCatalogTab({ onSelect, search }: ProductCatalogTabProps) 
             />
           }
           removeClippedSubviews
-          renderItem={({ item }) => <ProductCard onPress={() => handleSelect(item)} product={item} />}
+          renderItem={({ item }) => <ProductCard onPress={() => handleSelect(item)} product={item} selected={selectedIds?.has(item.id) ?? false} />}
           windowSize={7}
         /></RefreshViewport>
       )}
@@ -231,6 +241,9 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     shadowOpacity: 0.04,
     shadowRadius: 14,
     elevation: 1,
+  },
+  rowSelected: {
+    borderColor: Colors.primaryText,
   },
   rowDisabled: {
     opacity: 0.5,
@@ -269,6 +282,9 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     height: 34,
     justifyContent: "center",
     width: 34,
+  },
+  addButtonSelected: {
+    backgroundColor: Colors.primary,
   },
   addButtonDisabled: {
     opacity: 0.6,

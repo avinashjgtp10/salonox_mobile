@@ -1,6 +1,8 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
 
 import { withAvatarCacheKey } from "@/features/profile/utils/avatar";
+import { setOwnerProfilePhoto, usesSalonLogoAsProfilePhoto } from "@/features/profile/utils/ownerProfilePhoto";
+import { salonService } from "@/services/salon.service";
 import { fetchCurrentUserThunk } from "@/middleware/user/user.thunk";
 import { ApiError, getApiErrorMessage } from "@/services/api";
 import { profileService } from "@/services/profile.service";
@@ -71,7 +73,17 @@ export const uploadAvatarThunk = createAsyncThunk<
   { rejectValue: ProfileRejectValue; state: RootState }
 >("profile/uploadAvatar", async ({ asset }, { dispatch, getState, rejectWithValue }) => {
   try {
-    const uploaded = await profileService.uploadAvatar(asset);
+    const currentUserBefore = getState().user.user;
+    const asSalonLogo = usesSalonLogoAsProfilePhoto(currentUserBefore);
+    const uploaded = asSalonLogo
+      ? await profileService.uploadSalonLogo(asset)
+      : await profileService.uploadAvatar(asset);
+    if (asSalonLogo) {
+      // Each logo upload gets a new file name, so no cache key is needed.
+      setOwnerProfilePhoto(uploaded.avatarUrl);
+      salonService.clearSalonMeCache();
+      return uploaded;
+    }
     // Share a fresh image URL with every avatar view, including the dashboard.
     const avatarUrl = uploaded.avatarUrl ? withAvatarCacheKey(uploaded.avatarUrl, Date.now()) : null;
     const response = {

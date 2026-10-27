@@ -214,14 +214,17 @@ const normalizeStaffMember = (entry: UnknownRecord): PosStaffMember => {
   const name = getStaffName(entry);
   const id = getStaffId(entry, name);
   const tone = getAvatarTone(id);
+  const schedulerOrder = entry.scheduler_order;
 
   return {
+    allowCalendarBookings: entry.allow_calendar_bookings !== false,
     avatarBg: tone.background,
     avatarColor: tone.color,
     id,
     initials: getInitials(name, "ST"),
     name,
     role: getStaffRole(entry),
+    schedulerOrder: schedulerOrder === null || schedulerOrder === undefined || schedulerOrder === "" ? null : toSafeNumber(schedulerOrder),
     status: toSafeString(firstValue(entry, ["status", "availability"]), "Available"),
   };
 };

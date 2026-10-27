@@ -10,12 +10,12 @@ import { useAllStaffMembers } from "@/features/appointments/hooks/useAllStaffMem
 import { useDebouncedValue } from "@/features/quickSale/hooks/useDebouncedValue";
 import { useAppointmentListFilters, useFetchAppointments } from "@/features/appointments/hooks/useAppointmentList";
 import { createStyles } from "@/features/appointments/styles/appointmentStyles";
-import { getDateKey, todayIsoDate } from "@/features/appointments/utils/appointmentDateTime";
+import { getDateKey } from "@/features/appointments/utils/appointmentDateTime";
 import { ANY_STAFF_COLUMN_ID, getAppointmentItemSegments, isAnyStaffAppointment } from "@/features/appointments/utils/appointmentCalendar";
 import { buildCalendarStaffOptions, buildCanonicalStaffIdByAlias, buildFallbackStaffIdByName, resolveAppointmentStaffId, SYNTHETIC_STAFF_ID_PREFIX } from "@/features/appointments/utils/calendarStaff";
 import { matchesCalendarStatuses } from "@/features/appointments/utils/calendarStatusFilters";
 import { useStaffPresence } from "@/features/attendance/hooks/useStaffPresence";
-import { calendarColumnStaff, staffIdsWithBookingsOn } from "@/features/attendance/utils/staffPresence";
+import { calendarColumnStaff, localTodayKey, staffIdsWithBookingsOn } from "@/features/attendance/utils/staffPresence";
 import { selectAppointments, selectAppointmentsRefreshing, selectAppointmentsIsLoading, selectAppointmentsError } from "@/store/appointment/appointment.slice";
 import { useAppSelector } from "@/store/hooks";
 import { selectCurrentStaff, selectCurrentStaffError, selectStaffMembers } from "@/store/staff/staff.slice";
@@ -29,6 +29,9 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Modal, Pressable, ScrollView, TouchableOpacity, View } from "react-native";
+
+// The day shown on the Calendar, kept for the app session.
+let lastViewedCalendarDate: string | null = null;
 
 function AppointmentCalendarScreenContent() {
   return <CalendarStaffGate><AppointmentCalendarContent /></CalendarStaffGate>;
@@ -57,7 +60,15 @@ export function AppointmentCalendarContent({ staffMode = false, staffQuickSale =
   const refreshing = useAppSelector(selectAppointmentsRefreshing);
   const loading = useAppSelector(selectAppointmentsIsLoading);
   const error = useAppSelector(selectAppointmentsError);
-  const { date, search, setDate, setSearch } = useAppointmentListFilters();
+  const { date: initialDate, search, setSearch } = useAppointmentListFilters();
+  // Reopen on the day last viewed: leaving for a bill or receipt can remount
+  // this screen, and the shared list query may since point at today.
+  const [date, setDateState] = useState(() => lastViewedCalendarDate ?? initialDate);
+  const isAwayFromToday = date !== localTodayKey();
+  const setDate = useCallback((value: string) => {
+    lastViewedCalendarDate = value;
+    setDateState(value);
+  }, []);
   const debouncedSearch = useDebouncedValue(search, 350);
   const [selectedStatuses, setSelectedStatuses] = useState<AppointmentStatus[]>([]);
   const status = "All" as const;
@@ -217,7 +228,12 @@ export function AppointmentCalendarContent({ staffMode = false, staffQuickSale =
           </TourButton>
         </View>
         <View style={styles.dinggToolbarActions}>
-          <TouchableOpacity onPress={() => setDate(todayIsoDate())} style={styles.dinggTodayButton}><Text style={styles.dinggTodayText}>Today</Text></TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setDate(localTodayKey())}
+            style={[styles.dinggTodayButton, isAwayFromToday && styles.dinggTodayButtonHighlighted]}
+          >
+            <Text style={[styles.dinggTodayText, isAwayFromToday && styles.dinggTodayTextHighlighted]}>Today</Text>
+          </TouchableOpacity>
           <TourView tourId="date" style={styles.dinggRangeControls}>
             <TouchableOpacity hitSlop={8} onPress={() => changeDate(viewMode === "week" ? -7 : -1)}><Ionicons name="chevron-back" size={17} color={Colors.primaryText} /></TouchableOpacity>
             <TouchableOpacity accessibilityLabel="Select date" onPress={() => setDatePickerVisible(true)} style={styles.dinggRangeButton}><Text style={styles.dinggRangeText}>{formatAppDate(`${date}T00:00:00`)}{viewMode === "week" ? ` -\n${formatAppDate(rangeEnd)}` : ""}</Text><Ionicons name="chevron-down" size={16} color={Colors.appointmentText} /></TouchableOpacity>

@@ -23,7 +23,7 @@ export function MyCommissionCard({ refreshKey = 0, staffId, staffName }: Props) 
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const today = useMemo(() => dateKey(new Date()), []);
-  const [appliedRange, setAppliedRange] = useState(() => ({ startDate: dateKey(new Date(new Date().getFullYear(), new Date().getMonth(), 1)), endDate: today }));
+  const [appliedRange, setAppliedRange] = useState(() => ({ startDate: today, endDate: today }));
   const [entries, setEntries] = useState<CommissionHistoryEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
