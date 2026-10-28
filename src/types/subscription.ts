@@ -9,16 +9,26 @@ export type SubscriptionStatus =
   | "pending"
   | string;
 
-export type SubscriptionPlan = {
-  id: string;
+export type PlanTier = "basic" | "advance" | "growth";
+export type PlanCycle = "monthly" | "quarterly" | "yearly";
+
+/** One plan from GET /subscriptions/catalog. Prices are in rupees, before GST. */
+export type CatalogPlan = {
+  slug: PlanTier;
   name: string;
-  description: string;
-  amount: number;
-  currency: string;
-  interval: string;
-  intervalCount: number;
-  totalCount: number;
-  raw: Record<string, unknown>;
+  gstPercent: number;
+  prices: Record<PlanCycle, number | null>;
+};
+
+export type PlanCheckout = {
+  razorpaySubscriptionId: string;
+  shortUrl: string;
+};
+
+export type PlanPaymentStatus = {
+  paid: boolean;
+  planName: string | null;
+  endsAt: string | null;
 };
 
 export type SalonSubscription = {
@@ -30,25 +40,3 @@ export type SalonSubscription = {
   raw: Record<string, unknown>;
 };
 
-export type CreateSubscriptionRequest = {
-  plan_id: string;
-  salon_id: string;
-  total_count: number;
-};
-
-export type CreateSubscriptionResponse = {
-  razorpaySubscriptionId: string;
-  shortUrl: string;
-  raw: Record<string, unknown>;
-};
-
-export type VerifySubscriptionRequest = {
-  razorpay_payment_id: string;
-  razorpay_subscription_id: string;
-  razorpay_signature: string;
-};
-
-export type VerifySubscriptionResponse = {
-  subscription: SalonSubscription | null;
-  raw: Record<string, unknown>;
-};

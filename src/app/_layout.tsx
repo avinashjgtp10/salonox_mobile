@@ -50,6 +50,7 @@ import {
   resolveAuthenticatedRoute,
   SUBSCRIPTION_ROUTE,
 } from '@/utils/routeResolver';
+import { setLoginNotice, SUBSCRIPTION_ENDED_NOTICE } from '@/utils/loginNotice';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 LogBox.ignoreAllLogs();
@@ -96,7 +97,8 @@ const PUBLIC_ROUTES = new Set([
 
 function AuthNavigationHandler({ onReady }: { onReady: () => void }) {
   const [subscriptionRetry, setSubscriptionRetry] = useState(0);
-  const { isAuthenticated, isLoading, user } = useAuth();
+  const subscriptionSignOutRef = useRef(false);
+  const { isAuthenticated, isLoading, signOut, user } = useAuth();
   const { isOnline } = useNetworkStatus();
   const [subscriptionCheck, setSubscriptionCheck] = useState<{
     isActive: boolean;
@@ -192,6 +194,16 @@ function AuthNavigationHandler({ onReady }: { onReady: () => void }) {
       }
 
       if (!subscriptionCheck.isActive) {
+        // Staff can't renew: sign them out, and the login screen says why.
+        // Owners and admins get the "subscription ended" screen to renew.
+        if (isStaffExperienceUser(user)) {
+          if (!subscriptionSignOutRef.current) {
+            subscriptionSignOutRef.current = true;
+            setLoginNotice(SUBSCRIPTION_ENDED_NOTICE);
+            void signOut().finally(() => { subscriptionSignOutRef.current = false; });
+          }
+          return;
+        }
         if (!isSubscriptionRoute) {
           router.replace(SUBSCRIPTION_ROUTE);
         } else {
@@ -228,6 +240,7 @@ function AuthNavigationHandler({ onReady }: { onReady: () => void }) {
     rootNavigationState?.key,
     router,
     segments,
+    signOut,
     subscriptionCheck.isActive,
     subscriptionCheck.status,
     user,

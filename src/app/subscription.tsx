@@ -1,170 +1,386 @@
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import * as Linking from "expo-linking";
 import { router } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAuth } from "@/context/AuthContext";
-import { getApiErrorMessage } from "@/services/api";
-import {
-  isSubscriptionActive,
-  subscriptionService,
-} from "@/services/subscription.service";
+import { useAppForeground } from "@/hooks/useAppForeground";
+import { ApiError, getApiErrorMessage } from "@/services/api";
+import { isSubscriptionActive, PLAN_CYCLES, subscriptionService } from "@/services/subscription.service";
 import { useAppTheme } from "@/theme/ThemeProvider";
-import type { SubscriptionPlan } from "@/types/subscription";
-import { canManageStaffLifecycle } from "@/utils/userProfile";
+import type { CatalogPlan, PlanCycle, PlanPaymentStatus } from "@/types/subscription";
+import { formatAppDate } from "@/utils/dateTime";
 import { resolveAuthenticatedRoute } from "@/utils/routeResolver";
 
-const DEFAULT_TOTAL_COUNT = 12;
-const IS_RAZORPAY_PAYMENT_ENABLED = false;
-const PAYMENT_UNAVAILABLE_MESSAGE = "Payment is currently unavailable. Please try again later.";
+const POLL_INTERVAL_MS = 3000;
+const POLL_TIMEOUT_MS = 5 * 60 * 1000;
+// Razorpay's hosted page has no "return to app" redirect: remember that a payment was started so a
+// reopened app keeps checking until the webhook activates the plan.
+const CHECKOUT_PENDING_KEY = "salonox_checkout_pending";
+const CHECKOUT_PENDING_MAX_AGE_MS = 30 * 60 * 1000;
+
+const CYCLE_LABEL: Record<PlanCycle, string> = { monthly: "Monthly", quarterly: "Quarterly", yearly: "Yearly" };
+const CYCLE_UNIT: Record<PlanCycle, string> = { monthly: "month", quarterly: "quarter", yearly: "year" };
+const TAGLINE: Record<CatalogPlan["slug"], string> = {
+  basic: "For business looking for essential management features to get started.",
+  advance: "For business that need complete salon management functionality.",
+  growth: "For growing business that need advanced digital and multi-branch capabilities.",
+};
+
+// Whole rupees stay whole (₹7,998); anything else gets paise (₹1,439.64). Same as the web.
+const inr = (amount: number) =>
+  new Intl.NumberFormat("en-IN", {
+    currency: "INR",
+    maximumFractionDigits: 2,
+    minimumFractionDigits: Number.isInteger(amount) ? 0 : 2,
+    style: "currency",
+  }).format(amount);
+
+const checkoutErrorMessage = (error: unknown) => {
+  if (error instanceof ApiError) {
+    if (error.status === 403) return "Only the salon owner can change the plan.";
+    if (error.status === 409 && error.code === "PLAN_NOT_SYNCED") return "This plan isn't available right now. Please contact support.";
+  }
+  return getApiErrorMessage(error);
+};
+
+type Phase =
+  | { kind: "idle" }
+  | { kind: "waiting"; startedAt: number; url: string | null }
+  | { kind: "timeout" }
+  | { kind: "paid"; status: PlanPaymentStatus };
 
 export default function SubscriptionScreen() {
   const { colors, scheme } = useAppTheme();
   const styles = useMemo(() => createStyles(colors, scheme), [colors, scheme]);
   const insets = useSafeAreaInsets();
-  const { refreshCurrentUser, signOut, user } = useAuth();
-  const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isPayingPlanId, setIsPayingPlanId] = useState<string | null>(null);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isSigningOut, setIsSigningOut] = useState(false);
-
+  const { signOut, user } = useAuth();
+  const role = user?.role?.trim().toLowerCase() ?? "";
+  // Only the owner/admin can pay (the backend enforces the same).
+  const canPay = role === "salon_owner" || role === "admin";
   const salonId = user?.salonId?.trim() ?? "";
-  const canPurchaseSubscription = canManageStaffLifecycle(user?.role);
-  const userName = user?.firstName || user?.fullName || "there";
 
-  const handleCancelSubscription = async () => {
+  const [catalog, setCatalog] = useState<CatalogPlan[]>([]);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(canPay);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [pickedCycle, setPickedCycle] = useState<PlanCycle | null>(null);
+  const [startingTier, setStartingTier] = useState<CatalogPlan["slug"] | null>(null);
+  const [checkoutError, setCheckoutError] = useState<{ message: string; plan: CatalogPlan; cycle: PlanCycle } | null>(null);
+  const [phase, setPhase] = useState<Phase>({ kind: "idle" });
+  const [isSigningOut, setIsSigningOut] = useState(false);
+  const pollInFlight = useRef(false);
+
+  const cycles = PLAN_CYCLES.filter((cycle) => catalog.some((plan) => plan.prices[cycle] !== null));
+  // Longest cycle offered by default, as on the web.
+  const cycle: PlanCycle = pickedCycle && cycles.includes(pickedCycle) ? pickedCycle : cycles[cycles.length - 1] ?? "monthly";
+
+  const goToApp = useCallback(() => router.replace(resolveAuthenticatedRoute(user)), [user]);
+
+  // The salon is active again (paid elsewhere, or the webhook landed): leave the wall.
+  const recheckSalon = useCallback(async () => {
+    if (!salonId) return false;
+    try {
+      const active = isSubscriptionActive(await subscriptionService.getSalonSubscription(salonId));
+      if (active) {
+        void AsyncStorage.removeItem(CHECKOUT_PENDING_KEY).catch(() => {});
+        goToApp();
+      }
+      return active;
+    } catch {
+      return false;
+    }
+  }, [goToApp, salonId]);
+
+  const loadCatalog = useCallback(async () => {
+    if (!canPay) return;
+    setCatalogError(null);
+    try {
+      setCatalog(await subscriptionService.getCatalog());
+    } catch (error) {
+      setCatalogError(getApiErrorMessage(error));
+    }
+  }, [canPay]);
+
+  useEffect(() => {
+    let mounted = true;
+    void (async () => {
+      await loadCatalog();
+      if (mounted) setIsLoading(false);
+    })();
+    // A payment started before the app was closed: keep checking for it.
+    if (canPay) {
+      void AsyncStorage.getItem(CHECKOUT_PENDING_KEY)
+        .then((value) => {
+          const startedAt = Number(value);
+          if (mounted && Number.isFinite(startedAt) && Date.now() - startedAt < CHECKOUT_PENDING_MAX_AGE_MS) {
+            setPhase({ kind: "waiting", startedAt: Date.now(), url: null });
+          }
+        })
+        .catch(() => {});
+    }
+    return () => { mounted = false; };
+  }, [canPay, loadCatalog]);
+
+  const checkPayment = useCallback(async () => {
+    if (pollInFlight.current) return;
+    pollInFlight.current = true;
+    try {
+      const status = await subscriptionService.getPaymentStatus();
+      if (status.paid) {
+        void AsyncStorage.removeItem(CHECKOUT_PENDING_KEY).catch(() => {});
+        try { WebBrowser.dismissBrowser(); } catch { /* already closed */ }
+        setPhase({ kind: "paid", status });
+      }
+    } catch {
+      // Offline or a failed request: the next tick tries again; the timeout still ends the wait.
+    } finally {
+      pollInFlight.current = false;
+    }
+  }, []);
+
+  // Poll my-status every 3s while waiting; stop after 5 minutes or when the screen closes.
+  useEffect(() => {
+    if (phase.kind !== "waiting") return;
+    void checkPayment();
+    const timer = setInterval(() => {
+      if (Date.now() - phase.startedAt > POLL_TIMEOUT_MS) {
+        setPhase({ kind: "timeout" });
+        return;
+      }
+      void checkPayment();
+    }, POLL_INTERVAL_MS);
+    return () => clearInterval(timer);
+  }, [checkPayment, phase]);
+
+  // Back from the payment page (or the app was in the background): check straight away.
+  useAppForeground(() => {
+    if (phase.kind === "waiting") void checkPayment();
+  });
+
+  const openPaymentPage = async (url: string) => {
+    try {
+      await WebBrowser.openBrowserAsync(url, { dismissButtonStyle: "close", showTitle: true });
+    } catch {
+      setCheckoutError(null);
+      setPhase({ kind: "idle" });
+      setCatalogError("Could not open the payment page. Please check your connection and try again.");
+    }
+  };
+
+  const choosePlan = async (plan: CatalogPlan, planCycle: PlanCycle) => {
+    if (startingTier) return;
+    setCheckoutError(null);
+    setStartingTier(plan.slug);
+    try {
+      const { shortUrl } = await subscriptionService.startCheckout(plan.slug, planCycle);
+      void AsyncStorage.setItem(CHECKOUT_PENDING_KEY, String(Date.now())).catch(() => {});
+      setPhase({ kind: "waiting", startedAt: Date.now(), url: shortUrl });
+      void openPaymentPage(shortUrl);
+    } catch (error) {
+      setCheckoutError({ cycle: planCycle, message: checkoutErrorMessage(error), plan });
+    } finally {
+      setStartingTier(null);
+    }
+  };
+
+  const stopWaiting = () => {
+    void AsyncStorage.removeItem(CHECKOUT_PENDING_KEY).catch(() => {});
+    setPhase({ kind: "idle" });
+  };
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    const active = await recheckSalon();
+    if (!active) {
+      await loadCatalog();
+      if (phase.kind === "timeout") setPhase({ kind: "waiting", startedAt: Date.now(), url: null });
+    }
+    setIsRefreshing(false);
+  };
+
+  const handleLogout = async () => {
     setIsSigningOut(true);
     try {
       await signOut();
-    } catch {
     } finally {
       setIsSigningOut(false);
     }
   };
 
-  const loadPlans = useCallback(async () => {
-    setError(null);
-
-    try {
-      const [nextPlans, subscription] = await Promise.all([
-        canPurchaseSubscription ? subscriptionService.getPlans() : Promise.resolve([]),
-        salonId ? subscriptionService.getSalonSubscription(salonId) : Promise.resolve(null),
-      ]);
-
-      if (isSubscriptionActive(subscription)) {
-        router.replace(resolveAuthenticatedRoute(user));
-        return;
-      }
-
-      setPlans(nextPlans);
-    } catch (loadError) {
-      setError(getApiErrorMessage(loadError));
+  const renderPaymentPanel = () => {
+    if (phase.kind === "paid") {
+      return (
+        <View accessibilityRole="alert" style={[styles.panel, styles.successPanel]}>
+          <Ionicons name="checkmark-circle" size={40} color={colors.success} />
+          <Text style={styles.panelTitle}>Payment successful</Text>
+          <Text style={styles.panelText}>
+            {phase.status.planName ? `${phase.status.planName} is active` : "Your plan is active"}
+            {phase.status.endsAt ? ` until ${formatAppDate(phase.status.endsAt)}` : ""}.
+          </Text>
+          <Pressable accessibilityRole="button" onPress={goToApp} style={styles.primaryButton}>
+            <Text style={styles.primaryButtonText}>Continue</Text>
+            <Ionicons name="arrow-forward" size={18} color={colors.onPrimary} />
+          </Pressable>
+        </View>
+      );
     }
-  }, [canPurchaseSubscription, salonId, user]);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    const run = async () => {
-      setIsLoading(true);
-      await loadPlans();
-
-      if (isMounted) {
-        setIsLoading(false);
-      }
-    };
-
-    void run();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [loadPlans]);
-
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    await loadPlans();
-    setIsRefreshing(false);
+    if (phase.kind === "waiting") {
+      return (
+        <View accessibilityLiveRegion="polite" style={styles.panel}>
+          <ActivityIndicator color={colors.primaryText} />
+          <Text style={styles.panelTitle}>Waiting for payment confirmation…</Text>
+          <Text style={styles.panelText}>{"Complete the payment on Razorpay. This screen updates by itself once it's confirmed."}</Text>
+          {phase.url ? (
+            <Pressable accessibilityRole="button" onPress={() => void openPaymentPage(phase.url as string)} style={styles.secondaryButton}>
+              <Text style={styles.secondaryButtonText}>Open payment page again</Text>
+            </Pressable>
+          ) : null}
+          <Pressable accessibilityRole="button" onPress={stopWaiting} style={styles.linkButton}>
+            <Text style={styles.linkText}>Stop waiting and choose a plan</Text>
+          </Pressable>
+        </View>
+      );
+    }
+    if (phase.kind === "timeout") {
+      return (
+        <View accessibilityRole="alert" style={styles.panel}>
+          <Ionicons name="time-outline" size={32} color={colors.warning} />
+          <Text style={styles.panelTitle}>Payment is processing</Text>
+          <Text style={styles.panelText}>{"We'll update you shortly. If you've paid, tap Retry in a moment."}</Text>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setPhase({ kind: "waiting", startedAt: Date.now(), url: null })}
+            style={styles.primaryButton}
+          >
+            <Text style={styles.primaryButtonText}>Retry</Text>
+          </Pressable>
+          <Pressable accessibilityRole="button" onPress={stopWaiting} style={styles.linkButton}>
+            <Text style={styles.linkText}>Choose a plan instead</Text>
+          </Pressable>
+        </View>
+      );
+    }
+    return null;
   };
 
-  const handleSelectPlan = async (plan: SubscriptionPlan) => {
-    if (!IS_RAZORPAY_PAYMENT_ENABLED) {
-      setSuccess(null);
-      setError(PAYMENT_UNAVAILABLE_MESSAGE);
-      return;
+  const renderPlans = () => {
+    if (isLoading) {
+      return (
+        <View style={styles.panel}>
+          <ActivityIndicator color={colors.primaryText} />
+          <Text style={styles.panelText}>Loading plans…</Text>
+        </View>
+      );
     }
-
-    if (!salonId) {
-      setError("Salon details are still loading. Please try again in a moment.");
-      return;
+    if (catalogError && catalog.length === 0) {
+      return (
+        <View accessibilityRole="alert" style={styles.errorCard}>
+          <Ionicons name="alert-circle-outline" size={20} color={colors.error} />
+          <Text style={styles.errorText}>{catalogError}</Text>
+          <Pressable accessibilityRole="button" onPress={() => { setIsLoading(true); void loadCatalog().finally(() => setIsLoading(false)); }}>
+            <Text style={styles.retryText}>Retry</Text>
+          </Pressable>
+        </View>
+      );
     }
-
-    if (!canPurchaseSubscription) {
-      setError("Please ask your salon owner or admin to activate the subscription.");
-      return;
+    if (catalog.length === 0) {
+      return (
+        <View style={styles.panel}>
+          <Ionicons name="card-outline" size={28} color={colors.text2} />
+          <Text style={styles.panelText}>No plans are available right now. Please contact support.</Text>
+        </View>
+      );
     }
+    return (
+      <>
+        {cycles.length > 1 ? (
+          <View accessibilityRole="tablist" style={styles.cycleToggle}>
+            {cycles.map((item) => (
+              <Pressable
+                accessibilityRole="tab"
+                accessibilityState={{ selected: item === cycle }}
+                key={item}
+                onPress={() => setPickedCycle(item)}
+                style={[styles.cycleOption, item === cycle && styles.cycleOptionActive]}
+              >
+                <Text style={[styles.cycleText, item === cycle && styles.cycleTextActive]}>{CYCLE_LABEL[item]}</Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
 
-    if (isPayingPlanId) {
-      return;
-    }
+        {checkoutError ? (
+          <View accessibilityRole="alert" style={styles.errorCard}>
+            <Ionicons name="alert-circle-outline" size={20} color={colors.error} />
+            <Text style={styles.errorText}>{checkoutError.message}</Text>
+            <Pressable accessibilityRole="button" onPress={() => void choosePlan(checkoutError.plan, checkoutError.cycle)}>
+              <Text style={styles.retryText}>Retry</Text>
+            </Pressable>
+          </View>
+        ) : null}
 
-    setError(null);
-    setSuccess(null);
-    setIsPayingPlanId(plan.id);
-
-    try {
-      const subscription = await subscriptionService.createSubscription({
-        plan_id: plan.id,
-        salon_id: salonId,
-        total_count: plan.totalCount || DEFAULT_TOTAL_COUNT,
-      });
-
-      if (!subscription.shortUrl) {
-        throw new Error("Payment link was not returned. Please try again.");
-      }
-
-      const callbackUrl = Linking.createURL("subscription/callback");
-      const result = await WebBrowser.openAuthSessionAsync(subscription.shortUrl, callbackUrl);
-
-      if (result.type !== "success") {
-        setError("Payment was not completed. You can try again when ready.");
-        return;
-      }
-
-      const verificationPayload = subscriptionService.readRazorpayValuesFromUrl(result.url);
-
-      if (verificationPayload) {
-        const verified = await subscriptionService.verifySubscription(salonId, verificationPayload);
-
-        if (!isSubscriptionActive(verified.subscription)) {
-          throw new Error("Payment was received, but the subscription is not active yet. Please refresh.");
-        }
-      }
-
-      const activeSubscription = await subscriptionService.getSalonSubscription(salonId);
-
-      if (!isSubscriptionActive(activeSubscription)) {
-        throw new Error("We could not confirm an active subscription yet. Please refresh after payment.");
-      }
-
-      setSuccess("Subscription activated successfully.");
-      await refreshCurrentUser();
-      router.replace(resolveAuthenticatedRoute(user));
-    } catch (paymentError) {
-      setError(getApiErrorMessage(paymentError));
-    } finally {
-      setIsPayingPlanId(null);
-    }
+        <View style={styles.planList}>
+          {catalog.map((plan) => {
+            const price = plan.prices[cycle];
+            const gstAmount = price !== null ? Math.round(price * plan.gstPercent) / 100 : 0;
+            const total = price !== null ? Math.round(price * (100 + plan.gstPercent)) / 100 : 0;
+            const popular = plan.slug === "advance";
+            const isStarting = startingTier === plan.slug;
+            const disabled = price === null || Boolean(startingTier);
+            return (
+              <View key={plan.slug} style={[styles.planCard, popular && styles.planCardPopular]}>
+                <View style={styles.planHeader}>
+                  <Text style={styles.planName}>{plan.name}</Text>
+                  {popular ? (
+                    <View style={styles.popularPill}>
+                      <Ionicons name="star" size={11} color={colors.onPrimary} />
+                      <Text style={styles.popularText}>Most Popular</Text>
+                    </View>
+                  ) : null}
+                </View>
+                <Text style={styles.planTagline}>{TAGLINE[plan.slug]}</Text>
+                {price !== null ? (
+                  <>
+                    <View style={styles.priceRow}>
+                      <Text style={styles.price}>{inr(price)}</Text>
+                      <Text style={styles.per}> /{CYCLE_UNIT[cycle]}</Text>
+                    </View>
+                    <Text style={styles.gst}>+ {inr(gstAmount)} GST ({plan.gstPercent}%) = {inr(total)}</Text>
+                  </>
+                ) : (
+                  <Text style={styles.gst}>Not available for this billing cycle</Text>
+                )}
+                <Pressable
+                  accessibilityLabel={`Choose ${plan.name} ${CYCLE_LABEL[cycle]}`}
+                  accessibilityRole="button"
+                  accessibilityState={{ busy: isStarting, disabled }}
+                  disabled={disabled}
+                  onPress={() => void choosePlan(plan, cycle)}
+                  style={[styles.primaryButton, disabled && !isStarting && styles.buttonDisabled]}
+                >
+                  {isStarting ? (
+                    <ActivityIndicator color={colors.onPrimary} />
+                  ) : (
+                    <>
+                      <Text style={styles.primaryButtonText}>Choose {plan.name}</Text>
+                      <Ionicons name="arrow-forward" size={18} color={colors.onPrimary} />
+                    </>
+                  )}
+                </Pressable>
+              </View>
+            );
+          })}
+        </View>
+      </>
+    );
   };
 
   return (
@@ -178,148 +394,24 @@ export default function SubscriptionScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.heroIcon}>
-          <Ionicons name="sparkles-outline" size={28} color={colors.onPrimary} />
+          <Ionicons name="alert-circle-outline" size={30} color={colors.error} />
         </View>
-
-        <Text style={styles.eyebrow}>SalonOX Subscription</Text>
-        <Text style={styles.title}>Choose a plan to continue</Text>
+        <Text accessibilityRole="header" style={styles.title}>Your subscription has ended</Text>
         <Text style={styles.subtitle}>
-          Hi {userName}, activate your salon subscription to unlock the SalonOX workspace.
+          {canPay
+            ? "Your SalonOX access has been paused. Choose a plan below to renew and continue managing your salon."
+            : "Your salon's subscription has expired. Please contact your salon owner to renew."}
         </Text>
 
-        {!canPurchaseSubscription && (
-          <View style={styles.noticeCard}>
-            <Ionicons name="lock-closed-outline" size={22} color={colors.warning} />
-            <View style={styles.noticeTextWrap}>
-              <Text style={styles.noticeTitle}>Owner action required</Text>
-              <Text style={styles.noticeText}>
-                Staff accounts do not manage subscription payments. Please ask the salon owner or admin to activate access.
-              </Text>
-            </View>
-          </View>
-        )}
-
-        {canPurchaseSubscription && (
-          <View style={styles.noticeCard}>
-            <Ionicons name="time-outline" size={22} color={colors.warning} />
-            <View style={styles.noticeTextWrap}>
-              <Text style={styles.noticeTitle}>Payment temporarily unavailable</Text>
-              <Text style={styles.noticeText}>{PAYMENT_UNAVAILABLE_MESSAGE}</Text>
-            </View>
-          </View>
-        )}
-
-        {error && (
-          <View style={styles.errorCard} accessibilityRole="alert">
-            <Ionicons name="alert-circle-outline" size={20} color={colors.error} />
-            <Text style={styles.errorText}>{error}</Text>
-          </View>
-        )}
-
-        {success && (
-          <View style={styles.successCard} accessibilityRole="alert">
-            <Ionicons name="checkmark-circle-outline" size={20} color={colors.success} />
-            <Text style={styles.successText}>{success}</Text>
-          </View>
-        )}
-
-        {isLoading ? (
-          <View style={styles.loadingCard}>
-            <ActivityIndicator color={colors.primaryText} />
-            <Text style={styles.loadingText}>Loading subscription plans...</Text>
-          </View>
-        ) : (
-          <View style={styles.planList}>
-            {plans.map((plan) => {
-              const isPayingThisPlan = isPayingPlanId === plan.id;
-
-              return (
-                <View key={plan.id} style={styles.planCard}>
-                  <View style={styles.planHeader}>
-                    <View>
-                      <Text style={styles.planName}>{plan.name}</Text>
-                      <Text style={styles.planDescription}>
-                        {plan.description || "Premium SalonOX access for your salon."}
-                      </Text>
-                    </View>
-                    <View style={styles.planBadge}>
-                      <Text style={styles.planBadgeText}>Premium</Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.priceRow}>
-                    <Text style={styles.price}>{subscriptionService.getPlanAmountLabel(plan)}</Text>
-                    <Text style={styles.interval}>{subscriptionService.getPlanIntervalLabel(plan)}</Text>
-                  </View>
-
-                  <Pressable
-                    accessibilityLabel={`Subscribe to ${plan.name}`}
-                    accessibilityState={{ disabled: !IS_RAZORPAY_PAYMENT_ENABLED || Boolean(isPayingPlanId) }}
-                    disabled={Boolean(isPayingPlanId)}
-                    onPress={() => handleSelectPlan(plan)}
-                    style={({ pressed }) => [
-                      styles.subscribeButton,
-                      (pressed || isPayingThisPlan) && styles.subscribeButtonPressed,
-                      (!IS_RAZORPAY_PAYMENT_ENABLED || (Boolean(isPayingPlanId) && !isPayingThisPlan)) &&
-                        styles.subscribeButtonDisabled,
-                    ]}
-                  >
-                    <LinearGradient
-                      colors={
-                        IS_RAZORPAY_PAYMENT_ENABLED
-                          ? [colors.primaryDark, colors.primary, colors.purple]
-                          : [colors.backgroundElement, colors.backgroundSelected, colors.backgroundSelected]
-                      }
-                      end={{ x: 1, y: 0 }}
-                      start={{ x: 0, y: 0 }}
-                      style={styles.subscribeButtonGradient}
-                    >
-                      {isPayingThisPlan ? (
-                        <ActivityIndicator color={colors.onPrimary} />
-                      ) : (
-                        <>
-                          <Text
-                            style={[
-                              styles.subscribeButtonText,
-                              !IS_RAZORPAY_PAYMENT_ENABLED && styles.subscribeButtonTextDisabled,
-                            ]}
-                          >
-                            Payment Unavailable
-                          </Text>
-                          <Ionicons
-                            name="lock-closed-outline"
-                            size={18}
-                            color={IS_RAZORPAY_PAYMENT_ENABLED ? colors.onPrimary : colors.text2}
-                          />
-                        </>
-                      )}
-                    </LinearGradient>
-                  </Pressable>
-                </View>
-              );
-            })}
-
-            {canPurchaseSubscription && plans.length === 0 && (
-              <View style={styles.loadingCard}>
-                <Ionicons name="card-outline" size={28} color={colors.text2} />
-                <Text style={styles.loadingText}>No subscription plans are available right now.</Text>
-              </View>
-            )}
-          </View>
-        )}
+        {canPay ? (phase.kind === "idle" ? renderPlans() : renderPaymentPanel()) : null}
 
         <Pressable
-          accessibilityLabel="Cancel subscription and return to login"
+          accessibilityRole="button"
           disabled={isSigningOut}
-          onPress={handleCancelSubscription}
-          style={styles.cancelButton}
+          onPress={() => void handleLogout()}
+          style={[styles.logoutButton, isSigningOut && styles.buttonDisabled]}
         >
-          <Text style={[
-            styles.cancelButtonText,
-            isSigningOut && styles.cancelButtonTextDisabled,
-          ]}>
-            {isSigningOut ? "Signing out..." : "Cancel / Log In"}
-          </Text>
+          <Text style={styles.logoutText}>{isSigningOut ? "Signing out…" : "Logout"}</Text>
         </Pressable>
       </ScrollView></RefreshViewport>
     </LinearGradient>
@@ -328,245 +420,54 @@ export default function SubscriptionScreen() {
 
 const createStyles = (colors: ReturnType<typeof useAppTheme>["colors"], scheme: "light" | "dark") =>
   StyleSheet.create({
-    screen: {
-      flex: 1,
-    },
-    content: {
-      paddingHorizontal: 24,
-    },
-    heroIcon: {
-      alignItems: "center",
-      alignSelf: "flex-start",
-      backgroundColor: colors.primary,
-      borderRadius: 24,
-      height: 56,
-      justifyContent: "center",
-      marginBottom: 22,
-      shadowColor: colors.primary,
-      shadowOffset: { width: 0, height: 12 },
-      shadowOpacity: scheme === "dark" ? 0.36 : 0.2,
-      shadowRadius: 22,
-      width: 56,
-    },
-    eyebrow: {
-      color: colors.primaryText,
-      fontSize: 13,
-      fontWeight: "800",
-      letterSpacing: 0.4,
-      marginBottom: 8,
-      textTransform: "uppercase",
-    },
-    title: {
-      color: colors.heading,
-      fontSize: 30,
-      fontWeight: "900",
-      lineHeight: 36,
-    },
-    subtitle: {
-      color: colors.text2,
-      fontSize: 15,
-      fontWeight: "500",
-      lineHeight: 22,
-      marginTop: 10,
-      marginBottom: 24,
-    },
-    noticeCard: {
-      alignItems: "flex-start",
-      backgroundColor: colors.warningBg,
-      borderColor: colors.warning,
-      borderRadius: 20,
-      borderWidth: 1,
-      flexDirection: "row",
-      gap: 12,
-      marginBottom: 16,
-      padding: 16,
-    },
-    noticeTextWrap: {
-      flex: 1,
-    },
-    noticeTitle: {
-      color: colors.heading,
-      fontSize: 14,
-      fontWeight: "800",
-      marginBottom: 4,
-    },
-    noticeText: {
-      color: colors.text,
-      fontSize: 13,
-      fontWeight: "500",
-      lineHeight: 19,
-    },
-    errorCard: {
-      alignItems: "center",
-      backgroundColor: colors.errorBg,
-      borderColor: colors.errorBorder,
-      borderRadius: 18,
-      borderWidth: 1,
-      flexDirection: "row",
-      gap: 10,
-      marginBottom: 16,
-      paddingHorizontal: 14,
-      paddingVertical: 12,
-    },
-    errorText: {
-      color: colors.error,
-      flex: 1,
-      fontSize: 13,
-      fontWeight: "700",
-      lineHeight: 18,
-    },
-    successCard: {
-      alignItems: "center",
-      backgroundColor: colors.successBg,
-      borderColor: colors.successBorder,
-      borderRadius: 18,
-      borderWidth: 1,
-      flexDirection: "row",
-      gap: 10,
-      marginBottom: 16,
-      paddingHorizontal: 14,
-      paddingVertical: 12,
-    },
-    successText: {
-      color: colors.success,
-      flex: 1,
-      fontSize: 13,
-      fontWeight: "700",
-      lineHeight: 18,
-    },
-    loadingCard: {
-      alignItems: "center",
-      backgroundColor: colors.card,
-      borderColor: colors.border,
-      borderRadius: 24,
-      borderWidth: 1,
-      gap: 12,
-      padding: 24,
-      shadowColor: colors.shadow,
-      shadowOffset: { width: 0, height: 14 },
-      shadowOpacity: scheme === "dark" ? 0.2 : 0.08,
-      shadowRadius: 26,
-      elevation: 5,
-    },
-    loadingText: {
-      color: colors.text2,
-      fontSize: 14,
-      fontWeight: "700",
-      textAlign: "center",
-    },
-    planList: {
-      gap: 16,
-    },
+    screen: { flex: 1 },
+    content: { gap: 16, paddingHorizontal: 20 },
+    heroIcon: { alignItems: "center", alignSelf: "center", backgroundColor: colors.errorBg, borderRadius: 32, height: 64, justifyContent: "center", width: 64 },
+    title: { color: colors.heading, fontSize: 26, fontWeight: "900", lineHeight: 32, textAlign: "center" },
+    subtitle: { color: colors.text2, fontSize: 14, fontWeight: "500", lineHeight: 21, textAlign: "center" },
+    cycleToggle: { alignSelf: "center", backgroundColor: colors.card, borderColor: colors.border, borderRadius: 999, borderWidth: 1, flexDirection: "row", padding: 4 },
+    cycleOption: { borderRadius: 999, minHeight: 40, justifyContent: "center", paddingHorizontal: 16 },
+    cycleOptionActive: { backgroundColor: colors.primary },
+    cycleText: { color: colors.text2, fontSize: 13, fontWeight: "700" },
+    cycleTextActive: { color: colors.onPrimary },
+    planList: { gap: 14 },
     planCard: {
       backgroundColor: colors.card,
       borderColor: colors.border,
-      borderRadius: 26,
+      borderRadius: 22,
       borderWidth: 1,
+      elevation: 4,
+      gap: 8,
       padding: 18,
       shadowColor: colors.shadow,
-      shadowOffset: { width: 0, height: 16 },
-      shadowOpacity: scheme === "dark" ? 0.22 : 0.1,
-      shadowRadius: 28,
-      elevation: 6,
+      shadowOffset: { width: 0, height: 12 },
+      shadowOpacity: scheme === "dark" ? 0.2 : 0.08,
+      shadowRadius: 22,
     },
-    planHeader: {
-      alignItems: "flex-start",
-      flexDirection: "row",
-      gap: 12,
-      justifyContent: "space-between",
-    },
-    planName: {
-      color: colors.heading,
-      fontSize: 20,
-      fontWeight: "900",
-      marginBottom: 6,
-    },
-    planDescription: {
-      color: colors.text2,
-      fontSize: 13,
-      fontWeight: "500",
-      lineHeight: 19,
-      maxWidth: 230,
-    },
-    planBadge: {
-      backgroundColor: colors.purpleBg,
-      borderColor: colors.purple,
-      borderRadius: 999,
-      borderWidth: 1,
-      paddingHorizontal: 10,
-      paddingVertical: 5,
-    },
-    planBadgeText: {
-      color: colors.purple,
-      fontSize: 11,
-      fontWeight: "900",
-    },
-    priceRow: {
-      alignItems: "flex-end",
-      flexDirection: "row",
-      marginTop: 22,
-      marginBottom: 18,
-    },
-    price: {
-      color: colors.heading,
-      fontSize: 32,
-      fontWeight: "900",
-      letterSpacing: -0.4,
-    },
-    interval: {
-      color: colors.text2,
-      fontSize: 14,
-      fontWeight: "700",
-      marginBottom: 6,
-      marginLeft: 4,
-    },
-    subscribeButton: {
-      borderRadius: 18,
-      height: 54,
-      overflow: "hidden",
-    },
-    subscribeButtonPressed: {
-      opacity: 0.86,
-      transform: [{ scale: 0.99 }],
-    },
-    subscribeButtonDisabled: {
-      opacity: 0.62,
-    },
-    subscribeButtonGradient: {
-      alignItems: "center",
-      flex: 1,
-      flexDirection: "row",
-      gap: 8,
-      justifyContent: "center",
-    },
-    subscribeButtonText: {
-      color: colors.onPrimary,
-      fontSize: 15,
-      fontWeight: "900",
-    },
-    subscribeButtonTextDisabled: {
-      color: colors.text2,
-    },
-    cancelButton: {
-      alignItems: "center",
-      backgroundColor: colors.card,
-      borderColor: colors.border,
-      borderRadius: 18,
-      borderWidth: 1,
-      marginTop: 24,
-      paddingVertical: 16,
-      shadowColor: colors.shadow,
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.08,
-      shadowRadius: 12,
-      elevation: 2,
-    },
-    cancelButtonText: {
-      color: colors.secondary,
-      fontSize: 15,
-      fontWeight: "800",
-    },
-    cancelButtonTextDisabled: {
-      opacity: 0.6,
-    },
+    planCardPopular: { borderColor: colors.primaryText, borderWidth: 1.5 },
+    planHeader: { alignItems: "center", flexDirection: "row", gap: 10, justifyContent: "space-between" },
+    planName: { color: colors.heading, flexShrink: 1, fontSize: 20, fontWeight: "900" },
+    popularPill: { alignItems: "center", backgroundColor: colors.primaryText, borderRadius: 999, flexDirection: "row", gap: 4, paddingHorizontal: 10, paddingVertical: 4 },
+    popularText: { color: colors.onPrimary, fontSize: 11, fontWeight: "800" },
+    planTagline: { color: colors.text2, fontSize: 13, lineHeight: 19 },
+    priceRow: { alignItems: "flex-end", flexDirection: "row", marginTop: 4 },
+    price: { color: colors.heading, fontSize: 28, fontWeight: "900" },
+    per: { color: colors.text2, fontSize: 14, fontWeight: "600", marginBottom: 4 },
+    gst: { color: colors.text2, fontSize: 12 },
+    primaryButton: { alignItems: "center", alignSelf: "stretch", backgroundColor: colors.primary, borderRadius: 999, flexDirection: "row", gap: 8, justifyContent: "center", marginTop: 8, minHeight: 50, paddingHorizontal: 16 },
+    primaryButtonText: { color: colors.onPrimary, fontSize: 15, fontWeight: "800" },
+    buttonDisabled: { opacity: 0.5 },
+    secondaryButton: { alignItems: "center", alignSelf: "stretch", borderColor: colors.primaryText, borderRadius: 999, borderWidth: 1.5, justifyContent: "center", minHeight: 48 },
+    secondaryButtonText: { color: colors.primaryText, fontSize: 14, fontWeight: "800" },
+    linkButton: { minHeight: 44, justifyContent: "center", paddingHorizontal: 8 },
+    linkText: { color: colors.text2, fontSize: 13, fontWeight: "700", textDecorationLine: "underline" },
+    panel: { alignItems: "center", backgroundColor: colors.card, borderColor: colors.border, borderRadius: 22, borderWidth: 1, gap: 10, padding: 22 },
+    successPanel: { borderColor: colors.successBorder },
+    panelTitle: { color: colors.heading, fontSize: 17, fontWeight: "800", textAlign: "center" },
+    panelText: { color: colors.text2, fontSize: 13, lineHeight: 19, textAlign: "center" },
+    errorCard: { alignItems: "center", backgroundColor: colors.errorBg, borderColor: colors.errorBorder, borderRadius: 16, borderWidth: 1, flexDirection: "row", gap: 10, paddingHorizontal: 14, paddingVertical: 12 },
+    errorText: { color: colors.error, flex: 1, fontSize: 13, fontWeight: "700", lineHeight: 18 },
+    retryText: { color: colors.primaryText, fontSize: 13, fontWeight: "800", paddingHorizontal: 4, paddingVertical: 8 },
+    logoutButton: { alignItems: "center", backgroundColor: colors.card, borderColor: colors.border, borderRadius: 12, borderWidth: 1, justifyContent: "center", marginTop: 4, minHeight: 48 },
+    logoutText: { color: colors.text, fontSize: 14, fontWeight: "700" },
   });

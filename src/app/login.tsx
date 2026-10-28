@@ -12,6 +12,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "@/context/AuthContext";
 import { ApiError, getApiErrorMessage } from "@/services/api";
+import { takeLoginNotice } from "@/utils/loginNotice";
 import { resolveLoginRoute } from "@/utils/routeResolver";
 import {
   EMAIL_INVALID_MESSAGE,
@@ -48,6 +49,8 @@ export default function LoginScreen() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  // Why the user was just signed out automatically (e.g. the salon's subscription ended).
+  const [notice, setNotice] = useState(takeLoginNotice);
   const [failedLoginAttempts, setFailedLoginAttempts] = useState(0);
   const formRef = useRef<KeyboardAwareFormHandle>(null);
   const passwordInputRef = useRef<TextInput>(null);
@@ -90,6 +93,7 @@ export default function LoginScreen() {
     }
 
     clearFeedback();
+    setNotice(null);
     try {
       loginInFlight.current = true;
       const email = trimmedIdentifier.toLowerCase();
@@ -147,6 +151,16 @@ export default function LoginScreen() {
             <OpalGlassBackground />
             <Text style={styles.title}>Welcome back</Text>
             <Text style={styles.subtitle}>Sign in to your salon workspace</Text>
+
+            {notice ? (
+              <View accessibilityRole="alert" style={styles.noticeBox}>
+                <Ionicons color={colors.warning} name="time-outline" size={18} />
+                <View style={styles.noticeCopy}>
+                  <Text style={styles.noticeTitle}>{notice.title}</Text>
+                  <Text style={styles.noticeText}>{notice.message}</Text>
+                </View>
+              </View>
+            ) : null}
 
             <View ref={emailFieldRef} collapsable={false} style={styles.fieldGroup}>
               <Text style={styles.label}>Email</Text>
@@ -258,4 +272,8 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   errorText: { color: colors.error, flex: 1, fontSize: 12, lineHeight: 17 },
   successBox: { backgroundColor: colors.successBg, borderColor: colors.successBorder, borderWidth: 1, borderRadius: 12, marginBottom: 12, padding: 12 },
   successText: { color: colors.text, fontSize: 12, lineHeight: 17 },
+  noticeBox: { alignItems: "flex-start", backgroundColor: colors.warningBg, borderColor: colors.warning, borderRadius: 12, borderWidth: 1, flexDirection: "row", gap: 8, marginBottom: 14, padding: 12 },
+  noticeCopy: { flex: 1, gap: 2 },
+  noticeTitle: { color: colors.heading, fontSize: 13, fontWeight: "700" },
+  noticeText: { color: colors.text, fontSize: 12, lineHeight: 17 },
 });
