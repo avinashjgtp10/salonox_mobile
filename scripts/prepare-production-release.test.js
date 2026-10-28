@@ -30,6 +30,17 @@ test("a raised APP_VERSION base wins, then patches continue from it", () => {
   assert.equal(nextVersion("1.0.1", [], "c"), "1.0.1");
 });
 
+test("RELEASE_VERSION overrides the bump, but never below the latest build", () => {
+  // iOS 1.0.3 finished but never shipped; Android 1.0.3 was cancelled.
+  const builds = [build("1.0.3"), build("1.0.2")];
+  const result = prepareRelease(source, eas, { ...env, RELEASE_VERSION: " 1.0.3 " }, builds);
+  assert.equal(result.version, "1.0.3");
+  assert.ok(result.appConfig.includes('const APP_VERSION = "1.0.3";'));
+  assert.equal(prepareRelease(source, eas, { ...env, RELEASE_VERSION: "" }, builds).version, "1.0.4");
+  assert.throws(() => prepareRelease(source, eas, { ...env, RELEASE_VERSION: "1.0.2" }, builds));
+  assert.throws(() => prepareRelease(source, eas, { ...env, RELEASE_VERSION: "v1.0.3" }, builds));
+});
+
 test("missing release prerequisites fail before any file writes or builds", () => {
   for (const key of Object.keys(env)) {
     assert.throws(() => prepareRelease(source, eas, { ...env, [key]: "" }, []));
