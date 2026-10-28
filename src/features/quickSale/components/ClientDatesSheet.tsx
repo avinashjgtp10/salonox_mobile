@@ -81,7 +81,7 @@ export function ClientDatesSheet({ clientId, clientName, onClose, renderInline =
       visible={visible}
     >
       {loading ? (
-        <ActivityIndicator color={Colors.primary} style={styles.loading} />
+        <ActivityIndicator color={Colors.primaryText} style={styles.loading} />
       ) : (
         <View>
           <DateField
@@ -125,6 +125,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   cancelText: { color: Colors.heading, fontSize: 14, fontWeight: "700" },
   saveButton: { alignItems: "center", backgroundColor: Colors.primary, borderRadius: AppRadius.control, flex: 1, justifyContent: "center", minHeight: 46 },
-  saveText: { color: "#FFFFFF", fontSize: 14, fontWeight: "800" },
+  saveText: { color: Colors.onPrimary, fontSize: 14, fontWeight: "800" },
   disabled: { opacity: 0.6 },
 });

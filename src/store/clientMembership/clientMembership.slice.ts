@@ -69,11 +69,7 @@ const finishMutationPayload = (state: ClientMembershipState, assignment: ClientM
 const clientMembershipSlice = createSlice({
   name: "clientMembership",
   initialState,
-  reducers: {
-    clearClientMembershipMutationError(state) {
-      state.mutationError = null;
-    },
-  },
+  reducers: {},
   extraReducers: (builder) => {
     builder
       .addCase(fetchClientMembershipsThunk.pending, (state, action) => {
@@ -152,8 +148,6 @@ const clientMembershipSlice = createSlice({
       });
   },
 });
-
-export const { clearClientMembershipMutationError } = clientMembershipSlice.actions;
 
 export const selectClientMembershipState = (state: RootState) => state.clientMembership;
 export const selectClientMembershipMutating = (state: RootState) => state.clientMembership.mutating;

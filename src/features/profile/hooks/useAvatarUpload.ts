@@ -8,12 +8,17 @@ import {
   validateAvatar,
 } from "@/features/profile/utils/avatar";
 import { useAppToast } from "@/hooks/useAppToast";
+import { setOwnerProfilePhoto, usesSalonLogoAsProfilePhoto } from "@/features/profile/utils/ownerProfilePhoto";
 import { uploadAvatarThunk } from "@/middleware/profile/profile.thunk";
+import { profileService } from "@/services/profile.service";
+import { salonService } from "@/services/salon.service";
+import { selectCurrentUser, setCurrentUser } from "@/store/user/user.slice";
 import { getApiErrorMessage } from "@/services/api";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { selectProfileUploadingAvatar } from "@/store/profile/profile.slice";
 
 const PROFILE_PHOTO_SUCCESS = "Profile photo updated!";
+const PROFILE_PHOTO_REMOVED = "Profile photo removed.";
 
 const PICKER_OPTIONS: ImagePicker.ImagePickerOptions = {
   allowsEditing: true,
@@ -34,6 +39,8 @@ export function useAvatarUpload({ avatarUrl, onError, onStart, onSuccess }: UseA
   const toast = useAppToast();
   const isUploading = useAppSelector(selectProfileUploadingAvatar);
   const [previewUri, setPreviewUri] = useState<string | null>(null);
+  const [isRemoving, setIsRemoving] = useState(false);
+  const currentUser = useAppSelector(selectCurrentUser);
 
   const uploadPickedAsset = useCallback(
     async (result: ImagePicker.ImagePickerResult) => {
@@ -118,21 +125,45 @@ export function useAvatarUpload({ avatarUrl, onError, onStart, onSuccess }: UseA
     [toast, uploadPickedAsset],
   );
 
+  // Owners clear the salon logo (as the web's Business Settings → Remove logo);
+  // staff clear their own photo.
+  const removePhoto = useCallback(async () => {
+    onStart();
+    setIsRemoving(true);
+    try {
+      if (usesSalonLogoAsProfilePhoto(currentUser)) {
+        salonService.clearSalonMeCache();
+        const salon = await salonService.getSalonMe();
+        await salonService.updateSalon(salon.id, { logo_url: "" });
+        setOwnerProfilePhoto(null);
+      } else {
+        await profileService.removeAvatar();
+        if (currentUser) dispatch(setCurrentUser({ ...currentUser, avatarUrl: null }));
+      }
+      onSuccess(PROFILE_PHOTO_REMOVED);
+    } catch (removeError) {
+      onError(getApiErrorMessage(removeError));
+    } finally {
+      setIsRemoving(false);
+    }
+  }, [currentUser, dispatch, onError, onStart, onSuccess]);
+
   const changePhoto = useCallback(() => {
-    if (isUploading) {
+    if (isUploading || isRemoving) {
       return;
     }
 
-    Alert.alert("Profile Photo", "Choose a new profile picture", [
+    Alert.alert("Profile Photo", avatarUrl ? "Change or remove your profile picture" : "Choose a new profile picture", [
       { onPress: () => void pickFromSource("camera"), text: "Take Photo" },
       { onPress: () => void pickFromSource("library"), text: "Choose from Library" },
+      ...(avatarUrl ? [{ onPress: () => void removePhoto(), style: "destructive" as const, text: "Remove Photo" }] : []),
       { style: "cancel", text: "Cancel" },
     ]);
-  }, [isUploading, pickFromSource]);
+  }, [avatarUrl, isRemoving, isUploading, pickFromSource, removePhoto]);
 
   return {
     avatarUri: previewUri ?? avatarUrl ?? null,
     changePhoto,
-    isUploading,
+    isUploading: isUploading || isRemoving,
   };
 }

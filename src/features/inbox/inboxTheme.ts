@@ -34,6 +34,7 @@ export function useInboxTheme() {
     filters: { flexDirection: "row", gap: 8, alignItems: "center", paddingHorizontal: 14, paddingBottom: 10 },
     chip: { minHeight: 40, paddingHorizontal: 13, borderRadius: 20, alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 6 },
     selected: { backgroundColor: palette.active },
+    selectedText: { color: palette.text, fontWeight: "600" },
     accentText: { color: palette.accent },
     badge: { backgroundColor: palette.accent, borderRadius: 14, paddingHorizontal: 7, paddingVertical: 3, minWidth: 23, alignItems: "center" },
     badgeText: { color: palette.onAccent, fontSize: 11, fontWeight: "700" },

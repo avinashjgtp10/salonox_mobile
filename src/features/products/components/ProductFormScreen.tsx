@@ -7,6 +7,7 @@ import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { AppBackButton } from "@/components/ui/AppBackButton";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { KeyboardAwareScrollView } from "@/components/ui/KeyboardAwareScrollView";
 import { AppLayout, AppRadius } from "@/constants/layout";
@@ -371,13 +372,11 @@ export default function ProductFormScreen({ id, mode, scannerDraft, onCreated }:
       <KeyboardAvoidingView behavior="padding" keyboardVerticalOffset={0} style={styles.keyboardAvoidingView}>
         <KeyboardAwareScrollView ref={scrollViewRef} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <View style={styles.header}>
+            <AppBackButton onPress={goBack} />
             <Text style={styles.headerTitle}>{title}</Text>
             <View style={styles.headerActions}>
-              <TouchableOpacity activeOpacity={0.84} onPress={goBack} style={styles.headerCloseButton}>
-                <Text style={styles.headerCloseText}>Close</Text>
-              </TouchableOpacity>
               <TouchableOpacity activeOpacity={0.88} disabled={isSubmitting} onPress={() => void submit()} style={[styles.headerSaveButton, isSubmitting && styles.disabled]}>
-                {isSubmitting ? <ActivityIndicator color="#FFFFFF" size="small" /> : null}
+                {isSubmitting ? <ActivityIndicator color={Colors.onPrimary} size="small" /> : null}
                 <Text style={styles.headerSaveText}>Save</Text>
               </TouchableOpacity>
             </View>
@@ -428,7 +427,7 @@ export default function ProductFormScreen({ id, mode, scannerDraft, onCreated }:
                     onPress={() => setProductType(item.value)}
                     style={[styles.segment, productType === item.value && styles.segmentActive]}
                   >
-                    <Text style={[styles.segmentText, productType === item.value && styles.segmentTextActive]}>{item.label}</Text>
+                    <Text adjustsFontSizeToFit minimumFontScale={0.8} numberOfLines={1} style={[styles.segmentText, productType === item.value && styles.segmentTextActive]}>{item.label}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -480,7 +479,7 @@ export default function ProductFormScreen({ id, mode, scannerDraft, onCreated }:
                       style={styles.optionRow}
                     >
                       <Text style={styles.optionText}>{service.name}</Text>
-                      <Ionicons color={Colors.primary} name="add-circle-outline" size={18} />
+                      <Ionicons color={Colors.primaryText} name="add-circle-outline" size={18} />
                     </TouchableOpacity>
                   ))}
                   {selectedServices.map((service) => (
@@ -530,7 +529,7 @@ export default function ProductFormScreen({ id, mode, scannerDraft, onCreated }:
                 <Text style={styles.cancelText}>Close</Text>
               </TouchableOpacity>
               <TouchableOpacity activeOpacity={0.88} disabled={isSubmitting} onPress={() => void submit()} style={[styles.saveButton, isSubmitting && styles.disabled]}>
-                {isSubmitting ? <ActivityIndicator color="#FFFFFF" /> : null}
+                {isSubmitting ? <ActivityIndicator color={Colors.onPrimary} /> : null}
                 <Text style={styles.saveText}>{isSubmitting ? "Saving..." : "Save"}</Text>
               </TouchableOpacity>
             </View>
@@ -543,10 +542,16 @@ export default function ProductFormScreen({ id, mode, scannerDraft, onCreated }:
       <Modal animationType="fade" transparent visible={brandModalOpen} onRequestClose={() => setBrandModalOpen(false)}>
         <Pressable onPress={() => setBrandModalOpen(false)} style={styles.overlay}>
           <Pressable onPress={(event) => event.stopPropagation()} style={styles.sheet}>
-            <Text style={styles.sheetTitle}>Select Brand</Text>
-            <Field label="New brand name" maxLength={100} value={newBrandName} onChangeText={setNewBrandName} editable={!brandSaving} />
-            {!!brandError && <Text style={styles.fieldError}>{brandError}</Text>}
-            <TouchableOpacity disabled={brandSaving || !newBrandName.trim()} onPress={async () => {
+            <View style={styles.sheetHeader}>
+              <Text style={styles.sheetTitle}>Select Brand</Text>
+              <TouchableOpacity accessibilityLabel="Close" accessibilityRole="button" activeOpacity={0.7} hitSlop={10} onPress={() => setBrandModalOpen(false)}>
+                <Ionicons color={Colors.text2} name="close" size={20} />
+              </TouchableOpacity>
+            </View>
+            {/* Field uses flex: 1, which collapses it inside this column sheet; a row keeps its height. */}
+            <View style={styles.brandAddRow}>
+              <Field label="New brand name" maxLength={100} placeholder="Brand name" value={newBrandName} onChangeText={setNewBrandName} editable={!brandSaving} />
+              <TouchableOpacity accessibilityRole="button" disabled={brandSaving || !newBrandName.trim()} style={[styles.brandAddButton, (brandSaving || !newBrandName.trim()) && styles.disabled]} onPress={async () => {
               if (brandSaving || !newBrandName.trim()) return;
               setBrandSaving(true); setBrandError("");
               try {
@@ -554,7 +559,9 @@ export default function ProductFormScreen({ id, mode, scannerDraft, onCreated }:
                 setBrandId(result.brand.id); setNewBrandName(""); setBrandModalOpen(false);
               } catch (error) { setBrandError(getApiErrorMessage(error)); }
               finally { setBrandSaving(false); }
-            }}><Text style={styles.inlineLink}>{brandSaving ? "Adding…" : "+ Add brand"}</Text></TouchableOpacity>
+            }}><Text style={styles.brandAddButtonText}>{brandSaving ? "Adding…" : "Add"}</Text></TouchableOpacity>
+            </View>
+            {!!brandError && <Text style={styles.fieldError}>{brandError}</Text>}
             {scannerDraft?.brand && !productState.brands.some(b => b.name.trim().toLowerCase() === scannerDraft.brand?.trim().toLowerCase()) && <TouchableOpacity disabled={isSubmitting} style={styles.sheetRow} onPress={async () => {
               const result = await dispatch(createBrandThunk({ name: scannerDraft.brand! }));
               if (createBrandThunk.fulfilled.match(result)) { scannerBrandPrefilled.current = true; setBrandId(result.payload.brand.id); setBrandModalOpen(false); }
@@ -571,7 +578,7 @@ export default function ProductFormScreen({ id, mode, scannerDraft, onCreated }:
                   style={styles.sheetRow}
                 >
                   <Text style={styles.sheetRowText}>{brand.name}</Text>
-                  {(brand.id || null) === brandId ? <Ionicons color={Colors.primary} name="checkmark-circle" size={20} /> : null}
+                  {(brand.id || null) === brandId ? <Ionicons color={Colors.primaryText} name="checkmark-circle" size={20} /> : null}
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -586,7 +593,7 @@ export default function ProductFormScreen({ id, mode, scannerDraft, onCreated }:
             {TAX_TYPES.map((item) => (
               <TouchableOpacity key={item.value} onPress={() => { setTaxType(item.value); setTaxTypeOpen(false); }} style={styles.sheetRow}>
                 <Text style={styles.sheetRowText}>{item.label}</Text>
-                {taxType === item.value ? <Ionicons color={Colors.primary} name="checkmark-circle" size={20} /> : null}
+                {taxType === item.value ? <Ionicons color={Colors.primaryText} name="checkmark-circle" size={20} /> : null}
               </TouchableOpacity>
             ))}
           </Pressable>
@@ -627,12 +634,10 @@ function LoadingScreen({ onBack, title }: { onBack: () => void; title: string })
       <AppStatusBar />
       <View style={styles.content}>
         <View style={styles.header}>
+          <AppBackButton onPress={onBack} />
           <Text style={styles.headerTitle}>{title}</Text>
-          <TouchableOpacity activeOpacity={0.84} onPress={onBack} style={styles.headerCloseButton}>
-            <Text style={styles.headerCloseText}>Close</Text>
-          </TouchableOpacity>
         </View>
-        <View style={styles.loading}><ActivityIndicator size="large" color={Colors.primary} /></View>
+        <View style={styles.loading}><ActivityIndicator size="large" color={Colors.primaryText} /></View>
       </View>
     </SafeAreaView>
   );
@@ -713,6 +718,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     borderBottomColor: Colors.border,
     borderBottomWidth: 1,
     flexDirection: "row",
+    gap: Spacing.md,
     justifyContent: "space-between",
     marginHorizontal: -Spacing.lg,
     marginTop: -Spacing.lg,
@@ -722,17 +728,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   headerTitle: { color: Colors.heading, flex: 1, fontSize: 21, fontWeight: "800" },
   headerActions: { alignItems: "center", flexDirection: "row", gap: Spacing.sm },
-  headerCloseButton: {
-    alignItems: "center",
-    backgroundColor: Colors.card,
-    borderColor: Colors.border,
-    borderRadius: AppRadius.pill,
-    borderWidth: 1,
-    justifyContent: "center",
-    minHeight: 46,
-    paddingHorizontal: 20,
-  },
-  headerCloseText: { color: Colors.heading, fontSize: 14, fontWeight: "800" },
   headerSaveButton: {
     alignItems: "center",
     backgroundColor: Colors.primaryDark,
@@ -743,7 +738,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     minHeight: 46,
     paddingHorizontal: 24,
   },
-  headerSaveText: { color: "#FFFFFF", fontSize: 14, fontWeight: "800" },
+  headerSaveText: { color: Colors.onPrimary, fontSize: 14, fontWeight: "800" },
   section: {
     backgroundColor: Colors.card,
     borderColor: Colors.border,
@@ -778,7 +773,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   threeColumn: { flexDirection: "row", gap: Spacing.sm },
   inlineLinkRow: { flexDirection: "row", gap: Spacing.md },
   inlineLinkCell: { flex: 1 },
-  inlineLink: { color: Colors.primary, fontSize: 14, fontWeight: "800", marginBottom: Spacing.md },
+  inlineLink: { color: Colors.primaryText, fontSize: 14, fontWeight: "800", marginBottom: Spacing.md },
   linkInput: { color: Colors.heading, fontSize: 15, fontWeight: "700", marginBottom: Spacing.lg, minHeight: 42 },
   selectInput: {
     alignItems: "center",
@@ -801,11 +796,11 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     minHeight: 48,
-    paddingHorizontal: 8,
+    paddingHorizontal: 4,
   },
   segmentActive: { backgroundColor: Colors.primaryDark, borderColor: Colors.primaryDark },
   segmentText: { color: Colors.heading, fontSize: 13, fontWeight: "800", textAlign: "center" },
-  segmentTextActive: { color: "#FFFFFF" },
+  segmentTextActive: { color: Colors.onPrimary },
   stockPreview: { backgroundColor: Colors.bg2, borderRadius: 8, marginBottom: Spacing.md, padding: Spacing.md },
   stockPreviewText: { color: Colors.heading, fontSize: 14 },
   bold: { fontWeight: "800" },
@@ -875,7 +870,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     justifyContent: "center",
     minHeight: 50,
   },
-  cancelText: { color: Colors.primary, fontSize: 14, fontWeight: "800" },
+  cancelText: { color: Colors.primaryText, fontSize: 14, fontWeight: "800" },
   saveButton: {
     alignItems: "center",
     backgroundColor: Colors.primaryDark,
@@ -886,13 +881,17 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     justifyContent: "center",
     minHeight: 50,
   },
-  saveText: { color: "#FFFFFF", fontSize: 14, fontWeight: "800" },
+  saveText: { color: Colors.onPrimary, fontSize: 14, fontWeight: "800" },
   disabled: { opacity: 0.7 },
   loading: { alignItems: "center", flex: 1, justifyContent: "center", minHeight: 300 },
   overlay: { alignItems: "center", backgroundColor: "rgba(15,23,32,0.35)", flex: 1, justifyContent: "center", padding: Spacing.lg },
   sheet: { backgroundColor: Colors.card, borderRadius: 8, maxHeight: "70%", padding: Spacing.lg, width: "100%" },
   sheetTitle: { color: Colors.heading, fontSize: 18, fontWeight: "800", marginBottom: Spacing.md },
-  sheetList: { maxHeight: 360 },
+  sheetHeader: { alignItems: "flex-start", flexDirection: "row", justifyContent: "space-between" },
+  sheetList: { flexGrow: 0, flexShrink: 1, maxHeight: 360 },
+  brandAddRow: { alignItems: "flex-end", flexDirection: "row", gap: Spacing.sm },
+  brandAddButton: { alignItems: "center", backgroundColor: Colors.primary, borderRadius: 8, justifyContent: "center", marginBottom: Spacing.md, minHeight: 48, paddingHorizontal: 18 },
+  brandAddButtonText: { color: Colors.onPrimary, fontSize: 14, fontWeight: "800" },
   sheetRow: {
     alignItems: "center",
     borderBottomColor: Colors.border,

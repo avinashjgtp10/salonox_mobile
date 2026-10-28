@@ -130,22 +130,7 @@ const getPagination = (query: MembershipListQuery, total: number) => {
 const membershipSlice = createSlice({
   name: "membership",
   initialState,
-  reducers: {
-    clearCurrentMembership(state) {
-      state.currentMembership = null;
-      state.detailsError = null;
-    },
-    clearMembershipError(state) {
-      state.error = null;
-    },
-    clearMembershipMutationError(state) {
-      state.mutationError = null;
-    },
-    clearMembershipExport(state) {
-      state.exportError = null;
-      state.lastExport = null;
-    },
-  },
+  reducers: {},
   extraReducers: (builder) => {
     builder
       .addCase(fetchMembershipsThunk.pending, (state, action) => {
@@ -366,12 +351,6 @@ const membershipSlice = createSlice({
   },
 });
 
-export const {
-  clearMembershipExport,
-  clearCurrentMembership,
-  clearMembershipError,
-  clearMembershipMutationError,
-} = membershipSlice.actions;
 export const selectMemberships = (state: RootState) => state.membership.items;
 export const selectMembershipsTotal = (state: RootState) => state.membership.total;
 export const selectMembershipsQuery = (state: RootState) => state.membership.query;

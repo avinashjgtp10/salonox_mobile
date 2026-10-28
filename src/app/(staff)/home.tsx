@@ -151,9 +151,9 @@ const getOwnerDashboardAppointmentBadge = (Colors: ThemeColors, status: Appointm
     case "Cancelled":
     case "Deleted":
       return { bg: Colors.errorBg, color: Colors.error, label: "Cancelled" };
-    case "Missed":
+    case "No Show":
     case "Partial":
-      return { bg: Colors.warningBg, color: Colors.warning, label: "Missed" };
+      return { bg: Colors.warningBg, color: Colors.warning, label: "No Show" };
     case "Checked In":
     case "In Progress":
     case "In Service":
@@ -455,12 +455,16 @@ export function StaffHomeRouteContent({ locked = false }: { locked?: boolean } =
         ) : (
           <>
             <TodayAppointmentsCard appointments={todayAppointments} loading={appointmentsLoading} />
+            {currentStaffId ? (
+              <View style={styles.commissionSection}>
+                <MyCommissionCard refreshKey={commissionRefreshKey} staffId={currentStaffId} staffName={staffName} />
+              </View>
+            ) : null}
             <ProgressCard
               averageRating={getAverageRating(todayAppointments)}
               completed={completedCount}
               remaining={remainingCount}
             />
-            {currentStaffId ? <MyCommissionCard refreshKey={commissionRefreshKey} staffId={currentStaffId} staffName={staffName} /> : null}
           </>
         )}
 
@@ -558,7 +562,7 @@ function AttendanceCard({
         <TouchableOpacity accessibilityRole="button" accessibilityLabel={onReturn ? "Check In" : "Check Out"} accessibilityState={{ disabled: checkoutBusy, busy: checkoutBusy }}
           disabled={checkoutBusy} onPress={onReturn ?? onCheckOut}
           style={{ marginTop: 16, minHeight: 48, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: Colors.primary, opacity: checkoutBusy ? 0.6 : 1 }}>
-          {checkoutBusy ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontSize: 16, fontWeight: "700" }}>{onReturn ? "Check In" : "Check Out"}</Text>}
+          {checkoutBusy ? <ActivityIndicator color={Colors.onPrimary} /> : <Text style={{ color: Colors.onPrimary, fontSize: 16, fontWeight: "700" }}>{onReturn ? "Check In" : "Check Out"}</Text>}
         </TouchableOpacity>
       ) : null}
       {checkoutError ? <Text accessibilityRole="alert" style={{ color: Colors.error, marginTop: 8 }}>{checkoutError}</Text> : null}
@@ -795,6 +799,9 @@ const createStyles = (Colors: ThemeColors, width = 393, bottomInset = 0) => {
       position: "absolute",
       right: 0,
       width: 14,
+    },
+    commissionSection: {
+      marginTop: 16,
     },
     safeArea: {
       backgroundColor: DASHBOARD.black,

@@ -5,7 +5,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Provider } from 'react-redux';
-import { LogBox, Pressable, View } from "react-native";
+import { AppState, LogBox, Pressable, View } from "react-native";
 import { PaperProvider } from 'react-native-paper';
 import { Portal } from '@/components/ui/Portal';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -17,9 +17,11 @@ import { StaffAttendanceGate } from '@/features/attendance/components/StaffAtten
 import { PortalProvider } from '@/components/ui/PortalProvider';
 import { UpdateAnnouncementModal } from '@/components/ui/UpdateAnnouncementModal';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
+import { AppRatingPrompt } from '@/features/appRating/AppRatingPrompt';
 import { FirstLoginGuide } from '@/features/userGuide/UserGuide';
 import type { ThemeColors } from '@/constants/theme';
 import { useAppUpdateAnnouncement } from '@/hooks/useAppUpdateAnnouncement';
+import { useIsOnHomeScreen } from '@/hooks/useIsOnHomeScreen';
 import { useOtaUpdate } from '@/hooks/useOtaUpdate';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useNetworkMonitor } from '@/hooks/useNetworkMonitor';
@@ -29,6 +31,7 @@ import { useStaffCalendarAccessSync } from '@/hooks/useStaffCalendarAccess';
 import { useStaffProductAuditAccessSync } from '@/hooks/useStaffProductAuditAccess';
 import { fetchBranchesThunk } from '@/middleware/branch/branch.thunk';
 import { resolveCurrentStaffThunk } from '@/middleware/staff/staff.thunk';
+import { refreshOwnerProfilePhoto, resetOwnerProfilePhoto, usesSalonLogoAsProfilePhoto } from '@/features/profile/utils/ownerProfilePhoto';
 import { branchStorage } from '@/services/branchStorage';
 import { isSubscriptionActive, subscriptionService } from '@/services/subscription.service';
 import { store } from '@/store';
@@ -269,15 +272,39 @@ function NetworkSetup() {
 }
 
 function AppUpdateSetup({ ready }: { ready: boolean }) {
-  const { close, reopen, isVisible, updateInfo } = useAppUpdateAnnouncement(ready);
+  const announcement = useAppUpdateAnnouncement(ready);
   const ota = useOtaUpdate(ready);
+  const { isVisible, updateInfo } = announcement;
+  const showsOtaUpdate = !updateInfo?.isUpdateAvailable && !updateInfo?.isMandatory && ota.hasUpdate;
+  const updateVisible = showsOtaUpdate ? ota.visible : Boolean(updateInfo) && isVisible;
+  const onHome = useIsOnHomeScreen();
 
-  // A store (binary) update takes priority; otherwise announce a new EAS Update.
-  if (!updateInfo?.isUpdateAvailable && !updateInfo?.isMandatory && ota.hasUpdate) {
+  // Kept outside UpdateAnnouncements' branches so an open rating sheet survives update info arriving.
+  return (
+    <>
+    <AppRatingPrompt enabled={ready && !updateVisible} />
+    <UpdateAnnouncements announcement={announcement} onHome={onHome} ota={ota} ready={ready} showsOtaUpdate={showsOtaUpdate} />
+    </>
+  );
+}
+
+function UpdateAnnouncements({ announcement, onHome, ota, ready, showsOtaUpdate }: {
+  announcement: ReturnType<typeof useAppUpdateAnnouncement>;
+  onHome: boolean;
+  ota: ReturnType<typeof useOtaUpdate>;
+  ready: boolean;
+  showsOtaUpdate: boolean;
+}) {
+  const { close, reopen, isVisible, updateInfo } = announcement;
+
+  // Only one update popup, and only on the signed-in home screen (never on login).
+  // Native release: a newer store version exists, so Update opens the Play Store / App Store.
+  // JS-only release: an OTA is available, so Update downloads it and restarts the app.
+  if (showsOtaUpdate) {
     return (
       <>
       <FirstLoginGuide enabled={ready && !ota.visible} />
-      <UpdateAnnouncementModal
+      {onHome ? <UpdateAnnouncementModal
         description={ota.releaseNotes.message ?? "A new version of SalonOX is ready. Update now to get the latest improvements and fixes."}
         isMandatory={false}
         isUpdating={ota.isApplying}
@@ -288,7 +315,7 @@ function AppUpdateSetup({ ready }: { ready: boolean }) {
         reminderMessage="Tap Show Update whenever you're ready to update."
         title={ota.releaseNotes.title ?? "SalonOX Update"}
         visible={ota.visible}
-      />
+      /> : null}
       </>
     );
   }
@@ -300,7 +327,7 @@ function AppUpdateSetup({ ready }: { ready: boolean }) {
   return (
     <>
     <FirstLoginGuide enabled={ready && !isVisible} />
-    <UpdateAnnouncementModal
+    {onHome ? <UpdateAnnouncementModal
       androidStoreUrl={updateInfo.androidStoreUrl}
       currentVersion={updateInfo.currentVersion}
       description={updateInfo.message}
@@ -312,7 +339,7 @@ function AppUpdateSetup({ ready }: { ready: boolean }) {
       releaseNotes={updateInfo.releaseNotes}
       title={updateInfo.title}
       visible={isVisible}
-    />
+    /> : null}
     </>
   );
 }
@@ -381,6 +408,29 @@ function StaffIdentityBootstrap() {
   return null;
 }
 
+// Owners' profile picture is the salon logo (as on the web): load it on sign-in
+// and re-read it when the app returns to the foreground, so a change made on the
+// web shows up here.
+function OwnerProfilePhotoBootstrap() {
+  const { isAuthenticated, user } = useAuth();
+  const activeBranchId = useAppSelector(selectActiveBranchId);
+  const enabled = isAuthenticated && usesSalonLogoAsProfilePhoto(user);
+
+  useEffect(() => {
+    if (!enabled) {
+      resetOwnerProfilePhoto();
+      return;
+    }
+    void refreshOwnerProfilePhoto();
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") void refreshOwnerProfilePhoto();
+    });
+    return () => subscription.remove();
+  }, [activeBranchId, enabled, user?.id]);
+
+  return null;
+}
+
 function StaffCalendarAccessBootstrap() {
   useStaffCalendarAccessSync();
   useStaffProductAuditAccessSync();
@@ -408,6 +458,7 @@ function AppShell() {
               <RealtimeSyncSetup />
               <BranchBootstrap />
               <StaffIdentityBootstrap />
+              <OwnerProfilePhotoBootstrap />
               <StaffCalendarAccessBootstrap />
               <OfflineTouchNotice>
               <SafeAreaProvider style={{ flex: 1 }}>

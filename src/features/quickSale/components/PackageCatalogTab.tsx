@@ -28,15 +28,23 @@ type PackageCatalogTabProps = {
   onSelect: (item: PackageListItem) => void;
   salonId?: string | null;
   search: string;
+  // Packages already on the bill, shown ticked like selected services.
+  selectedIds?: ReadonlySet<string>;
 };
 
-function PackageCardComponent({ onPress, item }: { item: PackageListItem; onPress: () => void }) {
+function PackageCardComponent({ onPress, item, selected }: { item: PackageListItem; onPress: () => void; selected: boolean }) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   return (
     <Animated.View entering={FadeInUp.duration(200)} layout={LinearTransition.duration(200)} style={styles.rowWrap}>
-      <TouchableOpacity activeOpacity={0.88} onPress={onPress} style={styles.row}>
+      <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityState={{ selected }}
+        activeOpacity={0.88}
+        onPress={onPress}
+        style={[styles.row, selected && styles.rowSelected]}
+      >
         <View style={styles.rowIcon}>
           <Ionicons name="albums-outline" size={18} color={Colors.goldDark} />
         </View>
@@ -47,8 +55,8 @@ function PackageCardComponent({ onPress, item }: { item: PackageListItem; onPres
             {item.category ? <Badge bg={Colors.bg2} color={Colors.text2} label={item.category} size="sm" /> : null}
           </View>
         </View>
-        <View style={styles.addButton}>
-          <Ionicons name="add" size={16} color={Colors.primary} />
+        <View style={[styles.addButton, selected && styles.addButtonSelected]}>
+          <Ionicons name={selected ? "checkmark" : "add"} size={16} color={selected ? Colors.onPrimary : Colors.primaryText} />
         </View>
       </TouchableOpacity>
     </Animated.View>
@@ -57,7 +65,7 @@ function PackageCardComponent({ onPress, item }: { item: PackageListItem; onPres
 
 const PackageCard = memo(PackageCardComponent);
 
-export function PackageCatalogTab({ activeClientPackages, onSelect, salonId, search }: PackageCatalogTabProps) {
+export function PackageCatalogTab({ activeClientPackages, onSelect, salonId, search, selectedIds }: PackageCatalogTabProps) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const debouncedSearch = useDebouncedValue(search, 300);
@@ -136,6 +144,7 @@ export function PackageCatalogTab({ activeClientPackages, onSelect, salonId, sea
           showsVerticalScrollIndicator
           contentContainerStyle={styles.listContent}
           data={items}
+          extraData={selectedIds}
           keyExtractor={(item) => `package-card-${item.id}`}
           refreshControl={
             <RefreshControl
@@ -145,8 +154,8 @@ export function PackageCatalogTab({ activeClientPackages, onSelect, salonId, sea
               tintColor={Colors.primary}
             />
           }
-          renderItem={({ item }) => <PackageCard item={item} onPress={() => onSelect(item)} />}
-          ListFooterComponent={loading ? <ActivityIndicator color={Colors.primary} /> : null}
+          renderItem={({ item }) => <PackageCard item={item} onPress={() => onSelect(item)} selected={selectedIds?.has(item.id) ?? false} />}
+          ListFooterComponent={loading ? <ActivityIndicator color={Colors.primaryText} /> : null}
           removeClippedSubviews
           windowSize={7}
         /></RefreshViewport>
@@ -165,7 +174,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     padding: Spacing.md,
   },
   activeMeta: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 12,
     fontWeight: "800",
   },
@@ -187,6 +196,12 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     height: 34,
     justifyContent: "center",
     width: 34,
+  },
+  addButtonSelected: {
+    backgroundColor: Colors.primary,
+  },
+  rowSelected: {
+    borderColor: Colors.primaryText,
   },
   listContent: {
     paddingBottom: 132,
@@ -224,7 +239,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     marginTop: 3,
   },
   rowPrice: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 13,
     fontWeight: "800",
   },

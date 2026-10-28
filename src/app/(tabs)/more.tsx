@@ -1,3 +1,4 @@
+import { useFooterClearance } from "@/hooks/useFooterClearance";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { appAlert as Alert } from "@/services/appAlert";
@@ -36,6 +37,7 @@ import {
   getUserRoleLabel,
 } from "@/utils/userProfile";
 import { useMemo, useRef, useState } from "react";
+import { useProfilePhotoUrl } from "@/features/profile/utils/ownerProfilePhoto";
 
 const WEB_APP_URL = "https://www.salonox.com";
 const SUPPORT_EMAIL = "support@salonox.com";
@@ -81,9 +83,11 @@ const MENU_ITEMS = [
 
 function MoreScreenContent() {
   const Colors = useThemeColors();
+  const footerClearance = useFooterClearance();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const { signOut, signOutAll } = useAuth();
   const currentUser = useAppSelector(selectCurrentUser);
+  const photoUrl = useProfilePhotoUrl(currentUser);
   const visibleMenuItems = MENU_ITEMS.filter(item => item.title !== "Product Audit" || hasInventoryPermission(currentUser, "view_product_audit"));
   const fullName = getUserFullName(currentUser);
   const businessName = getUserBusinessName(currentUser);
@@ -287,7 +291,7 @@ function MoreScreenContent() {
   return (
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
       <AppStatusBar />
-      <TourScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <TourScrollView contentContainerStyle={[styles.content, { paddingBottom: footerClearance }]} showsVerticalScrollIndicator={false}>
         <View style={styles.headerRow}>
           <View style={styles.headerTextBlock}>
             <Text style={styles.title}>Settings</Text>
@@ -300,30 +304,30 @@ function MoreScreenContent() {
 
         <View style={styles.heroCard}>
           <View style={styles.profileRow}>
-            <InitialsAvatar imageUri={currentUser?.avatarUrl} initials={initials} size={56} />
+            <InitialsAvatar imageUri={photoUrl} initials={initials} size={56} />
             <View style={styles.profileCopy}>
               <Text style={styles.heroTitle}>{fullName}</Text>
               <Text style={styles.heroText}>{businessName}</Text>
               <View style={styles.roleBadgeWrap}>
-                <Badge bg={Colors.bg2} color={Colors.primaryDark} label={roleLabel} size="sm" />
+                <Badge bg={Colors.bg2} color={Colors.primaryText} label={roleLabel} size="sm" />
               </View>
             </View>
           </View>
           <View style={styles.contactBlock}>
             <View style={styles.contactRow}>
-              <Ionicons name="mail-outline" size={14} color={Colors.primary} />
+              <Ionicons name="mail-outline" size={14} color={Colors.primaryText} />
               <Text numberOfLines={1} style={styles.contactText}>
                 {currentUser?.email ?? "Email not available"}
               </Text>
             </View>
             <View style={styles.contactRow}>
-              <Ionicons name="call-outline" size={14} color={Colors.primary} />
+              <Ionicons name="call-outline" size={14} color={Colors.primaryText} />
               <Text numberOfLines={1} style={styles.contactText}>
                 {currentUser?.phone ?? "Phone not available"}
               </Text>
             </View>
             <View style={styles.contactRow}>
-              <Ionicons name="location-outline" size={14} color={Colors.primary} />
+              <Ionicons name="location-outline" size={14} color={Colors.primaryText} />
               <Text numberOfLines={2} style={styles.contactText}>
                 {addressLine}
               </Text>
@@ -347,7 +351,7 @@ function MoreScreenContent() {
             >
               <View style={styles.menuCardLeft}>
                 <View style={styles.menuIcon}>
-                  <Ionicons name={item.icon} size={20} color={Colors.primary} />
+                  <Ionicons name={item.icon} size={20} color={Colors.primaryText} />
                 </View>
                 <View style={styles.menuCopy}>
                   <Text style={styles.menuTitle}>{item.title}</Text>
@@ -380,7 +384,7 @@ function MoreScreenContent() {
                   <Ionicons
                     name={action.icon}
                     size={20}
-                    color={action.danger ? Colors.error : Colors.primary}
+                    color={action.danger ? Colors.error : Colors.primaryText}
                   />
                 </View>
                 <View style={styles.menuCopy}>
@@ -392,7 +396,7 @@ function MoreScreenContent() {
               </View>
               {action.loading ? (
                 <ActivityIndicator
-                  color={action.danger ? Colors.error : Colors.primary}
+                  color={action.danger ? Colors.error : Colors.primaryText}
                   size="small"
                 />
               ) : (
@@ -427,7 +431,7 @@ function MoreScreenContent() {
             >
               <View style={styles.menuCardLeft}>
                 <View style={styles.menuIcon}>
-                  <Ionicons name={action.icon} size={20} color={Colors.primary} />
+                  <Ionicons name={action.icon} size={20} color={Colors.primaryText} />
                 </View>
                 <View style={styles.menuCopy}>
                   <Text style={styles.menuTitle}>{action.title}</Text>
@@ -455,7 +459,7 @@ function MoreScreenContent() {
             >
               <View style={styles.menuCardLeft}>
                 <View style={styles.menuIcon}>
-                  <Ionicons name={action.icon} size={20} color={Colors.primary} />
+                  <Ionicons name={action.icon} size={20} color={Colors.primaryText} />
                 </View>
                 <View style={styles.menuCopy}>
                   <Text style={styles.menuTitle}>{action.title}</Text>

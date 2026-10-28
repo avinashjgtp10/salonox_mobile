@@ -330,7 +330,7 @@ export default function NewConsumableScreen() {
               style={styles.optionRow}
             >
               <Text style={styles.optionText}>{service.name}</Text>
-              <Ionicons color={Colors.primary} name="add-circle-outline" size={18} />
+              <Ionicons color={Colors.primaryText} name="add-circle-outline" size={18} />
             </TouchableOpacity>
           ))}
           {selectedServices.map((service) => (
@@ -397,7 +397,7 @@ export default function NewConsumableScreen() {
                   style={styles.sheetRow}
                 >
                   <Text style={styles.sheetRowText}>{brand.name}</Text>
-                  {(brand.id || null) === brandId ? <Ionicons color={Colors.primary} name="checkmark-circle" size={20} /> : null}
+                  {(brand.id || null) === brandId ? <Ionicons color={Colors.primaryText} name="checkmark-circle" size={20} /> : null}
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -412,7 +412,7 @@ export default function NewConsumableScreen() {
             {TAX_TYPES.map((item) => (
               <TouchableOpacity key={item} onPress={() => { setTaxType(item); setTaxTypeOpen(false); }} style={styles.sheetRow}>
                 <Text style={styles.sheetRowText}>{item}</Text>
-                {taxType === item ? <Ionicons color={Colors.primary} name="checkmark-circle" size={20} /> : null}
+                {taxType === item ? <Ionicons color={Colors.primaryText} name="checkmark-circle" size={20} /> : null}
               </TouchableOpacity>
             ))}
           </Pressable>
@@ -544,13 +544,13 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   selectInput: { alignItems: "center", backgroundColor: Colors.card, borderColor: Colors.border, borderRadius: 8, borderWidth: 1, flexDirection: "row", minHeight: 48, paddingHorizontal: 13 },
   selectText: { color: Colors.heading, flex: 1, fontSize: 15 },
   placeholder: { color: Colors.placeholder },
-  inlineLink: { color: Colors.primary, fontSize: 14, fontWeight: "800", marginBottom: Spacing.md },
+  inlineLink: { color: Colors.primaryText, fontSize: 14, fontWeight: "800", marginBottom: Spacing.md },
   linkInput: { color: Colors.heading, fontSize: 15, fontWeight: "700", marginBottom: Spacing.lg, minHeight: 42 },
   segmentRow: { flexDirection: "row", gap: Spacing.sm },
   segment: { alignItems: "center", borderColor: Colors.border, borderRadius: 8, borderWidth: 1, flex: 1, justifyContent: "center", minHeight: 48, paddingHorizontal: 8 },
   segmentActive: { backgroundColor: Colors.primaryDark, borderColor: Colors.primaryDark },
   segmentText: { color: Colors.heading, fontSize: 13, fontWeight: "800", textAlign: "center" },
-  segmentTextActive: { color: "#FFFFFF" },
+  segmentTextActive: { color: Colors.onPrimary },
   stockPreview: { backgroundColor: Colors.bg2, borderRadius: 8, marginBottom: Spacing.md, padding: Spacing.md },
   stockPreviewText: { color: Colors.heading, fontSize: 14 },
   bold: { fontWeight: "800" },
@@ -571,9 +571,9 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   errorText: { color: Colors.error, flex: 1, fontSize: 13, fontWeight: "700" },
   footer: { flexDirection: "row", gap: Spacing.md },
   cancelButton: { alignItems: "center", borderColor: Colors.primary, borderRadius: 8, borderWidth: 1, flex: 1, minHeight: 50, justifyContent: "center" },
-  cancelText: { color: Colors.primary, fontSize: 14, fontWeight: "800" },
+  cancelText: { color: Colors.primaryText, fontSize: 14, fontWeight: "800" },
   saveButton: { alignItems: "center", backgroundColor: Colors.primaryDark, borderRadius: 8, flex: 1, flexDirection: "row", gap: 8, minHeight: 50, justifyContent: "center" },
-  saveText: { color: "#FFFFFF", fontSize: 14, fontWeight: "800" },
+  saveText: { color: Colors.onPrimary, fontSize: 14, fontWeight: "800" },
   disabled: { opacity: 0.7 },
   overlay: { alignItems: "center", backgroundColor: "rgba(15,23,32,0.35)", flex: 1, justifyContent: "center", padding: Spacing.lg },
   sheet: { backgroundColor: Colors.card, borderRadius: 8, maxHeight: "70%", padding: Spacing.lg, width: "100%" },

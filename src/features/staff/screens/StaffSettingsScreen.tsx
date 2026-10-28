@@ -21,6 +21,8 @@ import {
   type ThemeColors,
 } from "@/constants/theme";
 import { useAuth } from "@/context/AuthContext";
+import { useFooterClearance } from "@/hooks/useFooterClearance";
+import { useScrollFooter } from "@/hooks/useScrollFooter";
 import { getApiErrorMessage } from "@/services/api";
 import { supportService } from "@/services/support.service";
 import { selectActiveBranch } from "@/store/branch/branch.slice";
@@ -65,14 +67,14 @@ function SettingsSection({ flushTop = false, items, title }: { flushTop?: boolea
         >
           <View style={styles.menuCardLeft}>
             <View style={styles.menuIcon}>
-              <Ionicons name={item.icon} size={20} color={Colors.primary} />
+              <Ionicons name={item.icon} size={20} color={Colors.primaryText} />
             </View>
             <View style={styles.menuCopy}>
               <Text style={styles.menuTitle}>{item.title}</Text>
               <Text style={styles.menuDescription}>{item.description}</Text>
             </View>
           </View>
-          {item.loading ? <ActivityIndicator color={Colors.primary} size="small" /> : <Ionicons name="chevron-forward" size={18} color={Colors.text2} />}
+          {item.loading ? <ActivityIndicator color={Colors.primaryText} size="small" /> : <Ionicons name="chevron-forward" size={18} color={Colors.text2} />}
         </TouchableOpacity>
       ))}
     </View>
@@ -100,6 +102,8 @@ const getResponsiveTitleSize = (width = 393) =>
 
 export function StaffSettingsScreen() {
   const Colors = useThemeColors();
+  const footerClearance = useFooterClearance();
+  const footerScroll = useScrollFooter();
   const { width } = useWindowDimensions();
   const styles = useMemo(() => createStyles(Colors, width), [Colors, width]);
   const { signOut } = useAuth();
@@ -286,7 +290,12 @@ export function StaffSettingsScreen() {
   return (
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
       <AppStatusBar />
-      <KeyboardAwareScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <KeyboardAwareScrollView
+        {...footerScroll}
+        contentContainerStyle={[styles.content, { paddingBottom: footerClearance }]}
+        scrollEventThrottle={16}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.headerRow}>
           <View style={styles.headerTextBlock}>
             <Text style={styles.title}>Settings</Text>
@@ -302,19 +311,19 @@ export function StaffSettingsScreen() {
               <Text style={styles.heroTitle}>{fullName}</Text>
               <Text style={styles.heroText}>{activeBranch?.name ?? "SalonOX"}</Text>
               <View style={styles.roleBadgeWrap}>
-                <Badge bg={Colors.bg2} color={Colors.primaryDark} label={roleLabel} size="sm" />
+                <Badge bg={Colors.bg2} color={Colors.primaryText} label={roleLabel} size="sm" />
               </View>
             </View>
           </View>
           <View style={styles.contactBlock}>
             <View style={styles.contactRow}>
-              <Ionicons name="mail-outline" size={14} color={Colors.primary} />
+              <Ionicons name="mail-outline" size={14} color={Colors.primaryText} />
               <Text numberOfLines={1} style={styles.contactText}>
                 {currentStaff?.email ?? currentUser?.email ?? "Email not available"}
               </Text>
             </View>
             <View style={styles.contactRow}>
-              <Ionicons name="call-outline" size={14} color={Colors.primary} />
+              <Ionicons name="call-outline" size={14} color={Colors.primaryText} />
               <Text numberOfLines={1} style={styles.contactText}>
                 {currentStaff?.phone ?? currentUser?.phone ?? "Phone not available"}
               </Text>
@@ -645,7 +654,7 @@ const createStyles = (Colors: ThemeColors, width = 393) => StyleSheet.create({
     opacity: 0.72,
   },
   logoutButtonText: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
     fontSize: 14,
     fontWeight: "800",
     marginLeft: 10,

@@ -113,7 +113,7 @@ export default function StaffWorkload() {
 
       {isLoadingStaff && staffMembers.length === 0 ? (
         <View style={styles.stateCard}>
-          <ActivityIndicator size="small" color={Colors.primary} />
+          <ActivityIndicator size="small" color={Colors.primaryText} />
         </View>
       ) : staffMembers.length === 0 ? (
         <View style={styles.stateCard}>
@@ -269,7 +269,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     marginTop: 4,
   },
   link: {
-    color: Colors.primary,
+    color: Colors.primaryText,
     fontSize: 16,
     fontWeight: "800",
     paddingBottom: 3,

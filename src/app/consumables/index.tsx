@@ -127,7 +127,7 @@ export default function ConsumablesScreen() {
           onPress={() => router.push("/consumables/usage-history" as Href)}
           style={styles.iconButton}
         >
-          <Ionicons name="time-outline" size={19} color={Colors.primary} />
+          <Ionicons name="time-outline" size={19} color={Colors.primaryText} />
         </TouchableOpacity>
       </View>
 
@@ -163,7 +163,7 @@ export default function ConsumablesScreen() {
         onPress={() => setIsFilterSheetVisible(true)}
         style={styles.filterButton}
       >
-        <Ionicons name="options-outline" size={16} color={Colors.primaryDark} />
+        <Ionicons name="options-outline" size={16} color={Colors.primaryText} />
         <Text style={styles.filterButtonText}>Filters &amp; Sort</Text>
         {activeFilterCount > 0 ? (
           <View style={styles.filterBadge}>
@@ -264,7 +264,7 @@ function ConsumableCard({ item }: { item: ConsumableListItem }) {
       style={styles.card}
     >
       <View style={styles.productIcon}>
-        <Ionicons name="flask-outline" size={21} color={Colors.primaryDark} />
+        <Ionicons name="flask-outline" size={21} color={Colors.primaryText} />
       </View>
       <View style={styles.cardCopy}>
         <View style={styles.nameRow}>
@@ -390,7 +390,7 @@ const createStyles = (Colors: ThemeColors) =>
       paddingHorizontal: 14,
       paddingVertical: 9,
     },
-    filterButtonText: { color: Colors.primaryDark, fontSize: 12, fontWeight: "800" },
+    filterButtonText: { color: Colors.primaryText, fontSize: 12, fontWeight: "800" },
     filterBadge: {
       alignItems: "center",
       backgroundColor: Colors.primaryDark,
@@ -427,7 +427,7 @@ const createStyles = (Colors: ThemeColors) =>
     badge: { backgroundColor: Colors.successBg, borderRadius: AppRadius.pill, paddingHorizontal: 8, paddingVertical: 4 },
     activeBadge: { backgroundColor: Colors.successBg },
     inactiveBadge: { backgroundColor: Colors.errorBg },
-    badgeText: { color: Colors.primaryDark, fontSize: 9, fontWeight: "800" },
+    badgeText: { color: Colors.primaryText, fontSize: 9, fontWeight: "800" },
     inactiveText: { color: Colors.error },
     meta: { color: Colors.text2, fontSize: 11, marginTop: 4 },
     cardBottom: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", marginTop: 7 },

@@ -1,3 +1,4 @@
+import { useFooterClearance } from "@/hooks/useFooterClearance";
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { maskPhone } from "@/utils/maskPhone";
@@ -22,6 +23,7 @@ import { useInboxTheme } from "./inboxTheme";
 // the tab bar owns the bottom inset.
 export default function InboxListScreen({ embedded = false }: { embedded?: boolean }) {
   const { styles: s, palette: p } = useInboxTheme();
+  const footerClearance = useFooterClearance();
   const dispatch = useAppDispatch();
   const inbox = useAppSelector(state => state.inbox);
   const user = useAppSelector(selectCurrentUser);
@@ -63,7 +65,7 @@ export default function InboxListScreen({ embedded = false }: { embedded?: boole
     </View>
     <View style={s.search}><Ionicons name="search-outline" size={18} color={p.muted} /><TextInput accessibilityLabel="Search conversations" value={search} onChangeText={setSearch} placeholder="Search conversations…" placeholderTextColor={p.muted} autoCorrect={false} autoCapitalize="none" style={s.searchInput} />{search ? <InboxIcon name="close" label="Clear search" onPress={() => setSearch("")} /> : <View style={{ width: 12 }} />}</View>
     <View style={s.filters}>
-      {[false, true].map(value => <TouchableOpacity key={String(value)} accessibilityRole="button" accessibilityState={{ selected: unreadOnly === value }} onPress={() => setUnreadOnly(value)} style={[s.chip, unreadOnly === value && s.selected]}><Text style={[s.text, unreadOnly === value && s.accentText]}>{value ? "Unread" : "All"}</Text>{value && unread > 0 && <Text style={[s.muted, s.accentText]}>{unread}</Text>}</TouchableOpacity>)}
+      {[false, true].map(value => <TouchableOpacity key={String(value)} accessibilityRole="button" accessibilityState={{ selected: unreadOnly === value }} onPress={() => setUnreadOnly(value)} style={[s.chip, unreadOnly === value && s.selected]}><Text style={[s.text, unreadOnly === value && s.selectedText]}>{value ? "Unread" : "All"}</Text>{value && unread > 0 && <Text style={[s.muted, s.accentText]}>{unread}</Text>}</TouchableOpacity>)}
       <View style={s.fill} /><TouchableOpacity accessibilityRole="button" accessibilityLabel={`Sort: ${unreadFirst ? "Unread first" : "Latest"}. Tap to change`} onPress={() => setUnreadFirst(value => !value)} style={s.chip}><Text style={s.muted}>{unreadFirst ? "Unread first" : "Latest"}</Text><Ionicons name="swap-vertical" color={p.muted} size={15} /></TouchableOpacity>
     </View>
     {selecting && <View style={s.filters}>
@@ -72,7 +74,7 @@ export default function InboxListScreen({ embedded = false }: { embedded?: boole
       <Text style={s.muted}>Up to 500 chats</Text>
     </View>}
     {inbox.conversationsError && <TouchableOpacity accessibilityRole="button" onPress={refresh} style={s.banner}><Text style={s.error}>{inbox.conversationsError} · Tap to retry</Text></TouchableOpacity>}
-    <RefreshViewport><FlatList data={items} keyExtractor={item => item.contactPhone} onRefresh={refresh} refreshing={inbox.conversationsRefreshing} keyboardShouldPersistTaps="handled" contentContainerStyle={{ flexGrow: 1 }}
+    <RefreshViewport><FlatList data={items} keyExtractor={item => item.contactPhone} onRefresh={refresh} refreshing={inbox.conversationsRefreshing} keyboardShouldPersistTaps="handled" contentContainerStyle={{ flexGrow: 1, paddingBottom: embedded ? footerClearance : 0 }}
       ListEmptyComponent={inbox.conversationsStatus === "loading" || (inbox.conversationsRefreshing && !inbox.conversations.length) ? <View style={s.empty}><ActivityIndicator color={p.accent} /></View> : <View style={s.empty}><Ionicons name="chatbubbles-outline" size={36} color={p.accent} /><Text style={s.heading}>{search ? "No chats found" : unreadOnly ? "You’re all caught up" : "Your chats start here"}</Text><Text style={s.emptyText}>{search || unreadOnly ? "Try another search or switch to All." : "Client replies to your WhatsApp messages will appear here."}</Text></View>}
       extraData={selectedPhones}
       renderItem={({ item }) => <TouchableOpacity accessibilityRole={selecting ? "checkbox" : "button"} accessibilityState={selecting ? { checked: selection.includes(item.contactPhone) } : undefined} accessibilityLabel={`${item.contactName || maskPhone(item.contactPhone)}, ${item.unreadCount} unread messages`} delayLongPress={250} onLongPress={canDelete ? () => toggleSelection(item.contactPhone) : undefined} onPress={() => selecting ? toggleSelection(item.contactPhone) : router.push(`/inbox/${encodeURIComponent(item.contactPhone)}` as Href)} style={[s.conversation, selecting && selection.includes(item.contactPhone) && s.selected]}>

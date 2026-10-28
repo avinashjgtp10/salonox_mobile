@@ -127,6 +127,10 @@ function CheckoutSheetComponent({
   const [staffValidationAttempted, setStaffValidationAttempted] = useState(false);
   const [staffTipsVisible, setStaffTipsVisible] = useState(false);
   const [staffTipInputs, setStaffTipInputs] = useState<Record<string, string>>({});
+  // Once the GST card has been shown, keep it visible so the toggle stays reachable after
+  // switching GST off (tax becomes 0) and while totals recalculate after switching it back on.
+  const [isGstSectionPinned, setIsGstSectionPinned] = useState(false);
+  const showGstSection = gstPreviewAmount > 0 || !includeGst || isGstSectionPinned;
   const hasSelectedStaff = items.some((item) => Boolean(item.staffId));
   const staffTipRows = useMemo(() => {
     const grouped = new Map<string, { id: string; itemNames: string[]; name: string; salesTotal: number }>();
@@ -170,6 +174,7 @@ function CheckoutSheetComponent({
     setStaffTipsVisible(false);
     setStaffTipInputs({});
     setStaffValidationAttempted(initialStaffValidationAttempted);
+    setIsGstSectionPinned(false);
   }, [
     initialStep,
     initialStaffValidationAttempted,
@@ -245,6 +250,13 @@ function CheckoutSheetComponent({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, initialStep]);
+
+  // Runs after the reset above so a sheet opened with GST already OFF stays pinned.
+  useEffect(() => {
+    if (visible && (gstPreviewAmount > 0 || !includeGst)) {
+      setIsGstSectionPinned(true);
+    }
+  }, [gstPreviewAmount, includeGst, visible, initialStep]);
 
   useEffect(() => {
     if (!isMounted) {
@@ -484,20 +496,6 @@ function CheckoutSheetComponent({
   };
 
   const handleContinueToPayment = () => {
-    if (!hasItems || chargesInvalid) {
-      return;
-    }
-
-    if (hasMissingStaff) {
-      setStaffValidationAttempted(true);
-      setCheckoutStep("review");
-      return;
-    }
-
-    setCheckoutStep("payment");
-  };
-
-  const handleContinueToCharges = () => {
     if (!hasItems) {
       return;
     }
@@ -512,7 +510,18 @@ function CheckoutSheetComponent({
       return;
     }
 
-    setCheckoutStep("charges");
+    setCheckoutStep("payment");
+  };
+
+  // Opened straight at payment (from the Checkout bar): Back returns to the
+  // Quick Sale screen. Opened from the cart review: Back returns to the review.
+  const handlePaymentBack = () => {
+    if (initialStep === "review") {
+      setCheckoutStep("review");
+      return;
+    }
+
+    requestClose();
   };
 
   useEffect(() => {
@@ -584,17 +593,11 @@ function CheckoutSheetComponent({
             <View style={styles.header}>
               <View>
                 <Text style={styles.title}>
-                  {checkoutStep === "review"
-                    ? "Review Cart"
-                    : checkoutStep === "charges"
-                      ? "Charges & Discounts"
-                      : "Payment"}
+                  {checkoutStep === "review" ? "Review Cart" : "Payment"}
                 </Text>
                 <Text style={styles.subtitle}>
                   {checkoutStep === "review"
                     ? `${items.length} line item${items.length === 1 ? "" : "s"} ready`
-                    : checkoutStep === "charges"
-                      ? `Adjustments for ${clientName(selectedClient.name)}`
                     : `Payment due ${formatCurrency(amountToCollect)}`}
                 </Text>
               </View>
@@ -643,12 +646,12 @@ function CheckoutSheetComponent({
                           onPress={() => setStaffTipsVisible(true)}
                           style={styles.splitTipAction}
                         >
-                          <Ionicons name="cash-outline" size={14} color={Colors.primaryDark} />
+                          <Ionicons name="cash-outline" size={14} color={Colors.primaryText} />
                           <Text style={styles.splitTipActionText}>Split Tip by Staff</Text>
                         </TouchableOpacity>
                       ) : null}
                       <TouchableOpacity activeOpacity={0.84} onPress={onAddMore} style={styles.addMoreButton}>
-                        <Ionicons name="add" size={15} color={Colors.primaryDark} />
+                        <Ionicons name="add" size={15} color={Colors.primaryText} />
                         <Text style={styles.addMoreText}>Add More</Text>
                       </TouchableOpacity>
                     </View>
@@ -656,7 +659,7 @@ function CheckoutSheetComponent({
 
                   {groupedItems.length === 0 ? (
                     <View style={styles.emptyBill}>
-                      <Ionicons name="cart-outline" size={22} color={Colors.primary} />
+                      <Ionicons name="cart-outline" size={22} color={Colors.primaryText} />
                       <Text style={styles.emptyBillTitle}>No items in this sale</Text>
                       <Text style={styles.emptyBillText}>Add a service or product to continue checkout.</Text>
                     </View>
@@ -688,12 +691,13 @@ function CheckoutSheetComponent({
                     ))
                   )}
                 </>
-              ) : checkoutStep === "charges" ? (
+              ) : (
                 <>
-                  <View style={styles.orderSummaryCard}>
+                  <View style={styles.paymentSummaryCard}>
                     <SummaryTile label="Client" value={clientName(selectedClient.name)} />
                     <SummaryTile label="Items" value={String(items.length)} />
-                    <SummaryTile label="Subtotal" value={formatCurrency(totals.subtotal)} />
+                    <SummaryTile label="Grand Total" value={formatCurrency(totals.grandTotal)} />
+                    <SummaryTile label="Outstanding" value={formatCurrency(dueAmount)} />
                   </View>
 
                   {benefitCards.length > 0 ? (
@@ -757,7 +761,7 @@ function CheckoutSheetComponent({
                               style={styles.discountApplyOption}
                             >
                               <Ionicons
-                                color={isSelected ? Colors.primary : Colors.text2}
+                                color={isSelected ? Colors.primaryText : Colors.text2}
                                 name={isSelected ? "checkbox" : "square-outline"}
                                 size={19}
                               />
@@ -828,7 +832,7 @@ function CheckoutSheetComponent({
                             ]}
                           >
                             {isApplyingCoupon ? (
-                              <ActivityIndicator color={Colors.primaryDark} size="small" />
+                              <ActivityIndicator color={Colors.primaryText} size="small" />
                             ) : (
                               <Text style={styles.secondaryPillText}>Apply</Text>
                             )}
@@ -839,7 +843,7 @@ function CheckoutSheetComponent({
                     )}
                   </View>
 
-                  {gstPreviewAmount > 0 ? (
+                  {showGstSection ? (
                     <View style={styles.formCard}>
                       <Text style={styles.sectionTitle}>GST</Text>
                       <View style={styles.membershipRow}>
@@ -860,13 +864,28 @@ function CheckoutSheetComponent({
                         </TouchableOpacity>
                       </View>
                       <Text style={styles.gstPreviewText}>
-                        GST {includeGst ? "applied" : "would be"}: {formatCurrency(gstPreviewAmount)}
+                        {!includeGst
+                          ? "GST not applied"
+                          : isPricingLoading
+                            ? "Calculating GST…"
+                            : `GST applied: ${formatCurrency(gstPreviewAmount)}`}
                       </Text>
                     </View>
                   ) : null}
 
                   <View style={styles.formCard}>
                     <Text style={styles.sectionTitle}>Extra Charges</Text>
+                    <View style={styles.inputGroup}>
+                      <Text style={styles.inputLabel}>Tip</Text>
+                      <TextInput
+                        keyboardType="decimal-pad"
+                        onChangeText={onChangeTip}
+                        placeholder="0"
+                        placeholderTextColor={Colors.placeholder}
+                        style={styles.input}
+                        value={tipInput}
+                      />
+                    </View>
                     {(
                       [
                         { key: "serviceCharge", label: "Service Charge" },
@@ -888,13 +907,6 @@ function CheckoutSheetComponent({
                     ))}
                   </View>
                 </>
-              ) : (
-                <View style={styles.paymentSummaryCard}>
-                  <SummaryTile label="Client" value={clientName(selectedClient.name)} />
-                  <SummaryTile label="Items" value={String(items.length)} />
-                  <SummaryTile label="Grand Total" value={formatCurrency(totals.grandTotal)} />
-                  <SummaryTile label="Outstanding" value={formatCurrency(dueAmount)} />
-                </View>
               )}
 
               {checkoutStep === "payment" && totals.grandTotal > 0 ? (
@@ -967,7 +979,7 @@ function CheckoutSheetComponent({
                             }
                             style={[styles.methodCard, isActive && styles.methodCardActive]}
                           >
-                            <Ionicons name={method.icon} size={16} color={isActive ? Colors.onPrimary : Colors.primaryDark} />
+                            <Ionicons name={method.icon} size={16} color={isActive ? Colors.onPrimary : Colors.primaryText} />
                             <Text style={[styles.methodText, isActive && styles.methodTextActive]}>{method.label}</Text>
                           </TouchableOpacity>
                         );
@@ -993,7 +1005,7 @@ function CheckoutSheetComponent({
                 <View style={styles.formCard}>
                   <Text style={styles.sectionTitle}>UPI Details</Text>
                   <View style={styles.selectedPaymentCard}>
-                    <Ionicons name="phone-portrait-outline" size={18} color={Colors.primaryDark} />
+                    <Ionicons name="phone-portrait-outline" size={18} color={Colors.primaryText} />
                     <Text style={styles.selectedPaymentText}>UPI Selected</Text>
                   </View>
                   <Text style={styles.inputLabel}>Reference Number (Optional)</Text>
@@ -1011,7 +1023,7 @@ function CheckoutSheetComponent({
                 <View style={styles.formCard}>
                   <Text style={styles.sectionTitle}>Card Details</Text>
                   <View style={styles.selectedPaymentCard}>
-                    <Ionicons name="card-outline" size={18} color={Colors.primaryDark} />
+                    <Ionicons name="card-outline" size={18} color={Colors.primaryText} />
                     <Text style={styles.selectedPaymentText}>Card Payment Selected</Text>
                   </View>
                   <Text style={styles.inputLabel}>Transaction Reference (Optional)</Text>
@@ -1153,7 +1165,7 @@ function CheckoutSheetComponent({
               </View>
             </ScrollView>
 
-            <View style={styles.footer}>
+            <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 10) + Spacing.sm }]}>
               {pricingError ? <Text style={styles.footerError}>Pricing error: {pricingError}</Text> : null}
               {submitError ? <Text style={styles.footerError}>{submitError}</Text> : null}
               {isSuccess ? (
@@ -1167,8 +1179,8 @@ function CheckoutSheetComponent({
                   <TouchableOpacity
                     activeOpacity={0.84}
                     disabled={isBusy}
-                    onPress={() => setCheckoutStep("charges")}
-                    style={[styles.pendingButton, isBusy && styles.buttonDisabled]}
+                    onPress={handlePaymentBack}
+                    style={[styles.pendingButton, isBusy && styles.footerButtonDisabled]}
                   >
                     <Text style={styles.pendingButtonText}>Back</Text>
                   </TouchableOpacity>
@@ -1179,11 +1191,11 @@ function CheckoutSheetComponent({
                     onPress={onSavePending}
                     style={[
                       styles.pendingButton,
-                      (isBusy || !hasItems || chargesInvalid) && styles.buttonDisabled,
+                      (isBusy || !hasItems || chargesInvalid) && styles.footerButtonDisabled,
                     ]}
                   >
                     {isSaving ? (
-                      <ActivityIndicator color={Colors.primaryDark} size="small" />
+                      <ActivityIndicator color={Colors.primaryText} size="small" />
                     ) : (
                       <Text style={styles.pendingButtonText}>Save Pending</Text>
                     )}
@@ -1194,22 +1206,16 @@ function CheckoutSheetComponent({
                   disabled={
                     checkoutStep === "payment"
                       ? isBusy || !canCompleteSale
-                      : isBusy || !hasItems || chargesInvalid || showStaffValidation
+                      : isBusy || !hasItems || showStaffValidation
                   }
-                  onPress={
-                    checkoutStep === "payment"
-                      ? handleComplete
-                      : checkoutStep === "charges"
-                        ? handleContinueToPayment
-                        : handleContinueToCharges
-                  }
+                  onPress={checkoutStep === "payment" ? handleComplete : handleContinueToPayment}
                   style={[
                     styles.completeButton,
                     !isSuccess &&
                       (checkoutStep === "payment"
                         ? isBusy || !canCompleteSale
-                        : isBusy || !hasItems || chargesInvalid || showStaffValidation) &&
-                      styles.buttonDisabled,
+                        : isBusy || !hasItems || showStaffValidation) &&
+                      styles.footerButtonDisabled,
                     isSuccess && styles.completeButtonSuccess,
                   ]}
                 >
@@ -1235,9 +1241,7 @@ function CheckoutSheetComponent({
                           ? dueAmount > 0
                             ? "Record Payment"
                             : "Complete Sale"
-                          : checkoutStep === "charges"
-                            ? "Continue to Payment"
-                            : "Continue"}
+                          : "Continue to Payment"}
                       </Text>
                       <Ionicons
                         name={checkoutStep === "payment" ? "checkmark-circle" : "arrow-forward"}
@@ -1410,7 +1414,7 @@ function StaffAssignmentChip({
           onPress={onPress}
           style={styles.staffChipBody}
         >
-          <Ionicons name="person-outline" size={13} color={Colors.primaryDark} />
+          <Ionicons name="person-outline" size={13} color={Colors.primaryText} />
           <Text numberOfLines={1} style={styles.staffChipText}>{staffName}</Text>
           <Ionicons name="chevron-down" size={12} color={Colors.text2} />
         </TouchableOpacity>
@@ -1421,7 +1425,7 @@ function StaffAssignmentChip({
   return (
     <View style={[styles.staffChip, hasError && styles.staffChipError]}>
       <TouchableOpacity activeOpacity={0.82} onPress={onPress} style={styles.staffChipBody}>
-        <Ionicons name="person-outline" size={13} color={hasError ? Colors.error : Colors.primaryDark} />
+        <Ionicons name="person-outline" size={13} color={hasError ? Colors.error : Colors.primaryText} />
         <Text numberOfLines={1} style={[styles.staffChipText, hasError && styles.staffChipTextError]}>
           Assign staff
         </Text>
@@ -1495,7 +1499,7 @@ const CheckoutItemCard = memo(function CheckoutItemCard({
         <Ionicons
           name={item.itemType === "service" ? "cut-outline" : item.itemType === "membership" ? "card-outline" : "cube-outline"}
           size={18}
-          color={Colors.primaryDark}
+          color={Colors.primaryText}
         />
       </View>
 
@@ -1534,7 +1538,7 @@ const CheckoutItemCard = memo(function CheckoutItemCard({
               onPress={onDecrease}
               style={styles.stepperButton}
             >
-              <Ionicons name="remove" size={14} color={Colors.primaryDark} />
+              <Ionicons name="remove" size={14} color={Colors.primaryText} />
             </TouchableOpacity>
             <Text style={styles.quantityValue}>{item.quantity}</Text>
             <TouchableOpacity
@@ -1547,7 +1551,7 @@ const CheckoutItemCard = memo(function CheckoutItemCard({
               <Ionicons
                 name="add"
                 size={14}
-                color={increaseDisabled ? Colors.text2 : Colors.primaryDark}
+                color={increaseDisabled ? Colors.text2 : Colors.primaryText}
               />
             </TouchableOpacity>
           </View>
@@ -1884,7 +1888,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     width: 48,
   },
   customerAvatarText: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 14,
     fontWeight: "900",
   },
@@ -1910,7 +1914,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     paddingVertical: 9,
   },
   customerChangeText: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 12,
     fontWeight: "900",
   },
@@ -1943,7 +1947,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: 10,
   },
   splitTipActionText: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 11,
     fontWeight: "900",
   },
@@ -1957,7 +1961,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: 12,
   },
   addMoreText: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 12,
     fontWeight: "900",
   },
@@ -2071,7 +2075,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     paddingRight: 5,
   },
   staffChipText: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     flexShrink: 1,
     fontSize: 11,
     fontWeight: "800",
@@ -2095,7 +2099,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     marginTop: 10,
   },
   itemTotal: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 14,
     fontWeight: "900",
   },
@@ -2309,7 +2313,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     textTransform: "uppercase",
   },
   discountApplyOptionTextSelected: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
   },
   inputGroup: {
     flex: 1,
@@ -2341,7 +2345,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     minWidth: 82,
   },
   secondaryPillText: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 12,
     fontWeight: "900",
   },
@@ -2356,7 +2360,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     padding: Spacing.md,
   },
   membershipStatus: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 12,
     fontWeight: "900",
   },
@@ -2367,7 +2371,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     marginTop: 3,
   },
   membershipSavings: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 14,
     fontWeight: "900",
   },
@@ -2396,7 +2400,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     borderColor: Colors.primaryDark,
   },
   quickChipText: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 12,
     fontWeight: "900",
   },
@@ -2497,7 +2501,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     borderColor: Colors.primaryDark,
   },
   methodText: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 12,
     fontWeight: "900",
   },
@@ -2591,7 +2595,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "800",
   },
   splitRemainingValue: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 17,
     fontWeight: "900",
   },
@@ -2610,7 +2614,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "900",
   },
   grandTotalValue: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 24,
     fontWeight: "900",
   },
@@ -2620,18 +2624,27 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "800",
     marginTop: Spacing.sm,
   },
+  // Buttons float over the scroll content (scrollContent reserves the room) —
+  // no white strip behind them.
   footer: {
-    backgroundColor: Colors.card,
-    borderTopColor: Colors.border,
-    borderTopWidth: 1,
+    bottom: 0,
+    left: 0,
     paddingHorizontal: Spacing.xl,
     paddingTop: Spacing.md,
+    position: "absolute",
+    right: 0,
   },
   footerError: {
+    alignSelf: "flex-start",
+    backgroundColor: Colors.errorBg,
+    borderRadius: Radius.full,
     color: Colors.error,
     fontSize: 12,
     fontWeight: "800",
     marginBottom: Spacing.sm,
+    overflow: "hidden",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
   },
   successBanner: {
     alignItems: "center",
@@ -2661,7 +2674,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     minHeight: 54,
   },
   pendingButtonText: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 13,
     fontWeight: "900",
   },
@@ -2685,5 +2698,12 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.48,
+  },
+  // Solid, not translucent: the footer floats over the scroll content, so an
+  // opacity-dimmed button would let the fields behind it show through.
+  footerButtonDisabled: {
+    backgroundColor: Colors.bg2,
+    borderColor: Colors.border,
+    borderWidth: 1,
   },
 });

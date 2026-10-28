@@ -40,35 +40,15 @@ function Badge({ status }: { status: AppointmentStatus }) {
   );
 }
 
-function StaffChip({ initials }: { initials: string }) {
-  const Colors = useThemeColors();
-  const styles = useMemo(() => createStyles(Colors), [Colors]);
-
-  return (
-    <View style={styles.chip}>
-      <Text style={styles.chipText}>{initials}</Text>
-    </View>
-  );
-}
-
 type DashboardAppointmentCard = {
   amount: number;
   clientName: string;
   id: string;
   service: string;
-  staffInitials: string;
   staffName: string;
   status: AppointmentStatus;
   time: string;
 };
-
-const getStaffInitials = (staffName: string) =>
-  staffName
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("") || "NA";
 
 const ACTIVE_APPOINTMENT_STATUSES = new Set<CalendarAppointmentStatus>([
   "Checked In",
@@ -176,7 +156,6 @@ const toCardModel = (
   clientName: appointment.clientName,
   id: appointment.id,
   service: appointment.serviceName,
-  staffInitials: getStaffInitials(appointment.staffName),
   staffName: appointment.staffName,
   status,
   time: formatAppointmentTime(appointment),
@@ -224,9 +203,6 @@ function AppointmentCard({ appt, isLast }: { appt: DashboardAppointmentCard; isL
       <View style={styles.info}>
         <Text style={styles.name}>{appt.clientName}</Text>
         <Text style={styles.service}>{appt.service}</Text>
-        <View style={styles.chips}>
-          <StaffChip initials={appt.staffInitials} />
-        </View>
         <Text style={styles.meta}>
           {appt.staffName} - {formatCurrency(appt.amount)}
         </Text>
@@ -382,7 +358,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     marginTop: 2,
   },
   link: {
-    color: Colors.primary,
+    color: Colors.primaryText,
     fontSize: 12,
     fontWeight: "500",
   },
@@ -472,26 +448,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     letterSpacing: 0,
     marginTop: 2,
     textTransform: "uppercase",
-  },
-  chips: {
-    flexDirection: "row",
-    gap: 3,
-    marginTop: 4,
-  },
-  chip: {
-    alignItems: "center",
-    backgroundColor: Colors.dashboardClientBg,
-    borderColor: Colors.dashboardCard,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    height: 20,
-    justifyContent: "center",
-    width: 20,
-  },
-  chipText: {
-    color: Colors.primaryDark,
-    fontSize: 8,
-    fontWeight: "700",
   },
   meta: {
     color: Colors.placeholder,

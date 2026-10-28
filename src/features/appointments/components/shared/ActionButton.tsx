@@ -9,22 +9,24 @@ export function ActionButton({
   danger,
   icon,
   label,
+  onPress,
   route,
 }: {
   danger?: boolean;
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
-  route: string;
+  onPress?: () => void;
+  route?: string;
 }) {
   const { Colors, styles } = useAppointmentStyles();
 
   return (
     <TouchableOpacity
       activeOpacity={0.84}
-      onPress={() => router.push(route as Href)}
+      onPress={onPress ?? (() => route && router.push(route as Href))}
       style={[styles.actionButton, danger && styles.actionButtonDanger]}
     >
-      <Ionicons name={icon} size={18} color={danger ? Colors.error : Colors.primary} />
+      <Ionicons name={icon} size={18} color={danger ? Colors.error : Colors.primaryText} />
       <Text
         adjustsFontSizeToFit
         minimumFontScale={0.85}

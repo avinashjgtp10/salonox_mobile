@@ -26,6 +26,7 @@ export function ScreenShell({
   scrollable = true,
   showCreateAction = true,
   title,
+  topSurfaceColor,
 }: {
   backFallback?: Href;
   children: React.ReactNode;
@@ -38,6 +39,7 @@ export function ScreenShell({
   scrollable?: boolean;
   showCreateAction?: boolean;
   title: string;
+  topSurfaceColor?: string;
 }) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
@@ -66,7 +68,7 @@ export function ScreenShell({
     <>
       {!hideHeader ? <View style={styles.headerRow}>
         <TouchableOpacity activeOpacity={0.8} hitSlop={12} onPress={handleBack} style={styles.iconButton}>
-          <Ionicons name="arrow-back" size={18} color={Colors.primary} />
+          <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, headerTitleStyle]}>{title}</Text>
         {showCreateAction ? (
@@ -75,7 +77,7 @@ export function ScreenShell({
             onPress={() => router.push("/bookings/new" as Href)}
             style={styles.iconButton}
           >
-            <Ionicons name="add" size={20} color={Colors.primary} />
+            <Ionicons name="add" size={20} color={Colors.primaryText} />
           </TouchableOpacity>
         ) : (
           <View style={styles.iconButtonGhost} />
@@ -86,11 +88,11 @@ export function ScreenShell({
   );
 
   return (
-    <SafeAreaView edges={safeAreaEdges} style={styles.safeArea}>
-      <AppStatusBar />
+    <SafeAreaView edges={safeAreaEdges} style={[styles.safeArea, topSurfaceColor ? { backgroundColor: topSurfaceColor } : undefined]}>
+      <AppStatusBar backgroundColor={topSurfaceColor} />
       {scrollable ? (
         <RefreshViewport><TourScrollView
-          contentContainerStyle={[styles.content, contentStyle]}
+          contentContainerStyle={[styles.content, contentStyle, { paddingBottom: contentBottomPadding }]}
           keyboardShouldPersistTaps="handled"
           refreshControl={
             onRefresh ? (

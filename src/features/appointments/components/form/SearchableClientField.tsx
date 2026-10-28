@@ -1,5 +1,6 @@
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { maskPhone } from "@/utils/maskPhone";
+import { useClientPrivacy } from "@/hooks/useClientPrivacy";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { CLIENT_SEARCH_MIN_LETTERS } from "@/features/appointments/constants/appointmentConstants";
 import { createStyles } from "@/features/appointments/styles/appointmentStyles";
@@ -34,7 +35,8 @@ export function SearchableClientField({
   dropdownOpen: boolean;
   error?: string;
   onDismiss: () => void;
-  onNewClient: () => void;
+  // Omitted where the new-client screen isn't available (staff).
+  onNewClient?: () => void;
   onSearchChange: (value: string) => void;
   onSelectClient: (client: ClientListItem) => void;
   onSelectExisting: () => void;
@@ -49,6 +51,8 @@ export function SearchableClientField({
 }) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
+  // Staff see masked client names and no email, as in Quick Sale.
+  const { staffMode, clientName } = useClientPrivacy();
   const query = search.trim().toLowerCase();
   const showDropdown =
     dropdownOpen && bookingMode === "existing" && query.length >= CLIENT_SEARCH_MIN_LETTERS;
@@ -61,7 +65,7 @@ export function SearchableClientField({
           <Text style={styles.clientModeHint}>Walk-in booking</Text>
         ) : selectedClient ? (
           <Text numberOfLines={1} style={styles.clientModeHint}>
-            {selectedClient.fullName}
+            {clientName(selectedClient.fullName)}
           </Text>
         ) : null}
       </View>
@@ -75,7 +79,7 @@ export function SearchableClientField({
           <Ionicons
             name="person-outline"
             size={16}
-            color={bookingMode === "existing" ? Colors.appointmentAccentDark : Colors.appointmentTextSecondary}
+            color={bookingMode === "existing" ? Colors.primaryText : Colors.appointmentTextSecondary}
           />
           <Text style={[styles.clientActionText, bookingMode === "existing" && styles.clientActionTextActive]}>
             Existing Client
@@ -89,16 +93,18 @@ export function SearchableClientField({
           <Ionicons
             name="walk-outline"
             size={16}
-            color={bookingMode === "walkIn" ? Colors.appointmentAccentDark : Colors.appointmentTextSecondary}
+            color={bookingMode === "walkIn" ? Colors.primaryText : Colors.appointmentTextSecondary}
           />
           <Text style={[styles.clientActionText, bookingMode === "walkIn" && styles.clientActionTextActive]}>
             Walk-in Client
           </Text>
         </TouchableOpacity>
-        <TouchableOpacity activeOpacity={0.84} onPress={onNewClient} style={styles.clientActionChip}>
-          <Ionicons name="person-add-outline" size={16} color={Colors.appointmentTextSecondary} />
-          <Text style={styles.clientActionText}>New Client</Text>
-        </TouchableOpacity>
+        {onNewClient ? (
+          <TouchableOpacity activeOpacity={0.84} onPress={onNewClient} style={styles.clientActionChip}>
+            <Ionicons name="person-add-outline" size={16} color={Colors.appointmentTextSecondary} />
+            <Text style={styles.clientActionText}>New Client</Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
 
       {bookingMode === "existing" ? (
@@ -142,7 +148,7 @@ export function SearchableClientField({
                   </View>
                 ) : resultsLoading ? (
                   <View style={styles.serviceDropdownState}>
-                    <ActivityIndicator color={Colors.primary} size="small" />
+                    <ActivityIndicator color={Colors.primaryText} size="small" />
                     <Text style={styles.fieldHint}>Searching clients...</Text>
                   </View>
                 ) : results.length === 0 ? (
@@ -169,13 +175,13 @@ export function SearchableClientField({
                         >
                           <View style={styles.serviceOptionCopy}>
                             <Text style={[styles.serviceOptionName, selected && styles.serviceOptionNameActive]}>
-                              {client.fullName}
+                              {clientName(client.fullName)}
                             </Text>
                             <Text style={[styles.serviceOptionMeta, selected && styles.serviceOptionMetaActive]}>
-                              {[maskPhone(client.phone, client.phoneCountryCode), client.email].filter(Boolean).join(" | ")}
+                              {[maskPhone(client.phone, client.phoneCountryCode), staffMode ? null : client.email].filter(Boolean).join(" | ")}
                             </Text>
                           </View>
-                          {selected ? <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" /> : null}
+                          {selected ? <Ionicons name="checkmark-circle" size={18} color={Colors.onPrimary} /> : null}
                         </TouchableOpacity>
                       );
                     })}

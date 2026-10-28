@@ -34,7 +34,7 @@ export function BookingBottomBar({ serviceCount, totalServiceDuration, totalServ
       onPress={onSubmit}
       style={[styles.bookingPrimaryButton, mutating && styles.disabledButton]}
     >
-      {mutating ? <ActivityIndicator color="#FFFFFF" /> : <Ionicons name="calendar-outline" size={20} color="#FFFFFF" />}
+      {mutating ? <ActivityIndicator color={Colors.onPrimary} /> : <Ionicons name="calendar-outline" size={20} color={Colors.onPrimary} />}
       <Text style={styles.bookingPrimaryButtonText}>
         {mutating ? "Booking..." : mode === "create" ? "Book Appointment" : "Save Changes"}
       </Text>

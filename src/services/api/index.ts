@@ -340,6 +340,13 @@ const releaseProtectedRequest = (config?: RetryableRequestConfig) => {
   }
 };
 
+/** A usable bearer token for requests made outside axios (native image/file loaders). */
+export const getFreshAccessToken = async () => {
+  const accessToken = await tokenStorage.getAccessToken();
+  if (!accessToken || !shouldRefreshToken(accessToken) || !(await tokenStorage.getRefreshToken())) return accessToken;
+  return refreshAccessToken("native-media");
+};
+
 export const cancelProtectedApiRequests = () => {
   refreshAbortController?.abort();
   refreshAbortController = null;

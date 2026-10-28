@@ -9,7 +9,7 @@ import { DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme
 import { ProfileCard } from "@/features/profile/components/ProfileSections";
 import type { ProfileEditState } from "@/features/profile/utils/profileFormat";
 import { useThemeColors } from "@/theme/ThemeProvider";
-import { PHONE_DIGIT_COUNT, sanitizePhoneDigits } from "@/utils/validation";
+import { PHONE_INPUT_MAX_LENGTH, sanitizePhoneDigits } from "@/utils/validation";
 
 export type ProfileFieldErrors = Partial<Record<"fullName" | "phone", string>>;
 
@@ -52,7 +52,7 @@ export function ProfileEditForm({
           inputRef={inputRefs.phone}
           keyboardType="phone-pad"
           label="Phone Number"
-          maxLength={PHONE_DIGIT_COUNT}
+          maxLength={PHONE_INPUT_MAX_LENGTH}
           onChangeText={(value) => onChangeField("phone", sanitizePhoneDigits(value))}
           onSubmitEditing={() => inputRefs.businessName.current?.focus()}
           placeholder="Enter phone number"
@@ -188,7 +188,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     opacity: 0.72,
   },
   submitButtonText: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
     fontSize: 14,
     fontWeight: "800",
     marginLeft: Spacing.sm,

@@ -13,6 +13,8 @@ export * from "@/features/staff/hooks/useStaffForm";
 export * from "@/features/staff/screens/StaffFormScreen";
 export * from "@/features/staff/screens/StaffSectionScreen";
 export * from "@/features/staff/screens/StaffAttendanceScreen";
+export * from "@/features/staff/screens/StaffRevenueItemsScreen";
+export * from "@/features/staff/screens/StaffRevenueScreen";
 export * from "@/features/staff/screens/StaffSelfProfileScreen";
 export * from "@/features/staff/screens/StaffSettingsScreen";
 export * from "@/features/staff/types/staffFeature.types";

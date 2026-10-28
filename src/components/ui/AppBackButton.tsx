@@ -41,7 +41,7 @@ export function AppBackButton({ fallbackHref, onPress, style }: AppBackButtonPro
       onPress={handlePress}
       style={[styles.button, style]}
     >
-      <Ionicons color={Colors.primary} name="arrow-back" size={18} />
+      <Ionicons color={Colors.primaryText} name="arrow-back" size={18} />
     </TouchableOpacity>
   );
 }

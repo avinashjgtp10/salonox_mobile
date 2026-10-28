@@ -46,6 +46,7 @@ import {
 import { selectCurrentUser } from "@/store/user/user.slice";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { UpdateProfileRequest } from "@/types/profile";
+import { usesSalonLogoAsProfilePhoto, useProfilePhotoUrl } from "@/features/profile/utils/ownerProfilePhoto";
 import { isValidPhoneDigits, PHONE_INVALID_MESSAGE } from "@/utils/validation";
 
 const VALIDATION_FIELD_ORDER = ["fullName", "phone"] as const;
@@ -60,6 +61,7 @@ export function ProfileScreen() {
   const isSalonLoading = useAppSelector(selectSalonDetailsLoading);
   const userId = currentUser?.id ?? "";
   const profile = useAppSelector(selectProfile);
+  const sharedPhotoUrl = useProfilePhotoUrl(currentUser);
   const isLoading = useAppSelector(selectProfileLoading);
   const isRefreshing = useAppSelector(selectProfileRefreshing);
   const error = useAppSelector(selectProfileError);
@@ -96,7 +98,7 @@ export function ProfileScreen() {
     setSuccessMessage(null);
   }, []);
   const avatar = useAvatarUpload({
-    avatarUrl: profile?.avatarUrl,
+    avatarUrl: usesSalonLogoAsProfilePhoto(currentUser) ? sharedPhotoUrl : profile?.avatarUrl,
     onError: setFormError,
     onStart: clearMessages,
     onSuccess: setSuccessMessage,
@@ -305,7 +307,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: Spacing.sm,
   },
   cancelButtonLabel: {
-    color: Colors.primary,
+    color: Colors.primaryText,
     fontSize: 14,
     fontWeight: "700",
   },

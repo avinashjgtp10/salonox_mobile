@@ -115,7 +115,7 @@ function AttendanceStaffRowComponent({
 
         {canUseAttendanceActions && action.kind !== "edit" ? (
           <TouchableOpacity activeOpacity={0.85} onPress={onOpenModal} style={styles.secondaryButton}>
-            <Ionicons name="create-outline" size={15} color={Colors.primaryDark} />
+            <Ionicons name="create-outline" size={15} color={Colors.primaryText} />
           </TouchableOpacity>
         ) : null}
       </View>
@@ -218,7 +218,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     backgroundColor: Colors.primaryDark,
   },
   primaryButtonText: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
     fontSize: 12,
     fontWeight: "800",
   },

@@ -1,22 +1,51 @@
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { memo, useEffect, useMemo, useRef } from "react";
 import { Animated, Easing, Pressable, StyleSheet, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { DashboardRadius as Radius, type ThemeColors } from "@/constants/theme";
-import { formatCurrency } from "@/features/quickSale/utils/money";
 import { useThemeColors } from "@/theme/ThemeProvider";
+
+const BRAND = "#A3467F";
+// Solid disabled colours: opacity on these buttons let the form behind the
+// floating bar show through on Android.
+const DISABLED_BG = "#F4F1F3";
+const DISABLED_BORDER = "#D9CDD4";
+const DISABLED_TEXT = "#9A8E95";
 
 type MiniBillBarProps = {
   disabled: boolean;
-  grandTotal: number;
+  /** Inside the Calendar's pop-up, which already sits clear of the system bars. */
+  embedded?: boolean;
+  isPricingLoading?: boolean;
+  isSaving: boolean;
   itemCount: number;
   onCheckout: () => void;
+  onSavePending: () => void;
+  savePendingDisabled: boolean;
 };
 
-function MiniBillBarComponent({ disabled, grandTotal, itemCount, onCheckout }: MiniBillBarProps) {
+function MiniBillBarComponent({
+  disabled,
+  embedded = false,
+  isPricingLoading = false,
+  isSaving,
+  itemCount,
+  onCheckout,
+  onSavePending,
+  savePendingDisabled,
+}: MiniBillBarProps) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
+  // An absolutely positioned bar ignores the screen's safe-area padding, so lift
+  // it above the system navigation bar itself (3-button bars are much taller
+  // than gesture handles and were covering Save Pending / Checkout).
+  const safeBottom = useSafeAreaInsets().bottom;
+  // Keeps the original 18px spot wherever that already clears the system bar
+  // (gesture handles, iPhone home indicator); only taller bars push it up.
+  const bottomOffset = embedded ? 18 : Math.max(18, safeBottom + 8);
   const progress = useRef(new Animated.Value(itemCount > 0 ? 1 : 0)).current;
 
   useEffect(() => {
@@ -29,10 +58,6 @@ function MiniBillBarComponent({ disabled, grandTotal, itemCount, onCheckout }: M
   }, [itemCount, progress]);
 
   const animatedStyle = {
-    opacity: progress.interpolate({
-      inputRange: [0, 1],
-      outputRange: [1, 1],
-    }),
     transform: [
       {
         translateY: progress.interpolate({
@@ -44,23 +69,51 @@ function MiniBillBarComponent({ disabled, grandTotal, itemCount, onCheckout }: M
   };
 
   return (
-    <Animated.View pointerEvents="box-none" style={[styles.wrap, animatedStyle]}>
-      <View style={[styles.card, disabled && styles.cardDisabled]}>
-        <View style={styles.copy}>
-          <Text style={styles.total}>{formatCurrency(grandTotal)}</Text>
-          <Text style={styles.itemCount}>
-            {itemCount} item{itemCount === 1 ? "" : "s"}
-          </Text>
-        </View>
+    <Animated.View pointerEvents="box-none" style={[styles.wrap, { bottom: bottomOffset }, animatedStyle]}>
+      <View style={styles.card}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ busy: isSaving, disabled: savePendingDisabled }}
+          android_ripple={savePendingDisabled ? undefined : { color: "rgba(163, 70, 127, 0.12)", borderless: false }}
+          disabled={savePendingDisabled}
+          onPress={onSavePending}
+          style={({ pressed }) => [
+            styles.pendingButton,
+            savePendingDisabled && styles.pendingButtonDisabled,
+            pressed && !savePendingDisabled && styles.buttonPressed,
+          ]}
+        >
+          {isSaving ? (
+            <ActivityIndicator color={BRAND} size="small" />
+          ) : (
+            <Text
+              adjustsFontSizeToFit
+              minimumFontScale={0.75}
+              numberOfLines={1}
+              style={[styles.pendingButtonText, savePendingDisabled && styles.disabledText]}
+            >
+              Save Pending
+            </Text>
+          )}
+        </Pressable>
 
         <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ disabled, busy: isPricingLoading }}
           android_ripple={disabled ? undefined : { color: "rgba(255, 255, 255, 0.12)", borderless: false }}
           disabled={disabled}
           onPress={onCheckout}
-          style={({ pressed }) => [styles.cta, disabled && { opacity: 0.45 }, pressed && !disabled && styles.cardPressed]}
+          style={({ pressed }) => [styles.cta, { backgroundColor: disabled ? DISABLED_BG : BRAND }, pressed && !disabled && styles.buttonPressed]}
         >
-          <Text style={styles.ctaText}>Checkout</Text>
-          <Ionicons name="arrow-forward" size={18} color={Colors.onPrimary} />
+          <Text
+            adjustsFontSizeToFit
+            minimumFontScale={0.75}
+            numberOfLines={1}
+            style={[styles.ctaText, disabled && styles.disabledText]}
+          >
+            {isPricingLoading ? "Updating total…" : "Checkout"}
+          </Text>
+          {isPricingLoading ? <ActivityIndicator size="small" color={DISABLED_TEXT} /> : <Ionicons name="arrow-forward" size={18} color={disabled ? DISABLED_TEXT : "#FFFFFF"} />}
         </Pressable>
       </View>
     </Animated.View>
@@ -84,51 +137,61 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     borderRadius: 24,
     borderWidth: 1,
     flexDirection: "row",
-    justifyContent: "space-between",
+    gap: 12,
     minHeight: 84,
-    paddingHorizontal: 18,
+    paddingHorizontal: 16,
     shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 16 },
     shadowOpacity: 0.18,
     shadowRadius: 26,
     elevation: 18,
   },
-  cardDisabled: {
-    opacity: 0.98,
-  },
-  cardPressed: {
+  buttonPressed: {
     transform: [{ scale: 0.985 }],
   },
-  copy: {
+  pendingButton: {
+    alignItems: "center",
+    backgroundColor: Colors.card,
+    borderColor: BRAND,
+    borderRadius: Radius.full,
+    borderWidth: 1.5,
     flex: 1,
+    flexDirection: "row",
+    gap: 6,
+    justifyContent: "center",
+    minHeight: 52,
+    overflow: "hidden",
+    paddingHorizontal: 10,
   },
-  itemCount: {
-    color: Colors.text2,
-    fontSize: 11,
-    fontWeight: "900",
-    letterSpacing: 0,
-    textTransform: "uppercase",
+  pendingButtonDisabled: {
+    backgroundColor: DISABLED_BG,
+    borderColor: DISABLED_BORDER,
   },
-  total: {
-    color: Colors.heading,
-    fontSize: 24,
+  pendingButtonText: {
+    color: BRAND,
+    flexShrink: 1,
+    fontSize: 15,
     fontWeight: "900",
-    marginTop: 4,
   },
   cta: {
     alignItems: "center",
-    backgroundColor: "#A3467F",
+    backgroundColor: BRAND,
     borderRadius: Radius.full,
+    flex: 1,
     flexDirection: "row",
     gap: 8,
     justifyContent: "center",
     minHeight: 52,
-    minWidth: 118,
-    paddingHorizontal: 16,
+    overflow: "hidden",
+    paddingHorizontal: 10,
   },
   ctaText: {
-    color: Colors.onPrimary,
+    color: "#FFFFFF",
+    flexShrink: 1,
     fontSize: 15,
     fontWeight: "900",
+  },
+  disabledText: {
+    color: DISABLED_TEXT,
   },
 });

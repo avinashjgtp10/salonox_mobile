@@ -28,7 +28,7 @@ function QuickSaleHeaderComponent({
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const isLeading = layout === "leading";
-  const closeOnRight = embedded || isLeading;
+  const closeOnRight = embedded;
   const navigationButton = (
     <TouchableOpacity
         accessibilityRole="button"
@@ -39,9 +39,9 @@ function QuickSaleHeaderComponent({
         style={styles.iconButton}
       >
         <Ionicons
-          name={embedded || isLeading ? "close" : "arrow-back"}
+          name={closeOnRight ? "close" : "arrow-back"}
           size={isLeading ? 20 : 18}
-          color={Colors.primary}
+          color={Colors.primaryText}
         />
     </TouchableOpacity>
   );
@@ -50,7 +50,7 @@ function QuickSaleHeaderComponent({
     <View style={styles.header}>
       {!closeOnRight ? navigationButton : !isLeading ? <View style={styles.spacer} /> : null}
       {isLeading ? (
-        <View style={styles.leadingTitle}>
+        <View style={[styles.leadingTitle, !closeOnRight && styles.leadingTitleWithBack]}>
           <Text style={styles.title}>{title}</Text>
           {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
         </View>
@@ -170,6 +170,9 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   leadingTitle: {
     flex: 1,
     minWidth: 0,
+  },
+  leadingTitleWithBack: {
+    marginLeft: 12,
   },
   title: {
     color: Colors.heading,

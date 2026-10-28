@@ -146,7 +146,7 @@ export function StaffAttendanceScreen() {
         <View style={[styles.card, { backgroundColor: Colors.card, borderColor: Colors.border }]}>
           {loading && !selfRecord ? (
             <View style={styles.centerState}>
-              <ActivityIndicator color={Colors.primary} />
+              <ActivityIndicator color={Colors.primaryText} />
               <Text style={[styles.stateText, { color: Colors.text2 }]}>Loading attendance…</Text>
             </View>
           ) : error && !selfRecord ? (

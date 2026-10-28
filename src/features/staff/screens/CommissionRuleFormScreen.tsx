@@ -239,8 +239,8 @@ export function CommissionRuleFormScreen() {
               const selected = option.key === type;
               return (
                 <TouchableOpacity key={option.key} accessibilityRole="button" accessibilityState={{ selected }} onPress={() => selectType(option.key)} style={[styles.typeCard, selected && styles.typeCardActive]}>
-                  <Ionicons color={selected ? Colors.primary : Colors.text2} name={option.icon} size={18} />
-                  <Text style={[styles.typeLabel, selected && { color: Colors.primary }]}>{option.label}</Text>
+                  <Ionicons color={selected ? Colors.primaryText : Colors.text2} name={option.icon} size={18} />
+                  <Text style={[styles.typeLabel, selected && { color: Colors.primaryText }]}>{option.label}</Text>
                   <Text style={styles.hint}>{option.sub}</Text>
                 </TouchableOpacity>
               );
@@ -267,7 +267,7 @@ export function CommissionRuleFormScreen() {
               </TouchableOpacity>
             ) : null}
           </View>
-          {staffLoading ? <ActivityIndicator color={Colors.primary} /> : (
+          {staffLoading ? <ActivityIndicator color={Colors.primaryText} /> : (
             <View style={styles.chipWrap}>
               {staff.map((member) => (
                 <Chip key={member.id} active={staffIds.includes(member.id)} icon={staffIds.includes(member.id) ? "checkmark-circle" : "person-outline"} label={member.name} onPress={() => toggleStaff(member.id)} />
@@ -311,7 +311,7 @@ export function CommissionRuleFormScreen() {
                 </View>
               ))}
               <TouchableOpacity onPress={() => setTiers((current) => [...current, EMPTY_TIER])} style={styles.addTier}>
-                <Ionicons color={Colors.primary} name="add" size={18} />
+                <Ionicons color={Colors.primaryText} name="add" size={18} />
                 <Text style={styles.link}>Add milestone</Text>
               </TouchableOpacity>
               <Text style={styles.label}>Total possible reward: {formatRupees(ladderTotal)}</Text>
@@ -328,7 +328,7 @@ export function CommissionRuleFormScreen() {
 
           <View style={styles.footer}>
             <TouchableOpacity disabled={saving !== null} onPress={() => submit("draft")} style={[styles.secondaryButton, saving !== null && styles.disabled]}>
-              {saving === "draft" ? <ActivityIndicator color={Colors.primary} /> : <Text style={styles.secondaryText}>Save as Draft</Text>}
+              {saving === "draft" ? <ActivityIndicator color={Colors.primaryText} /> : <Text style={styles.secondaryText}>Save as Draft</Text>}
             </TouchableOpacity>
             <TouchableOpacity disabled={saving !== null} onPress={() => submit("active")} style={[styles.primaryButton, saving !== null && styles.disabled]}>
               {saving === "active" ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.primaryText}>Save & Activate</Text>}
@@ -388,13 +388,13 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   input: { backgroundColor: Colors.bg2, borderColor: Colors.border, borderRadius: Radius.md, borderWidth: 1, color: Colors.heading, fontSize: 14, minHeight: 48, paddingHorizontal: 14 },
   inputError: { borderColor: Colors.error },
   error: { color: Colors.error, fontSize: 11, fontWeight: "700" },
-  link: { color: Colors.primary, fontSize: 13, fontWeight: "800" },
+  link: { color: Colors.primaryText, fontSize: 13, fontWeight: "800" },
   rowBetween: { alignItems: "center", flexDirection: "row", justifyContent: "space-between" },
   chipWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   chip: { alignItems: "center", backgroundColor: Colors.card, borderColor: Colors.border, borderRadius: Radius.full, borderWidth: 1, flexDirection: "row", gap: 6, paddingHorizontal: 12, paddingVertical: 8 },
   chipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
   chipText: { color: Colors.text2, fontSize: 12, fontWeight: "700" },
-  chipTextActive: { color: "#FFFFFF" },
+  chipTextActive: { color: Colors.onPrimary },
   tiers: { gap: 10 },
   tierRow: { alignItems: "flex-end", flexDirection: "row", gap: 8 },
   tierField: { flex: 1, gap: 4 },
@@ -402,8 +402,8 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   addTier: { alignItems: "center", flexDirection: "row", gap: 4 },
   footer: { flexDirection: "row", gap: 10, marginTop: Spacing.md },
   secondaryButton: { alignItems: "center", borderColor: Colors.primary, borderRadius: Radius.md, borderWidth: 1, flex: 1, justifyContent: "center", minHeight: 50 },
-  secondaryText: { color: Colors.primary, fontSize: 14, fontWeight: "800" },
+  secondaryText: { color: Colors.primaryText, fontSize: 14, fontWeight: "800" },
   primaryButton: { alignItems: "center", backgroundColor: Colors.primary, borderRadius: Radius.md, flex: 1, justifyContent: "center", minHeight: 50 },
-  primaryText: { color: "#FFFFFF", fontSize: 14, fontWeight: "800" },
+  primaryText: { color: Colors.onPrimary, fontSize: 14, fontWeight: "800" },
   disabled: { opacity: 0.6 },
 });

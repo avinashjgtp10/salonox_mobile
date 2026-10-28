@@ -26,7 +26,9 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
   const { clientName } = useClientPrivacy();
   const Colors = useThemeColors();
   const [paperSize, setPaperSize] = useState<"A4" | "80mm" | "58mm">(receiptData.paperSize ?? "80mm");
-  const [isActionLoading, setIsActionLoading] = useState(false);
+  // Only the tapped button shows a spinner; the other is just disabled meanwhile.
+  const [activeAction, setActiveAction] = useState<"print" | "share" | null>(null);
+  const isActionLoading = activeAction !== null;
 
   const activeData: ReceiptData = {
     ...receiptData,
@@ -36,24 +38,26 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
   };
 
   const handlePrint = async () => {
+    if (activeAction) return;
     try {
-      setIsActionLoading(true);
+      setActiveAction("print");
       await printerService.printReceipt(activeData);
     } catch {
       Alert.alert("Print failed", "Could not print the invoice. Please try again.");
     } finally {
-      setIsActionLoading(false);
+      setActiveAction(null);
     }
   };
 
   const handleShare = async () => {
+    if (activeAction) return;
     try {
-      setIsActionLoading(true);
+      setActiveAction("share");
       await printerService.shareReceipt(activeData);
     } catch {
       Alert.alert("Share failed", "Could not share the invoice PDF. Please try again.");
     } finally {
-      setIsActionLoading(false);
+      setActiveAction(null);
     }
   };
 
@@ -126,9 +130,9 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
             activeOpacity={0.8}
             disabled={isActionLoading}
             onPress={handleShare}
-            style={[styles.actionBtn, styles.shareBtn]}
+            style={[styles.actionBtn, styles.shareBtn, isActionLoading && activeAction !== "share" && styles.actionBtnIdle]}
           >
-            {isActionLoading ? (
+            {activeAction === "share" ? (
               <ActivityIndicator color={Colors.text} size="small" />
             ) : (
             <>
@@ -142,9 +146,9 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
             activeOpacity={0.8}
             disabled={isActionLoading}
             onPress={handlePrint}
-            style={[styles.actionBtn, { backgroundColor: Colors.primary }]}
+            style={[styles.actionBtn, { backgroundColor: Colors.primary }, isActionLoading && activeAction !== "print" && styles.actionBtnIdle]}
           >
-            {isActionLoading ? (
+            {activeAction === "print" ? (
               <ActivityIndicator color={Colors.onPrimary} size="small" />
             ) : (
               <>
@@ -162,6 +166,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
 };
 
 const styles = StyleSheet.create({
+  actionBtnIdle: { opacity: 0.5 },
   container: {
     flex: 1,
   },

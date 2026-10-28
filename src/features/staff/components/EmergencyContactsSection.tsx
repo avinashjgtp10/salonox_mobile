@@ -22,7 +22,7 @@ import { selectCurrentUser } from "@/store/user/user.slice";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { StaffEmergencyContactListItem } from "@/types/staff";
 import { canManageStaffLifecycle } from "@/utils/userProfile";
-import { PHONE_DIGIT_COUNT, sanitizePhoneDigits } from "@/utils/validation";
+import { PHONE_INPUT_MAX_LENGTH, sanitizePhoneDigits } from "@/utils/validation";
 
 type EmergencyContactsSectionProps = {
   readOnly?: boolean;
@@ -208,7 +208,7 @@ export function EmergencyContactsSection({ readOnly = false, staffId }: Emergenc
           error={controller.formErrors.phone}
           keyboardType="phone-pad"
           label="Phone"
-          maxLength={PHONE_DIGIT_COUNT}
+          maxLength={PHONE_INPUT_MAX_LENGTH}
           onChangeText={(value) => controller.updateField("phone", sanitizePhoneDigits(value))}
           placeholder="Emergency phone number"
           value={controller.form.phone}
@@ -271,7 +271,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: 12,
   },
   addButtonText: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
     fontSize: 12,
     fontWeight: "800",
   },
@@ -318,7 +318,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "800",
   },
   meta: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 12,
     fontWeight: "700",
     marginTop: 5,
@@ -346,7 +346,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: 12,
   },
   editButtonText: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 12,
     fontWeight: "800",
   },
@@ -396,7 +396,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     minHeight: 48,
   },
   cancelButtonText: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 13,
     fontWeight: "800",
   },
@@ -412,7 +412,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     opacity: 0.55,
   },
   saveButtonText: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
     fontSize: 13,
     fontWeight: "800",
   },

@@ -101,14 +101,6 @@ const productSlice = createSlice({
     clearBrandMutationError(state) {
       state.brandMutationError = null;
     },
-    clearCurrentBrand(state) {
-      state.currentBrand = null;
-      state.brandDetailsError = null;
-    },
-    clearCurrentProduct(state) {
-      state.currentProduct = null;
-      state.detailsError = null;
-    },
     clearProductMutationError(state) {
       state.mutationError = null;
     },
@@ -313,8 +305,6 @@ const productSlice = createSlice({
 
 export const {
   clearBrandMutationError,
-  clearCurrentBrand,
-  clearCurrentProduct,
   clearProductMutationError,
 } = productSlice.actions;
 

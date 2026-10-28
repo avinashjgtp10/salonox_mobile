@@ -11,8 +11,10 @@ import { StartAppointmentAction } from "@/features/appointments/components/share
 import { StateCard } from "@/features/appointments/components/shared/StateCard";
 import { useAppointmentStyles } from "@/features/appointments/styles/useAppointmentStyles";
 import { formatCurrency } from "@/features/appointments/utils/appointmentForm";
-import { formatBusinessDate, formatBusinessTime, toInvoiceSequence } from "@/features/appointments/utils/appointmentScreenHelpers";
+import { formatBusinessDate, formatBusinessTime, getAppointmentGrandTotal, getAppointmentPaymentStatus, getAppointmentSalesSummary, getAppointmentStaffNames, getAppointmentWebStatus, getPartialBillAmounts, toInvoiceSequence } from "@/features/appointments/utils/appointmentScreenHelpers";
+import { getJobCardBlocker, getJobCardItems, getJobCardStatus } from "@/features/appointments/utils/jobCard";
 import { isAssignedToStaff } from "@/features/appointments/utils/staffAssignment";
+import { addRealtimeEntityChangedListener } from "@/services/realtimeEvents";
 import { getStaffAppointmentBilling } from "@/utils/staffBilling";
 import { fetchAppointmentByIdThunk } from "@/middleware/appointment/appointment.thunk";
 import { fetchSaleByIdThunk, fetchSalesInitThunk } from "@/middleware/sales/sales.thunk";
@@ -22,7 +24,8 @@ import { selectSaleDetail, selectSalesInitData } from "@/store/sales/sales.slice
 import { selectCurrentStaff, selectCurrentStaffError, selectCurrentStaffLoading } from "@/store/staff/staff.slice";
 import { formatInvoiceNumber } from "@/utils/receipt";
 import { useLocalSearchParams } from "expo-router";
-import { useEffect, useMemo } from "react";
+import { RescheduleAppointmentModal } from "@/features/appointments/components/shared/RescheduleAppointmentForm";
+import { useEffect, useMemo, useState } from "react";
 import { View } from "react-native";
 
 export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | "staff" } = {}) {
@@ -48,12 +51,22 @@ export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | 
   }, [appointmentId, currentStaff?.id, dispatch, isStaffMode]);
 
   useEffect(() => {
+    // Job card: another staff member starting/finishing a service (or the
+    // "it's your turn" notification) must show up on this open screen too.
+    if (!isStaffMode || !appointmentId) return;
+    return addRealtimeEntityChangedListener(({ entity }) => {
+      if (entity === "appointments") void dispatch(fetchAppointmentByIdThunk(appointmentId));
+    });
+  }, [appointmentId, dispatch, isStaffMode]);
+
+  useEffect(() => {
     // Staff handoff workflow's "pick who to hand this off to" picker reuses
     // Quick Sale's staff roster (already staff-accessible, unlike the full
     // admin Staff list) — fetched once per visit to this screen in staff mode.
     if (isStaffMode) void dispatch(fetchSalesInitThunk());
   }, [dispatch, isStaffMode]);
 
+  const [rescheduleOpen, setRescheduleOpen] = useState(false);
   const staffRoster = useMemo(() => salesInitData?.staff ?? [], [salesInitData?.staff]);
   const canHandoff = useMemo(
     () => !!currentStaff && (appointment?.billedItems ?? []).some(
@@ -90,10 +103,30 @@ export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | 
 
   const displayName = appointment?.clientName?.trim() ? appointment.clientName.trim() : "Walk-in Client";
   const staffBilling = isStaffMode && appointment ? getStaffAppointmentBilling(appointment, currentStaff) : null;
-  const billedTotal = staffBilling ? staffBilling.total : appointment && appointment.total > 0 ? appointment.total : saleForAppointment?.total ?? appointment?.total ?? 0;
-  const appointmentIsPaid = staffBilling ? staffBilling.paid : Boolean(appointment && (appointment.paymentStatus.toLowerCase() === "paid" || (billedTotal > 0 && appointment.paidAmount >= billedTotal)));
+  // GST-inclusive bill total, worked out as on the web (same source as the calendar preview).
+  const billedTotal = staffBilling
+    ? staffBilling.total
+    : appointment ? getAppointmentGrandTotal(appointment) : saleForAppointment?.total ?? 0;
+  // Bill breakdown (subtotal / discount / GST / charges) — same figures as the
+  // calendar preview's Sales Summary. Staff mode shows only its own items total.
+  const salesSummary = appointment && !isStaffMode ? getAppointmentSalesSummary(appointment) : null;
+  const paymentStatus = staffBilling
+    ? (staffBilling.paid ? "Paid" : "Unpaid")
+    : appointment ? getAppointmentPaymentStatus(appointment) : "Unpaid";
   const displayedPaidAmount = staffBilling ? staffBilling.amountPaid : appointment?.paidAmount ?? 0;
+  const partialBill = !staffBilling && appointment && paymentStatus === "Partial"
+    ? getPartialBillAmounts(appointment, billedTotal)
+    : null;
+  // Paid and partially-paid bills can be edited and printed, as on the web.
+  const hasBill = !isStaffMode && paymentStatus !== "Unpaid" && appointment?.status !== "Cancelled";
   const visibleBilledItems = staffBilling ? staffBilling.items : appointment?.billedItems ?? [];
+  const jobCardItems = isStaffMode && appointment ? getJobCardItems(appointment) : [];
+  const jobCardStatus = appointment ? getJobCardStatus(appointment) : "Pending";
+  // Booked / No-show / Paid / Partial, labelled as on the web; staff also see a finished job card as Completed.
+  const webStatusLabel = appointment ? getAppointmentWebStatus(appointment).label : null;
+  const statusLabel = isStaffMode && jobCardStatus === "Completed" ? "Completed" : webStatusLabel;
+  const staffNames = appointment ? getAppointmentStaffNames(appointment).join(", ") : "";
+  const staffAlert = typeof appointment?.raw.staff_alert === "string" ? appointment.raw.staff_alert.trim() : "";
 
   return (
     <ScreenShell
@@ -145,12 +178,12 @@ export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | 
       {appointment && isStaffAppointment ? (
         <>
           <View style={styles.detailInvoiceRow}>
-            <View>
+            <View style={styles.detailHeroCopy}>
               <Text style={styles.detailInvoiceLabel}>Invoice Number</Text>
-              <Text style={styles.detailInvoiceNumber}>{invoiceNumber ?? "Not generated"}</Text>
+              <Text style={styles.detailInvoiceNumber}>{invoiceNumber ?? "Not billed yet"}</Text>
             </View>
-            <View style={[styles.previewStatusBadge, appointmentIsPaid ? styles.previewPaidBadge : styles.previewUnpaidBadge]}>
-              <Text style={[styles.previewStatusText, !appointmentIsPaid && styles.previewUnpaidText]}>{appointmentIsPaid ? "PAID" : appointment.paymentStatus}</Text>
+            <View style={[styles.previewStatusBadge, paymentStatus === "Paid" ? styles.previewPaidBadge : paymentStatus === "Partial" ? styles.previewPartialBadge : styles.previewUnpaidBadge]}>
+              <Text style={[styles.previewStatusText, paymentStatus === "Partial" ? styles.previewPartialText : paymentStatus === "Unpaid" && styles.previewUnpaidText]}>{isStaffMode && paymentStatus === "Unpaid" ? appointment.paymentStatus : paymentStatus}</Text>
             </View>
           </View>
 
@@ -165,24 +198,76 @@ export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | 
             <DetailRow label="Date" value={formatBusinessDate(appointment.scheduledAt)} />
             <DetailRow label="Time" value={[formatBusinessTime(appointment.startTime || appointment.scheduledAt), formatBusinessTime(appointment.endTime)].filter((value) => value && value !== "-").join(" - ")} />
             <DetailRow label="Duration" value={appointment.durationLabel || (appointment.durationMinutes ? `${appointment.durationMinutes} mins` : null)} />
-            <DetailRow label="Staff" value={isStaffMode ? currentStaff?.name : appointment.staffName} />
-            <DetailRow label="Status" value={appointment.status} />
+            <DetailRow label="Staff" value={staffNames || (isStaffMode ? currentStaff?.name : appointment.staffName)} />
+            <DetailRow label="Status" value={statusLabel} />
           </View>
+
+          {staffAlert ? (
+            <View style={styles.formCard}>
+              <Text style={styles.sectionTitle}>Staff Alert</Text>
+              <Text style={styles.notesText}>{staffAlert}</Text>
+            </View>
+          ) : null}
+
+          {isStaffMode && jobCardItems.length > 0 ? (
+            <View style={styles.formCard}>
+              <Text style={styles.sectionTitle}>Job Card</Text>
+              <DetailRow label="Job Status" value={jobCardStatus} />
+              {jobCardItems.map((item, index) => (
+                <BilledItemRow
+                  appointmentId={appointment.id}
+                  blocker={getJobCardBlocker(jobCardItems, index)}
+                  canHandoff={canHandoff}
+                  currentStaffId={currentStaff?.id}
+                  hidePrice
+                  isStaffMode
+                  item={item}
+                  key={item.id ?? `${item.type}-${item.name}-${index}`}
+                  staffRoster={staffRoster}
+                />
+              ))}
+            </View>
+          ) : null}
 
           <View style={styles.formCard}>
             <Text style={styles.sectionTitle}>Payment & Billing</Text>
             <DetailRow
               label="Payment Status"
-              value={appointmentIsPaid ? "Paid successfully" : appointment.paymentStatus}
+              value={paymentStatus === "Paid" ? "Paid successfully" : isStaffMode ? appointment.paymentStatus : paymentStatus === "Partial" ? "Partially paid" : "Unpaid"}
             />
             <DetailRow label="Payment Method" value={appointment.paymentMethod} />
-            <DetailRow label={isStaffMode ? "Your Items Total" : "Total Amount"} value={formatCurrency(isStaffMode ? billedTotal : billedTotal || appointment.amount)} />
+            {salesSummary ? (
+              <>
+                <DetailRow label="Subtotal" value={formatCurrency(salesSummary.subtotal)} />
+                {salesSummary.discount > 0 ? <DetailRow label="Discount" value={`-${formatCurrency(salesSummary.discount)}`} /> : null}
+                {salesSummary.couponDiscount > 0 ? (
+                  <DetailRow
+                    label={salesSummary.couponCode ? `Coupon (${salesSummary.couponCode})` : "Coupon"}
+                    value={`-${formatCurrency(salesSummary.couponDiscount)}`}
+                  />
+                ) : null}
+                {salesSummary.totalTax > 0 ? <DetailRow label={salesSummary.taxLabel || "GST"} value={`+${formatCurrency(salesSummary.totalTax)}`} /> : null}
+                {salesSummary.exCharges > 0 ? <DetailRow label="Extra Charges" value={`+${formatCurrency(salesSummary.exCharges)}`} /> : null}
+                {salesSummary.tipAmount > 0 ? <DetailRow label="Staff Tip" value={formatCurrency(salesSummary.tipAmount)} /> : null}
+              </>
+            ) : null}
+            <DetailRow label={isStaffMode ? "Your Items Total" : "Total Amount"} value={formatCurrency(isStaffMode ? billedTotal : partialBill?.total ?? (billedTotal || appointment.amount))} />
             <DetailRow label="Amount Paid" value={displayedPaidAmount === null ? "Not allocated by staff" : isStaffMode || displayedPaidAmount > 0 ? formatCurrency(displayedPaidAmount) : null} />
+            {partialBill ? <DetailRow label="Due Amount" value={formatCurrency(partialBill.due)} /> : null}
           </View>
 
           <View style={styles.formCard}>
             <Text style={styles.sectionTitle}>{isStaffMode ? "Your Services & Products" : "Services & Products"}</Text>
-            {visibleBilledItems.length > 0 ? (
+            {visibleBilledItems.length > 0 && isStaffMode ? (
+              // Start/Finish/Hand Off live on the Job Card above; this is the bill view.
+              visibleBilledItems.map((item, index) => (
+                <DetailRow
+                  key={item.id ?? `${item.type}-${item.name}-${index}`}
+                  label={`${item.name}${item.quantity > 1 ? ` × ${item.quantity}` : ""}`}
+                  value={formatCurrency(item.totalAmount ?? item.price)}
+                />
+              ))
+            ) : visibleBilledItems.length > 0 ? (
               visibleBilledItems.map((item, index) => (
                 <BilledItemRow
                   appointmentId={appointment.id}
@@ -220,13 +305,24 @@ export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | 
           <View style={styles.actionGrid}>
             {!isStaffMode && appointment.status === "Confirmed" ? <StartAppointmentAction appointment={appointment} /> : null}
             {!isStaffMode && appointment.status === "In Progress" ? <CompleteAppointmentAction appointment={appointment} /> : null}
+            {hasBill ? (
+              <>
+                <ActionButton icon="create-outline" label="Edit" route={`/appointments/${appointment.id}/edit`} />
+                {appointment.saleId ? (
+                  <ActionButton icon="print-outline" label="Print Bill" route={`/quick-sale/checkout?saleId=${encodeURIComponent(appointment.saleId)}&openReceipt=1`} />
+                ) : null}
+              </>
+            ) : null}
             {!isStaffMode ? (
               <>
-                <ActionButton icon="calendar-outline" label="Reschedule" route={`/appointments/${appointment.id}/reschedule`} />
+                <ActionButton icon="calendar-outline" label="Reschedule" onPress={() => setRescheduleOpen(true)} />
                 <ActionButton icon="close-circle-outline" label="Cancel" route={`/appointments/${appointment.id}/cancel`} danger />
               </>
             ) : null}
           </View>
+          {!isStaffMode ? (
+            <RescheduleAppointmentModal appointment={appointment} onClose={() => setRescheduleOpen(false)} visible={rescheduleOpen} />
+          ) : null}
         </>
       ) : null}
     </ScreenShell>

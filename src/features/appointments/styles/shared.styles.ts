@@ -20,7 +20,7 @@ export const createSharedStyles = (Colors: ThemeColors) => StyleSheet.create({
     borderColor: Colors.errorBorder,
   },
   actionButtonText: {
-    color: Colors.primary,
+    color: Colors.primaryText,
     fontSize: 12,
     fontWeight: "800",
   },
@@ -101,7 +101,7 @@ export const createSharedStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "600",
   },
   optionChipTextActive: {
-    color: Colors.appointmentAccentDark,
+    color: Colors.primaryText,
   },
   primaryButton: {
     alignItems: "center",
@@ -133,12 +133,12 @@ export const createSharedStyles = (Colors: ThemeColors) => StyleSheet.create({
     paddingVertical: 12,
   },
   primaryButtonSmallText: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
     fontSize: 13,
     fontWeight: "900",
   },
   primaryButtonText: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
     fontSize: 14,
     fontWeight: "900",
   },
@@ -245,7 +245,7 @@ export const createSharedStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "900",
   },
   segmentTextActive: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
   },
   skeletonLine: {
     backgroundColor: Colors.bg2,
@@ -276,7 +276,7 @@ export const createSharedStyles = (Colors: ThemeColors) => StyleSheet.create({
     backgroundColor: Colors.error,
   },
   snackbarText: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
     flex: 1,
     fontSize: 13,
     fontWeight: "800",
@@ -316,7 +316,7 @@ export const createSharedStyles = (Colors: ThemeColors) => StyleSheet.create({
     width: 34,
   },
   emptyAddServicesText: {
-    color: Colors.appointmentAccent,
+    color: Colors.primaryText,
     fontSize: 16,
     fontWeight: "700",
   },
@@ -331,6 +331,30 @@ export const createSharedStyles = (Colors: ThemeColors) => StyleSheet.create({
     borderRadius: 10,
     maxHeight: "64%",
     padding: 18,
+  },
+  rescheduleModalCard: {
+    maxHeight: "86%",
+  },
+  rescheduleBackdropTap: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  rescheduleForm: {
+    gap: 12,
+  },
+  rescheduleCurrent: {
+    alignItems: "center",
+    backgroundColor: Colors.appointmentBackground,
+    borderRadius: 8,
+    flexDirection: "row",
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  rescheduleCurrentText: {
+    color: Colors.appointmentTextSecondary,
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "600",
   },
   stylistModalHeader: {
     alignItems: "center",
@@ -358,7 +382,7 @@ export const createSharedStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "600",
   },
   stylistAvailability: {
-    color: Colors.appointmentAccent,
+    color: Colors.primaryText,
     fontSize: 12,
     fontWeight: "700",
   },
@@ -430,27 +454,31 @@ export const createSharedStyles = (Colors: ThemeColors) => StyleSheet.create({
     marginBottom: AppLayout.sectionGap,
     padding: AppLayout.cardPadding,
   },
+  // Same card chrome as formCard so it lines up with the sections below.
   detailInvoiceRow: {
     alignItems: "center",
-    backgroundColor: Colors.appointmentSurface,
-    borderBottomColor: Colors.appointmentDivider,
-    borderBottomWidth: 1,
+    backgroundColor: Colors.card,
+    borderColor: Colors.border,
+    borderRadius: AppRadius.card,
+    borderWidth: 1,
     flexDirection: "row",
+    gap: 12,
     justifyContent: "space-between",
-    marginBottom: 16,
-    paddingBottom: 14,
+    marginBottom: AppLayout.sectionGap,
+    padding: AppLayout.cardPadding,
   },
   detailInvoiceLabel: {
     color: Colors.appointmentTextSecondary,
-    fontSize: 10,
-    fontWeight: "600",
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 0.4,
     textTransform: "uppercase",
   },
   detailInvoiceNumber: {
     color: Colors.appointmentText,
-    fontSize: 13,
+    fontSize: 17,
     fontWeight: "800",
-    marginTop: 4,
+    marginTop: 6,
   },
   detailHeroCopy: {
     flex: 1,
@@ -582,7 +610,7 @@ export const createSharedStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "900",
   },
   existingClientToggleTextActive: {
-    color: Colors.primary,
+    color: Colors.primaryText,
   },
   headerRow: {
     alignItems: "center",
@@ -626,7 +654,7 @@ export const createSharedStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "700",
   },
   linkText: {
-    color: Colors.primary,
+    color: Colors.primaryText,
     fontSize: 13,
     fontWeight: "900",
   },

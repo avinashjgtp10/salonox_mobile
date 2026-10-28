@@ -1,6 +1,7 @@
 import { api } from "@/services/api";
 import { attendanceDateKey, evaluateAttendanceCheckIn } from "@/features/attendance/utils/attendanceRules";
 import { parseAttendanceDateTime } from "@/features/attendance/utils/attendanceStatus";
+import { NO_STAFF_PRESENCE, type StaffPresence, type StaffPresenceState } from "@/features/attendance/utils/staffPresence";
 import { ATTENDANCE, MOBILE_STAFF, STAFF } from "@/services/api/endpoints";
 import type {
   AttendanceRecord,
@@ -344,6 +345,33 @@ const appendCoordinates = (
 };
 
 export const attendanceService = {
+  /**
+   * Today's check-in state per staff, for hiding not-checked-in staff on the
+   * Calendar (web: useStaffPresence). Never throws — on any failure presence is
+   * "disabled" so nobody is wrongly hidden.
+   */
+  async getStaffPresence(): Promise<StaffPresence> {
+    try {
+      const response = await api.get<ApiResponse<UnknownRecord>>(ATTENDANCE.STAFF_PRESENCE);
+      const body = asRecord(response.data.data);
+      const byStaffId: StaffPresence["byStaffId"] = {};
+      firstArray(body, ["staff"]).forEach((row) => {
+        const staffId = toSafeString(row.staff_id);
+        if (staffId) byStaffId[staffId] = toSafeString(row.state, "not_checked_in") as StaffPresenceState;
+      });
+      const breaks: StaffPresence["breaks"] = {};
+      firstArray(body, ["breaks"]).forEach((row) => {
+        const staffId = toSafeString(row.staff_id);
+        const since = toSafeString(row.since);
+        const until = toSafeString(row.until);
+        if (staffId && since && until) breaks[staffId] = { since, until };
+      });
+
+      return { breaks, byStaffId, enabled: body.enabled === true };
+    } catch {
+      return NO_STAFF_PRESENCE;
+    }
+  },
   async getSettings(): Promise<AttendanceSettings> {
     const response = await api.get<AttendanceSettingsApiResponse>(ATTENDANCE.SETTINGS);
     return normalizeAttendanceSettings(getSettingsFromEnvelope(response.data.data));

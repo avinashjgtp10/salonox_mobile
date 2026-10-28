@@ -109,7 +109,7 @@ export function BranchSelectorSheet({ onClose, visible }: BranchSelectorSheetPro
               style={[styles.row, isActive && styles.rowActive]}
             >
               <View style={styles.rowIcon}>
-                <Ionicons color={isActive ? Colors.primary : Colors.text2} name="business-outline" size={18} />
+                <Ionicons color={isActive ? Colors.primaryText : Colors.text2} name="business-outline" size={18} />
               </View>
               <View style={styles.rowCopy}>
                 <Text numberOfLines={1} style={styles.rowName}>{branch.name}</Text>
@@ -118,9 +118,9 @@ export function BranchSelectorSheet({ onClose, visible }: BranchSelectorSheetPro
                 ) : null}
               </View>
               {isSwitching && isActive ? (
-                <ActivityIndicator color={Colors.primary} size="small" />
+                <ActivityIndicator color={Colors.primaryText} size="small" />
               ) : isActive ? (
-                <Ionicons color={Colors.primary} name="checkmark-circle" size={20} />
+                <Ionicons color={Colors.primaryText} name="checkmark-circle" size={20} />
               ) : null}
             </TouchableOpacity>
           );
@@ -153,7 +153,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     paddingVertical: 6,
   },
   retryText: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
     fontSize: 12,
     fontWeight: "800",
   },

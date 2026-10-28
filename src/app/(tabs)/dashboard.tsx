@@ -1,3 +1,4 @@
+import { useFooterClearance } from "@/hooks/useFooterClearance";
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
@@ -13,7 +14,6 @@ import { DashboardNotificationsModal } from "@/components/dashboard/DashboardNot
 import { DashboardSideDrawer } from "@/components/dashboard/DashboardSideDrawer";
 import DashboardStatTiles from "@/components/dashboard/DashboardStatTiles";
 import SpotlightAnnouncementCard from "@/components/dashboard/SpotlightAnnouncementCard";
-import QuickActions from "@/components/dashboard/QuickActions";
 import StaffWorkload from "@/components/dashboard/StaffWorkload";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { useAuth } from "@/context/AuthContext";
@@ -62,6 +62,7 @@ export default function DashboardScreen() {
 function DashboardContent() {
   const tour = useDashboardTour();
   const Colors = useThemeColors();
+  const footerClearance = useFooterClearance();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
   const { isAuthenticated } = useAuth();
@@ -256,7 +257,7 @@ function DashboardContent() {
         scrollEventThrottle={16}
         scrollEnabled={!tour?.active}
         removeClippedSubviews={false}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: footerClearance }]}
         refreshControl={
           <RefreshControl
             colors={[Colors.primary]}
@@ -302,9 +303,6 @@ function DashboardContent() {
             <View style={styles.summaryBlock}>
               <DashboardStatTiles />
             </View>
-            <View style={[styles.sectionBlock, styles.stickyActions]}>
-              <QuickActions />
-            </View>
             <View style={styles.sectionBlock}>
               <AppointmentsList />
             </View>
@@ -338,10 +336,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   summaryBlock: {
     marginTop: 0,
-  },
-  stickyActions: {
-    backgroundColor: Colors.dashboardSurface,
-    zIndex: 10,
   },
   errorWrap: {
     alignItems: "center",
@@ -385,7 +379,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: Spacing.xl,
   },
   errorButtonText: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
     fontSize: 13,
     fontWeight: "800",
   },

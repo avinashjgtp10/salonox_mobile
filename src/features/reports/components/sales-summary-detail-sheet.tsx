@@ -155,7 +155,7 @@ export const SalesSummaryDetailSheet = memo(function SalesSummaryDetailSheet({
     >
       {loading && !sale ? (
         <View style={styles.stateCard}>
-          <ActivityIndicator color={Colors.primary} size="large" />
+          <ActivityIndicator color={Colors.primaryText} size="large" />
           <Text style={styles.stateTitle}>Loading bill details</Text>
           <Text style={styles.stateText}>Fetching the invoice from the current Reports API.</Text>
         </View>
@@ -278,7 +278,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     alignItems: "center", backgroundColor: Colors.primaryDark, borderRadius: AppRadius.pill,
     flexDirection: "row", gap: Spacing.sm, minHeight: 44, paddingHorizontal: Spacing.xl,
   },
-  retryText: { color: "#FFFFFF", fontSize: 13, fontWeight: "800" },
+  retryText: { color: Colors.onPrimary, fontSize: 13, fontWeight: "800" },
   section: {
     backgroundColor: Colors.backgroundElement, borderColor: Colors.border,
     borderRadius: AppRadius.card, borderWidth: 1, paddingHorizontal: Spacing.md,

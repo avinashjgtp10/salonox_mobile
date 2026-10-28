@@ -143,7 +143,7 @@ function ClientCard({
           <View style={styles.leftActions}>
             <SwipeActionButton
               backgroundColor={Colors.successBg}
-              color={Colors.primaryDark}
+              color={Colors.primaryText}
               icon="calendar-outline"
               label="Book"
               onPress={onBook}
@@ -161,7 +161,7 @@ function ClientCard({
           <View style={styles.rightActions}>
             <SwipeActionButton
               backgroundColor={Colors.bg2}
-              color={Colors.primaryDark}
+              color={Colors.primaryText}
               icon="create-outline"
               label="Edit"
               onPress={onEdit}
@@ -189,7 +189,7 @@ function ClientCard({
               <Text style={styles.clientName}>{client.fullName}</Text>
               <Badge
                 bg={statusIsInactive ? Colors.errorBg : Colors.successBg}
-                color={statusIsInactive ? Colors.error : Colors.primaryDark}
+                color={statusIsInactive ? Colors.error : Colors.primaryText}
                 label={client.status}
                 size="sm"
               />
@@ -283,7 +283,7 @@ function EmptyState({ onAdd, queryActive }: { onAdd: () => void; queryActive: bo
       <View style={styles.emptyIllustration}>
         <View style={styles.emptyIllustrationHalo} />
         <View style={styles.emptyIllustrationCard}>
-          <Ionicons name="people-outline" size={26} color={Colors.primary} />
+          <Ionicons name="people-outline" size={26} color={Colors.primaryText} />
         </View>
       </View>
       <Text style={styles.emptyTitle}>No Clients Found</Text>
@@ -625,7 +625,7 @@ function ClientsScreenContent() {
                     onPress={handleBack}
                     style={styles.backButton}
                   >
-                    <Ionicons name="arrow-back" size={18} color={Colors.primary} />
+                    <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
                   </TouchableOpacity>
                   <Text style={styles.headerTitle}>Clients</Text>
                   <TouchableOpacity
@@ -634,7 +634,7 @@ function ClientsScreenContent() {
                     onPress={() => setIsDuplicatesVisible(true)}
                     style={styles.backButton}
                   >
-                    <Ionicons name="copy-outline" size={18} color={Colors.primary} />
+                    <Ionicons name="copy-outline" size={18} color={Colors.primaryText} />
                   </TouchableOpacity>
                 </View>
                 <View style={styles.summaryCard}>
@@ -674,7 +674,7 @@ function ClientsScreenContent() {
                   <Ionicons
                     name="options-outline"
                     size={17}
-                    color={activeFilterCount > 0 ? "#FFFFFF" : Colors.primary}
+                    color={activeFilterCount > 0 ? "#FFFFFF" : Colors.primaryText}
                   />
                   <Text
                     style={[
@@ -841,7 +841,7 @@ function ClientsScreenContent() {
                 onPress={() => setIsDuplicatesVisible(false)}
                 style={styles.modalCloseButton}
               >
-                <Ionicons name="close" size={24} color={Colors.primary} />
+                <Ionicons name="close" size={24} color={Colors.primaryText} />
               </TouchableOpacity>
               <Text style={styles.modalHeaderTitle}>Duplicate Clients</Text>
               <View style={{ width: 40 }} />
@@ -849,7 +849,7 @@ function ClientsScreenContent() {
 
             {duplicatesLoading ? (
               <View style={styles.centeredLoader}>
-                <ActivityIndicator size="large" color={Colors.primary} />
+                <ActivityIndicator size="large" color={Colors.primaryText} />
                 <Text style={styles.loaderText}>Checking for duplicates...</Text>
               </View>
             ) : duplicatesError ? (
@@ -1045,12 +1045,12 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     borderColor: Colors.primary,
   },
   filterButtonText: {
-    color: Colors.primary,
+    color: Colors.primaryText,
     fontSize: 13,
     fontWeight: "800",
   },
   filterButtonTextActive: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
   },
   filterCountBadge: {
     alignItems: "center",
@@ -1062,7 +1062,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: 5,
   },
   filterCountText: {
-    color: Colors.primary,
+    color: Colors.primaryText,
     fontSize: 10,
     fontWeight: "900",
   },
@@ -1303,7 +1303,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: Spacing.xl,
   },
   emptyButtonText: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
     fontSize: 13,
     fontWeight: "800",
   },
@@ -1329,7 +1329,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     shadowRadius: 18,
   },
   stickyButtonText: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
     fontSize: 14,
     fontWeight: "800",
   },
@@ -1410,7 +1410,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "800",
   },
   sheetOptionTextActive: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
   },
   sheetActionRow: {
     flexDirection: "row",
@@ -1440,7 +1440,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     minHeight: 48,
   },
   applyButtonText: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
     fontSize: 13,
     fontWeight: "900",
   },
@@ -1508,7 +1508,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     paddingVertical: 14,
   },
   mergeAllButtonText: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
     fontSize: 14,
     fontWeight: "800",
   },
@@ -1561,7 +1561,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     paddingVertical: 10,
   },
   mergeGroupButtonText: {
-    color: Colors.primary,
+    color: Colors.primaryText,
     fontSize: 13,
     fontWeight: "700",
   },

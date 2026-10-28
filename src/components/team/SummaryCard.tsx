@@ -28,7 +28,7 @@ function SummaryCardComponent({ index, item }: SummaryCardProps) {
       style={styles.card}
     >
       <View style={styles.iconWrap}>
-        <Ionicons name={item.icon} size={18} color={Colors.primary} />
+        <Ionicons name={item.icon} size={18} color={Colors.primaryText} />
       </View>
       <Text numberOfLines={1} style={styles.title}>
         {item.title}

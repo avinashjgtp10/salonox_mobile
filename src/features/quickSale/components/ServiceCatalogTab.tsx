@@ -6,6 +6,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FlatList, RefreshControl, StyleSheet, TouchableOpacity, View } from "react-native";
 import Reanimated, { FadeInUp, LinearTransition } from "react-native-reanimated";
 
+import { Badge } from "@/components/ui/Badge";
 import { AppRadius } from "@/constants/layout";
 import { DashboardRadius as Radius, DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
 import { CategoryChips, type CategoryChipOption } from "@/features/quickSale/components/CategoryChips";
@@ -124,27 +125,36 @@ function ServiceCardComponent({
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   return (
-    <Reanimated.View entering={FadeInUp.duration(200)} layout={LinearTransition.duration(200)} style={styles.tileWrap}>
+    // Same row layout as the product, package and membership catalogs.
+    <Reanimated.View entering={FadeInUp.duration(200)} layout={LinearTransition.duration(200)} style={styles.rowWrap}>
       <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityState={{ selected }}
         activeOpacity={0.88}
         onPress={() => onSelect(service)}
-        style={[styles.tile, selected && styles.tileSelected]}
+        style={[styles.row, selected && styles.rowSelected]}
       >
-        {selected ? (
-          <View style={styles.tileCheck}>
-            <Ionicons name="checkmark" size={13} color="#FFFFFF" />
+        <View style={styles.rowIcon}>
+          <Ionicons name="cut-outline" size={18} color={Colors.primaryText} />
+        </View>
+        <View style={styles.rowCopy}>
+          <Text numberOfLines={1} style={styles.rowTitle}>
+            {service.name}
+          </Text>
+          <View style={styles.rowMetaRow}>
+            <Text style={styles.rowPrice}>{formatCurrency(service.price)}</Text>
+            {service.durationMinutes ? (
+              <Badge bg={Colors.bg2} color={Colors.text2} label={`${service.durationMinutes} min`} size="sm" />
+            ) : null}
           </View>
-        ) : null}
-        <Text numberOfLines={2} style={[styles.tileTitle, selected && styles.tileTitleSelected]}>
-          {service.name}
-        </Text>
-        <Text numberOfLines={1} style={[styles.tileMeta, selected && styles.tileMetaSelected]}>
-          {service.durationMinutes ? `${service.durationMinutes} min · ` : ""}
-          {formatCurrency(service.price)}
-        </Text>
-        <Text style={[styles.tileHint, selected && styles.tileHintSelected]}>
-          {selected ? "Added" : "Tap to add"}
-        </Text>
+        </View>
+        <View style={[styles.addButton, selected && styles.addButtonSelected]}>
+          <Ionicons
+            name={selected ? "checkmark" : "add"}
+            size={16}
+            color={selected ? Colors.onPrimary : Colors.primaryText}
+          />
+        </View>
       </TouchableOpacity>
     </Reanimated.View>
   );
@@ -308,11 +318,14 @@ export function ServiceCatalogTab({
       {error && visibleServices.length === 0 ? (
         <ErrorState message={error} onRetry={() => fetchFirstPage()} />
       ) : loading && visibleServices.length === 0 ? (
-        <View style={styles.skeletonGrid}>
+        <View style={styles.skeletonStack}>
           {SERVICE_SKELETON_KEYS.map((skeletonKey) => (
-            <View key={skeletonKey} style={styles.skeletonTile}>
-              <SkeletonBlock height={13} width="72%" />
-              <SkeletonBlock height={11} width="48%" />
+            <View key={skeletonKey} style={styles.skeletonRow}>
+              <View style={styles.skeletonIcon} />
+              <View style={styles.skeletonCopy}>
+                <SkeletonBlock height={13} width="62%" />
+                <SkeletonBlock height={11} width="38%" />
+              </View>
             </View>
           ))}
         </View>
@@ -324,12 +337,10 @@ export function ServiceCatalogTab({
           keyboardDismissMode="on-drag"
           nestedScrollEnabled
           showsVerticalScrollIndicator
-          columnWrapperStyle={styles.columnWrapper}
           contentContainerStyle={styles.listContent}
           data={renderedServices}
           initialNumToRender={SERVICE_BATCH_SIZE}
           keyExtractor={(item) => `service-card-${item.id}`}
-          numColumns={2}
           ListFooterComponent={
             hasMoreLocalServices ? (
               <View style={styles.loadMoreWrap}>
@@ -339,7 +350,7 @@ export function ServiceCatalogTab({
                   style={styles.loadMoreButton}
                 >
                   <Text style={styles.loadMoreText}>View More</Text>
-                  <Ionicons name="arrow-down" size={14} color={Colors.primaryDark} />
+                  <Ionicons name="arrow-down" size={14} color={Colors.primaryText} />
                 </TouchableOpacity>
                 <Text style={styles.loadMoreMeta}>
                   {Math.min(visibleServiceCount, visibleServices.length)} of {visibleServices.length}
@@ -372,20 +383,17 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   listContent: {
     paddingBottom: 132,
   },
-  columnWrapper: {
-    gap: Spacing.sm,
-  },
-  tileWrap: {
-    flex: 1,
+  rowWrap: {
     marginBottom: Spacing.sm,
-    maxWidth: "50%",
   },
-  tile: {
+  row: {
+    alignItems: "center",
     backgroundColor: Colors.card,
     borderColor: Colors.border,
     borderRadius: AppRadius.card,
     borderWidth: 1,
-    minHeight: 104,
+    flexDirection: "row",
+    gap: Spacing.sm,
     padding: Spacing.md,
     shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 8 },
@@ -393,65 +401,69 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     shadowRadius: 14,
     elevation: 1,
   },
-  tileSelected: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
-    shadowColor: Colors.shadow,
-    shadowOpacity: 0.18,
-    shadowRadius: 18,
-    elevation: 4,
+  rowSelected: {
+    borderColor: Colors.primaryText,
   },
-  tileCheck: {
+  rowIcon: {
     alignItems: "center",
-    alignSelf: "flex-end",
-    backgroundColor: "rgba(255,255,255,0.22)",
+    backgroundColor: Colors.bg2,
     borderRadius: Radius.full,
-    height: 20,
+    height: 44,
     justifyContent: "center",
-    marginBottom: 4,
-    width: 20,
+    width: 44,
   },
-  tileTitle: {
+  rowCopy: {
+    flex: 1,
+  },
+  rowTitle: {
     color: Colors.heading,
     fontSize: 14,
     fontWeight: "700",
   },
-  tileTitleSelected: {
-    color: "#FFFFFF",
-  },
-  tileMeta: {
-    color: Colors.text2,
-    fontSize: 12,
-    fontWeight: "600",
-    marginTop: 4,
-  },
-  tileMetaSelected: {
-    color: "rgba(255,255,255,0.78)",
-  },
-  tileHint: {
-    color: Colors.primary,
-    fontSize: 11,
-    fontWeight: "700",
-    marginTop: 8,
-  },
-  tileHintSelected: {
-    color: "rgba(255,255,255,0.9)",
-  },
-  skeletonGrid: {
+  rowMetaRow: {
+    alignItems: "center",
     flexDirection: "row",
-    flexWrap: "wrap",
+    gap: Spacing.sm,
+    marginTop: 3,
+  },
+  rowPrice: {
+    color: Colors.primaryText,
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  addButton: {
+    alignItems: "center",
+    backgroundColor: Colors.bg2,
+    borderRadius: Radius.full,
+    height: 34,
+    justifyContent: "center",
+    width: 34,
+  },
+  addButtonSelected: {
+    backgroundColor: Colors.primary,
+  },
+  skeletonStack: {
     gap: Spacing.sm,
   },
-  skeletonTile: {
+  skeletonRow: {
+    alignItems: "center",
     backgroundColor: Colors.card,
     borderColor: Colors.border,
     borderRadius: AppRadius.card,
     borderWidth: 1,
-    flexBasis: "48%",
-    flexGrow: 1,
-    gap: 8,
-    minHeight: 104,
+    flexDirection: "row",
+    gap: Spacing.sm,
     padding: Spacing.md,
+  },
+  skeletonIcon: {
+    backgroundColor: Colors.bg2,
+    borderRadius: Radius.full,
+    height: 44,
+    width: 44,
+  },
+  skeletonCopy: {
+    flex: 1,
+    gap: 8,
   },
   loadMoreWrap: {
     alignItems: "center",
@@ -475,7 +487,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     elevation: 1,
   },
   loadMoreText: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 12,
     fontWeight: "900",
   },

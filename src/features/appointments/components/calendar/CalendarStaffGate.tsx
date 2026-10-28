@@ -37,7 +37,7 @@ export function CalendarStaffGate({ children }: { children: ReactNode }) {
   return (
     <ScreenShell title="Calendar" hideHeader scrollable={false} contentBottomPadding={0} safeAreaEdges={["top"]}>
       <View style={styles.container}>
-        {loading ? <ActivityIndicator accessibilityLabel="Checking staff" color={colors.primary} size="large" /> : <>
+        {loading ? <ActivityIndicator accessibilityLabel="Checking staff" color={colors.primaryText} size="large" /> : <>
           {check.status === "error" ? <Text accessibilityRole="alert" style={[styles.message, { color: colors.error }]}>{check.message}</Text> : null}
           <TouchableOpacity accessibilityRole="button" style={[styles.button, { backgroundColor: colors.primary }]} onPress={() => {
             if (check.status === "error") setAttempt((value) => value + 1);

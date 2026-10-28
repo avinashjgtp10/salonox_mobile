@@ -1,7 +1,9 @@
+import { OpalGlassBackground } from "@/components/ui/OpalGlassBackground";
 import { Ionicons } from "@expo/vector-icons";
-import { Tabs } from "expo-router";
-import { type ReactNode, useMemo } from "react";
-import { StyleSheet, View, useWindowDimensions } from "react-native";
+import { router, Tabs, type Href } from "expo-router";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef } from "react";
+import { AccessibilityInfo, Animated, StyleSheet, View, useWindowDimensions } from "react-native";
+import { ScrollFooterContext } from "@/hooks/useScrollFooter";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import type { ThemeColors } from "@/constants/theme";
@@ -15,6 +17,7 @@ export type AppTabItem = {
   icon: keyof typeof Ionicons.glyphMap;
   name: string;
   title: string;
+  actionHref?: Href;
 };
 
 type AppTabLayoutProps = {
@@ -50,9 +53,40 @@ export function AppTabLayout({ children, tabs }: AppTabLayoutProps) {
   const compactTabs = tabs.length >= 5 && width < 400;
   const bottomInset = Math.max(insets.bottom, TAB_BAR_DESIGN_SPACING);
   const styles = useMemo(() => createStyles(Colors, bottomInset, compactTabs), [Colors, bottomInset, compactTabs]);
+  const translateY = useRef(new Animated.Value(0)).current;
+  const hidden = useRef(false);
+  const reduceMotion = useRef(false);
+  const screenReader = useRef(false);
+  const setFooterHidden = useCallback((next: boolean) => {
+    next = next && !screenReader.current;
+    if (hidden.current === next) return;
+    hidden.current = next;
+    translateY.stopAnimation();
+    Animated.timing(translateY, {
+      toValue: next ? TAB_BAR_CONTENT_HEIGHT + bottomInset + 40 : 0,
+      duration: reduceMotion.current ? 0 : 180,
+      useNativeDriver: true,
+    }).start();
+  }, [bottomInset, translateY]);
+
+  useEffect(() => {
+    let active = true;
+    void AccessibilityInfo.isReduceMotionEnabled().then(value => { if (active) reduceMotion.current = value; }).catch(() => {});
+    void AccessibilityInfo.isScreenReaderEnabled().then(value => {
+      if (active) { screenReader.current = value; if (value) setFooterHidden(false); }
+    }).catch(() => {});
+    const motion = AccessibilityInfo.addEventListener("reduceMotionChanged", value => { reduceMotion.current = value; });
+    const reader = AccessibilityInfo.addEventListener("screenReaderChanged", value => {
+      screenReader.current = value;
+      if (value) setFooterHidden(false);
+    });
+    return () => { active = false; motion?.remove(); reader?.remove(); translateY.stopAnimation(); };
+  }, [setFooterHidden, translateY]);
 
   return (
+    <ScrollFooterContext.Provider value={setFooterHidden}>
     <Tabs
+      screenListeners={{ focus: () => setFooterHidden(false) }}
       screenOptions={{
         freezeOnBlur: true,
         headerShown: false,
@@ -62,38 +96,63 @@ export function AppTabLayout({ children, tabs }: AppTabLayoutProps) {
         tabBarItemStyle: styles.tabBarItem,
         tabBarLabelStyle: styles.label,
         tabBarLabelPosition: "below-icon",
-        tabBarStyle: styles.tabBar,
+        tabBarStyle: [styles.tabBar, { transform: [{ translateY }] }],
+        tabBarBackground: () => (
+          <View pointerEvents="none" style={styles.glassPill}>
+            <OpalGlassBackground translucent />
+          </View>
+        ),
       }}
     >
       {tabs.map((tab) => (
         <Tabs.Screen
           key={tab.name}
           name={tab.name}
+          listeners={tab.actionHref ? { tabPress: event => { event.preventDefault(); router.push(tab.actionHref!); } } : undefined}
           options={{
             title: tab.title,
-            tabBarIcon: ({ focused }) => <TabIcon compact={compactTabs} focused={focused} name={tab.icon} />,
+            tabBarIcon: ({ focused }) => tab.actionHref ? <View style={styles.quickSaleIcon}><Ionicons name={tab.icon} size={27} color={Colors.onPrimary} /></View> : <TabIcon compact={compactTabs} focused={focused} name={tab.icon} />,
           }}
         />
       ))}
       {children}
     </Tabs>
+    </ScrollFooterContext.Provider>
   );
 }
 
 const createStyles = (Colors: ThemeColors, bottomInset = 0, compactTabs = false) => StyleSheet.create({
+  quickSaleIcon: {
+    width: 54, height: 54, borderRadius: 27, marginTop: -18,
+    alignItems: "center", justifyContent: "center", backgroundColor: Colors.primary,
+    borderWidth: 4, borderColor: Colors.card, shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.16, shadowRadius: 8, elevation: 5,
+  },
   tabBar: {
-    backgroundColor: Colors.bg,
-    borderTopWidth: 0,
-    borderWidth: 0,
-    height: TAB_BAR_CONTENT_HEIGHT + bottomInset,
-    paddingBottom: bottomInset,
-    paddingHorizontal: compactTabs ? 4 : 12,
-    paddingTop: 0,
+    position: "absolute",
+    left: compactTabs ? 10 : 16,
+    right: compactTabs ? 10 : 16,
+    bottom: bottomInset,
+    backgroundColor: "transparent",
+    borderTopWidth: 1,
+    borderTopColor: Colors.glassEdge,
+    borderWidth: 1,
+    borderColor: Colors.glassEdge,
+    borderRadius: 999,
+    height: TAB_BAR_CONTENT_HEIGHT + 12,
+    paddingBottom: 6,
+    paddingHorizontal: compactTabs ? 8 : 14,
+    paddingTop: 6,
     elevation: 0,
     shadowColor: Colors.shadow,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0,
-    shadowRadius: 0,
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+  },
+  glassPill: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 999,
+    overflow: "hidden",
   },
   label: {
     fontFamily: AppFonts.semibold,
@@ -116,5 +175,7 @@ const createStyles = (Colors: ThemeColors, bottomInset = 0, compactTabs = false)
   },
   iconWrapActive: {
     backgroundColor: Colors.backgroundSelected,
+    borderWidth: 1,
+    borderColor: Colors.glassEdge,
   },
 });

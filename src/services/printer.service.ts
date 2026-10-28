@@ -28,9 +28,13 @@ async function embeddedImage(value?: string): Promise<string | undefined> {
   }
 }
 
+/** An image that can't be fetched (e.g. a removed logo) is left off the invoice
+ * instead of failing the whole print or share. */
+const optionalEmbeddedImage = (value?: string) => embeddedImage(value).catch(() => undefined);
+
 /** Inline images so the exported invoice retains its logo on Android and iOS. */
 async function exportData(data: ReceiptData): Promise<ReceiptData> {
-  const [logoUrl, upiQrUrl] = await Promise.all([embeddedImage(data.salon.logoUrl), embeddedImage(data.upiQrUrl)]);
+  const [logoUrl, upiQrUrl] = await Promise.all([optionalEmbeddedImage(data.salon.logoUrl), optionalEmbeddedImage(data.upiQrUrl)]);
   return { ...data, salon: { ...data.salon, logoUrl }, upiQrUrl };
 }
 
@@ -57,7 +61,14 @@ export const printerService = {
       throw new Error("Sharing is not available on this device.");
     }
     // Generate the PDF in the background; only printReceipt opens a print dialog.
-    const { uri } = await Print.printToFileAsync(fileOptions(await exportData(data)));
+    const { uri: generatedUri } = await Print.printToFileAsync(fileOptions(await exportData(data)));
+    // Name the file after the invoice (not expo-print's random id) so it reads well in the chat or email.
+    const invoiceName = (data.invoice.invoiceNumber || "Receipt").replace(/[^\w-]+/g, "_");
+    const uri = generatedUri.replace(/[^/]+\.pdf$/i, `${invoiceName}.pdf`);
+    if (uri !== generatedUri) {
+      await FileSystem.deleteAsync(uri, { idempotent: true });
+      await FileSystem.moveAsync({ from: generatedUri, to: uri });
+    }
     await Sharing.shareAsync(uri, {
       UTI: "com.adobe.pdf",
       mimeType: "application/pdf",

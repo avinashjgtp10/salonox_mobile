@@ -129,7 +129,7 @@ export function BottomSheet({
                   {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
                 </View>
                 <TouchableOpacity activeOpacity={0.84} onPress={onClose} style={styles.closeButton}>
-                  <Ionicons name="close" size={18} color={Colors.primaryDark} />
+                  <Ionicons name="close" size={18} color={Colors.primaryText} />
                 </TouchableOpacity>
               </View>
 
@@ -182,6 +182,8 @@ const createStyles = (Colors: ThemeColors, bottomInset: number) => StyleSheet.cr
   sheet: {
     flexShrink: 1,
     backgroundColor: Colors.card,
+    borderWidth: 1,
+    borderColor: Colors.glassEdge,
     borderTopLeftRadius: Radius.xl,
     borderTopRightRadius: Radius.xl,
     paddingBottom: Math.max(bottomInset, Spacing.lg),
@@ -196,7 +198,7 @@ const createStyles = (Colors: ThemeColors, bottomInset: number) => StyleSheet.cr
   sheetCentered: {
     paddingTop: Spacing.lg,
     paddingBottom: Spacing.lg,
-    borderRadius: 12,
+    borderRadius: Radius.xl,
     maxWidth: 520,
     width: "100%",
   },

@@ -57,11 +57,11 @@ function AppointmentDashboardScreenContent() {
     () => ({
       cancelled: filtered.filter((appointment) => appointment.status === "Cancelled").length,
       completed: filtered.filter((appointment) => appointment.status === "Completed").length,
-      missed: filtered.filter((appointment) => appointment.status === "Missed").length,
+      missed: filtered.filter((appointment) => appointment.status === "No Show").length,
       // Money actually received, like the dashboard's revenue cards — not the
       // bill total, which also counted cancelled, missed and unpaid bookings.
       revenue: filtered
-        .filter((appointment) => !["Cancelled", "Missed", "Deleted"].includes(appointment.status))
+        .filter((appointment) => !["Cancelled", "No Show", "Deleted"].includes(appointment.status))
         .reduce((total, appointment) => total + Math.max(0, appointment.paidAmount), 0),
       today: filtered.length,
       upcoming: filtered.filter((appointment) =>
@@ -96,7 +96,7 @@ function AppointmentDashboardScreenContent() {
     <View style={styles.listHeader}>
       <View style={styles.headerRow}>
         <TouchableOpacity activeOpacity={0.8} hitSlop={12} onPress={handleBack} style={styles.iconButton}>
-          <Ionicons name="arrow-back" size={18} color={Colors.primary} />
+          <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Appointments</Text>
         <View style={styles.iconButtonGhost} />
@@ -128,7 +128,7 @@ function AppointmentDashboardScreenContent() {
           <SummaryTile icon="close-circle-outline" label="Cancelled" value={String(counts.cancelled)} />
         </View>
         <View style={[styles.summaryTileWrap, { width: tileWidth }]}>
-          <SummaryTile icon="alert-circle-outline" label="Missed" value={String(counts.missed)} />
+          <SummaryTile icon="alert-circle-outline" label="No Show" value={String(counts.missed)} />
         </View>
         <View style={[styles.summaryTileWrap, { width: tileWidth }]}>
           <SummaryTile icon="cash-outline" label="Revenue" value={formatCurrency(counts.revenue)} />

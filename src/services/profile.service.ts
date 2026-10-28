@@ -1,6 +1,6 @@
 import { ApiError, api } from "@/services/api";
 import { environmentConfig } from "@/config/environment";
-import { resolveMediaUrl } from "@/utils/mediaUrl";
+import { resolveMediaUrl, withMediaVersion } from "@/utils/mediaUrl";
 import { PROFILE, USER } from "@/services/api/endpoints";
 import type { ApiResponse } from "@/types/auth";
 import type {
@@ -99,7 +99,10 @@ const normalizeProfile = (profile: UserProfileApiItem): UserProfile => {
 
   return {
     address: toOptionalString(profile.address ?? profile.address_line),
-    avatarUrl: resolveMediaUrl(toOptionalString(profile.avatarUrl ?? profile.avatar_url ?? profile.avatar), environmentConfig.apiBaseUrl),
+    avatarUrl: withMediaVersion(
+      resolveMediaUrl(toOptionalString(profile.avatarUrl ?? profile.avatar_url ?? profile.avatar), environmentConfig.apiBaseUrl),
+      profile.updatedAt ?? profile.updated_at,
+    ),
     businessName: toOptionalString(profile.businessName ?? profile.business_name ?? profile.salon_name),
     country: toOptionalString(profile.country),
     countryCode: toOptionalString(profile.countryCode ?? profile.country_code),
@@ -166,6 +169,35 @@ export const profileService = {
       message: response.data.message,
       profile: normalizeProfile(getProfileFromEnvelope(response.data.data)),
     };
+  },
+
+  /** Owners: the salon logo, which the web shows as their profile picture (Business Settings → Logo). */
+  async uploadSalonLogo(asset: AvatarUploadAsset): Promise<UploadAvatarResponse> {
+    const fileName = asset.fileName?.trim() || guessFileName(asset.uri, "logo.jpg");
+    const mimeType = asset.mimeType?.trim() || guessMimeType(fileName);
+
+    const formData = new FormData();
+    formData.append("image", {
+      name: fileName,
+      type: mimeType,
+      uri: asset.uri,
+    } as unknown as Blob);
+
+    const response = await api.post<ApiResponse<{ logo_url?: string | null }>>("/marketplace/logo", formData, {
+      transformRequest: (data) => data,
+    });
+    const logoUrl = resolveMediaUrl(toOptionalString(response.data.data?.logo_url), environmentConfig.apiBaseUrl);
+
+    if (!logoUrl) {
+      throw new ApiError("The server did not return an uploaded image URL.", response.status);
+    }
+
+    return { avatarUrl: logoUrl, message: response.data.message, profile: null };
+  },
+
+  /** Staff: clears their own photo (users.avatar_url). */
+  async removeAvatar(): Promise<void> {
+    await api.patch(USER.ME, { avatarUrl: null });
   },
 
   async uploadAvatar(asset: AvatarUploadAsset): Promise<UploadAvatarResponse> {

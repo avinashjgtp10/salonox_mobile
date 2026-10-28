@@ -10,7 +10,7 @@ export type AppointmentStatus =
   | "Partial"
   | "Completed"
   | "Cancelled"
-  | "Missed"
+  | "No Show"
   | "Deleted"
   | "Unknown";
 
@@ -48,6 +48,8 @@ export type AppointmentApiClient = {
 export type AppointmentApiService = {
   consumables?: ConsumableUsageApiItem[] | null;
   discount?: number | string | null;
+  // Row's own GST, attached by the API once the bill has a linked sale.
+  tax_amount?: number | string | null;
   duration?: number | string | null;
   duration_minutes?: number | string | null;
   id?: string | number | null;
@@ -94,6 +96,7 @@ export type AppointmentApiItem = {
   completedAt?: string | null;
   created_at?: string | null;
   discount?: number | string | null;
+  due_amount?: number | string | null;
   duration?: number | string | null;
   end_time?: string | null;
   id?: string | number | null;
@@ -211,6 +214,13 @@ export type AppointmentBilledItem = {
   // Staff handoff workflow progress — null for product rows and for any
   // appointment where handoff was never used (treat as "pending").
   status: "pending" | "in_progress" | "completed" | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  /** Booked slot for this row ("HH:MM" or an ISO timestamp). */
+  time: string | null;
+  discount: number;
+  /** Row's GST (tax_amount); 0 when the API hasn't attached one. */
+  tax: number;
   type: "service" | "product" | "package" | "membership";
 };
 
@@ -224,6 +234,9 @@ export type AppointmentListItem = {
   clientName: string;
   createdAt: string | null;
   discount: number;
+  // Server's remaining balance (due_amount, e.g. "394.00"); null when the API
+  // did not return it, so callers can fall back to total - paid.
+  dueAmount: number | null;
   durationLabel: string;
   durationMinutes: number | null;
   endTime: string | null;

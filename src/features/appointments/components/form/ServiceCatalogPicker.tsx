@@ -7,12 +7,19 @@ import type { StaffMember } from "@/data/teamData";
 import { createStyles } from "@/features/appointments/styles/appointmentStyles";
 import { formatCurrency, formatDurationLabel } from "@/features/appointments/utils/appointmentForm";
 import { staffIdMatches } from "@/features/appointments/utils/staffAssignment";
+import type { AppointmentItemKind, AppointmentSelectedService } from "@/features/appointments/types/appointmentForm";
+import { MembershipCatalogTab } from "@/features/quickSale/components/MembershipCatalogTab";
+import { PackageCatalogTab } from "@/features/quickSale/components/PackageCatalogTab";
+import { ProductCatalogTab } from "@/features/quickSale/components/ProductCatalogTab";
 import { useThemeColors } from "@/theme/ThemeProvider";
+import type { ClientPackage } from "@/types/package";
 import type { ServiceListItem } from "@/types/service";
 import { Ionicons } from "@expo/vector-icons";
-import { memo, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import { FlatList, Modal, Pressable, ScrollView, TouchableOpacity, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+
+const NO_CLIENT_PACKAGES: ClientPackage[] = [];
 
 const CatalogServiceRow = memo(function CatalogServiceRow({
   onSelect,
@@ -50,13 +57,27 @@ const CatalogServiceRow = memo(function CatalogServiceRow({
   );
 });
 
+export type PickerTab = "service" | AppointmentItemKind;
+
+const PICKER_TABS: { key: PickerTab; label: string; noun: string }[] = [
+  { key: "service", label: "Services", noun: "services" },
+  { key: "product", label: "Products", noun: "products" },
+  { key: "membership", label: "Memberships", noun: "memberships" },
+  { key: "package", label: "Packages", noun: "packages" },
+];
+
 export function ServiceCatalogPicker({
+  clientId,
   error,
+  initialTab = "service",
   loading,
   onClose,
   onContinue,
   onSelect,
   onSelectStaff,
+  onToggleItem,
+  salonId,
+  selectedItems,
   selectedStaffId,
   selectedServiceIds,
   staffError,
@@ -64,12 +85,18 @@ export function ServiceCatalogPicker({
   services,
   visible,
 }: {
+  clientId?: string | null;
   error: string | null;
+  // Tab shown each time the picker opens (the Quick Sale style "+ Product" chips).
+  initialTab?: PickerTab;
   loading: boolean;
   onClose: () => void;
   onContinue: () => void;
   onSelect: (service: ServiceListItem) => void;
   onSelectStaff: (staffId: string) => void;
+  onToggleItem: (kind: AppointmentItemKind, item: { categoryId?: string | null; id: string; name: string; price: number }) => void;
+  salonId?: string | null;
+  selectedItems: AppointmentSelectedService[];
   selectedStaffId: string;
   selectedServiceIds: string[];
   staffError?: string;
@@ -79,8 +106,20 @@ export function ServiceCatalogPicker({
 }) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
+  const insets = useSafeAreaInsets();
+  const [tab, setTab] = useState<PickerTab>(initialTab);
+  useEffect(() => {
+    if (visible) setTab(initialTab);
+  }, [initialTab, visible]);
   const [category, setCategory] = useState("All");
   const [query, setQuery] = useState("");
+  const activeTab = PICKER_TABS.find((item) => item.key === tab) ?? PICKER_TABS[0];
+  const addedForTab = tab === "service" ? [] : selectedItems.filter((item) => item.itemKind === tab);
+  const addedIdsForTab = useMemo(
+    () => new Set(selectedItems.filter((item) => item.itemKind === tab).map((item) => item.catalogServiceId ?? item.id)),
+    [selectedItems, tab],
+  );
+  const totalSelected = selectedServiceIds.length + selectedItems.length;
   const [staffPickerOpen, setStaffPickerOpen] = useState(false);
   const selectedStaff = staffMembers.find((staff) => staffIdMatches(staff, selectedStaffId));
   const categories = useMemo(
@@ -100,31 +139,53 @@ export function ServiceCatalogPicker({
 
   return (
     <Modal animationType="slide" onRequestClose={onClose} visible={visible}>
-      <SafeAreaView edges={["top", "bottom"]} style={styles.servicePickerSafeArea}>
+      <SafeAreaView edges={["top"]} style={styles.servicePickerSafeArea}>
         <AppStatusBar />
         <View style={styles.servicePickerHeader}>
           <AppBackButton onPress={onClose} />
-          <Text style={styles.servicePickerTitle}>Add services</Text>
+          <Text style={styles.servicePickerTitle}>Add services & items</Text>
         </View>
 
         <View style={styles.servicePickerBody}>
-          <Text style={styles.servicePickerLabel}>Assigned Staff*</Text>
           <TouchableOpacity
+            accessibilityLabel="Assigned Staff"
             activeOpacity={0.84}
             onPress={() => setStaffPickerOpen(true)}
             style={[styles.servicePickerSelect, staffError && styles.inputError]}
           >
-            <Text style={[styles.servicePickerSelectText, !selectedStaff && styles.servicePickerSelectPlaceholder]}>{selectedStaff?.name ?? "-"}</Text>
+            {selectedStaff ? (
+              <View style={styles.servicePickerSelectCopy}>
+                <Text style={styles.servicePickerSelectCaption}>Assigned Staff</Text>
+                <Text numberOfLines={1} style={styles.servicePickerSelectText}>{selectedStaff.name}</Text>
+              </View>
+            ) : (
+              <Text style={[styles.servicePickerSelectText, styles.servicePickerSelectPlaceholder]}>Assigned Staff*</Text>
+            )}
             <Ionicons name="chevron-down" size={18} color={Colors.appointmentTextSecondary} />
           </TouchableOpacity>
           {staffError ? <Text style={styles.fieldError}>{staffError}</Text> : null}
 
-          <Text style={styles.servicePickerLabel}>Services</Text>
+          <Text style={[styles.servicePickerLabel, styles.servicePickerSectionLabel]}>Services & items</Text>
+          <View style={styles.itemKindTabRow}>
+            {PICKER_TABS.map((item) => {
+              const active = item.key === tab;
+              return (
+                <TouchableOpacity
+                  key={item.key}
+                  activeOpacity={0.84}
+                  onPress={() => setTab(item.key)}
+                  style={[styles.itemKindTab, active && styles.itemKindTabActive]}
+                >
+                  <Text numberOfLines={1} style={[styles.itemKindTabText, active && styles.itemKindTabTextActive]}>{item.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
           <View style={styles.servicePickerSearch}>
             <TextInput
               autoCorrect={false}
               onChangeText={setQuery}
-              placeholder="Search for services"
+              placeholder={`Search for ${activeTab.noun}`}
               placeholderTextColor={Colors.appointmentPlaceholder}
               style={styles.servicePickerSearchInput}
               value={query}
@@ -138,6 +199,53 @@ export function ServiceCatalogPicker({
             )}
           </View>
 
+          {tab !== "service" ? (
+            <>
+              {addedForTab.length > 0 ? (
+                <View style={styles.addedItemsRow}>
+                  {addedForTab.map((item) => (
+                    <TouchableOpacity
+                      key={item.id}
+                      accessibilityLabel={`Remove ${item.name}`}
+                      activeOpacity={0.84}
+                      onPress={() => onToggleItem(tab, { id: item.catalogServiceId ?? item.id, name: item.name, price: item.price })}
+                      style={styles.addedItemChip}
+                    >
+                      <Ionicons name="checkmark-circle" size={16} color={Colors.primaryText} />
+                      <Text numberOfLines={1} style={styles.addedItemChipText}>{item.name}</Text>
+                      <Ionicons name="close" size={16} color={Colors.appointmentMuted} />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              ) : null}
+              <View style={styles.catalogTabBody}>
+                {tab === "product" ? (
+                  <ProductCatalogTab
+                    onSelect={(product) => onToggleItem("product", { categoryId: product.categoryId, id: product.id, name: product.name, price: product.price })}
+                    search={query}
+                    selectedIds={addedIdsForTab}
+                  />
+                ) : tab === "membership" ? (
+                  <MembershipCatalogTab
+                    clientId={clientId}
+                    onSelect={(membership) => onToggleItem("membership", { id: membership.id, name: membership.name, price: membership.price })}
+                    salonId={salonId}
+                    search={query}
+                    selectedIds={addedIdsForTab}
+                  />
+                ) : (
+                  <PackageCatalogTab
+                    activeClientPackages={NO_CLIENT_PACKAGES}
+                    onSelect={(pkg) => onToggleItem("package", { id: pkg.id, name: pkg.name, price: pkg.basePrice })}
+                    salonId={salonId}
+                    search={query}
+                    selectedIds={addedIdsForTab}
+                  />
+                )}
+              </View>
+            </>
+          ) : (
+          <>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.serviceCategoryScroll}>
             <View style={styles.serviceCategoryRow}>
               {categories.map((item) => {
@@ -153,7 +261,7 @@ export function ServiceCatalogPicker({
           </ScrollView>
 
           {loading ? (
-            <View style={styles.servicePickerState}><ActivityIndicator color={Colors.appointmentAccent} /></View>
+            <View style={styles.servicePickerState}><ActivityIndicator color={Colors.primaryText} /></View>
           ) : error ? (
             <View style={styles.servicePickerState}><Text style={styles.fieldHintError}>{error}</Text></View>
           ) : (
@@ -178,6 +286,8 @@ export function ServiceCatalogPicker({
               showsVerticalScrollIndicator={false}
               windowSize={7}
             />
+          )}
+          </>
           )}
         </View>
 
@@ -204,15 +314,16 @@ export function ServiceCatalogPicker({
           </Pressable>
         </Modal>
 
-        <View style={styles.servicePickerFooter}>
-          <Text style={styles.servicePickerCount}>{selectedServiceIds.length} {selectedServiceIds.length === 1 ? "Service" : "Services"}</Text>
+        {/* Footer owns the bottom inset so its surface runs under the nav bar. */}
+        <View style={[styles.servicePickerFooter, { paddingBottom: 10 + insets.bottom }]}>
+          <Text style={styles.servicePickerCount}>{totalSelected} {totalSelected === 1 ? "Item" : "Items"}</Text>
           <TouchableOpacity
-            disabled={selectedServiceIds.length === 0}
+            disabled={totalSelected === 0}
             onPress={onContinue}
-            style={[styles.servicePickerContinue, selectedServiceIds.length === 0 && styles.disabledButton]}
+            style={[styles.servicePickerContinue, totalSelected === 0 && styles.disabledButton]}
           >
             <Text style={styles.servicePickerContinueText}>Continue</Text>
-            <Ionicons name="arrow-forward" size={22} color="#FFFFFF" />
+            <Ionicons name="arrow-forward" size={22} color={Colors.onPrimary} />
           </TouchableOpacity>
         </View>
       </SafeAreaView>

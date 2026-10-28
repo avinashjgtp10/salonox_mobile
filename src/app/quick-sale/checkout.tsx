@@ -3,7 +3,7 @@ import { maskClientName } from "@/utils/clientPrivacy";
 import { Text } from "@/components/ui/AppTypography";
 import { Redirect } from "expo-router";
 import { useAuth } from "@/context/AuthContext";
-import { isStaffExperienceUser, OWNER_CALENDAR_ROUTE, STAFF_CALENDAR_ROUTE, STAFF_HOME_ROUTE } from "@/utils/routeResolver";
+import { isStaffExperienceUser, STAFF_HOME_ROUTE } from "@/utils/routeResolver";
 import { canUseStaffQuickSale } from "@/utils/staffAccess";
 import { appAlert as Alert } from "@/services/appAlert";
 import { Ionicons } from "@expo/vector-icons";
@@ -365,48 +365,37 @@ function OwnerQuickSaleCheckoutScreen() {
     router.replace(href);
   }, []);
 
+  // Owners and staff alike go back to a fresh Quick Sale.
   const handleStartNewSale = useCallback(() => {
-    // Staff start every sale from a Calendar slot.
-    if (isStaff) {
-      replaceOnce(STAFF_CALENDAR_ROUTE);
-      return;
-    }
-
     replaceOnce({
       pathname: "/quick-sale",
       params: { resetSale: String(Date.now()) },
     });
-  }, [isStaff, replaceOnce]);
+  }, [replaceOnce]);
 
-  const handleBackToDraft = useCallback(() => {
-    replaceOnce({
-      params: { draftId: params.draftId },
-      pathname: "/quick-sale",
-    });
-  }, [params.draftId, replaceOnce]);
-
-  const handleExitToCalendar = useCallback(() => {
-    replaceOnce(isStaff ? STAFF_CALENDAR_ROUTE : OWNER_CALENDAR_ROUTE);
-  }, [isStaff, replaceOnce]);
-
-  const handleExitToDashboard = useCallback(() => {
-    replaceOnce(isStaff ? STAFF_HOME_ROUTE : ("/dashboard" as Href));
-  }, [isStaff, replaceOnce]);
+  // An existing bill opened from the Calendar / appointment details
+  // (openReceipt=1) closes back to where it was opened; a sale just completed
+  // in Quick Sale closes to a fresh Quick Sale.
+  const openedExistingBill = params.openReceipt === "1";
+  const handleClose = useCallback(() => {
+    if (openedExistingBill && router.canGoBack()) {
+      if (hasTerminalNavigationStartedRef.current) return;
+      hasTerminalNavigationStartedRef.current = true;
+      router.back();
+      return;
+    }
+    handleStartNewSale();
+  }, [handleStartNewSale, openedExistingBill]);
 
   useFocusEffect(
     useCallback(() => {
       const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
-        if (isPreview) {
-          handleBackToDraft();
-        } else {
-          handleExitToCalendar();
-        }
-
+        handleClose();
         return true;
       });
 
       return () => subscription.remove();
-    }, [handleBackToDraft, handleExitToCalendar, isPreview]),
+    }, [handleClose]),
   );
 
   return (
@@ -418,8 +407,8 @@ function OwnerQuickSaleCheckoutScreen() {
         <View style={styles.header}>
           <TouchableOpacity
             activeOpacity={0.86}
-            accessibilityLabel={isPreview ? "Back to dashboard" : "Back to calendar"}
-            onPress={isPreview ? handleExitToDashboard : handleExitToCalendar}
+            accessibilityLabel={openedExistingBill ? "Close" : "Back to quick sale"}
+            onPress={handleClose}
             style={styles.headerIconButton}
           >
             <Ionicons name="close" size={20} color={Colors.heading} />
@@ -437,7 +426,7 @@ function OwnerQuickSaleCheckoutScreen() {
             receiptLoadState.status === "loading" ||
             receiptLoadState.status === "retrying" ? (
             <View style={styles.receiptStateCard}>
-              <ActivityIndicator color={Colors.primary} size="large" />
+              <ActivityIndicator color={Colors.primaryText} size="large" />
               <Text style={styles.receiptStateTitle}>
                 {receiptLoadState.status === "retrying"
                   ? "Retrying receipt details"
@@ -484,7 +473,7 @@ function OwnerQuickSaleCheckoutScreen() {
                   <Ionicons
                     name={isPreview ? "receipt-outline" : "checkmark"}
                     size={34}
-                    color={Colors.primary}
+                    color={Colors.primaryText}
                   />
                 </View>
                 <Text style={styles.title}>{isPreview ? "Receipt Ready" : "Payment Successful"}</Text>
@@ -547,7 +536,6 @@ function OwnerQuickSaleCheckoutScreen() {
                   loading={receiptAction === "share"}
                   busy={receiptAction !== null}
                 />
-                <ReceiptActionButton icon="mail-outline" label="Email Receipt" disabled />
               </View> : null}
 
               {!isStaff ? (
@@ -556,7 +544,7 @@ function OwnerQuickSaleCheckoutScreen() {
                   onPress={() => router.push(`/sales/${authoritativeSale.id}` as Href)}
                   style={styles.optionalButton}
                 >
-                  <Ionicons name="document-text-outline" size={17} color={Colors.primaryDark} />
+                  <Ionicons name="document-text-outline" size={17} color={Colors.primaryText} />
                   <Text style={styles.optionalButtonText}>View Invoice</Text>
                 </TouchableOpacity>
               ) : null}
@@ -565,21 +553,8 @@ function OwnerQuickSaleCheckoutScreen() {
         </ScrollView>
 
         <View style={styles.footer}>
-          <TouchableOpacity
-            activeOpacity={0.86}
-            onPress={isPreview ? handleBackToDraft : handleStartNewSale}
-            style={styles.primaryButton}
-          >
-            <Text style={styles.primaryButtonText}>{isPreview ? "Back to Sale" : "Start New Sale"}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            activeOpacity={0.86}
-            onPress={isPreview ? handleExitToDashboard : handleExitToCalendar}
-            style={styles.secondaryButton}
-          >
-            <Text style={styles.secondaryButtonText}>
-              {isPreview ? "Back to Dashboard" : "Back to Calendar"}
-            </Text>
+          <TouchableOpacity activeOpacity={0.86} onPress={handleStartNewSale} style={styles.primaryButton}>
+            <Text style={styles.primaryButtonText}>{isPreview ? "Back to Quick Sale" : "Start New Sale"}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -634,9 +609,9 @@ function ReceiptActionButton({
     >
       <View style={styles.receiptActionIcon}>
         {loading ? (
-          <ActivityIndicator color={Colors.primaryDark} size="small" />
+          <ActivityIndicator color={Colors.primaryText} size="small" />
         ) : (
-          <Ionicons name={icon} size={17} color={disabled ? Colors.text2 : Colors.primaryDark} />
+          <Ionicons name={icon} size={17} color={disabled ? Colors.text2 : Colors.primaryText} />
         )}
       </View>
       <Text style={[styles.receiptActionText, disabled && { color: Colors.text2 }]}>{label}</Text>
@@ -831,7 +806,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     marginTop: 2,
   },
   itemPrice: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 13,
     fontWeight: "900",
   },
@@ -886,7 +861,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     minHeight: 46,
   },
   optionalButtonText: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 13,
     fontWeight: "900",
   },
@@ -906,23 +881,8 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     width: "100%",
   },
   primaryButtonText: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
     fontSize: 14,
-    fontWeight: "900",
-  },
-  secondaryButton: {
-    alignItems: "center",
-    borderColor: Colors.border,
-    borderRadius: Radius.full,
-    borderWidth: 1,
-    justifyContent: "center",
-    marginTop: Spacing.sm,
-    minHeight: 48,
-    width: "100%",
-  },
-  secondaryButtonText: {
-    color: Colors.heading,
-    fontSize: 13,
     fontWeight: "900",
   },
   buttonDisabled: {

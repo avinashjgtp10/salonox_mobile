@@ -18,9 +18,9 @@ export const CALENDAR_STATUS_FILTERS: {
   { color: "#B9689B", label: "All", status: "All" },
   { color: "#D97706", label: "Booked", status: "Upcoming" },
   { color: "#16A34A", label: "Paid", status: "Completed" },
-  { color: "#6D28D9", label: "Partial", status: "Partial" },
+  { color: "#7C3AED", label: "Partial", status: "Partial" },
   { color: "#DC2626", label: "Cancelled", status: "Cancelled" },
-  { color: "#0891B2", label: "No Show", status: "Missed" },
+  { color: "#2563EB", label: "No Show", status: "No Show" },
   { color: "#6B7280", label: "Deleted", status: "Deleted" },
 ];
 
@@ -40,7 +40,7 @@ export const FORM_STATUS_OPTIONS: AppointmentStatus[] = [
   "Partial",
   "Completed",
   "Cancelled",
-  "Missed",
+  "No Show",
 ];
 
 export const PAYMENT_METHODS: AppointmentPaymentMethod[] = [

@@ -420,13 +420,13 @@ export default function ClientDetailsScreen() {
         <View style={styles.notFoundWrap}>
           <View style={styles.headerRow}>
             <TouchableOpacity activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
-              <Ionicons name="arrow-back" size={18} color={Colors.primary} />
+              <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Client Profile</Text>
             <View style={styles.backButtonPlaceholder} />
           </View>
           <View style={styles.centeredContent}>
-            <ActivityIndicator size="large" color={Colors.primary} />
+            <ActivityIndicator size="large" color={Colors.primaryText} />
           </View>
         </View>
       </SafeAreaView>
@@ -440,7 +440,7 @@ export default function ClientDetailsScreen() {
         <View style={styles.notFoundWrap}>
           <View style={styles.headerRow}>
             <TouchableOpacity activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
-              <Ionicons name="arrow-back" size={18} color={Colors.primary} />
+              <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Client Profile</Text>
             <View style={styles.backButtonPlaceholder} />
@@ -460,7 +460,7 @@ export default function ClientDetailsScreen() {
         <AppStatusBar />
         <View style={styles.notFoundWrap}>
           <TouchableOpacity activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={18} color={Colors.primary} />
+            <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
           </TouchableOpacity>
           <View style={styles.notFoundCard}>
             <Text style={styles.notFoundTitle}>Client not found</Text>
@@ -496,8 +496,8 @@ export default function ClientDetailsScreen() {
             <View style={styles.profileAvatar}><Ionicons color="#FFFFFF" name="person" size={37} /></View>
             <Text numberOfLines={2} style={styles.clientName}>{client.fullName}</Text>
           </View>
-          <View style={styles.contactRow}><Ionicons color={Colors.primary} name="call-outline" size={19} /><Text selectable style={styles.contactText}>{maskPhone(client.phone)}</Text></View>
-          <View style={styles.contactRow}><Ionicons color={Colors.primary} name="mail-outline" size={20} /><Text numberOfLines={1} selectable style={styles.contactText}>{client.email || "-"}</Text></View>
+          <View style={styles.contactRow}><Ionicons color={Colors.primaryText} name="call-outline" size={19} /><Text selectable style={styles.contactText}>{maskPhone(client.phone)}</Text></View>
+          <View style={styles.contactRow}><Ionicons color={Colors.primaryText} name="mail-outline" size={20} /><Text numberOfLines={1} selectable style={styles.contactText}>{client.email || "-"}</Text></View>
           <View style={styles.walletRow}>
             <TouchableOpacity activeOpacity={0.82} onPress={() => router.push("/quick-sale")} style={styles.walletPill}><Ionicons color="#FFFFFF" name="wallet-outline" size={23} /><Text style={styles.walletValue}>{formatCurrency(client.walletBalance)}</Text></TouchableOpacity>
             <TouchableOpacity activeOpacity={0.75} onPress={() => router.push("/quick-sale")} style={styles.addMoneyButton}><Ionicons color={Colors.heading} name="add-circle-outline" size={20} /><Text style={styles.addMoneyText}>Add money</Text></TouchableOpacity>
@@ -553,7 +553,7 @@ export default function ClientDetailsScreen() {
                 { icon: "time-outline", label: "Last Visited On", value: metrics.lastVisit ? formatCreatedDate(metrics.lastVisit) : "-" },
               ].map((metric) => (
                 <View key={metric.label} style={styles.metricCell}>
-                  <Ionicons color={Colors.primary} name={metric.icon as keyof typeof Ionicons.glyphMap} size={21} />
+                  <Ionicons color={Colors.primaryText} name={metric.icon as keyof typeof Ionicons.glyphMap} size={21} />
                   <Text style={styles.metricLabel}>{metric.label}</Text>
                   <Text adjustsFontSizeToFit minimumFontScale={0.8} numberOfLines={1} style={styles.metricValue}>{metric.value}</Text>
                 </View>
@@ -561,7 +561,7 @@ export default function ClientDetailsScreen() {
             </View>
 
             {historyLoading && history.length === 0 ? (
-              <ActivityIndicator color={Colors.primary} style={styles.loader} />
+              <ActivityIndicator color={Colors.primaryText} style={styles.loader} />
             ) : null}
             {historyError ? <Text style={styles.errorText}>{historyError}</Text> : null}
 
@@ -655,7 +655,7 @@ export default function ClientDetailsScreen() {
         {activeTab === "activity" ? (
           <View style={styles.tabContent}>
             <Text style={styles.contentHeading}>Activity</Text>
-            {historyLoading ? <ActivityIndicator color={Colors.primary} style={styles.loader} /> : null}
+            {historyLoading ? <ActivityIndicator color={Colors.primaryText} style={styles.loader} /> : null}
             {historyError ? <Text style={styles.errorText}>{historyError}</Text> : null}
             {!historyLoading && !historyError && history.length === 0 ? <EmptySummarySection icon="time-outline" label="No activity" title="" /> : null}
             {history.map((item) => {
@@ -676,7 +676,7 @@ export default function ClientDetailsScreen() {
 
               return (
                 <View key={item.id} style={styles.activityRow}>
-                  <View style={styles.activityIcon}><Ionicons color={Colors.primary} name={item.type === "appointment" ? "calendar-outline" : item.type === "sale" ? "wallet-outline" : "time-outline"} size={19} /></View>
+                  <View style={styles.activityIcon}><Ionicons color={Colors.primaryText} name={item.type === "appointment" ? "calendar-outline" : item.type === "sale" ? "wallet-outline" : "time-outline"} size={19} /></View>
                   <View style={styles.activityCopy}>
                     <Text style={styles.activityTitle}>{item.title}</Text>
                     <Text style={styles.activityMeta}>{meta}</Text>
@@ -711,7 +711,7 @@ export default function ClientDetailsScreen() {
             </View>
             <Text style={styles.contentHeading}>Membership</Text>
             <View style={styles.profileDetails}>
-              {membershipLoading ? <ActivityIndicator color={Colors.primary} style={styles.loader} /> : null}
+              {membershipLoading ? <ActivityIndicator color={Colors.primaryText} style={styles.loader} /> : null}
               {membershipError ? <Text style={styles.errorText}>{membershipError}</Text> : null}
               {!membershipLoading ? <Text style={styles.membershipProfileTitle}>{activeMembership?.membershipName ?? "No active membership"}</Text> : null}
               {activeMembership ? <Text style={styles.membershipProfileMeta}>Expires {formatCreatedDate(activeMembership.expiresAt)}</Text> : null}
@@ -723,7 +723,7 @@ export default function ClientDetailsScreen() {
           <View style={styles.tabContent}>
             <Text style={styles.contentHeading}>Notes</Text>
             {client.isBlocked ? <Text style={styles.blockedNoticeText}>Client is blocked/inactive.</Text> : null}
-            {notesLoading && notes === null ? <ActivityIndicator color={Colors.primary} style={styles.loader} /> : null}
+            {notesLoading && notes === null ? <ActivityIndicator color={Colors.primaryText} style={styles.loader} /> : null}
             {notesError ? <Text style={styles.errorText}>{notesError}</Text> : null}
             {notes && notes.length > 0 ? (
               <View style={styles.summaryList}>
@@ -742,7 +742,7 @@ export default function ClientDetailsScreen() {
             ) : null}
             {!notesLoading && !notesError && notes !== null && notes.length === 0 ? (
               <View style={styles.notesPanel}>
-                <Ionicons color={Colors.primary} name="document-text-outline" size={22} />
+                <Ionicons color={Colors.primaryText} name="document-text-outline" size={22} />
                 <Text style={styles.notesText}>No notes added.</Text>
               </View>
             ) : null}
@@ -770,7 +770,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   tabButton: { alignItems: "center", borderBottomColor: "transparent", borderBottomWidth: 3, flex: 1, justifyContent: "center", minHeight: 54, paddingHorizontal: 3 },
   tabButtonActive: { borderBottomColor: Colors.primary },
   tabText: { color: Colors.heading, fontSize: 14, lineHeight: 22, paddingHorizontal: 1, textAlign: "center" },
-  tabTextActive: { color: Colors.primary, fontWeight: "800" },
+  tabTextActive: { color: Colors.primaryText, fontWeight: "800" },
   blockButton: { alignItems: "center", alignSelf: "center", borderColor: Colors.error, borderRadius: AppRadius.pill, borderWidth: 1, flexDirection: "row", gap: 4, justifyContent: "center", marginHorizontal: 5, minHeight: 36, paddingHorizontal: 8 },
   blockButtonText: { color: Colors.error, fontSize: 11, fontWeight: "800" },
   unblockButton: { borderColor: Colors.success },
@@ -783,7 +783,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   summarySection: { marginBottom: 28 },
   summarySectionTitle: { color: Colors.heading, fontSize: 19, fontWeight: "800", marginBottom: 14 },
   summarySectionHeader: { alignItems: "center", flexDirection: "row", gap: 8 },
-  summarySectionCount: { backgroundColor: Colors.backgroundElement, borderRadius: AppRadius.pill, color: Colors.primary, fontSize: 13, fontWeight: "800", marginBottom: 14, overflow: "hidden", paddingHorizontal: 9, paddingVertical: 2 },
+  summarySectionCount: { backgroundColor: Colors.backgroundElement, borderRadius: AppRadius.pill, color: Colors.primaryText, fontSize: 13, fontWeight: "800", marginBottom: 14, overflow: "hidden", paddingHorizontal: 9, paddingVertical: 2 },
   summaryList: { borderColor: Colors.border, borderRadius: 8, borderWidth: 1, overflow: "hidden" },
   summaryRow: { alignItems: "center", borderBottomColor: Colors.border, borderBottomWidth: 1, flexDirection: "row", gap: 12, paddingHorizontal: 14, paddingVertical: 13 },
   summaryRowCopy: { flex: 1, gap: 3 },

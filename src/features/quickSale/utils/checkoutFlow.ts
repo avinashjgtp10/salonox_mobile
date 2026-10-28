@@ -3,8 +3,9 @@ import { getExpectedSaleRevenue, type BillTotals } from "@/features/quickSale/ut
 import { getActionError } from "@/features/quickSale/utils/errors";
 import { amountsReconcile, formatCurrency } from "@/features/quickSale/utils/money";
 import type { AppointmentMutationResponse, CreateAppointmentRequest } from "@/types/appointment";
-import type { CreatePaymentRequest } from "@/types/payment";
+import type { CreatePaymentRequest, CreatePaymentResponse } from "@/types/payment";
 import type { CheckoutSaleRequest, CreateSaleRequest, SaleDetail } from "@/types/sales";
+import { toOptionalNumber } from "@/utils/apiNormalize";
 
 
 export type CheckoutReceiptParams = Record<string, string>;
@@ -87,10 +88,10 @@ export async function runDraftCheckout(
 export type AppointmentCheckoutDeps = {
   checkoutAppointment: (appointmentId: string) => Promise<Pick<AppointmentMutationResponse, "saleId">>;
   createAppointment: (payload: CreateAppointmentRequest) => Promise<Pick<AppointmentMutationResponse, "appointment">>;
-  createPayment: (payload: CreatePaymentRequest) => Promise<unknown>;
+  createPayment: (payload: CreatePaymentRequest) => Promise<Pick<CreatePaymentResponse, "data"> | void>;
   fetchSaleTotal: (saleId: string) => Promise<number | null>;
   markPackageSessions: (appointmentId: string) => Promise<string | null>;
-  onPaymentRecorded: () => void;
+  onPaymentRecorded: (appointmentId: string) => void;
 };
 
 export async function runAppointmentCheckout(
@@ -119,13 +120,22 @@ export async function runAppointmentCheckout(
   }
 
   const paymentBody = buildPaymentPayload(appointmentId);
-  await deps.createPayment(paymentBody);
-  deps.onPaymentRecorded();
+  const paymentResponse = await deps.createPayment(paymentBody);
+  deps.onPaymentRecorded(appointmentId);
 
   if (paymentBody.status !== "completed") {
+    // The server's due_amount (a money string such as "394.00") is the balance
+    // of record; the request's own figure is only a fallback.
+    const paidAmount = toOptionalNumber(paymentResponse?.data.paid_amount) ?? paymentBody.paid_amount;
+    const dueAmount = toOptionalNumber(paymentResponse?.data.due_amount) ?? paymentBody.due_amount;
+
     return {
       kind: "paymentRecordedNeedsFollowUp",
-      message: `${formatCurrency(paymentBody.paid_amount)} collected. ${formatCurrency(paymentBody.due_amount)} remains due for this appointment.`,
+      message: [
+        `Total: ${formatCurrency(paidAmount + dueAmount)}`,
+        `Paid: ${formatCurrency(paidAmount)}`,
+        `Remaining due: ${formatCurrency(dueAmount)}`,
+      ].join("\n"),
     };
   }
 

@@ -111,7 +111,7 @@ export default function ConsumableUsageReportScreen({ config }: { config: Report
           onPress={() => router.back()}
           style={styles.headerButton}
         >
-          <Ionicons name="arrow-back" size={18} color={Colors.primary} />
+          <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
         </TouchableOpacity>
         <View style={styles.headerCopy}>
           <Text allowFontScaling style={styles.title}>{config.title}</Text>
@@ -253,7 +253,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   categoryChipActive: { backgroundColor: Colors.primaryDark, borderColor: Colors.primaryDark },
   categoryChipText: { color: Colors.text2, fontSize: 12, fontWeight: "700" },
-  categoryChipTextActive: { color: "#FFFFFF" },
+  categoryChipTextActive: { color: Colors.onPrimary },
   resultsHeading: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", paddingTop: Spacing.sm },
   resultsTitle: { color: Colors.text2, fontSize: 10, fontWeight: "800", letterSpacing: 1.4 },
   resultsCount: { color: Colors.text2, fontSize: 11, fontVariant: ["tabular-nums"], fontWeight: "600" },

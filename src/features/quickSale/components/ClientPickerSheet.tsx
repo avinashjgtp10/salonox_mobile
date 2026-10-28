@@ -29,7 +29,7 @@ import {
   isValidPersonName,
   isValidPhoneDigits,
   PERSON_NAME_INVALID_MESSAGE,
-  PHONE_DIGIT_COUNT,
+  PHONE_INPUT_MAX_LENGTH,
   PHONE_INVALID_MESSAGE,
   sanitizePhoneDigits,
 } from "@/utils/validation";
@@ -260,7 +260,7 @@ export function ClientPickerSheet({
             <Text style={styles.inputLabel}>Phone Number*</Text>
             <TextInput
               keyboardType="phone-pad"
-              maxLength={PHONE_DIGIT_COUNT}
+              maxLength={PHONE_INPUT_MAX_LENGTH}
               onChangeText={(value) => {
                 setNewPhone(sanitizePhoneDigits(value));
                 setFormErrors((current) => ({ ...current, form: undefined, phone: undefined }));
@@ -327,7 +327,9 @@ export function ClientPickerSheet({
             <TouchableOpacity
               activeOpacity={0.84}
               disabled={creating}
-              onPress={() => setIsCreating(false)}
+              // Opened straight into the form (Quick Sale's "Add Client"), so
+              // Cancel goes back to the sale rather than to a client list.
+              onPress={startInCreateMode ? handleClose : () => setIsCreating(false)}
               style={styles.cancelButton}
             >
               <Text style={styles.cancelButtonText}>Cancel</Text>
@@ -364,7 +366,7 @@ export function ClientPickerSheet({
             onPress={() => setIsCreating(true)}
             style={styles.newClientButton}
           >
-            <Ionicons name="person-add-outline" size={16} color={Colors.primaryDark} />
+            <Ionicons name="person-add-outline" size={16} color={Colors.primaryText} />
             <Text style={styles.newClientButtonText}>New Client</Text>
           </TouchableOpacity>
 
@@ -373,7 +375,7 @@ export function ClientPickerSheet({
           {error && visibleClients.length === 0 ? (
             <ErrorState message={error} onRetry={handleRetry} />
           ) : loading && visibleClients.length === 0 ? (
-            <ActivityIndicator color={Colors.primary} size="small" style={styles.loadingSpacer} />
+            <ActivityIndicator color={Colors.primaryText} size="small" style={styles.loadingSpacer} />
           ) : visibleClients.length === 0 ? (
             <EmptyState
               description="Try another search, or create a new client."
@@ -448,7 +450,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     paddingVertical: 8,
   },
   newClientButtonText: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 12,
     fontWeight: "800",
   },
@@ -546,7 +548,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     minHeight: 48,
   },
   cancelButtonText: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 13,
     fontWeight: "800",
   },
@@ -559,7 +561,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     minHeight: 48,
   },
   saveButtonText: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
     fontSize: 13,
     fontWeight: "800",
   },

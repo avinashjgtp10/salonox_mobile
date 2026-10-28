@@ -129,7 +129,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     top: 0,
   },
   avatarText: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 22,
     fontWeight: "800",
   },
@@ -160,7 +160,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     paddingVertical: 6,
   },
   roleBadgeText: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 11,
     fontWeight: "800",
     letterSpacing: 0,

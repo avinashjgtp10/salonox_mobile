@@ -1,7 +1,8 @@
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { appAlert as Alert } from "@/services/appAlert";
-import { TourView, TourButton, TourScrollView, TourFlatList, withScreenTour } from "@/features/userGuide/DashboardTour";
+import { TourView, TourButton, TourScrollView, TourFlatList, withScreenTour, useDashboardTour } from "@/features/userGuide/DashboardTour";
+import { useFooterClearance } from "@/hooks/useFooterClearance";
 import { screenTours } from "@/features/userGuide/screenTours";
 import { Ionicons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
@@ -153,7 +154,7 @@ function ErrorState({ onRetry }: { onRetry: () => void }) {
   return (
     <View style={styles.stateCard}>
       <View style={styles.stateIllustration}>
-        <Ionicons name="cloud-offline-outline" size={30} color={Colors.primary} />
+        <Ionicons name="cloud-offline-outline" size={30} color={Colors.primaryText} />
       </View>
       <Text style={styles.stateTitle}>Unable to load staff</Text>
       <Text style={styles.stateDescription}>
@@ -181,7 +182,7 @@ function EmptyState({
   return (
     <View style={styles.stateCard}>
       <View style={styles.stateIllustration}>
-        <Ionicons name="people-outline" size={30} color={Colors.primary} />
+        <Ionicons name="people-outline" size={30} color={Colors.primaryText} />
       </View>
       <Text style={styles.stateTitle}>{title}</Text>
       <Text style={styles.stateDescription}>{description}</Text>
@@ -193,6 +194,9 @@ function EmptyState({
 }
 
 function TeamScreenContent() {
+  const footerClearance = useFooterClearance();
+  const tour = useDashboardTour();
+  const addStaffBottom = footerClearance + (tour?.offerTour ? 56 : 0);
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
@@ -453,7 +457,7 @@ function TeamScreenContent() {
             onPress={() => router.push("/team/commissions" as Href)}
             style={styles.headerIconButton}
           >
-            <Ionicons name="cash-outline" size={18} color={Colors.primaryDark} />
+            <Ionicons name="cash-outline" size={18} color={Colors.primaryText} />
           </TouchableOpacity>
         </View>
       </View>
@@ -528,7 +532,7 @@ function TeamScreenContent() {
           onPress={() => setIsFilterVisible(true)}
           style={styles.sortButton}
         >
-          <Ionicons name="funnel-outline" size={15} color={Colors.primaryDark} />
+          <Ionicons name="funnel-outline" size={15} color={Colors.primaryText} />
           <Text style={styles.sortButtonText}>{sortOption}</Text>
         </TourButton>
       </View>
@@ -549,7 +553,7 @@ function TeamScreenContent() {
             <ErrorState onRetry={handleRetry} />
           </View>
         ) : staffLoading ? (
-          <TourScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          <TourScrollView contentContainerStyle={[styles.content, { paddingBottom: addStaffBottom + 72 }]} showsVerticalScrollIndicator={false}>
             {headerContent}
             {Array.from({ length: 3 }).map((_, index) => (
               <StaffSkeletonCard key={`staff-skeleton-${index}`} index={index} />
@@ -560,7 +564,7 @@ function TeamScreenContent() {
             initialNumToRender={4}
             maxToRenderPerBatch={4}
             windowSize={7}
-            contentContainerStyle={styles.listContent}
+            contentContainerStyle={[styles.listContent, { paddingBottom: addStaffBottom + 72 }]}
             data={filteredStaffMembers}
             keyExtractor={(item) => item.id}
             keyboardDismissMode="on-drag"
@@ -610,7 +614,7 @@ function TeamScreenContent() {
           /></RefreshViewport>
         )}
 
-        <TourButton tourId="add" activeOpacity={0.88} onPress={handleAddStaff} style={styles.floatingButton}>
+        <TourButton tourId="add" activeOpacity={0.88} onPress={handleAddStaff} style={[styles.floatingButton, { bottom: addStaffBottom }]}>
           <Ionicons name="add" size={20} color={Colors.onPrimary} />
           <Text style={styles.floatingButtonText}>Add Staff</Text>
         </TourButton>
@@ -642,7 +646,7 @@ function TeamScreenContent() {
                     {option}
                   </Text>
                   {isActive ? (
-                    <Ionicons name="checkmark-circle" size={18} color={Colors.primary} />
+                    <Ionicons name="checkmark-circle" size={18} color={Colors.primaryText} />
                   ) : null}
                 </TouchableOpacity>
               );
@@ -838,7 +842,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     borderColor: Colors.primary,
   },
   filterChipText: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 12,
     fontWeight: "700",
   },
@@ -868,7 +872,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     paddingVertical: 10,
   },
   sortButtonText: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontSize: 12,
     fontWeight: "700",
     marginLeft: 8,
@@ -993,7 +997,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     alignItems: "center",
     backgroundColor: Colors.primaryDark,
     borderRadius: Radius.full,
-    bottom: 20,
     flexDirection: "row",
     justifyContent: "center",
     paddingHorizontal: 20,
@@ -1047,7 +1050,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "600",
   },
   sheetActionTextActive: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
     fontWeight: "800",
   },
   actionMenuOverlay: {
@@ -1133,7 +1136,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "800",
   },
   actionMenuItemTextAccent: {
-    color: Colors.primaryDark,
+    color: Colors.primaryText,
   },
   actionMenuItemTextDanger: {
     color: Colors.error,

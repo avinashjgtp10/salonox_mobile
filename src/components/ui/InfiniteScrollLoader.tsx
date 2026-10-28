@@ -11,7 +11,7 @@ export const InfiniteScrollLoader = memo(function InfiniteScrollLoader({
   if (!loading) return null;
   return (
     <View accessibilityRole="progressbar" accessibilityLabel={label} accessibilityState={{ busy: true }} accessibilityLiveRegion="polite" style={styles.container}>
-      <ActivityIndicator color={colors.primary} size="small" />
+      <ActivityIndicator color={colors.primaryText} size="small" />
     </View>
   );
 });
