@@ -156,7 +156,9 @@ export const KeyboardAwareForm = forwardRef<KeyboardAwareFormHandle, KeyboardAwa
         nestedScrollEnabled={embedded}
         scrollEnabled={scrollEnabled}
         onScroll={(event) => { offset.current = event.nativeEvent.contentOffset.y; }} scrollEventThrottle={16}
-        keyboardShouldPersistTaps="always" keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "none"}
+        // Blank-space taps dismiss the keyboard on iOS and Android; inputs and
+        // buttons still receive their first tap without dismissing it first.
+        keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "none"}
         onContentSizeChange={onLayoutChange} onLayout={onLayoutChange} showsVerticalScrollIndicator={false}>
         <FormFieldFocusContext.Provider value={autoReveal ? revealField : null}>
           <View style={styles.content}>{children}</View>
