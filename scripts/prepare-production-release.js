@@ -20,6 +20,20 @@ function nextVersion(baseVersion, builds, commitSha) {
   return (compare(base, bumped) > 0 ? base : bumped).join(".");
 }
 
+// One-off override (GitHub variable RELEASE_VERSION), e.g. to reuse a version
+// whose build was cancelled before reaching the stores. Delete it after the release.
+function overrideVersion(override, builds) {
+  if (!SEMVER.test(override)) throw new Error(`RELEASE_VERSION "${override}" must look like 1.2.3.`);
+  const highest = builds
+    .filter((build) => SEMVER.test(build.appVersion ?? ""))
+    .map((build) => parse(build.appVersion))
+    .reduce((max, version) => (compare(version, max) > 0 ? version : max), [0, 0, 0]);
+  if (compare(parse(override), highest) < 0) {
+    throw new Error(`RELEASE_VERSION ${override} is lower than the latest build ${highest.join(".")}. Delete the variable.`);
+  }
+  return override;
+}
+
 function prepareRelease(appConfig, easConfig, env, builds) {
   if (!env.EXPO_TOKEN?.trim()) throw new Error("Missing GitHub secret EXPO_TOKEN.");
   if (!/^\d+$/.test(env.APP_STORE_CONNECT_APP_ID || "")) {
@@ -29,7 +43,8 @@ function prepareRelease(appConfig, easConfig, env, builds) {
   if (!Array.isArray(builds)) throw new Error("Expected a list of EAS production builds.");
   const match = appConfig.match(/const APP_VERSION = "(\d+\.\d+\.\d+)";/);
   if (!match) throw new Error("Expected an explicit APP_VERSION in app.config.ts.");
-  const version = nextVersion(match[1], builds, env.GITHUB_SHA);
+  const override = env.RELEASE_VERSION?.trim();
+  const version = override ? overrideVersion(override, builds) : nextVersion(match[1], builds, env.GITHUB_SHA);
   const config = JSON.parse(JSON.stringify(easConfig));
   config.submit.production.ios.ascAppId = env.APP_STORE_CONNECT_APP_ID;
   return {
