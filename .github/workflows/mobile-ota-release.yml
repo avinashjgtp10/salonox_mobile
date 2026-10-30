@@ -1,0 +1,67 @@
+---
+name: Mobile OTA Release
+
+# Every push to main (merging qa into main) ships the new JS as an OTA to the
+# store versions users have installed. It never builds an AAB or IPA and never
+# bumps the version. Changes that touch native code are refused here and go
+# out with the next store build (mobile-store-release.yml).
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Only show which store versions would get the OTA
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+# Never cancel a publish halfway. A queued run is replaced by a newer one,
+# which is fine: the newer main commit contains everything.
+concurrency:
+  group: mobile-ota-release
+  cancel-in-progress: false
+
+jobs:
+  ci:
+    name: CI
+    if: github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/mobile-ci.yml
+
+  ota:
+    name: Publish production OTA
+    needs: ci
+    runs-on: ubuntu-latest
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # Full history: the native-change check compares against the commit
+          # each store build was made from.
+          fetch-depth: 0
+
+      # Node 22: eas-cli's dependency @oclif/plugin-autocomplete requires it.
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Setup EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: 24.7.0
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Validate production update environment
+        run: eas env:exec production "node scripts/validate-production-update-env.js" --non-interactive
+
+      - name: Publish OTA to compatible store versions
+        run: node scripts/publish-production-ota.js ${{ inputs.dry_run && '--dry-run' || '' }}
