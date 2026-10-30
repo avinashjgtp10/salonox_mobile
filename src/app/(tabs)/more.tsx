@@ -488,7 +488,7 @@ function MoreScreenContent() {
         </TouchableOpacity>
       </TourScrollView>
       <Modal
-        animationType="slide"
+        animationType="fade"
         onRequestClose={() => setIsReportModalVisible(false)}
         transparent
         visible={isReportModalVisible}

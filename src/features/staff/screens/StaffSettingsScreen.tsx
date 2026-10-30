@@ -367,7 +367,7 @@ export function StaffSettingsScreen() {
         </TouchableOpacity>
       </KeyboardAwareScrollView>
       <Modal
-        animationType="slide"
+        animationType="fade"
         onRequestClose={() => setIsReportModalVisible(false)}
         transparent
         visible={isReportModalVisible}
