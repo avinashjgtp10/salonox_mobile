@@ -4,7 +4,7 @@ import { Text } from "@/components/ui/AppTypography";
 import { DateRangeField } from "@/components/ui/DateRangeField";
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
-import { getApiErrorMessage } from "@/services/api";
+import { ApiError, getApiErrorMessage } from "@/services/api";
 import { staffRevenueService, type StaffRevenue } from "@/services/staffRevenue.service";
 import { useAppSelector } from "@/store/hooks";
 import { selectCurrentStaff } from "@/store/staff/staff.slice";
@@ -39,6 +39,13 @@ const todayKey = () => getDateRangePreset("today").startDate;
 const thisMonthToDate = (): Range => ({ startDate: getDateRangePreset("this_month").startDate, endDate: todayKey() });
 const toDate = (key: string) => new Date(`${key}T00:00:00`);
 
+/** Server errors are shown in plain words; offline/timeout messages are already friendly. */
+const revenueErrorMessage = (failure: unknown) => {
+  if (!(failure instanceof ApiError) || !failure.status) return getApiErrorMessage(failure);
+  if (failure.status === 404) return "Your revenue isn't available right now. Please try again later.";
+  return "Something went wrong while loading your revenue. Please try again.";
+};
+
 /**
  * The logged-in staff member's revenue — their own row of the web Staff
  * Performance report (non-draft sales by sale date, per line staff, partly
@@ -67,13 +74,15 @@ export function StaffRevenueScreen() {
       const next = await staffRevenueService.getRevenue({ endDate: range.endDate, startDate: range.startDate });
       if (request === requestRef.current) setRevenue(next);
     } catch (failure) {
-      if (request === requestRef.current) setError(getApiErrorMessage(failure));
+      if (request === requestRef.current) { setRevenue(null); setError(revenueErrorMessage(failure)); }
     } finally {
       if (request === requestRef.current) { setLoading(false); setRefreshing(false); }
     }
   }, [range.endDate, range.startDate]);
 
   useEffect(() => { void load(); }, [load]);
+
+  const isEmpty = !!revenue && revenue.invoiceCount === 0 && revenue.totalRevenue === 0;
 
   const activeQuick = QUICK_RANGES.find(({ key }) => {
     const preset = key === "this_month" ? thisMonthToDate() : getDateRangePreset(key);
@@ -123,8 +132,8 @@ export function StaffRevenueScreen() {
         <View style={styles.totalCard}>
           <View style={styles.totalIcon}><Ionicons name="wallet-outline" size={24} color={Colors.primaryText} /></View>
           <Text style={styles.totalLabel}>Revenue generated</Text>
-          {loading ? <ActivityIndicator color={Colors.primaryText} /> : <Text style={styles.totalAmount}>{formatCurrency(revenue?.totalRevenue ?? 0)}</Text>}
-          {!loading && revenue ? (
+          {loading ? <ActivityIndicator color={Colors.primaryText} /> : <Text style={styles.totalAmount}>{error ? "—" : formatCurrency(revenue?.totalRevenue ?? 0)}</Text>}
+          {!loading && revenue && !isEmpty ? (
             <Text style={styles.totalMeta}>
               {revenue.invoiceCount} {revenue.invoiceCount === 1 ? "invoice" : "invoices"} · Avg bill {formatCurrency(revenue.avgBill)}
             </Text>
@@ -134,7 +143,7 @@ export function StaffRevenueScreen() {
         {error ? (
           <View style={styles.card}>
             <Ionicons name="alert-circle-outline" size={26} color={Colors.error} />
-            <Text style={styles.stateTitle}>Unable to load your revenue</Text>
+            <Text style={styles.stateTitle}>{"Couldn't load your revenue"}</Text>
             <Text style={styles.stateText}>{error}</Text>
             <TouchableOpacity accessibilityRole="button" onPress={() => void load()} style={styles.retryButton}>
               <Text style={styles.retryText}>Retry</Text>
@@ -142,7 +151,15 @@ export function StaffRevenueScreen() {
           </View>
         ) : null}
 
-        {!loading && !error && revenue ? (
+        {!loading && !error && isEmpty ? (
+          <View style={styles.card}>
+            <Ionicons name="receipt-outline" size={26} color={Colors.text2} />
+            <Text style={styles.stateTitle}>No revenue for this period</Text>
+            <Text style={styles.stateText}>{"Sales you're assigned to will show up here. Try a different date range."}</Text>
+          </View>
+        ) : null}
+
+        {!loading && !error && revenue && !isEmpty ? (
           <>
             <View style={styles.splitRow}>
               <View style={[styles.splitCard, styles.splitCollected]}>
