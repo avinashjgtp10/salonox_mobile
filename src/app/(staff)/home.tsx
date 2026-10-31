@@ -1,7 +1,7 @@
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { AttendanceBreakModal } from "@/features/attendance/components/AttendanceBreakModal";
-import { getAppointmentBillLabel, maskClientName } from "@/utils/clientPrivacy";
+import { getAppointmentBillLabel, getAppointmentInvoiceLabel, maskClientName } from "@/utils/clientPrivacy";
 import { AttendanceActivityDetails, formatAttendanceDuration } from "@/features/attendance/components/AttendanceActivityDetails";
 import type { AttendanceActivity } from "@/types/attendance";
 import { appAlert } from "@/services/appAlert";
@@ -655,7 +655,7 @@ function TimelineRow({ appointment, isLast }: { appointment: AppointmentListItem
       <View style={[stylesStatic.timelineInfo, !isLast && stylesStatic.timelineInfoBorder]}>
         <View style={stylesStatic.timelineCopy}>
           <Text numberOfLines={1} style={stylesStatic.timelineClient}>{getAppointmentBillLabel(appointment)}</Text>
-          <Text numberOfLines={1} style={stylesStatic.timelineService}>{maskClientName(appointment.clientName)} · {appointment.serviceName}</Text>
+          <Text numberOfLines={1} style={stylesStatic.timelineService}>{getAppointmentInvoiceLabel(appointment) ? `${maskClientName(appointment.clientName)} · ${appointment.serviceName}` : appointment.serviceName}</Text>
           <Text numberOfLines={1} style={stylesStatic.timelineMeta}>{bookingType}</Text>
         </View>
         <Badge bg={badge.bg} color={badge.color} label={badge.label} size="sm" />
