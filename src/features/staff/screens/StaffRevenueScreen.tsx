@@ -166,10 +166,6 @@ export function StaffRevenueScreen() {
                 <Text style={styles.splitLabel}>Collected</Text>
                 <Text style={styles.splitValue}>{formatCurrency(revenue.collected)}</Text>
               </View>
-              <View style={[styles.splitCard, styles.splitDue]}>
-                <Text style={styles.splitLabel}>Due</Text>
-                <Text style={styles.splitValue}>{formatCurrency(revenue.due)}</Text>
-              </View>
             </View>
 
             <View style={styles.card}>
@@ -220,7 +216,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   sectionTitle: { color: Colors.heading, fontSize: 17, fontWeight: "900", marginBottom: 4 },
   splitCard: { borderRadius: 20, flex: 1, gap: 6, padding: 16 },
   splitCollected: { backgroundColor: Colors.successBg },
-  splitDue: { backgroundColor: Colors.warningBg },
   splitLabel: { color: Colors.text2, fontSize: 12, fontWeight: "800", letterSpacing: 0.6, textTransform: "uppercase" },
   splitRow: { flexDirection: "row", gap: 12 },
   splitValue: { color: Colors.heading, fontSize: 20, fontWeight: "900" },
