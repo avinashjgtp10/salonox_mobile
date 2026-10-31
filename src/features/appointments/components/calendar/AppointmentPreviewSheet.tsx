@@ -1,7 +1,9 @@
 import { Text } from "@/components/ui/AppTypography";
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { useClientPrivacy } from "@/hooks/useClientPrivacy";
 import { getAppointmentBillLabel, getAppointmentInvoiceLabel } from "@/utils/clientPrivacy";
 import { appAlert as Alert } from "@/services/appAlert";
+import { salesService } from "@/services/sales.service";
 import { createStyles } from "@/features/appointments/styles/appointmentStyles";
 import { formatCurrency } from "@/features/appointments/utils/appointmentForm";
 import { formatBusinessDate, formatBusinessTime, formatItemTime, getAppointmentEndValue, getAppointmentGrandTotal, getAppointmentPaymentStatus, getAppointmentSalesSummary, getAppointmentStaffNames, getPartialBillAmounts, getAppointmentWebStatus, getPaymentStatusStyles, maskPhone, toInvoiceSequence } from "@/features/appointments/utils/appointmentScreenHelpers";
@@ -42,6 +44,7 @@ export function AppointmentPreviewSheet({
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const [stage, setStage] = useState<"actions" | "details">("actions");
   const [detailsTab, setDetailsTab] = useState<"appointment" | "notes">("appointment");
+  const [findingSale, setFindingSale] = useState(false);
   const currentStaff = useAppSelector(selectCurrentStaff);
 
   useEffect(() => {
@@ -92,8 +95,16 @@ export function AppointmentPreviewSheet({
     onContinueToPayment?.(appointment);
   };
 
-  const handleViewInvoice = () => {
-    if (!appointment.saleId) {
+  const handleViewInvoice = async () => {
+    if (findingSale) return;
+    let saleId = appointment.saleId;
+    if (!saleId) {
+      // Partial bills (and a few paid ones) have no sale_id on the appointment.
+      setFindingSale(true);
+      saleId = await salesService.findSaleIdForAppointment(appointment).catch(() => null) ?? "";
+      setFindingSale(false);
+    }
+    if (!saleId) {
       Alert.alert("Invoice unavailable", "A receipt has not been created for this appointment yet.");
       return;
     }
@@ -101,7 +112,7 @@ export function AppointmentPreviewSheet({
     onClose();
     requestAnimationFrame(() => router.push({
       pathname: "/quick-sale/checkout",
-      params: { openReceipt: "1", saleId: appointment.saleId },
+      params: { openReceipt: "1", saleId },
     } as Href));
   };
 
@@ -301,8 +312,8 @@ export function AppointmentPreviewSheet({
                   <Ionicons name="create-outline" size={20} color={Colors.appointmentText} />
                   <Text style={[styles.appointmentInvoiceText, styles.appointmentEditText]}>Edit</Text>
                 </TouchableOpacity>
-                <TouchableOpacity accessibilityRole="button" activeOpacity={0.88} onPress={handleViewInvoice} style={[styles.appointmentInvoiceButton, styles.appointmentBillButton]}>
-                  <Ionicons name="print-outline" size={20} color={Colors.onPrimary} />
+                <TouchableOpacity accessibilityRole="button" accessibilityState={{ busy: findingSale }} activeOpacity={0.88} disabled={findingSale} onPress={() => void handleViewInvoice()} style={[styles.appointmentInvoiceButton, styles.appointmentBillButton]}>
+                  {findingSale ? <ActivityIndicator color={Colors.onPrimary} size="small" /> : <Ionicons name="print-outline" size={20} color={Colors.onPrimary} />}
                   <Text style={styles.appointmentInvoiceText}>Print Bill</Text>
                 </TouchableOpacity>
               </View>

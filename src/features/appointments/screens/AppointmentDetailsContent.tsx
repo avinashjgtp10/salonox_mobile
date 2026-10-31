@@ -15,6 +15,7 @@ import { formatBusinessDate, formatBusinessTime, getAppointmentGrandTotal, getAp
 import { getJobCardBlocker, getJobCardItems, getJobCardStatus } from "@/features/appointments/utils/jobCard";
 import { isAssignedToStaff } from "@/features/appointments/utils/staffAssignment";
 import { addRealtimeEntityChangedListener } from "@/services/realtimeEvents";
+import { salesService } from "@/services/sales.service";
 import { getStaffAppointmentBilling } from "@/utils/staffBilling";
 import { fetchAppointmentByIdThunk } from "@/middleware/appointment/appointment.thunk";
 import { fetchSaleByIdThunk, fetchSalesInitThunk } from "@/middleware/sales/sales.thunk";
@@ -84,18 +85,35 @@ export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | 
     ),
   );
 
+  // Partial bills (and a few paid ones) never get sale_id on the appointment;
+  // find their sale by appointment so the bill can still be printed.
+  const [foundSale, setFoundSale] = useState<{ appointmentId: string; saleId: string } | null>(null);
+  const lookupClientId = appointment?.clientId;
+  const lookupScheduledAt = appointment?.scheduledAt;
+  const needsSaleLookup = Boolean(!isStaffMode && appointment && !appointment.saleId && appointment.status !== "Cancelled"
+    && getAppointmentPaymentStatus(appointment) !== "Unpaid");
+  useEffect(() => {
+    if (!needsSaleLookup || !appointmentId) return;
+    let cancelled = false;
+    salesService.findSaleIdForAppointment({ clientId: lookupClientId, id: appointmentId, scheduledAt: lookupScheduledAt })
+      .then((saleId) => { if (!cancelled && saleId) setFoundSale({ appointmentId, saleId }); })
+      .catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [appointmentId, lookupClientId, lookupScheduledAt, needsSaleLookup]);
+  const billSaleId = appointment?.saleId || (foundSale?.appointmentId === appointment?.id ? foundSale?.saleId : "") || "";
+
   useEffect(() => {
     // Product/membership/package line items bought alongside (or instead of)
     // a service live on the linked Sale, not on the appointment record — the
     // appointment's own total/service fields stay at 0 for a product-only
     // quick sale, so the sale has to be fetched whenever one is linked, not
     // only when the invoice number happens to be missing.
-    if (!isStaffMode && appointment?.saleId) {
-      void dispatch(fetchSaleByIdThunk(appointment.saleId));
+    if (!isStaffMode && billSaleId) {
+      void dispatch(fetchSaleByIdThunk(billSaleId));
     }
-  }, [appointment?.saleId, dispatch, isStaffMode]);
+  }, [billSaleId, dispatch, isStaffMode]);
 
-  const saleForAppointment = !isStaffMode && saleDetail && saleDetail.id === appointment?.saleId ? saleDetail : null;
+  const saleForAppointment = !isStaffMode && saleDetail && billSaleId && saleDetail.id === billSaleId ? saleDetail : null;
 
   const invoiceNumber =
     appointmentInvoiceNumber ??
@@ -308,8 +326,8 @@ export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | 
             {hasBill ? (
               <>
                 <ActionButton icon="create-outline" label="Edit" route={`/appointments/${appointment.id}/edit`} />
-                {appointment.saleId ? (
-                  <ActionButton icon="print-outline" label="Print Bill" route={`/quick-sale/checkout?saleId=${encodeURIComponent(appointment.saleId)}&openReceipt=1`} />
+                {billSaleId ? (
+                  <ActionButton icon="print-outline" label="Print Bill" route={`/quick-sale/checkout?saleId=${encodeURIComponent(billSaleId)}&openReceipt=1`} />
                 ) : null}
               </>
             ) : null}

@@ -199,6 +199,9 @@ function OwnerQuickSaleScreen({
   };
   // Billing an already-booked appointment (no draft sale involved).
   const isExistingBill = Boolean(params.draftId || params.appointmentId);
+  // Calendar "Continue to Payment": show only the payment sheet, never the
+  // Quick Sale cart behind it; closing the sheet closes the whole thing.
+  const paymentOnly = embedded && params.openPayment === "1" && isExistingBill;
   const { user } = useAuth();
   // Staff (Calendar & Quick Sale access) can't open the owner's Sales or
   // Dashboard screens, so their exits go back to their Calendar instead.
@@ -1783,7 +1786,7 @@ function OwnerQuickSaleScreen({
     />
   );
 
-  if (params.draftId && isLoadingDraft) {
+  if (params.draftId && isLoadingDraft && !paymentOnly) {
     return (
       <>
         <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
@@ -1799,12 +1802,12 @@ function OwnerQuickSaleScreen({
     );
   }
 
-  if (params.draftId && draftLoadError) {
+  if ((params.draftId || paymentOnly) && draftLoadError) {
     return (
       <>
         <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
           <AppStatusBar />
-          <QuickSaleHeader onBack={handleBack} title="Edit Draft" />
+          <QuickSaleHeader onBack={paymentOnly ? () => onRequestClose?.() : handleBack} title={paymentOnly ? "Payment" : "Edit Draft"} />
           <ErrorState message={draftLoadError} onRetry={() => void loadDraft()} />
         </SafeAreaView>
         {discardConfirmationModal}
@@ -1821,7 +1824,7 @@ function OwnerQuickSaleScreen({
       <>
         <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
           <AppStatusBar />
-          <QuickSaleHeader onBack={handleBack} title="Quick Sale" />
+          <QuickSaleHeader onBack={paymentOnly ? () => onRequestClose?.() : handleBack} title={paymentOnly ? "Payment" : "Quick Sale"} />
           <ErrorState message={initError} onRetry={() => void dispatch(fetchSalesInitThunk())} />
         </SafeAreaView>
         {discardConfirmationModal}
@@ -1831,9 +1834,16 @@ function OwnerQuickSaleScreen({
 
   return (
     <>
-      <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
+      <SafeAreaView edges={["top", "bottom"]} style={paymentOnly ? styles.paymentOnlyRoot : styles.safeArea}>
         {!embedded ? <AppStatusBar /> : null}
 
+        {paymentOnly ? (
+          !isCheckoutVisible && !isClientPickerVisible ? (
+            <View style={styles.paymentOnlyLoader}>
+              <ActivityIndicator color={Colors.onPrimary} size="large" />
+            </View>
+          ) : null
+        ) : <>
         <QuickSaleHeader
           embedded={embedded}
           layout="leading"
@@ -1980,9 +1990,9 @@ function OwnerQuickSaleScreen({
 
           </View>
         </BottomSheet>
+        </>}
 
-
-        {!isOverlayActive ? (
+        {!isOverlayActive && !paymentOnly ? (
           <MiniBillBar
             embedded={embedded}
             isPricingLoading={isPricingLoading}
@@ -1996,7 +2006,14 @@ function OwnerQuickSaleScreen({
         ) : null}
 
         <ClientPickerSheet
-          onClose={() => setIsClientPickerVisible(false)}
+          onClose={() => {
+            setIsClientPickerVisible(false);
+            // Payment-only has nothing behind the picker: go back to the payment.
+            if (paymentOnly) {
+              setCheckoutInitialStep("payment");
+              setIsCheckoutVisible(true);
+            }
+          }}
           onSelect={handleClientPickerSelect}
           renderInline={embedded}
           selectedClientId={hasClientStepSelection ? selectedClient.id : null}
@@ -2074,7 +2091,7 @@ function OwnerQuickSaleScreen({
           isSuccess={checkoutSubmission.isSuccess}
           consumableProductNames={consumableProductNames}
           items={cart.items}
-          onAddMore={closeCheckout}
+          onAddMore={paymentOnly ? undefined : closeCheckout}
           onApplyCoupon={() => void handleApplyCoupon()}
           onAssignStaff={cart.setStaff}
           onChangeCouponCode={(value) => {
@@ -2084,6 +2101,7 @@ function OwnerQuickSaleScreen({
           onChangeDiscountApplyTo={setDiscountApplyTo}
           onChangeCustomer={() => {
             closeCheckout();
+            if (paymentOnly) setShouldResumeCheckoutAtCharges(true);
             if (clientPickerOpenTimeoutRef.current) {
               clearTimeout(clientPickerOpenTimeoutRef.current);
             }
@@ -2103,7 +2121,7 @@ function OwnerQuickSaleScreen({
             setDraftDiscountPercent(percentage);
           }}
           onChangeTip={setTipInput}
-          onClose={closeCheckout}
+          onClose={paymentOnly ? () => { closeCheckout(); onRequestClose?.(); } : closeCheckout}
           onCompleteSale={(payment) => guardCheckedOut(() => void handleCompleteSale(payment))}
           onRemoveCoupon={handleRemoveCoupon}
           onRemoveItem={handleRemoveItem}
@@ -2162,6 +2180,16 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   safeArea: {
     backgroundColor: "#FAF6F8",
     flex: 1,
+  },
+  paymentOnlyRoot: {
+    backgroundColor: "transparent",
+    flex: 1,
+  },
+  paymentOnlyLoader: {
+    alignItems: "center",
+    backgroundColor: "rgba(15, 23, 42, 0.58)",
+    flex: 1,
+    justifyContent: "center",
   },
   topSection: {
     gap: Spacing.sm,

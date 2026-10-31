@@ -27,7 +27,8 @@ export type CheckoutSheetProps = {
   isSuccess: boolean;
   pricingError: string | null;
   items: CartItem[];
-  onAddMore: () => void;
+  /** Omit to hide "Add More" (payment-only checkout has no cart to go back to). */
+  onAddMore?: () => void;
   onApplyCoupon: () => void;
   onAssignStaff: (lineId: string, staffId: string | null, staffName: string | null) => void;
   onChangeCouponCode: (value: string) => void;
