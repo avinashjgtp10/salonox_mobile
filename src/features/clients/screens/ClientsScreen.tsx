@@ -8,7 +8,7 @@ import { screenTours } from "@/features/userGuide/screenTours";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect, type Href } from "expo-router";
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FlatList, Modal, Pressable, RefreshControl, StyleSheet, TouchableOpacity, View } from "react-native";
+import { FlatList, Modal, Pressable, RefreshControl, StyleSheet, Switch, TouchableOpacity, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 import Animated, { FadeInDown, LinearTransition } from "react-native-reanimated";
@@ -36,6 +36,9 @@ import {
 } from "@/middleware/client/client.thunk";
 import { useAppToast } from "@/hooks/useAppToast";
 import { clientService } from "@/services/client.service";
+import { useClientRequiredFields, type ClientRequiredFields } from "@/services/clientRequiredFields";
+import { selectCurrentUser } from "@/store/user/user.slice";
+import { canSettleCommission as isOwnerOrAdmin } from "@/utils/userProfile";
 import {
   selectClients,
   selectClientDeletingIds,
@@ -305,6 +308,12 @@ function ClientsScreenContent() {
   const dispatch = useAppDispatch();
   const toast = useAppToast();
   const insets = useSafeAreaInsets();
+  // Salon-wide rule, so only owner/admin get the switches (same as the web's client form toggles).
+  const canConfigureClientForm = isOwnerOrAdmin(useAppSelector(selectCurrentUser)?.role);
+  const { config: requiredDates, toggle: toggleRequiredDate } = useClientRequiredFields();
+  const handleToggleRequiredDate = (field: keyof ClientRequiredFields) => {
+    toggleRequiredDate(field).catch(() => toast.showError("Couldn't update the setting. Please try again."));
+  };
   const clients = useAppSelector(selectClients);
   const deletingClientIds = useAppSelector(selectClientDeletingIds);
   const clientsError = useAppSelector(selectClientsError);
@@ -692,6 +701,25 @@ function ClientsScreenContent() {
                 </TourButton>
               </View>
 
+              {canConfigureClientForm ? (
+                <View style={styles.requiredCard}>
+                  <Text style={styles.requiredTitle}>Mandatory when adding a client</Text>
+                  <Text style={styles.sortMeta}>Quick Sale, Calendar and Add Client</Text>
+                  {([["require_dob", "Date of Birth (DOB)"], ["require_doa", "Anniversary (DOA)"]] as const).map(([field, label]) => (
+                    <View key={field} style={styles.requiredRow}>
+                      <Text style={styles.requiredLabel}>{label}</Text>
+                      <Switch
+                        accessibilityLabel={`${label} mandatory`}
+                        onValueChange={() => handleToggleRequiredDate(field)}
+                        thumbColor="#FFFFFF"
+                        trackColor={{ false: Colors.border, true: Colors.primaryText }}
+                        value={requiredDates[field]}
+                      />
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+
               <View style={styles.sortRow}>
                 <Text style={styles.sortMeta}>
                   {`${totalCount.toLocaleString("en-IN")} client${totalCount === 1 ? "" : "s"}`}
@@ -1065,6 +1093,32 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     color: Colors.primaryText,
     fontSize: 10,
     fontWeight: "900",
+  },
+  requiredCard: {
+    backgroundColor: Colors.card,
+    borderColor: Colors.border,
+    borderRadius: AppRadius.card,
+    borderWidth: 1,
+    gap: 4,
+    marginTop: AppLayout.sectionGap,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  requiredLabel: {
+    color: Colors.heading,
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  requiredRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    minHeight: 40,
+  },
+  requiredTitle: {
+    color: Colors.heading,
+    fontSize: 15,
+    fontWeight: "800",
   },
   sortRow: {
     alignItems: "center",

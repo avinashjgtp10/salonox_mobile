@@ -42,14 +42,15 @@ import { useThemeColors } from "@/theme/ThemeProvider";
 import { EMAIL_INVALID_MESSAGE, isValidEmail, PHONE_DIGIT_COUNT, PHONE_INVALID_MESSAGE } from "@/utils/validation";
 import { splitFullName } from "@/utils/name";
 import { useValidationScroll } from "@/hooks/useValidationScroll";
+import { useClientRequiredFields } from "@/services/clientRequiredFields";
 
 const GENDER_OPTIONS = ["Female", "Male", "Other"] as const;
 const STATE_OPTIONS = ["Andhra Pradesh", "Delhi", "Gujarat", "Karnataka", "Maharashtra", "Rajasthan", "Tamil Nadu", "Telangana", "Uttar Pradesh", "West Bengal"];
 const LEAD_SOURCE_OPTIONS = ["Walk-in", "Google", "Instagram", "Facebook", "Referral", "Website", "Other"];
 
-type ClientField = "email" | "firstName" | "phone";
+type ClientField = "email" | "firstName" | "phone" | "birthDate" | "anniversary";
 type ClientFieldErrors = Partial<Record<ClientField, string>>;
-const VALIDATION_FIELD_ORDER: ClientField[] = ["firstName", "phone", "email"];
+const VALIDATION_FIELD_ORDER: ClientField[] = ["firstName", "phone", "email", "birthDate", "anniversary"];
 
 const getPhoneForEdit = (clientPhone: string, phoneCountryCode?: string | null) => {
   const trimmedPhone = clientPhone === "-" ? "" : clientPhone.trim();
@@ -146,6 +147,8 @@ export default function NewClientScreen() {
   const clientsQuery = useAppSelector(selectClientsQuery);
   const hasPrefilledRef = useRef(false);
   const { scrollToFirstError, scrollViewRef, setFieldRef } = useValidationScroll(VALIDATION_FIELD_ORDER);
+  // Clients screen toggles: DOB / anniversary mandatory when adding (not editing) a client.
+  const { config: requiredDates } = useClientRequiredFields();
 
   const [email, setEmail] = useState("");
   const [firstName, setFirstName] = useState("");
@@ -246,6 +249,8 @@ export default function NewClientScreen() {
     if (trimmedEmail && !isValidEmail(trimmedEmail)) {
       nextErrors.email = EMAIL_INVALID_MESSAGE;
     }
+    if (!isEditMode && requiredDates.require_dob && !birthDate) nextErrors.birthDate = "Date of birth is required.";
+    if (!isEditMode && requiredDates.require_doa && !anniversaryDate) nextErrors.anniversary = "Anniversary date is required.";
 
     setFieldErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) {
@@ -473,16 +478,20 @@ export default function NewClientScreen() {
             </View>
             <DinggSelect label="Gender*" onSelect={(value) => setGender(value as (typeof GENDER_OPTIONS)[number])} options={GENDER_OPTIONS} value={gender} />
             <DateField
-              label="Date of birth"
+              ref={(view) => setFieldRef("birthDate", view)}
+              error={fieldErrors.birthDate}
+              label={!isEditMode && requiredDates.require_dob ? "Date of birth*" : "Date of birth"}
               maximumDate={new Date()}
-              onChange={setBirthDate}
+              onChange={(value) => { setBirthDate(value); setFieldErrors((current) => ({ ...current, birthDate: undefined })); }}
               placeholder="Select date of birth"
               value={birthDate}
             />
             <DateField
-              label="Anniversary"
+              ref={(view) => setFieldRef("anniversary", view)}
+              error={fieldErrors.anniversary}
+              label={!isEditMode && requiredDates.require_doa ? "Anniversary*" : "Anniversary"}
               maximumDate={new Date()}
-              onChange={setAnniversaryDate}
+              onChange={(value) => { setAnniversaryDate(value); setFieldErrors((current) => ({ ...current, anniversary: undefined })); }}
               placeholder="Select anniversary date"
               value={anniversaryDate}
             />
