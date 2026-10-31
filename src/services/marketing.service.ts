@@ -21,6 +21,12 @@ export const normalizeMarketingCampaign = (value: unknown): MarketingCampaign =>
   };
 };
 export const marketingService = {
+  /** Same rule as the web's MarketingRoutes: WhatsApp is set up once the salon has a phone_number_id. */
+  async isWhatsAppConnected(signal?: AbortSignal): Promise<boolean> {
+    const response = await api.get(MARKETING.WA_CONFIG, { signal });
+    const c = asRecord(unwrap(response.data));
+    return Boolean(str(c.phone_number_id ?? c.phoneNumberId));
+  },
   async getInsights(days: 7 | 30 | 90, signal?: AbortSignal): Promise<MarketingInsights> {
     const response = await api.get(MARKETING.INSIGHTS, { params: { days }, signal, timeout: 120000 });
     const payload = unwrap(response.data);
