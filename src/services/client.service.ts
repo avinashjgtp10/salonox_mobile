@@ -33,8 +33,11 @@ import type {
   ClientHistorySummary,
   ClientHistorySummaryApi,
   ClientMembershipRecord,
+  ClientCommunication,
+  ClientLedgerEntry,
   ClientNote,
   ClientNoteApi,
+  ClientReview,
   ClientPackageRecord,
   ClientPackageServiceRecord,
   ClientSaleItem,
@@ -1182,6 +1185,53 @@ export const clientService = {
       id: toSafeString(row?.id, `note-${index}`),
       note: toSafeString(row?.note),
       staffName: toSafeString(row?.staff_name),
+      createdAt: toNullableString(row?.created_at),
+    }));
+  },
+
+  /** E-wallet amounts and reward/referral points share one row shape (the web's LedgerEntry). */
+  async getClientLedger(kind: "ewallet" | "rewardPoints" | "referral", clientId: string): Promise<ClientLedgerEntry[]> {
+    const url = kind === "ewallet" ? CLIENT.EWALLET_LEDGER(clientId)
+      : kind === "rewardPoints" ? CLIENT.REWARD_POINTS_LEDGER(clientId) : CLIENT.REFERRAL_LEDGER(clientId);
+    const response = await api.get<ApiResponse<Record<string, unknown>[] | null>>(url);
+    const rows = Array.isArray(response.data.data) ? response.data.data : [];
+    return rows.map((row, index) => ({
+      id: toSafeString(row?.id, `${kind}-${index}`),
+      type: toSafeString(row?.type),
+      amount: toSafeNumber(row?.amount ?? row?.points),
+      balanceAfter: toSafeNumber(row?.balance_after),
+      sourceType: toNullableString(row?.source_type),
+      note: toNullableString(row?.note),
+      createdAt: toNullableString(row?.created_at),
+    }));
+  },
+
+  async getClientCommunications(clientId: string): Promise<ClientCommunication[]> {
+    const response = await api.get<ApiResponse<Record<string, unknown>[] | null>>(CLIENT.COMMUNICATIONS(clientId));
+    const rows = Array.isArray(response.data.data) ? response.data.data : [];
+    return rows.map((row, index) => ({
+      id: `communication-${index}`,
+      label: toSafeString(row?.label),
+      source: toSafeString(row?.source),
+      status: toSafeString(row?.status),
+      sentAt: toNullableString(row?.sent_at) ?? toNullableString(row?.created_at),
+    }));
+  },
+
+  async getClientReviews(clientId: string): Promise<ClientReview[]> {
+    const response = await api.get<ApiResponse<Record<string, unknown>[] | null>>(CLIENT.REVIEWS(clientId));
+    const rows = Array.isArray(response.data.data) ? response.data.data : [];
+    return rows.map((row, index) => ({
+      id: toSafeString(row?.id, `review-${index}`),
+      rating: toSafeNumber(row?.rating),
+      staffName: toNullableString(row?.staff_name),
+      comments: toNullableString(row?.additional_comments),
+      improvementTags: Array.isArray(row?.improvement_tags) ? row.improvement_tags.map((tag) => toSafeString(tag)).filter(Boolean) : [],
+      serviceRatings: (Array.isArray(row?.service_ratings) ? row.service_ratings : []).map((entry: Record<string, unknown>) => ({
+        serviceName: toSafeString(entry?.service_name),
+        staffName: toNullableString(entry?.staff_name),
+        rating: toSafeNumber(entry?.rating),
+      })),
       createdAt: toNullableString(row?.created_at),
     }));
   },
