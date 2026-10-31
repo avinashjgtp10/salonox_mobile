@@ -650,10 +650,12 @@ function CheckoutSheetComponent({
                           <Text style={styles.splitTipActionText}>Split Tip by Staff</Text>
                         </TouchableOpacity>
                       ) : null}
-                      <TouchableOpacity activeOpacity={0.84} onPress={onAddMore} style={styles.addMoreButton}>
-                        <Ionicons name="add" size={15} color={Colors.primaryText} />
-                        <Text style={styles.addMoreText}>Add More</Text>
-                      </TouchableOpacity>
+                      {onAddMore ? (
+                        <TouchableOpacity activeOpacity={0.84} onPress={onAddMore} style={styles.addMoreButton}>
+                          <Ionicons name="add" size={15} color={Colors.primaryText} />
+                          <Text style={styles.addMoreText}>Add More</Text>
+                        </TouchableOpacity>
+                      ) : null}
                     </View>
                   </View>
 

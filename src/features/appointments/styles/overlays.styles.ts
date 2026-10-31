@@ -12,6 +12,10 @@ export const createOverlaysStyles = (Colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 28,
   },
+  quickSalePaymentOnly: {
+    flex: 1,
+    width: "100%",
+  },
   quickSaleModalSurface: {
     backgroundColor: Colors.bg,
     borderRadius: 8,

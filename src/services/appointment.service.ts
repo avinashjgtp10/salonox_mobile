@@ -690,9 +690,13 @@ export const appointmentService = {
     appointmentId: string,
     payload: UpdateAppointmentRequest,
   ): Promise<AppointmentMutationResponse> {
+    // PATCH writes every top-level key straight into an appointments column, and
+    // these have none ("column end_time does not exist" → 500). Create ignores them.
+    const { end_time: _endTime, start_time: _startTime, price: _price, discount: _discount, service_name: _serviceName, payment_method: _paymentMethod, ...patch } =
+      payload as UpdateAppointmentRequest & { discount?: unknown; payment_method?: unknown; price?: unknown };
     const response = await api.patch<AppointmentDetailApiResponse>(
       APPOINTMENT.UPDATE(appointmentId),
-      payload,
+      patch,
     );
     return {
       appointment: normalizeAppointment(getAppointmentFromPayload(response.data.data)),
