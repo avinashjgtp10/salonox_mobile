@@ -1,6 +1,6 @@
 import { Text } from "@/components/ui/AppTypography";
 import { useClientPrivacy } from "@/hooks/useClientPrivacy";
-import { getAppointmentBillLabel } from "@/utils/clientPrivacy";
+import { getAppointmentBillLabel, getAppointmentInvoiceLabel } from "@/utils/clientPrivacy";
 import { appAlert as Alert } from "@/services/appAlert";
 import { createStyles } from "@/features/appointments/styles/appointmentStyles";
 import { formatCurrency } from "@/features/appointments/utils/appointmentForm";
@@ -149,7 +149,7 @@ export function AppointmentPreviewSheet({
               <View style={styles.appointmentClientAvatar}><Ionicons name="person-outline" size={26} color={Colors.primaryText} /></View>
               <View style={styles.appointmentClientCopy}>
                 <Text style={styles.appointmentClientName}>{staffMode ? getAppointmentBillLabel(appointment) : appointment.clientName}</Text>
-                {staffMode ? <Text style={styles.appointmentClientPhone}>{clientName(appointment.clientName)}</Text> : null}
+                {staffMode && getAppointmentInvoiceLabel(appointment) ? <Text style={styles.appointmentClientPhone}>{clientName(appointment.clientName)}</Text> : null}
                 <Text style={styles.appointmentClientPhone}>{maskPhone(appointment.phone)}</Text>
                 {!staffMode && clientEmail ? <Text numberOfLines={1} style={styles.appointmentClientPhone}>{clientEmail}</Text> : null}
                 {!readOnly ? (
