@@ -4,7 +4,7 @@ import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect, useLocalSearchParams, type Href } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, AppState, FlatList, Keyboard, Linking, Modal, TouchableOpacity, View } from "react-native";
+import { Alert, AppState, FlatList, Keyboard, Linking, Modal, Platform, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { fetchInboxConversationsThunk, fetchInboxMessagesThunk, sendInboxReplyThunk } from "@/middleware/inbox/inbox.thunk";
@@ -15,6 +15,7 @@ import type { InboxMessage } from "@/types/inbox";
 import { messageDay } from "@/utils/inboxPresentation";
 import { canAttemptInboxReply, getReplyWindow } from "@/utils/whatsappReplyWindow";
 import { hasCustomPermission } from "@/utils/permissions";
+import { ClientProfileModal } from "@/features/clients/components/ClientProfileModal";
 import { CustomerPanel } from "./CustomerPanel";
 import { InboxAvatar, InboxIcon } from "./InboxControls";
 import { MessageBubble } from "./MessageBubble";
@@ -45,6 +46,13 @@ function Thread({ phone }: { phone: string }) {
   const connected = useAppSelector(state => state.inbox.connected);
   const [now, setNow] = useState(Date.now());
   const [infoOpen, setInfoOpen] = useState(false);
+  // View Profile: the web's client profile popup, opened over this chat.
+  const [profileClientId, setProfileClientId] = useState<string | null>(null);
+  const viewProfile = (clientId: string) => {
+    setInfoOpen(false);
+    // iOS can't present a modal while the info sheet is still dismissing.
+    setTimeout(() => setProfileClientId(clientId), Platform.OS === "ios" ? 450 : 0);
+  };
   const [tray, setTray] = useState<"quick" | "emoji" | null>(null);
   // Newest first for the inverted list below: the chat opens on the latest
   // message and new messages appear at the bottom on their own. The only
@@ -141,10 +149,12 @@ function Thread({ phone }: { phone: string }) {
         <TouchableOpacity accessibilityRole="button" accessibilityLabel="Close customer info" onPress={() => setInfoOpen(false)} style={{ flex: 1 }} />
         <SafeAreaView edges={["bottom"]} style={{ height: "88%", backgroundColor: p.surface, borderTopLeftRadius: 22, borderTopRightRadius: 22, overflow: "hidden" }}>
           <View style={{ height: 5, width: 38, backgroundColor: p.line, borderRadius: 3, alignSelf: "center", marginTop: 10 }} />
-          {infoOpen && <CustomerPanel phone={phone} onClose={() => setInfoOpen(false)} />}
+          {infoOpen && <CustomerPanel phone={phone} onClose={() => setInfoOpen(false)} onViewProfile={viewProfile} />}
         </SafeAreaView>
       </View>
     </Modal>
+    {/* Send WhatsApp just returns to this chat — it already is the client's WhatsApp. */}
+    <ClientProfileModal clientId={profileClientId} onClose={() => setProfileClientId(null)} onSendWhatsApp={() => setProfileClientId(null)} />
   </SafeAreaView></View>;
 }
 
