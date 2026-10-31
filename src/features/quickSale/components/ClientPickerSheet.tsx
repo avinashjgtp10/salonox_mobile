@@ -17,6 +17,7 @@ import { DateField } from "@/components/ui/DateField";
 import { toClientDatePayload, validateClientDates } from "@/utils/clientDates";
 import { createClientThunk } from "@/middleware/client/client.thunk";
 import { clientService } from "@/services/client.service";
+import { useClientRequiredFields } from "@/services/clientRequiredFields";
 import { selectActiveBranchId } from "@/store/branch/branch.slice";
 import {
   selectClientCreateError,
@@ -79,6 +80,8 @@ export function ClientPickerSheet({
   const [newDob, setNewDob] = useState("");
   const [newAnniversary, setNewAnniversary] = useState("");
   const [formErrors, setFormErrors] = useState<ClientFormErrors>({});
+  // Clients screen toggles: DOB / anniversary mandatory for new clients.
+  const { config: requiredDates } = useClientRequiredFields();
 
   const trimmedQuery = debouncedQuery.trim();
   const visibleClients = useMemo(() => uniqueById(clients), [clients]);
@@ -158,6 +161,8 @@ export function ClientPickerSheet({
     else if (!isValidPhoneDigits(trimmedPhone)) nextErrors.phone = PHONE_INVALID_MESSAGE;
     if (!newGender) nextErrors.gender = "Select a gender.";
     Object.assign(nextErrors, validateClientDates(newDob, newAnniversary));
+    if (requiredDates.require_dob && !newDob) nextErrors.dob = "Date of birth is required.";
+    if (requiredDates.require_doa && !newAnniversary) nextErrors.anniversary = "Anniversary date is required.";
 
     if (Object.keys(nextErrors).length > 0) {
       setFormErrors(nextErrors);
@@ -298,7 +303,7 @@ export function ClientPickerSheet({
             <View style={styles.nameField}>
               <DateField
                 error={formErrors.dob}
-                label="Date of Birth"
+                label={requiredDates.require_dob ? "Date of Birth*" : "Date of Birth"}
                 maximumDate={new Date()}
                 onChange={(value) => {
                   setNewDob(value);
@@ -311,7 +316,7 @@ export function ClientPickerSheet({
             <View style={styles.nameField}>
               <DateField
                 error={formErrors.anniversary}
-                label="Anniversary Date"
+                label={requiredDates.require_doa ? "Anniversary Date*" : "Anniversary Date"}
                 maximumDate={new Date()}
                 onChange={(value) => {
                   setNewAnniversary(value);
