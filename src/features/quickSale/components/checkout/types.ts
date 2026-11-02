@@ -8,6 +8,15 @@ export type CheckoutStep = "review" | "payment";
 export type DiscountApplyTarget = "service" | "product" | "package" | "membership" | "entireBill";
 export type ExtraChargeKey = "convenienceFee" | "otherCharges" | "serviceCharge";
 
+/** The client's package as an opt-in "Package" benefit (web parity). */
+export type PackageBenefit = {
+  checked: boolean;
+  onToggle: (value: boolean) => void;
+  packageName: string;
+  remainingSessions: number;
+  totalSessions: number;
+};
+
 export type CheckoutSheetProps = {
   appliedCoupon: ValidateCouponResult | null;
   consumableProductNames: Record<string, string>;
@@ -53,6 +62,8 @@ export type CheckoutSheetProps = {
   overallDiscountInput: string;
   overallDiscountPercent: number;
   overallDiscountType: "flat" | "percentage";
+  /** Shown only while a client package covers a service on the bill. */
+  packageBenefit?: PackageBenefit | null;
   productStockErrors: Record<string, string>;
   redemptions: ReturnType<typeof useRedemptions>;
   renderInline?: boolean;

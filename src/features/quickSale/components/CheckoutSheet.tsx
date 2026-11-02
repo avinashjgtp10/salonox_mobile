@@ -90,6 +90,7 @@ function CheckoutSheetComponent({
   overallDiscountInput,
   overallDiscountPercent,
   overallDiscountType,
+  packageBenefit,
   pricingError,
   productStockErrors,
   redemptions,
@@ -397,7 +398,7 @@ function CheckoutSheetComponent({
     [items],
   );
 
-  const benefitCards = useBenefitCards({ redemptions, selectedClient, totals });
+  const benefitCards = useBenefitCards({ packageBenefit, redemptions, selectedClient, totals });
 
   const handleDiscountChange = (value: string) => {
     setDiscountDraft(value);

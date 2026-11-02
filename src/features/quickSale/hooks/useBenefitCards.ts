@@ -25,10 +25,23 @@ type BenefitCardConfig = {
   value: string;
 };
 
-export function useBenefitCards({ redemptions, selectedClient, totals }: Pick<CheckoutSheetProps, "redemptions" | "selectedClient" | "totals">) {
+export function useBenefitCards({ packageBenefit, redemptions, selectedClient, totals }: Pick<CheckoutSheetProps, "packageBenefit" | "redemptions" | "selectedClient" | "totals">) {
   const Colors = useThemeColors();
   return useMemo<BenefitCardConfig[]>(() => {
     const cards: BenefitCardConfig[] = [];
+
+    if (packageBenefit) {
+      cards.push({
+        accent: Colors.gold,
+        checked: packageBenefit.checked,
+        icon: "albums-outline",
+        key: "package",
+        onToggle: packageBenefit.onToggle,
+        subtitle: packageBenefit.packageName,
+        title: "Package",
+        value: `${packageBenefit.remainingSessions}/${packageBenefit.totalSessions} Remaining`,
+      });
+    }
 
     if (redemptions.isMembershipWalletEligible) {
       cards.push({
@@ -137,6 +150,6 @@ export function useBenefitCards({ redemptions, selectedClient, totals }: Pick<Ch
     }
 
     return cards;
-  }, [Colors, redemptions, selectedClient.id, selectedClient.membership, totals]);
+  }, [Colors, packageBenefit, redemptions, selectedClient.id, selectedClient.membership, totals]);
 
 }
