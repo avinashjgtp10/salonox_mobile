@@ -177,6 +177,10 @@ export const createAppointmentDetailsStyles = (Colors: ThemeColors) => StyleShee
   appointmentBillButton: { flex: 1, margin: 0 },
   appointmentEditButton: { backgroundColor: Colors.appointmentSurface, borderColor: Colors.appointmentAccent, borderWidth: 1.5 },
   appointmentEditText: { color: Colors.appointmentText },
+  // Edit + Continue to Payment share the row evenly: same width, same 1.5
+  // outline (so equal height) and the same label size.
+  appointmentPayButton: { borderColor: Colors.appointmentAccent, borderWidth: 1.5, paddingHorizontal: 10 },
+  appointmentPairText: { flexShrink: 1, fontSize: 16 },
   appointmentPaymentBadge: { alignSelf: "flex-start", borderRadius: 999, marginTop: 6, paddingHorizontal: 10, paddingVertical: 3 },
   appointmentPaymentBadgeText: { fontSize: 11, fontWeight: "900", textTransform: "uppercase" },
   previewSheet: {

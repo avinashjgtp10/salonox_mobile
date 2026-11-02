@@ -318,10 +318,17 @@ export function AppointmentPreviewSheet({
                 </TouchableOpacity>
               </View>
             ) : canContinueToPayment ? (
-              <TouchableOpacity accessibilityRole="button" activeOpacity={0.88} onPress={handleContinueToPayment} style={styles.appointmentInvoiceButton}>
-                <Ionicons name="card-outline" size={20} color={Colors.onPrimary} />
-                <Text style={styles.appointmentInvoiceText}>Continue to Payment</Text>
-              </TouchableOpacity>
+              <View style={styles.appointmentBillActions}>
+                <TouchableOpacity accessibilityRole="button" activeOpacity={0.88} onPress={openEditor} style={[styles.appointmentInvoiceButton, styles.appointmentBillButton, styles.appointmentEditButton]}>
+                  <Ionicons name="create-outline" size={20} color={Colors.appointmentText} />
+                  <Text style={[styles.appointmentInvoiceText, styles.appointmentEditText, styles.appointmentPairText]}>Edit</Text>
+                </TouchableOpacity>
+                {/* "Continue to Payment" can't fit half the card at a readable size. */}
+                <TouchableOpacity accessibilityLabel="Continue to Payment" accessibilityRole="button" activeOpacity={0.88} onPress={handleContinueToPayment} style={[styles.appointmentInvoiceButton, styles.appointmentBillButton, styles.appointmentPayButton]}>
+                  <Ionicons name="card-outline" size={20} color={Colors.onPrimary} />
+                  <Text numberOfLines={1} style={[styles.appointmentInvoiceText, styles.appointmentPairText]}>Pay Now</Text>
+                </TouchableOpacity>
+              </View>
             ) : (
               <TouchableOpacity activeOpacity={0.88} disabled style={[styles.appointmentInvoiceButton, styles.appointmentInvoiceDisabled]}>
                 <Ionicons name="receipt-outline" size={20} color={Colors.onPrimary} />
