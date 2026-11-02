@@ -29,6 +29,7 @@ import {
   CheckoutSheet,
   type DiscountApplyTarget,
 } from "@/features/quickSale/components/CheckoutSheet";
+import type { PackageBenefit } from "@/features/quickSale/components/checkout/types";
 import { ClientDatesSheet } from "@/features/quickSale/components/ClientDatesSheet";
 import { ClientPickerSheet } from "@/features/quickSale/components/ClientPickerSheet";
 import { ErrorState } from "@/features/quickSale/components/StateViews";
@@ -123,6 +124,7 @@ import { getApiErrorMessage } from "@/services/api";
 import { couponService } from "@/services/coupon.service";
 import { packageService } from "@/services/package.service";
 import {
+  getPackageCoverageAllocations,
   getPackageCoveredQuantity,
   getPackageSessionConsumptions,
 } from "@/features/quickSale/utils/packageCoverage";
@@ -282,10 +284,28 @@ function OwnerQuickSaleScreen({
   const { consumableProductNames, resetConsumableProductNames } = useConsumableProductNames(cart.items);
   const clientPackages = useClientPackages({
     clientId: selectedClient.id,
-    onPackagesLoaded: recalculatePackageCoverage,
     salonId,
   });
   const resetClientPackages = clientPackages.reset;
+  // Package coverage is a manual opt-in, as on the web: off for a new bill,
+  // restored for a reopened appointment saved with it, and dropped when the
+  // client changes (an opt-in only counts for the client it was made for).
+  const [packageOptIn, setPackageOptIn] = useState({ apply: false, clientId: "" });
+  const applyPackage = packageOptIn.apply && packageOptIn.clientId === selectedClient.id;
+  const setApplyPackage = useCallback(
+    (apply: boolean) => setPackageOptIn({ apply, clientId: selectedClient.id }),
+    [selectedClient.id],
+  );
+  const applyPackageCoverage = useCallback(() => {
+    if (!applyPackage) {
+      recalculatePackageCoverage([]);
+    } else if (clientPackages.isReliable) {
+      recalculatePackageCoverage(clientPackages.packages);
+    }
+  }, [applyPackage, clientPackages.isReliable, clientPackages.packages, recalculatePackageCoverage]);
+  useEffect(() => {
+    applyPackageCoverage();
+  }, [applyPackageCoverage]);
   const dirtySignature = useMemo(
     () =>
       getQuickSaleDirtySignature({
@@ -404,6 +424,11 @@ function OwnerQuickSaleScreen({
     setAppointmentSlot(mapAppointmentToSlot(appointment));
     setSelectedQuickSaleStaff(mapAppointmentToStaff(appointment));
     setSelectedClient(mapAppointmentToClient(appointment) ?? WALK_IN_CLIENT);
+    // Saved with package pricing → keep the Package benefit ticked.
+    setPackageOptIn({
+      apply: Array.isArray(raw.services) && raw.services.some((row) => row.is_package_service === true),
+      clientId: appointment.clientId ?? WALK_IN_CLIENT.id,
+    });
     setHasClientStepSelection(true);
     setSaleNotes(appointment.notes ?? "");
     setTipInput(String(Number(raw.tip_amount) || ""));
@@ -561,6 +586,7 @@ function OwnerQuickSaleScreen({
     clearCart();
     resetCheckoutSubmission();
     resetClientPackages();
+    setPackageOptIn({ apply: false, clientId: "" });
     resetConsumableProductNames();
     resetPricing();
     setActiveTab("services");
@@ -1157,16 +1183,12 @@ function OwnerQuickSaleScreen({
         taxRate: service.taxRate,
         unitPrice: service.price,
       });
-      if (clientPackages.isReliable) {
-        recalculatePackageCoverage(clientPackages.packages);
-      }
+      applyPackageCoverage();
     },
     [
+      applyPackageCoverage,
       cart,
-      clientPackages.isReliable,
-      clientPackages.packages,
       handleRemoveItem,
-      recalculatePackageCoverage,
       defaultLineStaff,
     ],
   );
@@ -1232,6 +1254,23 @@ function OwnerQuickSaleScreen({
     selectedClient.id,
     totals,
   ]);
+
+  // Offered (like the web's "Package" benefit card) only while one of the
+  // client's packages covers a service on the bill.
+  const packageBenefit = useMemo<PackageBenefit | null>(() => {
+    if (!selectedClient.id || !clientPackages.isReliable) return null;
+    const eligiblePackage = clientPackages.packages.find((clientPackage) =>
+      cart.items.some((item) => getPackageCoverageAllocations(item, [clientPackage]).length > 0),
+    );
+    if (!eligiblePackage) return null;
+    return {
+      checked: applyPackage,
+      onToggle: setApplyPackage,
+      packageName: eligiblePackage.packageName,
+      remainingSessions: eligiblePackage.services.reduce((total, service) => total + Math.max(0, service.remainingSessions), 0),
+      totalSessions: eligiblePackage.services.reduce((total, service) => total + service.totalSessions, 0),
+    };
+  }, [applyPackage, cart.items, clientPackages.isReliable, clientPackages.packages, selectedClient.id, setApplyPackage]);
 
   const packageCoveredServiceItems = useMemo(
     () =>
@@ -2060,9 +2099,7 @@ function OwnerQuickSaleScreen({
                 taxRate: service.taxRate,
                 unitPrice: service.price,
               });
-              if (clientPackages.isReliable) {
-                recalculatePackageCoverage(clientPackages.packages);
-              }
+              applyPackageCoverage();
             }
           }}
           visible={Boolean(changeServiceLineId)}
@@ -2140,6 +2177,7 @@ function OwnerQuickSaleScreen({
           overallDiscountInput={overallDiscountInput}
           overallDiscountPercent={draftDiscountPercent}
           overallDiscountType={draftDiscountType}
+          packageBenefit={packageBenefit}
           redemptions={redemptions}
           renderInline={embedded}
           selectedClient={selectedClient}
