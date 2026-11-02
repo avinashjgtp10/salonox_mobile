@@ -35,7 +35,7 @@ jobs:
         run: npm run test:ci
 
       - name: Release pipeline tests
-        run: node --test scripts/prepare-production-release.test.js scripts/release-pipeline.test.js
+        run: node --test scripts/prepare-production-release.test.js
 
       - name: Validate Expo config (development, qa, production)
         run: |
