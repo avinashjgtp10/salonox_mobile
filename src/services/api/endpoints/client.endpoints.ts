@@ -14,4 +14,10 @@ export const CLIENT = {
   WITH_HISTORY_STATS: "/clients/with-history-stats",
   HISTORY: (clientId: string) => `/clients/${clientId}/history`,
   NOTES: (clientId: string) => `/clients/${clientId}/notes`,
+  // Client profile tabs (same endpoints as the web Client History view).
+  COMMUNICATIONS: (clientId: string) => `/clients/${clientId}/communications`,
+  REVIEWS: (clientId: string) => `/clients/${clientId}/reviews`,
+  EWALLET_LEDGER: (clientId: string) => `/ewallet/${clientId}/ledger`,
+  REWARD_POINTS_LEDGER: (clientId: string) => `/reward-points/${clientId}/ledger`,
+  REFERRAL_LEDGER: (clientId: string) => `/referral/${clientId}/ledger`,
 } as const;

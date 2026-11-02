@@ -1,5 +1,6 @@
 import InboxListScreen from "@/features/inbox/InboxListScreen";
+import { WhatsAppSetupGate } from "@/features/marketing/WhatsAppSetupGate";
 
 export default function WhatsAppTab() {
-  return <InboxListScreen embedded />;
+  return <WhatsAppSetupGate embedded><InboxListScreen embedded /></WhatsAppSetupGate>;
 }

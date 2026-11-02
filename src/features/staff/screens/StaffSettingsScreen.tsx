@@ -6,13 +6,14 @@ import { Ionicons } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
 import { router, type Href } from "expo-router";
 import { useMemo, useRef, useState } from "react";
-import { Linking, Modal, StyleSheet, TouchableOpacity, View, useWindowDimensions } from "react-native";
+import { Linking, StyleSheet, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { KeyboardAwareScrollView } from "@/components/ui/KeyboardAwareScrollView";
 import { UserGuideButton } from "@/features/userGuide/UserGuide";
 import { Badge } from "@/components/ui/Badge";
+import { BottomSheet } from "@/components/ui/BottomSheet";
 import { InitialsAvatar } from "@/components/ui/InitialsAvatar";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import {
@@ -124,10 +125,6 @@ export function StaffSettingsScreen() {
   const appVersion =
     Constants.expoConfig?.version ??
     Constants.manifest2?.extra?.expoClient?.version ??
-    "Unavailable";
-  const buildNumber =
-    Constants.expoConfig?.ios?.buildNumber ??
-    Constants.expoConfig?.android?.versionCode?.toString() ??
     "Unavailable";
 
   const openWebAppPage = async (path: string) => {
@@ -345,7 +342,6 @@ export function StaffSettingsScreen() {
           >
             <Text style={styles.versionTitle}>SalonOX Mobile</Text>
             <Text style={styles.versionText}>Version {appVersion}</Text>
-            <Text style={styles.versionText}>Build {buildNumber}</Text>
           </TouchableOpacity>
           <SettingsSection flushTop items={aboutItems} title="" />
         </View>
@@ -366,30 +362,23 @@ export function StaffSettingsScreen() {
           <Text style={styles.logoutButtonText}>{isLoggingOut ? "Logging out..." : "Logout"}</Text>
         </TouchableOpacity>
       </KeyboardAwareScrollView>
-      <Modal
-        animationType="slide"
-        onRequestClose={() => setIsReportModalVisible(false)}
-        transparent
+      {/* Centered card whose form scrolls the focused field above the keyboard. */}
+      <BottomSheet
+        avoidKeyboard
+        centered
+        onClose={() => { if (!isSubmittingReport) setIsReportModalVisible(false); }}
+        title="Report a Problem"
         visible={isReportModalVisible}
       >
-        <View style={styles.modalBackdrop}>
-          <View style={styles.reportModal}>
-            <View style={styles.reportModalHeader}>
-              <Text style={styles.reportModalTitle}>Report a Problem</Text>
-              <TouchableOpacity
-                accessibilityLabel="Close report form"
-                disabled={isSubmittingReport}
-                onPress={() => setIsReportModalVisible(false)}
-              >
-                <Ionicons name="close" size={24} color={Colors.text2} />
-              </TouchableOpacity>
-            </View>
             <TextInput
               ref={reportSubjectRef}
+              blurOnSubmit={false}
               editable={!isSubmittingReport}
               onChangeText={(value) => { setReportSubject(value); setReportErrors((current) => ({ ...current, subject: undefined })); }}
+              onSubmitEditing={() => reportMessageRef.current?.focus()}
               placeholder="Subject"
               placeholderTextColor={Colors.text2}
+              returnKeyType="next"
               style={[styles.reportInput, reportErrors.subject && styles.reportInputError]}
               value={reportSubject}
             />
@@ -418,9 +407,7 @@ export function StaffSettingsScreen() {
                 <Text style={styles.reportSubmitText}>Submit Report</Text>
               )}
             </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+      </BottomSheet>
     </SafeAreaView>
   );
 }
@@ -579,29 +566,6 @@ const createStyles = (Colors: ThemeColors, width = 393) => StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
     marginTop: 4,
-  },
-  modalBackdrop: {
-    backgroundColor: "rgba(0, 0, 0, 0.55)",
-    flex: 1,
-    justifyContent: "flex-end",
-  },
-  reportModal: {
-    backgroundColor: Colors.card,
-    borderTopLeftRadius: Radius.xxl,
-    borderTopRightRadius: Radius.xxl,
-    padding: AppLayout.cardPadding,
-    paddingBottom: AppLayout.contentBottomPadding,
-  },
-  reportModalHeader: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: Spacing.lg,
-  },
-  reportModalTitle: {
-    color: Colors.heading,
-    fontSize: 18,
-    fontWeight: "800",
   },
   reportInput: {
     backgroundColor: Colors.bg,

@@ -1,5 +1,5 @@
 import { useFooterClearance } from "@/hooks/useFooterClearance";
-import { Text, TextInput } from "@/components/ui/AppTypography";
+import { Text } from "@/components/ui/AppTypography";
 import { TourButton, TourView, withScreenTour } from "@/features/userGuide/DashboardTour";
 import { screenTours } from "@/features/userGuide/screenTours";
 import { CalendarPreview } from "@/features/appointments/components/calendar/CalendarPreview";
@@ -7,7 +7,6 @@ import { CalendarStaffGate } from "@/features/appointments/components/calendar/C
 import { CalendarStatusFilter } from "@/features/appointments/components/calendar/CalendarStatusFilter";
 import { ScreenShell } from "@/features/appointments/components/shared/ScreenShell";
 import { useAllStaffMembers } from "@/features/appointments/hooks/useAllStaffMembers";
-import { useDebouncedValue } from "@/features/quickSale/hooks/useDebouncedValue";
 import { useAppointmentListFilters, useFetchAppointments } from "@/features/appointments/hooks/useAppointmentList";
 import { createStyles } from "@/features/appointments/styles/appointmentStyles";
 import { getDateKey } from "@/features/appointments/utils/appointmentDateTime";
@@ -60,7 +59,7 @@ export function AppointmentCalendarContent({ staffMode = false, staffQuickSale =
   const refreshing = useAppSelector(selectAppointmentsRefreshing);
   const loading = useAppSelector(selectAppointmentsIsLoading);
   const error = useAppSelector(selectAppointmentsError);
-  const { date: initialDate, search, setSearch } = useAppointmentListFilters();
+  const { date: initialDate } = useAppointmentListFilters();
   // Reopen on the day last viewed: leaving for a bill or receipt can remount
   // this screen, and the shared list query may since point at today.
   const [date, setDateState] = useState(() => lastViewedCalendarDate ?? initialDate);
@@ -69,14 +68,12 @@ export function AppointmentCalendarContent({ staffMode = false, staffQuickSale =
     lastViewedCalendarDate = value;
     setDateState(value);
   }, []);
-  const debouncedSearch = useDebouncedValue(search, 350);
   const [selectedStatuses, setSelectedStatuses] = useState<AppointmentStatus[]>([]);
   const status = "All" as const;
   const { fetchAppointments } = useFetchAppointments();
   useAllStaffMembers(!ownOnly);
   const [selectedStaffIds, setSelectedStaffIds] = useState<string[]>([]);
   const [datePickerVisible, setDatePickerVisible] = useState(false);
-  const [calendarSearchOpen, setCalendarSearchOpen] = useState(true);
   const [viewMode, setViewMode] = useState<"week" | "day" | "list">("day");
   const [viewMenuVisible, setViewMenuVisible] = useState(false);
   const [staffFilterVisible, setStaffFilterVisible] = useState(false);
@@ -117,27 +114,15 @@ export function AppointmentCalendarContent({ staffMode = false, staffQuickSale =
     ),
     [appointments, canonicalStaffIdByAlias, date, resolveStaffId, staffOptions, staffPresence],
   );
-  // The appointments API ignores `search`, so the calendar filters the day or
-  // week it already loaded: client, phone (digits match any formatting),
-  // service, staff and title. While searching, Day view shows only the staff
-  // columns that have a match (see staffColumns below).
-  const searchTerm = debouncedSearch.trim().toLowerCase();
-  const searchDigits = searchTerm.replace(/\D/g, "");
   const visibleAppointments = useMemo(
     () => appointments.filter((item) => {
       // A booking shows for every staff member with an item on it, as on the web.
       // "Any available" bookings live in their own column, whatever staff is filtered.
       const matchesStaff = selectedStaffIds.length === 0 || isAnyStaffAppointment(item) || selectedStaffIds.includes(resolveStaffId(item))
         || getAppointmentItemSegments(item).some((segment) => selectedStaffIds.includes(canonicalStaffId(segment.staffId)));
-      const matchesStatus = matchesCalendarStatuses(item.status, selectedStatuses);
-      const matchesSearch = !searchTerm
-        || [item.clientName, item.serviceName, item.staffName, item.title, item.phone]
-          .some((value) => (value ?? "").toLowerCase().includes(searchTerm))
-        || (searchDigits.length >= 3 && (item.phone ?? "").replace(/\D/g, "").includes(searchDigits));
-
-      return matchesStaff && matchesStatus && matchesSearch;
+      return matchesStaff && matchesCalendarStatuses(item.status, selectedStatuses);
     }),
-    [appointments, canonicalStaffId, resolveStaffId, searchDigits, searchTerm, selectedStaffIds, selectedStatuses],
+    [appointments, canonicalStaffId, resolveStaffId, selectedStaffIds, selectedStatuses],
   );
   const selectedStaffLabel = selectedStaffIds.length === 0
     ? "All Staff"
@@ -194,19 +179,10 @@ export function AppointmentCalendarContent({ staffMode = false, staffQuickSale =
   const staffColumns = useMemo(() => {
     const staffOnly = selectedStaffIds.length ? presentStaffOptions.filter((option) => selectedStaffIds.includes(option.id)) : presentStaffOptions;
     // Web: the "Any Available" column leads Day view only on a day with such a booking.
-    const columns = viewMode === "day" && !ownOnly && dayMatches.some(isAnyStaffAppointment)
+    return viewMode === "day" && !ownOnly && dayMatches.some(isAnyStaffAppointment)
       ? [{ id: ANY_STAFF_COLUMN_ID, label: "Any Available", name: "Any Available" }, ...staffOnly]
       : staffOnly;
-    if (!searchTerm || viewMode !== "day") return columns;
-    // A match in a far-right column was off screen, so the search looked like
-    // it did nothing; keep just the columns with a match on the day shown (the
-    // store can also hold other days' appointments, e.g. ones refetched by id).
-    const matchedStaffIds = new Set(dayMatches.map((item) => isAnyStaffAppointment(item) ? ANY_STAFF_COLUMN_ID : resolveStaffId(item)));
-    return columns.filter((option) => matchedStaffIds.has(option.id));
-  }, [dayMatches, ownOnly, presentStaffOptions, resolveStaffId, searchTerm, selectedStaffIds, viewMode]);
-  const emptyTitle = searchTerm && (viewMode === "day" ? dayMatches : visibleAppointments).length === 0
-    ? `No appointments match "${debouncedSearch.trim()}"`
-    : undefined;
+  }, [dayMatches, ownOnly, presentStaffOptions, selectedStaffIds, viewMode]);
 
   return (
     <ScreenShell
@@ -240,17 +216,9 @@ export function AppointmentCalendarContent({ staffMode = false, staffQuickSale =
             <TouchableOpacity hitSlop={8} onPress={() => changeDate(viewMode === "week" ? 7 : 1)}><Ionicons name="chevron-forward" size={17} color={Colors.primaryText} /></TouchableOpacity>
           </TourView>
           <View style={styles.dinggToolbarIcons}>
-            <TourButton tourId="search" accessibilityLabel="Search appointments" onPress={() => setCalendarSearchOpen((open) => !open)} style={styles.dinggToolbarIcon}><Ionicons name="search-outline" size={19} color={Colors.appointmentText} /></TourButton>
             <TouchableOpacity accessibilityLabel="Select date" onPress={() => setDatePickerVisible(true)} style={styles.dinggToolbarIcon}><Ionicons name="calendar-outline" size={21} color={Colors.appointmentText} /></TouchableOpacity>
           </View>
         </View>
-        {calendarSearchOpen ? (
-          <View style={styles.dinggSearchField}>
-            <Ionicons name="search-outline" size={17} color={Colors.appointmentMuted} />
-            <TextInput onChangeText={setSearch} placeholder="Search appointments" placeholderTextColor={Colors.appointmentPlaceholder} style={styles.dinggSearchInput} value={search} />
-            {search ? <TouchableOpacity onPress={() => setSearch("")}><Ionicons name="close-circle" size={18} color={Colors.appointmentMuted} /></TouchableOpacity> : null}
-          </View>
-        ) : null}
         {datePickerVisible ? <DateTimePicker mode="date" onChange={(event, selected) => { setDatePickerVisible(false); if (event.type !== "dismissed" && selected) setDate(`${selected.getFullYear()}-${String(selected.getMonth() + 1).padStart(2, "0")}-${String(selected.getDate()).padStart(2, "0")}`); }} value={new Date(`${date}T00:00:00`)} /> : null}
         <TourView tourId="filters" style={styles.calendarFilterRow}>
           <TouchableOpacity disabled={ownOnly} onPress={() => setStaffFilterVisible(true)} style={[styles.dinggStylistSummary, styles.calendarStaffFilter]}><Text style={styles.dinggStylistLabel}>Staff:</Text><Text numberOfLines={1} style={styles.dinggStylistValue}>{ownOnly ? currentStaff?.name ?? "My calendar" : selectedStaffLabel}</Text>{!ownOnly ? <Ionicons name="chevron-down" size={15} color={Colors.appointmentTextSecondary} /> : null}</TouchableOpacity>
@@ -263,7 +231,6 @@ export function AppointmentCalendarContent({ staffMode = false, staffQuickSale =
         quickSaleEnabled={!staffMode || staffQuickSale}
         expandSingleColumn={ownOnly}
         showEmptyState={!loading && !error}
-        emptyTitle={emptyTitle}
         appointments={visibleAppointments}
         date={date}
         onRefresh={refreshAppointments}

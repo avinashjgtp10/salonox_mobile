@@ -17,7 +17,7 @@ const IDLE_LOAD_STATE: ClientPackageLoadState = {
 
 type UseClientPackagesArgs = {
   clientId: string;
-  onPackagesLoaded: (packages: ClientPackage[]) => void;
+  onPackagesLoaded?: (packages: ClientPackage[]) => void;
   salonId: string | null;
 };
 
@@ -40,7 +40,7 @@ export function useClientPackages({ clientId, onPackagesLoaded, salonId }: UseCl
         setPackages([]);
         setPackagesClientId("");
         setLoadState(IDLE_LOAD_STATE);
-        onPackagesLoaded([]);
+        onPackagesLoaded?.([]);
         return;
       }
 
@@ -65,7 +65,7 @@ export function useClientPackages({ clientId, onPackagesLoaded, salonId }: UseCl
 
         setPackages(loadedPackages);
         setPackagesClientId(targetClientId);
-        onPackagesLoaded(loadedPackages);
+        onPackagesLoaded?.(loadedPackages);
         setLoadState({
           clientId: targetClientId,
           error: null,

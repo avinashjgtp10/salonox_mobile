@@ -30,6 +30,13 @@ export type ClientProfileMetrics = {
   nextAppointment: string | null;
   serviceRevenue: number;
   productRevenue: number;
+  /** Real client_packages / client_memberships purchases, as the web Overview totals them. */
+  packageRevenue: number;
+  membershipRevenue: number;
+  activePackageCount: number;
+  activeMembership: ClientMembershipRecord | null;
+  /** The web shows a Gold Member badge above this lifetime spend. */
+  isGoldMember: boolean;
   upcomingAppointments: ClientAppointmentRecord[];
   services: ClientProfileLineEntry[];
   products: ClientProfileLineEntry[];
@@ -55,6 +62,12 @@ const toTime = (value: string | null) => {
   const time = new Date(value).getTime();
   return Number.isNaN(time) ? 0 : time;
 };
+
+const GOLD_MEMBER_SPEND = 5000;
+
+// Active only while unexpired, like the web's getPackageExpiryStatus.
+const isActiveUntil = (status: string, expiry: string | null, now: number) =>
+  status.toLowerCase() === "active" && (!expiry || toTime(expiry) === 0 || toTime(expiry) >= now - 24 * 60 * 60 * 1000);
 
 const byDateDesc = (left: string | null, right: string | null) => toTime(right) - toTime(left);
 
@@ -269,6 +282,11 @@ export const buildClientProfileMetrics = ({
     nextAppointment: upcomingAppointments[0]?.scheduledAt ?? null,
     serviceRevenue: services.reduce((sum, entry) => sum + entry.totalPrice, 0),
     productRevenue: products.reduce((sum, entry) => sum + entry.totalPrice, 0),
+    packageRevenue: packages.reduce((sum, pkg) => sum + pkg.totalAmount, 0),
+    membershipRevenue: memberships.reduce((sum, membership) => sum + membership.pricePaid, 0),
+    activePackageCount: packages.filter((pkg) => isActiveUntil(pkg.status, pkg.expiryDate, now)).length,
+    activeMembership: memberships.find((membership) => isActiveUntil(membership.status, membership.expiresAt, now)) ?? null,
+    isGoldMember: totalSpend > GOLD_MEMBER_SPEND,
     upcomingAppointments,
     services,
     products,

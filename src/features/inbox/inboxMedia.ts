@@ -19,6 +19,20 @@ export async function inboxMediaHeaders(): Promise<Record<string, string> | unde
   return token ? { Authorization: `Bearer ${token}` } : undefined;
 }
 
+/** WhatsApp deletes media 30 days after upload; the backend then answers 404. */
+export class InboxMediaGoneError extends Error {}
+
+/** True when the backend says the attachment no longer exists (not a network or auth hiccup). */
+export async function isInboxMediaGone(source: { uri: string; authenticated: boolean }) {
+  if (!source.authenticated) return false;
+  try {
+    const response = await fetch(source.uri, { headers: await inboxMediaHeaders() });
+    return response.status === 404;
+  } catch {
+    return false;
+  }
+}
+
 /** Downloads an authed inbox attachment and hands it to the system preview/share
  * sheet, since the app has no in-app video/document player. */
 export async function openInboxMedia(source: { uri: string; authenticated: boolean }, mediaId: string, mediaType: string) {
@@ -32,6 +46,7 @@ export async function openInboxMedia(source: { uri: string; authenticated: boole
   const download = await FileSystem.downloadAsync(source.uri, `${folder}${name}`, { headers: await inboxMediaHeaders() });
   if (download.status < 200 || download.status >= 300) {
     await FileSystem.deleteAsync(download.uri, { idempotent: true });
+    if (download.status === 404) throw new InboxMediaGoneError("Media is no longer available");
     throw new Error(`Media download failed (${download.status})`);
   }
   // Share sheets pick the viewer from the file extension, so name it after the real type.

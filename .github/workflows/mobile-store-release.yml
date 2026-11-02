@@ -1,0 +1,118 @@
+---
+name: Mobile Store Release
+
+# Builds a new version (AAB + IPA) from main and submits it to both stores.
+# Release on Friday any time with "Run workflow": it builds right away, whatever
+# changed. The scheduled run is a late-Friday backup that builds only when no
+# store build was made in the last 24 hours and app code changed since the last one.
+on:
+  schedule:
+    # Friday 17:30 UTC = 23:00 IST. GitHub may start scheduled runs a little late.
+    - cron: "30 17 * * 5"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-store-release
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Check for app changes
+    runs-on: ubuntu-latest
+    outputs:
+      needed: ${{ steps.changes.outputs.needed }}
+    steps:
+      - name: Require main
+        if: github.ref != 'refs/heads/main'
+        run: |
+          echo "::error::Store releases run only from main. Choose main under 'Use workflow from'."
+          exit 1
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: 20.5.1
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Compare main with the last store build
+        id: changes
+        run: node scripts/store-release-needed.js
+
+  ci:
+    name: CI
+    needs: check
+    if: needs.check.outputs.needed == 'true'
+    uses: ./.github/workflows/mobile-ci.yml
+
+  store-release:
+    name: Build and submit Android and iOS
+    needs: [check, ci]
+    if: needs.check.outputs.needed == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Lets the last step start Mobile OTA Release.
+      actions: write
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      APP_STORE_CONNECT_APP_ID: ${{ vars.APP_STORE_CONNECT_APP_ID }}
+      # Optional one-off version override; delete the variable after the release.
+      RELEASE_VERSION: ${{ vars.RELEASE_VERSION }}
+      APP_ENV: production
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Node 22: eas-cli's dependency @oclif/plugin-autocomplete now requires
+      # node >=22, and the Setup EAS step installs it with yarn, which refuses
+      # engine mismatches ("Setup EAS" failed on Node 20).
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Setup EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: 20.5.1
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Prepare app version and submission configuration
+        run: node scripts/prepare-production-release.js
+
+      - name: Validate production update environment
+        run: eas env:exec production "node scripts/validate-production-update-env.js" --non-interactive
+
+      - name: Build AAB and IPA and queue store submissions
+        run: eas build --platform all --profile production --auto-submit --non-interactive --wait
+
+      # No OTA of this commit: the store build already contains it, and an OTA
+      # of the same code makes every fresh install show a pointless
+      # "restart to update" popup. Only commits merged to main while the build
+      # ran are sent on to the new version.
+      - name: Send commits merged during the build as an OTA
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          latest="$(git ls-remote origin refs/heads/main | cut -f1)"
+          if [ -n "$latest" ] && [ "$latest" != "$GITHUB_SHA" ]; then
+            gh workflow run mobile-ota-release.yml --ref main
+            echo "main moved to ${latest:0:8} during the build; started Mobile OTA Release." >> "$GITHUB_STEP_SUMMARY"
+          fi

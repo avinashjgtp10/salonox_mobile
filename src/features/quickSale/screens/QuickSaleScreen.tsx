@@ -29,6 +29,7 @@ import {
   CheckoutSheet,
   type DiscountApplyTarget,
 } from "@/features/quickSale/components/CheckoutSheet";
+import type { PackageBenefit } from "@/features/quickSale/components/checkout/types";
 import { ClientDatesSheet } from "@/features/quickSale/components/ClientDatesSheet";
 import { ClientPickerSheet } from "@/features/quickSale/components/ClientPickerSheet";
 import { ErrorState } from "@/features/quickSale/components/StateViews";
@@ -123,9 +124,11 @@ import { getApiErrorMessage } from "@/services/api";
 import { couponService } from "@/services/coupon.service";
 import { packageService } from "@/services/package.service";
 import {
+  getPackageCoverageAllocations,
   getPackageCoveredQuantity,
   getPackageSessionConsumptions,
 } from "@/features/quickSale/utils/packageCoverage";
+import { isMissingStaff } from "@/features/quickSale/utils/staffRequirement";
 import {
   buildAppointmentPayload as mapAppointmentPayload,
   buildPaymentPayload as mapPaymentPayload,
@@ -199,6 +202,9 @@ function OwnerQuickSaleScreen({
   };
   // Billing an already-booked appointment (no draft sale involved).
   const isExistingBill = Boolean(params.draftId || params.appointmentId);
+  // Calendar "Continue to Payment": show only the payment sheet, never the
+  // Quick Sale cart behind it; closing the sheet closes the whole thing.
+  const paymentOnly = embedded && params.openPayment === "1" && isExistingBill;
   const { user } = useAuth();
   // Staff (Calendar & Quick Sale access) can't open the owner's Sales or
   // Dashboard screens, so their exits go back to their Calendar instead.
@@ -237,6 +243,11 @@ function OwnerQuickSaleScreen({
   const [shouldResumeCheckoutAtCharges, setShouldResumeCheckoutAtCharges] = useState(false);
   const [checkoutInitialStep, setCheckoutInitialStep] = useState<CheckoutInitialStep>("payment");
   const [shouldShowCheckoutStaffValidation, setShouldShowCheckoutStaffValidation] = useState(false);
+  const [showFormStaffErrors, setShowFormStaffErrors] = useState(false);
+  const hasItemsMissingStaff = cart.items.some(isMissingStaff);
+  useEffect(() => {
+    if (!hasItemsMissingStaff) setShowFormStaffErrors(false);
+  }, [hasItemsMissingStaff]);
   const [isDeletingDraft, setIsDeletingDraft] = useState(false);
   const [isLoadingDraft, setIsLoadingDraft] = useState(isExistingBill);
   // An existing appointment keeps its own booked slot when it is paid.
@@ -279,10 +290,28 @@ function OwnerQuickSaleScreen({
   const { consumableProductNames, resetConsumableProductNames } = useConsumableProductNames(cart.items);
   const clientPackages = useClientPackages({
     clientId: selectedClient.id,
-    onPackagesLoaded: recalculatePackageCoverage,
     salonId,
   });
   const resetClientPackages = clientPackages.reset;
+  // Package coverage is a manual opt-in, as on the web: off for a new bill,
+  // restored for a reopened appointment saved with it, and dropped when the
+  // client changes (an opt-in only counts for the client it was made for).
+  const [packageOptIn, setPackageOptIn] = useState({ apply: false, clientId: "" });
+  const applyPackage = packageOptIn.apply && packageOptIn.clientId === selectedClient.id;
+  const setApplyPackage = useCallback(
+    (apply: boolean) => setPackageOptIn({ apply, clientId: selectedClient.id }),
+    [selectedClient.id],
+  );
+  const applyPackageCoverage = useCallback(() => {
+    if (!applyPackage) {
+      recalculatePackageCoverage([]);
+    } else if (clientPackages.isReliable) {
+      recalculatePackageCoverage(clientPackages.packages);
+    }
+  }, [applyPackage, clientPackages.isReliable, clientPackages.packages, recalculatePackageCoverage]);
+  useEffect(() => {
+    applyPackageCoverage();
+  }, [applyPackageCoverage]);
   const dirtySignature = useMemo(
     () =>
       getQuickSaleDirtySignature({
@@ -401,6 +430,11 @@ function OwnerQuickSaleScreen({
     setAppointmentSlot(mapAppointmentToSlot(appointment));
     setSelectedQuickSaleStaff(mapAppointmentToStaff(appointment));
     setSelectedClient(mapAppointmentToClient(appointment) ?? WALK_IN_CLIENT);
+    // Saved with package pricing → keep the Package benefit ticked.
+    setPackageOptIn({
+      apply: Array.isArray(raw.services) && raw.services.some((row) => row.is_package_service === true),
+      clientId: appointment.clientId ?? WALK_IN_CLIENT.id,
+    });
     setHasClientStepSelection(true);
     setSaleNotes(appointment.notes ?? "");
     setTipInput(String(Number(raw.tip_amount) || ""));
@@ -558,6 +592,7 @@ function OwnerQuickSaleScreen({
     clearCart();
     resetCheckoutSubmission();
     resetClientPackages();
+    setPackageOptIn({ apply: false, clientId: "" });
     resetConsumableProductNames();
     resetPricing();
     setActiveTab("services");
@@ -572,6 +607,7 @@ function OwnerQuickSaleScreen({
     setIsCheckoutVisible(false);
     setCheckoutInitialStep("payment");
     setShouldShowCheckoutStaffValidation(false);
+    setShowFormStaffErrors(false);
     setDraftLoadError(null);
     setDraftDiscountType("percentage");
     setDraftDiscountPercent(0);
@@ -1097,10 +1133,9 @@ function OwnerQuickSaleScreen({
         }
       });
     }
-    const hasServicesMissingStaff = !selectedQuickSaleStaff &&
-      cart.items.some((item) => item.itemType === "service" && !item.staffId);
-    setShouldShowCheckoutStaffValidation(hasServicesMissingStaff);
-    setCheckoutInitialStep(hasServicesMissingStaff ? "review" : step);
+    const needsStaffReview = !selectedQuickSaleStaff && cart.items.some(isMissingStaff);
+    setShouldShowCheckoutStaffValidation(needsStaffReview);
+    setCheckoutInitialStep(needsStaffReview ? "review" : step);
     setIsCheckoutVisible(true);
   }, [cart, resetCheckoutSubmission, selectedQuickSaleStaff]);
 
@@ -1154,16 +1189,12 @@ function OwnerQuickSaleScreen({
         taxRate: service.taxRate,
         unitPrice: service.price,
       });
-      if (clientPackages.isReliable) {
-        recalculatePackageCoverage(clientPackages.packages);
-      }
+      applyPackageCoverage();
     },
     [
+      applyPackageCoverage,
       cart,
-      clientPackages.isReliable,
-      clientPackages.packages,
       handleRemoveItem,
-      recalculatePackageCoverage,
       defaultLineStaff,
     ],
   );
@@ -1229,6 +1260,23 @@ function OwnerQuickSaleScreen({
     selectedClient.id,
     totals,
   ]);
+
+  // Offered (like the web's "Package" benefit card) only while one of the
+  // client's packages covers a service on the bill.
+  const packageBenefit = useMemo<PackageBenefit | null>(() => {
+    if (!selectedClient.id || !clientPackages.isReliable) return null;
+    const eligiblePackage = clientPackages.packages.find((clientPackage) =>
+      cart.items.some((item) => getPackageCoverageAllocations(item, [clientPackage]).length > 0),
+    );
+    if (!eligiblePackage) return null;
+    return {
+      checked: applyPackage,
+      onToggle: setApplyPackage,
+      packageName: eligiblePackage.packageName,
+      remainingSessions: eligiblePackage.services.reduce((total, service) => total + Math.max(0, service.remainingSessions), 0),
+      totalSessions: eligiblePackage.services.reduce((total, service) => total + service.totalSessions, 0),
+    };
+  }, [applyPackage, cart.items, clientPackages.isReliable, clientPackages.packages, selectedClient.id, setApplyPackage]);
 
   const packageCoveredServiceItems = useMemo(
     () =>
@@ -1335,6 +1383,14 @@ function OwnerQuickSaleScreen({
   }, [cart]);
 
   const handleSavePending = async () => {
+    // A bill is never saved with an item nobody is assigned to (web parity);
+    // the missing staff dropdowns are flagged right on the form.
+    if (cart.items.some(isMissingStaff)) {
+      setShowFormStaffErrors(true);
+      if (isCheckoutVisible) setSubmitError("Assign staff to every item before saving.");
+      return;
+    }
+
     if (!checkoutSubmission.begin("saving")) {
       return;
     }
@@ -1783,7 +1839,7 @@ function OwnerQuickSaleScreen({
     />
   );
 
-  if (params.draftId && isLoadingDraft) {
+  if (params.draftId && isLoadingDraft && !paymentOnly) {
     return (
       <>
         <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
@@ -1799,12 +1855,12 @@ function OwnerQuickSaleScreen({
     );
   }
 
-  if (params.draftId && draftLoadError) {
+  if ((params.draftId || paymentOnly) && draftLoadError) {
     return (
       <>
         <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
           <AppStatusBar />
-          <QuickSaleHeader onBack={handleBack} title="Edit Draft" />
+          <QuickSaleHeader onBack={paymentOnly ? () => onRequestClose?.() : handleBack} title={paymentOnly ? "Payment" : "Edit Draft"} />
           <ErrorState message={draftLoadError} onRetry={() => void loadDraft()} />
         </SafeAreaView>
         {discardConfirmationModal}
@@ -1821,7 +1877,7 @@ function OwnerQuickSaleScreen({
       <>
         <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
           <AppStatusBar />
-          <QuickSaleHeader onBack={handleBack} title="Quick Sale" />
+          <QuickSaleHeader onBack={paymentOnly ? () => onRequestClose?.() : handleBack} title={paymentOnly ? "Payment" : "Quick Sale"} />
           <ErrorState message={initError} onRetry={() => void dispatch(fetchSalesInitThunk())} />
         </SafeAreaView>
         {discardConfirmationModal}
@@ -1831,9 +1887,16 @@ function OwnerQuickSaleScreen({
 
   return (
     <>
-      <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
+      <SafeAreaView edges={["top", "bottom"]} style={paymentOnly ? styles.paymentOnlyRoot : styles.safeArea}>
         {!embedded ? <AppStatusBar /> : null}
 
+        {paymentOnly ? (
+          !isCheckoutVisible && !isClientPickerVisible ? (
+            <View style={styles.paymentOnlyLoader}>
+              <ActivityIndicator color={Colors.onPrimary} size="large" />
+            </View>
+          ) : null
+        ) : <>
         <QuickSaleHeader
           embedded={embedded}
           layout="leading"
@@ -1887,6 +1950,7 @@ function OwnerQuickSaleScreen({
           staffOptions={staffOptions} renderInline={embedded}
           notes={saleNotes} onChangeNotes={setSaleNotes}
           pricingError={pricingError} isPricingLoading={isPricingLoading}
+          showStaffErrors={showFormStaffErrors}
           onAddClient={() => { setClientPickerStartsInCreateMode(true); setIsClientPickerVisible(true); }}
           onClearClient={() => { setSelectedClient(WALK_IN_CLIENT); setHasClientStepSelection(false); }}
           onSelectClient={handleClientPickerSelect}
@@ -1980,13 +2044,13 @@ function OwnerQuickSaleScreen({
 
           </View>
         </BottomSheet>
+        </>}
 
-
-        {!isOverlayActive ? (
+        {!isOverlayActive && !paymentOnly ? (
           <MiniBillBar
             embedded={embedded}
             isPricingLoading={isPricingLoading}
-            disabled={cart.items.length === 0 || isPricingLoading || Boolean(pricingError) || cart.items.some(item => item.itemType === "service" && !item.staffId)}
+            disabled={cart.items.length === 0 || isPricingLoading || Boolean(pricingError) || cart.items.some(isMissingStaff)}
             isSaving={checkoutSubmission.isSaving}
             itemCount={cart.itemCount}
             onCheckout={() => { if (ensureClientSelected()) openCheckout("payment"); }}
@@ -1996,7 +2060,14 @@ function OwnerQuickSaleScreen({
         ) : null}
 
         <ClientPickerSheet
-          onClose={() => setIsClientPickerVisible(false)}
+          onClose={() => {
+            setIsClientPickerVisible(false);
+            // Payment-only has nothing behind the picker: go back to the payment.
+            if (paymentOnly) {
+              setCheckoutInitialStep("payment");
+              setIsCheckoutVisible(true);
+            }
+          }}
           onSelect={handleClientPickerSelect}
           renderInline={embedded}
           selectedClientId={hasClientStepSelection ? selectedClient.id : null}
@@ -2043,9 +2114,7 @@ function OwnerQuickSaleScreen({
                 taxRate: service.taxRate,
                 unitPrice: service.price,
               });
-              if (clientPackages.isReliable) {
-                recalculatePackageCoverage(clientPackages.packages);
-              }
+              applyPackageCoverage();
             }
           }}
           visible={Boolean(changeServiceLineId)}
@@ -2074,7 +2143,7 @@ function OwnerQuickSaleScreen({
           isSuccess={checkoutSubmission.isSuccess}
           consumableProductNames={consumableProductNames}
           items={cart.items}
-          onAddMore={closeCheckout}
+          onAddMore={paymentOnly ? undefined : closeCheckout}
           onApplyCoupon={() => void handleApplyCoupon()}
           onAssignStaff={cart.setStaff}
           onChangeCouponCode={(value) => {
@@ -2084,6 +2153,7 @@ function OwnerQuickSaleScreen({
           onChangeDiscountApplyTo={setDiscountApplyTo}
           onChangeCustomer={() => {
             closeCheckout();
+            if (paymentOnly) setShouldResumeCheckoutAtCharges(true);
             if (clientPickerOpenTimeoutRef.current) {
               clearTimeout(clientPickerOpenTimeoutRef.current);
             }
@@ -2103,7 +2173,7 @@ function OwnerQuickSaleScreen({
             setDraftDiscountPercent(percentage);
           }}
           onChangeTip={setTipInput}
-          onClose={closeCheckout}
+          onClose={paymentOnly ? () => { closeCheckout(); onRequestClose?.(); } : closeCheckout}
           onCompleteSale={(payment) => guardCheckedOut(() => void handleCompleteSale(payment))}
           onRemoveCoupon={handleRemoveCoupon}
           onRemoveItem={handleRemoveItem}
@@ -2122,6 +2192,7 @@ function OwnerQuickSaleScreen({
           overallDiscountInput={overallDiscountInput}
           overallDiscountPercent={draftDiscountPercent}
           overallDiscountType={draftDiscountType}
+          packageBenefit={packageBenefit}
           redemptions={redemptions}
           renderInline={embedded}
           selectedClient={selectedClient}
@@ -2162,6 +2233,16 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   safeArea: {
     backgroundColor: "#FAF6F8",
     flex: 1,
+  },
+  paymentOnlyRoot: {
+    backgroundColor: "transparent",
+    flex: 1,
+  },
+  paymentOnlyLoader: {
+    alignItems: "center",
+    backgroundColor: "rgba(15, 23, 42, 0.58)",
+    flex: 1,
+    justifyContent: "center",
   },
   topSection: {
     gap: Spacing.sm,

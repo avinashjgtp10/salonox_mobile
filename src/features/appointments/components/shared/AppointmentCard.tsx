@@ -1,6 +1,6 @@
 import { Text } from "@/components/ui/AppTypography";
 import { useClientPrivacy } from "@/hooks/useClientPrivacy";
-import { getAppointmentBillLabel } from "@/utils/clientPrivacy";
+import { getAppointmentBillLabel, getAppointmentInvoiceLabel } from "@/utils/clientPrivacy";
 import { ClientAvatar } from "@/features/appointments/components/shared/ClientAvatar";
 import { MetaPill } from "@/features/appointments/components/shared/MetaPill";
 import { StatusBadge } from "@/features/appointments/components/shared/StatusBadge";
@@ -54,7 +54,7 @@ export function AppointmentCard({
                 {staffMode ? getAppointmentBillLabel(appointment) : appointment.clientName}
               </Text>
               <Text numberOfLines={1} style={styles.cardSubtitle}>
-                {staffMode ? `${clientName(appointment.clientName)} · ${appointment.serviceName}` : appointment.serviceName}
+                {staffMode && getAppointmentInvoiceLabel(appointment) ? `${clientName(appointment.clientName)} · ${appointment.serviceName}` : appointment.serviceName}
               </Text>
             </View>
           </View>

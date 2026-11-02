@@ -384,8 +384,9 @@ export function CalendarPreview({
         transparent
         visible={Boolean(quickSaleSlot || quickSaleDraft)}
       >
-        <View style={styles.quickSaleModalBackdrop}>
-          <View style={styles.quickSaleModalSurface}>
+        {/* Continue to Payment shows only the payment sheet, full screen — no Quick Sale card. */}
+        <View style={quickSaleDraft?.openPayment ? styles.quickSalePaymentOnly : styles.quickSaleModalBackdrop}>
+          <View style={quickSaleDraft?.openPayment ? styles.quickSalePaymentOnly : styles.quickSaleModalSurface}>
             {quickSaleDraft ? (
               <QuickSaleScreen
                 appointmentId={quickSaleDraft.appointmentId}

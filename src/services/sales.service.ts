@@ -635,6 +635,33 @@ export const salesService = {
     return normalizeSaleDetail(getSaleFromEnvelope(response.data.data));
   },
 
+  /**
+   * The completed sale billed for an appointment. Partial (and some paid)
+   * appointments never get appointments.sale_id stamped, but their sale row
+   * points back via appointment_id and is dated the day the bill was taken —
+   * so search that client's sales around the appointment day.
+   */
+  async findSaleIdForAppointment(appointment: { clientId?: string | null; id: string; scheduledAt?: string | null }): Promise<string | null> {
+    const day = appointment.scheduledAt ? new Date(appointment.scheduledAt) : null;
+    if (!day || Number.isNaN(day.getTime())) return null;
+    const dateKey = (offset: number) => {
+      const value = new Date(day);
+      value.setDate(value.getDate() + offset);
+      return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
+    };
+    const response = await api.get<SalesListApiResponse>(SALES.LIST, {
+      params: {
+        ...(appointment.clientId ? { client_id: appointment.clientId } : {}),
+        end_date: dateKey(1),
+        limit: 100,
+        start_date: dateKey(-1),
+      },
+    });
+    const match = getSaleArray(response.data.data).find((sale) =>
+      String(sale.appointment_id ?? "") === appointment.id && String(sale.status ?? "").toLowerCase() !== "draft");
+    return match?.id ? String(match.id) : null;
+  },
+
   async deleteSale(saleId: string): Promise<DeleteSaleResponse> {
     salesListSnapshots.clear();
     const response = await api.delete<ApiResponse<unknown>>(SALES.DELETE(saleId));

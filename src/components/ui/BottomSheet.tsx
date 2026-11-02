@@ -138,6 +138,7 @@ export function BottomSheet({
                   ref={keyboardAwareFormRef}
                   embedded
                   autoReveal
+                  padForKeyboard={!avoidKeyboard}
                   style={{ maxHeight: scrollMaxHeight }}
                   contentContainerStyle={styles.content}
                 >

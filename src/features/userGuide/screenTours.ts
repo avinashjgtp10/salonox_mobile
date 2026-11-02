@@ -136,11 +136,6 @@ export const screenTours = {
         "description": "Select a date or use the arrows to move between days or weeks."
       },
       {
-        "target": "search",
-        "title": "Find an appointment",
-        "description": "Open search to find an appointment in the calendar."
-      },
-      {
         "target": "filters",
         "title": "Focus your calendar",
         "description": "Filter appointments by staff and status. Tap a booking in the calendar to open it."

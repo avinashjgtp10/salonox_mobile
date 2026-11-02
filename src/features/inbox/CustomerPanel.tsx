@@ -4,7 +4,6 @@ import { Text } from "@/components/ui/AppTypography";
 import { useCallback, useEffect, useState } from "react";
 import { ScrollView, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { router, type Href } from "expo-router";
 import { inboxService } from "@/services/inbox.service";
 import { packageService } from "@/services/package.service";
 import { getApiErrorMessage } from "@/services/api";
@@ -17,7 +16,7 @@ import { useInboxTheme } from "./inboxTheme";
 
 const dateLabel = (value: string | null) => formatAppDate(value, "—");
 
-export function CustomerPanel({ phone, onClose }: { phone: string; onClose: () => void }) {
+export function CustomerPanel({ phone, onClose, onViewProfile }: { phone: string; onClose: () => void; onViewProfile: (clientId: string) => void }) {
   const { styles: s, palette: p } = useInboxTheme();
   const [customer, setCustomer] = useState<InboxCustomer | null>(null);
   const [packages, setPackages] = useState<ClientPackage[]>([]);
@@ -26,6 +25,9 @@ export function CustomerPanel({ phone, onClose }: { phone: string; onClose: () =
   const [packageError, setPackageError] = useState<string | null>(null);
   const [retry, setRetry] = useState(0);
   const reload = useCallback(() => setRetry(value => value + 1), []);
+  // Pink text on the pale button background was unreadable; use the app's filled primary button.
+  const primaryButton = [s.button, { backgroundColor: p.accent }];
+  const primaryButtonText = { color: p.onAccent, fontWeight: "700" as const };
   useEffect(() => {
     let current = true;
     setLoading(true); setCustomer(null); setPackages([]); setError(null); setPackageError(null);
@@ -52,19 +54,19 @@ export function CustomerPanel({ phone, onClose }: { phone: string; onClose: () =
       <TouchableOpacity accessibilityRole="button" accessibilityLabel="Close customer info" onPress={onClose} style={s.icon}><Ionicons name="close" size={22} color={p.muted} /></TouchableOpacity>
     </View>
     {loading ? <View style={s.empty}><ActivityIndicator color={p.accent} /><Text style={s.muted}>Loading customer details…</Text></View>
-      : error ? <View style={s.empty}><Text style={s.error}>{error}</Text><TouchableOpacity accessibilityRole="button" onPress={reload} style={s.button}><Text style={s.accentText}>Retry</Text></TouchableOpacity></View>
+      : error ? <View style={s.empty}><Text style={s.error}>{error}</Text><TouchableOpacity accessibilityRole="button" onPress={reload} style={primaryButton}><Text style={primaryButtonText}>Retry</Text></TouchableOpacity></View>
       : !customer ? <View style={s.empty}><Ionicons name="person-outline" size={38} color={p.muted} /><Text style={s.heading}>Not a saved client yet</Text><Text style={s.emptyText}>{maskPhone(phone)} hasn’t been added to your Clients list.</Text></View>
       : <ScrollView contentContainerStyle={{ paddingBottom: 24 }}>
         <View style={s.profile}>
           <View style={[s.avatar, s.largeAvatar, { backgroundColor: p.accent }]}><Text style={[s.avatarText, { fontSize: 26 }]}>{avatar.initials}</Text></View>
           <Text style={s.heading}>{customer.fullName || maskPhone(phone)}</Text><Text selectable style={s.muted}>{maskPhone(phone)}</Text>
-          <TouchableOpacity accessibilityRole="button" style={s.button} onPress={() => { onClose(); router.push(`/clients/${customer.id}` as Href); }}><Text style={s.accentText}>View Profile →</Text></TouchableOpacity>
+          <TouchableOpacity accessibilityRole="button" style={primaryButton} onPress={() => onViewProfile(customer.id)}><Text style={primaryButtonText}>View Profile →</Text></TouchableOpacity>
         </View>
         <View style={s.stats}>
           {[
             ["Total Visits", String(customer.totalVisits)], ["Total Spend", formatCurrency(customer.lifetimeSpend)],
             ["Last Visit", dateLabel(customer.lastVisitDate)], ["Member", customer.membershipName || "No"],
-          ].map(([label, value]) => <View key={label} style={s.stat}><Text style={s.muted}>{label}</Text><Text style={[s.heading, label === "Total Spend" && s.accentText]}>{value}</Text></View>)}
+          ].map(([label, value]) => <View key={label} style={s.stat}><Text style={s.muted}>{label}</Text><Text style={s.heading}>{value}</Text></View>)}
         </View>
         <View style={s.section}>
           <Text style={[s.muted, { fontWeight: "700", letterSpacing: 1 }]}>PACKAGES</Text>

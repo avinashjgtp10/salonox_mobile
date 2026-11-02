@@ -458,6 +458,35 @@ export type ClientNote = {
   createdAt: string | null;
 };
 
+/** E-wallet (credit/debit), reward points or referral (earn/redeem/adjust) ledger row. */
+export type ClientLedgerEntry = {
+  id: string;
+  type: string;
+  amount: number;
+  balanceAfter: number;
+  sourceType: string | null;
+  note: string | null;
+  createdAt: string | null;
+};
+
+export type ClientCommunication = {
+  id: string;
+  label: string;
+  source: string;
+  status: string;
+  sentAt: string | null;
+};
+
+export type ClientReview = {
+  id: string;
+  rating: number;
+  staffName: string | null;
+  comments: string | null;
+  improvementTags: string[];
+  serviceRatings: { serviceName: string; staffName: string | null; rating: number }[];
+  createdAt: string | null;
+};
+
 export type ClientHistoryResult = {
   history: ClientHistoryItem[];
   summary: ClientHistorySummary;
