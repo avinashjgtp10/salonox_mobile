@@ -18,6 +18,7 @@ import type { CartConsumableItem, CartItem } from "@/features/quickSale/types";
 import { getCartItemBillableQuantity } from "@/features/quickSale/utils/calculations";
 import { getPackageCoveredQuantity } from "@/features/quickSale/utils/packageCoverage";
 import { formatCurrency, parseAmount } from "@/features/quickSale/utils/money";
+import { isMissingStaff } from "@/features/quickSale/utils/staffRequirement";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { CheckoutSaleSplitEntry, SalePaymentMethod } from "@/types/sales";
 import type {
@@ -368,7 +369,7 @@ function CheckoutSheetComponent({
     discountExceedsEligibleSubtotal || discountExceedsSubtotal || invalidDiscountPercentage || customTipInvalid;
   const isBusy = isSaving || isCheckingOut || isApplyingCoupon || isSuccess;
   const missingStaffCount = useMemo(
-    () => items.filter((item) => item.itemType === "service" && !item.staffId).length,
+    () => items.filter(isMissingStaff).length,
     [items],
   );
   const hasMissingStaff = missingStaffCount > 0;
@@ -489,6 +490,16 @@ function CheckoutSheetComponent({
     }
 
     onCompleteSale({ method: paymentMethod!, paidAmount: amountToCollect });
+  };
+
+  const handleSavePending = () => {
+    if (hasMissingStaff) {
+      setStaffValidationAttempted(true);
+      setCheckoutStep("review");
+      return;
+    }
+
+    onSavePending();
   };
 
   const handleSelectSinglePaymentMethod = (method: Exclude<SalePaymentMethod, "split">) => {
@@ -686,7 +697,7 @@ function CheckoutSheetComponent({
                             onSetConsumableActualQty={(productId, actualQty) =>
                               onSetConsumableActualQty(item.lineId, productId, actualQty)
                             }
-                            showStaffError={showStaffValidation && item.itemType === "service" && !item.staffId}
+                            showStaffError={showStaffValidation && isMissingStaff(item)}
                             stockError={productStockErrors[item.lineId]}
                           />
                         ))}
@@ -1191,7 +1202,7 @@ function CheckoutSheetComponent({
                   <TouchableOpacity
                     activeOpacity={0.84}
                     disabled={isBusy || !hasItems || chargesInvalid}
-                    onPress={onSavePending}
+                    onPress={handleSavePending}
                     style={[
                       styles.pendingButton,
                       (isBusy || !hasItems || chargesInvalid) && styles.footerButtonDisabled,

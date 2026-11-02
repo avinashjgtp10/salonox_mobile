@@ -8,11 +8,12 @@ import Constants from "expo-constants";
 import { Ionicons } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
 import { router, type Href } from "expo-router";
-import { KeyboardAvoidingView, Linking, Modal, Platform, StyleSheet, TouchableOpacity, View } from "react-native";
+import { Linking, StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { Badge } from "@/components/ui/Badge";
+import { BottomSheet } from "@/components/ui/BottomSheet";
 import { InitialsAvatar } from "@/components/ui/InitialsAvatar";
 import { useAuth } from "@/context/AuthContext";
 import { UserGuideButton } from "@/features/userGuide/UserGuide";
@@ -109,10 +110,6 @@ function MoreScreenContent() {
   const appVersion =
     Constants.expoConfig?.version ??
     Constants.manifest2?.extra?.expoClient?.version ??
-    "Unavailable";
-  const buildNumber =
-    Constants.expoConfig?.ios?.buildNumber ??
-    Constants.expoConfig?.android?.versionCode?.toString() ??
     "Unavailable";
 
   const openWebAppPage = async (path: string) => {
@@ -415,7 +412,6 @@ function MoreScreenContent() {
           >
             <Text style={styles.versionTitle}>SalonOX Mobile</Text>
             <Text style={styles.versionText}>Version {appVersion}</Text>
-            <Text style={styles.versionText}>Build {buildNumber}</Text>
           </TouchableOpacity>
           {aboutActions.map((action, index) => (
             <TouchableOpacity
@@ -487,33 +483,23 @@ function MoreScreenContent() {
           </Text>
         </TouchableOpacity>
       </TourScrollView>
-      <Modal
-        animationType="fade"
-        onRequestClose={() => setIsReportModalVisible(false)}
-        transparent
+      {/* Centered card whose form scrolls the focused field above the keyboard. */}
+      <BottomSheet
+        avoidKeyboard
+        centered
+        onClose={() => { if (!isSubmittingReport) setIsReportModalVisible(false); }}
+        title="Report a Problem"
         visible={isReportModalVisible}
       >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-          style={styles.modalBackdrop}
-        >
-          <View style={styles.reportModal}>
-            <View style={styles.reportModalHeader}>
-              <Text style={styles.reportModalTitle}>Report a Problem</Text>
-              <TouchableOpacity
-                accessibilityLabel="Close report form"
-                disabled={isSubmittingReport}
-                onPress={() => setIsReportModalVisible(false)}
-              >
-                <Ionicons name="close" size={24} color={Colors.text2} />
-              </TouchableOpacity>
-            </View>
             <TextInput
               ref={reportSubjectRef}
+              blurOnSubmit={false}
               editable={!isSubmittingReport}
               onChangeText={(value) => { setReportSubject(value); setReportErrors((current) => ({ ...current, subject: undefined })); }}
+              onSubmitEditing={() => reportMessageRef.current?.focus()}
               placeholder="Subject"
               placeholderTextColor={Colors.text2}
+              returnKeyType="next"
               style={[styles.reportInput, reportErrors.subject && styles.reportInputError]}
               value={reportSubject}
             />
@@ -542,9 +528,7 @@ function MoreScreenContent() {
                 <Text style={styles.reportSubmitText}>Submit Report</Text>
               )}
             </TouchableOpacity>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
+      </BottomSheet>
     </SafeAreaView>
   );
 }
@@ -738,29 +722,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
     marginTop: 4,
-  },
-  modalBackdrop: {
-    backgroundColor: "rgba(0, 0, 0, 0.55)",
-    flex: 1,
-    justifyContent: "flex-end",
-  },
-  reportModal: {
-    backgroundColor: Colors.card,
-    borderTopLeftRadius: Radius.xxl,
-    borderTopRightRadius: Radius.xxl,
-    padding: AppLayout.cardPadding,
-    paddingBottom: AppLayout.contentBottomPadding,
-  },
-  reportModalHeader: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: Spacing.lg,
-  },
-  reportModalTitle: {
-    color: Colors.heading,
-    fontSize: 18,
-    fontWeight: "800",
   },
   reportInput: {
     backgroundColor: Colors.bg,
