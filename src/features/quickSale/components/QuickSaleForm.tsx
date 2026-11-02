@@ -12,6 +12,7 @@ import type { ClientListItem } from "@/types/client";
 import type { CheckoutSheetProps } from "./checkout/types";
 import type { useCart } from "../hooks/useCart";
 import { getPackageCoveredQuantity } from "../utils/packageCoverage";
+import { isMissingStaff, requiresStaff } from "../utils/staffRequirement";
 import { buildPricingLine } from "../utils/calculations";
 import { formatCurrency, parseAmount } from "../utils/money";
 import type { CatalogTab } from "../constants";
@@ -43,6 +44,8 @@ type Props = Pick<CheckoutSheetProps, "selectedClient" | "redemptions" | "staffO
   pricingError?: string | null;
   isPricingLoading?: boolean;
   defaultTime?: string;
+  /** Set after Save Pending is tried with a line that still has no staff. */
+  showStaffErrors?: boolean;
 };
 
 export function Section({ title, children, aside }: { title: string; children: ReactNode; aside?: ReactNode }) {
@@ -86,6 +89,7 @@ export function QuickSaleForm(p: Props) {
         </Section>
         <Section title="Services & items" aside={<Text style={s.muted}>{p.cart.itemCount} {p.cart.itemCount === 1 ? 'item' : 'items'}</Text>}>
           <Text style={s.muted}>Assign staff separately for each service, product, package or membership.</Text>
+          {p.showStaffErrors && p.cart.items.some(isMissingStaff) ? <Text style={s.error}>Assign staff to every item before saving.</Text> : null}
           {!p.cart.items.length ? <View style={s.empty}><Ionicons name="bag-outline" size={26} color={c.plum}/><Text style={s.name}>No items added yet</Text><Text style={s.muted}>Add a service, product, package or membership.</Text></View> : null}
           {p.cart.items.map(item => {
             const type = types[item.itemType] ?? types.service;
@@ -94,14 +98,15 @@ export function QuickSaleForm(p: Props) {
               <View style={s.lineBody}><Text style={s.name}>{item.name}</Text>
                 <Text style={s.muted}>{formatCurrency(item.unitPrice)}{item.quantity > 1 ? ' each' : ''}{item.duration ? ` · ${item.duration}` : ''}</Text>
                 <View style={s.staffRow}>
-                  <View style={s.staffField}><Text style={s.label}>Staff{item.itemType === "service" ? " *" : ""}</Text>
-                  <Pressable accessibilityRole="button" accessibilityLabel={`Select staff for ${item.name}`} accessibilityHint="Assigns staff to this item only" onPress={() => { Keyboard.dismiss(); setStaffLine(item.lineId); }} style={[s.staffSelect, item.itemType === "service" && !item.staffId && s.staffRequired]}>
+                  <View style={s.staffField}><Text style={s.label}>Staff{requiresStaff(item) ? " *" : ""}</Text>
+                  <Pressable accessibilityRole="button" accessibilityLabel={`Select staff for ${item.name}`} accessibilityHint="Assigns staff to this item only" onPress={() => { Keyboard.dismiss(); setStaffLine(item.lineId); }} style={[s.staffSelect, isMissingStaff(item) && (p.showStaffErrors ? s.staffError : s.staffRequired)]}>
                     <Ionicons name="person-outline" size={16} color={c.plum} />
                     <Text numberOfLines={1} style={[s.staffName, !item.staffId && s.link]}>{item.staffName || 'Select staff'}</Text>
                     {item.staffId
                       ? <Pressable accessibilityRole="button" accessibilityLabel={`Clear staff for ${item.name}`} hitSlop={10} onPress={() => p.cart.setStaff(item.lineId, null, null)}><Ionicons name="close" size={16} color={c.plum} /></Pressable>
                       : <Ionicons name="chevron-down" size={16} color={c.plum} />}
-                  </Pressable></View>
+                  </Pressable>
+                  {p.showStaffErrors && isMissingStaff(item) ? <Text style={s.error}>Select staff</Text> : null}</View>
                   <View style={s.timeField}><Text style={s.label}>Time</Text><Pressable accessibilityRole="button" accessibilityLabel={`Select time for ${item.name}`} onPress={() => { Keyboard.dismiss(); setTimeLine(item.lineId); }} style={s.timeSelect}><Text numberOfLines={1} style={s.timeText}>{itemTimeLabel(item.startTime ?? defaultTime)}</Text><Ionicons name="chevron-down" size={16} color={c.plum} /></Pressable></View>
                 </View>
                 {getPackageCoveredQuantity(item) > 0 ? <Text style={s.link}>Package coverage applied</Text> : null}
@@ -156,6 +161,7 @@ export const s = StyleSheet.create({
   staffRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   staffSelect: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 48, paddingHorizontal: 12, borderWidth: 1, borderColor: c.line, borderRadius: 12, backgroundColor: c.bg },
   staffRequired: { borderColor: c.plum },
+  staffError: { borderColor: '#E5484D' },
   staffName: { flex: 1, color: c.fg, fontSize: 14, fontWeight: '600' },
   page: { padding:16, paddingBottom:130, gap:14, backgroundColor:c.bg },
   section: { backgroundColor:c.card, borderWidth:1, borderColor:c.line, borderRadius:20, padding:14, gap:12 },

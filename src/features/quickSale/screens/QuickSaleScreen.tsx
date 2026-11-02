@@ -128,6 +128,7 @@ import {
   getPackageCoveredQuantity,
   getPackageSessionConsumptions,
 } from "@/features/quickSale/utils/packageCoverage";
+import { isMissingStaff } from "@/features/quickSale/utils/staffRequirement";
 import {
   buildAppointmentPayload as mapAppointmentPayload,
   buildPaymentPayload as mapPaymentPayload,
@@ -242,6 +243,11 @@ function OwnerQuickSaleScreen({
   const [shouldResumeCheckoutAtCharges, setShouldResumeCheckoutAtCharges] = useState(false);
   const [checkoutInitialStep, setCheckoutInitialStep] = useState<CheckoutInitialStep>("payment");
   const [shouldShowCheckoutStaffValidation, setShouldShowCheckoutStaffValidation] = useState(false);
+  const [showFormStaffErrors, setShowFormStaffErrors] = useState(false);
+  const hasItemsMissingStaff = cart.items.some(isMissingStaff);
+  useEffect(() => {
+    if (!hasItemsMissingStaff) setShowFormStaffErrors(false);
+  }, [hasItemsMissingStaff]);
   const [isDeletingDraft, setIsDeletingDraft] = useState(false);
   const [isLoadingDraft, setIsLoadingDraft] = useState(isExistingBill);
   // An existing appointment keeps its own booked slot when it is paid.
@@ -601,6 +607,7 @@ function OwnerQuickSaleScreen({
     setIsCheckoutVisible(false);
     setCheckoutInitialStep("payment");
     setShouldShowCheckoutStaffValidation(false);
+    setShowFormStaffErrors(false);
     setDraftLoadError(null);
     setDraftDiscountType("percentage");
     setDraftDiscountPercent(0);
@@ -1126,10 +1133,9 @@ function OwnerQuickSaleScreen({
         }
       });
     }
-    const hasServicesMissingStaff = !selectedQuickSaleStaff &&
-      cart.items.some((item) => item.itemType === "service" && !item.staffId);
-    setShouldShowCheckoutStaffValidation(hasServicesMissingStaff);
-    setCheckoutInitialStep(hasServicesMissingStaff ? "review" : step);
+    const needsStaffReview = !selectedQuickSaleStaff && cart.items.some(isMissingStaff);
+    setShouldShowCheckoutStaffValidation(needsStaffReview);
+    setCheckoutInitialStep(needsStaffReview ? "review" : step);
     setIsCheckoutVisible(true);
   }, [cart, resetCheckoutSubmission, selectedQuickSaleStaff]);
 
@@ -1377,6 +1383,14 @@ function OwnerQuickSaleScreen({
   }, [cart]);
 
   const handleSavePending = async () => {
+    // A bill is never saved with an item nobody is assigned to (web parity);
+    // the missing staff dropdowns are flagged right on the form.
+    if (cart.items.some(isMissingStaff)) {
+      setShowFormStaffErrors(true);
+      if (isCheckoutVisible) setSubmitError("Assign staff to every item before saving.");
+      return;
+    }
+
     if (!checkoutSubmission.begin("saving")) {
       return;
     }
@@ -1936,6 +1950,7 @@ function OwnerQuickSaleScreen({
           staffOptions={staffOptions} renderInline={embedded}
           notes={saleNotes} onChangeNotes={setSaleNotes}
           pricingError={pricingError} isPricingLoading={isPricingLoading}
+          showStaffErrors={showFormStaffErrors}
           onAddClient={() => { setClientPickerStartsInCreateMode(true); setIsClientPickerVisible(true); }}
           onClearClient={() => { setSelectedClient(WALK_IN_CLIENT); setHasClientStepSelection(false); }}
           onSelectClient={handleClientPickerSelect}
@@ -2035,7 +2050,7 @@ function OwnerQuickSaleScreen({
           <MiniBillBar
             embedded={embedded}
             isPricingLoading={isPricingLoading}
-            disabled={cart.items.length === 0 || isPricingLoading || Boolean(pricingError) || cart.items.some(item => item.itemType === "service" && !item.staffId)}
+            disabled={cart.items.length === 0 || isPricingLoading || Boolean(pricingError) || cart.items.some(isMissingStaff)}
             isSaving={checkoutSubmission.isSaving}
             itemCount={cart.itemCount}
             onCheckout={() => { if (ensureClientSelected()) openCheckout("payment"); }}
