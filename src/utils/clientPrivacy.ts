@@ -1,7 +1,13 @@
 import type { AppointmentListItem } from "@/types/appointment";
+import type { AuthUser } from "@/types/auth";
 import { formatInvoiceNumber } from "@/utils/receipt";
 
-export function maskClientName(value?: string | null): string {
+/** Owner's "Client name access" switch: lets a staff member see full client names. */
+export const canSeeFullClientNames = (user?: AuthUser | null) => user?.mobileClientNameAccess === true;
+
+/** Staff view of a client name: masked ("Pr****") unless showFullName. */
+export function maskClientName(value?: string | null, showFullName = false): string {
+  if (showFullName) return value?.trim() || "-";
   const letters = Array.from(value?.trim() || "");
   return letters.length ? letters.slice(0, 2).join("") + "*".repeat(Math.max(0, letters.length - 2)) : "-";
 }
@@ -18,8 +24,8 @@ export function getAppointmentInvoiceLabel(appointment: AppointmentListItem): st
   return null;
 }
 
-/** Staff heading for an appointment: its invoice number, else the masked client name. */
-export function getAppointmentBillLabel(appointment: AppointmentListItem): string {
+/** Staff heading for an appointment: its invoice number, else the (masked) client name. */
+export function getAppointmentBillLabel(appointment: AppointmentListItem, showFullName = false): string {
   return getAppointmentInvoiceLabel(appointment)
-    ?? (appointment.clientName?.trim() ? maskClientName(appointment.clientName) : "Walk-in");
+    ?? (appointment.clientName?.trim() ? maskClientName(appointment.clientName, showFullName) : "Walk-in");
 }

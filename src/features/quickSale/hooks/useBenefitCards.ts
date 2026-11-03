@@ -51,7 +51,7 @@ export function useBenefitCards({ packageBenefit, redemptions, selectedClient, t
         input: {
           keyboardType: "decimal-pad",
           onChangeText: redemptions.setMembershipWalletRequestedInput,
-          value: redemptions.membershipWalletRequestedInput || String(totals.appliedMembershipWallet),
+          value: redemptions.membershipWalletRequestedInput ?? String(totals.appliedMembershipWallet),
           placeholder: "Auto",
         },
         key: "membership-wallet",
@@ -98,7 +98,7 @@ export function useBenefitCards({ packageBenefit, redemptions, selectedClient, t
         input: {
           keyboardType: "decimal-pad",
           onChangeText: redemptions.setEWalletRequestedInput,
-          value: redemptions.eWalletRequestedInput || String(totals.appliedEWallet),
+          value: redemptions.eWalletRequestedInput ?? String(totals.appliedEWallet),
           placeholder: "Auto",
         },
         key: "ewallet",
@@ -119,7 +119,7 @@ export function useBenefitCards({ packageBenefit, redemptions, selectedClient, t
           onChangeText: redemptions.setRewardPointsToRedeemInput,
           placeholder: "0 pts",
           suffix: "pts",
-          value: redemptions.rewardPointsToRedeemInput || String(redemptions.pricingContext.rules && redemptions.pricingContext.rules.valuePerRedemption > 0 ? Math.round(totals.appliedRewardPointsValue * redemptions.pricingContext.rules.pointsPerRedemption / redemptions.pricingContext.rules.valuePerRedemption) : 0),
+          value: redemptions.rewardPointsToRedeemInput ?? String(redemptions.pricingContext.rules && redemptions.pricingContext.rules.valuePerRedemption > 0 ? Math.round(totals.appliedRewardPointsValue * redemptions.pricingContext.rules.pointsPerRedemption / redemptions.pricingContext.rules.valuePerRedemption) : 0),
         },
         key: "reward-points",
         onToggle: redemptions.setApplyRewardPoints,
@@ -137,7 +137,7 @@ export function useBenefitCards({ packageBenefit, redemptions, selectedClient, t
         input: {
           keyboardType: "decimal-pad",
           onChangeText: redemptions.setReferralCreditRequestedInput,
-          value: redemptions.referralCreditRequestedInput || String(totals.appliedReferralCredit),
+          value: redemptions.referralCreditRequestedInput ?? String(totals.appliedReferralCredit),
           placeholder: "Auto",
         },
         key: "referral-credit",

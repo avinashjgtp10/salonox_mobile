@@ -14,6 +14,7 @@ import { selectCurrentStaff } from "@/store/staff/staff.slice";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { AppointmentBilledItem, AppointmentListItem } from "@/types/appointment";
 import { getAppointmentBillLabel, maskClientName } from "@/utils/clientPrivacy";
+import { useClientPrivacy } from "@/hooks/useClientPrivacy";
 import { formatCurrency } from "@/utils/currency";
 import { getDateRangePreset } from "@/utils/dateRangePresets";
 import { formatAppDate, formatAppTime } from "@/utils/dateTime";
@@ -59,6 +60,7 @@ export function StaffRevenueItemsScreen() {
   const params = useLocalSearchParams<{ endDate?: string; startDate?: string; type?: string }>();
   const type = toItemType(params.type);
   const staff = useAppSelector(selectCurrentStaff);
+  const { showFullName } = useClientPrivacy();
   const branchId = useAppSelector(selectActiveBranchId);
 
   const [range, setRange] = useState(() => {
@@ -192,9 +194,9 @@ export function StaffRevenueItemsScreen() {
           >
             <View style={styles.cardHeader}>
               <View style={styles.rowCopy}>
-                <Text style={styles.clientName}>{maskClientName(appointment.clientName)}</Text>
+                <Text style={styles.clientName}>{maskClientName(appointment.clientName, showFullName)}</Text>
                 <Text style={styles.rowMeta}>
-                  {getAppointmentBillLabel(appointment)} · {formatAppDate(appointment.scheduledAt, "")} {formatAppTime(appointment.scheduledAt, "")}
+                  {getAppointmentBillLabel(appointment, showFullName)} · {formatAppDate(appointment.scheduledAt, "")} {formatAppTime(appointment.scheduledAt, "")}
                 </Text>
               </View>
               <View style={[styles.statusChip, appointment.status === "Partial" ? styles.statusPartial : styles.statusDone]}>

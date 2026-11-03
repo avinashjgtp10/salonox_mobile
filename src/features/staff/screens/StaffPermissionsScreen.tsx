@@ -13,6 +13,7 @@ import { DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme
 import { matchesTeamSearch, type StaffMember } from "@/data/teamData";
 import { getApiErrorMessage } from "@/services/api";
 import { staffCalendarAccessService } from "@/services/staffCalendarAccess.service";
+import { staffClientNameAccessService } from "@/services/staffClientNameAccess.service";
 import { staffProductAuditAccessService } from "@/services/staffProductAuditAccess.service";
 import { staffService } from "@/services/staff.service";
 import { useThemeColors } from "@/theme/ThemeProvider";
@@ -21,11 +22,14 @@ const CALENDAR_ACCESS_HELPER_TEXT =
   "Lets staff book and bill Quick Sales from their Calendar in the SalonOX app. Changes save right away and don't affect the web app.";
 const PRODUCT_AUDIT_ACCESS_HELPER_TEXT =
   "Lets staff create and perform Product Audits, including adding new products from the scanner, in the SalonOX app. Approving stays with you. Changes save right away and don't affect the web app.";
+const CLIENT_NAME_ACCESS_HELPER_TEXT =
+  "Lets staff see clients' full names instead of masked ones (e.g. Pr****) in the SalonOX app. Phone numbers stay masked. Changes save right away and don't affect the web app.";
 
-type AccessKind = "calendar" | "productAudit";
+type AccessKind = "calendar" | "productAudit" | "clientName";
 const SAVE_ACCESS: Record<AccessKind, (staffId: string, enabled: boolean) => Promise<boolean>> = {
   calendar: staffCalendarAccessService.setStaffCalendarAccess,
   productAudit: staffProductAuditAccessService.setStaffProductAuditAccess,
+  clientName: staffClientNameAccessService.setStaffClientNameAccess,
 };
 const rowKey = (kind: AccessKind, staffId: string) => `${kind}:${staffId}`;
 
@@ -40,14 +44,15 @@ const loadAllStaff = async () => {
 };
 
 // Owner screen (Quick Actions → Staff Permissions): every staff member's
-// mobile-only permissions in one place: Calendar & Quick Sale access and
-// Product Audit access.
+// mobile-only permissions in one place: Calendar & Quick Sale access,
+// Product Audit access and Client name access.
 export function StaffPermissionsScreen() {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [access, setAccess] = useState<Record<string, boolean>>({});
   const [auditAccess, setAuditAccess] = useState<Record<string, boolean>>({});
+  const [clientNameAccess, setClientNameAccess] = useState<Record<string, boolean>>({});
   const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
   const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -61,14 +66,16 @@ export function StaffPermissionsScreen() {
     setError(null);
 
     try {
-      const [members, accessByStaffId, auditAccessByStaffId] = await Promise.all([
+      const [members, accessByStaffId, auditAccessByStaffId, clientNameAccessByStaffId] = await Promise.all([
         loadAllStaff(),
         staffCalendarAccessService.listStaffCalendarAccess(),
         staffProductAuditAccessService.listStaffProductAuditAccess(),
+        staffClientNameAccessService.listStaffClientNameAccess(),
       ]);
       setStaff(members);
       setAccess(accessByStaffId);
       setAuditAccess(auditAccessByStaffId);
+      setClientNameAccess(clientNameAccessByStaffId);
       setRowErrors({});
     } catch (loadError) {
       setError(getApiErrorMessage(loadError));
@@ -83,7 +90,7 @@ export function StaffPermissionsScreen() {
   }, [load]);
 
   const toggleAccess = useCallback(async (kind: AccessKind, staffId: string, enabled: boolean) => {
-    const setValues = kind === "calendar" ? setAccess : setAuditAccess;
+    const setValues = kind === "calendar" ? setAccess : kind === "productAudit" ? setAuditAccess : setClientNameAccess;
     const key = rowKey(kind, staffId);
     setValues((current) => ({ ...current, [staffId]: enabled }));
     setSavingIds((current) => new Set(current).add(key));
@@ -114,6 +121,7 @@ export function StaffPermissionsScreen() {
   );
   const enabledCount = staff.filter((member) => access[member.id]).length;
   const auditEnabledCount = staff.filter((member) => auditAccess[member.id]).length;
+  const clientNameEnabledCount = staff.filter((member) => clientNameAccess[member.id]).length;
 
   return (
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
@@ -157,6 +165,19 @@ export function StaffPermissionsScreen() {
           </View>
         </View>
 
+        <View style={styles.infoCard}>
+          <View style={styles.infoIcon}>
+            <Ionicons color={Colors.primaryText} name="eye-outline" size={20} />
+          </View>
+          <View style={styles.infoCopy}>
+            <Text style={styles.infoTitle}>Client name access</Text>
+            <Text style={styles.infoText}>{CLIENT_NAME_ACCESS_HELPER_TEXT}</Text>
+            {!loading && !error ? (
+              <Text style={styles.infoCount}>{clientNameEnabledCount} of {staff.length} staff enabled</Text>
+            ) : null}
+          </View>
+        </View>
+
         <View style={styles.searchField}>
           <Ionicons color={Colors.hint} name="search-outline" size={17} />
           <TextInput
@@ -193,7 +214,10 @@ export function StaffPermissionsScreen() {
           visibleStaff.map((member) => {
             const saving = savingIds.has(rowKey("calendar", member.id));
             const auditSaving = savingIds.has(rowKey("productAudit", member.id));
-            const rowError = rowErrors[rowKey("calendar", member.id)] ?? rowErrors[rowKey("productAudit", member.id)];
+            const clientNameSaving = savingIds.has(rowKey("clientName", member.id));
+            const rowError = rowErrors[rowKey("calendar", member.id)]
+              ?? rowErrors[rowKey("productAudit", member.id)]
+              ?? rowErrors[rowKey("clientName", member.id)];
             const inactive = member.status === "Inactive";
             const note = inactive ? "Inactive — the switch applies once they're reactivated." : null;
 
@@ -230,6 +254,18 @@ export function StaffPermissionsScreen() {
                     thumbColor="#FFFFFF"
                     trackColor={{ false: Colors.border, true: Colors.primary }}
                     value={auditAccess[member.id] === true}
+                  />
+                </View>
+                <View style={styles.permissionRow}>
+                  <Text style={[styles.permissionLabel, styles.permissionRowLabel]}>Client name</Text>
+                  {clientNameSaving ? <ActivityIndicator color={Colors.primaryText} size="small" /> : null}
+                  <Switch
+                    accessibilityLabel={`Client name access for ${member.name}`}
+                    disabled={clientNameSaving}
+                    onValueChange={(value) => void toggleAccess("clientName", member.id, value)}
+                    thumbColor="#FFFFFF"
+                    trackColor={{ false: Colors.border, true: Colors.primary }}
+                    value={clientNameAccess[member.id] === true}
                   />
                 </View>
                 {note ? <Text style={styles.note}>{note}</Text> : null}
