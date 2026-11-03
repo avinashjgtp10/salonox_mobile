@@ -108,6 +108,7 @@ export const normalizeAuthUser = (value: unknown): AuthUser => {
     // Calendar Quick Sale payment fail as "read-only".
     mobileCalendarAccess: toOptionalBoolean(record.mobileCalendarAccess, record.mobile_calendar_access),
     mobileProductAuditAccess: toOptionalBoolean(record.mobileProductAuditAccess, record.mobile_product_audit_access),
+    mobileClientNameAccess: toOptionalBoolean(record.mobileClientNameAccess, record.mobile_client_name_access),
     isOnboardingComplete: toOptionalBoolean(
       record.isOnboardingComplete,
       record.is_onboarding_complete,
@@ -176,5 +177,6 @@ export const preserveMobileCalendarAccess = (
     ...incomingUser,
     mobileCalendarAccess: incomingUser.mobileCalendarAccess ?? fallbackUser.mobileCalendarAccess,
     mobileProductAuditAccess: incomingUser.mobileProductAuditAccess ?? fallbackUser.mobileProductAuditAccess,
+    mobileClientNameAccess: incomingUser.mobileClientNameAccess ?? fallbackUser.mobileClientNameAccess,
   };
 };

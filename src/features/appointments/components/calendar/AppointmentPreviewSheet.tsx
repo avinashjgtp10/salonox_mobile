@@ -1,7 +1,7 @@
 import { Text } from "@/components/ui/AppTypography";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { useClientPrivacy } from "@/hooks/useClientPrivacy";
-import { getAppointmentBillLabel, getAppointmentInvoiceLabel } from "@/utils/clientPrivacy";
+import { getAppointmentInvoiceLabel } from "@/utils/clientPrivacy";
 import { appAlert as Alert } from "@/services/appAlert";
 import { salesService } from "@/services/sales.service";
 import { createStyles } from "@/features/appointments/styles/appointmentStyles";
@@ -39,7 +39,7 @@ export function AppointmentPreviewSheet({
   onContinueToPayment?: (appointment: AppointmentListItem) => void;
   readOnly?: boolean;
 }) {
-  const { staffMode, clientName } = useClientPrivacy();
+  const { staffMode, clientName, billLabel } = useClientPrivacy();
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const [stage, setStage] = useState<"actions" | "details">("actions");
@@ -159,7 +159,7 @@ export function AppointmentPreviewSheet({
             <View style={styles.appointmentClientBand}>
               <View style={styles.appointmentClientAvatar}><Ionicons name="person-outline" size={26} color={Colors.primaryText} /></View>
               <View style={styles.appointmentClientCopy}>
-                <Text style={styles.appointmentClientName}>{staffMode ? getAppointmentBillLabel(appointment) : appointment.clientName}</Text>
+                <Text style={styles.appointmentClientName}>{staffMode ? billLabel(appointment) : appointment.clientName}</Text>
                 {staffMode && getAppointmentInvoiceLabel(appointment) ? <Text style={styles.appointmentClientPhone}>{clientName(appointment.clientName)}</Text> : null}
                 <Text style={styles.appointmentClientPhone}>{maskPhone(appointment.phone)}</Text>
                 {!staffMode && clientEmail ? <Text numberOfLines={1} style={styles.appointmentClientPhone}>{clientEmail}</Text> : null}

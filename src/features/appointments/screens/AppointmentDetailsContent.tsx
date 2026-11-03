@@ -1,5 +1,6 @@
 import { maskPhone } from "@/utils/maskPhone";
 import { maskClientName } from "@/utils/clientPrivacy";
+import { useClientPrivacy } from "@/hooks/useClientPrivacy";
 import { Text } from "@/components/ui/AppTypography";
 import { ActionButton } from "@/features/appointments/components/shared/ActionButton";
 import { BilledItemRow } from "@/features/appointments/components/shared/BilledItemRow";
@@ -42,6 +43,7 @@ export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | 
   const currentStaffError = useAppSelector(selectCurrentStaffError);
   const currentStaffLoading = useAppSelector(selectCurrentStaffLoading);
   const isStaffMode = mode === "staff";
+  const { showFullName } = useClientPrivacy();
   const isStaffAppointment =
     !isStaffMode || !appointment || (currentStaff ? isAssignedToStaff(appointment, currentStaff) : false);
 
@@ -207,7 +209,7 @@ export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | 
 
           <View style={styles.formCard}>
             <Text style={styles.sectionTitle}>Client Details</Text>
-            <DetailRow label="Client Name" value={isStaffMode ? maskClientName(displayName) : displayName} />
+            <DetailRow label="Client Name" value={isStaffMode ? maskClientName(displayName, showFullName) : displayName} />
             <DetailRow label="Phone" value={maskPhone(appointment.phone)} />
           </View>
 

@@ -1,7 +1,8 @@
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { AttendanceBreakModal } from "@/features/attendance/components/AttendanceBreakModal";
-import { getAppointmentBillLabel, getAppointmentInvoiceLabel, maskClientName } from "@/utils/clientPrivacy";
+import { getAppointmentInvoiceLabel } from "@/utils/clientPrivacy";
+import { useClientPrivacy } from "@/hooks/useClientPrivacy";
 import { AttendanceActivityDetails, formatAttendanceDuration } from "@/features/attendance/components/AttendanceActivityDetails";
 import type { AttendanceActivity } from "@/types/attendance";
 import { appAlert } from "@/services/appAlert";
@@ -639,6 +640,7 @@ function TodayAppointmentsCard({ appointments, loading }: { appointments: Appoin
 }
 
 function TimelineRow({ appointment, isLast }: { appointment: AppointmentListItem; isLast: boolean }) {
+  const { billLabel, clientName } = useClientPrivacy();
   const Colors = useThemeColors();
   const DASHBOARD = getDashboardTones(Colors);
   const stylesStatic = useMemo(() => getStylesStatic(Colors), [Colors]);
@@ -654,8 +656,8 @@ function TimelineRow({ appointment, isLast }: { appointment: AppointmentListItem
       <Text numberOfLines={1} style={stylesStatic.timelineTime}>{formatTimeLabel(appointment.startTime ?? appointment.scheduledAt)}</Text>
       <View style={[stylesStatic.timelineInfo, !isLast && stylesStatic.timelineInfoBorder]}>
         <View style={stylesStatic.timelineCopy}>
-          <Text numberOfLines={1} style={stylesStatic.timelineClient}>{getAppointmentBillLabel(appointment)}</Text>
-          <Text numberOfLines={1} style={stylesStatic.timelineService}>{getAppointmentInvoiceLabel(appointment) ? `${maskClientName(appointment.clientName)} · ${appointment.serviceName}` : appointment.serviceName}</Text>
+          <Text numberOfLines={1} style={stylesStatic.timelineClient}>{billLabel(appointment)}</Text>
+          <Text numberOfLines={1} style={stylesStatic.timelineService}>{getAppointmentInvoiceLabel(appointment) ? `${clientName(appointment.clientName ?? "")} · ${appointment.serviceName}` : appointment.serviceName}</Text>
           <Text numberOfLines={1} style={stylesStatic.timelineMeta}>{bookingType}</Text>
         </View>
         <Badge bg={badge.bg} color={badge.color} label={badge.label} size="sm" />

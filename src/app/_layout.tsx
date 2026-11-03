@@ -29,6 +29,7 @@ import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useRealtimeSync } from '@/hooks/useRealtimeSync';
 import { useStaffCalendarAccessSync } from '@/hooks/useStaffCalendarAccess';
 import { useStaffProductAuditAccessSync } from '@/hooks/useStaffProductAuditAccess';
+import { useStaffClientNameAccessSync } from '@/hooks/useStaffClientNameAccess';
 import { fetchBranchesThunk } from '@/middleware/branch/branch.thunk';
 import { resolveCurrentStaffThunk } from '@/middleware/staff/staff.thunk';
 import { refreshOwnerProfilePhoto, resetOwnerProfilePhoto, usesSalonLogoAsProfilePhoto } from '@/features/profile/utils/ownerProfilePhoto';
@@ -447,6 +448,7 @@ function OwnerProfilePhotoBootstrap() {
 function StaffCalendarAccessBootstrap() {
   useStaffCalendarAccessSync();
   useStaffProductAuditAccessSync();
+  useStaffClientNameAccessSync();
 
   return null;
 }

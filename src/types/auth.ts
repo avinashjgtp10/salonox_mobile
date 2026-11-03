@@ -21,6 +21,9 @@ export type AuthUser = {
   // Staff only: owner's mobile-only "Product Audit access" switch, read from
   // /mobile/staff/me/product-audit-access (not part of /users/me).
   mobileProductAuditAccess?: boolean;
+  // Staff only: owner's mobile-only "Client name access" switch (full client
+  // names instead of masked ones), read from /mobile/staff/me/client-name-access.
+  mobileClientNameAccess?: boolean;
   clientId?: string | null;
   salonId?: string | null;
 };

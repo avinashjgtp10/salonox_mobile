@@ -2,7 +2,6 @@ import { useFooterClearance } from "@/hooks/useFooterClearance";
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { Text } from "@/components/ui/AppTypography";
 import { useClientPrivacy } from "@/hooks/useClientPrivacy";
-import { getAppointmentBillLabel } from "@/utils/clientPrivacy";
 import { AppointmentPreviewSheet } from "@/features/appointments/components/calendar/AppointmentPreviewSheet";
 import { createStyles } from "@/features/appointments/styles/appointmentStyles";
 import { ANY_STAFF_COLUMN_ID, getAppointmentItemSegments, getAppointmentRange, getCalendarAppointmentTitle, getWebCalendarChipStyle, hasCalendarInteractionFlag, isAnyStaffAppointment, isReadonlyCalendarAppointment } from "@/features/appointments/utils/appointmentCalendar";
@@ -134,7 +133,7 @@ export function CalendarPreview({
   quickSaleEnabled?: boolean;
   expandSingleColumn?: boolean;
 }) {
-  const { staffMode, clientName } = useClientPrivacy();
+  const { staffMode, clientName, billLabel } = useClientPrivacy();
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const [previewAppointment, setPreviewAppointment] = useState<AppointmentListItem | null>(null);
@@ -289,7 +288,7 @@ export function CalendarPreview({
             <View key={appointment.id} style={styles.dinggListTimelineRow}>
               <View style={styles.dinggListTimeRail}><Text style={styles.dinggListHour}>{formatTimeLabel(appointment.scheduledAt)}</Text><View style={styles.dinggListRailLine} /></View>
               <Pressable onPress={() => openAppointment(appointment)} style={[styles.dinggListAppointment, appointment.status === "Completed" && styles.dinggListCompleted, appointment.status === "Confirmed" && styles.dinggListConfirmed]}>
-                <View style={styles.dinggListClientRow}><View style={styles.dinggListAvatar}><Ionicons name="person-outline" size={24} color={Colors.appointmentTextSecondary} /></View><View style={styles.dinggListClientCopy}><Text numberOfLines={1} style={styles.dinggListClientName}>{staffMode ? getAppointmentBillLabel(appointment) : appointment.clientName}</Text><Text style={styles.dinggListPhone}>{maskPhone(appointment.phone)}</Text></View><Ionicons name="male-outline" size={22} color={Colors.appointmentText} /><Ionicons name="gift-outline" size={22} color={Colors.appointmentText} /></View>
+                <View style={styles.dinggListClientRow}><View style={styles.dinggListAvatar}><Ionicons name="person-outline" size={24} color={Colors.appointmentTextSecondary} /></View><View style={styles.dinggListClientCopy}><Text numberOfLines={1} style={styles.dinggListClientName}>{staffMode ? billLabel(appointment) : appointment.clientName}</Text><Text style={styles.dinggListPhone}>{maskPhone(appointment.phone)}</Text></View><Ionicons name="male-outline" size={22} color={Colors.appointmentText} /><Ionicons name="gift-outline" size={22} color={Colors.appointmentText} /></View>
                 <View style={styles.dinggListCopy}><Text numberOfLines={1} style={styles.dinggAppointmentName}>{appointment.serviceName}</Text><Text numberOfLines={1} style={styles.dinggAppointmentClient}>{clientName(appointment.clientName)} · {appointment.staffName}</Text></View>
                 <View style={styles.dinggListDetailRow}><Ionicons name="cut-outline" size={19} color={Colors.primaryText} /><Text numberOfLines={2} style={styles.dinggListService}>{appointment.serviceName}</Text></View>
                 <View style={styles.dinggListDetailRow}><Ionicons name="time-outline" size={19} color={Colors.primaryText} /><Text style={styles.dinggListTimeRange}>{formatTimeLabel(appointment.scheduledAt)} - {formatTimeLabel(appointment.endTime)}</Text><View style={styles.dinggListStaffWrap}><Text style={styles.dinggListWith}>with</Text><Text numberOfLines={1} style={styles.dinggListStaff}>{appointment.staffName || "-"}</Text></View></View>
@@ -487,7 +486,7 @@ const CalendarDayColumn = memo(function CalendarDayColumn({
   styles: CalendarStyles;
   width: number;
 }) {
-  const { staffMode } = useClientPrivacy();
+  const { staffMode, billLabel } = useClientPrivacy();
   const handleSlotPress = useCallback(
     (event: GestureResponderEvent) => onSlotPress(column, event.nativeEvent.locationY),
     [column, onSlotPress],
@@ -513,7 +512,7 @@ const CalendarDayColumn = memo(function CalendarDayColumn({
         const laneWidth = innerWidth / chip.totalCols;
         const chipStyle = getWebCalendarChipStyle(appointment, now);
         const compact = height < SLOT_HEIGHT * 1.5;
-        const client = staffMode ? getAppointmentBillLabel(appointment) : appointment.clientName || "Walk-In";
+        const client = staffMode ? billLabel(appointment) : appointment.clientName || "Walk-In";
         const isReadonly = isReadonlyCalendarAppointment(appointment);
         const isHighlighted = highlightedId === appointment.id || hasCalendarInteractionFlag(appointment, "isHighlighted", "is_highlighted");
         return (

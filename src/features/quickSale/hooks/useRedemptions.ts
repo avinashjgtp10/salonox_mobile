@@ -42,15 +42,15 @@ export const useRedemptions = (clientId: string, salonId?: string | null) => {
   const [rules, setRules] = useState<RedemptionRules | null>(null);
 
   const [applyEwallet, setApplyEwallet] = useState(false);
-  const [eWalletRequestedInput, setEWalletRequestedInput] = useState("");
+  const [eWalletRequestedInput, setEWalletRequestedInput] = useState<string | null>(null);
   const [applyMembershipWallet, setApplyMembershipWallet] = useState(false);
-  const [membershipWalletRequestedInput, setMembershipWalletRequestedInput] = useState("");
+  const [membershipWalletRequestedInput, setMembershipWalletRequestedInput] = useState<string | null>(null);
   const [applyMembershipDiscount, setApplyMembershipDiscount] = useState(false);
   const [applyLoyaltyDiscount, setApplyLoyaltyDiscount] = useState(false);
   const [applyRewardPoints, setApplyRewardPoints] = useState(false);
-  const [rewardPointsToRedeemInput, setRewardPointsToRedeemInput] = useState("");
+  const [rewardPointsToRedeemInput, setRewardPointsToRedeemInput] = useState<string | null>(null);
   const [applyReferralCredit, setApplyReferralCredit] = useState(false);
-  const [referralCreditRequestedInput, setReferralCreditRequestedInput] = useState("");
+  const [referralCreditRequestedInput, setReferralCreditRequestedInput] = useState<string | null>(null);
 
   const requestIdRef = useRef(0);
 
@@ -65,15 +65,15 @@ export const useRedemptions = (clientId: string, salonId?: string | null) => {
     setBalancesError(null);
     setRules(null);
     setApplyEwallet(false);
-    setEWalletRequestedInput("");
+    setEWalletRequestedInput(null);
     setApplyMembershipWallet(false);
-    setMembershipWalletRequestedInput("");
+    setMembershipWalletRequestedInput(null);
     setApplyMembershipDiscount(false);
     setApplyLoyaltyDiscount(false);
     setApplyRewardPoints(false);
-    setRewardPointsToRedeemInput("");
+    setRewardPointsToRedeemInput(null);
     setApplyReferralCredit(false);
-    setReferralCreditRequestedInput("");
+    setReferralCreditRequestedInput(null);
   }, []);
 
   const refreshBalances = useCallback(
@@ -152,10 +152,10 @@ export const useRedemptions = (clientId: string, salonId?: string | null) => {
   const loyaltyNextTierHint = loyaltyEligibility?.nextTier
     ? `next: ${loyaltyEligibility.nextTier.discountPercent}% at ${loyaltyEligibility.nextTier.thresholdValue} visits`
     : null;
-  const toggleEwallet = useCallback((value: boolean) => { setApplyEwallet(value); setEWalletRequestedInput(""); }, []);
-  const toggleMembershipWallet = useCallback((value: boolean) => { setApplyMembershipWallet(value); setMembershipWalletRequestedInput(""); }, []);
-  const toggleRewardPoints = useCallback((value: boolean) => { setApplyRewardPoints(value); setRewardPointsToRedeemInput(""); }, []);
-  const toggleReferralCredit = useCallback((value: boolean) => { setApplyReferralCredit(value); setReferralCreditRequestedInput(""); }, []);
+  const toggleEwallet = useCallback((value: boolean) => { setApplyEwallet(value); setEWalletRequestedInput(null); }, []);
+  const toggleMembershipWallet = useCallback((value: boolean) => { setApplyMembershipWallet(value); setMembershipWalletRequestedInput(null); }, []);
+  const toggleRewardPoints = useCallback((value: boolean) => { setApplyRewardPoints(value); setRewardPointsToRedeemInput(null); }, []);
+  const toggleReferralCredit = useCallback((value: boolean) => { setApplyReferralCredit(value); setReferralCreditRequestedInput(null); }, []);
 
   const buildPricingFlags = useCallback((): RedemptionPricingFlags => {
     if (!clientId) {
@@ -163,17 +163,17 @@ export const useRedemptions = (clientId: string, salonId?: string | null) => {
     }
 
     return {
-      ...(applyEwallet ? { applyEwallet: true, ...(eWalletRequestedInput.trim() ? { eWalletRequested: parseAmount(eWalletRequestedInput) } : {}) } : {}),
+      ...(applyEwallet ? { applyEwallet: true, ...(eWalletRequestedInput !== null ? { eWalletRequested: parseAmount(eWalletRequestedInput) } : {}) } : {}),
       ...(applyMembershipWallet && membershipWalletAssignment
-        ? { applyMembershipWallet: true, ...(membershipWalletRequestedInput.trim() ? { membershipWalletRequested: parseAmount(membershipWalletRequestedInput) } : {}) }
+        ? { applyMembershipWallet: true, ...(membershipWalletRequestedInput !== null ? { membershipWalletRequested: parseAmount(membershipWalletRequestedInput) } : {}) }
         : {}),
       ...(applyMembershipDiscount && membershipDiscountAssignment ? { applyMembershipDiscount: true } : {}),
       ...(applyLoyaltyDiscount && isLoyaltyEligible ? { applyLoyaltyDiscount: true } : {}),
       ...(applyRewardPoints
-        ? { applyRewardPoints: true, ...(rewardPointsToRedeemInput.trim() ? { rewardPointsToRedeem: Math.floor(parseAmount(rewardPointsToRedeemInput)) } : {}) }
+        ? { applyRewardPoints: true, ...(rewardPointsToRedeemInput !== null ? { rewardPointsToRedeem: Math.floor(parseAmount(rewardPointsToRedeemInput)) } : {}) }
         : {}),
       ...(applyReferralCredit
-        ? { applyReferralCredit: true, ...(referralCreditRequestedInput.trim() ? { referralCreditRequested: parseAmount(referralCreditRequestedInput) } : {}) }
+        ? { applyReferralCredit: true, ...(referralCreditRequestedInput !== null ? { referralCreditRequested: parseAmount(referralCreditRequestedInput) } : {}) }
         : {}),
     };
   }, [

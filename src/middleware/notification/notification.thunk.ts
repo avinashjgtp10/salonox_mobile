@@ -15,6 +15,7 @@ import { selectCurrentUser } from "@/store/user/user.slice";
 import { canReceiveStaffNotification } from "@/utils/staffAccess";
 import { isStaffExperienceUser } from "@/utils/routeResolver";
 import { buildStaffAppointmentActivity } from "@/utils/staffAppointmentActivity";
+import { canSeeFullClientNames } from "@/utils/clientPrivacy";
 import type {
   MarkAllNotificationsReadResponse,
   MarkNotificationReadResponse,
@@ -65,7 +66,7 @@ export const fetchNotificationsThunk = createAsyncThunk<
       const removed = new Set(removedIds);
       const reminders = serverNotifications.notifications.filter(item => item.type === "attendance" && canReceiveStaffNotification(user, item))
         .map(item => ({ ...item, isRead: item.isRead || readIds.includes(item.id) }));
-      return { notifications: [...reminders, ...buildStaffAppointmentActivity(response.appointments, staff, user.id, readIds)].filter(item => !removed.has(item.id)) };
+      return { notifications: [...reminders, ...buildStaffAppointmentActivity(response.appointments, staff, user.id, readIds, canSeeFullClientNames(user))].filter(item => !removed.has(item.id)) };
     }
     const [response, removedIds] = await Promise.all([
       notificationService.getNotifications(selectActiveBranchId(state)),
