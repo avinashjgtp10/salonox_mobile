@@ -323,6 +323,8 @@ requestUrl.includes("/auth/register") ||
   requestUrl.includes("/auth/refresh") ||
   requestUrl.includes("/auth/logout") ||
   requestUrl.includes("/auth/forgot-password") ||
+  // Native Google sign-in: a rejected token (401) means "not signed in yet", never "session expired".
+  requestUrl.includes("/auth/google/native") ||
   requestUrl.includes("/app/version");
 
 const releaseProtectedRequest = (config?: RetryableRequestConfig) => {

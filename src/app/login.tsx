@@ -1,72 +1,82 @@
-import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
-import { KeyboardAwareForm, type KeyboardAwareFormHandle } from "@/components/ui/KeyboardAwareForm";
-import { Text, TextInput } from "@/components/ui/AppTypography";
-import { OpalGlassBackground } from "@/components/ui/OpalGlassBackground";
-import { type ThemeColors } from "@/constants/theme";
-import { useThemeColors } from "@/theme/ThemeProvider";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Animated, Image, Pressable, StatusBar, StyleSheet, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useRef, useState } from "react";
+import { Keyboard, Linking, Pressable, StyleSheet, View } from "react-native";
 
+import {
+  AuthScreen,
+  Banner,
+  BrandHeader,
+  GlassButton,
+  GlassCard,
+  NotRegisteredModal,
+  OutlineButton,
+  PrimaryButton,
+  SsoIcon,
+  TextField,
+  authMessages,
+  getAuthErrorCode,
+  getAuthErrorMessage,
+  getNotRegisteredEmail,
+  pearl,
+  pearlSpace,
+  pearlType,
+  tooManyAttemptsMessage,
+  type SsoProvider,
+} from "@/components/auth/pearl";
+import { Text, type TextInput } from "@/components/ui/AppTypography";
+import { environmentConfig } from "@/config/environment";
 import { useAuth } from "@/context/AuthContext";
+import { useAppToast } from "@/hooks/useAppToast";
 import { ApiError, getApiErrorMessage } from "@/services/api";
+import type { AuthUser } from "@/types/auth";
 import { takeLoginNotice } from "@/utils/loginNotice";
 import { resolveLoginRoute } from "@/utils/routeResolver";
-import {
-  EMAIL_INVALID_MESSAGE,
-  isValidEmail,
-} from "@/utils/validation";
+import { isValidEmail } from "@/utils/validation";
 
 const getRouteParam = (value: string | string[] | undefined) => Array.isArray(value) ? value[0] : value;
 
 const isInvalidCredentialsError = (loginError: unknown) => {
   const rawMessage = getApiErrorMessage(loginError);
-  return /INVALID_CREDENTIALS/i.test(rawMessage) || /Invalid credentials/i.test(rawMessage);
+  return getAuthErrorCode(loginError) === "INVALID_CREDENTIALS" || /INVALID_CREDENTIALS/i.test(rawMessage) || /Invalid credentials/i.test(rawMessage);
 };
 
 const isAccountLockedError = (loginError: unknown) => loginError instanceof ApiError && loginError.status === 429;
 
 const isEmailNotVerifiedError = (loginError: unknown) => {
   const rawMessage = getApiErrorMessage(loginError);
-  return /EMAIL_NOT_VERIFIED/i.test(rawMessage) || /email.*not.*verif/i.test(rawMessage);
+  return getAuthErrorCode(loginError) === "EMAIL_NOT_VERIFIED" || /EMAIL_NOT_VERIFIED/i.test(rawMessage) || /email.*not.*verif/i.test(rawMessage);
 };
 
-const getFriendlyLoginErrorMessage = (loginError: unknown) => {
-  const rawMessage = getApiErrorMessage(loginError);
-  const cleanedMessage = rawMessage.split("\n").map((line) => line.trim()).filter((line) => line && !/^[A-Z0-9_]+$/.test(line)).join("\n");
-  return cleanedMessage || "We could not sign you in. Please try again.";
+// Backend: a Google/Apple email with no SalonOX account (never auto-created).
+const isSsoNotRegisteredError = (ssoError: unknown) => getAuthErrorCode(ssoError) === "NOT_REGISTERED";
+
+// The person closed the account picker: not an error, show nothing.
+const isSsoCancelledError = (ssoError: unknown) => getAuthErrorCode(ssoError) === "GOOGLE_SIGN_IN_CANCELLED";
+
+const getWelcomeMessage = (user?: AuthUser | null, via?: string) => {
+  const name = user?.firstName?.trim() || user?.fullName?.trim().split(/\s+/)[0];
+  return `Welcome back${name ? `, ${name}` : ""}${via ? ` · signed in with ${via}` : ""}`;
 };
 
 export default function LoginScreen() {
-  const colors = useThemeColors();
-  const styles = useMemo(() => createStyles(colors), [colors]);
   const params = useLocalSearchParams<{ successMessage?: string }>();
   const routeSuccessMessage = getRouteParam(params.successMessage);
-  const { clearError, error, isLoading, signIn } = useAuth();
+  const { clearError, error, isLoading, signIn, signInWithGoogle } = useAuth();
+  const toast = useAppToast();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   // Why the user was just signed out automatically (e.g. the salon's subscription ended).
   const [notice, setNotice] = useState(takeLoginNotice);
   const [failedLoginAttempts, setFailedLoginAttempts] = useState(0);
-  const formRef = useRef<KeyboardAwareFormHandle>(null);
+  const [ssoLoading, setSsoLoading] = useState<SsoProvider | null>(null);
+  const [notRegistered, setNotRegistered] = useState<{ provider: SsoProvider; email: string | null } | null>(null);
   const passwordInputRef = useRef<TextInput>(null);
-  const emailFieldRef = useRef<View>(null);
-  const passwordFieldRef = useRef<View>(null);
   const loginInFlight = useRef(false);
-  const [cardOpacity] = useState(() => new Animated.Value(0));
-  const [cardTranslate] = useState(() => new Animated.Value(16));
-  const canSubmit = Boolean(identifier.trim() && password);
-
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(cardOpacity, { duration: 300, toValue: 1, useNativeDriver: true }),
-      Animated.spring(cardTranslate, { damping: 18, stiffness: 170, toValue: 0, useNativeDriver: true }),
-    ]).start();
-  }, [cardOpacity, cardTranslate]);
+  const busy = isLoading || ssoLoading !== null;
 
   const clearFeedback = () => {
     setFormError(null);
@@ -76,6 +86,7 @@ export default function LoginScreen() {
   const focusPasswordField = () => passwordInputRef.current?.focus();
   const handleIdentifierChange = (value: string) => {
     setIdentifier(value);
+    setEmailError(null);
     setFailedLoginAttempts(0);
     clearFeedback();
   };
@@ -83,15 +94,13 @@ export default function LoginScreen() {
   const handleLogin = async () => {
     if (isLoading || loginInFlight.current) return;
     const trimmedIdentifier = identifier.trim();
-    if (!trimmedIdentifier || !password) {
-      setFormError("Please enter your email address and password.");
-      return;
-    }
-    if (!isValidEmail(trimmedIdentifier)) {
-      setFormError(EMAIL_INVALID_MESSAGE);
-      return;
-    }
+    const nextEmailError = !trimmedIdentifier ? authMessages.EMAIL_REQUIRED : !isValidEmail(trimmedIdentifier) ? authMessages.EMAIL_INVALID : null;
+    const nextPasswordError = !password ? authMessages.PASSWORD_REQUIRED : null;
+    setEmailError(nextEmailError);
+    setPasswordError(nextPasswordError);
+    if (nextEmailError || nextPasswordError) return;
 
+    Keyboard.dismiss();
     clearFeedback();
     setNotice(null);
     try {
@@ -100,8 +109,11 @@ export default function LoginScreen() {
       // Spaces are never part of a password (typed or pasted ones are stripped as they're entered).
       const authData = await signIn({ email, password: password.replace(/\s/g, "") });
       setFailedLoginAttempts(0);
+      toast.showSuccess(getWelcomeMessage(authData.user));
       router.replace(resolveLoginRoute(authData));
     } catch (loginError) {
+      // Prototype wording only: drop the raw server message the auth context keeps.
+      clearError();
       if (isEmailNotVerifiedError(loginError)) {
         router.push({
           pathname: "/verify-email",
@@ -111,169 +123,186 @@ export default function LoginScreen() {
           },
         });
       } else if (isAccountLockedError(loginError)) {
-        setFormError(getApiErrorMessage(loginError));
+        setFormError(tooManyAttemptsMessage(getApiErrorMessage(loginError)));
       } else if (isInvalidCredentialsError(loginError)) {
         const attempts = failedLoginAttempts + 1;
         setFailedLoginAttempts(attempts);
-        setFormError(`Email or password is incorrect.${attempts >= 3 ? " Use Forgot Password below to reset it." : ""}`);
+        // The server pauses sign-in after 3 wrong passwords: warn before the last one.
+        setFormError(authMessages.INVALID_CREDENTIALS + (attempts === 2 ? authMessages.LAST_ATTEMPT_WARNING : ""));
       } else {
-        setFormError(getFriendlyLoginErrorMessage(loginError));
+        setFormError(getAuthErrorMessage(loginError, "login"));
       }
     } finally {
       loginInFlight.current = false;
     }
   };
 
+  const handleGoogleLogin = async () => {
+    if (busy) return;
+    clearFeedback();
+    setNotice(null);
+    setSsoLoading("Google");
+    try {
+      const authData = await signInWithGoogle();
+      toast.showSuccess(getWelcomeMessage(authData.user, "Google"));
+      router.replace(resolveLoginRoute(authData));
+    } catch (googleError) {
+      clearError();
+      if (isSsoCancelledError(googleError)) return;
+      if (isSsoNotRegisteredError(googleError)) setNotRegistered({ provider: "Google", email: getNotRegisteredEmail(googleError) });
+      else setFormError(getAuthErrorMessage(googleError, "login"));
+    } finally {
+      setSsoLoading(null);
+    }
+  };
+
+  // TODO(apple-sign-in): connect to the Apple sign-in flow once it is built.
+  const handleAppleLogin = () => {
+    if (busy) return;
+    clearFeedback();
+    toast.showInfo("Sign in with Apple is coming soon. Please sign in with your email for now.");
+  };
+
+  const handleSsoRetry = () => {
+    const provider = notRegistered?.provider;
+    setNotRegistered(null);
+    if (provider === "Google") setTimeout(() => void handleGoogleLogin(), 250);
+    else if (provider === "Apple") handleAppleLogin();
+  };
+
+  // Opens the web registration page in the device browser (not an in-app screen).
+  const handleRegister = () => {
+    const url = environmentConfig.webRegistrationUrl;
+    if (!url) return;
+    toast.showSuccess("Opening salonox.com in your browser…");
+    void Linking.openURL(url).catch(() => {
+      setFormError("Couldn’t open the browser. Please visit salonox.com/register to create your account.");
+    });
+  };
+
+  const bannerMessage = formError ?? error;
+
   return (
-    <View style={styles.screen}>
-      <StatusBar backgroundColor={colors.dashboardTopBar} barStyle="light-content" />
-      <KeyboardAwareForm ref={formRef} scrollEnabled={false}>
-      <View pointerEvents="none" style={styles.hero}>
-        <SafeAreaView edges={["top"]} style={styles.heroSafeArea}>
-          <View style={styles.headerRow}>
-            <View style={styles.wordmark}>
-              <Image resizeMode="contain" source={require("../../assets/images/logo.png")} style={styles.logo} />
-              <View style={styles.wordmarkCopy}>
-                <View style={styles.wordmarkName}>
-                  <Text style={styles.wordmarkText}>Salon</Text>
-                  <Text style={styles.wordmarkAccent}>OX</Text>
-                </View>
-                <Text style={styles.wordmarkTagline}>Salon management, simplified</Text>
-              </View>
-            </View>
-          </View>
-        </SafeAreaView>
-      </View>
+    <AuthScreen>
+      <BrandHeader />
 
-      <SafeAreaView edges={["bottom"]} style={styles.contentSafeArea}>
-        <View style={styles.scrollContent}>
-          <Animated.View style={[styles.card, { opacity: cardOpacity, transform: [{ translateY: cardTranslate }] }]}>
-            <OpalGlassBackground />
-            <Text style={styles.title}>Welcome back</Text>
-            <Text style={styles.subtitle}>Sign in to your salon workspace</Text>
-
-            {notice ? (
-              <View accessibilityRole="alert" style={styles.noticeBox}>
-                <Ionicons color={colors.warning} name="time-outline" size={18} />
-                <View style={styles.noticeCopy}>
-                  <Text style={styles.noticeTitle}>{notice.title}</Text>
-                  <Text style={styles.noticeText}>{notice.message}</Text>
-                </View>
-              </View>
-            ) : null}
-
-            <View ref={emailFieldRef} collapsable={false} style={styles.fieldGroup}>
-              <Text style={styles.label}>Email</Text>
-              <View style={styles.inputShell}>
-                <TextInput
-                  autoCapitalize="none"
-                  autoComplete="email"
-                  autoCorrect={false}
-                  blurOnSubmit={false}
-                  enterKeyHint="next"
-                  keyboardType="email-address"
-                  onChangeText={handleIdentifierChange}
-                  onFocus={() => formRef.current?.revealField(emailFieldRef.current)}
-                  onTouchEnd={() => formRef.current?.revealField(emailFieldRef.current)}
-                  onSubmitEditing={focusPasswordField}
-                  placeholder="Enter the registered email address"
-                  placeholderTextColor={colors.placeholder}
-                  returnKeyType="next"
-                  style={styles.input}
-                  submitBehavior="submit"
-                  textContentType="emailAddress"
-                  value={identifier}
-                />
-              </View>
-            </View>
-
-            <View ref={passwordFieldRef} collapsable={false} style={styles.fieldGroup}>
-              <Text style={styles.label}>Password</Text>
-              <View style={styles.inputShell}>
-                <TextInput
-                  // Keep the same native input mounted when toggling visibility:
-                  // remounting dismisses the keyboard and resets the form scroll.
-                  autoCapitalize="none"
-                  autoComplete="password"
-                  keyboardType="default"
-                  // With the eye toggle on, the field is plain text: without these the
-                  // keyboard autocorrects the password or appends a space after a
-                  // suggestion, and the server rightly rejects it as wrong.
-                  autoCorrect={false}
-                  spellCheck={false}
-                  // No spaces anywhere in the password: leading, trailing or internal,
-                  // typed or pasted.
-                  onChangeText={(value) => { setPassword(value.replace(/\s/g, "")); clearFeedback(); }}
-                  onFocus={() => formRef.current?.revealField(passwordFieldRef.current)}
-                  onTouchEnd={() => formRef.current?.revealField(passwordFieldRef.current)}
-                  onSubmitEditing={handleLogin}
-                  placeholder="Enter Password"
-                  placeholderTextColor={colors.placeholder}
-                  ref={passwordInputRef}
-                  returnKeyType="done"
-                  secureTextEntry={!showPassword}
-                  style={styles.input}
-                  textContentType="password"
-                  value={password}
-                />
-                <Pressable accessibilityLabel={showPassword ? "Hide password" : "Show password"} hitSlop={12} onPress={() => setShowPassword((visible) => !visible)} style={styles.eyeButton}>
-                  <Ionicons color={colors.text2} name={showPassword ? "eye-outline" : "eye-off-outline"} size={22} />
-                </Pressable>
-              </View>
-            </View>
-
-            {routeSuccessMessage ? <View style={styles.successBox}><Text style={styles.successText}>{routeSuccessMessage}</Text></View> : null}
-            {formError || error ? <View accessibilityRole="alert" style={styles.errorBox}><Ionicons color={colors.error} name="alert-circle-outline" size={17} /><Text style={styles.errorText}>{formError ?? error}</Text></View> : null}
-
-            <Pressable onPress={() => router.push("/forgot-password")} style={styles.forgotButton}>
-              <Text style={styles.forgotText}>Forgot Password?</Text>
-            </Pressable>
-
-            <Pressable disabled={!canSubmit || isLoading} onPress={handleLogin} style={[styles.submitButton, (!canSubmit || isLoading) && styles.submitButtonDisabled]}>
-              {isLoading ? <ActivityIndicator color={colors.onPrimary} /> : <Text style={[styles.submitText, !canSubmit && styles.submitTextDisabled]}>Sign In</Text>}
-            </Pressable>
-          </Animated.View>
+      <GlassCard style={styles.card}>
+        <View style={styles.heading}>
+          <Text style={[pearlType.h1, styles.title]}>Welcome back</Text>
+          <Text style={[pearlType.body, styles.subtitle]}>Sign in to your beauty and wellness workspace</Text>
         </View>
-      </SafeAreaView>
-      </KeyboardAwareForm>
-    </View>
+
+        {notice ? <Banner kind="warn" title={notice.title} message={notice.message} /> : null}
+        {routeSuccessMessage ? <Banner kind="success" message={routeSuccessMessage} /> : null}
+        <Banner kind="error" message={bannerMessage} />
+
+        <TextField
+          label="Email"
+          icon="mail-outline"
+          placeholder="you@yoursalon.com"
+          value={identifier}
+          onChangeText={handleIdentifierChange}
+          error={emailError ?? (bannerMessage && isInvalidCredentialsMessage(bannerMessage) ? true : null)}
+          autoCapitalize="none"
+          autoComplete="email"
+          autoCorrect={false}
+          keyboardType="email-address"
+          textContentType="emailAddress"
+          returnKeyType="next"
+          submitBehavior="submit"
+          onSubmitEditing={focusPasswordField}
+        />
+        <TextField
+          ref={passwordInputRef}
+          label="Password"
+          icon="lock-closed-outline"
+          placeholder="Enter your password"
+          value={password}
+          // No spaces anywhere in the password: leading, trailing or internal, typed or pasted.
+          onChangeText={(value) => { setPassword(value.replace(/\s/g, "")); setPasswordError(null); clearFeedback(); }}
+          error={passwordError ?? (bannerMessage && isInvalidCredentialsMessage(bannerMessage) ? true : null)}
+          secureToggle
+          autoCapitalize="none"
+          autoComplete="password"
+          // With the eye toggle on, the field is plain text: without these the keyboard
+          // autocorrects the password or appends a space after a suggestion.
+          autoCorrect={false}
+          spellCheck={false}
+          textContentType="password"
+          returnKeyType="done"
+          onSubmitEditing={handleLogin}
+        />
+
+        <Pressable onPress={() => router.push("/forgot-password")} style={styles.forgot} hitSlop={8} accessibilityRole="link">
+          <Text style={pearlType.link}>Forgot password?</Text>
+        </Pressable>
+
+        <PrimaryButton title="Sign in" loading={isLoading && ssoLoading === null} loadingTitle="Signing in…" disabled={busy} onPress={handleLogin} />
+
+        <View style={styles.or}>
+          <View style={styles.line} />
+          <Text style={pearlType.small}>or continue with</Text>
+          <View style={styles.line} />
+        </View>
+
+        <View style={styles.ssoRow}>
+          <GlassButton
+            title="Google"
+            accessibilityLabel="Login with Google"
+            loading={ssoLoading === "Google"}
+            disabled={busy}
+            onPress={handleGoogleLogin}
+            left={<SsoIcon><Text style={styles.googleG}>G</Text></SsoIcon>}
+            style={styles.flex}
+          />
+          <GlassButton
+            title="Apple"
+            accessibilityLabel="Login with Apple"
+            disabled={busy}
+            onPress={handleAppleLogin}
+            left={<SsoIcon dark><Ionicons name="logo-apple" size={13} color={pearl.white} /></SsoIcon>}
+            style={styles.flex}
+          />
+        </View>
+      </GlassCard>
+
+      <GlassCard style={styles.register}>
+        <View style={styles.flex}>
+          <Text style={pearlType.bodyStrong}>New to SalonOX?</Text>
+          <Text style={pearlType.small}>Register your salon or spa on our website</Text>
+        </View>
+        <OutlineButton
+          title="Register"
+          onPress={handleRegister}
+          right={<Ionicons name="open-outline" size={15} color={pearl.accentDeep} />}
+          accessibilityHint="Opens salonox.com in your browser"
+        />
+      </GlassCard>
+
+      <NotRegisteredModal
+        visible={notRegistered !== null}
+        provider={notRegistered?.provider ?? "Google"}
+        email={notRegistered?.email}
+        onRegister={() => { setNotRegistered(null); handleRegister(); }}
+        onRetry={handleSsoRetry}
+        onUseEmail={() => setNotRegistered(null)}
+      />
+    </AuthScreen>
   );
 }
 
-const createStyles = (colors: ThemeColors) => StyleSheet.create({
-  screen: { backgroundColor: colors.bg, flex: 1 },
-  hero: { backgroundColor: colors.dashboardTopBar, height: 260, flexShrink: 0, overflow: "hidden" },
-  heroSafeArea: { flex: 1 },
-  headerRow: { alignItems: "center", flexDirection: "row", paddingHorizontal: 24, paddingTop: 24 },
-  wordmark: { alignItems: "center", flex: 1, flexDirection: "row", minWidth: 0 },
-  logo: { height: 54, width: 54 },
-  wordmarkCopy: { marginLeft: 10, minWidth: 0 },
-  wordmarkName: { alignItems: "baseline", flexDirection: "row" },
-  wordmarkText: { color: colors.dashboardTopBarText, fontSize: 26, fontWeight: "800" },
-  wordmarkAccent: { color: "#00D7A1", fontSize: 26, fontWeight: "800" },
-  wordmarkTagline: { color: colors.dashboardTopBarMuted, fontSize: 10, marginTop: 3 },
-  contentSafeArea: { flexGrow: 1, marginTop: -96, zIndex: 1 },
-  scrollContent: { flexGrow: 1, paddingBottom: 24, paddingHorizontal: 20 },
-  card: { alignSelf: "center", width: "100%", maxWidth: 480, backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, borderRadius: 28, overflow: "hidden", paddingBottom: 28, paddingHorizontal: 24, paddingTop: 28 },
-  title: { color: colors.heading, fontSize: 28, fontWeight: "800", textAlign: "center" },
-  subtitle: { color: colors.text2, fontSize: 13, lineHeight: 20, marginTop: 6, marginBottom: 28, textAlign: "center" },
-  fieldGroup: { marginBottom: 18 },
-  label: { color: colors.text, fontSize: 13, fontWeight: "600", marginBottom: 8 },
-  inputShell: { backgroundColor: colors.card, alignItems: "center", borderColor: colors.border, borderRadius: 14, borderWidth: 1, flexDirection: "row", minHeight: 54, overflow: "hidden" },
-  input: { color: colors.text, flex: 1, fontSize: 14, minHeight: 52, paddingHorizontal: 14 },
-  eyeButton: { alignItems: "center", height: 52, justifyContent: "center", width: 48 },
-  forgotButton: { alignSelf: "flex-end", marginBottom: 22, marginTop: -4, paddingVertical: 6 },
-  forgotText: { color: colors.primaryText, fontSize: 13, fontWeight: "700" },
-  submitButton: { alignItems: "center", backgroundColor: colors.primary, borderRadius: 16, justifyContent: "center", minHeight: 54 },
-  submitButtonDisabled: { backgroundColor: colors.backgroundElement },
-  submitText: { color: colors.onPrimary, fontSize: 16, fontWeight: "800" },
-  submitTextDisabled: { color: colors.text2 },
-  errorBox: { alignItems: "flex-start", backgroundColor: colors.errorBg, borderColor: colors.errorBorder, borderRadius: 12, borderWidth: 1, flexDirection: "row", gap: 7, marginBottom: 12, padding: 12 },
-  errorText: { color: colors.error, flex: 1, fontSize: 12, lineHeight: 17 },
-  successBox: { backgroundColor: colors.successBg, borderColor: colors.successBorder, borderWidth: 1, borderRadius: 12, marginBottom: 12, padding: 12 },
-  successText: { color: colors.text, fontSize: 12, lineHeight: 17 },
-  noticeBox: { alignItems: "flex-start", backgroundColor: colors.warningBg, borderColor: colors.warning, borderRadius: 12, borderWidth: 1, flexDirection: "row", gap: 8, marginBottom: 14, padding: 12 },
-  noticeCopy: { flex: 1, gap: 2 },
-  noticeTitle: { color: colors.heading, fontSize: 13, fontWeight: "700" },
-  noticeText: { color: colors.text, fontSize: 12, lineHeight: 17 },
+const isInvalidCredentialsMessage = (message: string) => /incorrect/i.test(message);
+
+const styles = StyleSheet.create({
+  card: { gap: 13, paddingVertical: 22, paddingHorizontal: 18 },
+  heading: { gap: 4 },
+  title: { fontSize: 25 },
+  subtitle: { color: pearl.muted, fontSize: 14.5 },
+  forgot: { alignSelf: "flex-end", marginTop: -2 },
+  or: { flexDirection: "row", alignItems: "center", gap: 10, marginVertical: 2 },
+  line: { flex: 1, height: 1, backgroundColor: pearl.divider },
+  ssoRow: { flexDirection: "row", gap: pearlSpace.sm },
+  flex: { flex: 1 },
+  googleG: { fontSize: 13, fontWeight: "800", color: pearl.ink2 },
+  register: { flexDirection: "row", alignItems: "center", gap: 12, borderRadius: 22, paddingVertical: 14, paddingLeft: 16, paddingRight: 14 },
 });
