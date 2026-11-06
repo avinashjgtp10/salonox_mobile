@@ -12,13 +12,17 @@ type Props = TextInputProps & {
   /** Message under the field. Pass `true` to only highlight the field. */
   error?: string | boolean | null;
   hint?: string;
+  /** Text shown before the value, e.g. a currency sign. */
+  prefix?: string;
+  /** Adds a "*" after the label. */
+  required?: boolean;
   /** Adds the show/hide password button and manages `secureTextEntry`. */
   secureToggle?: boolean;
 };
 
 /** Labelled pearl input with focus ring, inline error and optional show/hide password. */
 export const TextField = forwardRef<TextInput, Props>(function TextField(
-  { label, icon, error, hint, secureToggle, secureTextEntry, onFocus, onBlur, style, ...input },
+  { label, icon, error, hint, prefix, required, secureToggle, secureTextEntry, onFocus, onBlur, style, ...input },
   ref,
 ) {
   const [focused, setFocused] = useState(false);
@@ -28,9 +32,10 @@ export const TextField = forwardRef<TextInput, Props>(function TextField(
 
   return (
     <View style={styles.group}>
-      <Text style={pearlType.label}>{label}</Text>
+      <Text style={pearlType.label}>{label}{required ? <Text style={{ color: pearl.dangerText }}> *</Text> : null}</Text>
       <View style={[styles.field, focused && styles.focus, !!error && styles.bad]}>
         {icon ? <Ionicons name={icon} size={18} color={pearl.muted} /> : null}
+        {prefix ? <Text style={[pearlType.input, { color: pearl.muted }]}>{prefix}</Text> : null}
         <TextInput
           ref={ref}
           accessibilityLabel={label}
