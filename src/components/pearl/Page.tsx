@@ -12,6 +12,7 @@ import { Text } from "@/components/ui/AppTypography";
 import { useFooterClearance } from "@/hooks/useFooterClearance";
 import { Icon, type IconName } from "./Icon";
 import { EmptyState, SmallButton } from "./ui";
+import { NoInternetState } from "./NoInternetState";
 
 export function Page({ children, header, refreshing, onRefresh, scrollRef }: {
   children: ReactNode; header?: ReactNode; refreshing?: boolean; onRefresh?: () => void; scrollRef?: RefObject<ScrollView | null>;
@@ -58,6 +59,7 @@ export function PageHeader({ title, subtitle, onBack, right }: { title: string; 
 
 /** Prototype wording only; never the server's error text. */
 export function LoadError({ offline, onRetry }: { offline?: boolean; onRetry: () => void }) {
+  if (offline) return <NoInternetState onRetry={onRetry} />;
   return (
     <EmptyState
       icon={offline ? "wifiOff" : "alert"}
