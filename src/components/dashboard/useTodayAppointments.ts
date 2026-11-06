@@ -9,7 +9,9 @@ import { selectAppointments } from "@/store/appointment/appointment.slice";
 import { useAppSelector } from "@/store/hooks";
 import { selectCurrentUser } from "@/store/user/user.slice";
 import type { AppointmentListItem, AppointmentStatus as CalendarAppointmentStatus } from "@/types/appointment";
-import { formatAppTime } from "@/utils/dateTime";
+import { salonDateKey } from "@/utils/salonRegion";
+import { selectSalonTimezone } from "@/store/salon/region.selectors";
+import { useSalonDay } from "@/hooks/useSalonDay";
 
 export type DashboardAppointmentStatus = "completed" | "in-progress" | "upcoming";
 
@@ -53,19 +55,16 @@ const getAppointmentCompletionMs = (appointment: AppointmentListItem) =>
   ?? parseApiDateTime(appointment.endTime)?.getTime()
   ?? getAppointmentStartMs(appointment);
 
-const formatLocalDateKey = (date = new Date()) =>
-  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-
-const getAppointmentDateKey = (appointment: AppointmentListItem) => {
+const getAppointmentDateKey = (appointment: AppointmentListItem, timezone: string) => {
   const rawStart = appointment.startTime ?? appointment.scheduledAt;
   const parsedDate = parseApiDateTime(rawStart);
   if (!parsedDate) return rawStart ? rawStart.slice(0, 10) : "";
-  return formatLocalDateKey(parsedDate);
+  return salonDateKey(parsedDate, timezone);
 };
 
-const formatAppointmentTime = (appointment: AppointmentListItem) => {
+const formatAppointmentTime = (appointment: AppointmentListItem, timezone: string) => {
   const parsedDate = parseApiDateTime(appointment.startTime ?? appointment.scheduledAt);
-  return parsedDate ? formatAppTime(parsedDate, "--:--") : "--:--";
+  return parsedDate ? parsedDate.toLocaleTimeString("en-US", { timeZone: timezone, hour: "2-digit", minute: "2-digit", hour12: true }) : "--:--";
 };
 
 const toDashboardAppointmentStatus = (appointment: AppointmentListItem): DashboardAppointmentStatus | null => {
@@ -76,18 +75,20 @@ const toDashboardAppointmentStatus = (appointment: AppointmentListItem): Dashboa
   return null;
 };
 
-const toCardModel = (appointment: AppointmentListItem, status: DashboardAppointmentStatus): DashboardAppointmentCard => ({
+const toCardModel = (appointment: AppointmentListItem, status: DashboardAppointmentStatus, timezone: string): DashboardAppointmentCard => ({
   amount: appointment.total || appointment.amount,
   clientName: appointment.clientName,
   id: appointment.id,
   service: appointment.serviceName,
   staffName: appointment.staffName,
   status,
-  time: formatAppointmentTime(appointment),
+  time: formatAppointmentTime(appointment, timezone),
 });
 
 /** `refreshKey` changes on a manual pull-to-refresh; there is no refresh on focus. */
 export function useTodayAppointments(refreshKey = 0) {
+  const timezone = useAppSelector(selectSalonTimezone);
+  const todayKey = useSalonDay();
   const appointments = useAppSelector(selectAppointments);
   const currentUser = useAppSelector(selectCurrentUser);
   const [completedRawAppointments, setCompletedRawAppointments] = useState<AppointmentListItem[]>([]);
@@ -108,9 +109,8 @@ export function useTodayAppointments(refreshKey = 0) {
 
   const upcomingAppointments = useMemo(() => {
     const nowMs = Date.now();
-    const todayKey = formatLocalDateKey();
     return appointments
-      .filter((appointment) => getAppointmentDateKey(appointment) === todayKey)
+      .filter((appointment) => getAppointmentDateKey(appointment, timezone) === todayKey)
       .map((appointment) => ({ appointment, scheduledAtMs: getAppointmentStartMs(appointment), status: toDashboardAppointmentStatus(appointment) }))
       .filter(({ scheduledAtMs, status }) => {
         if (!status || status === "completed") return false;
@@ -118,19 +118,18 @@ export function useTodayAppointments(refreshKey = 0) {
       })
       .sort((left, right) => (left.scheduledAtMs ?? Infinity) - (right.scheduledAtMs ?? Infinity))
       .slice(0, 3)
-      .map(({ appointment, status }) => toCardModel(appointment, status ?? "upcoming"));
-  }, [appointments]);
+      .map(({ appointment, status }) => toCardModel(appointment, status ?? "upcoming", timezone));
+  }, [appointments, todayKey, timezone]);
 
   const completedAppointments = useMemo(() => {
-    const todayKey = formatLocalDateKey();
     return completedRawAppointments
       .filter((appointment) => appointment.status === "Completed")
-      .filter((appointment) => getAppointmentDateKey(appointment) === todayKey)
+      .filter((appointment) => getAppointmentDateKey(appointment, timezone) === todayKey)
       .map((appointment) => ({ appointment, completedAtMs: getAppointmentCompletionMs(appointment) }))
       .sort((left, right) => (right.completedAtMs ?? -Infinity) - (left.completedAtMs ?? -Infinity))
       .slice(0, 3)
-      .map(({ appointment }) => toCardModel(appointment, "completed"));
-  }, [completedRawAppointments]);
+      .map(({ appointment }) => toCardModel(appointment, "completed", timezone));
+  }, [completedRawAppointments, todayKey, timezone]);
 
   return useMemo(
     () => [...upcomingAppointments, ...completedAppointments].slice(0, 5),

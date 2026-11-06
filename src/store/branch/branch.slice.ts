@@ -66,9 +66,10 @@ const branchSlice = createSlice({
       // A renamed salon is the same record as its branch: keep the dashboard
       // header (which shows the branch name) in step without a refetch.
       .addCase(updateSalonThunk.fulfilled, (state, action) => {
-        const { id, name } = action.payload.salon;
+        const { id, name, timezone, country, countryCode } = action.payload.salon;
         const branch = state.branches.find((entry) => entry.id === id);
         if (branch && name) branch.name = name;
+        if (branch) Object.assign(branch, { timezone, country, countryCode });
       });
   },
 });

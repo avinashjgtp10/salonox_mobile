@@ -11,6 +11,7 @@ import { pearl, pearlShadow, pearlType } from "@/components/auth/pearl/tokens";
 import { NextAppointments, StaffOnFloor } from "@/components/dashboard/DashboardLists";
 import { MenuDrawer, NotificationsSheet, SalonSwitchSheet } from "@/components/dashboard/DashboardSheets";
 import SpotlightAnnouncementCard from "@/components/dashboard/SpotlightAnnouncementCard";
+import { LunoxInsightCard } from "@/components/lunox/LunoxInsightCard";
 import { HeroSurface } from "@/components/pearl/HeroSurface";
 import { Icon, type IconName } from "@/components/pearl/Icon";
 import { LoadError, Page } from "@/components/pearl/Page";
@@ -18,7 +19,7 @@ import { IconButton, Skeleton, StatTile } from "@/components/pearl/ui";
 import { Text } from "@/components/ui/AppTypography";
 import { useAuth } from "@/context/AuthContext";
 import { AttendanceToast } from "@/features/attendance/components/AttendanceToast";
-import { useLocalDay } from "@/hooks/useLocalDay";
+import { useSalonDay } from "@/hooks/useSalonDay";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { fetchAppointmentsThunk } from "@/middleware/appointment/appointment.thunk";
 import { fetchAttendanceOverviewThunk, hydrateAttendanceFromCacheThunk } from "@/middleware/attendance/attendance.thunk";
@@ -46,15 +47,13 @@ const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", 
 const SHORT_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 /** "Saturday, 31 Oct" */
-const longDate = (date = new Date()) => `${DAYS[date.getDay()]}, ${date.getDate()} ${SHORT_MONTHS[date.getMonth()]}`;
-
-const getTodayDateKey = () => {
-  const date = new Date();
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+const longDate = (day: string) => {
+  const date = new Date(`${day}T00:00:00Z`);
+  return `${DAYS[date.getUTCDay()]}, ${date.getUTCDate()} ${SHORT_MONTHS[date.getUTCMonth()]}`;
 };
 
-const todayAppointmentsQuery = () => ({
-  date: getTodayDateKey(),
+const todayAppointmentsQuery = (day: string) => ({
+  date: day,
   limit: 100,
   page: 1,
   reset: true,
@@ -81,7 +80,7 @@ export default function DashboardScreen() {
   const dashboardStatus = useAppSelector(selectDashboardStatus);
   const { isOnline } = useNetworkStatus();
   const wasOnline = useRef(isOnline);
-  const today = useLocalDay();
+  const today = useSalonDay();
   const previousDay = useRef(today);
   const showErrorState = isOnline && dashboardStatus === "failed";
 
@@ -109,15 +108,16 @@ export default function DashboardScreen() {
     previousDay.current = today;
     void fetchDashboard();
     fetchAttendance();
-  }, [today, fetchDashboard, fetchAttendance]);
+    if (isAuthenticated) void dispatch(fetchAppointmentsThunk(todayAppointmentsQuery(today)));
+  }, [today, fetchDashboard, fetchAttendance, dispatch, isAuthenticated]);
 
   const fetchInventoryStock = useCallback(() => {
     if (isAuthenticated) void dispatch(fetchInventorySummaryThunk());
   }, [dispatch, isAuthenticated]);
 
   const fetchUpcomingAppointments = useCallback(() => {
-    if (isAuthenticated) void dispatch(fetchAppointmentsThunk(todayAppointmentsQuery()));
-  }, [dispatch, isAuthenticated]);
+    if (isAuthenticated) void dispatch(fetchAppointmentsThunk(todayAppointmentsQuery(today)));
+  }, [dispatch, isAuthenticated, today]);
 
   const fetchStartupData = useCallback(() => {
     if (!isAuthenticated) return;
@@ -125,14 +125,14 @@ export default function DashboardScreen() {
       dispatch(fetchDashboardThunk()),
       dispatch(fetchAttendanceOverviewThunk()),
       dispatch(fetchInventorySummaryThunk()),
-      dispatch(fetchAppointmentsThunk(todayAppointmentsQuery())),
+      dispatch(fetchAppointmentsThunk(todayAppointmentsQuery(today))),
       dispatch(fetchUnreadCountThunk()),
       dispatch(fetchNotificationsThunk({ refresh: true })),
       dispatch(fetchProductsThunk({ offset: 0, reset: true })),
       dispatch(fetchStaffThunk({ page: 1, reset: true })),
       dispatch(fetchClientsThunk({ offset: 0, reset: true, refresh: true })),
     ]);
-  }, [dispatch, isAuthenticated]);
+  }, [dispatch, isAuthenticated, today]);
 
   useEffect(() => {
     if (!isAuthenticated || didRunStartupFetchRef.current) return;
@@ -176,10 +176,11 @@ export default function DashboardScreen() {
   return (
     <>
       <Page header={<DashboardHeader onOpen={setSheet} />} refreshing={pulling} onRefresh={refresh}>
-        <Text style={[pearlType.small, { paddingHorizontal: 2 }]}>{longDate()}</Text>
+        <Text style={[pearlType.small, { paddingHorizontal: 2 }]}>{longDate(today)}</Text>
         {showErrorState ? <LoadError onRetry={() => void fetchDashboard()} /> : (
           <>
             <RevenueHero />
+            <LunoxInsightCard refreshKey={refreshKey} />
             <View style={styles.bleed}><SpotlightAnnouncementCard /></View>
             <StatsRow />
             <View style={styles.qa}>
@@ -230,6 +231,7 @@ function DashboardHeader({ onOpen }: { onOpen: (sheet: Sheet) => void }) {
 
 /** This month collected + monthly target (target from /dashboard/monthly-projection). */
 function RevenueHero() {
+  const salonDay = useSalonDay();
   const metrics = useAppSelector(selectDashboardMetrics);
   const loading = useAppSelector(selectDashboardIsLoading);
   const refreshedAt = useAppSelector(selectDashboardLastFetchedAt);
@@ -247,8 +249,7 @@ function RevenueHero() {
 
   if (loading && !refreshedAt) return <Skeleton h={210} r={26} />;
 
-  const now = new Date();
-  const prevMonth = MONTHS[(now.getMonth() + 11) % 12];
+  const prevMonth = MONTHS[(Number(salonDay.slice(5, 7)) + 10) % 12];
   const change = metrics.revenueChange;
   const hasCompare = metrics.lastMonthRevenue > 0;
   const progress = target ? (metrics.monthlyRevenue / target) * 100 : 0;
