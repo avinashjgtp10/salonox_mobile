@@ -123,7 +123,7 @@ const styles = StyleSheet.create({
   dim: { backgroundColor: "rgba(59,57,80,0.22)" },
   sheet: {
     position: "absolute", left: 0, right: 0, bottom: 0, borderTopLeftRadius: 30, borderTopRightRadius: 30,
-    backgroundColor: "rgba(250,249,252,0.98)", borderTopWidth: 1, borderColor: pearl.white,
+    backgroundColor: "#FAF9FC", borderTopWidth: 1, borderColor: pearl.white,
     shadowColor: "#46446E", shadowOpacity: 0.18, shadowRadius: 20, shadowOffset: { width: 0, height: -14 }, elevation: 16,
   },
   grab: { alignItems: "center", paddingTop: 10, paddingBottom: 6 },
@@ -132,7 +132,7 @@ const styles = StyleSheet.create({
   body: { gap: 14, paddingHorizontal: 18, paddingBottom: 8 },
   drawer: {
     position: "absolute", top: 0, bottom: 0, left: 0, borderTopRightRadius: 30, borderBottomRightRadius: 30,
-    backgroundColor: "rgba(250,249,252,0.99)", borderRightWidth: 1, borderColor: pearl.white, elevation: 16,
+    backgroundColor: "#FAF9FC", borderRightWidth: 1, borderColor: pearl.white, elevation: 16,
     shadowColor: "#3C3A5F", shadowOpacity: 0.2, shadowRadius: 24, shadowOffset: { width: 8, height: 0 },
   },
 });

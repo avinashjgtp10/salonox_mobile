@@ -1,12 +1,14 @@
 import { Redirect, Tabs } from "expo-router";
-import { useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import { useAuth } from "@/context/AuthContext";
-import { useAppToast } from "@/hooks/useAppToast";
 import { useAppSelector } from "@/store/hooks";
 import type { RootState } from "@/store";
+import { selectActiveBranchId } from "@/store/branch/branch.slice";
 import { isStaffExperienceUser, STAFF_HOME_ROUTE } from "@/utils/routeResolver";
 
+import { LunoxContext, type LunoxOpener } from "@/components/lunox/LunoxContext";
+import { LunoxSheet } from "@/components/lunox/LunoxSheet";
 import { AppTabLayout, type AppTabItem } from "@/components/navigation/AppTabLayout";
 
 export const unstable_settings = {
@@ -18,26 +20,33 @@ const selectWhatsAppUnread = (state: RootState) =>
 
 export default function DashboardTabsLayout() {
   const { user, isLoading } = useAuth();
-  const toast = useAppToast();
   const whatsappUnread = useAppSelector(selectWhatsAppUnread);
+  const branchId = useAppSelector(selectActiveBranchId);
+  const [lunoxOpen, setLunoxOpen] = useState(false);
+  const [lunoxSeed, setLunoxSeed] = useState<string | null>(null);
+  const openLunox = useCallback<LunoxOpener>((options) => { setLunoxSeed(options?.seed ?? null); setLunoxOpen(true); }, []);
 
   // Prototype order: Home · Calendar · Lunox AI · Quick Sale · WhatsApp. Settings lives in the side menu.
   const tabs = useMemo<AppTabItem[]>(() => [
     { icon: "home", name: "dashboard", title: "Home" },
     { icon: "calendar", name: "calendar", title: "Calendar" },
-    // TODO(lunox-ai): open the Lunox assistant over the current tab once it exists.
-    { icon: "star", name: "lunox", title: "Lunox AI", raised: "lunox", onPress: () => toast.showInfo("Lunox AI is coming soon.") },
+    // Lunox opens over the current tab; it never becomes the active tab.
+    { icon: "star", name: "lunox", title: "Lunox AI", raised: "lunox", onPress: () => openLunox() },
     { icon: "bolt", name: "quick-sale-action", title: "Quick Sale", actionHref: "/quick-sale" },
     { icon: "chat", name: "whatsapp", title: "WhatsApp", badge: whatsappUnread || undefined },
-  ], [toast, whatsappUnread]);
+  ], [openLunox, whatsappUnread]);
 
   if (isLoading) return null;
   if (!user) return <Redirect href="/login" />;
   if (isStaffExperienceUser(user)) return <Redirect href={STAFF_HOME_ROUTE} />;
   return (
-    <AppTabLayout tabs={tabs}>
-      <Tabs.Screen name="team" options={{ href: null }} />
-      <Tabs.Screen name="more" options={{ href: null }} />
-    </AppTabLayout>
+    <LunoxContext.Provider value={openLunox}>
+      <AppTabLayout tabs={tabs}>
+        <Tabs.Screen name="team" options={{ href: null }} />
+        <Tabs.Screen name="more" options={{ href: null }} />
+      </AppTabLayout>
+      {/* A fresh conversation per salon branch. */}
+      <LunoxSheet key={branchId ?? "salon"} visible={lunoxOpen} seed={lunoxSeed} onClose={() => setLunoxOpen(false)} />
+    </LunoxContext.Provider>
   );
 }

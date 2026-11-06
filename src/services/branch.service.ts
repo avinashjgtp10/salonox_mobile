@@ -7,6 +7,9 @@ const toBranch = (salon: SalonListItem): Branch => ({
   id: salon.id,
   isActive: salon.isActive,
   name: salon.name,
+  timezone: salon.timezone,
+  country: salon.country,
+  countryCode: salon.countryCode,
 });
 
 export const branchService = {

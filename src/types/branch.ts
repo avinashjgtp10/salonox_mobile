@@ -3,4 +3,7 @@ export type Branch = {
   name: string;
   city: string;
   isActive: boolean;
+  timezone?: string;
+  country?: string;
+  countryCode?: string;
 };
