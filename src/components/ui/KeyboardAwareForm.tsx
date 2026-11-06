@@ -16,12 +16,14 @@ type KeyboardAwareFormProps = {
   autoReveal?: boolean;
   /** Android keyboard-height bottom padding; off when the parent sheet itself moves above the keyboard. */
   padForKeyboard?: boolean;
+  /** iOS: lift the form above the keyboard. Off when a parent (e.g. StickyFooterLayout) already does. */
+  avoidKeyboard?: boolean;
   /** Disable drag scrolling while retaining automatic field reveal. */
   scrollEnabled?: boolean;
   style?: StyleProp<ViewStyle>;
   contentContainerStyle?: StyleProp<ViewStyle>;
 };
-export const KeyboardAwareForm = forwardRef<KeyboardAwareFormHandle, KeyboardAwareFormProps>(function KeyboardAwareForm({ children, embedded = false, autoReveal = false, padForKeyboard = true, scrollEnabled = true, style, contentContainerStyle }, ref) {
+export const KeyboardAwareForm = forwardRef<KeyboardAwareFormHandle, KeyboardAwareFormProps>(function KeyboardAwareForm({ children, embedded = false, autoReveal = false, padForKeyboard = true, avoidKeyboard = true, scrollEnabled = true, style, contentContainerStyle }, ref) {
   const insets = useSafeAreaInsets();
   const scroll = useRef<ScrollView>(null);
   const viewportRef = useRef<View>(null);
@@ -153,7 +155,7 @@ export const KeyboardAwareForm = forwardRef<KeyboardAwareFormHandle, KeyboardAwa
 
   return (
     <View ref={viewportRef} collapsable={false} style={[embedded ? styles.embedded : styles.container, style]}>
-    <KeyboardAvoidingView style={embedded ? styles.embedded : styles.container} behavior="padding" enabled={!embedded && Platform.OS === "ios"}>
+    <KeyboardAvoidingView style={embedded ? styles.embedded : styles.container} behavior="padding" enabled={!embedded && avoidKeyboard && Platform.OS === "ios"}>
       <ScrollView ref={scroll} style={embedded ? styles.embedded : undefined} contentContainerStyle={[styles.content, contentContainerStyle, { paddingBottom: padForKeyboard ? keyboardHeight : 0 }]}
         nestedScrollEnabled={embedded}
         scrollEnabled={scrollEnabled}

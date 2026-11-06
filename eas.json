@@ -10,7 +10,9 @@
       "env": {
         "APP_ENV": "development",
         "EXPO_PUBLIC_API_BASE_URL": "https://dev.salonox.com/api/v1",
-        "EXPO_PUBLIC_SOCKET_URL": "https://dev.salonox.com"
+        "EXPO_PUBLIC_SOCKET_URL": "https://dev.salonox.com",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "691189193736-1r53serm96p1baqq8t7sv8oa2lk7ne15.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "691189193736-l3dd71m27i64g1urrml5r393qvfi9kv3.apps.googleusercontent.com"
       }
     },
     "preview": {
@@ -18,7 +20,9 @@
       "env": {
         "APP_ENV": "qa",
         "EXPO_PUBLIC_API_BASE_URL": "https://qa.salonox.com/api/v1",
-        "EXPO_PUBLIC_SOCKET_URL": "https://qa.salonox.com"
+        "EXPO_PUBLIC_SOCKET_URL": "https://qa.salonox.com",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "691189193736-1r53serm96p1baqq8t7sv8oa2lk7ne15.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "691189193736-sfa4m4tuqk1v2cs99vd1ilgh1ts5mt6b.apps.googleusercontent.com"
       }
     },
     "qa": {
@@ -27,7 +31,9 @@
       "env": {
         "APP_ENV": "qa",
         "EXPO_PUBLIC_API_BASE_URL": "https://qa.salonox.com/api/v1",
-        "EXPO_PUBLIC_SOCKET_URL": "https://qa.salonox.com"
+        "EXPO_PUBLIC_SOCKET_URL": "https://qa.salonox.com",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "691189193736-1r53serm96p1baqq8t7sv8oa2lk7ne15.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "691189193736-sfa4m4tuqk1v2cs99vd1ilgh1ts5mt6b.apps.googleusercontent.com"
       }
     },
     "production": {
@@ -42,7 +48,9 @@
         "APP_ENV": "production",
         "EXPO_PUBLIC_API_BASE_URL": "https://www.salonox.com/api/v1",
         "EXPO_PUBLIC_SOCKET_URL": "https://www.salonox.com",
-        "EXPO_PUBLIC_WEB_REGISTRATION_URL": "https://www.salonox.com/register"
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "691189193736-1r53serm96p1baqq8t7sv8oa2lk7ne15.apps.googleusercontent.com",
+        "EXPO_PUBLIC_WEB_REGISTRATION_URL": "https://www.salonox.com/register",
+        "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "691189193736-tmqm1hnrsfjeftacr09ian818t190p6a.apps.googleusercontent.com"
       }
     }
   },

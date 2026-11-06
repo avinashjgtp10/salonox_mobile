@@ -31,7 +31,6 @@ import { resetAppState, store } from "@/store";
 import { setCurrentUser } from "@/store/user/user.slice";
 import type {
   AuthUser,
-  GoogleAuthResult,
   LoginCredentials,
   LoginResponseData,
   RegisterCredentials,
@@ -54,7 +53,7 @@ type AuthContextValue = {
   error: string | null;
   signIn: (credentials: LoginCredentials) => Promise<LoginResponseData>;
   signUp: (credentials: RegisterCredentials) => Promise<RegisterResponseData>;
-  signInWithGoogle: () => Promise<GoogleAuthResult>;
+  signInWithGoogle: () => Promise<LoginResponseData>;
   signOut: () => Promise<void>;
   signOutAll: () => Promise<void>;
   deleteAccount: () => Promise<void>;
@@ -304,19 +303,15 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
     try {
       const authData = await authService.loginWithGoogle();
+      // Same session setup as email sign-in (the backend returns the same login response).
       finishUserLogin();
-
-      if (authData.user) {
-        applyAuthenticatedUserAndPersistLater(authData.user);
-        void syncCurrentUserProfile().catch((profileError) => {
-          logAuthEvent("google_login_profile_fetch_failed", {
-            status: getAuthErrorStatus(profileError),
-            message: getApiErrorMessage(profileError),
-          });
+      applyAuthenticatedUserAndPersistLater(withOnboardingStatus(authData.user, authData));
+      void syncCurrentUserProfile().catch((profileError) => {
+        logAuthEvent("google_login_profile_fetch_failed", {
+          status: getAuthErrorStatus(profileError),
+          message: getApiErrorMessage(profileError),
         });
-      } else {
-        await syncCurrentUserProfile();
-      }
+      });
 
       return authData;
     } catch (googleError) {

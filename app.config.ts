@@ -44,6 +44,15 @@ if (!googleServicesFile) {
   );
 }
 
+// Native Google sign-in. iOS opens Google's sheet through a URL scheme that is the
+// reversed iOS OAuth client ID; Android needs no native config. Until the iOS client
+// ID is set the plugin is left out, so builds keep working (the app then explains
+// Google sign-in isn't available on iOS).
+const googleIosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID?.trim();
+const googleIosUrlScheme = googleIosClientId
+  ? `com.googleusercontent.apps.${googleIosClientId.replace(/\.apps\.googleusercontent\.com$/, "")}`
+  : undefined;
+
 const withSalonOxLargeNotificationIcon: ConfigPlugin = (config) => {
   const resourceName = "notification_large_icon";
   const metaDataName = "expo.modules.notifications.large_notification_icon";
@@ -161,6 +170,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         },
       ],
       "@react-native-community/datetimepicker",
+      ...(googleIosUrlScheme
+        ? [["@react-native-google-signin/google-signin", { iosUrlScheme: googleIosUrlScheme }] as [string, { iosUrlScheme: string }]]
+        : []),
       [
         "expo-notifications",
         {

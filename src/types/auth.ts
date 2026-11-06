@@ -124,10 +124,6 @@ export type ChangePasswordRequest = {
   newPassword: string;
 };
 
-export type GoogleAuthResult = AuthTokens & {
-  user?: AuthUser | null;
-};
-
 export type ApiResponse<T> = {
   success: boolean;
   data: T;
