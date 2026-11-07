@@ -2,5 +2,5 @@ import MarketingInsightsScreen from "@/features/marketing/MarketingInsightsScree
 import { WhatsAppSetupGate } from "@/features/marketing/WhatsAppSetupGate";
 
 export default function MarketingInsightsRoute() {
-  return <WhatsAppSetupGate><MarketingInsightsScreen /></WhatsAppSetupGate>;
+  return <WhatsAppSetupGate screen="insights"><MarketingInsightsScreen /></WhatsAppSetupGate>;
 }

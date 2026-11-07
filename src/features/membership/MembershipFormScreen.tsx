@@ -1,3 +1,4 @@
+import { AppBackButton } from "@/components/ui/AppBackButton";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
@@ -250,9 +251,7 @@ export function MembershipFormScreen({ membershipId, mode }: MembershipFormScree
       <AppStatusBar />
       <KeyboardAwareScrollView ref={scrollViewRef} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} style={styles.flex}>
           <View style={styles.headerRow}>
-            <TouchableOpacity activeOpacity={0.84} disabled={isSubmitting} hitSlop={12} onPress={goBack} style={styles.iconButton}>
-              <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
-            </TouchableOpacity>
+            <AppBackButton activeOpacity={0.84} disabled={isSubmitting} hitSlop={12} onPress={goBack} />
             <Text style={styles.headerTitle}>{mode === "create" ? "New Membership" : "Edit Membership"}</Text>
             <View style={styles.iconButtonGhost} />
           </View>

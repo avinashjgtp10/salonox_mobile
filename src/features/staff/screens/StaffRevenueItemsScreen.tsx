@@ -1,3 +1,4 @@
+import { AppBackButton } from "@/components/ui/AppBackButton";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { Text } from "@/components/ui/AppTypography";
@@ -133,9 +134,7 @@ export function StaffRevenueItemsScreen() {
         refreshControl={<RefreshControl colors={[Colors.primary]} onRefresh={() => void load(true)} refreshing={refreshing} tintColor={Colors.primary} />}
       >
         <View style={styles.header}>
-          <TouchableOpacity accessibilityLabel="Back" accessibilityRole="button" activeOpacity={0.84} hitSlop={AppLayout.headerActionHitSlop} onPress={goBack} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
-          </TouchableOpacity>
+          <AppBackButton accessibilityLabel="Back" accessibilityRole="button" activeOpacity={0.84} hitSlop={AppLayout.headerActionHitSlop} onPress={goBack} />
           <View style={styles.headerCopy}>
             <Text style={styles.title}>{TITLES[type]}</Text>
             <Text style={styles.subtitle}>{staff?.name ? `${staff.name} · ` : ""}My appointments</Text>

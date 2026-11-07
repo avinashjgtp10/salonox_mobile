@@ -6,15 +6,15 @@
 import { BottomTabBarHeightCallbackContext, type BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, Tabs, type Href } from "expo-router";
-import { type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { AccessibilityInfo, Animated, Image, type LayoutChangeEvent, Platform, Pressable, StyleSheet, View } from "react-native";
+import { type ReactNode, useContext, useEffect, useMemo, useState } from "react";
+import { Image, type LayoutChangeEvent, Platform, Pressable, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Defs, LinearGradient as SvgGradient, Path, Stop } from "react-native-svg";
 
 import { pearl, pearlGradients } from "@/components/auth/pearl/tokens";
 import { Icon, type IconName } from "@/components/pearl/Icon";
+import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/components/ui/AppTypography";
-import { ScrollFooterContext } from "@/hooks/useScrollFooter";
 
 const BAR_H = 70; // pill height
 const LIFT = 26; // space above the pill for the notch and the raised button
@@ -53,7 +53,7 @@ function barPath(w: number, notch: boolean) {
   ].join(" ");
 }
 
-function PearlTabBar({ state, descriptors, navigation, tabs, translateY }: BottomTabBarProps & { tabs: AppTabItem[]; translateY: Animated.Value }) {
+function PearlTabBar({ state, descriptors, navigation, tabs }: BottomTabBarProps & { tabs: AppTabItem[] }) {
   const insets = useSafeAreaInsets();
   const reportHeight = useContext(BottomTabBarHeightCallbackContext);
   const [w, setW] = useState(0);
@@ -66,7 +66,7 @@ function PearlTabBar({ state, descriptors, navigation, tabs, translateY }: Botto
   const onLayout = (e: LayoutChangeEvent) => setW(Math.round(e.nativeEvent.layout.width));
 
   return (
-    <Animated.View pointerEvents="box-none" style={[styles.wrap, { bottom: Math.max(insets.bottom, 10), transform: [{ translateY }] }]}>
+    <View pointerEvents="box-none" style={[styles.wrap, { bottom: Math.max(insets.bottom, 10) }]}>
       <View style={styles.bar} onLayout={onLayout}>
         {w ? (
           <Svg width={w + 24} height={BAR_H + LIFT + 24} viewBox={`-12 0 ${w + 24} ${BAR_H + LIFT + 24}`} style={styles.svg} pointerEvents="none">
@@ -127,7 +127,9 @@ function PearlTabBar({ state, descriptors, navigation, tabs, translateY }: Botto
                 accessibilityRole="tab" accessibilityState={{ selected: focused }}
                 accessibilityLabel={`${label} tab${tab.badge ? `, ${tab.badge} unread` : ""}`}>
                 <View>
-                  <Icon name={tab.icon} size={22} color={color} />
+                  {tab.name === "whatsapp"
+                    ? <Ionicons name="logo-whatsapp" size={22} color={color} />
+                    : <Icon name={tab.icon} size={22} color={color} />}
                   {tab.badge ? <View style={styles.badge}><Text style={styles.badgeText}>{tab.badge > 99 ? "99+" : tab.badge}</Text></View> : null}
                 </View>
                 <Text style={[styles.label, { color }]} numberOfLines={1}>{label}</Text>
@@ -137,54 +139,19 @@ function PearlTabBar({ state, descriptors, navigation, tabs, translateY }: Botto
           })}
         </View>
       </View>
-    </Animated.View>
+    </View>
   );
 }
 
 export function AppTabLayout({ children, tabs }: AppTabLayoutProps) {
-  const insets = useSafeAreaInsets();
-  const bottomInset = Math.max(insets.bottom, 10);
-  const translateY = useRef(new Animated.Value(0)).current;
-  const hidden = useRef(false);
-  const reduceMotion = useRef(false);
-  const screenReader = useRef(false);
-  const setFooterHidden = useCallback((next: boolean) => {
-    next = next && !screenReader.current;
-    if (hidden.current === next) return;
-    hidden.current = next;
-    translateY.stopAnimation();
-    Animated.timing(translateY, {
-      toValue: next ? BAR_H + LIFT + bottomInset + 20 : 0,
-      duration: reduceMotion.current ? 0 : 180,
-      useNativeDriver: true,
-    }).start();
-  }, [bottomInset, translateY]);
-
-  useEffect(() => {
-    let active = true;
-    void AccessibilityInfo.isReduceMotionEnabled().then(value => { if (active) reduceMotion.current = value; }).catch(() => {});
-    void AccessibilityInfo.isScreenReaderEnabled().then(value => {
-      if (active) { screenReader.current = value; if (value) setFooterHidden(false); }
-    }).catch(() => {});
-    const motion = AccessibilityInfo.addEventListener("reduceMotionChanged", value => { reduceMotion.current = value; });
-    const reader = AccessibilityInfo.addEventListener("screenReaderChanged", value => {
-      screenReader.current = value;
-      if (value) setFooterHidden(false);
-    });
-    return () => { active = false; motion?.remove(); reader?.remove(); translateY.stopAnimation(); };
-  }, [setFooterHidden, translateY]);
-
   return (
-    <ScrollFooterContext.Provider value={setFooterHidden}>
       <Tabs
-        screenListeners={{ focus: () => setFooterHidden(false) }}
         screenOptions={{ freezeOnBlur: true, headerShown: false, sceneStyle: { backgroundColor: pearl.bgTop } }}
-        tabBar={props => <PearlTabBar {...props} tabs={tabs} translateY={translateY} />}
+        tabBar={props => <PearlTabBar {...props} tabs={tabs} />}
       >
         {tabs.map(tab => <Tabs.Screen key={tab.name} name={tab.name} options={{ title: tab.title }} />)}
         {children}
       </Tabs>
-    </ScrollFooterContext.Provider>
   );
 }
 

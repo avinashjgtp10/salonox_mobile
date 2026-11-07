@@ -1,3 +1,4 @@
+import { AppBackButton } from "@/components/ui/AppBackButton";
 import { Text } from "@/components/ui/AppTypography";
 import { useAuth } from "@/context/AuthContext";
 import { isStaffExperienceUser } from "@/utils/routeResolver";
@@ -7,7 +8,7 @@ import { getApiErrorMessage } from "@/services/api";
 import { Ionicons } from "@expo/vector-icons";
 import { Redirect, router, type Href } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ScrollView, StyleSheet, Switch, TouchableOpacity, View } from "react-native";
+import { ScrollView, StyleSheet, Switch, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
@@ -140,14 +141,7 @@ export default function NotificationSettingsScreen() {
       <AppStatusBar />
 
       <View style={styles.headerRow}>
-        <TouchableOpacity
-          activeOpacity={0.84}
-          hitSlop={AppLayout.headerActionHitSlop}
-          onPress={handleBack}
-          style={styles.backButton}
-        >
-          <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
-        </TouchableOpacity>
+        <AppBackButton activeOpacity={0.84} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} />
         <Text style={styles.headerTitle}>Notifications</Text>
         <View style={styles.backButtonPlaceholder} />
       </View>

@@ -1,3 +1,4 @@
+import { AppBackButton } from "@/components/ui/AppBackButton";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
 import { appAlert as Alert } from "@/services/appAlert";
@@ -295,9 +296,7 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <TouchableOpacity activeOpacity={0.84} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
-          </TouchableOpacity>
+          <AppBackButton activeOpacity={0.84} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} />
           <View style={styles.headerCopy}>
             <Text style={styles.title}>{mode === "edit" ? "Edit Staff" : "Add Staff"}</Text>
             <Text style={styles.subtitle}>

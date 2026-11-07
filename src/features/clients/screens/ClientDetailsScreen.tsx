@@ -419,9 +419,7 @@ export default function ClientDetailsScreen() {
         <AppStatusBar />
         <View style={styles.notFoundWrap}>
           <View style={styles.headerRow}>
-            <TouchableOpacity activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
-              <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
-            </TouchableOpacity>
+            <AppBackButton activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} />
             <Text style={styles.headerTitle}>Client Profile</Text>
             <View style={styles.backButtonPlaceholder} />
           </View>
@@ -439,9 +437,7 @@ export default function ClientDetailsScreen() {
         <AppStatusBar />
         <View style={styles.notFoundWrap}>
           <View style={styles.headerRow}>
-            <TouchableOpacity activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
-              <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
-            </TouchableOpacity>
+            <AppBackButton activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} />
             <Text style={styles.headerTitle}>Client Profile</Text>
             <View style={styles.backButtonPlaceholder} />
           </View>
@@ -459,9 +455,7 @@ export default function ClientDetailsScreen() {
       <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
         <AppStatusBar />
         <View style={styles.notFoundWrap}>
-          <TouchableOpacity activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
-          </TouchableOpacity>
+          <AppBackButton activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} />
           <View style={styles.notFoundCard}>
             <Text style={styles.notFoundTitle}>Client not found</Text>
             <Text style={styles.notFoundSubtitle}>

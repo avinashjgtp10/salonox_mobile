@@ -2,5 +2,5 @@ import MarketingDashboardScreen from "@/features/marketing/MarketingDashboardScr
 import { WhatsAppSetupGate } from "@/features/marketing/WhatsAppSetupGate";
 
 export default function MarketingRoute() {
-  return <WhatsAppSetupGate><MarketingDashboardScreen /></WhatsAppSetupGate>;
+  return <WhatsAppSetupGate screen="marketing"><MarketingDashboardScreen /></WhatsAppSetupGate>;
 }

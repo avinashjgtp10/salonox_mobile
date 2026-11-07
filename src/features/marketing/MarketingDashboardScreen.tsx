@@ -1,3 +1,4 @@
+import { AppBackButton } from "@/components/ui/AppBackButton";
 import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -120,7 +121,7 @@ function Dashboard() {
 
   return <SafeAreaView edges={["top", "bottom"]} style={s.root}>
     <AppStatusBar />
-    <View style={s.header}><Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={() => router.canGoBack() ? router.back() : router.replace("/dashboard" as Href)} style={s.back}><Ionicons name="arrow-back" size={22} color={colors.heading} /></Pressable><Text style={[s.cardTitle, s.fill]}>Marketing</Text>{can("view_inbox") && button("Inbox", () => router.push("/inbox" as Href))}</View>
+    <View style={s.header}><AppBackButton accessibilityRole="button" accessibilityLabel="Back" onPress={() => router.canGoBack() ? router.back() : router.replace("/dashboard" as Href)} /><Text style={[s.cardTitle, s.fill]}>Marketing</Text>{can("view_inbox") && button("Inbox", () => router.push("/inbox" as Href))}</View>
     {!allowed ? empty("You don’t have permission to view the marketing dashboard.") : <ScrollView contentContainerStyle={s.content} refreshControl={<RefreshControl refreshing={main.loading && revision > 0} onRefresh={refresh} tintColor={colors.primary} />}>
       <Text style={s.eyebrow}>MARKETING</Text><Text style={s.title}>WhatsApp Marketing</Text><Text style={s.subtitle}>Reach. Engage. Bring more clients to your salon.</Text>
       <View style={s.wrap}>{button(start && end ? dateRangeLabel(start, end) : "All time", () => setDatesOpen(true))}{button(status === "ALL" ? "Filters" : titleCase(status), () => setFiltersOpen(true), status !== "ALL")}</View>

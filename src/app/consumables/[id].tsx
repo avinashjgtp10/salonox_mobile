@@ -1,3 +1,4 @@
+import { AppBackButton } from "@/components/ui/AppBackButton";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
@@ -103,13 +104,7 @@ export default function ConsumableDetailScreen() {
 
   const header = (
     <View style={styles.header}>
-      <TouchableOpacity
-        hitSlop={12}
-        onPress={() => (router.canGoBack() ? router.back() : router.replace("/consumables" as Href))}
-        style={styles.iconButton}
-      >
-        <Ionicons name="arrow-back" size={19} color={Colors.primaryText} />
-      </TouchableOpacity>
+      <AppBackButton hitSlop={12} onPress={() => (router.canGoBack() ? router.back() : router.replace("/consumables" as Href))} />
       <Text numberOfLines={1} style={styles.title}>
         {consumable?.name ?? "Consumable"}
       </Text>

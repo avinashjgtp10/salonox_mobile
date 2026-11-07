@@ -1,3 +1,4 @@
+import { AppBackButton } from "@/components/ui/AppBackButton";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { maskPhone } from "@/utils/maskPhone";
 import { Text } from "@/components/ui/AppTypography";
@@ -149,9 +150,7 @@ export default function SaleDetailsScreen() {
 
   const renderHeader = (showActions = false) => (
     <View style={styles.headerRow}>
-      <TouchableOpacity activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
-        <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
-      </TouchableOpacity>
+      <AppBackButton activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} />
       <Text style={styles.headerTitle}>Sale Invoice</Text>
       {showActions ? (
         <TouchableOpacity

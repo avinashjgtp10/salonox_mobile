@@ -1,11 +1,9 @@
 import { Button } from "@/components/ui/AppButton";
-import { useFooterClearance } from "@/hooks/useFooterClearance";
 import { useScrollFooter } from "@/hooks/useScrollFooter";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { BackHandler, FlatList, Keyboard, ScrollView, StyleSheet, TouchableOpacity, View, type FlatListProps, type ScrollViewProps, type TouchableOpacityProps, type ViewProps } from "react-native";
 import { Text, useTheme } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { BottomTabBarHeightContext } from "@react-navigation/bottom-tabs";
 import { useIsFocused } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 
@@ -86,11 +84,6 @@ export function DashboardTourProvider({ children, config }: { children: ReactNod
   const listRef = useRef<TourList>(null);
   const steps = config?.steps ?? dashboardTourSteps;
   const title = config?.title ?? "Dashboard";
-  const { colors } = useTheme();
-  const insets = useSafeAreaInsets();
-  const isInsideTabs = useContext(BottomTabBarHeightContext) != null;
-  const bottomInset = isInsideTabs ? 0 : insets.bottom;
-  const footerClearance = useFooterClearance();
   const [index, setIndex] = useState<number | null>(null);
   const focused = useIsFocused();
   const { tour } = useLocalSearchParams<{ tour?: string }>();
@@ -109,20 +102,8 @@ export function DashboardTourProvider({ children, config }: { children: ReactNod
   const close = useCallback(() => setIndex(null), []);
 
   const userId = useAuth().user?.id ?? "";
-  const [offerTour, setOfferTour] = useState<boolean | null>(() =>
-    userId && screenTourStorage.hasSeenThisSession(userId, title) ? false : null);
-
-  useEffect(() => {
-    let active = true;
-    void screenTourStorage.hasSeen(userId, title).then((seen) => {
-      if (active) setOfferTour(!seen);
-    });
-    return () => { active = false; };
-  }, [title, userId]);
-
   const finish = useCallback(() => {
     setIndex(null);
-    setOfferTour(false);
     void screenTourStorage.markSeen(userId, title);
   }, [title, userId]);
 
@@ -135,19 +116,14 @@ export function DashboardTourProvider({ children, config }: { children: ReactNod
   }, [close, focused, router, start, tour]);
 
   const value = useMemo(
-    () => ({ active: index !== null, offerTour: offerTour === true, start, register, scrollRef, scrollOffset, listRef }),
-    [index, offerTour, register, start],
+    () => ({ active: index !== null, offerTour: false, start, register, scrollRef, scrollOffset, listRef }),
+    [index, register, start],
   );
   return (
     <TourContext.Provider value={value}>
       {config ? <View style={{ flex: 1 }}>
         <View style={{ flex: 1 }} accessibilityElementsHidden={index !== null} importantForAccessibility={index !== null ? "no-hide-descendants" : "auto"}>{children}</View>
 
-        {offerTour || bottomInset > 0 ? (
-          <View style={isInsideTabs ? { position: "absolute", left: 16, right: 16, bottom: footerClearance, borderRadius: 24, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.outlineVariant } : { backgroundColor: colors.surface, paddingBottom: bottomInset }}>
-            {offerTour ? <Button icon="compass-outline" onPress={start}>Show me around · {title}</Button> : null}
-          </View>
-        ) : null}
       </View> : children}
       {focused && index !== null && (
         <Portal>

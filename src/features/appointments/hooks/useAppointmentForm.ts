@@ -686,11 +686,7 @@ export function useAppointmentForm(mode: 'create' | 'edit', embedded?: { initial
   };
 
   const handleServicePickerContinue = () => {
-    if (!form.staffId) {
-      setErrors((current) => ({ ...current, staffId: "Select the staff." }));
-      return;
-    }
-
+    // Staff is assigned per item on the booking form, after choosing the catalog items.
     setServicePickerVisible(false);
   };
 

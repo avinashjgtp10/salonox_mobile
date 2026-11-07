@@ -1,3 +1,4 @@
+import { AppBackButton } from "@/components/ui/AppBackButton";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
 import { appAlert as Alert } from "@/services/appAlert";
@@ -263,9 +264,7 @@ export default function StaffProfileScreen() {
         <AppStatusBar />
         <View style={styles.missingWrap}>
           <View style={styles.header}>
-            <TouchableOpacity activeOpacity={0.84} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
-              <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
-            </TouchableOpacity>
+            <AppBackButton activeOpacity={0.84} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} />
             <Text style={styles.headerTitle}>Staff Profile</Text>
             <View style={styles.headerActionPlaceholder} />
           </View>
@@ -283,9 +282,7 @@ export default function StaffProfileScreen() {
         <AppStatusBar />
         <View style={styles.missingWrap}>
           <View style={styles.header}>
-            <TouchableOpacity activeOpacity={0.84} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
-              <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
-            </TouchableOpacity>
+            <AppBackButton activeOpacity={0.84} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} />
             <Text style={styles.headerTitle}>Staff Profile</Text>
             <View style={styles.headerActionPlaceholder} />
           </View>
@@ -304,9 +301,7 @@ export default function StaffProfileScreen() {
         <AppStatusBar />
         <View style={styles.missingWrap}>
           <View style={styles.header}>
-            <TouchableOpacity activeOpacity={0.84} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
-              <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
-            </TouchableOpacity>
+            <AppBackButton activeOpacity={0.84} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} />
             <Text style={styles.headerTitle}>Staff Profile</Text>
             <View style={styles.headerActionPlaceholder} />
           </View>
@@ -334,9 +329,7 @@ export default function StaffProfileScreen() {
       <AppStatusBar />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <TouchableOpacity activeOpacity={0.84} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
-          </TouchableOpacity>
+          <AppBackButton activeOpacity={0.84} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} />
           <Text style={styles.headerTitle}>Staff Profile</Text>
           {currentUser && canManageLifecycle ? (
             <TouchableOpacity

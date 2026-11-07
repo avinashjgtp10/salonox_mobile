@@ -1,3 +1,4 @@
+import { PearlCatalogRow } from "./PearlCatalogRow";
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
@@ -27,6 +28,7 @@ type MembershipCatalogTabProps = {
   search: string;
   // Memberships already on the bill, shown ticked like selected services.
   selectedIds?: ReadonlySet<string>;
+  pearlStyle?: boolean;
 };
 
 function MembershipCardComponent({ item, onPress, selected }: { item: Membership; onPress: () => void; selected: boolean }) {
@@ -62,7 +64,7 @@ function MembershipCardComponent({ item, onPress, selected }: { item: Membership
 
 const MembershipCard = memo(MembershipCardComponent);
 
-export function MembershipCatalogTab({ clientId, onSelect, salonId, search, selectedIds }: MembershipCatalogTabProps) {
+export function MembershipCatalogTab({ clientId, onSelect, salonId, search, selectedIds , pearlStyle = false }: MembershipCatalogTabProps) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const debouncedSearch = useDebouncedValue(search, 300);
@@ -153,7 +155,7 @@ export function MembershipCatalogTab({ clientId, onSelect, salonId, search, sele
               tintColor={Colors.primary}
             />
           }
-          renderItem={({ item }) => <MembershipCard item={item} onPress={() => onSelect(item)} selected={selectedIds?.has(item.id) ?? false} />}
+          renderItem={({ item, index }) => pearlStyle ? <PearlCatalogRow first={index === 0} last={index === items.length - 1} name={item.name} detail={item.validFor} price={item.price} selected={selectedIds?.has(item.id) ?? false} onPress={() => onSelect(item)} /> : <MembershipCard item={item} onPress={() => onSelect(item)} selected={selectedIds?.has(item.id) ?? false} />}
           ListFooterComponent={loading ? <ActivityIndicator color={Colors.primaryText} /> : null}
           removeClippedSubviews
           windowSize={7}

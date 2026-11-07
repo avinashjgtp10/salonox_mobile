@@ -92,6 +92,8 @@ export const pearlShadow = {
 
 /** Soft tinted backgrounds for icon tiles, avatars and status pills. */
 export const pearlTones = {
+  rose: { bg: "rgba(230,227,243,0.6)", fg: "#5D5890", avatar: ["#CFCBE8", "#7E78B0"] },
+  peach: { bg: "rgba(217,231,241,0.75)", fg: "#4F7896", avatar: ["#BCD6E8", "#7099BA"] },
   lavender: { bg: "rgba(230,227,243,0.75)", fg: "#5D5890", avatar: ["#CFCBE8", "#7E78B0"] },
   lilac: { bg: "rgba(214,196,240,0.6)", fg: "#6A4F98", avatar: ["#C9B5EC", "#8466B8"] },
   sky: { bg: "rgba(217,231,241,0.85)", fg: "#4F7896", avatar: ["#BCD6E8", "#7099BA"] },

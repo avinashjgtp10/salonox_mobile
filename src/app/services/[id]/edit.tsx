@@ -1,3 +1,4 @@
+import { AppBackButton } from "@/components/ui/AppBackButton";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
@@ -185,9 +186,7 @@ export default function EditServiceScreen() {
         <AppStatusBar />
         <View style={styles.centeredWrap}>
           <View style={styles.headerRow}>
-            <TouchableOpacity activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
-              <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
-            </TouchableOpacity>
+            <AppBackButton activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} />
             <Text style={styles.headerTitle}>Edit Service</Text>
             <View style={styles.backButtonPlaceholder} />
           </View>
@@ -205,9 +204,7 @@ export default function EditServiceScreen() {
         <AppStatusBar />
         <View style={styles.centeredWrap}>
           <View style={styles.headerRow}>
-            <TouchableOpacity activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
-              <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
-            </TouchableOpacity>
+            <AppBackButton activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} />
             <Text style={styles.headerTitle}>Edit Service</Text>
             <View style={styles.backButtonPlaceholder} />
           </View>
@@ -231,15 +228,7 @@ export default function EditServiceScreen() {
           style={styles.flex}
         >
           <View style={styles.headerRow}>
-            <TouchableOpacity
-              activeOpacity={0.8}
-              disabled={isSubmitting}
-              hitSlop={AppLayout.headerActionHitSlop}
-              onPress={handleBack}
-              style={styles.backButton}
-            >
-              <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
-            </TouchableOpacity>
+            <AppBackButton activeOpacity={0.8} disabled={isSubmitting} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} />
             <Text style={styles.headerTitle}>Edit Service</Text>
             <View style={styles.backButtonPlaceholder} />
           </View>

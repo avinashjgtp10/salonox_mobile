@@ -1,3 +1,4 @@
+import { pearl } from "@/components/auth/pearl/tokens";
 import { Text } from "@/components/ui/AppTypography";
 import { memo, useMemo } from "react";
 import { Pressable, ScrollView, StyleSheet } from "react-native";
@@ -14,12 +15,13 @@ export type CategoryChipOption = {
 };
 
 type CategoryChipsProps = {
+  pearlStyle?: boolean;
   onSelect: (id: string | null) => void;
   options: CategoryChipOption[];
   selectedId: string | null;
 };
 
-function CategoryChipsComponent({ onSelect, options, selectedId }: CategoryChipsProps) {
+function CategoryChipsComponent({ onSelect, options, selectedId, pearlStyle = false }: CategoryChipsProps) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const visibleOptions = useMemo(
@@ -46,9 +48,9 @@ function CategoryChipsComponent({ onSelect, options, selectedId }: CategoryChips
             <Pressable
               android_ripple={{ color: "rgba(28, 25, 23, 0.08)" }}
               onPress={() => onSelect(option.id)}
-              style={({ pressed }) => [styles.chip, isActive && styles.chipActive, pressed && styles.chipPressed]}
+              style={({ pressed }) => [styles.chip, isActive && styles.chipActive, pressed && styles.chipPressed, pearlStyle && { borderRadius: 14, backgroundColor: isActive ? pearl.accent : pearl.glass, borderColor: pearl.glassBorder, elevation: 0, shadowOpacity: 0 }]}
             >
-              <Text numberOfLines={1} style={[styles.chipText, isActive && styles.chipTextActive]}>
+              <Text numberOfLines={1} style={[styles.chipText, isActive && styles.chipTextActive, pearlStyle && { color: isActive ? "#fff" : pearl.accentDeep }]}>
                 {option.label}
               </Text>
             </Pressable>

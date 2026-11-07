@@ -1,3 +1,4 @@
+import { AppBackButton } from "@/components/ui/AppBackButton";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
@@ -154,10 +155,7 @@ export default function RevenueScreen({ period }: { period: RevenuePeriod }) {
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg2 }]}>
       <AppStatusBar />
       <View style={styles.header}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Go back" hitSlop={12}
-          onPress={() => router.canGoBack() ? router.back() : router.replace("/")}>
-          <Ionicons name="arrow-back" size={24} color={colors.heading} />
-        </Pressable>
+        <AppBackButton accessibilityRole="button" accessibilityLabel="Go back" hitSlop={12} onPress={() => router.canGoBack() ? router.back() : router.replace("/")} />
         <Text style={[styles.title, { color: colors.heading }]}>
           {period === "today" ? "Today's Revenue" : "Revenue"}
         </Text>

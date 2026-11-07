@@ -1,3 +1,4 @@
+import { pearlBookingFields } from "@/features/appointments/styles/pearlBookingFields";
 import { Text } from "@/components/ui/AppTypography";
 import { FORM_STATUS_OPTIONS } from "@/features/appointments/constants/appointmentConstants";
 import { createStyles } from "@/features/appointments/styles/appointmentStyles";
@@ -17,7 +18,7 @@ export function AppointmentStatusDropdown({
   value: AppointmentStatus;
 }) {
   const Colors = useThemeColors();
-  const styles = useMemo(() => createStyles(Colors), [Colors]);
+  const styles = useMemo(() => pearlBookingFields(createStyles(Colors)), [Colors]);
   const [visible, setVisible] = useState(false);
 
   return (

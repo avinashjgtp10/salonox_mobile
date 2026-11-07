@@ -1,4 +1,5 @@
 import { useFooterClearance } from "@/hooks/useFooterClearance";
+import { pearl, pearlType } from "@/components/auth/pearl/tokens";
 import { Text } from "@/components/ui/AppTypography";
 import { TourButton, TourView, withScreenTour } from "@/features/userGuide/DashboardTour";
 import { screenTours } from "@/features/userGuide/screenTours";
@@ -193,12 +194,13 @@ export function AppointmentCalendarContent({ staffMode = false, staffQuickSale =
       safeAreaEdges={['top']}
       scrollable={viewMode === "list"}
       title="Calendar"
-      topSurfaceColor={Colors.appointmentSurface}
+      pearlBackground
+      topSurfaceColor="transparent"
     >
-      <View style={styles.dinggToolbar}>
+      <View style={[styles.dinggToolbar, { backgroundColor: "transparent", borderBottomColor: pearl.glassBorder }]}>
         <View style={styles.calendarHeadingRow}>
-          <Text accessibilityRole="header" style={styles.calendarHeading}>Calendar</Text>
-          <TourButton tourId="view" accessibilityLabel="Change calendar view" onPress={() => setViewMenuVisible(true)} style={styles.calendarViewButton}>
+          <Text accessibilityRole="header" style={[styles.calendarHeading, pearlType.h2]}>Calendar</Text>
+          <TourButton tourId="view" accessibilityLabel="Change calendar view" onPress={() => setViewMenuVisible(true)} style={[styles.calendarViewButton, { borderRadius: 14, backgroundColor: pearl.glass, borderColor: pearl.glassBorder }]}>
             <Text style={styles.dinggTodayText}>{viewMode === "day" ? "Day" : viewMode === "week" ? "Week" : "List"}</Text>
             <Ionicons name="chevron-down" size={14} color={Colors.appointmentTextSecondary} />
           </TourButton>
@@ -211,9 +213,9 @@ export function AppointmentCalendarContent({ staffMode = false, staffQuickSale =
             <Text style={[styles.dinggTodayText, isAwayFromToday && styles.dinggTodayTextHighlighted]}>Today</Text>
           </TouchableOpacity>
           <TourView tourId="date" style={styles.dinggRangeControls}>
-            <TouchableOpacity hitSlop={8} onPress={() => changeDate(viewMode === "week" ? -7 : -1)}><Ionicons name="chevron-back" size={17} color={Colors.primaryText} /></TouchableOpacity>
+            <TouchableOpacity hitSlop={8} onPress={() => changeDate(viewMode === "week" ? -7 : -1)}><Ionicons name="chevron-back" size={17} color={pearl.accentDeep} /></TouchableOpacity>
             <TouchableOpacity accessibilityLabel="Select date" onPress={() => setDatePickerVisible(true)} style={styles.dinggRangeButton}><Text style={styles.dinggRangeText}>{formatAppDate(`${date}T00:00:00`)}{viewMode === "week" ? ` -\n${formatAppDate(rangeEnd)}` : ""}</Text><Ionicons name="chevron-down" size={16} color={Colors.appointmentText} /></TouchableOpacity>
-            <TouchableOpacity hitSlop={8} onPress={() => changeDate(viewMode === "week" ? 7 : 1)}><Ionicons name="chevron-forward" size={17} color={Colors.primaryText} /></TouchableOpacity>
+            <TouchableOpacity hitSlop={8} onPress={() => changeDate(viewMode === "week" ? 7 : 1)}><Ionicons name="chevron-forward" size={17} color={pearl.accentDeep} /></TouchableOpacity>
           </TourView>
           <View style={styles.dinggToolbarIcons}>
             <TouchableOpacity accessibilityLabel="Select date" onPress={() => setDatePickerVisible(true)} style={styles.dinggToolbarIcon}><Ionicons name="calendar-outline" size={21} color={Colors.appointmentText} /></TouchableOpacity>
@@ -240,8 +242,8 @@ export function AppointmentCalendarContent({ staffMode = false, staffQuickSale =
         staffColumns={staffColumns}
         viewMode={viewMode}
       />
-      <Modal animationType="fade" onRequestClose={() => setViewMenuVisible(false)} transparent visible={viewMenuVisible}><Pressable onPress={() => setViewMenuVisible(false)} style={styles.calendarMenuBackdrop}><Pressable style={styles.calendarMenuCard}>{([['week', 'calendar-outline', 'Week view'], ['day', 'today-outline', 'Day view'], ['list', 'list-outline', 'List view']] as const).map(([value, icon, label]) => <TouchableOpacity key={value} onPress={() => { setViewMode(value); setViewMenuVisible(false); }} style={[styles.calendarMenuOption, viewMode === value && styles.calendarMenuOptionActive]}><Ionicons name={icon} size={18} color={Colors.appointmentText} /><Text style={styles.calendarMenuText}>{label}</Text>{viewMode === value ? <Ionicons name="radio-button-on" size={16} color={Colors.primaryText} /> : null}</TouchableOpacity>)}</Pressable></Pressable></Modal>
-      <Modal animationType="fade" onRequestClose={() => setStaffFilterVisible(false)} transparent visible={staffFilterVisible}><Pressable onPress={() => setStaffFilterVisible(false)} style={styles.calendarMenuBackdrop}><Pressable style={styles.staffFilterCard}><View style={{ alignItems: "center", flexDirection: "row", justifyContent: "space-between" }}><Text style={styles.staffFilterTitle}>By Staff</Text><TouchableOpacity accessibilityLabel="Close" accessibilityRole="button" hitSlop={10} onPress={() => setStaffFilterVisible(false)}><Ionicons name="close" size={22} color={Colors.appointmentTextSecondary} /></TouchableOpacity></View><ScrollView>{[{ id: "", name: "All Staff", label: "All Staff" }, ...presentStaffOptions].map((option) => { const selected = option.id === "" ? selectedStaffIds.length === 0 : selectedStaffIds.includes(option.id); return <TouchableOpacity key={option.id || "all-staff"} onPress={() => toggleStaffFilter(option.id)} style={styles.staffFilterOption}><Ionicons name={selected ? "checkbox" : "square-outline"} size={20} color={selected ? Colors.primaryText : Colors.appointmentMuted} /><Text style={styles.staffFilterText}>{option.label}</Text></TouchableOpacity>; })}</ScrollView><View style={styles.staffFilterActions}><TouchableOpacity onPress={() => setSelectedStaffIds([])}><Text style={styles.staffFilterClear}>Clear</Text></TouchableOpacity><TouchableOpacity onPress={() => setStaffFilterVisible(false)} style={styles.staffFilterApply}><Text style={styles.staffFilterApplyText}>Apply</Text></TouchableOpacity></View></Pressable></Pressable></Modal>
+      <Modal animationType="fade" onRequestClose={() => setViewMenuVisible(false)} transparent visible={viewMenuVisible}><Pressable onPress={() => setViewMenuVisible(false)} style={styles.calendarMenuBackdrop}><Pressable style={styles.calendarMenuCard}>{([['week', 'calendar-outline', 'Week view'], ['day', 'today-outline', 'Day view'], ['list', 'list-outline', 'List view']] as const).map(([value, icon, label]) => <TouchableOpacity key={value} onPress={() => { setViewMode(value); setViewMenuVisible(false); }} style={[styles.calendarMenuOption, viewMode === value && styles.calendarMenuOptionActive]}><Ionicons name={icon} size={18} color={Colors.appointmentText} /><Text style={styles.calendarMenuText}>{label}</Text>{viewMode === value ? <Ionicons name="radio-button-on" size={16} color={pearl.accentDeep} /> : null}</TouchableOpacity>)}</Pressable></Pressable></Modal>
+      <Modal animationType="fade" onRequestClose={() => setStaffFilterVisible(false)} transparent visible={staffFilterVisible}><Pressable onPress={() => setStaffFilterVisible(false)} style={styles.calendarMenuBackdrop}><Pressable style={styles.staffFilterCard}><View style={{ alignItems: "center", flexDirection: "row", justifyContent: "space-between" }}><Text style={styles.staffFilterTitle}>By Staff</Text><TouchableOpacity accessibilityLabel="Close" accessibilityRole="button" hitSlop={10} onPress={() => setStaffFilterVisible(false)}><Ionicons name="close" size={22} color={Colors.appointmentTextSecondary} /></TouchableOpacity></View><ScrollView>{[{ id: "", name: "All Staff", label: "All Staff" }, ...presentStaffOptions].map((option) => { const selected = option.id === "" ? selectedStaffIds.length === 0 : selectedStaffIds.includes(option.id); return <TouchableOpacity key={option.id || "all-staff"} onPress={() => toggleStaffFilter(option.id)} style={styles.staffFilterOption}><Ionicons name={selected ? "checkbox" : "square-outline"} size={20} color={selected ? pearl.accentDeep : Colors.appointmentMuted} /><Text style={styles.staffFilterText}>{option.label}</Text></TouchableOpacity>; })}</ScrollView><View style={styles.staffFilterActions}><TouchableOpacity onPress={() => setSelectedStaffIds([])}><Text style={[styles.staffFilterClear, { color: pearl.accentDeep }]}>Clear</Text></TouchableOpacity><TouchableOpacity onPress={() => setStaffFilterVisible(false)} style={[styles.staffFilterApply, { backgroundColor: pearl.accent, borderRadius: 14 }]}><Text style={[styles.staffFilterApplyText, { color: "#fff" }]}>Apply</Text></TouchableOpacity></View></Pressable></Pressable></Modal>
     </ScreenShell>
   );
 }

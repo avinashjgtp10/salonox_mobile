@@ -1,3 +1,4 @@
+import { pearlBookingFields } from "@/features/appointments/styles/pearlBookingFields";
 import { Text } from "@/components/ui/AppTypography";
 import { createStyles } from "@/features/appointments/styles/appointmentStyles";
 import { todayIsoDate, validateDate } from "@/features/appointments/utils/appointmentDateTime";
@@ -19,7 +20,7 @@ export function AppointmentDateField({
   value: string;
 }) {
   const Colors = useThemeColors();
-  const styles = useMemo(() => createStyles(Colors), [Colors]);
+  const styles = useMemo(() => pearlBookingFields(createStyles(Colors)), [Colors]);
   const [visible, setVisible] = useState(false);
   const minimumDate = useMemo(() => new Date(`${todayIsoDate()}T00:00:00`), []);
   const dateValue = useMemo(() => {

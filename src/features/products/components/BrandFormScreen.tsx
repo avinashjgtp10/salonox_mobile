@@ -1,3 +1,4 @@
+import { AppBackButton } from "@/components/ui/AppBackButton";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
@@ -73,7 +74,7 @@ export default function BrandFormScreen({ id, mode }: { id?: string; mode: "crea
   };
 
   return <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}><AppStatusBar /><KeyboardAwareScrollView ref={scrollViewRef} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" style={styles.flex}>
-    <View style={styles.header}><TouchableOpacity hitSlop={12} onPress={back} style={styles.iconButton}><Ionicons name="arrow-back" size={19} color={Colors.primaryText} /></TouchableOpacity><Text style={styles.title}>{title}</Text><View style={styles.spacer} /></View>
+    <View style={styles.header}><AppBackButton hitSlop={12} onPress={back} /><Text style={styles.title}>{title}</Text><View style={styles.spacer} /></View>
     {mode === "edit" && state.brandDetailsLoading && !brand ? <View style={styles.loading}><ActivityIndicator size="large" color={Colors.primaryText} /></View> : mode === "edit" && state.brandDetailsError && !brand ? <Notice message={state.brandDetailsError} /> : <View style={styles.card}>
       <View style={styles.field}><Text style={styles.label}>Brand name</Text><View style={[styles.inputWrap, nameError && styles.inputWrapError]}><Ionicons name="ribbon-outline" size={18} color={nameError ? Colors.error : Colors.text2} /><TextInput ref={(input) => setFieldRef("name", input)} autoCapitalize="words" onChangeText={(value) => { setName(value); setNameError(undefined); }} placeholder="Enter brand name" placeholderTextColor={Colors.placeholder} style={styles.input} value={name} /></View>{nameError ? <Text style={styles.fieldError}>{nameError}</Text> : null}</View>
       <View style={styles.field}><Text style={styles.label}>Description</Text><View style={[styles.inputWrap, styles.multilineWrap]}><Ionicons name="document-text-outline" size={18} color={Colors.text2} /><TextInput multiline onChangeText={setDescription} placeholder="Optional notes" placeholderTextColor={Colors.placeholder} style={[styles.input, styles.multiline]} value={description} /></View></View>

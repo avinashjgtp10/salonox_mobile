@@ -1,3 +1,4 @@
+import { AppBackButton } from "@/components/ui/AppBackButton";
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
@@ -263,9 +264,7 @@ export default function NotificationsScreen({
       <AppStatusBar />
 
       <View style={styles.header}>
-        <TouchableOpacity activeOpacity={0.84} hitSlop={12} onPress={handleBack} style={styles.iconButton}>
-          <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
-        </TouchableOpacity>
+        <AppBackButton activeOpacity={0.84} hitSlop={12} onPress={handleBack} />
         <Text style={styles.headerTitle}>{routeScope === "staff" ? "My Appointment Activity" : "Notifications"}</Text>
         <View style={styles.headerActions}>
           <TouchableOpacity
