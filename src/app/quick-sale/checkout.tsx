@@ -1,3 +1,8 @@
+import { SaleCompleteContent } from "@/features/quickSale/components/SaleCompleteContent";
+import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
+import { pearl, pearlGradients } from "@/components/auth/pearl/tokens";
+import { LinearGradient } from "expo-linear-gradient";
+import type { PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { canSeeFullClientNames, maskClientName } from "@/utils/clientPrivacy";
 import { Text } from "@/components/ui/AppTypography";
@@ -17,7 +22,6 @@ import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import {
   DashboardRadius as Radius,
   DashboardSpacing as Spacing,
-  type ThemeColors,
 } from "@/constants/theme";
 import { fetchSaleByIdThunk } from "@/middleware/sales/sales.thunk";
 import { printerService } from "@/services/printer.service";
@@ -26,14 +30,13 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { staffService } from "@/services/staff.service";
 import { selectCurrentStaff, selectStaffMembers } from "@/store/staff/staff.slice";
 import { getStaffSaleBilling } from "@/utils/staffBilling";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors } from "@/components/auth/pearl/usePearlColors";
 import type { SalonListItem } from "@/types/salon";
 import type { SaleDetail } from "@/types/sales";
 import { normalizeSaleId } from "@/utils/apiNormalize";
 import { formatAppDate, formatAppTime } from "@/utils/dateTime";
-import { formatInvoiceNumber } from "@/utils/receipt";
+import { formatInvoiceNumber, invoiceDateLabel } from "@/utils/receipt";
 import type { ReceiptData } from "@/utils/receiptGenerator";
-import { formatCurrency } from "@/utils/currency";
 import {
   invoiceStaffDisplay,
   resolveStaffNames,
@@ -71,13 +74,14 @@ function OwnerQuickSaleCheckoutScreen() {
   // can't open the owner's Dashboard, Calendar or Sales screens.
   const isStaff = isStaffExperienceUser(user);
   const currentStaff = useAppSelector(selectCurrentStaff);
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const params = useLocalSearchParams<{
     draftId?: string;
     mode?: string;
     openReceipt?: string;
     saleId?: string;
+    shareReceipt?: string;
   }>();
   const normalizedSaleId = useMemo(
     () => normalizeSaleId({ saleId: params.saleId }),
@@ -193,9 +197,6 @@ function OwnerQuickSaleCheckoutScreen() {
   const paymentMethod = authoritativeSale?.paymentMethod ?? "-";
   const lineItems = staffBilling ? staffBilling.items : authoritativeSale?.lineItems ?? [];
   const clientName = isStaff ? maskClientName(authoritativeSale?.clientName, canSeeFullClientNames(user)) : authoritativeSale?.clientName ?? "-";
-  const createdDateLabel = authoritativeSale?.createdDateLabel ?? "-";
-  const itemCount = lineItems.reduce((count, item) => count + item.quantity, 0);
-  const outstandingAmount = staffBilling ? staffBilling.outstandingAmount : authoritativeSale?.outstandingAmount ?? 0;
 
   const [isReceiptModalVisible, setIsReceiptModalVisible] = useState(false);
   const hasAutoOpenedReceiptRef = useRef(false);
@@ -225,7 +226,7 @@ function OwnerQuickSaleCheckoutScreen() {
     if (invoiceStaffNames?.saleId !== authoritativeSale.id) return null;
     const namedLineItems = withStaffNames(authoritativeSale.lineItems, invoiceStaffNames.names);
 
-    const [datePart, timePart] = authoritativeSale.createdDateLabel.includes(" • ")
+    const [, timePart] = authoritativeSale.createdDateLabel.includes(" • ")
       ? authoritativeSale.createdDateLabel.split(" • ")
       : [formatAppDate(authoritativeSale.createdDateLabel), formatAppTime(authoritativeSale.createdDateLabel)];
 
@@ -275,7 +276,7 @@ function OwnerQuickSaleCheckoutScreen() {
       },
       invoice: {
         invoiceNumber: formatInvoiceNumber(authoritativeSale.receiptNumber) ?? "N/A",
-        date: datePart,
+        date: invoiceDateLabel(authoritativeSale),
         time: timePart,
         paymentMethod: formatPaymentMethod(authoritativeSale.paymentMethod),
         paymentStatus: isPreview ? "Draft" : authoritativeSale.outstandingAmount > 0
@@ -356,6 +357,14 @@ function OwnerQuickSaleCheckoutScreen() {
     }
   }, [receiptData]);
 
+  const sharedReceiptId = useRef<string | null>(null);
+  useEffect(() => {
+    if (params.shareReceipt === "1" && receiptData && sharedReceiptId.current !== normalizedSaleId) {
+      sharedReceiptId.current = normalizedSaleId;
+      void handleShareReceipt();
+    }
+  }, [params.shareReceipt, receiptData, normalizedSaleId, handleShareReceipt]);
+
   const replaceOnce = useCallback((href: Href) => {
     if (hasTerminalNavigationStartedRef.current) {
       return;
@@ -376,7 +385,7 @@ function OwnerQuickSaleCheckoutScreen() {
   // An existing bill opened from the Calendar / appointment details
   // (openReceipt=1) closes back to where it was opened; a sale just completed
   // in Quick Sale closes to a fresh Quick Sale.
-  const openedExistingBill = params.openReceipt === "1";
+  const openedExistingBill = params.openReceipt === "1" || params.shareReceipt === "1";
   const handleClose = useCallback(() => {
     if (openedExistingBill && router.canGoBack()) {
       if (hasTerminalNavigationStartedRef.current) return;
@@ -399,7 +408,7 @@ function OwnerQuickSaleCheckoutScreen() {
   );
 
   return (
-    <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
+    <PearlBackground><SafeAreaView edges={["top", "bottom"]} style={[styles.safeArea, { backgroundColor: "transparent" }]}>
       <Stack.Screen options={{ gestureEnabled: false }} />
       <AppStatusBar />
 
@@ -413,7 +422,7 @@ function OwnerQuickSaleCheckoutScreen() {
           >
             <Ionicons name="close" size={20} color={Colors.heading} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>{isPreview ? "Receipt Preview" : "Sale Completed"}</Text>
+          <Text style={styles.headerTitle}>{isPreview ? "Invoice" : "Sale complete"}</Text>
           <View style={styles.headerIconButtonPlaceholder} />
         </View>
 
@@ -434,8 +443,8 @@ function OwnerQuickSaleCheckoutScreen() {
               </Text>
               <Text style={styles.receiptStateMessage}>
                 {isPreview
-                  ? "The draft is saved. Waiting for the authoritative receipt preview from the server."
-                  : "The sale is complete. Waiting for the authoritative receipt from the server."}
+                  ? "Loading your saved invoice."
+                  : "Loading your receipt."}
               </Text>
             </View>
           ) : receiptLoadState.status === "failed" ? (
@@ -467,95 +476,15 @@ function OwnerQuickSaleCheckoutScreen() {
               ) : null}
             </View>
           ) : authoritativeSale ? (
-            <>
-              <View style={styles.successBlock}>
-                <View style={styles.iconWrap}>
-                  <Ionicons
-                    name={isPreview ? "receipt-outline" : "checkmark"}
-                    size={34}
-                    color={Colors.primaryText}
-                  />
-                </View>
-                <Text style={styles.title}>{isPreview ? "Receipt Ready" : "Payment Successful"}</Text>
-                <Text style={styles.subtitle}>
-                  {isPreview
-                    ? "Your draft receipt is ready for review."
-                    : "The sale has been completed successfully."}
-                </Text>
-              </View>
-
-              <View style={styles.infoCard}>
-                <InfoRow label="Invoice" value={receipt} />
-                <InfoRow label="Client" value={clientName} />
-                <InfoRow label="Date & Time" value={createdDateLabel} />
-                <InfoRow label="Payment" value={formatPaymentMethod(paymentMethod)} />
-                <InfoRow label={isStaff ? "Your Items" : "Items"} value={isStaff || itemCount > 0 ? String(itemCount) : "—"} />
-                {!isPreview && !isStaff ? (
-                  <InfoRow label="GST" value={formatCurrency(authoritativeSale.taxAmount)} />
-                ) : null}
-                <InfoRow label={isStaff ? "Your Items Total" : "Total"} value={isStaff && !currentStaff ? "Staff profile unavailable" : formatCurrency(total)} />
-                {outstandingAmount !== null && outstandingAmount > 0 ? (
-                  <InfoRow label="Outstanding" value={formatCurrency(outstandingAmount)} />
-                ) : null}
-              </View>
-
-              {lineItems.length > 0 ? (
-                <View style={styles.infoCard}>
-                  <Text style={styles.sectionTitle}>{isStaff ? "Your Services Summary" : "Services Summary"}</Text>
-                  {lineItems.slice(0, 4).map((item) => (
-                    <View key={item.id} style={styles.itemRow}>
-                      <View style={styles.itemCopy}>
-                        <Text numberOfLines={1} style={styles.itemName}>
-                          {item.name}
-                        </Text>
-                        <Text style={styles.itemMeta}>Qty {item.quantity}</Text>
-                      </View>
-                      <Text style={styles.itemPrice}>{formatCurrency(item.totalPrice)}</Text>
-                    </View>
-                  ))}
-                  {lineItems.length > 4 ? (
-                    <Text style={styles.moreItemsText}>+{lineItems.length - 4} more item(s)</Text>
-                  ) : null}
-                </View>
-              ) : null}
-
-              {!isStaff ? <View style={styles.infoCard}>
-                <Text style={styles.sectionTitle}>Receipt Actions</Text>
-                <ReceiptActionButton icon="receipt-outline" label="View Receipt" onPress={handleViewReceipt} />
-                <ReceiptActionButton
-                  icon="print-outline"
-                  label="Print Receipt"
-                  onPress={handlePrintReceipt}
-                  loading={receiptAction === "print"}
-                  busy={receiptAction !== null}
-                />
-                <ReceiptActionButton
-                  icon="share-social-outline"
-                  label="Share Receipt"
-                  onPress={handleShareReceipt}
-                  loading={receiptAction === "share"}
-                  busy={receiptAction !== null}
-                />
-              </View> : null}
-
-              {!isStaff ? (
-                <TouchableOpacity
-                  activeOpacity={0.86}
-                  onPress={() => router.push(`/sales/${authoritativeSale.id}` as Href)}
-                  style={styles.optionalButton}
-                >
-                  <Ionicons name="document-text-outline" size={17} color={Colors.primaryText} />
-                  <Text style={styles.optionalButtonText}>View Invoice</Text>
-                </TouchableOpacity>
-              ) : null}
-            </>
+            <SaleCompleteContent sale={authoritativeSale} lines={lineItems} total={total} receipt={receipt} preview={isPreview} paymentMethod={formatPaymentMethod(paymentMethod)} clientName={clientName} staff={isStaff} busy={receiptAction !== null} onShare={() => void handleShareReceipt()} onPrint={() => void handlePrintReceipt()} onInvoice={isPreview ? handleViewReceipt : () => router.push(`/sales/${authoritativeSale.id}` as Href)} onBook={() => router.push("/bookings/new" as Href)} />
           ) : null}
         </ScrollView>
 
-        <View style={styles.footer}>
-          <TouchableOpacity activeOpacity={0.86} onPress={handleStartNewSale} style={styles.primaryButton}>
-            <Text style={styles.primaryButtonText}>{isPreview ? "Back to Quick Sale" : "Start New Sale"}</Text>
+        <View style={[styles.footer, { flexDirection: "row", gap: 8, backgroundColor: pearl.glass }]}>
+          <TouchableOpacity activeOpacity={0.86} onPress={handleStartNewSale} style={[styles.primaryButton, { flex: 1, backgroundColor: "transparent" }]}>
+            <Text style={[styles.primaryButtonText, { color: pearl.accentDeep }]}>{isPreview ? "Back to Quick Sale" : "New sale"}</Text>
           </TouchableOpacity>
+          <TouchableOpacity onPress={() => replaceOnce((isStaff ? STAFF_HOME_ROUTE : "/dashboard") as Href)} style={{ flex: 1 }}><LinearGradient colors={pearlGradients.primary} style={{ minHeight: 50, borderRadius: 16, justifyContent: "center", alignItems: "center" }}><Text style={{ color: "#fff", fontSize: 15, fontWeight: "700" }}>Done</Text></LinearGradient></TouchableOpacity>
         </View>
       </View>
 
@@ -566,57 +495,7 @@ function OwnerQuickSaleCheckoutScreen() {
           receiptData={receiptData}
         />
       )}
-    </SafeAreaView>
-  );
-}
-
-function InfoRow({ label, value }: { label: string; value: string }) {
-  const Colors = useThemeColors();
-  const styles = useMemo(() => createStyles(Colors), [Colors]);
-
-  return (
-    <View style={styles.summaryRow}>
-      <Text style={styles.summaryLabel}>{label}</Text>
-      <Text numberOfLines={1} style={styles.summaryValue}>{value}</Text>
-    </View>
-  );
-}
-
-function ReceiptActionButton({
-  icon,
-  label,
-  onPress,
-  disabled = false,
-  loading = false,
-  busy = false,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  label: string;
-  onPress?: () => void;
-  disabled?: boolean;
-  loading?: boolean;
-  busy?: boolean;
-}) {
-  const Colors = useThemeColors();
-  const styles = useMemo(() => createStyles(Colors), [Colors]);
-
-  return (
-    <TouchableOpacity
-      activeOpacity={0.86}
-      onPress={onPress}
-      disabled={disabled || loading || busy}
-      style={[styles.receiptAction, (disabled || loading || busy) && styles.buttonDisabled]}
-    >
-      <View style={styles.receiptActionIcon}>
-        {loading ? (
-          <ActivityIndicator color={Colors.primaryText} size="small" />
-        ) : (
-          <Ionicons name={icon} size={17} color={disabled ? Colors.text2 : Colors.primaryText} />
-        )}
-      </View>
-      <Text style={[styles.receiptActionText, disabled && { color: Colors.text2 }]}>{label}</Text>
-      {disabled && <Text style={styles.receiptActionMeta}>Coming Soon</Text>}
-    </TouchableOpacity>
+    </SafeAreaView></PearlBackground>
   );
 }
 

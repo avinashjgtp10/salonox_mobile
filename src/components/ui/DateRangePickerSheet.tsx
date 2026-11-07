@@ -1,12 +1,14 @@
+import { LinearGradient } from "expo-linear-gradient";
+import { pearlGradients } from "@/components/auth/pearl/tokens";
 import { Text } from "@/components/ui/AppTypography";
 import { memo, useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { AppRadius } from "@/constants/layout";
-import { DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
+import { DashboardSpacing as Spacing } from "@/constants/theme";
 import { DateRangeCalendar, toISODate } from "@/components/ui/DateRangeCalendar";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors, type PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 import { formatAppDate } from "@/utils/dateTime";
 import { DATE_RANGE_PRESETS, getDateRangePreset } from "@/utils/dateRangePresets";
 
@@ -21,6 +23,10 @@ export const DateRangePickerSheet = memo(function DateRangePickerSheet({
   maximumDate,
   title,
   allowAllTime = false,
+  pearlStyle = false,
+  subtitle,
+  centered = true,
+  renderInline = false,
 }: {
   endDate: string | null;
   mode?: "range" | "single";
@@ -32,8 +38,12 @@ export const DateRangePickerSheet = memo(function DateRangePickerSheet({
   maximumDate?: Date;
   title?: string;
   allowAllTime?: boolean;
+  pearlStyle?: boolean;
+  subtitle?: string;
+  centered?: boolean;
+  renderInline?: boolean;
 }) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors(pearlStyle);
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const [draftStart, setDraftStart] = useState(startDate);
   const [draftEnd, setDraftEnd] = useState(endDate);
@@ -57,7 +67,7 @@ export const DateRangePickerSheet = memo(function DateRangePickerSheet({
           setDraftStart(null);
           setDraftEnd(null);
         }}
-        style={styles.secondaryButton}
+        style={[styles.secondaryButton, pearlStyle && { borderRadius: 16 }]}
       >
         <Text style={styles.secondaryButtonText}>Clear</Text>
       </Pressable>
@@ -65,8 +75,9 @@ export const DateRangePickerSheet = memo(function DateRangePickerSheet({
         accessibilityRole="button"
         disabled={!canApply}
         onPress={() => onApply(draftStart, draftEnd)}
-        style={[styles.primaryButton, !canApply && styles.buttonDisabled]}
+        style={[styles.primaryButton, pearlStyle && { borderRadius: 16, overflow: "hidden" }, !canApply && styles.buttonDisabled]}
       >
+        {pearlStyle ? <LinearGradient pointerEvents="none" colors={pearlGradients.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} /> : null}
         <Text style={styles.primaryButtonText}>{isRange ? "Apply range" : "Apply date"}</Text>
       </Pressable>
     </>
@@ -74,13 +85,16 @@ export const DateRangePickerSheet = memo(function DateRangePickerSheet({
 
   return (
     <BottomSheet
+      pearlStyle={pearlStyle}
+      centered={centered}
+      renderInline={renderInline}
       footer={footer}
       onClose={onClose}
       scrollable
       subtitle={
-        isRange
+        subtitle ?? (isRange
           ? "Tap a start date, then an end date. Use the arrows to cross months."
-          : "Tap the day to report on."
+          : "Tap the day to report on.")
       }
       title={title ?? (isRange ? "Select date range" : "Select date")}
       visible={visible}
@@ -121,6 +135,7 @@ export const DateRangePickerSheet = memo(function DateRangePickerSheet({
         ) : null}
 
         <DateRangeCalendar
+          pearlStyle={pearlStyle}
           endDate={draftEnd}
           mode={mode}
           onChange={(nextStart, nextEnd) => {

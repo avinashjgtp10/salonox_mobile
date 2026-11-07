@@ -4,8 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 
 import { AppRadius } from "@/constants/layout";
-import { DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { DashboardSpacing as Spacing } from "@/constants/theme";
+import { usePearlColors, type PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 
 const WEEKDAYS = ["S", "M", "T", "W", "T", "F", "S"];
 const MONTHS = [
@@ -33,6 +33,7 @@ const fromISODate = (value?: string | null) => {
 };
 
 type DateRangeCalendarProps = {
+  pearlStyle?: boolean;
   endDate?: string | null;
   mode?: "range" | "single";
   onChange: (startDate: string | null, endDate: string | null) => void;
@@ -42,6 +43,7 @@ type DateRangeCalendarProps = {
 };
 
 export function DateRangeCalendar({
+  pearlStyle = false,
   endDate,
   mode = "range",
   onChange,
@@ -49,7 +51,7 @@ export function DateRangeCalendar({
   minimumDate,
   maximumDate,
 }: DateRangeCalendarProps) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors(pearlStyle);
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const [visibleMonth, setVisibleMonth] = useState(
     () => fromISODate(startDate) ?? new Date(),

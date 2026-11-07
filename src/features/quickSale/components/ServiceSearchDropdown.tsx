@@ -1,14 +1,14 @@
+import type { PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FlatList, Pressable, StyleSheet, View } from "react-native";
 
 import { Text } from "@/components/ui/AppTypography";
-import { type ThemeColors } from "@/constants/theme";
 import { formatCurrency } from "@/features/quickSale/utils/money";
 import { getApiErrorMessage } from "@/services/api";
 import { serviceService } from "@/services/service.service";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors } from "@/components/auth/pearl/usePearlColors";
 import type { ServiceListItem } from "@/types/service";
 
 type Props = {
@@ -20,7 +20,7 @@ type Props = {
 };
 
 export function ServiceSearchDropdown({ query, salonId, selectedServiceIds, onSelect, onDismiss }: Props) {
-  const colors = useThemeColors();
+  const colors = usePearlColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [items, setItems] = useState<ServiceListItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -115,9 +115,9 @@ export function ServiceSearchDropdown({ query, salonId, selectedServiceIds, onSe
         ListFooterComponent={
           <View>
             {error ? <Text style={styles.message}>{error}</Text> : null}
-            {loading ? <ActivityIndicator style={styles.message} color={colors.primaryText} /> : error || nextOffset !== null ? (
+            {loading ? <ActivityIndicator style={styles.message} color={colors.primaryText} /> : error ? (
               <Pressable accessibilityRole="button" onPress={() => { if (items.length) void loadMore(); else setRetry((value) => value + 1); }} style={styles.footer}>
-                <Text style={styles.heading}>{error ? "Try again" : "Show more services"}</Text>
+                <Text style={styles.heading}>Try again</Text>
               </Pressable>
             ) : null}
           </View>

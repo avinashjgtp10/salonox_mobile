@@ -67,6 +67,8 @@ const toRejectValue = (error: unknown): SalesRejectValue => ({
 });
 
 export type FetchSalesArgs = {
+  startDate?: string | null;
+  endDate?: string | null;
   limit?: number;
   offset?: number;
   refresh?: boolean;
@@ -87,6 +89,8 @@ export const fetchSalesThunk = createAsyncThunk<
   const salesState = getState().sales;
 
   const nextQuery: SalesListQuery = {
+    startDate: args && "startDate" in args ? args.startDate : salesState.query.startDate,
+    endDate: args && "endDate" in args ? args.endDate : salesState.query.endDate,
     limit: args?.limit ?? salesState.query.limit,
     offset: args?.offset ?? salesState.query.offset,
     search: args?.search ?? salesState.query.search,

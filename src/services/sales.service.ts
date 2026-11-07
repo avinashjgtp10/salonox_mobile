@@ -1,8 +1,9 @@
 import { api, CHECKOUT_REQUEST_TIMEOUT_MS } from "@/services/api";
+import { appointmentService } from "@/services/appointment.service";
 import { SALES } from "@/services/api/endpoints";
 import type { ApiResponse } from "@/types/auth";
 import { normalizeSaleId, toOptionalNumber } from "@/utils/apiNormalize";
-import { formatAppDateTime } from "@/utils/dateTime";
+import { formatAppDateTime, parseAppDateTime } from "@/utils/dateTime";
 import type {
   CheckoutSaleRequest,
   CheckoutSaleResponse,
@@ -361,6 +362,7 @@ const normalizeSaleListItem = (entry: UnknownRecord): SaleListItem => {
 
   return {
     clientName: getSaleClientName(entry),
+    createdAt: toSafeString(firstValue(entry, ["created_at", "createdAt"])),
     createdDateLabel: formatSaleTime(firstValue(entry, ["created_at", "createdAt"])),
     id: normalizeSaleId({ sale: entry }) ?? "",
     itemCount: lineItems.length || toSafeNumber(firstValue(entry, ["item_count", "itemCount"])),
@@ -374,11 +376,15 @@ const normalizeSaleListItem = (entry: UnknownRecord): SaleListItem => {
 const normalizeSaleDetail = (entry: UnknownRecord): SaleDetail => {
   const clientValue = firstValue(entry, ["client", "customer"]);
   const clientRecord = asRecord(clientValue);
+  const appointmentRecord = asRecord(entry.appointment);
+  const invoiceDate = toSafeString(firstValue(entry, ["invoice_date", "invoiceDate", "sale_date", "saleDate", "scheduled_at"])) ||
+    toSafeString(firstValue(appointmentRecord, ["scheduled_at", "start_time"]));
   const lineItems = firstArray(entry, ["items", "line_items", "lineItems"]).map(normalizeSaleLineItem);
   const total = toSafeNumber(firstValue(entry, ["total_amount", "totalAmount", "total"]));
   const amountPaid = toSafeNumber(firstValue(entry, ["amount_paid", "amountPaid"]));
 
   return {
+    invoiceDate: parseAppDateTime(invoiceDate) ? invoiceDate : undefined,
     amountPaid,
     clientId:
       toSafeString(firstValue(entry, ["client_id", "clientId"])) ||
@@ -590,9 +596,16 @@ export const salesService = {
     });
 
     const search = query.search.trim().toLocaleLowerCase();
-    const sales = allSales.filter((sale) =>
-      !search || [sale.clientName, sale.receiptNumber].some((value) => value.toLocaleLowerCase().includes(search)),
-    );
+    const sales = allSales.filter((sale) => {
+      if (query.startDate || query.endDate) {
+        const date = parseAppDateTime(sale.createdAt);
+        if (!date) return false;
+        // Compare local calendar days so the entire end date is included.
+        const day = [date.getFullYear(), String(date.getMonth() + 1).padStart(2, "0"), String(date.getDate()).padStart(2, "0")].join("-");
+        if ((query.startDate && day < query.startDate) || (query.endDate && day > query.endDate)) return false;
+      }
+      return !search || [sale.clientName, sale.receiptNumber].some((value) => value.toLocaleLowerCase().includes(search));
+    });
     if (query.sort_by === "total" || query.sort_by === "total_amount") {
       const direction = query.sort_order === "asc" ? 1 : -1;
       sales.sort((left, right) => direction * (left.total - right.total) || left.id.localeCompare(right.id));
@@ -631,8 +644,19 @@ export const salesService = {
 
   async getSale(saleId: string): Promise<SaleDetail> {
     const response = await api.get<SaleApiResponse>(SALES.DETAIL(saleId));
-
-    return normalizeSaleDetail(getSaleFromEnvelope(response.data.data));
+    const entry = getSaleFromEnvelope(response.data.data);
+    const sale = normalizeSaleDetail(entry);
+    const appointmentId = toSafeString(firstValue(entry, ["appointment_id", "appointmentId"])) ||
+      toSafeString(firstValue(asRecord(entry.appointment), ["id", "_id"]));
+    if (!sale.invoiceDate && appointmentId) {
+      try {
+        const { appointment } = await appointmentService.getAppointment(appointmentId);
+        if (parseAppDateTime(appointment.scheduledAt)) sale.invoiceDate = appointment.scheduledAt ?? undefined;
+      } catch {
+        // The invoice remains readable if its linked booking is unavailable.
+      }
+    }
+    return sale;
   },
 
   /**

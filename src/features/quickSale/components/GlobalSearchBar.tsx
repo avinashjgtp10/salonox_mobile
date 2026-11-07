@@ -1,3 +1,4 @@
+import type { PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
@@ -6,8 +7,7 @@ import { Pressable, StyleSheet } from "react-native";
 import type { TextInput as TextInputType } from "react-native";
 
 import { AppLayout, AppRadius } from "@/constants/layout";
-import { type ThemeColors } from "@/constants/theme";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors } from "@/components/auth/pearl/usePearlColors";
 
 type GlobalSearchBarProps = {
   isActive: boolean;
@@ -28,7 +28,7 @@ function GlobalSearchBarComponent({
   placeholder = "Search clients, services, products...",
   query,
 }: GlobalSearchBarProps) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const inputRef = useRef<TextInputType>(null);
 
@@ -41,7 +41,7 @@ function GlobalSearchBarComponent({
       style={[styles.searchBar, isActive && styles.searchBarFocused]}
     >
       <Ionicons name="search-outline" size={AppLayout.searchBarIconSize} color={Colors.placeholder} />
-      <TextInput
+      <TextInput underlineColorAndroid="transparent"
         ref={inputRef}
         onChangeText={onChangeQuery}
         onFocus={onFocus}
@@ -79,17 +79,18 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.045,
     shadowRadius: 14,
-    elevation: 1,
+    elevation: 0,
   },
   searchBarFocused: {
     borderColor: Colors.focusBorder,
     shadowOpacity: 0.09,
   },
   searchInput: {
+    backgroundColor: "transparent",
     color: Colors.heading,
     flex: 1,
-    fontSize: 12.5,
-    fontWeight: "600",
+    fontSize: 14,
+    fontWeight: "400",
     minHeight: AppLayout.searchBarHeight - 2,
   },
   clearButton: {

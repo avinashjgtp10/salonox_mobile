@@ -1,6 +1,10 @@
+import { pearl } from "@/components/auth/pearl/tokens";
+import { NoteBox } from "@/components/pearl/Page";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { FlatList, Keyboard, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { DateRangePickerSheet } from "@/components/ui/DateRangePickerSheet";
+import { formatAppDate } from "@/utils/dateTime";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { itemTimeLabel, localItemTime } from "../utils/itemTime";
 import { Text, TextInput } from "@/components/ui/AppTypography";
@@ -19,15 +23,17 @@ import type { CatalogTab } from "../constants";
 
 // Visual tokens from the supplied Quick Sale reference. Shared with the
 // appointment booking form so its client and item sections match.
-export const c = { bg: "#FAF6F8", card: "#FFFFFF", line: "#E9DFE5", fg: "#000000", muted: "#000000", plum: "#A3467F", soft: "#F3E6EE" };
+export const c = { bg: "transparent", card: pearl.glass, line: pearl.glassBorder, fg: pearl.ink, muted: pearl.muted, plum: pearl.accentDeep, soft: pearl.accentTint };
 export const types: Record<string, { label: string; color: string; bg: string }> = {
   service: { label: "Service", color: "#6D4DE0", bg: "#ECE9FB" },
   product: { label: "Product", color: "#2F64E6", bg: "#E3ECFF" },
   package: { label: "Package", color: "#B87A00", bg: "#FDF0C8" },
   membership: { label: "Membership", color: "#178A5C", bg: "#DFF4EA" },
 };
-type Props = Pick<CheckoutSheetProps, "selectedClient" | "redemptions" | "staffOptions" | "onSetQuantity" | "onRemoveItem" | "productStockErrors" | "renderInline"> & {
+type Props = { totals: CheckoutSheetProps["totals"] } & Pick<CheckoutSheetProps, "selectedClient" | "redemptions" | "staffOptions" | "onSetQuantity" | "onRemoveItem" | "productStockErrors" | "renderInline"> & {
   cart: ReturnType<typeof useCart>;
+  saleDate?: string;
+  onChangeSaleDate?: (date: string) => void;
   /** Opens the new-client form. */
   onAddClient: () => void;
   /** Drops the chosen client so another can be searched. */
@@ -48,12 +54,13 @@ type Props = Pick<CheckoutSheetProps, "selectedClient" | "redemptions" | "staffO
   showStaffErrors?: boolean;
 };
 
-export function Section({ title, children, aside }: { title: string; children: ReactNode; aside?: ReactNode }) {
-  return <View style={s.section}><View style={s.row}><Text style={s.title}>{title}</Text>{aside}</View>{children}</View>;
+export function Section({ title, children, aside }: { title?: string; children: ReactNode; aside?: ReactNode }) {
+  return <View style={s.section}>{title || aside ? <View style={s.row}><Text style={s.title}>{title}</Text>{aside}</View> : null}{children}</View>;
 }
 
 export function QuickSaleForm(p: Props) {
   const form = useRef<KeyboardAwareFormHandle>(null);
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   const [staffLine, setStaffLine] = useState<string | null>(null);
   const [timeLine, setTimeLine] = useState<string | null>(null);
@@ -68,12 +75,15 @@ export function QuickSaleForm(p: Props) {
   const field = (label: string, value: string, onChange: (value: string) => void, numeric = false, multiline = false) => (
     <FormField key={label} label={label} value={value} onChange={onChange} numeric={numeric} multiline={multiline} reveal={node => form.current?.revealField(node)} />
   );
+  const dateButton = p.saleDate && p.onChangeSaleDate ? <Pressable accessibilityRole="button" accessibilityLabel="Choose Quick Sale date" onPress={() => { Keyboard.dismiss(); setDatePickerOpen(true); }} style={s.dateButton}>
+    <Ionicons name="calendar-outline" size={17} color={c.plum} /><Text style={s.link}>{formatAppDate(p.saleDate)}</Text>
+  </Pressable> : null;
   return <>
     <KeyboardAwareForm ref={form}>
       <View style={s.page}>
-        <Section title="Client">
+        <Section title={p.selectedClient.id ? undefined : "Client"}>
           {p.selectedClient.id ? (
-            <ClientSummaryCard
+            <ClientSummaryCard key={p.selectedClient.id}
               clientId={p.selectedClient.id}
               initials={p.selectedClient.initials}
               membership={p.selectedClient.membership}
@@ -84,11 +94,14 @@ export function QuickSaleForm(p: Props) {
               phone={p.selectedClient.phone}
             />
           ) : (
-            <ClientSearchField onAddClient={p.onAddClient} onSelect={p.onSelectClient} />
+            <ClientSearchField pearlStyle onAddClient={p.onAddClient} onSelect={p.onSelectClient} trailingAction={dateButton} />
           )}
+          {p.selectedClient.id ? dateButton : null}
         </Section>
-        <Section title="Services & items" aside={<Text style={s.muted}>{p.cart.itemCount} {p.cart.itemCount === 1 ? 'item' : 'items'}</Text>}>
-          <Text style={s.muted}>Assign staff separately for each service, product, package or membership.</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.addRow}>
+            {([['services', 'Services'], ['products', 'Products'], ['packages', 'Packages'], ['membership', 'Membership']] as const).map(([tab, label]) => <Pressable key={tab} accessibilityRole="button" onPress={() => p.onAdd(tab)} style={s.add}><Text style={s.addText}>{label}</Text></Pressable>)}
+          </ScrollView>
+        <Section title={`Cart \u00b7 ${p.cart.itemCount} ${p.cart.itemCount === 1 ? "item" : "items"}`} aside={<Pressable onPress={() => p.onAdd("services")}><Text style={s.link}>+ Add item</Text></Pressable>}>
           {p.showStaffErrors && p.cart.items.some(isMissingStaff) ? <Text style={s.error}>Assign staff to every item before saving.</Text> : null}
           {!p.cart.items.length ? <View style={s.empty}><Ionicons name="bag-outline" size={26} color={c.plum}/><Text style={s.name}>No items added yet</Text><Text style={s.muted}>Add a service, product, package or membership.</Text></View> : null}
           {p.cart.items.map(item => {
@@ -122,18 +135,22 @@ export function QuickSaleForm(p: Props) {
               </View>
             </View>;
           })}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.addRow}>
-            {([['services', 'Service'], ['products', 'Product'], ['packages', 'Package'], ['membership', 'Membership']] as const).map(([tab, label]) => <Pressable key={tab} accessibilityRole="button" onPress={() => p.onAdd(tab)} style={s.add}><Text style={s.addText}>+ {label}</Text></Pressable>)}
-          </ScrollView>
+
           {p.packageBanner}
           {p.pricingError ? <Text style={s.error}>{p.pricingError}</Text> : p.isPricingLoading ? <Text style={s.muted}>Updating total…</Text> : null}
         </Section>
-        <Section title="Staff alert & notes">
+        <Section>
+          {[["Subtotal", p.totals.subtotal], ...(p.totals.appliedMembershipDiscount ? [["Member discount", -p.totals.appliedMembershipDiscount]] : []), ...(p.totals.overallDiscount ? [["Discount", -p.totals.overallDiscount]] : []), ["GST", p.totals.taxAmount], ["Total", p.totals.grandTotal]].map(([label, amount]) => <View key={String(label)} style={s.row}><Text style={s.muted}>{label}</Text><Text style={label === "Total" ? s.total : s.name}>{formatCurrency(Number(amount))}</Text></View>)}
+        </Section>
+        <Section title="Alert assigned staff">
           {field('Staff alert', alert, value => changeNotes(value, notes), false, true)}
           {field('Notes', notes, value => changeNotes(alert, value), false, true)}
         </Section>
+        <NoteBox><Text style={{ fontWeight: "700" }}>Save as pending</Text> keeps the bill open to collect later. <Text style={{ fontWeight: "700" }}>Checkout</Text> collects payment now.</NoteBox>
       </View>
     </KeyboardAwareForm>
+    <DateRangePickerSheet pearlStyle centered={false} renderInline={p.renderInline} title="Quick Sale date" subtitle="Choose the date for this Quick Sale." mode="single" visible={datePickerOpen} startDate={p.saleDate ?? null} endDate={null}
+      onClose={() => setDatePickerOpen(false)} onApply={(date) => { if (date) { p.onChangeSaleDate?.(date); setDatePickerOpen(false); } }} />
     <StaffPickerSheet visible={Boolean(staffLine)} title="Select staff for this item" subtitle={p.cart.items.find(item => item.lineId === staffLine)?.name} renderInline={p.renderInline} staff={p.staffOptions} selectedStaffId={p.cart.items.find(item => item.lineId === staffLine)?.staffId ?? null} onClose={() => setStaffLine(null)} onSelect={id => { const staff = p.staffOptions.find(item => item.id === id); if(staffLine) p.cart.setStaff(staffLine, staff?.id ?? null, staff?.name ?? null); setStaffLine(null); }}/>
     <BottomSheet visible={Boolean(timeLine)} title="Select time" subtitle={p.cart.items.find(item => item.lineId === timeLine)?.name} onClose={() => setTimeLine(null)} renderInline={p.renderInline} scrollable={false}>
       <FlatList style={{ height: 320 }} data={times} keyExtractor={time => time} initialScrollIndex={Math.max(0, times.indexOf(selectedTime) - 2)} getItemLayout={(_, index) => ({ length: 48, offset: 48 * index, index })} renderItem={({ item: time }) => <Pressable accessibilityRole="button" accessibilityState={{ selected: time === selectedTime }} onPress={() => { if (timeLine) p.cart.setTime(timeLine, time); setTimeLine(null); }} style={[s.timeOption, time === selectedTime && { backgroundColor: c.soft }]}><Text style={s.name}>{itemTimeLabel(time)}</Text>{time === selectedTime && <Ionicons name="checkmark" size={20} color={c.plum} />}</Pressable>} />
@@ -155,7 +172,7 @@ function FormField({ label, value, onChange, numeric, multiline, reveal }: { lab
 export const s = StyleSheet.create({
   staffField: { flex: 1, gap: 6 },
   timeField: { width: 112, gap: 6 },
-  timeSelect: { minHeight: 48, paddingHorizontal: 8, flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderColor: c.line, borderRadius: 12, backgroundColor: c.bg },
+  timeSelect: { minHeight: 38, paddingHorizontal: 8, flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderColor: c.line, borderRadius: 12, backgroundColor: c.bg },
   timeText: { flex: 1, color: c.fg, fontSize: 13, fontWeight: '600' },
   timeOption: { height: 48, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: 10 },
   staffRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
@@ -163,17 +180,18 @@ export const s = StyleSheet.create({
   staffRequired: { borderColor: c.plum },
   staffError: { borderColor: '#E5484D' },
   staffName: { flex: 1, color: c.fg, fontSize: 14, fontWeight: '600' },
+  dateButton: { flexDirection: "row", alignItems: "center", gap: 6, minHeight: 36, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: c.line, backgroundColor: pearl.glass, alignSelf: "flex-start" },
   page: { padding:16, paddingBottom:130, gap:14, backgroundColor:c.bg },
-  section: { backgroundColor:c.card, borderWidth:1, borderColor:c.line, borderRadius:20, padding:14, gap:12 },
+  section: { backgroundColor:c.card, borderWidth:1, borderColor:c.line, borderRadius:22, padding:14, gap:12 },
   row: { flexDirection:'row', alignItems:'center', justifyContent:'space-between', gap:10 },
-  title: { color:c.fg, fontSize:16, fontWeight:'700', flex:1 }, flex:{flex:1},
+  title: { color:c.fg, fontSize:14.5, fontWeight:'700', flex:1 }, flex:{flex:1},
   name:{color:c.fg,fontSize:16,fontWeight:'700'}, muted:{color:c.muted,fontSize:12.5,lineHeight:18},
   link:{color:c.plum,fontSize:13,fontWeight:'700'}, avatar:{width:46,height:46,borderRadius:23,backgroundColor:c.soft,alignItems:'center',justifyContent:'center'}, avatarText:{color:c.plum,fontSize:17,fontWeight:'700'},
   stat:{flex:1,backgroundColor:c.bg,borderRadius:12,padding:8,alignItems:'center'},statValue:{color:c.fg,fontWeight:'700',fontSize:13},
   empty:{borderWidth:1,borderStyle:'dashed',borderColor:c.line,borderRadius:14,padding:22,gap:8,alignItems:'center'},
   error:{color:'#E5484D',fontSize:12},
-  lineCard:{borderWidth:1.5,borderColor:c.line,borderRadius:16,overflow:'hidden'},lineTop:{height:40,paddingHorizontal:12,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},tag:{fontSize:11,fontWeight:'700',letterSpacing:0.7,textTransform:'uppercase'},
-  lineBody:{padding:12,gap:8},stepper:{flexDirection:'row',alignItems:'center',borderWidth:1,borderColor:c.line,borderRadius:10,gap:8},step:{padding:8},total:{fontSize:17,fontWeight:'700',color:c.fg},editor:{gap:10,borderTopWidth:1,borderColor:c.line,paddingTop:12},
-  addRow:{gap:8,paddingVertical:2},add:{backgroundColor:"#EAC8E3",borderRadius:999,paddingHorizontal:14,paddingVertical:11},addText:{fontSize:12,fontWeight:'700',color:'#000000'},
+  lineCard:{borderWidth:1.5,borderColor:c.line,borderRadius:18,overflow:'hidden'},lineTop:{height:30,paddingHorizontal:12,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},tag:{fontSize:11,fontWeight:'700',letterSpacing:0.7,textTransform:'uppercase'},
+  lineBody:{padding:10,gap:6},stepper:{flexDirection:'row',alignItems:'center',borderWidth:1,borderColor:c.line,borderRadius:10,gap:8},step:{padding:8},total:{fontSize:17,fontWeight:'700',color:c.fg},editor:{gap:10,borderTopWidth:1,borderColor:c.line,paddingTop:12},
+  addRow:{gap:8,paddingVertical:2},add:{backgroundColor:pearl.glass,borderWidth:1,borderColor:pearl.glassBorder,borderRadius:14,paddingHorizontal:14,paddingVertical:11},addText:{fontSize:12,fontWeight:'700',color:c.plum},
   field:{flex:1,gap:6},label:{fontSize:12,fontWeight:'600',color:c.muted},input:{borderWidth:1,borderColor:c.line,borderRadius:12,paddingHorizontal:12,paddingVertical:11,color:c.fg,fontSize:14,backgroundColor:c.bg,minHeight:44},multiline:{minHeight:76},
 });
