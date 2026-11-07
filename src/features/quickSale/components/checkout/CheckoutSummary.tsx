@@ -1,12 +1,12 @@
+import type { PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 import { Text } from "@/components/ui/AppTypography";
 import { useMemo } from "react";
 import { StyleSheet, View } from "react-native";
 
-import { useThemeColors } from "@/theme/ThemeProvider";
-import type { ThemeColors } from "@/constants/theme";
+import { usePearlColors } from "@/components/auth/pearl/usePearlColors";
 
 export function SummaryRow({ label, tone, value }: { label: string; tone?: "discount"; value: string }) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   return (
@@ -18,7 +18,7 @@ export function SummaryRow({ label, tone, value }: { label: string; tone?: "disc
 }
 
 export function SummaryTile({ label, value }: { label: string; value: string }) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   return (

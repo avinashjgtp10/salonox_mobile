@@ -4,8 +4,8 @@ import { useMemo } from "react";
 import { FlatList, StyleSheet, TouchableOpacity, View, useWindowDimensions } from "react-native";
 
 import { BottomSheet } from "@/components/ui/BottomSheet";
-import { DashboardRadius as Radius, DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { DashboardRadius as Radius, DashboardSpacing as Spacing } from "@/constants/theme";
+import { usePearlColors, type PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 import type { PosStaffMember } from "@/types/sales";
 
 type StaffPickerSheetProps = {
@@ -31,13 +31,15 @@ export function StaffPickerSheet({
   title = "Assign Staff",
   visible,
 }: StaffPickerSheetProps) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const { height } = useWindowDimensions();
   const listHeight = Math.min(420, Math.max(220, Math.round(height * 0.52)));
 
   return (
     <BottomSheet
+      pearlStyle
+      centered={false}
       onClose={onClose}
       renderInline={renderInline}
       scrollable={false}

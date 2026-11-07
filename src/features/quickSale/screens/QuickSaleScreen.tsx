@@ -1,6 +1,12 @@
+import { LunoxHeaderButton } from "@/components/lunox/LunoxHeaderButton";
+import type { PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
+import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
+import { LinearGradient } from "expo-linear-gradient";
+import { pearlGradients } from "@/components/auth/pearl/tokens";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { QuickSaleForm } from "../components/QuickSaleForm";
+import { localItemTime } from "../utils/itemTime";
 import { Text } from "@/components/ui/AppTypography";
 import { Redirect } from "expo-router";
 import { useAuth } from "@/context/AuthContext";
@@ -21,9 +27,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { BackHandler, Keyboard, StyleSheet, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
+import { DashboardSpacing as Spacing } from "@/constants/theme";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
-import { ConfirmationModal } from "@/components/ui/ConfirmationModal";
 import { ChangeServiceModal } from "@/features/quickSale/components/ChangeServiceModal";
 import {
   CheckoutSheet,
@@ -139,7 +144,7 @@ import { paymentService } from "@/services/payment.service";
 import { productService } from "@/services/product.service";
 import { selectActiveBranchId } from "@/store/branch/branch.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors } from "@/components/auth/pearl/usePearlColors";
 import type { ClientListItem } from "@/types/client";
 import type { Product } from "@/types/product";
 import type { PackageListItem } from "@/types/package";
@@ -187,7 +192,7 @@ function OwnerQuickSaleScreen({
   onRequestClose,
   openPayment: openPaymentProp = false,
 }: QuickSaleScreenProps = {}) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const { height: screenHeight } = useWindowDimensions();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
@@ -262,13 +267,10 @@ function OwnerQuickSaleScreen({
     "package",
     "membership",
   ]);
-  const [isDiscardDialogVisible, setIsDiscardDialogVisible] = useState(false);
   const clientPickerOpenTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dirtyBaselineRef = useRef<string | null>(
     isExistingBill ? null : EMPTY_QUICK_SALE_DIRTY_SIGNATURE,
   );
-  const discardDialogVisibleRef = useRef(false);
-  const pendingDiscardRef = useRef<(() => void) | null>(null);
   const allowExpectedExitRef = useRef(false);
   const couponValidationRequestRef = useRef(0);
   const lastValidatedCouponContextRef = useRef<string | null>(null);
@@ -586,8 +588,6 @@ function OwnerQuickSaleScreen({
     lastValidatedCouponContextRef.current = null;
     couponClientIdRef.current = null;
     dirtyBaselineRef.current = EMPTY_QUICK_SALE_DIRTY_SIGNATURE;
-    discardDialogVisibleRef.current = false;
-    pendingDiscardRef.current = null;
 
     clearCart();
     resetCheckoutSubmission();
@@ -604,6 +604,7 @@ function OwnerQuickSaleScreen({
     setIsClientPickerVisible(false);
     setClientPickerStartsInCreateMode(false);
     setChangeServiceLineId(null);
+    setAppointmentSlot(null);
     setIsCheckoutVisible(false);
     setCheckoutInitialStep("payment");
     setShouldShowCheckoutStaffValidation(false);
@@ -612,7 +613,6 @@ function OwnerQuickSaleScreen({
     setDraftDiscountType("percentage");
     setDraftDiscountPercent(0);
     setDiscountApplyTo(["service", "product", "package", "membership"]);
-    setIsDiscardDialogVisible(false);
     setOverallDiscountInput("");
     setTipInput("");
     setSaleNotes("");
@@ -1713,36 +1713,10 @@ function OwnerQuickSaleScreen({
     );
   }, [cart, dispatch, isDeletingDraft, params.draftId, staffExitRoute]);
 
-  const confirmDiscardQuickSale = useCallback(
-    (onDiscard: () => void) => {
-      if (!hasUnsavedQuickSale) {
-        onDiscard();
-        return;
-      }
-
-      if (discardDialogVisibleRef.current) {
-        return;
-      }
-
-      discardDialogVisibleRef.current = true;
-      pendingDiscardRef.current = onDiscard;
-      setIsDiscardDialogVisible(true);
-    },
-    [hasUnsavedQuickSale],
-  );
-
-  const closeDiscardDialog = useCallback(() => {
-    discardDialogVisibleRef.current = false;
-    pendingDiscardRef.current = null;
-    setIsDiscardDialogVisible(false);
-  }, []);
-
-  const handleConfirmDiscard = useCallback(() => {
-    const onDiscard = pendingDiscardRef.current;
-
-    resetQuickSaleSession();
-    onDiscard?.();
-  }, [resetQuickSaleSession]);
+  const exitQuickSale = useCallback((onLeave: () => void) => {
+    if (hasUnsavedQuickSale) resetQuickSaleSession();
+    onLeave();
+  }, [hasUnsavedQuickSale, resetQuickSaleSession]);
 
   const leaveQuickSaleRoute = useCallback(() => {
     allowExpectedExitRef.current = true;
@@ -1762,13 +1736,13 @@ function OwnerQuickSaleScreen({
     }
 
     if (embedded) {
-      confirmDiscardQuickSale(onRequestClose ?? (() => undefined));
+      exitQuickSale(onRequestClose ?? (() => undefined));
       return;
     }
 
-    confirmDiscardQuickSale(leaveQuickSaleRoute);
+    exitQuickSale(leaveQuickSaleRoute);
   }, [
-    confirmDiscardQuickSale,
+    exitQuickSale,
     embedded,
     globalSearchQuery,
     handleClearGlobalSearch,
@@ -1792,14 +1766,14 @@ function OwnerQuickSaleScreen({
       }
 
       event.preventDefault();
-      confirmDiscardQuickSale(() => {
+      exitQuickSale(() => {
         allowExpectedExitRef.current = true;
         navigation.dispatch(event.data.action);
       });
     });
 
     return unsubscribe;
-  }, [confirmDiscardQuickSale, embedded, hasUnsavedQuickSale, navigation]);
+  }, [exitQuickSale, embedded, hasUnsavedQuickSale, navigation]);
 
   useFocusEffect(
     useCallback(() => {
@@ -1827,18 +1801,6 @@ function OwnerQuickSaleScreen({
     ]),
   );
 
-  const discardConfirmationModal = (
-    <ConfirmationModal
-      cancelLabel="Keep Editing"
-      confirmLabel="Discard Sale"
-      description={"Leaving now will discard the current Quick Sale.\n\nThis action cannot be undone."}
-      onCancel={closeDiscardDialog}
-      onConfirm={handleConfirmDiscard}
-      title="Discard Quick Sale?"
-      visible={isDiscardDialogVisible}
-    />
-  );
-
   if (params.draftId && isLoadingDraft && !paymentOnly) {
     return (
       <>
@@ -1850,7 +1812,6 @@ function OwnerQuickSaleScreen({
             <Text style={styles.initLoaderText}>Loading saved sale...</Text>
           </View>
         </SafeAreaView>
-        {discardConfirmationModal}
       </>
     );
   }
@@ -1863,7 +1824,6 @@ function OwnerQuickSaleScreen({
           <QuickSaleHeader onBack={paymentOnly ? () => onRequestClose?.() : handleBack} title={paymentOnly ? "Payment" : "Edit Draft"} />
           <ErrorState message={draftLoadError} onRetry={() => void loadDraft()} />
         </SafeAreaView>
-        {discardConfirmationModal}
       </>
     );
   }
@@ -1880,14 +1840,13 @@ function OwnerQuickSaleScreen({
           <QuickSaleHeader onBack={paymentOnly ? () => onRequestClose?.() : handleBack} title={paymentOnly ? "Payment" : "Quick Sale"} />
           <ErrorState message={initError} onRetry={() => void dispatch(fetchSalesInitThunk())} />
         </SafeAreaView>
-        {discardConfirmationModal}
       </>
     );
   }
 
   return (
     <>
-      <SafeAreaView edges={["top", "bottom"]} style={paymentOnly ? styles.paymentOnlyRoot : styles.safeArea}>
+      <PearlBackground><SafeAreaView edges={["top", "bottom"]} style={paymentOnly ? styles.paymentOnlyRoot : [styles.safeArea, { backgroundColor: "transparent" }]}>
         {!embedded ? <AppStatusBar /> : null}
 
         {paymentOnly ? (
@@ -1899,9 +1858,9 @@ function OwnerQuickSaleScreen({
         ) : <>
         <QuickSaleHeader
           embedded={embedded}
-          layout="leading"
+          layout="centered"
           onBack={handleBack}
-          right={
+          right={<View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}><LunoxHeaderButton />{
             params.draftId ? (
               <QuickSaleHeaderAction
                 color={Colors.error}
@@ -1910,16 +1869,9 @@ function OwnerQuickSaleScreen({
                 isLoading={isDeletingDraft}
                 onPress={handleDeleteDraft}
               />
-            ) : (
-              <QuickSaleHeaderAction
-                badgeCount={cart.itemCount}
-                disabled={cart.items.length === 0}
-                icon="receipt-outline"
-                onPress={() => openCheckout("review")}
-              />
-            )
-          }
-          subtitle={initialSlot ? `${formatAppDate(`${initialSlot.date}T00:00:00`)} at ${formatAppTime(`${initialSlot.date}T${initialSlot.time}`, initialSlot.time)}` : formatAppDate(new Date())}
+            ) : null
+          }</View>}
+          subtitle={initialSlot ? `${formatAppDate(`${initialSlot.date}T00:00:00`)} at ${formatAppTime(`${initialSlot.date}T${initialSlot.time}`, initialSlot.time)}` : undefined}
           title={params.draftId ? "Edit Draft" : "Quick Sale"}
         />
 
@@ -1945,7 +1897,14 @@ function OwnerQuickSaleScreen({
         ) : null}
 
         <QuickSaleForm
+          saleDate={saleDateKey}
+          onChangeSaleDate={(date) => setAppointmentSlot((current) => ({
+            ...(current ?? initialSlot),
+            date,
+            time: current?.time ?? initialSlot?.time ?? localItemTime(new Date().toISOString()) ?? "09:00",
+          }))}
           defaultTime={(appointmentSlot ?? initialSlot)?.time}
+          totals={totals}
           cart={cart} selectedClient={selectedClient} redemptions={redemptions}
           staffOptions={staffOptions} renderInline={embedded}
           notes={saleNotes} onChangeNotes={setSaleNotes}
@@ -1960,18 +1919,10 @@ function OwnerQuickSaleScreen({
           onSetQuantity={handleSetQuantity} onRemoveItem={handleRemoveItem} productStockErrors={productStockErrors}
           packageBanner={selectedClient.id && clientPackages.status === "error" ? <PackageEligibilityBanner error={clientPackages.error} onRetry={clientPackages.retry} /> : null}
         />
-        <BottomSheet avoidKeyboard title={`Add ${ITEM_TYPE_CHIPS.find((item) => item.id === activeTab)?.label.toLowerCase() ?? "items"}`} visible={isCatalogVisible} onClose={() => { setIsCatalogVisible(false); handleClearGlobalSearch(); }} renderInline={embedded} scrollable={false}
-          footer={<TouchableOpacity onPress={() => { setIsCatalogVisible(false); handleClearGlobalSearch(); }} style={styles.catalogDone}><Text style={styles.catalogDoneText}>Done · {cart.itemCount} {cart.itemCount === 1 ? "item" : "items"}</Text></TouchableOpacity>}>
-          <View style={{ height: Math.min(520, screenHeight * 0.55), flexShrink: 1, minHeight: 0 }}>
+        <BottomSheet pearlStyle centered={false} avoidKeyboard title={`Add ${ITEM_TYPE_CHIPS.find((item) => item.id === activeTab)?.label.toLowerCase() ?? "items"}`} visible={isCatalogVisible} onClose={() => { setIsCatalogVisible(false); handleClearGlobalSearch(); }} renderInline={embedded} scrollable={false}
+          footer={<TouchableOpacity onPress={() => { setIsCatalogVisible(false); handleClearGlobalSearch(); }} style={styles.catalogDone}><LinearGradient colors={pearlGradients.primary} style={{ width: "100%", padding: 15, borderRadius: 16, alignItems: "center" }}><Text style={styles.catalogDoneText}>Done · {cart.itemCount} added</Text></LinearGradient></TouchableOpacity>}>
+          <View style={{ height: Math.min(520, screenHeight * 0.68), flexShrink: 1, minHeight: 0 }}>
         <View style={styles.topSection}>
-          <View style={styles.catalogHeading}>
-            <Text style={styles.catalogTitle}>{ITEM_TYPE_CHIPS.find((item) => item.id === activeTab)?.label ?? "Items"}</Text>
-            {cart.itemCount > 0 ? (
-              <Text style={styles.catalogCount}>
-                {cart.itemCount} {cart.itemCount === 1 ? "item" : "items"}
-              </Text>
-            ) : null}
-          </View>
           <View style={styles.searchSpacing}>
             <GlobalSearchBar
               isActive={isGlobalSearchActive}
@@ -2009,20 +1960,20 @@ function OwnerQuickSaleScreen({
                 }}
               />
             ) : activeTab === "services" ? (
-              <ServiceCatalogTab
+              <ServiceCatalogTab pearlStyle
                 visible={isCatalogVisible}
                 onToggle={handleToggleServiceSelection}
                 search=""
                 selectedServiceIds={selectedServiceIds}
               />
             ) : activeTab === "products" ? (
-              <ProductCatalogTab
+              <ProductCatalogTab pearlStyle
                 onSelect={(product) => toggleCatalogLine("product", product.id, () => handleSelectProductResult(product))}
                 search={globalSearchQuery}
                 selectedIds={selectedCatalogIds.product}
               />
             ) : activeTab === "packages" ? (
-              <PackageCatalogTab
+              <PackageCatalogTab pearlStyle
                 activeClientPackages={clientPackages.packages}
                 onSelect={(item) => toggleCatalogLine("package", item.id, () => handleSelectPackageResult(item))}
                 salonId={salonId}
@@ -2030,7 +1981,7 @@ function OwnerQuickSaleScreen({
                 selectedIds={selectedCatalogIds.package}
               />
             ) : (
-              <MembershipCatalogTab
+              <MembershipCatalogTab pearlStyle
                 clientId={selectedClient.id}
                 onSelect={(item) => toggleCatalogLine("membership", item.id, () => handleSelectMembershipResult(item))}
                 salonId={salonId}
@@ -2052,7 +2003,7 @@ function OwnerQuickSaleScreen({
             isPricingLoading={isPricingLoading}
             disabled={cart.items.length === 0 || isPricingLoading || Boolean(pricingError) || cart.items.some(isMissingStaff)}
             isSaving={checkoutSubmission.isSaving}
-            itemCount={cart.itemCount}
+            total={totals.grandTotal}
             onCheckout={() => { if (ensureClientSelected()) openCheckout("payment"); }}
             onSavePending={() => { if (ensureClientSelected()) guardSave(() => void handleSavePending()); }}
             savePendingDisabled={cart.items.length === 0 || checkoutSubmission.isSaving || checkoutSubmission.isCheckingOut}
@@ -2203,14 +2154,13 @@ function OwnerQuickSaleScreen({
           totals={totals}
           visible={isCheckoutVisible}
         />
-      </SafeAreaView>
-      {discardConfirmationModal}
+      </SafeAreaView></PearlBackground>
     </>
   );
 }
 
 const createStyles = (Colors: ThemeColors) => StyleSheet.create({
-  catalogDone: { alignItems: "center", backgroundColor: Colors.primary, borderRadius: 14, flex: 1, padding: 15 },
+  catalogDone: { alignItems: "center", borderRadius: 16, flex: 1, overflow: "hidden" },
   catalogDoneText: { color: Colors.onPrimary, fontWeight: "700" },
   staffSelect: {
     alignItems: "center",

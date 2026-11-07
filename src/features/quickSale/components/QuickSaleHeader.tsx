@@ -1,3 +1,4 @@
+import type { PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 import { AppBackButton } from "@/components/ui/AppBackButton";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
@@ -6,8 +7,8 @@ import { memo, useMemo, type ComponentProps, type ReactNode } from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
 
 import { AppLayout, AppRadius } from "@/constants/layout";
-import { DashboardRadius as Radius, DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { DashboardRadius as Radius, DashboardSpacing as Spacing } from "@/constants/theme";
+import { usePearlColors } from "@/components/auth/pearl/usePearlColors";
 
 type QuickSaleHeaderProps = {
   embedded?: boolean;
@@ -26,7 +27,7 @@ function QuickSaleHeaderComponent({
   subtitle,
   title,
 }: QuickSaleHeaderProps) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const isLeading = layout === "leading";
   const closeOnRight = embedded;
@@ -84,7 +85,7 @@ function QuickSaleHeaderActionComponent({
   isLoading = false,
   onPress,
 }: QuickSaleHeaderActionProps) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const iconColor = color ?? Colors.primary;
   const isDimmed = disabled && !isLoading;
@@ -177,7 +178,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   title: {
     color: Colors.heading,
-    fontSize: AppLayout.headerTitleFontSize,
+    fontSize: 20,
     fontWeight: AppLayout.screenTitleFontWeight,
   },
   subtitle: {

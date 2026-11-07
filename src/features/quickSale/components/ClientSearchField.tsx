@@ -2,7 +2,7 @@ import { pearl } from "@/components/auth/pearl/tokens";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 
 import { ClientOptionRow } from "@/features/quickSale/components/ClientOptionRow";
@@ -21,6 +21,7 @@ const RESULT_LIMIT = 5;
 const c = { bg: "#FAF6F8", line: "#E9DFE5", fg: "#000000", muted: "#6B5D66", plum: "#A3467F" };
 
 type ClientSearchFieldProps = {
+  trailingAction?: ReactNode;
   pearlStyle?: boolean;
   onAddClient: () => void;
   onSelect: (client: ClientListItem) => void;
@@ -28,7 +29,7 @@ type ClientSearchFieldProps = {
 
 /** Quick Sale client step, as on the web: search an existing client or add a
  * new one. There is no walk-in option, every sale belongs to a client. */
-export function ClientSearchField({ onAddClient, onSelect, pearlStyle = false }: ClientSearchFieldProps) {
+export function ClientSearchField({ onAddClient, onSelect, pearlStyle = false, trailingAction }: ClientSearchFieldProps) {
   const salonId = useAppSelector(selectActiveBranchId);
   const [query, setQuery] = useState("");
   const debouncedQuery = useDebouncedValue(query.trim(), 300);
@@ -94,10 +95,13 @@ export function ClientSearchField({ onAddClient, onSelect, pearlStyle = false }:
             </Pressable>
           ) : null}
         </View>
+        <View style={s.row}>
         <Pressable accessibilityRole="button" onPress={onAddClient} style={[s.addButton, pearlStyle && { alignSelf: "flex-start", borderRadius: 12, backgroundColor: pearl.glass, borderWidth: 1, borderColor: pearl.glassBorder, minHeight: 36 }]}>
           <Ionicons color="#000000" name="person-add-outline" size={16} />
           <Text style={[s.addText, pearlStyle && { color: pearl.accentDeep, fontSize: 13 }]}>{pearlStyle ? "New client" : "Add Client"}</Text>
         </Pressable>
+        {trailingAction}
+        </View>
       </View>
 
       {error ? <Text style={s.error}>{error}</Text> : null}

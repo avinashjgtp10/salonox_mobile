@@ -1,3 +1,5 @@
+import type { PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
+import { usePearlColors } from "@/components/auth/pearl/usePearlColors";
 import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import type { ReactNode, Ref } from "react";
@@ -13,11 +15,10 @@ import {
   DashboardRadius as Radius,
   DashboardSpacing as Spacing,
   DashboardTypography as Typography,
-  type ThemeColors,
 } from "@/constants/theme";
-import { useThemeColors } from "@/theme/ThemeProvider";
 
 type BottomSheetProps = {
+  pearlStyle?: boolean;
   avoidKeyboard?: boolean;
   centered?: boolean;
   children: ReactNode;
@@ -43,6 +44,7 @@ export function BottomSheet({
   children,
   footer,
   keyboardAwareFormRef,
+  pearlStyle = false,
   onClose,
   renderInline = false,
   scrollable = true,
@@ -51,7 +53,7 @@ export function BottomSheet({
   title,
   visible,
 }: BottomSheetProps) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors(pearlStyle);
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => createStyles(Colors, insets.bottom), [Colors, insets.bottom]);
   const { height: screenHeight } = useWindowDimensions();
@@ -120,7 +122,7 @@ export function BottomSheet({
             style={[styles.keyboardAvoiding, centered && styles.keyboardAvoidingCentered, centered && { paddingTop: Math.max(insets.top, 16), paddingBottom: Math.max(insets.bottom, 16) }]}
           >
             <Animated.View
-              style={[styles.sheet, centered && styles.sheetCentered, { maxHeight: sheetMaxHeight }, sheetStyle]}
+              style={[styles.sheet, pearlStyle && { borderTopLeftRadius: 30, borderTopRightRadius: 30, backgroundColor: "#F8F7FB" }, centered && styles.sheetCentered, { maxHeight: sheetMaxHeight }, sheetStyle]}
             >
               {!centered ? <View style={styles.handle} /> : null}
               <View style={styles.header}>

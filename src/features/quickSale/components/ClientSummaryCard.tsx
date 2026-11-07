@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { pearl } from "@/components/auth/pearl/tokens";
 import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, StyleSheet, View } from "react-native";
@@ -9,9 +11,10 @@ import { formatAppDate } from "@/utils/dateTime";
 import { maskPhone } from "@/utils/maskPhone";
 
 // Quick Sale reference tokens, plus the web card's grey labels and blue figures.
-const c = { line: "#E9DFE5", fg: "#000000", label: "#8A8F98", plum: "#A3467F", blue: "#3B82F6", ink: "#111827" };
+const c = { line: pearl.glassBorder, fg: pearl.ink, label: pearl.muted, plum: pearl.accentDeep, blue: pearl.accentDeep, ink: pearl.accent };
 
 type ClientSummaryCardProps = {
+  compact?: boolean;
   clientId: string;
   initials?: string;
   // Fallback when the history has no active membership (e.g. still loading).
@@ -29,6 +32,7 @@ const initialsOf = (name: string) =>
 
 /** The selected client's details as on the web app's client card. */
 export function ClientSummaryCard({
+  compact = false,
   clientId,
   initials,
   membership,
@@ -38,6 +42,7 @@ export function ClientSummaryCard({
   onViewHistory,
   phone,
 }: ClientSummaryCardProps) {
+  const [expanded, setExpanded] = useState(false);
   const { clientName, staffMode } = useClientPrivacy();
   // Staff can't open client profiles.
   const handleViewHistory = staffMode ? undefined : onViewHistory;
@@ -62,15 +67,15 @@ export function ClientSummaryCard({
   return (
     <View style={s.card}>
       <View style={s.header}>
-        <View style={s.avatar}><Text style={s.avatarText}>{initials || initialsOf(name)}</Text></View>
+        <Pressable accessibilityRole="button" accessibilityLabel="Client details" onPress={() => setExpanded(value => !value)} style={s.avatar}><Text style={s.avatarText}>{initials || initialsOf(name)}</Text></Pressable>
         <View style={s.flex}>
           <Text numberOfLines={1} style={s.name}>{clientName(name)}</Text>
-          {phone ? <Text style={s.phone}>{maskPhone(phone)}</Text> : null}
+          {phone ? <Text style={s.phone}>{maskPhone(phone)}{compact && membership && membership !== "N/A" ? ` \u00b7 ${membership}` : ""}</Text> : null}
         </View>
         <Pressable accessibilityRole="button" hitSlop={8} onPress={onChange}><Text style={s.link}>Change</Text></Pressable>
       </View>
 
-      <View style={s.grid}>
+      {(!compact || expanded) && <><View style={s.grid}>
         {stat("E-Wallet", show(formatCurrency(summary?.walletBalance ?? 0)))}
         {stat("Unpaid", show(formatCurrency(metrics?.amountDue ?? 0)))}
         {stat("Reward", show(`${summary?.rewardPointsBalance ?? 0} pts`))}
@@ -108,6 +113,7 @@ export function ClientSummaryCard({
           ) : null}
         </View>
       ) : null}
+      </>}
     </View>
   );
 }
@@ -115,8 +121,8 @@ export function ClientSummaryCard({
 const s = StyleSheet.create({
   card: { gap: 12 },
   header: { alignItems: "center", flexDirection: "row", gap: 12 },
-  avatar: { alignItems: "center", backgroundColor: c.ink, borderRadius: 12, height: 46, justifyContent: "center", width: 46 },
-  avatarText: { color: "#FFFFFF", fontSize: 17, fontWeight: "700" },
+  avatar: { alignItems: "center", backgroundColor: pearl.accentTint, borderRadius: 23, height: 46, justifyContent: "center", width: 46 },
+  avatarText: { color: pearl.accentDeep, fontSize: 17, fontWeight: "700" },
   flex: { flex: 1, minWidth: 0 },
   name: { color: c.fg, fontSize: 16, fontWeight: "700" },
   phone: { color: c.label, fontSize: 13, marginTop: 2 },

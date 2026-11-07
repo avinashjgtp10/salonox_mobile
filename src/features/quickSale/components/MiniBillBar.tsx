@@ -1,14 +1,16 @@
+import type { PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
+import { LinearGradient } from "expo-linear-gradient";
+import { pearl, pearlGradients } from "@/components/auth/pearl/tokens";
+import { formatCurrency } from "@/features/quickSale/utils/money";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
-import { Ionicons } from "@expo/vector-icons";
-import { memo, useEffect, useMemo, useRef } from "react";
-import { Animated, Easing, Pressable, StyleSheet, View } from "react-native";
+import { memo, useMemo } from "react";
+import { Pressable, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { DashboardRadius as Radius, type ThemeColors } from "@/constants/theme";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors } from "@/components/auth/pearl/usePearlColors";
 
-const BRAND = "#A3467F";
+const BRAND = pearl.accent;
 // Solid disabled colours: opacity on these buttons let the form behind the
 // floating bar show through on Android.
 const DISABLED_BG = "#F4F1F3";
@@ -16,60 +18,33 @@ const DISABLED_BORDER = "#D9CDD4";
 const DISABLED_TEXT = "#9A8E95";
 
 type MiniBillBarProps = {
+  total: number;
   disabled: boolean;
   /** Inside the Calendar's pop-up, which already sits clear of the system bars. */
   embedded?: boolean;
   isPricingLoading?: boolean;
   isSaving: boolean;
-  itemCount: number;
   onCheckout: () => void;
   onSavePending: () => void;
   savePendingDisabled: boolean;
 };
 
 function MiniBillBarComponent({
+  total,
   disabled,
   embedded = false,
   isPricingLoading = false,
   isSaving,
-  itemCount,
   onCheckout,
   onSavePending,
   savePendingDisabled,
 }: MiniBillBarProps) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
-  // An absolutely positioned bar ignores the screen's safe-area padding, so lift
-  // it above the system navigation bar itself (3-button bars are much taller
-  // than gesture handles and were covering Save Pending / Checkout).
   const safeBottom = useSafeAreaInsets().bottom;
-  // Keeps the original 18px spot wherever that already clears the system bar
-  // (gesture handles, iPhone home indicator); only taller bars push it up.
-  const bottomOffset = embedded ? 18 : Math.max(18, safeBottom + 8);
-  const progress = useRef(new Animated.Value(itemCount > 0 ? 1 : 0)).current;
-
-  useEffect(() => {
-    Animated.timing(progress, {
-      duration: 250,
-      easing: Easing.out(Easing.cubic),
-      toValue: itemCount > 0 ? 1 : 0,
-      useNativeDriver: true,
-    }).start();
-  }, [itemCount, progress]);
-
-  const animatedStyle = {
-    transform: [
-      {
-        translateY: progress.interpolate({
-          inputRange: [0, 1],
-          outputRange: [16, 0],
-        }),
-      },
-    ],
-  };
 
   return (
-    <Animated.View pointerEvents="box-none" style={[styles.wrap, { bottom: bottomOffset }, animatedStyle]}>
+    <View pointerEvents="box-none" style={[styles.wrap, { bottom: 0, paddingBottom: embedded ? 12 : Math.max(safeBottom, 24), backgroundColor: "#F8F7FB", paddingHorizontal: 18, paddingTop: 14 }]}>
       <View style={styles.card}>
         <Pressable
           accessibilityRole="button"
@@ -92,7 +67,7 @@ function MiniBillBarComponent({
               numberOfLines={1}
               style={[styles.pendingButtonText, savePendingDisabled && styles.disabledText]}
             >
-              Save Pending
+              Save pending
             </Text>
           )}
         </Pressable>
@@ -105,18 +80,19 @@ function MiniBillBarComponent({
           onPress={onCheckout}
           style={({ pressed }) => [styles.cta, { backgroundColor: disabled ? DISABLED_BG : BRAND }, pressed && !disabled && styles.buttonPressed]}
         >
-          <Text
+          <LinearGradient colors={disabled ? [DISABLED_BG, DISABLED_BG] : pearlGradients.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: "100%", height: 50, borderRadius: 16, flexDirection: "row", gap: 7, alignItems: "center", justifyContent: "center" }}><Text
             adjustsFontSizeToFit
             minimumFontScale={0.75}
             numberOfLines={1}
             style={[styles.ctaText, disabled && styles.disabledText]}
           >
-            {isPricingLoading ? "Updating total…" : "Checkout"}
+            {isPricingLoading ? "Updating total…" : `Checkout \u00b7 ${formatCurrency(total)}`}
           </Text>
-          {isPricingLoading ? <ActivityIndicator size="small" color={DISABLED_TEXT} /> : <Ionicons name="arrow-forward" size={18} color={disabled ? DISABLED_TEXT : "#FFFFFF"} />}
+          {isPricingLoading ? <ActivityIndicator size="small" color={DISABLED_TEXT} /> : null}
+          </LinearGradient>
         </Pressable>
       </View>
-    </Animated.View>
+    </View>
   );
 }
 
@@ -125,26 +101,26 @@ export const MiniBillBar = memo(MiniBillBarComponent);
 const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   wrap: {
     bottom: 18,
-    left: 16,
+    left: 0,
     position: "absolute",
-    right: 16,
+    right: 0,
     zIndex: 80,
   },
   card: {
     alignItems: "center",
-    backgroundColor: Colors.card,
+    backgroundColor: "transparent",
     borderColor: Colors.border,
-    borderRadius: 24,
-    borderWidth: 1,
+    borderRadius: 0,
+    borderWidth: 0,
     flexDirection: "row",
-    gap: 12,
-    minHeight: 84,
-    paddingHorizontal: 16,
+    gap: 10,
+    minHeight: 50,
+    paddingHorizontal: 0,
     shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 0.18,
+    shadowOpacity: 0,
     shadowRadius: 26,
-    elevation: 18,
+    elevation: 0,
   },
   buttonPressed: {
     transform: [{ scale: 0.985 }],
@@ -152,44 +128,44 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   pendingButton: {
     alignItems: "center",
     backgroundColor: Colors.card,
-    borderColor: BRAND,
-    borderRadius: Radius.full,
+    borderColor: "rgba(126,120,176,.45)",
+    borderRadius: 16,
     borderWidth: 1.5,
-    flex: 1,
+    flexGrow: 0,
     flexDirection: "row",
     gap: 6,
     justifyContent: "center",
-    minHeight: 52,
+    height: 50,
     overflow: "hidden",
-    paddingHorizontal: 10,
+    paddingHorizontal: 16,
   },
   pendingButtonDisabled: {
     backgroundColor: DISABLED_BG,
     borderColor: DISABLED_BORDER,
   },
   pendingButtonText: {
-    color: BRAND,
+    color: pearl.accentDeep,
     flexShrink: 1,
-    fontSize: 15,
-    fontWeight: "900",
+    fontSize: 14,
+    fontWeight: "700",
   },
   cta: {
     alignItems: "center",
     backgroundColor: BRAND,
-    borderRadius: Radius.full,
+    borderRadius: 16,
     flex: 1,
     flexDirection: "row",
     gap: 8,
     justifyContent: "center",
-    minHeight: 52,
+    height: 50,
     overflow: "hidden",
-    paddingHorizontal: 10,
+    paddingHorizontal: 0,
   },
   ctaText: {
     color: "#FFFFFF",
     flexShrink: 1,
-    fontSize: 15,
-    fontWeight: "900",
+    fontSize: 15.5,
+    fontWeight: "700",
   },
   disabledText: {
     color: DISABLED_TEXT,

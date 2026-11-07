@@ -1,3 +1,6 @@
+import type { PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
+import { LinearGradient } from "expo-linear-gradient";
+import { pearlGradients } from "@/components/auth/pearl/tokens";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { useClientPrivacy } from "@/hooks/useClientPrivacy";
 import { useBenefitCards } from "../hooks/useBenefitCards";
@@ -10,7 +13,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Portal } from "@/components/ui/Portal";
 import { AppRadius } from "@/constants/layout";
-import { DashboardRadius as Radius, DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
+import { DashboardRadius as Radius, DashboardSpacing as Spacing } from "@/constants/theme";
 import { StaffPickerSheet } from "@/features/quickSale/components/StaffPickerSheet";
 import { SummaryRow, SummaryTile } from "@/features/quickSale/components/checkout/CheckoutSummary";
 import { ModeButton } from "@/features/quickSale/components/checkout/ModeButton";
@@ -19,7 +22,7 @@ import { getCartItemBillableQuantity } from "@/features/quickSale/utils/calculat
 import { getPackageCoveredQuantity } from "@/features/quickSale/utils/packageCoverage";
 import { formatCurrency, parseAmount } from "@/features/quickSale/utils/money";
 import { isMissingStaff } from "@/features/quickSale/utils/staffRequirement";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors } from "@/components/auth/pearl/usePearlColors";
 import type { CheckoutSaleSplitEntry, SalePaymentMethod } from "@/types/sales";
 import type {
   CheckoutSheetProps,
@@ -104,7 +107,7 @@ function CheckoutSheetComponent({
   visible,
 }: CheckoutSheetProps) {
   const { clientName } = useClientPrivacy();
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const { height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -605,7 +608,7 @@ function CheckoutSheetComponent({
             <View style={styles.header}>
               <View>
                 <Text style={styles.title}>
-                  {checkoutStep === "review" ? "Review Cart" : "Payment"}
+                  {checkoutStep === "review" ? "Review cart" : "Collect payment"}
                 </Text>
                 <Text style={styles.subtitle}>
                   {checkoutStep === "review"
@@ -630,6 +633,51 @@ function CheckoutSheetComponent({
               showsVerticalScrollIndicator={false}
               style={styles.scroll}
             >
+              {checkoutStep === "payment" ? <View style={{ alignItems: "center", paddingVertical: 14, gap: 6 }}><Text style={{ fontSize: 34, fontWeight: "800", color: Colors.heading }}>{formatCurrency(amountToCollect)}</Text><Text style={{ fontSize: 13, color: Colors.text2 }}>{clientName(selectedClient.name)}</Text></View> : null}
+              {checkoutStep === "payment" && !noPaymentRequired ? (
+                <View style={styles.formCard}>
+                  <Text style={styles.sectionTitle}>Payment Method</Text>
+                  <View style={styles.methodGrid}>
+                    <TouchableOpacity
+                      key="payment-mode-single"
+                      activeOpacity={0.84}
+                      onPress={() => setPaymentMethod(lastSingleMethod)}
+                      style={[styles.methodCard, styles.methodModeCard, paymentMethod !== "split" && styles.methodCardActive]}
+                    >
+                      <Text style={[styles.methodText, paymentMethod !== "split" && styles.methodTextActive]}>Single</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      key="payment-mode-split"
+                      activeOpacity={0.84}
+                      onPress={() => setPaymentMethod("split")}
+                      style={[styles.methodCard, styles.methodModeCard, paymentMethod === "split" && styles.methodCardActive]}
+                    >
+                      <Text style={[styles.methodText, paymentMethod === "split" && styles.methodTextActive]}>Split</Text>
+                    </TouchableOpacity>
+                  </View>
+                  {paymentMethod !== "split" ? (
+                    <View style={[styles.methodGrid, styles.methodGridSecondary]}>
+                      {SPLIT_METHODS.map((method) => {
+                        const isActive = method.value === paymentMethod;
+
+                        return (
+                          <TouchableOpacity
+                            key={`payment-${method.value}`}
+                            activeOpacity={0.84}
+                            onPress={() =>
+                              handleSelectSinglePaymentMethod(method.value as Exclude<SalePaymentMethod, "split">)
+                            }
+                            style={[styles.methodCard, isActive && styles.methodCardActive]}
+                          >
+                            <Ionicons name={method.icon} size={16} color={isActive ? Colors.onPrimary : Colors.primaryText} />
+                            <Text style={[styles.methodText, isActive && styles.methodTextActive]}>{method.label}</Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  ) : null}
+                </View>
+              ) : null}
               {checkoutStep === "review" ? (
                 <>
                   <View style={styles.customerCard}>
@@ -958,50 +1006,7 @@ function CheckoutSheetComponent({
               ) : null}
 
               {checkoutStep === "payment" && noPaymentRequired && !isPricingLoading && !pricingError ? <View style={styles.formCard}><Text style={styles.sectionTitle}>No payment to collect</Text><Text style={styles.gstPreviewText}>The bill is fully covered. Applied client benefits are deducted when you complete the sale.</Text></View> : null}
-              {checkoutStep === "payment" && !noPaymentRequired ? (
-                <View style={styles.formCard}>
-                  <Text style={styles.sectionTitle}>Payment Method</Text>
-                  <View style={styles.methodGrid}>
-                    <TouchableOpacity
-                      key="payment-mode-single"
-                      activeOpacity={0.84}
-                      onPress={() => setPaymentMethod(lastSingleMethod)}
-                      style={[styles.methodCard, styles.methodModeCard, paymentMethod !== "split" && styles.methodCardActive]}
-                    >
-                      <Text style={[styles.methodText, paymentMethod !== "split" && styles.methodTextActive]}>Single</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      key="payment-mode-split"
-                      activeOpacity={0.84}
-                      onPress={() => setPaymentMethod("split")}
-                      style={[styles.methodCard, styles.methodModeCard, paymentMethod === "split" && styles.methodCardActive]}
-                    >
-                      <Text style={[styles.methodText, paymentMethod === "split" && styles.methodTextActive]}>Split</Text>
-                    </TouchableOpacity>
-                  </View>
-                  {paymentMethod !== "split" ? (
-                    <View style={[styles.methodGrid, styles.methodGridSecondary]}>
-                      {SPLIT_METHODS.map((method) => {
-                        const isActive = method.value === paymentMethod;
 
-                        return (
-                          <TouchableOpacity
-                            key={`payment-${method.value}`}
-                            activeOpacity={0.84}
-                            onPress={() =>
-                              handleSelectSinglePaymentMethod(method.value as Exclude<SalePaymentMethod, "split">)
-                            }
-                            style={[styles.methodCard, isActive && styles.methodCardActive]}
-                          >
-                            <Ionicons name={method.icon} size={16} color={isActive ? Colors.onPrimary : Colors.primaryText} />
-                            <Text style={[styles.methodText, isActive && styles.methodTextActive]}>{method.label}</Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-                  ) : null}
-                </View>
-              ) : null}
 
               {checkoutStep === "payment" && paymentMethod === "cash" ? (
                 <View style={styles.formCard}>
@@ -1233,6 +1238,7 @@ function CheckoutSheetComponent({
                     isSuccess && styles.completeButtonSuccess,
                   ]}
                 >
+                  <LinearGradient pointerEvents="none" colors={pearlGradients.primary} style={[StyleSheet.absoluteFill, { borderRadius: 16 }]} />
                   {isCheckingOut ? (
                     <>
                       <ActivityIndicator color={Colors.onPrimary} size="small" />
@@ -1254,7 +1260,7 @@ function CheckoutSheetComponent({
                         {checkoutStep === "payment"
                           ? dueAmount > 0
                             ? "Record Payment"
-                            : "Complete Sale"
+                            : `Collect ${formatCurrency(amountToCollect)}`
                           : "Continue to Payment"}
                       </Text>
                       <Ionicons
@@ -1361,7 +1367,7 @@ function CheckoutSheetComponent({
 }
 
 function BenefitCard({ card }: { card: ReturnType<typeof useBenefitCards>[number] }) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   return (
@@ -1415,7 +1421,7 @@ function StaffAssignmentChip({
   onPress: () => void;
   staffName: string | null;
 }) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   if (staffName) {
@@ -1482,7 +1488,7 @@ const CheckoutItemCard = memo(function CheckoutItemCard({
   showStaffError: boolean;
   stockError?: string;
 }) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const scale = useRef(new Animated.Value(1)).current;
   const lineTotal = item.unitPrice * getCartItemBillableQuantity(item) - item.discountAmount;
@@ -1605,7 +1611,7 @@ function ConsumableActualQtyRow({
   onChangeActualQty: (actualQty: number) => void;
   productName: string;
 }) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const [draft, setDraft] = useState(String(consumable.actualQty ?? consumable.qty));
 
@@ -1653,7 +1659,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(20, 18, 16, 0.82)",
+    backgroundColor: "rgba(35,33,52,0.35)",
   },
   backdropInline: {
     backgroundColor: "rgba(20, 18, 16, 0.45)",
@@ -1824,9 +1830,9 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   sheet: {
     alignSelf: "center",
-    backgroundColor: Colors.card,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+    backgroundColor: "#F8F7FB",
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
     maxWidth: 760,
     overflow: "hidden",
     shadowColor: "#000000",
@@ -1858,8 +1864,8 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   title: {
     color: Colors.heading,
-    fontSize: 22,
-    fontWeight: "900",
+    fontSize: 20,
+    fontWeight: "800",
   },
   subtitle: {
     color: Colors.text2,
@@ -1869,8 +1875,8 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   closeButton: {
     alignItems: "center",
-    backgroundColor: Colors.bg2,
-    borderRadius: Radius.full,
+    backgroundColor: Colors.card,
+    borderRadius: 14,
     height: 42,
     justifyContent: "center",
     width: 42,
@@ -2494,13 +2500,15 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   methodCard: {
     alignItems: "center",
+    justifyContent: "center",
+    flex: 1,
     backgroundColor: Colors.card,
     borderColor: Colors.border,
-    borderRadius: Radius.full,
+    borderRadius: 16,
     borderWidth: 1,
-    flexDirection: "row",
+    flexDirection: "column",
     gap: 6,
-    minHeight: 42,
+    minHeight: 64,
     paddingHorizontal: 13,
   },
   methodModeCard: {
@@ -2641,6 +2649,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   // Buttons float over the scroll content (scrollContent reserves the room) —
   // no white strip behind them.
   footer: {
+    backgroundColor: "#F8F7FB",
     bottom: 0,
     left: 0,
     paddingHorizontal: Spacing.xl,
