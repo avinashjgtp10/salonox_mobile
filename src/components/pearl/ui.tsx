@@ -1,3 +1,4 @@
+import { AppBackButton } from "@/components/ui/AppBackButton";
 /** Shared pearl UI pieces (from the prototype) used across the main app screens. */
 import { LinearGradient } from "expo-linear-gradient";
 import { type ReactNode } from "react";
@@ -10,6 +11,7 @@ import { Icon, type IconName } from "./Icon";
 export function IconButton({ icon, onPress, label, badge, size = 42, style }: {
   icon: IconName; onPress?: () => void; label: string; badge?: number; size?: number; style?: ViewStyle;
 }) {
+  if (icon === "chevronLeft") return <AppBackButton onPress={onPress} accessibilityLabel={label} style={style} />;
   return (
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={badge ? `${label}, ${badge} new` : label} hitSlop={6}
       style={({ pressed }) => [styles.iconBtn, { width: size, height: size }, pressed && styles.pressed, style]}>

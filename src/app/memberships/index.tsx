@@ -1,3 +1,4 @@
+import { AppBackButton } from "@/components/ui/AppBackButton";
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text, TextInput } from "@/components/ui/AppTypography";
@@ -267,9 +268,7 @@ function MembershipsScreenContent() {
         ListHeaderComponent={
           <View>
             <View style={styles.headerRow}>
-              <TouchableOpacity activeOpacity={0.84} hitSlop={12} onPress={() => (router.canGoBack() ? router.back() : router.replace("/more" as Href))} style={styles.headerButton}>
-                <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
-              </TouchableOpacity>
+              <AppBackButton activeOpacity={0.84} hitSlop={12} onPress={() => (router.canGoBack() ? router.back() : router.replace("/more" as Href))} />
               <Text style={styles.title}>Memberships</Text>
               <View style={styles.headerButtonGhost} />
             </View>

@@ -1,3 +1,4 @@
+import { AppBackButton } from "@/components/ui/AppBackButton";
 /** Pearl page frame (prototype): background, pinned header, pull-to-refresh and helpers. */
 import { useIsFocused } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
@@ -44,9 +45,7 @@ export function PageHeader({ title, subtitle, onBack, right }: { title: string; 
   return (
     <View style={styles.pageHeader}>
       {onBack ? (
-        <Pressable onPress={onBack} style={styles.back} accessibilityRole="button" accessibilityLabel="Back" hitSlop={8}>
-          <Icon name="chevronLeft" size={20} color={pearl.ink} strokeWidth={2} />
-        </Pressable>
+        <AppBackButton onPress={onBack} accessibilityRole="button" accessibilityLabel="Back" hitSlop={8} />
       ) : null}
       <View style={{ flex: 1, minWidth: 0 }}>
         <Text style={pearlType.h2} numberOfLines={1} accessibilityRole="header">{title}</Text>

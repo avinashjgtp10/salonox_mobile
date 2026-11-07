@@ -1,5 +1,6 @@
+import { AppBackButton } from "@/components/ui/AppBackButton";
 import { Ionicons } from "@expo/vector-icons";
-import { Image, Pressable, StyleSheet, View } from "react-native";
+import { Image, StyleSheet, View } from "react-native";
 
 import { Text } from "@/components/ui/AppTypography";
 
@@ -23,9 +24,7 @@ export function TopBar({ title, onBack }: { title?: string; onBack?: () => void 
   return (
     <View style={styles.top}>
       {onBack ? (
-        <Pressable onPress={onBack} style={styles.back} accessibilityRole="button" accessibilityLabel="Back" hitSlop={8}>
-          <Ionicons name="chevron-back" size={20} color={pearl.ink} />
-        </Pressable>
+        <AppBackButton onPress={onBack} accessibilityRole="button" accessibilityLabel="Back" hitSlop={8} />
       ) : <View style={styles.spacer} />}
       <Text style={[pearlType.h3, styles.title]} numberOfLines={1}>{title}</Text>
       <View style={styles.spacer} />

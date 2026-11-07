@@ -1,3 +1,4 @@
+import { AppBackButton } from "@/components/ui/AppBackButton";
 import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import type { ComponentProps } from "react";
@@ -9,6 +10,7 @@ export function InboxIcon({ name, label, onPress, disabled = false }: {
   name: ComponentProps<typeof Ionicons>["name"]; label: string; onPress: () => void; disabled?: boolean;
 }) {
   const { styles: s, palette: p } = useInboxTheme();
+  if (name === "arrow-back") return <AppBackButton onPress={onPress} accessibilityLabel={label} disabled={disabled} />;
   return <TouchableOpacity accessibilityRole="button" accessibilityLabel={label} disabled={disabled} onPress={onPress} style={[s.icon, disabled && { opacity: 0.4 }]}><Ionicons name={name} size={22} color={p.muted} /></TouchableOpacity>;
 }
 

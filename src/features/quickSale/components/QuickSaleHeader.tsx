@@ -1,3 +1,4 @@
+import { AppBackButton } from "@/components/ui/AppBackButton";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
@@ -29,7 +30,7 @@ function QuickSaleHeaderComponent({
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const isLeading = layout === "leading";
   const closeOnRight = embedded;
-  const navigationButton = (
+  const navigationButton = !closeOnRight ? <AppBackButton onPress={onBack} /> : (
     <TouchableOpacity
         accessibilityRole="button"
         accessibilityLabel={closeOnRight ? "Close Quick Sale" : "Go back"}

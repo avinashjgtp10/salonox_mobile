@@ -1,3 +1,4 @@
+import { AppBackButton } from "@/components/ui/AppBackButton";
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { countReportFilters } from "@/features/reports/report-filters";
 import { Text, TextInput } from "@/components/ui/AppTypography";
@@ -251,16 +252,7 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
   const listHeader = (
     <View style={styles.listHeader}>
       <View style={styles.header}>
-        <TouchableOpacity
-          accessibilityLabel="Go back"
-          accessibilityRole="button"
-          activeOpacity={0.8}
-          hitSlop={AppLayout.headerActionHitSlop}
-          onPress={() => router.back()}
-          style={styles.headerButton}
-        >
-          <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
-        </TouchableOpacity>
+        <AppBackButton accessibilityLabel="Go back" accessibilityRole="button" activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={() => router.back()} />
         <View style={styles.headerCopy}>
           <Text allowFontScaling style={styles.title}>{config.title}</Text>
           <Text allowFontScaling style={styles.subtitle}>{config.subtitle}</Text>

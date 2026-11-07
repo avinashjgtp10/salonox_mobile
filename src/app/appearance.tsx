@@ -1,3 +1,4 @@
+import { AppBackButton } from "@/components/ui/AppBackButton";
 import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
@@ -58,9 +59,7 @@ export default function AppearanceScreen() {
       <AppStatusBar />
 
       <View style={styles.headerRow}>
-        <TouchableOpacity activeOpacity={0.84} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
-        </TouchableOpacity>
+        <AppBackButton activeOpacity={0.84} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} />
         <Text style={styles.headerTitle}>Appearance</Text>
         <View style={styles.backButtonPlaceholder} />
       </View>

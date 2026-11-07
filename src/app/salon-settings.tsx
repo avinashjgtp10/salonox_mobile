@@ -1,3 +1,4 @@
+import { AppBackButton } from "@/components/ui/AppBackButton";
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text, TextInput } from "@/components/ui/AppTypography";
@@ -210,15 +211,7 @@ export default function SalonSettingsScreen() {
 
   const renderHeader = () => (
     <View style={styles.headerRow}>
-      <TouchableOpacity
-        activeOpacity={0.8}
-        disabled={isUpdating}
-        hitSlop={AppLayout.headerActionHitSlop}
-        onPress={handleBack}
-        style={styles.backButton}
-      >
-        <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
-      </TouchableOpacity>
+      <AppBackButton activeOpacity={0.8} disabled={isUpdating} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} />
       <Text style={styles.headerTitle}>Salon Settings</Text>
       <View style={styles.backButtonPlaceholder} />
     </View>

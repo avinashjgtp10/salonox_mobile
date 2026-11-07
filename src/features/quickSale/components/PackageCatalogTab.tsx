@@ -1,3 +1,4 @@
+import { PearlCatalogRow } from "./PearlCatalogRow";
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
@@ -30,6 +31,7 @@ type PackageCatalogTabProps = {
   search: string;
   // Packages already on the bill, shown ticked like selected services.
   selectedIds?: ReadonlySet<string>;
+  pearlStyle?: boolean;
 };
 
 function PackageCardComponent({ onPress, item, selected }: { item: PackageListItem; onPress: () => void; selected: boolean }) {
@@ -65,7 +67,7 @@ function PackageCardComponent({ onPress, item, selected }: { item: PackageListIt
 
 const PackageCard = memo(PackageCardComponent);
 
-export function PackageCatalogTab({ activeClientPackages, onSelect, salonId, search, selectedIds }: PackageCatalogTabProps) {
+export function PackageCatalogTab({ activeClientPackages, onSelect, salonId, search, selectedIds , pearlStyle = false }: PackageCatalogTabProps) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const debouncedSearch = useDebouncedValue(search, 300);
@@ -154,7 +156,7 @@ export function PackageCatalogTab({ activeClientPackages, onSelect, salonId, sea
               tintColor={Colors.primary}
             />
           }
-          renderItem={({ item }) => <PackageCard item={item} onPress={() => onSelect(item)} selected={selectedIds?.has(item.id) ?? false} />}
+          renderItem={({ item, index }) => pearlStyle ? <PearlCatalogRow first={index === 0} last={index === items.length - 1} name={item.name} detail={item.category ?? undefined} price={item.basePrice} selected={selectedIds?.has(item.id) ?? false} onPress={() => onSelect(item)} /> : <PackageCard item={item} onPress={() => onSelect(item)} selected={selectedIds?.has(item.id) ?? false} />}
           ListFooterComponent={loading ? <ActivityIndicator color={Colors.primaryText} /> : null}
           removeClippedSubviews
           windowSize={7}

@@ -1,8 +1,10 @@
+import { pearl } from "@/components/auth/pearl/tokens";
+import { BookingSection } from "./BookingSection";
 import { Text } from "@/components/ui/AppTypography";
 import type { PickerTab } from "@/features/appointments/components/form/ServiceCatalogPicker";
 import type { AppointmentSelectedService } from "@/features/appointments/types/appointmentForm";
 import { formatDurationLabel } from "@/features/appointments/utils/appointmentForm";
-import { c, s, Section, types } from "@/features/quickSale/components/QuickSaleForm";
+import { s as legacyStyles, types } from "@/features/quickSale/components/QuickSaleForm";
 import { itemTimeLabel, localItemTime } from "@/features/quickSale/utils/itemTime";
 import { formatCurrency } from "@/features/quickSale/utils/money";
 import { Ionicons } from "@expo/vector-icons";
@@ -39,7 +41,14 @@ export function AppointmentItemsSection({
   const itemCount = services.reduce((total, item) => total + (item.quantity ?? 1), 0);
 
   return (
-    <Section title="Services & items" aside={<Text style={s.muted}>{itemCount} {itemCount === 1 ? "item" : "items"}</Text>}>
+    <BookingSection title="Services & items" action={<Text style={s.muted}>{itemCount} {itemCount === 1 ? "item" : "items"}</Text>}>
+      <ScrollView contentContainerStyle={s.addRow} horizontal showsHorizontalScrollIndicator={false}>
+        {ADD_OPTIONS.map(([tab, label]) => (
+          <Pressable accessibilityRole="button" key={tab} onPress={() => onAdd(tab)} style={s.add}>
+            <Text style={s.addText}>+ {label}</Text>
+          </Pressable>
+        ))}
+      </ScrollView>
       <Text style={s.muted}>Assign staff separately for each service, product, package or membership.</Text>
       {!services.length ? (
         <View style={s.empty}>
@@ -104,14 +113,23 @@ export function AppointmentItemsSection({
           </View>
         );
       })}
-      <ScrollView contentContainerStyle={s.addRow} horizontal showsHorizontalScrollIndicator={false}>
-        {ADD_OPTIONS.map(([tab, label]) => (
-          <Pressable accessibilityRole="button" key={tab} onPress={() => onAdd(tab)} style={s.add}>
-            <Text style={s.addText}>+ {label}</Text>
-          </Pressable>
-        ))}
-      </ScrollView>
+
       {error ? <Text style={s.error}>{error}</Text> : null}
-    </Section>
+    </BookingSection>
   );
 }
+
+const c = { plum: pearl.accentDeep };
+const s = {
+  ...legacyStyles,
+  muted: { ...legacyStyles.muted, color: pearl.muted },
+  name: { ...legacyStyles.name, color: pearl.ink },
+  label: { ...legacyStyles.label, color: pearl.ink2 },
+  link: { ...legacyStyles.link, color: pearl.accentDeep },
+  total: { ...legacyStyles.total, color: pearl.ink },
+  lineCard: { ...legacyStyles.lineCard, backgroundColor: pearl.glass, borderColor: pearl.glassBorder, borderRadius: 18 },
+  add: { ...legacyStyles.add, borderRadius: 12, backgroundColor: pearl.glass, borderColor: pearl.glassBorder },
+  addText: { ...legacyStyles.addText, color: pearl.accentDeep },
+  staffSelect: { ...legacyStyles.staffSelect, borderRadius: 16, backgroundColor: pearl.glass, borderColor: pearl.glassBorder },
+  timeSelect: { ...legacyStyles.timeSelect, borderRadius: 16, backgroundColor: pearl.glass, borderColor: pearl.glassBorder },
+};

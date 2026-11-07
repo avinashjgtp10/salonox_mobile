@@ -1,8 +1,8 @@
+import { AppBackButton } from "@/components/ui/AppBackButton";
 import { Text } from "@/components/ui/AppTypography";
-import { Ionicons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
 import { useMemo } from "react";
-import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
@@ -125,9 +125,7 @@ export default function PrivacyPolicyScreen() {
       <AppStatusBar />
 
       <View style={styles.headerRow}>
-        <TouchableOpacity activeOpacity={0.84} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
-        </TouchableOpacity>
+        <AppBackButton activeOpacity={0.84} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} />
         <Text style={styles.headerTitle}>Privacy Policy</Text>
         <View style={styles.backButtonPlaceholder} />
       </View>

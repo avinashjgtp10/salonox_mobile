@@ -1,3 +1,4 @@
+import { pearlBookingFields } from "@/features/appointments/styles/pearlBookingFields";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
 import { createStyles } from "@/features/appointments/styles/appointmentStyles";
@@ -24,7 +25,7 @@ export function TimeSlotSelector({
   slots: { display: string; value: string }[];
 }) {
   const Colors = useThemeColors();
-  const styles = useMemo(() => createStyles(Colors), [Colors]);
+  const styles = useMemo(() => pearlBookingFields(createStyles(Colors)), [Colors]);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const anchorRef = useRef<View>(null);
   const insets = useSafeAreaInsets();
@@ -69,7 +70,7 @@ export function TimeSlotSelector({
   return (
     <View style={styles.inputGroup}>
       <View style={styles.inputLabelRow}>
-        <Text style={styles.inputLabel}>Start Time</Text>
+        <Text style={styles.inputLabel}>Start</Text>
         {loading ? <ActivityIndicator color={Colors.primaryText} size="small" /> : null}
       </View>
       {disabledReason ? <Text style={styles.fieldHint}>{disabledReason}</Text> : null}

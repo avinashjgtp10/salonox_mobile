@@ -1,3 +1,4 @@
+import { pearl } from "@/components/auth/pearl/tokens";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
@@ -20,13 +21,14 @@ const RESULT_LIMIT = 5;
 const c = { bg: "#FAF6F8", line: "#E9DFE5", fg: "#000000", muted: "#6B5D66", plum: "#A3467F" };
 
 type ClientSearchFieldProps = {
+  pearlStyle?: boolean;
   onAddClient: () => void;
   onSelect: (client: ClientListItem) => void;
 };
 
 /** Quick Sale client step, as on the web: search an existing client or add a
  * new one. There is no walk-in option, every sale belongs to a client. */
-export function ClientSearchField({ onAddClient, onSelect }: ClientSearchFieldProps) {
+export function ClientSearchField({ onAddClient, onSelect, pearlStyle = false }: ClientSearchFieldProps) {
   const salonId = useAppSelector(selectActiveBranchId);
   const [query, setQuery] = useState("");
   const debouncedQuery = useDebouncedValue(query.trim(), 300);
@@ -71,14 +73,14 @@ export function ClientSearchField({ onAddClient, onSelect }: ClientSearchFieldPr
 
   return (
     <View style={s.wrap}>
-      <View style={s.row}>
-        <View style={s.searchBox}>
+      <View style={[s.row, pearlStyle && { flexDirection: "column", alignItems: "stretch" }]}>
+        <View style={[s.searchBox, pearlStyle && { backgroundColor: pearl.glass, borderColor: pearl.glassBorder, borderRadius: 16, flex: 0 }]}>
           <Ionicons color={c.muted} name="search" size={18} />
           <TextInput
             accessibilityLabel="Search client"
             autoCorrect={false}
             onChangeText={setQuery}
-            placeholder="Search client"
+            placeholder={pearlStyle ? "Search name or mobile" : "Search client"}
             placeholderTextColor={c.muted}
             returnKeyType="search"
             style={s.searchInput}
@@ -92,9 +94,9 @@ export function ClientSearchField({ onAddClient, onSelect }: ClientSearchFieldPr
             </Pressable>
           ) : null}
         </View>
-        <Pressable accessibilityRole="button" onPress={onAddClient} style={s.addButton}>
+        <Pressable accessibilityRole="button" onPress={onAddClient} style={[s.addButton, pearlStyle && { alignSelf: "flex-start", borderRadius: 12, backgroundColor: pearl.glass, borderWidth: 1, borderColor: pearl.glassBorder, minHeight: 36 }]}>
           <Ionicons color="#000000" name="person-add-outline" size={16} />
-          <Text style={s.addText}>Add Client</Text>
+          <Text style={[s.addText, pearlStyle && { color: pearl.accentDeep, fontSize: 13 }]}>{pearlStyle ? "New client" : "Add Client"}</Text>
         </Pressable>
       </View>
 

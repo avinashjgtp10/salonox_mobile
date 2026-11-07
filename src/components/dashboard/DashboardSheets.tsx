@@ -137,7 +137,6 @@ const PRODUCT_AUDIT: MenuLink = { icon: "box", tone: "lilac", label: "Product au
 const MARKETING: MenuLink[] = [
   { icon: "chart", label: "Campaigns", href: "/marketing" as Href },
   // TODO(new-campaign): link the mobile campaign builder once it exists.
-  { icon: "send", label: "New campaign", soon: "Creating campaigns in the app is coming soon." },
   { icon: "chat", label: "WhatsApp inbox", href: "/inbox" as Href },
   { icon: "trend", label: "WhatsApp insights", href: "/marketing/insights" as Href },
 ];

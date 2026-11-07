@@ -1,3 +1,4 @@
+import { AppBackButton } from "@/components/ui/AppBackButton";
 import { Text } from "@/components/ui/AppTypography";
 import { TourScrollView, TourButton, withScreenTour } from "@/features/userGuide/DashboardTour";
 import { screenTours } from "@/features/userGuide/screenTours";
@@ -76,16 +77,7 @@ function ReportsHomeScreenContent() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <TouchableOpacity
-            accessibilityLabel="Go back"
-            accessibilityRole="button"
-            activeOpacity={0.8}
-            hitSlop={AppLayout.headerActionHitSlop}
-            onPress={() => router.back()}
-            style={styles.backButton}
-          >
-            <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
-          </TouchableOpacity>
+          <AppBackButton accessibilityLabel="Go back" accessibilityRole="button" activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={() => router.back()} />
           <View style={styles.headerCopy}>
             <Text allowFontScaling style={styles.eyebrow}>INSIGHTS</Text>
             <Text allowFontScaling style={styles.title}>Reports</Text>

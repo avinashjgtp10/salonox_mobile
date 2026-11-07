@@ -1,8 +1,8 @@
+import { AppBackButton } from "@/components/ui/AppBackButton";
 import { Text } from "@/components/ui/AppTypography";
-import { Ionicons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
 import { useMemo, type ReactNode } from "react";
-import { StyleSheet, TouchableOpacity, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 
 import { AppLayout, AppRadius } from "@/constants/layout";
 import type { ThemeColors } from "@/constants/theme";
@@ -22,9 +22,7 @@ export function ProfileHeader({ rightAction }: { rightAction?: ReactNode }) {
 
   return (
     <View style={styles.row}>
-      <TouchableOpacity activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={goBack} style={styles.button}>
-        <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
-      </TouchableOpacity>
+      <AppBackButton activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={goBack} />
       <Text style={styles.title}>Profile</Text>
       {rightAction ?? <View style={styles.buttonGhost} />}
     </View>

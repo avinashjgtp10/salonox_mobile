@@ -1,4 +1,4 @@
-import { type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { StyleSheet, useWindowDimensions, View } from "react-native";
 import Svg, { Defs, LinearGradient, RadialGradient, Rect, Stop } from "react-native-svg";
 
@@ -21,12 +21,19 @@ const ANGLE = (160 * Math.PI) / 180;
 
 /** Pearl background: soft base gradient + champagne, lavender, sky and blush sheen. */
 export function PearlBackground({ children }: { children?: ReactNode }) {
-  const { width: w, height: h } = useWindowDimensions();
+  const windowSize = useWindowDimensions();
+  const [layoutSize, setLayoutSize] = useState<{ width: number; height: number } | null>(null);
+  const { width: w, height: h } = layoutSize ?? windowSize;
   const dx = Math.sin(ANGLE), dy = -Math.cos(ANGLE);
   const half = (Math.abs(w * dx) + Math.abs(h * dy)) / 2;
 
   return (
-    <View style={styles.fill}>
+    <View style={styles.fill} onLayout={({ nativeEvent: { layout } }) => {
+      if (layout.width > 0 && layout.height > 0) {
+        setLayoutSize(previous => previous?.width === layout.width && previous?.height === layout.height
+          ? previous : { width: layout.width, height: layout.height });
+      }
+    }}>
       <View pointerEvents="none" style={StyleSheet.absoluteFill} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
         <Svg width={w} height={h}>
           <Defs>

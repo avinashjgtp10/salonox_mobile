@@ -1,3 +1,4 @@
+import { AppBackButton } from "@/components/ui/AppBackButton";
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { maskPhone } from "@/utils/maskPhone";
@@ -628,14 +629,7 @@ function ClientsScreenContent() {
             <View>
               <View style={styles.header}>
                 <View style={styles.headerRow}>
-                  <TouchableOpacity
-                    activeOpacity={0.8}
-                    hitSlop={AppLayout.headerActionHitSlop}
-                    onPress={handleBack}
-                    style={styles.backButton}
-                  >
-                    <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
-                  </TouchableOpacity>
+                  <AppBackButton activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} />
                   <Text style={styles.headerTitle}>Clients</Text>
                   <TouchableOpacity
                     activeOpacity={0.8}

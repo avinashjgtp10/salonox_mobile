@@ -1,9 +1,10 @@
+import { BookingSection } from "./BookingSection";
 import { Text } from "@/components/ui/AppTypography";
 import { ClientDatesSheet } from "@/features/quickSale/components/ClientDatesSheet";
 import { ClientPickerSheet } from "@/features/quickSale/components/ClientPickerSheet";
 import { ClientSearchField } from "@/features/quickSale/components/ClientSearchField";
 import { ClientSummaryCard } from "@/features/quickSale/components/ClientSummaryCard";
-import { s, Section } from "@/features/quickSale/components/QuickSaleForm";
+import { s } from "@/features/quickSale/components/QuickSaleForm";
 import type { ClientListItem } from "@/types/client";
 import { router, type Href } from "expo-router";
 import { useState } from "react";
@@ -34,7 +35,7 @@ export function AppointmentClientSection({
 
   return (
     <>
-      <Section title="Client">
+      <BookingSection title="Client">
         {clientId ? (
           <ClientSummaryCard
             clientId={clientId}
@@ -47,10 +48,10 @@ export function AppointmentClientSection({
             phone={selectedClient?.phone}
           />
         ) : (
-          <ClientSearchField onAddClient={() => setIsPickerVisible(true)} onSelect={onSelect} />
+          <ClientSearchField pearlStyle onAddClient={() => setIsPickerVisible(true)} onSelect={onSelect} />
         )}
         {error ? <Text style={s.error}>{error}</Text> : null}
-      </Section>
+      </BookingSection>
       <ClientPickerSheet
         onClose={() => setIsPickerVisible(false)}
         onSelect={(client) => { if (client) onSelect(client); }}

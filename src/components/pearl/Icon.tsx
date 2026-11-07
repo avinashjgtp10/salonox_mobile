@@ -7,6 +7,8 @@ import { SvgXml } from "react-native-svg";
 import { pearl } from "@/components/auth/pearl/tokens";
 
 const PATHS = {
+  phone: '<path d="M5 4h3.5l2 5-2.4 1.5a11 11 0 0 0 5.4 5.4L15 13.5l5 2V19a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/>',
+  sparkles: '<path d="M12 2.5l1.8 6.2 6.2 1.8-6.2 1.8L12 18.5l-1.8-6.2L4 10.5l6.2-1.8z"/><path d="M19 16l.7 2.3 2.3.7-2.3.7L19 22l-.7-2.3-2.3-.7 2.3-.7z"/>',
   mail: "<rect x=\"3\" y=\"5\" width=\"18\" height=\"14\" rx=\"3\"/><path d=\"M3.5 7.5l8.5 6 8.5-6\"/>",
   lock: "<rect x=\"5\" y=\"11\" width=\"14\" height=\"10\" rx=\"3\"/><path d=\"M8 11V7.5a4 4 0 0 1 8 0V11\"/>",
   eye: "<path d=\"M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z\"/><circle cx=\"12\" cy=\"12\" r=\"3\"/>",

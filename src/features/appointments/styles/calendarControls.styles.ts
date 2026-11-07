@@ -1,3 +1,4 @@
+import { pearl } from "@/components/auth/pearl/tokens";
 import { AppLayout } from "@/constants/layout";
 import type { ThemeColors } from '@/constants/theme';
 import { StyleSheet } from 'react-native';
@@ -5,9 +6,9 @@ import { StyleSheet } from 'react-native';
 export const createCalendarControlsStyles = (Colors: ThemeColors) => StyleSheet.create({
   calendarHeadingRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingTop: 14, paddingBottom: 10 },
   calendarHeading: { color: Colors.appointmentText, fontSize: 23, fontWeight: "700", letterSpacing: -0.5 },
-  calendarViewButton: { flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1, borderColor: Colors.appointmentBorder, borderRadius: 8, paddingHorizontal: 12, minHeight: 40 },
+  calendarViewButton: { flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1, borderColor: pearl.glassBorder, borderRadius: 14, paddingHorizontal: 12, minHeight: 40 },
   dinggToolbar: {
-    backgroundColor: Colors.appointmentSurface,
+    backgroundColor: pearl.glass,
     borderBottomColor: Colors.appointmentDivider,
     borderBottomWidth: 1,
     marginHorizontal: -AppLayout.contentHorizontalPadding,
@@ -21,25 +22,25 @@ export const createCalendarControlsStyles = (Colors: ThemeColors) => StyleSheet.
     minHeight: 52,
   },
   dinggTodayButton: {
-    backgroundColor: Colors.appointmentSurfaceMuted,
+    backgroundColor: pearl.glass,
     borderColor: Colors.appointmentDivider,
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: 14,
     minHeight: 38,
     justifyContent: "center",
     paddingHorizontal: 10,
   },
   dinggTodayButtonHighlighted: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
-    shadowColor: Colors.primary,
+    backgroundColor: pearl.accent,
+    borderColor: pearl.accent,
+    shadowColor: pearl.accent,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.5,
     shadowRadius: 6,
     elevation: 4,
   },
   dinggTodayTextHighlighted: {
-    color: Colors.onPrimary,
+    color: "#FFFFFF",
   },
   dinggTodayText: {
     color: Colors.appointmentText,
@@ -107,7 +108,7 @@ export const createCalendarControlsStyles = (Colors: ThemeColors) => StyleSheet.
   dinggToolbarIcon: {
     borderWidth: 1,
     borderColor: Colors.appointmentDivider,
-    borderRadius: 8,
+    borderRadius: 14,
     alignItems: "center",
     height: 34,
     justifyContent: "center",
@@ -127,8 +128,8 @@ export const createCalendarControlsStyles = (Colors: ThemeColors) => StyleSheet.
     paddingHorizontal: 13,
   },
   dinggStaffChipActive: {
-    backgroundColor: Colors.appointmentAccent,
-    borderColor: Colors.appointmentAccent,
+    backgroundColor: pearl.accentTint,
+    borderColor: pearl.accentTint,
   },
   dinggStaffText: {
     color: Colors.appointmentText,
@@ -136,7 +137,7 @@ export const createCalendarControlsStyles = (Colors: ThemeColors) => StyleSheet.
     fontWeight: "600",
   },
   dinggStaffTextActive: {
-    color: Colors.onPrimary,
+    color: "#FFFFFF",
   },
   dinggLegend: {
     backgroundColor: "transparent",
@@ -166,7 +167,7 @@ export const createCalendarControlsStyles = (Colors: ThemeColors) => StyleSheet.
     paddingHorizontal: 16,
   },
   dinggLegendActive: {
-    backgroundColor: Colors.appointmentAccent,
+    backgroundColor: pearl.accentTint,
   },
   dinggLegendDot: {
     borderRadius: 5,
@@ -179,7 +180,7 @@ export const createCalendarControlsStyles = (Colors: ThemeColors) => StyleSheet.
     fontWeight: "600",
   },
   dinggLegendTextActive: {
-    color: Colors.onPrimary,
+    color: "#FFFFFF",
     fontWeight: "800",
   },
   dinggStaffHeader: {

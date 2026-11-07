@@ -1,3 +1,4 @@
+import { PearlCatalogRow } from "./PearlCatalogRow";
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { Text } from "@/components/ui/AppTypography";
 import { InfiniteScrollLoader } from "@/components/ui/InfiniteScrollLoader";
@@ -36,6 +37,7 @@ type ProductCatalogTabProps = {
   search: string;
   // Products already on the bill, shown ticked like selected services.
   selectedIds?: ReadonlySet<string>;
+  pearlStyle?: boolean;
 };
 
 function ProductCardComponent({ onPress, product, selected }: { onPress: () => void; product: Product; selected: boolean }) {
@@ -84,7 +86,7 @@ function ProductCardComponent({ onPress, product, selected }: { onPress: () => v
 
 const ProductCard = memo(ProductCardComponent);
 
-export function ProductCatalogTab({ onSelect, search, selectedIds }: ProductCatalogTabProps) {
+export function ProductCatalogTab({ onSelect, search, selectedIds , pearlStyle = false }: ProductCatalogTabProps) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
@@ -165,7 +167,7 @@ export function ProductCatalogTab({ onSelect, search, selectedIds }: ProductCata
 
   return (
     <View style={styles.wrap}>
-      <CategoryChips onSelect={setCategory} options={categoryOptions} selectedId={category} />
+      <CategoryChips pearlStyle={pearlStyle} onSelect={setCategory} options={categoryOptions} selectedId={category} />
 
       {error && visibleProducts.length === 0 ? (
         <ErrorState message={error} onRetry={() => fetchFirstPage()} />
@@ -208,7 +210,7 @@ export function ProductCatalogTab({ onSelect, search, selectedIds }: ProductCata
             />
           }
           removeClippedSubviews
-          renderItem={({ item }) => <ProductCard onPress={() => handleSelect(item)} product={item} selected={selectedIds?.has(item.id) ?? false} />}
+          renderItem={({ item, index }) => pearlStyle ? <PearlCatalogRow first={index === 0} last={index === visibleProducts.length - 1} name={item.name} detail={[item.category, item.stockQuantity <= 0 ? "Out of stock" : `${item.stockQuantity} in stock`].filter(Boolean).join(" \u00b7 ")} price={item.price} selected={selectedIds?.has(item.id) ?? false} disabled={item.stockQuantity <= 0 && !selectedIds?.has(item.id)} onPress={() => handleSelect(item)} /> : <ProductCard onPress={() => handleSelect(item)} product={item} selected={selectedIds?.has(item.id) ?? false} />}
           windowSize={7}
         /></RefreshViewport>
       )}

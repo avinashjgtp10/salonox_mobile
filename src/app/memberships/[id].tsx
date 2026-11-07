@@ -1,3 +1,4 @@
+import { AppBackButton } from "@/components/ui/AppBackButton";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { maskPhone } from "@/utils/maskPhone";
 import { Text } from "@/components/ui/AppTypography";
@@ -463,7 +464,7 @@ function Header({ onBack, title }: { onBack: () => void; title: string }) {
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   return (
     <View style={styles.headerRow}>
-      <TouchableOpacity activeOpacity={0.84} hitSlop={12} onPress={onBack} style={styles.headerButton}><Ionicons name="arrow-back" size={18} color={Colors.primaryText} /></TouchableOpacity>
+      <AppBackButton activeOpacity={0.84} hitSlop={12} onPress={onBack} />
       <Text style={styles.headerTitle}>{title}</Text>
       <View style={styles.headerButtonGhost} />
     </View>
