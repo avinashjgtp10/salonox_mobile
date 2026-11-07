@@ -83,7 +83,7 @@ export function QuickSaleForm(p: Props) {
       <View style={s.page}>
         <Section title={p.selectedClient.id ? undefined : "Client"}>
           {p.selectedClient.id ? (
-            <ClientSummaryCard compact
+            <ClientSummaryCard key={p.selectedClient.id}
               clientId={p.selectedClient.id}
               initials={p.selectedClient.initials}
               membership={p.selectedClient.membership}
