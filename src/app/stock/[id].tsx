@@ -1,3 +1,4 @@
+import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
 import { appAlert as Alert } from "@/services/appAlert";
@@ -10,16 +11,16 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { AppBackButton } from "@/components/ui/AppBackButton";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { AppLayout, AppRadius } from "@/constants/layout";
-import { DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
+import { DashboardSpacing as Spacing } from "@/constants/theme";
 import { useAppToast } from "@/hooks/useAppToast";
 import { deleteProductThunk, fetchProductByIdThunk } from "@/middleware/product/product.thunk";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { selectProductById } from "@/store/product/product.slice";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors, type PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 import { formatCurrency as money } from "@/utils/currency";
 
 export default function ProductDetailsScreen() {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const { id } = useLocalSearchParams<{ id?: string }>();
   const dispatch = useAppDispatch();
@@ -43,7 +44,7 @@ export default function ProductDetailsScreen() {
     } },
   ]);
 
-  return <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
+  return <PearlBackground><SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
     <AppStatusBar />
     <ScrollView contentContainerStyle={styles.content}>
       <View style={styles.header}><AppBackButton onPress={back} /><Text style={styles.title}>Product Details</Text><TouchableOpacity disabled={!product} hitSlop={12} onPress={() => router.push(`/stock/${id}/edit` as Href)} style={styles.iconButton}><Ionicons name="create-outline" size={19} color={Colors.primaryText} /></TouchableOpacity></View>
@@ -54,25 +55,25 @@ export default function ProductDetailsScreen() {
         <TouchableOpacity disabled={state.deletingProductIds.includes(product.id)} onPress={remove} style={styles.deleteButton}>{state.deletingProductIds.includes(product.id) ? <ActivityIndicator color={Colors.error} /> : <Ionicons name="trash-outline" size={19} color={Colors.error} />}<Text style={styles.deleteText}>Delete Product</Text></TouchableOpacity>
       </>}
     </ScrollView>
-  </SafeAreaView>;
+  </SafeAreaView></PearlBackground>;
 }
 
 function Stat({ label, value }: { label: string; value: string }) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   return <View style={styles.stat}><Text numberOfLines={1} adjustsFontSizeToFit style={styles.statValue}>{value}</Text><Text style={styles.statLabel}>{label}</Text></View>;
 }
 function Row({ label, value }: { label: string; value: string }) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   return <View style={styles.row}><Text style={styles.rowLabel}>{label}</Text><Text style={styles.rowValue}>{value}</Text></View>;
 }
 function StateMessage({ message, title }: { message: string; title: string }) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   return <View style={styles.message}><Ionicons name="alert-circle-outline" size={32} color={Colors.error} /><Text style={styles.messageTitle}>{title}</Text><Text style={styles.messageText}>{message}</Text></View>;
 }
 
 const createStyles = (Colors: ThemeColors) => StyleSheet.create({
-  safeArea:{backgroundColor:Colors.bg,flex:1},content:{padding:Spacing.lg,paddingBottom:Spacing.xxl},header:{alignItems:"center",flexDirection:"row",justifyContent:"space-between",marginBottom:Spacing.lg},iconButton:{alignItems:"center",backgroundColor:Colors.card,borderColor:Colors.border,borderRadius:AppRadius.control,borderWidth:1,height:AppLayout.headerActionSize,justifyContent:"center",width:AppLayout.headerActionSize},title:{color:Colors.heading,fontSize:22,fontWeight:"800"},center:{alignItems:"center",minHeight:320,justifyContent:"center"},hero:{alignItems:"center",backgroundColor:Colors.card,borderColor:Colors.border,borderRadius:AppRadius.card,borderWidth:1,padding:Spacing.xl},avatar:{alignItems:"center",backgroundColor:Colors.bg2,borderRadius:32,height:64,justifyContent:"center",width:64},productName:{color:Colors.heading,fontSize:21,fontWeight:"800",marginTop:Spacing.md,textAlign:"center"},productMeta:{color:Colors.text2,fontSize:13,marginTop:5},badge:{borderRadius:AppRadius.pill,marginTop:Spacing.sm,paddingHorizontal:12,paddingVertical:5},active:{backgroundColor:Colors.successBg},inactive:{backgroundColor:Colors.errorBg},badgeText:{color:Colors.primaryText,fontSize:11,fontWeight:"800"},inactiveText:{color:Colors.error},stats:{flexDirection:"row",gap:Spacing.sm,marginTop:Spacing.lg,width:"100%"},stat:{alignItems:"center",backgroundColor:Colors.bg2,borderRadius:AppRadius.control,flex:1,minWidth:0,padding:Spacing.md},statValue:{color:Colors.heading,fontSize:16,fontWeight:"800",maxWidth:"100%"},statLabel:{color:Colors.text2,fontSize:11,marginTop:4},section:{backgroundColor:Colors.card,borderColor:Colors.border,borderRadius:AppRadius.card,borderWidth:1,marginTop:Spacing.md,padding:Spacing.lg},sectionTitle:{color:Colors.heading,fontSize:16,fontWeight:"800",marginBottom:Spacing.sm},row:{alignItems:"center",flexDirection:"row",justifyContent:"space-between",paddingVertical:9},rowLabel:{color:Colors.text2,fontSize:13},rowValue:{color:Colors.heading,flexShrink:1,fontSize:13,fontWeight:"700",marginLeft:Spacing.md,textAlign:"right"},description:{color:Colors.text,fontSize:13,lineHeight:20},deleteButton:{alignItems:"center",borderColor:Colors.error,borderRadius:AppRadius.pill,borderWidth:1,flexDirection:"row",gap:Spacing.sm,justifyContent:"center",marginTop:Spacing.lg,minHeight:50},deleteText:{color:Colors.error,fontSize:14,fontWeight:"800"},message:{alignItems:"center",backgroundColor:Colors.card,borderRadius:AppRadius.card,marginTop:Spacing.xl,padding:Spacing.xl},messageTitle:{color:Colors.heading,fontSize:18,fontWeight:"800",marginTop:Spacing.md},messageText:{color:Colors.text2,fontSize:13,marginTop:Spacing.sm,textAlign:"center"},
+  safeArea:{ flex:1},content:{padding:Spacing.lg,paddingBottom:Spacing.xxl},header:{alignItems:"center",flexDirection:"row",justifyContent:"space-between",marginBottom:Spacing.lg},iconButton:{alignItems:"center",backgroundColor:Colors.card,borderColor:Colors.border,borderRadius:AppRadius.control,borderWidth:1,height:AppLayout.headerActionSize,justifyContent:"center",width:AppLayout.headerActionSize},title:{color:Colors.heading,fontSize:22,fontWeight:"800"},center:{alignItems:"center",minHeight:320,justifyContent:"center"},hero:{alignItems:"center",backgroundColor:Colors.card,borderColor:Colors.border,borderRadius:AppRadius.card,borderWidth:1,padding:Spacing.xl},avatar:{alignItems:"center",backgroundColor:Colors.bg2,borderRadius:32,height:64,justifyContent:"center",width:64},productName:{color:Colors.heading,fontSize:21,fontWeight:"800",marginTop:Spacing.md,textAlign:"center"},productMeta:{color:Colors.text2,fontSize:13,marginTop:5},badge:{borderRadius:AppRadius.pill,marginTop:Spacing.sm,paddingHorizontal:12,paddingVertical:5},active:{backgroundColor:Colors.successBg},inactive:{backgroundColor:Colors.errorBg},badgeText:{color:Colors.primaryText,fontSize:11,fontWeight:"800"},inactiveText:{color:Colors.error},stats:{flexDirection:"row",gap:Spacing.sm,marginTop:Spacing.lg,width:"100%"},stat:{alignItems:"center",backgroundColor:Colors.bg2,borderRadius:AppRadius.control,flex:1,minWidth:0,padding:Spacing.md},statValue:{color:Colors.heading,fontSize:16,fontWeight:"800",maxWidth:"100%"},statLabel:{color:Colors.text2,fontSize:11,marginTop:4},section:{backgroundColor:Colors.card,borderColor:Colors.border,borderRadius:AppRadius.card,borderWidth:1,marginTop:Spacing.md,padding:Spacing.lg},sectionTitle:{color:Colors.heading,fontSize:16,fontWeight:"800",marginBottom:Spacing.sm},row:{alignItems:"center",flexDirection:"row",justifyContent:"space-between",paddingVertical:9},rowLabel:{color:Colors.text2,fontSize:13},rowValue:{color:Colors.heading,flexShrink:1,fontSize:13,fontWeight:"700",marginLeft:Spacing.md,textAlign:"right"},description:{color:Colors.text,fontSize:13,lineHeight:20},deleteButton:{alignItems:"center",borderColor:Colors.error,borderRadius:AppRadius.pill,borderWidth:1,flexDirection:"row",gap:Spacing.sm,justifyContent:"center",marginTop:Spacing.lg,minHeight:50},deleteText:{color:Colors.error,fontSize:14,fontWeight:"800"},message:{alignItems:"center",backgroundColor:Colors.card,borderRadius:AppRadius.card,marginTop:Spacing.xl,padding:Spacing.xl},messageTitle:{color:Colors.heading,fontSize:18,fontWeight:"800",marginTop:Spacing.md},messageText:{color:Colors.text2,fontSize:13,marginTop:Spacing.sm,textAlign:"center"},
 });

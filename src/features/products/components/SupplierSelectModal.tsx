@@ -1,16 +1,17 @@
+import { BottomSheet } from "@/components/ui/BottomSheet";
 import { useEffect, useState } from "react";
-import { Modal, Pressable, ScrollView, View } from "react-native";
+import { Pressable, ScrollView } from "react-native";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { supplierService, type ProductSupplierOption } from "@/services/supplier.service";
 import { getApiErrorMessage } from "@/services/api";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors } from "@/components/auth/pearl/usePearlColors";
 
 export function SupplierSelectModal({ visible, initialCreate, canCreate, onClose, onSelect }: {
   visible: boolean; initialCreate: boolean; canCreate: boolean;
   onClose: () => void; onSelect: (supplier: ProductSupplierOption | null) => void;
 }) {
-  const colors = useThemeColors();
+  const colors = usePearlColors();
   const [suppliers, setSuppliers] = useState<ProductSupplierOption[]>([]);
   const [search, setSearch] = useState("");
   const [creating, setCreating] = useState(initialCreate);
@@ -35,14 +36,11 @@ export function SupplierSelectModal({ visible, initialCreate, canCreate, onClose
     catch (e) { setError(getApiErrorMessage(e)); }
     finally { setSaving(false); }
   };
-  const button = { padding: 14, borderRadius: 8, backgroundColor: colors.primary, marginTop: 12 };
+  const button = { padding: 14, borderRadius: 16, backgroundColor: colors.primary, marginTop: 12 };
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={() => { if (!saving) onClose(); }}>
-      <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "center", padding: 20 }}>
-        <View style={{ backgroundColor: colors.card, borderRadius: 12, padding: 20, maxHeight: "80%" }}>
-          <Text style={{ color: colors.heading, fontSize: 20, fontWeight: "800", marginBottom: 16 }}>{creating ? "Add supplier" : "Select supplier"}</Text>
+    <BottomSheet pearlStyle centered={false} avoidKeyboard visible={visible} title={creating ? "Add supplier" : "Select supplier"} onClose={() => { if (!saving) onClose(); }}>
           <TextInput value={search} onChangeText={setSearch} editable={!saving} placeholder={creating ? "Supplier name" : "Search suppliers"}
-            placeholderTextColor={colors.placeholder} style={{ color: colors.heading, borderColor: colors.border, borderWidth: 1, borderRadius: 8, padding: 12, minHeight: 48 }} />
+            placeholderTextColor={colors.placeholder} style={{ color: colors.heading, borderColor: colors.border, borderWidth: 1, borderRadius: 16, padding: 12, minHeight: 48 }} />
           {!!error && <Text style={{ color: colors.error, marginTop: 12 }}>{error}</Text>}
           {creating ? (
             <Pressable disabled={saving || !search.trim()} onPress={() => void create()} style={[button, { opacity: saving || !search.trim() ? 0.5 : 1 }]}>
@@ -64,8 +62,6 @@ export function SupplierSelectModal({ visible, initialCreate, canCreate, onClose
             </>
           )}
           <Pressable disabled={saving} onPress={onClose} style={{ padding: 16 }}><Text style={{ color: colors.heading, textAlign: "center" }}>Close</Text></Pressable>
-        </View>
-      </View>
-    </Modal>
+    </BottomSheet>
   );
 }

@@ -1,3 +1,4 @@
+import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
 import { AppBackButton } from "@/components/ui/AppBackButton";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { maskPhone } from "@/utils/maskPhone";
@@ -10,7 +11,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppLayout, AppRadius } from "@/constants/layout";
-import { DashboardRadius as Radius, DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
+import { DashboardRadius as Radius, DashboardSpacing as Spacing } from "@/constants/theme";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { addRealtimeEntityChangedListener } from "@/services/realtimeEvents";
 import { assignClientMembershipThunk, fetchMembershipClientsThunk } from "@/middleware/clientMembership/clientMembership.thunk";
@@ -30,7 +31,7 @@ import {
   selectMembershipDetailsLoading,
 } from "@/store/membership/membership.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors, type PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 import type { ClientListItem } from "@/types/client";
 import type { Membership } from "@/types/membership";
 import { formatAppDate } from "@/utils/dateTime";
@@ -256,7 +257,7 @@ const getAssignedClientsErrorMessage = (error: string | null) => {
 };
 
 export default function MembershipDetailsScreen() {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id?: string }>();
@@ -325,16 +326,16 @@ export default function MembershipDetailsScreen() {
 
   if (loading && !membership) {
     return (
-      <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
+      <PearlBackground><SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
         <AppStatusBar />
         <View style={styles.centered}><ActivityIndicator color={Colors.primaryText} size="large" /></View>
-      </SafeAreaView>
+      </SafeAreaView></PearlBackground>
     );
   }
 
   if (!membership) {
     return (
-      <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
+      <PearlBackground><SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
         <AppStatusBar />
         <View style={styles.content}>
           <Header title="Membership Details" onBack={goBack} />
@@ -344,7 +345,7 @@ export default function MembershipDetailsScreen() {
             <Text style={styles.stateText}>{error ?? "This membership could not be found."}</Text>
           </View>
         </View>
-      </SafeAreaView>
+      </SafeAreaView></PearlBackground>
     );
   }
 
@@ -352,7 +353,7 @@ export default function MembershipDetailsScreen() {
   const benefits = membershipDisplay.benefits;
 
   return (
-    <SafeAreaView edges={["top"]} style={styles.safeArea}>
+    <PearlBackground><SafeAreaView edges={["top"]} style={styles.safeArea}>
       <AppStatusBar />
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 112 }]} showsVerticalScrollIndicator={false}>
         <Header title="Membership Details" onBack={goBack} />
@@ -455,12 +456,12 @@ export default function MembershipDetailsScreen() {
         saving={assignmentMutating}
         visible={clientPickerVisible}
       />
-    </SafeAreaView>
+    </SafeAreaView></PearlBackground>
   );
 }
 
 function Header({ onBack, title }: { onBack: () => void; title: string }) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   return (
     <View style={styles.headerRow}>
@@ -472,19 +473,19 @@ function Header({ onBack, title }: { onBack: () => void; title: string }) {
 }
 
 function Stat({ label, value }: { label: string; value: string }) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   return <View style={styles.stat}><Text style={styles.statValue}>{value}</Text><Text style={styles.statLabel}>{label}</Text></View>;
 }
 
 function Section({ children, title }: { children: React.ReactNode; title: string }) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   return <View style={styles.section}><Text style={styles.sectionTitle}>{title}</Text>{children}</View>;
 }
 
 function Detail({ label, value }: { label: string; value: string }) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   return <View style={styles.detailRow}><Text style={styles.detailLabel}>{label}</Text><Text style={styles.detailValue}>{value}</Text></View>;
 }
@@ -502,7 +503,7 @@ function ClientPickerModal({
   saving: boolean;
   visible: boolean;
 }) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   return (
@@ -543,7 +544,7 @@ function ClientPickerModal({
 }
 
 const createStyles = (Colors: ThemeColors) => StyleSheet.create({
-  safeArea: { backgroundColor: Colors.bg, flex: 1 },
+  safeArea: { flex: 1 },
   content: { paddingHorizontal: AppLayout.contentHorizontalPadding, paddingTop: Spacing.sm },
   centered: { alignItems: "center", flex: 1, justifyContent: "center" },
   headerRow: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", marginBottom: Spacing.lg },

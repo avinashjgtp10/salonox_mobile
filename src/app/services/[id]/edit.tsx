@@ -1,3 +1,4 @@
+import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
 import { AppBackButton } from "@/components/ui/AppBackButton";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text, TextInput } from "@/components/ui/AppTypography";
@@ -13,7 +14,6 @@ import { AppLayout, AppRadius } from "@/constants/layout";
 import {
   DashboardRadius as Radius,
   DashboardSpacing as Spacing,
-  type ThemeColors,
 } from "@/constants/theme";
 import { ConsumablesSection } from "@/features/services/components/ConsumablesSection";
 import { fetchServiceByIdThunk, fetchServicesThunk, updateServiceThunk } from "@/middleware/service/service.thunk";
@@ -26,7 +26,7 @@ import {
   selectServicesQuery,
 } from "@/store/service/service.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors, type PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 import type { ConsumableRecipeItem } from "@/types/consumable";
 import { useValidationScroll } from "@/hooks/useValidationScroll";
 
@@ -47,7 +47,7 @@ const getRejectedMessage = (payload: unknown, fallback: string) => {
 };
 
 export default function EditServiceScreen() {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const { id } = useLocalSearchParams<{ id?: string }>();
   const dispatch = useAppDispatch();
@@ -182,7 +182,7 @@ export default function EditServiceScreen() {
 
   if (detailsLoading && !liveService) {
     return (
-      <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
+      <PearlBackground><SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
         <AppStatusBar />
         <View style={styles.centeredWrap}>
           <View style={styles.headerRow}>
@@ -194,13 +194,13 @@ export default function EditServiceScreen() {
             <ActivityIndicator size="large" color={Colors.primaryText} />
           </View>
         </View>
-      </SafeAreaView>
+      </SafeAreaView></PearlBackground>
     );
   }
 
   if (detailsError && !liveService) {
     return (
-      <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
+      <PearlBackground><SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
         <AppStatusBar />
         <View style={styles.centeredWrap}>
           <View style={styles.headerRow}>
@@ -213,12 +213,12 @@ export default function EditServiceScreen() {
             <Text style={styles.notFoundSubtitle}>{detailsError}</Text>
           </View>
         </View>
-      </SafeAreaView>
+      </SafeAreaView></PearlBackground>
     );
   }
 
   return (
-    <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
+    <PearlBackground><SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
       <AppStatusBar />
       <KeyboardAwareScrollView
           ref={scrollViewRef}
@@ -348,7 +348,7 @@ export default function EditServiceScreen() {
             </TouchableOpacity>
           </View>
       </KeyboardAwareScrollView>
-    </SafeAreaView>
+    </SafeAreaView></PearlBackground>
   );
 }
 
@@ -356,9 +356,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   flex: {
     flex: 1,
   },
-  safeArea: {
-    backgroundColor: Colors.bg,
-    flex: 1,
+  safeArea: { flex: 1,
   },
   content: {
     paddingBottom: AppLayout.contentBottomPadding,
@@ -412,7 +410,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.05,
     shadowRadius: 18,
-    elevation: 2,
+    elevation: 0,
   },
   iconWrap: {
     alignItems: "center",

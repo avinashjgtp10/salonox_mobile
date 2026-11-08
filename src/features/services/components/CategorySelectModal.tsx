@@ -6,7 +6,7 @@ import { Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView,
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppRadius } from "@/constants/layout";
-import { DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
+import { DashboardSpacing as Spacing } from "@/constants/theme";
 import { useAppToast } from "@/hooks/useAppToast";
 import { createCategoryThunk, fetchCategoriesThunk } from "@/middleware/service/service.thunk";
 import {
@@ -18,7 +18,7 @@ import {
   selectCreatingCategoryByType,
 } from "@/store/service/service.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors, type PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 import type { CategoryType, ServiceCategoryItem } from "@/types/service";
 
 const CATEGORY_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -38,7 +38,7 @@ export function CategorySelectModal({
   type,
   visible,
 }: CategorySelectModalProps) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
   const toast = useAppToast();
@@ -283,20 +283,21 @@ export function CategorySelectModal({
 
 const createStyles = (Colors: ThemeColors) =>
   StyleSheet.create({
-    // Centred pop-up, matching the product form's Select Brand.
+    // Category options remain in the existing picker, anchored to the footer.
     overlay: {
       alignItems: "center",
       backgroundColor: "rgba(15, 23, 32, 0.45)",
       flex: 1,
-      justifyContent: "center",
-      padding: Spacing.lg,
+      justifyContent: "flex-end",
+      padding: 0,
     },
     keyboardLayer: {
       flex: 1,
     },
     sheet: {
-      backgroundColor: Colors.card,
-      borderRadius: 8,
+      backgroundColor: "#F8F7FB",
+      borderTopLeftRadius: 30,
+      borderTopRightRadius: 30,
       maxHeight: "70%",
       padding: Spacing.lg,
       width: "100%",
