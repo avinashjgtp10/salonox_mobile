@@ -7,6 +7,10 @@ export type ReportFilterDefinition = {
   source?: string;
   options?: FilterOption[];
   single?: boolean;
+  /** Web checkboxes send a scalar only when exactly one value is selected. */
+  multiSingle?: boolean;
+  firstSelected?: boolean;
+  decimal?: boolean;
   kind?: "number" | "date" | "boolean";
 };
 const options = (...ids: string[]): FilterOption[] => ids.map((id) => ({ id, label: id.replace(/[_-]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) }));
@@ -61,6 +65,58 @@ export const REPORT_FILTER_FIELDS: Partial<Record<ReportSlug, ReportFilterDefini
   "open-rate": campaign,
   "reply-rate": campaign,
 };
+
+const numberField = (key: ReportFilterKey, label: string): ReportFilterDefinition => ({ key, label, kind: "number" });
+const dateField = (key: ReportFilterKey, label: string): ReportFilterDefinition => ({ key, label, kind: "date" });
+const months = Array.from({ length: 12 }, (_, index) => ({ id: String(index + 1), label: new Date(2026, index, 1).toLocaleString("en", { month: "long" }) }));
+const clientSource = { ...source("client_source", "Client Source", "sources"), single: true };
+const gender = field("genders", "Gender", options("male", "female", "other"));
+const activeStatus = field("status", "Status", options("active", "blocked"), true);
+const stockStatus = field("stock_status", "Stock", options("in_stock", "low_stock", "out_of_stock"), true);
+const payoutStatus = field("status", "Payout Status", [{ id: "paid", label: "Paid" }, { id: "pending", label: "Unpaid" }, { id: "partial", label: "Partial" }], true);
+Object.assign(REPORT_FILTER_FIELDS, {
+  "non-gst-report": REPORT_FILTER_FIELDS["gst-report"],
+  "pending-payment": [],
+  "cash-management": [field("status", "Status", options("open", "closed"), true)],
+  "all-clients": [gender, activeStatus, clientSource, field("has_membership", "Membership", [{ id: "true", label: "Has Membership" }, { id: "false", label: "No Membership" }], true), field("has_package", "Package", [{ id: "true", label: "Has Package" }, { id: "false", label: "No Package" }], true), field("customer_type", "Visit History", options("new", "repetitive"), true), field("birth_month", "Birth Month", months, true), { ...numberField("total_spend_min", "Minimum Spend"), decimal: true }, { ...numberField("total_spend_max", "Maximum Spend"), decimal: true }, dateField("joined_from", "Joined from"), dateField("joined_to", "Joined to"), dateField("last_visit_from", "Last visit from"), dateField("last_visit_to", "Last visit to")],
+  "client-source": [source("sources", "Client Source", "sources")],
+  "enquiry-report": [staff, service, field("statuses", "Status", options("New", "Contacted", "Follow-up", "Converted", "Lost", "Closed")), source("sources", "Source", "sources"), dateField("follow_up_date", "Follow-up Date")],
+  "commission-report": [staff, field("category", "Item", options("services", "products", "memberships", "packages"), true), payoutStatus],
+  "tip-report": [staff, payoutStatus],
+  "attendance-report": [staff, field("statuses", "Status", options("present", "absent", "half_day", "on_leave"))],
+  "payroll-history": [staff, field("payment_statuses", "Payment Status", options("paid", "partial", "unpaid")), field("payment_methods", "Payment Method", options("cash", "card", "upi", "net_banking", "cheque", "bank_transfer"))],
+  "rebooking-rate": [staff, numberField("rebooking_days", "Rebooking window (days)")],
+  "online-appointment": REPORT_FILTER_FIELDS["appointment-detail"],
+  "no-show-recovery": [staff, service],
+  "slow-moving-products": [category, brand],
+  "fast-moving-products": [category, brand],
+  "brand-performance": [brand],
+  "purchase-vs-sales": [category, brand],
+  "consumable-analytics": [source("client_ids", "Client", "clients"), source("product_ids", "Product", "products"), service],
+  "supplier-report": [{ ...source("city", "City", "cities"), single: true }, { ...source("country", "Country", "countries"), single: true }],
+  "purchase-history": [{ ...source("supplier_id", "Supplier", "suppliers"), firstSelected: true }],
+  "stock-movement": [category, { ...source("product_id", "Product", "products"), single: true }, brand, stockStatus, field("product_type", "Product Type", options("retail", "consumable", "both"), true)],
+  "birthday-campaign": [field("statuses", "Status", options("SENT", "DELIVERED", "READ", "FAILED", "SKIPPED"))],
+  "new-client-follow-up": [numberField("new_within_days", "Joined within (days)")],
+  "cancellation-recovery": [numberField("cancelled_within_days", "Cancelled within (days)")],
+  "membership-opportunity": [field("has_membership", "Membership", [{ id: "no", label: "No Membership" }, { id: "has", label: "Has Membership" }], true), gender, clientSource, numberField("min_visits", "Minimum Visits"), numberField("window_days", "Visit window (days)")],
+  "birthday-report": [gender, activeStatus, field("birth_month", "Birth Month", months, true), numberField("upcoming_within_days", "Upcoming within (days)")],
+  "anniversary-report": [activeStatus, field("anniversary_month", "Anniversary Month", months, true), numberField("upcoming_within_days", "Upcoming within (days)")],
+} satisfies Partial<Record<ReportSlug, ReportFilterDefinition[] | undefined>>);
+
+// The web uses checkboxes even where its backend accepts one enum value.
+const scalarCheckboxes: Partial<Record<ReportSlug, ReportFilterKey[]>> = {
+  "cash-management": ["status"], "all-clients": ["status", "client_source", "has_membership", "has_package", "customer_type", "birth_month"],
+  "commission-report": ["category", "status"], "tip-report": ["status"],
+  "stock-movement": ["product_id", "stock_status", "product_type"],
+  "membership-opportunity": ["has_membership", "client_source"],
+  "birthday-report": ["status", "birth_month"], "anniversary-report": ["status", "anniversary_month"],
+};
+Object.entries(scalarCheckboxes).forEach(([slug, keys]) => {
+  const report = slug as ReportSlug;
+  REPORT_FILTER_FIELDS[report] = REPORT_FILTER_FIELDS[report]?.map((definition) => keys.includes(definition.key) ? { ...definition, single: false, multiSingle: true } : definition);
+});
+REPORT_FILTER_FIELDS["supplier-report"] = [source("city", "City", "cities"), source("country", "Country", "countries")];
 
 export const decodeReportSelection = (value?: string): string[] => {
   if (!value) return [];

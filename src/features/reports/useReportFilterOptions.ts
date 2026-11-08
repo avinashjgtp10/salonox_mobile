@@ -3,9 +3,12 @@ import type { FilterOption } from "@/components/ui/FilterSheet";
 import { serviceService } from "@/services/service.service";
 import { staffService } from "@/services/staff.service";
 import { productService } from "@/services/product.service";
-import { getApiErrorMessage } from "@/services/api";
+import { api, getApiErrorMessage } from "@/services/api";
 import { useAppSelector } from "@/store/hooks";
-import { selectCurrentUser } from "@/store/user/user.slice";
+import { selectActiveBranchId } from "@/store/branch/branch.slice";
+import { clientService } from "@/services/client.service";
+import { packageService } from "@/services/package.service";
+import { membershipService } from "@/services/membership.service";
 import { REPORT_FILTER_FIELDS } from "./report-filters";
 import type { ReportSlug } from "./report-config";
 
@@ -23,7 +26,7 @@ export function toReportOptions(value: unknown): ReportOption[] {
 }
 
 export function useReportFilterOptions(slug: ReportSlug, data: Record<string, unknown> | null | undefined, visible: boolean) {
-  const salonId = useAppSelector(selectCurrentUser)?.salonId;
+  const salonId = useAppSelector(selectActiveBranchId);
   const [loaded, setLoaded] = useState<Record<string, ReportOption[]>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -34,6 +37,9 @@ export function useReportFilterOptions(slug: ReportSlug, data: Record<string, un
     if (!raw || typeof raw !== "object") return {} as Record<string, ReportOption[]>;
     const result = Object.fromEntries(Object.entries(raw).map(([key, value]) => [key, toReportOptions(value)]));
     if (!result.categories && result.serviceCategories) result.categories = result.serviceCategories;
+    if (!result.categories && result.productCategories) result.categories = result.productCategories;
+    if (!result.sources && result.clientSources) result.sources = result.clientSources;
+    if (!result.paymentModes && result.paymentMethods) result.paymentModes = result.paymentMethods;
     return result;
   }, [data?.filtersAvailable]);
 
@@ -45,7 +51,7 @@ export function useReportFilterOptions(slug: ReportSlug, data: Record<string, un
     const cached = cache.current.options;
     setLoaded(cached); setLoading(true); setError(null);
     const sources = new Set((REPORT_FILTER_FIELDS[slug] ?? []).map((field) => field.source));
-    const needs = (key: string) => sources.has(key) && !cached[key] && !available[key];
+    const needs = (key: string) => sources.has(key) && !cached[key] && !available[key]?.length;
     const tasks: [string, () => Promise<ReportOption[]>][] = [];
     if (needs("staff")) tasks.push(["staff", async () => {
       const all: ReportOption[] = [];
@@ -60,9 +66,9 @@ export function useReportFilterOptions(slug: ReportSlug, data: Record<string, un
       }
       return all;
     }]);
-    if (needs("categories")) tasks.push(["categories", async () => serviceService.getCategories(["product-retail", "product-margin", "product-inventory"].includes(slug) ? "product" : "service", salonId).then((rows) => rows.map((row) => ({ id: row.id, label: row.name })))]);
+    if (needs("categories")) tasks.push(["categories", async () => serviceService.getCategories(["product-retail", "product-margin", "product-inventory", "stock-movement", "slow-moving-products", "fast-moving-products", "purchase-vs-sales", "consumable-usage"].includes(slug) ? "product" : "service", salonId).then((rows) => rows.map((row) => ({ id: row.id, label: row.name })))]);
     if (needs("brands")) tasks.push(["brands", async () => productService.fetchBrands(salonId).then((rows) => rows.map((row) => ({ id: row.id, label: row.name })))]);
-    if (sources.has("services") && sources.has("categories") && !cached.services) tasks.push(["services", async () => {
+    if (needs("services")) tasks.push(["services", async () => {
       const all: ReportOption[] = [];
       let offset = 0;
       while (true) {
@@ -74,6 +80,45 @@ export function useReportFilterOptions(slug: ReportSlug, data: Record<string, un
         offset = result.pagination.nextOffset;
       }
       return all;
+    }]);
+    if (needs("products")) tasks.push(["products", async () => {
+      const all: ReportOption[] = [];
+      let offset = 0;
+      while (!cancelled) {
+        const result = await productService.fetchProducts({ offset, limit: 100, search: "", sort_by: "name", sort_order: "asc" }, salonId);
+        all.push(...result.products.map((row) => ({ id: row.id, label: row.name })));
+        if (!result.pagination.hasMore) break;
+        if (result.pagination.nextOffset <= offset || !result.products.length) throw new Error("Unable to load all products");
+        offset = result.pagination.nextOffset;
+      }
+      return all;
+    }]);
+    if (needs("clients")) tasks.push(["clients", async () => {
+      const all: ReportOption[] = [];
+      let offset = 0;
+      while (!cancelled) {
+        const result = await clientService.getClients({ offset, limit: 100, search: "", sort_by: "created_at", sort_order: "desc" }, salonId);
+        all.push(...result.clients.map((row) => ({ id: row.id, label: row.fullName })));
+        if (!result.pagination.hasMore) break;
+        if (result.pagination.nextOffset <= offset || !result.clients.length) throw new Error("Unable to load all clients");
+        offset = result.pagination.nextOffset;
+      }
+      return all;
+    }]);
+    if (needs("packages")) tasks.push(["packages", async () => packageService.getAllActiveCatalogPackages({}, salonId).then((items) => items.map((item) => ({ id: item.id, label: item.name })))]);
+    if (needs("memberships")) tasks.push(["memberships", async () => {
+      const all: ReportOption[] = [];
+      for (let page = 1; !cancelled; page += 1) {
+        const result = await membershipService.getMemberships({ page, limit: 100 }, salonId);
+        all.push(...result.items.map((item) => ({ id: item.id, label: item.name })));
+        if (all.length >= result.total) break;
+        if (!result.items.length) throw new Error("Unable to load all memberships");
+      }
+      return all;
+    }]);
+    if (needs("suppliers")) tasks.push(["suppliers", async () => {
+      const result = await api.get("/inventory/suppliers");
+      return toReportOptions(result.data.data);
     }]);
     void Promise.allSettled(tasks.map(async ([key, load]) => [key, await load()] as const)).then((results) => {
       if (cancelled) return;

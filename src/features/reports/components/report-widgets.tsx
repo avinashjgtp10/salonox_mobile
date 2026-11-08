@@ -5,30 +5,32 @@ import { memo, useMemo } from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
 
 import { PaginationControls } from "@/components/ui/PaginationControls";
-import { SkeletonBlock, StateIllustration } from "@/components/ui/StateViews";
+import { SkeletonBlock } from "@/components/ui/StateViews";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import {
   DashboardSpacing as Spacing,
   DashboardTypography as Typography,
-  type ThemeColors,
+
 } from "@/constants/theme";
 import {
   formatReportValue,
   humanizeReportKey,
   type ReportRow,
 } from "@/features/reports/report-data";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors, type PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 
 export const ReportSummaryCards = memo(function ReportSummaryCards({
   summary,
   maxCards = 8,
+  labels,
 }: {
   summary: ReportRow | null;
   maxCards?: number;
+  labels?: Record<string, string>;
 }) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
-  const entries = useMemo(() => Object.entries(summary ?? {}).slice(0, maxCards), [summary, maxCards]);
+  const entries = useMemo(() => Object.entries(summary ?? {}).filter(([, value]) => value !== undefined && value !== null).slice(0, maxCards), [summary, maxCards]);
   if (!entries.length) return null;
 
   return (
@@ -36,7 +38,7 @@ export const ReportSummaryCards = memo(function ReportSummaryCards({
       {entries.map(([key, value]) => (
         <View key={key} style={styles.summaryCard}>
           <Text allowFontScaling numberOfLines={1} style={styles.summaryLabel}>
-            {humanizeReportKey(key)}
+            {labels?.[key] ?? humanizeReportKey(key)}
           </Text>
           <Text adjustsFontSizeToFit allowFontScaling minimumFontScale={0.7} selectable numberOfLines={1} style={styles.summaryValue}>
             {formatReportValue(key, value)}
@@ -56,7 +58,7 @@ export const ReportRowCard = memo(function ReportRowCard({
   onPress?: (row: ReportRow) => void;
   row: ReportRow;
 }) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const visible = fields.filter((field) => row[field] !== undefined);
   const titleField = visible[0];
@@ -125,15 +127,11 @@ export const ReportState = memo(function ReportState({
   onRetry: () => void;
   title: string;
 }) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   return (
     <View style={styles.stateCard}>
-      <StateIllustration
-        Colors={Colors}
-        accent={error ? "error" : "blue"}
-        icon={error ? "cloud-offline-outline" : "file-tray-outline"}
-      />
+      <View style={{ width: 64, height: 64, borderRadius: 32, alignItems: "center", justifyContent: "center", backgroundColor: Colors.backgroundSelected }}><Ionicons name={error ? "cloud-offline-outline" : "file-tray-outline"} size={26} color={Colors.primaryText} /></View>
       <Text allowFontScaling style={styles.stateTitle}>{title}</Text>
       <Text allowFontScaling style={styles.stateDescription}>{description}</Text>
       <TouchableOpacity
@@ -168,7 +166,7 @@ export const ReportPaginationFooter = memo(function ReportPaginationFooter({
   totalPages?: number;
   visibleItems?: number;
 }) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   if (onLoadMore || totalPages || totalItems) {
     if (!loading && !noMore && !hasMore) return null;

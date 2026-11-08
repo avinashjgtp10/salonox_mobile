@@ -1,186 +1,30 @@
-import { AppBackButton } from "@/components/ui/AppBackButton";
-import { Text } from "@/components/ui/AppTypography";
-import { TourScrollView, TourButton, withScreenTour } from "@/features/userGuide/DashboardTour";
-import { screenTours } from "@/features/userGuide/screenTours";
+import { useMemo, useState } from "react";
+import { SectionList, StyleSheet, TouchableOpacity, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
-import { memo, useMemo, useState } from "react";
-import { StyleSheet, TouchableOpacity, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-
+import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
+import { pearl, pearlTones } from "@/components/auth/pearl/tokens";
+import { Text, TextInput } from "@/components/ui/AppTypography";
+import { AppBackButton } from "@/components/ui/AppBackButton";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
-import { AppLayout, AppRadius } from "@/constants/layout";
-import {
-  DashboardSpacing as Spacing,
-  DashboardTypography as Typography,
-  type ThemeColors,
-} from "@/constants/theme";
-import {
-  type ReportConfig,
-  VISIBLE_REPORT_CONFIGS,
-  VISIBLE_REPORT_GROUPS,
-} from "@/features/reports/report-config";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { LunoxHeaderButton } from "@/components/lunox/LunoxHeaderButton";
+import { VISIBLE_REPORT_CONFIGS, VISIBLE_REPORT_GROUPS } from "../report-config";
 
-const ReportCard = memo(function ReportCard({ config }: { config: ReportConfig }) {
-  const Colors = useThemeColors();
-  const styles = useMemo(() => createStyles(Colors), [Colors]);
-  const isUnavailable = config.status !== "available";
-
-  return (
-    <TouchableOpacity
-      accessibilityHint={`Opens the ${config.title} report`}
-      accessibilityRole="button"
-      accessibilityState={{ disabled: isUnavailable }}
-      activeOpacity={0.84}
-      disabled={isUnavailable}
-      onPress={() => router.push(`/reports/${config.slug}` as Href)}
-      style={[styles.reportCard, isUnavailable && styles.disabledCard]}
-    >
-      <View style={styles.iconWrap}>
-        <Ionicons name={config.icon} size={21} color={isUnavailable ? Colors.hint : Colors.primaryText} />
-      </View>
-      <View style={styles.cardCopy}>
-        <Text allowFontScaling style={styles.cardTitle}>{config.title}</Text>
-        <Text allowFontScaling numberOfLines={2} style={styles.cardSubtitle}>
-          {isUnavailable ? config.statusReason ?? "Backend unavailable." : config.subtitle}
-        </Text>
-      </View>
-      {isUnavailable ? (
-        <View style={styles.comingSoonBadge}>
-          <Text style={styles.comingSoonText}>Unavailable</Text>
-        </View>
-      ) : (
-        <Ionicons name="chevron-forward" size={18} color={Colors.hint} />
-      )}
-    </TouchableOpacity>
-  );
-});
-
-function ReportsHomeScreenContent() {
-  const Colors = useThemeColors();
-  const styles = useMemo(() => createStyles(Colors), [Colors]);
-  const [expandedGroups, setExpandedGroups] = useState<Partial<Record<string, boolean>>>({
-    Sales: true,
-  });
-
-  const toggleGroup = (group: string) => {
-    setExpandedGroups((current) => ({ ...current, [group]: !current[group] }));
-  };
-
-  return (
-    <SafeAreaView edges={["top"]} style={styles.safe}>
-      <AppStatusBar />
-      <TourScrollView
-        contentContainerStyle={styles.content}
-        contentInsetAdjustmentBehavior="automatic"
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.header}>
-          <AppBackButton accessibilityLabel="Go back" accessibilityRole="button" activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={() => router.back()} />
-          <View style={styles.headerCopy}>
-            <Text allowFontScaling style={styles.eyebrow}>INSIGHTS</Text>
-            <Text allowFontScaling style={styles.title}>Reports</Text>
-            <Text allowFontScaling style={styles.subtitle}>
-              Understand performance across every part of your salon.
-            </Text>
-          </View>
-        </View>
-
-        {VISIBLE_REPORT_GROUPS.map((group) => {
-          const reports = VISIBLE_REPORT_CONFIGS.filter((config) => config.group === group);
-          const expanded = Boolean(expandedGroups[group]);
-
-          return (
-          <View key={group} style={styles.section}>
-            <TourButton tourId={group}
-              accessibilityRole="button"
-              activeOpacity={0.84}
-              onPress={() => toggleGroup(group)}
-              style={styles.categoryHeader}
-            >
-              <View style={styles.categoryIcon}>
-                <Ionicons name={reports[0]?.icon ?? "analytics-outline"} size={18} color={Colors.primaryText} />
-              </View>
-              <View style={styles.categoryCopy}>
-                <Text allowFontScaling style={styles.categoryTitle}>{group}</Text>
-                <Text allowFontScaling style={styles.categorySubtitle}>
-                  {reports.length} report{reports.length === 1 ? "" : "s"}
-                </Text>
-              </View>
-              <Ionicons name={expanded ? "chevron-up" : "chevron-down"} size={18} color={Colors.hint} />
-            </TourButton>
-            {expanded ? (
-              <View style={styles.cardGroup}>
-                {reports.map((config) => (
-                  <ReportCard config={config} key={config.slug} />
-                ))}
-              </View>
-            ) : null}
-          </View>
-          );
-        })}
-      </TourScrollView>
-    </SafeAreaView>
-  );
+export default function ReportsHomeScreen() {
+  const [search, setSearch] = useState("");
+  const sections = useMemo(() => VISIBLE_REPORT_GROUPS.map((title) => ({ title: title === "Customers" ? "Clients" : title, data: VISIBLE_REPORT_CONFIGS.filter((report) => report.group === title && [report.title, report.subtitle].join(" ").toLowerCase().includes(search.trim().toLowerCase())) })).filter((section) => section.data.length), [search]);
+  return <PearlBackground><SafeAreaView style={s.safe} edges={["top"]}><AppStatusBar />
+    <SectionList sections={sections} keyExtractor={(item) => item.slug} stickySectionHeadersEnabled={false} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={s.content}
+      ListHeaderComponent={<View style={s.top}><View style={s.header}><AppBackButton onPress={() => router.back()} /><View style={s.copy}><Text style={s.title}>Reports</Text><Text style={s.subtitle}>Find the answer you need</Text></View><LunoxHeaderButton /></View>
+        <View style={s.search}><Ionicons name="search-outline" size={18} color={pearl.muted} /><TextInput accessibilityLabel="Search reports" placeholder="Search reports" placeholderTextColor={pearl.muted} value={search} onChangeText={setSearch} underlineColorAndroid="transparent" style={s.input} />{search ? <TouchableOpacity accessibilityLabel="Clear search" onPress={() => setSearch("")}><Ionicons name="close-circle" size={18} color={pearl.muted} /></TouchableOpacity> : null}</View></View>}
+      renderSectionHeader={({ section }) => <Text style={s.group}>{section.title}</Text>}
+      renderItem={({ item, index, section }) => {
+        const tone = [pearlTones.rose, pearlTones.lilac, pearlTones.peach][index % 3];
+        return <TouchableOpacity accessibilityRole="button" onPress={() => router.push(('/reports/' + item.slug) as Href)} activeOpacity={0.8} style={[s.row, index === 0 && s.first, index === section.data.length - 1 && s.last]}><View style={[s.icon, { backgroundColor: tone.bg }]}><Ionicons name={item.icon} size={20} color={tone.fg} /></View><View style={s.copy}><Text style={s.name}>{item.title}</Text><Text style={s.description}>{item.subtitle}</Text></View><Ionicons name="chevron-forward" size={17} color={pearl.muted} /></TouchableOpacity>;
+      }}
+      ListEmptyComponent={<Text style={s.empty}>No reports found. Try another search.</Text>}
+    />
+  </SafeAreaView></PearlBackground>;
 }
-
-const createStyles = (Colors: ThemeColors) => StyleSheet.create({
-  safe: { backgroundColor: Colors.bg, flex: 1 },
-  content: {
-    gap: Spacing.xxl, paddingBottom: 120,
-    paddingHorizontal: AppLayout.contentHorizontalPadding, paddingTop: Spacing.lg,
-  },
-  header: { alignItems: "flex-start", flexDirection: "row", gap: Spacing.md },
-  backButton: {
-    alignItems: "center", backgroundColor: Colors.card, borderColor: Colors.border,
-    borderRadius: AppRadius.control, borderWidth: 1, height: AppLayout.headerActionSize,
-    justifyContent: "center", width: AppLayout.headerActionSize,
-  },
-  headerCopy: { flex: 1, gap: 4 },
-  eyebrow: { color: Colors.text2, fontSize: 10, fontWeight: "800", letterSpacing: 1.6 },
-  title: {
-    color: Colors.heading, fontFamily: Typography.fontFamilies.display,
-    fontSize: 32, fontWeight: "700", lineHeight: 38,
-  },
-  subtitle: { color: Colors.text2, fontSize: 13, lineHeight: 20, maxWidth: 420 },
-  section: { gap: Spacing.sm },
-  categoryHeader: {
-    alignItems: "center", backgroundColor: Colors.card, borderColor: Colors.border,
-    borderRadius: AppRadius.card, borderWidth: 1, flexDirection: "row", gap: Spacing.md,
-    minHeight: 72, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md,
-  },
-  categoryIcon: {
-    alignItems: "center", backgroundColor: Colors.backgroundElement,
-    borderRadius: AppRadius.control, height: 42, justifyContent: "center", width: 42,
-  },
-  categoryCopy: { flex: 1, gap: 3 },
-  categoryTitle: { color: Colors.heading, fontSize: 16, fontWeight: "900" },
-  categorySubtitle: { color: Colors.text2, fontSize: 12, fontWeight: "600" },
-  cardGroup: {
-    backgroundColor: Colors.card, borderColor: Colors.border, borderRadius: AppRadius.card,
-    borderWidth: 1, overflow: "hidden",
-  },
-  reportCard: {
-    alignItems: "center", backgroundColor: Colors.card, borderBottomColor: Colors.divider,
-    borderBottomWidth: 1, flexDirection: "row", gap: Spacing.md, minHeight: 82,
-    paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md,
-  },
-  disabledCard: {
-    opacity: 0.72,
-  },
-  iconWrap: {
-    alignItems: "center", backgroundColor: Colors.backgroundElement,
-    borderRadius: AppRadius.control, height: 44, justifyContent: "center", width: 44,
-  },
-  cardCopy: { flex: 1, gap: 3 },
-  cardTitle: { color: Colors.heading, fontSize: 14, fontWeight: "800" },
-  cardSubtitle: { color: Colors.text2, fontSize: 11.5, lineHeight: 17 },
-  comingSoonBadge: {
-    backgroundColor: Colors.backgroundElement, borderRadius: AppRadius.pill,
-    paddingHorizontal: Spacing.sm, paddingVertical: 6,
-  },
-  comingSoonText: { color: Colors.text2, fontSize: 9, fontWeight: "800", textTransform: "uppercase" },
-});
-
-export default withScreenTour(ReportsHomeScreenContent, screenTours.reports);
+const s = StyleSheet.create({ safe: { flex: 1 }, content: { paddingHorizontal: 18, paddingTop: 8, paddingBottom: 120 }, top: { gap: 20 }, header: { flexDirection: "row", alignItems: "center", gap: 12 }, copy: { flex: 1, minWidth: 0 }, title: { fontSize: 23, fontWeight: "700", color: pearl.ink }, subtitle: { fontSize: 12, color: pearl.muted, marginTop: 2 }, search: { flexDirection: "row", alignItems: "center", gap: 9, minHeight: 48, borderWidth: 1, borderColor: pearl.glassBorder, borderRadius: 16, paddingHorizontal: 14, backgroundColor: pearl.glass }, input: { flex: 1, color: pearl.ink, fontSize: 14, backgroundColor: "transparent", paddingVertical: 12 }, group: { fontSize: 14, fontWeight: "700", color: pearl.ink, marginTop: 22, marginBottom: 10 }, row: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14, backgroundColor: pearl.glass, borderBottomWidth: 1, borderBottomColor: pearl.divider }, first: { borderTopLeftRadius: 22, borderTopRightRadius: 22 }, last: { borderBottomLeftRadius: 22, borderBottomRightRadius: 22, borderBottomWidth: 0 }, icon: { width: 40, height: 40, borderRadius: 13, alignItems: "center", justifyContent: "center" }, name: { color: pearl.ink, fontSize: 14, fontWeight: "700" }, description: { color: pearl.muted, fontSize: 12, lineHeight: 18, marginTop: 3 }, empty: { color: pearl.muted, paddingVertical: 24, textAlign: "center" } });

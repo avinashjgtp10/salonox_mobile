@@ -1,11 +1,12 @@
+import { LinearGradient } from "expo-linear-gradient";
+import { pearlGradients } from "@/components/auth/pearl/tokens";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ScrollView, StyleSheet, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { BottomSheet } from "@/components/ui/BottomSheet";
-import { useThemeColors } from "@/theme/ThemeProvider";
-import type { ThemeColors } from "@/constants/theme";
+import { usePearlColors, type PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 
 export type FilterOption = { id: string; label: string; disabled?: boolean };
 export type FilterSelection = Record<string, string[]>;
@@ -20,7 +21,9 @@ export type FilterField = {
   render?: (value: string[], onChange: (value: string[]) => void) => ReactNode;
 };
 
-export function FilterSheet({ fields, selected, visible, onClose, onApply, loading, error, onRetry, validate }: {
+export function FilterSheet({ fields, selected, visible, onClose, onApply, loading, error, onRetry, validate, pearlStyle = false, centered = true }: {
+  pearlStyle?: boolean;
+  centered?: boolean;
   fields: FilterField[];
   selected: FilterSelection;
   visible: boolean;
@@ -31,7 +34,7 @@ export function FilterSheet({ fields, selected, visible, onClose, onApply, loadi
   onRetry?: () => void;
   validate?: (value: FilterSelection) => string | null;
 }) {
-  const colors = useThemeColors();
+  const colors = usePearlColors(pearlStyle);
   const { height } = useWindowDimensions();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [draft, setDraft] = useState<FilterSelection>({});
@@ -68,12 +71,13 @@ export function FilterSheet({ fields, selected, visible, onClose, onApply, loadi
   };
 
   return (
-    <BottomSheet centered visible={visible} onClose={onClose} title="Filters" scrollable={false} footer={
+    <BottomSheet pearlStyle={pearlStyle} centered={centered} visible={visible} onClose={onClose} title="Filters" scrollable={false} footer={
       <>
-        <TouchableOpacity accessibilityRole="button" style={styles.clearButton} onPress={() => commit({})}>
+        <TouchableOpacity accessibilityRole="button" style={[styles.clearButton, pearlStyle && { borderRadius: 16 }]} onPress={() => commit({})}>
           <Text style={styles.clearText}>Clear all</Text>
         </TouchableOpacity>
-        <TouchableOpacity accessibilityRole="button" style={styles.applyButton} onPress={() => commit(draft)}>
+        <TouchableOpacity accessibilityRole="button" style={[styles.applyButton, pearlStyle && { borderRadius: 16, overflow: "hidden" }]} onPress={() => commit(draft)}>
+          {pearlStyle ? <LinearGradient pointerEvents="none" colors={pearlGradients.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} /> : null}
           <Text style={styles.applyText}>Apply filters</Text>
         </TouchableOpacity>
       </>
