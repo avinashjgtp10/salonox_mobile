@@ -8,6 +8,7 @@ import { BackHandler, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Tou
 import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { KeyboardInsetView } from "@/components/ui/KeyboardInsetView";
 import { Portal } from "@/components/ui/Portal";
 import { KeyboardAwareForm, type KeyboardAwareFormHandle } from "@/components/ui/KeyboardAwareForm";
 import { AppLayout, AppRadius } from "@/constants/layout";
@@ -104,6 +105,40 @@ export function BottomSheet({
     return null;
   }
 
+  const sheet = (
+    <Animated.View
+      style={[styles.sheet, pearlStyle && { borderTopLeftRadius: 30, borderTopRightRadius: 30, backgroundColor: "#F8F7FB" }, centered && styles.sheetCentered, { maxHeight: sheetMaxHeight }, sheetStyle]}
+    >
+      {!centered ? <View style={styles.handle} /> : null}
+      <View style={styles.header}>
+        <View style={styles.headerCopy}>
+          <Text style={styles.title}>{title}</Text>
+          {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+        </View>
+        <TouchableOpacity activeOpacity={0.84} onPress={onClose} style={styles.closeButton}>
+          <Ionicons name="close" size={18} color={Colors.primaryText} />
+        </TouchableOpacity>
+      </View>
+
+      {scrollable ? (
+        <KeyboardAwareForm
+          ref={keyboardAwareFormRef}
+          embedded
+          autoReveal
+          padForKeyboard={!avoidKeyboard}
+          style={{ maxHeight: scrollMaxHeight }}
+          contentContainerStyle={styles.content}
+        >
+          {children}
+        </KeyboardAwareForm>
+      ) : (
+        <View style={[styles.content, avoidKeyboard && styles.constrainedContent]}>{children}</View>
+      )}
+
+      {footer ? <View style={styles.footer}>{footer}</View> : null}
+    </Animated.View>
+  );
+
   const overlay = (
       <Animated.View
         pointerEvents="auto"
@@ -115,44 +150,22 @@ export function BottomSheet({
         ]}
       >
         <Pressable onPress={onClose} style={StyleSheet.absoluteFill} />
+        {avoidKeyboard ? (
+          <KeyboardInsetView
+            bottomOffset={insets.bottom}
+            contentContainerStyle={[styles.keyboardAvoiding, centered && styles.keyboardAvoidingCentered, centered && { paddingTop: Math.max(insets.top, 16), paddingBottom: Math.max(insets.bottom, 16) }]}
+          >
+            {sheet}
+          </KeyboardInsetView>
+        ) : (
           <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : avoidKeyboard ? "height" : undefined}
-            keyboardVerticalOffset={avoidKeyboard ? insets.top : 0}
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
             pointerEvents="box-none"
             style={[styles.keyboardAvoiding, centered && styles.keyboardAvoidingCentered, centered && { paddingTop: Math.max(insets.top, 16), paddingBottom: Math.max(insets.bottom, 16) }]}
           >
-            <Animated.View
-              style={[styles.sheet, pearlStyle && { borderTopLeftRadius: 30, borderTopRightRadius: 30, backgroundColor: "#F8F7FB" }, centered && styles.sheetCentered, { maxHeight: sheetMaxHeight }, sheetStyle]}
-            >
-              {!centered ? <View style={styles.handle} /> : null}
-              <View style={styles.header}>
-                <View style={styles.headerCopy}>
-                  <Text style={styles.title}>{title}</Text>
-                  {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
-                </View>
-                <TouchableOpacity activeOpacity={0.84} onPress={onClose} style={styles.closeButton}>
-                  <Ionicons name="close" size={18} color={Colors.primaryText} />
-                </TouchableOpacity>
-              </View>
-
-              {scrollable ? (
-                <KeyboardAwareForm
-                  ref={keyboardAwareFormRef}
-                  embedded
-                  autoReveal
-                  padForKeyboard={!avoidKeyboard}
-                  style={{ maxHeight: scrollMaxHeight }}
-                  contentContainerStyle={styles.content}
-                >
-                  {children}
-                </KeyboardAwareForm>
-              ) : (
-                <View style={[styles.content, avoidKeyboard && styles.constrainedContent]}>{children}</View>
-              )}
-
-              {footer ? <View style={styles.footer}>{footer}</View> : null}
-            </Animated.View>
+            {sheet}
           </KeyboardAvoidingView>
+        )}
       </Animated.View>
   );
 

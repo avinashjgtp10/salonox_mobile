@@ -1,30 +1,35 @@
+import { clientBirthdayLabel } from "../utils/clientBirthday";
+import { ClientBottomNav } from "../components/ClientBottomNav";
+import { clientActionsService } from "../client-actions.service";
+import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
+import { pearl, pearlTones, pearlGradients } from "@/components/auth/pearl/tokens";
+import { LinearGradient } from "expo-linear-gradient";
+import { BottomSheet } from "@/components/ui/BottomSheet";
+import { ClientButton, ClientChips, ClientMenuRow, clientUi } from "../components/ClientPearl";
 import { AppBackButton } from "@/components/ui/AppBackButton";
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { maskPhone } from "@/utils/maskPhone";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { appAlert as Alert } from "@/services/appAlert";
-import { TourFlatList, TourView, TourButton, withScreenTour } from "@/features/userGuide/DashboardTour";
-import { screenTours } from "@/features/userGuide/screenTours";
+
+
 import { Ionicons } from "@expo/vector-icons";
-import { router, useFocusEffect, type Href } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams, type Href } from "expo-router";
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FlatList, Modal, Pressable, RefreshControl, StyleSheet, Switch, TouchableOpacity, View } from "react-native";
+import { FlatList, Modal, RefreshControl, StyleSheet, Switch, TouchableOpacity, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
-import Animated, { FadeInDown, LinearTransition } from "react-native-reanimated";
+import Animated, { FadeInDown } from "react-native-reanimated";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { PaginationControls } from "@/components/ui/PaginationControls";
 import { AppLayout, AppRadius } from "@/constants/layout";
-import { Badge } from "@/components/ui/Badge";
-import { InitialsAvatar } from "@/components/ui/InitialsAvatar";
 import { ErrorState } from "@/components/ui/StateViews";
 import {
   DashboardRadius as Radius,
   DashboardSpacing as Spacing,
-  type ThemeColors,
 } from "@/constants/theme";
 import {
   deleteClientThunk,
@@ -36,7 +41,6 @@ import {
   type FetchClientsArgs,
 } from "@/middleware/client/client.thunk";
 import { useAppToast } from "@/hooks/useAppToast";
-import { clientService } from "@/services/client.service";
 import { useClientRequiredFields, type ClientRequiredFields } from "@/services/clientRequiredFields";
 import { selectCurrentUser } from "@/store/user/user.slice";
 import { canSettleCommission as isOwnerOrAdmin } from "@/utils/userProfile";
@@ -56,7 +60,7 @@ import {
   selectClientMergingAll,
 } from "@/store/client/client.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors, type PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 import type { ClientListItem } from "@/types/client";
 import {
   CLIENT_SORT_OPTIONS,
@@ -91,7 +95,7 @@ function SwipeActionButton({
   disabled?: boolean;
   onPress: () => void;
 }) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   return (
@@ -107,153 +111,23 @@ function SwipeActionButton({
   );
 }
 
-function ClientCard({
-  client,
-  index,
-  isDeleting,
-  onBook,
-  onDelete,
-  onEdit,
-  onOpen,
-  onQuickSale,
-}: {
-  client: ClientListItem;
-  index: number;
-  isDeleting: boolean;
-  onBook: () => void;
-  onDelete: () => void;
-  onEdit: () => void;
-  onOpen: () => void;
-  onQuickSale: () => void;
-}) {
-  const Colors = useThemeColors();
-  const styles = useMemo(() => createStyles(Colors), [Colors]);
-  const avatarTone = clientService.getAvatarTone(client.id);
-  const statusIsInactive = client.inactive || client.status.toLowerCase() === "inactive";
-
-  return (
-    <Animated.View
-      entering={FadeInDown.duration(240).delay(Math.min(index * 35, 180))}
-      layout={LinearTransition.duration(180)}
-      style={styles.swipeRow}
-    >
-      <Swipeable
-        containerStyle={styles.swipeableContainer}
-        friction={1.8}
-        leftThreshold={70}
-        overshootLeft={false}
-        overshootRight={false}
-        renderLeftActions={() => (
-          <View style={styles.leftActions}>
-            <SwipeActionButton
-              backgroundColor={Colors.successBg}
-              color={Colors.primaryText}
-              icon="calendar-outline"
-              label="Book"
-              onPress={onBook}
-            />
-            <SwipeActionButton
-              backgroundColor={Colors.warningBg}
-              color={Colors.goldDark}
-              icon="flash-outline"
-              label="Quick Sale"
-              onPress={onQuickSale}
-            />
-          </View>
-        )}
-        renderRightActions={() => (
-          <View style={styles.rightActions}>
-            <SwipeActionButton
-              backgroundColor={Colors.bg2}
-              color={Colors.primaryText}
-              icon="create-outline"
-              label="Edit"
-              onPress={onEdit}
-            />
-            <SwipeActionButton
-              backgroundColor={Colors.errorBg}
-              color={Colors.error}
-              icon="trash-outline"
-              label="Delete"
-              disabled={isDeleting}
-              onPress={onDelete}
-            />
-          </View>
-        )}
-      >
-        <TouchableOpacity
-          activeOpacity={0.84}
-          onPress={onOpen}
-          style={styles.clientCard}
-        >
-          <InitialsAvatar bg={avatarTone.background} color={avatarTone.color} initials={client.initials} size={44} />
-
-          <View style={styles.clientCopy}>
-            <View style={styles.nameRow}>
-              <Text style={styles.clientName}>{client.fullName}</Text>
-              <Badge
-                bg={statusIsInactive ? Colors.errorBg : Colors.successBg}
-                color={statusIsInactive ? Colors.error : Colors.primaryText}
-                label={client.status}
-                size="sm"
-              />
-            </View>
-
-            <View style={styles.infoRow}>
-              <Ionicons name="call-outline" size={12} color={Colors.text2} />
-              <Text style={styles.infoText}>{maskPhone(client.phone, client.phoneCountryCode)}</Text>
-            </View>
-
-            <View style={styles.infoRow}>
-              <Ionicons name="mail-outline" size={12} color={Colors.text2} />
-              <Text numberOfLines={1} style={styles.infoText}>
-                {client.email}
-              </Text>
-            </View>
-
-            {client.membership ? (
-              <View style={styles.membershipBadge}>
-                <Ionicons name="diamond-outline" size={12} color={Colors.goldDark} />
-                <Text style={styles.membershipBadgeText}>{client.membership}</Text>
-              </View>
-            ) : null}
-
-            <View style={styles.metaRow}>
-              <Text style={styles.metaText}>Gender: {client.gender}</Text>
-              <Text style={styles.metaText}>{client.totalVisits} Visits</Text>
-            </View>
-
-            <Text style={styles.createdText}>Created: {client.createdDateLabel}</Text>
-          </View>
-
-          <View style={styles.rightColumn}>
-            <Ionicons name="chevron-forward" size={18} color={Colors.text2} />
-            <TouchableOpacity
-              accessibilityLabel={`Delete ${client.fullName}`}
-              accessibilityRole="button"
-              activeOpacity={0.82}
-              disabled={isDeleting}
-              onPress={(event) => {
-                event.stopPropagation();
-                onDelete();
-              }}
-              style={[styles.inlineDeleteButton, isDeleting && styles.inlineDeleteButtonDisabled]}
-            >
-              {isDeleting ? (
-                <ActivityIndicator color={Colors.error} size="small" />
-              ) : (
-                <Ionicons name="trash-outline" size={17} color={Colors.error} />
-              )}
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Swipeable>
-    </Animated.View>
-  );
+function ClientCard({ client, index, isLast, isDeleting, onBook, onDelete, onEdit, onOpen, onQuickSale }: { client: ClientListItem; index: number; isLast: boolean; isDeleting: boolean; onBook: () => void; onDelete: () => void; onEdit: () => void; onOpen: () => void; onQuickSale: () => void }) {
+  const tone = [pearlTones.rose, pearlTones.lilac, pearlTones.peach][index % 3];
+  return <Swipeable containerStyle={{ overflow: "hidden", borderTopLeftRadius: index === 0 ? 22 : 0, borderTopRightRadius: index === 0 ? 22 : 0, borderBottomLeftRadius: isLast ? 22 : 0, borderBottomRightRadius: isLast ? 22 : 0 }} overshootLeft={false} overshootRight={false}
+    renderLeftActions={() => <View style={{ flexDirection: "row" }}><SwipeActionButton backgroundColor={pearl.successBg} color={pearl.successText} icon="calendar-outline" label="Book" onPress={onBook} /><SwipeActionButton backgroundColor={pearl.accentWash} color={pearl.accentDeep} icon="flash-outline" label="Sale" onPress={onQuickSale} /></View>}
+    renderRightActions={() => <View style={{ flexDirection: "row" }}><SwipeActionButton backgroundColor={pearl.accentWash} color={pearl.accentDeep} icon="create-outline" label="Edit" onPress={onEdit} /><SwipeActionButton backgroundColor={pearl.dangerBg} color={pearl.dangerText} icon="trash-outline" label="Delete" onPress={onDelete} disabled={isDeleting} /></View>}>
+    <TouchableOpacity accessibilityRole="button" onPress={onOpen} style={{ flexDirection: "row", alignItems: "center", gap: 12, padding: 14, backgroundColor: pearl.glass, borderBottomWidth: 1, borderBottomColor: pearl.divider }}>
+      <LinearGradient colors={tone.avatar} style={{ width: 44, height: 44, borderRadius: 16, alignItems: "center", justifyContent: "center" }}><Text style={{ color: "#FFFFFF", fontSize: 15, fontWeight: "700" }}>{client.initials}</Text></LinearGradient>
+      <View style={{ flex: 1 }}><View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 6 }}><Text style={clientUi.rowTitle}>{client.fullName}</Text>{client.membership ? <Text style={{ fontSize: 10, color: "#94640F", backgroundColor: pearl.warningBg, borderRadius: 8, paddingHorizontal: 6 }}>{client.membership}</Text> : isCreatedToday(client.createdAt) ? <Text style={{ fontSize: 10, color: pearl.successText }}>New</Text> : null}</View>
+        <Text style={clientUi.muted}>{client.totalVisits} {client.totalVisits === 1 ? "visit" : "visits"}</Text>
+        {client.birthdayDayMonth ? <Text style={{ color: pearlTones.lilac.fg, fontSize: 11 }}>Birthday {clientBirthdayLabel(client.birthdayDayMonth)}</Text> : null}
+      </View><Ionicons name="chevron-forward" size={18} color={pearl.muted} />
+    </TouchableOpacity>
+  </Swipeable>;
 }
 
 function ClientSkeletonCard({ index }: { index: number }) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   return (
@@ -279,7 +153,7 @@ function ClientSkeletonCard({ index }: { index: number }) {
 }
 
 function EmptyState({ onAdd, queryActive }: { onAdd: () => void; queryActive: boolean }) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   return (
@@ -304,7 +178,7 @@ function EmptyState({ onAdd, queryActive }: { onAdd: () => void; queryActive: bo
 }
 
 function ClientsScreenContent() {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
   const toast = useAppToast();
@@ -331,13 +205,22 @@ function ClientsScreenContent() {
   const isMergingAll = useAppSelector(selectClientMergingAll);
 
   const didHandleInitialFocusRef = useRef(false);
+  const [genderFilter, setGenderFilter] = useState("Any");
+  const [sourceFilter, setSourceFilter] = useState("Any");
+  const [draftGender, setDraftGender] = useState("Any");
+  const [draftSource, setDraftSource] = useState("Any");
   const [statusFilter, setStatusFilter] = useState<ClientStatusFilter>(DEFAULT_STATUS_FILTER);
   const [membershipFilter, setMembershipFilter] = useState<ClientMembershipFilter>(DEFAULT_MEMBERSHIP_FILTER);
   const [draftStatusFilter, setDraftStatusFilter] = useState<ClientStatusFilter>(DEFAULT_STATUS_FILTER);
   const [draftMembershipFilter, setDraftMembershipFilter] = useState<ClientMembershipFilter>(DEFAULT_MEMBERSHIP_FILTER);
   const [draftSortOption, setDraftSortOption] = useState<ClientSortOption>(DEFAULT_SORT_OPTION);
+  const { mergeFor } = useLocalSearchParams<{ mergeFor?: string }>();
+  const [toolsVisible, setToolsVisible] = useState(false);
+  const [rulesVisible, setRulesVisible] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [isFilterSheetVisible, setIsFilterSheetVisible] = useState(false);
   const [isDuplicatesVisible, setIsDuplicatesVisible] = useState(false);
+  useEffect(() => { if (mergeFor) { setIsDuplicatesVisible(true); router.setParams({ mergeFor: undefined }); } }, [mergeFor]);
   const [query, setQuery] = useState("");
   const [sortOption, setSortOption] = useState<ClientSortOption>(DEFAULT_SORT_OPTION);
   const [debouncedQuery, setDebouncedQuery] = useState("");
@@ -346,19 +229,23 @@ function ClientsScreenContent() {
   const membershipQueryValue = useMemo(() => getMembershipQueryValue(membershipFilter), [membershipFilter]);
   const filterValue = useMemo(() => getFilterValue(statusFilter, membershipFilter), [membershipFilter, statusFilter]);
   const duplicatePhoneQuery = debouncedQuery.trim();
+  const genderQuery = genderFilter === "Women" ? "female" : genderFilter === "Men" ? "male" : undefined;
   const activeFilterCount =
+    (genderFilter !== "Any" ? 1 : 0) + (sourceFilter !== "Any" ? 1 : 0) +
     (statusFilter !== DEFAULT_STATUS_FILTER ? 1 : 0) +
     (membershipFilter !== DEFAULT_MEMBERSHIP_FILTER ? 1 : 0) +
     (sortOption !== DEFAULT_SORT_OPTION ? 1 : 0);
 
   const openFilterSheet = useCallback(() => {
+    setDraftGender(genderFilter); setDraftSource(sourceFilter);
     setDraftStatusFilter(statusFilter);
     setDraftMembershipFilter(membershipFilter);
     setDraftSortOption(sortOption);
     setIsFilterSheetVisible(true);
-  }, [membershipFilter, sortOption, statusFilter]);
+  }, [genderFilter, sourceFilter, membershipFilter, sortOption, statusFilter]);
 
   const resetDraftFilters = useCallback(() => {
+    setDraftGender("Any"); setDraftSource("Any");
     setDraftStatusFilter(DEFAULT_STATUS_FILTER);
     setDraftMembershipFilter(DEFAULT_MEMBERSHIP_FILTER);
     setDraftSortOption(DEFAULT_SORT_OPTION);
@@ -366,16 +253,18 @@ function ClientsScreenContent() {
 
   const applyDraftFilters = useCallback(() => {
     startTransition(() => {
+      setGenderFilter(draftGender); setSourceFilter(draftSource);
       setStatusFilter(draftStatusFilter);
       setMembershipFilter(draftMembershipFilter);
       setSortOption(draftSortOption);
     });
     setIsFilterSheetVisible(false);
-  }, [draftMembershipFilter, draftSortOption, draftStatusFilter]);
+  }, [draftGender, draftSource, draftMembershipFilter, draftSortOption, draftStatusFilter]);
 
   const fetchClientList = useCallback(
     (options: { offset?: number; refresh?: boolean; reset?: boolean } = {}) => {
       const args: FetchClientsArgs = {
+        gender: genderQuery, source: sourceFilter === "Any" ? undefined : sourceFilter,
         inactive:
           statusFilter === "Active"
             ? false
@@ -405,6 +294,7 @@ function ClientsScreenContent() {
       }
     },
     [
+      genderQuery, sourceFilter,
       clientsPagination.limit,
       debouncedQuery,
       dispatch,
@@ -588,10 +478,10 @@ function ClientsScreenContent() {
 
   return (
     <GestureHandlerRootView style={styles.flex}>
-      <SafeAreaView edges={["top"]} style={styles.safeArea}>
+      <PearlBackground><SafeAreaView edges={["top"]} style={styles.safeArea}>
         <AppStatusBar />
 
-        <RefreshViewport><TourFlatList
+        <RefreshViewport><FlatList
           ListEmptyComponent={
             showInitialLoading ? (
               <View>
@@ -625,106 +515,15 @@ function ClientsScreenContent() {
               <View style={{ height: 112 + insets.bottom }} />
             </View>
           }
-          ListHeaderComponent={
-            <View>
-              <View style={styles.header}>
-                <View style={styles.headerRow}>
-                  <AppBackButton activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} />
-                  <Text style={styles.headerTitle}>Clients</Text>
-                  <TouchableOpacity
-                    activeOpacity={0.8}
-                    hitSlop={AppLayout.headerActionHitSlop}
-                    onPress={() => setIsDuplicatesVisible(true)}
-                    style={styles.backButton}
-                  >
-                    <Ionicons name="copy-outline" size={18} color={Colors.primaryText} />
-                  </TouchableOpacity>
-                </View>
-                <View style={styles.summaryCard}>
-                  <View style={styles.summaryMetric}>
-                    <Text style={styles.summaryLabel}>Total Clients</Text>
-                    <Text style={styles.summaryValue}>{totalCount.toLocaleString("en-IN")}</Text>
-                  </View>
-                  <View style={styles.summaryDivider} />
-                  <View style={styles.summaryMetric}>
-                    <Text style={styles.summaryLabel}>{"Today's New Clients"}</Text>
-                    <Text style={styles.summaryValue}>{todayNewClients}</Text>
-                  </View>
-                </View>
-              </View>
-
-              <View style={styles.searchFilterRow}>
-                <TourView tourId="search" style={styles.searchWrap}>
-                  <Ionicons name="search-outline" size={20} color={Colors.text2} />
-                  <TextInput
-                    onChangeText={setQuery}
-                    placeholder="Search by name or mobile number"
-                    placeholderTextColor={Colors.placeholder}
-                    style={styles.searchInput}
-                    value={query}
-                  />
-                  {query.trim().length > 0 ? (
-                    <TouchableOpacity activeOpacity={0.8} onPress={() => setQuery("")}>
-                      <Ionicons name="close-circle" size={18} color={Colors.placeholder} />
-                    </TouchableOpacity>
-                  ) : null}
-                </TourView>
-                <TourButton tourId="filters"
-                  activeOpacity={0.82}
-                  onPress={openFilterSheet}
-                  style={[styles.filterButton, activeFilterCount > 0 && styles.filterButtonActive]}
-                >
-                  <Ionicons
-                    name="options-outline"
-                    size={17}
-                    color={activeFilterCount > 0 ? "#FFFFFF" : Colors.primaryText}
-                  />
-                  <Text
-                    style={[
-                      styles.filterButtonText,
-                      activeFilterCount > 0 && styles.filterButtonTextActive,
-                    ]}
-                  >
-                    Filter
-                  </Text>
-                  {activeFilterCount > 0 ? (
-                    <View style={styles.filterCountBadge}>
-                      <Text style={styles.filterCountText}>{activeFilterCount}</Text>
-                    </View>
-                  ) : null}
-                </TourButton>
-              </View>
-
-              {canConfigureClientForm ? (
-                <View style={styles.requiredCard}>
-                  <Text style={styles.requiredTitle}>Mandatory when adding a client</Text>
-                  <Text style={styles.sortMeta}>Quick Sale, Calendar and Add Client</Text>
-                  {([["require_dob", "Date of Birth (DOB)"], ["require_doa", "Anniversary (DOA)"]] as const).map(([field, label]) => (
-                    <View key={field} style={styles.requiredRow}>
-                      <Text style={styles.requiredLabel}>{label}</Text>
-                      <Switch
-                        accessibilityLabel={`${label} mandatory`}
-                        onValueChange={() => handleToggleRequiredDate(field)}
-                        thumbColor="#FFFFFF"
-                        trackColor={{ false: Colors.border, true: Colors.primaryText }}
-                        value={requiredDates[field]}
-                      />
-                    </View>
-                  ))}
-                </View>
-              ) : null}
-
-              <View style={styles.sortRow}>
-                <Text style={styles.sortMeta}>
-                  {`${totalCount.toLocaleString("en-IN")} client${totalCount === 1 ? "" : "s"}`}
-                </Text>
-                <Text style={styles.sortMeta}>Sorted by {sortOption}</Text>
-              </View>
-            </View>
-          }
+          ListHeaderComponent={<View style={{ gap: 14, paddingBottom: 14 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}><AppBackButton onPress={handleBack} /><View style={{ flex: 1 }}><Text style={{ color: pearl.ink, fontSize: 23, fontWeight: "800" }}>Clients</Text><Text style={clientUi.muted}>{totalCount} total · {todayNewClients} new today</Text></View><TouchableOpacity accessibilityLabel="More" onPress={() => setToolsVisible(true)} style={newStyles.iconButton}><Ionicons name="ellipsis-horizontal" size={20} color={pearl.ink} /></TouchableOpacity></View>
+            <View style={{ flexDirection: "row", gap: 8 }}><View style={newStyles.search}><Ionicons name="search-outline" size={19} color={pearl.muted} /><TextInput accessibilityLabel="Search name or mobile" placeholder="Search name or mobile" placeholderTextColor={pearl.muted} value={query} onChangeText={setQuery} style={{ flex: 1, paddingVertical: 12, color: pearl.ink, fontSize: 14 }} /></View><TouchableOpacity accessibilityLabel="Filters" onPress={openFilterSheet} style={newStyles.iconButton}><Ionicons name="options-outline" size={20} color={pearl.accentDeep} />{activeFilterCount ? <Text style={{ color: pearl.accentDeep, fontSize: 10 }}>{activeFilterCount}</Text> : null}</TouchableOpacity></View>
+            <ClientChips options={["All " + totalCount, "Active"]} selected={statusFilter === "Active" ? "Active" : "All " + totalCount} onSelect={(value) => setStatusFilter(value === "Active" ? "Active" : "All")} />
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}><Text style={clientUi.muted}>Sorted by {sortOption === "Recent" ? "recently added" : sortOption === "Name A-Z" ? "name" : sortOption.toLowerCase()}</Text><TouchableOpacity accessibilityLabel="Sort name A–Z" onPress={() => setSortOption(sortOption === "Name A-Z" ? "Recent" : "Name A-Z")}><Ionicons name="swap-vertical-outline" size={20} color={pearl.muted} /></TouchableOpacity></View>
+          </View>}
           contentContainerStyle={styles.listContent}
           data={clients}
-          initialNumToRender={8}
+          initialNumToRender={10}
           keyExtractor={getClientListKey}
           onEndReached={handleLoadMore}
           onEndReachedThreshold={0.35}
@@ -740,6 +539,7 @@ function ClientsScreenContent() {
             <ClientCard
               client={item}
               index={index}
+              isLast={index === clients.length - 1}
               isDeleting={deletingClientIds.includes(item.id)}
               onBook={() => router.push("/bookings/new")}
               onDelete={() => handleDeleteClient(item)}
@@ -753,110 +553,32 @@ function ClientsScreenContent() {
           windowSize={8}
         /></RefreshViewport>
 
-        <View style={[styles.stickyButtonWrap, { bottom: insets.bottom + 12 }]}>
-          <TourButton tourId="add"
+        <View style={[styles.stickyButtonWrap, { bottom: insets.bottom + 116, left: undefined, right: 20 }]}>
+          <TouchableOpacity
             activeOpacity={0.88}
             onPress={handleAddClient}
-            style={styles.stickyButton}
+            style={newStyles.fab}
           >
-            <Ionicons name="person-add-outline" size={18} color="#FFFFFF" />
-            <Text style={styles.stickyButtonText}>Add Client</Text>
-          </TourButton>
+            <LinearGradient pointerEvents="none" colors={pearlGradients.primary} style={StyleSheet.absoluteFill} /><Ionicons name="add" size={20} color="#FFFFFF" /><Text style={newStyles.fabText}>Add client</Text>
+          </TouchableOpacity>
         </View>
 
-        <Modal
-          animationType="fade"
-          onRequestClose={() => setIsFilterSheetVisible(false)}
-          transparent
-          visible={isFilterSheetVisible}
-        >
-          <Pressable onPress={() => setIsFilterSheetVisible(false)} style={styles.modalOverlay}>
-            <Pressable style={styles.filterSheet}>
-              <View style={styles.sheetHandle} />
-              <Text style={styles.filterSheetTitle}>Filter Clients</Text>
-
-              <Text style={styles.filterSectionTitle}>Status</Text>
-              <View style={styles.filterOptionGrid}>
-                {STATUS_FILTERS.map((option) => {
-                  const isActive = option === draftStatusFilter;
-
-                  return (
-                    <TouchableOpacity
-                      key={option}
-                      activeOpacity={0.82}
-                      onPress={() => setDraftStatusFilter(option)}
-                      style={[styles.sheetOption, isActive && styles.sheetOptionActive]}
-                    >
-                      <Text style={[styles.sheetOptionText, isActive && styles.sheetOptionTextActive]}>
-                        {option}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-
-              <Text style={styles.filterSectionTitle}>Membership</Text>
-              <View style={styles.filterOptionGrid}>
-                {MEMBERSHIP_FILTERS.map((option) => {
-                  const isActive = option === draftMembershipFilter;
-
-                  return (
-                    <TouchableOpacity
-                      key={option}
-                      activeOpacity={0.82}
-                      onPress={() => setDraftMembershipFilter(option)}
-                      style={[styles.sheetOption, isActive && styles.sheetOptionActive]}
-                    >
-                      <Text style={[styles.sheetOptionText, isActive && styles.sheetOptionTextActive]}>
-                        {option}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-
-              <Text style={styles.filterSectionTitle}>Sort By</Text>
-              <View style={styles.filterOptionList}>
-                {CLIENT_SORT_OPTIONS.map((option) => {
-                  const isActive = option === draftSortOption;
-                  const unavailable = option === "Last Visit";
-
-                  return (
-                    <TouchableOpacity
-                      key={option}
-                      activeOpacity={0.82}
-                      disabled={unavailable}
-                      accessibilityState={{ disabled: unavailable, selected: isActive }}
-                      onPress={() => setDraftSortOption(option)}
-                      style={[styles.sheetListOption, isActive && styles.sheetListOptionActive, unavailable && { opacity: 0.5 }]}
-                    >
-                      <Text style={[styles.sheetOptionText, isActive && styles.sheetOptionTextActive]}>
-                        {unavailable ? `${option} (Unavailable)` : option}
-                      </Text>
-                      {isActive ? <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" /> : null}
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-
-              <View style={styles.sheetActionRow}>
-                <TouchableOpacity activeOpacity={0.82} onPress={resetDraftFilters} style={styles.resetButton}>
-                  <Text style={styles.resetButtonText}>Reset Filters</Text>
-                </TouchableOpacity>
-                <TouchableOpacity activeOpacity={0.86} onPress={applyDraftFilters} style={styles.applyButton}>
-                  <Text style={styles.applyButtonText}>Apply</Text>
-                </TouchableOpacity>
-              </View>
-            </Pressable>
-          </Pressable>
-        </Modal>
-
+        <ClientBottomNav />
+        <BottomSheet pearlStyle centered={false} title="Filter clients" visible={isFilterSheetVisible} onClose={() => setIsFilterSheetVisible(false)} footer={<View style={{ flex: 1, flexDirection: "row", gap: 10 }}><ClientButton secondary label="Reset" onPress={resetDraftFilters} /><View style={{ flex: 1 }}><ClientButton label="Show clients" onPress={applyDraftFilters} /></View></View>}>
+          <View style={{ gap: 18 }}><View><Text style={clientUi.label}>Status</Text><ClientChips options={STATUS_FILTERS} selected={draftStatusFilter} onSelect={(value) => setDraftStatusFilter(value as ClientStatusFilter)} /></View><View><Text style={clientUi.label}>Membership</Text><ClientChips options={MEMBERSHIP_FILTERS} selected={draftMembershipFilter} onSelect={(value) => setDraftMembershipFilter(value as ClientMembershipFilter)} /></View><View><Text style={clientUi.label}>Gender</Text><ClientChips options={["Any", "Women", "Men"]} selected={draftGender} onSelect={setDraftGender} /></View><View><Text style={clientUi.label}>Source</Text><ClientChips options={["Any", "Walk-in", "Instagram", "Referral", "Google"]} selected={draftSource} onSelect={setDraftSource} /></View><View><Text style={clientUi.label}>Sort by</Text><ClientChips options={CLIENT_SORT_OPTIONS.filter((option) => option !== "Last Visit")} selected={draftSortOption} onSelect={(value) => setDraftSortOption(value as ClientSortOption)} /></View></View>
+        </BottomSheet>
+        <BottomSheet pearlStyle centered={false} title="Client tools" visible={toolsVisible} onClose={() => setToolsVisible(false)}>
+          <View style={clientUi.card}><ClientMenuRow icon="cloud-upload-outline" title="Import contacts" onPress={() => { setToolsVisible(false); router.push("/clients/import-contacts"); }} /><ClientMenuRow tone="peach" showChevron={false} icon="download-outline" title={exporting ? "Exporting…" : "Export to Excel"} onPress={() => { if (exporting) return; setExporting(true); void clientActionsService.exportExcel({ limit: 2000, gender: genderQuery, source: sourceFilter === "Any" ? undefined : sourceFilter, blocked_status: statusFilter === "Blocked" ? "blocked" : undefined, package_membership: membershipFilter === "Has Membership" ? "has_membership" : undefined, search: debouncedQuery, inactive: statusFilter === "Inactive", sort_by: sortQuery.sort_by, sort_order: sortQuery.sort_order }).catch((e) => Alert.alert("Export unavailable", e instanceof Error ? e.message : "Please try again.")).finally(() => setExporting(false)); }} />{canConfigureClientForm ? <ClientMenuRow tone="rose" icon="options-outline" title="Client form rules" onPress={() => { setToolsVisible(false); setRulesVisible(true); }} /> : null}<ClientMenuRow icon="copy-outline" title="Merge duplicates" onPress={() => { setToolsVisible(false); setIsDuplicatesVisible(true); }} /></View>
+        </BottomSheet>
+        <BottomSheet pearlStyle centered={false} title="Client form rules" visible={rulesVisible} onClose={() => setRulesVisible(false)}>
+          <View style={{ gap: 14 }}><Text style={clientUi.muted}>Choose which fields are required when adding a client in Quick Sale, Calendar or Add client.</Text><View style={clientUi.card}>{([["require_dob", "Date of birth"], ["require_doa", "Anniversary"]] as const).map(([field, label]) => <View key={field} style={clientUi.menuRow}><View style={{ flex: 1 }}><Text style={clientUi.rowTitle}>{label}</Text><Text style={clientUi.muted}>{requiredDates[field] ? "Required" : "Optional"}</Text></View><Switch accessibilityLabel={label + " required"} value={requiredDates[field]} onValueChange={() => handleToggleRequiredDate(field)} thumbColor="#FFFFFF" trackColor={{ false: pearl.divider, true: pearl.accent }} /></View>)}</View><Text style={clientUi.muted}>Mobile number is always required so bills and reminders can be sent.</Text></View>
+        </BottomSheet>
         <Modal
           animationType="slide"
           onRequestClose={() => setIsDuplicatesVisible(false)}
           visible={isDuplicatesVisible}
         >
-          <SafeAreaView style={styles.modalSafeArea}>
+          <PearlBackground><SafeAreaView style={styles.modalSafeArea}>
             <View style={styles.modalHeader}>
               <TouchableOpacity
                 activeOpacity={0.8}
@@ -939,9 +661,9 @@ function ClientsScreenContent() {
                 />
               </View>
             )}
-          </SafeAreaView>
+          </SafeAreaView></PearlBackground>
         </Modal>
-      </SafeAreaView>
+      </SafeAreaView></PearlBackground>
     </GestureHandlerRootView>
   );
 }
@@ -950,201 +672,14 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   flex: {
     flex: 1,
   },
-  safeArea: {
-    backgroundColor: Colors.bg,
-    flex: 1,
+  safeArea: { flex: 1,
   },
   listContent: {
     paddingHorizontal: AppLayout.contentHorizontalPadding,
     paddingTop: Spacing.sm,
   },
-  header: {
-    marginBottom: AppLayout.sectionGap,
-  },
-  headerRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: AppLayout.sectionGap,
-  },
-  backButton: {
-    alignItems: "center",
-    backgroundColor: Colors.card,
-    borderColor: Colors.border,
-    borderRadius: AppRadius.control,
-    borderWidth: 1,
-    height: AppLayout.headerActionSize,
-    justifyContent: "center",
-    shadowColor: Colors.shadow,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.05,
-    shadowRadius: 14,
-    width: AppLayout.headerActionSize,
-  },
-  headerTitle: {
-    color: Colors.heading,
-    fontSize: AppLayout.headerTitleFontSize,
-    fontWeight: AppLayout.screenTitleFontWeight,
-  },
-  summaryCard: {
-    alignItems: "center",
-    backgroundColor: Colors.card,
-    borderColor: Colors.border,
-    borderRadius: AppRadius.card,
-    borderWidth: 1,
-    flexDirection: "row",
-    paddingHorizontal: AppLayout.cardPadding,
-    paddingVertical: Spacing.md,
-    shadowColor: Colors.shadow,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.05,
-    shadowRadius: 18,
-    elevation: 2,
-  },
-  summaryMetric: {
-    flex: 1,
-  },
-  summaryLabel: {
-    color: Colors.text2,
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  summaryValue: {
-    color: Colors.heading,
-    fontSize: 18,
-    fontWeight: "800",
-    marginTop: 6,
-  },
-  summaryDivider: {
-    backgroundColor: Colors.border,
-    height: 36,
-    marginHorizontal: Spacing.md,
-    width: 1,
-  },
-  searchFilterRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: Spacing.sm,
-  },
-  searchWrap: {
-    alignItems: "center",
-    backgroundColor: Colors.card,
-    borderColor: Colors.border,
-    borderRadius: AppRadius.search,
-    borderWidth: 1,
-    flex: 1,
-    flexDirection: "row",
-    gap: Spacing.sm,
-    marginBottom: AppLayout.sectionGap,
-    minHeight: AppLayout.searchBarHeight,
-    paddingHorizontal: AppLayout.searchBarPaddingX,
-    shadowColor: Colors.shadow,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.03,
-    shadowRadius: 14,
-  },
-  searchInput: {
-    color: Colors.heading,
-    flex: 1,
-    fontSize: 14,
-    minHeight: AppLayout.searchBarHeight,
-  },
-  filterButton: {
-    alignItems: "center",
-    backgroundColor: Colors.card,
-    borderColor: Colors.border,
-    borderRadius: AppRadius.search,
-    borderWidth: 1,
-    flexDirection: "row",
-    gap: 6,
-    justifyContent: "center",
-    marginBottom: AppLayout.sectionGap,
-    minHeight: AppLayout.searchBarHeight,
-    paddingHorizontal: Spacing.md,
-  },
-  filterButtonActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
-  },
-  filterButtonText: {
-    color: Colors.primaryText,
-    fontSize: 13,
-    fontWeight: "800",
-  },
-  filterButtonTextActive: {
-    color: Colors.onPrimary,
-  },
-  filterCountBadge: {
-    alignItems: "center",
-    backgroundColor: Colors.bg,
-    borderRadius: Radius.full,
-    height: 18,
-    justifyContent: "center",
-    minWidth: 18,
-    paddingHorizontal: 5,
-  },
-  filterCountText: {
-    color: Colors.primaryText,
-    fontSize: 10,
-    fontWeight: "900",
-  },
-  requiredCard: {
-    backgroundColor: Colors.card,
-    borderColor: Colors.border,
-    borderRadius: AppRadius.card,
-    borderWidth: 1,
-    gap: 4,
-    marginTop: AppLayout.sectionGap,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  requiredLabel: {
-    color: Colors.heading,
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  requiredRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    minHeight: 40,
-  },
-  requiredTitle: {
-    color: Colors.heading,
-    fontSize: 15,
-    fontWeight: "800",
-  },
-  sortRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: AppLayout.sectionGap,
-    marginTop: AppLayout.sectionGap,
-  },
-  sortMeta: {
-    color: Colors.text2,
-    fontSize: 12,
-    fontWeight: "600",
-  },
   swipeRow: {
     marginBottom: Spacing.sm,
-  },
-  swipeableContainer: {
-    borderRadius: Radius.xl,
-  },
-  leftActions: {
-    alignItems: "stretch",
-    flex: 1,
-    flexDirection: "row",
-    gap: Spacing.sm,
-    marginBottom: 0,
-    marginRight: Spacing.sm,
-  },
-  rightActions: {
-    alignItems: "stretch",
-    flexDirection: "row",
-    gap: Spacing.sm,
-    marginLeft: Spacing.sm,
   },
   swipeActionButton: {
     alignItems: "center",
@@ -1170,87 +705,11 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.05,
     shadowRadius: 18,
-    elevation: 2,
+    elevation: 0,
   },
   clientCopy: {
     flex: 1,
     marginLeft: Spacing.md,
-  },
-  nameRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  clientName: {
-    color: Colors.heading,
-    flex: 1,
-    fontSize: 16,
-    fontWeight: "800",
-    marginRight: Spacing.sm,
-  },
-  infoRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 4,
-    marginTop: 4,
-  },
-  infoText: {
-    color: Colors.text2,
-    flex: 1,
-    fontSize: 12,
-  },
-  membershipBadge: {
-    alignItems: "center",
-    alignSelf: "flex-start",
-    backgroundColor: Colors.warningBg,
-    borderRadius: Radius.full,
-    flexDirection: "row",
-    gap: 4,
-    marginTop: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  membershipBadgeText: {
-    color: Colors.goldDark,
-    fontSize: 11,
-    fontWeight: "700",
-  },
-  metaRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
-    marginTop: 8,
-  },
-  metaText: {
-    color: Colors.text2,
-    fontSize: 11,
-    fontWeight: "600",
-  },
-  createdText: {
-    color: Colors.text2,
-    fontSize: 11,
-    fontWeight: "600",
-    marginTop: 8,
-  },
-  rightColumn: {
-    alignItems: "flex-end",
-    alignSelf: "stretch",
-    justifyContent: "space-between",
-    marginLeft: Spacing.sm,
-  },
-  inlineDeleteButton: {
-    alignItems: "center",
-    backgroundColor: Colors.errorBg,
-    borderColor: Colors.errorBorder,
-    borderRadius: AppRadius.control,
-    borderWidth: 1,
-    height: 36,
-    justifyContent: "center",
-    marginTop: Spacing.md,
-    width: 36,
-  },
-  inlineDeleteButtonDisabled: {
-    opacity: 0.68,
   },
   skeletonAvatar: {
     backgroundColor: Colors.bg2,
@@ -1362,135 +821,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     left: AppLayout.floatingButtonRight,
     position: "absolute",
     right: AppLayout.floatingButtonRight,
-  },
-  stickyButton: {
-    alignItems: "center",
-    backgroundColor: Colors.primary,
-    borderRadius: AppRadius.pill,
-    flexDirection: "row",
-    gap: 8,
-    justifyContent: "center",
-    minHeight: 54,
-    shadowColor: Colors.shadow,
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.18,
-    shadowRadius: 18,
-  },
-  stickyButtonText: {
-    color: Colors.onPrimary,
-    fontSize: 14,
-    fontWeight: "800",
-  },
-  modalOverlay: {
-    backgroundColor: "rgba(15, 23, 32, 0.12)",
-    flex: 1,
-    justifyContent: "flex-end",
-    padding: Spacing.lg,
-  },
-  filterSheet: {
-    backgroundColor: Colors.card,
-    borderRadius: Radius.xl,
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.lg,
-  },
-  sheetHandle: {
-    alignSelf: "center",
-    backgroundColor: Colors.border,
-    borderRadius: Radius.full,
-    height: 4,
-    marginBottom: Spacing.md,
-    width: 44,
-  },
-  filterSheetTitle: {
-    color: Colors.heading,
-    fontSize: 18,
-    fontWeight: "800",
-    marginBottom: Spacing.md,
-  },
-  filterSectionTitle: {
-    color: Colors.text2,
-    fontSize: 12,
-    fontWeight: "800",
-    marginBottom: Spacing.sm,
-    marginTop: Spacing.md,
-    textTransform: "uppercase",
-  },
-  filterOptionGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: Spacing.sm,
-  },
-  filterOptionList: {
-    gap: Spacing.sm,
-  },
-  sheetOption: {
-    alignItems: "center",
-    backgroundColor: Colors.bg,
-    borderColor: Colors.border,
-    borderRadius: AppRadius.control,
-    borderWidth: 1,
-    minHeight: 42,
-    justifyContent: "center",
-    paddingHorizontal: Spacing.md,
-  },
-  sheetOptionActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
-  },
-  sheetListOption: {
-    alignItems: "center",
-    backgroundColor: Colors.bg,
-    borderColor: Colors.border,
-    borderRadius: AppRadius.control,
-    borderWidth: 1,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    minHeight: 46,
-    paddingHorizontal: Spacing.md,
-  },
-  sheetListOptionActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
-  },
-  sheetOptionText: {
-    color: Colors.heading,
-    fontSize: 13,
-    fontWeight: "800",
-  },
-  sheetOptionTextActive: {
-    color: Colors.onPrimary,
-  },
-  sheetActionRow: {
-    flexDirection: "row",
-    gap: Spacing.sm,
-    marginTop: Spacing.lg,
-  },
-  resetButton: {
-    alignItems: "center",
-    borderColor: Colors.border,
-    borderRadius: AppRadius.control,
-    borderWidth: 1,
-    flex: 1,
-    justifyContent: "center",
-    minHeight: 48,
-  },
-  resetButtonText: {
-    color: Colors.heading,
-    fontSize: 13,
-    fontWeight: "800",
-  },
-  applyButton: {
-    alignItems: "center",
-    backgroundColor: Colors.primary,
-    borderRadius: AppRadius.control,
-    flex: 1,
-    justifyContent: "center",
-    minHeight: 48,
-  },
-  applyButtonText: {
-    color: Colors.onPrimary,
-    fontSize: 13,
-    fontWeight: "900",
   },
   modalSafeArea: {
     backgroundColor: Colors.bg,
@@ -1615,4 +945,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
 });
 
-export default withScreenTour(ClientsScreenContent, screenTours.clients);
+export default ClientsScreenContent;
+
+const newStyles = StyleSheet.create({ iconButton: { width: 44, height: 44, borderRadius: 16, backgroundColor: pearl.glass, borderWidth: 1, borderColor: pearl.glassBorder, alignItems: "center", justifyContent: "center" }, search: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 12, borderRadius: 16, backgroundColor: pearl.glass, borderWidth: 1, borderColor: pearl.glassBorder }, fab: { overflow: "hidden", minHeight: 52, paddingHorizontal: 20, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, borderRadius: 18 }, fabText: { color: "#FFFFFF", fontWeight: "700", fontSize: 14 } });

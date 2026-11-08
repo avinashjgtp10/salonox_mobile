@@ -1,6 +1,8 @@
 export type ClientSortOrder = "asc" | "desc";
 
 export type ClientListQuery = {
+  gender?: "male" | "female" | "other";
+  source?: string;
   inactive?: boolean;
   limit: number;
   offset: number;
@@ -19,6 +21,14 @@ export type ClientApiMembership =
   | null;
 
 export type ClientApiItem = {
+  address?: string | null;
+  has_whatsapp?: boolean | null;
+  sms_notifications?: boolean | null;
+  email_notifications?: boolean | null;
+  whatsapp_notifications?: boolean | null;
+  sms_marketing?: boolean | null;
+  email_marketing?: boolean | null;
+  whatsapp_marketing?: boolean | null;
   anniversary?: string | null;
   birthday_day_month?: string | null;
   birthday_year?: number | string | null;
@@ -72,6 +82,14 @@ export type ClientListApiData =
     };
 
 export type ClientListItem = {
+  address?: string | null;
+  hasWhatsapp?: boolean;
+  smsNotifications?: boolean;
+  emailNotifications?: boolean;
+  whatsappNotifications?: boolean;
+  smsMarketing?: boolean;
+  emailMarketing?: boolean;
+  whatsappMarketing?: boolean;
   /** YYYY-MM-DD */
   anniversary?: string | null;
   /** MM-DD, stored separately from the year like the web app. */
@@ -97,12 +115,20 @@ export type ClientListItem = {
 };
 
 export type CreateClientRequest = {
+  address?: string | null;
+  has_whatsapp?: boolean;
+  sms_notifications?: boolean;
+  email_notifications?: boolean;
+  whatsapp_notifications?: boolean;
+  sms_marketing?: boolean;
+  email_marketing?: boolean;
+  whatsapp_marketing?: boolean;
   /** YYYY-MM-DD, or null to clear. */
   anniversary?: string | null;
   /** MM-DD, or null to clear. */
   birthday_day_month?: string | null;
   birthday_year?: number | null;
-  email?: string;
+  email?: string | null;
   first_name: string;
   gender?: string;
   last_name?: string;

@@ -4,11 +4,13 @@ import DateTimePicker, { type DateTimePickerEvent } from "@react-native-communit
 import { forwardRef, useMemo, useState } from "react";
 import { Modal, Platform, Pressable, StyleSheet, TouchableOpacity, View } from "react-native";
 
-import { DashboardRadius as Radius, DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
-import { useAppTheme, useThemeColors } from "@/theme/ThemeProvider";
+import { DashboardRadius as Radius, DashboardSpacing as Spacing } from "@/constants/theme";
+import { useAppTheme } from "@/theme/ThemeProvider";
+import { usePearlColors, type PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 import { formatAppDate } from "@/utils/dateTime";
 
 export type DateFieldProps = {
+  pearlStyle?: boolean;
   error?: string;
   label: string;
   maximumDate?: Date;
@@ -46,8 +48,8 @@ const formatDisplayDate = (isoDate: string) => {
   return formatAppDate(toDateValue(isoDate));
 };
 
-export const DateField = forwardRef<View, DateFieldProps>(function DateField({ error, label, maximumDate, minimumDate, onChange, placeholder, value }, ref) {
-  const Colors = useThemeColors();
+export const DateField = forwardRef<View, DateFieldProps>(function DateField({ error, label, maximumDate, minimumDate, onChange, placeholder, value, pearlStyle = false }, ref) {
+  const Colors = usePearlColors(pearlStyle);
   const { scheme } = useAppTheme();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const [isPickerVisible, setIsPickerVisible] = useState(false);
@@ -75,7 +77,7 @@ export const DateField = forwardRef<View, DateFieldProps>(function DateField({ e
       <TouchableOpacity
         activeOpacity={0.84}
         onPress={() => setIsPickerVisible(true)}
-        style={[styles.inputButton, error ? styles.inputButtonError : null]}
+        style={[styles.inputButton, pearlStyle && { borderRadius: 16 }, error ? styles.inputButtonError : null]}
       >
         <Ionicons name="calendar-outline" size={16} color={Colors.text2} style={styles.icon} />
         <Text style={[styles.value, !value ? styles.placeholder : null]}>
