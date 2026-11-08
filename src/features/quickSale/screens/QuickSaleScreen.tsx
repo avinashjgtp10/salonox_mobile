@@ -1,3 +1,4 @@
+import { clientService } from "@/services/client.service";
 import { LunoxHeaderButton } from "@/components/lunox/LunoxHeaderButton";
 import type { PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
@@ -197,7 +198,7 @@ function OwnerQuickSaleScreen({
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
   const navigation = useNavigation();
-  const routeParams = useLocalSearchParams<{ appointmentId?: string; draftId?: string; openPayment?: string; resetSale?: string }>();
+  const routeParams = useLocalSearchParams<{ appointmentId?: string; draftId?: string; openPayment?: string; resetSale?: string; clientId?: string }>();
   // The Calendar opens a pending bill in its embedded Quick Sale via props.
   const params = {
     ...routeParams,
@@ -853,6 +854,15 @@ function OwnerQuickSaleScreen({
     setSelectedClient(client ? clientFromListItem(client) : WALK_IN_CLIENT);
     setHasClientStepSelection(true);
   }, [resetCheckoutSubmission]);
+
+  useEffect(() => {
+    if (!routeParams.clientId || routeParams.appointmentId || routeParams.draftId) return;
+    let active = true;
+    void clientService.getClient(routeParams.clientId).then((client) => {
+      if (active) { handleClientPickerSelect(client); router.setParams({ clientId: undefined }); }
+    }).catch(() => { if (active) Alert.alert("Client unavailable", "Could not load this client. Please select them again."); });
+    return () => { active = false; };
+  }, [routeParams.clientId, routeParams.appointmentId, routeParams.draftId, handleClientPickerSelect]);
 
   // There is no walk-in sale (same as the web): a bill needs a real client.
   const ensureClientSelected = useCallback(() => {

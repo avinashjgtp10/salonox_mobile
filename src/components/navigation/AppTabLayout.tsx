@@ -54,15 +54,20 @@ function barPath(w: number, notch: boolean) {
 }
 
 function PearlTabBar({ state, descriptors, navigation, tabs }: BottomTabBarProps & { tabs: AppTabItem[] }) {
-  const insets = useSafeAreaInsets();
   const reportHeight = useContext(BottomTabBarHeightCallbackContext);
+  useEffect(() => { reportHeight?.(BAR_H + LIFT); }, [reportHeight]);
+  const visible = state.routes.filter((route) => tabs.some((tab) => tab.name === route.name)).map((route) => { const tab = tabs.find((item) => item.name === route.name)!; return { ...tab, title: descriptors[route.key]?.options.title ?? tab.title }; });
+  return <PearlNavigationBar tabs={visible} activeName={state.routes[state.index]?.name} onNavigate={(name) => { const route = state.routes.find((item) => item.name === name); if (!route) return; const event = navigation.emit({ type: "tabPress", target: route.key, canPreventDefault: true }); if (state.routes[state.index]?.name !== name && !event.defaultPrevented) navigation.navigate(name, route.params); }} />;
+}
+
+export function PearlNavigationBar({ tabs, activeName, onNavigate }: { tabs: AppTabItem[]; activeName?: string; onNavigate: (name: string) => void }) {
+  const insets = useSafeAreaInsets();
   const [w, setW] = useState(0);
   const items = useMemo(() => new Map(tabs.map(tab => [tab.name, tab])), [tabs]);
-  const routes = state.routes.filter(route => items.has(route.name));
+  const routes = tabs.map((tab) => ({ name: tab.name, key: tab.name }));
   const notch = routes.some(route => items.get(route.name)?.raised);
   const d = useMemo(() => (w ? barPath(w, notch) : ""), [notch, w]);
 
-  useEffect(() => { reportHeight?.(BAR_H + LIFT); }, [reportHeight]);
   const onLayout = (e: LayoutChangeEvent) => setW(Math.round(e.nativeEvent.layout.width));
 
   return (
@@ -93,13 +98,12 @@ function PearlTabBar({ state, descriptors, navigation, tabs }: BottomTabBarProps
         <View style={styles.row}>
           {routes.map(route => {
             const tab = items.get(route.name)!;
-            const focused = state.routes[state.index]?.key === route.key;
-            const label = descriptors[route.key]?.options.title ?? tab.title;
+            const focused = activeName === route.name;
+            const label = tab.title;
             const onPress = () => {
               if (tab.onPress) return tab.onPress();
               if (tab.actionHref) return router.push(tab.actionHref);
-              const event = navigation.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
-              if (!focused && !event.defaultPrevented) navigation.navigate(route.name, route.params);
+              onNavigate(route.name);
             };
 
             if (tab.raised) {

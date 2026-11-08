@@ -1,3 +1,15 @@
+import { selectCurrentUser } from "@/store/user/user.slice";
+import { getUserFullName } from "@/utils/userProfile";
+import { clientBirthdayLabel } from "../utils/clientBirthday";
+import { ClientBottomNav } from "../components/ClientBottomNav";
+import { LunoxSheet } from "@/components/lunox/LunoxSheet";
+import { Clipboard, Image, Linking , ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { ClientEntrySheets } from "../components/ClientEntrySheets";
+import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
+import { pearl, pearlTones } from "@/components/auth/pearl/tokens";
+import { LinearGradient } from "expo-linear-gradient";
+import { BottomSheet } from "@/components/ui/BottomSheet";
+import { ClientButton, ClientMenuRow, clientUi } from "../components/ClientPearl";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { maskPhone } from "@/utils/maskPhone";
 import { Text } from "@/components/ui/AppTypography";
@@ -5,7 +17,6 @@ import { appAlert as Alert } from "@/services/appAlert";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect, useLocalSearchParams, type Href } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppBackButton } from "@/components/ui/AppBackButton";
@@ -49,9 +60,8 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
   DashboardRadius as Radius,
   DashboardSpacing as Spacing,
-  type ThemeColors,
 } from "@/constants/theme";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors, type PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 import { formatAppDate } from "@/utils/dateTime";
 import { buildClientProfileMetrics } from "@/features/clients/utils/clientProfile";
 import type { ClientProfileLineEntry } from "@/features/clients/utils/clientProfile";
@@ -70,14 +80,17 @@ function titleCase(value: string) {
   return value ? value.charAt(0).toUpperCase() + value.slice(1) : "-";
 }
 
-function DetailRow({ label, value }: { label: string; value: string }) {
-  const Colors = useThemeColors();
+function DetailRow({ label, value, onCopy }: { label: string; value: string; onCopy?: () => void }) {
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   return (
     <View style={styles.detailRow}>
       <Text style={styles.detailLabel}>{label}</Text>
-      <Text style={styles.detailValue}>{value}</Text>
+      <View style={styles.detailValueGroup}>
+        <Text style={styles.detailValue}>{value}</Text>
+        {onCopy ? <TouchableOpacity accessibilityRole="button" accessibilityLabel="Copy referral code" onPress={onCopy} hitSlop={8} style={styles.copyButton}><Ionicons name="copy-outline" size={17} color={pearl.accentDeep} /></TouchableOpacity> : null}
+      </View>
     </View>
   );
 }
@@ -100,7 +113,7 @@ function EmptySummarySection({
   label: string;
   title: string;
 }) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   return (
@@ -127,7 +140,7 @@ function SummarySection({
   count?: number;
   title: string;
 }) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   return (
@@ -144,7 +157,7 @@ function SummarySection({
 }
 
 function MoreRow({ remaining }: { remaining: number }) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   if (remaining <= 0) {
@@ -155,7 +168,7 @@ function MoreRow({ remaining }: { remaining: number }) {
 }
 
 function LineEntryRow({ entry }: { entry: ClientProfileLineEntry }) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const meta = [
     formatCreatedDate(entry.date),
@@ -183,7 +196,7 @@ function LineEntryRow({ entry }: { entry: ClientProfileLineEntry }) {
 }
 
 function MembershipRow({ membership }: { membership: ClientMembershipRecord }) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const meta = [
     `Purchased ${formatCreatedDate(membership.purchasedAt)}`,
@@ -217,7 +230,7 @@ function MembershipRow({ membership }: { membership: ClientMembershipRecord }) {
 }
 
 function PackageRow({ pkg }: { pkg: ClientPackageRecord }) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const meta = [
     `Created ${formatCreatedDate(pkg.createdDate)}`,
@@ -251,11 +264,12 @@ function PackageRow({ pkg }: { pkg: ClientPackageRecord }) {
 }
 
 export default function ClientDetailsScreen() {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const { id } = useLocalSearchParams<{ id?: string }>();
   const dispatch = useAppDispatch();
   const toast = useAppToast();
+  const author = getUserFullName(useAppSelector(selectCurrentUser));
 
   const liveClient = useAppSelector((state) => selectClientById(state, id));
   const detailsLoading = useAppSelector(selectClientDetailsLoading);
@@ -295,6 +309,10 @@ export default function ClientDetailsScreen() {
   );
 
   const isBlocking = id ? blockingIds.includes(id) : false;
+  const [lunoxVisible, setLunoxVisible] = useState(false);
+  const [actionsVisible, setActionsVisible] = useState(false);
+  const [entryKind, setEntryKind] = useState<"wallet" | "note" | null>(null);
+  const [expandedSummary, setExpandedSummary] = useState(false);
   const [activeTab, setActiveTab] = useState<ClientTab>("summary");
 
   useEffect(() => {
@@ -415,7 +433,7 @@ export default function ClientDetailsScreen() {
 
   if (detailsLoading) {
     return (
-      <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
+      <PearlBackground><SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
         <AppStatusBar />
         <View style={styles.notFoundWrap}>
           <View style={styles.headerRow}>
@@ -427,13 +445,13 @@ export default function ClientDetailsScreen() {
             <ActivityIndicator size="large" color={Colors.primaryText} />
           </View>
         </View>
-      </SafeAreaView>
+      </SafeAreaView></PearlBackground>
     );
   }
 
   if (detailsError) {
     return (
-      <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
+      <PearlBackground><SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
         <AppStatusBar />
         <View style={styles.notFoundWrap}>
           <View style={styles.headerRow}>
@@ -446,13 +464,13 @@ export default function ClientDetailsScreen() {
             <Text style={styles.notFoundSubtitle}>{detailsError}</Text>
           </View>
         </View>
-      </SafeAreaView>
+      </SafeAreaView></PearlBackground>
     );
   }
 
   if (!client) {
     return (
-      <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
+      <PearlBackground><SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
         <AppStatusBar />
         <View style={styles.notFoundWrap}>
           <AppBackButton activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} />
@@ -463,322 +481,49 @@ export default function ClientDetailsScreen() {
             </Text>
           </View>
         </View>
-      </SafeAreaView>
+      </SafeAreaView></PearlBackground>
     );
   }
 
-  const serviceCount = metrics.services.length;
-  const productCount = metrics.products.length;
-
-  return (
-    <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
-      <AppStatusBar />
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.headerRow}>
-          <AppBackButton onPress={handleBack} />
-          <View style={styles.headerTitleGroup}>
-            <View style={styles.headerAvatar}><Ionicons color="#FFFFFF" name="person" size={18} /></View>
-            <Text style={styles.headerTitle}>Client</Text>
-          </View>
-          <TouchableOpacity activeOpacity={0.75} hitSlop={AppLayout.headerActionHitSlop} onPress={() => router.push(`/clients/${client.id}/edit` as Href)} style={styles.headerIconButton}>
-            <Ionicons color={Colors.heading} name="create" size={25} />
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.clientHero}>
-          <View style={styles.clientIdentityRow}>
-            <View style={styles.profileAvatar}><Ionicons color="#FFFFFF" name="person" size={37} /></View>
-            <Text numberOfLines={2} style={styles.clientName}>{client.fullName}</Text>
-          </View>
-          <View style={styles.contactRow}><Ionicons color={Colors.primaryText} name="call-outline" size={19} /><Text selectable style={styles.contactText}>{maskPhone(client.phone)}</Text></View>
-          <View style={styles.contactRow}><Ionicons color={Colors.primaryText} name="mail-outline" size={20} /><Text numberOfLines={1} selectable style={styles.contactText}>{client.email || "-"}</Text></View>
-          <View style={styles.walletRow}>
-            <TouchableOpacity activeOpacity={0.82} onPress={() => router.push("/quick-sale")} style={styles.walletPill}><Ionicons color="#FFFFFF" name="wallet-outline" size={23} /><Text style={styles.walletValue}>{formatCurrency(client.walletBalance)}</Text></TouchableOpacity>
-            <TouchableOpacity activeOpacity={0.75} onPress={() => router.push("/quick-sale")} style={styles.addMoneyButton}><Ionicons color={Colors.heading} name="add-circle-outline" size={20} /><Text style={styles.addMoneyText}>Add money</Text></TouchableOpacity>
-          </View>
-        </View>
-
-        <View style={styles.tabsRow}>
-          {CLIENT_TABS.map((tab) => (
-            <TouchableOpacity activeOpacity={0.75} key={tab.key} onPress={() => setActiveTab(tab.key)} style={[styles.tabButton, activeTab === tab.key && styles.tabButtonActive]}>
-              <Text
-                adjustsFontSizeToFit
-                minimumFontScale={0.85}
-                numberOfLines={1}
-                style={[styles.tabText, activeTab === tab.key && styles.tabTextActive]}
-              >
-                {tab.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-          <TouchableOpacity
-            accessibilityLabel={client.isBlocked ? "Unblock client" : "Block client"}
-            activeOpacity={0.75}
-            disabled={isBlocking}
-            onPress={handleBlockToggle}
-            style={[styles.blockButton, client.isBlocked && styles.unblockButton]}
-          >
-            {isBlocking ? (
-              <ActivityIndicator color={client.isBlocked ? Colors.success : Colors.error} size="small" />
-            ) : (
-              <Ionicons
-                color={client.isBlocked ? Colors.success : Colors.error}
-                name={client.isBlocked ? "checkmark-circle-outline" : "ban-outline"}
-                size={16}
-              />
-            )}
-            <Text style={[styles.blockButtonText, client.isBlocked && styles.unblockButtonText]}>
-              {client.isBlocked ? "Unblock" : "Block"}
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {activeTab === "summary" ? (
-          <View style={styles.tabContent}>
-            <View style={styles.metricsGrid}>
-              {[
-                { icon: "checkmark-circle-outline", label: "Total Visits", value: String(metrics.totalVisits) },
-                { icon: "wallet-outline", label: "Total Spend", value: formatCurrency(metrics.totalSpend) },
-                { icon: "receipt-outline", label: "Amount Due", value: formatCurrency(metrics.amountDue) },
-                { icon: "briefcase-outline", label: "Total Services", value: serviceCount ? String(serviceCount) : "-" },
-                { icon: "cube-outline", label: "Total Products", value: productCount ? String(productCount) : "-" },
-                { icon: "server-outline", label: "Total Points", value: String(client.rewardPointsBalance) },
-                { icon: "pie-chart-outline", label: "Average Spent", value: formatCurrency(metrics.averageSpend) },
-                { icon: "time-outline", label: "Last Visited On", value: metrics.lastVisit ? formatCreatedDate(metrics.lastVisit) : "-" },
-              ].map((metric) => (
-                <View key={metric.label} style={styles.metricCell}>
-                  <Ionicons color={Colors.primaryText} name={metric.icon as keyof typeof Ionicons.glyphMap} size={21} />
-                  <Text style={styles.metricLabel}>{metric.label}</Text>
-                  <Text adjustsFontSizeToFit minimumFontScale={0.8} numberOfLines={1} style={styles.metricValue}>{metric.value}</Text>
-                </View>
-              ))}
-            </View>
-
-            {historyLoading && history.length === 0 ? (
-              <ActivityIndicator color={Colors.primaryText} style={styles.loader} />
-            ) : null}
-            {historyError ? <Text style={styles.errorText}>{historyError}</Text> : null}
-
-            {metrics.upcomingAppointments.length > 0 ? (
-              <SummarySection count={metrics.upcomingAppointments.length} title="Upcoming Appointments">
-                {metrics.upcomingAppointments.slice(0, SECTION_ROW_LIMIT).map((appointment) => (
-                  <View key={appointment.id} style={styles.summaryRow}>
-                    <View style={styles.summaryRowCopy}>
-                      <Text numberOfLines={1} style={styles.summaryRowTitle}>
-                        {appointment.services.map((service) => service.name).filter(Boolean).join(", ") || "Appointment"}
-                      </Text>
-                      <Text numberOfLines={1} style={styles.summaryRowMeta}>
-                        {formatCreatedDate(appointment.scheduledAt)}
-                        {appointment.staffName ? ` · ${appointment.staffName}` : ""}
-                      </Text>
-                      {appointment.dueAmount > 0 ? (
-                        <Text numberOfLines={1} style={styles.summaryRowMeta}>
-                          Due {formatCurrency(appointment.dueAmount)}
-                        </Text>
-                      ) : null}
-                    </View>
-                    <Text style={styles.summaryRowStatus}>{titleCase(appointment.status)}</Text>
-                  </View>
-                ))}
-                <MoreRow remaining={metrics.upcomingAppointments.length - SECTION_ROW_LIMIT} />
-              </SummarySection>
-            ) : (
-              <EmptySummarySection icon="calendar-outline" label="No upcoming appointments" title="Upcoming Appointments" />
-            )}
-
-            {metrics.activeMemberships.length + metrics.pastMemberships.length > 0 ? (
-              <SummarySection
-                count={metrics.activeMemberships.length + metrics.pastMemberships.length}
-                title="Memberships"
-              >
-                {[...metrics.activeMemberships, ...metrics.pastMemberships]
-                  .slice(0, SECTION_ROW_LIMIT)
-                  .map((membership) => (
-                    <MembershipRow key={membership.id} membership={membership} />
-                  ))}
-                <MoreRow
-                  remaining={metrics.activeMemberships.length + metrics.pastMemberships.length - SECTION_ROW_LIMIT}
-                />
-              </SummarySection>
-            ) : (
-              <EmptySummarySection icon="diamond-outline" label="No membership" title="Memberships" />
-            )}
-
-            {metrics.packages.length > 0 ? (
-              <SummarySection count={metrics.packages.length} title="Packages">
-                {metrics.packages.slice(0, SECTION_ROW_LIMIT).map((pkg) => (
-                  <PackageRow key={pkg.id} pkg={pkg} />
-                ))}
-                <MoreRow remaining={metrics.packages.length - SECTION_ROW_LIMIT} />
-              </SummarySection>
-            ) : (
-              <EmptySummarySection icon="cube-outline" label="No packages" title="Packages" />
-            )}
-
-
-            <EmptySummarySection label="No vouchers" title="Vouchers" />
-            <EmptySummarySection label="No Gift Card" title="Gift Cards" />
-
-            {metrics.services.length > 0 ? (
-              <SummarySection count={metrics.services.length} title="Services">
-                {metrics.services.slice(0, SECTION_ROW_LIMIT).map((entry) => (
-                  <LineEntryRow entry={entry} key={entry.key} />
-                ))}
-                <MoreRow remaining={metrics.services.length - SECTION_ROW_LIMIT} />
-              </SummarySection>
-            ) : (
-              <EmptySummarySection icon="cut-outline" label="No Services" title="Services" />
-            )}
-
-            {metrics.products.length > 0 ? (
-              <SummarySection count={metrics.products.length} title="Products">
-                {metrics.products.slice(0, SECTION_ROW_LIMIT).map((entry) => (
-                  <LineEntryRow entry={entry} key={entry.key} />
-                ))}
-                <MoreRow remaining={metrics.products.length - SECTION_ROW_LIMIT} />
-              </SummarySection>
-            ) : (
-              <EmptySummarySection icon="cube-outline" label="No Products" title="Products" />
-            )}
-
-            <View style={styles.clientMetaRow}><Text style={styles.clientMetaLabel}>Joined on</Text><Text style={styles.clientMetaValue}>{client.createdLabel}</Text><Text style={styles.clientMetaLabel}>Referred by</Text><Text style={styles.clientMetaValue}>{client.referredBy ?? "-"}</Text></View>
-            <View style={styles.latestServiceRow}><Text style={styles.clientMetaLabel}>Latest Service Taken</Text><Text numberOfLines={1} style={styles.latestServiceValue}>{metrics.lastServiceTaken ?? "-"}</Text></View>
-          </View>
-        ) : null}
-
-        {activeTab === "activity" ? (
-          <View style={styles.tabContent}>
-            <Text style={styles.contentHeading}>Activity</Text>
-            {historyLoading ? <ActivityIndicator color={Colors.primaryText} style={styles.loader} /> : null}
-            {historyError ? <Text style={styles.errorText}>{historyError}</Text> : null}
-            {!historyLoading && !historyError && history.length === 0 ? <EmptySummarySection icon="time-outline" label="No activity" title="" /> : null}
-            {history.map((item) => {
-              const meta = [
-                item.dateLabel,
-                item.staffName || null,
-                item.invoiceNumber ? `Inv ${item.invoiceNumber}` : null,
-              ]
-                .filter(Boolean)
-                .join(" · ");
-              const payment = [
-                item.paymentStatus ? titleCase(item.paymentStatus) : titleCase(item.status),
-                item.paymentMethod ? titleCase(item.paymentMethod) : null,
-              ]
-                .filter(Boolean)
-                .join(" · ");
-              const lineItems = item.items.map((entry) => entry.name).filter(Boolean).join(", ");
-
-              return (
-                <View key={item.id} style={styles.activityRow}>
-                  <View style={styles.activityIcon}><Ionicons color={Colors.primaryText} name={item.type === "appointment" ? "calendar-outline" : item.type === "sale" ? "wallet-outline" : "time-outline"} size={19} /></View>
-                  <View style={styles.activityCopy}>
-                    <Text style={styles.activityTitle}>{item.title}</Text>
-                    <Text style={styles.activityMeta}>{meta}</Text>
-                    {lineItems ? <Text numberOfLines={2} style={styles.activityMeta}>{lineItems}</Text> : null}
-                    {payment ? <Text style={styles.activityMeta}>{payment}</Text> : null}
-                    {item.dueAmount ? (
-                      <Text style={styles.activityDue}>Due {formatCurrency(item.dueAmount)}</Text>
-                    ) : null}
-                  </View>
-                  {item.amount > 0 ? <Text style={styles.activityAmount}>{formatCurrency(item.amount)}</Text> : null}
-                </View>
-              );
-            })}
-          </View>
-        ) : null}
-
-        {activeTab === "profile" ? (
-          <View style={styles.tabContent}>
-            <Text style={styles.contentHeading}>Client Information</Text>
-            <View style={styles.profileDetails}>
-              <DetailRow label="Email" value={client.email || "-"} />
-              <DetailRow label="Gender" value={client.gender || "-"} />
-              <DetailRow label="Membership" value={client.membership ?? "-"} />
-              <DetailRow label="Status" value={client.status} />
-              <DetailRow label="Joined On" value={client.createdLabel} />
-              <DetailRow label="Source" value={client.clientSource ?? "-"} />
-              <DetailRow label="Referred By" value={client.referredBy ?? "-"} />
-              <DetailRow label="Referral Code" value={client.referralCode ?? "-"} />
-              <DetailRow label="E-Wallet Balance" value={formatCurrency(client.walletBalance)} />
-              <DetailRow label="Reward Points" value={String(client.rewardPointsBalance)} />
-              <DetailRow label="Referral Balance" value={formatCurrency(client.referralBalance)} />
-            </View>
-            <Text style={styles.contentHeading}>Membership</Text>
-            <View style={styles.profileDetails}>
-              {membershipLoading ? <ActivityIndicator color={Colors.primaryText} style={styles.loader} /> : null}
-              {membershipError ? <Text style={styles.errorText}>{membershipError}</Text> : null}
-              {!membershipLoading ? <Text style={styles.membershipProfileTitle}>{activeMembership?.membershipName ?? "No active membership"}</Text> : null}
-              {activeMembership ? <Text style={styles.membershipProfileMeta}>Expires {formatCreatedDate(activeMembership.expiresAt)}</Text> : null}
-            </View>
-          </View>
-        ) : null}
-
-        {activeTab === "notes" ? (
-          <View style={styles.tabContent}>
-            <Text style={styles.contentHeading}>Notes</Text>
-            {client.isBlocked ? <Text style={styles.blockedNoticeText}>Client is blocked/inactive.</Text> : null}
-            {notesLoading && notes === null ? <ActivityIndicator color={Colors.primaryText} style={styles.loader} /> : null}
-            {notesError ? <Text style={styles.errorText}>{notesError}</Text> : null}
-            {notes && notes.length > 0 ? (
-              <View style={styles.summaryList}>
-                {notes.map((note) => (
-                  <View key={note.id} style={styles.summaryRow}>
-                    <View style={styles.summaryRowCopy}>
-                      <Text style={styles.summaryRowTitle}>{note.note}</Text>
-                      <Text style={styles.summaryRowMeta}>
-                        {formatCreatedDate(note.createdAt)}
-                        {note.staffName ? ` · ${note.staffName}` : ""}
-                      </Text>
-                    </View>
-                  </View>
-                ))}
-              </View>
-            ) : null}
-            {!notesLoading && !notesError && notes !== null && notes.length === 0 ? (
-              <View style={styles.notesPanel}>
-                <Ionicons color={Colors.primaryText} name="document-text-outline" size={22} />
-                <Text style={styles.notesText}>No notes added.</Text>
-              </View>
-            ) : null}
-          </View>
-        ) : null}
-      </ScrollView>
-    </SafeAreaView>
-  );
+  const editClient = () => router.push(("/clients/" + client.id + "/edit") as Href);
+  const phone = client.phone.startsWith("+") ? client.phone : (liveClient?.phoneCountryCode ?? "+91") + client.phone;
+  return <PearlBackground><SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}><AppStatusBar />
+    <ScrollView contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 160 }} showsVerticalScrollIndicator={false}>
+      <View style={detailUi.header}><AppBackButton onPress={handleBack} /><Text style={detailUi.title}>Client</Text><TouchableOpacity accessibilityLabel="More actions" onPress={() => setActionsVisible(true)} style={detailUi.iconButton}><Ionicons name="ellipsis-horizontal" size={20} color={pearl.ink} /></TouchableOpacity></View>
+      <View style={detailUi.hero}>
+        <View style={detailUi.identity}><LinearGradient colors={pearlTones.rose.avatar} style={detailUi.avatar}><Text style={{ fontSize: 22, fontWeight: "700", color: "#FFFFFF" }}>{client.initials}</Text></LinearGradient><View style={{ flex: 1 }}><Text style={detailUi.name}>{client.fullName}</Text>{client.membership ? <Text style={{ color: "#94640F", fontSize: 11 }}>{client.membership}</Text> : null}<Text style={clientUi.muted}>{maskPhone(client.phone)}</Text><Text style={clientUi.muted}>{client.email || "Not added"}</Text></View></View>
+        <View style={detailUi.wallet}><View><Text style={clientUi.muted}>Wallet balance</Text><Text style={detailUi.balance}>{formatCurrency(client.walletBalance)}</Text></View><ClientButton secondary label="+ Add money" onPress={() => setEntryKind("wallet")} /></View>
+        <View style={{ flexDirection: "row" }}>{([
+          { label: "Call", icon: "call-outline", action: () => { void Linking.openURL("tel:" + phone.replace(/[^+\d]/g, "")).catch(() => toast.showError("Calling is unavailable.")); } },
+          { label: "WhatsApp", icon: "logo-whatsapp", action: () => router.push(("/inbox/" + phone.replace(/\D/g, "")) as Href) },
+          { label: "Book", icon: "calendar-outline", action: () => router.push({ pathname: "/bookings/new", params: { clientId: client.id } } as Href) },
+          { label: "Sale", icon: "flash-outline", action: () => router.push({ pathname: "/quick-sale", params: { clientId: client.id } } as Href) },
+        ] as const).map((action) => <TouchableOpacity key={action.label} onPress={action.action} style={detailUi.quickAction}><View style={detailUi.actionCircle}><Ionicons name={action.icon} size={20} color={pearl.accentDeep} /></View><Text style={{ color: pearl.ink2, fontSize: 11 }}>{action.label}</Text></TouchableOpacity>)}</View>
+      </View>
+      <TouchableOpacity onPress={() => setLunoxVisible(true)} style={detailUi.lunox}><Image source={require("../../../../assets/images/brand/lunox-mark.png")} style={{ width: 22, height: 22 }} resizeMode="contain" /><Text style={{ flex: 1, fontSize: 12, color: pearl.accentDeep }}>Ask Lunox: summarise {client.fullName.split(" ")[0]}’s visits</Text></TouchableOpacity>
+      <View style={detailUi.tabs}>{CLIENT_TABS.map((tab) => <TouchableOpacity key={tab.key} accessibilityRole="tab" accessibilityState={{ selected: activeTab === tab.key }} onPress={() => setActiveTab(tab.key)} style={[detailUi.tab, activeTab === tab.key && { backgroundColor: pearl.glassStrong }]}><Text style={{ color: activeTab === tab.key ? pearl.ink : pearl.muted, fontSize: 12, fontWeight: "600" }}>{tab.label}</Text></TouchableOpacity>)}</View>
+      {activeTab === "summary" ? <View style={{ gap: 14 }}><View style={detailUi.metrics}>{[
+        ["Total visits", String(metrics.totalVisits)], ["Total spend", formatCurrency(metrics.totalSpend)], ["Amount due", metrics.amountDue === 0 ? "Nothing due" : formatCurrency(metrics.amountDue)], ["Reward points", String(client.rewardPointsBalance)], ["Favourite", [...metrics.services].sort((a, b) => b.quantity - a.quantity)[0]?.name ?? "None yet"], ["Products bought", metrics.products.length ? String(metrics.products.reduce((sum, item) => sum + item.quantity, 0)) : "None yet"],
+      ].map(([label, value]) => <View key={label} style={detailUi.metric}><Text style={clientUi.muted}>{label}</Text><Text style={[detailUi.metricValue, label === "Favourite" && { fontSize: 15 }, label === "Amount due" && metrics.amountDue === 0 && { color: pearl.successText }]}>{value}</Text></View>)}</View>
+        <ClientButton secondary label={expandedSummary ? "Less detail" : "More detail"} onPress={() => setExpandedSummary((value) => !value)} />
+        {expandedSummary ? <><SummarySection title="Memberships" count={metrics.activeMemberships.length + metrics.pastMemberships.length}>{[...metrics.activeMemberships, ...metrics.pastMemberships].map((item) => <MembershipRow key={item.id} membership={item} />)}</SummarySection><SummarySection title="Packages" count={metrics.packages.length}>{metrics.packages.map((item) => <PackageRow key={item.id} pkg={item} />)}</SummarySection><SummarySection title="Services" count={metrics.services.length}>{metrics.services.slice(0, SECTION_ROW_LIMIT).map((entry) => <LineEntryRow key={entry.key} entry={entry} />)}<MoreRow remaining={metrics.services.length - SECTION_ROW_LIMIT} /></SummarySection><SummarySection title="Products" count={metrics.products.length}>{metrics.products.slice(0, SECTION_ROW_LIMIT).map((entry) => <LineEntryRow key={entry.key} entry={entry} />)}<MoreRow remaining={metrics.products.length - SECTION_ROW_LIMIT} /></SummarySection></> : null}
+      </View> : null}
+      {activeTab === "activity" ? <View style={clientUi.card}>{historyLoading ? <ActivityIndicator /> : null}{historyError ? <Text style={clientUi.error}>{historyError}</Text> : null}{!historyLoading && !history.length ? <EmptySummarySection title="" label="No activity yet" icon="time-outline" /> : null}{history.map((item) => <TouchableOpacity key={item.id} disabled={item.type !== "sale" && item.type !== "appointment"} onPress={() => router.push(((item.type === "sale" ? "/sales/" : "/appointments/") + item.id.replace(/^(sale|appointment)-/, "")) as Href)} style={clientUi.menuRow}><View style={clientUi.icon}><Ionicons name={item.type === "appointment" ? "calendar-outline" : "receipt-outline"} size={19} color={pearl.accentDeep} /></View><View style={{ flex: 1 }}><Text style={clientUi.rowTitle}>{item.title}</Text><Text style={clientUi.muted}>{[item.dateLabel, item.invoiceNumber, item.paymentMethod, item.staffName].filter(Boolean).join(" · ")}</Text></View>{item.amount > 0 ? <Text style={clientUi.rowTitle}>{formatCurrency(item.amount)}</Text> : null}</TouchableOpacity>)}</View> : null}
+      {activeTab === "profile" ? <View style={{ gap: 14 }}><View style={[clientUi.card, styles.profileCard]}><DetailRow label="Gender" value={client.gender || "Not added"} /><DetailRow label="Birthday" value={liveClient?.birthdayDayMonth ? clientBirthdayLabel(liveClient.birthdayDayMonth) : "Not added"} /><DetailRow label="Anniversary" value={liveClient?.anniversary ? formatAppDate(liveClient.anniversary) : "Not added"} /><DetailRow label="Membership" value={activeMembership?.membershipName ?? client.membership ?? "None"} /><DetailRow label="Joined" value={client.createdLabel} /><DetailRow label="Source" value={client.clientSource ?? "Not added"} /><DetailRow label="Referred by" value={client.referredBy ?? "Not added"} /><DetailRow label="Referral code" value={client.referralCode || "Not added"} onCopy={client.referralCode ? () => { try { Clipboard.setString(client.referralCode!); toast.showSuccess("Referral code copied"); } catch { toast.showError("Unable to copy referral code."); } } : undefined} /><ClientButton secondary label="Edit profile" onPress={editClient} /></View>{membershipLoading ? <ActivityIndicator /> : null}{membershipError ? <Text style={clientUi.error}>{membershipError}</Text> : null}</View> : null}
+      {activeTab === "notes" ? <View style={{ gap: 14 }}>{notesLoading ? <ActivityIndicator /> : null}{notesError ? <Text style={clientUi.error}>{notesError}</Text> : null}{notes !== null && (!notesLoading || notes.length > 0) ? <View style={clientUi.card}>{notes?.map((note) => <View key={note.id} style={clientUi.menuRow}><View style={clientUi.icon}><Ionicons name="document-text-outline" size={19} color={pearl.accentDeep} /></View><View style={{ flex: 1 }}><Text style={clientUi.rowTitle}>{note.note}</Text><Text style={clientUi.muted}>{[note.staffName, formatCreatedDate(note.createdAt)].filter(Boolean).join(" · ")}</Text></View></View>)}{!notesLoading && notes?.length === 0 ? <Text style={[clientUi.muted, { padding: 18 }]}>No notes yet.</Text> : null}</View> : null}<ClientButton secondary label="Add note" onPress={() => setEntryKind("note")} /></View> : null}
+    </ScrollView>
+    <ClientBottomNav />
+    <BottomSheet pearlStyle centered={false} title={client.fullName} visible={actionsVisible} onClose={() => setActionsVisible(false)}><View style={{ gap: 16 }}><View style={clientUi.card}><ClientMenuRow icon="create-outline" title="Edit details" onPress={() => { setActionsVisible(false); editClient(); }} /><ClientMenuRow tone="peach" showChevron={false} icon="copy-outline" title="Merge duplicate" onPress={() => { setActionsVisible(false); router.push({ pathname: "/clients", params: { mergeFor: client.id } } as Href); }} /></View><Text style={clientUi.label}>Careful</Text><TouchableOpacity disabled={isBlocking} onPress={() => { setActionsVisible(false); handleBlockToggle(); }} style={detailUi.danger}><Ionicons name="ban-outline" size={18} color={pearl.dangerText} /><Text style={{ color: pearl.dangerText }}>{client.isBlocked ? "Unblock client" : "Block client"}</Text></TouchableOpacity></View></BottomSheet>
+    <LunoxSheet visible={lunoxVisible} onClose={() => setLunoxVisible(false)} seed={"Summarise " + client.fullName + "'s visits"} />
+    <ClientEntrySheets staffName={author} clientId={client.id} walletBalance={client.walletBalance} kind={entryKind} onClose={() => setEntryKind(null)} onSaved={(kind) => { toast.showSuccess(kind === "wallet" ? "Money added to wallet" : "Note saved"); void dispatch(fetchClientHistoryThunk(client.id)); if (kind === "note") { setActiveTab("notes"); void dispatch(fetchClientNotesThunk(client.id)); } }} />
+  </SafeAreaView></PearlBackground>;
 }
 const createStyles = (Colors: ThemeColors) => StyleSheet.create({
-  headerIconButton: { alignItems: "center", height: 44, justifyContent: "center", width: 44 },
-  headerTitleGroup: { alignItems: "center", flexDirection: "row", gap: 9 },
-  headerAvatar: { alignItems: "center", backgroundColor: "#6B6B6B", borderRadius: 20, height: 40, justifyContent: "center", width: 40 },
-  clientHero: { backgroundColor: Colors.backgroundElement, marginHorizontal: -AppLayout.contentHorizontalPadding, paddingHorizontal: 22, paddingBottom: 25, paddingTop: 20 },
-  clientIdentityRow: { alignItems: "center", flexDirection: "row", gap: 14, marginBottom: 22 },
-  profileAvatar: { alignItems: "center", backgroundColor: "#050505", borderRadius: 38, height: 76, justifyContent: "center", width: 76 },
-  contactRow: { alignItems: "center", flexDirection: "row", gap: 10, marginBottom: 15 },
-  contactText: { color: Colors.heading, flexShrink: 1, fontSize: 17 },
-  walletRow: { alignItems: "center", flexDirection: "row", gap: 16, marginTop: 4 },
-  walletPill: { alignItems: "center", backgroundColor: Colors.primary, borderRadius: 30, flexDirection: "row", gap: 8, minWidth: 130, paddingHorizontal: 24, paddingVertical: 14 },
-  walletValue: { color: "#FFFFFF", fontSize: 20, fontWeight: "700" },
-  addMoneyButton: { alignItems: "center", flexDirection: "row", gap: 5, paddingVertical: 12 },
-  addMoneyText: { color: Colors.heading, fontSize: 16, fontWeight: "700" },
-  tabsRow: { alignItems: "stretch", flexDirection: "row", marginHorizontal: -AppLayout.contentHorizontalPadding, paddingLeft: 6 },
-  tabButton: { alignItems: "center", borderBottomColor: "transparent", borderBottomWidth: 3, flex: 1, justifyContent: "center", minHeight: 54, paddingHorizontal: 3 },
-  tabButtonActive: { borderBottomColor: Colors.primary },
-  tabText: { color: Colors.heading, fontSize: 14, lineHeight: 22, paddingHorizontal: 1, textAlign: "center" },
-  tabTextActive: { color: Colors.primaryText, fontWeight: "800" },
-  blockButton: { alignItems: "center", alignSelf: "center", borderColor: Colors.error, borderRadius: AppRadius.pill, borderWidth: 1, flexDirection: "row", gap: 4, justifyContent: "center", marginHorizontal: 5, minHeight: 36, paddingHorizontal: 8 },
-  blockButtonText: { color: Colors.error, fontSize: 11, fontWeight: "800" },
-  unblockButton: { borderColor: Colors.success },
-  unblockButtonText: { color: Colors.success },
-  tabContent: { paddingTop: 22 },
-  metricsGrid: { borderColor: Colors.border, borderRadius: 8, borderWidth: 1, flexDirection: "row", flexWrap: "wrap", marginBottom: 28, overflow: "hidden" },
-  metricCell: { borderBottomColor: Colors.border, borderBottomWidth: 1, borderRightColor: Colors.border, borderRightWidth: 1, minHeight: 112, padding: 12, width: "50%" },
-  metricLabel: { color: Colors.text2, fontSize: 14, marginTop: 7 },
-  metricValue: { color: Colors.heading, fontSize: 19, fontWeight: "700", marginTop: 7 },
   summarySection: { marginBottom: 28 },
   summarySectionTitle: { color: Colors.heading, fontSize: 19, fontWeight: "800", marginBottom: 14 },
   summarySectionHeader: { alignItems: "center", flexDirection: "row", gap: 8 },
   summarySectionCount: { backgroundColor: Colors.backgroundElement, borderRadius: AppRadius.pill, color: Colors.primaryText, fontSize: 13, fontWeight: "800", marginBottom: 14, overflow: "hidden", paddingHorizontal: 9, paddingVertical: 2 },
-  summaryList: { borderColor: Colors.border, borderRadius: 8, borderWidth: 1, overflow: "hidden" },
+  summaryList: { borderColor: Colors.border, borderRadius: 16, borderWidth: 1, overflow: "hidden" },
   summaryRow: { alignItems: "center", borderBottomColor: Colors.border, borderBottomWidth: 1, flexDirection: "row", gap: 12, paddingHorizontal: 14, paddingVertical: 13 },
   summaryRowCopy: { flex: 1, gap: 3 },
   summaryRowTitle: { color: Colors.heading, fontSize: 16, fontWeight: "700" },
@@ -787,51 +532,16 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   summaryRowAmount: { color: Colors.heading, fontSize: 16, fontWeight: "700" },
   summaryRowStatus: { color: Colors.text2, fontSize: 12, fontWeight: "700" },
   summaryMoreText: { color: Colors.text2, fontSize: 13, fontWeight: "700", paddingHorizontal: 14, paddingVertical: 11 },
-  blockedNoticeText: { color: Colors.error, fontSize: 14, fontWeight: "700", marginBottom: 14 },
-  emptySummaryBox: { alignItems: "center", backgroundColor: Colors.backgroundElement, borderRadius: 8, height: 168, justifyContent: "center" },
+  emptySummaryBox: { alignItems: "center", backgroundColor: Colors.backgroundElement, borderRadius: 16, height: 168, justifyContent: "center" },
   emptySummaryIcon: { alignItems: "center", backgroundColor: Colors.card, borderRadius: 38, height: 76, justifyContent: "center", width: 76 },
   emptySummaryText: { color: Colors.text2, fontSize: 17, marginTop: 13 },
-  clientMetaRow: { alignItems: "center", backgroundColor: Colors.backgroundElement, flexDirection: "row", gap: 8, paddingHorizontal: 14, paddingVertical: 14 },
-  clientMetaLabel: { color: Colors.text2, fontSize: 14 },
-  clientMetaValue: { color: Colors.heading, flex: 1, fontSize: 15, fontWeight: "700" },
-  latestServiceRow: { alignItems: "center", backgroundColor: Colors.backgroundElement, flexDirection: "row", gap: 8, marginTop: 12, paddingHorizontal: 14, paddingVertical: 14 },
-  latestServiceValue: { color: Colors.heading, flex: 1, fontSize: 15, fontWeight: "700" },
-  contentHeading: { color: Colors.heading, fontSize: 19, fontWeight: "800", marginBottom: 14 },
-  loader: { marginVertical: 18 },
-  activityRow: { alignItems: "center", borderBottomColor: Colors.border, borderBottomWidth: 1, flexDirection: "row", gap: 12, paddingVertical: 14 },
-  activityDue: { color: Colors.error, fontSize: 13, fontWeight: "700" },
-  activityIcon: { alignItems: "center", backgroundColor: Colors.backgroundElement, borderRadius: 22, height: 44, justifyContent: "center", width: 44 },
-  activityCopy: { flex: 1 },
-  activityTitle: { color: Colors.heading, fontSize: 15, fontWeight: "700" },
-  activityMeta: { color: Colors.text2, fontSize: 12, marginTop: 4 },
-  activityAmount: { color: Colors.heading, fontSize: 14, fontWeight: "700" },
-  profileDetails: { borderColor: Colors.border, borderRadius: 8, borderWidth: 1, marginBottom: 24, padding: 16 },
-  membershipProfileTitle: { color: Colors.heading, fontSize: 16, fontWeight: "700" },
-  membershipProfileMeta: { color: Colors.text2, fontSize: 13, marginTop: 5 },
-  notesPanel: { alignItems: "flex-start", backgroundColor: Colors.backgroundElement, borderRadius: 8, flexDirection: "row", gap: 12, minHeight: 120, padding: 18 },
-  safeArea: {
-    backgroundColor: Colors.bg,
-    flex: 1,
-  },
-  content: {
-    paddingBottom: AppLayout.contentBottomPadding,
-    paddingHorizontal: AppLayout.contentHorizontalPadding,
+  safeArea: { flex: 1,
   },
   headerRow: {
     alignItems: "center",
     flexDirection: "row",
     justifyContent: "space-between",
     marginBottom: AppLayout.headerMarginBottom,
-  },
-  backButton: {
-    alignItems: "center",
-    backgroundColor: Colors.card,
-    borderColor: Colors.border,
-    borderRadius: AppRadius.control,
-    borderWidth: 1,
-    height: AppLayout.headerActionSize,
-    justifyContent: "center",
-    width: AppLayout.headerActionSize,
   },
   backButtonPlaceholder: {
     width: AppLayout.headerActionSize,
@@ -841,19 +551,18 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontSize: AppLayout.headerTitleFontSize,
     fontWeight: AppLayout.screenTitleFontWeight,
   },
-  clientName: {
-    color: Colors.heading,
-    fontSize: 22,
-    fontWeight: "800",
-    marginTop: Spacing.md,
-  },
+  profileCard: { padding: 14, gap: 4 },
+  detailValueGroup: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 8 },
+  copyButton: { width: 36, height: 36, borderRadius: 12, backgroundColor: pearl.accentWash, alignItems: "center", justifyContent: "center" },
   detailRow: {
     alignItems: "center",
     flexDirection: "row",
-    justifyContent: "space-between",
+    gap: 12,
+    minHeight: 40,
     paddingVertical: 8,
   },
   detailLabel: {
+    width: "38%",
     color: Colors.text2,
     fontSize: 13,
   },
@@ -862,13 +571,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     flexShrink: 1,
     fontSize: 13,
     fontWeight: "700",
-    marginLeft: Spacing.md,
     textAlign: "right",
-  },
-  notesText: {
-    color: Colors.text,
-    fontSize: 13,
-    lineHeight: 20,
   },
   notFoundWrap: {
     flex: 1,
@@ -901,10 +604,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  errorText: {
-    color: Colors.error,
-    fontSize: 13,
-    textAlign: "center",
-    marginVertical: 12,
-  },
 });
+
+const detailUi = StyleSheet.create({ header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" }, title: { color: pearl.ink, fontSize: 18, fontWeight: "700" }, name: { color: pearl.ink, fontSize: 18, fontWeight: "700" }, iconButton: { width: 44, height: 44, borderRadius: 16, backgroundColor: pearl.glass, borderWidth: 1, borderColor: pearl.glassBorder, justifyContent: "center", alignItems: "center" }, hero: { borderRadius: 28, backgroundColor: pearl.glass, borderWidth: 1, borderColor: pearl.glassBorder, padding: 16, gap: 16 }, identity: { flexDirection: "row", alignItems: "center", gap: 12 }, avatar: { width: 62, height: 62, borderRadius: 22, alignItems: "center", justifyContent: "center" }, wallet: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 12, borderTopWidth: 1, borderBottomWidth: 1, borderColor: pearl.divider }, balance: { color: pearl.ink, fontSize: 25, fontWeight: "800" }, quickAction: { flex: 1, alignItems: "center", gap: 6 }, actionCircle: { width: 40, height: 40, borderRadius: 15, alignItems: "center", justifyContent: "center", backgroundColor: pearl.glass }, lunox: { flexDirection: "row", alignItems: "center", gap: 8, padding: 13, borderRadius: 16, borderWidth: 1, borderColor: pearl.glassBorder, backgroundColor: pearl.glass }, tabs: { flexDirection: "row", borderRadius: 17, padding: 4, backgroundColor: pearl.glass, borderWidth: 1, borderColor: pearl.glassBorder }, tab: { flex: 1, minHeight: 40, borderRadius: 13, alignItems: "center", justifyContent: "center" }, metrics: { flexDirection: "row", flexWrap: "wrap", gap: 10 }, metric: { flexBasis: "47%", flexGrow: 1, padding: 14, gap: 6, borderRadius: 22, backgroundColor: pearl.glass, borderWidth: 1, borderColor: pearl.glassBorder }, metricValue: { color: pearl.ink, fontSize: 21, fontWeight: "700" }, danger: { minHeight: 46, borderRadius: 16, borderWidth: 1, borderColor: pearl.dangerBorder, backgroundColor: pearl.dangerBg, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 } });
