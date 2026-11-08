@@ -2,8 +2,8 @@ import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { useMemo, useState } from "react";
 import { Keyboard, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
-import { DashboardRadius as Radius, DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { DashboardRadius as Radius, DashboardSpacing as Spacing } from "@/constants/theme";
+import { usePearlColors, type PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 
 export function SearchableFilterDropdown({
   multi,
@@ -11,14 +11,16 @@ export function SearchableFilterDropdown({
   options,
   placeholder,
   selected,
+  pearlStyle = false,
 }: {
   multi: boolean;
   onToggle: (id: string) => void;
   options: string[];
   placeholder: string;
   selected: string[];
+  pearlStyle?: boolean;
 }) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors(pearlStyle);
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");

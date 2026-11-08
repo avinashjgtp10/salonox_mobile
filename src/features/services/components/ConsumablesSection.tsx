@@ -5,11 +5,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
 
 import { AppRadius } from "@/constants/layout";
-import { DashboardRadius as Radius, DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
+import { DashboardRadius as Radius, DashboardSpacing as Spacing } from "@/constants/theme";
 import { fetchProductsThunk } from "@/middleware/product/product.thunk";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { selectProductState } from "@/store/product/product.slice";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors, type PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 import type { ConsumableRecipeItem } from "@/types/consumable";
 import type { Product } from "@/types/product";
 
@@ -26,7 +26,7 @@ type ConsumablesSectionProps = {
 };
 
 export function ConsumablesSection({ disabled = false, onChange, value }: ConsumablesSectionProps) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
   const { loading, products } = useAppSelector(selectProductState);

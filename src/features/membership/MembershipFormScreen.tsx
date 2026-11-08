@@ -1,3 +1,5 @@
+import { CatalogFormFooter } from "@/features/catalog/components/CatalogFormFooter";
+import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
 import { AppBackButton } from "@/components/ui/AppBackButton";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text, TextInput } from "@/components/ui/AppTypography";
@@ -11,7 +13,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppLayout, AppRadius } from "@/constants/layout";
-import { DashboardRadius as Radius, DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
+import { DashboardRadius as Radius, DashboardSpacing as Spacing } from "@/constants/theme";
 import {
   createMembershipThunk,
   fetchMembershipByIdThunk,
@@ -29,7 +31,7 @@ import {
 } from "@/store/membership/membership.slice";
 import { selectServices, selectServicesLoading } from "@/store/service/service.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors, type PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 import type { CreateMembershipRequest } from "@/types/membership";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { useValidationScroll } from "@/hooks/useValidationScroll";
@@ -68,7 +70,7 @@ const getRejectedMessage = (payload: unknown, fallback: string) => {
 };
 
 export function MembershipFormScreen({ membershipId, mode }: MembershipFormScreenProps) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
   const membership = useAppSelector((state) => (membershipId ? selectMembershipById(membershipId)(state) : null));
@@ -239,20 +241,20 @@ export function MembershipFormScreen({ membershipId, mode }: MembershipFormScree
 
   if (mode === "edit" && detailsLoading && !membership) {
     return (
-      <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
+      <PearlBackground><SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
         <AppStatusBar />
         <View style={styles.centered}><ActivityIndicator color={Colors.primaryText} size="large" /></View>
-      </SafeAreaView>
+      </SafeAreaView></PearlBackground>
     );
   }
 
   return (
-    <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
+    <PearlBackground><SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
       <AppStatusBar />
       <KeyboardAwareScrollView ref={scrollViewRef} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} style={styles.flex}>
           <View style={styles.headerRow}>
             <AppBackButton activeOpacity={0.84} disabled={isSubmitting} hitSlop={12} onPress={goBack} />
-            <Text style={styles.headerTitle}>{mode === "create" ? "New Membership" : "Edit Membership"}</Text>
+            <Text style={styles.headerTitle}>{mode === "create" ? "Add membership" : "Edit membership"}</Text>
             <View style={styles.iconButtonGhost} />
           </View>
 
@@ -361,13 +363,11 @@ export function MembershipFormScreen({ membershipId, mode }: MembershipFormScree
               </View>
             ) : null}
 
-            <TouchableOpacity activeOpacity={0.88} disabled={isSubmitting} onPress={submit} style={[styles.submitButton, isSubmitting && styles.disabled]}>
-              {isSubmitting ? <ActivityIndicator color="#FFFFFF" /> : <Ionicons name="checkmark-circle-outline" size={18} color="#FFFFFF" />}
-              <Text style={styles.submitText}>{isSubmitting ? "Saving..." : "Save Membership"}</Text>
-            </TouchableOpacity>
+
           </View>
       </KeyboardAwareScrollView>
-    </SafeAreaView>
+      <CatalogFormFooter label="Save membership" loading={isSubmitting} onCancel={goBack} onSave={() => void submit()} />
+    </SafeAreaView></PearlBackground>
   );
 }
 
@@ -381,7 +381,7 @@ const Field = forwardRef<TextInput, FieldProps>(function Field(
   { error, icon, label, ...props },
   ref,
 ) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   return (
     <View style={styles.inputGroup}>
@@ -396,7 +396,7 @@ const Field = forwardRef<TextInput, FieldProps>(function Field(
 });
 
 function Segmented<T extends string>({ label, onChange, options, value }: { label: string; onChange: (value: T) => void; options: readonly (T | { label: string; value: T })[]; value: T }) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   return (
     <View style={styles.inputGroup}>
@@ -418,7 +418,7 @@ function Segmented<T extends string>({ label, onChange, options, value }: { labe
 }
 
 function Toggle({ label, onPress, value }: { label: string; onPress: () => void; value: boolean }) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   return (
     <TouchableOpacity activeOpacity={0.84} onPress={onPress} style={styles.toggleRow}>
@@ -432,14 +432,14 @@ function Toggle({ label, onPress, value }: { label: string; onPress: () => void;
 
 const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   flex: { flex: 1 },
-  safeArea: { backgroundColor: Colors.bg, flex: 1 },
+  safeArea: { flex: 1 },
   centered: { alignItems: "center", flex: 1, justifyContent: "center" },
   content: { paddingBottom: AppLayout.contentBottomPadding, paddingHorizontal: AppLayout.contentHorizontalPadding, paddingTop: Spacing.sm },
   headerRow: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", marginBottom: Spacing.lg },
   iconButton: { alignItems: "center", backgroundColor: Colors.card, borderColor: Colors.border, borderRadius: AppRadius.control, borderWidth: 1, height: AppLayout.headerActionSize, justifyContent: "center", width: AppLayout.headerActionSize },
   iconButtonGhost: { width: AppLayout.headerActionSize },
-  headerTitle: { color: Colors.heading, fontSize: AppLayout.headerTitleFontSize, fontWeight: "800" },
-  card: { backgroundColor: Colors.card, borderColor: Colors.border, borderRadius: AppRadius.card, borderWidth: 1, padding: AppLayout.cardPadding },
+  headerTitle: { color: Colors.heading, flex: 1, textAlign: "center", fontSize: 20, fontWeight: "800" },
+  card: { backgroundColor: Colors.card, borderColor: Colors.border, borderRadius: 28, borderWidth: 1, padding: AppLayout.cardPadding },
   inputGroup: { marginBottom: Spacing.lg },
   inputLabel: { color: Colors.text2, fontSize: 13, fontWeight: "800", marginBottom: Spacing.sm },
   inputContainer: { alignItems: "center", backgroundColor: Colors.bg, borderColor: Colors.border, borderRadius: AppRadius.control, borderWidth: 1, flexDirection: "row", minHeight: 52, paddingHorizontal: Spacing.md },

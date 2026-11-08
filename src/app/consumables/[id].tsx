@@ -1,3 +1,4 @@
+import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
 import { AppBackButton } from "@/components/ui/AppBackButton";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
@@ -10,7 +11,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { ErrorState } from "@/components/ui/StateViews";
 import { AppLayout, AppRadius } from "@/constants/layout";
-import { DashboardRadius as Radius, DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
+import { DashboardRadius as Radius, DashboardSpacing as Spacing } from "@/constants/theme";
 import { AdjustStockSheet, type AdjustStockSubmission } from "@/features/consumables/components/AdjustStockSheet";
 import { UnitConversionsSheet } from "@/features/consumables/components/UnitConversionsSheet";
 import {
@@ -27,13 +28,13 @@ import {
 } from "@/store/consumable/consumable.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { selectCurrentUser } from "@/store/user/user.slice";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors, type PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 import type { ConsumableUnitConversionRequestItem } from "@/types/consumable";
 import { canAdjustConsumableStock, canViewConsumableInventory } from "@/utils/permissions";
 import { formatCurrency as money } from "@/utils/currency";
 
 export default function ConsumableDetailScreen() {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
   const insets = useSafeAreaInsets();
@@ -122,33 +123,33 @@ export default function ConsumableDetailScreen() {
 
   if (!canView) {
     return (
-      <SafeAreaView edges={["top"]} style={styles.safeArea}>
+      <PearlBackground><SafeAreaView edges={["top"]} style={styles.safeArea}>
         <AppStatusBar />
         {header}
         <ErrorState message="You don't have permission to view this consumable." onRetry={() => router.back()} />
-      </SafeAreaView>
+      </SafeAreaView></PearlBackground>
     );
   }
 
   if (state.detailsLoading && !consumable) {
     return (
-      <SafeAreaView edges={["top"]} style={styles.safeArea}>
+      <PearlBackground><SafeAreaView edges={["top"]} style={styles.safeArea}>
         <AppStatusBar />
         {header}
         <View style={styles.loadingWrap}>
           <ActivityIndicator color={Colors.primaryText} size="large" />
         </View>
-      </SafeAreaView>
+      </SafeAreaView></PearlBackground>
     );
   }
 
   if (state.detailsError && !consumable) {
     return (
-      <SafeAreaView edges={["top"]} style={styles.safeArea}>
+      <PearlBackground><SafeAreaView edges={["top"]} style={styles.safeArea}>
         <AppStatusBar />
         {header}
         <ErrorState message={state.detailsError} onRetry={() => id && void dispatch(fetchConsumableByIdThunk(id))} />
-      </SafeAreaView>
+      </SafeAreaView></PearlBackground>
     );
   }
 
@@ -157,7 +158,7 @@ export default function ConsumableDetailScreen() {
   }
 
   return (
-    <SafeAreaView edges={["top"]} style={styles.safeArea}>
+    <PearlBackground><SafeAreaView edges={["top"]} style={styles.safeArea}>
       <AppStatusBar />
       {header}
 
@@ -296,12 +297,12 @@ export default function ConsumableDetailScreen() {
         saving={state.unitConversionsSaving}
         visible={isUnitConversionsSheetVisible}
       />
-    </SafeAreaView>
+    </SafeAreaView></PearlBackground>
   );
 }
 
 function InfoRow({ label, value }: { label: string; value: string }) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   return (
@@ -316,7 +317,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 
 const createStyles = (Colors: ThemeColors) =>
   StyleSheet.create({
-    safeArea: { backgroundColor: Colors.bg, flex: 1 },
+    safeArea: { flex: 1 },
     header: {
       alignItems: "center",
       flexDirection: "row",
@@ -381,7 +382,7 @@ const createStyles = (Colors: ThemeColors) =>
     card: {
       backgroundColor: Colors.card,
       borderColor: Colors.border,
-      borderRadius: AppRadius.card,
+      borderRadius: 28,
       borderWidth: 1,
       marginBottom: Spacing.md,
       padding: Spacing.lg,

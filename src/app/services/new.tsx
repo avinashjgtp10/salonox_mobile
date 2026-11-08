@@ -1,4 +1,5 @@
-import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
+import { CatalogFormFooter } from "@/features/catalog/components/CatalogFormFooter";
+import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
@@ -10,7 +11,6 @@ import { AppBackButton } from "@/components/ui/AppBackButton";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { KeyboardAwareScrollView } from "@/components/ui/KeyboardAwareScrollView";
 import { AppLayout, AppRadius } from "@/constants/layout";
-import { type ThemeColors } from "@/constants/theme";
 import { CategorySelectModal } from "@/features/services/components/CategorySelectModal";
 import { createServiceThunk, fetchServicesThunk } from "@/middleware/service/service.thunk";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
@@ -19,7 +19,7 @@ import {
   selectServiceCreating,
   selectServicesQuery,
 } from "@/store/service/service.slice";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors, type PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 import type { ServiceCategoryItem } from "@/types/service";
 import { useValidationScroll } from "@/hooks/useValidationScroll";
 
@@ -61,7 +61,7 @@ const parseNumber = (value: string) => {
 };
 
 export default function NewServiceScreen() {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
   const serviceCreating = useAppSelector(selectServiceCreating);
@@ -183,7 +183,7 @@ export default function NewServiceScreen() {
   };
 
   return (
-    <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
+    <PearlBackground><SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
       <AppStatusBar />
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.flex}>
         <KeyboardAwareScrollView
@@ -194,23 +194,18 @@ export default function NewServiceScreen() {
         >
           <View style={styles.header}>
             <AppBackButton onPress={isSubmitting ? () => undefined : handleBack} />
-            <Text style={styles.headerTitle}>Add Service</Text>
-            <View style={styles.headerActions}>
-              <TouchableOpacity activeOpacity={0.88} disabled={isSubmitting} onPress={() => void handleSubmit()} style={[styles.saveButton, isSubmitting && styles.disabled]}>
-                {isSubmitting ? <ActivityIndicator color="#FFFFFF" size="small" /> : null}
-                <Text style={styles.saveText}>Save</Text>
-              </TouchableOpacity>
-            </View>
+            <Text style={styles.headerTitle}>Add service</Text>
+
           </View>
 
           <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Basic Details</Text>
+            <Text style={styles.sectionTitle}>Basics</Text>
 
             <Field
               ref={(input) => setFieldRef("name", input)}
               editable={!isSubmitting}
               error={fieldErrors.name}
-              label="Service Name *"
+              label="Service name *"
               onChangeText={(value) => {
                 setName(value);
                 clearFieldError("name");
@@ -247,6 +242,7 @@ export default function NewServiceScreen() {
               value={description}
             />
 
+          </View><View style={[styles.card, { marginTop: 14 }]}><Text style={styles.sectionTitle}>Price & time</Text>
             <View style={styles.priceDurationRow}>
               <Field
                 ref={(input) => setFieldRef("price", input)}
@@ -290,12 +286,13 @@ export default function NewServiceScreen() {
               </View>
             </View>
 
+          </View><View style={[styles.card, { marginTop: 14 }]}><Text style={styles.sectionTitle}>Reminder</Text>
             <Field
               ref={(input) => setFieldRef("reminderDays", input)}
               editable={!isSubmitting}
               error={fieldErrors.reminderDays}
               keyboardType="number-pad"
-              label="Service Reminder (days)"
+              label="Remind client after (days)"
               onChangeText={(value) => {
                 setReminderDays(value);
                 clearFieldError("reminderDays");
@@ -305,7 +302,7 @@ export default function NewServiceScreen() {
             />
             <Text style={styles.helperText}>Optional - remind the client to redo this service after this many days. Leave blank if it has no redo cadence.</Text>
 
-            <Text style={styles.availabilityTitle}>Availability</Text>
+          </View><View style={[styles.card, { marginTop: 14 }]}><Text style={styles.sectionTitle}>Availability</Text>
             <CheckboxRow checked={onlineBooking} disabled={isSubmitting} label="Available for online booking" onPress={() => setOnlineBooking((current) => !current)} />
             <CheckboxRow checked={active} disabled={isSubmitting} label="Active (appears when booking appointments)" onPress={() => setActive((current) => !current)} />
 
@@ -326,6 +323,7 @@ export default function NewServiceScreen() {
         </KeyboardAwareScrollView>
       </KeyboardAvoidingView>
 
+      <CatalogFormFooter label="Save service" loading={isSubmitting} onCancel={handleBack} onSave={() => void handleSubmit()} />
       <CategorySelectModal
         onClose={() => setCategoryModalOpen(false)}
         onSelectCategory={(category) => {
@@ -336,7 +334,7 @@ export default function NewServiceScreen() {
         type="service"
         visible={categoryModalOpen}
       />
-    </SafeAreaView>
+    </SafeAreaView></PearlBackground>
   );
 }
 
@@ -346,7 +344,7 @@ const Field = forwardRef<TextInput, React.ComponentProps<typeof TextInput> & {
   inputStyle?: object;
   label: string;
 }>(function Field({ containerStyle, error, inputStyle, label, ...props }, ref) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   return (
@@ -376,7 +374,7 @@ function UnitInput({
   suffix: string;
   value: string;
 }) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   return (
@@ -405,28 +403,26 @@ function CheckboxRow({
   label: string;
   onPress: () => void;
 }) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   return (
-    <TouchableOpacity activeOpacity={0.84} disabled={disabled} onPress={onPress} style={styles.checkboxRow}>
-      <View style={[styles.checkbox, checked && styles.checkboxChecked]}>
-        {checked ? <Ionicons color="#000000" name="checkmark" size={15} /> : null}
-      </View>
+    <TouchableOpacity accessibilityRole="switch" accessibilityState={{ checked, disabled }} activeOpacity={0.84} disabled={disabled} onPress={onPress} style={styles.checkboxRow}>
       <Text style={styles.checkboxLabel}>{label}</Text>
+      <View style={[styles.checkbox, checked && styles.checkboxChecked]}><View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: "#FFFFFF", alignSelf: checked ? "flex-end" : "flex-start" }} /></View>
     </TouchableOpacity>
   );
 }
 
 const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   flex: { flex: 1 },
-  safeArea: { backgroundColor: Colors.bg, flex: 1 },
+  safeArea: { flex: 1 },
   content: { paddingBottom: AppLayout.contentBottomPadding, paddingHorizontal: 16 },
   header: {
     alignItems: "center",
-    backgroundColor: Colors.card,
-    borderBottomColor: Colors.border,
-    borderBottomWidth: 1,
+    backgroundColor: "transparent",
+    borderBottomColor: "transparent",
+    borderBottomWidth: 0,
     flexDirection: "row",
     gap: 12,
     justifyContent: "space-between",
@@ -451,7 +447,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   card: {
     backgroundColor: Colors.card,
     borderColor: Colors.border,
-    borderRadius: 8,
+    borderRadius: 28,
     borderWidth: 1,
     padding: 16,
   },
@@ -461,7 +457,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   input: {
     backgroundColor: Colors.card,
     borderColor: Colors.border,
-    borderRadius: 8,
+    borderRadius: 16,
     borderWidth: 1,
     color: Colors.heading,
     fontSize: 15,
@@ -485,7 +481,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     alignItems: "center",
     backgroundColor: Colors.card,
     borderColor: Colors.border,
-    borderRadius: 8,
+    borderRadius: 16,
     borderWidth: 1,
     flex: 1,
     flexDirection: "row",
@@ -501,11 +497,12 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   checkbox: {
     alignItems: "center",
     borderColor: Colors.border,
-    borderRadius: 6,
+    borderRadius: 16,
     borderWidth: 1,
-    height: 24,
+    height: 28,
     justifyContent: "center",
-    width: 24,
+    width: 48,
+    padding: 3,
   },
   checkboxChecked: { backgroundColor: Colors.primary, borderColor: Colors.primary },
   checkboxLabel: { color: Colors.heading, flex: 1, fontSize: 15, fontWeight: "700" },
@@ -514,7 +511,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     alignItems: "center",
     backgroundColor: Colors.errorBg,
     borderColor: Colors.errorBorder,
-    borderRadius: 8,
+    borderRadius: 16,
     borderWidth: 1,
     flexDirection: "row",
     gap: 8,
@@ -527,7 +524,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     alignItems: "center",
     backgroundColor: Colors.successBg,
     borderColor: Colors.successBorder,
-    borderRadius: 8,
+    borderRadius: 16,
     borderWidth: 1,
     flexDirection: "row",
     gap: 8,

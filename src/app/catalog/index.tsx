@@ -19,7 +19,11 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { AppBackButton } from "@/components/ui/AppBackButton";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { AppLayout } from "@/constants/layout";
-import { type ThemeColors } from "@/constants/theme";
+import { usePearlColors, type PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
+import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
+import { pearl, pearlGradients, pearlTones } from "@/components/auth/pearl/tokens";
+import { LinearGradient } from "expo-linear-gradient";
+import { LunoxHeaderButton } from "@/components/lunox/LunoxHeaderButton";
 
 
 import { deleteProductThunk } from "@/middleware/product/product.thunk";
@@ -35,6 +39,7 @@ import {
   type CatalogFilterValue,
   type CatalogTab,
   type FilterableCatalogItem,
+  type ServiceCatalogFilters,
 } from "@/features/catalog/utils/catalogFilters";
 import { useCatalogServices } from "@/features/services/hooks/useCatalogServices";
 import { getApiErrorMessage } from "@/services/api";
@@ -46,7 +51,6 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 
 
 import { useAppToast } from "@/hooks/useAppToast";
-import { useThemeColors } from "@/theme/ThemeProvider";
 import type { Membership } from "@/types/membership";
 import type { ConsumableListItem } from "@/types/consumable";
 import type { PackageListItem } from "@/types/package";
@@ -64,9 +68,9 @@ type CatalogItem = FilterableCatalogItem & {
 const TABS: { icon: keyof typeof Ionicons.glyphMap; key: CatalogTab; label: string }[] = [
   { icon: "cut-outline", key: "services", label: "Services" },
   { icon: "cube-outline", key: "products", label: "Products" },
-  { icon: "flask-outline", key: "consumables", label: "Consumable Inventory" },
   { icon: "albums-outline", key: "packages", label: "Packages" },
   { icon: "diamond-outline", key: "memberships", label: "Memberships" },
+  { icon: "flask-outline", key: "consumables", label: "Consumables" },
 ];
 
 const CATALOG_PAGE_SIZE = 10;
@@ -152,14 +156,19 @@ type CatalogRowProps = {
 
 
 const CatalogTableRow = memo(function CatalogTableRow({ colors, isDeleting, item, onDelete, onOpen, styles }: CatalogRowProps) {
+  const tone = item.stockQuantity !== undefined ? pearlTones.peach : pearlTones.rose;
+  const stock = item.stockQuantity;
+  const low = stock != null && stock <= (item.lowStockThreshold ?? 0);
   return (
     <TouchableOpacity activeOpacity={0.8} disabled={!item.route && item.serviceCount === undefined} onPress={() => onOpen(item)} style={styles.tableRow}>
-      <View style={styles.nameColumn}><Text numberOfLines={2} style={styles.tableName}>{item.name}</Text></View>
-      <Text numberOfLines={2} style={[styles.tableCell, styles.categoryColumn]}>{item.category}</Text>
-      <Text numberOfLines={1} style={[styles.tablePrice, styles.priceColumn]}>{formatMoney(item.price)}</Text>
+      <View style={[styles.itemIcon, { backgroundColor: tone.bg }]}><Ionicons name={stock != null ? "cube-outline" : item.serviceCount != null ? "albums-outline" : item.validFor ? "diamond-outline" : "cut-outline"} size={20} color={tone.fg} /></View>
+      <View style={{ flex: 1, minWidth: 0 }}><Text numberOfLines={2} style={styles.tableName}>{item.name}</Text><Text numberOfLines={2} style={styles.tableCell}>{item.category} · {item.meta}</Text></View>
+      <View style={{ alignItems: "flex-end", gap: 5 }}><Text style={styles.tablePrice}>{formatMoney(item.price)}</Text>
+        {stock != null ? <Text style={[styles.stockPill, { color: stock <= 0 ? pearl.dangerText : low ? pearl.warningText : pearl.successText, backgroundColor: stock <= 0 ? pearl.dangerBg : low ? pearl.warningBg : pearl.successBg }]}>{stock <= 0 ? "Out of stock" : low ? `${stock} left` : `${stock} in stock`}</Text> : !item.isActive ? <Text style={styles.tableCell}>Inactive</Text> : null}
+      </View>
       {onDelete ? (
-        <TouchableOpacity accessibilityLabel={`Delete ${item.name}`} disabled={isDeleting} hitSlop={10} onPress={() => onDelete(item)} style={styles.tableDeleteButton}>
-          {isDeleting ? <ActivityIndicator color={colors.error} size="small" /> : <Ionicons color={colors.error} name="trash-outline" size={18} />}
+        <TouchableOpacity accessibilityLabel={`Actions for ${item.name}`} disabled={isDeleting} hitSlop={8} onPress={() => onDelete(item)} style={styles.tableDeleteButton}>
+          {isDeleting ? <ActivityIndicator color={colors.error} size="small" /> : <Ionicons color={pearl.muted} name="ellipsis-vertical" size={16} />}
         </TouchableOpacity>
       ) : null}
     </TouchableOpacity>
@@ -177,8 +186,8 @@ const CatalogGridCard = memo(function CatalogGridCard({ colors, isDeleting, item
         <Text style={[styles.tableCell, { color: item.isActive ? colors.success : colors.text2 }]}>{statusLabel}</Text>
       </TouchableOpacity>
       {onDelete ? (
-        <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Delete ${item.name}`} disabled={isDeleting} onPress={() => onDelete(item)} style={styles.viewButton}>
-          {isDeleting ? <ActivityIndicator size="small" color={colors.error} /> : <Ionicons name="trash-outline" size={18} color={colors.error} />}
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Actions for ${item.name}`} disabled={isDeleting} onPress={() => onDelete(item)} style={styles.viewButton}>
+          {isDeleting ? <ActivityIndicator size="small" color={colors.error} /> : <Ionicons name="ellipsis-horizontal" size={18} color={colors.text2} />}
         </TouchableOpacity>
       ) : null}
     </View>
@@ -188,7 +197,7 @@ const CatalogGridCard = memo(function CatalogGridCard({ colors, isDeleting, item
 const keyExtractor = (item: CatalogItem) => item.id;
 
 export default function CatalogScreen() {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
   const toast = useAppToast();
@@ -196,6 +205,9 @@ export default function CatalogScreen() {
   const [filtersByTab, setFiltersByTab] = useState(emptyCatalogFiltersByTab);
   const [filterVisible, setFilterVisible] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
+  const [addVisible, setAddVisible] = useState(false);
+  const [inactiveOnly, setInactiveOnly] = useState(false);
+  const [actionItem, setActionItem] = useState<CatalogItem | null>(null);
   const branchId = useAppSelector(selectActiveBranchId);
   const [activeTab, setActiveTab] = useState<CatalogTab>("services");
   const [query, setQuery] = useState("");
@@ -308,22 +320,23 @@ export default function CatalogScreen() {
     setFiltersByTab((current) => ({ ...current, [activeTab]: value }));
   }, [activeTab]);
 
-  const clearFilters = useCallback(() => applyFilters(emptyCatalogFilterForTab(activeTab)), [activeTab, applyFilters]);
+  const clearFilters = useCallback(() => { applyFilters(emptyCatalogFilterForTab(activeTab)); setInactiveOnly(false); }, [activeTab, applyFilters]);
 
   const visibleItems = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     return itemsByTab[activeTab].filter((item) =>
-      matchesCatalogFilters(activeTab, item, activeFilters) &&
+      matchesCatalogFilters(activeTab, item, activeFilters) && (!inactiveOnly || !item.isActive) &&
       (!normalized || [item.name, item.category, item.meta].some((value) => value.toLowerCase().includes(normalized))),
     );
-  }, [activeFilters, activeTab, itemsByTab, query]);
+  }, [activeFilters, activeTab, inactiveOnly, itemsByTab, query]);
 
   const loading = activeTab === "services" ? servicesLoading : activeTab === "products" ? productState.loading : activeTab === "consumables" ? consumableState.loading : activeTab === "memberships" ? membershipsLoading : packagesLoading;
   const error = activeTab === "services" ? servicesError : activeTab === "products" ? productState.error : activeTab === "consumables" ? consumableState.error : activeTab === "memberships" ? membershipsError : packagesError;
   const showCatalog = !error && visibleItems.length > 0;
   const activeCount = itemsByTab[activeTab].filter((item) => item.isActive).length;
-  const totalValue = itemsByTab[activeTab].reduce((total, item) => total + item.price, 0);
-  const addRoute = activeTab === "consumables" ? "/consumables/new" : null;
+  const averagePrice = activeCount ? itemsByTab[activeTab].filter((item) => item.isActive).reduce((sum, item) => sum + item.price, 0) / activeCount : null;
+  const stockValue = productState.products.reduce((sum, item) => sum + item.stockQuantity * (item.supplyPrice ?? 0), 0);
+  const lowStockCount = itemsByTab[activeTab].filter((item) => item.stockQuantity != null && item.stockQuantity > 0 && item.stockQuantity <= (item.lowStockThreshold ?? 0)).length;
   const canDeleteActiveTab = activeTab === "services" || activeTab === "products" || activeTab === "packages" || activeTab === "consumables";
   const activeStatusLabel = catalogStatusLabel(activeTab, "active");
   const inactiveStatusLabel = catalogStatusLabel(activeTab, "inactive");
@@ -378,14 +391,14 @@ export default function CatalogScreen() {
     );
   }, [activeTab, deleteItem]);
 
-  const onDelete = canDeleteActiveTab ? confirmDelete : undefined;
+  const onDelete = canDeleteActiveTab ? setActionItem : undefined;
   const onOpen = useCallback((item: CatalogItem) => {
     if (activeTab === "packages") setSelectedPackage(packages.find((pkg) => pkg.id === item.id) ?? null);
     else if (item.route) router.push(item.route);
   }, [activeTab, packages]);
   const isGrid = viewMode === "grid";
 
-  const renderItem = useCallback(({ item }: ListRenderItemInfo<CatalogItem>) => (
+  const renderItem = useCallback(({ item, index }: ListRenderItemInfo<CatalogItem>) => (
     isGrid ? (
       <CatalogGridCard
         colors={Colors}
@@ -397,58 +410,44 @@ export default function CatalogScreen() {
         styles={styles}
       />
     ) : (
-      <CatalogTableRow colors={Colors} isDeleting={deletingId === item.id} item={item} onDelete={onDelete} onOpen={onOpen} styles={styles} />
+      <View style={[{ overflow: "hidden" }, index === 0 && { borderTopLeftRadius: 22, borderTopRightRadius: 22 }, index === visibleItems.length - 1 && { borderBottomLeftRadius: 22, borderBottomRightRadius: 22 }]}><CatalogTableRow colors={Colors} isDeleting={deletingId === item.id} item={item} onDelete={onDelete} onOpen={onOpen} styles={styles} /></View>
     )
-  ), [Colors, activeStatusLabel, deletingId, inactiveStatusLabel, isGrid, onDelete, onOpen, styles]);
+  ), [Colors, activeStatusLabel, deletingId, inactiveStatusLabel, isGrid, onDelete, onOpen, styles, visibleItems.length]);
 
   const listHeader = (
-    <>
+    <View style={styles.listHeader}>
       <View style={styles.header}>
-        <AppBackButton onPress={goBack} />
-        <Text style={styles.title}>Catalog</Text>
+        <AppBackButton onPress={goBack} /><View style={{ flex: 1 }}><Text style={styles.title}>Catalog</Text><Text style={styles.subtitle}>Services & products</Text></View><LunoxHeaderButton />
       </View>
-
-      <ScrollView contentContainerStyle={styles.tabsContent} horizontal showsHorizontalScrollIndicator={false} style={styles.tabsScroller}>
-        {TABS.map((tab) => (
-          <TouchableOpacity key={tab.key} onPress={() => { setActiveTab(tab.key); setQuery(""); }} style={[styles.tab, activeTab === tab.key && styles.tabActive]}>
-            <Ionicons color={activeTab === tab.key ? Colors.primaryText : Colors.text2} name={tab.icon} size={17} />
-            <Text style={[styles.tabText, activeTab === tab.key && styles.tabTextActive]}>{tab.label}</Text>
-          </TouchableOpacity>
-        ))}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabsScroller} contentContainerStyle={styles.tabsContent}>
+        {TABS.map((tab) => <TouchableOpacity key={tab.key} accessibilityRole="tab" accessibilityState={{ selected: activeTab === tab.key }} onPress={() => { setActiveTab(tab.key); setQuery(""); setInactiveOnly(false); }} style={[styles.tab, activeTab === tab.key && styles.tabActive]}><Text style={[styles.tabText, activeTab === tab.key && styles.tabTextActive]}>{tab.label} {itemsByTab[tab.key].length}</Text></TouchableOpacity>)}
       </ScrollView>
-
       <View style={styles.summaryRow}>
-        <View style={styles.summaryTile}><Text style={styles.summaryLabel}>Total {activeTabLabel}</Text><Text style={styles.summaryValue}>{itemsByTab[activeTab].length}</Text></View>
-        <View style={styles.summaryTile}><Text style={styles.summaryLabel}>{activeTab === "memberships" ? "Membership Value" : "Catalog Value"}</Text><Text numberOfLines={1} adjustsFontSizeToFit style={styles.summaryValue}>{formatMoney(totalValue)}</Text></View>
+        {activeTab === "products" ? <>
+          <View style={styles.summaryTile}><Text style={styles.summaryLabel}>Stock value</Text><Text numberOfLines={1} adjustsFontSizeToFit style={styles.summaryValue}>{formatMoney(stockValue)}</Text><Text style={styles.tableCell}>At supply price</Text></View>
+          <TouchableOpacity accessibilityLabel="Filter low stock products" onPress={() => applyFilters({ ...activeFilters, stock: "low" })} style={styles.summaryTile}><Text style={styles.summaryLabel}>Low stock</Text><Text style={[styles.summaryValue, { color: pearlTones.peach.fg }]}>{lowStockCount} items</Text><Text style={styles.tableCell}>Tap to filter</Text></TouchableOpacity>
+        </> : <>
+          <View style={styles.summaryTile}><Text style={styles.summaryLabel}>{activeTab === "memberships" ? "Online memberships" : "Active " + activeTab}</Text><Text style={styles.summaryValue}>{activeCount} / {itemsByTab[activeTab].length}</Text></View>
+          <View style={styles.summaryTile}><Text style={styles.summaryLabel}>Avg price</Text><Text numberOfLines={1} adjustsFontSizeToFit style={styles.summaryValue}>{averagePrice === null ? "—" : formatMoney(averagePrice)}</Text><Text style={styles.tableCell}>{activeTab === "memberships" ? "Across online memberships" : "Across active " + activeTab}</Text></View>
+        </>}
       </View>
-
       <View style={styles.toolbar}>
-        <View style={styles.searchBox}><Ionicons color={Colors.text2} name="search-outline" size={20} /><TextInput onChangeText={setQuery} placeholder={`Search ${activeTab}`} placeholderTextColor={Colors.placeholder} style={styles.searchInput} value={query} /></View>
-        <View style={styles.activeCount}><View style={styles.activeDot} /><Text style={styles.activeCountText}>{activeCount} active</Text></View>
+        <View style={styles.searchBox}><Ionicons color={pearl.muted} name="search-outline" size={19} /><TextInput accessibilityLabel={"Search " + activeTab} onChangeText={setQuery} placeholder={"Search " + activeTab} placeholderTextColor={pearl.muted} style={styles.searchInput} value={query} /></View>
+        <TouchableOpacity accessibilityLabel={isGrid ? "List view" : "Grid view"} onPress={() => setViewMode(isGrid ? "list" : "grid")} style={styles.viewButton}><Ionicons name={isGrid ? "list-outline" : "grid-outline"} size={20} color={pearl.ink2} /></TouchableOpacity>
       </View>
-
-      {activeTab === "consumables" ? <View style={{ paddingHorizontal: 16, paddingBottom: 12 }}><SearchableFilterDropdown multi={false} options={["Newest", "Lowest Stock", "Most Used", "A-Z"]} placeholder="Sort consumables" selected={[consumableSort]} onToggle={setConsumableSort} /></View> : null}
+      {activeTab === "services" ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+        {["All", ...categories, "Inactive " + (itemsByTab.services.length - activeCount)].map((label, index) => {
+          const selected = index === 0 ? !inactiveOnly && !(activeFilters as { category: string[] }).category.length : index === categories.length + 1 ? inactiveOnly : !inactiveOnly && (activeFilters as { category: string[] }).category.includes(label);
+          return <TouchableOpacity key={label} onPress={() => { setInactiveOnly(index === categories.length + 1); applyFilters({ ...(activeFilters as ServiceCatalogFilters), category: index === 0 || index === categories.length + 1 ? [] : [label] }); }} style={[styles.chip, selected && styles.chipActive]}><Text style={[styles.chipText, selected && { color: pearl.accentDeep }]}>{label}</Text></TouchableOpacity>;
+        })}
+      </ScrollView> : null}
+      {activeTab === "consumables" ? <SearchableFilterDropdown pearlStyle multi={false} options={["Newest", "Lowest Stock", "Most Used", "A-Z"]} placeholder="Sort consumables" selected={[consumableSort]} onToggle={setConsumableSort} /> : null}
       <View style={styles.filterToolbar}>
-        <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Filter ${activeTabLabel}, ${filterCount} filter groups applied`} accessibilityState={{ expanded: filterVisible }} onPress={() => setFilterVisible(true)} style={[styles.filterButton, filterCount > 0 && { borderColor: Colors.primary }]}>
-          <Ionicons name="options-outline" size={18} color={Colors.primaryText} />
-          <Text style={styles.filterButtonText}>Filter{filterCount ? ` (${filterCount})` : ""}</Text>
-        </TouchableOpacity>
-        <Text accessibilityLiveRegion="polite" style={styles.resultCount}>{visibleItems.length} results</Text>
-        {filterCount > 0 ? <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Clear ${activeTabLabel} filters`} onPress={clearFilters} style={styles.viewButton}><Text style={styles.clearFilterText}>Clear</Text></TouchableOpacity> : null}
-        {(["list", "grid"] as const).map((mode) => <TouchableOpacity key={mode} accessibilityLabel={`${mode} view`} accessibilityRole="button" accessibilityState={{ selected: viewMode === mode }} onPress={() => setViewMode(mode)} style={[styles.viewButton, viewMode === mode && { backgroundColor: Colors.backgroundElement }]}><Ionicons name={mode === "list" ? "list-outline" : "grid-outline"} size={20} color={viewMode === mode ? Colors.primaryText : Colors.text2} /></TouchableOpacity>)}
+        <TouchableOpacity accessibilityRole="button" onPress={() => setFilterVisible(true)} style={styles.filterButton}><Ionicons name="options-outline" size={17} color={pearl.accentDeep} /><Text style={styles.filterButtonText}>Filters{filterCount ? " · " + filterCount : ""}</Text></TouchableOpacity>
+        <Text style={styles.resultCount}>{visibleItems.length} results</Text>
+        {filterCount || inactiveOnly ? <TouchableOpacity onPress={() => { clearFilters(); setInactiveOnly(false); }}><Text style={styles.clearFilterText}>Clear</Text></TouchableOpacity> : null}
       </View>
-
-      {addRoute ? (
-        <TouchableOpacity activeOpacity={0.86} onPress={() => router.push(addRoute as Href)} style={styles.addButton}>
-          <Ionicons color={Colors.onPrimary} name="add" size={19} />
-          <Text style={styles.addButtonText}>Add Consumable</Text>
-        </TouchableOpacity>
-      ) : null}
-
-      {showCatalog && !isGrid ? (
-        <View style={styles.tableHeader}><Text style={[styles.tableHeaderText, styles.nameColumn]}>Name</Text><Text style={[styles.tableHeaderText, styles.categoryColumn]}>Category</Text><Text style={[styles.tableHeaderText, styles.priceColumn]}>Price</Text>{onDelete ? <View style={{ width: "12%" }} /> : null}</View>
-      ) : null}
-    </>
+    </View>
   );
 
   const listEmpty = loading && itemsByTab[activeTab].length === 0
@@ -460,7 +459,7 @@ export default function CatalogScreen() {
         : null;
 
   return (
-    <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
+    <PearlBackground><SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
       <AppStatusBar />
       <RefreshViewport><FlatList
         key={viewMode}
@@ -481,67 +480,55 @@ export default function CatalogScreen() {
         showsVerticalScrollIndicator={false}
         windowSize={7}
       /></RefreshViewport>
-      <BottomSheet title={selectedPackage?.name ?? "Package details"} visible={!!selectedPackage} onClose={() => setSelectedPackage(null)}>
+      <BottomSheet pearlStyle centered={false} title={selectedPackage?.name ?? "Package details"} visible={!!selectedPackage} onClose={() => setSelectedPackage(null)}>
         {selectedPackage ? <View style={{ gap: 12 }}>
           <Text style={styles.tableCell}>{selectedPackage.description || "No description"}</Text>
           <Text style={styles.tablePrice}>{formatMoney(packageToItem(selectedPackage).price)}</Text>
-          <Text style={styles.tableCell}>{selectedPackage.category || "Uncategorized"} ? {selectedPackage.status}</Text>
+          <Text style={styles.tableCell}>{selectedPackage.category || "Uncategorized"} · {selectedPackage.status}</Text>
           <Text style={styles.tableCell}>Duration: {selectedPackage.durationMinutes} min</Text>
           <Text style={styles.tableName}>Included services</Text>
           {selectedPackage.serviceIds.map((id) => <Text key={id} style={styles.tableCell}>{services.find((service) => service.id === id)?.name ?? "Service unavailable"}</Text>)}
           {!selectedPackage.serviceIds.length ? <Text style={styles.tableCell}>No services assigned</Text> : null}
         </View> : null}
       </BottomSheet>
+      <TouchableOpacity accessibilityRole="button" accessibilityLabel="Add to catalog" onPress={() => setAddVisible(true)} style={styles.fab}><LinearGradient pointerEvents="none" colors={pearlGradients.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} /><Ionicons name="add" size={21} color="#FFFFFF" /><Text style={styles.addButtonText}>Add</Text></TouchableOpacity>
+      <BottomSheet pearlStyle centered={false} title="Add to catalog" visible={addVisible} onClose={() => setAddVisible(false)}>
+        <View style={styles.choices}>{([
+          { label: "Service", hint: "Haircut, facial, spa…", icon: "cut-outline", route: "/services/new" },
+          { label: "Product", hint: "Retail or salon-use stock", icon: "cube-outline", route: "/stock/new" },
+          { label: "Membership", hint: "Wallet, discounts or loyalty", icon: "diamond-outline", route: "/memberships/new" },
+          { label: "Consumable", hint: "Stock used during services", icon: "flask-outline", route: "/consumables/new" },
+        ] as const).map((choice) => <TouchableOpacity key={choice.label} style={styles.choice} onPress={() => { setAddVisible(false); router.push(choice.route as Href); }}><View style={[styles.itemIcon, { backgroundColor: pearlTones.rose.bg }]}><Ionicons name={choice.icon} size={20} color={pearl.accentDeep} /></View><View style={{ flex: 1 }}><Text style={styles.tableName}>{choice.label}</Text><Text style={styles.tableCell}>{choice.hint}</Text></View><Ionicons name="chevron-forward" size={18} color={pearl.muted} /></TouchableOpacity>)}</View>
+      </BottomSheet>
+      <BottomSheet pearlStyle centered={false} title={actionItem?.name ?? "Item actions"} visible={!!actionItem} onClose={() => setActionItem(null)}>
+        {actionItem ? <View style={{ gap: 12 }}><TouchableOpacity style={styles.choice} onPress={() => { const item = actionItem; setActionItem(null); onOpen(item); }}><Text style={styles.tableName}>View details</Text></TouchableOpacity><TouchableOpacity style={styles.choice} onPress={() => { const item = actionItem; setActionItem(null); confirmDelete(item); }}><Ionicons name="trash-outline" size={18} color={Colors.error} /><Text style={{ color: Colors.error }}>Delete</Text></TouchableOpacity></View> : null}
+      </BottomSheet>
       <CatalogFilterSheet brands={brands} categories={categories} label={activeTabLabel} onApply={applyFilters} onClose={() => setFilterVisible(false)} onReset={clearFilters} serviceOptions={serviceOptions} suppliers={suppliers} tab={activeTab} validForOptions={validForOptions} value={activeFilters} visible={filterVisible} />
-    </SafeAreaView>
+    </SafeAreaView></PearlBackground>
   );
 }
 
 const createStyles = (Colors: ThemeColors) => StyleSheet.create({
-  filterToolbar: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8, paddingHorizontal: 16, paddingBottom: 16 },
-  filterButton: { flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1, borderColor: Colors.border, borderRadius: 8, minHeight: 44, paddingHorizontal: 12 },
-  filterButtonText: { color: Colors.heading, fontSize: 13, fontWeight: "700" },
-  clearFilterText: { color: Colors.primaryText, fontSize: 12, fontWeight: "700" },
-  resultCount: { flex: 1, color: Colors.text2, fontSize: 12 },
-  viewButton: { minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center", borderRadius: 8 },
-  catalogGridRow: { gap: 12, marginBottom: 12, paddingHorizontal: 16 },
-  catalogGridCard: { flexBasis: "46%", flexGrow: 1, minWidth: 140, backgroundColor: Colors.card, borderColor: Colors.border, borderWidth: 1, borderRadius: 8, padding: 12 },
-  catalogGridCopy: { gap: 8, flex: 1 },
-  safeArea: { backgroundColor: Colors.bg, flex: 1 },
-  content: { paddingBottom: AppLayout.contentBottomPadding },
-  header: { alignItems: "center", flexDirection: "row", minHeight: 66, paddingHorizontal: 16 },
-  title: { color: Colors.heading, flex: 1, fontFamily: "serif", fontSize: 29, fontWeight: "800", marginLeft: 12 },
-  tabsScroller: { borderBottomColor: Colors.border, borderBottomWidth: 1 },
-  tabsContent: { paddingHorizontal: 12 },
-  tab: { alignItems: "center", borderBottomColor: "transparent", borderBottomWidth: 3, flexDirection: "row", gap: 6, minHeight: 58, paddingHorizontal: 15 },
-  tabActive: { borderBottomColor: Colors.primary },
-  tabText: { color: Colors.text2, fontSize: 15, fontWeight: "600" },
-  tabTextActive: { color: Colors.primaryText, fontWeight: "800" },
-  summaryRow: { flexDirection: "row", gap: 12, paddingHorizontal: 16, paddingTop: 18 },
-  summaryTile: { backgroundColor: Colors.card, borderColor: Colors.border, borderRadius: 8, borderWidth: 1, flex: 1, minHeight: 94, padding: 15 },
-  summaryLabel: { color: Colors.text2, fontSize: 13 },
-  summaryValue: { color: Colors.heading, fontSize: 23, fontWeight: "800", marginTop: 9 },
-  toolbar: { alignItems: "center", flexDirection: "row", gap: 10, padding: 16 },
-  searchBox: { alignItems: "center", backgroundColor: Colors.card, borderColor: Colors.border, borderRadius: 8, borderWidth: 1, flex: 1, flexDirection: "row", minHeight: 48, paddingHorizontal: 13 },
-  searchInput: { color: Colors.heading, flex: 1, fontSize: 15, paddingHorizontal: 9, paddingVertical: 10 },
-  activeCount: { alignItems: "center", borderColor: Colors.border, borderRadius: 8, borderWidth: 1, flexDirection: "row", gap: 6, minHeight: 48, paddingHorizontal: 11 },
-  activeDot: { backgroundColor: Colors.success, borderRadius: 4, height: 8, width: 8 },
-  activeCountText: { color: Colors.text2, fontSize: 12, fontWeight: "700" },
-  addButton: { alignItems: "center", alignSelf: "flex-start", backgroundColor: Colors.primaryDark, borderRadius: 8, flexDirection: "row", gap: 8, justifyContent: "center", marginBottom: 16, marginHorizontal: 16, minHeight: 48, paddingHorizontal: 18 },
-  addButtonText: { color: Colors.onPrimary, fontSize: 14, fontWeight: "800" },
-  tableHeader: { backgroundColor: Colors.primary, flexDirection: "row", paddingHorizontal: 16, paddingVertical: 15 },
-  tableHeaderText: { color: Colors.onPrimary, fontSize: 13, fontWeight: "800" },
-  tableRow: { alignItems: "center", backgroundColor: Colors.card, borderBottomColor: Colors.border, borderBottomWidth: 1, flexDirection: "row", minHeight: 84, paddingHorizontal: 16, paddingVertical: 12 },
-  nameColumn: { paddingRight: 8, width: "34%" },
-  categoryColumn: { paddingRight: 8, width: "30%" },
-  priceColumn: { textAlign: "right", width: "24%" },
-  tableName: { color: Colors.heading, fontSize: 14, fontWeight: "700" },
-  tableCell: { color: Colors.text2, fontSize: 13 },
-  tablePrice: { color: Colors.heading, fontSize: 13, fontWeight: "800" },
-  tableDeleteButton: { alignItems: "flex-end", justifyContent: "center", minHeight: 44, width: "12%" },
-  state: { alignItems: "center", minHeight: 260, paddingHorizontal: 30, paddingTop: 55 },
-  stateTitle: { color: Colors.heading, fontSize: 18, fontWeight: "800", marginTop: 14, textAlign: "center" },
-  stateText: { color: Colors.text2, fontSize: 13, lineHeight: 20, marginTop: 8, textAlign: "center" },
-  retryButton: { borderColor: Colors.primary, borderRadius: 8, borderWidth: 1, marginTop: 18, paddingHorizontal: 24, paddingVertical: 11 },
-  retryText: { color: Colors.primaryText, fontSize: 14, fontWeight: "700" },
+  safeArea: { flex: 1 }, content: { paddingBottom: AppLayout.contentBottomPadding + 80, paddingHorizontal: 16 },
+  listHeader: { gap: 14, paddingTop: 8, paddingBottom: 8 },
+  header: { flexDirection: "row", alignItems: "center", gap: 12, paddingBottom: 4 },
+  title: { color: pearl.ink, fontSize: 23, fontWeight: "800" }, subtitle: { color: pearl.muted, fontSize: 12, marginTop: 2 },
+  tabsScroller: { backgroundColor: pearl.glass, borderColor: pearl.glassBorder, borderWidth: 1, borderRadius: 17 },
+  tabsContent: { padding: 4, gap: 4 }, tab: { minHeight: 42, paddingHorizontal: 16, alignItems: "center", justifyContent: "center", borderRadius: 13 },
+  tabActive: { backgroundColor: pearl.glassStrong }, tabText: { fontSize: 13, fontWeight: "600", color: pearl.muted }, tabTextActive: { color: pearl.ink, fontWeight: "700" },
+  summaryRow: { flexDirection: "row", gap: 10 }, summaryTile: { flex: 1, backgroundColor: pearl.glass, borderWidth: 1, borderColor: pearl.glassBorder, borderRadius: 22, padding: 14, gap: 6 },
+  summaryLabel: { color: pearl.muted, fontSize: 12 }, summaryValue: { color: pearl.ink, fontSize: 23, fontWeight: "800" },
+  toolbar: { flexDirection: "row", alignItems: "center", gap: 8 }, searchBox: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: pearl.glass, borderColor: pearl.glassBorder, borderWidth: 1, borderRadius: 16, paddingHorizontal: 12 },
+  searchInput: { flex: 1, paddingVertical: 12, fontSize: 14, color: pearl.ink }, viewButton: { width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: 16, backgroundColor: pearl.glass, borderWidth: 1, borderColor: pearl.glassBorder },
+  chips: { flexDirection: "row", gap: 8 }, chip: { paddingHorizontal: 13, paddingVertical: 8, borderRadius: 20, backgroundColor: pearl.glass, borderColor: pearl.glassBorder, borderWidth: 1 }, chipActive: { backgroundColor: pearl.accentWash, borderColor: pearl.accentTint }, chipText: { color: pearl.ink2, fontSize: 12, fontWeight: "600" },
+  filterToolbar: { flexDirection: "row", alignItems: "center", gap: 10 }, filterButton: { minHeight: 36, flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 10, borderRadius: 12, backgroundColor: pearl.glass, borderColor: pearl.glassBorder, borderWidth: 1 },
+  filterButtonText: { color: pearl.accentDeep, fontSize: 12, fontWeight: "600" }, clearFilterText: { color: pearl.accentDeep, fontSize: 12, fontWeight: "700" }, resultCount: { flex: 1, color: pearl.muted, fontSize: 11 },
+  tableRow: { flexDirection: "row", alignItems: "center", gap: 10, minHeight: 82, padding: 12, backgroundColor: pearl.glass, borderBottomWidth: 1, borderColor: pearl.divider },
+  itemIcon: { width: 40, height: 40, borderRadius: 13, justifyContent: "center", alignItems: "center" },
+  tableName: { color: pearl.ink, fontSize: 14, fontWeight: "700" }, tableCell: { color: pearl.muted, fontSize: 12, lineHeight: 18 }, tablePrice: { color: pearl.ink, fontSize: 13, fontWeight: "700" },
+  stockPill: { borderRadius: 12, paddingHorizontal: 7, paddingVertical: 3, fontSize: 10, fontWeight: "600" }, tableDeleteButton: { width: 22, minHeight: 44, alignItems: "center", justifyContent: "center" },
+  catalogGridRow: { gap: 10, marginBottom: 10 }, catalogGridCard: { flexBasis: "46%", flexGrow: 1, minWidth: 120, backgroundColor: pearl.glass, borderColor: pearl.glassBorder, borderWidth: 1, borderRadius: 22, padding: 14 }, catalogGridCopy: { gap: 7, flex: 1 },
+  fab: { position: "absolute", right: 20, bottom: 28, borderRadius: 18, overflow: "hidden", minHeight: 52, paddingHorizontal: 22, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }, addButtonText: { color: "#FFFFFF", fontSize: 15, fontWeight: "700" },
+  choices: { borderRadius: 22, overflow: "hidden", backgroundColor: pearl.glass, borderWidth: 1, borderColor: pearl.glassBorder }, choice: { flexDirection: "row", gap: 12, alignItems: "center", padding: 14, borderBottomWidth: 1, borderBottomColor: pearl.divider },
+  state: { alignItems: "center", minHeight: 240, padding: 24, gap: 10 }, stateTitle: { color: pearl.ink, fontSize: 17, fontWeight: "700", textAlign: "center" }, stateText: { color: pearl.muted, fontSize: 13, lineHeight: 20, textAlign: "center" }, retryButton: { paddingHorizontal: 20, paddingVertical: 12, borderRadius: 16, borderWidth: 1, borderColor: Colors.primary }, retryText: { color: pearl.accentDeep, fontSize: 14, fontWeight: "700" },
 });

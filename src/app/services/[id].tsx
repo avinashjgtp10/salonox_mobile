@@ -1,3 +1,4 @@
+import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
 import { AppBackButton } from "@/components/ui/AppBackButton";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
@@ -12,7 +13,6 @@ import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import {
   DashboardRadius as Radius,
   DashboardSpacing as Spacing,
-  type ThemeColors,
 } from "@/constants/theme";
 import { formatAppDate } from "@/utils/dateTime";
 import { fetchServiceByIdThunk } from "@/middleware/service/service.thunk";
@@ -22,7 +22,7 @@ import {
   selectServiceDetailsLoading,
 } from "@/store/service/service.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors, type PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 import { formatCurrency as formatPrice } from "@/utils/currency";
 
 function formatDuration(durationMinutes: number | null) {
@@ -34,7 +34,7 @@ function formatCreatedDate(createdAt: string | null) {
 }
 
 function DetailRow({ label, value }: { label: string; value: string }) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   return (
@@ -46,7 +46,7 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 }
 
 function Section({ children, title }: { children: React.ReactNode; title: string }) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   return (
@@ -58,7 +58,7 @@ function Section({ children, title }: { children: React.ReactNode; title: string
 }
 
 export default function ServiceDetailsScreen() {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const { id } = useLocalSearchParams<{ id?: string }>();
   const dispatch = useAppDispatch();
@@ -100,7 +100,7 @@ export default function ServiceDetailsScreen() {
 
   if (detailsLoading) {
     return (
-      <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
+      <PearlBackground><SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
         <AppStatusBar />
         <View style={styles.notFoundWrap}>
           <View style={styles.headerRow}>
@@ -112,13 +112,13 @@ export default function ServiceDetailsScreen() {
             <ActivityIndicator size="large" color={Colors.primaryText} />
           </View>
         </View>
-      </SafeAreaView>
+      </SafeAreaView></PearlBackground>
     );
   }
 
   if (detailsError) {
     return (
-      <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
+      <PearlBackground><SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
         <AppStatusBar />
         <View style={styles.notFoundWrap}>
           <View style={styles.headerRow}>
@@ -131,13 +131,13 @@ export default function ServiceDetailsScreen() {
             <Text style={styles.notFoundSubtitle}>{detailsError}</Text>
           </View>
         </View>
-      </SafeAreaView>
+      </SafeAreaView></PearlBackground>
     );
   }
 
   if (!service) {
     return (
-      <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
+      <PearlBackground><SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
         <AppStatusBar />
         <View style={styles.notFoundWrap}>
           <AppBackButton activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} />
@@ -148,12 +148,12 @@ export default function ServiceDetailsScreen() {
             </Text>
           </View>
         </View>
-      </SafeAreaView>
+      </SafeAreaView></PearlBackground>
     );
   }
 
   return (
-    <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
+    <PearlBackground><SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
       <AppStatusBar />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.headerRow}>
@@ -203,14 +203,12 @@ export default function ServiceDetailsScreen() {
           <DetailRow label="Created" value={service.createdLabel} />
         </Section>
       </ScrollView>
-    </SafeAreaView>
+    </SafeAreaView></PearlBackground>
   );
 }
 
 const createStyles = (Colors: ThemeColors) => StyleSheet.create({
-  safeArea: {
-    backgroundColor: Colors.bg,
-    flex: 1,
+  safeArea: { flex: 1,
   },
   content: {
     paddingBottom: AppLayout.contentBottomPadding,
@@ -251,7 +249,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.05,
     shadowRadius: 18,
-    elevation: 2,
+    elevation: 0,
   },
   avatar: {
     alignItems: "center",
