@@ -8,11 +8,11 @@ import { StyleSheet, TouchableOpacity, View } from "react-native";
 
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { AppRadius } from "@/constants/layout";
-import { DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
+import { DashboardSpacing as Spacing } from "@/constants/theme";
 import { formatReportValue } from "@/features/reports/report-data";
 import { getApiErrorMessage } from "@/services/api";
 import { reportService, type SalesSummaryDetailResponse } from "@/services/report.service";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors, type PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 import { formatCurrency } from "@/utils/currency";
 import { formatInvoiceNumber } from "@/utils/receipt";
 import { computeBillRoundOff } from "@/utils/billRoundOff";
@@ -47,7 +47,7 @@ const formatPaymentMethod = (method: string | null, reference: string | null) =>
 };
 
 function InfoRow({ label, value }: { label: string; value: string }) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   return (
@@ -59,7 +59,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 }
 
 function Section({ children, title }: { children: ReactNode; title: string }) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   return (
@@ -74,7 +74,7 @@ export const SalesSummaryDetailSheet = memo(function SalesSummaryDetailSheet({
   onClose,
   saleId,
 }: SalesSummaryDetailSheetProps) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const requestIdRef = useRef(0);
   const [data, setData] = useState<SalesSummaryDetailResponse | null>(null);
@@ -147,7 +147,7 @@ export const SalesSummaryDetailSheet = memo(function SalesSummaryDetailSheet({
   }) : 0;
 
   return (
-    <BottomSheet
+    <BottomSheet pearlStyle centered={false}
       onClose={onClose}
       subtitle={sheetSubtitle}
       title={sheetTitle}

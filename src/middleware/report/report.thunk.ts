@@ -7,11 +7,12 @@ import {
 } from "@/features/reports/report-config";
 import { getApiErrorMessage } from "@/services/api";
 import { REPORT } from "@/services/api/endpoints/report.endpoints";
-import { reportService, type GenericReportRequest } from "@/services/report.service";
+import { reportService } from "@/services/report.service";
 import type { RootState } from "@/store";
 import { selectActiveBranchId } from "@/store/branch/branch.slice";
+import { getOperationalReport } from "@/features/reports/report-operational-data";
 import { decodeReportSelection } from "@/features/reports/report-filters";
-import { getDateRangePreset } from "@/utils/dateRangePresets";
+import { normalizeReportRequest } from "@/features/reports/report-request";
 
 export type FetchReportArgs = {
   append?: boolean;
@@ -21,77 +22,6 @@ export type FetchReportArgs = {
 };
 
 type ReportRejectValue = { message: string };
-
-const cleanFilters = (filters: ReportFilters) =>
-  Object.fromEntries(
-    Object.entries(filters).filter(([, value]) => value !== "" && value !== undefined),
-  ) as ReportFilters;
-
-const ARRAY_FILTER_KEYS = new Set([
-  "brand_ids", "payment_modes", "item_types", "membership_ids", "package_names",
-  "service_names", "package_statuses", "template_ids", "campaign_ids", "channels",
-  "message_statuses", "campaign_statuses",
-  "appointment_types",
-  "benefit_types",
-  "category_ids",
-  "client_ids",
-  "membership_names",
-  "package_ids",
-  "payment_methods",
-  "payment_statuses",
-  "pricing_types",
-  "segments",
-  "service_ids",
-  "staff_ids",
-  "statuses",
-]);
-
-const splitArrayFilter = (value: unknown) => {
-  if (Array.isArray(value)) return value;
-  if (typeof value !== "string") return value;
-  return decodeReportSelection(value);
-};
-
-const toNumberFilter = (value: unknown) => {
-  if (typeof value === "number") return value;
-  if (typeof value !== "string") return value;
-  const numeric = Number(value);
-  return Number.isFinite(numeric) ? numeric : value;
-};
-
-const normalizeRequest = (slug: ReportSlug, filters: ReportFilters): GenericReportRequest => {
-  const request: GenericReportRequest = { ...cleanFilters(filters) };
-
-  if (slug === "ewallet") {
-    // Match web: this balance report accepts an as-of date, not a transaction range.
-    const today = getDateRangePreset("today").endDate;
-    const endDate = filters.end_date;
-    request.as_of_date = endDate && endDate <= today ? endDate : today;
-    delete request.start_date;
-    delete request.end_date;
-  }
-
-  for (const key of ARRAY_FILTER_KEYS) {
-    if (request[key] !== undefined) {
-      request[key] = splitArrayFilter(request[key]);
-    }
-  }
-
-  if (slug === "open-rate" && request.include_trend === "true") {
-    request.include_trend = true;
-  }
-  if (request.include_gst !== undefined) request.include_gst = request.include_gst !== "false";
-  for (const key of ["min_visits", "lost_days", "min_rating"]) {
-    if (request[key] !== undefined) request[key] = toNumberFilter(request[key]);
-  }
-
-  if (slug === "vip-customers") {
-    request.vip_min_spend = toNumberFilter(request.vip_min_spend);
-    request.low_max_spend = toNumberFilter(request.low_max_spend);
-  }
-
-  return request;
-};
 
 export const fetchReportThunk = createAsyncThunk<
   { data: unknown; filters: ReportFilters; slug: ReportSlug },
@@ -107,7 +37,7 @@ export const fetchReportThunk = createAsyncThunk<
         throw new Error("Unknown report.");
       }
 
-      if (config.status !== "available" || !config.endpoint) {
+      if (config.status !== "available" || (!config.endpoint && !config.source)) {
         throw new Error(config.statusReason ?? "This report is not available in mobile yet.");
       }
 
@@ -120,14 +50,17 @@ export const fetchReportThunk = createAsyncThunk<
 
         const data = await reportService.getConsumableUsage(branchId);
 
-        return { data, filters: args.filters, slug: args.slug };
+        const categories = decodeReportSelection(args.filters.category_ids);
+        const search = (args.filters.search ?? "").trim().toLowerCase();
+        const filteredRows = data.rows.filter((row) => (!categories.length || categories.includes(row.categoryName)) && (!search || row.itemName.toLowerCase().includes(search)));
+        return { data: { ...data, rows: filteredRows, filtersAvailable: { categories: [...new Set(data.rows.map((row) => row.categoryName))] }, stats: { totalConsumed: filteredRows.reduce((sum, row) => sum + row.actualConsumable, 0), totalAdjusted: filteredRows.reduce((sum, row) => sum + row.adjustConsumable, 0) } }, filters: args.filters, slug: args.slug };
       }
 
-      const request = normalizeRequest(args.slug, args.filters);
-      const data = args.slug === "staff-performance"
+      const request = normalizeReportRequest(args.slug, args.filters);
+      const data = config.source && config.source !== "consumables" ? await getOperationalReport(config.source, request) : args.slug === "staff-performance"
         ? await reportService.getStaffPerformanceReport(request)
         : await reportService.getReport(
-        config.endpoint,
+        config.endpoint as `/api/report/${string}`,
         request,
       );
 
