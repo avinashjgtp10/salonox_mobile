@@ -27,10 +27,10 @@ export function StaffHeader({
     <View style={staffUi.header}>
       <AppBackButton onPress={onBack} fallbackHref="/team" />
       <View style={{ flex: 1, alignItems: centered ? "center" : "flex-start" }}>
-        <Text style={[staffUi.title, centered && { fontSize: 18 }]}>
+        <Text translate style={[staffUi.title, centered && { fontSize: 18 }]}>
           {title}
         </Text>
-        {subtitle ? <Text style={staffUi.muted}>{subtitle}</Text> : null}
+        {subtitle ? <Text translate style={staffUi.muted}>{subtitle}</Text> : null}
       </View>
       {right ?? (centered ? <View style={{ width: 44 }} /> : null)}
     </View>
@@ -69,7 +69,7 @@ export function StaffButton({
           style={StyleSheet.absoluteFill}
         />
       ) : null}
-      <Text
+      <Text translate
         style={{
           color: danger
             ? pearl.dangerText
@@ -134,7 +134,7 @@ export function StaffMenuItem({
       <View style={[staffUi.icon, { backgroundColor: pearlTones[tone].bg }]}>
         <Ionicons name={icon} size={19} color={pearlTones[tone].fg} />
       </View>
-      <Text style={[staffUi.rowTitle, { flex: 1 }]}>{label}</Text>
+      <Text translate style={[staffUi.rowTitle, { flex: 1 }]}>{label}</Text>
       <Ionicons name="chevron-forward" size={16} color={pearl.muted} />
     </TouchableOpacity>
   );

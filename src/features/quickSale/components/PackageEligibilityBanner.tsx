@@ -20,12 +20,12 @@ function PackageEligibilityBannerComponent({ error, onRetry }: PackageEligibilit
     <View accessibilityLiveRegion="polite" style={styles.banner}>
       <Ionicons color={Colors.error} name="alert-circle-outline" size={18} />
       <View style={styles.copy}>
-        <Text style={styles.title}>Package eligibility unavailable</Text>
-        <Text style={styles.message}>
+        <Text translate style={styles.title}>Package eligibility unavailable</Text>
+        <Text translate style={styles.message}>
           Package pricing could not be verified. You can continue checkout or retry package loading.
         </Text>
         {error ? (
-          <Text numberOfLines={2} style={styles.detail}>
+          <Text translate numberOfLines={2} style={styles.detail}>
             {error}
           </Text>
         ) : null}
@@ -37,7 +37,7 @@ function PackageEligibilityBannerComponent({ error, onRetry }: PackageEligibilit
         style={styles.retryButton}
       >
         <Ionicons color={Colors.onPrimary} name="refresh" size={15} />
-        <Text style={styles.retryText}>Retry</Text>
+        <Text translate style={styles.retryText}>Retry</Text>
       </TouchableOpacity>
     </View>
   );

@@ -215,7 +215,7 @@ export function SendTemplateSheet({
               </TouchableOpacity>
             ))}
           {!templates.length && (
-            <Text style={s.emptyText}>
+            <Text translate style={s.emptyText}>
               No approved templates yet. Add a template in the webapp and wait
               for Meta approval.
             </Text>
@@ -226,7 +226,7 @@ export function SendTemplateSheet({
                 .toLowerCase()
                 .includes(search.trim().toLowerCase()),
             ) && (
-              <Text style={s.emptyText}>
+              <Text translate style={s.emptyText}>
                 No approved templates match your search.
               </Text>
             )}
@@ -270,7 +270,7 @@ export function SendTemplateSheet({
           ))}
           {picked.needsCoupon && (
             <View style={{ gap: 6 }}>
-              <Text style={s.muted}>Coupon code</Text>
+              <Text translate style={s.muted}>Coupon code</Text>
               <TextInput
                 ref={(ref) => {
                   fields.current.coupon = ref;
@@ -298,7 +298,7 @@ export function SendTemplateSheet({
               }}
               style={[s.input, { flex: 0 }]}
             >
-              <Text style={s.muted}>Offer expires on</Text>
+              <Text translate style={s.muted}>Offer expires on</Text>
               <Text style={s.text}>
                 {expiry
                   ? expiry.toLocaleString("en-IN", {
@@ -327,7 +327,7 @@ export function SendTemplateSheet({
             />
           )}
           <View style={[s.bubble, s.outgoing, { maxWidth: "100%" }]}>
-            <Text style={s.muted}>Preview</Text>
+            <Text translate style={s.muted}>Preview</Text>
             {!!picked.header && <Text style={s.heading}>{picked.header}</Text>}
             <Text style={s.messageText}>
               {renderInboxTemplate(picked.body, values)}
@@ -335,7 +335,7 @@ export function SendTemplateSheet({
             {!!picked.footer && <Text style={s.muted}>{picked.footer}</Text>}
           </View>
           {!!error && (
-            <Text accessibilityRole="alert" style={s.error}>
+            <Text translate accessibilityRole="alert" style={s.error}>
               {error}
             </Text>
           )}

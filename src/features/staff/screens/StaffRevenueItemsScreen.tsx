@@ -1,3 +1,4 @@
+import { useRegionalPreferences } from "@/localization/preferences";
 import { AppBackButton } from "@/components/ui/AppBackButton";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
@@ -54,6 +55,8 @@ type StaffAppointmentItems = { appointment: AppointmentListItem; items: Appointm
  * belongs to the appointment's staff member, as on the bill.
  */
 export function StaffRevenueItemsScreen() {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const { width } = useWindowDimensions();
@@ -167,10 +170,10 @@ export function StaffRevenueItemsScreen() {
         {error ? (
           <View style={styles.card}>
             <Ionicons name="alert-circle-outline" size={26} color={Colors.error} />
-            <Text style={styles.stateTitle}>Unable to load your appointments</Text>
-            <Text style={styles.stateText}>{error}</Text>
+            <Text translate style={styles.stateTitle}>Unable to load your appointments</Text>
+            <Text translate style={styles.stateText}>{error}</Text>
             <TouchableOpacity accessibilityRole="button" onPress={() => void load()} style={styles.retryButton}>
-              <Text style={styles.retryText}>Retry</Text>
+              <Text translate style={styles.retryText}>Retry</Text>
             </TouchableOpacity>
           </View>
         ) : null}
@@ -179,7 +182,7 @@ export function StaffRevenueItemsScreen() {
           <View style={styles.card}>
             <Ionicons name="receipt-outline" size={26} color={Colors.text2} />
             <Text style={styles.stateTitle}>No {TITLES[type].toLowerCase()} in this range</Text>
-            <Text style={styles.stateText}>Try another date range.</Text>
+            <Text translate style={styles.stateText}>Try another date range.</Text>
           </View>
         ) : null}
 
@@ -199,7 +202,7 @@ export function StaffRevenueItemsScreen() {
                 </Text>
               </View>
               <View style={[styles.statusChip, appointment.status === "Partial" ? styles.statusPartial : styles.statusDone]}>
-                <Text style={styles.statusText}>{appointment.status === "Partial" ? "Partly paid" : "Paid"}</Text>
+                <Text translate style={styles.statusText}>{appointment.status === "Partial" ? "Partly paid" : "Paid"}</Text>
               </View>
             </View>
             {items.map((item, index) => (
@@ -210,7 +213,7 @@ export function StaffRevenueItemsScreen() {
             ))}
             {items.length > 1 ? (
               <View style={styles.cardFooter}>
-                <Text style={styles.rowMeta}>Total</Text>
+                <Text translate style={styles.rowMeta}>Total</Text>
                 <Text style={styles.itemValue}>{formatCurrency(total)}</Text>
               </View>
             ) : null}

@@ -1,4 +1,6 @@
 export type SalonApiItem = {
+  currency?: string | null;
+  language?: string | null;
   _id?: string | number | null;
   address?: string | null;
   business_name?: string | null;
@@ -54,6 +56,8 @@ export type SalonListApiData =
     };
 
 export type SalonListItem = {
+  currency?: string;
+  language?: string;
   address: string;
   businessName: string;
   city: string;
@@ -135,9 +139,12 @@ export type CreateSalonResponse = {
 };
 
 // logo_url: "" removes the logo (owner profile picture), as the web does.
-export type UpdateSalonRequest = Partial<CreateSalonRequest> & { logo_url?: string };
+export type UpdateSalonRequest = Partial<CreateSalonRequest> & { currency?: string; language?: string; logo_url?: string; gst_number?: string };
 
 export type UpdateSalonFormFields = {
+  currency?: string;
+  language?: string;
+  gstin?: string;
   address?: string;
   businessName?: string;
   city?: string;

@@ -1,3 +1,4 @@
+import { useRegionalPreferences } from "@/localization/preferences";
 import { PearlCatalogRow } from "./PearlCatalogRow";
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { Text } from "@/components/ui/AppTypography";
@@ -41,6 +42,8 @@ type ProductCatalogTabProps = {
 };
 
 function ProductCardComponent({ onPress, product, selected }: { onPress: () => void; product: Product; selected: boolean }) {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   // A ticked product stays tappable so it can be removed even once out of stock.
@@ -87,6 +90,8 @@ function ProductCardComponent({ onPress, product, selected }: { onPress: () => v
 const ProductCard = memo(ProductCardComponent);
 
 export function ProductCatalogTab({ onSelect, search, selectedIds , pearlStyle = false }: ProductCatalogTabProps) {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();

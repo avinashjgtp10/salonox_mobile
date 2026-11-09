@@ -1,3 +1,4 @@
+import { useRegionalPreferences } from "@/localization/preferences";
 import { useCallback, useDeferredValue, useMemo, useState } from "react";
 import {
   FlatList,
@@ -47,6 +48,8 @@ import {
 import { formatCurrency } from "@/utils/currency";
 import { useFooterClearance } from "@/hooks/useFooterClearance";
 export default function StaffListScreen() {
+  "use no memo";
+  useRegionalPreferences();
   const dispatch = useAppDispatch(),
     members = useAppSelector(selectStaffMembers),
     loading = useAppSelector(selectStaffLoading),
@@ -179,7 +182,7 @@ export default function StaffListScreen() {
       </ScrollView>
       {error ? (
         <View style={staffUi.formCard}>
-          <Text style={staffUi.error}>{error}</Text>
+          <Text translate style={staffUi.error}>{error}</Text>
           <StaffButton secondary label="Retry" onPress={refresh} />
         </View>
       ) : null}
@@ -202,7 +205,7 @@ export default function StaffListScreen() {
             loading ? (
               <ActivityIndicator />
             ) : (
-              <Text style={staffUi.muted}>No staff found.</Text>
+              <Text translate style={staffUi.muted}>No staff found.</Text>
             )
           }
           renderItem={({ item: m }) => (
@@ -250,7 +253,7 @@ export default function StaffListScreen() {
                 }}
               >
                 <View style={{ flex: 1 }}>
-                  <Text style={staffUi.muted}>Today</Text>
+                  <Text translate style={staffUi.muted}>Today</Text>
                   <Text style={staffUi.rowTitle}>
                     {metrics.revenueReady
                       ? formatCurrency(m.todayRevenue)
@@ -258,7 +261,7 @@ export default function StaffListScreen() {
                   </Text>
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={staffUi.muted}>Appts</Text>
+                  <Text translate style={staffUi.muted}>Appts</Text>
                   <Text style={staffUi.rowTitle}>
                     {metrics.ready ? m.todayAppointments : "—"}
                   </Text>

@@ -276,14 +276,14 @@ export default function AnimatedSplash({ isReady, onPrepared, onComplete }: Prop
           <Animated.View style={[styles.wording, wordingStyle]}>
             <View style={styles.taglineRow}>
               <View style={styles.rule} />
-              <Text allowFontScaling={false} style={styles.tagline}>
+              <Text translate allowFontScaling={false} style={styles.tagline}>
                 Smart Salon Management
               </Text>
               <View style={styles.rule} />
             </View>
             <View style={styles.statusRow}>
               <Animated.View style={[styles.statusDot, blinkStyle]} />
-              <Text allowFontScaling={false} style={styles.status}>
+              <Text translate allowFontScaling={false} style={styles.status}>
                 {'Opening your workspace…'}
               </Text>
             </View>

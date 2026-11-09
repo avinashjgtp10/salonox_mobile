@@ -1,3 +1,4 @@
+import { useRegionalPreferences } from "@/localization/preferences";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
 import { DashboardSpacing as Spacing } from "@/constants/theme";
@@ -14,6 +15,8 @@ import { PearlActionFooter } from "@/components/ui/PearlActionFooter";
 type BookingBottomBarProps = { serviceCount: number; totalServiceDuration: number; totalServicePrice: number; mutating: boolean; mode: 'create' | 'edit'; onSubmit: () => void; };
 
 export function BookingBottomBar({ serviceCount, totalServiceDuration, totalServicePrice, mutating, mode, onSubmit }: BookingBottomBarProps) {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const insets = useSafeAreaInsets();
@@ -30,7 +33,7 @@ export function BookingBottomBar({ serviceCount, totalServiceDuration, totalServ
     >
       <LinearGradient colors={pearlGradients.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.bookingPrimaryButton}>
       {mutating ? <ActivityIndicator color="#fff" /> : null}
-      <Text style={[styles.bookingPrimaryButtonText, { color: "#fff", fontSize: 14 }]}>
+      <Text translate style={[styles.bookingPrimaryButtonText, { color: "#fff", fontSize: 14 }]}>
         {mutating ? "Booking..." : mode === "create" ? "Book appointment" : "Save changes"}
       </Text>
       </LinearGradient>

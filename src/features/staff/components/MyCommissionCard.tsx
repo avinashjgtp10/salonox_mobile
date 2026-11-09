@@ -1,3 +1,4 @@
+import { useRegionalPreferences } from "@/localization/preferences";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
 import { DateRangeField } from "@/components/ui/DateRangeField";
@@ -20,6 +21,8 @@ const prettyCategory = (category?: string | null) => category
 type Props = { refreshKey?: number; staffId?: string | null; staffName: string };
 
 export function MyCommissionCard({ refreshKey = 0, staffId, staffName }: Props) {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const today = useMemo(() => dateKey(new Date()), []);
@@ -54,19 +57,19 @@ export function MyCommissionCard({ refreshKey = 0, staffId, staffName }: Props) 
 
       <View style={styles.totalCard}>
         <View>
-          <Text style={styles.totalLabel}>Total earned</Text>
+          <Text translate style={styles.totalLabel}>Total earned</Text>
           <Text style={styles.rangeLabel}>{formatAppDate(new Date(`${appliedRange.startDate}T00:00:00`))} - {formatAppDate(new Date(`${appliedRange.endDate}T00:00:00`))}</Text>
         </View>
         <Text style={styles.totalAmount}>{money(total)}</Text>
       </View>
 
-      {loading ? <View style={styles.state}><ActivityIndicator color={Colors.primaryText} /><Text style={styles.stateText}>Loading your commission...</Text></View> : null}
+      {loading ? <View style={styles.state}><ActivityIndicator color={Colors.primaryText} /><Text translate style={styles.stateText}>Loading your commission...</Text></View> : null}
       {!loading && error ? (
         <TouchableOpacity accessibilityRole="button" onPress={() => void load(appliedRange)} style={styles.state}>
-          <Text style={styles.error}>{error}</Text><Text style={styles.retry}>Tap to retry</Text>
+          <Text translate style={styles.error}>{error}</Text><Text translate style={styles.retry}>Tap to retry</Text>
         </TouchableOpacity>
       ) : null}
-      {!loading && !error && entries.length === 0 ? <Text style={styles.empty}>No commission earned in this date range.</Text> : null}
+      {!loading && !error && entries.length === 0 ? <Text translate style={styles.empty}>No commission earned in this date range.</Text> : null}
       {!loading && !error && entries.length > 0 ? (
         <View style={styles.list}>
           {entries.map((entry) => (

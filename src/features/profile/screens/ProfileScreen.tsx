@@ -251,7 +251,7 @@ export function ProfileScreen() {
         <ProfileHeader
           rightAction={isEditing ? (
             <TouchableOpacity activeOpacity={0.8} onPress={handleCancelEditing} style={styles.cancelButton}>
-              <Text style={styles.cancelButtonLabel}>Cancel</Text>
+              <Text translate style={styles.cancelButtonLabel}>Cancel</Text>
             </TouchableOpacity>
           ) : undefined}
         />

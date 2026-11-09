@@ -44,7 +44,7 @@ function Rows({ rows, offset = 0 }: { rows: Row[]; offset?: number }) {
     {index > 0 ? <Divider inset={66} /> : null}
     <View style={styles.row}>
       <Tile icon={row.icon} tone={tones[(index + offset) % tones.length]} size={38} />
-      <View style={styles.grow}><Text style={styles.rowTitle}>{row.title}</Text><Text style={styles.body}>{row.body}</Text></View>
+      <View style={styles.grow}><Text translate style={styles.rowTitle}>{row.title}</Text><Text style={styles.body}>{row.body}</Text></View>
     </View>
   </View>)}</Card>;
 }
@@ -57,7 +57,7 @@ function ConnectButton({ onPress, small = false }: { onPress: () => void; small?
   return <Pressable onPress={onPress} accessibilityRole="button" style={({ pressed }) => [small && { alignSelf: "center" }, pressed && styles.pressed]}>
     <LinearGradient colors={pearlGradients.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.primary, pearlShadow.button, small && styles.smallPrimary]}>
       {!small ? <Icon name="chat" size={20} color="#fff" /> : null}
-      <Text style={[styles.primaryText, small && { fontSize: 13 }]}>Connect WhatsApp</Text>
+      <Text translate style={[styles.primaryText, small && { fontSize: 13 }]}>Connect WhatsApp</Text>
     </LinearGradient>
   </Pressable>;
 }
@@ -94,49 +94,49 @@ export function WhatsAppDisconnectedScreen({ screen, salonId, embedded, loading,
     <Page refreshing={checking && !loading} onRefresh={onCheckAgain}>
       {screen === "whatsapp" ? <View style={styles.whatsappHeader}>
         {!embedded ? <IconButton icon="chevronLeft" label="Back" onPress={back} /> : null}
-        <View><Text style={styles.heading}>WhatsApp</Text><View style={styles.status}><View style={styles.offDot} /><Text style={styles.body}>Not connected yet</Text></View></View>
-      </View> : <View style={styles.pageHeader}><IconButton icon="chevronLeft" label="Back" onPress={back} /><View style={styles.grow}><Text style={styles.heading}>{screen === "marketing" ? "Marketing" : "WhatsApp insights"}</Text><Text style={styles.body}>{screen === "marketing" ? "WhatsApp campaigns" : "From Meta billing"}</Text></View>
+        <View><Text translate style={styles.heading}>WhatsApp</Text><View style={styles.status}><View style={styles.offDot} /><Text translate style={styles.body}>Not connected yet</Text></View></View>
+      </View> : <View style={styles.pageHeader}><IconButton icon="chevronLeft" label="Back" onPress={back} /><View style={styles.grow}><Text translate style={styles.heading}>{screen === "marketing" ? "Marketing" : "WhatsApp insights"}</Text><Text translate style={styles.body}>{screen === "marketing" ? "WhatsApp campaigns" : "From Meta billing"}</Text></View>
         {screen === "marketing" ? <IconButton icon="chart" label="Insights" onPress={() => router.push("/marketing/insights" as Href)} /> : null}</View>}
       {loading ? <View style={styles.loading}><ActivityIndicator color={pearl.accent} /></View> : screen === "whatsapp" ? <>
         <Card style={styles.hero}>
           <View style={styles.illustration}>
             <View style={styles.heroIcon}><Icon name="chat" size={34} color={pearl.accentDeep} /></View>
-            <View style={[styles.bubble, styles.firstBubble]}><Text style={styles.bubbleText}>Booking confirmed ✓</Text></View>
-            <View style={[styles.bubble, styles.secondBubble]}><Text style={styles.bubbleText}>See you at 4 PM 💇‍♀️</Text></View>
+            <View style={[styles.bubble, styles.firstBubble]}><Text translate style={styles.bubbleText}>Booking confirmed ✓</Text></View>
+            <View style={[styles.bubble, styles.secondBubble]}><Text translate style={styles.bubbleText}>See you at 4 PM 💇‍♀️</Text></View>
           </View>
-          <Text style={[styles.heading, styles.center, { fontSize: 22 }]}>Talk to clients on WhatsApp</Text>
-          <Text style={[styles.body, styles.center, { fontSize: 13, lineHeight: 19.5 }]}>Connect your salon’s WhatsApp Business number once. SalonOX then sends confirmations, reminders and offers for you, and replies land here.</Text>
+          <Text translate style={[styles.heading, styles.center, { fontSize: 22 }]}>Talk to clients on WhatsApp</Text>
+          <Text translate style={[styles.body, styles.center, { fontSize: 13, lineHeight: 19.5 }]}>Connect your salon’s WhatsApp Business number once. SalonOX then sends confirmations, reminders and offers for you, and replies land here.</Text>
           <ConnectButton onPress={connect} />
-          <Text style={[styles.hint, styles.center]}>Takes about 5 minutes · free to connect · Meta charges per conversation</Text>
+          <Text translate style={[styles.hint, styles.center]}>Takes about 5 minutes · free to connect · Meta charges per conversation</Text>
         </Card>
         <SectionHeader title="What you’ll unlock" /><Rows rows={benefits} />
         <SectionHeader title="Before you start" /><Rows rows={prerequisites} offset={1} />
-        <Note><Text style={styles.bold}>Already use WhatsApp Business on this number?</Text> Delete that account in the app first (Settings → Account → Delete), or use a different number. Your chats there won’t move over.</Note>
+        <Note><Text translate style={styles.bold}>Already use WhatsApp Business on this number?</Text> Delete that account in the app first (Settings → Account → Delete), or use a different number. Your chats there won’t move over.</Note>
         <Pressable accessibilityRole="button" accessibilityState={{ disabled: requestState !== "idle", busy: requestState === "sending" }} disabled={requestState !== "idle"} onPress={requestHelp} style={({ pressed }) => [styles.help, pressed && styles.pressed]}>
           {requestState === "sending" ? <ActivityIndicator color={pearl.accentDeep} size="small" /> : requestState === "sent" ? <Icon name="check" size={18} color={pearl.accentDeep} /> : null}
-          <Text style={styles.helpText}>Need help? Ask our team to set it up</Text>
+          <Text translate style={styles.helpText}>Need help? Ask our team to set it up</Text>
         </Pressable>
       </> : screen === "marketing" ? <>
         <Card style={styles.connectionCard}>
-          <View style={styles.connectionRow}><Tile icon="chat" tone="neutral" size={40} /><View style={styles.grow}><Text style={styles.rowTitle}>WhatsApp not connected</Text><View style={styles.status}><View style={styles.offDot} /><Text style={[styles.body, styles.grow]}>Connect a business number to start</Text></View></View><StatusPill tone="neutral" label="Not set up" /></View>
+          <View style={styles.connectionRow}><Tile icon="chat" tone="neutral" size={40} /><View style={styles.grow}><Text translate style={styles.rowTitle}>WhatsApp not connected</Text><View style={styles.status}><View style={styles.offDot} /><Text translate style={[styles.body, styles.grow]}>Connect a business number to start</Text></View></View><StatusPill tone="neutral" label="Not set up" /></View>
           <ConnectButton onPress={connect} />
         </Card>
         <LinearGradient colors={["rgba(255,255,255,0.7)", "rgba(214,196,240,0.45)"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.ready}>
-          <Tile icon="users" tone="lilac" size={44} /><View style={styles.grow}><Text style={styles.value}>— clients</Text><Text style={styles.body}>have agreed to receive WhatsApp offers. They’re ready the moment you connect.</Text></View>
+          <Tile icon="users" tone="lilac" size={44} /><View style={styles.grow}><Text translate style={styles.value}>— clients</Text><Text translate style={styles.body}>have agreed to receive WhatsApp offers. They’re ready the moment you connect.</Text></View>
         </LinearGradient>
         <SectionHeader title="Campaign ideas" action="You can draft now" />
         <Card style={styles.list}>{ideas.map((idea, index) => <View key={idea.title}>
           {index > 0 ? <Divider /> : null}
           <Pressable accessibilityRole="button" accessibilityLabel={`Draft: ${idea.title}`} onPress={draft} style={({ pressed }) => [styles.row, { alignItems: "flex-start" }, pressed && styles.pressed]}>
-            <Tile icon={idea.icon} tone={tones[index]} size={40} /><View style={styles.grow}><Text style={styles.rowTitle}>{idea.title}</Text><Text style={styles.body}>{idea.body}</Text><View style={styles.audience}><Icon name="users" size={12} color="#6A4F98" /><Text style={styles.audienceText}>{idea.audience}</Text></View></View><View style={styles.draft}><Text style={styles.draftText}>Draft</Text></View>
+            <Tile icon={idea.icon} tone={tones[index]} size={40} /><View style={styles.grow}><Text translate style={styles.rowTitle}>{idea.title}</Text><Text style={styles.body}>{idea.body}</Text><View style={styles.audience}><Icon name="users" size={12} color="#6A4F98" /><Text style={styles.audienceText}>{idea.audience}</Text></View></View><View style={styles.draft}><Text translate style={styles.draftText}>Draft</Text></View>
           </Pressable>
         </View>)}</Card>
         <SectionHeader title="After you connect, you’ll see" />
-        <View style={styles.stats}>{([{ icon: "send", label: "Campaigns", hint: "Sent & scheduled" }, { icon: "check", label: "Delivered", hint: "Reached phones" }, { icon: "eye", label: "Read", hint: "Opened by clients" }] as const).map((stat, i) => <Card key={stat.label} style={styles.stat}><Tile icon={stat.icon} tone={tones[i]} size={34} /><Text style={styles.statLabel}>{stat.label}</Text><Text style={styles.value}>—</Text><Text style={styles.hint}>{stat.hint}</Text></Card>)}</View>
-        <Card style={styles.limit}><View style={styles.between}><Text style={styles.hint}>Daily message limit</Text><Text style={[styles.hint, styles.bold, { color: pearl.ink }]}>Starts at 250 a day</Text></View><View style={styles.track} /><Text style={styles.hint}>Meta raises the limit as your number keeps a good quality rating.</Text></Card>
+        <View style={styles.stats}>{([{ icon: "send", label: "Campaigns", hint: "Sent & scheduled" }, { icon: "check", label: "Delivered", hint: "Reached phones" }, { icon: "eye", label: "Read", hint: "Opened by clients" }] as const).map((stat, i) => <Card key={stat.label} style={styles.stat}><Tile icon={stat.icon} tone={tones[i]} size={34} /><Text translate style={styles.statLabel}>{stat.label}</Text><Text translate style={styles.value}>—</Text><Text style={styles.hint}>{stat.hint}</Text></Card>)}</View>
+        <Card style={styles.limit}><View style={styles.between}><Text translate style={styles.hint}>Daily message limit</Text><Text translate style={[styles.hint, styles.bold, { color: pearl.ink }]}>Starts at 250 a day</Text></View><View style={styles.track} /><Text translate style={styles.hint}>Meta raises the limit as your number keeps a good quality rating.</Text></Card>
 
       </> : <>
-        <Card style={styles.empty}><Tile icon="chart" tone="lilac" size={52} /><Text style={[styles.rowTitle, styles.center, { marginTop: 6 }]}>No WhatsApp spend yet</Text><Text style={[styles.body, styles.center]}>Once WhatsApp is connected, your Meta charges and message counts appear here, updated daily.</Text><View style={{ marginTop: 8 }}><ConnectButton small onPress={connect} /></View></Card>
+        <Card style={styles.empty}><Tile icon="chart" tone="lilac" size={52} /><Text translate style={[styles.rowTitle, styles.center, { marginTop: 6 }]}>No WhatsApp spend yet</Text><Text translate style={[styles.body, styles.center]}>Once WhatsApp is connected, your Meta charges and message counts appear here, updated daily.</Text><View style={{ marginTop: 8 }}><ConnectButton small onPress={connect} /></View></Card>
         <SectionHeader title="How Meta charges for WhatsApp" /><Rows rows={charges} />
         <Note>Meta bills you directly. Rates vary by country and exclude 18% GST. SalonOX doesn’t add a markup.</Note>
       </>}

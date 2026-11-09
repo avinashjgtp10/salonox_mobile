@@ -394,7 +394,7 @@ export function StaffHomeRouteContent({ locked = false }: { locked?: boolean } =
         <View style={styles.header}>
           <View style={styles.headerCopy}>
             <Text style={styles.dateText}>{formatDateLabel()}</Text>
-            <Text style={styles.title}>My Dashboard</Text>
+            <Text translate style={styles.title}>My Dashboard</Text>
             <Text style={styles.greeting}>
               {getGreeting()}, {toDisplayName(staffName)} 👋
             </Text>
@@ -452,7 +452,7 @@ export function StaffHomeRouteContent({ locked = false }: { locked?: boolean } =
         />
 
         {locked ? (
-          <Text style={{ color: Colors.text2 }}>Check in to view your appointments and progress.</Text>
+          <Text translate style={{ color: Colors.text2 }}>Check in to view your appointments and progress.</Text>
         ) : (
           <>
             <TodayAppointmentsCard appointments={todayAppointments} loading={appointmentsLoading} />
@@ -486,7 +486,7 @@ function ErrorBanner({ message, onRetry }: { message: string; onRetry?: () => vo
   return (
     <Pressable disabled={!onRetry} onPress={onRetry} style={stylesStatic.errorBanner}>
       <Ionicons name="alert-circle-outline" size={18} color={DASHBOARD.amber} />
-      <Text style={stylesStatic.errorBannerText}>{message}</Text>
+      <Text translate style={stylesStatic.errorBannerText}>{message}</Text>
     </Pressable>
   );
 }
@@ -532,7 +532,7 @@ function AttendanceCard({
           <Ionicons name={icon} size={24} color={tone.color} />
         </View>
         <View style={stylesStatic.attendanceTitleBlock}>
-          <Text style={stylesStatic.cardEyebrow}>{"Today's Attendance"}</Text>
+          <Text translate style={stylesStatic.cardEyebrow}>{"Today's Attendance"}</Text>
           <Text style={[stylesStatic.attendanceStatus, { color: tone.color }]}>{badgeLabel}</Text>
         </View>
       </View>
@@ -563,7 +563,7 @@ function AttendanceCard({
         <TouchableOpacity accessibilityRole="button" accessibilityLabel={onReturn ? "Check In" : "Check Out"} accessibilityState={{ disabled: checkoutBusy, busy: checkoutBusy }}
           disabled={checkoutBusy} onPress={onReturn ?? onCheckOut}
           style={{ marginTop: 16, minHeight: 48, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: Colors.primary, opacity: checkoutBusy ? 0.6 : 1 }}>
-          {checkoutBusy ? <ActivityIndicator color={Colors.onPrimary} /> : <Text style={{ color: Colors.onPrimary, fontSize: 16, fontWeight: "700" }}>{onReturn ? "Check In" : "Check Out"}</Text>}
+          {checkoutBusy ? <ActivityIndicator color={Colors.onPrimary} /> : <Text translate style={{ color: Colors.onPrimary, fontSize: 16, fontWeight: "700" }}>{onReturn ? "Check In" : "Check Out"}</Text>}
         </TouchableOpacity>
       ) : null}
       {checkoutError ? <Text accessibilityRole="alert" style={{ color: Colors.error, marginTop: 8 }}>{checkoutError}</Text> : null}
@@ -593,7 +593,7 @@ function Metric({
 
   return (
     <View style={[stylesStatic.metric, showDivider && stylesStatic.metricDivider, metricStyle]}>
-      <Text style={stylesStatic.metricLabel}>{label}</Text>
+      <Text translate style={stylesStatic.metricLabel}>{label}</Text>
       <View style={stylesStatic.metricValueRow}>
         {icon ? <Ionicons name={icon} size={17} color={iconColor} /> : null}
         {dotColor ? <View style={[stylesStatic.metricDot, { backgroundColor: dotColor }]} /> : null}
@@ -614,17 +614,17 @@ function TodayAppointmentsCard({ appointments, loading }: { appointments: Appoin
   return (
     <View style={stylesStatic.timelineCard}>
       <View style={stylesStatic.timelineHeader}>
-        <Text style={stylesStatic.cardTitle}>{"Today's Appointments"}</Text>
+        <Text translate style={stylesStatic.cardTitle}>{"Today's Appointments"}</Text>
         <TouchableOpacity activeOpacity={0.78} onPress={() => router.push(STAFF_ROUTES.appointments)}>
           <View style={stylesStatic.viewAllRow}>
-            <Text style={stylesStatic.viewAllText}>View all</Text>
+            <Text translate style={stylesStatic.viewAllText}>View all</Text>
             <Ionicons name="chevron-forward" size={18} color={DASHBOARD.muted} />
           </View>
         </TouchableOpacity>
       </View>
       {loading ? <ActivityIndicator color={DASHBOARD.beige} /> : null}
       {!loading && visibleAppointments.length === 0 ? (
-        <Text style={stylesStatic.emptyText}>No appointments assigned for today.</Text>
+        <Text translate style={stylesStatic.emptyText}>No appointments assigned for today.</Text>
       ) : null}
       {!loading
         ? visibleAppointments.map((appointment, index) => (
@@ -681,7 +681,7 @@ function ProgressCard({
 
   return (
     <TourView tourId="progress" style={stylesStatic.progressCard}>
-      <Text style={stylesStatic.cardTitleMuted}>{"Today's Progress"}</Text>
+      <Text translate style={stylesStatic.cardTitleMuted}>{"Today's Progress"}</Text>
       <View style={stylesStatic.progressRow}>
         <ProgressMetric bg="rgba(65, 154, 72, 0.78)" icon="shield-checkmark" label="Completed" value={String(completed)} />
         <ProgressMetric bg="#F0A10C" icon="time-outline" label="Remaining" value={String(remaining)} />
@@ -713,7 +713,7 @@ function ProgressMetric({
       </View>
       <View style={stylesStatic.progressCopy}>
         <Text style={stylesStatic.progressValue}>{value}</Text>
-        <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72} style={stylesStatic.progressLabel}>
+        <Text translate numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72} style={stylesStatic.progressLabel}>
           {label}
         </Text>
       </View>

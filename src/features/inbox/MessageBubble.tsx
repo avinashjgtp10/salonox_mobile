@@ -188,7 +188,7 @@ export function MessageBubble({
           </TouchableOpacity>
         )}
         {openError && (
-          <Text style={s.error}>Couldn’t open attachment. Try again.</Text>
+          <Text translate style={s.error}>Couldn’t open attachment. Try again.</Text>
         )}
         {!!message.body && (
           <Text selectable={!onAction} style={s.messageText}>
@@ -213,7 +213,7 @@ export function MessageBubble({
           )}
         </View>
         {status === "FAILED" && (
-          <Text style={s.error}>Message failed to deliver</Text>
+          <Text translate style={s.error}>Message failed to deliver</Text>
         )}
         {!!message.reaction && (
           <Text

@@ -1,3 +1,4 @@
+import { useRegionalPreferences } from "@/localization/preferences";
 import type { PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 import { LinearGradient } from "expo-linear-gradient";
 import { pearl, pearlGradients } from "@/components/auth/pearl/tokens";
@@ -40,6 +41,8 @@ function MiniBillBarComponent({
   onSavePending,
   savePendingDisabled,
 }: MiniBillBarProps) {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const safeBottom = useSafeAreaInsets().bottom;
@@ -62,7 +65,7 @@ function MiniBillBarComponent({
           {isSaving ? (
             <ActivityIndicator color={BRAND} size="small" />
           ) : (
-            <Text
+            <Text translate
               adjustsFontSizeToFit
               minimumFontScale={0.75}
               numberOfLines={1}

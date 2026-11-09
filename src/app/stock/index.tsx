@@ -1,3 +1,4 @@
+import { useRegionalPreferences } from "@/localization/preferences";
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text, TextInput } from "@/components/ui/AppTypography";
@@ -30,6 +31,8 @@ const rejectedMessage = (payload: unknown) =>
     : "Something went wrong. Please try again.";
 
 export default function ProductsScreen() {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
@@ -89,7 +92,7 @@ export default function ProductsScreen() {
     <View>
       <View style={styles.header}>
         <AppBackButton fallbackHref="/more" />
-        <Text style={styles.title}>Products</Text>
+        <Text translate style={styles.title}>Products</Text>
         <TouchableOpacity accessibilityLabel="Manage brands" onPress={() => router.push("/stock/brands" as Href)} style={styles.iconButton}>
           <Ionicons name="ribbon-outline" size={19} color={Colors.primaryText} />
         </TouchableOpacity>
@@ -107,7 +110,7 @@ export default function ProductsScreen() {
       <View style={styles.filters}>
         {FILTERS.map((item) => <TouchableOpacity key={item} onPress={() => setFilter(item)} style={[styles.chip, filter === item && styles.chipActive]}><Text style={[styles.chipText, filter === item && styles.chipTextActive]}>{item}</Text></TouchableOpacity>)}
       </View>
-      <View style={styles.resultRow}><Text style={styles.resultText}>{products.length} loaded</Text><TouchableOpacity onPress={() => router.push("/stock/brands" as Href)}><Text style={styles.brandLink}>Manage brands</Text></TouchableOpacity></View>
+      <View style={styles.resultRow}><Text style={styles.resultText}>{products.length} loaded</Text><TouchableOpacity onPress={() => router.push("/stock/brands" as Href)}><Text translate style={styles.brandLink}>Manage brands</Text></TouchableOpacity></View>
     </View>
   );
 
@@ -142,34 +145,42 @@ export default function ProductsScreen() {
         renderItem={({ item }) => <ProductCard deleting={state.deletingProductIds.includes(item.id)} item={item} onDelete={() => remove(item)} />}
         showsVerticalScrollIndicator={false}
       /></RefreshViewport>
-      <View style={[styles.floatingWrap, { bottom: insets.bottom + 12 }]}><TouchableOpacity onPress={() => router.push("/stock/new" as Href)} style={styles.addButton}><Ionicons name="add-circle-outline" size={19} color="#FFFFFF" /><Text style={styles.addText}>Add Product</Text></TouchableOpacity></View>
+      <View style={[styles.floatingWrap, { bottom: insets.bottom + 12 }]}><TouchableOpacity onPress={() => router.push("/stock/new" as Href)} style={styles.addButton}><Ionicons name="add-circle-outline" size={19} color="#FFFFFF" /><Text translate style={styles.addText}>Add Product</Text></TouchableOpacity></View>
     </SafeAreaView>
   );
 }
 
 function Metric({ label, value, warning }: { label: string; value: string; warning?: boolean }) {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
-  return <View style={styles.metric}><Text style={styles.metricLabel}>{label}</Text><Text style={[styles.metricValue, warning && styles.warning]}>{value}</Text></View>;
+  return <View style={styles.metric}><Text translate style={styles.metricLabel}>{label}</Text><Text style={[styles.metricValue, warning && styles.warning]}>{value}</Text></View>;
 }
 
 function ProductCard({ deleting, item, onDelete }: { deleting: boolean; item: Product; onDelete: () => void }) {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const low = item.stockQuantity <= item.lowStockThreshold;
   return <TouchableOpacity activeOpacity={0.84} onPress={() => router.push(`/stock/${item.id}` as Href)} style={styles.card}>
     <View style={styles.productIcon}><Ionicons name="cube-outline" size={21} color={Colors.primaryText} /></View>
-    <View style={styles.cardCopy}><View style={styles.nameRow}><Text numberOfLines={1} style={styles.productName}>{item.name}</Text><View style={[styles.badge, item.isActive ? styles.activeBadge : styles.inactiveBadge]}><Text style={[styles.badgeText, !item.isActive && styles.inactiveText]}>{item.isActive ? "Active" : "Inactive"}</Text></View></View><Text style={styles.meta} numberOfLines={1}>{[item.brandName, item.category, item.sku].filter(Boolean).join("  |  ") || "Uncategorized"}</Text><View style={styles.cardBottom}><Text style={styles.price}>{money(item.price)}</Text><Text style={[styles.stock, low && styles.warning]}>{low ? "Low: " : "Stock: "}{item.stockQuantity}</Text></View></View>
+    <View style={styles.cardCopy}><View style={styles.nameRow}><Text numberOfLines={1} style={styles.productName}>{item.name}</Text><View style={[styles.badge, item.isActive ? styles.activeBadge : styles.inactiveBadge]}><Text translate style={[styles.badgeText, !item.isActive && styles.inactiveText]}>{item.isActive ? "Active" : "Inactive"}</Text></View></View><Text style={styles.meta} numberOfLines={1}>{[item.brandName, item.category, item.sku].filter(Boolean).join("  |  ") || "Uncategorized"}</Text><View style={styles.cardBottom}><Text style={styles.price}>{money(item.price)}</Text><Text style={[styles.stock, low && styles.warning]}>{low ? "Low: " : "Stock: "}{item.stockQuantity}</Text></View></View>
     <TouchableOpacity accessibilityLabel="Delete product" disabled={deleting} hitSlop={8} onPress={(event) => { event.stopPropagation(); onDelete(); }} style={styles.delete}>{deleting ? <ActivityIndicator color={Colors.error} size="small" /> : <Ionicons name="trash-outline" size={18} color={Colors.error} />}</TouchableOpacity>
   </TouchableOpacity>;
 }
 
 function LoadingCards() {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   return <View>{[1,2,3,4].map((key) => <View key={key} style={styles.skeleton}><View style={styles.skeletonIcon} /><View style={styles.skeletonCopy}><View style={styles.skeletonTitle} /><View style={styles.skeletonLine} /></View></View>)}</View>;
 }
 function Empty({ error, onRetry, searching }: { error: string | null; onRetry: () => void; searching: boolean }) {
+  "use no memo";
+  useRegionalPreferences();
   if (error) {
     return <ErrorState message={error} onRetry={onRetry} />;
   }

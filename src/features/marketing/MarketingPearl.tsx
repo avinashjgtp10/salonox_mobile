@@ -23,8 +23,8 @@ export function MarketingHeader({
     <View style={m.header}>
       <AppBackButton fallbackHref="/dashboard" />
       <View style={m.fill}>
-        <Text style={m.heading}>{title}</Text>
-        <Text style={m.small}>{subtitle}</Text>
+        <Text translate style={m.heading}>{title}</Text>
+        <Text translate style={m.small}>{subtitle}</Text>
       </View>
       {right}
     </View>
@@ -52,7 +52,7 @@ export function MarketingChip({
           style={StyleSheet.absoluteFill}
         />
       )}
-      <Text style={[m.chipText, selected && { color: "white" }]}>{label}</Text>
+      <Text translate style={[m.chipText, selected && { color: "white" }]}>{label}</Text>
     </Pressable>
   );
 }
@@ -74,7 +74,7 @@ export function MarketingStat({
       <View style={[m.icon, { backgroundColor: pearlTones[tone].bg }]}>
         <Ionicons name={icon} size={18} color={pearlTones[tone].fg} />
       </View>
-      <Text style={m.small}>{label}</Text>
+      <Text translate style={m.small}>{label}</Text>
       <Text numberOfLines={1} adjustsFontSizeToFit style={m.value}>
         {value}
       </Text>

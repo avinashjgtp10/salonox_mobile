@@ -194,12 +194,12 @@ export default function NewServiceScreen() {
         >
           <View style={styles.header}>
             <AppBackButton onPress={isSubmitting ? () => undefined : handleBack} />
-            <Text style={styles.headerTitle}>Add service</Text>
+            <Text translate style={styles.headerTitle}>Add service</Text>
 
           </View>
 
           <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Basics</Text>
+            <Text translate style={styles.sectionTitle}>Basics</Text>
 
             <Field
               ref={(input) => setFieldRef("name", input)}
@@ -214,7 +214,7 @@ export default function NewServiceScreen() {
             />
 
             <View ref={(view) => setFieldRef("categoryId", view)} style={styles.field}>
-              <Text style={styles.label}>Category *</Text>
+              <Text translate style={styles.label}>Category *</Text>
               <TouchableOpacity
                 activeOpacity={0.84}
                 disabled={isSubmitting}
@@ -230,7 +230,7 @@ export default function NewServiceScreen() {
             </View>
 
             <TouchableOpacity activeOpacity={0.8} disabled={isSubmitting} onPress={() => setCategoryModalOpen(true)}>
-              <Text style={styles.inlineLink}>+ Add a category</Text>
+              <Text translate style={styles.inlineLink}>+ Add a category</Text>
             </TouchableOpacity>
 
             <Field
@@ -242,7 +242,7 @@ export default function NewServiceScreen() {
               value={description}
             />
 
-          </View><View style={[styles.card, { marginTop: 14 }]}><Text style={styles.sectionTitle}>Price & time</Text>
+          </View><View style={[styles.card, { marginTop: 14 }]}><Text translate style={styles.sectionTitle}>Price & time</Text>
             <View style={styles.priceDurationRow}>
               <Field
                 ref={(input) => setFieldRef("price", input)}
@@ -258,7 +258,7 @@ export default function NewServiceScreen() {
                 value={price}
               />
               <View ref={(view) => setFieldRef("duration", view)} style={styles.durationWrap}>
-                <Text style={styles.label}>Duration *</Text>
+                <Text translate style={styles.label}>Duration *</Text>
                 <View style={styles.durationInputs}>
                   <UnitInput
                     editable={!isSubmitting}
@@ -286,7 +286,7 @@ export default function NewServiceScreen() {
               </View>
             </View>
 
-          </View><View style={[styles.card, { marginTop: 14 }]}><Text style={styles.sectionTitle}>Reminder</Text>
+          </View><View style={[styles.card, { marginTop: 14 }]}><Text translate style={styles.sectionTitle}>Reminder</Text>
             <Field
               ref={(input) => setFieldRef("reminderDays", input)}
               editable={!isSubmitting}
@@ -300,9 +300,9 @@ export default function NewServiceScreen() {
               placeholder="e.g. 30"
               value={reminderDays}
             />
-            <Text style={styles.helperText}>Optional - remind the client to redo this service after this many days. Leave blank if it has no redo cadence.</Text>
+            <Text translate style={styles.helperText}>Optional - remind the client to redo this service after this many days. Leave blank if it has no redo cadence.</Text>
 
-          </View><View style={[styles.card, { marginTop: 14 }]}><Text style={styles.sectionTitle}>Availability</Text>
+          </View><View style={[styles.card, { marginTop: 14 }]}><Text translate style={styles.sectionTitle}>Availability</Text>
             <CheckboxRow checked={onlineBooking} disabled={isSubmitting} label="Available for online booking" onPress={() => setOnlineBooking((current) => !current)} />
             <CheckboxRow checked={active} disabled={isSubmitting} label="Active (appears when booking appointments)" onPress={() => setActive((current) => !current)} />
 
@@ -349,14 +349,14 @@ const Field = forwardRef<TextInput, React.ComponentProps<typeof TextInput> & {
 
   return (
     <View style={[styles.field, containerStyle]}>
-      <Text style={styles.label}>{label}</Text>
+      <Text translate style={styles.label}>{label}</Text>
       <TextInput
         ref={ref}
         {...props}
         placeholderTextColor={Colors.placeholder}
         style={[styles.input, props.multiline && styles.multilineInput, Boolean(error) && styles.inputError, inputStyle]}
       />
-      {error ? <Text style={styles.fieldError}>{error}</Text> : null}
+      {error ? <Text translate style={styles.fieldError}>{error}</Text> : null}
     </View>
   );
 });
@@ -408,7 +408,7 @@ function CheckboxRow({
 
   return (
     <TouchableOpacity accessibilityRole="switch" accessibilityState={{ checked, disabled }} activeOpacity={0.84} disabled={disabled} onPress={onPress} style={styles.checkboxRow}>
-      <Text style={styles.checkboxLabel}>{label}</Text>
+      <Text translate style={styles.checkboxLabel}>{label}</Text>
       <View style={[styles.checkbox, checked && styles.checkboxChecked]}><View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: "#FFFFFF", alignSelf: checked ? "flex-end" : "flex-start" }} /></View>
     </TouchableOpacity>
   );

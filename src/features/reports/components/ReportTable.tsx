@@ -1,3 +1,4 @@
+import { useRegionalPreferences } from "@/localization/preferences";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Animated, BackHandler, PanResponder, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -35,6 +36,8 @@ export function ReportTable({ title, rows: incomingRows, columns, total, hasMore
   onLoadMore?: () => void; onRowPress: (row: ReportRow) => void;
   onExport?: (columns: ReportColumn[]) => void; exporting?: boolean;
 }) {
+  "use no memo";
+  useRegionalPreferences();
   const [allRows, setAllRows] = useState<ReportRow[] | null>(null);
   const [sortingBusy, setSortingBusy] = useState(false);
   const sortGeneration = useRef(0);
@@ -96,7 +99,7 @@ export function ReportTable({ title, rows: incomingRows, columns, total, hasMore
   };
   const header = (column: ReportColumn) => <View key={column.key} style={[s.headerCell, { width: width(column) }]}>
     <Pressable accessibilityRole="button" accessibilityLabel={`Sort by ${column.label}`} disabled={sortingBusy} onPress={() => void sortBy(column)} style={s.headerButton}>
-      <Text numberOfLines={1} style={s.headerText}>{column.label} {sort?.key === column.key ? sort.direction === 1 ? "↑" : "↓" : "↕"}</Text>
+      <Text translate numberOfLines={1} style={s.headerText}>{column.label} {sort?.key === column.key ? sort.direction === 1 ? "↑" : "↓" : "↕"}</Text>
     </Pressable><ResizeGrip width={width(column)} label={column.label} onChange={(value) => setColumnWidth(column.key, value)} />
   </View>;
   const statusColor = (value: unknown) => {
@@ -109,10 +112,10 @@ export function ReportTable({ title, rows: incomingRows, columns, total, hasMore
     <Text selectable={false} numberOfLines={1} style={[s.cellText, frozen && s.firstText, /status/i.test(column.key) && [s.status, { color: statusColor(row[column.key]) }]]}>{reportCellValue(column.key, row[column.key])}</Text>
   </Pressable>;
   const controls = <View style={s.toolbar}>
-    <Pressable accessibilityRole="button" onPress={() => setChoosingColumns(true)} style={s.control}><Ionicons name="options-outline" size={16} color={pearl.accentDeep} /><Text style={s.controlText}>Columns</Text></Pressable>
-    <Pressable accessibilityRole="button" accessibilityState={{ selected: compact }} onPress={() => setCompact((value) => !value)} style={s.control}><Text style={s.controlText}>{compact ? "Comfortable rows" : "Compact rows"}</Text></Pressable>
-    {onExport ? <Pressable accessibilityRole="button" disabled={exporting} onPress={() => onExport(visible)} style={s.control}><Ionicons name="download-outline" size={15} color={pearl.accentDeep} /><Text style={s.controlText}>{exporting ? "Exporting…" : "CSV"}</Text></Pressable> : null}
-    <Pressable accessibilityRole="button" onPress={() => setExpanded((value) => !value)} style={s.control}><Ionicons name={expanded ? "contract-outline" : "expand-outline"} size={16} color={pearl.accentDeep} /><Text style={s.controlText}>{expanded ? "Close" : "Expand"}</Text></Pressable>
+    <Pressable accessibilityRole="button" onPress={() => setChoosingColumns(true)} style={s.control}><Ionicons name="options-outline" size={16} color={pearl.accentDeep} /><Text translate style={s.controlText}>Columns</Text></Pressable>
+    <Pressable accessibilityRole="button" accessibilityState={{ selected: compact }} onPress={() => setCompact((value) => !value)} style={s.control}><Text translate style={s.controlText}>{compact ? "Comfortable rows" : "Compact rows"}</Text></Pressable>
+    {onExport ? <Pressable accessibilityRole="button" disabled={exporting} onPress={() => onExport(visible)} style={s.control}><Ionicons name="download-outline" size={15} color={pearl.accentDeep} /><Text translate style={s.controlText}>{exporting ? "Exporting…" : "CSV"}</Text></Pressable> : null}
+    <Pressable accessibilityRole="button" onPress={() => setExpanded((value) => !value)} style={s.control}><Ionicons name={expanded ? "contract-outline" : "expand-outline"} size={16} color={pearl.accentDeep} /><Text translate style={s.controlText}>{expanded ? "Close" : "Expand"}</Text></Pressable>
   </View>;
   const grid = first ? <View style={s.grid}>
     <View style={s.headerRow}><View style={s.frozenHeader}>{header(first)}</View><View style={s.clip}><Animated.View style={[s.headerRow, { width: rest.reduce((sum, column) => sum + width(column), 0), transform: [{ translateX: Animated.multiply(x, -1) }] }]}>{rest.map(header)}</Animated.View></View></View>
@@ -130,12 +133,12 @@ export function ReportTable({ title, rows: incomingRows, columns, total, hasMore
     <Pressable accessibilityRole="button" accessibilityLabel="Previous page" disabled={page === 0} onPress={() => { setPage((value) => value - 1); vertical.current?.scrollTo({ y: 0 }); }} style={[s.control, page === 0 && s.disabled]}><Ionicons name="arrow-back" size={18} color={pearl.accentDeep} /></Pressable>
     <Pressable accessibilityRole="button" accessibilityLabel="Next page" disabled={sortingBusy || loadingMore || ((page + 1) * PAGE_SIZE >= ordered.length && !hasMore)} onPress={() => { const next = page + 1; if ((next + 1) * PAGE_SIZE > ordered.length && hasMore) { setWaitingPage(next); onLoadMore?.(); } else setPage(next); vertical.current?.scrollTo({ y: 0 }); }} style={[s.control, loadingMore && s.disabled]}><Ionicons name="arrow-forward" size={18} color={pearl.accentDeep} /></Pressable>
   </View></View>;
-  const content = <View style={[s.content, expanded && { paddingHorizontal: 16 }]}>{controls}{sortingBusy ? <Text accessibilityLiveRegion="polite" style={s.hint}>Loading the full report for sorting…</Text> : null}<Text style={s.hint}>Swipe sideways for more columns. Drag header edges to resize.{"\n"}Tap a heading to sort, or a row to see details.</Text>{grid}{footer}</View>;
+  const content = <View style={[s.content, expanded && { paddingHorizontal: 16 }]}>{controls}{sortingBusy ? <Text translate accessibilityLiveRegion="polite" style={s.hint}>Loading the full report for sorting…</Text> : null}<Text translate style={s.hint}>Swipe sideways for more columns. Drag header edges to resize.{"\n"}Tap a heading to sort, or a row to see details.</Text>{grid}{footer}</View>;
   return <>
     {!expanded ? content : null}
-    {expanded ? <Portal><View style={StyleSheet.absoluteFill}><PearlBackground><SafeAreaView style={{ flex: 1 }}><View style={s.expandedHeader}><AppBackButton onPress={() => setExpanded(false)} /><Text style={s.title}>{title}</Text></View><ScrollView contentContainerStyle={{ paddingBottom: 24 }}>{content}</ScrollView></SafeAreaView></PearlBackground></View></Portal> : null}
+    {expanded ? <Portal><View style={StyleSheet.absoluteFill}><PearlBackground><SafeAreaView style={{ flex: 1 }}><View style={s.expandedHeader}><AppBackButton onPress={() => setExpanded(false)} /><Text translate style={s.title}>{title}</Text></View><ScrollView contentContainerStyle={{ paddingBottom: 24 }}>{content}</ScrollView></SafeAreaView></PearlBackground></View></Portal> : null}
     <BottomSheet pearlStyle centered={false} title="Columns" visible={choosingColumns} onClose={() => setChoosingColumns(false)}>
-      {columns.map((column, index) => <Pressable key={column.key} accessibilityRole="checkbox" accessibilityState={{ checked: index === 0 || !hidden.includes(column.key), disabled: index === 0 }} disabled={index === 0} onPress={() => setHidden((current) => current.includes(column.key) ? current.filter((key) => key !== column.key) : [...current, column.key])} style={s.columnChoice}><Ionicons name={index === 0 || !hidden.includes(column.key) ? "checkbox" : "square-outline"} size={22} color={pearl.accent} /><Text style={s.cellText}>{column.label}{index === 0 ? " · fixed" : ""}</Text></Pressable>)}
+      {columns.map((column, index) => <Pressable key={column.key} accessibilityRole="checkbox" accessibilityState={{ checked: index === 0 || !hidden.includes(column.key), disabled: index === 0 }} disabled={index === 0} onPress={() => setHidden((current) => current.includes(column.key) ? current.filter((key) => key !== column.key) : [...current, column.key])} style={s.columnChoice}><Ionicons name={index === 0 || !hidden.includes(column.key) ? "checkbox" : "square-outline"} size={22} color={pearl.accent} /><Text translate style={s.cellText}>{column.label}{index === 0 ? " · fixed" : ""}</Text></Pressable>)}
     </BottomSheet>
   </>;
 }

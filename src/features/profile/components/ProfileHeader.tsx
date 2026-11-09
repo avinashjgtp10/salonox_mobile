@@ -23,7 +23,7 @@ export function ProfileHeader({ rightAction }: { rightAction?: ReactNode }) {
   return (
     <View style={styles.row}>
       <AppBackButton activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={goBack} />
-      <Text style={styles.title}>Profile</Text>
+      <Text translate style={styles.title}>Profile</Text>
       {rightAction ?? <View style={styles.buttonGhost} />}
     </View>
   );

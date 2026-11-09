@@ -80,8 +80,8 @@ export default function ForgotPasswordScreen() {
     <AuthScreen header={<TopBar title="Reset password" onBack={() => router.back()} />} footer={<PrimaryButton title="Send code" loading={isLoading} loadingTitle="Sending code…" onPress={handleSendOtp} style={styles.flex} />}>
       <View style={styles.hero}>
         <HeroIcon name="mail-outline" tone="lilac" />
-        <Text style={[pearlType.h2, styles.center]}>Forgot your password?</Text>
-        <Text style={[pearlType.small, styles.lead]}>Enter the email you use for SalonOX. We’ll email you a 6-digit verification code.</Text>
+        <Text translate style={[pearlType.h2, styles.center]}>Forgot your password?</Text>
+        <Text translate style={[pearlType.small, styles.lead]}>Enter the email you use for SalonOX. We’ll email you a 6-digit verification code.</Text>
       </View>
 
       <GlassCard style={styles.card}>
@@ -104,7 +104,7 @@ export default function ForgotPasswordScreen() {
         <View style={styles.note}>
           <Ionicons name="shield-checkmark-outline" size={16} color="#6A4F98" style={styles.noteIcon} />
           <Text style={[pearlType.small, styles.noteText]}>
-            For your security, codes are sent <Text style={styles.bold}>by email only</Text>.
+            For your security, codes are sent <Text translate style={styles.bold}>by email only</Text>.
           </Text>
         </View>
       </GlassCard>

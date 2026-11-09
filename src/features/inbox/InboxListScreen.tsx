@@ -157,7 +157,7 @@ export default function InboxListScreen({
                 />
               )}
               <View style={s.fill}>
-                <Text style={s.title}>WhatsApp</Text>
+                <Text translate style={s.title}>WhatsApp</Text>
                 <Text style={[s.muted, { marginTop: 4 }]}>
                   {numberStatus?.phone
                     ? `${numberStatus.phone} \u00b7 Quality ${{ GREEN: "High", YELLOW: "Medium", RED: "Low" }[numberStatus.quality] || "unavailable"}`
@@ -205,7 +205,7 @@ export default function InboxListScreen({
               onPress={() => setUnreadOnly(value)}
               style={[s.chip, unreadOnly === value && s.selected]}
             >
-              <Text style={[s.text, unreadOnly === value && s.selectedText]}>
+              <Text translate style={[s.text, unreadOnly === value && s.selectedText]}>
                 {value ? "Unread" : "All"}
               </Text>
               {value && unread > 0 && (
@@ -220,7 +220,7 @@ export default function InboxListScreen({
             onPress={() => setUnreadFirst((value) => !value)}
             style={s.chip}
           >
-            <Text style={s.muted}>
+            <Text translate style={s.muted}>
               {unreadFirst ? "Unread first" : "Latest"}
             </Text>
             <Ionicons name="swap-vertical" color={p.muted} size={15} />
@@ -237,16 +237,16 @@ export default function InboxListScreen({
               }
               style={s.chip}
             >
-              <Text style={s.accentText}>Select all shown</Text>
+              <Text translate style={s.accentText}>Select all shown</Text>
             </TouchableOpacity>
             <TouchableOpacity
               accessibilityRole="button"
               onPress={() => setSelectedPhones([])}
               style={s.chip}
             >
-              <Text style={s.muted}>Clear</Text>
+              <Text translate style={s.muted}>Clear</Text>
             </TouchableOpacity>
-            <Text style={s.muted}>Up to 500 chats</Text>
+            <Text translate style={s.muted}>Up to 500 chats</Text>
           </View>
         )}
         {inbox.conversationsError && (
@@ -285,14 +285,14 @@ export default function InboxListScreen({
                     size={36}
                     color={p.accent}
                   />
-                  <Text style={s.heading}>
+                  <Text translate style={s.heading}>
                     {search
                       ? "No chats found"
                       : unreadOnly
                         ? "You’re all caught up"
                         : "Your chats start here"}
                   </Text>
-                  <Text style={s.emptyText}>
+                  <Text translate style={s.emptyText}>
                     {search || unreadOnly
                       ? "Try another search or switch to All."
                       : "Client replies to your WhatsApp messages will appear here."}

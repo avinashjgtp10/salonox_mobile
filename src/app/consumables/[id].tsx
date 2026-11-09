@@ -1,3 +1,4 @@
+import { useRegionalPreferences } from "@/localization/preferences";
 import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
 import { AppBackButton } from "@/components/ui/AppBackButton";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
@@ -34,6 +35,8 @@ import { canAdjustConsumableStock, canViewConsumableInventory } from "@/utils/pe
 import { formatCurrency as money } from "@/utils/currency";
 
 export default function ConsumableDetailScreen() {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
@@ -181,11 +184,11 @@ export default function ConsumableDetailScreen() {
             </Text>
             {outOfStock ? (
               <View style={[styles.stockBadge, styles.errorBadge]}>
-                <Text style={styles.errorBadgeText}>Out of stock</Text>
+                <Text translate style={styles.errorBadgeText}>Out of stock</Text>
               </View>
             ) : lowStock ? (
               <View style={[styles.stockBadge, styles.warningBadge]}>
-                <Text style={styles.warningBadgeText}>Low stock</Text>
+                <Text translate style={styles.warningBadgeText}>Low stock</Text>
               </View>
             ) : null}
           </View>
@@ -198,13 +201,13 @@ export default function ConsumableDetailScreen() {
               style={styles.adjustButton}
             >
               <Ionicons name="swap-vertical-outline" size={16} color="#FFFFFF" />
-              <Text style={styles.adjustButtonText}>Adjust Stock</Text>
+              <Text translate style={styles.adjustButtonText}>Adjust Stock</Text>
             </TouchableOpacity>
           ) : null}
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Product Details</Text>
+          <Text translate style={styles.sectionTitle}>Product Details</Text>
           <InfoRow label="Product type" value={consumable.productType ?? "—"} />
           <InfoRow label="Measure unit" value={consumable.measureUnit ?? "—"} />
           <InfoRow label="Bottle size" value={consumable.bottleSize != null ? String(consumable.bottleSize) : "—"} />
@@ -220,14 +223,14 @@ export default function ConsumableDetailScreen() {
 
         <View style={styles.card}>
           <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>Assigned Services</Text>
+            <Text translate style={styles.sectionTitle}>Assigned Services</Text>
           </View>
           {state.assignedServicesLoading ? (
             <ActivityIndicator color={Colors.primaryText} />
           ) : state.assignedServicesError ? (
             <Text style={styles.errorInlineText}>{state.assignedServicesError}</Text>
           ) : state.assignedServices.length === 0 ? (
-            <Text style={styles.emptySectionText}>No services currently use this consumable.</Text>
+            <Text translate style={styles.emptySectionText}>No services currently use this consumable.</Text>
           ) : (
             state.assignedServices.map((service) => (
               <View key={service.serviceId} style={styles.listRow}>
@@ -244,10 +247,10 @@ export default function ConsumableDetailScreen() {
 
         <View style={styles.card}>
           <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>Unit Conversions</Text>
+            <Text translate style={styles.sectionTitle}>Unit Conversions</Text>
             {canAdjust ? (
               <TouchableOpacity onPress={() => setIsUnitConversionsSheetVisible(true)}>
-                <Text style={styles.editLink}>Edit</Text>
+                <Text translate style={styles.editLink}>Edit</Text>
               </TouchableOpacity>
             ) : null}
           </View>
@@ -256,7 +259,7 @@ export default function ConsumableDetailScreen() {
           ) : state.unitConversionsError ? (
             <Text style={styles.errorInlineText}>{state.unitConversionsError}</Text>
           ) : state.unitConversions.length === 0 ? (
-            <Text style={styles.emptySectionText}>No unit conversions configured for this consumable.</Text>
+            <Text translate style={styles.emptySectionText}>No unit conversions configured for this consumable.</Text>
           ) : (
             state.unitConversions.map((conversion) => (
               <View key={conversion.unitName} style={styles.listRow}>
@@ -302,12 +305,14 @@ export default function ConsumableDetailScreen() {
 }
 
 function InfoRow({ label, value }: { label: string; value: string }) {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   return (
     <View style={styles.infoRow}>
-      <Text style={styles.infoLabel}>{label}</Text>
+      <Text translate style={styles.infoLabel}>{label}</Text>
       <Text numberOfLines={1} style={styles.infoValue}>
         {value}
       </Text>

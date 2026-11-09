@@ -187,7 +187,7 @@ export default function EditServiceScreen() {
         <View style={styles.centeredWrap}>
           <View style={styles.headerRow}>
             <AppBackButton activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} />
-            <Text style={styles.headerTitle}>Edit Service</Text>
+            <Text translate style={styles.headerTitle}>Edit Service</Text>
             <View style={styles.backButtonPlaceholder} />
           </View>
           <View style={styles.centeredContent}>
@@ -205,11 +205,11 @@ export default function EditServiceScreen() {
         <View style={styles.centeredWrap}>
           <View style={styles.headerRow}>
             <AppBackButton activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} />
-            <Text style={styles.headerTitle}>Edit Service</Text>
+            <Text translate style={styles.headerTitle}>Edit Service</Text>
             <View style={styles.backButtonPlaceholder} />
           </View>
           <View style={styles.notFoundCard}>
-            <Text style={styles.notFoundTitle}>Unable to load service</Text>
+            <Text translate style={styles.notFoundTitle}>Unable to load service</Text>
             <Text style={styles.notFoundSubtitle}>{detailsError}</Text>
           </View>
         </View>
@@ -229,7 +229,7 @@ export default function EditServiceScreen() {
         >
           <View style={styles.headerRow}>
             <AppBackButton activeOpacity={0.8} disabled={isSubmitting} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} />
-            <Text style={styles.headerTitle}>Edit Service</Text>
+            <Text translate style={styles.headerTitle}>Edit Service</Text>
             <View style={styles.backButtonPlaceholder} />
           </View>
 
@@ -239,7 +239,7 @@ export default function EditServiceScreen() {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Service Name</Text>
+              <Text translate style={styles.inputLabel}>Service Name</Text>
               <View style={[styles.inputContainer, fieldErrors.name && styles.inputContainerError]}>
                 <Ionicons name="pricetag-outline" size={18} color={fieldErrors.name ? Colors.error : Colors.text2} />
                 <TextInput
@@ -258,7 +258,7 @@ export default function EditServiceScreen() {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Price</Text>
+              <Text translate style={styles.inputLabel}>Price</Text>
               <View style={[styles.inputContainer, fieldErrors.price && styles.inputContainerError]}>
                 <Ionicons name="cash-outline" size={18} color={fieldErrors.price ? Colors.error : Colors.text2} />
                 <TextInput
@@ -277,7 +277,7 @@ export default function EditServiceScreen() {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Duration (minutes)</Text>
+              <Text translate style={styles.inputLabel}>Duration (minutes)</Text>
               <View style={[styles.inputContainer, fieldErrors.duration && styles.inputContainerError]}>
                 <Ionicons name="time-outline" size={18} color={fieldErrors.duration ? Colors.error : Colors.text2} />
                 <TextInput
@@ -296,7 +296,7 @@ export default function EditServiceScreen() {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Category</Text>
+              <Text translate style={styles.inputLabel}>Category</Text>
               <View style={styles.inputContainer}>
                 <Ionicons name="layers-outline" size={18} color={Colors.text2} />
                 <TextInput
@@ -313,7 +313,7 @@ export default function EditServiceScreen() {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Consumables</Text>
+              <Text translate style={styles.inputLabel}>Consumables</Text>
               <ConsumablesSection disabled={isSubmitting} onChange={setConsumables} value={consumables} />
             </View>
 
@@ -342,7 +342,7 @@ export default function EditServiceScreen() {
               ) : (
                 <Ionicons name="checkmark-circle-outline" size={18} color="#FFFFFF" />
               )}
-              <Text style={styles.submitButtonText}>
+              <Text translate style={styles.submitButtonText}>
                 {isSubmitting ? "Saving..." : "Save Changes"}
               </Text>
             </TouchableOpacity>

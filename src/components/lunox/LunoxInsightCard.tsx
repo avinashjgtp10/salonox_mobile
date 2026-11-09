@@ -42,7 +42,7 @@ export function LunoxInsightCard({ refreshKey = 0 }: { refreshKey?: number }) {
         <View style={styles.brand}>
           <View style={styles.orb}><Image source={LUNOX_MARK} style={{ width: 15, height: 15 }} resizeMode="contain" /></View>
           <Image source={LUNOX_WORD} style={styles.word} resizeMode="contain" accessibilityLabel="lunox" />
-          <View style={styles.tag}><Text style={styles.tagText}>AI insight</Text></View>
+          <View style={styles.tag}><Text translate style={styles.tagText}>AI insight</Text></View>
         </View>
         <Pressable onPress={open} hitSlop={8} accessibilityRole="button" accessibilityLabel="Open Lunox">
           <Icon name="chevronRight" size={16} color={pearl.muted} />
@@ -52,11 +52,11 @@ export function LunoxInsightCard({ refreshKey = 0 }: { refreshKey?: number }) {
       <View style={styles.actions}>
         <Pressable onPress={open} accessibilityRole="button" style={({ pressed }) => [pressed && { opacity: 0.85 }]}>
           <LinearGradient colors={BUTTON_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.btn, pearlShadow.button]}>
-            <Text style={styles.btnText}>Ask Lunox</Text>
+            <Text translate style={styles.btnText}>Ask Lunox</Text>
           </LinearGradient>
         </Pressable>
         <Pressable onPress={() => router.push("/clients" as Href)} accessibilityRole="button" style={({ pressed }) => [styles.ghost, pressed && { opacity: 0.85 }]}>
-          <Text style={styles.ghostText}>Show clients</Text>
+          <Text translate style={styles.ghostText}>Show clients</Text>
         </Pressable>
       </View>
     </LinearGradient>

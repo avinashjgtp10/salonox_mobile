@@ -50,7 +50,7 @@ export function AppointmentClientSection({
         ) : (
           <ClientSearchField pearlStyle onAddClient={() => setIsPickerVisible(true)} onSelect={onSelect} />
         )}
-        {error ? <Text style={s.error}>{error}</Text> : null}
+        {error ? <Text translate style={s.error}>{error}</Text> : null}
       </BookingSection>
       <ClientPickerSheet
         onClose={() => setIsPickerVisible(false)}

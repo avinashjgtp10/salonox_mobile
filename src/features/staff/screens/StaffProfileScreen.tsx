@@ -1,3 +1,4 @@
+import { useRegionalPreferences } from "@/localization/preferences";
 import { useMemo, useState } from "react";
 import { Linking, ScrollView, TouchableOpacity, View } from "react-native";
 import { router, useLocalSearchParams, type Href } from "expo-router";
@@ -25,6 +26,8 @@ import { maskPhone } from "@/utils/maskPhone";
 import { useAppToast } from "@/hooks/useAppToast";
 import { STAFF_MODULE_SECTIONS } from "../constants/staffModule.constants";
 export default function StaffProfileScreen() {
+  "use no memo";
+  useRegionalPreferences();
   const { id } = useLocalSearchParams<{ id: string }>();
   const details = useStaffDetails(id);
   const list = useMemo(
@@ -48,7 +51,7 @@ export default function StaffProfileScreen() {
         alignItems: "center",
       }}
     >
-      <Text style={[staffUi.muted, { width: "32%" }]}>{label}</Text>
+      <Text translate style={[staffUi.muted, { width: "32%" }]}>{label}</Text>
       <Text style={[staffUi.rowTitle, { flex: 1, textAlign: "right" }]}>
         {value || "—"}
       </Text>
@@ -158,7 +161,7 @@ export default function StaffProfileScreen() {
                           color={pearl.accentDeep}
                         />
                       </View>
-                      <Text style={staffUi.muted}>{a.label}</Text>
+                      <Text translate style={staffUi.muted}>{a.label}</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -233,7 +236,7 @@ export default function StaffProfileScreen() {
                         { flexBasis: "47%", flexGrow: 1 },
                       ]}
                     >
-                      <Text style={staffUi.muted}>{label}</Text>
+                      <Text translate style={staffUi.muted}>{label}</Text>
                       <Text style={[staffUi.title, { fontSize: 21 }]}>
                         {value}
                       </Text>
@@ -255,7 +258,7 @@ export default function StaffProfileScreen() {
                         "Not added",
                     )}
                   </View>
-                  <Text style={staffUi.heading}>Emergency contact</Text>
+                  <Text translate style={staffUi.heading}>Emergency contact</Text>
                   <View style={staffUi.formCard}>
                     {details.emergencyContactListState?.loading ? (
                       <ActivityIndicator />
@@ -269,7 +272,7 @@ export default function StaffProfileScreen() {
                       ))
                     ) : (
                       <>
-                        <Text
+                        <Text translate
                           style={[staffUi.rowTitle, { textAlign: "center" }]}
                         >
                           No emergency contact
@@ -330,7 +333,7 @@ export default function StaffProfileScreen() {
                         </View>
                       ))
                     ) : (
-                      <Text style={[staffUi.muted, { padding: 18 }]}>
+                      <Text translate style={[staffUi.muted, { padding: 18 }]}>
                         No services assigned.
                       </Text>
                     )}

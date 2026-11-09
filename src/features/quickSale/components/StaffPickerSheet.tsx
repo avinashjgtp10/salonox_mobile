@@ -52,7 +52,7 @@ export function StaffPickerSheet({
         {staff.length === 0 ? (
           <View style={styles.emptyState}>
             <Ionicons name="people-outline" size={22} color={Colors.text2} />
-            <Text style={styles.emptyStateText}>No staff available for this branch.</Text>
+            <Text translate style={styles.emptyStateText}>No staff available for this branch.</Text>
           </View>
         ) : (
           <FlatList

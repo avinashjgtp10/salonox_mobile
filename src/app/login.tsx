@@ -188,8 +188,8 @@ export default function LoginScreen() {
 
       <GlassCard style={styles.card}>
         <View style={styles.heading}>
-          <Text style={[pearlType.h1, styles.title]}>Welcome back</Text>
-          <Text style={[pearlType.body, styles.subtitle]}>Sign in to your beauty and wellness workspace</Text>
+          <Text translate style={[pearlType.h1, styles.title]}>Welcome back</Text>
+          <Text translate style={[pearlType.body, styles.subtitle]}>Sign in to your beauty and wellness workspace</Text>
         </View>
 
         {notice ? <Banner kind="warn" title={notice.title} message={notice.message} /> : null}
@@ -234,14 +234,14 @@ export default function LoginScreen() {
         />
 
         <Pressable onPress={() => router.push("/forgot-password")} style={styles.forgot} hitSlop={8} accessibilityRole="link">
-          <Text style={pearlType.link}>Forgot password?</Text>
+          <Text translate style={pearlType.link}>Forgot password?</Text>
         </Pressable>
 
         <PrimaryButton title="Sign in" loading={isLoading && ssoLoading === null} loadingTitle="Signing in…" disabled={busy} onPress={handleLogin} />
 
         <View style={styles.or}>
           <View style={styles.line} />
-          <Text style={pearlType.small}>or continue with</Text>
+          <Text translate style={pearlType.small}>or continue with</Text>
           <View style={styles.line} />
         </View>
 
@@ -252,7 +252,7 @@ export default function LoginScreen() {
             loading={ssoLoading === "Google"}
             disabled={busy}
             onPress={handleGoogleLogin}
-            left={<SsoIcon><Text style={styles.googleG}>G</Text></SsoIcon>}
+            left={<SsoIcon><Text translate style={styles.googleG}>G</Text></SsoIcon>}
             style={styles.flex}
           />
           <GlassButton
@@ -268,8 +268,8 @@ export default function LoginScreen() {
 
       <GlassCard style={styles.register}>
         <View style={styles.flex}>
-          <Text style={pearlType.bodyStrong}>New to SalonOX?</Text>
-          <Text style={pearlType.small}>Register your salon or spa on our website</Text>
+          <Text translate style={pearlType.bodyStrong}>New to SalonOX?</Text>
+          <Text translate style={pearlType.small}>Register your salon or spa on our website</Text>
         </View>
         <OutlineButton
           title="Register"

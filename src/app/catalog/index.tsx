@@ -1,3 +1,4 @@
+import { useRegionalPreferences } from "@/localization/preferences";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { SearchableFilterDropdown } from "@/components/ui/SearchableFilterDropdown";
 import { useCatalogCollection } from "@/features/catalog/hooks/useCatalogCollection";
@@ -156,6 +157,8 @@ type CatalogRowProps = {
 
 
 const CatalogTableRow = memo(function CatalogTableRow({ colors, isDeleting, item, onDelete, onOpen, styles }: CatalogRowProps) {
+  "use no memo";
+  useRegionalPreferences();
   const tone = item.stockQuantity !== undefined ? pearlTones.peach : pearlTones.rose;
   const stock = item.stockQuantity;
   const low = stock != null && stock <= (item.lowStockThreshold ?? 0);
@@ -164,7 +167,7 @@ const CatalogTableRow = memo(function CatalogTableRow({ colors, isDeleting, item
       <View style={[styles.itemIcon, { backgroundColor: tone.bg }]}><Ionicons name={stock != null ? "cube-outline" : item.serviceCount != null ? "albums-outline" : item.validFor ? "diamond-outline" : "cut-outline"} size={20} color={tone.fg} /></View>
       <View style={{ flex: 1, minWidth: 0 }}><Text numberOfLines={2} style={styles.tableName}>{item.name}</Text><Text numberOfLines={2} style={styles.tableCell}>{item.category} · {item.meta}</Text></View>
       <View style={{ alignItems: "flex-end", gap: 5 }}><Text style={styles.tablePrice}>{formatMoney(item.price)}</Text>
-        {stock != null ? <Text style={[styles.stockPill, { color: stock <= 0 ? pearl.dangerText : low ? pearl.warningText : pearl.successText, backgroundColor: stock <= 0 ? pearl.dangerBg : low ? pearl.warningBg : pearl.successBg }]}>{stock <= 0 ? "Out of stock" : low ? `${stock} left` : `${stock} in stock`}</Text> : !item.isActive ? <Text style={styles.tableCell}>Inactive</Text> : null}
+        {stock != null ? <Text style={[styles.stockPill, { color: stock <= 0 ? pearl.dangerText : low ? pearl.warningText : pearl.successText, backgroundColor: stock <= 0 ? pearl.dangerBg : low ? pearl.warningBg : pearl.successBg }]}>{stock <= 0 ? "Out of stock" : low ? `${stock} left` : `${stock} in stock`}</Text> : !item.isActive ? <Text translate style={styles.tableCell}>Inactive</Text> : null}
       </View>
       {onDelete ? (
         <TouchableOpacity accessibilityLabel={`Actions for ${item.name}`} disabled={isDeleting} hitSlop={8} onPress={() => onDelete(item)} style={styles.tableDeleteButton}>
@@ -176,6 +179,8 @@ const CatalogTableRow = memo(function CatalogTableRow({ colors, isDeleting, item
 });
 
 const CatalogGridCard = memo(function CatalogGridCard({ colors, isDeleting, item, onDelete, onOpen, statusLabel, styles }: CatalogRowProps & { statusLabel: string }) {
+  "use no memo";
+  useRegionalPreferences();
   return (
     <View style={styles.catalogGridCard}>
       <TouchableOpacity accessibilityRole="button" disabled={!item.route && item.serviceCount === undefined} onPress={() => onOpen(item)} style={styles.catalogGridCopy}>
@@ -197,6 +202,8 @@ const CatalogGridCard = memo(function CatalogGridCard({ colors, isDeleting, item
 const keyExtractor = (item: CatalogItem) => item.id;
 
 export default function CatalogScreen() {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
@@ -417,18 +424,18 @@ export default function CatalogScreen() {
   const listHeader = (
     <View style={styles.listHeader}>
       <View style={styles.header}>
-        <AppBackButton onPress={goBack} /><View style={{ flex: 1 }}><Text style={styles.title}>Catalog</Text><Text style={styles.subtitle}>Services & products</Text></View><LunoxHeaderButton />
+        <AppBackButton onPress={goBack} /><View style={{ flex: 1 }}><Text translate style={styles.title}>Catalog</Text><Text translate style={styles.subtitle}>Services & products</Text></View><LunoxHeaderButton />
       </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabsScroller} contentContainerStyle={styles.tabsContent}>
         {TABS.map((tab) => <TouchableOpacity key={tab.key} accessibilityRole="tab" accessibilityState={{ selected: activeTab === tab.key }} onPress={() => { setActiveTab(tab.key); setQuery(""); setInactiveOnly(false); }} style={[styles.tab, activeTab === tab.key && styles.tabActive]}><Text style={[styles.tabText, activeTab === tab.key && styles.tabTextActive]}>{tab.label} {itemsByTab[tab.key].length}</Text></TouchableOpacity>)}
       </ScrollView>
       <View style={styles.summaryRow}>
         {activeTab === "products" ? <>
-          <View style={styles.summaryTile}><Text style={styles.summaryLabel}>Stock value</Text><Text numberOfLines={1} adjustsFontSizeToFit style={styles.summaryValue}>{formatMoney(stockValue)}</Text><Text style={styles.tableCell}>At supply price</Text></View>
-          <TouchableOpacity accessibilityLabel="Filter low stock products" onPress={() => applyFilters({ ...activeFilters, stock: "low" })} style={styles.summaryTile}><Text style={styles.summaryLabel}>Low stock</Text><Text style={[styles.summaryValue, { color: pearlTones.peach.fg }]}>{lowStockCount} items</Text><Text style={styles.tableCell}>Tap to filter</Text></TouchableOpacity>
+          <View style={styles.summaryTile}><Text translate style={styles.summaryLabel}>Stock value</Text><Text numberOfLines={1} adjustsFontSizeToFit style={styles.summaryValue}>{formatMoney(stockValue)}</Text><Text translate style={styles.tableCell}>At supply price</Text></View>
+          <TouchableOpacity accessibilityLabel="Filter low stock products" onPress={() => applyFilters({ ...activeFilters, stock: "low" })} style={styles.summaryTile}><Text translate style={styles.summaryLabel}>Low stock</Text><Text style={[styles.summaryValue, { color: pearlTones.peach.fg }]}>{lowStockCount} items</Text><Text translate style={styles.tableCell}>Tap to filter</Text></TouchableOpacity>
         </> : <>
           <View style={styles.summaryTile}><Text style={styles.summaryLabel}>{activeTab === "memberships" ? "Online memberships" : "Active " + activeTab}</Text><Text style={styles.summaryValue}>{activeCount} / {itemsByTab[activeTab].length}</Text></View>
-          <View style={styles.summaryTile}><Text style={styles.summaryLabel}>Avg price</Text><Text numberOfLines={1} adjustsFontSizeToFit style={styles.summaryValue}>{averagePrice === null ? "—" : formatMoney(averagePrice)}</Text><Text style={styles.tableCell}>{activeTab === "memberships" ? "Across online memberships" : "Across active " + activeTab}</Text></View>
+          <View style={styles.summaryTile}><Text translate style={styles.summaryLabel}>Avg price</Text><Text numberOfLines={1} adjustsFontSizeToFit style={styles.summaryValue}>{averagePrice === null ? "—" : formatMoney(averagePrice)}</Text><Text style={styles.tableCell}>{activeTab === "memberships" ? "Across online memberships" : "Across active " + activeTab}</Text></View>
         </>}
       </View>
       <View style={styles.toolbar}>
@@ -438,24 +445,24 @@ export default function CatalogScreen() {
       {activeTab === "services" ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
         {["All", ...categories, "Inactive " + (itemsByTab.services.length - activeCount)].map((label, index) => {
           const selected = index === 0 ? !inactiveOnly && !(activeFilters as { category: string[] }).category.length : index === categories.length + 1 ? inactiveOnly : !inactiveOnly && (activeFilters as { category: string[] }).category.includes(label);
-          return <TouchableOpacity key={label} onPress={() => { setInactiveOnly(index === categories.length + 1); applyFilters({ ...(activeFilters as ServiceCatalogFilters), category: index === 0 || index === categories.length + 1 ? [] : [label] }); }} style={[styles.chip, selected && styles.chipActive]}><Text style={[styles.chipText, selected && { color: pearl.accentDeep }]}>{label}</Text></TouchableOpacity>;
+          return <TouchableOpacity key={label} onPress={() => { setInactiveOnly(index === categories.length + 1); applyFilters({ ...(activeFilters as ServiceCatalogFilters), category: index === 0 || index === categories.length + 1 ? [] : [label] }); }} style={[styles.chip, selected && styles.chipActive]}><Text translate style={[styles.chipText, selected && { color: pearl.accentDeep }]}>{label}</Text></TouchableOpacity>;
         })}
       </ScrollView> : null}
       {activeTab === "consumables" ? <SearchableFilterDropdown pearlStyle multi={false} options={["Newest", "Lowest Stock", "Most Used", "A-Z"]} placeholder="Sort consumables" selected={[consumableSort]} onToggle={setConsumableSort} /> : null}
       <View style={styles.filterToolbar}>
         <TouchableOpacity accessibilityRole="button" onPress={() => setFilterVisible(true)} style={styles.filterButton}><Ionicons name="options-outline" size={17} color={pearl.accentDeep} /><Text style={styles.filterButtonText}>Filters{filterCount ? " · " + filterCount : ""}</Text></TouchableOpacity>
         <Text style={styles.resultCount}>{visibleItems.length} results</Text>
-        {filterCount || inactiveOnly ? <TouchableOpacity onPress={() => { clearFilters(); setInactiveOnly(false); }}><Text style={styles.clearFilterText}>Clear</Text></TouchableOpacity> : null}
+        {filterCount || inactiveOnly ? <TouchableOpacity onPress={() => { clearFilters(); setInactiveOnly(false); }}><Text translate style={styles.clearFilterText}>Clear</Text></TouchableOpacity> : null}
       </View>
     </View>
   );
 
   const listEmpty = loading && itemsByTab[activeTab].length === 0
-    ? <View style={styles.state}><ActivityIndicator color={Colors.primaryText} size="large" /><Text style={styles.stateText}>Loading catalog...</Text></View>
+    ? <View style={styles.state}><ActivityIndicator color={Colors.primaryText} size="large" /><Text translate style={styles.stateText}>Loading catalog...</Text></View>
     : error && !loading
-      ? <View style={styles.state}><Ionicons color={Colors.error} name="alert-circle-outline" size={32} /><Text style={styles.stateTitle}>Unable to load {activeTab}</Text><Text style={styles.stateText}>{error}</Text><TouchableOpacity onPress={() => void loadCatalog(true)} style={styles.retryButton}><Text style={styles.retryText}>Retry</Text></TouchableOpacity></View>
+      ? <View style={styles.state}><Ionicons color={Colors.error} name="alert-circle-outline" size={32} /><Text style={styles.stateTitle}>Unable to load {activeTab}</Text><Text translate style={styles.stateText}>{error}</Text><TouchableOpacity onPress={() => void loadCatalog(true)} style={styles.retryButton}><Text translate style={styles.retryText}>Retry</Text></TouchableOpacity></View>
       : !loading && !error
-        ? <View style={styles.state}><Ionicons color={Colors.text2} name="file-tray-outline" size={34} /><Text style={styles.stateTitle}>No {activeTab} found</Text><Text style={styles.stateText}>{filterCount > 0 ? `No ${activeTab} match the applied filters. Clear or change them to see more.` : "Try another search or add an item from its management screen."}</Text>{filterCount > 0 ? <TouchableOpacity accessibilityRole="button" onPress={clearFilters} style={styles.retryButton}><Text style={styles.retryText}>Clear filters</Text></TouchableOpacity> : null}</View>
+        ? <View style={styles.state}><Ionicons color={Colors.text2} name="file-tray-outline" size={34} /><Text style={styles.stateTitle}>No {activeTab} found</Text><Text style={styles.stateText}>{filterCount > 0 ? `No ${activeTab} match the applied filters. Clear or change them to see more.` : "Try another search or add an item from its management screen."}</Text>{filterCount > 0 ? <TouchableOpacity accessibilityRole="button" onPress={clearFilters} style={styles.retryButton}><Text translate style={styles.retryText}>Clear filters</Text></TouchableOpacity> : null}</View>
         : null;
 
   return (
@@ -486,22 +493,22 @@ export default function CatalogScreen() {
           <Text style={styles.tablePrice}>{formatMoney(packageToItem(selectedPackage).price)}</Text>
           <Text style={styles.tableCell}>{selectedPackage.category || "Uncategorized"} · {selectedPackage.status}</Text>
           <Text style={styles.tableCell}>Duration: {selectedPackage.durationMinutes} min</Text>
-          <Text style={styles.tableName}>Included services</Text>
+          <Text translate style={styles.tableName}>Included services</Text>
           {selectedPackage.serviceIds.map((id) => <Text key={id} style={styles.tableCell}>{services.find((service) => service.id === id)?.name ?? "Service unavailable"}</Text>)}
-          {!selectedPackage.serviceIds.length ? <Text style={styles.tableCell}>No services assigned</Text> : null}
+          {!selectedPackage.serviceIds.length ? <Text translate style={styles.tableCell}>No services assigned</Text> : null}
         </View> : null}
       </BottomSheet>
-      <TouchableOpacity accessibilityRole="button" accessibilityLabel="Add to catalog" onPress={() => setAddVisible(true)} style={styles.fab}><LinearGradient pointerEvents="none" colors={pearlGradients.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} /><Ionicons name="add" size={21} color="#FFFFFF" /><Text style={styles.addButtonText}>Add</Text></TouchableOpacity>
+      <TouchableOpacity accessibilityRole="button" accessibilityLabel="Add to catalog" onPress={() => setAddVisible(true)} style={styles.fab}><LinearGradient pointerEvents="none" colors={pearlGradients.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} /><Ionicons name="add" size={21} color="#FFFFFF" /><Text translate style={styles.addButtonText}>Add</Text></TouchableOpacity>
       <BottomSheet pearlStyle centered={false} title="Add to catalog" visible={addVisible} onClose={() => setAddVisible(false)}>
         <View style={styles.choices}>{([
           { label: "Service", hint: "Haircut, facial, spa…", icon: "cut-outline", route: "/services/new" },
           { label: "Product", hint: "Retail or salon-use stock", icon: "cube-outline", route: "/stock/new" },
           { label: "Membership", hint: "Wallet, discounts or loyalty", icon: "diamond-outline", route: "/memberships/new" },
           { label: "Consumable", hint: "Stock used during services", icon: "flask-outline", route: "/consumables/new" },
-        ] as const).map((choice) => <TouchableOpacity key={choice.label} style={styles.choice} onPress={() => { setAddVisible(false); router.push(choice.route as Href); }}><View style={[styles.itemIcon, { backgroundColor: pearlTones.rose.bg }]}><Ionicons name={choice.icon} size={20} color={pearl.accentDeep} /></View><View style={{ flex: 1 }}><Text style={styles.tableName}>{choice.label}</Text><Text style={styles.tableCell}>{choice.hint}</Text></View><Ionicons name="chevron-forward" size={18} color={pearl.muted} /></TouchableOpacity>)}</View>
+        ] as const).map((choice) => <TouchableOpacity key={choice.label} style={styles.choice} onPress={() => { setAddVisible(false); router.push(choice.route as Href); }}><View style={[styles.itemIcon, { backgroundColor: pearlTones.rose.bg }]}><Ionicons name={choice.icon} size={20} color={pearl.accentDeep} /></View><View style={{ flex: 1 }}><Text translate style={styles.tableName}>{choice.label}</Text><Text style={styles.tableCell}>{choice.hint}</Text></View><Ionicons name="chevron-forward" size={18} color={pearl.muted} /></TouchableOpacity>)}</View>
       </BottomSheet>
       <BottomSheet pearlStyle centered={false} title={actionItem?.name ?? "Item actions"} visible={!!actionItem} onClose={() => setActionItem(null)}>
-        {actionItem ? <View style={{ gap: 12 }}><TouchableOpacity style={styles.choice} onPress={() => { const item = actionItem; setActionItem(null); onOpen(item); }}><Text style={styles.tableName}>View details</Text></TouchableOpacity><TouchableOpacity style={styles.choice} onPress={() => { const item = actionItem; setActionItem(null); confirmDelete(item); }}><Ionicons name="trash-outline" size={18} color={Colors.error} /><Text style={{ color: Colors.error }}>Delete</Text></TouchableOpacity></View> : null}
+        {actionItem ? <View style={{ gap: 12 }}><TouchableOpacity style={styles.choice} onPress={() => { const item = actionItem; setActionItem(null); onOpen(item); }}><Text translate style={styles.tableName}>View details</Text></TouchableOpacity><TouchableOpacity style={styles.choice} onPress={() => { const item = actionItem; setActionItem(null); confirmDelete(item); }}><Ionicons name="trash-outline" size={18} color={Colors.error} /><Text translate style={{ color: Colors.error }}>Delete</Text></TouchableOpacity></View> : null}
       </BottomSheet>
       <CatalogFilterSheet brands={brands} categories={categories} label={activeTabLabel} onApply={applyFilters} onClose={() => setFilterVisible(false)} onReset={clearFilters} serviceOptions={serviceOptions} suppliers={suppliers} tab={activeTab} validForOptions={validForOptions} value={activeFilters} visible={filterVisible} />
     </SafeAreaView></PearlBackground>

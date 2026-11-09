@@ -1,7 +1,7 @@
 import { router, type Href } from "expo-router";
 import { StyleSheet, TouchableOpacity, View, type StyleProp, type ViewStyle, type TouchableOpacityProps } from "react-native";
 import { Icon } from "@/components/pearl/Icon";
-import { pearl } from "@/components/auth/pearl/tokens";
+import { usePearlPalette } from "@/components/auth/pearl/usePearlPalette";
 import { AppLayout } from "@/constants/layout";
 
 type AppBackButtonProps = Omit<TouchableOpacityProps, "onPress"> & {
@@ -9,13 +9,14 @@ type AppBackButtonProps = Omit<TouchableOpacityProps, "onPress"> & {
   onPress?: () => void;
 };
 export function AppBackButton({ fallbackHref, onPress, style, ...props }: AppBackButtonProps) {
+  const palette = usePearlPalette();
   const handlePress = () => {
     if (onPress) return onPress();
     if (router.canGoBack()) return router.back();
     if (fallbackHref) router.replace(fallbackHref);
   };
-  return <TouchableOpacity accessibilityRole="button" accessibilityLabel="Go back" activeOpacity={0.84} hitSlop={AppLayout.headerActionHitSlop} {...props} onPress={handlePress} style={[style, styles.button]}>
-    <Icon name="chevronLeft" size={20} color={pearl.ink} strokeWidth={2} />
+  return <TouchableOpacity accessibilityRole="button" accessibilityLabel="Go back" activeOpacity={0.84} hitSlop={AppLayout.headerActionHitSlop} {...props} onPress={handlePress} style={[style, styles.button, { backgroundColor: palette.glassStrong, borderColor: palette.glassBorder }]}>
+    <Icon name="chevronLeft" size={20} color={palette.ink} strokeWidth={2} />
   </TouchableOpacity>;
 }
 export function AppBackButtonPlaceholder({ style }: { style?: StyleProp<ViewStyle> }) {

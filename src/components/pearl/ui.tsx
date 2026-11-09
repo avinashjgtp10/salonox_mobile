@@ -43,7 +43,7 @@ export function StatusPill({ tone, label }: { tone: PillTone; label: string }) {
   return (
     <View style={[styles.pill, { backgroundColor: pearlTones[tone].bg }]} accessibilityLabel={label}>
       <View style={[styles.pillDot, { backgroundColor: pearlTones[tone].fg }]} />
-      <Text style={[styles.pillText, { color: pearlTones[tone].fg }]}>{label}</Text>
+      <Text translate style={[styles.pillText, { color: pearlTones[tone].fg }]}>{label}</Text>
     </View>
   );
 }
@@ -51,7 +51,7 @@ export function StatusPill({ tone, label }: { tone: PillTone; label: string }) {
 export function SectionHeader({ title, action, onAction }: { title: string; action?: string; onAction?: () => void }) {
   return (
     <View style={styles.secH}>
-      <Text style={[pearlType.bodyStrong, { fontSize: 15, fontWeight: "800" }]} accessibilityRole="header">{title}</Text>
+      <Text translate style={[pearlType.bodyStrong, { fontSize: 15, fontWeight: "800" }]} accessibilityRole="header">{title}</Text>
       {action ? <Pressable onPress={onAction} disabled={!onAction} hitSlop={8} accessibilityRole={onAction ? "link" : "text"}><Text style={pearlType.link}>{action}</Text></Pressable> : null}
     </View>
   );
@@ -68,8 +68,8 @@ export function ListRow({ left, title, subtitle, right, onPress, label, chevron 
     <>
       {left}
       <View style={{ flex: 1, minWidth: 0 }}>
-        <Text style={pearlType.bodyStrong} numberOfLines={1}>{title}</Text>
-        {subtitle ? <Text style={[pearlType.small, { marginTop: 2 }]} numberOfLines={1}>{subtitle}</Text> : null}
+        <Text translate style={pearlType.bodyStrong} numberOfLines={1}>{title}</Text>
+        {subtitle ? <Text translate style={[pearlType.small, { marginTop: 2 }]} numberOfLines={1}>{subtitle}</Text> : null}
       </View>
       {right}
       {chevron ? <Icon name="chevronRight" size={16} color={pearl.muted} /> : null}
@@ -95,7 +95,7 @@ export function StatTile({ icon, tone, label, value, sub, onPress, style, loadin
           {onPress ? <Icon name="chevronRight" size={14} color={pearl.muted} /> : null}
         </View>
       ) : null}
-      <Text style={[pearlType.small, { fontSize: 12, fontWeight: "600" }]} numberOfLines={1}>{label}</Text>
+      <Text translate style={[pearlType.small, { fontSize: 12, fontWeight: "600" }]} numberOfLines={1}>{label}</Text>
       {loading
         ? <Skeleton h={20} r={8} style={{ marginTop: 4, width: "70%" }} />
         : <Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{value}</Text>}
@@ -111,7 +111,7 @@ export function EmptyState({ icon, title, body, action }: { icon: IconName; titl
   return (
     <View style={styles.empty}>
       <Tile icon={icon} tone="lilac" size={52} />
-      <Text style={[pearlType.bodyStrong, { textAlign: "center" }]}>{title}</Text>
+      <Text translate style={[pearlType.bodyStrong, { textAlign: "center" }]}>{title}</Text>
       <Text style={[pearlType.small, { textAlign: "center", maxWidth: 280 }]}>{body}</Text>
       {action}
     </View>
@@ -128,7 +128,7 @@ export function SmallButton({ title, onPress, primary, icon, disabled }: {
   const content = (
     <>
       {icon ? <Icon name={icon} size={15} color={primary ? "#fff" : pearl.accentDeep} strokeWidth={2} /> : null}
-      <Text style={[styles.smallText, { color: primary ? "#fff" : pearl.accentDeep }]}>{title}</Text>
+      <Text translate style={[styles.smallText, { color: primary ? "#fff" : pearl.accentDeep }]}>{title}</Text>
     </>
   );
   return (

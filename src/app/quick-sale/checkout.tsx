@@ -424,7 +424,7 @@ function OwnerQuickSaleCheckoutScreen() {
           >
             <Ionicons name="close" size={20} color={Colors.heading} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>{isPreview ? "Invoice" : "Sale complete"}</Text>
+          <Text translate style={styles.headerTitle}>{isPreview ? "Invoice" : "Sale complete"}</Text>
           <View style={styles.headerIconButtonPlaceholder} />
         </View>
 
@@ -438,12 +438,12 @@ function OwnerQuickSaleCheckoutScreen() {
             receiptLoadState.status === "retrying" ? (
             <View style={styles.receiptStateCard}>
               <ActivityIndicator color={Colors.primaryText} size="large" />
-              <Text style={styles.receiptStateTitle}>
+              <Text translate style={styles.receiptStateTitle}>
                 {receiptLoadState.status === "retrying"
                   ? "Retrying receipt details"
                   : "Loading receipt details"}
               </Text>
-              <Text style={styles.receiptStateMessage}>
+              <Text translate style={styles.receiptStateMessage}>
                 {isPreview
                   ? "Loading your saved invoice."
                   : "Loading your receipt."}
@@ -454,10 +454,10 @@ function OwnerQuickSaleCheckoutScreen() {
               <View style={[styles.iconWrap, styles.errorIconWrap]}>
                 <Ionicons name="alert-circle-outline" size={34} color={Colors.error} />
               </View>
-              <Text style={styles.receiptStateTitle}>
+              <Text translate style={styles.receiptStateTitle}>
                 {isPreview ? "Receipt preview unavailable" : "Receipt details unavailable"}
               </Text>
-              <Text style={styles.receiptStateMessage}>
+              <Text translate style={styles.receiptStateMessage}>
                 {isPreview
                   ? "The draft was saved successfully, but receipt preview details could not be loaded."
                   : "The sale was completed successfully, but receipt details could not be loaded."}
@@ -473,7 +473,7 @@ function OwnerQuickSaleCheckoutScreen() {
                   style={styles.retryButton}
                 >
                   <Ionicons name="refresh" size={17} color={Colors.onPrimary} />
-                  <Text style={styles.retryButtonText}>Retry Receipt</Text>
+                  <Text translate style={styles.retryButtonText}>Retry Receipt</Text>
                 </TouchableOpacity>
               ) : null}
             </View>
@@ -484,9 +484,9 @@ function OwnerQuickSaleCheckoutScreen() {
 
         <PearlActionFooter bottomInset={insets.bottom} style={{ marginHorizontal: -Spacing.lg }} contentStyle={{ gap: 8 }}>
           <TouchableOpacity activeOpacity={0.86} onPress={handleStartNewSale} style={[styles.primaryButton, { flex: 1, backgroundColor: "transparent" }]}>
-            <Text style={[styles.primaryButtonText, { color: pearl.accentDeep }]}>{isPreview ? "Back to Quick Sale" : "New sale"}</Text>
+            <Text translate style={[styles.primaryButtonText, { color: pearl.accentDeep }]}>{isPreview ? "Back to Quick Sale" : "New sale"}</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => replaceOnce((isStaff ? STAFF_HOME_ROUTE : "/dashboard") as Href)} style={{ flex: 1 }}><LinearGradient colors={pearlGradients.primary} style={{ minHeight: 50, borderRadius: 16, justifyContent: "center", alignItems: "center" }}><Text style={{ color: "#fff", fontSize: 15, fontWeight: "700" }}>Done</Text></LinearGradient></TouchableOpacity>
+          <TouchableOpacity onPress={() => replaceOnce((isStaff ? STAFF_HOME_ROUTE : "/dashboard") as Href)} style={{ flex: 1 }}><LinearGradient colors={pearlGradients.primary} style={{ minHeight: 50, borderRadius: 16, justifyContent: "center", alignItems: "center" }}><Text translate style={{ color: "#fff", fontSize: 15, fontWeight: "700" }}>Done</Text></LinearGradient></TouchableOpacity>
         </PearlActionFooter>
       </View>
 

@@ -49,7 +49,7 @@ export function StaffFutureSections({ staffId }: StaffFutureSectionsProps) {
             }}
             style={styles.item}
           >
-            <Text style={styles.itemTitle}>
+            <Text translate style={styles.itemTitle}>
               {section.label}
               {section.status === "future-ready" ? " (Coming Soon)" : ""}
             </Text>

@@ -22,7 +22,7 @@ export function EmojiPicker({ onSelect, onClose, disabled }: {
   return <Modal visible animationType="slide" onRequestClose={onClose}>
     <SafeAreaView style={s.root}>
       <KeyboardAvoidingView style={s.fill} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        <View style={s.header}><Text accessibilityRole="header" style={[s.title, s.fill]}>Emoji</Text><InboxIcon name="close" label="Close emoji picker" onPress={onClose} /></View>
+        <View style={s.header}><Text translate accessibilityRole="header" style={[s.title, s.fill]}>Emoji</Text><InboxIcon name="close" label="Close emoji picker" onPress={onClose} /></View>
         <View style={s.search}>
           <TextInput accessibilityLabel="Search emojis" placeholder="Search love, thanks, haircut…" placeholderTextColor={p.muted} value={query} onChangeText={setQuery} autoCorrect={false} style={s.searchInput} />
           {query ? <InboxIcon name="close" label="Clear emoji search" onPress={() => setQuery("")} /> : null}
@@ -32,11 +32,11 @@ export function EmojiPicker({ onSelect, onClose, disabled }: {
         </ScrollView></View>
         <Text accessibilityLiveRegion="polite" style={[s.muted, { paddingHorizontal: 16, paddingBottom: 8 }]}>{disabled ? "Message limit reached. Close the picker to edit your message." : query ? `${items.length} matching emojis` : "Tap emojis to add them, then tap Done."}</Text>
         <FlatList key={query || category} data={items} keyExtractor={item => item.emoji} numColumns={6} style={s.fill} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={{ padding: 8, flexGrow: 1 }}
-          ListEmptyComponent={<Text style={[s.emptyText, { padding: 24 }]}>{category === "Recent" && !query ? "Emojis you use in this picker will appear here." : "No emojis found. Try another search."}</Text>}
+          ListEmptyComponent={<Text translate style={[s.emptyText, { padding: 24 }]}>{category === "Recent" && !query ? "Emojis you use in this picker will appear here." : "No emojis found. Try another search."}</Text>}
           renderItem={({ item }) => <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Insert ${item.label}`} disabled={disabled} onPress={() => {
             onSelect(item.emoji); Keyboard.dismiss(); setRecent(previous => [item.emoji, ...previous.filter(emoji => emoji !== item.emoji)].slice(0, 30));
           }} style={{ width: "16.6667%", minHeight: 54, alignItems: "center", justifyContent: "center", opacity: disabled ? 0.4 : 1 }}><Text style={{ fontSize: 28 }}>{item.emoji}</Text></TouchableOpacity>} />
-        <TouchableOpacity accessibilityRole="button" onPress={onClose} style={[s.button, { margin: 16 }]}><Text style={s.heading}>Done</Text></TouchableOpacity>
+        <TouchableOpacity accessibilityRole="button" onPress={onClose} style={[s.button, { margin: 16 }]}><Text translate style={s.heading}>Done</Text></TouchableOpacity>
       </KeyboardAvoidingView>
     </SafeAreaView>
   </Modal>;

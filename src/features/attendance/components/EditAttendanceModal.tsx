@@ -110,7 +110,7 @@ function TimeField({
 
   return (
     <View style={styles.timeFieldGroup}>
-      <Text style={styles.label}>{label}</Text>
+      <Text translate style={styles.label}>{label}</Text>
       <View style={styles.timeRow}>
         <TextInput
           keyboardType="number-pad"
@@ -121,7 +121,7 @@ function TimeField({
           style={styles.timeInput}
           value={value.hour}
         />
-        <Text style={styles.timeSeparator}>:</Text>
+        <Text translate style={styles.timeSeparator}>:</Text>
         <TextInput
           keyboardType="number-pad"
           maxLength={2}
@@ -154,7 +154,7 @@ function TimeField({
             onPress={() => onChange(EMPTY_TIME)}
             style={styles.clearButton}
           >
-            <Text style={styles.clearButtonText}>Clear</Text>
+            <Text translate style={styles.clearButtonText}>Clear</Text>
           </TouchableOpacity>
         ) : null}
       </View>
@@ -266,7 +266,7 @@ export function EditAttendanceModal({
             onPress={onClose}
             style={[styles.cancelButton, isSaving && styles.buttonDisabled]}
           >
-            <Text style={styles.cancelButtonText}>Cancel</Text>
+            <Text translate style={styles.cancelButtonText}>Cancel</Text>
           </TouchableOpacity>
           <TouchableOpacity
             activeOpacity={0.84}
@@ -277,7 +277,7 @@ export function EditAttendanceModal({
             {isSaving ? (
               <ActivityIndicator color="#FFFFFF" size="small" />
             ) : (
-              <Text style={styles.saveButtonText}>Save</Text>
+              <Text translate style={styles.saveButtonText}>Save</Text>
             )}
           </TouchableOpacity>
         </>
@@ -287,7 +287,7 @@ export function EditAttendanceModal({
       title={isMarkMode ? "Mark Attendance" : "Edit Attendance"}
       visible={visible}
     >
-      <Text style={styles.label}>Status</Text>
+      <Text translate style={styles.label}>Status</Text>
       <View style={styles.statusGrid}>
         {MANUAL_STATUS_OPTIONS.map((option) => (
           <TouchableOpacity
@@ -296,7 +296,7 @@ export function EditAttendanceModal({
             onPress={() => setStatus(option.value)}
             style={[styles.statusChip, status === option.value && styles.statusChipActive]}
           >
-            <Text
+            <Text translate
               style={[styles.statusChipText, status === option.value && styles.statusChipTextActive]}
             >
               {option.label}
@@ -320,7 +320,7 @@ export function EditAttendanceModal({
         value={note}
       />
 
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+      {error ? <Text translate style={styles.errorText}>{error}</Text> : null}
     </StaffBottomSheet>
   );
 }

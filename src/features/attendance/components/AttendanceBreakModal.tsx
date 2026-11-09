@@ -23,7 +23,7 @@ function TimeSelect({ label, value, options, open, disabled, onToggle, onSelect 
   const Colors = useThemeColors();
   const text = (time: number) => Number.isFinite(time) ? formatAttendanceTime(new Date(time).toISOString()) : "Select time";
   return <View style={{ gap: 8 }}>
-    <Text style={{ color: Colors.heading, fontWeight: "700" }}>{label}</Text>
+    <Text translate style={{ color: Colors.heading, fontWeight: "700" }}>{label}</Text>
     <TouchableOpacity accessibilityRole="button" accessibilityLabel={`${label}, ${text(value)}`} accessibilityState={{ expanded: open, disabled }}
       disabled={disabled} onPress={onToggle}
       style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 48, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1, borderColor: open ? Colors.primary : Colors.border, backgroundColor: Colors.bg2 }}>
@@ -31,7 +31,7 @@ function TimeSelect({ label, value, options, open, disabled, onToggle, onSelect 
       <Ionicons name={open ? "chevron-up" : "chevron-down"} size={16} color={Colors.text2} />
     </TouchableOpacity>
     {open ? <View style={{ maxHeight: 200, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.card, overflow: "hidden" }}>
-      {options.length === 0 ? <Text style={{ color: Colors.text2, padding: 14 }}>No times available in your shift.</Text> : (
+      {options.length === 0 ? <Text translate style={{ color: Colors.text2, padding: 14 }}>No times available in your shift.</Text> : (
         <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="handled" style={{ maxHeight: 200 }}>
           {options.map(option => {
             const selected = option === value;
@@ -130,17 +130,17 @@ export function AttendanceBreakModal({ visible, state, busy, onClose, onSubmit }
         onSelect={value => { setTo(value); setActive(null); }} />
       <Text style={{ color: Colors.heading, fontWeight: "700" }}>Break Duration: {Number.isFinite(to - from) && to > from ? formatAttendanceDuration((to - from) / 1000) : "Select a later return time"}</Text>
       <View ref={noteFieldRef} collapsable={false} style={{ gap: 8 }}>
-        <Text style={{ color: Colors.heading, fontWeight: "700" }}>Note (optional)</Text>
+        <Text translate style={{ color: Colors.heading, fontWeight: "700" }}>Note (optional)</Text>
         <TextInput accessibilityLabel="Break note" placeholder="Add a reason or a note for your manager" placeholderTextColor={Colors.text2} value={note} onChangeText={setNote}
           onFocus={() => { setActive(null); formRef.current?.revealField(noteFieldRef.current); }}
           onTouchEnd={() => formRef.current?.revealField(noteFieldRef.current)}
           editable={!busy} multiline maxLength={500} textAlignVertical="top" style={{ color: Colors.text, backgroundColor: Colors.bg2, borderWidth: 1, borderColor: Colors.border, borderRadius: 12, padding: 14, minHeight: 88 }} />
       </View>
-      <Text style={{ color: Colors.text2, fontSize: 13 }}>Actual break time starts when you tap Start Break and ends when you check in again. Your scheduled shift stays unchanged.</Text>
+      <Text translate style={{ color: Colors.text2, fontSize: 13 }}>Actual break time starts when you tap Start Break and ends when you check in again. Your scheduled shift stays unchanged.</Text>
       {!refreshing && invalid ? <Text accessibilityRole="alert" style={{ color: Colors.error }}>{availabilityError ?? "Select a valid period within your saved shift and after your current check-in."}</Text> : null}
-      {error ? <Text accessibilityRole="alert" style={{ color: Colors.error }}>{error}</Text> : null}
+      {error ? <Text translate accessibilityRole="alert" style={{ color: Colors.error }}>{error}</Text> : null}
       <TouchableOpacity accessibilityRole="button" disabled={disabled || invalid} onPress={() => void submit()} style={{ backgroundColor: Colors.primary, padding: 16, borderRadius: 14, alignItems: "center", opacity: disabled || invalid ? 0.5 : 1 }}>
-        {disabled ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "700" }}>Start Break</Text>}
+        {disabled ? <ActivityIndicator color="#fff" /> : <Text translate style={{ color: "#fff", fontWeight: "700" }}>Start Break</Text>}
       </TouchableOpacity>
     </View>
   </BottomSheet>;

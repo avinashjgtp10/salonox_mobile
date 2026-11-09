@@ -50,7 +50,7 @@ function CategoryChipsComponent({ onSelect, options, selectedId, pearlStyle = fa
               onPress={() => onSelect(option.id)}
               style={({ pressed }) => [styles.chip, isActive && styles.chipActive, pressed && styles.chipPressed, pearlStyle && { borderRadius: 14, backgroundColor: isActive ? pearl.accent : pearl.glass, borderColor: pearl.glassBorder, elevation: 0, shadowOpacity: 0 }]}
             >
-              <Text numberOfLines={1} style={[styles.chipText, isActive && styles.chipTextActive, pearlStyle && { color: isActive ? "#fff" : pearl.accentDeep }]}>
+              <Text translate numberOfLines={1} style={[styles.chipText, isActive && styles.chipTextActive, pearlStyle && { color: isActive ? "#fff" : pearl.accentDeep }]}>
                 {option.label}
               </Text>
             </Pressable>

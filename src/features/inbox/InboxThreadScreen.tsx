@@ -335,7 +335,7 @@ function Thread({ phone }: { phone: string }) {
                 onPress={() => refresh(false)}
                 style={s.banner}
               >
-                <Text style={s.error}>{error} · Tap to retry</Text>
+                <Text translate style={s.error}>{error} · Tap to retry</Text>
               </TouchableOpacity>
             )}
             <FlatList
@@ -361,7 +361,7 @@ function Thread({ phone }: { phone: string }) {
                         size={36}
                         color={p.muted}
                       />
-                      <Text style={s.emptyText}>
+                      <Text translate style={s.emptyText}>
                         {error
                           ? "Messages couldn’t be loaded."
                           : "No messages in this conversation yet."}
@@ -399,7 +399,7 @@ function Thread({ phone }: { phone: string }) {
             )}
             {!loading && (!allowed || !replyAllowed) ? (
               <View style={s.banner}>
-                <Text style={[s.muted, { lineHeight: 19 }]}>
+                <Text translate style={[s.muted, { lineHeight: 19 }]}>
                   {!allowed
                     ? "Your account doesn’t have permission to reply to conversations."
                     : "The 24-hour reply window has closed. Only approved templates can be sent now."}
@@ -438,7 +438,7 @@ function Thread({ phone }: { phone: string }) {
                 {tray === "quick" && (
                   <View style={s.tray}>
                     <View style={s.row}>
-                      <Text style={[s.heading, s.fill]}>Quick replies</Text>
+                      <Text translate style={[s.heading, s.fill]}>Quick replies</Text>
                       <InboxIcon
                         name="close"
                         label="Close picker"
@@ -455,7 +455,7 @@ function Thread({ phone }: { phone: string }) {
                         }}
                         style={s.quickReply}
                       >
-                        <Text style={s.heading}>{reply.label}</Text>
+                        <Text translate style={s.heading}>{reply.label}</Text>
                         <Text numberOfLines={1} style={s.muted}>
                           {reply.text}
                         </Text>
@@ -579,7 +579,7 @@ function Thread({ phone }: { phone: string }) {
                 }}
                 style={s.button}
               >
-                <Text style={s.text}>Copy</Text>
+                <Text translate style={s.text}>Copy</Text>
               </TouchableOpacity>
             )}
             {allowed && actionMessage?.direction === "INBOUND" && (

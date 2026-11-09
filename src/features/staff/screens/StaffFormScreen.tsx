@@ -464,7 +464,7 @@ export function StaffFormScreen({ mode }: { mode: "create" | "edit" }) {
                         index <= step ? pearl.accent : pearl.divider,
                     }}
                   />
-                  <Text
+                  <Text translate
                     style={{
                       color: index <= step ? pearl.accentDeep : pearl.muted,
                       fontSize: 12,
@@ -492,8 +492,8 @@ export function StaffFormScreen({ mode }: { mode: "create" | "edit" }) {
                     size={56}
                   />
                   <View style={{ flex: 1 }}>
-                    <Text style={staffUi.rowTitle}>Profile photo</Text>
-                    <Text style={staffUi.muted}>PNG or JPG, up to 2 MB</Text>
+                    <Text translate style={staffUi.rowTitle}>Profile photo</Text>
+                    <Text translate style={staffUi.muted}>PNG or JPG, up to 2 MB</Text>
                   </View>
                   <StaffButton
                     secondary
@@ -508,10 +508,10 @@ export function StaffFormScreen({ mode }: { mode: "create" | "edit" }) {
                   </Text>
                 ) : null}
                 <View style={staffUi.formCard}>
-                  <Text style={staffUi.heading}>About</Text>
+                  <Text translate style={staffUi.heading}>About</Text>
                   {field("fullName", "Full name *", "e.g. Shubham Verma")}
                   <View>
-                    <Text style={staffUi.label}>Mobile *</Text>
+                    <Text translate style={staffUi.label}>Mobile *</Text>
                     <PhoneInput
                       pearlStyle
                       ref={(input) => {
@@ -534,7 +534,7 @@ export function StaffFormScreen({ mode }: { mode: "create" | "edit" }) {
                   {field("email", "Email", "For login & payslips")}
                 </View>
                 <View style={staffUi.formCard}>
-                  <Text style={staffUi.heading}>Dates</Text>
+                  <Text translate style={staffUi.heading}>Dates</Text>
                   <View style={{ flexDirection: "row", gap: 12 }}>
                     <View style={{ flex: 1 }}>
                       {" "}
@@ -568,7 +568,7 @@ export function StaffFormScreen({ mode }: { mode: "create" | "edit" }) {
             {step === 1 ? (
               <>
                 <View style={staffUi.formCard}>
-                  <Text style={staffUi.heading}>Role</Text>
+                  <Text translate style={staffUi.heading}>Role</Text>
                   <View style={{ flexDirection: "row", gap: 12 }}>
                     {(["designation", "gender"] as const).map((key) => (
                       <TouchableOpacity
@@ -576,7 +576,7 @@ export function StaffFormScreen({ mode }: { mode: "create" | "edit" }) {
                         onPress={() => setPicker(key)}
                         style={{ flex: 1 }}
                       >
-                        <Text style={staffUi.label}>
+                        <Text translate style={staffUi.label}>
                           {key === "designation" ? "Designation" : "Gender"}
                         </Text>
                         <View
@@ -603,7 +603,7 @@ export function StaffFormScreen({ mode }: { mode: "create" | "edit" }) {
                       </TouchableOpacity>
                     ))}
                   </View>
-                  <Text style={staffUi.label}>Access level *</Text>
+                  <Text translate style={staffUi.label}>Access level *</Text>
                   <View style={staffUi.tabs}>
                     {STAFF_ROLE_OPTIONS.map((role) => (
                       <TouchableOpacity
@@ -620,13 +620,13 @@ export function StaffFormScreen({ mode }: { mode: "create" | "edit" }) {
                       </TouchableOpacity>
                     ))}
                   </View>
-                  <Text style={staffUi.muted}>
+                  <Text translate style={staffUi.muted}>
                     Access follows the assigned role and individual permissions.
                   </Text>
                 </View>
                 <View style={staffUi.formCard}>
-                  <Text style={staffUi.heading}>Pay</Text>
-                  <Text style={staffUi.label}>How is this person paid?</Text>
+                  <Text translate style={staffUi.heading}>Pay</Text>
+                  <Text translate style={staffUi.label}>How is this person paid?</Text>
                   <View style={staffUi.tabs}>
                     {["Fixed salary", "Hourly"].map((option) => (
                       <TouchableOpacity
@@ -660,7 +660,7 @@ export function StaffFormScreen({ mode }: { mode: "create" | "edit" }) {
             {step === 2 ? (
               <>
                 <View style={staffUi.formCard}>
-                  <Text style={staffUi.heading}>App login</Text>
+                  <Text translate style={staffUi.heading}>App login</Text>
                   <View
                     style={{
                       flexDirection: "row",
@@ -669,10 +669,10 @@ export function StaffFormScreen({ mode }: { mode: "create" | "edit" }) {
                     }}
                   >
                     <View style={{ flex: 1 }}>
-                      <Text style={staffUi.rowTitle}>
+                      <Text translate style={staffUi.rowTitle}>
                         Allow staff to sign in
                       </Text>
-                      <Text style={staffUi.muted}>
+                      <Text translate style={staffUi.muted}>
                         Uses their email address
                       </Text>
                     </View>
@@ -762,14 +762,14 @@ export function StaffFormScreen({ mode }: { mode: "create" | "edit" }) {
                         returnKeyType="done"
                         onSubmitEditing={Keyboard.dismiss}
                       />
-                      <Text style={staffUi.muted}>
+                      <Text translate style={staffUi.muted}>
                         Leave the password blank to send an email invite.
                       </Text>
                     </>
                   ) : null}
                 </View>
                 <View style={staffUi.formCard}>
-                  <Text style={staffUi.heading}>Can access</Text>
+                  <Text translate style={staffUi.heading}>Can access</Text>
                   <Text style={staffUi.muted}>
                     Permissions follow the assigned{" "}
                     {form.values.roleLevel || "Staff"} role. Manage individual

@@ -228,7 +228,7 @@ export default function NewConsumableScreen() {
       <KeyboardAwareScrollView ref={scrollViewRef} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
           <AppBackButton onPress={goBack} />
-          <Text style={styles.headerTitle}>Add Consumable</Text>
+          <Text translate style={styles.headerTitle}>Add Consumable</Text>
           <AppBackButtonPlaceholder />
         </View>
 
@@ -255,10 +255,10 @@ export default function NewConsumableScreen() {
             />
           </View>
           <TouchableOpacity activeOpacity={0.8} onPress={() => setCategoryModalOpen(true)}>
-            <Text style={styles.inlineLink}>+ Add a category</Text>
+            <Text translate style={styles.inlineLink}>+ Add a category</Text>
           </TouchableOpacity>
           <TouchableOpacity activeOpacity={0.8} onPress={() => setBrandModalOpen(true)}>
-            <Text style={styles.inlineLink}>+ Add a brand</Text>
+            <Text translate style={styles.inlineLink}>+ Add a brand</Text>
           </TouchableOpacity>
 
           <SelectField label="Supplier" onPress={() => undefined} placeholder="None" value={supplierName || undefined} />
@@ -271,7 +271,7 @@ export default function NewConsumableScreen() {
           />
           <Field inputStyle={styles.textArea} label="Description" multiline onChangeText={setDescription} value={description} />
 
-          <Text style={styles.label}>Product Type</Text>
+          <Text translate style={styles.label}>Product Type</Text>
           <View style={styles.segmentRow}>
             {PRODUCT_TYPES.map((item) => (
               <TouchableOpacity
@@ -280,7 +280,7 @@ export default function NewConsumableScreen() {
                 onPress={() => setProductType(item.value)}
                 style={[styles.segment, productType === item.value && styles.segmentActive]}
               >
-                <Text style={[styles.segmentText, productType === item.value && styles.segmentTextActive]}>{item.label}</Text>
+                <Text translate style={[styles.segmentText, productType === item.value && styles.segmentTextActive]}>{item.label}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -314,12 +314,12 @@ export default function NewConsumableScreen() {
             </View>
           ))}
           <TouchableOpacity activeOpacity={0.8} onPress={addUnitConversion}>
-            <Text style={styles.inlineLink}>+ Add a unit</Text>
+            <Text translate style={styles.inlineLink}>+ Add a unit</Text>
           </TouchableOpacity>
         </Section>
 
         <Section title="Service Assignment">
-          <Text style={styles.helperText}>Assign this product to the services that consume it, with how much each one uses.</Text>
+          <Text translate style={styles.helperText}>Assign this product to the services that consume it, with how much each one uses.</Text>
           <Field label="" onChangeText={setServiceSearch} placeholder="Search a service to assign..." value={serviceSearch} />
           {filteredServices.map((service) => (
             <TouchableOpacity
@@ -350,7 +350,7 @@ export default function NewConsumableScreen() {
             <SelectField label="Tax Type" onPress={() => setTaxTypeOpen(true)} value={taxType} />
           </View>
           <Field label="HSN/SAC" onChangeText={setHsnSac} value={hsnSac} />
-          <Text style={styles.label}>Expiry Date</Text>
+          <Text translate style={styles.label}>Expiry Date</Text>
           <TouchableOpacity activeOpacity={0.84} onPress={() => setShowDatePicker(true)} style={styles.dateButton}>
             <Ionicons color={Colors.heading} name="calendar-outline" size={17} />
             <Text style={[styles.dateText, !expiryDate && styles.placeholder]}>{formatDate(expiryDate) || "dd-mm-yy"}</Text>
@@ -374,11 +374,11 @@ export default function NewConsumableScreen() {
 
         <View style={styles.footer}>
           <TouchableOpacity activeOpacity={0.84} onPress={goBack} style={styles.cancelButton}>
-            <Text style={styles.cancelText}>Cancel</Text>
+            <Text translate style={styles.cancelText}>Cancel</Text>
           </TouchableOpacity>
           <TouchableOpacity activeOpacity={0.88} disabled={isSubmitting} onPress={() => void submit()} style={[styles.saveButton, isSubmitting && styles.disabled]}>
             {isSubmitting ? <ActivityIndicator color="#FFFFFF" /> : null}
-            <Text style={styles.saveText}>{isSubmitting ? "Saving..." : "Save"}</Text>
+            <Text translate style={styles.saveText}>{isSubmitting ? "Saving..." : "Save"}</Text>
           </TouchableOpacity>
         </View>
       </KeyboardAwareScrollView>
@@ -386,7 +386,7 @@ export default function NewConsumableScreen() {
       <Modal animationType="fade" transparent visible={brandModalOpen} onRequestClose={() => setBrandModalOpen(false)}>
         <Pressable onPress={() => setBrandModalOpen(false)} style={styles.overlay}>
           <Pressable onPress={(event) => event.stopPropagation()} style={styles.sheet}>
-            <Text style={styles.sheetTitle}>Select Brand</Text>
+            <Text translate style={styles.sheetTitle}>Select Brand</Text>
             <ScrollView style={styles.sheetList}>
               {[{ id: "", name: "None" }, ...productState.brands].map((brand) => (
                 <TouchableOpacity
@@ -409,7 +409,7 @@ export default function NewConsumableScreen() {
       <Modal animationType="fade" transparent visible={taxTypeOpen} onRequestClose={() => setTaxTypeOpen(false)}>
         <Pressable onPress={() => setTaxTypeOpen(false)} style={styles.overlay}>
           <Pressable onPress={(event) => event.stopPropagation()} style={styles.sheet}>
-            <Text style={styles.sheetTitle}>Tax Type</Text>
+            <Text translate style={styles.sheetTitle}>Tax Type</Text>
             {TAX_TYPES.map((item) => (
               <TouchableOpacity key={item} onPress={() => { setTaxType(item); setTaxTypeOpen(false); }} style={styles.sheetRow}>
                 <Text style={styles.sheetRowText}>{item}</Text>
@@ -458,7 +458,7 @@ function Section({
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   return (
     <View style={[styles.section, emphasized && styles.sectionEmphasized]}>
-      <Text style={styles.sectionTitle}>{title}</Text>
+      <Text translate style={styles.sectionTitle}>{title}</Text>
       {children}
     </View>
   );
@@ -473,14 +473,14 @@ const Field = forwardRef<TextInput, React.ComponentProps<typeof TextInput> & {
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   return (
     <View style={styles.field}>
-      {label ? <Text style={styles.label}>{label}</Text> : null}
+      {label ? <Text translate style={styles.label}>{label}</Text> : null}
       <TextInput
         ref={ref}
         {...props}
         placeholderTextColor={Colors.placeholder}
         style={[styles.input, props.multiline && styles.multilineInput, error && styles.inputError, inputStyle]}
       />
-      {error ? <Text style={styles.fieldError}>{error}</Text> : null}
+      {error ? <Text translate style={styles.fieldError}>{error}</Text> : null}
     </View>
   );
 });
@@ -502,12 +502,12 @@ function SelectField({
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   return (
     <TouchableOpacity activeOpacity={0.84} onPress={onPress} style={styles.field}>
-      <Text style={styles.label}>{label}</Text>
+      <Text translate style={styles.label}>{label}</Text>
       <View style={[styles.selectInput, error && styles.inputError]}>
         <Text numberOfLines={1} style={[styles.selectText, !value && styles.placeholder]}>{value || placeholder || "None"}</Text>
         <Ionicons color={Colors.text2} name="chevron-down" size={16} />
       </View>
-      {error ? <Text style={styles.fieldError}>{error}</Text> : null}
+      {error ? <Text translate style={styles.fieldError}>{error}</Text> : null}
     </TouchableOpacity>
   );
 }
@@ -517,7 +517,7 @@ function PreviewRow({ label, value, warning }: { label: string; value: string; w
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   return (
     <View style={styles.previewRow}>
-      <Text style={styles.previewLabel}>{label}</Text>
+      <Text translate style={styles.previewLabel}>{label}</Text>
       <Text style={[styles.previewValue, warning && styles.previewWarning]}>{value}</Text>
     </View>
   );

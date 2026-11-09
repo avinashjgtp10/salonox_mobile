@@ -31,8 +31,8 @@ export function BookingSection({
           <View style={styles.bookingSectionHeading}>
             {icon ? <View style={styles.bookingSectionIcon}><Ionicons name={icon} size={19} color={Colors.primaryText} /></View> : null}
             <View style={styles.bookingSectionCopy}>
-              <Text style={styles.bookingSectionTitle}>{title}</Text>
-              {subtitle ? <Text style={styles.bookingSectionSubtitle}>{subtitle}</Text> : null}
+              <Text translate style={styles.bookingSectionTitle}>{title}</Text>
+              {subtitle ? <Text translate style={styles.bookingSectionSubtitle}>{subtitle}</Text> : null}
             </View>
           </View>
           {action}

@@ -64,7 +64,7 @@ export function CalendarStatusFilter({ statuses, onChange }: {
         onPress={openMenu}
         style={[styles.dinggLegendPill, styles.dinggLegendActive]}
       >
-        <Text numberOfLines={1} style={[styles.dinggLegendText, styles.dinggLegendTextActive, localStyles.label, { color: pearl.accentDeep }]}>
+        <Text translate numberOfLines={1} style={[styles.dinggLegendText, styles.dinggLegendTextActive, localStyles.label, { color: pearl.accentDeep }]}>
           {label}
         </Text>
         <Ionicons name={expanded ? "chevron-up" : "chevron-down"} size={16} color={pearl.accentDeep} />
@@ -96,13 +96,13 @@ export function CalendarStatusFilter({ statuses, onChange }: {
               style={[localStyles.option, selected && { backgroundColor: Colors.appointmentSurfaceMuted }]}
             >
               {filter.status !== "All" ? <View style={[styles.dinggLegendDot, { backgroundColor: filter.color }]} /> : null}
-              <Text style={[styles.dinggLegendText, localStyles.optionLabel]}>{filter.label}</Text>
+              <Text translate style={[styles.dinggLegendText, localStyles.optionLabel]}>{filter.label}</Text>
               <Ionicons name={selected ? "checkbox" : "square-outline"} size={18} color={selected ? pearl.accentDeep : Colors.appointmentTextSecondary} />
             </TouchableOpacity>
           ); })}
               </ScrollView>
               <TouchableOpacity accessibilityRole="button" onPress={() => setExpanded(false)} style={[localStyles.done, { borderTopColor: Colors.appointmentDivider }]}>
-                <Text style={[styles.dinggLegendText, { color: pearl.accentDeep }]}>Done</Text>
+                <Text translate style={[styles.dinggLegendText, { color: pearl.accentDeep }]}>Done</Text>
               </TouchableOpacity>
             </View> : null}
           </View>

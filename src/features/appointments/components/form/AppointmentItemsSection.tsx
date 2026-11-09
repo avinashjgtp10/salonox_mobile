@@ -1,3 +1,4 @@
+import { useRegionalPreferences } from "@/localization/preferences";
 import { pearl } from "@/components/auth/pearl/tokens";
 import { BookingSection } from "./BookingSection";
 import { Text } from "@/components/ui/AppTypography";
@@ -38,6 +39,8 @@ export function AppointmentItemsSection({
   onRemove: (itemId: string) => void;
   services: AppointmentSelectedService[];
 }) {
+  "use no memo";
+  useRegionalPreferences();
   const itemCount = services.reduce((total, item) => total + (item.quantity ?? 1), 0);
 
   return (
@@ -45,16 +48,16 @@ export function AppointmentItemsSection({
       <ScrollView contentContainerStyle={s.addRow} horizontal showsHorizontalScrollIndicator={false}>
         {ADD_OPTIONS.map(([tab, label]) => (
           <Pressable accessibilityRole="button" key={tab} onPress={() => onAdd(tab)} style={s.add}>
-            <Text style={s.addText}>+ {label}</Text>
+            <Text translate style={s.addText}>+ {label}</Text>
           </Pressable>
         ))}
       </ScrollView>
-      <Text style={s.muted}>Assign staff separately for each service, product, package or membership.</Text>
+      <Text translate style={s.muted}>Assign staff separately for each service, product, package or membership.</Text>
       {!services.length ? (
         <View style={s.empty}>
           <Ionicons name="bag-outline" size={26} color={c.plum} />
-          <Text style={s.name}>No items added yet</Text>
-          <Text style={s.muted}>Add a service, product, package or membership.</Text>
+          <Text translate style={s.name}>No items added yet</Text>
+          <Text translate style={s.muted}>Add a service, product, package or membership.</Text>
         </View>
       ) : null}
       {services.map((item) => {
@@ -66,7 +69,7 @@ export function AppointmentItemsSection({
         return (
           <View key={item.id} style={s.lineCard}>
             <View style={[s.lineTop, { backgroundColor: type.bg }]}>
-              <Text style={[s.tag, { color: type.color }]}>{type.label}</Text>
+              <Text translate style={[s.tag, { color: type.color }]}>{type.label}</Text>
               <Pressable accessibilityLabel={`Remove ${item.name}`} hitSlop={10} onPress={() => onRemove(item.id)}>
                 <Ionicons name="close" size={20} color="#E5484D" />
               </Pressable>
@@ -79,7 +82,7 @@ export function AppointmentItemsSection({
               </Text>
               <View style={s.staffRow}>
                 <View style={s.staffField}>
-                  <Text style={s.label}>Staff{isService ? " *" : ""}</Text>
+                  <Text translate style={s.label}>Staff{isService ? " *" : ""}</Text>
                   <Pressable
                     accessibilityHint="Assigns staff to this item only"
                     accessibilityLabel={`Select staff for ${item.name}`}
@@ -93,7 +96,7 @@ export function AppointmentItemsSection({
                   </Pressable>
                 </View>
                 <View style={s.timeField}>
-                  <Text style={s.label}>Time</Text>
+                  <Text translate style={s.label}>Time</Text>
                   <Pressable
                     accessibilityLabel={`Select time for ${item.name}`}
                     accessibilityRole="button"
@@ -114,7 +117,7 @@ export function AppointmentItemsSection({
         );
       })}
 
-      {error ? <Text style={s.error}>{error}</Text> : null}
+      {error ? <Text translate style={s.error}>{error}</Text> : null}
     </BookingSection>
   );
 }

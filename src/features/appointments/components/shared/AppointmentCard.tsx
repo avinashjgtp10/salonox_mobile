@@ -1,3 +1,4 @@
+import { useRegionalPreferences } from "@/localization/preferences";
 import { Text } from "@/components/ui/AppTypography";
 import { useClientPrivacy } from "@/hooks/useClientPrivacy";
 import { getAppointmentInvoiceLabel } from "@/utils/clientPrivacy";
@@ -30,6 +31,8 @@ export function AppointmentCard({
   showJobCard?: boolean;
   showPaymentStatus?: boolean;
 }) {
+  "use no memo";
+  useRegionalPreferences();
   const { staffMode, clientName, billLabel } = useClientPrivacy();
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);

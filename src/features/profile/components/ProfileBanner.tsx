@@ -21,7 +21,7 @@ export function ProfileBanner({ isError, message }: { isError: boolean; message:
         size={18}
         color={isError ? Colors.error : Colors.success}
       />
-      <Text style={[styles.text, isError ? styles.textError : styles.textSuccess]}>
+      <Text translate style={[styles.text, isError ? styles.textError : styles.textSuccess]}>
         {message}
       </Text>
     </View>

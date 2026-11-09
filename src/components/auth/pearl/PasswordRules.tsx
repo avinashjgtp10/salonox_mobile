@@ -31,7 +31,7 @@ export function PasswordRules({ rules }: { rules: PasswordRuleState }) {
         return (
           <View key={key} style={styles.rule} accessibilityLabel={`${label}${ok ? ", done" : ""}`}>
             <View style={[styles.dot, ok && styles.dotOn]}>{ok ? <Ionicons name="checkmark" size={11} color={pearl.white} /> : null}</View>
-            <Text style={[styles.text, ok && styles.textOn]}>{label}</Text>
+            <Text translate style={[styles.text, ok && styles.textOn]}>{label}</Text>
           </View>
         );
       })}

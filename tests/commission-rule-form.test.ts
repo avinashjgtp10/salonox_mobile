@@ -6,6 +6,9 @@ import { CommissionSettlementSheet } from "@/features/staff/components/Commissio
 
 // Exercise the actual form's selections and save handlers without native layout or network calls.
 const renderer = jest.requireActual("react-test-renderer");
+jest.mock("@/components/auth/pearl/usePearlPalette", () => ({
+  usePearlPalette: () => jest.requireActual("@/components/auth/pearl/tokens").pearl,
+}));
 jest.mock("expo-router", () => ({
   router: { back: jest.fn(), canGoBack: () => true },
   useLocalSearchParams: () => ({}),

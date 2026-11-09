@@ -114,7 +114,7 @@ export function ServiceCatalogPicker({
                   onPress={() => setTab(item.key)}
                   style={[ui.chip, active && ui.chipOn]}
                 >
-                  <Text numberOfLines={1} style={[ui.chipText, active && { color: "#fff" }]}>{item.label}</Text>
+                  <Text translate numberOfLines={1} style={[ui.chipText, active && { color: "#fff" }]}>{item.label}</Text>
                 </TouchableOpacity>
               );
             })}
@@ -184,7 +184,7 @@ export function ServiceCatalogPicker({
           {loading ? (
             <View style={styles.servicePickerState}><ActivityIndicator color={Colors.primaryText} /></View>
           ) : error ? (
-            <View style={styles.servicePickerState}><Text style={styles.fieldHintError}>{error}</Text></View>
+            <View style={styles.servicePickerState}><Text translate style={styles.fieldHintError}>{error}</Text></View>
           ) : (
             // Virtualized: rendering the whole catalog at once made the picker take seconds to open.
             <FlatList
@@ -193,7 +193,7 @@ export function ServiceCatalogPicker({
               initialNumToRender={12}
               keyExtractor={(service) => service.id}
               keyboardShouldPersistTaps="handled"
-              ListEmptyComponent={<Text style={styles.servicePickerEmpty}>No services found.</Text>}
+              ListEmptyComponent={<Text translate style={styles.servicePickerEmpty}>No services found.</Text>}
               maxToRenderPerBatch={12}
               removeClippedSubviews
               renderItem={({ item: service, index }) => (

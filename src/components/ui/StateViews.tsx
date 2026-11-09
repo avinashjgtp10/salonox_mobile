@@ -8,6 +8,7 @@ import type { IconBadgeAccent } from "@/components/ui/IconBadge";
 import { AppRadius } from "@/constants/layout";
 import { DashboardRadius as Radius, DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
 import { useThemeColors } from "@/theme/ThemeProvider";
+import type { PearlColors } from "@/components/auth/pearl/usePearlColors";
 
 const ACCENT_KEYS = {
   blue: ["accentBlue", "accentBlueSoft"],
@@ -23,7 +24,7 @@ export function StateIllustration({
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   accent: IconBadgeAccent | "error";
-  Colors: ThemeColors;
+  Colors: PearlColors;
 }) {
   const [color, soft] = accent === "error" ? [Colors.error, Colors.errorBg] : ACCENT_KEYS[accent].map((k) => Colors[k]);
 
@@ -91,8 +92,8 @@ function EmptyStateComponent({ accent = "blue", description, icon, title }: Empt
   return (
     <View style={styles.stateCard}>
       <StateIllustration Colors={Colors} accent={accent} icon={icon} />
-      <Text style={styles.stateTitle}>{title}</Text>
-      <Text style={styles.stateDescription}>{description}</Text>
+      <Text translate style={styles.stateTitle}>{title}</Text>
+      <Text translate style={styles.stateDescription}>{description}</Text>
     </View>
   );
 }
@@ -111,10 +112,10 @@ function ErrorStateComponent({ message, onRetry }: ErrorStateProps) {
   return (
     <View style={styles.stateCard}>
       <StateIllustration Colors={Colors} accent="error" icon="cloud-offline-outline" />
-      <Text style={styles.stateTitle}>Something went wrong</Text>
-      <Text style={styles.stateDescription}>{message}</Text>
+      <Text translate style={styles.stateTitle}>Something went wrong</Text>
+      <Text translate style={styles.stateDescription}>{message}</Text>
       <TouchableOpacity activeOpacity={0.85} onPress={onRetry} style={styles.retryButton}>
-        <Text style={styles.retryButtonText}>Retry</Text>
+        <Text translate style={styles.retryButtonText}>Retry</Text>
       </TouchableOpacity>
     </View>
   );
@@ -129,7 +130,7 @@ function InlineLoaderComponent({ label }: { label?: string }) {
   return (
     <View style={styles.inlineLoader}>
       <ActivityIndicator color={Colors.primaryText} size="small" />
-      {label ? <Text style={styles.inlineLoaderText}>{label}</Text> : null}
+      {label ? <Text translate style={styles.inlineLoaderText}>{label}</Text> : null}
     </View>
   );
 }

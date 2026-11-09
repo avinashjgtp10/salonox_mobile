@@ -1,5 +1,7 @@
+import { useRegionalPreferences } from "@/localization/preferences";
+import { currencyLabel, currencyLocale, formatCurrencyCompact } from "@/utils/currency";
 /** Monthly target (prototype) — validated amount + presets; saves with the existing API. */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Keyboard, Pressable, StyleSheet, View } from "react-native";
 
 import { PrimaryButton, TextButton } from "@/components/auth/pearl/Buttons";
@@ -16,14 +18,9 @@ const MAX = 10000000;
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
 /** 5,00,000 */
-export const groupIN = (value: number) => Math.round(value).toLocaleString("en-IN");
+export const groupIN = (value: number) => Math.round(value).toLocaleString(currencyLocale());
 /** ₹4.5L · ₹1.2Cr · ₹950 */
-export function inrShort(value: number) {
-  if (value >= 1e7) return `₹${(value / 1e7).toFixed(value >= 1e8 ? 0 : 1).replace(/\.0$/, "")}Cr`;
-  if (value >= 1e5) return `₹${(value / 1e5).toFixed(2).replace(/\.?0+$/, "")}L`;
-  if (value >= 1e3) return `₹${(value / 1e3).toFixed(1).replace(/\.0$/, "")}k`;
-  return `₹${Math.round(value)}`;
-}
+export const inrShort = (value: number) => formatCurrencyCompact(value);
 
 const parse = (raw: string) => Number(raw.replace(/[^\d]/g, ""));
 
@@ -31,8 +28,8 @@ export function validateTarget(raw: string): string | null {
   if (!raw.trim()) return "Please enter your monthly target.";
   if (!/^[\d,\s]+$/.test(raw.trim())) return "Please enter a valid amount using numbers only, for example 500000.";
   const amount = parse(raw);
-  if (amount < MIN) return `Monthly target must be at least ₹${groupIN(MIN)}.`;
-  if (amount > MAX) return `Monthly target can’t be more than ₹${groupIN(MAX)}.`;
+  if (amount < MIN) return `Monthly target must be at least ${currencyLabel("\u20b9")}${groupIN(MIN)}.`;
+  if (amount > MAX) return `Monthly target can’t be more than ${currencyLabel("\u20b9")}${groupIN(MAX)}.`;
   return null;
 }
 
@@ -41,6 +38,8 @@ const roundTo = (value: number, step: number) => Math.max(MIN, Math.round(value 
 export function EditTargetSheet({ visible, onClose, current, lastMonth, onSaved }: {
   visible: boolean; onClose: () => void; current: number | null; lastMonth: number; onSaved: () => void;
 }) {
+  "use no memo";
+  useRegionalPreferences();
   const toast = useAppToast();
   const [value, setValue] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -51,14 +50,14 @@ export function EditTargetSheet({ visible, onClose, current, lastMonth, onSaved 
     if (visible) { setValue(current ? groupIN(current) : ""); setError(null); }
   }, [visible, current]);
 
-  const presets = useMemo(() => {
+  const presets = (() => {
     const base = current ?? (lastMonth > 0 ? lastMonth : 500000);
     const step = base >= 1e6 ? 100000 : 50000;
     const list = [roundTo(base * 0.9, step), roundTo(base, step), roundTo(base * 1.1, step)]
       .map(amount => ({ label: inrShort(amount), amount }));
     if (lastMonth > 0) list.push({ label: "Last month +10%", amount: roundTo(lastMonth * 1.1, 1000) });
     return list.filter((preset, index, all) => all.findIndex(other => other.label === preset.label) === index);
-  }, [current, lastMonth]);
+  })();
 
   const persist = async (target: number | null) => {
     setSaving(true);
@@ -87,12 +86,12 @@ export function EditTargetSheet({ visible, onClose, current, lastMonth, onSaved 
       <TextField
         label={`Target for ${month}`}
         required
-        prefix="₹"
+        prefix={currencyLabel("₹")}
         value={value}
         error={error}
         keyboardType="number-pad"
         placeholder="5,00,000"
-        hint={`Between ₹${groupIN(MIN)} and ₹${groupIN(MAX)}.`}
+        hint={`Between ${currencyLabel("\u20b9")}${groupIN(MIN)} and ${currencyLabel("\u20b9")}${groupIN(MAX)}.`}
         onChangeText={text => { setValue(text); setError(null); }}
         onBlur={() => { if (value) setError(validateTarget(value)); }}
         editable={!saving}
@@ -103,14 +102,14 @@ export function EditTargetSheet({ visible, onClose, current, lastMonth, onSaved 
           return (
             <Pressable key={preset.label} onPress={() => { setValue(groupIN(preset.amount)); setError(null); }}
               style={[styles.preset, on && styles.on]} accessibilityRole="button" accessibilityState={{ selected: on }}>
-              <Text style={[styles.presetText, on && { color: "#fff" }]}>{preset.label}</Text>
+              <Text translate style={[styles.presetText, on && { color: "#fff" }]}>{preset.label}</Text>
             </Pressable>
           );
         })}
       </View>
       <PrimaryButton title="Save target" loading={saving} loadingTitle="Saving…" onPress={save} />
       {current ? <TextButton title="Remove target" disabled={saving} onPress={() => void persist(null)} /> : null}
-      <Text style={[pearlType.small, { textAlign: "center" }]}>Used for the dashboard progress bar and projection.</Text>
+      <Text translate style={[pearlType.small, { textAlign: "center" }]}>Used for the dashboard progress bar and projection.</Text>
     </BottomSheet>
   );
 }

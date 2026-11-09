@@ -52,7 +52,7 @@ export function StartAppointmentAction({ appointment }: { appointment: Appointme
         ) : (
           <Ionicons name="play-circle-outline" size={18} color={Colors.primaryText} />
         )}
-        <Text style={styles.actionButtonText}>Start</Text>
+        <Text translate style={styles.actionButtonText}>Start</Text>
       </TouchableOpacity>
 
       <ConfirmationModal

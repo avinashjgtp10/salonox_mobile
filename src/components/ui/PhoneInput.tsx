@@ -607,7 +607,7 @@ export const CountryCodePickerModal = memo(function CountryCodePickerModal({
 
 
         <View style={pickerStyles.sheetHeader}>
-          <Text style={pickerStyles.sheetTitle}>Select Country</Text>
+          <Text translate style={pickerStyles.sheetTitle}>Select Country</Text>
           <Pressable
             onPress={handleClose}
             hitSlop={12}
@@ -678,7 +678,7 @@ const EmptyList = () => {
   return (
     <View style={pickerStyles.emptyContainer}>
       <Ionicons name="globe-outline" size={40} color={C.placeholder} />
-      <Text style={pickerStyles.emptyText}>No countries found</Text>
+      <Text translate style={pickerStyles.emptyText}>No countries found</Text>
     </View>
   );
 };
@@ -962,7 +962,7 @@ export const PhoneInput = memo(forwardRef<TextInput, PhoneInputProps>(function P
               color={C.error}
               style={{ marginRight: 4 }}
             />
-            <Text
+            <Text translate
               style={inputStyles.errorText}
               accessibilityRole="alert"
               accessibilityLiveRegion="polite"

@@ -1819,7 +1819,7 @@ function OwnerQuickSaleScreen({
           <QuickSaleHeader onBack={handleBack} title="Edit Draft" />
           <View style={styles.initLoader}>
             <ActivityIndicator color={Colors.primaryText} size="large" />
-            <Text style={styles.initLoaderText}>Loading saved sale...</Text>
+            <Text translate style={styles.initLoaderText}>Loading saved sale...</Text>
           </View>
         </SafeAreaView>
       </>
@@ -1897,7 +1897,7 @@ function OwnerQuickSaleScreen({
           >
             <Ionicons name="person-outline" size={18} color={Colors.primaryText} />
             <View style={styles.staffSelectCopy}>
-              <Text style={styles.staffSelectCaption}>Staff</Text>
+              <Text translate style={styles.staffSelectCaption}>Staff</Text>
               <Text numberOfLines={1} style={[styles.staffSelectValue, !selectedQuickSaleStaff && styles.staffSelectPlaceholder]}>
                 {selectedQuickSaleStaff?.name ?? "Select staff *"}
               </Text>
@@ -1955,7 +1955,7 @@ function OwnerQuickSaleScreen({
             {initLoading && !initData ? (
               <View style={styles.initLoader}>
                 <ActivityIndicator color={Colors.primaryText} size="large" />
-                <Text style={styles.initLoaderText}>Preparing checkout...</Text>
+                <Text translate style={styles.initLoaderText}>Preparing checkout...</Text>
               </View>
             ) : activeTab === "services" && isGlobalSearchActive && isServiceSearchOpen ? (
               <ServiceSearchDropdown

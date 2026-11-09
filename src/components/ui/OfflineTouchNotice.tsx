@@ -48,13 +48,13 @@ export function OfflineTouchNotice({ children }: { children: ReactNode }) {
         <View style={[styles.banner, { top: insets.top + 2 }]} accessibilityLiveRegion="polite">
           <View style={styles.icon}><Icon name="wifiOff" size={18} color="#fff" /></View>
           <View style={styles.copy}>
-            <Text style={styles.title}>No internet connection</Text>
+            <Text translate style={styles.title}>No internet connection</Text>
             <Text style={styles.caption}>{savedTime ? `Showing saved data from ${savedTime}` : "Check your Wi-Fi or mobile data"}</Text>
           </View>
           <Pressable onPress={retry} disabled={retrying} accessibilityRole="button"
             accessibilityLabel="Retry" accessibilityState={{ disabled: retrying, busy: retrying }}
             style={({ pressed }) => [styles.retry, (pressed || retrying) && styles.pressed]}>
-            <Text style={styles.retryLabel}>Retry</Text>
+            <Text translate style={styles.retryLabel}>Retry</Text>
           </Pressable>
         </View>
       ) : null}

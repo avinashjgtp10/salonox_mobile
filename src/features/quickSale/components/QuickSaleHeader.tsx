@@ -53,11 +53,11 @@ function QuickSaleHeaderComponent({
       {!closeOnRight ? navigationButton : !isLeading ? <View style={styles.spacer} /> : null}
       {isLeading ? (
         <View style={[styles.leadingTitle, !closeOnRight && styles.leadingTitleWithBack]}>
-          <Text style={styles.title}>{title}</Text>
-          {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+          <Text translate style={styles.title}>{title}</Text>
+          {subtitle ? <Text translate style={styles.subtitle}>{subtitle}</Text> : null}
         </View>
       ) : (
-        <Text style={styles.title}>{title}</Text>
+        <Text translate style={styles.title}>{title}</Text>
       )}
       {closeOnRight ? (
         <View style={styles.actions}>{right}{navigationButton}</View>

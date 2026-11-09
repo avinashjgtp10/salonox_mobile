@@ -40,7 +40,7 @@ export function InboxButton({
           style={StyleSheet.absoluteFill}
         />
       )}
-      <Text
+      <Text translate
         style={{
           color: secondary ? pearl.accentDeep : "white",
           fontSize: 14,

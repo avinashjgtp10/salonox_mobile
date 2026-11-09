@@ -1,3 +1,4 @@
+import { useRegionalPreferences } from "@/localization/preferences";
 import { PearlCatalogRow } from "./PearlCatalogRow";
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
@@ -35,6 +36,8 @@ type PackageCatalogTabProps = {
 };
 
 function PackageCardComponent({ onPress, item, selected }: { item: PackageListItem; onPress: () => void; selected: boolean }) {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
@@ -68,6 +71,8 @@ function PackageCardComponent({ onPress, item, selected }: { item: PackageListIt
 const PackageCard = memo(PackageCardComponent);
 
 export function PackageCatalogTab({ activeClientPackages, onSelect, salonId, search, selectedIds , pearlStyle = false }: PackageCatalogTabProps) {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const debouncedSearch = useDebouncedValue(search, 300);
@@ -110,7 +115,7 @@ export function PackageCatalogTab({ activeClientPackages, onSelect, salonId, sea
     <View style={styles.wrap}>
       {activePackages.length > 0 ? (
         <View style={styles.activeCard}>
-          <Text style={styles.sectionLabel}>Active Client Packages</Text>
+          <Text translate style={styles.sectionLabel}>Active Client Packages</Text>
           {activePackages.slice(0, 3).map((item) => (
             <View key={`client-package-${item.id}`} style={styles.activeRow}>
               <Text numberOfLines={1} style={styles.activeName}>{item.packageName}</Text>

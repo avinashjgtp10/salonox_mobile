@@ -30,11 +30,11 @@ function SummaryCardComponent({ index, item }: SummaryCardProps) {
       <View style={styles.iconWrap}>
         <Ionicons name={item.icon} size={18} color={Colors.primaryText} />
       </View>
-      <Text numberOfLines={1} style={styles.title}>
+      <Text translate numberOfLines={1} style={styles.title}>
         {item.title}
       </Text>
       <Text style={styles.value}>{item.value}</Text>
-      <Text numberOfLines={2} style={styles.subtitle}>
+      <Text translate numberOfLines={2} style={styles.subtitle}>
         {item.subtitle}
       </Text>
     </Animated.View>

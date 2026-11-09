@@ -124,7 +124,7 @@ export function StaffWageSection({ staffId }: StaffWageSectionProps) {
   return (
     <StaffSectionCard title="Wages">
       <View style={styles.typeGrid}>
-        <Text>Wages enabled</Text>
+        <Text translate>Wages enabled</Text>
         <Switch value={enabled} onValueChange={setEnabled} />
       </View>
       <View style={styles.typeGrid}>
@@ -155,7 +155,7 @@ export function StaffWageSection({ staffId }: StaffWageSectionProps) {
 
       {saveError ? <Text style={styles.errorText}>{saveError}</Text> : null}
       {!isValid ? (
-        <Text style={styles.hintText}>Enter a valid amount of 0 or more to save.</Text>
+        <Text translate style={styles.hintText}>Enter a valid amount of 0 or more to save.</Text>
       ) : null}
 
       <TouchableOpacity
@@ -167,7 +167,7 @@ export function StaffWageSection({ staffId }: StaffWageSectionProps) {
         {saving ? (
           <ActivityIndicator color="#FFFFFF" size="small" />
         ) : (
-          <Text style={styles.saveButtonText}>Save Wage</Text>
+          <Text translate style={styles.saveButtonText}>Save Wage</Text>
         )}
       </TouchableOpacity>
     </StaffSectionCard>

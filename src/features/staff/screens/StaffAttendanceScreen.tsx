@@ -123,8 +123,8 @@ export function StaffAttendanceScreen() {
         }
       >
         <View style={styles.header}>
-          <Text style={[styles.eyebrow, { color: Colors.text2 }]}>MY ATTENDANCE</Text>
-          <Text style={[styles.title, { color: Colors.heading, fontSize: titleSize }]}>Today’s status</Text>
+          <Text translate style={[styles.eyebrow, { color: Colors.text2 }]}>MY ATTENDANCE</Text>
+          <Text translate style={[styles.title, { color: Colors.heading, fontSize: titleSize }]}>Today’s status</Text>
           <Text style={[styles.subtitle, { color: Colors.text2 }]}>
             {formatAttendanceDate(todayKey)}
           </Text>
@@ -132,7 +132,7 @@ export function StaffAttendanceScreen() {
 
         {selfAttendance?.state?.current_status === "ON_BREAK" ? (
           <TouchableOpacity disabled={selfAttendance.busy} accessibilityRole="button" onPress={() => void selfAttendance.checkIn().then(() => { toast.showSuccess("Welcome back. You are working."); loadAttendance(); }).catch(error => toast.showError(getApiErrorMessage(error)))} style={{ backgroundColor: Colors.primary, borderRadius: 14, padding: 16, alignItems: "center" }}>
-            {selfAttendance.busy ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "700" }}>Check In</Text>}
+            {selfAttendance.busy ? <ActivityIndicator color="#fff" /> : <Text translate style={{ color: "#fff", fontWeight: "700" }}>Check In</Text>}
           </TouchableOpacity>
         ) : selfAttendance?.state?.checked_in && !selfAttendance.state.record?.check_out ? (
           <TouchableOpacity disabled={selfAttendance.busy} accessibilityRole="button" onPress={() => appAlert.alert("Check Out", "Do you need a break, or are you done for today?", [
@@ -140,26 +140,26 @@ export function StaffAttendanceScreen() {
             { text: "Take a Break", onPress: () => setBreakVisible(true) },
             { text: "Final Checkout", style: "destructive", onPress: () => void selfAttendance.checkOut().then(() => { toast.showSuccess("Shift completed."); loadAttendance(); }).catch(error => toast.showError(getApiErrorMessage(error))) },
           ])} style={{ backgroundColor: Colors.primary, borderRadius: 14, padding: 16, alignItems: "center" }}>
-            {selfAttendance.busy ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "700" }}>Check Out</Text>}
+            {selfAttendance.busy ? <ActivityIndicator color="#fff" /> : <Text translate style={{ color: "#fff", fontWeight: "700" }}>Check Out</Text>}
           </TouchableOpacity>
         ) : null}
         <View style={[styles.card, { backgroundColor: Colors.card, borderColor: Colors.border }]}>
           {loading && !selfRecord ? (
             <View style={styles.centerState}>
               <ActivityIndicator color={Colors.primaryText} />
-              <Text style={[styles.stateText, { color: Colors.text2 }]}>Loading attendance…</Text>
+              <Text translate style={[styles.stateText, { color: Colors.text2 }]}>Loading attendance…</Text>
             </View>
           ) : error && !selfRecord ? (
             <View style={styles.centerState}>
               <Ionicons name="alert-circle-outline" size={28} color={Colors.error} />
-              <Text style={[styles.stateTitle, { color: Colors.heading }]}>Unable to load attendance</Text>
-              <Text style={[styles.stateText, { color: Colors.text2 }]}>{error}</Text>
+              <Text translate style={[styles.stateTitle, { color: Colors.heading }]}>Unable to load attendance</Text>
+              <Text translate style={[styles.stateText, { color: Colors.text2 }]}>{error}</Text>
               <Pressable
                 accessibilityRole="button"
                 onPress={handleRefresh}
                 style={[styles.retryButton, { backgroundColor: Colors.primaryDark }]}
               >
-                <Text style={styles.primaryButtonText}>Retry</Text>
+                <Text translate style={styles.primaryButtonText}>Retry</Text>
               </Pressable>
             </View>
           ) : (
@@ -169,7 +169,7 @@ export function StaffAttendanceScreen() {
                   <Ionicons name={badge.icon} size={24} color={badge.color} />
                 </View>
                 <View style={styles.statusCopy}>
-                  <Text style={[styles.statusTitle, { color: Colors.heading }]}>{badge.label}</Text>
+                  <Text translate style={[styles.statusTitle, { color: Colors.heading }]}>{badge.label}</Text>
                   <Text style={[styles.statusSubtitle, { color: Colors.text2 }]}>
                     {currentStaff?.name ?? "Your attendance"} is scoped to your staff profile.
                   </Text>
@@ -202,7 +202,7 @@ function Detail({ label, value }: { label: string; value: string }) {
 
   return (
     <View style={styles.detail}>
-      <Text style={[styles.detailLabel, { color: Colors.text2 }]}>{label}</Text>
+      <Text translate style={[styles.detailLabel, { color: Colors.text2 }]}>{label}</Text>
       <Text style={[styles.detailValue, { color: Colors.heading }]}>{value}</Text>
     </View>
   );

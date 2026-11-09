@@ -42,7 +42,7 @@ export function CalendarStaffGate({ children }: { children: ReactNode }) {
           <TouchableOpacity accessibilityRole="button" style={[styles.button, { backgroundColor: colors.primary }]} onPress={() => {
             if (check.status === "error") setAttempt((value) => value + 1);
             else router.push({ pathname: "/team/new", params: { fromCalendar: "true" } });
-          }}><Text style={styles.buttonText}>{check.status === "error" ? "Retry" : "Add Staff"}</Text></TouchableOpacity>
+          }}><Text translate style={styles.buttonText}>{check.status === "error" ? "Retry" : "Add Staff"}</Text></TouchableOpacity>
         </>}
       </View>
     </ScreenShell>

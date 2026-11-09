@@ -23,7 +23,7 @@ export function NotRegisteredModal({ visible, email, provider, onRegister, onRet
       <View style={styles.center} pointerEvents="box-none">
         <View style={styles.card} accessibilityViewIsModal>
           <View style={styles.icon}><Ionicons name="mail-unread-outline" size={26} color="#4F7896" /></View>
-          <Text style={[pearlType.h3, styles.centerText]}>This email isn’t registered</Text>
+          <Text translate style={[pearlType.h3, styles.centerText]}>This email isn’t registered</Text>
           <Text style={[pearlType.small, styles.body]}>
             {email ? <Text style={styles.email}>{email}</Text> : "This account"}
             {` isn’t linked to a SalonOX account. We don’t create accounts automatically. Please register your salon or spa first, then sign in with ${provider}.`}

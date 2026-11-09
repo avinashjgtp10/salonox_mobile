@@ -65,7 +65,7 @@ function AppRatingSheet({ onDismiss, onSubmit, visible }: { onDismiss: () => voi
       footer={
         <>
           <TouchableOpacity accessibilityRole="button" activeOpacity={0.84} onPress={onDismiss} style={styles.secondaryButton}>
-            <Text style={styles.secondaryButtonText}>Not now</Text>
+            <Text translate style={styles.secondaryButtonText}>Not now</Text>
           </TouchableOpacity>
           <TouchableOpacity
             accessibilityRole="button"
@@ -75,7 +75,7 @@ function AppRatingSheet({ onDismiss, onSubmit, visible }: { onDismiss: () => voi
             onPress={onSubmit}
             style={[styles.primaryButton, !canSubmit && styles.primaryButtonDisabled]}
           >
-            <Text style={styles.primaryButtonText}>Submit</Text>
+            <Text translate style={styles.primaryButtonText}>Submit</Text>
           </TouchableOpacity>
         </>
       }
@@ -101,7 +101,7 @@ function AppRatingSheet({ onDismiss, onSubmit, visible }: { onDismiss: () => voi
       </View>
       <Text style={styles.ratingLabel}>{rating ? RATING_LABELS[rating] : "Tap a star to rate"}</Text>
 
-      <Text style={styles.label}>Your feedback (optional)</Text>
+      <Text translate style={styles.label}>Your feedback (optional)</Text>
       <TextInput
         maxLength={500}
         multiline

@@ -169,7 +169,7 @@ function Dashboard() {
           }
         />
         {!allowed ? (
-          <Text style={m.empty}>
+          <Text translate style={m.empty}>
             You don’t have permission to view the marketing dashboard.
           </Text>
         ) : (
@@ -187,7 +187,7 @@ function Dashboard() {
               <ActivityIndicator style={{ margin: 32 }} color={pearl.accent} />
             ) : error ? (
               <View style={m.card}>
-                <Text style={m.error}>{error}</Text>
+                <Text translate style={m.error}>{error}</Text>
                 <MarketingChip label="Retry" onPress={refresh} />
               </View>
             ) : (
@@ -213,7 +213,7 @@ function Dashboard() {
                         </Text>
                       </View>
                       {config?.isVerified && (
-                        <Text
+                        <Text translate
                           style={[
                             m.badge,
                             quality !== "High" && {
@@ -234,7 +234,7 @@ function Dashboard() {
                     </View>
                     <View>
                       <View style={[m.between, { flexWrap: "wrap" }]}>
-                        <Text style={m.small}>Daily message limit</Text>
+                        <Text translate style={m.small}>Daily message limit</Text>
                         <Text style={[m.title, { fontSize: 11 }]}>
                           {unlimited
                             ? `${fmt(used)} used today · Unlimited`
@@ -335,7 +335,7 @@ function Dashboard() {
                       ]
                         .filter((i) => i >= 0)
                         .map((i, index) => (
-                          <Text key={index} style={m.small}>
+                          <Text translate key={index} style={m.small}>
                             {series[i]?.label}
                           </Text>
                         ))}
@@ -351,7 +351,7 @@ function Dashboard() {
                         : `${activeDays < 7 ? "Quiet month: " : ""}${activeDays} campaign ${activeDays === 1 ? "day" : "days"}. Striped bars mean nothing was sent.`}
                     </Text>
                   </View>
-                  <Text style={m.section}>Campaigns</Text>
+                  <Text translate style={m.section}>Campaigns</Text>
                   <ScrollView
                     horizontal
                     showsHorizontalScrollIndicator={false}
@@ -408,7 +408,7 @@ function Dashboard() {
                             { label: "Read", n: c.read_count },
                           ].map((item) => (
                             <View key={item.label} style={[m.fill, { gap: 4 }]}>
-                              <Text style={m.small}>{item.label}</Text>
+                              <Text translate style={m.small}>{item.label}</Text>
                               <Text style={m.title}>{fmt(item.n)}</Text>
                             </View>
                           ))}
@@ -420,7 +420,7 @@ function Dashboard() {
                     ))
                   ) : (
                     <View style={m.card}>
-                      <Text style={m.empty}>
+                      <Text translate style={m.empty}>
                         {status === "ALL"
                           ? "No campaigns yet. Your campaign performance will appear here."
                           : "No campaigns to show."}

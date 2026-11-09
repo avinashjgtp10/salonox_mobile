@@ -220,13 +220,13 @@ export default function SubscriptionScreen() {
       return (
         <View accessibilityRole="alert" style={[styles.panel, styles.successPanel]}>
           <Ionicons name="checkmark-circle" size={40} color={colors.success} />
-          <Text style={styles.panelTitle}>Payment successful</Text>
+          <Text translate style={styles.panelTitle}>Payment successful</Text>
           <Text style={styles.panelText}>
             {phase.status.planName ? `${phase.status.planName} is active` : "Your plan is active"}
             {phase.status.endsAt ? ` until ${formatAppDate(phase.status.endsAt)}` : ""}.
           </Text>
           <Pressable accessibilityRole="button" onPress={goToApp} style={styles.primaryButton}>
-            <Text style={styles.primaryButtonText}>Continue</Text>
+            <Text translate style={styles.primaryButtonText}>Continue</Text>
             <Ionicons name="arrow-forward" size={18} color={colors.onPrimary} />
           </Pressable>
         </View>
@@ -236,15 +236,15 @@ export default function SubscriptionScreen() {
       return (
         <View accessibilityLiveRegion="polite" style={styles.panel}>
           <ActivityIndicator color={colors.primaryText} />
-          <Text style={styles.panelTitle}>Waiting for payment confirmation…</Text>
-          <Text style={styles.panelText}>{"Complete the payment on Razorpay. This screen updates by itself once it's confirmed."}</Text>
+          <Text translate style={styles.panelTitle}>Waiting for payment confirmation…</Text>
+          <Text translate style={styles.panelText}>{"Complete the payment on Razorpay. This screen updates by itself once it's confirmed."}</Text>
           {phase.url ? (
             <Pressable accessibilityRole="button" onPress={() => void openPaymentPage(phase.url as string)} style={styles.secondaryButton}>
-              <Text style={styles.secondaryButtonText}>Open payment page again</Text>
+              <Text translate style={styles.secondaryButtonText}>Open payment page again</Text>
             </Pressable>
           ) : null}
           <Pressable accessibilityRole="button" onPress={stopWaiting} style={styles.linkButton}>
-            <Text style={styles.linkText}>Stop waiting and choose a plan</Text>
+            <Text translate style={styles.linkText}>Stop waiting and choose a plan</Text>
           </Pressable>
         </View>
       );
@@ -253,17 +253,17 @@ export default function SubscriptionScreen() {
       return (
         <View accessibilityRole="alert" style={styles.panel}>
           <Ionicons name="time-outline" size={32} color={colors.warning} />
-          <Text style={styles.panelTitle}>Payment is processing</Text>
-          <Text style={styles.panelText}>{"We'll update you shortly. If you've paid, tap Retry in a moment."}</Text>
+          <Text translate style={styles.panelTitle}>Payment is processing</Text>
+          <Text translate style={styles.panelText}>{"We'll update you shortly. If you've paid, tap Retry in a moment."}</Text>
           <Pressable
             accessibilityRole="button"
             onPress={() => setPhase({ kind: "waiting", startedAt: Date.now(), url: null })}
             style={styles.primaryButton}
           >
-            <Text style={styles.primaryButtonText}>Retry</Text>
+            <Text translate style={styles.primaryButtonText}>Retry</Text>
           </Pressable>
           <Pressable accessibilityRole="button" onPress={stopWaiting} style={styles.linkButton}>
-            <Text style={styles.linkText}>Choose a plan instead</Text>
+            <Text translate style={styles.linkText}>Choose a plan instead</Text>
           </Pressable>
         </View>
       );
@@ -276,7 +276,7 @@ export default function SubscriptionScreen() {
       return (
         <View style={styles.panel}>
           <ActivityIndicator color={colors.primaryText} />
-          <Text style={styles.panelText}>Loading plans…</Text>
+          <Text translate style={styles.panelText}>Loading plans…</Text>
         </View>
       );
     }
@@ -286,7 +286,7 @@ export default function SubscriptionScreen() {
           <Ionicons name="alert-circle-outline" size={20} color={colors.error} />
           <Text style={styles.errorText}>{catalogError}</Text>
           <Pressable accessibilityRole="button" onPress={() => { setIsLoading(true); void loadCatalog().finally(() => setIsLoading(false)); }}>
-            <Text style={styles.retryText}>Retry</Text>
+            <Text translate style={styles.retryText}>Retry</Text>
           </Pressable>
         </View>
       );
@@ -295,7 +295,7 @@ export default function SubscriptionScreen() {
       return (
         <View style={styles.panel}>
           <Ionicons name="card-outline" size={28} color={colors.text2} />
-          <Text style={styles.panelText}>No plans are available right now. Please contact support.</Text>
+          <Text translate style={styles.panelText}>No plans are available right now. Please contact support.</Text>
         </View>
       );
     }
@@ -322,7 +322,7 @@ export default function SubscriptionScreen() {
             <Ionicons name="alert-circle-outline" size={20} color={colors.error} />
             <Text style={styles.errorText}>{checkoutError.message}</Text>
             <Pressable accessibilityRole="button" onPress={() => void choosePlan(checkoutError.plan, checkoutError.cycle)}>
-              <Text style={styles.retryText}>Retry</Text>
+              <Text translate style={styles.retryText}>Retry</Text>
             </Pressable>
           </View>
         ) : null}
@@ -342,7 +342,7 @@ export default function SubscriptionScreen() {
                   {popular ? (
                     <View style={styles.popularPill}>
                       <Ionicons name="star" size={11} color={colors.onPrimary} />
-                      <Text style={styles.popularText}>Most Popular</Text>
+                      <Text translate style={styles.popularText}>Most Popular</Text>
                     </View>
                   ) : null}
                 </View>
@@ -356,7 +356,7 @@ export default function SubscriptionScreen() {
                     <Text style={styles.gst}>+ {inr(gstAmount)} GST ({plan.gstPercent}%) = {inr(total)}</Text>
                   </>
                 ) : (
-                  <Text style={styles.gst}>Not available for this billing cycle</Text>
+                  <Text translate style={styles.gst}>Not available for this billing cycle</Text>
                 )}
                 <Pressable
                   accessibilityLabel={`Choose ${plan.name} ${CYCLE_LABEL[cycle]}`}
@@ -396,8 +396,8 @@ export default function SubscriptionScreen() {
         <View style={styles.heroIcon}>
           <Ionicons name="alert-circle-outline" size={30} color={colors.error} />
         </View>
-        <Text accessibilityRole="header" style={styles.title}>Your subscription has ended</Text>
-        <Text style={styles.subtitle}>
+        <Text translate accessibilityRole="header" style={styles.title}>Your subscription has ended</Text>
+        <Text translate style={styles.subtitle}>
           {canPay
             ? "Your SalonOX access has been paused. Choose a plan below to renew and continue managing your salon."
             : "Your salon's subscription has expired. Please contact your salon owner to renew."}
@@ -411,7 +411,7 @@ export default function SubscriptionScreen() {
           onPress={() => void handleLogout()}
           style={[styles.logoutButton, isSigningOut && styles.buttonDisabled]}
         >
-          <Text style={styles.logoutText}>{isSigningOut ? "Signing out…" : "Logout"}</Text>
+          <Text translate style={styles.logoutText}>{isSigningOut ? "Signing out…" : "Logout"}</Text>
         </Pressable>
       </ScrollView></RefreshViewport>
     </LinearGradient>

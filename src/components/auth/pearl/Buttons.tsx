@@ -29,7 +29,7 @@ export function PrimaryButton({ title, loading, loadingTitle, left, right, style
     >
       <LinearGradient colors={pearlGradients.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.primary}>
         {loading ? <ActivityIndicator color={pearl.white} /> : left}
-        <Text style={pearlType.button}>{loading ? loadingTitle ?? "Please wait…" : title}</Text>
+        <Text translate style={pearlType.button}>{loading ? loadingTitle ?? "Please wait…" : title}</Text>
         {!loading ? right : null}
       </LinearGradient>
     </Pressable>
@@ -48,7 +48,7 @@ export function GlassButton({ title, loading, left, right, style, disabled, ...r
       {...rest}
     >
       {loading ? <ActivityIndicator color={pearl.accentDeep} /> : left}
-      <Text style={[pearlType.bodyStrong, styles.glassText]}>{title}</Text>
+      <Text translate style={[pearlType.bodyStrong, styles.glassText]}>{title}</Text>
       {right}
     </Pressable>
   );
@@ -58,7 +58,7 @@ export function GlassButton({ title, loading, left, right, style, disabled, ...r
 export function OutlineButton({ title, right, style, ...rest }: Base) {
   return (
     <Pressable accessibilityRole="link" style={({ pressed }) => [styles.outline, pressed && styles.pressed, style]} {...rest}>
-      <Text style={[pearlType.bodyStrong, styles.outlineText]}>{title}</Text>
+      <Text translate style={[pearlType.bodyStrong, styles.outlineText]}>{title}</Text>
       {right}
     </Pressable>
   );
@@ -68,7 +68,7 @@ export function OutlineButton({ title, right, style, ...rest }: Base) {
 export function TextButton({ title, style, color = pearl.muted, ...rest }: Base & { color?: string }) {
   return (
     <Pressable accessibilityRole="button" hitSlop={8} style={({ pressed }) => [styles.text, pressed && styles.textPressed, style]} {...rest}>
-      <Text style={[pearlType.bodyStrong, styles.glassText, { color }]}>{title}</Text>
+      <Text translate style={[pearlType.bodyStrong, styles.glassText, { color }]}>{title}</Text>
     </Pressable>
   );
 }

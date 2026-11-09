@@ -33,7 +33,7 @@ export function TextField({
   return (
     <View style={styles.inputGroup}>
       <View style={styles.inputLabelRow}>
-        <Text style={styles.inputLabel}>{label}</Text>
+        <Text translate style={styles.inputLabel}>{label}</Text>
         {actionLabel && onActionPress ? (
           <TouchableOpacity activeOpacity={0.8} onPress={onActionPress}>
             <Text style={styles.inputActionText}>{actionLabel}</Text>
@@ -55,7 +55,7 @@ export function TextField({
         ]}
         value={value}
       />
-      {error ? <Text style={styles.fieldError}>{error}</Text> : null}
+      {error ? <Text translate style={styles.fieldError}>{error}</Text> : null}
     </View>
   );
 }

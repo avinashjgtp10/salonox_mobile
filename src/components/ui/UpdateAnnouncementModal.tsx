@@ -250,7 +250,7 @@ export function UpdateAnnouncementModal({
                   <Ionicons name="notifications" color="#F4B740" size={24} />
                 </View>
                 <View style={styles.noteCopy}>
-                  <Text style={styles.noteTitle}>Reminder set!</Text>
+                  <Text translate style={styles.noteTitle}>Reminder set!</Text>
                   <Text style={styles.reminderText}>{reminderMessage}</Text>
                 </View>
               </View>
@@ -261,7 +261,7 @@ export function UpdateAnnouncementModal({
             onPress={() => { setShowReminder(false); onReopen(); }}
             style={[styles.showUpdateButton, { bottom: insets.bottom + 72 }]}
           >
-            <Text style={styles.showUpdateText}>Show Update</Text>
+            <Text translate style={styles.showUpdateText}>Show Update</Text>
           </TouchableOpacity>
         </View>
       </Portal>
@@ -308,7 +308,7 @@ export function UpdateAnnouncementModal({
                     style={styles.notes}
                   >
                     <Text style={styles.description}>{resolvedDescription}</Text>
-                    {releaseNotes.length > 0 ? <Text style={styles.sectionTitle}>What&apos;s new</Text> : null}
+                    {releaseNotes.length > 0 ? <Text translate style={styles.sectionTitle}>What&apos;s new</Text> : null}
                     {releaseNotes.map((note, index) => {
                       const iconName = NOTE_ICONS[index % NOTE_ICONS.length];
 
@@ -321,7 +321,7 @@ export function UpdateAnnouncementModal({
                             <Ionicons color={colors.primaryText} name={iconName} size={19} />
                           </View>
                           <View style={styles.noteCopy}>
-                            {note.title ? <Text style={styles.noteTitle}>{note.title}</Text> : null}
+                            {note.title ? <Text translate style={styles.noteTitle}>{note.title}</Text> : null}
                             {note.description ? (
                               <Text style={styles.noteDescription}>{note.description}</Text>
                             ) : null}
@@ -343,7 +343,7 @@ export function UpdateAnnouncementModal({
                   style={[styles.updateButton, buttonStyle]}
                 >
                   <LinearGradient colors={gradientColors.button} style={styles.updateButtonGradient}>
-                    <Text style={styles.updateButtonText}>{isUpdating ? "Updating…" : "Update Now"}</Text>
+                    <Text translate style={styles.updateButtonText}>{isUpdating ? "Updating…" : "Update Now"}</Text>
                   </LinearGradient>
                 </AnimatedPressable>
 
@@ -356,7 +356,7 @@ export function UpdateAnnouncementModal({
                     }}
                     style={styles.laterButton}
                   >
-                    <Text style={styles.laterButtonText}>Maybe Later</Text>
+                    <Text translate style={styles.laterButtonText}>Maybe Later</Text>
                   </TouchableOpacity>
                 ) : null}
               </View>

@@ -92,7 +92,7 @@ function StaffMyAppointmentsScreenContent() {
           <View style={styles.listHeader}>
             <View style={styles.headerRow}>
               <View>
-                <Text style={[styles.headerTitle, headerTitleStyle]}>My Appointments</Text>
+                <Text translate style={[styles.headerTitle, headerTitleStyle]}>My Appointments</Text>
               </View>
             </View>
             <TourView tourId="summary" style={styles.summaryGrid}>
@@ -161,7 +161,7 @@ function StaffMyAppointmentsScreenContent() {
         renderItem={({ item }) =>
           item.type === "section" ? (
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>{item.title}</Text>
+              <Text translate style={styles.sectionTitle}>{item.title}</Text>
             </View>
           ) : (
             <AppointmentCard

@@ -57,9 +57,9 @@ export function ZoomableInvoicePreview({ data }: { data: ReceiptData }) {
         <Ionicons name="add" size={22} color={colors.text} />
       </TouchableOpacity>
       <TouchableOpacity accessibilityRole="button" accessibilityLabel="Fit invoice to screen" onPress={fit} style={styles.control}>
-        <Text style={{ color: colors.primaryText }}>Fit</Text>
+        <Text translate style={{ color: colors.primaryText }}>Fit</Text>
       </TouchableOpacity>
-      <Text style={[styles.hint, { color: colors.text2 }]}>Pinch to zoom</Text>
+      <Text translate style={[styles.hint, { color: colors.text2 }]}>Pinch to zoom</Text>
     </View>
     <View style={styles.root} {...responder.panHandlers}>
       <ScrollView ref={vertical} style={styles.root} nestedScrollEnabled contentContainerStyle={styles.scroll}>

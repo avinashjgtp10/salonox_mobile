@@ -78,7 +78,7 @@ export function NotificationsSheet({ visible, onClose }: { visible: boolean; onC
       subtitle={unread ? `${unread} new` : "Nothing new"}
       headerRight={notifications.length ? (
         <Pressable onPress={markAllRead} disabled={clearingAll} hitSlop={8} accessibilityRole="button" accessibilityHint="Clears all notifications" style={{ marginRight: 4, opacity: clearingAll ? 0.5 : 1 }}>
-          <Text style={pearlType.link}>Mark all read</Text>
+          <Text translate style={pearlType.link}>Mark all read</Text>
         </Pressable>
       ) : null}
     >
@@ -104,14 +104,14 @@ export function NotificationsSheet({ visible, onClose }: { visible: boolean; onC
                   </View>
                   <View style={{ flex: 1, minWidth: 0 }}>
                     <Text style={pearlType.bodyStrong} numberOfLines={1}>{item.title || "SalonOX alert"}</Text>
-                    <Text style={[pearlType.small, { marginTop: 2 }]} numberOfLines={2}>{subtitle}</Text>
+                    <Text translate style={[pearlType.small, { marginTop: 2 }]} numberOfLines={2}>{subtitle}</Text>
                   </View>
                   <Icon name="chevronRight" size={16} color={pearl.muted} />
                 </Pressable>
               );
             })}
           </Card>
-          <Text style={[pearlType.small, { textAlign: "center" }]}>Tap a notification to open it. “Mark all read” clears the list.</Text>
+          <Text translate style={[pearlType.small, { textAlign: "center" }]}>Tap a notification to open it. “Mark all read” clears the list.</Text>
         </>
       ) : (
         <EmptyState icon="check" title="You’re all caught up" body="New payments, bookings, stock alerts and staff updates will appear here." />
@@ -199,7 +199,7 @@ export function MenuDrawer({ visible, onClose }: { visible: boolean; onClose: ()
         </View>
       </Pressable>
 
-      <Text style={styles.group}>GO TO</Text>
+      <Text translate style={styles.group}>GO TO</Text>
       {GO_TO.map(link => <MenuRow key={link.label} link={link} onPress={() => go(link)} />)}
 
       <View>
@@ -210,8 +210,8 @@ export function MenuDrawer({ visible, onClose }: { visible: boolean; onClose: ()
             <Reanimated.View style={planeStyle}><Icon name="send" size={18} color={pearlTones.lavender.fg} /></Reanimated.View>
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.rowText}>Marketing</Text>
-            <Text style={styles.rowHint}>WhatsApp campaigns, inbox & insights</Text>
+            <Text translate style={styles.rowText}>Marketing</Text>
+            <Text translate style={styles.rowHint}>WhatsApp campaigns, inbox & insights</Text>
           </View>
           <Icon name="chevronDown" size={16} />
         </Pressable>
@@ -220,7 +220,7 @@ export function MenuDrawer({ visible, onClose }: { visible: boolean; onClose: ()
             {MARKETING.map(link => (
               <Pressable key={link.label} onPress={() => go(link)} style={({ pressed }) => [styles.subRow, pressed && styles.subPressed]} accessibilityRole="button">
                 <Icon name={link.icon} size={16} color={pearl.accent} />
-                <Text style={styles.subText}>{link.label}</Text>
+                <Text translate style={styles.subText}>{link.label}</Text>
               </Pressable>
             ))}
           </View>
@@ -228,23 +228,23 @@ export function MenuDrawer({ visible, onClose }: { visible: boolean; onClose: ()
       </View>
       {canAudit ? <MenuRow link={PRODUCT_AUDIT} onPress={() => go(PRODUCT_AUDIT)} /> : null}
 
-      <Text style={styles.group}>CREATE</Text>
+      <Text translate style={styles.group}>CREATE</Text>
       <View style={styles.grid}>
         {CREATE.map(link => (
           <Pressable key={link.label} onPress={() => go(link)} style={({ pressed }) => [styles.create, pressed && styles.pressed]}
             accessibilityRole="button" accessibilityLabel={`Add ${link.label.toLowerCase()}`}>
             <Icon name={link.icon} size={18} color={pearl.accent} />
-            <Text style={styles.createText}>{link.label}</Text>
+            <Text translate style={styles.createText}>{link.label}</Text>
           </Pressable>
         ))}
       </View>
 
-      <Text style={styles.group}>ADMIN</Text>
+      <Text translate style={styles.group}>ADMIN</Text>
       {ADMIN.map(link => <MenuRow key={link.label} link={link} onPress={() => go(link)} />)}
 
       <Pressable onPress={() => { onClose(); void signOut(); }} style={styles.signOut} accessibilityRole="button">
         <Icon name="logout" size={18} color={pearl.muted} />
-        <Text style={styles.signOutText}>Sign out</Text>
+        <Text translate style={styles.signOutText}>Sign out</Text>
       </Pressable>
     </SideDrawer>
   );
@@ -254,7 +254,7 @@ function MenuRow({ link, onPress }: { link: MenuLink; onPress: () => void }) {
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.menuRow, pressed && styles.pressed]} accessibilityRole="button">
       <Tile icon={link.icon} tone={link.tone} size={36} />
-      <Text style={[styles.rowText, { flex: 1 }]}>{link.label}</Text>
+      <Text translate style={[styles.rowText, { flex: 1 }]}>{link.label}</Text>
       <Icon name="chevronRight" size={16} />
     </Pressable>
   );

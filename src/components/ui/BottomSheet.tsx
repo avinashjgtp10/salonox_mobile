@@ -9,7 +9,6 @@ import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withTiming
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { KeyboardInsetView } from "@/components/ui/KeyboardInsetView";
-import { PearlActionFooter } from "@/components/ui/PearlActionFooter";
 import { Portal } from "@/components/ui/Portal";
 import { KeyboardAwareForm, type KeyboardAwareFormHandle } from "@/components/ui/KeyboardAwareForm";
 import { AppLayout, AppRadius } from "@/constants/layout";
@@ -108,13 +107,13 @@ export function BottomSheet({
 
   const sheet = (
     <Animated.View
-      style={[styles.sheet, pearlStyle && { borderTopLeftRadius: 30, borderTopRightRadius: 30, backgroundColor: "#F8F7FB" }, centered && styles.sheetCentered, { maxHeight: sheetMaxHeight }, sheetStyle]}
+      style={[styles.sheet, pearlStyle && { borderRadius: 30, backgroundColor: Colors.bg }, centered && styles.sheetCentered, { maxHeight: sheetMaxHeight }, sheetStyle]}
     >
       {!centered ? <View style={styles.handle} /> : null}
       <View style={styles.header}>
         <View style={styles.headerCopy}>
-          <Text style={styles.title}>{title}</Text>
-          {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+          <Text translate style={styles.title}>{title}</Text>
+          {subtitle ? <Text translate style={styles.subtitle}>{subtitle}</Text> : null}
         </View>
         <TouchableOpacity activeOpacity={0.84} onPress={onClose} style={styles.closeButton}>
           <Ionicons name="close" size={18} color={Colors.primaryText} />
@@ -136,10 +135,7 @@ export function BottomSheet({
         <View style={[styles.content, avoidKeyboard && styles.constrainedContent]}>{children}</View>
       )}
 
-      {footer ? <PearlActionFooter
-        style={{ marginHorizontal: -AppLayout.contentHorizontalPadding, marginBottom: -(centered ? Spacing.lg : Math.max(insets.bottom, Spacing.lg)), ...(centered ? { borderBottomLeftRadius: 24, borderBottomRightRadius: 24 } : {}) }}
-        contentStyle={[styles.footer, { paddingTop: 16, paddingBottom: centered ? Spacing.lg : Math.max(insets.bottom, Spacing.lg) }]}
-      >{footer}</PearlActionFooter> : null}
+      {footer ? <View style={styles.footer}>{footer}</View> : null}
     </Animated.View>
   );
 

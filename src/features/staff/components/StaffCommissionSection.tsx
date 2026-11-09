@@ -1,3 +1,4 @@
+import { useRegionalPreferences } from "@/localization/preferences";
 import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useMemo, useState } from "react";
@@ -44,6 +45,8 @@ export function StaffCommissionSection({
   staffId,
   pearlStyle = false,
 }: StaffCommissionSectionProps) {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = usePearlColors(pearlStyle);
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();

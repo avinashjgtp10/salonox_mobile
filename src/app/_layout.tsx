@@ -1,3 +1,4 @@
+import { RegionalPreferencesSync } from "@/localization/RegionalPreferencesSync";
 import { Text } from "@/components/ui/AppTypography";
 import { DarkTheme, DefaultTheme, ThemeProvider as NavigationThemeProvider, type Theme } from '@react-navigation/native';
 import { Stack, useNavigationContainerRef, usePathname, useRootNavigationState, useRouter, useSegments } from 'expo-router';
@@ -251,10 +252,10 @@ function AuthNavigationHandler({ onReady }: { onReady: () => void }) {
     return (
       <Portal>
         <View style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: '#FFFFFF', justifyContent: 'center', padding: 28, gap: 16 }}>
-          <Text accessibilityRole="header" style={{ fontSize: 20, fontWeight: '700', color: '#222222' }}>Unable to verify subscription</Text>
-          <Text style={{ fontSize: 16, color: '#555555' }}>We could not check your subscription right now. Please check your connection and try again.</Text>
+          <Text translate accessibilityRole="header" style={{ fontSize: 20, fontWeight: '700', color: '#222222' }}>Unable to verify subscription</Text>
+          <Text translate style={{ fontSize: 16, color: '#555555' }}>We could not check your subscription right now. Please check your connection and try again.</Text>
           <Pressable accessibilityRole="button" onPress={() => setSubscriptionRetry((value) => value + 1)} style={{ backgroundColor: '#AD568F', padding: 16, borderRadius: 12, alignItems: 'center' }}>
-            <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>Try Again</Text>
+            <Text translate style={{ color: '#FFFFFF', fontWeight: '700' }}>Try Again</Text>
           </Pressable>
         </View>
       </Portal>
@@ -471,6 +472,7 @@ function AppShell() {
               <AppUpdateSetup ready={isThemeHydrated && isNavigationReady} />
               <PushNotificationsSetup />
               <RealtimeSyncSetup />
+              <RegionalPreferencesSync />
               <BranchBootstrap />
               <StaffIdentityBootstrap />
               <OwnerProfilePhotoBootstrap />
@@ -497,10 +499,10 @@ function AppShell() {
                 <Stack.Screen name="notifications" />
                 <Stack.Screen name="inbox" />
                 <Stack.Screen name="today-revenue" />
-                <Stack.Screen name="change-password" />
+                <Stack.Screen name="change-password" options={{ presentation: "transparentModal", animation: "fade", contentStyle: { backgroundColor: "transparent" } }} />
                 <Stack.Screen name="salon-settings" />
-                <Stack.Screen name="appearance" />
-                <Stack.Screen name="notification-settings" />
+                <Stack.Screen name="appearance" options={{ presentation: "transparentModal", animation: "fade", contentStyle: { backgroundColor: "transparent" } }} />
+                <Stack.Screen name="notification-settings" options={{ presentation: "transparentModal", animation: "fade", contentStyle: { backgroundColor: "transparent" } }} />
                 <Stack.Screen name="privacy-policy" />
                 <Stack.Screen name="(tabs)" />
                 <Stack.Screen name="(staff)" />

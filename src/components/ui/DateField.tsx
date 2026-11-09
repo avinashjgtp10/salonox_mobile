@@ -73,7 +73,7 @@ export const DateField = forwardRef<View, DateFieldProps>(function DateField({ e
 
   return (
     <View ref={ref} style={styles.group}>
-      <Text style={styles.label}>{label}</Text>
+      <Text translate style={styles.label}>{label}</Text>
       <TouchableOpacity
         activeOpacity={0.84}
         onPress={() => setIsPickerVisible(true)}
@@ -89,7 +89,7 @@ export const DateField = forwardRef<View, DateFieldProps>(function DateField({ e
           </Pressable>
         ) : null}
       </TouchableOpacity>
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+      {error ? <Text translate style={styles.errorText}>{error}</Text> : null}
 
       {isPickerVisible && Platform.OS === "android" ? (
         <DateTimePicker
@@ -105,7 +105,7 @@ export const DateField = forwardRef<View, DateFieldProps>(function DateField({ e
         <Modal animationType="fade" onRequestClose={() => setIsPickerVisible(false)} transparent visible={isPickerVisible}>
           <Pressable onPress={() => setIsPickerVisible(false)} style={styles.modalBackdrop}>
             <Pressable style={styles.modalCard}>
-              <Text style={styles.modalTitle}>{label}</Text>
+              <Text translate style={styles.modalTitle}>{label}</Text>
               {/* The spinner follows the iPhone's system theme by default, which draws
                   invisible wheel text when it differs from the app theme. */}
               <DateTimePicker
@@ -124,7 +124,7 @@ export const DateField = forwardRef<View, DateFieldProps>(function DateField({ e
                 onPress={() => setIsPickerVisible(false)}
                 style={styles.modalDoneButton}
               >
-                <Text style={styles.modalDoneText}>Done</Text>
+                <Text translate style={styles.modalDoneText}>Done</Text>
               </TouchableOpacity>
             </Pressable>
           </Pressable>

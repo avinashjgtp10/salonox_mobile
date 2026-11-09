@@ -1,3 +1,4 @@
+import { useRegionalPreferences } from "@/localization/preferences";
 import { Linking, Modal, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router, type Href } from "expo-router";
@@ -14,6 +15,8 @@ import { formatBusinessDate, formatBusinessTime, getAppointmentEndValue, getAppo
 import type { AppointmentListItem } from "@/types/appointment";
 
 export function BookingDetailsSheet({ appointment, onClose }: { appointment: AppointmentListItem | null; onClose: () => void }) {
+  "use no memo";
+  useRegionalPreferences();
  const insets = useSafeAreaInsets();
  const { clientName } = useClientPrivacy();
  if (!appointment) return null;
@@ -37,20 +40,20 @@ export function BookingDetailsSheet({ appointment, onClose }: { appointment: App
    <Pressable style={StyleSheet.absoluteFill} accessibilityLabel="Close appointment" onPress={onClose} />
    <View accessibilityViewIsModal style={[s.sheet, { paddingBottom: Math.max(insets.bottom, 12), maxHeight: "90%" }]}>
     <View style={s.handle} />
-    <View style={s.header}><Text style={s.title}>Appointment</Text><IconButton icon="x" label="Close appointment" onPress={onClose} size={34} /></View>
+    <View style={s.header}><Text translate style={s.title}>Appointment</Text><IconButton icon="x" label="Close appointment" onPress={onClose} size={34} /></View>
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.content}>
      <View style={s.client}><Avatar initials={initials} size={48} tone="rose" /><View style={{ flex: 1 }}><Text style={s.title}>{name}</Text><Text style={s.muted}>{maskPhone(appointment.phone)}</Text></View></View>
      <View style={s.card}>
-      {[["Service", appointment.serviceName], ["Staff", getAppointmentStaffNames(appointment).join(", ") || appointment.staffName], ["When", formatBusinessDate(appointment.scheduledAt) + " \u00b7 " + formatBusinessTime(appointment.startTime || appointment.scheduledAt) + "\u2013" + formatBusinessTime(getAppointmentEndValue(appointment))]].map(([label, value]) => <View key={label} style={s.kv}><Text style={s.muted}>{label}</Text><Text style={s.value}>{value}</Text></View>)}
-      <View style={s.kv}><Text style={s.muted}>Status</Text><StatusPill tone={tone} label={appointment.status} /></View>
-      <View style={[s.kv, { borderBottomWidth: 0 }]}><Text style={s.muted}>Estimate</Text><Text style={s.value}>{formatCurrency(getAppointmentGrandTotal(appointment))}</Text></View>
+      {[["Service", appointment.serviceName], ["Staff", getAppointmentStaffNames(appointment).join(", ") || appointment.staffName], ["When", formatBusinessDate(appointment.scheduledAt) + " \u00b7 " + formatBusinessTime(appointment.startTime || appointment.scheduledAt) + "\u2013" + formatBusinessTime(getAppointmentEndValue(appointment))]].map(([label, value]) => <View key={label} style={s.kv}><Text translate style={s.muted}>{label}</Text><Text style={s.value}>{value}</Text></View>)}
+      <View style={s.kv}><Text translate style={s.muted}>Status</Text><StatusPill tone={tone} label={appointment.status} /></View>
+      <View style={[s.kv, { borderBottomWidth: 0 }]}><Text translate style={s.muted}>Estimate</Text><Text style={s.value}>{formatCurrency(getAppointmentGrandTotal(appointment))}</Text></View>
      </View>
-     <View style={s.actions}>{actions.map(action => <Pressable key={action.label} accessibilityRole="button" onPress={action.onPress} style={s.action}><View style={s.actionIcon}>{action.label === "WhatsApp" ? <Ionicons name="logo-whatsapp" size={20} color={pearl.accentDeep} /> : <Icon name={action.icon} size={20} color={pearl.accentDeep} />}</View><Text style={s.actionText}>{action.label}</Text></Pressable>)}</View>
+     <View style={s.actions}>{actions.map(action => <Pressable key={action.label} accessibilityRole="button" onPress={action.onPress} style={s.action}><View style={s.actionIcon}>{action.label === "WhatsApp" ? <Ionicons name="logo-whatsapp" size={20} color={pearl.accentDeep} /> : <Icon name={action.icon} size={20} color={pearl.accentDeep} />}</View><Text translate style={s.actionText}>{action.label}</Text></Pressable>)}</View>
      <View style={s.buttons}>
-      <Pressable accessibilityRole="button" onPress={() => appAlert.alert("Mark arrived unavailable", "The current appointment API does not support marking arrivals.")} style={s.secondary}><Text style={s.buttonText}>Mark arrived</Text></Pressable>
-      <Pressable accessibilityRole="button" onPress={() => go({ pathname: "/quick-sale", params: appointment.pendingSaleId ? { draftId: appointment.pendingSaleId } : { appointmentId: appointment.id } } as Href)} style={{ flex: 1 }}><LinearGradient colors={pearlGradients.primary} style={s.primary}><Icon name="bolt" color="#fff" size={18} /><Text style={[s.buttonText, { color: "#fff" }]}>Start sale</Text></LinearGradient></Pressable>
+      <Pressable accessibilityRole="button" onPress={() => appAlert.alert("Mark arrived unavailable", "The current appointment API does not support marking arrivals.")} style={s.secondary}><Text translate style={s.buttonText}>Mark arrived</Text></Pressable>
+      <Pressable accessibilityRole="button" onPress={() => go({ pathname: "/quick-sale", params: appointment.pendingSaleId ? { draftId: appointment.pendingSaleId } : { appointmentId: appointment.id } } as Href)} style={{ flex: 1 }}><LinearGradient colors={pearlGradients.primary} style={s.primary}><Icon name="bolt" color="#fff" size={18} /><Text translate style={[s.buttonText, { color: "#fff" }]}>Start sale</Text></LinearGradient></Pressable>
      </View>
-     <Pressable accessibilityRole="button" onPress={() => go(('/appointments/' + appointment.id + '/cancel') as Href)} style={s.cancel}><Text style={s.cancelText}>Cancel appointment</Text></Pressable>
+     <Pressable accessibilityRole="button" onPress={() => go(('/appointments/' + appointment.id + '/cancel') as Href)} style={s.cancel}><Text translate style={s.cancelText}>Cancel appointment</Text></Pressable>
     </ScrollView>
    </View>
   </View>

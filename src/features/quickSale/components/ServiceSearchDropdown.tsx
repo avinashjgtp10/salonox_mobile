@@ -1,3 +1,4 @@
+import { useRegionalPreferences } from "@/localization/preferences";
 import type { PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Ionicons } from "@expo/vector-icons";
@@ -20,6 +21,8 @@ type Props = {
 };
 
 export function ServiceSearchDropdown({ query, salonId, selectedServiceIds, onSelect, onDismiss }: Props) {
+  "use no memo";
+  useRegionalPreferences();
   const colors = usePearlColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [items, setItems] = useState<ServiceListItem[]>([]);
@@ -84,7 +87,7 @@ export function ServiceSearchDropdown({ query, salonId, selectedServiceIds, onSe
   return (
     <View style={styles.dropdown}>
       <View style={styles.header}>
-        <Text style={styles.heading}>Matching services</Text>
+        <Text translate style={styles.heading}>Matching services</Text>
         <Pressable accessibilityRole="button" accessibilityLabel="Close search results" onPress={onDismiss} hitSlop={10}>
           <Ionicons name="close" size={22} color={colors.text2} />
         </Pressable>
@@ -99,7 +102,7 @@ export function ServiceSearchDropdown({ query, salonId, selectedServiceIds, onSe
         onEndReachedThreshold={0.3}
         showsVerticalScrollIndicator
         keyExtractor={(item) => item.id}
-        ListEmptyComponent={!loading && !error ? <Text style={styles.message}>No services found.</Text> : null}
+        ListEmptyComponent={!loading && !error ? <Text translate style={styles.message}>No services found.</Text> : null}
         renderItem={({ item }) => {
           const selected = selectedServiceIds.has(item.id);
           return (
@@ -114,10 +117,10 @@ export function ServiceSearchDropdown({ query, salonId, selectedServiceIds, onSe
         }}
         ListFooterComponent={
           <View>
-            {error ? <Text style={styles.message}>{error}</Text> : null}
+            {error ? <Text translate style={styles.message}>{error}</Text> : null}
             {loading ? <ActivityIndicator style={styles.message} color={colors.primaryText} /> : error ? (
               <Pressable accessibilityRole="button" onPress={() => { if (items.length) void loadMore(); else setRetry((value) => value + 1); }} style={styles.footer}>
-                <Text style={styles.heading}>Try again</Text>
+                <Text translate style={styles.heading}>Try again</Text>
               </Pressable>
             ) : null}
           </View>

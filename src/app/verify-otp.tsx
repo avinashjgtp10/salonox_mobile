@@ -130,7 +130,7 @@ export default function VerifyOtpScreen() {
     <AuthScreen header={<TopBar title="Verify email" onBack={() => router.back()} />} footer={<PrimaryButton title="Verify" loading={isLoading} loadingTitle="Verifying…" onPress={handleVerifyOtp} style={styles.flex} />}>
       <View style={styles.hero}>
         <HeroIcon name="mail-open-outline" tone="rose" />
-        <Text style={[pearlType.h2, styles.center]}>Check your email</Text>
+        <Text translate style={[pearlType.h2, styles.center]}>Check your email</Text>
         <Text style={[pearlType.small, styles.lead]}>
           We sent a 6-digit code to <Text style={styles.email}>{email || "your email"}</Text>
         </Text>
@@ -149,7 +149,7 @@ export default function VerifyOtpScreen() {
           </View>
         ) : null}
         <View style={styles.row}>
-          <Text style={pearlType.small}>Didn’t get it? Check spam.</Text>
+          <Text translate style={pearlType.small}>Didn’t get it? Check spam.</Text>
           <Pressable
             onPress={handleResend}
             disabled={resendIn > 0 || isResending}

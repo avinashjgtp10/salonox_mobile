@@ -1,3 +1,8 @@
+import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
+import { pearl, pearlGradients } from "@/components/auth/pearl/tokens";
+import { PearlActionFooter } from "@/components/ui/PearlActionFooter";
+import { SettingsButton, useSettingsStyles } from "@/features/settings/SettingsUI";
+import { LinearGradient } from "expo-linear-gradient";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { maskPhone } from "@/utils/maskPhone";
 import { Text, TextInput } from "@/components/ui/AppTypography";
@@ -5,20 +10,20 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Contacts from "expo-contacts";
 import { router, type Href } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BackHandler, FlatList, Linking, Platform, StyleSheet, TouchableOpacity, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { BackHandler, FlatList, Linking, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppBackButton, AppBackButtonPlaceholder } from "@/components/ui/AppBackButton";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { StateIllustration } from "@/components/ui/StateViews";
 import { AppLayout, AppRadius } from "@/constants/layout";
-import { DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
+import { DashboardSpacing as Spacing } from "@/constants/theme";
 import { fetchClientsThunk } from "@/middleware/client/client.thunk";
 import { ApiError, getApiErrorMessage } from "@/services/api";
 import { clientService } from "@/services/client.service";
 import { selectActiveBranchId } from "@/store/branch/branch.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors as useThemeColors, type PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 import { normalizeContactForImport, type NormalizedImportContact } from "@/utils/contactMapper";
 import { requestContactsPermission } from "@/utils/contactsPermission";
 
@@ -67,6 +72,8 @@ const dedupeByPhone = (entries: NormalizedImportContact[]) => {
 };
 
 export default function ImportContactsScreen() {
+  const settingsUi = useSettingsStyles();
+  const insets = useSafeAreaInsets();
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
@@ -296,7 +303,7 @@ export default function ImportContactsScreen() {
   const failedOutcomes = outcomes.filter((outcome) => outcome.status === "failed");
 
   return (
-    <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
+    <PearlBackground><SafeAreaView edges={stage === "preview" ? ["top"] : ["top", "bottom"]} style={[styles.safeArea, { backgroundColor: "transparent" }]}>
       <AppStatusBar />
       <View style={styles.headerRow}>
         {stage === "importing" ? (
@@ -304,7 +311,7 @@ export default function ImportContactsScreen() {
         ) : (
           <AppBackButton onPress={handleDone} />
         )}
-        <Text style={styles.headerTitle}>Import Contacts</Text>
+        <Text translate style={styles.headerTitle}>Import contacts</Text>
       </View>
 
       {stage === "checking" ? (
@@ -314,35 +321,30 @@ export default function ImportContactsScreen() {
       ) : null}
 
       {stage === "request" ? (
-        <View style={styles.centerFill}>
-          <StateIllustration Colors={Colors} accent="blue" icon="people-outline" />
-          <Text style={styles.stateTitle}>Access your phone contacts</Text>
-          <Text style={styles.stateDescription}>
-            SalonOX needs access to your phone contacts to import them as clients. We only read
-            names, phone numbers, and emails — nothing is changed on your device.
-          </Text>
-          <TouchableOpacity activeOpacity={0.88} onPress={handleAllowAccess} style={styles.primaryButton}>
-            <Text style={styles.primaryButtonText}>Allow Contacts Access</Text>
-          </TouchableOpacity>
-        </View>
+        <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: "center", padding: 20, gap: 16 }}>
+          <View style={{ alignItems: "center", gap: 10 }}><View style={{ width: 72, height: 72, borderRadius: 24, backgroundColor: pearl.infoBg, alignItems: "center", justifyContent: "center" }}><Ionicons name="people-outline" size={30} color={pearl.accentDeep} /></View><Text translate style={[settingsUi.heading, { textAlign: "center" }]}>Bring your clients in</Text><Text translate style={[settingsUi.body, { textAlign: "center" }]}>SalonOX reads names, phone numbers and emails from your phone to create client profiles. Nothing is messaged without your say.</Text></View>
+          <View style={settingsUi.card}><View style={settingsUi.row}><Ionicons name="checkmark-circle-outline" size={22} color={pearl.accentDeep} /><View style={{ flex: 1 }}><Text translate style={settingsUi.title}>Only contacts you pick</Text><Text translate style={settingsUi.muted}>Choose who to import on the next screen</Text></View></View><View style={settingsUi.row}><Ionicons name="shield-checkmark-outline" size={22} color={pearl.accentDeep} /><View style={{ flex: 1 }}><Text translate style={settingsUi.title}>Stays private</Text><Text translate style={settingsUi.muted}>Never shared or sold</Text></View></View></View>
+          <SettingsButton label="Allow contacts access" onPress={handleAllowAccess} />
+          <TouchableOpacity accessibilityRole="button" onPress={openDeviceSettings} style={{ minHeight: 44, alignItems: "center", justifyContent: "center" }}><Text translate style={{ color: pearl.accentDeep }}>Denied earlier? Open phone settings</Text></TouchableOpacity>
+        </ScrollView>
       ) : null}
 
       {stage === "denied" ? (
         <View style={styles.centerFill}>
           <StateIllustration Colors={Colors} accent="error" icon="lock-closed-outline" />
-          <Text style={styles.stateTitle}>Contacts access denied</Text>
-          <Text style={styles.stateDescription}>
+          <Text translate style={styles.stateTitle}>Contacts access denied</Text>
+          <Text translate style={styles.stateDescription}>
             {canAskAgain
               ? "SalonOX can't import your contacts without permission. You can try again."
               : "Contacts permission was permanently denied. Enable it from your device settings to continue."}
           </Text>
           {canAskAgain ? (
-            <TouchableOpacity activeOpacity={0.88} onPress={handleAllowAccess} style={styles.primaryButton}>
-              <Text style={styles.primaryButtonText}>Try Again</Text>
+            <TouchableOpacity activeOpacity={0.88} onPress={handleAllowAccess} style={styles.primaryButton}><LinearGradient pointerEvents="none" colors={pearlGradients.primary} style={StyleSheet.absoluteFill} />
+              <Text translate style={styles.primaryButtonText}>Try Again</Text>
             </TouchableOpacity>
           ) : (
-            <TouchableOpacity activeOpacity={0.88} onPress={openDeviceSettings} style={styles.primaryButton}>
-              <Text style={styles.primaryButtonText}>Open Settings</Text>
+            <TouchableOpacity activeOpacity={0.88} onPress={openDeviceSettings} style={styles.primaryButton}><LinearGradient pointerEvents="none" colors={pearlGradients.primary} style={StyleSheet.absoluteFill} />
+              <Text translate style={styles.primaryButtonText}>Open Settings</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -351,17 +353,17 @@ export default function ImportContactsScreen() {
       {stage === "loading" ? (
         <View style={styles.centerFill}>
           <ActivityIndicator color={Colors.primaryText} size="large" />
-          <Text style={styles.loadingText}>Reading your contacts…</Text>
+          <Text translate style={styles.loadingText}>Reading your contacts…</Text>
         </View>
       ) : null}
 
       {stage === "load-error" ? (
         <View style={styles.centerFill}>
           <StateIllustration Colors={Colors} accent="error" icon="alert-circle-outline" />
-          <Text style={styles.stateTitle}>Couldn&apos;t load contacts</Text>
+          <Text translate style={styles.stateTitle}>Couldn&apos;t load contacts</Text>
           <Text style={styles.stateDescription}>{loadError}</Text>
-          <TouchableOpacity activeOpacity={0.88} onPress={loadContacts} style={styles.primaryButton}>
-            <Text style={styles.primaryButtonText}>Retry</Text>
+          <TouchableOpacity activeOpacity={0.88} onPress={loadContacts} style={styles.primaryButton}><LinearGradient pointerEvents="none" colors={pearlGradients.primary} style={StyleSheet.absoluteFill} />
+            <Text translate style={styles.primaryButtonText}>Retry</Text>
           </TouchableOpacity>
         </View>
       ) : null}
@@ -395,7 +397,7 @@ export default function ImportContactsScreen() {
                 style={[styles.selectionAction, allContactsSelected && styles.selectionActionDisabled]}
               >
                 <Ionicons color={Colors.primaryText} name="checkbox-outline" size={18} />
-                <Text style={styles.selectAllText}>Select All</Text>
+                <Text translate style={styles.selectAllText}>Select All</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 activeOpacity={0.84}
@@ -404,7 +406,7 @@ export default function ImportContactsScreen() {
                 style={[styles.selectionAction, selectedCount === 0 && styles.selectionActionDisabled]}
               >
                 <Ionicons color={Colors.text2} name="square-outline" size={18} />
-                <Text style={styles.selectAllText}>Deselect All</Text>
+                <Text translate style={styles.selectAllText}>Deselect All</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -424,18 +426,7 @@ export default function ImportContactsScreen() {
             windowSize={8}
           />
 
-          <View style={styles.footer}>
-            <TouchableOpacity
-              activeOpacity={0.88}
-              disabled={selectedCount === 0}
-              onPress={handleStartImport}
-              style={[styles.primaryButton, selectedCount === 0 && styles.primaryButtonDisabled]}
-            >
-              <Text style={styles.primaryButtonText}>
-                {selectedCount === 0 ? "Select contacts to import" : `Import ${selectedCount} Contact${selectedCount === 1 ? "" : "s"}`}
-              </Text>
-            </TouchableOpacity>
-          </View>
+          <PearlActionFooter bottomInset={insets.bottom}><View style={{ flex: 1 }}><SettingsButton disabled={selectedCount === 0} onPress={handleStartImport} label={selectedCount === 0 ? "Select contacts to import" : `Import ${selectedCount} Contact${selectedCount === 1 ? "" : "s"}`} /></View></PearlActionFooter>
         </>
       ) : null}
 
@@ -445,7 +436,7 @@ export default function ImportContactsScreen() {
           <Text style={styles.progressCount}>
             {importProgress} / {importTotal}
           </Text>
-          <Text style={styles.stateDescription}>Importing contacts — please don&apos;t leave this screen.</Text>
+          <Text translate style={styles.stateDescription}>Importing contacts — please don&apos;t leave this screen.</Text>
           <View style={styles.progressStatsRow}>
             <ProgressStat color={Colors.success} label="Imported" value={outcomes.filter((o) => o.status === "imported").length} />
             <ProgressStat color={Colors.text2} label="Skipped" value={outcomes.filter((o) => o.status === "skipped").length} />
@@ -457,7 +448,7 @@ export default function ImportContactsScreen() {
       {stage === "result" ? (
         <View style={styles.centerFill}>
           <StateIllustration Colors={Colors} accent="green" icon="checkmark-circle-outline" />
-          <Text style={styles.stateTitle}>Import Complete</Text>
+          <Text translate style={styles.stateTitle}>Import Complete</Text>
           <View style={styles.resultCard}>
             <ResultRow color={Colors.success} icon="checkmark-circle" label="Imported" value={importedCount} />
             <ResultRow color={Colors.text2} icon="return-up-forward" label="Already Existing" value={skippedCount} />
@@ -470,7 +461,7 @@ export default function ImportContactsScreen() {
               onPress={() => setShowFailedDetails((current) => !current)}
               style={styles.failedToggle}
             >
-              <Text style={styles.failedToggleText}>
+              <Text translate style={styles.failedToggleText}>
                 {showFailedDetails ? "Hide failed contacts" : "View failed contacts"}
               </Text>
               <Ionicons
@@ -495,16 +486,16 @@ export default function ImportContactsScreen() {
           <View style={styles.resultActions}>
             {failedOutcomes.length > 0 ? (
               <TouchableOpacity activeOpacity={0.86} onPress={handleImportAgain} style={styles.secondaryButton}>
-                <Text style={styles.secondaryButtonText}>Retry Failed</Text>
+                <Text translate style={styles.secondaryButtonText}>Retry Failed</Text>
               </TouchableOpacity>
             ) : null}
-            <TouchableOpacity activeOpacity={0.88} onPress={handleDone} style={styles.primaryButton}>
-              <Text style={styles.primaryButtonText}>Done</Text>
+            <TouchableOpacity activeOpacity={0.88} onPress={handleDone} style={styles.primaryButton}><LinearGradient pointerEvents="none" colors={pearlGradients.primary} style={StyleSheet.absoluteFill} />
+              <Text translate style={styles.primaryButtonText}>Done</Text>
             </TouchableOpacity>
           </View>
         </View>
       ) : null}
-    </SafeAreaView>
+    </SafeAreaView></PearlBackground>
   );
 }
 
@@ -545,7 +536,7 @@ function ProgressStat({ color, label, value }: { color: string; label: string; v
   return (
     <View style={styles.progressStat}>
       <Text style={[styles.progressStatValue, { color }]}>{value}</Text>
-      <Text style={styles.progressStatLabel}>{label}</Text>
+      <Text translate style={styles.progressStatLabel}>{label}</Text>
     </View>
   );
 }
@@ -567,7 +558,7 @@ function ResultRow({
   return (
     <View style={styles.resultRow}>
       <Ionicons color={color} name={icon} size={18} />
-      <Text style={styles.resultLabel}>{label}</Text>
+      <Text translate style={styles.resultLabel}>{label}</Text>
       <Text style={[styles.resultValue, { color }]}>{value}</Text>
     </View>
   );
@@ -619,9 +610,10 @@ const createStyles = (Colors: ThemeColors) =>
       marginTop: Spacing.md,
     },
     primaryButton: {
+      overflow: "hidden",
       alignItems: "center",
       backgroundColor: Colors.primaryDark,
-      borderRadius: AppRadius.pill,
+      borderRadius: 16,
       justifyContent: "center",
       marginTop: Spacing.xl,
       minHeight: 54,
@@ -640,7 +632,7 @@ const createStyles = (Colors: ThemeColors) =>
       alignItems: "center",
       backgroundColor: Colors.card,
       borderColor: Colors.border,
-      borderRadius: AppRadius.pill,
+      borderRadius: 16,
       borderWidth: 1,
       justifyContent: "center",
       minHeight: 54,

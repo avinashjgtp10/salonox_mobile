@@ -1,3 +1,4 @@
+import { useRegionalPreferences } from "@/localization/preferences";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
@@ -46,6 +47,8 @@ export function SettlementModal({
   totalUnpaidCommission,
   visible,
 }: SettlementModalProps) {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const [amountText, setAmountText] = useState("");
@@ -140,7 +143,7 @@ export function SettlementModal({
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Settlement Amount *</Text>
+              <Text translate style={styles.inputLabel}>Settlement Amount *</Text>
               <TextInput
                 autoFocus
                 editable={!isLoading}
@@ -150,12 +153,12 @@ export function SettlementModal({
                 style={[styles.input, error ? styles.inputError : null]}
                 value={amountText}
               />
-              {error && <Text style={styles.errorText}>{error}</Text>}
+              {error && <Text translate style={styles.errorText}>{error}</Text>}
             </View>
-            {description ? <Text style={styles.hintText}>{description}</Text> : null}
+            {description ? <Text translate style={styles.hintText}>{description}</Text> : null}
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Payment Method *</Text>
+              <Text translate style={styles.inputLabel}>Payment Method *</Text>
               <TouchableOpacity
                 activeOpacity={0.84}
                 disabled={isLoading}
@@ -195,7 +198,7 @@ export function SettlementModal({
 
             {paymentMethod === "UPI" ? (
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>UPI App *</Text>
+                <Text translate style={styles.inputLabel}>UPI App *</Text>
                 <TouchableOpacity
                   activeOpacity={0.84}
                   disabled={isLoading}
@@ -227,7 +230,7 @@ export function SettlementModal({
             ) : null}
 
             <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Remaining Balance</Text>
+              <Text translate style={styles.infoLabel}>Remaining Balance</Text>
               <Text style={[styles.infoValue, { color: remainingBalance > 0 ? Colors.warning : Colors.success }]}>
                 {formatCurrency(remainingBalance)}
               </Text>
@@ -246,7 +249,7 @@ export function SettlementModal({
                 onPress={handleCancel}
                 style={styles.cancelButton}
               >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
+                <Text translate style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -258,7 +261,7 @@ export function SettlementModal({
                 {isLoading ? (
                   <ActivityIndicator color="#FFFFFF" size="small" />
                 ) : (
-                  <Text style={styles.confirmButtonText}>Settle</Text>
+                  <Text translate style={styles.confirmButtonText}>Settle</Text>
                 )}
               </TouchableOpacity>
             </View>

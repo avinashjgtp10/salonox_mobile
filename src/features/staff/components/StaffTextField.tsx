@@ -23,7 +23,7 @@ export const StaffTextField = forwardRef<TextInput, StaffTextFieldProps>(
 
     return (
       <View style={styles.group}>
-        <Text style={styles.label}>{label}</Text>
+        <Text translate style={styles.label}>{label}</Text>
         <TextInput
           ref={ref}
           multiline={multiline}
@@ -36,7 +36,7 @@ export const StaffTextField = forwardRef<TextInput, StaffTextFieldProps>(
           ]}
           {...inputProps}
         />
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+        {error ? <Text translate style={styles.error}>{error}</Text> : null}
       </View>
     );
   },

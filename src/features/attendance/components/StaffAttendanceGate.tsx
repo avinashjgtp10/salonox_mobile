@@ -103,23 +103,23 @@ export function StaffAttendanceGate({ children }: { children: ReactNode }) {
       <Modal visible={locked && !checkingAttendance} transparent animationType="fade" presentationStyle="overFullScreen" onRequestClose={() => {}}>
         <SafeAreaView style={[styles.screen, { backgroundColor: "rgba(0, 0, 0, 0.45)" }]}>
           <View style={[styles.card, { backgroundColor: Colors.card, borderColor: Colors.border }]}>
-            <Text style={[styles.title, { color: Colors.heading }]}>{showCheckIn ? "Check in to start your day" : "Unable to verify attendance"}</Text>
-            <Text style={[styles.copy, { color: Colors.text2 }]}>{showCheckIn ? "Your app details will be available after your check-in is confirmed." : "Retry to load today's attendance. If you have already checked in, you do not need to check in again."}</Text>
+            <Text translate style={[styles.title, { color: Colors.heading }]}>{showCheckIn ? "Check in to start your day" : "Unable to verify attendance"}</Text>
+            <Text translate style={[styles.copy, { color: Colors.text2 }]}>{showCheckIn ? "Your app details will be available after your check-in is confirmed." : "Retry to load today's attendance. If you have already checked in, you do not need to check in again."}</Text>
             {state ? <>
               {state.shift_start && state.shift_end ? <Text style={[styles.shift, { color: Colors.heading }]}>Your shift: {displayTime(state.shift_start)} – {displayTime(state.shift_end)}</Text> : null}
               <Text style={[styles.copy, { color: Colors.text2 }]}>{state.blocked_reason ?? "Tap Check In to record the current time and your location."}</Text>
             </> : null}
-            {error ? <Text accessibilityRole="alert" style={[styles.copy, { color: Colors.error }]}>{error}</Text> : null}
+            {error ? <Text translate accessibilityRole="alert" style={[styles.copy, { color: Colors.error }]}>{error}</Text> : null}
             {showCheckIn ? <TouchableOpacity accessibilityRole="button" disabled={busy || !state?.can_check_in} onPress={() => void punch("checkIn").catch(() => undefined)}
               style={[styles.button, { backgroundColor: Colors.primary, opacity: busy || !state?.can_check_in ? 0.5 : 1 }]}>
-              {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Check In</Text>}
+              {busy ? <ActivityIndicator color="#fff" /> : <Text translate style={styles.buttonText}>Check In</Text>}
             </TouchableOpacity> : null}
             {/* Only offered when loading failed — the popup already refreshes on
                 its own (every minute, on reconnect and when the app returns). */}
             {error ? <TouchableOpacity accessibilityRole="button" disabled={busy || refreshing} onPress={() => void refresh()} style={styles.link}>
-              {refreshing ? <ActivityIndicator color={Colors.primaryText} /> : <Text style={{ color: Colors.primaryText }}>Retry connection</Text>}
+              {refreshing ? <ActivityIndicator color={Colors.primaryText} /> : <Text translate style={{ color: Colors.primaryText }}>Retry connection</Text>}
             </TouchableOpacity> : null}
-            <TouchableOpacity accessibilityRole="button" disabled={busy} onPress={() => void signOut().catch((failure) => setError(getApiErrorMessage(failure)))} style={styles.link}><Text style={{ color: Colors.text2 }}>Sign out</Text></TouchableOpacity>
+            <TouchableOpacity accessibilityRole="button" disabled={busy} onPress={() => void signOut().catch((failure) => setError(getApiErrorMessage(failure)))} style={styles.link}><Text translate style={{ color: Colors.text2 }}>Sign out</Text></TouchableOpacity>
           </View>
         </SafeAreaView>
       </Modal>
