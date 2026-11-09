@@ -104,7 +104,7 @@ export default function NewClientScreen() {
   const insets = useSafeAreaInsets();
   const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
-  const { id, returnTo } = useLocalSearchParams<{ id?: string; returnTo?: string }>();
+  const { id, returnTo, phoneNumber: initialPhone, contactName } = useLocalSearchParams<{ id?: string; returnTo?: string; phoneNumber?: string; contactName?: string }>();
   const dispatch = useAppDispatch();
   const client = useAppSelector((state) => selectClientById(state, id));
   const clientCreating = useAppSelector(selectClientCreating);
@@ -119,15 +119,20 @@ export default function NewClientScreen() {
   const { scrollToFirstError, scrollViewRef, setFieldRef } = useValidationScroll(VALIDATION_FIELD_ORDER);
 
   const [email, setEmail] = useState("");
-  const [firstName, setFirstName] = useState("");
+  const [firstName, setFirstName] = useState(!id && contactName ? splitFullName(contactName).first_name : "");
   const [fieldErrors, setFieldErrors] = useState<ClientFieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
-  const [lastName, setLastName] = useState("");
+  const [lastName, setLastName] = useState(!id && contactName ? splitFullName(contactName).last_name : "");
   const [gender, setGender] = useState<(typeof GENDER_OPTIONS)[number] | "">("");
   const [isFinishing, setIsFinishing] = useState(false);
-  const [phone, setPhone] = useState("");
+  const [phone, setPhone] = useState(!id && initialPhone ? (initialPhone.startsWith("+") ? initialPhone : `+${initialPhone}`) : "");
   const [replacingPhone, setReplacingPhone] = useState(false);
-  const [phoneCountry, setPhoneCountry] = useState<CountryCode>("IN");
+  const [phoneCountry, setPhoneCountry] = useState<CountryCode>(() => {
+    if (!id && initialPhone) {
+      try { return parsePhoneNumber(initialPhone.startsWith("+") ? initialPhone : `+${initialPhone}`).country || "IN"; } catch { return "IN"; }
+    }
+    return "IN";
+  });
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [whatsappMatchesPhone, setWhatsappMatchesPhone] = useState(true);
   const [promotionChannels, setPromotionChannels] = useState<string[]>([]);
@@ -307,6 +312,8 @@ export default function NewClientScreen() {
       setTimeout(() => {
         if (returnTo === "booking") {
           router.replace({ pathname: "/bookings/new", params: { clientId: resultAction.payload.client.id } } as Href);
+        } else if (returnTo === "inbox") {
+          handleBack();
         } else {
           router.replace(("/clients/" + resultAction.payload.client.id) as Href);
         }
