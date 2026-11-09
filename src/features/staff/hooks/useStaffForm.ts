@@ -2,8 +2,13 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 
 import { useAppToast } from "@/hooks/useAppToast";
-import { createStaffThunk, updateStaffThunk, fetchStaffThunk } from "@/middleware/staff/staff.thunk";
+import {
+  createStaffThunk,
+  updateStaffThunk,
+  fetchStaffThunk,
+} from "@/middleware/staff/staff.thunk";
 import { getApiErrorMessage } from "@/services/api";
+import { staffPermissionsService } from "@/services/staffPermissions.service";
 import { staffService } from "@/services/staff.service";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { OWNER_CALENDAR_ROUTE } from "@/utils/routeResolver";
@@ -14,7 +19,10 @@ import {
   selectStaffUpdateError,
   selectStaffUpdating,
 } from "@/store/staff/staff.slice";
-import type { StaffProfileFormValues, StaffRoleLevel } from "@/features/staff/types/staffFeature.types";
+import type {
+  StaffProfileFormValues,
+  StaffRoleLevel,
+} from "@/features/staff/types/staffFeature.types";
 import {
   mapStaffFormToRequest,
   mapStaffWagesToRequest,
@@ -70,23 +78,28 @@ export const useStaffForm = (staffId?: string | null) => {
   const { fromCalendar } = useLocalSearchParams<{ fromCalendar?: string }>();
   const dispatch = useAppDispatch();
   const toast = useAppToast();
-  const staffMember = useAppSelector((state) => selectStaffById(state, staffId));
+  const staffMember = useAppSelector((state) =>
+    selectStaffById(state, staffId),
+  );
   const creating = useAppSelector(selectStaffCreating);
   const createError = useAppSelector(selectStaffCreateError);
   const updating = useAppSelector(selectStaffUpdating);
   const updateError = useAppSelector(selectStaffUpdateError);
-  const [values, setValues] = useState<StaffProfileFormValues>(EMPTY_STAFF_FORM);
-  const [touched, setTouched] = useState<Partial<Record<keyof StaffProfileFormValues, boolean>>>({});
-  const [duplicateEmailError, setDuplicateEmailError] = useState<string | null>(null);
+  const [values, setValues] =
+    useState<StaffProfileFormValues>(EMPTY_STAFF_FORM);
+  const [touched, setTouched] = useState<
+    Partial<Record<keyof StaffProfileFormValues, boolean>>
+  >({});
+  const [duplicateEmailError, setDuplicateEmailError] = useState<string | null>(
+    null,
+  );
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [avatarError, setAvatarError] = useState<string | null>(null);
   const isEditMode = Boolean(staffId);
-  const submitting = creating || updating;
+  const [finishing, setFinishing] = useState(false);
+  const submitting = creating || updating || finishing;
 
-  const validation = useMemo(
-    () => validateStaffForm(values),
-    [values],
-  );
+  const validation = useMemo(() => validateStaffForm(values), [values]);
 
   const visibleValidationErrors = useMemo(() => {
     const visibleErrors: Record<string, string> = {};
@@ -117,7 +130,8 @@ export const useStaffForm = (staffId?: string | null) => {
       fixedSalary: "",
       fullName: staffMember.name,
       gender: staffMember.gender === "-" ? "" : staffMember.gender,
-      holidays: staffMember.holidays != null ? String(staffMember.holidays) : "",
+      holidays:
+        staffMember.holidays != null ? String(staffMember.holidays) : "",
       hourlyRate: "",
       isLoginEnabled: false,
       joiningDate: toIsoJoiningDate(staffMember.joiningDate),
@@ -127,7 +141,9 @@ export const useStaffForm = (staffId?: string | null) => {
       phoneCountry: toPhoneCountry(phone),
       roleLevel: toPermissionRoleLevel(staffMember.permissionLevel),
       workingHoursPerDay:
-        staffMember.workingHoursPerDay != null ? String(staffMember.workingHoursPerDay) : "",
+        staffMember.workingHoursPerDay != null
+          ? String(staffMember.workingHoursPerDay)
+          : "",
     });
     setTouched({});
   }, [staffMember]);
@@ -141,14 +157,22 @@ export const useStaffForm = (staffId?: string | null) => {
       [field]: value,
     }));
 
-    setTouched((currentTouched) => (currentTouched[field] ? currentTouched : { ...currentTouched, [field]: true }));
+    setTouched((currentTouched) =>
+      currentTouched[field]
+        ? currentTouched
+        : { ...currentTouched, [field]: true },
+    );
 
     if (field === "email" && duplicateEmailError) {
       setDuplicateEmailError(null);
     }
   };
 
-  const uploadAvatar = async (asset: { fileName?: string | null; mimeType?: string | null; uri: string }) => {
+  const uploadAvatar = async (asset: {
+    fileName?: string | null;
+    mimeType?: string | null;
+    uri: string;
+  }) => {
     setAvatarUploading(true);
     setAvatarError(null);
 
@@ -170,12 +194,13 @@ export const useStaffForm = (staffId?: string | null) => {
   };
 
   const submit = async () => {
+    if (submitting) return false;
     if (!validation.isValid) {
       setTouched((currentTouched) => ({
         ...currentTouched,
-        ...(Object.fromEntries(Object.keys(validation.errors).map((field) => [field, true])) as Partial<
-          Record<keyof StaffProfileFormValues, boolean>
-        >),
+        ...(Object.fromEntries(
+          Object.keys(validation.errors).map((field) => [field, true]),
+        ) as Partial<Record<keyof StaffProfileFormValues, boolean>>),
       }));
 
       return false;
@@ -183,6 +208,7 @@ export const useStaffForm = (staffId?: string | null) => {
 
     setDuplicateEmailError(null);
 
+    setFinishing(true);
     const payload = mapStaffFormToRequest(values);
     const wages = mapStaffWagesToRequest(values);
     const action =
@@ -190,21 +216,34 @@ export const useStaffForm = (staffId?: string | null) => {
         ? await dispatch(updateStaffThunk({ staffId, updates: payload, wages }))
         : await dispatch(createStaffThunk({ staff: payload, wages }));
     const succeeded =
-      createStaffThunk.fulfilled.match(action) || updateStaffThunk.fulfilled.match(action);
+      createStaffThunk.fulfilled.match(action) ||
+      updateStaffThunk.fulfilled.match(action);
 
-    if (!succeeded && (createStaffThunk.rejected.match(action) || updateStaffThunk.rejected.match(action))) {
+    if (
+      !succeeded &&
+      (createStaffThunk.rejected.match(action) ||
+        updateStaffThunk.rejected.match(action))
+    ) {
       if (action.payload?.status === 409) {
         setDuplicateEmailError(action.payload.message);
       }
 
+      setFinishing(false);
       return false;
     }
 
     if (succeeded) {
-      if (createStaffThunk.fulfilled.match(action) && action.payload.activationWarning) {
+      if (
+        createStaffThunk.fulfilled.match(action) &&
+        action.payload.activationWarning
+      ) {
         toast.showWarning(action.payload.activationWarning);
       } else {
-        toast.showSuccess(isEditMode ? "Staff updated successfully." : "Staff created successfully.");
+        toast.showSuccess(
+          isEditMode
+            ? "Staff updated successfully."
+            : "Staff created successfully.",
+        );
       }
 
       void dispatch(
@@ -219,6 +258,20 @@ export const useStaffForm = (staffId?: string | null) => {
           ? action.payload.staffMember.id
           : staffId;
 
+      if (nextStaffId && values.roleLevel) {
+        try {
+          await staffPermissionsService.assignNamedRole(
+            nextStaffId,
+            values.roleLevel,
+          );
+        } catch (error) {
+          toast.showWarning(
+            "Staff saved, but role assignment failed: " +
+              getApiErrorMessage(error),
+          );
+        }
+      }
+
       if (!isEditMode && fromCalendar === "true") {
         router.replace(OWNER_CALENDAR_ROUTE);
       } else if (nextStaffId) {
@@ -228,6 +281,7 @@ export const useStaffForm = (staffId?: string | null) => {
       }
     }
 
+    setFinishing(false);
     return succeeded;
   };
 

@@ -2,33 +2,29 @@ import { useCallback, useEffect, useRef } from "react";
 
 import { useAuth } from "@/context/AuthContext";
 import { useAppForeground } from "@/hooks/useAppForeground";
-import { staffProductAuditAccessService } from "@/services/staffProductAuditAccess.service";
+import { staffPermissionsService } from "@/services/staffPermissions.service";
 import { isStaffExperienceUser } from "@/utils/routeResolver";
 
-// Mounted once at the root: reads the owner-controlled Product Audit switch for
-// the signed-in staff member when they sign in and whenever the app returns to
-// the foreground, and stores it on the user (AuthUser.mobileProductAuditAccess)
-// so route guards, menus and the staff write guard in services/api see it.
+// Refreshes the backend-resolved web permission map for the signed-in staff member.
 export const useStaffProductAuditAccessSync = () => {
   const { user, updateUser } = useAuth();
   const userId = user && isStaffExperienceUser(user) ? user.id : null;
   const userIdRef = useRef(userId);
-  const knownValueRef = useRef(user?.mobileProductAuditAccess);
 
   userIdRef.current = userId;
-  knownValueRef.current = user?.mobileProductAuditAccess;
 
   const refresh = useCallback(async () => {
     const startedUserId = userIdRef.current;
     if (!startedUserId) return;
 
     try {
-      const productAuditAccess = await staffProductAuditAccessService.getOwnProductAuditAccess();
+      const permissions = await staffPermissionsService.own();
+      const productAuditAccess = permissions.view_product_audit === true && permissions.create_product_audit === true;
       // Ignore the answer if the session changed while it was in flight.
-      if (userIdRef.current !== startedUserId || knownValueRef.current === productAuditAccess) return;
-      await updateUser({ mobileProductAuditAccess: productAuditAccess });
+      if (userIdRef.current !== startedUserId) return;
+      await updateUser({ effective_permissions: permissions, custom_permissions: permissions, mobileProductAuditAccess: productAuditAccess });
     } catch {
-      // Keep the last known value; the backend enforces the switch on every request.
+      // Retain cached permissions offline; the backend authorizes each operation.
     }
   }, [updateUser]);
 

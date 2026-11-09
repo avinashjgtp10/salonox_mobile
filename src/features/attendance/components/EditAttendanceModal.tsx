@@ -3,7 +3,7 @@ import { Text, TextInput } from "@/components/ui/AppTypography";
 import { useEffect, useMemo, useState } from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
 
-import { DashboardRadius as Radius, DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
+import { DashboardRadius as Radius, DashboardSpacing as Spacing } from "@/constants/theme";
 import type { StaffMember } from "@/data/teamData";
 import { StaffBottomSheet } from "@/features/staff/components/StaffBottomSheet";
 import { StaffTextField } from "@/features/staff/components/StaffTextField";
@@ -16,7 +16,7 @@ import {
   statusKeyToManualStatus,
 } from "@/features/attendance/utils/attendanceStatus";
 import type { AttendanceRejectValue } from "@/middleware/attendance/attendance.thunk";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors, type PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 import { attendanceTimeToIso } from "@/features/attendance/utils/attendanceRules";
 import type { AttendanceRecord, ManualAttendanceStatus } from "@/types/attendance";
 
@@ -105,7 +105,7 @@ function TimeField({
   onChange: (value: TimeValue) => void;
   value: TimeValue;
 }) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   return (
@@ -169,7 +169,7 @@ export function EditAttendanceModal({
   staffMember,
   visible,
 }: EditAttendanceModalProps) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const { markAttendance, markingStaffIds, updateAttendance, updatingAttendanceIds } =
     useAttendanceActions();

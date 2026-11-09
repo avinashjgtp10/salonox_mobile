@@ -19,13 +19,11 @@ export const canReceivePush = (user: AuthUser | null | undefined, data: unknown)
     Array.isArray(payload.recipient_user_ids) && payload.recipient_user_ids.includes(user.id);
 };
 
-// Owner-controlled, mobile-only switch (Edit Staff → Calendar & Quick Sale
-// access): lets the staff member book and bill Quick Sales from their Calendar.
+// Calendar Quick Sale follows the backend-resolved web permission map.
 export const canUseStaffQuickSale = (user: AuthUser | null | undefined) =>
-  Boolean(user && isStaffExperienceUser(user) && user.mobileCalendarAccess === true);
+  Boolean(user && isStaffExperienceUser(user) && hasCustomPermission(user, "view_calendar") && hasCustomPermission(user, "access_quick_sale"));
 
-// The writes a Calendar Quick Sale makes. The backend still checks each one
-// against the same switch, so this only stops the app from refusing them early.
+// These operations remain subject to their individual backend permission checks.
 const STAFF_QUICK_SALE_WRITES: [method: string, path: RegExp][] = [
   ["post", /^\/(sales|appointments|payments|clients)$/],
   ["post", /^\/(sales|appointments)\/[^/]+\/checkout$/],
@@ -52,7 +50,7 @@ export const isStaffAuditWrite = (user: AuthUser | null | undefined, method: str
   if (verb === "post" && (path === "/inventory/product-audits" || /^\/inventory\/product-audits\/[^/]+\/(items|submit|reopen|recognize)$/.test(path))) return true;
   if (["patch", "delete"].includes(verb) && /^\/inventory\/product-audits\/[^/]+\/items\/[^/]+$/.test(path)) return true;
   if (verb === "post" && path === "/products") return canCreateAuditProduct(user);
-  if (verb === "post" && path === "/products/brands") return user.mobileProductAuditAccess === true || hasCustomPermission(user, "create_products") || hasCustomPermission(user, "manage_my_brands");
+  if (verb === "post" && path === "/products/brands") return hasCustomPermission(user, "create_products") || hasCustomPermission(user, "manage_my_brands");
   return false;
 };
 

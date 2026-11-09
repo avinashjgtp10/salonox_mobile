@@ -33,6 +33,7 @@ export type KeyboardNavigationOptions = {
 };
 
 export type KeyboardAwareOptions = {
+  padForKeyboard?: boolean;
   extraScrollPadding?: number;
   contentContainerStyle?: any;
   keyboardNavigation?: KeyboardNavigationOptions;
@@ -121,6 +122,7 @@ export function useKeyboardAwareScrollView<
   T extends ScrollView | FlatList<any> | SectionList<any, any> = ScrollView,
 >({
   extraScrollPadding = 40,
+  padForKeyboard = true,
   contentContainerStyle,
   keyboardNavigation,
   onScroll: userOnScroll,
@@ -431,7 +433,7 @@ export function useKeyboardAwareScrollView<
 
   const combinedContentContainerStyle = useMemo(() => {
     const baseStyle = StyleSheet.flatten(contentContainerStyle) || {};
-    if (keyboardHeightState > 0) {
+    if (padForKeyboard && keyboardHeightState > 0) {
       const currentPaddingBottom =
         typeof baseStyle.paddingBottom === "number"
           ? baseStyle.paddingBottom
@@ -443,7 +445,7 @@ export function useKeyboardAwareScrollView<
       };
     }
     return baseStyle;
-  }, [contentContainerStyle, keyboardHeightState, extraScrollPadding]);
+  }, [contentContainerStyle, keyboardHeightState, extraScrollPadding, padForKeyboard]);
 
   const handleScroll = useCallback(
     (e: any) => {
@@ -527,6 +529,7 @@ export function useKeyboardAwareScrollView<
 
 export type KeyboardAwareScrollViewProps = ScrollViewProps & {
   pearlStyle?: boolean;
+  padForKeyboard?: boolean;
   extraScrollPadding?: number;
   keyboardNavigation?: KeyboardNavigationOptions;
 };
@@ -537,7 +540,7 @@ export const KeyboardAwareScrollView = forwardRef<
   ScrollView,
   PropsWithChildren<KeyboardAwareScrollViewProps>
 >(function KeyboardAwareScrollView(
-  { children, pearlStyle = false, extraScrollPadding = 40, contentContainerStyle, keyboardNavigation, ...scrollViewProps },
+  { children, pearlStyle = false, padForKeyboard = true, extraScrollPadding = 40, contentContainerStyle, keyboardNavigation, ...scrollViewProps },
   forwardedRef,
 ) {
   const Colors = usePearlColors(pearlStyle);
@@ -555,6 +558,7 @@ export const KeyboardAwareScrollView = forwardRef<
     onScroll,
     shouldShowKeyboardNavigation,
   } = useKeyboardAwareScrollView<ScrollView>({
+    padForKeyboard,
     extraScrollPadding,
     contentContainerStyle,
     keyboardNavigation,

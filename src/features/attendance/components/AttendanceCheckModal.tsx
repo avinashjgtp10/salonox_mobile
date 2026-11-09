@@ -3,11 +3,11 @@ import { Text, TextInput } from "@/components/ui/AppTypography";
 import { useEffect, useMemo, useState } from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
 
-import { DashboardRadius as Radius, DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
+import { DashboardRadius as Radius, DashboardSpacing as Spacing } from "@/constants/theme";
 import type { StaffMember } from "@/data/teamData";
 import { StaffBottomSheet } from "@/features/staff/components/StaffBottomSheet";
 import { StaffTextField } from "@/features/staff/components/StaffTextField";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors, type PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 import { attendanceTimeToIso } from "@/features/attendance/utils/attendanceRules";
 import { staffShiftService } from "@/services/staffShift.service";
 
@@ -60,7 +60,7 @@ export function AttendanceCheckModal({
   staffMember,
   visible,
 }: AttendanceCheckModalProps) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const [time, setTime] = useState<TimeValue>(emptyTime);
   const [shiftLoading, setShiftLoading] = useState(false);

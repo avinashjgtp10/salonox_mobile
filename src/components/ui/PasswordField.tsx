@@ -1,47 +1,76 @@
+import { pearl } from "@/components/auth/pearl/tokens";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { forwardRef, useMemo, useState } from "react";
 import { Pressable, StyleSheet, View, type TextInputProps } from "react-native";
 
-import { DashboardRadius as Radius, DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import {
+  DashboardRadius as Radius,
+  DashboardSpacing as Spacing,
+} from "@/constants/theme";
+import {
+  usePearlColors,
+  type PearlColors as ThemeColors,
+} from "@/components/auth/pearl/usePearlColors";
 
 type PasswordFieldProps = Omit<TextInputProps, "secureTextEntry" | "style"> & {
+  pearlStyle?: boolean;
   error?: string;
   label: string;
 };
 
-export const PasswordField = forwardRef<TextInput, PasswordFieldProps>(function PasswordField({ error, label, ...inputProps }, ref) {
-  const Colors = useThemeColors();
-  const styles = useMemo(() => createStyles(Colors), [Colors]);
-  const [isVisible, setIsVisible] = useState(false);
+export const PasswordField = forwardRef<TextInput, PasswordFieldProps>(
+  function PasswordField(
+    { pearlStyle = false, error, label, ...inputProps },
+    ref,
+  ) {
+    const Colors = usePearlColors(pearlStyle);
+    const styles = useMemo(() => createStyles(Colors), [Colors]);
+    const [isVisible, setIsVisible] = useState(false);
 
-  return (
-    <View style={styles.group}>
-      <Text style={styles.label}>{label}</Text>
-      <View style={[styles.inputRow, error ? styles.inputRowError : null]}>
-        <TextInput
-          ref={ref}
-          autoCapitalize="none"
-          autoCorrect={false}
-          placeholderTextColor={Colors.placeholder}
-          secureTextEntry={!isVisible}
-          style={styles.input}
-          {...inputProps}
-        />
-        <Pressable
-          accessibilityLabel={isVisible ? `Hide ${label}` : `Show ${label}`}
-          accessibilityRole="button"
-          hitSlop={10}
-          onPress={() => setIsVisible((current) => !current)}
+    return (
+      <View style={styles.group}>
+        <Text style={[styles.label, pearlStyle && { fontWeight: "600" }]}>
+          {label}
+        </Text>
+        <View
+          style={[
+            styles.inputRow,
+            pearlStyle && {
+              borderRadius: 16,
+              backgroundColor: pearl.field,
+              borderColor: pearl.fieldBorder,
+            },
+            error ? styles.inputRowError : null,
+          ]}
         >
-          <Ionicons name={isVisible ? "eye-off-outline" : "eye-outline"} size={18} color={Colors.text2} />
-        </Pressable>
+          <TextInput
+            ref={ref}
+            autoCapitalize="none"
+            autoCorrect={false}
+            placeholderTextColor={Colors.placeholder}
+            secureTextEntry={!isVisible}
+            style={styles.input}
+            {...inputProps}
+          />
+          <Pressable
+            accessibilityLabel={isVisible ? `Hide ${label}` : `Show ${label}`}
+            accessibilityRole="button"
+            hitSlop={10}
+            onPress={() => setIsVisible((current) => !current)}
+          >
+            <Ionicons
+              name={isVisible ? "eye-off-outline" : "eye-outline"}
+              size={18}
+              color={Colors.text2}
+            />
+          </Pressable>
+        </View>
+        {error ? <Text style={styles.error}>{error}</Text> : null}
       </View>
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-    </View>
-  );
-});
+    );
+  },
+);
 
 const createStyles = (Colors: ThemeColors) =>
   StyleSheet.create({

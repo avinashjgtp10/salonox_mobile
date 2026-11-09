@@ -2,9 +2,6 @@
 // so these never take a staff or user id.
 export const MOBILE_STAFF = {
   ME: "/mobile/staff/me",
-  CALENDAR_ACCESS: "/mobile/staff/me/calendar-access",
-  PRODUCT_AUDIT_ACCESS: "/mobile/staff/me/product-audit-access",
-  CLIENT_NAME_ACCESS: "/mobile/staff/me/client-name-access",
   ADDRESSES: "/mobile/staff/me/addresses",
   EMERGENCY_CONTACTS: "/mobile/staff/me/emergency-contacts",
   APPOINTMENTS: "/mobile/staff/appointments",
@@ -15,14 +12,4 @@ export const MOBILE_STAFF = {
   START_BREAK: "/mobile/staff/attendance/break",
   REVENUE: "/mobile/staff/revenue",
   NOTIFICATIONS: "/mobile/staff/notifications",
-} as const;
-
-// Owner/admin settings that exist only in the mobile app.
-export const MOBILE_OWNER = {
-  STAFF_CALENDAR_ACCESS_LIST: "/mobile/owner/staff/calendar-access",
-  STAFF_CALENDAR_ACCESS: (staffId: string) => `/mobile/owner/staff/${staffId}/calendar-access`,
-  STAFF_PRODUCT_AUDIT_ACCESS_LIST: "/mobile/owner/staff/product-audit-access",
-  STAFF_PRODUCT_AUDIT_ACCESS: (staffId: string) => `/mobile/owner/staff/${staffId}/product-audit-access`,
-  STAFF_CLIENT_NAME_ACCESS_LIST: "/mobile/owner/staff/client-name-access",
-  STAFF_CLIENT_NAME_ACCESS: (staffId: string) => `/mobile/owner/staff/${staffId}/client-name-access`,
 } as const;
