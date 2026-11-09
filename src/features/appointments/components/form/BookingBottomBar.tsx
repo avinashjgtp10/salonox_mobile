@@ -9,6 +9,7 @@ import { TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { pearlGradients } from "@/components/auth/pearl/tokens";
+import { PearlActionFooter } from "@/components/ui/PearlActionFooter";
 
 type BookingBottomBarProps = { serviceCount: number; totalServiceDuration: number; totalServicePrice: number; mutating: boolean; mode: 'create' | 'edit'; onSubmit: () => void; };
 
@@ -16,7 +17,7 @@ export function BookingBottomBar({ serviceCount, totalServiceDuration, totalServ
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const insets = useSafeAreaInsets();
-  return (<View style={[styles.bookingBottomBar, { paddingBottom: Math.max(insets.bottom, Spacing.md), flexDirection: "row", alignItems: "center", borderTopLeftRadius: 26, borderTopRightRadius: 26, paddingTop: 14 }]}>
+  return (<PearlActionFooter contentStyle={{ paddingBottom: Math.max(insets.bottom, Spacing.md) }}>
     <View accessibilityLabel={`${serviceCount} items, ${totalServiceDuration} minutes, estimated total ${formatCurrency(totalServicePrice)}`}>
       <Text style={styles.bookingBottomLabel}>{totalServiceDuration} min · est.</Text>
       <Text style={styles.bookingBottomTotal}>{formatCurrency(totalServicePrice)}</Text>
@@ -34,5 +35,5 @@ export function BookingBottomBar({ serviceCount, totalServiceDuration, totalServ
       </Text>
       </LinearGradient>
     </TouchableOpacity>
-  </View>);
+  </PearlActionFooter>);
 }

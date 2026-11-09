@@ -183,7 +183,7 @@ export default function NewServiceScreen() {
   };
 
   return (
-    <PearlBackground><SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
+    <PearlBackground><SafeAreaView edges={["top"]} style={styles.safeArea}>
       <AppStatusBar />
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.flex}>
         <KeyboardAwareScrollView

@@ -1,3 +1,4 @@
+import { PearlActionFooter } from "@/components/ui/PearlActionFooter";
 import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
 import { pearl, pearlTones } from "@/components/auth/pearl/tokens";
 import { ClientButton, ClientChips, clientUi } from "../components/ClientPearl";
@@ -10,7 +11,7 @@ import { isValidPhoneNumber, parsePhoneNumber, type CountryCode } from "libphone
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Keyboard, StyleSheet, Switch, TouchableOpacity, View } from "react-native";
 import { KeyboardAwareScrollView } from "@/components/ui/KeyboardAwareScrollView";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppBackButton } from "@/components/ui/AppBackButton";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
@@ -100,6 +101,7 @@ const getRejectedMessage = (payload: unknown, fallback: string) => {
 };
 
 export default function NewClientScreen() {
+  const insets = useSafeAreaInsets();
   const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const { id, returnTo } = useLocalSearchParams<{ id?: string; returnTo?: string }>();
@@ -338,7 +340,7 @@ export default function NewClientScreen() {
     );
   }
 
-  return <PearlBackground><SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}><AppStatusBar />
+  return <PearlBackground><SafeAreaView edges={["top"]} style={styles.safeArea}><AppStatusBar />
     <KeyboardAwareScrollView pearlStyle keyboardNavigation={keyboardNavigation} ref={scrollViewRef} contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 24 }} style={styles.flex} keyboardShouldPersistTaps="handled">
       <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}><AppBackButton onPress={handleBack} /><Text style={{ flex: 1, textAlign: "center", color: pearl.ink, fontSize: 18, fontWeight: "700" }}>{isEditMode ? "Edit client" : "Add client"}</Text><View style={{ width: 44 }} /></View>
       <View style={formUi.card}><Text style={formUi.heading}>Contact</Text><View style={{ flexDirection: "row", gap: 12 }}>
@@ -396,7 +398,7 @@ export default function NewClientScreen() {
       <Text style={clientUi.muted}>Only first name and mobile are required. Everything else can be added later.</Text>
       {displayedError ? <Text accessibilityRole="alert" style={clientUi.error}>{displayedError}</Text> : null}{successMessage ? <Text style={{ color: pearl.successText }}>{successMessage}</Text> : null}
     </KeyboardAwareScrollView>
-    <View style={formUi.footer}><ClientButton secondary label="Cancel" loading={isSubmitting} onPress={handleBack} /><View style={{ flex: 1 }}><ClientButton label="Save client" loading={isSubmitting} onPress={() => void handleSubmit()} /></View></View>
+    <PearlActionFooter bottomInset={insets.bottom}><ClientButton secondary label="Cancel" loading={isSubmitting} onPress={handleBack} /><View style={{ flex: 1 }}><ClientButton label="Save client" loading={isSubmitting} onPress={() => void handleSubmit()} /></View></PearlActionFooter>
   </SafeAreaView></PearlBackground>;
 }
 const createStyles = (Colors: ThemeColors) => StyleSheet.create({
@@ -472,4 +474,4 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
 });
 
-const formUi = StyleSheet.create({ card: { padding: 16, gap: 14, borderRadius: 28, backgroundColor: pearl.glass, borderWidth: 1, borderColor: pearl.glassBorder }, heading: { color: pearl.ink, fontSize: 16, fontWeight: "700" }, toggleRow: { flexDirection: "row", alignItems: "center", gap: 12, minHeight: 52 }, footer: { padding: 16, paddingVertical: 12, flexDirection: "row", gap: 12, backgroundColor: pearl.glassStrong, borderTopWidth: 1, borderColor: pearl.glassBorder } });
+const formUi = StyleSheet.create({ card: { padding: 16, gap: 14, borderRadius: 28, backgroundColor: pearl.glass, borderWidth: 1, borderColor: pearl.glassBorder }, heading: { color: pearl.ink, fontSize: 16, fontWeight: "700" }, toggleRow: { flexDirection: "row", alignItems: "center", gap: 12, minHeight: 52 } });

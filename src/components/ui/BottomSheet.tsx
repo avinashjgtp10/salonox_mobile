@@ -9,6 +9,7 @@ import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withTiming
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { KeyboardInsetView } from "@/components/ui/KeyboardInsetView";
+import { PearlActionFooter } from "@/components/ui/PearlActionFooter";
 import { Portal } from "@/components/ui/Portal";
 import { KeyboardAwareForm, type KeyboardAwareFormHandle } from "@/components/ui/KeyboardAwareForm";
 import { AppLayout, AppRadius } from "@/constants/layout";
@@ -135,7 +136,10 @@ export function BottomSheet({
         <View style={[styles.content, avoidKeyboard && styles.constrainedContent]}>{children}</View>
       )}
 
-      {footer ? <View style={styles.footer}>{footer}</View> : null}
+      {footer ? <PearlActionFooter
+        style={{ marginHorizontal: -AppLayout.contentHorizontalPadding, marginBottom: -(centered ? Spacing.lg : Math.max(insets.bottom, Spacing.lg)), ...(centered ? { borderBottomLeftRadius: 24, borderBottomRightRadius: 24 } : {}) }}
+        contentStyle={[styles.footer, { paddingTop: 16, paddingBottom: centered ? Spacing.lg : Math.max(insets.bottom, Spacing.lg) }]}
+      >{footer}</PearlActionFooter> : null}
     </Animated.View>
   );
 

@@ -6,6 +6,7 @@ import { useClientPrivacy } from "@/hooks/useClientPrivacy";
 import { useBenefitCards } from "../hooks/useBenefitCards";
 import { maskPhone } from "@/utils/maskPhone";
 import { Text, TextInput } from "@/components/ui/AppTypography";
+import { PearlActionFooter } from "@/components/ui/PearlActionFooter";
 import { Ionicons } from "@expo/vector-icons";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, BackHandler, Easing, KeyboardAvoidingView, LayoutAnimation, PanResponder, Platform, Pressable, ScrollView, StyleSheet, TouchableOpacity, UIManager, useWindowDimensions, View } from "react-native";
@@ -1184,7 +1185,7 @@ function CheckoutSheetComponent({
               </View>
             </ScrollView>
 
-            <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 10) + Spacing.sm }]}>
+            <PearlActionFooter floating style={styles.footer} contentStyle={{ flexDirection: "column", alignItems: "stretch", paddingHorizontal: Spacing.xl, paddingBottom: Math.max(insets.bottom, 10) + Spacing.sm }}>
               {pricingError ? <Text style={styles.footerError}>Pricing error: {pricingError}</Text> : null}
               {submitError ? <Text style={styles.footerError}>{submitError}</Text> : null}
               {isSuccess ? (
@@ -1272,7 +1273,7 @@ function CheckoutSheetComponent({
                   )}
                 </TouchableOpacity>
               </View>
-            </View>
+            </PearlActionFooter>
           </Animated.View>
         </KeyboardAvoidingView>
         {staffTipsVisible ? (
@@ -2646,14 +2647,10 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "800",
     marginTop: Spacing.sm,
   },
-  // Buttons float over the scroll content (scrollContent reserves the room) —
-  // no white strip behind them.
+  // The existing floating bar reserves space in scrollContent.
   footer: {
-    backgroundColor: "#F8F7FB",
     bottom: 0,
     left: 0,
-    paddingHorizontal: Spacing.xl,
-    paddingTop: Spacing.md,
     position: "absolute",
     right: 0,
   },
@@ -2691,7 +2688,9 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   pendingButton: {
     alignItems: "center",
     backgroundColor: Colors.bg2,
-    borderRadius: Radius.full,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: "rgba(126,120,176,0.45)",
     flex: 0.9,
     justifyContent: "center",
     minHeight: 54,
@@ -2704,7 +2703,8 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   completeButton: {
     alignItems: "center",
     backgroundColor: Colors.primaryDark,
-    borderRadius: Radius.full,
+    borderRadius: 16,
+    overflow: "hidden",
     flex: 1.35,
     flexDirection: "row",
     gap: 8,

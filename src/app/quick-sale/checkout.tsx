@@ -15,7 +15,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, Stack, useFocusEffect, useLocalSearchParams, type Href } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BackHandler, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { PearlActionFooter } from "@/components/ui/PearlActionFooter";
 
 import { ReceiptModal } from "@/components/receipt/ReceiptModal";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
@@ -69,6 +70,7 @@ export default function QuickSaleCheckoutScreen() {
 }
 
 function OwnerQuickSaleCheckoutScreen() {
+  const insets = useSafeAreaInsets();
   const { user } = useAuth();
   // Staff reach this from their Calendar (Calendar & Quick Sale access) and
   // can't open the owner's Dashboard, Calendar or Sales screens.
@@ -408,7 +410,7 @@ function OwnerQuickSaleCheckoutScreen() {
   );
 
   return (
-    <PearlBackground><SafeAreaView edges={["top", "bottom"]} style={[styles.safeArea, { backgroundColor: "transparent" }]}>
+    <PearlBackground><SafeAreaView edges={["top"]} style={[styles.safeArea, { backgroundColor: "transparent" }]}>
       <Stack.Screen options={{ gestureEnabled: false }} />
       <AppStatusBar />
 
@@ -480,12 +482,12 @@ function OwnerQuickSaleCheckoutScreen() {
           ) : null}
         </ScrollView>
 
-        <View style={[styles.footer, { flexDirection: "row", gap: 8, backgroundColor: pearl.glass }]}>
+        <PearlActionFooter bottomInset={insets.bottom} style={{ marginHorizontal: -Spacing.lg }} contentStyle={{ gap: 8 }}>
           <TouchableOpacity activeOpacity={0.86} onPress={handleStartNewSale} style={[styles.primaryButton, { flex: 1, backgroundColor: "transparent" }]}>
             <Text style={[styles.primaryButtonText, { color: pearl.accentDeep }]}>{isPreview ? "Back to Quick Sale" : "New sale"}</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => replaceOnce((isStaff ? STAFF_HOME_ROUTE : "/dashboard") as Href)} style={{ flex: 1 }}><LinearGradient colors={pearlGradients.primary} style={{ minHeight: 50, borderRadius: 16, justifyContent: "center", alignItems: "center" }}><Text style={{ color: "#fff", fontSize: 15, fontWeight: "700" }}>Done</Text></LinearGradient></TouchableOpacity>
-        </View>
+        </PearlActionFooter>
       </View>
 
       {receiptData && (
