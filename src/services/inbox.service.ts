@@ -8,12 +8,19 @@ import type {
   InboxCustomer,
   InboxConversationsResponse,
   InboxMessage,
+  InboxTemplate,
   InboxMessageDirection,
   InboxMessagesResponse,
   SendInboxReplyRequest,
   SendInboxReplyResponse,
 } from "@/types/inbox";
-import { asRecord, firstArray, firstValue, toSafeNumber, toSafeString } from "@/utils/apiNormalize";
+import {
+  asRecord,
+  firstArray,
+  firstValue,
+  toSafeNumber,
+  toSafeString,
+} from "@/utils/apiNormalize";
 import { formatAppDate, parseAppDateTime } from "@/utils/dateTime";
 
 type UnknownRecord = Record<string, unknown>;
@@ -67,43 +74,71 @@ const formatClockTime = (isoValue: string | null): string => {
     return "";
   }
 
-  return parsed.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  return parsed.toLocaleTimeString(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  });
 };
 
-export const normalizeConversation = (entry: UnknownRecord): InboxConversation => {
+export const normalizeConversation = (
+  entry: UnknownRecord,
+): InboxConversation => {
   const lastMessageAt =
-    toSafeString(firstValue(entry, ["last_message_at", "lastMessageAt"])) || null;
+    toSafeString(firstValue(entry, ["last_message_at", "lastMessageAt"])) ||
+    null;
 
   return {
-    contactName: toSafeString(firstValue(entry, ["contact_name", "contactName"])) || null,
-    contactPhone: toSafeString(firstValue(entry, ["contact_phone", "contactPhone"])),
+    contactName:
+      toSafeString(firstValue(entry, ["contact_name", "contactName"])) || null,
+    contactPhone: toSafeString(
+      firstValue(entry, ["contact_phone", "contactPhone"]),
+    ),
     id: toSafeString(firstValue(entry, ["id", "_id"])),
-    lastMessage: toSafeString(firstValue(entry, ["last_message", "lastMessage"])) || null,
+    lastMessage:
+      toSafeString(firstValue(entry, ["last_message", "lastMessage"])) || null,
     lastMessageAt,
     lastMessageLabel: formatRelativeTime(lastMessageAt),
-    unreadCount: toSafeNumber(firstValue(entry, ["unread_count", "unreadCount"])),
+    unreadCount: toSafeNumber(
+      firstValue(entry, ["unread_count", "unreadCount"]),
+    ),
   };
 };
 
 export const normalizeMessage = (entry: UnknownRecord): InboxMessage => {
-  const sentAt = toSafeString(firstValue(entry, ["sent_at", "sentAt", "created_at"])) || null;
-  const direction = toSafeString(firstValue(entry, ["direction"])).toUpperCase();
+  const sentAt =
+    toSafeString(firstValue(entry, ["sent_at", "sentAt", "created_at"])) ||
+    null;
+  const direction = toSafeString(
+    firstValue(entry, ["direction"]),
+  ).toUpperCase();
 
   return {
     body: toSafeString(firstValue(entry, ["body", "message", "text"])),
-    conversationId: toSafeString(firstValue(entry, ["conversation_id", "conversationId"])),
-    direction: (direction === "OUTBOUND" ? "OUTBOUND" : "INBOUND") as InboxMessageDirection,
+    conversationId: toSafeString(
+      firstValue(entry, ["conversation_id", "conversationId"]),
+    ),
+    direction: (direction === "OUTBOUND"
+      ? "OUTBOUND"
+      : "INBOUND") as InboxMessageDirection,
     id: toSafeString(firstValue(entry, ["id", "_id"])),
     sentAt,
     sentAtLabel: formatClockTime(sentAt),
     status: toSafeString(firstValue(entry, ["status"]), "SENT").toUpperCase(),
     wamid: toSafeString(firstValue(entry, ["wamid"])) || null,
-    mediaType: toSafeString(firstValue(entry, ["media_type", "mediaType"])).toLowerCase() || null,
-    mediaUrl: toSafeString(firstValue(entry, ["media_url", "mediaUrl"])) || null,
+    mediaType:
+      toSafeString(
+        firstValue(entry, ["media_type", "mediaType"]),
+      ).toLowerCase() || null,
+    mediaUrl:
+      toSafeString(firstValue(entry, ["media_url", "mediaUrl"])) || null,
+    reaction: toSafeString(entry.reaction) || null,
   };
 };
 
-const getRecordArray = (payload: ConversationsApiData | MessagesApiData, keys: string[]): UnknownRecord[] => {
+const getRecordArray = (
+  payload: ConversationsApiData | MessagesApiData,
+  keys: string[],
+): UnknownRecord[] => {
   if (!payload) {
     return [];
   }
@@ -116,27 +151,94 @@ const getRecordArray = (payload: ConversationsApiData | MessagesApiData, keys: s
 };
 
 export const inboxService = {
+  // The authenticated webapp endpoint selects templates using the token's salonId.
+  async getApprovedTemplates(signal?: AbortSignal): Promise<InboxTemplate[]> {
+    const response = await api.get<ApiResponse<UnknownRecord[]>>(
+      INBOX.TEMPLATES,
+      { signal },
+    );
+    return getRecordArray(response.data.data, ["templates", "data"])
+      .filter((t) => toSafeString(t.status).toUpperCase() === "APPROVED")
+      .map((t) => ({
+        id: toSafeString(t.id),
+        name: toSafeString(t.name),
+        body: toSafeString(t.body_text),
+        header: toSafeString(t.header_text),
+        footer: toSafeString(t.footer_text),
+        language: toSafeString(t.language),
+        category: toSafeString(t.category),
+        needsCoupon:
+          Array.isArray(t.buttons) &&
+          t.buttons.some((b) => asRecord(b).type === "copy_code"),
+        needsExpiry: !!toSafeString(t.lto_text),
+      }))
+      .filter((t) => !!t.id);
+  },
+  async sendTemplate(
+    phone: string,
+    templateId: string,
+    variables: Record<string, string>,
+    offer?: { couponCode?: string; expiresAt?: string },
+  ): Promise<InboxMessage | null> {
+    const response = await api.post<ApiResponse<UnknownRecord | null>>(
+      INBOX.TEMPLATE(phone),
+      { templateId, variables, ...offer },
+    );
+    return response.data.data
+      ? normalizeMessage(asRecord(response.data.data))
+      : null;
+  },
+  async reactToMessage(id: string, emoji: string): Promise<void> {
+    await api.post(INBOX.REACT(id), { emoji });
+  },
   async deleteConversations(phones: string[]): Promise<{ deleted: number }> {
-    const uniquePhones = [...new Set(phones.map(phone => phone.trim()).filter(Boolean))];
+    const uniquePhones = [
+      ...new Set(phones.map((phone) => phone.trim()).filter(Boolean)),
+    ];
     if (!uniquePhones.length || uniquePhones.length > 500) {
       throw new Error("Select between 1 and 500 chats to delete.");
     }
-    const response = await api.post<ApiResponse<{ deleted: number }>>(INBOX.DELETE_CONVERSATIONS, { phones: uniquePhones });
+    const response = await api.post<ApiResponse<{ deleted: number }>>(
+      INBOX.DELETE_CONVERSATIONS,
+      { phones: uniquePhones },
+    );
     return response.data.data;
   },
   async getCustomer(phone: string): Promise<InboxCustomer | null> {
     try {
-      const response = await api.get<ApiResponse<UnknownRecord | null>>(INBOX.CUSTOMER(phone));
+      const response = await api.get<ApiResponse<UnknownRecord | null>>(
+        INBOX.CUSTOMER(phone),
+      );
       const record = response.data.data;
       if (!record) return null;
       return {
         id: toSafeString(record.id),
-        fullName: toSafeString(firstValue(record, ["full_name", "fullName"])) || null,
-        phoneNumber: toSafeString(firstValue(record, ["phone_number", "phoneNumber"])) || phone,
-        totalVisits: toSafeNumber(firstValue(record, ["total_visits", "totalVisits"])),
-        lifetimeSpend: toSafeNumber(firstValue(record, ["lifetime_spend", "lifetimeSpend"])),
-        lastVisitDate: toSafeString(firstValue(record, ["last_visit_date", "lastVisitDate", "last_visit_at", "lastVisitAt", "last_visit", "lastVisit"])) || null,
-        membershipName: toSafeString(firstValue(record, ["membership_name", "membershipName"])) || null,
+        fullName:
+          toSafeString(firstValue(record, ["full_name", "fullName"])) || null,
+        phoneNumber:
+          toSafeString(firstValue(record, ["phone_number", "phoneNumber"])) ||
+          phone,
+        totalVisits: toSafeNumber(
+          firstValue(record, ["total_visits", "totalVisits"]),
+        ),
+        lifetimeSpend: toSafeNumber(
+          firstValue(record, ["lifetime_spend", "lifetimeSpend"]),
+        ),
+        lastVisitDate:
+          toSafeString(
+            firstValue(record, [
+              "last_visit_date",
+              "lastVisitDate",
+              "last_visit_at",
+              "lastVisitAt",
+              "last_visit",
+              "lastVisit",
+            ]),
+          ) || null,
+        membershipName:
+          toSafeString(
+            firstValue(record, ["membership_name", "membershipName"]),
+          ) || null,
       };
     } catch (error) {
       if (!(error instanceof ApiError) || error.status !== 404) throw error;
@@ -144,24 +246,44 @@ export const inboxService = {
     const key = inboxPhoneKey(phone);
     let offset = 0;
     for (;;) {
-      const result = await clientService.searchClients({ search: key.slice(-10), limit: 100, offset, sort_by: "full_name", sort_order: "asc" });
-      const client = result.clients.find(item => inboxPhoneKey(item.phone, item.phoneCountryCode) === key);
+      const result = await clientService.searchClients({
+        search: key.slice(-10),
+        limit: 100,
+        offset,
+        sort_by: "full_name",
+        sort_order: "asc",
+      });
+      const client = result.clients.find(
+        (item) => inboxPhoneKey(item.phone, item.phoneCountryCode) === key,
+      );
       if (client) {
         const history = await clientService.getClientHistory(client.id);
         return {
-          id: client.id, fullName: client.fullName, phoneNumber: phone,
-          totalVisits: history.stats.totalVisits, lifetimeSpend: history.stats.lifetimeSpend,
+          id: client.id,
+          fullName: client.fullName,
+          phoneNumber: phone,
+          totalVisits: history.stats.totalVisits,
+          lifetimeSpend: history.stats.lifetimeSpend,
           lastVisitDate: history.stats.lastVisit,
-          membershipName: history.memberships.find(item => item.status.toLowerCase() === "active")?.membershipName ?? client.membership,
+          membershipName:
+            history.memberships.find(
+              (item) => item.status.toLowerCase() === "active",
+            )?.membershipName ?? client.membership,
         };
       }
-      if (!result.pagination.hasMore || result.pagination.nextOffset <= offset) return null;
+      if (!result.pagination.hasMore || result.pagination.nextOffset <= offset)
+        return null;
       offset = result.pagination.nextOffset;
     }
   },
   async getConversations(): Promise<InboxConversationsResponse> {
-    const response = await api.get<ApiResponse<ConversationsApiData>>(INBOX.CONVERSATIONS);
-    const conversations = getRecordArray(response.data.data, ["conversations", "data"])
+    const response = await api.get<ApiResponse<ConversationsApiData>>(
+      INBOX.CONVERSATIONS,
+    );
+    const conversations = getRecordArray(response.data.data, [
+      "conversations",
+      "data",
+    ])
       .map(normalizeConversation)
       .filter((conversation) => conversation.contactPhone);
 
@@ -169,7 +291,9 @@ export const inboxService = {
   },
 
   async getMessages(phone: string): Promise<InboxMessagesResponse> {
-    const response = await api.get<ApiResponse<MessagesApiData>>(INBOX.MESSAGES(phone));
+    const response = await api.get<ApiResponse<MessagesApiData>>(
+      INBOX.MESSAGES(phone),
+    );
     const messages = getRecordArray(response.data.data, ["messages", "data"])
       .map(normalizeMessage)
       .filter((message) => message.id)
@@ -183,10 +307,16 @@ export const inboxService = {
     return { messages };
   },
 
-  async sendReply({ message, phone }: SendInboxReplyRequest): Promise<SendInboxReplyResponse> {
-    const response = await api.post<ApiResponse<UnknownRecord | null>>(INBOX.REPLY(phone), {
-      message,
-    });
+  async sendReply({
+    message,
+    phone,
+  }: SendInboxReplyRequest): Promise<SendInboxReplyResponse> {
+    const response = await api.post<ApiResponse<UnknownRecord | null>>(
+      INBOX.REPLY(phone),
+      {
+        message,
+      },
+    );
     const payload = response.data.data;
 
     return { message: payload ? normalizeMessage(asRecord(payload)) : null };

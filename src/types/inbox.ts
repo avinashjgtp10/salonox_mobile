@@ -1,7 +1,11 @@
-
 export type InboxMessageDirection = "INBOUND" | "OUTBOUND";
 
-export type InboxMessageStatus = "SENT" | "DELIVERED" | "READ" | "FAILED" | string;
+export type InboxMessageStatus =
+  | "SENT"
+  | "DELIVERED"
+  | "READ"
+  | "FAILED"
+  | string;
 
 export type InboxConversation = {
   contactName: string | null;
@@ -24,6 +28,19 @@ export type InboxMessage = {
   wamid: string | null;
   mediaType?: string | null;
   mediaUrl?: string | null;
+  reaction?: string | null;
+};
+
+export type InboxTemplate = {
+  id: string;
+  name: string;
+  body: string;
+  header: string;
+  footer: string;
+  language: string;
+  category: string;
+  needsCoupon: boolean;
+  needsExpiry: boolean;
 };
 
 export type InboxCustomer = {
