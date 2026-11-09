@@ -1,469 +1,351 @@
-import { RefreshViewport } from "@/components/ui/RefreshViewport";
-import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
-import { Text } from "@/components/ui/AppTypography";
-import { Ionicons } from "@expo/vector-icons";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { RefreshControl, ScrollView, StyleSheet, Switch, TextInput, TouchableOpacity, View } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ScrollView, Switch, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-
-import { AppBackButton } from "@/components/ui/AppBackButton";
+import { useLocalSearchParams } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { Text, TextInput } from "@/components/ui/AppTypography";
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
-import { AppLayout, AppRadius } from "@/constants/layout";
-import { DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
-import { matchesTeamSearch, type StaffMember } from "@/data/teamData";
-import { getApiErrorMessage } from "@/services/api";
-import { staffCalendarAccessService } from "@/services/staffCalendarAccess.service";
-import { staffClientNameAccessService } from "@/services/staffClientNameAccess.service";
-import { staffProductAuditAccessService } from "@/services/staffProductAuditAccess.service";
+import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
+import { pearl } from "@/components/auth/pearl/tokens";
 import { staffService } from "@/services/staff.service";
-import { useThemeColors } from "@/theme/ThemeProvider";
-
-const CALENDAR_ACCESS_HELPER_TEXT =
-  "Lets staff book and bill Quick Sales from their Calendar in the SalonOX app. Changes save right away and don't affect the web app.";
-const PRODUCT_AUDIT_ACCESS_HELPER_TEXT =
-  "Lets staff create and perform Product Audits, including adding new products from the scanner, in the SalonOX app. Approving stays with you. Changes save right away and don't affect the web app.";
-const CLIENT_NAME_ACCESS_HELPER_TEXT =
-  "Lets staff see clients' full names instead of masked ones (e.g. Pr****) in the SalonOX app. Phone numbers stay masked. Changes save right away and don't affect the web app.";
-
-type AccessKind = "calendar" | "productAudit" | "clientName";
-const SAVE_ACCESS: Record<AccessKind, (staffId: string, enabled: boolean) => Promise<boolean>> = {
-  calendar: staffCalendarAccessService.setStaffCalendarAccess,
-  productAudit: staffProductAuditAccessService.setStaffProductAuditAccess,
-  clientName: staffClientNameAccessService.setStaffClientNameAccess,
-};
-const rowKey = (kind: AccessKind, staffId: string) => `${kind}:${staffId}`;
-
-const loadAllStaff = async () => {
-  const members: StaffMember[] = [];
-  for (let page = 1; ; page++) {
-    const result = await staffService.getStaff({ page, limit: 100 });
-    members.push(...result.staffMembers);
-    if (!result.pagination.hasMore || result.staffMembers.length === 0) break;
-  }
-  return members;
-};
-
-// Owner screen (Quick Actions → Staff Permissions): every staff member's
-// mobile-only permissions in one place: Calendar & Quick Sale access,
-// Product Audit access and Client name access.
+import {
+  staffPermissionsService,
+  type StaffPermission,
+  type StaffPermissionView,
+} from "@/services/staffPermissions.service";
+import { getApiErrorMessage } from "@/services/api";
+import { matchesTeamSearch, type StaffMember } from "@/data/teamData";
+import {
+  StaffAvatar,
+  StaffButton,
+  StaffHeader,
+  staffUi,
+} from "../components/StaffPearl";
+import {
+  cascadeOnKeys,
+  cascadeOffKeys,
+  lockedByMaster,
+} from "../utils/permissionCascade";
+import {
+  sortModuleNames,
+  sortGroupNames,
+} from "../utils/permissionModuleOrder";
 export function StaffPermissionsScreen() {
-  const Colors = useThemeColors();
-  const styles = useMemo(() => createStyles(Colors), [Colors]);
-  const [staff, setStaff] = useState<StaffMember[]>([]);
-  const [access, setAccess] = useState<Record<string, boolean>>({});
-  const [auditAccess, setAuditAccess] = useState<Record<string, boolean>>({});
-  const [clientNameAccess, setClientNameAccess] = useState<Record<string, boolean>>({});
-  const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
-  const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
-
-  const load = useCallback(async (mode: "initial" | "refresh") => {
-    if (mode === "refresh") setRefreshing(true);
-    else setLoading(true);
-    setError(null);
-
+  const params = useLocalSearchParams<{ staffId?: string }>();
+  const [staff, setStaff] = useState<StaffMember[]>([]),
+    [catalog, setCatalog] = useState<StaffPermission[]>([]),
+    [search, setSearch] = useState("");
+  const [selected, setSelected] = useState<string | null>(
+      params.staffId ?? null,
+    ),
+    [view, setView] = useState<StaffPermissionView | null>(null),
+    [loading, setLoading] = useState(true),
+    [loadingPermissions, setLoadingPermissions] = useState(false),
+    [saving, setSaving] = useState(false),
+    [error, setError] = useState("");
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const request = useRef(0);
+  const selectedRef = useRef(selected);
+  selectedRef.current = selected;
+  useEffect(() => {
+    if (params.staffId) setSelected(params.staffId);
+  }, [params.staffId]);
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError("");
     try {
-      const [members, accessByStaffId, auditAccessByStaffId, clientNameAccessByStaffId] = await Promise.all([
-        loadAllStaff(),
-        staffCalendarAccessService.listStaffCalendarAccess(),
-        staffProductAuditAccessService.listStaffProductAuditAccess(),
-        staffClientNameAccessService.listStaffClientNameAccess(),
+      const [permissions, members] = await Promise.all([
+        staffPermissionsService.catalog(),
+        (async () => {
+          const all: StaffMember[] = [];
+          for (let page = 1; ; page++) {
+            const result = await staffService.getStaff({ page, limit: 100 });
+            all.push(...result.staffMembers);
+            if (!result.pagination.hasMore || !result.staffMembers.length)
+              break;
+          }
+          return all;
+        })(),
       ]);
+      setCatalog(permissions);
       setStaff(members);
-      setAccess(accessByStaffId);
-      setAuditAccess(auditAccessByStaffId);
-      setClientNameAccess(clientNameAccessByStaffId);
-      setRowErrors({});
-    } catch (loadError) {
-      setError(getApiErrorMessage(loadError));
+    } catch (e) {
+      setError(getApiErrorMessage(e));
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   }, []);
-
   useEffect(() => {
-    void load("initial");
+    void load();
   }, [load]);
-
-  const toggleAccess = useCallback(async (kind: AccessKind, staffId: string, enabled: boolean) => {
-    const setValues = kind === "calendar" ? setAccess : kind === "productAudit" ? setAuditAccess : setClientNameAccess;
-    const key = rowKey(kind, staffId);
-    setValues((current) => ({ ...current, [staffId]: enabled }));
-    setSavingIds((current) => new Set(current).add(key));
-    setRowErrors((current) => {
-      const next = { ...current };
-      delete next[key];
-      return next;
-    });
-
-    try {
-      const saved = await SAVE_ACCESS[kind](staffId, enabled);
-      setValues((current) => ({ ...current, [staffId]: saved }));
-    } catch (saveError) {
-      setValues((current) => ({ ...current, [staffId]: !enabled }));
-      setRowErrors((current) => ({ ...current, [key]: getApiErrorMessage(saveError) }));
-    } finally {
-      setSavingIds((current) => {
-        const next = new Set(current);
-        next.delete(key);
-        return next;
+  useEffect(() => {
+    const generation = ++request.current;
+    setView(null);
+    setExpanded({});
+    if (!selected) return;
+    setLoadingPermissions(true);
+    setError("");
+    staffPermissionsService
+      .get(selected)
+      .then((result) => {
+        if (generation === request.current) setView(result);
+      })
+      .catch((e) => {
+        if (generation === request.current) setError(getApiErrorMessage(e));
+      })
+      .finally(() => {
+        if (generation === request.current) setLoadingPermissions(false);
       });
-    }
-  }, []);
-
-  const visibleStaff = useMemo(
-    () => (search.trim() ? staff.filter((member) => matchesTeamSearch(member, search)) : staff),
-    [search, staff],
+    return () => {
+      request.current = generation + 1;
+    };
+  }, [selected]);
+  const effective = useMemo(
+    () =>
+      Object.fromEntries(
+        view?.permissions.map((p) => [p.key, p.effective]) ?? [],
+      ),
+    [view],
   );
-  const enabledCount = staff.filter((member) => access[member.id]).length;
-  const auditEnabledCount = staff.filter((member) => auditAccess[member.id]).length;
-  const clientNameEnabledCount = staff.filter((member) => clientNameAccess[member.id]).length;
-
+  const save = async (key: string, enabled: boolean) => {
+    if (!selected || !view || saving) return;
+    const staffId = selected;
+    setSaving(true);
+    setError("");
+    const keys = enabled
+      ? cascadeOnKeys(catalog, key)
+      : cascadeOffKeys(catalog, key);
+    keys.add(key);
+    try {
+      const result = await staffPermissionsService.save(
+        staffId,
+        Object.fromEntries([...keys].map((k) => [k, enabled])),
+      );
+      if (selectedRef.current === staffId) setView(result);
+    } catch (e) {
+      if (selectedRef.current === staffId) setError(getApiErrorMessage(e));
+    } finally {
+      setSaving(false);
+    }
+  };
+  const modules = sortModuleNames(
+    [...new Set(catalog.map((p) => p.module))],
+    (name) => name,
+  );
+  const member = staff.find((m) => m.id === selected);
+  const rows = (permissions: StaffPermission[]) =>
+    permissions.map((p) => {
+      const locked = lockedByMaster(p.key, (key) => effective[key] === true);
+      return (
+        <View
+          key={p.key}
+          style={[
+            staffUi.menuRow,
+            { borderBottomWidth: 0, opacity: locked?.length ? 0.6 : 1 },
+          ]}
+        >
+          <View style={{ flex: 1 }}>
+            <Text style={staffUi.rowTitle}>{p.name}</Text>
+            {p.description ? (
+              <Text style={staffUi.muted}>{p.description}</Text>
+            ) : null}
+            {locked ? (
+              <Text style={staffUi.muted}>
+                Enable{" "}
+                {catalog.find((item) => item.key === locked)?.name ?? locked}{" "}
+                first
+              </Text>
+            ) : null}
+          </View>
+          <Switch
+            accessibilityLabel={p.name}
+            disabled={saving || !!locked}
+            value={effective[p.key] === true}
+            onValueChange={(value) => void save(p.key, value)}
+            thumbColor="#FFFFFF"
+            trackColor={{ false: pearl.divider, true: pearl.accent }}
+          />
+        </View>
+      );
+    });
+  const toggle = (key: string) =>
+    setExpanded((value) => ({ ...value, [key]: !value[key] }));
   return (
-    <SafeAreaView edges={["top"]} style={styles.safeArea}>
-      <AppStatusBar />
-      <View style={styles.header}>
-        <AppBackButton fallbackHref="/dashboard" />
-        <View style={styles.headerCopy}>
-          <Text accessibilityRole="header" style={styles.title}>Staff Permissions</Text>
-          <Text style={styles.subtitle}>Control what each staff member can do in the app</Text>
-        </View>
-      </View>
-
-      <RefreshViewport><ScrollView
-        contentContainerStyle={styles.content}
-        keyboardShouldPersistTaps="handled"
-        refreshControl={<RefreshControl colors={[Colors.primary]} onRefresh={() => void load("refresh")} refreshing={refreshing} tintColor={Colors.primary} />}
-      >
-        <View style={styles.infoCard}>
-          <View style={styles.infoIcon}>
-            <Ionicons color={Colors.primaryText} name="calendar-outline" size={20} />
-          </View>
-          <View style={styles.infoCopy}>
-            <Text style={styles.infoTitle}>Calendar &amp; Quick Sale access</Text>
-            <Text style={styles.infoText}>{CALENDAR_ACCESS_HELPER_TEXT}</Text>
-            {!loading && !error ? (
-              <Text style={styles.infoCount}>{enabledCount} of {staff.length} staff enabled</Text>
-            ) : null}
-          </View>
-        </View>
-
-        <View style={styles.infoCard}>
-          <View style={styles.infoIcon}>
-            <Ionicons color={Colors.primaryText} name="clipboard-outline" size={20} />
-          </View>
-          <View style={styles.infoCopy}>
-            <Text style={styles.infoTitle}>Product Audit access</Text>
-            <Text style={styles.infoText}>{PRODUCT_AUDIT_ACCESS_HELPER_TEXT}</Text>
-            {!loading && !error ? (
-              <Text style={styles.infoCount}>{auditEnabledCount} of {staff.length} staff enabled</Text>
-            ) : null}
-          </View>
-        </View>
-
-        <View style={styles.infoCard}>
-          <View style={styles.infoIcon}>
-            <Ionicons color={Colors.primaryText} name="eye-outline" size={20} />
-          </View>
-          <View style={styles.infoCopy}>
-            <Text style={styles.infoTitle}>Client name access</Text>
-            <Text style={styles.infoText}>{CLIENT_NAME_ACCESS_HELPER_TEXT}</Text>
-            {!loading && !error ? (
-              <Text style={styles.infoCount}>{clientNameEnabledCount} of {staff.length} staff enabled</Text>
-            ) : null}
-          </View>
-        </View>
-
-        <View style={styles.searchField}>
-          <Ionicons color={Colors.hint} name="search-outline" size={17} />
+    <PearlBackground>
+      <SafeAreaView edges={["top", "bottom"]} style={staffUi.screen}>
+        <AppStatusBar />
+        <ScrollView
+          contentContainerStyle={staffUi.content}
+          keyboardShouldPersistTaps="handled"
+        >
+          <StaffHeader title="Permissions" subtitle="Changes save instantly" />
           <TextInput
+            accessibilityLabel="Search staff"
+            value={search}
             onChangeText={setSearch}
             placeholder="Search staff"
-            placeholderTextColor={Colors.hint}
-            style={styles.searchInput}
-            value={search}
+            placeholderTextColor={pearl.placeholder}
+            style={staffUi.input}
           />
-          {search ? (
-            <TouchableOpacity accessibilityLabel="Clear search" onPress={() => setSearch("")}>
-              <Ionicons color={Colors.hint} name="close-circle" size={18} />
-            </TouchableOpacity>
+          {loading ? <ActivityIndicator /> : null}
+          {error ? (
+            <View style={staffUi.formCard}>
+              <Text accessibilityRole="alert" style={staffUi.error}>
+                {error}
+              </Text>
+              <StaffButton
+                secondary
+                label="Retry"
+                onPress={() => {
+                  if (selected) {
+                    setSelected(null);
+                    setTimeout(() => setSelected(selected), 0);
+                  } else void load();
+                }}
+              />
+            </View>
           ) : null}
-        </View>
-
-        {loading ? (
-          <ActivityIndicator color={Colors.primaryText} size="large" style={styles.loader} />
-        ) : error ? (
-          <View style={styles.stateCard}>
-            <Ionicons color={Colors.error} name="cloud-offline-outline" size={28} />
-            <Text style={styles.stateTitle}>Unable to load staff permissions</Text>
-            <Text style={styles.stateText}>{error}</Text>
-            <TouchableOpacity activeOpacity={0.86} onPress={() => void load("initial")} style={styles.retryButton}>
-              <Text style={styles.retryText}>Retry</Text>
-            </TouchableOpacity>
-          </View>
-        ) : visibleStaff.length === 0 ? (
-          <View style={styles.stateCard}>
-            <Ionicons color={Colors.hint} name="people-outline" size={28} />
-            <Text style={styles.stateTitle}>{staff.length ? "No staff match your search" : "No staff yet"}</Text>
-          </View>
-        ) : (
-          visibleStaff.map((member) => {
-            const saving = savingIds.has(rowKey("calendar", member.id));
-            const auditSaving = savingIds.has(rowKey("productAudit", member.id));
-            const clientNameSaving = savingIds.has(rowKey("clientName", member.id));
-            const rowError = rowErrors[rowKey("calendar", member.id)]
-              ?? rowErrors[rowKey("productAudit", member.id)]
-              ?? rowErrors[rowKey("clientName", member.id)];
-            const inactive = member.status === "Inactive";
-            const note = inactive ? "Inactive — the switch applies once they're reactivated." : null;
-
-            return (
-              <View key={member.id} style={styles.staffCard}>
-                <View style={styles.staffRow}>
-                  <View style={[styles.avatar, { backgroundColor: member.avatarBg || Colors.bg2 }]}>
-                    <Text style={[styles.avatarText, { color: member.avatarColor || Colors.primaryText }]}>{member.initials}</Text>
+          {!loading && !staff.length ? (
+            <Text style={staffUi.muted}>No staff yet.</Text>
+          ) : null}
+          {staff
+            .filter((m) => matchesTeamSearch(m, search))
+            .map((m) => (
+              <View key={m.id} style={staffUi.card}>
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: selected === m.id }}
+                  disabled={saving}
+                  onPress={() => setSelected(selected === m.id ? null : m.id)}
+                  style={[staffUi.menuRow, { borderBottomWidth: 0 }]}
+                >
+                  <StaffAvatar initials={m.initials} uri={m.avatarUrl} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={staffUi.rowTitle}>{m.name}</Text>
+                    <Text style={staffUi.muted}>
+                      {selected === m.id && view?.role
+                        ? view.role.name
+                        : m.permissionLevel?.toLowerCase() === "manager"
+                          ? "Manager"
+                          : "Staff"}
+                    </Text>
                   </View>
-                  <View style={styles.staffCopy}>
-                    <Text numberOfLines={1} style={styles.staffName}>{member.name}</Text>
-                    <Text numberOfLines={1} style={styles.staffRole}>{member.designation || member.role || "Staff"}</Text>
+                  <Ionicons
+                    name={selected === m.id ? "chevron-up" : "chevron-down"}
+                    color={pearl.muted}
+                    size={18}
+                  />
+                </TouchableOpacity>
+                {selected === m.id ? (
+                  <View style={{ gap: 10, padding: 12 }}>
+                    {loadingPermissions ? <ActivityIndicator /> : null}
+                    {view ? (
+                      <>
+                        <Text style={staffUi.label}>
+                          Assigned role: {view.role?.name ?? "No role assigned"}
+                        </Text>
+                        {modules.map((module) => {
+                          const permissions = catalog.filter(
+                            (p) => p.module === module,
+                          );
+                          const groups = sortGroupNames(
+                            module,
+                            [...new Set(permissions.map((p) => p.group_name))],
+                            (name) => name,
+                          );
+                          return (
+                            <View key={module} style={staffUi.card}>
+                              <TouchableOpacity
+                                accessibilityRole="button"
+                                accessibilityState={{
+                                  expanded: !!expanded[module],
+                                }}
+                                onPress={() => toggle(module)}
+                                style={[
+                                  staffUi.menuRow,
+                                  { borderBottomWidth: 0 },
+                                ]}
+                              >
+                                <Text style={[staffUi.rowTitle, { flex: 1 }]}>
+                                  {module}
+                                </Text>
+                                <Text style={staffUi.muted}>
+                                  {
+                                    permissions.filter((p) => effective[p.key])
+                                      .length
+                                  }{" "}
+                                  / {permissions.length}
+                                </Text>
+                                <Ionicons
+                                  name={
+                                    expanded[module]
+                                      ? "chevron-up"
+                                      : "chevron-down"
+                                  }
+                                  size={16}
+                                  color={pearl.muted}
+                                />
+                              </TouchableOpacity>
+                              {expanded[module]
+                                ? groups.length > 1
+                                  ? groups.map((group) => {
+                                      const groupKey = module + ":" + group;
+                                      return (
+                                        <View key={groupKey}>
+                                          <TouchableOpacity
+                                            onPress={() => toggle(groupKey)}
+                                            style={[
+                                              staffUi.menuRow,
+                                              { borderBottomWidth: 0 },
+                                            ]}
+                                          >
+                                            <Text
+                                              style={[
+                                                staffUi.label,
+                                                { flex: 1, marginBottom: 0 },
+                                              ]}
+                                            >
+                                              {group ?? "General"}
+                                            </Text>
+                                            <Ionicons
+                                              name={
+                                                expanded[groupKey]
+                                                  ? "chevron-up"
+                                                  : "chevron-down"
+                                              }
+                                              size={15}
+                                              color={pearl.muted}
+                                            />
+                                          </TouchableOpacity>
+                                          {expanded[groupKey]
+                                            ? rows(
+                                                permissions.filter(
+                                                  (p) => p.group_name === group,
+                                                ),
+                                              )
+                                            : null}
+                                        </View>
+                                      );
+                                    })
+                                  : rows(permissions)
+                                : null}
+                            </View>
+                          );
+                        })}
+                        {saving ? (
+                          <Text style={staffUi.muted}>
+                            Saving permissions for {member?.name}…
+                          </Text>
+                        ) : null}
+                      </>
+                    ) : null}
                   </View>
-                </View>
-                <View style={styles.permissionRow}>
-                  <Text style={[styles.permissionLabel, styles.permissionRowLabel]}>Calendar &amp; Quick Sale</Text>
-                  {saving ? <ActivityIndicator color={Colors.primaryText} size="small" /> : null}
-                  <Switch
-                    accessibilityLabel={`Calendar and Quick Sale access for ${member.name}`}
-                    disabled={saving}
-                    onValueChange={(value) => void toggleAccess("calendar", member.id, value)}
-                    thumbColor="#FFFFFF"
-                    trackColor={{ false: Colors.border, true: Colors.primary }}
-                    value={access[member.id] === true}
-                  />
-                </View>
-                <View style={styles.permissionRow}>
-                  <Text style={[styles.permissionLabel, styles.permissionRowLabel]}>Product Audit</Text>
-                  {auditSaving ? <ActivityIndicator color={Colors.primaryText} size="small" /> : null}
-                  <Switch
-                    accessibilityLabel={`Product Audit access for ${member.name}`}
-                    disabled={auditSaving}
-                    onValueChange={(value) => void toggleAccess("productAudit", member.id, value)}
-                    thumbColor="#FFFFFF"
-                    trackColor={{ false: Colors.border, true: Colors.primary }}
-                    value={auditAccess[member.id] === true}
-                  />
-                </View>
-                <View style={styles.permissionRow}>
-                  <Text style={[styles.permissionLabel, styles.permissionRowLabel]}>Client name</Text>
-                  {clientNameSaving ? <ActivityIndicator color={Colors.primaryText} size="small" /> : null}
-                  <Switch
-                    accessibilityLabel={`Client name access for ${member.name}`}
-                    disabled={clientNameSaving}
-                    onValueChange={(value) => void toggleAccess("clientName", member.id, value)}
-                    thumbColor="#FFFFFF"
-                    trackColor={{ false: Colors.border, true: Colors.primary }}
-                    value={clientNameAccess[member.id] === true}
-                  />
-                </View>
-                {note ? <Text style={styles.note}>{note}</Text> : null}
-                {rowError ? <Text style={styles.rowError}>{rowError}</Text> : null}
+                ) : null}
               </View>
-            );
-          })
-        )}
-      </ScrollView></RefreshViewport>
-    </SafeAreaView>
+            ))}
+        </ScrollView>
+      </SafeAreaView>
+    </PearlBackground>
   );
 }
-
-const createStyles = (Colors: ThemeColors) => StyleSheet.create({
-  safeArea: {
-    backgroundColor: Colors.bg,
-    flex: 1,
-  },
-  header: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: Spacing.md,
-    paddingHorizontal: AppLayout.contentHorizontalPadding,
-    paddingVertical: Spacing.md,
-  },
-  headerCopy: {
-    flex: 1,
-  },
-  title: {
-    color: Colors.heading,
-    fontSize: AppLayout.headerTitleFontSize,
-    fontWeight: AppLayout.screenTitleFontWeight,
-  },
-  subtitle: {
-    color: Colors.text2,
-    fontSize: AppLayout.headerSubtitleFontSize,
-    lineHeight: 20,
-    marginTop: AppLayout.headerSubtitleMarginTop,
-  },
-  content: {
-    gap: Spacing.md,
-    paddingBottom: AppLayout.contentBottomPadding,
-    paddingHorizontal: AppLayout.contentHorizontalPadding,
-  },
-  infoCard: {
-    backgroundColor: Colors.card,
-    borderColor: Colors.border,
-    borderRadius: AppRadius.card,
-    borderWidth: 1,
-    flexDirection: "row",
-    gap: Spacing.md,
-    padding: AppLayout.cardPadding,
-  },
-  infoIcon: {
-    alignItems: "center",
-    backgroundColor: Colors.backgroundSelected,
-    borderRadius: AppRadius.control,
-    height: 40,
-    justifyContent: "center",
-    width: 40,
-  },
-  infoCopy: {
-    flex: 1,
-  },
-  infoTitle: {
-    color: Colors.heading,
-    fontSize: 14,
-    fontWeight: "800",
-  },
-  infoText: {
-    color: Colors.text2,
-    fontSize: 12,
-    lineHeight: 18,
-    marginTop: 4,
-  },
-  infoCount: {
-    color: Colors.primaryText,
-    fontSize: 12,
-    fontWeight: "800",
-    marginTop: Spacing.sm,
-  },
-  searchField: {
-    alignItems: "center",
-    backgroundColor: Colors.card,
-    borderColor: Colors.border,
-    borderRadius: AppRadius.control,
-    borderWidth: 1,
-    flexDirection: "row",
-    gap: Spacing.sm,
-    minHeight: 46,
-    paddingHorizontal: Spacing.md,
-  },
-  searchInput: {
-    color: Colors.heading,
-    flex: 1,
-    fontSize: 14,
-    paddingVertical: 10,
-  },
-  loader: {
-    marginTop: Spacing.xl,
-  },
-  stateCard: {
-    alignItems: "center",
-    backgroundColor: Colors.card,
-    borderColor: Colors.border,
-    borderRadius: AppRadius.card,
-    borderWidth: 1,
-    gap: Spacing.sm,
-    padding: Spacing.xl,
-  },
-  stateTitle: {
-    color: Colors.heading,
-    fontSize: 15,
-    fontWeight: "800",
-    textAlign: "center",
-  },
-  stateText: {
-    color: Colors.text2,
-    fontSize: 12,
-    lineHeight: 18,
-    textAlign: "center",
-  },
-  retryButton: {
-    backgroundColor: Colors.primary,
-    borderRadius: AppRadius.pill,
-    marginTop: Spacing.sm,
-    paddingHorizontal: Spacing.xl,
-    paddingVertical: 10,
-  },
-  retryText: {
-    color: Colors.onPrimary,
-    fontSize: 13,
-    fontWeight: "800",
-  },
-  staffCard: {
-    backgroundColor: Colors.card,
-    borderColor: Colors.border,
-    borderRadius: AppRadius.card,
-    borderWidth: 1,
-    padding: AppLayout.cardPadding,
-  },
-  staffRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: Spacing.md,
-  },
-  avatar: {
-    alignItems: "center",
-    borderRadius: 22,
-    height: 44,
-    justifyContent: "center",
-    width: 44,
-  },
-  avatarText: {
-    fontSize: 15,
-    fontWeight: "800",
-  },
-  staffCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-  staffName: {
-    color: Colors.heading,
-    fontSize: 14,
-    fontWeight: "800",
-  },
-  staffRole: {
-    color: Colors.text2,
-    fontSize: 12,
-    marginTop: 2,
-  },
-  permissionRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: Spacing.sm,
-    marginTop: Spacing.sm,
-  },
-  permissionRowLabel: {
-    flex: 1,
-    marginTop: 0,
-  },
-  permissionLabel: {
-    color: Colors.text2,
-    fontSize: 12,
-    fontWeight: "700",
-    marginTop: Spacing.sm,
-  },
-  note: {
-    color: Colors.warning,
-    fontSize: 11,
-    fontWeight: "700",
-    lineHeight: 16,
-    marginTop: 4,
-  },
-  rowError: {
-    color: Colors.error,
-    fontSize: 11,
-    fontWeight: "700",
-    marginTop: 4,
-  },
-});

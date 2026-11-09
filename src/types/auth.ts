@@ -14,15 +14,11 @@ export type AuthUser = {
   isVerified?: boolean;
   isActive?: boolean;
   isOnboardingComplete?: boolean;
+  effective_permissions?: Record<string, boolean> | null;
   custom_permissions?: Record<string, unknown> | string[] | null;
-  // Staff only: owner's mobile-only "Calendar & Quick Sale access" switch,
-  // read from /mobile/staff/me/calendar-access (not part of /users/me).
+  // Derived compatibility flags from the webapp effective permission map.
   mobileCalendarAccess?: boolean;
-  // Staff only: owner's mobile-only "Product Audit access" switch, read from
-  // /mobile/staff/me/product-audit-access (not part of /users/me).
   mobileProductAuditAccess?: boolean;
-  // Staff only: owner's mobile-only "Client name access" switch (full client
-  // names instead of masked ones), read from /mobile/staff/me/client-name-access.
   mobileClientNameAccess?: boolean;
   clientId?: string | null;
   salonId?: string | null;

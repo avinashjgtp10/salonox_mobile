@@ -953,7 +953,7 @@ export const PhoneInput = memo(forwardRef<TextInput, PhoneInputProps>(function P
 
 
 
-      <View style={inputStyles.errorSlot}>
+      <View style={[inputStyles.errorSlot, pearlStyle && !hasError && { minHeight: 0, paddingTop: 0 }]}>
         {hasError && (
           <View style={inputStyles.errorRow}>
             <Ionicons
