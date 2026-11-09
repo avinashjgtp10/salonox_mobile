@@ -12,6 +12,7 @@ import { PasswordField } from "@/components/ui/PasswordField";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { KeyboardAwareScrollView } from "@/components/ui/KeyboardAwareScrollView";
 import { KeyboardInsetView } from "@/components/ui/KeyboardInsetView";
+import { PearlActionFooter } from "@/components/ui/PearlActionFooter";
 import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
 import { pearl } from "@/components/auth/pearl/tokens";
 import { appAlert as Alert } from "@/services/appAlert";
@@ -428,11 +429,11 @@ export function StaffFormScreen({ mode }: { mode: "create" | "edit" }) {
     <PearlBackground>
       <SafeAreaView edges={["top"]} style={staffUi.screen}>
         <AppStatusBar />
-        <KeyboardInsetView>
+        <KeyboardInsetView bottomOffset={insets.bottom}>
           <KeyboardAwareScrollView
             pearlStyle
             padForKeyboard={false}
-            extraScrollPadding={24}
+            extraScrollPadding={48}
             keyboardNavigation={navigation}
             ref={scrollViewRef}
             keyboardShouldPersistTaps="handled"
@@ -794,18 +795,7 @@ export function StaffFormScreen({ mode }: { mode: "create" | "edit" }) {
               </Text>
             ) : null}
           </KeyboardAwareScrollView>
-          <View
-            pointerEvents="box-none"
-            style={[
-              staffUi.footer,
-              {
-                backgroundColor: "transparent",
-                borderTopWidth: 0,
-                elevation: 0,
-                paddingBottom: Math.max(12, insets.bottom + 12),
-              },
-            ]}
-          >
+          <PearlActionFooter bottomInset={insets.bottom}>
             <View style={{ borderRadius: 16, backgroundColor: pearl.bgTop }}>
               <StaffButton
                 secondary
@@ -836,7 +826,7 @@ export function StaffFormScreen({ mode }: { mode: "create" | "edit" }) {
                 onPress={step < 2 ? next : submit}
               />
             </View>
-          </View>
+          </PearlActionFooter>
         </KeyboardInsetView>
         <BottomSheet
           avoidKeyboard

@@ -241,7 +241,7 @@ export function MembershipFormScreen({ membershipId, mode }: MembershipFormScree
 
   if (mode === "edit" && detailsLoading && !membership) {
     return (
-      <PearlBackground><SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
+      <PearlBackground><SafeAreaView edges={["top"]} style={styles.safeArea}>
         <AppStatusBar />
         <View style={styles.centered}><ActivityIndicator color={Colors.primaryText} size="large" /></View>
       </SafeAreaView></PearlBackground>
@@ -249,7 +249,7 @@ export function MembershipFormScreen({ membershipId, mode }: MembershipFormScree
   }
 
   return (
-    <PearlBackground><SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
+    <PearlBackground><SafeAreaView edges={["top"]} style={styles.safeArea}>
       <AppStatusBar />
       <KeyboardAwareScrollView ref={scrollViewRef} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} style={styles.flex}>
           <View style={styles.headerRow}>

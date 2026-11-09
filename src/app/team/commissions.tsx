@@ -4,27 +4,58 @@ import { Text, TextInput } from "@/components/ui/AppTypography";
 import { appAlert as Alert } from "@/services/appAlert";
 import { Ionicons } from "@expo/vector-icons";
 import { Redirect, router, useFocusEffect, type Href } from "expo-router";
-import { useCallback, useDeferredValue, useMemo, useRef, useState } from "react";
-import { FlatList, RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View, type ListRenderItem } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-
-import { AppBackButton, AppBackButtonPlaceholder } from "@/components/ui/AppBackButton";
-import { AppStatusBar } from "@/components/ui/AppStatusBar";
-import { DateRangeField } from "@/components/ui/DateRangeField";
-import { SettlementModal } from "@/components/ui/SettlementModal";
-import { formatExportMonth, shareCommissionExport, type CommissionExportFormat } from "@/features/staff/utils/commissionExport";
-import { getApiErrorMessage } from "@/services/api";
-import { getCalendarMonthRange, salonCommissionsService } from "@/services/salonCommissions.service";
-import { formatAppDate } from "@/utils/dateTime";
-import { EmptyState, ErrorState, InlineLoader } from "@/components/ui/StateViews";
-import { AppLayout, AppRadius } from "@/constants/layout";
-import { useAppToast } from "@/hooks/useAppToast";
 import {
-  DashboardRadius as Radius,
-  DashboardSpacing as Spacing,
-  type ThemeColors,
-} from "@/constants/theme";
-import { useThemeColors } from "@/theme/ThemeProvider";
+  useCallback,
+  useDeferredValue,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
+  FlatList,
+  RefreshControl,
+  TouchableOpacity,
+  View,
+  type ListRenderItem,
+} from "react-native";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
+
+import { AppStatusBar } from "@/components/ui/AppStatusBar";
+import { DateRangePickerSheet } from "@/components/ui/DateRangePickerSheet";
+import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
+import { pearl } from "@/components/auth/pearl/tokens";
+import { usePearlColors } from "@/components/auth/pearl/usePearlColors";
+import {
+  StaffHeader,
+  StaffAvatar,
+  staffUi,
+} from "@/features/staff/components/StaffPearl";
+import {
+  CommissionButton,
+  CommissionChip,
+  commissionUi as ui,
+} from "@/features/staff/components/CommissionPearl";
+import { CommissionSettlementSheet } from "@/features/staff/components/CommissionSettlementSheet";
+import {
+  formatExportMonth,
+  shareCommissionExport,
+  type CommissionExportFormat,
+} from "@/features/staff/utils/commissionExport";
+import { getApiErrorMessage } from "@/services/api";
+import {
+  getCalendarMonthRange,
+  salonCommissionsService,
+} from "@/services/salonCommissions.service";
+import { formatAppDate } from "@/utils/dateTime";
+import {
+  EmptyState,
+  ErrorState,
+  InlineLoader,
+} from "@/components/ui/StateViews";
+import { useAppToast } from "@/hooks/useAppToast";
 import {
   fetchSalonCommissionEarnedThunk,
   fetchSalonCommissionSummaryThunk,
@@ -44,15 +75,18 @@ import {
 import { selectCurrentUser } from "@/store/user/user.slice";
 import { selectCurrentStaff } from "@/store/staff/staff.slice";
 import { canSettleCommission } from "@/utils/userProfile";
-import type { CommissionDateRange, SalonCommissionRecord } from "@/types/salonCommissions";
+import type {
+  CommissionDateRange,
+  SalonCommissionRecord,
+} from "@/types/salonCommissions";
 import { formatCurrency } from "@/utils/currency";
 
 const STATUS_FILTERS = ["All", "Pending", "Paid"] as const;
 type StatusFilter = (typeof STATUS_FILTERS)[number];
 
 const RANGE_PRESETS = [
-  { key: "this_month", label: "This Month" },
-  { key: "last_month", label: "Last Month" },
+  { key: "this_month", label: "This month" },
+  { key: "last_month", label: "Last month" },
   { key: "custom", label: "Custom" },
 ] as const;
 type RangePreset = (typeof RANGE_PRESETS)[number]["key"];
@@ -76,21 +110,9 @@ function getRejectedMessage(payload: unknown, fallback: string) {
   return fallback;
 }
 
-function getStatusPalette(status: string, Colors: ThemeColors) {
-  switch (status.toLowerCase()) {
-    case "paid":
-      return { backgroundColor: Colors.successBg, color: Colors.success };
-    case "partial":
-      return { backgroundColor: Colors.warningBg, color: Colors.warning };
-    case "pending":
-    default:
-      return { backgroundColor: Colors.warningBg, color: Colors.warning };
-  }
-}
-
 export default function SalonCommissionsScreen() {
-  const Colors = useThemeColors();
-  const styles = useMemo(() => createStyles(Colors), [Colors]);
+  const Colors = usePearlColors(true);
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
   const insets = useSafeAreaInsets();
   const dispatch = useAppDispatch();
   const toast = useAppToast();
@@ -112,29 +134,45 @@ export default function SalonCommissionsScreen() {
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("All");
-  const [settlementRecord, setSettlementRecord] = useState<SalonCommissionRecord | null>(null);
+  const [settlementRecord, setSettlementRecord] =
+    useState<SalonCommissionRecord | null>(null);
   const [isSettlementModalOpen, setIsSettlementModalOpen] = useState(false);
-  const [settlementBalance, setSettlementBalance] = useState<number | null>(null);
-  const [settlementBalanceLoading, setSettlementBalanceLoading] = useState(false);
+  const [settlementBalance, setSettlementBalance] = useState<number | null>(
+    null,
+  );
+  const [settlementBalanceLoading, setSettlementBalanceLoading] =
+    useState(false);
   const settlementBalanceRequest = useRef(0);
   const settlementLoading = useAppSelector((state) =>
-    settlementRecord ? selectCommissionSettling(state, settlementRecord.staffId) : false,
+    settlementRecord
+      ? selectCommissionSettling(state, settlementRecord.staffId)
+      : false,
   );
   const deferredSearch = useDeferredValue(search);
   const [rangePreset, setRangePreset] = useState<RangePreset>("this_month");
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
-  const [exporting, setExporting] = useState<CommissionExportFormat | null>(null);
-  const customRangeInvalid = Boolean(customStart && customEnd && customStart > customEnd);
+  const [exporting, setExporting] = useState<CommissionExportFormat | null>(
+    null,
+  );
+  const customRangeInvalid = Boolean(
+    customStart && customEnd && customStart > customEnd,
+  );
   // Custom waits for both dates (and a valid order) before replacing the shown data.
   const range = useMemo<CommissionDateRange | null>(() => {
     if (rangePreset === "this_month") return getCalendarMonthRange(0);
     if (rangePreset === "last_month") return getCalendarMonthRange(-1);
-    return customStart && customEnd && customStart <= customEnd ? { end_date: customEnd, start_date: customStart } : null;
+    return customStart && customEnd && customStart <= customEnd
+      ? { end_date: customEnd, start_date: customStart }
+      : null;
   }, [rangePreset, customStart, customEnd]);
-  const rangeLabel = range ? `${formatRangeDate(range.start_date)} – ${formatRangeDate(range.end_date)}` : "";
+  const rangeLabel = range
+    ? `${formatRangeDate(range.start_date)} – ${formatRangeDate(range.end_date)}`
+    : "";
   // Export is monthly on the backend (same as the web): it uses the month the range starts in.
-  const exportMonth = (range?.start_date ?? getCalendarMonthRange(0).start_date).slice(0, 7);
+  const exportMonth = (
+    range?.start_date ?? getCalendarMonthRange(0).start_date
+  ).slice(0, 7);
 
   const loadCommissions = useCallback(() => {
     if (!hasSettlePermission || !range) {
@@ -180,12 +218,16 @@ export default function SalonCommissionsScreen() {
   };
 
   const handleExport = () => {
-    Alert.alert("Export commissions", `Exports are monthly. This exports ${formatExportMonth(exportMonth)}.`, [
-      { style: "cancel", text: "Cancel" },
-      { onPress: () => void runExport("csv"), text: "CSV" },
-      { onPress: () => void runExport("excel"), text: "Excel" },
-      { onPress: () => void runExport("pdf"), text: "PDF" },
-    ]);
+    Alert.alert(
+      "Export commissions",
+      `Exports are monthly. This exports ${formatExportMonth(exportMonth)}.`,
+      [
+        { style: "cancel", text: "Cancel" },
+        { onPress: () => void runExport("csv"), text: "CSV" },
+        { onPress: () => void runExport("excel"), text: "Excel" },
+        { onPress: () => void runExport("pdf"), text: "PDF" },
+      ],
+    );
   };
 
   const filteredRecords = useMemo(() => {
@@ -197,9 +239,11 @@ export default function SalonCommissionsScreen() {
     const statusMatched =
       statusFilter === "All"
         ? staffScoped
-        : staffScoped.filter((record) => statusFilter === "Pending"
-          ? (record.unpaidAmount ?? 0) > 0
-          : record.status.toLowerCase() === statusFilter.toLowerCase());
+        : staffScoped.filter((record) =>
+            statusFilter === "Pending"
+              ? (record.unpaidAmount ?? 0) > 0
+              : record.status.toLowerCase() === statusFilter.toLowerCase(),
+          );
 
     const query = deferredSearch.trim().toLowerCase();
 
@@ -207,7 +251,9 @@ export default function SalonCommissionsScreen() {
       return statusMatched;
     }
 
-    return statusMatched.filter((record) => record.staffName.toLowerCase().includes(query));
+    return statusMatched.filter((record) =>
+      record.staffName.toLowerCase().includes(query),
+    );
   }, [records, isStaffUser, currentStaff, statusFilter, deferredSearch]);
 
   const [refreshing, setRefreshing] = useState(false);
@@ -236,11 +282,16 @@ export default function SalonCommissionsScreen() {
     setSettlementBalance(null);
     setSettlementBalanceLoading(true);
     try {
-      const balance = await salonCommissionsService.getStaffUnpaidCommission(record.staffId);
+      const balance = await salonCommissionsService.getStaffUnpaidCommission(
+        record.staffId,
+      );
       if (request !== settlementBalanceRequest.current) return;
       if (balance <= 0) {
         setSettlementRecord(null);
-        Alert.alert("No unpaid commission", "This staff member has no commission left to settle.");
+        Alert.alert(
+          "No unpaid commission",
+          "This staff member has no commission left to settle.",
+        );
         void loadCommissions();
         return;
       }
@@ -249,10 +300,14 @@ export default function SalonCommissionsScreen() {
     } catch (error) {
       if (request === settlementBalanceRequest.current) {
         setSettlementRecord(null);
-        Alert.alert("Unable to load unpaid commission", getApiErrorMessage(error));
+        Alert.alert(
+          "Unable to load unpaid commission",
+          getApiErrorMessage(error),
+        );
       }
     } finally {
-      if (request === settlementBalanceRequest.current) setSettlementBalanceLoading(false);
+      if (request === settlementBalanceRequest.current)
+        setSettlementBalanceLoading(false);
     }
   };
 
@@ -261,13 +316,23 @@ export default function SalonCommissionsScreen() {
       return;
     }
 
-    if (settlementLoading || settlementBalance === null || amount > settlementBalance) return;
-    const resultAction = await dispatch(settleCommissionThunk({ staffId: settlementRecord.staffId, amount }));
+    if (
+      settlementLoading ||
+      settlementBalance === null ||
+      amount > settlementBalance
+    )
+      return;
+    const resultAction = await dispatch(
+      settleCommissionThunk({ staffId: settlementRecord.staffId, amount }),
+    );
 
     if (settleCommissionThunk.rejected.match(resultAction)) {
       Alert.alert(
         "Unable to settle commission",
-        getRejectedMessage(resultAction.payload, "Something went wrong. Please try again."),
+        getRejectedMessage(
+          resultAction.payload,
+          "Something went wrong. Please try again.",
+        ),
       );
       return;
     }
@@ -275,11 +340,21 @@ export default function SalonCommissionsScreen() {
     setSettlementRecord(null);
     setSettlementBalance(null);
     setIsSettlementModalOpen(false);
-    if (settleCommissionThunk.fulfilled.match(resultAction) && resultAction.payload.refreshFailed) {
-      Alert.alert("Settlement saved", "The settlement was saved, but balances could not refresh. Pull down to update them; do not submit the same settlement again.");
+    if (
+      settleCommissionThunk.fulfilled.match(resultAction) &&
+      resultAction.payload.refreshFailed
+    ) {
+      Alert.alert(
+        "Settlement saved",
+        "The settlement was saved, but balances could not refresh. Pull down to update them; do not submit the same settlement again.",
+      );
     } else {
-      const remaining = settleCommissionThunk.fulfilled.match(resultAction) ? resultAction.payload.remainingBalance : undefined;
-      toast.showSuccess(`${formatCurrency(amount)} settled.${remaining === undefined ? "" : remaining > 0 ? ` ${formatCurrency(remaining)} remains unpaid across all dates.` : " No unpaid commission remains."}`);
+      const remaining = settleCommissionThunk.fulfilled.match(resultAction)
+        ? resultAction.payload.remainingBalance
+        : undefined;
+      toast.showSuccess(
+        `${formatCurrency(amount)} settled.${remaining === undefined ? "" : remaining > 0 ? ` ${formatCurrency(remaining)} remains unpaid across all dates.` : " No unpaid commission remains."}`,
+      );
     }
   };
 
@@ -291,449 +366,294 @@ export default function SalonCommissionsScreen() {
     setIsSettlementModalOpen(false);
   };
 
-  function CommissionRow({
-    onSettle,
-    record,
-    canSettle,
-  }: {
-    onSettle: (record: SalonCommissionRecord) => void;
-    record: SalonCommissionRecord;
-    canSettle: boolean;
-  }) {
-    const styles = useMemo(() => createStyles(Colors), []);
-    const settling = useAppSelector((state) => selectCommissionSettling(state, record.staffId));
-    const openingSettlement = settlementBalanceLoading && settlementRecord?.staffId === record.staffId;
-    const palette = getStatusPalette(record.status, Colors);
-    const unpaidAmount = record.unpaidAmount ?? 0;
+  const unpaidCount = records.filter(
+    (record) => (record.unpaidAmount ?? 0) > 0,
+  ).length;
+  const paidCount = records.filter(
+    (record) => record.status.toLowerCase() === "paid",
+  ).length;
+  const monthLabel =
+    rangePreset === "custom"
+      ? rangeLabel
+      : new Date(
+          (range?.start_date ?? todayIso()) + "T12:00:00",
+        ).toLocaleDateString("en-IN", { month: "long", year: "numeric" });
 
-    const isSettlable = canSettle && unpaidAmount > 0;
-
+  const renderItem: ListRenderItem<SalonCommissionRecord> = ({
+    item: record,
+  }) => {
+    const unpaid = record.unpaidAmount ?? 0;
+    const paid = record.status.toLowerCase() === "paid";
+    const opening =
+      settlementBalanceLoading && settlementRecord?.staffId === record.staffId;
     return (
-      <View style={styles.row}>
-        <View style={styles.rowInfo}>
-          <Text style={styles.staffName}>{record.staffName}</Text>
-          <Text style={styles.period}>{record.period ?? "-"}</Text>
-        </View>
-        <View style={styles.rowRight}>
-          <View style={styles.amountColumn}>
-            <Text style={styles.amountLabel}>Commission</Text>
-            <Text style={styles.amount}>{formatCurrency(record.amount)}</Text>
-          </View>
-          <View style={styles.amountColumn}>
-            <Text style={styles.amountLabel}>Unpaid</Text>
-            <Text style={styles.unpaidAmount}>{formatCurrency(unpaidAmount)}</Text>
-          </View>
-          <View style={[styles.statusPill, { backgroundColor: palette.backgroundColor }]}>
-            <Text style={[styles.statusPillText, { color: palette.color }]}>{record.status.toLowerCase() === "partial" ? "pending" : record.status}</Text>
-          </View>
-        </View>
-        {isSettlable ? (
-          <TouchableOpacity
-            activeOpacity={0.84}
-            disabled={settling || openingSettlement}
-            onPress={() => onSettle(record)}
-            style={[styles.settleButton, (settling || openingSettlement) && styles.buttonDisabled]}
+      <View style={ui.card}>
+        <View style={ui.row}>
+          <StaffAvatar
+            size={40}
+            initials={record.staffName
+              .split(/\s+/)
+              .filter(Boolean)
+              .slice(0, 2)
+              .map((word) => word[0])
+              .join("")
+              .toUpperCase()}
+          />
+          <Text style={[ui.title, { flex: 1 }]}>{record.staffName}</Text>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 5,
+              borderRadius: 100,
+              paddingHorizontal: 9,
+              paddingVertical: 5,
+              backgroundColor: paid ? pearl.successBg : pearl.warningBg,
+            }}
           >
-            {settling || openingSettlement ? (
-              <ActivityIndicator color="#FFFFFF" size="small" />
-            ) : (
-              <Text style={styles.settleButtonText}>Settle</Text>
-            )}
-          </TouchableOpacity>
-        ) : null}
+            <View
+              style={{
+                width: 5,
+                height: 5,
+                borderRadius: 3,
+                backgroundColor: paid ? pearl.successText : pearl.warningText,
+              }}
+            />
+            <Text
+              style={{
+                color: paid ? pearl.successText : pearl.warningText,
+                fontSize: 11,
+                fontWeight: "600",
+              }}
+            >
+              {paid ? "Paid" : "Unpaid"}
+            </Text>
+          </View>
+        </View>
+        <View style={ui.between}>
+          <View style={[ui.row, { gap: 18 }]}>
+            <View>
+              <Text style={ui.muted}>Earned</Text>
+              <Text style={ui.value}>{formatCurrency(record.amount)}</Text>
+            </View>
+            <View>
+              <Text style={ui.muted}>Unpaid</Text>
+              <Text style={ui.value}>{formatCurrency(unpaid)}</Text>
+            </View>
+          </View>
+          {hasSettlePermission && unpaid > 0 ? (
+            <CommissionButton
+              compact
+              label={opening ? "Loading…" : "Settle"}
+              disabled={
+                opening || settlementBalanceLoading || settlementLoading
+              }
+              onPress={() => void handleSettle(record)}
+            />
+          ) : paid ? (
+            <Text style={ui.muted}>All paid ✓</Text>
+          ) : null}
+        </View>
       </View>
     );
-  }
-
-  const renderItem: ListRenderItem<SalonCommissionRecord> = ({ item }) => (
-    <CommissionRow onSettle={handleSettle} record={item} canSettle={hasSettlePermission} />
-  );
+  };
 
   const listHeader = (
-    <View>
-      <View style={styles.header}>
-        <AppBackButton fallbackHref="/team" />
-        <Text style={styles.headerTitle}>Commissions</Text>
-        <AppBackButtonPlaceholder />
-      </View>
-
-      <View style={styles.actionRow}>
-        <TouchableOpacity
-          activeOpacity={0.84}
-          onPress={() => router.push("/team/commission-rules" as Href)}
-          style={styles.actionButton}
-        >
-          <Ionicons color={Colors.primaryText} name="options-outline" size={16} />
-          <Text style={styles.actionButtonText}>Commission Rules</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          activeOpacity={0.84}
-          disabled={exporting !== null}
-          onPress={handleExport}
-          style={[styles.actionButton, exporting !== null && styles.buttonDisabled]}
-        >
-          {exporting ? <ActivityIndicator color={Colors.primaryText} size="small" /> : <Ionicons color={Colors.primaryText} name="download-outline" size={16} />}
-          <Text style={styles.actionButtonText}>Export</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.rangeRow}>
-        {RANGE_PRESETS.map((preset) => {
-          const isActive = preset.key === rangePreset;
-
-          return (
+    <View style={{ gap: 14 }}>
+      <StaffHeader
+        title="Commissions"
+        subtitle={monthLabel}
+        right={
+          <View style={ui.row}>
             <TouchableOpacity
-              key={preset.key}
               accessibilityRole="button"
-              accessibilityState={{ selected: isActive }}
-              activeOpacity={0.84}
-              onPress={() => selectPreset(preset.key)}
-              style={[styles.filterChip, isActive && styles.filterChipActive]}
+              accessibilityLabel="Rules"
+              onPress={() => router.push("/team/commission-rules" as Href)}
+              style={staffUi.icon}
             >
-              <Text style={[styles.filterChipText, isActive && styles.filterChipTextActive]}>{preset.label}</Text>
+              <Ionicons name="list-outline" color={pearl.ink} size={19} />
             </TouchableOpacity>
-          );
-        })}
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="Export commissions"
+              disabled={exporting !== null}
+              onPress={handleExport}
+              style={staffUi.icon}
+            >
+              {exporting ? (
+                <ActivityIndicator color={pearl.accentDeep} />
+              ) : (
+                <Ionicons name="download-outline" color={pearl.ink} size={19} />
+              )}
+            </TouchableOpacity>
+          </View>
+        }
+      />
+      <View style={ui.chips}>
+        {RANGE_PRESETS.map((preset) => (
+          <CommissionChip
+            key={preset.key}
+            label={preset.label}
+            selected={preset.key === rangePreset}
+            onPress={() => {
+              selectPreset(preset.key);
+              if (preset.key === "custom") setDatePickerOpen(true);
+            }}
+          />
+        ))}
       </View>
-      {rangePreset === "custom" ? (
-        <DateRangeField startDate={customStart || null} endDate={customEnd || null} maximumDate={new Date()}
-          onChange={(start, end) => { setCustomStart(start); setCustomEnd(end); }} />
-      ) : null}
-      {customRangeInvalid && rangePreset === "custom" ? (
-        <Text style={styles.errorText}>The start date must be on or before the end date.</Text>
-      ) : null}
-      {rangeLabel ? <Text style={styles.rangeLabel}>{rangeLabel}</Text> : null}
-
+      {rangePreset === "custom" && (
+        <TouchableOpacity
+          accessibilityRole="button"
+          onPress={() => setDatePickerOpen(true)}
+          style={[ui.input, ui.between]}
+        >
+          <Text style={ui.label}>{rangeLabel || "Choose dates"}</Text>
+          <Ionicons
+            name="calendar-outline"
+            color={pearl.accentDeep}
+            size={18}
+          />
+        </TouchableOpacity>
+      )}
+      {customRangeInvalid && rangePreset === "custom" && (
+        <Text style={ui.error}>
+          The start date must be on or before the end date.
+        </Text>
+      )}
       {summaryError ? (
-        <Text style={styles.errorText}>{summaryError}</Text>
+        <Text style={ui.error}>{summaryError}</Text>
       ) : (
-        <View style={styles.summaryGrid}>
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>Total</Text>
-            <Text style={styles.summaryValue}>
-              {summaryLoading ? "-" : formatCurrency(summary?.totalAmount ?? 0)}
+        <View style={[ui.row, { alignItems: "stretch" }]}>
+          <View style={[ui.card, ui.statCard]}>
+            <Text style={ui.muted}>Total earned</Text>
+            <Text style={{ color: pearl.ink, fontSize: 24, fontWeight: "700" }}>
+              {summaryLoading ? "—" : formatCurrency(summary?.totalAmount ?? 0)}
             </Text>
           </View>
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>Paid</Text>
-            <Text style={styles.summaryValue}>
-              {summaryLoading ? "-" : formatCurrency(summary?.paidAmount ?? 0)}
+          <View style={[ui.card, ui.statCard]}>
+            <Text style={ui.muted}>Still to pay</Text>
+            <Text style={{ color: "#4F7896", fontSize: 24, fontWeight: "700" }}>
+              {summaryLoading
+                ? "—"
+                : formatCurrency(summary?.pendingAmount ?? 0)}
             </Text>
-          </View>
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>Pending</Text>
-            <Text style={styles.summaryValue}>
-              {summaryLoading ? "-" : formatCurrency(summary?.pendingAmount ?? 0)}
-            </Text>
-          </View>
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>Staff</Text>
-            <Text style={styles.summaryValue}>
-              {listLoading && !listLoaded ? "-" : records.length}
+            <Text style={ui.muted}>
+              {listLoading && !listLoaded
+                ? "—"
+                : unpaidCount + " of " + records.length + " staff"}
             </Text>
           </View>
         </View>
       )}
-
-      <View style={styles.searchWrap}>
-        <Ionicons name="search-outline" size={18} color={Colors.text2} />
+      <View style={ui.chips}>
+        {STATUS_FILTERS.map((filter) => (
+          <CommissionChip
+            key={filter}
+            selected={filter === statusFilter}
+            label={
+              filter === "Pending"
+                ? "Unpaid " + unpaidCount
+                : filter === "Paid"
+                  ? "Paid " + paidCount
+                  : "All"
+            }
+            onPress={() => setStatusFilter(filter)}
+          />
+        ))}
+      </View>
+      <View style={[ui.input, ui.row]}>
+        <Ionicons name="search-outline" color={pearl.muted} size={18} />
         <TextInput
-          onChangeText={setSearch}
-          placeholder="Search staff..."
-          placeholderTextColor={Colors.placeholder}
-          style={styles.searchInput}
+          style={{
+            flex: 1,
+            minHeight: 48,
+            color: pearl.ink,
+            backgroundColor: "transparent",
+          }}
+          placeholder="Search staff"
+          placeholderTextColor={pearl.placeholder}
           value={search}
+          onChangeText={setSearch}
         />
       </View>
-
-      <ScrollView
-        contentContainerStyle={styles.filterRow}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-      >
-        {STATUS_FILTERS.map((filter) => {
-          const isActive = filter === statusFilter;
-
-          return (
-            <TouchableOpacity
-              key={filter}
-              activeOpacity={0.84}
-              onPress={() => setStatusFilter(filter)}
-              style={[styles.filterChip, isActive && styles.filterChipActive]}
-            >
-              <Text style={[styles.filterChipText, isActive && styles.filterChipTextActive]}>
-                {filter}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
-
-      {listLoading && !listLoaded ? (
+      {listLoading && !listLoaded && (
         <InlineLoader label="Loading commissions..." />
-      ) : null}
-      {!listLoading && listError ? (
+      )}
+      {!listLoading && listError && (
         <ErrorState message={listError} onRetry={handleRetry} />
-      ) : null}
-      {!listLoading && !listError && filteredRecords.length === 0 ? (
+      )}
+      {!listLoading && !listError && !filteredRecords.length && (
         <EmptyState
           accent="indigo"
           description={
-            records.length > 0
+            records.length
               ? "No commission records match the selected search or status."
               : "Commission records will appear here after eligible checkouts in the selected dates."
           }
           icon="cash-outline"
-          title={records.length > 0 ? "No matching commissions" : "No commissions in this period"}
+          title={
+            records.length
+              ? "No matching commissions"
+              : "No commissions in this period"
+          }
         />
-      ) : null}
+      )}
     </View>
   );
 
-  if (!hasSettlePermission) {
-    return <Redirect href="/more" />;
-  }
-
+  if (!hasSettlePermission) return <Redirect href="/more" />;
   return (
-    <SafeAreaView edges={["top"]} style={styles.safeArea}>
-      <AppStatusBar />
-      <RefreshViewport><FlatList
-        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom }]}
-        data={filteredRecords}
-        keyExtractor={(item) => item.id}
-        ListHeaderComponent={listHeader}
-        refreshControl={
-          <RefreshControl
-            colors={[Colors.primary]}
-            onRefresh={() => void handleRefresh()}
-            refreshing={refreshing}
-            tintColor={Colors.primary}
+    <PearlBackground>
+      <SafeAreaView edges={["top"]} style={ui.screen}>
+        <AppStatusBar />
+        <RefreshViewport>
+          <FlatList
+            contentContainerStyle={[
+              ui.content,
+              { paddingBottom: insets.bottom + 24 },
+            ]}
+            data={filteredRecords}
+            keyExtractor={(item) => item.id}
+            ListHeaderComponent={listHeader}
+            renderItem={renderItem}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                colors={[Colors.primary]}
+                tintColor={Colors.primary}
+                onRefresh={() => void handleRefresh()}
+                refreshing={refreshing}
+              />
+            }
           />
-        }
-        renderItem={renderItem}
-        showsVerticalScrollIndicator={false}
-      /></RefreshViewport>
-
-      <SettlementModal
-        visible={isSettlementModalOpen}
-        onClose={handleSettlementModalClose}
-        onSettle={handleConfirmSettle}
-        staffName={settlementRecord?.staffName ?? ""}
-        totalLabel="Unpaid commission (all dates)"
-        description="Payments settle the oldest unpaid commissions first, including earlier months."
-        totalUnpaidCommission={settlementBalance ?? 0}
-        isLoading={settlementLoading}
-      />
-    </SafeAreaView>
+        </RefreshViewport>
+        <DateRangePickerSheet
+          pearlStyle
+          centered={false}
+          title="Date range"
+          visible={datePickerOpen}
+          startDate={customStart || null}
+          endDate={customEnd || null}
+          maximumDate={new Date()}
+          onClose={() => setDatePickerOpen(false)}
+          onApply={(start, end) => {
+            if (start && end) {
+              setCustomStart(start);
+              setCustomEnd(end);
+              setDatePickerOpen(false);
+            }
+          }}
+        />
+        <CommissionSettlementSheet
+          visible={isSettlementModalOpen}
+          onClose={handleSettlementModalClose}
+          onSettle={handleConfirmSettle}
+          staffName={settlementRecord?.staffName ?? ""}
+          totalUnpaidCommission={settlementBalance ?? 0}
+          isLoading={settlementLoading}
+        />
+      </SafeAreaView>
+    </PearlBackground>
   );
 }
-
-const createStyles = (Colors: ThemeColors) => StyleSheet.create({
-  safeArea: {
-    backgroundColor: Colors.bg,
-    flex: 1,
-  },
-  content: {
-    paddingBottom: 120,
-    paddingHorizontal: AppLayout.contentHorizontalPadding,
-  },
-  header: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: AppLayout.headerMarginBottom,
-    marginTop: Spacing.md,
-  },
-  headerTitle: {
-    color: Colors.heading,
-    fontSize: AppLayout.headerTitleFontSize,
-    fontWeight: AppLayout.screenTitleFontWeight,
-  },
-  actionRow: {
-    flexDirection: "row",
-    gap: 8,
-    marginBottom: Spacing.md,
-  },
-  actionButton: {
-    alignItems: "center",
-    backgroundColor: Colors.card,
-    borderColor: Colors.border,
-    borderRadius: Radius.full,
-    borderWidth: 1,
-    flex: 1,
-    flexDirection: "row",
-    gap: 6,
-    justifyContent: "center",
-    minHeight: 42,
-  },
-  actionButtonText: {
-    color: Colors.primaryText,
-    fontSize: 13,
-    fontWeight: "800",
-  },
-  rangeRow: {
-    flexDirection: "row",
-    gap: 8,
-    marginBottom: Spacing.sm,
-  },
-  customRange: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  customField: {
-    flex: 1,
-  },
-  rangeLabel: {
-    color: Colors.text2,
-    fontSize: 12,
-    fontWeight: "700",
-    marginBottom: Spacing.sm,
-  },
-  errorText: {
-    color: Colors.error,
-    fontSize: 12,
-    fontWeight: "700",
-    lineHeight: 18,
-    marginBottom: Spacing.sm,
-  },
-  summaryGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginBottom: AppLayout.sectionGap,
-  },
-  summaryCard: {
-    backgroundColor: Colors.card,
-    borderColor: Colors.border,
-    borderRadius: AppRadius.card,
-    borderWidth: 1,
-    minWidth: "48%",
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-  },
-  summaryLabel: {
-    color: Colors.text2,
-    fontSize: 11,
-    fontWeight: "700",
-  },
-  summaryValue: {
-    color: Colors.heading,
-    fontSize: 16,
-    fontWeight: "800",
-    marginTop: 6,
-  },
-  searchWrap: {
-    alignItems: "center",
-    backgroundColor: Colors.bg2,
-    borderColor: Colors.border,
-    borderRadius: Radius.lg,
-    borderWidth: 1,
-    flexDirection: "row",
-    gap: Spacing.sm,
-    marginBottom: Spacing.sm,
-    minHeight: AppLayout.searchBarHeight,
-    paddingHorizontal: AppLayout.searchBarPaddingX,
-  },
-  searchInput: {
-    color: Colors.heading,
-    flex: 1,
-    fontSize: 14,
-    minHeight: AppLayout.searchBarHeight,
-  },
-  filterRow: {
-    gap: 8,
-    paddingBottom: Spacing.md,
-  },
-  filterChip: {
-    backgroundColor: Colors.card,
-    borderColor: Colors.border,
-    borderRadius: Radius.full,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  filterChipActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
-  },
-  filterChipText: {
-    color: Colors.text2,
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  filterChipTextActive: {
-    color: Colors.onPrimary,
-  },
-  row: {
-    backgroundColor: Colors.card,
-    borderColor: Colors.border,
-    borderRadius: AppRadius.card,
-    borderWidth: 1,
-    marginBottom: Spacing.sm,
-    padding: 14,
-  },
-  rowInfo: {
-    marginBottom: 8,
-  },
-  staffName: {
-    color: Colors.heading,
-    fontSize: 14,
-    fontWeight: "800",
-  },
-  period: {
-    color: Colors.text2,
-    fontSize: 12,
-    marginTop: 2,
-  },
-  rowRight: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 12,
-    justifyContent: "space-between",
-  },
-  amountColumn: {
-    alignItems: "flex-end",
-  },
-  amountLabel: {
-    color: Colors.text2,
-    fontSize: 10,
-    fontWeight: "700",
-    textTransform: "uppercase",
-  },
-  amount: {
-    color: Colors.heading,
-    fontSize: 15,
-    fontWeight: "800",
-  },
-  unpaidAmount: {
-    color: Colors.warning,
-    fontSize: 14,
-    fontWeight: "800",
-  },
-  statusPill: {
-    borderRadius: Radius.full,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  statusPillText: {
-    fontSize: 11,
-    fontWeight: "800",
-    textTransform: "capitalize",
-  },
-  settleButton: {
-    alignItems: "center",
-    backgroundColor: Colors.primary,
-    borderRadius: Radius.full,
-    justifyContent: "center",
-    marginTop: 10,
-    minHeight: 40,
-  },
-  buttonDisabled: {
-    opacity: 0.55,
-  },
-  settleButtonText: {
-    color: Colors.onPrimary,
-    fontSize: 12,
-    fontWeight: "800",
-  },
-});

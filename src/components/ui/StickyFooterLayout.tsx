@@ -4,6 +4,7 @@ import { Keyboard, StyleSheet, View, type StyleProp, type ViewStyle } from "reac
 
 import { KeyboardAwareForm } from "@/components/ui/KeyboardAwareForm";
 import { useKeyboardInset } from "@/hooks/useKeyboardInset";
+import { PearlActionFooter } from "@/components/ui/PearlActionFooter";
 
 type StickyFooterLayoutProps = {
   /** Scrollable form content. */
@@ -62,11 +63,9 @@ export function StickyFooterLayout({
       <KeyboardAwareForm autoReveal avoidKeyboard={false} padForKeyboard={false} contentContainerStyle={contentContainerStyle}>
         {children}
       </KeyboardAwareForm>
-      <View style={footerStyle}>
-        <View style={[styles.footerRow, footerContentStyle, { paddingBottom: keyboard.inset + footerBottomSpacing }]}>
-          {footer}
-        </View>
-      </View>
+      <PearlActionFooter style={footerStyle} contentStyle={[styles.footerRow, footerContentStyle, { paddingBottom: keyboard.inset + footerBottomSpacing }]}>
+        {footer}
+      </PearlActionFooter>
     </View>
   );
 }

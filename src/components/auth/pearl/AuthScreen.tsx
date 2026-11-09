@@ -8,7 +8,7 @@ import { KeyboardAwareForm } from "@/components/ui/KeyboardAwareForm";
 import { StickyFooterLayout } from "@/components/ui/StickyFooterLayout";
 
 import { PearlBackground } from "./PearlBackground";
-import { pearl, pearlSpace } from "./tokens";
+import { pearlSpace } from "./tokens";
 
 /**
  * Pearl background + safe area + keyboard-aware scroll.
@@ -38,7 +38,6 @@ export function AuthScreen({ children, header, footer, center }: { children: Rea
             headerStyle={styles.header}
             footer={footer}
             contentContainerStyle={styles.content}
-            footerStyle={styles.footer}
             footerContentStyle={styles.footerInner}
           >
             {stack}
@@ -65,12 +64,5 @@ const styles = StyleSheet.create({
   stack: { flexGrow: 1, gap: pearlSpace.md + 2, paddingTop: pearlSpace.sm, width: "100%", maxWidth: MAX_CONTENT_WIDTH, alignSelf: "center" },
   center: { justifyContent: "center" },
   header: { paddingHorizontal: pearlSpace.lg + 2, width: "100%", maxWidth: MAX_CONTENT_WIDTH + (pearlSpace.lg + 2) * 2, alignSelf: "center" },
-  footer: {
-    backgroundColor: "rgba(250,249,252,0.92)",
-    borderTopLeftRadius: 26,
-    borderTopRightRadius: 26,
-    borderTopWidth: 1,
-    borderColor: pearl.white,
-  },
   footerInner: { gap: pearlSpace.sm + 2, paddingHorizontal: pearlSpace.lg + 2, paddingTop: pearlSpace.md + 2, width: "100%", maxWidth: MAX_CONTENT_WIDTH + (pearlSpace.lg + 2) * 2, alignSelf: "center" },
 });

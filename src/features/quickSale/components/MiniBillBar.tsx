@@ -9,6 +9,7 @@ import { Pressable, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { usePearlColors } from "@/components/auth/pearl/usePearlColors";
+import { PearlActionFooter } from "@/components/ui/PearlActionFooter";
 
 const BRAND = pearl.accent;
 // Solid disabled colours: opacity on these buttons let the form behind the
@@ -44,7 +45,7 @@ function MiniBillBarComponent({
   const safeBottom = useSafeAreaInsets().bottom;
 
   return (
-    <View pointerEvents="box-none" style={[styles.wrap, { bottom: 0, paddingBottom: embedded ? 12 : Math.max(safeBottom, 24), backgroundColor: "#F8F7FB", paddingHorizontal: 18, paddingTop: 14 }]}>
+    <PearlActionFooter floating style={[styles.wrap, { bottom: 0 }]} contentStyle={{ flexDirection: "column", alignItems: "stretch", paddingBottom: embedded ? 12 : Math.max(safeBottom, 24), paddingHorizontal: 18 }}>
       <View style={styles.card}>
         <Pressable
           accessibilityRole="button"
@@ -92,7 +93,7 @@ function MiniBillBarComponent({
           </LinearGradient>
         </Pressable>
       </View>
-    </View>
+    </PearlActionFooter>
   );
 }
 

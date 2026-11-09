@@ -53,14 +53,15 @@ export const KeyboardAwareForm = forwardRef<KeyboardAwareFormHandle, KeyboardAwa
     const viewport = viewportRef.current;
     if (!open.current || !field || !viewport) return;
     const request = generation.current;
-    viewport.measureInWindow((_x, viewportY) => {
+    viewport.measureInWindow((_x, viewportY, _width, viewportHeight) => {
       field.measureInWindow((_fieldX, fieldY, _width, height) => {
         if (!open.current || focused.current !== field || generation.current !== request || !height) return;
         const margin = 16;
         const kbTop = keyboardTop.current ?? Keyboard.metrics()?.screenY
           ?? Dimensions.get("window").height - (assumedKeyboardHeight.current || Dimensions.get("window").height * 0.4);
         const visibleTop = viewportY + insets.top + margin;
-        const visibleBottom = kbTop - margin;
+        // A pinned footer can sit above the keyboard; also clear its rounded cap.
+        const visibleBottom = Math.min(kbTop - margin, viewportY + viewportHeight - 48);
         let delta: number;
         if (mode === "comfort") {
           delta = fieldY - (visibleTop + Math.max(0, visibleBottom - visibleTop - height) * 0.35);
