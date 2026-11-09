@@ -1,3 +1,4 @@
+import { useRegionalPreferences } from "@/localization/preferences";
 /**
  * Owner dashboard (prototype pearl design). Data loading is unchanged from the previous
  * screen: same thunks, refresh triggers, socket listeners and day roll-over.
@@ -73,6 +74,8 @@ const QUICK_ACTIONS: { icon: IconName; label: string; a11y: string; href: Href }
 type Sheet = null | "menu" | "salon" | "notifications";
 
 export default function DashboardScreen() {
+  "use no memo";
+  useRegionalPreferences();
   const dispatch = useAppDispatch();
   const { isAuthenticated } = useAuth();
   const didRunStartupFetchRef = useRef(false);
@@ -189,7 +192,7 @@ export default function DashboardScreen() {
                   {({ pressed }) => (
                     <>
                       <View style={[styles.qaButton, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}><Icon name={action.icon} size={20} color={pearl.accent} /></View>
-                      <Text style={styles.qaLabel}>{action.label}</Text>
+                      <Text translate style={styles.qaLabel}>{action.label}</Text>
                     </>
                   )}
                 </Pressable>
@@ -209,6 +212,8 @@ export default function DashboardScreen() {
 }
 
 function DashboardHeader({ onOpen }: { onOpen: (sheet: Sheet) => void }) {
+  "use no memo";
+  useRegionalPreferences();
   const user = useAppSelector(selectCurrentUser);
   const activeBranch = useAppSelector(selectActiveBranch);
   const canSwitch = useAppSelector(selectShouldShowBranchSelector);
@@ -231,6 +236,8 @@ function DashboardHeader({ onOpen }: { onOpen: (sheet: Sheet) => void }) {
 
 /** This month collected + monthly target (target from /dashboard/monthly-projection). */
 function RevenueHero() {
+  "use no memo";
+  useRegionalPreferences();
   const salonDay = useSalonDay();
   const metrics = useAppSelector(selectDashboardMetrics);
   const loading = useAppSelector(selectDashboardIsLoading);
@@ -259,7 +266,7 @@ function RevenueHero() {
       <Pressable onPress={() => router.push("/monthly-revenue" as Href)} accessibilityRole="button"
         accessibilityLabel={`This month collected ${money(metrics.monthlyRevenue)}. Open breakdown`}>
         <View style={styles.rowBetween}>
-          <Text style={styles.eyebrow}>THIS MONTH · COLLECTED</Text>
+          <Text translate style={styles.eyebrow}>THIS MONTH · COLLECTED</Text>
           {hasCompare ? (
             <View style={styles.change} accessibilityLabel={`${change >= 0 ? "Up" : "Down"} ${Math.abs(change)}% on last month`}>
               <View style={change < 0 ? { transform: [{ scaleY: -1 }] } : undefined}><Icon name="trend" size={14} color="#fff" strokeWidth={2.2} /></View>
@@ -285,14 +292,14 @@ function RevenueHero() {
             </>
           ) : (
             <View style={styles.rowBetween}>
-              <Text style={styles.targetText}>No monthly target yet</Text>
-              <Text style={[styles.targetText, { fontWeight: "800" }]}>Set target ›</Text>
+              <Text translate style={styles.targetText}>No monthly target yet</Text>
+              <Text translate style={[styles.targetText, { fontWeight: "800" }]}>Set target ›</Text>
             </View>
           )}
         </Pressable>
       )}
       <Pressable onPress={() => router.push("/month-overview" as Href)} style={styles.heroLink} hitSlop={6} accessibilityRole="button">
-        <Text style={styles.heroLinkText}>Compare & projection</Text>
+        <Text translate style={styles.heroLinkText}>Compare & projection</Text>
         <Icon name="chevronRight" size={14} color="#fff" />
       </Pressable>
     </HeroSurface>
@@ -300,6 +307,8 @@ function RevenueHero() {
 }
 
 function StatsRow() {
+  "use no memo";
+  useRegionalPreferences();
   const metrics = useAppSelector(selectDashboardMetrics);
   const loading = useAppSelector(selectDashboardIsLoading);
   const totalClients = useAppSelector(selectClientsTotalCount);

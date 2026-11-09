@@ -64,7 +64,7 @@ export function ProfileHero({ avatarUri, initials, isUploadingAvatar, onChangePh
         {profile.isVerified ? (
           <View style={styles.verifiedBadge}>
             <Ionicons name="checkmark-circle" size={12} color={Colors.success} />
-            <Text style={styles.verifiedBadgeText}>Verified</Text>
+            <Text translate style={styles.verifiedBadgeText}>Verified</Text>
           </View>
         ) : null}
       </View>

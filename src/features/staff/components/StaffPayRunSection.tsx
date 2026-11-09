@@ -72,7 +72,7 @@ export function StaffPayRunSection({ staffId }: { staffId?: string | null }) {
         <>
           {TOGGLES.map(([key, label]) => (
             <View key={key} style={styles.row}>
-              <Text style={styles.label}>{label}</Text>
+              <Text translate style={styles.label}>{label}</Text>
               <Switch
                 disabled={saving}
                 value={form[key]}
@@ -80,7 +80,7 @@ export function StaffPayRunSection({ staffId }: { staffId?: string | null }) {
               />
             </View>
           ))}
-          <Text style={styles.label}>Payment method</Text>
+          <Text translate style={styles.label}>Payment method</Text>
           <View style={styles.choices}>
             {(["pay_manually", "bank_transfer"] as const).map((value) => (
               <TouchableOpacity
@@ -91,13 +91,13 @@ export function StaffPayRunSection({ staffId }: { staffId?: string | null }) {
                 style={[styles.choice, { backgroundColor: form.payment_method === value ? colors.primary : "transparent" }]}
                 onPress={() => setForm((current) => ({ ...current, payment_method: value }))}
               >
-                <Text style={{ color: form.payment_method === value ? "#FFFFFF" : colors.text }}>
+                <Text translate style={{ color: form.payment_method === value ? "#FFFFFF" : colors.text }}>
                   {value === "pay_manually" ? "Pay manually" : "Bank transfer"}
                 </Text>
               </TouchableOpacity>
             ))}
           </View>
-          <Text style={styles.label}>Calculation</Text>
+          <Text translate style={styles.label}>Calculation</Text>
           <View style={styles.choices}>
             {(["automatic", "manual"] as const).map((value) => (
               <TouchableOpacity
@@ -108,7 +108,7 @@ export function StaffPayRunSection({ staffId }: { staffId?: string | null }) {
                 style={[styles.choice, { backgroundColor: form.calculation_type === value ? colors.primary : "transparent" }]}
                 onPress={() => setForm((current) => ({ ...current, calculation_type: value }))}
               >
-                <Text style={{ color: form.calculation_type === value ? "#FFFFFF" : colors.text }}>
+                <Text translate style={{ color: form.calculation_type === value ? "#FFFFFF" : colors.text }}>
                   {value === "automatic" ? "Automatic" : "Manual"}
                 </Text>
               </TouchableOpacity>
@@ -116,7 +116,7 @@ export function StaffPayRunSection({ staffId }: { staffId?: string | null }) {
           </View>
           {saveError ? <Text style={{ color: colors.error }}>{saveError}</Text> : null}
           <TouchableOpacity disabled={saving || !loaded} style={styles.button} onPress={() => void save()}>
-            {saving ? <ActivityIndicator color="#FFFFFF" /> : <Text style={{ color: "#FFFFFF" }}>Save Settings</Text>}
+            {saving ? <ActivityIndicator color="#FFFFFF" /> : <Text translate style={{ color: "#FFFFFF" }}>Save Settings</Text>}
           </TouchableOpacity>
         </>
       )}

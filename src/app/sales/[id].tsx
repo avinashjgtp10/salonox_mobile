@@ -107,7 +107,7 @@ export default function SaleDetailsScreen() {
   const renderHeader = (showActions = false) => (
     <View style={styles.headerRow}>
       <AppBackButton activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} />
-      <Text style={styles.headerTitle}>Sale Invoice</Text>
+      <Text translate style={styles.headerTitle}>Sale Invoice</Text>
       {showActions ? (
         <TouchableOpacity
           activeOpacity={0.8}
@@ -148,14 +148,14 @@ export default function SaleDetailsScreen() {
         <View style={styles.notFoundWrap}>
           {renderHeader()}
           <View style={styles.notFoundCard}>
-            <Text style={styles.notFoundTitle}>Unable to load sale</Text>
+            <Text translate style={styles.notFoundTitle}>Unable to load sale</Text>
             <Text style={styles.notFoundSubtitle}>{detailError}</Text>
             <TouchableOpacity
               activeOpacity={0.85}
               onPress={() => id && dispatch(fetchSaleByIdThunk(id))}
               style={styles.retryButton}
             >
-              <Text style={styles.retryButtonText}>Retry</Text>
+              <Text translate style={styles.retryButtonText}>Retry</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -170,8 +170,8 @@ export default function SaleDetailsScreen() {
         <View style={styles.notFoundWrap}>
           {renderHeader()}
           <View style={styles.notFoundCard}>
-            <Text style={styles.notFoundTitle}>Sale not found</Text>
-            <Text style={styles.notFoundSubtitle}>This sale could not be found.</Text>
+            <Text translate style={styles.notFoundTitle}>Sale not found</Text>
+            <Text translate style={styles.notFoundSubtitle}>This sale could not be found.</Text>
           </View>
         </View>
       </SafeAreaView>

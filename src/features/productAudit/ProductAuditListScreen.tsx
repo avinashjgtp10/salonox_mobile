@@ -1,3 +1,7 @@
+import { LinearGradient } from "expo-linear-gradient";
+import { pearl, pearlGradients } from "@/components/auth/pearl/tokens";
+import { SettingsButton } from "@/features/settings/SettingsUI";
+import { formatAppDateTime } from "@/utils/dateTime";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   View,
@@ -8,7 +12,7 @@ import {
   RefreshControl,
 } from "react-native";
 import { router, type Href, useFocusEffect } from "expo-router";
-import { Text } from "@/components/ui/AppTypography";
+import { Text, TextInput } from "@/components/ui/AppTypography";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { InfiniteScrollLoader } from "@/components/ui/InfiniteScrollLoader";
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
@@ -25,7 +29,7 @@ import type {
   AuditListRow,
   AuditStatus,
 } from "@/types/productAudit";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors as useThemeColors } from "@/components/auth/pearl/usePearlColors";
 import {
   AuditPage,
   AuditCard,
@@ -57,6 +61,7 @@ function List() {
   const [error, setError] = useState("");
   const [creating, setCreating] = useState(false);
   const [saving, setSaving] = useState(false);
+  const nameInput = useRef<TextInput>(null), notesInput = useRef<TextInput>(null);
   const [name, setName] = useState("");
   const [notes, setNotes] = useState("");
   const [branches, setBranches] = useState<AuditBranch[]>([]);
@@ -191,8 +196,8 @@ function List() {
   };
   if (!canView)
     return (
-      <AuditPage title="Product Audit">
-        <Text>
+      <AuditPage title="Product audit">
+        <Text translate>
           Your account does not have permission to view product audits.
         </Text>
       </AuditPage>
@@ -204,7 +209,7 @@ function List() {
           ref={listRef}
           data={rows}
           keyExtractor={(row) => row.id}
-          contentContainerStyle={auditStyles.body}
+          contentContainerStyle={[auditStyles.body, { paddingBottom: 100 }]}
           keyboardShouldPersistTaps="handled"
           initialNumToRender={10}
           maxToRenderPerBatch={10}
@@ -224,23 +229,15 @@ function List() {
           }
           ListHeaderComponent={
             <View style={{ gap: 14 }}>
-              <Text style={{ color: c.text2 }}>
-                Count physical packs, explain differences, and submit for
-                independent review.
+              <Text translate style={{ color: c.text2 }}>
+                Count what’s on the shelf, then compare it with SalonOX stock. Approved audits update stock automatically.
               </Text>
-              {canCreate && (
-                <AuditButton
-                  label="New audit"
-                  disabled={saving}
-                  onPress={() => void openCreate()}
-                />
-              )}
               <AuditField
                 label="Search audits"
                 value={search}
                 onChange={setSearch}
               />
-              <View style={auditStyles.row}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ flexDirection: "row", gap: 8 }}>
                 {(
                   [
                     undefined,
@@ -258,19 +255,19 @@ function List() {
                     }}
                     style={{
                       padding: 10,
-                      borderRadius: 10,
+                      borderRadius: 12,
                       backgroundColor:
-                        status === s ? c.backgroundSelected : c.card,
+                        status === s ? c.primary : c.card,
                     }}
                   >
-                    <Text style={{ color: c.text }}>
+                    <Text style={{ color: status === s ? "#FFFFFF" : c.text }}>
                       {s ? auditStatusLabel(s) : "All"}
                     </Text>
                   </TouchableOpacity>
                 ))}
-              </View>
+              </ScrollView>
               {!!error && !creating && (
-                <Text style={{ color: c.error }}>{error}</Text>
+                <Text translate style={{ color: c.error }}>{error}</Text>
               )}
               <Text style={{ color: c.text2 }}>{total} audits</Text>
             </View>
@@ -287,14 +284,14 @@ function List() {
                 >
                   {row.name}
                 </Text>
-                <Text style={{ color: c.primaryText }}>
+                <Text style={{ color: row.status === "complete" ? pearl.successText : row.status === "rejected" ? pearl.dangerText : pearl.warningText, backgroundColor: row.status === "complete" ? pearl.successBg : row.status === "rejected" ? pearl.dangerBg : pearl.warningBg, alignSelf: "flex-start", paddingHorizontal: 9, paddingVertical: 5, borderRadius: 16, fontSize: 11 }}>
                   {auditStatusLabel(row.status)}
                 </Text>
                 <Text style={{ color: c.text2 }}>
-                  {row.item_count} products · {row.diff_count} differences ·{" "}
+                  {row.item_count} {row.item_count === 1 ? "product" : "products"} · {row.diff_count === 0 ? "No differences" : `${row.diff_count} ${row.diff_count === 1 ? "difference" : "differences"}`} ·{" "}
                   {row.auditor_name ?? "Auditor"}
                 </Text>
-                <Text style={{ color: c.text2 }}>Updated: {new Date(row.updated_at).toLocaleString()}</Text>
+                <Text style={{ color: c.text2 }}>Updated: {formatAppDateTime(row.updated_at)}</Text>
               </AuditCard>
             </TouchableOpacity>
           )}
@@ -304,7 +301,7 @@ function List() {
             ) : error ? (
               <AuditButton label="Retry" onPress={() => void load()} />
             ) : (
-              <Text style={{ color: c.text2 }}>No audits found.</Text>
+              <Text translate style={{ color: c.text2 }}>No audits found.</Text>
             )
           }
           ListFooterComponent={
@@ -326,6 +323,7 @@ function List() {
           }
         />
       </RefreshViewport>
+      {canCreate && <TouchableOpacity accessibilityRole="button" disabled={saving} onPress={() => void openCreate()} style={{ position: "absolute", right: 16, bottom: 18, borderRadius: 20, paddingHorizontal: 20, paddingVertical: 15, overflow: "hidden" }}><LinearGradient pointerEvents="none" colors={pearlGradients.primary} style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }} /><Text translate style={{ color: "white", fontWeight: "700" }}>New audit</Text></TouchableOpacity>}
       <Modal
         visible={creating}
         animationType="slide"
@@ -335,18 +333,21 @@ function List() {
       >
         <AuditPage
           title="New audit"
+          footer={<><View style={{ flex: 1 }}><SettingsButton secondary label="Cancel" disabled={saving} onPress={() => setCreating(false)} /></View><View style={{ flex: 2 }}><SettingsButton label={saving ? "Creating..." : "Create audit"} disabled={saving || !name.trim() || !branchId} onPress={() => void create()} /></View></>}
           onBack={() => {
             if (!saving) setCreating(false);
           }}
         >
-          <AuditField label="Audit name" value={name} onChange={setName} />
+          <AuditCard><Text translate style={{ color: c.heading, fontWeight: "700" }}>Audit</Text><AuditField label="Audit name *" value={name} onChange={setName} inputRef={nameInput} returnKeyType="next" onSubmitEditing={() => notesInput.current?.focus()} />
           <AuditField
+            inputRef={notesInput}
+            multiline
             label="Notes (optional)"
             value={notes}
             onChange={setNotes}
-          />
+          /></AuditCard><AuditCard><Text translate style={{ color: c.heading, fontWeight: "700" }}>Who & where</Text>
           <AuditPersonField label="Auditor" value={auditor} onChange={setAuditor} currentUser={currentPerson} disabled={saving} />
-          <Text style={{ color: c.text }}>Inventory branch</Text>
+          <Text translate style={{ color: c.text }}>Inventory branch</Text>
           <ScrollView>
             {branches.map((b) => (
               <TouchableOpacity
@@ -365,18 +366,8 @@ function List() {
                 </Text>
               </TouchableOpacity>
             ))}
-          </ScrollView>
-          {!!error && <Text style={{ color: c.error }}>{error}</Text>}
-          <AuditButton
-            label={saving ? "Please wait…" : "Create audit"}
-            disabled={saving || !name.trim() || !branchId}
-            onPress={() => void create()}
-          />
-          <AuditButton
-            label="Cancel"
-            disabled={saving}
-            onPress={() => setCreating(false)}
-          />
+          </ScrollView></AuditCard><Text translate style={{ color: c.text2 }}>You’ll count each product next. Nothing changes in stock until you approve.</Text>
+          {!!error && <Text translate style={{ color: c.error }}>{error}</Text>}
         </AuditPage>
       </Modal>
     </AuditPage>

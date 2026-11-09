@@ -1,3 +1,4 @@
+import { currencyLabel } from "@/utils/currency";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { Redirect, router, useLocalSearchParams } from "expo-router";
@@ -384,7 +385,7 @@ export function CommissionRuleFormScreen() {
     const next = fieldOrder[fieldOrder.indexOf(ref) + 1];
     return (
       <View style={ui.fieldGroup}>
-        <Text style={ui.label}>{label}</Text>
+        <Text translate style={ui.label}>{label}</Text>
         <View style={[ui.input, ui.row, options.error && ui.inputError]}>
           <TextInput
             ref={ref}
@@ -413,7 +414,7 @@ export function CommissionRuleFormScreen() {
           {options.suffix && <Text style={ui.muted}>{options.suffix}</Text>}
         </View>
         {options.error && (
-          <Text style={ui.error}>
+          <Text translate style={ui.error}>
             {options.text
               ? "Enter a rule name."
               : "Enter a value greater than 0."}
@@ -474,7 +475,7 @@ export function CommissionRuleFormScreen() {
             ) : (
               <>
                 <View style={[ui.card, ui.formCard]}>
-                  <Text style={ui.sectionTitle}>Type</Text>
+                  <Text translate style={ui.sectionTitle}>Type</Text>
                   {RULE_TYPE_OPTIONS.map((option) => {
                     const selected = option.key === type;
                     const title =
@@ -525,22 +526,22 @@ export function CommissionRuleFormScreen() {
                           size={20}
                         />
                         <View style={{ flex: 1, gap: 3 }}>
-                          <Text style={ui.title}>{title}</Text>
-                          <Text style={ui.muted}>{subtitle}</Text>
+                          <Text translate style={ui.title}>{title}</Text>
+                          <Text translate style={ui.muted}>{subtitle}</Text>
                         </View>
                       </TouchableOpacity>
                     );
                   })}
                 </View>
                 <View style={[ui.card, ui.formCard]}>
-                  <Text style={ui.sectionTitle}>Details</Text>
+                  <Text translate style={ui.sectionTitle}>Details</Text>
                   {input("Rule name *", name, setName, refs.name, {
                     text: true,
                     placeholder: "e.g. Stylist 10% on services",
                     error: show("name"),
                   })}
                   <View style={ui.fieldGroup}>
-                    <Text style={ui.label}>Applies to</Text>
+                    <Text translate style={ui.label}>Applies to</Text>
                     <ScrollView
                       horizontal
                       showsHorizontalScrollIndicator={false}
@@ -559,7 +560,7 @@ export function CommissionRuleFormScreen() {
                     </ScrollView>
                   </View>
                   <View style={ui.fieldGroup}>
-                    <Text style={ui.label}>Staff *</Text>
+                    <Text translate style={ui.label}>Staff *</Text>
                     <TouchableOpacity
                       accessibilityRole="button"
                       accessibilityLabel="Choose staff"
@@ -612,7 +613,7 @@ export function CommissionRuleFormScreen() {
                         )
                       }
                     >
-                      <Text
+                      <Text translate
                         style={{
                           color: pearl.accentDeep,
                           fontSize: 12,
@@ -623,13 +624,13 @@ export function CommissionRuleFormScreen() {
                       </Text>
                     </TouchableOpacity>
                     {show("staff") && (
-                      <Text style={ui.error}>
+                      <Text translate style={ui.error}>
                         Select at least one staff member.
                       </Text>
                     )}
                   </View>
                   <View style={ui.fieldGroup}>
-                    <Text style={ui.label}>Frequency</Text>
+                    <Text translate style={ui.label}>Frequency</Text>
                     <View style={ui.chips}>
                       {FREQUENCY_OPTIONS.map((option) => (
                         <CommissionChip
@@ -652,10 +653,10 @@ export function CommissionRuleFormScreen() {
                         refs.conditionTarget,
                         {
                           placeholder: periodWord + " revenue needed",
-                          suffix: "₹",
+                          suffix: currencyLabel("₹"),
                         },
                       )}
-                      <Text style={ui.muted}>Leave blank to always apply.</Text>
+                      <Text translate style={ui.muted}>Leave blank to always apply.</Text>
                     </>
                   )}
                   {type === "tiered_target" &&
@@ -666,7 +667,7 @@ export function CommissionRuleFormScreen() {
                       refs.conditionTarget,
                       {
                         placeholder: "e.g. 100000",
-                        suffix: "₹",
+                        suffix: currencyLabel("₹"),
                         error: show("conditionTarget"),
                       },
                     )}
@@ -682,7 +683,7 @@ export function CommissionRuleFormScreen() {
                       refs.rate,
                       {
                         placeholder: type === "fixed" ? "e.g. 100" : "e.g. 10",
-                        suffix: type === "fixed" ? "₹" : "%",
+                        suffix: type === "fixed" ? currencyLabel("₹") : "%",
                         error: show("rate"),
                       },
                     )}
@@ -739,7 +740,7 @@ export function CommissionRuleFormScreen() {
                             tierRefs[index].target,
                             {
                               placeholder: "e.g. 50000",
-                              suffix: "₹",
+                              suffix: currencyLabel("₹"),
                               error: show("tiers") && !positive(tier.target),
                             },
                           )}
@@ -757,7 +758,7 @@ export function CommissionRuleFormScreen() {
                             tierRefs[index].reward,
                             {
                               placeholder: "e.g. 1000",
-                              suffix: "₹",
+                              suffix: currencyLabel("₹"),
                               error: show("tiers") && !positive(tier.reward),
                             },
                           )}
@@ -774,12 +775,12 @@ export function CommissionRuleFormScreen() {
                         }
                       />
                       {show("tiers") && (
-                        <Text style={ui.error}>
+                        <Text translate style={ui.error}>
                           Every milestone needs a revenue amount and a bonus
                           above 0, and revenue amounts must be different.
                         </Text>
                       )}
-                      <Text style={ui.muted}>
+                      <Text translate style={ui.muted}>
                         Each time the staff member&apos;s revenue for the month
                         reaches a milestone, its bonus is earned once. Bonuses
                         add up, so reaching a higher milestone includes all the
@@ -795,7 +796,7 @@ export function CommissionRuleFormScreen() {
                   onPress={() => submit("draft")}
                   style={{ alignItems: "center", padding: 12 }}
                 >
-                  <Text
+                  <Text translate
                     style={{
                       color: pearl.accentDeep,
                       fontSize: 13,
@@ -891,7 +892,7 @@ export function CommissionRuleFormScreen() {
                 </TouchableOpacity>
               ))}
             {!staff.length && (
-              <Text style={ui.muted}>No active staff available.</Text>
+              <Text translate style={ui.muted}>No active staff available.</Text>
             )}
           </View>
         </BottomSheet>

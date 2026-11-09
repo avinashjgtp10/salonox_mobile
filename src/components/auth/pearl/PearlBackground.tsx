@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { StyleSheet, useWindowDimensions, View } from "react-native";
 import Svg, { Defs, LinearGradient, RadialGradient, Rect, Stop } from "react-native-svg";
+import { usePearlPalette } from "./usePearlPalette";
 
 /**
  * Pearl background, drawn exactly like the prototype's `.bg`:
@@ -21,6 +22,12 @@ const ANGLE = (160 * Math.PI) / 180;
 
 /** Pearl background: soft base gradient + champagne, lavender, sky and blush sheen. */
 export function PearlBackground({ children }: { children?: ReactNode }) {
+  const palette = usePearlPalette();
+  const dim = palette.bgTop === "#1F1D2B";
+  const sheen = dim ? SHEEN.map((blob, index) => ({ ...blob,
+    color: ["#36334C", "#3D265D", "#241D43", "#523621"][index],
+    opacity: [0.85, 0.9, 0.85, 0.9][index],
+  })) : SHEEN;
   const windowSize = useWindowDimensions();
   const [layoutSize, setLayoutSize] = useState<{ width: number; height: number } | null>(null);
   const { width: w, height: h } = layoutSize ?? windowSize;
@@ -28,7 +35,7 @@ export function PearlBackground({ children }: { children?: ReactNode }) {
   const half = (Math.abs(w * dx) + Math.abs(h * dy)) / 2;
 
   return (
-    <View style={styles.fill} onLayout={({ nativeEvent: { layout } }) => {
+    <View style={[styles.fill, { backgroundColor: palette.bgMid }]} onLayout={({ nativeEvent: { layout } }) => {
       if (layout.width > 0 && layout.height > 0) {
         setLayoutSize(previous => previous?.width === layout.width && previous?.height === layout.height
           ? previous : { width: layout.width, height: layout.height });
@@ -39,11 +46,11 @@ export function PearlBackground({ children }: { children?: ReactNode }) {
           <Defs>
             <LinearGradient id="bgBase" gradientUnits="userSpaceOnUse"
               x1={w / 2 - dx * half} y1={h / 2 - dy * half} x2={w / 2 + dx * half} y2={h / 2 + dy * half}>
-              <Stop offset="0" stopColor="#FAF9F6" />
-              <Stop offset="0.5" stopColor="#F2F1F8" />
-              <Stop offset="1" stopColor="#F5F3EE" />
+              <Stop offset="0" stopColor={dim ? palette.bgTop : "#FAF9F6"} />
+              <Stop offset="0.5" stopColor={dim ? palette.bgMid : "#F2F1F8"} />
+              <Stop offset="1" stopColor={dim ? palette.bgBottom : "#F5F3EE"} />
             </LinearGradient>
-            {SHEEN.map(blob => (
+            {sheen.map(blob => (
               <RadialGradient key={blob.id} id={blob.id} gradientUnits="userSpaceOnUse"
                 cx={w * blob.x} cy={h * blob.y} r={blob.r} fx={w * blob.x} fy={h * blob.y}>
                 <Stop offset="0" stopColor={blob.color} stopOpacity={blob.opacity} />
@@ -53,7 +60,7 @@ export function PearlBackground({ children }: { children?: ReactNode }) {
           </Defs>
           <Rect width={w} height={h} fill="url(#bgBase)" />
           {/* CSS paints the first listed layer on top, so draw them in reverse. */}
-          {[...SHEEN].reverse().map(blob => <Rect key={blob.id} width={w} height={h} fill={`url(#${blob.id})`} />)}
+          {[...sheen].reverse().map(blob => <Rect key={blob.id} width={w} height={h} fill={`url(#${blob.id})`} />)}
         </Svg>
       </View>
       {children}

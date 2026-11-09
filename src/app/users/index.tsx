@@ -191,10 +191,10 @@ function ErrorState({ message, onRetry }: { message: string; onRetry: () => void
           <Ionicons name="cloud-offline-outline" size={26} color={Colors.error} />
         </View>
       </View>
-      <Text style={styles.emptyTitle}>Unable to load users</Text>
-      <Text style={styles.emptySubtitle}>{message}</Text>
+      <Text translate style={styles.emptyTitle}>Unable to load users</Text>
+      <Text translate style={styles.emptySubtitle}>{message}</Text>
       <TouchableOpacity activeOpacity={0.85} onPress={onRetry} style={styles.emptyButton}>
-        <Text style={styles.emptyButtonText}>Retry</Text>
+        <Text translate style={styles.emptyButtonText}>Retry</Text>
       </TouchableOpacity>
     </View>
   );
@@ -212,8 +212,8 @@ function EmptyState({ queryActive }: { queryActive: boolean }) {
           <Ionicons name="people-outline" size={26} color={Colors.primaryText} />
         </View>
       </View>
-      <Text style={styles.emptyTitle}>No Users Found</Text>
-      <Text style={styles.emptySubtitle}>
+      <Text translate style={styles.emptyTitle}>No Users Found</Text>
+      <Text translate style={styles.emptySubtitle}>
         {queryActive
           ? "Try a different search to find the right user."
           : "Users added to your organisation will show up here."}
@@ -393,19 +393,19 @@ export default function UsersScreen() {
             <View style={styles.header}>
               <View style={styles.headerRow}>
                 <AppBackButton activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} />
-                <Text style={styles.headerTitle}>User Management</Text>
+                <Text translate style={styles.headerTitle}>User Management</Text>
                 <View style={styles.backButtonPlaceholder} />
               </View>
               <View style={styles.summaryCard}>
                 <View style={styles.summaryMetric}>
-                  <Text style={styles.summaryLabel}>Total Users</Text>
+                  <Text translate style={styles.summaryLabel}>Total Users</Text>
                   <Text style={styles.summaryValue}>
                     {staffPagination.totalCount.toLocaleString("en-IN")}
                   </Text>
                 </View>
                 <View style={styles.summaryDivider} />
                 <View style={styles.summaryMetric}>
-                  <Text style={styles.summaryLabel}>Loaded</Text>
+                  <Text translate style={styles.summaryLabel}>Loaded</Text>
                   <Text style={styles.summaryValue}>{staffMembers.length}</Text>
                 </View>
               </View>

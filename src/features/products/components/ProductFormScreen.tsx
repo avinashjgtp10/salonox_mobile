@@ -376,7 +376,7 @@ export default function ProductFormScreen({ id, mode, scannerDraft, onCreated }:
         <KeyboardAwareScrollView ref={scrollViewRef} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <View style={styles.header}>
             <AppBackButton onPress={goBack} />
-            <Text style={styles.headerTitle}>{title}</Text>
+            <Text translate style={styles.headerTitle}>{title}</Text>
 
           </View>
 
@@ -384,7 +384,7 @@ export default function ProductFormScreen({ id, mode, scannerDraft, onCreated }:
             <ErrorNotice message={productState.detailsError} />
           ) : (
             <>
-            {scannerDraft && <Text style={styles.counter}>Verify the scanned label, brand, variant and pack size. The quantity entered below becomes the audit physical count. Stock updates after audit approval.</Text>}
+            {scannerDraft && <Text translate style={styles.counter}>Verify the scanned label, brand, variant and pack size. The quantity entered below becomes the audit physical count. Stock updates after audit approval.</Text>}
             <View style={{ flexDirection: "row", gap: 20, marginBottom: 16 }}>{["Basics", "Pricing", "Stock"].map((step) => <Text key={step} style={{ fontSize: 12, color: Colors.primaryText }}>● {step}</Text>)}</View>
             <Section title="Basics">
               <Field ref={(input) => setFieldRef("name", input)} error={fieldErrors.name} maxLength={100} label="Product name *" onChangeText={(value) => updateField("name", value, setName)} value={name} />
@@ -405,15 +405,15 @@ export default function ProductFormScreen({ id, mode, scannerDraft, onCreated }:
               </View>
               <View style={styles.inlineLinkRow}>
                 <TouchableOpacity activeOpacity={0.8} onPress={() => setCategoryModalOpen(true)} style={styles.inlineLinkCell}>
-                  <Text style={styles.inlineLink}>+ Add a category</Text>
+                  <Text translate style={styles.inlineLink}>+ Add a category</Text>
                 </TouchableOpacity>
                 <TouchableOpacity activeOpacity={0.8} onPress={() => setBrandModalOpen(true)} style={styles.inlineLinkCell}>
-                  <Text style={styles.inlineLink}>+ Add a brand</Text>
+                  <Text translate style={styles.inlineLink}>+ Add a brand</Text>
                 </TouchableOpacity>
               </View>
 
               <SelectField label="Supplier" onPress={() => { setSupplierCreateMode(false); setSupplierModalOpen(true); }} placeholder="Select supplier" value={supplierName || undefined} />
-              {canCreateSupplier && <TouchableOpacity onPress={() => { setSupplierCreateMode(true); setSupplierModalOpen(true); }}><Text style={styles.inlineLink}>+ Add supplier</Text></TouchableOpacity>}
+              {canCreateSupplier && <TouchableOpacity onPress={() => { setSupplierCreateMode(true); setSupplierModalOpen(true); }}><Text translate style={styles.inlineLink}>+ Add supplier</Text></TouchableOpacity>}
               <Field inputStyle={styles.textArea} label="Description" multiline onChangeText={setDescription} value={description} />
               <Field inputStyle={styles.remarkArea} label="Remark" multiline onChangeText={setRemark} value={remark} />
 
@@ -438,11 +438,11 @@ export default function ProductFormScreen({ id, mode, scannerDraft, onCreated }:
                     onPress={() => setProductType(item.value)}
                     style={[styles.segment, productType === item.value && styles.segmentActive]}
                   >
-                    <Ionicons name={productType === item.value ? "radio-button-on" : "radio-button-off"} size={20} color={Colors.primaryText} /><View style={{ flex: 1 }}><Text style={styles.segmentText}>{item.label}</Text><Text style={styles.helperText}>{item.value === "retail" ? "Sold to clients at checkout" : item.value === "consumable" ? "Used by staff during services, not sold" : "Sold and used in services"}</Text></View>
+                    <Ionicons name={productType === item.value ? "radio-button-on" : "radio-button-off"} size={20} color={Colors.primaryText} /><View style={{ flex: 1 }}><Text translate style={styles.segmentText}>{item.label}</Text><Text translate style={styles.helperText}>{item.value === "retail" ? "Sold to clients at checkout" : item.value === "consumable" ? "Used by staff during services, not sold" : "Sold and used in services"}</Text></View>
                   </TouchableOpacity>
                 ))}
               </View>
-              {productType === "both" && <Text style={styles.helperText}>Used in services and also sold to clients.</Text>}
+              {productType === "both" && <Text translate style={styles.helperText}>Used in services and also sold to clients.</Text>}
             </Section>
 
             <Section title="Stock">
@@ -470,7 +470,7 @@ export default function ProductFormScreen({ id, mode, scannerDraft, onCreated }:
                   <Field label="Lot Number" onChangeText={setLotNumber} value={lotNumber} />
                 </>
               )}
-              <Text style={styles.label}>Expiry Date</Text>
+              <Text translate style={styles.label}>Expiry Date</Text>
               <TouchableOpacity activeOpacity={0.84} onPress={() => setShowDatePicker(true)} style={styles.dateButton}>
                 <Ionicons color={Colors.heading} name="calendar-outline" size={17} />
                 <Text style={[styles.dateText, !expiryDate && styles.placeholder]}>{formatDate(expiryDate) || "dd-mm-yy"}</Text>
@@ -481,7 +481,7 @@ export default function ProductFormScreen({ id, mode, scannerDraft, onCreated }:
             {hasConsumableInventory ? (
               <>
                 <Section title="Service Assignment">
-                  <Text style={styles.helperText}>Assign this product to the services that consume it, with how much each one uses.</Text>
+                  <Text translate style={styles.helperText}>Assign this product to the services that consume it, with how much each one uses.</Text>
                   {assignmentsLoading && <ActivityIndicator />}
                   {!!assignmentError && <TouchableOpacity onPress={() => setAssignmentRetry((value) => value + 1)}><Text style={styles.fieldError}>{assignmentError} Tap to retry.</Text></TouchableOpacity>}
                   <Field label="" onChangeText={setServiceSearch} placeholder="Search a service to assign..." value={serviceSearch} />
@@ -547,7 +547,7 @@ export default function ProductFormScreen({ id, mode, scannerDraft, onCreated }:
                 setBrandId(result.brand.id); setNewBrandName(""); setBrandModalOpen(false);
               } catch (error) { setBrandError(getApiErrorMessage(error)); }
               finally { setBrandSaving(false); }
-            }}><Text style={styles.brandAddButtonText}>{brandSaving ? "Adding…" : "Add"}</Text></TouchableOpacity>
+            }}><Text translate style={styles.brandAddButtonText}>{brandSaving ? "Adding…" : "Add"}</Text></TouchableOpacity>
             </View>
             {!!brandError && <Text style={styles.fieldError}>{brandError}</Text>}
             {scannerDraft?.brand && !productState.brands.some(b => b.name.trim().toLowerCase() === scannerDraft.brand?.trim().toLowerCase()) && <TouchableOpacity disabled={isSubmitting} style={styles.sheetRow} onPress={async () => {
@@ -575,7 +575,7 @@ export default function ProductFormScreen({ id, mode, scannerDraft, onCreated }:
       <BottomSheet pearlStyle centered={false} title="Tax type" visible={taxTypeOpen} onClose={() => setTaxTypeOpen(false)}>
             {TAX_TYPES.map((item) => (
               <TouchableOpacity key={item.value} onPress={() => { setTaxType(item.value); setTaxTypeOpen(false); }} style={styles.sheetRow}>
-                <Text style={styles.sheetRowText}>{item.label}</Text>
+                <Text translate style={styles.sheetRowText}>{item.label}</Text>
                 {taxType === item.value ? <Ionicons color={Colors.primaryText} name="checkmark-circle" size={20} /> : null}
               </TouchableOpacity>
             ))}
@@ -616,7 +616,7 @@ function LoadingScreen({ onBack, title }: { onBack: () => void; title: string })
       <View style={styles.content}>
         <View style={styles.header}>
           <AppBackButton onPress={onBack} />
-          <Text style={styles.headerTitle}>{title}</Text>
+          <Text translate style={styles.headerTitle}>{title}</Text>
         </View>
         <View style={styles.loading}><ActivityIndicator size="large" color={Colors.primaryText} /></View>
       </View>
@@ -630,7 +630,7 @@ function ErrorNotice({ message }: { message: string }) {
   return (
     <View style={styles.errorBox}>
       <Ionicons color={Colors.error} name="alert-circle-outline" size={18} />
-      <Text style={styles.errorText}>{message}</Text>
+      <Text translate style={styles.errorText}>{message}</Text>
     </View>
   );
 }
@@ -640,7 +640,7 @@ function Section({ children, emphasized, title }: { children: React.ReactNode; e
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   return (
     <View style={[styles.section, emphasized && styles.sectionEmphasized]}>
-      <Text style={styles.sectionTitle}>{title}</Text>
+      <Text translate style={styles.sectionTitle}>{title}</Text>
       {children}
     </View>
   );
@@ -651,14 +651,14 @@ const Field = forwardRef<TextInput, React.ComponentProps<typeof TextInput> & { e
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   return (
     <View style={styles.field}>
-      {label ? <Text style={styles.label}>{label}</Text> : null}
+      {label ? <Text translate style={styles.label}>{label}</Text> : null}
       <TextInput
         ref={ref}
         {...props}
         placeholderTextColor={Colors.placeholder}
         style={[styles.input, props.multiline && styles.multilineInput, error && styles.inputError, inputStyle]}
       />
-      {error ? <Text style={styles.fieldError}>{error}</Text> : null}
+      {error ? <Text translate style={styles.fieldError}>{error}</Text> : null}
     </View>
   );
 });
@@ -668,12 +668,12 @@ function SelectField({ error, label, onPress, placeholder, value }: { error?: st
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   return (
     <TouchableOpacity activeOpacity={0.84} onPress={onPress} style={styles.field}>
-      <Text style={styles.label}>{label}</Text>
+      <Text translate style={styles.label}>{label}</Text>
       <View style={[styles.selectInput, error && styles.inputError]}>
         <Text numberOfLines={1} style={[styles.selectText, !value && styles.placeholder]}>{value || placeholder || "None"}</Text>
         <Ionicons color={Colors.text2} name="chevron-down" size={16} />
       </View>
-      {error ? <Text style={styles.fieldError}>{error}</Text> : null}
+      {error ? <Text translate style={styles.fieldError}>{error}</Text> : null}
     </TouchableOpacity>
   );
 }
@@ -683,7 +683,7 @@ function PreviewRow({ label, value, warning }: { label: string; value: string; w
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   return (
     <View style={styles.previewRow}>
-      <Text style={styles.previewLabel}>{label}</Text>
+      <Text translate style={styles.previewLabel}>{label}</Text>
       <Text style={[styles.previewValue, warning && styles.previewWarning]}>{value}</Text>
     </View>
   );

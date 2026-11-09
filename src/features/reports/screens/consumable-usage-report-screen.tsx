@@ -106,8 +106,8 @@ export default function ConsumableUsageReportScreen({ config }: { config: Report
       <View style={styles.header}>
         <AppBackButton accessibilityLabel="Go back" accessibilityRole="button" activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={() => router.back()} />
         <View style={styles.headerCopy}>
-          <Text allowFontScaling style={styles.title}>{config.title}</Text>
-          <Text allowFontScaling style={styles.subtitle}>{config.subtitle}</Text>
+          <Text translate allowFontScaling style={styles.title}>{config.title}</Text>
+          <Text translate allowFontScaling style={styles.subtitle}>{config.subtitle}</Text>
         </View>
       </View>
 
@@ -136,7 +136,7 @@ export default function ConsumableUsageReportScreen({ config }: { config: Report
 
       {allRows.length ? (
         <View style={styles.resultsHeading}>
-          <Text style={styles.resultsTitle}>RESULTS</Text>
+          <Text translate style={styles.resultsTitle}>RESULTS</Text>
           <Text style={styles.resultsCount}>
             {filteredRows.length} {filteredRows.length === 1 ? "record" : "records"}
           </Text>

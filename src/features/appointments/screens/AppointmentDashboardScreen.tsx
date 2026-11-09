@@ -1,3 +1,4 @@
+import { useRegionalPreferences } from "@/localization/preferences";
 import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
 import { pearl, pearlGradients, pearlType } from "@/components/auth/pearl/tokens";
 import { Icon } from "@/components/pearl/Icon";
@@ -32,6 +33,8 @@ import { LunoxSheet } from "@/components/lunox/LunoxSheet";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 function AppointmentDashboardScreenContent() {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = useThemeColors();
   const [lunoxOpen, setLunoxOpen] = useState(false);
   const [previewId, setPreviewId] = useState<string | null>(null);
@@ -92,7 +95,7 @@ function AppointmentDashboardScreenContent() {
     <View style={styles.listHeader}>
       <View style={ui.header}>
         <IconButton icon="chevronLeft" label="Back" onPress={handleBack} />
-        <View style={{ flex: 1 }}><Text style={pearlType.h2}>Appointments</Text><Text style={pearlType.small}>{formatAppDate(`${date}T00:00:00`)}</Text></View>
+        <View style={{ flex: 1 }}><Text translate style={pearlType.h2}>Appointments</Text><Text style={pearlType.small}>{formatAppDate(`${date}T00:00:00`)}</Text></View>
         <TouchableOpacity accessibilityRole="button" accessibilityLabel="Lunox AI" onPress={() => setLunoxOpen(true)}>
           <LinearGradient colors={["#CFCBE8", "#C9B5EC", "#BCD6E8", "#A7A2D0"]} style={{ width: 36, height: 36, borderRadius: 18, padding: 3 }}>
             <View style={{ flex: 1, borderRadius: 15, backgroundColor: "#FAF9FC", alignItems: "center", justifyContent: "center" }}><Image source={require("../../../../assets/images/brand/lunox-mark.png")} style={{ width: 23, height: 23 }} resizeMode="contain" /></View>
@@ -172,7 +175,7 @@ function AppointmentDashboardScreenContent() {
         renderItem={({ item, index }) => <BookingListRow appointment={item} first={index === 0} last={index === filtered.length - 1} onPress={() => setPreviewId(item.id)} />}
         showsVerticalScrollIndicator={false}
       /></RefreshViewport>
-      <TouchableOpacity accessibilityRole="button" onPress={() => router.push("/bookings/new" as Href)} style={ui.fab}><LinearGradient colors={pearlGradients.primary} style={ui.fabInner}><Icon name="plus" size={20} color="#fff" /><Text style={ui.fabText}>New booking</Text></LinearGradient></TouchableOpacity>
+      <TouchableOpacity accessibilityRole="button" onPress={() => router.push("/bookings/new" as Href)} style={ui.fab}><LinearGradient colors={pearlGradients.primary} style={ui.fabInner}><Icon name="plus" size={20} color="#fff" /><Text translate style={ui.fabText}>New booking</Text></LinearGradient></TouchableOpacity>
       <AppointmentSnackbar />
       <BookingDetailsSheet appointment={appointments.find(item => item.id === previewId) ?? null} onClose={() => setPreviewId(null)} />
       <LunoxSheet visible={lunoxOpen} onClose={() => setLunoxOpen(false)} />

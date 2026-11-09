@@ -32,7 +32,7 @@ export const TextField = forwardRef<TextInput, Props>(function TextField(
 
   return (
     <View style={styles.group}>
-      <Text style={pearlType.label}>{label}{required ? <Text style={{ color: pearl.dangerText }}> *</Text> : null}</Text>
+      <Text style={pearlType.label}>{label}{required ? <Text translate style={{ color: pearl.dangerText }}> *</Text> : null}</Text>
       <View style={[styles.field, focused && styles.focus, !!error && styles.bad]}>
         {icon ? <Ionicons name={icon} size={18} color={pearl.muted} /> : null}
         {prefix ? <Text style={[pearlType.input, { color: pearl.muted }]}>{prefix}</Text> : null}
@@ -62,7 +62,7 @@ export const TextField = forwardRef<TextInput, Props>(function TextField(
       {message ? (
         <View style={styles.errRow} accessibilityLiveRegion="polite">
           <Ionicons name="alert-circle-outline" size={14} color={pearl.dangerText} style={styles.errIcon} />
-          <Text style={[pearlType.error, styles.flex]}>{message}</Text>
+          <Text translate style={[pearlType.error, styles.flex]}>{message}</Text>
         </View>
       ) : hint ? <Text style={pearlType.small}>{hint}</Text> : null}
     </View>

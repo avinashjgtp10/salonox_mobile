@@ -22,8 +22,8 @@ export function Banner({ message, title, kind = "error" }: { message?: string | 
     <View style={[styles.box, { backgroundColor: palette.bg, borderColor: palette.border }]} accessibilityRole="alert" accessibilityLiveRegion="assertive">
       <Ionicons name={palette.icon} size={16} color={palette.fg} style={styles.icon} />
       <View style={styles.copy}>
-        {title ? <Text style={[styles.title, { color: palette.fg }]}>{title}</Text> : null}
-        <Text style={[styles.text, { color: palette.fg }]}>{message}</Text>
+        {title ? <Text translate style={[styles.title, { color: palette.fg }]}>{title}</Text> : null}
+        <Text translate style={[styles.text, { color: palette.fg }]}>{message}</Text>
       </View>
     </View>
   );

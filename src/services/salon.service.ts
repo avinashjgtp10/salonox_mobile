@@ -137,6 +137,8 @@ const normalizeSalon = (salon: SalonApiItem): SalonListItem => {
   const name = toSafeString(salon.name) || toSafeString(salon.business_name, "Salon");
 
   return {
+    currency: toSafeString(salon.currency),
+    language: toSafeString(salon.language),
     address: toSafeString(salon.address),
     businessName: toSafeString(salon.business_name) || name,
     city: toSafeString(salon.city),
@@ -208,6 +210,8 @@ export const mapSalonFormFieldsToUpdateRequest = (
   formFields: UpdateSalonFormFields,
 ): UpdateSalonRequest => {
   const payload: UpdateSalonRequest = {};
+  setDefined(payload, "currency", formFields.currency);
+  setDefined(payload, "language", formFields.language);
 
   setDefined(payload, "address", formFields.address);
   setDefined(payload, "business_name", formFields.businessName);
@@ -215,6 +219,7 @@ export const mapSalonFormFieldsToUpdateRequest = (
   setDefined(payload, "country", formFields.country);
   setDefined(payload, "country_code", formFields.countryCode);
   setDefined(payload, "email", formFields.email);
+  setDefined(payload, "gst_number", formFields.gstin);
   setDefined(payload, "latitude", formFields.latitude);
   setDefined(payload, "longitude", formFields.longitude);
   setDefined(payload, "name", formFields.name);
@@ -249,8 +254,8 @@ export const salonService = {
     };
   },
 
-  async getSalonMe(): Promise<GetSalonResponse> {
-    if (cachedSalonMe) {
+  async getSalonMe(options?: { refresh?: boolean }): Promise<GetSalonResponse> {
+    if (cachedSalonMe && !options?.refresh) {
       return cachedSalonMe;
     }
 

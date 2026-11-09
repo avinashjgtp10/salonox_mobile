@@ -1,9 +1,10 @@
+import { useRegionalPreferences } from "@/localization/preferences";
 import { useEffect, useState } from "react";
 import { View } from "react-native";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { pearl } from "@/components/auth/pearl/tokens";
-import { formatCurrency } from "@/utils/currency";
+import { formatCurrency, currencyLabel } from "@/utils/currency";
 import {
   CommissionButton,
   CommissionChip,
@@ -28,6 +29,8 @@ export function CommissionSettlementSheet({
   totalUnpaidCommission: number;
   isLoading?: boolean;
 }) {
+  "use no memo";
+  useRegionalPreferences();
   const [amountText, setAmountText] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("Cash");
   useEffect(() => {
@@ -77,7 +80,7 @@ export function CommissionSettlementSheet({
     >
       <View style={{ gap: 14 }}>
         <View style={[ui.card, ui.between]}>
-          <Text style={ui.muted}>Unpaid commission</Text>
+          <Text translate style={ui.muted}>Unpaid commission</Text>
           <Text style={ui.value}>{formatCurrency(unpaid)}</Text>
         </View>
         <CommissionButton
@@ -87,9 +90,9 @@ export function CommissionSettlementSheet({
           onPress={() => setAmountText(String(unpaid))}
         />
         <View style={ui.fieldGroup}>
-          <Text style={ui.label}>Amount to pay *</Text>
+          <Text translate style={ui.label}>Amount to pay *</Text>
           <View style={[ui.input, ui.row]}>
-            <Text style={ui.muted}>₹</Text>
+            <Text translate style={ui.muted}>{currencyLabel("₹")}</Text>
             <TextInput
               editable={!isLoading}
               accessibilityLabel="Amount to pay"
@@ -125,7 +128,7 @@ export function CommissionSettlementSheet({
           ) : null}
         </View>
         <View style={ui.fieldGroup}>
-          <Text style={ui.label}>Paid via</Text>
+          <Text translate style={ui.label}>Paid via</Text>
           <View style={ui.chips}>
             {["UPI", "Cash", "Card"].map((method) => (
               <CommissionChip
@@ -140,7 +143,7 @@ export function CommissionSettlementSheet({
           </View>
         </View>
         <View style={[ui.card, ui.between]}>
-          <Text style={ui.muted}>Remaining after</Text>
+          <Text translate style={ui.muted}>Remaining after</Text>
           <Text style={ui.value}>{formatCurrency(remaining)}</Text>
         </View>
       </View>

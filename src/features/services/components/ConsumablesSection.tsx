@@ -150,7 +150,7 @@ export function ConsumablesSection({ disabled = false, onChange, value }: Consum
       {value.length === 0 && !isAdding ? (
         <View style={styles.emptyState}>
           <Ionicons color={Colors.text2} name="flask-outline" size={20} />
-          <Text style={styles.emptyStateText}>
+          <Text translate style={styles.emptyStateText}>
             Track back-bar products this service consumes. Optional — leave empty if this service doesn&apos;t use
             any.
           </Text>
@@ -178,7 +178,7 @@ export function ConsumablesSection({ disabled = false, onChange, value }: Consum
           {loading ? <ActivityIndicator color={Colors.primaryText} style={styles.loadingIndicator} /> : null}
 
           {!loading && results.length === 0 ? (
-            <Text style={styles.noResultsText}>
+            <Text translate style={styles.noResultsText}>
               {consumableProducts.length === 0
                 ? "No consumable-type products found. Mark a product as Consumable or Both in Inventory first."
                 : "No matching products."}
@@ -206,7 +206,7 @@ export function ConsumablesSection({ disabled = false, onChange, value }: Consum
       ) : (
         <TouchableOpacity activeOpacity={0.84} disabled={disabled} onPress={startAdd} style={styles.addButton}>
           <Ionicons color={Colors.primaryText} name="add" size={16} />
-          <Text style={styles.addButtonText}>Add consumable</Text>
+          <Text translate style={styles.addButtonText}>Add consumable</Text>
         </TouchableOpacity>
       )}
     </View>

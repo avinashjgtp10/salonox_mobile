@@ -1,3 +1,4 @@
+import { useRegionalPreferences } from "@/localization/preferences";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { Text } from "@/components/ui/AppTypography";
@@ -53,6 +54,8 @@ const revenueErrorMessage = (failure: unknown) => {
  * staff revenue — from the staff-scoped /mobile/staff/revenue endpoint.
  */
 export function StaffRevenueScreen() {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const { width } = useWindowDimensions();
@@ -97,8 +100,8 @@ export function StaffRevenueScreen() {
         refreshControl={<RefreshControl colors={[Colors.primary]} onRefresh={() => void load(true)} refreshing={refreshing} tintColor={Colors.primary} />}
       >
         <View style={styles.header}>
-          <Text style={styles.eyebrow}>MY REVENUE</Text>
-          <Text style={[styles.title, { fontSize: width < 360 ? 28 : 32 }]}>Revenue</Text>
+          <Text translate style={styles.eyebrow}>MY REVENUE</Text>
+          <Text translate style={[styles.title, { fontSize: width < 360 ? 28 : 32 }]}>Revenue</Text>
           <Text style={styles.subtitle}>{staff?.name ? `${staff.name} · ` : ""}{formatAppDate(toDate(range.startDate))} – {formatAppDate(toDate(range.endDate))}</Text>
         </View>
 
@@ -115,7 +118,7 @@ export function StaffRevenueScreen() {
                 onPress={() => setRange(key === "this_month" ? thisMonthToDate() : getDateRangePreset(key))}
                 style={[styles.quickChip, active && styles.quickChipActive]}
               >
-                <Text style={[styles.quickChipText, active && styles.quickChipTextActive]}>{label}</Text>
+                <Text translate style={[styles.quickChipText, active && styles.quickChipTextActive]}>{label}</Text>
               </TouchableOpacity>
             );
           })}
@@ -131,7 +134,7 @@ export function StaffRevenueScreen() {
 
         <View style={styles.totalCard}>
           <View style={styles.totalIcon}><Ionicons name="wallet-outline" size={24} color={Colors.primaryText} /></View>
-          <Text style={styles.totalLabel}>Revenue generated</Text>
+          <Text translate style={styles.totalLabel}>Revenue generated</Text>
           {loading ? <ActivityIndicator color={Colors.primaryText} /> : <Text style={styles.totalAmount}>{error ? "—" : formatCurrency(revenue?.totalRevenue ?? 0)}</Text>}
           {!loading && revenue && !isEmpty ? (
             <Text style={styles.totalMeta}>
@@ -143,10 +146,10 @@ export function StaffRevenueScreen() {
         {error ? (
           <View style={styles.card}>
             <Ionicons name="alert-circle-outline" size={26} color={Colors.error} />
-            <Text style={styles.stateTitle}>{"Couldn't load your revenue"}</Text>
-            <Text style={styles.stateText}>{error}</Text>
+            <Text translate style={styles.stateTitle}>{"Couldn't load your revenue"}</Text>
+            <Text translate style={styles.stateText}>{error}</Text>
             <TouchableOpacity accessibilityRole="button" onPress={() => void load()} style={styles.retryButton}>
-              <Text style={styles.retryText}>Retry</Text>
+              <Text translate style={styles.retryText}>Retry</Text>
             </TouchableOpacity>
           </View>
         ) : null}
@@ -154,8 +157,8 @@ export function StaffRevenueScreen() {
         {!loading && !error && isEmpty ? (
           <View style={styles.card}>
             <Ionicons name="receipt-outline" size={26} color={Colors.text2} />
-            <Text style={styles.stateTitle}>No revenue for this period</Text>
-            <Text style={styles.stateText}>{"Sales you're assigned to will show up here. Try a different date range."}</Text>
+            <Text translate style={styles.stateTitle}>No revenue for this period</Text>
+            <Text translate style={styles.stateText}>{"Sales you're assigned to will show up here. Try a different date range."}</Text>
           </View>
         ) : null}
 
@@ -163,13 +166,13 @@ export function StaffRevenueScreen() {
           <>
             <View style={styles.splitRow}>
               <View style={[styles.splitCard, styles.splitCollected]}>
-                <Text style={styles.splitLabel}>Collected</Text>
+                <Text translate style={styles.splitLabel}>Collected</Text>
                 <Text style={styles.splitValue}>{formatCurrency(revenue.collected)}</Text>
               </View>
             </View>
 
             <View style={styles.card}>
-              <Text style={styles.sectionTitle}>Breakdown</Text>
+              <Text translate style={styles.sectionTitle}>Breakdown</Text>
               {BREAKDOWN.map(({ count, label, revenue: revenueKey, type }) => (
                 <TouchableOpacity
                   accessibilityHint={`Shows your ${label.toLowerCase()} appointments`}
@@ -180,7 +183,7 @@ export function StaffRevenueScreen() {
                   style={styles.row}
                 >
                   <View style={styles.rowCopy}>
-                    <Text style={styles.rowLabel}>{label}</Text>
+                    <Text translate style={styles.rowLabel}>{label}</Text>
                     <Text style={styles.rowMeta}>{revenue[count]} sold</Text>
                   </View>
                   <Text style={styles.rowValue}>{formatCurrency(revenue[revenueKey])}</Text>

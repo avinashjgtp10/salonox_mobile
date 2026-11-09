@@ -1,3 +1,4 @@
+import { useRegionalPreferences } from "@/localization/preferences";
 import { useState } from "react";
 import { pearl } from "@/components/auth/pearl/tokens";
 import { Text } from "@/components/ui/AppTypography";
@@ -42,6 +43,8 @@ export function ClientSummaryCard({
   onViewHistory,
   phone,
 }: ClientSummaryCardProps) {
+  "use no memo";
+  useRegionalPreferences();
   const [expanded, setExpanded] = useState(false);
   const { clientName, staffMode } = useClientPrivacy();
   // Staff can't open client profiles.
@@ -59,7 +62,7 @@ export function ClientSummaryCard({
 
   const stat = (label: string, value: string, tone?: "blue") => (
     <View key={label} style={s.stat}>
-      <Text numberOfLines={1} style={s.label}>{label}</Text>
+      <Text translate numberOfLines={1} style={s.label}>{label}</Text>
       <Text numberOfLines={2} style={[s.value, tone === "blue" && s.blue]}>{value}</Text>
     </View>
   );
@@ -72,7 +75,7 @@ export function ClientSummaryCard({
           <Text numberOfLines={1} style={s.name}>{clientName(name)}</Text>
           {phone ? <Text style={s.phone}>{maskPhone(phone)}{compact && membership && membership !== "N/A" ? ` \u00b7 ${membership}` : ""}</Text> : null}
         </View>
-        <Pressable accessibilityRole="button" hitSlop={8} onPress={onChange}><Text style={s.link}>Change</Text></Pressable>
+        <Pressable accessibilityRole="button" hitSlop={8} onPress={onChange}><Text translate style={s.link}>Change</Text></Pressable>
       </View>
 
       {(!compact || expanded) && <><View style={s.grid}>
@@ -94,7 +97,7 @@ export function ClientSummaryCard({
       {error ? (
         <Pressable accessibilityRole="button" onPress={retry} style={s.errorRow}>
           <Ionicons name="alert-circle-outline" size={15} color="#E5484D" />
-          <Text style={s.error}>Could not load client details. Tap to retry.</Text>
+          <Text translate style={s.error}>Could not load client details. Tap to retry.</Text>
         </Pressable>
       ) : null}
 
@@ -103,12 +106,12 @@ export function ClientSummaryCard({
           {onEditDates ? (
             <Pressable accessibilityRole="button" onPress={onEditDates} style={s.footerLink}>
               <Ionicons name="calendar-outline" size={16} color={c.plum} />
-              <Text style={s.link}>Edit DOB & Anniversary</Text>
+              <Text translate style={s.link}>Edit DOB & Anniversary</Text>
             </Pressable>
           ) : <View />}
           {handleViewHistory ? (
             <Pressable accessibilityRole="button" onPress={handleViewHistory} style={s.historyButton}>
-              <Text style={s.historyText}>View History</Text>
+              <Text translate style={s.historyText}>View History</Text>
             </Pressable>
           ) : null}
         </View>

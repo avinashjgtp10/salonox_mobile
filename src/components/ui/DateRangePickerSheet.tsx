@@ -69,7 +69,7 @@ export const DateRangePickerSheet = memo(function DateRangePickerSheet({
         }}
         style={[styles.secondaryButton, pearlStyle && { borderRadius: 16 }]}
       >
-        <Text style={styles.secondaryButtonText}>Clear</Text>
+        <Text translate style={styles.secondaryButtonText}>Clear</Text>
       </Pressable>
       <Pressable
         accessibilityRole="button"
@@ -78,7 +78,7 @@ export const DateRangePickerSheet = memo(function DateRangePickerSheet({
         style={[styles.primaryButton, pearlStyle && { borderRadius: 16, overflow: "hidden" }, !canApply && styles.buttonDisabled]}
       >
         {pearlStyle ? <LinearGradient pointerEvents="none" colors={pearlGradients.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} /> : null}
-        <Text style={styles.primaryButtonText}>{isRange ? "Apply range" : "Apply date"}</Text>
+        <Text translate style={styles.primaryButtonText}>{isRange ? "Apply range" : "Apply date"}</Text>
       </Pressable>
     </>
   );
@@ -102,14 +102,14 @@ export const DateRangePickerSheet = memo(function DateRangePickerSheet({
       <View style={styles.body}>
         <View style={styles.summaryRow}>
           <View style={styles.summaryCell}>
-            <Text style={styles.summaryLabel}>{isRange ? "FROM" : "DATE"}</Text>
+            <Text translate style={styles.summaryLabel}>{isRange ? "FROM" : "DATE"}</Text>
             <Text style={styles.summaryValue}>
               {draftStart ? formatAppDate(draftStart, draftStart) : "Not set"}
             </Text>
           </View>
           {isRange ? (
             <View style={styles.summaryCell}>
-              <Text style={styles.summaryLabel}>TO</Text>
+              <Text translate style={styles.summaryLabel}>TO</Text>
               <Text style={styles.summaryValue}>
                 {draftEnd ? formatAppDate(draftEnd, draftEnd) : "Not set"}
               </Text>
@@ -127,10 +127,10 @@ export const DateRangePickerSheet = memo(function DateRangePickerSheet({
               return <Pressable key={preset.key} accessibilityRole="button" accessibilityState={{selected, disabled: start > end}}
                 disabled={start > end} onPress={() => { setDraftStart(start); setDraftEnd(end); }}
                 style={[styles.preset, selected && styles.selectedPreset, start > end && { opacity: 0.3 }]}>
-                <Text style={[styles.presetText, selected && styles.selectedPresetText]}>{preset.label}</Text>
+                <Text translate style={[styles.presetText, selected && styles.selectedPresetText]}>{preset.label}</Text>
               </Pressable>;
             })}
-            {allowAllTime && <Pressable accessibilityRole="button" accessibilityState={{ selected: !draftStart && !draftEnd }} onPress={() => { setDraftStart(null); setDraftEnd(null); }} style={[styles.preset, !draftStart && !draftEnd && styles.selectedPreset]}><Text style={[styles.presetText, !draftStart && !draftEnd && styles.selectedPresetText]}>All time</Text></Pressable>}
+            {allowAllTime && <Pressable accessibilityRole="button" accessibilityState={{ selected: !draftStart && !draftEnd }} onPress={() => { setDraftStart(null); setDraftEnd(null); }} style={[styles.preset, !draftStart && !draftEnd && styles.selectedPreset]}><Text translate style={[styles.presetText, !draftStart && !draftEnd && styles.selectedPresetText]}>All time</Text></Pressable>}
           </View>
         ) : null}
 

@@ -1,3 +1,4 @@
+import { useRegionalPreferences } from "@/localization/preferences";
 import { maskPhone } from "@/utils/maskPhone";
 import { maskClientName } from "@/utils/clientPrivacy";
 import { useClientPrivacy } from "@/hooks/useClientPrivacy";
@@ -31,6 +32,8 @@ import { useEffect, useMemo, useState } from "react";
 import { View } from "react-native";
 
 export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | "staff" } = {}) {
+  "use no memo";
+  useRegionalPreferences();
   const { styles } = useAppointmentStyles();
   const dispatch = useAppDispatch();
   const params = useLocalSearchParams<{ id?: string }>();
@@ -199,7 +202,7 @@ export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | 
         <>
           <View style={styles.detailInvoiceRow}>
             <View style={styles.detailHeroCopy}>
-              <Text style={styles.detailInvoiceLabel}>Invoice Number</Text>
+              <Text translate style={styles.detailInvoiceLabel}>Invoice Number</Text>
               <Text style={styles.detailInvoiceNumber}>{invoiceNumber ?? "Not billed yet"}</Text>
             </View>
             <View style={[styles.previewStatusBadge, paymentStatus === "Paid" ? styles.previewPaidBadge : paymentStatus === "Partial" ? styles.previewPartialBadge : styles.previewUnpaidBadge]}>
@@ -208,13 +211,13 @@ export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | 
           </View>
 
           <View style={styles.formCard}>
-            <Text style={styles.sectionTitle}>Client Details</Text>
+            <Text translate style={styles.sectionTitle}>Client Details</Text>
             <DetailRow label="Client Name" value={isStaffMode ? maskClientName(displayName, showFullName) : displayName} />
             <DetailRow label="Phone" value={maskPhone(appointment.phone)} />
           </View>
 
           <View style={styles.formCard}>
-            <Text style={styles.sectionTitle}>Appointment Details</Text>
+            <Text translate style={styles.sectionTitle}>Appointment Details</Text>
             <DetailRow label="Date" value={formatBusinessDate(appointment.scheduledAt)} />
             <DetailRow label="Time" value={[formatBusinessTime(appointment.startTime || appointment.scheduledAt), formatBusinessTime(appointment.endTime)].filter((value) => value && value !== "-").join(" - ")} />
             <DetailRow label="Duration" value={appointment.durationLabel || (appointment.durationMinutes ? `${appointment.durationMinutes} mins` : null)} />
@@ -224,14 +227,14 @@ export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | 
 
           {staffAlert ? (
             <View style={styles.formCard}>
-              <Text style={styles.sectionTitle}>Staff Alert</Text>
+              <Text translate style={styles.sectionTitle}>Staff Alert</Text>
               <Text style={styles.notesText}>{staffAlert}</Text>
             </View>
           ) : null}
 
           {isStaffMode && jobCardItems.length > 0 ? (
             <View style={styles.formCard}>
-              <Text style={styles.sectionTitle}>Job Card</Text>
+              <Text translate style={styles.sectionTitle}>Job Card</Text>
               <DetailRow label="Job Status" value={jobCardStatus} />
               {jobCardItems.map((item, index) => (
                 <BilledItemRow
@@ -250,7 +253,7 @@ export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | 
           ) : null}
 
           <View style={styles.formCard}>
-            <Text style={styles.sectionTitle}>Payment & Billing</Text>
+            <Text translate style={styles.sectionTitle}>Payment & Billing</Text>
             <DetailRow
               label="Payment Status"
               value={paymentStatus === "Paid" ? "Paid successfully" : isStaffMode ? appointment.paymentStatus : paymentStatus === "Partial" ? "Partially paid" : "Unpaid"}
@@ -277,7 +280,7 @@ export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | 
           </View>
 
           <View style={styles.formCard}>
-            <Text style={styles.sectionTitle}>{isStaffMode ? "Your Services & Products" : "Services & Products"}</Text>
+            <Text translate style={styles.sectionTitle}>{isStaffMode ? "Your Services & Products" : "Services & Products"}</Text>
             {visibleBilledItems.length > 0 && isStaffMode ? (
               // Start/Finish/Hand Off live on the Job Card above; this is the bill view.
               visibleBilledItems.map((item, index) => (
@@ -308,7 +311,7 @@ export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | 
                 />
               ))
             ) : isStaffMode ? (
-              <Text style={styles.notesText}>No items assigned to you.</Text>
+              <Text translate style={styles.notesText}>No items assigned to you.</Text>
             ) : (
               <DetailRow label={appointment.serviceName || "Service"} value={formatCurrency(billedTotal || appointment.amount)} />
             )}
@@ -317,7 +320,7 @@ export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | 
 
           {!isStaffMode && appointment.notes && appointment.notes.trim() ? (
             <View style={styles.formCard}>
-              <Text style={styles.sectionTitle}>Notes</Text>
+              <Text translate style={styles.sectionTitle}>Notes</Text>
               <Text style={styles.notesText}>{appointment.notes}</Text>
             </View>
           ) : null}

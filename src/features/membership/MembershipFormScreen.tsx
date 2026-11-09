@@ -254,7 +254,7 @@ export function MembershipFormScreen({ membershipId, mode }: MembershipFormScree
       <KeyboardAwareScrollView ref={scrollViewRef} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} style={styles.flex}>
           <View style={styles.headerRow}>
             <AppBackButton activeOpacity={0.84} disabled={isSubmitting} hitSlop={12} onPress={goBack} />
-            <Text style={styles.headerTitle}>{mode === "create" ? "Add membership" : "Edit membership"}</Text>
+            <Text translate style={styles.headerTitle}>{mode === "create" ? "Add membership" : "Edit membership"}</Text>
             <View style={styles.iconButtonGhost} />
           </View>
 
@@ -302,12 +302,12 @@ export function MembershipFormScreen({ membershipId, mode }: MembershipFormScree
             ) : null}
             <Field label="Description" icon="document-text-outline" value={description} onChangeText={setDescription} placeholder="Describe the membership" multiline />
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Included Benefits</Text>
+              <Text translate style={styles.inputLabel}>Included Benefits</Text>
               <View style={styles.servicePicker}>
                 {servicesLoading && services.length === 0 ? (
                   <View style={styles.serviceLoadingRow}>
                     <ActivityIndicator color={Colors.primaryText} size="small" />
-                    <Text style={styles.serviceLoadingText}>Loading services...</Text>
+                    <Text translate style={styles.serviceLoadingText}>Loading services...</Text>
                   </View>
                 ) : services.length > 0 ? (
                   services.map((service) => {
@@ -331,7 +331,7 @@ export function MembershipFormScreen({ membershipId, mode }: MembershipFormScree
                     );
                   })
                 ) : (
-                  <Text style={styles.serviceLoadingText}>No services available to include yet.</Text>
+                  <Text translate style={styles.serviceLoadingText}>No services available to include yet.</Text>
                 )}
               </View>
             </View>
@@ -385,12 +385,12 @@ const Field = forwardRef<TextInput, FieldProps>(function Field(
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   return (
     <View style={styles.inputGroup}>
-      <Text style={styles.inputLabel}>{label}</Text>
+      <Text translate style={styles.inputLabel}>{label}</Text>
       <View style={[styles.inputContainer, props.multiline && styles.inputContainerMultiline, error && styles.inputContainerError]}>
         <Ionicons name={icon} size={18} color={error ? Colors.error : Colors.text2} />
         <TextInput ref={ref} placeholderTextColor={Colors.placeholder} style={[styles.textInput, props.multiline && styles.textArea]} {...props} />
       </View>
-      {error ? <Text style={styles.fieldErrorText}>{error}</Text> : null}
+      {error ? <Text translate style={styles.fieldErrorText}>{error}</Text> : null}
     </View>
   );
 });
@@ -400,7 +400,7 @@ function Segmented<T extends string>({ label, onChange, options, value }: { labe
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   return (
     <View style={styles.inputGroup}>
-      <Text style={styles.inputLabel}>{label}</Text>
+      <Text translate style={styles.inputLabel}>{label}</Text>
       <View style={styles.segmented}>
         {options.map((option) => {
           const optionValue = typeof option === "string" ? option : option.value;
@@ -422,7 +422,7 @@ function Toggle({ label, onPress, value }: { label: string; onPress: () => void;
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   return (
     <TouchableOpacity activeOpacity={0.84} onPress={onPress} style={styles.toggleRow}>
-      <Text style={styles.toggleLabel}>{label}</Text>
+      <Text translate style={styles.toggleLabel}>{label}</Text>
       <View style={[styles.toggle, value && styles.toggleActive]}>
         <View style={[styles.toggleKnob, value && styles.toggleKnobActive]} />
       </View>

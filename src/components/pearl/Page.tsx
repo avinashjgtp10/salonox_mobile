@@ -48,8 +48,8 @@ export function PageHeader({ title, subtitle, onBack, right }: { title: string; 
         <AppBackButton onPress={onBack} accessibilityRole="button" accessibilityLabel="Back" hitSlop={8} />
       ) : null}
       <View style={{ flex: 1, minWidth: 0 }}>
-        <Text style={pearlType.h2} numberOfLines={1} accessibilityRole="header">{title}</Text>
-        {subtitle ? <Text style={pearlType.small} numberOfLines={1}>{subtitle}</Text> : null}
+        <Text translate style={pearlType.h2} numberOfLines={1} accessibilityRole="header">{title}</Text>
+        {subtitle ? <Text translate style={pearlType.small} numberOfLines={1}>{subtitle}</Text> : null}
       </View>
       {right ? <View style={{ flexDirection: "row", gap: 8 }}>{right}</View> : null}
     </View>
@@ -78,9 +78,9 @@ export function Chips<T extends string>({ items, value, onChange }: { items: { k
           <Pressable key={item.key} onPress={() => onChange(item.key)} accessibilityRole="tab" accessibilityState={{ selected: on }}>
             {on ? (
               <LinearGradient colors={["#B3AEDA", "#8D87BF", "#6B669F"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.chip}>
-                <Text style={[styles.chipText, { color: "#fff" }]}>{item.label}</Text>
+                <Text translate style={[styles.chipText, { color: "#fff" }]}>{item.label}</Text>
               </LinearGradient>
-            ) : <View style={[styles.chip, styles.chipOff]}><Text style={styles.chipText}>{item.label}</Text></View>}
+            ) : <View style={[styles.chip, styles.chipOff]}><Text translate style={styles.chipText}>{item.label}</Text></View>}
           </Pressable>
         );
       })}

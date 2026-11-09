@@ -231,7 +231,7 @@ export function ClientPickerSheet({
         <View>
           <View style={styles.nameRow}>
             <View style={styles.nameField}>
-              <Text style={styles.inputLabel}>First Name*</Text>
+              <Text translate style={styles.inputLabel}>First Name*</Text>
               <TextInput
                 autoCapitalize="words"
                 onChangeText={(value) => {
@@ -246,7 +246,7 @@ export function ClientPickerSheet({
               {formErrors.firstName ? <Text style={styles.fieldError}>{formErrors.firstName}</Text> : null}
             </View>
             <View style={styles.nameField}>
-              <Text style={styles.inputLabel}>Last Name</Text>
+              <Text translate style={styles.inputLabel}>Last Name</Text>
               <TextInput
                 autoCapitalize="words"
                 onChangeText={(value) => {
@@ -262,7 +262,7 @@ export function ClientPickerSheet({
             </View>
           </View>
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Phone Number*</Text>
+            <Text translate style={styles.inputLabel}>Phone Number*</Text>
             <TextInput
               keyboardType="phone-pad"
               maxLength={PHONE_INPUT_MAX_LENGTH}
@@ -278,7 +278,7 @@ export function ClientPickerSheet({
             {formErrors.phone ? <Text style={styles.fieldError}>{formErrors.phone}</Text> : null}
           </View>
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Gender*</Text>
+            <Text translate style={styles.inputLabel}>Gender*</Text>
             <View style={[styles.genderOptions, formErrors.gender && styles.inputError]}>
               {GENDER_OPTIONS.map((option) => {
                 const selected = newGender === option;
@@ -337,7 +337,7 @@ export function ClientPickerSheet({
               onPress={startInCreateMode ? handleClose : () => setIsCreating(false)}
               style={styles.cancelButton}
             >
-              <Text style={styles.cancelButtonText}>Cancel</Text>
+              <Text translate style={styles.cancelButtonText}>Cancel</Text>
             </TouchableOpacity>
             <TouchableOpacity
               activeOpacity={0.84}
@@ -348,7 +348,7 @@ export function ClientPickerSheet({
               {creating ? (
                 <ActivityIndicator color="#FFFFFF" size="small" />
               ) : (
-                <Text style={styles.saveButtonText}>Create</Text>
+                <Text translate style={styles.saveButtonText}>Create</Text>
               )}
             </TouchableOpacity>
           </View>
@@ -372,7 +372,7 @@ export function ClientPickerSheet({
             style={styles.newClientButton}
           >
             <Ionicons name="person-add-outline" size={16} color={Colors.primaryText} />
-            <Text style={styles.newClientButtonText}>New Client</Text>
+            <Text translate style={styles.newClientButtonText}>New Client</Text>
           </TouchableOpacity>
 
 

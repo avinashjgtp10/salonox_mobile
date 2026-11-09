@@ -15,27 +15,27 @@ export function NoInternetState({ onRetry }: { onRetry: () => void }) {
     <View style={styles.wrap}>
       <View style={styles.hero}>
         <Tile icon="wifiOff" tone="lilac" size={76} />
-        <Text style={[pearlType.h2, styles.center]} accessibilityRole="header">No internet connection</Text>
+        <Text translate style={[pearlType.h2, styles.center]} accessibilityRole="header">No internet connection</Text>
         <Text style={styles.description}>
-          <Text style={styles.emphasis}>This screen</Text> needs the internet to load the latest data. Check your Wi-Fi or mobile data, then try again.
+          <Text translate style={styles.emphasis}>This screen</Text> needs the internet to load the latest data. Check your Wi-Fi or mobile data, then try again.
         </Text>
       </View>
 
       <Pressable onPress={onRetry} accessibilityRole="button" style={({ pressed }) => pressed && styles.pressed}>
         <LinearGradient colors={pearlGradients.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.button, pearlShadow.button]}>
           <Icon name="repeat" size={18} color="#fff" />
-          <Text style={styles.primaryLabel}>Try again</Text>
+          <Text translate style={styles.primaryLabel}>Try again</Text>
         </LinearGradient>
       </Pressable>
       <Pressable onPress={() => router.replace(user?.role === "staff" ? "/(staff)/home" : "/(tabs)/dashboard")}
         accessibilityRole="button" style={({ pressed }) => [styles.button, styles.secondary, pressed && styles.pressed]}>
-        <Text style={styles.secondaryLabel}>Go to Home</Text>
+        <Text translate style={styles.secondaryLabel}>Go to Home</Text>
       </Pressable>
 
-      <Text style={[pearlType.bodyStrong, { marginTop: 12 }]}>While you’re offline</Text>
+      <Text translate style={[pearlType.bodyStrong, { marginTop: 12 }]}>While you’re offline</Text>
       <View style={styles.note}>
         <Tile icon="info" tone="lilac" size={36} />
-        <Text style={styles.noteText}>Previously loaded information may still be available. Reconnect to load the latest updates.</Text>
+        <Text translate style={styles.noteText}>Previously loaded information may still be available. Reconnect to load the latest updates.</Text>
       </View>
     </View>
   );

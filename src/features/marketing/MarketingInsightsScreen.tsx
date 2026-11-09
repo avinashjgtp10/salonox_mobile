@@ -112,7 +112,7 @@ function Insights() {
           subtitle="From Meta billing"
         />
         {!allowed ? (
-          <Text style={m.empty}>
+          <Text translate style={m.empty}>
             You don’t have permission to view marketing insights.
           </Text>
         ) : (
@@ -147,7 +147,7 @@ function Insights() {
                 size={16}
                 color={pearl.warningText}
               />
-              <Text style={[m.body, m.fill, { color: pearl.warningText }]}>
+              <Text translate style={[m.body, m.fill, { color: pearl.warningText }]}>
                 Amounts exclude 18% GST and can lag up to 24 hours behind Meta.
               </Text>
             </View>
@@ -155,7 +155,7 @@ function Insights() {
               <ActivityIndicator color={pearl.accent} style={{ margin: 32 }} />
             ) : error ? (
               <View accessibilityRole="alert" style={m.card}>
-                <Text style={m.error}>{error}</Text>
+                <Text translate style={m.error}>{error}</Text>
                 <MarketingChip label="Retry" onPress={refresh} />
               </View>
             ) : (
@@ -163,9 +163,9 @@ function Insights() {
                 <>
                   {!!data.errors.length && (
                     <View accessibilityRole="alert" style={m.card}>
-                      <Text style={m.title}>Some insights are unavailable</Text>
+                      <Text translate style={m.title}>Some insights are unavailable</Text>
                       {data.errors.map((message, index) => (
-                        <Text key={index} style={m.body}>
+                        <Text translate key={index} style={m.body}>
                           {message}
                         </Text>
                       ))}
@@ -216,14 +216,14 @@ function Insights() {
                       }
                     />
                   </View>
-                  <Text style={m.section}>Spend by message type</Text>
+                  <Text translate style={m.section}>Spend by message type</Text>
                   <View style={m.card}>
                     {unavailable ? (
-                      <Text style={m.body}>
+                      <Text translate style={m.body}>
                         Meta’s spend data is currently unavailable.
                       </Text>
                     ) : !data.byCategory.length ? (
-                      <Text style={m.empty}>No messages in this period.</Text>
+                      <Text translate style={m.empty}>No messages in this period.</Text>
                     ) : (
                       data.byCategory.map((category, index) => (
                         <View key={category.category}>
@@ -262,7 +262,7 @@ function Insights() {
                               },
                             ].map((item) => (
                               <View key={item.label} style={m.fill}>
-                                <Text style={m.small}>{item.label}</Text>
+                                <Text translate style={m.small}>{item.label}</Text>
                                 <Text style={m.title}>{item.value}</Text>
                               </View>
                             ))}
@@ -271,17 +271,17 @@ function Insights() {
                       ))
                     )}
                   </View>
-                  <Text style={m.section}>Daily spend</Text>
+                  <Text translate style={m.section}>Daily spend</Text>
                   <View style={m.card}>
                     {unavailable ? (
-                      <Text style={m.body}>
+                      <Text translate style={m.body}>
                         Daily spend is currently unavailable.
                       </Text>
                     ) : !data.daily.length ? (
-                      <Text style={m.empty}>No spend data in this period.</Text>
+                      <Text translate style={m.empty}>No spend data in this period.</Text>
                     ) : (
                       <>
-                        <Text style={m.small}>
+                        <Text translate style={m.small}>
                           Tap a bar to see spend and message count.
                         </Text>
                         <ScrollView
@@ -353,13 +353,13 @@ function Insights() {
                       </>
                     )}
                   </View>
-                  <Text style={m.section}>Template performance</Text>
+                  <Text translate style={m.section}>Template performance</Text>
                   <View style={m.card}>
-                    <Text style={m.small}>
+                    <Text translate style={m.small}>
                       Delivery and engagement, as counted by Meta
                     </Text>
                     {!data.templates.length ? (
-                      <Text style={m.empty}>
+                      <Text translate style={m.empty}>
                         {templatesUnavailable
                           ? "Template results are currently unavailable."
                           : "Meta has no template results for this period yet. Template analytics only counts messages sent after it was switched on for your account."}
@@ -410,7 +410,7 @@ function Insights() {
                                   gap: 4,
                                 }}
                               >
-                                <Text style={m.small}>{item.label}</Text>
+                                <Text translate style={m.small}>{item.label}</Text>
                                 <View style={m.row}>
                                   <Text style={m.title}>
                                     {integer(item.count)}
@@ -435,7 +435,7 @@ function Insights() {
                           {Object.entries(template.clicks).map(
                             ([label, count]) => (
                               <View key={label} style={m.between}>
-                                <Text style={[m.body, m.fill]}>{label}</Text>
+                                <Text translate style={[m.body, m.fill]}>{label}</Text>
                                 <Text style={m.title}>
                                   {integer(count)} clicks
                                 </Text>

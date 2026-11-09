@@ -1,3 +1,4 @@
+import { useRegionalPreferences } from "@/localization/preferences";
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text, TextInput } from "@/components/ui/AppTypography";
@@ -111,6 +112,8 @@ function getRejectedMessage(payload: unknown, fallback: string) {
 }
 
 export default function SalonCommissionsScreen() {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = usePearlColors(true);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const insets = useSafeAreaInsets();
@@ -419,7 +422,7 @@ export default function SalonCommissionsScreen() {
                 backgroundColor: paid ? pearl.successText : pearl.warningText,
               }}
             />
-            <Text
+            <Text translate
               style={{
                 color: paid ? pearl.successText : pearl.warningText,
                 fontSize: 11,
@@ -433,11 +436,11 @@ export default function SalonCommissionsScreen() {
         <View style={ui.between}>
           <View style={[ui.row, { gap: 18 }]}>
             <View>
-              <Text style={ui.muted}>Earned</Text>
+              <Text translate style={ui.muted}>Earned</Text>
               <Text style={ui.value}>{formatCurrency(record.amount)}</Text>
             </View>
             <View>
-              <Text style={ui.muted}>Unpaid</Text>
+              <Text translate style={ui.muted}>Unpaid</Text>
               <Text style={ui.value}>{formatCurrency(unpaid)}</Text>
             </View>
           </View>
@@ -451,7 +454,7 @@ export default function SalonCommissionsScreen() {
               onPress={() => void handleSettle(record)}
             />
           ) : paid ? (
-            <Text style={ui.muted}>All paid ✓</Text>
+            <Text translate style={ui.muted}>All paid ✓</Text>
           ) : null}
         </View>
       </View>
@@ -517,7 +520,7 @@ export default function SalonCommissionsScreen() {
         </TouchableOpacity>
       )}
       {customRangeInvalid && rangePreset === "custom" && (
-        <Text style={ui.error}>
+        <Text translate style={ui.error}>
           The start date must be on or before the end date.
         </Text>
       )}
@@ -526,13 +529,13 @@ export default function SalonCommissionsScreen() {
       ) : (
         <View style={[ui.row, { alignItems: "stretch" }]}>
           <View style={[ui.card, ui.statCard]}>
-            <Text style={ui.muted}>Total earned</Text>
+            <Text translate style={ui.muted}>Total earned</Text>
             <Text style={{ color: pearl.ink, fontSize: 24, fontWeight: "700" }}>
               {summaryLoading ? "—" : formatCurrency(summary?.totalAmount ?? 0)}
             </Text>
           </View>
           <View style={[ui.card, ui.statCard]}>
-            <Text style={ui.muted}>Still to pay</Text>
+            <Text translate style={ui.muted}>Still to pay</Text>
             <Text style={{ color: "#4F7896", fontSize: 24, fontWeight: "700" }}>
               {summaryLoading
                 ? "—"

@@ -40,7 +40,7 @@ function DetailRow({ label, value }: { label: string; value?: string | number | 
 
   return (
     <View style={styles.detailRow}>
-      <Text style={styles.detailLabel}>{label}</Text>
+      <Text translate style={styles.detailLabel}>{label}</Text>
       <Text style={styles.detailValue}>{displayValue}</Text>
     </View>
   );
@@ -108,8 +108,8 @@ export function StaffSelfProfileScreen() {
       >
         <View style={styles.header}>
           <View>
-            <Text style={styles.title}>My Profile</Text>
-            <Text style={styles.subtitle}>Your staff account and employment details.</Text>
+            <Text translate style={styles.title}>My Profile</Text>
+            <Text translate style={styles.subtitle}>Your staff account and employment details.</Text>
           </View>
           <TouchableOpacity
             activeOpacity={0.84}
@@ -123,7 +123,7 @@ export function StaffSelfProfileScreen() {
         {loading && !profile ? (
           <View style={styles.loadingCard}>
             <ActivityIndicator color={Colors.primaryText} />
-            <Text style={styles.loadingText}>Loading your profile...</Text>
+            <Text translate style={styles.loadingText}>Loading your profile...</Text>
           </View>
         ) : null}
 
@@ -201,7 +201,7 @@ export function StaffSelfProfileScreen() {
                     </View>
                   ))
                 ) : (
-                  <Text style={styles.emptyText}>No assigned services returned by the API.</Text>
+                  <Text translate style={styles.emptyText}>No assigned services returned by the API.</Text>
                 )}
               </View>
             </StaffSectionCard>
@@ -216,7 +216,7 @@ export function StaffSelfProfileScreen() {
                 style={styles.accountButton}
               >
                 <Ionicons name="key-outline" size={17} color={Colors.primaryText} />
-                <Text style={styles.accountButtonText}>Change Password</Text>
+                <Text translate style={styles.accountButtonText}>Change Password</Text>
               </TouchableOpacity>
             </StaffSectionCard>
           </>

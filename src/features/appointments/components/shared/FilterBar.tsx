@@ -96,7 +96,7 @@ export function FilterBar({
               <View style={styles.appointmentSearchDropdown}>
                 {searchResults.length === 0 ? (
                   <View style={styles.appointmentSearchEmpty}>
-                    <Text style={styles.appointmentSearchEmptyText}>
+                    <Text translate style={styles.appointmentSearchEmptyText}>
                       No matching appointments.
                     </Text>
                   </View>
@@ -172,7 +172,7 @@ export function FilterBar({
         >
           <Pressable onPress={() => setIsDatePickerVisible(false)} style={styles.modalBackdrop}>
             <Pressable style={styles.modalCard}>
-              <Text style={styles.modalTitle}>Select Date</Text>
+              <Text translate style={styles.modalTitle}>Select Date</Text>
               <DateTimePicker
                 display="spinner"
                 mode="date"
@@ -185,7 +185,7 @@ export function FilterBar({
                   onPress={() => setIsDatePickerVisible(false)}
                   style={styles.primaryButtonCompact}
                 >
-                  <Text style={styles.primaryButtonText}>Done</Text>
+                  <Text translate style={styles.primaryButtonText}>Done</Text>
                 </TouchableOpacity>
               </View>
             </Pressable>
@@ -202,7 +202,7 @@ export function FilterBar({
                 onPress={() => onStatusChange("All")}
                 style={[styles.chip, status === "All" && styles.chipActive]}
               >
-                <Text style={[styles.chipText, status === "All" && styles.chipTextActive]}>
+                <Text translate style={[styles.chipText, status === "All" && styles.chipTextActive]}>
                   All
                 </Text>
               </TouchableOpacity>
@@ -212,7 +212,7 @@ export function FilterBar({
               onPress={() => onDateChange(todayIsoDate())}
               style={[styles.chip, date === todayIsoDate() && styles.chipActive]}
             >
-              <Text style={[styles.chipText, date === todayIsoDate() && styles.chipTextActive]}>
+              <Text translate style={[styles.chipText, date === todayIsoDate() && styles.chipTextActive]}>
                 Today
               </Text>
             </TouchableOpacity>

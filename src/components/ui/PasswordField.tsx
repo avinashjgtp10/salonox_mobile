@@ -1,4 +1,3 @@
-import { pearl } from "@/components/auth/pearl/tokens";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { forwardRef, useMemo, useState } from "react";
@@ -17,11 +16,12 @@ type PasswordFieldProps = Omit<TextInputProps, "secureTextEntry" | "style"> & {
   pearlStyle?: boolean;
   error?: string;
   label: string;
+  leadingIcon?: keyof typeof Ionicons.glyphMap;
 };
 
 export const PasswordField = forwardRef<TextInput, PasswordFieldProps>(
   function PasswordField(
-    { pearlStyle = false, error, label, ...inputProps },
+    { pearlStyle = false, error, label, leadingIcon, ...inputProps },
     ref,
   ) {
     const Colors = usePearlColors(pearlStyle);
@@ -30,7 +30,7 @@ export const PasswordField = forwardRef<TextInput, PasswordFieldProps>(
 
     return (
       <View style={styles.group}>
-        <Text style={[styles.label, pearlStyle && { fontWeight: "600" }]}>
+        <Text translate style={[styles.label, pearlStyle && { fontWeight: "600" }]}>
           {label}
         </Text>
         <View
@@ -38,12 +38,13 @@ export const PasswordField = forwardRef<TextInput, PasswordFieldProps>(
             styles.inputRow,
             pearlStyle && {
               borderRadius: 16,
-              backgroundColor: pearl.field,
-              borderColor: pearl.fieldBorder,
+              backgroundColor: Colors.backgroundElement,
+              borderColor: Colors.border,
             },
             error ? styles.inputRowError : null,
           ]}
         >
+          {leadingIcon && <Ionicons name={leadingIcon} size={18} color={Colors.text2} style={{ marginRight: 8 }} />}
           <TextInput
             ref={ref}
             autoCapitalize="none"
@@ -66,7 +67,7 @@ export const PasswordField = forwardRef<TextInput, PasswordFieldProps>(
             />
           </Pressable>
         </View>
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+        {error ? <Text translate style={styles.error}>{error}</Text> : null}
       </View>
     );
   },

@@ -1,4 +1,4 @@
-import { createSlice } from "@reduxjs/toolkit";
+import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
 import {
   fetchSalonsThunk,
@@ -91,7 +91,9 @@ const mergeSalons = (
 const salonSlice = createSlice({
   name: "salon",
   initialState,
-  reducers: {},
+  reducers: {
+    salonReceived(state, action: PayloadAction<SalonListItem>) { state.salons = upsertSalon(state.salons, action.payload); },
+  },
   extraReducers: (builder) => {
     builder
       .addCase(fetchSalonsThunk.pending, (state, action) => {
@@ -163,6 +165,8 @@ const salonSlice = createSlice({
       });
   },
 });
+
+export const { salonReceived } = salonSlice.actions;
 
 export const selectSalonDetailsError = (state: RootState) => state.salon.detailsError;
 export const selectSalonDetailsLoading = (state: RootState) => state.salon.detailsLoading;

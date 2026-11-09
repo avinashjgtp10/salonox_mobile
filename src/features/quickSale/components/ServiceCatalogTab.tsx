@@ -1,3 +1,4 @@
+import { useRegionalPreferences } from "@/localization/preferences";
 import { PearlCatalogRow } from "./PearlCatalogRow";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
@@ -58,6 +59,8 @@ function ServiceCardComponent({
   selected: boolean;
   service: ServiceListItem;
 }) {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
@@ -106,6 +109,8 @@ export function ServiceCatalogTab({ pearlStyle = false,
   search,
   visible = true,
 }: ServiceCatalogTabProps) {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
@@ -241,7 +246,7 @@ export function ServiceCatalogTab({ pearlStyle = false,
             <ActivityIndicator color={Colors.primaryText} style={styles.loadMoreWrap} />
           ) : error ? (
             <TouchableOpacity accessibilityRole="button" onPress={() => loadMore(true)} style={styles.loadMoreWrap}>
-              <Text style={styles.loadMoreText}>Couldn?t load more services. Tap to retry.</Text>
+              <Text translate style={styles.loadMoreText}>Couldn?t load more services. Tap to retry.</Text>
             </TouchableOpacity>
           ) : null}
           refreshControl={

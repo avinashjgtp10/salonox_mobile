@@ -1,3 +1,4 @@
+import { useRegionalPreferences } from "@/localization/preferences";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { maskPhone } from "@/utils/maskPhone";
 import { Text } from "@/components/ui/AppTypography";
@@ -28,6 +29,8 @@ export function CustomerPanel({
   onViewProfile: (clientId: string) => void;
   onAddClient?: () => void;
 }) {
+  "use no memo";
+  useRegionalPreferences();
   const { styles: s, palette: p } = useInboxTheme();
   const [customer, setCustomer] = useState<InboxCustomer | null>(null);
   const [packages, setPackages] = useState<ClientPackage[]>([]);
@@ -73,7 +76,7 @@ export function CustomerPanel({
   return (
     <View style={[s.fill, { backgroundColor: "transparent" }]}>
       <View style={s.header}>
-        <Text style={[s.heading, s.fill]}>Customer Info</Text>
+        <Text translate style={[s.heading, s.fill]}>Customer Info</Text>
         <TouchableOpacity
           accessibilityRole="button"
           accessibilityLabel="Close customer info"
@@ -86,23 +89,23 @@ export function CustomerPanel({
       {loading ? (
         <View style={s.empty}>
           <ActivityIndicator color={p.accent} />
-          <Text style={s.muted}>Loading customer details…</Text>
+          <Text translate style={s.muted}>Loading customer details…</Text>
         </View>
       ) : error ? (
         <View style={s.empty}>
-          <Text style={s.error}>{error}</Text>
+          <Text translate style={s.error}>{error}</Text>
           <TouchableOpacity
             accessibilityRole="button"
             onPress={reload}
             style={primaryButton}
           >
-            <Text style={primaryButtonText}>Retry</Text>
+            <Text translate style={primaryButtonText}>Retry</Text>
           </TouchableOpacity>
         </View>
       ) : !customer ? (
         <View style={s.empty}>
           <Ionicons name="person-outline" size={38} color={p.muted} />
-          <Text style={s.heading}>Not a saved client yet</Text>
+          <Text translate style={s.heading}>Not a saved client yet</Text>
           <Text style={s.emptyText}>
             {maskPhone(phone)} hasn’t been added to your Clients list.
           </Text>
@@ -133,7 +136,7 @@ export function CustomerPanel({
               style={primaryButton}
               onPress={() => onViewProfile(customer.id)}
             >
-              <Text style={primaryButtonText}>View Profile →</Text>
+              <Text translate style={primaryButtonText}>View Profile →</Text>
             </TouchableOpacity>
           </View>
           <View style={s.stats}>
@@ -144,13 +147,13 @@ export function CustomerPanel({
               ["Member", customer.membershipName || "No"],
             ].map(([label, value]) => (
               <View key={label} style={s.stat}>
-                <Text style={s.muted}>{label}</Text>
+                <Text translate style={s.muted}>{label}</Text>
                 <Text style={s.heading}>{value}</Text>
               </View>
             ))}
           </View>
           <View style={s.section}>
-            <Text style={[s.muted, { fontWeight: "700", letterSpacing: 1 }]}>
+            <Text translate style={[s.muted, { fontWeight: "700", letterSpacing: 1 }]}>
               PACKAGES
             </Text>
             {packageError ? (
@@ -158,7 +161,7 @@ export function CustomerPanel({
                 <Text style={s.error}>{packageError} · Tap to retry</Text>
               </TouchableOpacity>
             ) : packages.length === 0 ? (
-              <Text style={s.muted}>No active packages</Text>
+              <Text translate style={s.muted}>No active packages</Text>
             ) : (
               packages.map((item) => (
                 <View key={item.id} style={s.package}>

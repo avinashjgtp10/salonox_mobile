@@ -1,3 +1,4 @@
+import { useRegionalPreferences } from "@/localization/preferences";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { maskPhone } from "@/utils/maskPhone";
 import { Text } from "@/components/ui/AppTypography";
@@ -47,24 +48,28 @@ const formatPaymentMethod = (method: string | null, reference: string | null) =>
 };
 
 function InfoRow({ label, value }: { label: string; value: string }) {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   return (
     <View style={styles.infoRow}>
-      <Text allowFontScaling style={styles.infoLabel}>{label}</Text>
+      <Text translate allowFontScaling style={styles.infoLabel}>{label}</Text>
       <Text allowFontScaling selectable style={styles.infoValue}>{value}</Text>
     </View>
   );
 }
 
 function Section({ children, title }: { children: ReactNode; title: string }) {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   return (
     <View style={styles.section}>
-      <Text allowFontScaling style={styles.sectionTitle}>{title}</Text>
+      <Text translate allowFontScaling style={styles.sectionTitle}>{title}</Text>
       {children}
     </View>
   );
@@ -74,6 +79,8 @@ export const SalesSummaryDetailSheet = memo(function SalesSummaryDetailSheet({
   onClose,
   saleId,
 }: SalesSummaryDetailSheetProps) {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const requestIdRef = useRef(0);
@@ -156,17 +163,17 @@ export const SalesSummaryDetailSheet = memo(function SalesSummaryDetailSheet({
       {loading && !sale ? (
         <View style={styles.stateCard}>
           <ActivityIndicator color={Colors.primaryText} size="large" />
-          <Text style={styles.stateTitle}>Loading bill details</Text>
-          <Text style={styles.stateText}>Fetching the invoice from the current Reports API.</Text>
+          <Text translate style={styles.stateTitle}>Loading bill details</Text>
+          <Text translate style={styles.stateText}>Fetching the invoice from the current Reports API.</Text>
         </View>
       ) : error || !sale ? (
         <View style={styles.stateCard}>
           <Ionicons name="receipt-outline" size={28} color={Colors.hint} />
-          <Text style={styles.stateTitle}>Bill details not available</Text>
+          <Text translate style={styles.stateTitle}>Bill details not available</Text>
           <Text style={styles.stateText}>{error ?? "This bill could not be found."}</Text>
           <TouchableOpacity activeOpacity={0.85} onPress={() => void load()} style={styles.retryButton}>
             <Ionicons name="refresh" size={16} color="#FFFFFF" />
-            <Text style={styles.retryText}>Retry</Text>
+            <Text translate style={styles.retryText}>Retry</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -204,7 +211,7 @@ export const SalesSummaryDetailSheet = memo(function SalesSummaryDetailSheet({
                 </View>
               </View>
             )) : (
-              <Text style={styles.emptyText}>No line items.</Text>
+              <Text translate style={styles.emptyText}>No line items.</Text>
             )}
           </Section>
 
@@ -237,7 +244,7 @@ export const SalesSummaryDetailSheet = memo(function SalesSummaryDetailSheet({
                 <InfoRow label="Referral credit" value={money(payment.referralCreditUsed)} />
               </>
             ) : (
-              <Text style={styles.emptyText}>No linked payment record.</Text>
+              <Text translate style={styles.emptyText}>No linked payment record.</Text>
             )}
             {sale.tipAmount > 0 ? <InfoRow label="Staff tip" value={money(sale.tipAmount)} /> : null}
           </Section>

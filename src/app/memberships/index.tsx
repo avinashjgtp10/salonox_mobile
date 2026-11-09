@@ -1,3 +1,4 @@
+import { useRegionalPreferences } from "@/localization/preferences";
 import { AppBackButton } from "@/components/ui/AppBackButton";
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
@@ -55,6 +56,8 @@ const filterMemberships = (items: Membership[], filter: FilterKey) => {
 };
 
 function SkeletonCard() {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   return (
@@ -70,6 +73,8 @@ function SkeletonCard() {
 }
 
 function EmptyState({ filter, onCreate }: { filter: FilterKey; onCreate: () => void }) {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   return (
@@ -77,15 +82,15 @@ function EmptyState({ filter, onCreate }: { filter: FilterKey; onCreate: () => v
       <View style={styles.emptyIcon}>
         <Ionicons name="diamond-outline" size={30} color={Colors.primaryText} />
       </View>
-      <Text style={styles.emptyTitle}>No memberships found</Text>
-      <Text style={styles.emptyText}>
+      <Text translate style={styles.emptyTitle}>No memberships found</Text>
+      <Text translate style={styles.emptyText}>
         {filter === "All"
           ? "Create polished salon plans with benefits, validity, and online redemption."
           : "No plans match this status yet."}
       </Text>
       {filter === "All" ? (
         <TouchableOpacity activeOpacity={0.88} onPress={onCreate} style={styles.emptyButton}>
-          <Text style={styles.emptyButtonText}>Create Membership</Text>
+          <Text translate style={styles.emptyButtonText}>Create Membership</Text>
         </TouchableOpacity>
       ) : null}
     </View>
@@ -107,6 +112,8 @@ function MembershipCard({
   onToggleExpanded: () => void;
   onView: () => void;
 }) {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const status = getStatus(membership);
@@ -137,7 +144,7 @@ function MembershipCard({
       </View>
 
       <View style={styles.benefitsWrap}>
-        <Text style={styles.sectionMini}>Included Benefits</Text>
+        <Text translate style={styles.sectionMini}>Included Benefits</Text>
         {visibleBenefits.length > 0 ? (
           visibleBenefits.map((benefit) => (
             <View key={benefit} style={styles.benefitRow}>
@@ -146,7 +153,7 @@ function MembershipCard({
             </View>
           ))
         ) : (
-          <Text style={styles.mutedText}>No benefits added yet</Text>
+          <Text translate style={styles.mutedText}>No benefits added yet</Text>
         )}
         {benefits.length > 2 ? (
           <TouchableOpacity activeOpacity={0.8} onPress={onToggleExpanded} style={styles.viewMoreButton}>
@@ -176,28 +183,34 @@ function MembershipCard({
 }
 
 function Metric({ label, value }: { label: string; value: string }) {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   return (
     <View style={styles.metricBox}>
       <Text numberOfLines={1} style={styles.metricValue}>{value}</Text>
-      <Text style={styles.metricLabel}>{label}</Text>
+      <Text translate style={styles.metricLabel}>{label}</Text>
     </View>
   );
 }
 
 function MenuAction({ danger, icon, label, onPress }: { danger?: boolean; icon: keyof typeof Ionicons.glyphMap; label: string; onPress: () => void }) {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   return (
     <TouchableOpacity activeOpacity={0.84} onPress={onPress} style={styles.menuAction}>
       <Ionicons name={icon} size={18} color={danger ? Colors.error : Colors.primaryText} />
-      <Text style={[styles.menuActionText, danger && { color: Colors.error }]}>{label}</Text>
+      <Text translate style={[styles.menuActionText, danger && { color: Colors.error }]}>{label}</Text>
     </TouchableOpacity>
   );
 }
 
 function MembershipsScreenContent() {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
@@ -269,7 +282,7 @@ function MembershipsScreenContent() {
           <View>
             <View style={styles.headerRow}>
               <AppBackButton activeOpacity={0.84} hitSlop={12} onPress={() => (router.canGoBack() ? router.back() : router.replace("/more" as Href))} />
-              <Text style={styles.title}>Memberships</Text>
+              <Text translate style={styles.title}>Memberships</Text>
               <View style={styles.headerButtonGhost} />
             </View>
             <TourView tourId="search" style={styles.searchWrap}>
@@ -305,10 +318,10 @@ function MembershipsScreenContent() {
           ) : error && items.length === 0 ? (
             <View style={styles.emptyCard}>
               <Ionicons name="cloud-offline-outline" size={32} color={Colors.error} />
-              <Text style={styles.emptyTitle}>Unable to load memberships</Text>
-              <Text style={styles.emptyText}>{error}</Text>
+              <Text translate style={styles.emptyTitle}>Unable to load memberships</Text>
+              <Text translate style={styles.emptyText}>{error}</Text>
               <TouchableOpacity activeOpacity={0.84} onPress={refresh} style={styles.emptyButton}>
-                <Text style={styles.emptyButtonText}>Retry</Text>
+                <Text translate style={styles.emptyButtonText}>Retry</Text>
               </TouchableOpacity>
             </View>
           ) : isEmpty || visibleItems.length === 0 ? (
@@ -363,13 +376,15 @@ function MembershipsScreenContent() {
 }
 
 function SummaryCard({ icon, label, value }: { icon: keyof typeof Ionicons.glyphMap; label: string; value: string }) {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   return (
     <View style={styles.summaryCard}>
       <View style={styles.summaryIcon}><Ionicons name={icon} size={16} color={Colors.primaryText} /></View>
       <Text numberOfLines={1} style={styles.summaryValue}>{value}</Text>
-      <Text numberOfLines={1} style={styles.summaryLabel}>{label}</Text>
+      <Text translate numberOfLines={1} style={styles.summaryLabel}>{label}</Text>
     </View>
   );
 }

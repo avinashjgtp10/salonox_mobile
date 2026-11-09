@@ -70,7 +70,7 @@ export function CatalogFilterSheet({ brands, categories, label, onApply, onClose
     onClose();
   };
 
-  return <BottomSheet pearlStyle centered={false} title={"Filter " + label} visible={visible} onClose={onClose} footer={<View style={styles.footer}><TouchableOpacity onPress={handleReset} style={styles.resetButton}><Text style={styles.resetText}>Clear all</Text></TouchableOpacity><TouchableOpacity onPress={handleApply} style={[styles.applyButton, { overflow: "hidden" }]}><LinearGradient pointerEvents="none" colors={pearlGradients.primary} style={StyleSheet.absoluteFill} /><Text style={styles.applyText}>Apply filters</Text></TouchableOpacity></View>}>
+  return <BottomSheet pearlStyle centered={false} title={"Filter " + label} visible={visible} onClose={onClose} footer={<View style={styles.footer}><TouchableOpacity onPress={handleReset} style={styles.resetButton}><Text translate style={styles.resetText}>Clear all</Text></TouchableOpacity><TouchableOpacity onPress={handleApply} style={[styles.applyButton, { overflow: "hidden" }]}><LinearGradient pointerEvents="none" colors={pearlGradients.primary} style={StyleSheet.absoluteFill} /><Text translate style={styles.applyText}>Apply filters</Text></TouchableOpacity></View>}>
               {tab === "services" ? (
                 <ServiceFilterFields
                   categories={categories}
@@ -150,7 +150,7 @@ function ChipGroup({
             onPress={() => onToggle(option.id)}
             style={[styles.chip, isSelected && styles.chipSelected]}
           >
-            <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>{option.label}</Text>
+            <Text translate style={[styles.chipText, isSelected && styles.chipTextSelected]}>{option.label}</Text>
           </TouchableOpacity>
         );
       })}
@@ -191,7 +191,7 @@ function ServiceFilterFields({
         selected={draft.durationRange}
         styles={styles}
       />
-      <Text style={styles.hint}>Select one or more. None selected means all durations.</Text>
+      <Text translate style={styles.hint}>Select one or more. None selected means all durations.</Text>
 
       <FieldLabel styles={styles}>Online booking</FieldLabel>
       <ChipGroup
@@ -200,7 +200,7 @@ function ServiceFilterFields({
         selected={draft.onlineBooking}
         styles={styles}
       />
-      <Text style={styles.hint}>Pick one side to narrow; picking both is the same as no filter.</Text>
+      <Text translate style={styles.hint}>Pick one side to narrow; picking both is the same as no filter.</Text>
     </>
   );
 }

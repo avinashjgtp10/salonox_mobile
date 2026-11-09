@@ -70,7 +70,7 @@ export function ConsumableFilterSheet({
         }}
         style={styles.secondaryButton}
       >
-        <Text style={styles.secondaryButtonText}>Reset</Text>
+        <Text translate style={styles.secondaryButtonText}>Reset</Text>
       </TouchableOpacity>
       <TouchableOpacity
         activeOpacity={0.84}
@@ -80,14 +80,14 @@ export function ConsumableFilterSheet({
         }}
         style={styles.primaryButton}
       >
-        <Text style={styles.primaryButtonText}>Apply</Text>
+        <Text translate style={styles.primaryButtonText}>Apply</Text>
       </TouchableOpacity>
     </>
   );
 
   return (
     <BottomSheet footer={footer} onClose={onClose} title="Filter Consumables" visible={visible}>
-      <Text style={styles.sectionTitle}>Status</Text>
+      <Text translate style={styles.sectionTitle}>Status</Text>
       <View style={styles.chipRow}>
         {STATUS_OPTIONS.map((option) => {
           const active = draft.status.includes(option.value);
@@ -98,7 +98,7 @@ export function ConsumableFilterSheet({
               onPress={() => setDraft((current) => ({ ...current, status: toggleValue(current.status, option.value) }))}
               style={[styles.chip, active && styles.chipActive]}
             >
-              <Text style={[styles.chipText, active && styles.chipTextActive]}>{option.label}</Text>
+              <Text translate style={[styles.chipText, active && styles.chipTextActive]}>{option.label}</Text>
             </TouchableOpacity>
           );
         })}
@@ -106,7 +106,7 @@ export function ConsumableFilterSheet({
 
       {availableProductTypes.length > 0 ? (
         <>
-          <Text style={styles.sectionTitle}>Product type</Text>
+          <Text translate style={styles.sectionTitle}>Product type</Text>
           <View style={styles.chipRow}>
             {availableProductTypes.map((type) => {
               const active = draft.productType.includes(type);
@@ -127,7 +127,7 @@ export function ConsumableFilterSheet({
         </>
       ) : null}
 
-      <Text style={styles.sectionTitle}>Sort by</Text>
+      <Text translate style={styles.sectionTitle}>Sort by</Text>
       <View style={styles.chipRow}>
         {SORT_OPTIONS.map((option) => {
           const active = draft.sortBy === option.value;
@@ -141,13 +141,13 @@ export function ConsumableFilterSheet({
               onPress={() => setDraft((current) => ({ ...current, sortBy: option.value }))}
               style={[styles.chip, active && styles.chipActive, unavailable && { opacity: 0.5 }]}
             >
-              <Text style={[styles.chipText, active && styles.chipTextActive]}>{option.label}{unavailable ? " (Unavailable)" : ""}</Text>
+              <Text translate style={[styles.chipText, active && styles.chipTextActive]}>{option.label}{unavailable ? " (Unavailable)" : ""}</Text>
             </TouchableOpacity>
           );
         })}
       </View>
 
-      <Text style={styles.sectionTitle}>Order</Text>
+      <Text translate style={styles.sectionTitle}>Order</Text>
       <View style={styles.chipRow}>
         {(["asc", "desc"] as const).map((order) => {
           const active = draft.sortOrder === order;
@@ -158,7 +158,7 @@ export function ConsumableFilterSheet({
               onPress={() => setDraft((current) => ({ ...current, sortOrder: order }))}
               style={[styles.chip, active && styles.chipActive]}
             >
-              <Text style={[styles.chipText, active && styles.chipTextActive]}>
+              <Text translate style={[styles.chipText, active && styles.chipTextActive]}>
                 {order === "asc" ? "Ascending" : "Descending"}
               </Text>
             </TouchableOpacity>

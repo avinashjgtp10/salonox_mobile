@@ -53,7 +53,7 @@ export function AppointmentListScreen() {
           <View style={styles.listHeader}>
             <View style={styles.headerRow}>
               <AppBackButton activeOpacity={0.8} hitSlop={12} onPress={() => router.replace("/bookings" as Href)} />
-              <Text style={styles.headerTitle}>Appointment List</Text>
+              <Text translate style={styles.headerTitle}>Appointment List</Text>
               <TouchableOpacity
                 activeOpacity={0.8}
                 onPress={() => router.push("/bookings/new" as Href)}

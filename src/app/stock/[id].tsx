@@ -1,3 +1,4 @@
+import { useRegionalPreferences } from "@/localization/preferences";
 import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
@@ -20,6 +21,8 @@ import { usePearlColors, type PearlColors as ThemeColors } from "@/components/au
 import { formatCurrency as money } from "@/utils/currency";
 
 export default function ProductDetailsScreen() {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const { id } = useLocalSearchParams<{ id?: string }>();
@@ -47,31 +50,37 @@ export default function ProductDetailsScreen() {
   return <PearlBackground><SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
     <AppStatusBar />
     <ScrollView contentContainerStyle={styles.content}>
-      <View style={styles.header}><AppBackButton onPress={back} /><Text style={styles.title}>Product Details</Text><TouchableOpacity disabled={!product} hitSlop={12} onPress={() => router.push(`/stock/${id}/edit` as Href)} style={styles.iconButton}><Ionicons name="create-outline" size={19} color={Colors.primaryText} /></TouchableOpacity></View>
+      <View style={styles.header}><AppBackButton onPress={back} /><Text translate style={styles.title}>Product Details</Text><TouchableOpacity disabled={!product} hitSlop={12} onPress={() => router.push(`/stock/${id}/edit` as Href)} style={styles.iconButton}><Ionicons name="create-outline" size={19} color={Colors.primaryText} /></TouchableOpacity></View>
       {state.detailsLoading && !product ? <View style={styles.center}><ActivityIndicator size="large" color={Colors.primaryText} /></View> : state.detailsError && !product ? <StateMessage title="Unable to load product" message={state.detailsError} /> : !product ? <StateMessage title="Product not found" message="This product could not be found." /> : <>
-        <View style={styles.hero}><View style={styles.avatar}><Ionicons name="cube-outline" size={30} color={Colors.primaryText} /></View><Text style={styles.productName}>{product.name}</Text><Text style={styles.productMeta}>{product.brandName ?? product.category ?? "Uncategorized"}</Text><View style={[styles.badge, product.isActive ? styles.active : styles.inactive]}><Text style={[styles.badgeText, !product.isActive && styles.inactiveText]}>{product.isActive ? "Active" : "Inactive"}</Text></View><View style={styles.stats}><Stat label="Price" value={money(product.price)} /><Stat label="In stock" value={String(product.stockQuantity)} /></View></View>
-        <View style={styles.section}><Text style={styles.sectionTitle}>Product Information</Text><Row label="Brand" value={product.brandName ?? "-"} /><Row label="Category" value={product.category ?? "-"} /><Row label="SKU" value={product.sku ?? "-"} /><Row label="Low stock threshold" value={String(product.lowStockThreshold)} /><Row label="Status" value={product.isActive ? "Active" : "Inactive"} /></View>
-        {product.description ? <View style={styles.section}><Text style={styles.sectionTitle}>Description</Text><Text style={styles.description}>{product.description}</Text></View> : null}
-        <TouchableOpacity disabled={state.deletingProductIds.includes(product.id)} onPress={remove} style={styles.deleteButton}>{state.deletingProductIds.includes(product.id) ? <ActivityIndicator color={Colors.error} /> : <Ionicons name="trash-outline" size={19} color={Colors.error} />}<Text style={styles.deleteText}>Delete Product</Text></TouchableOpacity>
+        <View style={styles.hero}><View style={styles.avatar}><Ionicons name="cube-outline" size={30} color={Colors.primaryText} /></View><Text style={styles.productName}>{product.name}</Text><Text style={styles.productMeta}>{product.brandName ?? product.category ?? "Uncategorized"}</Text><View style={[styles.badge, product.isActive ? styles.active : styles.inactive]}><Text translate style={[styles.badgeText, !product.isActive && styles.inactiveText]}>{product.isActive ? "Active" : "Inactive"}</Text></View><View style={styles.stats}><Stat label="Price" value={money(product.price)} /><Stat label="In stock" value={String(product.stockQuantity)} /></View></View>
+        <View style={styles.section}><Text translate style={styles.sectionTitle}>Product Information</Text><Row label="Brand" value={product.brandName ?? "-"} /><Row label="Category" value={product.category ?? "-"} /><Row label="SKU" value={product.sku ?? "-"} /><Row label="Low stock threshold" value={String(product.lowStockThreshold)} /><Row label="Status" value={product.isActive ? "Active" : "Inactive"} /></View>
+        {product.description ? <View style={styles.section}><Text translate style={styles.sectionTitle}>Description</Text><Text style={styles.description}>{product.description}</Text></View> : null}
+        <TouchableOpacity disabled={state.deletingProductIds.includes(product.id)} onPress={remove} style={styles.deleteButton}>{state.deletingProductIds.includes(product.id) ? <ActivityIndicator color={Colors.error} /> : <Ionicons name="trash-outline" size={19} color={Colors.error} />}<Text translate style={styles.deleteText}>Delete Product</Text></TouchableOpacity>
       </>}
     </ScrollView>
   </SafeAreaView></PearlBackground>;
 }
 
 function Stat({ label, value }: { label: string; value: string }) {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
-  return <View style={styles.stat}><Text numberOfLines={1} adjustsFontSizeToFit style={styles.statValue}>{value}</Text><Text style={styles.statLabel}>{label}</Text></View>;
+  return <View style={styles.stat}><Text numberOfLines={1} adjustsFontSizeToFit style={styles.statValue}>{value}</Text><Text translate style={styles.statLabel}>{label}</Text></View>;
 }
 function Row({ label, value }: { label: string; value: string }) {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
-  return <View style={styles.row}><Text style={styles.rowLabel}>{label}</Text><Text style={styles.rowValue}>{value}</Text></View>;
+  return <View style={styles.row}><Text translate style={styles.rowLabel}>{label}</Text><Text style={styles.rowValue}>{value}</Text></View>;
 }
 function StateMessage({ message, title }: { message: string; title: string }) {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
-  return <View style={styles.message}><Ionicons name="alert-circle-outline" size={32} color={Colors.error} /><Text style={styles.messageTitle}>{title}</Text><Text style={styles.messageText}>{message}</Text></View>;
+  return <View style={styles.message}><Ionicons name="alert-circle-outline" size={32} color={Colors.error} /><Text translate style={styles.messageTitle}>{title}</Text><Text translate style={styles.messageText}>{message}</Text></View>;
 }
 
 const createStyles = (Colors: ThemeColors) => StyleSheet.create({

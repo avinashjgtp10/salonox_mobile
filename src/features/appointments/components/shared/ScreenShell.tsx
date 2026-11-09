@@ -72,7 +72,7 @@ export function ScreenShell({
     <>
       {!hideHeader ? <View style={styles.headerRow}>
         <AppBackButton activeOpacity={0.8} hitSlop={12} onPress={handleBack} />
-        <Text style={[styles.headerTitle, headerTitleStyle]}>{title}</Text>
+        <Text translate style={[styles.headerTitle, headerTitleStyle]}>{title}</Text>
         {showCreateAction ? (
           <TouchableOpacity
             activeOpacity={0.8}

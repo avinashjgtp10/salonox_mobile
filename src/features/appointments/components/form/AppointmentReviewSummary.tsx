@@ -1,3 +1,4 @@
+import { useRegionalPreferences } from "@/localization/preferences";
 import { Text } from "@/components/ui/AppTypography";
 import type { StaffMember } from "@/data/teamData";
 import { createStyles } from "@/features/appointments/styles/appointmentStyles";
@@ -34,6 +35,8 @@ export function AppointmentReviewSummary({
   startTime: string;
   totalDuration: number;
 }) {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const serviceLabel = services.length > 0 ? services.map((service) => service.name).join(", ") : "-";
@@ -63,7 +66,7 @@ export function AppointmentReviewSummary({
     <View style={styles.serviceBreakdownCard}>
       {reviewRows.map(([label, value]) => (
         <View key={label} style={styles.availabilityRow}>
-          <Text ellipsizeMode="tail" numberOfLines={1} style={styles.availabilityRowLabel}>{label}</Text>
+          <Text translate ellipsizeMode="tail" numberOfLines={1} style={styles.availabilityRowLabel}>{label}</Text>
           <Text ellipsizeMode="tail" numberOfLines={2} style={styles.availabilityRowValue}>{value}</Text>
         </View>
       ))}

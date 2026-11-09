@@ -27,7 +27,7 @@ export function ActionButton({
       style={[styles.actionButton, danger && styles.actionButtonDanger]}
     >
       <Ionicons name={icon} size={18} color={danger ? Colors.error : Colors.primaryText} />
-      <Text
+      <Text translate
         adjustsFontSizeToFit
         minimumFontScale={0.85}
         numberOfLines={1}

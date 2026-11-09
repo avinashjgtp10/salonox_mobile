@@ -1,10 +1,12 @@
-// Mirrors the web app's formatAmount (hooks/useCurrency.ts): paise-precise everywhere.
-export const formatCurrency = (amount: number) =>
-  `₹${(Number(amount) || 0).toLocaleString("en-IN", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
+import { formatAmountIn, formatAmountCompactIn, getCurrencyDef } from "@/config/currencies";
+import { getRegionalPreferences } from "@/localization/preferences";
 
-// Mirrors the web dashboard's revenue cards: rounded to the nearest rupee.
-export const formatCurrencyRounded = (amount: number) =>
-  `₹${(Math.round(Number(amount) || 0) || 0).toLocaleString("en-IN")}`;
+export const getCurrentCurrency = () => getCurrencyDef(getRegionalPreferences().currency);
+export const currencySymbol = () => getCurrentCurrency().symbol.trim();
+export const currencyLocale = () => getCurrentCurrency().locale;
+/** Currency labels in UI copy; amounts themselves are never converted. */
+export const currencyLabel = (text: string) => text.replace(/₹/g, (_, offset: number) =>
+  /\d/.test(text[offset + 1] ?? "") ? getCurrentCurrency().symbol : currencySymbol());
+export const formatCurrency = (amount: number) => formatAmountIn(amount, getCurrentCurrency());
+export const formatCurrencyRounded = (amount: number) => formatAmountIn(Math.round(Number(amount) || 0), getCurrentCurrency(), { decimals: 0 });
+export const formatCurrencyCompact = (amount: number) => formatAmountCompactIn(amount, getCurrentCurrency());

@@ -106,7 +106,7 @@ export function UnitConversionsSheet({
           onPress={handleSave}
           style={[styles.saveButton, saving && styles.saveButtonDisabled]}
         >
-          {saving ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.saveButtonText}>Save</Text>}
+          {saving ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text translate style={styles.saveButtonText}>Save</Text>}
         </TouchableOpacity>
       }
       onClose={onClose}
@@ -147,11 +147,11 @@ export function UnitConversionsSheet({
 
           <TouchableOpacity activeOpacity={0.84} onPress={addRow} style={styles.addButton}>
             <Ionicons color={Colors.primaryText} name="add" size={16} />
-            <Text style={styles.addButtonText}>Add conversion</Text>
+            <Text translate style={styles.addButtonText}>Add conversion</Text>
           </TouchableOpacity>
 
           {rows.length === 0 ? (
-            <Text style={styles.emptyText}>No unit conversions yet. Add one above.</Text>
+            <Text translate style={styles.emptyText}>No unit conversions yet. Add one above.</Text>
           ) : null}
         </>
       )}

@@ -291,11 +291,11 @@ export function CalendarPreview({
                 <View style={styles.dinggListClientRow}><View style={styles.dinggListAvatar}><Ionicons name="person-outline" size={24} color={Colors.appointmentTextSecondary} /></View><View style={styles.dinggListClientCopy}><Text numberOfLines={1} style={styles.dinggListClientName}>{staffMode ? billLabel(appointment) : appointment.clientName}</Text><Text style={styles.dinggListPhone}>{maskPhone(appointment.phone)}</Text></View><Ionicons name="male-outline" size={22} color={Colors.appointmentText} /><Ionicons name="gift-outline" size={22} color={Colors.appointmentText} /></View>
                 <View style={styles.dinggListCopy}><Text numberOfLines={1} style={styles.dinggAppointmentName}>{appointment.serviceName}</Text><Text numberOfLines={1} style={styles.dinggAppointmentClient}>{clientName(appointment.clientName)} · {appointment.staffName}</Text></View>
                 <View style={styles.dinggListDetailRow}><Ionicons name="cut-outline" size={19} color={Colors.primaryText} /><Text numberOfLines={2} style={styles.dinggListService}>{appointment.serviceName}</Text></View>
-                <View style={styles.dinggListDetailRow}><Ionicons name="time-outline" size={19} color={Colors.primaryText} /><Text style={styles.dinggListTimeRange}>{formatTimeLabel(appointment.scheduledAt)} - {formatTimeLabel(appointment.endTime)}</Text><View style={styles.dinggListStaffWrap}><Text style={styles.dinggListWith}>with</Text><Text numberOfLines={1} style={styles.dinggListStaff}>{appointment.staffName || "-"}</Text></View></View>
+                <View style={styles.dinggListDetailRow}><Ionicons name="time-outline" size={19} color={Colors.primaryText} /><Text style={styles.dinggListTimeRange}>{formatTimeLabel(appointment.scheduledAt)} - {formatTimeLabel(appointment.endTime)}</Text><View style={styles.dinggListStaffWrap}><Text translate style={styles.dinggListWith}>with</Text><Text numberOfLines={1} style={styles.dinggListStaff}>{appointment.staffName || "-"}</Text></View></View>
                 <View style={styles.dinggListStatusRow}><View style={[styles.dinggListStatusDot, appointment.status === "Completed" && styles.dinggStatusCompleted, appointment.status === "Confirmed" && styles.dinggStatusConfirmed]} /><Text style={styles.dinggListStatus}>{appointment.status}</Text></View>
               </Pressable>
             </View>
-          )) : <Text style={styles.calendarEmpty}>No appointments found.</Text>}
+          )) : <Text translate style={styles.calendarEmpty}>No appointments found.</Text>}
         </View>
         <AppointmentPreviewSheet appointment={previewAppointment} onClose={() => setPreviewAppointment(null)} readOnly={readOnly} />
       </>
@@ -311,7 +311,7 @@ export function CalendarPreview({
       >
         <View style={{ height: "100%", width: calendarContentWidth }}>
           <View style={styles.dinggCalendarHeader}>
-            <Animated.View style={[styles.dinggTimeHeader, styles.dinggCalendarHeaderPinned, pinnedLeft]}>{viewMode === "day" && !staffless ? <Text style={styles.dinggStaffHeader}>Staff</Text> : null}</Animated.View>
+            <Animated.View style={[styles.dinggTimeHeader, styles.dinggCalendarHeaderPinned, pinnedLeft]}>{viewMode === "day" && !staffless ? <Text translate style={styles.dinggStaffHeader}>Staff</Text> : null}</Animated.View>
             {columns.map((column, index) => (
               <View key={`${column.key}-${column.label}-${index}`} style={[styles.dinggDayHeader, { width: columnWidth }]}>
                 {staffless ? null : viewMode === "day" ? (
@@ -319,7 +319,7 @@ export function CalendarPreview({
                     <Text style={styles.calendarStaffInitials}>{column.staffId === ANY_STAFF_COLUMN_ID ? "A" : initials(column.staffName || column.label)}</Text>
                   </View>
                 ) : null}
-                {staffless ? null : <Text numberOfLines={2} style={styles.dinggDayHeaderText}>{column.label}</Text>}
+                {staffless ? null : <Text translate numberOfLines={2} style={styles.dinggDayHeaderText}>{column.label}</Text>}
               </View>
             ))}
           </View>
@@ -367,7 +367,7 @@ export function CalendarPreview({
           <Text style={styles.calendarEmptyTitle}>
             {emptyTitle ?? (viewMode === "week" ? "No appointments this week" : date === todayIsoDate() ? "No appointments today" : "No appointments on this day")}
           </Text>
-          {quickSaleEnabled && !emptyTitle && <Text style={styles.calendarEmptyHint}>Tap a time slot to add one</Text>}
+          {quickSaleEnabled && !emptyTitle && <Text translate style={styles.calendarEmptyHint}>Tap a time slot to add one</Text>}
         </View>
       ) : null}
       <AppointmentPreviewSheet
@@ -435,7 +435,7 @@ const CalendarTimeColumn = memo(function CalendarTimeColumn({
     <Animated.View style={[styles.dinggTimeColumn, pinnedStyle]}>
       {TIME_SLOTS.map(({ hour, label, minute }) => (
         <View key={`${hour}-${minute}`} style={[styles.dinggTimeCell, { position: "absolute", left: 0, right: 0, top: (hour + minute / 60) * HOUR_HEIGHT, height: SLOT_HEIGHT }]}>
-          <Text style={[styles.dinggTimeText, minute === 0 && styles.dinggHourText]}>{label}</Text>
+          <Text translate style={[styles.dinggTimeText, minute === 0 && styles.dinggHourText]}>{label}</Text>
         </View>
       ))}
     </Animated.View>
@@ -532,7 +532,7 @@ const CalendarDayColumn = memo(function CalendarDayColumn({
               <Text numberOfLines={1} style={styles.webChipTime}>
                 {minutesToDisplayTime(chip.startMin)} – {minutesToDisplayTime(chip.endMin)}{compact ? `  ${client}` : ""}
               </Text>
-              <Text numberOfLines={compact ? 1 : Math.max(1, Math.floor((height - 34) / 14))} style={styles.webChipService}>{chip.title}</Text>
+              <Text translate numberOfLines={compact ? 1 : Math.max(1, Math.floor((height - 34) / 14))} style={styles.webChipService}>{chip.title}</Text>
               {!compact ? (
                 <View style={styles.webChipClientRow}>
                   <Ionicons name="person" size={10} color="#1f2937" />

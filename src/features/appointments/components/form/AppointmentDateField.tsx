@@ -51,7 +51,7 @@ export function AppointmentDateField({
 
   return (
     <View style={styles.inputGroup}>
-      <Text style={styles.inputLabel}>Date</Text>
+      <Text translate style={styles.inputLabel}>Date</Text>
       <TouchableOpacity
         activeOpacity={0.86}
         onPress={() => setVisible(true)}
@@ -60,7 +60,7 @@ export function AppointmentDateField({
         <Text numberOfLines={1} style={styles.dateButtonText}>{displayDate}</Text>
         <Ionicons name="chevron-down" size={16} color={Colors.text2} />
       </TouchableOpacity>
-      {error ? <Text style={styles.fieldError}>{error}</Text> : null}
+      {error ? <Text translate style={styles.fieldError}>{error}</Text> : null}
 
       {visible && Platform.OS === "android" ? (
         <DateTimePicker minimumDate={minimumDate} mode="date" onChange={handleDateChange} value={dateValue} />
@@ -70,7 +70,7 @@ export function AppointmentDateField({
         <Modal animationType="fade" onRequestClose={() => setVisible(false)} transparent visible={visible}>
           <Pressable onPress={() => setVisible(false)} style={styles.modalBackdrop}>
             <Pressable style={styles.modalCard}>
-              <Text style={styles.modalTitle}>Select Date</Text>
+              <Text translate style={styles.modalTitle}>Select Date</Text>
               <DateTimePicker display="inline" minimumDate={minimumDate} mode="date" onChange={handleDateChange} value={dateValue} />
             </Pressable>
           </Pressable>

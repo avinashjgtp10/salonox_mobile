@@ -1,3 +1,4 @@
+import { useRegionalPreferences } from "@/localization/preferences";
 import { Text } from "@/components/ui/AppTypography";
 import { InfiniteScrollLoader } from "@/components/ui/InfiniteScrollLoader";
 import { Ionicons } from "@expo/vector-icons";
@@ -28,6 +29,8 @@ export const ReportSummaryCards = memo(function ReportSummaryCards({
   maxCards?: number;
   labels?: Record<string, string>;
 }) {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const entries = useMemo(() => Object.entries(summary ?? {}).filter(([, value]) => value !== undefined && value !== null).slice(0, maxCards), [summary, maxCards]);
@@ -37,7 +40,7 @@ export const ReportSummaryCards = memo(function ReportSummaryCards({
     <View accessibilityRole="summary" style={styles.summaryGrid}>
       {entries.map(([key, value]) => (
         <View key={key} style={styles.summaryCard}>
-          <Text allowFontScaling numberOfLines={1} style={styles.summaryLabel}>
+          <Text translate allowFontScaling numberOfLines={1} style={styles.summaryLabel}>
             {labels?.[key] ?? humanizeReportKey(key)}
           </Text>
           <Text adjustsFontSizeToFit allowFontScaling minimumFontScale={0.7} selectable numberOfLines={1} style={styles.summaryValue}>
@@ -132,8 +135,8 @@ export const ReportState = memo(function ReportState({
   return (
     <View style={styles.stateCard}>
       <View style={{ width: 64, height: 64, borderRadius: 32, alignItems: "center", justifyContent: "center", backgroundColor: Colors.backgroundSelected }}><Ionicons name={error ? "cloud-offline-outline" : "file-tray-outline"} size={26} color={Colors.primaryText} /></View>
-      <Text allowFontScaling style={styles.stateTitle}>{title}</Text>
-      <Text allowFontScaling style={styles.stateDescription}>{description}</Text>
+      <Text translate allowFontScaling style={styles.stateTitle}>{title}</Text>
+      <Text translate allowFontScaling style={styles.stateDescription}>{description}</Text>
       <TouchableOpacity
         accessibilityRole="button"
         activeOpacity={0.84}
@@ -141,7 +144,7 @@ export const ReportState = memo(function ReportState({
         style={styles.retryButton}
       >
         <Ionicons name="refresh" size={16} color="#FFFFFF" />
-        <Text allowFontScaling style={styles.retryText}>Refresh</Text>
+        <Text translate allowFontScaling style={styles.retryText}>Refresh</Text>
       </TouchableOpacity>
     </View>
   );
@@ -189,7 +192,7 @@ export const ReportPaginationFooter = memo(function ReportPaginationFooter({
       {loading ? (
         <InfiniteScrollLoader loading />
       ) : (
-        <Text style={styles.footerText}>You’ve reached the end</Text>
+        <Text translate style={styles.footerText}>You’ve reached the end</Text>
       )}
     </View>
   );

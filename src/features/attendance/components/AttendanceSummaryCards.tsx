@@ -41,7 +41,7 @@ function AttendanceSummaryCardsComponent({ summary }: AttendanceSummaryCardsProp
             <Ionicons name={card.icon} size={16} color={card.color} />
           </View>
           <Text style={styles.value}>{summary[card.key] as number}</Text>
-          <Text style={styles.label}>{card.label}</Text>
+          <Text translate style={styles.label}>{card.label}</Text>
         </View>
       ))}
     </ScrollView>

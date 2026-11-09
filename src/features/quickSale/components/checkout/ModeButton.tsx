@@ -12,7 +12,7 @@ export function ModeButton({ active, label, onPress }: { active: boolean; label:
 
   return (
     <TouchableOpacity activeOpacity={0.84} onPress={onPress} style={[styles.modeButton, active && styles.modeButtonActive]}>
-      <Text
+      <Text translate
         adjustsFontSizeToFit
         minimumFontScale={0.82}
         numberOfLines={1}

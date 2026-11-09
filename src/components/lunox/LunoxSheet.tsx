@@ -130,7 +130,7 @@ export function LunoxSheet({ visible, onClose, seed }: { visible: boolean; onClo
             <LunoxOrb />
             <View>
               <Image source={LUNOX_WORD} style={styles.word} resizeMode="contain" accessibilityLabel="lunox" />
-              <Text style={styles.subtitle}>Your salon assistant</Text>
+              <Text translate style={styles.subtitle}>Your salon assistant</Text>
             </View>
           </View>
           <Pressable onPress={onClose} hitSlop={6} accessibilityRole="button" accessibilityLabel="Close"
@@ -159,7 +159,7 @@ export function LunoxSheet({ visible, onClose, seed }: { visible: boolean; onClo
             <View key={message.id} style={[styles.bubble, styles.ai]} accessibilityLiveRegion="polite">
               <Text style={styles.errorText}>{message.text}</Text>
               <Pressable onPress={() => void ask(message.retry)} style={({ pressed }) => [styles.ghost, pressed && { opacity: 0.8 }]} accessibilityRole="button">
-                <Text style={styles.ghostText}>Try again</Text>
+                <Text translate style={styles.ghostText}>Try again</Text>
               </Pressable>
             </View>
           ))}
@@ -236,7 +236,7 @@ function ThinkingBubble() {
   }, [dots]);
   return (
     <View style={[styles.bubble, styles.ai, styles.thinking]} accessibilityLabel="Lunox is thinking">
-      <Text style={styles.thinkingText}>Lunox is thinking</Text>
+      <Text translate style={styles.thinkingText}>Lunox is thinking</Text>
       <View style={{ flexDirection: "row", gap: 4 }}>
         {dots.map((dot, index) => <Animated.View key={index} style={[styles.dot, { opacity: dot }]} />)}
       </View>

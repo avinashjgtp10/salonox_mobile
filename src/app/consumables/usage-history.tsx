@@ -95,7 +95,7 @@ export default function ConsumableUsageHistoryScreen() {
               onPress={() => setDirection(option.value)}
               style={[styles.chip, active && styles.chipActive]}
             >
-              <Text style={[styles.chipText, active && styles.chipTextActive]}>{option.label}</Text>
+              <Text translate style={[styles.chipText, active && styles.chipTextActive]}>{option.label}</Text>
             </TouchableOpacity>
           );
         })}

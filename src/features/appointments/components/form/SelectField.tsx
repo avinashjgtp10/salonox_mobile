@@ -22,7 +22,7 @@ export function SelectField({
 
   return (
     <View style={styles.inputGroup}>
-      <Text style={styles.inputLabel}>{label}</Text>
+      <Text translate style={styles.inputLabel}>{label}</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
         <View style={styles.chipRow}>
           {options.map((option) => {
@@ -35,7 +35,7 @@ export function SelectField({
                 onPress={() => onSelect(option.value)}
                 style={[styles.optionChip, selected && styles.optionChipActive]}
               >
-                <Text style={[styles.optionChipText, selected && styles.optionChipTextActive]}>
+                <Text translate style={[styles.optionChipText, selected && styles.optionChipTextActive]}>
                   {option.label}
                 </Text>
               </TouchableOpacity>
@@ -43,7 +43,7 @@ export function SelectField({
           })}
         </View>
       </ScrollView>
-      {error ? <Text style={styles.fieldError}>{error}</Text> : null}
+      {error ? <Text translate style={styles.fieldError}>{error}</Text> : null}
     </View>
   );
 }

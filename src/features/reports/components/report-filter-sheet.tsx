@@ -29,7 +29,7 @@ export function ReportFilterSheet({ slug, data, filters, onApply, onClose, visib
       field.dependsOn = "category_ids";
       field.optionsFor = (parents, own) => fieldOptions.filter((option) => own.includes(option.id) || (option.categoryId && parents.includes(option.categoryId)));
     }
-    if (definition.kind === "boolean") field.render = (values, update) => <View style={styles.toggle}><Text style={{ color: colors.text }}>Include GST</Text><Switch accessibilityLabel="Include GST" value={values[0] !== "false"} onValueChange={(value) => update(value ? [] : ["false"])} /></View>;
+    if (definition.kind === "boolean") field.render = (values, update) => <View style={styles.toggle}><Text translate style={{ color: colors.text }}>Include GST</Text><Switch accessibilityLabel="Include GST" value={values[0] !== "false"} onValueChange={(value) => update(value ? [] : ["false"])} /></View>;
     if (definition.kind === "number" || definition.kind === "date") field.render = (values, update) => <TextInput accessibilityLabel={definition.label} keyboardType={definition.kind === "number" ? definition.decimal ? "decimal-pad" : "number-pad" : "default"} placeholder={definition.kind === "date" ? "YYYY-MM-DD" : "0"} placeholderTextColor={colors.placeholder} value={values[0] ?? ""} onChangeText={(value) => update(value ? [value] : [])} style={[styles.input, { color: colors.text, borderColor: colors.border }]} />;
     return field;
   });

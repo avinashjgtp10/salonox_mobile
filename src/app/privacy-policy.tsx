@@ -126,7 +126,7 @@ export default function PrivacyPolicyScreen() {
 
       <View style={styles.headerRow}>
         <AppBackButton activeOpacity={0.84} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} />
-        <Text style={styles.headerTitle}>Privacy Policy</Text>
+        <Text translate style={styles.headerTitle}>Privacy Policy</Text>
         <View style={styles.backButtonPlaceholder} />
       </View>
 
@@ -135,7 +135,7 @@ export default function PrivacyPolicyScreen() {
 
         {SECTIONS.map((section) => (
           <View key={section.title} style={styles.card}>
-            <Text style={styles.sectionTitle}>{section.title}</Text>
+            <Text translate style={styles.sectionTitle}>{section.title}</Text>
             <Text style={styles.sectionBody}>{section.body}</Text>
           </View>
         ))}

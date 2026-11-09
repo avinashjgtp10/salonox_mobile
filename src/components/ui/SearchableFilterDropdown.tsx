@@ -56,7 +56,7 @@ export function SearchableFilterDropdown({
                 {selected.length === 0 ? <Ionicons name="checkmark" size={18} color={Colors.primaryText} /> : null}
               </TouchableOpacity>
             ) : null}
-            {matchingOptions.length === 0 ? <Text style={styles.hint}>No matching options</Text> : null}
+            {matchingOptions.length === 0 ? <Text translate style={styles.hint}>No matching options</Text> : null}
             {matchingOptions.map((option) => {
               const isSelected = selected.includes(option);
               return (

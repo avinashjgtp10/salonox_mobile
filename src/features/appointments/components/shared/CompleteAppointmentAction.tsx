@@ -52,7 +52,7 @@ export function CompleteAppointmentAction({ appointment }: { appointment: Appoin
         ) : (
           <Ionicons name="checkmark-done-circle-outline" size={18} color={Colors.primaryText} />
         )}
-        <Text style={styles.actionButtonText}>Complete</Text>
+        <Text translate style={styles.actionButtonText}>Complete</Text>
       </TouchableOpacity>
 
       <ConfirmationModal

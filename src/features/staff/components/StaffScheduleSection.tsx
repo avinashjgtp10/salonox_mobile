@@ -314,11 +314,11 @@ export function StaffScheduleSection({ staffId }: StaffScheduleSectionProps) {
       <View style={styles.summaryRow}>
         <View style={styles.summaryCard}>
           <Text style={styles.summaryValue}>{summary.workingDays}</Text>
-          <Text style={styles.summaryLabel}>Working Days</Text>
+          <Text translate style={styles.summaryLabel}>Working Days</Text>
         </View>
         <View style={styles.summaryCard}>
           <Text style={styles.summaryValue}>{summary.totalHours}</Text>
-          <Text style={styles.summaryLabel}>Weekly Hours</Text>
+          <Text translate style={styles.summaryLabel}>Weekly Hours</Text>
         </View>
       </View>
       <View style={styles.list}>
@@ -347,7 +347,7 @@ export function StaffScheduleSection({ staffId }: StaffScheduleSectionProps) {
                 onPress={() => toggleDayOff(entry.day)}
                 style={[styles.offToggle, entry.isOff && styles.offToggleActive]}
               >
-                <Text style={[styles.offToggleText, entry.isOff && styles.offToggleTextActive]}>
+                <Text translate style={[styles.offToggleText, entry.isOff && styles.offToggleTextActive]}>
                   {entry.isOff ? "Day Off" : "Working"}
                 </Text>
               </TouchableOpacity>
@@ -390,7 +390,7 @@ export function StaffScheduleSection({ staffId }: StaffScheduleSectionProps) {
                   onPress={() => handleApplySelectedTime(false)}
                   style={[styles.timePickerSecondaryButton, !selectedPickerTime && styles.buttonDisabled]}
                 >
-                  <Text style={styles.timePickerSecondaryText}>Use for this day</Text>
+                  <Text translate style={styles.timePickerSecondaryText}>Use for this day</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   activeOpacity={0.84}
@@ -398,7 +398,7 @@ export function StaffScheduleSection({ staffId }: StaffScheduleSectionProps) {
                   onPress={() => handleApplySelectedTime(true)}
                   style={[styles.timePickerPrimaryButton, !selectedPickerTime && styles.buttonDisabled]}
                 >
-                  <Text style={styles.timePickerPrimaryText}>Apply to all working days</Text>
+                  <Text translate style={styles.timePickerPrimaryText}>Apply to all working days</Text>
                 </TouchableOpacity>
               </View>
             ) : null}
@@ -418,7 +418,7 @@ export function StaffScheduleSection({ staffId }: StaffScheduleSectionProps) {
           {saving ? (
             <ActivityIndicator color="#FFFFFF" size="small" />
           ) : (
-            <Text style={styles.saveButtonText}>Save Schedule</Text>
+            <Text translate style={styles.saveButtonText}>Save Schedule</Text>
           )}
         </TouchableOpacity>
       </View>
@@ -468,7 +468,7 @@ function TimeDropdownField({
 
   return (
     <View style={[styles.timeDropdownGroup, active && styles.timeDropdownGroupActive]}>
-      <Text style={styles.timeDropdownLabel}>{label}</Text>
+      <Text translate style={styles.timeDropdownLabel}>{label}</Text>
       <View ref={anchorRef} collapsable={false}>
       <TouchableOpacity activeOpacity={0.84} onPress={() => {
         if (active) {

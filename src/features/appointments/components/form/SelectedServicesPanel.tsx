@@ -1,3 +1,4 @@
+import { useRegionalPreferences } from "@/localization/preferences";
 import { Text } from "@/components/ui/AppTypography";
 import { createStyles } from "@/features/appointments/styles/appointmentStyles";
 import { formatCurrency, formatDurationLabel, getServicePricingTotals } from "@/features/appointments/utils/appointmentForm";
@@ -36,6 +37,8 @@ export function SelectedServicesPanel({
   totalDuration: number;
   totalPrice: number;
 }) {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const rowStyles = useMemo(() => createRowStyles(Colors), [Colors]);
@@ -44,7 +47,7 @@ export function SelectedServicesPanel({
     return (
       <View style={styles.emptyInlineState}>
         <Ionicons name="sparkles-outline" size={18} color={Colors.text2} />
-        <Text style={styles.fieldHint}>Search and add at least one service.</Text>
+        <Text translate style={styles.fieldHint}>Search and add at least one service.</Text>
       </View>
     );
   }
@@ -81,7 +84,7 @@ export function SelectedServicesPanel({
             </View>
             <View style={rowStyles.pickers}>
               <View style={rowStyles.staffField}>
-                <Text style={rowStyles.label}>Staff</Text>
+                <Text translate style={rowStyles.label}>Staff</Text>
                 <TouchableOpacity accessibilityLabel={`Select staff for ${service.name}`} accessibilityRole="button" activeOpacity={0.8} onPress={() => onPickStaff(service.id)} style={rowStyles.select}>
                   <Ionicons name="person-outline" size={15} color={Colors.primaryText} />
                   <Text numberOfLines={1} style={[rowStyles.value, !staffName && rowStyles.placeholder]}>{staffName || "Select staff"}</Text>
@@ -89,7 +92,7 @@ export function SelectedServicesPanel({
                 </TouchableOpacity>
               </View>
               <View style={rowStyles.timeField}>
-                <Text style={rowStyles.label}>Time</Text>
+                <Text translate style={rowStyles.label}>Time</Text>
                 <TouchableOpacity accessibilityLabel={`Select time for ${service.name}`} accessibilityRole="button" activeOpacity={0.8} onPress={() => onPickTime(service.id)} style={rowStyles.select}>
                   <Text numberOfLines={1} style={[rowStyles.value, !time && rowStyles.placeholder]}>{time ? itemTimeLabel(time) : "Time"}</Text>
                   <Ionicons name="chevron-down" size={15} color={Colors.primaryText} />
@@ -104,7 +107,7 @@ export function SelectedServicesPanel({
         <View style={styles.serviceTotalItem}>
           <Ionicons name="time-outline" size={20} color={Colors.heading} />
           <View>
-            <Text style={styles.availabilityLabel}>Duration</Text>
+            <Text translate style={styles.availabilityLabel}>Duration</Text>
             <Text style={styles.availabilityValue}>{totalDuration} min</Text>
           </View>
         </View>
@@ -112,22 +115,22 @@ export function SelectedServicesPanel({
         <View style={styles.serviceTotalItem}>
           <Ionicons name="cash-outline" size={20} color={Colors.heading} />
           <View>
-            <Text style={styles.availabilityLabel}>Grand Total</Text>
+            <Text translate style={styles.availabilityLabel}>Grand Total</Text>
             <Text style={styles.availabilityValue}>{formatCurrency(totalPrice)}</Text>
           </View>
         </View>
       </View>
       <View style={styles.serviceBreakdownCard}>
         <View style={styles.availabilityRow}>
-          <Text style={styles.availabilityRowLabel}>Subtotal</Text>
+          <Text translate style={styles.availabilityRowLabel}>Subtotal</Text>
           <Text style={styles.availabilityRowValue}>{formatCurrency(pricingTotals.subtotal)}</Text>
         </View>
         <View style={styles.availabilityRow}>
-          <Text style={styles.availabilityRowLabel}>Discount</Text>
+          <Text translate style={styles.availabilityRowLabel}>Discount</Text>
           <Text style={styles.availabilityRowValue}>{formatCurrency(pricingTotals.discount)}</Text>
         </View>
         <View style={styles.availabilityRow}>
-          <Text style={styles.availabilityRowLabel}>Tax</Text>
+          <Text translate style={styles.availabilityRowLabel}>Tax</Text>
           <Text style={styles.availabilityRowValue}>{formatCurrency(pricingTotals.tax)}</Text>
         </View>
       </View>

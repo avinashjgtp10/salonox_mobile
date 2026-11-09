@@ -9,10 +9,10 @@ import { pearl, pearlGradients } from "@/components/auth/pearl/tokens";
 export function CatalogFormFooter({ label, loading, onCancel, onSave }: { label: string; loading: boolean; onCancel: () => void; onSave: () => void }) {
   const insets = useSafeAreaInsets();
   return <PearlActionFooter bottomInset={insets.bottom}>
-    <TouchableOpacity disabled={loading} onPress={onCancel} style={s.cancel}><Text style={s.cancelText}>Cancel</Text></TouchableOpacity>
+    <TouchableOpacity disabled={loading} onPress={onCancel} style={s.cancel}><Text translate style={s.cancelText}>Cancel</Text></TouchableOpacity>
     <TouchableOpacity disabled={loading} onPress={onSave} style={[s.save, loading && { opacity: 0.65 }]}>
       <LinearGradient colors={pearlGradients.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
-      {loading ? <ActivityIndicator color="#FFFFFF" size="small" /> : null}<Text style={s.saveText}>{loading ? "Saving…" : label}</Text>
+      {loading ? <ActivityIndicator color="#FFFFFF" size="small" /> : null}<Text translate style={s.saveText}>{loading ? "Saving…" : label}</Text>
     </TouchableOpacity>
   </PearlActionFooter>;
 }

@@ -106,7 +106,7 @@ function SwipeActionButton({
       style={[styles.swipeActionButton, { backgroundColor }]}
     >
       <Ionicons name={icon} size={18} color={color} />
-      <Text style={[styles.swipeActionText, { color }]}>{label}</Text>
+      <Text translate style={[styles.swipeActionText, { color }]}>{label}</Text>
     </TouchableOpacity>
   );
 }
@@ -118,7 +118,7 @@ function ClientCard({ client, index, isLast, isDeleting, onBook, onDelete, onEdi
     renderRightActions={() => <View style={{ flexDirection: "row" }}><SwipeActionButton backgroundColor={pearl.accentWash} color={pearl.accentDeep} icon="create-outline" label="Edit" onPress={onEdit} /><SwipeActionButton backgroundColor={pearl.dangerBg} color={pearl.dangerText} icon="trash-outline" label="Delete" onPress={onDelete} disabled={isDeleting} /></View>}>
     <TouchableOpacity accessibilityRole="button" onPress={onOpen} style={{ flexDirection: "row", alignItems: "center", gap: 12, padding: 14, backgroundColor: pearl.glass, borderBottomWidth: 1, borderBottomColor: pearl.divider }}>
       <LinearGradient colors={tone.avatar} style={{ width: 44, height: 44, borderRadius: 16, alignItems: "center", justifyContent: "center" }}><Text style={{ color: "#FFFFFF", fontSize: 15, fontWeight: "700" }}>{client.initials}</Text></LinearGradient>
-      <View style={{ flex: 1 }}><View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 6 }}><Text style={clientUi.rowTitle}>{client.fullName}</Text>{client.membership ? <Text style={{ fontSize: 10, color: "#94640F", backgroundColor: pearl.warningBg, borderRadius: 8, paddingHorizontal: 6 }}>{client.membership}</Text> : isCreatedToday(client.createdAt) ? <Text style={{ fontSize: 10, color: pearl.successText }}>New</Text> : null}</View>
+      <View style={{ flex: 1 }}><View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 6 }}><Text style={clientUi.rowTitle}>{client.fullName}</Text>{client.membership ? <Text style={{ fontSize: 10, color: "#94640F", backgroundColor: pearl.warningBg, borderRadius: 8, paddingHorizontal: 6 }}>{client.membership}</Text> : isCreatedToday(client.createdAt) ? <Text translate style={{ fontSize: 10, color: pearl.successText }}>New</Text> : null}</View>
         <Text style={clientUi.muted}>{client.totalVisits} {client.totalVisits === 1 ? "visit" : "visits"}</Text>
         {client.birthdayDayMonth ? <Text style={{ color: pearlTones.lilac.fg, fontSize: 11 }}>Birthday {clientBirthdayLabel(client.birthdayDayMonth)}</Text> : null}
       </View><Ionicons name="chevron-forward" size={18} color={pearl.muted} />
@@ -164,14 +164,14 @@ function EmptyState({ onAdd, queryActive }: { onAdd: () => void; queryActive: bo
           <Ionicons name="people-outline" size={26} color={Colors.primaryText} />
         </View>
       </View>
-      <Text style={styles.emptyTitle}>No Clients Found</Text>
-      <Text style={styles.emptySubtitle}>
+      <Text translate style={styles.emptyTitle}>No Clients Found</Text>
+      <Text translate style={styles.emptySubtitle}>
         {queryActive
           ? "Try a different search, filter, or sort to find the right client."
           : "Add your first client to start building your salon client list."}
       </Text>
       <TouchableOpacity activeOpacity={0.85} onPress={onAdd} style={styles.emptyButton}>
-        <Text style={styles.emptyButtonText}>Add First Client</Text>
+        <Text translate style={styles.emptyButtonText}>Add First Client</Text>
       </TouchableOpacity>
     </View>
   );
@@ -516,7 +516,7 @@ function ClientsScreenContent() {
             </View>
           }
           ListHeaderComponent={<View style={{ gap: 14, paddingBottom: 14 }}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}><AppBackButton onPress={handleBack} /><View style={{ flex: 1 }}><Text style={{ color: pearl.ink, fontSize: 23, fontWeight: "800" }}>Clients</Text><Text style={clientUi.muted}>{totalCount} total · {todayNewClients} new today</Text></View><TouchableOpacity accessibilityLabel="More" onPress={() => setToolsVisible(true)} style={newStyles.iconButton}><Ionicons name="ellipsis-horizontal" size={20} color={pearl.ink} /></TouchableOpacity></View>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}><AppBackButton onPress={handleBack} /><View style={{ flex: 1 }}><Text translate style={{ color: pearl.ink, fontSize: 23, fontWeight: "800" }}>Clients</Text><Text style={clientUi.muted}>{totalCount} total · {todayNewClients} new today</Text></View><TouchableOpacity accessibilityLabel="More" onPress={() => setToolsVisible(true)} style={newStyles.iconButton}><Ionicons name="ellipsis-horizontal" size={20} color={pearl.ink} /></TouchableOpacity></View>
             <View style={{ flexDirection: "row", gap: 8 }}><View style={newStyles.search}><Ionicons name="search-outline" size={19} color={pearl.muted} /><TextInput accessibilityLabel="Search name or mobile" placeholder="Search name or mobile" placeholderTextColor={pearl.muted} value={query} onChangeText={setQuery} style={{ flex: 1, paddingVertical: 12, color: pearl.ink, fontSize: 14 }} /></View><TouchableOpacity accessibilityLabel="Filters" onPress={openFilterSheet} style={newStyles.iconButton}><Ionicons name="options-outline" size={20} color={pearl.accentDeep} />{activeFilterCount ? <Text style={{ color: pearl.accentDeep, fontSize: 10 }}>{activeFilterCount}</Text> : null}</TouchableOpacity></View>
             <ClientChips options={["All " + totalCount, "Active"]} selected={statusFilter === "Active" ? "Active" : "All " + totalCount} onSelect={(value) => setStatusFilter(value === "Active" ? "Active" : "All")} />
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}><Text style={clientUi.muted}>Sorted by {sortOption === "Recent" ? "recently added" : sortOption === "Name A-Z" ? "name" : sortOption.toLowerCase()}</Text><TouchableOpacity accessibilityLabel="Sort name A–Z" onPress={() => setSortOption(sortOption === "Name A-Z" ? "Recent" : "Name A-Z")}><Ionicons name="swap-vertical-outline" size={20} color={pearl.muted} /></TouchableOpacity></View>
@@ -559,19 +559,19 @@ function ClientsScreenContent() {
             onPress={handleAddClient}
             style={newStyles.fab}
           >
-            <LinearGradient pointerEvents="none" colors={pearlGradients.primary} style={StyleSheet.absoluteFill} /><Ionicons name="add" size={20} color="#FFFFFF" /><Text style={newStyles.fabText}>Add client</Text>
+            <LinearGradient pointerEvents="none" colors={pearlGradients.primary} style={StyleSheet.absoluteFill} /><Ionicons name="add" size={20} color="#FFFFFF" /><Text translate style={newStyles.fabText}>Add client</Text>
           </TouchableOpacity>
         </View>
 
         <ClientBottomNav />
         <BottomSheet pearlStyle centered={false} title="Filter clients" visible={isFilterSheetVisible} onClose={() => setIsFilterSheetVisible(false)} footer={<View style={{ flex: 1, flexDirection: "row", gap: 10 }}><ClientButton secondary label="Reset" onPress={resetDraftFilters} /><View style={{ flex: 1 }}><ClientButton label="Show clients" onPress={applyDraftFilters} /></View></View>}>
-          <View style={{ gap: 18 }}><View><Text style={clientUi.label}>Status</Text><ClientChips options={STATUS_FILTERS} selected={draftStatusFilter} onSelect={(value) => setDraftStatusFilter(value as ClientStatusFilter)} /></View><View><Text style={clientUi.label}>Membership</Text><ClientChips options={MEMBERSHIP_FILTERS} selected={draftMembershipFilter} onSelect={(value) => setDraftMembershipFilter(value as ClientMembershipFilter)} /></View><View><Text style={clientUi.label}>Gender</Text><ClientChips options={["Any", "Women", "Men"]} selected={draftGender} onSelect={setDraftGender} /></View><View><Text style={clientUi.label}>Source</Text><ClientChips options={["Any", "Walk-in", "Instagram", "Referral", "Google"]} selected={draftSource} onSelect={setDraftSource} /></View><View><Text style={clientUi.label}>Sort by</Text><ClientChips options={CLIENT_SORT_OPTIONS.filter((option) => option !== "Last Visit")} selected={draftSortOption} onSelect={(value) => setDraftSortOption(value as ClientSortOption)} /></View></View>
+          <View style={{ gap: 18 }}><View><Text translate style={clientUi.label}>Status</Text><ClientChips options={STATUS_FILTERS} selected={draftStatusFilter} onSelect={(value) => setDraftStatusFilter(value as ClientStatusFilter)} /></View><View><Text translate style={clientUi.label}>Membership</Text><ClientChips options={MEMBERSHIP_FILTERS} selected={draftMembershipFilter} onSelect={(value) => setDraftMembershipFilter(value as ClientMembershipFilter)} /></View><View><Text translate style={clientUi.label}>Gender</Text><ClientChips options={["Any", "Women", "Men"]} selected={draftGender} onSelect={setDraftGender} /></View><View><Text translate style={clientUi.label}>Source</Text><ClientChips options={["Any", "Walk-in", "Instagram", "Referral", "Google"]} selected={draftSource} onSelect={setDraftSource} /></View><View><Text translate style={clientUi.label}>Sort by</Text><ClientChips options={CLIENT_SORT_OPTIONS.filter((option) => option !== "Last Visit")} selected={draftSortOption} onSelect={(value) => setDraftSortOption(value as ClientSortOption)} /></View></View>
         </BottomSheet>
         <BottomSheet pearlStyle centered={false} title="Client tools" visible={toolsVisible} onClose={() => setToolsVisible(false)}>
           <View style={clientUi.card}><ClientMenuRow icon="cloud-upload-outline" title="Import contacts" onPress={() => { setToolsVisible(false); router.push("/clients/import-contacts"); }} /><ClientMenuRow tone="peach" showChevron={false} icon="download-outline" title={exporting ? "Exporting…" : "Export to Excel"} onPress={() => { if (exporting) return; setExporting(true); void clientActionsService.exportExcel({ limit: 2000, gender: genderQuery, source: sourceFilter === "Any" ? undefined : sourceFilter, blocked_status: statusFilter === "Blocked" ? "blocked" : undefined, package_membership: membershipFilter === "Has Membership" ? "has_membership" : undefined, search: debouncedQuery, inactive: statusFilter === "Inactive", sort_by: sortQuery.sort_by, sort_order: sortQuery.sort_order }).catch((e) => Alert.alert("Export unavailable", e instanceof Error ? e.message : "Please try again.")).finally(() => setExporting(false)); }} />{canConfigureClientForm ? <ClientMenuRow tone="rose" icon="options-outline" title="Client form rules" onPress={() => { setToolsVisible(false); setRulesVisible(true); }} /> : null}<ClientMenuRow icon="copy-outline" title="Merge duplicates" onPress={() => { setToolsVisible(false); setIsDuplicatesVisible(true); }} /></View>
         </BottomSheet>
         <BottomSheet pearlStyle centered={false} title="Client form rules" visible={rulesVisible} onClose={() => setRulesVisible(false)}>
-          <View style={{ gap: 14 }}><Text style={clientUi.muted}>Choose which fields are required when adding a client in Quick Sale, Calendar or Add client.</Text><View style={clientUi.card}>{([["require_dob", "Date of birth"], ["require_doa", "Anniversary"]] as const).map(([field, label]) => <View key={field} style={clientUi.menuRow}><View style={{ flex: 1 }}><Text style={clientUi.rowTitle}>{label}</Text><Text style={clientUi.muted}>{requiredDates[field] ? "Required" : "Optional"}</Text></View><Switch accessibilityLabel={label + " required"} value={requiredDates[field]} onValueChange={() => handleToggleRequiredDate(field)} thumbColor="#FFFFFF" trackColor={{ false: pearl.divider, true: pearl.accent }} /></View>)}</View><Text style={clientUi.muted}>Mobile number is always required so bills and reminders can be sent.</Text></View>
+          <View style={{ gap: 14 }}><Text translate style={clientUi.muted}>Choose which fields are required when adding a client in Quick Sale, Calendar or Add client.</Text><View style={clientUi.card}>{([["require_dob", "Date of birth"], ["require_doa", "Anniversary"]] as const).map(([field, label]) => <View key={field} style={clientUi.menuRow}><View style={{ flex: 1 }}><Text translate style={clientUi.rowTitle}>{label}</Text><Text translate style={clientUi.muted}>{requiredDates[field] ? "Required" : "Optional"}</Text></View><Switch accessibilityLabel={label + " required"} value={requiredDates[field]} onValueChange={() => handleToggleRequiredDate(field)} thumbColor="#FFFFFF" trackColor={{ false: pearl.divider, true: pearl.accent }} /></View>)}</View><Text translate style={clientUi.muted}>Mobile number is always required so bills and reminders can be sent.</Text></View>
         </BottomSheet>
         <Modal
           animationType="slide"
@@ -587,14 +587,14 @@ function ClientsScreenContent() {
               >
                 <Ionicons name="close" size={24} color={Colors.primaryText} />
               </TouchableOpacity>
-              <Text style={styles.modalHeaderTitle}>Duplicate Clients</Text>
+              <Text translate style={styles.modalHeaderTitle}>Duplicate Clients</Text>
               <View style={{ width: 40 }} />
             </View>
 
             {duplicatesLoading ? (
               <View style={styles.centeredLoader}>
                 <ActivityIndicator size="large" color={Colors.primaryText} />
-                <Text style={styles.loaderText}>Checking for duplicates...</Text>
+                <Text translate style={styles.loaderText}>Checking for duplicates...</Text>
               </View>
             ) : duplicatesError ? (
               <View style={styles.centeredLoader}>
@@ -603,7 +603,7 @@ function ClientsScreenContent() {
             ) : !duplicates || duplicates.length === 0 ? (
               <View style={styles.centeredLoader}>
                 <Ionicons name="checkmark-done-circle-outline" size={48} color={Colors.success} />
-                <Text style={styles.successText}>No duplicates found!</Text>
+                <Text translate style={styles.successText}>No duplicates found!</Text>
               </View>
             ) : (
               <View style={styles.duplicatesContent}>
@@ -618,7 +618,7 @@ function ClientsScreenContent() {
                   ) : (
                     <>
                       <Ionicons name="git-merge-outline" size={16} color="#FFFFFF" />
-                      <Text style={styles.mergeAllButtonText}>Merge All Duplicates</Text>
+                      <Text translate style={styles.mergeAllButtonText}>Merge All Duplicates</Text>
                     </>
                   )}
                 </TouchableOpacity>
@@ -653,7 +653,7 @@ function ClientsScreenContent() {
                           style={styles.mergeGroupButton}
                           disabled={isMerging}
                         >
-                          <Text style={styles.mergeGroupButtonText}>Merge These Two</Text>
+                          <Text translate style={styles.mergeGroupButtonText}>Merge These Two</Text>
                         </TouchableOpacity>
                       ) : null}
                     </View>

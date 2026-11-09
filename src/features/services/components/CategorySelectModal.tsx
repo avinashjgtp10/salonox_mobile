@@ -137,7 +137,7 @@ export function CategorySelectModal({
       <Pressable onPress={onClose} style={styles.overlay}>
         <Pressable onPress={(e) => e.stopPropagation()} style={styles.sheet}>
           <View style={styles.header}>
-            <Text style={styles.sheetTitle}>Select Category</Text>
+            <Text translate style={styles.sheetTitle}>Select Category</Text>
             <TouchableOpacity activeOpacity={0.7} onPress={onClose} style={styles.closeButton}>
               <Ionicons name="close" size={20} color={Colors.text2} />
             </TouchableOpacity>
@@ -151,28 +151,28 @@ export function CategorySelectModal({
             <View style={styles.createOptionIcon}>
               <Ionicons name="add" size={18} color="#FFFFFF" />
             </View>
-            <Text style={styles.createOptionText}>Create Category</Text>
+            <Text translate style={styles.createOptionText}>Create Category</Text>
           </TouchableOpacity>
 
           {categoriesLoading && categories.length === 0 ? (
             <View style={styles.centerContainer}>
               <ActivityIndicator color={Colors.primaryText} size="small" />
-              <Text style={styles.loadingText}>Loading categories...</Text>
+              <Text translate style={styles.loadingText}>Loading categories...</Text>
             </View>
           ) : categoriesError && categories.length === 0 ? (
             <View style={styles.centerContainer}>
               <Ionicons name="alert-circle-outline" size={28} color={Colors.error} />
               <Text style={styles.errorText}>{categoriesError}</Text>
               <TouchableOpacity activeOpacity={0.8} onPress={handleRetryFetch} style={styles.retryButton}>
-                <Text style={styles.retryButtonText}>Retry</Text>
+                <Text translate style={styles.retryButtonText}>Retry</Text>
               </TouchableOpacity>
             </View>
           ) : (
             <ScrollView showsVerticalScrollIndicator={false} style={styles.categoryList}>
               {categories.length === 0 ? (
                 <View style={styles.emptyContainer}>
-                  <Text style={styles.emptyText}>No categories available yet.</Text>
-                  <Text style={styles.emptySubtext}>Tap &quot;Create Category&quot; above to add one.</Text>
+                  <Text translate style={styles.emptyText}>No categories available yet.</Text>
+                  <Text translate style={styles.emptySubtext}>Tap &quot;Create Category&quot; above to add one.</Text>
                 </View>
               ) : (
                 categories.map((category) => {
@@ -217,14 +217,14 @@ export function CategorySelectModal({
               ]}
             >
               <View style={styles.header}>
-                <Text style={styles.sheetTitle}>New Category</Text>
+                <Text translate style={styles.sheetTitle}>New Category</Text>
                 <TouchableOpacity activeOpacity={0.7} onPress={handleCloseCreateModal} style={styles.closeButton}>
                   <Ionicons name="close" size={20} color={Colors.text2} />
                 </TouchableOpacity>
               </View>
 
               <View style={styles.createInputGroup}>
-                <Text style={styles.createInputLabel}>Category Name</Text>
+                <Text translate style={styles.createInputLabel}>Category Name</Text>
                 <TextInput
                   autoCapitalize="words"
                   autoFocus
@@ -254,7 +254,7 @@ export function CategorySelectModal({
                   onPress={handleCloseCreateModal}
                   style={styles.cancelButton}
                 >
-                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                  <Text translate style={styles.cancelButtonText}>Cancel</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -268,7 +268,7 @@ export function CategorySelectModal({
                   ) : (
                     <Ionicons name="checkmark-circle-outline" size={18} color="#FFFFFF" />
                   )}
-                  <Text style={styles.saveCategoryButtonText}>
+                  <Text translate style={styles.saveCategoryButtonText}>
                     {creatingCategory ? "Saving..." : "Save Category"}
                   </Text>
                 </TouchableOpacity>

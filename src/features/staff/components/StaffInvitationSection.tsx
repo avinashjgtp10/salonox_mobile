@@ -163,26 +163,26 @@ export function StaffInvitationSection({ staffId }: StaffInvitationSectionProps)
   return (
     <StaffSectionCard title="Invitation">
       <View style={styles.statusRow}>
-        <Text style={styles.statusLabel}>Status</Text>
+        <Text translate style={styles.statusLabel}>Status</Text>
         <View style={[styles.statusPill, { backgroundColor: palette.backgroundColor }]}>
           <Text style={[styles.statusPillText, { color: palette.color }]}>{invitationStatus}</Text>
         </View>
       </View>
       {status?.email ? (
         <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>Invited Email</Text>
+          <Text translate style={styles.detailLabel}>Invited Email</Text>
           <Text style={styles.detailValue}>{status.email}</Text>
         </View>
       ) : null}
       {status?.invitedAt ? (
         <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>Invited At</Text>
+          <Text translate style={styles.detailLabel}>Invited At</Text>
           <Text style={styles.detailValue}>{status.invitedAt}</Text>
         </View>
       ) : null}
       {status?.expiresAt ? (
         <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>Expires At</Text>
+          <Text translate style={styles.detailLabel}>Expires At</Text>
           <Text style={styles.detailValue}>{status.expiresAt}</Text>
         </View>
       ) : null}
@@ -191,7 +191,7 @@ export function StaffInvitationSection({ staffId }: StaffInvitationSectionProps)
       {cancelError ? <Text style={styles.errorText}>{cancelError}</Text> : null}
 
       {invitationStatus === "none" ? (
-        <Text style={styles.hintText}>No invitation has been sent to this staff member yet.</Text>
+        <Text translate style={styles.hintText}>No invitation has been sent to this staff member yet.</Text>
       ) : (
         <View style={styles.footer}>
           {canCancel ? (
@@ -204,7 +204,7 @@ export function StaffInvitationSection({ staffId }: StaffInvitationSectionProps)
               {canceling ? (
                 <ActivityIndicator color={Colors.error} size="small" />
               ) : (
-                <Text style={styles.cancelButtonText}>Cancel Invite</Text>
+                <Text translate style={styles.cancelButtonText}>Cancel Invite</Text>
               )}
             </TouchableOpacity>
           ) : null}
@@ -218,7 +218,7 @@ export function StaffInvitationSection({ staffId }: StaffInvitationSectionProps)
               {resending ? (
                 <ActivityIndicator color="#FFFFFF" size="small" />
               ) : (
-                <Text style={styles.resendButtonText}>Resend Invite</Text>
+                <Text translate style={styles.resendButtonText}>Resend Invite</Text>
               )}
             </TouchableOpacity>
           ) : null}

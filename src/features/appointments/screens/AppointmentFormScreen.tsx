@@ -128,7 +128,7 @@ export function AppointmentFormScreen({ mode, initialSlot, onRequestClose }: Pro
         <View style={styles.headerRow}>
           <AppBackButton fallbackHref="/bookings" onPress={embedded?.onRequestClose} />
           <View style={styles.appointmentHeaderCopy}>
-            <Text style={[pearlType.h3, { textAlign: "center" }]}>{mode === "create" ? "New appointment" : "Edit appointment"}</Text>
+            <Text translate style={[pearlType.h3, { textAlign: "center" }]}>{mode === "create" ? "New appointment" : "Edit appointment"}</Text>
 
           </View>
         </View>
@@ -238,7 +238,7 @@ export function AppointmentFormScreen({ mode, initialSlot, onRequestClose }: Pro
           <View style={styles.appointmentDeliverySection}>
             <View style={styles.appointmentDeliveryTitleRow}>
               <Ionicons name="document-text-outline" size={17} color={Colors.appointmentTextSecondary} />
-              <Text style={styles.appointmentDeliveryTitle}>Send appointment details on</Text>
+              <Text translate style={styles.appointmentDeliveryTitle}>Send appointment details on</Text>
             </View>
             <View style={styles.appointmentDeliveryOptions}>
               <TouchableOpacity
@@ -253,7 +253,7 @@ export function AppointmentFormScreen({ mode, initialSlot, onRequestClose }: Pro
                   size={20}
                   color={sendAppointmentSms ? Colors.primaryText : Colors.appointmentMuted}
                 />
-                <Text style={styles.appointmentDeliveryOptionText}>SMS</Text>
+                <Text translate style={styles.appointmentDeliveryOptionText}>SMS</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 accessibilityRole="checkbox"
@@ -267,7 +267,7 @@ export function AppointmentFormScreen({ mode, initialSlot, onRequestClose }: Pro
                   size={20}
                   color={sendAppointmentEmail ? Colors.primaryText : Colors.appointmentMuted}
                 />
-                <Text style={styles.appointmentDeliveryOptionText}>Email</Text>
+                <Text translate style={styles.appointmentDeliveryOptionText}>Email</Text>
               </TouchableOpacity>
             </View>
           </View>

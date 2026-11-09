@@ -340,7 +340,7 @@ export default function NewClientScreen() {
         <View style={styles.loadingState}>
           <Text style={styles.errorText}>{clientDetailsError}</Text>
           <TouchableOpacity activeOpacity={0.85} onPress={handleBack} style={styles.submitButton}>
-            <Text style={styles.submitButtonText}>Go Back</Text>
+            <Text translate style={styles.submitButtonText}>Go Back</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView></PearlBackground>
@@ -349,13 +349,13 @@ export default function NewClientScreen() {
 
   return <PearlBackground><SafeAreaView edges={["top"]} style={styles.safeArea}><AppStatusBar />
     <KeyboardAwareScrollView pearlStyle keyboardNavigation={keyboardNavigation} ref={scrollViewRef} contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 24 }} style={styles.flex} keyboardShouldPersistTaps="handled">
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}><AppBackButton onPress={handleBack} /><Text style={{ flex: 1, textAlign: "center", color: pearl.ink, fontSize: 18, fontWeight: "700" }}>{isEditMode ? "Edit client" : "Add client"}</Text><View style={{ width: 44 }} /></View>
-      <View style={formUi.card}><Text style={formUi.heading}>Contact</Text><View style={{ flexDirection: "row", gap: 12 }}>
-        <View style={{ flex: 1 }}><Text style={clientUi.label}>First name *</Text><TextInput ref={(input) => { firstNameInput.current = input; setFieldRef("firstName", input); }} returnKeyType="next" onSubmitEditing={() => lastNameInput.current?.focus()} submitBehavior="submit" editable={!isSubmitting} value={firstName} onChangeText={(value) => { setFirstName(value); setFieldErrors((current) => ({ ...current, firstName: undefined })); }} placeholder="e.g. Ananya" placeholderTextColor={pearl.placeholder} style={clientUi.input} />{fieldErrors.firstName ? <Text style={clientUi.error}>{fieldErrors.firstName}</Text> : null}</View>
-        <View style={{ flex: 1 }}><Text style={clientUi.label}>Last name</Text><TextInput ref={lastNameInput} returnKeyType="next" submitBehavior="submit" onSubmitEditing={() => { if (id && !replacingPhone) emailInput.current?.focus(); else phoneInput.current?.focus(); }} editable={!isSubmitting} value={lastName} onChangeText={setLastName} placeholder="Optional" placeholderTextColor={pearl.placeholder} style={clientUi.input} /></View>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}><AppBackButton onPress={handleBack} /><Text translate style={{ flex: 1, textAlign: "center", color: pearl.ink, fontSize: 18, fontWeight: "700" }}>{isEditMode ? "Edit client" : "Add client"}</Text><View style={{ width: 44 }} /></View>
+      <View style={formUi.card}><Text translate style={formUi.heading}>Contact</Text><View style={{ flexDirection: "row", gap: 12 }}>
+        <View style={{ flex: 1 }}><Text translate style={clientUi.label}>First name *</Text><TextInput ref={(input) => { firstNameInput.current = input; setFieldRef("firstName", input); }} returnKeyType="next" onSubmitEditing={() => lastNameInput.current?.focus()} submitBehavior="submit" editable={!isSubmitting} value={firstName} onChangeText={(value) => { setFirstName(value); setFieldErrors((current) => ({ ...current, firstName: undefined })); }} placeholder="e.g. Ananya" placeholderTextColor={pearl.placeholder} style={clientUi.input} />{fieldErrors.firstName ? <Text style={clientUi.error}>{fieldErrors.firstName}</Text> : null}</View>
+        <View style={{ flex: 1 }}><Text translate style={clientUi.label}>Last name</Text><TextInput ref={lastNameInput} returnKeyType="next" submitBehavior="submit" onSubmitEditing={() => { if (id && !replacingPhone) emailInput.current?.focus(); else phoneInput.current?.focus(); }} editable={!isSubmitting} value={lastName} onChangeText={setLastName} placeholder="Optional" placeholderTextColor={pearl.placeholder} style={clientUi.input} /></View>
       </View>
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Mobile<Text style={styles.requiredMark}>*</Text></Text>
+              <Text style={styles.inputLabel}>Mobile<Text translate style={styles.requiredMark}>*</Text></Text>
               {id && !replacingPhone ? (
                 // No "Change number" label: tapping the masked number itself
                 // opens the field for a new number.
@@ -386,23 +386,23 @@ export default function NewClientScreen() {
                 value={phone}
               />}
               <View style={styles.whatsappRow}>
-                <Text style={styles.whatsappText}>Same number on WhatsApp</Text>
+                <Text translate style={styles.whatsappText}>Same number on WhatsApp</Text>
                 <Switch onValueChange={setWhatsappMatchesPhone} thumbColor="#FFFFFF" trackColor={{ false: Colors.border, true: Colors.primary }} value={whatsappMatchesPhone} />
               </View>
             </View>
 
-      <View><Text style={clientUi.label}>Email</Text><TextInput ref={(input) => { emailInput.current = input; setFieldRef("email", input); }} returnKeyType={isEditMode && moreDetails ? "next" : "done"} onSubmitEditing={() => { if (isEditMode && moreDetails) addressInput.current?.focus(); else Keyboard.dismiss(); }} editable={!isSubmitting} value={email} onChangeText={(value) => { setEmail(value); setFieldErrors((current) => ({ ...current, email: undefined })); }} keyboardType="email-address" autoCapitalize="none" placeholder="Optional" placeholderTextColor={pearl.placeholder} style={clientUi.input} />{fieldErrors.email ? <Text style={clientUi.error}>{fieldErrors.email}</Text> : null}</View></View>
-      <View style={formUi.card}><Text style={formUi.heading}>Messages</Text><Text style={clientUi.muted}>Ask the client before turning promotions on.</Text>{[
+      <View><Text translate style={clientUi.label}>Email</Text><TextInput ref={(input) => { emailInput.current = input; setFieldRef("email", input); }} returnKeyType={isEditMode && moreDetails ? "next" : "done"} onSubmitEditing={() => { if (isEditMode && moreDetails) addressInput.current?.focus(); else Keyboard.dismiss(); }} editable={!isSubmitting} value={email} onChangeText={(value) => { setEmail(value); setFieldErrors((current) => ({ ...current, email: undefined })); }} keyboardType="email-address" autoCapitalize="none" placeholder="Optional" placeholderTextColor={pearl.placeholder} style={clientUi.input} />{fieldErrors.email ? <Text style={clientUi.error}>{fieldErrors.email}</Text> : null}</View></View>
+      <View style={formUi.card}><Text translate style={formUi.heading}>Messages</Text><Text translate style={clientUi.muted}>Ask the client before turning promotions on.</Text>{[
         { title: "Bills & reminders", hint: "WhatsApp · SMS", enabled: transactionChannels.length > 0, toggle: () => setTransactionChannels(transactionChannels.length ? [] : ["SMS", "Whatsapp"]) },
         { title: "Offers & promotions", hint: "Off until the client agrees", enabled: promotionChannels.length > 0, toggle: () => setPromotionChannels(promotionChannels.length ? [] : ["SMS", "Whatsapp"]) },
-      ].map((row) => <View key={row.title} style={formUi.toggleRow}><View style={{ flex: 1 }}><Text style={clientUi.rowTitle}>{row.title}</Text><Text style={clientUi.muted}>{row.hint}</Text></View><Switch disabled={isSubmitting} value={row.enabled} onValueChange={row.toggle} thumbColor="#FFFFFF" trackColor={{ false: pearl.divider, true: pearl.accent }} /></View>)}</View>
-      {isEditMode ? <TouchableOpacity onPress={() => setMoreDetails((value) => !value)} style={[formUi.card, { flexDirection: "row", alignItems: "center", gap: 12 }]}><View style={clientUi.icon}><Ionicons name="person-outline" size={19} color={pearlTones.lilac.fg} /></View><View style={{ flex: 1 }}><Text style={clientUi.rowTitle}>More details (optional)</Text><Text style={clientUi.muted}>Gender, birthday, anniversary, address</Text></View><Ionicons name={moreDetails ? "chevron-up" : "chevron-down"} size={17} color={pearl.muted} /></TouchableOpacity> : null}
-      {!isEditMode || moreDetails ? <View style={formUi.card}>{isEditMode ? <><Text style={formUi.heading}>More details</Text><View><Text style={clientUi.label}>Gender</Text><ClientChips options={GENDER_OPTIONS} selected={gender} onSelect={(value) => setGender(value as (typeof GENDER_OPTIONS)[number])} /></View></> : null}
+      ].map((row) => <View key={row.title} style={formUi.toggleRow}><View style={{ flex: 1 }}><Text translate style={clientUi.rowTitle}>{row.title}</Text><Text style={clientUi.muted}>{row.hint}</Text></View><Switch disabled={isSubmitting} value={row.enabled} onValueChange={row.toggle} thumbColor="#FFFFFF" trackColor={{ false: pearl.divider, true: pearl.accent }} /></View>)}</View>
+      {isEditMode ? <TouchableOpacity onPress={() => setMoreDetails((value) => !value)} style={[formUi.card, { flexDirection: "row", alignItems: "center", gap: 12 }]}><View style={clientUi.icon}><Ionicons name="person-outline" size={19} color={pearlTones.lilac.fg} /></View><View style={{ flex: 1 }}><Text translate style={clientUi.rowTitle}>More details (optional)</Text><Text translate style={clientUi.muted}>Gender, birthday, anniversary, address</Text></View><Ionicons name={moreDetails ? "chevron-up" : "chevron-down"} size={17} color={pearl.muted} /></TouchableOpacity> : null}
+      {!isEditMode || moreDetails ? <View style={formUi.card}>{isEditMode ? <><Text translate style={formUi.heading}>More details</Text><View><Text translate style={clientUi.label}>Gender</Text><ClientChips options={GENDER_OPTIONS} selected={gender} onSelect={(value) => setGender(value as (typeof GENDER_OPTIONS)[number])} /></View></> : null}
         <DateField pearlStyle ref={(view) => setFieldRef("birthDate", view)} error={fieldErrors.birthDate} label="Birthday (optional)" maximumDate={new Date()} value={birthDate} onChange={(value) => { setBirthDate(value); setFieldErrors((current) => ({ ...current, birthDate: undefined })); }} placeholder="Select birthday" />
         <DateField pearlStyle ref={(view) => setFieldRef("anniversary", view)} error={fieldErrors.anniversary} label="Anniversary (optional)" maximumDate={new Date()} value={anniversaryDate} onChange={(value) => { setAnniversaryDate(value); setFieldErrors((current) => ({ ...current, anniversary: undefined })); }} placeholder="Select anniversary" />
-        {isEditMode ? <View><Text style={clientUi.label}>Address</Text><TextInput ref={addressInput} returnKeyType="done" onSubmitEditing={Keyboard.dismiss} editable={!isSubmitting} value={address} onChangeText={setAddress} placeholder="Optional" placeholderTextColor={pearl.placeholder} style={clientUi.input} /></View> : null}
+        {isEditMode ? <View><Text translate style={clientUi.label}>Address</Text><TextInput ref={addressInput} returnKeyType="done" onSubmitEditing={Keyboard.dismiss} editable={!isSubmitting} value={address} onChangeText={setAddress} placeholder="Optional" placeholderTextColor={pearl.placeholder} style={clientUi.input} /></View> : null}
       </View> : null}
-      <Text style={clientUi.muted}>Only first name and mobile are required. Everything else can be added later.</Text>
+      <Text translate style={clientUi.muted}>Only first name and mobile are required. Everything else can be added later.</Text>
       {displayedError ? <Text accessibilityRole="alert" style={clientUi.error}>{displayedError}</Text> : null}{successMessage ? <Text style={{ color: pearl.successText }}>{successMessage}</Text> : null}
     </KeyboardAwareScrollView>
     <PearlActionFooter bottomInset={insets.bottom}><ClientButton secondary label="Cancel" loading={isSubmitting} onPress={handleBack} /><View style={{ flex: 1 }}><ClientButton label="Save client" loading={isSubmitting} onPress={() => void handleSubmit()} /></View></PearlActionFooter>

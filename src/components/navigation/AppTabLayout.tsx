@@ -119,7 +119,7 @@ export function PearlNavigationBar({ tabs, activeName, onNavigate }: { tabs: App
                     </LinearGradient>
                   )}
                   <View style={{ height: 22 }} />
-                  <Text style={[styles.label, styles.raisedLabel]} numberOfLines={1}>{label}</Text>
+                  <Text translate style={[styles.label, styles.raisedLabel]} numberOfLines={1}>{label}</Text>
                   <View style={[styles.marker, { opacity: 0 }]} />
                 </Pressable>
               );
@@ -136,7 +136,7 @@ export function PearlNavigationBar({ tabs, activeName, onNavigate }: { tabs: App
                     : <Icon name={tab.icon} size={22} color={color} />}
                   {tab.badge ? <View style={styles.badge}><Text style={styles.badgeText}>{tab.badge > 99 ? "99+" : tab.badge}</Text></View> : null}
                 </View>
-                <Text style={[styles.label, { color }]} numberOfLines={1}>{label}</Text>
+                <Text translate style={[styles.label, { color }]} numberOfLines={1}>{label}</Text>
                 <View style={[styles.marker, !focused && { opacity: 0 }]} />
               </Pressable>
             );

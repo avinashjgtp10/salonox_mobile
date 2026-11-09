@@ -16,14 +16,14 @@ export default function ReportsHomeScreen() {
   const sections = useMemo(() => VISIBLE_REPORT_GROUPS.map((title) => ({ title: title === "Customers" ? "Clients" : title, data: VISIBLE_REPORT_CONFIGS.filter((report) => report.group === title && [report.title, report.subtitle].join(" ").toLowerCase().includes(search.trim().toLowerCase())) })).filter((section) => section.data.length), [search]);
   return <PearlBackground><SafeAreaView style={s.safe} edges={["top"]}><AppStatusBar />
     <SectionList sections={sections} keyExtractor={(item) => item.slug} stickySectionHeadersEnabled={false} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={s.content}
-      ListHeaderComponent={<View style={s.top}><View style={s.header}><AppBackButton onPress={() => router.back()} /><View style={s.copy}><Text style={s.title}>Reports</Text><Text style={s.subtitle}>Find the answer you need</Text></View><LunoxHeaderButton /></View>
+      ListHeaderComponent={<View style={s.top}><View style={s.header}><AppBackButton onPress={() => router.back()} /><View style={s.copy}><Text translate style={s.title}>Reports</Text><Text translate style={s.subtitle}>Find the answer you need</Text></View><LunoxHeaderButton /></View>
         <View style={s.search}><Ionicons name="search-outline" size={18} color={pearl.muted} /><TextInput accessibilityLabel="Search reports" placeholder="Search reports" placeholderTextColor={pearl.muted} value={search} onChangeText={setSearch} underlineColorAndroid="transparent" style={s.input} />{search ? <TouchableOpacity accessibilityLabel="Clear search" onPress={() => setSearch("")}><Ionicons name="close-circle" size={18} color={pearl.muted} /></TouchableOpacity> : null}</View></View>}
-      renderSectionHeader={({ section }) => <Text style={s.group}>{section.title}</Text>}
+      renderSectionHeader={({ section }) => <Text translate style={s.group}>{section.title}</Text>}
       renderItem={({ item, index, section }) => {
         const tone = [pearlTones.rose, pearlTones.lilac, pearlTones.peach][index % 3];
-        return <TouchableOpacity accessibilityRole="button" onPress={() => router.push(('/reports/' + item.slug) as Href)} activeOpacity={0.8} style={[s.row, index === 0 && s.first, index === section.data.length - 1 && s.last]}><View style={[s.icon, { backgroundColor: tone.bg }]}><Ionicons name={item.icon} size={20} color={tone.fg} /></View><View style={s.copy}><Text style={s.name}>{item.title}</Text><Text style={s.description}>{item.subtitle}</Text></View><Ionicons name="chevron-forward" size={17} color={pearl.muted} /></TouchableOpacity>;
+        return <TouchableOpacity accessibilityRole="button" onPress={() => router.push(('/reports/' + item.slug) as Href)} activeOpacity={0.8} style={[s.row, index === 0 && s.first, index === section.data.length - 1 && s.last]}><View style={[s.icon, { backgroundColor: tone.bg }]}><Ionicons name={item.icon} size={20} color={tone.fg} /></View><View style={s.copy}><Text translate style={s.name}>{item.title}</Text><Text translate style={s.description}>{item.subtitle}</Text></View><Ionicons name="chevron-forward" size={17} color={pearl.muted} /></TouchableOpacity>;
       }}
-      ListEmptyComponent={<Text style={s.empty}>No reports found. Try another search.</Text>}
+      ListEmptyComponent={<Text translate style={s.empty}>No reports found. Try another search.</Text>}
     />
   </SafeAreaView></PearlBackground>;
 }

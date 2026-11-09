@@ -57,7 +57,7 @@ function SettingsSection({ flushTop = false, items, title }: { flushTop?: boolea
 
   return (
     <View style={[styles.section, flushTop && styles.sectionFlush]}>
-      {title ? <Text style={styles.sectionLabel}>{title}</Text> : null}
+      {title ? <Text translate style={styles.sectionLabel}>{title}</Text> : null}
       {items.map((item, index) => (
         <TouchableOpacity
           key={item.key}
@@ -71,7 +71,7 @@ function SettingsSection({ flushTop = false, items, title }: { flushTop?: boolea
               <Ionicons name={item.icon} size={20} color={Colors.primaryText} />
             </View>
             <View style={styles.menuCopy}>
-              <Text style={styles.menuTitle}>{item.title}</Text>
+              <Text translate style={styles.menuTitle}>{item.title}</Text>
               <Text style={styles.menuDescription}>{item.description}</Text>
             </View>
           </View>
@@ -295,8 +295,8 @@ export function StaffSettingsScreen() {
       >
         <View style={styles.headerRow}>
           <View style={styles.headerTextBlock}>
-            <Text style={styles.title}>Settings</Text>
-            <Text style={styles.subtitle}>Manage your staff account, preferences, security, and app info.</Text>
+            <Text translate style={styles.title}>Settings</Text>
+            <Text translate style={styles.subtitle}>Manage your staff account, preferences, security, and app info.</Text>
           </View>
           <UserGuideButton variant="icon" />
         </View>
@@ -334,13 +334,13 @@ export function StaffSettingsScreen() {
         <SettingsSection items={securityItems} title="Security" />
 
         <View style={styles.section}>
-          <Text style={styles.sectionLabel}>About</Text>
+          <Text translate style={styles.sectionLabel}>About</Text>
           <TouchableOpacity
             activeOpacity={0.84}
             onPress={() => openWebAppPage("/about")}
             style={styles.versionCard}
           >
-            <Text style={styles.versionTitle}>SalonOX Mobile</Text>
+            <Text translate style={styles.versionTitle}>SalonOX Mobile</Text>
             <Text style={styles.versionText}>Version {appVersion}</Text>
           </TouchableOpacity>
           <SettingsSection flushTop items={aboutItems} title="" />
@@ -359,7 +359,7 @@ export function StaffSettingsScreen() {
           ) : (
             <Ionicons name="log-out-outline" size={18} color="#FFFFFF" />
           )}
-          <Text style={styles.logoutButtonText}>{isLoggingOut ? "Logging out..." : "Logout"}</Text>
+          <Text translate style={styles.logoutButtonText}>{isLoggingOut ? "Logging out..." : "Logout"}</Text>
         </TouchableOpacity>
       </KeyboardAwareScrollView>
       {/* Centered card whose form scrolls the focused field above the keyboard. */}
@@ -404,7 +404,7 @@ export function StaffSettingsScreen() {
               {isSubmittingReport ? (
                 <ActivityIndicator color="#FFFFFF" size="small" />
               ) : (
-                <Text style={styles.reportSubmitText}>Submit Report</Text>
+                <Text translate style={styles.reportSubmitText}>Submit Report</Text>
               )}
             </TouchableOpacity>
       </BottomSheet>

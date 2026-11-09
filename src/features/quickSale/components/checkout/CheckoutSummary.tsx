@@ -11,7 +11,7 @@ export function SummaryRow({ label, tone, value }: { label: string; tone?: "disc
 
   return (
     <View style={styles.summaryRow}>
-      <Text style={styles.summaryLabel}>{label}</Text>
+      <Text translate style={styles.summaryLabel}>{label}</Text>
       <Text style={[styles.summaryValue, tone === "discount" && styles.summaryValueDiscount]}>{value}</Text>
     </View>
   );
@@ -23,7 +23,7 @@ export function SummaryTile({ label, value }: { label: string; value: string }) 
 
   return (
     <View style={styles.summaryTile}>
-      <Text adjustsFontSizeToFit minimumFontScale={0.82} numberOfLines={1} style={styles.summaryTileLabel}>
+      <Text translate adjustsFontSizeToFit minimumFontScale={0.82} numberOfLines={1} style={styles.summaryTileLabel}>
         {label}
       </Text>
       <Text numberOfLines={1} style={styles.summaryTileValue}>{value}</Text>

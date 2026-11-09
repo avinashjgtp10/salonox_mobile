@@ -1,9 +1,12 @@
+import { useRegionalPreferences } from "@/localization/preferences";
 import { Pressable, StyleSheet, View } from "react-native";
 import { Text } from "@/components/ui/AppTypography";
 import { Icon } from "@/components/pearl/Icon";
 import { pearl } from "@/components/auth/pearl/tokens";
 import { formatCurrency } from "@/features/quickSale/utils/money";
 export function PearlCatalogRow({ name, detail, price, selected, first = false, last = false, disabled = false, onPress }: { name: string; detail?: string; price: number; selected: boolean; first?: boolean; last?: boolean; disabled?: boolean; onPress: () => void }) {
+  "use no memo";
+  useRegionalPreferences();
   return <Pressable accessibilityRole="button" accessibilityLabel={name} accessibilityState={{ selected, disabled }} disabled={disabled} onPress={onPress} style={[s.row, first && { borderTopLeftRadius: 20, borderTopRightRadius: 20 }, last && { borderBottomLeftRadius: 20, borderBottomRightRadius: 20, borderBottomWidth: 0 }, disabled && { opacity: 0.5 }]}>
     <View style={s.copy}><Text style={s.name}>{name}</Text>{detail ? <Text style={s.detail}>{detail}</Text> : null}</View>
     <Text style={s.price}>{formatCurrency(price)}</Text>

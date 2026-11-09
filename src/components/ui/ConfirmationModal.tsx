@@ -110,11 +110,11 @@ export function ConfirmationModal({
             style={[styles.card, { width: Math.min(width - 40, 420) }]}
           >
             <View style={styles.copy}>
-              <Text accessibilityRole="header" style={styles.title}>
+              <Text translate accessibilityRole="header" style={styles.title}>
                 {title}
               </Text>
-              <Text style={styles.description}>{description}</Text>
-              {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
+              <Text translate style={styles.description}>{description}</Text>
+              {error ? <Text translate accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
             </View>
 
             <View style={styles.actions}>
@@ -131,7 +131,7 @@ export function ConfirmationModal({
                     disabled && styles.disabledButton,
                   ]}
                 >
-                  <Text style={action.variant === "destructive" ? [styles.secondaryButtonText, styles.destructiveButtonText] : styles.primaryButtonText}>{action.label}</Text>
+                  <Text translate style={action.variant === "destructive" ? [styles.secondaryButtonText, styles.destructiveButtonText] : styles.primaryButtonText}>{action.label}</Text>
                 </TouchableOpacity>
               )) : <>
               <TouchableOpacity

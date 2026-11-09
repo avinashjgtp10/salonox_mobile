@@ -1,3 +1,4 @@
+import { useRegionalPreferences } from "@/localization/preferences";
 import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
 import { AppBackButton } from "@/components/ui/AppBackButton";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
@@ -34,30 +35,36 @@ function formatCreatedDate(createdAt: string | null) {
 }
 
 function DetailRow({ label, value }: { label: string; value: string }) {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   return (
     <View style={styles.detailRow}>
-      <Text style={styles.detailLabel}>{label}</Text>
+      <Text translate style={styles.detailLabel}>{label}</Text>
       <Text style={styles.detailValue}>{value}</Text>
     </View>
   );
 }
 
 function Section({ children, title }: { children: React.ReactNode; title: string }) {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   return (
     <View style={styles.sectionCard}>
-      <Text style={styles.sectionTitle}>{title}</Text>
+      <Text translate style={styles.sectionTitle}>{title}</Text>
       {children}
     </View>
   );
 }
 
 export default function ServiceDetailsScreen() {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const { id } = useLocalSearchParams<{ id?: string }>();
@@ -105,7 +112,7 @@ export default function ServiceDetailsScreen() {
         <View style={styles.notFoundWrap}>
           <View style={styles.headerRow}>
             <AppBackButton activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} />
-            <Text style={styles.headerTitle}>Service Details</Text>
+            <Text translate style={styles.headerTitle}>Service Details</Text>
             <View style={styles.backButtonPlaceholder} />
           </View>
           <View style={styles.centeredContent}>
@@ -123,11 +130,11 @@ export default function ServiceDetailsScreen() {
         <View style={styles.notFoundWrap}>
           <View style={styles.headerRow}>
             <AppBackButton activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} />
-            <Text style={styles.headerTitle}>Service Details</Text>
+            <Text translate style={styles.headerTitle}>Service Details</Text>
             <View style={styles.backButtonPlaceholder} />
           </View>
           <View style={styles.notFoundCard}>
-            <Text style={styles.notFoundTitle}>Unable to load service</Text>
+            <Text translate style={styles.notFoundTitle}>Unable to load service</Text>
             <Text style={styles.notFoundSubtitle}>{detailsError}</Text>
           </View>
         </View>
@@ -142,8 +149,8 @@ export default function ServiceDetailsScreen() {
         <View style={styles.notFoundWrap}>
           <AppBackButton activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} />
           <View style={styles.notFoundCard}>
-            <Text style={styles.notFoundTitle}>Service not found</Text>
-            <Text style={styles.notFoundSubtitle}>
+            <Text translate style={styles.notFoundTitle}>Service not found</Text>
+            <Text translate style={styles.notFoundSubtitle}>
               This service could not be found.
             </Text>
           </View>
@@ -158,7 +165,7 @@ export default function ServiceDetailsScreen() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.headerRow}>
           <AppBackButton activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} />
-          <Text style={styles.headerTitle}>Service Details</Text>
+          <Text translate style={styles.headerTitle}>Service Details</Text>
           <View style={styles.backButtonPlaceholder} />
         </View>
 
@@ -173,7 +180,7 @@ export default function ServiceDetailsScreen() {
               service.isActive ? styles.statusBadgeActive : styles.statusBadgeInactive,
             ]}
           >
-            <Text
+            <Text translate
               style={[
                 styles.statusBadgeText,
                 service.isActive ? styles.statusBadgeTextActive : styles.statusBadgeTextInactive,
@@ -186,11 +193,11 @@ export default function ServiceDetailsScreen() {
           <View style={styles.statsRow}>
             <View style={styles.statCard}>
               <Text style={styles.statValue}>{service.priceLabel}</Text>
-              <Text style={styles.statLabel}>Price</Text>
+              <Text translate style={styles.statLabel}>Price</Text>
             </View>
             <View style={styles.statCard}>
               <Text style={styles.statValue}>{service.durationLabel}</Text>
-              <Text style={styles.statLabel}>Duration</Text>
+              <Text translate style={styles.statLabel}>Duration</Text>
             </View>
           </View>
         </View>

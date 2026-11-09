@@ -1,3 +1,4 @@
+import { useRegionalPreferences } from "@/localization/preferences";
 /**
  * Month overview (prototype "Compare & projection"): this month vs last month on the
  * same days, target & projection, and daily sales. Data: /dashboard/monthly-projection.
@@ -34,6 +35,8 @@ const GENDERS: { key: ProjectionGender; label: string }[] = [
 ];
 
 export default function MonthOverviewScreen() {
+  "use no memo";
+  useRegionalPreferences();
   const branchId = useAppSelector(selectActiveBranchId);
   const user = useAppSelector(selectCurrentUser);
   const metrics = useAppSelector(selectDashboardMetrics);
@@ -111,6 +114,8 @@ function Overview({ data, monthName, prevMonthName, canEdit, onEditTarget, selec
   data: MonthlyProjection; monthName: string; prevMonthName: string; canEdit: boolean;
   onEditTarget: () => void; selectedDay: number | null; onSelectDay: (day: number) => void;
 }) {
+  "use no memo";
+  useRegionalPreferences();
   const current = data.mtdSales;
   const previous = data.lmmtdSales;
   const diff = current - previous;
@@ -144,7 +149,7 @@ function Overview({ data, monthName, prevMonthName, canEdit, onEditTarget, selec
               <View key={month.label} style={{ alignItems: "center", gap: 5 }}>
                 <Text style={styles.cmpValue}>{inrShort(month.value)}</Text>
                 <LinearGradient colors={month.colors} style={[styles.cmpBar, { height: Math.max(8, (month.value / cmpMax) * CMP_MAX) }]} />
-                <Text style={pearlType.small}>{month.label}</Text>
+                <Text translate style={pearlType.small}>{month.label}</Text>
               </View>
             ))}
           </View>
@@ -163,8 +168,8 @@ function Overview({ data, monthName, prevMonthName, canEdit, onEditTarget, selec
           <Legend color={pearl.accent} label="Actual" /><Legend color="#C9B5EC" label="Estimate" /><Legend color="#E8DFD0" label="Target" />
         </View>
         <View style={styles.rowBetween}>
-          <View><Text style={pearlType.small}>Actual (MTD)</Text><Text style={styles.big}>{money(data.mtdSales)}</Text></View>
-          <View style={{ alignItems: "flex-end" }}><Text style={pearlType.small}>Projected</Text><Text style={[styles.big, { color: "#6A4F98" }]}>{money(data.projectedSales)}</Text></View>
+          <View><Text translate style={pearlType.small}>Actual (MTD)</Text><Text style={styles.big}>{money(data.mtdSales)}</Text></View>
+          <View style={{ alignItems: "flex-end" }}><Text translate style={pearlType.small}>Projected</Text><Text style={[styles.big, { color: "#6A4F98" }]}>{money(data.projectedSales)}</Text></View>
         </View>
         {data.target !== null ? (
           <>
@@ -178,7 +183,7 @@ function Overview({ data, monthName, prevMonthName, canEdit, onEditTarget, selec
           </>
         ) : (
           <View style={styles.rowBetween}>
-            <Text style={[pearlType.small, { flex: 1 }]}>No monthly target set yet.</Text>
+            <Text translate style={[pearlType.small, { flex: 1 }]}>No monthly target set yet.</Text>
             {canEdit ? <SmallButton title="Set target" icon="target" onPress={onEditTarget} /> : null}
           </View>
         )}
@@ -215,7 +220,7 @@ function Overview({ data, monthName, prevMonthName, canEdit, onEditTarget, selec
           })}
         </ScrollView>
         <Divider inset={0} />
-        <Text style={[pearlType.small, { marginTop: 8, fontSize: 11 }]}>Tap a bar for the amount · lighter bars are estimates</Text>
+        <Text translate style={[pearlType.small, { marginTop: 8, fontSize: 11 }]}>Tap a bar for the amount · lighter bars are estimates</Text>
       </Card>
     </>
   );
@@ -231,7 +236,7 @@ const KeyValue = ({ k, v, color }: { k: string; v: string; color?: string }) => 
 const Legend = ({ color, label }: { color: string; label: string }) => (
   <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
     <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: color }} />
-    <Text style={[pearlType.label, { fontWeight: "700", fontSize: 11.5 }]}>{label}</Text>
+    <Text translate style={[pearlType.label, { fontWeight: "700", fontSize: 11.5 }]}>{label}</Text>
   </View>
 );
 

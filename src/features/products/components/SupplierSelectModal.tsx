@@ -41,27 +41,27 @@ export function SupplierSelectModal({ visible, initialCreate, canCreate, onClose
     <BottomSheet pearlStyle centered={false} avoidKeyboard visible={visible} title={creating ? "Add supplier" : "Select supplier"} onClose={() => { if (!saving) onClose(); }}>
           <TextInput value={search} onChangeText={setSearch} editable={!saving} placeholder={creating ? "Supplier name" : "Search suppliers"}
             placeholderTextColor={colors.placeholder} style={{ color: colors.heading, borderColor: colors.border, borderWidth: 1, borderRadius: 16, padding: 12, minHeight: 48 }} />
-          {!!error && <Text style={{ color: colors.error, marginTop: 12 }}>{error}</Text>}
+          {!!error && <Text translate style={{ color: colors.error, marginTop: 12 }}>{error}</Text>}
           {creating ? (
             <Pressable disabled={saving || !search.trim()} onPress={() => void create()} style={[button, { opacity: saving || !search.trim() ? 0.5 : 1 }]}>
-              <Text style={{ color: colors.onPrimary, textAlign: "center", fontWeight: "800" }}>{saving ? "Adding…" : "Save supplier"}</Text>
+              <Text translate style={{ color: colors.onPrimary, textAlign: "center", fontWeight: "800" }}>{saving ? "Adding…" : "Save supplier"}</Text>
             </Pressable>
           ) : (
             <>
               {loading && <ActivityIndicator />}
-              {!loading && !!error && <Pressable onPress={() => setRetry((n) => n + 1)} style={button}><Text style={{ color: colors.onPrimary }}>Retry loading suppliers</Text></Pressable>}
+              {!loading && !!error && <Pressable onPress={() => setRetry((n) => n + 1)} style={button}><Text translate style={{ color: colors.onPrimary }}>Retry loading suppliers</Text></Pressable>}
               <ScrollView keyboardShouldPersistTaps="handled" style={{ maxHeight: 300 }}>
                 {[{ id: "", name: "None", is_active: true }, ...suppliers.filter((item) => item.name.toLowerCase().includes(search.trim().toLowerCase()))].map((supplier) => (
                   <Pressable key={supplier.id || "none"} onPress={() => select(supplier.id ? supplier : null)} style={{ paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: colors.border }}>
                     <Text style={{ color: colors.heading }}>{supplier.name}</Text>
                   </Pressable>
                 ))}
-                {!loading && !suppliers.length && !error && <Text style={{ color: colors.text2, paddingVertical: 12 }}>No suppliers yet.</Text>}
+                {!loading && !suppliers.length && !error && <Text translate style={{ color: colors.text2, paddingVertical: 12 }}>No suppliers yet.</Text>}
               </ScrollView>
-              {canCreate && <Pressable style={button} onPress={() => { setCreating(true); setSearch(""); setError(""); }}><Text style={{ color: colors.onPrimary }}>+ Add supplier</Text></Pressable>}
+              {canCreate && <Pressable style={button} onPress={() => { setCreating(true); setSearch(""); setError(""); }}><Text translate style={{ color: colors.onPrimary }}>+ Add supplier</Text></Pressable>}
             </>
           )}
-          <Pressable disabled={saving} onPress={onClose} style={{ padding: 16 }}><Text style={{ color: colors.heading, textAlign: "center" }}>Close</Text></Pressable>
+          <Pressable disabled={saving} onPress={onClose} style={{ padding: 16 }}><Text translate style={{ color: colors.heading, textAlign: "center" }}>Close</Text></Pressable>
     </BottomSheet>
   );
 }

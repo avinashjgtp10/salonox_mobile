@@ -1,3 +1,5 @@
+import { currencyLabel } from "@/utils/currency";
+import { useRegionalPreferences } from "@/localization/preferences";
 import { pearl } from "@/components/auth/pearl/tokens";
 import { NoteBox } from "@/components/pearl/Page";
 import { useEffect, useRef, useState, type ReactNode } from "react";
@@ -55,10 +57,14 @@ type Props = { totals: CheckoutSheetProps["totals"] } & Pick<CheckoutSheetProps,
 };
 
 export function Section({ title, children, aside }: { title?: string; children: ReactNode; aside?: ReactNode }) {
-  return <View style={s.section}>{title || aside ? <View style={s.row}><Text style={s.title}>{title}</Text>{aside}</View> : null}{children}</View>;
+  "use no memo";
+  useRegionalPreferences();
+  return <View style={s.section}>{title || aside ? <View style={s.row}><Text translate style={s.title}>{title}</Text>{aside}</View> : null}{children}</View>;
 }
 
 export function QuickSaleForm(p: Props) {
+  "use no memo";
+  useRegionalPreferences();
   const form = useRef<KeyboardAwareFormHandle>(null);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
@@ -99,19 +105,19 @@ export function QuickSaleForm(p: Props) {
           {p.selectedClient.id ? dateButton : null}
         </Section>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.addRow}>
-            {([['services', 'Services'], ['products', 'Products'], ['packages', 'Packages'], ['membership', 'Membership']] as const).map(([tab, label]) => <Pressable key={tab} accessibilityRole="button" onPress={() => p.onAdd(tab)} style={s.add}><Text style={s.addText}>{label}</Text></Pressable>)}
+            {([['services', 'Services'], ['products', 'Products'], ['packages', 'Packages'], ['membership', 'Membership']] as const).map(([tab, label]) => <Pressable key={tab} accessibilityRole="button" onPress={() => p.onAdd(tab)} style={s.add}><Text translate style={s.addText}>{label}</Text></Pressable>)}
           </ScrollView>
-        <Section title={`Cart \u00b7 ${p.cart.itemCount} ${p.cart.itemCount === 1 ? "item" : "items"}`} aside={<Pressable onPress={() => p.onAdd("services")}><Text style={s.link}>+ Add item</Text></Pressable>}>
-          {p.showStaffErrors && p.cart.items.some(isMissingStaff) ? <Text style={s.error}>Assign staff to every item before saving.</Text> : null}
-          {!p.cart.items.length ? <View style={s.empty}><Ionicons name="bag-outline" size={26} color={c.plum}/><Text style={s.name}>No items added yet</Text><Text style={s.muted}>Add a service, product, package or membership.</Text></View> : null}
+        <Section title={`Cart \u00b7 ${p.cart.itemCount} ${p.cart.itemCount === 1 ? "item" : "items"}`} aside={<Pressable onPress={() => p.onAdd("services")}><Text translate style={s.link}>+ Add item</Text></Pressable>}>
+          {p.showStaffErrors && p.cart.items.some(isMissingStaff) ? <Text translate style={s.error}>Assign staff to every item before saving.</Text> : null}
+          {!p.cart.items.length ? <View style={s.empty}><Ionicons name="bag-outline" size={26} color={c.plum}/><Text translate style={s.name}>No items added yet</Text><Text translate style={s.muted}>Add a service, product, package or membership.</Text></View> : null}
           {p.cart.items.map(item => {
             const type = types[item.itemType] ?? types.service;
             return <View key={item.lineId} style={s.lineCard}>
-              <View style={[s.lineTop, { backgroundColor: type.bg }]}><Text style={[s.tag, {color: type.color}]}>{type.label}</Text><Pressable accessibilityLabel={`Remove ${item.name}`} onPress={() => p.onRemoveItem(item.lineId)} hitSlop={10}><Ionicons name="close" size={20} color="#E5484D"/></Pressable></View>
+              <View style={[s.lineTop, { backgroundColor: type.bg }]}><Text translate style={[s.tag, {color: type.color}]}>{type.label}</Text><Pressable accessibilityLabel={`Remove ${item.name}`} onPress={() => p.onRemoveItem(item.lineId)} hitSlop={10}><Ionicons name="close" size={20} color="#E5484D"/></Pressable></View>
               <View style={s.lineBody}><Text style={s.name}>{item.name}</Text>
                 <Text style={s.muted}>{formatCurrency(item.unitPrice)}{item.quantity > 1 ? ' each' : ''}{item.duration ? ` · ${item.duration}` : ''}</Text>
                 <View style={s.staffRow}>
-                  <View style={s.staffField}><Text style={s.label}>Staff{requiresStaff(item) ? " *" : ""}</Text>
+                  <View style={s.staffField}><Text translate style={s.label}>Staff{requiresStaff(item) ? " *" : ""}</Text>
                   <Pressable accessibilityRole="button" accessibilityLabel={`Select staff for ${item.name}`} accessibilityHint="Assigns staff to this item only" onPress={() => { Keyboard.dismiss(); setStaffLine(item.lineId); }} style={[s.staffSelect, isMissingStaff(item) && (p.showStaffErrors ? s.staffError : s.staffRequired)]}>
                     <Ionicons name="person-outline" size={16} color={c.plum} />
                     <Text numberOfLines={1} style={[s.staffName, !item.staffId && s.link]}>{item.staffName || 'Select staff'}</Text>
@@ -119,34 +125,34 @@ export function QuickSaleForm(p: Props) {
                       ? <Pressable accessibilityRole="button" accessibilityLabel={`Clear staff for ${item.name}`} hitSlop={10} onPress={() => p.cart.setStaff(item.lineId, null, null)}><Ionicons name="close" size={16} color={c.plum} /></Pressable>
                       : <Ionicons name="chevron-down" size={16} color={c.plum} />}
                   </Pressable>
-                  {p.showStaffErrors && isMissingStaff(item) ? <Text style={s.error}>Select staff</Text> : null}</View>
-                  <View style={s.timeField}><Text style={s.label}>Time</Text><Pressable accessibilityRole="button" accessibilityLabel={`Select time for ${item.name}`} onPress={() => { Keyboard.dismiss(); setTimeLine(item.lineId); }} style={s.timeSelect}><Text numberOfLines={1} style={s.timeText}>{itemTimeLabel(item.startTime ?? defaultTime)}</Text><Ionicons name="chevron-down" size={16} color={c.plum} /></Pressable></View>
+                  {p.showStaffErrors && isMissingStaff(item) ? <Text translate style={s.error}>Select staff</Text> : null}</View>
+                  <View style={s.timeField}><Text translate style={s.label}>Time</Text><Pressable accessibilityRole="button" accessibilityLabel={`Select time for ${item.name}`} onPress={() => { Keyboard.dismiss(); setTimeLine(item.lineId); }} style={s.timeSelect}><Text numberOfLines={1} style={s.timeText}>{itemTimeLabel(item.startTime ?? defaultTime)}</Text><Ionicons name="chevron-down" size={16} color={c.plum} /></Pressable></View>
                 </View>
-                {getPackageCoveredQuantity(item) > 0 ? <Text style={s.link}>Package coverage applied</Text> : null}
+                {getPackageCoveredQuantity(item) > 0 ? <Text translate style={s.link}>Package coverage applied</Text> : null}
                 <View style={s.row}>
-                  <View style={s.stepper}><Pressable accessibilityLabel={`Decrease ${item.name}`} style={s.step} onPress={() => item.quantity === 1 ? p.onRemoveItem(item.lineId) : p.onSetQuantity(item.lineId, item.quantity - 1)}><Text style={s.name}>−</Text></Pressable><Text style={s.name}>{item.quantity}</Text><Pressable accessibilityLabel={`Increase ${item.name}`} style={s.step} onPress={() => p.onSetQuantity(item.lineId, item.quantity + 1)}><Text style={s.name}>+</Text></Pressable></View>
-                  <Pressable onPress={() => setEditing(editing === item.lineId ? null : item.lineId)}><Text style={s.link}>{editing === item.lineId ? 'Done' : 'Edit'}</Text></Pressable>
+                  <View style={s.stepper}><Pressable accessibilityLabel={`Decrease ${item.name}`} style={s.step} onPress={() => item.quantity === 1 ? p.onRemoveItem(item.lineId) : p.onSetQuantity(item.lineId, item.quantity - 1)}><Text translate style={s.name}>−</Text></Pressable><Text style={s.name}>{item.quantity}</Text><Pressable accessibilityLabel={`Increase ${item.name}`} style={s.step} onPress={() => p.onSetQuantity(item.lineId, item.quantity + 1)}><Text translate style={s.name}>+</Text></Pressable></View>
+                  <Pressable onPress={() => setEditing(editing === item.lineId ? null : item.lineId)}><Text translate style={s.link}>{editing === item.lineId ? 'Done' : 'Edit'}</Text></Pressable>
                   <Text style={s.total}>{formatCurrency(buildPricingLine(item).total ?? 0)}</Text>
                 </View>
                 {p.productStockErrors[item.lineId] ? <Text style={s.error}>{p.productStockErrors[item.lineId]}</Text> : null}
                 {editing === item.lineId ? <View style={s.editor}>
-                  <View style={s.row}>{field('Price (₹)', String(item.unitPrice), value => p.cart.setPrice(item.lineId, parseAmount(value)), true)}{field('Discount (₹)', String(item.discountAmount), value => p.cart.setDiscount(item.lineId, parseAmount(value)), true)}</View>
+                  <View style={s.row}>{field(currencyLabel("Price (₹)"), String(item.unitPrice), value => p.cart.setPrice(item.lineId, parseAmount(value)), true)}{field(currencyLabel("Discount (₹)"), String(item.discountAmount), value => p.cart.setDiscount(item.lineId, parseAmount(value)), true)}</View>
                 </View> : null}
               </View>
             </View>;
           })}
 
           {p.packageBanner}
-          {p.pricingError ? <Text style={s.error}>{p.pricingError}</Text> : p.isPricingLoading ? <Text style={s.muted}>Updating total…</Text> : null}
+          {p.pricingError ? <Text style={s.error}>{p.pricingError}</Text> : p.isPricingLoading ? <Text translate style={s.muted}>Updating total…</Text> : null}
         </Section>
         <Section>
-          {[["Subtotal", p.totals.subtotal], ...(p.totals.appliedMembershipDiscount ? [["Member discount", -p.totals.appliedMembershipDiscount]] : []), ...(p.totals.overallDiscount ? [["Discount", -p.totals.overallDiscount]] : []), ["GST", p.totals.taxAmount], ["Total", p.totals.grandTotal]].map(([label, amount]) => <View key={String(label)} style={s.row}><Text style={s.muted}>{label}</Text><Text style={label === "Total" ? s.total : s.name}>{formatCurrency(Number(amount))}</Text></View>)}
+          {[["Subtotal", p.totals.subtotal], ...(p.totals.appliedMembershipDiscount ? [["Member discount", -p.totals.appliedMembershipDiscount]] : []), ...(p.totals.overallDiscount ? [["Discount", -p.totals.overallDiscount]] : []), ["GST", p.totals.taxAmount], ["Total", p.totals.grandTotal]].map(([label, amount]) => <View key={String(label)} style={s.row}><Text translate style={s.muted}>{label}</Text><Text style={label === "Total" ? s.total : s.name}>{formatCurrency(Number(amount))}</Text></View>)}
         </Section>
         <Section title="Alert assigned staff">
           {field('Staff alert', alert, value => changeNotes(value, notes), false, true)}
           {field('Notes', notes, value => changeNotes(alert, value), false, true)}
         </Section>
-        <NoteBox><Text style={{ fontWeight: "700" }}>Save as pending</Text> keeps the bill open to collect later. <Text style={{ fontWeight: "700" }}>Checkout</Text> collects payment now.</NoteBox>
+        <NoteBox><Text translate style={{ fontWeight: "700" }}>Save as pending</Text> keeps the bill open to collect later. <Text translate style={{ fontWeight: "700" }}>Checkout</Text> collects payment now.</NoteBox>
       </View>
     </KeyboardAwareForm>
     <DateRangePickerSheet pearlStyle centered={false} renderInline={p.renderInline} title="Quick Sale date" subtitle="Choose the date for this Quick Sale." mode="single" visible={datePickerOpen} startDate={p.saleDate ?? null} endDate={null}
@@ -159,11 +165,13 @@ export function QuickSaleForm(p: Props) {
 }
 
 function FormField({ label, value, onChange, numeric, multiline, reveal }: { label: string; value: string; onChange: (value: string) => void; numeric: boolean; multiline: boolean; reveal: (node: View | null) => void }) {
+  "use no memo";
+  useRegionalPreferences();
   const ref = useRef<View>(null);
   const [focused, setFocused] = useState(false);
   const [draft, setDraft] = useState(value);
   useEffect(() => { if (!focused) setDraft(value); }, [focused, value]);
-  return <View ref={ref} collapsable={false} style={s.field}><Text style={s.label}>{label}</Text><TextInput accessibilityLabel={label} value={focused ? draft : value} onChangeText={next => {
+  return <View ref={ref} collapsable={false} style={s.field}><Text translate style={s.label}>{label}</Text><TextInput accessibilityLabel={label} value={focused ? draft : value} onChangeText={next => {
     if (numeric && !/^\d*(\.\d{0,2})?$/.test(next)) return;
     setDraft(next); onChange(next);
   }} onFocus={() => { setDraft(value); setFocused(true); reveal(ref.current); }} onBlur={() => setFocused(false)} placeholder={numeric ? '0' : `Add ${label.toLowerCase()}…`} placeholderTextColor={c.muted} keyboardType={numeric ? 'decimal-pad' : 'default'} multiline={multiline} textAlignVertical={multiline ? 'top' : 'center'} style={[s.input, multiline && s.multiline]}/></View>;

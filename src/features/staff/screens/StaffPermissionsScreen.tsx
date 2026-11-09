@@ -191,7 +191,7 @@ export function StaffPermissionsScreen() {
           {loading ? <ActivityIndicator /> : null}
           {error ? (
             <View style={staffUi.formCard}>
-              <Text accessibilityRole="alert" style={staffUi.error}>
+              <Text translate accessibilityRole="alert" style={staffUi.error}>
                 {error}
               </Text>
               <StaffButton
@@ -207,7 +207,7 @@ export function StaffPermissionsScreen() {
             </View>
           ) : null}
           {!loading && !staff.length ? (
-            <Text style={staffUi.muted}>No staff yet.</Text>
+            <Text translate style={staffUi.muted}>No staff yet.</Text>
           ) : null}
           {staff
             .filter((m) => matchesTeamSearch(m, search))

@@ -103,10 +103,10 @@ export function ClientDatesSheet({ clientId, clientName, onClose, renderInline =
           {errors.form ? <Text style={styles.errorText}>{errors.form}</Text> : null}
           <View style={styles.actions}>
             <TouchableOpacity activeOpacity={0.84} disabled={saving} onPress={onClose} style={styles.cancelButton}>
-              <Text style={styles.cancelText}>Cancel</Text>
+              <Text translate style={styles.cancelText}>Cancel</Text>
             </TouchableOpacity>
             <TouchableOpacity activeOpacity={0.84} disabled={saving} onPress={() => void save()} style={[styles.saveButton, saving && styles.disabled]}>
-              {saving ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.saveText}>Save</Text>}
+              {saving ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text translate style={styles.saveText}>Save</Text>}
             </TouchableOpacity>
           </View>
         </View>

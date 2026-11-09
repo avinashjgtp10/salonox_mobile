@@ -42,11 +42,11 @@ export function NotificationSwipeRow({ children, disabled = false, onDismiss, on
       <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={[StyleSheet.absoluteFill, styles.actions, { backgroundColor: colors.primary }]}>
         <View style={styles.action}>
           <Ionicons color={colors.onPrimary} name="trash-outline" size={22} />
-          <Text style={[styles.label, { color: colors.onPrimary }]}>Delete</Text>
+          <Text translate style={[styles.label, { color: colors.onPrimary }]}>Delete</Text>
         </View>
         <View style={styles.action}>
           <Ionicons color={colors.onPrimary} name="checkmark-done-outline" size={22} />
-          <Text style={[styles.label, { color: colors.onPrimary }]}>Dismiss</Text>
+          <Text translate style={[styles.label, { color: colors.onPrimary }]}>Dismiss</Text>
         </View>
       </View>
       <Animated.View

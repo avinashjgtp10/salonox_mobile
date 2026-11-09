@@ -98,17 +98,17 @@ export function ClientSearchField({ onAddClient, onSelect, pearlStyle = false, t
         <View style={s.row}>
         <Pressable accessibilityRole="button" onPress={onAddClient} style={[s.addButton, pearlStyle && { alignSelf: "flex-start", borderRadius: 12, backgroundColor: pearl.glass, borderWidth: 1, borderColor: pearl.glassBorder, minHeight: 36 }]}>
           <Ionicons color="#000000" name="person-add-outline" size={16} />
-          <Text style={[s.addText, pearlStyle && { color: pearl.accentDeep, fontSize: 13 }]}>{pearlStyle ? "New client" : "Add Client"}</Text>
+          <Text translate style={[s.addText, pearlStyle && { color: pearl.accentDeep, fontSize: 13 }]}>{pearlStyle ? "New client" : "Add Client"}</Text>
         </Pressable>
         {trailingAction}
         </View>
       </View>
 
-      {error ? <Text style={s.error}>{error}</Text> : null}
+      {error ? <Text translate style={s.error}>{error}</Text> : null}
       {isQueryReady && !isSearching && !error && results.length === 0 ? (
         <Pressable onPress={onAddClient} style={s.empty}>
-          <Text style={s.muted}>No clients found. </Text>
-          <Text style={s.link}>Add a new client</Text>
+          <Text translate style={s.muted}>No clients found. </Text>
+          <Text translate style={s.link}>Add a new client</Text>
         </Pressable>
       ) : null}
       {results.length > 0 ? (

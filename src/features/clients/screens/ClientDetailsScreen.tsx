@@ -1,3 +1,4 @@
+import { useRegionalPreferences } from "@/localization/preferences";
 import { selectCurrentUser } from "@/store/user/user.slice";
 import { getUserFullName } from "@/utils/userProfile";
 import { clientBirthdayLabel } from "../utils/clientBirthday";
@@ -81,12 +82,14 @@ function titleCase(value: string) {
 }
 
 function DetailRow({ label, value, onCopy }: { label: string; value: string; onCopy?: () => void }) {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   return (
     <View style={styles.detailRow}>
-      <Text style={styles.detailLabel}>{label}</Text>
+      <Text translate style={styles.detailLabel}>{label}</Text>
       <View style={styles.detailValueGroup}>
         <Text style={styles.detailValue}>{value}</Text>
         {onCopy ? <TouchableOpacity accessibilityRole="button" accessibilityLabel="Copy referral code" onPress={onCopy} hitSlop={8} style={styles.copyButton}><Ionicons name="copy-outline" size={17} color={pearl.accentDeep} /></TouchableOpacity> : null}
@@ -113,17 +116,19 @@ function EmptySummarySection({
   label: string;
   title: string;
 }) {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   return (
     <View style={styles.summarySection}>
-      {title ? <Text style={styles.summarySectionTitle}>{title}</Text> : null}
+      {title ? <Text translate style={styles.summarySectionTitle}>{title}</Text> : null}
       <View style={styles.emptySummaryBox}>
         <View style={styles.emptySummaryIcon}>
           <Ionicons color={Colors.text2} name={icon} size={28} />
         </View>
-        <Text style={styles.emptySummaryText}>{label}</Text>
+        <Text translate style={styles.emptySummaryText}>{label}</Text>
       </View>
     </View>
   );
@@ -140,13 +145,15 @@ function SummarySection({
   count?: number;
   title: string;
 }) {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   return (
     <View style={styles.summarySection}>
       <View style={styles.summarySectionHeader}>
-        <Text style={styles.summarySectionTitle}>{title}</Text>
+        <Text translate style={styles.summarySectionTitle}>{title}</Text>
         {typeof count === "number" && count > 0 ? (
           <Text style={styles.summarySectionCount}>{count}</Text>
         ) : null}
@@ -157,6 +164,8 @@ function SummarySection({
 }
 
 function MoreRow({ remaining }: { remaining: number }) {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
@@ -168,6 +177,8 @@ function MoreRow({ remaining }: { remaining: number }) {
 }
 
 function LineEntryRow({ entry }: { entry: ClientProfileLineEntry }) {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const meta = [
@@ -196,6 +207,8 @@ function LineEntryRow({ entry }: { entry: ClientProfileLineEntry }) {
 }
 
 function MembershipRow({ membership }: { membership: ClientMembershipRecord }) {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const meta = [
@@ -230,6 +243,8 @@ function MembershipRow({ membership }: { membership: ClientMembershipRecord }) {
 }
 
 function PackageRow({ pkg }: { pkg: ClientPackageRecord }) {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const meta = [
@@ -264,6 +279,8 @@ function PackageRow({ pkg }: { pkg: ClientPackageRecord }) {
 }
 
 export default function ClientDetailsScreen() {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const { id } = useLocalSearchParams<{ id?: string }>();
@@ -438,7 +455,7 @@ export default function ClientDetailsScreen() {
         <View style={styles.notFoundWrap}>
           <View style={styles.headerRow}>
             <AppBackButton activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} />
-            <Text style={styles.headerTitle}>Client Profile</Text>
+            <Text translate style={styles.headerTitle}>Client Profile</Text>
             <View style={styles.backButtonPlaceholder} />
           </View>
           <View style={styles.centeredContent}>
@@ -456,11 +473,11 @@ export default function ClientDetailsScreen() {
         <View style={styles.notFoundWrap}>
           <View style={styles.headerRow}>
             <AppBackButton activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} />
-            <Text style={styles.headerTitle}>Client Profile</Text>
+            <Text translate style={styles.headerTitle}>Client Profile</Text>
             <View style={styles.backButtonPlaceholder} />
           </View>
           <View style={styles.notFoundCard}>
-            <Text style={styles.notFoundTitle}>Unable to load client</Text>
+            <Text translate style={styles.notFoundTitle}>Unable to load client</Text>
             <Text style={styles.notFoundSubtitle}>{detailsError}</Text>
           </View>
         </View>
@@ -475,8 +492,8 @@ export default function ClientDetailsScreen() {
         <View style={styles.notFoundWrap}>
           <AppBackButton activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} />
           <View style={styles.notFoundCard}>
-            <Text style={styles.notFoundTitle}>Client not found</Text>
-            <Text style={styles.notFoundSubtitle}>
+            <Text translate style={styles.notFoundTitle}>Client not found</Text>
+            <Text translate style={styles.notFoundSubtitle}>
               This client profile could not be found.
             </Text>
           </View>
@@ -489,31 +506,31 @@ export default function ClientDetailsScreen() {
   const phone = client.phone.startsWith("+") ? client.phone : (liveClient?.phoneCountryCode ?? "+91") + client.phone;
   return <PearlBackground><SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}><AppStatusBar />
     <ScrollView contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 160 }} showsVerticalScrollIndicator={false}>
-      <View style={detailUi.header}><AppBackButton onPress={handleBack} /><Text style={detailUi.title}>Client</Text><TouchableOpacity accessibilityLabel="More actions" onPress={() => setActionsVisible(true)} style={detailUi.iconButton}><Ionicons name="ellipsis-horizontal" size={20} color={pearl.ink} /></TouchableOpacity></View>
+      <View style={detailUi.header}><AppBackButton onPress={handleBack} /><Text translate style={detailUi.title}>Client</Text><TouchableOpacity accessibilityLabel="More actions" onPress={() => setActionsVisible(true)} style={detailUi.iconButton}><Ionicons name="ellipsis-horizontal" size={20} color={pearl.ink} /></TouchableOpacity></View>
       <View style={detailUi.hero}>
         <View style={detailUi.identity}><LinearGradient colors={pearlTones.rose.avatar} style={detailUi.avatar}><Text style={{ fontSize: 22, fontWeight: "700", color: "#FFFFFF" }}>{client.initials}</Text></LinearGradient><View style={{ flex: 1 }}><Text style={detailUi.name}>{client.fullName}</Text>{client.membership ? <Text style={{ color: "#94640F", fontSize: 11 }}>{client.membership}</Text> : null}<Text style={clientUi.muted}>{maskPhone(client.phone)}</Text><Text style={clientUi.muted}>{client.email || "Not added"}</Text></View></View>
-        <View style={detailUi.wallet}><View><Text style={clientUi.muted}>Wallet balance</Text><Text style={detailUi.balance}>{formatCurrency(client.walletBalance)}</Text></View><ClientButton secondary label="+ Add money" onPress={() => setEntryKind("wallet")} /></View>
+        <View style={detailUi.wallet}><View><Text translate style={clientUi.muted}>Wallet balance</Text><Text style={detailUi.balance}>{formatCurrency(client.walletBalance)}</Text></View><ClientButton secondary label="+ Add money" onPress={() => setEntryKind("wallet")} /></View>
         <View style={{ flexDirection: "row" }}>{([
           { label: "Call", icon: "call-outline", action: () => { void Linking.openURL("tel:" + phone.replace(/[^+\d]/g, "")).catch(() => toast.showError("Calling is unavailable.")); } },
           { label: "WhatsApp", icon: "logo-whatsapp", action: () => router.push(("/inbox/" + phone.replace(/\D/g, "")) as Href) },
           { label: "Book", icon: "calendar-outline", action: () => router.push({ pathname: "/bookings/new", params: { clientId: client.id } } as Href) },
           { label: "Sale", icon: "flash-outline", action: () => router.push({ pathname: "/quick-sale", params: { clientId: client.id } } as Href) },
-        ] as const).map((action) => <TouchableOpacity key={action.label} onPress={action.action} style={detailUi.quickAction}><View style={detailUi.actionCircle}><Ionicons name={action.icon} size={20} color={pearl.accentDeep} /></View><Text style={{ color: pearl.ink2, fontSize: 11 }}>{action.label}</Text></TouchableOpacity>)}</View>
+        ] as const).map((action) => <TouchableOpacity key={action.label} onPress={action.action} style={detailUi.quickAction}><View style={detailUi.actionCircle}><Ionicons name={action.icon} size={20} color={pearl.accentDeep} /></View><Text translate style={{ color: pearl.ink2, fontSize: 11 }}>{action.label}</Text></TouchableOpacity>)}</View>
       </View>
       <TouchableOpacity onPress={() => setLunoxVisible(true)} style={detailUi.lunox}><Image source={require("../../../../assets/images/brand/lunox-mark.png")} style={{ width: 22, height: 22 }} resizeMode="contain" /><Text style={{ flex: 1, fontSize: 12, color: pearl.accentDeep }}>Ask Lunox: summarise {client.fullName.split(" ")[0]}’s visits</Text></TouchableOpacity>
-      <View style={detailUi.tabs}>{CLIENT_TABS.map((tab) => <TouchableOpacity key={tab.key} accessibilityRole="tab" accessibilityState={{ selected: activeTab === tab.key }} onPress={() => setActiveTab(tab.key)} style={[detailUi.tab, activeTab === tab.key && { backgroundColor: pearl.glassStrong }]}><Text style={{ color: activeTab === tab.key ? pearl.ink : pearl.muted, fontSize: 12, fontWeight: "600" }}>{tab.label}</Text></TouchableOpacity>)}</View>
+      <View style={detailUi.tabs}>{CLIENT_TABS.map((tab) => <TouchableOpacity key={tab.key} accessibilityRole="tab" accessibilityState={{ selected: activeTab === tab.key }} onPress={() => setActiveTab(tab.key)} style={[detailUi.tab, activeTab === tab.key && { backgroundColor: pearl.glassStrong }]}><Text translate style={{ color: activeTab === tab.key ? pearl.ink : pearl.muted, fontSize: 12, fontWeight: "600" }}>{tab.label}</Text></TouchableOpacity>)}</View>
       {activeTab === "summary" ? <View style={{ gap: 14 }}><View style={detailUi.metrics}>{[
         ["Total visits", String(metrics.totalVisits)], ["Total spend", formatCurrency(metrics.totalSpend)], ["Amount due", metrics.amountDue === 0 ? "Nothing due" : formatCurrency(metrics.amountDue)], ["Reward points", String(client.rewardPointsBalance)], ["Favourite", [...metrics.services].sort((a, b) => b.quantity - a.quantity)[0]?.name ?? "None yet"], ["Products bought", metrics.products.length ? String(metrics.products.reduce((sum, item) => sum + item.quantity, 0)) : "None yet"],
-      ].map(([label, value]) => <View key={label} style={detailUi.metric}><Text style={clientUi.muted}>{label}</Text><Text style={[detailUi.metricValue, label === "Favourite" && { fontSize: 15 }, label === "Amount due" && metrics.amountDue === 0 && { color: pearl.successText }]}>{value}</Text></View>)}</View>
+      ].map(([label, value]) => <View key={label} style={detailUi.metric}><Text translate style={clientUi.muted}>{label}</Text><Text style={[detailUi.metricValue, label === "Favourite" && { fontSize: 15 }, label === "Amount due" && metrics.amountDue === 0 && { color: pearl.successText }]}>{value}</Text></View>)}</View>
         <ClientButton secondary label={expandedSummary ? "Less detail" : "More detail"} onPress={() => setExpandedSummary((value) => !value)} />
         {expandedSummary ? <><SummarySection title="Memberships" count={metrics.activeMemberships.length + metrics.pastMemberships.length}>{[...metrics.activeMemberships, ...metrics.pastMemberships].map((item) => <MembershipRow key={item.id} membership={item} />)}</SummarySection><SummarySection title="Packages" count={metrics.packages.length}>{metrics.packages.map((item) => <PackageRow key={item.id} pkg={item} />)}</SummarySection><SummarySection title="Services" count={metrics.services.length}>{metrics.services.slice(0, SECTION_ROW_LIMIT).map((entry) => <LineEntryRow key={entry.key} entry={entry} />)}<MoreRow remaining={metrics.services.length - SECTION_ROW_LIMIT} /></SummarySection><SummarySection title="Products" count={metrics.products.length}>{metrics.products.slice(0, SECTION_ROW_LIMIT).map((entry) => <LineEntryRow key={entry.key} entry={entry} />)}<MoreRow remaining={metrics.products.length - SECTION_ROW_LIMIT} /></SummarySection></> : null}
       </View> : null}
-      {activeTab === "activity" ? <View style={clientUi.card}>{historyLoading ? <ActivityIndicator /> : null}{historyError ? <Text style={clientUi.error}>{historyError}</Text> : null}{!historyLoading && !history.length ? <EmptySummarySection title="" label="No activity yet" icon="time-outline" /> : null}{history.map((item) => <TouchableOpacity key={item.id} disabled={item.type !== "sale" && item.type !== "appointment"} onPress={() => router.push(((item.type === "sale" ? "/sales/" : "/appointments/") + item.id.replace(/^(sale|appointment)-/, "")) as Href)} style={clientUi.menuRow}><View style={clientUi.icon}><Ionicons name={item.type === "appointment" ? "calendar-outline" : "receipt-outline"} size={19} color={pearl.accentDeep} /></View><View style={{ flex: 1 }}><Text style={clientUi.rowTitle}>{item.title}</Text><Text style={clientUi.muted}>{[item.dateLabel, item.invoiceNumber, item.paymentMethod, item.staffName].filter(Boolean).join(" · ")}</Text></View>{item.amount > 0 ? <Text style={clientUi.rowTitle}>{formatCurrency(item.amount)}</Text> : null}</TouchableOpacity>)}</View> : null}
+      {activeTab === "activity" ? <View style={clientUi.card}>{historyLoading ? <ActivityIndicator /> : null}{historyError ? <Text style={clientUi.error}>{historyError}</Text> : null}{!historyLoading && !history.length ? <EmptySummarySection title="" label="No activity yet" icon="time-outline" /> : null}{history.map((item) => <TouchableOpacity key={item.id} disabled={item.type !== "sale" && item.type !== "appointment"} onPress={() => router.push(((item.type === "sale" ? "/sales/" : "/appointments/") + item.id.replace(/^(sale|appointment)-/, "")) as Href)} style={clientUi.menuRow}><View style={clientUi.icon}><Ionicons name={item.type === "appointment" ? "calendar-outline" : "receipt-outline"} size={19} color={pearl.accentDeep} /></View><View style={{ flex: 1 }}><Text translate style={clientUi.rowTitle}>{item.title}</Text><Text style={clientUi.muted}>{[item.dateLabel, item.invoiceNumber, item.paymentMethod, item.staffName].filter(Boolean).join(" · ")}</Text></View>{item.amount > 0 ? <Text style={clientUi.rowTitle}>{formatCurrency(item.amount)}</Text> : null}</TouchableOpacity>)}</View> : null}
       {activeTab === "profile" ? <View style={{ gap: 14 }}><View style={[clientUi.card, styles.profileCard]}><DetailRow label="Gender" value={client.gender || "Not added"} /><DetailRow label="Birthday" value={liveClient?.birthdayDayMonth ? clientBirthdayLabel(liveClient.birthdayDayMonth) : "Not added"} /><DetailRow label="Anniversary" value={liveClient?.anniversary ? formatAppDate(liveClient.anniversary) : "Not added"} /><DetailRow label="Membership" value={activeMembership?.membershipName ?? client.membership ?? "None"} /><DetailRow label="Joined" value={client.createdLabel} /><DetailRow label="Source" value={client.clientSource ?? "Not added"} /><DetailRow label="Referred by" value={client.referredBy ?? "Not added"} /><DetailRow label="Referral code" value={client.referralCode || "Not added"} onCopy={client.referralCode ? () => { try { Clipboard.setString(client.referralCode!); toast.showSuccess("Referral code copied"); } catch { toast.showError("Unable to copy referral code."); } } : undefined} /><ClientButton secondary label="Edit profile" onPress={editClient} /></View>{membershipLoading ? <ActivityIndicator /> : null}{membershipError ? <Text style={clientUi.error}>{membershipError}</Text> : null}</View> : null}
-      {activeTab === "notes" ? <View style={{ gap: 14 }}>{notesLoading ? <ActivityIndicator /> : null}{notesError ? <Text style={clientUi.error}>{notesError}</Text> : null}{notes !== null && (!notesLoading || notes.length > 0) ? <View style={clientUi.card}>{notes?.map((note) => <View key={note.id} style={clientUi.menuRow}><View style={clientUi.icon}><Ionicons name="document-text-outline" size={19} color={pearl.accentDeep} /></View><View style={{ flex: 1 }}><Text style={clientUi.rowTitle}>{note.note}</Text><Text style={clientUi.muted}>{[note.staffName, formatCreatedDate(note.createdAt)].filter(Boolean).join(" · ")}</Text></View></View>)}{!notesLoading && notes?.length === 0 ? <Text style={[clientUi.muted, { padding: 18 }]}>No notes yet.</Text> : null}</View> : null}<ClientButton secondary label="Add note" onPress={() => setEntryKind("note")} /></View> : null}
+      {activeTab === "notes" ? <View style={{ gap: 14 }}>{notesLoading ? <ActivityIndicator /> : null}{notesError ? <Text style={clientUi.error}>{notesError}</Text> : null}{notes !== null && (!notesLoading || notes.length > 0) ? <View style={clientUi.card}>{notes?.map((note) => <View key={note.id} style={clientUi.menuRow}><View style={clientUi.icon}><Ionicons name="document-text-outline" size={19} color={pearl.accentDeep} /></View><View style={{ flex: 1 }}><Text style={clientUi.rowTitle}>{note.note}</Text><Text style={clientUi.muted}>{[note.staffName, formatCreatedDate(note.createdAt)].filter(Boolean).join(" · ")}</Text></View></View>)}{!notesLoading && notes?.length === 0 ? <Text translate style={[clientUi.muted, { padding: 18 }]}>No notes yet.</Text> : null}</View> : null}<ClientButton secondary label="Add note" onPress={() => setEntryKind("note")} /></View> : null}
     </ScrollView>
     <ClientBottomNav />
-    <BottomSheet pearlStyle centered={false} title={client.fullName} visible={actionsVisible} onClose={() => setActionsVisible(false)}><View style={{ gap: 16 }}><View style={clientUi.card}><ClientMenuRow icon="create-outline" title="Edit details" onPress={() => { setActionsVisible(false); editClient(); }} /><ClientMenuRow tone="peach" showChevron={false} icon="copy-outline" title="Merge duplicate" onPress={() => { setActionsVisible(false); router.push({ pathname: "/clients", params: { mergeFor: client.id } } as Href); }} /></View><Text style={clientUi.label}>Careful</Text><TouchableOpacity disabled={isBlocking} onPress={() => { setActionsVisible(false); handleBlockToggle(); }} style={detailUi.danger}><Ionicons name="ban-outline" size={18} color={pearl.dangerText} /><Text style={{ color: pearl.dangerText }}>{client.isBlocked ? "Unblock client" : "Block client"}</Text></TouchableOpacity></View></BottomSheet>
+    <BottomSheet pearlStyle centered={false} title={client.fullName} visible={actionsVisible} onClose={() => setActionsVisible(false)}><View style={{ gap: 16 }}><View style={clientUi.card}><ClientMenuRow icon="create-outline" title="Edit details" onPress={() => { setActionsVisible(false); editClient(); }} /><ClientMenuRow tone="peach" showChevron={false} icon="copy-outline" title="Merge duplicate" onPress={() => { setActionsVisible(false); router.push({ pathname: "/clients", params: { mergeFor: client.id } } as Href); }} /></View><Text translate style={clientUi.label}>Careful</Text><TouchableOpacity disabled={isBlocking} onPress={() => { setActionsVisible(false); handleBlockToggle(); }} style={detailUi.danger}><Ionicons name="ban-outline" size={18} color={pearl.dangerText} /><Text translate style={{ color: pearl.dangerText }}>{client.isBlocked ? "Unblock client" : "Block client"}</Text></TouchableOpacity></View></BottomSheet>
     <LunoxSheet visible={lunoxVisible} onClose={() => setLunoxVisible(false)} seed={"Summarise " + client.fullName + "'s visits"} />
     <ClientEntrySheets staffName={author} clientId={client.id} walletBalance={client.walletBalance} kind={entryKind} onClose={() => setEntryKind(null)} onSaved={(kind) => { toast.showSuccess(kind === "wallet" ? "Money added to wallet" : "Note saved"); void dispatch(fetchClientHistoryThunk(client.id)); if (kind === "note") { setActiveTab("notes"); void dispatch(fetchClientNotesThunk(client.id)); } }} />
   </SafeAreaView></PearlBackground>;

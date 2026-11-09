@@ -56,7 +56,7 @@ export function NextAppointments({ refreshKey }: { refreshKey?: number }) {
           );
         }) : (
           <View style={styles.empty}>
-            <Text style={pearlType.small}>No more appointments today.</Text>
+            <Text translate style={pearlType.small}>No more appointments today.</Text>
             <SmallButton title="Book one" icon="plus" onPress={() => router.push("/bookings/new" as Href)} />
           </View>
         )}
@@ -119,7 +119,7 @@ export function StaffOnFloor() {
               </Fragment>
             );
           }) : (
-            <View style={styles.empty}><Text style={pearlType.small}>No active staff members yet.</Text></View>
+            <View style={styles.empty}><Text translate style={pearlType.small}>No active staff members yet.</Text></View>
           )}
         </Card>
       )}

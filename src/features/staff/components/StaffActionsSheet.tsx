@@ -104,7 +104,7 @@ export function StaffActionsSheet({
         </View>
         {canManage ? (
           <>
-            <Text style={staffUi.label}>Careful</Text>
+            <Text translate style={staffUi.label}>Careful</Text>
             <StaffButton
               danger
               label={

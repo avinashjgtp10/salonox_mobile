@@ -1,3 +1,4 @@
+import { useRegionalPreferences } from "@/localization/preferences";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
 import { buildClientProfileMetrics } from "@/features/clients/utils/clientProfile";
@@ -74,6 +75,8 @@ export function ClientProfileModal({
   /** Defaults to opening WhatsApp; the inbox passes "back to this chat". */
   onSendWhatsApp?: () => void;
 }) {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const [tab, setTab] = useState<TabKey>("overview");
@@ -148,15 +151,15 @@ export function ClientProfileModal({
     <Modal animationType="slide" onRequestClose={onClose} visible={!!clientId}>
       <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
         {history.loading || (!data && !history.error) ? (
-          <View style={styles.center}><ActivityIndicator color={Colors.primaryText} /><Text style={styles.muted}>Loading client profile…</Text></View>
+          <View style={styles.center}><ActivityIndicator color={Colors.primaryText} /><Text translate style={styles.muted}>Loading client profile…</Text></View>
         ) : history.error || !data || !client || !metrics ? (
           <View style={styles.center}>
             <Ionicons color={Colors.error} name="alert-circle-outline" size={30} />
-            <Text style={styles.heading}>{"Couldn't load this client"}</Text>
+            <Text translate style={styles.heading}>{"Couldn't load this client"}</Text>
             <Text style={[styles.muted, styles.centerText]}>{history.error ?? "Client not found."}</Text>
             <View style={styles.row}>
-              {clientId ? <TouchableOpacity onPress={() => void loadHistory(clientId)} style={[styles.button, styles.primaryButton]}><Text style={styles.primaryButtonText}>Retry</Text></TouchableOpacity> : null}
-              <TouchableOpacity onPress={onClose} style={[styles.button, styles.outlineButton]}><Text style={styles.heading}>Close</Text></TouchableOpacity>
+              {clientId ? <TouchableOpacity onPress={() => void loadHistory(clientId)} style={[styles.button, styles.primaryButton]}><Text translate style={styles.primaryButtonText}>Retry</Text></TouchableOpacity> : null}
+              <TouchableOpacity onPress={onClose} style={[styles.button, styles.outlineButton]}><Text translate style={styles.heading}>Close</Text></TouchableOpacity>
             </View>
           </View>
         ) : (
@@ -167,7 +170,7 @@ export function ClientProfileModal({
                 <View style={styles.headerCopy}>
                   <View style={[styles.row, styles.wrap]}>
                     <Text numberOfLines={1} style={styles.name}>{client.fullName}</Text>
-                    {metrics.isGoldMember ? <View style={styles.goldBadge}><Ionicons color="#B7791F" name="star" size={11} /><Text style={styles.goldText}>Gold Member</Text></View> : null}
+                    {metrics.isGoldMember ? <View style={styles.goldBadge}><Ionicons color="#B7791F" name="star" size={11} /><Text translate style={styles.goldText}>Gold Member</Text></View> : null}
                     <TouchableOpacity accessibilityLabel="Edit client" hitSlop={8} onPress={() => leaveTo(`/clients/${client.id}/edit`)} style={styles.iconButton}><Ionicons color={Colors.heading} name="create-outline" size={16} /></TouchableOpacity>
                   </View>
                   {client.phoneNumber ? (
@@ -184,10 +187,10 @@ export function ClientProfileModal({
               </View>
               <View style={styles.row}>
                 <TouchableOpacity onPress={() => leaveTo(`/bookings/new?clientId=${encodeURIComponent(client.id)}`)} style={[styles.button, styles.flex, { backgroundColor: Colors.purple }]}>
-                  <Ionicons color="#FFFFFF" name="calendar-outline" size={15} /><Text style={styles.actionText}>Book Appointment</Text>
+                  <Ionicons color="#FFFFFF" name="calendar-outline" size={15} /><Text translate style={styles.actionText}>Book Appointment</Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={sendWhatsApp} style={[styles.button, styles.flex, { backgroundColor: WHATSAPP_GREEN }]}>
-                  <Ionicons color="#FFFFFF" name="logo-whatsapp" size={15} /><Text style={styles.actionText}>Send WhatsApp</Text>
+                  <Ionicons color="#FFFFFF" name="logo-whatsapp" size={15} /><Text translate style={styles.actionText}>Send WhatsApp</Text>
                 </TouchableOpacity>
               </View>
               <ScrollView contentContainerStyle={styles.statBar} horizontal showsHorizontalScrollIndicator={false}>
@@ -198,7 +201,7 @@ export function ClientProfileModal({
                   ["Last Visit", date(metrics.lastVisit)],
                   ["Next Appointment", date(metrics.nextAppointment)],
                 ].map(([label, value]) => (
-                  <View key={label} style={styles.statItem}><Text style={styles.statValue}>{value}</Text><Text style={styles.statLabel}>{label}</Text></View>
+                  <View key={label} style={styles.statItem}><Text style={styles.statValue}>{value}</Text><Text translate style={styles.statLabel}>{label}</Text></View>
                 ))}
               </ScrollView>
             </View>
@@ -207,7 +210,7 @@ export function ClientProfileModal({
               <ScrollView contentContainerStyle={styles.tabs} horizontal showsHorizontalScrollIndicator={false}>
                 {TABS.map((item) => (
                   <TouchableOpacity accessibilityState={{ selected: tab === item.key }} key={item.key} onPress={() => setTab(item.key)} style={[styles.tab, tab === item.key && styles.tabActive]}>
-                    <Text style={[styles.tabText, tab === item.key && styles.tabTextActive]}>{item.label}</Text>
+                    <Text translate style={[styles.tabText, tab === item.key && styles.tabTextActive]}>{item.label}</Text>
                   </TouchableOpacity>
                 ))}
               </ScrollView>
@@ -254,7 +257,7 @@ export function ClientProfileModal({
                       ...(client.referralCode ? [["Referral Code", client.referralCode]] : []),
                     ].map(([label, value], index) => (
                       <View key={label} style={[styles.infoRow, index > 0 && styles.divider]}>
-                        <Text style={styles.infoLabel}>{label}</Text>
+                        <Text translate style={styles.infoLabel}>{label}</Text>
                         <Text selectable style={styles.infoValue}>{value}</Text>
                       </View>
                     ))}
@@ -368,9 +371,9 @@ export function ClientProfileModal({
                   <Lazy state={rewards} styles={styles} Colors={Colors}>
                     {({ points, referral }) => (
                       <>
-                        <Text style={styles.sectionTitle}>Reward Points</Text>
+                        <Text translate style={styles.sectionTitle}>Reward Points</Text>
                         <LedgerList empty="No reward points activity yet." rows={points} styles={styles} />
-                        <Text style={styles.sectionTitle}>Referral</Text>
+                        <Text translate style={styles.sectionTitle}>Referral</Text>
                         <LedgerList empty="No referral activity yet." money rows={referral} styles={styles} />
                       </>
                     )}
@@ -422,27 +425,33 @@ export function ClientProfileModal({
 type Styles = ReturnType<typeof createStyles>;
 
 function StatCard({ label, styles, sub, value }: { label: string; styles: Styles; sub?: string; value: string }) {
+  "use no memo";
+  useRegionalPreferences();
   return (
     <View style={styles.statCard}>
       <Text numberOfLines={1} adjustsFontSizeToFit style={styles.statCardValue}>{value}</Text>
-      <Text style={styles.statCardLabel}>{label}</Text>
+      <Text translate style={styles.statCardLabel}>{label}</Text>
       {sub ? <Text numberOfLines={2} style={styles.muted}>{sub}</Text> : null}
     </View>
   );
 }
 
 function List({ children, empty, styles }: { children: ReactNode[] | ReactNode; empty: string; styles: Styles }) {
+  "use no memo";
+  useRegionalPreferences();
   const items = Array.isArray(children) ? children : [children];
   return <View style={styles.card}>{items.length ? children : <Text style={[styles.muted, styles.emptyText]}>{empty}</Text>}</View>;
 }
 
 function ListRow({ status, styles, subtitle, title, value }: { status?: string; styles: Styles; subtitle?: string; title: string; value?: string }) {
+  "use no memo";
+  useRegionalPreferences();
   const tone = status ? toneOf(status) : null;
   return (
     <View style={styles.listRow}>
       <View style={styles.flex}>
-        <Text style={styles.rowTitle}>{title}</Text>
-        {subtitle ? <Text style={styles.muted}>{subtitle}</Text> : null}
+        <Text translate style={styles.rowTitle}>{title}</Text>
+        {subtitle ? <Text translate style={styles.muted}>{subtitle}</Text> : null}
       </View>
       <View style={styles.rowEnd}>
         {value ? <Text style={styles.rowValue}>{value}</Text> : null}
@@ -453,6 +462,8 @@ function ListRow({ status, styles, subtitle, title, value }: { status?: string; 
 }
 
 function LedgerList({ empty, money = false, rows, styles }: { empty: string; money?: boolean; rows: ClientLedgerEntry[]; styles: Styles }) {
+  "use no memo";
+  useRegionalPreferences();
   const show = (value: number) => (money ? formatCurrency(value) : String(value));
   return (
     <List empty={empty} styles={styles}>
@@ -474,6 +485,8 @@ function LedgerList({ empty, money = false, rows, styles }: { empty: string; mon
 }
 
 function Lazy<T>({ children, Colors, state, styles }: { children: (data: T) => ReactNode; Colors: ThemeColors; state: Loadable<T>; styles: Styles }) {
+  "use no memo";
+  useRegionalPreferences();
   if (state.error) return <View style={styles.card}><Text style={[styles.errorText, styles.emptyText]}>{state.error}</Text></View>;
   if (!state.data) return <View style={styles.card}><ActivityIndicator color={Colors.primaryText} /></View>;
   return <>{children(state.data)}</>;

@@ -53,7 +53,7 @@ export function CommissionButton({
           color={secondary ? pearl.accentDeep : pearl.white}
         />
       )}
-      <Text
+      <Text translate
         style={{
           color: secondary ? pearl.accentDeep : pearl.white,
           fontSize: compact ? 13 : 14,
@@ -90,7 +90,7 @@ export function CommissionChip({
           style={StyleSheet.absoluteFill}
         />
       )}
-      <Text
+      <Text translate
         style={{
           color: selected ? pearl.white : pearl.ink2,
           fontSize: 12.5,

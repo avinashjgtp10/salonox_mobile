@@ -203,7 +203,7 @@ export default function AttendanceScreen() {
                 color={pearlTones[tone].fg}
               />
             </View>
-            <Text style={staffUi.muted}>{label}</Text>
+            <Text translate style={staffUi.muted}>{label}</Text>
             <Text style={staffUi.title}>{value}</Text>
           </View>
         ))}
@@ -291,7 +291,7 @@ export default function AttendanceScreen() {
             isInitialLoading ? (
               <ActivityIndicator />
             ) : (
-              <Text style={staffUi.muted}>No active staff members found.</Text>
+              <Text translate style={staffUi.muted}>No active staff members found.</Text>
             )
           }
           refreshControl={
@@ -384,7 +384,7 @@ export default function AttendanceScreen() {
                       ["Hours", getWorkingHoursLabel(record)],
                     ].map(([label, value]) => (
                       <View key={label}>
-                        <Text style={staffUi.muted}>{label}</Text>
+                        <Text translate style={staffUi.muted}>{label}</Text>
                         <Text style={staffUi.rowTitle}>{value}</Text>
                       </View>
                     ))}
@@ -405,7 +405,7 @@ export default function AttendanceScreen() {
                           color={pearl.accentDeep}
                         />
                       ) : (
-                        <Text
+                        <Text translate
                           style={{
                             fontSize: 12,
                             color: pearl.accentDeep,

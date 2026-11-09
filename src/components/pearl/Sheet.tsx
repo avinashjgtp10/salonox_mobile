@@ -66,8 +66,8 @@ export function BottomSheet({ visible, onClose, title, subtitle, headerRight, ch
         {title ? (
           <View style={styles.head} {...pan.panHandlers}>
             <View style={{ flex: 1 }}>
-              <Text style={[pearlType.h3, { fontSize: 18 }]} accessibilityRole="header">{title}</Text>
-              {subtitle ? <Text style={pearlType.small}>{subtitle}</Text> : null}
+              <Text translate style={[pearlType.h3, { fontSize: 18 }]} accessibilityRole="header">{title}</Text>
+              {subtitle ? <Text translate style={pearlType.small}>{subtitle}</Text> : null}
             </View>
             {headerRight}
             <IconButton icon="x" label="Close" size={36} onPress={onClose} />

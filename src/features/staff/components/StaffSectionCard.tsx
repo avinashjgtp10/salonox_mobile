@@ -40,7 +40,7 @@ export function StaffSectionCard({
       ]}
     >
       <View style={styles.header}>
-        <Text style={styles.title}>{title}</Text>
+        <Text translate style={styles.title}>{title}</Text>
         {action}
       </View>
       {children}

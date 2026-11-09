@@ -14,7 +14,7 @@ export function BrandHeader() {
         <Image source={require("../../../../assets/images/brand/salonox-mark.png")} style={styles.mark} resizeMode="contain" />
       </View>
       <Image source={require("../../../../assets/images/brand/salonox-wordmark.png")} style={styles.wordmark} resizeMode="contain" />
-      <Text style={pearlType.slogan}>{"Bookings, billing & happy clients\nfor beauty and wellness"}</Text>
+      <Text translate style={pearlType.slogan}>{"Bookings, billing & happy clients\nfor beauty and wellness"}</Text>
     </View>
   );
 }
@@ -26,7 +26,7 @@ export function TopBar({ title, onBack }: { title?: string; onBack?: () => void 
       {onBack ? (
         <AppBackButton onPress={onBack} accessibilityRole="button" accessibilityLabel="Back" hitSlop={8} />
       ) : <View style={styles.spacer} />}
-      <Text style={[pearlType.h3, styles.title]} numberOfLines={1}>{title}</Text>
+      <Text translate style={[pearlType.h3, styles.title]} numberOfLines={1}>{title}</Text>
       <View style={styles.spacer} />
     </View>
   );

@@ -1,3 +1,4 @@
+import { useRegionalPreferences } from "@/localization/preferences";
 import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
@@ -65,6 +66,8 @@ function ActionIcon({
   icon: keyof typeof Ionicons.glyphMap;
   onPress: () => void;
 }) {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
@@ -76,6 +79,8 @@ function ActionIcon({
 }
 
 function StaffCardComponent({ onCall, onMessage, onMore, staffMember, metricsReady = true, revenueReady = true, metricsError = false }: StaffCardProps) {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const statusPalette = getStatusPalette(staffMember.status, Colors);
@@ -136,24 +141,24 @@ function StaffCardComponent({ onCall, onMessage, onMore, staffMember, metricsRea
         </View>
 
         <View style={styles.performanceSection}>
-          <Text style={styles.performanceLabel}>Today&apos;s Performance</Text>
-          {metricsError ? <Text style={styles.performanceCaption}>Unable to load daily metrics. Pull down to retry.</Text> : null}
+          <Text translate style={styles.performanceLabel}>Today&apos;s Performance</Text>
+          {metricsError ? <Text translate style={styles.performanceCaption}>Unable to load daily metrics. Pull down to retry.</Text> : null}
           <View style={styles.performanceGrid}>
             <View style={styles.performanceCard}>
               <Text style={styles.performanceValue}>{metricsReady ? staffMember.todayAppointments : "—"}</Text>
-              <Text style={styles.performanceCaption}>Appointments</Text>
+              <Text translate style={styles.performanceCaption}>Appointments</Text>
             </View>
             <View style={styles.performanceCard}>
               <Text style={styles.performanceValue}>{revenueReady ? formatCurrency(staffMember.todayRevenue) : "—"}</Text>
-              <Text style={styles.performanceCaption}>Revenue</Text>
+              <Text translate style={styles.performanceCaption}>Revenue</Text>
             </View>
             <View style={styles.performanceCard}>
               <Text style={styles.performanceValue}>{staffMember.averageRating.toFixed(1)}</Text>
-              <Text style={styles.performanceCaption}>Rating</Text>
+              <Text translate style={styles.performanceCaption}>Rating</Text>
             </View>
             <View style={styles.performanceCard}>
               <Text style={styles.performanceValue}>{metricsReady ? staffMember.servicesCompleted : "—"}</Text>
-              <Text style={styles.performanceCaption}>Completed</Text>
+              <Text translate style={styles.performanceCaption}>Completed</Text>
             </View>
           </View>
         </View>

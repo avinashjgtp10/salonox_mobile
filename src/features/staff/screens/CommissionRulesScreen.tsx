@@ -418,7 +418,7 @@ export function CommissionRulesScreen() {
     !loading && !error ? (
       <View style={{ gap: 14 }}>
         <CommissionNote>
-          <Text style={{ fontWeight: "700" }}>How rules combine: </Text>
+          <Text translate style={{ fontWeight: "700" }}>How rules combine: </Text>
           Milestone bonuses add up. A milestone ladder and a regular rule cannot
           both be active for the same staff and category.
         </CommissionNote>
@@ -438,10 +438,10 @@ export function CommissionRulesScreen() {
                 size={22}
               />
             </View>
-            <Text style={[ui.title, { textAlign: "center" }]}>
+            <Text translate style={[ui.title, { textAlign: "center" }]}>
               Add rules for products or targets
             </Text>
-            <Text style={[ui.muted, { textAlign: "center" }]}>
+            <Text translate style={[ui.muted, { textAlign: "center" }]}>
               For example, 5% on retail products, or a milestone bonus when
               sales reach a target.
             </Text>
@@ -566,7 +566,7 @@ export function CommissionRulesScreen() {
                 </View>
               ) : null}
               <View style={styles.detailBlock}>
-                <Text style={styles.detailHeading}>Staff members</Text>
+                <Text translate style={styles.detailHeading}>Staff members</Text>
                 <Text style={styles.muted}>
                   {detailGroup.staffIds.length
                     ? detailGroup.staffIds.map(staffName).join(", ")
@@ -576,7 +576,7 @@ export function CommissionRulesScreen() {
               {detailGroup.primary.type === "tiered_target" &&
               detailGroup.primary.status === "active" ? (
                 <View style={styles.detailBlock}>
-                  <Text style={styles.detailHeading}>Target progress</Text>
+                  <Text translate style={styles.detailHeading}>Target progress</Text>
                   {detailGroup.rules.map((rule) => (
                     <TargetProgressRow
                       key={rule.id}
@@ -593,7 +593,7 @@ export function CommissionRulesScreen() {
                   onPress={() => openForm(detailGroup)}
                   style={styles.primaryButton}
                 >
-                  <Text style={styles.primaryButtonText}>Edit rule</Text>
+                  <Text translate style={styles.primaryButtonText}>Edit rule</Text>
                 </TouchableOpacity>
               ) : null}
             </View>
@@ -625,7 +625,7 @@ function DetailRow({ label, value }: { label: string; value: string }) {
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   return (
     <View style={styles.rowBetween}>
-      <Text style={styles.muted}>{label}</Text>
+      <Text translate style={styles.muted}>{label}</Text>
       <Text style={styles.detailValue}>{value}</Text>
     </View>
   );

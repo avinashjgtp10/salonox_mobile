@@ -1,3 +1,4 @@
+import { useRegionalPreferences } from "@/localization/preferences";
 import { DateRangePickerSheet } from "@/components/ui/DateRangePickerSheet";
 import { dateRangeLabel } from "@/utils/dateRangePresets";
 import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
@@ -72,6 +73,8 @@ function getRejectedMessage(payload: unknown, fallback: string) {
 }
 
 function SaleCard({ isDeleting, onDelete, sale, first, last }: { isDeleting: boolean; onDelete: () => void; sale: SaleListItem; first: boolean; last: boolean }) {
+  "use no memo";
+  useRegionalPreferences();
  const { clientName } = useClientPrivacy();
  return <TouchableOpacity accessibilityRole="button" accessibilityHint="Opens invoice details. Long press for delete options." activeOpacity={0.84} onPress={() => router.push(('/sales/' + sale.id) as Href)} onLongPress={onDelete} style={{ flexDirection: "row", alignItems: "center", gap: 12, padding: 14, backgroundColor: pearl.glass, borderBottomWidth: last ? 0 : 1, borderBottomColor: pearl.divider, borderTopLeftRadius: first ? 22 : 0, borderTopRightRadius: first ? 22 : 0, borderBottomLeftRadius: last ? 22 : 0, borderBottomRightRadius: last ? 22 : 0 }}>
   <Tile icon="note" tone="rose" size={40} /><View style={{ flex: 1, minWidth: 0 }}><Text style={{ fontSize: 14, fontWeight: "700", color: pearl.ink }}>{formatInvoiceNumber(sale.receiptNumber) ?? "Invoice"} {"\u00b7"} {clientName(sale.clientName)}</Text><Text style={{ fontSize: 12, color: pearl.muted, marginTop: 3 }}>{sale.paymentMethod} {"\u00b7"} {sale.createdDateLabel}</Text></View>
@@ -80,6 +83,8 @@ function SaleCard({ isDeleting, onDelete, sale, first, last }: { isDeleting: boo
 }
 
 function SaleSkeletonCard() {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
@@ -95,6 +100,8 @@ function SaleSkeletonCard() {
 }
 
 function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
@@ -106,16 +113,18 @@ function ErrorState({ message, onRetry }: { message: string; onRetry: () => void
           <Ionicons name="cloud-offline-outline" size={26} color={Colors.error} />
         </View>
       </View>
-      <Text style={styles.emptyTitle}>Unable to load sales</Text>
-      <Text style={styles.emptySubtitle}>{message}</Text>
+      <Text translate style={styles.emptyTitle}>Unable to load sales</Text>
+      <Text translate style={styles.emptySubtitle}>{message}</Text>
       <TouchableOpacity activeOpacity={0.85} onPress={onRetry} style={styles.emptyButton}>
-        <Text style={styles.emptyButtonText}>Retry</Text>
+        <Text translate style={styles.emptyButtonText}>Retry</Text>
       </TouchableOpacity>
     </View>
   );
 }
 
 function EmptyState({ queryActive }: { queryActive: boolean }) {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
@@ -127,8 +136,8 @@ function EmptyState({ queryActive }: { queryActive: boolean }) {
           <Ionicons name="receipt-outline" size={26} color={Colors.primaryText} />
         </View>
       </View>
-      <Text style={styles.emptyTitle}>No Sales Found</Text>
-      <Text style={styles.emptySubtitle}>
+      <Text translate style={styles.emptyTitle}>No Sales Found</Text>
+      <Text translate style={styles.emptySubtitle}>
         {queryActive
           ? "Try a different search, filter, or sort to find the right sale."
           : "Sales completed through Quick Sale will show up here."}
@@ -138,6 +147,8 @@ function EmptyState({ queryActive }: { queryActive: boolean }) {
 }
 
 function SalesHistoryScreenContent() {
+  "use no memo";
+  useRegionalPreferences();
   useActiveScreen(SALES_LIST_SCREEN);
   const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
@@ -325,19 +336,19 @@ function SalesHistoryScreenContent() {
             <View style={styles.header}>
               <View style={styles.headerRow}>
                 <AppBackButton activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} />
-                <Text style={styles.headerTitle}>Sales</Text>
+                <Text translate style={styles.headerTitle}>Sales</Text>
                 <View style={styles.backButtonPlaceholder} />
               </View>
               <TourView tourId="summary" style={styles.summaryCard}>
                 <View style={styles.summaryMetric}>
-                  <Text style={styles.summaryLabel}>Invoices</Text>
+                  <Text translate style={styles.summaryLabel}>Invoices</Text>
                   <Text style={styles.summaryValue}>
                     {(summary?.totalSales ?? totalCount).toLocaleString("en-IN")}
                   </Text>
                 </View>
                 <View style={styles.summaryDivider} />
                 <View style={styles.summaryMetric}>
-                  <Text style={styles.summaryLabel}>Revenue</Text>
+                  <Text translate style={styles.summaryLabel}>Revenue</Text>
                   <Text style={styles.summaryValue}>{formatCurrency(summary?.totalRevenue ?? 0)}</Text>
                 </View>
               </TourView>
@@ -419,7 +430,7 @@ function SalesHistoryScreenContent() {
       >
         <Pressable onPress={() => setIsSortVisible(false)} style={styles.modalOverlay}>
           <Pressable style={styles.sortSheet}>
-            <Text style={styles.sortSheetTitle}>Sort Sales</Text>
+            <Text translate style={styles.sortSheetTitle}>Sort Sales</Text>
             {SALE_SORT_OPTIONS.map((option, index) => {
               const isActive = option === sortOption;
 

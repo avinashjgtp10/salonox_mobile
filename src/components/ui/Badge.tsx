@@ -13,7 +13,7 @@ type BadgeProps = {
 export function Badge({ bg, color, label, size = "md" }: BadgeProps) {
   return (
     <View style={[styles.badge, size === "sm" ? styles.badgeSm : styles.badgeMd, { backgroundColor: bg }]}>
-      <Text numberOfLines={1} style={[styles.text, size === "sm" ? styles.textSm : styles.textMd, { color }]}>
+      <Text translate numberOfLines={1} style={[styles.text, size === "sm" ? styles.textSm : styles.textMd, { color }]}>
         {label}
       </Text>
     </View>
