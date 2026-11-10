@@ -1,8 +1,6 @@
 import { currencyLabel } from "@/utils/currency";
 import { useRegionalPreferences } from "@/localization/preferences";
 import type { PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
-import { LinearGradient } from "expo-linear-gradient";
-import { pearlGradients } from "@/components/auth/pearl/tokens";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { useClientPrivacy } from "@/hooks/useClientPrivacy";
 import { useBenefitCards } from "../hooks/useBenefitCards";
@@ -1225,8 +1223,8 @@ function CheckoutSheetComponent({
                     )}
                   </TouchableOpacity>
                 )}
-                <TouchableOpacity
-                  activeOpacity={0.84}
+                <Pressable
+                  accessibilityRole="button"
                   disabled={
                     checkoutStep === "payment"
                       ? isBusy || !canCompleteSale
@@ -1239,43 +1237,44 @@ function CheckoutSheetComponent({
                       (checkoutStep === "payment"
                         ? isBusy || !canCompleteSale
                         : isBusy || !hasItems || showStaffValidation) &&
-                      styles.footerButtonDisabled,
+                      styles.completeButtonDisabled,
                     isSuccess && styles.completeButtonSuccess,
                   ]}
                 >
-                  <LinearGradient pointerEvents="none" colors={pearlGradients.primary} style={[StyleSheet.absoluteFill, { borderRadius: 16 }]} />
-                  {isCheckingOut ? (
-                    <>
-                      <ActivityIndicator color={Colors.onPrimary} size="small" />
-                      <Text translate style={styles.completeButtonText}>Processing sale...</Text>
-                    </>
-                  ) : checkoutStep === "payment" && isPricingLoading ? (
-                    <>
-                      <ActivityIndicator color={Colors.onPrimary} size="small" />
-                      <Text translate style={styles.completeButtonText}>Updating pricing...</Text>
-                    </>
-                  ) : isSuccess ? (
-                    <>
-                      <Text translate style={styles.completeButtonText}>Completed</Text>
-                      <Ionicons name="checkmark-circle" size={18} color={Colors.onPrimary} />
-                    </>
-                  ) : (
-                    <>
-                      <Text style={styles.completeButtonText}>
-                        {checkoutStep === "payment"
-                          ? dueAmount > 0
-                            ? "Record Payment"
-                            : `Collect ${formatCurrency(amountToCollect)}`
-                          : "Continue to Payment"}
-                      </Text>
-                      <Ionicons
-                        name={checkoutStep === "payment" ? "checkmark-circle" : "arrow-forward"}
-                        size={18}
-                        color={Colors.onPrimary}
-                      />
-                    </>
-                  )}
-                </TouchableOpacity>
+                  <View collapsable={false} pointerEvents="none" style={styles.completeButtonContent}>
+                    {isCheckingOut ? (
+                      <>
+                        <ActivityIndicator color={Colors.onPrimary} size="small" />
+                        <Text translate style={styles.completeButtonText}>Processing sale...</Text>
+                      </>
+                    ) : checkoutStep === "payment" && isPricingLoading ? (
+                      <>
+                        <ActivityIndicator color={Colors.onPrimary} size="small" />
+                        <Text translate style={styles.completeButtonText}>Updating pricing...</Text>
+                      </>
+                    ) : isSuccess ? (
+                      <>
+                        <Text translate style={styles.completeButtonText}>Completed</Text>
+                        <Ionicons name="checkmark-circle" size={18} color={Colors.onPrimary} />
+                      </>
+                    ) : (
+                      <>
+                        <Text style={styles.completeButtonText}>
+                          {checkoutStep === "payment"
+                            ? dueAmount > 0
+                              ? "Record Payment"
+                              : `Collect ${formatCurrency(amountToCollect)}`
+                            : "Continue to Payment"}
+                        </Text>
+                        <Ionicons
+                          name={checkoutStep === "payment" ? "checkmark-circle" : "arrow-forward"}
+                          size={18}
+                          color={Colors.onPrimary}
+                        />
+                      </>
+                    )}
+                  </View>
+                </Pressable>
               </View>
             </PearlActionFooter>
           </Animated.View>
@@ -2716,6 +2715,8 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     alignItems: "center",
     backgroundColor: Colors.primaryDark,
     borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "transparent",
     overflow: "hidden",
     flex: 1.35,
     flexDirection: "row",
@@ -2726,10 +2727,26 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   completeButtonSuccess: {
     backgroundColor: Colors.success,
   },
+  completeButtonContent: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 8,
+    justifyContent: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    flexShrink: 1,
+  },
+  completeButtonDisabled: {
+    backgroundColor: Colors.primaryDark,
+    borderColor: Colors.border,
+    borderWidth: 1,
+  },
   completeButtonText: {
     color: Colors.onPrimary,
     fontSize: 14,
     fontWeight: "900",
+    flexShrink: 1,
+    textAlign: "center",
   },
   buttonDisabled: {
     opacity: 0.48,

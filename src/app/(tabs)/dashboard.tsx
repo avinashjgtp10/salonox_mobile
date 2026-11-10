@@ -1,4 +1,5 @@
 import { StaffAttendanceCard } from "@/features/attendance/components/StaffAttendanceExperience";
+import { DashboardUpgradeRequired } from "@/components/dashboard/DashboardUpgradeRequired";
 import { isStaffAccount, isManagerAccount, canAccessBusinessModule } from "@/utils/staffExperience";
 import { useRegionalPreferences } from "@/localization/preferences";
 /**
@@ -37,6 +38,7 @@ import { selectActiveBranch, selectActiveBranchId, selectShouldShowBranchSelecto
 import { selectClientsTotalCount } from "@/store/client/client.slice";
 import {
   selectDashboardIsLoading,
+  selectDashboardModuleLocked,
   selectDashboardLastFetchedAt,
   selectDashboardMetrics,
   selectDashboardStatus,
@@ -88,6 +90,7 @@ export default function DashboardScreen() {
   const canLoadClients = canAccessBusinessModule(user, "view_clients");
   const [sheet, setSheet] = useState<Sheet>(null);
   const dashboardStatus = useAppSelector(selectDashboardStatus);
+  const dashboardLocked = useAppSelector(selectDashboardModuleLocked);
   const { isOnline } = useNetworkStatus();
   const wasOnline = useRef(isOnline);
   const today = useSalonDay();
@@ -190,7 +193,7 @@ export default function DashboardScreen() {
       <Page header={<DashboardHeader onOpen={setSheet} />} refreshing={pulling} onRefresh={refresh}>
         <Text style={[pearlType.small, { paddingHorizontal: 2 }]}>{longDate(today)}</Text>
         {isStaffAccount(user) && <StaffAttendanceCard compact />}
-        {showErrorState ? <LoadError onRetry={() => void fetchDashboard()} /> : (
+        {dashboardLocked ? <DashboardUpgradeRequired /> : showErrorState ? <LoadError onRetry={() => void fetchDashboard()} /> : (
           <>
             {(!isStaffAccount(user) || isManagerAccount(user)) && canAccessBusinessModule(user, "view_dashboard_card_total_revenue") && <RevenueHero />}
             <LunoxInsightCard refreshKey={refreshKey} />

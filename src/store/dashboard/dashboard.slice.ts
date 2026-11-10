@@ -34,6 +34,7 @@ const EMPTY_DASHBOARD_METRICS: DashboardMetrics = {
 };
 
 type DashboardState = {
+  isModuleLocked: boolean;
   appointments: DashboardAppointment[];
   error: string | null;
   inventoryAlerts: DashboardInventoryAlert[];
@@ -48,6 +49,7 @@ type DashboardState = {
 };
 
 const initialState: DashboardState = {
+  isModuleLocked: false,
   appointments: [],
   error: null,
   inventoryAlerts: [],
@@ -75,6 +77,7 @@ const dashboardSlice = createSlice({
         state.status = hasExistingData ? "succeeded" : "loading";
       })
       .addCase(fetchDashboardThunk.fulfilled, (state, action) => {
+        state.isModuleLocked = false;
         state.error = null;
         state.isRefreshing = false;
         state.lastFetchedAt = Date.now();
@@ -88,6 +91,10 @@ const dashboardSlice = createSlice({
         state.topClient = action.payload.topClient;
       })
       .addCase(fetchDashboardThunk.rejected, (state, action) => {
+        if (action.payload?.code === "MODULE_LOCKED") {
+          // Discard previously loaded data when the salon loses dashboard access.
+          return { ...initialState, isModuleLocked: true, status: "failed" };
+        }
         if (action.payload?.silent) {
           state.error = null;
           state.isRefreshing = false;
@@ -120,6 +127,7 @@ const dashboardSlice = createSlice({
 });
 
 export const selectDashboardMetrics = (state: RootState) => state.dashboard.metrics;
+export const selectDashboardModuleLocked = (state: RootState) => state.dashboard.isModuleLocked;
 export const selectDashboardAppointments = (state: RootState) => state.dashboard.appointments;
 export const selectDashboardError = (state: RootState) => state.dashboard.error;
 export const selectDashboardRequestedDate = (state: RootState) => state.dashboard.requestedDate;
