@@ -1,4 +1,5 @@
 import { StaffAttendanceCard } from "@/features/attendance/components/StaffAttendanceExperience";
+import { DashboardUpgradeRequired } from "@/components/dashboard/DashboardUpgradeRequired";
 import { isStaffAccount, isManagerAccount, canAccessBusinessModule } from "@/utils/staffExperience";
 import { useRegionalPreferences } from "@/localization/preferences";
 /**
@@ -37,6 +38,7 @@ import { selectActiveBranch, selectActiveBranchId, selectShouldShowBranchSelecto
 import { selectClientsTotalCount } from "@/store/client/client.slice";
 import {
   selectDashboardIsLoading,
+  selectDashboardModuleLocked,
   selectDashboardLastFetchedAt,
   selectDashboardMetrics,
   selectDashboardStatus,
@@ -70,7 +72,7 @@ const QUICK_ACTIONS: { icon: IconName; label: string; a11y: string; href: Href }
   { icon: "calendar", label: "Book", a11y: "Book", href: "/bookings/new" },
   { icon: "bolt", label: "Sale", a11y: "Sale", href: "/quick-sale" },
   { icon: "userAdd", label: "Client", a11y: "Add client", href: "/clients/new" },
-  { icon: "expense", label: "Expense", a11y: "Expense", href: "/sales" },
+  { icon: "expense", label: "Expense", a11y: "Expense", href: "/expenses?create=1" as Href },
 ];
 
 type Sheet = null | "menu" | "salon" | "notifications";
@@ -88,6 +90,7 @@ export default function DashboardScreen() {
   const canLoadClients = canAccessBusinessModule(user, "view_clients");
   const [sheet, setSheet] = useState<Sheet>(null);
   const dashboardStatus = useAppSelector(selectDashboardStatus);
+  const dashboardLocked = useAppSelector(selectDashboardModuleLocked);
   const { isOnline } = useNetworkStatus();
   const wasOnline = useRef(isOnline);
   const today = useSalonDay();
@@ -190,14 +193,14 @@ export default function DashboardScreen() {
       <Page header={<DashboardHeader onOpen={setSheet} />} refreshing={pulling} onRefresh={refresh}>
         <Text style={[pearlType.small, { paddingHorizontal: 2 }]}>{longDate(today)}</Text>
         {isStaffAccount(user) && <StaffAttendanceCard compact />}
-        {showErrorState ? <LoadError onRetry={() => void fetchDashboard()} /> : (
+        {dashboardLocked ? <DashboardUpgradeRequired /> : showErrorState ? <LoadError onRetry={() => void fetchDashboard()} /> : (
           <>
             {(!isStaffAccount(user) || isManagerAccount(user)) && canAccessBusinessModule(user, "view_dashboard_card_total_revenue") && <RevenueHero />}
             <LunoxInsightCard refreshKey={refreshKey} />
             <View style={styles.bleed}><SpotlightAnnouncementCard /></View>
             <StatsRow />
             <View style={styles.qa}>
-              {QUICK_ACTIONS.filter(action => canAccessBusinessModule(user, ...(action.label === "Book" ? ["create_appointment"] : action.label === "Sale" ? ["access_quick_sale"] : action.label === "Client" ? ["create_clients", "add_client"] : ["view_sales"]))).map(action => (
+              {QUICK_ACTIONS.filter(action => canAccessBusinessModule(user, ...(action.label === "Book" ? ["create_appointment"] : action.label === "Sale" ? ["access_quick_sale"] : action.label === "Client" ? ["create_clients", "add_client"] : ["view_cash_management"])) && (action.label !== "Expense" || canAccessBusinessModule(user, "add_expense"))).map(action => (
                 <Pressable key={action.label} onPress={() => router.push(action.href)} style={styles.qaItem} accessibilityRole="button" accessibilityLabel={action.a11y}>
                   {({ pressed }) => (
                     <>

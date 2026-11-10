@@ -1,3 +1,4 @@
+import { paymentMethodLabel } from "@/utils/paymentMethodLabel";
 import type { RedemptionPricingFlags } from "@/features/quickSale/hooks/useRedemptions";
 import type { DiscountApplyTarget } from "@/features/quickSale/components/checkout/types";
 import { toDiscountScope } from "@/features/quickSale/utils/discountScope";
@@ -206,18 +207,14 @@ export const buildPaymentPayload = ({
       ? "Package"
       : payment.method === "split"
         ? "Split"
-        : payment.method === "upi"
-          ? "UPI"
-          : payment.method === "card"
-            ? "Card"
-            : "Cash";
+        : paymentMethodLabel(payment.method);
   const splitDetails =
     isFullyPackageCoveredSale
       ? { Package: packageCatalogTotal }
       : payment.method === "split" && payment.splitEntries?.length
         ? Object.fromEntries(
             payment.splitEntries.map((entry) => [
-              entry.method === "upi" ? "UPI" : entry.method === "card" ? "Card" : "Cash",
+              paymentMethodLabel(entry.method),
               entry.amount,
             ]),
           )

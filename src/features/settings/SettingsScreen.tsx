@@ -264,7 +264,10 @@ export default function SettingsScreen() {
                 icon="storefront-outline"
                 onPress={() => go("/salon-settings")}
               />
-              {can("view_staff") && (
+                {(can("manage_payment_methods") || can("view_settings_payment_methods")) && (
+                  <SettingsRow title="Payment methods" subtitle="Default & custom payment options" icon="card-outline" onPress={() => go("/payment-methods")} />
+                )}
+                {can("view_staff") && (
                 <SettingsRow
                   title="Staff & permissions"
                   subtitle="Roles, access"

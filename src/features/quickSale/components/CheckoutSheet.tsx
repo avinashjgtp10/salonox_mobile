@@ -1,8 +1,8 @@
 import { currencyLabel } from "@/utils/currency";
 import { useRegionalPreferences } from "@/localization/preferences";
+import { usePaymentMethods } from "@/hooks/usePaymentMethods";
+import { activePaymentMethods } from "@/services/paymentMethods.service";
 import type { PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
-import { LinearGradient } from "expo-linear-gradient";
-import { pearlGradients } from "@/components/auth/pearl/tokens";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { useClientPrivacy } from "@/hooks/useClientPrivacy";
 import { useBenefitCards } from "../hooks/useBenefitCards";
@@ -38,15 +38,6 @@ export type { DiscountApplyTarget } from "@/features/quickSale/components/checko
 type PaymentType = "full" | "partial";
 
 const CHECKOUT_ANIMATION_MS = 250;
-
-const PAYMENT_METHODS: { icon: keyof typeof Ionicons.glyphMap; label: string; value: SalePaymentMethod }[] = [
-  { icon: "cash-outline", label: "Cash", value: "cash" },
-  { icon: "card-outline", label: "Card", value: "card" },
-  { icon: "phone-portrait-outline", label: "UPI", value: "upi" },
-  { icon: "git-branch-outline", label: "Split", value: "split" },
-];
-
-const SPLIT_METHODS = PAYMENT_METHODS.filter((method) => method.value !== "split");
 
 type DiscountMode = "amount" | "percent";
 
@@ -113,6 +104,15 @@ function CheckoutSheetComponent({
   useRegionalPreferences();
   const { clientName } = useClientPrivacy();
   const Colors = usePearlColors();
+  const paymentConfig = usePaymentMethods(visible);
+  const paymentOptions = useMemo(() => paymentConfig.options.map(method => ({ ...method,
+    icon: (method.value === "cash" ? "cash-outline" : method.value === "card" ? "card-outline" : method.value === "upi" ? "phone-portrait-outline" : "receipt-outline") as keyof typeof Ionicons.glyphMap,
+  })), [paymentConfig.options]);
+  const [methodError, setMethodError] = useState("");
+  const [checkingMethod, setCheckingMethod] = useState(false);
+  const methodCheckLock = useRef(false);
+  const visibleRef = useRef(visible);
+  visibleRef.current = visible;
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const { height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -122,6 +122,14 @@ function CheckoutSheetComponent({
   const [paymentMethod, setPaymentMethod] = useState<SalePaymentMethod | null>(null);
   const [lastSingleMethod, setLastSingleMethod] = useState<Exclude<SalePaymentMethod, "split"> | null>(null);
   const [splitAmounts, setSplitAmounts] = useState<Record<string, string>>({});
+  const splitAmountInput = useCallback((method: string) => Object.prototype.hasOwnProperty.call(splitAmounts, method) ? splitAmounts[method] : "", [splitAmounts]);
+  useEffect(() => {
+    if (!paymentConfig.ready) return;
+    const allowed = new Set(paymentConfig.options.map(method => method.value));
+    setPaymentMethod(current => current && current !== "split" && !allowed.has(current) ? null : current);
+    setLastSingleMethod(current => current && !allowed.has(current) ? null : current);
+    setSplitAmounts(current => Object.keys(current).some(key => !allowed.has(key)) ? Object.fromEntries(Object.entries(current).filter(([key]) => allowed.has(key))) : current);
+  }, [paymentConfig.ready, paymentConfig.options]);
   const [paymentType, setPaymentType] = useState<PaymentType>("full");
   const [partialAmountInput, setPartialAmountInput] = useState("");
   const [discountMode, setDiscountMode] = useState<DiscountMode>(
@@ -283,7 +291,7 @@ function CheckoutSheetComponent({
   }, [isMounted, isCheckingOut, isSaving, isSuccess]);
 
   const requestClose = () => {
-    if (isCheckingOut || isSaving || isSuccess) {
+    if (isCheckingOut || isSaving || isSuccess || methodCheckLock.current) {
       return;
     }
 
@@ -327,11 +335,11 @@ function CheckoutSheetComponent({
 
   const splitEntries = useMemo<CheckoutSaleSplitEntry[]>(
     () =>
-      SPLIT_METHODS.map((method) => ({
-        amount: parseAmount(splitAmounts[method.value] ?? ""),
+      paymentOptions.map((method) => ({
+        amount: parseAmount(splitAmountInput(method.value)),
         method: method.value as CheckoutSaleSplitEntry["method"],
       })).filter((entry) => entry.amount > 0),
-    [splitAmounts],
+    [splitAmountInput, paymentOptions],
   );
 
   const amountToCollect =
@@ -375,7 +383,7 @@ function CheckoutSheetComponent({
   const customTipInvalid = customTipVisible && tipInput.trim().length === 0;
   const chargesInvalid =
     discountExceedsEligibleSubtotal || discountExceedsSubtotal || invalidDiscountPercentage || customTipInvalid;
-  const isBusy = isSaving || isCheckingOut || isApplyingCoupon || isSuccess;
+  const isBusy = isSaving || isCheckingOut || isApplyingCoupon || isSuccess || checkingMethod;
   const missingStaffCount = useMemo(
     () => items.filter(isMissingStaff).length,
     [items],
@@ -393,6 +401,7 @@ function CheckoutSheetComponent({
     (noPaymentRequired || !partialAmountExceedsTotal) &&
     !isPricingLoading &&
     !pricingError &&
+    (noPaymentRequired || (paymentConfig.ready && !paymentConfig.error)) &&
     (noPaymentRequired || paymentMethod !== null) &&
     (noPaymentRequired || (paymentMethod === "split" ? splitEntries.length > 0 && !splitMismatch : true));
 
@@ -476,7 +485,7 @@ function CheckoutSheetComponent({
     }
   };
 
-  const handleComplete = () => {
+  const handleComplete = async () => {
     if (isBusy || !canCompleteSale || (!noPaymentRequired && !paymentMethod)) {
       return;
     }
@@ -492,12 +501,23 @@ function CheckoutSheetComponent({
       return;
     }
 
-    if (paymentMethod === "split") {
-      onCompleteSale({ method: paymentMethod, paidAmount: amountToCollect, splitEntries });
-      return;
-    }
+    if (methodCheckLock.current) return;
+    methodCheckLock.current = true; setCheckingMethod(true); setMethodError("");
+    try {
+      const current = await paymentConfig.refresh();
+      if (!visibleRef.current) return;
+      const allowed = new Set(activePaymentMethods(current, paymentConfig.offersUpi).map(method => method.value));
+      const selected = paymentMethod === "split" ? splitEntries.map(entry => entry.method) : [paymentMethod!];
+      if (selected.some(method => !allowed.has(method))) {
+        setMethodError("Payment methods changed. Select an active method and try again.");
+        return;
+      }
 
-    onCompleteSale({ method: paymentMethod!, paidAmount: amountToCollect });
+      if (paymentMethod === "split") onCompleteSale({ method: paymentMethod, paidAmount: amountToCollect, splitEntries });
+      else onCompleteSale({ method: paymentMethod!, paidAmount: amountToCollect });
+    } catch (error) {
+      setMethodError(error instanceof Error ? error.message : "Unable to verify payment methods. Please try again.");
+    } finally { methodCheckLock.current = false; setCheckingMethod(false); }
   };
 
   const handleSavePending = () => {
@@ -662,7 +682,7 @@ function CheckoutSheetComponent({
                   </View>
                   {paymentMethod !== "split" ? (
                     <View style={[styles.methodGrid, styles.methodGridSecondary]}>
-                      {SPLIT_METHODS.map((method) => {
+                      {paymentOptions.map((method) => {
                         const isActive = method.value === paymentMethod;
 
                         return (
@@ -1065,8 +1085,8 @@ function CheckoutSheetComponent({
                 <View style={styles.formCard}>
                   <Text translate style={styles.sectionTitle}>Split Payment</Text>
                   <View style={styles.paymentDetailCard}>
-                    {SPLIT_METHODS.map((method) => {
-                      const methodValue = splitAmounts[method.value] ?? "";
+                    {paymentOptions.map((method) => {
+                      const methodValue = splitAmountInput(method.value);
                       const methodAmount = parseAmount(methodValue);
                       const isUnusedMethodDisabled = splitRemaining === 0 && methodAmount === 0;
 
@@ -1191,6 +1211,10 @@ function CheckoutSheetComponent({
 
             <PearlActionFooter floating style={styles.footer} contentStyle={{ flexDirection: "column", alignItems: "stretch", paddingHorizontal: Spacing.xl, paddingBottom: Math.max(insets.bottom, 10) + Spacing.sm }}>
               {pricingError ? <Text style={styles.footerError}>Pricing error: {pricingError}</Text> : null}
+              {checkoutStep === "payment" && (paymentConfig.error || methodError || paymentConfig.loading) ? <View style={{ gap: 8 }}>
+                <Text style={styles.footerError}>{methodError || paymentConfig.error || "Loading payment methods…"}</Text>
+                {(paymentConfig.error || methodError) && <Pressable accessibilityRole="button" onPress={() => { setMethodError(""); void paymentConfig.refresh().catch(() => {}); }}><Text style={styles.pendingButtonText}>Refresh payment methods</Text></Pressable>}
+              </View> : null}
               {submitError ? <Text style={styles.footerError}>{submitError}</Text> : null}
               {isSuccess ? (
                 <View style={styles.successBanner}>
@@ -1225,8 +1249,8 @@ function CheckoutSheetComponent({
                     )}
                   </TouchableOpacity>
                 )}
-                <TouchableOpacity
-                  activeOpacity={0.84}
+                <Pressable
+                  accessibilityRole="button"
                   disabled={
                     checkoutStep === "payment"
                       ? isBusy || !canCompleteSale
@@ -1239,43 +1263,44 @@ function CheckoutSheetComponent({
                       (checkoutStep === "payment"
                         ? isBusy || !canCompleteSale
                         : isBusy || !hasItems || showStaffValidation) &&
-                      styles.footerButtonDisabled,
+                      styles.completeButtonDisabled,
                     isSuccess && styles.completeButtonSuccess,
                   ]}
                 >
-                  <LinearGradient pointerEvents="none" colors={pearlGradients.primary} style={[StyleSheet.absoluteFill, { borderRadius: 16 }]} />
-                  {isCheckingOut ? (
-                    <>
-                      <ActivityIndicator color={Colors.onPrimary} size="small" />
-                      <Text translate style={styles.completeButtonText}>Processing sale...</Text>
-                    </>
-                  ) : checkoutStep === "payment" && isPricingLoading ? (
-                    <>
-                      <ActivityIndicator color={Colors.onPrimary} size="small" />
-                      <Text translate style={styles.completeButtonText}>Updating pricing...</Text>
-                    </>
-                  ) : isSuccess ? (
-                    <>
-                      <Text translate style={styles.completeButtonText}>Completed</Text>
-                      <Ionicons name="checkmark-circle" size={18} color={Colors.onPrimary} />
-                    </>
-                  ) : (
-                    <>
-                      <Text style={styles.completeButtonText}>
-                        {checkoutStep === "payment"
-                          ? dueAmount > 0
-                            ? "Record Payment"
-                            : `Collect ${formatCurrency(amountToCollect)}`
-                          : "Continue to Payment"}
-                      </Text>
-                      <Ionicons
-                        name={checkoutStep === "payment" ? "checkmark-circle" : "arrow-forward"}
-                        size={18}
-                        color={Colors.onPrimary}
-                      />
-                    </>
-                  )}
-                </TouchableOpacity>
+                  <View collapsable={false} pointerEvents="none" style={styles.completeButtonContent}>
+                  {isCheckingOut || checkingMethod ? (
+                      <>
+                        <ActivityIndicator color={Colors.onPrimary} size="small" />
+                      <Text translate style={styles.completeButtonText}>{checkingMethod ? "Checking payment method…" : "Processing sale..."}</Text>
+                      </>
+                    ) : checkoutStep === "payment" && isPricingLoading ? (
+                      <>
+                        <ActivityIndicator color={Colors.onPrimary} size="small" />
+                        <Text translate style={styles.completeButtonText}>Updating pricing...</Text>
+                      </>
+                    ) : isSuccess ? (
+                      <>
+                        <Text translate style={styles.completeButtonText}>Completed</Text>
+                        <Ionicons name="checkmark-circle" size={18} color={Colors.onPrimary} />
+                      </>
+                    ) : (
+                      <>
+                        <Text style={styles.completeButtonText}>
+                          {checkoutStep === "payment"
+                            ? dueAmount > 0
+                              ? "Record Payment"
+                              : `Collect ${formatCurrency(amountToCollect)}`
+                            : "Continue to Payment"}
+                        </Text>
+                        <Ionicons
+                          name={checkoutStep === "payment" ? "checkmark-circle" : "arrow-forward"}
+                          size={18}
+                          color={Colors.onPrimary}
+                        />
+                      </>
+                    )}
+                  </View>
+                </Pressable>
               </View>
             </PearlActionFooter>
           </Animated.View>
@@ -2515,6 +2540,8 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     flex: 1,
+    minWidth: 88,
+    flexBasis: "28%",
     backgroundColor: Colors.card,
     borderColor: Colors.border,
     borderRadius: 16,
@@ -2716,6 +2743,8 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     alignItems: "center",
     backgroundColor: Colors.primaryDark,
     borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "transparent",
     overflow: "hidden",
     flex: 1.35,
     flexDirection: "row",
@@ -2726,10 +2755,26 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   completeButtonSuccess: {
     backgroundColor: Colors.success,
   },
+  completeButtonContent: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 8,
+    justifyContent: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    flexShrink: 1,
+  },
+  completeButtonDisabled: {
+    backgroundColor: Colors.primaryDark,
+    borderColor: Colors.border,
+    borderWidth: 1,
+  },
   completeButtonText: {
     color: Colors.onPrimary,
     fontSize: 14,
     fontWeight: "900",
+    flexShrink: 1,
+    textAlign: "center",
   },
   buttonDisabled: {
     opacity: 0.48,

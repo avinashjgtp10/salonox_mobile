@@ -130,6 +130,7 @@ export function NotificationsSheet({ visible, onClose }: { visible: boolean; onC
 type MenuLink = { icon: IconName; label: string; href?: Href; soon?: string; tone?: PearlTone };
 
 const GO_TO: MenuLink[] = [
+  { icon: "expense", tone: "rose", label: "Expenses", href: "/expenses" as Href },
   { icon: "users", tone: "lilac", label: "Clients", href: "/clients" },
   { icon: "idCard", tone: "lavender", label: "Staff", href: "/team" },
   { icon: "clock", tone: "sky", label: "Attendance", href: "/team/attendance" },
@@ -150,7 +151,7 @@ const CREATE: MenuLink[] = [
   { icon: "idCard", label: "Staff", href: "/team/new" },
   { icon: "scissors", label: "Service", href: "/services/new" },
   { icon: "bag", label: "Product", href: "/stock/new" },
-  { icon: "expense", label: "Expense", href: "/sales" },
+  { icon: "expense", label: "Expense", href: "/expenses?create=1" as Href },
   { icon: "calendar", label: "Booking", href: "/bookings/new" },
 ];
 const ADMIN: MenuLink[] = [
@@ -188,6 +189,8 @@ export function MenuDrawer({ visible, onClose }: { visible: boolean; onClose: ()
   const who = [getUserFullName(user), user?.roleName || roleName(user?.role)].filter(Boolean).join(" · ");
 
   const allowed = (link: MenuLink, creating = false) => {
+    if (link.label === "Expense") return canAccessBusinessModule(user, "view_cash_management") && canAccessBusinessModule(user, "add_expense");
+    if (link.label === "Expenses") return canAccessBusinessModule(user, "view_cash_management");
     if (!isStaffAccount(user) || link.label === "Settings") return true;
     const permissions: Record<string,string[]> = { Clients: ["view_clients"], Staff: creating?["create_staff"]:["view_staff"], Attendance:["view_attendance"], Catalog:["view_services","view_products","view_packages","view_memberships"], Reports:["view_reports"], Commissions:["view_commissions"], Campaigns:["view_marketing_dashboard"], "WhatsApp inbox":["view_inbox"], "WhatsApp insights":["view_marketing_analytics"], "Staff permissions":["manage_roles","manage_permissions"], Client:["create_clients","add_client"], Service:["create_services"], Product:["create_products"], Expense:["view_sales"], Booking:["create_appointment"] };
     return canAccessBusinessModule(user,...(permissions[link.label]??[]));

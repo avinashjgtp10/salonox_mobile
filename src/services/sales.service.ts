@@ -381,7 +381,7 @@ const normalizeSaleDetail = (entry: UnknownRecord): SaleDetail => {
     toSafeString(firstValue(appointmentRecord, ["scheduled_at", "start_time"]));
   const lineItems = firstArray(entry, ["items", "line_items", "lineItems"]).map(normalizeSaleLineItem);
   const total = toSafeNumber(firstValue(entry, ["total_amount", "totalAmount", "total"]));
-  const amountPaid = toSafeNumber(firstValue(entry, ["amount_paid", "amountPaid"]));
+  const amountPaid = toSafeNumber(firstValue(entry, ["amount_paid", "amountPaid", "paid_amount", "paidAmount"]));
 
   return {
     invoiceDate: parseAppDateTime(invoiceDate) ? invoiceDate : undefined,
@@ -514,10 +514,7 @@ const buildCheckoutRequestBody = (payload: CheckoutSaleRequest) => {
   const paymentReference =
     payload.paymentMethod === "split" && payload.splitEntries?.length
       ? JSON.stringify(
-          payload.splitEntries.reduce<Record<string, number>>((accumulator, entry) => {
-            accumulator[entry.method] = entry.amount;
-            return accumulator;
-          }, {}),
+          Object.fromEntries(payload.splitEntries.map(entry => [entry.method, entry.amount])),
         )
       : payload.paymentReference;
 
@@ -648,10 +645,18 @@ export const salesService = {
     const sale = normalizeSaleDetail(entry);
     const appointmentId = toSafeString(firstValue(entry, ["appointment_id", "appointmentId"])) ||
       toSafeString(firstValue(asRecord(entry.appointment), ["id", "_id"]));
-    if (!sale.invoiceDate && appointmentId) {
+    const hasPaidAmount = toOptionalNumber(firstValue(entry, ["amount_paid", "amountPaid", "paid_amount", "paidAmount"])) !== null;
+    const hasOutstandingAmount = toOptionalNumber(firstValue(entry, ["outstanding_amount", "outstandingAmount", "due_amount", "dueAmount"])) !== null;
+    if (appointmentId && (!sale.invoiceDate || !hasPaidAmount || !hasOutstandingAmount)) {
       try {
         const { appointment } = await appointmentService.getAppointment(appointmentId);
-        if (parseAppDateTime(appointment.scheduledAt)) sale.invoiceDate = appointment.scheduledAt ?? undefined;
+        if (!sale.invoiceDate && parseAppDateTime(appointment.scheduledAt)) sale.invoiceDate = appointment.scheduledAt ?? undefined;
+        // Sales rows may omit payment aggregates; the linked booking reads
+        // actual recorded payments, including split and partial collections.
+        if (!hasPaidAmount) sale.amountPaid = appointment.paidAmount;
+        if (!hasOutstandingAmount) {
+          sale.outstandingAmount = appointment.dueAmount ?? Math.max(0, sale.total - sale.amountPaid);
+        }
       } catch {
         // The invoice remains readable if its linked booking is unavailable.
       }

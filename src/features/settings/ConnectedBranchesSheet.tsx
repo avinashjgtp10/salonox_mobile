@@ -5,6 +5,7 @@ import { Text, TextInput } from "@/components/ui/AppTypography";
 import { PasswordField } from "@/components/ui/PasswordField";
 import { SettingsButton, SettingsRow, useSettingsStyles } from "./SettingsUI";
 import { connectedBranchesService, type ConnectedBranch, type ConnectedBranchesData } from "@/services/connectedBranches.service";
+import { isBranchManagementRestricted } from "@/utils/branchManagement";
 import { getApiErrorMessage } from "@/services/api";
 import { useAppToast } from "@/hooks/useAppToast";
 import { useAppDispatch } from "@/store/hooks";
@@ -21,12 +22,20 @@ export function ConnectedBranchesSheet({ onClose, onOpenPortal }: { onClose: () 
   const [identity, setIdentity] = useState(""), [password, setPassword] = useState(""), [confirm, setConfirm] = useState("");
   const [selected, setSelected] = useState<ConnectedBranch | null>(null);
   const [mainName, setMainName] = useState("");
+  const [mainSalonId, setMainSalonId] = useState<string | null>(null);
+  const [restricted, setRestricted] = useState(false);
   const passwordRef = useRef<TextInput>(null), confirmRef = useRef<TextInput>(null);
   const lock = useRef(false), version = useRef(0);
   const load = useCallback(async () => {
-    const current = ++version.current; setLoading(true); setError(null);
-    try { const [result, name] = await Promise.all([connectedBranchesService.list(), connectedBranchesService.mainSalonName()]); if (current === version.current) { setData(result); setMainName(name); } }
-    catch (failure) { if (current === version.current) setError(getApiErrorMessage(failure)); }
+    const current = ++version.current; setLoading(true); setError(null); setRestricted(false);
+    try {
+      const main = await connectedBranchesService.main();
+      if (current !== version.current) return;
+      setMainSalonId(main.user.salonId ?? null);
+      const [result, name] = await Promise.all([connectedBranchesService.list(), connectedBranchesService.mainSalonName().catch(() => "")]);
+      if (current === version.current) { setData(result); setMainName(name); }
+    }
+    catch (failure) { if (current === version.current) { const blocked = isBranchManagementRestricted(failure); setRestricted(blocked); if (blocked) setData(null); setError(getApiErrorMessage(failure)); } }
     finally { if (current === version.current) setLoading(false); }
   }, []);
   useEffect(() => { void load(); return () => { version.current += 1; }; }, [load]);
@@ -65,7 +74,12 @@ export function ConnectedBranchesSheet({ onClose, onOpenPortal }: { onClose: () 
     <View style={{ gap: 16 }}>
       {mode === "list" ? <>
         {!!mainName && <Text style={ui.title}>{mainName}</Text>}
-        <Text translate style={ui.muted}>Connect your other SalonOX accounts as branches. One branch username and password signs you in to the Branch Owner portal, where you can see and enter all of them.</Text>
+        <Text translate style={ui.muted}>{restricted ? "You're signed in to a connected branch. To connect more accounts, use the original main salon owner account or sign in to the Branch Owner portal. Connected branches cannot manage other branches." : "Connect your other SalonOX accounts as branches. One branch username and password signs you in to the Branch Owner portal, where you can see and enter all of them."}</Text>
+        {restricted && mainSalonId && mainSalonId !== user?.salonId && <SettingsButton label="Back to main account" disabled={busy} onPress={() => {
+          if (lock.current) return;
+          lock.current = true; setBusy(true);
+          void switchSalon(mainSalonId).then(() => load()).catch(failure => setError(getApiErrorMessage(failure))).finally(() => { lock.current = false; setBusy(false); });
+        }} />}
         {loading ? <Text translate style={ui.muted}>Loading branches…</Text> : data && <>
           <Text translate style={ui.section}>Branch login</Text>
           <View style={ui.formCard}><Text translate style={ui.muted}>One username and password for the Branch Owner portal. It lists your own salon and every connected account.</Text>
@@ -84,8 +98,8 @@ export function ConnectedBranchesSheet({ onClose, onOpenPortal }: { onClose: () 
         <PasswordField ref={passwordRef} pearlStyle label={mode === "connect" ? "Account password" : mode === "reset" ? "New password" : "Branch password"} value={password} editable={!busy} onChangeText={value => { setPassword(value); setError(null); }} returnKeyType={mode === "create" ? "next" : "done"} blurOnSubmit={false} onSubmitEditing={() => mode === "create" ? confirmRef.current?.focus() : void save()} />
         {mode === "create" && <PasswordField ref={confirmRef} pearlStyle label="Confirm password" value={confirm} editable={!busy} onChangeText={value => { setConfirm(value); setError(null); }} returnKeyType="done" onSubmitEditing={() => void save()} />}
       </>}
-      {!!error && <Text accessibilityRole="alert" style={ui.error}>{error}</Text>}
-      {mode === "list" && !!error && <SettingsButton secondary label="Retry" onPress={() => void load()} />}
+      {!!error && !restricted && <Text accessibilityRole="alert" style={ui.error}>{error}</Text>}
+      {mode === "list" && !!error && !restricted && <SettingsButton secondary label="Retry" onPress={() => void load()} />}
     </View>
   </BottomSheet>;
 }

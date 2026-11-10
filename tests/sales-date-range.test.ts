@@ -48,7 +48,7 @@ it("uses the saved booking date when the invoice is reopened", async () => {
 });
 
 it("keeps an explicit invoice date and falls back to the recorded date when booking lookup fails", async () => {
-  jest.mocked(api.get).mockResolvedValue({ data: { data: { id: "sale-2", appointment_id: "booking-2", invoice_date: "2026-11-04", created_at: "2026-11-07T12:00:00" } } });
+  jest.mocked(api.get).mockResolvedValue({ data: { data: { id: "sale-2", appointment_id: "booking-2", invoice_date: "2026-11-04", created_at: "2026-11-07T12:00:00", amount_paid: "100.00", due_amount: "0.00" } } });
   expect(invoiceDateLabel(await salesService.getSale("sale-2"))).toBe("04-11-26");
   expect(appointmentService.getAppointment).not.toHaveBeenCalled();
   jest.mocked(api.get).mockResolvedValue({ data: { data: { id: "sale-2", appointment_id: "booking-2", created_at: "2026-11-07T12:00:00" } } });
