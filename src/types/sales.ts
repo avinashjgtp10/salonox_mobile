@@ -1,5 +1,6 @@
 export type SaleStatus = "draft" | "completed" | "cancelled" | "refunded";
-export type SalePaymentMethod = "cash" | "card" | "gift_card" | "split" | "upi";
+// Custom names are snapshotted into each transaction, as on the web.
+export type SalePaymentMethod = "cash" | "card" | "gift_card" | "split" | "upi" | (string & {});
 export type SaleItemType = "service" | "product" | "membership" | "gift_card" | "quick" | "package";
 
 export type PosStaffMember = {

@@ -514,10 +514,7 @@ const buildCheckoutRequestBody = (payload: CheckoutSaleRequest) => {
   const paymentReference =
     payload.paymentMethod === "split" && payload.splitEntries?.length
       ? JSON.stringify(
-          payload.splitEntries.reduce<Record<string, number>>((accumulator, entry) => {
-            accumulator[entry.method] = entry.amount;
-            return accumulator;
-          }, {}),
+          Object.fromEntries(payload.splitEntries.map(entry => [entry.method, entry.amount])),
         )
       : payload.paymentReference;
 

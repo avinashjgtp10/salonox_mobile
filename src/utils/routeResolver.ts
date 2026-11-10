@@ -28,6 +28,7 @@ export const isStaffBusinessTabAllowed = (tab: string | undefined, user?: AuthUs
 export const isStaffAllowedRoute = (segment?: string | null, user?: AuthUser | null) =>
   segment === STAFF_ROUTE_GROUP ||
   STAFF_SHARED_ROUTES.has(segment ?? "") ||
+  (segment === "payment-methods" && canAccessBusinessModule(user, "manage_payment_methods", "view_settings_payment_methods")) ||
   (segment === "(tabs)" && hasBusinessDashboard(user)) ||
   (hasBusinessDashboard(user) && Boolean(BUSINESS_ROUTE_PERMISSIONS[segment ?? ""]?.some(key => canAccessBusinessModule(user, key)))) ||
   (segment === "product-audits" && canViewProductAudit(user)) ||
