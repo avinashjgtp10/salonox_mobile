@@ -58,7 +58,9 @@ export function BottomSheet({
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => createStyles(Colors, insets.bottom), [Colors, insets.bottom]);
   const { height: screenHeight } = useWindowDimensions();
-  const sheetMaxHeight = Math.round(screenHeight * 0.9);
+  const [availableHeight, setAvailableHeight] = useState<number | null>(null);
+  const centeredPadding = centered ? Math.max(insets.top, 16) + Math.max(insets.bottom, 16) : 0;
+  const sheetMaxHeight = Math.min(Math.round(screenHeight * 0.9), Math.max(0, (availableHeight ?? screenHeight) - centeredPadding));
   const scrollMaxHeight = Math.round(screenHeight * 0.72);
   const progress = useSharedValue(0);
   const [isPresented, setIsPresented] = useState(visible);
@@ -126,7 +128,7 @@ export function BottomSheet({
           embedded
           autoReveal
           padForKeyboard={!avoidKeyboard}
-          style={{ maxHeight: scrollMaxHeight }}
+          style={{ maxHeight: scrollMaxHeight, minHeight: 0, flexShrink: 1 }}
           contentContainerStyle={styles.content}
         >
           {children}
@@ -152,7 +154,7 @@ export function BottomSheet({
         <Pressable onPress={onClose} style={StyleSheet.absoluteFill} />
         {avoidKeyboard ? (
           <KeyboardInsetView
-            bottomOffset={insets.bottom}
+            onContentLayout={event => setAvailableHeight(event.nativeEvent.layout.height)}
             contentContainerStyle={[styles.keyboardAvoiding, centered && styles.keyboardAvoidingCentered, centered && { paddingTop: Math.max(insets.top, 16), paddingBottom: Math.max(insets.bottom, 16) }]}
           >
             {sheet}
@@ -227,6 +229,7 @@ const createStyles = (Colors: ThemeColors, bottomInset: number) => StyleSheet.cr
     width: 42,
   },
   header: {
+    flexShrink: 0,
     alignItems: "flex-start",
     flexDirection: "row",
     gap: 12,
@@ -268,6 +271,7 @@ const createStyles = (Colors: ThemeColors, bottomInset: number) => StyleSheet.cr
     flexShrink: 1,
   },
   footer: {
+    flexShrink: 0,
     flexDirection: "row",
     gap: 10,
     paddingTop: Spacing.md,

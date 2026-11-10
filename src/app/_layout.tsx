@@ -1,3 +1,4 @@
+import { hasBusinessDashboard } from "@/utils/staffExperience";
 import { RegionalPreferencesSync } from "@/localization/RegionalPreferencesSync";
 import { Text } from "@/components/ui/AppTypography";
 import { DarkTheme, DefaultTheme, ThemeProvider as NavigationThemeProvider, type Theme } from '@react-navigation/native';
@@ -217,7 +218,8 @@ function AuthNavigationHandler({ onReady }: { onReady: () => void }) {
       const shouldUseStaffApp = isStaffExperienceUser(user);
       const isWrongAuthenticatedApp =
         (shouldUseStaffApp && !isStaffAllowedRoute(topLevelSegment, user)) ||
-        (!shouldUseStaffApp && isStaffRouteGroup(topLevelSegment));
+        (!shouldUseStaffApp && isStaffRouteGroup(topLevelSegment)) ||
+        (shouldUseStaffApp && hasBusinessDashboard(user) && isStaffRouteGroup(topLevelSegment) && String(segments[1]) === "home");
 
       if (isPublicRoute || isSubscriptionRoute || isWrongAuthenticatedApp) {
         router.replace(resolveAuthenticatedRoute(user));
@@ -360,21 +362,23 @@ function UpdateAnnouncements({ announcement, onHome, ota, ready, showsOtaUpdate 
 }
 
 function BranchBootstrap() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const dispatch = useAppDispatch();
-  const wasAuthenticated = useRef(false);
+  const wasAuthenticated = useRef<string | null>(null);
+  const identity = isAuthenticated ? `${user?.id}:${user?.salonId}` : null;
 
   useEffect(() => {
-    if (isAuthenticated && !wasAuthenticated.current) {
-      wasAuthenticated.current = true;
+    if (identity && wasAuthenticated.current !== identity) {
+      wasAuthenticated.current = identity;
 
       void (async () => {
         const result = await dispatch(fetchBranchesThunk());
+        if (wasAuthenticated.current !== identity) return;
 
         if (fetchBranchesThunk.fulfilled.match(result)) {
           const branches = result.payload;
           const persistedBranchId = await branchStorage.getActiveBranchId();
-          const nextBranchId =
+          const nextBranchId = user?.salonId ??
             branches.find((branch) => branch.id === persistedBranchId)?.id ?? branches[0]?.id ?? null;
 
           if (nextBranchId) {
@@ -387,11 +391,11 @@ function BranchBootstrap() {
     }
 
     if (!isAuthenticated && wasAuthenticated.current) {
-      wasAuthenticated.current = false;
+      wasAuthenticated.current = null;
       dispatch(resetBranchState());
       void branchStorage.clearActiveBranchId();
     }
-  }, [dispatch, isAuthenticated]);
+  }, [dispatch, isAuthenticated, identity, user?.salonId]);
 
   return null;
 }

@@ -23,9 +23,14 @@ export const fetchBranchesThunk = createAsyncThunk<
   Branch[],
   void,
   { rejectValue: RejectValue; state: RootState }
->("branch/fetchBranches", async (_args, { rejectWithValue }) => {
+>("branch/fetchBranches", async (_args, { rejectWithValue, getState }) => {
+  const user = getState().user.user;
+  const identity = `${user?.id}:${user?.salonId}`;
   try {
-    return await branchService.getMyBranches();
+    const branches = await branchService.getMyBranches();
+    const currentUser = getState().user.user;
+    if (`${currentUser?.id}:${currentUser?.salonId}` !== identity) throw new Error("Your session changed. Please retry.");
+    return branches;
   } catch (error) {
     return rejectWithValue({ message: getApiErrorMessage(error) });
   }
@@ -65,6 +70,7 @@ export const selectBranchThunk = createAsyncThunk<
   if (branchId === selectActiveBranchId(state) || state.branch.isSwitching) {
     return;
   }
+  if (branchId !== state.user.user?.salonId) throw new Error("Switch salons through the authenticated salon switcher.");
 
   dispatch(setSwitchingBranch(true));
   dispatch(setActiveBranchId(branchId));

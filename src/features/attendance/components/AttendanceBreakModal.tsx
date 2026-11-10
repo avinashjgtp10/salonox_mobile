@@ -1,17 +1,21 @@
-import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
+import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
+import { SettingsButton, SettingsHeader, useSettingsStyles } from "@/features/settings/SettingsUI";
+import { KeyboardInsetView } from "@/components/ui/KeyboardInsetView";
+import { PearlActionFooter } from "@/components/ui/PearlActionFooter";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useRef, useState } from "react";
-import { Keyboard, ScrollView, TouchableOpacity, View } from "react-native";
+import { Keyboard, Modal, ScrollView, TouchableOpacity, View } from "react-native";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { BottomSheet } from "@/components/ui/BottomSheet";
-import type { KeyboardAwareFormHandle } from "@/components/ui/KeyboardAwareForm";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { KeyboardAwareForm, type KeyboardAwareFormHandle } from "@/components/ui/KeyboardAwareForm";
+import { usePearlColors as useThemeColors } from "@/components/auth/pearl/usePearlColors";
 import type { StaffSelfAttendance } from "@/services/staffSelfAttendance.service";
 import type { StartBreakRequest } from "@/types/attendance";
 import { getApiErrorMessage } from "@/services/api";
 import { formatAttendanceTime, parseAttendanceDateTime } from "../utils/attendanceStatus";
 import { formatAttendanceDuration } from "./AttendanceActivityDetails";
-import { useStaffSelfAttendance } from "./StaffAttendanceGate";
+import { useStaffSelfAttendance } from "./StaffSelfAttendanceContext";
 
 // Inline list, not a nested native Modal: opening a Modal from inside this
 // popup (right after the Check Out confirmation Modal closes) often never
@@ -47,11 +51,13 @@ function TimeSelect({ label, value, options, open, disabled, onToggle, onSelect 
   </View>;
 }
 
-export function AttendanceBreakModal({ visible, state, busy, onClose, onSubmit }: {
-  visible: boolean; state: StaffSelfAttendance | null; busy: boolean;
+export function AttendanceBreakModal({ visible, state, busy, onClose, onSubmit, fullPage = false }: {
+  fullPage?: boolean; visible: boolean; state: StaffSelfAttendance | null; busy: boolean;
   onClose: () => void; onSubmit: (body: StartBreakRequest) => Promise<void>;
 }) {
   const Colors = useThemeColors();
+  const insets = useSafeAreaInsets();
+  const ui = useSettingsStyles();
   const refreshAttendance = useStaffSelfAttendance()?.refresh;
   const [refreshing, setRefreshing] = useState(false);
   const [from, setFrom] = useState(Number.NaN), [to, setTo] = useState(Number.NaN);
@@ -119,29 +125,35 @@ export function AttendanceBreakModal({ visible, state, busy, onClose, onSubmit }
     catch (failure) { setError(getApiErrorMessage(failure)); }
     finally { submitting.current = false; }
   };
-  return <BottomSheet centered visible={visible} keyboardAwareFormRef={formRef} title="Take a Break" subtitle="Temporarily leave your shift. Check in when you return." onClose={close}>
+  const content = (
     <View style={{ gap: 18 }}>
-      {refreshing ? <ActivityIndicator accessibilityLabel="Refreshing shift times" color={Colors.primaryText} /> : hasShift ? <Text style={{ color: Colors.text2 }}>Shift: {formatAttendanceTime(state?.shift_start)} – {formatAttendanceTime(state?.shift_end)}</Text> : null}
-      <TimeSelect label="From" value={from} options={optionsFor("from")} open={active === "from"} disabled={disabled || Boolean(availabilityError)}
+      <View style={ui.formCard}><Text translate style={ui.title}>Break</Text>
+      {refreshing ? <Text translate style={ui.muted}>Loading shift…</Text> : hasShift ? <Text style={{ color: Colors.text2 }}>Shift: {formatAttendanceTime(state?.shift_start)} – {formatAttendanceTime(state?.shift_end)}</Text> : null}
+      <View style={{flexDirection:"row",gap:12}}><View style={{flex:1}}><TimeSelect label="From" value={from} options={optionsFor("from")} open={active === "from"} disabled={disabled || Boolean(availabilityError)}
         onToggle={() => setActive(current => current === "from" ? null : "from")}
         onSelect={value => { setFrom(value); if (to <= value) setTo(Math.min(value + 30 * 60000, shiftEnd)); setActive(null); }} />
-      <TimeSelect label="To — Expected return" value={to} options={optionsFor("to")} open={active === "to"} disabled={disabled || Boolean(availabilityError)}
+      </View><View style={{flex:1}}><TimeSelect label="Back by *" value={to} options={optionsFor("to")} open={active === "to"} disabled={disabled || Boolean(availabilityError)}
         onToggle={() => setActive(current => current === "to" ? null : "to")}
         onSelect={value => { setTo(value); setActive(null); }} />
-      <Text style={{ color: Colors.heading, fontWeight: "700" }}>Break Duration: {Number.isFinite(to - from) && to > from ? formatAttendanceDuration((to - from) / 1000) : "Select a later return time"}</Text>
-      <View ref={noteFieldRef} collapsable={false} style={{ gap: 8 }}>
-        <Text translate style={{ color: Colors.heading, fontWeight: "700" }}>Note (optional)</Text>
-        <TextInput accessibilityLabel="Break note" placeholder="Add a reason or a note for your manager" placeholderTextColor={Colors.text2} value={note} onChangeText={setNote}
+      </View></View>
+      <Text translate style={{color:Colors.text2,fontSize:12}}>Quick pick</Text>
+      <View style={{flexDirection:"row",gap:8}}>{[15,30,45,60].map(minutes=><TouchableOpacity key={minutes} disabled={disabled||!hasShift||from+minutes*60000>shiftEnd} onPress={()=>{setTo(from+minutes*60000);setActive(null);}} style={{flex:1,paddingVertical:10,borderRadius:18,alignItems:"center",backgroundColor:to-from===minutes*60000?Colors.backgroundSelected:Colors.card,opacity:from+minutes*60000>shiftEnd?0.4:1}}><Text style={{color:Colors.primaryText,fontSize:12,fontWeight:"600"}}>{minutes===60?"1 hour":minutes+" min"}</Text></TouchableOpacity>)}</View>
+      <Text style={{ color: Colors.heading, fontWeight: "700" }}>Duration: {Number.isFinite(to - from) && to > from ? formatAttendanceDuration((to - from) / 1000) : "Select a later return time"}</Text>
+      </View>
+      <View ref={noteFieldRef} collapsable={false} style={[ui.formCard,{ gap: 8 }]}>
+        <Text translate style={{ color: Colors.heading, fontWeight: "700" }}>Note for manager</Text>
+        <TextInput accessibilityLabel="Break note" placeholder="Optional, e.g. lunch" placeholderTextColor={Colors.text2} value={note} onChangeText={setNote}
           onFocus={() => { setActive(null); formRef.current?.revealField(noteFieldRef.current); }}
           onTouchEnd={() => formRef.current?.revealField(noteFieldRef.current)}
-          editable={!busy} multiline maxLength={500} textAlignVertical="top" style={{ color: Colors.text, backgroundColor: Colors.bg2, borderWidth: 1, borderColor: Colors.border, borderRadius: 12, padding: 14, minHeight: 88 }} />
+          editable={!busy} multiline maxLength={120} textAlignVertical="top" style={{ color: Colors.text, backgroundColor: Colors.bg2, borderWidth: 1, borderColor: Colors.border, borderRadius: 12, padding: 14, minHeight: 88 }} />
+      <Text style={{color:Colors.text2,fontSize:12,textAlign:"right"}}>{note.length} / 120</Text>
       </View>
-      <Text translate style={{ color: Colors.text2, fontSize: 13 }}>Actual break time starts when you tap Start Break and ends when you check in again. Your scheduled shift stays unchanged.</Text>
       {!refreshing && invalid ? <Text accessibilityRole="alert" style={{ color: Colors.error }}>{availabilityError ?? "Select a valid period within your saved shift and after your current check-in."}</Text> : null}
       {error ? <Text translate accessibilityRole="alert" style={{ color: Colors.error }}>{error}</Text> : null}
-      <TouchableOpacity accessibilityRole="button" disabled={disabled || invalid} onPress={() => void submit()} style={{ backgroundColor: Colors.primary, padding: 16, borderRadius: 14, alignItems: "center", opacity: disabled || invalid ? 0.5 : 1 }}>
-        {disabled ? <ActivityIndicator color="#fff" /> : <Text translate style={{ color: "#fff", fontWeight: "700" }}>Start Break</Text>}
-      </TouchableOpacity>
+
     </View>
-  </BottomSheet>;
+  );
+  const buttons = <><View style={{minWidth:80}}><SettingsButton label="Cancel" secondary disabled={busy} onPress={close}/></View><View style={{flex:1}}><SettingsButton label="Start break" loading={busy} disabled={disabled || invalid} onPress={()=>void submit()}/></View></>;
+  if (fullPage) return <Modal visible={visible} animationType="slide" onRequestClose={close}><PearlBackground><SafeAreaView edges={["top"]} style={{flex:1}}><SettingsHeader title="Take a break" onBack={close}/><KeyboardInsetView bottomOffset={insets.bottom}><KeyboardAwareForm ref={formRef} autoReveal padForKeyboard={false} avoidKeyboard={false} contentContainerStyle={{padding:20,paddingBottom:30}}>{content}</KeyboardAwareForm><PearlActionFooter bottomInset={insets.bottom}>{buttons}</PearlActionFooter></KeyboardInsetView></SafeAreaView></PearlBackground></Modal>;
+  return <BottomSheet pearlStyle centered={false} avoidKeyboard visible={visible} keyboardAwareFormRef={formRef} title="Take a break" onClose={close} footer={buttons}>{content}</BottomSheet>;
 }

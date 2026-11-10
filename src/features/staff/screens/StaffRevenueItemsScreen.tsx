@@ -1,3 +1,4 @@
+import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
 import { useRegionalPreferences } from "@/localization/preferences";
 import { AppBackButton } from "@/components/ui/AppBackButton";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
@@ -6,14 +7,14 @@ import { Text } from "@/components/ui/AppTypography";
 import { DateRangeField } from "@/components/ui/DateRangeField";
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { AppLayout, AppRadius } from "@/constants/layout";
-import { DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
+import { DashboardSpacing as Spacing } from "@/constants/theme";
 import { toComparableId } from "@/features/appointments/utils/staffAssignment";
 import { getApiErrorMessage } from "@/services/api";
 import { appointmentService } from "@/services/appointment.service";
 import { selectActiveBranchId } from "@/store/branch/branch.slice";
 import { useAppSelector } from "@/store/hooks";
 import { selectCurrentStaff } from "@/store/staff/staff.slice";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors as useThemeColors, type PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 import type { AppointmentBilledItem, AppointmentListItem } from "@/types/appointment";
 import { getAppointmentBillLabel, maskClientName } from "@/utils/clientPrivacy";
 import { useClientPrivacy } from "@/hooks/useClientPrivacy";
@@ -130,7 +131,7 @@ export function StaffRevenueItemsScreen() {
   }, [goBack]));
 
   return (
-    <SafeAreaView edges={["top"]} style={[styles.safeArea, { backgroundColor: Colors.bg }]}>
+    <PearlBackground><SafeAreaView edges={["top"]} style={[styles.safeArea, { backgroundColor: "transparent" }]}>
       <AppStatusBar />
       <RefreshViewport><ScrollView
         contentContainerStyle={[styles.content, { paddingHorizontal: horizontalPadding }]}
@@ -220,7 +221,7 @@ export function StaffRevenueItemsScreen() {
           </TouchableOpacity>
         )) : null}
       </ScrollView></RefreshViewport>
-    </SafeAreaView>
+    </SafeAreaView></PearlBackground>
   );
 }
 

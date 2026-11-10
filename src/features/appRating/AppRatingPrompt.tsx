@@ -1,15 +1,17 @@
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Linking, Platform, StyleSheet, TouchableOpacity, View } from "react-native";
 
 import { BottomSheet } from "@/components/ui/BottomSheet";
-import { DashboardRadius as Radius, DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
+import { DashboardRadius as Radius, DashboardSpacing as Spacing } from "@/constants/theme";
 import { useAuth } from "@/context/AuthContext";
 import { guideStorage } from "@/features/userGuide/guideStorage";
 import { useAppToast } from "@/hooks/useAppToast";
 import { useIsOnHomeScreen } from "@/hooks/useIsOnHomeScreen";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors, type PearlColors } from "@/components/auth/pearl/usePearlColors";
+import { SettingsButton } from "@/features/settings/SettingsUI";
+import { type KeyboardAwareFormHandle } from "@/components/ui/KeyboardAwareForm";
 import { appRatingStorage } from "./appRatingStorage";
 
 // Reviews always go to the production listing; dev/QA builds aren't on the stores.
@@ -29,7 +31,6 @@ const STORE_NAME = Platform.OS === "ios" ? "App Store" : "Play Store";
 
 // Let the home screen settle before asking.
 const PROMPT_DELAY_MS = 2500;
-const STAR_COLOR = "#F5B400";
 const RATING_LABELS = ["", "Poor", "Fair", "Good", "Great", "Excellent!"];
 
 const openStoreReview = async () => {
@@ -45,7 +46,9 @@ const openStoreReview = async () => {
 };
 
 function AppRatingSheet({ onDismiss, onSubmit, visible }: { onDismiss: () => void; onSubmit: () => void; visible: boolean }) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
+  const formRef = useRef<KeyboardAwareFormHandle>(null);
+  const feedbackFieldRef = useRef<View>(null);
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
@@ -62,23 +65,13 @@ function AppRatingSheet({ onDismiss, onSubmit, visible }: { onDismiss: () => voi
   return (
     <BottomSheet
       avoidKeyboard
-      footer={
-        <>
-          <TouchableOpacity accessibilityRole="button" activeOpacity={0.84} onPress={onDismiss} style={styles.secondaryButton}>
-            <Text translate style={styles.secondaryButtonText}>Not now</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            accessibilityRole="button"
-            accessibilityState={{ disabled: !canSubmit }}
-            activeOpacity={canSubmit ? 0.84 : 1}
-            disabled={!canSubmit}
-            onPress={onSubmit}
-            style={[styles.primaryButton, !canSubmit && styles.primaryButtonDisabled]}
-          >
-            <Text translate style={styles.primaryButtonText}>Submit</Text>
-          </TouchableOpacity>
-        </>
-      }
+      pearlStyle
+      centered={false}
+      keyboardAwareFormRef={formRef}
+      footer={<>
+        <View style={{ minWidth: 100 }}><SettingsButton secondary label="Not now" onPress={onDismiss} /></View>
+        <View style={{ flex: 1 }}><SettingsButton label="Submit" disabled={!canSubmit} onPress={onSubmit} /></View>
+      </>}
       onClose={onDismiss}
       subtitle="How has your experience been? Your rating helps us improve."
       title="Enjoying SalonOX?"
@@ -95,14 +88,17 @@ function AppRatingSheet({ onDismiss, onSubmit, visible }: { onDismiss: () => voi
             hitSlop={{ bottom: 6, left: 4, right: 4, top: 6 }}
             onPress={() => setRating(value)}
           >
-            <Ionicons color={value <= rating ? STAR_COLOR : Colors.border} name={value <= rating ? "star" : "star-outline"} size={36} />
+            <Ionicons color={value <= rating ? Colors.primary : Colors.placeholder} name={value <= rating ? "star" : "star-outline"} size={36} />
           </TouchableOpacity>
         ))}
       </View>
       <Text style={styles.ratingLabel}>{rating ? RATING_LABELS[rating] : "Tap a star to rate"}</Text>
 
       <Text translate style={styles.label}>Your feedback (optional)</Text>
+      <View ref={feedbackFieldRef} collapsable={false}>
       <TextInput
+        onFocus={() => formRef.current?.revealField(feedbackFieldRef.current)}
+        onTouchEnd={() => formRef.current?.revealField(feedbackFieldRef.current)}
         maxLength={500}
         multiline
         numberOfLines={4}
@@ -112,6 +108,7 @@ function AppRatingSheet({ onDismiss, onSubmit, visible }: { onDismiss: () => voi
         style={styles.input}
         value={comment}
       />
+      </View>
       <Text style={styles.hint}>After you submit, the {STORE_NAME} opens so you can post your review.</Text>
     </BottomSheet>
   );
@@ -172,7 +169,7 @@ export function AppRatingPrompt({ enabled }: { enabled: boolean }) {
   );
 }
 
-const createStyles = (Colors: ThemeColors) =>
+const createStyles = (Colors: PearlColors) =>
   StyleSheet.create({
     starRow: {
       flexDirection: "row",
@@ -210,36 +207,5 @@ const createStyles = (Colors: ThemeColors) =>
       fontSize: 12,
       lineHeight: 18,
       marginTop: Spacing.sm,
-    },
-    secondaryButton: {
-      alignItems: "center",
-      backgroundColor: Colors.bg2,
-      borderColor: Colors.border,
-      borderRadius: Radius.md,
-      borderWidth: 1,
-      flex: 1,
-      justifyContent: "center",
-      paddingVertical: 14,
-    },
-    secondaryButtonText: {
-      color: Colors.heading,
-      fontSize: 14,
-      fontWeight: "800",
-    },
-    primaryButton: {
-      alignItems: "center",
-      backgroundColor: Colors.primaryDark,
-      borderRadius: Radius.md,
-      flex: 1,
-      justifyContent: "center",
-      paddingVertical: 14,
-    },
-    primaryButtonDisabled: {
-      opacity: 0.5,
-    },
-    primaryButtonText: {
-      color: Colors.onPrimary,
-      fontSize: 14,
-      fontWeight: "800",
     },
   });

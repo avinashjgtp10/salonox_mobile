@@ -61,8 +61,8 @@ export function Card({ children, style, padded }: { children: ReactNode; style?:
   return <View style={[styles.card, padded && { padding: 16 }, style]}>{children}</View>;
 }
 
-export function ListRow({ left, title, subtitle, right, onPress, label, chevron }: {
-  left?: ReactNode; title: string; subtitle?: string; right?: ReactNode; onPress?: () => void; label?: string; chevron?: boolean;
+export function ListRow({ left, title, subtitle, detail, right, onPress, label, chevron }: {
+  left?: ReactNode; title: string; subtitle?: string; detail?: ReactNode; right?: ReactNode; onPress?: () => void; label?: string; chevron?: boolean;
 }) {
   const body = (
     <>
@@ -70,6 +70,7 @@ export function ListRow({ left, title, subtitle, right, onPress, label, chevron 
       <View style={{ flex: 1, minWidth: 0 }}>
         <Text translate style={pearlType.bodyStrong} numberOfLines={1}>{title}</Text>
         {subtitle ? <Text translate style={[pearlType.small, { marginTop: 2 }]} numberOfLines={1}>{subtitle}</Text> : null}
+          {detail}
       </View>
       {right}
       {chevron ? <Icon name="chevronRight" size={16} color={pearl.muted} /> : null}

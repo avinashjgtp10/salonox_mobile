@@ -65,6 +65,7 @@ export const normalizeAuthUser = (value: unknown): AuthUser => {
     id: toTrimmedString(record.id, record._id) ?? "",
     email: toTrimmedString(record.email) ?? "",
     role: toTrimmedString(record.role, record.userRole, record.user_role) ?? "",
+    roleName: toTrimmedString(record.roleName, record.role_name),
     phone: toTrimmedString(
       record.phone,
       record.phoneNumber,
