@@ -22,7 +22,7 @@ import { ServiceCatalogPicker, type PickerTab } from "@/features/appointments/co
 import { TextField } from "@/features/appointments/components/form/TextField";
 import { TimeSlotSelector } from "@/features/appointments/components/form/TimeSlotSelector";
 import { AppointmentSnackbar } from "@/features/appointments/components/shared/AppointmentSnackbar";
-import { PAYMENT_METHODS } from "@/features/appointments/constants/appointmentConstants";
+import { usePaymentMethods } from "@/hooks/usePaymentMethods";
 import { getSelectedServiceCatalogId } from "@/features/appointments/utils/appointmentForm";
 import { Ionicons } from "@expo/vector-icons";
 import { FlatList, Pressable, StyleSheet, TouchableOpacity, View } from "react-native";
@@ -41,6 +41,7 @@ type Props = {
 };
 
 export function AppointmentFormScreen({ mode, initialSlot, onRequestClose }: Props) {
+  const paymentMethods = usePaymentMethods();
   const embedded = initialSlot && onRequestClose ? { initialSlot, onRequestClose } : undefined;
   const { clientName } = useClientPrivacy();
   const {
@@ -212,7 +213,7 @@ export function AppointmentFormScreen({ mode, initialSlot, onRequestClose }: Pro
                   error={errors.paymentMethod}
                   label="Payment Method"
                   onSelect={(value) => updateForm("paymentMethod", value)}
-                  options={PAYMENT_METHODS.map((method) => ({ label: method, value: method }))}
+                  options={paymentMethods.options.map(method => ({ label: method.label, value: method.label }))}
                   value={form.paymentMethod}
                 />
               </View>

@@ -1,8 +1,10 @@
 import { useRegionalPreferences } from "@/localization/preferences";
+import { usePaymentMethods } from "@/hooks/usePaymentMethods";
+import { activePaymentMethods } from "@/services/paymentMethods.service";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 
 import { AppLayout, AppRadius } from "@/constants/layout";
@@ -30,10 +32,9 @@ type SettlementModalProps = {
   isLoading?: boolean;
 };
 
-type PaymentMethod = "Cash" | "Card" | "UPI";
+type PaymentMethod = string;
 type UpiProvider = "PhonePe" | "Google Pay";
 
-const PAYMENT_METHODS: PaymentMethod[] = ["Cash", "Card", "UPI"];
 const UPI_PROVIDERS: UpiProvider[] = ["PhonePe", "Google Pay"];
 
 export function SettlementModal({
@@ -50,11 +51,17 @@ export function SettlementModal({
   "use no memo";
   useRegionalPreferences();
   const Colors = useThemeColors();
+  const methods = usePaymentMethods(visible);
+  const paymentOptions = methods.options.map(method => method.label);
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const [amountText, setAmountText] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("Cash");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("");
   const [paymentMenuOpen, setPaymentMenuOpen] = useState(false);
+  const verifyLock = useRef(false);
+  const currentSession = useRef({ visible, scope: methods.scope });
+  currentSession.current = { visible, scope: methods.scope };
+  const [verifying, setVerifying] = useState(false);
   const [upiProvider, setUpiProvider] = useState<UpiProvider>("PhonePe");
   const [upiMenuOpen, setUpiMenuOpen] = useState(false);
 
@@ -62,12 +69,15 @@ export function SettlementModal({
     if (!visible) {
       setAmountText("");
       setError(null);
-      setPaymentMethod("Cash");
+      setPaymentMethod("");
       setPaymentMenuOpen(false);
       setUpiProvider("PhonePe");
       setUpiMenuOpen(false);
     }
   }, [visible]);
+  useEffect(() => {
+    if (methods.ready && !paymentOptions.includes(paymentMethod)) setPaymentMethod("");
+  }, [methods.ready, paymentOptions, paymentMethod]);
 
   const unpaidAmount = roundToCents(totalUnpaidCommission ?? 0);
   const settlementAmount = roundToCents(Number(amountText) || 0);
@@ -87,14 +97,25 @@ export function SettlementModal({
     setError(null);
   };
 
-  const handleConfirm = () => {
-    if (!isAmountValid || isLoading) {
+  const handleConfirm = async () => {
+    if (!isAmountValid || isLoading || verifyLock.current || !paymentMethod || methods.error) {
       return;
     }
-    onSettle(settlementAmount, paymentMethod);
+    verifyLock.current = true; setVerifying(true);
+    const scope = methods.scope;
+    try {
+      const current = await methods.refresh();
+      if (!currentSession.current.visible || currentSession.current.scope !== scope) return;
+      if (!activePaymentMethods(current, methods.offersUpi).some(method => method.label === paymentMethod)) {
+        setError("Payment methods changed. Please select an active method."); return;
+      }
+      onSettle(settlementAmount, paymentMethod);
+    } catch (failure) { setError(failure instanceof Error ? failure.message : "Unable to verify payment method."); }
+    finally { verifyLock.current = false; setVerifying(false); }
   };
 
   const handleCancel = () => {
+    if (verifyLock.current || isLoading) return;
     setAmountText("");
     setError(null);
     setPaymentMenuOpen(false);
@@ -154,6 +175,7 @@ export function SettlementModal({
                 value={amountText}
               />
               {error && <Text translate style={styles.errorText}>{error}</Text>}
+              {!!methods.error && <Text style={styles.errorText}>{methods.error}</Text>}
             </View>
             {description ? <Text translate style={styles.hintText}>{description}</Text> : null}
 
@@ -171,13 +193,13 @@ export function SettlementModal({
                     size={18}
                     color={Colors.primaryText}
                   />
-                  <Text style={styles.selectText}>{paymentMethod}</Text>
+                  <Text style={styles.selectText}>{paymentMethod || "Select payment method"}</Text>
                 </View>
                 <Ionicons name={paymentMenuOpen ? "chevron-up" : "chevron-down"} size={18} color={Colors.text2} />
               </TouchableOpacity>
               {paymentMenuOpen ? (
                 <View style={styles.selectMenu}>
-                  {PAYMENT_METHODS.map((method) => (
+                  {paymentOptions.map((method) => (
                     <TouchableOpacity
                       key={method}
                       activeOpacity={0.82}
@@ -254,11 +276,11 @@ export function SettlementModal({
 
               <TouchableOpacity
                 activeOpacity={0.84}
-                disabled={!isAmountValid || isLoading}
+                disabled={!isAmountValid || isLoading || verifying || !paymentMethod || !!methods.error}
                 onPress={handleConfirm}
-                style={[styles.confirmButton, (!isAmountValid || isLoading) && styles.buttonDisabled]}
+                style={[styles.confirmButton, (!isAmountValid || isLoading || verifying || !paymentMethod || !!methods.error) && styles.buttonDisabled]}
               >
-                {isLoading ? (
+                {isLoading || verifying ? (
                   <ActivityIndicator color="#FFFFFF" size="small" />
                 ) : (
                   <Text translate style={styles.confirmButtonText}>Settle</Text>
