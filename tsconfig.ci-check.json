@@ -1,0 +1,27 @@
+{
+    "extends":  "expo/tsconfig.base",
+    "compilerOptions":  {
+                            "strict":  true,
+                            "noUnusedLocals":  true,
+                            "noUnusedParameters":  true,
+                            "module":  "esnext",
+                            "forceConsistentCasingInFileNames":  true,
+                            "paths":  {
+                                          "@/*":  [
+                                                      "./src/*"
+                                                  ],
+                                          "@/assets/*":  [
+                                                             "./assets/*"
+                                                         ]
+                                      }
+                        },
+    "include":  [
+                    "src/**/*.ts",
+                    "src/**/*.tsx",
+                    "app.config.ts"
+                ],
+    "exclude":  [
+                    "node_modules",
+                    "dist"
+                ]
+}
