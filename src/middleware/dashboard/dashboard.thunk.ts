@@ -10,6 +10,7 @@ import { selectCurrentUser } from "@/store/user/user.slice";
 import { hasBusinessDashboard } from "@/utils/staffExperience";
 
 type FetchDashboardRejectValue = {
+  code?: string;
   message: string;
   responseBody?: unknown;
   silent?: boolean;
@@ -38,6 +39,9 @@ export const fetchDashboardThunk = createAsyncThunk<
     return await dashboardService.getOwnerDashboard(new Date(), salonId);
   } catch (error) {
     const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
+    const response = error instanceof ApiError
+      ? error.responseData as { error?: { code?: string }; code?: string } | undefined
+      : undefined;
     const state = getState();
 
     if (!isNetworkOnline() || isUserLogoutInProgress() || !selectCurrentUser(state)) {
@@ -51,6 +55,7 @@ export const fetchDashboardThunk = createAsyncThunk<
 
 
     return rejectWithValue({
+      code: response?.error?.code ?? response?.code ?? (error instanceof ApiError ? error.code : undefined),
       message,
       responseBody: error instanceof ApiError ? error.responseData : undefined,
       status: error instanceof ApiError ? error.status : undefined,
