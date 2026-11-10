@@ -72,7 +72,7 @@ const QUICK_ACTIONS: { icon: IconName; label: string; a11y: string; href: Href }
   { icon: "calendar", label: "Book", a11y: "Book", href: "/bookings/new" },
   { icon: "bolt", label: "Sale", a11y: "Sale", href: "/quick-sale" },
   { icon: "userAdd", label: "Client", a11y: "Add client", href: "/clients/new" },
-  { icon: "expense", label: "Expense", a11y: "Expense", href: "/sales" },
+  { icon: "expense", label: "Expense", a11y: "Expense", href: "/expenses?create=1" as Href },
 ];
 
 type Sheet = null | "menu" | "salon" | "notifications";
@@ -200,7 +200,7 @@ export default function DashboardScreen() {
             <View style={styles.bleed}><SpotlightAnnouncementCard /></View>
             <StatsRow />
             <View style={styles.qa}>
-              {QUICK_ACTIONS.filter(action => canAccessBusinessModule(user, ...(action.label === "Book" ? ["create_appointment"] : action.label === "Sale" ? ["access_quick_sale"] : action.label === "Client" ? ["create_clients", "add_client"] : ["view_sales"]))).map(action => (
+              {QUICK_ACTIONS.filter(action => canAccessBusinessModule(user, ...(action.label === "Book" ? ["create_appointment"] : action.label === "Sale" ? ["access_quick_sale"] : action.label === "Client" ? ["create_clients", "add_client"] : ["view_cash_management"])) && (action.label !== "Expense" || canAccessBusinessModule(user, "add_expense"))).map(action => (
                 <Pressable key={action.label} onPress={() => router.push(action.href)} style={styles.qaItem} accessibilityRole="button" accessibilityLabel={action.a11y}>
                   {({ pressed }) => (
                     <>

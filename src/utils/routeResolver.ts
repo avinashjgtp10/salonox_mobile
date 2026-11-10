@@ -34,6 +34,7 @@ export const isStaffAllowedRoute = (segment?: string | null, user?: AuthUser | n
   (segment === STAFF_QUICK_SALE_ROUTE && canAccessBusinessModule(user, "access_quick_sale") && canAccessBusinessModule(user, "view_calendar"));
 
 const BUSINESS_ROUTE_PERMISSIONS: Record<string, string[]> = {
+  expenses: ["view_cash_management"],
   clients: ["view_clients"], bookings: ["view_calendar", "view_appointment"], appointments: ["view_appointment"],
   sales: ["view_sales", "access_quick_sale"], reports: ["view_reports"], catalog: ["view_services", "view_products", "view_memberships", "view_packages"],
   services: ["view_services"], stock: ["view_products", "view_inventory"], memberships: ["view_memberships"],
