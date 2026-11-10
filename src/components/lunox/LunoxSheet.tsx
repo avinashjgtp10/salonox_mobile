@@ -1,3 +1,5 @@
+import { useAuth } from "@/context/AuthContext";
+import { canAccessLunox } from "@/utils/staffExperience";
 /**
  * Lunox AI (prototype `lunox` sheet): a tall pearl sheet over the current tab with the
  * Lunox header, the conversation, suggestion chips and the "Ask Lunox anything…" bar.
@@ -41,7 +43,7 @@ type Message =
 let nextId = 0;
 const newId = () => `m${++nextId}`;
 
-export function LunoxSheet({ visible, onClose, seed }: { visible: boolean; onClose: () => void; seed?: string | null }) {
+function LunoxSheetContent({ visible, onClose, seed }: { visible: boolean; onClose: () => void; seed?: string | null }) {
   const insets = useSafeAreaInsets();
   const { height: H } = useWindowDimensions();
   const [mounted, setMounted] = useState(visible);
@@ -293,3 +295,8 @@ const styles = StyleSheet.create({
   input: { flex: 1, height: "100%", paddingVertical: 0, fontSize: 14.5, fontWeight: "500", color: pearl.ink },
   send: { width: 44, height: 44, borderRadius: 14, alignItems: "center", justifyContent: "center" },
 });
+
+export function LunoxSheet(props: { visible: boolean; onClose: () => void; seed?: string | null }) {
+ const { user } = useAuth();
+ return canAccessLunox(user) ? <LunoxSheetContent {...props} /> : null;
+}

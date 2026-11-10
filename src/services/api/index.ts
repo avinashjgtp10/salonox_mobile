@@ -27,6 +27,7 @@ import { notificationDeviceStorage } from "@/services/notificationDeviceStorage"
 import { notifySessionInvalidated } from "@/services/sessionInvalidation";
 import { tokenStorage } from "@/services/tokenStorage";
 import { isStaffBusinessWrite } from "@/utils/staffAccess";
+import { renewBranchAccess } from "@/services/connectedBranches.service";
 import { forwardRequestCancellation } from "./requestCancellation";
 import type { ApiResponse, RefreshTokenResponseData } from "@/types/auth";
 
@@ -392,6 +393,13 @@ const refreshAccessToken = async (reason: string) => {
 
       if (isUserLogoutInProgress()) {
         throw createLogoutCancellation();
+      }
+
+      const delegatedTokens = await renewBranchAccess();
+      if (delegatedTokens) {
+        if (isUserLogoutInProgress()) throw createLogoutCancellation();
+        await tokenStorage.setTokens(delegatedTokens);
+        return delegatedTokens.accessToken;
       }
 
       if (!refreshToken) {

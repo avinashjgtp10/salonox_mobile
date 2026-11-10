@@ -45,6 +45,8 @@ import { AppearanceSheet } from "./AppearanceSheet";
 import { NotificationSettingsSheet } from "./NotificationSettingsSheet";
 import { ChangePasswordSheet } from "./ChangePasswordSheet";
 import { ClientFormRulesSheet } from "./ClientFormRulesSheet";
+import { ConnectedBranchesSheet } from "./ConnectedBranchesSheet";
+import { SalonSwitchSheet } from "@/components/dashboard/DashboardSheets";
 import {
   SettingsButton,
   SettingsHeader,
@@ -59,6 +61,8 @@ type Overlay =
   | "client-rules"
   | "help"
   | "report"
+  | "branches"
+  | "salons"
   | null;
 export default function SettingsScreen() {
   const ui = useSettingsStyles();
@@ -329,6 +333,7 @@ export default function SettingsScreen() {
                 onPress={() => go("/clients/import-contacts")}
               />
             </View>
+            {user?.role === "salon_owner" && <View style={ui.card}><SettingsRow title="Connected branches" subtitle="Connect accounts and manage your branch login" icon="git-branch-outline" onPress={() => setOverlay("branches")} /></View>}
             <Text translate style={ui.section}>Preferences</Text>
             <View style={ui.card}>
               <SettingsRow
@@ -419,6 +424,8 @@ export default function SettingsScreen() {
           </View>
         </ScrollView>
         {overlay === "appearance" && <AppearanceSheet onClose={closeOverlay} />}
+        {overlay === "branches" && <ConnectedBranchesSheet onClose={closeOverlay} onOpenPortal={() => setOverlay("salons")} />}
+        <SalonSwitchSheet visible={overlay === "salons"} onClose={closeOverlay} />
         {overlay === "notifications" && (
           <NotificationSettingsSheet onClose={closeOverlay} />
         )}

@@ -15,6 +15,7 @@ import { selectStaffLoading, selectStaffMembers } from "@/store/staff/staff.slic
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { AttendanceRecord } from "@/types/attendance";
 import { type DashboardAppointmentStatus, useTodayAppointments } from "./useTodayAppointments";
+import { AttendancePunchLocations } from "@/features/attendance/components/AttendancePunchLocations";
 
 const APPOINTMENT_STATUS: Record<DashboardAppointmentStatus, { tone: PillTone; label: string }> = {
   upcoming: { tone: "neutral", label: "Upcoming" },
@@ -112,6 +113,7 @@ export function StaffOnFloor() {
                   left={<Avatar initials={initialsOf(member.name, member.initials)} tone={tone as PearlTone} />}
                   title={member.name}
                   subtitle={attendanceNote(record, rawLabel)}
+                  detail={<AttendancePunchLocations record={record} />}
                   right={<StatusPill tone={tone} label={label} />}
                   onPress={() => router.push(`/team/${member.id}` as Href)}
                   label={`${member.name}, ${label}`}

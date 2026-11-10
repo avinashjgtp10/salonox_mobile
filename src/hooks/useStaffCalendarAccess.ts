@@ -19,11 +19,11 @@ export const useStaffCalendarAccess = () => {
     if (!startedUserId) return;
 
     try {
-      const permissions = await staffPermissionsService.own();
+      const { permissions, roleName } = await staffPermissionsService.ownAccess();
       const calendarAccess = permissions.view_calendar === true && permissions.access_quick_sale === true;
       // Ignore the answer if the session changed while it was in flight.
       if (userIdRef.current !== startedUserId) return;
-      await updateUser({ effective_permissions: permissions, custom_permissions: permissions, mobileCalendarAccess: calendarAccess });
+      await updateUser({ roleName, effective_permissions: permissions, custom_permissions: permissions, mobileCalendarAccess: calendarAccess });
     } catch {
       // Retain cached permissions offline; the backend authorizes each operation.
     }

@@ -65,11 +65,12 @@ export const staffPermissionsService = {
     );
     return result.data.data;
   },
-  async own() {
+  async own() { return (await this.ownAccess()).permissions; },
+  async ownAccess() {
     const res =
       await api.get<
-        ApiResponse<{ effective_permissions?: Record<string, boolean> }>
+        ApiResponse<{ effective_permissions?: Record<string, boolean>; roleName?: string | null }>
       >("/users/me");
-    return res.data.data.effective_permissions ?? {};
+    return { permissions: res.data.data.effective_permissions ?? {}, roleName: res.data.data.roleName ?? null };
   },
 };

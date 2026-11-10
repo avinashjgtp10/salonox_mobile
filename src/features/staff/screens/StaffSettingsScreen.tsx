@@ -1,3 +1,9 @@
+import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
+import { SettingsButton, SettingsRow, useSettingsStyles } from "@/features/settings/SettingsUI";
+import { AppearanceSheet } from "@/features/settings/AppearanceSheet";
+import { ChangePasswordSheet } from "@/features/settings/ChangePasswordSheet";
+import { StaffSelfProfileSheet } from "./StaffSelfProfileScreen";
+import { useAppTheme } from "@/theme/ThemeProvider";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { appAlert as Alert } from "@/services/appAlert";
@@ -11,26 +17,25 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { KeyboardAwareScrollView } from "@/components/ui/KeyboardAwareScrollView";
-import { UserGuideButton } from "@/features/userGuide/UserGuide";
-import { Badge } from "@/components/ui/Badge";
+
+import { maskPhone } from "@/utils/maskPhone";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { InitialsAvatar } from "@/components/ui/InitialsAvatar";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import {
   DashboardRadius as Radius,
   DashboardSpacing as Spacing,
-  type ThemeColors,
 } from "@/constants/theme";
 import { useAuth } from "@/context/AuthContext";
 import { useFooterClearance } from "@/hooks/useFooterClearance";
-import { useScrollFooter } from "@/hooks/useScrollFooter";
+
 import { getApiErrorMessage } from "@/services/api";
 import { supportService } from "@/services/support.service";
 import { selectActiveBranch } from "@/store/branch/branch.slice";
 import { useAppSelector } from "@/store/hooks";
 import { selectCurrentStaff } from "@/store/staff/staff.slice";
 import { selectCurrentUser } from "@/store/user/user.slice";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors as useThemeColors, type PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 import { canViewProductAudit } from "@/utils/permissions";
 import {
   getUserFullName,
@@ -43,7 +48,7 @@ const SUPPORT_EMAIL = "support@salonox.com";
 const SUPPORT_PHONE = "+919503302647";
 
 type SettingsItem = {
-  description: string;
+  description?: string;
   icon: keyof typeof Ionicons.glyphMap;
   key: string;
   loading?: boolean;
@@ -51,35 +56,9 @@ type SettingsItem = {
   title: string;
 };
 
-function SettingsSection({ flushTop = false, items, title }: { flushTop?: boolean; items: SettingsItem[]; title: string }) {
-  const Colors = useThemeColors();
-  const styles = useMemo(() => createStyles(Colors), [Colors]);
-
-  return (
-    <View style={[styles.section, flushTop && styles.sectionFlush]}>
-      {title ? <Text translate style={styles.sectionLabel}>{title}</Text> : null}
-      {items.map((item, index) => (
-        <TouchableOpacity
-          key={item.key}
-          activeOpacity={0.84}
-          disabled={item.loading}
-          onPress={item.onPress}
-          style={[styles.menuCard, index > 0 && styles.menuCardSpaced, item.loading && styles.menuCardDisabled]}
-        >
-          <View style={styles.menuCardLeft}>
-            <View style={styles.menuIcon}>
-              <Ionicons name={item.icon} size={20} color={Colors.primaryText} />
-            </View>
-            <View style={styles.menuCopy}>
-              <Text translate style={styles.menuTitle}>{item.title}</Text>
-              <Text style={styles.menuDescription}>{item.description}</Text>
-            </View>
-          </View>
-          {item.loading ? <ActivityIndicator color={Colors.primaryText} size="small" /> : <Ionicons name="chevron-forward" size={18} color={Colors.text2} />}
-        </TouchableOpacity>
-      ))}
-    </View>
-  );
+function SettingsSection({ items, title }: { flushTop?: boolean; items: SettingsItem[]; title: string }) {
+ const ui = useSettingsStyles();
+ return <View style={{gap:12}}>{!!title&&<Text translate style={ui.section}>{title}</Text>}<View style={ui.card}>{items.map(item=><SettingsRow key={item.key} title={item.title} subtitle={item.description} icon={item.icon} onPress={item.onPress} disabled={item.loading} />)}</View></View>;
 }
 
 const getResponsiveHorizontalPadding = (width = 393) => {
@@ -102,9 +81,12 @@ const getResponsiveTitleSize = (width = 393) =>
   width < 360 ? AppLayout.headerTitleFontSize - 2 : AppLayout.headerTitleFontSize;
 
 export function StaffSettingsScreen() {
+  const ui = useSettingsStyles();
+  const { mode } = useAppTheme();
+  const [overlay, setOverlay] = useState<"profile" | "appearance" | "password" | "help" | null>(null);
   const Colors = useThemeColors();
   const footerClearance = useFooterClearance();
-  const footerScroll = useScrollFooter();
+
   const { width } = useWindowDimensions();
   const styles = useMemo(() => createStyles(Colors, width), [Colors, width]);
   const { signOut } = useAuth();
@@ -120,7 +102,7 @@ export function StaffSettingsScreen() {
   const reportSubjectRef = useRef<TextInput>(null);
   const reportMessageRef = useRef<TextInput>(null);
   const fullName = currentStaff?.name ?? getUserFullName(currentUser);
-  const roleLabel = currentStaff?.role ?? getUserRoleLabel(currentUser);
+  const roleLabel = currentUser?.roleName ?? currentStaff?.role ?? getUserRoleLabel(currentUser);
   const initials = currentStaff?.initials ?? getUserInitials(currentUser);
   const appVersion =
     Constants.expoConfig?.version ??
@@ -207,22 +189,23 @@ export function StaffSettingsScreen() {
 
   const accountItems: SettingsItem[] = [
     {
-      description: "View your staff profile, contact information, addresses, and emergency contacts.",
+      description: "Photo, contact, emergency contact",
       icon: "person-circle-outline",
       key: "profile",
-      onPress: () => router.push("/(staff)/profile" as Href),
-      title: "My Profile",
+      onPress: () => setOverlay("profile"),
+      title: "My profile",
     },
   ];
   const preferenceItems: SettingsItem[] = [
     {
-      description: "View activity for your own appointments.",
+      description: "View your booking notifications",
       icon: "notifications-outline",
       key: "notification-settings",
       onPress: () => router.push("/(staff)/notifications" as Href),
-      title: "Appointment Activity",
+      title: "Booking alerts",
     },
   ];
+  preferenceItems.push({ key: "appearance", title: "Appearance", description: mode === "dark" ? "Dim" : mode === "system" ? "System" : "Light", icon: "contrast-outline", onPress: () => setOverlay("appearance") });
   const auditItems: SettingsItem[] = canViewProductAudit(currentUser) ? [{
     description: "Count products, scan packaging, and review inventory differences.",
     icon: "clipboard-outline", key: "product-audit", title: "Product Audit",
@@ -230,11 +213,10 @@ export function StaffSettingsScreen() {
   }] : [];
   const securityItems: SettingsItem[] = [
     {
-      description: "Update your account password using the existing security flow.",
       icon: "lock-closed-outline",
       key: "change-password",
-      onPress: () => router.push("/change-password" as Href),
-      title: "Change Password",
+      onPress: () => setOverlay("password"),
+      title: "Change password",
     },
   ];
   const aboutItems: SettingsItem[] = [
@@ -279,93 +261,61 @@ export function StaffSettingsScreen() {
       description: "Send issue details directly to SalonOX support.",
       icon: "bug-outline",
       key: "report-problem",
-      onPress: () => setIsReportModalVisible(true),
+      onPress: () => { setOverlay(null); setIsReportModalVisible(true); },
       title: "Report a Problem",
     },
   ];
 
   return (
-    <SafeAreaView edges={["top"]} style={styles.safeArea}>
+    <PearlBackground><SafeAreaView edges={["top"]} style={[styles.safeArea,{backgroundColor:"transparent"}]}>
       <AppStatusBar />
       <KeyboardAwareScrollView
-        {...footerScroll}
+
         contentContainerStyle={[styles.content, { paddingBottom: footerClearance }]}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.headerRow}>
           <View style={styles.headerTextBlock}>
-            <Text translate style={styles.title}>Settings</Text>
-            <Text translate style={styles.subtitle}>Manage your staff account, preferences, security, and app info.</Text>
+            <Text translate style={ui.heading}>Settings</Text>
+
           </View>
-          <UserGuideButton variant="icon" />
+          <TouchableOpacity accessibilityRole="button" onPress={() => setOverlay("help")} style={{ padding: 10 }}>
+            <Text translate style={{ color: Colors.primaryText, fontWeight: "600" }}>Help</Text>
+          </TouchableOpacity>
         </View>
 
-        <View style={styles.heroCard}>
-          <View style={styles.profileRow}>
-            <InitialsAvatar imageUri={currentUser?.avatarUrl} initials={initials} size={56} />
-            <View style={styles.profileCopy}>
-              <Text style={styles.heroTitle}>{fullName}</Text>
-              <Text style={styles.heroText}>{activeBranch?.name ?? "SalonOX"}</Text>
-              <View style={styles.roleBadgeWrap}>
-                <Badge bg={Colors.bg2} color={Colors.primaryText} label={roleLabel} size="sm" />
-              </View>
-            </View>
-          </View>
-          <View style={styles.contactBlock}>
-            <View style={styles.contactRow}>
-              <Ionicons name="mail-outline" size={14} color={Colors.primaryText} />
-              <Text numberOfLines={1} style={styles.contactText}>
-                {currentStaff?.email ?? currentUser?.email ?? "Email not available"}
-              </Text>
-            </View>
-            <View style={styles.contactRow}>
-              <Ionicons name="call-outline" size={14} color={Colors.primaryText} />
-              <Text numberOfLines={1} style={styles.contactText}>
-                {currentStaff?.phone ?? currentUser?.phone ?? "Phone not available"}
-              </Text>
-            </View>
-          </View>
-        </View>
-
+        <TouchableOpacity accessibilityRole="button" onPress={()=>setOverlay("profile")} style={[ui.formCard,{flexDirection:"row",alignItems:"center",gap:12}]}>
+          <InitialsAvatar imageUri={currentUser?.avatarUrl} initials={initials} size={54}/><View style={{flex:1,gap:5}}><Text style={ui.title}>{fullName}</Text><Text style={ui.muted}>{roleLabel} · {activeBranch?.name??currentUser?.businessName??"SalonOX"}</Text><Text style={ui.muted}>{maskPhone(currentStaff?.phone??currentUser?.phone??"")}</Text></View>
+        </TouchableOpacity>
         <SettingsSection items={accountItems} title="Account" />
         <SettingsSection items={preferenceItems} title="Preferences" />
         {auditItems.length > 0 && <SettingsSection items={auditItems} title="Inventory" />}
         <SettingsSection items={securityItems} title="Security" />
 
-        <View style={styles.section}>
-          <Text translate style={styles.sectionLabel}>About</Text>
-          <TouchableOpacity
-            activeOpacity={0.84}
-            onPress={() => openWebAppPage("/about")}
-            style={styles.versionCard}
-          >
-            <Text translate style={styles.versionTitle}>SalonOX Mobile</Text>
-            <Text style={styles.versionText}>Version {appVersion}</Text>
-          </TouchableOpacity>
-          <SettingsSection flushTop items={aboutItems} title="" />
-        </View>
-
-        <SettingsSection items={supportItems} title="Help & Support" />
-
         <TouchableOpacity
           activeOpacity={0.84}
           disabled={isLoggingOut}
           onPress={handleLogout}
-          style={[styles.logoutButton, isLoggingOut && styles.logoutButtonDisabled]}
+          style={{alignItems:"center",padding:14}}
         >
           {isLoggingOut ? (
-            <ActivityIndicator color="#FFFFFF" size="small" />
+            <ActivityIndicator color={Colors.primaryText} size="small" />
           ) : (
-            <Ionicons name="log-out-outline" size={18} color="#FFFFFF" />
+            null
           )}
-          <Text translate style={styles.logoutButtonText}>{isLoggingOut ? "Logging out..." : "Logout"}</Text>
+          <Text translate style={{color:Colors.error,fontWeight:"600"}}>{isLoggingOut ? "Signing out…" : "Sign out"}</Text>
         </TouchableOpacity>
       </KeyboardAwareScrollView>
+      <BottomSheet pearlStyle centered={false} visible={overlay==="help"} title="Help & support" onClose={()=>setOverlay(null)}><View style={{gap:16}}><SettingsSection items={supportItems} title="Support"/><SettingsSection items={aboutItems} title="About"/><Text style={ui.muted}>SalonOX {appVersion}</Text></View></BottomSheet>
+      {overlay === "appearance" && <AppearanceSheet onClose={()=>setOverlay(null)} />}
+      {overlay === "password" && <ChangePasswordSheet onClose={()=>setOverlay(null)} />}
+      {overlay === "profile" && <StaffSelfProfileSheet onClose={()=>setOverlay(null)} />}
       {/* Centered card whose form scrolls the focused field above the keyboard. */}
       <BottomSheet
         avoidKeyboard
-        centered
+        centered={false}
+        pearlStyle
         onClose={() => { if (!isSubmittingReport) setIsReportModalVisible(false); }}
         title="Report a Problem"
         visible={isReportModalVisible}
@@ -395,20 +345,9 @@ export function StaffSettingsScreen() {
               value={reportMessage}
             />
             {reportErrors.message ? <Text style={styles.reportFieldError}>{reportErrors.message}</Text> : null}
-            <TouchableOpacity
-              activeOpacity={0.84}
-              disabled={isSubmittingReport}
-              onPress={handleSubmitReport}
-              style={[styles.reportSubmitButton, isSubmittingReport && styles.logoutButtonDisabled]}
-            >
-              {isSubmittingReport ? (
-                <ActivityIndicator color="#FFFFFF" size="small" />
-              ) : (
-                <Text translate style={styles.reportSubmitText}>Submit Report</Text>
-              )}
-            </TouchableOpacity>
+            <SettingsButton label="Submit Report" loading={isSubmittingReport} onPress={handleSubmitReport} />
       </BottomSheet>
-    </SafeAreaView>
+    </SafeAreaView></PearlBackground>
   );
 }
 

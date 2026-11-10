@@ -1,3 +1,4 @@
+import { hasBusinessDashboard } from "@/utils/staffExperience";
 import { Tabs } from "expo-router";
 
 import { AppTabLayout, type AppTabItem } from "@/components/navigation/AppTabLayout";
@@ -14,7 +15,7 @@ export const unstable_settings = {
 
 const STAFF_TABS: AppTabItem[] = [
   { icon: "home", name: "home", title: "Home" },
-  { icon: "clock", name: "appointments", title: "Appointments" },
+  { icon: "clock", name: "appointments", title: "Bookings" },
   { icon: "calendar", name: "calendar", title: "Calendar" },
   { icon: "wallet", name: "revenue", title: "Revenue" },
   { icon: "gear", name: "more", title: "Settings" },
@@ -32,9 +33,10 @@ const STAFF_QUICK_SALE_TABS: AppTabItem[] = [
 
 export default function StaffTabsLayout() {
   const attendance = useStaffSelfAttendance();
-  const quickSale = canUseStaffQuickSale(useAuth().user);
+  const { user } = useAuth();
+  const quickSale = canUseStaffQuickSale(user);
   // Show the dashboard beneath the modal without loading business data or routes.
-  if (!canUnlockStaffApp(attendance?.state ?? null)) return (
+  if (!hasBusinessDashboard(user) && !canUnlockStaffApp(attendance?.state ?? null)) return (
     <View style={{ flex: 1 }} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
       <StaffHomeRouteContent locked />
     </View>

@@ -2,14 +2,16 @@ import { useRegionalPreferences } from "@/localization/preferences";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { Text } from "@/components/ui/AppTypography";
-import { DateRangeField } from "@/components/ui/DateRangeField";
+import { DateRangePickerSheet } from "@/components/ui/DateRangePickerSheet";
+import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
+import { MyCommissionCard } from "@/features/staff/components/MyCommissionCard";
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
-import { DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
+import { DashboardSpacing as Spacing } from "@/constants/theme";
 import { ApiError, getApiErrorMessage } from "@/services/api";
 import { staffRevenueService, type StaffRevenue } from "@/services/staffRevenue.service";
 import { useAppSelector } from "@/store/hooks";
 import { selectCurrentStaff } from "@/store/staff/staff.slice";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors as useThemeColors, type PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 import { formatCurrency } from "@/utils/currency";
 import { getDateRangePreset } from "@/utils/dateRangePresets";
 import { formatAppDate } from "@/utils/dateTime";
@@ -62,6 +64,7 @@ export function StaffRevenueScreen() {
   const horizontalPadding = width < 360 ? 16 : width >= 768 ? 32 : 20;
   const staff = useAppSelector(selectCurrentStaff);
 
+  const [customOpen, setCustomOpen] = useState(false);
   const [range, setRange] = useState<Range>(() => getDateRangePreset("today"));
   const [revenue, setRevenue] = useState<StaffRevenue | null>(null);
   const [loading, setLoading] = useState(true);
@@ -93,48 +96,25 @@ export function StaffRevenueScreen() {
   })?.key;
 
   return (
-    <SafeAreaView edges={["top"]} style={[styles.safeArea, { backgroundColor: Colors.bg }]}>
+    <PearlBackground><SafeAreaView edges={["top"]} style={[styles.safeArea, { backgroundColor: "transparent" }]}>
       <AppStatusBar />
       <RefreshViewport><ScrollView
         contentContainerStyle={[styles.content, { paddingHorizontal: horizontalPadding }]}
         refreshControl={<RefreshControl colors={[Colors.primary]} onRefresh={() => void load(true)} refreshing={refreshing} tintColor={Colors.primary} />}
       >
         <View style={styles.header}>
-          <Text translate style={styles.eyebrow}>MY REVENUE</Text>
-          <Text translate style={[styles.title, { fontSize: width < 360 ? 28 : 32 }]}>Revenue</Text>
+          <Text translate style={[styles.title, { fontSize: 22 }]}>My revenue</Text>
           <Text style={styles.subtitle}>{staff?.name ? `${staff.name} · ` : ""}{formatAppDate(toDate(range.startDate))} – {formatAppDate(toDate(range.endDate))}</Text>
         </View>
 
-        <View style={styles.quickRow}>
-          {QUICK_RANGES.map(({ key, label }) => {
-            const active = activeQuick === key;
-            return (
-              <TouchableOpacity
-                accessibilityRole="button"
-                accessibilityState={{ selected: active }}
-                activeOpacity={0.84}
-                disabled={loading}
-                key={key}
-                onPress={() => setRange(key === "this_month" ? thisMonthToDate() : getDateRangePreset(key))}
-                style={[styles.quickChip, active && styles.quickChipActive]}
-              >
-                <Text translate style={[styles.quickChipText, active && styles.quickChipTextActive]}>{label}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-        <DateRangeField
-          disabled={loading}
-          endDate={range.endDate}
-          label="Date range"
-          maximumDate={new Date()}
-          onChange={(startDate, endDate) => setRange({ endDate, startDate })}
-          startDate={range.startDate}
-        />
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:8}}>
+          {QUICK_RANGES.map(({key,label})=><TouchableOpacity key={key} disabled={loading} onPress={()=>setRange(key==="this_month"?thisMonthToDate():getDateRangePreset(key))} style={[styles.quickChip,activeQuick===key&&{backgroundColor:Colors.backgroundSelected,borderColor:Colors.primary}]}><Text translate style={[styles.quickChipText,{color:activeQuick===key?Colors.primaryText:Colors.text2}]}>{label}</Text></TouchableOpacity>)}
+          <TouchableOpacity onPress={()=>setCustomOpen(true)} disabled={loading} style={[styles.quickChip,!activeQuick&&{backgroundColor:Colors.backgroundSelected,borderColor:Colors.primary}]}><Text translate style={styles.quickChipText}>Custom</Text></TouchableOpacity>
+        </ScrollView>
+        <DateRangePickerSheet visible={customOpen} pearlStyle centered={false} title="Date range" startDate={range.startDate} endDate={range.endDate} maximumDate={new Date()} onClose={()=>setCustomOpen(false)} onApply={(start,end)=>{if(start&&end){setRange({startDate:start,endDate:end});setCustomOpen(false);}}} />
 
         <View style={styles.totalCard}>
-          <View style={styles.totalIcon}><Ionicons name="wallet-outline" size={24} color={Colors.primaryText} /></View>
-          <Text translate style={styles.totalLabel}>Revenue generated</Text>
+          <Text translate style={styles.totalLabel}>Sales I billed</Text>
           {loading ? <ActivityIndicator color={Colors.primaryText} /> : <Text style={styles.totalAmount}>{error ? "—" : formatCurrency(revenue?.totalRevenue ?? 0)}</Text>}
           {!loading && revenue && !isEmpty ? (
             <Text style={styles.totalMeta}>
@@ -164,13 +144,6 @@ export function StaffRevenueScreen() {
 
         {!loading && !error && revenue && !isEmpty ? (
           <>
-            <View style={styles.splitRow}>
-              <View style={[styles.splitCard, styles.splitCollected]}>
-                <Text translate style={styles.splitLabel}>Collected</Text>
-                <Text style={styles.splitValue}>{formatCurrency(revenue.collected)}</Text>
-              </View>
-            </View>
-
             <View style={styles.card}>
               <Text translate style={styles.sectionTitle}>Breakdown</Text>
               {BREAKDOWN.map(({ count, label, revenue: revenueKey, type }) => (
@@ -193,8 +166,9 @@ export function StaffRevenueScreen() {
             </View>
           </>
         ) : null}
+        {!!staff?.id && <MyCommissionCard compact staffId={staff.id} staffName={staff.name} dateRange={range} />}
       </ScrollView></RefreshViewport>
-    </SafeAreaView>
+    </SafeAreaView></PearlBackground>
   );
 }
 
@@ -210,18 +184,13 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   quickRow: { flexDirection: "row", gap: 10 },
   retryButton: { alignSelf: "flex-start", backgroundColor: Colors.primary, borderRadius: 14, marginTop: 8, paddingHorizontal: 18, paddingVertical: 10 },
   retryText: { color: Colors.onPrimary, fontWeight: "800" },
-  row: { alignItems: "center", borderTopColor: Colors.border, borderTopWidth: StyleSheet.hairlineWidth, flexDirection: "row", gap: 12, justifyContent: "space-between", paddingVertical: 12 },
+  row: { alignItems: "center", borderTopColor: Colors.border, borderTopWidth: 0, flexDirection: "row", gap: 12, justifyContent: "space-between", paddingVertical: 12 },
   rowCopy: { flex: 1, gap: 2 },
   rowLabel: { color: Colors.heading, fontSize: 15, fontWeight: "800" },
   rowMeta: { color: Colors.text2, fontSize: 12, fontWeight: "600" },
   rowValue: { color: Colors.heading, fontSize: 15, fontWeight: "800" },
   safeArea: { flex: 1 },
   sectionTitle: { color: Colors.heading, fontSize: 17, fontWeight: "900", marginBottom: 4 },
-  splitCard: { borderRadius: 20, flex: 1, gap: 6, padding: 16 },
-  splitCollected: { backgroundColor: Colors.successBg },
-  splitLabel: { color: Colors.text2, fontSize: 12, fontWeight: "800", letterSpacing: 0.6, textTransform: "uppercase" },
-  splitRow: { flexDirection: "row", gap: 12 },
-  splitValue: { color: Colors.heading, fontSize: 20, fontWeight: "900" },
   stateText: { color: Colors.text2, fontSize: 14, fontWeight: "600" },
   stateTitle: { color: Colors.heading, fontSize: 16, fontWeight: "800" },
   subtitle: { color: Colors.text2, fontSize: 15, fontWeight: "600" },

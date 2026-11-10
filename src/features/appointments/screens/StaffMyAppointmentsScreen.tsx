@@ -1,182 +1,51 @@
-import { RefreshViewport } from "@/components/ui/RefreshViewport";
-import { Text } from "@/components/ui/AppTypography";
-import { TourFlatList, TourView, withScreenTour } from "@/features/userGuide/DashboardTour";
-import { screenTours } from "@/features/userGuide/screenTours";
-import { AppStatusBar } from "@/components/ui/AppStatusBar";
-import { PaginationControls } from "@/components/ui/PaginationControls";
-import { AppointmentCard } from "@/features/appointments/components/shared/AppointmentCard";
-import { AppointmentSnackbar } from "@/features/appointments/components/shared/AppointmentSnackbar";
-import { SkeletonList } from "@/features/appointments/components/shared/SkeletonList";
-import { StateCard } from "@/features/appointments/components/shared/StateCard";
-import { SummaryTile } from "@/features/appointments/components/shared/SummaryTile";
-import { useFetchAppointments } from "@/features/appointments/hooks/useAppointmentList";
-import { createStyles } from "@/features/appointments/styles/appointmentStyles";
-import { todayIsoDate } from "@/features/appointments/utils/appointmentDateTime";
-import { ACTIVE_APPOINTMENT_STATUSES } from "@/features/appointments/utils/appointmentList";
-import { getResponsiveHeaderTitleSize, getResponsiveHorizontalPadding, getResponsiveTopPadding } from "@/features/appointments/utils/appointmentScreenHelpers";
-import { buildStaffAppointmentRows, isSameDay, isStaffAppointmentCompleted } from "@/features/appointments/utils/staffAppointmentRows";
-import { isAssignedToStaff } from "@/features/appointments/utils/staffAssignment";
-import { selectAppointments, selectAppointmentsError, selectAppointmentsIsLoading, selectAppointmentsLoadingMore, selectAppointmentsPagination, selectAppointmentsRefreshing } from "@/store/appointment/appointment.slice";
-import { useAppSelector } from "@/store/hooks";
-import { selectCurrentStaff, selectCurrentStaffError, selectCurrentStaffLoading } from "@/store/staff/staff.slice";
-import { useThemeColors } from "@/theme/ThemeProvider";
-import type { Href } from "expo-router";
-import { useEffect, useMemo } from "react";
-import { RefreshControl, useWindowDimensions, View } from "react-native";
+import { useEffect, useState } from "react";
+import { FlatList, RefreshControl, ScrollView, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
+import { usePearlPalette } from "@/components/auth/pearl/usePearlPalette";
+import { Text } from "@/components/ui/AppTypography";
+import { AppStatusBar } from "@/components/ui/AppStatusBar";
+import { SettingsButton, useSettingsStyles } from "@/features/settings/SettingsUI";
+import { StaffBookingRow } from "@/features/staff/components/StaffBookingRow";
+import { useFooterClearance } from "@/hooks/useFooterClearance";
+import { useFetchAppointments } from "../hooks/useAppointmentList";
+import { todayIsoDate } from "../utils/appointmentDateTime";
+import { isAssignedToStaff } from "../utils/staffAssignment";
+import { isStaffAppointmentCompleted } from "../utils/staffAppointmentRows";
+import { useAppSelector } from "@/store/hooks";
+import { selectCurrentStaff, selectCurrentStaffError } from "@/store/staff/staff.slice";
+import { selectAppointments, selectAppointmentsError, selectAppointmentsIsLoading, selectAppointmentsLoadingMore, selectAppointmentsPagination, selectAppointmentsRefreshing } from "@/store/appointment/appointment.slice";
 
-function StaffMyAppointmentsScreenContent() {
-  const Colors = useThemeColors();
-  const styles = useMemo(() => createStyles(Colors), [Colors]);
-  const { width } = useWindowDimensions();
-  const flatListContentStyle = useMemo(
-    () => [
-      styles.flatListContent,
-      {
-        paddingHorizontal: getResponsiveHorizontalPadding(width),
-        paddingTop: getResponsiveTopPadding(width),
-      },
-    ],
-    [styles.flatListContent, width],
-  );
-  const headerTitleStyle = useMemo(
-    () => ({ fontSize: getResponsiveHeaderTitleSize(width) }),
-    [width],
-  );
-  const appointments = useAppSelector(selectAppointments);
-  const currentStaff = useAppSelector(selectCurrentStaff);
-  const currentStaffError = useAppSelector(selectCurrentStaffError);
-  const currentStaffLoading = useAppSelector(selectCurrentStaffLoading);
-  const error = useAppSelector(selectAppointmentsError);
-  const loading = useAppSelector(selectAppointmentsIsLoading);
-  const loadingMore = useAppSelector(selectAppointmentsLoadingMore);
-  const pagination = useAppSelector(selectAppointmentsPagination);
-  const refreshing = useAppSelector(selectAppointmentsRefreshing);
-  const { fetchAppointments, fetchNext } = useFetchAppointments();
-  const today = todayIsoDate();
-  const currentStaffId = currentStaff?.id ?? "";
-
-  useEffect(() => {
-    if (!currentStaffId) {
-      return;
-    }
-
-    void fetchAppointments({ reset: true, staffId: currentStaffId });
-  }, [currentStaffId, fetchAppointments]);
-
-  const staffAppointments = useMemo(
-    () => (currentStaff ? appointments.filter((appointment) => isAssignedToStaff(appointment, currentStaff)).map(appointment => ({ ...appointment, staffName: currentStaff.name })) : []),
-    [appointments, currentStaff],
-  );
-  const rows = useMemo(() => buildStaffAppointmentRows(staffAppointments, today), [staffAppointments, today]);
-  const counts = useMemo(
-    () => ({
-      cancelled: staffAppointments.filter((appointment) => appointment.status === "Cancelled").length,
-      completed: staffAppointments.filter((appointment) => appointment.status !== "Cancelled" && isStaffAppointmentCompleted(appointment)).length,
-      today: staffAppointments.filter((appointment) => isSameDay(appointment, today)).length,
-      upcoming: staffAppointments.filter((appointment) => ACTIVE_APPOINTMENT_STATUSES.has(appointment.status)).length,
-    }),
-    [staffAppointments, today],
-  );
-  const blockingError =
-    currentStaffError ??
-    (!currentStaffId && !currentStaffLoading ? "Staff profile is not available for this session." : null) ??
-    error;
-  const isInitialLoading = currentStaffLoading || loading;
-
-  return (
-    <SafeAreaView edges={["top"]} style={styles.safeArea}>
-      <AppStatusBar />
-      <RefreshViewport><TourFlatList
-        ListHeaderComponent={
-          <View style={styles.listHeader}>
-            <View style={styles.headerRow}>
-              <View>
-                <Text translate style={[styles.headerTitle, headerTitleStyle]}>My Appointments</Text>
-              </View>
-            </View>
-            <TourView tourId="summary" style={styles.summaryGrid}>
-              <View style={[styles.summaryTileWrap, { width: "48%" }]}>
-                <SummaryTile icon="today-outline" label="Today" value={String(counts.today)} />
-              </View>
-              <View style={[styles.summaryTileWrap, { width: "48%" }]}>
-                <SummaryTile icon="arrow-up-circle-outline" label="Upcoming" value={String(counts.upcoming)} />
-              </View>
-              <View style={[styles.summaryTileWrap, { width: "48%" }]}>
-                <SummaryTile icon="checkmark-done-outline" label="Completed" value={String(counts.completed)} />
-              </View>
-              <View style={[styles.summaryTileWrap, { width: "48%" }]}>
-                <SummaryTile icon="close-circle-outline" label="Cancelled" value={String(counts.cancelled)} />
-              </View>
-            </TourView>
-          </View>
-        }
-        ListEmptyComponent={
-          isInitialLoading ? (
-            <SkeletonList />
-          ) : blockingError ? (
-            <StateCard
-              actionLabel="Retry"
-              icon="cloud-offline-outline"
-              message={blockingError}
-              onAction={() => currentStaffId && void fetchAppointments({ reset: true, staffId: currentStaffId })}
-              title="Unable to load appointments"
-              tone="error"
-            />
-          ) : (
-            <StateCard
-              icon="calendar-clear-outline"
-              message="No appointments are currently assigned to you."
-              title="No appointments"
-            />
-          )
-        }
-        ListFooterComponent={
-          rows.length > 0 ? (
-            <PaginationControls
-              currentPage={pagination.page}
-              hasNextPage={pagination.hasMore}
-              hasPreviousPage={false}
-              loading={loadingMore}
-              onNext={pagination.hasMore ? () => currentStaffId && void fetchNext({ staffId: currentStaffId }) : undefined}
-              totalItems={pagination.totalCount}
-              totalPages={Math.max(1, pagination.totalPages ?? 1)}
-              visibleItems={staffAppointments.length}
-            />
-          ) : null
-        }
-        contentContainerStyle={flatListContentStyle}
-        data={isInitialLoading || blockingError ? [] : rows}
-        keyExtractor={(item) => item.id}
-        onEndReached={() => currentStaffId && void fetchNext({ staffId: currentStaffId })}
-        onEndReachedThreshold={0.45}
-        refreshControl={
-          <RefreshControl
-            colors={[Colors.primary]}
-            onRefresh={() => currentStaffId && void fetchAppointments({ refresh: true, staffId: currentStaffId })}
-            refreshing={refreshing}
-            tintColor={Colors.primary}
-          />
-        }
-        renderItem={({ item }) =>
-          item.type === "section" ? (
-            <View style={styles.sectionHeader}>
-              <Text translate style={styles.sectionTitle}>{item.title}</Text>
-            </View>
-          ) : (
-            <AppointmentCard
-              appointment={item.appointment}
-              detailRoute={(appointmentId) => `/(staff)/appointment-details/${appointmentId}` as Href}
-              showJobCard
-              showPaymentStatus
-            />
-          )
-        }
-        showsVerticalScrollIndicator={false}
-      /></RefreshViewport>
-      <AppointmentSnackbar />
-    </SafeAreaView>
-  );
+export function StaffMyAppointmentsScreen() {
+ const ui = useSettingsStyles(), p = usePearlPalette(), clearance = useFooterClearance();
+ const staff = useAppSelector(selectCurrentStaff), staffError = useAppSelector(selectCurrentStaffError);
+ const appointments = useAppSelector(selectAppointments), error = useAppSelector(selectAppointmentsError);
+ const loading = useAppSelector(selectAppointmentsIsLoading), loadingMore = useAppSelector(selectAppointmentsLoadingMore);
+ const pagination = useAppSelector(selectAppointmentsPagination), refreshing = useAppSelector(selectAppointmentsRefreshing);
+ const { fetchAppointments, fetchNext } = useFetchAppointments();
+ const [tab,setTab] = useState("Today");
+ const today = todayIsoDate();
+ useEffect(() => { if (staff?.id) void fetchAppointments({ reset: true, staffId: staff.id }); }, [staff?.id, fetchAppointments]);
+ const mine = staff ? appointments.filter(item => isAssignedToStaff(item, staff)) : [];
+ const matchesTab = (item: (typeof mine)[number], label: string) => {
+  const date = (item.scheduledAt ?? item.startTime ?? "").slice(0, 10);
+  if (label === "Done") return isStaffAppointmentCompleted(item);
+  if (label === "No-show") return item.status === "No Show" && date === today;
+  return !isStaffAppointmentCompleted(item) && !["Cancelled", "Deleted", "No Show"].includes(item.status)
+   && (label === "Today" ? date === today : date > today);
+ };
+ const filtered = mine.filter(item => matchesTab(item, tab))
+  .sort((a,b) => String(a.scheduledAt ?? a.startTime).localeCompare(String(b.scheduledAt ?? b.startTime)));
+ return <PearlBackground><SafeAreaView edges={["top"]} style={{ flex: 1 }}><AppStatusBar />
+  <FlatList data={filtered} keyExtractor={item=>item.id} contentContainerStyle={{ padding:16, gap:12, paddingBottom:clearance+20 }} showsVerticalScrollIndicator={false}
+   refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { if(staff?.id) void fetchAppointments({ reset:true,refresh:true,staffId:staff.id }); }} colors={[p.accent]} tintColor={p.accent} />}
+   ListHeaderComponent={<View style={{gap:16,paddingVertical:8}}><Text translate style={ui.heading}>My bookings</Text><Text style={ui.muted}>{new Date().toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"short"})}</Text>
+    <View style={{flexDirection:"row",gap:10}}>{["Today","Upcoming","Done"].map(label=><View key={label} style={[ui.formCard,{flex:1,padding:12,gap:6}]}><Text translate style={ui.muted}>{label}</Text><Text style={[ui.heading,{fontSize:22}]}>{mine.filter(item => matchesTab(item, label)).length}</Text></View>)}</View>
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:8}}>{["Today","Upcoming","Done","No-show"].map(label=><TouchableOpacity key={label} accessibilityRole="tab" accessibilityState={{selected:tab===label}} onPress={()=>setTab(label)} style={{borderRadius:20,paddingHorizontal:15,paddingVertical:10,backgroundColor:tab===label?p.accentWash:p.glass}}><Text translate style={{color:tab===label?p.accentDeep:p.muted,fontSize:13,fontWeight:"600"}}>{label}</Text></TouchableOpacity>)}</ScrollView>
+   </View>}
+   renderItem={({item,index})=><StaffBookingRow appointment={item} upcoming={tab==="Upcoming"} next={tab==="Today"&&index===0} />}
+   ListEmptyComponent={<View style={ui.formCard}><Text translate style={ui.title}>{loading?"Loading bookings…":staffError||error?"Unable to load bookings":tab==="No-show"?"No no-shows today":"No bookings found"}</Text><Text style={ui.muted}>{staffError||error|| (tab==="No-show"?"Past no-shows live in Reports.":"Your assigned bookings will appear here.")}</Text>{!!(staffError||error)&&<SettingsButton label="Retry" onPress={()=>{if(staff?.id)void fetchAppointments({reset:true,staffId:staff.id});}} />}</View>}
+   ListFooterComponent={pagination.hasMore?<SettingsButton secondary label={loadingMore?"Loading…":"Load more"} loading={loadingMore} onPress={()=>{if(staff?.id)void fetchNext({staffId:staff.id});}} />:null}
+  />
+ </SafeAreaView></PearlBackground>;
 }
-
-export const StaffMyAppointmentsScreen = withScreenTour(StaffMyAppointmentsScreenContent, screenTours.staffAppointments);

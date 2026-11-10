@@ -1,3 +1,5 @@
+import { StaffAttendanceCard } from "@/features/attendance/components/StaffAttendanceExperience";
+import { isStaffAccount, isManagerAccount, canAccessBusinessModule } from "@/utils/staffExperience";
 import { useRegionalPreferences } from "@/localization/preferences";
 /**
  * Owner dashboard (prototype pearl design). Data loading is unchanged from the previous
@@ -77,8 +79,13 @@ export default function DashboardScreen() {
   "use no memo";
   useRegionalPreferences();
   const dispatch = useAppDispatch();
-  const { isAuthenticated } = useAuth();
-  const didRunStartupFetchRef = useRef(false);
+  const { isAuthenticated, user } = useAuth();
+  const didRunStartupFetchRef = useRef<string | null>(null);
+  const canLoadAttendance = canAccessBusinessModule(user, "view_staff", "view_attendance");
+  const canLoadAppointments = canAccessBusinessModule(user, "view_dashboard_card_appointments", "view_appointment", "view_calendar");
+  const canLoadInventory = canAccessBusinessModule(user, "view_inventory", "view_products");
+  const canLoadStaff = canAccessBusinessModule(user, "view_staff");
+  const canLoadClients = canAccessBusinessModule(user, "view_clients");
   const [sheet, setSheet] = useState<Sheet>(null);
   const dashboardStatus = useAppSelector(selectDashboardStatus);
   const { isOnline } = useNetworkStatus();
@@ -99,8 +106,8 @@ export default function DashboardScreen() {
   }, [isOnline, fetchDashboard]);
 
   const fetchAttendance = useCallback(() => {
-    if (isAuthenticated) void dispatch(fetchAttendanceOverviewThunk());
-  }, [dispatch, isAuthenticated]);
+    if (isAuthenticated && canLoadAttendance) void dispatch(fetchAttendanceOverviewThunk());
+  }, [dispatch, isAuthenticated, canLoadAttendance]);
 
   const fetchUnreadNotificationCount = useCallback(() => {
     if (isAuthenticated) void dispatch(fetchUnreadCountThunk());
@@ -111,44 +118,46 @@ export default function DashboardScreen() {
     previousDay.current = today;
     void fetchDashboard();
     fetchAttendance();
-    if (isAuthenticated) void dispatch(fetchAppointmentsThunk(todayAppointmentsQuery(today)));
-  }, [today, fetchDashboard, fetchAttendance, dispatch, isAuthenticated]);
+    if (isAuthenticated && canLoadAppointments) void dispatch(fetchAppointmentsThunk(todayAppointmentsQuery(today)));
+  }, [today, fetchDashboard, fetchAttendance, dispatch, isAuthenticated, canLoadAppointments]);
 
   const fetchInventoryStock = useCallback(() => {
-    if (isAuthenticated) void dispatch(fetchInventorySummaryThunk());
-  }, [dispatch, isAuthenticated]);
+    if (isAuthenticated && canLoadInventory) void dispatch(fetchInventorySummaryThunk());
+  }, [dispatch, isAuthenticated, canLoadInventory]);
 
   const fetchUpcomingAppointments = useCallback(() => {
-    if (isAuthenticated) void dispatch(fetchAppointmentsThunk(todayAppointmentsQuery(today)));
-  }, [dispatch, isAuthenticated, today]);
+    if (isAuthenticated && canLoadAppointments) void dispatch(fetchAppointmentsThunk(todayAppointmentsQuery(today)));
+  }, [dispatch, isAuthenticated, today, canLoadAppointments]);
 
   const fetchStartupData = useCallback(() => {
     if (!isAuthenticated) return;
     void Promise.allSettled([
       dispatch(fetchDashboardThunk()),
-      dispatch(fetchAttendanceOverviewThunk()),
-      dispatch(fetchInventorySummaryThunk()),
-      dispatch(fetchAppointmentsThunk(todayAppointmentsQuery(today))),
+      ...(canLoadAttendance ? [dispatch(fetchAttendanceOverviewThunk())] : []),
+      ...(canLoadInventory ? [dispatch(fetchInventorySummaryThunk())] : []),
+      ...(canLoadAppointments ? [dispatch(fetchAppointmentsThunk(todayAppointmentsQuery(today)))] : []),
       dispatch(fetchUnreadCountThunk()),
       dispatch(fetchNotificationsThunk({ refresh: true })),
-      dispatch(fetchProductsThunk({ offset: 0, reset: true })),
-      dispatch(fetchStaffThunk({ page: 1, reset: true })),
-      dispatch(fetchClientsThunk({ offset: 0, reset: true, refresh: true })),
+      ...(canLoadInventory ? [dispatch(fetchProductsThunk({ offset: 0, reset: true }))] : []),
+      ...(canLoadStaff ? [dispatch(fetchStaffThunk({ page: 1, reset: true }))] : []),
+      ...(canLoadClients ? [dispatch(fetchClientsThunk({ offset: 0, reset: true, refresh: true }))] : []),
     ]);
-  }, [dispatch, isAuthenticated, today]);
+  }, [dispatch, isAuthenticated, today, canLoadAppointments, canLoadAttendance, canLoadInventory, canLoadStaff, canLoadClients]);
 
   useEffect(() => {
-    if (!isAuthenticated || didRunStartupFetchRef.current) return;
-    didRunStartupFetchRef.current = true;
-    void dispatch(hydrateAttendanceFromCacheThunk());
+    if (!isAuthenticated || !user?.id) return;
+    const identity = `${user.id}:${user.salonId}:${canLoadAttendance}:${canLoadAppointments}:${canLoadInventory}:${canLoadStaff}:${canLoadClients}`;
+    if (didRunStartupFetchRef.current === identity) return;
+    didRunStartupFetchRef.current = identity;
+    if (canLoadAttendance) void dispatch(hydrateAttendanceFromCacheThunk());
     fetchStartupData();
-  }, [dispatch, fetchStartupData, isAuthenticated]);
+  }, [dispatch, fetchStartupData, isAuthenticated, user?.id, user?.salonId, canLoadAttendance, canLoadAppointments, canLoadInventory, canLoadStaff, canLoadClients]);
 
   // No automatic refresh when returning to this screen or to the app: the owner
   // refreshes by pulling down. Only a new day and reconnecting update it silently.
 
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated || !canLoadClients) return;
     const socket = realtimeSocket.activeSocket;
     if (!socket?.connected) return;
     const handleClientCreated = () => { dispatch(fetchClientsThunk({ offset: 0, reset: true, refresh: true })); };
@@ -160,7 +169,7 @@ export default function DashboardScreen() {
       socket.off("client_created", handleClientCreated);
       socket.off("new_client", handleClientCreated);
     };
-  }, [dispatch, isAuthenticated]);
+  }, [dispatch, isAuthenticated, canLoadClients]);
 
   // The spinner shows only for a pull-to-refresh, never for silent background updates.
   const [pulling, setPulling] = useState(false);
@@ -180,14 +189,15 @@ export default function DashboardScreen() {
     <>
       <Page header={<DashboardHeader onOpen={setSheet} />} refreshing={pulling} onRefresh={refresh}>
         <Text style={[pearlType.small, { paddingHorizontal: 2 }]}>{longDate(today)}</Text>
+        {isStaffAccount(user) && <StaffAttendanceCard compact />}
         {showErrorState ? <LoadError onRetry={() => void fetchDashboard()} /> : (
           <>
-            <RevenueHero />
+            {(!isStaffAccount(user) || isManagerAccount(user)) && canAccessBusinessModule(user, "view_dashboard_card_total_revenue") && <RevenueHero />}
             <LunoxInsightCard refreshKey={refreshKey} />
             <View style={styles.bleed}><SpotlightAnnouncementCard /></View>
             <StatsRow />
             <View style={styles.qa}>
-              {QUICK_ACTIONS.map(action => (
+              {QUICK_ACTIONS.filter(action => canAccessBusinessModule(user, ...(action.label === "Book" ? ["create_appointment"] : action.label === "Sale" ? ["access_quick_sale"] : action.label === "Client" ? ["create_clients", "add_client"] : ["view_sales"]))).map(action => (
                 <Pressable key={action.label} onPress={() => router.push(action.href)} style={styles.qaItem} accessibilityRole="button" accessibilityLabel={action.a11y}>
                   {({ pressed }) => (
                     <>
@@ -198,8 +208,8 @@ export default function DashboardScreen() {
                 </Pressable>
               ))}
             </View>
-            <NextAppointments refreshKey={refreshKey} />
-            <StaffOnFloor />
+            {canAccessBusinessModule(user, "view_dashboard_card_appointments", "view_appointment") && <NextAppointments refreshKey={refreshKey} />}
+            {canAccessBusinessModule(user, "view_staff", "view_attendance") && <StaffOnFloor />}
           </>
         )}
       </Page>
@@ -312,11 +322,12 @@ function StatsRow() {
   const metrics = useAppSelector(selectDashboardMetrics);
   const loading = useAppSelector(selectDashboardIsLoading);
   const totalClients = useAppSelector(selectClientsTotalCount);
+  const user = useAppSelector(selectCurrentUser);
   return (
     <View style={{ flexDirection: "row", gap: 10 }}>
-      <StatTile icon="wallet" tone="lavender" label="Today" value={money(metrics.todaysRevenue)} loading={loading} onPress={() => router.push("/today-revenue" as Href)} />
-      <StatTile icon="users" tone="lilac" label="Clients" value={String(totalClients)} onPress={() => router.push("/clients" as Href)} />
-      <StatTile icon="calendar" tone="sky" label="Bookings" value={String(metrics.bookings)} loading={loading} onPress={() => router.push("/bookings" as Href)} />
+      {canAccessBusinessModule(user, "view_dashboard_card_today_revenue") && <StatTile icon="wallet" tone="lavender" label="Today" value={money(metrics.todaysRevenue)} loading={loading} onPress={() => router.push("/today-revenue" as Href)} />}
+      {canAccessBusinessModule(user, "view_dashboard_card_new_clients", "view_clients") && <StatTile icon="users" tone="lilac" label="Clients" value={String(totalClients)} onPress={() => router.push("/clients" as Href)} />}
+      {canAccessBusinessModule(user, "view_dashboard_card_appointments", "view_appointment") && <StatTile icon="calendar" tone="sky" label="Bookings" value={String(metrics.bookings)} loading={loading} onPress={() => router.push("/bookings" as Href)} />}
     </View>
   );
 }

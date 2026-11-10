@@ -74,6 +74,7 @@ export function AppointmentCalendarContent({ staffMode = false, staffQuickSale =
   const { fetchAppointments } = useFetchAppointments();
   useAllStaffMembers(!ownOnly);
   const [selectedStaffIds, setSelectedStaffIds] = useState<string[]>([]);
+  useEffect(() => { if (staffMode && currentStaff?.id) setSelectedStaffIds([currentStaff.id]); }, [staffMode, currentStaff?.id]);
   const [datePickerVisible, setDatePickerVisible] = useState(false);
   const [viewMode, setViewMode] = useState<"week" | "day" | "list">("day");
   const [viewMenuVisible, setViewMenuVisible] = useState(false);
@@ -197,9 +198,10 @@ export function AppointmentCalendarContent({ staffMode = false, staffQuickSale =
       pearlBackground
       topSurfaceColor="transparent"
     >
+      {staffMode && <View style={{flexDirection:"row",gap:8,paddingHorizontal:16,paddingBottom:10}}>{["Just me","All staff"].map(label=><TouchableOpacity key={label} disabled={label==="All staff"&&ownOnly} onPress={()=>setSelectedStaffIds(label==="Just me"&&currentStaff?[currentStaff.id]:[])} style={{borderRadius:20,paddingHorizontal:16,paddingVertical:9,backgroundColor:(label==="Just me"?(ownOnly||selectedStaffIds.length===1):selectedStaffIds.length===0)?pearl.accentWash:pearl.glass,opacity:label==="All staff"&&ownOnly?0.4:1}}><Text translate style={{color:pearl.accentDeep,fontSize:13,fontWeight:"600"}}>{label}</Text></TouchableOpacity>)}</View>}
       <View style={[styles.dinggToolbar, { backgroundColor: "transparent", borderBottomColor: pearl.glassBorder }]}>
         <View style={styles.calendarHeadingRow}>
-          <Text translate accessibilityRole="header" style={[styles.calendarHeading, pearlType.h2]}>Calendar</Text>
+          <Text translate accessibilityRole="header" style={[styles.calendarHeading, pearlType.h2]}>{staffMode ? "My schedule" : "Calendar"}</Text>
           <TourButton tourId="view" accessibilityLabel="Change calendar view" onPress={() => setViewMenuVisible(true)} style={[styles.calendarViewButton, { borderRadius: 14, backgroundColor: pearl.glass, borderColor: pearl.glassBorder }]}>
             <Text translate style={styles.dinggTodayText}>{viewMode === "day" ? "Day" : viewMode === "week" ? "Week" : "List"}</Text>
             <Ionicons name="chevron-down" size={14} color={Colors.appointmentTextSecondary} />

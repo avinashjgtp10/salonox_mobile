@@ -2,6 +2,8 @@ export type AuthUser = {
   id: string;
   email: string;
   role: string;
+  /** Assigned web role; the authorization role remains `staff` for managers. */
+  roleName?: string | null;
   phone?: string | null;
   firstName?: string | null;
   lastName?: string | null;

@@ -18,6 +18,8 @@ import { useAppTheme } from "@/theme/ThemeProvider";
 import type { CatalogPlan, PlanCycle, PlanPaymentStatus } from "@/types/subscription";
 import { formatAppDate } from "@/utils/dateTime";
 import { resolveAuthenticatedRoute } from "@/utils/routeResolver";
+import { branchSessionStorage } from "@/services/connectedBranches.service";
+import { useAppToast } from "@/hooks/useAppToast";
 
 const POLL_INTERVAL_MS = 3000;
 const POLL_TIMEOUT_MS = 5 * 60 * 1000;
@@ -61,7 +63,11 @@ export default function SubscriptionScreen() {
   const { colors, scheme } = useAppTheme();
   const styles = useMemo(() => createStyles(colors, scheme), [colors, scheme]);
   const insets = useSafeAreaInsets();
-  const { signOut, user } = useAuth();
+  const { signOut, user, switchSalon } = useAuth();
+  const toast = useAppToast();
+  const [mainSalonId, setMainSalonId] = useState<string | null>(null);
+  const [returning, setReturning] = useState(false);
+  useEffect(() => { let active = true; void branchSessionStorage.read().then(branch => { if (active) setMainSalonId(branch?.main.user.salonId ?? null); }); return () => { active = false; }; }, [user?.salonId]);
   const role = user?.role?.trim().toLowerCase() ?? "";
   // Only the owner/admin can pay (the backend enforces the same).
   const canPay = role === "salon_owner" || role === "admin";
@@ -393,6 +399,7 @@ export default function SubscriptionScreen() {
         refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor={colors.primary} />}
         showsVerticalScrollIndicator={false}
       >
+        {!!mainSalonId && <Pressable accessibilityRole="button" disabled={returning} style={styles.linkButton} onPress={() => { setReturning(true); void switchSalon(mainSalonId).catch(error => toast.showError(getApiErrorMessage(error))).finally(() => setReturning(false)); }}><Text translate style={styles.linkText}>{returning ? "Switching salon…" : "Back to main account"}</Text></Pressable>}
         <View style={styles.heroIcon}>
           <Ionicons name="alert-circle-outline" size={30} color={colors.error} />
         </View>

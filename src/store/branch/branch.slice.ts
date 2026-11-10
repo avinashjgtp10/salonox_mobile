@@ -15,6 +15,7 @@ type BranchState = {
   error: string | null;
   isSwitching: boolean;
   status: BranchStatus;
+  currentRequestId: string | null;
 };
 
 const initialState: BranchState = {
@@ -23,6 +24,7 @@ const initialState: BranchState = {
   error: null,
   isSwitching: false,
   status: "idle",
+  currentRequestId: null,
 };
 
 const branchSlice = createSlice({
@@ -41,25 +43,28 @@ const branchSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      .addCase(fetchBranchesThunk.pending, (state) => {
+      .addCase(fetchBranchesThunk.pending, (state, action) => {
+        state.currentRequestId = action.meta.requestId;
         state.status = "loading";
         state.error = null;
       })
       .addCase(fetchBranchesThunk.fulfilled, (state, action) => {
+        if (state.currentRequestId !== action.meta.requestId) return;
+        state.currentRequestId = null;
         state.status = "succeeded";
         state.branches = action.payload;
         if (action.payload.length === 0) {
           state.activeBranchId = null;
-        } else if (
-          action.payload.length === 1 ||
-          !state.activeBranchId ||
-          !action.payload.some((branch) => branch.id === state.activeBranchId)
-        ) {
+        } else if (!state.activeBranchId) {
+          // Removing a link must not change the selected salon independently
+          // of its authenticated session. The switch flow replaces both.
           state.activeBranchId = action.payload[0].id;
         }
         state.error = null;
       })
       .addCase(fetchBranchesThunk.rejected, (state, action) => {
+        if (state.currentRequestId !== action.meta.requestId) return;
+        state.currentRequestId = null;
         state.status = "failed";
         state.error = action.payload?.message ?? action.error.message ?? "Unable to load branches.";
       })
@@ -114,6 +119,6 @@ export const selectVisibleBranches = (state: RootState): Branch[] => {
 };
 
 export const selectShouldShowBranchSelector = (state: RootState) =>
-  selectVisibleBranches(state).length > 1;
+  selectCurrentUser(state)?.role === "salon_owner" || selectVisibleBranches(state).length > 1;
 
 export default branchSlice.reducer;

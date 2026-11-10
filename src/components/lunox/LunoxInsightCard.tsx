@@ -1,3 +1,5 @@
+import { useAuth } from "@/context/AuthContext";
+import { canAccessLunox } from "@/utils/staffExperience";
 /**
  * Dashboard Lunox "AI insight" card (prototype `.lunox-card`): today's tip from
  * GET /mobile/lunox/daily-insight. Hidden when Lunox is off or there's no tip.
@@ -20,7 +22,7 @@ const LUNOX_WORD = require("../../../assets/images/brand/lunox-wordmark.png");
 const BUTTON_GRADIENT = ["#B3AEDA", "#8D87BF", "#6B669F"] as const;
 
 /** `refreshKey` changes on a manual pull-to-refresh (the server returns its cached tip). */
-export function LunoxInsightCard({ refreshKey = 0 }: { refreshKey?: number }) {
+function LunoxInsightCardContent({ refreshKey = 0 }: { refreshKey?: number }) {
   const openLunox = useOpenLunox();
   const branchId = useAppSelector(selectActiveBranchId);
   const [insight, setInsight] = useState<LunoxDailyInsight | null>(null);
@@ -87,3 +89,8 @@ const styles = StyleSheet.create({
   ghost: { height: 36, paddingHorizontal: 12, borderRadius: 12, justifyContent: "center", backgroundColor: "rgba(255,255,255,0.6)", borderWidth: 1, borderColor: "rgba(255,255,255,0.9)" },
   ghostText: { fontSize: 13, fontWeight: "700", color: pearl.accentDeep },
 });
+
+export function LunoxInsightCard(props: { refreshKey?: number }) {
+ const { user } = useAuth();
+ return canAccessLunox(user) ? <LunoxInsightCardContent {...props} /> : null;
+}
