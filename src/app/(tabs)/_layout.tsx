@@ -21,7 +21,7 @@ const selectWhatsAppUnread = (state: RootState) =>
 
 export default function DashboardTabsLayout() {
   const { user, isLoading } = useAuth();
-  const segments = useSegments();
+  const segments: string[] = useSegments();
   const whatsappUnread = useAppSelector(selectWhatsAppUnread);
   const branchId = useAppSelector(selectActiveBranchId);
   const [lunoxOpen, setLunoxOpen] = useState(false);

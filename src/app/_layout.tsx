@@ -112,7 +112,7 @@ function AuthNavigationHandler({ onReady }: { onReady: () => void }) {
   const rootNavigationState = useRootNavigationState();
   const navigationRef = useNavigationContainerRef();
   const router = useRouter();
-  const segments = useSegments();
+  const segments: string[] = useSegments();
 
   useEffect(() => {
     if (!isAuthenticated) {
