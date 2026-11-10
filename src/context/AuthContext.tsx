@@ -4,8 +4,12 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from "react";
+import { useNavigationContainerRef } from "expo-router";
+import { Platform } from "react-native";
+import { notificationDeviceStorage } from "@/services/notificationDeviceStorage";
 
 import { unregisterDeviceThunk } from "@/middleware/notification/notification.thunk";
 import * as Notifications from "expo-notifications";
@@ -28,16 +32,17 @@ import { realtimeSocket } from "@/services/realtimeSocket";
 import { addSessionInvalidationListener } from "@/services/sessionInvalidation";
 import { tokenStorage } from "@/services/tokenStorage";
 import { resetAppState, store } from "@/store";
+import { setActiveBranchId } from "@/store/branch/branch.slice";
 import { setCurrentUser } from "@/store/user/user.slice";
 import type {
   AuthUser,
-  GoogleAuthResult,
   LoginCredentials,
   LoginResponseData,
   RegisterCredentials,
   RegisterResponseData,
 } from "@/types/auth";
 import { preserveSalonId } from "@/utils/authUser";
+import { branchSessionStorage, connectedBranchesService } from "@/services/connectedBranches.service";
 
 const withOnboardingStatus = <T extends AuthUser>(
   user: T,
@@ -54,21 +59,31 @@ type AuthContextValue = {
   error: string | null;
   signIn: (credentials: LoginCredentials) => Promise<LoginResponseData>;
   signUp: (credentials: RegisterCredentials) => Promise<RegisterResponseData>;
-  signInWithGoogle: () => Promise<GoogleAuthResult>;
+  signInWithGoogle: () => Promise<LoginResponseData>;
   signOut: () => Promise<void>;
   signOutAll: () => Promise<void>;
   deleteAccount: () => Promise<void>;
   refreshCurrentUser: () => Promise<void>;
   updateUser: (updatedFields: Partial<AuthUser>) => Promise<void>;
   clearError: () => void;
+  switchSalon: (salonId: string) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: PropsWithChildren) {
+  const navigation = useNavigationContainerRef();
+  const resetNavigationAfterSwitch = useRef(false);
+  const switchingSalon = useRef(false);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    if (resetNavigationAfterSwitch.current && !isLoading && navigation.isReady()) {
+      resetNavigationAfterSwitch.current = false;
+      navigation.resetRoot({ index: 0, routes: [{ name: "(tabs)", state: { index: 0, routes: [{ name: "dashboard" }] } }] });
+    }
+  }, [user?.id, user?.salonId, isLoading, navigation]);
 
   const applyAuthenticatedUserState = useCallback((nextUser: AuthUser) => {
     const userWithKnownSalon = preserveSalonId(nextUser, store.getState().user.user);
@@ -94,6 +109,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const clearLocalSession = useCallback(async (source: string) => {
     await Promise.all([
       tokenStorage.clearSession(),
+      branchSessionStorage.write(null),
       branchStorage.clearActiveBranchId(),
     ]);
       // Token storage is cleared only after successful server unregistration.
@@ -247,6 +263,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     setError(null);
 
     try {
+      await branchSessionStorage.write(null);
       const authData = await authService.login(credentials);
       finishUserLogin();
       applyAuthenticatedUserAndPersistLater(withOnboardingStatus(authData.user, authData));
@@ -273,6 +290,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     setError(null);
 
     try {
+      await branchSessionStorage.write(null);
       const authData = await authService.register(credentials);
       finishUserLogin();
       applyAuthenticatedUserAndPersistLater(withOnboardingStatus(authData.user, authData));
@@ -303,20 +321,17 @@ export function AuthProvider({ children }: PropsWithChildren) {
     setError(null);
 
     try {
+      await branchSessionStorage.write(null);
       const authData = await authService.loginWithGoogle();
+      // Same session setup as email sign-in (the backend returns the same login response).
       finishUserLogin();
-
-      if (authData.user) {
-        applyAuthenticatedUserAndPersistLater(authData.user);
-        void syncCurrentUserProfile().catch((profileError) => {
-          logAuthEvent("google_login_profile_fetch_failed", {
-            status: getAuthErrorStatus(profileError),
-            message: getApiErrorMessage(profileError),
-          });
+      applyAuthenticatedUserAndPersistLater(withOnboardingStatus(authData.user, authData));
+      void syncCurrentUserProfile().catch((profileError) => {
+        logAuthEvent("google_login_profile_fetch_failed", {
+          status: getAuthErrorStatus(profileError),
+          message: getApiErrorMessage(profileError),
         });
-      } else {
-        await syncCurrentUserProfile();
-      }
+      });
 
       return authData;
     } catch (googleError) {
@@ -333,7 +348,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     setError(null);
 
     try {
-      const session = await tokenStorage.getSession();
+      const session = (await branchSessionStorage.read())?.main ?? await tokenStorage.getSession();
 
       await unregisterNotificationDevice();
       beginUserLogout();
@@ -419,6 +434,57 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
   };
 
+  const switchSalon = async (salonId: string) => {
+    if (store.getState().user.user?.salonId === salonId) return;
+    if (switchingSalon.current) throw new Error("A salon switch is already in progress.");
+    switchingSalon.current = true;
+    try {
+    const previous = await tokenStorage.getSession();
+    const previousBranch = await branchSessionStorage.read();
+    // Resolve and validate the server-issued identity before touching this session.
+    const prepared = await connectedBranchesService.prepareSwitch(salonId);
+    if (store.getState().user.user?.id !== previous.user?.id || store.getState().user.user?.salonId !== previous.user?.salonId) throw new Error("Your session changed. Please retry from the current salon.");
+    try {
+      await unregisterNotificationDevice();
+    } catch (failure) {
+      if (!previousBranch || salonId !== previousBranch.main.user.salonId) throw failure;
+      // A revoked delegated token cannot unregister itself. The owner's valid
+      // session can move this installation back via the existing registration API.
+      pauseNotificationRegistration();
+      try {
+        const token = await notificationDeviceStorage.getRegisteredToken();
+        if (token && (Platform.OS === "android" || Platform.OS === "ios")) await connectedBranchesService.moveNotificationDevice(prepared.session.accessToken, { token, platform: Platform.OS, installation_id: await notificationDeviceStorage.getInstallationId() });
+        setError(null);
+      } catch (moveFailure) { resumeNotificationRegistration(); throw moveFailure; }
+    }
+    setIsLoading(true);
+    beginUserLogout();
+    cancelProtectedApiRequests();
+    realtimeSocket.disconnect();
+    try {
+      await branchSessionStorage.write(prepared.branch);
+      await tokenStorage.setTokens(prepared.session);
+      await tokenStorage.setStoredUser(withOnboardingStatus(prepared.session.user, prepared.session));
+      await branchStorage.setActiveBranchId(salonId);
+      salonService.clearSalonMeCache();
+      store.dispatch(resetAppState());
+      store.dispatch(setActiveBranchId(salonId));
+      resetNavigationAfterSwitch.current = true;
+      applyAuthenticatedUserState(withOnboardingStatus(prepared.session.user, prepared.session));
+    } catch (failure) {
+      await branchSessionStorage.write(previousBranch);
+      if (previous.accessToken && previous.refreshToken) await tokenStorage.setTokens({ accessToken: previous.accessToken, refreshToken: previous.refreshToken });
+      if (previous.user) { await tokenStorage.setStoredUser(previous.user); applyAuthenticatedUserState(previous.user); }
+      if (previous.user?.salonId) { await branchStorage.setActiveBranchId(previous.user.salonId); store.dispatch(setActiveBranchId(previous.user.salonId)); }
+      throw failure;
+    } finally {
+      finishUserLogin();
+      resumeNotificationRegistration();
+      setIsLoading(false);
+    }
+    } finally { switchingSalon.current = false; }
+  };
+
   const value: AuthContextValue = {
     user,
     isAuthenticated: Boolean(user),
@@ -432,6 +498,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     deleteAccount,
     refreshCurrentUser,
     updateUser,
+    switchSalon,
     clearError: () => setError(null),
   };
 

@@ -330,6 +330,14 @@ const normalizeClient = (client: ClientApiItem): ClientListItem => {
   const birthdayYear = toSafeNumber(client.birthday_year);
 
   return {
+    address: toSafeString(client.address) || null,
+    hasWhatsapp: typeof client.has_whatsapp === "boolean" ? client.has_whatsapp : undefined,
+    smsNotifications: typeof client.sms_notifications === "boolean" ? client.sms_notifications : undefined,
+    emailNotifications: typeof client.email_notifications === "boolean" ? client.email_notifications : undefined,
+    whatsappNotifications: typeof client.whatsapp_notifications === "boolean" ? client.whatsapp_notifications : undefined,
+    smsMarketing: typeof client.sms_marketing === "boolean" ? client.sms_marketing : undefined,
+    emailMarketing: typeof client.email_marketing === "boolean" ? client.email_marketing : undefined,
+    whatsappMarketing: typeof client.whatsapp_marketing === "boolean" ? client.whatsapp_marketing : undefined,
     anniversary: toSafeString(client.anniversary).slice(0, 10) || null,
     birthdayDayMonth: toSafeString(client.birthday_day_month) || null,
     birthdayYear: birthdayYear > 0 ? birthdayYear : null,

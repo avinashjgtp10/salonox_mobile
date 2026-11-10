@@ -1,3 +1,4 @@
+import { useRegionalPreferences } from "@/localization/preferences";
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
@@ -33,6 +34,8 @@ const DEFAULT_FILTERS: ConsumableFilterValue = {
 };
 
 export default function ConsumablesScreen() {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
@@ -104,7 +107,7 @@ export default function ConsumablesScreen() {
         <AppStatusBar />
         <View style={styles.header}>
           <AppBackButton fallbackHref="/more" />
-          <Text style={styles.title}>Consumables</Text>
+          <Text translate style={styles.title}>Consumables</Text>
           <AppBackButtonPlaceholder />
         </View>
         <EmptyState
@@ -121,7 +124,7 @@ export default function ConsumablesScreen() {
     <View>
       <View style={styles.header}>
         <AppBackButton fallbackHref="/more" />
-        <Text style={styles.title}>Consumables</Text>
+        <Text translate style={styles.title}>Consumables</Text>
         <TouchableOpacity
           accessibilityLabel="Usage history"
           onPress={() => router.push("/consumables/usage-history" as Href)}
@@ -164,7 +167,7 @@ export default function ConsumablesScreen() {
         style={styles.filterButton}
       >
         <Ionicons name="options-outline" size={16} color={Colors.primaryText} />
-        <Text style={styles.filterButtonText}>Filters &amp; Sort</Text>
+        <Text translate style={styles.filterButtonText}>Filters &amp; Sort</Text>
         {activeFilterCount > 0 ? (
           <View style={styles.filterBadge}>
             <Text style={styles.filterBadgeText}>{activeFilterCount}</Text>
@@ -238,6 +241,8 @@ export default function ConsumablesScreen() {
 }
 
 function KpiCard({ label, value, warning }: { label: string; value: string; warning?: boolean }) {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
@@ -246,12 +251,14 @@ function KpiCard({ label, value, warning }: { label: string; value: string; warn
       <Text numberOfLines={1} style={[styles.kpiValue, warning && styles.warning]}>
         {value}
       </Text>
-      <Text style={styles.kpiLabel}>{label}</Text>
+      <Text translate style={styles.kpiLabel}>{label}</Text>
     </View>
   );
 }
 
 function ConsumableCard({ item }: { item: ConsumableListItem }) {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const outOfStock = item.status ? item.status === "out_of_stock" : item.amount <= 0;
@@ -272,7 +279,7 @@ function ConsumableCard({ item }: { item: ConsumableListItem }) {
             {item.name}
           </Text>
           <View style={[styles.badge, item.isActive ? styles.activeBadge : styles.inactiveBadge]}>
-            <Text style={[styles.badgeText, !item.isActive && styles.inactiveText]}>
+            <Text translate style={[styles.badgeText, !item.isActive && styles.inactiveText]}>
               {item.isActive ? "Active" : "Inactive"}
             </Text>
           </View>
@@ -293,6 +300,8 @@ function ConsumableCard({ item }: { item: ConsumableListItem }) {
 }
 
 function LoadingCards() {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
@@ -313,6 +322,8 @@ function LoadingCards() {
 }
 
 function Empty({ error, onRetry, searching }: { error: string | null; onRetry: () => void; searching: boolean }) {
+  "use no memo";
+  useRegionalPreferences();
   if (error) {
     return <ErrorState message={error} onRetry={onRetry} />;
   }

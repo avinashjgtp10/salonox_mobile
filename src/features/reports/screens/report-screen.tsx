@@ -1,43 +1,32 @@
-import { RefreshViewport } from "@/components/ui/RefreshViewport";
-import { countReportFilters } from "@/features/reports/report-filters";
-import { Text, TextInput } from "@/components/ui/AppTypography";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FlatList, RefreshControl, StyleSheet, TouchableOpacity, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-
+import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
+import { usePearlColors, type PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
+import { pearl } from "@/components/auth/pearl/tokens";
+import { AppBackButton } from "@/components/ui/AppBackButton";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
-import { AppLayout, AppRadius } from "@/constants/layout";
-import { DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
-import { useDebouncedValue } from "@/features/quickSale/hooks/useDebouncedValue";
-import { ReportFilterSheet } from "@/features/reports/components/report-filter-sheet";
+import { Text, TextInput } from "@/components/ui/AppTypography";
+import { BottomSheet } from "@/components/ui/BottomSheet";
 import { DateRangePickerSheet } from "@/components/ui/DateRangePickerSheet";
-import { dateRangeLabel as describeDateRange } from "@/utils/dateRangePresets";
-import {
-  ReportPaginationFooter,
-  ReportRowCard,
-  ReportSkeleton,
-  ReportState,
-  ReportSummaryCards,
-} from "@/features/reports/components/report-widgets";
-import { SalesSummaryDetailSheet } from "@/features/reports/components/sales-summary-detail-sheet";
-import {
-  createDefaultReportFilters,
-  type ReportConfig,
-  type ReportFilters,
-} from "@/features/reports/report-config";
-import {
-  getReportPagination,
-  getReportRowKey,
-  getReportRows,
-  getReportSummary,
-  type ReportRow,
-} from "@/features/reports/report-data";
-import { fetchReportThunk } from "@/middleware/report/report.thunk";
+import { RefreshViewport } from "@/components/ui/RefreshViewport";
+import { appAlert as Alert } from "@/services/appAlert";
+import { useDebouncedValue } from "@/features/quickSale/hooks/useDebouncedValue";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { rememberReportFilters, selectReportEntry } from "@/store/report/report.slice";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { fetchReportThunk } from "@/middleware/report/report.thunk";
+import { dateRangeLabel as describeDateRange } from "@/utils/dateRangePresets";
+import { ReportFilterSheet } from "../components/report-filter-sheet";
+import { ReportSkeleton, ReportState, ReportSummaryCards } from "../components/report-widgets";
+import { ReportTable } from "../components/ReportTable";
+import { reportColumns, reportCellValue, type ReportColumn } from "../report-table-data";
+import { exportReportCsv, loadCompleteReport } from "../report-export";
+import { SalesSummaryDetailSheet } from "../components/sales-summary-detail-sheet";
+import { REPORT_FILTER_FIELDS, countReportFilters } from "../report-filters";
+import { createDefaultReportFilters, type ReportConfig, type ReportFilters } from "../report-config";
+import { getReportPagination, getReportRows, getReportSummary, humanizeReportKey, type ReportRow } from "../report-data";
 
 const getInvoiceDetailSaleId = (row: ReportRow, slug: ReportConfig["slug"]) => {
   const saleId = row.saleId ?? row.id;
@@ -59,7 +48,7 @@ const getInvoiceDetailSaleId = (row: ReportRow, slug: ReportConfig["slug"]) => {
 };
 
 export default function ReportScreen({ config }: { config: ReportConfig }) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
   const entry = useAppSelector((state) => selectReportEntry(state, config.slug));
@@ -67,6 +56,9 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
   const [filterSheetVisible, setFilterSheetVisible] = useState(false);
   const [rangeSheetVisible, setRangeSheetVisible] = useState(false);
   const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
+  const [selectedRow, setSelectedRow] = useState<ReportRow | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const [moreTotals, setMoreTotals] = useState(false);
   const [search, setSearch] = useState(filters.search ?? "");
   const debouncedSearch = useDebouncedValue(search.trim(), 400);
   const searchInitialized = useRef(false);
@@ -75,19 +67,20 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
   const summary = useMemo(() => getReportSummary(config.slug, entry?.data ?? null), [config.slug, entry?.data]);
   const pagination = useMemo(() => getReportPagination(entry?.data ?? null), [entry?.data]);
   const dateRangeLabel = useMemo(() => {
-    const rangeStart = filters.date ?? filters.from ?? filters.date_from ?? filters.start_date;
-    const rangeEnd = filters.to ?? filters.date_to ?? filters.end_date;
+    const rangeStart = filters.date ?? filters.from ?? filters.date_from ?? filters.start_date ?? filters.last_visit_from;
+    const rangeEnd = filters.to ?? filters.date_to ?? filters.end_date ?? filters.last_visit_to;
 
     if (!rangeStart) {
       return "All time";
     }
 
     return describeDateRange(rangeStart, rangeEnd);
-  }, [filters.date, filters.from, filters.date_from, filters.start_date, filters.to, filters.date_to, filters.end_date]);
+  }, [filters.date, filters.from, filters.date_from, filters.start_date, filters.to, filters.date_to, filters.end_date, filters.last_visit_from, filters.last_visit_to]);
   const hasMore = Boolean(config.paginated && pagination && pagination.page < pagination.totalPages);
   const supportsSearch = config.filters.includes("search");
   const isUnavailable = config.status !== "available";
   const dateKeys = useMemo(() => {
+    if (config.filters.includes("last_visit_from")) return { end: "last_visit_to", mode: "range", start: "last_visit_from" } as const;
     if (config.filters.includes("date_from")) return { end: "date_to", mode: "range", start: "date_from" } as const;
     if (config.filters.includes("start_date")) {
       return { end: "end_date", mode: "range", start: "start_date" } as const;
@@ -156,328 +149,52 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
     const saleId = getInvoiceDetailSaleId(row, config.slug);
     if (saleId) {
       setSelectedSaleId(String(saleId));
-    }
+    } else setSelectedRow(row);
   }, [config.slug]);
 
-  const renderItem = useCallback(({ item }: { item: ReportRow }) => (
-    <ReportRowCard
-      fields={config.primaryFields}
-      onPress={getInvoiceDetailSaleId(item, config.slug) ? handleRowPress : undefined}
-      row={item}
-    />
-  ), [config.primaryFields, config.slug, handleRowPress]);
-
+  const primarySummary = !summary ? null : config.slug === "sales-summary"
+    ? { totalSale: summary.totalSale ?? "", outstandingAmount: summary.outstandingAmount ?? summary.dueAmount ?? summary.pendingAmount ?? "" }
+    : config.slug === "staff-performance" ? { totalRevenue: summary.totalRevenue ?? "", totalCommission: summary.totalCommission ?? "" }
+    : summary;
+  const columns = useMemo(() => reportColumns(rows, config.columns ?? [], config.primaryFields), [rows, config.columns, config.primaryFields]);
   const activeFilterCount = countReportFilters(config.slug, filters);
+  const exportCsv = async (visibleColumns: ReportColumn[]) => {
+    if (exporting) return;
+    setExporting(true);
+    try { await exportReportCsv(config, filters, visibleColumns, rows); }
+    catch { Alert.alert("Export failed", "Could not export this report. Please try again."); }
+    finally { setExporting(false); }
+  };
 
-  const websiteLayout = Boolean(config.websiteLayout);
-
-  const searchBar = supportsSearch && !isUnavailable ? (
-    <View style={styles.searchBar}>
-      <Ionicons name="search-outline" size={18} color={Colors.text2} />
-      <TextInput
-        accessibilityLabel={`Search ${config.title}`}
-        onChangeText={setSearch}
-        placeholder={config.searchPlaceholder ?? `Search ${config.title.toLowerCase()}`}
-        placeholderTextColor={Colors.placeholder}
-        returnKeyType="search"
-        style={styles.searchInput}
-        value={search}
-      />
-      {search ? (
-        <TouchableOpacity accessibilityLabel="Clear search" onPress={() => setSearch("")} style={styles.clearButton}>
-          <Ionicons name="close-circle" size={18} color={Colors.hint} />
-        </TouchableOpacity>
-      ) : null}
-    </View>
-  ) : null;
-
-  const dateSelector = dateKeys ? (
-    <TouchableOpacity
-      accessibilityHint={config.slug === "ewallet"
-        ? "Select a range. Its end date filters clients registered by that day; balances are current."
-        : "Opens a calendar to pick the report date range"}
-      accessibilityRole="button"
-      disabled={isUnavailable || !dateKeys}
-      onPress={() => setRangeSheetVisible(true)}
-      style={[styles.dateSelector, websiteLayout && styles.dateSelectorInRow, (isUnavailable || !dateKeys) && styles.disabledButton]}
-    >
-      <View style={styles.dateIcon}>
-        <Ionicons name="calendar-outline" size={17} color={Colors.primaryText} />
+  return <PearlBackground><SafeAreaView edges={["top"]} style={styles.safe}><AppStatusBar />
+    <RefreshViewport><ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}
+      refreshControl={<RefreshControl colors={[Colors.primary]} refreshing={Boolean(entry?.refreshing)} onRefresh={refresh} />}>
+      <View style={styles.header}><AppBackButton onPress={() => router.back()} /><View style={styles.headerCopy}><Text translate style={styles.title}>{config.title}</Text><Text style={styles.subtitle}>{config.group}</Text></View></View>
+      <View style={styles.filterRow}>
+        {dateKeys ? <TouchableOpacity accessibilityRole="button" accessibilityLabel="Report date range" onPress={() => setRangeSheetVisible(true)} style={[styles.control, { flex: 1 }]}><Ionicons name="calendar-outline" size={17} color={pearl.accentDeep} /><Text style={[styles.controlText, { flex: 1 }]}>{dateRangeLabel}</Text><Ionicons name="chevron-down" size={15} color={pearl.accentDeep} /></TouchableOpacity> : null}
+        {((REPORT_FILTER_FIELDS[config.slug]?.length ?? 0) > 0) ? <TouchableOpacity accessibilityRole="button" accessibilityLabel={'Filters, ' + activeFilterCount + ' active'} onPress={() => setFilterSheetVisible(true)} style={styles.control}><Ionicons name="funnel-outline" size={16} color={pearl.accentDeep} /><Text style={styles.controlText}>Filters{activeFilterCount ? ' · ' + activeFilterCount : ''}</Text></TouchableOpacity> : null}
       </View>
-      <View style={styles.dateCopy}>
-        <Text style={styles.dateLabel}>REPORT RANGE</Text>
-        <Text style={styles.dateValue}>{dateRangeLabel}</Text>
-      </View>
-      <Ionicons name="chevron-down" size={16} color={Colors.hint} />
-    </TouchableOpacity>
-  ) : null;
-
-  // Website layout: a labeled "Filters" button next to the date range, like the web report.
-  const filtersButton = (
-    <TouchableOpacity
-      accessibilityLabel={`Filters, ${activeFilterCount} active`}
-      accessibilityRole="button"
-      disabled={isUnavailable}
-      onPress={() => setFilterSheetVisible(true)}
-      style={[styles.filtersPill, activeFilterCount ? styles.filtersPillActive : null, isUnavailable && styles.disabledButton]}
-    >
-      <Ionicons name="funnel-outline" size={16} color={activeFilterCount ? Colors.primaryText : Colors.heading} />
-      <Text style={[styles.filtersPillText, activeFilterCount ? styles.filtersPillTextActive : null]}>Filters</Text>
-      {activeFilterCount ? <Text style={styles.filtersPillCount}>{activeFilterCount}</Text> : null}
-    </TouchableOpacity>
-  );
-
-  const summarySection = isUnavailable ? (
-    <View style={styles.unavailableCard}>
-      <Ionicons name="construct-outline" size={24} color={Colors.hint} />
-      <Text style={styles.unavailableTitle}>Backend unavailable</Text>
-      <Text style={styles.unavailableText}>
-        {config.statusReason ?? "This report does not have a verified current Reports API endpoint."}
-      </Text>
-    </View>
-  ) : (
-    <ReportSummaryCards summary={summary} maxCards={config.slug === "staff-performance" ? 9 : 8} />
-  );
-
-  const resultsHeading = rows.length ? (
-    <View style={styles.resultsHeading}>
-      <Text style={styles.resultsTitle}>RESULTS</Text>
-      <Text style={styles.resultsCount}>
-        {pagination?.total ?? rows.length} {pagination?.total === 1 ? "record" : "records"}
-      </Text>
-    </View>
-  ) : null;
-
-  const listHeader = (
-    <View style={styles.listHeader}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          accessibilityLabel="Go back"
-          accessibilityRole="button"
-          activeOpacity={0.8}
-          hitSlop={AppLayout.headerActionHitSlop}
-          onPress={() => router.back()}
-          style={styles.headerButton}
-        >
-          <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
-        </TouchableOpacity>
-        <View style={styles.headerCopy}>
-          <Text allowFontScaling style={styles.title}>{config.title}</Text>
-          <Text allowFontScaling style={styles.subtitle}>{config.subtitle}</Text>
-        </View>
-        {websiteLayout ? null : (
-          <TouchableOpacity
-            accessibilityLabel={`Filters, ${activeFilterCount} active`}
-            accessibilityRole="button"
-            disabled={isUnavailable}
-            onPress={() => setFilterSheetVisible(true)}
-            style={[styles.filterButton, isUnavailable && styles.disabledButton]}
-          >
-            <Ionicons name="options-outline" size={19} color={Colors.heading} />
-            {activeFilterCount ? <Text style={styles.filterCount}>{activeFilterCount}</Text> : null}
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {websiteLayout ? (
-        <>
-          {/* Same order as the website report: filters, summary, then search right above the list. */}
-          <View style={styles.filterRow}>
-            {dateSelector}
-            {filtersButton}
-          </View>
-          {summarySection}
-          {searchBar}
-          {resultsHeading}
-        </>
-      ) : (
-        <>
-          {searchBar}
-          {dateSelector}
-          {summarySection}
-          {resultsHeading}
-        </>
-      )}
-    </View>
-  );
-
-  const rangeSheet = dateKeys ? (
-    <DateRangePickerSheet
-      allowAllTime={dateKeys.mode === "range"}
-      endDate={dateKeys.end ? filters[dateKeys.end] ?? null : null}
-      mode={dateKeys.mode}
-      onApply={applyRange}
-      onClose={() => setRangeSheetVisible(false)}
-      startDate={filters[dateKeys.start] ?? null}
-      visible={rangeSheetVisible}
-    />
-  ) : null;
-
-  if (isUnavailable) {
-    return (
-      <SafeAreaView edges={["top"]} style={styles.safe}>
-        <AppStatusBar />
-        {listHeader}
-      </SafeAreaView>
-    );
-  }
-
-  if (entry?.loading && !entry.data) {
-    return (
-      <SafeAreaView edges={["top"]} style={styles.safe}>
-        <AppStatusBar />
-        {listHeader}
-        <ReportSkeleton />
-        <ReportFilterSheet
-          slug={config.slug}
-          data={entry?.data}
-          filters={filters}
-          onApply={applyFilters}
-          onClose={() => setFilterSheetVisible(false)}
-          visible={filterSheetVisible}
-        />
-        {rangeSheet}
-      </SafeAreaView>
-    );
-  }
-
-  return (
-    <SafeAreaView edges={["top"]} style={styles.safe}>
-      <AppStatusBar />
-      <RefreshViewport><FlatList
-        contentContainerStyle={styles.listContent}
-        contentInsetAdjustmentBehavior="automatic"
-        data={rows}
-        initialNumToRender={10}
-        keyExtractor={getReportRowKey}
-        keyboardShouldPersistTaps="handled"
-        ListEmptyComponent={entry?.error ? (
-          <ReportState
-            description="We couldn’t load this report. Check your connection and try again."
-            error
-            onRetry={refresh}
-            title="Report unavailable"
-          />
-        ) : (
-          <ReportState
-            description={`${config.emptyMessage}. Adjust the filters or refresh to check again.`}
-            onRetry={refresh}
-            title={config.emptyMessage}
-          />
-        )}
-        ListFooterComponent={
-          <ReportPaginationFooter
-            currentPage={pagination?.page ?? 1}
-            hasMore={hasMore}
-            loading={Boolean(entry?.loadingMore)}
-            noMore={rows.length > 0 && config.paginated && !hasMore}
-            onLoadMore={hasMore ? loadMore : undefined}
-            totalItems={pagination?.total}
-            totalPages={pagination?.totalPages}
-            visibleItems={rows.length}
-          />
-        }
-        ListHeaderComponent={listHeader}
-        maxToRenderPerBatch={10}
-        onEndReached={loadMore}
-        onEndReachedThreshold={0.35}
-        refreshControl={
-          <RefreshControl
-            colors={[Colors.primary]}
-            onRefresh={refresh}
-            refreshing={Boolean(entry?.refreshing)}
-            tintColor={Colors.primary}
-          />
-        }
-        removeClippedSubviews
-        renderItem={renderItem}
-        showsVerticalScrollIndicator={false}
-        updateCellsBatchingPeriod={50}
-        windowSize={7}
-      /></RefreshViewport>
-      <ReportFilterSheet
-        slug={config.slug}
-        data={entry?.data}
-        filters={filters}
-        onApply={applyFilters}
-        onClose={() => setFilterSheetVisible(false)}
-        visible={filterSheetVisible}
-      />
-      {rangeSheet}
-      <SalesSummaryDetailSheet
-        onClose={() => setSelectedSaleId(null)}
-        saleId={selectedSaleId}
-      />
-    </SafeAreaView>
-  );
+      <ReportSummaryCards summary={moreTotals ? summary : primarySummary} maxCards={moreTotals ? Number.MAX_SAFE_INTEGER : 2} labels={moreTotals ? undefined : { totalSale: "Total sales", outstandingAmount: "Outstanding", totalCommission: "Commission earned" }} />
+      {summary && Object.keys(summary).length > 2 ? <TouchableOpacity accessibilityRole="button" accessibilityState={{ expanded: moreTotals }} onPress={() => setMoreTotals((value) => !value)} style={styles.control}><Ionicons name="stats-chart-outline" size={17} color={pearl.accentDeep} /><Text translate style={[styles.controlText, { flex: 1 }]}>{moreTotals ? "Fewer totals" : "More totals"}</Text><Ionicons name={moreTotals ? "chevron-up" : "chevron-down"} size={16} color={pearl.muted} /></TouchableOpacity> : null}
+      {supportsSearch ? <View style={styles.search}><Ionicons name="search-outline" size={18} color={pearl.muted} /><TextInput accessibilityLabel={'Search ' + config.title} placeholder={config.searchPlaceholder ?? 'Search ' + config.title.toLowerCase()} placeholderTextColor={pearl.muted} value={search} onChangeText={setSearch} underlineColorAndroid="transparent" style={styles.input} />{search ? <TouchableOpacity accessibilityLabel="Clear search" onPress={() => setSearch("")}><Ionicons name="close-circle" size={18} color={pearl.muted} /></TouchableOpacity> : null}</View> : null}
+      {entry?.loading && !entry.data ? <ReportSkeleton /> : entry?.error ? <ReportState error title="Report unavailable" description="We couldn’t load this report. Check your connection and try again." onRetry={refresh} /> : rows.length ?
+        <ReportTable queryKey={JSON.stringify({ ...filters, page: undefined })} onRequestAllRows={() => loadCompleteReport(config, filters, rows)} onSortError={() => Alert.alert("Sort unavailable", "Could not load the full report for sorting. Please try again.")} title={config.title} rows={rows} columns={columns} total={pagination?.total ?? rows.length} hasMore={hasMore} loadingMore={Boolean(entry?.loadingMore)} onLoadMore={loadMore} onRowPress={handleRowPress} onExport={(visibleColumns) => void exportCsv(visibleColumns)} exporting={exporting} /> :
+        <ReportState title={config.emptyMessage} description="Adjust the filters or refresh to check again." onRetry={refresh} />}
+    </ScrollView></RefreshViewport>
+    <ReportFilterSheet slug={config.slug} data={entry?.data} filters={filters} onApply={applyFilters} onClose={() => setFilterSheetVisible(false)} visible={filterSheetVisible} />
+    {dateKeys ? <DateRangePickerSheet pearlStyle centered={false} allowAllTime={dateKeys.mode === "range"} mode={dateKeys.mode} startDate={filters[dateKeys.start] ?? null} endDate={dateKeys.end ? filters[dateKeys.end] ?? null : null} onApply={applyRange} onClose={() => setRangeSheetVisible(false)} visible={rangeSheetVisible} /> : null}
+    <SalesSummaryDetailSheet saleId={selectedSaleId} onClose={() => setSelectedSaleId(null)} />
+    <BottomSheet pearlStyle centered={false} title="Report details" visible={Boolean(selectedRow)} onClose={() => setSelectedRow(null)}>{selectedRow ? columns.map((column) => <View key={column.key} style={styles.detailRow}><Text style={styles.subtitle}>{column.label || humanizeReportKey(column.key)}</Text><Text selectable style={styles.value}>{reportCellValue(column.key, selectedRow[column.key])}</Text></View>) : null}</BottomSheet>
+  </SafeAreaView></PearlBackground>;
 }
-
-const createStyles = (Colors: ThemeColors) => StyleSheet.create({
-  safe: { backgroundColor: Colors.bg, flex: 1 },
-  listContent: {
-    gap: Spacing.md, paddingBottom: 120,
-    paddingHorizontal: AppLayout.contentHorizontalPadding,
-  },
-  listHeader: { gap: Spacing.lg, paddingBottom: Spacing.sm, paddingTop: Spacing.lg },
-  header: { alignItems: "flex-start", flexDirection: "row", gap: Spacing.md },
-  headerButton: {
-    alignItems: "center", backgroundColor: Colors.card, borderColor: Colors.border,
-    borderRadius: AppRadius.control, borderWidth: 1, height: AppLayout.headerActionSize,
-    justifyContent: "center", width: AppLayout.headerActionSize,
-  },
-  headerCopy: { flex: 1, gap: 3 },
-  title: { color: Colors.heading, fontSize: 26, fontWeight: "800", lineHeight: 32 },
-  subtitle: { color: Colors.text2, fontSize: 12, lineHeight: 18 },
-  filterButton: {
-    alignItems: "center", backgroundColor: Colors.card, borderColor: Colors.border,
-    borderRadius: AppRadius.control, borderWidth: 1, height: 48, justifyContent: "center", width: 48,
-  },
-  disabledButton: { opacity: 0.62 },
-  filterCount: {
-    backgroundColor: Colors.primaryDark, borderRadius: 999, color: Colors.onPrimary, fontSize: 8,
-    fontWeight: "800", minWidth: 16, overflow: "hidden", paddingHorizontal: 4,
-    paddingVertical: 2, position: "absolute", right: 3, textAlign: "center", top: 3,
-  },
-  searchBar: {
-    alignItems: "center", backgroundColor: Colors.card, borderColor: Colors.border,
-    borderRadius: AppRadius.control, borderWidth: 1, flexDirection: "row",
-    gap: Spacing.sm, minHeight: 50, paddingHorizontal: Spacing.md,
-  },
-  searchInput: { color: Colors.heading, flex: 1, fontSize: 13, minHeight: 48, paddingVertical: 0 },
-  clearButton: { alignItems: "center", height: 44, justifyContent: "center", width: 36 },
-  dateSelector: {
-    alignItems: "center", backgroundColor: Colors.card, borderColor: Colors.border,
-    borderRadius: AppRadius.card, borderWidth: 1, flexDirection: "row",
-    gap: Spacing.md, minHeight: 66, padding: Spacing.md,
-  },
-  filterRow: { alignItems: "stretch", flexDirection: "row", flexWrap: "wrap", gap: Spacing.sm },
-  dateSelectorInRow: { flexBasis: 200, flexGrow: 1, flexShrink: 1 },
-  filtersPill: {
-    alignItems: "center", backgroundColor: Colors.card, borderColor: Colors.border,
-    borderRadius: AppRadius.card, borderWidth: 1, flexDirection: "row", flexGrow: 0,
-    gap: 6, justifyContent: "center", minHeight: 66, paddingHorizontal: Spacing.md,
-  },
-  filtersPillActive: { backgroundColor: Colors.backgroundSelected, borderColor: Colors.primary },
-  filtersPillText: { color: Colors.heading, fontSize: 13, fontWeight: "800" },
-  filtersPillTextActive: { color: Colors.primaryText },
-  filtersPillCount: {
-    backgroundColor: Colors.primaryDark, borderRadius: 999, color: Colors.onPrimary, fontSize: 10,
-    fontWeight: "800", minWidth: 18, overflow: "hidden", paddingHorizontal: 5, paddingVertical: 1, textAlign: "center",
-  },
-  dateIcon: {
-    alignItems: "center", backgroundColor: Colors.backgroundElement,
-    borderRadius: AppRadius.control, height: 40, justifyContent: "center", width: 40,
-  },
-  dateCopy: { flex: 1, gap: 3 },
-  dateLabel: { color: Colors.text2, fontSize: 9, fontWeight: "800", letterSpacing: 1.2 },
-  dateValue: { color: Colors.heading, fontSize: 13, fontVariant: ["tabular-nums"], fontWeight: "700" },
-  resultsHeading: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", paddingTop: Spacing.sm },
-  resultsTitle: { color: Colors.text2, fontSize: 10, fontWeight: "800", letterSpacing: 1.4 },
-  resultsCount: { color: Colors.text2, fontSize: 11, fontVariant: ["tabular-nums"], fontWeight: "600" },
-  unavailableCard: {
-    alignItems: "center", backgroundColor: Colors.card, borderColor: Colors.border,
-    borderRadius: AppRadius.card, borderWidth: 1, gap: Spacing.sm, padding: Spacing.lg,
-  },
-  unavailableText: { color: Colors.text2, fontSize: 12, lineHeight: 18, textAlign: "center" },
-  unavailableTitle: { color: Colors.heading, fontSize: 15, fontWeight: "900" },
+const createStyles = (_colors: ThemeColors) => StyleSheet.create({
+  safe: { flex: 1 }, content: { padding: 16, paddingBottom: 100, gap: 14 },
+  header: { flexDirection: "row", alignItems: "center", gap: 12 }, headerCopy: { flex: 1, gap: 3 },
+  title: { fontSize: 22, fontWeight: "700", color: pearl.ink }, subtitle: { color: pearl.muted, fontSize: 12 },
+  filterRow: { flexDirection: "row", gap: 8, alignItems: "center", flexWrap: "wrap" },
+  control: { flexDirection: "row", gap: 7, alignItems: "center", paddingHorizontal: 12, minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: "#DDD9EB", backgroundColor: pearl.glass },
+  controlText: { color: pearl.accentDeep, fontSize: 12, fontWeight: "600" },
+  search: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 12, minHeight: 46, borderRadius: 12, borderWidth: 1, borderColor: "#DDD9EB", backgroundColor: pearl.glass },
+  input: { flex: 1, fontSize: 13, color: pearl.ink, backgroundColor: "transparent", paddingVertical: 12 },
+  detailRow: { paddingVertical: 12, flexDirection: "row", justifyContent: "space-between", gap: 20, borderBottomWidth: 1, borderBottomColor: pearl.divider }, value: { flex: 1, textAlign: "right", fontSize: 13, fontWeight: "600", color: pearl.ink },
 });

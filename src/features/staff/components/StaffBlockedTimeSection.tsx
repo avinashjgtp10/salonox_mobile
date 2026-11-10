@@ -82,7 +82,7 @@ function BlockedTimeRow({ blockedTime, canManage, onDelete, onEdit, staffId }: B
           onPress={() => onEdit(blockedTime)}
           style={styles.editButton}
         >
-          <Text style={styles.editButtonText}>Edit</Text>
+          <Text translate style={styles.editButtonText}>Edit</Text>
         </TouchableOpacity>
         <TouchableOpacity
           activeOpacity={0.84}
@@ -93,7 +93,7 @@ function BlockedTimeRow({ blockedTime, canManage, onDelete, onEdit, staffId }: B
           {deleting ? (
             <ActivityIndicator color={Colors.error} size="small" />
           ) : (
-            <Text style={styles.deleteButtonText}>Delete</Text>
+            <Text translate style={styles.deleteButtonText}>Delete</Text>
           )}
         </TouchableOpacity>
       </View>
@@ -254,7 +254,7 @@ export function StaffBlockedTimeSection({ staffId }: StaffBlockedTimeSectionProp
       action={
         <TouchableOpacity activeOpacity={0.84} onPress={openCreateForm} style={styles.addButton}>
           <Ionicons name="add" size={16} color="#FFFFFF" />
-          <Text style={styles.addButtonText}>Add</Text>
+          <Text translate style={styles.addButtonText}>Add</Text>
         </TouchableOpacity>
       }
       title="Blocked Times"
@@ -318,8 +318,8 @@ export function StaffBlockedTimeSection({ staffId }: StaffBlockedTimeSectionProp
         />
 
 
-        {error ? <Text style={styles.errorText}>{error}</Text> : null}
-        {!isValid ? <Text style={styles.hintText}>Enter valid times on the same date, with end after start.</Text> : null}
+        {error ? <Text translate style={styles.errorText}>{error}</Text> : null}
+        {!isValid ? <Text translate style={styles.hintText}>Enter valid times on the same date, with end after start.</Text> : null}
 
         <View style={styles.footer}>
           <TouchableOpacity
@@ -328,7 +328,7 @@ export function StaffBlockedTimeSection({ staffId }: StaffBlockedTimeSectionProp
             onPress={closeForm}
             style={styles.cancelButton}
           >
-            <Text style={styles.cancelButtonText}>Cancel</Text>
+            <Text translate style={styles.cancelButtonText}>Cancel</Text>
           </TouchableOpacity>
           <TouchableOpacity
             activeOpacity={0.84}
@@ -339,7 +339,7 @@ export function StaffBlockedTimeSection({ staffId }: StaffBlockedTimeSectionProp
             {saving ? (
               <ActivityIndicator size="small" color="#FFFFFF" />
             ) : (
-              <Text style={styles.saveButtonText}>{editingEntry ? "Update" : "Save"}</Text>
+              <Text translate style={styles.saveButtonText}>{editingEntry ? "Update" : "Save"}</Text>
             )}
           </TouchableOpacity>
         </View>

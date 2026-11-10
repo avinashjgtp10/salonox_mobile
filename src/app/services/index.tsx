@@ -1,3 +1,5 @@
+import { useRegionalPreferences } from "@/localization/preferences";
+import { AppBackButton } from "@/components/ui/AppBackButton";
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text, TextInput } from "@/components/ui/AppTypography";
@@ -79,6 +81,8 @@ function ServiceCard({
   onDelete: () => void;
   service: ServiceListItem;
 }) {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
@@ -127,6 +131,8 @@ function ServiceCard({
 }
 
 function ServiceSkeletonCard() {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
@@ -142,6 +148,8 @@ function ServiceSkeletonCard() {
 }
 
 function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
@@ -153,16 +161,18 @@ function ErrorState({ message, onRetry }: { message: string; onRetry: () => void
           <Ionicons name="cloud-offline-outline" size={26} color={Colors.error} />
         </View>
       </View>
-      <Text style={styles.emptyTitle}>Unable to load services</Text>
-      <Text style={styles.emptySubtitle}>{message}</Text>
+      <Text translate style={styles.emptyTitle}>Unable to load services</Text>
+      <Text translate style={styles.emptySubtitle}>{message}</Text>
       <TouchableOpacity activeOpacity={0.85} onPress={onRetry} style={styles.emptyButton}>
-        <Text style={styles.emptyButtonText}>Retry</Text>
+        <Text translate style={styles.emptyButtonText}>Retry</Text>
       </TouchableOpacity>
     </View>
   );
 }
 
 function EmptyState({ queryActive }: { queryActive: boolean }) {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
@@ -174,8 +184,8 @@ function EmptyState({ queryActive }: { queryActive: boolean }) {
           <Ionicons name="cut-outline" size={26} color={Colors.primaryText} />
         </View>
       </View>
-      <Text style={styles.emptyTitle}>No Services Found</Text>
-      <Text style={styles.emptySubtitle}>
+      <Text translate style={styles.emptyTitle}>No Services Found</Text>
+      <Text translate style={styles.emptySubtitle}>
         {queryActive
           ? "Try a different search or sort to find the right service."
           : "Services added to your salon menu will show up here."}
@@ -185,6 +195,8 @@ function EmptyState({ queryActive }: { queryActive: boolean }) {
 }
 
 function ServicesScreenContent() {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
@@ -360,20 +372,18 @@ function ServicesScreenContent() {
           <View>
             <View style={styles.header}>
               <View style={styles.headerRow}>
-                <TouchableOpacity activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
-                  <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
-                </TouchableOpacity>
-                <Text style={styles.headerTitle}>Services</Text>
+                <AppBackButton activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} />
+                <Text translate style={styles.headerTitle}>Services</Text>
                 <View style={styles.backButtonPlaceholder} />
               </View>
               <View style={styles.summaryCard}>
                 <View style={styles.summaryMetric}>
-                  <Text style={styles.summaryLabel}>Total Services</Text>
+                  <Text translate style={styles.summaryLabel}>Total Services</Text>
                   <Text style={styles.summaryValue}>{totalCount.toLocaleString("en-IN")}</Text>
                 </View>
                 <View style={styles.summaryDivider} />
                 <View style={styles.summaryMetric}>
-                  <Text style={styles.summaryLabel}>Active</Text>
+                  <Text translate style={styles.summaryLabel}>Active</Text>
                   <Text style={styles.summaryValue}>{activeCount}</Text>
                 </View>
               </View>
@@ -443,7 +453,7 @@ function ServicesScreenContent() {
           style={styles.stickyButton}
         >
           <Ionicons name="add-circle-outline" size={18} color="#FFFFFF" />
-          <Text style={styles.stickyButtonText}>Add Service</Text>
+          <Text translate style={styles.stickyButtonText}>Add Service</Text>
         </TourButton>
       </View>
 
@@ -455,7 +465,7 @@ function ServicesScreenContent() {
       >
         <Pressable onPress={() => setIsSortVisible(false)} style={styles.modalOverlay}>
           <Pressable style={styles.sortSheet}>
-            <Text style={styles.sortSheetTitle}>Sort Services</Text>
+            <Text translate style={styles.sortSheetTitle}>Sort Services</Text>
             {SERVICE_SORT_OPTIONS.map((option, index) => {
               const isActive = option === sortOption;
 

@@ -1,3 +1,5 @@
+import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
+import { AppBackButton } from "@/components/ui/AppBackButton";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
@@ -12,7 +14,6 @@ import { AppLayout, AppRadius } from "@/constants/layout";
 import {
   DashboardRadius as Radius,
   DashboardSpacing as Spacing,
-  type ThemeColors,
 } from "@/constants/theme";
 import { ConsumablesSection } from "@/features/services/components/ConsumablesSection";
 import { fetchServiceByIdThunk, fetchServicesThunk, updateServiceThunk } from "@/middleware/service/service.thunk";
@@ -25,7 +26,7 @@ import {
   selectServicesQuery,
 } from "@/store/service/service.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors, type PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 import type { ConsumableRecipeItem } from "@/types/consumable";
 import { useValidationScroll } from "@/hooks/useValidationScroll";
 
@@ -46,7 +47,7 @@ const getRejectedMessage = (payload: unknown, fallback: string) => {
 };
 
 export default function EditServiceScreen() {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const { id } = useLocalSearchParams<{ id?: string }>();
   const dispatch = useAppDispatch();
@@ -181,47 +182,43 @@ export default function EditServiceScreen() {
 
   if (detailsLoading && !liveService) {
     return (
-      <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
+      <PearlBackground><SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
         <AppStatusBar />
         <View style={styles.centeredWrap}>
           <View style={styles.headerRow}>
-            <TouchableOpacity activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
-              <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Edit Service</Text>
+            <AppBackButton activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} />
+            <Text translate style={styles.headerTitle}>Edit Service</Text>
             <View style={styles.backButtonPlaceholder} />
           </View>
           <View style={styles.centeredContent}>
             <ActivityIndicator size="large" color={Colors.primaryText} />
           </View>
         </View>
-      </SafeAreaView>
+      </SafeAreaView></PearlBackground>
     );
   }
 
   if (detailsError && !liveService) {
     return (
-      <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
+      <PearlBackground><SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
         <AppStatusBar />
         <View style={styles.centeredWrap}>
           <View style={styles.headerRow}>
-            <TouchableOpacity activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
-              <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Edit Service</Text>
+            <AppBackButton activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} />
+            <Text translate style={styles.headerTitle}>Edit Service</Text>
             <View style={styles.backButtonPlaceholder} />
           </View>
           <View style={styles.notFoundCard}>
-            <Text style={styles.notFoundTitle}>Unable to load service</Text>
+            <Text translate style={styles.notFoundTitle}>Unable to load service</Text>
             <Text style={styles.notFoundSubtitle}>{detailsError}</Text>
           </View>
         </View>
-      </SafeAreaView>
+      </SafeAreaView></PearlBackground>
     );
   }
 
   return (
-    <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
+    <PearlBackground><SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
       <AppStatusBar />
       <KeyboardAwareScrollView
           ref={scrollViewRef}
@@ -231,16 +228,8 @@ export default function EditServiceScreen() {
           style={styles.flex}
         >
           <View style={styles.headerRow}>
-            <TouchableOpacity
-              activeOpacity={0.8}
-              disabled={isSubmitting}
-              hitSlop={AppLayout.headerActionHitSlop}
-              onPress={handleBack}
-              style={styles.backButton}
-            >
-              <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Edit Service</Text>
+            <AppBackButton activeOpacity={0.8} disabled={isSubmitting} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} />
+            <Text translate style={styles.headerTitle}>Edit Service</Text>
             <View style={styles.backButtonPlaceholder} />
           </View>
 
@@ -250,7 +239,7 @@ export default function EditServiceScreen() {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Service Name</Text>
+              <Text translate style={styles.inputLabel}>Service Name</Text>
               <View style={[styles.inputContainer, fieldErrors.name && styles.inputContainerError]}>
                 <Ionicons name="pricetag-outline" size={18} color={fieldErrors.name ? Colors.error : Colors.text2} />
                 <TextInput
@@ -269,7 +258,7 @@ export default function EditServiceScreen() {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Price</Text>
+              <Text translate style={styles.inputLabel}>Price</Text>
               <View style={[styles.inputContainer, fieldErrors.price && styles.inputContainerError]}>
                 <Ionicons name="cash-outline" size={18} color={fieldErrors.price ? Colors.error : Colors.text2} />
                 <TextInput
@@ -288,7 +277,7 @@ export default function EditServiceScreen() {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Duration (minutes)</Text>
+              <Text translate style={styles.inputLabel}>Duration (minutes)</Text>
               <View style={[styles.inputContainer, fieldErrors.duration && styles.inputContainerError]}>
                 <Ionicons name="time-outline" size={18} color={fieldErrors.duration ? Colors.error : Colors.text2} />
                 <TextInput
@@ -307,7 +296,7 @@ export default function EditServiceScreen() {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Category</Text>
+              <Text translate style={styles.inputLabel}>Category</Text>
               <View style={styles.inputContainer}>
                 <Ionicons name="layers-outline" size={18} color={Colors.text2} />
                 <TextInput
@@ -324,7 +313,7 @@ export default function EditServiceScreen() {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Consumables</Text>
+              <Text translate style={styles.inputLabel}>Consumables</Text>
               <ConsumablesSection disabled={isSubmitting} onChange={setConsumables} value={consumables} />
             </View>
 
@@ -353,13 +342,13 @@ export default function EditServiceScreen() {
               ) : (
                 <Ionicons name="checkmark-circle-outline" size={18} color="#FFFFFF" />
               )}
-              <Text style={styles.submitButtonText}>
+              <Text translate style={styles.submitButtonText}>
                 {isSubmitting ? "Saving..." : "Save Changes"}
               </Text>
             </TouchableOpacity>
           </View>
       </KeyboardAwareScrollView>
-    </SafeAreaView>
+    </SafeAreaView></PearlBackground>
   );
 }
 
@@ -367,9 +356,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   flex: {
     flex: 1,
   },
-  safeArea: {
-    backgroundColor: Colors.bg,
-    flex: 1,
+  safeArea: { flex: 1,
   },
   content: {
     paddingBottom: AppLayout.contentBottomPadding,
@@ -423,7 +410,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.05,
     shadowRadius: 18,
-    elevation: 2,
+    elevation: 0,
   },
   iconWrap: {
     alignItems: "center",

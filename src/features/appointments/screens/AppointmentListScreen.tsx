@@ -1,3 +1,4 @@
+import { AppBackButton } from "@/components/ui/AppBackButton";
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { Text } from "@/components/ui/AppTypography";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
@@ -51,15 +52,8 @@ export function AppointmentListScreen() {
         ListHeaderComponent={
           <View style={styles.listHeader}>
             <View style={styles.headerRow}>
-              <TouchableOpacity
-                activeOpacity={0.8}
-                hitSlop={12}
-                onPress={() => router.replace("/bookings" as Href)}
-                style={styles.iconButton}
-              >
-                <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
-              </TouchableOpacity>
-              <Text style={styles.headerTitle}>Appointment List</Text>
+              <AppBackButton activeOpacity={0.8} hitSlop={12} onPress={() => router.replace("/bookings" as Href)} />
+              <Text translate style={styles.headerTitle}>Appointment List</Text>
               <TouchableOpacity
                 activeOpacity={0.8}
                 onPress={() => router.push("/bookings/new" as Href)}

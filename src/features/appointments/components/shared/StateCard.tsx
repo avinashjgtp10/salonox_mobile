@@ -28,8 +28,8 @@ export function StateCard({
   return (
     <Animated.View entering={FadeIn.duration(220)} style={styles.stateCard}>
       <StateIllustration Colors={Colors} accent={tone === "error" ? "error" : "blue"} icon={icon} />
-      <Text style={styles.stateTitle}>{title}</Text>
-      <Text style={styles.stateMessage}>{message}</Text>
+      <Text translate style={styles.stateTitle}>{title}</Text>
+      <Text translate style={styles.stateMessage}>{message}</Text>
       {actionLabel && onAction ? (
         <TouchableOpacity activeOpacity={0.85} onPress={onAction} style={styles.primaryButtonSmall}>
           <Text style={styles.primaryButtonSmallText}>{actionLabel}</Text>

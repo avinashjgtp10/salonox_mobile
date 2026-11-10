@@ -1,3 +1,4 @@
+import { useRegionalPreferences } from "@/localization/preferences";
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text, TextInput } from "@/components/ui/AppTypography";
@@ -76,6 +77,8 @@ function getStatusPalette(status: string, Colors: ThemeColors) {
 }
 
 export default function SalonTipsScreen() {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const insets = useSafeAreaInsets();
@@ -198,6 +201,8 @@ export default function SalonTipsScreen() {
   };
 
   function TipRow({ record }: { record: SalonTipRecord }) {
+  "use no memo";
+  useRegionalPreferences();
     const settling = useAppSelector((state) => selectTipSettling(state, record.staffId));
     const palette = getStatusPalette(record.status, Colors);
     const unpaidAmount = record.unpaidAmount ?? 0;
@@ -211,11 +216,11 @@ export default function SalonTipsScreen() {
         </View>
         <View style={styles.rowRight}>
           <View style={styles.amountColumn}>
-            <Text style={styles.amountLabel}>Tips</Text>
+            <Text translate style={styles.amountLabel}>Tips</Text>
             <Text style={styles.amount}>{formatCurrency(record.amount)}</Text>
           </View>
           <View style={styles.amountColumn}>
-            <Text style={styles.amountLabel}>Unpaid</Text>
+            <Text translate style={styles.amountLabel}>Unpaid</Text>
             <Text style={styles.unpaidAmount}>{formatCurrency(unpaidAmount)}</Text>
           </View>
           <View style={[styles.statusPill, { backgroundColor: palette.backgroundColor }]}>
@@ -228,7 +233,7 @@ export default function SalonTipsScreen() {
             onPress={() => handleOpenHistory(record)}
             style={styles.historyButton}
           >
-            <Text style={styles.historyButtonText}>History</Text>
+            <Text translate style={styles.historyButtonText}>History</Text>
           </TouchableOpacity>
           {isSettlable ? (
             <TouchableOpacity
@@ -243,7 +248,7 @@ export default function SalonTipsScreen() {
               {settling ? (
                 <ActivityIndicator color="#FFFFFF" size="small" />
               ) : (
-                <Text style={styles.settleButtonText}>Settle</Text>
+                <Text translate style={styles.settleButtonText}>Settle</Text>
               )}
             </TouchableOpacity>
           ) : null}
@@ -258,7 +263,7 @@ export default function SalonTipsScreen() {
     <View>
       <View style={styles.header}>
         <AppBackButton fallbackHref="/team" />
-        <Text style={styles.headerTitle}>Tips</Text>
+        <Text translate style={styles.headerTitle}>Tips</Text>
         <AppBackButtonPlaceholder />
       </View>
 
@@ -267,25 +272,25 @@ export default function SalonTipsScreen() {
       ) : (
         <View style={styles.summaryGrid}>
           <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>Total</Text>
+            <Text translate style={styles.summaryLabel}>Total</Text>
             <Text style={styles.summaryValue}>
               {summaryLoading ? "-" : formatCurrency(summary?.totalAmount ?? 0)}
             </Text>
           </View>
           <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>Paid</Text>
+            <Text translate style={styles.summaryLabel}>Paid</Text>
             <Text style={styles.summaryValue}>
               {summaryLoading ? "-" : formatCurrency(summary?.paidAmount ?? 0)}
             </Text>
           </View>
           <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>Pending</Text>
+            <Text translate style={styles.summaryLabel}>Pending</Text>
             <Text style={styles.summaryValue}>
               {summaryLoading ? "-" : formatCurrency(summary?.pendingAmount ?? 0)}
             </Text>
           </View>
           <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>Staff</Text>
+            <Text translate style={styles.summaryLabel}>Staff</Text>
             <Text style={styles.summaryValue}>{listLoading && !listLoaded ? "-" : records.length}</Text>
           </View>
         </View>

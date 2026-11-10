@@ -1,30 +1,34 @@
-import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import { useState } from "react";
-import { Pressable } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { Keyboard, StyleSheet } from "react-native";
 
 import {
-  PasswordRecoveryScaffold,
-  RecoveryMessage,
-  RecoveryPrimaryButton,
-  RecoveryTextButton,
-  RecoveryTextInput,
-  passwordRecoveryStyles,
-} from "@/components/auth/passwordRecoveryUi";
-import { useThemeColors } from "@/theme/ThemeProvider";
-import { getApiErrorMessage } from "@/services/api";
+  AuthScreen,
+  Banner,
+  GlassCard,
+  PasswordRules,
+  PrimaryButton,
+  TextField,
+  TopBar,
+  authMessages,
+  getAuthErrorMessage,
+  getPasswordRuleState,
+  pearlSpace,
+} from "@/components/auth/pearl";
+import { type TextInput } from "@/components/ui/AppTypography";
+import { useAppToast } from "@/hooks/useAppToast";
 import { authService } from "@/services/authService";
 import {
-  CONFIRM_PASSWORD_MISMATCH_MESSAGE,
   isValidPassword,
-  PASSWORD_REQUIREMENT_MESSAGE,
 } from "@/utils/validation";
+
+// How long the success toast stays on this screen before going to Login.
+const REDIRECT_DELAY_MS = 2500;
 
 const getParam = (value: string | string[] | undefined) =>
   Array.isArray(value) ? value[0] : value;
 
 export default function ResetPasswordScreen() {
-  const Colors = useThemeColors();
   const params = useLocalSearchParams<{
     email?: string;
     message?: string;
@@ -34,15 +38,22 @@ export default function ResetPasswordScreen() {
   const email = getParam(params.email) ?? "";
   const otp = getParam(params.otp);
   const resetToken = getParam(params.resetToken);
-  const initialMessage = getParam(params.message);
+  const confirmRef = useRef<TextInput>(null);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [confirmPasswordError, setConfirmPasswordError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(initialMessage ?? null);
-  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  // Password changed: the toast is showing and the screen is about to go to Login.
+  const [isUpdated, setIsUpdated] = useState(false);
+  const redirectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const toast = useAppToast();
+
+  useEffect(() => () => {
+    if (redirectTimer.current) clearTimeout(redirectTimer.current);
+  }, []);
+  const rules = getPasswordRuleState(password, confirmPassword);
 
   const handlePasswordChange = (nextPassword: string) => {
     setPassword(nextPassword);
@@ -61,28 +72,28 @@ export default function ResetPasswordScreen() {
     let isValid = true;
 
     if (!email) {
-      setFormError("Email address is missing. Please restart the password reset flow.");
+      setFormError(authMessages.RESET_FLOW_BROKEN);
       return false;
     }
 
     if (!otp) {
-      setFormError("Verification code is missing. Please restart the password reset flow.");
+      setFormError(authMessages.RESET_FLOW_BROKEN);
       return false;
     }
 
     if (!password) {
-      setPasswordError("New Password is required.");
+      setPasswordError(authMessages.NEW_PASSWORD_REQUIRED);
       isValid = false;
     } else if (!isValidPassword(password)) {
-      setPasswordError(PASSWORD_REQUIREMENT_MESSAGE);
+      setPasswordError(authMessages.NEW_PASSWORD_WEAK);
       isValid = false;
     }
 
     if (!confirmPassword) {
-      setConfirmPasswordError("Confirm Password is required.");
+      setConfirmPasswordError(authMessages.CONFIRM_PASSWORD_REQUIRED);
       isValid = false;
     } else if (password !== confirmPassword) {
-      setConfirmPasswordError(CONFIRM_PASSWORD_MISMATCH_MESSAGE);
+      setConfirmPasswordError(authMessages.PASSWORDS_DONT_MATCH);
       isValid = false;
     }
 
@@ -90,16 +101,16 @@ export default function ResetPasswordScreen() {
   };
 
   const handleResetPassword = async () => {
-    if (!validateForm()) {
+    if (isLoading || isUpdated || !validateForm()) {
       return;
     }
 
+    Keyboard.dismiss();
     setIsLoading(true);
     setFormError(null);
-    setSuccessMessage(null);
 
     try {
-      const response = await authService.resetForgotPassword({
+      await authService.resetForgotPassword({
         confirmPassword,
         email,
         otp,
@@ -107,85 +118,59 @@ export default function ResetPasswordScreen() {
         resetToken,
       });
 
-      router.replace({
-        pathname: "/login",
-        params: {
-          successMessage: response.message,
-        },
-      });
+      setIsUpdated(true);
+      toast.showSuccess("Password updated. Sign in with your new password.", REDIRECT_DELAY_MS);
+      redirectTimer.current = setTimeout(() => router.replace("/login"), REDIRECT_DELAY_MS);
     } catch (error) {
-      setFormError(getApiErrorMessage(error));
+      setFormError(getAuthErrorMessage(error, "resetPassword"));
     } finally {
       setIsLoading(false);
     }
   };
 
-  const passwordToggle = (
-    <Pressable
-      hitSlop={12}
-      onPress={() => setShowPassword((currentValue) => !currentValue)}
-      style={passwordRecoveryStyles.passwordToggle}
-    >
-      <Ionicons
-        name={showPassword ? "eye-outline" : "eye-off-outline"}
-        size={20}
-        color={Colors.secondary}
-      />
-    </Pressable>
-  );
-
   return (
-    <PasswordRecoveryScaffold
-      title="Reset Password"
-      subtitle="Create a secure new password for your SalonOX account."
-      footer={
-        <RecoveryTextButton
-          disabled={isLoading}
-          label="Back to OTP"
-          onPress={() => router.back()}
+    <AuthScreen header={<TopBar title="New password" onBack={() => router.back()} />} footer={<PrimaryButton title={isUpdated ? "Password updated" : "Update password"} loading={isLoading} loadingTitle="Updating…" disabled={isUpdated} onPress={handleResetPassword} style={styles.flex} />}>
+      <GlassCard style={styles.card}>
+        <Banner kind="error" message={formError} />
+        <TextField
+          label="New password"
+          icon="lock-closed-outline"
+          placeholder="At least 8 characters"
+          value={password}
+          onChangeText={handlePasswordChange}
+          error={passwordError}
+          secureToggle
+          autoCapitalize="none"
+          autoComplete="password-new"
+          autoCorrect={false}
+          textContentType="newPassword"
+          returnKeyType="next"
+          submitBehavior="submit"
+          onSubmitEditing={() => confirmRef.current?.focus()}
         />
-      }
-    >
-      <RecoveryMessage message={successMessage} type="success" />
-
-      <RecoveryTextInput
-        autoCapitalize="none"
-        autoComplete="password-new"
-        error={passwordError ?? undefined}
-        iconName="lock-closed-outline"
-        label="New Password"
-        onChangeText={handlePasswordChange}
-        placeholder="Enter new password"
-        returnKeyType="next"
-        rightAccessory={passwordToggle}
-        secureTextEntry={!showPassword}
-        textContentType="newPassword"
-        value={password}
-      />
-
-      <RecoveryTextInput
-        autoCapitalize="none"
-        autoComplete="password-new"
-        error={confirmPasswordError ?? undefined}
-        iconName="lock-closed-outline"
-        label="Confirm Password"
-        onChangeText={handleConfirmPasswordChange}
-        onSubmitEditing={handleResetPassword}
-        placeholder="Confirm new password"
-        returnKeyType="done"
-        rightAccessory={passwordToggle}
-        secureTextEntry={!showPassword}
-        textContentType="newPassword"
-        value={confirmPassword}
-      />
-
-      <RecoveryMessage message={formError} type="error" />
-
-      <RecoveryPrimaryButton
-        isLoading={isLoading}
-        label="Reset Password"
-        onPress={handleResetPassword}
-      />
-    </PasswordRecoveryScaffold>
+        <TextField
+          ref={confirmRef}
+          label="Confirm new password"
+          icon="lock-closed-outline"
+          placeholder="Re-enter the password"
+          value={confirmPassword}
+          onChangeText={handleConfirmPasswordChange}
+          error={confirmPasswordError}
+          secureTextEntry
+          autoCapitalize="none"
+          autoComplete="password-new"
+          autoCorrect={false}
+          textContentType="newPassword"
+          returnKeyType="done"
+          onSubmitEditing={handleResetPassword}
+        />
+        <PasswordRules rules={rules} />
+      </GlassCard>
+    </AuthScreen>
   );
 }
+
+const styles = StyleSheet.create({
+  flex: { flex: 1 },
+  card: { gap: pearlSpace.md + 2, borderRadius: 22 },
+});

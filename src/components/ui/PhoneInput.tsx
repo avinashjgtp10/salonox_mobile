@@ -20,7 +20,7 @@ import {
   type CountryCode,
 } from "libphonenumber-js";
 
-import type { ThemeColors } from "@/constants/theme";
+import { usePearlColors, type PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 import { useAppTheme } from "@/theme/ThemeProvider";
 import { PHONE_DIGIT_COUNT, PHONE_INPUT_MAX_LENGTH, sanitizePhoneDigits } from "@/utils/validation";
 
@@ -45,8 +45,9 @@ const createPhoneColors = (theme: ThemeColors, scheme: "light" | "dark") => ({
 
 type PhoneColors = ReturnType<typeof createPhoneColors>;
 
-const usePhoneColors = () => {
-  const { colors, scheme } = useAppTheme();
+const usePhoneColors = (pearlStyle = false) => {
+  const { scheme } = useAppTheme();
+  const colors = usePearlColors(pearlStyle);
 
   return useMemo(() => createPhoneColors(colors, scheme), [colors, scheme]);
 };
@@ -60,6 +61,7 @@ export interface Country {
 }
 
 export interface PhoneInputProps {
+  pearlStyle?: boolean;
   value: string;
   onChange: (e164: string) => void;
   country?: CountryCode;
@@ -72,6 +74,7 @@ export interface PhoneInputProps {
   editable?: boolean;
   onFocus?: () => void;
   onBlur?: () => void;
+  onSubmitEditing?: () => void;
 }
 
 
@@ -604,7 +607,7 @@ export const CountryCodePickerModal = memo(function CountryCodePickerModal({
 
 
         <View style={pickerStyles.sheetHeader}>
-          <Text style={pickerStyles.sheetTitle}>Select Country</Text>
+          <Text translate style={pickerStyles.sheetTitle}>Select Country</Text>
           <Pressable
             onPress={handleClose}
             hitSlop={12}
@@ -675,7 +678,7 @@ const EmptyList = () => {
   return (
     <View style={pickerStyles.emptyContainer}>
       <Ionicons name="globe-outline" size={40} color={C.placeholder} />
-      <Text style={pickerStyles.emptyText}>No countries found</Text>
+      <Text translate style={pickerStyles.emptyText}>No countries found</Text>
     </View>
   );
 };
@@ -683,6 +686,7 @@ const EmptyList = () => {
 
 
 export const PhoneInput = memo(forwardRef<TextInput, PhoneInputProps>(function PhoneInput({
+  pearlStyle = false,
   value,
   onChange,
   country: controlledCountryCode,
@@ -695,8 +699,9 @@ export const PhoneInput = memo(forwardRef<TextInput, PhoneInputProps>(function P
   editable = true,
   onFocus: onFocusProp,
   onBlur: onBlurProp,
+  onSubmitEditing,
 }: PhoneInputProps, forwardedRef) {
-  const C = usePhoneColors();
+  const C = usePhoneColors(pearlStyle);
   const inputStyles = useMemo(() => createInputStyles(C), [C]);
 
 
@@ -866,6 +871,7 @@ export const PhoneInput = memo(forwardRef<TextInput, PhoneInputProps>(function P
       <View
         style={[
           inputStyles.row,
+          pearlStyle && { borderRadius: 16 },
           isFocused && inputStyles.rowFocused,
           hasError && inputStyles.rowError,
           disabled && inputStyles.rowDisabled,
@@ -916,6 +922,8 @@ export const PhoneInput = memo(forwardRef<TextInput, PhoneInputProps>(function P
           placeholder={placeholder}
           placeholderTextColor={C.placeholder}
           returnKeyType="next"
+          onSubmitEditing={onSubmitEditing}
+          submitBehavior={onSubmitEditing ? "submit" : undefined}
           autoFocus={autoFocus}
           editable={isEditable}
           selectTextOnFocus={false}
@@ -945,7 +953,7 @@ export const PhoneInput = memo(forwardRef<TextInput, PhoneInputProps>(function P
 
 
 
-      <View style={inputStyles.errorSlot}>
+      <View style={[inputStyles.errorSlot, pearlStyle && !hasError && { minHeight: 0, paddingTop: 0 }]}>
         {hasError && (
           <View style={inputStyles.errorRow}>
             <Ionicons
@@ -954,7 +962,7 @@ export const PhoneInput = memo(forwardRef<TextInput, PhoneInputProps>(function P
               color={C.error}
               style={{ marginRight: 4 }}
             />
-            <Text
+            <Text translate
               style={inputStyles.errorText}
               accessibilityRole="alert"
               accessibilityLiveRegion="polite"
@@ -1109,11 +1117,6 @@ const createInputStyles = (C: PhoneColors) => StyleSheet.create({
   },
   rowFocused: {
     borderColor: C.inputBorderFocus,
-    shadowColor: C.primary,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.18,
-    shadowRadius: 6,
-    elevation: 2,
   },
   rowError: {
     borderColor: C.error,

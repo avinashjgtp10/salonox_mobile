@@ -1,11 +1,12 @@
+import { LinearGradient } from "expo-linear-gradient";
+import { pearlGradients } from "@/components/auth/pearl/tokens";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ScrollView, StyleSheet, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { BottomSheet } from "@/components/ui/BottomSheet";
-import { useThemeColors } from "@/theme/ThemeProvider";
-import type { ThemeColors } from "@/constants/theme";
+import { usePearlColors, type PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 
 export type FilterOption = { id: string; label: string; disabled?: boolean };
 export type FilterSelection = Record<string, string[]>;
@@ -20,7 +21,9 @@ export type FilterField = {
   render?: (value: string[], onChange: (value: string[]) => void) => ReactNode;
 };
 
-export function FilterSheet({ fields, selected, visible, onClose, onApply, loading, error, onRetry, validate }: {
+export function FilterSheet({ fields, selected, visible, onClose, onApply, loading, error, onRetry, validate, pearlStyle = false, centered = true }: {
+  pearlStyle?: boolean;
+  centered?: boolean;
   fields: FilterField[];
   selected: FilterSelection;
   visible: boolean;
@@ -31,7 +34,7 @@ export function FilterSheet({ fields, selected, visible, onClose, onApply, loadi
   onRetry?: () => void;
   validate?: (value: FilterSelection) => string | null;
 }) {
-  const colors = useThemeColors();
+  const colors = usePearlColors(pearlStyle);
   const { height } = useWindowDimensions();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [draft, setDraft] = useState<FilterSelection>({});
@@ -68,23 +71,24 @@ export function FilterSheet({ fields, selected, visible, onClose, onApply, loadi
   };
 
   return (
-    <BottomSheet centered visible={visible} onClose={onClose} title="Filters" scrollable={false} footer={
+    <BottomSheet pearlStyle={pearlStyle} centered={centered} visible={visible} onClose={onClose} title="Filters" scrollable={false} footer={
       <>
-        <TouchableOpacity accessibilityRole="button" style={styles.clearButton} onPress={() => commit({})}>
-          <Text style={styles.clearText}>Clear all</Text>
+        <TouchableOpacity accessibilityRole="button" style={[styles.clearButton, pearlStyle && { borderRadius: 16 }]} onPress={() => commit({})}>
+          <Text translate style={styles.clearText}>Clear all</Text>
         </TouchableOpacity>
-        <TouchableOpacity accessibilityRole="button" style={styles.applyButton} onPress={() => commit(draft)}>
-          <Text style={styles.applyText}>Apply filters</Text>
+        <TouchableOpacity accessibilityRole="button" style={[styles.applyButton, pearlStyle && { borderRadius: 16, overflow: "hidden" }]} onPress={() => commit(draft)}>
+          {pearlStyle ? <LinearGradient pointerEvents="none" colors={pearlGradients.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} /> : null}
+          <Text translate style={styles.applyText}>Apply filters</Text>
         </TouchableOpacity>
       </>
     }>
       {loading ? <ActivityIndicator color={colors.primaryText} accessibilityLabel="Loading filter options" /> : null}
-      {error ? <View style={styles.notice}><Text style={styles.error}>{error}</Text><TouchableOpacity accessibilityRole="button" onPress={onRetry}><Text style={styles.clearText}>Retry</Text></TouchableOpacity></View> : null}
+      {error ? <View style={styles.notice}><Text translate style={styles.error}>{error}</Text><TouchableOpacity accessibilityRole="button" onPress={onRetry}><Text translate style={styles.clearText}>Retry</Text></TouchableOpacity></View> : null}
       {validationError ? <Text accessibilityRole="alert" style={styles.error}>{validationError}</Text> : null}
       <View style={[styles.body, { height: Math.min(350, height * 0.48) }]}>
         {fields.length > 1 ? <ScrollView style={styles.names} keyboardShouldPersistTaps="handled">
           {fields.map((field) => <TouchableOpacity key={field.key} accessibilityRole="tab" accessibilityState={{ selected: active?.key === field.key }} onPress={() => setActiveKey(field.key)} style={[styles.name, active?.key === field.key && styles.active]}>
-            <Text style={styles.label}>{field.label}</Text>
+            <Text translate style={styles.label}>{field.label}</Text>
             {draft[field.key]?.length ? <Text style={styles.count}>{draft[field.key].length}</Text> : null}
           </TouchableOpacity>)}
         </ScrollView> : null}
@@ -96,11 +100,11 @@ export function FilterSheet({ fields, selected, visible, onClose, onApply, loadi
               const checked = values.includes(option.id);
               return <TouchableOpacity key={option.id} accessibilityRole={active?.single ? "radio" : "checkbox"} accessibilityState={{ checked, disabled: option.disabled }} disabled={option.disabled} style={[styles.option, option.disabled && styles.disabled]} onPress={() => update(checked ? values.filter((id) => id !== option.id) : active?.single ? [option.id] : [...values, option.id])}>
                 <Ionicons name={checked ? "checkbox" : "square-outline"} size={21} color={checked ? colors.primaryText : colors.text2} />
-                <Text style={styles.optionText}>{option.label}</Text>
+                <Text translate style={styles.optionText}>{option.label}</Text>
               </TouchableOpacity>;
-            }) : <Text style={styles.label}>{loading ? "Loading options…" : "No options"}</Text>}
+            }) : <Text translate style={styles.label}>{loading ? "Loading options…" : "No options"}</Text>}
           </ScrollView>
-          {values.length ? <TouchableOpacity accessibilityRole="button" style={styles.name} onPress={() => update([])}><Text style={styles.clearText}>Clear {active?.label}</Text></TouchableOpacity> : null}
+          {values.length ? <TouchableOpacity accessibilityRole="button" style={styles.name} onPress={() => update([])}><Text translate style={styles.clearText}>Clear {active?.label}</Text></TouchableOpacity> : null}
         </View>
       </View>
     </BottomSheet>

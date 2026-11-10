@@ -1,29 +1,29 @@
+import type { PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 import { Text } from "@/components/ui/AppTypography";
 import { useMemo } from "react";
 import { StyleSheet, View } from "react-native";
 
-import { useThemeColors } from "@/theme/ThemeProvider";
-import type { ThemeColors } from "@/constants/theme";
+import { usePearlColors } from "@/components/auth/pearl/usePearlColors";
 
 export function SummaryRow({ label, tone, value }: { label: string; tone?: "discount"; value: string }) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   return (
     <View style={styles.summaryRow}>
-      <Text style={styles.summaryLabel}>{label}</Text>
+      <Text translate style={styles.summaryLabel}>{label}</Text>
       <Text style={[styles.summaryValue, tone === "discount" && styles.summaryValueDiscount]}>{value}</Text>
     </View>
   );
 }
 
 export function SummaryTile({ label, value }: { label: string; value: string }) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   return (
     <View style={styles.summaryTile}>
-      <Text adjustsFontSizeToFit minimumFontScale={0.82} numberOfLines={1} style={styles.summaryTileLabel}>
+      <Text translate adjustsFontSizeToFit minimumFontScale={0.82} numberOfLines={1} style={styles.summaryTileLabel}>
         {label}
       </Text>
       <Text numberOfLines={1} style={styles.summaryTileValue}>{value}</Text>

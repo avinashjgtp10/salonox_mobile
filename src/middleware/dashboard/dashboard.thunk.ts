@@ -7,7 +7,7 @@ import { isNetworkOnline } from "@/services/networkStatus";
 import type { RootState } from "@/store";
 import { selectActiveBranchId } from "@/store/branch/branch.slice";
 import { selectCurrentUser } from "@/store/user/user.slice";
-import { isStaffExperienceUser } from "@/utils/routeResolver";
+import { hasBusinessDashboard } from "@/utils/staffExperience";
 
 type FetchDashboardRejectValue = {
   message: string;
@@ -62,14 +62,14 @@ export const fetchDashboardThunk = createAsyncThunk<
 
     const user = selectCurrentUser(state);
 
-    // The owner dashboard needs view_dashboard, which staff never have. Staff
-    // reach these refreshes after a Calendar Quick Sale or appointment change;
+    // Dashboard access follows the assigned web role. Staff without access
+    // can still reach these refreshes after a Calendar Quick Sale or appointment change;
     // skipping them avoids a 403 for a screen the staff app doesn't show.
     return (
       isNetworkOnline() &&
       !isUserLogoutInProgress() &&
       Boolean(user) &&
-      !isStaffExperienceUser(user) &&
+      hasBusinessDashboard(user) &&
       state.dashboard.status !== "loading" &&
       !state.dashboard.isRefreshing
     );

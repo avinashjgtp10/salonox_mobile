@@ -1,7 +1,7 @@
 import type { ReportData } from "@/store/report/report.slice";
 import type { ReportSlug } from "@/features/reports/report-config";
 import { formatCurrency } from "@/utils/currency";
-import { formatAppDateTime } from "@/utils/dateTime";
+import { formatAppDate, formatAppDateTime } from "@/utils/dateTime";
 import { formatInvoiceNumber } from "@/utils/receipt";
 
 export type ReportRow = Record<string, unknown>;
@@ -58,7 +58,7 @@ const percentKey = /(pct|percent)$/i;
 // with formatAmount (₹, 2 decimals) in the matching web report.
 const MONEY_KEYS = new Set([
   "amountDeducted", "avgBill", "avgSpendPerClient", "baseSalary", "billAverage", "bonus",
-  "cashExpense", "collected", "deductions", "ewalletUsed", "inStoreCash", "membershipWalletUsed",
+  "pending", "cashExpense", "collected", "deductions", "ewalletUsed", "inStoreCash", "membershipWalletUsed",
   "packageUsed", "paidOut", "referralCreditUsed", "revenueGenerated", "salaryAdvance", "tips",
   "totalAmountCollected", "totalBilled", "totalCashExpense", "totalCollected", "totalDiscount",
   "totalDiscountGiven", "totalEwallet", "totalGst", "totalLoyaltyGiven", "totalMembership",
@@ -77,6 +77,20 @@ const NUMERIC_STRING = /^-?\d+(\.\d+)?$/;
 
 export const formatReportValue = (key: string, value: unknown): string => {
   if (value === null || value === undefined || value === "") return "—";
+  if (/^payment_?reference$/i.test(key)) {
+    let reference = value;
+    if (typeof reference === "string") {
+      try { reference = JSON.parse(reference); } catch { return String(value); }
+    }
+    if (reference && typeof reference === "object" && !Array.isArray(reference)) {
+      const entries = Object.entries(reference).map(([method, amount]) => {
+        const label = humanizeReportKey(method.replace(/_/g, " "));
+        const numeric = typeof amount === "number" || (typeof amount === "string" && NUMERIC_STRING.test(amount.trim()));
+        return `${label}: ${numeric ? formatCurrency(Number(amount)) : String(amount ?? "—")}`;
+      });
+      return entries.join(", ") || "—";
+    }
+  }
   if (key === "invoiceNumber" || key === "invoiceNo") {
     return formatInvoiceNumber(
       typeof value === "string" || typeof value === "number" ? value : null,
@@ -94,6 +108,7 @@ export const formatReportValue = (key: string, value: unknown): string => {
     if (isMoneyKey(key)) return formatCurrency(value);
     return value.toLocaleString("en-IN", { maximumFractionDigits: 2 });
   }
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) return formatAppDate(value, "—");
   if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}(?:T| )/.test(value)) {
     return formatAppDateTime(value, "—");
   }

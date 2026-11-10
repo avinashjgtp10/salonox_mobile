@@ -1,3 +1,4 @@
+import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
@@ -11,7 +12,7 @@ import { AppBackButton, AppBackButtonPlaceholder } from "@/components/ui/AppBack
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { KeyboardAwareScrollView } from "@/components/ui/KeyboardAwareScrollView";
 import { AppLayout } from "@/constants/layout";
-import { DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
+import { DashboardSpacing as Spacing } from "@/constants/theme";
 import { CategorySelectModal } from "@/features/services/components/CategorySelectModal";
 import { createProductThunk, fetchBrandsThunk } from "@/middleware/product/product.thunk";
 import { fetchConsumablesThunk } from "@/middleware/consumable/consumable.thunk";
@@ -19,7 +20,7 @@ import { fetchServicesThunk } from "@/middleware/service/service.thunk";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { clearProductMutationError } from "@/store/product/product.slice";
 import { selectServices } from "@/store/service/service.slice";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors, type PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 import { formatAppDate } from "@/utils/dateTime";
 import type { ServiceCategoryItem } from "@/types/service";
 import { useValidationScroll } from "@/hooks/useValidationScroll";
@@ -74,7 +75,7 @@ const messageFrom = (payload: unknown, fallback: string) => {
 };
 
 export default function NewConsumableScreen() {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
   const productState = useAppSelector((state) => state.product);
@@ -222,12 +223,12 @@ export default function NewConsumableScreen() {
   };
 
   return (
-    <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
+    <PearlBackground><SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
       <AppStatusBar />
       <KeyboardAwareScrollView ref={scrollViewRef} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
           <AppBackButton onPress={goBack} />
-          <Text style={styles.headerTitle}>Add Consumable</Text>
+          <Text translate style={styles.headerTitle}>Add Consumable</Text>
           <AppBackButtonPlaceholder />
         </View>
 
@@ -254,10 +255,10 @@ export default function NewConsumableScreen() {
             />
           </View>
           <TouchableOpacity activeOpacity={0.8} onPress={() => setCategoryModalOpen(true)}>
-            <Text style={styles.inlineLink}>+ Add a category</Text>
+            <Text translate style={styles.inlineLink}>+ Add a category</Text>
           </TouchableOpacity>
           <TouchableOpacity activeOpacity={0.8} onPress={() => setBrandModalOpen(true)}>
-            <Text style={styles.inlineLink}>+ Add a brand</Text>
+            <Text translate style={styles.inlineLink}>+ Add a brand</Text>
           </TouchableOpacity>
 
           <SelectField label="Supplier" onPress={() => undefined} placeholder="None" value={supplierName || undefined} />
@@ -270,7 +271,7 @@ export default function NewConsumableScreen() {
           />
           <Field inputStyle={styles.textArea} label="Description" multiline onChangeText={setDescription} value={description} />
 
-          <Text style={styles.label}>Product Type</Text>
+          <Text translate style={styles.label}>Product Type</Text>
           <View style={styles.segmentRow}>
             {PRODUCT_TYPES.map((item) => (
               <TouchableOpacity
@@ -279,7 +280,7 @@ export default function NewConsumableScreen() {
                 onPress={() => setProductType(item.value)}
                 style={[styles.segment, productType === item.value && styles.segmentActive]}
               >
-                <Text style={[styles.segmentText, productType === item.value && styles.segmentTextActive]}>{item.label}</Text>
+                <Text translate style={[styles.segmentText, productType === item.value && styles.segmentTextActive]}>{item.label}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -313,12 +314,12 @@ export default function NewConsumableScreen() {
             </View>
           ))}
           <TouchableOpacity activeOpacity={0.8} onPress={addUnitConversion}>
-            <Text style={styles.inlineLink}>+ Add a unit</Text>
+            <Text translate style={styles.inlineLink}>+ Add a unit</Text>
           </TouchableOpacity>
         </Section>
 
         <Section title="Service Assignment">
-          <Text style={styles.helperText}>Assign this product to the services that consume it, with how much each one uses.</Text>
+          <Text translate style={styles.helperText}>Assign this product to the services that consume it, with how much each one uses.</Text>
           <Field label="" onChangeText={setServiceSearch} placeholder="Search a service to assign..." value={serviceSearch} />
           {filteredServices.map((service) => (
             <TouchableOpacity
@@ -349,7 +350,7 @@ export default function NewConsumableScreen() {
             <SelectField label="Tax Type" onPress={() => setTaxTypeOpen(true)} value={taxType} />
           </View>
           <Field label="HSN/SAC" onChangeText={setHsnSac} value={hsnSac} />
-          <Text style={styles.label}>Expiry Date</Text>
+          <Text translate style={styles.label}>Expiry Date</Text>
           <TouchableOpacity activeOpacity={0.84} onPress={() => setShowDatePicker(true)} style={styles.dateButton}>
             <Ionicons color={Colors.heading} name="calendar-outline" size={17} />
             <Text style={[styles.dateText, !expiryDate && styles.placeholder]}>{formatDate(expiryDate) || "dd-mm-yy"}</Text>
@@ -373,11 +374,11 @@ export default function NewConsumableScreen() {
 
         <View style={styles.footer}>
           <TouchableOpacity activeOpacity={0.84} onPress={goBack} style={styles.cancelButton}>
-            <Text style={styles.cancelText}>Cancel</Text>
+            <Text translate style={styles.cancelText}>Cancel</Text>
           </TouchableOpacity>
           <TouchableOpacity activeOpacity={0.88} disabled={isSubmitting} onPress={() => void submit()} style={[styles.saveButton, isSubmitting && styles.disabled]}>
             {isSubmitting ? <ActivityIndicator color="#FFFFFF" /> : null}
-            <Text style={styles.saveText}>{isSubmitting ? "Saving..." : "Save"}</Text>
+            <Text translate style={styles.saveText}>{isSubmitting ? "Saving..." : "Save"}</Text>
           </TouchableOpacity>
         </View>
       </KeyboardAwareScrollView>
@@ -385,7 +386,7 @@ export default function NewConsumableScreen() {
       <Modal animationType="fade" transparent visible={brandModalOpen} onRequestClose={() => setBrandModalOpen(false)}>
         <Pressable onPress={() => setBrandModalOpen(false)} style={styles.overlay}>
           <Pressable onPress={(event) => event.stopPropagation()} style={styles.sheet}>
-            <Text style={styles.sheetTitle}>Select Brand</Text>
+            <Text translate style={styles.sheetTitle}>Select Brand</Text>
             <ScrollView style={styles.sheetList}>
               {[{ id: "", name: "None" }, ...productState.brands].map((brand) => (
                 <TouchableOpacity
@@ -408,7 +409,7 @@ export default function NewConsumableScreen() {
       <Modal animationType="fade" transparent visible={taxTypeOpen} onRequestClose={() => setTaxTypeOpen(false)}>
         <Pressable onPress={() => setTaxTypeOpen(false)} style={styles.overlay}>
           <Pressable onPress={(event) => event.stopPropagation()} style={styles.sheet}>
-            <Text style={styles.sheetTitle}>Tax Type</Text>
+            <Text translate style={styles.sheetTitle}>Tax Type</Text>
             {TAX_TYPES.map((item) => (
               <TouchableOpacity key={item} onPress={() => { setTaxType(item); setTaxTypeOpen(false); }} style={styles.sheetRow}>
                 <Text style={styles.sheetRowText}>{item}</Text>
@@ -440,7 +441,7 @@ export default function NewConsumableScreen() {
         type="product"
         visible={categoryModalOpen}
       />
-    </SafeAreaView>
+    </SafeAreaView></PearlBackground>
   );
 }
 
@@ -453,11 +454,11 @@ function Section({
   emphasized?: boolean;
   title: string;
 }) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   return (
     <View style={[styles.section, emphasized && styles.sectionEmphasized]}>
-      <Text style={styles.sectionTitle}>{title}</Text>
+      <Text translate style={styles.sectionTitle}>{title}</Text>
       {children}
     </View>
   );
@@ -468,18 +469,18 @@ const Field = forwardRef<TextInput, React.ComponentProps<typeof TextInput> & {
   inputStyle?: object;
   label: string;
 }>(function Field({ error, inputStyle, label, ...props }, ref) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   return (
     <View style={styles.field}>
-      {label ? <Text style={styles.label}>{label}</Text> : null}
+      {label ? <Text translate style={styles.label}>{label}</Text> : null}
       <TextInput
         ref={ref}
         {...props}
         placeholderTextColor={Colors.placeholder}
         style={[styles.input, props.multiline && styles.multilineInput, error && styles.inputError, inputStyle]}
       />
-      {error ? <Text style={styles.fieldError}>{error}</Text> : null}
+      {error ? <Text translate style={styles.fieldError}>{error}</Text> : null}
     </View>
   );
 });
@@ -497,43 +498,43 @@ function SelectField({
   placeholder?: string;
   value?: string;
 }) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   return (
     <TouchableOpacity activeOpacity={0.84} onPress={onPress} style={styles.field}>
-      <Text style={styles.label}>{label}</Text>
+      <Text translate style={styles.label}>{label}</Text>
       <View style={[styles.selectInput, error && styles.inputError]}>
         <Text numberOfLines={1} style={[styles.selectText, !value && styles.placeholder]}>{value || placeholder || "None"}</Text>
         <Ionicons color={Colors.text2} name="chevron-down" size={16} />
       </View>
-      {error ? <Text style={styles.fieldError}>{error}</Text> : null}
+      {error ? <Text translate style={styles.fieldError}>{error}</Text> : null}
     </TouchableOpacity>
   );
 }
 
 function PreviewRow({ label, value, warning }: { label: string; value: string; warning?: boolean }) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   return (
     <View style={styles.previewRow}>
-      <Text style={styles.previewLabel}>{label}</Text>
+      <Text translate style={styles.previewLabel}>{label}</Text>
       <Text style={[styles.previewValue, warning && styles.previewWarning]}>{value}</Text>
     </View>
   );
 }
 
 const createStyles = (Colors: ThemeColors) => StyleSheet.create({
-  safeArea: { backgroundColor: Colors.bg, flex: 1 },
+  safeArea: { flex: 1 },
   content: { padding: Spacing.lg, paddingBottom: AppLayout.contentBottomPadding },
   header: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", marginBottom: Spacing.lg },
   headerTitle: { color: Colors.heading, fontSize: 24, fontWeight: "800" },
-  section: { backgroundColor: Colors.card, borderColor: Colors.border, borderRadius: 8, borderWidth: 1, marginBottom: Spacing.lg, padding: Spacing.lg },
+  section: { backgroundColor: Colors.card, borderColor: Colors.border, borderRadius: 16, borderWidth: 1, marginBottom: Spacing.lg, padding: Spacing.lg },
   sectionEmphasized: { borderColor: Colors.heading },
   sectionTitle: { color: Colors.heading, fontSize: 17, fontWeight: "800", marginBottom: Spacing.md },
   field: { flex: 1, marginBottom: Spacing.md },
   flexField: { flex: 1 },
   label: { color: Colors.text2, fontSize: 13, fontWeight: "700", marginBottom: 8 },
-  input: { backgroundColor: Colors.card, borderColor: Colors.border, borderRadius: 8, borderWidth: 1, color: Colors.heading, fontSize: 15, minHeight: 48, paddingHorizontal: 13, paddingVertical: 10 },
+  input: { backgroundColor: Colors.card, borderColor: Colors.border, borderRadius: 16, borderWidth: 1, color: Colors.heading, fontSize: 15, minHeight: 48, paddingHorizontal: 13, paddingVertical: 10 },
   inputError: { borderColor: Colors.error, borderWidth: 1.5 },
   fieldError: { color: Colors.error, fontSize: 12, fontWeight: "700", marginTop: 6 },
   multilineInput: { minHeight: 96, textAlignVertical: "top" },
@@ -541,17 +542,17 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   counter: { alignSelf: "flex-end", color: Colors.text2, fontSize: 12, marginBottom: Spacing.md, marginTop: -Spacing.sm },
   twoColumn: { flexDirection: "row", gap: Spacing.md },
   threeColumn: { flexDirection: "row", gap: Spacing.sm },
-  selectInput: { alignItems: "center", backgroundColor: Colors.card, borderColor: Colors.border, borderRadius: 8, borderWidth: 1, flexDirection: "row", minHeight: 48, paddingHorizontal: 13 },
+  selectInput: { alignItems: "center", backgroundColor: Colors.card, borderColor: Colors.border, borderRadius: 16, borderWidth: 1, flexDirection: "row", minHeight: 48, paddingHorizontal: 13 },
   selectText: { color: Colors.heading, flex: 1, fontSize: 15 },
   placeholder: { color: Colors.placeholder },
   inlineLink: { color: Colors.primaryText, fontSize: 14, fontWeight: "800", marginBottom: Spacing.md },
   linkInput: { color: Colors.heading, fontSize: 15, fontWeight: "700", marginBottom: Spacing.lg, minHeight: 42 },
   segmentRow: { flexDirection: "row", gap: Spacing.sm },
-  segment: { alignItems: "center", borderColor: Colors.border, borderRadius: 8, borderWidth: 1, flex: 1, justifyContent: "center", minHeight: 48, paddingHorizontal: 8 },
+  segment: { alignItems: "center", borderColor: Colors.border, borderRadius: 16, borderWidth: 1, flex: 1, justifyContent: "center", minHeight: 48, paddingHorizontal: 8 },
   segmentActive: { backgroundColor: Colors.primaryDark, borderColor: Colors.primaryDark },
   segmentText: { color: Colors.heading, fontSize: 13, fontWeight: "800", textAlign: "center" },
   segmentTextActive: { color: Colors.onPrimary },
-  stockPreview: { backgroundColor: Colors.bg2, borderRadius: 8, marginBottom: Spacing.md, padding: Spacing.md },
+  stockPreview: { backgroundColor: Colors.bg2, borderRadius: 16, marginBottom: Spacing.md, padding: Spacing.md },
   stockPreviewText: { color: Colors.heading, fontSize: 14 },
   bold: { fontWeight: "800" },
   helperText: { color: Colors.text2, fontSize: 14, lineHeight: 21, marginBottom: Spacing.md },
@@ -559,24 +560,24 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   removeButton: { alignItems: "center", height: 48, justifyContent: "center", marginBottom: Spacing.md, width: 34 },
   optionRow: { alignItems: "center", borderBottomColor: Colors.border, borderBottomWidth: 1, flexDirection: "row", justifyContent: "space-between", minHeight: 46 },
   optionText: { color: Colors.heading, fontSize: 14, fontWeight: "700" },
-  selectedServiceRow: { alignItems: "center", backgroundColor: Colors.bg2, borderRadius: 8, flexDirection: "row", justifyContent: "space-between", marginTop: 8, padding: Spacing.md },
+  selectedServiceRow: { alignItems: "center", backgroundColor: Colors.bg2, borderRadius: 16, flexDirection: "row", justifyContent: "space-between", marginTop: 8, padding: Spacing.md },
   selectedServiceText: { color: Colors.heading, flex: 1, fontSize: 14, fontWeight: "700" },
-  dateButton: { alignItems: "center", alignSelf: "flex-start", borderColor: Colors.border, borderRadius: 8, borderWidth: 1, flexDirection: "row", gap: 8, minHeight: 46, paddingHorizontal: 13 },
+  dateButton: { alignItems: "center", alignSelf: "flex-start", borderColor: Colors.border, borderRadius: 16, borderWidth: 1, flexDirection: "row", gap: 8, minHeight: 46, paddingHorizontal: 13 },
   dateText: { color: Colors.heading, fontSize: 14 },
   previewRow: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", paddingVertical: 8 },
   previewLabel: { color: Colors.text2, fontSize: 14 },
   previewValue: { color: Colors.heading, fontSize: 14, fontWeight: "800", maxWidth: "55%", textAlign: "right" },
   previewWarning: { backgroundColor: Colors.errorBg, borderRadius: 14, color: Colors.error, overflow: "hidden", paddingHorizontal: 12, paddingVertical: 5 },
-  errorBox: { alignItems: "center", backgroundColor: Colors.errorBg, borderRadius: 8, flexDirection: "row", gap: 8, marginBottom: Spacing.md, padding: Spacing.md },
+  errorBox: { alignItems: "center", backgroundColor: Colors.errorBg, borderRadius: 16, flexDirection: "row", gap: 8, marginBottom: Spacing.md, padding: Spacing.md },
   errorText: { color: Colors.error, flex: 1, fontSize: 13, fontWeight: "700" },
   footer: { flexDirection: "row", gap: Spacing.md },
-  cancelButton: { alignItems: "center", borderColor: Colors.primary, borderRadius: 8, borderWidth: 1, flex: 1, minHeight: 50, justifyContent: "center" },
+  cancelButton: { alignItems: "center", borderColor: Colors.primary, borderRadius: 16, borderWidth: 1, flex: 1, minHeight: 50, justifyContent: "center" },
   cancelText: { color: Colors.primaryText, fontSize: 14, fontWeight: "800" },
-  saveButton: { alignItems: "center", backgroundColor: Colors.primaryDark, borderRadius: 8, flex: 1, flexDirection: "row", gap: 8, minHeight: 50, justifyContent: "center" },
+  saveButton: { alignItems: "center", backgroundColor: Colors.primaryDark, borderRadius: 16, flex: 1, flexDirection: "row", gap: 8, minHeight: 50, justifyContent: "center" },
   saveText: { color: Colors.onPrimary, fontSize: 14, fontWeight: "800" },
   disabled: { opacity: 0.7 },
   overlay: { alignItems: "center", backgroundColor: "rgba(15,23,32,0.35)", flex: 1, justifyContent: "center", padding: Spacing.lg },
-  sheet: { backgroundColor: Colors.card, borderRadius: 8, maxHeight: "70%", padding: Spacing.lg, width: "100%" },
+  sheet: { backgroundColor: Colors.card, borderRadius: 16, maxHeight: "70%", padding: Spacing.lg, width: "100%" },
   sheetTitle: { color: Colors.heading, fontSize: 18, fontWeight: "800", marginBottom: Spacing.md },
   sheetList: { maxHeight: 360 },
   sheetRow: { alignItems: "center", borderBottomColor: Colors.border, borderBottomWidth: 1, flexDirection: "row", justifyContent: "space-between", minHeight: 50 },

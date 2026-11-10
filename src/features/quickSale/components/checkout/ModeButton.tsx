@@ -1,17 +1,18 @@
+import type { PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 import { Text } from "@/components/ui/AppTypography";
 import { useMemo } from "react";
 import { StyleSheet, TouchableOpacity } from "react-native";
 
-import { DashboardRadius as Radius, type ThemeColors } from "@/constants/theme";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { DashboardRadius as Radius } from "@/constants/theme";
+import { usePearlColors } from "@/components/auth/pearl/usePearlColors";
 
 export function ModeButton({ active, label, onPress }: { active: boolean; label: string; onPress: () => void }) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   return (
     <TouchableOpacity activeOpacity={0.84} onPress={onPress} style={[styles.modeButton, active && styles.modeButtonActive]}>
-      <Text
+      <Text translate
         adjustsFontSizeToFit
         minimumFontScale={0.82}
         numberOfLines={1}

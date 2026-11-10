@@ -62,8 +62,8 @@ export function StaffSectionScreen({ sectionKey }: StaffSectionScreenProps) {
         <View style={styles.header}>
           <AppBackButton onPress={handleBack} />
           <View style={styles.headerCopy}>
-            <Text style={styles.title}>{title}</Text>
-            <Text style={styles.subtitle}>{subtitle}</Text>
+            <Text translate style={styles.title}>{title}</Text>
+            <Text translate style={styles.subtitle}>{subtitle}</Text>
           </View>
         </View>
 

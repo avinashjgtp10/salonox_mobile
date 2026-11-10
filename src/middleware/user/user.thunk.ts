@@ -19,7 +19,7 @@ export const fetchCurrentUserThunk = createAsyncThunk<
 >("user/fetchCurrentUser", async (_, { getState, rejectWithValue }) => {
   try {
     const currentUser = getState().user.user;
-    const response = await api.get<ApiResponse<AuthUser>>(USER.PROFILE);
+    const response = await api.get<ApiResponse<AuthUser>>(USER.ME);
     const normalizedUser = normalizeAuthUser(response.data.data);
     const mergedUser = preserveMobileCalendarAccess(preserveSalonId(normalizedUser, currentUser), currentUser);
 

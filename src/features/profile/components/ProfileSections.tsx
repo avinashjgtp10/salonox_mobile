@@ -39,8 +39,8 @@ export function ProfileCard({
             <Ionicons color={iconTone === "purple" ? Colors.purple : Colors.accentBlue} name={icon} size={18} />
           </View>
           <View style={styles.cardTitleWrap}>
-            <Text style={styles.cardTitle}>{title}</Text>
-            <Text style={styles.cardSubtitle}>{subtitle}</Text>
+            <Text translate style={styles.cardTitle}>{title}</Text>
+            <Text translate style={styles.cardSubtitle}>{subtitle}</Text>
           </View>
         </View>
         {rightAction}
@@ -56,7 +56,7 @@ export function ProfileSubsection({ children, title }: { children: ReactNode; ti
 
   return (
     <View style={styles.subsection}>
-      <Text style={styles.subsectionTitle}>{title}</Text>
+      <Text translate style={styles.subsectionTitle}>{title}</Text>
       <View style={styles.subsectionRule} />
       {children}
     </View>
@@ -88,7 +88,7 @@ export function FieldBox({
 
   return (
     <View style={styles.field}>
-      <Text style={styles.fieldLabel}>{label}</Text>
+      <Text translate style={styles.fieldLabel}>{label}</Text>
       <View style={styles.fieldValueRow}>
         <Ionicons color={Colors.hint} name={icon} size={17} />
         <Text

@@ -161,9 +161,9 @@ export default function SpotlightAnnouncementCard() {
             <View style={styles.topRow}>
               <View style={styles.badge}>
                 <Ionicons color={Colors.dashboardRevenueAccent} name="sparkles" size={11} />
-                <Text style={styles.badgeText}>NEW</Text>
+                <Text translate style={styles.badgeText}>NEW</Text>
               </View>
-              <Text numberOfLines={1} style={styles.eyebrow}>
+              <Text translate numberOfLines={1} style={styles.eyebrow}>
                 What&apos;s New in SalonOX
               </Text>
             </View>
@@ -177,7 +177,7 @@ export default function SpotlightAnnouncementCard() {
 
             <View style={styles.footerRow}>
               <Ionicons color={Colors.text2} name="globe-outline" size={12} />
-              <Text numberOfLines={1} style={styles.footerHint}>
+              <Text translate numberOfLines={1} style={styles.footerHint}>
                 Explore this on the SalonOX web app
               </Text>
             </View>

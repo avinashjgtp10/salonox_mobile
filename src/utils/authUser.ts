@@ -55,6 +55,8 @@ const toCustomPermissions = (...values: unknown[]) => {
 
 export const normalizeAuthUser = (value: unknown): AuthUser => {
   const record = asRecord(value);
+  const effectivePermissions = toCustomPermissions(record.effective_permissions, record.effectivePermissions);
+  const effective = asRecord(effectivePermissions);
   const salonRecord = asRecord(record.salon);
   const currentSalonRecord = asRecord(record.currentSalon);
   const activeSalonRecord = asRecord(record.activeSalon);
@@ -63,6 +65,7 @@ export const normalizeAuthUser = (value: unknown): AuthUser => {
     id: toTrimmedString(record.id, record._id) ?? "",
     email: toTrimmedString(record.email) ?? "",
     role: toTrimmedString(record.role, record.userRole, record.user_role) ?? "",
+    roleName: toTrimmedString(record.roleName, record.role_name),
     phone: toTrimmedString(
       record.phone,
       record.phoneNumber,
@@ -106,13 +109,15 @@ export const normalizeAuthUser = (value: unknown): AuthUser => {
     // Must survive a save/load round trip: the staff write guard in
     // services/api reads the stored user, and dropping this flag made every
     // Calendar Quick Sale payment fail as "read-only".
-    mobileCalendarAccess: toOptionalBoolean(record.mobileCalendarAccess, record.mobile_calendar_access),
-    mobileProductAuditAccess: toOptionalBoolean(record.mobileProductAuditAccess, record.mobile_product_audit_access),
+    mobileCalendarAccess: effective.view_calendar === true && effective.access_quick_sale === true,
+    mobileProductAuditAccess: effective.view_product_audit === true && effective.create_product_audit === true,
+    mobileClientNameAccess: effective.view_clients === true,
     isOnboardingComplete: toOptionalBoolean(
       record.isOnboardingComplete,
       record.is_onboarding_complete,
     ),
-    custom_permissions: toCustomPermissions(
+    effective_permissions: effectivePermissions as Record<string, boolean> | null,
+    custom_permissions: effectivePermissions ?? toCustomPermissions(
       record.custom_permissions,
       record.customPermissions,
     ),
@@ -161,9 +166,7 @@ export const preserveSalonId = (
   };
 };
 
-// /users/me doesn't carry the staff mobile-only switches (Calendar & Quick
-// Sale, Product Audit — each comes from its own mobile endpoint), so keep the
-// last known values for the same user.
+// Compatibility for existing consumers; normalized web permissions take precedence.
 export const preserveMobileCalendarAccess = (
   incomingUser: AuthUser,
   fallbackUser: AuthUser | null | undefined,
@@ -176,5 +179,6 @@ export const preserveMobileCalendarAccess = (
     ...incomingUser,
     mobileCalendarAccess: incomingUser.mobileCalendarAccess ?? fallbackUser.mobileCalendarAccess,
     mobileProductAuditAccess: incomingUser.mobileProductAuditAccess ?? fallbackUser.mobileProductAuditAccess,
+    mobileClientNameAccess: incomingUser.mobileClientNameAccess ?? fallbackUser.mobileClientNameAccess,
   };
 };

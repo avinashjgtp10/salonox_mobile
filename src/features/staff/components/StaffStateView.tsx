@@ -44,8 +44,8 @@ export function StaffStateView({
           />
         )}
       </View>
-      <Text style={styles.title}>{title}</Text>
-      <Text style={styles.description}>{description}</Text>
+      <Text translate style={styles.title}>{title}</Text>
+      <Text translate style={styles.description}>{description}</Text>
       {actionLabel && onAction ? (
         <TouchableOpacity activeOpacity={0.85} onPress={onAction} style={styles.action}>
           <Text style={styles.actionText}>{actionLabel}</Text>

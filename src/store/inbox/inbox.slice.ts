@@ -7,8 +7,15 @@ import {
   sendInboxReplyThunk,
 } from "@/middleware/inbox/inbox.thunk";
 import type { RootState } from "@/store";
-import type { InboxConversation, InboxMessage, InboxMessageEvent } from "@/types/inbox";
-import { mergeInboxMessages, sortInboxConversations } from "@/utils/inboxPresentation";
+import type {
+  InboxConversation,
+  InboxMessage,
+  InboxMessageEvent,
+} from "@/types/inbox";
+import {
+  mergeInboxMessages,
+  sortInboxConversations,
+} from "@/utils/inboxPresentation";
 
 type ResourceStatus = "idle" | "loading" | "succeeded" | "failed";
 
@@ -46,20 +53,42 @@ const initialState: InboxState = {
   sendingByPhone: {},
 };
 
-const appendMessage = (messages: InboxMessage[], incoming: InboxMessage): InboxMessage[] =>
-  mergeInboxMessages(messages, [incoming]);
+const appendMessage = (
+  messages: InboxMessage[],
+  incoming: InboxMessage,
+): InboxMessage[] => mergeInboxMessages(messages, [incoming]);
 
 const inboxSlice = createSlice({
   name: "inbox",
   initialState,
   reducers: {
-    inboxConnectionChanged: (state, action: PayloadAction<boolean>) => { state.connected = action.payload; },
+    inboxReactionChanged: (
+      state,
+      action: PayloadAction<{
+        phone: string;
+        id: string;
+        reaction: string | null;
+      }>,
+    ) => {
+      const message = state.messagesByPhone[action.payload.phone]?.find(
+        (item) => item.id === action.payload.id,
+      );
+      if (message) message.reaction = action.payload.reaction;
+    },
+    inboxConnectionChanged: (state, action: PayloadAction<boolean>) => {
+      state.connected = action.payload;
+    },
     inboxActivePhoneChanged: (state, action: PayloadAction<string | null>) => {
       state.activePhone = action.payload;
-      const conversation = state.conversations.find(item => item.contactPhone === action.payload);
+      const conversation = state.conversations.find(
+        (item) => item.contactPhone === action.payload,
+      );
       if (conversation) conversation.unreadCount = 0;
     },
-    inboxDraftChanged: (state, action: PayloadAction<{ phone: string; text: string }>) => {
+    inboxDraftChanged: (
+      state,
+      action: PayloadAction<{ phone: string; text: string }>,
+    ) => {
       state.draftsByPhone[action.payload.phone] = action.payload.text;
     },
     inboxMessageReceived: (state, action: PayloadAction<InboxMessageEvent>) => {
@@ -68,10 +97,13 @@ const inboxSlice = createSlice({
       if (!contactPhone || !message?.id) {
         return;
       }
-      const duplicate = state.messagesByPhone[contactPhone]?.some(item => item.id === message.id);
+      const duplicate = state.messagesByPhone[contactPhone]?.some(
+        (item) => item.id === message.id,
+      );
 
       state.messagesByPhone[contactPhone] = appendMessage(
-        state.messagesByPhone[contactPhone] ?? [], message,
+        state.messagesByPhone[contactPhone] ?? [],
+        message,
       );
 
       const conversation = state.conversations.find(
@@ -83,22 +115,41 @@ const inboxSlice = createSlice({
         conversation.lastMessage = message.body;
         conversation.lastMessageAt = message.sentAt;
         conversation.lastMessageLabel = "Just now";
-        if (!duplicate && message.direction === "INBOUND" && state.activePhone !== contactPhone) conversation.unreadCount += 1;
+        if (
+          !duplicate &&
+          message.direction === "INBOUND" &&
+          state.activePhone !== contactPhone
+        )
+          conversation.unreadCount += 1;
         if (state.activePhone === contactPhone) conversation.unreadCount = 0;
       } else {
         state.conversations.push({
-          id: message.conversationId, contactPhone, contactName,
-          lastMessage: message.body, lastMessageAt: message.sentAt, lastMessageLabel: "Just now",
-          unreadCount: message.direction === "INBOUND" && state.activePhone !== contactPhone ? 1 : 0,
+          id: message.conversationId,
+          contactPhone,
+          contactName,
+          lastMessage: message.body,
+          lastMessageAt: message.sentAt,
+          lastMessageLabel: "Just now",
+          unreadCount:
+            message.direction === "INBOUND" &&
+            state.activePhone !== contactPhone
+              ? 1
+              : 0,
         });
       }
       state.conversations = sortInboxConversations(state.conversations);
     },
-    inboxConversationsReceived: (state, action: PayloadAction<InboxConversation[]>) => {
-      state.conversations = sortInboxConversations(action.payload.map(item => ({
-        ...item,
-        unreadCount: item.contactPhone === state.activePhone ? 0 : item.unreadCount,
-      })));
+    inboxConversationsReceived: (
+      state,
+      action: PayloadAction<InboxConversation[]>,
+    ) => {
+      state.conversations = sortInboxConversations(
+        action.payload.map((item) => ({
+          ...item,
+          unreadCount:
+            item.contactPhone === state.activePhone ? 0 : item.unreadCount,
+        })),
+      );
       state.conversationsRequestId = null;
       state.conversationsRefreshing = false;
       state.conversationsError = null;
@@ -109,7 +160,9 @@ const inboxSlice = createSlice({
     builder
       .addCase(deleteInboxConversationsThunk.fulfilled, (state, action) => {
         const phones = new Set(action.meta.arg);
-        state.conversations = state.conversations.filter(item => !phones.has(item.contactPhone));
+        state.conversations = state.conversations.filter(
+          (item) => !phones.has(item.contactPhone),
+        );
         // Invalidate reads started before deletion so they cannot restore old history.
         state.conversationsRequestId = null;
         state.conversationsRefreshing = false;
@@ -124,7 +177,8 @@ const inboxSlice = createSlice({
           delete state.sendErrorByPhone[phone];
           delete state.sendingByPhone[phone];
         }
-        if (state.activePhone && phones.has(state.activePhone)) state.activePhone = null;
+        if (state.activePhone && phones.has(state.activePhone))
+          state.activePhone = null;
       })
       .addCase(fetchInboxConversationsThunk.pending, (state, action) => {
         state.conversationsRequestId = action.meta.requestId;
@@ -133,14 +187,18 @@ const inboxSlice = createSlice({
 
         state.conversationsError = null;
         state.conversationsRefreshing = isRefresh;
-        state.conversationsStatus = hasExistingData || isRefresh ? "succeeded" : "loading";
+        state.conversationsStatus =
+          hasExistingData || isRefresh ? "succeeded" : "loading";
       })
       .addCase(fetchInboxConversationsThunk.fulfilled, (state, action) => {
         if (state.conversationsRequestId !== action.meta.requestId) return;
-        state.conversations = sortInboxConversations(action.payload.conversations.map(item => ({
-          ...item,
-          unreadCount: item.contactPhone === state.activePhone ? 0 : item.unreadCount,
-        })));
+        state.conversations = sortInboxConversations(
+          action.payload.conversations.map((item) => ({
+            ...item,
+            unreadCount:
+              item.contactPhone === state.activePhone ? 0 : item.unreadCount,
+          })),
+        );
         state.conversationsError = null;
         state.conversationsRefreshing = false;
         state.conversationsStatus = "succeeded";
@@ -150,7 +208,9 @@ const inboxSlice = createSlice({
         const hasExistingData = state.conversations.length > 0;
 
         state.conversationsError =
-          action.payload?.message ?? action.error.message ?? "Unable to load conversations.";
+          action.payload?.message ??
+          action.error.message ??
+          "Unable to load conversations.";
         state.conversationsRefreshing = false;
         state.conversationsStatus = hasExistingData ? "succeeded" : "failed";
       })
@@ -163,9 +223,10 @@ const inboxSlice = createSlice({
         // whatever's already on screen instead of blanking it to a spinner —
         // a non-silent one (the thread just gained focus) always does, so a
         // reopened thread never sits on a stale render while this resolves.
-        state.messagesStatusByPhone[phone] = silent && state.messagesByPhone[phone]?.length
-          ? "succeeded"
-          : "loading";
+        state.messagesStatusByPhone[phone] =
+          silent && state.messagesByPhone[phone]?.length
+            ? "succeeded"
+            : "loading";
       })
       .addCase(fetchInboxMessagesThunk.fulfilled, (state, action) => {
         const { phone } = action.meta.arg;
@@ -177,7 +238,9 @@ const inboxSlice = createSlice({
         state.messagesErrorByPhone[phone] = null;
         state.messagesStatusByPhone[phone] = "succeeded";
 
-        const conversation = state.conversations.find((entry) => entry.contactPhone === phone);
+        const conversation = state.conversations.find(
+          (entry) => entry.contactPhone === phone,
+        );
 
         if (conversation) conversation.unreadCount = 0;
       })
@@ -186,8 +249,11 @@ const inboxSlice = createSlice({
         if (state.messagesRequestIds[phone] !== action.meta.requestId) return;
 
         state.messagesErrorByPhone[phone] =
-          action.payload?.message ?? action.error.message ?? "Unable to load this conversation.";
-        state.messagesStatusByPhone[phone] = state.messagesByPhone[phone]?.length
+          action.payload?.message ??
+          action.error.message ??
+          "Unable to load this conversation.";
+        state.messagesStatusByPhone[phone] = state.messagesByPhone[phone]
+          ?.length
           ? "succeeded"
           : "failed";
       })
@@ -208,7 +274,9 @@ const inboxSlice = createSlice({
             state.messagesByPhone[phone] ?? [],
             message,
           );
-          const conversation = state.conversations.find((entry) => entry.contactPhone === phone);
+          const conversation = state.conversations.find(
+            (entry) => entry.contactPhone === phone,
+          );
           if (conversation) {
             conversation.lastMessage = message.body;
             conversation.lastMessageAt = message.sentAt;
@@ -216,19 +284,29 @@ const inboxSlice = createSlice({
           }
           state.conversations = sortInboxConversations(state.conversations);
         }
-        if (state.draftsByPhone[phone]?.trim() === action.meta.arg.message) state.draftsByPhone[phone] = "";
+        if (state.draftsByPhone[phone]?.trim() === action.meta.arg.message)
+          state.draftsByPhone[phone] = "";
       })
       .addCase(sendInboxReplyThunk.rejected, (state, action) => {
         const { phone } = action.meta.arg;
 
         state.sendErrorByPhone[phone] =
-          action.payload?.message ?? action.error.message ?? "Unable to send this reply.";
+          action.payload?.message ??
+          action.error.message ??
+          "Unable to send this reply.";
         state.sendingByPhone[phone] = false;
       });
   },
 });
 
-export const { inboxConversationsReceived, inboxMessageReceived, inboxActivePhoneChanged, inboxConnectionChanged, inboxDraftChanged } = inboxSlice.actions;
+export const {
+  inboxReactionChanged,
+  inboxConversationsReceived,
+  inboxMessageReceived,
+  inboxActivePhoneChanged,
+  inboxConnectionChanged,
+  inboxDraftChanged,
+} = inboxSlice.actions;
 
 const EMPTY_MESSAGES: InboxMessage[] = [];
 
@@ -244,7 +322,12 @@ export const selectInboxSending = (state: RootState, phone: string) =>
 export const selectInboxSendError = (state: RootState, phone: string) =>
   state.inbox.sendErrorByPhone[phone] ?? null;
 
-export const selectInboxConversationByPhone = (state: RootState, phone: string) =>
-  state.inbox.conversations.find((conversation) => conversation.contactPhone === phone) ?? null;
+export const selectInboxConversationByPhone = (
+  state: RootState,
+  phone: string,
+) =>
+  state.inbox.conversations.find(
+    (conversation) => conversation.contactPhone === phone,
+  ) ?? null;
 
 export default inboxSlice.reducer;

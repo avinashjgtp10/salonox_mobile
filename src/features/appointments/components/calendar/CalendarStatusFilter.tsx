@@ -1,3 +1,4 @@
+import { pearl } from "@/components/auth/pearl/tokens";
 import { Text } from "@/components/ui/AppTypography";
 import { Portal } from "@/components/ui/Portal";
 import { CALENDAR_STATUS_FILTERS } from "@/features/appointments/constants/appointmentConstants";
@@ -63,10 +64,10 @@ export function CalendarStatusFilter({ statuses, onChange }: {
         onPress={openMenu}
         style={[styles.dinggLegendPill, styles.dinggLegendActive]}
       >
-        <Text numberOfLines={1} style={[styles.dinggLegendText, styles.dinggLegendTextActive, localStyles.label]}>
+        <Text translate numberOfLines={1} style={[styles.dinggLegendText, styles.dinggLegendTextActive, localStyles.label, { color: pearl.accentDeep }]}>
           {label}
         </Text>
-        <Ionicons name={expanded ? "chevron-up" : "chevron-down"} size={16} color="#000000" />
+        <Ionicons name={expanded ? "chevron-up" : "chevron-down"} size={16} color={pearl.accentDeep} />
       </TouchableOpacity>
       {expanded ? (
         <Portal>
@@ -95,13 +96,13 @@ export function CalendarStatusFilter({ statuses, onChange }: {
               style={[localStyles.option, selected && { backgroundColor: Colors.appointmentSurfaceMuted }]}
             >
               {filter.status !== "All" ? <View style={[styles.dinggLegendDot, { backgroundColor: filter.color }]} /> : null}
-              <Text style={[styles.dinggLegendText, localStyles.optionLabel]}>{filter.label}</Text>
-              <Ionicons name={selected ? "checkbox" : "square-outline"} size={18} color={selected ? Colors.primaryText : Colors.appointmentTextSecondary} />
+              <Text translate style={[styles.dinggLegendText, localStyles.optionLabel]}>{filter.label}</Text>
+              <Ionicons name={selected ? "checkbox" : "square-outline"} size={18} color={selected ? pearl.accentDeep : Colors.appointmentTextSecondary} />
             </TouchableOpacity>
           ); })}
               </ScrollView>
               <TouchableOpacity accessibilityRole="button" onPress={() => setExpanded(false)} style={[localStyles.done, { borderTopColor: Colors.appointmentDivider }]}>
-                <Text style={[styles.dinggLegendText, { color: Colors.primaryText }]}>Done</Text>
+                <Text translate style={[styles.dinggLegendText, { color: pearl.accentDeep }]}>Done</Text>
               </TouchableOpacity>
             </View> : null}
           </View>

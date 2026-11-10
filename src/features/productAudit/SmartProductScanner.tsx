@@ -7,7 +7,7 @@ import { Text } from "@/components/ui/AppTypography";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { productAuditService } from "@/services/productAudit.service";
 import { getApiErrorMessage } from "@/services/api";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors as useThemeColors } from "@/components/auth/pearl/usePearlColors";
 import type {
   RecognitionResult,
   RecognizedProduct,
@@ -199,7 +199,7 @@ export function SmartProductScanner({
         </View>
         {!result && mode !== "search" && (
           <>
-            <Text style={{ color: c.text2 }}>
+            <Text translate style={{ color: c.text2 }}>
               {mode === "barcode"
                 ? "Place one product barcode inside the frame."
                 : "Photograph the front label clearly, including the brand, variant and size."}
@@ -262,7 +262,7 @@ export function SmartProductScanner({
               </View>
             ) : (
               <AuditCard>
-                <Text style={{ color: c.text }}>
+                <Text translate style={{ color: c.text }}>
                   Camera access is needed to scan products. You can also search
                   or enter details manually.
                 </Text>
@@ -321,7 +321,7 @@ export function SmartProductScanner({
           <Text accessibilityLiveRegion="polite" style={{ color: c.heading, fontWeight: "700" }}>
             {selectedProducts.length} products selected
           </Text>
-          <Text style={{ color: c.text2 }}>Select products below. Your selections stay when you search again.</Text>
+          <Text translate style={{ color: c.text2 }}>Select products below. Your selections stay when you search again.</Text>
           <View style={auditStyles.row}>
             {selectedProducts.map(product => (
               <TouchableOpacity key={product.product_id} accessibilityRole="button"
@@ -340,10 +340,10 @@ export function SmartProductScanner({
         {busy && (
           <>
             <ActivityIndicator />
-            <Text style={{ color: c.text2 }}>{adding ? "Adding selected products..." : "Checking product details…"}</Text>
+            <Text translate style={{ color: c.text2 }}>{adding ? "Adding selected products..." : "Checking product details…"}</Text>
           </>
         )}
-        {!!error && <Text style={{ color: c.error }}>{error}</Text>}
+        {!!error && <Text translate style={{ color: c.error }}>{error}</Text>}
         {preview && (
           <Image
             source={{ uri: preview }}
@@ -362,7 +362,7 @@ export function SmartProductScanner({
                 </Text>
               ))}
             {!result.candidates.length && (
-              <Text style={{ color: c.text }}>
+              <Text translate style={{ color: c.text }}>
                 No reliable match found. Try a packaging photo, search the
                 catalog, or enter the product manually.
               </Text>
@@ -403,7 +403,7 @@ export function SmartProductScanner({
                       borderColor: selected[candidate.product_id] ? c.focusBorder : c.border,
                       backgroundColor: selected[candidate.product_id] ? c.backgroundSelected : c.bg }}>
                     <Ionicons name={selected[candidate.product_id] || existingIds.has(candidate.product_id) ? "checkbox" : "square-outline"} size={24} color={c.primaryText} />
-                    <Text style={{ color: c.text, fontWeight: "700", flexShrink: 1 }}>
+                    <Text translate style={{ color: c.text, fontWeight: "700", flexShrink: 1 }}>
                       {existingIds.has(candidate.product_id) ? "Already in audit" : selected[candidate.product_id] ? "Selected — tap to deselect" : "Select product"}
                     </Text>
                   </TouchableOpacity>
@@ -411,9 +411,9 @@ export function SmartProductScanner({
                   <AuditButton disabled={busy || !canCreateProduct || selectedProducts.length > 0}
                     label="Create product" onPress={() => manual(candidate)} />
                 )}
-                {!candidate.product_id && selectedProducts.length > 0 && <Text style={{ color: c.text2 }}>Add or clear your selected products before creating a new product.</Text>}
+                {!candidate.product_id && selectedProducts.length > 0 && <Text translate style={{ color: c.text2 }}>Add or clear your selected products before creating a new product.</Text>}
                 {!candidate.product_id && !canCreateProduct && (
-                  <Text style={{ color: c.text2 }}>
+                  <Text translate style={{ color: c.text2 }}>
                     Ask a manager with product creation permission to add this
                     product.
                   </Text>

@@ -7,7 +7,7 @@ const { act, create } = require("react-test-renderer");
 
 jest.mock("@/services/service.service", () => ({ serviceService: { getServices: jest.fn() } }));
 jest.mock("@/services/api", () => ({ getApiErrorMessage: () => "Search failed" }));
-jest.mock("@/theme/ThemeProvider", () => ({ useThemeColors: () => ({}) }));
+jest.mock("@/theme/ThemeProvider", () => ({ useThemeColors: () => ({}), useAppTheme: () => ({ scheme: "light" }) }));
 jest.mock("@/components/ui/AppTypography", () => ({ Text: "Text" }));
 jest.mock("@expo/vector-icons", () => ({ Ionicons: "Icon" }));
 

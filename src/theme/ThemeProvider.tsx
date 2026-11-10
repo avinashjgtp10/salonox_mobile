@@ -13,6 +13,7 @@ import {
 
 import { getDashboardColors, type AppColorScheme, type ThemeColors } from "@/constants/theme";
 import { themeStorage } from "@/services/themeStorage";
+import { useRegionalPreferences } from "@/localization/preferences";
 
 export type ThemeMode = "light" | "dark" | "system";
 
@@ -27,6 +28,7 @@ type ThemeContextValue = {
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
 export function ThemeProvider({ children }: PropsWithChildren) {
+  const { language } = useRegionalPreferences();
   const [mode, setModeState] = useState<ThemeMode>("light");
   const [systemScheme, setSystemScheme] = useState<AppColorScheme>(
     () => Appearance.getColorScheme() ?? "light",
@@ -86,7 +88,7 @@ export function ThemeProvider({ children }: PropsWithChildren) {
 
   return (
     <ThemeContext.Provider value={value}>
-      <View style={[styles.fill, { backgroundColor: colors.bg }]}>{children}</View>
+      <View style={[styles.fill, { backgroundColor: colors.bg, direction: language === "ar" ? "rtl" : "ltr" }]}>{children}</View>
     </ThemeContext.Provider>
   );
 }

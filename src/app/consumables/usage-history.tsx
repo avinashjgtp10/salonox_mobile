@@ -1,3 +1,4 @@
+import { AppBackButton } from "@/components/ui/AppBackButton";
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
@@ -77,13 +78,7 @@ export default function ConsumableUsageHistoryScreen() {
   const header = (
     <View>
       <View style={styles.header}>
-        <TouchableOpacity
-          hitSlop={12}
-          onPress={() => (router.canGoBack() ? router.back() : router.replace("/consumables" as Href))}
-          style={styles.iconButton}
-        >
-          <Ionicons name="arrow-back" size={19} color={Colors.primaryText} />
-        </TouchableOpacity>
+        <AppBackButton hitSlop={12} onPress={() => (router.canGoBack() ? router.back() : router.replace("/consumables" as Href))} />
         <Text numberOfLines={1} style={styles.title}>
           {scopedConsumable ? `${scopedConsumable.name} — Usage` : "Usage History"}
         </Text>
@@ -100,7 +95,7 @@ export default function ConsumableUsageHistoryScreen() {
               onPress={() => setDirection(option.value)}
               style={[styles.chip, active && styles.chipActive]}
             >
-              <Text style={[styles.chipText, active && styles.chipTextActive]}>{option.label}</Text>
+              <Text translate style={[styles.chipText, active && styles.chipTextActive]}>{option.label}</Text>
             </TouchableOpacity>
           );
         })}

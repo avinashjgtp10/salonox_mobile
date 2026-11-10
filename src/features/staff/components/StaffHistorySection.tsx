@@ -1,3 +1,4 @@
+import { useRegionalPreferences } from "@/localization/preferences";
 import { AttendanceActivityDetails } from "@/features/attendance/components/AttendanceActivityDetails";
 import { Text } from "@/components/ui/AppTypography";
 import { useEffect, useMemo, useState } from "react";
@@ -43,6 +44,8 @@ const TABS = [
 type TabKey = (typeof TABS)[number]["key"];
 
 export function StaffHistorySection({ staffId }: StaffHistorySectionProps) {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
@@ -118,7 +121,7 @@ export function StaffHistorySection({ staffId }: StaffHistorySectionProps) {
               onPress={() => setActiveTab(tab.key)}
               style={[styles.tab, isActive && styles.tabActive]}
             >
-              <Text style={[styles.tabText, isActive && styles.tabTextActive]}>{tab.label}</Text>
+              <Text translate style={[styles.tabText, isActive && styles.tabTextActive]}>{tab.label}</Text>
             </TouchableOpacity>
           );
         })}
@@ -190,7 +193,7 @@ export function StaffHistorySection({ staffId }: StaffHistorySectionProps) {
                   )}
                 </View>
                 <View style={[styles.statusPill, { backgroundColor: status.bg }]}>
-                  <Text style={[styles.statusPillText, { color: status.color }]}>{status.label}</Text>
+                  <Text translate style={[styles.statusPillText, { color: status.color }]}>{status.label}</Text>
                 </View>
               </View>
             );

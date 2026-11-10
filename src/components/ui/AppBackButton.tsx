@@ -1,70 +1,28 @@
-import { Ionicons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
-import { useMemo } from "react";
-import { StyleSheet, TouchableOpacity, type StyleProp, type ViewStyle } from "react-native";
+import { StyleSheet, TouchableOpacity, View, type StyleProp, type ViewStyle, type TouchableOpacityProps } from "react-native";
+import { Icon } from "@/components/pearl/Icon";
+import { usePearlPalette } from "@/components/auth/pearl/usePearlPalette";
+import { AppLayout } from "@/constants/layout";
 
-import { AppLayout, AppRadius } from "@/constants/layout";
-import { type ThemeColors } from "@/constants/theme";
-import { useThemeColors } from "@/theme/ThemeProvider";
-
-type AppBackButtonProps = {
+type AppBackButtonProps = Omit<TouchableOpacityProps, "onPress"> & {
   fallbackHref?: Href;
   onPress?: () => void;
-  style?: StyleProp<ViewStyle>;
 };
-
-export function AppBackButton({ fallbackHref, onPress, style }: AppBackButtonProps) {
-  const Colors = useThemeColors();
-  const styles = useMemo(() => createStyles(Colors), [Colors]);
-
+export function AppBackButton({ fallbackHref, onPress, style, ...props }: AppBackButtonProps) {
+  const palette = usePearlPalette();
   const handlePress = () => {
-    if (onPress) {
-      onPress();
-      return;
-    }
-
-    if (router.canGoBack()) {
-      router.back();
-      return;
-    }
-
-    if (fallbackHref) {
-      router.replace(fallbackHref);
-    }
+    if (onPress) return onPress();
+    if (router.canGoBack()) return router.back();
+    if (fallbackHref) router.replace(fallbackHref);
   };
-
-  return (
-    <TouchableOpacity
-      accessibilityLabel="Go back"
-      activeOpacity={0.84}
-      hitSlop={AppLayout.headerActionHitSlop}
-      onPress={handlePress}
-      style={[styles.button, style]}
-    >
-      <Ionicons color={Colors.primaryText} name="arrow-back" size={18} />
-    </TouchableOpacity>
-  );
+  return <TouchableOpacity accessibilityRole="button" accessibilityLabel="Go back" activeOpacity={0.84} hitSlop={AppLayout.headerActionHitSlop} {...props} onPress={handlePress} style={[style, styles.button, { backgroundColor: palette.glassStrong, borderColor: palette.glassBorder }]}>
+    <Icon name="chevronLeft" size={20} color={palette.ink} strokeWidth={2} />
+  </TouchableOpacity>;
 }
-
 export function AppBackButtonPlaceholder({ style }: { style?: StyleProp<ViewStyle> }) {
-  const Colors = useThemeColors();
-  const styles = useMemo(() => createStyles(Colors), [Colors]);
-
-  return <TouchableOpacity disabled style={[styles.button, styles.placeholder, style]} />;
+  return <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={[style, styles.button, styles.placeholder]} />;
 }
-
-const createStyles = (Colors: ThemeColors) => StyleSheet.create({
-  button: {
-    alignItems: "center",
-    backgroundColor: Colors.card,
-    borderColor: Colors.border,
-    borderRadius: AppRadius.control,
-    borderWidth: 1,
-    height: AppLayout.headerActionSize,
-    justifyContent: "center",
-    width: AppLayout.headerActionSize,
-  },
-  placeholder: {
-    opacity: 0,
-  },
+const styles = StyleSheet.create({
+  button: { width: 42, height: 42, flexShrink: 0, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.8)", borderColor: "rgba(255,255,255,0.95)", borderWidth: 1, shadowColor: "#46446E", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 10, elevation: 0 },
+  placeholder: { opacity: 0 },
 });

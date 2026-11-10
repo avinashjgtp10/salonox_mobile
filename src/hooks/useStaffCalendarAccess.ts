@@ -2,33 +2,30 @@ import { useCallback, useEffect, useRef } from "react";
 
 import { useAuth } from "@/context/AuthContext";
 import { useAppForeground } from "@/hooks/useAppForeground";
-import { staffCalendarAccessService } from "@/services/staffCalendarAccess.service";
+import { staffPermissionsService } from "@/services/staffPermissions.service";
 import { isStaffExperienceUser } from "@/utils/routeResolver";
 import { canUseStaffQuickSale } from "@/utils/staffAccess";
 
-// Reads the owner-controlled Calendar & Quick Sale switch for the signed-in
-// staff member and stores it on the user (see AuthUser.mobileCalendarAccess),
-// so route guards and the staff write guard in services/api see it too.
+// Refreshes the backend-resolved web permission map for the signed-in staff member.
 export const useStaffCalendarAccess = () => {
   const { user, updateUser } = useAuth();
   const userId = user && isStaffExperienceUser(user) ? user.id : null;
   const userIdRef = useRef(userId);
-  const knownValueRef = useRef(user?.mobileCalendarAccess);
 
   userIdRef.current = userId;
-  knownValueRef.current = user?.mobileCalendarAccess;
 
   const refresh = useCallback(async () => {
     const startedUserId = userIdRef.current;
     if (!startedUserId) return;
 
     try {
-      const calendarAccess = await staffCalendarAccessService.getOwnCalendarAccess();
+      const { permissions, roleName } = await staffPermissionsService.ownAccess();
+      const calendarAccess = permissions.view_calendar === true && permissions.access_quick_sale === true;
       // Ignore the answer if the session changed while it was in flight.
-      if (userIdRef.current !== startedUserId || knownValueRef.current === calendarAccess) return;
-      await updateUser({ mobileCalendarAccess: calendarAccess });
+      if (userIdRef.current !== startedUserId) return;
+      await updateUser({ roleName, effective_permissions: permissions, custom_permissions: permissions, mobileCalendarAccess: calendarAccess });
     } catch {
-      // Keep the last known value; the backend enforces the switch on every request.
+      // Retain cached permissions offline; the backend authorizes each operation.
     }
   }, [updateUser]);
 

@@ -69,7 +69,7 @@ function AttendanceStaffRowComponent({
           </Text>
           <View style={[styles.chip, { backgroundColor: badgeConfig.bg }]}>
             <Ionicons name={badgeConfig.icon} size={11} color={badgeConfig.color} />
-            <Text style={[styles.chipText, { color: badgeConfig.color }]}>{badgeConfig.label}</Text>
+            <Text translate style={[styles.chipText, { color: badgeConfig.color }]}>{badgeConfig.label}</Text>
           </View>
         </View>
         <Text style={styles.role} numberOfLines={1}>
@@ -108,7 +108,7 @@ function AttendanceStaffRowComponent({
             {isBusy ? (
               <ActivityIndicator color="#FFFFFF" size="small" />
             ) : (
-              <Text style={styles.primaryButtonText}>{action.label}</Text>
+              <Text translate style={styles.primaryButtonText}>{action.label}</Text>
             )}
           </TouchableOpacity>
         ) : null}

@@ -48,7 +48,7 @@ export function SalonInfoCard({ isLoading, onEdit, profile, salon }: SalonInfoCa
       iconTone="purple"
       rightAction={
         <TouchableOpacity activeOpacity={0.84} onPress={onEdit} style={styles.editButton}>
-          <Text style={styles.editButtonText}>Edit</Text>
+          <Text translate style={styles.editButtonText}>Edit</Text>
         </TouchableOpacity>
       }
       subtitle="Your salon's business details and location"
@@ -57,7 +57,7 @@ export function SalonInfoCard({ isLoading, onEdit, profile, salon }: SalonInfoCa
       {isLoading && !salon ? (
         <View style={styles.loadingRow}>
           <ActivityIndicator color={Colors.primaryText} size="small" />
-          <Text style={styles.loadingText}>Loading salon information...</Text>
+          <Text translate style={styles.loadingText}>Loading salon information...</Text>
         </View>
       ) : null}
       <ProfileSubsection title="BASIC DETAILS">

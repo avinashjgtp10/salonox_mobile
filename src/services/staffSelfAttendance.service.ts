@@ -7,9 +7,12 @@ import type { AttendanceActivity, StartBreakRequest } from "@/types/attendance";
 export type StaffSelfAttendance = Partial<AttendanceActivity> & {
   received_at?: number;
   staff_id: string; date: string; server_time: string;
+  today_date?: string;
+  pending_checkout?: { attendance_id: string; date: string; check_in: string | null; scheduled_end: string | null; blocked_reason: string | null } | null;
   shift_start: string | null; shift_end: string | null; reminder_at: string | null;
   can_check_in: boolean; blocked_reason: string | null; checked_in: boolean;
   record: Partial<AttendanceActivity> & {
+    id?: string;
     check_in: string | null; check_out: string | null; status: string;
     check_in_location?: string | null; check_out_location?: string | null;
   } | null;
@@ -41,8 +44,9 @@ export const staffSelfAttendanceService = {
     const response = await api.post<SelfAttendanceResponse>(MOBILE_STAFF.CHECK_IN, toAttendanceLocationBody(await getAttendanceLocation()), PUNCH_CONFIG);
     return readState(response.data);
   },
-  async checkOut() {
-    const response = await api.post<SelfAttendanceResponse>(MOBILE_STAFF.CHECK_OUT, toAttendanceLocationBody(await getAttendanceLocation()), PUNCH_CONFIG);
+  async checkOut(pendingAttendanceId?: string) {
+    const body = pendingAttendanceId ? { pending_attendance_id: pendingAttendanceId } : toAttendanceLocationBody(await getAttendanceLocation());
+    const response = await api.post<SelfAttendanceResponse>(MOBILE_STAFF.CHECK_OUT, body, PUNCH_CONFIG);
     return readState(response.data);
   },
 };

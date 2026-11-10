@@ -1,3 +1,4 @@
+import { AppBackButton } from "@/components/ui/AppBackButton";
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
@@ -123,7 +124,7 @@ function NotificationRow({
       </View>
       <View style={styles.copy}>
         <View style={styles.titleRow}>
-          <Text numberOfLines={1} style={styles.title}>
+          <Text translate numberOfLines={1} style={styles.title}>
             {notification.title}
           </Text>
           {!notification.isRead ? <View style={styles.unreadDot} /> : null}
@@ -140,7 +141,7 @@ function NotificationRow({
               <Text style={styles.metaPillText}>{notification.type || "general"}</Text>
             </View>
             <View style={styles.metaPill}>
-              <Text style={styles.metaPillText}>{notification.isRead ? "Read" : "Unread"}</Text>
+              <Text translate style={styles.metaPillText}>{notification.isRead ? "Read" : "Unread"}</Text>
             </View>
           </View>
         ) : null}
@@ -263,10 +264,8 @@ export default function NotificationsScreen({
       <AppStatusBar />
 
       <View style={styles.header}>
-        <TouchableOpacity activeOpacity={0.84} hitSlop={12} onPress={handleBack} style={styles.iconButton}>
-          <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>{routeScope === "staff" ? "My Appointment Activity" : "Notifications"}</Text>
+        <AppBackButton activeOpacity={0.84} hitSlop={12} onPress={handleBack} />
+        <Text translate style={styles.headerTitle}>{routeScope === "staff" ? "My Appointment Activity" : "Notifications"}</Text>
         <View style={styles.headerActions}>
           <TouchableOpacity
             activeOpacity={0.84}
@@ -277,7 +276,7 @@ export default function NotificationsScreen({
             {markingAllRead ? (
               <ActivityIndicator color={Colors.primaryText} size="small" />
             ) : (
-              <Text style={styles.markAllButtonText}>Mark all read</Text>
+              <Text translate style={styles.markAllButtonText}>Mark all read</Text>
             )}
           </TouchableOpacity>
           <TouchableOpacity
@@ -289,7 +288,7 @@ export default function NotificationsScreen({
             style={[styles.markAllButton, (notifications.length === 0 || clearingAll) && styles.markAllButtonDisabled]}
           >
             {clearingAll ? <ActivityIndicator color={Colors.error} size="small" /> : (
-              <Text style={styles.clearAllButtonText}>Clear all</Text>
+              <Text translate style={styles.clearAllButtonText}>Clear all</Text>
             )}
           </TouchableOpacity>
         </View>

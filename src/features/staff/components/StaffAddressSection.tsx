@@ -48,7 +48,7 @@ function AddressRow({ address, canDelete, onDelete, onEdit, staffId }: AddressRo
           <Text style={styles.addressType}>{address.type}</Text>
           {address.isPrimary ? (
             <View style={styles.primaryPill}>
-              <Text style={styles.primaryPillText}>Primary</Text>
+              <Text translate style={styles.primaryPillText}>Primary</Text>
             </View>
           ) : null}
         </View>
@@ -63,7 +63,7 @@ function AddressRow({ address, canDelete, onDelete, onEdit, staffId }: AddressRo
           onPress={() => onEdit(address)}
           style={[styles.editButton, (!canDelete || deleting) && styles.deleteButtonDisabled]}
         >
-          <Text style={styles.editButtonText}>Edit</Text>
+          <Text translate style={styles.editButtonText}>Edit</Text>
         </TouchableOpacity>
         <TouchableOpacity
           activeOpacity={0.84}
@@ -74,7 +74,7 @@ function AddressRow({ address, canDelete, onDelete, onEdit, staffId }: AddressRo
           {deleting ? (
             <ActivityIndicator color={Colors.error} size="small" />
           ) : (
-            <Text style={styles.deleteButtonText}>Delete</Text>
+            <Text translate style={styles.deleteButtonText}>Delete</Text>
           )}
         </TouchableOpacity>
       </View>
@@ -132,7 +132,7 @@ export function StaffAddressSection({ readOnly = false, staffId }: StaffAddressS
           style={styles.addButton}
         >
           <Ionicons name="add" size={16} color="#FFFFFF" />
-          <Text style={styles.addButtonText}>Add</Text>
+          <Text translate style={styles.addButtonText}>Add</Text>
         </TouchableOpacity>
       }
       title="Staff Address"
@@ -195,7 +195,7 @@ export function StaffAddressSection({ readOnly = false, staffId }: StaffAddressS
 
         {controller.error ? <Text style={styles.errorText}>{controller.error}</Text> : null}
         {!controller.isFormValid ? (
-          <Text style={styles.hintText}>Enter an address name and full address to continue.</Text>
+          <Text translate style={styles.hintText}>Enter an address name and full address to continue.</Text>
         ) : null}
 
         <View style={styles.footer}>
@@ -205,7 +205,7 @@ export function StaffAddressSection({ readOnly = false, staffId }: StaffAddressS
             onPress={controller.closeForm}
             style={styles.cancelButton}
           >
-            <Text style={styles.cancelButtonText}>Cancel</Text>
+            <Text translate style={styles.cancelButtonText}>Cancel</Text>
           </TouchableOpacity>
           <TouchableOpacity
             activeOpacity={0.84}
@@ -219,7 +219,7 @@ export function StaffAddressSection({ readOnly = false, staffId }: StaffAddressS
             {controller.saving ? (
               <ActivityIndicator size="small" color="#FFFFFF" />
             ) : (
-              <Text style={styles.saveButtonText}>
+              <Text translate style={styles.saveButtonText}>
                 {controller.editingAddress ? "Update" : "Save"}
               </Text>
             )}

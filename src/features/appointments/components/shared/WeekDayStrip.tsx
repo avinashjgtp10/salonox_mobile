@@ -48,7 +48,7 @@ export function WeekDayStrip({ date, onSelect }: { date: string; onSelect: (valu
             onPress={() => onSelect(day.key)}
             style={[styles.weekDayPill, isActive && styles.weekDayPillActive]}
           >
-            <Text style={[styles.weekDayLabel, isActive && styles.weekDayLabelActive]}>{day.label}</Text>
+            <Text translate style={[styles.weekDayLabel, isActive && styles.weekDayLabelActive]}>{day.label}</Text>
             <Text style={[styles.weekDayNumber, isActive && styles.weekDayNumberActive]}>{day.dayNumber}</Text>
           </TouchableOpacity>
         );

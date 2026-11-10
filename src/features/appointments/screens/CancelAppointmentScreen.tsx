@@ -48,7 +48,7 @@ export function CancelAppointmentScreen() {
   return (
     <ScreenShell title="Cancel Appointment">
       <View style={styles.formCard}>
-        <Text style={styles.sectionTitle}>Cancellation reason</Text>
+        <Text translate style={styles.sectionTitle}>Cancellation reason</Text>
         <TextField
           error={error ?? undefined}
           label="Reason"
@@ -67,7 +67,7 @@ export function CancelAppointmentScreen() {
           style={[styles.dangerButton, mutating && styles.disabledButton]}
         >
           {mutating ? <ActivityIndicator color="#FFFFFF" /> : <Ionicons name="close-circle-outline" size={18} color="#FFFFFF" />}
-          <Text style={styles.primaryButtonText}>Cancel Appointment</Text>
+          <Text translate style={styles.primaryButtonText}>Cancel Appointment</Text>
         </TouchableOpacity>
       </View>
 

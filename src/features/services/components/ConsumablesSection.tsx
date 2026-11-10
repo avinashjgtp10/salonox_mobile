@@ -5,11 +5,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
 
 import { AppRadius } from "@/constants/layout";
-import { DashboardRadius as Radius, DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
+import { DashboardRadius as Radius, DashboardSpacing as Spacing } from "@/constants/theme";
 import { fetchProductsThunk } from "@/middleware/product/product.thunk";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { selectProductState } from "@/store/product/product.slice";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors, type PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 import type { ConsumableRecipeItem } from "@/types/consumable";
 import type { Product } from "@/types/product";
 
@@ -26,7 +26,7 @@ type ConsumablesSectionProps = {
 };
 
 export function ConsumablesSection({ disabled = false, onChange, value }: ConsumablesSectionProps) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
   const { loading, products } = useAppSelector(selectProductState);
@@ -150,7 +150,7 @@ export function ConsumablesSection({ disabled = false, onChange, value }: Consum
       {value.length === 0 && !isAdding ? (
         <View style={styles.emptyState}>
           <Ionicons color={Colors.text2} name="flask-outline" size={20} />
-          <Text style={styles.emptyStateText}>
+          <Text translate style={styles.emptyStateText}>
             Track back-bar products this service consumes. Optional — leave empty if this service doesn&apos;t use
             any.
           </Text>
@@ -178,7 +178,7 @@ export function ConsumablesSection({ disabled = false, onChange, value }: Consum
           {loading ? <ActivityIndicator color={Colors.primaryText} style={styles.loadingIndicator} /> : null}
 
           {!loading && results.length === 0 ? (
-            <Text style={styles.noResultsText}>
+            <Text translate style={styles.noResultsText}>
               {consumableProducts.length === 0
                 ? "No consumable-type products found. Mark a product as Consumable or Both in Inventory first."
                 : "No matching products."}
@@ -206,7 +206,7 @@ export function ConsumablesSection({ disabled = false, onChange, value }: Consum
       ) : (
         <TouchableOpacity activeOpacity={0.84} disabled={disabled} onPress={startAdd} style={styles.addButton}>
           <Ionicons color={Colors.primaryText} name="add" size={16} />
-          <Text style={styles.addButtonText}>Add consumable</Text>
+          <Text translate style={styles.addButtonText}>Add consumable</Text>
         </TouchableOpacity>
       )}
     </View>

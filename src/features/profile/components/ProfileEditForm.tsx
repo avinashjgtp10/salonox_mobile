@@ -91,7 +91,7 @@ export function ProfileEditForm({
         ) : (
           <Ionicons name="checkmark-circle-outline" size={18} color="#FFFFFF" />
         )}
-        <Text style={styles.submitButtonText}>{isSaving ? "Saving..." : "Save Changes"}</Text>
+        <Text translate style={styles.submitButtonText}>{isSaving ? "Saving..." : "Save Changes"}</Text>
       </TouchableOpacity>
     </>
   );
@@ -125,7 +125,7 @@ function FormField({
 
   return (
     <View style={styles.inputGroup}>
-      <Text style={styles.inputLabel}>{label}</Text>
+      <Text translate style={styles.inputLabel}>{label}</Text>
       <TextInput
         keyboardType={keyboardType}
         maxLength={maxLength}
@@ -139,7 +139,7 @@ function FormField({
         style={[styles.textInput, error && styles.textInputError]}
         value={value}
       />
-      {error ? <Text style={styles.fieldErrorText}>{error}</Text> : null}
+      {error ? <Text translate style={styles.fieldErrorText}>{error}</Text> : null}
     </View>
   );
 }

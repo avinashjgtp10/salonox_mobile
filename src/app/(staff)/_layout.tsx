@@ -1,3 +1,4 @@
+import { hasBusinessDashboard } from "@/utils/staffExperience";
 import { Tabs } from "expo-router";
 
 import { AppTabLayout, type AppTabItem } from "@/components/navigation/AppTabLayout";
@@ -13,28 +14,29 @@ export const unstable_settings = {
 };
 
 const STAFF_TABS: AppTabItem[] = [
-  { icon: "home-outline", name: "home", title: "Home" },
-  { icon: "calendar-number-outline", name: "appointments", title: "Appointments" },
-  { icon: "calendar-outline", name: "calendar", title: "Calendar" },
-  { icon: "wallet-outline", name: "revenue", title: "Revenue" },
-  { icon: "settings-outline", name: "more", title: "Settings" },
+  { icon: "home", name: "home", title: "Home" },
+  { icon: "clock", name: "appointments", title: "Bookings" },
+  { icon: "calendar", name: "calendar", title: "Calendar" },
+  { icon: "wallet", name: "revenue", title: "Revenue" },
+  { icon: "gear", name: "more", title: "Settings" },
 ];
 
 // With Calendar & Quick Sale access, the middle tab opens Quick Sale (as for
 // owners); Appointments stays reachable from Home and the Calendar.
 const STAFF_QUICK_SALE_TABS: AppTabItem[] = [
-  { icon: "home-outline", name: "home", title: "Home" },
-  { icon: "calendar-outline", name: "calendar", title: "Calendar" },
-  { icon: "flash", name: "quick-sale-action", title: "Quick Sale", actionHref: "/quick-sale" },
-  { icon: "wallet-outline", name: "revenue", title: "Revenue" },
-  { icon: "settings-outline", name: "more", title: "Settings" },
+  { icon: "home", name: "home", title: "Home" },
+  { icon: "calendar", name: "calendar", title: "Calendar" },
+  { icon: "bolt", name: "quick-sale-action", title: "Quick Sale", actionHref: "/quick-sale", raised: "action" },
+  { icon: "wallet", name: "revenue", title: "Revenue" },
+  { icon: "gear", name: "more", title: "Settings" },
 ];
 
 export default function StaffTabsLayout() {
   const attendance = useStaffSelfAttendance();
-  const quickSale = canUseStaffQuickSale(useAuth().user);
+  const { user } = useAuth();
+  const quickSale = canUseStaffQuickSale(user);
   // Show the dashboard beneath the modal without loading business data or routes.
-  if (!canUnlockStaffApp(attendance?.state ?? null)) return (
+  if (!hasBusinessDashboard(user) && !canUnlockStaffApp(attendance?.state ?? null)) return (
     <View style={{ flex: 1 }} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
       <StaffHomeRouteContent locked />
     </View>

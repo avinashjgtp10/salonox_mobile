@@ -1,3 +1,6 @@
+import { useRegionalPreferences } from "@/localization/preferences";
+import { PearlCatalogRow } from "./PearlCatalogRow";
+import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
@@ -13,22 +16,22 @@ import { CategoryChips, type CategoryChipOption } from "@/features/quickSale/com
 import { EmptyState, ErrorState, SkeletonBlock } from "@/features/quickSale/components/StateViews";
 import { useDebouncedValue } from "@/features/quickSale/hooks/useDebouncedValue";
 import { formatCurrency } from "@/features/quickSale/utils/money";
-import { fetchServicesThunk } from "@/middleware/service/service.thunk";
-import { serviceService } from "@/services/service.service";
+import { fetchCategoriesThunk, fetchServicesThunk } from "@/middleware/service/service.thunk";
 import {
   selectServices,
   selectServicesError,
   selectServicesLoading,
+  selectServicesLoadingMore,
+  selectServicesPagination,
+  selectCategoriesByType,
   selectServicesRefreshing,
 } from "@/store/service/service.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { useThemeColors } from "@/theme/ThemeProvider";
-import { selectCurrentUser } from "@/store/user/user.slice";
+import { selectActiveBranchId } from "@/store/branch/branch.slice";
 import type { ServiceListItem } from "@/types/service";
 
-const CATEGORY_DISCOVERY_LIMIT = 100;
-const SERVICE_BATCH_SIZE = 6;
-const MAX_CATEGORY_DISCOVERY_PAGES = 5;
+const SERVICE_PAGE_SIZE = 24;
 const SERVICE_SKELETON_KEYS = [
   "service-skeleton-one",
   "service-skeleton-two",
@@ -38,73 +41,8 @@ const SERVICE_SKELETON_KEYS = [
   "service-skeleton-six",
 ];
 
-const normalizeCategoryKey = (value: string) => value.trim().toLowerCase().replace(/\s+/g, "-");
-
-const mergeUniqueServices = (serviceGroups: ServiceListItem[][]) => {
-  const serviceMap = new Map<string, ServiceListItem>();
-
-  serviceGroups.flat().forEach((service) => {
-    if (service.id) {
-      serviceMap.set(service.id, service);
-    }
-  });
-
-  return Array.from(serviceMap.values());
-};
-
-const getServiceCategoryKey = (service: ServiceListItem) =>
-  service.category ? normalizeCategoryKey(service.category) : null;
-
-const matchesCategory = (service: ServiceListItem, categoryKey: string | null) =>
-  !categoryKey || getServiceCategoryKey(service) === categoryKey;
-
-const matchesSearch = (service: ServiceListItem, search: string) => {
-  const normalizedSearch = search.trim().toLowerCase();
-
-  if (!normalizedSearch) {
-    return true;
-  }
-
-  return [service.name, service.category ?? ""]
-    .join(" ")
-    .toLowerCase()
-    .includes(normalizedSearch);
-};
-
-const buildCategoryOptions = (sourceServices: ServiceListItem[]): CategoryChipOption[] => {
-  const categoryMap = new Map<string, { categoryIds: Set<string>; label: string }>();
-
-  sourceServices.forEach((service) => {
-    if (!service.category) {
-      return;
-    }
-
-    const key = normalizeCategoryKey(service.category);
-    const entry = categoryMap.get(key) ?? {
-      categoryIds: new Set<string>(),
-      label: service.category,
-    };
-
-    if (service.categoryId) {
-      entry.categoryIds.add(service.categoryId);
-    }
-
-    categoryMap.set(key, entry);
-  });
-
-  return [
-    { id: null, label: "All Categories" },
-    ...Array.from(categoryMap.entries())
-      .sort(([, first], [, second]) => first.label.localeCompare(second.label))
-      .map(([id, entry]) => ({
-        categoryId: entry.categoryIds.size === 1 ? Array.from(entry.categoryIds)[0] : null,
-        id,
-        label: entry.label,
-      })),
-  ];
-};
-
 type ServiceCatalogTabProps = {
+  pearlStyle?: boolean;
   visible?: boolean;
   selectedServiceIds?: ReadonlySet<string>;
   search: string;
@@ -121,6 +59,8 @@ function ServiceCardComponent({
   selected: boolean;
   service: ServiceListItem;
 }) {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
@@ -162,136 +102,95 @@ function ServiceCardComponent({
 
 const ServiceCard = memo(ServiceCardComponent);
 
-export function ServiceCatalogTab({
+export function ServiceCatalogTab({ pearlStyle = false,
   onSelect,
   onToggle,
   selectedServiceIds,
   search,
   visible = true,
 }: ServiceCatalogTabProps) {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
-  const currentUser = useAppSelector(selectCurrentUser);
+  const salonId = useAppSelector(selectActiveBranchId);
   const services = useAppSelector(selectServices);
   const loading = useAppSelector(selectServicesLoading);
   const refreshing = useAppSelector(selectServicesRefreshing);
   const error = useAppSelector(selectServicesError);
-  const salonId = currentUser?.salonId;
 
+  const categories = useAppSelector((state) => selectCategoriesByType(state, "service"));
+  const loadingMore = useAppSelector(selectServicesLoadingMore);
+  const pagination = useAppSelector(selectServicesPagination);
   const [categoryKey, setCategoryKey] = useState<string | null>(null);
-  const [catalogServices, setCatalogServices] = useState<ServiceListItem[]>([]);
-  const [visibleServiceCount, setVisibleServiceCount] = useState(SERVICE_BATCH_SIZE);
-  const debouncedSearch = useDebouncedValue(search, 300);
-  const catalogRequestRef = useRef(0);
-  const resetCategory = useCallback(() => {
-    setCategoryKey(null);
-    setVisibleServiceCount(SERVICE_BATCH_SIZE);
-  }, []);
+  const debouncedSearch = useDebouncedValue(search, 300).trim();
+  const requestGeneration = useRef(0);
+  const readyGeneration = useRef(-1);
+  const loadingMoreRef = useRef(false);
+  const resetCategory = useCallback(() => setCategoryKey(null), []);
   useFocusEffect(resetCategory);
   useEffect(() => {
     if (visible) resetCategory();
   }, [resetCategory, visible]);
-  const categoryOptions = useMemo(
-    () => buildCategoryOptions(mergeUniqueServices([catalogServices, services])),
-    [catalogServices, services],
-  );
-  const selectedCategory = categoryKey
-    ? categoryOptions.find((option) => option.id === categoryKey) ?? null
-    : null;
-  const selectedCategoryLabel = selectedCategory?.label ?? null;
-  const selectedCategoryId = selectedCategory?.categoryId ?? null;
-  const visibleServices = useMemo(() => {
-    const sourceServices = mergeUniqueServices([services, catalogServices]);
-
-    return sourceServices
-      .filter((service) => matchesCategory(service, categoryKey))
-      .filter((service) => matchesSearch(service, debouncedSearch))
-      .sort((first, second) => first.name.localeCompare(second.name));
-  }, [catalogServices, categoryKey, debouncedSearch, services]);
-  const isSearching = debouncedSearch.trim().length > 0;
-  const renderedServices = useMemo(
-    () => (isSearching ? visibleServices : visibleServices.slice(0, visibleServiceCount)),
-    [isSearching, visibleServiceCount, visibleServices],
-  );
-  const hasMoreLocalServices = !isSearching && visibleServiceCount < visibleServices.length;
-
-  const fetchFirstPage = useCallback(
-    (args?: { refresh?: boolean }) => {
-      void dispatch(
-        fetchServicesThunk({
-          // Empty strings explicitly clear the shared service query's previous category.
-          category: !selectedCategoryId && selectedCategoryLabel ? selectedCategoryLabel : "",
-          categoryId: selectedCategoryId ?? "",
-          offset: 0,
-          isActive: true,
-          limit: 24,
-          refresh: args?.refresh,
-          reset: true,
-          search: debouncedSearch.trim(),
-          sort_by: "name",
-          sort_order: "asc",
-        }),
-      );
-    },
-    [debouncedSearch, dispatch, selectedCategoryId, selectedCategoryLabel],
-  );
-
   useEffect(() => {
-    fetchFirstPage();
-  }, [fetchFirstPage]);
-
-  useEffect(() => {
-    const requestId = catalogRequestRef.current + 1;
-    catalogRequestRef.current = requestId;
-
-    const loadCategoryCatalog = async () => {
-      const catalogPages: ServiceListItem[][] = [];
-      let offset = 0;
-
-      for (let page = 0; page < MAX_CATEGORY_DISCOVERY_PAGES; page += 1) {
-        const result = await serviceService.getServices(
-          {
-            isActive: true,
-            limit: CATEGORY_DISCOVERY_LIMIT,
-            offset,
-            search: "",
-            sort_by: "name",
-            sort_order: "asc",
-          },
-          salonId,
-        );
-
-        catalogPages.push(result.services);
-
-        if (!result.pagination.hasMore || result.services.length === 0) {
-          break;
-        }
-
-        offset = result.pagination.nextOffset;
-      }
-
-      if (catalogRequestRef.current === requestId) {
-        setCatalogServices(mergeUniqueServices(catalogPages));
-      }
-    };
-
-    void loadCategoryCatalog().catch(() => {
-      if (catalogRequestRef.current === requestId) {
-        setCatalogServices([]);
-      }
+    if (visible) void dispatch(fetchCategoriesThunk({ type: "service" }));
+  }, [dispatch, salonId, visible]);
+  const categoryOptions = useMemo<CategoryChipOption[]>(() => {
+    const groups = new Map<string, { label: string; ids: Set<string> }>();
+    categories.forEach((category) => {
+      const key = category.name.trim().toLowerCase();
+      const group = groups.get(key) ?? { label: category.name, ids: new Set<string>() };
+      group.ids.add(category.id);
+      groups.set(key, group);
     });
-  }, [salonId]);
-
-  const handleSelectCategory = useCallback((nextCategoryKey: string | null) => {
-    setCategoryKey(nextCategoryKey);
-    setVisibleServiceCount(SERVICE_BATCH_SIZE);
-  }, []);
-
+    return [
+      { id: null, label: pearlStyle ? "All" : "All Categories" },
+      ...Array.from(groups, ([id, group]) => ({
+        id, label: group.label, categoryId: group.ids.size === 1 ? [...group.ids][0] : null,
+      })).sort((a, b) => a.label.localeCompare(b.label)),
+    ];
+  }, [categories, pearlStyle]);
+  const selectedCategory = categoryOptions.find((category) => category.id === categoryKey);
+  const selectedCategoryId = selectedCategory?.categoryId ?? "";
+  const selectedCategoryName = categoryKey && !selectedCategoryId ? selectedCategory?.label ?? "" : "";
+  const queryArgs = useMemo(() => ({
+    category: selectedCategoryName,
+    categoryId: selectedCategoryId,
+    isActive: true,
+    limit: SERVICE_PAGE_SIZE,
+    search: debouncedSearch,
+    sort_by: "name",
+    sort_order: "asc" as const,
+  }), [selectedCategoryId, selectedCategoryName, debouncedSearch]);
+  const fetchFirstPage = useCallback((args?: { refresh?: boolean }) => {
+    const generation = ++requestGeneration.current;
+    readyGeneration.current = -1;
+    loadingMoreRef.current = false;
+    void dispatch(fetchServicesThunk({ ...queryArgs, offset: 0, reset: true, refresh: args?.refresh }))
+      .then((result) => {
+        if (generation === requestGeneration.current && fetchServicesThunk.fulfilled.match(result)) {
+          readyGeneration.current = generation;
+        }
+      });
+  }, [dispatch, queryArgs]);
   useEffect(() => {
-    setVisibleServiceCount(SERVICE_BATCH_SIZE);
-  }, [categoryKey, debouncedSearch]);
-
+    if (visible) fetchFirstPage();
+    return () => { requestGeneration.current += 1; readyGeneration.current = -1; };
+  }, [fetchFirstPage, salonId, visible]);
+  const loadMore = useCallback((retry = false) => {
+    if (!visible || loading || refreshing || loadingMore || loadingMoreRef.current ||
+        readyGeneration.current !== requestGeneration.current || !pagination.hasMore ||
+        (error && !retry)) return;
+    const generation = requestGeneration.current;
+    loadingMoreRef.current = true;
+    void dispatch(fetchServicesThunk({ ...queryArgs, offset: pagination.nextOffset }))
+      .finally(() => {
+        if (generation === requestGeneration.current) loadingMoreRef.current = false;
+      });
+  }, [dispatch, error, loading, loadingMore, pagination, queryArgs, refreshing, visible]);
+  const handleSelectCategory = useCallback((id: string | null) => setCategoryKey(id), []);
+  const renderedServices = services;
   const handleSelect = useCallback(
     (service: ServiceListItem) => {
       if (onToggle) {
@@ -305,19 +204,19 @@ export function ServiceCatalogTab({
   );
 
   const renderItem = useCallback(
-    ({ item }: { item: ServiceListItem }) => (
+    ({ item, index }: { item: ServiceListItem; index: number }) => pearlStyle ? <PearlCatalogRow name={item.name} detail={[item.category, item.durationMinutes ? `${item.durationMinutes} min` : ""].filter(Boolean).join(" \u00b7 ")} price={item.price} selected={selectedServiceIds?.has(item.id) ?? false} first={index === 0} last={index === renderedServices.length - 1} onPress={() => handleSelect(item)} /> : (
       <ServiceCard onSelect={handleSelect} selected={selectedServiceIds?.has(item.id) ?? false} service={item} />
     ),
-    [handleSelect, selectedServiceIds],
+    [handleSelect, selectedServiceIds, pearlStyle, renderedServices.length],
   );
 
   return (
     <View style={styles.wrap}>
-      <CategoryChips onSelect={handleSelectCategory} options={categoryOptions} selectedId={categoryKey} />
+      <CategoryChips pearlStyle={pearlStyle} onSelect={handleSelectCategory} options={categoryOptions} selectedId={categoryKey} />
 
-      {error && visibleServices.length === 0 ? (
+      {error && renderedServices.length === 0 ? (
         <ErrorState message={error} onRetry={() => fetchFirstPage()} />
-      ) : loading && visibleServices.length === 0 ? (
+      ) : loading && renderedServices.length === 0 ? (
         <View style={styles.skeletonStack}>
           {SERVICE_SKELETON_KEYS.map((skeletonKey) => (
             <View key={skeletonKey} style={styles.skeletonRow}>
@@ -329,7 +228,7 @@ export function ServiceCatalogTab({
             </View>
           ))}
         </View>
-      ) : visibleServices.length === 0 ? (
+      ) : renderedServices.length === 0 ? (
         <EmptyState description="Try another search or category." icon="cut-outline" title="No services found" />
       ) : (
         <RefreshViewport><FlatList
@@ -339,25 +238,17 @@ export function ServiceCatalogTab({
           showsVerticalScrollIndicator
           contentContainerStyle={styles.listContent}
           data={renderedServices}
-          initialNumToRender={SERVICE_BATCH_SIZE}
+          initialNumToRender={12}
+          onEndReached={() => loadMore()}
+          onEndReachedThreshold={0.4}
           keyExtractor={(item) => `service-card-${item.id}`}
-          ListFooterComponent={
-            hasMoreLocalServices ? (
-              <View style={styles.loadMoreWrap}>
-                <TouchableOpacity
-                  activeOpacity={0.84}
-                  onPress={() => setVisibleServiceCount((current) => current + SERVICE_BATCH_SIZE)}
-                  style={styles.loadMoreButton}
-                >
-                  <Text style={styles.loadMoreText}>View More</Text>
-                  <Ionicons name="arrow-down" size={14} color={Colors.primaryText} />
-                </TouchableOpacity>
-                <Text style={styles.loadMoreMeta}>
-                  {Math.min(visibleServiceCount, visibleServices.length)} of {visibleServices.length}
-                </Text>
-              </View>
-            ) : null
-          }
+          ListFooterComponent={loadingMore ? (
+            <ActivityIndicator color={Colors.primaryText} style={styles.loadMoreWrap} />
+          ) : error ? (
+            <TouchableOpacity accessibilityRole="button" onPress={() => loadMore(true)} style={styles.loadMoreWrap}>
+              <Text translate style={styles.loadMoreText}>Couldn?t load more services. Tap to retry.</Text>
+            </TouchableOpacity>
+          ) : null}
           refreshControl={
             <RefreshControl
               colors={[Colors.primary]}

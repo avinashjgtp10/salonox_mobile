@@ -1,8 +1,14 @@
+import { currencyLabel } from "@/utils/currency";
+import { useRegionalPreferences } from "@/localization/preferences";
+import type { PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
+import { LinearGradient } from "expo-linear-gradient";
+import { pearlGradients } from "@/components/auth/pearl/tokens";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { useClientPrivacy } from "@/hooks/useClientPrivacy";
 import { useBenefitCards } from "../hooks/useBenefitCards";
 import { maskPhone } from "@/utils/maskPhone";
 import { Text, TextInput } from "@/components/ui/AppTypography";
+import { PearlActionFooter } from "@/components/ui/PearlActionFooter";
 import { Ionicons } from "@expo/vector-icons";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, BackHandler, Easing, KeyboardAvoidingView, LayoutAnimation, PanResponder, Platform, Pressable, ScrollView, StyleSheet, TouchableOpacity, UIManager, useWindowDimensions, View } from "react-native";
@@ -10,7 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Portal } from "@/components/ui/Portal";
 import { AppRadius } from "@/constants/layout";
-import { DashboardRadius as Radius, DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
+import { DashboardRadius as Radius, DashboardSpacing as Spacing } from "@/constants/theme";
 import { StaffPickerSheet } from "@/features/quickSale/components/StaffPickerSheet";
 import { SummaryRow, SummaryTile } from "@/features/quickSale/components/checkout/CheckoutSummary";
 import { ModeButton } from "@/features/quickSale/components/checkout/ModeButton";
@@ -19,7 +25,7 @@ import { getCartItemBillableQuantity } from "@/features/quickSale/utils/calculat
 import { getPackageCoveredQuantity } from "@/features/quickSale/utils/packageCoverage";
 import { formatCurrency, parseAmount } from "@/features/quickSale/utils/money";
 import { isMissingStaff } from "@/features/quickSale/utils/staffRequirement";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors } from "@/components/auth/pearl/usePearlColors";
 import type { CheckoutSaleSplitEntry, SalePaymentMethod } from "@/types/sales";
 import type {
   CheckoutSheetProps,
@@ -103,8 +109,10 @@ function CheckoutSheetComponent({
   totals,
   visible,
 }: CheckoutSheetProps) {
+  "use no memo";
+  useRegionalPreferences();
   const { clientName } = useClientPrivacy();
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const { height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -604,8 +612,8 @@ function CheckoutSheetComponent({
 
             <View style={styles.header}>
               <View>
-                <Text style={styles.title}>
-                  {checkoutStep === "review" ? "Review Cart" : "Payment"}
+                <Text translate style={styles.title}>
+                  {checkoutStep === "review" ? "Review cart" : "Collect payment"}
                 </Text>
                 <Text style={styles.subtitle}>
                   {checkoutStep === "review"
@@ -630,6 +638,51 @@ function CheckoutSheetComponent({
               showsVerticalScrollIndicator={false}
               style={styles.scroll}
             >
+              {checkoutStep === "payment" ? <View style={{ alignItems: "center", paddingVertical: 14, gap: 6 }}><Text style={{ fontSize: 34, fontWeight: "800", color: Colors.heading }}>{formatCurrency(amountToCollect)}</Text><Text style={{ fontSize: 13, color: Colors.text2 }}>{clientName(selectedClient.name)}</Text></View> : null}
+              {checkoutStep === "payment" && !noPaymentRequired ? (
+                <View style={styles.formCard}>
+                  <Text translate style={styles.sectionTitle}>Payment Method</Text>
+                  <View style={styles.methodGrid}>
+                    <TouchableOpacity
+                      key="payment-mode-single"
+                      activeOpacity={0.84}
+                      onPress={() => setPaymentMethod(lastSingleMethod)}
+                      style={[styles.methodCard, styles.methodModeCard, paymentMethod !== "split" && styles.methodCardActive]}
+                    >
+                      <Text translate style={[styles.methodText, paymentMethod !== "split" && styles.methodTextActive]}>Single</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      key="payment-mode-split"
+                      activeOpacity={0.84}
+                      onPress={() => setPaymentMethod("split")}
+                      style={[styles.methodCard, styles.methodModeCard, paymentMethod === "split" && styles.methodCardActive]}
+                    >
+                      <Text translate style={[styles.methodText, paymentMethod === "split" && styles.methodTextActive]}>Split</Text>
+                    </TouchableOpacity>
+                  </View>
+                  {paymentMethod !== "split" ? (
+                    <View style={[styles.methodGrid, styles.methodGridSecondary]}>
+                      {SPLIT_METHODS.map((method) => {
+                        const isActive = method.value === paymentMethod;
+
+                        return (
+                          <TouchableOpacity
+                            key={`payment-${method.value}`}
+                            activeOpacity={0.84}
+                            onPress={() =>
+                              handleSelectSinglePaymentMethod(method.value as Exclude<SalePaymentMethod, "split">)
+                            }
+                            style={[styles.methodCard, isActive && styles.methodCardActive]}
+                          >
+                            <Ionicons name={method.icon} size={16} color={isActive ? Colors.onPrimary : Colors.primaryText} />
+                            <Text translate style={[styles.methodText, isActive && styles.methodTextActive]}>{method.label}</Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  ) : null}
+                </View>
+              ) : null}
               {checkoutStep === "review" ? (
                 <>
                   <View style={styles.customerCard}>
@@ -645,12 +698,12 @@ function CheckoutSheetComponent({
                       </Text>
                     </View>
                     <TouchableOpacity activeOpacity={0.84} onPress={onChangeCustomer} style={styles.customerChangeButton}>
-                      <Text style={styles.customerChangeText}>Change</Text>
+                      <Text translate style={styles.customerChangeText}>Change</Text>
                     </TouchableOpacity>
                   </View>
 
                   <View style={styles.sectionHeaderRow}>
-                    <Text style={styles.sectionTitle}>Bill Items</Text>
+                    <Text translate style={styles.sectionTitle}>Bill Items</Text>
                     <View style={styles.billItemActions}>
                       {hasSelectedStaff ? (
                         <TouchableOpacity
@@ -659,13 +712,13 @@ function CheckoutSheetComponent({
                           style={styles.splitTipAction}
                         >
                           <Ionicons name="cash-outline" size={14} color={Colors.primaryText} />
-                          <Text style={styles.splitTipActionText}>Split Tip by Staff</Text>
+                          <Text translate style={styles.splitTipActionText}>Split Tip by Staff</Text>
                         </TouchableOpacity>
                       ) : null}
                       {onAddMore ? (
                         <TouchableOpacity activeOpacity={0.84} onPress={onAddMore} style={styles.addMoreButton}>
                           <Ionicons name="add" size={15} color={Colors.primaryText} />
-                          <Text style={styles.addMoreText}>Add More</Text>
+                          <Text translate style={styles.addMoreText}>Add More</Text>
                         </TouchableOpacity>
                       ) : null}
                     </View>
@@ -674,13 +727,13 @@ function CheckoutSheetComponent({
                   {groupedItems.length === 0 ? (
                     <View style={styles.emptyBill}>
                       <Ionicons name="cart-outline" size={22} color={Colors.primaryText} />
-                      <Text style={styles.emptyBillTitle}>No items in this sale</Text>
-                      <Text style={styles.emptyBillText}>Add a service or product to continue checkout.</Text>
+                      <Text translate style={styles.emptyBillTitle}>No items in this sale</Text>
+                      <Text translate style={styles.emptyBillText}>Add a service or product to continue checkout.</Text>
                     </View>
                   ) : (
                     groupedItems.map((group) => (
                       <View key={`checkout-group-${group.key}`} style={styles.itemGroup}>
-                        <Text style={styles.itemGroupTitle}>{group.title}</Text>
+                        <Text translate style={styles.itemGroupTitle}>{group.title}</Text>
                         {group.data.map((item) => (
                           <CheckoutItemCard
                             consumableProductNames={consumableProductNames}
@@ -716,7 +769,7 @@ function CheckoutSheetComponent({
 
                   {benefitCards.length > 0 ? (
                     <View style={styles.formCard}>
-                      <Text style={styles.sectionTitle}>Available Benefits</Text>
+                      <Text translate style={styles.sectionTitle}>Available Benefits</Text>
                       <View style={styles.benefitsGrid}>
                         {benefitCards.map((card) => (
                           <BenefitCard card={card} key={card.key} />
@@ -726,17 +779,17 @@ function CheckoutSheetComponent({
                   ) : null}
 
                   <View style={styles.formCard}>
-                    <Text style={styles.sectionTitle}>Discount</Text>
-                    <Text style={styles.inputLabel}>Discount Type</Text>
+                    <Text translate style={styles.sectionTitle}>Discount</Text>
+                    <Text translate style={styles.inputLabel}>Discount Type</Text>
                     <View style={styles.discountModeRow}>
                       <ModeButton active={discountMode === "percent"} label="Percentage (%)" onPress={() => handleDiscountModeChange("percent")} />
-                      <ModeButton active={discountMode === "amount"} label="Flat Amount (₹)" onPress={() => handleDiscountModeChange("amount")} />
+                      <ModeButton active={discountMode === "amount"} label={currencyLabel("Flat Amount (₹)")} onPress={() => handleDiscountModeChange("amount")} />
                     </View>
-                    <Text style={styles.inputLabel}>Discount Value</Text>
+                    <Text translate style={styles.inputLabel}>Discount Value</Text>
                     <TextInput
                       keyboardType="decimal-pad"
                       onChangeText={handleDiscountChange}
-                      placeholder={discountMode === "percent" ? "10%" : "₹200"}
+                      placeholder={discountMode === "percent" ? "10%" : currencyLabel("₹200")}
                       placeholderTextColor={Colors.placeholder}
                       style={[
                         styles.input,
@@ -744,7 +797,7 @@ function CheckoutSheetComponent({
                       ]}
                       value={discountDraft}
                     />
-                    <Text style={[styles.inputLabel, styles.discountApplyLabel]}>Apply To</Text>
+                    <Text translate style={[styles.inputLabel, styles.discountApplyLabel]}>Apply To</Text>
                     <TouchableOpacity
                       activeOpacity={0.84}
                       onPress={() => setDiscountApplyMenuVisible((current) => !current)}
@@ -779,7 +832,7 @@ function CheckoutSheetComponent({
                                 name={isSelected ? "checkbox" : "square-outline"}
                                 size={19}
                               />
-                              <Text
+                              <Text translate
                                 style={[
                                   styles.discountApplyOptionText,
                                   isSelected && styles.discountApplyOptionTextSelected,
@@ -793,7 +846,7 @@ function CheckoutSheetComponent({
                       </View>
                     ) : null}
                     {invalidDiscountPercentage ? (
-                      <Text style={styles.errorText}>Percentage discount cannot exceed 100%.</Text>
+                      <Text translate style={styles.errorText}>Percentage discount cannot exceed 100%.</Text>
                     ) : discountExceedsEligibleSubtotal ? (
                       <Text style={styles.errorText}>
                         Discount cannot exceed the selected subtotal ({formatCurrency(discountEligibleSubtotal)}).
@@ -804,7 +857,7 @@ function CheckoutSheetComponent({
                   </View>
 
                   <View style={styles.formCard}>
-                    <Text style={styles.sectionTitle}>Coupon</Text>
+                    <Text translate style={styles.sectionTitle}>Coupon</Text>
                     {appliedCoupon?.valid ? (
                       <View style={styles.membershipRow}>
                         <View>
@@ -820,7 +873,7 @@ function CheckoutSheetComponent({
                             - {formatCurrency(appliedCoupon.discountAmount)}
                           </Text>
                           <TouchableOpacity activeOpacity={0.84} onPress={onRemoveCoupon} style={styles.secondaryPill}>
-                            <Text style={styles.secondaryPillText}>Remove</Text>
+                            <Text translate style={styles.secondaryPillText}>Remove</Text>
                           </TouchableOpacity>
                         </View>
                       </View>
@@ -848,7 +901,7 @@ function CheckoutSheetComponent({
                             {isApplyingCoupon ? (
                               <ActivityIndicator color={Colors.primaryText} size="small" />
                             ) : (
-                              <Text style={styles.secondaryPillText}>Apply</Text>
+                              <Text translate style={styles.secondaryPillText}>Apply</Text>
                             )}
                           </TouchableOpacity>
                         </View>
@@ -859,20 +912,20 @@ function CheckoutSheetComponent({
 
                   {showGstSection ? (
                     <View style={styles.formCard}>
-                      <Text style={styles.sectionTitle}>GST</Text>
+                      <Text translate style={styles.sectionTitle}>GST</Text>
                       <View style={styles.membershipRow}>
                         <View>
-                          <Text style={styles.membershipStatus}>
+                          <Text translate style={styles.membershipStatus}>
                             {includeGst ? "Included in this bill" : "Excluded from this bill"}
                           </Text>
-                          <Text style={styles.membershipName}>Calculated from catalog tax rates</Text>
+                          <Text translate style={styles.membershipName}>Calculated from catalog tax rates</Text>
                         </View>
                         <TouchableOpacity
                           activeOpacity={0.84}
                           onPress={onToggleIncludeGst}
                           style={[styles.quickChip, includeGst && styles.quickChipActive]}
                         >
-                          <Text style={[styles.quickChipText, includeGst && styles.quickChipTextActive]}>
+                          <Text translate style={[styles.quickChipText, includeGst && styles.quickChipTextActive]}>
                             {includeGst ? "ON" : "OFF"}
                           </Text>
                         </TouchableOpacity>
@@ -888,9 +941,9 @@ function CheckoutSheetComponent({
                   ) : null}
 
                   <View style={styles.formCard}>
-                    <Text style={styles.sectionTitle}>Extra Charges</Text>
+                    <Text translate style={styles.sectionTitle}>Extra Charges</Text>
                     <View style={styles.inputGroup}>
-                      <Text style={styles.inputLabel}>Tip</Text>
+                      <Text translate style={styles.inputLabel}>Tip</Text>
                       <TextInput
                         keyboardType="decimal-pad"
                         onChangeText={onChangeTip}
@@ -908,7 +961,7 @@ function CheckoutSheetComponent({
                       ] as const
                     ).map(({ key, label }) => (
                       <View key={`extra-charge-${key}`} style={styles.inputGroup}>
-                        <Text style={styles.inputLabel}>{label}</Text>
+                        <Text translate style={styles.inputLabel}>{label}</Text>
                         <TextInput
                           keyboardType="decimal-pad"
                           onChangeText={(value) => onChangeExtraCharge(key, value)}
@@ -925,7 +978,7 @@ function CheckoutSheetComponent({
 
               {checkoutStep === "payment" && totals.grandTotal > 0 ? (
                 <View style={styles.formCard}>
-                  <Text style={styles.sectionTitle}>Payment Type</Text>
+                  <Text translate style={styles.sectionTitle}>Payment Type</Text>
                   <View style={styles.discountModeRow}>
                     <ModeButton active={paymentType === "full"} label="Pay in Full" onPress={() => setPaymentType("full")} />
                     <ModeButton
@@ -936,7 +989,7 @@ function CheckoutSheetComponent({
                   </View>
                   {paymentType === "partial" ? (
                     <>
-                      <Text style={styles.inputLabel}>Amount to Collect Now</Text>
+                      <Text translate style={styles.inputLabel}>Amount to Collect Now</Text>
                       <TextInput
                         keyboardType="decimal-pad"
                         onChangeText={setPartialAmountInput}
@@ -957,57 +1010,14 @@ function CheckoutSheetComponent({
                 </View>
               ) : null}
 
-              {checkoutStep === "payment" && noPaymentRequired && !isPricingLoading && !pricingError ? <View style={styles.formCard}><Text style={styles.sectionTitle}>No payment to collect</Text><Text style={styles.gstPreviewText}>The bill is fully covered. Applied client benefits are deducted when you complete the sale.</Text></View> : null}
-              {checkoutStep === "payment" && !noPaymentRequired ? (
-                <View style={styles.formCard}>
-                  <Text style={styles.sectionTitle}>Payment Method</Text>
-                  <View style={styles.methodGrid}>
-                    <TouchableOpacity
-                      key="payment-mode-single"
-                      activeOpacity={0.84}
-                      onPress={() => setPaymentMethod(lastSingleMethod)}
-                      style={[styles.methodCard, styles.methodModeCard, paymentMethod !== "split" && styles.methodCardActive]}
-                    >
-                      <Text style={[styles.methodText, paymentMethod !== "split" && styles.methodTextActive]}>Single</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      key="payment-mode-split"
-                      activeOpacity={0.84}
-                      onPress={() => setPaymentMethod("split")}
-                      style={[styles.methodCard, styles.methodModeCard, paymentMethod === "split" && styles.methodCardActive]}
-                    >
-                      <Text style={[styles.methodText, paymentMethod === "split" && styles.methodTextActive]}>Split</Text>
-                    </TouchableOpacity>
-                  </View>
-                  {paymentMethod !== "split" ? (
-                    <View style={[styles.methodGrid, styles.methodGridSecondary]}>
-                      {SPLIT_METHODS.map((method) => {
-                        const isActive = method.value === paymentMethod;
+              {checkoutStep === "payment" && noPaymentRequired && !isPricingLoading && !pricingError ? <View style={styles.formCard}><Text translate style={styles.sectionTitle}>No payment to collect</Text><Text translate style={styles.gstPreviewText}>The bill is fully covered. Applied client benefits are deducted when you complete the sale.</Text></View> : null}
 
-                        return (
-                          <TouchableOpacity
-                            key={`payment-${method.value}`}
-                            activeOpacity={0.84}
-                            onPress={() =>
-                              handleSelectSinglePaymentMethod(method.value as Exclude<SalePaymentMethod, "split">)
-                            }
-                            style={[styles.methodCard, isActive && styles.methodCardActive]}
-                          >
-                            <Ionicons name={method.icon} size={16} color={isActive ? Colors.onPrimary : Colors.primaryText} />
-                            <Text style={[styles.methodText, isActive && styles.methodTextActive]}>{method.label}</Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-                  ) : null}
-                </View>
-              ) : null}
 
               {checkoutStep === "payment" && paymentMethod === "cash" ? (
                 <View style={styles.formCard}>
-                  <Text style={styles.sectionTitle}>Cash Details</Text>
+                  <Text translate style={styles.sectionTitle}>Cash Details</Text>
                   <View style={styles.paymentAmountCard}>
-                    <Text style={styles.paymentAmountLabel}>
+                    <Text translate style={styles.paymentAmountLabel}>
                       {paymentType === "partial" ? "Amount to Collect" : "Grand Total"}
                     </Text>
                     <Text style={styles.paymentAmountValue}>{formatCurrency(amountToCollect)}</Text>
@@ -1017,12 +1027,12 @@ function CheckoutSheetComponent({
 
               {checkoutStep === "payment" && paymentMethod === "upi" ? (
                 <View style={styles.formCard}>
-                  <Text style={styles.sectionTitle}>UPI Details</Text>
+                  <Text translate style={styles.sectionTitle}>UPI Details</Text>
                   <View style={styles.selectedPaymentCard}>
                     <Ionicons name="phone-portrait-outline" size={18} color={Colors.primaryText} />
-                    <Text style={styles.selectedPaymentText}>UPI Selected</Text>
+                    <Text translate style={styles.selectedPaymentText}>UPI Selected</Text>
                   </View>
-                  <Text style={styles.inputLabel}>Reference Number (Optional)</Text>
+                  <Text translate style={styles.inputLabel}>Reference Number (Optional)</Text>
                   <TextInput
                     editable={false}
                     placeholder="Not required"
@@ -1035,12 +1045,12 @@ function CheckoutSheetComponent({
 
               {checkoutStep === "payment" && paymentMethod === "card" ? (
                 <View style={styles.formCard}>
-                  <Text style={styles.sectionTitle}>Card Details</Text>
+                  <Text translate style={styles.sectionTitle}>Card Details</Text>
                   <View style={styles.selectedPaymentCard}>
                     <Ionicons name="card-outline" size={18} color={Colors.primaryText} />
-                    <Text style={styles.selectedPaymentText}>Card Payment Selected</Text>
+                    <Text translate style={styles.selectedPaymentText}>Card Payment Selected</Text>
                   </View>
-                  <Text style={styles.inputLabel}>Transaction Reference (Optional)</Text>
+                  <Text translate style={styles.inputLabel}>Transaction Reference (Optional)</Text>
                   <TextInput
                     editable={false}
                     placeholder="Not required"
@@ -1053,7 +1063,7 @@ function CheckoutSheetComponent({
 
               {checkoutStep === "payment" && paymentMethod === "split" ? (
                 <View style={styles.formCard}>
-                  <Text style={styles.sectionTitle}>Split Payment</Text>
+                  <Text translate style={styles.sectionTitle}>Split Payment</Text>
                   <View style={styles.paymentDetailCard}>
                     {SPLIT_METHODS.map((method) => {
                       const methodValue = splitAmounts[method.value] ?? "";
@@ -1062,7 +1072,7 @@ function CheckoutSheetComponent({
 
                       return (
                         <View key={`split-${method.value}`} style={styles.inputGroup}>
-                          <Text style={styles.inputLabel}>{method.label}</Text>
+                          <Text translate style={styles.inputLabel}>{method.label}</Text>
                           <TextInput
                             accessibilityState={{ disabled: isUnusedMethodDisabled }}
                             editable={!isUnusedMethodDisabled}
@@ -1077,13 +1087,13 @@ function CheckoutSheetComponent({
                       );
                     })}
                     <View style={styles.splitTotalRow}>
-                      <Text style={styles.summaryLabel}>Total Paid</Text>
+                      <Text translate style={styles.summaryLabel}>Total Paid</Text>
                       <Text style={[styles.splitTotalText, splitMismatch && styles.errorText]}>
                         {formatCurrency(splitTotal)} of {formatCurrency(amountToCollect)}
                       </Text>
                     </View>
                     <View style={styles.splitRemainingRow}>
-                      <Text style={styles.splitRemainingLabel}>Remaining Amount</Text>
+                      <Text translate style={styles.splitRemainingLabel}>Remaining Amount</Text>
                       <Text style={[styles.splitRemainingValue, splitExcess > 0 && styles.errorText]}>
                         {formatCurrency(splitRemaining)}
                       </Text>
@@ -1100,7 +1110,7 @@ function CheckoutSheetComponent({
               ) : null}
 
               <View style={styles.summaryCard}>
-                <Text style={styles.sectionTitle}>{checkoutStep === "payment" ? "Payment Summary" : "Summary"}</Text>
+                <Text translate style={styles.sectionTitle}>{checkoutStep === "payment" ? "Payment Summary" : "Summary"}</Text>
                 <SummaryRow label="Subtotal" value={formatCurrency(totals.lineSubtotal)} />
                 {totals.itemDiscountTotal > 0 ? (
                   <SummaryRow label="Item Discount" tone="discount" value={`- ${formatCurrency(totals.itemDiscountTotal)}`} />
@@ -1143,7 +1153,7 @@ function CheckoutSheetComponent({
                   />
                 ) : null}
                 <View style={styles.grandTotalRow}>
-                  <Text style={styles.grandTotalLabel}>Grand Total</Text>
+                  <Text translate style={styles.grandTotalLabel}>Grand Total</Text>
                   <Text style={styles.grandTotalValue}>{formatCurrency(totals.grandTotal)}</Text>
                 </View>
                 {totals.appliedMembershipWallet > 0 ? (
@@ -1179,13 +1189,13 @@ function CheckoutSheetComponent({
               </View>
             </ScrollView>
 
-            <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 10) + Spacing.sm }]}>
+            <PearlActionFooter floating style={styles.footer} contentStyle={{ flexDirection: "column", alignItems: "stretch", paddingHorizontal: Spacing.xl, paddingBottom: Math.max(insets.bottom, 10) + Spacing.sm }}>
               {pricingError ? <Text style={styles.footerError}>Pricing error: {pricingError}</Text> : null}
               {submitError ? <Text style={styles.footerError}>{submitError}</Text> : null}
               {isSuccess ? (
                 <View style={styles.successBanner}>
                   <Ionicons name="checkmark-circle" size={18} color={Colors.success} />
-                  <Text style={styles.successText}>Sale completed</Text>
+                  <Text translate style={styles.successText}>Sale completed</Text>
                 </View>
               ) : null}
               <View style={styles.footerActions}>
@@ -1196,7 +1206,7 @@ function CheckoutSheetComponent({
                     onPress={handlePaymentBack}
                     style={[styles.pendingButton, isBusy && styles.footerButtonDisabled]}
                   >
-                    <Text style={styles.pendingButtonText}>Back</Text>
+                    <Text translate style={styles.pendingButtonText}>Back</Text>
                   </TouchableOpacity>
                 ) : (
                   <TouchableOpacity
@@ -1211,7 +1221,7 @@ function CheckoutSheetComponent({
                     {isSaving ? (
                       <ActivityIndicator color={Colors.primaryText} size="small" />
                     ) : (
-                      <Text style={styles.pendingButtonText}>Save Pending</Text>
+                      <Text translate style={styles.pendingButtonText}>Save Pending</Text>
                     )}
                   </TouchableOpacity>
                 )}
@@ -1233,19 +1243,20 @@ function CheckoutSheetComponent({
                     isSuccess && styles.completeButtonSuccess,
                   ]}
                 >
+                  <LinearGradient pointerEvents="none" colors={pearlGradients.primary} style={[StyleSheet.absoluteFill, { borderRadius: 16 }]} />
                   {isCheckingOut ? (
                     <>
                       <ActivityIndicator color={Colors.onPrimary} size="small" />
-                      <Text style={styles.completeButtonText}>Processing sale...</Text>
+                      <Text translate style={styles.completeButtonText}>Processing sale...</Text>
                     </>
                   ) : checkoutStep === "payment" && isPricingLoading ? (
                     <>
                       <ActivityIndicator color={Colors.onPrimary} size="small" />
-                      <Text style={styles.completeButtonText}>Updating pricing...</Text>
+                      <Text translate style={styles.completeButtonText}>Updating pricing...</Text>
                     </>
                   ) : isSuccess ? (
                     <>
-                      <Text style={styles.completeButtonText}>Completed</Text>
+                      <Text translate style={styles.completeButtonText}>Completed</Text>
                       <Ionicons name="checkmark-circle" size={18} color={Colors.onPrimary} />
                     </>
                   ) : (
@@ -1254,7 +1265,7 @@ function CheckoutSheetComponent({
                         {checkoutStep === "payment"
                           ? dueAmount > 0
                             ? "Record Payment"
-                            : "Complete Sale"
+                            : `Collect ${formatCurrency(amountToCollect)}`
                           : "Continue to Payment"}
                       </Text>
                       <Ionicons
@@ -1266,7 +1277,7 @@ function CheckoutSheetComponent({
                   )}
                 </TouchableOpacity>
               </View>
-            </View>
+            </PearlActionFooter>
           </Animated.View>
         </KeyboardAvoidingView>
         {staffTipsVisible ? (
@@ -1278,7 +1289,7 @@ function CheckoutSheetComponent({
             >
               <View style={styles.staffTipsDialog}>
                 <View style={styles.staffTipsHeader}>
-                  <Text style={styles.staffTipsTitle}>Staff Tips</Text>
+                  <Text translate style={styles.staffTipsTitle}>Staff Tips</Text>
                   <TouchableOpacity
                     accessibilityLabel="Close staff tips"
                     activeOpacity={0.82}
@@ -1288,7 +1299,7 @@ function CheckoutSheetComponent({
                     <Ionicons color={Colors.heading} name="close" size={18} />
                   </TouchableOpacity>
                 </View>
-                <Text style={styles.staffTipsDescription}>Enter a tip for each staff member - leave blank for ₹0.</Text>
+                <Text translate style={styles.staffTipsDescription}>{currencyLabel("Enter a tip for each staff member - leave blank for ₹0.")}</Text>
                 <ScrollView keyboardShouldPersistTaps="handled" style={styles.staffTipsRows}>
                 {staffTipRows.map((staff) => (
                   <View key={`staff-tip-${staff.id}`} style={styles.staffTipRow}>
@@ -1299,7 +1310,7 @@ function CheckoutSheetComponent({
                       </Text>
                     </View>
                     <View style={styles.staffTipInputWrap}>
-                      <Text style={styles.staffTipCurrency}>₹</Text>
+                      <Text translate style={styles.staffTipCurrency}>{currencyLabel("₹")}</Text>
                       <TextInput
                         keyboardType="decimal-pad"
                         onChangeText={(value) => setStaffTipInputs((current) => ({ ...current, [staff.id]: value }))}
@@ -1313,12 +1324,12 @@ function CheckoutSheetComponent({
                 ))}
                 </ScrollView>
                 <View style={styles.staffTipTotalRow}>
-                  <Text style={styles.staffTipTotalLabel}>Total Tip</Text>
+                  <Text translate style={styles.staffTipTotalLabel}>Total Tip</Text>
                   <Text style={styles.staffTipTotalValue}>{formatCurrency(staffTipTotal)}</Text>
                 </View>
                 <View style={styles.staffTipActions}>
                   <TouchableOpacity activeOpacity={0.82} onPress={() => setStaffTipsVisible(false)} style={styles.staffTipCancel}>
-                    <Text style={styles.staffTipCancelText}>Cancel</Text>
+                    <Text translate style={styles.staffTipCancelText}>Cancel</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     activeOpacity={0.84}
@@ -1329,7 +1340,7 @@ function CheckoutSheetComponent({
                     }}
                     style={styles.staffTipSave}
                   >
-                    <Text style={styles.staffTipSaveText}>Save Split</Text>
+                    <Text translate style={styles.staffTipSaveText}>Save Split</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -1361,7 +1372,9 @@ function CheckoutSheetComponent({
 }
 
 function BenefitCard({ card }: { card: ReturnType<typeof useBenefitCards>[number] }) {
-  const Colors = useThemeColors();
+  "use no memo";
+  useRegionalPreferences();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   return (
@@ -1382,10 +1395,10 @@ function BenefitCard({ card }: { card: ReturnType<typeof useBenefitCards>[number
         <View style={[styles.benefitCardIconWrap, { backgroundColor: `${card.accent}22` }]}>
           <Ionicons color={card.accent} name={card.icon} size={12} />
         </View>
-        <Text numberOfLines={1} style={styles.benefitCardTitle}>{card.title}</Text>
+        <Text translate numberOfLines={1} style={styles.benefitCardTitle}>{card.title}</Text>
       </View>
       <Text style={styles.benefitCardValue}>{card.value}</Text>
-      <Text numberOfLines={1} style={styles.benefitCardSubtitle}>{card.subtitle}</Text>
+      <Text translate numberOfLines={1} style={styles.benefitCardSubtitle}>{card.subtitle}</Text>
       {card.checked && card.input ? (
         <View style={styles.benefitCardInputRow}>
           <TextInput
@@ -1415,7 +1428,9 @@ function StaffAssignmentChip({
   onPress: () => void;
   staffName: string | null;
 }) {
-  const Colors = useThemeColors();
+  "use no memo";
+  useRegionalPreferences();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   if (staffName) {
@@ -1440,7 +1455,7 @@ function StaffAssignmentChip({
     <View style={[styles.staffChip, hasError && styles.staffChipError]}>
       <TouchableOpacity activeOpacity={0.82} onPress={onPress} style={styles.staffChipBody}>
         <Ionicons name="person-outline" size={13} color={hasError ? Colors.error : Colors.primaryText} />
-        <Text numberOfLines={1} style={[styles.staffChipText, hasError && styles.staffChipTextError]}>
+        <Text translate numberOfLines={1} style={[styles.staffChipText, hasError && styles.staffChipTextError]}>
           Assign staff
         </Text>
         <Ionicons name="chevron-down" size={12} color={hasError ? Colors.error : Colors.text2} />
@@ -1482,7 +1497,9 @@ const CheckoutItemCard = memo(function CheckoutItemCard({
   showStaffError: boolean;
   stockError?: string;
 }) {
-  const Colors = useThemeColors();
+  "use no memo";
+  useRegionalPreferences();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const scale = useRef(new Animated.Value(1)).current;
   const lineTotal = item.unitPrice * getCartItemBillableQuantity(item) - item.discountAmount;
@@ -1580,7 +1597,7 @@ const CheckoutItemCard = memo(function CheckoutItemCard({
         </View>
         {item.itemType === "service" && item.consumables && item.consumables.length > 0 ? (
           <View style={styles.consumablesSection}>
-            <Text style={styles.consumablesSectionTitle}>Consumables</Text>
+            <Text translate style={styles.consumablesSectionTitle}>Consumables</Text>
             {item.consumables.map((consumable) => (
               <ConsumableActualQtyRow
                 consumable={consumable}
@@ -1605,7 +1622,9 @@ function ConsumableActualQtyRow({
   onChangeActualQty: (actualQty: number) => void;
   productName: string;
 }) {
-  const Colors = useThemeColors();
+  "use no memo";
+  useRegionalPreferences();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const [draft, setDraft] = useState(String(consumable.actualQty ?? consumable.qty));
 
@@ -1625,7 +1644,7 @@ function ConsumableActualQtyRow({
         </Text>
       </View>
       <View style={styles.consumableActualField}>
-        <Text style={styles.consumableActualLabel}>Actual</Text>
+        <Text translate style={styles.consumableActualLabel}>Actual</Text>
         <TextInput
           keyboardType="decimal-pad"
           onChangeText={(value) => {
@@ -1653,7 +1672,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(20, 18, 16, 0.82)",
+    backgroundColor: "rgba(35,33,52,0.35)",
   },
   backdropInline: {
     backgroundColor: "rgba(20, 18, 16, 0.45)",
@@ -1824,9 +1843,9 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   sheet: {
     alignSelf: "center",
-    backgroundColor: Colors.card,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+    backgroundColor: "#F8F7FB",
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
     maxWidth: 760,
     overflow: "hidden",
     shadowColor: "#000000",
@@ -1858,8 +1877,8 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   title: {
     color: Colors.heading,
-    fontSize: 22,
-    fontWeight: "900",
+    fontSize: 20,
+    fontWeight: "800",
   },
   subtitle: {
     color: Colors.text2,
@@ -1869,8 +1888,8 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   closeButton: {
     alignItems: "center",
-    backgroundColor: Colors.bg2,
-    borderRadius: Radius.full,
+    backgroundColor: Colors.card,
+    borderRadius: 14,
     height: 42,
     justifyContent: "center",
     width: 42,
@@ -2494,13 +2513,15 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   methodCard: {
     alignItems: "center",
+    justifyContent: "center",
+    flex: 1,
     backgroundColor: Colors.card,
     borderColor: Colors.border,
-    borderRadius: Radius.full,
+    borderRadius: 16,
     borderWidth: 1,
-    flexDirection: "row",
+    flexDirection: "column",
     gap: 6,
-    minHeight: 42,
+    minHeight: 64,
     paddingHorizontal: 13,
   },
   methodModeCard: {
@@ -2638,13 +2659,10 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "800",
     marginTop: Spacing.sm,
   },
-  // Buttons float over the scroll content (scrollContent reserves the room) —
-  // no white strip behind them.
+  // The existing floating bar reserves space in scrollContent.
   footer: {
     bottom: 0,
     left: 0,
-    paddingHorizontal: Spacing.xl,
-    paddingTop: Spacing.md,
     position: "absolute",
     right: 0,
   },
@@ -2682,7 +2700,9 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   pendingButton: {
     alignItems: "center",
     backgroundColor: Colors.bg2,
-    borderRadius: Radius.full,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: "rgba(126,120,176,0.45)",
     flex: 0.9,
     justifyContent: "center",
     minHeight: 54,
@@ -2695,7 +2715,8 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   completeButton: {
     alignItems: "center",
     backgroundColor: Colors.primaryDark,
-    borderRadius: Radius.full,
+    borderRadius: 16,
+    overflow: "hidden",
     flex: 1.35,
     flexDirection: "row",
     gap: 8,

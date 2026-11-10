@@ -1,3 +1,4 @@
+import { AppBackButton } from "@/components/ui/AppBackButton";
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { FilterSheet } from "@/components/ui/FilterSheet";
 import { Text, TextInput } from "@/components/ui/AppTypography";
@@ -103,19 +104,10 @@ export default function ConsumableUsageReportScreen({ config }: { config: Report
   const listHeader = (
     <View style={styles.listHeader}>
       <View style={styles.header}>
-        <TouchableOpacity
-          accessibilityLabel="Go back"
-          accessibilityRole="button"
-          activeOpacity={0.8}
-          hitSlop={AppLayout.headerActionHitSlop}
-          onPress={() => router.back()}
-          style={styles.headerButton}
-        >
-          <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
-        </TouchableOpacity>
+        <AppBackButton accessibilityLabel="Go back" accessibilityRole="button" activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={() => router.back()} />
         <View style={styles.headerCopy}>
-          <Text allowFontScaling style={styles.title}>{config.title}</Text>
-          <Text allowFontScaling style={styles.subtitle}>{config.subtitle}</Text>
+          <Text translate allowFontScaling style={styles.title}>{config.title}</Text>
+          <Text translate allowFontScaling style={styles.subtitle}>{config.subtitle}</Text>
         </View>
       </View>
 
@@ -144,7 +136,7 @@ export default function ConsumableUsageReportScreen({ config }: { config: Report
 
       {allRows.length ? (
         <View style={styles.resultsHeading}>
-          <Text style={styles.resultsTitle}>RESULTS</Text>
+          <Text translate style={styles.resultsTitle}>RESULTS</Text>
           <Text style={styles.resultsCount}>
             {filteredRows.length} {filteredRows.length === 1 ? "record" : "records"}
           </Text>

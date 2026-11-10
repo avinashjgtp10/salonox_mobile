@@ -6,7 +6,7 @@ import { Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView,
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppRadius } from "@/constants/layout";
-import { DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
+import { DashboardSpacing as Spacing } from "@/constants/theme";
 import { useAppToast } from "@/hooks/useAppToast";
 import { createCategoryThunk, fetchCategoriesThunk } from "@/middleware/service/service.thunk";
 import {
@@ -18,7 +18,7 @@ import {
   selectCreatingCategoryByType,
 } from "@/store/service/service.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors, type PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 import type { CategoryType, ServiceCategoryItem } from "@/types/service";
 
 const CATEGORY_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -38,7 +38,7 @@ export function CategorySelectModal({
   type,
   visible,
 }: CategorySelectModalProps) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
   const toast = useAppToast();
@@ -137,7 +137,7 @@ export function CategorySelectModal({
       <Pressable onPress={onClose} style={styles.overlay}>
         <Pressable onPress={(e) => e.stopPropagation()} style={styles.sheet}>
           <View style={styles.header}>
-            <Text style={styles.sheetTitle}>Select Category</Text>
+            <Text translate style={styles.sheetTitle}>Select Category</Text>
             <TouchableOpacity activeOpacity={0.7} onPress={onClose} style={styles.closeButton}>
               <Ionicons name="close" size={20} color={Colors.text2} />
             </TouchableOpacity>
@@ -151,28 +151,28 @@ export function CategorySelectModal({
             <View style={styles.createOptionIcon}>
               <Ionicons name="add" size={18} color="#FFFFFF" />
             </View>
-            <Text style={styles.createOptionText}>Create Category</Text>
+            <Text translate style={styles.createOptionText}>Create Category</Text>
           </TouchableOpacity>
 
           {categoriesLoading && categories.length === 0 ? (
             <View style={styles.centerContainer}>
               <ActivityIndicator color={Colors.primaryText} size="small" />
-              <Text style={styles.loadingText}>Loading categories...</Text>
+              <Text translate style={styles.loadingText}>Loading categories...</Text>
             </View>
           ) : categoriesError && categories.length === 0 ? (
             <View style={styles.centerContainer}>
               <Ionicons name="alert-circle-outline" size={28} color={Colors.error} />
               <Text style={styles.errorText}>{categoriesError}</Text>
               <TouchableOpacity activeOpacity={0.8} onPress={handleRetryFetch} style={styles.retryButton}>
-                <Text style={styles.retryButtonText}>Retry</Text>
+                <Text translate style={styles.retryButtonText}>Retry</Text>
               </TouchableOpacity>
             </View>
           ) : (
             <ScrollView showsVerticalScrollIndicator={false} style={styles.categoryList}>
               {categories.length === 0 ? (
                 <View style={styles.emptyContainer}>
-                  <Text style={styles.emptyText}>No categories available yet.</Text>
-                  <Text style={styles.emptySubtext}>Tap &quot;Create Category&quot; above to add one.</Text>
+                  <Text translate style={styles.emptyText}>No categories available yet.</Text>
+                  <Text translate style={styles.emptySubtext}>Tap &quot;Create Category&quot; above to add one.</Text>
                 </View>
               ) : (
                 categories.map((category) => {
@@ -217,14 +217,14 @@ export function CategorySelectModal({
               ]}
             >
               <View style={styles.header}>
-                <Text style={styles.sheetTitle}>New Category</Text>
+                <Text translate style={styles.sheetTitle}>New Category</Text>
                 <TouchableOpacity activeOpacity={0.7} onPress={handleCloseCreateModal} style={styles.closeButton}>
                   <Ionicons name="close" size={20} color={Colors.text2} />
                 </TouchableOpacity>
               </View>
 
               <View style={styles.createInputGroup}>
-                <Text style={styles.createInputLabel}>Category Name</Text>
+                <Text translate style={styles.createInputLabel}>Category Name</Text>
                 <TextInput
                   autoCapitalize="words"
                   autoFocus
@@ -254,7 +254,7 @@ export function CategorySelectModal({
                   onPress={handleCloseCreateModal}
                   style={styles.cancelButton}
                 >
-                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                  <Text translate style={styles.cancelButtonText}>Cancel</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -268,7 +268,7 @@ export function CategorySelectModal({
                   ) : (
                     <Ionicons name="checkmark-circle-outline" size={18} color="#FFFFFF" />
                   )}
-                  <Text style={styles.saveCategoryButtonText}>
+                  <Text translate style={styles.saveCategoryButtonText}>
                     {creatingCategory ? "Saving..." : "Save Category"}
                   </Text>
                 </TouchableOpacity>
@@ -283,20 +283,21 @@ export function CategorySelectModal({
 
 const createStyles = (Colors: ThemeColors) =>
   StyleSheet.create({
-    // Centred pop-up, matching the product form's Select Brand.
+    // Category options remain in the existing picker, anchored to the footer.
     overlay: {
       alignItems: "center",
       backgroundColor: "rgba(15, 23, 32, 0.45)",
       flex: 1,
-      justifyContent: "center",
-      padding: Spacing.lg,
+      justifyContent: "flex-end",
+      padding: 0,
     },
     keyboardLayer: {
       flex: 1,
     },
     sheet: {
-      backgroundColor: Colors.card,
-      borderRadius: 8,
+      backgroundColor: "#F8F7FB",
+      borderTopLeftRadius: 30,
+      borderTopRightRadius: 30,
       maxHeight: "70%",
       padding: Spacing.lg,
       width: "100%",

@@ -1,54 +1,48 @@
-import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
-import { Text } from "@/components/ui/AppTypography";
-import { appAlert as Alert } from "@/services/appAlert";
-import { Ionicons } from "@expo/vector-icons";
-import { Image } from "expo-image";
+import { useEffect, useMemo, useState, createRef } from "react";
+import { Keyboard, Switch, TouchableOpacity, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
-import { Redirect, router, useLocalSearchParams, type Href } from "expo-router";
-import { useMemo, useState } from "react";
-import { StyleSheet, Switch, TouchableOpacity, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import type { CountryCode } from "libphonenumber-js";
-
+import { router, useLocalSearchParams, type Href } from "expo-router";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
+import { Text, TextInput } from "@/components/ui/AppTypography";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { DateField } from "@/components/ui/DateField";
-import { KeyboardAwareScrollView } from "@/components/ui/KeyboardAwareScrollView";
-import { PasswordField } from "@/components/ui/PasswordField";
 import { PhoneInput } from "@/components/ui/PhoneInput";
-import { AppLayout, AppRadius } from "@/constants/layout";
-import {
-  DashboardSpacing as Spacing,
-  type ThemeColors,
-} from "@/constants/theme";
-import { StaffTextField } from "@/features/staff/components/StaffTextField";
-import { useStaffCalendarAccessSetting, useStaffProductAuditAccessSetting } from "@/features/staff/hooks/useStaffCalendarAccessSetting";
-import { useStaffDetails } from "@/features/staff/hooks/useStaffDetails";
-import { useStaffForm } from "@/features/staff/hooks/useStaffForm";
-import { STAFF_GENDER_OPTIONS, STAFF_ROLE_OPTIONS } from "@/features/staff/validation/staff.validation";
-import { getApiErrorMessage } from "@/services/api";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { PasswordField } from "@/components/ui/PasswordField";
+import { BottomSheet } from "@/components/ui/BottomSheet";
+import { KeyboardAwareScrollView } from "@/components/ui/KeyboardAwareScrollView";
+import { KeyboardInsetView } from "@/components/ui/KeyboardInsetView";
+import { PearlActionFooter } from "@/components/ui/PearlActionFooter";
+import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
+import { pearl } from "@/components/auth/pearl/tokens";
+import { appAlert as Alert } from "@/services/appAlert";
+import { api, getApiErrorMessage } from "@/services/api";
 import { useValidationScroll } from "@/hooks/useValidationScroll";
-import { selectCurrentUser } from "@/store/user/user.slice";
+import { STAFF_ROLE_OPTIONS } from "../validation/staff.validation";
+import { useStaffForm } from "../hooks/useStaffForm";
+import { useStaffDetails } from "../hooks/useStaffDetails";
+import {
+  StaffAvatar,
+  StaffButton,
+  StaffHeader,
+  StaffMenuItem,
+  staffUi,
+} from "../components/StaffPearl";
+import { StaffTextField } from "../components/StaffTextField";
+import type { StaffProfileFormValues } from "../types/staffFeature.types";
 import { useAppSelector } from "@/store/hooks";
+import { selectCurrentUser } from "@/store/user/user.slice";
 import { canManageStaffLifecycle } from "@/utils/userProfile";
-import type { StaffProfileFormValues } from "@/features/staff/types/staffFeature.types";
-
+import type { CountryCode } from "libphonenumber-js";
 const MAX_AVATAR_SIZE_BYTES = 2 * 1024 * 1024;
 const AVATAR_SIZE_ERROR_MESSAGE = "Profile image must be 2 MB or smaller.";
-const AVATAR_TYPE_ERROR_MESSAGE = "Unsupported file type. Please choose a PNG, JPG, or GIF image.";
-const ACCEPTED_AVATAR_MIME_TYPES = new Set(["image/png", "image/jpeg", "image/gif"]);
-
-const STAFF_LOGIN_HELPER_TEXT =
-  "Set a password so this staff member can log in with their email above right away. Leave blank to send an email invite instead — they'll set their own password and get the same permissions once they accept it.";
-
-const CALENDAR_ACCESS_HELPER_TEXT =
-  "Lets this staff member book and bill Quick Sales from their Calendar in the SalonOX app. Saved right away. Doesn't change their access on the web.";
-const PRODUCT_AUDIT_ACCESS_HELPER_TEXT =
-  "Lets this staff member create and perform Product Audits (count, scan, add new products the scanner finds, and submit for review) in the SalonOX app. Approving stays with you. Saved right away. Doesn't change their access on the web.";
-
-type StaffFormScreenProps = {
-  mode: "create" | "edit";
-};
+const AVATAR_TYPE_ERROR_MESSAGE =
+  "Unsupported file type. Please choose a PNG, JPG, or GIF image.";
+const ACCEPTED_AVATAR_MIME_TYPES = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/gif",
+]);
 
 type StaffValidationField = keyof StaffProfileFormValues;
 const VALIDATION_FIELD_ORDER: StaffValidationField[] = [
@@ -76,10 +70,11 @@ const sanitizeDecimalInput = (text: string) => {
     return cleaned;
   }
 
-  return cleaned.slice(0, firstDotIndex + 1) + cleaned.slice(firstDotIndex + 1).replace(/\./g, "");
+  return (
+    cleaned.slice(0, firstDotIndex + 1) +
+    cleaned.slice(firstDotIndex + 1).replace(/\./g, "")
+  );
 };
-
-const sanitizeIntegerInput = (text: string) => text.replace(/[^0-9]/g, "");
 
 const guessMimeTypeFromUri = (uri: string) => {
   const extension = uri.split("?")[0].split(".").pop()?.toLowerCase();
@@ -99,7 +94,10 @@ const getInitials = (fullName: string) =>
     .map((part) => part[0]?.toUpperCase() ?? "")
     .join("") || "S";
 
-const getAssetSizeBytes = async (uri: string, fileSize?: number | null): Promise<number | null> => {
+const getAssetSizeBytes = async (
+  uri: string,
+  fileSize?: number | null,
+): Promise<number | null> => {
   if (typeof fileSize === "number" && Number.isFinite(fileSize)) {
     return fileSize;
   }
@@ -114,76 +112,91 @@ const getAssetSizeBytes = async (uri: string, fileSize?: number | null): Promise
   }
 };
 
-function SectionHeading({ title }: { title: string }) {
-  const Colors = useThemeColors();
-  const styles = useMemo(() => createStyles(Colors), [Colors]);
-
-  return <Text style={styles.sectionHeading}>{title}</Text>;
-}
-
-function ChipRow<T extends string>({
-  disabled,
-  onSelect,
-  options,
-  value,
-}: {
-  disabled?: boolean;
-  onSelect: (option: T | "") => void;
-  options: readonly T[];
-  value: T | "";
-}) {
-  const Colors = useThemeColors();
-  const styles = useMemo(() => createStyles(Colors), [Colors]);
-
-  return (
-    <View style={styles.chipRow}>
-      {options.map((option) => {
-        const isSelected = value === option;
-
-        return (
-          <TouchableOpacity
-            key={option}
-            activeOpacity={0.82}
-            disabled={disabled}
-            onPress={() => onSelect(isSelected ? "" : option)}
-            style={[styles.chip, isSelected && styles.chipSelected]}
-          >
-            <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>{option}</Text>
-          </TouchableOpacity>
-        );
-      })}
-    </View>
-  );
-}
-
-export function StaffFormScreen({ mode }: StaffFormScreenProps) {
-  const Colors = useThemeColors();
-  const styles = useMemo(() => createStyles(Colors), [Colors]);
-  const { id } = useLocalSearchParams<{ id?: string }>();
-  const staffId = mode === "edit" ? id : null;
+const STEP_FIELDS: (keyof StaffProfileFormValues)[][] = [
+  ["fullName", "phone", "email", "dob", "joiningDate", "address"],
+  [
+    "designation",
+    "gender",
+    "roleLevel",
+    "fixedSalary",
+    "hourlyRate",
+    "workingHoursPerDay",
+    "holidays",
+  ],
+  ["email", "password", "confirmPassword"],
+];
+export function StaffFormScreen({ mode }: { mode: "create" | "edit" }) {
+  const insets = useSafeAreaInsets();
+  const params = useLocalSearchParams<{ id?: string; step?: string }>();
+  const staffId = mode === "edit" ? params.id : null;
   const form = useStaffForm(staffId);
-  const calendarAccess = useStaffCalendarAccessSetting(staffId);
-  const productAuditAccess = useStaffProductAuditAccessSetting(staffId);
-  const { scrollToFirstError, scrollViewRef, setFieldRef } = useValidationScroll(VALIDATION_FIELD_ORDER);
-  const currentUser = useAppSelector(selectCurrentUser);
-
-  const [avatarValidationError, setAvatarValidationError] = useState<string | null>(null);
-
   useStaffDetails(staffId);
-
-  if (mode === "edit" && (!currentUser || !canManageStaffLifecycle(currentUser.role))) {
-    return <Redirect href="/team" />;
-  }
-
-  const handleBack = () => {
-    if (router.canGoBack()) {
-      router.back();
-      return;
+  const currentUser = useAppSelector(selectCurrentUser);
+  const [step, setStep] = useState(params.step === "3" ? 2 : 0),
+    [pay, setPay] = useState("Fixed salary"),
+    [picker, setPicker] = useState<"designation" | "gender" | null>(null),
+    [stepError, setStepError] = useState(""),
+    [avatarValidationError, setAvatarValidationError] = useState<string | null>(
+      null,
+    );
+  const [otp, setOtp] = useState(""),
+    [sentEmail, setSentEmail] = useState(""),
+    [verifiedEmail, setVerifiedEmail] = useState(""),
+    [otpBusy, setOtpBusy] = useState(false),
+    [otpMessage, setOtpMessage] = useState("");
+  const { scrollToFirstError, scrollViewRef, setFieldRef } =
+    useValidationScroll(VALIDATION_FIELD_ORDER);
+  const refs = useMemo(
+    () =>
+      Object.fromEntries(
+        VALIDATION_FIELD_ORDER.map((field) => [field, createRef<TextInput>()]),
+      ) as Record<
+        keyof StaffProfileFormValues,
+        ReturnType<typeof createRef<TextInput>>
+      >,
+    [],
+  );
+  const otpInput = useMemo(() => createRef<TextInput>(), []);
+  const navigation = useMemo(
+    () => ({
+      showAccessory: false,
+      fields: STEP_FIELDS[step].flatMap((field) => [
+        {
+          ref: refs[field],
+          disabled:
+            ["dob", "joiningDate", "roleLevel", "gender"].includes(field) ||
+            (field === "password" && !form.values.isLoginEnabled) ||
+            (field === "confirmPassword" && !form.values.isLoginEnabled) ||
+            (field === "hourlyRate" && pay !== "Hourly") ||
+            (field === "fixedSalary" && pay !== "Fixed salary"),
+        },
+        ...(step === 2 && field === "email"
+          ? [{ ref: otpInput, disabled: !form.values.isLoginEnabled }]
+          : []),
+      ]),
+    }),
+    [refs, step, pay, form.values.isLoginEnabled, otpInput],
+  );
+  useEffect(() => {
+    if (mode === "create" && !form.values.joiningDate) {
+      const date = new Date();
+      form.updateField(
+        "joiningDate",
+        [
+          date.getFullYear(),
+          String(date.getMonth() + 1).padStart(2, "0"),
+          String(date.getDate()).padStart(2, "0"),
+        ].join("-"),
+      );
     }
-
-    router.replace("/team" as Href);
+  }, [mode, form]);
+  const handleBack = () => {
+    if (step > 0) {
+      setStep(step - 1);
+      Keyboard.dismiss();
+    } else if (router.canGoBack()) router.back();
+    else router.replace("/team" as Href);
   };
-
   const uploadPickedAsset = async (result: ImagePicker.ImagePickerResult) => {
     const asset = result.canceled ? undefined : result.assets?.[0];
 
@@ -191,7 +204,9 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
       return;
     }
 
-    const mimeType = (asset.mimeType || guessMimeTypeFromUri(asset.uri)).toLowerCase();
+    const mimeType = (
+      asset.mimeType || guessMimeTypeFromUri(asset.uri)
+    ).toLowerCase();
 
     if (!ACCEPTED_AVATAR_MIME_TYPES.has(mimeType)) {
       setAvatarValidationError(AVATAR_TYPE_ERROR_MESSAGE);
@@ -206,7 +221,11 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
     }
 
     setAvatarValidationError(null);
-    await form.uploadAvatar({ fileName: asset.fileName, mimeType, uri: asset.uri });
+    await form.uploadAvatar({
+      fileName: asset.fileName,
+      mimeType,
+      uri: asset.uri,
+    });
   };
 
   const pickAvatarFromSource = async (source: "camera" | "library") => {
@@ -217,7 +236,10 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
         const permission = await ImagePicker.requestCameraPermissionsAsync();
 
         if (!permission.granted) {
-          Alert.alert("Camera access needed", "Enable camera access in settings to take a photo.");
+          Alert.alert(
+            "Camera access needed",
+            "Enable camera access in settings to take a photo.",
+          );
           return;
         }
 
@@ -232,10 +254,14 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
         return;
       }
 
-      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      const permission =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
 
       if (!permission.granted) {
-        Alert.alert("Photo access needed", "Enable photo library access in settings to choose a photo.");
+        Alert.alert(
+          "Photo access needed",
+          "Enable photo library access in settings to choose a photo.",
+        );
         return;
       }
 
@@ -257,9 +283,19 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
       return;
     }
 
-    const options: { onPress?: () => void; style?: "cancel" | "destructive"; text: string }[] = [
-      { onPress: () => void pickAvatarFromSource("camera"), text: "Take Photo" },
-      { onPress: () => void pickAvatarFromSource("library"), text: "Choose from Library" },
+    const options: {
+      onPress?: () => void;
+      style?: "cancel" | "destructive";
+      text: string;
+    }[] = [
+      {
+        onPress: () => void pickAvatarFromSource("camera"),
+        text: "Take Photo",
+      },
+      {
+        onPress: () => void pickAvatarFromSource("library"),
+        text: "Choose from Library",
+      },
     ];
 
     if (form.values.avatarUrl) {
@@ -275,552 +311,558 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
 
     options.push({ style: "cancel", text: "Cancel" });
 
-    Alert.alert("Profile Photo", "Add a profile photo for this staff member", options);
+    Alert.alert(
+      "Profile Photo",
+      "Add a profile photo for this staff member",
+      options,
+    );
   };
 
-  const avatarDisplayError = avatarValidationError ?? form.avatarError;
-
-  const handleSubmit = () => {
-    if (!form.isValid) scrollToFirstError(form.allValidationErrors);
+  const field = (
+    key: keyof StaffProfileFormValues,
+    label: string,
+    placeholder = "Optional",
+    numeric = false,
+  ) => (
+    <StaffTextField
+      key={key}
+      ref={(input) => {
+        refs[key].current = input;
+        setFieldRef(key, input);
+      }}
+      label={label}
+      value={String(form.values[key])}
+      error={form.validationErrors[key]}
+      editable={!form.submitting}
+      placeholder={placeholder}
+      keyboardType={
+        numeric ? "decimal-pad" : key === "email" ? "email-address" : "default"
+      }
+      autoCapitalize={key === "email" ? "none" : "sentences"}
+      returnKeyType="next"
+      submitBehavior="submit"
+      onSubmitEditing={() => {
+        const fields = navigation.fields.filter((f) => !f.disabled),
+          index = fields.findIndex((f) => f.ref === refs[key]);
+        const next = fields[index + 1]?.ref.current;
+        if (next) next.focus();
+        else Keyboard.dismiss();
+      }}
+      onChangeText={(value) =>
+        form.updateField(
+          key,
+          numeric ? sanitizeDecimalInput(value) : (value as never),
+        )
+      }
+    />
+  );
+  const email = form.values.email.trim().toLowerCase();
+  const emailAlreadyVerified =
+    mode === "edit" &&
+    form.staffMember?.emailVerified &&
+    email === form.staffMember.email.toLowerCase();
+  const emailVerified =
+    emailAlreadyVerified || (verifiedEmail === email && !!email);
+  const emailOtp = async (verify: boolean) => {
+    setOtpBusy(true);
+    setOtpMessage("");
+    try {
+      const response = await api.post<{
+        status?: string;
+        success?: boolean;
+        data?: { success?: boolean };
+      }>(
+        verify ? "/auth/verify-email-otp" : "/auth/send-email-otp",
+        verify ? { email, otp } : { email },
+      );
+      if (verify) {
+        if (
+          response.data.status !== "success" &&
+          !response.data.success &&
+          !response.data.data?.success
+        )
+          throw new Error("Verification failed. Please check the OTP.");
+        setVerifiedEmail(email);
+      } else {
+        setSentEmail(email);
+        setOtpMessage("OTP sent. Check the staff member's inbox.");
+      }
+    } catch (e) {
+      setOtpMessage(getApiErrorMessage(e));
+    } finally {
+      setOtpBusy(false);
+    }
+  };
+  const next = () => {
+    setStepError("");
+    const errorKey = STEP_FIELDS[step].find(
+      (key) => form.allValidationErrors[key],
+    );
+    if (errorKey) {
+      setStepError(form.allValidationErrors[errorKey]);
+      scrollToFirstError(form.allValidationErrors);
+      return;
+    }
+    Keyboard.dismiss();
+    scrollViewRef.current?.scrollTo({ y: 0, animated: false });
+    setStep(step + 1);
+  };
+  const submit = () => {
+    const errors = Object.keys(
+      form.allValidationErrors,
+    ) as (keyof StaffProfileFormValues)[];
+    if (errors.length) {
+      const index = STEP_FIELDS.findIndex((fields) =>
+        fields.includes(errors[0]),
+      );
+      setStep(Math.max(0, index));
+      setStepError(form.allValidationErrors[errors[0]]);
+      return;
+    }
+    if (form.values.isLoginEnabled && !emailVerified) {
+      setStepError("Verify the staff member's email before enabling login.");
+      return;
+    }
     void form.submit();
   };
-
   return (
-    <SafeAreaView edges={["top"]} style={styles.safeArea}>
-      <AppStatusBar />
-      <KeyboardAwareScrollView
-        ref={scrollViewRef}
-        contentContainerStyle={styles.content}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.header}>
-          <TouchableOpacity activeOpacity={0.84} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
-          </TouchableOpacity>
-          <View style={styles.headerCopy}>
-            <Text style={styles.title}>{mode === "edit" ? "Edit Staff" : "Add Staff"}</Text>
-            <Text style={styles.subtitle}>
-              {mode === "edit"
-                ? "Update staff profile and work details"
-                : "Create a new staff profile for your salon"}
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.card}>
-          <SectionHeading title="Profile Image" />
-          <View style={styles.avatarRow}>
-            <TouchableOpacity
-              accessibilityLabel="Change profile photo"
-              activeOpacity={0.85}
-              disabled={form.avatarUploading}
-              onPress={handlePickAvatar}
-              style={styles.avatarWrap}
-            >
-              {form.values.avatarUrl ? (
-                <Image contentFit="cover" source={{ uri: form.values.avatarUrl }} style={styles.avatarImage} />
-              ) : (
-                <View style={styles.avatarPlaceholder}>
-                  <Text style={styles.avatarPlaceholderText}>{getInitials(form.values.fullName)}</Text>
-                </View>
-              )}
-              {form.avatarUploading ? (
-                <View style={styles.avatarUploadingOverlay}>
-                  <ActivityIndicator color="#FFFFFF" size="small" />
-                </View>
-              ) : (
-                <View style={styles.avatarCameraBadge}>
-                  <Ionicons name="camera" size={13} color="#FFFFFF" />
-                </View>
-              )}
-            </TouchableOpacity>
-            <View style={styles.avatarCopy}>
-              <Text style={styles.avatarHint}>Accepted formats: PNG, GIF or JPG. Maximum file size is 2.0MB.</Text>
-              {avatarDisplayError ? <Text style={styles.avatarError}>{avatarDisplayError}</Text> : null}
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.card}>
-          <SectionHeading title="Staff Details" />
-          <StaffTextField
-            ref={(input) => setFieldRef("fullName", input)}
-            autoCapitalize="words"
-            error={form.validationErrors.fullName}
-            label="Full Name *"
-            onChangeText={(value) => form.updateField("fullName", value)}
-            placeholder="Staff full name"
-            value={form.values.fullName}
-          />
-
-          <StaffTextField
-            ref={(input) => setFieldRef("email", input)}
-            autoCapitalize="none"
-            error={form.validationErrors.email}
-            keyboardType="email-address"
-            label={form.values.isLoginEnabled ? "Email *" : "Email"}
-            onChangeText={(value) => form.updateField("email", value)}
-            placeholder="Email address"
-            value={form.values.email}
-          />
-
-<View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Contact *</Text>
-            <PhoneInput
-              ref={(input) => setFieldRef("phone", input)}
-              country={form.values.phoneCountry as CountryCode}
-              error={form.validationErrors.phone}
-              onChange={(e164) => form.updateField("phone", e164)}
-              onCountryChange={(code) => form.updateField("phoneCountry", code)}
-              required
-              value={form.values.phone}
-            />
-</View>
-
-          <DateField
-            ref={(view) => setFieldRef("dob", view)}
-            error={form.validationErrors.dob}
-            label="Date of Birth"
-            maximumDate={new Date()}
-            onChange={(value) => form.updateField("dob", value)}
-            placeholder="Select date of birth"
-            value={form.values.dob}
-          />
-
-          <DateField
-            ref={(view) => setFieldRef("joiningDate", view)}
-            error={form.validationErrors.joiningDate}
-            label="Date of Joining"
-            maximumDate={new Date()}
-            onChange={(value) => form.updateField("joiningDate", value)}
-            placeholder="Select joining date"
-            value={form.values.joiningDate}
-          />
-
-          <StaffTextField
-            ref={(input) => setFieldRef("address", input)}
-            error={form.validationErrors.address}
-            label="Address"
-            multiline
-            onChangeText={(value) => form.updateField("address", value)}
-            placeholder="Street, city, state"
-            value={form.values.address}
-          />
-
-          <View ref={(view) => setFieldRef("gender", view)} style={[styles.fieldGroup, form.validationErrors.gender && styles.fieldGroupError]}>
-            <Text style={styles.fieldLabel}>Gender</Text>
-            <ChipRow
-              onSelect={(option) => form.updateField("gender", option)}
-              options={STAFF_GENDER_OPTIONS}
-              value={form.values.gender as (typeof STAFF_GENDER_OPTIONS)[number] | ""}
-            />
-            {form.validationErrors.gender ? (
-              <Text style={styles.errorText}>{form.validationErrors.gender}</Text>
-            ) : null}
-          </View>
-
-          <StaffTextField
-            ref={(input) => setFieldRef("designation", input)}
-            autoCapitalize="words"
-            error={form.validationErrors.designation}
-            label="Designation"
-            onChangeText={(value) => form.updateField("designation", value)}
-            placeholder="Stylist, manager, assistant"
-            value={form.values.designation}
-          />
-
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Role</Text>
-            <ChipRow
-              onSelect={(option) => form.updateField("roleLevel", option)}
-              options={STAFF_ROLE_OPTIONS}
-              value={form.values.roleLevel}
-            />
-          </View>
-
-          <View style={styles.timeRow}>
-            <View style={{ flex: 1 }}>
-              <StaffTextField
-                ref={(input) => setFieldRef("hourlyRate", input)}
-                error={form.validationErrors.hourlyRate}
-                keyboardType="decimal-pad"
-                label="Hourly Rate"
-                onChangeText={(value) => form.updateField("hourlyRate", sanitizeDecimalInput(value))}
-                placeholder="Optional"
-                value={form.values.hourlyRate}
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <StaffTextField
-                ref={(input) => setFieldRef("fixedSalary", input)}
-                error={form.validationErrors.fixedSalary}
-                keyboardType="decimal-pad"
-                label="Fixed Salary"
-                onChangeText={(value) => form.updateField("fixedSalary", sanitizeDecimalInput(value))}
-                placeholder="Optional"
-                value={form.values.fixedSalary}
-              />
-            </View>
-          </View>
-
-          <View style={styles.timeRow}>
-            <View style={{ flex: 1 }}>
-              <StaffTextField
-                ref={(input) => setFieldRef("workingHoursPerDay", input)}
-                error={form.validationErrors.workingHoursPerDay}
-                keyboardType="decimal-pad"
-                label="Working Hours/Day"
-                onChangeText={(value) => form.updateField("workingHoursPerDay", sanitizeDecimalInput(value))}
-                placeholder="Optional"
-                value={form.values.workingHoursPerDay}
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <StaffTextField
-                ref={(input) => setFieldRef("holidays", input)}
-                error={form.validationErrors.holidays}
-                keyboardType="number-pad"
-                label="Holidays"
-                onChangeText={(value) => form.updateField("holidays", sanitizeIntegerInput(value))}
-                placeholder="Optional"
-                value={form.values.holidays}
-              />
-            </View>
-          </View>
-
-
-        </View>
-
-        <View style={styles.card}>
-          <View style={styles.loginHeaderRow}>
-            <Text style={styles.sectionHeading}>Set Login Password</Text>
-            <Switch
-              onValueChange={(value) => form.updateField("isLoginEnabled", value)}
-              thumbColor="#FFFFFF"
-              trackColor={{ false: Colors.border, true: Colors.primary }}
-              value={form.values.isLoginEnabled}
-            />
-          </View>
-
-          {form.values.isLoginEnabled ? (
-            <>
-              <PasswordField
-                ref={(input) => setFieldRef("password", input)}
-                error={form.validationErrors.password}
-                label="Password"
-                // This sets ANOTHER person's password: never let the device fill in
-                // the signed-in user's saved password here.
-                autoComplete="off"
-                importantForAutofill="no"
-                textContentType="oneTimeCode"
-                onChangeText={(value) => form.updateField("password", value)}
-                placeholder="Password"
-                value={form.values.password}
-              />
-              <PasswordField
-                ref={(input) => setFieldRef("confirmPassword", input)}
-                error={form.validationErrors.confirmPassword}
-                label="Confirm Password"
-                autoComplete="off"
-                importantForAutofill="no"
-                textContentType="oneTimeCode"
-                onChangeText={(value) => form.updateField("confirmPassword", value)}
-                placeholder="Confirm Password"
-                value={form.values.confirmPassword}
-              />
-              <Text style={styles.loginHint}>{STAFF_LOGIN_HELPER_TEXT}</Text>
-              {mode === "edit" ? (
-                <View style={styles.calendarAccessSection}>
-                  <View style={styles.calendarAccessRow}>
-                    <Text style={styles.calendarAccessTitle}>Calendar &amp; Quick Sale access</Text>
-                    {calendarAccess.loading || calendarAccess.saving ? (
-                      <ActivityIndicator color={Colors.primaryText} size="small" style={styles.calendarAccessSpinner} />
-                    ) : null}
-                    <Switch
-                      accessibilityLabel="Calendar and Quick Sale access"
-                      disabled={calendarAccess.loading || calendarAccess.saving}
-                      onValueChange={(value) => void calendarAccess.setCalendarAccess(value)}
-                      thumbColor="#FFFFFF"
-                      trackColor={{ false: Colors.border, true: Colors.primary }}
-                      value={calendarAccess.enabled}
-                    />
-                  </View>
-                  <Text style={styles.loginHint}>{CALENDAR_ACCESS_HELPER_TEXT}</Text>
-                  {calendarAccess.error ? <Text style={styles.errorText}>{calendarAccess.error}</Text> : null}
-                </View>
-              ) : null}
-              {mode === "edit" ? (
-                <View style={styles.calendarAccessSection}>
-                  <View style={styles.calendarAccessRow}>
-                    <Text style={styles.calendarAccessTitle}>Product Audit access</Text>
-                    {productAuditAccess.loading || productAuditAccess.saving ? (
-                      <ActivityIndicator color={Colors.primaryText} size="small" style={styles.calendarAccessSpinner} />
-                    ) : null}
-                    <Switch
-                      accessibilityLabel="Product Audit access"
-                      disabled={productAuditAccess.loading || productAuditAccess.saving}
-                      onValueChange={(value) => void productAuditAccess.setProductAuditAccess(value)}
-                      thumbColor="#FFFFFF"
-                      trackColor={{ false: Colors.border, true: Colors.primary }}
-                      value={productAuditAccess.enabled}
-                    />
-                  </View>
-                  <Text style={styles.loginHint}>{PRODUCT_AUDIT_ACCESS_HELPER_TEXT}</Text>
-                  {productAuditAccess.error ? <Text style={styles.errorText}>{productAuditAccess.error}</Text> : null}
-                </View>
-              ) : null}
-            </>
-          ) : null}
-        </View>
-
-        <View style={styles.card}>
-          {form.error ? <Text style={styles.error}>{form.error}</Text> : null}
-
-          <TouchableOpacity
-            activeOpacity={0.86}
-            disabled={form.submitting}
-            onPress={handleSubmit}
-            style={[styles.saveButton, form.submitting && styles.saveButtonDisabled]}
+    <PearlBackground>
+      <SafeAreaView edges={["top"]} style={staffUi.screen}>
+        <AppStatusBar />
+        <KeyboardInsetView bottomOffset={insets.bottom}>
+          <KeyboardAwareScrollView
+            pearlStyle
+            padForKeyboard={false}
+            extraScrollPadding={48}
+            keyboardNavigation={navigation}
+            ref={scrollViewRef}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={[staffUi.content, { paddingBottom: 24 }]}
           >
-            {form.submitting ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <Text style={styles.saveButtonText}>
-                {mode === "edit" ? "Update Staff" : "Create Staff"}
+            <StaffHeader
+              centered
+              title={mode === "edit" ? "Edit staff" : "Add staff"}
+              onBack={handleBack}
+            />
+            <View style={{ flexDirection: "row", gap: 12 }}>
+              {["Profile", "Role & pay", "Login"].map((label, index) => (
+                <View
+                  key={label}
+                  style={{
+                    flex: 1,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 6,
+                  }}
+                >
+                  <View
+                    style={{
+                      width: 7,
+                      height: 7,
+                      borderRadius: 4,
+                      backgroundColor:
+                        index <= step ? pearl.accent : pearl.divider,
+                    }}
+                  />
+                  <Text translate
+                    style={{
+                      color: index <= step ? pearl.accentDeep : pearl.muted,
+                      fontSize: 12,
+                      fontWeight: "600",
+                    }}
+                  >
+                    {label}
+                  </Text>
+                </View>
+              ))}
+            </View>
+            {step === 0 ? (
+              <>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    gap: 12,
+                    alignItems: "center",
+                    paddingVertical: 6,
+                  }}
+                >
+                  <StaffAvatar
+                    initials={getInitials(form.values.fullName)}
+                    uri={form.values.avatarUrl}
+                    size={56}
+                  />
+                  <View style={{ flex: 1 }}>
+                    <Text translate style={staffUi.rowTitle}>Profile photo</Text>
+                    <Text translate style={staffUi.muted}>PNG or JPG, up to 2 MB</Text>
+                  </View>
+                  <StaffButton
+                    secondary
+                    label={form.avatarUploading ? "Uploading…" : "Upload"}
+                    onPress={handlePickAvatar}
+                    disabled={form.avatarUploading}
+                  />
+                </View>
+                {avatarValidationError || form.avatarError ? (
+                  <Text style={staffUi.error}>
+                    {avatarValidationError ?? form.avatarError}
+                  </Text>
+                ) : null}
+                <View style={staffUi.formCard}>
+                  <Text translate style={staffUi.heading}>About</Text>
+                  {field("fullName", "Full name *", "e.g. Shubham Verma")}
+                  <View>
+                    <Text translate style={staffUi.label}>Mobile *</Text>
+                    <PhoneInput
+                      pearlStyle
+                      ref={(input) => {
+                        refs.phone.current = input;
+                        setFieldRef("phone", input);
+                      }}
+                      required
+                      placeholder="98765 43210"
+                      country={form.values.phoneCountry as CountryCode}
+                      disabled={form.submitting}
+                      error={form.validationErrors.phone}
+                      onCountryChange={(value) =>
+                        form.updateField("phoneCountry", value)
+                      }
+                      value={form.values.phone}
+                      onChange={(value) => form.updateField("phone", value)}
+                      onSubmitEditing={() => refs.email.current?.focus()}
+                    />
+                  </View>
+                  {field("email", "Email", "For login & payslips")}
+                </View>
+                <View style={staffUi.formCard}>
+                  <Text translate style={staffUi.heading}>Dates</Text>
+                  <View style={{ flexDirection: "row", gap: 12 }}>
+                    <View style={{ flex: 1 }}>
+                      {" "}
+                      <DateField
+                        pearlStyle
+                        label="Date of birth"
+                        value={form.values.dob}
+                        maximumDate={new Date()}
+                        onChange={(value) => form.updateField("dob", value)}
+                        error={form.validationErrors.dob}
+                      />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      {" "}
+                      <DateField
+                        pearlStyle
+                        label="Joined on"
+                        value={form.values.joiningDate}
+                        maximumDate={new Date()}
+                        onChange={(value) =>
+                          form.updateField("joiningDate", value)
+                        }
+                        error={form.validationErrors.joiningDate}
+                      />
+                    </View>
+                  </View>
+                  {field("address", "Address")}
+                </View>
+              </>
+            ) : null}
+            {step === 1 ? (
+              <>
+                <View style={staffUi.formCard}>
+                  <Text translate style={staffUi.heading}>Role</Text>
+                  <View style={{ flexDirection: "row", gap: 12 }}>
+                    {(["designation", "gender"] as const).map((key) => (
+                      <TouchableOpacity
+                        key={key}
+                        onPress={() => setPicker(key)}
+                        style={{ flex: 1 }}
+                      >
+                        <Text translate style={staffUi.label}>
+                          {key === "designation" ? "Designation" : "Gender"}
+                        </Text>
+                        <View
+                          style={[
+                            staffUi.input,
+                            { flexDirection: "row", alignItems: "center" },
+                          ]}
+                        >
+                          <Text
+                            style={{
+                              flex: 1,
+                              color: form.values[key] ? pearl.ink : pearl.muted,
+                            }}
+                          >
+                            {form.values[key] ||
+                              (key === "gender" ? "Optional" : "Choose")}
+                          </Text>
+                          <Ionicons
+                            name="chevron-down"
+                            size={16}
+                            color={pearl.muted}
+                          />
+                        </View>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                  <Text translate style={staffUi.label}>Access level *</Text>
+                  <View style={staffUi.tabs}>
+                    {STAFF_ROLE_OPTIONS.map((role) => (
+                      <TouchableOpacity
+                        key={role}
+                        onPress={() => form.updateField("roleLevel", role)}
+                        style={[
+                          staffUi.tab,
+                          role === form.values.roleLevel && {
+                            backgroundColor: pearl.glassStrong,
+                          },
+                        ]}
+                      >
+                        <Text style={staffUi.rowTitle}>{role}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                  <Text translate style={staffUi.muted}>
+                    Access follows the assigned role and individual permissions.
+                  </Text>
+                </View>
+                <View style={staffUi.formCard}>
+                  <Text translate style={staffUi.heading}>Pay</Text>
+                  <Text translate style={staffUi.label}>How is this person paid?</Text>
+                  <View style={staffUi.tabs}>
+                    {["Fixed salary", "Hourly"].map((option) => (
+                      <TouchableOpacity
+                        key={option}
+                        onPress={() => {
+                          setPay(option);
+                          form.updateField(
+                            option === "Hourly" ? "fixedSalary" : "hourlyRate",
+                            "",
+                          );
+                        }}
+                        style={[
+                          staffUi.tab,
+                          pay === option && {
+                            backgroundColor: pearl.glassStrong,
+                          },
+                        ]}
+                      >
+                        <Text style={staffUi.rowTitle}>{option}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                  {pay === "Fixed salary"
+                    ? field("fixedSalary", "Monthly salary", "0", true)
+                    : field("hourlyRate", "Hourly rate", "0", true)}
+                  {field("workingHoursPerDay", "Hours / day", "e.g. 10", true)}
+                  {field("holidays", "Holidays", "Optional", true)}
+                </View>
+              </>
+            ) : null}
+            {step === 2 ? (
+              <>
+                <View style={staffUi.formCard}>
+                  <Text translate style={staffUi.heading}>App login</Text>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      gap: 12,
+                      alignItems: "center",
+                    }}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text translate style={staffUi.rowTitle}>
+                        Allow staff to sign in
+                      </Text>
+                      <Text translate style={staffUi.muted}>
+                        Uses their email address
+                      </Text>
+                    </View>
+                    <Switch
+                      value={form.values.isLoginEnabled}
+                      onValueChange={(value) =>
+                        form.updateField("isLoginEnabled", value)
+                      }
+                      thumbColor="#FFFFFF"
+                      trackColor={{ false: pearl.divider, true: pearl.accent }}
+                    />
+                  </View>
+                  {form.values.isLoginEnabled ? (
+                    <>
+                      {field("email", "Login email *", "Email address")}
+                      <StaffButton
+                        secondary
+                        disabled={otpBusy || emailVerified || !email}
+                        label={
+                          emailVerified
+                            ? "Email verified"
+                            : otpBusy
+                              ? "Please wait…"
+                              : "Send OTP"
+                        }
+                        onPress={() => void emailOtp(false)}
+                      />
+                      {sentEmail && sentEmail === email && !emailVerified ? (
+                        <>
+                          <TextInput
+                            ref={otpInput}
+                            accessibilityLabel="Email OTP"
+                            value={otp}
+                            onChangeText={setOtp}
+                            placeholder="6-digit OTP"
+                            placeholderTextColor={pearl.placeholder}
+                            keyboardType="number-pad"
+                            maxLength={6}
+                            style={staffUi.input}
+                          />
+                          <StaffButton
+                            secondary
+                            label="Verify OTP"
+                            disabled={otpBusy || otp.length !== 6}
+                            onPress={() => void emailOtp(true)}
+                          />
+                        </>
+                      ) : null}
+                      {otpMessage ? (
+                        <Text style={staffUi.muted}>{otpMessage}</Text>
+                      ) : null}
+                      <PasswordField
+                        pearlStyle
+                        label="Temporary password"
+                        ref={(input) => {
+                          refs.password.current = input;
+                          setFieldRef("password", input);
+                        }}
+                        value={form.values.password}
+                        onChangeText={(value) =>
+                          form.updateField("password", value)
+                        }
+                        placeholder="At least 8 characters"
+                        error={form.validationErrors.password}
+                        autoComplete="off"
+                        importantForAutofill="no"
+                        returnKeyType="next"
+                        submitBehavior="submit"
+                        onSubmitEditing={() =>
+                          refs.confirmPassword.current?.focus()
+                        }
+                      />
+                      <PasswordField
+                        pearlStyle
+                        label="Confirm password"
+                        ref={(input) => {
+                          refs.confirmPassword.current = input;
+                          setFieldRef("confirmPassword", input);
+                        }}
+                        value={form.values.confirmPassword}
+                        onChangeText={(value) =>
+                          form.updateField("confirmPassword", value)
+                        }
+                        error={form.validationErrors.confirmPassword}
+                        autoComplete="off"
+                        importantForAutofill="no"
+                        returnKeyType="done"
+                        onSubmitEditing={Keyboard.dismiss}
+                      />
+                      <Text translate style={staffUi.muted}>
+                        Leave the password blank to send an email invite.
+                      </Text>
+                    </>
+                  ) : null}
+                </View>
+                <View style={staffUi.formCard}>
+                  <Text translate style={staffUi.heading}>Can access</Text>
+                  <Text style={staffUi.muted}>
+                    Permissions follow the assigned{" "}
+                    {form.values.roleLevel || "Staff"} role. Manage individual
+                    permissions after saving.
+                  </Text>
+                  {staffId ? (
+                    <StaffButton
+                      secondary
+                      label="Staff permissions"
+                      onPress={() =>
+                        router.push(
+                          ("/team/permissions?staffId=" + staffId) as Href,
+                        )
+                      }
+                    />
+                  ) : null}
+                </View>
+              </>
+            ) : null}
+            {stepError || form.error ? (
+              <Text accessibilityRole="alert" style={staffUi.error}>
+                {stepError || form.error}
               </Text>
-            )}
-          </TouchableOpacity>
-        </View>
-      </KeyboardAwareScrollView>
-    </SafeAreaView>
+            ) : null}
+          </KeyboardAwareScrollView>
+          <PearlActionFooter bottomInset={insets.bottom}>
+            <View style={{ borderRadius: 16, backgroundColor: pearl.bgTop }}>
+              <StaffButton
+                secondary
+                label={step === 0 ? "Cancel" : "Back"}
+                onPress={handleBack}
+                disabled={form.submitting}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <StaffButton
+                label={
+                  form.submitting
+                    ? "Saving…"
+                    : step === 0
+                      ? "Next: Role & pay"
+                      : step === 1
+                        ? "Next: Login"
+                        : mode === "edit"
+                          ? "Save staff"
+                          : "Create staff"
+                }
+                disabled={
+                  form.submitting ||
+                  form.avatarUploading ||
+                  otpBusy ||
+                  !canManageStaffLifecycle(currentUser?.role)
+                }
+                onPress={step < 2 ? next : submit}
+              />
+            </View>
+          </PearlActionFooter>
+        </KeyboardInsetView>
+        <BottomSheet
+          avoidKeyboard
+          pearlStyle
+          centered={false}
+          title={picker === "gender" ? "Gender" : "Designation"}
+          visible={!!picker}
+          onClose={() => setPicker(null)}
+        >
+          {(picker === "gender"
+            ? ["Female", "Male", "Other"]
+            : [
+                "Stylist",
+                "Senior stylist",
+                "Barber",
+                "Nail artist",
+                "Beautician",
+                "Therapist",
+                "Receptionist",
+              ]
+          ).map((value) => (
+            <StaffMenuItem
+              key={value}
+              label={value}
+              icon="person-outline"
+              onPress={() => {
+                form.updateField(picker!, value);
+                setPicker(null);
+              }}
+            />
+          ))}
+          {picker === "designation"
+            ? field("designation", "Other designation")
+            : null}
+        </BottomSheet>
+      </SafeAreaView>
+    </PearlBackground>
   );
 }
-
-const createStyles = (Colors: ThemeColors) => StyleSheet.create({
-  safeArea: {
-    backgroundColor: Colors.bg,
-    flex: 1,
-  },
-  content: {
-    paddingBottom: AppLayout.contentBottomPadding,
-    paddingHorizontal: AppLayout.contentHorizontalPadding,
-  },
-  header: {
-    alignItems: "center",
-    flexDirection: "row",
-    marginBottom: AppLayout.headerMarginBottom,
-  },
-  backButton: {
-    alignItems: "center",
-    backgroundColor: Colors.card,
-    borderColor: Colors.border,
-    borderRadius: AppRadius.control,
-    borderWidth: 1,
-    height: AppLayout.headerActionSize,
-    justifyContent: "center",
-    width: AppLayout.headerActionSize,
-  },
-  headerCopy: {
-    flex: 1,
-    marginLeft: Spacing.md,
-  },
-  title: {
-    color: Colors.heading,
-    fontSize: AppLayout.headerTitleFontSize,
-    fontWeight: AppLayout.screenTitleFontWeight,
-  },
-  subtitle: {
-    color: Colors.text2,
-    fontSize: AppLayout.headerSubtitleFontSize,
-    lineHeight: 20,
-    marginTop: AppLayout.headerSubtitleMarginTop,
-  },
-  card: {
-    backgroundColor: Colors.card,
-    borderColor: Colors.border,
-    borderRadius: AppRadius.card,
-    borderWidth: 1,
-    marginBottom: Spacing.md,
-    padding: AppLayout.cardPadding,
-  },
-  sectionHeading: {
-    color: Colors.heading,
-    fontSize: 15,
-    fontWeight: "800",
-    marginBottom: Spacing.md,
-  },
-  error: {
-    color: Colors.error,
-    fontSize: 12,
-    fontWeight: "700",
-    lineHeight: 18,
-    marginBottom: Spacing.md,
-  },
-  saveButton: {
-    alignItems: "center",
-    backgroundColor: Colors.primary,
-    borderRadius: AppRadius.pill,
-    justifyContent: "center",
-    minHeight: 50,
-  },
-saveButtonDisabled: {
-    opacity: 0.55,
-  },
-  saveButtonText: {
-    color: Colors.onPrimary,
-    fontSize: 13,
-    fontWeight: "800",
-  },
-  errorText: {
-    color: Colors.error,
-    fontSize: 11,
-    fontWeight: "700",
-    marginTop: 6,
-  },
-  fieldGroup: {
-    marginBottom: Spacing.md,
-  },
-  fieldGroupError: {
-    borderColor: Colors.error,
-    borderRadius: AppRadius.control,
-    borderWidth: 1.5,
-    padding: Spacing.sm,
-  },
-  fieldLabel: {
-    color: Colors.heading,
-    fontSize: 12,
-    fontWeight: "800",
-    marginBottom: 8,
-  },
-  timeRow: {
-    flexDirection: "row",
-    gap: Spacing.md,
-    marginBottom: Spacing.xs,
-  },
-  chipRow: {
-    flexDirection: "row",
-    gap: Spacing.sm,
-  },
-  chip: {
-    alignItems: "center",
-    backgroundColor: Colors.bg2,
-    borderColor: Colors.border,
-    borderRadius: AppRadius.pill,
-    borderWidth: 1,
-    flex: 1,
-    justifyContent: "center",
-    minHeight: 42,
-    paddingHorizontal: Spacing.md,
-  },
-  chipSelected: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
-  },
-  chipText: {
-    color: Colors.text2,
-    fontSize: 13,
-    fontWeight: "800",
-  },
-  chipTextSelected: {
-    color: Colors.onPrimary,
-  },
-  avatarRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: Spacing.md,
-  },
-  avatarWrap: {
-    height: 72,
-    width: 72,
-  },
-  avatarImage: {
-    backgroundColor: Colors.bg2,
-    borderRadius: 36,
-    height: 72,
-    width: 72,
-  },
-  avatarPlaceholder: {
-    alignItems: "center",
-    backgroundColor: Colors.bg2,
-    borderRadius: 36,
-    height: 72,
-    justifyContent: "center",
-    width: 72,
-  },
-  avatarPlaceholderText: {
-    color: Colors.primaryText,
-    fontSize: 20,
-    fontWeight: "800",
-  },
-  avatarCameraBadge: {
-    alignItems: "center",
-    backgroundColor: Colors.primary,
-    borderColor: Colors.card,
-    borderRadius: 13,
-    borderWidth: 2,
-    bottom: -2,
-    height: 26,
-    justifyContent: "center",
-    position: "absolute",
-    right: -2,
-    width: 26,
-  },
-  avatarUploadingOverlay: {
-    alignItems: "center",
-    backgroundColor: "rgba(15, 23, 32, 0.45)",
-    borderRadius: 36,
-    bottom: 0,
-    justifyContent: "center",
-    left: 0,
-    position: "absolute",
-    right: 0,
-    top: 0,
-  },
-  avatarCopy: {
-    flex: 1,
-  },
-  avatarHint: {
-    color: Colors.text2,
-    fontSize: 12,
-    lineHeight: 17,
-  },
-  avatarError: {
-    color: Colors.error,
-    fontSize: 11,
-    fontWeight: "700",
-    marginTop: 6,
-  },
-  loginHeaderRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: Spacing.md,
-  },
-  loginHint: {
-    color: Colors.text2,
-    fontSize: 12,
-    lineHeight: 18,
-    marginTop: Spacing.xs,
-  },
-  calendarAccessSection: {
-    borderTopColor: Colors.border,
-    borderTopWidth: 1,
-    marginTop: Spacing.md,
-    paddingTop: Spacing.md,
-  },
-  calendarAccessRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: Spacing.sm,
-  },
-  calendarAccessTitle: {
-    color: Colors.heading,
-    flex: 1,
-    fontSize: 13,
-    fontWeight: "800",
-  },
-  calendarAccessSpinner: {
-    marginRight: Spacing.xs,
-  },
-});

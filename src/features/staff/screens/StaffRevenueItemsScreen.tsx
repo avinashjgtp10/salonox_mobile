@@ -1,19 +1,23 @@
+import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
+import { useRegionalPreferences } from "@/localization/preferences";
+import { AppBackButton } from "@/components/ui/AppBackButton";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { Text } from "@/components/ui/AppTypography";
 import { DateRangeField } from "@/components/ui/DateRangeField";
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { AppLayout, AppRadius } from "@/constants/layout";
-import { DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
+import { DashboardSpacing as Spacing } from "@/constants/theme";
 import { toComparableId } from "@/features/appointments/utils/staffAssignment";
 import { getApiErrorMessage } from "@/services/api";
 import { appointmentService } from "@/services/appointment.service";
 import { selectActiveBranchId } from "@/store/branch/branch.slice";
 import { useAppSelector } from "@/store/hooks";
 import { selectCurrentStaff } from "@/store/staff/staff.slice";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors as useThemeColors, type PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 import type { AppointmentBilledItem, AppointmentListItem } from "@/types/appointment";
 import { getAppointmentBillLabel, maskClientName } from "@/utils/clientPrivacy";
+import { useClientPrivacy } from "@/hooks/useClientPrivacy";
 import { formatCurrency } from "@/utils/currency";
 import { getDateRangePreset } from "@/utils/dateRangePresets";
 import { formatAppDate, formatAppTime } from "@/utils/dateTime";
@@ -52,6 +56,8 @@ type StaffAppointmentItems = { appointment: AppointmentListItem; items: Appointm
  * belongs to the appointment's staff member, as on the bill.
  */
 export function StaffRevenueItemsScreen() {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const { width } = useWindowDimensions();
@@ -59,6 +65,7 @@ export function StaffRevenueItemsScreen() {
   const params = useLocalSearchParams<{ endDate?: string; startDate?: string; type?: string }>();
   const type = toItemType(params.type);
   const staff = useAppSelector(selectCurrentStaff);
+  const { showFullName } = useClientPrivacy();
   const branchId = useAppSelector(selectActiveBranchId);
 
   const [range, setRange] = useState(() => {
@@ -124,16 +131,14 @@ export function StaffRevenueItemsScreen() {
   }, [goBack]));
 
   return (
-    <SafeAreaView edges={["top"]} style={[styles.safeArea, { backgroundColor: Colors.bg }]}>
+    <PearlBackground><SafeAreaView edges={["top"]} style={[styles.safeArea, { backgroundColor: "transparent" }]}>
       <AppStatusBar />
       <RefreshViewport><ScrollView
         contentContainerStyle={[styles.content, { paddingHorizontal: horizontalPadding }]}
         refreshControl={<RefreshControl colors={[Colors.primary]} onRefresh={() => void load(true)} refreshing={refreshing} tintColor={Colors.primary} />}
       >
         <View style={styles.header}>
-          <TouchableOpacity accessibilityLabel="Back" accessibilityRole="button" activeOpacity={0.84} hitSlop={AppLayout.headerActionHitSlop} onPress={goBack} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
-          </TouchableOpacity>
+          <AppBackButton accessibilityLabel="Back" accessibilityRole="button" activeOpacity={0.84} hitSlop={AppLayout.headerActionHitSlop} onPress={goBack} />
           <View style={styles.headerCopy}>
             <Text style={styles.title}>{TITLES[type]}</Text>
             <Text style={styles.subtitle}>{staff?.name ? `${staff.name} · ` : ""}My appointments</Text>
@@ -166,10 +171,10 @@ export function StaffRevenueItemsScreen() {
         {error ? (
           <View style={styles.card}>
             <Ionicons name="alert-circle-outline" size={26} color={Colors.error} />
-            <Text style={styles.stateTitle}>Unable to load your appointments</Text>
-            <Text style={styles.stateText}>{error}</Text>
+            <Text translate style={styles.stateTitle}>Unable to load your appointments</Text>
+            <Text translate style={styles.stateText}>{error}</Text>
             <TouchableOpacity accessibilityRole="button" onPress={() => void load()} style={styles.retryButton}>
-              <Text style={styles.retryText}>Retry</Text>
+              <Text translate style={styles.retryText}>Retry</Text>
             </TouchableOpacity>
           </View>
         ) : null}
@@ -178,7 +183,7 @@ export function StaffRevenueItemsScreen() {
           <View style={styles.card}>
             <Ionicons name="receipt-outline" size={26} color={Colors.text2} />
             <Text style={styles.stateTitle}>No {TITLES[type].toLowerCase()} in this range</Text>
-            <Text style={styles.stateText}>Try another date range.</Text>
+            <Text translate style={styles.stateText}>Try another date range.</Text>
           </View>
         ) : null}
 
@@ -192,13 +197,13 @@ export function StaffRevenueItemsScreen() {
           >
             <View style={styles.cardHeader}>
               <View style={styles.rowCopy}>
-                <Text style={styles.clientName}>{maskClientName(appointment.clientName)}</Text>
+                <Text style={styles.clientName}>{maskClientName(appointment.clientName, showFullName)}</Text>
                 <Text style={styles.rowMeta}>
-                  {getAppointmentBillLabel(appointment)} · {formatAppDate(appointment.scheduledAt, "")} {formatAppTime(appointment.scheduledAt, "")}
+                  {getAppointmentBillLabel(appointment, showFullName)} · {formatAppDate(appointment.scheduledAt, "")} {formatAppTime(appointment.scheduledAt, "")}
                 </Text>
               </View>
               <View style={[styles.statusChip, appointment.status === "Partial" ? styles.statusPartial : styles.statusDone]}>
-                <Text style={styles.statusText}>{appointment.status === "Partial" ? "Partly paid" : "Paid"}</Text>
+                <Text translate style={styles.statusText}>{appointment.status === "Partial" ? "Partly paid" : "Paid"}</Text>
               </View>
             </View>
             {items.map((item, index) => (
@@ -209,14 +214,14 @@ export function StaffRevenueItemsScreen() {
             ))}
             {items.length > 1 ? (
               <View style={styles.cardFooter}>
-                <Text style={styles.rowMeta}>Total</Text>
+                <Text translate style={styles.rowMeta}>Total</Text>
                 <Text style={styles.itemValue}>{formatCurrency(total)}</Text>
               </View>
             ) : null}
           </TouchableOpacity>
         )) : null}
       </ScrollView></RefreshViewport>
-    </SafeAreaView>
+    </SafeAreaView></PearlBackground>
   );
 }
 

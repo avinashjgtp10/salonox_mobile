@@ -14,7 +14,7 @@ export function DetailRow({ label, value }: { label: string; value?: string | nu
   }
   return (
     <View style={styles.detailRow}>
-      <Text style={styles.detailLabel}>{label}</Text>
+      <Text translate style={styles.detailLabel}>{label}</Text>
       <Text style={styles.detailValue}>{strValue}</Text>
     </View>
   );

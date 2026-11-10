@@ -44,7 +44,7 @@ export function ProfileStateView(props: ProfileStateViewProps) {
                 <Ionicons name="person-outline" size={26} color={Colors.primaryText} />
               </View>
             )}
-            <Text style={styles.title}>
+            <Text translate style={styles.title}>
               {props.kind === "error" ? "Unable to load profile" : "Profile not available"}
             </Text>
             <Text style={styles.subtitle}>
@@ -53,7 +53,7 @@ export function ProfileStateView(props: ProfileStateViewProps) {
                 : "We couldn't find profile details for your account."}
             </Text>
             <TouchableOpacity activeOpacity={0.85} onPress={props.onRetry} style={styles.button}>
-              <Text style={styles.buttonText}>{props.kind === "error" ? "Retry" : "Reload"}</Text>
+              <Text translate style={styles.buttonText}>{props.kind === "error" ? "Retry" : "Reload"}</Text>
             </TouchableOpacity>
           </View>
         )}

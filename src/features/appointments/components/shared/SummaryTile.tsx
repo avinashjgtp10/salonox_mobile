@@ -23,7 +23,7 @@ export function SummaryTile({
         <Ionicons name={icon} size={18} color={Colors.primaryText} />
       </View>
       <Text style={styles.summaryValue}>{value}</Text>
-      <Text style={styles.summaryLabel}>{label}</Text>
+      <Text translate style={styles.summaryLabel}>{label}</Text>
     </View>
   );
 }

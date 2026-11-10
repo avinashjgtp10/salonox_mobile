@@ -40,7 +40,7 @@ export function SegmentedTabs<TKey extends string>({
             onPress={() => onChange(segment.key)}
             style={[styles.segment, isActive && styles.segmentActive, segment.disabled && styles.segmentDisabled]}
           >
-            <Text
+            <Text translate
               numberOfLines={1}
               style={[styles.label, isActive && styles.labelActive, segment.disabled && styles.labelDisabled]}
             >

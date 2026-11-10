@@ -133,7 +133,7 @@ export function RescheduleAppointmentForm({
       {error ? (
         <View style={styles.inlineAlert}>
           <Ionicons name="alert-circle-outline" size={18} color={Colors.error} />
-          <Text style={styles.inlineAlertText}>{error}</Text>
+          <Text translate style={styles.inlineAlertText}>{error}</Text>
         </View>
       ) : null}
 
@@ -144,7 +144,7 @@ export function RescheduleAppointmentForm({
         style={[styles.primaryButton, mutating && styles.disabledButton]}
       >
         {mutating ? <ActivityIndicator color={Colors.onPrimary} /> : <Ionicons name="calendar-outline" size={18} color={Colors.onPrimary} />}
-        <Text style={styles.primaryButtonText}>Reschedule Appointment</Text>
+        <Text translate style={styles.primaryButtonText}>Reschedule Appointment</Text>
       </TouchableOpacity>
     </View>
   );
@@ -168,7 +168,7 @@ export function RescheduleAppointmentModal({
         <Pressable accessibilityLabel="Close reschedule" onPress={onClose} style={styles.rescheduleBackdropTap} />
         <View style={[styles.stylistModalCard, styles.rescheduleModalCard]}>
           <View style={styles.stylistModalHeader}>
-            <Text style={styles.stylistModalTitle}>Reschedule</Text>
+            <Text translate style={styles.stylistModalTitle}>Reschedule</Text>
             <TouchableOpacity accessibilityLabel="Close" onPress={onClose}>
               <Ionicons name="close" size={26} color={Colors.appointmentMuted} />
             </TouchableOpacity>

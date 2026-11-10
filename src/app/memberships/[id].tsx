@@ -1,3 +1,6 @@
+import { useRegionalPreferences } from "@/localization/preferences";
+import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
+import { AppBackButton } from "@/components/ui/AppBackButton";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { maskPhone } from "@/utils/maskPhone";
 import { Text } from "@/components/ui/AppTypography";
@@ -9,7 +12,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppLayout, AppRadius } from "@/constants/layout";
-import { DashboardRadius as Radius, DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
+import { DashboardRadius as Radius, DashboardSpacing as Spacing } from "@/constants/theme";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { addRealtimeEntityChangedListener } from "@/services/realtimeEvents";
 import { assignClientMembershipThunk, fetchMembershipClientsThunk } from "@/middleware/clientMembership/clientMembership.thunk";
@@ -29,7 +32,7 @@ import {
   selectMembershipDetailsLoading,
 } from "@/store/membership/membership.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors, type PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 import type { ClientListItem } from "@/types/client";
 import type { Membership } from "@/types/membership";
 import { formatAppDate } from "@/utils/dateTime";
@@ -255,7 +258,9 @@ const getAssignedClientsErrorMessage = (error: string | null) => {
 };
 
 export default function MembershipDetailsScreen() {
-  const Colors = useThemeColors();
+  "use no memo";
+  useRegionalPreferences();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id?: string }>();
@@ -324,26 +329,26 @@ export default function MembershipDetailsScreen() {
 
   if (loading && !membership) {
     return (
-      <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
+      <PearlBackground><SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
         <AppStatusBar />
         <View style={styles.centered}><ActivityIndicator color={Colors.primaryText} size="large" /></View>
-      </SafeAreaView>
+      </SafeAreaView></PearlBackground>
     );
   }
 
   if (!membership) {
     return (
-      <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
+      <PearlBackground><SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
         <AppStatusBar />
         <View style={styles.content}>
           <Header title="Membership Details" onBack={goBack} />
           <View style={styles.stateCard}>
             <Ionicons name={error ? "cloud-offline-outline" : "diamond-outline"} size={32} color={error ? Colors.error : Colors.primaryText} />
-            <Text style={styles.stateTitle}>{error ? "Unable to load membership" : "Membership not found"}</Text>
+            <Text translate style={styles.stateTitle}>{error ? "Unable to load membership" : "Membership not found"}</Text>
             <Text style={styles.stateText}>{error ?? "This membership could not be found."}</Text>
           </View>
         </View>
-      </SafeAreaView>
+      </SafeAreaView></PearlBackground>
     );
   }
 
@@ -351,7 +356,7 @@ export default function MembershipDetailsScreen() {
   const benefits = membershipDisplay.benefits;
 
   return (
-    <SafeAreaView edges={["top"]} style={styles.safeArea}>
+    <PearlBackground><SafeAreaView edges={["top"]} style={styles.safeArea}>
       <AppStatusBar />
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 112 }]} showsVerticalScrollIndicator={false}>
         <Header title="Membership Details" onBack={goBack} />
@@ -382,7 +387,7 @@ export default function MembershipDetailsScreen() {
             <View style={styles.bonusCreditRow}>
               <Ionicons name="wallet-outline" size={17} color={Colors.primaryText} />
               <View style={styles.benefitCopy}>
-                <Text numberOfLines={1} style={styles.benefitTitle}>Bonus Credit</Text>
+                <Text translate numberOfLines={1} style={styles.benefitTitle}>Bonus Credit</Text>
                 <Text numberOfLines={1} style={styles.benefitMeta}>{membershipDisplay.bonusCredit}</Text>
               </View>
             </View>
@@ -391,11 +396,11 @@ export default function MembershipDetailsScreen() {
             <View key={benefit.id} style={styles.benefitRow}>
               <Ionicons name="checkmark-circle-outline" size={17} color={Colors.primaryText} />
               <View style={styles.benefitCopy}>
-                <Text numberOfLines={1} ellipsizeMode="tail" style={styles.benefitTitle}>{benefit.label}</Text>
+                <Text translate numberOfLines={1} ellipsizeMode="tail" style={styles.benefitTitle}>{benefit.label}</Text>
                 {benefit.meta ? <Text numberOfLines={1} ellipsizeMode="tail" style={styles.benefitMeta}>{benefit.meta}</Text> : null}
               </View>
             </View>
-          )) : membershipDisplay.bonusCredit ? null : <Text style={styles.mutedText}>No benefits available.</Text>}
+          )) : membershipDisplay.bonusCredit ? null : <Text translate style={styles.mutedText}>No benefits available.</Text>}
         </Section>
 
         <Section title="Assigned Clients">
@@ -404,7 +409,7 @@ export default function MembershipDetailsScreen() {
           ) : assignedClientsErrorMessage ? (
             <Text style={styles.mutedText}>{assignedClientsErrorMessage}</Text>
           ) : assignedClients.length === 0 ? (
-            <Text style={styles.mutedText}>No assigned clients.</Text>
+            <Text translate style={styles.mutedText}>No assigned clients.</Text>
           ) : (
             assignedClients.map((assignment) => (
               <View key={assignment.id} style={styles.clientAssignmentRow}>
@@ -454,38 +459,46 @@ export default function MembershipDetailsScreen() {
         saving={assignmentMutating}
         visible={clientPickerVisible}
       />
-    </SafeAreaView>
+    </SafeAreaView></PearlBackground>
   );
 }
 
 function Header({ onBack, title }: { onBack: () => void; title: string }) {
-  const Colors = useThemeColors();
+  "use no memo";
+  useRegionalPreferences();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   return (
     <View style={styles.headerRow}>
-      <TouchableOpacity activeOpacity={0.84} hitSlop={12} onPress={onBack} style={styles.headerButton}><Ionicons name="arrow-back" size={18} color={Colors.primaryText} /></TouchableOpacity>
-      <Text style={styles.headerTitle}>{title}</Text>
+      <AppBackButton activeOpacity={0.84} hitSlop={12} onPress={onBack} />
+      <Text translate style={styles.headerTitle}>{title}</Text>
       <View style={styles.headerButtonGhost} />
     </View>
   );
 }
 
 function Stat({ label, value }: { label: string; value: string }) {
-  const Colors = useThemeColors();
+  "use no memo";
+  useRegionalPreferences();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
-  return <View style={styles.stat}><Text style={styles.statValue}>{value}</Text><Text style={styles.statLabel}>{label}</Text></View>;
+  return <View style={styles.stat}><Text style={styles.statValue}>{value}</Text><Text translate style={styles.statLabel}>{label}</Text></View>;
 }
 
 function Section({ children, title }: { children: React.ReactNode; title: string }) {
-  const Colors = useThemeColors();
+  "use no memo";
+  useRegionalPreferences();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
-  return <View style={styles.section}><Text style={styles.sectionTitle}>{title}</Text>{children}</View>;
+  return <View style={styles.section}><Text translate style={styles.sectionTitle}>{title}</Text>{children}</View>;
 }
 
 function Detail({ label, value }: { label: string; value: string }) {
-  const Colors = useThemeColors();
+  "use no memo";
+  useRegionalPreferences();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
-  return <View style={styles.detailRow}><Text style={styles.detailLabel}>{label}</Text><Text style={styles.detailValue}>{value}</Text></View>;
+  return <View style={styles.detailRow}><Text translate style={styles.detailLabel}>{label}</Text><Text style={styles.detailValue}>{value}</Text></View>;
 }
 
 function ClientPickerModal({
@@ -501,7 +514,9 @@ function ClientPickerModal({
   saving: boolean;
   visible: boolean;
 }) {
-  const Colors = useThemeColors();
+  "use no memo";
+  useRegionalPreferences();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   return (
@@ -509,7 +524,7 @@ function ClientPickerModal({
       <Pressable onPress={onClose} style={styles.modalOverlay}>
         <Pressable style={styles.pickerSheet}>
           <View style={styles.pickerHeader}>
-            <Text style={styles.pickerTitle}>Assign to Client</Text>
+            <Text translate style={styles.pickerTitle}>Assign to Client</Text>
             <TouchableOpacity onPress={onClose} style={styles.pickerClose}>
               <Ionicons name="close" size={18} color={Colors.text2} />
             </TouchableOpacity>
@@ -533,7 +548,7 @@ function ClientPickerModal({
                 {saving ? <ActivityIndicator color={Colors.primaryText} size="small" /> : null}
               </TouchableOpacity>
             ))}
-            {clients.length === 0 ? <Text style={styles.mutedText}>No clients available.</Text> : null}
+            {clients.length === 0 ? <Text translate style={styles.mutedText}>No clients available.</Text> : null}
           </ScrollView>
         </Pressable>
       </Pressable>
@@ -542,7 +557,7 @@ function ClientPickerModal({
 }
 
 const createStyles = (Colors: ThemeColors) => StyleSheet.create({
-  safeArea: { backgroundColor: Colors.bg, flex: 1 },
+  safeArea: { flex: 1 },
   content: { paddingHorizontal: AppLayout.contentHorizontalPadding, paddingTop: Spacing.sm },
   centered: { alignItems: "center", flex: 1, justifyContent: "center" },
   headerRow: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", marginBottom: Spacing.lg },

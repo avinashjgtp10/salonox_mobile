@@ -19,12 +19,12 @@ const getActivityTitle = (appointment: AppointmentListItem): string => {
   return updated - created > 60_000 ? "Appointment Updated" : "New Appointment Booked";
 };
 
-const getActivityBody = (appointment: AppointmentListItem): string => {
+const getActivityBody = (appointment: AppointmentListItem, showFullName: boolean): string => {
   const date = parseAppDateTime(appointment.scheduledAt);
   const when = date
     ? `${pad(date.getDate())}-${pad(date.getMonth() + 1)}-${date.getFullYear()} at ${pad(date.getHours() % 12 || 12)}:${pad(date.getMinutes())} ${date.getHours() >= 12 ? "pm" : "am"}`
     : "";
-  const name = appointment.clientName?.trim() ? maskClientName(appointment.clientName) : "Walk-in";
+  const name = appointment.clientName?.trim() ? maskClientName(appointment.clientName, showFullName) : "Walk-in";
   return when ? `${name} — ${when}` : name;
 };
 
@@ -55,6 +55,7 @@ export const buildStaffAppointmentActivity = (
   staff: StaffMember,
   userId: string,
   readIds: string[],
+  showFullName = false,
 ): NotificationItem[] => {
   const read = new Set(readIds);
   return appointments.flatMap(appointment => {
@@ -66,7 +67,7 @@ export const buildStaffAppointmentActivity = (
       id,
       type: "appointment",
       title: getActivityTitle(appointment),
-      body: getActivityBody(appointment),
+      body: getActivityBody(appointment, showFullName),
       referenceId: appointment.id,
       recipientUserIds: [userId],
       createdAt,

@@ -1,3 +1,5 @@
+import { useRegionalPreferences } from "@/localization/preferences";
+import { AppBackButton } from "@/components/ui/AppBackButton";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
@@ -54,6 +56,8 @@ const getMonthRange = (value: Date) => {
 };
 
 export default function RevenueScreen({ period }: { period: RevenuePeriod }) {
+  "use no memo";
+  useRegionalPreferences();
   const colors = useThemeColors();
   const dispatch = useAppDispatch();
   const salonId = useAppSelector(selectActiveBranchId);
@@ -154,11 +158,8 @@ export default function RevenueScreen({ period }: { period: RevenuePeriod }) {
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg2 }]}>
       <AppStatusBar />
       <View style={styles.header}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Go back" hitSlop={12}
-          onPress={() => router.canGoBack() ? router.back() : router.replace("/")}>
-          <Ionicons name="arrow-back" size={24} color={colors.heading} />
-        </Pressable>
-        <Text style={[styles.title, { color: colors.heading }]}>
+        <AppBackButton accessibilityRole="button" accessibilityLabel="Go back" hitSlop={12} onPress={() => router.canGoBack() ? router.back() : router.replace("/")} />
+        <Text translate style={[styles.title, { color: colors.heading }]}>
           {period === "today" ? "Today's Revenue" : "Revenue"}
         </Text>
       </View>
@@ -171,25 +172,25 @@ export default function RevenueScreen({ period }: { period: RevenuePeriod }) {
             <Ionicons name="chevron-down" size={16} color={colors.hint} />
           </Pressable>
         ) : <Text style={{ color: colors.text2 }}>{periodLabel}</Text>}
-        {error && revenue && <Text style={{ color: colors.error }}>{error}</Text>}
+        {error && revenue && <Text translate style={{ color: colors.error }}>{error}</Text>}
         {loading ? <ActivityIndicator accessibilityLabel="Loading revenue" color={colors.primaryText} /> : error && !revenue ? (
           <View style={styles.card}>
-            <Text style={{ color: colors.error }}>{error}</Text>
+            <Text translate style={{ color: colors.error }}>{error}</Text>
             <Pressable accessibilityRole="button" onPress={load}>
-              <Text style={{ color: colors.primaryText }}>Retry</Text>
+              <Text translate style={{ color: colors.primaryText }}>Retry</Text>
             </Pressable>
           </View>
         ) : revenue ? (
           <>
             <View style={[styles.card, { backgroundColor: colors.card }]}>
-              <Text style={{ color: colors.text2 }}>
+              <Text translate style={{ color: colors.text2 }}>
                 Collected revenue
               </Text>
               <Text style={[styles.total, { color: colors.heading }]}>{currency(revenue.revenue)}</Text>
               <Text style={{ color: colors.text2 }}>Billed revenue including GST: {revenue.billedRevenue === null ? "Unavailable" : currency(revenue.billedRevenue)}</Text>
             </View>
-            <Text style={[styles.title, { color: colors.heading }]}>Staff Performance</Text>
-            <Text style={{ color: colors.text2 }}>
+            <Text translate style={[styles.title, { color: colors.heading }]}>Staff Performance</Text>
+            <Text translate style={{ color: colors.text2 }}>
               Billed item revenue including GST, using the same report as the web app. Collections are shown separately above.
             </Text>
             {revenue.staffError ? (
@@ -197,7 +198,7 @@ export default function RevenueScreen({ period }: { period: RevenuePeriod }) {
                 <Text style={{ color: colors.error }}>{revenue.staffError}</Text>
               </View>
             ) : revenue.staffRecords.length === 0 ? (
-              <Text style={{ color: colors.text2 }}>
+              <Text translate style={{ color: colors.text2 }}>
                 {period === "today" ? "No revenue records for today." : "No revenue records for this date range."}
               </Text>
             ) : revenue.staffRecords.map((staff) => (
@@ -216,7 +217,7 @@ export default function RevenueScreen({ period }: { period: RevenuePeriod }) {
               >
                 <View style={styles.staff}>
                   <Text style={{ color: colors.heading, fontWeight: "700" }}>{staff.name}</Text>
-                  <Text style={{ color: colors.text2 }}>Staff</Text>
+                  <Text translate style={{ color: colors.text2 }}>Staff</Text>
                 </View>
                 <Text style={{ color: colors.primaryText, fontWeight: "700" }}>{currency(staff.revenue)}</Text>
                 <Ionicons color={colors.hint} name="chevron-forward" size={18} />

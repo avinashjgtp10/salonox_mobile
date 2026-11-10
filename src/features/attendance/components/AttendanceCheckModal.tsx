@@ -3,11 +3,11 @@ import { Text, TextInput } from "@/components/ui/AppTypography";
 import { useEffect, useMemo, useState } from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
 
-import { DashboardRadius as Radius, DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
+import { DashboardRadius as Radius, DashboardSpacing as Spacing } from "@/constants/theme";
 import type { StaffMember } from "@/data/teamData";
 import { StaffBottomSheet } from "@/features/staff/components/StaffBottomSheet";
 import { StaffTextField } from "@/features/staff/components/StaffTextField";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors, type PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 import { attendanceTimeToIso } from "@/features/attendance/utils/attendanceRules";
 import { staffShiftService } from "@/services/staffShift.service";
 
@@ -60,7 +60,7 @@ export function AttendanceCheckModal({
   staffMember,
   visible,
 }: AttendanceCheckModalProps) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const [time, setTime] = useState<TimeValue>(emptyTime);
   const [shiftLoading, setShiftLoading] = useState(false);
@@ -127,7 +127,7 @@ export function AttendanceCheckModal({
             onPress={onClose}
             style={[styles.cancelButton, isSaving && styles.buttonDisabled]}
           >
-            <Text style={styles.cancelButtonText}>Cancel</Text>
+            <Text translate style={styles.cancelButtonText}>Cancel</Text>
           </TouchableOpacity>
           <TouchableOpacity
             activeOpacity={0.84}
@@ -138,7 +138,7 @@ export function AttendanceCheckModal({
             {isSaving || shiftLoading ? (
               <ActivityIndicator color="#FFFFFF" size="small" />
             ) : (
-              <Text style={styles.saveButtonText}>{isCheckIn ? "Check In" : "Check Out"}</Text>
+              <Text translate style={styles.saveButtonText}>{isCheckIn ? "Check In" : "Check Out"}</Text>
             )}
           </TouchableOpacity>
         </>
@@ -148,7 +148,7 @@ export function AttendanceCheckModal({
       title={isCheckIn ? "Check In" : "Check Out"}
       visible={visible}
     >
-      <Text style={styles.label}>{isCheckIn ? "Check-In Time" : "Check-Out Time"}</Text>
+      <Text translate style={styles.label}>{isCheckIn ? "Check-In Time" : "Check-Out Time"}</Text>
       <View style={styles.timeRow}>
         <TextInput
           keyboardType="number-pad"
@@ -159,7 +159,7 @@ export function AttendanceCheckModal({
           style={styles.timeInput}
           value={time.hour}
         />
-        <Text style={styles.timeSeparator}>:</Text>
+        <Text translate style={styles.timeSeparator}>:</Text>
         <TextInput
           keyboardType="number-pad"
           maxLength={2}
@@ -189,7 +189,7 @@ export function AttendanceCheckModal({
         const current = new Date(Date.now() + 330 * 60000);
         setTime(timeFromShift(`${String(current.getUTCHours()).padStart(2, "0")}:${String(current.getUTCMinutes()).padStart(2, "0")}`));
       }}>
-        <Text style={styles.clearText}>Use current time</Text>
+        <Text translate style={styles.clearText}>Use current time</Text>
       </TouchableOpacity>
 
       <StaffTextField
@@ -200,7 +200,7 @@ export function AttendanceCheckModal({
         value={note}
       />
 
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+      {error ? <Text translate style={styles.errorText}>{error}</Text> : null}
     </StaffBottomSheet>
   );
 }

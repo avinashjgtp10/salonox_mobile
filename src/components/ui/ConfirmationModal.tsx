@@ -7,9 +7,9 @@ import {
   DashboardRadius as Radius,
   DashboardSpacing as Spacing,
   DashboardTypography as Typography,
-  type ThemeColors,
+
 } from "@/constants/theme";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors, type PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 
 export type ConfirmationAction = {
   label: string;
@@ -18,6 +18,7 @@ export type ConfirmationAction = {
 };
 
 type ConfirmationModalProps = {
+  pearlStyle?: boolean;
   cancelLabel: string;
   cancelable?: boolean;
   confirmLabel: string;
@@ -33,6 +34,7 @@ type ConfirmationModalProps = {
 };
 
 export function ConfirmationModal({
+  pearlStyle = false,
   cancelLabel,
   cancelable = true,
   confirmLabel,
@@ -46,7 +48,7 @@ export function ConfirmationModal({
   title,
   visible,
 }: ConfirmationModalProps) {
-  const colors = useThemeColors();
+  const colors = usePearlColors(pearlStyle);
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { width } = useWindowDimensions();
   const [isConfirming, setIsConfirming] = useState(false);
@@ -108,11 +110,11 @@ export function ConfirmationModal({
             style={[styles.card, { width: Math.min(width - 40, 420) }]}
           >
             <View style={styles.copy}>
-              <Text accessibilityRole="header" style={styles.title}>
+              <Text translate accessibilityRole="header" style={styles.title}>
                 {title}
               </Text>
-              <Text style={styles.description}>{description}</Text>
-              {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
+              <Text translate style={styles.description}>{description}</Text>
+              {error ? <Text translate accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
             </View>
 
             <View style={styles.actions}>
@@ -129,7 +131,7 @@ export function ConfirmationModal({
                     disabled && styles.disabledButton,
                   ]}
                 >
-                  <Text style={action.variant === "destructive" ? [styles.secondaryButtonText, styles.destructiveButtonText] : styles.primaryButtonText}>{action.label}</Text>
+                  <Text translate style={action.variant === "destructive" ? [styles.secondaryButtonText, styles.destructiveButtonText] : styles.primaryButtonText}>{action.label}</Text>
                 </TouchableOpacity>
               )) : <>
               <TouchableOpacity

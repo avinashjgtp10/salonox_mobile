@@ -1,9 +1,7 @@
-import * as Linking from "expo-linking";
-import * as WebBrowser from "expo-web-browser";
-
-import { ApiError, API_BASE_URL, api } from "@/services/api";
+import { api } from "@/services/api";
 import { USER } from "@/services/api/endpoints";
 import { logAuthEvent } from "@/services/authSession";
+import { pickGoogleAccountIdToken } from "@/services/googleSignIn";
 import { tokenStorage } from "@/services/tokenStorage";
 import type {
   ApiResponse,
@@ -17,7 +15,6 @@ import type {
   ForgotPasswordSendOtpRequest,
   ForgotPasswordVerifyOtpRequest,
   ForgotPasswordVerifyOtpResponseData,
-  GoogleAuthResult,
   LoginCredentials,
   LoginResponseData,
   RefreshTokenResponseData,
@@ -26,30 +23,19 @@ import type {
 } from "@/types/auth";
 import { normalizeAuthUser } from "@/utils/authUser";
 
-const GOOGLE_REDIRECT_PATH = "auth/google";
-
-const getFirstParam = (value: string | string[] | undefined) =>
-  (Array.isArray(value) ? value[0] : value) ?? undefined;
+// Saves the session from a successful sign-in (email or Google): same response shape.
+const storeLoginSession = async (data: LoginResponseData, event: string) => {
+  const authData: LoginResponseData = { ...data, user: normalizeAuthUser(data.user) };
+  await tokenStorage.setTokens({ accessToken: authData.accessToken, refreshToken: authData.refreshToken });
+  await tokenStorage.clearStoredUser();
+  logAuthEvent(event, { userId: authData.user.id });
+  return authData;
+};
 
 export const authService = {
   async login(credentials: LoginCredentials) {
     const response = await api.post<ApiResponse<LoginResponseData>>("/auth/login", { ...credentials, clientType: "mobile" });
-    const authData: LoginResponseData = {
-      ...response.data.data,
-      user: normalizeAuthUser(response.data.data.user),
-    };
-
-    await tokenStorage.setTokens({
-      accessToken: authData.accessToken,
-      refreshToken: authData.refreshToken,
-    });
-    await tokenStorage.clearStoredUser();
-
-    logAuthEvent("login_success", {
-      userId: authData.user.id,
-    });
-
-    return authData;
+    return storeLoginSession(response.data.data, "login_success");
   },
 
   async register(credentials: RegisterCredentials) {
@@ -192,43 +178,14 @@ export const authService = {
     };
   },
 
-  async loginWithGoogle(): Promise<GoogleAuthResult> {
-    const redirectUri = Linking.createURL(GOOGLE_REDIRECT_PATH);
-    const startUrl = `${API_BASE_URL}/auth/google/start?redirect_uri=${encodeURIComponent(
-      redirectUri,
-    )}`;
-
-    const result = await WebBrowser.openAuthSessionAsync(startUrl, redirectUri);
-
-    if (result.type === "cancel" || result.type === "dismiss") {
-      throw new ApiError("Google sign-in was cancelled.");
-    }
-
-    if (result.type !== "success" || !result.url) {
-      throw new ApiError("Google sign-in could not be completed. Please try again.");
-    }
-
-    const { queryParams } = Linking.parse(result.url);
-    const accessToken =
-      getFirstParam(queryParams?.accessToken) ?? getFirstParam(queryParams?.access_token);
-    const refreshToken =
-      getFirstParam(queryParams?.refreshToken) ?? getFirstParam(queryParams?.refresh_token);
-    const errorParam = getFirstParam(queryParams?.error);
-
-    if (errorParam) {
-      throw new ApiError(errorParam);
-    }
-
-    if (!accessToken || !refreshToken) {
-      throw new ApiError("Google sign-in did not return valid session tokens.");
-    }
-
-    await tokenStorage.setTokens({ accessToken, refreshToken });
-    await tokenStorage.clearStoredUser();
-
-    logAuthEvent("google_login_success");
-
-    return { accessToken, refreshToken };
+  /**
+   * In-app Google sign-in: the phone's account picker, then the backend checks the
+   * token. Only registered emails sign in; others get 404 NOT_REGISTERED.
+   */
+  async loginWithGoogle() {
+    const idToken = await pickGoogleAccountIdToken();
+    const response = await api.post<ApiResponse<LoginResponseData>>("/auth/google/native", { idToken, clientType: "mobile" });
+    return storeLoginSession(response.data.data, "google_login_success");
   },
 
   async changePassword(payload: ChangePasswordRequest) {

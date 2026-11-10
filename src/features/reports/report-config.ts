@@ -1,9 +1,10 @@
+import { WEB_REPORT_CATALOG, type WebReportSlug } from "./web-report-catalog";
 import type { ComponentProps } from "react";
 import type { Ionicons } from "@expo/vector-icons";
 import { REPORT_FILTER_FIELDS } from "./report-filters";
 import { getDateRangePreset } from "@/utils/dateRangePresets";
 
-export type ReportSlug =
+export type ReportSlug = WebReportSlug
   | "sales-summary"
   | "daily-sheet"
   | "product-retail"
@@ -53,6 +54,11 @@ export type ReportGroup =
   | "Marketing";
 
 export type ReportFilterKey =
+  | "genders" | "sources" | "client_source" | "has_membership" | "has_package" | "birth_month" | "anniversary_month"
+  | "total_spend_min" | "total_spend_max" | "joined_from" | "joined_to" | "last_visit_from" | "last_visit_to"
+  | "follow_up_date" | "product_ids" | "product_type" | "supplier_id" | "city" | "country" | "category"
+  | "new_within_days" | "cancelled_within_days" | "window_days" | "upcoming_within_days" | "rebooking_days"
+  | "gst_mode" | "sort_by" | "sort_dir" | "opening_from" | "opening_to"
   | "brand_ids" | "payment_modes" | "item_types" | "include_gst"
   | "gender" | "membership_status" | "reward_status" | "min_visits"
   | "membership_ids" | "package_names" | "service_names" | "package_statuses"
@@ -106,6 +112,8 @@ export type ReportFilters = Partial<Record<ReportFilterKey, string>> & {
 type ReportAvailability = "available" | "unavailable";
 
 export type ReportConfig = {
+  source?: "commissions" | "tips" | "attendance" | "suppliers" | "purchases" | "consumables";
+  columns?: readonly { key: string; label: string }[];
   emptyMessage: string;
   endpoint?: `/api/report/${string}` | "/inventory/stock-reconciliation";
   exportSupported: boolean;
@@ -194,12 +202,32 @@ const baseReportConfigs: ReportConfig[] = [
   available({ slug: "reply-rate", title: "Reply Rate Report", subtitle: "Replies within 24 hours of campaign delivery.", group: "Marketing", icon: "chatbubbles-outline", endpoint: "/api/report/reply-rate", filters: ["start_date", "end_date", "campaign_id", "search"], paginated: true, primaryFields: ["name", "sent", "replied", "replyRate"], emptyMessage: "No reply-rate campaigns found" }),
 ];
 
-export const REPORT_CONFIGS: ReportConfig[] = baseReportConfigs.map((config) => {
-  const fields = REPORT_FILTER_FIELDS[config.slug];
-  if (!fields) return config;
-  const dateKeys = config.filters.filter((key) => ["start_date", "end_date", "from", "to", "date"].includes(key));
-  const usesDateFrom = ["product-inventory", "wa-marketing-campaign", "open-rate", "reply-rate"].includes(config.slug);
-  return { ...config, filters: [...(usesDateFrom ? ["date_from", "date_to"] as ReportFilterKey[] : dateKeys), "search", ...fields.map((field) => field.key)] };
+const DATE_FROM_REPORTS = new Set<ReportSlug>(["product-inventory", "wa-marketing-campaign", "open-rate", "reply-rate", "slow-moving-products", "fast-moving-products", "brand-performance", "purchase-vs-sales", "stock-movement", "birthday-campaign"]);
+const NO_DATE_REPORTS = new Set<ReportSlug>(["all-clients", "reward", "supplier-report", "purchase-history", "new-client-follow-up", "cancellation-recovery", "birthday-report", "anniversary-report"]);
+
+export const REPORT_CONFIGS: ReportConfig[] = WEB_REPORT_CATALOG.map((web): ReportConfig => {
+  const existing = baseReportConfigs.find((config) => config.slug === web.slug);
+  const endpoint = "endpoint" in web ? web.endpoint : existing?.endpoint;
+  const source = "source" in web ? web.source : undefined;
+  const definitions = REPORT_FILTER_FIELDS[web.slug] ?? [];
+  const dates: ReportFilterKey[] = NO_DATE_REPORTS.has(web.slug) ? []
+    : DATE_FROM_REPORTS.has(web.slug) ? ["date_from", "date_to"]
+    : web.slug === "consumable-analytics" ? ["from", "to"]
+    : web.slug === "membership-opportunity" ? ["last_visit_from", "last_visit_to"]
+    : existing?.filters.filter((key) => ["start_date", "end_date", "from", "to", "date"].includes(key)) ?? ["start_date", "end_date"];
+  return {
+    ...existing,
+    slug: web.slug, title: existing?.title ?? web.title, subtitle: web.subtitle, group: web.group,
+    icon: existing?.icon ?? ({ Sales: "analytics-outline", Payments: "cash-outline", Customers: "people-outline", Staff: "people-circle-outline", Appointments: "calendar-outline", Inventory: "cube-outline", "Package & Membership": "gift-outline", Marketing: "chatbubbles-outline" } as const)[web.group],
+    endpoint: source === "consumables" ? "/inventory/stock-reconciliation" : endpoint,
+    source, columns: web.columns,
+    filters: [...dates, "search", ...definitions.map((field) => field.key)],
+    paginated: source === "purchases" ? true : source ? false : existing?.paginated ?? true,
+    primaryFields: existing?.primaryFields ?? web.columns.map((column) => column.key),
+    emptyMessage: existing?.emptyMessage ?? "No records found",
+    exportSupported: false, permission: "view_reports", status: "available", statusReason: undefined,
+    websiteLayout: true,
+  };
 });
 
 export const REPORT_GROUPS: ReportGroup[] = [
@@ -225,18 +253,14 @@ export const MOBILE_DAILY_REPORT_SLUGS = [
   "consumable-usage",
 ] as const satisfies readonly ReportSlug[];
 
-const mobileDailyReportSlugSet = new Set<ReportSlug>(MOBILE_DAILY_REPORT_SLUGS);
-
-export const VISIBLE_REPORT_CONFIGS = REPORT_CONFIGS.filter((config) =>
-  mobileDailyReportSlugSet.has(config.slug),
-);
+export const VISIBLE_REPORT_CONFIGS = REPORT_CONFIGS;
 
 export const VISIBLE_REPORT_GROUPS = REPORT_GROUPS.filter((group) =>
   VISIBLE_REPORT_CONFIGS.some((config) => config.group === group),
 );
 
 export const getReportConfig = (slug: string) =>
-  REPORT_CONFIGS.find((config) => config.slug === slug);
+  REPORT_CONFIGS.find((config) => config.slug === (slug === "marketing-feedback" ? "client-rating" : slug));
 
 export const createDefaultReportFilters = (slug: ReportSlug): ReportFilters => {
   const today = new Date();
@@ -244,6 +268,10 @@ export const createDefaultReportFilters = (slug: ReportSlug): ReportFilters => {
   start.setDate(start.getDate() - 30);
   const date = (value: Date) =>
     `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
+  if (NO_DATE_REPORTS.has(slug)) return { page: 1, limit: 10 };
+  if (DATE_FROM_REPORTS.has(slug)) return { date_from: date(start), date_to: date(today), page: 1, limit: 10 };
+  if (slug === "consumable-analytics") return { from: date(start), to: date(today), page: 1, limit: 10 };
+  if (slug === "membership-opportunity") return { last_visit_from: date(start), last_visit_to: date(today), page: 1, limit: 10 };
   const base = { start_date: date(start), end_date: date(today), page: 1, limit: 10 };
   if (slug === "staff-performance") {
     const range = getDateRangePreset("this_month", today);

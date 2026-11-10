@@ -14,8 +14,8 @@ import React, {
 } from "react";
 import { Dimensions, FlatList, Keyboard, Platform, Pressable, ScrollView, SectionList, StyleSheet, UIManager, View, findNodeHandle, type FlatListProps, type ScrollViewProps } from "react-native";
 
+import { usePearlColors } from "@/components/auth/pearl/usePearlColors";
 import { AppRadius } from "@/constants/layout";
-import { useThemeColors } from "@/theme/ThemeProvider";
 import { FormFieldFocusContext } from "@/components/ui/KeyboardAwareForm";
 
 export type KeyboardNavigationField = {
@@ -33,6 +33,7 @@ export type KeyboardNavigationOptions = {
 };
 
 export type KeyboardAwareOptions = {
+  padForKeyboard?: boolean;
   extraScrollPadding?: number;
   contentContainerStyle?: any;
   keyboardNavigation?: KeyboardNavigationOptions;
@@ -49,8 +50,8 @@ type FocusedInputFrame = {
 
 const FLOATING_BUTTON_SIZE = 44;
 const FLOATING_BUTTON_MARGIN = 12;
-const KEYBOARD_FOCUS_MEASURE_DELAYS_MS = [0, 80, 180];
-const KEYBOARD_NAVIGATION_MEASURE_DELAYS_MS = [0, 60, 160];
+const KEYBOARD_FOCUS_MEASURE_DELAYS_MS = [160];
+const KEYBOARD_NAVIGATION_MEASURE_DELAYS_MS = [160];
 
 const getCurrentlyFocusedInput = () =>
   (
@@ -121,6 +122,7 @@ export function useKeyboardAwareScrollView<
   T extends ScrollView | FlatList<any> | SectionList<any, any> = ScrollView,
 >({
   extraScrollPadding = 40,
+  padForKeyboard = true,
   contentContainerStyle,
   keyboardNavigation,
   onScroll: userOnScroll,
@@ -136,6 +138,8 @@ export function useKeyboardAwareScrollView<
   const focusedInputFrameRef = useRef<FocusedInputFrame | null>(null);
   const activeInputRef = useRef<unknown>(null);
   const measurementRequestIdRef = useRef(0);
+  const manuallyScrolledInputNode = useRef<number | null>(null);
+  const adjustedInputNode = useRef<number | null>(null);
   const visibleNavigationFields = useMemo(
     () => keyboardNavigation?.fields.filter((field) => !field.disabled) ?? [],
     [keyboardNavigation?.fields],
@@ -148,6 +152,8 @@ export function useKeyboardAwareScrollView<
       const focusedInput = inputOverride ?? getFocusedNavigationInput(keyboardNavigation);
 
       if (!focusedInput) return;
+      const currentInput = getFocusedNavigationInput(keyboardNavigation);
+      if (inputOverride && currentInput && getInputNode(currentInput) !== getInputNode(inputOverride)) return;
 
       activeInputRef.current = focusedInput;
 
@@ -161,24 +167,20 @@ export function useKeyboardAwareScrollView<
 
       const inputNode = getInputNode(focusedInput);
 
-      if (!inputNode) return;
+      if (!inputNode || manuallyScrolledInputNode.current === inputNode) return;
+      manuallyScrolledInputNode.current = null;
 
       activeInputNodeRef.current = inputNode;
       setActiveInputNode(inputNode);
 
-      if (typeof (scrollResponder as any).scrollResponderScrollNativeHandleToKeyboard === "function") {
-        (scrollResponder as any).scrollResponderScrollNativeHandleToKeyboard(
-          inputNode,
-          extraScrollPadding,
-          true,
-        );
-      }
 
       const reportedKeyboardHeight = customKbHeight ?? keyboardHeightRef.current;
       const kbHeight = reportedKeyboardHeight > 0
         ? reportedKeyboardHeight
         : getKeyboardMetricsHeight();
-      if (kbHeight <= 0) return;
+      if (kbHeight <= 0 || adjustedInputNode.current === inputNode) return;
+      // Keyboard events and focus polling share this guard: one animation per focus.
+      adjustedInputNode.current = inputNode;
 
       const measurementRequestId = measurementRequestIdRef.current + 1;
       measurementRequestIdRef.current = measurementRequestId;
@@ -292,10 +294,10 @@ export function useKeyboardAwareScrollView<
           if (inputBottom > visibleBottom) {
             delta = inputBottom - visibleBottom;
           } else if (inputTop < visibleTop) {
-            delta = visibleTop - inputTop;
+            delta = inputTop - visibleTop;
           }
 
-          if (Math.abs(delta) > 2) {
+          if (Math.abs(delta) > 8) {
             const targetScrollY = Math.max(0, scrollOffsetRef.current + delta);
 
             if (typeof (scrollResponder as any).scrollTo === "function") {
@@ -340,6 +342,9 @@ export function useKeyboardAwareScrollView<
     };
 
     const onHide = () => {
+      manuallyScrolledInputNode.current = null;
+      adjustedInputNode.current = null;
+      measurementRequestIdRef.current += 1;
       keyboardHeightRef.current = 0;
       setKeyboardHeightState(0);
       activeInputRef.current = null;
@@ -428,7 +433,7 @@ export function useKeyboardAwareScrollView<
 
   const combinedContentContainerStyle = useMemo(() => {
     const baseStyle = StyleSheet.flatten(contentContainerStyle) || {};
-    if (keyboardHeightState > 0) {
+    if (padForKeyboard && keyboardHeightState > 0) {
       const currentPaddingBottom =
         typeof baseStyle.paddingBottom === "number"
           ? baseStyle.paddingBottom
@@ -440,7 +445,7 @@ export function useKeyboardAwareScrollView<
       };
     }
     return baseStyle;
-  }, [contentContainerStyle, keyboardHeightState, extraScrollPadding]);
+  }, [contentContainerStyle, keyboardHeightState, extraScrollPadding, padForKeyboard]);
 
   const handleScroll = useCallback(
     (e: any) => {
@@ -449,6 +454,13 @@ export function useKeyboardAwareScrollView<
     },
     [userOnScroll],
   );
+
+  const handleScrollBeginDrag = useCallback(() => {
+    const input = getFocusedNavigationInput(keyboardNavigation);
+    manuallyScrolledInputNode.current = input ? getInputNode(input) : null;
+    // Ignore focus measurements that were queued before the user started swiping.
+    measurementRequestIdRef.current += 1;
+  }, [keyboardNavigation]);
 
   const nextNavigationField = getNextNavigationField(visibleNavigationFields, activeInputNode);
   const hasNextField = Boolean(nextNavigationField);
@@ -507,6 +519,7 @@ export function useKeyboardAwareScrollView<
     activeInputNode,
     focusedInputFrame,
     handleKeyboardNavigationPress,
+    handleScrollBeginDrag,
     hasNextField,
     onScroll: handleScroll,
     shouldShowKeyboardNavigation,
@@ -515,6 +528,8 @@ export function useKeyboardAwareScrollView<
 }
 
 export type KeyboardAwareScrollViewProps = ScrollViewProps & {
+  pearlStyle?: boolean;
+  padForKeyboard?: boolean;
   extraScrollPadding?: number;
   keyboardNavigation?: KeyboardNavigationOptions;
 };
@@ -525,10 +540,10 @@ export const KeyboardAwareScrollView = forwardRef<
   ScrollView,
   PropsWithChildren<KeyboardAwareScrollViewProps>
 >(function KeyboardAwareScrollView(
-  { children, extraScrollPadding = 40, contentContainerStyle, keyboardNavigation, ...scrollViewProps },
+  { children, pearlStyle = false, padForKeyboard = true, extraScrollPadding = 40, contentContainerStyle, keyboardNavigation, ...scrollViewProps },
   forwardedRef,
 ) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors(pearlStyle);
   const navigationStyles = useMemo(() => createKeyboardNavigationStyles(Colors), [Colors]);
   const {
     containerRef,
@@ -537,11 +552,13 @@ export const KeyboardAwareScrollView = forwardRef<
     activeInputNode,
     focusedInputFrame,
     handleKeyboardNavigationPress,
+    handleScrollBeginDrag,
     hasNextField,
     keyboardHeightState,
     onScroll,
     shouldShowKeyboardNavigation,
   } = useKeyboardAwareScrollView<ScrollView>({
+    padForKeyboard,
     extraScrollPadding,
     contentContainerStyle,
     keyboardNavigation,
@@ -596,6 +613,7 @@ export const KeyboardAwareScrollView = forwardRef<
         onScroll={onScroll}
         scrollEventThrottle={scrollViewProps.scrollEventThrottle ?? 16}
         {...scrollViewProps}
+        onScrollBeginDrag={(event) => { handleScrollBeginDrag(); scrollViewProps.onScrollBeginDrag?.(event); }}
         style={styles.container}
       >
         {children}
@@ -702,7 +720,7 @@ const styles = StyleSheet.create({
   },
 });
 
-const createKeyboardNavigationStyles = (Colors: ReturnType<typeof useThemeColors>) =>
+const createKeyboardNavigationStyles = (Colors: ReturnType<typeof usePearlColors>) =>
   StyleSheet.create({
     floatingButton: {
       alignItems: "center",

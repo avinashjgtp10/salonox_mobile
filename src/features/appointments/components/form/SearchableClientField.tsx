@@ -60,9 +60,9 @@ export function SearchableClientField({
   return (
     <View style={[styles.inputGroup, styles.clientSearchGroup]}>
       <View style={styles.clientSectionHeader}>
-        <Text style={styles.inputLabel}>Client</Text>
+        <Text translate style={styles.inputLabel}>Client</Text>
         {bookingMode === "walkIn" ? (
-          <Text style={styles.clientModeHint}>Walk-in booking</Text>
+          <Text translate style={styles.clientModeHint}>Walk-in booking</Text>
         ) : selectedClient ? (
           <Text numberOfLines={1} style={styles.clientModeHint}>
             {clientName(selectedClient.fullName)}
@@ -81,7 +81,7 @@ export function SearchableClientField({
             size={16}
             color={bookingMode === "existing" ? Colors.primaryText : Colors.appointmentTextSecondary}
           />
-          <Text style={[styles.clientActionText, bookingMode === "existing" && styles.clientActionTextActive]}>
+          <Text translate style={[styles.clientActionText, bookingMode === "existing" && styles.clientActionTextActive]}>
             Existing Client
           </Text>
         </TouchableOpacity>
@@ -95,14 +95,14 @@ export function SearchableClientField({
             size={16}
             color={bookingMode === "walkIn" ? Colors.primaryText : Colors.appointmentTextSecondary}
           />
-          <Text style={[styles.clientActionText, bookingMode === "walkIn" && styles.clientActionTextActive]}>
+          <Text translate style={[styles.clientActionText, bookingMode === "walkIn" && styles.clientActionTextActive]}>
             Walk-in Client
           </Text>
         </TouchableOpacity>
         {onNewClient ? (
           <TouchableOpacity activeOpacity={0.84} onPress={onNewClient} style={styles.clientActionChip}>
             <Ionicons name="person-add-outline" size={16} color={Colors.appointmentTextSecondary} />
-            <Text style={styles.clientActionText}>New Client</Text>
+            <Text translate style={styles.clientActionText}>New Client</Text>
           </TouchableOpacity>
         ) : null}
       </View>
@@ -149,12 +149,12 @@ export function SearchableClientField({
                 ) : resultsLoading ? (
                   <View style={styles.serviceDropdownState}>
                     <ActivityIndicator color={Colors.primaryText} size="small" />
-                    <Text style={styles.fieldHint}>Searching clients...</Text>
+                    <Text translate style={styles.fieldHint}>Searching clients...</Text>
                   </View>
                 ) : results.length === 0 ? (
                   <View style={styles.serviceDropdownState}>
                     <Ionicons name="search-outline" size={16} color={Colors.text2} />
-                    <Text style={styles.fieldHint}>No clients found.</Text>
+                    <Text translate style={styles.fieldHint}>No clients found.</Text>
                   </View>
                 ) : (
                   <ScrollView
@@ -192,12 +192,12 @@ export function SearchableClientField({
           </View>
 
           {!search.trim() ? (
-            <Text style={styles.fieldHint}>Start typing to find an existing client.</Text>
+            <Text translate style={styles.fieldHint}>Start typing to find an existing client.</Text>
           ) : null}
         </>
       ) : null}
 
-      {error ? <Text style={styles.fieldError}>{error}</Text> : null}
+      {error ? <Text translate style={styles.fieldError}>{error}</Text> : null}
     </View>
   );
 }

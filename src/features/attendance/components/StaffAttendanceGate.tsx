@@ -1,27 +1,25 @@
+import { StaffAttendanceContext } from "./StaffSelfAttendanceContext";
+import { StaffCheckInScreen } from "./StaffAttendanceExperience";
+import { hasBusinessDashboard } from "@/utils/staffExperience";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import NetInfo from "@react-native-community/netinfo";
-import { Text } from "@/components/ui/AppTypography";
 import { useAuth } from "@/context/AuthContext";
 import { useAppForeground } from "@/hooks/useAppForeground";
 import { getApiErrorMessage } from "@/services/api";
 import { staffSelfAttendanceService, type StaffSelfAttendance } from "@/services/staffSelfAttendance.service";
 import { normalizeAttendanceRecord } from "@/services/attendance.service";
-import type { AttendanceRecord, StartBreakRequest } from "@/types/attendance";
+import type { StartBreakRequest } from "@/types/attendance";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { isStaffExperienceUser } from "@/utils/routeResolver";
 import { canUnlockStaffApp } from "@/features/attendance/utils/staffAttendanceGate";
+import { staffAttendanceErrorMessage } from "../utils/attendanceErrors";
 import { StaffCheckoutReminder } from "./StaffCheckoutReminder";
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { AppState, Modal, StyleSheet, TouchableOpacity, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { AppState, Modal, StyleSheet, View } from "react-native";
 
-type AttendanceContext = { state: StaffSelfAttendance | null; record: AttendanceRecord | null; refresh: () => Promise<void>; checkIn: () => Promise<void>; startBreak: (body: StartBreakRequest) => Promise<void>; checkOut: () => Promise<void>; busy: boolean };
-const StaffAttendanceContext = createContext<AttendanceContext | null>(null);
+export { useStaffSelfAttendance } from "./StaffSelfAttendanceContext";
+
 const PUNCH_RESULT = { checkIn: "WORKING", startBreak: "ON_BREAK", checkOut: "CHECKED_OUT" } as const;
-export const useStaffSelfAttendance = () => useContext(StaffAttendanceContext);
-const displayTime = (value: string | null | undefined) => value ? new Date(value).toLocaleTimeString("en-IN", {
-  timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hour12: true,
-}) : "—";
 
 export function StaffAttendanceGate({ children }: { children: ReactNode }) {
   const { user, isAuthenticated, signOut } = useAuth();
@@ -66,33 +64,40 @@ export function StaffAttendanceGate({ children }: { children: ReactNode }) {
   useEffect(() => NetInfo.addEventListener(info => { if (info.isConnected) void refresh(); }), [refresh]);
   useAppForeground(() => { setNow(new Date()); void refresh(); });
 
-  const punch = useCallback(async (kind: "checkIn" | "checkOut" | "startBreak", body?: StartBreakRequest) => {
+  const punch = useCallback(async (kind: "checkIn" | "checkOut" | "startBreak", body?: StartBreakRequest, pendingAttendanceId?: string) => {
     if (!identity || punchLock.current) throw new Error("An attendance action is already in progress.");
     punchLock.current = true; ++requestVersion.current; setRefreshing(false); setBusy(true); setError(null);
     try {
       let next: StaffSelfAttendance;
       try {
-        next = kind === "startBreak" ? await staffSelfAttendanceService.startBreak(body!) : await staffSelfAttendanceService[kind]();
+        next = kind === "startBreak" ? await staffSelfAttendanceService.startBreak(body!) : kind === "checkOut" ? await staffSelfAttendanceService.checkOut(pendingAttendanceId) : await staffSelfAttendanceService.checkIn();
       } catch (failure) {
         // The server can save a punch after the app stops waiting (timeout, dropped
         // response). A retry then fails with "You are already working", so ask the
         // server whether the punch landed before reporting failure.
         const current = await staffSelfAttendanceService.get().catch(() => null);
-        if (current?.current_status !== PUNCH_RESULT[kind]) throw failure;
-        next = current;
+        if (current?.pending_checkout && liveIdentity.current === identity) setSnapshot({ identity, state: current });
+        if (kind === "checkOut" && pendingAttendanceId) {
+          // Repeating this exact record is idempotent, even after today's state
+          // replaces yesterday's. Never mistake another attendance day for it.
+          if (!current || current.pending_checkout?.attendance_id === pendingAttendanceId) throw failure;
+          next = await staffSelfAttendanceService.checkOut(pendingAttendanceId);
+        } else {
+          if (current?.current_status !== PUNCH_RESULT[kind]) throw failure;
+          next = current;
+        }
       }
       if (liveIdentity.current === identity) { setSnapshot({ identity, state: next }); setNow(new Date()); }
     } catch (failure) {
-      if (liveIdentity.current === identity) setError(getApiErrorMessage(failure));
+      if (liveIdentity.current === identity) setError(staffAttendanceErrorMessage(failure));
       throw failure;
     } finally { punchLock.current = false; setBusy(false); }
   }, [identity]);
-  const locked = enabled && !canUnlockStaffApp(state, now);
+  const locked = enabled && !hasBusinessDashboard(user) && !canUnlockStaffApp(state, now);
   // An unknown attendance state is not evidence that a check-in is required.
   const checkingAttendance = locked && !state && !error;
-  const showCheckIn = locked && Boolean(state);
   return (
-    <StaffAttendanceContext.Provider value={{ state, record, refresh, checkIn: () => punch("checkIn"), startBreak: body => punch("startBreak", body), checkOut: () => punch("checkOut"), busy }}>
+    <StaffAttendanceContext.Provider value={{ state, record, refresh, checkIn: () => punch("checkIn"), startBreak: body => punch("startBreak", body), checkOut: pendingAttendanceId => punch("checkOut", undefined, pendingAttendanceId), busy, error, refreshing }}>
       {children}
       {enabled && <StaffCheckoutReminder key={identity} state={state} refresh={refresh} busy={busy} unavailable={!!error || locked} />}
       {checkingAttendance ? (
@@ -100,37 +105,14 @@ export function StaffAttendanceGate({ children }: { children: ReactNode }) {
           <ActivityIndicator color={Colors.primaryText} size="large" />
         </View>
       ) : null}
-      <Modal visible={locked && !checkingAttendance} transparent animationType="fade" presentationStyle="overFullScreen" onRequestClose={() => {}}>
-        <SafeAreaView style={[styles.screen, { backgroundColor: "rgba(0, 0, 0, 0.45)" }]}>
-          <View style={[styles.card, { backgroundColor: Colors.card, borderColor: Colors.border }]}>
-            <Text style={[styles.title, { color: Colors.heading }]}>{showCheckIn ? "Check in to start your day" : "Unable to verify attendance"}</Text>
-            <Text style={[styles.copy, { color: Colors.text2 }]}>{showCheckIn ? "Your app details will be available after your check-in is confirmed." : "Retry to load today's attendance. If you have already checked in, you do not need to check in again."}</Text>
-            {state ? <>
-              {state.shift_start && state.shift_end ? <Text style={[styles.shift, { color: Colors.heading }]}>Your shift: {displayTime(state.shift_start)} – {displayTime(state.shift_end)}</Text> : null}
-              <Text style={[styles.copy, { color: Colors.text2 }]}>{state.blocked_reason ?? "Tap Check In to record the current time and your location."}</Text>
-            </> : null}
-            {error ? <Text accessibilityRole="alert" style={[styles.copy, { color: Colors.error }]}>{error}</Text> : null}
-            {showCheckIn ? <TouchableOpacity accessibilityRole="button" disabled={busy || !state?.can_check_in} onPress={() => void punch("checkIn").catch(() => undefined)}
-              style={[styles.button, { backgroundColor: Colors.primary, opacity: busy || !state?.can_check_in ? 0.5 : 1 }]}>
-              {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Check In</Text>}
-            </TouchableOpacity> : null}
-            {/* Only offered when loading failed — the popup already refreshes on
-                its own (every minute, on reconnect and when the app returns). */}
-            {error ? <TouchableOpacity accessibilityRole="button" disabled={busy || refreshing} onPress={() => void refresh()} style={styles.link}>
-              {refreshing ? <ActivityIndicator color={Colors.primaryText} /> : <Text style={{ color: Colors.primaryText }}>Retry connection</Text>}
-            </TouchableOpacity> : null}
-            <TouchableOpacity accessibilityRole="button" disabled={busy} onPress={() => void signOut().catch((failure) => setError(getApiErrorMessage(failure)))} style={styles.link}><Text style={{ color: Colors.text2 }}>Sign out</Text></TouchableOpacity>
-          </View>
-        </SafeAreaView>
+      <Modal visible={locked && !checkingAttendance} animationType="fade" presentationStyle="fullScreen" onRequestClose={() => {}}>
+        <StaffCheckInScreen state={state} busy={busy} refreshing={refreshing} error={error}
+          onCheckIn={() => void punch("checkIn").catch(() => undefined)} onRetry={() => void refresh()}
+          onSignOut={() => void signOut().catch(failure => setError(getApiErrorMessage(failure)))} />
       </Modal>
     </StaffAttendanceContext.Provider>
   );
 }
 const styles = StyleSheet.create({
   loadingOverlay: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0, 0, 0, 0.15)" },
-  screen: { flex: 1, justifyContent: "center", padding: 24 },
-  card: { borderWidth: 1, borderRadius: 20, padding: 24, gap: 16 },
-  title: { fontSize: 24, fontWeight: "700" }, copy: { fontSize: 15, lineHeight: 22 },
-  shift: { fontSize: 17, fontWeight: "700" }, button: { padding: 16, borderRadius: 14, alignItems: "center" },
-  buttonText: { color: "#000000", fontWeight: "700", fontSize: 17 }, link: { paddingVertical: 10, alignItems: "center" },
 });

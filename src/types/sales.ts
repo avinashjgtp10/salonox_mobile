@@ -101,6 +101,7 @@ export type StaffSaleItem = SaleLineItem & {
 };
 
 export type SaleListItem = {
+  createdAt?: string;
   clientName: string;
   createdDateLabel: string;
   id: string;
@@ -112,6 +113,7 @@ export type SaleListItem = {
 };
 
 export type SaleDetail = {
+  invoiceDate?: string;
   amountPaid: number;
   clientId: string | null;
   clientName: string;
@@ -141,6 +143,8 @@ export type SaleDetail = {
 export type SalesSortOrder = "asc" | "desc";
 
 export type SalesListQuery = {
+  startDate?: string | null;
+  endDate?: string | null;
   limit: number;
   offset: number;
   search: string;

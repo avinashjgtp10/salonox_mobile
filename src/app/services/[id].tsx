@@ -1,9 +1,12 @@
+import { useRegionalPreferences } from "@/localization/preferences";
+import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
+import { AppBackButton } from "@/components/ui/AppBackButton";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams, type Href } from "expo-router";
 import { useEffect, useMemo } from "react";
-import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppLayout, AppRadius } from "@/constants/layout";
@@ -11,7 +14,6 @@ import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import {
   DashboardRadius as Radius,
   DashboardSpacing as Spacing,
-  type ThemeColors,
 } from "@/constants/theme";
 import { formatAppDate } from "@/utils/dateTime";
 import { fetchServiceByIdThunk } from "@/middleware/service/service.thunk";
@@ -21,7 +23,7 @@ import {
   selectServiceDetailsLoading,
 } from "@/store/service/service.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors, type PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 import { formatCurrency as formatPrice } from "@/utils/currency";
 
 function formatDuration(durationMinutes: number | null) {
@@ -33,31 +35,37 @@ function formatCreatedDate(createdAt: string | null) {
 }
 
 function DetailRow({ label, value }: { label: string; value: string }) {
-  const Colors = useThemeColors();
+  "use no memo";
+  useRegionalPreferences();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   return (
     <View style={styles.detailRow}>
-      <Text style={styles.detailLabel}>{label}</Text>
+      <Text translate style={styles.detailLabel}>{label}</Text>
       <Text style={styles.detailValue}>{value}</Text>
     </View>
   );
 }
 
 function Section({ children, title }: { children: React.ReactNode; title: string }) {
-  const Colors = useThemeColors();
+  "use no memo";
+  useRegionalPreferences();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   return (
     <View style={styles.sectionCard}>
-      <Text style={styles.sectionTitle}>{title}</Text>
+      <Text translate style={styles.sectionTitle}>{title}</Text>
       {children}
     </View>
   );
 }
 
 export default function ServiceDetailsScreen() {
-  const Colors = useThemeColors();
+  "use no memo";
+  useRegionalPreferences();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const { id } = useLocalSearchParams<{ id?: string }>();
   const dispatch = useAppDispatch();
@@ -99,73 +107,65 @@ export default function ServiceDetailsScreen() {
 
   if (detailsLoading) {
     return (
-      <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
+      <PearlBackground><SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
         <AppStatusBar />
         <View style={styles.notFoundWrap}>
           <View style={styles.headerRow}>
-            <TouchableOpacity activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
-              <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Service Details</Text>
+            <AppBackButton activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} />
+            <Text translate style={styles.headerTitle}>Service Details</Text>
             <View style={styles.backButtonPlaceholder} />
           </View>
           <View style={styles.centeredContent}>
             <ActivityIndicator size="large" color={Colors.primaryText} />
           </View>
         </View>
-      </SafeAreaView>
+      </SafeAreaView></PearlBackground>
     );
   }
 
   if (detailsError) {
     return (
-      <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
+      <PearlBackground><SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
         <AppStatusBar />
         <View style={styles.notFoundWrap}>
           <View style={styles.headerRow}>
-            <TouchableOpacity activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
-              <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Service Details</Text>
+            <AppBackButton activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} />
+            <Text translate style={styles.headerTitle}>Service Details</Text>
             <View style={styles.backButtonPlaceholder} />
           </View>
           <View style={styles.notFoundCard}>
-            <Text style={styles.notFoundTitle}>Unable to load service</Text>
+            <Text translate style={styles.notFoundTitle}>Unable to load service</Text>
             <Text style={styles.notFoundSubtitle}>{detailsError}</Text>
           </View>
         </View>
-      </SafeAreaView>
+      </SafeAreaView></PearlBackground>
     );
   }
 
   if (!service) {
     return (
-      <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
+      <PearlBackground><SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
         <AppStatusBar />
         <View style={styles.notFoundWrap}>
-          <TouchableOpacity activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
-          </TouchableOpacity>
+          <AppBackButton activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} />
           <View style={styles.notFoundCard}>
-            <Text style={styles.notFoundTitle}>Service not found</Text>
-            <Text style={styles.notFoundSubtitle}>
+            <Text translate style={styles.notFoundTitle}>Service not found</Text>
+            <Text translate style={styles.notFoundSubtitle}>
               This service could not be found.
             </Text>
           </View>
         </View>
-      </SafeAreaView>
+      </SafeAreaView></PearlBackground>
     );
   }
 
   return (
-    <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
+    <PearlBackground><SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
       <AppStatusBar />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.headerRow}>
-          <TouchableOpacity activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Service Details</Text>
+          <AppBackButton activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} />
+          <Text translate style={styles.headerTitle}>Service Details</Text>
           <View style={styles.backButtonPlaceholder} />
         </View>
 
@@ -180,7 +180,7 @@ export default function ServiceDetailsScreen() {
               service.isActive ? styles.statusBadgeActive : styles.statusBadgeInactive,
             ]}
           >
-            <Text
+            <Text translate
               style={[
                 styles.statusBadgeText,
                 service.isActive ? styles.statusBadgeTextActive : styles.statusBadgeTextInactive,
@@ -193,11 +193,11 @@ export default function ServiceDetailsScreen() {
           <View style={styles.statsRow}>
             <View style={styles.statCard}>
               <Text style={styles.statValue}>{service.priceLabel}</Text>
-              <Text style={styles.statLabel}>Price</Text>
+              <Text translate style={styles.statLabel}>Price</Text>
             </View>
             <View style={styles.statCard}>
               <Text style={styles.statValue}>{service.durationLabel}</Text>
-              <Text style={styles.statLabel}>Duration</Text>
+              <Text translate style={styles.statLabel}>Duration</Text>
             </View>
           </View>
         </View>
@@ -210,14 +210,12 @@ export default function ServiceDetailsScreen() {
           <DetailRow label="Created" value={service.createdLabel} />
         </Section>
       </ScrollView>
-    </SafeAreaView>
+    </SafeAreaView></PearlBackground>
   );
 }
 
 const createStyles = (Colors: ThemeColors) => StyleSheet.create({
-  safeArea: {
-    backgroundColor: Colors.bg,
-    flex: 1,
+  safeArea: { flex: 1,
   },
   content: {
     paddingBottom: AppLayout.contentBottomPadding,
@@ -258,7 +256,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.05,
     shadowRadius: 18,
-    elevation: 2,
+    elevation: 0,
   },
   avatar: {
     alignItems: "center",

@@ -1,11 +1,13 @@
+import { InvoiceDetailsView } from "@/features/quickSale/components/InvoiceDetailsView";
+import type { PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
+import { AppBackButton } from "@/components/ui/AppBackButton";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
-import { maskPhone } from "@/utils/maskPhone";
 import { Text } from "@/components/ui/AppTypography";
 import { appAlert as Alert } from "@/services/appAlert";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams, type Href } from "expo-router";
 import { useEffect, useMemo } from "react";
-import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
@@ -13,7 +15,6 @@ import { AppLayout, AppRadius } from "@/constants/layout";
 import {
   DashboardRadius as Radius,
   DashboardSpacing as Spacing,
-  type ThemeColors,
 } from "@/constants/theme";
 import { useAppToast } from "@/hooks/useAppToast";
 import { deleteSaleThunk, fetchSaleByIdThunk } from "@/middleware/sales/sales.thunk";
@@ -24,10 +25,8 @@ import {
   selectSaleDetailLoading,
 } from "@/store/sales/sales.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { useThemeColors } from "@/theme/ThemeProvider";
-import type { SaleLineItem } from "@/types/sales";
+import { usePearlColors } from "@/components/auth/pearl/usePearlColors";
 import { formatInvoiceNumber } from "@/utils/receipt";
-import { formatCurrency } from "@/utils/currency";
 
 function getRejectedMessage(payload: unknown, fallback: string) {
   if (payload && typeof payload === "object" && "message" in payload) {
@@ -41,50 +40,8 @@ function getRejectedMessage(payload: unknown, fallback: string) {
   return fallback;
 }
 
-function DetailRow({ label, value }: { label: string; value: string }) {
-  const Colors = useThemeColors();
-  const styles = useMemo(() => createStyles(Colors), [Colors]);
-
-  return (
-    <View style={styles.detailRow}>
-      <Text style={styles.detailLabel}>{label}</Text>
-      <Text style={styles.detailValue}>{value}</Text>
-    </View>
-  );
-}
-
-function Section({ children, title }: { children: React.ReactNode; title: string }) {
-  const Colors = useThemeColors();
-  const styles = useMemo(() => createStyles(Colors), [Colors]);
-
-  return (
-    <View style={styles.sectionCard}>
-      <Text style={styles.sectionTitle}>{title}</Text>
-      {children}
-    </View>
-  );
-}
-
-function LineItemRow({ item }: { item: SaleLineItem }) {
-  const Colors = useThemeColors();
-  const styles = useMemo(() => createStyles(Colors), [Colors]);
-
-  return (
-    <View style={styles.lineItemRow}>
-      <View style={styles.lineItemCopy}>
-        <Text style={styles.lineItemName}>{item.name}</Text>
-        <Text style={styles.lineItemMeta}>
-          {item.itemType === "service" ? "Service" : item.itemType === "product" ? "Product" : "Item"}
-          {item.staffName ? ` · ${item.staffName}` : ""} · Qty {item.quantity}
-        </Text>
-      </View>
-      <Text style={styles.lineItemPrice}>{formatCurrency(item.totalPrice)}</Text>
-    </View>
-  );
-}
-
 export default function SaleDetailsScreen() {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const { id } = useLocalSearchParams<{ id?: string }>();
   const dispatch = useAppDispatch();
@@ -149,10 +106,8 @@ export default function SaleDetailsScreen() {
 
   const renderHeader = (showActions = false) => (
     <View style={styles.headerRow}>
-      <TouchableOpacity activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
-        <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
-      </TouchableOpacity>
-      <Text style={styles.headerTitle}>Sale Invoice</Text>
+      <AppBackButton activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} />
+      <Text translate style={styles.headerTitle}>Sale Invoice</Text>
       {showActions ? (
         <TouchableOpacity
           activeOpacity={0.8}
@@ -193,14 +148,14 @@ export default function SaleDetailsScreen() {
         <View style={styles.notFoundWrap}>
           {renderHeader()}
           <View style={styles.notFoundCard}>
-            <Text style={styles.notFoundTitle}>Unable to load sale</Text>
+            <Text translate style={styles.notFoundTitle}>Unable to load sale</Text>
             <Text style={styles.notFoundSubtitle}>{detailError}</Text>
             <TouchableOpacity
               activeOpacity={0.85}
               onPress={() => id && dispatch(fetchSaleByIdThunk(id))}
               style={styles.retryButton}
             >
-              <Text style={styles.retryButtonText}>Retry</Text>
+              <Text translate style={styles.retryButtonText}>Retry</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -215,91 +170,16 @@ export default function SaleDetailsScreen() {
         <View style={styles.notFoundWrap}>
           {renderHeader()}
           <View style={styles.notFoundCard}>
-            <Text style={styles.notFoundTitle}>Sale not found</Text>
-            <Text style={styles.notFoundSubtitle}>This sale could not be found.</Text>
+            <Text translate style={styles.notFoundTitle}>Sale not found</Text>
+            <Text translate style={styles.notFoundSubtitle}>This sale could not be found.</Text>
           </View>
         </View>
       </SafeAreaView>
     );
   }
 
-  const isDraft = sale.status.toLowerCase() === "draft" || sale.status.toLowerCase() === "pending";
-  const invoiceNumber = formatInvoiceNumber(sale.receiptNumber) ?? "—";
+  return <InvoiceDetailsView sale={sale} onBack={handleBack} onDelete={handleDelete} deleting={isDeleting} />;
 
-  return (
-    <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
-      <AppStatusBar />
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {renderHeader(true)}
-
-        <View style={styles.heroCard}>
-          <View style={styles.avatar}>
-            <Ionicons name="receipt-outline" size={28} color={Colors.primaryText} />
-          </View>
-          <Text style={styles.receiptNumber}>{invoiceNumber}</Text>
-          <Text style={styles.clientName}>{sale.clientName}</Text>
-          <View
-            style={[
-              styles.statusBadge,
-              sale.status.toLowerCase() === "completed"
-                ? styles.statusBadgeActive
-                : sale.status.toLowerCase() === "cancelled"
-                  ? styles.statusBadgeInactive
-                  : styles.statusBadgePending,
-            ]}
-          >
-            <Text style={styles.statusBadgeText}>
-              {sale.status.charAt(0).toUpperCase() + sale.status.slice(1)}
-            </Text>
-          </View>
-
-        </View>
-
-        {isDraft ? (
-          <TouchableOpacity
-            activeOpacity={0.85}
-            onPress={() => router.push(`/quick-sale?draftId=${sale.id}` as Href)}
-            style={styles.continueButton}
-          >
-            <Ionicons name="create-outline" size={18} color="#FFFFFF" />
-            <Text style={styles.continueButtonText}>Continue Editing</Text>
-          </TouchableOpacity>
-        ) : null}
-
-        <Section title="Items">
-          {sale.lineItems.length === 0 ? (
-            <Text style={styles.emptyLineItemsText}>No items recorded for this sale.</Text>
-          ) : (
-            sale.lineItems.map((item) => <LineItemRow key={item.id} item={item} />)
-          )}
-        </Section>
-
-        <Section title="Billing Summary">
-          <DetailRow label="Subtotal" value={formatCurrency(sale.subtotal)} />
-          <DetailRow label="Discount" value={`- ${formatCurrency(sale.discountAmount)}`} />
-          <DetailRow label="Tax" value={formatCurrency(sale.taxAmount)} />
-          <DetailRow label="Total" value={formatCurrency(sale.total)} />
-          <DetailRow label="Amount Paid" value={formatCurrency(sale.amountPaid)} />
-          {sale.outstandingAmount > 0 ? (
-            <DetailRow label="Outstanding" value={formatCurrency(sale.outstandingAmount)} />
-          ) : null}
-        </Section>
-
-        <Section title="Payment & Client">
-          <DetailRow label="Client" value={sale.clientName} />
-          <DetailRow label="Phone" value={maskPhone(sale.clientPhone)} />
-          <DetailRow label="Payment Method" value={sale.paymentMethod} />
-          <DetailRow label="Created" value={sale.createdDateLabel} />
-        </Section>
-
-        {sale.notes ? (
-          <Section title="Notes">
-            <Text style={styles.notesText}>{sale.notes}</Text>
-          </Section>
-        ) : null}
-      </ScrollView>
-    </SafeAreaView>
-  );
 }
 
 const createStyles = (Colors: ThemeColors) => StyleSheet.create({

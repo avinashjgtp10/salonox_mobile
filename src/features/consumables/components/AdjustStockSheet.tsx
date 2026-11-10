@@ -79,7 +79,7 @@ export function AdjustStockSheet({ consumable, error, onClose, onSubmit, submitt
           {submitting ? (
             <ActivityIndicator color="#FFFFFF" size="small" />
           ) : (
-            <Text style={styles.submitButtonText}>Save Adjustment</Text>
+            <Text translate style={styles.submitButtonText}>Save Adjustment</Text>
           )}
         </TouchableOpacity>
       }
@@ -88,7 +88,7 @@ export function AdjustStockSheet({ consumable, error, onClose, onSubmit, submitt
       title="Adjust Stock"
       visible={visible}
     >
-      <Text style={styles.label}>Direction</Text>
+      <Text translate style={styles.label}>Direction</Text>
       <View style={styles.directionRow}>
         {(["increase", "decrease"] as const).map((option) => {
           const active = direction === option;
@@ -99,7 +99,7 @@ export function AdjustStockSheet({ consumable, error, onClose, onSubmit, submitt
               onPress={() => setDirection(option)}
               style={[styles.directionButton, active && styles.directionButtonActive]}
             >
-              <Text style={[styles.directionButtonText, active && styles.directionButtonTextActive]}>
+              <Text translate style={[styles.directionButtonText, active && styles.directionButtonTextActive]}>
                 {option === "increase" ? "Increase" : "Decrease"}
               </Text>
             </TouchableOpacity>
@@ -117,7 +117,7 @@ export function AdjustStockSheet({ consumable, error, onClose, onSubmit, submitt
         value={qtyInput}
       />
 
-      <Text style={styles.label}>Reason</Text>
+      <Text translate style={styles.label}>Reason</Text>
       <View style={styles.reasonRow}>
         {REASON_OPTIONS.map((option) => {
           const active = reason === option.value;
@@ -128,13 +128,13 @@ export function AdjustStockSheet({ consumable, error, onClose, onSubmit, submitt
               onPress={() => setReason(option.value)}
               style={[styles.reasonChip, active && styles.reasonChipActive]}
             >
-              <Text style={[styles.reasonChipText, active && styles.reasonChipTextActive]}>{option.label}</Text>
+              <Text translate style={[styles.reasonChipText, active && styles.reasonChipTextActive]}>{option.label}</Text>
             </TouchableOpacity>
           );
         })}
       </View>
 
-      <Text style={styles.label}>Note (optional)</Text>
+      <Text translate style={styles.label}>Note (optional)</Text>
       <TextInput
         multiline
         numberOfLines={3}

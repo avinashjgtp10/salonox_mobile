@@ -1,14 +1,15 @@
+import { useRegionalPreferences } from "@/localization/preferences";
+import type { PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FlatList, Pressable, StyleSheet, View } from "react-native";
 
 import { Text } from "@/components/ui/AppTypography";
-import { type ThemeColors } from "@/constants/theme";
 import { formatCurrency } from "@/features/quickSale/utils/money";
 import { getApiErrorMessage } from "@/services/api";
 import { serviceService } from "@/services/service.service";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors } from "@/components/auth/pearl/usePearlColors";
 import type { ServiceListItem } from "@/types/service";
 
 type Props = {
@@ -20,7 +21,9 @@ type Props = {
 };
 
 export function ServiceSearchDropdown({ query, salonId, selectedServiceIds, onSelect, onDismiss }: Props) {
-  const colors = useThemeColors();
+  "use no memo";
+  useRegionalPreferences();
+  const colors = usePearlColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [items, setItems] = useState<ServiceListItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -84,7 +87,7 @@ export function ServiceSearchDropdown({ query, salonId, selectedServiceIds, onSe
   return (
     <View style={styles.dropdown}>
       <View style={styles.header}>
-        <Text style={styles.heading}>Matching services</Text>
+        <Text translate style={styles.heading}>Matching services</Text>
         <Pressable accessibilityRole="button" accessibilityLabel="Close search results" onPress={onDismiss} hitSlop={10}>
           <Ionicons name="close" size={22} color={colors.text2} />
         </Pressable>
@@ -99,7 +102,7 @@ export function ServiceSearchDropdown({ query, salonId, selectedServiceIds, onSe
         onEndReachedThreshold={0.3}
         showsVerticalScrollIndicator
         keyExtractor={(item) => item.id}
-        ListEmptyComponent={!loading && !error ? <Text style={styles.message}>No services found.</Text> : null}
+        ListEmptyComponent={!loading && !error ? <Text translate style={styles.message}>No services found.</Text> : null}
         renderItem={({ item }) => {
           const selected = selectedServiceIds.has(item.id);
           return (
@@ -114,10 +117,10 @@ export function ServiceSearchDropdown({ query, salonId, selectedServiceIds, onSe
         }}
         ListFooterComponent={
           <View>
-            {error ? <Text style={styles.message}>{error}</Text> : null}
-            {loading ? <ActivityIndicator style={styles.message} color={colors.primaryText} /> : error || nextOffset !== null ? (
+            {error ? <Text translate style={styles.message}>{error}</Text> : null}
+            {loading ? <ActivityIndicator style={styles.message} color={colors.primaryText} /> : error ? (
               <Pressable accessibilityRole="button" onPress={() => { if (items.length) void loadMore(); else setRetry((value) => value + 1); }} style={styles.footer}>
-                <Text style={styles.heading}>{error ? "Try again" : "Show more services"}</Text>
+                <Text translate style={styles.heading}>Try again</Text>
               </Pressable>
             ) : null}
           </View>

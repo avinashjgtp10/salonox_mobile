@@ -27,6 +27,7 @@ import { notificationDeviceStorage } from "@/services/notificationDeviceStorage"
 import { notifySessionInvalidated } from "@/services/sessionInvalidation";
 import { tokenStorage } from "@/services/tokenStorage";
 import { isStaffBusinessWrite } from "@/utils/staffAccess";
+import { renewBranchAccess } from "@/services/connectedBranches.service";
 import { forwardRequestCancellation } from "./requestCancellation";
 import type { ApiResponse, RefreshTokenResponseData } from "@/types/auth";
 
@@ -323,6 +324,8 @@ requestUrl.includes("/auth/register") ||
   requestUrl.includes("/auth/refresh") ||
   requestUrl.includes("/auth/logout") ||
   requestUrl.includes("/auth/forgot-password") ||
+  // Native Google sign-in: a rejected token (401) means "not signed in yet", never "session expired".
+  requestUrl.includes("/auth/google/native") ||
   requestUrl.includes("/app/version");
 
 const releaseProtectedRequest = (config?: RetryableRequestConfig) => {
@@ -390,6 +393,13 @@ const refreshAccessToken = async (reason: string) => {
 
       if (isUserLogoutInProgress()) {
         throw createLogoutCancellation();
+      }
+
+      const delegatedTokens = await renewBranchAccess();
+      if (delegatedTokens) {
+        if (isUserLogoutInProgress()) throw createLogoutCancellation();
+        await tokenStorage.setTokens(delegatedTokens);
+        return delegatedTokens.accessToken;
       }
 
       if (!refreshToken) {

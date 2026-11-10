@@ -1,3 +1,4 @@
+import { useRegionalPreferences } from "@/localization/preferences";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { useMemo, useState } from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
@@ -48,6 +49,8 @@ export function BilledItemRow({
   item: AppointmentBilledItem;
   staffRoster: PosStaffMember[];
 }) {
+  "use no memo";
+  useRegionalPreferences();
   const dispatch = useAppDispatch();
   const { Colors, styles } = useAppointmentStyles();
   const localStyles = useMemo(() => createLocalStyles(), []);
@@ -101,23 +104,23 @@ export function BilledItemRow({
       {eligible ? (
         <View style={localStyles.controlsRow}>
           <View style={[localStyles.statusBadge, { backgroundColor: `${STATUS_META[status].color}20` }]}>
-            <Text style={[localStyles.statusText, { color: STATUS_META[status].color }]}>{STATUS_META[status].label}</Text>
+            <Text translate style={[localStyles.statusText, { color: STATUS_META[status].color }]}>{STATUS_META[status].label}</Text>
           </View>
           {item.staffName ? <Text style={localStyles.staffName} numberOfLines={1}>{item.staffName}</Text> : null}
           <View style={localStyles.buttonRow}>
             {isOwnRow && status === "pending" ? (
               <TouchableOpacity accessibilityState={{ disabled: busy || isWaiting }} disabled={busy || isWaiting} onPress={() => void runStatusChange("in_progress")} style={[localStyles.smallButton, isWaiting && localStyles.disabledButton]}>
-                {busy ? <ActivityIndicator color={Colors.primaryText} size="small" /> : <Text style={[localStyles.smallButtonText, { color: Colors.primaryText }]}>Start Service</Text>}
+                {busy ? <ActivityIndicator color={Colors.primaryText} size="small" /> : <Text translate style={[localStyles.smallButtonText, { color: Colors.primaryText }]}>Start Service</Text>}
               </TouchableOpacity>
             ) : null}
             {isOwnRow && status === "in_progress" ? (
               <TouchableOpacity disabled={busy} onPress={() => void runStatusChange("completed")} style={localStyles.smallButton}>
-                {busy ? <ActivityIndicator color={Colors.primaryText} size="small" /> : <Text style={[localStyles.smallButtonText, { color: Colors.primaryText }]}>Finish</Text>}
+                {busy ? <ActivityIndicator color={Colors.primaryText} size="small" /> : <Text translate style={[localStyles.smallButtonText, { color: Colors.primaryText }]}>Finish</Text>}
               </TouchableOpacity>
             ) : null}
             {canOffer ? (
               <TouchableOpacity disabled={busy} onPress={() => setPickerOpen(true)} style={localStyles.smallButton}>
-                {busy ? <ActivityIndicator color={Colors.primaryText} size="small" /> : <Text style={[localStyles.smallButtonText, { color: Colors.primaryText }]}>Hand Off</Text>}
+                {busy ? <ActivityIndicator color={Colors.primaryText} size="small" /> : <Text translate style={[localStyles.smallButtonText, { color: Colors.primaryText }]}>Hand Off</Text>}
               </TouchableOpacity>
             ) : null}
           </View>

@@ -16,12 +16,14 @@ type KeyboardAwareFormProps = {
   autoReveal?: boolean;
   /** Android keyboard-height bottom padding; off when the parent sheet itself moves above the keyboard. */
   padForKeyboard?: boolean;
+  /** iOS: lift the form above the keyboard. Off when a parent (e.g. StickyFooterLayout) already does. */
+  avoidKeyboard?: boolean;
   /** Disable drag scrolling while retaining automatic field reveal. */
   scrollEnabled?: boolean;
   style?: StyleProp<ViewStyle>;
   contentContainerStyle?: StyleProp<ViewStyle>;
 };
-export const KeyboardAwareForm = forwardRef<KeyboardAwareFormHandle, KeyboardAwareFormProps>(function KeyboardAwareForm({ children, embedded = false, autoReveal = false, padForKeyboard = true, scrollEnabled = true, style, contentContainerStyle }, ref) {
+export const KeyboardAwareForm = forwardRef<KeyboardAwareFormHandle, KeyboardAwareFormProps>(function KeyboardAwareForm({ children, embedded = false, autoReveal = false, padForKeyboard = true, avoidKeyboard = true, scrollEnabled = true, style, contentContainerStyle }, ref) {
   const insets = useSafeAreaInsets();
   const scroll = useRef<ScrollView>(null);
   const viewportRef = useRef<View>(null);
@@ -51,14 +53,15 @@ export const KeyboardAwareForm = forwardRef<KeyboardAwareFormHandle, KeyboardAwa
     const viewport = viewportRef.current;
     if (!open.current || !field || !viewport) return;
     const request = generation.current;
-    viewport.measureInWindow((_x, viewportY) => {
+    viewport.measureInWindow((_x, viewportY, _width, viewportHeight) => {
       field.measureInWindow((_fieldX, fieldY, _width, height) => {
         if (!open.current || focused.current !== field || generation.current !== request || !height) return;
         const margin = 16;
         const kbTop = keyboardTop.current ?? Keyboard.metrics()?.screenY
           ?? Dimensions.get("window").height - (assumedKeyboardHeight.current || Dimensions.get("window").height * 0.4);
         const visibleTop = viewportY + insets.top + margin;
-        const visibleBottom = kbTop - margin;
+        // A pinned footer can sit above the keyboard; also clear its rounded cap.
+        const visibleBottom = Math.min(kbTop - margin, viewportY + viewportHeight - 48);
         let delta: number;
         if (mode === "comfort") {
           delta = fieldY - (visibleTop + Math.max(0, visibleBottom - visibleTop - height) * 0.35);
@@ -153,7 +156,7 @@ export const KeyboardAwareForm = forwardRef<KeyboardAwareFormHandle, KeyboardAwa
 
   return (
     <View ref={viewportRef} collapsable={false} style={[embedded ? styles.embedded : styles.container, style]}>
-    <KeyboardAvoidingView style={embedded ? styles.embedded : styles.container} behavior="padding" enabled={!embedded && Platform.OS === "ios"}>
+    <KeyboardAvoidingView style={embedded ? styles.embedded : styles.container} behavior="padding" enabled={!embedded && avoidKeyboard && Platform.OS === "ios"}>
       <ScrollView ref={scroll} style={embedded ? styles.embedded : undefined} contentContainerStyle={[styles.content, contentContainerStyle, { paddingBottom: padForKeyboard ? keyboardHeight : 0 }]}
         nestedScrollEnabled={embedded}
         scrollEnabled={scrollEnabled}

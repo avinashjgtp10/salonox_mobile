@@ -1,3 +1,4 @@
+import { pearlBookingFields } from "@/features/appointments/styles/pearlBookingFields";
 import { Text } from "@/components/ui/AppTypography";
 import { FORM_STATUS_OPTIONS } from "@/features/appointments/constants/appointmentConstants";
 import { createStyles } from "@/features/appointments/styles/appointmentStyles";
@@ -17,12 +18,12 @@ export function AppointmentStatusDropdown({
   value: AppointmentStatus;
 }) {
   const Colors = useThemeColors();
-  const styles = useMemo(() => createStyles(Colors), [Colors]);
+  const styles = useMemo(() => pearlBookingFields(createStyles(Colors)), [Colors]);
   const [visible, setVisible] = useState(false);
 
   return (
     <View style={styles.inputGroup}>
-      <Text style={styles.inputLabel}>Status</Text>
+      <Text translate style={styles.inputLabel}>Status</Text>
       <TouchableOpacity
         activeOpacity={0.86}
         onPress={() => setVisible(true)}
@@ -31,11 +32,11 @@ export function AppointmentStatusDropdown({
         <Text numberOfLines={1} style={styles.compactSelectText}>{value}</Text>
         <Ionicons name="chevron-down" size={15} color={Colors.text2} />
       </TouchableOpacity>
-      {error ? <Text style={styles.fieldError}>{error}</Text> : null}
+      {error ? <Text translate style={styles.fieldError}>{error}</Text> : null}
       <Modal animationType="fade" onRequestClose={() => setVisible(false)} transparent visible={visible}>
         <Pressable onPress={() => setVisible(false)} style={styles.modalBackdrop}>
           <Pressable style={styles.statusModalCard}>
-            <Text style={styles.modalTitle}>Status</Text>
+            <Text translate style={styles.modalTitle}>Status</Text>
             {FORM_STATUS_OPTIONS.map((option) => (
               <TouchableOpacity
                 key={`appointment-status-${option}`}

@@ -18,7 +18,7 @@ export const CONSUMABLE_PERMISSIONS = {
 } as const;
 
 export const hasCustomPermission = (user: AuthUser | null | undefined, permissionKey: string): boolean => {
-  const permissions = user?.custom_permissions;
+  const permissions = user?.effective_permissions ?? user?.custom_permissions;
 
   if (Array.isArray(permissions)) {
     return permissions.includes(permissionKey);
@@ -39,18 +39,14 @@ export const hasInventoryPermission = (user: AuthUser | null | undefined, permis
   return hasCustomPermission(user, permissionKey);
 };
 
-// Product Audit: Roles & Permissions, or (staff, mobile app only) the owner's
-// "Product Audit access" switch, which unlocks viewing and performing audits.
-// Approving/rejecting always needs approve_product_audit.
+// Product Audit follows the same effective role permissions as the web app.
 export const canViewProductAudit = (user: AuthUser | null | undefined) =>
-  hasInventoryPermission(user, "view_product_audit") || user?.mobileProductAuditAccess === true;
+  hasInventoryPermission(user, "view_product_audit");
 
 export const canPerformProductAudit = (user: AuthUser | null | undefined) =>
   hasInventoryPermission(user, "create_product_audit") || user?.mobileProductAuditAccess === true;
 
-// Adding a product the audit scanner doesn't recognise. The Product Audit
-// switch covers this too (the backend grants view_products + create_products
-// with it); otherwise Roles & Permissions decide.
+// Creating products in an audit still requires the web product permissions.
 export const canCreateAuditProduct = (user: AuthUser | null | undefined) =>
   user?.mobileProductAuditAccess === true ||
   (hasInventoryPermission(user, "view_products") && hasInventoryPermission(user, "create_products")) ||

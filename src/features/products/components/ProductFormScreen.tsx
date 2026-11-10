@@ -1,17 +1,20 @@
+import { BottomSheet } from "@/components/ui/BottomSheet";
+import { CatalogFormFooter } from "@/features/catalog/components/CatalogFormFooter";
+import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text, TextInput } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { router, type Href } from "expo-router";
 import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppBackButton } from "@/components/ui/AppBackButton";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { KeyboardAwareScrollView } from "@/components/ui/KeyboardAwareScrollView";
 import { AppLayout, AppRadius } from "@/constants/layout";
-import { DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
+import { DashboardSpacing as Spacing } from "@/constants/theme";
 import { CategorySelectModal } from "@/features/services/components/CategorySelectModal";
 import {
   createBrandThunk,
@@ -25,7 +28,7 @@ import { fetchServicesThunk } from "@/middleware/service/service.thunk";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { clearProductMutationError, selectProductById } from "@/store/product/product.slice";
 import { selectServices } from "@/store/service/service.slice";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors, type PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 import { formatAppDate } from "@/utils/dateTime";
 import type { ServiceCategoryItem } from "@/types/service";
 import type { RecognizedProduct } from "@/types/productAudit";
@@ -81,7 +84,7 @@ const parseNumber = (value: string) => {
 };
 
 export default function ProductFormScreen({ id, mode, scannerDraft, onCreated }: Props) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
   const user = useAppSelector(selectCurrentUser);
@@ -163,7 +166,7 @@ export default function ProductFormScreen({ id, mode, scannerDraft, onCreated }:
   const liveProduct = product ?? (productState.currentProduct?.id === id ? productState.currentProduct : null);
   const chosenBrand = productState.brands.find((brand) => brand.id === brandId);
   const isSubmitting = saving || productState.mutationLoading;
-  const title = mode === "create" ? "Add Product" : "Edit Product";
+  const title = mode === "create" ? "Add product" : "Edit product";
   const isRetail = productType === "retail";
   const hasRetailSale = productType === "retail" || productType === "both";
   const hasConsumableInventory = productType === "consumable" || productType === "both";
@@ -367,30 +370,26 @@ export default function ProductFormScreen({ id, mode, scannerDraft, onCreated }:
   }
 
   return (
-    <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
+    <PearlBackground><SafeAreaView edges={["top"]} style={styles.safeArea}>
       <AppStatusBar />
       <KeyboardAvoidingView behavior="padding" keyboardVerticalOffset={0} style={styles.keyboardAvoidingView}>
         <KeyboardAwareScrollView ref={scrollViewRef} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <View style={styles.header}>
             <AppBackButton onPress={goBack} />
-            <Text style={styles.headerTitle}>{title}</Text>
-            <View style={styles.headerActions}>
-              <TouchableOpacity activeOpacity={0.88} disabled={isSubmitting} onPress={() => void submit()} style={[styles.headerSaveButton, isSubmitting && styles.disabled]}>
-                {isSubmitting ? <ActivityIndicator color={Colors.onPrimary} size="small" /> : null}
-                <Text style={styles.headerSaveText}>Save</Text>
-              </TouchableOpacity>
-            </View>
+            <Text translate style={styles.headerTitle}>{title}</Text>
+
           </View>
 
           {productState.detailsError && mode === "edit" && !liveProduct ? (
             <ErrorNotice message={productState.detailsError} />
           ) : (
             <>
-            {scannerDraft && <Text style={styles.counter}>Verify the scanned label, brand, variant and pack size. The quantity entered below becomes the audit physical count. Stock updates after audit approval.</Text>}
-            <Section title="Basic Information">
-              <Field ref={(input) => setFieldRef("name", input)} error={fieldErrors.name} maxLength={100} label="Product Name *" onChangeText={(value) => updateField("name", value, setName)} value={name} />
+            {scannerDraft && <Text translate style={styles.counter}>Verify the scanned label, brand, variant and pack size. The quantity entered below becomes the audit physical count. Stock updates after audit approval.</Text>}
+            <View style={{ flexDirection: "row", gap: 20, marginBottom: 16 }}>{["Basics", "Pricing", "Stock"].map((step) => <Text key={step} style={{ fontSize: 12, color: Colors.primaryText }}>● {step}</Text>)}</View>
+            <Section title="Basics">
+              <Field ref={(input) => setFieldRef("name", input)} error={fieldErrors.name} maxLength={100} label="Product name *" onChangeText={(value) => updateField("name", value, setName)} value={name} />
               <Text style={styles.counter}>{name.length}/100</Text>
-              <Field label="Barcode (Optional)" onChangeText={setBarcode} value={barcode} />
+              <Field label="Barcode" onChangeText={setBarcode} value={barcode} />
 
               <View style={styles.twoColumn}>
                 <View ref={(view) => setFieldRef("category", view)} style={styles.flexField}>
@@ -406,19 +405,31 @@ export default function ProductFormScreen({ id, mode, scannerDraft, onCreated }:
               </View>
               <View style={styles.inlineLinkRow}>
                 <TouchableOpacity activeOpacity={0.8} onPress={() => setCategoryModalOpen(true)} style={styles.inlineLinkCell}>
-                  <Text style={styles.inlineLink}>+ Add a category</Text>
+                  <Text translate style={styles.inlineLink}>+ Add a category</Text>
                 </TouchableOpacity>
                 <TouchableOpacity activeOpacity={0.8} onPress={() => setBrandModalOpen(true)} style={styles.inlineLinkCell}>
-                  <Text style={styles.inlineLink}>+ Add a brand</Text>
+                  <Text translate style={styles.inlineLink}>+ Add a brand</Text>
                 </TouchableOpacity>
               </View>
 
               <SelectField label="Supplier" onPress={() => { setSupplierCreateMode(false); setSupplierModalOpen(true); }} placeholder="Select supplier" value={supplierName || undefined} />
-              {canCreateSupplier && <TouchableOpacity onPress={() => { setSupplierCreateMode(true); setSupplierModalOpen(true); }}><Text style={styles.inlineLink}>+ Add supplier</Text></TouchableOpacity>}
+              {canCreateSupplier && <TouchableOpacity onPress={() => { setSupplierCreateMode(true); setSupplierModalOpen(true); }}><Text translate style={styles.inlineLink}>+ Add supplier</Text></TouchableOpacity>}
               <Field inputStyle={styles.textArea} label="Description" multiline onChangeText={setDescription} value={description} />
               <Field inputStyle={styles.remarkArea} label="Remark" multiline onChangeText={setRemark} value={remark} />
 
-              <Text style={styles.label}>Product Type</Text>
+            </Section>
+
+            <Section title="Pricing">
+              {hasRetailSale ? <Field ref={(input) => setFieldRef("retailPrice", input)} error={fieldErrors.retailPrice} keyboardType="decimal-pad" label="Retail price *" onChangeText={(value) => updateField("retailPrice", value, setRetailPrice)} value={retailPrice} /> : null}
+              <View style={styles.twoColumn}>
+                <Field ref={(input) => setFieldRef("supplyPrice", input)} error={fieldErrors.supplyPrice} keyboardType="decimal-pad" label="Supply price" onChangeText={(value) => updateField("supplyPrice", value, setSupplyPrice)} value={supplyPrice} />
+                <SelectField label="Tax Type" onPress={() => setTaxTypeOpen(true)} value={TAX_TYPES.find((item) => item.value === taxType)?.label ?? taxType} />
+              </View>
+              <Field label="Tax Group" onChangeText={setTaxGroup} value={taxGroup} />
+              <Field label="HSN/SAC" onChangeText={setHsnSac} value={hsnSac} />
+            </Section>
+
+            <Section title="Type">
               <View style={styles.segmentRow}>
                 {PRODUCT_TYPES.map((item) => (
                   <TouchableOpacity
@@ -427,14 +438,14 @@ export default function ProductFormScreen({ id, mode, scannerDraft, onCreated }:
                     onPress={() => setProductType(item.value)}
                     style={[styles.segment, productType === item.value && styles.segmentActive]}
                   >
-                    <Text adjustsFontSizeToFit minimumFontScale={0.8} numberOfLines={1} style={[styles.segmentText, productType === item.value && styles.segmentTextActive]}>{item.label}</Text>
+                    <Ionicons name={productType === item.value ? "radio-button-on" : "radio-button-off"} size={20} color={Colors.primaryText} /><View style={{ flex: 1 }}><Text translate style={styles.segmentText}>{item.label}</Text><Text translate style={styles.helperText}>{item.value === "retail" ? "Sold to clients at checkout" : item.value === "consumable" ? "Used by staff during services, not sold" : "Sold and used in services"}</Text></View>
                   </TouchableOpacity>
                 ))}
               </View>
-              {productType === "both" && <Text style={styles.helperText}>Used in services and also sold to clients.</Text>}
+              {productType === "both" && <Text translate style={styles.helperText}>Used in services and also sold to clients.</Text>}
             </Section>
 
-            <Section emphasized title="Inventory Setup">
+            <Section title="Stock">
               {hasConsumableInventory ? (
                 <>
                   <View style={styles.twoColumn}>
@@ -450,21 +461,27 @@ export default function ProductFormScreen({ id, mode, scannerDraft, onCreated }:
                     </Text>
                   </View>
                   <Field ref={(input) => setFieldRef("lowStockAlert", input)} error={fieldErrors.lowStockAlert} keyboardType="decimal-pad" label="Low Stock Alert (in bottles/units)" onChangeText={(value) => updateField("lowStockAlert", value, setLowStockAlert)} value={lowStockAlert} />
-                  <Field label="Lot Number" onChangeText={setLotNumber} value={lotNumber} />
+                  <Field label="Lot no." onChangeText={setLotNumber} value={lotNumber} />
                 </>
               ) : (
                 <>
-                  <Field ref={(input) => setFieldRef("stockQuantity", input)} error={fieldErrors.stockQuantity} keyboardType="decimal-pad" label="Stock Quantity *" onChangeText={(value) => updateField("stockQuantity", value, setStockQuantity)} value={stockQuantity} />
-                  <Field ref={(input) => setFieldRef("lowStockAlert", input)} error={fieldErrors.lowStockAlert} keyboardType="decimal-pad" label="Low Stock Alert" onChangeText={(value) => updateField("lowStockAlert", value, setLowStockAlert)} value={lowStockAlert} />
+                  <Field ref={(input) => setFieldRef("stockQuantity", input)} error={fieldErrors.stockQuantity} keyboardType="decimal-pad" label="In stock *" onChangeText={(value) => updateField("stockQuantity", value, setStockQuantity)} value={stockQuantity} />
+                  <Field ref={(input) => setFieldRef("lowStockAlert", input)} error={fieldErrors.lowStockAlert} keyboardType="decimal-pad" label="Low-stock alert" onChangeText={(value) => updateField("lowStockAlert", value, setLowStockAlert)} value={lowStockAlert} />
                   <Field label="Lot Number" onChangeText={setLotNumber} value={lotNumber} />
                 </>
               )}
+              <Text translate style={styles.label}>Expiry Date</Text>
+              <TouchableOpacity activeOpacity={0.84} onPress={() => setShowDatePicker(true)} style={styles.dateButton}>
+                <Ionicons color={Colors.heading} name="calendar-outline" size={17} />
+                <Text style={[styles.dateText, !expiryDate && styles.placeholder]}>{formatDate(expiryDate) || "dd-mm-yy"}</Text>
+                <Ionicons color={Colors.text2} name="chevron-down" size={16} />
+              </TouchableOpacity>
             </Section>
 
             {hasConsumableInventory ? (
               <>
                 <Section title="Service Assignment">
-                  <Text style={styles.helperText}>Assign this product to the services that consume it, with how much each one uses.</Text>
+                  <Text translate style={styles.helperText}>Assign this product to the services that consume it, with how much each one uses.</Text>
                   {assignmentsLoading && <ActivityIndicator />}
                   {!!assignmentError && <TouchableOpacity onPress={() => setAssignmentRetry((value) => value + 1)}><Text style={styles.fieldError}>{assignmentError} Tap to retry.</Text></TouchableOpacity>}
                   <Field label="" onChangeText={setServiceSearch} placeholder="Search a service to assign..." value={serviceSearch} />
@@ -497,21 +514,7 @@ export default function ProductFormScreen({ id, mode, scannerDraft, onCreated }:
               </>
             ) : null}
 
-            <Section title="Supply Information">
-              <View style={styles.twoColumn}>
-                <Field ref={(input) => setFieldRef("supplyPrice", input)} error={fieldErrors.supplyPrice} keyboardType="decimal-pad" label="Supply Price" onChangeText={(value) => updateField("supplyPrice", value, setSupplyPrice)} value={supplyPrice} />
-                <SelectField label="Tax Type" onPress={() => setTaxTypeOpen(true)} value={TAX_TYPES.find((item) => item.value === taxType)?.label ?? taxType} />
-              </View>
-              <Field label="Tax Group" onChangeText={setTaxGroup} value={taxGroup} />
-              <Field label="HSN/SAC" onChangeText={setHsnSac} value={hsnSac} />
-              <Text style={styles.label}>Expiry Date</Text>
-              <TouchableOpacity activeOpacity={0.84} onPress={() => setShowDatePicker(true)} style={styles.dateButton}>
-                <Ionicons color={Colors.heading} name="calendar-outline" size={17} />
-                <Text style={[styles.dateText, !expiryDate && styles.placeholder]}>{formatDate(expiryDate) || "dd-mm-yy"}</Text>
-                <Ionicons color={Colors.text2} name="chevron-down" size={16} />
-              </TouchableOpacity>
-              {hasRetailSale ? <Field ref={(input) => setFieldRef("retailPrice", input)} error={fieldErrors.retailPrice} keyboardType="decimal-pad" label="Retail Price *" onChangeText={(value) => updateField("retailPrice", value, setRetailPrice)} value={retailPrice} /> : null}
-            </Section>
+
 
             {hasConsumableInventory ? (
               <Section title="Inventory Preview">
@@ -524,30 +527,15 @@ export default function ProductFormScreen({ id, mode, scannerDraft, onCreated }:
 
             {formError ?? productState.mutationError ? <ErrorNotice message={formError ?? productState.mutationError ?? ""} /> : null}
 
-            <View style={styles.footer}>
-              <TouchableOpacity activeOpacity={0.84} onPress={goBack} style={styles.cancelButton}>
-                <Text style={styles.cancelText}>Close</Text>
-              </TouchableOpacity>
-              <TouchableOpacity activeOpacity={0.88} disabled={isSubmitting} onPress={() => void submit()} style={[styles.saveButton, isSubmitting && styles.disabled]}>
-                {isSubmitting ? <ActivityIndicator color={Colors.onPrimary} /> : null}
-                <Text style={styles.saveText}>{isSubmitting ? "Saving..." : "Save"}</Text>
-              </TouchableOpacity>
-            </View>
+
             </>
           )}
         </KeyboardAwareScrollView>
       </KeyboardAvoidingView>
 
+      {!(productState.detailsError && mode === "edit" && !liveProduct) ? <CatalogFormFooter label="Save product" loading={isSubmitting} onCancel={goBack} onSave={() => void submit()} /> : null}
       <SupplierSelectModal visible={supplierModalOpen} initialCreate={supplierCreateMode} canCreate={canCreateSupplier} onClose={() => setSupplierModalOpen(false)} onSelect={(supplier) => { setSupplierId(supplier?.id ?? null); setSupplierName(supplier?.name ?? ""); }} />
-      <Modal animationType="fade" transparent visible={brandModalOpen} onRequestClose={() => setBrandModalOpen(false)}>
-        <Pressable onPress={() => setBrandModalOpen(false)} style={styles.overlay}>
-          <Pressable onPress={(event) => event.stopPropagation()} style={styles.sheet}>
-            <View style={styles.sheetHeader}>
-              <Text style={styles.sheetTitle}>Select Brand</Text>
-              <TouchableOpacity accessibilityLabel="Close" accessibilityRole="button" activeOpacity={0.7} hitSlop={10} onPress={() => setBrandModalOpen(false)}>
-                <Ionicons color={Colors.text2} name="close" size={20} />
-              </TouchableOpacity>
-            </View>
+      <BottomSheet pearlStyle centered={false} avoidKeyboard title="Select brand" visible={brandModalOpen} onClose={() => setBrandModalOpen(false)}>
             {/* Field uses flex: 1, which collapses it inside this column sheet; a row keeps its height. */}
             <View style={styles.brandAddRow}>
               <Field label="New brand name" maxLength={100} placeholder="Brand name" value={newBrandName} onChangeText={setNewBrandName} editable={!brandSaving} />
@@ -559,7 +547,7 @@ export default function ProductFormScreen({ id, mode, scannerDraft, onCreated }:
                 setBrandId(result.brand.id); setNewBrandName(""); setBrandModalOpen(false);
               } catch (error) { setBrandError(getApiErrorMessage(error)); }
               finally { setBrandSaving(false); }
-            }}><Text style={styles.brandAddButtonText}>{brandSaving ? "Adding…" : "Add"}</Text></TouchableOpacity>
+            }}><Text translate style={styles.brandAddButtonText}>{brandSaving ? "Adding…" : "Add"}</Text></TouchableOpacity>
             </View>
             {!!brandError && <Text style={styles.fieldError}>{brandError}</Text>}
             {scannerDraft?.brand && !productState.brands.some(b => b.name.trim().toLowerCase() === scannerDraft.brand?.trim().toLowerCase()) && <TouchableOpacity disabled={isSubmitting} style={styles.sheetRow} onPress={async () => {
@@ -582,23 +570,16 @@ export default function ProductFormScreen({ id, mode, scannerDraft, onCreated }:
                 </TouchableOpacity>
               ))}
             </ScrollView>
-          </Pressable>
-        </Pressable>
-      </Modal>
+      </BottomSheet>
 
-      <Modal animationType="fade" transparent visible={taxTypeOpen} onRequestClose={() => setTaxTypeOpen(false)}>
-        <Pressable onPress={() => setTaxTypeOpen(false)} style={styles.overlay}>
-          <Pressable onPress={(event) => event.stopPropagation()} style={styles.sheet}>
-            <Text style={styles.sheetTitle}>Tax Type</Text>
+      <BottomSheet pearlStyle centered={false} title="Tax type" visible={taxTypeOpen} onClose={() => setTaxTypeOpen(false)}>
             {TAX_TYPES.map((item) => (
               <TouchableOpacity key={item.value} onPress={() => { setTaxType(item.value); setTaxTypeOpen(false); }} style={styles.sheetRow}>
-                <Text style={styles.sheetRowText}>{item.label}</Text>
+                <Text translate style={styles.sheetRowText}>{item.label}</Text>
                 {taxType === item.value ? <Ionicons color={Colors.primaryText} name="checkmark-circle" size={20} /> : null}
               </TouchableOpacity>
             ))}
-          </Pressable>
-        </Pressable>
-      </Modal>
+      </BottomSheet>
 
       {showDatePicker ? (
         <DateTimePicker
@@ -622,101 +603,101 @@ export default function ProductFormScreen({ id, mode, scannerDraft, onCreated }:
         type="product"
         visible={categoryModalOpen}
       />
-    </SafeAreaView>
+    </SafeAreaView></PearlBackground>
   );
 }
 
 function LoadingScreen({ onBack, title }: { onBack: () => void; title: string }) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <PearlBackground><SafeAreaView style={styles.safeArea}>
       <AppStatusBar />
       <View style={styles.content}>
         <View style={styles.header}>
           <AppBackButton onPress={onBack} />
-          <Text style={styles.headerTitle}>{title}</Text>
+          <Text translate style={styles.headerTitle}>{title}</Text>
         </View>
         <View style={styles.loading}><ActivityIndicator size="large" color={Colors.primaryText} /></View>
       </View>
-    </SafeAreaView>
+    </SafeAreaView></PearlBackground>
   );
 }
 
 function ErrorNotice({ message }: { message: string }) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   return (
     <View style={styles.errorBox}>
       <Ionicons color={Colors.error} name="alert-circle-outline" size={18} />
-      <Text style={styles.errorText}>{message}</Text>
+      <Text translate style={styles.errorText}>{message}</Text>
     </View>
   );
 }
 
 function Section({ children, emphasized, title }: { children: React.ReactNode; emphasized?: boolean; title: string }) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   return (
     <View style={[styles.section, emphasized && styles.sectionEmphasized]}>
-      <Text style={styles.sectionTitle}>{title}</Text>
+      <Text translate style={styles.sectionTitle}>{title}</Text>
       {children}
     </View>
   );
 }
 
 const Field = forwardRef<TextInput, React.ComponentProps<typeof TextInput> & { error?: string; inputStyle?: object; label: string }>(function Field({ error, inputStyle, label, ...props }, ref) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   return (
     <View style={styles.field}>
-      {label ? <Text style={styles.label}>{label}</Text> : null}
+      {label ? <Text translate style={styles.label}>{label}</Text> : null}
       <TextInput
         ref={ref}
         {...props}
         placeholderTextColor={Colors.placeholder}
         style={[styles.input, props.multiline && styles.multilineInput, error && styles.inputError, inputStyle]}
       />
-      {error ? <Text style={styles.fieldError}>{error}</Text> : null}
+      {error ? <Text translate style={styles.fieldError}>{error}</Text> : null}
     </View>
   );
 });
 
 function SelectField({ error, label, onPress, placeholder, value }: { error?: string; label: string; onPress: () => void; placeholder?: string; value?: string }) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   return (
     <TouchableOpacity activeOpacity={0.84} onPress={onPress} style={styles.field}>
-      <Text style={styles.label}>{label}</Text>
+      <Text translate style={styles.label}>{label}</Text>
       <View style={[styles.selectInput, error && styles.inputError]}>
         <Text numberOfLines={1} style={[styles.selectText, !value && styles.placeholder]}>{value || placeholder || "None"}</Text>
         <Ionicons color={Colors.text2} name="chevron-down" size={16} />
       </View>
-      {error ? <Text style={styles.fieldError}>{error}</Text> : null}
+      {error ? <Text translate style={styles.fieldError}>{error}</Text> : null}
     </TouchableOpacity>
   );
 }
 
 function PreviewRow({ label, value, warning }: { label: string; value: string; warning?: boolean }) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   return (
     <View style={styles.previewRow}>
-      <Text style={styles.previewLabel}>{label}</Text>
+      <Text translate style={styles.previewLabel}>{label}</Text>
       <Text style={[styles.previewValue, warning && styles.previewWarning]}>{value}</Text>
     </View>
   );
 }
 
 const createStyles = (Colors: ThemeColors) => StyleSheet.create({
-  safeArea: { backgroundColor: Colors.bg, flex: 1 },
+  safeArea: { flex: 1 },
   keyboardAvoidingView: { flex: 1 },
   content: { padding: Spacing.lg, paddingBottom: AppLayout.contentBottomPadding },
   header: {
     alignItems: "center",
-    backgroundColor: Colors.card,
-    borderBottomColor: Colors.border,
-    borderBottomWidth: 1,
+    backgroundColor: "transparent",
+    borderBottomColor: "transparent",
+    borderBottomWidth: 0,
     flexDirection: "row",
     gap: Spacing.md,
     justifyContent: "space-between",
@@ -742,7 +723,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   section: {
     backgroundColor: Colors.card,
     borderColor: Colors.border,
-    borderRadius: 8,
+    borderRadius: 28,
     borderWidth: 1,
     marginBottom: Spacing.lg,
     padding: Spacing.lg,
@@ -755,7 +736,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   input: {
     backgroundColor: Colors.card,
     borderColor: Colors.border,
-    borderRadius: 8,
+    borderRadius: 16,
     borderWidth: 1,
     color: Colors.heading,
     fontSize: 15,
@@ -779,7 +760,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     alignItems: "center",
     backgroundColor: Colors.card,
     borderColor: Colors.border,
-    borderRadius: 8,
+    borderRadius: 16,
     borderWidth: 1,
     flexDirection: "row",
     minHeight: 48,
@@ -787,21 +768,22 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   selectText: { color: Colors.heading, flex: 1, fontSize: 15 },
   placeholder: { color: Colors.placeholder },
-  segmentRow: { flexDirection: "row", gap: Spacing.sm },
+  segmentRow: { gap: Spacing.sm },
   segment: {
     alignItems: "center",
     borderColor: Colors.border,
-    borderRadius: 8,
+    borderRadius: 16,
     borderWidth: 1,
-    flex: 1,
+    flexDirection: "row", gap: 10,
     justifyContent: "center",
     minHeight: 48,
-    paddingHorizontal: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
-  segmentActive: { backgroundColor: Colors.primaryDark, borderColor: Colors.primaryDark },
-  segmentText: { color: Colors.heading, fontSize: 13, fontWeight: "800", textAlign: "center" },
+  segmentActive: { backgroundColor: Colors.backgroundSelected, borderColor: Colors.primaryDark },
+  segmentText: { color: Colors.heading, fontSize: 13, fontWeight: "700" },
   segmentTextActive: { color: Colors.onPrimary },
-  stockPreview: { backgroundColor: Colors.bg2, borderRadius: 8, marginBottom: Spacing.md, padding: Spacing.md },
+  stockPreview: { backgroundColor: Colors.bg2, borderRadius: 16, marginBottom: Spacing.md, padding: Spacing.md },
   stockPreviewText: { color: Colors.heading, fontSize: 14 },
   bold: { fontWeight: "800" },
   helperText: { color: Colors.text2, fontSize: 14, lineHeight: 21, marginBottom: Spacing.md },
@@ -819,7 +801,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   selectedServiceRow: {
     alignItems: "center",
     backgroundColor: Colors.bg2,
-    borderRadius: 8,
+    borderRadius: 16,
     flexDirection: "row",
     justifyContent: "space-between",
     marginTop: 8,
@@ -830,7 +812,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     alignItems: "center",
     alignSelf: "flex-start",
     borderColor: Colors.border,
-    borderRadius: 8,
+    borderRadius: 16,
     borderWidth: 1,
     flexDirection: "row",
     gap: 8,
@@ -853,7 +835,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   errorBox: {
     alignItems: "center",
     backgroundColor: Colors.errorBg,
-    borderRadius: 8,
+    borderRadius: 16,
     flexDirection: "row",
     gap: 8,
     marginBottom: Spacing.md,
@@ -864,7 +846,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   cancelButton: {
     alignItems: "center",
     borderColor: Colors.primary,
-    borderRadius: 8,
+    borderRadius: 16,
     borderWidth: 1,
     flex: 1,
     justifyContent: "center",
@@ -874,7 +856,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   saveButton: {
     alignItems: "center",
     backgroundColor: Colors.primaryDark,
-    borderRadius: 8,
+    borderRadius: 16,
     flex: 1,
     flexDirection: "row",
     gap: 8,
@@ -885,12 +867,12 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   disabled: { opacity: 0.7 },
   loading: { alignItems: "center", flex: 1, justifyContent: "center", minHeight: 300 },
   overlay: { alignItems: "center", backgroundColor: "rgba(15,23,32,0.35)", flex: 1, justifyContent: "center", padding: Spacing.lg },
-  sheet: { backgroundColor: Colors.card, borderRadius: 8, maxHeight: "70%", padding: Spacing.lg, width: "100%" },
+  sheet: { backgroundColor: Colors.card, borderRadius: 16, maxHeight: "70%", padding: Spacing.lg, width: "100%" },
   sheetTitle: { color: Colors.heading, fontSize: 18, fontWeight: "800", marginBottom: Spacing.md },
   sheetHeader: { alignItems: "flex-start", flexDirection: "row", justifyContent: "space-between" },
   sheetList: { flexGrow: 0, flexShrink: 1, maxHeight: 360 },
   brandAddRow: { alignItems: "flex-end", flexDirection: "row", gap: Spacing.sm },
-  brandAddButton: { alignItems: "center", backgroundColor: Colors.primary, borderRadius: 8, justifyContent: "center", marginBottom: Spacing.md, minHeight: 48, paddingHorizontal: 18 },
+  brandAddButton: { alignItems: "center", backgroundColor: Colors.primary, borderRadius: 16, justifyContent: "center", marginBottom: Spacing.md, minHeight: 48, paddingHorizontal: 18 },
   brandAddButtonText: { color: Colors.onPrimary, fontSize: 14, fontWeight: "800" },
   sheetRow: {
     alignItems: "center",

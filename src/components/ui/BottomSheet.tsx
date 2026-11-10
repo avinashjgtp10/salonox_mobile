@@ -1,3 +1,5 @@
+import type { PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
+import { usePearlColors } from "@/components/auth/pearl/usePearlColors";
 import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
 import type { ReactNode, Ref } from "react";
@@ -6,6 +8,7 @@ import { BackHandler, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Tou
 import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { KeyboardInsetView } from "@/components/ui/KeyboardInsetView";
 import { Portal } from "@/components/ui/Portal";
 import { KeyboardAwareForm, type KeyboardAwareFormHandle } from "@/components/ui/KeyboardAwareForm";
 import { AppLayout, AppRadius } from "@/constants/layout";
@@ -13,11 +16,10 @@ import {
   DashboardRadius as Radius,
   DashboardSpacing as Spacing,
   DashboardTypography as Typography,
-  type ThemeColors,
 } from "@/constants/theme";
-import { useThemeColors } from "@/theme/ThemeProvider";
 
 type BottomSheetProps = {
+  pearlStyle?: boolean;
   avoidKeyboard?: boolean;
   centered?: boolean;
   children: ReactNode;
@@ -43,6 +45,7 @@ export function BottomSheet({
   children,
   footer,
   keyboardAwareFormRef,
+  pearlStyle = false,
   onClose,
   renderInline = false,
   scrollable = true,
@@ -51,11 +54,13 @@ export function BottomSheet({
   title,
   visible,
 }: BottomSheetProps) {
-  const Colors = useThemeColors();
+  const Colors = usePearlColors(pearlStyle);
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => createStyles(Colors, insets.bottom), [Colors, insets.bottom]);
   const { height: screenHeight } = useWindowDimensions();
-  const sheetMaxHeight = Math.round(screenHeight * 0.9);
+  const [availableHeight, setAvailableHeight] = useState<number | null>(null);
+  const centeredPadding = centered ? Math.max(insets.top, 16) + Math.max(insets.bottom, 16) : 0;
+  const sheetMaxHeight = Math.min(Math.round(screenHeight * 0.9), Math.max(0, (availableHeight ?? screenHeight) - centeredPadding));
   const scrollMaxHeight = Math.round(screenHeight * 0.72);
   const progress = useSharedValue(0);
   const [isPresented, setIsPresented] = useState(visible);
@@ -102,6 +107,40 @@ export function BottomSheet({
     return null;
   }
 
+  const sheet = (
+    <Animated.View
+      style={[styles.sheet, pearlStyle && { borderRadius: 30, backgroundColor: Colors.bg }, centered && styles.sheetCentered, { maxHeight: sheetMaxHeight }, sheetStyle]}
+    >
+      {!centered ? <View style={styles.handle} /> : null}
+      <View style={styles.header}>
+        <View style={styles.headerCopy}>
+          <Text translate style={styles.title}>{title}</Text>
+          {subtitle ? <Text translate style={styles.subtitle}>{subtitle}</Text> : null}
+        </View>
+        <TouchableOpacity activeOpacity={0.84} onPress={onClose} style={styles.closeButton}>
+          <Ionicons name="close" size={18} color={Colors.primaryText} />
+        </TouchableOpacity>
+      </View>
+
+      {scrollable ? (
+        <KeyboardAwareForm
+          ref={keyboardAwareFormRef}
+          embedded
+          autoReveal
+          padForKeyboard={!avoidKeyboard}
+          style={{ maxHeight: scrollMaxHeight, minHeight: 0, flexShrink: 1 }}
+          contentContainerStyle={styles.content}
+        >
+          {children}
+        </KeyboardAwareForm>
+      ) : (
+        <View style={[styles.content, avoidKeyboard && styles.constrainedContent]}>{children}</View>
+      )}
+
+      {footer ? <View style={styles.footer}>{footer}</View> : null}
+    </Animated.View>
+  );
+
   const overlay = (
       <Animated.View
         pointerEvents="auto"
@@ -113,44 +152,22 @@ export function BottomSheet({
         ]}
       >
         <Pressable onPress={onClose} style={StyleSheet.absoluteFill} />
+        {avoidKeyboard ? (
+          <KeyboardInsetView
+            onContentLayout={event => setAvailableHeight(event.nativeEvent.layout.height)}
+            contentContainerStyle={[styles.keyboardAvoiding, centered && styles.keyboardAvoidingCentered, centered && { paddingTop: Math.max(insets.top, 16), paddingBottom: Math.max(insets.bottom, 16) }]}
+          >
+            {sheet}
+          </KeyboardInsetView>
+        ) : (
           <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : avoidKeyboard ? "height" : undefined}
-            keyboardVerticalOffset={avoidKeyboard ? insets.top : 0}
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
             pointerEvents="box-none"
             style={[styles.keyboardAvoiding, centered && styles.keyboardAvoidingCentered, centered && { paddingTop: Math.max(insets.top, 16), paddingBottom: Math.max(insets.bottom, 16) }]}
           >
-            <Animated.View
-              style={[styles.sheet, centered && styles.sheetCentered, { maxHeight: sheetMaxHeight }, sheetStyle]}
-            >
-              {!centered ? <View style={styles.handle} /> : null}
-              <View style={styles.header}>
-                <View style={styles.headerCopy}>
-                  <Text style={styles.title}>{title}</Text>
-                  {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
-                </View>
-                <TouchableOpacity activeOpacity={0.84} onPress={onClose} style={styles.closeButton}>
-                  <Ionicons name="close" size={18} color={Colors.primaryText} />
-                </TouchableOpacity>
-              </View>
-
-              {scrollable ? (
-                <KeyboardAwareForm
-                  ref={keyboardAwareFormRef}
-                  embedded
-                  autoReveal
-                  padForKeyboard={!avoidKeyboard}
-                  style={{ maxHeight: scrollMaxHeight }}
-                  contentContainerStyle={styles.content}
-                >
-                  {children}
-                </KeyboardAwareForm>
-              ) : (
-                <View style={[styles.content, avoidKeyboard && styles.constrainedContent]}>{children}</View>
-              )}
-
-              {footer ? <View style={styles.footer}>{footer}</View> : null}
-            </Animated.View>
+            {sheet}
           </KeyboardAvoidingView>
+        )}
       </Animated.View>
   );
 
@@ -212,6 +229,7 @@ const createStyles = (Colors: ThemeColors, bottomInset: number) => StyleSheet.cr
     width: 42,
   },
   header: {
+    flexShrink: 0,
     alignItems: "flex-start",
     flexDirection: "row",
     gap: 12,
@@ -253,6 +271,7 @@ const createStyles = (Colors: ThemeColors, bottomInset: number) => StyleSheet.cr
     flexShrink: 1,
   },
   footer: {
+    flexShrink: 0,
     flexDirection: "row",
     gap: 10,
     paddingTop: Spacing.md,

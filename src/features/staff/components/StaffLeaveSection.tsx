@@ -101,7 +101,7 @@ function LeaveRow({ canManage, leave, onDelete, onEdit, staffId }: LeaveRowProps
           onPress={() => onEdit(leave)}
           style={styles.editButton}
         >
-          <Text style={styles.editButtonText}>Edit</Text>
+          <Text translate style={styles.editButtonText}>Edit</Text>
         </TouchableOpacity>
         <TouchableOpacity
           activeOpacity={0.84}
@@ -112,7 +112,7 @@ function LeaveRow({ canManage, leave, onDelete, onEdit, staffId }: LeaveRowProps
           {deleting ? (
             <ActivityIndicator color={Colors.error} size="small" />
           ) : (
-            <Text style={styles.deleteButtonText}>Delete</Text>
+            <Text translate style={styles.deleteButtonText}>Delete</Text>
           )}
         </TouchableOpacity>
       </View>
@@ -274,7 +274,7 @@ export function StaffLeaveSection({ staffId }: StaffLeaveSectionProps) {
       action={
         <TouchableOpacity activeOpacity={0.84} onPress={openCreateForm} style={styles.addButton}>
           <Ionicons name="add" size={16} color="#FFFFFF" />
-          <Text style={styles.addButtonText}>Add</Text>
+          <Text translate style={styles.addButtonText}>Add</Text>
         </TouchableOpacity>
       }
       title="Leaves"
@@ -363,9 +363,9 @@ export function StaffLeaveSection({ staffId }: StaffLeaveSectionProps) {
           </View>
         ) : null}
 
-        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+        {error ? <Text translate style={styles.errorText}>{error}</Text> : null}
         {!isValid ? (
-          <Text style={styles.hintText}>Enter a leave type and valid dates, with end on or after start.</Text>
+          <Text translate style={styles.hintText}>Enter a leave type and valid dates, with end on or after start.</Text>
         ) : null}
 
         <View style={styles.footer}>
@@ -375,7 +375,7 @@ export function StaffLeaveSection({ staffId }: StaffLeaveSectionProps) {
             onPress={closeForm}
             style={styles.cancelButton}
           >
-            <Text style={styles.cancelButtonText}>Cancel</Text>
+            <Text translate style={styles.cancelButtonText}>Cancel</Text>
           </TouchableOpacity>
           <TouchableOpacity
             activeOpacity={0.84}
@@ -386,7 +386,7 @@ export function StaffLeaveSection({ staffId }: StaffLeaveSectionProps) {
             {saving ? (
               <ActivityIndicator size="small" color="#FFFFFF" />
             ) : (
-              <Text style={styles.saveButtonText}>{editingLeave ? "Update" : "Save"}</Text>
+              <Text translate style={styles.saveButtonText}>{editingLeave ? "Update" : "Save"}</Text>
             )}
           </TouchableOpacity>
         </View>

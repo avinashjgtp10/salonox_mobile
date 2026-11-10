@@ -1,14 +1,14 @@
 import { Text } from "@/components/ui/AppTypography";
 import { SearchableFilterDropdown } from "@/components/ui/SearchableFilterDropdown";
-import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useMemo, useState } from "react";
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import { StyleSheet, TouchableOpacity, View } from "react-native";
+import { BottomSheet } from "@/components/ui/BottomSheet";
+import { LinearGradient } from "expo-linear-gradient";
+import { pearlGradients } from "@/components/auth/pearl/tokens";
 
 import { AppRadius } from "@/constants/layout";
-import { DashboardRadius as Radius, DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { DashboardRadius as Radius, DashboardSpacing as Spacing } from "@/constants/theme";
+import { usePearlColors, type PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 import {
   CONSUMABLE_PRODUCT_TYPE_OPTIONS,
   CONSUMABLE_STATUS_OPTIONS,
@@ -53,32 +53,10 @@ const toggleInList = (items: string[], item: string) =>
 const toggleSingle = (current: string, item: string) => (current === item ? "" : item);
 
 export function CatalogFilterSheet({ brands, categories, label, onApply, onClose, onReset, serviceOptions, suppliers, tab, validForOptions, value, visible }: Props) {
-  const insets = useSafeAreaInsets();
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const [draft, setDraft] = useState(value);
-  const [isPresented, setIsPresented] = useState(visible);
-  const progress = useSharedValue(0);
-
-  useEffect(() => {
-    if (visible) {
-      setDraft(value);
-      setIsPresented(true);
-      progress.value = withTiming(1, { duration: 220, easing: Easing.out(Easing.cubic) });
-    } else if (isPresented) {
-      progress.value = withTiming(0, { duration: 160, easing: Easing.in(Easing.cubic) });
-      const timer = setTimeout(() => setIsPresented(false), 160);
-      return () => clearTimeout(timer);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value, visible]);
-
-  const popupStyle = useAnimatedStyle(() => ({
-    opacity: progress.value,
-    transform: [{ scale: 0.92 + progress.value * 0.08 }],
-  }));
-
-  const backdropStyle = useAnimatedStyle(() => ({ opacity: progress.value }));
+  useEffect(() => { if (visible) setDraft(value); }, [value, visible]);
 
   const handleReset = () => {
     const empty = emptyCatalogFilterForTab(tab);
@@ -92,29 +70,7 @@ export function CatalogFilterSheet({ brands, categories, label, onApply, onClose
     onClose();
   };
 
-  if (!isPresented) {
-    return null;
-  }
-
-  return (
-    <Modal animationType="none" onRequestClose={onClose} transparent visible={isPresented}>
-      <View style={styles.root}>
-        <Animated.View style={[styles.backdrop, backdropStyle]}>
-          <Pressable onPress={onClose} style={StyleSheet.absoluteFill} />
-        </Animated.View>
-        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} pointerEvents="box-none" style={[styles.centerWrap, { paddingTop: Math.max(24, insets.top), paddingBottom: Math.max(24, insets.bottom) }]}>
-          <Animated.View style={[styles.popup, popupStyle]}>
-            <View style={styles.header}>
-              <View style={styles.headerCopy}>
-                <Text style={styles.title}>{`Filter ${label}`}</Text>
-                <Text style={styles.subtitle}>{`Combine filters to narrow your ${label.toLowerCase()}.`}</Text>
-              </View>
-              <TouchableOpacity accessibilityRole="button" onPress={onClose} style={styles.closeButton}>
-                <Ionicons name="close" size={18} color={Colors.primaryText} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView keyboardShouldPersistTaps="handled" style={styles.body} contentContainerStyle={styles.bodyContent}>
+  return <BottomSheet pearlStyle centered={false} title={"Filter " + label} visible={visible} onClose={onClose} footer={<View style={styles.footer}><TouchableOpacity onPress={handleReset} style={styles.resetButton}><Text translate style={styles.resetText}>Clear all</Text></TouchableOpacity><TouchableOpacity onPress={handleApply} style={[styles.applyButton, { overflow: "hidden" }]}><LinearGradient pointerEvents="none" colors={pearlGradients.primary} style={StyleSheet.absoluteFill} /><Text translate style={styles.applyText}>Apply filters</Text></TouchableOpacity></View>}>
               {tab === "services" ? (
                 <ServiceFilterFields
                   categories={categories}
@@ -164,21 +120,8 @@ export function CatalogFilterSheet({ brands, categories, label, onApply, onClose
                   suppliers={suppliers}
                 />
               ) : null}
-            </ScrollView>
 
-            <View style={styles.footer}>
-              <TouchableOpacity accessibilityRole="button" activeOpacity={0.84} onPress={handleReset} style={styles.resetButton}>
-                <Text style={styles.resetText}>Clear / Reset</Text>
-              </TouchableOpacity>
-              <TouchableOpacity accessibilityRole="button" activeOpacity={0.84} onPress={handleApply} style={styles.applyButton}>
-                <Text style={styles.applyText}>Apply Filter</Text>
-              </TouchableOpacity>
-            </View>
-          </Animated.View>
-        </KeyboardAvoidingView>
-      </View>
-    </Modal>
-  );
+  </BottomSheet>;
 }
 
 type FieldStyles = ReturnType<typeof createStyles>;
@@ -207,7 +150,7 @@ function ChipGroup({
             onPress={() => onToggle(option.id)}
             style={[styles.chip, isSelected && styles.chipSelected]}
           >
-            <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>{option.label}</Text>
+            <Text translate style={[styles.chipText, isSelected && styles.chipTextSelected]}>{option.label}</Text>
           </TouchableOpacity>
         );
       })}
@@ -217,7 +160,7 @@ function ChipGroup({
 
 
 function OptionDropdown({ Colors: _colors, styles: _styles, ...props }: Parameters<typeof SearchableFilterDropdown>[0] & { Colors: ThemeColors; styles: FieldStyles }) {
-  return <SearchableFilterDropdown {...props} />;
+  return <SearchableFilterDropdown {...props} pearlStyle />;
 }
 
 function FieldLabel({ children, styles }: { children: string; styles: FieldStyles }) {
@@ -248,7 +191,7 @@ function ServiceFilterFields({
         selected={draft.durationRange}
         styles={styles}
       />
-      <Text style={styles.hint}>Select one or more. None selected means all durations.</Text>
+      <Text translate style={styles.hint}>Select one or more. None selected means all durations.</Text>
 
       <FieldLabel styles={styles}>Online booking</FieldLabel>
       <ChipGroup
@@ -257,7 +200,7 @@ function ServiceFilterFields({
         selected={draft.onlineBooking}
         styles={styles}
       />
-      <Text style={styles.hint}>Pick one side to narrow; picking both is the same as no filter.</Text>
+      <Text translate style={styles.hint}>Pick one side to narrow; picking both is the same as no filter.</Text>
     </>
   );
 }
@@ -509,7 +452,7 @@ const createStyles = (colors: ThemeColors) =>
       shadowOffset: { width: 0, height: 12 },
       shadowOpacity: 0.18,
       shadowRadius: 28,
-      elevation: 16,
+      elevation: 0,
     },
     header: { alignItems: "flex-start", flexDirection: "row", gap: 12, justifyContent: "space-between", padding: Spacing.lg, paddingBottom: Spacing.sm },
     headerCopy: { flex: 1 },
@@ -525,8 +468,8 @@ const createStyles = (colors: ThemeColors) =>
     chipText: { color: colors.text2, fontSize: 12, fontWeight: "700" },
     chipTextSelected: { color: colors.onPrimary },
     footer: { flexDirection: "row", gap: 10, padding: Spacing.lg, paddingTop: Spacing.md },
-    resetButton: { flex: 1, alignItems: "center", justifyContent: "center", borderColor: colors.border, borderWidth: 1, borderRadius: Radius.md, backgroundColor: colors.bg2, paddingVertical: 13 },
-    applyButton: { flex: 1, alignItems: "center", justifyContent: "center", borderRadius: Radius.md, backgroundColor: colors.primaryDark, paddingVertical: 13 },
+    resetButton: { flex: 1, alignItems: "center", justifyContent: "center", borderColor: colors.border, borderWidth: 1, borderRadius: 16, backgroundColor: colors.bg2, paddingVertical: 13 },
+    applyButton: { flex: 1, alignItems: "center", justifyContent: "center", borderRadius: 16, backgroundColor: colors.primaryDark, paddingVertical: 13 },
     resetText: { color: colors.heading, fontSize: 13, fontWeight: "800" },
     applyText: { color: colors.onPrimary, fontSize: 13, fontWeight: "800" },
   });

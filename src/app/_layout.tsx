@@ -1,3 +1,5 @@
+import { hasBusinessDashboard } from "@/utils/staffExperience";
+import { RegionalPreferencesSync } from "@/localization/RegionalPreferencesSync";
 import { Text } from "@/components/ui/AppTypography";
 import { DarkTheme, DefaultTheme, ThemeProvider as NavigationThemeProvider, type Theme } from '@react-navigation/native';
 import { Stack, useNavigationContainerRef, usePathname, useRootNavigationState, useRouter, useSegments } from 'expo-router';
@@ -29,6 +31,7 @@ import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useRealtimeSync } from '@/hooks/useRealtimeSync';
 import { useStaffCalendarAccessSync } from '@/hooks/useStaffCalendarAccess';
 import { useStaffProductAuditAccessSync } from '@/hooks/useStaffProductAuditAccess';
+import { useStaffClientNameAccessSync } from '@/hooks/useStaffClientNameAccess';
 import { fetchBranchesThunk } from '@/middleware/branch/branch.thunk';
 import { resolveCurrentStaffThunk } from '@/middleware/staff/staff.thunk';
 import { refreshOwnerProfilePhoto, resetOwnerProfilePhoto, usesSalonLogoAsProfilePhoto } from '@/features/profile/utils/ownerProfilePhoto';
@@ -109,7 +112,7 @@ function AuthNavigationHandler({ onReady }: { onReady: () => void }) {
   const rootNavigationState = useRootNavigationState();
   const navigationRef = useNavigationContainerRef();
   const router = useRouter();
-  const segments = useSegments();
+  const segments: string[] = useSegments();
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -215,7 +218,8 @@ function AuthNavigationHandler({ onReady }: { onReady: () => void }) {
       const shouldUseStaffApp = isStaffExperienceUser(user);
       const isWrongAuthenticatedApp =
         (shouldUseStaffApp && !isStaffAllowedRoute(topLevelSegment, user)) ||
-        (!shouldUseStaffApp && isStaffRouteGroup(topLevelSegment));
+        (!shouldUseStaffApp && isStaffRouteGroup(topLevelSegment)) ||
+        (shouldUseStaffApp && hasBusinessDashboard(user) && isStaffRouteGroup(topLevelSegment) && String(segments[1]) === "home");
 
       if (isPublicRoute || isSubscriptionRoute || isWrongAuthenticatedApp) {
         router.replace(resolveAuthenticatedRoute(user));
@@ -250,10 +254,10 @@ function AuthNavigationHandler({ onReady }: { onReady: () => void }) {
     return (
       <Portal>
         <View style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: '#FFFFFF', justifyContent: 'center', padding: 28, gap: 16 }}>
-          <Text accessibilityRole="header" style={{ fontSize: 20, fontWeight: '700', color: '#222222' }}>Unable to verify subscription</Text>
-          <Text style={{ fontSize: 16, color: '#555555' }}>We could not check your subscription right now. Please check your connection and try again.</Text>
+          <Text translate accessibilityRole="header" style={{ fontSize: 20, fontWeight: '700', color: '#222222' }}>Unable to verify subscription</Text>
+          <Text translate style={{ fontSize: 16, color: '#555555' }}>We could not check your subscription right now. Please check your connection and try again.</Text>
           <Pressable accessibilityRole="button" onPress={() => setSubscriptionRetry((value) => value + 1)} style={{ backgroundColor: '#AD568F', padding: 16, borderRadius: 12, alignItems: 'center' }}>
-            <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>Try Again</Text>
+            <Text translate style={{ color: '#FFFFFF', fontWeight: '700' }}>Try Again</Text>
           </Pressable>
         </View>
       </Portal>
@@ -358,21 +362,23 @@ function UpdateAnnouncements({ announcement, onHome, ota, ready, showsOtaUpdate 
 }
 
 function BranchBootstrap() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const dispatch = useAppDispatch();
-  const wasAuthenticated = useRef(false);
+  const wasAuthenticated = useRef<string | null>(null);
+  const identity = isAuthenticated ? `${user?.id}:${user?.salonId}` : null;
 
   useEffect(() => {
-    if (isAuthenticated && !wasAuthenticated.current) {
-      wasAuthenticated.current = true;
+    if (identity && wasAuthenticated.current !== identity) {
+      wasAuthenticated.current = identity;
 
       void (async () => {
         const result = await dispatch(fetchBranchesThunk());
+        if (wasAuthenticated.current !== identity) return;
 
         if (fetchBranchesThunk.fulfilled.match(result)) {
           const branches = result.payload;
           const persistedBranchId = await branchStorage.getActiveBranchId();
-          const nextBranchId =
+          const nextBranchId = user?.salonId ??
             branches.find((branch) => branch.id === persistedBranchId)?.id ?? branches[0]?.id ?? null;
 
           if (nextBranchId) {
@@ -385,11 +391,11 @@ function BranchBootstrap() {
     }
 
     if (!isAuthenticated && wasAuthenticated.current) {
-      wasAuthenticated.current = false;
+      wasAuthenticated.current = null;
       dispatch(resetBranchState());
       void branchStorage.clearActiveBranchId();
     }
-  }, [dispatch, isAuthenticated]);
+  }, [dispatch, isAuthenticated, identity, user?.salonId]);
 
   return null;
 }
@@ -447,6 +453,7 @@ function OwnerProfilePhotoBootstrap() {
 function StaffCalendarAccessBootstrap() {
   useStaffCalendarAccessSync();
   useStaffProductAuditAccessSync();
+  useStaffClientNameAccessSync();
 
   return null;
 }
@@ -469,6 +476,7 @@ function AppShell() {
               <AppUpdateSetup ready={isThemeHydrated && isNavigationReady} />
               <PushNotificationsSetup />
               <RealtimeSyncSetup />
+              <RegionalPreferencesSync />
               <BranchBootstrap />
               <StaffIdentityBootstrap />
               <OwnerProfilePhotoBootstrap />
@@ -495,10 +503,10 @@ function AppShell() {
                 <Stack.Screen name="notifications" />
                 <Stack.Screen name="inbox" />
                 <Stack.Screen name="today-revenue" />
-                <Stack.Screen name="change-password" />
+                <Stack.Screen name="change-password" options={{ presentation: "transparentModal", animation: "fade", contentStyle: { backgroundColor: "transparent" } }} />
                 <Stack.Screen name="salon-settings" />
-                <Stack.Screen name="appearance" />
-                <Stack.Screen name="notification-settings" />
+                <Stack.Screen name="appearance" options={{ presentation: "transparentModal", animation: "fade", contentStyle: { backgroundColor: "transparent" } }} />
+                <Stack.Screen name="notification-settings" options={{ presentation: "transparentModal", animation: "fade", contentStyle: { backgroundColor: "transparent" } }} />
                 <Stack.Screen name="privacy-policy" />
                 <Stack.Screen name="(tabs)" />
                 <Stack.Screen name="(staff)" />

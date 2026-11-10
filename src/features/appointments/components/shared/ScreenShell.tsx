@@ -1,3 +1,4 @@
+import { AppBackButton } from "@/components/ui/AppBackButton";
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { Text } from "@/components/ui/AppTypography";
 import { TourScrollView } from "@/features/userGuide/DashboardTour";
@@ -13,6 +14,7 @@ import { router } from "expo-router";
 import { useMemo } from "react";
 import { RefreshControl, TouchableOpacity, useWindowDimensions, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
 
 export function ScreenShell({
   backFallback = "/dashboard" as Href,
@@ -27,6 +29,7 @@ export function ScreenShell({
   showCreateAction = true,
   title,
   topSurfaceColor,
+  pearlBackground = false,
 }: {
   backFallback?: Href;
   children: React.ReactNode;
@@ -40,6 +43,7 @@ export function ScreenShell({
   showCreateAction?: boolean;
   title: string;
   topSurfaceColor?: string;
+  pearlBackground?: boolean;
 }) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
@@ -67,10 +71,8 @@ export function ScreenShell({
   const content = (
     <>
       {!hideHeader ? <View style={styles.headerRow}>
-        <TouchableOpacity activeOpacity={0.8} hitSlop={12} onPress={handleBack} style={styles.iconButton}>
-          <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, headerTitleStyle]}>{title}</Text>
+        <AppBackButton activeOpacity={0.8} hitSlop={12} onPress={handleBack} />
+        <Text translate style={[styles.headerTitle, headerTitleStyle]}>{title}</Text>
         {showCreateAction ? (
           <TouchableOpacity
             activeOpacity={0.8}
@@ -87,7 +89,7 @@ export function ScreenShell({
     </>
   );
 
-  return (
+  const screen = (
     <SafeAreaView edges={safeAreaEdges} style={[styles.safeArea, topSurfaceColor ? { backgroundColor: topSurfaceColor } : undefined]}>
       <AppStatusBar backgroundColor={topSurfaceColor} />
       {scrollable ? (
@@ -115,4 +117,5 @@ export function ScreenShell({
       <AppointmentSnackbar />
     </SafeAreaView>
   );
+  return pearlBackground ? <PearlBackground>{screen}</PearlBackground> : screen;
 }

@@ -1,3 +1,6 @@
+import { useRegionalPreferences } from "@/localization/preferences";
+import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
+import { AppBackButton } from "@/components/ui/AppBackButton";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text } from "@/components/ui/AppTypography";
 import { Ionicons } from "@expo/vector-icons";
@@ -9,7 +12,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { ErrorState } from "@/components/ui/StateViews";
 import { AppLayout, AppRadius } from "@/constants/layout";
-import { DashboardRadius as Radius, DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
+import { DashboardRadius as Radius, DashboardSpacing as Spacing } from "@/constants/theme";
 import { AdjustStockSheet, type AdjustStockSubmission } from "@/features/consumables/components/AdjustStockSheet";
 import { UnitConversionsSheet } from "@/features/consumables/components/UnitConversionsSheet";
 import {
@@ -26,13 +29,15 @@ import {
 } from "@/store/consumable/consumable.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { selectCurrentUser } from "@/store/user/user.slice";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors, type PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
 import type { ConsumableUnitConversionRequestItem } from "@/types/consumable";
 import { canAdjustConsumableStock, canViewConsumableInventory } from "@/utils/permissions";
 import { formatCurrency as money } from "@/utils/currency";
 
 export default function ConsumableDetailScreen() {
-  const Colors = useThemeColors();
+  "use no memo";
+  useRegionalPreferences();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
   const insets = useSafeAreaInsets();
@@ -103,13 +108,7 @@ export default function ConsumableDetailScreen() {
 
   const header = (
     <View style={styles.header}>
-      <TouchableOpacity
-        hitSlop={12}
-        onPress={() => (router.canGoBack() ? router.back() : router.replace("/consumables" as Href))}
-        style={styles.iconButton}
-      >
-        <Ionicons name="arrow-back" size={19} color={Colors.primaryText} />
-      </TouchableOpacity>
+      <AppBackButton hitSlop={12} onPress={() => (router.canGoBack() ? router.back() : router.replace("/consumables" as Href))} />
       <Text numberOfLines={1} style={styles.title}>
         {consumable?.name ?? "Consumable"}
       </Text>
@@ -127,33 +126,33 @@ export default function ConsumableDetailScreen() {
 
   if (!canView) {
     return (
-      <SafeAreaView edges={["top"]} style={styles.safeArea}>
+      <PearlBackground><SafeAreaView edges={["top"]} style={styles.safeArea}>
         <AppStatusBar />
         {header}
         <ErrorState message="You don't have permission to view this consumable." onRetry={() => router.back()} />
-      </SafeAreaView>
+      </SafeAreaView></PearlBackground>
     );
   }
 
   if (state.detailsLoading && !consumable) {
     return (
-      <SafeAreaView edges={["top"]} style={styles.safeArea}>
+      <PearlBackground><SafeAreaView edges={["top"]} style={styles.safeArea}>
         <AppStatusBar />
         {header}
         <View style={styles.loadingWrap}>
           <ActivityIndicator color={Colors.primaryText} size="large" />
         </View>
-      </SafeAreaView>
+      </SafeAreaView></PearlBackground>
     );
   }
 
   if (state.detailsError && !consumable) {
     return (
-      <SafeAreaView edges={["top"]} style={styles.safeArea}>
+      <PearlBackground><SafeAreaView edges={["top"]} style={styles.safeArea}>
         <AppStatusBar />
         {header}
         <ErrorState message={state.detailsError} onRetry={() => id && void dispatch(fetchConsumableByIdThunk(id))} />
-      </SafeAreaView>
+      </SafeAreaView></PearlBackground>
     );
   }
 
@@ -162,7 +161,7 @@ export default function ConsumableDetailScreen() {
   }
 
   return (
-    <SafeAreaView edges={["top"]} style={styles.safeArea}>
+    <PearlBackground><SafeAreaView edges={["top"]} style={styles.safeArea}>
       <AppStatusBar />
       {header}
 
@@ -185,11 +184,11 @@ export default function ConsumableDetailScreen() {
             </Text>
             {outOfStock ? (
               <View style={[styles.stockBadge, styles.errorBadge]}>
-                <Text style={styles.errorBadgeText}>Out of stock</Text>
+                <Text translate style={styles.errorBadgeText}>Out of stock</Text>
               </View>
             ) : lowStock ? (
               <View style={[styles.stockBadge, styles.warningBadge]}>
-                <Text style={styles.warningBadgeText}>Low stock</Text>
+                <Text translate style={styles.warningBadgeText}>Low stock</Text>
               </View>
             ) : null}
           </View>
@@ -202,13 +201,13 @@ export default function ConsumableDetailScreen() {
               style={styles.adjustButton}
             >
               <Ionicons name="swap-vertical-outline" size={16} color="#FFFFFF" />
-              <Text style={styles.adjustButtonText}>Adjust Stock</Text>
+              <Text translate style={styles.adjustButtonText}>Adjust Stock</Text>
             </TouchableOpacity>
           ) : null}
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Product Details</Text>
+          <Text translate style={styles.sectionTitle}>Product Details</Text>
           <InfoRow label="Product type" value={consumable.productType ?? "—"} />
           <InfoRow label="Measure unit" value={consumable.measureUnit ?? "—"} />
           <InfoRow label="Bottle size" value={consumable.bottleSize != null ? String(consumable.bottleSize) : "—"} />
@@ -224,14 +223,14 @@ export default function ConsumableDetailScreen() {
 
         <View style={styles.card}>
           <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>Assigned Services</Text>
+            <Text translate style={styles.sectionTitle}>Assigned Services</Text>
           </View>
           {state.assignedServicesLoading ? (
             <ActivityIndicator color={Colors.primaryText} />
           ) : state.assignedServicesError ? (
             <Text style={styles.errorInlineText}>{state.assignedServicesError}</Text>
           ) : state.assignedServices.length === 0 ? (
-            <Text style={styles.emptySectionText}>No services currently use this consumable.</Text>
+            <Text translate style={styles.emptySectionText}>No services currently use this consumable.</Text>
           ) : (
             state.assignedServices.map((service) => (
               <View key={service.serviceId} style={styles.listRow}>
@@ -248,10 +247,10 @@ export default function ConsumableDetailScreen() {
 
         <View style={styles.card}>
           <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>Unit Conversions</Text>
+            <Text translate style={styles.sectionTitle}>Unit Conversions</Text>
             {canAdjust ? (
               <TouchableOpacity onPress={() => setIsUnitConversionsSheetVisible(true)}>
-                <Text style={styles.editLink}>Edit</Text>
+                <Text translate style={styles.editLink}>Edit</Text>
               </TouchableOpacity>
             ) : null}
           </View>
@@ -260,7 +259,7 @@ export default function ConsumableDetailScreen() {
           ) : state.unitConversionsError ? (
             <Text style={styles.errorInlineText}>{state.unitConversionsError}</Text>
           ) : state.unitConversions.length === 0 ? (
-            <Text style={styles.emptySectionText}>No unit conversions configured for this consumable.</Text>
+            <Text translate style={styles.emptySectionText}>No unit conversions configured for this consumable.</Text>
           ) : (
             state.unitConversions.map((conversion) => (
               <View key={conversion.unitName} style={styles.listRow}>
@@ -301,17 +300,19 @@ export default function ConsumableDetailScreen() {
         saving={state.unitConversionsSaving}
         visible={isUnitConversionsSheetVisible}
       />
-    </SafeAreaView>
+    </SafeAreaView></PearlBackground>
   );
 }
 
 function InfoRow({ label, value }: { label: string; value: string }) {
-  const Colors = useThemeColors();
+  "use no memo";
+  useRegionalPreferences();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   return (
     <View style={styles.infoRow}>
-      <Text style={styles.infoLabel}>{label}</Text>
+      <Text translate style={styles.infoLabel}>{label}</Text>
       <Text numberOfLines={1} style={styles.infoValue}>
         {value}
       </Text>
@@ -321,7 +322,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 
 const createStyles = (Colors: ThemeColors) =>
   StyleSheet.create({
-    safeArea: { backgroundColor: Colors.bg, flex: 1 },
+    safeArea: { flex: 1 },
     header: {
       alignItems: "center",
       flexDirection: "row",
@@ -386,7 +387,7 @@ const createStyles = (Colors: ThemeColors) =>
     card: {
       backgroundColor: Colors.card,
       borderColor: Colors.border,
-      borderRadius: AppRadius.card,
+      borderRadius: 28,
       borderWidth: 1,
       marginBottom: Spacing.md,
       padding: Spacing.lg,

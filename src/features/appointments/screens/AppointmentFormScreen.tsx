@@ -1,3 +1,7 @@
+import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
+import { pearl, pearlType } from "@/components/auth/pearl/tokens";
+import { NoteBox } from "@/components/pearl/Page";
+import { formatAppDate } from "@/utils/dateTime";
 import { Text } from "@/components/ui/AppTypography";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { StaffPickerSheet } from "@/features/quickSale/components/StaffPickerSheet";
@@ -48,7 +52,6 @@ export function AppointmentFormScreen({ mode, initialSlot, onRequestClose }: Pro
     setServicePickerVisible,
     handleServicePickerContinue,
     handleSelectService,
-    handleSelectStaff,
     handleSetItemStaff,
     handleSetItemTime,
     form,
@@ -98,8 +101,8 @@ export function AppointmentFormScreen({ mode, initialSlot, onRequestClose }: Pro
     ? [...TIME_OPTIONS, selectedItemTime].sort()
     : TIME_OPTIONS;
   return (
-    <SafeAreaView edges={embedded ? [] : ["top"]} style={[styles.safeArea, styles.bookingScreen]}>
-      {embedded ? null : <AppStatusBar backgroundColor={Colors.appointmentBackground} />}
+    <PearlBackground><SafeAreaView edges={embedded ? [] : ["top"]} style={[styles.safeArea, styles.bookingScreen]}>
+      {embedded ? null : <AppStatusBar backgroundColor="transparent" />}
       <ServiceCatalogPicker
         error={serviceCatalogError}
         initialTab={pickerTab}
@@ -107,15 +110,11 @@ export function AppointmentFormScreen({ mode, initialSlot, onRequestClose }: Pro
         onClose={() => setServicePickerVisible(false)}
         onContinue={handleServicePickerContinue}
         onSelect={handleSelectService}
-        onSelectStaff={handleSelectStaff}
-        selectedStaffId={form.staffId}
         clientId={form.clientId}
         onToggleItem={handleToggleCatalogItem}
         salonId={activeBranchId}
         selectedItems={selectedServices.filter((service) => service.itemKind)}
         selectedServiceIds={selectedServices.filter((service) => !service.itemKind).map(getSelectedServiceCatalogId)}
-        staffError={errors.staffId}
-        staffMembers={staffMembers}
         services={serviceCatalog}
         visible={servicePickerVisible}
       />
@@ -129,16 +128,13 @@ export function AppointmentFormScreen({ mode, initialSlot, onRequestClose }: Pro
         <View style={styles.headerRow}>
           <AppBackButton fallbackHref="/bookings" onPress={embedded?.onRequestClose} />
           <View style={styles.appointmentHeaderCopy}>
-            <Text style={styles.headerTitle}>{mode === "create" ? "New Appointment" : "Edit Appointment"}</Text>
-            <Text style={styles.appointmentHeaderSubtitle}>
-              {mode === "create"
-                ? "Create a booking for your next client."
-                : "Update the appointment details below."}
-            </Text>
+            <Text translate style={[pearlType.h3, { textAlign: "center" }]}>{mode === "create" ? "New appointment" : "Edit appointment"}</Text>
+
           </View>
         </View>
 
         <View style={styles.bookingFlow}>
+          {initialSlot ? <NoteBox icon="calendar">Slot picked: <Text style={{ fontWeight: "700", color: pearl.ink }}>{formatAppDate(`${initialSlot.date}T00:00:00`)} · {itemTimeLabel(initialSlot.time)}{selectedStaff?.name ? ` · ${selectedStaff.name}` : ""}</Text></NoteBox> : null}
           {clientDropdownOpen || serviceDropdownOpen ? (
             <Pressable
               accessibilityLabel="Close open picker"
@@ -185,7 +181,7 @@ export function AppointmentFormScreen({ mode, initialSlot, onRequestClose }: Pro
             />
           </View>
 
-          <BookingSection icon="calendar-outline" title="Date & time" subtitle="Choose when your client will visit.">
+          <BookingSection title="When">
             <View style={styles.bookingScheduleRow}>
               <View ref={(view) => setFieldRef("date", view)} style={styles.bookingScheduleField}>
                 <AppointmentDateField error={errors.date} onChange={(value) => updateForm("date", value)} value={form.date} />
@@ -242,7 +238,7 @@ export function AppointmentFormScreen({ mode, initialSlot, onRequestClose }: Pro
           <View style={styles.appointmentDeliverySection}>
             <View style={styles.appointmentDeliveryTitleRow}>
               <Ionicons name="document-text-outline" size={17} color={Colors.appointmentTextSecondary} />
-              <Text style={styles.appointmentDeliveryTitle}>Send appointment details on</Text>
+              <Text translate style={styles.appointmentDeliveryTitle}>Send appointment details on</Text>
             </View>
             <View style={styles.appointmentDeliveryOptions}>
               <TouchableOpacity
@@ -257,7 +253,7 @@ export function AppointmentFormScreen({ mode, initialSlot, onRequestClose }: Pro
                   size={20}
                   color={sendAppointmentSms ? Colors.primaryText : Colors.appointmentMuted}
                 />
-                <Text style={styles.appointmentDeliveryOptionText}>SMS</Text>
+                <Text translate style={styles.appointmentDeliveryOptionText}>SMS</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 accessibilityRole="checkbox"
@@ -271,7 +267,7 @@ export function AppointmentFormScreen({ mode, initialSlot, onRequestClose }: Pro
                   size={20}
                   color={sendAppointmentEmail ? Colors.primaryText : Colors.appointmentMuted}
                 />
-                <Text style={styles.appointmentDeliveryOptionText}>Email</Text>
+                <Text translate style={styles.appointmentDeliveryOptionText}>Email</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -335,7 +331,7 @@ export function AppointmentFormScreen({ mode, initialSlot, onRequestClose }: Pro
           style={{ height: 320 }}
         />
       </BottomSheet>
-    </SafeAreaView>
+    </SafeAreaView></PearlBackground>
   );
 }
 

@@ -51,7 +51,7 @@ function ContactRow({ canDelete, contact, onDelete, onEdit, staffId }: ContactRo
           <Text style={styles.name}>{contact.fullName}</Text>
           {contact.isPrimary ? (
             <View style={styles.primaryPill}>
-              <Text style={styles.primaryPillText}>Primary</Text>
+              <Text translate style={styles.primaryPillText}>Primary</Text>
             </View>
           ) : null}
         </View>
@@ -68,7 +68,7 @@ function ContactRow({ canDelete, contact, onDelete, onEdit, staffId }: ContactRo
           onPress={() => onEdit(contact)}
           style={[styles.editButton, (!canDelete || deleting) && styles.deleteButtonDisabled]}
         >
-          <Text style={styles.editButtonText}>Edit</Text>
+          <Text translate style={styles.editButtonText}>Edit</Text>
         </TouchableOpacity>
         <TouchableOpacity
           activeOpacity={0.84}
@@ -79,7 +79,7 @@ function ContactRow({ canDelete, contact, onDelete, onEdit, staffId }: ContactRo
           {deleting ? (
             <ActivityIndicator color={Colors.error} size="small" />
           ) : (
-            <Text style={styles.deleteButtonText}>Delete</Text>
+            <Text translate style={styles.deleteButtonText}>Delete</Text>
           )}
         </TouchableOpacity>
       </View>
@@ -140,7 +140,7 @@ export function EmergencyContactsSection({ readOnly = false, staffId }: Emergenc
           style={styles.addButton}
         >
           <Ionicons name="add" size={16} color="#FFFFFF" />
-          <Text style={styles.addButtonText}>Add</Text>
+          <Text translate style={styles.addButtonText}>Add</Text>
         </TouchableOpacity>
       }
       title="Emergency Contacts"
@@ -225,7 +225,7 @@ export function EmergencyContactsSection({ readOnly = false, staffId }: Emergenc
 
         {controller.error ? <Text style={styles.errorText}>{controller.error}</Text> : null}
         {!controller.isFormValid ? (
-          <Text style={styles.hintText}>Fill name, relationship and phone to continue.</Text>
+          <Text translate style={styles.hintText}>Fill name, relationship and phone to continue.</Text>
         ) : null}
 
         <View style={styles.footer}>
@@ -235,7 +235,7 @@ export function EmergencyContactsSection({ readOnly = false, staffId }: Emergenc
             onPress={controller.closeForm}
             style={styles.cancelButton}
           >
-            <Text style={styles.cancelButtonText}>Cancel</Text>
+            <Text translate style={styles.cancelButtonText}>Cancel</Text>
           </TouchableOpacity>
           <TouchableOpacity
             activeOpacity={0.84}
@@ -249,7 +249,7 @@ export function EmergencyContactsSection({ readOnly = false, staffId }: Emergenc
             {controller.saving ? (
               <ActivityIndicator size="small" color="#FFFFFF" />
             ) : (
-              <Text style={styles.saveButtonText}>
+              <Text translate style={styles.saveButtonText}>
                 {controller.editingContact ? "Update" : "Save"}
               </Text>
             )}

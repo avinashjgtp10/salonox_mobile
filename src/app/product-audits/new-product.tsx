@@ -72,7 +72,7 @@ export default function NewAuditProduct() {
   if (!allowed || !auditId)
     return (
       <AuditPage title="New audit product">
-        <Text>
+        <Text translate>
           You do not have permission to create products for this audit.
         </Text>
       </AuditPage>
@@ -80,13 +80,13 @@ export default function NewAuditProduct() {
   if (productId)
     return (
       <AuditPage title="Product saved">
-        <Text>
+        <Text translate>
           The catalog product is saved.{" "}
           {error
             ? "It could not be attached to this audit. Retry without creating another product."
             : "Adding it to the audit…"}
         </Text>
-        {!!error && <Text>{error}</Text>}
+        {!!error && <Text translate>{error}</Text>}
         <AuditButton
           label="Retry adding to audit"
           disabled={busy}

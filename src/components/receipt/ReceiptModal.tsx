@@ -75,10 +75,10 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
           <TouchableOpacity activeOpacity={0.7} onPress={onClose} style={styles.closeBtn}>
             <Ionicons name="close" size={24} color={Colors.text} />
           </TouchableOpacity>
-          <Text style={[styles.title, { color: Colors.text }]}>Receipt Preview</Text>
+          <Text translate style={[styles.title, { color: Colors.text }]}>Receipt Preview</Text>
           <View style={styles.paperToggle}>
             <TouchableOpacity onPress={() => setPaperSize("A4")} style={[styles.paperBadge, paperSize === "A4" && { backgroundColor: Colors.primary }]}>
-              <Text style={[styles.paperBadgeText, { color: paperSize === "A4" ? Colors.onPrimary : Colors.hint }]}>A4</Text>
+              <Text translate style={[styles.paperBadgeText, { color: paperSize === "A4" ? Colors.onPrimary : Colors.hint }]}>A4</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => setPaperSize("80mm")}
@@ -87,7 +87,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                 paperSize === "80mm" && { backgroundColor: Colors.primary },
               ]}
             >
-              <Text
+              <Text translate
                 style={[
                   styles.paperBadgeText,
                   { color: paperSize === "80mm" ? Colors.onPrimary : Colors.hint },
@@ -103,7 +103,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                 paperSize === "58mm" && { backgroundColor: Colors.primary },
               ]}
             >
-              <Text
+              <Text translate
                 style={[
                   styles.paperBadgeText,
                   { color: paperSize === "58mm" ? Colors.onPrimary : Colors.hint },
@@ -137,7 +137,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
             ) : (
             <>
               <Ionicons name="send-outline" size={18} color="#000" />
-              <Text style={styles.actionBtnText}>Send Receipt</Text>
+              <Text translate style={styles.actionBtnText}>Send Receipt</Text>
             </>
             )}
           </TouchableOpacity>
@@ -153,7 +153,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
             ) : (
               <>
                 <Ionicons name="print-outline" size={18} color={Colors.onPrimary} />
-                <Text style={[styles.actionBtnText, { color: Colors.onPrimary }]}>
+                <Text translate style={[styles.actionBtnText, { color: Colors.onPrimary }]}>
                   Print Invoice
                 </Text>
               </>

@@ -27,6 +27,8 @@ import type {
 } from "@/types/client";
 
 export type FetchClientsArgs = {
+  gender?: ClientListQuery["gender"];
+  source?: string;
   inactive?: boolean;
   limit?: number;
   offset?: number;
@@ -61,6 +63,8 @@ const getNextQuery = (
   clientState: RootState["client"],
   args?: FetchClientsArgs,
 ): ClientListQuery => ({
+  gender: args?.gender,
+  source: args?.source,
   inactive: args && "inactive" in args ? args.inactive : clientState.query.inactive,
   limit: args?.limit ?? clientState.query.limit,
   offset: args?.offset ?? clientState.query.offset,

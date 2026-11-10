@@ -1,6 +1,7 @@
+import { useRegionalPreferences } from "@/localization/preferences";
 import { Text } from "@/components/ui/AppTypography";
 import { useClientPrivacy } from "@/hooks/useClientPrivacy";
-import { getAppointmentBillLabel, getAppointmentInvoiceLabel } from "@/utils/clientPrivacy";
+import { getAppointmentInvoiceLabel } from "@/utils/clientPrivacy";
 import { ClientAvatar } from "@/features/appointments/components/shared/ClientAvatar";
 import { MetaPill } from "@/features/appointments/components/shared/MetaPill";
 import { StatusBadge } from "@/features/appointments/components/shared/StatusBadge";
@@ -30,7 +31,9 @@ export function AppointmentCard({
   showJobCard?: boolean;
   showPaymentStatus?: boolean;
 }) {
-  const { staffMode, clientName } = useClientPrivacy();
+  "use no memo";
+  useRegionalPreferences();
+  const { staffMode, clientName, billLabel } = useClientPrivacy();
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const route = detailRoute?.(appointment.id) ?? (`/appointments/${appointment.id}` as Href);
@@ -51,7 +54,7 @@ export function AppointmentCard({
             <ClientAvatar name={clientName(appointment.clientName)} />
             <View style={styles.clientCopy}>
               <Text numberOfLines={1} style={styles.cardTitle}>
-                {staffMode ? getAppointmentBillLabel(appointment) : appointment.clientName}
+                {staffMode ? billLabel(appointment) : appointment.clientName}
               </Text>
               <Text numberOfLines={1} style={styles.cardSubtitle}>
                 {staffMode && getAppointmentInvoiceLabel(appointment) ? `${clientName(appointment.clientName)} · ${appointment.serviceName}` : appointment.serviceName}

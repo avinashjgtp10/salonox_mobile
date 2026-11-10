@@ -137,8 +137,8 @@ export function PasswordRecoveryScaffold({
                 style={styles.logoImage}
                 resizeMode="contain"
               />
-              <Text style={styles.title}>{title}</Text>
-              <Text style={styles.subtitle}>{subtitle}</Text>
+              <Text translate style={styles.title}>{title}</Text>
+              <Text translate style={styles.subtitle}>{subtitle}</Text>
             </View>
 
             {children}
@@ -163,7 +163,7 @@ export function RecoveryTextInput({
 
   return (
     <View style={styles.inputGroup}>
-      <Text style={styles.inputLabel}>{label}</Text>
+      <Text translate style={styles.inputLabel}>{label}</Text>
       <View style={[styles.inputContainer, error && styles.inputContainerError]}>
         <Ionicons
           name={iconName}
@@ -178,7 +178,7 @@ export function RecoveryTextInput({
         />
         {rightAccessory}
       </View>
-      {error && <Text style={styles.fieldErrorText}>{error}</Text>}
+      {error && <Text translate style={styles.fieldErrorText}>{error}</Text>}
     </View>
   );
 }
@@ -206,7 +206,7 @@ export function RecoveryPrimaryButton({
         {isLoading ? (
           <ActivityIndicator color="#FFFFFF" />
         ) : (
-          <Text style={styles.submitButtonText}>{label}</Text>
+          <Text translate style={styles.submitButtonText}>{label}</Text>
         )}
       </LinearGradient>
     </Pressable>
@@ -218,7 +218,7 @@ export function RecoveryTextButton({ disabled, label, onPress }: RecoveryButtonP
 
   return (
     <Pressable disabled={disabled} onPress={onPress} style={styles.textButton}>
-      <Text style={[styles.textButtonText, disabled && styles.textButtonTextDisabled]}>
+      <Text translate style={[styles.textButtonText, disabled && styles.textButtonTextDisabled]}>
         {label}
       </Text>
     </Pressable>
@@ -245,7 +245,7 @@ export function RecoveryMessage({ message, type }: RecoveryMessageProps) {
         color={isError ? colors.error : colors.success}
         style={styles.messageIcon}
       />
-      <Text style={[styles.messageText, isError ? styles.errorText : styles.successText]}>
+      <Text translate style={[styles.messageText, isError ? styles.errorText : styles.successText]}>
         {message}
       </Text>
     </View>

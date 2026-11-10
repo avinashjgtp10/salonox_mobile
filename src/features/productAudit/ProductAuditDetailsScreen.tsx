@@ -10,7 +10,7 @@ import { Text } from "@/components/ui/AppTypography";
 import { KeyboardAwareFlatList } from "@/components/ui/KeyboardAwareScrollView";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { ConfirmationModal } from "@/components/ui/ConfirmationModal";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors as useThemeColors } from "@/components/auth/pearl/usePearlColors";
 import { useAppSelector } from "@/store/hooks";
 import { selectCurrentUser } from "@/store/user/user.slice";
 import { selectActiveBranchId } from "@/store/branch/branch.slice";
@@ -174,7 +174,7 @@ function Details({ id }: { id: string }) {
   if (!canView)
     return (
       <AuditPage title="Product Audit">
-        <Text>You do not have permission to view this audit.</Text>
+        <Text translate>You do not have permission to view this audit.</Text>
       </AuditPage>
     );
   return (
@@ -202,7 +202,7 @@ function Details({ id }: { id: string }) {
         ListHeaderComponent={
           <View style={{ gap: 14, marginBottom: 14 }}>
             {loading && <ActivityIndicator />}
-            {!!error && <Text style={{ color: c.error }}>{error}</Text>}
+            {!!error && <Text translate style={{ color: c.error }}>{error}</Text>}
             {audit && (
               <>
                 <AuditCard>
@@ -223,15 +223,15 @@ function Details({ id }: { id: string }) {
                       Rejected: {audit.rejection_reason}
                     </Text>
                   )}
-                  <Text style={{ color: c.text2 }}>
+                  <Text translate style={{ color: c.text2 }}>
                     Counts are in packs / bottles. Stock is updated only after
                     approval.
                   </Text>
                 </AuditCard>
                 <AuditCard>
-                  <Text style={{ color: c.heading, fontSize: 17, fontWeight: "800" }}>Count summary</Text>
+                  <Text translate style={{ color: c.heading, fontSize: 17, fontWeight: "800" }}>Count summary</Text>
                   <View style={auditStyles.row}>
-                    {[`Products: ${summary.total}`, `Counted: ${summary.counted}`, `Matched: ${summary.matched}`, `Over: ${summary.over}`, `Short: ${summary.short}`, `Uncounted: ${summary.total - summary.counted - summary.invalid}`].map(label => <Text key={label} style={{ color: c.text2 }}>{label}</Text>)}
+                    {[`Products: ${summary.total}`, `Counted: ${summary.counted}`, `Matched: ${summary.matched}`, `Over: ${summary.over}`, `Short: ${summary.short}`, `Uncounted: ${summary.total - summary.counted - summary.invalid}`].map(label => <Text translate key={label} style={{ color: c.text2 }}>{label}</Text>)}
                   </View>
                   {summary.invalid > 0 && <Text accessibilityRole="alert" style={{ color: c.error }}>Correct {summary.invalid} invalid physical count(s).</Text>}
                   {summary.missingReason > 0 && <Text accessibilityRole="alert" style={{ color: c.error }}>Enter a reason for {summary.missingReason} product difference(s) before submitting.</Text>}
@@ -325,7 +325,7 @@ function Details({ id }: { id: string }) {
         }}
         ListEmptyComponent={
           audit && !loading ? (
-            <Text style={{ color: c.text2 }}>
+            <Text translate style={{ color: c.text2 }}>
               Add products to begin counting.
             </Text>
           ) : null
@@ -351,7 +351,7 @@ function Details({ id }: { id: string }) {
                 )}
                 {audit.status === "pending_review" &&
                   audit.auditor_id === user?.id && (
-                    <Text style={{ color: c.text2 }}>
+                    <Text translate style={{ color: c.text2 }}>
                       The recorded reviewer must be different from the auditor.
                     </Text>
                   )}
@@ -362,7 +362,7 @@ function Details({ id }: { id: string }) {
                     onPress={() => void mutate(() => service.reopen(id))}
                   />
                 )}
-                <Text
+                <Text translate
                   style={{ color: c.heading, fontSize: 18, fontWeight: "800" }}
                 >
                   Audit history
@@ -454,13 +454,13 @@ function Details({ id }: { id: string }) {
           }}
         >
           <AuditPersonField label="Reviewed by" value={reviewer} onChange={setReviewer} currentUser={currentPerson} excludeId={audit?.auditor_id} disabled={busy} />
-          {reviewMode === "approve" && <Text style={{ color: c.text2 }}>Approving sets official stock to the counted quantities and records adjustments in Stock Ledger. This cannot be undone from this screen.</Text>}
+          {reviewMode === "approve" && <Text translate style={{ color: c.text2 }}>Approving sets official stock to the counted quantities and records adjustments in Stock Ledger. This cannot be undone from this screen.</Text>}
           {reviewMode === "reject" && <AuditField
             label="Rejection reason"
             value={rejectReason}
             onChange={setRejectReason}
           />}
-          {!!error && <Text style={{ color: c.error }}>{error}</Text>}
+          {!!error && <Text translate style={{ color: c.error }}>{error}</Text>}
           <AuditButton
             label={reviewMode === "approve" ? "Approve and reconcile stock" : "Reject audit"}
             danger={reviewMode === "reject"}

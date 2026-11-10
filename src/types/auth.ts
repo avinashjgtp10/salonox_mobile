@@ -2,6 +2,8 @@ export type AuthUser = {
   id: string;
   email: string;
   role: string;
+  /** Assigned web role; the authorization role remains `staff` for managers. */
+  roleName?: string | null;
   phone?: string | null;
   firstName?: string | null;
   lastName?: string | null;
@@ -14,13 +16,12 @@ export type AuthUser = {
   isVerified?: boolean;
   isActive?: boolean;
   isOnboardingComplete?: boolean;
+  effective_permissions?: Record<string, boolean> | null;
   custom_permissions?: Record<string, unknown> | string[] | null;
-  // Staff only: owner's mobile-only "Calendar & Quick Sale access" switch,
-  // read from /mobile/staff/me/calendar-access (not part of /users/me).
+  // Derived compatibility flags from the webapp effective permission map.
   mobileCalendarAccess?: boolean;
-  // Staff only: owner's mobile-only "Product Audit access" switch, read from
-  // /mobile/staff/me/product-audit-access (not part of /users/me).
   mobileProductAuditAccess?: boolean;
+  mobileClientNameAccess?: boolean;
   clientId?: string | null;
   salonId?: string | null;
 };
@@ -119,10 +120,6 @@ export type ChangePasswordRequest = {
   confirmPassword: string;
   currentPassword: string;
   newPassword: string;
-};
-
-export type GoogleAuthResult = AuthTokens & {
-  user?: AuthUser | null;
 };
 
 export type ApiResponse<T> = {

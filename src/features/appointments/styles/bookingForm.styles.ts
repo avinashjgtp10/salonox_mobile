@@ -1,3 +1,4 @@
+import { pearl } from "@/components/auth/pearl/tokens";
 import { AppLayout } from "@/constants/layout";
 import type { ThemeColors } from '@/constants/theme';
 import { DashboardSpacing as Spacing } from "@/constants/theme";
@@ -5,32 +6,25 @@ import { StyleSheet } from 'react-native';
 
 export const createBookingFormStyles = (Colors: ThemeColors) => StyleSheet.create({
   bookingScreen: {
-    backgroundColor: Colors.appointmentBackground,
+    backgroundColor: "transparent",
   },
   bookingBottomBar: {
-    backgroundColor: Colors.appointmentSurface,
-    borderTopColor: Colors.appointmentDivider,
-    borderTopWidth: 1,
+    backgroundColor: "transparent",
     gap: 8,
     paddingHorizontal: 16,
     paddingTop: 8,
-    shadowColor: Colors.shadow,
-    shadowOffset: { width: 0, height: -8 },
-    shadowOpacity: 0.08,
-    shadowRadius: 18,
-    elevation: 12,
   },
   bookingContent: {
     paddingBottom: 24,
-    backgroundColor: Colors.appointmentBackground,
+    backgroundColor: "transparent",
   },
   bookingBottomLabel: {
-    color: Colors.appointmentTextSecondary,
+    color: pearl.muted,
     fontSize: 12,
     fontWeight: "600",
   },
   bookingBottomMeta: {
-    color: Colors.appointmentText,
+    color: pearl.ink,
     fontSize: 14,
     fontWeight: "700",
     marginTop: 2,
@@ -41,7 +35,7 @@ export const createBookingFormStyles = (Colors: ThemeColors) => StyleSheet.creat
     justifyContent: "space-between",
   },
   bookingBottomTotal: {
-    color: Colors.appointmentText,
+    color: pearl.ink,
     fontSize: 17,
     fontWeight: "700",
     marginTop: 1,
@@ -53,8 +47,8 @@ export const createBookingFormStyles = (Colors: ThemeColors) => StyleSheet.creat
     gap: 16,
   },
   appointmentDeliverySection: {
-    backgroundColor: Colors.appointmentSurface,
-    borderRadius: 20,
+    backgroundColor: pearl.glass,
+    borderRadius: 22,
     padding: 18,
   },
   appointmentDeliveryTitleRow: {
@@ -63,7 +57,7 @@ export const createBookingFormStyles = (Colors: ThemeColors) => StyleSheet.creat
     gap: 7,
   },
   appointmentDeliveryTitle: {
-    color: Colors.appointmentText,
+    color: pearl.ink,
     fontSize: 15,
     fontWeight: "700",
   },
@@ -80,14 +74,14 @@ export const createBookingFormStyles = (Colors: ThemeColors) => StyleSheet.creat
     minHeight: 44,
   },
   appointmentDeliveryOptionText: {
-    color: Colors.appointmentText,
+    color: pearl.ink,
     fontSize: 14,
     fontWeight: "500",
   },
   bookingPrimaryButton: {
     alignItems: "center",
-    backgroundColor: Colors.appointmentAccent,
-    borderRadius: 28,
+    backgroundColor: pearl.accent,
+    borderRadius: 16,
     flexDirection: "row",
     gap: Spacing.sm,
     justifyContent: "center",
@@ -100,10 +94,10 @@ export const createBookingFormStyles = (Colors: ThemeColors) => StyleSheet.creat
     fontWeight: "700",
   },
   bookingSection: {
-    backgroundColor: Colors.appointmentSurface,
-    borderColor: Colors.appointmentBorder,
+    backgroundColor: pearl.glass,
+    borderColor: pearl.glassBorder,
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 20,
+    borderRadius: 22,
     overflow: "visible",
     paddingHorizontal: 16,
     paddingVertical: 18,
@@ -131,16 +125,16 @@ export const createBookingFormStyles = (Colors: ThemeColors) => StyleSheet.creat
     gap: 8,
   },
   bookingSectionTitle: {
-    color: Colors.appointmentText,
+    color: pearl.ink,
     fontSize: 16,
     fontWeight: "700",
   },
   bookingSectionHeading: { flexDirection: "row", alignItems: "center", gap: 10, flex: 1, minWidth: 160 },
   bookingSectionCopy: { flex: 1 },
   bookingSectionIcon: { width: 38, height: 38, borderRadius: 12, backgroundColor: Colors.dashboardAppointmentBg, alignItems: "center", justifyContent: "center" },
-  bookingSectionSubtitle: { color: Colors.appointmentTextSecondary, fontSize: 12, lineHeight: 18, marginTop: 3 },
+  bookingSectionSubtitle: { color: pearl.muted, fontSize: 12, lineHeight: 18, marginTop: 3 },
   bookingScheduleRow: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
-  bookingScheduleField: { flex: 1, minWidth: 125 },
+  bookingScheduleField: { flex: 1, minWidth: 100 },
   bookingAddService: { flexDirection: "row", alignItems: "center", gap: 12, padding: 16, borderWidth: 1, borderStyle: "dashed", borderColor: Colors.appointmentAccent, borderRadius: 16, backgroundColor: Colors.appointmentAccentSoft, minHeight: 88 },
   bookingAddServiceCopy: { flex: 1 },
   bookingTwoColumnSection: {

@@ -1,7 +1,8 @@
+import { useRegionalPreferences } from "@/localization/preferences";
 import { Text } from "@/components/ui/AppTypography";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { useClientPrivacy } from "@/hooks/useClientPrivacy";
-import { getAppointmentBillLabel, getAppointmentInvoiceLabel } from "@/utils/clientPrivacy";
+import { getAppointmentInvoiceLabel } from "@/utils/clientPrivacy";
 import { appAlert as Alert } from "@/services/appAlert";
 import { salesService } from "@/services/sales.service";
 import { createStyles } from "@/features/appointments/styles/appointmentStyles";
@@ -39,7 +40,9 @@ export function AppointmentPreviewSheet({
   onContinueToPayment?: (appointment: AppointmentListItem) => void;
   readOnly?: boolean;
 }) {
-  const { staffMode, clientName } = useClientPrivacy();
+  "use no memo";
+  useRegionalPreferences();
+  const { staffMode, clientName, billLabel } = useClientPrivacy();
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const [stage, setStage] = useState<"actions" | "details">("actions");
@@ -127,13 +130,13 @@ export function AppointmentPreviewSheet({
         {stage === "actions" ? (
           <View style={styles.calendarActionsModal}>
             <View style={styles.calendarActionsHeader}>
-              <Text style={styles.calendarActionsTitle}>Actions</Text>
+              <Text translate style={styles.calendarActionsTitle}>Actions</Text>
               <TouchableOpacity accessibilityLabel="Close actions" onPress={onClose} style={styles.calendarActionsClose}>
                 <Ionicons name="close-circle-outline" size={28} color={Colors.appointmentText} />
               </TouchableOpacity>
             </View>
             <TouchableOpacity activeOpacity={0.82} onPress={() => setStage("details")} style={styles.calendarActionPrimary}>
-              <Text style={styles.calendarActionText}>View Appointment Details</Text>
+              <Text translate style={styles.calendarActionText}>View Appointment Details</Text>
             </TouchableOpacity>
           </View>
         ) : (
@@ -159,7 +162,7 @@ export function AppointmentPreviewSheet({
             <View style={styles.appointmentClientBand}>
               <View style={styles.appointmentClientAvatar}><Ionicons name="person-outline" size={26} color={Colors.primaryText} /></View>
               <View style={styles.appointmentClientCopy}>
-                <Text style={styles.appointmentClientName}>{staffMode ? getAppointmentBillLabel(appointment) : appointment.clientName}</Text>
+                <Text style={styles.appointmentClientName}>{staffMode ? billLabel(appointment) : appointment.clientName}</Text>
                 {staffMode && getAppointmentInvoiceLabel(appointment) ? <Text style={styles.appointmentClientPhone}>{clientName(appointment.clientName)}</Text> : null}
                 <Text style={styles.appointmentClientPhone}>{maskPhone(appointment.phone)}</Text>
                 {!staffMode && clientEmail ? <Text numberOfLines={1} style={styles.appointmentClientPhone}>{clientEmail}</Text> : null}
@@ -170,7 +173,7 @@ export function AppointmentPreviewSheet({
                 ) : null}
               </View>
               <View style={[styles.appointmentStatusPill, { backgroundColor: webStatus.bg }]}>
-                <Text numberOfLines={1} style={styles.appointmentStatusPillText}>{webStatus.label}</Text>
+                <Text translate numberOfLines={1} style={styles.appointmentStatusPillText}>{webStatus.label}</Text>
               </View>
             </View>
             <View>
@@ -184,7 +187,7 @@ export function AppointmentPreviewSheet({
                 onPress={() => setDetailsTab("appointment")}
                 style={styles.appointmentTabButton}
               >
-                <Text style={detailsTab === "appointment" ? styles.appointmentTabActive : styles.appointmentTab}>Appointment</Text>
+                <Text translate style={detailsTab === "appointment" ? styles.appointmentTabActive : styles.appointmentTab}>Appointment</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 accessibilityLabel="Open appointment notes"
@@ -195,7 +198,7 @@ export function AppointmentPreviewSheet({
                 onPress={() => setDetailsTab("notes")}
                 style={styles.appointmentTabButton}
               >
-                <Text style={detailsTab === "notes" ? styles.appointmentTabActive : styles.appointmentTab}>Notes</Text>
+                <Text translate style={detailsTab === "notes" ? styles.appointmentTabActive : styles.appointmentTab}>Notes</Text>
               </TouchableOpacity>
             </View>
             </View>
@@ -204,14 +207,14 @@ export function AppointmentPreviewSheet({
                 <View style={styles.appointmentInfoCard}>
                   {infoRows.map(([label, value]) => (
                     <View key={label} style={styles.appointmentInfoRow}>
-                      <Text style={styles.appointmentInfoLabel}>{label}</Text>
+                      <Text translate style={styles.appointmentInfoLabel}>{label}</Text>
                       <Text style={styles.appointmentInfoValue}>{value}</Text>
                     </View>
                   ))}
                 </View>
                 {staffAlert ? (
                   <View style={styles.appointmentAlertCard}>
-                    <Text style={styles.appointmentAlertLabel}>Staff Alert</Text>
+                    <Text translate style={styles.appointmentAlertLabel}>Staff Alert</Text>
                     <Text style={styles.appointmentNotesText}>{staffAlert}</Text>
                   </View>
                 ) : null}
@@ -227,7 +230,7 @@ export function AppointmentPreviewSheet({
                       </View>
                       <View style={styles.appointmentItemSub}>
                         <View style={[styles.appointmentItemTag, { backgroundColor: tag.bg }]}>
-                          <Text style={[styles.appointmentItemTagText, { color: tag.color }]}>{tag.label}</Text>
+                          <Text translate style={[styles.appointmentItemTagText, { color: tag.color }]}>{tag.label}</Text>
                         </View>
                         <Text style={styles.appointmentWith}>
                           {[item.staffName ?? (item.type === "service" ? appointment.staffName : null), formatItemTime(item.time)].filter(Boolean).join(" · ")}
@@ -243,7 +246,7 @@ export function AppointmentPreviewSheet({
                 })}
                 {!staffMode ? (
                   <View style={[styles.appointmentInfoCard, styles.appointmentSalesCard]}>
-                    <Text style={styles.appointmentSalesTitle}>Sales Summary</Text>
+                    <Text translate style={styles.appointmentSalesTitle}>Sales Summary</Text>
                     <SummaryRow label="Subtotal" styles={styles} value={formatCurrency(salesSummary.subtotal)} />
                     {salesSummary.discount > 0 ? <SummaryRow label="Discount" styles={styles} value={`-${formatCurrency(salesSummary.discount)}`} /> : null}
                     {salesSummary.couponDiscount > 0 ? (
@@ -262,16 +265,16 @@ export function AppointmentPreviewSheet({
                     <SummaryRow label="Extra Charges" styles={styles} value={`+${formatCurrency(salesSummary.exCharges)}`} />
                     <View style={styles.appointmentSalesDivider} />
                     <View style={styles.appointmentSummaryRow}>
-                      <Text style={styles.appointmentSummaryTotal}>Grand Total</Text>
+                      <Text translate style={styles.appointmentSummaryTotal}>Grand Total</Text>
                       <Text style={styles.appointmentSummaryTotal}>{formatCurrency(grandTotal)}</Text>
                     </View>
                     <View style={styles.appointmentSummaryRow}>
-                      <Text style={styles.appointmentSummaryPaid}>Paid</Text>
+                      <Text translate style={styles.appointmentSummaryPaid}>Paid</Text>
                       <Text style={styles.appointmentSummaryPaid}>{formatCurrency(appointment.paidAmount)}</Text>
                     </View>
                     {salesSummary.paymentMethods.length ? (
                       <>
-                        <Text style={styles.appointmentSalesSection}>Payment Method</Text>
+                        <Text translate style={styles.appointmentSalesSection}>Payment Method</Text>
                         {salesSummary.paymentMethods.map((entry) => (
                           <View key={entry.method} style={[styles.appointmentSummaryRow, styles.appointmentSalesSubRow]}>
                             <Text style={styles.appointmentSalesMuted}>{entry.method}</Text>
@@ -282,7 +285,7 @@ export function AppointmentPreviewSheet({
                     ) : null}
                     {partialBill ? (
                       <View style={styles.appointmentSummaryRow}>
-                        <Text style={styles.appointmentSummaryDue}>Balance Due</Text>
+                        <Text translate style={styles.appointmentSummaryDue}>Balance Due</Text>
                         <Text style={styles.appointmentSummaryDue}>{formatCurrency(partialBill.due)}</Text>
                       </View>
                     ) : null}
@@ -294,13 +297,13 @@ export function AppointmentPreviewSheet({
               </View>
             ) : (
               <View style={styles.appointmentModalContent}>
-                <Text style={styles.appointmentNotesHeading}>Client Notes</Text>
+                <Text translate style={styles.appointmentNotesHeading}>Client Notes</Text>
                 <Text style={[styles.appointmentNotesText, !appointment.notes.trim() && styles.appointmentNotesEmpty]}>
                   {appointment.notes.trim() || "No client notes added."}
                 </Text>
                 {!readOnly && <TouchableOpacity activeOpacity={0.84} onPress={openEditor} style={styles.appointmentNotesButton}>
                   <Ionicons name="create-outline" size={18} color={Colors.onPrimary} />
-                  <Text style={styles.appointmentNotesButtonText}>{appointment.notes.trim() ? "Edit Client Note" : "Add Client Note"}</Text>
+                  <Text translate style={styles.appointmentNotesButtonText}>{appointment.notes.trim() ? "Edit Client Note" : "Add Client Note"}</Text>
                 </TouchableOpacity>}
               </View>
             )}
@@ -310,29 +313,29 @@ export function AppointmentPreviewSheet({
               <View style={styles.appointmentBillActions}>
                 <TouchableOpacity accessibilityRole="button" activeOpacity={0.88} onPress={openEditor} style={[styles.appointmentInvoiceButton, styles.appointmentBillButton, styles.appointmentEditButton]}>
                   <Ionicons name="create-outline" size={20} color={Colors.appointmentText} />
-                  <Text style={[styles.appointmentInvoiceText, styles.appointmentEditText]}>Edit</Text>
+                  <Text translate style={[styles.appointmentInvoiceText, styles.appointmentEditText]}>Edit</Text>
                 </TouchableOpacity>
                 <TouchableOpacity accessibilityRole="button" accessibilityState={{ busy: findingSale }} activeOpacity={0.88} disabled={findingSale} onPress={() => void handleViewInvoice()} style={[styles.appointmentInvoiceButton, styles.appointmentBillButton]}>
                   {findingSale ? <ActivityIndicator color={Colors.onPrimary} size="small" /> : <Ionicons name="print-outline" size={20} color={Colors.onPrimary} />}
-                  <Text style={styles.appointmentInvoiceText}>Print Bill</Text>
+                  <Text translate style={styles.appointmentInvoiceText}>Print Bill</Text>
                 </TouchableOpacity>
               </View>
             ) : canContinueToPayment ? (
               <View style={styles.appointmentBillActions}>
                 <TouchableOpacity accessibilityRole="button" activeOpacity={0.88} onPress={openEditor} style={[styles.appointmentInvoiceButton, styles.appointmentBillButton, styles.appointmentEditButton]}>
                   <Ionicons name="create-outline" size={20} color={Colors.appointmentText} />
-                  <Text style={[styles.appointmentInvoiceText, styles.appointmentEditText, styles.appointmentPairText]}>Edit</Text>
+                  <Text translate style={[styles.appointmentInvoiceText, styles.appointmentEditText, styles.appointmentPairText]}>Edit</Text>
                 </TouchableOpacity>
                 {/* "Continue to Payment" can't fit half the card at a readable size. */}
                 <TouchableOpacity accessibilityLabel="Continue to Payment" accessibilityRole="button" activeOpacity={0.88} onPress={handleContinueToPayment} style={[styles.appointmentInvoiceButton, styles.appointmentBillButton, styles.appointmentPayButton]}>
                   <Ionicons name="card-outline" size={20} color={Colors.onPrimary} />
-                  <Text numberOfLines={1} style={[styles.appointmentInvoiceText, styles.appointmentPairText]}>Pay Now</Text>
+                  <Text translate numberOfLines={1} style={[styles.appointmentInvoiceText, styles.appointmentPairText]}>Pay Now</Text>
                 </TouchableOpacity>
               </View>
             ) : (
               <TouchableOpacity activeOpacity={0.88} disabled style={[styles.appointmentInvoiceButton, styles.appointmentInvoiceDisabled]}>
                 <Ionicons name="receipt-outline" size={20} color={Colors.onPrimary} />
-                <Text style={styles.appointmentInvoiceText}>Invoice available after payment</Text>
+                <Text translate style={styles.appointmentInvoiceText}>Invoice available after payment</Text>
               </TouchableOpacity>
             )}</View>}
           </View>
@@ -343,9 +346,11 @@ export function AppointmentPreviewSheet({
 }
 
 function SummaryRow({ label, styles, value }: { label: string; styles: ReturnType<typeof createStyles>; value: string }) {
+  "use no memo";
+  useRegionalPreferences();
   return (
     <View style={styles.appointmentSummaryRow}>
-      <Text style={styles.appointmentSalesMuted}>{label}</Text>
+      <Text translate style={styles.appointmentSalesMuted}>{label}</Text>
       <Text style={styles.appointmentSalesMuted}>{value}</Text>
     </View>
   );

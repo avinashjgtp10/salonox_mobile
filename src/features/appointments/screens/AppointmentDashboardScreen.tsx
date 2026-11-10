@@ -1,15 +1,21 @@
+import { useRegionalPreferences } from "@/localization/preferences";
+import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
+import { pearl, pearlGradients, pearlType } from "@/components/auth/pearl/tokens";
+import { Icon } from "@/components/pearl/Icon";
+import { IconButton, StatTile } from "@/components/pearl/ui";
+import { LinearGradient } from "expo-linear-gradient";
+import { formatAppDate } from "@/utils/dateTime";
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { Text } from "@/components/ui/AppTypography";
 import { TourView, TourFlatList, withScreenTour } from "@/features/userGuide/DashboardTour";
 import { screenTours } from "@/features/userGuide/screenTours";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { PaginationControls } from "@/components/ui/PaginationControls";
-import { AppointmentCard } from "@/features/appointments/components/shared/AppointmentCard";
+import { BookingListRow } from "@/features/appointments/components/shared/BookingListRow";
+import { BookingDetailsSheet } from "@/features/appointments/components/shared/BookingDetailsSheet";
 import { AppointmentSnackbar } from "@/features/appointments/components/shared/AppointmentSnackbar";
-import { FilterBar } from "@/features/appointments/components/shared/FilterBar";
 import { SkeletonList } from "@/features/appointments/components/shared/SkeletonList";
 import { StateCard } from "@/features/appointments/components/shared/StateCard";
-import { SummaryTile } from "@/features/appointments/components/shared/SummaryTile";
 import { useAppointmentListFilters, useFetchAppointments } from "@/features/appointments/hooks/useAppointmentList";
 import { createStyles } from "@/features/appointments/styles/appointmentStyles";
 import { getDateKey } from "@/features/appointments/utils/appointmentDateTime";
@@ -18,16 +24,20 @@ import { matchesAppointment, sortWithActiveFirst } from "@/features/appointments
 import { selectAppointments, selectAppointmentsError, selectAppointmentsIsLoading, selectAppointmentsLoadingMore, selectAppointmentsPagination, selectAppointmentsRefreshing } from "@/store/appointment/appointment.slice";
 import { useAppSelector } from "@/store/hooks";
 import { useThemeColors } from "@/theme/ThemeProvider";
-import type { AppointmentListItem } from "@/types/appointment";
-import { Ionicons } from "@expo/vector-icons";
+import type { AppointmentStatus } from "@/types/appointment";
 import type { Href } from "expo-router";
 import { router } from "expo-router";
-import { useCallback, useEffect, useMemo } from "react";
-import { RefreshControl, TouchableOpacity, useWindowDimensions, View } from "react-native";
+import { useEffect, useMemo, useState } from "react";
+import { Image, RefreshControl, TouchableOpacity, ScrollView, StyleSheet, View } from "react-native";
+import { LunoxSheet } from "@/components/lunox/LunoxSheet";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 function AppointmentDashboardScreenContent() {
+  "use no memo";
+  useRegionalPreferences();
   const Colors = useThemeColors();
+  const [lunoxOpen, setLunoxOpen] = useState(false);
+  const [previewId, setPreviewId] = useState<string | null>(null);
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const appointments = useAppSelector(selectAppointments);
   const error = useAppSelector(selectAppointmentsError);
@@ -35,10 +45,8 @@ function AppointmentDashboardScreenContent() {
   const loadingMore = useAppSelector(selectAppointmentsLoadingMore);
   const pagination = useAppSelector(selectAppointmentsPagination);
   const refreshing = useAppSelector(selectAppointmentsRefreshing);
-  const { date, search, setDate, setSearch, setStatus, status } = useAppointmentListFilters();
+  const { date, search, setStatus, status } = useAppointmentListFilters();
   const { fetchAppointments, fetchNext } = useFetchAppointments();
-  const { width } = useWindowDimensions();
-  const tileWidth = width >= 720 ? "31%" : "48%";
 
   useEffect(() => {
     void fetchAppointments({ date, limit: 200, reset: true });
@@ -53,34 +61,25 @@ function AppointmentDashboardScreenContent() {
     [appointments, date, search, status],
   );
 
+  const summaryAppointments = useMemo(() => appointments.filter(item => getDateKey(item.scheduledAt) === date), [appointments, date]);
   const counts = useMemo(
     () => ({
-      cancelled: filtered.filter((appointment) => appointment.status === "Cancelled").length,
-      completed: filtered.filter((appointment) => appointment.status === "Completed").length,
-      missed: filtered.filter((appointment) => appointment.status === "No Show").length,
+      cancelled: summaryAppointments.filter((appointment) => appointment.status === "Cancelled").length,
+      completed: summaryAppointments.filter((appointment) => appointment.status === "Completed").length,
+      missed: summaryAppointments.filter((appointment) => appointment.status === "No Show").length,
       // Money actually received, like the dashboard's revenue cards — not the
       // bill total, which also counted cancelled, missed and unpaid bookings.
-      revenue: filtered
+      revenue: summaryAppointments
         .filter((appointment) => !["Cancelled", "No Show", "Deleted"].includes(appointment.status))
         .reduce((total, appointment) => total + Math.max(0, appointment.paidAmount), 0),
-      today: filtered.length,
-      upcoming: filtered.filter((appointment) =>
+      today: summaryAppointments.length,
+      upcoming: summaryAppointments.filter((appointment) =>
         ["Upcoming", "Confirmed", "Waiting", "Checked In", "In Service", "In Progress"].includes(
           appointment.status,
         ),
       ).length,
     }),
-    [filtered],
-  );
-
-  const searchDropdownResults = useMemo(() => filtered.slice(0, 8), [filtered]);
-
-  const handleSelectSearchResult = useCallback(
-    (appointment: AppointmentListItem) => {
-      setSearch("");
-      router.push(`/appointments/${appointment.id}` as Href);
-    },
-    [setSearch],
+    [summaryAppointments],
   );
 
   const handleBack = () => {
@@ -94,54 +93,27 @@ function AppointmentDashboardScreenContent() {
 
   const listHeader = (
     <View style={styles.listHeader}>
-      <View style={styles.headerRow}>
-        <TouchableOpacity activeOpacity={0.8} hitSlop={12} onPress={handleBack} style={styles.iconButton}>
-          <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
+      <View style={ui.header}>
+        <IconButton icon="chevronLeft" label="Back" onPress={handleBack} />
+        <View style={{ flex: 1 }}><Text translate style={pearlType.h2}>Appointments</Text><Text style={pearlType.small}>{formatAppDate(`${date}T00:00:00`)}</Text></View>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Lunox AI" onPress={() => setLunoxOpen(true)}>
+          <LinearGradient colors={["#CFCBE8", "#C9B5EC", "#BCD6E8", "#A7A2D0"]} style={{ width: 36, height: 36, borderRadius: 18, padding: 3 }}>
+            <View style={{ flex: 1, borderRadius: 15, backgroundColor: "#FAF9FC", alignItems: "center", justifyContent: "center" }}><Image source={require("../../../../assets/images/brand/lunox-mark.png")} style={{ width: 23, height: 23 }} resizeMode="contain" /></View>
+          </LinearGradient>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Appointments</Text>
-        <View style={styles.iconButtonGhost} />
+        <IconButton icon="calendar" label="Day view" onPress={() => router.push("/(tabs)/calendar")} />
       </View>
-
-      <FilterBar
-        compact
-        date={date}
-        onDateChange={setDate}
-        onSearchChange={setSearch}
-        onSelectSearchResult={handleSelectSearchResult}
-        onStatusChange={setStatus}
-        search={search}
-        searchResults={searchDropdownResults}
-        status={status}
-      />
-
-      <TourView tourId="summary" style={styles.summaryGrid}>
-        <View style={[styles.summaryTileWrap, { width: tileWidth }]}>
-          <SummaryTile icon="today-outline" label="Today" value={String(counts.today)} />
-        </View>
-        <View style={[styles.summaryTileWrap, { width: tileWidth }]}>
-          <SummaryTile icon="arrow-up-circle-outline" label="Upcoming" value={String(counts.upcoming)} />
-        </View>
-        <View style={[styles.summaryTileWrap, { width: tileWidth }]}>
-          <SummaryTile icon="checkmark-done-outline" label="Completed" value={String(counts.completed)} />
-        </View>
-        <View style={[styles.summaryTileWrap, { width: tileWidth }]}>
-          <SummaryTile icon="close-circle-outline" label="Cancelled" value={String(counts.cancelled)} />
-        </View>
-        <View style={[styles.summaryTileWrap, { width: tileWidth }]}>
-          <SummaryTile icon="alert-circle-outline" label="No Show" value={String(counts.missed)} />
-        </View>
-        <View style={[styles.summaryTileWrap, { width: tileWidth }]}>
-          <SummaryTile icon="cash-outline" label="Revenue" value={formatCurrency(counts.revenue)} />
-        </View>
+      <TourView tourId="summary" style={ui.stats}>
+        <StatTile icon="calendar" tone="rose" label="Today" value={String(counts.today)} style={ui.stat} />
+        <StatTile icon="clock" tone="lilac" label="Upcoming" value={String(counts.upcoming)} style={ui.stat} />
+        <StatTile icon="check" tone="peach" label="Done" value={String(counts.completed)} style={ui.stat} />
       </TourView>
-
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Today&apos;s appointments</Text>
-        <TouchableOpacity onPress={() => router.push("/bookings/list" as Href)}>
-          <Text style={styles.linkText}>View all</Text>
-        </TouchableOpacity>
-      </View>
-
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={ui.tabs} contentContainerStyle={{ padding: 4, gap: 4 }}>
+        {([
+          ["All", "Today", counts.today], ["Upcoming", "Upcoming", counts.upcoming],
+          ["Completed", "Done", counts.completed], ["Cancelled", "Cancelled", counts.cancelled], ["No Show", "No-show", counts.missed],
+        ] as const).map(([value, label, count]) => <TouchableOpacity key={value} onPress={() => setStatus(value as "All" | AppointmentStatus)} accessibilityRole="tab" accessibilityState={{ selected: status === value }} style={[ui.tab, status === value && ui.tabOn]}><Text style={[ui.tabText, status === value && { color: pearl.accentDeep }]}>{label} {count}</Text></TouchableOpacity>)}
+      </ScrollView>
       {loading ? <SkeletonList /> : null}
       {!loading && error ? (
         <StateCard
@@ -156,22 +128,25 @@ function AppointmentDashboardScreenContent() {
       {!loading && !error && filtered.length === 0 ? (
         <StateCard
           icon="calendar-clear-outline"
-          message="No appointments match this date, search, or filter."
-          title="No appointments found"
+          message={status !== "All" || search.trim()
+            ? "Try a different search or filter."
+            : "Tap New booking to schedule an appointment."}
+          title={status !== "All" || search.trim() ? "No matching appointments" : "No appointments yet"}
         />
       ) : null}
     </View>
   );
 
   return (
-    <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
+    <PearlBackground><SafeAreaView edges={["top", "bottom"]} style={{ flex: 1 }}>
       <AppStatusBar />
       <RefreshViewport><TourFlatList
-        contentContainerStyle={styles.flatListContent}
+        contentContainerStyle={ui.content}
         data={loading || error ? [] : filtered}
         keyExtractor={(item) => item.id}
         ListFooterComponent={
           <View>
+            <TouchableOpacity style={ui.revenue} onPress={() => router.push("/today-revenue" as Href)}><Text style={ui.revenueText}>Revenue today {formatCurrency(counts.revenue)}</Text></TouchableOpacity>
             {filtered.length > 0 ? (
               <PaginationControls
                 currentPage={pagination.page}
@@ -197,12 +172,28 @@ function AppointmentDashboardScreenContent() {
             tintColor={Colors.primary}
           />
         }
-        renderItem={({ item }) => <AppointmentCard appointment={item} />}
+        renderItem={({ item, index }) => <BookingListRow appointment={item} first={index === 0} last={index === filtered.length - 1} onPress={() => setPreviewId(item.id)} />}
         showsVerticalScrollIndicator={false}
       /></RefreshViewport>
+      <TouchableOpacity accessibilityRole="button" onPress={() => router.push("/bookings/new" as Href)} style={ui.fab}><LinearGradient colors={pearlGradients.primary} style={ui.fabInner}><Icon name="plus" size={20} color="#fff" /><Text translate style={ui.fabText}>New booking</Text></LinearGradient></TouchableOpacity>
       <AppointmentSnackbar />
-    </SafeAreaView>
+      <BookingDetailsSheet appointment={appointments.find(item => item.id === previewId) ?? null} onClose={() => setPreviewId(null)} />
+      <LunoxSheet visible={lunoxOpen} onClose={() => setLunoxOpen(false)} />
+    </SafeAreaView></PearlBackground>
   );
 }
 
 export const AppointmentDashboardScreen = withScreenTour(AppointmentDashboardScreenContent, screenTours.bookings);
+
+const ui = StyleSheet.create({
+  content: { paddingHorizontal: 18, paddingTop: 4, paddingBottom: 120 },
+  header: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 8 },
+  stats: { flexDirection: "row", gap: 10, marginVertical: 14 }, stat: { flex: 1 },
+  tabs: { borderRadius: 16, backgroundColor: pearl.glass, borderWidth: 1, borderColor: pearl.glassBorder, marginBottom: 14 },
+  tab: { paddingHorizontal: 13, paddingVertical: 10, borderRadius: 12 }, tabOn: { backgroundColor: "rgba(255,255,255,0.85)" },
+  tabText: { fontSize: 13, fontWeight: "600", color: pearl.muted },
+  revenue: { marginTop: 14, padding: 14, borderRadius: 16, backgroundColor: pearl.glass, borderWidth: 1, borderColor: pearl.glassBorder, alignItems: "center" },
+  revenueText: { fontSize: 14, fontWeight: "700", color: pearl.ink },
+  fab: { position: "absolute", right: 18, bottom: 42, borderRadius: 18, overflow: "hidden" },
+  fabInner: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 18, minHeight: 50 }, fabText: { color: "#fff", fontSize: 14, fontWeight: "700" },
+});

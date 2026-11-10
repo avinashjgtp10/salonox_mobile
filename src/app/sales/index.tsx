@@ -1,3 +1,12 @@
+import { useRegionalPreferences } from "@/localization/preferences";
+import { DateRangePickerSheet } from "@/components/ui/DateRangePickerSheet";
+import { dateRangeLabel } from "@/utils/dateRangePresets";
+import { PearlBackground } from "@/components/auth/pearl/PearlBackground";
+import { pearl } from "@/components/auth/pearl/tokens";
+import { StatusPill, Tile } from "@/components/pearl/ui";
+import { useClientPrivacy } from "@/hooks/useClientPrivacy";
+import type { PearlColors as ThemeColors } from "@/components/auth/pearl/usePearlColors";
+import { AppBackButton } from "@/components/ui/AppBackButton";
 import { RefreshViewport } from "@/components/ui/RefreshViewport";
 import { ActivityIndicator } from "@/components/ui/AppActivityIndicator";
 import { Text, TextInput } from "@/components/ui/AppTypography";
@@ -16,7 +25,6 @@ import { AppLayout, AppRadius } from "@/constants/layout";
 import {
   DashboardRadius as Radius,
   DashboardSpacing as Spacing,
-  type ThemeColors,
 } from "@/constants/theme";
 import { useAppToast } from "@/hooks/useAppToast";
 import { deleteSaleThunk, fetchSalesSummaryThunk, fetchSalesThunk } from "@/middleware/sales/sales.thunk";
@@ -33,14 +41,11 @@ import {
   selectSalesTotalCount,
 } from "@/store/sales/sales.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { usePearlColors } from "@/components/auth/pearl/usePearlColors";
 import type { SaleListItem } from "@/types/sales";
 import { formatInvoiceNumber } from "@/utils/receipt";
 import { formatCurrency } from "@/utils/currency";
 import { SALES_LIST_SCREEN, useActiveScreen } from "@/utils/activeScreens";
-
-const SALE_FILTERS = ["All", "Draft", "Pending", "Completed", "Cancelled"] as const;
-type SaleFilter = (typeof SALE_FILTERS)[number];
 
 const SALE_SORT_OPTIONS = ["Amount (High-Low)", "Amount (Low-High)"] as const;
 type SaleSortOption = (typeof SALE_SORT_OPTIONS)[number];
@@ -67,92 +72,20 @@ function getRejectedMessage(payload: unknown, fallback: string) {
   return fallback;
 }
 
-function getStatusStyle(status: string, styles: ReturnType<typeof createStyles>) {
-  const normalized = status.toLowerCase();
-
-  if (normalized === "completed") {
-    return { badge: styles.statusBadgeActive, text: styles.statusBadgeTextActive };
-  }
-
-  if (normalized === "cancelled") {
-    return { badge: styles.statusBadgeInactive, text: styles.statusBadgeTextInactive };
-  }
-
-  return { badge: styles.statusBadgePending, text: styles.statusBadgeTextPending };
-}
-
-function SaleCard({
-  isDeleting,
-  onDelete,
-  sale,
-}: {
-  isDeleting: boolean;
-  onDelete: () => void;
-  sale: SaleListItem;
-}) {
-  const Colors = useThemeColors();
-  const styles = useMemo(() => createStyles(Colors), [Colors]);
-  const statusStyle = getStatusStyle(sale.status, styles);
-
-  return (
-    <TouchableOpacity
-      activeOpacity={0.84}
-      onPress={() => router.push(`/sales/${sale.id}` as Href)}
-      style={styles.saleCard}
-    >
-      <View style={styles.saleIcon}>
-        <Ionicons name="receipt-outline" size={20} color={Colors.primaryText} />
-      </View>
-
-      <View style={styles.saleCopy}>
-        <View style={styles.nameRow}>
-          <Text style={styles.saleReceipt}>
-            {formatInvoiceNumber(sale.receiptNumber) ?? "—"}
-          </Text>
-          <View style={[styles.statusBadge, statusStyle.badge]}>
-            <Text style={[styles.statusBadgeText, statusStyle.text]}>
-              {sale.status.charAt(0).toUpperCase() + sale.status.slice(1)}
-            </Text>
-          </View>
-        </View>
-
-        <Text style={styles.saleClientText}>{sale.clientName}</Text>
-
-        <View style={styles.metaRow}>
-          <View style={styles.infoRow}>
-            <Ionicons name="pricetag-outline" size={12} color={Colors.text2} />
-            <Text style={styles.infoText}>{formatCurrency(sale.total)}</Text>
-          </View>
-          <View style={styles.infoRow}>
-            <Ionicons name="cash-outline" size={12} color={Colors.text2} />
-            <Text style={styles.infoText}>{sale.paymentMethod}</Text>
-          </View>
-          <View style={styles.infoRow}>
-            <Ionicons name="time-outline" size={12} color={Colors.text2} />
-            <Text style={styles.infoText}>{sale.createdDateLabel}</Text>
-          </View>
-        </View>
-      </View>
-
-      <TouchableOpacity
-        activeOpacity={0.8}
-        disabled={isDeleting}
-        hitSlop={{ bottom: 8, left: 8, right: 8, top: 8 }}
-        onPress={onDelete}
-        style={styles.deleteButton}
-      >
-        {isDeleting ? (
-          <ActivityIndicator color={Colors.error} size="small" />
-        ) : (
-          <Ionicons name="trash-outline" size={18} color={Colors.error} />
-        )}
-      </TouchableOpacity>
-    </TouchableOpacity>
-  );
+function SaleCard({ isDeleting, onDelete, sale, first, last }: { isDeleting: boolean; onDelete: () => void; sale: SaleListItem; first: boolean; last: boolean }) {
+  "use no memo";
+  useRegionalPreferences();
+ const { clientName } = useClientPrivacy();
+ return <TouchableOpacity accessibilityRole="button" accessibilityHint="Opens invoice details. Long press for delete options." activeOpacity={0.84} onPress={() => router.push(('/sales/' + sale.id) as Href)} onLongPress={onDelete} style={{ flexDirection: "row", alignItems: "center", gap: 12, padding: 14, backgroundColor: pearl.glass, borderBottomWidth: last ? 0 : 1, borderBottomColor: pearl.divider, borderTopLeftRadius: first ? 22 : 0, borderTopRightRadius: first ? 22 : 0, borderBottomLeftRadius: last ? 22 : 0, borderBottomRightRadius: last ? 22 : 0 }}>
+  <Tile icon="note" tone="rose" size={40} /><View style={{ flex: 1, minWidth: 0 }}><Text style={{ fontSize: 14, fontWeight: "700", color: pearl.ink }}>{formatInvoiceNumber(sale.receiptNumber) ?? "Invoice"} {"\u00b7"} {clientName(sale.clientName)}</Text><Text style={{ fontSize: 12, color: pearl.muted, marginTop: 3 }}>{sale.paymentMethod} {"\u00b7"} {sale.createdDateLabel}</Text></View>
+  <View style={{ alignItems: "flex-end", gap: 4 }}>{isDeleting ? <ActivityIndicator color={pearl.accent} /> : <><Text style={{ color: pearl.ink, fontSize: 14, fontWeight: "700" }}>{formatCurrency(sale.total)}</Text><StatusPill label={sale.status === "completed" ? "Paid" : sale.status} tone={sale.status === "completed" ? "success" : sale.status === "cancelled" ? "danger" : "warning"} /></>}</View>
+ </TouchableOpacity>;
 }
 
 function SaleSkeletonCard() {
-  const Colors = useThemeColors();
+  "use no memo";
+  useRegionalPreferences();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   return (
@@ -167,7 +100,9 @@ function SaleSkeletonCard() {
 }
 
 function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
-  const Colors = useThemeColors();
+  "use no memo";
+  useRegionalPreferences();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   return (
@@ -178,17 +113,19 @@ function ErrorState({ message, onRetry }: { message: string; onRetry: () => void
           <Ionicons name="cloud-offline-outline" size={26} color={Colors.error} />
         </View>
       </View>
-      <Text style={styles.emptyTitle}>Unable to load sales</Text>
-      <Text style={styles.emptySubtitle}>{message}</Text>
+      <Text translate style={styles.emptyTitle}>Unable to load sales</Text>
+      <Text translate style={styles.emptySubtitle}>{message}</Text>
       <TouchableOpacity activeOpacity={0.85} onPress={onRetry} style={styles.emptyButton}>
-        <Text style={styles.emptyButtonText}>Retry</Text>
+        <Text translate style={styles.emptyButtonText}>Retry</Text>
       </TouchableOpacity>
     </View>
   );
 }
 
 function EmptyState({ queryActive }: { queryActive: boolean }) {
-  const Colors = useThemeColors();
+  "use no memo";
+  useRegionalPreferences();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   return (
@@ -199,8 +136,8 @@ function EmptyState({ queryActive }: { queryActive: boolean }) {
           <Ionicons name="receipt-outline" size={26} color={Colors.primaryText} />
         </View>
       </View>
-      <Text style={styles.emptyTitle}>No Sales Found</Text>
-      <Text style={styles.emptySubtitle}>
+      <Text translate style={styles.emptyTitle}>No Sales Found</Text>
+      <Text translate style={styles.emptySubtitle}>
         {queryActive
           ? "Try a different search, filter, or sort to find the right sale."
           : "Sales completed through Quick Sale will show up here."}
@@ -210,8 +147,10 @@ function EmptyState({ queryActive }: { queryActive: boolean }) {
 }
 
 function SalesHistoryScreenContent() {
+  "use no memo";
+  useRegionalPreferences();
   useActiveScreen(SALES_LIST_SCREEN);
-  const Colors = useThemeColors();
+  const Colors = usePearlColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
   const toast = useAppToast();
@@ -227,13 +166,14 @@ function SalesHistoryScreenContent() {
   const deletingSaleIds = useAppSelector(selectSaleDeletingIds);
   const summary = useAppSelector(selectSalesSummary);
 
-  const [activeFilter, setActiveFilter] = useState<SaleFilter>("All");
+  const [dateRange, setDateRange] = useState<{ startDate: string | null; endDate: string | null }>({ startDate: null, endDate: null });
+  const [datesOpen, setDatesOpen] = useState(false);
   const [isSortVisible, setIsSortVisible] = useState(false);
   const [query, setQuery] = useState("");
   const [sortOption, setSortOption] = useState<SaleSortOption>("Amount (High-Low)");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const sortQuery = useMemo(() => getSortQuery(sortOption), [sortOption]);
-  const statusQuery = activeFilter === "All" ? undefined : activeFilter.toLowerCase();
+
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -243,14 +183,12 @@ function SalesHistoryScreenContent() {
     return () => clearTimeout(timeoutId);
   }, [query]);
 
-  // Search/sort only re-filter the list already downloaded for this status;
-  // the first load and status changes always fetch.
-  const loadedStatusRef = useRef<string | null>(null);
+  // The API returns the full history; search, dates and sorting reuse that download.
+  const hasLoadedListRef = useRef(false);
 
   useEffect(() => {
-    const statusKey = statusQuery ?? "";
-    const reuseList = loadedStatusRef.current === statusKey;
-    loadedStatusRef.current = statusKey;
+    const reuseList = hasLoadedListRef.current;
+    hasLoadedListRef.current = true;
     void dispatch(
       fetchSalesThunk({
         limit: 10,
@@ -260,10 +198,11 @@ function SalesHistoryScreenContent() {
         search: debouncedQuery,
         sort_by: sortQuery.sort_by,
         sort_order: sortQuery.sort_order,
-        status: statusQuery,
+        status: undefined,
+        ...dateRange,
       }),
     );
-  }, [debouncedQuery, dispatch, sortQuery.sort_by, sortQuery.sort_order, statusQuery]);
+  }, [dateRange, debouncedQuery, dispatch, sortQuery.sort_by, sortQuery.sort_order]);
 
   useEffect(() => {
     void dispatch(fetchSalesSummaryThunk());
@@ -286,7 +225,8 @@ function SalesHistoryScreenContent() {
         search: debouncedQuery,
         sort_by: sortQuery.sort_by,
         sort_order: sortQuery.sort_order,
-        status: statusQuery,
+        status: undefined,
+        ...dateRange,
       }),
     );
     void dispatch(fetchSalesSummaryThunk());
@@ -313,7 +253,8 @@ function SalesHistoryScreenContent() {
         search: debouncedQuery,
         sort_by: sortQuery.sort_by,
         sort_order: sortQuery.sort_order,
-        status: statusQuery,
+        status: undefined,
+        ...dateRange,
       }),
     );
   };
@@ -345,17 +286,18 @@ function SalesHistoryScreenContent() {
         search: debouncedQuery,
         sort_by: sortQuery.sort_by,
         sort_order: sortQuery.sort_order,
-        status: statusQuery,
+        status: undefined,
+        ...dateRange,
       }),
     );
   };
 
-  const isQueryActive = Boolean(query.trim()) || activeFilter !== "All";
+  const isQueryActive = Boolean(query.trim() || dateRange.startDate || dateRange.endDate);
   const showInitialLoading = salesLoading && sales.length === 0;
   const showErrorState = Boolean(salesError) && sales.length === 0 && !showInitialLoading;
 
   return (
-    <SafeAreaView edges={["top"]} style={styles.safeArea}>
+    <PearlBackground><SafeAreaView edges={["top"]} style={[styles.safeArea, { backgroundColor: "transparent" }]}>
       <AppStatusBar />
 
       <RefreshViewport><TourFlatList
@@ -393,22 +335,20 @@ function SalesHistoryScreenContent() {
           <View>
             <View style={styles.header}>
               <View style={styles.headerRow}>
-                <TouchableOpacity activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
-                  <Ionicons name="arrow-back" size={18} color={Colors.primaryText} />
-                </TouchableOpacity>
-                <Text style={styles.headerTitle}>Sales Summary</Text>
+                <AppBackButton activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} />
+                <Text translate style={styles.headerTitle}>Sales</Text>
                 <View style={styles.backButtonPlaceholder} />
               </View>
               <TourView tourId="summary" style={styles.summaryCard}>
                 <View style={styles.summaryMetric}>
-                  <Text style={styles.summaryLabel}>Total Sales</Text>
+                  <Text translate style={styles.summaryLabel}>Invoices</Text>
                   <Text style={styles.summaryValue}>
                     {(summary?.totalSales ?? totalCount).toLocaleString("en-IN")}
                   </Text>
                 </View>
                 <View style={styles.summaryDivider} />
                 <View style={styles.summaryMetric}>
-                  <Text style={styles.summaryLabel}>Total Revenue</Text>
+                  <Text translate style={styles.summaryLabel}>Revenue</Text>
                   <Text style={styles.summaryValue}>{formatCurrency(summary?.totalRevenue ?? 0)}</Text>
                 </View>
               </TourView>
@@ -418,7 +358,7 @@ function SalesHistoryScreenContent() {
               <Ionicons name="search-outline" size={20} color={Colors.text2} />
               <TextInput
                 onChangeText={setQuery}
-                placeholder="Search by receipt or client name"
+                placeholder="Receipt no. or client"
                 placeholderTextColor={Colors.placeholder}
                 style={styles.searchInput}
                 value={query}
@@ -430,24 +370,11 @@ function SalesHistoryScreenContent() {
               ) : null}
             </TourView>
 
-            <TourView tourId="filters" style={styles.filterRow}>
-              {SALE_FILTERS.map((filter) => {
-                const isActive = filter === activeFilter;
-
-                return (
-                  <TouchableOpacity
-                    key={filter}
-                    activeOpacity={0.82}
-                    onPress={() => setActiveFilter(filter)}
-                    style={[styles.filterChip, isActive && styles.filterChipActive]}
-                  >
-                    <Text style={[styles.filterChipText, isActive && styles.filterChipTextActive]}>
-                      {filter}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </TourView>
+            <TourButton tourId="filters" accessibilityRole="button" accessibilityLabel="Choose sales date range" onPress={() => setDatesOpen(true)} style={styles.dateRangeButton}>
+              <Ionicons name="calendar-outline" size={18} color={Colors.primaryText} />
+              <Text style={styles.dateRangeText}>{dateRange.startDate && dateRange.endDate ? dateRangeLabel(dateRange.startDate, dateRange.endDate) : "All time"}</Text>
+              <Ionicons name="chevron-down" size={16} color={Colors.primaryText} />
+            </TourButton>
 
             <View style={styles.sortRow}>
               <Text style={styles.sortMeta}>
@@ -478,8 +405,8 @@ function SalesHistoryScreenContent() {
             tintColor={Colors.primary}
           />
         }
-        renderItem={({ item }) => (
-          <SaleCard
+        renderItem={({ item, index }) => (
+          <SaleCard first={index === 0} last={index === sales.length - 1}
             isDeleting={deletingSaleIds.includes(item.id)}
             onDelete={() => handleDeleteSale(item)}
             sale={item}
@@ -491,6 +418,10 @@ function SalesHistoryScreenContent() {
       /></RefreshViewport>
 
 
+      <DateRangePickerSheet pearlStyle visible={datesOpen} title="Sales date range" allowAllTime
+        startDate={dateRange.startDate} endDate={dateRange.endDate} maximumDate={new Date()}
+        onClose={() => setDatesOpen(false)} onApply={(startDate, endDate) => { setDateRange({ startDate, endDate }); setDatesOpen(false); }} />
+
       <Modal
         animationType="fade"
         onRequestClose={() => setIsSortVisible(false)}
@@ -499,7 +430,7 @@ function SalesHistoryScreenContent() {
       >
         <Pressable onPress={() => setIsSortVisible(false)} style={styles.modalOverlay}>
           <Pressable style={styles.sortSheet}>
-            <Text style={styles.sortSheetTitle}>Sort Sales</Text>
+            <Text translate style={styles.sortSheetTitle}>Sort Sales</Text>
             {SALE_SORT_OPTIONS.map((option, index) => {
               const isActive = option === sortOption;
 
@@ -526,7 +457,7 @@ function SalesHistoryScreenContent() {
         </Pressable>
       </Modal>
 
-    </SafeAreaView>
+    </SafeAreaView></PearlBackground>
   );
 }
 
@@ -579,11 +510,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     flexDirection: "row",
     paddingHorizontal: AppLayout.cardPadding,
     paddingVertical: Spacing.md,
-    shadowColor: Colors.shadow,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.05,
-    shadowRadius: 18,
-    elevation: 2,
+    elevation: 0,
   },
   summaryMetric: {
     flex: 1,
@@ -627,32 +554,12 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontSize: 14,
     minHeight: AppLayout.searchBarHeight,
   },
-  filterRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    paddingBottom: 2,
+  dateRangeButton: {
+    flexDirection: "row", alignItems: "center", gap: 10, minHeight: 48,
+    paddingHorizontal: 14, borderRadius: 16, borderWidth: 1,
+    borderColor: Colors.border, backgroundColor: Colors.card,
   },
-  filterChip: {
-    backgroundColor: Colors.card,
-    borderColor: Colors.border,
-    borderRadius: Radius.full,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-  },
-  filterChipActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
-  },
-  filterChipText: {
-    color: Colors.text2,
-    fontSize: 11,
-    fontWeight: "700",
-  },
-  filterChipTextActive: {
-    color: Colors.onPrimary,
-  },
+  dateRangeText: { flex: 1, color: Colors.primaryText, fontSize: 14, fontWeight: "600" },
   sortRow: {
     alignItems: "center",
     flexDirection: "row",
@@ -690,11 +597,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     flexDirection: "row",
     marginBottom: Spacing.sm,
     padding: AppLayout.cardPadding,
-    shadowColor: Colors.shadow,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.05,
-    shadowRadius: 18,
-    elevation: 2,
+    elevation: 0,
   },
   saleIcon: {
     alignItems: "center",
@@ -776,19 +679,19 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "600",
   },
   skeletonIcon: {
-    backgroundColor: Colors.bg2,
+    backgroundColor: pearl.accentTint,
     borderRadius: 22,
     height: 44,
     width: 44,
   },
   skeletonName: {
-    backgroundColor: Colors.bg2,
+    backgroundColor: pearl.accentTint,
     borderRadius: Radius.full,
     height: 16,
     width: "58%",
   },
   skeletonLine: {
-    backgroundColor: Colors.bg2,
+    backgroundColor: pearl.accentTint,
     borderRadius: Radius.full,
     height: 12,
     marginTop: 8,
